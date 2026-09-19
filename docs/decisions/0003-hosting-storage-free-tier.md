@@ -1,6 +1,6 @@
 # ADR-0003: Free-tier hosting and storage that can be upgraded
 
-- **Status:** accepted
+- **Status:** accepted, amended 2026-09-20: task file submissions up to ~2 GB use S3 multipart presigned uploads straight to R2, and push notifications use Web Push (ADR-0009).
 - **Date:** 2026-09-19
 
 ## Context

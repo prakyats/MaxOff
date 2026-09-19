@@ -1,6 +1,6 @@
 # ADR-0002: Business customization is data, not code
 
-- **Status:** accepted
+- **Status:** accepted, amended 2026-09-20: under the v2 spec the editable vocabularies are task types, stage presets, job titles, holidays, custom fields and templates. Per-project board statuses and phases are replaced by fixed workflow states plus optional stages (see ADR-0005 and `WORKFLOWS.md`). The principle is unchanged.
 - **Date:** 2026-09-19
 
 ## Context
