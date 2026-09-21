@@ -26,7 +26,9 @@
     "db:new": "supabase migration new",
     "db:types": "supabase gen types typescript --local --schema public > src/core/db/database.types.ts && prettier --write src/core/db/database.types.ts",
     "db:test": "supabase test db",
-    "check": "pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run test && pnpm run build"
+    "check": "pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run test && pnpm run db:test && pnpm run build",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
@@ -57,6 +59,8 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.5",
     "eslint-config-prettier": "^10",
+    "eslint-import-resolver-typescript": "^4.4.5",
+    "eslint-plugin-boundaries": "7.2.0",
     "prettier": "^3",
     "prettier-plugin-tailwindcss": "^0.8",
     "supabase": "^2.117.0",

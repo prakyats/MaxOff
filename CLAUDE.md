@@ -29,7 +29,7 @@ MaxOff is the **internal operations and control system for Pixora Clips**. It co
 ## Engineering rules
 1. **Customization is data.** Task types, stage presets, job titles, holidays, custom fields and templates live in tables. Code depends only on the enums in DATA-MODEL §0.
 2. **Modules are isolated:** `app → modules (index.ts only) → core`. Core never imports modules. Lint enforces this.
-3. **Only `data/` layers touch the database** (`src/modules/*/data/`, `src/core/db/`).
+3. **Only `data/` layers touch the database:** `src/modules/*/data/` plus the core areas that own tables (`core/db`, `core/auth`, `core/activity`, `core/lists`, `core/custom-fields`, `core/notifications`, `core/storage`). Lint enforces the list; type-only imports are fine anywhere.
 4. **Workflow changes go through Postgres transition functions** (ADR-0006): permission + scope + state check + change + `activity_log` + notifications in one transaction. State columns are never updated directly.
 5. **Plain edits:** server action = zod → `requirePermission` → repository → revalidate → `Result`. Auditing is done by the `audit_row_change()` trigger. **Actions stay thin** — no business logic in an action, and `modules/*/domain` never imports React, Next or DOM APIs (ADR-0011, lint-enforced).
 6. **RLS on every table** in the same migration that creates it, with **pgTAP tests for each role** (allowed and denied). Every transition function gets pgTAP tests for each path.
@@ -43,7 +43,7 @@ MaxOff is the **internal operations and control system for Pixora Clips**. It co
 `pnpm check` = typecheck + lint + format + unit + db tests + build. **It must pass before any commit.**
 `pnpm db:reset` · `pnpm db:new <name>` · `pnpm db:types`
 
-> Since task 0.2, `check` is typecheck + lint + format:check + unit tests + build. The `db:*` scripts exist from 0.2; pgTAP (`db:test`) and e2e join `check` in **0.4**, together with CI. No stub scripts: a command is in `check` only once it really runs.
+> `check` = typecheck + lint + format:check + unit tests + pgTAP (`db:test`, needs Docker and `pnpm db:start`) + build. Playwright stays **outside** `check` on purpose (a gate that takes minutes gets skipped): run `pnpm test:e2e` when a flow changed; CI runs it as its own job. No stub scripts: a command is in `check` only once it really runs.
 
 ## Definition of Done (every task)
 - [ ] `pnpm check` passes. New logic has unit tests, new tables have RLS tests for each role, new transition functions have tests for each path, and new flows have Playwright tests.

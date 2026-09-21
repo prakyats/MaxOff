@@ -44,10 +44,37 @@ pnpm dev                     # http://localhost:3000
 | `pnpm db:new <name>` | New append-only migration file |
 | `pnpm db:types` | Regenerate `src/core/db/database.types.ts` from the local database |
 | `pnpm db:test` | pgTAP tests in `supabase/tests` (needs the stack running) |
-| `pnpm check` | typecheck + lint + format + unit tests + build. **Must pass before any commit** |
+| `pnpm test:e2e` · `pnpm test:e2e:ui` | Playwright flow tests in `e2e/` (starts `next dev` itself). Run it whenever a user flow changed |
+| `pnpm check` | typecheck + lint + format + unit tests + pgTAP + build. **Must pass before any commit.** Needs Docker Desktop running and `pnpm db:start` done first |
 
-Database tests and Playwright join `pnpm check` and CI in task 0.4.
 Studio for the local stack: http://127.0.0.1:54323 once `pnpm db:start` is up.
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs three jobs on every push and pull request: **check**
+(typecheck, lint, format, unit tests, build), **pgTAP** (Postgres-only local Supabase stack)
+and **playwright** (Chromium). A failed Playwright run uploads its HTML report as an artifact.
+
+### Branch protection (enable once CI is green on `main`)
+
+GitHub → repository **Settings** → **Branches** → **Add branch ruleset** (or *Add classic
+branch protection rule*):
+
+1. Name it `main`, target branch `main`.
+2. Tick **Require a pull request before merging**.
+3. Tick **Require status checks to pass** → **Require branches to be up to date** → add the
+   three checks: `typecheck · lint · format · unit · build`, `pgTAP`, `playwright`.
+4. Tick **Block force pushes**. Save.
+
+Red never merges after that.
+
+## Architecture rules that lint enforces
+
+`eslint.config.mjs` encodes ARCHITECTURE §3.1: `app → modules (index.ts only) → core`, core
+never imports modules, `modules/*/domain` is platform-free (no React, Next, `server-only`
+or DOM globals), only `data/` layers and the listed core areas hold a database client, and
+money table names appear only inside `modules/revenue`. `tests/lint-rules.test.ts` proves each
+rule against the fixtures in `tests/lint-fixtures/`, so a rule can't silently stop working.
 
 ## Repository layout
 
@@ -57,10 +84,9 @@ src/core/       shared foundation (auth, db, permissions, time, ui, …), no bus
 src/modules/    isolated features, each exposing a single index.ts
 supabase/       append-only migrations, pgTAP tests, seed data
 e2e/            Playwright
+tests/          repo-level tests (lint rules) and their fixtures
 docs/           the project's memory (see below)
 ```
-
-Import rule: `app → modules (index.ts only) → core`. Core never imports modules.
 
 ## Documentation
 

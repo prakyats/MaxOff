@@ -89,11 +89,13 @@ e2e/               # Playwright
 public/            # manifest.webmanifest, icons, service worker (sw.js)
 ```
 
-### 3.1 Import rules (eslint-plugin-boundaries)
-- `app → modules (index only) → core`. `core` never imports modules. No cycles.
-- **`modules/*/domain` is platform-free** (ADR-0011): no `react`, `react-dom`, `next/*`, `server-only` or DOM globals. It must stay usable from a future native app or a plain script.
+### 3.1 Import rules (eslint-plugin-boundaries, task 0.4)
+Enforced by `eslint.config.mjs`; `tests/lint-rules.test.ts` lints the fixture tree in `tests/lint-fixtures/` and fails if any rule stops firing (or fires on an allowed case).
+- `app → modules (index only) → core`. `core` never imports modules. No cycles. Files directly under `src/` (`proxy.ts`, `instrumentation.ts`) follow the `app` rules, and every file under `src/` must belong to a known element.
+- **`modules/*/domain` is platform-free** (ADR-0011): no `react`, `react-dom`, `next/*`, `server-only`, `client-only` or DOM globals, and from `core` only `time`, `errors` and `lib` (an allow-list in the config; extend it deliberately) plus **type-only** imports of `core/db` (`Tables<>`, `Enums<>` are plain data shapes).
 - Nothing outside a module imports its `data/`, `actions/` or internal `components/`.
-- **Only `modules/revenue` may import money types or query money tables and views.** Other modules show money only by rendering `revenue`'s exported components, which render nothing for non-CEO users. (`projects.billing_category` is not money: it's an operational label Admins may see. Only the CEO can set it.)
+- **Only `data/` layers touch the database** (CLAUDE.md rule 3): `@supabase/supabase-js`, `@supabase/ssr` and `core/db`'s clients may be imported only from `src/modules/*/data/` and the core areas that own tables: `core/db`, `core/auth`, `core/activity`, `core/lists`, `core/custom-fields`, `core/notifications`, `core/storage`. Type-only imports are fine anywhere.
+- **Only `modules/revenue` may import money types or query money tables and views.** Outside `modules/revenue` (and the generated types in `core/db`), any string or template literal containing `project_billing`, `item_billing`, `cycle_billing`, `revenue_overrides`, `revenue_by_client_month_v` or `revenue_by_cycle_v` as a whole word is a lint error, so `.from("…")`, `Tables<"…">` and an embedded select like `"*, project_billing(*)"` all fail. Identifiers aren't checked; RLS (pgTAP-tested) is the wall behind the lint. Other modules show money only by rendering `revenue`'s exported components, which render nothing for non-CEO users. (`projects.billing_category` is not money: it's an operational label Admins may see. Only the CEO can set it.)
 - There is **no currency custom-field type**, so money can never leak in through `custom_fields`.
 
 ### 3.2 Module ownership
@@ -254,7 +256,9 @@ All calculation is in SQL views (WORKFLOWS §6) over CEO-only tables, so reports
 | Database | pgTAP | every table's RLS for each role; **every transition function**: allowed path, wrong state, wrong actor, missing reason, audit row written |
 | Jobs | pgTAP | idempotency (running twice creates nothing new), IST boundaries, working-day logic |
 | Flows | Playwright | login + day gate, assign → acknowledge → done → admin → CEO, rejection loop, leave request → decision, cycle generation → tick → approve, CEO bulk approve |
-| CI | GitHub Actions | `pnpm check` + pgTAP + e2e on every push. Red never merges |
+| CI | GitHub Actions | three jobs on every push and PR (`.github/workflows/ci.yml`): `typecheck · lint · format · unit · build`, `pgTAP` (Postgres-only local stack) and `playwright` (Chromium). Red never merges: branch protection on `main` requires all three (README) |
+
+Locally, `pnpm check` = typecheck + lint + format:check + unit tests + pgTAP + build (needs Docker and `pnpm db:start`). Playwright is deliberately outside `check`: `pnpm test:e2e` runs it on demand and `/finish-task` runs it whenever a flow changed. Until task 1.2 the e2e server is `next dev` with the preview-role cookie; 1.2 switches it to `pnpm start` with seeded users.
 
 ## 16. Recipe for adding a feature
 1. `/add-feature` → `docs/features/<name>.md` (+ an ADR if a pattern changes).
