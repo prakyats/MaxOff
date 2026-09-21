@@ -27,5 +27,6 @@ _None_
 ## Session log (newest first)
 | Date | Task | Result | Notes |
 |---|---|---|---|
+| 2026-09-21 | Docs finalized | Drive archive (ADR-0010), upload limits, hosting limits, all 9 reconciliation gaps fixed, launch settings recorded | Docs are consistent. **Re-read them; don't work from an earlier copy** |
 | 2026-09-20 | v2 reconciliation | PRODUCT, PERMISSIONS, WORKFLOWS, DATA-MODEL, ARCHITECTURE, ADR-0004 to 0009, ROADMAP rewritten | 9 clarification questions answered |
 | 2026-09-19 | Planning | v1 docs and workflow kit created | Superseded by v2 |
