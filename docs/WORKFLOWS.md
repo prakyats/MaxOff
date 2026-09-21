@@ -18,10 +18,14 @@ first authenticated request of the IST day
           │
           └──CEO correct(status, reason)──► corrected (final_status = CEO's status)
 
-23:59 IST job, working day, no attendance_day ─► pending_review, submitted = none, final_status = absent (proposed)
+23:59 IST job, working day, no submission ─► pending_review, submitted = none, final_status = absent (proposed)
       └─ CEO approve ─► approved(absent) · CEO correct ─► corrected(any status)
 ```
-- A **working day** is not a weekly off day and not in `holidays`. On a day off: no gate, no absent check. If someone logs in on a day off, the gate still asks, and `is_day_off = true` shows as "Worked on a day off".
+- **The CEO is exempt** from the gate and from the absent, logout-reminder and logout-not-recorded jobs. The CEO's logout writes only `session_events`.
+- **Approved leave comes first.** For each member with **approved leave covering the date**, the job creates the day as `approved`, `final_status` = the leave type, `leave_request_id` set, `proposed_by_system = true`, with an `attendance_events` row `derived_from_leave`. They're never proposed absent.
+- **"No submission"** means *either* no `attendance_days` row *or* a row still in `awaiting_choice` (logged in but never chose).
+- **On a day with approved full-day leave there's no gate.** The day is set automatically. If the person logs in anyway, a banner says "You're on approved leave today" with an optional **"I'm working today"** button that submits Present for the CEO to review. Approved half-day leave sets the day to `half_day` with no gate.
+- A **working day** is not a weekly off day and not in `holidays`. On a day off: no absent check, but the gate **still asks** if someone logs in, and `is_day_off = true` shows as "Worked on a day off". (Pixora's current setting: Sunday off, and people do sometimes work Sundays.)
 - `attendance_day` is **unique per member per IST date**. Later logins only add `session_events`.
 - **Logout:** `logout()` writes `session_events(kind = logout)` immediately and updates `attendance_days.last_logout_at`.
 - **20:30 IST job** (configurable): anyone with a login today and no logout since their last login gets the forgot-to-logout reminder.
@@ -67,8 +71,13 @@ submitted ──CEO approve──► approved ──employee requests change/can
 | `completed` | **Final.** CEO approved | CEO/Admin can `reopen` → `in_progress` (reason required) |
 | `cancelled` | Stopped with a reason, still reportable | CEO/Admin can `reopen` |
 
+- **Done can be submitted from `todo` or `in_progress`.** `in_progress` is optional.
+- **Done doesn't wait for acknowledgements.** If the primary owner hasn't acknowledged yet, submitting Done records their acknowledgement automatically (audited). Other assignees' acknowledgements stay tracked and still get reminders.
+- **Who may edit, reassign, cancel or reopen a task:** its **creator**, its **approving Admin**, or the **CEO**. Other Admins who can see it can't change it.
+- **Locking:** assignees lose edit rights from **`submitted`** onwards, in every route (with or without an Admin step). They can still comment. Editing resumes only through `changes_requested`.
+
 - **Done skips the Admin step** (goes straight to `admin_approved`, with `admin_step` = `none`) when `approving_admin_id` is null (the CEO assigned directly). It also skips it (`admin_step` = `skipped`, reason recorded) when the approving Admin is an assignee.
-- **Locking:** from `admin_approved` onwards, assignees can only read and comment.
+- **Locking** is described in the table above (from `submitted`).
 - **Overdue** is **derived**: `now() > due_at AND state NOT IN (completed, cancelled)`. It's a badge and a filter, not a state. Moving the deadline recalculates it.
 - **Late reason:** when submitting after `due_at`, `late_reason` is required from the primary owner.
 - **Approving Admin** is set when the task is created (PRODUCT §4.6 table) and can be changed or removed by the CEO. Changing it while the task is `submitted` sends the review to the new approver.
@@ -99,13 +108,15 @@ draft ──CEO activate (needs name + admin)──► active ⇄ paused ──�
 
 ## 5. Client work
 
-### 5.1 Project status (manual)
-`open ─► in_progress ─► completed` · `any ─► cancelled` · CEO can `reopen` a completed or cancelled project. Completion and cancellation are **CEO only** and never automatic.
+### 5.1 Project status
+`open ─► in_progress ─► completed` · `any ─► cancelled` · CEO can `reopen` a completed or cancelled project.
+- **open → in_progress happens automatically** inside the transition function the first time any of the project's items has a stage ticked or is marked done.
+- **completed and cancelled are CEO-only and never automatic.** A project with every item approved still stays open until the CEO closes it.
 
 ### 5.2 Cycles
-- Every project has cycles. A **one-time** project gets one cycle (no period) when it's created. **Recurring** projects get one cycle per period.
+- Every project has cycles. A **one-time** project gets one cycle (no period) when it's created. **Recurring** projects get one cycle per period, and `project_create` immediately creates the **current** period's cycle (a monthly project started on the 15th gets that month at once, then the next on the 1st).
 - **00:00 IST job:** on the **1st** (monthly projects) and **Monday** (weekly projects), for projects whose client is **active** and whose status is open or in_progress, `cycle_generate(project, period)` copies `project_item_blueprints` into new items. It's **idempotent**: unique `(project_id, period_start)`.
-- A cycle is `open` until the next cycle exists **and** every unfinished item in it has a CEO carry decision. Then it's `settled`.
+- A cycle is `open` until the next cycle exists **and** every unfinished item in it has been carried forward, closed or approved. Then it's `settled`. **`leave_pending` keeps the cycle open**, because those items are still workable, and the CEO is reminded about them until they're decided.
 
 ### 5.3 Items
 ```
@@ -193,12 +204,13 @@ month M (IST) open ──CEO close──► closed (snapshot v1, immutable)
 | Task completed / cancelled / reopened | Assignees (+ creator) |
 | Comment added | Other participants on the task (assignees, approving Admin, creator) |
 | Task request created | CEO + the client's Admin (or all Admins if there's no client) |
-| Attendance submitted / absent proposed | CEO (as a digest, not one per person) |
+| Attendance submitted | **Nobody.** The CEO's Today counts are the live digest, so no notification per person |
+| Absent proposed (23:59 job) | CEO: **one** notification listing everyone proposed absent |
 | Attendance decided / corrected | That member |
 | Leave requested / changed | CEO |
 | Leave decided | That member |
 | Forgot to log out | That member |
-| Item done (Admin tick) | CEO (digest) |
+| Item done (Admin tick) | **Nobody.** It shows in the CEO's pending-approval count |
 | Item rejected | The client's Admin |
 | Cycle generated / unfinished items to decide | Client's Admin / CEO |
 | Submitted link is private or unreachable | The submitter (with instructions), and the approving Admin on the task card |

@@ -26,7 +26,7 @@ It answers these questions every day:
 
 ## 2. Product principles
 1. **Operational visibility over feature count.** Every screen shows what needs to happen next.
-2. **The CEO has final authority.** Attendance, leave, money and final completion all go through the CEO.
+2. **The CEO has final authority, over both work and configuration.** Attendance, leave, money and final completion all go through the CEO, and **every configurable element** (lists, task types, stages, thresholds, days off, fields, templates, integrations) is editable by the CEO in Settings.
 3. **Admins run operations, not governance.** They have no authority over attendance or leave, and never see money.
 4. **Staff focus on execution.** They see only their own work.
 5. **Complexity depends on role.** The CEO interface is rich, the Admin interface is simpler, and the Staff interface is very simple. This is intentional.
@@ -69,8 +69,10 @@ The full permission and visibility matrix is in `PERMISSIONS.md`. The key rules:
 - The first-login choice is **Present / Leave / Half-Day Leave / Compensatory Leave**. Choosing a leave type also creates a leave request for today.
 - MaxOff records the first-login time, the choice, logout times, and the CEO's decision with its time and reason.
 - **The CEO approves**, one at a time or in bulk. **When rejecting, the CEO sets the correct status** (Absent / Leave / Half-Day / Comp Leave / Present) and gives a reason, and the employee is notified. The original choice and the correction are both kept.
-- **11:59 PM IST check:** an active employee with no submission on a **working day** is marked **"Absent – pending CEO approval"**, and the CEO is notified. Absence becomes official only once the CEO approves it.
-- **Days off:** the CEO sets the company's **weekly off days** and a **holiday list** in Settings. There's no absent check on days off. A login on a day off records attendance marked **"Worked on a day off"**.
+- **11:59 PM IST check:** an active employee with no submission on a **working day** is marked **"Absent – pending CEO approval"**, and the CEO gets one notification listing everyone. Absence becomes official only once the CEO approves it. Anyone with **approved leave** for that date is set to their leave status automatically and is never proposed absent.
+- **On an approved-leave day there's no gate.** If the person logs in anyway, a banner says "You're on approved leave today", with an optional **"I'm working today"** button that submits Present for the CEO to review.
+- **Days off:** the CEO sets the **weekly off days** (currently Sunday) and a **holiday list** in Settings. There's no absent check on days off, but anyone who logs in is still asked, and the day is marked **"Worked on a day off"** — useful when granting compensatory leave.
+- **The CEO is exempt** from the attendance gate and its reminders.
 - **Forgotten logout:** around **8:30 PM IST** (configurable), anyone still logged in gets a reminder: *"You may have forgotten to log out. If you're done, log out; if you're working overtime, carry on."* If they never log out, the day is flagged **"Logout not recorded"**. A logout time is **never** made up.
 - **Overtime:** a simple flag with an optional reason. No time tracking.
 - No working-hours rules and no location rules.
@@ -231,9 +233,11 @@ Only **client project items** carry revenue. Staff tasks never do.
 ### 4.15 Global search
 `Ctrl/Cmd + K` searches clients, people, tasks, projects, items and contacts, **only what the user is allowed to see**. Results are grouped by type and open the record directly.
 
-### 4.16 Settings
-- **Company:** name, logo, timezone (IST), weekly off days, holidays, logout-reminder time, acknowledgement and escalation thresholds, default reminders.
-- **Team:** invite, role, job title, name, deactivate or reactivate (CEO). Job titles list.
+### 4.16 Settings: the CEO's control centre
+**Everything configurable in MaxOff is editable by the CEO, in one place, with no developer involved.** If a rule, list, threshold or label exists, the CEO can change it here. Admins get only the operational parts (lists, templates, custom fields).
+
+- **Company:** name, logo, timezone (IST), **weekly off days** (currently Sunday), **holidays**, logout-reminder time, acknowledgement and escalation thresholds, workload warning threshold, default reminder schedule.
+- **Team:** invite, role, job title, name, deactivate or reactivate (CEO). **Job titles** are an editable list the CEO adds to freely (seeded with Video Editor and Graphic Designer).
 - **Lists:** task types (with event behaviour, default reminders and fields), stage presets, and other lists.
 - **Custom fields:** for clients, contacts, projects, items and tasks, globally or for one client.
 - **Templates:** project templates and task templates.
@@ -255,8 +259,18 @@ GST invoice generation and invoicing · client login or portal · WhatsApp · na
 | UX | Loading, empty, error and denied states; usable from 375px up; accessible; keyboard-friendly; PWA-installable |
 | Performance | Indexed and paginated lists, no N+1 queries, dashboards under 2 s |
 
-## 7. Open questions (not blocking the schema)
-- [ ] **Admin performance metrics:** v2 lets Admins view raw metrics, but #6 limits what they see. Proposed default: an Admin sees metrics calculated only from tasks visible to them. *Confirm before phase 9.*
-- [ ] Default thresholds: acknowledgement reminder every **2 h**, escalation after **4 h**, logout reminder at **8:30 PM**. *Confirm or change (these are Settings values).*
-- [ ] **CEO attendance:** assumed the CEO does **not** go through the daily attendance gate (only Admins and Staff do). *Confirm before phase 2.*
-- [ ] Team job titles and any existing clients or projects to import at launch.
+## 7. Settings decided at launch (all editable later by the CEO)
+| Setting | Value |
+|---|---|
+| Weekly off | **Sunday** (people may still log in and mark attendance; no absent check) |
+| Holidays | None seeded. The CEO adds them in Settings |
+| Job titles | **Video Editor, Graphic Designer**, and the CEO adds more freely |
+| Acknowledgement reminder | Every **2 h** |
+| Acknowledgement escalation | After **4 h** |
+| Logout reminder | **8:30 PM IST** |
+| CEO attendance | **Exempt.** The gate and the attendance jobs apply to Admins and Staff only |
+| Google Drive archive account | `pcproductions.work@gmail.com` (Google One 2 TB, personal account) |
+
+## 8. Open questions (not blocking the schema)
+- [ ] **Admin performance metrics:** v2 lets Admins view raw metrics, but clarification #6 limits what they see. Proposed default: an Admin sees metrics calculated only from tasks visible to them. *Confirm before phase 9.*
+- [ ] Existing clients, projects or people to import at launch.

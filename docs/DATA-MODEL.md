@@ -27,8 +27,9 @@ task_type_kind     normal | event | custom          -- behaviour category; names
 review_decision    approved | rejected
 request_state      pending | converted | declined | withdrawn
 billing_status     not_billed | billed
-field_type         text | long_text | number | currency | date | datetime | checkbox | select |
+field_type         text | long_text | number | date | datetime | checkbox | select |
                    multi_select | url | email | phone | color | member | rating
+                   -- deliberately NO currency type: money lives only in the CEO-only tables (§7)
 ```
 
 ## 1. Organization, people and access

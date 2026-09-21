@@ -90,7 +90,8 @@ public/            # manifest.webmanifest, icons, service worker (sw.js)
 ### 3.1 Import rules (eslint-plugin-boundaries)
 - `app → modules (index only) → core`. `core` never imports modules. No cycles.
 - Nothing outside a module imports its `data/`, `actions/` or internal `components/`.
-- **Only `modules/revenue` may import money types or query money tables and views.** Other modules show money only by rendering `revenue`'s exported components, which render nothing for non-CEO users.
+- **Only `modules/revenue` may import money types or query money tables and views.** Other modules show money only by rendering `revenue`'s exported components, which render nothing for non-CEO users. (`projects.billing_category` is not money: it's an operational label Admins may see. Only the CEO can set it.)
+- There is **no currency custom-field type**, so money can never leak in through `custom_fields`.
 
 ### 3.2 Module ownership
 | Module | Owns | Depends on |
@@ -148,6 +149,7 @@ Auditing for plain edits is done by a **generic `audit_row_change()` trigger** o
 ---
 
 ## 5. Authorization in the database
+- `current_org_id()` returns the caller's organization id (the single org in the prototype) and is the default for every root table's `org_id`.
 - `current_member()` returns the caller's active member row. **Deactivated means no rows**, so access ends immediately.
 - `has_permission(key)` checks role → `role_permissions`.
 - Scope helpers: `admin_client_ids()` (assigned clients), `visible_task_ids()` as a policy expression, `is_task_assignee(task_id)`, `is_approving_admin(task_id)`.
@@ -175,7 +177,7 @@ Auditing for plain edits is done by a **generic `audit_row_change()` trigger** o
 ```
 transition fn / job ─► notifications row ─► notification_deliveries (queued)
                                    │                       │
-                        Realtime ─► in-app bell     push_dispatch (Worker cron / pg_net)
+                        Realtime ─► in-app bell     push_dispatch (Worker cron → /api/cron/push-dispatch)
                                                            ├─ Web Push (VAPID) to each subscription
                                                            └─ Email (Resend) if no working push, or escalation
 ```

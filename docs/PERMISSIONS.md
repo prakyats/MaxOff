@@ -57,7 +57,8 @@
 | Task comments / files / submissions | All | Same as the task | Same as the task |
 | Task requests | All | Their own + requests labelled with their clients + requests with no client | Their own |
 | Availability of others | Full detail | **Counts and busy blocks only** (`member_availability()` function) | ❌ |
-| Money (any amount, category, override, billing status, revenue) | ✅ | ❌ (not even in exports) | ❌ |
+| Money (any amount, override, billing status, revenue) | ✅ | ❌ (not even in exports) | ❌ |
+| A project's billing **category** (Retainer / Project / Additional Work) | ✅ set and see | See only (it's operational context, not an amount) | ❌ |
 | Reports / snapshots | All | Scoped operational reports | ❌ |
 | Activity log | All | Entries about records they can see | Entries about their own tasks, attendance and leave |
 | Notifications | Own | Own | Own |

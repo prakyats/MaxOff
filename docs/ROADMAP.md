@@ -19,10 +19,10 @@ Exit: an empty app on staging, CI green, all quality gates working, installable 
 
 ## Phase 1: Identity and access
 Exit: the CEO logs in, invites an Admin and a Staff member, and each sees only their role's shell. Every change is audited.
-- [ ] **1.1** [H] Schema: organizations, org_settings, members (single-CEO index), role_permissions seeded from PERMISSIONS.md, session_events, activity_log (append-only) + generic `audit_row_change()` trigger, `current_member()`, `has_permission()`, pgTAP for each role
+- [ ] **1.1** [H] Schema: organizations, org_settings, members (single-CEO index), `current_org_id()`, role_permissions seeded from PERMISSIONS.md, session_events, activity_log (append-only) + generic `audit_row_change()` trigger, `current_member()`, `has_permission()`, pgTAP for each role
 - [ ] **1.2** [H] Auth: invite-only Supabase Auth (sign-ups off), **CEO bootstrap script** (no plaintext passwords), login and logout (session_events), middleware and route guards, deactivation takes effect immediately, Resend SMTP, rate limits
 - [ ] **1.3** [C] Team: invite (role + job title), accept → set password → profile, member list, edit name, role and job title, deactivate or reactivate. `core/lists` engine (job titles). `core/permissions` UI helpers
-- [ ] **1.4** [C] Settings: company profile, weekly off days, holiday list, thresholds (acknowledgement, escalation, logout reminder), `app.is_working_day()` + tests
+- [ ] **1.4** [C] Settings (the CEO's control centre): company profile, weekly off days (**seed: Sunday**), holiday list (empty), thresholds (**2 h / 4 h / 8:30 PM**), job titles (**seed: Video Editor, Graphic Designer**, CEO can add more), `app.is_working_day()` + tests
 
 ## Phase 2: Attendance and leave
 Exit: Admins and Staff pass the daily gate, request leave, and the CEO approves or corrects everything, with full history.
@@ -30,7 +30,7 @@ Exit: Admins and Staff pass the daily gate, request leave, and the CEO approves 
 - [ ] **2.2** [C] Day gate: `requireDayGate()`, attendance choice screen (mobile-first), day-off handling, logout button capturing the time, overtime flag
 - [ ] **2.3** [C] Leave for employees: request (single day, range, half day), change or cancel requests, my attendance and leave history
 - [ ] **2.4** [C] CEO review: pending attendance and leave lists, bulk approve, correct-with-reason dialog, per-person history, today's people board
-- [ ] **2.5** [H] Jobs: pg_cron setup, `absent_check` (working days only), `logout_not_recorded`, idempotency and IST-boundary tests
+- [ ] **2.5** [H] Jobs: pg_cron setup, `absent_check` (working days only; approved leave becomes an approved day; `awaiting_choice` counts as no submission; CEO exempt; one summary notification), `logout_not_recorded`, idempotency and IST-boundary tests
 
 ## Phase 3: Clients
 Exit: clients exist with their Admin, contacts, brand basics and custom fields. Admins see only theirs.
@@ -44,7 +44,7 @@ Exit: a task goes assign → everyone acknowledges → updates → Done → Admi
 - [ ] **4.1** [H] Schema: task_types (seeded), tasks, task_assignees, task_stages, task_comments, task_reviews, task_warnings, task visibility RLS, `member_availability()`, pgTAP
 - [ ] **4.2** [H] Transition functions: `task_create` (**approval-route resolution**, PRODUCT §4.6), `task_acknowledge`, `task_start`, `task_submit_done` (late reason, Admin-step skip), `task_review` (admin/ceo, reason on reject, bulk), `task_reopen`, `task_cancel`, `task_update_assignment` (field-level audit + notifications), `task_set_approver`. pgTAP for every path
 - [ ] **4.3** [C] Create/assign dialog: type-specific fields (event date/time, location, purpose), client label, assignees + primary owner, deadline, priority, stages, custom fields. Conflict, workload and leave **warnings** with recorded override
-- [ ] **4.4** [C] Task page: header and state, per-assignee acknowledgement, "Task Noted", stages, comments timeline, Done (late reason), review actions, change history, locking after Admin approval
+- [ ] **4.4** [C] Task page: header and state, per-assignee acknowledgement, "Task Noted", stages, comments timeline, Done (late reason), review actions, change history, locking from `submitted`
 - [ ] **4.5** [C] Lists: Staff "My tasks", management task list (filters: person, client, type, state, overdue), **Approvals inbox** (Admin and CEO, bulk approve or reject)
 - [ ] **4.6** [C] Task requests (suggest → convert or decline) and task templates
 
