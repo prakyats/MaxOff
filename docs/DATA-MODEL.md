@@ -60,7 +60,12 @@ members              id (= auth.users.id), org_id, full_name, email, phone, avat
 role_permissions     role member_role, permission text, pk(role, permission)   -- seeded
 session_events       id, member_id, kind ('login'|'logout'), at, user_agent, ip_hash
 push_subscriptions   id, member_id, endpoint unique, p256dh, auth, user_agent, created_at,
-                     last_success_at, failure_count, disabled_at
+                     platform ('android'|'ios'|'desktop'|'other'), is_standalone bool (PWA installed),
+                     label (device name shown to the member), last_success_at, last_failure_at,
+                     failure_count, disabled_at, disabled_reason ('gone'|'expired'|'signed_out'|
+                     'deactivated'), last_test_at
+                     -- kept across logout (title-only payloads); removed on "sign out of this
+                     -- device" or deactivation. See PRODUCT §4.11 and WORKFLOWS §9a.
 ```
 
 ## 2. Configuration (customization as data)

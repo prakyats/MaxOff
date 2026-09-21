@@ -49,10 +49,12 @@ Exit: a task goes assign → everyone acknowledges → updates → Done → Admi
 - [ ] **4.6** [C] Task requests (suggest → convert or decline) and task templates
 
 ## Phase 5: Notifications and reminders
-Exit: every event in WORKFLOWS §9 reaches the right people in-app and by push (email fallback). Reminders and escalations fire on time without duplicates.
+Exit: every event in WORKFLOWS §9 reaches the right people in-app and by push (email for the important few). Reminders and escalations fire on time without duplicates, **and management can see who isn't reachable**.
 - [ ] **5.1** [H] notifications, notification_deliveries, push_subscriptions. `NotificationService` + channels, notification rows from all existing transition functions, in-app bell + Realtime, history page with deep links
 - [ ] **5.2** [H] Web Push: VAPID keys, service worker push handling, subscribe and re-subscribe flow, persistent "enable notifications" banner, `push_dispatch` with retries, **email only for invites, escalations, digests and people with no working push, with a per-person daily cap**, iOS "add to home screen" guidance
 - [ ] **5.3** [H] Reminders: `reminder_rules` → `task_reminders`, `reminders_tick` (before due, due, overdue, acknowledgement repeats, escalations), `logout_reminder` job, updating reminders when tasks change or are cancelled. pgTAP + unit tests
+- [ ] **5.4** [H] **Reachability** (WORKFLOWS §9a): subscription lifecycle (kept across logout with **title-only** payloads, removed on "sign out of this device" or deactivation), `member_reachability` view, Settings → Notifications showing who isn't reachable and why, the 48 h alert to the CEO, and "Send a test" (`notification_send_test`). pgTAP + unit tests
+- [ ] **5.5** [C] Onboarding for reachability: the iOS "add to home screen" walkthrough, the permission banner that persists until push works, device list with "Sign out of this device", and the test-notification step in a new joiner's first login
 
 ## Phase 6: Dashboards, calendar and ★ pilot
 Exit: **the team uses MaxOff daily** for attendance, leave and tasks, in production, with backups.
