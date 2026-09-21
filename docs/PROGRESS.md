@@ -23,7 +23,7 @@ _None_
 - —
 
 ## Open questions for Pixora
-- See PRODUCT.md §7 (Admin metrics scope, default thresholds, job titles and import data).
+- See PRODUCT.md **§8** (Admin metrics scope before phase 9; data to import at launch). §7 holds the settings already decided.
 
 ## Session log (newest first)
 | Date | Task | Result | Notes |

@@ -32,7 +32,7 @@
 | `attendance.self` | Submit own attendance and logout, request own leave | | ✅ | ✅ |
 | `attendance.decide` | Approve or correct attendance, decide leave, edit approved leave | ✅ | | |
 | `attendance.view_all` | Full attendance and leave history of everyone | ✅ | | |
-| `finance.view` / `finance.edit` | Amounts, billing categories, overrides, billing status, revenue | ✅ | | |
+| `finance.view` / `finance.edit` | Amounts, overrides, billing status, revenue (the billing **category** is set by the CEO but visible to Admins, see §2) | ✅ | | |
 | `reports.all` | Company reports, metrics, AI export | ✅ | | |
 | `reports.scoped` | Operational reports on their own scope, with no money | | ✅ | |
 | `months.close` | Close a month, make corrections | ✅ | | |
