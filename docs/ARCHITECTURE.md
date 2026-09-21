@@ -29,7 +29,8 @@
 | UI | Tailwind CSS + shadcn/ui, lucide icons, TanStack Query (client caches for live screens) | — |
 | Database, Auth, Realtime, cron | **Supabase** (Postgres 15+, RLS, Realtime, `pg_cron`, `pg_net`) | Supabase Pro (daily backups, no pausing) |
 | Files | **Cloudflare R2**, S3 multipart presigned uploads, behind `core/storage` | S3 / Supabase Storage (swap the adapter) |
-| Hosting | **Cloudflare Workers** through the OpenNext adapter | Workers Paid |
+| Hosting | **Cloudflare Workers** through the OpenNext adapter. Free while building; **Workers Paid ($5/mo) from the pilot**, because the free plan allows only 10 ms CPU per request, which server-rendered pages exceed | Higher tiers, or any Node host |
+| Archive | **Google Drive API** on one company account, behind `core/drive` | Workspace shared drives later |
 | Push | **Web Push (VAPID) + service worker**, behind `core/notifications` | FCM/APNs adapter for a future mobile app |
 | Email | **Resend** (Supabase Auth SMTP + notification fallback) | Any SMTP |
 | PDF export | `@react-pdf/renderer` (server) | — |
@@ -185,11 +186,14 @@ transition fn / job ─► notifications row ─► notification_deliveries (que
 ## 10. Real time
 `core/realtime` subscribes to Supabase Realtime `postgres_changes` (RLS-filtered) for: `tasks`, `task_assignees`, `task_comments`, `attendance_days`, `leave_requests`, `project_items`, `notifications`. On a change it **invalidates** TanStack Query keys and never trusts the payload for display, so RLS stays the source of truth.
 
-## 11. Files (ADR-0003)
-- **Upload:** action `files_begin_upload(meta)` checks permission, type and size (≤ 2 GB), creates a `files` row (`pending`) and returns presigned **multipart** URLs. The browser uploads parts straight to R2 (resumable, retried per part), then calls `files_complete_upload`, which marks it `ready`.
+## 11. Files and the Drive archive (ADR-0003, ADR-0010)
+- **Upload:** action `files_begin_upload(meta)` checks permission, type and size (**images ≤ 25 MB, video ≤ 100 MB**), creates a `files` row (`pending`) and returns presigned **multipart** URLs. The browser uploads parts straight to R2 (resumable, retried per part), then calls `files_complete_upload`, which marks it `ready` and queues the Drive job.
+- **Originals are immutable.** The uploaded bytes are never re-encoded. For images, the browser also produces a **small JPEG preview** (including from HEIC) which is stored as a separate file and used for display. Previews are disposable; originals are not.
 - **Download or preview:** permission check → presigned GET, valid 5 minutes. Buckets are private.
 - SVGs are sanitized on completion, and SVG and HTML are never served inline.
-- Orphaned `pending` files are cleaned up by a daily job.
+- **`core/drive`** wraps the Google Drive API: OAuth for one company account (refresh token encrypted at rest with a server key), `files.copy` for pasted links (server-side, no bytes through us), resumable upload from R2 for our own files, folder creation with a cache, and quota checks. Every call goes through the `drive_jobs` queue, which is idempotent and backs off, so a failure never blocks a user action.
+- Streaming R2 → Drive happens in the cron route, where waiting on the network doesn't consume Worker CPU time. Files are ≤ 100 MB, so this stays well inside limits.
+- **Retention:** the daily `storage_cleanup` job removes local copies only after the Drive copy is confirmed (WORKFLOWS §5A). Orphaned `pending` files are cleaned up in the same job.
 
 ## 12. Revenue (ADR-0007)
 All calculation is in SQL views (WORKFLOWS §6) over CEO-only tables, so reports and exports share one definition. Overrides never replace the calculated value, they sit next to it.

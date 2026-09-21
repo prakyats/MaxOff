@@ -1,6 +1,6 @@
 # ADR-0003: Free-tier hosting and storage that can be upgraded
 
-- **Status:** accepted, amended 2026-09-20: task file submissions up to ~2 GB use S3 multipart presigned uploads straight to R2, and push notifications use Web Push (ADR-0009).
+- **Status:** accepted, amended 2026-09-20 (push notifications use Web Push, ADR-0009) and 2026-09-21: uploads are capped at 25 MB for images and 100 MB for video, with larger files submitted as Drive links and everything archived to Google Drive (ADR-0010). Production runs on **Workers Paid ($5/mo) from the pilot (task 6.6)**, because the free plan's 10 ms CPU per request is too low for server-rendered pages; the free plan is fine for building and staging. Verified free-tier limits (Sep 2026): Workers free 100k requests/day and 10 ms CPU; R2 10 GB, 1M writes, 10M reads, no egress charge; Supabase free 500 MB database, 5 GB transfer, no backups, paused after 7 idle days; Resend 3,000 emails/month and 100/day.
 - **Date:** 2026-09-19
 
 ## Context

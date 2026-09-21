@@ -121,6 +121,28 @@ open/done ──cancel(reason, Admin or CEO)──► cancelled
   - `leave_pending` → stays in its original cycle, still workable. Can be decided again later.
 - **Bulk approve** = the same function called for each item, so each gets its own approval record.
 
+## 5A. Work submissions and the Google Drive archive
+
+```
+Staff submits a version
+   ├─ upload (image ≤ 25 MB, video ≤ 100 MB)
+   │     browser → R2 (direct, resumable) → submission_items(kind=upload, archive_state=queued)
+   │     photos: a JPEG preview is generated for display; the ORIGINAL is never modified
+   │     └─ drive_jobs(upload_file) ─► Drive: Clients/<Client>/<YYYY-MM>/Photos|Videos/
+   │                                   └─ archived ✓ (drive_file_id, web link stored)
+   └─ Drive link (anything larger)
+         check access now ──ok──► drive_jobs(copy_link) ─► Google server-side copy into our Drive ─► archived ✓
+                           └──private/missing──► link_state=private, archive_state=blocked
+                                                  ├─ notify the submitter: "make it 'anyone with the link'"
+                                                  └─ recheck_link job (backoff, up to 7 days) ─► archives itself once access is granted
+```
+
+- **Approval is never blocked** by a failed archive. The task shows the warning, and the CEO decides.
+- **Retention (`delete_local` jobs, daily):** photos leave R2 after **90 days**, videos after **30 days**, and **only when `archive_state = archived`**. `local_deleted_at` is set; the row, the Drive link and the history stay forever. Nothing is deleted while the archive queue is blocked or the Google account needs reconnecting.
+- **Folders** are created on demand and cached in `drive_folders`. Names: `YYYY-MM-DD_<task-title-slug>_v<version>_<FirstName>_<nn>.<ext>`. Each Drive file's description carries the MaxOff task URL.
+- **Token expiry:** any Google call returning `invalid_grant` sets `drive_account.state = needs_reconnect`, notifies the CEO, and parks the queue. Reconnecting drains it.
+- **Quota:** the account's free space is checked daily, and the CEO is warned below 10%.
+
 ## 6. Revenue calculation (CEO only)
 For each item, `item_value`:
 1. an explicit `item_billing.value` if set, otherwise
@@ -152,6 +174,9 @@ month M (IST) open ──CEO close──► closed (snapshot v1, immutable)
 | `cycle_generate` | 00:00 on the 1st and every Monday | Creates recurring cycles |
 | `cycle_close_prompt` | 00:05 on the same days | Notifies the CEO about unfinished items in the ended cycles |
 | `push_dispatch` | every minute (or triggered) | Sends queued push and email deliveries, retrying with backoff |
+| `drive_archive_tick` | every 2 min | Runs queued `drive_jobs` (copy link, upload file, recheck link) with backoff |
+| `storage_cleanup` | 03:00 | `delete_local` jobs: photos > 90 days, videos > 30 days, archived only. Also clears orphaned `pending` files |
+| `drive_quota_check` | 03:30 | Refreshes Google quota and warns the CEO below 10% free |
 | `nightly_backup` | 02:00 (GitHub Action) | pg_dump to R2 |
 
 ## 9. Who gets notified
@@ -176,6 +201,8 @@ month M (IST) open ──CEO close──► closed (snapshot v1, immutable)
 | Item done (Admin tick) | CEO (digest) |
 | Item rejected | The client's Admin |
 | Cycle generated / unfinished items to decide | Client's Admin / CEO |
+| Submitted link is private or unreachable | The submitter (with instructions), and the approving Admin on the task card |
+| Google Drive needs reconnecting, or is low on space | CEO only |
 | Anything financial | CEO only |
 | Upcoming event (shoot, meeting…) on task reminders | Assignees + approving Admin |
 

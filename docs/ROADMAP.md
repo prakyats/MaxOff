@@ -51,7 +51,7 @@ Exit: a task goes assign → everyone acknowledges → updates → Done → Admi
 ## Phase 5: Notifications and reminders
 Exit: every event in WORKFLOWS §9 reaches the right people in-app and by push (email fallback). Reminders and escalations fire on time without duplicates.
 - [ ] **5.1** [H] notifications, notification_deliveries, push_subscriptions. `NotificationService` + channels, notification rows from all existing transition functions, in-app bell + Realtime, history page with deep links
-- [ ] **5.2** [H] Web Push: VAPID keys, service worker push handling, subscribe and re-subscribe flow, persistent "enable notifications" banner, `push_dispatch` with retries, email fallback through Resend, iOS install guidance
+- [ ] **5.2** [H] Web Push: VAPID keys, service worker push handling, subscribe and re-subscribe flow, persistent "enable notifications" banner, `push_dispatch` with retries, **email only for invites, escalations, digests and people with no working push, with a per-person daily cap**, iOS "add to home screen" guidance
 - [ ] **5.3** [H] Reminders: `reminder_rules` → `task_reminders`, `reminders_tick` (before due, due, overdue, acknowledgement repeats, escalations), `logout_reminder` job, updating reminders when tasks change or are cancelled. pgTAP + unit tests
 
 ## Phase 6: Dashboards, calendar and ★ pilot
@@ -61,7 +61,7 @@ Exit: **the team uses MaxOff daily** for attendance, leave and tasks, in product
 - [ ] **6.3** [C] Admin dashboard: my clients, staff tasks needing attention, approvals, calendar strip, issues
 - [ ] **6.4** [C] Calendar: day, week and month views. Events, leave and holidays. Filters. Busy blocks for Admins
 - [ ] **6.5** [H] End-of-day report: `eod_report` job + report page (live and saved), notification to the CEO
-- [ ] **6.6** [H] **Pilot release:** production Supabase + Worker, nightly backups + **restore drill**, Sentry + UptimeRobot, onboarding checklist (install the PWA, enable push), `docs/USER-GUIDE.md` (attendance and tasks)
+- [ ] **6.6** [H] **Pilot release:** production Supabase (Mumbai region) + Worker on **Workers Paid ($5/mo)**, nightly backups + **restore drill**, Sentry + UptimeRobot (hitting a route that touches the database so the project never pauses), onboarding checklist (install the PWA on iPhone, enable push), `docs/USER-GUIDE.md` (attendance and tasks)
 
 ## Phase 7: Client work
 Exit: a real client's monthly and weekly projects run in MaxOff. The Admin ticks items, the CEO approves, cycles roll over and carry-forward works.
@@ -70,10 +70,12 @@ Exit: a real client's monthly and weekly projects run in MaxOff. The Admin ticks
 - [ ] **7.3** [C] Client → Projects tab, create project dialog (recurrence, stage preset, item list), project page (cycle switcher, items with stage ticks, bulk tick, "9/12 done · 8/12 approved")
 - [ ] **7.4** [C] CEO item approvals in the inbox, carry-forward decision screen, stage presets in Settings, project templates
 
-## Phase 8: Files and versioned submissions
-Exit: Staff upload work up to ~2 GB from a phone or desktop, and reviewers preview it and request changes against a specific version.
-- [ ] **8.1** [H] Resumable multipart uploader component, task_submissions + files link, `task_submit_version`, reviews linked to a version, pgTAP
-- [ ] **8.2** [C] Review UI: previews (image, video, audio, PDF), versions timeline, download, comment and request changes per version
+## Phase 8: Work submissions, files and the Drive archive
+Exit: Staff submit photos and short videos from any device (iPhone included), large videos come in as Drive links, and **everything is copied into the company Google Drive** with MaxOff cleaning up its own copies.
+- [ ] **8.1** [H] Submissions: `submission_items`, resumable uploader (images ≤ 25 MB, video ≤ 100 MB), browser-side JPEG preview generation including **HEIC**, originals stored untouched, `task_submit_version`, reviews tied to a version, RLS + pgTAP
+- [ ] **8.2** [C] Review UI: previews (image, video, PDF), versions timeline, download the original, comment and request changes per version, archive status badges
+- [ ] **8.3** [H] `core/drive`: Google OAuth (CEO-only connect and reconnect, tokens encrypted), folder creation and cache, `files.copy` for links, R2 → Drive upload, `drive_jobs` queue with backoff, link access checks and re-checks, quota checks, Settings screen. pgTAP + unit tests
+- [ ] **8.4** [C] Link submission flow: paste, validate access immediately, "Link is private" flag and notification, automatic re-check, and the `storage_cleanup` retention job (90/30 days, archived only)
 
 ## Phase 9: Revenue, reports and month close (CEO)
 Exit: the CEO sees Potential / Achieved / Remaining by client, category and month, closes a month, and exports it for AI analysis.

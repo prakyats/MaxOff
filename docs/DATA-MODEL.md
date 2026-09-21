@@ -133,7 +133,15 @@ task_comments        id, task_id, author_id, body, created_at        -- append-o
 task_reviews         id, task_id, step ('admin'|'ceo'), decision, reason, reviewer_id,
                      submission_id null, at                          -- append-only
 task_submissions     id, task_id, version int, note, submitted_by, at, unique(task_id, version)
-task_submission_files  submission_id, file_id, pk(submission_id, file_id)
+submission_items     id, submission_id, kind ('upload'|'drive_link'),
+                     file_id null (uploads), source_url null (pasted Drive link),
+                     source_file_id null (Google file id of THEIR file),
+                     original_name, mime, size_bytes null,
+                     preview_file_id null (generated JPEG preview for photos),
+                     link_state ('ok'|'private'|'missing'|'unchecked'), link_checked_at,
+                     archive_state ('queued'|'archived'|'failed'|'blocked'),
+                     drive_file_id null, drive_web_link null, archived_at,
+                     archive_error, archive_attempts, local_deleted_at, created_at
 task_reminders       id, task_id, member_id null, kind ('before_due'|'due'|'overdue'|'ack'|
                      'ack_escalation'|'overdue_escalation'|'event'), fire_at, sent_at null,
                      cancelled_at null                               -- materialized from reminder_rules
@@ -156,7 +164,22 @@ views (security invoker, CEO only): item_values_v, revenue_by_cycle_v, revenue_b
 ```
 All amounts are `numeric(12,2)` in INR.
 
-## 8. Files, notifications, audit, reports
+## 8. Google Drive archive (CEO-managed, core module `drive`)
+```
+drive_account        org_id pk, google_email, refresh_token_encrypted, access_token_encrypted,
+                     token_expires_at, root_folder_id, scopes, connected_by, connected_at,
+                     state ('connected'|'needs_reconnect'|'disconnected'), last_error,
+                     quota_total_bytes, quota_used_bytes, quota_checked_at
+drive_folders        id, org_id, path_key text unique       -- e.g. 'Clients/Cafe Mocha/2026-10/Photos'
+                     drive_folder_id, created_at            -- cache so folders are made once
+drive_jobs           id, submission_item_id, kind ('copy_link'|'upload_file'|'recheck_link'|
+                     'delete_local'), state ('queued'|'running'|'done'|'failed'|'blocked'),
+                     attempts, next_attempt_at, last_error, created_at, finished_at
+```
+- Tokens are encrypted with a server-side key (never sent to the browser). Only `drive.manage` can read `drive_account`.
+- `drive_jobs` is the retry queue: idempotent, with exponential backoff and a cap.
+
+## 9. Files, notifications, audit, reports
 ```
 files                id, org_id, storage_key, name, mime, size_bytes, sha256 null, uploaded_by,
                      status ('pending'|'ready'|'failed'), created_at, archived_at
@@ -172,12 +195,13 @@ month_snapshots      id, org_id, month date (1st), version int, data jsonb, clos
 feature_flags        key pk, enabled, description
 ```
 
-## 9. Key indexes
+## 10. Key indexes
 - Every FK column.
 - `tasks(state, due_at)`, `tasks(approving_admin_id, state)`, `tasks(client_id)`, `task_assignees(member_id) where removed_at is null`.
 - `attendance_days(work_date, state)`, `leave_requests(state)`, `leave_requests(member_id, start_date, end_date)`.
 - `project_items(cycle_id, state)`, `project_cycles(project_id, period_start)`.
 - `task_reminders(fire_at) where sent_at is null and cancelled_at is null`.
 - `notifications(recipient_id, read_at, created_at desc)`.
+- `drive_jobs(state, next_attempt_at)`, `submission_items(archive_state)`, `submission_items(link_state) where kind = 'drive_link'`.
 - `activity_log(entity, entity_id, at desc)`, `activity_log(actor_id, at desc)`.
 - Full-text search: `tsvector` generated columns on clients, tasks, projects, items and contacts, with GIN indexes.

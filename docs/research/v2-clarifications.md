@@ -26,3 +26,12 @@ Source spec: [`v2-product-context.md`](v2-product-context.md). These answers fil
 | 9 | What happens when the CEO rejects attendance? | **The CEO sets the correct status, with a reason.** When rejecting, the CEO picks what the day actually was (Absent / Leave / Half-Day Leave / Compensatory Leave / Present) and gives a reason. The employee is notified. The original submission and the correction both stay in the history. The same applies to leave chosen at login. |
 
 **Status:** all clarification questions answered (2026-09-20). Next: rewrite PRODUCT / ARCHITECTURE / ADRs / ROADMAP / PROGRESS / CLAUDE.md from v2 + this file.
+
+## Infrastructure and file handling (2026-09-21)
+| # | Question | Answer |
+|---|---|---|
+| 10 | Hosting budget / free tier | Cloudflare Workers **free while building**, **Workers Paid ($5/mo) from the pilot** (free plan allows only 10 ms CPU per request). Everything else free at this size. Supabase Pro ($25/mo) later when the database or transfer grows. |
+| 11 | What gets uploaded into MaxOff | **Photos (2-3 MB each) and short videos.** Limits: images 25 MB, video 100 MB. Larger videos are submitted as **Google Drive links** instead. Photos must stay at **full original quality** (previews are separate). |
+| 12 | Archive | **Everything** (uploads and linked videos) is copied into the company Google Drive, `pcproductions.work@gmail.com` (personal Gmail, Google One 2 TB, **no Workspace**). Staff get **no Drive access**. MaxOff creates the folders and file names itself. Local copies are deleted after 90 days (photos) / 30 days (video), only once the Drive copy is confirmed. |
+| 13 | Private links | Checked when pasted. If not viewable: flag the submission and notify the submitter to set "anyone with the link can view". MaxOff re-checks and archives automatically. **Approval is not blocked.** |
+| 14 | Devices | Staff use iPhone, Android, Mac and Windows. One web app for all; iOS push requires adding the PWA to the home screen (guided on first login). |

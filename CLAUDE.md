@@ -23,6 +23,7 @@ MaxOff is the **internal operations and control system for Pixora Clips**. It co
 7. Attendance and leave are decided **only by the CEO**. History is never overwritten, and corrections sit alongside the original.
 8. **IST everywhere** through `app.today_ist()` / `core/time`. Never `new Date()` or `now()::date` for business dates.
 9. **Never destroy history:** archive, cancel with a reason, and add history rows. Permanent delete is CEO-only.
+   Submitted work is **never re-encoded** (originals stay full quality; previews are separate), and a local copy is deleted only **after** its Google Drive copy is confirmed (ADR-0010).
 10. Don't invent business rules. If WORKFLOWS or PRODUCT don't cover a case, **ask**.
 
 ## Engineering rules

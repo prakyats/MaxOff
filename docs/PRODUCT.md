@@ -161,21 +161,48 @@ Daily work allotted to people. **Only the CEO and Admins create tasks.**
 - Filters: client, employee, task type, status.
 - Helps spot conflicts and overloaded people. Admins see other people's work only as busy blocks.
 
-### 4.9 Files and versioned submissions
-- Uploading work to a task is **optional** and never required before Done.
-- Files up to about **2 GB** go **straight from the browser to storage** (resumable, in parts), never through the app server. MaxOff stores the metadata.
-- **Submissions are versioned** (v1, v2, …). Nothing is deleted when a new version arrives. Each version keeps its uploader, time, reviewer, comments and decision.
-- The CEO and Admin can preview (images, video, PDF), download, comment, approve or request changes.
-- Supported: images, video, audio, PDFs, office documents and common design files. No transcoding.
-- Downloads use short-lived private links. SVGs are sanitized.
+### 4.9 Work submissions: files and Drive links
+Submitting work on a task is **optional** and never required before Done. **Submissions are versioned** (v1, v2, …), nothing is replaced, and each version keeps its uploader, time, reviewer, comments and decision.
 
-### 4.10 Notifications
+There are two ways to submit, and MaxOff picks the right one automatically:
+
+| What | How | Limit |
+|---|---|---|
+| **Photos** and documents | Uploaded in MaxOff, straight from the browser to storage | **25 MB** per file |
+| **Short videos** | Uploaded in MaxOff the same way | **100 MB** per file |
+| **Large videos** | The person pastes a **Google Drive link** to their own file | No limit |
+
+- If a file is too big to upload, MaxOff says so and asks for a Drive link instead. Staff never need access to the company Drive.
+- **Originals are kept untouched, at full quality.** iPhone HEIC files, RAW files and large JPEGs are stored exactly as taken. For display, MaxOff makes a small JPEG **preview** so the photo opens in any browser, on any device. Reviewers can always open or download the original. Nothing is ever compressed or resized.
+- The CEO and Admin can preview (images, video, PDF), download, comment, approve or request changes, always against a specific version.
+- Downloads use short-lived private links. SVGs are sanitized. No transcoding.
+
+### 4.10 Google Drive archive
+Google Drive is the **permanent home** for everything submitted. MaxOff is the working copy.
+
+- MaxOff is connected to **one company Google account** (personal Gmail, no Workspace). Only the CEO connects or reconnects it in Settings. Staff have no access to it.
+- **Every uploaded file is copied to Drive.** **Every pasted video link is copied into the company Drive**, server to server through Google's own copy function, so nothing passes through MaxOff and it takes seconds. The company copy survives even if the employee later deletes theirs.
+- **Folders and names are created by MaxOff.** The person filling in the task fills in nothing:
+  ```
+  MaxOff Archive/
+    Clients/<Client>/<YYYY-MM>/Photos|Videos/
+      2026-10-07_Reel-4-Ambience_v1_Rahul_01.HEIC
+    Internal/<YYYY-MM>/Photos|Videos/
+  ```
+  Each Drive file's description holds a link back to its MaxOff task.
+- **A private or unreachable link** is detected the moment it's pasted. The task shows **"Link is private – not archived"**, the employee is notified with instructions to set *anyone with the link can view*, and MaxOff keeps retrying and archives as soon as access is granted. It **doesn't block** approval, but the CEO sees the warning.
+- **Storage cleanup:** MaxOff deletes its own copy of photos after **90 days** and videos after **30 days**, and **only when the Drive copy is confirmed**. The Drive archive is kept forever. Old versions are removed on the same rule.
+- If the Google connection expires (which happens with personal accounts), MaxOff shows the CEO a **"Reconnect Google Drive"** banner and queues everything until it's back. Nothing is lost and nothing is deleted while the queue is waiting.
+- Settings show how much storage MaxOff and Drive are using, with a warning before either runs low.
+
+### 4.11 Notifications
 - **Mandatory.** Users can't turn them off. They go only to the **relevant** people (see WORKFLOWS §9 for who receives what).
-- **Channels:** in-app (real time, with history and deep links) + **browser push** (Web Push/VAPID, PWA). **Email** is the fallback when push isn't available, and for escalations.
+- **Channels:** in-app (real time, with history and deep links) + **browser push** (Web Push/VAPID, PWA). **Email** is used only for **invites, escalations, the CEO's daily digest, and people with no working push**, capped per person per day, so the free email allowance is never the bottleneck.
+- **iPhone and iPad:** Apple only delivers push to an app added to the home screen. First login on iOS shows a short "Add MaxOff to your home screen" guide, and a banner stays until push works. In-app notifications and email work regardless.
 - **Reminders:** configurable per task (default: 2 days before, 1 day before, due time, overdue). Unacknowledged tasks get **repeated** reminders at controlled intervals, then **escalation** to the approving Admin or creator and then the CEO. Never spammy.
 - WhatsApp comes later.
 
-### 4.11 Revenue (CEO only)
+### 4.12 Revenue (CEO only)
 Only **client project items** carry revenue. Staff tasks never do.
 
 - **Billing category** for each project: **Retainer / Project / Additional Work**. It defaults from recurrence (weekly or monthly → Retainer, one-time → Project) and only the CEO can change it.
@@ -189,27 +216,29 @@ Only **client project items** carry revenue. Staff tasks never do.
 - **Billing status** per cycle or one-time project: *Not billed / Billed*, with an optional date and note. There's no invoicing.
 - Every figure can be traced back to the raw data behind it: item, category, planned value, allocation method, approval and override.
 
-### 4.12 Reports, month close and AI export (CEO only)
+### 4.13 Reports, month close and AI export (CEO only)
 - **Reports:** Potential, Achieved and Remaining revenue (by client, category and project) · client work completion (done vs approved) · project progress · Additional Work · overdue and delay patterns · **raw employee metrics** (completed, overdue, average completion time, rejections and revision loops, acknowledgement delay, attendance, overtime, workload) · trends. Available by week, month or custom range.
 - **No automatic ratings or scores**, only raw facts.
 - **Close month:** the CEO closes a month, which saves an **immutable snapshot**. Later changes never alter it. A mistake is fixed with an explicit **correction**, which creates a new snapshot version linked to the old one and records why.
 - **Exports:** Markdown, CSV and PDF. The **Markdown export is designed for AI analysis**: an executive summary followed by dense, structured raw data (tables and IDs) that answers questions like *"Which stage takes longest?", "Who is overloaded?", "How much potential revenue wasn't achieved?"*
 - Admins get operational reports for their own scope, with no money in them.
 
-### 4.13 Activity history
+### 4.14 Activity history
 - An **append-only** log of every important action: who, what, which record, when, and old and new values. It can't be edited or deleted.
 - Recorded in the same database transaction as the change. A change can't succeed without its audit record.
 - The CEO can search by person, client, record, action type and date. Admins see activity within their own scope.
 
-### 4.14 Global search
+### 4.15 Global search
 `Ctrl/Cmd + K` searches clients, people, tasks, projects, items and contacts, **only what the user is allowed to see**. Results are grouped by type and open the record directly.
 
-### 4.15 Settings
+### 4.16 Settings
 - **Company:** name, logo, timezone (IST), weekly off days, holidays, logout-reminder time, acknowledgement and escalation thresholds, default reminders.
 - **Team:** invite, role, job title, name, deactivate or reactivate (CEO). Job titles list.
 - **Lists:** task types (with event behaviour, default reminders and fields), stage presets, and other lists.
 - **Custom fields:** for clients, contacts, projects, items and tasks, globally or for one client.
 - **Templates:** project templates and task templates.
+- **Google Drive (CEO only):** connect or reconnect the company account, choose the archive root folder, and see the archive queue and any failures.
+- **Storage:** how much MaxOff (R2) and Google Drive are using, with warnings before either runs low.
 
 ---
 
