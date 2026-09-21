@@ -1,6 +1,7 @@
 # How to build MaxOff with Claude Code
 
-This guide is for **you**. `CLAUDE.md` and `docs/` are for Claude.
+This guide is for **you**: setup, models and the basics. For the day-to-day loop and **what to check after every task**, use **[OPERATING-MANUAL.md](OPERATING-MANUAL.md)**.
+`CLAUDE.md` and `docs/` are for Claude.
 **This folder is the project.** Claude Code works directly in it. GitHub (`origin`) is only a backup copy that `/finish-task` pushes to.
 
 ## The key idea: the memory lives in files, not in the chat
