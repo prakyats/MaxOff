@@ -31,7 +31,7 @@ MaxOff is the **internal operations and control system for Pixora Clips**. It co
 2. **Modules are isolated:** `app → modules (index.ts only) → core`. Core never imports modules. Lint enforces this.
 3. **Only `data/` layers touch the database** (`src/modules/*/data/`, `src/core/db/`).
 4. **Workflow changes go through Postgres transition functions** (ADR-0006): permission + scope + state check + change + `activity_log` + notifications in one transaction. State columns are never updated directly.
-5. **Plain edits:** server action = zod → `requirePermission` → repository → revalidate → `Result`. Auditing is done by the `audit_row_change()` trigger.
+5. **Plain edits:** server action = zod → `requirePermission` → repository → revalidate → `Result`. Auditing is done by the `audit_row_change()` trigger. **Actions stay thin** — no business logic in an action, and `modules/*/domain` never imports React, Next or DOM APIs (ADR-0011, lint-enforced).
 6. **RLS on every table** in the same migration that creates it, with **pgTAP tests for each role** (allowed and denied). Every transition function gets pgTAP tests for each path.
 7. **Migrations are append-only** (`pnpm db:new <name>`). Never edit an applied migration. Update `DATA-MODEL.md` first.
 8. **Custom fields only through `src/core/custom-fields`.**

@@ -91,6 +91,7 @@ public/            # manifest.webmanifest, icons, service worker (sw.js)
 
 ### 3.1 Import rules (eslint-plugin-boundaries)
 - `app → modules (index only) → core`. `core` never imports modules. No cycles.
+- **`modules/*/domain` is platform-free** (ADR-0011): no `react`, `react-dom`, `next/*`, `server-only` or DOM globals. It must stay usable from a future native app or a plain script.
 - Nothing outside a module imports its `data/`, `actions/` or internal `components/`.
 - **Only `modules/revenue` may import money types or query money tables and views.** Other modules show money only by rendering `revenue`'s exported components, which render nothing for non-CEO users. (`projects.billing_category` is not money: it's an operational label Admins may see. Only the CEO can set it.)
 - There is **no currency custom-field type**, so money can never leak in through `custom_fields`.

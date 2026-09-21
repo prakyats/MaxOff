@@ -14,7 +14,7 @@ Exit: an empty app on staging, CI green, all quality gates working, installable 
 - [x] **0.1** [C] Repo tooling: Next.js scaffold (keeping `docs/`, `.claude/`, `CLAUDE.md`), pnpm, strict TS, ESLint + Prettier, aliases, folder skeleton (ARCHITECTURE §3), `pnpm check`, `.env.example`, README, `.gitattributes`
 - [x] **0.2** [H] Local Supabase (CLI + Docker), base migration (extensions incl. `pg_cron`/`pg_net`, `app` schema, `updated_at` trigger, `app.today_ist()` / `to_ist_date()`), type generation, `core/db`, `core/errors` (AppError, Result, `action()`, Postgres error mapping), `core/time`
 - [x] **0.3** [C] UI shell: shadcn/ui, theme tokens (light/dark), layouts for each role (sidebar for CEO/Admin, bottom nav for Staff on mobile), error boundaries, 404/403, toasts, shared composites (EmptyState, PageHeader, DataTable, ConfirmDialog, ReasonDialog, StatusBadge, BulkBar)
-- [ ] **0.4** [C] Quality gates: Vitest, Playwright, pgTAP (one sample each), eslint-plugin-boundaries rules incl. the money-import rule, GitHub Actions CI
+- [ ] **0.4** [C] Quality gates: Vitest and Playwright are in place (0.2/0.3), so this task is the wiring — pgTAP and e2e joining `pnpm check`, eslint-plugin-boundaries (module isolation + the money-import rule + **`modules/*/domain` may not import `react`, `react-dom`, `next/*`, `server-only` or DOM globals**, ADR-0011), and GitHub Actions CI
 - [ ] **0.5** [H] Deploy: OpenNext on Cloudflare Workers + a staging Supabase project, env handling, Sentry, deploy workflow from `main`, PWA manifest + service worker shell
 
 ## Phase 1: Identity and access
@@ -99,4 +99,6 @@ Exit: everything in PRODUCT §4 is live in production, secured and backed up.
 ---
 
 ## Later (each a new module behind a feature flag)
-WhatsApp notifications · GST invoicing · leads pipeline · client portal · native mobile app · custom roles UI · AI insights inside MaxOff · social publishing · accounting integration
+WhatsApp notifications · GST invoicing · leads pipeline · client portal · custom roles UI · AI insights inside MaxOff · social publishing · accounting integration
+
+**Native app (ADR-0011), decided after the pilot:** the PWA already installs on both platforms. If the App Store, Play Store or more reliable iOS push is wanted, a **Capacitor shell** around the same app is ~2–4 weeks. A **React Native / Expo** app (native feel, real offline, background upload) is ~2–3 months and reuses the backend, rules, permissions and `domain/` untouched — only the UI is rebuilt.
