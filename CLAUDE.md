@@ -40,8 +40,10 @@ MaxOff is the **internal operations and control system for Pixora Clips**. It co
 
 ## Commands
 `pnpm dev` · `pnpm typecheck` · `pnpm lint` · `pnpm test` · `pnpm test:e2e` · `pnpm db:test` (pgTAP) · `pnpm build`
-`pnpm check` = typecheck + lint + unit + db tests + build. **It must pass before any commit.**
+`pnpm check` = typecheck + lint + format + unit + db tests + build. **It must pass before any commit.**
 `pnpm db:reset` · `pnpm db:new <name>` · `pnpm db:types`
+
+> Since task 0.1, `check` is typecheck + lint + format:check + build. The database commands join it in **0.2** and the unit, pgTAP and e2e commands in **0.4**, when those tools exist. No stub scripts: a command is in `check` only once it really runs.
 
 ## Definition of Done (every task)
 - [ ] `pnpm check` passes. New logic has unit tests, new tables have RLS tests for each role, new transition functions have tests for each path, and new flows have Playwright tests.

@@ -13,3 +13,13 @@ supabase/.branches/
 *.log
 .DS_Store
 Thumbs.db
+
+# next / typescript build artifacts
+/out/
+next-env.d.ts
+*.tsbuildinfo
+.eslintcache
+
+# misc
+*.pem
+.vercel

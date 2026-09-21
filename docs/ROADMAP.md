@@ -11,7 +11,7 @@
 
 ## Phase 0: Foundation
 Exit: an empty app on staging, CI green, all quality gates working, installable as a PWA.
-- [ ] **0.1** [C] Repo tooling: Next.js scaffold (keeping `docs/`, `.claude/`, `CLAUDE.md`), pnpm, strict TS, ESLint + Prettier, aliases, folder skeleton (ARCHITECTURE §3), `pnpm check`, `.env.example`, README, `.gitattributes`
+- [x] **0.1** [C] Repo tooling: Next.js scaffold (keeping `docs/`, `.claude/`, `CLAUDE.md`), pnpm, strict TS, ESLint + Prettier, aliases, folder skeleton (ARCHITECTURE §3), `pnpm check`, `.env.example`, README, `.gitattributes`
 - [ ] **0.2** [H] Local Supabase (CLI + Docker), base migration (extensions incl. `pg_cron`/`pg_net`, `app` schema, `updated_at` trigger, `app.today_ist()` / `to_ist_date()`), type generation, `core/db`, `core/errors` (AppError, Result, `action()`, Postgres error mapping), `core/time`
 - [ ] **0.3** [C] UI shell: shadcn/ui, theme tokens (light/dark), layouts for each role (sidebar for CEO/Admin, bottom nav for Staff on mobile), error boundaries, 404/403, toasts, shared composites (EmptyState, PageHeader, DataTable, ConfirmDialog, ReasonDialog, StatusBadge, BulkBar)
 - [ ] **0.4** [C] Quality gates: Vitest, Playwright, pgTAP (one sample each), eslint-plugin-boundaries rules incl. the money-import rule, GitHub Actions CI

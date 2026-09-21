@@ -1,0 +1,16 @@
+node_modules/
+.next/
+.open-next/
+.wrangler/
+coverage/
+playwright-report/
+test-results/
+pnpm-lock.yaml
+next-env.d.ts
+
+# SQL migrations are append-only and hand-formatted (CLAUDE.md engineering rule 7).
+supabase/migrations/
+
+# Markdown is the project's memory (CLAUDE.md, docs/, ADRs, .claude/ commands).
+# It is hand-formatted and must stay byte-stable, so Prettier owns code only.
+*.md
