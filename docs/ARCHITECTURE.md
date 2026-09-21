@@ -61,7 +61,7 @@ src/
     lists/                   # list_items engine + registry
     storage/                 # StorageAdapter (R2), multipart presign, file metadata
     notifications/           # NotificationService, channels (push, email), <Bell>
-    time/                    # IST helpers: todayIST(), toIST(), isWorkingDay()
+    time/                    # IST helpers: todayIST(), toISTDate(), istDayRange(), formatIST(); isWorkingDay() in 1.4
     realtime/                # useRealtimeInvalidate(table, filter) → TanStack Query invalidation
     errors/                  # AppError, Result<T>, action() wrapper, Postgres error mapping
     ui/                      # design system + composites (DataTable, EmptyState, PageHeader,
@@ -144,7 +144,7 @@ export const updateClient = action(async (input: unknown) => {
 Auditing for plain edits is done by a **generic `audit_row_change()` trigger** on audited tables. It writes `activity_log` with the old/new diff and `auth.uid()` in the **same transaction**, so it can't be skipped or fail silently.
 
 ### 4.3 Errors
-`action()` catches `AppError`, zod errors and Postgres errors. Transition functions raise `P0001` with codes such as `INVALID_STATE`, `FORBIDDEN` and `REASON_REQUIRED`, which are mapped to friendly messages. Actions return `{ ok: false, error: { code, message, fieldErrors } }` and never throw raw database errors to the UI.
+`action()` catches `AppError`, zod errors and Postgres errors. Transition functions raise through `perform app.fail('INVALID_STATE', 'This task is already completed')`: SQLSTATE `P0001`, **message = the code** (`UNAUTHENTICATED`, `FORBIDDEN`, `NOT_FOUND`, `VALIDATION`, `CONFLICT`, `INVALID_STATE`, `REASON_REQUIRED`, `RATE_LIMITED`), **detail = the human reason**. `core/errors` maps the code and shows the detail when present, or the code's default message. Actions return `{ ok: false, error: { code, message, fieldErrors } }` and never throw raw database errors to the UI.
 
 ---
 

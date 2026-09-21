@@ -23,3 +23,9 @@ next-env.d.ts
 # misc
 *.pem
 .vercel
+
+# personal Claude Code settings (hooks, permissions)
+.claude/settings.local.json
+
+# cache of the personal Impeccable hook (.claude/settings.local.json)
+.impeccable/

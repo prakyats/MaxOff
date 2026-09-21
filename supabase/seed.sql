@@ -1,0 +1,3 @@
+-- Dev seed, loaded by `pnpm db:reset` after the migrations (config.toml [db.seed]).
+-- Task 1.1 adds the organization, the CEO, sample Admins and Staff and the Pixora lists.
+-- Real data never goes into local or staging (ARCHITECTURE §2).

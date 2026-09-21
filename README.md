@@ -38,11 +38,16 @@ pnpm dev                     # http://localhost:3000
 | `pnpm typecheck` | `next typegen` + `tsc --noEmit` |
 | `pnpm lint` · `pnpm lint:fix` | ESLint |
 | `pnpm format` · `pnpm format:check` | Prettier |
-| `pnpm check` | typecheck + lint + format + build. **Must pass before any commit** |
+| `pnpm test` · `pnpm test:watch` | Vitest unit tests |
+| `pnpm db:start` · `pnpm db:stop` · `pnpm db:status` | Local Supabase stack in Docker. `db:status` prints the URL and keys for `.env.local` |
+| `pnpm db:reset` | Recreate the local database from `supabase/migrations` + `supabase/seed.sql` |
+| `pnpm db:new <name>` | New append-only migration file |
+| `pnpm db:types` | Regenerate `src/core/db/database.types.ts` from the local database |
+| `pnpm db:test` | pgTAP tests in `supabase/tests` (needs the stack running) |
+| `pnpm check` | typecheck + lint + format + unit tests + build. **Must pass before any commit** |
 
-Unit tests (`pnpm test`), database tests (`pnpm db:test`) and the Supabase commands
-(`pnpm db:reset`, `pnpm db:new`, `pnpm db:types`) join this table in tasks 0.2 and 0.4,
-and `pnpm check` grows to include them.
+Database tests and Playwright join `pnpm check` and CI in task 0.4.
+Studio for the local stack: http://127.0.0.1:54323 once `pnpm db:start` is up.
 
 ## Repository layout
 

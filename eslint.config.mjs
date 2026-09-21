@@ -16,7 +16,26 @@ const eslintConfig = defineConfig([
         "error",
         { prefer: "type-imports", fixStyle: "inline-type-imports" },
       ],
+      // ADR-0008: business dates come from core/time, never from the wall clock.
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "NewExpression[callee.name='Date'][arguments.length=0]",
+          message:
+            "Don't read the wall clock here. Use todayIST()/systemClock from @/core/time (ADR-0008).",
+        },
+        {
+          selector: "CallExpression[callee.object.name='Date'][callee.property.name='now']",
+          message:
+            "Don't read the wall clock here. Use todayIST()/systemClock from @/core/time (ADR-0008).",
+        },
+      ],
     },
+  },
+  {
+    // The one place that may read the clock. Tests build explicit instants instead.
+    files: ["src/core/time/**"],
+    rules: { "no-restricted-syntax": "off" },
   },
   // Must stay last: turns off the rules Prettier owns.
   prettier,

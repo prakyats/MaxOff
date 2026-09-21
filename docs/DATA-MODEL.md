@@ -32,6 +32,18 @@ field_type         text | long_text | number | date | datetime | checkbox | sele
                    -- deliberately NO currency type: money lives only in the CEO-only tables (§7)
 ```
 
+## 0a. Base schema (task 0.2)
+Extensions: `pg_cron` (in `pg_catalog`, jobs from 2.5), `pg_net` (in `extensions`). pgTAP is created by the test runner only, never in production.
+Schema **`app`** holds the helpers every module uses. It's not exposed through the API. `authenticated` and `service_role` have usage and execute; `anon` has nothing. Every function in `app` (and every `security definer` function later) gets an explicit `revoke all ... from public` + `grant execute ... to authenticated, service_role`, because Postgres grants EXECUTE to PUBLIC on creation and a per-schema default privilege can't undo it. Consequence: a policy or default that calls `app.*` raises `42501` for `anon` instead of returning no rows, so no table may be readable by `anon` (fine: clients never log in).
+```
+app.set_updated_at()            BEFORE UPDATE row trigger: every table with updated_at attaches it
+app.to_ist_date(timestamptz)    -> date in Asia/Kolkata (stable, strict; null in -> null out)
+app.today_ist()                 -> app.to_ist_date(now())
+app.fail(code, detail)          raises SQLSTATE P0001 with message = code, detail = the human reason
+                                (ARCHITECTURE 4.3). Every transition function raises through it
+app.is_working_day(date)        weekly offs + holidays, arrives in 1.4
+```
+
 ## 1. Organization, people and access
 ```
 organizations        id, name, logo_file_id, timezone ('Asia/Kolkata'), created_at

@@ -14,3 +14,4 @@ supabase/migrations/
 # Markdown is the project's memory (CLAUDE.md, docs/, ADRs, .claude/ commands).
 # It is hand-formatted and must stay byte-stable, so Prettier owns code only.
 *.md
+.impeccable/
