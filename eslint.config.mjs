@@ -52,6 +52,8 @@ const eslintConfig = defineConfig([
     "playwright-report/**",
     "test-results/**",
     "supabase/migrations/**",
+    // Local design tooling (git-ignored), e.g. screenshot scripts.
+    ".impeccable/**",
   ]),
 ]);
 

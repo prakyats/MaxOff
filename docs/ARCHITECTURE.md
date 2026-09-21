@@ -64,8 +64,10 @@ src/
     time/                    # IST helpers: todayIST(), toISTDate(), istDayRange(), formatIST(); isWorkingDay() in 1.4
     realtime/                # useRealtimeInvalidate(table, filter) → TanStack Query invalidation
     errors/                  # AppError, Result<T>, action() wrapper, Postgres error mapping
-    ui/                      # design system + composites (DataTable, EmptyState, PageHeader,
-                             #   ConfirmDialog, ReasonDialog, BulkBar, FileDrop, StatusBadge)
+    ui/                      # design system (task 0.3): primitives/ (shadcn/ui, added with
+                             #   `pnpm dlx shadcn add`, see components.json), composites/ (DataTable,
+                             #   EmptyState, PageHeader, ConfirmDialog, ReasonDialog, BulkBar,
+                             #   StatusBadge, FileDrop in 8.1), shell/ (AppShell, role nav), theme/
     lib/
   modules/
     team/          attendance/     leave/        clients/       client-work/
@@ -112,6 +114,41 @@ public/            # manifest.webmanifest, icons, service worker (sw.js)
 | search | — (search function) | module indexes |
 
 Core owns organizations, files, notifications, notification_deliveries, push_subscriptions, activity_log, list_items and field_definitions.
+
+### 3.3 Design tokens and rules (`core/ui`, task 0.3)
+Pixora Clips' brand is red `#C42126`, white and black. The app is **premium through restraint**: graphite and bone surfaces, generous space, and red used **only for identity and urgency**, never as decoration. Tokens live in `src/app/globals.css` (`:root` light, `.dark` dark) and reach Tailwind through `@theme inline`. Screens use the tokens below and nothing else; a new colour needs a change here first.
+
+| Token | Light | Dark | Used for |
+|---|---|---|---|
+| `background` | `#FAFAF9` | `#0B0B0C` | the page |
+| `card` / `popover` / `sidebar` (surface) | `#FFFFFF` | `#141416` | cards, sidebar, menus, dialogs: one step above the page |
+| `muted` / `secondary` / `accent` | `#F2F1EF` | `#1F1F23` | quiet fills, hover rows, active nav |
+| `border` / `input` | `#E7E5E4` | `#26262A` | hairlines |
+| `foreground` | `#18181B` | `#FAFAF9` | text |
+| `muted-foreground` | `#71717A` | `#A1A1AA` | secondary text (≥ 4.5:1 on page and surface) |
+| `logo` | `#C42126` | `#C42126` | the logo tile only, with a white M. A fixed brand asset: it never lightens in dark mode; only the wordmark follows the theme |
+| `brand` (= `ring`, `destructive`) | `#C42126` | `#F2686D` | the 2px active-nav bar, focus ring, unread dot, destructive buttons |
+| `primary` | `#18181B` | `#FAFAF9` | buttons stay neutral; red would shout |
+| `success` | `#047857` | `#34D399` | approved, completed, done, settled, billed, present, active |
+| `info` | `#1D4ED8` | `#7DA2FF` | **work in motion only**: in progress, submitted, converted |
+| `attention` | `#AD5009` ¹ | `#FBBF24` | pending review, awaiting choice, changes requested, admin approved, paused |
+| `danger` | `#C42126` | `#F2686D` | overdue, rejected, absent, cancelled, declined, urgent |
+| `neutral` | `#52525B` | `#A1A1AA` | draft, to do, inactive, withdrawn, none, skipped, and informational values (invited, leave types, corrected, carry forward) |
+
+¹ The brief's `#B45309` reads at 4.26:1 on a 12% tint; `#AD5009` is the nearest value that clears 4.5:1.
+
+Each tone has a `*-soft` pill background (`success-soft` ...): the tone at **12% over the light surface and 18% over the dark surface**, so every pill has a visible tint and its text reads at **>= 4.5:1**; `status-badge.test.ts` reads `globals.css` and fails if any pair drops below. Danger and brand are deliberately the same red: red should be rare, so when it appears it means "act now".
+
+Rules every screen follows:
+- **`StatusBadge` has exactly six tones**: `success`, `info`, `attention`, `danger`, `neutral`, `brand`. Every DATA-MODEL §0 value maps to one of them in `STATUS_TONES` (tested). Stage names, task types and other data get `neutral` unless a workflow state says otherwise.
+- **A plain `<Badge>` is a neutral pill** (the primitive's default variant), never a solid block. `StatusBadge` adds the tone.
+- **Dashed borders mean "empty" only** (`EmptyState`). Loading, error and content containers use solid hairlines.
+- **One accent per screen.** If a page shows a red badge, its buttons stay neutral (`primary`, `outline`, `ghost`). `destructive` buttons are for confirmed destructive actions only.
+- **Tabular numbers** everywhere (`font-variant-numeric: tabular-nums` on `body`): counts, dates, times and amounts line up.
+- **Radii 10-12px** (`--radius` 10px; `xl` and above collapse to 12px), **hairline borders**, **no heavy shadows** (the `--shadow-*` tokens are soft and offset).
+- **Focus is always visible**: components use `ring-ring` (brand) and a global `:focus-visible` outline catches the rest. Text selection, caret and form accents use `brand`.
+- **Typography:** Geist (UI) and Geist Mono (data) through `next/font`. Nexa and Robot Heroes are logo and marketing faces only (licensed, not self-hosted in the app).
+- **Layout:** shell pages sit in a 1280px container with even gutters (`px-4 sm:px-6 lg:px-8`). Staff screens are laid out for 375px first.
 
 ---
 

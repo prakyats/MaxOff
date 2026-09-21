@@ -6,6 +6,9 @@ const nextConfig: NextConfig = {
   // CLAUDE.md is hand-written project memory, so we keep Next out of it.
   // Next 16's own guidance lives in `node_modules/next/dist/docs/`.
   agentRules: false,
+  // The dev-tools button otherwise sits on the sidebar footer (bottom-left) and hides the
+  // development-only role switcher.
+  devIndicators: { position: "bottom-right" },
   // OpenNext / Cloudflare Workers configuration arrives in task 0.5 (ADR-0003).
 };
 

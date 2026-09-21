@@ -29,3 +29,6 @@ next-env.d.ts
 
 # cache of the personal Impeccable hook (.claude/settings.local.json)
 .impeccable/
+
+# Local UI screenshots per task (before/after comparison). Never committed.
+screenshots/

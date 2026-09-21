@@ -1,0 +1,32 @@
+import { HammerIcon, type LucideIcon } from "lucide-react";
+
+import { EmptyState } from "@/core/ui/composites/empty-state";
+import { PageHeader } from "@/core/ui/composites/page-header";
+
+/**
+ * Stand-in for a screen a later roadmap task builds. Each page names its task so the
+ * "filled in task N" note stays visible until the real screen replaces it.
+ */
+export function PlaceholderPage({
+  title,
+  description,
+  task,
+  icon = HammerIcon,
+}: {
+  title: string;
+  description: string;
+  /** Roadmap task that builds this screen, e.g. "6.1". */
+  task: string;
+  icon?: LucideIcon;
+}) {
+  return (
+    <>
+      <PageHeader title={title} description={description} />
+      <EmptyState
+        icon={icon}
+        title={`${title} is filled in task ${task}`}
+        description="The shell, navigation and shared components are in place. This screen arrives with its module."
+      />
+    </>
+  );
+}
