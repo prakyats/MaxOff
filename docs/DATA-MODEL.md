@@ -36,8 +36,10 @@ field_type         text | long_text | number | date | datetime | checkbox | sele
 ```
 organizations        id, name, logo_file_id, timezone ('Asia/Kolkata'), created_at
 org_settings         org_id pk, weekly_off_days smallint[] (0=Sun..6=Sat), logout_reminder_time time,
-                     ack_repeat_hours int, ack_escalate_hours int, overdue_escalate_hours int,
+                     ack_repeat_hours int (2), ack_escalate_hours int (4), ack_escalate_ceo_hours int (8),
+                     overdue_escalate_hours int (24), email_daily_cap_per_member int (20),
                      default_task_reminders jsonb, workload_warning_threshold int
+                     -- defaults in brackets = launch settings (PRODUCT §7)
 holidays             id, org_id, date, name, unique(org_id, date)
 members              id (= auth.users.id), org_id, full_name, email, phone, avatar_file_id,
                      role member_role, job_title_id → list_items, status member_status,
@@ -64,6 +66,7 @@ field_definitions    id, org_id, entity ('client'|'contact'|'project'|'item'|'ta
                      task_type_id null (a field that exists for one task type only),
                      key, label, help_text, type field_type, options jsonb, required,
                      section, position, archived_at, unique(org_id, entity, key, client_id, task_type_id)
+                     -- rows with entity in ('project','item') are CEO-only to create/edit (PERMISSIONS ¹)
 ```
 Entities with custom fields have `custom_fields jsonb not null default '{}'`, validated against active definitions on every write (`core/custom-fields`).
 
@@ -74,10 +77,11 @@ attendance_days      id, member_id, work_date date (IST), first_login_at, is_day
                      proposed_by_system bool (absent check), final_status day_status null,
                      decided_by, decided_at, decision_reason,
                      last_logout_at, logout_not_recorded bool, overtime_flag bool, overtime_reason,
+                     worked_on_leave bool ("1 day worked": Present approved on an approved-leave day),
                      leave_request_id null, unique(member_id, work_date)
-attendance_events    id, attendance_day_id, action ('submitted'|'proposed_absent'|'approved'|
-                     'corrected'|'logout'|'overtime_flagged'), from_status, to_status, reason,
-                     actor_id, at                                  -- append-only
+attendance_events    id, attendance_day_id, action ('submitted'|'proposed_absent'|'derived_from_leave'|
+                     'approved'|'corrected'|'logout'|'overtime_flagged'), from_status, to_status, reason,
+                     actor_id null (system), at                    -- append-only
 leave_requests       id, member_id, type leave_type, start_date, end_date, reason,
                      state leave_state, source ('form'|'attendance'|'ceo'), supersedes_id null,
                      decided_by, decided_at, decision_reason, created_at
@@ -101,21 +105,26 @@ view client_labels   (id, name, logo_file_id, colors, fonts, tone_of_voice, bran
 ## 5. Client work: projects, cycles, items
 ```
 projects             id, client_id (required), name, description, recurrence, state project_state,
-                     billing_category (CEO-set; default from recurrence), template_id null,
+                     billing_category (CEO-set; default from recurrence; a template's default applies
+                     only when the CEO creates the project), template_id null,
                      custom_fields, created_by, completed_at, completed_by, archived_at
+                     -- guard trigger: state, billing_category, client_id and recurrence change only
+                     -- through transition functions (billing_category/client_id/recurrence: CEO only)
 project_stages       id, project_id, name, position                  -- copied from a preset; may be empty
 project_item_blueprints  id, project_id, title, position            -- item list copied into each new cycle
 project_cycles       id, project_id, period_start date null, period_end date null, label,
-                     state cycle_state, generated_by ('schedule'|'manual'|'create'),
-                     unique(project_id, period_start)
+                     state cycle_state, generated_by ('schedule'|'manual'|'create'|'carry'), created_at,
+                     unique(project_id, period_start),
+                     unique partial index (project_id) where period_start is null  -- one cycle per one-time project
 project_items        id, cycle_id, title, position, planned_date null, notes, custom_fields,
                      state item_state, done_at, done_by, approved_at, approved_by,
-                     cancelled_reason, carry_decision null, carry_decided_by, carry_decided_at,
+                     cancelled_reason, cancelled_by, cancelled_at,
+                     carry_decision null, carry_decided_by, carry_decided_at,
                      carried_from_item_id null, origin_cycle_id (self cycle unless carried in)
 project_item_stages  item_id, stage_id, done_at, done_by, pk(item_id, stage_id)
 item_reviews         id, item_id, decision review_decision, reason, reviewer_id, at   -- append-only
-project_templates    id, org_id, name, description, recurrence, default_billing_category,
-                     stages text[], items text[], field_defaults jsonb, archived_at
+project_templates    id, org_id, name, description, recurrence, default_billing_category (applied only
+                     when the CEO creates the project), stages text[], items text[], field_defaults jsonb, archived_at
 ```
 
 ## 6. Staff tasks
@@ -144,8 +153,8 @@ submission_items     id, submission_id, kind ('upload'|'drive_link'),
                      drive_file_id null, drive_web_link null, archived_at,
                      archive_error, archive_attempts, local_deleted_at, created_at
 task_reminders       id, task_id, member_id null, kind ('before_due'|'due'|'overdue'|'ack'|
-                     'ack_escalation'|'overdue_escalation'|'event'), fire_at, sent_at null,
-                     cancelled_at null                               -- materialized from reminder_rules
+                     'ack_escalation'|'overdue_escalation'|'event'), escalation_level int null (1 = Admin, 2 = CEO),
+                     fire_at, sent_at null, cancelled_at null       -- materialized from reminder_rules + org_settings
 task_warnings        id, task_id, kind ('overlap'|'workload'|'on_leave'), details jsonb,
                      overridden_by, at
 task_requests        id, org_id, requested_by, title, details, client_id null, state request_state,
@@ -183,7 +192,8 @@ drive_jobs           id, submission_item_id, kind ('copy_link'|'upload_file'|'re
 ## 9. Files, notifications, audit, reports
 ```
 files                id, org_id, storage_key, name, mime, size_bytes, sha256 null, uploaded_by,
-                     status ('pending'|'ready'|'failed'), created_at, archived_at
+                     status ('pending'|'ready'|'failed'|'deleted'), created_at, archived_at
+                     -- 'deleted' = the R2 object was removed by retention; the row stays
 notifications        id, recipient_id, kind, title, body, link, entity, entity_id, payload jsonb,
                      created_at, read_at null, escalation_level int
 notification_deliveries  id, notification_id, channel ('push'|'email'), state ('queued'|'sent'|'failed'),
@@ -193,6 +203,8 @@ activity_log         id bigint identity, org_id, actor_id null (system), entity,
 eod_reports          id, org_id, report_date, data jsonb, generated_at, unique(org_id, report_date)
 month_snapshots      id, org_id, month date (1st), version int, data jsonb, closed_by, closed_at,
                      corrects_id null, correction_note, unique(org_id, month, version)
+                     -- eod_reports and month_snapshots contain revenue: CEO-only tables
+                     -- (single policy has_permission('reports.all')). Admin scoped reports are computed live.
 feature_flags        key pk, enabled, description
 ```
 

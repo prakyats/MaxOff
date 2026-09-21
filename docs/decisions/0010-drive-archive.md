@@ -1,6 +1,6 @@
 # ADR-0010: Google Drive is the permanent archive; MaxOff keeps a short-lived working copy
 
-- **Status:** accepted
+- **Status:** accepted, amended 2026-09-21 (submissions only; previews kept after retention)
 - **Date:** 2026-09-21
 
 ## Context
@@ -11,7 +11,8 @@ Pixora already keeps final files in Google Drive and has a 2 TB Google One plan 
 - **Everything is archived to one company Google account.** Uploads are pushed to Drive from the server. Pasted links are duplicated with Google's server-side `files.copy`, so the bytes never pass through MaxOff and the company owns the copy.
 - **MaxOff creates the folder structure and file names** (`Clients/<Client>/<YYYY-MM>/Photos|Videos/`, `YYYY-MM-DD_<task>_v<n>_<Name>_<nn>.<ext>`), and each Drive file's description links back to its task. The submitter fills in nothing.
 - **Originals are never re-encoded.** Photos get a separate small JPEG preview (also solving HEIC display on Windows and Android).
-- **Retention:** local copies are deleted after 90 days (photos) or 30 days (video), and only once the Drive copy is confirmed. The Drive archive and all metadata are permanent.
+- **Only submissions are archived.** Drive jobs are queued by `task_submit_version`, never by the generic upload completion, so logos, avatars and previews stay out of Drive.
+- **Retention:** local **originals** are deleted after 90 days (photos) or 30 days (video), and only once the Drive copy is confirmed. Previews are kept. The Drive archive and all metadata are permanent.
 - **A private or unreachable link** is flagged and the submitter is asked to fix sharing. It never blocks approval, and MaxOff re-checks and archives by itself once access is granted.
 - Connecting or reconnecting the Google account is CEO-only. Tokens are encrypted at rest and never reach the browser.
 

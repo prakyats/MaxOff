@@ -39,7 +39,7 @@
 | `activity.view_all` | The full activity log | ✅ | | |
 | `records.hard_delete` | Permanent deletion (exceptional) | ✅ | | |
 
-¹ Admins can edit lists and field definitions except company-level settings. *Adjustable: it's just a row in `role_permissions`.*
+¹ Admins can edit lists and field definitions except company-level settings, and except **custom field definitions on `project` and `item`**, which are CEO-only (this closes the "amount in a number field" loophole, since there's no currency type). *Adjustable: it's just a row in `role_permissions`.*
 
 **The CEO doesn't mark attendance.** The first-login attendance gate applies to Admins and Staff only.
 
@@ -59,7 +59,7 @@
 | Availability of others | Full detail | **Counts and busy blocks only** (`member_availability()` function) | ❌ |
 | Money (any amount, override, billing status, revenue) | ✅ | ❌ (not even in exports) | ❌ |
 | A project's billing **category** (Retainer / Project / Additional Work) | ✅ set and see | See only (it's operational context, not an amount) | ❌ |
-| Reports / snapshots | All | Scoped operational reports | ❌ |
+| Reports / snapshots | All | Scoped operational reports, **computed live**. `eod_reports` and `month_snapshots` hold revenue and are CEO-only tables | ❌ |
 | Activity log | All | Entries about records they can see | Entries about their own tasks, attendance and leave |
 | Notifications | Own | Own | Own |
 
@@ -67,6 +67,9 @@
 
 ## 3. Rules enforced by transition functions (not just RLS)
 - Only the task's **approving Admin** can do the Admin approval step, and never on a task they're assigned to (#3).
-- Only the **primary owner** can mark a task Done. Once the Admin has approved, assignees can't edit.
+- Only the **primary owner** can mark a task Done. From `submitted` onwards, assignees can't edit (they can still comment).
+- A task may be **edited, reassigned, cancelled or reopened** only by its **creator**, its **approving Admin** or the **CEO**. Other Admins who can see it can't change it.
 - Only the CEO can move money fields, approve items, approve tasks finally, decide attendance and leave, and close months.
+- Only the CEO can change `projects.billing_category`, `projects.client_id` and `projects.recurrence` (guard trigger, like state columns). An Admin-created project takes its billing category from its recurrence; a template's default category applies only when the CEO creates the project.
+- Custom field definitions for `project` and `item` are CEO-only (footnote ¹).
 - The single-CEO rule is enforced by a unique partial index on `members(role) where role = 'ceo'`.

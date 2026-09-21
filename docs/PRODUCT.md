@@ -3,7 +3,7 @@
 > **What** MaxOff does and **why**. How it's built: `ARCHITECTURE.md`. Tables: `DATA-MODEL.md`.
 > States and transitions: `WORKFLOWS.md`. Who can do what: `PERMISSIONS.md`.
 > Sources: `research/v2-product-context.md` + `research/v2-clarifications.md`. **Where they differ, this file wins.**
-> Owner: Pixora Clips · Last updated: 20 Sep 2026
+> Owner: Pixora Clips · Last updated: 21 Sep 2026
 
 ---
 
@@ -70,7 +70,10 @@ The full permission and visibility matrix is in `PERMISSIONS.md`. The key rules:
 - MaxOff records the first-login time, the choice, logout times, and the CEO's decision with its time and reason.
 - **The CEO approves**, one at a time or in bulk. **When rejecting, the CEO sets the correct status** (Absent / Leave / Half-Day / Comp Leave / Present) and gives a reason, and the employee is notified. The original choice and the correction are both kept.
 - **11:59 PM IST check:** an active employee with no submission on a **working day** is marked **"Absent – pending CEO approval"**, and the CEO gets one notification listing everyone. Absence becomes official only once the CEO approves it. Anyone with **approved leave** for that date is set to their leave status automatically and is never proposed absent.
-- **On an approved-leave day there's no gate.** If the person logs in anyway, a banner says "You're on approved leave today", with an optional **"I'm working today"** button that submits Present for the CEO to review.
+- **On an approved-leave day there's no gate.** If the person logs in anyway, a banner says "You're on approved leave today", with an optional **"I'm working today"** button that submits Present for the CEO to review. If the CEO approves it, the day is flagged **"1 day worked"** and the leave request itself is **not** altered. The attendance day is the source of truth for a date.
+- **Approved half-day leave:** no gate either, but the first login, session events and logout are still recorded.
+- **A leave approved later wins.** If leave for today is approved after the person already submitted Present, the day is corrected to the leave status automatically, audited as a system correction, and the person is notified.
+- **A CEO correction to a leave type** (Leave / Half-Day / Comp Leave) also creates an approved leave request for that date, so the calendar and availability stay right.
 - **Days off:** the CEO sets the **weekly off days** (currently Sunday) and a **holiday list** in Settings. There's no absent check on days off, but anyone who logs in is still asked, and the day is marked **"Worked on a day off"** — useful when granting compensatory leave.
 - **The CEO is exempt** from the attendance gate and its reminders.
 - **Forgotten logout:** around **8:30 PM IST** (configurable), anyone still logged in gets a reminder: *"You may have forgotten to log out. If you're done, log out; if you're working overtime, carry on."* If they never log out, the day is flagged **"Logout not recorded"**. A logout time is **never** made up.
@@ -114,7 +117,8 @@ Each client has one central page, visible to the CEO and the client's Admin.
   - At **12:00 AM IST on the 1st** (monthly) or **Monday** (weekly), MaxOff creates a new cycle for each recurring project of every **Active** client, copying the project's **item list**. The Admin then renames items with that period's themes.
   - A one-time project has a single cycle with no period.
   - The Admin or CEO can also start a cycle manually.
-- **Unfinished items at the end of a cycle** are highlighted, and the **CEO decides** each one: **Carry forward** (moved into the next cycle as a carry-forward item that keeps its original period and value, so it doesn't inflate the new cycle's scope or planned revenue), **Close** (closed with a reason, never deleted) or **Leave pending**.
+- **Unfinished items at the end of a cycle** are highlighted, and the **CEO decides** each one: **Carry forward** (moved into the next cycle as a carry-forward item that keeps its original period and value, so it doesn't inflate the new cycle's scope or planned revenue), **Close** (closed with a reason, never deleted; its value stays in Potential as *closed, not achieved*, so lost revenue remains visible) or **Leave pending**.
+  - If the next cycle doesn't exist yet (before the 1st or Monday, or because the client is **paused**), carrying forward **creates it**.
 - **Project status:** Open → In progress → Completed / Cancelled. **Completion is a manual CEO decision.** Projects never close automatically, and the CEO can reopen them.
 - **Project templates:** reusable setups with a recurrence, stage preset, item list, default billing category and custom fields. Everything generated stays editable.
 
@@ -125,7 +129,7 @@ Daily work allotted to people. **Only the CEO and Admins create tasks.**
 - **Task types** (editable list): Normal, Shoot / Site Visit, Meeting, Posting, Review / Approval, Other, Custom.
   - Event-type tasks (Shoot, Site Visit, Meeting, Posting) also have an event date, an optional time, a location and a purpose, and appear on the calendar.
   - A type can have its own custom fields and default reminders.
-- **Acknowledgement:** **every assignee** must tap **"Task Noted"**, which records who and when. Unacknowledged tasks get repeated reminders, then escalate to management after a configurable threshold. Management sees each assignee's acknowledgement status.
+- **Acknowledgement:** **every assignee** must tap **"Task Noted"**, which records who and when. Unacknowledged tasks get repeated reminders, then escalate to the approving Admin (or creator) after a configurable threshold, and to the CEO after a second one. Management sees each assignee's acknowledgement status.
 - **Doing the work:** assignees add timestamped comments and updates, tick stages, and upload files (optional, versioned, see §4.9). **The primary owner marks the task Done.** If a task misses its deadline, the primary owner must give a reason, and other assignees can add their own reasons in comments.
 - **Approval chain:** depends on how the task was created.
 
@@ -140,12 +144,13 @@ Daily work allotted to people. **Only the CEO and Admins create tasks.**
   - The CEO can change or remove the approving Admin at any time.
   - A task is **finally complete only after CEO approval**. The CEO can approve one at a time or in bulk, and each task gets its own approval record.
   - **A rejection (by the Admin or CEO) needs a reason.** The task goes back to the assignees as *Changes requested*, and they fix it and resubmit.
-  - Once the Admin approves, **assignees can't edit** the task. Only the CEO or Admin can reopen it.
-- **Overdue:** a task is overdue **the moment its deadline passes** without final CEO approval. It's shown as a badge, while the task's status stays what it was.
+  - From the moment Done is submitted, **assignees can't edit** the task (they can still comment). Editing resumes only if changes are requested.
+  - **Editing, reassigning, cancelling and reopening** a task is limited to its **creator**, its **approving Admin** and the **CEO**. A reopened task goes through the **same approval route again**, and acknowledgements are kept.
+- **Overdue:** a task is overdue **the moment its deadline passes** without final CEO approval. It's shown as a badge, while the task's status stays what it was. If nothing has been submitted a configurable time after the deadline (default 24 h), the approving Admin (or creator) and the CEO are notified.
 - **Changes after acknowledgement:** the CEO or Admin can change assignees, deadline, scope, priority and reminders. Each change records who, when, the old value and the new value, and affected people are notified.
 - **Cancel:** the CEO or Admin can cancel with a reason. Reminders stop, and the task stays in history and reports.
 - **Warnings (never blocking):** when assigning, MaxOff warns about **overlapping timed work**, **heavy same-day workload** and **approved leave** on that date. If the person proceeds anyway, the override is recorded.
-- **Task requests:** Staff can **suggest** a task (title, details, optional client). The CEO or Admin turns it into a real task or declines it with a reason.
+- **Task requests:** Staff and Admins can **suggest** a task (title, details, optional client). The CEO or Admin turns it into a real task or declines it with a reason.
 - **Task templates:** type, default stages, reminders, priority and field defaults. They **never** fix the client, assignee or deadline.
 - **Duration without time tracking:** MaxOff keeps these timestamps: *assigned*, *each acknowledgement*, *Done*, *Admin approved*, *CEO approved*. Rough durations are worked out from them.
 
@@ -175,7 +180,7 @@ There are two ways to submit, and MaxOff picks the right one automatically:
 | **Large videos** | The person pastes a **Google Drive link** to their own file | No limit |
 
 - If a file is too big to upload, MaxOff says so and asks for a Drive link instead. Staff never need access to the company Drive.
-- **Originals are kept untouched, at full quality.** iPhone HEIC files, RAW files and large JPEGs are stored exactly as taken. For display, MaxOff makes a small JPEG **preview** so the photo opens in any browser, on any device. Reviewers can always open or download the original. Nothing is ever compressed or resized.
+- **Originals are kept untouched, at full quality.** iPhone HEIC files, RAW files and large JPEGs are stored exactly as taken. For display, MaxOff makes a small JPEG **preview** so the photo opens in any browser, on any device. Reviewers can always open or download the original. Nothing is ever compressed or resized. Previews are kept even after the original leaves MaxOff (§4.10).
 - The CEO and Admin can preview (images, video, PDF), download, comment, approve or request changes, always against a specific version.
 - Downloads use short-lived private links. SVGs are sanitized. No transcoding.
 
@@ -193,27 +198,28 @@ Google Drive is the **permanent home** for everything submitted. MaxOff is the w
   ```
   Each Drive file's description holds a link back to its MaxOff task.
 - **A private or unreachable link** is detected the moment it's pasted. The task shows **"Link is private – not archived"**, the employee is notified with instructions to set *anyone with the link can view*, and MaxOff keeps retrying and archives as soon as access is granted. It **doesn't block** approval, but the CEO sees the warning.
-- **Storage cleanup:** MaxOff deletes its own copy of photos after **90 days** and videos after **30 days**, and **only when the Drive copy is confirmed**. The Drive archive is kept forever. Old versions are removed on the same rule.
+- **Storage cleanup:** MaxOff deletes its own copy of photos after **90 days** and videos after **30 days**, and **only when the Drive copy is confirmed**. The Drive archive is kept forever. Old versions are removed on the same rule. Only **originals** are subject to this rule; the small JPEG previews are kept so the task page still shows the work. Logos and avatars are not submissions and are never archived or cleaned up this way.
 - If the Google connection expires (which happens with personal accounts), MaxOff shows the CEO a **"Reconnect Google Drive"** banner and queues everything until it's back. Nothing is lost and nothing is deleted while the queue is waiting.
 - Settings show how much storage MaxOff and Drive are using, with a warning before either runs low.
 
 ### 4.11 Notifications
 - **Mandatory.** Users can't turn them off. They go only to the **relevant** people (see WORKFLOWS §9 for who receives what).
-- **Channels:** in-app (real time, with history and deep links) + **browser push** (Web Push/VAPID, PWA). **Email** is used only for **invites, escalations, the CEO's daily digest, and people with no working push**, capped per person per day, so the free email allowance is never the bottleneck.
+- **Channels:** in-app (real time, with history and deep links) + **browser push** (Web Push/VAPID, PWA). **Email** is used only for **invites, escalations, the CEO's daily digest, and people with no working push**, capped per person per day (default **20**; invites and escalations bypass the cap), so the free email allowance is never the bottleneck.
 - **iPhone and iPad:** Apple only delivers push to an app added to the home screen. First login on iOS shows a short "Add MaxOff to your home screen" guide, and a banner stays until push works. In-app notifications and email work regardless.
-- **Reminders:** configurable per task (default: 2 days before, 1 day before, due time, overdue). Unacknowledged tasks get **repeated** reminders at controlled intervals, then **escalation** to the approving Admin or creator and then the CEO. Never spammy.
+- **Reminders:** configurable per task (default: 2 days before, 1 day before, due time, overdue). Unacknowledged tasks get **repeated** reminders at controlled intervals (default every 2 h), then **escalation** to the approving Admin or creator (default after 4 h) and then the CEO (default after 8 h). A task with nothing submitted 24 h past its deadline (configurable) escalates the same way. Never spammy.
 - WhatsApp comes later.
 
 ### 4.12 Revenue (CEO only)
 Only **client project items** carry revenue. Staff tasks never do.
 
-- **Billing category** for each project: **Retainer / Project / Additional Work**. It defaults from recurrence (weekly or monthly → Retainer, one-time → Project) and only the CEO can change it.
+- **Billing category** for each project: **Retainer / Project / Additional Work**. It defaults from recurrence (weekly or monthly → Retainer, one-time → Project) and only the CEO can change it. A project template's default category is applied only when the **CEO** creates the project; an Admin-created project always takes the recurrence default.
 - **Amounts:**
   - **Recurring project:** an amount **per cycle**, split **evenly** across the cycle's planned items unless the CEO gives **individual item values**.
   - **One-time project:** a **fixed amount**, split evenly across items unless individual values are given.
   - Carry-forward items keep their original value and period.
 - **The rule:** an item's value counts as **Achieved** only when the **CEO approves** that item. A partly done or Admin-ticked item counts for nothing.
 - **Potential** = the value of planned items. **Achieved** = the value of CEO-approved items. **Remaining** = Potential − Achieved. These are always reported separately from operational progress.
+  - An item closed at the carry-forward decision **keeps** its value in Potential and is reported as *closed, not achieved*. Only items cancelled **before their cycle started** are excluded from Potential.
 - **CEO overrides:** the CEO can override an achieved figure. The system-calculated value is kept, with the adjusted value, note, time and CEO. Reports show both.
 - **Billing status** per cycle or one-time project: *Not billed / Billed*, with an optional date and note. There's no invoicing.
 - Every figure can be traced back to the raw data behind it: item, category, planned value, allocation method, approval and override.
@@ -223,7 +229,7 @@ Only **client project items** carry revenue. Staff tasks never do.
 - **No automatic ratings or scores**, only raw facts.
 - **Close month:** the CEO closes a month, which saves an **immutable snapshot**. Later changes never alter it. A mistake is fixed with an explicit **correction**, which creates a new snapshot version linked to the old one and records why.
 - **Exports:** Markdown, CSV and PDF. The **Markdown export is designed for AI analysis**: an executive summary followed by dense, structured raw data (tables and IDs) that answers questions like *"Which stage takes longest?", "Who is overloaded?", "How much potential revenue wasn't achieved?"*
-- Admins get operational reports for their own scope, with no money in them.
+- Admins get operational reports for their own scope, with no money in them. These are computed live: the end-of-day reports and month snapshots contain revenue and are CEO-only.
 
 ### 4.14 Activity history
 - An **append-only** log of every important action: who, what, which record, when, and old and new values. It can't be edited or deleted.
@@ -236,10 +242,10 @@ Only **client project items** carry revenue. Staff tasks never do.
 ### 4.16 Settings: the CEO's control centre
 **Everything configurable in MaxOff is editable by the CEO, in one place, with no developer involved.** If a rule, list, threshold or label exists, the CEO can change it here. Admins get only the operational parts (lists, templates, custom fields).
 
-- **Company:** name, logo, timezone (IST), **weekly off days** (currently Sunday), **holidays**, logout-reminder time, acknowledgement and escalation thresholds, workload warning threshold, default reminder schedule.
+- **Company:** name, logo, timezone (IST), **weekly off days** (currently Sunday), **holidays**, logout-reminder time, acknowledgement and escalation thresholds (Admin and CEO), overdue escalation, workload warning threshold, default reminder schedule, email daily cap per person.
 - **Team:** invite, role, job title, name, deactivate or reactivate (CEO). **Job titles** are an editable list the CEO adds to freely (seeded with Video Editor and Graphic Designer).
 - **Lists:** task types (with event behaviour, default reminders and fields), stage presets, and other lists.
-- **Custom fields:** for clients, contacts, projects, items and tasks, globally or for one client.
+- **Custom fields:** for clients, contacts, projects, items and tasks, globally or for one client. Fields on **projects and items are CEO-only** to define (there's no currency type, and this closes the "amount in a number field" loophole).
 - **Templates:** project templates and task templates.
 - **Google Drive (CEO only):** connect or reconnect the company account, choose the archive root folder, and see the archive queue and any failures.
 - **Storage:** how much MaxOff (R2) and Google Drive are using, with warnings before either runs low.
@@ -266,7 +272,10 @@ GST invoice generation and invoicing · client login or portal · WhatsApp · na
 | Holidays | None seeded. The CEO adds them in Settings |
 | Job titles | **Video Editor, Graphic Designer**, and the CEO adds more freely |
 | Acknowledgement reminder | Every **2 h** |
-| Acknowledgement escalation | After **4 h** |
+| Acknowledgement escalation to the approving Admin (or creator) | After **4 h** |
+| Acknowledgement escalation to the CEO | After **8 h** |
+| Overdue escalation (nothing submitted after the deadline) | After **24 h** |
+| Email cap per person per day | **20** (invites and escalations bypass it) |
 | Logout reminder | **8:30 PM IST** |
 | CEO attendance | **Exempt.** The gate and the attendance jobs apply to Admins and Staff only |
 | Google Drive archive account | `pcproductions.work@gmail.com` (Google One 2 TB, personal account) |

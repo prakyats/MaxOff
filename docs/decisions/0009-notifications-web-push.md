@@ -11,7 +11,8 @@ Notifications are core to accountability (acknowledgement, reminders, escalation
 - In-app delivery through Supabase Realtime. Push through standard Web Push (VAPID) and a service worker (PWA). Email through Resend when no working push subscription exists, and always for escalations.
 - `NotificationService` with channel adapters, so FCM/APNs or WhatsApp can be added later without changing business code.
 - **Dispatch runs in the app, not in Postgres:** Web Push needs VAPID JWT signing, which `pg_net` can't do. A Cloudflare **Cron Trigger** calls `/api/cron/push-dispatch` (protected by `CRON_SECRET`, service role), which drains the delivery queue. The same mechanism runs `/api/cron/drive-archive`. Database-only jobs stay in `pg_cron`.
-- **Email is fallback only** (invites, escalations, the CEO digest, and recipients with no working push), with a per-person daily cap, because the free email allowance is 3,000/month and 100/day.
+- **Email is fallback only** (invites, escalations, the CEO digest, and recipients with no working push), with a per-person daily cap (`org_settings.email_daily_cap_per_member`, default 20; invites and escalations bypass it, amended 2026-09-21), because the free email allowance is 3,000/month and 100/day.
+- **Escalation levels:** acknowledgement escalates to the approving Admin (or creator) after `ack_escalate_hours` and to the CEO after `ack_escalate_ceo_hours`; a task with nothing submitted `overdue_escalate_hours` past its deadline escalates to both at once.
 - Reminders are materialized as `task_reminders` rows and sent by an idempotent cron job.
 
 ## Consequences

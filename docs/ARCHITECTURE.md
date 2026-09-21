@@ -128,7 +128,7 @@ Each function, in **one transaction**:
 5. inserts `notifications` (+ `notification_deliveries` queued) for the recipients in WORKFLOWS §9;
 6. returns the new state.
 
-State columns can't be updated directly: RLS gives no update permission on them, plus a trigger guard. Bulk actions call the function for each id inside one request and return per-id results.
+State columns can't be updated directly: RLS gives no update permission on them, plus a trigger guard. The same guard covers `projects.billing_category`, `projects.client_id` and `projects.recurrence`, which change only through CEO-only transition functions. Bulk actions call the function for each id inside one request and return per-id results.
 
 ### 4.2 Plain edits (names, descriptions, contacts, brand, custom fields, settings)
 ```ts
@@ -170,7 +170,7 @@ Auditing for plain edits is done by a **generic `audit_row_change()` trigger** o
 
 ## 8. The first-login day gate
 - `(app)` layout → `core/auth` `requireDayGate()` → rpc `attendance_touch()`. This creates today's `attendance_days` row and a `session_events(login)` if needed, and returns whether a choice is still required.
-- If a choice is required, redirect to `/(gate)/attendance`. The CEO is exempt. On a day off the gate still asks, marking `is_day_off`.
+- If a choice is required, redirect to `/(gate)/attendance`. The CEO is exempt. On a day off the gate still asks, marking `is_day_off`. On a day with approved leave (full or half) there's no gate: `attendance_touch()` creates the day from the leave (`derived_from_leave`) and still records `first_login_at` and the login event.
 - `attendance_touch()` is idempotent and runs once per session per day (cached in a signed cookie holding the IST date).
 
 ## 9. Notifications (ADR-0009)
@@ -184,13 +184,14 @@ transition fn / job ─► notifications row ─► notification_deliveries (que
 - `NotificationService` (TS) has channel adapters `PushChannel` and `EmailChannel`. A future `FcmChannel` or `WhatsAppChannel` plugs in without touching business code.
 - Users can't mute anything. The app asks for push permission after login and keeps nudging (not blocking) until it's granted. In-app notifications always work.
 - Delivery is idempotent (unique per notification + channel), retried with backoff, and a subscription is disabled after repeated `410 Gone` responses.
+- `EmailChannel` enforces `org_settings.email_daily_cap_per_member` (default 20) by counting that member's `notification_deliveries(channel = email, sent_at today IST)`. Invites and escalations (`kind` in the escalation set) bypass the cap.
 
 ## 10. Real time
 `core/realtime` subscribes to Supabase Realtime `postgres_changes` (RLS-filtered) for: `tasks`, `task_assignees`, `task_comments`, `attendance_days`, `leave_requests`, `project_items`, `notifications`. On a change it **invalidates** TanStack Query keys and never trusts the payload for display, so RLS stays the source of truth.
 
 ## 11. Files and the Drive archive (ADR-0003, ADR-0010)
-- **Upload:** action `files_begin_upload(meta)` checks permission, type and size (**images ≤ 25 MB, video ≤ 100 MB**), creates a `files` row (`pending`) and returns presigned **multipart** URLs. The browser uploads parts straight to R2 (resumable, retried per part), then calls `files_complete_upload`, which marks it `ready` and queues the Drive job.
-- **Originals are immutable.** The uploaded bytes are never re-encoded. For images, the browser also produces a **small JPEG preview** (including from HEIC) which is stored as a separate file and used for display. Previews are disposable; originals are not.
+- **Upload:** action `files_begin_upload(meta)` checks permission, type and size (**images ≤ 25 MB, video ≤ 100 MB**), creates a `files` row (`pending`) and returns presigned **multipart** URLs. The browser uploads parts straight to R2 (resumable, retried per part), then calls `files_complete_upload`, which marks it `ready`. **Drive jobs are queued only by `task_submit_version`**, never by `files_complete_upload`, so logos, avatars and previews are never archived.
+- **Originals are immutable.** The uploaded bytes are never re-encoded. For images, the browser also produces a **small JPEG preview** (including from HEIC) which is stored as a separate file and used for display. Retention applies to originals only: previews are kept after the original leaves R2, so the task page still shows the work.
 - **Download or preview:** permission check → presigned GET, valid 5 minutes. Buckets are private.
 - SVGs are sanitized on completion, and SVG and HTML are never served inline.
 - **`core/drive`** wraps the Google Drive API: OAuth for one company account (refresh token encrypted at rest with a server key), `files.copy` for pasted links (server-side, no bytes through us), resumable upload from R2 for our own files, folder creation with a cache, and quota checks. Every call goes through the `drive_jobs` queue, which is idempotent and backs off, so a failure never blocks a user action.
