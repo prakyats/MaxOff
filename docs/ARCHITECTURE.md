@@ -281,7 +281,7 @@ Nightly `pg_dump` GitHub Action → encrypted → private R2 bucket (30-day rete
 |---|---|---|---|
 | App | `next dev` | Worker `maxoff-staging` (`*.workers.dev`, free plan) | Worker `maxoff` (Workers Paid from the pilot, custom domain at 6.6) |
 | Database | Supabase in Docker | free Supabase project `maxoff-staging` (Mumbai) | separate Supabase project |
-| Deployed by | — | `.github/workflows/deploy.yml`, when **CI has passed on `main`** (`workflow_run`) | the same workflow, on a `v*` tag, after its own typecheck / lint / unit gates |
+| Deployed by | — | `.github/workflows/deploy.yml`, when **CI has passed on `main`** (`workflow_run`) | the same workflow, on a `v*` tag that points at a commit **on `main` with all three CI checks green** (the job reads the commit's check runs; CI itself never runs on tags) |
 | Values from | `.env.local` | GitHub environment `staging` | GitHub environment `production` |
 | Sentry | off (no DSN) | `environment: staging` | `environment: production` |
 

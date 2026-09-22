@@ -2,8 +2,9 @@
 #
 # staging:    runs when CI has passed on `main` (a red CI never deploys). Pushes migrations to the
 #             staging Supabase project, builds the Worker with OpenNext and deploys it.
-# production: runs on a `v*` tag, after its own typecheck / lint / unit tests (CI does not run on
-#             tags). Until the `production` GitHub environment is filled in, a tag push simply
+# production: runs on a `v*` tag, but only for a commit that is on `main` and whose CI run passed
+#             all three required checks (CI does not run on tags, so the job reads the commit's
+#             check runs). Until the `production` GitHub environment is filled in, a tag push
 #             fails at the migration step with the missing name in the log; nothing is deployed.
 #
 # Every value comes from the GitHub *environment* of the same name (Settings → Environments).
@@ -95,6 +96,10 @@ jobs:
     environment:
       name: production
       url: ${{ vars.NEXT_PUBLIC_APP_URL }}
+    permissions:
+      contents: read
+      # Reading the tagged commit's CI check runs (the gate below).
+      checks: read
     env:
       NEXT_PUBLIC_APP_ENV: production
       NEXT_PUBLIC_APP_URL: ${{ vars.NEXT_PUBLIC_APP_URL }}
@@ -103,18 +108,40 @@ jobs:
       NEXT_PUBLIC_SENTRY_DSN: ${{ vars.NEXT_PUBLIC_SENTRY_DSN }}
     steps:
       - uses: actions/checkout@v4
+
+      # CI does not run on tags, so a tag alone proves nothing. Production only takes a commit
+      # that is on `main` (protected: PR + the three required checks) AND whose own CI run
+      # passed all three checks. Anything else stops here, before any secret is touched.
+      # If CI is still running on that commit, wait for it and re-run this workflow run.
+      - name: Require the tagged commit to be on main with green CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha="$(git rev-parse 'HEAD^{commit}')"
+          git fetch --no-tags --depth=1000 origin main
+          if ! git merge-base --is-ancestor "$sha" origin/main; then
+            echo "::error::$GITHUB_REF_NAME points at $sha, which is not on main. Tag a commit on main."
+            exit 1
+          fi
+          failed=0
+          for check in "typecheck · lint · format · unit · build" "pgTAP" "playwright"; do
+            conclusion="$(gh api -X GET "repos/$GITHUB_REPOSITORY/commits/$sha/check-runs" \
+              -f check_name="$check" -f filter=latest \
+              --jq 'if (.check_runs | length) == 0 then "missing" else .check_runs[0].conclusion // "in_progress" end')"
+            echo "$check: $conclusion"
+            [ "$conclusion" = "success" ] || failed=1
+          done
+          if [ "$failed" = 1 ]; then
+            echo "::error::CI is not green on $sha. Every required check must be 'success' before a production deploy."
+            exit 1
+          fi
+
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-
-      # CI does not run on tags, so the gates that need no database run here first.
-      - run: pnpm typecheck
-      - run: pnpm lint
-      - run: pnpm format:check
-      - run: pnpm test
 
       - name: Apply migrations to the production database
         env:

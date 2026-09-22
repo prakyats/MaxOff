@@ -73,7 +73,8 @@ Red never merges after that.
 ## Deploying
 
 Hosting is Cloudflare Workers through OpenNext (ADR-0003, ARCHITECTURE §18). Staging deploys
-from `main` once CI is green; production deploys from a `v*` tag. Both jobs live in
+from `main` once CI is green; production deploys from a `v*` tag, and only when the tagged commit
+is on `main` with all three CI checks green (a tag on any other commit stops before touching a secret). Both jobs live in
 `.github/workflows/deploy.yml` and read every value from the GitHub **environment** of the same
 name (repository **Settings → Environments → New environment**: `staging`, later `production`).
 Nothing secret is ever committed or typed into a terminal; it all goes in through that page.
@@ -137,7 +138,8 @@ Variables (**Environment variables**):
 
 ### What a deploy does
 
-1. Checks out the commit CI verified, installs dependencies.
+1. Checks out the commit CI verified (production: first proves the tagged commit is on `main`
+   and that its three CI checks are `success`), installs dependencies.
 2. `supabase link` + `supabase db push`: applies any new append-only migrations.
 3. `pnpm build:worker`, with the `NEXT_PUBLIC_*` variables inlined (a malformed value fails
    the build) and source maps uploaded to Sentry when the token is present.
