@@ -48,6 +48,22 @@ export async function latestEmailTo(to: string): Promise<MailpitMessage> {
   throw new Error(`No email to ${to} reached Mailpit at ${MAILPIT_URL}`);
 }
 
+/**
+ * The `/auth/confirm` link inside an auth email, re-pointed at the server under test. GoTrue
+ * builds the link from config.toml `site_url` (port 3000) while Playwright serves the app on
+ * its own port, so only the path and query are kept: a link that only opens because a stray
+ * dev server happens to listen on 3000 would hide exactly the failure CI sees.
+ */
+export function confirmLinkFrom(email: MailpitMessage, baseURL: string | undefined): string {
+  const href = email.HTML.match(/href="([^"]*\/auth\/confirm[^"]*)"/)?.[1]?.replace(/&amp;/g, "&");
+  expect(href, "the email links to /auth/confirm").toBeTruthy();
+  expect(baseURL, "Playwright's baseURL is set").toBeTruthy();
+  const emailed = new URL(href as string);
+  expect(emailed.pathname).toBe("/auth/confirm");
+  expect(emailed.searchParams.get("token_hash"), "the token hash survives").toBeTruthy();
+  return new URL(`${emailed.pathname}${emailed.search}`, baseURL).toString();
+}
+
 /** Removes every message so a re-run never picks up an older link. */
 export async function clearMailbox(): Promise<void> {
   await fetch(`${MAILPIT_URL}/api/v1/messages`, { method: "DELETE" });

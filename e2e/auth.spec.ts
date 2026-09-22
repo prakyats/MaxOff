@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { clearMailbox, latestEmailTo, signIn, USERS } from "./helpers";
+import { clearMailbox, confirmLinkFrom, latestEmailTo, signIn, USERS } from "./helpers";
 
 /**
  * Sign in, sign out, the deactivated path and the recovery link (task 1.2), against
@@ -114,7 +114,7 @@ test.describe("recovery link", () => {
   // Changes this user's password, so it must not share a worker with anything else.
   test.describe.configure({ mode: "serial" });
 
-  test("forgot password → email link → set password → signed in", async ({ page }) => {
+  test("forgot password → email link → set password → signed in", async ({ page, baseURL }) => {
     await clearMailbox();
     await page.goto("/forgot-password");
     await page.getByLabel("Email").fill(USERS.reset.email);
@@ -123,14 +123,9 @@ test.describe("recovery link", () => {
       "a link is on its way",
     );
 
-    const email = await latestEmailTo(USERS.reset.email);
-    const link = email.HTML.match(/href="([^"]*\/auth\/confirm[^"]*)"/)?.[1]?.replace(
-      /&amp;/g,
-      "&",
-    );
-    expect(link, "the recovery email links to /auth/confirm").toBeTruthy();
+    const link = confirmLinkFrom(await latestEmailTo(USERS.reset.email), baseURL);
 
-    await page.goto(link as string);
+    await page.goto(link);
     await expect(page).toHaveURL(/\/set-password$/);
 
     const newPassword = `reset-new-${crypto.randomUUID().slice(0, 8)}`;
@@ -153,7 +148,7 @@ test.describe("recovery link", () => {
 
     // The link was one-time: opening it again lands on sign in with the reason.
     await page.context().clearCookies();
-    await page.goto(link as string);
+    await page.goto(link);
     await expect(page).toHaveURL(/\/login\?reason=link$/);
     await expect(page.locator('[data-slot="form-alert"]')).toContainText(
       "expired or was already used",
@@ -163,7 +158,7 @@ test.describe("recovery link", () => {
     await expect(page).toHaveURL(/\/my-day$/);
   });
 
-  test("a deactivated member's link opens nothing", async ({ page }) => {
+  test("a deactivated member's link opens nothing", async ({ page, baseURL }) => {
     await clearMailbox();
     await page.goto("/forgot-password");
     await page.getByLabel("Email").fill(USERS.deactivated.email);
@@ -172,15 +167,10 @@ test.describe("recovery link", () => {
       "a link is on its way",
     );
 
-    const email = await latestEmailTo(USERS.deactivated.email);
-    const link = email.HTML.match(/href="([^"]*\/auth\/confirm[^"]*)"/)?.[1]?.replace(
-      /&amp;/g,
-      "&",
-    );
-    expect(link).toBeTruthy();
+    const link = confirmLinkFrom(await latestEmailTo(USERS.deactivated.email), baseURL);
 
     // GoTrue issued the link (it knows nothing about members); the app ends the session at once.
-    await page.goto(link as string);
+    await page.goto(link);
     await expect(page).toHaveURL(/\/login\?reason=inactive$/);
     await expect(page.locator('[data-slot="form-alert"]')).toContainText("not active");
     await page.goto("/set-password");
