@@ -11,11 +11,11 @@
 
 ## Phase 0: Foundation
 Exit: an empty app on staging, CI green, all quality gates working, installable as a PWA.
-- [ ] **0.1** [C] Repo tooling: Next.js scaffold (keeping `docs/`, `.claude/`, `CLAUDE.md`), pnpm, strict TS, ESLint + Prettier, aliases, folder skeleton (ARCHITECTURE §3), `pnpm check`, `.env.example`, README, `.gitattributes`
-- [ ] **0.2** [H] Local Supabase (CLI + Docker), base migration (extensions incl. `pg_cron`/`pg_net`, `app` schema, `updated_at` trigger, `app.today_ist()` / `to_ist_date()`), type generation, `core/db`, `core/errors` (AppError, Result, `action()`, Postgres error mapping), `core/time`
-- [ ] **0.3** [C] UI shell: shadcn/ui, theme tokens (light/dark), layouts for each role (sidebar for CEO/Admin, bottom nav for Staff on mobile), error boundaries, 404/403, toasts, shared composites (EmptyState, PageHeader, DataTable, ConfirmDialog, ReasonDialog, StatusBadge, BulkBar)
-- [ ] **0.4** [C] Quality gates: Vitest, Playwright, pgTAP (one sample each), eslint-plugin-boundaries rules incl. the money-import rule, GitHub Actions CI
-- [ ] **0.5** [H] Deploy: OpenNext on Cloudflare Workers + a staging Supabase project, env handling, Sentry, deploy workflow from `main`, PWA manifest + service worker shell
+- [x] **0.1** [C] Repo tooling: Next.js scaffold (keeping `docs/`, `.claude/`, `CLAUDE.md`), pnpm, strict TS, ESLint + Prettier, aliases, folder skeleton (ARCHITECTURE §3), `pnpm check`, `.env.example`, README, `.gitattributes`
+- [x] **0.2** [H] Local Supabase (CLI + Docker), base migration (extensions incl. `pg_cron`/`pg_net`, `app` schema, `updated_at` trigger, `app.today_ist()` / `to_ist_date()`), type generation, `core/db`, `core/errors` (AppError, Result, `action()`, Postgres error mapping), `core/time`
+- [x] **0.3** [C] UI shell: shadcn/ui, theme tokens (light/dark), layouts for each role (sidebar for CEO/Admin, bottom nav for Staff on mobile), error boundaries, 404/403, toasts, shared composites (EmptyState, PageHeader, DataTable, ConfirmDialog, ReasonDialog, StatusBadge, BulkBar)
+- [x] **0.4** [C] Quality gates: Vitest and Playwright are in place (0.2/0.3), so this task is the wiring — pgTAP joining `pnpm check` (Playwright stays out: `pnpm test:e2e` + its own CI job), eslint-plugin-boundaries (module isolation + the money-import rule + **`modules/*/domain` may not import `react`, `react-dom`, `next/*`, `server-only` or DOM globals**, ADR-0011), and GitHub Actions CI
+- [x] **0.5** [H] Deploy: OpenNext on Cloudflare Workers + a staging Supabase project, env handling, Sentry, deploy workflow from `main`, PWA manifest + service worker shell
 
 ## Phase 1: Identity and access
 Exit: the CEO logs in, invites an Admin and a Staff member, and each sees only their role's shell. Every change is audited.
@@ -49,10 +49,12 @@ Exit: a task goes assign → everyone acknowledges → updates → Done → Admi
 - [ ] **4.6** [C] Task requests (suggest → convert or decline) and task templates
 
 ## Phase 5: Notifications and reminders
-Exit: every event in WORKFLOWS §9 reaches the right people in-app and by push (email fallback). Reminders and escalations fire on time without duplicates.
+Exit: every event in WORKFLOWS §9 reaches the right people in-app and by push (email for the important few). Reminders and escalations fire on time without duplicates, **and management can see who isn't reachable**.
 - [ ] **5.1** [H] notifications, notification_deliveries, push_subscriptions. `NotificationService` + channels, notification rows from all existing transition functions, in-app bell + Realtime, history page with deep links
 - [ ] **5.2** [H] Web Push: VAPID keys, service worker push handling, subscribe and re-subscribe flow, persistent "enable notifications" banner, `push_dispatch` with retries, **email only for invites, escalations, digests and people with no working push, with a per-person daily cap**, iOS "add to home screen" guidance
 - [ ] **5.3** [H] Reminders: `reminder_rules` → `task_reminders`, `reminders_tick` (before due, due, overdue, acknowledgement repeats, escalations), `logout_reminder` job, updating reminders when tasks change or are cancelled. pgTAP + unit tests
+- [ ] **5.4** [H] **Reachability** (WORKFLOWS §9a): subscription lifecycle (kept across logout with **title-only** payloads, removed on "sign out of this device" or deactivation), `member_reachability` view, Settings → Notifications showing who isn't reachable and why, the 48 h alert to the CEO, and "Send a test" (`notification_send_test`). pgTAP + unit tests
+- [ ] **5.5** [C] Onboarding for reachability: the iOS "add to home screen" walkthrough, the permission banner that persists until push works, device list with "Sign out of this device", and the test-notification step in a new joiner's first login
 
 ## Phase 6: Dashboards, calendar and ★ pilot
 Exit: **the team uses MaxOff daily** for attendance, leave and tasks, in production, with backups.
@@ -97,4 +99,6 @@ Exit: everything in PRODUCT §4 is live in production, secured and backed up.
 ---
 
 ## Later (each a new module behind a feature flag)
-WhatsApp notifications · GST invoicing · leads pipeline · client portal · native mobile app · custom roles UI · AI insights inside MaxOff · social publishing · accounting integration
+WhatsApp notifications · GST invoicing · leads pipeline · client portal · custom roles UI · AI insights inside MaxOff · social publishing · accounting integration
+
+**Native app (ADR-0011), decided after the pilot:** the PWA already installs on both platforms. If the App Store, Play Store or more reliable iOS push is wanted, a **Capacitor shell** around the same app is ~2–4 weeks. A **React Native / Expo** app (native feel, real offline, background upload) is ~2–3 months and reuses the backend, rules, permissions and `domain/` untouched — only the UI is rebuilt.

@@ -13,6 +13,7 @@
 | `settings.manage` | Company settings, days off, holidays, thresholds | ✅ | | |
 | `drive.manage` | Connect or reconnect the company Google account, set the archive root, retry failed archives | ✅ | | |
 | `drive.view_status` | See archive status on a submission ("Archived ✓", "Link is private") | ✅ | ✅ | ✅ (own tasks) |
+| `notifications.reachability` | See who isn't reachable by push and why | ✅ (everyone) | ✅ (people on their tasks) | own devices only |
 | `lists.manage` | Task types, stage presets, job titles, other lists, custom field definitions | ✅ | ✅ ¹ | |
 | `templates.manage` | Project and task templates | ✅ | ✅ | |
 | `clients.manage` | Create clients, assign the Admin, activate / pause / close | ✅ | | |

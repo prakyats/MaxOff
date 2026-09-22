@@ -15,6 +15,9 @@ Notifications are core to accountability (acknowledgement, reminders, escalation
 - **Escalation levels:** acknowledgement escalates to the approving Admin (or creator) after `ack_escalate_hours` and to the CEO after `ack_escalate_ceo_hours`; a task with nothing submitted `overdue_escalate_hours` past its deadline escalates to both at once.
 - Reminders are materialized as `task_reminders` rows and sent by an idempotent cron job.
 
+- **Delivery is never assumed** (amended 2026-09-21). Push subscriptions **survive logout** and carry **title-only** payloads while logged out (removed on "sign out of this device" or deactivation); a `member_reachability` view tells management who can't be reached and why; anyone can send themselves a **test notification**; and email is a genuine second channel for a small set of kinds (assigned, escalation, invite, event tomorrow, CEO digest), not only a fallback.
+
 ## Consequences
-- iOS needs the PWA installed to the home screen for push. Onboarding must guide Staff through that.
+- iOS needs the PWA installed to the home screen for push. Onboarding must guide Staff through that, and `ios_not_installed` is reported as unreachable until it's done.
 - Browsers can revoke permission, so the app shows a persistent banner until push works again.
+- The product's real guarantee is **accountability, not delivery**: explicit acknowledgement, automatic escalation and visible reachability, since no platform can promise a phone will buzz.

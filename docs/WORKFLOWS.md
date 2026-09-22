@@ -240,4 +240,31 @@ month M (IST) open ──CEO close──► closed (snapshot v1, immutable)
 | Anything financial | CEO only |
 | Upcoming event (shoot, meeting…) on task reminders | Assignees + approving Admin |
 
-Every notification is stored in `notifications` (in-app history + deep link) and then delivered by push. **Email** is used when a recipient has no working push subscription, and always for escalations. Emails per person per day are capped by `org_settings.email_daily_cap_per_member` (default 20); **invites and escalations bypass the cap**.
+Every notification is stored in `notifications` (in-app history + deep link) and then delivered by push. **Email** is sent for **invites, escalations, task assigned, an event tomorrow, the CEO digest**, and to anyone with no working push subscription, within the per-person daily cap (invites and escalations bypass it).
+
+## 9a. Delivery, sessions and reachability
+
+```
+notification created
+   ├─ in-app (Realtime)                       always
+   ├─ push → every active subscription of the recipient
+   │     ├─ member has a live session → full payload (title + body + deep link)
+   │     └─ member logged out         → TITLE ONLY ("MaxOff: new task assigned"), link opens login → target
+   └─ email  when the kind is in the email set, or no subscription is healthy
+```
+
+**Subscription lifecycle**
+| Event | What happens to the subscription |
+|---|---|
+| Permission granted / re-granted | Created or re-activated, with `platform`, `is_standalone`, `label` |
+| Logout (normal) | **Kept.** Push continues, title-only |
+| "Sign out of this device" | Deleted (`disabled_reason = 'signed_out'`) |
+| Member deactivated | All of theirs deleted (`'deactivated'`) |
+| Push returns 404/410 | Disabled (`'gone'`), and the member sees the banner on next visit |
+| Repeated failures (≥ 5) | Disabled (`'expired'`), counted as unreachable |
+
+**Reachability** (`member_reachability` view, refreshed on delivery results and on login):
+`ok` · `no_subscription` (never allowed) · `permission_revoked` · `ios_not_installed` (iOS with no standalone subscription) · `failing`.
+Shown in Settings → Notifications to the CEO for everyone, and to an Admin for people on their tasks. Anyone `no_subscription`, `permission_revoked`, `ios_not_installed` or `failing` for **48 h** raises one notification to the CEO, at most weekly per person.
+
+**Test notification:** `notification_send_test()` sends a push to the caller's own subscriptions, records `last_test_at`, and the UI reports whether it was accepted by the push service. It's part of onboarding and is available in Settings → Notifications for everyone. Emails per person per day are capped by `org_settings.email_daily_cap_per_member` (default 20); **invites and escalations bypass the cap**.

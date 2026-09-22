@@ -161,6 +161,7 @@ Daily work allotted to people. **Only the CEO and Admins create tasks.**
   3. People (attendance, login and logout, logout not recorded, overtime) · Today's tasks · Overdue and risks · Calendar strip · Client progress · Revenue snapshot.
 - **Admin:** My clients (cycle progress) → client work pending → staff tasks needing attention → approvals → calendar → issues.
 - **Staff: My Day** (very simple): attendance status, **Pending acknowledgement**, Today, Upcoming, Overdue, **Changes requested**, Upcoming events, a request-a-task button and Logout. Nothing else.
+- **Staff navigation** (decided in task 0.3): a bottom bar on phones with exactly five tabs, **My Day · Tasks · Calendar · Alerts · Me**. "Me" holds the profile, appearance (light/dark) and Logout. Staff have no Clients, People, Approvals, Reports or Settings entries. CEO and Admin use a sidebar with Today, Approvals, Clients, Tasks, Calendar, People, Reports and Settings; the Admin's Settings shows only the lists, templates and custom fields they may edit (`PERMISSIONS.md` §1).
 - **CEO end-of-day report:** generated automatically each day (and viewable live). It covers attendance and leave decisions, tasks completed, pending and overdue (with reasons), Admin and CEO approvals, logout times, overtime flags, and tomorrow's events. It's an operations report, not payroll.
 
 ### 4.8 Calendar
@@ -207,7 +208,13 @@ Google Drive is the **permanent home** for everything submitted. MaxOff is the w
 - **Channels:** in-app (real time, with history and deep links) + **browser push** (Web Push/VAPID, PWA). **Email** is used only for **invites, escalations, the CEO's daily digest, and people with no working push**, capped per person per day (default **20**; invites and escalations bypass the cap), so the free email allowance is never the bottleneck.
 - **iPhone and iPad:** Apple only delivers push to an app added to the home screen. First login on iOS shows a short "Add MaxOff to your home screen" guide, and a banner stays until push works. In-app notifications and email work regardless.
 - **Reminders:** configurable per task (default: 2 days before, 1 day before, due time, overdue). Unacknowledged tasks get **repeated** reminders at controlled intervals (default every 2 h), then **escalation** to the approving Admin or creator (default after 4 h) and then the CEO (default after 8 h). A task with nothing submitted 24 h past its deadline (configurable) escalates the same way. Never spammy.
-- WhatsApp comes later.
+- **Email is a real second channel for the few things that matter**, not only a fallback: **task assigned**, **escalations**, **invites**, the **CEO digest**, and **an event tomorrow** (shoot, site visit, meeting). Everything else is in-app and push only. The per-person daily cap keeps this inside the free allowance.
+- **Push keeps working after logout.** A device stays subscribed when someone logs out, because a person who logs off at 6 PM still needs to know about a 7 AM shoot. Those notifications are **title only** ("MaxOff: new task assigned"), with no client, task or personal detail, and opening one asks for login first. A subscription is removed only when the person chooses **"Sign out of this device"** or the CEO deactivates them (which removes all of theirs).
+- **Reachability is visible to management.** Settings → Notifications shows **who isn't reachable** and why: push never allowed, permission revoked, iPhone without the app installed, or repeated delivery failures. The CEO (and each Admin, for people on their tasks) can see it, and it's part of the daily "needs attention" list. Nobody has to discover a silent phone by missing a shoot.
+- **Test notification.** Anyone can send themselves one ("Send a test") and confirm it arrived. Setup is confirmed on day one instead of assumed, and it's part of onboarding a new joiner.
+- WhatsApp comes later (the channel design already allows it without touching business logic).
+
+> **Why this still works when a phone is silent:** delivery can never be guaranteed on any platform. What's guaranteed is that **nobody can quietly not know** — acknowledgement is explicit, unacknowledged work is visible to management within hours, escalation is automatic, and reachability problems are surfaced rather than hidden.
 
 ### 4.12 Revenue (CEO only)
 Only **client project items** carry revenue. Staff tasks never do.

@@ -21,7 +21,9 @@
       "Bash(git tag:*)",
       "Bash(git push)",
       "Bash(git push -u origin:*)",
-      "Bash(git push --follow-tags)"
+      "Bash(git push --follow-tags)",
+      "Bash(claude plugin marketplace add:*)",
+      "Bash(claude plugin install:*)"
     ],
     "deny": [
       "Read(./.env)",

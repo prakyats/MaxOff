@@ -1,0 +1,176 @@
+# Deploy (task 0.5, ADR-0003, ARCHITECTURE §18).
+#
+# staging:    runs when CI has passed on `main` (a red CI never deploys). Builds the Worker with
+#             OpenNext, then pushes migrations to the staging Supabase project, then deploys.
+# production: runs on a `v*` tag, but only for a commit that is on `main` and whose CI run passed
+#             all three required checks (CI does not run on tags, so the job reads the commit's
+#             check runs). Until the `production` GitHub environment is filled in, a tag push
+#             fails at the build or migration step with the missing name in the log; nothing is
+#             deployed.
+#
+# Every value comes from the GitHub *environment* of the same name (Settings → Environments).
+# Secrets and variables are listed in README → "Deploying". Secrets are given only to the step
+# that needs them, never to the whole job.
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  staging:
+    name: staging
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    concurrency:
+      group: deploy-staging
+      cancel-in-progress: false
+    environment:
+      name: staging
+      url: ${{ vars.NEXT_PUBLIC_APP_URL }}
+    env:
+      # Inlined by `next build`; none of these are secret.
+      NEXT_PUBLIC_APP_ENV: staging
+      NEXT_PUBLIC_APP_URL: ${{ vars.NEXT_PUBLIC_APP_URL }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      NEXT_PUBLIC_SENTRY_DSN: ${{ vars.NEXT_PUBLIC_SENTRY_DSN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The commit CI just verified, not whatever `main` points at now.
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      # Build before touching the database: a failed build must never leave the schema ahead
+      # of the Worker that is still serving.
+      - name: Build the Worker (OpenNext)
+        env:
+          # Source-map upload only; absent locally and in CI.
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: pnpm build:worker
+
+      - name: Apply migrations to the staging database
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+        run: |
+          pnpm supabase link --project-ref "$SUPABASE_PROJECT_REF"
+          pnpm supabase db push
+
+      - name: Deploy to Cloudflare Workers
+        id: deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          environment: staging
+          command: deploy --env staging
+          # Uploaded as Worker secrets (`wrangler secret`) before the deploy, never bundled.
+          secrets: |
+            SUPABASE_SECRET_KEY
+        env:
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+
+  production:
+    name: production
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    environment:
+      name: production
+      url: ${{ vars.NEXT_PUBLIC_APP_URL }}
+    permissions:
+      contents: read
+      # Reading the tagged commit's CI check runs (the gate below).
+      checks: read
+    env:
+      NEXT_PUBLIC_APP_ENV: production
+      NEXT_PUBLIC_APP_URL: ${{ vars.NEXT_PUBLIC_APP_URL }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      NEXT_PUBLIC_SENTRY_DSN: ${{ vars.NEXT_PUBLIC_SENTRY_DSN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # CI does not run on tags, so a tag alone proves nothing. Production only takes a commit
+      # that is on `main` (protected: PR + the three required checks) AND whose own CI run
+      # passed all three checks. Anything else stops here, before any secret is touched.
+      # If CI is still running on that commit, wait for it and re-run this workflow run.
+      - name: Require the tagged commit to be on main with green CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha="$(git rev-parse 'HEAD^{commit}')"
+          git fetch --no-tags --depth=1000 origin main
+          if ! git merge-base --is-ancestor "$sha" origin/main; then
+            echo "::error::$GITHUB_REF_NAME points at $sha, which is not on main. Tag a commit on main."
+            exit 1
+          fi
+          failed=0
+          for check in "typecheck · lint · format · unit · build" "pgTAP" "playwright"; do
+            conclusion="$(gh api -X GET "repos/$GITHUB_REPOSITORY/commits/$sha/check-runs" \
+              -f check_name="$check" -f filter=latest \
+              --jq 'if (.check_runs | length) == 0 then "missing" else .check_runs[0].conclusion // "in_progress" end')"
+            echo "$check: $conclusion"
+            [ "$conclusion" = "success" ] || failed=1
+          done
+          if [ "$failed" = 1 ]; then
+            echo "::error::CI is not green on $sha. Every required check must be 'success' before a production deploy."
+            exit 1
+          fi
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build the Worker (OpenNext)
+        env:
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: pnpm build:worker
+
+      - name: Apply migrations to the production database
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+        run: |
+          pnpm supabase link --project-ref "$SUPABASE_PROJECT_REF"
+          pnpm supabase db push
+
+      - name: Deploy to Cloudflare Workers
+        id: deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          environment: production
+          command: deploy --env production
+          secrets: |
+            SUPABASE_SECRET_KEY
+        env:
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}

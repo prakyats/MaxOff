@@ -1,0 +1,34 @@
+{
+  // Cloudflare Workers configuration (task 0.5, ADR-0003). OpenNext turns `next build` output
+  // into `.open-next/`; `pnpm preview` runs it locally, the deploy workflow ships it.
+  // Bindings are not inherited by environments, so each one repeats `assets` and `services`.
+  // Runtime secrets (SUPABASE_SECRET_KEY) are set with `wrangler secret put --env <env>`, never
+  // here. Public NEXT_PUBLIC_* values are inlined by `next build`, so they come from the build
+  // environment (GitHub environment variables), not from `vars`.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "maxoff-dev",
+  "main": ".open-next/worker.js",
+  // 2025-08-16 or later: introduces `https.request`, which the Sentry SDK needs.
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
+  "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "maxoff-dev" }],
+  // Workers Logs (free): request logs and console output in the Cloudflare dashboard.
+  "observability": { "enabled": true },
+  "env": {
+    // Staging: deployed from `main` by .github/workflows/deploy.yml. Free plan, no real data.
+    "staging": {
+      "name": "maxoff-staging",
+      "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
+      "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "maxoff-staging" }],
+      "observability": { "enabled": true },
+    },
+    // Production: deployed from a `v*` tag. Workers Paid from the pilot (task 6.6).
+    "production": {
+      "name": "maxoff",
+      "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
+      "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "maxoff" }],
+      "observability": { "enabled": true },
+    },
+  },
+}
