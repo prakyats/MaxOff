@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
+import { captureException } from "@/core/observability/capture";
+
 import { action, toAppError } from "./action";
 import { AppError } from "./app-error";
 import { ERROR_MESSAGES, isErrorCode } from "./codes";
@@ -14,7 +16,12 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
+vi.mock("@/core/observability/capture", () => ({
+  captureException: vi.fn(() => "evt-1"),
+}));
+
 afterEach(() => {
+  vi.clearAllMocks();
   vi.restoreAllMocks();
 });
 
@@ -156,17 +163,32 @@ describe("action", () => {
     });
   });
 
-  it("logs unexpected errors and returns INTERNAL", async () => {
+  it("reports unexpected errors to Sentry, logs only the code + event id, returns INTERNAL", async () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const cause = Object.assign(new Error("db exploded"), {
+      details: "Failing row contains (1, 12000, ceo@pixora.example)",
+    });
     const broken = action(async () => {
-      throw new Error("db exploded");
+      throw cause;
     });
     const result = await broken();
     expect(result).toEqual({
       ok: false,
       error: { code: "INTERNAL", message: ERROR_MESSAGES.INTERNAL },
     });
-    expect(log).toHaveBeenCalledOnce();
+    expect(captureException).toHaveBeenCalledExactlyOnceWith(cause);
+    // Outside `development` the raw cause never reaches the console (Workers Logs).
+    expect(log).toHaveBeenCalledExactlyOnceWith("[action] INTERNAL (sentry event evt-1)");
+    expect(JSON.stringify(log.mock.calls)).not.toContain("Failing row");
+  });
+
+  it("does not report expected failures", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const forbidden = action(async () => {
+      throw new AppError("FORBIDDEN");
+    });
+    await forbidden();
+    expect(captureException).not.toHaveBeenCalled();
   });
 
   it("re-throws Next.js control-flow errors", async () => {

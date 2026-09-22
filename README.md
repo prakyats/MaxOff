@@ -140,15 +140,16 @@ Variables (**Environment variables**):
 
 1. Checks out the commit CI verified (production: first proves the tagged commit is on `main`
    and that its three CI checks are `success`), installs dependencies.
-2. `supabase link` + `supabase db push`: applies any new append-only migrations.
-3. `pnpm build:worker`, with the `NEXT_PUBLIC_*` variables inlined (a malformed value fails
-   the build) and source maps uploaded to Sentry when the token is present.
+2. `pnpm build:worker`, with the `NEXT_PUBLIC_*` variables inlined (a malformed value fails
+   the build) and source maps uploaded to Sentry when the token is present. The build comes
+   first so a failed build never leaves the database ahead of the Worker.
+3. `supabase link` + `supabase db push`: applies any new append-only migrations.
 4. Uploads `SUPABASE_SECRET_KEY` as a Worker secret, then `wrangler deploy --env <name>`.
 
 If a run fails because a name above is missing, the log names it; add it and re-run the job.
 The `Deploy` workflow only triggers once its file is on `main`, so the first staging deploy
 happens when `phase-0` merges. A `v*` tag pushed before the `production` environment is filled
-fails at the migration step and deploys nothing. After it, open the staging URL, install the app from the
+fails at the build or migration step and deploys nothing. After it, open the staging URL, install the app from the
 browser menu (desktop and phone), and trigger a test error to see it in Sentry.
 
 ## Architecture rules that lint enforces

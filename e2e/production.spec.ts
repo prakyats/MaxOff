@@ -25,7 +25,27 @@ const SHELL_ROUTES = [
   "/forbidden",
 ];
 
+/** Mirrors SECURITY_HEADERS in next.config.ts; a change there must be made here on purpose. */
+const SECURITY_HEADERS: Record<string, string> = {
+  "x-frame-options": "DENY",
+  "content-security-policy": "frame-ancestors 'none'",
+  "x-content-type-options": "nosniff",
+  "referrer-policy": "strict-origin-when-cross-origin",
+  "permissions-policy": "camera=(), microphone=(), geolocation=()",
+  "strict-transport-security": "max-age=63072000; includeSubDomains",
+};
+
 test.describe("production build", () => {
+  for (const route of ["/", "/offline", "/today"]) {
+    test(`${route} carries the security headers`, async ({ request }) => {
+      const response = await request.get(route, { maxRedirects: 0 });
+      const headers = response.headers();
+      for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
+        expect(headers[name], `${route} ${name}`).toBe(value);
+      }
+    });
+  }
+
   test("is a production build: the service worker registers", async ({ page }) => {
     await page.goto("/offline");
     // Registration happens only when NODE_ENV is `production` (should-register.ts), so this

@@ -1,11 +1,12 @@
 # Deploy (task 0.5, ADR-0003, ARCHITECTURE §18).
 #
-# staging:    runs when CI has passed on `main` (a red CI never deploys). Pushes migrations to the
-#             staging Supabase project, builds the Worker with OpenNext and deploys it.
+# staging:    runs when CI has passed on `main` (a red CI never deploys). Builds the Worker with
+#             OpenNext, then pushes migrations to the staging Supabase project, then deploys.
 # production: runs on a `v*` tag, but only for a commit that is on `main` and whose CI run passed
 #             all three required checks (CI does not run on tags, so the job reads the commit's
 #             check runs). Until the `production` GitHub environment is filled in, a tag push
-#             fails at the migration step with the missing name in the log; nothing is deployed.
+#             fails at the build or migration step with the missing name in the log; nothing is
+#             deployed.
 #
 # Every value comes from the GitHub *environment* of the same name (Settings → Environments).
 # Secrets and variables are listed in README → "Deploying". Secrets are given only to the step
@@ -54,6 +55,16 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
 
+      # Build before touching the database: a failed build must never leave the schema ahead
+      # of the Worker that is still serving.
+      - name: Build the Worker (OpenNext)
+        env:
+          # Source-map upload only; absent locally and in CI.
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: pnpm build:worker
+
       - name: Apply migrations to the staging database
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -62,14 +73,6 @@ jobs:
         run: |
           pnpm supabase link --project-ref "$SUPABASE_PROJECT_REF"
           pnpm supabase db push
-
-      - name: Build the Worker (OpenNext)
-        env:
-          # Source-map upload only; absent locally and in CI.
-          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-        run: pnpm build:worker
 
       - name: Deploy to Cloudflare Workers
         id: deploy
@@ -143,6 +146,13 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
 
+      - name: Build the Worker (OpenNext)
+        env:
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: pnpm build:worker
+
       - name: Apply migrations to the production database
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -151,13 +161,6 @@ jobs:
         run: |
           pnpm supabase link --project-ref "$SUPABASE_PROJECT_REF"
           pnpm supabase db push
-
-      - name: Build the Worker (OpenNext)
-        env:
-          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-        run: pnpm build:worker
 
       - name: Deploy to Cloudflare Workers
         id: deploy

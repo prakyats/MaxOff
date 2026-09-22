@@ -13,8 +13,23 @@ initOpenNextCloudflareForDev();
 // "Sentry off" as a second net).
 assertObservabilityEnv();
 
+// Security headers on every response the Worker renders (ARCHITECTURE §18.3). Static assets
+// get their cache headers from `public/_headers`; these apply to HTML, RSC and action responses.
+// Asserted against a real production build in `e2e/production.spec.ts`.
+const SECURITY_HEADERS = [
+  // Never framed, by anyone: the app has no embed use case, and a session cookie arrives in 1.2.
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+  // Two years, subdomains included. Browsers ignore it over plain http (local `next start`).
+  { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
+];
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  headers: async () => [{ source: "/:path*", headers: SECURITY_HEADERS }],
   // `next dev` otherwise appends its own block to CLAUDE.md on every run.
   // CLAUDE.md is hand-written project memory, so we keep Next out of it.
   // Next 16's own guidance lives in `node_modules/next/dist/docs/`.

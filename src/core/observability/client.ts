@@ -10,5 +10,4 @@ export function initClientSentry(): void {
 /** Next.js calls this on App Router navigations; Sentry uses it to name the current route. */
 export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
 
-/** Reports an error the app already handled (an error boundary, a failed action). */
-export const captureException = Sentry.captureException;
+export { captureException } from "./capture";

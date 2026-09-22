@@ -1,6 +1,8 @@
 import { unstable_rethrow } from "next/navigation";
 import { ZodError } from "zod";
 
+import { captureException } from "@/core/observability/capture";
+
 import { AppError, type FieldErrors } from "./app-error";
 import { isPostgresError, mapPostgresError } from "./postgres";
 import { type Result, failFrom } from "./result";
@@ -40,7 +42,11 @@ export type ActionFn<Args extends unknown[], T> = (...args: Args) => Promise<Res
  * Wraps a server action (ARCHITECTURE §4.2) so it always resolves to a
  * `Result` and never throws a raw error to the UI. Next.js's own control-flow
  * throws (`redirect()`, `notFound()`) are re-thrown untouched.
- * Unexpected errors are logged server-side with their cause.
+ *
+ * An unexpected error (INTERNAL) is reported to Sentry through the scrubber and the log line
+ * carries only the code and the Sentry event id. The raw cause never reaches Workers Logs:
+ * a PostgREST error can quote the failing row (ARCHITECTURE §18.2). In `next dev`, where the
+ * SDK is off and the console is the developer's own terminal, the cause is printed as well.
  */
 export function action<Args extends unknown[], T>(fn: ActionFn<Args, T>): ActionFn<Args, T> {
   return async (...args: Args): Promise<Result<T>> => {
@@ -50,7 +56,9 @@ export function action<Args extends unknown[], T>(fn: ActionFn<Args, T>): Action
       unstable_rethrow(error);
       const appError = toAppError(error);
       if (appError.code === "INTERNAL") {
-        console.error("[action] unexpected error", appError.cause ?? appError);
+        const eventId = captureException(appError.cause ?? appError);
+        console.error(`[action] INTERNAL (sentry event ${eventId})`);
+        if (process.env.NODE_ENV === "development") console.error(appError.cause ?? appError);
       }
       return failFrom(appError);
     }

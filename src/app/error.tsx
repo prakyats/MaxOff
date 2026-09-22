@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect } from "react";
 
+import { captureException } from "@/core/observability/client";
 import { ErrorState } from "@/core/ui/composites/error-state";
 import { Button } from "@/core/ui/primitives/button";
 
@@ -15,7 +16,9 @@ export default function RootError({
   reset: () => void;
 }) {
   useEffect(() => {
-    // Sentry takes this over in task 0.5. Until then the server log is the only record.
+    // Next does not forward errors caught by an explicit boundary to Sentry's global handlers,
+    // so the boundary reports them itself (ARCHITECTURE §18.2).
+    captureException(error);
     console.error(error);
   }, [error]);
 
