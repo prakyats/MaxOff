@@ -146,6 +146,22 @@ Variables (**Environment variables**):
 3. `supabase link` + `supabase db push`: applies any new append-only migrations.
 4. Uploads `SUPABASE_SECRET_KEY` as a Worker secret, then `wrangler deploy --env <name>`.
 
+### Confirming the Sentry pipeline
+
+After a deploy, open `https://maxoff-staging.<subdomain>.workers.dev/diagnostics/sentry`. The
+Worker answers **500** on purpose: the route throws an error carrying a fake rupee amount, email
+address and phone number (`src/core/observability/diagnostic.ts`). Within a minute the event
+appears in Sentry (project `maxoff`, environment `staging`, tag `runtime: server`). Check that
+
+1. the stack trace points at `diagnostic.ts` with source lines (source maps uploaded);
+2. every fake value reads `[scrubbed]`: in the exception message, in the `diagnostic` context
+   (including the `billing` key), in the `diagnostic_note` extra and the `diagnostic_contact` tag;
+3. the Request section shows the method and the path only: no headers, cookies, query string or
+   body; the User section shows no IP address.
+
+The route exists only in builds with `NEXT_PUBLIC_APP_ENV=staging`; production and local
+builds answer 404 (`diagnostic.test.ts`, `e2e/production.spec.ts`).
+
 If a run fails because a name above is missing, the log names it; add it and re-run the job.
 The `Deploy` workflow only triggers once its file is on `main`, so the first staging deploy
 happens when `phase-0` merges. A `v*` tag pushed before the `production` environment is filled

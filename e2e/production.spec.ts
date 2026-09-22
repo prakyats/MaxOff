@@ -76,6 +76,13 @@ test.describe("production build", () => {
     expect(await response.text()).not.toContain("Preview CEO");
   });
 
+  test("the Sentry diagnostic route exists only on staging builds", async ({ request }) => {
+    // This build has NEXT_PUBLIC_APP_ENV unset (local), so the route must be a plain 404.
+    const response = await request.get("/diagnostics/sentry", { maxRedirects: 0 });
+    expect(response.status()).toBe(404);
+    expect(await response.text()).not.toContain("Sentry diagnostic");
+  });
+
   test("a preview-role cookie is ignored", async ({ request }) => {
     const response = await request.get("/today", {
       maxRedirects: 0,
