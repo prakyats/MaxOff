@@ -1,6 +1,5 @@
 import * as Sentry from "@sentry/nextjs";
 
-import { observabilityEnv } from "./env";
 import { sentryOptions } from "./options";
 import { makeFetchTransport } from "./transport";
 
@@ -32,8 +31,5 @@ export function initServerSentry(): void {
     integrations: workerSafeIntegrations,
     // Platform fetch instead of node:https (see transport.ts).
     transport: makeFetchTransport,
-    // TEMPORARY, staging only, for one verification deploy (the SDK logger prints the raw
-    // event message to Workers Logs). Removed in the follow-up PR; tracked in PROGRESS.md.
-    debug: observabilityEnv().appEnv === "staging",
   });
 }

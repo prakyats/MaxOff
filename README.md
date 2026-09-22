@@ -153,11 +153,18 @@ Worker answers **500** on purpose: the route throws an error carrying a fake rup
 address and phone number (`src/core/observability/diagnostic.ts`). Within a minute the event
 appears in Sentry (project `maxoff`, environment `staging`, tag `runtime: server`). Check that
 
-1. the stack trace points at `diagnostic.ts` with source lines (source maps uploaded);
-2. every fake value reads `[scrubbed]`: in the exception message, in the `diagnostic` context
+1. every fake value reads `[scrubbed]`: in the issue title, in the `diagnostic` context
    (including the `billing` key), in the `diagnostic_note` extra and the `diagnostic_contact` tag;
-3. the Request section shows the method and the path only: no headers, cookies, query string or
-   body; the User section shows no IP address.
+2. the Request section shows the method only: no URL query string, headers, cookies or body; the
+   `nextjs` context's `request_path` has no query string; the User section shows no id and no IP
+   (Sentry still infers a country from the Worker's egress IP, which is Cloudflare's, not a
+   person's);
+3. the event carries `environment: staging`, `runtime: server`, `runtime.name: cloudflare` and
+   the release (the commit SHA).
+
+Known gap: the stack trace shows `worker.js:<line>` frames, not `diagnostic.ts`. The uploaded
+source maps cover Next's own chunks, but OpenNext re-bundles them into `.open-next/worker.js`
+without a map, so Sentry cannot resolve the frames yet (tracked in PROGRESS.md).
 
 The route exists only in builds with `NEXT_PUBLIC_APP_ENV=staging`; production and local
 builds answer 404 (`diagnostic.test.ts`, `e2e/production.spec.ts`).
