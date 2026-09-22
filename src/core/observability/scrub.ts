@@ -41,7 +41,17 @@ export function scrubUrl(value: string): string {
   }
 }
 
-/** Recursively replaces financial keys and scrubs strings. Leaves everything else untouched. */
+/**
+ * Keys whose string value is a URL or a path with a possible query string, wherever they sit.
+ * `request_path` is what `@sentry/nextjs` puts in `contexts.nextjs` for `onRequestError`; the
+ * staging diagnostic showed it carrying the full query string (ARCHITECTURE §18.2).
+ */
+const URL_KEYS = new Set(["url", "from", "to", "href", "request_path"]);
+
+/**
+ * Recursively replaces financial keys, reduces URL keys to origin + path and scrubs strings.
+ * Leaves everything else untouched.
+ */
 export function scrubValue(value: unknown, depth = 0): unknown {
   if (typeof value === "string") return scrubString(value);
   if (depth >= MAX_DEPTH) return SCRUBBED;
@@ -49,25 +59,17 @@ export function scrubValue(value: unknown, depth = 0): unknown {
   if (isRecord(value)) {
     const out: Record<string, unknown> = {};
     for (const [key, inner] of Object.entries(value)) {
-      out[key] = FINANCIAL_KEY.test(key) ? SCRUBBED : scrubValue(inner, depth + 1);
+      if (FINANCIAL_KEY.test(key)) out[key] = SCRUBBED;
+      else if (URL_KEYS.has(key) && typeof inner === "string") out[key] = scrubUrl(inner);
+      else out[key] = scrubValue(inner, depth + 1);
     }
     return out;
   }
   return value;
 }
 
-const URL_KEYS = new Set(["url", "from", "to"]);
-
 function scrubData(data: Record<string, unknown>): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  for (const [key, inner] of Object.entries(data)) {
-    if (URL_KEYS.has(key) && typeof inner === "string") {
-      out[key] = scrubUrl(inner);
-    } else {
-      out[key] = FINANCIAL_KEY.test(key) ? SCRUBBED : scrubValue(inner);
-    }
-  }
-  return out;
+  return scrubValue(data) as Record<string, unknown>;
 }
 
 /**

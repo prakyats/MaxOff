@@ -186,3 +186,23 @@ describe("scrubEvent", () => {
     expect(event.extra).toEqual({ amount: 1 });
   });
 });
+
+describe("URL keys inside contexts and extra", () => {
+  it("reduces contexts.nextjs.request_path to the path (the query string carried a secret on staging)", () => {
+    const event = scrubEvent({
+      type: undefined,
+      contexts: {
+        nextjs: {
+          request_path: "/diagnostics/sentry?secret=querystring-leak-check&email=a@b.co",
+          router_path: "/diagnostics/sentry",
+        },
+      },
+      extra: { href: "https://maxoff.example/today?filter=₹500" },
+    });
+    expect(event.contexts?.nextjs).toEqual({
+      request_path: "/diagnostics/sentry",
+      router_path: "/diagnostics/sentry",
+    });
+    expect(event.extra).toEqual({ href: "https://maxoff.example/today" });
+  });
+});
