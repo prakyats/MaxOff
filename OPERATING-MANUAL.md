@@ -1,4 +1,4 @@
-# MaxOff: Operating Manual (for Prakyat)
+# MaxOff: Operating Manual (for Prishit)
 
 Everything you need to run the build, without asking anyone what to do next.
 **BUILD-GUIDE.md** = setup and models. **This file** = the daily loop, what each task should deliver, and how to check it.
