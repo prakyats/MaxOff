@@ -12,5 +12,5 @@ Review phase $ARGUMENTS of MaxOff before merging it. (Use the highest-capability
    - `git push -u origin phase-<N>` and wait for CI to pass on the branch.
    - `gh pr create --base main --head phase-<N> --title "Phase <N>: <name>" --body "<what the phase delivered, and the review findings that were fixed>"`
    - `gh pr checks --watch` until all three are green, then `gh pr merge --merge --delete-branch=false`.
-   - `git switch main && git pull`, then `git tag phase-<N> && git push --follow-tags`.
+   - `git switch main && git pull`, then tag the merge commit **`phase-<N>-done`** (never the branch name, and never `v*`, which triggers the production deploy): `git tag -a phase-<N>-done -m "Phase <N>: <name>" && git push origin phase-<N>-done`.
    - Update PROGRESS.md for the next phase. The merge to `main` triggers the staging deploy; report the URL it prints.

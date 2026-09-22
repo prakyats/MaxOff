@@ -79,6 +79,11 @@ is on `main` with all three CI checks green (a tag on any other commit stops bef
 name (repository **Settings → Environments → New environment**: `staging`, later `production`).
 Nothing secret is ever committed or typed into a terminal; it all goes in through that page.
 
+**Branches and tags.** Work happens on `phase-N` branches. The end of a phase is tagged
+`phase-N-done` on the merge commit (`/review-phase`). Never name a tag after a branch (the
+old `phase-0` tag is both, which makes plain `git push` and `git push --delete` ambiguous), and
+never tag `v*` for a phase: that name means "deploy to production".
+
 | Command | Does |
 |---|---|
 | `pnpm build:worker` | `next build` + OpenNext bundling into `.open-next/` (what CI and the deploy jobs run) |

@@ -1,7 +1,7 @@
 # MaxOff Roadmap (v2)
 
 > **One task = one Claude Code session.** Tick a task (`[x]`) only when the Definition of Done (CLAUDE.md) is met and it's committed.
-> Each phase ends with `/review-phase N` (review → fixes → merge to `main` → tag `phase-N`).
+> Each phase ends with `/review-phase N` (review → fixes → merge to `main` → tag `phase-N-done`; the branch stays `phase-N`).
 > **Model tier** per task (mapped to actual models in BUILD-GUIDE.md):
 > **[H]** highest-capability model: schema, security, transition functions, jobs, reviews · **[C]** strong coding model: features and UI · **[Q]** fast model: polish and docs.
 >
