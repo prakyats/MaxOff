@@ -87,6 +87,15 @@ jobs:
             SUPABASE_SECRET_KEY
         env:
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      # Optional until the secret exists in the GitHub environment (README → Secrets): without
+      # it session_events.ip_hash is stored as null, and the deploy must not fail over it.
+      - name: Upload SESSION_IP_HASH_SALT
+        if: ${{ secrets.SESSION_IP_HASH_SALT != '' }}
+        run: printf '%s' "$SESSION_IP_HASH_SALT" | pnpm exec wrangler secret put SESSION_IP_HASH_SALT --env staging
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          SESSION_IP_HASH_SALT: ${{ secrets.SESSION_IP_HASH_SALT }}
 
   production:
     name: production
@@ -174,3 +183,12 @@ jobs:
             SUPABASE_SECRET_KEY
         env:
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      # Optional until the secret exists in the GitHub environment (README → Secrets): without
+      # it session_events.ip_hash is stored as null, and the deploy must not fail over it.
+      - name: Upload SESSION_IP_HASH_SALT
+        if: ${{ secrets.SESSION_IP_HASH_SALT != '' }}
+        run: printf '%s' "$SESSION_IP_HASH_SALT" | pnpm exec wrangler secret put SESSION_IP_HASH_SALT --env production
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          SESSION_IP_HASH_SALT: ${{ secrets.SESSION_IP_HASH_SALT }}

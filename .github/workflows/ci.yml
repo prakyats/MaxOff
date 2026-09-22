@@ -74,9 +74,19 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
-      # The `production` Playwright project runs against `next start` of this build.
+      # Every Playwright project runs against `next start` of this build (task 1.2), signing
+      # in as the seeded local users, so the local Supabase stack (Auth, PostgREST, Kong,
+      # Mailpit for the recovery email) must be up before the build inlines its keys.
+      - run: pnpm supabase start -x realtime,storage-api,imgproxy,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+      - name: Point the build at the local stack
+        run: |
+          pnpm exec supabase status -o env | grep -E '^(API_URL|PUBLISHABLE_KEY)=' > supabase-status.env
+          echo "NEXT_PUBLIC_SUPABASE_URL=$(grep '^API_URL=' supabase-status.env | cut -d= -f2- | tr -d '"')" >> "$GITHUB_ENV"
+          echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$(grep '^PUBLISHABLE_KEY=' supabase-status.env | cut -d= -f2- | tr -d '"')" >> "$GITHUB_ENV"
       - run: pnpm build
       - run: pnpm test:e2e
+      - if: always()
+        run: pnpm supabase stop --no-backup
       - if: failure()
         uses: actions/upload-artifact@v4
         with:

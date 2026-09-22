@@ -64,6 +64,21 @@ app.members_self_edit_guard()   BEFORE UPDATE on members: without team.manage on
 app.members_insert_guard()      BEFORE INSERT on members: outside a transition a new row is invited,
                                 with no joined_at / deactivated_at
 app.create_org_settings()       AFTER INSERT on organizations: the org_settings row with launch defaults
+
+-- Session and bootstrap functions (task 1.2, ADR-0012). public schema (RPC), security definer,
+-- search_path = ''. EXECUTE is revoked from public AND anon explicitly: Supabase's default
+-- privileges grant it to anon on every new public function.
+public.session_login(user_agent, ip_hash)    inserts session_events(login) for the calling active
+                                member (app.current_member()); UNAUTHENTICATED otherwise. Called
+                                once per sign-in and once when a recovery link opens a session.
+                                No activity_log row: the session_events row is the record
+public.session_logout(user_agent, ip_hash)   the same for logout. 2.1 extends it with
+                                attendance_days.last_logout_at
+public.bootstrap_ceo(user_id, email, full_name, org_name)   service_role only. Creates the single
+                                organization when none exists and the first, active CEO member for
+                                an existing auth user; CONFLICT once any member exists. Called by
+                                scripts/bootstrap-ceo.mjs, which prints a one-time recovery link and
+                                never handles a password
 ```
 
 ## 1. Organization, people and access
@@ -88,8 +103,11 @@ member_directory     view (security definer): id, org_id, full_name, phone, role
                      plus the caller's own.
                      No email (PERMISSIONS §2). Names of people on a member's own tasks join in 4.1
 role_permissions     role member_role, permission text, pk(role, permission)   -- seeded
-session_events       id, member_id, kind ('login'|'logout'), at, user_agent, ip_hash
-                     -- append-only, written by functions only (1.2). RLS: own rows; all for attendance.view_all
+session_events       id, member_id, kind ('login'|'logout'), at, user_agent (≤ 512), ip_hash
+                     -- append-only, written only by session_login() / session_logout() (1.2) and
+                     -- attendance_touch() (2.1). ip_hash = salted SHA-256 of the client IP
+                     -- (SESSION_IP_HASH_SALT) or null; never the IP, never an unsalted hash.
+                     -- RLS: own rows; all for attendance.view_all
 push_subscriptions   id, member_id, endpoint unique, p256dh, auth, user_agent, created_at,
                      platform ('android'|'ios'|'desktop'|'other'), is_standalone bool (PWA installed),
                      label (device name shown to the member), last_success_at, last_failure_at,

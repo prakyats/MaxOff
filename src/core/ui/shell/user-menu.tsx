@@ -1,7 +1,8 @@
 "use client";
 
-import { LogOutIcon, UserIcon } from "lucide-react";
+import { UserIcon } from "lucide-react";
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 import { Avatar, AvatarFallback } from "@/core/ui/primitives/avatar";
 import { Button } from "@/core/ui/primitives/button";
@@ -16,8 +17,12 @@ import {
 
 import { initialsOf, ROLE_LABELS, type ShellViewer } from "./viewer";
 
-/** Avatar button with the viewer's name, role and job title, a Profile link and Log out. */
-export function UserMenu({ viewer }: { viewer: ShellViewer }) {
+/**
+ * Avatar button with the viewer's name, role and job title, a Profile link and Log out.
+ * `logoutItem` is rendered by the app layout (`core/auth` owns the action), so the design
+ * system never depends on auth.
+ */
+export function UserMenu({ viewer, logoutItem }: { viewer: ShellViewer; logoutItem?: ReactNode }) {
   const subtitle = viewer.jobTitle
     ? `${ROLE_LABELS[viewer.role]} · ${viewer.jobTitle}`
     : ROLE_LABELS[viewer.role];
@@ -43,12 +48,7 @@ export function UserMenu({ viewer }: { viewer: ShellViewer }) {
             Profile
           </Link>
         </DropdownMenuItem>
-        {/* Wired to core/auth in task 1.2. */}
-        <DropdownMenuItem disabled>
-          <LogOutIcon aria-hidden />
-          Log out
-          <span className="text-muted-foreground ml-auto text-xs">1.2</span>
-        </DropdownMenuItem>
+        {logoutItem}
       </DropdownMenuContent>
     </DropdownMenu>
   );

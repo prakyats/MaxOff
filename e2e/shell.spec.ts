@@ -1,39 +1,25 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+
+import { storageStateFor } from "./helpers";
 
 /**
- * The 0.3 shell, previewed through the development-only role cookie. Task 1.2 replaces
- * `previewAs()` with a real sign-in helper and seeded users; the assertions stay.
+ * The 0.3 shell, seen through the real sessions `auth.setup.ts` saved for each seeded role
+ * (task 1.2 replaced the development-only preview cookie).
  */
-const PREVIEW_ROLE_COOKIE = "maxoff-preview-role";
-
-// `next dev` mounts its dev-tools button in a <nextjs-portal>; on a phone it covers the Staff
-// "Me" tab and intercepts taps. Hidden here until 1.2 runs the tests against `next start`.
-test.beforeEach(async ({ context }) => {
-  await context.addInitScript(() => {
-    const style = document.createElement("style");
-    style.textContent = "nextjs-portal { display: none !important; }";
-    document.addEventListener("DOMContentLoaded", () => document.head.append(style));
-  });
-});
-
-async function previewAs(page: Page, baseURL: string | undefined, role: "ceo" | "admin" | "staff") {
-  if (!baseURL) throw new Error("playwright.config.ts must set use.baseURL");
-  await page.context().addCookies([{ name: PREVIEW_ROLE_COOKIE, value: role, url: baseURL }]);
-}
-
-test("an unknown route shows the 404 page", async ({ page }) => {
-  const response = await page.goto("/this-route-does-not-exist");
-  expect(response?.status()).toBe(404);
-  // Next's route announcer is a second role=alert, so target the composite itself.
-  await expect(page.locator('[data-slot="error-state"]')).toContainText("Page not found");
-  await expect(page.getByRole("link", { name: "Go home" })).toBeVisible();
-});
 
 test.describe("CEO on desktop", () => {
   test.skip(({ isMobile }) => Boolean(isMobile), "sidebar is desktop-only");
+  test.use({ storageState: storageStateFor("ceo") });
 
-  test("lands on Today and navigates through the sidebar", async ({ page, baseURL }) => {
-    await previewAs(page, baseURL, "ceo");
+  test("an unknown route shows the 404 page", async ({ page }) => {
+    const response = await page.goto("/this-route-does-not-exist");
+    expect(response?.status()).toBe(404);
+    // Next's route announcer is a second role=alert, so target the composite itself.
+    await expect(page.locator('[data-slot="error-state"]')).toContainText("Page not found");
+    await expect(page.getByRole("link", { name: "Go home" })).toBeVisible();
+  });
+
+  test("lands on Today and navigates through the sidebar", async ({ page }) => {
     await page.goto("/");
     await expect(page).toHaveURL(/\/today$/);
 
@@ -61,8 +47,7 @@ test.describe("CEO on desktop", () => {
     );
   });
 
-  test("the theme toggle switches to dark and back", async ({ page, baseURL }) => {
-    await previewAs(page, baseURL, "ceo");
+  test("the theme toggle switches to dark and back", async ({ page }) => {
     await page.goto("/today");
     const html = page.locator("html");
 
@@ -74,43 +59,59 @@ test.describe("CEO on desktop", () => {
     await page.getByRole("menuitemradio", { name: "Light" }).click();
     await expect(html).not.toHaveClass(/\bdark\b/);
   });
+
+  test("the account menu names the member and offers Log out", async ({ page }) => {
+    await page.goto("/today");
+    await page.getByRole("button", { name: "Account menu" }).click();
+    await expect(page.getByRole("menu")).toContainText("Local CEO");
+    await expect(page.getByRole("menuitem", { name: "Log out" })).toBeVisible();
+    await page.keyboard.press("Escape");
+  });
 });
 
 test.describe("permission guards", () => {
   test.skip(({ isMobile }) => Boolean(isMobile), "the same on every viewport");
 
-  test("Staff are sent to No access from management routes", async ({ page, baseURL }) => {
-    await previewAs(page, baseURL, "staff");
-    for (const path of ["/clients", "/people", "/approvals", "/reports", "/settings"]) {
-      await page.goto(path);
-      await expect(page, `${path} for Staff`).toHaveURL(/\/forbidden$/);
-      await expect(page.locator('[data-slot="error-state"]')).toContainText("You can't open this");
-    }
-    await page.goto("/tasks");
-    await expect(page.getByRole("heading", { name: "Tasks", exact: true })).toBeVisible();
+  test.describe("as Staff", () => {
+    test.use({ storageState: storageStateFor("staff") });
+
+    test("Staff are sent to No access from management routes", async ({ page }) => {
+      for (const path of ["/clients", "/people", "/approvals", "/reports", "/settings"]) {
+        await page.goto(path);
+        await expect(page, `${path} for Staff`).toHaveURL(/\/forbidden$/);
+        await expect(page.locator('[data-slot="error-state"]')).toContainText(
+          "You can't open this",
+        );
+      }
+      await page.goto("/tasks");
+      await expect(page.getByRole("heading", { name: "Tasks", exact: true })).toBeVisible();
+    });
   });
 
-  test("an Admin opens the routes their keys allow", async ({ page, baseURL }) => {
-    await previewAs(page, baseURL, "admin");
-    for (const [path, heading] of [
-      ["/people", "People"],
-      ["/clients", "Clients"],
-      ["/approvals", "Approvals"],
-      ["/reports", "Reports"],
-      ["/settings", "Settings"],
-    ] as const) {
-      await page.goto(path);
-      await expect(page, `${path} for an Admin`).toHaveURL(new RegExp(`${path}$`));
-      await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
-    }
+  test.describe("as an Admin", () => {
+    test.use({ storageState: storageStateFor("admin") });
+
+    test("an Admin opens the routes their keys allow", async ({ page }) => {
+      for (const [path, heading] of [
+        ["/people", "People"],
+        ["/clients", "Clients"],
+        ["/approvals", "Approvals"],
+        ["/reports", "Reports"],
+        ["/settings", "Settings"],
+      ] as const) {
+        await page.goto(path);
+        await expect(page, `${path} for an Admin`).toHaveURL(new RegExp(`${path}$`));
+        await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
+      }
+    });
   });
 });
 
 test.describe("Staff on a phone", () => {
   test.skip(({ isMobile }) => !isMobile, "bottom nav is phone-only");
+  test.use({ storageState: storageStateFor("staff") });
 
-  test("lands on My Day and uses the bottom nav", async ({ page, baseURL }) => {
-    await previewAs(page, baseURL, "staff");
+  test("lands on My Day and uses the bottom nav", async ({ page }) => {
     await page.goto("/");
     await expect(page).toHaveURL(/\/my-day$/);
 
@@ -124,5 +125,6 @@ test.describe("Staff on a phone", () => {
     await nav.getByRole("link", { name: "Me" }).click();
     await expect(page).toHaveURL(/\/me$/);
     await expect(nav.getByRole("link", { name: "Me" })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByText("staff@maxoff.local")).toBeVisible();
   });
 });

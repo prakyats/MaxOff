@@ -39,7 +39,8 @@ leave approved AFTER the member submitted Present for that date ─► corrected
 - **A CEO correction to a leave type** (`leave`, `half_day`, `comp_leave`) with no leave request behind it creates `leave_requests(source = 'ceo', state = approved)` for that date and links it, so calendar and availability stay right.
 - A **working day** is not a weekly off day and not in `holidays`. On a day off: no absent check, but the gate **still asks** if someone logs in, and `is_day_off = true` shows as "Worked on a day off". (Pixora's current setting: Sunday off, and people do sometimes work Sundays.)
 - `attendance_day` is **unique per member per IST date**. Later logins only add `session_events`.
-- **Logout:** `logout()` writes `session_events(kind = logout)` immediately and updates `attendance_days.last_logout_at`.
+- **Sign-in:** the login action (and a recovery link opening a session at `/auth/confirm`) calls `session_login()`, which writes `session_events(kind = login)` for the active member and refuses anyone else. A deactivated or invited person cannot sign in: the session is ended again and the form says so.
+- **Logout:** `session_logout()` writes `session_events(kind = logout)` immediately (this device only; other signed-in devices stay in), then the auth session is ended. 2.1 extends it to update `attendance_days.last_logout_at`.
 - **20:30 IST job** (configurable): anyone with a login today and no logout since their last login gets the forgot-to-logout reminder.
 - **Nightly (after 23:59):** days with a login and no logout get `logout_not_recorded = true`. No time is made up.
 - **Overtime:** the member can flag overtime with a reason on any day, which sets `overtime_flag` and `overtime_reason`. Notice only, no approval.

@@ -5,6 +5,14 @@ begin;
 create extension if not exists pgtap with schema extensions;
 select plan(143);
 
+-- The local seed (1.2) holds five sign-ins; the tests build their own team on an empty one.
+-- Rolled back with everything else at the end.
+delete from public.session_events;
+delete from public.members;
+delete from auth.identities;
+delete from auth.users;
+delete from public.activity_log;
+
 -- Fixtures --------------------------------------------------------------------------------
 -- Fixed uuids keep the assertions readable. The organization is the seeded one when present
 -- (current_org_id() falls back to the single organizations row), else one made here.

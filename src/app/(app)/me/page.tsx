@@ -1,11 +1,9 @@
-import { LogOutIcon } from "lucide-react";
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
 
-import { getCurrentMember } from "@/core/auth/server";
+import { LogoutButton } from "@/core/auth/components";
+import { requireMember } from "@/core/auth/server";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { Avatar, AvatarFallback } from "@/core/ui/primitives/avatar";
-import { Button } from "@/core/ui/primitives/button";
 import {
   Card,
   CardContent,
@@ -21,11 +19,10 @@ export const metadata: Metadata = { title: "Me" };
 
 /**
  * Profile, appearance and log out (PRODUCT §4.7: the Staff "Me" tab). Profile editing lands
- * in task 1.3 and log out in task 1.2.
+ * in task 1.3.
  */
 export default async function MePage() {
-  const viewer = await getCurrentMember();
-  if (!viewer) notFound();
+  const viewer = await requireMember();
 
   const subtitle = viewer.jobTitle
     ? `${ROLE_LABELS[viewer.role]} · ${viewer.jobTitle}`
@@ -47,8 +44,14 @@ export default async function MePage() {
               </div>
             </div>
           </CardHeader>
-          <CardContent className="text-muted-foreground text-sm">
-            Editing your name and avatar is filled in task 1.3.
+          <CardContent className="flex flex-col gap-1 text-sm">
+            <p>
+              <span className="text-muted-foreground">Signs in as </span>
+              <span className="font-medium">{viewer.email}</span>
+            </p>
+            <p className="text-muted-foreground">
+              Editing your name and avatar is filled in task 1.3.
+            </p>
           </CardContent>
         </Card>
 
@@ -66,13 +69,10 @@ export default async function MePage() {
               <div>
                 <p className="text-sm font-medium">Session</p>
                 <p className="text-muted-foreground text-sm">
-                  Logging out records the time. Filled in task 1.2.
+                  Logging out records the time, on this device only.
                 </p>
               </div>
-              <Button variant="outline" disabled>
-                <LogOutIcon aria-hidden />
-                Log out
-              </Button>
+              <LogoutButton />
             </div>
           </CardContent>
         </Card>

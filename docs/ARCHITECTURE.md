@@ -47,20 +47,26 @@
 
 ```
 src/
+  proxy.ts                   # Next 16 proxy: refreshes the session cookies, optimistic redirect only (ADR-0012)
   app/                       # routes only: thin pages composing module components
-    (auth)/login, invite/
+    (auth)/login, forgot-password, set-password   # signed-out screens (1.2); invite accept in 1.3
+    auth/confirm, auth/signout                    # route handlers: token-hash links, ending an inactive session
     (gate)/attendance/       # the first-login-of-the-day choice screen
     (app)/today, my-day, approvals, clients/, tasks/, calendar, people/, reports/, settings/
     api/                     # webhooks, cron entry points (secret-protected), push subscribe
   core/                      # shared foundation, NO business features
-    auth/                    # session, getCurrentMember(), guards, day-gate check
+    auth/                    # session (server.ts: getSessionState/getCurrentMember/requireMember),
+                             #   actions (login/logout/setPassword/requestPasswordReset), paths,
+                             #   schemas, links (verifyAuthLink), session (updateSession for the
+                             #   proxy), components/ (the sign-in forms, Log out); day-gate check in 2.2
     db/                      # Supabase clients (server, browser, service) + generated types
     permissions/             # key registry, can(), requirePermission() (pages), assertPermission() (actions), <Can>
     activity/                # activity feed UI + helper for non-workflow audit
     custom-fields/           # definitions, zod builder, <CustomFieldsForm>/<View>
     lists/                   # list_items engine + registry
     storage/                 # StorageAdapter (R2), multipart presign, file metadata
-    notifications/           # NotificationService, channels (push, email), <Bell>
+    notifications/           # NotificationService, channels (push, email), <Bell>; email.ts + env.ts
+                             #   (1.2): sendEmail() with a Resend sender and a log fallback
     time/                    # IST helpers: todayIST(), toISTDate(), istDayRange(), formatIST(); isWorkingDay() in 1.4
     realtime/                # useRealtimeInvalidate(table, filter) → TanStack Query invalidation
     errors/                  # AppError, Result<T>, action() wrapper, Postgres error mapping
@@ -89,7 +95,7 @@ supabase/
   seed.sql         # dev seed: org, CEO, sample admins/staff/clients, Pixora lists
 e2e/               # Playwright
 public/            # manifest.webmanifest, icons/, service worker (sw.js), _headers
-scripts/           # one-off maintenance scripts (icon rendering)
+scripts/           # one-off maintenance scripts (icon rendering, the CEO bootstrap)
 wrangler.jsonc     # Workers: dev / staging / production (§18); open-next.config.ts beside it
 ```
 
@@ -194,7 +200,8 @@ Auditing for plain edits is done by a **generic `audit_row_change()` trigger** o
 
 ## 5. Authorization in the database
 - `current_org_id()` returns the caller's organization id (the single org in the prototype) and is the default for every root table's `org_id`.
-- `current_member()` returns the caller's active member row. **Deactivated means no rows**, so access ends immediately.
+- `current_member()` returns the caller's active member row. **Deactivated means no rows**, so access ends immediately. The app repeats the check (`requireMember()`, the login action) so a deactivated person's session is ended and they see why (ADR-0012).
+- **Session events and the first CEO** are written by `security definer` functions in `public` (`session_login()`, `session_logout()`, `bootstrap_ceo()`; DATA-MODEL §0a), never by a client insert. `bootstrap_ceo()` is executable by `service_role` only. Every public function revokes EXECUTE from `anon` explicitly (Supabase grants it by default).
 - `has_permission(key)` checks role → `role_permissions`. These helpers live in the `app` schema (`app.current_member()` etc.), so policies and functions call them qualified; TS never calls them directly.
 - **Protected columns:** state columns (and the timestamps that move with them) carry `app.protect_columns('status', ...)`, a BEFORE UPDATE trigger that raises `FORBIDDEN` unless `app.in_transition()` is true. `in_transition()` is true whenever the statement runs as the function owner (a security definer function, a migration, a job) and false for the API roles, so a direct update from any client fails even for a role whose RLS allows it, and there is no flag a client could set. The protected columns also carry **no UPDATE privilege** for `authenticated` (column-level grants list the editable columns), so a client hits `42501` before the trigger. **The service client bypasses both** (RLS and `in_transition()` is true for `service_role`): jobs and scripts call transition functions for state columns and never update them directly.
 - `member_directory` is a `security definer` view (no email) through which Admins and Staff see other people (PERMISSIONS §2).
@@ -213,6 +220,14 @@ Auditing for plain edits is done by a **generic `audit_row_change()` trigger** o
 - SQL: `app.today_ist()`, `app.to_ist_date(ts)`, `app.is_working_day(date)` (weekly offs + holidays).
 - TS: `core/time`, the only place that formats or computes IST dates. Components never call `new Date()` for business logic.
 - `pg_cron` runs in UTC, so jobs are scheduled at the UTC equivalent (23:59 IST = 18:29 UTC) and **re-check the IST date inside the job**.
+
+## 7a. Sessions (task 1.2, ADR-0012)
+- **Supabase Auth**, email + password, sign-ups off everywhere; people exist only through the bootstrap script (the CEO) and invites (1.3). Passwords: 12 characters minimum, no composition rule, leaked-password protection on the hosted projects.
+- **`src/proxy.ts`** runs `core/auth` `updateSession()` on every page request: refreshes the cookies and redirects from the JWT alone (no session → `/login?next=`; a session on the sign-in pages → `/`). Static assets, `sw.js` and the manifest are outside its matcher; `/offline`, `/auth/*`, `/api/*` and the sign-in pages pass through it without a session (`core/auth/paths.ts`). OpenNext bundles it as Node middleware.
+- **`requireMember()`** in the `(app)` layout is the decision: `getSessionState()` (per request, `cache()`) verifies the JWT with `getClaims()`, reads the member row under RLS and answers `none` / `inactive` / `member`. `inactive` (missing, invited or deactivated) is ended through `/auth/signout` and lands on `/login?reason=inactive`. `requirePermission()` builds on it.
+- **Auth links** (recovery now, invite from 1.3) land on `/auth/confirm?token_hash=…&type=…` and are verified server-side (`verifyOtp`), so they need no browser state and work from the bootstrap script's printed link. A verified link opens a session, so `verifyAuthLink()` checks the member there (not active → signed out again, `/login?reason=inactive`) and records `session_login()` before sending the browser to `/set-password`. The email templates in `supabase/templates/` build that URL; the hosted projects carry the same text (README → "Hosted auth settings").
+- **Login** = `signInWithPassword` → member must be active (else sign out again, `FORBIDDEN`) → `session_login()` → `Sentry.setUser({ id })` → redirect to a safe `next` or `/` (which routes to the role's home). **Logout** = `session_logout()` → `signOut({ scope: "local" })` (this device only) → `/login?reason=signed_out`.
+- **Email from the app** goes through `core/notifications` `sendEmail()`: Resend when `RESEND_API_KEY` is set, otherwise a log sender that never throws; `instrumentation.ts` warns once at start-up (error level in production, still no crash). Supabase Auth's own emails don't use it. A verified sending domain is a prerequisite for 1.3 invites and 5.2 notification email.
 
 ## 8. The first-login day gate
 - `(app)` layout → `core/auth` `requireDayGate()` → rpc `attendance_touch()`. This creates today's `attendance_days` row and a `session_events(login)` if needed, and returns whether a choice is still required.
@@ -264,7 +279,7 @@ All calculation is in SQL views (WORKFLOWS §6) over CEO-only tables, so reports
 | Flows | Playwright | login + day gate, assign → acknowledge → done → admin → CEO, rejection loop, leave request → decision, cycle generation → tick → approve, CEO bulk approve |
 | CI | GitHub Actions | three jobs on every push and PR (`.github/workflows/ci.yml`): `typecheck · lint · format · unit · build` (the build is the **OpenNext Worker build**, so a change the Workers runtime can't take fails before merge), `pgTAP` (Postgres-only local stack) and `playwright` (Chromium). Red never merges: branch protection on `main` requires all three (README) |
 
-Locally, `pnpm check` = typecheck + lint + format:check + unit tests + pgTAP + build (needs Docker and `pnpm db:start`). Playwright is deliberately outside `check`: `pnpm test:e2e` runs it on demand and `/finish-task` runs it whenever a flow changed. Until task 1.2 the flow specs run against `next dev` with the preview-role cookie; 1.2 switches them to `pnpm start` with seeded users. A separate **`production` project** (`e2e/production.spec.ts`) always runs against `next start` of a fresh build on its own port and proves that development-only shims are unreachable in a real build and that the service worker registers. It never reuses a running server.
+Locally, `pnpm check` = typecheck + lint + format:check + unit tests + pgTAP + build (needs Docker and `pnpm db:start`). Playwright is deliberately outside `check`: `pnpm test:e2e` runs it on demand and `/finish-task` runs it whenever a flow changed. Every Playwright project runs against **`next start` of a fresh build** on its own port (never a reused server): a `setup` project signs in as the seeded local users (`supabase/seed.sql`, README → "Local sign-ins") through the real form and saves one storage state per role for the `desktop` and `mobile` projects; the **`production` project** (`e2e/production.spec.ts`) proves the build is locked down (every shell route redirects to `/login`, no trace of the deleted development shims, the service worker registers). The local Supabase stack must be up and reset first; CI starts it in the Playwright job and points the build at its keys.
 
 ## 16. Recipe for adding a feature
 1. `/add-feature` → `docs/features/<name>.md` (+ an ADR if a pattern changes).
@@ -299,7 +314,7 @@ Real data never goes on local or staging. Each deploy job first builds the Worke
 **Rule: error reports never carry money or personal data** (CLAUDE.md invariant 2).
 - `sendDefaultPii: false` on every runtime; `includeLocalVariables: false` on the server, so stack frames never carry variables.
 - Request bodies, form data, cookies, headers and query strings are never attached (`scrubEvent` drops `request.data`, `cookies`, `headers`, `query_string`) and every URL (request, fetch and navigation breadcrumbs, and any `url` / `href` / `from` / `to` / `request_path` key in contexts, extra or tags, including the `request_path` that `@sentry/nextjs` puts in `contexts.nextjs`) is reduced to origin + path.
-- A user is identified by **member id only**: `Sentry.setUser({ id })` and nothing else (from 1.2). Name, email and IP fields are removed from the event; IP storage is switched off in the Sentry project itself (README → Deploying → Sentry), because Sentry would otherwise infer it from the connection.
+- A user is identified by **member id only**: `core/observability` `setSentryUser(id)` is called by `core/auth` on every request that resolves a member (server) and by `<SentryUser>` in the app layout (browser), and cleared on sign-out. `scrubEvent` reduces `user` to `{ id }`, which also drops the **country Sentry infers from the connecting IP** (`user.geo`), even with IP storage switched off in the Sentry project (README → Deploying → Sentry).
 - Any field whose key looks financial (`amount`, `value`, `billing`, `revenue`, `price`, `rate`, `fee`, `inr`, `money`) is replaced by `[scrubbed]` however deep it sits in `extra`, `contexts`, `tags` or breadcrumb data. Inside every string (messages, exception values, breadcrumbs) rupee amounts (`₹`, `Rs`, `INR`), email addresses and Indian phone numbers are replaced, keeping the rest of the text. Network breadcrumbs keep only method, status and path.
 - The scrubber (`core/observability/scrub.ts`) is unit-tested and wired as `beforeSend` and `beforeBreadcrumb`; a new Sentry integration must go through it, not around it. When screens carry names in clickable labels (3.x), limit DOM breadcrumbs to `data-slot` (`breadcrumbsIntegration({ dom: { serializeAttribute } })`).
 

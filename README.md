@@ -26,8 +26,46 @@ See `docs/ARCHITECTURE.md` and `docs/decisions/` for the reasoning.
 ```bash
 pnpm install
 cp .env.example .env.local   # then fill in the values
-pnpm dev                     # http://localhost:3000
+pnpm db:start                # local Supabase in Docker; `pnpm db:status` prints the keys for .env.local
+pnpm db:reset                # migrations + seed (the local sign-ins below)
+pnpm dev                     # http://localhost:3000 → /login
 ```
+
+### Local sign-ins
+
+`supabase/seed.sql` creates five accounts for development and Playwright. They exist only on
+the local stack (the deploy workflow never seeds), and the passwords are fixtures, not secrets:
+
+| Email | Password | Role |
+|---|---|---|
+| `ceo@maxoff.local` | `ceo-local-password` | CEO |
+| `admin@maxoff.local` | `admin-local-password` | Admin |
+| `staff@maxoff.local` | `staff-local-password` | Staff |
+| `gone@maxoff.local` | `gone-local-password` | deactivated Staff (refused at sign-in) |
+| `reset@maxoff.local` | `reset-local-password` | Staff, used only by the Playwright recovery-link test (which changes its password) |
+
+Password-reset emails from the local stack land in Mailpit: http://127.0.0.1:54324.
+
+### The first CEO on a hosted project
+
+Sign-ups are off everywhere (invite-only). The first account is created by a script that
+never handles a password: it creates the auth user, inserts the active CEO through
+`bootstrap_ceo()` (service role only, refuses once anyone exists) and prints a **one-time
+link** where the CEO chooses their password. Nothing is emailed, so it works before any
+sending domain exists.
+
+```bash
+# locally (values from .env.local)
+pnpm bootstrap:ceo -- --email ceo@example.com --name "Full Name" --org "Pixora Clips"
+
+# staging / production: the same script with that project's URL, secret key and app URL
+NEXT_PUBLIC_SUPABASE_URL=https://<ref>.supabase.co SUPABASE_SECRET_KEY=<secret> \
+NEXT_PUBLIC_APP_URL=https://maxoff-staging.<subdomain>.workers.dev \
+  node scripts/bootstrap-ceo.mjs --email ceo@example.com --name "Full Name" --org "Pixora Clips"
+```
+
+The link expires after an hour; "Forgot your password?" on `/login` issues a new one (that one
+is emailed by Supabase Auth, see "Hosted auth settings").
 
 ## Commands
 
@@ -45,7 +83,8 @@ pnpm dev                     # http://localhost:3000
 | `pnpm db:new <name>` | New append-only migration file |
 | `pnpm db:types` | Regenerate `src/core/db/database.types.ts` from the local database |
 | `pnpm db:test` | pgTAP tests in `supabase/tests` (needs the stack running) |
-| `pnpm test:e2e` · `pnpm test:e2e:ui` | Playwright in `e2e/`: flow specs against `next dev` (started or reused) plus the `production` project, which builds and runs `next start` on port 3100 to prove the build is locked down. Run it whenever a user flow changed |
+| `pnpm bootstrap:ceo -- --email … --name … [--org …]` | Create the first CEO and print the one-time password link (see "The first CEO on a hosted project") |
+| `pnpm test:e2e` · `pnpm test:e2e:ui` | Playwright in `e2e/`: builds and runs `next start` on port 3100, signs in as the seeded local users (the stack must be up and reset) and proves the build is locked down. Run it whenever a user flow changed |
 | `pnpm check` | typecheck + lint + format + unit tests + pgTAP + build. **Must pass before any commit.** Needs Docker Desktop running and `pnpm db:start` done first |
 
 Studio for the local stack: http://127.0.0.1:54323 once `pnpm db:start` is up.
@@ -103,8 +142,8 @@ folders, so `build:worker` and `preview` need WSL locally. CI and the deploy job
    password you set at creation. **Project Settings → General** shows the Reference ID;
    **Project Settings → API Keys** shows the project URL, the publishable key and the secret key.
    A personal access token for the CLI comes from **Account → Access Tokens**.
-   Set **Authentication → URL Configuration → Site URL** to the staging URL (task 1.2 completes
-   the auth settings). A free project pauses after 7 idle days; open it or ping it daily.
+   Then apply "Hosted auth settings" below. A free project pauses after 7 idle days; open it
+   or ping it daily.
 3. **Sentry** (free plan, platform Next.js). **Settings → Projects → maxoff → Client Keys** shows
    the DSN. Org and project slugs are in **Settings → General Settings**. For source maps, create
    an auth token at **Settings → Auth Tokens** with scopes `project:releases` and `org:read`.
@@ -125,6 +164,7 @@ Secrets (**Environment secrets**):
 | `SUPABASE_ACCESS_TOKEN` | Supabase → Account → Access Tokens (personal token for the CLI) |
 | `SUPABASE_DB_PASSWORD` | Supabase → the database password chosen when the project was created (Project Settings → Database to reset) |
 | `SUPABASE_SECRET_KEY` | Supabase → Project Settings → API Keys → Secret key (bypasses RLS; uploaded as a Worker secret) |
+| `SESSION_IP_HASH_SALT` | Any long random string (`openssl rand -hex 32`), different per environment. Salts the IP hash in `session_events`; uploaded as a Worker secret. Unset = the hash is stored as null |
 | `SENTRY_AUTH_TOKEN` | Sentry → Settings → Auth Tokens. Optional: without it no source maps are uploaded |
 
 Variables (**Environment variables**):
@@ -141,6 +181,26 @@ Variables (**Environment variables**):
 
 `NEXT_PUBLIC_APP_ENV` is set by the workflow itself (`staging` or `production`).
 
+`RESEND_API_KEY` and `EMAIL_FROM` (app email: invites from 1.3, notification email from 5.2)
+are **not** wired yet: they need a verified sending domain (`mail.maxoff.app`, see PROGRESS.md).
+Until then the app logs a start-up warning and sends nothing. They stay out of CI on purpose.
+
+### Hosted auth settings
+
+`supabase/config.toml` only configures the local stack. Apply the same on each hosted project
+in the Supabase dashboard (**Authentication**), once per project:
+
+| Where | Setting |
+|---|---|
+| Sign In / Providers → Email | **Allow new users to sign up: off** (invite-only). Email provider stays **on** (it is the login method). Confirm email: off |
+| Sign In / Providers → Email | **Minimum password length: 12**, no character requirements. **Leaked password protection: on** (HaveIBeenPwned; catches far more than composition rules) |
+| URL Configuration | **Site URL** = the app URL (`NEXT_PUBLIC_APP_URL`). **Redirect URLs**: add `<app URL>/**` |
+| Emails → Templates → **Reset password** | Subject "Set your MaxOff password"; body = `supabase/templates/recovery.html`. The link **must** be `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery` (the app verifies the token hash server-side; the default `{{ .ConfirmationURL }}` will not work) |
+| Emails → SMTP settings | **Until a sending domain exists, leave Supabase's built-in mailer**: it delivers only to the email addresses of the Supabase project's own team members, a few per hour, which is enough for the CEO on staging. With `mail.maxoff.app` verified in Resend: host `smtp.resend.com`, port `465`, user `resend`, password = a Resend API key, sender `MaxOff <noreply@mail.maxoff.app>` |
+| Rate Limits | Keep the defaults (30 sign-in attempts per 5 min per IP, 30 token verifications, 150 refreshes). Raise **emails sent per hour** only after custom SMTP is on |
+
+The invite template (`type=invite`, same `/auth/confirm` route) is added in task 1.3.
+
 ### What a deploy does
 
 1. Checks out the commit CI verified (production: first proves the tagged commit is on `main`
@@ -149,7 +209,8 @@ Variables (**Environment variables**):
    the build) and source maps uploaded to Sentry when the token is present. The build comes
    first so a failed build never leaves the database ahead of the Worker.
 3. `supabase link` + `supabase db push`: applies any new append-only migrations.
-4. Uploads `SUPABASE_SECRET_KEY` as a Worker secret, then `wrangler deploy --env <name>`.
+4. Uploads `SUPABASE_SECRET_KEY` and `SESSION_IP_HASH_SALT` as Worker secrets, then
+   `wrangler deploy --env <name>`.
 
 ### Confirming the Sentry pipeline
 
@@ -198,7 +259,8 @@ rule against the fixtures in `tests/lint-fixtures/`, so a rule can't silently st
 src/app/        routes only: thin pages composing module components
 src/core/       shared foundation (auth, db, permissions, time, ui, …), no business features
 src/modules/    isolated features, each exposing a single index.ts
-supabase/       append-only migrations, pgTAP tests, seed data
+supabase/       append-only migrations, pgTAP tests, seed data, auth email templates
+scripts/        one-off scripts: icon rendering, the CEO bootstrap
 e2e/            Playwright
 tests/          repo-level tests (lint rules) and their fixtures
 docs/           the project's memory (see below)

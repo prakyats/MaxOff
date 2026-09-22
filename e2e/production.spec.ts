@@ -4,10 +4,9 @@ import { expect, test } from "@playwright/test";
  * Runs against `next start` (the `production` project in playwright.config.ts), so it checks
  * the real build artifact, not `next dev`.
  *
- * Until task 1.2 the signed-in area exists only through the development-only preview-role
- * shim and the `/dev/ui` gallery. Both are allow-listed to `development` / `test`, so a
- * production build must answer 404 for every shell route and never show a preview member.
- * 1.2 replaces the 404 expectation with a redirect to /login; keep the "no preview" checks.
+ * Signed out, every shell route must redirect to /login (task 1.2) and nothing may show the
+ * development-only preview member or UI gallery that tasks 0.3 to 1.1 had: those were deleted
+ * in 1.2 and these checks make sure they stay gone.
  */
 const SHELL_ROUTES = [
   "/today",
@@ -59,9 +58,11 @@ test.describe("production build", () => {
   });
 
   for (const route of SHELL_ROUTES) {
-    test(`${route} is unreachable (404, no preview member)`, async ({ request }) => {
+    test(`${route} redirects to sign in (no preview member, no gallery)`, async ({ request }) => {
       const response = await request.get(route, { maxRedirects: 0 });
-      expect(response.status(), route).toBe(404);
+      expect(response.status(), route).toBe(307);
+      const location = response.headers().location ?? "";
+      expect(location, route).toMatch(/\/login\?next=/);
       const body = await response.text();
       expect(body, route).not.toContain("Preview CEO");
       expect(body, route).not.toContain("Preview Admin");
@@ -70,10 +71,19 @@ test.describe("production build", () => {
     });
   }
 
-  test("/ shows the landing page and does not redirect into the shell", async ({ request }) => {
+  test("/ sends a signed-out visitor to sign in", async ({ request }) => {
     const response = await request.get("/", { maxRedirects: 0 });
+    expect(response.status()).toBe(307);
+    expect(response.headers().location).toMatch(/\/login$/);
+  });
+
+  test("/login renders without a session and carries no preview member", async ({ request }) => {
+    const response = await request.get("/login", { maxRedirects: 0 });
     expect(response.status()).toBe(200);
-    expect(await response.text()).not.toContain("Preview CEO");
+    const body = await response.text();
+    expect(body).toContain("Sign in");
+    expect(body).not.toContain("Preview CEO");
+    expect(body).not.toContain("UI gallery");
   });
 
   test("is indexable-by-choice outside staging: no X-Robots-Tag, no robots.txt", async ({
@@ -96,12 +106,13 @@ test.describe("production build", () => {
     expect(await response.text()).not.toContain("Sentry diagnostic");
   });
 
-  test("a preview-role cookie is ignored", async ({ request }) => {
+  test("the old preview-role cookie opens nothing", async ({ request }) => {
     const response = await request.get("/today", {
       maxRedirects: 0,
       headers: { cookie: "maxoff-preview-role=ceo" },
     });
-    expect(response.status()).toBe(404);
+    expect(response.status()).toBe(307);
+    expect(response.headers().location).toMatch(/\/login\?next=/);
   });
 
   test("serves the offline page when the network is gone", async ({ page, context }) => {
@@ -109,7 +120,7 @@ test.describe("production build", () => {
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.reload();
     await context.setOffline(true);
-    await page.goto("/today");
+    await page.goto("/login");
     await expect(page).toHaveTitle(/Offline/);
     // Next's route announcer is a second role=alert, so target the composite itself.
     await expect(page.locator('[data-slot="error-state"]')).toContainText("offline");

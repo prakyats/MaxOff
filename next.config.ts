@@ -26,8 +26,7 @@ const nextConfig: NextConfig = {
   // CLAUDE.md is hand-written project memory, so we keep Next out of it.
   // Next 16's own guidance lives in `node_modules/next/dist/docs/`.
   agentRules: false,
-  // The dev-tools button otherwise sits on the sidebar footer (bottom-left) and hides the
-  // development-only role switcher.
+  // The dev-tools button otherwise sits on the sidebar footer (bottom-left).
   devIndicators: { position: "bottom-right" },
 };
 

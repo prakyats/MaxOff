@@ -17,10 +17,12 @@ export function TopBar({
   viewer,
   home,
   leading,
+  logoutItem,
 }: {
   viewer: ShellViewer;
   home: string;
   leading?: ReactNode;
+  logoutItem?: ReactNode;
 }) {
   return (
     <header
@@ -36,7 +38,7 @@ export function TopBar({
           </Link>
         </Button>
         <ThemeToggle />
-        <UserMenu viewer={viewer} />
+        <UserMenu viewer={viewer} logoutItem={logoutItem} />
       </div>
     </header>
   );

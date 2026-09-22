@@ -4,6 +4,7 @@ import { ZodError } from "zod";
 import { captureException } from "@/core/observability/capture";
 
 import { AppError, type FieldErrors } from "./app-error";
+import { isAuthError, mapAuthError } from "./auth";
 import { isPostgresError, mapPostgresError } from "./postgres";
 import { type Result, failFrom } from "./result";
 
@@ -21,6 +22,8 @@ function zodFieldErrors(error: ZodError): FieldErrors {
  * Turns anything thrown into an `AppError`.
  * - `AppError` passes through.
  * - `ZodError` → `VALIDATION` with per-field messages.
+ * - Supabase Auth errors → mapped codes (see `auth.ts`), checked before the Postgres shape
+ *   because an `AuthError` also carries `code` + `message`.
  * - Postgres / PostgREST errors → mapped codes (see `postgres.ts`).
  * - Everything else → `INTERNAL`, keeping the original as `cause` for logs.
  */
@@ -32,6 +35,7 @@ export function toAppError(error: unknown): AppError {
       cause: error,
     });
   }
+  if (isAuthError(error)) return mapAuthError(error);
   if (isPostgresError(error)) return mapPostgresError(error);
   return new AppError("INTERNAL", undefined, { cause: error });
 }

@@ -290,7 +290,23 @@ export type Database = {
       };
     };
     Functions: {
-      [_ in never]: never;
+      bootstrap_ceo: {
+        Args: {
+          email: string;
+          full_name: string;
+          org_name: string;
+          user_id: string;
+        };
+        Returns: string;
+      };
+      session_login: {
+        Args: { ip_hash?: string; user_agent?: string };
+        Returns: string;
+      };
+      session_logout: {
+        Args: { ip_hash?: string; user_agent?: string };
+        Returns: string;
+      };
     };
     Enums: {
       member_role: "ceo" | "admin" | "staff";
