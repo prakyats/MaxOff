@@ -8,6 +8,7 @@
 - **Branch:** `phase-1` (remote: `origin` → github.com/prakyats/MaxOff). Phase 0 is merged to `main` (PR #1) and tagged `phase-0`.
 - **Last completed task:** **Phase 0 review + merge** (2026-09-22): first staging deploy succeeded, **https://maxoff-staging.pixoraclips.workers.dev**
 - **Next task:** **1.1 Schema** · model tier [H]
+- **Phase 0 is closed** (owner sign-off, 2026-09-22): every exit criterion met, the owner verified the install, offline page and both themes on a phone, and had no UI feedback. The Sentry pipeline is proven end to end on staging.
 
 ## In-progress handoff
 <!-- Filled by /save-progress when a session ends mid-task. Clear it when the task is finished. -->
