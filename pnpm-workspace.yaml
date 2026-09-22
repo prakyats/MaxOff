@@ -1,3 +1,8 @@
+# Build scripts pnpm may run on install (pnpm 12 blocks them by default).
+# esbuild + workerd: `wrangler` / OpenNext local preview. @sentry/cli: source-map upload at deploy.
 allowBuilds:
+  "@sentry/cli": true
+  esbuild: true
   sharp: false
   unrs-resolver: false
+  workerd: true

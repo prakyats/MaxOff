@@ -2,9 +2,12 @@
 
 import { useEffect } from "react";
 
+import { captureException } from "@/core/observability/client";
+
 /**
  * Last-resort boundary: it replaces the root layout, so it must render <html> and <body>
- * itself and can't rely on providers. Kept dependency-free on purpose.
+ * itself and can't rely on providers. Kept free of UI dependencies on purpose; it only reports
+ * the error to Sentry (ARCHITECTURE §18).
  */
 export default function GlobalError({
   error,
@@ -14,6 +17,7 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
+    captureException(error);
     console.error(error);
   }, [error]);
 

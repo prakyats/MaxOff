@@ -1,0 +1,5 @@
+# Runtime variables for `pnpm preview` (the Worker running locally through wrangler).
+# Wrangler reads `.env` / `.env.local` itself when no `.dev.vars` exists, so normally nothing
+# is needed. Copy this to `.dev.vars` (git-ignored) only to give the Worker different values
+# from `next dev`. Build-time NEXT_PUBLIC_* values are inlined by `next build` from `.env.local`.
+SUPABASE_SECRET_KEY=

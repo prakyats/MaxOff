@@ -39,7 +39,9 @@ jobs:
       - run: pnpm lint
       - run: pnpm format:check
       - run: pnpm test
-      - run: pnpm build
+      # The OpenNext build runs `next build` and then bundles the Worker, so a change the
+      # Workers runtime can't take fails here, before merge (task 0.5).
+      - run: pnpm build:worker
 
   db:
     name: pgTAP
@@ -72,6 +74,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
+      # The `production` Playwright project runs against `next start` of this build.
+      - run: pnpm build
       - run: pnpm test:e2e
       - if: failure()
         uses: actions/upload-artifact@v4

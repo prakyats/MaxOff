@@ -18,7 +18,12 @@ import { Textarea } from "@/core/ui/primitives/textarea";
 import { isDevGalleryEnabled } from "./enabled";
 import { GalleryInteractive } from "./gallery-interactive";
 
-export const metadata: Metadata = { title: "UI gallery" };
+// Static `metadata` is resolved even when the page throws notFound(), which put "UI gallery"
+// in the production 404's <title>. Guarded here so a production build leaves no trace
+// (`e2e/production.spec.ts`).
+export function generateMetadata(): Metadata {
+  return isDevGalleryEnabled(process.env.NODE_ENV) ? { title: "UI gallery" } : {};
+}
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (

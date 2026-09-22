@@ -34,7 +34,8 @@ pnpm dev                     # http://localhost:3000
 | Command | Does |
 |---|---|
 | `pnpm dev` | Run the app locally |
-| `pnpm build` · `pnpm start` | Production build, then serve it |
+| `pnpm build` · `pnpm start` | Production build, then serve it with Node |
+| `pnpm build:worker` · `pnpm preview` · `pnpm deploy:*` | Cloudflare Worker build, local preview and manual deploys (see "Deploying") |
 | `pnpm typecheck` | `next typegen` + `tsc --noEmit` |
 | `pnpm lint` · `pnpm lint:fix` | ESLint |
 | `pnpm format` · `pnpm format:check` | Prettier |
@@ -44,7 +45,7 @@ pnpm dev                     # http://localhost:3000
 | `pnpm db:new <name>` | New append-only migration file |
 | `pnpm db:types` | Regenerate `src/core/db/database.types.ts` from the local database |
 | `pnpm db:test` | pgTAP tests in `supabase/tests` (needs the stack running) |
-| `pnpm test:e2e` · `pnpm test:e2e:ui` | Playwright flow tests in `e2e/` (starts `next dev` itself). Run it whenever a user flow changed |
+| `pnpm test:e2e` · `pnpm test:e2e:ui` | Playwright in `e2e/`: flow specs against `next dev` (started or reused) plus the `production` project, which builds and runs `next start` on port 3100 to prove the build is locked down. Run it whenever a user flow changed |
 | `pnpm check` | typecheck + lint + format + unit tests + pgTAP + build. **Must pass before any commit.** Needs Docker Desktop running and `pnpm db:start` done first |
 
 Studio for the local stack: http://127.0.0.1:54323 once `pnpm db:start` is up.
@@ -52,8 +53,9 @@ Studio for the local stack: http://127.0.0.1:54323 once `pnpm db:start` is up.
 ## Continuous integration
 
 `.github/workflows/ci.yml` runs three jobs on every push and pull request: **check**
-(typecheck, lint, format, unit tests, build), **pgTAP** (Postgres-only local Supabase stack)
-and **playwright** (Chromium). A failed Playwright run uploads its HTML report as an artifact.
+(typecheck, lint, format, unit tests, the OpenNext Worker build), **pgTAP** (Postgres-only local
+Supabase stack) and **playwright** (Chromium). A failed Playwright run uploads its HTML report as
+an artifact.
 
 ### Branch protection (enable once CI is green on `main`)
 
@@ -67,6 +69,85 @@ branch protection rule*):
 4. Tick **Block force pushes**. Save.
 
 Red never merges after that.
+
+## Deploying
+
+Hosting is Cloudflare Workers through OpenNext (ADR-0003, ARCHITECTURE §18). Staging deploys
+from `main` once CI is green; production deploys from a `v*` tag. Both jobs live in
+`.github/workflows/deploy.yml` and read every value from the GitHub **environment** of the same
+name (repository **Settings → Environments → New environment**: `staging`, later `production`).
+Nothing secret is ever committed or typed into a terminal; it all goes in through that page.
+
+| Command | Does |
+|---|---|
+| `pnpm build:worker` | `next build` + OpenNext bundling into `.open-next/` (what CI and the deploy jobs run) |
+| `pnpm preview` | Build, then serve the Worker locally through wrangler (needs `.dev.vars`, see `.dev.vars.example`) |
+| `pnpm deploy:staging` · `pnpm deploy:production` | Manual deploys with the local wrangler login. The workflow is the normal path |
+
+**Windows:** `next build` works, but the OpenNext bundling step cannot read pnpm's junction
+folders, so `build:worker` and `preview` need WSL locally. CI and the deploy jobs run on Ubuntu.
+
+### One-time setup
+
+1. **Cloudflare.** Sign in at dash.cloudflare.com. **Workers & Pages → Overview** shows your
+   account ID and `workers.dev` subdomain (the staging URL will be
+   `https://maxoff-staging.<subdomain>.workers.dev`). Create an API token at **My Profile → API
+   Tokens → Create Token → "Edit Cloudflare Workers"** template.
+2. **Supabase staging project** (`maxoff-staging`, region Mumbai, free plan). Note the database
+   password you set at creation. **Project Settings → General** shows the Reference ID;
+   **Project Settings → API Keys** shows the project URL, the publishable key and the secret key.
+   A personal access token for the CLI comes from **Account → Access Tokens**.
+   Set **Authentication → URL Configuration → Site URL** to the staging URL (task 1.2 completes
+   the auth settings). A free project pauses after 7 idle days; open it or ping it daily.
+3. **Sentry** (free plan, platform Next.js). **Settings → Projects → maxoff → Client Keys** shows
+   the DSN. Org and project slugs are in **Settings → General Settings**. For source maps, create
+   an auth token at **Settings → Auth Tokens** with scopes `project:releases` and `org:read`.
+   Privacy (ARCHITECTURE §18.2): in **Settings → Security & Privacy** turn on **Prevent Storing
+   of IP Addresses** and keep the default server-side data scrubbers on. The app strips PII and
+   money before sending; this stops Sentry inferring the client IP on its side.
+4. **GitHub environment `staging`.** Add the secrets and variables below. Repeat for
+   `production` when it exists (with a required reviewer).
+
+### Secrets and variables the workflow expects
+
+Secrets (**Environment secrets**):
+
+| Name | From |
+|---|---|
+| `CLOUDFLARE_API_TOKEN` | Cloudflare → My Profile → API Tokens (Edit Cloudflare Workers) |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare → Workers & Pages → Overview (right-hand panel) |
+| `SUPABASE_ACCESS_TOKEN` | Supabase → Account → Access Tokens (personal token for the CLI) |
+| `SUPABASE_DB_PASSWORD` | Supabase → the database password chosen when the project was created (Project Settings → Database to reset) |
+| `SUPABASE_SECRET_KEY` | Supabase → Project Settings → API Keys → Secret key (bypasses RLS; uploaded as a Worker secret) |
+| `SENTRY_AUTH_TOKEN` | Sentry → Settings → Auth Tokens. Optional: without it no source maps are uploaded |
+
+Variables (**Environment variables**):
+
+| Name | From |
+|---|---|
+| `NEXT_PUBLIC_APP_URL` | The Worker URL, e.g. `https://maxoff-staging.<subdomain>.workers.dev` |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Project Settings → API Keys → Project URL |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase → Project Settings → API Keys → Publishable key |
+| `SUPABASE_PROJECT_REF` | Supabase → Project Settings → General → Reference ID |
+| `NEXT_PUBLIC_SENTRY_DSN` | Sentry → Settings → Projects → maxoff → Client Keys (DSN). Optional: empty keeps Sentry off |
+| `SENTRY_ORG` | Sentry organisation slug (Settings → General Settings). Optional |
+| `SENTRY_PROJECT` | Sentry project slug, e.g. `maxoff`. Optional |
+
+`NEXT_PUBLIC_APP_ENV` is set by the workflow itself (`staging` or `production`).
+
+### What a deploy does
+
+1. Checks out the commit CI verified, installs dependencies.
+2. `supabase link` + `supabase db push`: applies any new append-only migrations.
+3. `pnpm build:worker`, with the `NEXT_PUBLIC_*` variables inlined (a malformed value fails
+   the build) and source maps uploaded to Sentry when the token is present.
+4. Uploads `SUPABASE_SECRET_KEY` as a Worker secret, then `wrangler deploy --env <name>`.
+
+If a run fails because a name above is missing, the log names it; add it and re-run the job.
+The `Deploy` workflow only triggers once its file is on `main`, so the first staging deploy
+happens when `phase-0` merges. A `v*` tag pushed before the `production` environment is filled
+fails at the migration step and deploys nothing. After it, open the staging URL, install the app from the
+browser menu (desktop and phone), and trigger a test error to see it in Sentry.
 
 ## Architecture rules that lint enforces
 

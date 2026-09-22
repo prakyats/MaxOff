@@ -258,6 +258,22 @@ const eslintConfig = defineConfig([
     files: ["src/core/time/**"],
     rules: { "no-restricted-syntax": "off" },
   },
+  // The service worker is plain JS in public/ (no build step) and runs in a worker scope.
+  {
+    files: ["public/sw.js"],
+    languageOptions: {
+      sourceType: "script",
+      globals: {
+        self: "readonly",
+        caches: "readonly",
+        fetch: "readonly",
+        Response: "readonly",
+        URL: "readonly",
+        Promise: "readonly",
+        console: "readonly",
+      },
+    },
+  },
   // Must stay last: turns off the rules Prettier owns.
   prettier,
   globalIgnores([

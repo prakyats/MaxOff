@@ -39,7 +39,7 @@
 | Tests | Vitest, Playwright, **pgTAP** | — |
 | Libraries | zod, react-hook-form, date-fns + date-fns-tz, dnd-kit, fractional-indexing, eslint-plugin-boundaries, DOMPurify, web-push | — |
 
-**Environments:** Local (Supabase in Docker) · Staging (free Supabase project + Worker, deployed from `main`) · Production (separate project + Worker, deployed from a tag). Real data never goes on local or staging.
+**Environments:** Local (Supabase in Docker) · Staging (free Supabase project + Worker, deployed from `main`) · Production (separate project + Worker, deployed from a tag). Real data never goes on local or staging. Details, env handling and the Sentry privacy rule: §18.
 
 ---
 
@@ -64,10 +64,12 @@ src/
     time/                    # IST helpers: todayIST(), toISTDate(), istDayRange(), formatIST(); isWorkingDay() in 1.4
     realtime/                # useRealtimeInvalidate(table, filter) → TanStack Query invalidation
     errors/                  # AppError, Result<T>, action() wrapper, Postgres error mapping
+    observability/           # Sentry init per runtime + the PII/money scrubber (§18)
     ui/                      # design system (task 0.3): primitives/ (shadcn/ui, added with
                              #   `pnpm dlx shadcn add`, see components.json), composites/ (DataTable,
                              #   EmptyState, PageHeader, ConfirmDialog, ReasonDialog, BulkBar,
-                             #   StatusBadge, FileDrop in 8.1), shell/ (AppShell, role nav), theme/
+                             #   StatusBadge, FileDrop in 8.1), shell/ (AppShell, role nav), theme/,
+                             #   pwa/ (service-worker registration)
     lib/
   modules/
     team/          attendance/     leave/        clients/       client-work/
@@ -86,7 +88,9 @@ supabase/
   tests/           # pgTAP
   seed.sql         # dev seed: org, CEO, sample admins/staff/clients, Pixora lists
 e2e/               # Playwright
-public/            # manifest.webmanifest, icons, service worker (sw.js)
+public/            # manifest.webmanifest, icons/, service worker (sw.js), _headers
+scripts/           # one-off maintenance scripts (icon rendering)
+wrangler.jsonc     # Workers: dev / staging / production (§18); open-next.config.ts beside it
 ```
 
 ### 3.1 Import rules (eslint-plugin-boundaries, task 0.4)
@@ -239,7 +243,7 @@ transition fn / job ─► notifications row ─► notification_deliveries (que
 - **Retention:** the daily `storage_cleanup` job removes local copies only after the Drive copy is confirmed (WORKFLOWS §5A). Orphaned `pending` files are cleaned up in the same job.
 
 ## 12. Revenue (ADR-0007)
-All calculation is in SQL views (WORKFLOWS §6) over CEO-only tables, so reports and exports share one definition. Overrides never replace the calculated value, they sit next to it.
+All calculation is in SQL views (WORKFLOWS §6) over CEO-only tables, so reports and exports share one definition. Overrides never replace the calculated value, they sit next to it. Money never leaves the app through error reporting either: §18 scrubs every financial field before an event reaches Sentry.
 
 ## 13. Reports and exports
 - **EOD report:** built by a job into `eod_reports.data`. The page can also render a live version.
@@ -247,7 +251,7 @@ All calculation is in SQL views (WORKFLOWS §6) over CEO-only tables, so reports
 - **Exports:** Markdown (AI-oriented: summary + dense tables with stable IDs and ISO timestamps), CSV (one file per dataset, zipped), PDF (summary). Generated on demand from the snapshot (closed months) or live views (open months). CEO only.
 
 ## 14. PWA and responsive design
-`manifest.webmanifest`, icons and a service worker (push + a minimal offline shell). Staff screens are designed mobile-first. CEO and Admin screens are desktop-first and still usable from 375px.
+`public/manifest.webmanifest`, icons (`public/icons/`, rendered from `icon.svg` by `scripts/generate-icons.mjs`) and a plain-JS service worker `public/sw.js` (task 0.5). The worker is a **minimal offline shell**: it precaches `/offline`, serves it when a navigation fails without a connection, caches hashed `/_next/static` and `/icons` assets cache-first, and never touches `/api`, non-GET requests or other origins, so Supabase and server actions are always live. It is registered by `<RegisterServiceWorker />` in the root layout **only in production builds** (`next dev` and Playwright never see it). Push handlers join the same file in 5.1 (ADR-0009). `src/core/ui/pwa/pwa-files.test.ts` keeps the manifest, icons, headers and worker consistent with the tokens. Staff screens are designed mobile-first. CEO and Admin screens are desktop-first and still usable from 375px.
 
 ## 15. Testing
 | Layer | Tool | Required for |
@@ -256,9 +260,9 @@ All calculation is in SQL views (WORKFLOWS §6) over CEO-only tables, so reports
 | Database | pgTAP | every table's RLS for each role; **every transition function**: allowed path, wrong state, wrong actor, missing reason, audit row written |
 | Jobs | pgTAP | idempotency (running twice creates nothing new), IST boundaries, working-day logic |
 | Flows | Playwright | login + day gate, assign → acknowledge → done → admin → CEO, rejection loop, leave request → decision, cycle generation → tick → approve, CEO bulk approve |
-| CI | GitHub Actions | three jobs on every push and PR (`.github/workflows/ci.yml`): `typecheck · lint · format · unit · build`, `pgTAP` (Postgres-only local stack) and `playwright` (Chromium). Red never merges: branch protection on `main` requires all three (README) |
+| CI | GitHub Actions | three jobs on every push and PR (`.github/workflows/ci.yml`): `typecheck · lint · format · unit · build` (the build is the **OpenNext Worker build**, so a change the Workers runtime can't take fails before merge), `pgTAP` (Postgres-only local stack) and `playwright` (Chromium). Red never merges: branch protection on `main` requires all three (README) |
 
-Locally, `pnpm check` = typecheck + lint + format:check + unit tests + pgTAP + build (needs Docker and `pnpm db:start`). Playwright is deliberately outside `check`: `pnpm test:e2e` runs it on demand and `/finish-task` runs it whenever a flow changed. Until task 1.2 the e2e server is `next dev` with the preview-role cookie; 1.2 switches it to `pnpm start` with seeded users.
+Locally, `pnpm check` = typecheck + lint + format:check + unit tests + pgTAP + build (needs Docker and `pnpm db:start`). Playwright is deliberately outside `check`: `pnpm test:e2e` runs it on demand and `/finish-task` runs it whenever a flow changed. Until task 1.2 the flow specs run against `next dev` with the preview-role cookie; 1.2 switches them to `pnpm start` with seeded users. A separate **`production` project** (`e2e/production.spec.ts`) always runs against `next start` of a fresh build on its own port and proves that development-only shims are unreachable in a real build and that the service worker registers. It never reuses a running server.
 
 ## 16. Recipe for adding a feature
 1. `/add-feature` → `docs/features/<name>.md` (+ an ADR if a pattern changes).
@@ -269,3 +273,32 @@ Locally, `pnpm check` = typecheck + lint + format:check + unit tests + pgTAP + b
 
 ## 17. Backups
 Nightly `pg_dump` GitHub Action → encrypted → private R2 bucket (30-day retention). R2 object versioning or retention on the files bucket. A restore drill before launch, then every quarter. CEO CSV exports as a secondary copy.
+
+## 18. Deployment and observability (task 0.5, ADR-0003)
+
+### 18.1 Environments
+| | Local | Staging | Production |
+|---|---|---|---|
+| App | `next dev` | Worker `maxoff-staging` (`*.workers.dev`, free plan) | Worker `maxoff` (Workers Paid from the pilot, custom domain at 6.6) |
+| Database | Supabase in Docker | free Supabase project `maxoff-staging` (Mumbai) | separate Supabase project |
+| Deployed by | — | `.github/workflows/deploy.yml`, when **CI has passed on `main`** (`workflow_run`) | the same workflow, on a `v*` tag, after its own typecheck / lint / unit gates |
+| Values from | `.env.local` | GitHub environment `staging` | GitHub environment `production` |
+| Sentry | off (no DSN) | `environment: staging` | `environment: production` |
+
+Real data never goes on local or staging. Each deploy job first applies the append-only migrations (`supabase link` + `supabase db push`), then builds the Worker with OpenNext (`pnpm build:worker`) and deploys it with `wrangler deploy --env <name>`; runtime secrets (`SUPABASE_SECRET_KEY`) are uploaded as Worker secrets, never bundled. The exact secret and variable names, and where each comes from, are in README → "Deploying".
+
+**Env handling.** `NEXT_PUBLIC_*` values are inlined by `next build`, so they must exist at **build** time (GitHub environment *variables*); everything else is read at runtime from Worker secrets or `.env.local`. Readers live next to their area and validate with zod on first use: `core/db/env*.ts` (Supabase), `core/observability/env.ts` (`NEXT_PUBLIC_APP_ENV`, `NEXT_PUBLIC_SENTRY_DSN`). Every variable is documented in `.env.example` by the task that introduces it. `wrangler.jsonc` holds no `vars`: it only names the Workers, their bindings and compatibility flags (`nodejs_compat`, required by both OpenNext and Sentry).
+
+**Windows.** `next build` runs anywhere, but the OpenNext bundling step cannot read pnpm's junction folders on Windows, so `pnpm build:worker` and `pnpm preview` run in CI, in the deploy workflow, or locally under WSL.
+
+### 18.2 Error reporting (Sentry)
+`@sentry/nextjs`, initialised once per runtime from `src/core/observability` (`server.ts`, `edge.ts`, `client.ts` through `src/instrumentation.ts` and `src/instrumentation-client.ts`), errors only: `tracesSampleRate: 0`, no replay, no profiling. With no DSN the SDK is disabled, which is the local and CI state. Source maps are uploaded only when the deploy workflow provides `SENTRY_AUTH_TOKEN`, and an upload failure never fails a deploy.
+
+**Rule: error reports never carry money or personal data** (CLAUDE.md invariant 2).
+- `sendDefaultPii: false` on every runtime; `includeLocalVariables: false` on the server, so stack frames never carry variables.
+- Request bodies, form data, cookies, headers and query strings are never attached (`scrubEvent` drops `request.data`, `cookies`, `headers`, `query_string`) and every URL (request, fetch and navigation breadcrumbs) is reduced to origin + path.
+- A user is identified by **member id only**: `Sentry.setUser({ id })` and nothing else (from 1.2). Name, email and IP fields are removed from the event; IP storage is switched off in the Sentry project itself (README → Deploying → Sentry), because Sentry would otherwise infer it from the connection.
+- Any field whose key looks financial (`amount`, `value`, `billing`, `revenue`, `price`, `rate`, `fee`, `inr`, `money`) is replaced by `[scrubbed]` however deep it sits in `extra`, `contexts`, `tags` or breadcrumb data. Inside every string (messages, exception values, breadcrumbs) rupee amounts (`₹`, `Rs`, `INR`), email addresses and Indian phone numbers are replaced, keeping the rest of the text. Network breadcrumbs keep only method, status and path.
+- The scrubber (`core/observability/scrub.ts`) is unit-tested and wired as `beforeSend` and `beforeBreadcrumb`; a new Sentry integration must go through it, not around it. When screens carry names in clickable labels (3.x), limit DOM breadcrumbs to `data-slot` (`breadcrumbsIntegration({ dom: { serializeAttribute } })`).
+
+**Query strings carry ids, never values.** Workers Logs (`observability.enabled` in `wrangler.jsonc`) record every request URL including its query string, and so would any proxy. Filters, search text and amounts travel in the request body or in server-side state, never in the URL. `console.warn` / `console.error` land in Workers Logs too, so the same scrubbing rule applies to what the app logs.

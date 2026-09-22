@@ -15,7 +15,7 @@ Exit: an empty app on staging, CI green, all quality gates working, installable 
 - [x] **0.2** [H] Local Supabase (CLI + Docker), base migration (extensions incl. `pg_cron`/`pg_net`, `app` schema, `updated_at` trigger, `app.today_ist()` / `to_ist_date()`), type generation, `core/db`, `core/errors` (AppError, Result, `action()`, Postgres error mapping), `core/time`
 - [x] **0.3** [C] UI shell: shadcn/ui, theme tokens (light/dark), layouts for each role (sidebar for CEO/Admin, bottom nav for Staff on mobile), error boundaries, 404/403, toasts, shared composites (EmptyState, PageHeader, DataTable, ConfirmDialog, ReasonDialog, StatusBadge, BulkBar)
 - [x] **0.4** [C] Quality gates: Vitest and Playwright are in place (0.2/0.3), so this task is the wiring — pgTAP joining `pnpm check` (Playwright stays out: `pnpm test:e2e` + its own CI job), eslint-plugin-boundaries (module isolation + the money-import rule + **`modules/*/domain` may not import `react`, `react-dom`, `next/*`, `server-only` or DOM globals**, ADR-0011), and GitHub Actions CI
-- [ ] **0.5** [H] Deploy: OpenNext on Cloudflare Workers + a staging Supabase project, env handling, Sentry, deploy workflow from `main`, PWA manifest + service worker shell
+- [x] **0.5** [H] Deploy: OpenNext on Cloudflare Workers + a staging Supabase project, env handling, Sentry, deploy workflow from `main`, PWA manifest + service worker shell
 
 ## Phase 1: Identity and access
 Exit: the CEO logs in, invites an Admin and a Staff member, and each sees only their role's shell. Every change is audited.

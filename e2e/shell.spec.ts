@@ -24,7 +24,8 @@ async function previewAs(page: Page, baseURL: string | undefined, role: "ceo" | 
 test("an unknown route shows the 404 page", async ({ page }) => {
   const response = await page.goto("/this-route-does-not-exist");
   expect(response?.status()).toBe(404);
-  await expect(page.getByRole("alert")).toContainText("Page not found");
+  // Next's route announcer is a second role=alert, so target the composite itself.
+  await expect(page.locator('[data-slot="error-state"]')).toContainText("Page not found");
   await expect(page.getByRole("link", { name: "Go home" })).toBeVisible();
 });
 
