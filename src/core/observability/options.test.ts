@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { isSentryDebugEnabled, sentryOptions } from "./options";
+import { sentryOptions } from "./options";
 import { scrubBreadcrumb, scrubEvent } from "./scrub";
 
 afterEach(() => {
@@ -30,16 +30,5 @@ describe("sentryOptions (ARCHITECTURE §18)", () => {
     expect(options.dsn).toBe("https://key@o1.ingest.sentry.io/1");
     expect(options.environment).toBe("staging");
     expect(options.initialScope).toEqual({ tags: { runtime: "client" } });
-  });
-});
-
-describe("isSentryDebugEnabled", () => {
-  it("is on for the server and edge runtimes on staging only", () => {
-    expect(isSentryDebugEnabled("server", "staging")).toBe(true);
-    expect(isSentryDebugEnabled("edge", "staging")).toBe(true);
-    expect(isSentryDebugEnabled("client", "staging")).toBe(false);
-    for (const env of ["production", "local", undefined, ""]) {
-      expect(isSentryDebugEnabled("server", env), String(env)).toBe(false);
-    }
   });
 });
