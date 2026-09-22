@@ -3,7 +3,7 @@ import type { Enums } from "@/core/db";
 /** DATA-MODEL §0 `member_role`. Exactly three roles (ADR-0004); job titles are data. */
 export type MemberRole = Enums<"member_role">;
 
-export const MEMBER_ROLES = ["ceo", "admin", "staff"] as const satisfies readonly MemberRole[];
+export const MEMBER_ROLES = ["owner", "admin", "staff"] as const satisfies readonly MemberRole[];
 
 /**
  * The permission keys of PERMISSIONS.md §1, in the table's order. The database seed in
@@ -54,7 +54,7 @@ export function isPermissionKey(value: unknown): value is PermissionKey {
 
 /** PERMISSIONS §1 default grants per role: the mirror of the `role_permissions` seed. */
 export const ROLE_GRANTS: Record<MemberRole, readonly PermissionKey[]> = {
-  ceo: [
+  owner: [
     "team.manage",
     "team.view",
     "availability.view",

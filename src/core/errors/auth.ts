@@ -52,7 +52,7 @@ const CODE_MESSAGES: Readonly<Partial<Record<string, string>>> = {
   invalid_credentials: "Email or password is incorrect.",
   user_not_found: "Email or password is incorrect.",
   email_not_confirmed: "Email or password is incorrect.",
-  user_banned: "This account is not active. Ask the CEO.",
+  user_banned: "This account is not active. Ask the Owner.",
   signup_disabled: "MaxOff is invite-only.",
   otp_expired: "This link has expired or was already used. Ask for a new one.",
   otp_disabled: "This link has expired or was already used. Ask for a new one.",

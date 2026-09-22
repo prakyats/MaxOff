@@ -7,7 +7,7 @@ import { PlaceholderPage } from "../_placeholder/placeholder-page";
 
 export const metadata: Metadata = { title: "Reports" };
 
-/** CEO reports (task 9.3) and the Admin's scoped operational reports share this route. */
+/** Owner reports (task 9.3) and the Admin's scoped operational reports share this route. */
 export default async function ReportsPage() {
   await requirePermission(["reports.all", "reports.scoped"]);
   return (

@@ -6,7 +6,7 @@
 
 ## 0. Enums (only for categories code depends on)
 ```
-member_role        ceo | admin | staff
+member_role        owner | admin | staff
 member_status      invited | active | deactivated
 attendance_choice  present | leave | half_day | comp_leave
 day_status         present | leave | half_day | comp_leave | absent
@@ -29,7 +29,7 @@ request_state      pending | converted | declined | withdrawn
 billing_status     not_billed | billed
 field_type         text | long_text | number | date | datetime | checkbox | select |
                    multi_select | url | email | phone | color | member | rating
-                   -- deliberately NO currency type: money lives only in the CEO-only tables (§7)
+                   -- deliberately NO currency type: money lives only in the Owner-only tables (§7)
 ```
 
 ## 0a. Base schema (task 0.2)
@@ -60,7 +60,7 @@ app.protect_columns()           BEFORE UPDATE trigger; TG_ARGV = column names th
                                 while app.in_transition(). Raises FORBIDDEN otherwise. Every state
                                 column gets it (ADR-0006 "trigger guard")
 app.members_self_edit_guard()   BEFORE UPDATE on members: without team.manage only full_name and phone
-                                change; the CEO row never loses its role outside a transition
+                                change; the Owner row never loses its role outside a transition
 app.members_insert_guard()      BEFORE INSERT on members: outside a transition a new row is invited,
                                 with no joined_at / deactivated_at
 app.create_org_settings()       AFTER INSERT on organizations: the org_settings row with launch defaults
@@ -74,10 +74,10 @@ public.session_login(user_agent, ip_hash)    inserts session_events(login) for t
                                 No activity_log row: the session_events row is the record
 public.session_logout(user_agent, ip_hash)   the same for logout. 2.1 extends it with
                                 attendance_days.last_logout_at
-public.bootstrap_ceo(user_id, email, full_name, org_name)   service_role only. Creates the single
-                                organization when none exists and the first, active CEO member for
+public.bootstrap_owner(user_id, email, full_name, org_name)   service_role only. Creates the single
+                                organization when none exists and the first, active Owner member for
                                 an existing auth user; CONFLICT once any member exists. Called by
-                                scripts/bootstrap-ceo.mjs, which prints a one-time recovery link and
+                                scripts/bootstrap-owner.mjs, which prints a one-time recovery link and
                                 never handles a password
 ```
 
@@ -85,7 +85,7 @@ public.bootstrap_ceo(user_id, email, full_name, org_name)   service_role only. C
 ```
 organizations        id, name, logo_file_id (added in 3.3 with files), timezone ('Asia/Kolkata'), created_at, updated_at
 org_settings         org_id pk, weekly_off_days smallint[] (0=Sun..6=Sat), logout_reminder_time time,
-                     ack_repeat_hours int (2), ack_escalate_hours int (4), ack_escalate_ceo_hours int (8),
+                     ack_repeat_hours int (2), ack_escalate_hours int (4), ack_escalate_owner_hours int (8),
                      overdue_escalate_hours int (24), email_daily_cap_per_member int (20),
                      default_task_reminders jsonb, workload_warning_threshold int
                      -- defaults in brackets = launch settings (PRODUCT §7); default_task_reminders '[]' until
@@ -94,7 +94,7 @@ holidays             id, org_id, date, name, unique(org_id, date)
 members              id (= auth.users.id), org_id, full_name, email, phone, avatar_file_id (added in 3.3),
                      role member_role, job_title_id → list_items (added in 1.3), status member_status,
                      invited_at, joined_at, deactivated_at, created_at, updated_at
-                     unique partial index (org_id) where role = 'ceo'; unique index on lower(email)
+                     unique partial index (org_id) where role = 'owner'; unique index on lower(email)
                      -- status, invited_at, joined_at, deactivated_at are protected columns (transition
                      -- functions only, 1.2/1.3). RLS: own row; every row for team.view; writes team.manage;
                      -- own name/phone/avatar editable (PERMISSIONS §3)
@@ -132,7 +132,7 @@ field_definitions    id, org_id, entity ('client'|'contact'|'project'|'item'|'ta
                      task_type_id null (a field that exists for one task type only),
                      key, label, help_text, type field_type, options jsonb, required,
                      section, position, archived_at, unique(org_id, entity, key, client_id, task_type_id)
-                     -- rows with entity in ('project','item') are CEO-only to create/edit (PERMISSIONS ¹)
+                     -- rows with entity in ('project','item') are Owner-only to create/edit (PERMISSIONS ¹)
 ```
 Entities with custom fields have `custom_fields jsonb not null default '{}'`, validated against active definitions on every write (`core/custom-fields`).
 
@@ -149,7 +149,7 @@ attendance_events    id, attendance_day_id, action ('submitted'|'proposed_absent
                      'approved'|'corrected'|'logout'|'overtime_flagged'), from_status, to_status, reason,
                      actor_id null (system), at                    -- append-only
 leave_requests       id, member_id, type leave_type, start_date, end_date, reason,
-                     state leave_state, source ('form'|'attendance'|'ceo'), supersedes_id null,
+                     state leave_state, source ('form'|'attendance'|'owner'), supersedes_id null,
                      decided_by, decided_at, decision_reason, created_at
 ```
 
@@ -158,7 +158,7 @@ leave_requests       id, member_id, type leave_type, start_date, end_date, reaso
 clients              id, org_id, name, legal_name, state client_state, admin_id → members,
                      gstin, address, city, phone, email, website, drive_url, requirements, notes,
                      custom_fields, activated_at, archived_at, created_by
-client_private       client_id pk, ceo_notes                        -- CEO-only table
+client_private       client_id pk, ceo_notes                        -- Owner-only table
 client_admin_assignments  id, client_id, admin_id, assigned_by, from_at, to_at null
 client_contacts      id, client_id, name, designation, email, phone, is_primary, custom_fields, archived_at
 client_brand         client_id pk, logo_file_id, colors jsonb [{name, hex}], fonts jsonb [{family, usage}],
@@ -171,11 +171,11 @@ view client_labels   (id, name, logo_file_id, colors, fonts, tone_of_voice, bran
 ## 5. Client work: projects, cycles, items
 ```
 projects             id, client_id (required), name, description, recurrence, state project_state,
-                     billing_category (CEO-set; default from recurrence; a template's default applies
-                     only when the CEO creates the project), template_id null,
+                     billing_category (Owner-set; default from recurrence; a template's default applies
+                     only when the Owner creates the project), template_id null,
                      custom_fields, created_by, completed_at, completed_by, archived_at
                      -- guard trigger: state, billing_category, client_id and recurrence change only
-                     -- through transition functions (billing_category/client_id/recurrence: CEO only)
+                     -- through transition functions (billing_category/client_id/recurrence: Owner only)
 project_stages       id, project_id, name, position                  -- copied from a preset; may be empty
 project_item_blueprints  id, project_id, title, position            -- item list copied into each new cycle
 project_cycles       id, project_id, period_start date null, period_end date null, label,
@@ -190,7 +190,7 @@ project_items        id, cycle_id, title, position, planned_date null, notes, cu
 project_item_stages  item_id, stage_id, done_at, done_by, pk(item_id, stage_id)
 item_reviews         id, item_id, decision review_decision, reason, reviewer_id, at   -- append-only
 project_templates    id, org_id, name, description, recurrence, default_billing_category (applied only
-                     when the CEO creates the project), stages text[], items text[], field_defaults jsonb, archived_at
+                     when the Owner creates the project), stages text[], items text[], field_defaults jsonb, archived_at
 ```
 
 ## 6. Staff tasks
@@ -206,7 +206,7 @@ task_assignees       task_id, member_id, is_primary, assigned_at, assigned_by,
                      acknowledged_at null, removed_at null, pk(task_id, member_id)
 task_stages          id, task_id, name, position, done_at, done_by   -- optional checklist
 task_comments        id, task_id, author_id, body, created_at        -- append-only
-task_reviews         id, task_id, step ('admin'|'ceo'), decision, reason, reviewer_id,
+task_reviews         id, task_id, step ('admin'|'owner'), decision, reason, reviewer_id,
                      submission_id null, at                          -- append-only
 task_submissions     id, task_id, version int, note, submitted_by, at, unique(task_id, version)
 submission_items     id, submission_id, kind ('upload'|'drive_link'),
@@ -219,7 +219,7 @@ submission_items     id, submission_id, kind ('upload'|'drive_link'),
                      drive_file_id null, drive_web_link null, archived_at,
                      archive_error, archive_attempts, local_deleted_at, created_at
 task_reminders       id, task_id, member_id null, kind ('before_due'|'due'|'overdue'|'ack'|
-                     'ack_escalation'|'overdue_escalation'|'event'), escalation_level int null (1 = Admin, 2 = CEO),
+                     'ack_escalation'|'overdue_escalation'|'event'), escalation_level int null (1 = Admin, 2 = Owner),
                      fire_at, sent_at null, cancelled_at null       -- materialized from reminder_rules + org_settings
 task_warnings        id, task_id, kind ('overlap'|'workload'|'on_leave'), details jsonb,
                      overridden_by, at
@@ -229,18 +229,18 @@ task_templates       id, org_id, name, task_type_id, description, default_priori
                      stages text[], reminder_rules jsonb, field_defaults jsonb, archived_at
 ```
 
-## 7. Money (all CEO-only tables)
+## 7. Money (all Owner-only tables)
 ```
 project_billing      project_id pk, cycle_amount numeric null (recurring), fixed_amount numeric null (one-time)
 item_billing         item_id pk, value numeric                       -- explicit per-item value
 cycle_billing        cycle_id pk, billing_status, billed_on date, note
 revenue_overrides    id, scope ('cycle'|'project'), ref_id, calculated_value, adjusted_value,
                      note, by_id, at, superseded_at null
-views (security invoker, CEO only): item_values_v, revenue_by_cycle_v, revenue_by_client_month_v
+views (security invoker, Owner only): item_values_v, revenue_by_cycle_v, revenue_by_client_month_v
 ```
 All amounts are `numeric(12,2)` in INR.
 
-## 8. Google Drive archive (CEO-managed, core module `drive`)
+## 8. Google Drive archive (Owner-managed, core module `drive`)
 ```
 drive_account        org_id pk, google_email, refresh_token_encrypted, access_token_encrypted,
                      token_expires_at, root_folder_id, scopes, connected_by, connected_at,
@@ -272,7 +272,7 @@ activity_log         id bigint identity, org_id, actor_id null (system), entity,
 eod_reports          id, org_id, report_date, data jsonb, generated_at, unique(org_id, report_date)
 month_snapshots      id, org_id, month date (1st), version int, data jsonb, closed_by, closed_at,
                      corrects_id null, correction_note, unique(org_id, month, version)
-                     -- eod_reports and month_snapshots contain revenue: CEO-only tables
+                     -- eod_reports and month_snapshots contain revenue: Owner-only tables
                      -- (single policy has_permission('reports.all')). Admin scoped reports are computed live.
 feature_flags        key pk, enabled, description
 ```

@@ -26,7 +26,7 @@ import {
  * nothing here writes a table directly.
  */
 
-const INACTIVE_MESSAGE = "This account is not active. Ask the CEO.";
+const INACTIVE_MESSAGE = "This account is not active. Ask the Owner.";
 
 /** The RPC arguments; absent values are left out rather than passed as undefined. */
 async function sessionMeta(): Promise<{ user_agent?: string; ip_hash?: string }> {

@@ -8,7 +8,7 @@ import { serverSupabaseEnv } from "./env.server";
 
 /**
  * The service-role client. It BYPASSES RLS, so it's only for code that has no
- * user: cron entry points, webhooks, the CEO bootstrap script and jobs.
+ * user: cron entry points, webhooks, the Owner bootstrap script and jobs.
  * Never use it to serve a user's request, and never pass its results to a
  * client without re-checking permissions.
  */

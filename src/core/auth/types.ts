@@ -8,7 +8,7 @@ import type { MemberRole } from "@/core/permissions";
 export type CurrentMember = {
   /** `members.id` = `auth.users.id`. The only thing Sentry ever learns about a person. */
   id: string;
-  /** The login identity; CEO-only elsewhere (PERMISSIONS §2), shown to its owner on /me. */
+  /** The login identity; Owner-only elsewhere (PERMISSIONS §2), shown to the member on /me. */
   email: string;
   role: MemberRole;
   name: string;

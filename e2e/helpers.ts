@@ -2,7 +2,7 @@ import { expect, type Page } from "@playwright/test";
 
 /** The local sign-ins created by `supabase/seed.sql` (README → "Local sign-ins"). */
 export const USERS = {
-  ceo: { email: "ceo@maxoff.local", password: "ceo-local-password", home: "/today" },
+  owner: { email: "owner@maxoff.local", password: "owner-local-password", home: "/today" },
   admin: { email: "admin@maxoff.local", password: "admin-local-password", home: "/today" },
   staff: { email: "staff@maxoff.local", password: "staff-local-password", home: "/my-day" },
   deactivated: { email: "gone@maxoff.local", password: "gone-local-password", home: null },
@@ -10,7 +10,7 @@ export const USERS = {
   reset: { email: "reset@maxoff.local", password: "reset-local-password", home: "/my-day" },
 } as const;
 
-export type SessionRole = "ceo" | "admin" | "staff";
+export type SessionRole = "owner" | "admin" | "staff";
 
 export function storageStateFor(role: SessionRole): string {
   return `e2e/.auth/${role}.json`;

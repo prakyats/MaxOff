@@ -16,7 +16,7 @@ import {
 import { type NavItem } from "./nav";
 import { NavList } from "./nav-list";
 
-/** Hamburger button that opens the CEO / Admin navigation in a side sheet on small screens. */
+/** Hamburger button that opens the Owner / Admin navigation in a side sheet on small screens. */
 export function MobileNavSheet({
   items,
   footer,

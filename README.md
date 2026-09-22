@@ -2,7 +2,7 @@
 
 The internal operations and control system for **Pixora Clips**: attendance, leave, staff
 tasks with acknowledgement and approvals, clients, client work (projects → cycles → items),
-notifications, dashboards, and CEO-only revenue and reports.
+notifications, dashboards, and Owner-only revenue and reports.
 
 Internal and invite-only. **Clients never log in.** The business timezone is **IST**.
 
@@ -38,7 +38,7 @@ the local stack (the deploy workflow never seeds), and the passwords are fixture
 
 | Email | Password | Role |
 |---|---|---|
-| `ceo@maxoff.local` | `ceo-local-password` | CEO |
+| `owner@maxoff.local` | `owner-local-password` | Owner |
 | `admin@maxoff.local` | `admin-local-password` | Admin |
 | `staff@maxoff.local` | `staff-local-password` | Staff |
 | `gone@maxoff.local` | `gone-local-password` | deactivated Staff (refused at sign-in) |
@@ -46,22 +46,22 @@ the local stack (the deploy workflow never seeds), and the passwords are fixture
 
 Password-reset emails from the local stack land in Mailpit: http://127.0.0.1:54324.
 
-### The first CEO on a hosted project
+### The first Owner on a hosted project
 
 Sign-ups are off everywhere (invite-only). The first account is created by a script that
-never handles a password: it creates the auth user, inserts the active CEO through
-`bootstrap_ceo()` (service role only, refuses once anyone exists) and prints a **one-time
-link** where the CEO chooses their password. Nothing is emailed, so it works before any
+never handles a password: it creates the auth user, inserts the active Owner through
+`bootstrap_owner()` (service role only, refuses once anyone exists) and prints a **one-time
+link** where the Owner chooses their password. Nothing is emailed, so it works before any
 sending domain exists.
 
 ```bash
 # locally (values from .env.local)
-pnpm bootstrap:ceo -- --email ceo@example.com --name "Full Name" --org "Pixora Clips"
+pnpm bootstrap:owner -- --email owner@example.com --name "Full Name" --org "Pixora Clips"
 
 # staging / production: the same script with that project's URL, secret key and app URL
 NEXT_PUBLIC_SUPABASE_URL=https://<ref>.supabase.co SUPABASE_SECRET_KEY=<secret> \
 NEXT_PUBLIC_APP_URL=https://maxoff-staging.<subdomain>.workers.dev \
-  node scripts/bootstrap-ceo.mjs --email ceo@example.com --name "Full Name" --org "Pixora Clips"
+  node scripts/bootstrap-owner.mjs --email owner@example.com --name "Full Name" --org "Pixora Clips"
 ```
 
 The link expires after an hour; "Forgot your password?" on `/login` issues a new one (that one
@@ -83,7 +83,7 @@ is emailed by Supabase Auth, see "Hosted auth settings").
 | `pnpm db:new <name>` | New append-only migration file |
 | `pnpm db:types` | Regenerate `src/core/db/database.types.ts` from the local database |
 | `pnpm db:test` | pgTAP tests in `supabase/tests` (needs the stack running) |
-| `pnpm bootstrap:ceo -- --email … --name … [--org …]` | Create the first CEO and print the one-time password link (see "The first CEO on a hosted project") |
+| `pnpm bootstrap:owner -- --email … --name … [--org …]` | Create the first Owner and print the one-time password link (see "The first Owner on a hosted project") |
 | `pnpm test:e2e` · `pnpm test:e2e:ui` | Playwright in `e2e/`: builds and runs `next start` on port 3100, signs in as the seeded local users (the stack must be up and reset) and proves the build is locked down. Run it whenever a user flow changed |
 | `pnpm check` | typecheck + lint + format + unit tests + pgTAP + build. **Must pass before any commit.** Needs Docker Desktop running and `pnpm db:start` done first |
 
@@ -196,7 +196,7 @@ in the Supabase dashboard (**Authentication**), once per project:
 | Sign In / Providers → Email | **Minimum password length: 12**, no character requirements. **Leaked password protection: on** (HaveIBeenPwned; catches far more than composition rules) |
 | URL Configuration | **Site URL** = the app URL (`NEXT_PUBLIC_APP_URL`). **Redirect URLs**: add `<app URL>/**` |
 | Emails → Templates → **Reset password** | Subject "Set your MaxOff password"; body = `supabase/templates/recovery.html`. The link **must** be `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery` (the app verifies the token hash server-side; the default `{{ .ConfirmationURL }}` will not work) |
-| Emails → SMTP settings | **Until a sending domain exists, leave Supabase's built-in mailer**: it delivers only to the email addresses of the Supabase project's own team members, a few per hour, which is enough for the CEO on staging. With `mail.maxoff.app` verified in Resend: host `smtp.resend.com`, port `465`, user `resend`, password = a Resend API key, sender `MaxOff <noreply@mail.maxoff.app>` |
+| Emails → SMTP settings | **Until a sending domain exists, leave Supabase's built-in mailer**: it delivers only to the email addresses of the Supabase project's own team members, a few per hour, which is enough for the Owner on staging. With `mail.maxoff.app` verified in Resend: host `smtp.resend.com`, port `465`, user `resend`, password = a Resend API key, sender `MaxOff <noreply@mail.maxoff.app>` |
 | Rate Limits | Keep the defaults (30 sign-in attempts per 5 min per IP, 30 token verifications, 150 refreshes). Raise **emails sent per hour** only after custom SMTP is on |
 
 The invite template (`type=invite`, same `/auth/confirm` route) is added in task 1.3.
@@ -260,7 +260,7 @@ src/app/        routes only: thin pages composing module components
 src/core/       shared foundation (auth, db, permissions, time, ui, …), no business features
 src/modules/    isolated features, each exposing a single index.ts
 supabase/       append-only migrations, pgTAP tests, seed data, auth email templates
-scripts/        one-off scripts: icon rendering, the CEO bootstrap
+scripts/        one-off scripts: icon rendering, the Owner bootstrap
 e2e/            Playwright
 tests/          repo-level tests (lint rules) and their fixtures
 docs/           the project's memory (see below)

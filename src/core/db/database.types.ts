@@ -116,8 +116,8 @@ export type Database = {
       };
       org_settings: {
         Row: {
-          ack_escalate_ceo_hours: number;
           ack_escalate_hours: number;
+          ack_escalate_owner_hours: number;
           ack_repeat_hours: number;
           created_at: string;
           default_task_reminders: Json;
@@ -130,8 +130,8 @@ export type Database = {
           workload_warning_threshold: number | null;
         };
         Insert: {
-          ack_escalate_ceo_hours?: number;
           ack_escalate_hours?: number;
+          ack_escalate_owner_hours?: number;
           ack_repeat_hours?: number;
           created_at?: string;
           default_task_reminders?: Json;
@@ -144,8 +144,8 @@ export type Database = {
           workload_warning_threshold?: number | null;
         };
         Update: {
-          ack_escalate_ceo_hours?: number;
           ack_escalate_hours?: number;
+          ack_escalate_owner_hours?: number;
           ack_repeat_hours?: number;
           created_at?: string;
           default_task_reminders?: Json;
@@ -290,7 +290,7 @@ export type Database = {
       };
     };
     Functions: {
-      bootstrap_ceo: {
+      bootstrap_owner: {
         Args: {
           email: string;
           full_name: string;
@@ -309,7 +309,7 @@ export type Database = {
       };
     };
     Enums: {
-      member_role: "ceo" | "admin" | "staff";
+      member_role: "owner" | "admin" | "staff";
       member_status: "invited" | "active" | "deactivated";
     };
     CompositeTypes: {
@@ -432,7 +432,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      member_role: ["ceo", "admin", "staff"],
+      member_role: ["owner", "admin", "staff"],
       member_status: ["invited", "active", "deactivated"],
     },
   },

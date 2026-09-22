@@ -1,19 +1,23 @@
 #!/usr/bin/env node
 /**
- * Creates the first CEO account (PRODUCT §3, task 1.2). Run once per environment:
+ * Creates the first Owner account (PRODUCT §3, task 1.2). Run once per environment:
  *
- *   pnpm bootstrap:ceo -- --email ceo@example.com --name "Full Name" [--org "Pixora Clips"]
+ *   pnpm bootstrap:owner -- --email owner@example.com --name "Full Name" [--org "Company"]
+ *
+ * Anything not given as a flag is asked for on the terminal (email, full name, and the
+ * organization name in case none exists yet). Nobody's name is hard-coded anywhere.
  *
  * Reads NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SECRET_KEY and NEXT_PUBLIC_APP_URL from
  * `.env.local` (`node --env-file`); for staging or production, point `--env-file` at a file
  * holding that project's values, or export the three variables in the shell.
  *
- * No password anywhere: the auth user is created without one, `bootstrap_ceo()` (service
- * role only) inserts the active CEO member, and a one-time recovery link is printed. Opening
- * it is where the CEO chooses their password. Nothing is emailed, so this works before any
+ * No password anywhere: the auth user is created without one, `bootstrap_owner()` (service
+ * role only) inserts the active Owner member, and a one-time recovery link is printed. Opening
+ * it is where the Owner chooses their password. Nothing is emailed, so this works before any
  * SMTP or sending domain exists. If the member insert fails, the auth user just created is
  * removed again so a re-run starts clean.
  */
+import { createInterface } from "node:readline/promises";
 import { parseArgs } from "node:util";
 
 import { createClient } from "@supabase/supabase-js";
@@ -39,12 +43,26 @@ const { values } = parseArgs({
   },
 });
 
+/** Asks on the terminal for a value that was not passed as a flag (empty when not a TTY). */
+async function ask(question) {
+  if (!process.stdin.isTTY) return "";
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    return (await rl.question(question)).trim();
+  } finally {
+    rl.close();
+  }
+}
+
 async function main() {
-  const email = values.email?.trim().toLowerCase();
-  const fullName = values.name?.trim();
-  const orgName = values.org?.trim() ?? null;
-  if (!email || !email.includes("@")) fail("--email is required.");
-  if (!fullName) fail("--name is required.");
+  const email = (values.email?.trim() || (await ask("Owner's email: "))).toLowerCase();
+  const fullName = values.name?.trim() || (await ask("Owner's full name: "));
+  const orgName =
+    values.org?.trim() ||
+    (await ask("Organization name (Enter to skip when one already exists): ")) ||
+    null;
+  if (!email || !email.includes("@")) fail("an email is required (--email).");
+  if (!fullName) fail("the Owner's full name is required (--name).");
 
   const url = requireEnv("NEXT_PUBLIC_SUPABASE_URL");
   const secretKey = requireEnv("SUPABASE_SECRET_KEY");
@@ -75,9 +93,9 @@ async function main() {
     }
   }
 
-  // 2. The organization (if none) and the active CEO member, in one transaction.
+  // 2. The organization (if none) and the active Owner member, in one transaction.
   {
-    const { error } = await supabase.rpc("bootstrap_ceo", {
+    const { error } = await supabase.rpc("bootstrap_owner", {
       user_id: userId,
       email,
       full_name: fullName,
@@ -102,7 +120,7 @@ async function main() {
   });
   if (linkError || !link.properties?.hashed_token) {
     fail(
-      'the CEO member exists, but no recovery link could be made. Use "Forgot your password?" on /login instead.',
+      'the Owner member exists, but no recovery link could be made. Use "Forgot your password?" on /login instead.',
     );
   }
 
@@ -111,7 +129,7 @@ async function main() {
   process.stdout.write(
     [
       "",
-      `CEO created: ${fullName} <${email}>`,
+      `Owner created: ${fullName} <${email}>`,
       "",
       "Open this link once to set the password (it expires in an hour):",
       "",
@@ -129,8 +147,8 @@ try {
   process.exitCode = 1;
   console.error(
     error instanceof BootstrapError
-      ? `bootstrap-ceo: ${error.message}`
-      : "bootstrap-ceo: unexpected failure.",
+      ? `bootstrap-owner: ${error.message}`
+      : "bootstrap-owner: unexpected failure.",
   );
   if (!(error instanceof BootstrapError)) console.error(error);
 }

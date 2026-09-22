@@ -76,8 +76,8 @@ describe("safeNextPath", () => {
 
 describe("schemas", () => {
   it("normalises the email and requires a password on login", () => {
-    const parsed = loginSchema.parse({ email: "  CEO@Example.com ", password: "whatever-it-is" });
-    expect(parsed.email).toBe("ceo@example.com");
+    const parsed = loginSchema.parse({ email: "  Owner@Example.com ", password: "whatever-it-is" });
+    expect(parsed.email).toBe("owner@example.com");
     expect(loginSchema.safeParse({ email: "not-an-email", password: "x" }).success).toBe(false);
     expect(loginSchema.safeParse({ email: "a@b.co", password: "" }).success).toBe(false);
   });

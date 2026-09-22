@@ -31,7 +31,7 @@ describe("ROLE_GRANTS", () => {
   });
 
   it("keeps the business invariants of CLAUDE.md", () => {
-    // Money and final approvals are the CEO's alone.
+    // Money and final approvals are the Owner's alone.
     for (const key of [
       "finance.view",
       "finance.edit",
@@ -41,13 +41,13 @@ describe("ROLE_GRANTS", () => {
       "months.close",
       "records.hard_delete",
     ] as const) {
-      expect(can("ceo", key)).toBe(true);
+      expect(can("owner", key)).toBe(true);
       expect(can("admin", key)).toBe(false);
       expect(can("staff", key)).toBe(false);
     }
-    // The Admin step belongs to Admins only; the CEO does not mark attendance.
-    expect(ROLE_GRANTS.ceo).not.toContain("tasks.approve_admin");
-    expect(ROLE_GRANTS.ceo).not.toContain("attendance.self");
+    // The Admin step belongs to Admins only; the Owner does not mark attendance.
+    expect(ROLE_GRANTS.owner).not.toContain("tasks.approve_admin");
+    expect(ROLE_GRANTS.owner).not.toContain("attendance.self");
     // Staff never touch clients, people or reports.
     for (const key of ROLE_GRANTS.staff) {
       expect(key.startsWith("clients.")).toBe(false);
@@ -66,6 +66,6 @@ describe("can", () => {
   it("accepts any of several keys", () => {
     expect(can("admin", ["tasks.approve_final", "tasks.approve_admin"])).toBe(true);
     expect(can("staff", ["tasks.approve_final", "tasks.approve_admin"])).toBe(false);
-    expect(can("ceo", [])).toBe(false);
+    expect(can("owner", [])).toBe(false);
   });
 });

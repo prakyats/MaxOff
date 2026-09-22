@@ -10,7 +10,7 @@ import { TopBar } from "./top-bar";
 import type { ShellViewer } from "./viewer";
 
 /**
- * The signed-in app chrome (ROADMAP 0.3). CEO and Admin get a sidebar (a sheet below `md`);
+ * The signed-in app chrome (ROADMAP 0.3). Owner and Admin get a sidebar (a sheet below `md`);
  * Staff get a bottom bar on phones and the same sidebar from `md` up. Pages render inside
  * `<main>` at a comfortable reading width; Staff screens are laid out for 375px first.
  * `logoutItem` is the account menu's Log out entry, owned by `core/auth` and passed in by the

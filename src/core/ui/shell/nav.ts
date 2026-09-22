@@ -92,12 +92,12 @@ const settings = (permission: PermissionKey): NavItem => ({
 });
 
 /**
- * Primary navigation per role. CEO and Admin see it in the sidebar; Staff see it in the
+ * Primary navigation per role. Owner and Admin see it in the sidebar; Staff see it in the
  * bottom bar on mobile (PRODUCT §4.7: My Day · Tasks · Calendar · Alerts · Me).
- * Money never appears here: revenue and billing are panels inside CEO screens (ADR-0007).
+ * Money never appears here: revenue and billing are panels inside Owner screens (ADR-0007).
  */
 export const NAV_BY_ROLE: Record<ShellRole, readonly NavItem[]> = {
-  ceo: [
+  owner: [
     today,
     approvals("tasks.approve_final"),
     clients("clients.manage"),
@@ -140,7 +140,7 @@ export type SettingsSection = {
 };
 
 /**
- * Settings is the CEO's control centre (PRODUCT §4.16). Admins get only the data lists they
+ * Settings is the Owner's control centre (PRODUCT §4.16). Admins get only the data lists they
  * may edit (PERMISSIONS §1: `lists.manage` with footnote ¹, `templates.manage`) and nothing
  * about the company, days off, thresholds, Drive or the team.
  */

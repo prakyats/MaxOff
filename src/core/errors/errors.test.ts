@@ -166,7 +166,7 @@ describe("action", () => {
   it("reports unexpected errors to Sentry, logs only the code + event id, returns INTERNAL", async () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const cause = Object.assign(new Error("db exploded"), {
-      details: "Failing row contains (1, 12000, ceo@pixora.example)",
+      details: "Failing row contains (1, 12000, owner@pixora.example)",
     });
     const broken = action(async () => {
       throw cause;

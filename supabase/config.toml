@@ -172,7 +172,7 @@ enable_refresh_token_rotation = true
 # Allows refresh tokens to be reused after expiry, up to the specified interval in seconds.
 # Requires enable_refresh_token_rotation = true.
 refresh_token_reuse_interval = 10
-# Invite-only (PRODUCT §4.1): nobody signs up. People are created by the CEO bootstrap script
+# Invite-only (PRODUCT §4.1): nobody signs up. People are created by the Owner bootstrap script
 # and, from 1.3, by invites. The hosted projects carry the same setting (README → "Hosted auth
 # settings").
 enable_signup = false

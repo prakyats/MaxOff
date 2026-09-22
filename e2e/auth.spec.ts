@@ -14,8 +14,8 @@ test.describe("signed out", () => {
     await expect(page).toHaveURL(/\/login\?next=%2Fpeople$/);
     await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
 
-    await page.getByLabel("Email").fill(USERS.ceo.email);
-    await page.getByLabel("Password", { exact: true }).fill(USERS.ceo.password);
+    await page.getByLabel("Email").fill(USERS.owner.email);
+    await page.getByLabel("Password", { exact: true }).fill(USERS.owner.password);
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page).toHaveURL(/\/people$/);
     await expect(page.getByRole("heading", { name: "People", exact: true })).toBeVisible();
@@ -23,7 +23,7 @@ test.describe("signed out", () => {
 
   test("a wrong password stays on the page with one neutral message", async ({ page }) => {
     await page.goto("/login");
-    await page.getByLabel("Email").fill(USERS.ceo.email);
+    await page.getByLabel("Email").fill(USERS.owner.email);
     await page.getByLabel("Password", { exact: true }).fill("definitely-not-the-password");
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page.locator('[data-slot="form-alert"]')).toContainText(
@@ -48,7 +48,7 @@ test.describe("signed out", () => {
     await page.getByLabel("Password", { exact: true }).fill(USERS.deactivated.password);
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page.locator('[data-slot="form-alert"]')).toContainText(
-      "This account is not active. Ask the CEO.",
+      "This account is not active. Ask the Owner.",
     );
     await expect(page).toHaveURL(/\/login$/);
     // The session Supabase opened was ended again: the shell is still closed.
@@ -84,7 +84,7 @@ test.describe("signed in", () => {
   });
 
   test("the sign-in pages send a member home", async ({ page }) => {
-    await signIn(page, USERS.ceo.email, USERS.ceo.password);
+    await signIn(page, USERS.owner.email, USERS.owner.password);
     await page.goto("/login");
     await expect(page).toHaveURL(/\/today$/);
     await page.goto("/forgot-password");

@@ -4,8 +4,8 @@
 --
 -- 1.1: the organization (org_settings follows by trigger).
 -- 1.2: five local sign-ins for development and Playwright (README → "Local sign-ins"). The
---      passwords below are development-only fixtures, never reused anywhere. A hosted CEO is
---      created by `pnpm bootstrap:ceo`, which prints a one-time link and holds no password.
+--      passwords below are development-only fixtures, never reused anywhere. A hosted Owner is
+--      created by `pnpm bootstrap:owner`, which prints a one-time link and holds no password.
 -- 1.3/1.4 add the Pixora lists.
 
 insert into public.organizations (name)
@@ -15,7 +15,7 @@ where not exists (select 1 from public.organizations);
 create temporary table seed_users (id uuid, email text, password text, full_name text, phone text,
   role public.member_role, status public.member_status) on commit drop;
 insert into seed_users values
-  ('10000000-0000-4000-8000-000000000001', 'ceo@maxoff.local',   'ceo-local-password',   'Local CEO',   '9000000001', 'ceo',   'active'),
+  ('10000000-0000-4000-8000-000000000001', 'owner@maxoff.local', 'owner-local-password', 'Prishit Shetty', '9000000001', 'owner', 'active'),
   ('10000000-0000-4000-8000-000000000002', 'admin@maxoff.local', 'admin-local-password', 'Local Admin', '9000000002', 'admin', 'active'),
   ('10000000-0000-4000-8000-000000000003', 'staff@maxoff.local', 'staff-local-password', 'Local Staff', null,         'staff', 'active'),
   ('10000000-0000-4000-8000-000000000004', 'gone@maxoff.local',  'gone-local-password',  'Gone Staff',  null,         'staff', 'deactivated'),

@@ -7,9 +7,9 @@ import { storageStateFor } from "./helpers";
  * (task 1.2 replaced the development-only preview cookie).
  */
 
-test.describe("CEO on desktop", () => {
+test.describe("Owner on desktop", () => {
   test.skip(({ isMobile }) => Boolean(isMobile), "sidebar is desktop-only");
-  test.use({ storageState: storageStateFor("ceo") });
+  test.use({ storageState: storageStateFor("owner") });
 
   test("an unknown route shows the 404 page", async ({ page }) => {
     const response = await page.goto("/this-route-does-not-exist");
@@ -63,7 +63,7 @@ test.describe("CEO on desktop", () => {
   test("the account menu names the member and offers Log out", async ({ page }) => {
     await page.goto("/today");
     await page.getByRole("button", { name: "Account menu" }).click();
-    await expect(page.getByRole("menu")).toContainText("Local CEO");
+    await expect(page.getByRole("menu")).toContainText("Prishit Shetty");
     await expect(page.getByRole("menuitem", { name: "Log out" })).toBeVisible();
     await page.keyboard.press("Escape");
   });

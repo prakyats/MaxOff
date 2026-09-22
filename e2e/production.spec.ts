@@ -64,7 +64,7 @@ test.describe("production build", () => {
       const location = response.headers().location ?? "";
       expect(location, route).toMatch(/\/login\?next=/);
       const body = await response.text();
-      expect(body, route).not.toContain("Preview CEO");
+      expect(body, route).not.toContain("Preview Owner");
       expect(body, route).not.toContain("Preview Admin");
       expect(body, route).not.toContain("Preview Staff");
       expect(body, route).not.toContain("UI gallery");
@@ -82,7 +82,7 @@ test.describe("production build", () => {
     expect(response.status()).toBe(200);
     const body = await response.text();
     expect(body).toContain("Sign in");
-    expect(body).not.toContain("Preview CEO");
+    expect(body).not.toContain("Preview Owner");
     expect(body).not.toContain("UI gallery");
   });
 
@@ -109,7 +109,7 @@ test.describe("production build", () => {
   test("the old preview-role cookie opens nothing", async ({ request }) => {
     const response = await request.get("/today", {
       maxRedirects: 0,
-      headers: { cookie: "maxoff-preview-role=ceo" },
+      headers: { cookie: "maxoff-preview-role=owner" },
     });
     expect(response.status()).toBe(307);
     expect(response.headers().location).toMatch(/\/login\?next=/);

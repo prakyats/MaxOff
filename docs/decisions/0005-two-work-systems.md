@@ -7,7 +7,7 @@
 The product owner decided (clarification #8) that client work is organised as Client → Projects → items (one-time / weekly / monthly, maintained by the client's Admin), while staff work is daily tasks allotted to people. Staff completion must never update client progress automatically, and Staff must never see client progress. This replaces v2's separate Monthly Scope / Monthly Deliverables / Additional Work concepts and the v1 idea of generating tasks from deliverables.
 
 ## Decision
-- Module `client-work`: `projects` (recurrence, optional stages, CEO-set billing category), `project_cycles` (one per period; one-time projects have a single cycle), `project_items` (Admin ticks done → CEO approves), carry-forward decided by the CEO.
+- Module `client-work`: `projects` (recurrence, optional stages, Owner-set billing category), `project_cycles` (one per period; one-time projects have a single cycle), `project_items` (Admin ticks done → Owner approves), carry-forward decided by the Owner.
 - Module `tasks`: staff tasks with acknowledgement, the approval chain, reminders and submissions.
 - The only link is `tasks.client_id`, an optional **label** for context and visibility. There's no FK from tasks to projects or items, and no triggers between the modules.
 - Revenue attaches only to project items (ADR-0007).

@@ -14,7 +14,7 @@
 | **Atomic audit** (ADR-0006) | A change and its audit record commit together, or neither does. |
 | **Customization is data** (ADR-0002) | Task types, stage presets, job titles, holidays, custom fields and templates live in tables. Code relies only on fixed *categories* (enums in DATA-MODEL §0). |
 | **Two work systems** (ADR-0005) | Client work (projects → cycles → items) and staff tasks are separate modules with no automatic coupling. The only link is a task's optional client **label**. |
-| **Money is sealed off** (ADR-0007) | Amounts live only in CEO-only tables and views. Nothing outside the `revenue` module can read them. |
+| **Money is sealed off** (ADR-0007) | Amounts live only in Owner-only tables and views. Nothing outside the `revenue` module can read them. |
 | **IST everywhere** (ADR-0008) | Stored as UTC `timestamptz`. Business dates are computed in `Asia/Kolkata` in SQL (one helper) and in TS (one helper). |
 | **Cheap SaaS seams, nothing more** | An `org_id` boundary, clean modules, an authorization layer, and storage and notification adapters. No multi-tenant features. |
 | **Additive change** | Migrations and module APIs are only added to. Anything destructive goes through expand → migrate → contract. |
@@ -92,10 +92,10 @@ supabase/
   migrations/      # append-only SQL
   functions/       # (only if needed) Edge Functions, e.g. push dispatch
   tests/           # pgTAP
-  seed.sql         # dev seed: org, CEO, sample admins/staff/clients, Pixora lists
+  seed.sql         # dev seed: org, Owner, sample admins/staff/clients, Pixora lists
 e2e/               # Playwright
 public/            # manifest.webmanifest, icons/, service worker (sw.js), _headers
-scripts/           # one-off maintenance scripts (icon rendering, the CEO bootstrap)
+scripts/           # one-off maintenance scripts (icon rendering, the Owner bootstrap)
 wrangler.jsonc     # Workers: dev / staging / production (§18); open-next.config.ts beside it
 ```
 
@@ -105,7 +105,7 @@ Enforced by `eslint.config.mjs`; `tests/lint-rules.test.ts` lints the fixture tr
 - **`modules/*/domain` is platform-free** (ADR-0011): no `react`, `react-dom`, `next/*`, `server-only`, `client-only` or DOM globals, and from `core` only `time`, `errors` and `lib` (an allow-list in the config; extend it deliberately) plus **type-only** imports of `core/db` (`Tables<>`, `Enums<>` are plain data shapes).
 - Nothing outside a module imports its `data/`, `actions/` or internal `components/`.
 - **Only `data/` layers touch the database** (CLAUDE.md rule 3): `@supabase/supabase-js`, `@supabase/ssr` and `core/db`'s clients may be imported only from `src/modules/*/data/` and the core areas that own tables: `core/db`, `core/auth`, `core/activity`, `core/lists`, `core/custom-fields`, `core/notifications`, `core/storage`. Type-only imports are fine anywhere.
-- **Only `modules/revenue` may import money types or query money tables and views.** Outside `modules/revenue` (and the generated types in `core/db`), any string or template literal containing `project_billing`, `item_billing`, `cycle_billing`, `revenue_overrides`, `revenue_by_client_month_v` or `revenue_by_cycle_v` as a whole word is a lint error, so `.from("…")`, `Tables<"…">` and an embedded select like `"*, project_billing(*)"` all fail. Identifiers aren't checked; RLS (pgTAP-tested) is the wall behind the lint. Other modules show money only by rendering `revenue`'s exported components, which render nothing for non-CEO users. (`projects.billing_category` is not money: it's an operational label Admins may see. Only the CEO can set it.)
+- **Only `modules/revenue` may import money types or query money tables and views.** Outside `modules/revenue` (and the generated types in `core/db`), any string or template literal containing `project_billing`, `item_billing`, `cycle_billing`, `revenue_overrides`, `revenue_by_client_month_v` or `revenue_by_cycle_v` as a whole word is a lint error, so `.from("…")`, `Tables<"…">` and an embedded select like `"*, project_billing(*)"` all fail. Identifiers aren't checked; RLS (pgTAP-tested) is the wall behind the lint. Other modules show money only by rendering `revenue`'s exported components, which render nothing for non-Owner users. (`projects.billing_category` is not money: it's an operational label Admins may see. Only the Owner can set it.)
 - There is **no currency custom-field type**, so money can never leak in through `custom_fields`.
 
 ### 3.2 Module ownership
@@ -178,7 +178,7 @@ Each function, in **one transaction**:
 5. inserts `notifications` (+ `notification_deliveries` queued) for the recipients in WORKFLOWS §9;
 6. returns the new state.
 
-State columns can't be updated directly: RLS gives no update permission on them, plus a trigger guard. The same guard covers `projects.billing_category`, `projects.client_id` and `projects.recurrence`, which change only through CEO-only transition functions. Bulk actions call the function for each id inside one request and return per-id results.
+State columns can't be updated directly: RLS gives no update permission on them, plus a trigger guard. The same guard covers `projects.billing_category`, `projects.client_id` and `projects.recurrence`, which change only through Owner-only transition functions. Bulk actions call the function for each id inside one request and return per-id results.
 
 ### 4.2 Plain edits (names, descriptions, contacts, brand, custom fields, settings)
 ```ts
@@ -201,7 +201,7 @@ Auditing for plain edits is done by a **generic `audit_row_change()` trigger** o
 ## 5. Authorization in the database
 - `current_org_id()` returns the caller's organization id (the single org in the prototype) and is the default for every root table's `org_id`.
 - `current_member()` returns the caller's active member row. **Deactivated means no rows**, so access ends immediately. The app repeats the check (`requireMember()`, the login action) so a deactivated person's session is ended and they see why (ADR-0012).
-- **Session events and the first CEO** are written by `security definer` functions in `public` (`session_login()`, `session_logout()`, `bootstrap_ceo()`; DATA-MODEL §0a), never by a client insert. `bootstrap_ceo()` is executable by `service_role` only. Every public function revokes EXECUTE from `anon` explicitly (Supabase grants it by default).
+- **Session events and the first Owner** are written by `security definer` functions in `public` (`session_login()`, `session_logout()`, `bootstrap_owner()`; DATA-MODEL §0a), never by a client insert. `bootstrap_owner()` is executable by `service_role` only. Every public function revokes EXECUTE from `anon` explicitly (Supabase grants it by default).
 - `has_permission(key)` checks role → `role_permissions`. These helpers live in the `app` schema (`app.current_member()` etc.), so policies and functions call them qualified; TS never calls them directly.
 - **Protected columns:** state columns (and the timestamps that move with them) carry `app.protect_columns('status', ...)`, a BEFORE UPDATE trigger that raises `FORBIDDEN` unless `app.in_transition()` is true. `in_transition()` is true whenever the statement runs as the function owner (a security definer function, a migration, a job) and false for the API roles, so a direct update from any client fails even for a role whose RLS allows it, and there is no flag a client could set. The protected columns also carry **no UPDATE privilege** for `authenticated` (column-level grants list the editable columns), so a client hits `42501` before the trigger. **The service client bypasses both** (RLS and `in_transition()` is true for `service_role`): jobs and scripts call transition functions for state columns and never update them directly.
 - `member_directory` is a `security definer` view (no email) through which Admins and Staff see other people (PERMISSIONS §2).
@@ -222,7 +222,7 @@ Auditing for plain edits is done by a **generic `audit_row_change()` trigger** o
 - `pg_cron` runs in UTC, so jobs are scheduled at the UTC equivalent (23:59 IST = 18:29 UTC) and **re-check the IST date inside the job**.
 
 ## 7a. Sessions (task 1.2, ADR-0012)
-- **Supabase Auth**, email + password, sign-ups off everywhere; people exist only through the bootstrap script (the CEO) and invites (1.3). Passwords: 12 characters minimum, no composition rule, leaked-password protection on the hosted projects.
+- **Supabase Auth**, email + password, sign-ups off everywhere; people exist only through the bootstrap script (the Owner) and invites (1.3). Passwords: 12 characters minimum, no composition rule, leaked-password protection on the hosted projects.
 - **`src/proxy.ts`** runs `core/auth` `updateSession()` on every page request: refreshes the cookies and redirects from the JWT alone (no session → `/login?next=`; a session on the sign-in pages → `/`). Static assets, `sw.js` and the manifest are outside its matcher; `/offline`, `/auth/*`, `/api/*` and the sign-in pages pass through it without a session (`core/auth/paths.ts`). OpenNext bundles it as Node middleware.
 - **`requireMember()`** in the `(app)` layout is the decision: `getSessionState()` (per request, `cache()`) verifies the JWT with `getClaims()`, reads the member row under RLS and answers `none` / `inactive` / `member`. `inactive` (missing, invited or deactivated) is ended through `/auth/signout` and lands on `/login?reason=inactive`. `requirePermission()` builds on it.
 - **Auth links** (recovery now, invite from 1.3) land on `/auth/confirm?token_hash=…&type=…` and are verified server-side (`verifyOtp`), so they need no browser state and work from the bootstrap script's printed link. A verified link opens a session, so `verifyAuthLink()` checks the member there (not active → signed out again, `/login?reason=inactive`) and records `session_login()` before sending the browser to `/set-password`. The email templates in `supabase/templates/` build that URL; the hosted projects carry the same text (README → "Hosted auth settings").
@@ -231,7 +231,7 @@ Auditing for plain edits is done by a **generic `audit_row_change()` trigger** o
 
 ## 8. The first-login day gate
 - `(app)` layout → `core/auth` `requireDayGate()` → rpc `attendance_touch()`. This creates today's `attendance_days` row and a `session_events(login)` if needed, and returns whether a choice is still required.
-- If a choice is required, redirect to `/(gate)/attendance`. The CEO is exempt. On a day off the gate still asks, marking `is_day_off`. On a day with approved leave (full or half) there's no gate: `attendance_touch()` creates the day from the leave (`derived_from_leave`) and still records `first_login_at` and the login event.
+- If a choice is required, redirect to `/(gate)/attendance`. The Owner is exempt. On a day off the gate still asks, marking `is_day_off`. On a day with approved leave (full or half) there's no gate: `attendance_touch()` creates the day from the leave (`derived_from_leave`) and still records `first_login_at` and the login event.
 - `attendance_touch()` is idempotent and runs once per session per day (cached in a signed cookie holding the IST date).
 
 ## 9. Notifications (ADR-0009)
@@ -260,15 +260,15 @@ transition fn / job ─► notifications row ─► notification_deliveries (que
 - **Retention:** the daily `storage_cleanup` job removes local copies only after the Drive copy is confirmed (WORKFLOWS §5A). Orphaned `pending` files are cleaned up in the same job.
 
 ## 12. Revenue (ADR-0007)
-All calculation is in SQL views (WORKFLOWS §6) over CEO-only tables, so reports and exports share one definition. Overrides never replace the calculated value, they sit next to it. Money never leaves the app through error reporting either: §18 scrubs every financial field before an event reaches Sentry.
+All calculation is in SQL views (WORKFLOWS §6) over Owner-only tables, so reports and exports share one definition. Overrides never replace the calculated value, they sit next to it. Money never leaves the app through error reporting either: §18 scrubs every financial field before an event reaches Sentry.
 
 ## 13. Reports and exports
 - **EOD report:** built by a job into `eod_reports.data`. The page can also render a live version.
 - **Month close:** `month_close(month)` builds the snapshot JSON in SQL and stores version 1. `month_correct(month, note)` stores version N+1.
-- **Exports:** Markdown (AI-oriented: summary + dense tables with stable IDs and ISO timestamps), CSV (one file per dataset, zipped), PDF (summary). Generated on demand from the snapshot (closed months) or live views (open months). CEO only.
+- **Exports:** Markdown (AI-oriented: summary + dense tables with stable IDs and ISO timestamps), CSV (one file per dataset, zipped), PDF (summary). Generated on demand from the snapshot (closed months) or live views (open months). Owner only.
 
 ## 14. PWA and responsive design
-`public/manifest.webmanifest`, icons (`public/icons/`, rendered from `icon.svg` by `scripts/generate-icons.mjs`) and a plain-JS service worker `public/sw.js` (task 0.5). The worker is a **minimal offline shell**: it precaches `/offline`, serves it when a navigation fails without a connection, caches hashed `/_next/static` and `/icons` assets cache-first, and never touches `/api`, non-GET requests or other origins, so Supabase and server actions are always live. It is registered by `<RegisterServiceWorker />` in the root layout **only in production builds** (`next dev` and Playwright never see it). Push handlers join the same file in 5.1 (ADR-0009). `src/core/ui/pwa/pwa-files.test.ts` keeps the manifest, icons, headers and worker consistent with the tokens. Staff screens are designed mobile-first. CEO and Admin screens are desktop-first and still usable from 375px.
+`public/manifest.webmanifest`, icons (`public/icons/`, rendered from `icon.svg` by `scripts/generate-icons.mjs`) and a plain-JS service worker `public/sw.js` (task 0.5). The worker is a **minimal offline shell**: it precaches `/offline`, serves it when a navigation fails without a connection, caches hashed `/_next/static` and `/icons` assets cache-first, and never touches `/api`, non-GET requests or other origins, so Supabase and server actions are always live. It is registered by `<RegisterServiceWorker />` in the root layout **only in production builds** (`next dev` and Playwright never see it). Push handlers join the same file in 5.1 (ADR-0009). `src/core/ui/pwa/pwa-files.test.ts` keeps the manifest, icons, headers and worker consistent with the tokens. Staff screens are designed mobile-first. Owner and Admin screens are desktop-first and still usable from 375px.
 
 ## 15. Testing
 | Layer | Tool | Required for |
@@ -276,7 +276,7 @@ All calculation is in SQL views (WORKFLOWS §6) over CEO-only tables, so reports
 | Domain logic | Vitest | every function in `domain/` (e.g. approval-route resolution, revenue allocation mirror, reminder schedule expansion) |
 | Database | pgTAP | every table's RLS for each role; **every transition function**: allowed path, wrong state, wrong actor, missing reason, audit row written |
 | Jobs | pgTAP | idempotency (running twice creates nothing new), IST boundaries, working-day logic |
-| Flows | Playwright | login + day gate, assign → acknowledge → done → admin → CEO, rejection loop, leave request → decision, cycle generation → tick → approve, CEO bulk approve |
+| Flows | Playwright | login + day gate, assign → acknowledge → done → admin → Owner, rejection loop, leave request → decision, cycle generation → tick → approve, Owner bulk approve |
 | CI | GitHub Actions | three jobs on every push and PR (`.github/workflows/ci.yml`): `typecheck · lint · format · unit · build` (the build is the **OpenNext Worker build**, so a change the Workers runtime can't take fails before merge), `pgTAP` (Postgres-only local stack) and `playwright` (Chromium). Red never merges: branch protection on `main` requires all three (README) |
 
 Locally, `pnpm check` = typecheck + lint + format:check + unit tests + pgTAP + build (needs Docker and `pnpm db:start`). Playwright is deliberately outside `check`: `pnpm test:e2e` runs it on demand and `/finish-task` runs it whenever a flow changed. Every Playwright project runs against **`next start` of a fresh build** on its own port (never a reused server): a `setup` project signs in as the seeded local users (`supabase/seed.sql`, README → "Local sign-ins") through the real form and saves one storage state per role for the `desktop` and `mobile` projects; the **`production` project** (`e2e/production.spec.ts`) proves the build is locked down (every shell route redirects to `/login`, no trace of the deleted development shims, the service worker registers). The local Supabase stack must be up and reset first; CI starts it in the Playwright job and points the build at its keys.
@@ -289,7 +289,7 @@ Locally, `pnpm check` = typecheck + lint + format:check + unit tests + pgTAP + b
 5. Other modules' screens are extended only through the **extension slots** their `index.ts` exposes (tabs, panels, dashboard cards).
 
 ## 17. Backups
-Nightly `pg_dump` GitHub Action → encrypted → private R2 bucket (30-day retention). R2 object versioning or retention on the files bucket. A restore drill before launch, then every quarter. CEO CSV exports as a secondary copy.
+Nightly `pg_dump` GitHub Action → encrypted → private R2 bucket (30-day retention). R2 object versioning or retention on the files bucket. A restore drill before launch, then every quarter. Owner CSV exports as a secondary copy.
 
 ## 18. Deployment and observability (task 0.5, ADR-0003)
 

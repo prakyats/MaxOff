@@ -18,7 +18,7 @@ delete from public.activity_log;
 -- (current_org_id() falls back to the single organizations row), else one made here.
 create temporary table fx (key text primary key, id uuid not null);
 insert into fx values
-  ('ceo',         '00000000-0000-4000-8000-000000000001'),
+  ('owner',         '00000000-0000-4000-8000-000000000001'),
   ('admin',       '00000000-0000-4000-8000-000000000002'),
   ('staff',       '00000000-0000-4000-8000-000000000003'),
   ('deactivated', '00000000-0000-4000-8000-000000000004'),
@@ -61,7 +61,7 @@ select id, key || '@example.com' from fx where key <> 'org';
 -- Written as the owner: in_transition() is true here, so status/joined_at pass the guard.
 insert into public.members (id, org_id, full_name, email, phone, role, status, joined_at, deactivated_at)
 values
-  (pg_temp.fx('ceo'),         pg_temp.fx('org'), 'Test CEO',   'ceo@example.com',   '9000000001', 'ceo',   'active', now(), null),
+  (pg_temp.fx('owner'),         pg_temp.fx('org'), 'Test Owner',   'owner@example.com',   '9000000001', 'owner',   'active', now(), null),
   (pg_temp.fx('admin'),       pg_temp.fx('org'), 'Test Admin', 'admin@example.com', '9000000002', 'admin', 'active', now(), null),
   (pg_temp.fx('staff'),       pg_temp.fx('org'), 'Test Staff', 'staff@example.com', null,         'staff', 'active', now(), null),
   (pg_temp.fx('deactivated'), pg_temp.fx('org'), 'Gone Staff', 'deactivated@example.com', null,   'staff', 'deactivated', now(), now()),
@@ -79,7 +79,7 @@ select has_table('public', 'activity_log', 'activity_log exists');
 select has_view('public', 'member_directory', 'member_directory view exists');
 select hasnt_column('public', 'member_directory', 'email', 'the directory has no email column');
 select has_column('public', 'member_directory', 'phone', 'the directory shows the phone');
-select has_index('public', 'members', 'members_single_ceo', 'the single-CEO index exists');
+select has_index('public', 'members', 'members_single_owner', 'the single-Owner index exists');
 select has_index('public', 'members', 'members_email_unique', 'the email index exists');
 select has_function('app', 'current_org_id', array[]::text[], 'app.current_org_id() exists');
 select has_function('app', 'current_member', array[]::text[], 'app.current_member() exists');
@@ -96,14 +96,14 @@ select is((select count(*) from public.org_settings where org_id = pg_temp.fx('o
   'the organization got its org_settings row by trigger');
 select results_eq(
   $$ select weekly_off_days, logout_reminder_time::text, ack_repeat_hours, ack_escalate_hours,
-            ack_escalate_ceo_hours, overdue_escalate_hours, email_daily_cap_per_member
+            ack_escalate_owner_hours, overdue_escalate_hours, email_daily_cap_per_member
        from public.org_settings where org_id = pg_temp.fx('org') $$,
   $$ values ('{0}'::smallint[], '20:30:00', 2, 4, 8, 24, 20) $$,
   'org_settings carry the PRODUCT §7 launch defaults');
 
 -- Seed (PERMISSIONS §1) -------------------------------------------------------------------
 select is((select count(*) from public.role_permissions), 49::bigint, '49 grants are seeded');
-select is((select count(*) from public.role_permissions where role = 'ceo'), 29::bigint, 'the CEO holds 29 keys');
+select is((select count(*) from public.role_permissions where role = 'owner'), 29::bigint, 'the Owner holds 29 keys');
 select is((select count(*) from public.role_permissions where role = 'admin'), 16::bigint, 'Admins hold 16 keys');
 select results_eq(
   $$ select permission from public.role_permissions where role = 'staff' order by 1 $$,
@@ -111,12 +111,12 @@ select results_eq(
   'Staff hold exactly the four PERMISSIONS §1 keys');
 select ok(exists (select 1 from public.role_permissions where role = 'admin' and permission = 'tasks.approve_admin'),
   'the Admin approval step belongs to Admins');
-select ok(not exists (select 1 from public.role_permissions where role = 'ceo' and permission = 'tasks.approve_admin'),
-  'the CEO does not hold the Admin approval step');
-select ok(not exists (select 1 from public.role_permissions where role = 'ceo' and permission = 'attendance.self'),
-  'the CEO does not mark attendance');
-select ok(exists (select 1 from public.role_permissions where role = 'ceo' and permission = 'finance.view'),
-  'money is a CEO key');
+select ok(not exists (select 1 from public.role_permissions where role = 'owner' and permission = 'tasks.approve_admin'),
+  'the Owner does not hold the Admin approval step');
+select ok(not exists (select 1 from public.role_permissions where role = 'owner' and permission = 'attendance.self'),
+  'the Owner does not mark attendance');
+select ok(exists (select 1 from public.role_permissions where role = 'owner' and permission = 'finance.view'),
+  'money is an Owner key');
 
 -- Helpers ---------------------------------------------------------------------------------
 select is(app.current_org_id(), pg_temp.fx('org'), 'without a caller, current_org_id() is the single organization');
@@ -125,11 +125,11 @@ set local role service_role;
 select is(app.in_transition(), true, 'service_role is "in transition": jobs bypass the column guards and must call transition functions');
 select pg_temp.as_system();
 
-select pg_temp.as_member('ceo');
-select is((select id from app.current_member()), pg_temp.fx('ceo'), 'current_member() is the caller');
+select pg_temp.as_member('owner');
+select is((select id from app.current_member()), pg_temp.fx('owner'), 'current_member() is the caller');
 select is(app.current_org_id(), pg_temp.fx('org'), 'current_org_id() is the caller''s organization');
-select is(app.has_permission('team.manage'), true, 'the CEO has team.manage');
-select is(app.has_permission('tasks.approve_admin'), false, 'the CEO lacks tasks.approve_admin');
+select is(app.has_permission('team.manage'), true, 'the Owner has team.manage');
+select is(app.has_permission('tasks.approve_admin'), false, 'the Owner lacks tasks.approve_admin');
 select is(app.has_permission('no.such_key'), false, 'an unknown key is false, not an error');
 select is(app.in_transition(), false, 'the API role is not in transition');
 
@@ -153,8 +153,8 @@ select throws_ok($$ select count(*) from public.activity_log $$, '42501', null, 
 select pg_temp.as_system();
 
 -- organizations ---------------------------------------------------------------------------
-select pg_temp.as_member('ceo');
-select is((select count(*) from public.organizations), 1::bigint, 'the CEO sees the organization');
+select pg_temp.as_member('owner');
+select is((select count(*) from public.organizations), 1::bigint, 'the Owner sees the organization');
 update public.organizations set name = 'Renamed Org' where id = pg_temp.fx('org');
 select is((select name from public.organizations where id = pg_temp.fx('org')), 'Renamed Org',
   'settings.manage may rename the organization');
@@ -182,10 +182,10 @@ select pg_temp.as_member('admin');
 update public.org_settings set ack_repeat_hours = 3 where org_id = pg_temp.fx('org');
 select is((select ack_repeat_hours from public.org_settings where org_id = pg_temp.fx('org')), 2,
   'Admins cannot change the settings');
-select pg_temp.as_member('ceo');
+select pg_temp.as_member('owner');
 update public.org_settings set ack_repeat_hours = 3 where org_id = pg_temp.fx('org');
 select is((select ack_repeat_hours from public.org_settings where org_id = pg_temp.fx('org')), 3,
-  'the CEO changes the settings');
+  'the Owner changes the settings');
 select throws_ok($$ update public.org_settings set ack_repeat_hours = 0 where org_id = pg_temp.fx('org') $$,
   '23514', null, 'thresholds must be positive');
 select is(
@@ -195,15 +195,15 @@ select is(
   'the settings change is audited under the org_id (trigger argument)');
 
 -- members: reading ------------------------------------------------------------------------
-select pg_temp.as_member('ceo');
-select is((select count(*) from public.members), 5::bigint, 'the CEO reads every member row');
-select is((select count(*) from public.member_directory), 5::bigint, 'the CEO reads the whole directory');
+select pg_temp.as_member('owner');
+select is((select count(*) from public.members), 5::bigint, 'the Owner reads every member row');
+select is((select count(*) from public.member_directory), 5::bigint, 'the Owner reads the whole directory');
 
 select pg_temp.as_member('admin');
 select is((select count(*) from public.members), 1::bigint, 'an Admin reads only their own member row');
 select is((select count(*) from public.member_directory), 5::bigint,
   'an Admin reads everyone in the directory (team.view)');
-select is((select phone from public.member_directory where id = pg_temp.fx('ceo')), '9000000001',
+select is((select phone from public.member_directory where id = pg_temp.fx('owner')), '9000000001',
   'the directory gives an Admin a colleague''s phone');
 
 select pg_temp.as_member('staff');
@@ -221,7 +221,7 @@ select pg_temp.as_member('invited');
 select is((select count(*) from public.members), 0::bigint, 'an invited member reads nothing until they accept');
 
 -- members: writing ------------------------------------------------------------------------
-select pg_temp.as_member('ceo');
+select pg_temp.as_member('owner');
 insert into public.members (id, full_name, email, role)
 values (pg_temp.fx('newcomer'), 'New Comer', 'Newcomer@Example.com', 'staff');
 select results_eq(
@@ -231,11 +231,11 @@ select results_eq(
 select results_eq(
   $$ select actor_id, action, diff -> 'new' ->> 'full_name' from public.activity_log
        where entity = 'members' and entity_id = pg_temp.fx('newcomer') $$,
-  $$ select pg_temp.fx('ceo'), 'insert', 'New Comer' $$,
-  'the invite is audited with the CEO as actor and the new values');
+  $$ select pg_temp.fx('owner'), 'insert', 'New Comer' $$,
+  'the invite is audited with the Owner as actor and the new values');
 select throws_ok(
-  $$ insert into public.members (id, full_name, email, role) values (pg_temp.fx('second_ceo'), 'Two', 'two@example.com', 'ceo') $$,
-  '23505', null, 'a second CEO is refused by the unique index');
+  $$ insert into public.members (id, full_name, email, role) values (pg_temp.fx('second_ceo'), 'Two', 'two@example.com', 'owner') $$,
+  '23505', null, 'a second Owner is refused by the unique index');
 select throws_ok(
   $$ insert into public.members (id, full_name, email, role) values (pg_temp.fx('second_ceo'), 'Dup', 'STAFF@example.com', 'staff') $$,
   '23505', null, 'emails are unique regardless of case');
@@ -270,7 +270,7 @@ select throws_ok(
 -- The second layer: with the column privilege back, the guard trigger still refuses.
 select pg_temp.as_system();
 grant update (status, deactivated_at, email) on public.members to authenticated;
-select pg_temp.as_member('ceo');
+select pg_temp.as_member('owner');
 select throws_ok(
   $$ update public.members set status = 'deactivated', deactivated_at = now() where id = pg_temp.fx('staff') $$,
   'P0001', 'FORBIDDEN', 'protect_columns refuses a status change even when the privilege exists');
@@ -279,10 +279,10 @@ select throws_ok(
   'P0001', 'FORBIDDEN', 'protect_columns refuses an email change even when the privilege exists');
 select pg_temp.as_system();
 revoke update (status, deactivated_at, email) on public.members from authenticated;
-select pg_temp.as_member('ceo');
+select pg_temp.as_member('owner');
 select throws_ok(
-  $$ update public.members set role = 'admin' where id = pg_temp.fx('ceo') $$,
-  'P0001', 'FORBIDDEN', 'the CEO cannot demote themselves (exactly one CEO)');
+  $$ update public.members set role = 'admin' where id = pg_temp.fx('owner') $$,
+  'P0001', 'FORBIDDEN', 'the Owner cannot demote themselves (exactly one Owner)');
 select throws_ok(
   $$ delete from public.members where id = pg_temp.fx('newcomer') $$,
   '42501', null, 'members are never deleted through the API');
@@ -295,7 +295,7 @@ select throws_ok(
   $$ insert into public.members (id, full_name, email, role) values (pg_temp.fx('second_ceo'), 'X', 'x@example.com', 'staff') $$,
   '42501', null, 'an Admin cannot invite (team.manage)');
 update public.members set full_name = 'Hacked' where id = pg_temp.fx('staff');
-select pg_temp.as_member('ceo');
+select pg_temp.as_member('owner');
 select is((select full_name from public.members where id = pg_temp.fx('staff')), 'Test Staff Edited',
   'an Admin cannot edit another member');
 
@@ -310,7 +310,7 @@ select is(
      order by id desc limit 1),
   pg_temp.fx('staff'), 'the self-edit is audited with the member as actor');
 select throws_ok(
-  $$ update public.members set role = 'ceo' where id = pg_temp.fx('staff') $$,
+  $$ update public.members set role = 'owner' where id = pg_temp.fx('staff') $$,
   'P0001', 'FORBIDDEN', 'a member cannot change their own role');
 select throws_ok(
   $$ update public.members set email = 'me@example.com' where id = pg_temp.fx('staff') $$,
@@ -326,7 +326,7 @@ select results_eq(
   $$ values ('Admin Self', '9000000022') $$,
   'an Admin edits their own name and phone');
 select throws_ok(
-  $$ update public.members set role = 'ceo' where id = pg_temp.fx('admin') $$,
+  $$ update public.members set role = 'owner' where id = pg_temp.fx('admin') $$,
   'P0001', 'FORBIDDEN', 'an Admin cannot change their own role');
 select throws_ok(
   $$ update public.members set email = 'admin2@example.com' where id = pg_temp.fx('admin') $$,
@@ -335,7 +335,7 @@ select throws_ok(
 select pg_temp.as_system();
 alter table public.members disable trigger self_edit_guard;
 select pg_temp.as_member('staff');
--- (the CEO promoted this fixture to admin above, so 'staff' is a real change here)
+-- (the Owner promoted this fixture to admin above, so 'staff' is a real change here)
 select throws_ok(
   $$ update public.members set role = 'staff' where id = pg_temp.fx('staff') $$,
   '42501', null, 'members_update_own WITH CHECK refuses a self role change without the trigger');
@@ -372,27 +372,27 @@ select pg_temp.as_member('staff');
 select is((select count(*) from public.role_permissions), 49::bigint, 'any active member reads the grants');
 select pg_temp.as_member('deactivated');
 select is((select count(*) from public.role_permissions), 0::bigint, 'a deactivated member reads no grants');
-select pg_temp.as_member('ceo');
+select pg_temp.as_member('owner');
 select throws_ok($$ insert into public.role_permissions values ('staff', 'finance.view') $$, '42501', null,
-  'grants are not editable through the API, not even by the CEO');
+  'grants are not editable through the API, not even by the Owner');
 select throws_ok($$ delete from public.role_permissions where role = 'staff' $$, '42501', null,
   'grants are not deletable through the API');
 
 -- session_events --------------------------------------------------------------------------
 select pg_temp.as_system();
 insert into public.session_events (member_id, kind, user_agent) values
-  (pg_temp.fx('ceo'), 'login', 'test'),
+  (pg_temp.fx('owner'), 'login', 'test'),
   (pg_temp.fx('admin'), 'login', 'test'),
   (pg_temp.fx('staff'), 'login', 'test'),
   (pg_temp.fx('staff'), 'logout', 'test');
-select throws_ok($$ insert into public.session_events (member_id, kind) values (pg_temp.fx('ceo'), 'other') $$,
+select throws_ok($$ insert into public.session_events (member_id, kind) values (pg_temp.fx('owner'), 'other') $$,
   '23514', null, 'kind is login or logout');
 
-select pg_temp.as_member('ceo');
-select is((select count(*) from public.session_events), 4::bigint, 'the CEO sees every session event');
+select pg_temp.as_member('owner');
+select is((select count(*) from public.session_events), 4::bigint, 'the Owner sees every session event');
 select throws_ok($$ delete from public.session_events $$, '42501', null, 'session events are never deleted');
 select throws_ok($$ update public.session_events set kind = 'logout' $$, '42501', null, 'session events are never updated');
-select throws_ok($$ insert into public.session_events (member_id, kind) values (pg_temp.fx('ceo'), 'login') $$,
+select throws_ok($$ insert into public.session_events (member_id, kind) values (pg_temp.fx('owner'), 'login') $$,
   '42501', null, 'session events are written by functions only');
 
 select pg_temp.as_member('admin');
@@ -404,9 +404,9 @@ select pg_temp.as_member('deactivated');
 select is((select count(*) from public.session_events), 0::bigint, 'a deactivated member sees no session events');
 
 -- activity_log ----------------------------------------------------------------------------
-select pg_temp.as_member('ceo');
+select pg_temp.as_member('owner');
 select ok((select count(*) from public.activity_log where entity = 'organizations') >= 1,
-  'the CEO sees organization entries (activity.view_all)');
+  'the Owner sees organization entries (activity.view_all)');
 select results_eq(
   $$ select diff -> 'new', diff -> 'old' ? 'name', diff -> 'old' ? 'updated_at', diff -> 'new' ? 'updated_at'
        from public.activity_log where entity = 'organizations' and action = 'update'
@@ -425,8 +425,8 @@ select is((select count(*) from public.activity_log where entity in ('organizati
 select is((select count(*) from public.activity_log where entity = 'members' and entity_id <> pg_temp.fx('staff')), 0::bigint,
   'Staff see no entries about other members');
 select ok(
-  (select count(*) from public.activity_log where entity = 'members' and entity_id = pg_temp.fx('staff') and actor_id = pg_temp.fx('ceo')) >= 1,
-  'Staff see the CEO''s edit of their own member row');
+  (select count(*) from public.activity_log where entity = 'members' and entity_id = pg_temp.fx('staff') and actor_id = pg_temp.fx('owner')) >= 1,
+  'Staff see the Owner''s edit of their own member row');
 select is((select count(*) from public.activity_log where entity_id <> pg_temp.fx('staff')), 0::bigint,
   'Staff see no entry outside their own member row, not even ones they caused');
 
@@ -477,7 +477,7 @@ select ok(has_table_privilege('authenticated', 'public.member_directory', 'selec
 -- current_org_id() with several organizations ----------------------------------------------
 insert into public.organizations (name) values ('Another Org');
 select is(app.current_org_id(), null, 'without a caller and with several organizations, current_org_id() is null');
-select pg_temp.as_member('ceo');
+select pg_temp.as_member('owner');
 select is(app.current_org_id(), pg_temp.fx('org'), 'a member''s org wins over the fallback');
 select is((select count(*) from public.organizations), 1::bigint, 'a member sees only their own organization');
 select pg_temp.as_system();

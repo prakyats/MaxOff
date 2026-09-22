@@ -9,7 +9,7 @@ import { settingsSectionsFor } from "@/core/ui/shell/nav";
 export const metadata: Metadata = { title: "Settings" };
 
 /**
- * The CEO's control centre (PRODUCT §4.16). Admins see only the lists they may edit
+ * The Owner's control centre (PRODUCT §4.16). Admins see only the lists they may edit
  * (PERMISSIONS §1). Each section is filled in by the task shown on its card.
  */
 export default async function SettingsPage() {
@@ -26,9 +26,9 @@ export default async function SettingsPage() {
       <PageHeader
         title="Settings"
         description={
-          viewer.role === "ceo"
+          viewer.role === "owner"
             ? "Everything configurable lives here: company, days off, thresholds, lists, fields, templates and integrations."
-            : "The lists and templates you may edit. Company settings, days off, thresholds and the team are the CEO's."
+            : "The lists and templates you may edit. Company settings, days off, thresholds and the team are the Owner's."
         }
       />
       <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
