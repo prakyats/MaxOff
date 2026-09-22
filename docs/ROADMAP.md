@@ -20,7 +20,7 @@ Exit: an empty app on staging, CI green, all quality gates working, installable 
 ## Phase 1: Identity and access
 Exit: the CEO logs in, invites an Admin and a Staff member, and each sees only their role's shell. Every change is audited.
 - [ ] **1.1** [H] Schema: organizations, org_settings, members (single-CEO index), `current_org_id()`, role_permissions seeded from PERMISSIONS.md, session_events, activity_log (append-only) + generic `audit_row_change()` trigger, `current_member()`, `has_permission()`, pgTAP for each role
-- [ ] **1.2** [H] Auth: invite-only Supabase Auth (sign-ups off), **CEO bootstrap script** (no plaintext passwords), login and logout (session_events), middleware and route guards, deactivation takes effect immediately, Resend SMTP, rate limits
+- [ ] **1.2** [H] Auth: invite-only Supabase Auth (sign-ups off), **CEO bootstrap script** (no plaintext passwords), login and logout (session_events), middleware and route guards, deactivation takes effect immediately, Resend SMTP, rate limits. Also: `Sentry.setUser({ id })` only, and **strip `user.geo`** (Sentry still infers a country from the connecting IP with IP storage off)
 - [ ] **1.3** [C] Team: invite (role + job title), accept → set password → profile, member list, edit name, role and job title, deactivate or reactivate. `core/lists` engine (job titles). `core/permissions` UI helpers
 - [ ] **1.4** [C] Settings (the CEO's control centre): company profile, weekly off days (**seed: Sunday**), holiday list (empty), thresholds (**2 h / 4 h / 8:30 PM**), job titles (**seed: Video Editor, Graphic Designer**, CEO can add more), `app.is_working_day()` + tests
 
@@ -63,7 +63,7 @@ Exit: **the team uses MaxOff daily** for attendance, leave and tasks, in product
 - [ ] **6.3** [C] Admin dashboard: my clients, staff tasks needing attention, approvals, calendar strip, issues
 - [ ] **6.4** [C] Calendar: day, week and month views. Events, leave and holidays. Filters. Busy blocks for Admins
 - [ ] **6.5** [H] End-of-day report: `eod_report` job + report page (live and saved), notification to the CEO
-- [ ] **6.6** [H] **Pilot release:** production Supabase (Mumbai region) + Worker on **Workers Paid ($5/mo)**, nightly backups + **restore drill**, Sentry + UptimeRobot (hitting a route that touches the database so the project never pauses), onboarding checklist (install the PWA on iPhone, enable push), `docs/USER-GUIDE.md` (attendance and tasks)
+- [ ] **6.6** [H] **Pilot release:** production Supabase (Mumbai region) + Worker on **Workers Paid ($5/mo)**, nightly backups + **restore drill**, Sentry + UptimeRobot (hitting a route that touches the database so the project never pauses), onboarding checklist (install the PWA on iPhone, enable push), `docs/USER-GUIDE.md` (attendance and tasks), and **readable Sentry stack traces** (OpenNext re-bundles Next's chunks into `worker.js` without a map: build the Worker with a source map, inject it, and upload it with the commit SHA as the release)
 
 ## Phase 7: Client work
 Exit: a real client's monthly and weekly projects run in MaxOff. The Admin ticks items, the CEO approves, cycles roll over and carry-forward works.
