@@ -162,6 +162,10 @@ appears in Sentry (project `maxoff`, environment `staging`, tag `runtime: server
 The route exists only in builds with `NEXT_PUBLIC_APP_ENV=staging`; production and local
 builds answer 404 (`diagnostic.test.ts`, `e2e/production.spec.ts`).
 
+Staging is also **never indexed**: every response carries `X-Robots-Tag: noindex, nofollow` and
+`/robots.txt` disallows everything (`curl -sI <staging>/ | grep -i robots`). Production and local
+builds send neither (`core/http/response-headers.ts`).
+
 If a run fails because a name above is missing, the log names it; add it and re-run the job.
 The `Deploy` workflow only triggers once its file is on `main`, so the first staging deploy
 happens when `phase-0` merges. A `v*` tag pushed before the `production` environment is filled

@@ -25,7 +25,7 @@ const SHELL_ROUTES = [
   "/forbidden",
 ];
 
-/** Mirrors SECURITY_HEADERS in next.config.ts; a change there must be made here on purpose. */
+/** Mirrors SECURITY_HEADERS in core/http/response-headers.ts; change both on purpose. */
 const SECURITY_HEADERS: Record<string, string> = {
   "x-frame-options": "DENY",
   "content-security-policy": "frame-ancestors 'none'",
@@ -74,6 +74,19 @@ test.describe("production build", () => {
     const response = await request.get("/", { maxRedirects: 0 });
     expect(response.status()).toBe(200);
     expect(await response.text()).not.toContain("Preview CEO");
+  });
+
+  test("is indexable-by-choice outside staging: no X-Robots-Tag, no robots.txt", async ({
+    request,
+  }) => {
+    // This build has NEXT_PUBLIC_APP_ENV unset (local); staging adds both (core/http).
+    for (const route of ["/", "/offline", "/today"]) {
+      const response = await request.get(route, { maxRedirects: 0 });
+      expect(response.headers()["x-robots-tag"], route).toBeUndefined();
+    }
+    const robots = await request.get("/robots.txt", { maxRedirects: 0 });
+    expect(robots.status()).toBe(404);
+    expect(await robots.text()).not.toContain("Disallow");
   });
 
   test("the Sentry diagnostic route exists only on staging builds", async ({ request }) => {
