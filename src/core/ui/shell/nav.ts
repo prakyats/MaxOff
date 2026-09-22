@@ -1,25 +1,6 @@
-import type { ShellRole } from "./viewer";
+import { can, type PermissionKey } from "@/core/permissions";
 
-/**
- * Permission keys from PERMISSIONS.md §1. Only the keys the navigation refers to are listed
- * here; `core/permissions` (task 1.1) becomes the registry and this alias moves there.
- */
-export type NavPermission =
-  | "team.view"
-  | "team.manage"
-  | "settings.manage"
-  | "drive.manage"
-  | "lists.manage"
-  | "templates.manage"
-  | "clients.manage"
-  | "clients.edit_assigned"
-  | "tasks.create"
-  | "tasks.approve_admin"
-  | "tasks.approve_final"
-  | "tasks.work"
-  | "attendance.self"
-  | "reports.all"
-  | "reports.scoped";
+import type { ShellRole } from "./viewer";
 
 /**
  * Icon names, resolved to Lucide components in `nav-icons.ts`. Names, not components, so the
@@ -45,7 +26,7 @@ export type NavItem = {
   href: string;
   icon: NavIconName;
   /** The permission the destination will check. `null` = every signed-in member. */
-  permission: NavPermission | null;
+  permission: PermissionKey | null;
 };
 
 /** The home route for each role (PRODUCT §4.7). */
@@ -74,35 +55,35 @@ const people: NavItem = {
   icon: "users",
   permission: "team.view",
 };
-const tasks = (permission: NavPermission): NavItem => ({
+const tasks = (permission: PermissionKey): NavItem => ({
   key: "tasks",
   label: "Tasks",
   href: "/tasks",
   icon: "check-square",
   permission,
 });
-const clients = (permission: NavPermission): NavItem => ({
+const clients = (permission: PermissionKey): NavItem => ({
   key: "clients",
   label: "Clients",
   href: "/clients",
   icon: "briefcase",
   permission,
 });
-const approvals = (permission: NavPermission): NavItem => ({
+const approvals = (permission: PermissionKey): NavItem => ({
   key: "approvals",
   label: "Approvals",
   href: "/approvals",
   icon: "clipboard-list",
   permission,
 });
-const reports = (permission: NavPermission): NavItem => ({
+const reports = (permission: PermissionKey): NavItem => ({
   key: "reports",
   label: "Reports",
   href: "/reports",
   icon: "file-bar-chart",
   permission,
 });
-const settings = (permission: NavPermission): NavItem => ({
+const settings = (permission: PermissionKey): NavItem => ({
   key: "settings",
   label: "Settings",
   href: "/settings",
@@ -153,7 +134,7 @@ export type SettingsSection = {
   key: string;
   label: string;
   href: string;
-  permission: NavPermission;
+  permission: PermissionKey;
   /** Roadmap task that builds the section. */
   arrivesIn: string;
 };
@@ -229,15 +210,8 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   },
 ];
 
-const SETTINGS_PERMISSIONS_BY_ROLE: Record<ShellRole, readonly NavPermission[]> = {
-  ceo: ["settings.manage", "lists.manage", "templates.manage", "drive.manage"],
-  admin: ["lists.manage", "templates.manage"],
-  staff: [],
-};
-
 export function settingsSectionsFor(role: ShellRole): readonly SettingsSection[] {
-  const allowed = SETTINGS_PERMISSIONS_BY_ROLE[role];
-  return SETTINGS_SECTIONS.filter((section) => allowed.includes(section.permission));
+  return SETTINGS_SECTIONS.filter((section) => can(role, section.permission));
 }
 
 /** True when `pathname` is `href` or a route beneath it (used for the active nav state). */

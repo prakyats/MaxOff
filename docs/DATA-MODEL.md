@@ -42,23 +42,54 @@ app.today_ist()                 -> app.to_ist_date(now())
 app.fail(code, detail)          raises SQLSTATE P0001 with message = code, detail = the human reason
                                 (ARCHITECTURE 4.3). Every transition function raises through it
 app.is_working_day(date)        weekly offs + holidays, arrives in 1.4
+
+-- Identity and audit helpers (task 1.1, ARCHITECTURE §5). All security definer, search_path = ''.
+app.current_org_id()            the caller's org; with no member row (bootstrap, service role) the single
+                                organizations row; null when there are none or several. Default of every
+                                root table's org_id
+app.current_member()            the caller's member row when status = 'active', else no row
+app.has_permission(text)        caller's role has this key in role_permissions (active members only)
+app.audit_row_change()          AFTER INSERT/UPDATE/DELETE row trigger writing activity_log:
+                                entity = table name, action = insert|update|delete, entity_id = new/old.id
+                                (or TG_ARGV[0] as the id column), diff = {old:{}, new:{}} of the changed
+                                columns only (updated_at excluded), actor_id = auth.uid() or null (system)
+app.in_transition()             true while the statement runs as the function owner (inside a security
+                                definer transition function, a migration, a seed or a service-role job);
+                                false for a direct API write as authenticated / anon. Nothing to switch on
+app.protect_columns()           BEFORE UPDATE trigger; TG_ARGV = column names that may change only
+                                while app.in_transition(). Raises FORBIDDEN otherwise. Every state
+                                column gets it (ADR-0006 "trigger guard")
+app.members_self_edit_guard()   BEFORE UPDATE on members: without team.manage only full_name and phone
+                                change; the CEO row never loses its role outside a transition
+app.members_insert_guard()      BEFORE INSERT on members: outside a transition a new row is invited,
+                                with no joined_at / deactivated_at
+app.create_org_settings()       AFTER INSERT on organizations: the org_settings row with launch defaults
 ```
 
 ## 1. Organization, people and access
 ```
-organizations        id, name, logo_file_id, timezone ('Asia/Kolkata'), created_at
+organizations        id, name, logo_file_id (added in 3.3 with files), timezone ('Asia/Kolkata'), created_at, updated_at
 org_settings         org_id pk, weekly_off_days smallint[] (0=Sun..6=Sat), logout_reminder_time time,
                      ack_repeat_hours int (2), ack_escalate_hours int (4), ack_escalate_ceo_hours int (8),
                      overdue_escalate_hours int (24), email_daily_cap_per_member int (20),
                      default_task_reminders jsonb, workload_warning_threshold int
-                     -- defaults in brackets = launch settings (PRODUCT §7)
+                     -- defaults in brackets = launch settings (PRODUCT §7); default_task_reminders '[]' until
+                     -- 5.3, workload_warning_threshold null until 4.3. Created by trigger with the organization
 holidays             id, org_id, date, name, unique(org_id, date)
-members              id (= auth.users.id), org_id, full_name, email, phone, avatar_file_id,
-                     role member_role, job_title_id → list_items, status member_status,
-                     invited_at, joined_at, deactivated_at
-                     unique partial index (org_id) where role = 'ceo'
+members              id (= auth.users.id), org_id, full_name, email, phone, avatar_file_id (added in 3.3),
+                     role member_role, job_title_id → list_items (added in 1.3), status member_status,
+                     invited_at, joined_at, deactivated_at, created_at, updated_at
+                     unique partial index (org_id) where role = 'ceo'; unique index on lower(email)
+                     -- status, invited_at, joined_at, deactivated_at are protected columns (transition
+                     -- functions only, 1.2/1.3). RLS: own row; every row for team.view; writes team.manage;
+                     -- own name/phone/avatar editable (PERMISSIONS §3)
+member_directory     view (security definer): id, org_id, full_name, phone, role, status, created_at
+                     (+ job_title_id from 1.3, avatar_file_id from 3.3). Everyone's row for team.view,
+                     plus the caller's own.
+                     No email (PERMISSIONS §2). Names of people on a member's own tasks join in 4.1
 role_permissions     role member_role, permission text, pk(role, permission)   -- seeded
 session_events       id, member_id, kind ('login'|'logout'), at, user_agent, ip_hash
+                     -- append-only, written by functions only (1.2). RLS: own rows; all for attendance.view_all
 push_subscriptions   id, member_id, endpoint unique, p256dh, auth, user_agent, created_at,
                      platform ('android'|'ios'|'desktop'|'other'), is_standalone bool (PWA installed),
                      label (device name shown to the member), last_success_at, last_failure_at,
@@ -217,6 +248,9 @@ notification_deliveries  id, notification_id, channel ('push'|'email'), state ('
                      attempts, last_error, sent_at
 activity_log         id bigint identity, org_id, actor_id null (system), entity, entity_id, action,
                      diff jsonb (old/new), meta jsonb, at               -- append-only (UPDATE/DELETE revoked)
+                     -- written only by app.audit_row_change() and transition functions (no INSERT grant).
+                     -- RLS: activity.view_all; own actions; entries about the caller's own member row.
+                     -- Each module adds a policy for the entities it owns (PERMISSIONS §2)
 eod_reports          id, org_id, report_date, data jsonb, generated_at, unique(org_id, report_date)
 month_snapshots      id, org_id, month date (1st), version int, data jsonb, closed_by, closed_at,
                      corrects_id null, correction_note, unique(org_id, month, version)

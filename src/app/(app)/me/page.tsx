@@ -2,6 +2,7 @@ import { LogOutIcon } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { getCurrentMember } from "@/core/auth/server";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { Avatar, AvatarFallback } from "@/core/ui/primitives/avatar";
 import { Button } from "@/core/ui/primitives/button";
@@ -13,7 +14,6 @@ import {
   CardTitle,
 } from "@/core/ui/primitives/card";
 import { Separator } from "@/core/ui/primitives/separator";
-import { getPreviewViewer } from "@/core/ui/shell/preview-viewer";
 import { initialsOf, ROLE_LABELS } from "@/core/ui/shell/viewer";
 import { ThemeToggle } from "@/core/ui/theme/theme-toggle";
 
@@ -24,7 +24,7 @@ export const metadata: Metadata = { title: "Me" };
  * in task 1.3 and log out in task 1.2.
  */
 export default async function MePage() {
-  const viewer = await getPreviewViewer();
+  const viewer = await getCurrentMember();
   if (!viewer) notFound();
 
   const subtitle = viewer.jobTitle

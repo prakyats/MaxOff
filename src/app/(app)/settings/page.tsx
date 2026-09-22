@@ -1,12 +1,10 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
 
+import { requirePermission } from "@/core/permissions/server";
 import { PageHeader } from "@/core/ui/composites/page-header";
-import { Forbidden } from "@/core/ui/composites/forbidden";
 import { Badge } from "@/core/ui/primitives/badge";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/core/ui/primitives/card";
 import { settingsSectionsFor } from "@/core/ui/shell/nav";
-import { getPreviewViewer } from "@/core/ui/shell/preview-viewer";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -15,11 +13,13 @@ export const metadata: Metadata = { title: "Settings" };
  * (PERMISSIONS §1). Each section is filled in by the task shown on its card.
  */
 export default async function SettingsPage() {
-  const viewer = await getPreviewViewer();
-  if (!viewer) notFound();
-
+  const viewer = await requirePermission([
+    "settings.manage",
+    "lists.manage",
+    "templates.manage",
+    "drive.manage",
+  ]);
   const sections = settingsSectionsFor(viewer.role);
-  if (sections.length === 0) return <Forbidden homeHref="/my-day" />;
 
   return (
     <>

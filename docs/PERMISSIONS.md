@@ -48,7 +48,7 @@
 
 | Data | CEO | Admin | Staff |
 |---|---|---|---|
-| Members | All | All (name, job title, role, status) | Own profile. Names of people on their own tasks |
+| Members | All | Everyone's name, job title, role, status and **phone** (a work contact), through the `member_directory` view. **Email is CEO-only**: it's the login identity | Own profile. Names of people on their own tasks (through `member_directory`, from 4.1) |
 | Attendance / leave | All | **Own**. Others only through `availability` (present or on leave today, approved leave dates) | Own |
 | Clients (full record) | All | **Assigned clients only** | ❌ Never |
 | Client label (name, logo, colours, fonts, tone, brand notes) | All | Assigned clients + labels on visible tasks | Only for clients on their **own** tasks (through `client_labels` view) |
@@ -74,3 +74,4 @@
 - Only the CEO can change `projects.billing_category`, `projects.client_id` and `projects.recurrence` (guard trigger, like state columns). An Admin-created project takes its billing category from its recurrence; a template's default category applies only when the CEO creates the project.
 - Custom field definitions for `project` and `item` are CEO-only (footnote ¹).
 - The single-CEO rule is enforced by a unique partial index on `members(role) where role = 'ceo'`.
+- A member edits their **own** name, phone and avatar (plain edit, audited). Role, job title and status are `team.manage` only. **Email is never self-edited**: it's the login identity, and changing it goes through the CEO (a transition function, 1.3). `members.status` and its timestamps change only through transition functions (`app.protect_columns()` guard).

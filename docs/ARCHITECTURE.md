@@ -55,7 +55,7 @@ src/
   core/                      # shared foundation, NO business features
     auth/                    # session, getCurrentMember(), guards, day-gate check
     db/                      # Supabase clients (server, browser, service) + generated types
-    permissions/             # key registry, can(), requirePermission(), <Can>
+    permissions/             # key registry, can(), requirePermission() (pages), assertPermission() (actions), <Can>
     activity/                # activity feed UI + helper for non-workflow audit
     custom-fields/           # definitions, zod builder, <CustomFieldsForm>/<View>
     lists/                   # list_items engine + registry
@@ -178,7 +178,7 @@ State columns can't be updated directly: RLS gives no update permission on them,
 ```ts
 export const updateClient = action(async (input: unknown) => {
   const data = updateClientSchema.parse(input);                 // 1. zod
-  await requirePermission('clients.edit_assigned');             // 2. early, friendly check (RLS is the real gate)
+  await assertPermission('clients.edit_assigned');              // 2. early, friendly check (RLS is the real gate); pages use requirePermission()
   const values = await validateCustomFields('client', data);    // 3. custom fields
   const client = await clientsRepo.update(data.id, values);     // 4. write (RLS applies)
   revalidatePath(`/clients/${client.id}`);                      // 5. refresh
@@ -195,7 +195,9 @@ Auditing for plain edits is done by a **generic `audit_row_change()` trigger** o
 ## 5. Authorization in the database
 - `current_org_id()` returns the caller's organization id (the single org in the prototype) and is the default for every root table's `org_id`.
 - `current_member()` returns the caller's active member row. **Deactivated means no rows**, so access ends immediately.
-- `has_permission(key)` checks role → `role_permissions`.
+- `has_permission(key)` checks role → `role_permissions`. These helpers live in the `app` schema (`app.current_member()` etc.), so policies and functions call them qualified; TS never calls them directly.
+- **Protected columns:** state columns (and the timestamps that move with them) carry `app.protect_columns('status', ...)`, a BEFORE UPDATE trigger that raises `FORBIDDEN` unless `app.in_transition()` is true. `in_transition()` is true whenever the statement runs as the function owner (a security definer function, a migration, a job) and false for the API roles, so a direct update from any client fails even for a role whose RLS allows it, and there is no flag a client could set. The protected columns also carry **no UPDATE privilege** for `authenticated` (column-level grants list the editable columns), so a client hits `42501` before the trigger. **The service client bypasses both** (RLS and `in_transition()` is true for `service_role`): jobs and scripts call transition functions for state columns and never update them directly.
+- `member_directory` is a `security definer` view (no email) through which Admins and Staff see other people (PERMISSIONS §2).
 - Scope helpers: `admin_client_ids()` (assigned clients), `visible_task_ids()` as a policy expression, `is_task_assignee(task_id)`, `is_approving_admin(task_id)`.
 - `member_availability(from, to)` is a `security definer` function that returns counts and busy blocks only. It's how Admins see other people.
 - Money tables have **one policy**: `has_permission('finance.view')`.

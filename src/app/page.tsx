@@ -1,14 +1,14 @@
 import { redirect } from "next/navigation";
 
+import { getCurrentMember } from "@/core/auth/server";
 import { homeFor } from "@/core/ui/shell/nav";
-import { getPreviewViewer } from "@/core/ui/shell/preview-viewer";
 
 /**
- * Sends a signed-in member to their home. Task 1.2 replaces the preview viewer with the
- * real session and sends everyone else to /login; until then the landing shows below.
+ * Sends a signed-in member to their home. Task 1.2 sends everyone else to /login; until then
+ * the landing shows below.
  */
 export default async function Home() {
-  const viewer = await getPreviewViewer();
+  const viewer = await getCurrentMember();
   if (viewer) redirect(homeFor(viewer.role));
 
   return (

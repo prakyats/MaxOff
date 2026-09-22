@@ -76,6 +76,36 @@ test.describe("CEO on desktop", () => {
   });
 });
 
+test.describe("permission guards", () => {
+  test.skip(({ isMobile }) => Boolean(isMobile), "the same on every viewport");
+
+  test("Staff are sent to No access from management routes", async ({ page, baseURL }) => {
+    await previewAs(page, baseURL, "staff");
+    for (const path of ["/clients", "/people", "/approvals", "/reports", "/settings"]) {
+      await page.goto(path);
+      await expect(page, `${path} for Staff`).toHaveURL(/\/forbidden$/);
+      await expect(page.locator('[data-slot="error-state"]')).toContainText("You can't open this");
+    }
+    await page.goto("/tasks");
+    await expect(page.getByRole("heading", { name: "Tasks", exact: true })).toBeVisible();
+  });
+
+  test("an Admin opens the routes their keys allow", async ({ page, baseURL }) => {
+    await previewAs(page, baseURL, "admin");
+    for (const [path, heading] of [
+      ["/people", "People"],
+      ["/clients", "Clients"],
+      ["/approvals", "Approvals"],
+      ["/reports", "Reports"],
+      ["/settings", "Settings"],
+    ] as const) {
+      await page.goto(path);
+      await expect(page, `${path} for an Admin`).toHaveURL(new RegExp(`${path}$`));
+      await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
+    }
+  });
+});
+
 test.describe("Staff on a phone", () => {
   test.skip(({ isMobile }) => !isMobile, "bottom nav is phone-only");
 

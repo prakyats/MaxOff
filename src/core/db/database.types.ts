@@ -3,16 +3,298 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never;
+      activity_log: {
+        Row: {
+          action: string;
+          actor_id: string | null;
+          at: string;
+          diff: Json;
+          entity: string;
+          entity_id: string;
+          id: number;
+          meta: Json;
+          org_id: string;
+        };
+        Insert: {
+          action: string;
+          actor_id?: string | null;
+          at?: string;
+          diff?: Json;
+          entity: string;
+          entity_id: string;
+          id?: never;
+          meta?: Json;
+          org_id: string;
+        };
+        Update: {
+          action?: string;
+          actor_id?: string | null;
+          at?: string;
+          diff?: Json;
+          entity?: string;
+          entity_id?: string;
+          id?: never;
+          meta?: Json;
+          org_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "activity_log_actor_id_fkey";
+            columns: ["actor_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "activity_log_actor_id_fkey";
+            columns: ["actor_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "activity_log_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      members: {
+        Row: {
+          created_at: string;
+          deactivated_at: string | null;
+          email: string;
+          full_name: string;
+          id: string;
+          invited_at: string;
+          joined_at: string | null;
+          org_id: string;
+          phone: string | null;
+          role: Database["public"]["Enums"]["member_role"];
+          status: Database["public"]["Enums"]["member_status"];
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          deactivated_at?: string | null;
+          email: string;
+          full_name: string;
+          id: string;
+          invited_at?: string;
+          joined_at?: string | null;
+          org_id?: string;
+          phone?: string | null;
+          role: Database["public"]["Enums"]["member_role"];
+          status?: Database["public"]["Enums"]["member_status"];
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          deactivated_at?: string | null;
+          email?: string;
+          full_name?: string;
+          id?: string;
+          invited_at?: string;
+          joined_at?: string | null;
+          org_id?: string;
+          phone?: string | null;
+          role?: Database["public"]["Enums"]["member_role"];
+          status?: Database["public"]["Enums"]["member_status"];
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "members_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      org_settings: {
+        Row: {
+          ack_escalate_ceo_hours: number;
+          ack_escalate_hours: number;
+          ack_repeat_hours: number;
+          created_at: string;
+          default_task_reminders: Json;
+          email_daily_cap_per_member: number;
+          logout_reminder_time: string;
+          org_id: string;
+          overdue_escalate_hours: number;
+          updated_at: string;
+          weekly_off_days: number[];
+          workload_warning_threshold: number | null;
+        };
+        Insert: {
+          ack_escalate_ceo_hours?: number;
+          ack_escalate_hours?: number;
+          ack_repeat_hours?: number;
+          created_at?: string;
+          default_task_reminders?: Json;
+          email_daily_cap_per_member?: number;
+          logout_reminder_time?: string;
+          org_id: string;
+          overdue_escalate_hours?: number;
+          updated_at?: string;
+          weekly_off_days?: number[];
+          workload_warning_threshold?: number | null;
+        };
+        Update: {
+          ack_escalate_ceo_hours?: number;
+          ack_escalate_hours?: number;
+          ack_repeat_hours?: number;
+          created_at?: string;
+          default_task_reminders?: Json;
+          email_daily_cap_per_member?: number;
+          logout_reminder_time?: string;
+          org_id?: string;
+          overdue_escalate_hours?: number;
+          updated_at?: string;
+          weekly_off_days?: number[];
+          workload_warning_threshold?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "org_settings_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: true;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      organizations: {
+        Row: {
+          created_at: string;
+          id: string;
+          name: string;
+          timezone: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          name: string;
+          timezone?: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          name?: string;
+          timezone?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      role_permissions: {
+        Row: {
+          permission: string;
+          role: Database["public"]["Enums"]["member_role"];
+        };
+        Insert: {
+          permission: string;
+          role: Database["public"]["Enums"]["member_role"];
+        };
+        Update: {
+          permission?: string;
+          role?: Database["public"]["Enums"]["member_role"];
+        };
+        Relationships: [];
+      };
+      session_events: {
+        Row: {
+          at: string;
+          id: string;
+          ip_hash: string | null;
+          kind: string;
+          member_id: string;
+          user_agent: string | null;
+        };
+        Insert: {
+          at?: string;
+          id?: string;
+          ip_hash?: string | null;
+          kind: string;
+          member_id: string;
+          user_agent?: string | null;
+        };
+        Update: {
+          at?: string;
+          id?: string;
+          ip_hash?: string | null;
+          kind?: string;
+          member_id?: string;
+          user_agent?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "session_events_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "session_events_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
-      [_ in never]: never;
+      member_directory: {
+        Row: {
+          created_at: string | null;
+          full_name: string | null;
+          id: string | null;
+          org_id: string | null;
+          phone: string | null;
+          role: Database["public"]["Enums"]["member_role"] | null;
+          status: Database["public"]["Enums"]["member_status"] | null;
+        };
+        Insert: {
+          created_at?: string | null;
+          full_name?: string | null;
+          id?: string | null;
+          org_id?: string | null;
+          phone?: string | null;
+          role?: Database["public"]["Enums"]["member_role"] | null;
+          status?: Database["public"]["Enums"]["member_status"] | null;
+        };
+        Update: {
+          created_at?: string | null;
+          full_name?: string | null;
+          id?: string | null;
+          org_id?: string | null;
+          phone?: string | null;
+          role?: Database["public"]["Enums"]["member_role"] | null;
+          status?: Database["public"]["Enums"]["member_status"] | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "members_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Functions: {
       [_ in never]: never;
     };
     Enums: {
-      [_ in never]: never;
+      member_role: "ceo" | "admin" | "staff";
+      member_status: "invited" | "active" | "deactivated";
     };
     CompositeTypes: {
       [_ in never]: never;
@@ -133,6 +415,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      member_role: ["ceo", "admin", "staff"],
+      member_status: ["invited", "active", "deactivated"],
+    },
   },
 } as const;

@@ -1,11 +1,14 @@
 import { BriefcaseIcon } from "lucide-react";
 import type { Metadata } from "next";
 
+import { requirePermission } from "@/core/permissions/server";
+
 import { PlaceholderPage } from "../_placeholder/placeholder-page";
 
 export const metadata: Metadata = { title: "Clients" };
 
-export default function ClientsPage() {
+export default async function ClientsPage() {
+  await requirePermission(["clients.manage", "clients.edit_assigned"]);
   return (
     <PlaceholderPage
       title="Clients"
