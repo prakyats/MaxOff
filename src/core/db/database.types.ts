@@ -61,6 +61,62 @@ export type Database = {
           },
         ];
       };
+      list_items: {
+        Row: {
+          archived_at: string | null;
+          color: string | null;
+          created_at: string;
+          description: string | null;
+          icon: string | null;
+          id: string;
+          is_system: boolean;
+          list_key: string;
+          meta: Json;
+          name: string;
+          org_id: string;
+          position: string;
+          updated_at: string;
+        };
+        Insert: {
+          archived_at?: string | null;
+          color?: string | null;
+          created_at?: string;
+          description?: string | null;
+          icon?: string | null;
+          id?: string;
+          is_system?: boolean;
+          list_key: string;
+          meta?: Json;
+          name: string;
+          org_id?: string;
+          position?: string;
+          updated_at?: string;
+        };
+        Update: {
+          archived_at?: string | null;
+          color?: string | null;
+          created_at?: string;
+          description?: string | null;
+          icon?: string | null;
+          id?: string;
+          is_system?: boolean;
+          list_key?: string;
+          meta?: Json;
+          name?: string;
+          org_id?: string;
+          position?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "list_items_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       members: {
         Row: {
           created_at: string;
@@ -69,6 +125,7 @@ export type Database = {
           full_name: string;
           id: string;
           invited_at: string;
+          job_title_id: string | null;
           joined_at: string | null;
           org_id: string;
           phone: string | null;
@@ -83,6 +140,7 @@ export type Database = {
           full_name: string;
           id: string;
           invited_at?: string;
+          job_title_id?: string | null;
           joined_at?: string | null;
           org_id?: string;
           phone?: string | null;
@@ -97,6 +155,7 @@ export type Database = {
           full_name?: string;
           id?: string;
           invited_at?: string;
+          job_title_id?: string | null;
           joined_at?: string | null;
           org_id?: string;
           phone?: string | null;
@@ -105,6 +164,13 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "members_job_title_id_fkey";
+            columns: ["job_title_id"];
+            isOneToOne: false;
+            referencedRelation: "list_items";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "members_org_id_fkey";
             columns: ["org_id"];
@@ -255,6 +321,7 @@ export type Database = {
           created_at: string | null;
           full_name: string | null;
           id: string | null;
+          job_title_id: string | null;
           org_id: string | null;
           phone: string | null;
           role: Database["public"]["Enums"]["member_role"] | null;
@@ -264,6 +331,7 @@ export type Database = {
           created_at?: string | null;
           full_name?: string | null;
           id?: string | null;
+          job_title_id?: string | null;
           org_id?: string | null;
           phone?: string | null;
           role?: Database["public"]["Enums"]["member_role"] | null;
@@ -273,12 +341,20 @@ export type Database = {
           created_at?: string | null;
           full_name?: string | null;
           id?: string | null;
+          job_title_id?: string | null;
           org_id?: string | null;
           phone?: string | null;
           role?: Database["public"]["Enums"]["member_role"] | null;
           status?: Database["public"]["Enums"]["member_status"] | null;
         };
         Relationships: [
+          {
+            foreignKeyName: "members_job_title_id_fkey";
+            columns: ["job_title_id"];
+            isOneToOne: false;
+            referencedRelation: "list_items";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "members_org_id_fkey";
             columns: ["org_id"];
@@ -299,6 +375,23 @@ export type Database = {
         };
         Returns: string;
       };
+      member_accept_invite: { Args: never; Returns: string };
+      member_deactivate: {
+        Args: { member_id: string; reason?: string };
+        Returns: string;
+      };
+      member_invite: {
+        Args: {
+          email: string;
+          full_name: string;
+          job_title_id?: string;
+          role: Database["public"]["Enums"]["member_role"];
+          user_id: string;
+        };
+        Returns: string;
+      };
+      member_invite_refresh: { Args: { member_id: string }; Returns: string };
+      member_reactivate: { Args: { member_id: string }; Returns: string };
       session_login: {
         Args: { ip_hash?: string; user_agent?: string };
         Returns: string;

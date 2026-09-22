@@ -456,8 +456,9 @@ select is(
   0::bigint, 'no public table lets the API roles truncate, reference or add triggers');
 select ok(has_column_privilege('authenticated', 'public.members', 'full_name', 'update')
   and has_column_privilege('authenticated', 'public.members', 'phone', 'update')
-  and has_column_privilege('authenticated', 'public.members', 'role', 'update'),
-  'authenticated may update name, phone and role on members');
+  and has_column_privilege('authenticated', 'public.members', 'role', 'update')
+  and has_column_privilege('authenticated', 'public.members', 'job_title_id', 'update'),
+  'authenticated may update name, phone, role and job title (1.3) on members');
 select is(
   (select count(*) from unnest(array['status', 'invited_at', 'joined_at', 'deactivated_at', 'email', 'id', 'org_id']) col
     where has_column_privilege('authenticated', 'public.members', col, 'update')),

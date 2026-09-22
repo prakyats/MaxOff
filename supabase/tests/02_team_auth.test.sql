@@ -9,15 +9,18 @@ select plan(49);
 -- cleanup only (the ALTER is rolled back too).
 alter table public.organizations disable trigger audit_row_change;
 alter table public.org_settings disable trigger audit_row_change;
+alter table public.list_items disable trigger audit_row_change;
 delete from public.session_events;
 delete from public.members;
 delete from auth.identities;
 delete from auth.users;
 delete from public.activity_log;
+delete from public.list_items; -- the seeded job titles (1.3) reference the organization
 delete from public.org_settings;
 delete from public.organizations;
 alter table public.organizations enable trigger audit_row_change;
 alter table public.org_settings enable trigger audit_row_change;
+alter table public.list_items enable trigger audit_row_change;
 
 create temporary table fx (key text primary key, id uuid not null);
 insert into fx values

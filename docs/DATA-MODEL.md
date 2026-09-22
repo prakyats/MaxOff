@@ -52,7 +52,12 @@ app.has_permission(text)        caller's role has this key in role_permissions (
 app.audit_row_change()          AFTER INSERT/UPDATE/DELETE row trigger writing activity_log:
                                 entity = table name, action = insert|update|delete, entity_id = new/old.id
                                 (or TG_ARGV[0] as the id column), diff = {old:{}, new:{}} of the changed
-                                columns only (updated_at excluded), actor_id = auth.uid() or null (system)
+                                columns only (updated_at excluded), actor_id = auth.uid() or null (system).
+                                A transition function that writes an audited table sets the transaction
+                                setting app.audit_override = '{"action": "...", "meta": {...}}' first
+                                (1.3): the trigger's row then carries the workflow action name and meta
+                                (e.g. the deactivation reason) instead of a generic 'update', and the
+                                function writes no second row. Cleared by the trigger after use
 app.in_transition()             true while the statement runs as the function owner (inside a security
                                 definer transition function, a migration, a seed or a service-role job);
                                 false for a direct API write as authenticated / anon. Nothing to switch on
@@ -79,6 +84,34 @@ public.bootstrap_owner(user_id, email, full_name, org_name)   service_role only.
                                 an existing auth user; CONFLICT once any member exists. Called by
                                 scripts/bootstrap-owner.mjs, which prints a one-time recovery link and
                                 never handles a password
+
+-- Team functions (task 1.3, WORKFLOWS §1a). public schema, security definer, search_path = '', the
+-- same grants. Each one writes its activity_log row through app.audit_override (above).
+public.member_invite(user_id, email, full_name, role, job_title_id)
+                                team.manage. Inserts the invited member row for the auth user the action
+                                just created with auth.admin.generateLink(type = invite). role is admin or
+                                staff; CONFLICT when a member with that email exists; the auth user's
+                                email must match. Audit action 'invited'
+public.member_invite_refresh(member_id)
+                                team.manage, member must be invited. Bumps invited_at; audit action
+                                'invite_link_issued'. The action then generates a fresh link, and the
+                                previous link stops working (GoTrue keeps one token per user)
+public.member_accept_invite()   the caller's own row, invited → active with joined_at. Called by
+                                setPassword() once the invited person's password is stored. Audit
+                                action 'accepted'
+public.member_deactivate(member_id, reason)
+                                team.manage. active | invited → deactivated (deactivated_at). Never the
+                                caller, never the Owner. Deletes the person's auth.refresh_tokens and
+                                auth.sessions rows in the same transaction, so a live session cannot
+                                refresh (ADR-0012). reason is optional free text, kept in meta.reason.
+                                Audit action 'deactivated'
+public.member_reactivate(member_id)
+                                team.manage. deactivated → active when joined_at is set, otherwise back
+                                to invited (they still have to accept). deactivated_at is cleared; the
+                                activity log keeps the history. Audit action 'reactivated'
+app.members_job_title_guard()   BEFORE INSERT/UPDATE on members: job_title_id, when set, is an
+                                unarchived list_items row with list_key = 'job_title' of the same org
+app.seed_org_lists()            AFTER INSERT on organizations: the launch job titles (PRODUCT §7)
 ```
 
 ## 1. Organization, people and access
@@ -92,14 +125,15 @@ org_settings         org_id pk, weekly_off_days smallint[] (0=Sun..6=Sat), logou
                      -- 5.3, workload_warning_threshold null until 4.3. Created by trigger with the organization
 holidays             id, org_id, date, name, unique(org_id, date)
 members              id (= auth.users.id), org_id, full_name, email, phone, avatar_file_id (added in 3.3),
-                     role member_role, job_title_id → list_items (added in 1.3), status member_status,
+                     role member_role, job_title_id null → list_items (1.3), status member_status,
                      invited_at, joined_at, deactivated_at, created_at, updated_at
                      unique partial index (org_id) where role = 'owner'; unique index on lower(email)
                      -- status, invited_at, joined_at, deactivated_at are protected columns (transition
                      -- functions only, 1.2/1.3). RLS: own row; every row for team.view; writes team.manage;
-                     -- own name/phone/avatar editable (PERMISSIONS §3)
-member_directory     view (security definer): id, org_id, full_name, phone, role, status, created_at
-                     (+ job_title_id from 1.3, avatar_file_id from 3.3). Everyone's row for team.view,
+                     -- own name/phone/avatar editable (PERMISSIONS §3). job_title_id is in the API
+                     -- role's UPDATE grant, and app.members_self_edit_guard() keeps it team.manage-only
+member_directory     view (security definer): id, org_id, full_name, phone, role, status, job_title_id,
+                     created_at (+ avatar_file_id from 3.3). Everyone's row for team.view,
                      plus the caller's own.
                      No email (PERMISSIONS §2). Names of people on a member's own tasks join in 4.1
 role_permissions     role member_role, permission text, pk(role, permission)   -- seeded
@@ -120,7 +154,11 @@ push_subscriptions   id, member_id, endpoint unique, p256dh, auth, user_agent, c
 ## 2. Configuration (customization as data)
 ```
 list_items           id, org_id, list_key ('job_title'|...), name, description, color, icon,
-                     position, meta jsonb, is_system, archived_at
+                     position, meta jsonb, is_system, archived_at, created_at, updated_at
+                     -- 1.3 (core/lists). unique (org_id, list_key, lower(name)) where archived_at is
+                     -- null. RLS: every active member reads; insert/update need lists.manage; no
+                     -- DELETE (archive instead). Audited. Seeded per organization by trigger with the
+                     -- launch job titles (PRODUCT §7); 1.4 adds the Settings screen
 task_types           id, org_id, name, kind task_type_kind, shows_on_calendar bool,
                      has_location bool, default_reminders jsonb, color, icon, position,
                      is_system, archived_at

@@ -47,6 +47,28 @@ leave approved AFTER the member submitted Present for that date ─► corrected
 - **Corrections** after a decision: the Owner can correct again at any time. Each correction is another `attendance_events` row, and nothing is overwritten without history.
 - **Bulk approve** = the same function called for each row, so each row gets its own audit entry.
 
+## 1a. Team membership (task 1.3)
+
+```
+Owner invites (email, name, role, job title)
+   └─► auth user created without a password (generateLink type = invite) + members row: invited
+          │ the person opens the link → /auth/confirm → /set-password → password stored
+          ▼
+        active (joined_at) ── profile step on /me ── signs in with email + password from now on
+          │
+          └──Owner deactivate(reason?)──► deactivated (deactivated_at; every auth session and refresh token deleted)
+                                              └──Owner reactivate──► active (joined_at kept)
+
+invited ──Owner "Revoke invite"──► deactivated (the link opens nothing) ──Owner reactivate──► invited
+```
+- **Invite** = `member_invite()` after the auth user exists; the email goes out through the app's `sendEmail()` (Resend, or the log sender when no key is set) and bypasses the daily cap (§9). Only the **Owner** (`team.manage`) invites, and only as **Admin or Staff**. An email that already belongs to a member is refused (`CONFLICT`), whatever their status: reactivate instead.
+- **Invite link** = `/auth/confirm?token_hash=…&type=invite`, valid for `otp_expiry` (24 h, decided 2026-09-22) and **one use**. "Copy invite link" (Owner only) calls `member_invite_refresh()` then issues a fresh link; **the previous link stops working**. The email is the same link, so this is also the "I never got the email" path.
+- **Accept** = the link opens a session for the invited member (`verifyAuthLink()` allows `invited` for `type=invite` only), `/set-password` stores the password, then `member_accept_invite()` moves `invited → active` and `session_login()` records the first login. Anything else with an invited session (a shell route, a recovery link) is ended as inactive.
+- **Deactivate** (`active`) and **Revoke invite** (`invited`) are the same transition, `member_deactivate(member_id, reason)`, worded by state. The reason is optional and kept in the activity log. Never the caller, never the Owner. Deactivation takes effect **immediately**: RLS (no `current_member()` row), `requireMember()` on the next page load, and the deleted refresh tokens, so an open tab cannot renew its session when the JWT expires (≤ 1 h). 5.4 also deletes the person's push subscriptions.
+- **Reactivate** returns a person who had joined to `active`, and someone who never accepted to `invited` (a new link is needed). `deactivated_at` is cleared; the log rows stay.
+- **Edits**: the Owner changes name, role (Admin ↔ Staff; the Owner row's role never changes here) and job title as plain edits (audited by trigger). A member edits their own name and phone on /me. Email changes are not built yet (ROADMAP 1.4).
+- **Notifications**: the invite email only. Nobody is notified of a deactivation or reactivation (nothing in §9 says so).
+
 ## 2. Leave requests
 
 ```
