@@ -77,6 +77,13 @@ function schedule(): void {
  */
 function reconcile(): void {
   reconcileQueued = false;
+
+  // `pushedCount` means "entries above the page we are on". A navigation buries ours: leaving a
+  // page from inside an overlay (tapping People in the More sheet) puts a fresh entry on top of
+  // our spent one, and without this the count stayed high and the *next* overlay pushed nothing
+  // — so on /people the detail sheet had no entry and back navigated instead of closing it.
+  // The current entry carrying no marker is the proof that whatever we pushed is behind us.
+  if (historyState()[MARKER] === undefined) pushedCount = 0;
   // Only ever pushes. Popping here would race a navigation started from inside the overlay: a
   // link in the More sheet closes the sheet and begins a transition in the same tick, and a
   // popstate arriving mid-transition makes Next abandon it — the tap did nothing and the user

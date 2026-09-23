@@ -81,6 +81,30 @@ test.describe("overlays close on back", () => {
     await expect(page).toHaveURL(/\/people$/);
   });
 
+  test("the detail sheet still closes on back after navigating from the More sheet", async ({
+    page,
+  }) => {
+    // The exact path from the installed app: reach People *through* the More sheet, which is a
+    // close-and-navigate, then open a card. The navigation buries the sheet's spent entry, and
+    // a stale count meant the detail sheet pushed no entry of its own — so back navigated to
+    // the previous tab and left the sheet sitting there.
+    await page.goto("/today");
+    await page.locator('[data-slot="bottom-nav"] [data-nav="more"]').click();
+    await page
+      .locator('[data-slot="more-sheet"]')
+      .getByRole("link", { name: "People", exact: true })
+      .click();
+    await expect(page).toHaveURL(/\/people$/);
+
+    await page.locator('[data-slot="data-card"]', { hasText: "Local Staff" }).click();
+    const sheet = page.locator('[data-slot="detail-sheet"]');
+    await expect(sheet).toBeVisible();
+
+    await page.goBack();
+    await expect(sheet).toBeHidden();
+    await expect(page).toHaveURL(/\/people$/);
+  });
+
   test("after dismissing by hand, back still gets you off the page", async ({ page }) => {
     await page.goto("/today");
     await page.locator('[data-slot="bottom-nav"] [data-nav="more"]').click();
@@ -163,7 +187,10 @@ test.describe("tab history", () => {
     await page.getByRole("link", { name: /Job titles/ }).click();
     await expect(page).toHaveURL(/\/settings\/job-titles$/);
 
-    // Back from a record returns to its list, not to home. Only top-level tabs are rewritten.
+    // Only top-level tabs are rewritten, so a nested route still pushes. NOTE: this is a
+    // settings sub-page, not a record detail page — the app has none yet. The real case
+    // (back from a client page returns to the client list, not to Today) has to be verified
+    // when 3.4 ships that route; see PROGRESS.
     await page.goBack();
     await expect(page).toHaveURL(/\/settings$/);
   });
