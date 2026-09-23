@@ -339,7 +339,8 @@ notification_deliveries  id, notification_id, channel ('push'|'email'), state ('
 activity_log         id bigint identity, org_id, actor_id null (system), entity, entity_id, action,
                      diff jsonb (old/new), meta jsonb, at               -- append-only (UPDATE/DELETE revoked)
                      -- written only by app.audit_row_change() and transition functions (no INSERT grant).
-                     -- RLS: activity.view_all; own actions; entries about the caller's own member row.
+                     -- RLS: activity.view_all, or entries about the caller's own member row. Scope is per
+                     -- entity, never per actor: a row an Admin's action produced may describe an Owner-only table.
                      -- Each module adds a policy for the entities it owns (PERMISSIONS §2)
 eod_reports          id, org_id, report_date, data jsonb, generated_at, unique(org_id, report_date)
 month_snapshots      id, org_id, month date (1st), version int, data jsonb, closed_by, closed_at,
