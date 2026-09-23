@@ -21,7 +21,7 @@ It answers these questions every day:
 
 - **Internal only.** Invite-only, with no public sign-up. **Clients never log in.**
 - **Timezone:** everything runs on **Asia/Kolkata (IST)**.
-- **Devices:** desktop-first web app. It must work well on phones for Staff, and be installable as a PWA.
+- **Devices: mobile is a first-class layout for every role, not a narrow version of the desktop one** (decided 2026-09-23). The phone is how the Owner approves on the way to a shoot and how Staff work all day; the desktop is where long lists and reports get read. A screen that only works by shrinking its desktop layout is not finished (ARCHITECTURE §14.1). Installable as a PWA.
 - **SaaS later is possible but isn't the goal.** Only cheap seams are kept (see ARCHITECTURE §1).
 
 ## 2. Product principles

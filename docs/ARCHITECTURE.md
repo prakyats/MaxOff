@@ -288,6 +288,14 @@ Staff work from a phone, often one-handed, often outdoors. These are shell-level
 - **One-handed reach**: destructive actions never sit next to the primary action in the thumb zone.
 - Checked at **375px and 430px** (small and large phones) in both themes, and at least once a phase on a real device.
 
+**Mobile is its own layout, not a narrow desktop one.** The patterns below are the shell's answer; a screen that renders its desktop structure at 390px is not done.
+- **Bottom navigation for every role on mobile**, not only Staff. Four primary destinations by role plus **More** (a sheet with the rest). The hamburger + sidebar stays for tablet and desktop. Nobody should open a drawer to reach the screen they use ten times a day.
+- **Lists are cards, and a row opens a detail sheet.** A card shows what identifies the row (name, status, the one number that matters); everything else — email, dates, secondary fields — lives in the sheet, where the actions are too. No horizontal scrolling, no clipped columns, no hover-only row menus.
+- **Compact page headers on mobile:** the title, and a subtitle only when it tells you something you can't see. Explanatory paragraphs move into the empty state or a help sheet. The first real content should be visible without scrolling.
+- **The primary action is always reachable:** a sticky bottom bar (or a single FAB above the bottom nav), never a button at the top of a scrolled page.
+- **Status reads at a glance**: a coloured dot plus a short word, not a full-width badge column.
+- **Density follows the device.** Desktop may show a dense table of 50 rows; mobile shows 10 cards with a clear next step. They are allowed to be different screens, built from the same data, rather than one screen bent to fit.
+
 ## 15. Testing
 | Layer | Tool | Required for |
 |---|---|---|
