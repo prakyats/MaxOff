@@ -24,6 +24,8 @@ Exit: the Owner logs in, invites an Admin and a Staff member, and each sees only
 - [x] **1.3** [C] Team: invite (role + job title), accept → set password → profile, member list, edit name, role and job title, deactivate or reactivate. `core/lists` engine (job titles). `core/permissions` UI helpers
 - [x] **1.4** [C] Settings (the Owner's control centre): company profile, weekly off days (**seed: Sunday**), holiday list (empty), thresholds (**2 h / 4 h / 8:30 PM**), job titles (seeded by 1.3: **Video Editor, Graphic Designer**; here the Owner adds, renames, reorders and archives them), **Owner changes a member's email** (transition function + `auth.admin.updateUserById`, deferred from 1.3), `app.is_working_day()` + tests
 
+- [ ] **1.5** [C] **Mobile foundations** (ARCHITECTURE §14.1), done before the first Staff screen exists: safe-area insets, 16px inputs, 44px touch targets, `Dialog` → bottom sheet below 768px, sticky primary action on mobile forms, `DataTable` → cards below 768px, no hover-only affordances, overscroll containment. Playwright checks at 375px and 430px; then a real-device pass by the Owner
+
 ## Phase 2: Attendance and leave
 Exit: Admins and Staff pass the daily gate, request leave, and the Owner approves or corrects everything, with full history.
 - [ ] **2.1** [H] Schema + transition functions: attendance_days, attendance_events, leave_requests. `attendance_touch`, `attendance_submit`, `attendance_decide` (approve or correct with reason, bulk), `attendance_logout`, `attendance_flag_overtime`, `leave_submit/withdraw/request_change/decide/ceo_edit`. pgTAP for every path

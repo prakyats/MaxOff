@@ -275,6 +275,19 @@ All calculation is in SQL views (WORKFLOWS §6) over Owner-only tables, so repor
 ## 14. PWA and responsive design
 `public/manifest.webmanifest`, icons (`public/icons/`, rendered from `icon.svg` by `scripts/generate-icons.mjs`) and a plain-JS service worker `public/sw.js` (task 0.5). The worker is a **minimal offline shell**: it precaches `/offline`, serves it when a navigation fails without a connection, caches hashed `/_next/static` and `/icons` assets cache-first, and never touches `/api`, non-GET requests or other origins, so Supabase and server actions are always live. It is registered by `<RegisterServiceWorker />` in the root layout **only in production builds** (`next dev` and Playwright never see it). Push handlers join the same file in 5.1 (ADR-0009). `src/core/ui/pwa/pwa-files.test.ts` keeps the manifest, icons, headers and worker consistent with the tokens. Staff screens are designed mobile-first. Owner and Admin screens are desktop-first and still usable from 375px.
 
+### 14.1 Mobile standard (task 1.5)
+Staff work from a phone, often one-handed, often outdoors. These are shell-level rules every screen inherits; a screen that breaks one is not done:
+- **Safe areas.** `viewport-fit=cover` plus `env(safe-area-inset-*)` padding on the bottom nav, sticky action bars and any fixed element. Nothing sits under the notch or the home indicator.
+- **No zoom on focus.** Every input, select and textarea is at least **16px**, or iOS Safari zooms the page when it's tapped and never zooms back.
+- **Touch targets** are at least **44 × 44 px** with 8px between them. This includes icon buttons, table row actions and nav items.
+- **Dialogs are bottom sheets below 768px** (top-anchored dialogs put the buttons out of thumb reach), with a drag handle and a visible close.
+- **The primary action is reachable**: sticky at the bottom of the viewport on mobile forms, above the safe area, never hidden behind the keyboard.
+- **Tables become cards below 768px.** `DataTable` renders a card list on mobile; horizontal scrolling inside a table is not acceptable.
+- **Nothing is hover-only.** Row actions, tooltips and menus must be reachable by tap.
+- **Scrolling feels native**: momentum scrolling, `overscroll-behavior: contain` on sheets and modals, no scroll chaining to the page behind.
+- **One-handed reach**: destructive actions never sit next to the primary action in the thumb zone.
+- Checked at **375px and 430px** (small and large phones) in both themes, and at least once a phase on a real device.
+
 ## 15. Testing
 | Layer | Tool | Required for |
 |---|---|---|
