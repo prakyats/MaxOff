@@ -34,6 +34,8 @@ export type MemberActions = {
   edit: boolean;
   /** Role is locked on the Owner row (invariant 1); name and job title still change. */
   editRole: boolean;
+  /** Moving the sign-in itself (1.4): never on a closed one. */
+  changeEmail: boolean;
   copyInviteLink: boolean;
   revokeInvite: boolean;
   deactivate: boolean;
@@ -43,6 +45,7 @@ export type MemberActions = {
 const NONE: MemberActions = {
   edit: false,
   editRole: false,
+  changeEmail: false,
   copyInviteLink: false,
   revokeInvite: false,
   deactivate: false,
@@ -63,6 +66,8 @@ export function memberActions(
   return {
     edit: member.status !== "deactivated",
     editRole: member.status !== "deactivated" && !owner,
+    // The Owner's own row included: they are the only one who can do it (PERMISSIONS §3).
+    changeEmail: member.status !== "deactivated",
     copyInviteLink: member.status === "invited",
     revokeInvite: member.status === "invited" && !self,
     deactivate: member.status === "active" && !self && !owner,

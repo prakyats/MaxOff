@@ -16,13 +16,14 @@ export const listItemInputSchema = z.object({
 
 export type ListItemInput = z.infer<typeof listItemInputSchema>;
 
+export type MoveDirection = "up" | "down";
+
 const POSITION_DIGITS = "0123456789abcdefghijklmnopqrstuvwxyz";
 
 /**
  * The next `position` key after `last` (null = the list is empty): a string that sorts after
  * every existing one. Keys are base-36-ish (`a0` … `a9`, `aa` … `az`, `b0` …); once the two
  * leading characters are exhausted a digit is appended (`zz` → `zz0`), which still sorts after.
- * 1.3 only appends; midpoint keys for reordering arrive with the Settings screen (1.4).
  */
 export function nextPosition(last: string | null): string {
   if (!last) return "a0";

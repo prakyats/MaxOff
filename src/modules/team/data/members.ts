@@ -161,6 +161,16 @@ export async function rpcDeactivate(memberId: string, reason: string | null): Pr
   return data;
 }
 
+export async function rpcChangeEmail(memberId: string, email: string): Promise<string> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("member_change_email", {
+    member_id: memberId,
+    new_email: email,
+  });
+  if (error) throw error;
+  return data;
+}
+
 export async function rpcReactivate(memberId: string): Promise<MemberStatus> {
   const supabase = await createServerSupabase();
   const { data, error } = await supabase.rpc("member_reactivate", { member_id: memberId });
@@ -168,13 +178,18 @@ export async function rpcReactivate(memberId: string): Promise<MemberStatus> {
   return data === "active" ? "active" : "invited";
 }
 
-/** Whether an email already belongs to a member, whatever their status (team.manage reads all). */
+/**
+ * Whether an email already belongs to a member, whatever their status (team.manage reads all).
+ * An exact match on the lower-cased address, not `ilike`: `_` and `%` are wildcards there and
+ * both are legal in an email, so `asha_r@…` would collide with `ashaXr@…`. Every write path
+ * stores the address lower-cased (`member_invite`, `member_change_email`, the zod schemas).
+ */
 export async function findMemberByEmail(email: string): Promise<TeamMember | null> {
   const supabase = await createServerSupabase();
   const { data, error } = await supabase
     .from("members")
     .select(MEMBER_COLUMNS)
-    .ilike("email", email)
+    .eq("email", email.trim().toLowerCase())
     .maybeSingle();
   if (error) throw error;
   return data ? toTeamMember(data) : null;
@@ -215,6 +230,33 @@ function tokenFrom(
     });
   }
   return { userId: data.user.id, tokenHash, type };
+}
+
+/**
+ * Moves the sign-in itself. `email_confirm` marks the new address confirmed straight away:
+ * without it GoTrue would park the change in `email_change` and mail a confirmation, which
+ * needs a verified sending domain and a second step from the person (WORKFLOWS §1a).
+ */
+export async function updateAuthEmail(userId: string, email: string): Promise<void> {
+  const service = createServiceSupabase();
+  const { error } = await service.auth.admin.updateUserById(userId, {
+    email,
+    email_confirm: true,
+  });
+  if (error) throw error;
+}
+
+/**
+ * Puts the sign-in back when `member_change_email()` refused the change. Best effort: if this
+ * fails too, the sign-in has moved and the member row has not, so the person signs in with the
+ * new address while MaxOff shows the old one. Logged as an error, code only (ARCHITECTURE §18.2).
+ */
+export async function restoreAuthEmail(userId: string, email: string): Promise<void> {
+  try {
+    await updateAuthEmail(userId, email);
+  } catch {
+    console.error("[team] an email change was refused and the sign-in could not be put back");
+  }
 }
 
 /** Rolls back the auth user when the member row could not be written. Best effort. */

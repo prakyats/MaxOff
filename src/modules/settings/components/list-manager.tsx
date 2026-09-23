@@ -1,0 +1,242 @@
+"use client";
+
+import {
+  ArchiveIcon,
+  ArchiveRestoreIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  ListIcon,
+  PencilIcon,
+} from "lucide-react";
+import { useActionState, useState } from "react";
+import { toast } from "sonner";
+
+import type { Result } from "@/core/errors";
+import type { ListKey } from "@/core/lists";
+import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
+import { EmptyState } from "@/core/ui/composites/empty-state";
+import { FormField } from "@/core/ui/composites/form-field";
+import { Button } from "@/core/ui/primitives/button";
+import { Input } from "@/core/ui/primitives/input";
+import { toastResult } from "@/core/ui/toast";
+
+import { addListItem, moveListItemBy, renameListItem, setListItemArchived } from "../actions/lists";
+import { FormError } from "./form-error";
+import { RenameListItemDialog } from "./rename-list-item-dialog";
+
+export type ManagedListItem = {
+  id: string;
+  name: string;
+  archivedAt: string | null;
+};
+
+/**
+ * One screen for any editable list (ADR-0002): add, rename, reorder and archive. Job titles
+ * are the first (1.3 seeded them); task types (4.1) and stage presets (7.4) reuse it by adding
+ * a key to `core/lists`' registry and a page. Order is changed one step at a time, which a
+ * phone and a keyboard both handle; entries are archived, never deleted, so a member who
+ * carries one keeps it.
+ */
+export function ListManager({
+  listKey,
+  labels,
+  items,
+}: {
+  listKey: ListKey;
+  labels: { singular: string; plural: string };
+  items: ManagedListItem[];
+}) {
+  const [renaming, setRenaming] = useState<ManagedListItem | null>(null);
+  const [archiving, setArchiving] = useState<ManagedListItem | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const [state, formAction, pending] = useActionState(
+    async (_previous: Result<null> | null, formData: FormData) => {
+      const result = await addListItem({
+        listKey,
+        item: { name: String(formData.get("name") ?? "") },
+      });
+      if (result.ok) toast.success(`${labels.singular} added`);
+      return result;
+    },
+    null,
+  );
+  const error = state && !state.ok ? state.error : null;
+
+  const active = items.filter((item) => !item.archivedAt);
+  const archived = items.filter((item) => item.archivedAt);
+
+  async function move(item: ManagedListItem, direction: "up" | "down"): Promise<void> {
+    setBusyId(item.id);
+    toastResult(await moveListItemBy({ listKey, id: item.id, direction }));
+    setBusyId(null);
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      <form
+        action={formAction}
+        noValidate
+        className="border-border flex flex-col gap-4 rounded-lg border p-4"
+      >
+        <FormError error={error} />
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+          <FormField
+            label={`Add a ${labels.singular.toLowerCase()}`}
+            error={error?.fieldErrors?.["item.name"]}
+            className="flex-1"
+          >
+            {(control) => (
+              <Input
+                {...control}
+                name="name"
+                // The component serves every list, so the hint comes from the list, not from
+                // one example of a job title (ADR-0002: code knows keys, never entries).
+                placeholder={`New ${labels.singular.toLowerCase()}`}
+                maxLength={80}
+                required
+              />
+            )}
+          </FormField>
+          <Button type="submit" disabled={pending} className="sm:mt-6">
+            {pending ? "Adding…" : "Add"}
+          </Button>
+        </div>
+      </form>
+
+      {active.length === 0 ? (
+        <EmptyState
+          icon={ListIcon}
+          title={`No ${labels.plural.toLowerCase()} yet`}
+          description={`Add the first one above. ${labels.plural} appear wherever people pick one.`}
+        />
+      ) : (
+        <ul
+          data-slot="list-items"
+          className="border-border divide-border divide-y rounded-lg border"
+        >
+          {active.map((item, index) => (
+            <li
+              key={item.id}
+              data-slot="list-item"
+              className="flex items-center justify-between gap-2 px-3 py-2.5 sm:px-4"
+            >
+              <span className="min-w-0 truncate text-sm font-medium">{item.name}</span>
+              <div className="flex shrink-0 items-center">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`Move ${item.name} up`}
+                  disabled={index === 0 || busyId !== null}
+                  onClick={() => void move(item, "up")}
+                >
+                  <ChevronUpIcon aria-hidden />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`Move ${item.name} down`}
+                  disabled={index === active.length - 1 || busyId !== null}
+                  onClick={() => void move(item, "down")}
+                >
+                  <ChevronDownIcon aria-hidden />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`Rename ${item.name}`}
+                  onClick={() => setRenaming(item)}
+                >
+                  <PencilIcon aria-hidden />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`Archive ${item.name}`}
+                  onClick={() => setArchiving(item)}
+                >
+                  <ArchiveIcon aria-hidden />
+                </Button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {archived.length > 0 ? (
+        <section className="flex flex-col gap-2">
+          <h2 className="text-muted-foreground text-sm font-medium">Archived</h2>
+          <p className="text-muted-foreground text-sm">
+            Archived {labels.plural.toLowerCase()} are not offered any more. Anyone who already
+            carries one keeps it.
+          </p>
+          <ul
+            data-slot="archived-list-items"
+            className="border-border divide-border divide-y rounded-lg border"
+          >
+            {archived.map((item) => (
+              <li
+                key={item.id}
+                data-slot="archived-list-item"
+                className="flex items-center justify-between gap-2 px-3 py-2.5 sm:px-4"
+              >
+                <span className="text-muted-foreground min-w-0 truncate text-sm">{item.name}</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={busyId !== null}
+                  onClick={async () => {
+                    setBusyId(item.id);
+                    toastResult(
+                      await setListItemArchived({ listKey, id: item.id, archived: false }),
+                      {
+                        success: `${labels.singular} restored`,
+                      },
+                    );
+                    setBusyId(null);
+                  }}
+                >
+                  <ArchiveRestoreIcon aria-hidden />
+                  Restore
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {renaming ? (
+        <RenameListItemDialog
+          key={renaming.id}
+          label={labels.singular}
+          name={renaming.name}
+          onClose={() => setRenaming(null)}
+          onSubmit={async (name) => renameListItem({ listKey, id: renaming.id, item: { name } })}
+        />
+      ) : null}
+
+      {archiving ? (
+        <ConfirmDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setArchiving(null);
+          }}
+          title={`Archive ${archiving.name}?`}
+          description={`It stops being offered. People who already have this ${labels.singular.toLowerCase()} keep it, and you can restore it later.`}
+          confirmLabel="Archive"
+          onConfirm={async () => {
+            toastResult(await setListItemArchived({ listKey, id: archiving.id, archived: true }), {
+              success: `${labels.singular} archived`,
+            });
+            setArchiving(null);
+          }}
+        />
+      ) : null}
+    </div>
+  );
+}

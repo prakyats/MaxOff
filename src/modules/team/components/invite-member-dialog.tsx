@@ -29,6 +29,7 @@ import { type InviteOutcome, inviteMember } from "../actions/members";
 import { INVITABLE_ROLES, type InvitableRole } from "../domain/schemas";
 
 import { InviteLinkPanel } from "./invite-link-panel";
+import { offerableJobTitles } from "../domain/job-titles";
 import { JobTitleSelect, type JobTitleOption } from "./job-title-select";
 
 const ROLE_COPY: Record<InvitableRole, string> = {
@@ -177,7 +178,7 @@ export function InviteMemberDialog({ jobTitles }: { jobTitles: readonly JobTitle
                   id={control.id}
                   value={jobTitleId}
                   onChange={setJobTitleId}
-                  options={jobTitles}
+                  options={offerableJobTitles(jobTitles, null)}
                   describedBy={control["aria-describedby"]}
                   invalid={control["aria-invalid"]}
                 />

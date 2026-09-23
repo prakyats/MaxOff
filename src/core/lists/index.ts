@@ -8,5 +8,6 @@ export {
   LIST_ITEM_NAME_MAX,
   type ListItemInput,
   listItemInputSchema,
+  type MoveDirection,
   nextPosition,
 } from "./schemas";

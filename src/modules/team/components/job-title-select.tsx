@@ -8,7 +8,9 @@ import {
   SelectValue,
 } from "@/core/ui/primitives/select";
 
-export type JobTitleOption = { id: string; name: string };
+import type { JobTitleOption } from "../domain/job-titles";
+
+export type { JobTitleOption } from "../domain/job-titles";
 
 const NONE = "__none__";
 
@@ -42,7 +44,7 @@ export function JobTitleSelect({
         <SelectItem value={NONE}>No job title</SelectItem>
         {options.map((option) => (
           <SelectItem key={option.id} value={option.id}>
-            {option.name}
+            {option.archived ? `${option.name} (archived)` : option.name}
           </SelectItem>
         ))}
       </SelectContent>

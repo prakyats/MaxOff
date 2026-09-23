@@ -63,11 +63,13 @@ src/
     permissions/             # key registry, can(), requirePermission() (pages), assertPermission() (actions), <Can>
     activity/                # activity feed UI + helper for non-workflow audit
     custom-fields/           # definitions, zod builder, <CustomFieldsForm>/<View>
-    lists/                   # list_items engine (1.3): registry + schemas (index.ts), server.ts (repository)
+    lists/                   # list_items engine (1.3): registry + schemas (index.ts), server.ts
+                             #   (repository); reorder + archive callers arrive with Settings (1.4)
     storage/                 # StorageAdapter (R2), multipart presign, file metadata
     notifications/           # NotificationService, channels (push, email), <Bell>; email.ts + env.ts
                              #   (1.2): sendEmail() with a Resend sender and a log fallback
-    time/                    # IST helpers: todayIST(), toISTDate(), istDayRange(), formatIST(); isWorkingDay() in 1.4
+    time/                    # IST helpers: todayIST(), toISTDate(), istDayRange(), formatIST(),
+                             #   isWorkingDay() (1.4, the mirror of app.is_working_day())
     realtime/                # useRealtimeInvalidate(table, filter) → TanStack Query invalidation
     errors/                  # AppError, Result<T>, action() wrapper, Postgres error mapping
     observability/           # Sentry init per runtime + the PII/money scrubber (§18)
@@ -112,7 +114,7 @@ Enforced by `eslint.config.mjs`; `tests/lint-rules.test.ts` lints the fixture tr
 | Module | Owns | Depends on |
 |---|---|---|
 | team | members, role_permissions, session_events, job titles (list) | core |
-| settings | org_settings, holidays, task_types, stage_presets, feature_flags | core |
+| settings | org_settings, holidays, task_types, stage_presets, feature_flags, and the Settings screens for the editable lists (`core/lists` owns the table) | core |
 | attendance | attendance_days, attendance_events | team, settings, leave |
 | leave | leave_requests | team |
 | clients | clients, client_private, client_admin_assignments, client_contacts, client_brand, client_labels view | team |
@@ -217,7 +219,7 @@ Auditing for plain edits is done by a **generic `audit_row_change()` trigger** o
 - Migration names: `YYYYMMDDHHMMSS_<module>_<change>.sql`. Every new table has RLS and pgTAP tests in the same task.
 
 ## 7. Time (ADR-0008)
-- SQL: `app.today_ist()`, `app.to_ist_date(ts)`, `app.is_working_day(date)` (weekly offs + holidays).
+- SQL: `app.today_ist()`, `app.to_ist_date(ts)`, `app.is_working_day(date)` (weekly offs + holidays, 1.4).
 - TS: `core/time`, the only place that formats or computes IST dates. Components never call `new Date()` for business logic.
 - `pg_cron` runs in UTC, so jobs are scheduled at the UTC equivalent (23:59 IST = 18:29 UTC) and **re-check the IST date inside the job**.
 

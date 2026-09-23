@@ -21,6 +21,7 @@ import { toastResult } from "@/core/ui/toast";
 import { issueInviteLink, reactivateMember } from "../actions/members";
 import { memberActions, ROLE_LABELS, STATUS_LABELS, type TeamMember } from "../domain/members";
 
+import { ChangeEmailDialog } from "./change-email-dialog";
 import { DeactivateMemberDialog } from "./deactivate-member-dialog";
 import { EditMemberDialog } from "./edit-member-dialog";
 import { InviteLinkDialog, type InviteLinkState } from "./invite-link-dialog";
@@ -29,6 +30,7 @@ import type { JobTitleOption } from "./job-title-select";
 type DialogState =
   | { kind: "none" }
   | { kind: "edit"; member: TeamMember }
+  | { kind: "email"; member: TeamMember }
   | { kind: "link"; member: TeamMember; state: InviteLinkState }
   | { kind: "deactivate"; member: TeamMember };
 
@@ -154,6 +156,11 @@ export function TeamTable({
                       Edit
                     </DropdownMenuItem>
                   ) : null}
+                  {actions.changeEmail ? (
+                    <DropdownMenuItem onSelect={() => setDialog({ kind: "email", member })}>
+                      Change sign-in email
+                    </DropdownMenuItem>
+                  ) : null}
                   {actions.copyInviteLink ? (
                     <DropdownMenuItem onSelect={() => issueLink(member)}>
                       Copy invite link
@@ -212,6 +219,9 @@ export function TeamTable({
           jobTitles={jobTitles}
           onClose={close}
         />
+      ) : null}
+      {dialog.kind === "email" ? (
+        <ChangeEmailDialog key={dialog.member.id} member={dialog.member} onClose={close} />
       ) : null}
       {dialog.kind === "deactivate" ? (
         <DeactivateMemberDialog member={dialog.member} onClose={close} />

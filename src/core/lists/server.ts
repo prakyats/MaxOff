@@ -5,7 +5,12 @@ import { createServerSupabase } from "@/core/db/server";
 import { systemClock } from "@/core/time";
 
 import type { ListKey } from "./registry";
-import { type ListItemInput, listItemInputSchema, nextPosition } from "./schemas";
+import {
+  type ListItemInput,
+  listItemInputSchema,
+  type MoveDirection,
+  nextPosition,
+} from "./schemas";
 
 export type ListItem = Tables<"list_items">;
 
@@ -87,6 +92,28 @@ export async function updateListItem(id: string, input: ListItemInput): Promise<
     .eq("id", id)
     .select("*")
     .single();
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Moves an entry one place within its list, through `list_item_move()`: the swap is one UPDATE
+ * of two `position` values, so the order is never half-written and no other column travels with
+ * it (writing whole rows back would quietly revert a rename another editor had just made).
+ * Archived entries are skipped, and moving the first entry up does nothing. Returns the id of
+ * the entry it traded places with, or null when it was already at that end.
+ */
+export async function moveListItem(
+  listKey: ListKey,
+  id: string,
+  direction: MoveDirection,
+): Promise<string | null> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("list_item_move", {
+    list_key: listKey,
+    item_id: id,
+    direction,
+  });
   if (error) throw error;
   return data;
 }

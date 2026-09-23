@@ -134,9 +134,12 @@ export type SettingsSection = {
   key: string;
   label: string;
   href: string;
+  description: string;
   permission: PermissionKey;
   /** Roadmap task that builds the section. */
   arrivesIn: string;
+  /** False while the section is still a placeholder card, so nothing links into an empty page. */
+  ready: boolean;
 };
 
 /**
@@ -149,64 +152,82 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     key: "company",
     label: "Company",
     href: "/settings/company",
+    description: "The company name and the timezone everything runs on.",
     permission: "settings.manage",
     arrivesIn: "1.4",
+    ready: true,
   },
   {
     key: "days-off",
     label: "Days off & holidays",
     href: "/settings/days-off",
+    description: "Weekly off days and the holiday list.",
     permission: "settings.manage",
     arrivesIn: "1.4",
+    ready: true,
   },
   {
     key: "thresholds",
     label: "Thresholds",
     href: "/settings/thresholds",
+    description: "Reminders, escalations, the logout nudge and the email cap.",
     permission: "settings.manage",
     arrivesIn: "1.4",
+    ready: true,
   },
   {
     key: "job-titles",
     label: "Job titles",
     href: "/settings/job-titles",
+    description: "The titles people can be given.",
     permission: "lists.manage",
     arrivesIn: "1.4",
+    ready: true,
   },
   {
     key: "task-types",
     label: "Task types",
     href: "/settings/task-types",
+    description: "Kinds of task, their behaviour and default reminders.",
     permission: "lists.manage",
     arrivesIn: "4.1",
+    ready: false,
   },
   {
     key: "stage-presets",
     label: "Stage presets",
     href: "/settings/stage-presets",
+    description: "Reusable stage checklists.",
     permission: "lists.manage",
     arrivesIn: "7.4",
+    ready: false,
   },
   {
     key: "custom-fields",
     label: "Custom fields",
     href: "/settings/custom-fields",
+    description: "Extra fields on clients, projects, items and tasks.",
     permission: "lists.manage",
     arrivesIn: "3.2",
+    ready: false,
   },
   {
     key: "templates",
     label: "Templates",
     href: "/settings/templates",
+    description: "Project and task templates.",
     permission: "templates.manage",
     arrivesIn: "4.6",
+    ready: false,
   },
   {
     key: "drive",
     label: "Google Drive",
     href: "/settings/drive",
+    description: "The archive account and the archive queue.",
     permission: "drive.manage",
     arrivesIn: "8.3",
+    ready: false,
   },
 ];
 

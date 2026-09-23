@@ -41,7 +41,13 @@ app.to_ist_date(timestamptz)    -> date in Asia/Kolkata (stable, strict; null in
 app.today_ist()                 -> app.to_ist_date(now())
 app.fail(code, detail)          raises SQLSTATE P0001 with message = code, detail = the human reason
                                 (ARCHITECTURE 4.3). Every transition function raises through it
-app.is_working_day(date)        weekly offs + holidays, arrives in 1.4
+app.is_working_day(date)        (1.4) false when the date's weekday is in org_settings.weekly_off_days
+                                or a holidays row matches it, true otherwise. Stable, parallel safe,
+                                security definer, scoped by app.current_org_id() so a service-role job
+                                gets the same answer. **Null in, null out, and null when no single
+                                organization is in scope** (none, or more than one): callers treat null
+                                as "do not act", never as a working day, so a job cannot mark a team
+                                absent on a Sunday. The TS mirror is core/time isWorkingDay()
 
 -- Identity and audit helpers (task 1.1, ARCHITECTURE §5). All security definer, search_path = ''.
 app.current_org_id()            the caller's org; with no member row (bootstrap, service role) the single
@@ -114,6 +120,23 @@ public.member_reactivate(member_id)
                                 team.manage. deactivated → active when joined_at is set, otherwise back
                                 to invited (they still have to accept). deactivated_at is cleared; the
                                 activity log keeps the history. Audit action 'reactivated'
+public.list_item_move(list_key, item_id, direction)
+                                (1.4) lists.manage. Swaps an entry's `position` with the neighbour
+                                above or below it (archived entries skipped) in ONE update that
+                                touches no other column, so a reorder cannot revert a rename another
+                                editor just made and the order is never half-written. Returns the
+                                neighbour's id, or null at either end. A plain edit: the audit
+                                trigger's two 'update' rows are the record
+public.member_change_email(member_id, new_email)
+                                (1.4) team.manage. Changes the login identity of an active, invited
+                                or Owner row: CONFLICT when the address is another member's,
+                                VALIDATION when it is malformed or unchanged. Writes members.email
+                                only; the sign-in itself is moved by the action through
+                                auth.admin.updateUserById(email_confirm: true), which is the
+                                supported way and the reason this is not one transaction (the
+                                action rolls the Auth change back when the rpc refuses). Sessions
+                                are left alive: nothing reads the email from the JWT. Audit action
+                                'email_changed', meta.from / meta.to
 app.members_job_title_guard()   BEFORE INSERT/UPDATE on members: job_title_id, when set, is an
                                 unarchived list_items row with list_key = 'job_title' of the same org
 app.seed_org_lists()            AFTER INSERT on organizations: the launch job titles (PRODUCT §7)
@@ -128,7 +151,13 @@ org_settings         org_id pk, weekly_off_days smallint[] (0=Sun..6=Sat), logou
                      default_task_reminders jsonb, workload_warning_threshold int
                      -- defaults in brackets = launch settings (PRODUCT §7); default_task_reminders '[]' until
                      -- 5.3, workload_warning_threshold null until 4.3. Created by trigger with the organization
-holidays             id, org_id, date, name, unique(org_id, date)
+holidays             id, org_id, date, name, created_at, updated_at, unique(org_id, date)
+                     -- 1.4. RLS: every active member reads (a holiday is everyone's calendar);
+                     -- insert/update/delete need settings.manage. Audited. The one configuration
+                     -- table with a real DELETE (it has no archived_at): removing a mistyped date
+                     -- is the Owner's, and audit_row_change() keeps the removed row. Deleting a
+                     -- holiday never rewrites the past: attendance_days carries its own is_day_off
+                     -- (2.1), decided on the day itself
 members              id (= auth.users.id), org_id, full_name, email, phone, avatar_file_id (added in 3.3),
                      role member_role, job_title_id null → list_items (1.3), status member_status,
                      invited_at, joined_at, deactivated_at, created_at, updated_at

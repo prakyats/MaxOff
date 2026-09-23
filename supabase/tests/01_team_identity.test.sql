@@ -96,12 +96,17 @@ select is(
   0::bigint, 'RLS is enabled on every public table');
 select is((select count(*) from public.org_settings where org_id = pg_temp.fx('org')), 1::bigint,
   'the organization got its org_settings row by trigger');
+-- On a NEW organization: the seeded one is editable from Settings (1.4), so asserting its
+-- current values would only say what the last person saved.
+savepoint fresh_org;
+insert into public.organizations (id, name) values ('00000000-0000-4000-8000-0000000000ff', 'Defaults Org');
 select results_eq(
   $$ select weekly_off_days, logout_reminder_time::text, ack_repeat_hours, ack_escalate_hours,
             ack_escalate_owner_hours, overdue_escalate_hours, email_daily_cap_per_member
-       from public.org_settings where org_id = pg_temp.fx('org') $$,
+       from public.org_settings where org_id = '00000000-0000-4000-8000-0000000000ff' $$,
   $$ values ('{0}'::smallint[], '20:30:00', 2, 4, 8, 24, 20) $$,
-  'org_settings carry the PRODUCT §7 launch defaults');
+  'a new organization''s org_settings carry the PRODUCT §7 launch defaults');
+rollback to savepoint fresh_org;
 
 -- Seed (PERMISSIONS §1) -------------------------------------------------------------------
 select is((select count(*) from public.role_permissions), 49::bigint, '49 grants are seeded');

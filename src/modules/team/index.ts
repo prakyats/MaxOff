@@ -3,6 +3,7 @@
  * Pages compose these; nothing else in the module is imported from outside.
  */
 export { InviteMemberDialog } from "./components/invite-member-dialog";
+export { offerableJobTitles, type JobTitleOption } from "./domain/job-titles";
 export { ProfileForm } from "./components/profile-form";
 export { TeamTable } from "./components/team-table";
 export { getOwnMember, listDirectory, listMembers } from "./data/members";

@@ -58,6 +58,9 @@ export type UpdateMemberInput = z.input<typeof updateMemberSchema>;
 export const updateOwnProfileSchema = z.object({ fullName, phone });
 export type UpdateOwnProfileInput = z.input<typeof updateOwnProfileSchema>;
 
+export const changeMemberEmailSchema = z.object({ memberId: z.uuid(), email });
+export type ChangeMemberEmailInput = z.input<typeof changeMemberEmailSchema>;
+
 export const memberIdSchema = z.object({ memberId: z.uuid() });
 export type MemberIdInput = z.input<typeof memberIdSchema>;
 

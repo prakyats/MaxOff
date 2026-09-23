@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { listOptions } from "@/core/lists/server";
+import { listItems } from "@/core/lists/server";
 import { can } from "@/core/permissions";
 import { requirePermission } from "@/core/permissions/server";
 import { PageHeader } from "@/core/ui/composites/page-header";
@@ -22,11 +22,17 @@ export const metadata: Metadata = { title: "People" };
 export default async function PeoplePage() {
   const viewer = await requirePermission("team.view");
   const canManage = can(viewer.role, "team.manage");
+  // Archived titles travel too: the Edit dialog keeps showing the one a member already has
+  // (it just isn't offered to anyone else), so editing a name never clears their title.
   const [members, jobTitleOptions] = await Promise.all([
     canManage ? listMembers() : listDirectory(),
-    listOptions("job_title"),
+    listItems("job_title", { includeArchived: true }),
   ]);
-  const jobTitles = jobTitleOptions.map(({ id, name }) => ({ id, name }));
+  const jobTitles = jobTitleOptions.map(({ id, name, archived_at }) => ({
+    id,
+    name,
+    archived: archived_at !== null,
+  }));
 
   return (
     <>

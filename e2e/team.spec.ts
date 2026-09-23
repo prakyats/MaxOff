@@ -16,6 +16,11 @@ import {
  */
 const INVITEE = { email: "invitee@maxoff.local", name: "Invited Person" };
 const INVITEE_PASSWORD = "invitee-chosen-password";
+/** Where the Owner moves that sign-in in the email-change test (1.4). */
+const MOVED_EMAIL = "moved@maxoff.local";
+/** The "the invite went to a typo" path (1.4): invited, address moved, link replaced. */
+const TYPO_EMAIL = "typo@maxoff.local";
+const FIXED_EMAIL = "fixed@maxoff.local";
 /** `browser.newContext()` inherits the test's storage state; these tabs must start signed out. */
 const SIGNED_OUT = { storageState: { cookies: [], origins: [] } };
 
@@ -116,6 +121,95 @@ test.describe("Owner", () => {
     const row = page.getByRole("row", { name: /Invited Person Jr/ });
     await expect(row).toContainText("Admin");
     await expect(row).toContainText("Video Editor");
+  });
+
+  test("changes a member's sign-in email; they sign in with the new one and their old password", async ({
+    page,
+    browser,
+  }) => {
+    await page.goto("/people");
+    await page.getByRole("button", { name: "Actions for Invited Person Jr" }).click();
+    await page.getByRole("menuitem", { name: "Change sign-in email" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Change the sign-in for Invited Person Jr" }),
+    ).toBeVisible();
+
+    // An address that is already someone's is refused, and nothing changes.
+    await page.getByLabel("New address").fill(USERS.owner.email);
+    await page.getByRole("button", { name: "Change sign-in" }).click();
+    await expect(page.locator('[data-slot="form-alert"]')).toContainText("already signs in");
+
+    await page.getByLabel("New address").fill(MOVED_EMAIL);
+    await page.getByRole("button", { name: "Change sign-in" }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    const row = page.getByRole("row", { name: /Invited Person Jr/ });
+    await expect(row).toContainText(MOVED_EMAIL);
+    await expect(row).not.toContainText(INVITEE.email);
+
+    const moved = await browser.newContext(SIGNED_OUT);
+    try {
+      const tab = await moved.newPage();
+      // The old address is nobody's sign-in any more.
+      await tab.goto("/login");
+      await tab.getByLabel("Email").fill(INVITEE.email);
+      await tab.getByLabel("Password", { exact: true }).fill(INVITEE_PASSWORD);
+      await tab.getByRole("button", { name: "Sign in" }).click();
+      await expect(tab.locator('[data-slot="form-alert"]')).toBeVisible();
+      await expect(tab).toHaveURL(/\/login/);
+
+      // The password and the session rules are untouched: same password, new address.
+      await signIn(tab, MOVED_EMAIL, INVITEE_PASSWORD);
+      await expect(tab).toHaveURL(/\/today$/);
+    } finally {
+      await moved.close();
+    }
+  });
+
+  test("moving an invited person's address kills their pending link; Copy invite link replaces it", async ({
+    page,
+    browser,
+    baseURL,
+  }) => {
+    await page.goto("/people");
+    await page.getByRole("button", { name: "Invite", exact: true }).click();
+    await page.getByLabel("Email").fill(TYPO_EMAIL);
+    await page.getByLabel("Full name").fill("Typo Person");
+    await page.getByRole("button", { name: "Send invite" }).click();
+    const staleLink = onBaseURL(
+      await page.locator('[data-slot="invite-link"]').inputValue(),
+      baseURL,
+    );
+    await page.getByRole("button", { name: "Done" }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Actions for Typo Person" }).click();
+    await page.getByRole("menuitem", { name: "Change sign-in email" }).click();
+    await expect(page.getByRole("dialog")).toContainText("pending invite link stops working");
+    await page.getByLabel("New address").fill(FIXED_EMAIL);
+    await page.getByRole("button", { name: "Change sign-in" }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page.getByRole("row", { name: /Typo Person/ })).toContainText(FIXED_EMAIL);
+
+    // GoTrue drops the confirmation token when the address moves, so the link the old address
+    // was sent is dead. The Owner sends a fresh one, which is how the new address hears of it.
+    await page.getByRole("button", { name: "Actions for Typo Person" }).click();
+    await page.getByRole("menuitem", { name: "Copy invite link" }).click();
+    const input = page.locator('[data-slot="invite-link"]');
+    await expect(input).toBeVisible();
+    const freshLink = onBaseURL(await input.inputValue(), baseURL);
+    await page.getByRole("button", { name: "Done" }).click();
+
+    const invitee = await browser.newContext(SIGNED_OUT);
+    try {
+      const tab = await invitee.newPage();
+      await tab.goto(staleLink);
+      await expect(tab).toHaveURL(/\/login\?reason=link$/);
+
+      await tab.goto(freshLink);
+      await expect(tab).toHaveURL(/\/set-password$/);
+    } finally {
+      await invitee.close();
+    }
   });
 
   test("revoking an invite closes its link; after reactivation a new link works even though the old one was opened", async ({

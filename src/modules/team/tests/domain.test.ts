@@ -4,7 +4,10 @@ import { resolveAppOrigin } from "@/core/lib/app-url";
 
 import { inviteEmail, inviteLinkFor } from "../domain/invite";
 import { memberActions, sortMembers, type TeamMember } from "../domain/members";
+import { offerableJobTitles } from "../domain/job-titles";
+import { emailChangedNewAddressEmail, emailChangedOldAddressEmail } from "../domain/email-change";
 import {
+  changeMemberEmailSchema,
   deactivateMemberSchema,
   inviteMemberSchema,
   updateMemberSchema,
@@ -116,6 +119,14 @@ describe("memberActions", () => {
     });
   });
 
+  it("offers the sign-in change on any open row, the Owner's own included (PERMISSIONS 3)", () => {
+    expect(memberActions(viewer, member({ status: "active" })).changeEmail).toBe(true);
+    expect(memberActions(viewer, member({ status: "invited" })).changeEmail).toBe(true);
+    expect(memberActions(viewer, member({ id: "owner-id", role: "owner" })).changeEmail).toBe(true);
+    expect(memberActions(viewer, member({ status: "deactivated" })).changeEmail).toBe(false);
+    expect(memberActions({ id: "x", canManage: false }, member({})).changeEmail).toBe(false);
+  });
+
   it("never lets the Owner deactivate themselves or change their own role", () => {
     const actions = memberActions(viewer, member({ id: "owner-id", role: "owner" }));
     expect(actions).toMatchObject({ edit: true, editRole: false, deactivate: false });
@@ -182,5 +193,76 @@ describe("resolveAppOrigin", () => {
     expect(resolveAppOrigin("https://maxoff.app", "evil.example", "https", "production")).toBe(
       "https://maxoff.app",
     );
+  });
+});
+
+describe("changeMemberEmailSchema", () => {
+  it("trims and lower-cases the address", () => {
+    expect(
+      changeMemberEmailSchema.parse({
+        memberId: "00000000-0000-4000-8000-000000000001",
+        email: "  New.Address@Example.com ",
+      }).email,
+    ).toBe("new.address@example.com");
+  });
+
+  it("refuses something that is not an address", () => {
+    const input = { memberId: "00000000-0000-4000-8000-000000000001", email: "not-an-email" };
+    expect(changeMemberEmailSchema.safeParse(input).success).toBe(false);
+  });
+});
+
+describe("the email-change notices", () => {
+  const notice = {
+    memberName: "Asha",
+    oldEmail: "old@example.com",
+    newEmail: "new@example.com",
+    changedBy: "Prishit",
+    accepted: true,
+  };
+
+  it("tells the new address it is the sign-in from now on", () => {
+    const mail = emailChangedNewAddressEmail(notice);
+    expect(mail.to).toBe("new@example.com");
+    expect(mail.text).toContain("new@example.com");
+    expect(mail.text).toContain("Prishit");
+    expect(mail.text).toContain("existing password");
+  });
+
+  it("promises an invited person a fresh link instead of a password they don't have", () => {
+    const mail = emailChangedNewAddressEmail({ ...notice, accepted: false });
+    expect(mail.subject).toContain("invitation");
+    expect(mail.text).not.toContain("existing password");
+    expect(mail.text).toContain("fresh link");
+    expect(mail.text).toContain("stopped working");
+  });
+
+  it("tells the old address that the login moved, and where to", () => {
+    const mail = emailChangedOldAddressEmail(notice);
+    expect(mail.to).toBe("old@example.com");
+    expect(mail.text).toContain("new@example.com");
+    expect(mail.text).toContain("no longer");
+  });
+
+  it("escapes what it puts in the HTML", () => {
+    const mail = emailChangedNewAddressEmail({ ...notice, memberName: '<script>"x"' });
+    expect(mail.html).not.toContain("<script>");
+    expect(mail.html).toContain("&lt;script&gt;");
+  });
+});
+
+describe("offerableJobTitles", () => {
+  const options = [
+    { id: "a", name: "Video Editor" },
+    { id: "b", name: "Colorist", archived: true },
+  ];
+
+  it("hides an archived title from everyone who does not have it", () => {
+    expect(offerableJobTitles(options, null).map((option) => option.id)).toEqual(["a"]);
+    expect(offerableJobTitles(options, "a").map((option) => option.id)).toEqual(["a"]);
+  });
+
+  it("keeps the archived title of the member being edited (1.3 follow-up)", () => {
+    expect(offerableJobTitles(options, "b").map((option) => option.id)).toEqual(["a", "b"]);
   });
 });

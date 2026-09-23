@@ -61,6 +61,41 @@ export type Database = {
           },
         ];
       };
+      holidays: {
+        Row: {
+          created_at: string;
+          date: string;
+          id: string;
+          name: string;
+          org_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          date: string;
+          id?: string;
+          name: string;
+          org_id?: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          date?: string;
+          id?: string;
+          name?: string;
+          org_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "holidays_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       list_items: {
         Row: {
           archived_at: string | null;
@@ -375,7 +410,15 @@ export type Database = {
         };
         Returns: string;
       };
+      list_item_move: {
+        Args: { direction: string; item_id: string; list_key: string };
+        Returns: string;
+      };
       member_accept_invite: { Args: never; Returns: string };
+      member_change_email: {
+        Args: { member_id: string; new_email: string };
+        Returns: string;
+      };
       member_deactivate: {
         Args: { member_id: string; reason?: string };
         Returns: string;

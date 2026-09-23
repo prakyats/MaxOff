@@ -6,12 +6,16 @@ import { headers } from "next/headers";
 import { getCurrentMember } from "@/core/auth/server";
 import { action, AppError, ok, type Result } from "@/core/errors";
 import { resolveAppOrigin } from "@/core/lib/app-url";
+import type { EmailSendResult } from "@/core/notifications/email";
 import { sendEmail } from "@/core/notifications/email";
 import { assertPermission } from "@/core/permissions/server";
 
+import { emailChangedNewAddressEmail, emailChangedOldAddressEmail } from "../domain/email-change";
 import { inviteEmail, inviteLinkFor } from "../domain/invite";
 import type { MemberStatus } from "../domain/members";
 import {
+  type ChangeMemberEmailInput,
+  changeMemberEmailSchema,
   type DeactivateMemberInput,
   deactivateMemberSchema,
   type InviteMemberInput,
@@ -32,6 +36,19 @@ import * as repo from "../data/members";
  */
 
 export type EmailOutcome = "sent" | "not_configured" | "failed";
+
+function outcomeOf(result: EmailSendResult): EmailOutcome {
+  if (result.ok) return "sent";
+  return result.reason === "not_configured" ? "not_configured" : "failed";
+}
+
+/** Several notices, one answer: the UI must not claim "emailed" when one of them did not go. */
+function worstOutcome(results: readonly EmailSendResult[]): EmailOutcome {
+  const outcomes = results.map(outcomeOf);
+  if (outcomes.includes("failed")) return "failed";
+  if (outcomes.includes("not_configured")) return "not_configured";
+  return "sent";
+}
 
 export type InviteOutcome = {
   memberId: string;
@@ -89,11 +106,7 @@ export const inviteMember = action(
       inviteEmail({ to: data.email, inviteeName: data.fullName, inviterName: viewer.name, link }),
     );
     revalidatePath(PEOPLE_PATH);
-    return ok({
-      memberId: userId,
-      link,
-      email: sent.ok ? "sent" : sent.reason === "not_configured" ? "not_configured" : "failed",
-    });
+    return ok({ memberId: userId, link, email: outcomeOf(sent) });
   },
 );
 
@@ -133,6 +146,60 @@ export const updateOwnProfile = action(
     revalidatePath("/me");
     revalidatePath(PEOPLE_PATH);
     return ok(null);
+  },
+);
+
+/**
+ * The Owner moves a member's login identity (WORKFLOWS §1a). Two systems, in this order: the
+ * sign-in at GoTrue first, then the member row, because `member_change_email()` refuses a row
+ * whose sign-in still carries the old address — the drift that would lock the person out. If
+ * the function refuses anything (a conflict, a deactivated person), the sign-in goes back.
+ * Both addresses are then told, and neither email failing undoes the change.
+ */
+export const changeMemberEmail = action(
+  async (input: ChangeMemberEmailInput): Promise<Result<{ email: EmailOutcome }>> => {
+    const data = changeMemberEmailSchema.parse(input);
+    const viewer = await assertPermission("team.manage");
+
+    const member = await repo.getOwnMember(data.memberId); // RLS: team.manage reads every row
+    if (!member?.email) throw new AppError("NOT_FOUND", "This person is not on the team.");
+    const oldEmail = member.email;
+    if (member.status === "deactivated") {
+      // Mirrors member_change_email(). GoTrue is the side that cannot be rolled back reliably,
+      // so every precondition the rpc will refuse is checked before the sign-in is touched.
+      throw new AppError("INVALID_STATE", "Reactivate this person before changing their email.");
+    }
+    if (oldEmail === data.email) {
+      throw new AppError("VALIDATION", "That is already their email address.");
+    }
+    const clash = await repo.findMemberByEmail(data.email);
+    if (clash) {
+      throw new AppError("CONFLICT", "Someone on the team already signs in with that address.");
+    }
+
+    await repo.updateAuthEmail(data.memberId, data.email);
+    try {
+      await repo.rpcChangeEmail(data.memberId, data.email);
+    } catch (error) {
+      await repo.restoreAuthEmail(data.memberId, oldEmail);
+      throw error;
+    }
+
+    const notice = {
+      memberName: member.fullName,
+      oldEmail,
+      newEmail: data.email,
+      changedBy: viewer.name,
+      accepted: member.status === "active",
+    };
+    const sent = await Promise.all([
+      sendEmail(emailChangedNewAddressEmail(notice)),
+      sendEmail(emailChangedOldAddressEmail(notice)),
+    ]);
+    revalidatePath(PEOPLE_PATH);
+    revalidatePath("/me");
+    // One outcome for both notices: the dialog says "emailed" only when both really went.
+    return ok({ email: worstOutcome(sent) });
   },
 );
 

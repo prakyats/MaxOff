@@ -10,6 +10,12 @@ select plan(97);
 delete from public.session_events;
 delete from public.activity_log;
 delete from public.members;
+-- Settings (1.4) lets the team add, rename and archive job titles, so a Playwright run leaves
+-- more than the seed behind. These tests are about the seeded pair: put the list back the way
+-- app.seed_org_lists() made it. (The audit rows that causes go with the activity_log delete below.)
+delete from public.list_items
+  where list_key <> 'job_title' or name not in ('Video Editor', 'Graphic Designer');
+update public.list_items set archived_at = null where archived_at is not null;
 delete from auth.identities;
 delete from auth.users;
 delete from public.activity_log; -- again: the member deletes were audited
@@ -407,7 +413,7 @@ select throws_ok($$ select public.member_reactivate(pg_temp.fx('nobody')) $$,
 select pg_temp.as_system();
 select results_eq(
   $$ select entity_id, meta ->> 'to_status' from public.activity_log
-     where entity = 'members' and action = 'reactivated' order by at $$,
+     where entity = 'members' and action = 'reactivated' order by id $$,
   $$ values (pg_temp.fx('staff'), 'active'), (pg_temp.fx('never'), 'invited') $$,
   'both reactivations are audited with the resulting status');
 select pg_temp.as_member('admin');

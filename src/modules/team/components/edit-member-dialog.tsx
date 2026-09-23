@@ -28,6 +28,7 @@ import { updateMember } from "../actions/members";
 import { memberActions, ROLE_LABELS, type TeamMember } from "../domain/members";
 import { INVITABLE_ROLES, type InvitableRole } from "../domain/schemas";
 
+import { offerableJobTitles } from "../domain/job-titles";
 import { JobTitleSelect, type JobTitleOption } from "./job-title-select";
 
 /** Name, role (Admin ↔ Staff; locked on the Owner row) and job title: plain edits, audited. */
@@ -127,7 +128,7 @@ export function EditMemberDialog({
                 id={control.id}
                 value={jobTitleId}
                 onChange={setJobTitleId}
-                options={jobTitles}
+                options={offerableJobTitles(jobTitles, member.jobTitleId)}
                 describedBy={control["aria-describedby"]}
                 invalid={control["aria-invalid"]}
               />

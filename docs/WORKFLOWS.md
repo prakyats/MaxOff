@@ -66,8 +66,9 @@ invited ──Owner "Revoke invite"──► deactivated (the link opens nothing
 - **Accept** = the link opens a session for the invited member (`verifyAuthLink()` admits `invited` for either link type), `/set-password` stores the password, then `member_accept_invite()` moves `invited → active` and `session_login()` records the first login. Anything else with an invited session (a shell route) is ended as inactive.
 - **Deactivate** (`active`) and **Revoke invite** (`invited`) are the same transition, `member_deactivate(member_id, reason)`, worded by state. The reason is optional and kept in the activity log. Never the caller, never the Owner. Deactivation takes effect **immediately**: RLS (no `current_member()` row), `requireMember()` on the next page load, and the deleted refresh tokens, so an open tab cannot renew its session when the JWT expires (≤ 1 h). 5.4 also deletes the person's push subscriptions.
 - **Reactivate** returns a person who had joined to `active`, and someone who never accepted to `invited` (a new link is needed). `deactivated_at` is cleared; the log rows stay.
-- **Edits**: the Owner changes name, role (Admin ↔ Staff; the Owner row's role never changes here) and job title as plain edits (audited by trigger). A member edits their own name and phone on /me. Email changes are not built yet (ROADMAP 1.4).
-- **Notifications**: the invite email only. Nobody is notified of a deactivation or reactivation (nothing in §9 says so).
+- **Edits**: the Owner changes name, role (Admin ↔ Staff; the Owner row's role never changes here) and job title as plain edits (audited by trigger). A member edits their own name and phone on /me.
+- **Email change** (1.4, `member_change_email()`): the email is the login identity, so only the Owner (`team.manage`) changes it, never the member. It is allowed on an **active** row, an **invited** row (the usual case: the invite went to a typo) and on the **Owner's own** row. The address must be free: one that already belongs to any member, whatever their status, is `CONFLICT`. The action moves the sign-in at GoTrue first (`auth.admin.updateUserById`, `email_confirm: true`, so no confirmation mail is needed), then calls the transition function, and puts the old address back at GoTrue if the function refuses. **Sessions stay alive** — nothing reads the email from the JWT — and the person signs in with the new address and their existing password from then on. An **invited** person's pending link **stops working** (GoTrue drops the confirmation token when the address moves, proved by probe: `otp_expired`), so the Owner sends a fresh one with "Copy invite link"; the dialog says so. The invite email itself went to the old address, so that second link is how the new address ever hears about the invite.
+- **Notifications**: the invite email, and on an email change **both addresses** get one (the new one: "you'll sign in with this address"; the old one: "your MaxOff login was changed", which is the message that matters when the old mailbox is still live). Both bypass the daily cap, like the invite. Nobody is notified of a deactivation or reactivation (nothing in §9 says so).
 
 ## 2. Leave requests
 
@@ -263,7 +264,7 @@ month M (IST) open ──Owner close──► closed (snapshot v1, immutable)
 | Anything financial | Owner only |
 | Upcoming event (shoot, meeting…) on task reminders | Assignees + approving Admin |
 
-Every notification is stored in `notifications` (in-app history + deep link) and then delivered by push. **Email** is sent for **invites, escalations, task assigned, an event tomorrow, the Owner digest**, and to anyone with no working push subscription, within the per-person daily cap (invites and escalations bypass it).
+Every notification is stored in `notifications` (in-app history + deep link) and then delivered by push. **Email** is sent for **invites, an email change (to both addresses, §1a), escalations, task assigned, an event tomorrow, the Owner digest**, and to anyone with no working push subscription, within the per-person daily cap (invites, email changes and escalations bypass it).
 
 ## 9a. Delivery, sessions and reachability
 
