@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 import type { Database } from "@/core/db";
-import { publicSupabaseEnv } from "@/core/db";
+import { publicSupabaseEnv, sessionCookieOptions } from "@/core/db";
 
 import { LOGIN_PATH, isPublicPath, isSignedOutOnlyPath } from "./paths";
 
@@ -20,6 +20,7 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
   const env = publicSupabaseEnv();
 
   const supabase = createServerClient<Database>(env.url, env.publishableKey, {
+    cookieOptions: sessionCookieOptions(),
     cookies: {
       getAll() {
         return request.cookies.getAll();
