@@ -377,10 +377,27 @@ The `<meta name="theme-color">` pair in the root layout — plus `ThemeColorMeta
 when someone picks Light or Dark explicitly — governs **Chrome's tab toolbar**, not the installed
 shell. Confirmed on a Galaxy S23: the toolbar follows the in-app theme, the installed band does not.
 
-**Changing `theme_color` does not reach an already-installed app.** Android refreshes a manifest on
-its own schedule, so a deploy alone proves nothing. To test a change: **uninstall the app, reload
-the page in the browser, then reinstall it.** Anything less can show you the old band and look like
-the change failed.
+**Testing a manifest change: install from a fresh origin.** A branch preview URL
+(`https://<branch>-maxoff-staging.<subdomain>.workers.dev`) is a different origin with an empty
+HTTP cache and no service worker, so what you install is definitely the current manifest. This is
+the reliable test, and it is why previews are worth having for more than screenshots.
+
+Uninstall-and-reinstall on the *same* origin is **not** reliable: the browser can hand the install
+a manifest it still holds in its HTTP cache, so the reinstalled app shows the old name, icons or
+band and the change looks like it failed. That is exactly what happened in 1.5, four rounds of it,
+because `/manifest.webmanifest` was served with `max-age=3600`.
+
+Both caching layers are now fixed and covered by `pwa-files.test.ts`:
+
+| File | Cache-Control | Service worker |
+|---|---|---|
+| `/manifest.webmanifest` | `no-cache, must-revalidate` | never cached |
+| `/icons/*` | `public, max-age=0, must-revalidate` | stale-while-revalidate — the names are stable, not content-hashed, so a changed icon heals on the next load |
+| `/_next/static/*` | `immutable`, one year | cache-first, correctly: those names carry a content hash |
+| `/sw.js` | `no-cache` | n/a |
+
+A stale manifest or icon fails **silently** — the app just keeps the old value — so these are
+asserted rather than left to review.
 
 **iOS is different again** and is not covered by any of this: an installed iPhone app takes its
 status bar from `apple-mobile-web-app-status-bar-style`, which is `default` on purpose (see

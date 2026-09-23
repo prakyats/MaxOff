@@ -21,6 +21,7 @@ const manifest = JSON.parse(readFileSync(path.join(publicDir, "manifest.webmanif
   icons: Array<{ src: string; sizes: string; type: string; purpose?: string }>;
 };
 const sw = readFileSync(path.join(publicDir, "sw.js"), "utf8");
+const headers = readFileSync(path.join(publicDir, "_headers"), "utf8");
 const css = readFileSync(path.join(root, "src/app/globals.css"), "utf8");
 const layout = readFileSync(path.join(root, "src/app/layout.tsx"), "utf8");
 
@@ -108,7 +109,23 @@ describe("sw.js", () => {
   });
 
   it("is served without caching so a new version is picked up", () => {
-    const headers = readFileSync(path.join(publicDir, "_headers"), "utf8");
     expect(headers).toMatch(/\/sw\.js\n\s+Cache-Control: no-cache/);
+  });
+
+  it("never caches the manifest, at either layer", () => {
+    // A cached manifest cannot reach an installed app, and the failure is invisible: the app
+    // just keeps the old name, icons and band. This cost four rounds of debugging in 1.5.
+    expect(sw).not.toMatch(/PRECACHE\s*=\s*\[[^\]]*manifest/);
+    expect(headers).toMatch(/\/manifest\.webmanifest\n\s+Cache-Control: no-cache/);
+    expect(headers).not.toMatch(/\/manifest\.webmanifest\n\s+Cache-Control:[^\n]*max-age=[1-9]/);
+  });
+
+  it("treats only content-hashed files as immutable", () => {
+    // /icons names are stable (icon-192.png), so cache-first would pin a changed icon for ever.
+    const immutable = sw.match(/function isImmutableAsset\([\s\S]*?\n}/)?.[0] ?? "";
+    expect(immutable).toContain("/_next/static/");
+    expect(immutable).not.toContain("/icons/");
+    expect(sw).toContain("isRevalidatingAsset");
+    expect(headers).toMatch(/\/icons\/\*\n\s+Cache-Control:[^\n]*must-revalidate/);
   });
 });

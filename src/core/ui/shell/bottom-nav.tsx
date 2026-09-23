@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { type ReactNode, useMemo } from "react";
 
 import { cn } from "@/core/lib/utils";
 
 import { MoreSheet } from "./more-sheet";
 import { isActivePath, type NavItem, PROFILE_NAV_ITEM, totalBadge } from "./nav";
 import { NAV_ICONS } from "./nav-icons";
+import { useTabNavigation } from "./tab-history";
 
 /**
  * Shared shape for a bar item, link or More button. `min-h-14` with a 44px inner target and
@@ -82,13 +83,19 @@ function Item({
 export function BottomNav({
   primary,
   more,
+  home,
   logoutItem,
 }: {
   primary: readonly NavItem[];
   more: readonly NavItem[];
+  /** The role's home tab: where back from any other tab lands when installed (`tab-history`). */
+  home: string;
   logoutItem?: ReactNode;
 }) {
   const pathname = usePathname();
+  // Every top-level destination, bar and sheet alike, so switching between them never stacks up.
+  const topLevel = useMemo(() => [...primary, ...more].map((item) => item.href), [primary, more]);
+  const { navigate } = useTabNavigation(home, pathname, topLevel);
   const hasMore = more.length > 0;
   // Everything the sheet can reach, so "you are here" still holds after you open one of them.
   const moreActive =
@@ -114,6 +121,12 @@ export function BottomNav({
                 data-active={active ? "" : undefined}
                 aria-current={active ? "page" : undefined}
                 className={cn(ITEM, "active:bg-muted/60")}
+                // Installed: tabs replace each other over home instead of stacking. In a browser
+                // tab `navigate` returns false and this stays an ordinary link.
+                onClick={(event) => {
+                  if (event.defaultPrevented || event.metaKey || event.ctrlKey) return;
+                  if (navigate(item.href)) event.preventDefault();
+                }}
               >
                 <Item
                   icon={item.icon}

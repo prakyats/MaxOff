@@ -1,0 +1,202 @@
+import { expect, type Page, test } from "@playwright/test";
+
+import { storageStateFor } from "./helpers";
+
+/**
+ * Back behaves like an app, not a website (task 1.5, ARCHITECTURE §14.1).
+ *
+ * Two rules, scoped differently on purpose:
+ * - **Overlays close on back, everywhere.** A dialog or sheet swallows the back gesture instead
+ *   of letting it navigate the page underneath.
+ * - **Tabs do not stack up history, when installed only.** Back from any top-level tab returns
+ *   to the role's home tab. In a browser tab the normal web back/forward is left alone, which is
+ *   what the second half of this file checks.
+ */
+
+/**
+ * Makes the page look installed, which is how `tab-history` decides which rule to apply.
+ *
+ * Chromium cannot actually emulate `display-mode: standalone` in a normal page: both
+ * `page.emulateMedia` and CDP `Emulation.setEmulatedMedia` with a `display-mode` feature leave
+ * `matchMedia("(display-mode: standalone)").matches` false (checked against this Chromium
+ * build). Only a genuinely installed window reports it. So the media query itself is stubbed
+ * before the page loads — the platform signal is faked, and what gets tested is our logic on top
+ * of it, which is the part that can actually be wrong.
+ */
+async function runInstalled(page: Page) {
+  await page.addInitScript(() => {
+    const real = window.matchMedia.bind(window);
+    window.matchMedia = (query: string) =>
+      query.includes("display-mode: standalone")
+        ? ({
+            matches: true,
+            media: query,
+            onchange: null,
+            addEventListener() {},
+            removeEventListener() {},
+            addListener() {},
+            removeListener() {},
+            dispatchEvent: () => false,
+          } as unknown as MediaQueryList)
+        : real(query);
+  });
+}
+
+test.describe("overlays close on back", () => {
+  test.use({ storageState: storageStateFor("owner") });
+  // These reach the overlays through the bottom bar and the card list, which are phone layouts.
+  // The rule itself is not phone-only: the desktop case is the last test in this file.
+  test.skip(({ isMobile }) => !isMobile, "phone triggers; desktop is covered separately");
+
+  test("the More sheet goes, the page underneath stays", async ({ page }) => {
+    await page.goto("/today");
+    await page.locator('[data-slot="bottom-nav"] [data-nav="more"]').click();
+    const sheet = page.locator('[data-slot="more-sheet"]');
+    await expect(sheet).toBeVisible();
+
+    await page.goBack();
+
+    await expect(sheet).toBeHidden();
+    // The whole point: we dismissed an overlay, we did not navigate.
+    await expect(page).toHaveURL(/\/today$/);
+  });
+
+  test("a sheet handing off to a dialog keeps the dialog open", async ({ page }) => {
+    // Deactivate closes the detail sheet and opens a confirm in the same commit. Pushing and
+    // popping per overlay made the closing sheet's asynchronous back() swallow the dialog's
+    // entry, and the dialog disappeared the instant it opened.
+    await page.goto("/people");
+    await page.locator('[data-slot="data-card"]', { hasText: "Local Staff" }).click();
+    const sheet = page.locator('[data-slot="detail-sheet"]');
+    await expect(sheet).toBeVisible();
+
+    await sheet.getByRole("button", { name: "Deactivate" }).click();
+    const confirm = page.locator('[data-slot="dialog-content"]');
+    await expect(confirm).toBeVisible();
+    await expect(sheet).toBeHidden();
+
+    // One overlay is open, so one back closes it and leaves the page alone.
+    await page.goBack();
+    await expect(confirm).toBeHidden();
+    await expect(page).toHaveURL(/\/people$/);
+  });
+
+  test("after dismissing by hand, back still gets you off the page", async ({ page }) => {
+    await page.goto("/today");
+    await page.locator('[data-slot="bottom-nav"] [data-nav="more"]').click();
+    const sheet = page.locator('[data-slot="more-sheet"]');
+    await expect(sheet).toBeVisible();
+
+    await page.keyboard.press("Escape");
+    await expect(sheet).toBeHidden();
+
+    // The entry the sheet opened over is left behind spent — it cannot be popped on close
+    // without cancelling a navigation started from inside an overlay. `onPopState` skips it,
+    // so one back press still leaves /today rather than being silently swallowed.
+    await page.goto("/calendar");
+    await page.goBack();
+    await expect(page).toHaveURL(/\/today$/);
+  });
+
+  test("reopening reuses the spent entry instead of stacking more", async ({ page }) => {
+    await page.goto("/today");
+    const more = page.locator('[data-slot="bottom-nav"] [data-nav="more"]');
+    const sheet = page.locator('[data-slot="more-sheet"]');
+
+    for (let i = 0; i < 3; i++) {
+      await more.click();
+      await expect(sheet).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(sheet).toBeHidden();
+    }
+
+    // Dismissing by hand leaves one spent entry, and it carries the same URL as the page, so
+    // the first back press is absorbed: it lands on /today again. The point of this test is
+    // that three open/dismiss cycles still cost exactly one absorbed press, not three — the
+    // spent entry is reused rather than a new one pushed each time.
+    await page.goBack();
+    await expect(page).toHaveURL(/\/today$/);
+    await page.goBack();
+    await expect(page).not.toHaveURL(/\/today$/);
+  });
+});
+
+test.describe("tab history", () => {
+  test.use({ storageState: storageStateFor("owner") });
+  // The bottom bar only exists below `md`.
+  test.skip(({ isMobile }) => !isMobile, "the bottom bar is a phone layout");
+
+  /** Taps a tab and waits for it to land: `goBack()` would otherwise race the navigation. */
+  const tapTab = async (page: Page, key: string, url: RegExp) => {
+    await page.locator(`[data-slot="bottom-nav"] [data-nav="${key}"]`).click();
+    await expect(page).toHaveURL(url);
+  };
+
+  test("installed: back from any tab returns to the home tab", async ({ page }) => {
+    await runInstalled(page);
+    await page.goto("/today");
+
+    await tapTab(page, "calendar", /\/calendar$/);
+    await tapTab(page, "approvals", /\/approvals$/);
+
+    // Three tabs visited, one back to leave them all: the tabs replaced each other over home.
+    await page.goBack();
+    await expect(page).toHaveURL(/\/today$/);
+  });
+
+  test("installed: back on the home tab leaves the app's pages", async ({ page }) => {
+    await runInstalled(page);
+    await page.goto("/today");
+    await tapTab(page, "calendar", /\/calendar$/);
+    await page.goBack();
+    await expect(page).toHaveURL(/\/today$/);
+
+    // A browser cannot be asked "did the app close?", so assert the assertable half: there is
+    // nothing of ours left to go back to, so back does not land on another tab.
+    await page.goBack().catch(() => {});
+    await expect(page).not.toHaveURL(/\/(calendar|approvals)$/);
+  });
+
+  test("installed: a detail route inside a tab still pushes", async ({ page }) => {
+    await runInstalled(page);
+    await page.goto("/settings");
+    await page.getByRole("link", { name: /Job titles/ }).click();
+    await expect(page).toHaveURL(/\/settings\/job-titles$/);
+
+    // Back from a record returns to its list, not to home. Only top-level tabs are rewritten.
+    await page.goBack();
+    await expect(page).toHaveURL(/\/settings$/);
+  });
+
+  test("in a browser tab: back retraces every step, as on any website", async ({ page }) => {
+    // No runInstalled() here — this is the control, and the reason the rule is gated on
+    // display-mode rather than on screen width.
+    await page.goto("/today");
+    await tapTab(page, "calendar", /\/calendar$/);
+    await tapTab(page, "approvals", /\/approvals$/);
+
+    await page.goBack();
+    await expect(page).toHaveURL(/\/calendar$/);
+    await page.goBack();
+    await expect(page).toHaveURL(/\/today$/);
+    // Forward still works too, which the installed rule deliberately gives up.
+    await page.goForward();
+    await expect(page).toHaveURL(/\/calendar$/);
+  });
+});
+
+test.describe("on desktop too", () => {
+  test.use({ storageState: storageStateFor("owner") });
+  test.skip(({ isMobile }) => Boolean(isMobile), "the phone cases are above");
+
+  test("back closes a dialog instead of leaving the page", async ({ page }) => {
+    await page.goto("/people");
+    await page.getByRole("button", { name: "Invite", exact: true }).click();
+    const dialog = page.locator('[data-slot="dialog-content"]');
+    await expect(dialog).toBeVisible();
+
+    await page.goBack();
+    await expect(dialog).toBeHidden();
+    await expect(page).toHaveURL(/\/people$/);
+  });
+});

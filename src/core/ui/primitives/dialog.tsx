@@ -4,12 +4,26 @@ import * as React from "react";
 import { cn } from "cn";
 import { Dialog as DialogPrimitive } from "radix-ui";
 
+import { useOverlayOpenState } from "@/core/ui/overlay/overlay-history";
 import { Button } from "@/core/ui/primitives/button";
 import { MODAL_FOOTER, MODAL_HANDLE, MODAL_SURFACE } from "@/core/ui/primitives/modal-surface";
 import { XIcon } from "lucide-react";
 
-function Dialog({ ...props }: React.ComponentProps<typeof DialogPrimitive.Root>) {
-  return <DialogPrimitive.Root data-slot="dialog" {...props} />;
+/**
+ * Back (or the phone's back gesture) closes this instead of navigating the page
+ * underneath — see `core/ui/overlay/overlay-history`. Wired here rather than at each
+ * call site so every dialog in the app gets it, including nested ones.
+ */
+function Dialog({
+  open,
+  defaultOpen,
+  onOpenChange,
+  ...props
+}: React.ComponentProps<typeof DialogPrimitive.Root>) {
+  const [isOpen, setOpen] = useOverlayOpenState({ open, defaultOpen, onOpenChange });
+  return (
+    <DialogPrimitive.Root data-slot="dialog" open={isOpen} onOpenChange={setOpen} {...props} />
+  );
 }
 
 function DialogTrigger({ ...props }: React.ComponentProps<typeof DialogPrimitive.Trigger>) {

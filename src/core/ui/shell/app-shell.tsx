@@ -62,7 +62,7 @@ export function AppShell({
           {children}
         </main>
       </div>
-      <BottomNav primary={primary} more={more} logoutItem={logoutSheetItem} />
+      <BottomNav primary={primary} more={more} home={home} logoutItem={logoutSheetItem} />
     </div>
   );
 }

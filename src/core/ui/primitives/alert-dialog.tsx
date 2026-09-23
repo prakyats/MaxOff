@@ -4,11 +4,30 @@ import * as React from "react";
 import { cn } from "cn";
 import { AlertDialog as AlertDialogPrimitive } from "radix-ui";
 
+import { useOverlayOpenState } from "@/core/ui/overlay/overlay-history";
 import { Button } from "@/core/ui/primitives/button";
 import { MODAL_FOOTER, MODAL_HANDLE, MODAL_SURFACE } from "@/core/ui/primitives/modal-surface";
 
-function AlertDialog({ ...props }: React.ComponentProps<typeof AlertDialogPrimitive.Root>) {
-  return <AlertDialogPrimitive.Root data-slot="alert-dialog" {...props} />;
+/**
+ * Back (or the phone's back gesture) closes this instead of navigating the page
+ * underneath — see `core/ui/overlay/overlay-history`. Wired here rather than at each
+ * call site so every alert-dialog in the app gets it, including nested ones.
+ */
+function AlertDialog({
+  open,
+  defaultOpen,
+  onOpenChange,
+  ...props
+}: React.ComponentProps<typeof AlertDialogPrimitive.Root>) {
+  const [isOpen, setOpen] = useOverlayOpenState({ open, defaultOpen, onOpenChange });
+  return (
+    <AlertDialogPrimitive.Root
+      data-slot="alert-dialog"
+      open={isOpen}
+      onOpenChange={setOpen}
+      {...props}
+    />
+  );
 }
 
 function AlertDialogTrigger({
