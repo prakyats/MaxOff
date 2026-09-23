@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
-import { ForgotPasswordForm } from "@/core/auth/components";
+// Direct, not via the barrel: see the note in login/page.tsx.
+import { ForgotPasswordForm } from "@/core/auth/components/forgot-password-form";
 
 export const metadata: Metadata = { title: "Forgot password" };
 

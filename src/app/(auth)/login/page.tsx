@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
 
-import { FormAlert, LoginForm } from "@/core/auth/components";
+// Imported from their own files, not the `components` barrel: the barrel also exports
+// `LogoutProvider`, and a barrel of client components is not tree-shaken per route — every
+// client component in it joins the route's bundle. That put sonner and radix-alert-dialog on
+// the sign-in page (task 1.5).
+import { FormAlert } from "@/core/auth/components/form-alert";
+import { LoginForm } from "@/core/auth/components/login-form";
 import { safeNextPath } from "@/core/auth/paths";
 
 export const metadata: Metadata = { title: "Sign in" };
