@@ -171,7 +171,7 @@ Rules every screen follows:
 ## 4. Two kinds of mutation
 
 ### 4.1 Workflow transitions (approvals, attendance, leave, task states, items, cycles, money, month close)
-These are implemented as **Postgres functions** (`security definer`, `set search_path = ''`) named `<module>_<verb>`, e.g. `task_submit_done(task_id, late_reason)`, `task_review(task_id, decision, reason)`, `attendance_decide(day_id, status, reason)`, `item_approve(item_ids[])`.
+These are implemented as **Postgres functions** (`security definer`, `set search_path = ''`) named `<module>_<verb>`, e.g. `task_submit_done(task_id, late_reason)`, `task_review(task_id, decision, reason)`, `attendance_decide(day_id, decision, status, reason)`, `item_approve(item_ids[])`.
 
 Each function, in **one transaction**:
 1. identifies the caller (`auth.uid()` → active member) and checks the permission key **and** the scope rule (e.g. "caller is this task's approving Admin");

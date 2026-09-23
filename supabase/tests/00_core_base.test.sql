@@ -1,7 +1,7 @@
 -- pgTAP for the 0.2 base migration. Run with `pnpm db:test` (needs the local stack running).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(27);
+select plan(29);
 
 -- Extensions and schema ------------------------------------------------------------------
 select has_extension('pg_cron', 'pg_cron is installed');
@@ -68,14 +68,33 @@ select ok(has_schema_privilege('service_role', 'app', 'usage'), 'service_role ma
 select ok(not has_schema_privilege('anon', 'app', 'usage'), 'anon may not use app');
 -- Self-enforcing for every function ever added to `app` (DATA-MODEL §0a): authenticated and
 -- service_role may execute, anon and public may not.
+-- Exception (2.1): internal writers and cross-member readers that only security definer
+-- functions call (they run as the owner and need no grant). The API role must NOT hold them.
+create temporary table app_internal (name text primary key);
+insert into app_internal values
+  ('attendance_event'), ('attendance_apply_leave'), ('attendance_release_leave'),
+  ('attendance_logout'), ('leave_covering'), ('leave_overlaps');
 select is(
   (select count(*) from pg_proc p
     where p.pronamespace = 'app'::regnamespace
+      and p.proname not in (select name from app_internal)
       and (   has_function_privilege('anon', p.oid, 'execute')
            or not has_function_privilege('authenticated', p.oid, 'execute')
            or not has_function_privilege('service_role', p.oid, 'execute'))),
   0::bigint,
   'every app function: authenticated and service_role may execute, anon may not');
+select is(
+  (select count(*) from pg_proc p
+    where p.pronamespace = 'app'::regnamespace
+      and p.proname in (select name from app_internal)
+      and (   has_function_privilege('anon', p.oid, 'execute')
+           or has_function_privilege('authenticated', p.oid, 'execute')
+           or not has_function_privilege('service_role', p.oid, 'execute'))),
+  0::bigint,
+  'the internal helpers: service_role only, never the API role');
+select is((select count(*) from pg_proc p where p.pronamespace = 'app'::regnamespace
+             and p.proname in (select name from app_internal)), 6::bigint,
+  'the internal helper list matches what exists');
 select cmp_ok((select count(*) from pg_proc where pronamespace = 'app'::regnamespace), '>=', 4::bigint,
   'the grant check saw the app functions');
 

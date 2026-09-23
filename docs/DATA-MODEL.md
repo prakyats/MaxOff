@@ -85,8 +85,8 @@ public.session_login(user_agent, ip_hash)    inserts session_events(login) for t
                                 member (app.current_member()); UNAUTHENTICATED otherwise. Called
                                 once per sign-in and once when a recovery link opens a session.
                                 No activity_log row: the session_events row is the record
-public.session_logout(user_agent, ip_hash)   the same for logout. 2.1 extends it with
-                                attendance_days.last_logout_at
+public.session_logout(user_agent, ip_hash)   the same for logout, then app.attendance_logout()
+                                (2.1, §3): today's attendance day gets last_logout_at
 public.bootstrap_owner(user_id, email, full_name, org_name)   service_role only. Creates the single
                                 organization when none exists and the first, active Owner member for
                                 an existing auth user; CONFLICT once any member exists. Called by
@@ -217,17 +217,124 @@ Entities with custom fields have `custom_fields jsonb not null default '{}'`, va
 ```
 attendance_days      id, member_id, work_date date (IST), first_login_at, is_day_off bool,
                      state attendance_state, submitted_choice attendance_choice null, submitted_at,
-                     proposed_by_system bool (absent check), final_status day_status null,
-                     decided_by, decided_at, decision_reason,
+                     proposed_by_system bool (the absent check, or a day derived from approved leave,
+                     or a system correction), final_status day_status null,
+                     decided_by null (system), decided_at, decision_reason,
                      last_logout_at, logout_not_recorded bool, overtime_flag bool, overtime_reason,
                      worked_on_leave bool ("1 day worked": Present approved on an approved-leave day),
-                     leave_request_id null, unique(member_id, work_date)
-attendance_events    id, attendance_day_id, action ('submitted'|'proposed_absent'|'derived_from_leave'|
+                     leave_request_id null, created_at, updated_at, unique(member_id, work_date)
+                     -- 2.1. No org_id: the member carries it (like session_events). RLS: own rows,
+                     -- all for attendance.view_all. NO insert/update/delete grant for the API role:
+                     -- every change is a transition function, and the state columns carry
+                     -- protect_columns as well. Audited through app.audit_override.
+                     -- is_day_off is decided when the row is created and never re-derived from
+                     -- today's holidays / weekly_off_days. Every time is the server clock (now());
+                     -- session_events.user_agent / ip_hash are caller-supplied and are not evidence
+attendance_events    id bigint identity, attendance_day_id, action ('submitted'|'proposed_absent'|'derived_from_leave'|
                      'approved'|'corrected'|'logout'|'overtime_flagged'), from_status, to_status, reason,
-                     actor_id null (system), at                    -- append-only
+                     actor_id null (system), at                    -- append-only (no API writes);
+                     -- readable with the parent day. Not audited: it is the history
 leave_requests       id, member_id, type leave_type, start_date, end_date, reason,
                      state leave_state, source ('form'|'attendance'|'owner'), supersedes_id null,
-                     decided_by, decided_at, decision_reason, created_at
+                     requests_cancellation bool, decided_by null, decided_at, decision_reason,
+                     created_at, updated_at
+                     -- RLS and grants as attendance_days. Audited. Half day: start_date = end_date.
+                     -- requests_cancellation (2.1): an employee's "cancel my approved leave" is a
+                     -- new submitted row that supersedes the original; on approval the original AND
+                     -- this row end cancelled, so "approved leave covering a date" is always
+                     -- state = approved and nothing else
+```
+Functions (2.1, WORKFLOWS §1/§2). `public` schema (RPC), security definer, search_path = '', the usual grants. Each audited write is labelled through `app.audit_override`; a system correction carries `meta.system = true` (the audit trigger records the caller as actor). **No notification rows yet:** 5.1 adds them to every function below; the WORKFLOWS §9 recipient is named in each function's comment. The `app.*` helpers of this task that write or read across members (`attendance_event`, `attendance_apply_leave`, `attendance_release_leave`, `attendance_logout`, `leave_covering`, `leave_overlaps`) are **executable by service_role only**: the security definer functions call them as the owner, and `00_core_base` lists them as the exception to "authenticated may execute app.*".
+```
+app.ist_day_start(date)         -> timestamptz: midnight IST of that date (stable). SQL mirror of
+                                core/time istDayStart(); use it for "events on this IST date" so an
+                                index on the timestamp still applies
+public.attendance_touch(user_agent, ip_hash)
+                                every active member. Writes session_events(login) when the caller has
+                                none on today's IST date (a session kept across midnight). For an
+                                Admin or Staff member with no day row yet: approved leave covering
+                                today creates it approved (final_status = the leave type,
+                                proposed_by_system, leave_request_id, event derived_from_leave; two
+                                covering requests -> the most recently decided), otherwise
+                                awaiting_choice. first_login_at = now(); is_day_off =
+                                app.is_working_day(today) is false. Idempotent: a second call, or a
+                                second device, gets the same row. Returns (day_id, work_date, state,
+                                gate_required, is_day_off, final_status, proposed_by_system,
+                                leave_request_id); whoever lacks attendance.self (the Owner) gets
+                                gate_required = false and no day. Audit action 'opened' |
+                                'derived_from_leave' | 'first_login' (a day the 23:59 job opened)
+public.attendance_submit(choice, reason)
+                                attendance.self, today's own day. awaiting_choice -> pending_review;
+                                or approved + proposed_by_system -> pending_review for choice =
+                                present only ("I'm working today", leave_request_id kept). A leave
+                                choice inserts leave_requests(source = attendance, today, submitted)
+                                and links it. reason optional. Event submitted. Notifies nobody
+public.attendance_decide(day_id, decision, status, reason)
+                                attendance.decide. decision = 'approve' (pending_review only;
+                                final_status = the submitted choice, or the proposed absent;
+                                worked_on_leave when the choice was Present on a day linked to
+                                approved leave, which stays untouched) or 'correct' (any state,
+                                status required, REASON_REQUIRED without a reason; awaiting_choice
+                                included, the gate then stops asking). A linked submitted request is
+                                decided in the same call: approved when the outcome equals its type,
+                                otherwise rejected with the same reason. Correcting to a leave type
+                                with no approved request of that type behind it creates
+                                leave_requests(source = owner, approved) and links it. Events
+                                approved | corrected. Bulk = one call per row. Notifies the member
+app.attendance_logout(member_id)
+                                called by session_logout() (re-created in 2.1, same signature).
+                                Today's day gets last_logout_at = now() and an event logout; with no
+                                day today, yesterday's day when it has a login and no logout (a real
+                                time, never made up). ONLY those two writes: state, final_status and
+                                decisions are never touched, an Owner-approved day included. The
+                                Owner has no day: session_events only
+public.attendance_flag_overtime(day_id, reason)
+                                attendance.self, own day, any state: overtime_flag = true and
+                                overtime_reason (a second call replaces the reason). Event
+                                overtime_flagged. No approval, no notification
+public.leave_submit(type, start_date, end_date, reason)
+                                attendance.self. start_date >= today, end_date >= start_date, half_day
+                                a single date, reason optional (VALIDATION otherwise). CONFLICT when
+                                the range overlaps the caller's own submitted or approved request;
+                                rejected, withdrawn, superseded and cancelled rows never block.
+                                source = form. Audit 'submitted'. Notifies the Owner
+public.leave_withdraw(request_id)
+                                own row, submitted -> withdrawn. Never a source = attendance request:
+                                the attendance day is the single door for those. Audit 'withdrawn'
+public.leave_request_change(request_id, type, start_date, end_date, reason, cancel)
+                                own approved request -> a new submitted row with supersedes_id.
+                                cancel = true copies type and dates and sets requests_cancellation;
+                                otherwise the new dates are validated as in leave_submit (start may
+                                stay the original's, end >= today) and checked for overlap against
+                                everything but the original. One open change per request (CONFLICT).
+                                The original stays approved until the decision. Audit
+                                'change_requested' | 'cancellation_requested'. Notifies the Owner
+public.leave_decide(request_id, decision, reason)
+                                attendance.decide, submitted only, never source = attendance. reject
+                                needs a reason (REASON_REQUIRED). approve: an original this row
+                                supersedes becomes superseded (a cancellation: the original becomes
+                                cancelled and this row too), then "a later leave wins" over every day
+                                in range: pending_review, or approved with a Present choice ->
+                                corrected to the leave type (actor null, reason "leave approved",
+                                event corrected, and the gate's own still-submitted request for
+                                that day is superseded); an untouched derived day follows the new
+                                request; an awaiting_choice day in range -> the derived day. CONFLICT
+                                when approved leave already covers the dates. A cancellation (and a
+                                superseded range) returns today's untouched derived day (approved,
+                                proposed_by_system, no submission) to awaiting_choice (actor null,
+                                reason "leave cancelled") so the gate asks again; past days are
+                                history and stay. Audit 'approved' | 'rejected' | 'cancelled'
+                                (+ 'superseded' | 'cancelled' on the original). Notifies the member
+public.leave_owner_edit(request_id, type, start_date, end_date, reason)
+                                attendance.decide, approved only: the original becomes superseded by
+                                a new source = owner, approved row (any dates; CONFLICT while the
+                                member has another open request on them, a pending change to this
+                                one included), then the same day corrections as leave_decide. Audit
+                                'superseded' + 'approved'. Notifies the member
+public.leave_owner_cancel(request_id, reason)
+                                attendance.decide, approved only, REASON_REQUIRED: -> cancelled, and
+                                today's untouched derived day returns to awaiting_choice. Notifies
+                                the member
 ```
 
 ## 4. Clients
