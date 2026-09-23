@@ -29,7 +29,7 @@
 | UI | Tailwind CSS + shadcn/ui, lucide icons, TanStack Query (client caches for live screens) | — |
 | Database, Auth, Realtime, cron | **Supabase**, **free plan** (Postgres 15+, RLS, Realtime, `pg_cron`, `pg_net`). Free means: no Supabase backups, no leaked-password check, ~1 day of log retention, 500 MB database, 5 GB transfer/month (ADR-0003, amended 2026-09-23) | Pro ($25/mo) when transfer passes ~4 GB/month or the database ~400 MB |
 | Files | **Cloudflare R2**, S3 multipart presigned uploads, behind `core/storage` | S3 / Supabase Storage (swap the adapter) |
-| Hosting | **Cloudflare Workers** through the OpenNext adapter. Free while building; **Workers Paid ($5/mo) from the pilot**, because the free plan allows only 10 ms CPU per request, which server-rendered pages exceed | Higher tiers, or any Node host |
+| Hosting | **Cloudflare Workers** through the OpenNext adapter. **Workers Paid ($5/mo) since 2026-09-23**: the free plan's 10 ms CPU per request is not enough for a signed-in server-rendered page (staging measured ~25 ms and returned Error 1102). One subscription covers staging and production | Higher tiers, or any Node host |
 | Archive | **Google Drive API** on one company account, behind `core/drive` | Workspace shared drives later |
 | Push | **Web Push (VAPID) + service worker**, behind `core/notifications` | FCM/APNs adapter for a future mobile app |
 | Email | **Resend** (Supabase Auth SMTP + notification fallback) | Any SMTP |
