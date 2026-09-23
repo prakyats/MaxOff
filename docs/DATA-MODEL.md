@@ -145,13 +145,16 @@ app.seed_org_lists()            AFTER INSERT on organizations: the launch job ti
 ## 1. Organization, people and access
 ```
 organizations        id, name, logo_file_id (added in 3.3 with files), timezone ('Asia/Kolkata'), created_at, updated_at
+                     -- API UPDATE grant: name only (timezone stays IST, invariant 8; phase 1 review)
 org_settings         org_id pk, weekly_off_days smallint[] (0=Sun..6=Sat), logout_reminder_time time,
                      ack_repeat_hours int (2), ack_escalate_hours int (4), ack_escalate_owner_hours int (8),
                      overdue_escalate_hours int (24), email_daily_cap_per_member int (20),
                      default_task_reminders jsonb, workload_warning_threshold int
+                     -- API UPDATE grant: the nine settings columns above, never org_id or the timestamps
                      -- defaults in brackets = launch settings (PRODUCT §7); default_task_reminders '[]' until
                      -- 5.3, workload_warning_threshold null until 4.3. Created by trigger with the organization
 holidays             id, org_id, date, name, created_at, updated_at, unique(org_id, date)
+                     -- API UPDATE grant: date, name
                      -- 1.4. RLS: every active member reads (a holiday is everyone's calendar);
                      -- insert/update/delete need settings.manage. Audited. The one configuration
                      -- table with a real DELETE (it has no archived_at): removing a mistyped date
@@ -189,6 +192,8 @@ push_subscriptions   id, member_id, endpoint unique, p256dh, auth, user_agent, c
 ```
 list_items           id, org_id, list_key ('job_title'|...), name, description, color, icon,
                      position, meta jsonb, is_system, archived_at, created_at, updated_at
+                     -- API UPDATE grant: name, description, color, icon, archived_at (position only through
+                     -- list_item_move(); list_key, is_system and meta never through the API)
                      -- 1.3 (core/lists). unique (org_id, list_key, lower(name)) where archived_at is
                      -- null. RLS: every active member reads; insert/update need lists.manage; no
                      -- DELETE (archive instead). Audited. Seeded per organization by trigger with the
@@ -339,8 +344,9 @@ notification_deliveries  id, notification_id, channel ('push'|'email'), state ('
 activity_log         id bigint identity, org_id, actor_id null (system), entity, entity_id, action,
                      diff jsonb (old/new), meta jsonb, at               -- append-only (UPDATE/DELETE revoked)
                      -- written only by app.audit_row_change() and transition functions (no INSERT grant).
-                     -- RLS: activity.view_all, or entries about the caller's own member row. Scope is per
-                     -- entity, never per actor: a row an Admin's action produced may describe an Owner-only table.
+                     -- RLS: activity.view_all, or entries about the caller's own member row except its
+                     -- deactivated entry (the reason is the Owner's note). Scope is per entity, never per
+                     -- actor: a row an Admin's action produced may describe an Owner-only table.
                      -- Each module adds a policy for the entities it owns (PERMISSIONS §2)
 eod_reports          id, org_id, report_date, data jsonb, generated_at, unique(org_id, report_date)
 month_snapshots      id, org_id, month date (1st), version int, data jsonb, closed_by, closed_at,

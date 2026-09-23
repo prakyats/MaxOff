@@ -64,6 +64,8 @@
 | Activity log | All | Entries about records they can see | Entries about their own tasks, attendance and leave |
 | Notifications | Own | Own | Own |
 
+**A person's own member row in the activity log:** every role reads the entries about their own `members` row (edits, the invite, a reactivation) **except the deactivation entry**: the Owner's reason is a management note and is never shown to the person, even after reactivation (phase 1 review, 2026-09-23).
+
 **Scope changes are live:** if the Owner reassigns a client to another Admin, the old Admin loses access immediately and the new Admin gains it.
 
 ## 3. Rules enforced by transition functions (not just RLS)
