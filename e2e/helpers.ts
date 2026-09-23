@@ -8,6 +8,8 @@ export const USERS = {
   deactivated: { email: "gone@maxoff.local", password: "gone-local-password", home: null },
   /** Only the recovery flow uses this one, since that test changes its password. */
   reset: { email: "reset@maxoff.local", password: "reset-local-password", home: "/my-day" },
+  /** Only the team flow uses this one, since that test deactivates them (1.3). */
+  leaver: { email: "leaver@maxoff.local", password: "leaver-local-password", home: "/my-day" },
 } as const;
 
 export type SessionRole = "owner" | "admin" | "staff";
@@ -57,11 +59,49 @@ export async function latestEmailTo(to: string): Promise<MailpitMessage> {
 export function confirmLinkFrom(email: MailpitMessage, baseURL: string | undefined): string {
   const href = email.HTML.match(/href="([^"]*\/auth\/confirm[^"]*)"/)?.[1]?.replace(/&amp;/g, "&");
   expect(href, "the email links to /auth/confirm").toBeTruthy();
+  return onBaseURL(href as string, baseURL);
+}
+
+/**
+ * An `/auth/confirm` link re-pointed at the server under test, keeping its path and query.
+ * The app builds invite links on `NEXT_PUBLIC_APP_URL` (port 3000 in `.env.local`) and GoTrue
+ * builds recovery links on `site_url`; the suite runs on its own port.
+ */
+export function onBaseURL(href: string, baseURL: string | undefined): string {
   expect(baseURL, "Playwright's baseURL is set").toBeTruthy();
-  const emailed = new URL(href as string);
-  expect(emailed.pathname).toBe("/auth/confirm");
-  expect(emailed.searchParams.get("token_hash"), "the token hash survives").toBeTruthy();
-  return new URL(`${emailed.pathname}${emailed.search}`, baseURL).toString();
+  const link = new URL(href);
+  expect(link.pathname).toBe("/auth/confirm");
+  expect(link.searchParams.get("token_hash"), "the token hash survives").toBeTruthy();
+  return new URL(`${link.pathname}${link.search}`, baseURL).toString();
+}
+
+/**
+ * The Supabase refresh token inside a browser context's auth cookie. `@supabase/ssr` stores the
+ * session as `base64-<base64url JSON>` in `sb-<ref>-auth-token`, split into `.0`, `.1`, … chunks
+ * when long. Reading it lets a test prove that a deactivated person's token is refused by GoTrue.
+ */
+export function refreshTokenFrom(cookies: ReadonlyArray<{ name: string; value: string }>): string {
+  const chunks = cookies
+    .filter((cookie) => /^sb-.*-auth-token(\.\d+)?$/.test(cookie.name))
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+  expect(chunks.length, "an auth cookie is present").toBeGreaterThan(0);
+  const raw = chunks.map((cookie) => cookie.value).join("");
+  const encoded = raw.startsWith("base64-") ? raw.slice("base64-".length) : raw;
+  const json = raw.startsWith("base64-")
+    ? Buffer.from(encoded, "base64url").toString("utf8")
+    : decodeURIComponent(encoded);
+  const session = JSON.parse(json) as { refresh_token?: string };
+  expect(session.refresh_token, "the cookie holds a refresh token").toBeTruthy();
+  return session.refresh_token as string;
+}
+
+/** The local GoTrue, for calls the app itself never makes. */
+export function supabaseAuth(): { url: string; apikey: string } {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const apikey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  expect(url, "NEXT_PUBLIC_SUPABASE_URL is set (playwright.config loads .env.local)").toBeTruthy();
+  expect(apikey, "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY is set").toBeTruthy();
+  return { url: `${url as string}/auth/v1`, apikey: apikey as string };
 }
 
 /** Removes every message so a re-run never picks up an older link. */

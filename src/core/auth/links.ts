@@ -46,13 +46,17 @@ export async function verifyAuthLink(params: {
   const userId = data.user?.id;
   if (error || !userId) return EXPIRED_LINK_PATH;
 
-  const { data: member, error: memberError } = await supabase
-    .from("members")
-    .select("status")
-    .eq("id", userId)
-    .maybeSingle();
+  // RLS hides the row from anyone not active, so the status comes from member_self_status().
+  const { data: status, error: memberError } = await supabase.rpc("member_self_status");
   if (memberError) throw memberError;
-  if (member?.status !== "active") {
+
+  // A link is the one way an invited person opens a session (WORKFLOWS §1a): no login row yet
+  // (session_login() needs an active member); setPassword() accepts the invite and records the
+  // login. A recovery link counts too: GoTrue confirms the auth user the first time any link is
+  // opened, after which only recovery tokens can be issued, and "Forgot password" then works as
+  // the self-serve way back to /set-password. Deactivated or unknown people stay out.
+  if (status === "invited") return SET_PASSWORD_PATH;
+  if (status !== "active") {
     await supabase.auth.signOut({ scope: "local" });
     return INACTIVE_LINK_PATH;
   }

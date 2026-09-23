@@ -331,6 +331,26 @@ comment on function public.member_invite_refresh(uuid) is
   'team.manage, member invited. Records that a fresh invite link is being issued (invited_at, audit '
   'action invite_link_issued); the action then generates it, and the previous link stops working.';
 
+-- RLS shows a member row only to active members (app.current_member()), so an invited person
+-- opening their link cannot read their own status. This answers with the caller's own status
+-- and nothing else: null for an auth user with no member row.
+create or replace function public.member_self_status()
+returns public.member_status
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select m.status from public.members m where m.id = auth.uid();
+$$;
+
+revoke all on function public.member_self_status() from public, anon;
+grant execute on function public.member_self_status() to authenticated, service_role;
+
+comment on function public.member_self_status() is
+  'The caller''s own members.status (null without a row), readable whatever the status. Used by '
+  'the invite link and set-password steps, which run before the person is active.';
+
 create or replace function public.member_accept_invite()
 returns uuid
 language plpgsql

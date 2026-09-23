@@ -12,6 +12,6 @@ export type CurrentMember = {
   email: string;
   role: MemberRole;
   name: string;
-  /** Job titles are data (PRODUCT §3), shown for context only. Filled from 1.3. */
+  /** The job title's name (`list_items`, PRODUCT §3): context only, never a permission. */
   jobTitle: string | null;
 };

@@ -57,7 +57,9 @@ app.audit_row_change()          AFTER INSERT/UPDATE/DELETE row trigger writing a
                                 setting app.audit_override = '{"action": "...", "meta": {...}}' first
                                 (1.3): the trigger's row then carries the workflow action name and meta
                                 (e.g. the deactivation reason) instead of a generic 'update', and the
-                                function writes no second row. Cleared by the trigger after use
+                                function writes no second row. Consumed by the FIRST audited write of
+                                the transaction, so set it right before the row it describes (a
+                                function that writes a history row first labels that row instead)
 app.in_transition()             true while the statement runs as the function owner (inside a security
                                 definer transition function, a migration, a seed or a service-role job);
                                 false for a direct API write as authenticated / anon. Nothing to switch on
@@ -96,6 +98,9 @@ public.member_invite_refresh(member_id)
                                 team.manage, member must be invited. Bumps invited_at; audit action
                                 'invite_link_issued'. The action then generates a fresh link, and the
                                 previous link stops working (GoTrue keeps one token per user)
+public.member_self_status()     the caller's own status whatever it is (null with no row). RLS shows a
+                                member row only to active members, so the invite link and set-password
+                                steps read the status through this instead
 public.member_accept_invite()   the caller's own row, invited → active with joined_at. Called by
                                 setPassword() once the invited person's password is stored. Audit
                                 action 'accepted'

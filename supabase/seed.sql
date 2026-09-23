@@ -3,10 +3,11 @@
 -- `db push` only, so nothing here reaches a hosted project.
 --
 -- 1.1: the organization (org_settings follows by trigger).
--- 1.2: five local sign-ins for development and Playwright (README → "Local sign-ins"). The
+-- 1.2: local sign-ins for development and Playwright (README → "Local sign-ins"). The
 --      passwords below are development-only fixtures, never reused anywhere. A hosted Owner is
 --      created by `pnpm bootstrap:owner`, which prints a one-time link and holds no password.
--- 1.3/1.4 add the Pixora lists.
+-- 1.3: one more sign-in for the deactivation test. The job titles are seeded by the migration
+--      (trigger on organizations), not here. 1.4 adds the other Pixora lists.
 
 insert into public.organizations (name)
 select 'Pixora Clips'
@@ -20,7 +21,9 @@ insert into seed_users values
   ('10000000-0000-4000-8000-000000000003', 'staff@maxoff.local', 'staff-local-password', 'Local Staff', null,         'staff', 'active'),
   ('10000000-0000-4000-8000-000000000004', 'gone@maxoff.local',  'gone-local-password',  'Gone Staff',  null,         'staff', 'deactivated'),
   -- Used only by the Playwright recovery-link test, which changes this password.
-  ('10000000-0000-4000-8000-000000000005', 'reset@maxoff.local', 'reset-local-password', 'Reset Staff', null,         'staff', 'active');
+  ('10000000-0000-4000-8000-000000000005', 'reset@maxoff.local', 'reset-local-password', 'Reset Staff', null,         'staff', 'active'),
+  -- Used only by the Playwright team test, which deactivates this person (1.3).
+  ('10000000-0000-4000-8000-000000000006', 'leaver@maxoff.local', 'leaver-local-password', 'Leaver Staff', null,       'staff', 'active');
 
 -- What GoTrue writes for a confirmed email + password user (`auth.users` + one identity).
 insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,

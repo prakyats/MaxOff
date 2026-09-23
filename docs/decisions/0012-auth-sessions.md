@@ -1,6 +1,6 @@
 # ADR-0012: Auth sessions: token-hash links, proxy as refresh, functions for session events
 
-- **Status:** accepted
+- **Status:** accepted, amended 2026-09-22 (task 1.3): **invites are not a GoTrue email.** The invite action calls `auth.admin.generateLink({ type: "invite" })`, which creates the sign-in without a password and returns the token hash, and the app builds `/auth/confirm?token_hash=…&type=invite` itself; the email goes out through `core/notifications` `sendEmail()` (Resend, or the log sender), so no GoTrue invite template exists and no SMTP is needed for invites. The same link is shown once to the Owner ("Copy invite link" issues a fresh one and the previous stops working: GoTrue keeps one token per user), which is how people are invited until a sending domain exists and the "I never got the email" path afterwards. Links live for `otp_expiry` = 24 h (one setting for invite and recovery links; the 10.3 security review revisits it) and are one-time. `verifyAuthLink()` admits an `invited` member for an invite **or** a recovery link (opening any link confirms the sign-in at GoTrue, after which only recovery tokens exist, so the app issues `type=recovery` for a still-invited person and "Forgot password" recovers an abandoned invite); `setPassword()` then runs `member_accept_invite()` and `session_login()`. `member_deactivate()` deletes the person's `auth.refresh_tokens` and `auth.sessions` rows inside the transition, so a live session cannot refresh (proven by pgTAP and by a Playwright test replaying a captured refresh token).
 - **Date:** 2026-09-22
 
 ## Context
@@ -17,7 +17,7 @@ Task 1.2 wires Supabase Auth (email + password, invite-only) into the app. Three
 Also decided with it: passwords are at least 12 characters with no composition rule (hosted projects add leaked-password protection); logout ends this device's session only (several devices are allowed); `session_events.ip_hash` is a salted SHA-256 (`SESSION_IP_HASH_SALT`) or null, never an unsalted hash.
 
 ## Consequences
-- Every auth email template, on every environment, must build the `/auth/confirm` URL; the default `{{ .ConfirmationURL }}` does not work. 1.3 adds the invite template the same way.
+- Every auth email template, on every environment, must build the `/auth/confirm` URL; the default `{{ .ConfirmationURL }}` does not work. (1.3 sends invites from the app instead, see the amendment; only the recovery template is GoTrue's.)
 - Route guards never live in `proxy.ts`: a new page is protected by being under `(app)` (or by calling `requireMember()` / `requirePermission()`), and the proxy's public-path list (`core/auth/paths.ts`) grows only for pages that must work without a session.
 - `getCurrentMember()` stays the single seam; anything that wants the session asks `core/auth`, never the Supabase client directly.
-- 2.1's `attendance_touch()` records the first login of an IST day itself and extends `session_logout()` with `attendance_days.last_logout_at`; 1.3's deactivate transition should also revoke the person's refresh tokens so their next request ends at once rather than on the next page load.
+- 2.1's `attendance_touch()` records the first login of an IST day itself and extends `session_logout()` with `attendance_days.last_logout_at`; 1.3's deactivate transition revokes the person's refresh tokens (amendment above) so their next request ends at once rather than on the next page load.

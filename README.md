@@ -43,6 +43,7 @@ the local stack (the deploy workflow never seeds), and the passwords are fixture
 | `staff@maxoff.local` | `staff-local-password` | Staff |
 | `gone@maxoff.local` | `gone-local-password` | deactivated Staff (refused at sign-in) |
 | `reset@maxoff.local` | `reset-local-password` | Staff, used only by the Playwright recovery-link test (which changes its password) |
+| `leaver@maxoff.local` | `leaver-local-password` | Staff, used only by the Playwright team test (which deactivates and reactivates them) |
 
 Password-reset emails from the local stack land in Mailpit: http://127.0.0.1:54324.
 
@@ -185,6 +186,21 @@ Variables (**Environment variables**):
 are **not** wired yet: they need a verified sending domain (`mail.maxoff.app`, see PROGRESS.md).
 Until then the app logs a start-up warning and sends nothing. They stay out of CI on purpose.
 
+### Inviting people (task 1.3)
+
+People → **Invite** (Owner only): email, name, role (Admin or Staff) and job title. The app
+creates the sign-in without a password (`auth.admin.generateLink`, type `invite`), writes the
+member row as `invited` and shows the **invite link** once. The same link goes out by email when
+`RESEND_API_KEY` is set; until a sending domain exists, copy it from the dialog and send it
+yourself (WhatsApp is fine: the link is one-time and expires after 24 h). **Copy invite link**
+on a pending row issues a fresh link and the previous one stops working. The person opens the
+link, chooses a password and lands on their profile as an active member.
+
+**Deactivate** (or **Revoke invite** on a pending row) takes effect at once: the person's auth
+sessions and refresh tokens are deleted inside the transition, so an open tab cannot renew its
+session, and the next page load ends at sign-in. **Reactivate** brings a member back active, or
+back to invited if they never accepted (issue a new link then).
+
 ### Hosted auth settings
 
 `supabase/config.toml` only configures the local stack. Apply the same on each hosted project
@@ -198,8 +214,10 @@ in the Supabase dashboard (**Authentication**), once per project:
 | Emails → Templates → **Reset password** | Subject "Set your MaxOff password"; body = `supabase/templates/recovery.html`. The link **must** be `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery` (the app verifies the token hash server-side; the default `{{ .ConfirmationURL }}` will not work) |
 | Emails → SMTP settings | **Until a sending domain exists, leave Supabase's built-in mailer**: it delivers only to the email addresses of the Supabase project's own team members, a few per hour, which is enough for the Owner on staging. With `mail.maxoff.app` verified in Resend: host `smtp.resend.com`, port `465`, user `resend`, password = a Resend API key, sender `MaxOff <noreply@mail.maxoff.app>` |
 | Rate Limits | Keep the defaults (30 sign-in attempts per 5 min per IP, 30 token verifications, 150 refreshes). Raise **emails sent per hour** only after custom SMTP is on |
+| Sign In / Providers → Email | **Email OTP expiration: 86400 s (24 h)**, the same as `config.toml` `otp_expiry` (decided 2026-09-22): invite links get shared and opened hours later. It also governs recovery links; every link is still one-time |
 
-The invite template (`type=invite`, same `/auth/confirm` route) is added in task 1.3.
+There is **no invite template** to configure: the app builds invite links itself and sends the
+email through `core/notifications` (Resend), so GoTrue never mails an invite (task 1.3).
 
 ### What a deploy does
 

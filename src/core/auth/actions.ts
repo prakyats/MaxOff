@@ -8,7 +8,7 @@ import { AppError, action, ok, type Result } from "@/core/errors";
 import { setSentryUser } from "@/core/observability/user";
 
 import { sessionIpHashSalt } from "./env";
-import { LOGIN_PATH, safeNextPath } from "./paths";
+import { LOGIN_PATH, safeNextPath, WELCOME_PATH } from "./paths";
 import { sessionMetaFrom } from "./request-meta";
 import {
   type LoginInput,
@@ -37,19 +37,16 @@ async function sessionMeta(): Promise<{ user_agent?: string; ip_hash?: string }>
   };
 }
 
-async function memberStatus(supabase: ServerSupabase, userId: string) {
-  const { data, error } = await supabase
-    .from("members")
-    .select("status")
-    .eq("id", userId)
-    .maybeSingle();
+/** The caller's own status, whatever it is (RLS shows the row only to active members). */
+async function memberStatus(supabase: ServerSupabase) {
+  const { data, error } = await supabase.rpc("member_self_status");
   if (error) throw error;
-  return data?.status ?? null;
+  return data;
 }
 
 /** Records the login and refuses (ending the session) anyone who is not an active member. */
 async function recordLoginOrSignOut(supabase: ServerSupabase, userId: string): Promise<void> {
-  if ((await memberStatus(supabase, userId)) !== "active") {
+  if ((await memberStatus(supabase)) !== "active") {
     await supabase.auth.signOut({ scope: "local" });
     throw new AppError("FORBIDDEN", INACTIVE_MESSAGE);
   }
@@ -93,10 +90,11 @@ export const logout = action(async (): Promise<Result<never>> => {
 });
 
 /**
- * Sets the password of the current session (opened by a recovery link through
- * `/auth/confirm`, which already checked the member and recorded the login). The status is
- * checked again before anything changes, so a session that turned inactive in between
- * changes nothing and is ended.
+ * Sets the password of the current session, opened by a recovery or an invite link through
+ * `/auth/confirm`. The status is checked again before anything changes, so a session that
+ * turned inactive in between changes nothing and is ended. For an **invited** person this is
+ * the accept step: once the password is stored, `member_accept_invite()` makes them active,
+ * the login is recorded and they land on their profile.
  */
 export const setPassword = action(async (input: SetPasswordInput): Promise<Result<never>> => {
   const { password } = setPasswordSchema.parse(input);
@@ -105,13 +103,21 @@ export const setPassword = action(async (input: SetPasswordInput): Promise<Resul
   const { data: claims } = await supabase.auth.getClaims();
   const userId = claims?.claims.sub;
   if (!userId) throw new AppError("UNAUTHENTICATED", "This link has expired. Ask for a new one.");
-  if ((await memberStatus(supabase, userId)) !== "active") {
+  const status = await memberStatus(supabase);
+  if (status !== "active" && status !== "invited") {
     await supabase.auth.signOut({ scope: "local" });
     throw new AppError("FORBIDDEN", INACTIVE_MESSAGE);
   }
 
   const { error } = await supabase.auth.updateUser({ password });
   if (error) throw error;
+
+  if (status === "invited") {
+    const { error: acceptError } = await supabase.rpc("member_accept_invite");
+    if (acceptError) throw acceptError;
+    await recordLoginOrSignOut(supabase, userId);
+    redirect(WELCOME_PATH);
+  }
 
   redirect("/");
 });

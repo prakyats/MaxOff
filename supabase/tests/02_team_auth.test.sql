@@ -11,10 +11,11 @@ alter table public.organizations disable trigger audit_row_change;
 alter table public.org_settings disable trigger audit_row_change;
 alter table public.list_items disable trigger audit_row_change;
 delete from public.session_events;
+delete from public.activity_log; -- first: actor_id references members
 delete from public.members;
 delete from auth.identities;
 delete from auth.users;
-delete from public.activity_log;
+delete from public.activity_log; -- again: the member deletes were audited, and rows name the organization
 delete from public.list_items; -- the seeded job titles (1.3) reference the organization
 delete from public.org_settings;
 delete from public.organizations;

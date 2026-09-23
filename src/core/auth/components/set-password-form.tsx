@@ -12,7 +12,7 @@ import { PASSWORD_MIN_LENGTH } from "../schemas";
 
 import { FormAlert } from "./form-alert";
 
-/** New password + confirmation for the session a recovery (later: invite) link opened. */
+/** New password + confirmation for the session a recovery or invite link opened. */
 export function SetPasswordForm() {
   const [state, formAction, pending] = useActionState(
     async (_previous: Result<never> | null, formData: FormData) =>

@@ -13,3 +13,4 @@ export {
   type PermissionKey,
   ROLE_GRANTS,
 } from "./keys";
+export { Can } from "./can-component";

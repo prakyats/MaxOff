@@ -7,11 +7,13 @@ select plan(143);
 
 -- The local seed (1.2) holds five sign-ins; the tests build their own team on an empty one.
 -- Rolled back with everything else at the end.
+-- activity_log first: its actor_id references members (rows exist after a Playwright run).
 delete from public.session_events;
+delete from public.activity_log;
 delete from public.members;
 delete from auth.identities;
 delete from auth.users;
-delete from public.activity_log;
+delete from public.activity_log; -- again: the member deletes were audited
 
 -- Fixtures --------------------------------------------------------------------------------
 -- Fixed uuids keep the assertions readable. The organization is the seeded one when present

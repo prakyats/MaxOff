@@ -12,6 +12,7 @@ export {
   LOGIN_PATH,
   safeNextPath,
   SET_PASSWORD_PATH,
+  WELCOME_PATH,
 } from "./paths";
 export {
   type LoginInput,

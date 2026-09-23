@@ -6,6 +6,8 @@
 export const LOGIN_PATH = "/login";
 export const FORGOT_PASSWORD_PATH = "/forgot-password";
 export const SET_PASSWORD_PATH = "/set-password";
+/** Where an accepted invite lands: the profile, with a welcome (WORKFLOWS §1a). */
+export const WELCOME_PATH = "/me?welcome=1";
 
 /** Pages that exist for people without a session. */
 const PUBLIC_PAGES = new Set([LOGIN_PATH, FORGOT_PASSWORD_PATH, "/offline", "/robots.txt"]);

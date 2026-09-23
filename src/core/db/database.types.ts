@@ -392,6 +392,10 @@ export type Database = {
       };
       member_invite_refresh: { Args: { member_id: string }; Returns: string };
       member_reactivate: { Args: { member_id: string }; Returns: string };
+      member_self_status: {
+        Args: never;
+        Returns: Database["public"]["Enums"]["member_status"];
+      };
       session_login: {
         Args: { ip_hash?: string; user_agent?: string };
         Returns: string;

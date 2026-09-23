@@ -2,15 +2,17 @@
 -- (invite, invite link refresh, accept, deactivate incl. auth session deletion, reactivate).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(85);
+select plan(97);
 
 -- The local seed holds an organization (with its seeded job titles) and five sign-ins. Keep the
 -- organization and its lists; replace the people with fixtures. Rolled back at the end.
+-- activity_log first: its actor_id references members (rows exist after a Playwright run).
 delete from public.session_events;
+delete from public.activity_log;
 delete from public.members;
 delete from auth.identities;
 delete from auth.users;
-delete from public.activity_log;
+delete from public.activity_log; -- again: the member deletes were audited
 
 create temporary table fx (key text primary key, id uuid not null);
 insert into fx values
@@ -148,13 +150,20 @@ select lives_ok(
 select throws_ok(
   $$ delete from public.list_items where name = 'Motion Designer' $$,
   '42501', null, 'nobody deletes a list item through the API (archive instead)');
+select pg_temp.as_member('admin');
+select lives_ok(
+  $$ update public.list_items set archived_at = now() where name = 'Colorist' $$,
+  'an Admin archives a job title too (lists.manage)');
 select pg_temp.as_system();
+select is((select count(*) from public.list_items where archived_at is not null), 2::bigint,
+  'both archives took effect');
 select is(
   (select count(*) from public.activity_log where entity = 'list_items' and action = 'insert'),
   2::bigint, 'both inserts were audited');
-select is(
-  (select actor_id from public.activity_log where entity = 'list_items' and action = 'update'),
-  pg_temp.fx('owner'), 'the archive was audited with the Owner as actor');
+select results_eq(
+  $$ select actor_id from public.activity_log where entity = 'list_items' and action = 'update' order by id $$,
+  $$ values (pg_temp.fx('owner')), (pg_temp.fx('admin')) $$,
+  'each archive was audited with its actor');
 
 -- members.job_title_id ------------------------------------------------------------------------
 select pg_temp.as_member('owner');
@@ -179,6 +188,18 @@ select pg_temp.as_member('admin');
 select is(
   (select job_title_id from public.member_directory where id = pg_temp.fx('staff')),
   pg_temp.job_title('Video Editor'), 'an Admin sees the job title through member_directory');
+update public.members set job_title_id = pg_temp.job_title('Graphic Designer'), role = 'admin'
+  where id = pg_temp.fx('staff');
+select pg_temp.as_system();
+select results_eq(
+  $$ select job_title_id, role::text from public.members where id = pg_temp.fx('staff') $$,
+  $$ select pg_temp.job_title('Video Editor'), 'staff' $$,
+  'an Admin cannot change another member''s job title or role (the row is invisible to their UPDATE)');
+select pg_temp.as_member('staff');
+select results_eq(
+  $$ select id from public.member_directory $$,
+  $$ values (pg_temp.fx('staff')) $$,
+  'Staff still see only their own row in the recreated member_directory');
 select pg_temp.as_system();
 
 -- member_invite ---------------------------------------------------------------------------------
@@ -254,10 +275,31 @@ select throws_ok($$ select public.member_invite_refresh(pg_temp.fx('staff')) $$,
   'P0001', 'INVALID_STATE', 'an active member has no invite to refresh');
 select throws_ok($$ select public.member_invite_refresh(pg_temp.fx('nobody')) $$,
   'P0001', 'NOT_FOUND', 'an unknown id is not found');
+select throws_ok($$ select public.member_invite_refresh(pg_temp.fx('deactivated')) $$,
+  'P0001', 'INVALID_STATE', 'a deactivated person has no invite to refresh (reactivate first)');
 select pg_temp.as_member('admin');
 select throws_ok($$ select public.member_invite_refresh(pg_temp.fx('newcomer')) $$,
   'P0001', 'FORBIDDEN', 'an Admin cannot refresh an invite');
 select pg_temp.as_system();
+
+-- member_self_status ------------------------------------------------------------------------------
+select pg_temp.as_member('invited');
+select is(public.member_self_status(), 'invited'::public.member_status,
+  'an invited person reads their own status (RLS would show them nothing)');
+select pg_temp.as_member('deactivated');
+select is(public.member_self_status(), 'deactivated'::public.member_status,
+  'a deactivated person reads their own status');
+select pg_temp.as_member('staff');
+select is(public.member_self_status(), 'active'::public.member_status, 'an active member reads active');
+select pg_temp.as_member('nobody');
+select is(public.member_self_status(), null, 'an auth user with no member row gets null');
+select pg_temp.as_system();
+set local role anon;
+select throws_ok($$ select public.member_self_status() $$, '42501', null, 'anon cannot call member_self_status');
+select pg_temp.as_system();
+select ok(not has_function_privilege('anon', 'public.member_self_status()', 'execute')
+  and has_function_privilege('authenticated', 'public.member_self_status()', 'execute'),
+  'member_self_status is granted to authenticated only');
 
 -- member_accept_invite ---------------------------------------------------------------------------
 select pg_temp.as_member('invited');
@@ -360,6 +402,8 @@ select is(public.member_reactivate(pg_temp.fx('never')), 'invited',
   'someone who never accepted goes back to invited');
 select throws_ok($$ select public.member_reactivate(pg_temp.fx('admin')) $$,
   'P0001', 'INVALID_STATE', 'an active member cannot be reactivated');
+select throws_ok($$ select public.member_reactivate(pg_temp.fx('nobody')) $$,
+  'P0001', 'NOT_FOUND', 'an unknown id is not found');
 select pg_temp.as_system();
 select results_eq(
   $$ select entity_id, meta ->> 'to_status' from public.activity_log

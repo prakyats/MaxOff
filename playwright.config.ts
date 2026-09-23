@@ -3,6 +3,15 @@ import { defineConfig, devices } from "@playwright/test";
 const PORT = 3100;
 const baseURL = `http://localhost:${PORT}`;
 const isCI = Boolean(process.env.CI);
+
+// The team spec talks to the local GoTrue directly (a deactivated person's refresh token must
+// be refused), so it needs the Supabase URL and publishable key. `next start` reads them from
+// `.env.local` itself; the Playwright process gets them here. CI exports them instead.
+try {
+  process.loadEnvFile(".env.local");
+} catch {
+  // No .env.local (CI): the variables are already in the environment.
+}
 const PRODUCTION_SPECS = /production\.spec\.ts$/;
 const SETUP_SPECS = /\.setup\.ts$/;
 
