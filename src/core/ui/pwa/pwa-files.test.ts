@@ -37,11 +37,18 @@ describe("manifest.webmanifest", () => {
     expect(manifest.display).toBe("standalone");
   });
 
-  it("uses the light background token for its colours", () => {
-    const background = token(":root", "background");
-    expect(background).toBeDefined();
-    expect(manifest.theme_color).toBe(background);
-    expect(manifest.background_color).toBe(background);
+  it("takes theme_color from the DARK token and background_color from the light one", () => {
+    // They differ on purpose (owner decision 2026-09-23, confirmed on an S23). An installed PWA
+    // takes its band from the manifest, and a manifest has one theme_color that cannot vary by
+    // colour scheme — so the media-query pair that fixes Chrome's tab toolbar cannot reach it.
+    // Dark wins because the app is dark-first on phones: a dark band above a light app reads as
+    // an intentional header, a light band above a dark app reads as broken. Chrome picks the
+    // glyph colour from this value's luminance, so the status bar stays readable either way.
+    // background_color stays light: it paints the splash screen, not the band.
+    expect(manifest.theme_color).toBe(token(".dark", "background"));
+    expect(manifest.theme_color).toBe(THEME_COLORS.dark);
+    expect(manifest.background_color).toBe(token(":root", "background"));
+    expect(manifest.background_color).toBe(THEME_COLORS.light);
   });
 
   it("names icons that exist, including a maskable one", () => {

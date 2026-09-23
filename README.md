@@ -359,6 +359,33 @@ happens when `phase-0` merges. A `v*` tag pushed before the `production` environ
 fails at the build or migration step and deploys nothing. After it, open the staging URL, install the app from the
 browser menu (desktop and phone), and trigger a test error to see it in Sentry.
 
+### Installing on a phone (PWA)
+
+Open the app and use **Add to home screen** / **Install app**. The installed shell is not the
+browser: it takes its status-bar band from the **manifest's `theme_color`**, and a manifest has
+exactly one, which cannot vary by colour scheme.
+
+That is why `theme_color` and `background_color` deliberately differ (`public/manifest.webmanifest`,
+asserted in `pwa-files.test.ts`):
+
+| Field | Token | Why |
+|---|---|---|
+| `theme_color` | **dark** `--background` | The installed band. MaxOff is dark-first on phones, and a dark band above a light app reads as an intentional header, where a light band above a dark app reads as broken. Chrome picks the glyph colour from this value's luminance, so the clock stays readable in both themes |
+| `background_color` | light `--background` | The splash screen while the app starts, not the band |
+
+The `<meta name="theme-color">` pair in the root layout — plus `ThemeColorMeta`, which rewrites it
+when someone picks Light or Dark explicitly — governs **Chrome's tab toolbar**, not the installed
+shell. Confirmed on a Galaxy S23: the toolbar follows the in-app theme, the installed band does not.
+
+**Changing `theme_color` does not reach an already-installed app.** Android refreshes a manifest on
+its own schedule, so a deploy alone proves nothing. To test a change: **uninstall the app, reload
+the page in the browser, then reinstall it.** Anything less can show you the old band and look like
+the change failed.
+
+**iOS is different again** and is not covered by any of this: an installed iPhone app takes its
+status bar from `apple-mobile-web-app-status-bar-style`, which is `default` on purpose (see
+PROGRESS). That needs its own check on real hardware before the 6.6 pilot.
+
 ## Architecture rules that lint enforces
 
 `eslint.config.mjs` encodes ARCHITECTURE §3.1: `app → modules (index.ts only) → core`, core
