@@ -231,6 +231,97 @@ email through `core/notifications` (Resend), so GoTrue never mails an invite (ta
 4. Uploads `SUPABASE_SECRET_KEY` and `SESSION_IP_HASH_SALT` as Worker secrets, then
    `wrangler deploy --env <name>`.
 
+### Branch previews (task 2.0)
+
+Every push to a branch other than `main` builds the app and uploads it as a new **version** of
+the staging Worker, so a phase can be judged on a real phone from the first task instead of
+after the merge. `.github/workflows/preview.yml`. Three URLs come back:
+
+| URL | Shape | Moves when |
+|---|---|---|
+| **Latest** | `https://latest-maxoff-staging.<subdomain>.workers.dev` | *any* branch is pushed. The permanent phone bookmark: add it to the home screen once and it always shows the newest preview |
+| **Branch** | `https://<branch>-maxoff-staging.<subdomain>.workers.dev` | that branch is pushed. The precise one |
+| **Commit** | `https://<version-prefix>-maxoff-staging.<subdomain>.workers.dev` | never. `<version-prefix>` is the first 8 characters of the Worker version ID, not the git SHA |
+
+On the `pixoraclips` subdomain the first two are
+`https://latest-maxoff-staging.pixoraclips.workers.dev` and, for the `phase-2` branch,
+`https://phase-2-maxoff-staging.pixoraclips.workers.dev`.
+
+**With two branches in flight, `latest` follows whichever pushed most recently** — it says nothing
+about which branch it is showing. When it matters which is which (comparing two approaches, or
+handing someone a link to one specific thing), use the branch URL. `latest` is for the common case
+of one branch at a time and a phone that should not need a new bookmark every phase.
+
+The branch alias is the branch name with everything outside `a-z0-9-` turned into a dash,
+lowercased; it gains a `b-` prefix if the branch starts with a digit, and is truncated with a short
+hash if `<alias>-maxoff-staging` would pass the 63-character DNS limit. The workflow log and the PR
+comment always print the URLs Cloudflare actually returned.
+
+An alias is written as an annotation on a version at upload time, and there is no command that
+adds one to an existing version, so a version carries exactly one alias. The workflow therefore
+uploads the same bundle twice per push — once aliased to the branch, once to `latest`. Assets are
+content-addressed, so the second upload re-sends almost nothing; it does mean two versions per
+push in `wrangler versions list`, both carrying the same commit as their tag.
+
+**A preview is never a deployment.** The workflow runs `wrangler versions upload`, which uploads
+code and configuration and stops there: `https://maxoff-staging.<subdomain>.workers.dev` goes on
+serving whatever `main` last deployed, and routes, custom domains and cron triggers are untouched
+(wrangler prints "To deploy this version to production traffic use the command
+`wrangler versions deploy`" at the end of every upload — that command is nowhere in this repo).
+Production is out of reach twice over: the workflow only ever passes `--env staging`, and the
+production environment sets `preview_urls: false` in `wrangler.jsonc`, so production versions get
+no public URL at all. The workflow also never runs `wrangler secret put` and never uses
+`wrangler-action`'s `secrets:` block, because both of those publish a deployment; the preview
+version inherits the staging Worker's existing secrets instead.
+
+**What a preview runs against.** The staging Supabase project, with the `staging` GitHub
+environment's variables, built with `NEXT_PUBLIC_APP_ENV=staging` — which is what gives a preview
+the same security headers, the same `X-Robots-Tag: noindex, nofollow` and the same
+`robots.txt: Disallow: /` as staging. Signing in works normally (email + password is server-side
+and needs no redirect allow-list). Two smaller notes: `NEXT_PUBLIC_APP_URL` is set to the preview's
+own origin, so **invite** links generated on a preview point back at that preview, while
+**password-recovery** mails come from GoTrue's Site URL and land on staging either way; and
+`SENTRY_AUTH_TOKEN` is deliberately left out, so previews upload no source maps and cut no Sentry
+release — runtime errors still arrive, tagged `staging`, with minified stacks.
+
+**Previews never run migrations.** Migrations reach staging from `main` (the deploy workflow) or
+from a tag, and from nowhere else. A branch that adds migrations therefore previews against a
+staging database that lacks them, and the PR comment says so in a warning block listing the files.
+When that schema really is wanted on staging: **Actions → Preview → Run workflow →** pick the
+branch **→ `staging-migrations`**. It refuses to run on `main`, lists what it will apply, and
+shares a concurrency group with the staging deploy so it can never race one. Staging is shared and
+migrations are append-only, so what it pushes stays there until the branch merges.
+
+**Where the URLs appear.** All three land in the run's job summary always, and in a single PR
+comment that is edited in place on every push (matched by an HTML marker, so pushes never stack
+up comments). A
+phase branch usually has no PR until `/review-phase`, which is fine — the alias is stable, so the
+bookmark works long before a PR exists.
+
+**Not triggered by:** pushes to `main` (that is the staging deploy), tag pushes, or pushes that
+only touch `docs/**`, `**/*.md` or `screenshots/**`. A docs-only commit cannot change the UI and
+the alias keeps serving the last real build, so it is not worth a seven-minute run.
+
+**Two things that must be true in repository settings**, or previews fail before the first step:
+the `staging` environment's **deployment branches** rule has to allow branches other than `main`
+("All branches" is the default), and it must not have a required reviewer. Preview runs appear in
+the Environments panel under `staging` because they borrow its variables and secrets; the job sets
+no environment URL, so the panel still shows the real staging deployment. The **Run workflow**
+button for `staging-migrations` only appears once `preview.yml` is on `main` — GitHub lists
+`workflow_dispatch` from the default branch only. Until then, push a branch's migrations with
+`pnpm supabase db push` locally.
+
+**Cleaning up, and what it costs.** Nothing to delete and nothing to pay for. There is no
+`wrangler` command to remove an alias — an alias is only ever created during a version upload, so
+pushing again just repoints it, and Cloudflare keeps the 1000 most recently deployed aliases and
+drops the least recent beyond that. `latest` is therefore permanent by construction, and a
+finished branch's alias goes on serving its last build until it ages out. That is not a leak: it
+is a staging build, noindexed and sign-in-only, exactly like staging itself. Stale versions and
+aliases are not billed — Workers bills requests and CPU, so a preview nobody opens costs nothing.
+The only recurring cost is the GitHub Actions minutes each build spends, which is why docs-only
+pushes are skipped. To stop preview URLs for good, set `preview_urls: false` on the staging
+environment in `wrangler.jsonc` and let `main` deploy.
+
 ### Confirming the Sentry pipeline
 
 After a deploy, open `https://maxoff-staging.<subdomain>.workers.dev/diagnostics/sentry`. The
