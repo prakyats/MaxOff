@@ -7,6 +7,8 @@ import { cn } from "@/core/lib/utils";
 import { Toaster } from "@/core/ui/primitives/sonner";
 import { TooltipProvider } from "@/core/ui/primitives/tooltip";
 import { RegisterServiceWorker } from "@/core/ui/pwa/register-service-worker";
+import { THEME_COLOR_SCRIPT, THEME_COLORS } from "@/core/ui/theme/theme-color";
+import { ThemeColorMeta } from "@/core/ui/theme/theme-color-meta";
 import { ThemeProvider } from "@/core/ui/theme/theme-provider";
 
 // Self-hosted at build time by next/font: no request to Google at runtime.
@@ -27,6 +29,12 @@ export const metadata: Metadata = {
     ],
     apple: "/icons/apple-touch-icon.png",
   },
+  // `statusBarStyle` stays "default" on purpose (1.5, owner decision 2026-09-23):
+  // "black-translucent" would let the app run under the status bar and match the background
+  // exactly, but iOS then always draws the clock and battery in WHITE, which is unreadable on
+  // the light background. iOS has no per-theme status bar style. **Re-check on a real iPhone
+  // before the 6.6 pilot** (see PROGRESS): if "default" looks wrong installed, the fallback is
+  // "black-translucent" plus a light-mode adjustment.
   appleWebApp: { capable: true, title: "MaxOff", statusBarStyle: "default" },
 };
 
@@ -35,9 +43,12 @@ export const viewport: Viewport = {
   viewportFit: "cover",
   width: "device-width",
   initialScale: 1,
+  // Both entries, straight from the page background tokens, so the chrome band is the same
+  // colour as the app rather than merely close to it. These follow the OS; `ThemeColorMeta`
+  // and `THEME_COLOR_SCRIPT` take over when the user picks a theme explicitly.
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#fafaf9" },
-    { media: "(prefers-color-scheme: dark)", color: "#0b0b0c" },
+    { media: "(prefers-color-scheme: light)", color: THEME_COLORS.light },
+    { media: "(prefers-color-scheme: dark)", color: THEME_COLORS.dark },
   ],
 };
 
@@ -49,8 +60,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       suppressHydrationWarning
       className={cn("antialiased", geist.variable, geistMono.variable)}
     >
+      <head>
+        {/* Before first paint: an explicit Light/Dark choice must not flash the other band. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_COLOR_SCRIPT }} />
+      </head>
       <body className="bg-background text-foreground min-h-dvh">
         <ThemeProvider>
+          <ThemeColorMeta />
           <TooltipProvider>{children}</TooltipProvider>
           <Toaster position="top-center" closeButton />
         </ThemeProvider>

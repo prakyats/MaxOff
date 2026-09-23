@@ -4,7 +4,8 @@ function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="skeleton"
-      className={cn("bg-muted animate-pulse rounded-md", className)}
+      // `motion-safe:` keeps the shimmer off under prefers-reduced-motion (ARCHITECTURE §14.1).
+      className={cn("bg-muted rounded-md motion-safe:animate-pulse", className)}
       {...props}
     />
   );

@@ -27,6 +27,8 @@ import { cn } from "@/core/lib/utils";
 import { Button } from "@/core/ui/primitives/button";
 import { Checkbox } from "@/core/ui/primitives/checkbox";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
+
+import { CARD_ROW_MIN_H, CARD_ROW_PADDING } from "./row-metrics";
 import {
   Table,
   TableBody,
@@ -37,6 +39,7 @@ import {
 } from "@/core/ui/primitives/table";
 
 import { EmptyState } from "./empty-state";
+import { LoadingState } from "./loading-state";
 
 /**
  * A checkbox column for row selection. Spread it first in `columns` and pass
@@ -323,15 +326,15 @@ function MobileCards<TData>({
   const remaining = rows.length - visible.length;
 
   if (isLoading) {
+    // The same component the route's loading.tsx uses, so the streamed fallback and the
+    // in-place loading state are the same drawing (ARCHITECTURE §14.1).
     return (
-      <div className="border-border divide-border bg-card divide-y rounded-lg border md:hidden">
-        {Array.from({ length: Math.min(pageSize, 5) }, (_, i) => (
-          <div key={`skeleton-${i}`} className="flex min-h-16 flex-col justify-center gap-2 px-4">
-            <Skeleton className="h-4 w-1/2" />
-            <Skeleton className="h-3 w-1/3" />
-          </div>
-        ))}
-      </div>
+      <LoadingState
+        shape="cards"
+        count={Math.min(pageSize, 4)}
+        label={caption}
+        className="md:hidden"
+      />
     );
   }
 
@@ -365,13 +368,21 @@ function MobileCards<TData>({
                 <button
                   type="button"
                   onClick={() => setOpenId(row.id)}
-                  className="active:bg-muted/60 focus-visible:ring-ring flex min-h-16 w-full items-center gap-3 px-4 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset"
+                  className={cn(
+                    "active:bg-muted/60 focus-visible:ring-ring flex w-full items-center gap-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset",
+                    CARD_ROW_MIN_H,
+                    CARD_ROW_PADDING,
+                  )}
                 >
                   {body}
                   <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
                 </button>
               ) : (
-                <div className="flex min-h-16 w-full items-center gap-3 px-4 py-3">{body}</div>
+                <div
+                  className={cn("flex w-full items-center gap-3", CARD_ROW_MIN_H, CARD_ROW_PADDING)}
+                >
+                  {body}
+                </div>
               )}
             </li>
           );

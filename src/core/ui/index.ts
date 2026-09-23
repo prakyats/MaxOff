@@ -19,7 +19,8 @@ export { HelpSheet } from "./composites/help-sheet";
 export { EmptyState } from "./composites/empty-state";
 export { ErrorState } from "./composites/error-state";
 export { Forbidden } from "./composites/forbidden";
-export { LoadingState, PageLoading } from "./composites/loading-state";
+export { LoadingState, PageLoading, type LoadingShape } from "./composites/loading-state";
+export { CARD_ROW_MIN_H, CARD_ROW_PADDING, LIST_ROW_MIN_H } from "./composites/row-metrics";
 export { NotFound } from "./composites/not-found";
 export { PageHeader } from "./composites/page-header";
 export {

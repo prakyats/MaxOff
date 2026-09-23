@@ -4,6 +4,8 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
+import { THEME_COLOR_SCRIPT, THEME_COLORS } from "../theme/theme-color";
+
 /**
  * The PWA files live in public/ with no build step, so this test keeps them consistent with
  * each other and with the design tokens (ARCHITECTURE §14, §3.3).
@@ -20,6 +22,7 @@ const manifest = JSON.parse(readFileSync(path.join(publicDir, "manifest.webmanif
 };
 const sw = readFileSync(path.join(publicDir, "sw.js"), "utf8");
 const css = readFileSync(path.join(root, "src/app/globals.css"), "utf8");
+const layout = readFileSync(path.join(root, "src/app/layout.tsx"), "utf8");
 
 function token(selector: string, name: string): string | undefined {
   const start = css.indexOf(`${selector} {`);
@@ -53,6 +56,35 @@ describe("manifest.webmanifest", () => {
   it("uses the logo red in the icon source", () => {
     const svg = readFileSync(path.join(publicDir, "icons/icon.svg"), "utf8");
     expect(svg).toContain(`fill="${token(":root", "logo")}"`);
+  });
+});
+
+describe("theme-color", () => {
+  it("declares both a light and a dark entry", () => {
+    // A single light value left the status-bar band white above a dark screen (task 1.5).
+    expect(layout).toContain("(prefers-color-scheme: light)");
+    expect(layout).toContain("(prefers-color-scheme: dark)");
+    expect(layout).toContain("THEME_COLORS.light");
+    expect(layout).toContain("THEME_COLORS.dark");
+  });
+
+  it("uses the page background tokens exactly, not approximations of them", () => {
+    expect(THEME_COLORS.light).toBe(token(":root", "background"));
+    expect(THEME_COLORS.dark).toBe(token(".dark", "background"));
+  });
+
+  it("follows an explicit theme choice, which the media queries cannot", () => {
+    // prefers-color-scheme follows the OS; picking Dark in-app has to rewrite the meta.
+    expect(THEME_COLOR_SCRIPT).toContain('meta[name="theme-color"]');
+    expect(THEME_COLOR_SCRIPT).toContain(THEME_COLORS.dark);
+    expect(THEME_COLOR_SCRIPT).toContain(THEME_COLORS.light);
+    expect(layout).toContain("ThemeColorMeta");
+    expect(layout).toContain("THEME_COLOR_SCRIPT");
+  });
+
+  it("keeps the iOS status bar readable in light mode", () => {
+    // black-translucent forces white glyphs, unreadable on #fafaf9 (owner decision 2026-09-23).
+    expect(layout).toContain('statusBarStyle: "default"');
   });
 });
 
