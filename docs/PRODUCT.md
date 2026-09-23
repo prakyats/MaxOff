@@ -159,6 +159,17 @@ Daily work allotted to people. **Only the Owner and Admins create tasks.**
   1. Today at a glance: present, on leave, pending attendance, pending leave, pending task approvals, pending item approvals, due today, overdue, upcoming events, client work progress.
   2. **Approvals inbox** with one-click Approve, Reject, Review, Reassign and Extend deadline, plus bulk actions. There's no need to open other modules.
   3. People (attendance, login and logout, logout not recorded, overtime) · Today's tasks · Overdue and risks · Calendar strip · Client progress · Revenue snapshot.
+     Tapping a person on the people board opens **their attendance and leave history** directly (People lives in the More sheet; looking someone up shouldn't take three taps while they're standing in front of you).
+- **The Approvals screen** (built across 2.4 and 4.5 — **one screen, not one per module**): everything waiting on the Owner's decision, in **one scroll, grouped, no tabs**. Tabs create a mode ("am I seeing everything?"); groups don't.
+  - **Fixed group order: Attendance · Leave · Staff tasks · Client items.** Attendance and leave first because someone's day depends on them; work can wait an hour. Oldest first inside each group.
+  - **Each group header carries a bulk action** ("Approve all 7"), because the Owner's real intent is usually *"attendance today, all fine"* — one tap, not seven. Bulk confirms with the count.
+  - **Two actions per row, never more:** **Approve** (primary) and **Review**. Everything that needs thought — correcting, rejecting, a reason — lives behind Review and opens a sheet. A correction always asks for a reason; an approval never does.
+  - **A single approve is instant with a 6-second Undo** rather than a confirmation; a mis-tap is recoverable and the common case stays fast.
+  - **Filter chips appear only above ~20 waiting items.** Below that they are a mode to learn for no gain.
+  - **Approve is a button, never swipe-only** (a gesture can't be the only route to the main action); status is a dot plus a word, never colour alone; an approved row fades in place without reshuffling the list, and the count is announced politely.
+  - **Empty state is the reward:** "Nothing waiting. You're clear."
+  - The **bottom-nav badge** shows the total waiting, so the bar answers "does anything need me?" without a tap.
+  - The Admin's Approvals screen is the same component, scoped to what they may decide (the Admin step on their tasks).
 - **Admin:** My clients (cycle progress) → client work pending → staff tasks needing attention → approvals → calendar → issues.
 - **Staff: My Day** (very simple): attendance status, **Pending acknowledgement**, Today, Upcoming, Overdue, **Changes requested**, Upcoming events, a request-a-task button and Logout. Nothing else.
 - **Staff navigation** (decided in task 0.3): a bottom bar on phones with exactly five tabs, **My Day · Tasks · Calendar · Alerts · Me**. "Me" holds the profile, appearance (light/dark) and Logout. Staff have no Clients, People, Approvals, Reports or Settings entries. Owner and Admin use a sidebar with Today, Approvals, Clients, Tasks, Calendar, People, Reports and Settings; the Admin's Settings shows only the lists, templates and custom fields they may edit (`PERMISSIONS.md` §1).
