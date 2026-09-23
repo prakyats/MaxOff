@@ -499,3 +499,44 @@ test.describe("nothing is hover-only", () => {
     await expectNoHoverOnly(page.getByRole("button", { name: /^Actions for/ }).first());
   });
 });
+
+test.describe("password fields can be revealed", () => {
+  // Signed out: the sign-in screen is where a mistyped password actually locks people out.
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test("the eye toggles visibility without disturbing autofill", async ({ page }) => {
+    await page.goto("/login");
+    const field = page.locator('input[name="password"]');
+    const toggle = page.locator('[data-slot="password-toggle"]');
+
+    // Hidden by default: revealing is a deliberate act.
+    await expect(field).toHaveAttribute("type", "password");
+    await expect(toggle).toHaveAttribute("aria-label", "Show password");
+    await expect(toggle).toHaveAttribute("aria-pressed", "false");
+    const box = await toggle.boundingBox();
+    expect(box?.width ?? 0, "toggle width").toBeGreaterThanOrEqual(TARGET);
+    expect(box?.height ?? 0, "toggle height").toBeGreaterThanOrEqual(TARGET);
+
+    await field.fill("a-real-password");
+    await toggle.click();
+
+    await expect(field).toHaveAttribute("type", "text");
+    await expect(toggle).toHaveAttribute("aria-label", "Hide password");
+    await expect(toggle).toHaveAttribute("aria-pressed", "true");
+    // What password managers key off must not move when the field is revealed.
+    await expect(field).toHaveAttribute("autocomplete", "current-password");
+    await expect(field).toHaveAttribute("name", "password");
+    await expect(field).toHaveValue("a-real-password");
+
+    await toggle.click();
+    await expect(field).toHaveAttribute("type", "password");
+  });
+
+  test("the toggle does not submit the form", async ({ page }) => {
+    // A bare <button> inside a form defaults to submit, which would post an empty sign-in.
+    await page.goto("/login");
+    await page.locator('[data-slot="password-toggle"]').click();
+    await expect(page).toHaveURL(/\/login$/);
+    await expect(page.locator('[data-slot="field-error"]')).toHaveCount(0);
+  });
+});
