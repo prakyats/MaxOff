@@ -147,6 +147,8 @@ jobs:
       # NEXT_PUBLIC_APP_ENV=staging is what makes a preview noindexed: `responseHeaders()` in
       # core/http adds `X-Robots-Tag: noindex, nofollow` to the security headers on staging,
       # and /robots.txt answers `Disallow: /`. A preview is a staging build in every respect.
+      # Cloudflare's preview edge then replaces X-Robots-Tag with its own `noindex` on every
+      # response from a preview URL, so a preview stays unindexable whatever the build does.
       # SENTRY_AUTH_TOKEN is deliberately absent: no source-map upload and no Sentry release
       # per push. Runtime errors still report, tagged `staging`, with minified stacks.
       - name: Build the Worker (OpenNext)

@@ -276,8 +276,12 @@ version inherits the staging Worker's existing secrets instead.
 
 **What a preview runs against.** The staging Supabase project, with the `staging` GitHub
 environment's variables, built with `NEXT_PUBLIC_APP_ENV=staging` — which is what gives a preview
-the same security headers, the same `X-Robots-Tag: noindex, nofollow` and the same
-`robots.txt: Disallow: /` as staging. Signing in works normally (email + password is server-side
+the same security headers, `robots.txt: Disallow: /` and the same security headers as staging.
+**Measured on the first real run:** Cloudflare's preview edge *replaces* `X-Robots-Tag` with its
+own `noindex` on every response from a preview URL — staging serves the app's
+`noindex, nofollow`, a preview serves `noindex`, even on static pages. Previews are therefore
+noindexed whatever the build does, which is stronger than relying on the app header; only
+`nofollow` is lost, and a sign-in-gated app exposes no crawlable links anyway. Signing in works normally (email + password is server-side
 and needs no redirect allow-list). Two smaller notes: `NEXT_PUBLIC_APP_URL` is set to the preview's
 own origin, so **invite** links generated on a preview point back at that preview, while
 **password-recovery** mails come from GoTrue's Site URL and land on staging either way; and
