@@ -28,11 +28,13 @@ Exit: the Owner logs in, invites an Admin and a Staff member, and each sees only
 
 ## Phase 2: Attendance and leave
 Exit: Admins and Staff pass the daily gate, request leave, and the Owner approves or corrects everything, with full history.
+- [ ] **2.0** [C] **Branch preview deployments**, first in the phase so everything after it is testable on a real phone: deploy non-`main` branches to a preview Worker against the **staging** Supabase project, post the URL as a PR comment, and **never run migrations from a preview** (`main` and tags only). Today a phase branch can only be opened on a phone after it merges — four or five tasks too late for UI feedback, and 1.5 had to be judged over Wi-Fi. README runbook + a note in PROGRESS
 - [ ] **2.1** [H] Schema + transition functions: attendance_days, attendance_events, leave_requests. `attendance_touch`, `attendance_submit`, `attendance_decide` (approve or correct with reason, bulk), `attendance_logout`, `attendance_flag_overtime`, `leave_submit/withdraw/request_change/decide/ceo_edit`. pgTAP for every path
 - [ ] **2.2** [C] Day gate: `requireDayGate()`, attendance choice screen (mobile-first), day-off handling, logout button capturing the time, overtime flag
 - [ ] **2.3** [C] Leave for employees: request (single day, range, half day), change or cancel requests, my attendance and leave history
 - [ ] **2.4** [C] Owner review: pending attendance and leave lists, bulk approve, correct-with-reason dialog, per-person history, today's people board
 - [ ] **2.5** [H] Jobs: pg_cron setup, `absent_check` (working days only; approved leave becomes an approved day; `awaiting_choice` counts as no submission; Owner exempt; one summary notification), `logout_not_recorded`, idempotency and IST-boundary tests
+- [ ] **2.6** [Q] **Make the Mailpit assertions deterministic** (`e2e/helpers.ts`, `e2e/auth.spec.ts`): the recovery specs take the *newest* message for an address after a **global** `clearMailbox()`, so a message still in flight from an earlier run, or another worker's wipe, can hand a test a link that was already spent — it then lands on `/login?reason=link` instead of `/set-password`. Give `latestEmailTo()` a lower bound (only accept a message newer than a timestamp taken before the request) or a per-test address, and drop the global delete: one worker wiping the mailbox is itself the hazard for every other worker. **A flaky test everyone learns to re-run is worse than a missing one**, so this is not optional; do it before the phase-2 review
 
 ## Phase 3: Clients
 Exit: clients exist with their Admin, contacts, brand basics and custom fields. Admins see only theirs.
