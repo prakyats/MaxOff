@@ -27,7 +27,7 @@
 |---|---|---|
 | App | **Next.js (App Router) + TypeScript strict**, React Server Components, server actions | — |
 | UI | Tailwind CSS + shadcn/ui, lucide icons, TanStack Query (client caches for live screens) | — |
-| Database, Auth, Realtime, cron | **Supabase** (Postgres 15+, RLS, Realtime, `pg_cron`, `pg_net`) | Supabase Pro (daily backups, no pausing) |
+| Database, Auth, Realtime, cron | **Supabase**, **free plan** (Postgres 15+, RLS, Realtime, `pg_cron`, `pg_net`). Free means: no Supabase backups, no leaked-password check, ~1 day of log retention, 500 MB database, 5 GB transfer/month (ADR-0003, amended 2026-09-23) | Pro ($25/mo) when transfer passes ~4 GB/month or the database ~400 MB |
 | Files | **Cloudflare R2**, S3 multipart presigned uploads, behind `core/storage` | S3 / Supabase Storage (swap the adapter) |
 | Hosting | **Cloudflare Workers** through the OpenNext adapter. Free while building; **Workers Paid ($5/mo) from the pilot**, because the free plan allows only 10 ms CPU per request, which server-rendered pages exceed | Higher tiers, or any Node host |
 | Archive | **Google Drive API** on one company account, behind `core/drive` | Workspace shared drives later |
@@ -222,7 +222,7 @@ Auditing for plain edits is done by a **generic `audit_row_change()` trigger** o
 - `pg_cron` runs in UTC, so jobs are scheduled at the UTC equivalent (23:59 IST = 18:29 UTC) and **re-check the IST date inside the job**.
 
 ## 7a. Sessions (task 1.2, ADR-0012)
-- **Supabase Auth**, email + password, sign-ups off everywhere; people exist only through the bootstrap script (the Owner) and invites (1.3). Passwords: 12 characters minimum, no composition rule, leaked-password protection on the hosted projects.
+- **Supabase Auth**, email + password, sign-ups off everywhere; people exist only through the bootstrap script (the Owner) and invites (1.3). Passwords: 12 characters minimum, no composition rule. Leaked-password protection is a Supabase **Pro** feature, so it is off while the project is on the free plan (ADR-0003); enable it at task 6.6 if production ever moves to Pro.
 - **`src/proxy.ts`** runs `core/auth` `updateSession()` on every page request: refreshes the cookies and redirects from the JWT alone (no session → `/login?next=`; a session on the sign-in pages → `/`). Static assets, `sw.js` and the manifest are outside its matcher; `/offline`, `/auth/*`, `/api/*` and the sign-in pages pass through it without a session (`core/auth/paths.ts`). OpenNext bundles it as Node middleware.
 - **`requireMember()`** in the `(app)` layout is the decision: `getSessionState()` (per request, `cache()`) verifies the JWT with `getClaims()`, reads the member row under RLS and answers `none` / `inactive` / `member`. `inactive` (missing, invited or deactivated) is ended through `/auth/signout` and lands on `/login?reason=inactive`. `requirePermission()` builds on it.
 - **Auth links** (recovery and invite) land on `/auth/confirm?token_hash=…&type=…` and are verified server-side (`verifyOtp`), so they need no browser state and work from the bootstrap script's printed link or a copied invite link. A verified link opens a session, so `verifyAuthLink()` checks the member there (not active → signed out again, `/login?reason=inactive`) and records `session_login()` before sending the browser to `/set-password`. The one exception is an **invited** member opening an **invite** link (1.3, WORKFLOWS §1a): they reach `/set-password` without a login row, and `setPassword()` accepts the invite (`member_accept_invite()`), records the login and lands them on `/me?welcome=1`. The recovery template in `supabase/templates/` builds the URL and the hosted projects carry the same text (README → "Hosted auth settings"); invite links are built by the app (`modules/team`, ADR-0012 amendment) and mailed through `sendEmail()`, never by GoTrue. Links live 24 h (`otp_expiry`) and are one-time.
@@ -290,6 +290,7 @@ Locally, `pnpm check` = typecheck + lint + format:check + unit tests + pgTAP + b
 5. Other modules' screens are extended only through the **extension slots** their `index.ts` exposes (tabs, panels, dashboard cards).
 
 ## 17. Backups
+**On the free plan Supabase keeps no backups, so this is the only safety net — it is not optional (ADR-0003).**
 Nightly `pg_dump` GitHub Action → encrypted → private R2 bucket (30-day retention). R2 object versioning or retention on the files bucket. A restore drill before launch, then every quarter. Owner CSV exports as a secondary copy.
 
 ## 18. Deployment and observability (task 0.5, ADR-0003)

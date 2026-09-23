@@ -209,7 +209,7 @@ in the Supabase dashboard (**Authentication**), once per project:
 | Where | Setting |
 |---|---|
 | Sign In / Providers → Email | **Allow new users to sign up: off** (invite-only). Email provider stays **on** (it is the login method). Confirm email: off |
-| Sign In / Providers → Email | **Minimum password length: 12**, no character requirements. **Leaked password protection: on** (HaveIBeenPwned; catches far more than composition rules) |
+| Sign In / Providers → Email | **Minimum password length: 12**, no character requirements. Leaked password protection is **Pro-only, so it stays off** on the free plan (ADR-0003); invite-only access and the 12-character minimum cover it for now |
 | URL Configuration | **Site URL** = the app URL (`NEXT_PUBLIC_APP_URL`). **Redirect URLs**: add `<app URL>/**` |
 | Emails → Templates → **Reset password** | Subject "Set your MaxOff password"; body = `supabase/templates/recovery.html`. The link **must** be `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery` (the app verifies the token hash server-side; the default `{{ .ConfirmationURL }}` will not work) |
 | Emails → SMTP settings | **Until a sending domain exists, leave Supabase's built-in mailer**: it delivers only to the email addresses of the Supabase project's own team members, a few per hour, which is enough for the Owner on staging. With `mail.maxoff.app` verified in Resend: host `smtp.resend.com`, port `465`, user `resend`, password = a Resend API key, sender `MaxOff <noreply@mail.maxoff.app>` |
