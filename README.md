@@ -371,7 +371,7 @@ asserted in `pwa-files.test.ts`):
 | Field | Token | Why |
 |---|---|---|
 | `theme_color` | **dark** `--background` | The installed band. MaxOff is dark-first on phones, and a dark band above a light app reads as an intentional header, where a light band above a dark app reads as broken. Chrome picks the glyph colour from this value's luminance, so the clock stays readable in both themes |
-| `background_color` | light `--background` | The splash screen while the app starts, not the band |
+| `background_color` | **dark** `--background` | The Android splash while the app starts. Same value as `theme_color` on purpose: a light splash handing over to a dark app is the white flash the band fix was meant to end |
 
 The `<meta name="theme-color">` pair in the root layout — plus `ThemeColorMeta`, which rewrites it
 when someone picks Light or Dark explicitly — governs **Chrome's tab toolbar**, not the installed

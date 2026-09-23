@@ -15,19 +15,28 @@ export const THEME_COLORS = {
 export const THEME_STORAGE_KEY = "theme";
 
 /**
- * Runs before first paint, so an explicit Light/Dark choice never shows the wrong band for a
- * frame. `<meta name="theme-color">` is rendered by the viewport export with `prefers-color-scheme`
- * media queries, which follow the **OS** — they cannot know that this user picked Dark while
- * their phone is in Light. This rewrites every theme-color meta to the resolved colour, exactly
- * as `ThemeColorMeta` does after hydration.
+ * Applies the theme **before first paint** — the class, `color-scheme` and the theme-colour
+ * metas, for `light`, `dark` **and `system`**.
  *
- * Inline and blocking on purpose, the same trick next-themes uses for the `dark` class. The CSP
- * is `frame-ancestors 'none'` only, so no script-src nonce is needed.
+ * next-themes does ship its own pre-paint script, but it renders inside `<body>` where the
+ * provider is: measured at byte 3382 of the login document, *after* the first `<div>` at 3247.
+ * The browser has paintable content before it runs, which is the light flash on every reload of
+ * the installed app. This one goes in `<head>`, so nothing paintable exists yet.
+ *
+ * The earlier version of this script handled only an explicit `light`/`dark` and returned early
+ * for the default `system`, which is why the flash survived it.
+ *
+ * Inline and blocking on purpose. The CSP is `frame-ancestors 'none'` only, so no script-src
+ * nonce is needed. `theme-color-flash.spec.ts` proves there is no light frame before paint.
  */
 export const THEME_COLOR_SCRIPT = `(function(){try{
-var t=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});
-if(t!=="light"&&t!=="dark")return;
-var c=t==="dark"?${JSON.stringify(THEME_COLORS.dark)}:${JSON.stringify(THEME_COLORS.light)};
+var d=document.documentElement;
+var t=null;try{t=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});}catch(e){}
+if(t!=="light"&&t!=="dark")t="system";
+var dark=t==="dark"||(t==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches);
+d.classList.toggle("dark",dark);
+d.style.colorScheme=dark?"dark":"light";
+var c=dark?${JSON.stringify(THEME_COLORS.dark)}:${JSON.stringify(THEME_COLORS.light)};
 var m=document.querySelectorAll('meta[name="theme-color"]');
 for(var i=0;i<m.length;i++){m[i].setAttribute("content",c);m[i].removeAttribute("media");}
 }catch(e){}})();`;
