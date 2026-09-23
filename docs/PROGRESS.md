@@ -43,6 +43,18 @@
   - **How it is tested, and what was abandoned.** A Playwright frame trace of the first 500 ms was built and then dropped: on desktop Chromium the document parses before first paint, so the trace **passed against the broken script** — it proved nothing. Under a 20x CPU throttle the sampler itself became unreliable (unresolved transparent backgrounds scoring as dark; `getComputedStyle` throwing at init-script time; the 500 ms window closing before CSS resolved). Rather than gate the build on a flaky test, the script's **decision** is unit-tested directly against a stub DOM for all three settings x both OS schemes (`theme-color.test.ts`, verified to fail 2 tests against the old script), and `e2e/theme-flash.spec.ts` keeps the one dependable browser assertion: the script is in `<head>` ahead of anything paintable. **No automated first-paint capture exists — the device check is still the owner's.**
 - **`manifest.background_color` is now the DARK token too** (owner decision, reversing round 3's "keep it light"): it paints the Android splash, and a white splash handing over to a dark app was the flash the band fix was meant to end. Both manifest colours are now dark and `pwa-files.test.ts` asserts it.
 
+**Bundle work (2026-09-23), measured on a production build of `/login`:**
+
+| | JS requests | decompressed |
+|---|---|---|
+| before | 18 | 1344 KB |
+| zod + provider fixes alone | 15 | 1322 KB |
+| **+ bypassing the client barrel** | **13** | **794 KB** |
+
+- **The first two fixes alone moved almost nothing (22 KB), and that is the lesson.** zod was removed from `core/db/env.ts`, `env.server.ts` and `core/observability/env.ts` (plain guards over build-inlined `NEXT_PUBLIC_*` constants), and `Toaster` + `TooltipProvider` moved from the root layout into `(app)` — all correct, all nearly worthless on their own, **because the real carrier was a barrel**. The auth pages imported `@/core/auth/components`, which also exports `LogoutProvider`, and **a barrel of client components is not tree-shaken per route**: every client component in it joins that route's bundle. The sign-in page was shipping `logout-confirm`, and with it sonner and radix-alert-dialog. Importing each form from its own file removed 528 KB. **Watch for this whenever a route imports a barrel that exports client components.**
+- **Sentry is now the biggest thing left**, ~412 KB decompressed of the 794 KB. That is **2.8**, not 1.5, because deferring it naively loses load-time and hydration errors.
+- **Cold-start path of the installed app, measured against the preview (signed out):** `start_url` is `/`, which is a **server-rendered router** (`src/app/page.tsx` does a session check then `redirect()`). `/` answers 307 in **829 ms TTFB**; `/login` then answers 200 in **134 ms**; `/today` answers 307 in **1507 ms**. So **every launch pays a full extra Worker round trip before any real HTML**, and the role-routing means it cannot simply be pointed at a static route (Owner/Admin home is `/today`, Staff is `/my-day`). Fixing it properly means making the `/` decision in the proxy from the JWT instead of a full RSC render, or giving `start_url` a role-neutral route that renders something immediately. **Not yet fixed — this is the 3-second launch the owner reported.**
+
 **Left:** a fifth device pass, and whatever else it turns up. Then tick 1.5 in ROADMAP, clear this handoff, and move the 1.5 decision notes out of "Things the next session must know" if they have gone stale.
 
 ## Things the next session must know
