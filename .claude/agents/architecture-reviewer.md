@@ -12,7 +12,7 @@ Check for:
 2. **Security:** tables without RLS or per-role pgTAP tests, transition functions missing a permission, scope or state check, `security definer` functions without `set search_path`, service-role client used where it isn't needed, unvalidated input, file access without a check.
 3. **Integrity:** a mutation without its audit (transition function or trigger), non-idempotent jobs, non-IST date logic (`new Date()` / `now()::date` for business dates), migrations editing applied files.
 4. **Structure:** module boundary violations, database access outside `data/`, hard-coded business lists, custom fields bypassing `core/custom-fields`.
-5. **UX:** missing loading/empty/error/denied states, Staff screens broken at 375px, notifications not matching WORKFLOWS §9.
+5. **UX:** missing loading/empty/error/denied states, a skeleton that doesn't trace its own screen (generic rows standing in for cards, tiles or a detail view — ARCHITECTURE §14.1), Staff screens broken at 375px, notifications not matching WORKFLOWS §9.
 6. **Correctness and performance:** race conditions (bulk approvals, cycle generation), N+1 queries, missing indexes.
 
 Report findings as **must fix / should fix / later**, each with `file:line`, what's wrong, a concrete way it fails, and the fix. No style nitpicks. If you find nothing, say so.
