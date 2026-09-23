@@ -4,8 +4,6 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
 import { cn } from "@/core/lib/utils";
-import { Toaster } from "@/core/ui/primitives/sonner";
-import { TooltipProvider } from "@/core/ui/primitives/tooltip";
 import { RegisterServiceWorker } from "@/core/ui/pwa/register-service-worker";
 import { THEME_COLOR_SCRIPT, THEME_COLORS } from "@/core/ui/theme/theme-color";
 import { ThemeColorMeta } from "@/core/ui/theme/theme-color-meta";
@@ -65,10 +63,15 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <script dangerouslySetInnerHTML={{ __html: THEME_COLOR_SCRIPT }} />
       </head>
       <body className="bg-background text-foreground min-h-dvh">
+        {/*
+          Toaster (sonner) and TooltipProvider (radix) live in the `(app)` layout, not here.
+          Nothing outside the signed-in area raises a toast or a tooltip, and mounting them
+          globally put both libraries in the client bundle of /login and every auth screen
+          (task 1.5: ~100 KB decompressed for a page with no toasts and no tooltips).
+        */}
         <ThemeProvider>
           <ThemeColorMeta />
-          <TooltipProvider>{children}</TooltipProvider>
-          <Toaster position="top-center" closeButton />
+          {children}
         </ThemeProvider>
         <RegisterServiceWorker />
       </body>
