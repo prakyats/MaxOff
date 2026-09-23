@@ -238,6 +238,21 @@ Only **client project items** carry revenue. Staff tasks never do.
 - **Exports:** Markdown, CSV and PDF. The **Markdown export is designed for AI analysis**: an executive summary followed by dense, structured raw data (tables and IDs) that answers questions like *"Which stage takes longest?", "Who is overloaded?", "How much potential revenue wasn't achieved?"*
 - Admins get operational reports for their own scope, with no money in them. These are computed live: the end-of-day reports and month snapshots contain revenue and are Owner-only.
 
+**The Admin's report answers one question: is the work getting done?** (decided 2026-09-23). Six numbers and two lists — no more, or it stops being read. Each is for their assigned clients and the tasks they created, approve or are assigned to. Week, month or custom range, with last period beside it.
+
+| KPI | Definition | What it tells the Admin to do |
+|---|---|---|
+| **On time** | Items approved on or before their planned date ÷ items with a planned date | Falling → the plan is wrong or the team is stretched |
+| **Cycle progress** | Items done ÷ planned, and approved ÷ done, for the current cycle | A wide done-vs-approved gap means work is waiting on the Owner |
+| **Rework** | Submissions sent back as *changes requested* ÷ submissions | Rising → briefs are unclear, not that people are careless |
+| **My turnaround** | Median hours from a task's Done to **their own** approval | This is the Admin's own bottleneck, and the only KPI about them |
+| **Overdue now** | Tasks past deadline + items past planned date, still open | The act-today number. Tap through to the list |
+| **Acknowledgement lag** | Median hours from assignment to "Task Noted" | Rising → people aren't seeing work, check reachability (§4.11) |
+
+Plus two lists: **who is loaded this week** (open and overdue tasks per person, from visible tasks only — workload, never a rating) and **where items sit longest** (the slowest stage, e.g. "8 reels waiting at Edit").
+
+**Not in an Admin's report, ever:** money, attendance, leave, anyone's history outside their scope, saved snapshots, and the AI export. An Admin sees **work**; the Owner sees **people and money**. Attendance and leave are the Owner's decision, so handing an Admin that record would give them a judgement they have no authority over.
+
 ### 4.14 Activity history
 - An **append-only** log of every important action: who, what, which record, when, and old and new values. It can't be edited or deleted.
 - Recorded in the same database transaction as the change. A change can't succeed without its audit record.
@@ -288,5 +303,5 @@ GST invoice generation and invoicing · client login or portal · WhatsApp · na
 | Google Drive archive account | `pcproductions.work@gmail.com` (Google One 2 TB, personal account) |
 
 ## 8. Open questions (not blocking the schema)
-- [ ] **Admin performance metrics:** v2 lets Admins view raw metrics, but clarification #6 limits what they see. Proposed default: an Admin sees metrics calculated only from tasks visible to them. *Confirm before phase 9.*
+- [x] **Admin reports: settled 2026-09-23** (§4.13). Six KPIs plus two lists, computed only from their assigned clients and visible tasks; work only, never money, attendance or leave.
 - [ ] Existing clients, projects or people to import at launch.

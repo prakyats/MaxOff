@@ -35,7 +35,7 @@
 | `attendance.view_all` | Full attendance and leave history of everyone | ✅ | | |
 | `finance.view` / `finance.edit` | Amounts, overrides, billing status, revenue (the billing **category** is set by the Owner but visible to Admins, see §2) | ✅ | | |
 | `reports.all` | Company reports, metrics, AI export | ✅ | | |
-| `reports.scoped` | Operational reports on their own scope, with no money | | ✅ | |
+| `reports.scoped` | Operational **work** reports on their own scope (PRODUCT §4.13): delivery, cycle progress, rework, their own approval turnaround, overdue, acknowledgement lag, workload per person from visible tasks. Never money, attendance, leave, snapshots or the AI export | | ✅ | |
 | `months.close` | Close a month, make corrections | ✅ | | |
 | `activity.view_all` | The full activity log | ✅ | | |
 | `records.hard_delete` | Permanent deletion (exceptional) | ✅ | | |
