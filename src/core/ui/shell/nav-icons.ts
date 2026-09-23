@@ -8,6 +8,7 @@ import {
   FileBarChart2Icon,
   LayoutDashboardIcon,
   type LucideIcon,
+  MoreHorizontalIcon,
   SettingsIcon,
   SunriseIcon,
   UsersIcon,
@@ -28,4 +29,5 @@ export const NAV_ICONS: Record<NavIconName, LucideIcon> = {
   sunrise: SunriseIcon,
   bell: BellIcon,
   "circle-user": CircleUserIcon,
+  more: MoreHorizontalIcon,
 };

@@ -1,62 +1,68 @@
 import type { ReactNode } from "react";
 
-import { cn } from "@/core/lib/utils";
-
 import { BottomNav } from "./bottom-nav";
-import { MobileNavSheet } from "./mobile-nav-sheet";
-import { homeFor, navFor } from "./nav";
+import { MobileChrome } from "./mobile-chrome";
+import { alertsInBottomNav, homeFor, mobileNavFor, navFor } from "./nav";
 import { Sidebar } from "./sidebar";
 import { TopBar } from "./top-bar";
 import type { ShellViewer } from "./viewer";
 
 /**
- * The signed-in app chrome (ROADMAP 0.3). Owner and Admin get a sidebar (a sheet below `md`);
- * Staff get a bottom bar on phones and the same sidebar from `md` up. Pages render inside
- * `<main>` at a comfortable reading width; Staff screens are laid out for 375px first.
- * `logoutItem` is the account menu's Log out entry, owned by `core/auth` and passed in by the
- * app layout.
+ * The signed-in app chrome.
+ *
+ * **Phone** (below `md`): a bottom bar for **every role** — four primary destinations plus More,
+ * or Staff's five (ARCHITECTURE §14.1, task 1.5). The brand bar above it slides away as you
+ * scroll. Nobody opens a drawer to reach a screen they use every day.
+ *
+ * **Tablet and desktop** (`md` up): the sidebar, unchanged.
+ *
+ * `logoutItem` / `logoutSheetItem` are the Log out action in the account menu and in the More
+ * sheet. `core/auth` owns them and the app layout passes them in, so `core/ui` never imports
+ * auth. Log out is in both because it records the time (WORKFLOWS §1).
  */
 export function AppShell({
   viewer,
   logoutItem,
+  logoutSheetItem,
   children,
 }: {
   viewer: ShellViewer;
   logoutItem?: ReactNode;
+  logoutSheetItem?: ReactNode;
   children: ReactNode;
 }) {
   const items = navFor(viewer.role);
   const home = homeFor(viewer.role);
-  const isStaff = viewer.role === "staff";
+  const { primary, more } = mobileNavFor(viewer.role);
 
   return (
-    <div className="bg-background text-foreground flex min-h-dvh">
+    <div
+      className="bg-background text-foreground flex min-h-dvh"
+      // The page title bar reads this to decide whether to carry the bell: when the bottom bar
+      // already has an Alerts destination (Staff), a second bell is noise.
+      data-alerts={alertsInBottomNav(viewer.role) ? "nav" : "bar"}
+    >
       <a
         href="#main"
         className="bg-card text-foreground ring-ring sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:px-3 focus:py-2 focus:text-sm focus:ring-2"
       >
         Skip to content
       </a>
+      <MobileChrome />
       <Sidebar home={home} items={items} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <TopBar
-          viewer={viewer}
-          home={home}
-          leading={isStaff ? null : <MobileNavSheet items={items} />}
-          logoutItem={logoutItem}
-        />
+        <TopBar viewer={viewer} home={home} logoutItem={logoutItem} />
         <main
           id="main"
           tabIndex={-1}
-          className={cn(
-            "mx-auto w-full max-w-[80rem] flex-1 px-4 py-6 sm:px-6 lg:px-8",
-            isStaff && "pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-6",
-          )}
+          // No top padding on a phone: the sticky title bar provides the separation, and the
+          // first real row of content has to be visible without scrolling (§14.1).
+          className="mx-auto w-full max-w-[80rem] flex-1 px-4 pt-0 pb-[calc(var(--app-bottom-nav-h)+1.5rem+var(--app-safe-bottom))] md:px-6 md:py-6 lg:px-8"
         >
           {children}
         </main>
       </div>
-      {isStaff ? <BottomNav items={items} /> : null}
+      <BottomNav primary={primary} more={more} logoutItem={logoutSheetItem} />
     </div>
   );
 }

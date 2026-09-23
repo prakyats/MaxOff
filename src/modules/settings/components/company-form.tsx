@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import type { Result } from "@/core/errors";
 import { FormField } from "@/core/ui/composites/form-field";
+import { StickyActions } from "@/core/ui/composites/sticky-actions";
 import { Button } from "@/core/ui/primitives/button";
 import { Input } from "@/core/ui/primitives/input";
 
@@ -44,11 +45,11 @@ export function CompanyForm({ company }: { company: Company }) {
       >
         {(control) => <Input {...control} value={company.timezone} readOnly disabled />}
       </FormField>
-      <div>
+      <StickyActions>
         <Button type="submit" disabled={pending}>
           {pending ? "Saving…" : "Save company"}
         </Button>
-      </div>
+      </StickyActions>
     </form>
   );
 }

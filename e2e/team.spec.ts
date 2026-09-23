@@ -26,6 +26,8 @@ const SIGNED_OUT = { storageState: { cookies: [], origins: [] } };
 
 test.describe("Owner", () => {
   test.use({ storageState: storageStateFor("owner") });
+  // The phone path is cards and a detail sheet, covered by `mobile.spec.ts` (task 1.5);
+  // these drive the desktop row menus, which a phone never shows.
   test.skip(({ isMobile }) => Boolean(isMobile), "the row menus are the desktop path");
   // Every test here changes the same rows, in order.
   test.describe.configure({ mode: "serial" });
@@ -328,7 +330,10 @@ test.describe("Owner", () => {
 
 test.describe("Admin", () => {
   test.use({ storageState: storageStateFor("admin") });
-  test.skip(({ isMobile }) => Boolean(isMobile), "the table is the desktop path");
+  test.skip(
+    ({ isMobile }) => Boolean(isMobile),
+    "the table is the desktop path; cards are in mobile.spec.ts",
+  );
 
   test("sees the team without emails or actions", async ({ page }) => {
     await page.goto("/people");

@@ -74,6 +74,9 @@ test.describe("signed in", () => {
 
     await page.getByRole("button", { name: "Account menu" }).click();
     await page.getByRole("menuitem", { name: "Log out" }).click();
+    // Logging out records the time, so it asks first (task 1.5).
+    await expect(page.getByRole("alertdialog")).toContainText("records your logout time");
+    await page.getByRole("button", { name: "Log out" }).click();
     await expect(page).toHaveURL(/\/login\?reason=signed_out$/);
     await expect(page.locator('[data-slot="form-alert"], [role="status"]').first()).toContainText(
       "You're logged out",
@@ -105,6 +108,7 @@ test.describe("Staff on a phone", () => {
     await signIn(page, USERS.staff.email, USERS.staff.password);
     await page.goto("/me");
     await page.getByRole("button", { name: "Log out" }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Log out" }).click();
     await expect(page).toHaveURL(/\/login\?reason=signed_out$/);
   });
 });

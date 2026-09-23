@@ -5,9 +5,9 @@ import { MoreHorizontalIcon, UsersIcon } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 
 import { formatIST } from "@/core/time";
-import { DataTable } from "@/core/ui/composites/data-table";
+import { DataTable, type MobileCard } from "@/core/ui/composites/data-table";
 import { EmptyState } from "@/core/ui/composites/empty-state";
-import { StatusBadge } from "@/core/ui/composites/status-badge";
+import { StatusBadge, StatusDot } from "@/core/ui/composites/status-badge";
 import { Button } from "@/core/ui/primitives/button";
 import {
   DropdownMenu,
@@ -196,6 +196,88 @@ export function TeamTable({
 
   const close = () => setDialog({ kind: "none" });
 
+  /**
+   * The phone shape (ARCHITECTURE §14.1). A card shows who someone is and where they stand;
+   * the email, the date and every action live in the sheet a tap opens. The desktop dropdown
+   * is hover-adjacent and 32px wide — neither belongs on a phone.
+   */
+  const mobile: MobileCard<TeamMember> = {
+    title: (member) => member.fullName,
+    subtitle: (member) => `${ROLE_LABELS[member.role]} · ${member.jobTitle ?? "No job title"}`,
+    trailing: (member) => <StatusDot status={member.status} label={STATUS_LABELS[member.status]} />,
+    detail: (member) => {
+      const at = member.joinedAt ?? member.invitedAt ?? member.createdAt;
+      return (
+        <dl className="flex flex-col gap-3">
+          <div className="flex justify-between gap-4">
+            <dt className="text-muted-foreground">Role</dt>
+            <dd className="text-right font-medium">{ROLE_LABELS[member.role]}</dd>
+          </div>
+          <div className="flex justify-between gap-4">
+            <dt className="text-muted-foreground">Job title</dt>
+            <dd className="text-right">{member.jobTitle ?? "—"}</dd>
+          </div>
+          <div className="flex justify-between gap-4">
+            <dt className="text-muted-foreground">Status</dt>
+            <dd className="text-right">
+              <StatusBadge status={member.status} label={STATUS_LABELS[member.status]} />
+            </dd>
+          </div>
+          {member.email ? (
+            <div className="flex justify-between gap-4">
+              <dt className="text-muted-foreground shrink-0">Email</dt>
+              <dd className="min-w-0 truncate text-right">{member.email}</dd>
+            </div>
+          ) : null}
+          {member.phone ? (
+            <div className="flex justify-between gap-4">
+              <dt className="text-muted-foreground">Phone</dt>
+              <dd className="text-right">{member.phone}</dd>
+            </div>
+          ) : null}
+          <div className="flex justify-between gap-4">
+            <dt className="text-muted-foreground">{member.joinedAt ? "Joined" : "Invited"}</dt>
+            <dd className="text-right">{formatIST(at, "d MMM yyyy")}</dd>
+          </div>
+        </dl>
+      );
+    },
+    actions: (member) => {
+      const actions = memberActions(viewer, member);
+      if (!Object.values(actions).some(Boolean)) return null;
+      return (
+        <>
+          {actions.edit ? (
+            <Button variant="outline" onClick={() => setDialog({ kind: "edit", member })}>
+              Edit
+            </Button>
+          ) : null}
+          {actions.changeEmail ? (
+            <Button variant="outline" onClick={() => setDialog({ kind: "email", member })}>
+              Change sign-in email
+            </Button>
+          ) : null}
+          {actions.copyInviteLink ? (
+            <Button variant="outline" onClick={() => issueLink(member)}>
+              Copy invite link
+            </Button>
+          ) : null}
+          {actions.reactivate ? (
+            <Button variant="outline" onClick={() => reactivate(member)}>
+              Reactivate
+            </Button>
+          ) : null}
+          {actions.revokeInvite || actions.deactivate ? (
+            // Destructive last, with the others between it and the thumb (§14.1).
+            <Button variant="destructive" onClick={() => setDialog({ kind: "deactivate", member })}>
+              {actions.revokeInvite ? "Revoke invite" : "Deactivate"}
+            </Button>
+          ) : null}
+        </>
+      );
+    },
+  };
+
   return (
     <>
       <DataTable
@@ -204,6 +286,7 @@ export function TeamTable({
         getRowId={(member) => member.id}
         pageSize={0}
         caption="The team"
+        mobile={mobile}
         emptyState={
           <EmptyState
             icon={UsersIcon}

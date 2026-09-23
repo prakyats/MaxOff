@@ -15,6 +15,14 @@ import {
 import { ArrowDownIcon, ArrowUpIcon, ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { type ReactNode, useState } from "react";
 
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/core/ui/primitives/sheet";
+
 import { cn } from "@/core/lib/utils";
 import { Button } from "@/core/ui/primitives/button";
 import { Checkbox } from "@/core/ui/primitives/checkbox";
@@ -58,6 +66,29 @@ export function selectionColumn<TData>(): ColumnDef<TData> {
   };
 }
 
+/**
+ * How a row looks as a **card on a phone** (ARCHITECTURE §14.1: "Tables become cards below
+ * 768px … horizontal scrolling inside a table is not acceptable").
+ *
+ * A card carries only what identifies the row and the one thing you need at a glance; every
+ * other column — email, dates, secondary fields — lives in the detail sheet, where the actions
+ * are too. Desktop and mobile are allowed to be different screens built from the same data.
+ */
+export type MobileCard<TData> = {
+  /** The line that identifies the row: a name, a title. */
+  title: (row: TData) => ReactNode;
+  /** One quieter line beneath it: a job title, a client, a date. */
+  subtitle?: (row: TData) => ReactNode;
+  /** The glance: a `StatusDot`, or the one number that matters. */
+  trailing?: (row: TData) => ReactNode;
+  /** The rest of the row. Without it the card is not tappable and has no sheet. */
+  detail?: (row: TData) => ReactNode;
+  /** Heading for the sheet; defaults to `title`. */
+  detailTitle?: (row: TData) => ReactNode;
+  /** Actions inside the sheet, stacked full width. */
+  actions?: (row: TData) => ReactNode;
+};
+
 export type DataTableProps<TData> = {
   columns: ColumnDef<TData>[];
   data: TData[];
@@ -73,6 +104,10 @@ export type DataTableProps<TData> = {
   onRowClick?: (row: Row<TData>) => void;
   /** Accessible summary of the table, e.g. "Pending approvals". */
   caption: string;
+  /** The card shape used below `md`. Without it the table still scrolls sideways on a phone. */
+  mobile?: MobileCard<TData>;
+  /** Cards shown before "Show more"; mobile shows fewer rows with a clearer next step (§14.1). */
+  mobilePageSize?: number;
   className?: string;
 };
 
@@ -92,6 +127,8 @@ export function DataTable<TData>({
   onRowSelectionChange,
   onRowClick,
   caption,
+  mobile,
+  mobilePageSize = 10,
   className,
 }: DataTableProps<TData>) {
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -134,7 +171,22 @@ export function DataTable<TData>({
 
   return (
     <div className={cn("flex flex-col gap-3", className)}>
-      <div className="border-border bg-card max-h-[70dvh] overflow-auto rounded-lg border">
+      {mobile ? (
+        <MobileCards
+          rows={rows}
+          card={mobile}
+          isLoading={isLoading}
+          pageSize={mobilePageSize}
+          caption={caption}
+        />
+      ) : null}
+      <div
+        className={cn(
+          "border-border bg-card max-h-[70dvh] overflow-auto rounded-lg border",
+          // A phone gets the cards above instead; the table is never side-scrolled (§14.1).
+          mobile && "hidden md:block",
+        )}
+      >
         <Table>
           <caption className="sr-only">{caption}</caption>
           <TableHeader className="bg-card sticky top-0 z-10 shadow-[inset_0_-1px_0_var(--border)]">
@@ -206,7 +258,13 @@ export function DataTable<TData>({
         </Table>
       </div>
       {showPager ? (
-        <div className="text-muted-foreground flex items-center justify-between gap-2 text-sm">
+        <div
+          className={cn(
+            "text-muted-foreground flex items-center justify-between gap-2 text-sm",
+            // The cards have their own "Show more"; page arrows are a desktop control.
+            mobile && "hidden md:flex",
+          )}
+        >
           <span className="tabular-nums">
             Page {table.getState().pagination.pageIndex + 1} of {pageCount}
           </span>
@@ -232,6 +290,145 @@ export function DataTable<TData>({
           </div>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * The phone rendering of a table: a list of cards, and a bottom sheet for the row you tap.
+ *
+ * Ten cards with a clear next step rather than fifty dense rows — density follows the device
+ * (ARCHITECTURE §14.1). The table and the cards are swapped by CSS rather than by a media-query
+ * hook, so the server and the first client render agree and nothing flashes on load; the hidden
+ * one is `display: none`, so it is out of the accessibility tree too.
+ */
+function MobileCards<TData>({
+  rows,
+  card,
+  isLoading,
+  pageSize,
+  caption,
+}: {
+  rows: Row<TData>[];
+  card: MobileCard<TData>;
+  isLoading: boolean;
+  pageSize: number;
+  caption: string;
+}) {
+  const [shown, setShown] = useState(pageSize);
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  const open = rows.find((row) => row.id === openId) ?? null;
+  const visible = rows.slice(0, shown);
+  const remaining = rows.length - visible.length;
+
+  if (isLoading) {
+    return (
+      <div className="border-border divide-border bg-card divide-y rounded-lg border md:hidden">
+        {Array.from({ length: Math.min(pageSize, 5) }, (_, i) => (
+          <div key={`skeleton-${i}`} className="flex min-h-16 flex-col justify-center gap-2 px-4">
+            <Skeleton className="h-4 w-1/2" />
+            <Skeleton className="h-3 w-1/3" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3 md:hidden">
+      <ul
+        data-slot="data-cards"
+        aria-label={caption}
+        className="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border"
+      >
+        {visible.map((row) => {
+          const body = (
+            <>
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
+                <span className="truncate text-sm font-medium">{card.title(row.original)}</span>
+                {card.subtitle ? (
+                  <span className="text-muted-foreground truncate text-xs">
+                    {card.subtitle(row.original)}
+                  </span>
+                ) : null}
+              </span>
+              {card.trailing ? (
+                <span className="shrink-0">{card.trailing(row.original)}</span>
+              ) : null}
+            </>
+          );
+
+          return (
+            <li key={row.id} data-slot="data-card">
+              {card.detail ? (
+                <button
+                  type="button"
+                  onClick={() => setOpenId(row.id)}
+                  className="active:bg-muted/60 focus-visible:ring-ring flex min-h-16 w-full items-center gap-3 px-4 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset"
+                >
+                  {body}
+                  <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
+                </button>
+              ) : (
+                <div className="flex min-h-16 w-full items-center gap-3 px-4 py-3">{body}</div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+
+      {remaining > 0 ? (
+        <Button
+          variant="outline"
+          onClick={() => setShown((current) => current + pageSize)}
+          data-slot="data-cards-more"
+        >
+          Show {Math.min(remaining, pageSize)} more
+        </Button>
+      ) : null}
+
+      <Sheet open={open !== null} onOpenChange={(next) => (next ? null : setOpenId(null))}>
+        <SheetContent
+          side="bottom"
+          data-slot="detail-sheet"
+          className="max-h-[85dvh] gap-4 overflow-y-auto rounded-t-2xl pb-[calc(1.5rem+var(--app-safe-bottom))]"
+        >
+          <div
+            aria-hidden
+            className="bg-border pointer-events-none absolute top-2 left-1/2 h-1 w-10 -translate-x-1/2 rounded-full"
+          />
+          {open ? (
+            <>
+              <SheetHeader className="pt-3 pr-12 pb-0">
+                <SheetTitle>{(card.detailTitle ?? card.title)(open.original)}</SheetTitle>
+                <SheetDescription className="sr-only">Details and actions</SheetDescription>
+              </SheetHeader>
+              {card.detail ? (
+                <div data-slot="detail-sheet-body" className="px-4 text-sm">
+                  {card.detail(open.original)}
+                </div>
+              ) : null}
+              {/*
+                `card.actions` is a function, so testing it says nothing about whether this row
+                has any: an Admin sees every card but may act on none (PERMISSIONS §2), and that
+                rendered an empty bordered block.
+              */}
+              {card.actions?.(open.original) ? (
+                <div
+                  data-slot="detail-sheet-actions"
+                  // Any action closes the sheet: the ones that go on to open a dialog would
+                  // otherwise leave it stacked behind, and the rest are finished by then.
+                  onClick={() => setOpenId(null)}
+                  className="border-border flex flex-col gap-2 border-t px-4 pt-4 *:w-full *:justify-start"
+                >
+                  {card.actions(open.original)}
+                </div>
+              ) : null}
+            </>
+          ) : null}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

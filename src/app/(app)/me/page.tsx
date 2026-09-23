@@ -46,6 +46,11 @@ export default async function MePage({
             ? "You're in. Check your name, add a phone number, and you're set."
             : "Your profile, appearance and session."
         }
+        // The welcome line is the one thing here a phone genuinely needs to be told; the rest
+        // of the screen says what it is (ARCHITECTURE §14.1).
+        {...(isWelcome
+          ? { help: "You're in. Check your name, add a phone number, and you're set." }
+          : {})}
       />
       <div className="flex max-w-xl flex-col gap-4">
         {isWelcome ? (

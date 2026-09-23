@@ -51,7 +51,8 @@ export function WeeklyOffForm({ weeklyOffDays }: { weeklyOffDays: readonly numbe
           {weeklyOffChoices(selected).map((choice) => (
             <Label
               key={choice.value}
-              className="flex cursor-pointer items-center gap-2 text-sm font-normal"
+              // 44px tall on a phone: the whole label is the target, not the 16px box.
+              className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-normal md:min-h-0"
             >
               <Checkbox
                 checked={choice.checked}
@@ -63,11 +64,14 @@ export function WeeklyOffForm({ weeklyOffDays }: { weeklyOffDays: readonly numbe
           ))}
         </div>
       </fieldset>
-      <div>
-        <Button type="button" onClick={save} disabled={pending}>
-          {pending ? "Saving…" : "Save days off"}
-        </Button>
-      </div>
+      <Button
+        type="button"
+        onClick={save}
+        disabled={pending}
+        className="w-full md:w-auto md:self-start"
+      >
+        {pending ? "Saving…" : "Save days off"}
+      </Button>
     </div>
   );
 }

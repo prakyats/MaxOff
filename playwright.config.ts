@@ -14,6 +14,7 @@ try {
 }
 const PRODUCTION_SPECS = /production\.spec\.ts$/;
 const SETUP_SPECS = /\.setup\.ts$/;
+const MOBILE_SPECS = /mobile\.spec\.ts$/;
 
 /**
  * Flow tests (ARCHITECTURE §15). `pnpm test:e2e` runs them; CI runs them as their own job.
@@ -55,15 +56,26 @@ export default defineConfig({
     {
       name: "desktop",
       dependencies: ["setup"],
-      testIgnore: [PRODUCTION_SPECS, SETUP_SPECS],
+      // The mobile standard is about phone widths; running it at 1280px proves nothing.
+      testIgnore: [PRODUCTION_SPECS, SETUP_SPECS, MOBILE_SPECS],
       use: { ...devices["Desktop Chrome"] },
     },
     {
-      // Staff screens are laid out for 375px first (ARCHITECTURE §3.3).
+      // Every screen is laid out for the phone first (ARCHITECTURE §14.1). 375px is the small
+      // phone of the two widths the standard is checked at.
       name: "mobile",
       dependencies: ["setup"],
       testIgnore: [PRODUCTION_SPECS, SETUP_SPECS],
       use: { ...devices["Pixel 5"], viewport: { width: 375, height: 812 } },
+    },
+    {
+      // The large phone. Only `mobile.spec.ts` runs here: the flow specs prove behaviour, which
+      // does not change with 55px of width, while the mobile standard is checked at **both**
+      // 375px and 430px because that is where a layout stops fitting (§14.1).
+      name: "mobile-lg",
+      dependencies: ["setup"],
+      testMatch: MOBILE_SPECS,
+      use: { ...devices["Pixel 5"], viewport: { width: 430, height: 932 } },
     },
     {
       name: "production",

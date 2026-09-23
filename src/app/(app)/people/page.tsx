@@ -34,15 +34,16 @@ export default async function PeoplePage() {
     archived: archived_at !== null,
   }));
 
+  const description = canManage
+    ? "Invite people, set roles and job titles, deactivate or reactivate."
+    : "Everyone on the team, with their role and job title.";
+
   return (
     <>
       <PageHeader
         title="People"
-        description={
-          canManage
-            ? "Invite people, set roles and job titles, deactivate or reactivate."
-            : "Everyone on the team, with their role and job title."
-        }
+        description={description}
+        help={description}
         actions={canManage ? <InviteMemberDialog jobTitles={jobTitles} /> : undefined}
       />
       <TeamTable

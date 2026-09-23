@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { LogoutMenuItem } from "@/core/auth/components";
+import { LogoutMenuItem, LogoutProvider, LogoutSheetItem } from "@/core/auth/components";
 import { requireMember } from "@/core/auth/server";
 import { SentryUser } from "@/core/observability/sentry-user";
 import { AppShell } from "@/core/ui/shell/app-shell";
@@ -14,9 +14,17 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const viewer = await requireMember();
 
   return (
-    <AppShell viewer={viewer} logoutItem={<LogoutMenuItem />}>
-      <SentryUser id={viewer.id} />
-      {children}
-    </AppShell>
+    // The Log out confirmation lives above the shell: the account menu and the More sheet both
+    // close when you choose an item, and a dialog rendered inside either would close with them.
+    <LogoutProvider>
+      <AppShell
+        viewer={viewer}
+        logoutItem={<LogoutMenuItem />}
+        logoutSheetItem={<LogoutSheetItem />}
+      >
+        <SentryUser id={viewer.id} />
+        {children}
+      </AppShell>
+    </LogoutProvider>
   );
 }

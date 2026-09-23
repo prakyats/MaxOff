@@ -16,7 +16,9 @@ test.describe.configure({ mode: "serial" });
 
 test.describe("Owner", () => {
   test.use({ storageState: storageStateFor("owner") });
-  test.skip(({ isMobile }) => Boolean(isMobile), "Settings is an Owner desktop screen");
+  // Settings is a first-class phone screen since 1.5; these tests drive the desktop controls
+  // (the four-icon list row, the wide forms). The phone shapes are in `mobile.spec.ts`.
+  test.skip(({ isMobile }) => Boolean(isMobile), "these drive the desktop controls");
 
   test("opens every built section from the control centre", async ({ page }) => {
     await page.goto("/settings");
@@ -181,7 +183,7 @@ test.describe("Owner", () => {
 
 test.describe("Admin", () => {
   test.use({ storageState: storageStateFor("admin") });
-  test.skip(({ isMobile }) => Boolean(isMobile), "Settings is a desktop screen");
+  test.skip(({ isMobile }) => Boolean(isMobile), "these drive the desktop controls");
 
   test("gets the lists but none of the company settings", async ({ page }) => {
     await page.goto("/settings");

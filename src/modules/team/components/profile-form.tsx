@@ -60,11 +60,15 @@ export function ProfileForm({ fullName, phone }: { fullName: string; phone: stri
           />
         )}
       </FormField>
-      <div>
-        <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : "Save profile"}
-        </Button>
-      </div>
+      {/*
+        In the flow, full width on a phone — not a sticky bar. This form is one card among
+        several on Me, and a bar pinned to the viewport would still be hanging there while you
+        read the Appearance and Session cards below it. Two fields fit on one screen, so the
+        button is reachable where it stands (ARCHITECTURE §14.1).
+      */}
+      <Button type="submit" disabled={pending} className="w-full md:w-auto md:self-start">
+        {pending ? "Saving…" : "Save profile"}
+      </Button>
     </form>
   );
 }

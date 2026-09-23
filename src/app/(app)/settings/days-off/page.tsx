@@ -18,8 +18,6 @@ import {
   WeeklyOffForm,
 } from "@/modules/settings";
 
-import { SettingsBackLink } from "../back-link";
-
 export const metadata: Metadata = { title: "Days off & holidays" };
 
 /**
@@ -32,10 +30,11 @@ export default async function DaysOffSettingsPage() {
 
   return (
     <>
-      <SettingsBackLink />
       <PageHeader
+        back={{ href: "/settings", label: "Settings" }}
         title="Days off & holidays"
         description="A day off means nobody is marked absent. People may still log in and mark attendance, and the day shows as worked on a day off."
+        help="A day off means nobody is marked absent. People may still log in and mark attendance, and the day shows as worked on a day off."
       />
       <div className="flex max-w-3xl flex-col gap-6">
         <Card>

@@ -1,6 +1,18 @@
 import { describe, expect, it } from "vitest";
 
-import { homeFor, isActivePath, NAV_BY_ROLE, navFor, settingsSectionsFor } from "./nav";
+import {
+  alertsInBottomNav,
+  homeFor,
+  isActivePath,
+  MOBILE_MORE,
+  MOBILE_PRIMARY,
+  mobileNavFor,
+  NAV_BY_ROLE,
+  navFor,
+  PROFILE_NAV_ITEM,
+  settingsSectionsFor,
+  totalBadge,
+} from "./nav";
 import { SHELL_ROLES, type ShellRole } from "./viewer";
 
 const keys = (role: ShellRole) => navFor(role).map((item) => item.key);
@@ -79,6 +91,122 @@ describe("navFor", () => {
       const items = NAV_BY_ROLE[role];
       expect(new Set(items.map((i) => i.key)).size).toBe(items.length);
       expect(new Set(items.map((i) => i.href)).size).toBe(items.length);
+    }
+  });
+});
+
+describe("mobileNavFor", () => {
+  it("gives each role the bottom bar the owner decided on (2026-09-23)", () => {
+    // The owner's stated priority order; Clients is not daily, so it is not in the bar.
+    for (const role of ["owner", "admin"] as const) {
+      expect(mobileNavFor(role).primary.map((i) => i.label)).toEqual([
+        "Today",
+        "Approvals",
+        "Tasks",
+        "Calendar",
+      ]);
+    }
+    expect(mobileNavFor("staff").primary.map((i) => i.label)).toEqual([
+      "My Day",
+      "Tasks",
+      "Calendar",
+      "Alerts",
+      "Me",
+    ]);
+  });
+
+  it("puts everything else in More in the same priority order, and Staff get no More", () => {
+    for (const role of ["owner", "admin"] as const) {
+      expect(mobileNavFor(role).more.map((i) => i.key)).toEqual([
+        "reports",
+        "clients",
+        "people",
+        "settings",
+      ]);
+    }
+    expect(mobileNavFor("staff").more).toEqual([]);
+  });
+
+  it("keeps Owner and Admin as separate entries even while they match", () => {
+    // They will diverge again once Approvals and Reports carry different weight for each role.
+    expect(MOBILE_PRIMARY.owner).not.toBe(MOBILE_PRIMARY.admin);
+    expect(MOBILE_MORE.owner).not.toBe(MOBILE_MORE.admin);
+  });
+
+  it("never drops or duplicates a destination: primary + More is the whole navigation", () => {
+    for (const role of SHELL_ROLES) {
+      const { primary, more } = mobileNavFor(role);
+      const keys = [...primary, ...more].map((item) => item.key);
+      expect(new Set(keys).size).toBe(keys.length);
+      expect([...keys].sort()).toEqual([...navFor(role).map((i) => i.key)].sort());
+    }
+  });
+
+  it("keeps the bar to five cells, counting More", () => {
+    for (const role of SHELL_ROLES) {
+      const { primary, more } = mobileNavFor(role);
+      expect(primary.length + (more.length > 0 ? 1 : 0)).toBeLessThanOrEqual(5);
+    }
+  });
+
+  it("names only keys the role actually has", () => {
+    for (const role of SHELL_ROLES) {
+      const available = navFor(role).map((item) => item.key);
+      for (const key of [...MOBILE_PRIMARY[role], ...MOBILE_MORE[role]]) {
+        expect(available).toContain(key);
+      }
+    }
+  });
+
+  it("the two arrays together are exactly the role's navigation, so nothing is lost", () => {
+    for (const role of SHELL_ROLES) {
+      const split = [...MOBILE_PRIMARY[role], ...MOBILE_MORE[role]];
+      expect(new Set(split).size).toBe(split.length);
+      expect([...split].sort()).toEqual([...navFor(role).map((i) => i.key)].sort());
+    }
+  });
+
+  it("never duplicates the profile: Staff have it in the bar, the others in More", () => {
+    expect(mobileNavFor("staff").primary.map((i) => i.href)).toContain(PROFILE_NAV_ITEM.href);
+    for (const role of ["owner", "admin"] as const) {
+      const { primary, more } = mobileNavFor(role);
+      const hrefs = [...primary, ...more].map((item) => item.href);
+      expect(hrefs).not.toContain(PROFILE_NAV_ITEM.href);
+    }
+  });
+
+  it("adds up what is hidden behind More, so a count never disappears into the sheet", () => {
+    const more = mobileNavFor("owner").more;
+    expect(totalBadge(more)).toBe(0);
+    expect(
+      totalBadge([
+        { ...more[0]!, badge: 3 },
+        { ...more[1]!, badge: 2 },
+      ]),
+    ).toBe(5);
+    // A count nothing has set, and a nonsense negative, are both just "nothing waiting".
+    expect(totalBadge([{ ...more[0]! }, { ...more[1]!, badge: -4 }])).toBe(0);
+  });
+
+  it("no destination ships with a badge: 2.4 and 5.1 set them from real data", () => {
+    for (const role of SHELL_ROLES) {
+      for (const item of navFor(role)) expect(item.badge).toBeUndefined();
+    }
+  });
+
+  it("puts the bell in the title bar for exactly the roles whose bar has no Alerts", () => {
+    expect(alertsInBottomNav("staff")).toBe(true);
+    expect(alertsInBottomNav("owner")).toBe(false);
+    expect(alertsInBottomNav("admin")).toBe(false);
+  });
+
+  it("never reaches money on a phone either (ADR-0007)", () => {
+    const moneyWords = /finance|revenue|billing|money|invoice|payment/i;
+    for (const role of SHELL_ROLES) {
+      for (const item of [...mobileNavFor(role).primary, ...mobileNavFor(role).more]) {
+        expect(item.href).not.toMatch(moneyWords);
+        expect(item.label).not.toMatch(moneyWords);
+      }
     }
   });
 });

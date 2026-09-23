@@ -56,7 +56,7 @@ export function HolidaysPanel({ holidays, today }: { holidays: Holiday[]; today:
               <Input {...control} name="name" placeholder="Diwali" maxLength={120} required />
             )}
           </FormField>
-          <Button type="submit" disabled={pending} className="sm:mt-6">
+          <Button type="submit" disabled={pending} className="w-full sm:mt-6 sm:w-auto">
             {pending ? "Adding…" : "Add holiday"}
           </Button>
         </div>
@@ -81,7 +81,7 @@ export function HolidaysPanel({ holidays, today }: { holidays: Holiday[]; today:
                   <li
                     key={holiday.id}
                     data-slot="holiday-row"
-                    className="flex items-center justify-between gap-3 px-4 py-3"
+                    className="flex min-h-14 items-center justify-between gap-3 px-4 py-3"
                   >
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">{holiday.name}</p>

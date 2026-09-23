@@ -199,3 +199,131 @@
     outline-offset: 2px;
   }
 }
+
+/*
+ * The mobile standard (ARCHITECTURE §14.1, task 1.5). Mobile is its own layout for every role,
+ * not a narrow desktop one, so these are *base* rules: a screen built in a later phase inherits
+ * them without knowing they exist. The breakpoint is `md` (768px) everywhere — the same line the
+ * shell uses to swap the bottom nav for the sidebar and a dialog for a bottom sheet.
+ */
+@layer base {
+  :root {
+    /* Height of the mobile brand bar. The page title bar sticks directly below it, so when the
+     * brand bar hides on scroll this drops to 0 and the title bar takes the top edge.
+     * `core/ui/shell/chrome-scroll.ts` sets `data-chrome` on <html>; nothing else moves. */
+    --app-chrome-h: 0rem;
+    /* Height of the mobile bottom nav, used for page padding and for anything docked above it. */
+    --app-bottom-nav-h: 0rem;
+    /* Everything docked at the bottom clears the home indicator (viewport-fit=cover). */
+    --app-safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  html {
+    /* iOS inflates text in landscape unless this is pinned. */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  /* Sheets and dialogs never chain their scroll to the page behind (§14.1: no scroll chaining),
+   * and keep momentum scrolling inside. */
+  [data-slot="sheet-content"],
+  [data-slot$="dialog-content"],
+  [data-slot="detail-sheet-body"] {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  @media (max-width: 767px) {
+    :root {
+      --app-chrome-h: 3rem;
+      --app-bottom-nav-h: 3.5rem;
+    }
+    /* The brand bar is hidden: it slides out and the title bar moves up to the top edge. */
+    html[data-chrome="hidden"] {
+      --app-chrome-h: 0rem;
+    }
+    html[data-chrome="hidden"] [data-slot="top-bar"] {
+      transform: translateY(-100%);
+    }
+
+    /* Staff already have Alerts in the bottom bar, so the title bar doesn't repeat the bell. */
+    [data-alerts="nav"] [data-slot="header-bell"] {
+      display: none;
+    }
+
+    /* A page with a floating primary action or a sticky save bar gets room for it, so neither
+     * ever covers the last row or the last field. */
+    main:has([data-slot="page-actions"]),
+    main:has([data-slot="sticky-actions"]) {
+      padding-bottom: calc(var(--app-bottom-nav-h) + 5rem + var(--app-safe-bottom));
+    }
+
+    /* No 300ms tap delay, and a tap never double-tap-zooms a control. */
+    button,
+    [role="button"],
+    a,
+    label,
+    summary,
+    input,
+    select,
+    textarea {
+      touch-action: manipulation;
+    }
+
+    /*
+     * Touch targets are at least 44 x 44 (§14.1). `link` buttons are inline text, not targets.
+     *
+     * A button is matched by the pair of attributes only `button.tsx` sets, never by
+     * `data-slot`: Radix's `asChild` lets the trigger overwrite `data-slot`, so the account
+     * menu's button says `dropdown-menu-trigger` and a dialog's says `dialog-trigger`. Keying
+     * on `data-slot="button"` silently missed every trigger in the app (caught by the 44px
+     * sweep in `e2e/mobile.spec.ts`).
+     */
+    [data-variant][data-size]:not([data-variant="link"]) {
+      min-height: 2.75rem;
+    }
+    [data-variant][data-size^="icon"] {
+      min-height: 2.75rem;
+      min-width: 2.75rem;
+    }
+    [data-slot="dropdown-menu-item"],
+    [data-slot="dropdown-menu-radio-item"],
+    [data-slot="dropdown-menu-checkbox-item"],
+    [data-slot="select-item"] {
+      min-height: 2.75rem;
+    }
+
+    /* 16px minimum, or iOS Safari zooms the page on focus and never zooms back (§14.1). */
+    [data-slot="input"],
+    [data-slot="textarea"],
+    [data-slot="select-trigger"] {
+      min-height: 2.75rem;
+      font-size: 1rem;
+      line-height: 1.5;
+    }
+    /* The primitive sets its height from `data-size`; the minimum above has to win. */
+    [data-slot="select-trigger"][data-size] {
+      height: auto;
+    }
+    /* A checkbox is small by design, so the *hit area* grows instead of the box. */
+    [data-slot="checkbox"] {
+      position: relative;
+    }
+    [data-slot="checkbox"]::after {
+      content: "";
+      position: absolute;
+      inset: 50% auto auto 50%;
+      width: 2.75rem;
+      height: 2.75rem;
+      transform: translate(-50%, -50%);
+    }
+  }
+
+  /* The brand bar slides away on scroll down and comes back on scroll up. Someone who asked for
+   * less motion still gets the bar, just without the slide. */
+  @media (prefers-reduced-motion: reduce) {
+    [data-slot="top-bar"] {
+      transition: none !important;
+    }
+  }
+}

@@ -80,6 +80,16 @@ const LABEL_OVERRIDES: Partial<Record<KnownStatus, string>> = {
   half_day: "Half day",
 };
 
+/** The solid tone colour, used as the dot in `StatusDot`. */
+export const TONE_DOT_CLASSES: Record<StatusTone, string> = {
+  success: "bg-success",
+  info: "bg-info",
+  attention: "bg-attention",
+  danger: "bg-danger",
+  neutral: "bg-neutral",
+  brand: "bg-brand",
+};
+
 /** Text and background come from the tone tokens in globals.css, so contrast is fixed once. */
 const TONE_CLASSES: Record<StatusTone, string> = {
   success: "bg-success-soft text-success",
@@ -125,5 +135,41 @@ export function StatusBadge({
     >
       {label ?? statusLabel(status)}
     </Badge>
+  );
+}
+
+/**
+ * The same meaning as `StatusBadge`, as **a coloured dot plus a short word** — what a status
+ * looks like on a phone (ARCHITECTURE §14.1: "not a full-width badge column"). A card has one
+ * line for identity and one glance for state; a pill eats the width the name needs.
+ *
+ * The word is plain foreground text, so its contrast never depends on the tone; the tone is
+ * carried by the dot, and the word says the same thing for anyone who can't see the colour.
+ */
+export function StatusDot({
+  status,
+  label,
+  tone,
+  className,
+}: {
+  status: string;
+  label?: string;
+  tone?: StatusTone;
+  className?: string;
+}) {
+  const resolved = tone ?? statusTone(status);
+  return (
+    <span
+      data-slot="status-dot"
+      data-status={status}
+      data-tone={resolved}
+      className={cn("text-foreground inline-flex items-center gap-1.5 text-xs", className)}
+    >
+      <span
+        aria-hidden
+        className={cn("size-2 shrink-0 rounded-full", TONE_DOT_CLASSES[resolved])}
+      />
+      {label ?? statusLabel(status)}
+    </span>
   );
 }

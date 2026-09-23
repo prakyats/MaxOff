@@ -47,7 +47,7 @@ MaxOff is the **internal operations and control system for Pixora Clips**. It co
 
 ## Definition of Done (every task)
 - [ ] `pnpm check` passes. New logic has unit tests, new tables have RLS tests for each role, new transition functions have tests for each path, and new flows have Playwright tests.
-- [ ] The UI has loading, empty, error and permission-denied states, and forms show validation messages. Staff screens meet the **mobile standard** (ARCHITECTURE §14.1: safe areas, 16px inputs, 44px targets, bottom-sheet dialogs, sticky primary action, cards instead of tables) at 375px and 430px.
+- [ ] The UI has loading, empty, error and permission-denied states, and forms show validation messages. Every screen meets the **mobile standard** (ARCHITECTURE §14.1: safe areas, 16px inputs, 44px targets, bottom-sheet dialogs, sticky primary action, cards instead of tables) at 375px and 430px — mobile is a first-class layout for every role, not only for Staff.
 - [ ] Every mutation is audited (a transition function or the audit trigger). Notifications follow WORKFLOWS §9.
 - [ ] Docs are updated: `PROGRESS.md`, the task is ticked in `ROADMAP.md`, and DATA-MODEL / WORKFLOWS / PERMISSIONS / an ADR if something changed.
 - [ ] No `console.log`, no commented-out code, and no TODO that isn't also listed in PROGRESS.md.
