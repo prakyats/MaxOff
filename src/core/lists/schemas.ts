@@ -38,3 +38,22 @@ export function nextPosition(last: string | null): string {
   }
   return `${last}0`;
 }
+
+/**
+ * The columns an edit actually names, so a name-only rename leaves `description`, `color` and
+ * `icon` as they are (the rename dialog sends `{ name }`; 4.1's task types will send more).
+ * Writing `?? null` for the absent keys would wipe them and the audit row would look deliberate.
+ */
+export function listItemUpdatePatch(values: ListItemInput): {
+  name: string;
+  description?: string;
+  color?: string;
+  icon?: string;
+} {
+  return {
+    name: values.name,
+    ...(values.description !== undefined ? { description: values.description } : {}),
+    ...(values.color !== undefined ? { color: values.color } : {}),
+    ...(values.icon !== undefined ? { icon: values.icon } : {}),
+  };
+}

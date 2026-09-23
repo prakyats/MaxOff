@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { isListKey, LIST_KEYS, LIST_LABELS } from "./registry";
-import { listItemInputSchema, nextPosition } from "./schemas";
+import { listItemInputSchema, listItemUpdatePatch, nextPosition } from "./schemas";
 
 describe("registry", () => {
   it("knows the job title list and labels every key", () => {
@@ -46,5 +46,20 @@ describe("nextPosition", () => {
       key = next;
     }
     expect(new Set(seen).size).toBe(seen.length);
+  });
+});
+
+describe("listItemUpdatePatch", () => {
+  it("writes only the columns the edit names, so a rename keeps the other fields", () => {
+    expect(listItemUpdatePatch({ name: "Editor" })).toEqual({ name: "Editor" });
+    expect(listItemUpdatePatch({ name: "Editor", color: "#AD5009" })).toEqual({
+      name: "Editor",
+      color: "#AD5009",
+    });
+    expect(listItemUpdatePatch({ name: "Editor", description: "", icon: "film" })).toEqual({
+      name: "Editor",
+      description: "",
+      icon: "film",
+    });
   });
 });

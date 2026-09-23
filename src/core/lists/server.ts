@@ -8,6 +8,7 @@ import type { ListKey } from "./registry";
 import {
   type ListItemInput,
   listItemInputSchema,
+  listItemUpdatePatch,
   type MoveDirection,
   nextPosition,
 } from "./schemas";
@@ -83,12 +84,7 @@ export async function updateListItem(id: string, input: ListItemInput): Promise<
   const supabase = await createServerSupabase();
   const { data, error } = await supabase
     .from("list_items")
-    .update({
-      name: values.name,
-      description: values.description ?? null,
-      color: values.color ?? null,
-      icon: values.icon ?? null,
-    })
+    .update(listItemUpdatePatch(values))
     .eq("id", id)
     .select("*")
     .single();
