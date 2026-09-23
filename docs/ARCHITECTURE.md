@@ -294,6 +294,7 @@ Staff work from a phone, often one-handed, often outdoors. These are shell-level
 - **Compact page headers on mobile:** the title, and a subtitle only when it tells you something you can't see. Explanatory paragraphs move into the empty state or a help sheet. The first real content should be visible without scrolling.
 - **The primary action is always reachable:** a sticky bottom bar (or a single FAB above the bottom nav), never a button at the top of a scrolled page.
 - **Status reads at a glance**: a coloured dot plus a short word, not a full-width badge column.
+- **Skeletons trace their own screen.** A loading state is a tracing of the content it replaces — same row height, same number of text lines, same column positions, same place for the status chip — so nothing moves when the data arrives. A generic avatar list standing in for a task list makes the app feel slower than it is, because the layout visibly swaps. `LoadingState` therefore takes a **shape** (`list`, `cards`, `tiles`, `detail`, `table`) and each route's `loading.tsx` passes the one matching its content; three to five items is enough, never a full screen of them. Respect `prefers-reduced-motion` (no shimmer), and for loads that are usually under ~300 ms prefer nothing at all over a flash of skeleton.
 - **Density follows the device.** Desktop may show a dense table of 50 rows; mobile shows 10 cards with a clear next step. They are allowed to be different screens, built from the same data, rather than one screen bent to fit.
 
 ## 15. Testing
