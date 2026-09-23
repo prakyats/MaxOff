@@ -1,23 +1,15 @@
 import { redirect } from "next/navigation";
 
+import { LOGIN_PATH } from "@/core/auth/paths";
+import { getSessionState, SIGN_OUT_INACTIVE_PATH } from "@/core/auth/server";
 import { homeFor } from "@/core/ui/shell/nav";
-import { getPreviewViewer } from "@/core/ui/shell/preview-viewer";
 
 /**
- * Sends a signed-in member to their home. Task 1.2 replaces the preview viewer with the
- * real session and sends everyone else to /login; until then the landing shows below.
+ * `/` is a router, not a landing page (the app is internal): a member goes to their role's
+ * home, a session whose member is not active is ended, and everyone else signs in.
  */
 export default async function Home() {
-  const viewer = await getPreviewViewer();
-  if (viewer) redirect(homeFor(viewer.role));
-
-  return (
-    <main className="flex min-h-dvh flex-col items-center justify-center gap-2 p-6 text-center">
-      <h1 className="text-2xl font-semibold tracking-tight">MaxOff</h1>
-      <p className="text-muted-foreground text-sm">
-        Internal operations and control system for Pixora Clips.
-      </p>
-      <p className="text-muted-foreground/70 text-xs">Phase 0 · foundation</p>
-    </main>
-  );
+  const state = await getSessionState();
+  if (state.kind === "member") redirect(homeFor(state.member.role));
+  redirect(state.kind === "inactive" ? SIGN_OUT_INACTIVE_PATH : LOGIN_PATH);
 }

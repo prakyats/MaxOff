@@ -4,7 +4,7 @@ import { Brand } from "./brand";
 import { type NavItem } from "./nav";
 import { NavList } from "./nav-list";
 
-/** Desktop sidebar for CEO and Admin (hidden below `md`; the top bar opens a sheet instead). */
+/** Desktop sidebar for Owner and Admin (hidden below `md`; the top bar opens a sheet instead). */
 export function Sidebar({
   home,
   items,

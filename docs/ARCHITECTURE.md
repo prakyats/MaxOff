@@ -14,7 +14,7 @@
 | **Atomic audit** (ADR-0006) | A change and its audit record commit together, or neither does. |
 | **Customization is data** (ADR-0002) | Task types, stage presets, job titles, holidays, custom fields and templates live in tables. Code relies only on fixed *categories* (enums in DATA-MODEL §0). |
 | **Two work systems** (ADR-0005) | Client work (projects → cycles → items) and staff tasks are separate modules with no automatic coupling. The only link is a task's optional client **label**. |
-| **Money is sealed off** (ADR-0007) | Amounts live only in CEO-only tables and views. Nothing outside the `revenue` module can read them. |
+| **Money is sealed off** (ADR-0007) | Amounts live only in Owner-only tables and views. Nothing outside the `revenue` module can read them. |
 | **IST everywhere** (ADR-0008) | Stored as UTC `timestamptz`. Business dates are computed in `Asia/Kolkata` in SQL (one helper) and in TS (one helper). |
 | **Cheap SaaS seams, nothing more** | An `org_id` boundary, clean modules, an authorization layer, and storage and notification adapters. No multi-tenant features. |
 | **Additive change** | Migrations and module APIs are only added to. Anything destructive goes through expand → migrate → contract. |
@@ -27,7 +27,7 @@
 |---|---|---|
 | App | **Next.js (App Router) + TypeScript strict**, React Server Components, server actions | — |
 | UI | Tailwind CSS + shadcn/ui, lucide icons, TanStack Query (client caches for live screens) | — |
-| Database, Auth, Realtime, cron | **Supabase** (Postgres 15+, RLS, Realtime, `pg_cron`, `pg_net`) | Supabase Pro (daily backups, no pausing) |
+| Database, Auth, Realtime, cron | **Supabase**, **free plan** (Postgres 15+, RLS, Realtime, `pg_cron`, `pg_net`). Free means: no Supabase backups, no leaked-password check, ~1 day of log retention, 500 MB database, 5 GB transfer/month (ADR-0003, amended 2026-09-23) | Pro ($25/mo) when transfer passes ~4 GB/month or the database ~400 MB |
 | Files | **Cloudflare R2**, S3 multipart presigned uploads, behind `core/storage` | S3 / Supabase Storage (swap the adapter) |
 | Hosting | **Cloudflare Workers** through the OpenNext adapter. Free while building; **Workers Paid ($5/mo) from the pilot**, because the free plan allows only 10 ms CPU per request, which server-rendered pages exceed | Higher tiers, or any Node host |
 | Archive | **Google Drive API** on one company account, behind `core/drive` | Workspace shared drives later |
@@ -47,21 +47,29 @@
 
 ```
 src/
+  proxy.ts                   # Next 16 proxy: refreshes the session cookies, optimistic redirect only (ADR-0012)
   app/                       # routes only: thin pages composing module components
-    (auth)/login, invite/
+    (auth)/login, forgot-password, set-password   # signed-out screens (1.2); invite accept in 1.3
+    auth/confirm, auth/signout                    # route handlers: token-hash links, ending an inactive session
     (gate)/attendance/       # the first-login-of-the-day choice screen
     (app)/today, my-day, approvals, clients/, tasks/, calendar, people/, reports/, settings/
     api/                     # webhooks, cron entry points (secret-protected), push subscribe
   core/                      # shared foundation, NO business features
-    auth/                    # session, getCurrentMember(), guards, day-gate check
+    auth/                    # session (server.ts: getSessionState/getCurrentMember/requireMember),
+                             #   actions (login/logout/setPassword/requestPasswordReset), paths,
+                             #   schemas, links (verifyAuthLink), session (updateSession for the
+                             #   proxy), components/ (the sign-in forms, Log out); day-gate check in 2.2
     db/                      # Supabase clients (server, browser, service) + generated types
-    permissions/             # key registry, can(), requirePermission(), <Can>
+    permissions/             # key registry, can(), requirePermission() (pages), assertPermission() (actions), <Can>
     activity/                # activity feed UI + helper for non-workflow audit
     custom-fields/           # definitions, zod builder, <CustomFieldsForm>/<View>
-    lists/                   # list_items engine + registry
+    lists/                   # list_items engine (1.3): registry + schemas (index.ts), server.ts
+                             #   (repository); reorder + archive callers arrive with Settings (1.4)
     storage/                 # StorageAdapter (R2), multipart presign, file metadata
-    notifications/           # NotificationService, channels (push, email), <Bell>
-    time/                    # IST helpers: todayIST(), toISTDate(), istDayRange(), formatIST(); isWorkingDay() in 1.4
+    notifications/           # NotificationService, channels (push, email), <Bell>; email.ts + env.ts
+                             #   (1.2): sendEmail() with a Resend sender and a log fallback
+    time/                    # IST helpers: todayIST(), toISTDate(), istDayRange(), formatIST(),
+                             #   isWorkingDay() (1.4, the mirror of app.is_working_day())
     realtime/                # useRealtimeInvalidate(table, filter) → TanStack Query invalidation
     errors/                  # AppError, Result<T>, action() wrapper, Postgres error mapping
     observability/           # Sentry init per runtime + the PII/money scrubber (§18)
@@ -86,10 +94,10 @@ supabase/
   migrations/      # append-only SQL
   functions/       # (only if needed) Edge Functions, e.g. push dispatch
   tests/           # pgTAP
-  seed.sql         # dev seed: org, CEO, sample admins/staff/clients, Pixora lists
+  seed.sql         # dev seed: org, Owner, sample admins/staff/clients, Pixora lists
 e2e/               # Playwright
 public/            # manifest.webmanifest, icons/, service worker (sw.js), _headers
-scripts/           # one-off maintenance scripts (icon rendering)
+scripts/           # one-off maintenance scripts (icon rendering, the Owner bootstrap)
 wrangler.jsonc     # Workers: dev / staging / production (§18); open-next.config.ts beside it
 ```
 
@@ -99,14 +107,14 @@ Enforced by `eslint.config.mjs`; `tests/lint-rules.test.ts` lints the fixture tr
 - **`modules/*/domain` is platform-free** (ADR-0011): no `react`, `react-dom`, `next/*`, `server-only`, `client-only` or DOM globals, and from `core` only `time`, `errors` and `lib` (an allow-list in the config; extend it deliberately) plus **type-only** imports of `core/db` (`Tables<>`, `Enums<>` are plain data shapes).
 - Nothing outside a module imports its `data/`, `actions/` or internal `components/`.
 - **Only `data/` layers touch the database** (CLAUDE.md rule 3): `@supabase/supabase-js`, `@supabase/ssr` and `core/db`'s clients may be imported only from `src/modules/*/data/` and the core areas that own tables: `core/db`, `core/auth`, `core/activity`, `core/lists`, `core/custom-fields`, `core/notifications`, `core/storage`. Type-only imports are fine anywhere.
-- **Only `modules/revenue` may import money types or query money tables and views.** Outside `modules/revenue` (and the generated types in `core/db`), any string or template literal containing `project_billing`, `item_billing`, `cycle_billing`, `revenue_overrides`, `revenue_by_client_month_v` or `revenue_by_cycle_v` as a whole word is a lint error, so `.from("…")`, `Tables<"…">` and an embedded select like `"*, project_billing(*)"` all fail. Identifiers aren't checked; RLS (pgTAP-tested) is the wall behind the lint. Other modules show money only by rendering `revenue`'s exported components, which render nothing for non-CEO users. (`projects.billing_category` is not money: it's an operational label Admins may see. Only the CEO can set it.)
+- **Only `modules/revenue` may import money types or query money tables and views.** Outside `modules/revenue` (and the generated types in `core/db`), any string or template literal containing `project_billing`, `item_billing`, `cycle_billing`, `revenue_overrides`, `revenue_by_client_month_v` or `revenue_by_cycle_v` as a whole word is a lint error, so `.from("…")`, `Tables<"…">` and an embedded select like `"*, project_billing(*)"` all fail. Identifiers aren't checked; RLS (pgTAP-tested) is the wall behind the lint. Other modules show money only by rendering `revenue`'s exported components, which render nothing for non-Owner users. (`projects.billing_category` is not money: it's an operational label Admins may see. Only the Owner can set it.)
 - There is **no currency custom-field type**, so money can never leak in through `custom_fields`.
 
 ### 3.2 Module ownership
 | Module | Owns | Depends on |
 |---|---|---|
 | team | members, role_permissions, session_events, job titles (list) | core |
-| settings | org_settings, holidays, task_types, stage_presets, feature_flags | core |
+| settings | org_settings, holidays, task_types, stage_presets, feature_flags, and the Settings screens for the editable lists (`core/lists` owns the table) | core |
 | attendance | attendance_days, attendance_events | team, settings, leave |
 | leave | leave_requests | team |
 | clients | clients, client_private, client_admin_assignments, client_contacts, client_brand, client_labels view | team |
@@ -172,13 +180,13 @@ Each function, in **one transaction**:
 5. inserts `notifications` (+ `notification_deliveries` queued) for the recipients in WORKFLOWS §9;
 6. returns the new state.
 
-State columns can't be updated directly: RLS gives no update permission on them, plus a trigger guard. The same guard covers `projects.billing_category`, `projects.client_id` and `projects.recurrence`, which change only through CEO-only transition functions. Bulk actions call the function for each id inside one request and return per-id results.
+State columns can't be updated directly: RLS gives no update permission on them, plus a trigger guard. The same guard covers `projects.billing_category`, `projects.client_id` and `projects.recurrence`, which change only through Owner-only transition functions. Bulk actions call the function for each id inside one request and return per-id results.
 
 ### 4.2 Plain edits (names, descriptions, contacts, brand, custom fields, settings)
 ```ts
 export const updateClient = action(async (input: unknown) => {
   const data = updateClientSchema.parse(input);                 // 1. zod
-  await requirePermission('clients.edit_assigned');             // 2. early, friendly check (RLS is the real gate)
+  await assertPermission('clients.edit_assigned');              // 2. early, friendly check (RLS is the real gate); pages use requirePermission()
   const values = await validateCustomFields('client', data);    // 3. custom fields
   const client = await clientsRepo.update(data.id, values);     // 4. write (RLS applies)
   revalidatePath(`/clients/${client.id}`);                      // 5. refresh
@@ -194,8 +202,12 @@ Auditing for plain edits is done by a **generic `audit_row_change()` trigger** o
 
 ## 5. Authorization in the database
 - `current_org_id()` returns the caller's organization id (the single org in the prototype) and is the default for every root table's `org_id`.
-- `current_member()` returns the caller's active member row. **Deactivated means no rows**, so access ends immediately.
-- `has_permission(key)` checks role → `role_permissions`.
+- `current_member()` returns the caller's active member row. **Deactivated means no rows**, so access ends immediately. The app repeats the check (`requireMember()`, the login action) so a deactivated person's session is ended and they see why (ADR-0012).
+- **Session events and the first Owner** are written by `security definer` functions in `public` (`session_login()`, `session_logout()`, `bootstrap_owner()`; DATA-MODEL §0a), never by a client insert. `bootstrap_owner()` is executable by `service_role` only. Every public function revokes EXECUTE from `anon` explicitly (Supabase grants it by default).
+- `has_permission(key)` checks role → `role_permissions`. These helpers live in the `app` schema (`app.current_member()` etc.), so policies and functions call them qualified; TS never calls them directly.
+- **Protected columns:** state columns (and the timestamps that move with them) carry `app.protect_columns('status', ...)`, a BEFORE UPDATE trigger that raises `FORBIDDEN` unless `app.in_transition()` is true. `in_transition()` is true whenever the statement runs as the function owner (a security definer function, a migration, a job) and false for the API roles, so a direct update from any client fails even for a role whose RLS allows it, and there is no flag a client could set. The protected columns also carry **no UPDATE privilege** for `authenticated` (column-level grants list the editable columns), so a client hits `42501` before the trigger. **The service client bypasses both** (RLS and `in_transition()` is true for `service_role`): jobs and scripts call transition functions for state columns and never update them directly.
+- **Column-level UPDATE grants on every table the API edits** (phase 1 review, 2026-09-23): the migration that gives a table an UPDATE policy also runs `revoke update on <table> from authenticated` and `grant update (<editable columns>)`, so RLS decides *who* may update a row and the grant decides *which columns* (`members`, `organizations`, `org_settings`, `list_items`, `holidays` so far). Keys, `org_id`, `position`, `is_system`, `meta`, timestamps and every column a function owns stay out of PostgREST's reach. pgTAP asserts an allowed and a refused column per table (`06_phase1_review_hardening.test.sql`).
+- `member_directory` is a `security definer` view (no email) through which Admins and Staff see other people (PERMISSIONS §2).
 - Scope helpers: `admin_client_ids()` (assigned clients), `visible_task_ids()` as a policy expression, `is_task_assignee(task_id)`, `is_approving_admin(task_id)`.
 - `member_availability(from, to)` is a `security definer` function that returns counts and busy blocks only. It's how Admins see other people.
 - Money tables have **one policy**: `has_permission('finance.view')`.
@@ -208,13 +220,23 @@ Auditing for plain edits is done by a **generic `audit_row_change()` trigger** o
 - Migration names: `YYYYMMDDHHMMSS_<module>_<change>.sql`. Every new table has RLS and pgTAP tests in the same task.
 
 ## 7. Time (ADR-0008)
-- SQL: `app.today_ist()`, `app.to_ist_date(ts)`, `app.is_working_day(date)` (weekly offs + holidays).
+- SQL: `app.today_ist()`, `app.to_ist_date(ts)`, `app.is_working_day(date)` (weekly offs + holidays, 1.4).
 - TS: `core/time`, the only place that formats or computes IST dates. Components never call `new Date()` for business logic.
 - `pg_cron` runs in UTC, so jobs are scheduled at the UTC equivalent (23:59 IST = 18:29 UTC) and **re-check the IST date inside the job**.
 
+## 7a. Sessions (task 1.2, ADR-0012)
+- **Supabase Auth**, email + password, sign-ups off everywhere; people exist only through the bootstrap script (the Owner) and invites (1.3). Passwords: 12 characters minimum, no composition rule. Leaked-password protection is a Supabase **Pro** feature, so it is off while the project is on the free plan (ADR-0003); enable it at task 6.6 if production ever moves to Pro.
+- **`src/proxy.ts`** runs `core/auth` `updateSession()` on every page request: refreshes the cookies and redirects from the JWT alone (no session → `/login?next=`; a session on the sign-in pages → `/`). Static assets, `sw.js` and the manifest are outside its matcher; `/offline`, `/auth/*`, `/api/*` and the sign-in pages pass through it without a session (`core/auth/paths.ts`). OpenNext bundles it as Node middleware.
+- **Session cookies are `httpOnly`, `SameSite=Lax` and, on staging and production, `Secure`** (`core/db/cookies.ts`, passed as `cookieOptions` by both `createServerSupabase()` and the proxy). `@supabase/ssr` defaults to `httpOnly: false` for its browser client; MaxOff never uses that client, so a script on the page cannot read the refresh token. If a Client Component ever needs Supabase (Realtime in 5.1), hand it the access token from a server prop (`realtime.setAuth()`) instead of loosening the cookies.
+- **`requireMember()`** in the `(app)` layout is the decision: `getSessionState()` (per request, `cache()`) verifies the JWT with `getClaims()`, reads the member row under RLS and answers `none` / `inactive` / `member`. `inactive` (missing, invited or deactivated) is ended through `/auth/signout` and lands on `/login?reason=inactive`. `requirePermission()` builds on it.
+- **Auth links** (recovery and invite) land on `/auth/confirm?token_hash=…&type=…` and are verified server-side (`verifyOtp`), so they need no browser state and work from the bootstrap script's printed link or a copied invite link. A verified link opens a session, so `verifyAuthLink()` checks the member there (not active → signed out again, `/login?reason=inactive`) and records `session_login()` before sending the browser to `/set-password`. The one exception is an **invited** member opening an **invite** link (1.3, WORKFLOWS §1a): they reach `/set-password` without a login row, and `setPassword()` accepts the invite (`member_accept_invite()`), records the login and lands them on `/me?welcome=1`. The recovery template in `supabase/templates/` builds the URL and the hosted projects carry the same text (README → "Hosted auth settings"); invite links are built by the app (`modules/team`, ADR-0012 amendment) and mailed through `sendEmail()`, never by GoTrue. Links live 24 h (`otp_expiry`) and are one-time.
+- **Deactivation** (`member_deactivate()`, 1.3) deletes the person's `auth.sessions` and `auth.refresh_tokens` in the same transaction as the status change, so an open tab cannot renew its session; RLS and `requireMember()` close everything else at once.
+- **Login** = `signInWithPassword` → member must be active (else sign out again, `FORBIDDEN`) → `session_login()` → `Sentry.setUser({ id })` → redirect to a safe `next` or `/` (which routes to the role's home). **Logout** = `session_logout()` → `signOut({ scope: "local" })` (this device only) → `/login?reason=signed_out`.
+- **Email from the app** goes through `core/notifications` `sendEmail()`: Resend when `RESEND_API_KEY` is set, otherwise a log sender that never throws; `instrumentation.ts` warns once at start-up (error level in production, still no crash). Supabase Auth's own emails don't use it. A verified sending domain is a prerequisite for 1.3 invites and 5.2 notification email.
+
 ## 8. The first-login day gate
 - `(app)` layout → `core/auth` `requireDayGate()` → rpc `attendance_touch()`. This creates today's `attendance_days` row and a `session_events(login)` if needed, and returns whether a choice is still required.
-- If a choice is required, redirect to `/(gate)/attendance`. The CEO is exempt. On a day off the gate still asks, marking `is_day_off`. On a day with approved leave (full or half) there's no gate: `attendance_touch()` creates the day from the leave (`derived_from_leave`) and still records `first_login_at` and the login event.
+- If a choice is required, redirect to `/(gate)/attendance`. The Owner is exempt. On a day off the gate still asks, marking `is_day_off`. On a day with approved leave (full or half) there's no gate: `attendance_touch()` creates the day from the leave (`derived_from_leave`) and still records `first_login_at` and the login event.
 - `attendance_touch()` is idempotent and runs once per session per day (cached in a signed cookie holding the IST date).
 
 ## 9. Notifications (ADR-0009)
@@ -243,15 +265,15 @@ transition fn / job ─► notifications row ─► notification_deliveries (que
 - **Retention:** the daily `storage_cleanup` job removes local copies only after the Drive copy is confirmed (WORKFLOWS §5A). Orphaned `pending` files are cleaned up in the same job.
 
 ## 12. Revenue (ADR-0007)
-All calculation is in SQL views (WORKFLOWS §6) over CEO-only tables, so reports and exports share one definition. Overrides never replace the calculated value, they sit next to it. Money never leaves the app through error reporting either: §18 scrubs every financial field before an event reaches Sentry.
+All calculation is in SQL views (WORKFLOWS §6) over Owner-only tables, so reports and exports share one definition. Overrides never replace the calculated value, they sit next to it. Money never leaves the app through error reporting either: §18 scrubs every financial field before an event reaches Sentry.
 
 ## 13. Reports and exports
 - **EOD report:** built by a job into `eod_reports.data`. The page can also render a live version.
 - **Month close:** `month_close(month)` builds the snapshot JSON in SQL and stores version 1. `month_correct(month, note)` stores version N+1.
-- **Exports:** Markdown (AI-oriented: summary + dense tables with stable IDs and ISO timestamps), CSV (one file per dataset, zipped), PDF (summary). Generated on demand from the snapshot (closed months) or live views (open months). CEO only.
+- **Exports:** Markdown (AI-oriented: summary + dense tables with stable IDs and ISO timestamps), CSV (one file per dataset, zipped), PDF (summary). Generated on demand from the snapshot (closed months) or live views (open months). Owner only.
 
 ## 14. PWA and responsive design
-`public/manifest.webmanifest`, icons (`public/icons/`, rendered from `icon.svg` by `scripts/generate-icons.mjs`) and a plain-JS service worker `public/sw.js` (task 0.5). The worker is a **minimal offline shell**: it precaches `/offline`, serves it when a navigation fails without a connection, caches hashed `/_next/static` and `/icons` assets cache-first, and never touches `/api`, non-GET requests or other origins, so Supabase and server actions are always live. It is registered by `<RegisterServiceWorker />` in the root layout **only in production builds** (`next dev` and Playwright never see it). Push handlers join the same file in 5.1 (ADR-0009). `src/core/ui/pwa/pwa-files.test.ts` keeps the manifest, icons, headers and worker consistent with the tokens. Staff screens are designed mobile-first. CEO and Admin screens are desktop-first and still usable from 375px.
+`public/manifest.webmanifest`, icons (`public/icons/`, rendered from `icon.svg` by `scripts/generate-icons.mjs`) and a plain-JS service worker `public/sw.js` (task 0.5). The worker is a **minimal offline shell**: it precaches `/offline`, serves it when a navigation fails without a connection, caches hashed `/_next/static` and `/icons` assets cache-first, and never touches `/api`, non-GET requests or other origins, so Supabase and server actions are always live. It is registered by `<RegisterServiceWorker />` in the root layout **only in production builds** (`next dev` and Playwright never see it). Push handlers join the same file in 5.1 (ADR-0009). `src/core/ui/pwa/pwa-files.test.ts` keeps the manifest, icons, headers and worker consistent with the tokens. Staff screens are designed mobile-first. Owner and Admin screens are desktop-first and still usable from 375px.
 
 ## 15. Testing
 | Layer | Tool | Required for |
@@ -259,10 +281,10 @@ All calculation is in SQL views (WORKFLOWS §6) over CEO-only tables, so reports
 | Domain logic | Vitest | every function in `domain/` (e.g. approval-route resolution, revenue allocation mirror, reminder schedule expansion) |
 | Database | pgTAP | every table's RLS for each role; **every transition function**: allowed path, wrong state, wrong actor, missing reason, audit row written |
 | Jobs | pgTAP | idempotency (running twice creates nothing new), IST boundaries, working-day logic |
-| Flows | Playwright | login + day gate, assign → acknowledge → done → admin → CEO, rejection loop, leave request → decision, cycle generation → tick → approve, CEO bulk approve |
+| Flows | Playwright | login + day gate, assign → acknowledge → done → admin → Owner, rejection loop, leave request → decision, cycle generation → tick → approve, Owner bulk approve |
 | CI | GitHub Actions | three jobs on every push and PR (`.github/workflows/ci.yml`): `typecheck · lint · format · unit · build` (the build is the **OpenNext Worker build**, so a change the Workers runtime can't take fails before merge), `pgTAP` (Postgres-only local stack) and `playwright` (Chromium). Red never merges: branch protection on `main` requires all three (README) |
 
-Locally, `pnpm check` = typecheck + lint + format:check + unit tests + pgTAP + build (needs Docker and `pnpm db:start`). Playwright is deliberately outside `check`: `pnpm test:e2e` runs it on demand and `/finish-task` runs it whenever a flow changed. Until task 1.2 the flow specs run against `next dev` with the preview-role cookie; 1.2 switches them to `pnpm start` with seeded users. A separate **`production` project** (`e2e/production.spec.ts`) always runs against `next start` of a fresh build on its own port and proves that development-only shims are unreachable in a real build and that the service worker registers. It never reuses a running server.
+Locally, `pnpm check` = typecheck + lint + format:check + unit tests + pgTAP + build (needs Docker and `pnpm db:start`). Playwright is deliberately outside `check`: `pnpm test:e2e` runs it on demand and `/finish-task` runs it whenever a flow changed. Every Playwright project runs against **`next start` of a fresh build** on its own port (never a reused server): a `setup` project signs in as the seeded local users (`supabase/seed.sql`, README → "Local sign-ins") through the real form and saves one storage state per role for the `desktop` and `mobile` projects; the **`production` project** (`e2e/production.spec.ts`) proves the build is locked down (every shell route redirects to `/login`, no trace of the deleted development shims, the service worker registers). The local Supabase stack must be up and reset first; CI starts it in the Playwright job and points the build at its keys.
 
 ## 16. Recipe for adding a feature
 1. `/add-feature` → `docs/features/<name>.md` (+ an ADR if a pattern changes).
@@ -272,7 +294,8 @@ Locally, `pnpm check` = typecheck + lint + format:check + unit tests + pgTAP + b
 5. Other modules' screens are extended only through the **extension slots** their `index.ts` exposes (tabs, panels, dashboard cards).
 
 ## 17. Backups
-Nightly `pg_dump` GitHub Action → encrypted → private R2 bucket (30-day retention). R2 object versioning or retention on the files bucket. A restore drill before launch, then every quarter. CEO CSV exports as a secondary copy.
+**On the free plan Supabase keeps no backups, so this is the only safety net — it is not optional (ADR-0003).**
+Nightly `pg_dump` GitHub Action → encrypted → private R2 bucket (30-day retention). R2 object versioning or retention on the files bucket. A restore drill before launch, then every quarter. Owner CSV exports as a secondary copy.
 
 ## 18. Deployment and observability (task 0.5, ADR-0003)
 
@@ -297,7 +320,7 @@ Real data never goes on local or staging. Each deploy job first builds the Worke
 **Rule: error reports never carry money or personal data** (CLAUDE.md invariant 2).
 - `sendDefaultPii: false` on every runtime; `includeLocalVariables: false` on the server, so stack frames never carry variables.
 - Request bodies, form data, cookies, headers and query strings are never attached (`scrubEvent` drops `request.data`, `cookies`, `headers`, `query_string`) and every URL (request, fetch and navigation breadcrumbs, and any `url` / `href` / `from` / `to` / `request_path` key in contexts, extra or tags, including the `request_path` that `@sentry/nextjs` puts in `contexts.nextjs`) is reduced to origin + path.
-- A user is identified by **member id only**: `Sentry.setUser({ id })` and nothing else (from 1.2). Name, email and IP fields are removed from the event; IP storage is switched off in the Sentry project itself (README → Deploying → Sentry), because Sentry would otherwise infer it from the connection.
+- A user is identified by **member id only**: `core/observability` `setSentryUser(id)` is called by `core/auth` on every request that resolves a member (server) and by `<SentryUser>` in the app layout (browser), and cleared on sign-out. `scrubEvent` reduces `user` to `{ id }`, which also drops the **country Sentry infers from the connecting IP** (`user.geo`), even with IP storage switched off in the Sentry project (README → Deploying → Sentry).
 - Any field whose key looks financial (`amount`, `value`, `billing`, `revenue`, `price`, `rate`, `fee`, `inr`, `money`) is replaced by `[scrubbed]` however deep it sits in `extra`, `contexts`, `tags` or breadcrumb data. Inside every string (messages, exception values, breadcrumbs) rupee amounts (`₹`, `Rs`, `INR`), email addresses and Indian phone numbers are replaced, keeping the rest of the text. Network breadcrumbs keep only method, status and path.
 - The scrubber (`core/observability/scrub.ts`) is unit-tested and wired as `beforeSend` and `beforeBreadcrumb`; a new Sentry integration must go through it, not around it. When screens carry names in clickable labels (3.x), limit DOM breadcrumbs to `data-slot` (`breadcrumbsIntegration({ dom: { serializeAttribute } })`).
 

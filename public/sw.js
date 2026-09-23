@@ -9,7 +9,7 @@
  * Bump VERSION when the caching rules change or an icon changes (icons are cache-first for
  * ever); the old cache is deleted on activate.
  */
-const VERSION = "v1";
+const VERSION = "v2";
 const CACHE = `maxoff-${VERSION}`;
 const OFFLINE_URL = "/offline";
 const PRECACHE = [OFFLINE_URL, "/manifest.webmanifest", "/icons/icon-192.png"];
@@ -46,7 +46,9 @@ async function refreshOfflinePage() {
   offlinePageRefreshed = true;
   try {
     const response = await fetch(OFFLINE_URL, { cache: "no-store" });
-    if (response.ok) {
+    // Only the real offline page is cached: never a redirect target such as /login (1.2).
+    const isOfflinePage = !response.redirected && new URL(response.url).pathname === OFFLINE_URL;
+    if (response.ok && isOfflinePage) {
       const cache = await caches.open(CACHE);
       await cache.put(OFFLINE_URL, response);
     }

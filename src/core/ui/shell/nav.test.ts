@@ -7,8 +7,8 @@ const keys = (role: ShellRole) => navFor(role).map((item) => item.key);
 const permissions = (role: ShellRole) => navFor(role).map((item) => item.permission);
 
 describe("navFor", () => {
-  it("gives the CEO the full navigation", () => {
-    expect(keys("ceo")).toEqual([
+  it("gives the Owner the full navigation", () => {
+    expect(keys("owner")).toEqual([
       "today",
       "approvals",
       "clients",
@@ -21,7 +21,7 @@ describe("navFor", () => {
   });
 
   it("gives Admins the same screens under their own permissions", () => {
-    expect(keys("admin")).toEqual(keys("ceo"));
+    expect(keys("admin")).toEqual(keys("owner"));
     expect(permissions("admin")).toContain("tasks.approve_admin");
     expect(permissions("admin")).toContain("clients.edit_assigned");
     expect(permissions("admin")).toContain("reports.scoped");
@@ -49,7 +49,7 @@ describe("navFor", () => {
     }
   });
 
-  it("keeps CEO-only permissions out of Admin and Staff navigation", () => {
+  it("keeps Owner-only permissions out of Admin and Staff navigation", () => {
     const ceoOnly = [
       "settings.manage",
       "team.manage",
@@ -63,7 +63,7 @@ describe("navFor", () => {
     }
   });
 
-  it("never links to money for anyone: revenue is a panel inside CEO screens (ADR-0007)", () => {
+  it("never links to money for anyone: revenue is a panel inside Owner screens (ADR-0007)", () => {
     const moneyWords = /finance|revenue|billing|money|invoice|payment/i;
     for (const role of SHELL_ROLES) {
       for (const item of navFor(role)) {
@@ -84,8 +84,8 @@ describe("navFor", () => {
 });
 
 describe("settingsSectionsFor", () => {
-  it("gives the CEO every section", () => {
-    expect(settingsSectionsFor("ceo").map((s) => s.key)).toEqual([
+  it("gives the Owner every section", () => {
+    expect(settingsSectionsFor("owner").map((s) => s.key)).toEqual([
       "company",
       "days-off",
       "thresholds",
@@ -124,7 +124,7 @@ describe("homeFor / isActivePath", () => {
   it("sends Staff to My Day and everyone else to Today", () => {
     expect(homeFor("staff")).toBe("/my-day");
     expect(homeFor("admin")).toBe("/today");
-    expect(homeFor("ceo")).toBe("/today");
+    expect(homeFor("owner")).toBe("/today");
   });
 
   it("marks a route and its children active, not look-alike prefixes", () => {

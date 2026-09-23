@@ -12,16 +12,22 @@ export function PlaceholderPage({
   description,
   task,
   icon = HammerIcon,
+  greet,
 }: {
   title: string;
   description: string;
   /** Roadmap task that builds this screen, e.g. "6.1". */
   task: string;
   icon?: LucideIcon;
+  /** The signed-in member's name: the dashboards greet the person, never a hard-coded name. */
+  greet?: string;
 }) {
   return (
     <>
-      <PageHeader title={title} description={description} />
+      <PageHeader
+        title={title}
+        description={greet ? `Hello, ${greet}. ${description}` : description}
+      />
       <EmptyState
         icon={icon}
         title={`${title} is filled in task ${task}`}

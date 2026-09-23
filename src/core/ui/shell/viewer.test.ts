@@ -4,10 +4,10 @@ import { initialsOf, isShellRole } from "./viewer";
 
 describe("viewer helpers", () => {
   it("recognises only the three fixed roles", () => {
-    expect(isShellRole("ceo")).toBe(true);
+    expect(isShellRole("owner")).toBe(true);
     expect(isShellRole("admin")).toBe(true);
     expect(isShellRole("staff")).toBe(true);
-    expect(isShellRole("owner")).toBe(false);
+    expect(isShellRole("manager")).toBe(false);
     expect(isShellRole(undefined)).toBe(false);
   });
 

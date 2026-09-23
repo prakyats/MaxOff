@@ -172,14 +172,17 @@ enable_refresh_token_rotation = true
 # Allows refresh tokens to be reused after expiry, up to the specified interval in seconds.
 # Requires enable_refresh_token_rotation = true.
 refresh_token_reuse_interval = 10
-# Allow/disallow new user signups to your project.
-enable_signup = true
+# Invite-only (PRODUCT §4.1): nobody signs up. People are created by the Owner bootstrap script
+# and, from 1.3, by invites. The hosted projects carry the same setting (README → "Hosted auth
+# settings").
+enable_signup = false
 # Allow/disallow anonymous sign-ins to your project.
 enable_anonymous_sign_ins = false
 # Allow/disallow testing manual linking of accounts
 enable_manual_linking = false
-# Passwords shorter than this value will be rejected as weak. Minimum 6, recommended 8 or more.
-minimum_password_length = 6
+# Passwords shorter than this value will be rejected as weak. 12 with no composition rule
+# (decided 2026-09-22); the hosted projects also enable leaked-password protection.
+minimum_password_length = 12
 # Passwords that do not meet the following requirements will be rejected as weak. Supported values
 # are: `letters_digits`, `lower_upper_letters_digits`, `lower_upper_letters_digits_symbols`
 password_requirements = ""
@@ -196,7 +199,9 @@ password_requirements = ""
 
 [auth.rate_limit]
 # Number of emails that can be sent per hour. Requires auth.email.smtp to be enabled.
-email_sent = 2
+# Local only (Mailpit): high so Playwright's recovery-link test never hits it. Hosted projects
+# keep Supabase's default until custom SMTP is on (README → "Hosted auth settings").
+email_sent = 100
 # Number of SMS messages that can be sent per hour. Requires auth.sms to be enabled.
 sms_sent = 30
 # Number of anonymous sign-ins that can be made per hour per IP address. Requires enable_anonymous_sign_ins = true.
@@ -217,21 +222,31 @@ web3 = 30
 # secret = ""
 
 [auth.email]
-# Allow/disallow new user signups via email to your project.
+# Allow/disallow new user signups via email to your project. The CLI maps this to the email
+# provider switch (GOTRUE_EXTERNAL_EMAIL_ENABLED): false disables email *logins* too (seen
+# 2026-09-22: "Email logins are disabled"). Sign-ups are blocked by [auth] enable_signup = false.
 enable_signup = true
 # If enabled, a user will be required to confirm any email change on both the old, and new email
 # addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = true
 # If enabled, users need to confirm their email address before signing in.
 enable_confirmations = false
-# If enabled, users will need to reauthenticate or have logged in recently to change their password.
-secure_password_change = false
+# Users need to reauthenticate (a nonce mailed by reauthenticate()) to change their password unless
+# their session is younger than 24 h (phase 1 review, 2026-09-23: proved locally that a fresh
+# password sign-in still changes it with no nonce, and that invite-accept and recovery links, whose
+# sessions are seconds old, are unaffected; e2e green). A narrow win, at no cost: 10.3 owns the real
+# fix for a stolen session (gate /set-password on a link-opened session). Hosted projects set the same
+# (README → "Hosted auth settings").
+secure_password_change = true
 # Controls the minimum amount of time that must pass before sending another signup confirmation or password reset email.
 max_frequency = "1s"
 # Number of characters used in the email OTP.
 otp_length = 6
-# Number of seconds before the email OTP expires (defaults to 1 hour).
-otp_expiry = 3600
+# Number of seconds before the email OTP expires (defaults to 1 hour). 24 h (decided
+# 2026-09-22, task 1.3): invite links get shared over WhatsApp and opened that evening. One
+# setting covers recovery links too; the 10.3 security review revisits it. Hosted projects set
+# the same (README → "Hosted auth settings"). Every link is still one-time.
+otp_expiry = 86400
 
 # Use a production-ready SMTP server
 # [auth.email.smtp]
@@ -243,10 +258,14 @@ otp_expiry = 3600
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
-# Uncomment to customize email template
-# [auth.email.template.invite]
-# subject = "You have been invited"
-# content_path = "./supabase/templates/invite.html"
+# Auth links go through the token-hash route `/auth/confirm` (ADR-0012), so every template
+# must build that URL. Locally the mail lands in Mailpit (port 54324); the hosted projects carry
+# the same template text (README → "Hosted auth settings"). There is no invite template: the
+# app builds the invite link itself (generateLink) and sends the email through core/notifications
+# (task 1.3, ADR-0012 amendment), so GoTrue never mails an invite.
+[auth.email.template.recovery]
+subject = "Set your MaxOff password"
+content_path = "./supabase/templates/recovery.html"
 
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]

@@ -14,7 +14,7 @@ Pixora already keeps final files in Google Drive and has a 2 TB Google One plan 
 - **Only submissions are archived.** Drive jobs are queued by `task_submit_version`, never by the generic upload completion, so logos, avatars and previews stay out of Drive.
 - **Retention:** local **originals** are deleted after 90 days (photos) or 30 days (video), and only once the Drive copy is confirmed. Previews are kept. The Drive archive and all metadata are permanent.
 - **A private or unreachable link** is flagged and the submitter is asked to fix sharing. It never blocks approval, and MaxOff re-checks and archives by itself once access is granted.
-- Connecting or reconnecting the Google account is CEO-only. Tokens are encrypted at rest and never reach the browser.
+- Connecting or reconnecting the Google account is Owner-only. Tokens are encrypted at rest and never reach the browser.
 
 ## Consequences
 - Storage stays inside R2's free 10 GB, and the long-term archive costs nothing extra because the Google One plan already exists.

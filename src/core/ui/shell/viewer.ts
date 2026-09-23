@@ -3,7 +3,7 @@
  * `role` mirrors DATA-MODEL §0 `member_role`. When `core/auth` lands (1.2) it produces this
  * from the real session; until then `preview-viewer.ts` fakes it in development only.
  */
-export const SHELL_ROLES = ["ceo", "admin", "staff"] as const;
+export const SHELL_ROLES = ["owner", "admin", "staff"] as const;
 export type ShellRole = (typeof SHELL_ROLES)[number];
 
 export function isShellRole(value: unknown): value is ShellRole {
@@ -18,7 +18,7 @@ export type ShellViewer = {
 };
 
 export const ROLE_LABELS: Record<ShellRole, string> = {
-  ceo: "CEO",
+  owner: "Owner",
   admin: "Admin",
   staff: "Staff",
 };

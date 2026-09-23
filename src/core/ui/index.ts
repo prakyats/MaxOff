@@ -37,7 +37,6 @@ export {
   NAV_BY_ROLE,
   type NavIconName,
   type NavItem,
-  type NavPermission,
   navFor,
   SETTINGS_SECTIONS,
   type SettingsSection,

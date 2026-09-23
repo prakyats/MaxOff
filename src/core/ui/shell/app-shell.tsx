@@ -5,25 +5,29 @@ import { cn } from "@/core/lib/utils";
 import { BottomNav } from "./bottom-nav";
 import { MobileNavSheet } from "./mobile-nav-sheet";
 import { homeFor, navFor } from "./nav";
-import { isPreviewEnvironment } from "./preview-role";
-import { PreviewRoleSwitcher } from "./preview-role-switcher";
 import { Sidebar } from "./sidebar";
 import { TopBar } from "./top-bar";
 import type { ShellViewer } from "./viewer";
 
 /**
- * The signed-in app chrome (ROADMAP 0.3). CEO and Admin get a sidebar (a sheet below `md`);
+ * The signed-in app chrome (ROADMAP 0.3). Owner and Admin get a sidebar (a sheet below `md`);
  * Staff get a bottom bar on phones and the same sidebar from `md` up. Pages render inside
  * `<main>` at a comfortable reading width; Staff screens are laid out for 375px first.
+ * `logoutItem` is the account menu's Log out entry, owned by `core/auth` and passed in by the
+ * app layout.
  */
-export function AppShell({ viewer, children }: { viewer: ShellViewer; children: ReactNode }) {
+export function AppShell({
+  viewer,
+  logoutItem,
+  children,
+}: {
+  viewer: ShellViewer;
+  logoutItem?: ReactNode;
+  children: ReactNode;
+}) {
   const items = navFor(viewer.role);
   const home = homeFor(viewer.role);
   const isStaff = viewer.role === "staff";
-  // Development-only role switcher; `preview-viewer.ts` explains the shim. Removed in 1.2.
-  const devFooter = isPreviewEnvironment(process.env.NODE_ENV) ? (
-    <PreviewRoleSwitcher role={viewer.role} />
-  ) : null;
 
   return (
     <div className="bg-background text-foreground flex min-h-dvh">
@@ -33,12 +37,13 @@ export function AppShell({ viewer, children }: { viewer: ShellViewer; children: 
       >
         Skip to content
       </a>
-      <Sidebar home={home} items={items} footer={devFooter} />
+      <Sidebar home={home} items={items} />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar
           viewer={viewer}
           home={home}
-          leading={isStaff ? null : <MobileNavSheet items={items} footer={devFooter} />}
+          leading={isStaff ? null : <MobileNavSheet items={items} />}
+          logoutItem={logoutItem}
         />
         <main
           id="main"
@@ -50,11 +55,6 @@ export function AppShell({ viewer, children }: { viewer: ShellViewer; children: 
         >
           {children}
         </main>
-        {isStaff && devFooter ? (
-          <div className="px-4 pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:hidden">
-            {devFooter}
-          </div>
-        ) : null}
       </div>
       {isStaff ? <BottomNav items={items} /> : null}
     </div>

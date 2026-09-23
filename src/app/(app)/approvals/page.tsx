@@ -1,11 +1,14 @@
 import { ClipboardListIcon } from "lucide-react";
 import type { Metadata } from "next";
 
+import { requirePermission } from "@/core/permissions/server";
+
 import { PlaceholderPage } from "../_placeholder/placeholder-page";
 
 export const metadata: Metadata = { title: "Approvals" };
 
-export default function ApprovalsPage() {
+export default async function ApprovalsPage() {
+  await requirePermission(["tasks.approve_final", "tasks.approve_admin"]);
   return (
     <PlaceholderPage
       title="Approvals"

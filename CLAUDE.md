@@ -1,6 +1,6 @@
 # MaxOff: instructions for Claude Code
 
-MaxOff is the **internal operations and control system for Pixora Clips**. It covers attendance, leave, staff tasks with acknowledgement and approvals, clients, client work (projects → cycles → items), notifications, dashboards, CEO-only revenue and reports. It's internal and invite-only. **Clients never log in.** The business timezone is **IST**.
+MaxOff is the **internal operations and control system for Pixora Clips**. It covers attendance, leave, staff tasks with acknowledgement and approvals, clients, client work (projects → cycles → items), notifications, dashboards, Owner-only revenue and reports. It's internal and invite-only. **Clients never log in.** The business timezone is **IST**.
 
 ## Read before any work
 1. `docs/PROGRESS.md`: current state and next task. **Always read this first.**
@@ -14,15 +14,15 @@ MaxOff is the **internal operations and control system for Pixora Clips**. It co
    - `docs/decisions/`: ADRs. Don't contradict one without writing a new ADR.
 
 ## Business invariants (never break these)
-1. Roles are exactly **CEO (one) / Admin / Staff**. Job titles are data, not permissions.
-2. **Money is CEO-only**, in CEO-only tables, readable only through `modules/revenue`. Never in Admin or Staff payloads, Realtime, search or exports.
-3. **Revenue counts only for CEO-approved project items.** Staff tasks carry no revenue.
+1. Roles are exactly **Owner (one) / Admin / Staff**. Job titles are data, not permissions.
+2. **Money is Owner-only**, in Owner-only tables, readable only through `modules/revenue`. Never in Admin or Staff payloads, Realtime, search or exports.
+3. **Revenue counts only for Owner-approved project items.** Staff tasks carry no revenue.
 4. **Client work and staff tasks are separate** (ADR-0005). The only link is a task's optional client *label*. Staff never see client records or progress.
-5. **Approval route:** Done → (approving Admin, if any and not an assignee) → **CEO**. Final completion is always the CEO's.
+5. **Approval route:** Done → (approving Admin, if any and not an assignee) → **Owner**. Final completion is always the Owner's.
 6. **Every assignee acknowledges** ("Task Noted"). Only the **primary owner** marks Done.
-7. Attendance and leave are decided **only by the CEO**. History is never overwritten, and corrections sit alongside the original.
+7. Attendance and leave are decided **only by the Owner**. History is never overwritten, and corrections sit alongside the original.
 8. **IST everywhere** through `app.today_ist()` / `core/time`. Never `new Date()` or `now()::date` for business dates.
-9. **Never destroy history:** archive, cancel with a reason, and add history rows. Permanent delete is CEO-only.
+9. **Never destroy history:** archive, cancel with a reason, and add history rows. Permanent delete is Owner-only.
    Submitted work is **never re-encoded** (originals stay full quality; previews are separate), and a local copy is deleted only **after** its Google Drive copy is confirmed (ADR-0010).
 10. Don't invent business rules. If WORKFLOWS or PRODUCT don't cover a case, **ask**.
 

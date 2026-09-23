@@ -2,7 +2,7 @@
 
 The internal operations and control system for **Pixora Clips**: attendance, leave, staff
 tasks with acknowledgement and approvals, clients, client work (projects → cycles → items),
-notifications, dashboards, and CEO-only revenue and reports.
+notifications, dashboards, and Owner-only revenue and reports.
 
 Internal and invite-only. **Clients never log in.** The business timezone is **IST**.
 
@@ -26,8 +26,47 @@ See `docs/ARCHITECTURE.md` and `docs/decisions/` for the reasoning.
 ```bash
 pnpm install
 cp .env.example .env.local   # then fill in the values
-pnpm dev                     # http://localhost:3000
+pnpm db:start                # local Supabase in Docker; `pnpm db:status` prints the keys for .env.local
+pnpm db:reset                # migrations + seed (the local sign-ins below)
+pnpm dev                     # http://localhost:3000 → /login
 ```
+
+### Local sign-ins
+
+`supabase/seed.sql` creates five accounts for development and Playwright. They exist only on
+the local stack (the deploy workflow never seeds), and the passwords are fixtures, not secrets:
+
+| Email | Password | Role |
+|---|---|---|
+| `owner@maxoff.local` | `owner-local-password` | Owner |
+| `admin@maxoff.local` | `admin-local-password` | Admin |
+| `staff@maxoff.local` | `staff-local-password` | Staff |
+| `gone@maxoff.local` | `gone-local-password` | deactivated Staff (refused at sign-in) |
+| `reset@maxoff.local` | `reset-local-password` | Staff, used only by the Playwright recovery-link test (which changes its password) |
+| `leaver@maxoff.local` | `leaver-local-password` | Staff, used only by the Playwright team test (which deactivates and reactivates them) |
+
+Password-reset emails from the local stack land in Mailpit: http://127.0.0.1:54324.
+
+### The first Owner on a hosted project
+
+Sign-ups are off everywhere (invite-only). The first account is created by a script that
+never handles a password: it creates the auth user, inserts the active Owner through
+`bootstrap_owner()` (service role only, refuses once anyone exists) and prints a **one-time
+link** where the Owner chooses their password. Nothing is emailed, so it works before any
+sending domain exists.
+
+```bash
+# locally (values from .env.local)
+pnpm bootstrap:owner -- --email owner@example.com --name "Full Name" --org "Pixora Clips"
+
+# staging / production: the same script with that project's URL, secret key and app URL
+NEXT_PUBLIC_SUPABASE_URL=https://<ref>.supabase.co SUPABASE_SECRET_KEY=<secret> \
+NEXT_PUBLIC_APP_URL=https://maxoff-staging.<subdomain>.workers.dev \
+  node scripts/bootstrap-owner.mjs --email owner@example.com --name "Full Name" --org "Pixora Clips"
+```
+
+The link expires after 24 hours (`otp_expiry`); "Forgot your password?" on `/login` issues a new one (that one
+is emailed by Supabase Auth, see "Hosted auth settings").
 
 ## Commands
 
@@ -45,7 +84,8 @@ pnpm dev                     # http://localhost:3000
 | `pnpm db:new <name>` | New append-only migration file |
 | `pnpm db:types` | Regenerate `src/core/db/database.types.ts` from the local database |
 | `pnpm db:test` | pgTAP tests in `supabase/tests` (needs the stack running) |
-| `pnpm test:e2e` · `pnpm test:e2e:ui` | Playwright in `e2e/`: flow specs against `next dev` (started or reused) plus the `production` project, which builds and runs `next start` on port 3100 to prove the build is locked down. Run it whenever a user flow changed |
+| `pnpm bootstrap:owner -- --email … --name … [--org …]` | Create the first Owner and print the one-time password link (see "The first Owner on a hosted project") |
+| `pnpm test:e2e` · `pnpm test:e2e:ui` | Playwright in `e2e/`: builds and runs `next start` on port 3100, signs in as the seeded local users (the stack must be up and reset) and proves the build is locked down. Run it whenever a user flow changed |
 | `pnpm check` | typecheck + lint + format + unit tests + pgTAP + build. **Must pass before any commit.** Needs Docker Desktop running and `pnpm db:start` done first |
 
 Studio for the local stack: http://127.0.0.1:54323 once `pnpm db:start` is up.
@@ -79,6 +119,11 @@ is on `main` with all three CI checks green (a tag on any other commit stops bef
 name (repository **Settings → Environments → New environment**: `staging`, later `production`).
 Nothing secret is ever committed or typed into a terminal; it all goes in through that page.
 
+**Branches and tags.** Work happens on `phase-N` branches. The end of a phase is tagged
+`phase-N-done` on the merge commit (`/review-phase`). Never name a tag after a branch (the
+old `phase-0` tag is both, which makes plain `git push` and `git push --delete` ambiguous), and
+never tag `v*` for a phase: that name means "deploy to production".
+
 | Command | Does |
 |---|---|
 | `pnpm build:worker` | `next build` + OpenNext bundling into `.open-next/` (what CI and the deploy jobs run) |
@@ -98,8 +143,8 @@ folders, so `build:worker` and `preview` need WSL locally. CI and the deploy job
    password you set at creation. **Project Settings → General** shows the Reference ID;
    **Project Settings → API Keys** shows the project URL, the publishable key and the secret key.
    A personal access token for the CLI comes from **Account → Access Tokens**.
-   Set **Authentication → URL Configuration → Site URL** to the staging URL (task 1.2 completes
-   the auth settings). A free project pauses after 7 idle days; open it or ping it daily.
+   Then apply "Hosted auth settings" below. A free project pauses after 7 idle days; open it
+   or ping it daily.
 3. **Sentry** (free plan, platform Next.js). **Settings → Projects → maxoff → Client Keys** shows
    the DSN. Org and project slugs are in **Settings → General Settings**. For source maps, create
    an auth token at **Settings → Auth Tokens** with scopes `project:releases` and `org:read`.
@@ -120,6 +165,7 @@ Secrets (**Environment secrets**):
 | `SUPABASE_ACCESS_TOKEN` | Supabase → Account → Access Tokens (personal token for the CLI) |
 | `SUPABASE_DB_PASSWORD` | Supabase → the database password chosen when the project was created (Project Settings → Database to reset) |
 | `SUPABASE_SECRET_KEY` | Supabase → Project Settings → API Keys → Secret key (bypasses RLS; uploaded as a Worker secret) |
+| `SESSION_IP_HASH_SALT` | Any long random string (`openssl rand -hex 32`), different per environment. Salts the IP hash in `session_events`; uploaded as a Worker secret. Unset = the hash is stored as null |
 | `SENTRY_AUTH_TOKEN` | Sentry → Settings → Auth Tokens. Optional: without it no source maps are uploaded |
 
 Variables (**Environment variables**):
@@ -136,6 +182,44 @@ Variables (**Environment variables**):
 
 `NEXT_PUBLIC_APP_ENV` is set by the workflow itself (`staging` or `production`).
 
+`RESEND_API_KEY` and `EMAIL_FROM` (app email: invites from 1.3, notification email from 5.2)
+are **not** wired yet: they need a verified sending domain (`mail.maxoff.app`, see PROGRESS.md).
+Until then the app logs a start-up warning and sends nothing. They stay out of CI on purpose.
+
+### Inviting people (task 1.3)
+
+People → **Invite** (Owner only): email, name, role (Admin or Staff) and job title. The app
+creates the sign-in without a password (`auth.admin.generateLink`, type `invite`), writes the
+member row as `invited` and shows the **invite link** once. The same link goes out by email when
+`RESEND_API_KEY` is set; until a sending domain exists, copy it from the dialog and send it
+yourself (WhatsApp is fine: the link is one-time and expires after 24 h). **Copy invite link**
+on a pending row issues a fresh link and the previous one stops working. The person opens the
+link, chooses a password and lands on their profile as an active member.
+
+**Deactivate** (or **Revoke invite** on a pending row) takes effect at once: the person's auth
+sessions and refresh tokens are deleted inside the transition, so an open tab cannot renew its
+session, and the next page load ends at sign-in. **Reactivate** brings a member back active, or
+back to invited if they never accepted (issue a new link then).
+
+### Hosted auth settings
+
+`supabase/config.toml` only configures the local stack. Apply the same on each hosted project
+in the Supabase dashboard (**Authentication**), once per project:
+
+| Where | Setting |
+|---|---|
+| Sign In / Providers → Email | **Allow new users to sign up: off** (invite-only). Email provider stays **on** (it is the login method). Confirm email: off |
+| Sign In / Providers → Email | **Minimum password length: 12**, no character requirements. Leaked password protection is **Pro-only, so it stays off** on the free plan (ADR-0003); invite-only access and the 12-character minimum cover it for now |
+| URL Configuration | **Site URL** = the app URL (`NEXT_PUBLIC_APP_URL`). **Redirect URLs**: add `<app URL>/**` |
+| Emails → Templates → **Reset password** | Subject "Set your MaxOff password"; body = `supabase/templates/recovery.html`. The link **must** be `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery` (the app verifies the token hash server-side; the default `{{ .ConfirmationURL }}` will not work) |
+| Emails → SMTP settings | **Until a sending domain exists, leave Supabase's built-in mailer**: it delivers only to the email addresses of the Supabase project's own team members, a few per hour, which is enough for the Owner on staging. With `mail.maxoff.app` verified in Resend: host `smtp.resend.com`, port `465`, user `resend`, password = a Resend API key, sender `MaxOff <noreply@mail.maxoff.app>` |
+| Rate Limits | Keep the defaults (30 sign-in attempts per 5 min per IP, 30 token verifications, 150 refreshes). Raise **emails sent per hour** only after custom SMTP is on |
+| Sign In / Providers → Email | **Email OTP expiration: 86400 s (24 h)**, the same as `config.toml` `otp_expiry` (decided 2026-09-22): invite links get shared and opened hours later. It also governs recovery links; every link is still one-time |
+| Sign In / Providers → Email | **Secure password change: on** ("Require current password when updating" / reauthentication), the same as `config.toml` `secure_password_change` (phase 1 review, 2026-09-23). GoTrue asks for a nonce only when the session is older than 24 h, so link-opened sessions (invite, recovery) are unaffected; the real fix for a stolen session is 10.3 |
+
+There is **no invite template** to configure: the app builds invite links itself and sends the
+email through `core/notifications` (Resend), so GoTrue never mails an invite (task 1.3).
+
 ### What a deploy does
 
 1. Checks out the commit CI verified (production: first proves the tagged commit is on `main`
@@ -144,7 +228,8 @@ Variables (**Environment variables**):
    the build) and source maps uploaded to Sentry when the token is present. The build comes
    first so a failed build never leaves the database ahead of the Worker.
 3. `supabase link` + `supabase db push`: applies any new append-only migrations.
-4. Uploads `SUPABASE_SECRET_KEY` as a Worker secret, then `wrangler deploy --env <name>`.
+4. Uploads `SUPABASE_SECRET_KEY` and `SESSION_IP_HASH_SALT` as Worker secrets, then
+   `wrangler deploy --env <name>`.
 
 ### Confirming the Sentry pipeline
 
@@ -193,7 +278,8 @@ rule against the fixtures in `tests/lint-fixtures/`, so a rule can't silently st
 src/app/        routes only: thin pages composing module components
 src/core/       shared foundation (auth, db, permissions, time, ui, …), no business features
 src/modules/    isolated features, each exposing a single index.ts
-supabase/       append-only migrations, pgTAP tests, seed data
+supabase/       append-only migrations, pgTAP tests, seed data, auth email templates
+scripts/        one-off scripts: icon rendering, the Owner bootstrap
 e2e/            Playwright
 tests/          repo-level tests (lint rules) and their fixtures
 docs/           the project's memory (see below)

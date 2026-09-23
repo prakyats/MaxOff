@@ -4,10 +4,10 @@
 - **Date:** 2026-09-20
 
 ## Context
-v2 defines exactly three roles: one CEO, many Admins, many Staff. The clarifications add that Admins see only their assigned clients and related tasks, and see others only as availability. Staff see only tasks allotted to them. Money is CEO-only.
+v2 defines exactly three roles: one Owner, many Admins, many Staff. The clarifications add that Admins see only their assigned clients and related tasks, and see others only as availability. Staff see only tasks allotted to them. Money is Owner-only.
 
 ## Decision
-- `member_role` enum `ceo | admin | staff`. A unique partial index enforces a single CEO. Job titles are a separate list.
+- `member_role` enum `owner | admin | staff`. A unique partial index enforces a single Owner. Job titles are a separate list.
 - Capabilities are permission keys stored in `role_permissions` (seeded), checked by `has_permission()` in SQL and `can()` in TS.
 - Scope (which rows) is decided by RLS helpers: `admin_client_ids()`, task visibility (created / approving / assigned / labelled with an assigned client), assignee-only for Staff.
 - Staff see client information only through the `client_labels` view (name + brand basics).

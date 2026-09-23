@@ -12,4 +12,5 @@
  * Only `data/` layers may import from here (CLAUDE.md engineering rule 3).
  */
 export type { Database, Enums, Json, Tables, TablesInsert, TablesUpdate } from "./database.types";
+export { sessionCookieOptions } from "./cookies";
 export { publicSupabaseEnv } from "./env";

@@ -3,6 +3,7 @@ import "server-only";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
+import { sessionCookieOptions } from "./cookies";
 import type { Database } from "./database.types";
 import { publicSupabaseEnv } from "./env";
 
@@ -16,6 +17,7 @@ export async function createServerSupabase() {
   const env = publicSupabaseEnv();
 
   return createServerClient<Database>(env.url, env.publishableKey, {
+    cookieOptions: sessionCookieOptions(),
     cookies: {
       getAll() {
         return cookieStore.getAll();

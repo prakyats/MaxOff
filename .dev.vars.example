@@ -3,3 +3,6 @@
 # is needed. Copy this to `.dev.vars` (git-ignored) only to give the Worker different values
 # from `next dev`. Build-time NEXT_PUBLIC_* values are inlined by `next build` from `.env.local`.
 SUPABASE_SECRET_KEY=
+SESSION_IP_HASH_SALT=
+RESEND_API_KEY=
+EMAIL_FROM=

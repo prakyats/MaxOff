@@ -6,7 +6,7 @@
 
 ## 0. Enums (only for categories code depends on)
 ```
-member_role        ceo | admin | staff
+member_role        owner | admin | staff
 member_status      invited | active | deactivated
 attendance_choice  present | leave | half_day | comp_leave
 day_status         present | leave | half_day | comp_leave | absent
@@ -29,7 +29,7 @@ request_state      pending | converted | declined | withdrawn
 billing_status     not_billed | billed
 field_type         text | long_text | number | date | datetime | checkbox | select |
                    multi_select | url | email | phone | color | member | rating
-                   -- deliberately NO currency type: money lives only in the CEO-only tables (§7)
+                   -- deliberately NO currency type: money lives only in the Owner-only tables (§7)
 ```
 
 ## 0a. Base schema (task 0.2)
@@ -41,24 +41,144 @@ app.to_ist_date(timestamptz)    -> date in Asia/Kolkata (stable, strict; null in
 app.today_ist()                 -> app.to_ist_date(now())
 app.fail(code, detail)          raises SQLSTATE P0001 with message = code, detail = the human reason
                                 (ARCHITECTURE 4.3). Every transition function raises through it
-app.is_working_day(date)        weekly offs + holidays, arrives in 1.4
+app.is_working_day(date)        (1.4) false when the date's weekday is in org_settings.weekly_off_days
+                                or a holidays row matches it, true otherwise. Stable, parallel safe,
+                                security definer, scoped by app.current_org_id() so a service-role job
+                                gets the same answer. **Null in, null out, and null when no single
+                                organization is in scope** (none, or more than one): callers treat null
+                                as "do not act", never as a working day, so a job cannot mark a team
+                                absent on a Sunday. The TS mirror is core/time isWorkingDay()
+
+-- Identity and audit helpers (task 1.1, ARCHITECTURE §5). All security definer, search_path = ''.
+app.current_org_id()            the caller's org; with no member row (bootstrap, service role) the single
+                                organizations row; null when there are none or several. Default of every
+                                root table's org_id
+app.current_member()            the caller's member row when status = 'active', else no row
+app.has_permission(text)        caller's role has this key in role_permissions (active members only)
+app.audit_row_change()          AFTER INSERT/UPDATE/DELETE row trigger writing activity_log:
+                                entity = table name, action = insert|update|delete, entity_id = new/old.id
+                                (or TG_ARGV[0] as the id column), diff = {old:{}, new:{}} of the changed
+                                columns only (updated_at excluded), actor_id = auth.uid() or null (system).
+                                A transition function that writes an audited table sets the transaction
+                                setting app.audit_override = '{"action": "...", "meta": {...}}' first
+                                (1.3): the trigger's row then carries the workflow action name and meta
+                                (e.g. the deactivation reason) instead of a generic 'update', and the
+                                function writes no second row. Consumed by the FIRST audited write of
+                                the transaction, so set it right before the row it describes (a
+                                function that writes a history row first labels that row instead)
+app.in_transition()             true while the statement runs as the function owner (inside a security
+                                definer transition function, a migration, a seed or a service-role job);
+                                false for a direct API write as authenticated / anon. Nothing to switch on
+app.protect_columns()           BEFORE UPDATE trigger; TG_ARGV = column names that may change only
+                                while app.in_transition(). Raises FORBIDDEN otherwise. Every state
+                                column gets it (ADR-0006 "trigger guard")
+app.members_self_edit_guard()   BEFORE UPDATE on members: without team.manage only full_name and phone
+                                change; the Owner row never loses its role outside a transition
+app.members_insert_guard()      BEFORE INSERT on members: outside a transition a new row is invited,
+                                with no joined_at / deactivated_at
+app.create_org_settings()       AFTER INSERT on organizations: the org_settings row with launch defaults
+
+-- Session and bootstrap functions (task 1.2, ADR-0012). public schema (RPC), security definer,
+-- search_path = ''. EXECUTE is revoked from public AND anon explicitly: Supabase's default
+-- privileges grant it to anon on every new public function.
+public.session_login(user_agent, ip_hash)    inserts session_events(login) for the calling active
+                                member (app.current_member()); UNAUTHENTICATED otherwise. Called
+                                once per sign-in and once when a recovery link opens a session.
+                                No activity_log row: the session_events row is the record
+public.session_logout(user_agent, ip_hash)   the same for logout. 2.1 extends it with
+                                attendance_days.last_logout_at
+public.bootstrap_owner(user_id, email, full_name, org_name)   service_role only. Creates the single
+                                organization when none exists and the first, active Owner member for
+                                an existing auth user; CONFLICT once any member exists. Called by
+                                scripts/bootstrap-owner.mjs, which prints a one-time recovery link and
+                                never handles a password
+
+-- Team functions (task 1.3, WORKFLOWS §1a). public schema, security definer, search_path = '', the
+-- same grants. Each one writes its activity_log row through app.audit_override (above).
+public.member_invite(user_id, email, full_name, role, job_title_id)
+                                team.manage. Inserts the invited member row for the auth user the action
+                                just created with auth.admin.generateLink(type = invite). role is admin or
+                                staff; CONFLICT when a member with that email exists; the auth user's
+                                email must match. Audit action 'invited'
+public.member_invite_refresh(member_id)
+                                team.manage, member must be invited. Bumps invited_at; audit action
+                                'invite_link_issued'. The action then generates a fresh link, and the
+                                previous link stops working (GoTrue keeps one token per user)
+public.member_self_status()     the caller's own status whatever it is (null with no row). RLS shows a
+                                member row only to active members, so the invite link and set-password
+                                steps read the status through this instead
+public.member_accept_invite()   the caller's own row, invited → active with joined_at. Called by
+                                setPassword() once the invited person's password is stored. Audit
+                                action 'accepted'
+public.member_deactivate(member_id, reason)
+                                team.manage. active | invited → deactivated (deactivated_at). Never the
+                                caller, never the Owner. Deletes the person's auth.refresh_tokens and
+                                auth.sessions rows in the same transaction, so a live session cannot
+                                refresh (ADR-0012). reason is optional free text, kept in meta.reason.
+                                Audit action 'deactivated'
+public.member_reactivate(member_id)
+                                team.manage. deactivated → active when joined_at is set, otherwise back
+                                to invited (they still have to accept). deactivated_at is cleared; the
+                                activity log keeps the history. Audit action 'reactivated'
+public.list_item_move(list_key, item_id, direction)
+                                (1.4) lists.manage. Swaps an entry's `position` with the neighbour
+                                above or below it (archived entries skipped) in ONE update that
+                                touches no other column, so a reorder cannot revert a rename another
+                                editor just made and the order is never half-written. Returns the
+                                neighbour's id, or null at either end. A plain edit: the audit
+                                trigger's two 'update' rows are the record
+public.member_change_email(member_id, new_email)
+                                (1.4) team.manage. Changes the login identity of an active, invited
+                                or Owner row: CONFLICT when the address is another member's,
+                                VALIDATION when it is malformed or unchanged. Writes members.email
+                                only; the sign-in itself is moved by the action through
+                                auth.admin.updateUserById(email_confirm: true), which is the
+                                supported way and the reason this is not one transaction (the
+                                action rolls the Auth change back when the rpc refuses). Sessions
+                                are left alive: nothing reads the email from the JWT. Audit action
+                                'email_changed', meta.from / meta.to
+app.members_job_title_guard()   BEFORE INSERT/UPDATE on members: job_title_id, when set, is an
+                                unarchived list_items row with list_key = 'job_title' of the same org
+app.seed_org_lists()            AFTER INSERT on organizations: the launch job titles (PRODUCT §7)
 ```
 
 ## 1. Organization, people and access
 ```
-organizations        id, name, logo_file_id, timezone ('Asia/Kolkata'), created_at
+organizations        id, name, logo_file_id (added in 3.3 with files), timezone ('Asia/Kolkata'), created_at, updated_at
+                     -- API UPDATE grant: name only (timezone stays IST, invariant 8; phase 1 review)
 org_settings         org_id pk, weekly_off_days smallint[] (0=Sun..6=Sat), logout_reminder_time time,
-                     ack_repeat_hours int (2), ack_escalate_hours int (4), ack_escalate_ceo_hours int (8),
+                     ack_repeat_hours int (2), ack_escalate_hours int (4), ack_escalate_owner_hours int (8),
                      overdue_escalate_hours int (24), email_daily_cap_per_member int (20),
                      default_task_reminders jsonb, workload_warning_threshold int
-                     -- defaults in brackets = launch settings (PRODUCT §7)
-holidays             id, org_id, date, name, unique(org_id, date)
-members              id (= auth.users.id), org_id, full_name, email, phone, avatar_file_id,
-                     role member_role, job_title_id → list_items, status member_status,
-                     invited_at, joined_at, deactivated_at
-                     unique partial index (org_id) where role = 'ceo'
+                     -- API UPDATE grant: the nine settings columns above, never org_id or the timestamps
+                     -- defaults in brackets = launch settings (PRODUCT §7); default_task_reminders '[]' until
+                     -- 5.3, workload_warning_threshold null until 4.3. Created by trigger with the organization
+holidays             id, org_id, date, name, created_at, updated_at, unique(org_id, date)
+                     -- API UPDATE grant: date, name
+                     -- 1.4. RLS: every active member reads (a holiday is everyone's calendar);
+                     -- insert/update/delete need settings.manage. Audited. The one configuration
+                     -- table with a real DELETE (it has no archived_at): removing a mistyped date
+                     -- is the Owner's, and audit_row_change() keeps the removed row. Deleting a
+                     -- holiday never rewrites the past: attendance_days carries its own is_day_off
+                     -- (2.1), decided on the day itself
+members              id (= auth.users.id), org_id, full_name, email, phone, avatar_file_id (added in 3.3),
+                     role member_role, job_title_id null → list_items (1.3), status member_status,
+                     invited_at, joined_at, deactivated_at, created_at, updated_at
+                     unique partial index (org_id) where role = 'owner'; unique index on lower(email)
+                     -- status, invited_at, joined_at, deactivated_at are protected columns (transition
+                     -- functions only, 1.2/1.3). RLS: own row; every row for team.view; writes team.manage;
+                     -- own name/phone/avatar editable (PERMISSIONS §3). job_title_id is in the API
+                     -- role's UPDATE grant, and app.members_self_edit_guard() keeps it team.manage-only
+member_directory     view (security definer): id, org_id, full_name, phone, role, status, job_title_id,
+                     created_at (+ avatar_file_id from 3.3). Everyone's row for team.view,
+                     plus the caller's own.
+                     No email (PERMISSIONS §2). Names of people on a member's own tasks join in 4.1
 role_permissions     role member_role, permission text, pk(role, permission)   -- seeded
-session_events       id, member_id, kind ('login'|'logout'), at, user_agent, ip_hash
+session_events       id, member_id, kind ('login'|'logout'), at, user_agent (≤ 512), ip_hash
+                     -- append-only, written only by session_login() / session_logout() (1.2) and
+                     -- attendance_touch() (2.1). ip_hash = salted SHA-256 of the client IP
+                     -- (SESSION_IP_HASH_SALT) or null; never the IP, never an unsalted hash.
+                     -- RLS: own rows; all for attendance.view_all
 push_subscriptions   id, member_id, endpoint unique, p256dh, auth, user_agent, created_at,
                      platform ('android'|'ios'|'desktop'|'other'), is_standalone bool (PWA installed),
                      label (device name shown to the member), last_success_at, last_failure_at,
@@ -71,7 +191,13 @@ push_subscriptions   id, member_id, endpoint unique, p256dh, auth, user_agent, c
 ## 2. Configuration (customization as data)
 ```
 list_items           id, org_id, list_key ('job_title'|...), name, description, color, icon,
-                     position, meta jsonb, is_system, archived_at
+                     position, meta jsonb, is_system, archived_at, created_at, updated_at
+                     -- API UPDATE grant: name, description, color, icon, archived_at (position only through
+                     -- list_item_move(); list_key, is_system and meta never through the API)
+                     -- 1.3 (core/lists). unique (org_id, list_key, lower(name)) where archived_at is
+                     -- null. RLS: every active member reads; insert/update need lists.manage; no
+                     -- DELETE (archive instead). Audited. Seeded per organization by trigger with the
+                     -- launch job titles (PRODUCT §7); 1.4 adds the Settings screen
 task_types           id, org_id, name, kind task_type_kind, shows_on_calendar bool,
                      has_location bool, default_reminders jsonb, color, icon, position,
                      is_system, archived_at
@@ -83,7 +209,7 @@ field_definitions    id, org_id, entity ('client'|'contact'|'project'|'item'|'ta
                      task_type_id null (a field that exists for one task type only),
                      key, label, help_text, type field_type, options jsonb, required,
                      section, position, archived_at, unique(org_id, entity, key, client_id, task_type_id)
-                     -- rows with entity in ('project','item') are CEO-only to create/edit (PERMISSIONS ¹)
+                     -- rows with entity in ('project','item') are Owner-only to create/edit (PERMISSIONS ¹)
 ```
 Entities with custom fields have `custom_fields jsonb not null default '{}'`, validated against active definitions on every write (`core/custom-fields`).
 
@@ -100,7 +226,7 @@ attendance_events    id, attendance_day_id, action ('submitted'|'proposed_absent
                      'approved'|'corrected'|'logout'|'overtime_flagged'), from_status, to_status, reason,
                      actor_id null (system), at                    -- append-only
 leave_requests       id, member_id, type leave_type, start_date, end_date, reason,
-                     state leave_state, source ('form'|'attendance'|'ceo'), supersedes_id null,
+                     state leave_state, source ('form'|'attendance'|'owner'), supersedes_id null,
                      decided_by, decided_at, decision_reason, created_at
 ```
 
@@ -109,7 +235,7 @@ leave_requests       id, member_id, type leave_type, start_date, end_date, reaso
 clients              id, org_id, name, legal_name, state client_state, admin_id → members,
                      gstin, address, city, phone, email, website, drive_url, requirements, notes,
                      custom_fields, activated_at, archived_at, created_by
-client_private       client_id pk, ceo_notes                        -- CEO-only table
+client_private       client_id pk, ceo_notes                        -- Owner-only table
 client_admin_assignments  id, client_id, admin_id, assigned_by, from_at, to_at null
 client_contacts      id, client_id, name, designation, email, phone, is_primary, custom_fields, archived_at
 client_brand         client_id pk, logo_file_id, colors jsonb [{name, hex}], fonts jsonb [{family, usage}],
@@ -122,11 +248,11 @@ view client_labels   (id, name, logo_file_id, colors, fonts, tone_of_voice, bran
 ## 5. Client work: projects, cycles, items
 ```
 projects             id, client_id (required), name, description, recurrence, state project_state,
-                     billing_category (CEO-set; default from recurrence; a template's default applies
-                     only when the CEO creates the project), template_id null,
+                     billing_category (Owner-set; default from recurrence; a template's default applies
+                     only when the Owner creates the project), template_id null,
                      custom_fields, created_by, completed_at, completed_by, archived_at
                      -- guard trigger: state, billing_category, client_id and recurrence change only
-                     -- through transition functions (billing_category/client_id/recurrence: CEO only)
+                     -- through transition functions (billing_category/client_id/recurrence: Owner only)
 project_stages       id, project_id, name, position                  -- copied from a preset; may be empty
 project_item_blueprints  id, project_id, title, position            -- item list copied into each new cycle
 project_cycles       id, project_id, period_start date null, period_end date null, label,
@@ -141,7 +267,7 @@ project_items        id, cycle_id, title, position, planned_date null, notes, cu
 project_item_stages  item_id, stage_id, done_at, done_by, pk(item_id, stage_id)
 item_reviews         id, item_id, decision review_decision, reason, reviewer_id, at   -- append-only
 project_templates    id, org_id, name, description, recurrence, default_billing_category (applied only
-                     when the CEO creates the project), stages text[], items text[], field_defaults jsonb, archived_at
+                     when the Owner creates the project), stages text[], items text[], field_defaults jsonb, archived_at
 ```
 
 ## 6. Staff tasks
@@ -157,7 +283,7 @@ task_assignees       task_id, member_id, is_primary, assigned_at, assigned_by,
                      acknowledged_at null, removed_at null, pk(task_id, member_id)
 task_stages          id, task_id, name, position, done_at, done_by   -- optional checklist
 task_comments        id, task_id, author_id, body, created_at        -- append-only
-task_reviews         id, task_id, step ('admin'|'ceo'), decision, reason, reviewer_id,
+task_reviews         id, task_id, step ('admin'|'owner'), decision, reason, reviewer_id,
                      submission_id null, at                          -- append-only
 task_submissions     id, task_id, version int, note, submitted_by, at, unique(task_id, version)
 submission_items     id, submission_id, kind ('upload'|'drive_link'),
@@ -170,7 +296,7 @@ submission_items     id, submission_id, kind ('upload'|'drive_link'),
                      drive_file_id null, drive_web_link null, archived_at,
                      archive_error, archive_attempts, local_deleted_at, created_at
 task_reminders       id, task_id, member_id null, kind ('before_due'|'due'|'overdue'|'ack'|
-                     'ack_escalation'|'overdue_escalation'|'event'), escalation_level int null (1 = Admin, 2 = CEO),
+                     'ack_escalation'|'overdue_escalation'|'event'), escalation_level int null (1 = Admin, 2 = Owner),
                      fire_at, sent_at null, cancelled_at null       -- materialized from reminder_rules + org_settings
 task_warnings        id, task_id, kind ('overlap'|'workload'|'on_leave'), details jsonb,
                      overridden_by, at
@@ -180,18 +306,18 @@ task_templates       id, org_id, name, task_type_id, description, default_priori
                      stages text[], reminder_rules jsonb, field_defaults jsonb, archived_at
 ```
 
-## 7. Money (all CEO-only tables)
+## 7. Money (all Owner-only tables)
 ```
 project_billing      project_id pk, cycle_amount numeric null (recurring), fixed_amount numeric null (one-time)
 item_billing         item_id pk, value numeric                       -- explicit per-item value
 cycle_billing        cycle_id pk, billing_status, billed_on date, note
 revenue_overrides    id, scope ('cycle'|'project'), ref_id, calculated_value, adjusted_value,
                      note, by_id, at, superseded_at null
-views (security invoker, CEO only): item_values_v, revenue_by_cycle_v, revenue_by_client_month_v
+views (security invoker, Owner only): item_values_v, revenue_by_cycle_v, revenue_by_client_month_v
 ```
 All amounts are `numeric(12,2)` in INR.
 
-## 8. Google Drive archive (CEO-managed, core module `drive`)
+## 8. Google Drive archive (Owner-managed, core module `drive`)
 ```
 drive_account        org_id pk, google_email, refresh_token_encrypted, access_token_encrypted,
                      token_expires_at, root_folder_id, scopes, connected_by, connected_at,
@@ -217,10 +343,15 @@ notification_deliveries  id, notification_id, channel ('push'|'email'), state ('
                      attempts, last_error, sent_at
 activity_log         id bigint identity, org_id, actor_id null (system), entity, entity_id, action,
                      diff jsonb (old/new), meta jsonb, at               -- append-only (UPDATE/DELETE revoked)
+                     -- written only by app.audit_row_change() and transition functions (no INSERT grant).
+                     -- RLS: activity.view_all, or entries about the caller's own member row except its
+                     -- deactivated entry (the reason is the Owner's note). Scope is per entity, never per
+                     -- actor: a row an Admin's action produced may describe an Owner-only table.
+                     -- Each module adds a policy for the entities it owns (PERMISSIONS §2)
 eod_reports          id, org_id, report_date, data jsonb, generated_at, unique(org_id, report_date)
 month_snapshots      id, org_id, month date (1st), version int, data jsonb, closed_by, closed_at,
                      corrects_id null, correction_note, unique(org_id, month, version)
-                     -- eod_reports and month_snapshots contain revenue: CEO-only tables
+                     -- eod_reports and month_snapshots contain revenue: Owner-only tables
                      -- (single policy has_permission('reports.all')). Admin scoped reports are computed live.
 feature_flags        key pk, enabled, description
 ```

@@ -80,7 +80,7 @@ End of each phase: `/review-phase N` (on [H]) → fixes → merge → tag.
 
 ### Your job in each session
 1. **Read the plan.** Check the scope, whether it matches how Pixora works, and that no business rule was invented.
-2. **Try the feature yourself** before `/finish-task`. Log in as the CEO, an Admin and a Staff member to see each view.
+2. **Try the feature yourself** before `/finish-task`. Log in as the Owner, an Admin and a Staff member to see each view.
 3. **Answer business questions.** Claude is told to ask, not guess.
 
 ---
@@ -90,9 +90,9 @@ End of each phase: `/review-phase N` (on [H]) → fixes → merge → tag.
 |---|---|
 | 1 | Log in, invite the team |
 | 2 | Run daily attendance and leave approvals |
-| 4 | Assign tasks, with acknowledgement and the Admin → CEO approval chain |
+| 4 | Assign tasks, with acknowledgement and the Admin → Owner approval chain |
 | **6 ★ Pilot** | **Use MaxOff every day in production** (attendance, leave, tasks, notifications, dashboards, calendar, EOD report, backups) |
-| 7 | Track client projects, cycles and CEO item approvals |
+| 7 | Track client projects, cycles and Owner item approvals |
 | 9 | See revenue, close months, export reports for AI analysis |
 | 10 | Full launch |
 

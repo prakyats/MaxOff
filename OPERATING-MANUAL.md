@@ -1,4 +1,4 @@
-# MaxOff: Operating Manual (for Prakyat)
+# MaxOff: Operating Manual (for Prishit)
 
 Everything you need to run the build, without asking anyone what to do next.
 **BUILD-GUIDE.md** = setup and models. **This file** = the daily loop, what each task should deliver, and how to check it.
@@ -71,7 +71,7 @@ pnpm dev
 ```
 Then open http://localhost:3000. Stop it with Ctrl+C.
 
-From phase 1 onwards you'll have three logins to test with: the **CEO** (you), an **Admin** and a **Staff** member. The seed data creates test accounts. **Always check a feature as all three**, because the whole product depends on each role seeing only what it should.
+From phase 1 onwards you'll have three logins to test with: the **Owner** (you), an **Admin** and a **Staff** member. The seed data creates test accounts. **Always check a feature as all three**, because the whole product depends on each role seeing only what it should.
 
 If something's wrong, describe it plainly in the same session: *"As a Staff user I can see the client's GSTIN on the task page. That shouldn't be visible."* Claude fixes it before `/finish-task`.
 
@@ -96,7 +96,7 @@ Tick it off yourself. If a checkpoint fails, say so in the same session before `
 | Task | You should be able to |
 |---|---|
 | 1.1 | See the tables in Supabase Studio (`pnpm db:studio` or the local URL). Database tests pass for all three roles |
-| 1.2 | Log in as the CEO with the bootstrap script's account. A wrong password fails. Signing up is impossible |
+| 1.2 | Log in as the Owner with the bootstrap script's account. A wrong password fails. Signing up is impossible |
 | 1.3 | Invite an Admin and a Staff member by email, accept the invite in another browser, set a password, and see them in the member list. Deactivate someone and watch them lose access immediately |
 | 1.4 | Open Settings and change the weekly off day, add a holiday, edit the reminder thresholds, and add a job title |
 
@@ -108,7 +108,7 @@ Tick it off yourself. If a checkpoint fails, say so in the same session before `
 | 2.1 | Nothing visible yet (database + rules). Tests must pass for every path |
 | 2.2 | Log in as Staff and be **forced** to pick Present / Leave / Half-day / Comp leave before seeing anything. Log out and see the time recorded. Log in again the same day and **not** be asked again |
 | 2.3 | Request leave for a future date as Staff, then request a change to it |
-| 2.4 | As CEO see pending attendance and leave, approve in bulk, and reject one by setting the correct status with a reason. The employee sees the correction |
+| 2.4 | As Owner see pending attendance and leave, approve in bulk, and reject one by setting the correct status with a reason. The employee sees the correction |
 | 2.5 | Confirm the 11:59 PM job works (ask Claude to run it manually): someone who never logged in becomes "Absent – pending", someone on approved leave does not, and Sunday is skipped |
 
 **Phase 2 exit:** a full working day of attendance can be run. ➜ **phase report**
@@ -126,10 +126,10 @@ Tick it off yourself. If a checkpoint fails, say so in the same session before `
 ### Phase 4: Staff tasks
 | Task | You should be able to |
 |---|---|
-| 4.1–4.2 | Tests prove the approval routes: CEO direct → CEO only; through an Admin → Admin then CEO; Admin as assignee → step skipped |
+| 4.1–4.2 | Tests prove the approval routes: Owner direct → Owner only; through an Admin → Admin then Owner; Admin as assignee → step skipped |
 | 4.3 | Create a task with two assignees, a deadline and a client label, and get a warning when assigning someone who's on leave |
-| 4.4 | As Staff: see the task, tap **Task Noted**, comment, mark Done. As Admin: approve or send back with a reason. As CEO: give final approval |
-| 4.5 | See "My tasks" as Staff, and an Approvals inbox as CEO with bulk approve |
+| 4.4 | As Staff: see the task, tap **Task Noted**, comment, mark Done. As Admin: approve or send back with a reason. As Owner: give final approval |
+| 4.5 | See "My tasks" as Staff, and an Approvals inbox as Owner with bulk approve |
 | 4.6 | Suggest a task as Staff, and convert it as Admin. Create a task from a template |
 
 **Phase 4 exit:** the full task lifecycle works end to end. ➜ **phase report**
@@ -139,7 +139,7 @@ Tick it off yourself. If a checkpoint fails, say so in the same session before `
 |---|---|
 | 5.1 | See the bell update in real time when a task is assigned to you in another browser |
 | 5.2 | Get a **browser notification** on desktop, and on your iPhone after adding MaxOff to the home screen |
-| 5.3 | Confirm reminders fire (ask Claude to run the job manually): before due, at due, overdue, and an unacknowledged task escalating to the Admin then the CEO |
+| 5.3 | Confirm reminders fire (ask Claude to run the job manually): before due, at due, overdue, and an unacknowledged task escalating to the Admin then the Owner |
 
 **Phase 5 exit:** nobody can say "I didn't know". ➜ **phase report**
 
@@ -147,7 +147,7 @@ Tick it off yourself. If a checkpoint fails, say so in the same session before `
 | Task | You should be able to |
 |---|---|
 | 6.1 | As Staff on your phone, see My Day and do a full day's work from it |
-| 6.2 | As CEO see Today: who's in, what needs approving, what's overdue, all updating live |
+| 6.2 | As Owner see Today: who's in, what needs approving, what's overdue, all updating live |
 | 6.3 | As Admin see your clients and the tasks needing attention |
 | 6.4 | See shoots, meetings and leave on the calendar, in day, week and month views |
 | 6.5 | Open the end-of-day report and see the day summarized |
@@ -160,7 +160,7 @@ Tick it off yourself. If a checkpoint fails, say so in the same session before `
 |---|---|
 | 7.1–7.2 | Tests prove cycles generate once, carry-forward works, and Staff can't see any of it |
 | 7.3 | Create "Monthly Production" for a client with 12 reels and 4 posts, name the items, tick stages, and mark items done |
-| 7.4 | As CEO approve items in bulk, and decide carry-forward at month end. Create a project from a template |
+| 7.4 | As Owner approve items in bulk, and decide carry-forward at month end. Create a project from a template |
 
 **Phase 7 exit:** a real client month runs in MaxOff. ➜ **phase report**
 
@@ -174,7 +174,7 @@ Tick it off yourself. If a checkpoint fails, say so in the same session before `
 
 **Phase 8 exit:** nothing submitted can ever be lost. ➜ **phase report**
 
-### Phase 9: Revenue and reports (CEO only)
+### Phase 9: Revenue and reports (Owner only)
 | Task | You should be able to |
 |---|---|
 | 9.1 | Tests prove an Admin can't see money through any route |

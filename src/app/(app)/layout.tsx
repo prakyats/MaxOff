@@ -1,17 +1,22 @@
-import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 
+import { LogoutMenuItem } from "@/core/auth/components";
+import { requireMember } from "@/core/auth/server";
+import { SentryUser } from "@/core/observability/sentry-user";
 import { AppShell } from "@/core/ui/shell/app-shell";
-import { getPreviewViewer } from "@/core/ui/shell/preview-viewer";
 
 /**
- * The signed-in area. Task 1.2 swaps `getPreviewViewer()` for `core/auth`'s
- * `getCurrentMember()` (redirecting to /login) and task 2.2 adds `requireDayGate()` here
- * (ARCHITECTURE §8). Until then there is nothing to show in production, so it 404s.
+ * The signed-in area. `requireMember()` is the auth decision (ADR-0011 rule 3): signed out →
+ * /login, a session whose member is not active → ended, then /login. Task 2.2 adds
+ * `requireDayGate()` here (ARCHITECTURE §8).
  */
 export default async function AppLayout({ children }: { children: ReactNode }) {
-  const viewer = await getPreviewViewer();
-  if (!viewer) notFound();
+  const viewer = await requireMember();
 
-  return <AppShell viewer={viewer}>{children}</AppShell>;
+  return (
+    <AppShell viewer={viewer} logoutItem={<LogoutMenuItem />}>
+      <SentryUser id={viewer.id} />
+      {children}
+    </AppShell>
+  );
 }

@@ -1,17 +1,55 @@
-import { UsersIcon } from "lucide-react";
 import type { Metadata } from "next";
 
-import { PlaceholderPage } from "../_placeholder/placeholder-page";
+import { listItems } from "@/core/lists/server";
+import { can } from "@/core/permissions";
+import { requirePermission } from "@/core/permissions/server";
+import { PageHeader } from "@/core/ui/composites/page-header";
+import {
+  InviteMemberDialog,
+  listDirectory,
+  listMembers,
+  sortMembers,
+  TeamTable,
+} from "@/modules/team";
 
 export const metadata: Metadata = { title: "People" };
 
-export default function PeoplePage() {
+/**
+ * The Team screen (task 1.3, PRODUCT §4.16 "Team"). `team.view` opens it (Owner and Admins);
+ * `team.manage` (the Owner) gets the email column and every action. Attendance and leave per
+ * person join in phase 2.
+ */
+export default async function PeoplePage() {
+  const viewer = await requirePermission("team.view");
+  const canManage = can(viewer.role, "team.manage");
+  // Archived titles travel too: the Edit dialog keeps showing the one a member already has
+  // (it just isn't offered to anyone else), so editing a name never clears their title.
+  const [members, jobTitleOptions] = await Promise.all([
+    canManage ? listMembers() : listDirectory(),
+    listItems("job_title", { includeArchived: true }),
+  ]);
+  const jobTitles = jobTitleOptions.map(({ id, name, archived_at }) => ({
+    id,
+    name,
+    archived: archived_at !== null,
+  }));
+
   return (
-    <PlaceholderPage
-      title="People"
-      description="The team: invites, roles, job titles and each person's attendance and leave."
-      task="1.3"
-      icon={UsersIcon}
-    />
+    <>
+      <PageHeader
+        title="People"
+        description={
+          canManage
+            ? "Invite people, set roles and job titles, deactivate or reactivate."
+            : "Everyone on the team, with their role and job title."
+        }
+        actions={canManage ? <InviteMemberDialog jobTitles={jobTitles} /> : undefined}
+      />
+      <TeamTable
+        members={sortMembers(members)}
+        viewer={{ id: viewer.id, canManage }}
+        jobTitles={jobTitles}
+      />
+    </>
   );
 }

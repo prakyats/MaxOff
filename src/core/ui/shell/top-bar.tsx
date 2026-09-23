@@ -10,17 +10,19 @@ import { UserMenu } from "./user-menu";
 import type { ShellViewer } from "./viewer";
 
 /**
- * Sticky top bar. `leading` holds the mobile menu button for CEO / Admin. The bell links to
+ * Sticky top bar. `leading` holds the mobile menu button for Owner / Admin. The bell links to
  * the notification history until `core/notifications` replaces it with the live <Bell> (5.1).
  */
 export function TopBar({
   viewer,
   home,
   leading,
+  logoutItem,
 }: {
   viewer: ShellViewer;
   home: string;
   leading?: ReactNode;
+  logoutItem?: ReactNode;
 }) {
   return (
     <header
@@ -36,7 +38,7 @@ export function TopBar({
           </Link>
         </Button>
         <ThemeToggle />
-        <UserMenu viewer={viewer} />
+        <UserMenu viewer={viewer} logoutItem={logoutItem} />
       </div>
     </header>
   );

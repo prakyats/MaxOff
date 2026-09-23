@@ -30,6 +30,7 @@
     "db:new": "supabase migration new",
     "db:types": "supabase gen types typescript --local --schema public > src/core/db/database.types.ts && prettier --write src/core/db/database.types.ts",
     "db:test": "supabase test db",
+    "bootstrap:owner": "node --env-file=.env.local scripts/bootstrap-owner.mjs",
     "check": "pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run test && pnpm run db:test && pnpm run build",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui"

@@ -247,7 +247,7 @@ const eslintConfig = defineConfig([
     },
   },
 
-  // CLAUDE.md invariant 2: money is CEO-only and readable only through modules/revenue.
+  // CLAUDE.md invariant 2: money is Owner-only and readable only through modules/revenue.
   {
     files: ["**/src/**/*.{ts,tsx}"],
     ignores: ["**/src/modules/revenue/**", "**/src/core/db/**"],
