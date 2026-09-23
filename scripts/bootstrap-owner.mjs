@@ -131,7 +131,7 @@ async function main() {
       "",
       `Owner created: ${fullName} <${email}>`,
       "",
-      "Open this link once to set the password (it expires in an hour):",
+      "Open this link once to set the password (it expires in 24 hours):",
       "",
       `  ${confirmUrl}`,
       "",

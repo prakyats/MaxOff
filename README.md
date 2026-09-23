@@ -65,7 +65,7 @@ NEXT_PUBLIC_APP_URL=https://maxoff-staging.<subdomain>.workers.dev \
   node scripts/bootstrap-owner.mjs --email owner@example.com --name "Full Name" --org "Pixora Clips"
 ```
 
-The link expires after an hour; "Forgot your password?" on `/login` issues a new one (that one
+The link expires after 24 hours (`otp_expiry`); "Forgot your password?" on `/login` issues a new one (that one
 is emailed by Supabase Auth, see "Hosted auth settings").
 
 ## Commands
