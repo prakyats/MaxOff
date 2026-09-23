@@ -215,6 +215,7 @@ in the Supabase dashboard (**Authentication**), once per project:
 | Emails → SMTP settings | **Until a sending domain exists, leave Supabase's built-in mailer**: it delivers only to the email addresses of the Supabase project's own team members, a few per hour, which is enough for the Owner on staging. With `mail.maxoff.app` verified in Resend: host `smtp.resend.com`, port `465`, user `resend`, password = a Resend API key, sender `MaxOff <noreply@mail.maxoff.app>` |
 | Rate Limits | Keep the defaults (30 sign-in attempts per 5 min per IP, 30 token verifications, 150 refreshes). Raise **emails sent per hour** only after custom SMTP is on |
 | Sign In / Providers → Email | **Email OTP expiration: 86400 s (24 h)**, the same as `config.toml` `otp_expiry` (decided 2026-09-22): invite links get shared and opened hours later. It also governs recovery links; every link is still one-time |
+| Sign In / Providers → Email | **Secure password change: on** ("Require current password when updating" / reauthentication), the same as `config.toml` `secure_password_change` (phase 1 review, 2026-09-23). GoTrue asks for a nonce only when the session is older than 24 h, so link-opened sessions (invite, recovery) are unaffected; the real fix for a stolen session is 10.3 |
 
 There is **no invite template** to configure: the app builds invite links itself and sends the
 email through `core/notifications` (Resend), so GoTrue never mails an invite (task 1.3).
