@@ -1,6 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 
-import { storageStateFor } from "./helpers";
+import { expectBackStack, runInstalled, storageStateFor } from "./helpers";
 
 /**
  * Back behaves like an app, not a website (task 1.5, ARCHITECTURE §14.1).
@@ -12,35 +12,6 @@ import { storageStateFor } from "./helpers";
  *   to the role's home tab. In a browser tab the normal web back/forward is left alone, which is
  *   what the second half of this file checks.
  */
-
-/**
- * Makes the page look installed, which is how `tab-history` decides which rule to apply.
- *
- * Chromium cannot actually emulate `display-mode: standalone` in a normal page: both
- * `page.emulateMedia` and CDP `Emulation.setEmulatedMedia` with a `display-mode` feature leave
- * `matchMedia("(display-mode: standalone)").matches` false (checked against this Chromium
- * build). Only a genuinely installed window reports it. So the media query itself is stubbed
- * before the page loads — the platform signal is faked, and what gets tested is our logic on top
- * of it, which is the part that can actually be wrong.
- */
-async function runInstalled(page: Page) {
-  await page.addInitScript(() => {
-    const real = window.matchMedia.bind(window);
-    window.matchMedia = (query: string) =>
-      query.includes("display-mode: standalone")
-        ? ({
-            matches: true,
-            media: query,
-            onchange: null,
-            addEventListener() {},
-            removeEventListener() {},
-            addListener() {},
-            removeListener() {},
-            dispatchEvent: () => false,
-          } as unknown as MediaQueryList)
-        : real(query);
-  });
-}
 
 test.describe("overlays close on back", () => {
   test.use({ storageState: storageStateFor("owner") });
@@ -54,11 +25,8 @@ test.describe("overlays close on back", () => {
     const sheet = page.locator('[data-slot="more-sheet"]');
     await expect(sheet).toBeVisible();
 
-    await page.goBack();
-
-    await expect(sheet).toBeHidden();
     // The whole point: we dismissed an overlay, we did not navigate.
-    await expect(page).toHaveURL(/\/today$/);
+    await expectBackStack(page, [{ closes: sheet, url: /\/today$/ }]);
   });
 
   test("a sheet handing off to a dialog keeps the dialog open", async ({ page }) => {
@@ -76,9 +44,7 @@ test.describe("overlays close on back", () => {
     await expect(sheet).toBeHidden();
 
     // One overlay is open, so one back closes it and leaves the page alone.
-    await page.goBack();
-    await expect(confirm).toBeHidden();
-    await expect(page).toHaveURL(/\/people$/);
+    await expectBackStack(page, [{ closes: confirm, url: /\/people$/ }]);
   });
 
   test("the detail sheet still closes on back after navigating from the More sheet", async ({
@@ -100,9 +66,7 @@ test.describe("overlays close on back", () => {
     const sheet = page.locator('[data-slot="detail-sheet"]');
     await expect(sheet).toBeVisible();
 
-    await page.goBack();
-    await expect(sheet).toBeHidden();
-    await expect(page).toHaveURL(/\/people$/);
+    await expectBackStack(page, [{ closes: sheet, url: /\/people$/ }]);
   });
 
   test("after dismissing by hand, back still gets you off the page", async ({ page }) => {
@@ -118,8 +82,7 @@ test.describe("overlays close on back", () => {
     // without cancelling a navigation started from inside an overlay. `onPopState` skips it,
     // so one back press still leaves /today rather than being silently swallowed.
     await page.goto("/calendar");
-    await page.goBack();
-    await expect(page).toHaveURL(/\/today$/);
+    await expectBackStack(page, [{ url: /\/today$/ }]);
   });
 
   test("reopening reuses the spent entry instead of stacking more", async ({ page }) => {
@@ -138,8 +101,7 @@ test.describe("overlays close on back", () => {
     // the first back press is absorbed: it lands on /today again. The point of this test is
     // that three open/dismiss cycles still cost exactly one absorbed press, not three — the
     // spent entry is reused rather than a new one pushed each time.
-    await page.goBack();
-    await expect(page).toHaveURL(/\/today$/);
+    await expectBackStack(page, [{ url: /\/today$/ }]);
     await page.goBack();
     await expect(page).not.toHaveURL(/\/today$/);
   });
@@ -164,11 +126,7 @@ test.describe("installed: overlays and view controls", () => {
       const sheet = page.locator('[data-slot="detail-sheet"]');
       await expect(sheet).toBeVisible();
 
-      await page.goBack();
-      await expect(sheet).toBeHidden();
-      await expect(page).toHaveURL(/\/people$/);
-      await page.goBack();
-      await expect(page).toHaveURL(/\/today$/);
+      await expectBackStack(page, [{ closes: sheet, url: /\/people$/ }, { url: /\/today$/ }]);
     });
 
     test("/people through More: back closes the detail sheet", async ({ page }) => {
@@ -184,9 +142,7 @@ test.describe("installed: overlays and view controls", () => {
       const sheet = page.locator('[data-slot="detail-sheet"]');
       await expect(sheet).toBeVisible();
 
-      await page.goBack();
-      await expect(sheet).toBeHidden();
-      await expect(page).toHaveURL(/\/people$/);
+      await expectBackStack(page, [{ closes: sheet, url: /\/people$/ }]);
     });
 
     test("a confirm handed off from the sheet: back closes it, the URL stays", async ({ page }) => {
@@ -202,9 +158,7 @@ test.describe("installed: overlays and view controls", () => {
       // The hand-off: choosing an action closes the sheet and opens the confirm in its place.
       await expect(page.locator('[data-slot="detail-sheet"]')).toBeHidden();
 
-      await page.goBack();
-      await expect(confirm).toBeHidden();
-      await expect(page).toHaveURL(/\/people$/);
+      await expectBackStack(page, [{ closes: confirm, url: /\/people$/ }]);
     });
   });
 
@@ -232,11 +186,10 @@ test.describe("installed: overlays and view controls", () => {
       const sheet = page.locator('[data-slot="detail-sheet"]');
       await expect(sheet).toBeVisible();
 
-      await page.goBack();
-      await expect(sheet).toBeHidden();
-      await expect(page).toHaveURL(/\/leave\?tab=attendance$/);
-      await page.goBack();
-      await expect(page).toHaveURL(/\/my-day$/);
+      await expectBackStack(page, [
+        { closes: sheet, url: /\/leave\?tab=attendance$/ },
+        { url: /\/my-day$/ },
+      ]);
     });
 
     test("/leave: tabs and months never add history; one back leaves", async ({ page }) => {
@@ -250,8 +203,7 @@ test.describe("installed: overlays and view controls", () => {
       await page.getByRole("link", { name: "Next month" }).click();
       await expect(page.getByRole("link", { name: "Next month" })).toHaveCount(0);
 
-      await page.goBack();
-      await expect(page).toHaveURL(/\/my-day$/);
+      await expectBackStack(page, [{ url: /\/my-day$/ }]);
     });
   });
 });
@@ -275,16 +227,14 @@ test.describe("tab history", () => {
     await tapTab(page, "approvals", /\/approvals$/);
 
     // Three tabs visited, one back to leave them all: the tabs replaced each other over home.
-    await page.goBack();
-    await expect(page).toHaveURL(/\/today$/);
+    await expectBackStack(page, [{ url: /\/today$/ }]);
   });
 
   test("installed: back on the home tab leaves the app's pages", async ({ page }) => {
     await runInstalled(page);
     await page.goto("/today");
     await tapTab(page, "calendar", /\/calendar$/);
-    await page.goBack();
-    await expect(page).toHaveURL(/\/today$/);
+    await expectBackStack(page, [{ url: /\/today$/ }]);
 
     // A browser cannot be asked "did the app close?", so assert the assertable half: there is
     // nothing of ours left to go back to, so back does not land on another tab.
@@ -302,8 +252,7 @@ test.describe("tab history", () => {
     // settings sub-page, not a record detail page — the app has none yet. The real case
     // (back from a client page returns to the client list, not to Today) has to be verified
     // when 3.4 ships that route; see PROGRESS.
-    await page.goBack();
-    await expect(page).toHaveURL(/\/settings$/);
+    await expectBackStack(page, [{ url: /\/settings$/ }]);
   });
 
   test("in a browser tab: back retraces every step, as on any website", async ({ page }) => {
@@ -313,10 +262,7 @@ test.describe("tab history", () => {
     await tapTab(page, "calendar", /\/calendar$/);
     await tapTab(page, "approvals", /\/approvals$/);
 
-    await page.goBack();
-    await expect(page).toHaveURL(/\/calendar$/);
-    await page.goBack();
-    await expect(page).toHaveURL(/\/today$/);
+    await expectBackStack(page, [{ url: /\/calendar$/ }, { url: /\/today$/ }]);
     // Forward still works too, which the installed rule deliberately gives up.
     await page.goForward();
     await expect(page).toHaveURL(/\/calendar$/);
@@ -333,8 +279,6 @@ test.describe("on desktop too", () => {
     const dialog = page.locator('[data-slot="dialog-content"]');
     await expect(dialog).toBeVisible();
 
-    await page.goBack();
-    await expect(dialog).toBeHidden();
-    await expect(page).toHaveURL(/\/people$/);
+    await expectBackStack(page, [{ closes: dialog, url: /\/people$/ }]);
   });
 });

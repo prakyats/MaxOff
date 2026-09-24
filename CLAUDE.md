@@ -37,6 +37,7 @@ MaxOff is the **internal operations and control system for Pixora Clips**. It co
 8. **Custom fields only through `src/core/custom-fields`.**
 9. **TypeScript strict:** no `any`, no `@ts-ignore` without a written reason. Types come from `pnpm db:types`.
 10. **No secrets in code or chat.** New environment variables go into `.env.example` with a comment.
+11. **Phone = native app.** Every screen, overlay and in-page control follows the native navigation model (ARCHITECTURE §14.2): back closes the top layer, history holds only real drill-down, view controls never add history.
 
 ## Commands
 `pnpm dev` · `pnpm typecheck` · `pnpm lint` · `pnpm test` · `pnpm test:e2e` · `pnpm db:test` (pgTAP) · `pnpm build`
@@ -49,6 +50,7 @@ MaxOff is the **internal operations and control system for Pixora Clips**. It co
 - [ ] `pnpm check` passes. New logic has unit tests, new tables have RLS tests for each role, new transition functions have tests for each path, and new flows have Playwright tests.
 - [ ] **Every route that loads data has its own `loading.tsx` whose skeleton traces that screen** (ARCHITECTURE §14.1): same row height, line count, column positions and status-chip placement, so nothing moves when the data arrives. A generic skeleton is not acceptable.
 - [ ] The UI has loading, empty, error and permission-denied states, and forms show validation messages. Every screen meets the **mobile standard** (ARCHITECTURE §14.1: safe areas, 16px inputs, 44px targets, bottom-sheet dialogs, sticky primary action, cards instead of tables) at 375px and 430px — mobile is a first-class layout for every role, not only for Staff.
+- [ ] Every new screen, overlay and view control follows ARCHITECTURE §14.2 and has an installed-mode back-gesture Playwright spec at 375px and 430px.
 - [ ] Every mutation is audited (a transition function or the audit trigger). Notifications follow WORKFLOWS §9.
 - [ ] Docs are updated: `PROGRESS.md`, the task is ticked in `ROADMAP.md`, and DATA-MODEL / WORKFLOWS / PERMISSIONS / an ADR if something changed.
 - [ ] No `console.log`, no commented-out code, and no TODO that isn't also listed in PROGRESS.md.

@@ -304,6 +304,22 @@ Staff work from a phone, often one-handed, often outdoors. These are shell-level
 - **Editing is explicit: read-only by default, explicit edit, explicit save, confirm what changed, guard unsaved work.** A screen that shows someone's own identity — or any record — renders as plain values with a **pencil Edit** affordance (icon plus label, 44px). Edit mode puts **Save and Cancel in a sticky bar**, with Save disabled until something actually changed. The confirmation names the change ("Your name will change from X to Y"), never a generic "Are you sure?". Leaving with unsaved changes warns first, **including the back gesture**, which is history-aware. Saving gives clear "Saved" feedback. Live fields that save silently are wrong here: changes to identity and records should feel deliberate. **Built once as a shared component (task 2.9) and copied, not reinvented per screen** — the client screens in 3.4 are the first consumers.
 - **Density follows the device.** Desktop may show a dense table of 50 rows; mobile shows 10 cards with a clear next step. They are allowed to be different screens, built from the same data, rather than one screen bent to fit.
 
+### 14.2 Native navigation model (owner decision 2026-09-24)
+**On a phone the installed app behaves like a native Android or iOS app, never like a website that remembers clicks.** This is a permanent rule (CLAUDE.md engineering rule 11), not a preference: every new screen, overlay and view control is built to it and proved by an installed-mode back-gesture spec at 375px and 430px (Definition of Done). Items a–h apply in the installed app; **d, a (overlays) and i apply in every browser too.**
+
+- **a. Back closes the topmost layer first, one layer per back:** keyboard → menu or popover → confirm or dialog → sheet → then the screen. Overlays register with `core/ui/overlay/overlay-history` through the `core/ui/primitives` roots (lint-enforced, §14.1); a sheet that hands off to a confirm closes itself, so back closes the confirm and leaves the screen.
+- **b. History holds only real drill-down:** list → detail → sub-detail. Back goes up exactly one level.
+- **c. Bottom-nav tabs are roots, not history.** Back from any tab's root goes to the home tab (My Day for Staff, Today for Owner and Admin); back on the home root exits the app. **No "confirm exit".** (`core/ui/shell/tab-history`.)
+- **d. In-page view controls never add history, on any device:** tabs, segments, filters, sort, search, month and date switchers and pagers use `ViewLink` / `router.replace` (§14.1).
+- **e. Gates and one-time screens are never in the back stack:** login, set-password, the day gate, recovery, and a form after it is submitted (the result replaces the form).
+- **f. Back on a form with unsaved changes asks "Discard changes?"** (Keep editing / Discard) and never loses work silently. Lands with the edit pattern, 2.9.
+- **g. Returning to a list restores its scroll position and filters; each tab root keeps its own scroll.**
+- **h. Opening from a notification or a deep link lands on the detail with its parent list underneath,** so back goes to the list, not out of the app (5.1).
+- **i. Touch feel:** every tap shows a pressed state within 100 ms, and navigation shows a pending state; no double-tap zoom delay (`touch-action: manipulation`); no tap-highlight flash; no browser overscroll bounce leaking out of the app shell (`overscroll-behavior`); bottom sheets close by swiping down; a long-press on a control does not select text.
+- **j. Motion:** a drill-down slides in and back slides out; tab switches do not slide (View Transitions where supported), always respecting `prefers-reduced-motion`.
+
+**How it is checked.** `expectBackStack(page, steps)` in `e2e/helpers.ts` states a screen's back order as one assertion (each back, what closes, where you are); `runInstalled(page)` fakes `display-mode: standalone`, which Chromium cannot emulate. Playwright cannot show a real browser's rules for skipping pushed history entries, so **every phase review includes a real-phone check** (installed app, gesture navigation). Known gaps against a–j are listed in PROGRESS "Ideas / tech debt" with the task that closes each.
+
 ## 15. Testing
 | Layer | Tool | Required for |
 |---|---|---|

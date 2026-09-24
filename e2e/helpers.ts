@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 
 /** The local sign-ins created by `supabase/seed.sql` (README → "Local sign-ins"). */
 export const USERS = {
@@ -232,4 +232,50 @@ export function supabaseAuth(): { url: string; apikey: string } {
 /** Removes every message so a re-run never picks up an older link. */
 export async function clearMailbox(): Promise<void> {
   await fetch(`${MAILPIT_URL}/api/v1/messages`, { method: "DELETE" });
+}
+
+/**
+ * Makes the page look installed, which is how `tab-history` decides which rule to apply.
+ *
+ * Chromium cannot actually emulate `display-mode: standalone` in a normal page: both
+ * `page.emulateMedia` and CDP `Emulation.setEmulatedMedia` with a `display-mode` feature leave
+ * `matchMedia("(display-mode: standalone)").matches` false (checked against this Chromium
+ * build). Only a genuinely installed window reports it. So the media query itself is stubbed
+ * before the page loads — the platform signal is faked, and what gets tested is our logic on top
+ * of it, which is the part that can actually be wrong.
+ */
+export async function runInstalled(page: Page) {
+  await page.addInitScript(() => {
+    const real = window.matchMedia.bind(window);
+    window.matchMedia = (query: string) =>
+      query.includes("display-mode: standalone")
+        ? ({
+            matches: true,
+            media: query,
+            onchange: null,
+            addEventListener() {},
+            removeEventListener() {},
+            addListener() {},
+            removeListener() {},
+            dispatchEvent: () => false,
+          } as unknown as MediaQueryList)
+        : real(query);
+  });
+}
+
+/** One back press: what it must close (if anything), and where the page must be afterwards. */
+export type BackStep = { closes?: Locator; url: RegExp };
+
+/**
+ * A screen's back order as one readable assertion (ARCHITECTURE §14.2): presses back once per
+ * step, and after each checks that the named layer closed and the URL is where it should be. A
+ * view control that pushed history, or an overlay that failed to register, shows up as the
+ * wrong URL on the step it broke.
+ */
+export async function expectBackStack(page: Page, steps: readonly BackStep[]): Promise<void> {
+  for (const [index, step] of steps.entries()) {
+    await page.goBack();
+    if (step.closes) await expect(step.closes, `back #${index + 1} closes its layer`).toBeHidden();
+    await expect(page, `back #${index + 1} lands`).toHaveURL(step.url);
+  }
 }

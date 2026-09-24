@@ -14,5 +14,6 @@ Start a MaxOff build task. Task requested: "$ARGUMENTS" (if empty, use the "Next
    - files and migrations to create or change, and any change to DATA-MODEL / WORKFLOWS / PERMISSIONS needed first
    - permission keys, RLS policies, transition functions, audit and notifications involved
    - tests: unit, pgTAP (each role and each transition path), e2e
+   - **Back and gestures** (every plan that adds or changes UI): each new screen's and overlay's place in the back stack (ARCHITECTURE §14.2): what one back closes or where it lands, which controls are view controls (`ViewLink` / replace), and the installed-mode spec that proves it at 375px and 430px
    - risks, and any business rule not covered by the docs (ask, don't invent)
 Don't edit any files until I approve.
