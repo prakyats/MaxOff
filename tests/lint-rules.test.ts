@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 
 /**
  * Proves the architecture rules in `eslint.config.mjs` (ARCHITECTURE §3.1, ADR-0011,
- * CLAUDE.md rules 2 and 3). Each fixture under `tests/lint-fixtures/src` mirrors a real path,
+ * CLAUDE.md rules 2 and 3, and the overlay rule of §14.1). Each fixture under `tests/lint-fixtures/src` mirrors a real path,
  * so it is classified exactly like `src/`. `denied-*` files must trip the listed rules and
  * nothing else; every other fixture must lint clean. The folder is in ESLint's global ignores,
  * so `pnpm lint` never fails on it: only this test looks at it.
@@ -48,6 +48,12 @@ const EXPECTED: Record<string, readonly string[]> = {
   "modules/tasks/domain/denied-dom-global.ts": [GLOBALS],
   "modules/tasks/domain/denied-core-ui.ts": [BOUNDARIES],
   "modules/tasks/domain/denied-db.ts": [BOUNDARIES],
+  // overlays come from core/ui/primitives, whose roots register with the back controller
+  "modules/tasks/components/denied-radix.ts": [IMPORTS],
+  "modules/tasks/components/denied-radix-scoped.ts": [IMPORTS],
+  "core/ui/denied-radix.ts": [IMPORTS],
+  "modules/tasks/data/denied-radix.ts": [IMPORTS],
+  "modules/tasks/domain/denied-radix.ts": [IMPORTS],
 };
 
 function walk(dir: string): string[] {

@@ -64,6 +64,22 @@ const DB_CLIENT_PACKAGES = {
   })),
 };
 
+const OVERLAY_MESSAGE =
+  "Overlays come from @/core/ui/primitives (Sheet, Dialog, AlertDialog), whose roots register with the back-gesture controller (core/ui/overlay). Radix is imported only inside core/ui/primitives.";
+/** Radix itself: reaching past our roots is the only way to get an overlay back ignores. */
+const RADIX_IMPORTS = {
+  paths: [{ name: "radix-ui", message: OVERLAY_MESSAGE }],
+  patterns: [{ group: ["@radix-ui/*", "radix-ui/*"], message: OVERLAY_MESSAGE }],
+};
+
+/** ESLint replaces a rule's options per block, so every block that sets the rule merges these. */
+function restrictedImports(...sets) {
+  return {
+    paths: sets.flatMap((set) => set.paths ?? []),
+    patterns: sets.flatMap((set) => set.patterns ?? []),
+  };
+}
+
 const PLATFORM_MESSAGE =
   "modules/*/domain is platform-free: no react, next, server-only or client-only (ADR-0011).";
 // ESLint replaces rule options per block, so the domain block repeats the Supabase paths.
@@ -235,6 +251,24 @@ const eslintConfig = defineConfig([
       "**/src/modules/*/data/**",
       ...DB_ALLOWED_CORE_AREAS.map((area) => `**/src/core/${area}/**`),
     ],
+    rules: {
+      "@typescript-eslint/no-restricted-imports": [
+        "error",
+        restrictedImports(DB_CLIENT_PACKAGES, RADIX_IMPORTS),
+      ],
+    },
+  },
+  // The database areas above skip that block, but not the overlay rule.
+  {
+    files: [
+      "**/src/modules/*/data/**/*.{ts,tsx}",
+      ...DB_ALLOWED_CORE_AREAS.map((area) => `**/src/core/${area}/**/*.{ts,tsx}`),
+    ],
+    rules: { "@typescript-eslint/no-restricted-imports": ["error", RADIX_IMPORTS] },
+  },
+  // Task 1.5 / the 2.3 fix: the primitives are where Radix is wrapped and registered.
+  {
+    files: ["**/src/core/ui/primitives/**/*.{ts,tsx}"],
     rules: { "@typescript-eslint/no-restricted-imports": ["error", DB_CLIENT_PACKAGES] },
   },
 
@@ -242,7 +276,10 @@ const eslintConfig = defineConfig([
   {
     files: ["**/src/modules/*/domain/**/*.{ts,tsx}"],
     rules: {
-      "@typescript-eslint/no-restricted-imports": ["error", PLATFORM_IMPORTS],
+      "@typescript-eslint/no-restricted-imports": [
+        "error",
+        restrictedImports(PLATFORM_IMPORTS, RADIX_IMPORTS),
+      ],
       "no-restricted-globals": ["error", ...DOM_GLOBALS],
     },
   },

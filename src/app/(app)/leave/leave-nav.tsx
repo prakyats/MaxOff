@@ -1,7 +1,7 @@
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
-import Link from "next/link";
 
 import { cn } from "@/core/lib/utils";
+import { ViewLink } from "@/core/ui/composites/view-link";
 import { Button } from "@/core/ui/primitives/button";
 
 export type LeaveTab = "requests" | "attendance";
@@ -12,8 +12,10 @@ const TABS: { tab: LeaveTab; label: string; href: string }[] = [
 ];
 
 /**
- * The two halves of the screen as links, not client tabs: each is its own server read, and a
- * link keeps the tab in the URL, so back and a reload land where you were.
+ * The two halves of the screen as links, not client tabs: each is its own server read, and the
+ * URL keeps the tab, so a reload lands where you were. They are `ViewLink`s: switching replaces
+ * the entry instead of adding one, so one back leaves the page (ARCHITECTURE §14.1), and the page
+ * does not jump to the top on a switch.
  */
 export function LeaveTabs({ active }: { active: LeaveTab }) {
   return (
@@ -23,9 +25,10 @@ export function LeaveTabs({ active }: { active: LeaveTab }) {
       className="bg-muted mb-4 grid grid-cols-2 gap-1 rounded-lg p-1 md:inline-grid md:w-80"
     >
       {TABS.map(({ tab, label, href }) => (
-        <Link
+        <ViewLink
           key={tab}
           href={href}
+          scroll={false}
           aria-current={tab === active ? "page" : undefined}
           className={cn(
             "focus-visible:ring-ring flex min-h-11 items-center justify-center rounded-md px-3 text-sm font-medium outline-none focus-visible:ring-2",
@@ -35,7 +38,7 @@ export function LeaveTabs({ active }: { active: LeaveTab }) {
           )}
         >
           {label}
-        </Link>
+        </ViewLink>
       ))}
     </nav>
   );
@@ -44,6 +47,7 @@ export function LeaveTabs({ active }: { active: LeaveTab }) {
 /**
  * One row above either list: where you are, and the way to the previous and next page (the
  * requests) or month (the attendance). Both tabs share it, so the loading skeleton traces both.
+ * The arrows are `ViewLink`s too: paging never adds history.
  */
 export function LeavePager({
   label,
@@ -91,9 +95,9 @@ function PagerLink({
   }
   return (
     <Button variant="ghost" size="icon" asChild>
-      <Link href={href} aria-label={label}>
+      <ViewLink href={href} aria-label={label} icon>
         {children}
-      </Link>
+      </ViewLink>
     </Button>
   );
 }

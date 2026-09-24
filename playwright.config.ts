@@ -17,6 +17,7 @@ const SETUP_SPECS = /\.setup\.ts$/;
 const MOBILE_SPECS = /mobile\.spec\.ts$/;
 const DAY_GATE_SPECS = /day-gate\.spec\.ts$/;
 const LEAVE_SPECS = /leave\.spec\.ts$/;
+const BACK_GESTURE_SPECS = /back-gesture\.spec\.ts$/;
 
 /**
  * Flow tests (ARCHITECTURE §15). `pnpm test:e2e` runs them; CI runs them as their own job.
@@ -76,10 +77,11 @@ export default defineConfig({
       // checked at **both** 375px and 430px because that is where a layout stops fitting
       // (§14.1). The gate is the first screen every Admin and Staff member sees each morning,
       // on a phone more often than not (2.2). Own leave (2.3) runs here as an Admin, so the
-      // Admin's way in (the card on /today) is covered at a phone width too.
+      // Admin's way in (the card on /today) is covered at a phone width too. The back-gesture
+      // spec runs here as well: the installed-app rules are checked at both phone widths.
       name: "mobile-lg",
       dependencies: ["setup"],
-      testMatch: [MOBILE_SPECS, DAY_GATE_SPECS, LEAVE_SPECS],
+      testMatch: [MOBILE_SPECS, DAY_GATE_SPECS, LEAVE_SPECS, BACK_GESTURE_SPECS],
       use: { ...devices["Pixel 5"], viewport: { width: 430, height: 932 } },
     },
     {

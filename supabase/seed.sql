@@ -68,7 +68,8 @@ on conflict (provider_id, provider) do nothing;
 insert into public.members (id, org_id, full_name, email, phone, role, status, joined_at, deactivated_at)
 select u.id, (select id from public.organizations limit 1), u.full_name, u.email, u.phone, u.role, u.status,
   -- 2.2: attendance starts the IST day after joined_at, so a seeded person who "joined" at
-  -- db:reset would never meet the gate that day.
-  now() - interval '30 days', case when u.status = 'deactivated' then now() end
+  -- db:reset would never meet the gate that day. 40 days, not 30 (2.3): more than any month,
+  -- so the attendance history always has a previous month for the back-gesture spec to page to.
+  now() - interval '40 days', case when u.status = 'deactivated' then now() end
 from seed_users u
 on conflict (id) do nothing;

@@ -145,6 +145,117 @@ test.describe("overlays close on back", () => {
   });
 });
 
+/**
+ * The same rules in the installed app (the 2.3 fix, device-checked on a Galaxy S23 with gesture
+ * navigation). Each case ends with one more back, to prove the overlay or view control left
+ * nothing behind: that back navigates to wherever the member came from.
+ */
+test.describe("installed: overlays and view controls", () => {
+  test.skip(({ isMobile }) => !isMobile, "the installed app is a phone");
+
+  test.describe("as the Owner", () => {
+    test.use({ storageState: storageStateFor("owner") });
+
+    test("/people: back closes the detail sheet, the next back leaves", async ({ page }) => {
+      await runInstalled(page);
+      await page.goto("/today");
+      await page.goto("/people");
+      await page.locator('[data-slot="data-card"]', { hasText: "Local Staff" }).click();
+      const sheet = page.locator('[data-slot="detail-sheet"]');
+      await expect(sheet).toBeVisible();
+
+      await page.goBack();
+      await expect(sheet).toBeHidden();
+      await expect(page).toHaveURL(/\/people$/);
+      await page.goBack();
+      await expect(page).toHaveURL(/\/today$/);
+    });
+
+    test("/people through More: back closes the detail sheet", async ({ page }) => {
+      await runInstalled(page);
+      await page.goto("/today");
+      await page.locator('[data-slot="bottom-nav"] [data-nav="more"]').click();
+      await page
+        .locator('[data-slot="more-sheet"]')
+        .getByRole("link", { name: "People", exact: true })
+        .click();
+      await expect(page).toHaveURL(/\/people$/);
+      await page.locator('[data-slot="data-card"]', { hasText: "Local Staff" }).click();
+      const sheet = page.locator('[data-slot="detail-sheet"]');
+      await expect(sheet).toBeVisible();
+
+      await page.goBack();
+      await expect(sheet).toBeHidden();
+      await expect(page).toHaveURL(/\/people$/);
+    });
+
+    test("a confirm handed off from the sheet: back closes it, the URL stays", async ({ page }) => {
+      await runInstalled(page);
+      await page.goto("/people");
+      await page.locator('[data-slot="data-card"]', { hasText: "Local Staff" }).click();
+      await page
+        .locator('[data-slot="detail-sheet"]')
+        .getByRole("button", { name: "Deactivate" })
+        .click();
+      const confirm = page.locator('[data-slot="dialog-content"]');
+      await expect(confirm).toBeVisible();
+      // The hand-off: choosing an action closes the sheet and opens the confirm in its place.
+      await expect(page.locator('[data-slot="detail-sheet"]')).toBeHidden();
+
+      await page.goBack();
+      await expect(confirm).toBeHidden();
+      await expect(page).toHaveURL(/\/people$/);
+    });
+  });
+
+  test.describe("as Staff", () => {
+    test.use({ storageState: storageStateFor("staff") });
+
+    /** My Day → the attendance card's link: a real drill-down, so it pushes. */
+    async function openLeave(page: Page) {
+      await runInstalled(page);
+      await page.goto("/my-day");
+      await page.getByRole("link", { name: "Attendance & leave" }).first().click();
+      await expect(page).toHaveURL(/\/leave$/);
+    }
+
+    /** A view control: the URL follows, and the new view has rendered. */
+    async function view(page: Page, name: string, url: RegExp) {
+      await page.getByRole("link", { name, exact: true }).click();
+      await expect(page).toHaveURL(url);
+    }
+
+    test("/leave: back closes a day's sheet, the next back returns to My Day", async ({ page }) => {
+      await openLeave(page);
+      await view(page, "Attendance", /\/leave\?tab=attendance$/);
+      await page.locator('[data-slot="data-card"]').first().click();
+      const sheet = page.locator('[data-slot="detail-sheet"]');
+      await expect(sheet).toBeVisible();
+
+      await page.goBack();
+      await expect(sheet).toBeHidden();
+      await expect(page).toHaveURL(/\/leave\?tab=attendance$/);
+      await page.goBack();
+      await expect(page).toHaveURL(/\/my-day$/);
+    });
+
+    test("/leave: tabs and months never add history; one back leaves", async ({ page }) => {
+      await openLeave(page);
+      await view(page, "Attendance", /tab=attendance$/);
+      await view(page, "Leave requests", /\/leave$/);
+      await view(page, "Attendance", /tab=attendance$/);
+      // The seed dates everyone 40 days back, so there is always a previous month.
+      await page.getByRole("link", { name: "Previous month" }).click();
+      await expect(page).toHaveURL(/month=\d{4}-\d{2}$/);
+      await page.getByRole("link", { name: "Next month" }).click();
+      await expect(page.getByRole("link", { name: "Next month" })).toHaveCount(0);
+
+      await page.goBack();
+      await expect(page).toHaveURL(/\/my-day$/);
+    });
+  });
+});
+
 test.describe("tab history", () => {
   test.use({ storageState: storageStateFor("owner") });
   // The bottom bar only exists below `md`.
