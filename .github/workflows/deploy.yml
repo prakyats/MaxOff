@@ -101,6 +101,19 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           SESSION_IP_HASH_SALT: ${{ secrets.SESSION_IP_HASH_SALT }}
+      # Optional as well (task 2.2): without it the day gate asks the database on every page load
+      # and the app reports that to Sentry once; the deploy must not fail over it.
+      - name: Upload DAY_GATE_COOKIE_SECRET
+        run: |
+          if [ -z "$DAY_GATE_COOKIE_SECRET" ]; then
+            echo 'DAY_GATE_COOKIE_SECRET is not set in this environment; skipping (no day pass, slower pages).'
+            exit 0
+          fi
+          printf '%s' "$DAY_GATE_COOKIE_SECRET" | pnpm exec wrangler secret put DAY_GATE_COOKIE_SECRET --env staging
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          DAY_GATE_COOKIE_SECRET: ${{ secrets.DAY_GATE_COOKIE_SECRET }}
 
   production:
     name: production
@@ -202,3 +215,16 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           SESSION_IP_HASH_SALT: ${{ secrets.SESSION_IP_HASH_SALT }}
+      # Optional as well (task 2.2): without it the day gate asks the database on every page load
+      # and the app reports that to Sentry once; the deploy must not fail over it.
+      - name: Upload DAY_GATE_COOKIE_SECRET
+        run: |
+          if [ -z "$DAY_GATE_COOKIE_SECRET" ]; then
+            echo 'DAY_GATE_COOKIE_SECRET is not set in this environment; skipping (no day pass, slower pages).'
+            exit 0
+          fi
+          printf '%s' "$DAY_GATE_COOKIE_SECRET" | pnpm exec wrangler secret put DAY_GATE_COOKIE_SECRET --env production
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          DAY_GATE_COOKIE_SECRET: ${{ secrets.DAY_GATE_COOKIE_SECRET }}

@@ -18,14 +18,89 @@ export function storageStateFor(role: SessionRole): string {
   return `e2e/.auth/${role}.json`;
 }
 
-/** Fills the real sign-in form. Resolves once the browser has left /login. */
-export async function signIn(page: Page, email: string, password: string): Promise<void> {
+/**
+ * Fills the real sign-in form. Resolves once the browser has left /login and, for an Admin or
+ * Staff member whose day still needs a choice, once the day gate (2.2) has been answered with
+ * Present, so a flow spec lands where it did before the gate existed. `e2e/day-gate.spec.ts`
+ * passes `{ gate: "stop" }` to meet the gate itself.
+ */
+export async function signIn(
+  page: Page,
+  email: string,
+  password: string,
+  { gate = "present" }: { gate?: "present" | "stop" } = {},
+): Promise<void> {
   await page.goto("/login");
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
   // The first server action after boot can take a while; the form shows any refusal.
   await expect(page).not.toHaveURL(/\/login/, { timeout: 15_000 });
+  if (gate === "present") await passGate(page);
+}
+
+/** The four answers of the gate, as the choice screen labels them. */
+export type GateChoice = "Present" | "Leave" | "Half day" | "Comp leave";
+
+/** Answers the gate on `/attendance` and waits until the browser has left it. */
+export async function chooseAttendance(
+  page: Page,
+  choice: GateChoice,
+  reason?: string,
+): Promise<void> {
+  await expect(page).toHaveURL(/\/attendance/);
+  // The radio's name is the label plus its hint ("Leave The whole day off."): anchor it, so
+  // "Leave" never matches "Comp leave".
+  await page.getByRole("radio", { name: new RegExp(`^${choice}\\b`) }).check();
+  if (reason) await page.getByLabel("Reason (optional)").fill(reason);
+  await page.getByRole("button", { name: "Submit" }).click();
+  await expect(page).not.toHaveURL(/\/attendance/, { timeout: 15_000 });
+}
+
+/**
+ * Present at the gate when the browser ends up on it; otherwise nothing. Waits for what is
+ * rendered, not for the URL: after a sign-in the browser passes through `/set-password`, `/`
+ * and the home route before the layout may send it on to the gate, so any URL check can run
+ * too early. Either the gate's options or a shell screen's title bar ends the wait.
+ */
+export async function passGate(page: Page): Promise<void> {
+  const gate = page.locator('[data-slot="choice-option"]').first();
+  const screen = page.locator('[data-slot="page-header"]').first();
+  await expect(gate.or(screen)).toBeVisible({ timeout: 15_000 });
+  if (await gate.isVisible()) await chooseAttendance(page, "Present");
+}
+
+/**
+ * Calls a database function as that person, the way the app's server does (GoTrue password
+ * grant, then PostgREST). For arranging state a spec is not about, e.g. an approved leave.
+ */
+export async function rpcAs<T = unknown>(
+  email: string,
+  password: string,
+  fn: string,
+  args: Record<string, unknown>,
+): Promise<T> {
+  const { url, apikey } = supabaseAuth();
+  const token = await fetch(`${url}/token?grant_type=password`, {
+    method: "POST",
+    headers: { apikey, "content-type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  expect(token.ok, `sign-in for ${email}`).toBe(true);
+  const { access_token: accessToken } = (await token.json()) as { access_token: string };
+  const rest = url.replace(/\/auth\/v1$/, "/rest/v1");
+  const response = await fetch(`${rest}/rpc/${fn}`, {
+    method: "POST",
+    headers: {
+      apikey,
+      authorization: `Bearer ${accessToken}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(args),
+  });
+  const body: unknown = await response.json();
+  expect(response.ok, `${fn} as ${email}: ${JSON.stringify(body)}`).toBe(true);
+  return body as T;
 }
 
 /** The local stack's Mailpit (config.toml `[local_smtp]`, port 54324). */

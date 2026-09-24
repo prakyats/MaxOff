@@ -4,6 +4,10 @@ begin;
 create extension if not exists pgtap with schema extensions;
 select plan(25);
 
+-- Attendance and leave rows (2.1) reference members: a Playwright run leaves some behind (2.2).
+delete from public.attendance_events;
+delete from public.attendance_days;
+delete from public.leave_requests;
 delete from public.session_events;
 delete from public.activity_log;
 delete from public.members;

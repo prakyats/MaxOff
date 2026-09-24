@@ -73,7 +73,9 @@ select ok(not has_schema_privilege('anon', 'app', 'usage'), 'anon may not use ap
 create temporary table app_internal (name text primary key);
 insert into app_internal values
   ('attendance_event'), ('attendance_apply_leave'), ('attendance_release_leave'),
-  ('attendance_logout'), ('leave_covering'), ('leave_overlaps');
+  ('attendance_logout'), ('leave_covering'), ('leave_overlaps'),
+  -- 2.2
+  ('leave_supersede_gate'), ('leave_clash'), ('leave_clash_label');
 select is(
   (select count(*) from pg_proc p
     where p.pronamespace = 'app'::regnamespace
@@ -93,7 +95,7 @@ select is(
   0::bigint,
   'the internal helpers: service_role only, never the API role');
 select is((select count(*) from pg_proc p where p.pronamespace = 'app'::regnamespace
-             and p.proname in (select name from app_internal)), 6::bigint,
+             and p.proname in (select name from app_internal)), 9::bigint,
   'the internal helper list matches what exists');
 select cmp_ok((select count(*) from pg_proc where pronamespace = 'app'::regnamespace), '>=', 4::bigint,
   'the grant check saw the app functions');

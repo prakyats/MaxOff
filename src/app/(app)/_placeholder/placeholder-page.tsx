@@ -1,4 +1,5 @@
 import { HammerIcon, type LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
 
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { PageHeader } from "@/core/ui/composites/page-header";
@@ -13,6 +14,7 @@ export function PlaceholderPage({
   task,
   icon = HammerIcon,
   greet,
+  children,
 }: {
   title: string;
   description: string;
@@ -21,6 +23,8 @@ export function PlaceholderPage({
   icon?: LucideIcon;
   /** The signed-in member's name: the dashboards greet the person, never a hard-coded name. */
   greet?: string;
+  /** The parts of the screen that are already built (e.g. the attendance card, 2.2). */
+  children?: ReactNode;
 }) {
   return (
     <>
@@ -28,6 +32,7 @@ export function PlaceholderPage({
         title={title}
         description={greet ? `Hello, ${greet}. ${description}` : description}
       />
+      {children}
       <EmptyState
         icon={icon}
         title={`${title} is filled in task ${task}`}

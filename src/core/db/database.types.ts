@@ -670,6 +670,7 @@ export type Database = {
       attendance_submit: {
         Args: {
           choice: Database["public"]["Enums"]["attendance_choice"];
+          for_date?: string;
           reason?: string;
         };
         Returns: Database["public"]["Enums"]["attendance_state"];
@@ -698,7 +699,10 @@ export type Database = {
       };
       leave_decide: {
         Args: { decision: string; reason?: string; request_id: string };
-        Returns: Database["public"]["Enums"]["leave_state"];
+        Returns: {
+          kept_dates: string[];
+          state: Database["public"]["Enums"]["leave_state"];
+        }[];
       };
       leave_owner_cancel: {
         Args: { reason?: string; request_id: string };

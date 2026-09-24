@@ -244,7 +244,7 @@ leave_requests       id, member_id, type leave_type, start_date, end_date, reaso
                      -- this row end cancelled, so "approved leave covering a date" is always
                      -- state = approved and nothing else
 ```
-Functions (2.1, WORKFLOWS §1/§2). `public` schema (RPC), security definer, search_path = '', the usual grants. Each audited write is labelled through `app.audit_override`; a system correction carries `meta.system = true` (the audit trigger records the caller as actor). **No notification rows yet:** 5.1 adds them to every function below; the WORKFLOWS §9 recipient is named in each function's comment. The `app.*` helpers of this task that write or read across members (`attendance_event`, `attendance_apply_leave`, `attendance_release_leave`, `attendance_logout`, `leave_covering`, `leave_overlaps`) are **executable by service_role only**: the security definer functions call them as the owner, and `00_core_base` lists them as the exception to "authenticated may execute app.*".
+Functions (2.1, WORKFLOWS §1/§2). `public` schema (RPC), security definer, search_path = '', the usual grants. Each audited write is labelled through `app.audit_override`; a system correction carries `meta.system = true` (the audit trigger records the caller as actor). **No notification rows yet:** 5.1 adds them to every function below; the WORKFLOWS §9 recipient is named in each function's comment. The `app.*` helpers of this task that write or read across members (`attendance_event`, `attendance_apply_leave`, `attendance_release_leave`, `attendance_logout`, `leave_covering`, `leave_overlaps`, and since 2.2 `leave_supersede_gate`, `leave_clash`, `leave_clash_label`) are **executable by service_role only**: the security definer functions call them as the owner, and `00_core_base` lists them as the exception to "authenticated may execute app.*".
 ```
 app.ist_day_start(date)         -> timestamptz: midnight IST of that date (stable). SQL mirror of
                                 core/time istDayStart(); use it for "events on this IST date" so an
@@ -262,9 +262,15 @@ public.attendance_touch(user_agent, ip_hash)
                                 gate_required, is_day_off, final_status, proposed_by_system,
                                 leave_request_id); whoever lacks attendance.self (the Owner) gets
                                 gate_required = false and no day. Audit action 'opened' |
-                                'derived_from_leave' | 'first_login' (a day the 23:59 job opened)
-public.attendance_submit(choice, reason)
-                                attendance.self, today's own day. awaiting_choice -> pending_review;
+                                'derived_from_leave' | 'first_login' (a day the 23:59 job opened).
+                                2.2: serialised per member (pg_advisory_xact_lock on 'touch:' ||
+                                member id, taken first), so two devices at once give one day and one
+                                login row. On the member's joining day (IST date of joined_at) and
+                                before it: the login only, no day, gate_required = false
+public.attendance_submit(choice, reason, for_date)
+                                attendance.self, today's own day. for_date (2.2, optional): the IST
+                                date the gate screen was shown for; any other date is INVALID_STATE
+                                ("The day changed. Choose again for today."). awaiting_choice -> pending_review;
                                 or approved + proposed_by_system -> pending_review for choice =
                                 present only ("I'm working today", leave_request_id kept). A leave
                                 choice inserts leave_requests(source = attendance, today, submitted)
@@ -290,8 +296,9 @@ app.attendance_logout(member_id)
                                 Owner has no day: session_events only
 public.attendance_flag_overtime(day_id, reason)
                                 attendance.self, own day, any state: overtime_flag = true and
-                                overtime_reason (a second call replaces the reason). Event
-                                overtime_flagged. No approval, no notification
+                                overtime_reason, REQUIRED (VALIDATION when empty, 2.2; a second call
+                                replaces the reason). Event overtime_flagged. No approval, no
+                                notification
 public.leave_submit(type, start_date, end_date, reason)
                                 attendance.self. start_date >= today, end_date >= start_date, half_day
                                 a single date, reason optional (VALIDATION otherwise). CONFLICT when
@@ -314,12 +321,19 @@ public.leave_decide(request_id, decision, reason)
                                 needs a reason (REASON_REQUIRED). approve: an original this row
                                 supersedes becomes superseded (a cancellation: the original becomes
                                 cancelled and this row too), then "a later leave wins" over every day
-                                in range: pending_review, or approved with a Present choice ->
+                                in range: pending_review (2.2: only a day not yet decided) ->
                                 corrected to the leave type (actor null, reason "leave approved",
                                 event corrected, and the gate's own still-submitted request for
                                 that day is superseded); an untouched derived day follows the new
                                 request; an awaiting_choice day in range -> the derived day. CONFLICT
-                                when approved leave already covers the dates. A cancellation (and a
+                                when approved leave already covers the dates. 2.2: only a form or
+                                owner request clashes (the message names its type and dates); an
+                                approved source = attendance request on those dates is superseded
+                                first (app.leave_supersede_gate) and its day, approved or corrected,
+                                is corrected to this leave even when the type is the same. A day the
+                                Owner decided, approved or corrected (not a gate leave), is kept and
+                                its date returned.
+                                Returns (state, kept_dates date[]) since 2.2. A cancellation (and a
                                 superseded range) returns today's untouched derived day (approved,
                                 proposed_by_system, no submission) to awaiting_choice (actor null,
                                 reason "leave cancelled") so the gate asks again; past days are
@@ -329,7 +343,9 @@ public.leave_owner_edit(request_id, type, start_date, end_date, reason)
                                 attendance.decide, approved only: the original becomes superseded by
                                 a new source = owner, approved row (any dates; CONFLICT while the
                                 member has another open request on them, a pending change to this
-                                one included), then the same day corrections as leave_decide. Audit
+                                one included), then the same day corrections as leave_decide. 2.2:
+                                an approved gate leave on the new dates is superseded before the
+                                overlap check (app.leave_supersede_gate, as leave_decide). Audit
                                 'superseded' + 'approved'. Notifies the member
 public.leave_owner_cancel(request_id, reason)
                                 attendance.decide, approved only, REASON_REQUIRED: -> cancelled, and

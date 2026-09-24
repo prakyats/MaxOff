@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { clearMailbox, confirmLinkFrom, latestEmailTo, signIn, USERS } from "./helpers";
+import { clearMailbox, confirmLinkFrom, latestEmailTo, passGate, signIn, USERS } from "./helpers";
 
 /**
  * Sign in, sign out, the deactivated path and the recovery link (task 1.2), against
@@ -61,7 +61,9 @@ test.describe("signed out", () => {
     await page.getByLabel("Email").fill(USERS.staff.email);
     await page.getByLabel("Password", { exact: true }).fill(USERS.staff.password);
     await page.getByRole("button", { name: "Sign in" }).click();
-    await expect(page).toHaveURL(/\/my-day$/);
+    // The same allowance as `signIn()`: the first server actions after boot can take a while
+    // (2026-09-24: 5-6 s for every early desktop sign-in in one run, 2.6 s on mobile).
+    await expect(page).toHaveURL(/\/my-day$/, { timeout: 15_000 });
   });
 });
 
@@ -148,6 +150,8 @@ test.describe("recovery link", () => {
     await page.getByLabel("New password").fill(newPassword);
     await page.getByLabel("Repeat it").fill(newPassword);
     await page.getByRole("button", { name: "Save password and sign in" }).click();
+    // First sign-in of the day for this person: the day gate (2.2) comes before My Day.
+    await passGate(page);
     await expect(page).toHaveURL(/\/my-day$/);
 
     // The link was one-time: opening it again lands on sign in with the reason.

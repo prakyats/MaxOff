@@ -23,7 +23,22 @@ insert into seed_users values
   -- Used only by the Playwright recovery-link test, which changes this password.
   ('10000000-0000-4000-8000-000000000005', 'reset@maxoff.local', 'reset-local-password', 'Reset Staff', null,         'staff', 'active'),
   -- Used only by the Playwright team test, which deactivates this person (1.3).
-  ('10000000-0000-4000-8000-000000000006', 'leaver@maxoff.local', 'leaver-local-password', 'Leaver Staff', null,       'staff', 'active');
+  ('10000000-0000-4000-8000-000000000006', 'leaver@maxoff.local', 'leaver-local-password', 'Leaver Staff', null,       'staff', 'active'),
+  -- 2.2: the day gate spec (e2e/day-gate.spec.ts). One person has one attendance day per date,
+  -- so every Playwright project gets its own people: gate-<kind>-<project>@maxoff.local. Named
+  -- "Test …" so People (sorted by name, 10 cards on a phone) still opens on the dev accounts.
+  ('20000000-0000-4000-8000-000000000001', 'gate-staff-desktop@maxoff.local', 'gate-local-password', 'Test Gate Staff (desktop)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000002', 'gate-admin-desktop@maxoff.local', 'gate-local-password', 'Test Gate Admin (desktop)', null, 'admin', 'active'),
+  ('20000000-0000-4000-8000-000000000003', 'gate-leave-desktop@maxoff.local', 'gate-local-password', 'Test On Leave (desktop)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000004', 'gate-half-desktop@maxoff.local', 'gate-local-password', 'Test Half Day (desktop)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000005', 'gate-staff-mobile@maxoff.local', 'gate-local-password', 'Test Gate Staff (mobile)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000006', 'gate-admin-mobile@maxoff.local', 'gate-local-password', 'Test Gate Admin (mobile)', null, 'admin', 'active'),
+  ('20000000-0000-4000-8000-000000000007', 'gate-leave-mobile@maxoff.local', 'gate-local-password', 'Test On Leave (mobile)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000008', 'gate-half-mobile@maxoff.local', 'gate-local-password', 'Test Half Day (mobile)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000009', 'gate-staff-mobile-lg@maxoff.local', 'gate-local-password', 'Test Gate Staff (mobile-lg)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000010', 'gate-admin-mobile-lg@maxoff.local', 'gate-local-password', 'Test Gate Admin (mobile-lg)', null, 'admin', 'active'),
+  ('20000000-0000-4000-8000-000000000011', 'gate-leave-mobile-lg@maxoff.local', 'gate-local-password', 'Test On Leave (mobile-lg)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000012', 'gate-half-mobile-lg@maxoff.local', 'gate-local-password', 'Test Half Day (mobile-lg)', null, 'staff', 'active');
 
 -- What GoTrue writes for a confirmed email + password user (`auth.users` + one identity).
 insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -47,6 +62,8 @@ on conflict (provider_id, provider) do nothing;
 -- the members insert guard (the same way pgTAP fixtures do).
 insert into public.members (id, org_id, full_name, email, phone, role, status, joined_at, deactivated_at)
 select u.id, (select id from public.organizations limit 1), u.full_name, u.email, u.phone, u.role, u.status,
-  now(), case when u.status = 'deactivated' then now() end
+  -- 2.2: attendance starts the IST day after joined_at, so a seeded person who "joined" at
+  -- db:reset would never meet the gate that day.
+  now() - interval '30 days', case when u.status = 'deactivated' then now() end
 from seed_users u
 on conflict (id) do nothing;

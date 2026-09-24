@@ -107,11 +107,11 @@ insert into auth.users (id, email)
 select id, key || '@example.com' from fx where key not in ('org', 'nobody');
 
 insert into public.members (id, org_id, full_name, email, role, status, joined_at, deactivated_at) values
-  (pg_temp.fx('owner'),       pg_temp.fx('org'), 'Test Owner',  'owner@example.com',       'owner', 'active',      now(), null),
-  (pg_temp.fx('admin'),       pg_temp.fx('org'), 'Test Admin',  'admin@example.com',       'admin', 'active',      now(), null),
-  (pg_temp.fx('staff'),       pg_temp.fx('org'), 'Test Staff',  'staff@example.com',       'staff', 'active',      now(), null),
-  (pg_temp.fx('staff2'),      pg_temp.fx('org'), 'Other Staff', 'staff2@example.com',      'staff', 'active',      now(), null),
-  (pg_temp.fx('worker'),      pg_temp.fx('org'), 'Works Leave', 'worker@example.com',      'staff', 'active',      now(), null),
+  (pg_temp.fx('owner'),       pg_temp.fx('org'), 'Test Owner',  'owner@example.com',       'owner', 'active',      now() - interval '30 days', null),
+  (pg_temp.fx('admin'),       pg_temp.fx('org'), 'Test Admin',  'admin@example.com',       'admin', 'active',      now() - interval '30 days', null),
+  (pg_temp.fx('staff'),       pg_temp.fx('org'), 'Test Staff',  'staff@example.com',       'staff', 'active',      now() - interval '30 days', null),
+  (pg_temp.fx('staff2'),      pg_temp.fx('org'), 'Other Staff', 'staff2@example.com',      'staff', 'active',      now() - interval '30 days', null),
+  (pg_temp.fx('worker'),      pg_temp.fx('org'), 'Works Leave', 'worker@example.com',      'staff', 'active',      now() - interval '30 days', null),
   (pg_temp.fx('deactivated'), pg_temp.fx('org'), 'Gone Staff',  'deactivated@example.com', 'staff', 'deactivated', now(), now()),
   (pg_temp.fx('invited'),     pg_temp.fx('org'), 'New Admin',   'invited@example.com',     'admin', 'invited',     null,  null);
 delete from public.activity_log; -- the fixture writes are not under test
@@ -127,7 +127,7 @@ select has_type('public', 'leave_type', 'leave_type enum exists');
 select has_type('public', 'leave_state', 'leave_state enum exists');
 select has_column('public', 'leave_requests', 'requests_cancellation', 'leave_requests.requests_cancellation exists');
 select has_function('public', 'attendance_touch', array['text', 'text'], 'attendance_touch exists');
-select has_function('public', 'attendance_submit', array['attendance_choice', 'text'], 'attendance_submit exists');
+select has_function('public', 'attendance_submit', array['attendance_choice', 'text', 'date'], 'attendance_submit exists');
 select has_function('public', 'attendance_decide', array['uuid', 'text', 'day_status', 'text'], 'attendance_decide exists');
 select has_function('public', 'attendance_flag_overtime', array['uuid', 'text'], 'attendance_flag_overtime exists');
 select has_function('app', 'attendance_logout', array['uuid'], 'app.attendance_logout exists');
@@ -151,7 +151,7 @@ select ok(not has_table_privilege('authenticated', 'public.leave_requests', 'ins
 
 select ok(
   has_function_privilege('authenticated', 'public.attendance_touch(text, text)', 'execute')
-  and has_function_privilege('authenticated', 'public.attendance_submit(public.attendance_choice, text)', 'execute')
+  and has_function_privilege('authenticated', 'public.attendance_submit(public.attendance_choice, text, date)', 'execute')
   and has_function_privilege('authenticated', 'public.attendance_decide(uuid, text, public.day_status, text)', 'execute')
   and has_function_privilege('authenticated', 'public.attendance_flag_overtime(uuid, text)', 'execute')
   and has_function_privilege('authenticated', 'public.leave_submit(public.leave_type, date, date, text)', 'execute')
@@ -163,7 +163,7 @@ select ok(
   'authenticated may execute every attendance and leave function');
 select ok(
   not has_function_privilege('anon', 'public.attendance_touch(text, text)', 'execute')
-  and not has_function_privilege('anon', 'public.attendance_submit(public.attendance_choice, text)', 'execute')
+  and not has_function_privilege('anon', 'public.attendance_submit(public.attendance_choice, text, date)', 'execute')
   and not has_function_privilege('anon', 'public.attendance_decide(uuid, text, public.day_status, text)', 'execute')
   and not has_function_privilege('anon', 'public.attendance_flag_overtime(uuid, text)', 'execute')
   and not has_function_privilege('anon', 'public.leave_submit(public.leave_type, date, date, text)', 'execute')
@@ -686,7 +686,7 @@ select throws_ok(
   format($$ select public.leave_decide(%L, 'reject') $$, (select id from public.leave_requests where member_id = pg_temp.fx('staff') and type = 'half_day' and state = 'submitted')),
   'P0001', 'REASON_REQUIRED', 'a rejection needs a reason');
 select is(
-  public.leave_decide((select id from public.leave_requests where member_id = pg_temp.fx('staff') and type = 'half_day' and state = 'submitted'), 'reject', 'Shoot that day'),
+  (select state from public.leave_decide((select id from public.leave_requests where member_id = pg_temp.fx('staff') and type = 'half_day' and state = 'submitted'), 'reject', 'Shoot that day')),
   'rejected', 'the Owner rejects with a reason');
 select pg_temp.as_system();
 select results_eq(
@@ -696,7 +696,7 @@ select results_eq(
   'the rejection is recorded');
 select pg_temp.as_member('owner');
 select is(
-  public.leave_decide((select id from public.leave_requests where member_id = pg_temp.fx('staff') and type = 'leave' and source = 'form'), 'approve'),
+  (select state from public.leave_decide((select id from public.leave_requests where member_id = pg_temp.fx('staff') and type = 'leave' and source = 'form'), 'approve')),
   'approved', 'the Owner approves the three-day leave');
 select pg_temp.as_system();
 select is((select state::text from public.leave_requests where member_id = pg_temp.fx('staff') and type = 'leave' and source = 'form'), 'approved', 'it is approved');
@@ -709,7 +709,8 @@ select throws_ok(
   format($$ select public.leave_decide(%L, 'approve') $$, (select id from public.leave_requests where member_id = pg_temp.fx('staff') and type = 'leave' and source = 'form')),
   'P0001', 'INVALID_STATE', 'deciding twice is refused');
 
--- "A later leave wins": days already submitted or approved as Present are corrected by the system.
+-- "A later leave wins": a Present still waiting is corrected by the system; since 2.2 a day the
+-- Owner already decided (approved or corrected) is kept (08 covers kept_dates).
 select pg_temp.as_system();
 select pg_temp.reset_attendance();
 select pg_temp.mk_day('staff', 0, 'pending_review', 'present', null, false);
@@ -744,8 +745,8 @@ select is(
   'leave approved', 'audited as a correction with reason "leave approved"');
 select results_eq(
   $$ select state::text, final_status::text, decided_by from public.attendance_days where id = pg_temp.day('staff2') $$,
-  $$ values ('corrected', 'half_day', null::uuid) $$,
-  'an approved Present is corrected to the half day');
+  $$ values ('approved', 'present', pg_temp.fx('owner')) $$,
+  'an approved Present stays as the Owner decided it (2.2)');
 select results_eq(
   $$ select state::text, final_status::text, proposed_by_system, decided_by from public.attendance_days where id = pg_temp.day('admin') $$,
   $$ values ('approved', 'comp_leave', true, null::uuid) $$,
@@ -825,7 +826,7 @@ select throws_ok(
   'P0001', 'INVALID_STATE', 'only approved leave can be changed');
 select pg_temp.as_member('owner');
 select is(
-  public.leave_decide((select id from public.leave_requests where member_id = pg_temp.fx('staff') and supersedes_id is not null), 'approve'),
+  (select state from public.leave_decide((select id from public.leave_requests where member_id = pg_temp.fx('staff') and supersedes_id is not null), 'approve')),
   'approved', 'the Owner approves the change');
 select pg_temp.as_system();
 select results_eq(
@@ -845,7 +846,7 @@ select isnt(public.leave_submit('leave', app.today_ist(), app.today_ist() + 1, '
 select is((select gate_required from public.attendance_touch()), true, 'the gate still asks (nothing approved yet)');
 select is(public.attendance_submit('half_day', 'Gate second'), 'pending_review', 'a half day is chosen at the gate');
 select pg_temp.as_member('owner');
-select is(public.leave_decide((select id from public.leave_requests where member_id = pg_temp.fx('staff2') and source = 'form'), 'approve'),
+select is((select state from public.leave_decide((select id from public.leave_requests where member_id = pg_temp.fx('staff2') and source = 'form'), 'approve')),
   'approved', 'the Owner approves the form request');
 select pg_temp.as_system();
 select results_eq(
@@ -890,7 +891,7 @@ select throws_ok(
   'P0001', 'CONFLICT', 'the Owner cannot edit a leave while the person''s change to it is waiting');
 select is(public.leave_owner_cancel((select id from public.leave_requests where member_id = pg_temp.fx('staff') and supersedes_id is null), 'Plans off'),
   'cancelled', 'the Owner cancels the original meanwhile');
-select is(public.leave_decide((select id from public.leave_requests where member_id = pg_temp.fx('staff') and supersedes_id is not null), 'approve'),
+select is((select state from public.leave_decide((select id from public.leave_requests where member_id = pg_temp.fx('staff') and supersedes_id is not null), 'approve')),
   'approved', 'the change is then approved on its own');
 select pg_temp.as_system();
 select results_eq(
@@ -921,7 +922,7 @@ select is(
   'cancellation_requested', 'audited as cancellation_requested');
 select pg_temp.as_member('owner');
 select is(
-  public.leave_decide((select id from public.leave_requests where member_id = pg_temp.fx('worker') and supersedes_id is not null), 'reject', 'Take the rest'),
+  (select state from public.leave_decide((select id from public.leave_requests where member_id = pg_temp.fx('worker') and supersedes_id is not null), 'reject', 'Take the rest')),
   'rejected', 'the Owner refuses the cancellation');
 select pg_temp.as_system();
 select is((select state::text from public.leave_requests where member_id = pg_temp.fx('worker') and supersedes_id is null), 'approved',
@@ -933,7 +934,7 @@ select isnt(
   null, 'the worker asks again');
 select pg_temp.as_member('owner');
 select is(
-  public.leave_decide((select id from public.leave_requests where member_id = pg_temp.fx('worker') and supersedes_id is not null and state = 'submitted'), 'approve'),
+  (select state from public.leave_decide((select id from public.leave_requests where member_id = pg_temp.fx('worker') and supersedes_id is not null and state = 'submitted'), 'approve')),
   'cancelled', 'the Owner grants the cancellation');
 select pg_temp.as_system();
 select results_eq(

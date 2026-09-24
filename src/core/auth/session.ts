@@ -4,19 +4,29 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/core/db";
 import { publicSupabaseEnv, sessionCookieOptions } from "@/core/db";
 
+import { REQUEST_PATH_HEADER } from "./day-gate";
 import { LOGIN_PATH, isPublicPath, isSignedOutOnlyPath } from "./paths";
 
 /**
  * What `src/proxy.ts` runs on every page request (ADR-0012):
  * 1. refreshes the Supabase session cookies, which Server Components can't write themselves;
  * 2. an optimistic redirect from the JWT alone: no session on a members-only path → `/login`
- *    with `next=`; a session on `/login` or `/forgot-password` → `/`.
+ *    with `next=`; a session on `/login` or `/forgot-password` → `/`;
+ * 3. forwards the page's path + search as `x-maxoff-path` (overwriting anything the browser
+ *    sent), so the day gate in the layout knows where to return to (task 2.2). It is only ever
+ *    read through `safeNextPath()`.
  *
  * It reads no table on purpose (Next's own guidance for proxies). The decision that counts,
  * "is this an active member", is `requireMember()` in `server.ts`, run by the app layout.
  */
 export async function updateSession(request: NextRequest): Promise<NextResponse> {
-  let response = NextResponse.next({ request });
+  const forward = () => {
+    // Rebuilt after every cookie refresh: `request.cookies.set` rewrites the Cookie header.
+    const headers = new Headers(request.headers);
+    headers.set(REQUEST_PATH_HEADER, `${request.nextUrl.pathname}${request.nextUrl.search}`);
+    return NextResponse.next({ request: { headers } });
+  };
+  let response = forward();
   const env = publicSupabaseEnv();
 
   const supabase = createServerClient<Database>(env.url, env.publishableKey, {
@@ -27,7 +37,7 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
       },
       setAll(cookiesToSet) {
         for (const { name, value } of cookiesToSet) request.cookies.set(name, value);
-        response = NextResponse.next({ request });
+        response = forward();
         for (const { name, value, options } of cookiesToSet) {
           response.cookies.set(name, value, options);
         }

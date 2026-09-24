@@ -15,6 +15,7 @@ try {
 const PRODUCTION_SPECS = /production\.spec\.ts$/;
 const SETUP_SPECS = /\.setup\.ts$/;
 const MOBILE_SPECS = /mobile\.spec\.ts$/;
+const DAY_GATE_SPECS = /day-gate\.spec\.ts$/;
 
 /**
  * Flow tests (ARCHITECTURE §15). `pnpm test:e2e` runs them; CI runs them as their own job.
@@ -69,12 +70,14 @@ export default defineConfig({
       use: { ...devices["Pixel 5"], viewport: { width: 375, height: 812 } },
     },
     {
-      // The large phone. Only `mobile.spec.ts` runs here: the flow specs prove behaviour, which
-      // does not change with 55px of width, while the mobile standard is checked at **both**
-      // 375px and 430px because that is where a layout stops fitting (§14.1).
+      // The large phone. Only `mobile.spec.ts` and the day gate run here: the flow specs prove
+      // behaviour, which does not change with 55px of width, while the mobile standard is
+      // checked at **both** 375px and 430px because that is where a layout stops fitting
+      // (§14.1). The gate is the first screen every Admin and Staff member sees each morning,
+      // on a phone more often than not (2.2).
       name: "mobile-lg",
       dependencies: ["setup"],
-      testMatch: MOBILE_SPECS,
+      testMatch: [MOBILE_SPECS, DAY_GATE_SPECS],
       use: { ...devices["Pixel 5"], viewport: { width: 430, height: 932 } },
     },
     {
@@ -88,5 +91,11 @@ export default defineConfig({
     url: `${baseURL}/offline`,
     reuseExistingServer: false,
     timeout: 300_000,
+    // The day gate's pass cookie (2.2) is exercised end to end with a fixed test secret; the
+    // no-secret path (touch on every page load) is the same database call without the cookie.
+    env: {
+      DAY_GATE_COOKIE_SECRET:
+        process.env.DAY_GATE_COOKIE_SECRET ?? "e2e-only-day-gate-secret-not-used-anywhere-else",
+    },
   },
 });

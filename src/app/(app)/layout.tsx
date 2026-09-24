@@ -1,6 +1,12 @@
 import type { ReactNode } from "react";
 
-import { LogoutMenuItem, LogoutProvider, LogoutSheetItem } from "@/core/auth/components";
+import {
+  IssueDayPass,
+  LogoutMenuItem,
+  LogoutProvider,
+  LogoutSheetItem,
+} from "@/core/auth/components";
+import { requireDayGate } from "@/core/auth/gate";
 import { requireMember } from "@/core/auth/server";
 import { SentryUser } from "@/core/observability/sentry-user";
 import { Toaster } from "@/core/ui/primitives/sonner";
@@ -9,11 +15,13 @@ import { AppShell } from "@/core/ui/shell/app-shell";
 
 /**
  * The signed-in area. `requireMember()` is the auth decision (ADR-0011 rule 3): signed out →
- * /login, a session whose member is not active → ended, then /login. Task 2.2 adds
- * `requireDayGate()` here (ARCHITECTURE §8).
+ * /login, a session whose member is not active → ended, then /login. Then the day gate
+ * (ARCHITECTURE §8, task 2.2): an Admin or Staff member who has not settled today goes to the
+ * choice screen first; the Owner is never gated.
  */
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const viewer = await requireMember();
+  const gate = await requireDayGate(viewer);
 
   return (
     // The Log out confirmation lives above the shell: the account menu and the More sheet both
@@ -28,6 +36,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           logoutSheetItem={<LogoutSheetItem />}
         >
           <SentryUser id={viewer.id} />
+          {gate === "issue-pass" ? <IssueDayPass /> : null}
           {children}
         </AppShell>
       </TooltipProvider>

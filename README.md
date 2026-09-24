@@ -33,7 +33,7 @@ pnpm dev                     # http://localhost:3000 → /login
 
 ### Local sign-ins
 
-`supabase/seed.sql` creates five accounts for development and Playwright. They exist only on
+`supabase/seed.sql` creates these accounts for development and Playwright. Every seeded member "joined" 30 days before `db:reset`, so the day gate (2.2) applies to them today. They exist only on
 the local stack (the deploy workflow never seeds), and the passwords are fixtures, not secrets:
 
 | Email | Password | Role |
@@ -44,6 +44,7 @@ the local stack (the deploy workflow never seeds), and the passwords are fixture
 | `gone@maxoff.local` | `gone-local-password` | deactivated Staff (refused at sign-in) |
 | `reset@maxoff.local` | `reset-local-password` | Staff, used only by the Playwright recovery-link test (which changes its password) |
 | `leaver@maxoff.local` | `leaver-local-password` | Staff, used only by the Playwright team test (which deactivates and reactivates them) |
+| `gate-<kind>-<project>@maxoff.local` | `gate-local-password` | 12 Admin/Staff accounts used only by `e2e/day-gate.spec.ts` (kind: staff, admin, leave, half; project: desktop, mobile, mobile-lg), because a person has one attendance day per date |
 
 Password-reset emails from the local stack land in Mailpit: http://127.0.0.1:54324.
 
@@ -166,6 +167,7 @@ Secrets (**Environment secrets**):
 | `SUPABASE_DB_PASSWORD` | Supabase → the database password chosen when the project was created (Project Settings → Database to reset) |
 | `SUPABASE_SECRET_KEY` | Supabase → Project Settings → API Keys → Secret key (bypasses RLS; uploaded as a Worker secret) |
 | `SESSION_IP_HASH_SALT` | Any long random string (`openssl rand -hex 32`), different per environment. Salts the IP hash in `session_events`; uploaded as a Worker secret. Unset = the hash is stored as null |
+| `DAY_GATE_COOKIE_SECRET` | Any long random string (`openssl rand -hex 32`), different per environment. Signs the once-a-day gate pass (task 2.2); uploaded as a Worker secret. Unset = every page load asks the database, reported to Sentry once |
 | `SENTRY_AUTH_TOKEN` | Sentry → Settings → Auth Tokens. Optional: without it no source maps are uploaded |
 
 Variables (**Environment variables**):
@@ -228,7 +230,7 @@ email through `core/notifications` (Resend), so GoTrue never mails an invite (ta
    the build) and source maps uploaded to Sentry when the token is present. The build comes
    first so a failed build never leaves the database ahead of the Worker.
 3. `supabase link` + `supabase db push`: applies any new append-only migrations.
-4. Uploads `SUPABASE_SECRET_KEY` and `SESSION_IP_HASH_SALT` as Worker secrets, then
+4. Uploads `SUPABASE_SECRET_KEY`, `SESSION_IP_HASH_SALT` and `DAY_GATE_COOKIE_SECRET` as Worker secrets, then
    `wrangler deploy --env <name>`.
 
 ### Branch previews (task 2.0)

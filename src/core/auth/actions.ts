@@ -1,15 +1,12 @@
 "use server";
 
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { createServerSupabase, type ServerSupabase } from "@/core/db/server";
 import { AppError, action, ok, type Result } from "@/core/errors";
 import { setSentryUser } from "@/core/observability/user";
 
-import { sessionIpHashSalt } from "./env";
 import { LOGIN_PATH, safeNextPath, WELCOME_PATH } from "./paths";
-import { sessionMetaFrom } from "./request-meta";
 import {
   type LoginInput,
   loginSchema,
@@ -18,6 +15,9 @@ import {
   type SetPasswordInput,
   setPasswordSchema,
 } from "./schemas";
+import { issueDayPassFor } from "./gate";
+import { getSessionState } from "./server";
+import { sessionMetaArgs } from "./session-meta";
 
 /**
  * The sign-in, sign-out and password actions (ARCHITECTURE §4.2: zod → Supabase Auth →
@@ -27,15 +27,6 @@ import {
  */
 
 const INACTIVE_MESSAGE = "This account is not active. Ask the Owner.";
-
-/** The RPC arguments; absent values are left out rather than passed as undefined. */
-async function sessionMeta(): Promise<{ user_agent?: string; ip_hash?: string }> {
-  const { userAgent, ipHash } = await sessionMetaFrom(await headers(), sessionIpHashSalt());
-  return {
-    ...(userAgent ? { user_agent: userAgent } : {}),
-    ...(ipHash ? { ip_hash: ipHash } : {}),
-  };
-}
 
 /** The caller's own status, whatever it is (RLS shows the row only to active members). */
 async function memberStatus(supabase: ServerSupabase) {
@@ -50,7 +41,7 @@ async function recordLoginOrSignOut(supabase: ServerSupabase, userId: string): P
     await supabase.auth.signOut({ scope: "local" });
     throw new AppError("FORBIDDEN", INACTIVE_MESSAGE);
   }
-  const { error } = await supabase.rpc("session_login", await sessionMeta());
+  const { error } = await supabase.rpc("session_login", await sessionMetaArgs());
   if (error) {
     await supabase.auth.signOut({ scope: "local" });
     throw error;
@@ -80,7 +71,7 @@ export const logout = action(async (): Promise<Result<never>> => {
   const { data: claims } = await supabase.auth.getClaims();
 
   if (claims?.claims.sub) {
-    const { error } = await supabase.rpc("session_logout", await sessionMeta());
+    const { error } = await supabase.rpc("session_logout", await sessionMetaArgs());
     if (error && error.message !== "UNAUTHENTICATED") throw error;
   }
 
@@ -140,3 +131,14 @@ export const requestPasswordReset = action(
     return ok({ sent: true });
   },
 );
+
+/**
+ * Sets today's day-gate pass (ARCHITECTURE §8) for a member whose day needs no choice. Called
+ * once by `<IssueDayPass />` after the layout found no pass; the database is asked again, so
+ * this can never be used to skip the gate. Nothing to report either way.
+ */
+export const issueDayPass = action(async (): Promise<Result<null>> => {
+  const state = await getSessionState();
+  if (state.kind === "member") await issueDayPassFor(state.member);
+  return ok(null);
+});
