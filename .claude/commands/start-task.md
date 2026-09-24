@@ -15,5 +15,6 @@ Start a MaxOff build task. Task requested: "$ARGUMENTS" (if empty, use the "Next
    - permission keys, RLS policies, transition functions, audit and notifications involved
    - tests: unit, pgTAP (each role and each transition path), e2e
    - **Back and gestures** (every plan that adds or changes UI): each new screen's and overlay's place in the back stack (ARCHITECTURE §14.2): what one back closes or where it lands, which controls are view controls (`ViewLink` / replace), and the installed-mode spec that proves it at 375px and 430px
+   - **First glance** (every plan that adds or changes UI, PRODUCT §2 "First glance, then depth"): what the first screen shows (only what answers the role's question and what needs action now), what moves one tap deeper (sub-page or sheet), and confirmation that no daily action got deeper and nothing is more than two taps from its tab
    - risks, and any business rule not covered by the docs (ask, don't invent)
 Don't edit any files until I approve.

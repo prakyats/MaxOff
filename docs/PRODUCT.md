@@ -35,6 +35,7 @@ It answers these questions every day:
 8. **Never destroy history.** Changes are recorded, corrections sit alongside the original, and records are archived rather than deleted.
 9. **Operational progress isn't revenue.** Revenue counts only after the Owner approves the work.
 10. **Collect facts, don't judge.** MaxOff stores raw operational data for the Owner or an AI tool to analyse. It never rates employees.
+11. **First glance, then depth** (owner decision 2026-09-24, CLAUDE.md engineering rule 12). Each screen's first view shows only what answers that role's question (§1 table) and what needs action now; details and occasional actions live one level deeper, on sub-pages or sheets. Guardrails: **daily actions stay on the first screen** (Approve, Log out, the gate); **nothing is more than two taps from its tab**; **every count or summary is tappable** and opens the filtered detail behind it; **exceptions get rows, the normal case collapses to a count.** Every plan that adds or changes UI says what the first screen shows, what moves one tap deeper, and that no daily action got deeper (`/start-task`).
 
 ---
 
@@ -160,6 +161,7 @@ Daily work allotted to people. **Only the Owner and Admins create tasks.**
   2. **Approvals inbox** with one-click Approve, Reject, Review, Reassign and Extend deadline, plus bulk actions. There's no need to open other modules.
   3. People (attendance, login and logout, logout not recorded, overtime) · Today's tasks · Overdue and risks · Calendar strip · Client progress · Revenue snapshot.
      Tapping a person on the people board opens **their attendance and leave history** directly (People lives in the More sheet; looking someone up shouldn't take three taps while they're standing in front of you).
+  - **First glance, then depth on Owner Today** (§2 principle 11's first application, decided 2026-09-24, **built in 6.2**): order is **counts → approvals inbox → "Needs you" → the rest of 6.2.** The attendance card's counts stay, and **tapping a count opens the full people board filtered to that group** ("Waiting" opens Approvals). Under it, **"Needs you"** lists only the people who need attention today: waiting for a decision, not chosen yet, absent, logout not recorded, overtime flagged; when nobody does, it says **"Everyone's in."** The full board (everyone expected today, 2.4) moves to its own drill-down screen behind **"See all N people"**, with the ARCHITECTURE §14.2 k back control. Tapping a person anywhere still opens their history directly.
 - **The Approvals screen** (built across 2.4 and 4.5 — **one screen, not one per module**): everything waiting on the Owner's decision, in **one scroll, grouped, no tabs**. Tabs create a mode ("am I seeing everything?"); groups don't.
   - **Fixed group order: Attendance · Leave · Staff tasks · Client items.** Attendance and leave first because someone's day depends on them; work can wait an hour. Oldest first inside each group.
   - **Each group header carries a bulk action** ("Approve all 7"), because the Owner's real intent is usually *"attendance today, all fine"* — one tap, not seven. Bulk confirms with the count.

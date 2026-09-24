@@ -38,6 +38,7 @@ MaxOff is the **internal operations and control system for Pixora Clips**. It co
 9. **TypeScript strict:** no `any`, no `@ts-ignore` without a written reason. Types come from `pnpm db:types`.
 10. **No secrets in code or chat.** New environment variables go into `.env.example` with a comment.
 11. **Phone = native app.** Every screen, overlay and in-page control follows the native navigation model (ARCHITECTURE §14.2): back closes the top layer, history holds only real drill-down, view controls never add history.
+12. **First glance, then depth** (PRODUCT §2): a tab's first screen answers the role's question and holds today's actions; detail is one tap deeper, never more than two.
 
 ## Commands
 `pnpm dev` · `pnpm typecheck` · `pnpm lint` · `pnpm test` · `pnpm test:e2e` · `pnpm db:test` (pgTAP) · `pnpm build`
