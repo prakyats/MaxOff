@@ -87,3 +87,55 @@ export type CancelLeaveInput = z.input<typeof cancelLeaveSchema>;
 /** Withdrawing a request that is still waiting. */
 export const withdrawLeaveSchema = z.object({ requestId: z.uuid() });
 export type WithdrawLeaveInput = z.input<typeof withdrawLeaveSchema>;
+
+// The Owner's decisions (task 2.4) -----------------------------------------------------------
+
+export const OWNER_REASON_MIN_LENGTH = 3;
+
+/** A reason the Owner must give (reject, cancel): the member reads it on /leave. */
+const ownerReason = z
+  .string()
+  .trim()
+  .min(OWNER_REASON_MIN_LENGTH, "Please write a few more words.")
+  .max(LEAVE_REASON_MAX_LENGTH, `Keep it under ${LEAVE_REASON_MAX_LENGTH} characters.`);
+
+/** Approve one request. Approve never asks for a reason (PRODUCT "Approvals"). */
+export const approveLeaveSchema = z.object({ requestId: z.uuid() });
+export type ApproveLeaveInput = z.input<typeof approveLeaveSchema>;
+
+/** "Approve all N": only the ids that were on screen, one call each (WORKFLOWS §1). */
+export const approveLeavesSchema = z.object({
+  requestIds: z
+    .array(z.uuid())
+    .min(1, "Nothing to approve.")
+    .max(200, "Approve at most 200 at once."),
+});
+export type ApproveLeavesInput = z.input<typeof approveLeavesSchema>;
+
+export const rejectLeaveSchema = z.object({ requestId: z.uuid(), reason: ownerReason });
+export type RejectLeaveInput = z.input<typeof rejectLeaveSchema>;
+
+export const ownerCancelLeaveSchema = z.object({ requestId: z.uuid(), reason: ownerReason });
+export type OwnerCancelLeaveInput = z.input<typeof ownerCancelLeaveSchema>;
+
+/**
+ * The Owner's edit of approved leave (`leave_owner_edit`): any dates, past included (WORKFLOWS
+ * §2), so only the order of the ends is checked here. The reason is optional, as in the function.
+ */
+export const ownerEditLeaveSchema = z
+  .object({
+    requestId: z.uuid(),
+    type: z.enum(LEAVE_TYPES, { error: "Choose the kind of leave." }),
+    startDate: isoDate("Choose the first day."),
+    endDate: isoDate("Choose the last day.").optional(),
+    reason,
+  })
+  .transform((value) => ({
+    ...value,
+    endDate: value.type === "half_day" || !value.endDate ? value.startDate : value.endDate,
+  }))
+  .refine((value) => value.endDate >= value.startDate, {
+    path: ["endDate"],
+    message: "The last day is before the first day.",
+  });
+export type OwnerEditLeaveInput = z.input<typeof ownerEditLeaveSchema>;

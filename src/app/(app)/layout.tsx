@@ -13,7 +13,20 @@ import { can } from "@/core/permissions";
 import { Toaster } from "@/core/ui/primitives/sonner";
 import { TooltipProvider } from "@/core/ui/primitives/tooltip";
 import { AppShell } from "@/core/ui/shell/app-shell";
-import { OvertimeLogoutNote } from "@/modules/attendance";
+import type { NavBadges } from "@/core/ui/shell/nav";
+import { countPendingDays, OvertimeLogoutNote } from "@/modules/attendance";
+import { countPendingRequests } from "@/modules/leave";
+
+/**
+ * The viewer's nav counts. Approvals (2.4): the attendance days and leave requests waiting for
+ * whoever decides them (`attendance.decide`, the Owner); tasks and client items join in 4.5 and
+ * 7.4. Two indexed counts per page load, only for the Owner.
+ */
+async function navBadges(role: Parameters<typeof can>[0]): Promise<NavBadges> {
+  if (!can(role, "attendance.decide")) return {};
+  const [days, requests] = await Promise.all([countPendingDays(), countPendingRequests()]);
+  return { approvals: days + requests };
+}
 
 /**
  * The signed-in area. `requireMember()` is the auth decision (ADR-0011 rule 3): signed out →
@@ -23,7 +36,7 @@ import { OvertimeLogoutNote } from "@/modules/attendance";
  */
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const viewer = await requireMember();
-  const gate = await requireDayGate(viewer);
+  const [gate, badges] = await Promise.all([requireDayGate(viewer), navBadges(viewer.role)]);
 
   return (
     // The Log out confirmation lives above the shell: the account menu and the More sheet both
@@ -39,6 +52,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           viewer={viewer}
           logoutItem={<LogoutMenuItem />}
           logoutSheetItem={<LogoutSheetItem />}
+          badges={badges}
         >
           <SentryUser id={viewer.id} />
           {gate === "issue-pass" ? <IssueDayPass /> : null}

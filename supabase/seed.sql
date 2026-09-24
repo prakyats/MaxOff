@@ -47,7 +47,21 @@ insert into seed_users values
   -- §14.2 e (the back-stack fix): sign-in, the gate and recovery leave nothing under home. One
   -- person per phone project; the spec clears their day and puts their password back itself.
   ('20000000-0000-4000-8000-000000000016', 'back-mobile@maxoff.local', 'back-local-password', 'Test Back (mobile)', null, 'staff', 'active'),
-  ('20000000-0000-4000-8000-000000000017', 'back-mobile-lg@maxoff.local', 'back-local-password', 'Test Back (mobile-lg)', null, 'staff', 'active');
+  ('20000000-0000-4000-8000-000000000017', 'back-mobile-lg@maxoff.local', 'back-local-password', 'Test Back (mobile-lg)', null, 'staff', 'active'),
+  -- 2.4: e2e/owner-review.spec.ts, three people per Playwright project whose days and leave the
+  -- Owner decides (the spec clears and arranges them itself), and two for the bulk spec, which
+  -- runs after the others (e2e/owner-bulk.spec.ts).
+  ('20000000-0000-4000-8000-000000000018', 'review-day-desktop@maxoff.local', 'review-local-password', 'Test Review Day (desktop)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000019', 'review-fix-desktop@maxoff.local', 'review-local-password', 'Test Review Fix (desktop)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000020', 'review-leave-desktop@maxoff.local', 'review-local-password', 'Test Review Leave (desktop)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000021', 'review-day-mobile@maxoff.local', 'review-local-password', 'Test Review Day (mobile)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000022', 'review-fix-mobile@maxoff.local', 'review-local-password', 'Test Review Fix (mobile)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000023', 'review-leave-mobile@maxoff.local', 'review-local-password', 'Test Review Leave (mobile)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000024', 'review-day-mobile-lg@maxoff.local', 'review-local-password', 'Test Review Day (mobile-lg)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000025', 'review-fix-mobile-lg@maxoff.local', 'review-local-password', 'Test Review Fix (mobile-lg)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000026', 'review-leave-mobile-lg@maxoff.local', 'review-local-password', 'Test Review Leave (mobile-lg)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000027', 'review-bulk-a@maxoff.local', 'review-local-password', 'Test Review Bulk A', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000028', 'review-bulk-b@maxoff.local', 'review-local-password', 'Test Review Bulk B', null, 'staff', 'active');
 
 -- What GoTrue writes for a confirmed email + password user (`auth.users` + one identity).
 insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,

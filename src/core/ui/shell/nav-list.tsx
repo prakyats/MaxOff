@@ -42,6 +42,15 @@ export function NavList({
               >
                 <Icon className="size-4 shrink-0" aria-hidden />
                 <span className="truncate">{item.label}</span>
+                {item.badge ? (
+                  <span
+                    data-slot="nav-badge"
+                    className="bg-brand text-brand-foreground ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] leading-none font-semibold tabular-nums"
+                  >
+                    <span aria-hidden>{item.badge > 99 ? "99+" : item.badge}</span>
+                    <span className="sr-only">{item.badge} waiting</span>
+                  </span>
+                ) : null}
               </Link>
             </li>
           );

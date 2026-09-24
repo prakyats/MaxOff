@@ -675,6 +675,27 @@ export type Database = {
         };
         Returns: Database["public"]["Enums"]["attendance_state"];
       };
+      attendance_today: {
+        Args: never;
+        Returns: {
+          day_id: string;
+          final_status: Database["public"]["Enums"]["day_status"];
+          first_login_at: string;
+          full_name: string;
+          is_day_off: boolean;
+          job_title: string;
+          last_logout_at: string;
+          leave_type: Database["public"]["Enums"]["leave_type"];
+          logout_not_recorded: boolean;
+          member_id: string;
+          on_leave: boolean;
+          overtime_flag: boolean;
+          proposed_by_system: boolean;
+          started: boolean;
+          state: Database["public"]["Enums"]["attendance_state"];
+          submitted_choice: Database["public"]["Enums"]["attendance_choice"];
+        }[];
+      };
       attendance_touch: {
         Args: { ip_hash?: string; user_agent?: string };
         Returns: {
@@ -716,7 +737,10 @@ export type Database = {
           start_date: string;
           type: Database["public"]["Enums"]["leave_type"];
         };
-        Returns: string;
+        Returns: {
+          kept_dates: string[];
+          new_id: string;
+        }[];
       };
       leave_request_change: {
         Args: {

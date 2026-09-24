@@ -2,7 +2,14 @@ import type { ReactNode } from "react";
 
 import { BottomNav } from "./bottom-nav";
 import { MobileChrome } from "./mobile-chrome";
-import { alertsInBottomNav, homeFor, mobileNavFor, navFor } from "./nav";
+import {
+  alertsInBottomNav,
+  homeFor,
+  mobileNavFor,
+  type NavBadges,
+  navFor,
+  withBadges,
+} from "./nav";
 import { Sidebar } from "./sidebar";
 import { TopBar } from "./top-bar";
 import type { ShellViewer } from "./viewer";
@@ -19,21 +26,28 @@ import type { ShellViewer } from "./viewer";
  * `logoutItem` / `logoutSheetItem` are the Log out action in the account menu and in the More
  * sheet. `core/auth` owns them and the app layout passes them in, so `core/ui` never imports
  * auth. Log out is in both because it records the time (WORKFLOWS §1).
+ *
+ * `badges` are the viewer's counts per nav key (Approvals since 2.4), computed by the layout
+ * from real data; every place that draws the item draws the count.
  */
 export function AppShell({
   viewer,
   logoutItem,
   logoutSheetItem,
+  badges = {},
   children,
 }: {
   viewer: ShellViewer;
   logoutItem?: ReactNode;
   logoutSheetItem?: ReactNode;
+  badges?: NavBadges;
   children: ReactNode;
 }) {
-  const items = navFor(viewer.role);
+  const items = withBadges(navFor(viewer.role), badges);
   const home = homeFor(viewer.role);
-  const { primary, more } = mobileNavFor(viewer.role);
+  const mobile = mobileNavFor(viewer.role);
+  const primary = withBadges(mobile.primary, badges);
+  const more = withBadges(mobile.more, badges);
 
   return (
     <div

@@ -65,57 +65,138 @@ export function eventActor(actorId: string | null, memberId: string): EventActor
 }
 
 /**
+ * Whose eyes the history is read through. The member reads their own ("You chose leave", "The
+ * Owner's reason: …"); the Owner reads someone else's in the same words turned around ("Asha
+ * chose leave", "Your reason: …"), so there is one vocabulary, not two (2.4).
+ */
+export type Viewpoint = { kind: "self" } | { kind: "owner"; name: string };
+export const SELF: Viewpoint = { kind: "self" };
+
+type Words = {
+  /** The person the day belongs to, as a sentence subject: "You" / "Asha". */
+  who: string;
+  /** Their pronoun in "they're working": "you're" / "they're". */
+  theyAre: string;
+  /** "your" / "their". */
+  their: string;
+  /** Prefix of the person's own note. */
+  theirNote: string;
+  /** The Owner, as a sentence subject: "The Owner" / "You". */
+  owner: string;
+  /** Prefix of the Owner's reason. */
+  ownerReason: string;
+  waiting: string;
+  changed: string;
+  leaveApproved: string;
+};
+
+function words(viewpoint: Viewpoint): Words {
+  if (viewpoint.kind === "self") {
+    return {
+      who: "You",
+      theyAre: "you're",
+      their: "your",
+      theirNote: "Your note",
+      owner: "The Owner",
+      ownerReason: "The Owner's reason",
+      waiting: "Waiting for the Owner",
+      changed: "Changed by the Owner",
+      leaveApproved: "Your leave was approved",
+    };
+  }
+  const first = firstName(viewpoint.name);
+  return {
+    who: first,
+    theyAre: "they're",
+    their: "their",
+    theirNote: `${first}'s note`,
+    owner: "You",
+    ownerReason: "Your reason",
+    waiting: "Waiting for you",
+    changed: "Changed by you",
+    leaveApproved: "Leave approved",
+  };
+}
+
+/** "Asha" from "Asha Rao": what the Owner's screens call a person in a sentence. */
+export function firstName(name: string): string {
+  return name.trim().split(/\s+/)[0] || name;
+}
+
+/**
  * One line of a day's history, **in the member's words, not the database's** (owner decision
  * 2026-09-24): a system correction reads "Changed to leave: your leave request was approved",
  * never "corrected by system". `note` is the reason that came with it, when there was one.
  */
-export function describeEvent(event: HistoryEvent): { text: string; note: string | null } {
+export function describeEvent(
+  event: HistoryEvent,
+  viewpoint: Viewpoint = SELF,
+): { text: string; note: string | null } {
+  const w = words(viewpoint);
   const to = event.toStatus;
   switch (event.action) {
     case "submitted":
       return {
         text:
           event.fromStatus !== null && to === "present"
-            ? "You said you're working on a day of approved leave"
+            ? `${w.who} said ${w.theyAre} working on a day of approved leave`
             : to
-              ? `You chose ${lower(to)}`
-              : "You chose",
-        note: event.reason ? `Your note: ${event.reason}` : null,
+              ? `${w.who} chose ${lower(to)}`
+              : `${w.who} chose`,
+        note: event.reason ? `${w.theirNote}: ${event.reason}` : null,
       };
     case "approved":
-      return { text: to ? `The Owner approved ${lower(to)}` : "The Owner approved it", note: null };
+      return {
+        text: to ? `${w.owner} approved ${lower(to)}` : `${w.owner} approved it`,
+        note: null,
+      };
     case "corrected":
       if (event.actor === "system") {
         if (event.reason === LEAVE_APPROVED && to) {
-          return { text: `Changed to ${lower(to)}: your leave request was approved`, note: null };
+          return {
+            text: `Changed to ${lower(to)}: ${w.their} leave request was approved`,
+            note: null,
+          };
         }
         if (event.reason === LEAVE_CANCELLED || to === null) {
           return {
-            text: "Your leave was cancelled, so the day asked for a choice again",
+            text: `${capitalise(w.their)} leave was cancelled, so the day asked for a choice again`,
             note: null,
           };
         }
         return { text: `Changed to ${lower(to)}`, note: event.reason };
       }
       return {
-        text: to ? `The Owner changed it to ${lower(to)}` : "The Owner changed it",
-        note: event.reason ? `The Owner's reason: ${event.reason}` : null,
+        text: to ? `${w.owner} changed it to ${lower(to)}` : `${w.owner} changed it`,
+        note: event.reason ? `${w.ownerReason}: ${event.reason}` : null,
       };
     case "derived_from_leave":
       return {
-        text: to ? `${STATUS_LABELS[to]} from your approved leave` : "From your approved leave",
+        text: to
+          ? `${STATUS_LABELS[to]} from ${w.their} approved leave`
+          : `From ${w.their} approved leave`,
         note: null,
       };
     case "proposed_absent":
-      return { text: "No attendance was chosen, so absent was proposed for the Owner", note: null };
+      return {
+        text:
+          viewpoint.kind === "self"
+            ? "No attendance was chosen, so absent was proposed for the Owner"
+            : "No attendance was chosen, so absent was proposed",
+        note: null,
+      };
     case "logout":
       return { text: "Logged out", note: null };
     case "overtime_flagged":
       return {
-        text: "You flagged overtime",
-        note: event.reason ? `Your note: ${event.reason}` : null,
+        text: `${w.who} flagged overtime`,
+        note: event.reason ? `${w.theirNote}: ${event.reason}` : null,
       };
   }
+}
+
+function capitalise(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 export type HistoryDaySummary = {
@@ -129,7 +210,11 @@ export type HistoryDaySummary = {
   flags: string[];
 };
 
-export function describeHistoryDay(day: HistoryDay): HistoryDaySummary {
+export function describeHistoryDay(
+  day: HistoryDay,
+  viewpoint: Viewpoint = SELF,
+): HistoryDaySummary {
+  const w = words(viewpoint);
   const flags: string[] = [];
   const worked = (day.finalStatus ?? day.submittedChoice) === "present";
   if (day.isDayOff && worked) flags.push("Worked on a day off");
@@ -144,17 +229,13 @@ export function describeHistoryDay(day: HistoryDay): HistoryDaySummary {
     const status = day.submittedChoice
       ? STATUS_LABELS[day.submittedChoice]
       : `${STATUS_LABELS.absent} (proposed)`;
-    return { status, standing: "Waiting for the Owner", dotStatus: day.state, flags };
+    return { status, standing: w.waiting, dotStatus: day.state, flags };
   }
 
   const status = day.finalStatus ? STATUS_LABELS[day.finalStatus] : "Recorded";
   const last = [...day.events].reverse().find((event) => event.action === "corrected");
   const standing =
-    day.state === "approved"
-      ? "Approved"
-      : last?.actor === "system"
-        ? "Your leave was approved"
-        : "Changed by the Owner";
+    day.state === "approved" ? "Approved" : last?.actor === "system" ? w.leaveApproved : w.changed;
   return { status, standing, dotStatus: day.finalStatus ?? day.state, flags };
 }
 

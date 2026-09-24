@@ -349,12 +349,25 @@ public.leave_owner_edit(request_id, type, start_date, end_date, reason)
                                 one included), then the same day corrections as leave_decide. 2.2:
                                 an approved gate leave on the new dates is superseded before the
                                 overlap check (app.leave_supersede_gate, as leave_decide). Audit
-                                'superseded' + 'approved'. Notifies the member
+                                'superseded' + 'approved'. Notifies the member. 2.4: returns
+                                (new_id uuid, kept_dates date[]), the new row's id and the dates whose
+                                Owner decision was kept, as leave_decide
 public.leave_owner_cancel(request_id, reason)
                                 attendance.decide, approved only, REASON_REQUIRED: -> cancelled, and
                                 today's untouched derived day returns to awaiting_choice. Notifies
                                 the member
+public.attendance_today()       2.4. attendance.view_all (FORBIDDEN otherwise). Read only, security
+                                definer (it needs app.is_working_day and members without a day row).
+                                One row per active member other than the Owner, for today (IST):
+                                (member_id, full_name, job_title, started boolean: attendance has
+                                begun, i.e. today > the IST date of joined_at; day_id, state,
+                                final_status, submitted_choice, proposed_by_system, first_login_at,
+                                last_logout_at, logout_not_recorded, overtime_flag, is_day_off:
+                                the day row's value, else app.is_working_day(today) is false;
+                                on_leave: approved leave covers today). The Owner's card and people
+                                board (WORKFLOWS §1 "Settled in 2.4") derive their buckets from it
 ```
+**Lock order (2.4, migration `attendance_owner_review`):** every function that writes a member's days or leave (`attendance_submit`, `attendance_decide`, `leave_submit`, `leave_withdraw`, `leave_request_change`, `leave_decide`, `leave_owner_edit`, `leave_owner_cancel`) takes `pg_advisory_xact_lock(hashtext('leave:' || member_id))` **before any row lock**. A function that starts from a row id reads the row's member without a lock, takes the advisory lock, then locks the row and re-checks it. `attendance_touch()` takes its own `touch:` lock first and, **when it has to open today's day** (it derives the day from approved leave), the `leave:` lock next and then looks for the day again (`touch:` → `leave:` → rows). pgTAP `12` asserts each waits on the advisory lock first. **2.5's jobs follow the same order.** Partial index `attendance_days_pending_idx (work_date) where state = 'pending_review'` serves the Approvals list and badge.
 
 ## 4. Clients
 ```

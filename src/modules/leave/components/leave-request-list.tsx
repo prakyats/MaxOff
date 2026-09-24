@@ -5,6 +5,7 @@ import { PlaneIcon } from "lucide-react";
 import { useId, useState } from "react";
 
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
+import { ReasonDialog } from "@/core/ui/composites/reason-dialog";
 import { DataTable, type MobileCard } from "@/core/ui/composites/data-table";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { StatusBadge, StatusDot } from "@/core/ui/composites/status-badge";
@@ -14,6 +15,7 @@ import { Textarea } from "@/core/ui/primitives/textarea";
 import { toastResult } from "@/core/ui/toast";
 
 import { requestLeaveCancellation, withdrawLeave } from "../actions/leave";
+import { ownerCancelLeave } from "../actions/review";
 import {
   LEAVE_ENDED_MESSAGE,
   leaveDates,
@@ -25,15 +27,19 @@ import {
   leaveTitle,
   type OwnLeaveRequest,
 } from "../domain/requests";
+import { firstName, ownerLeaveActions } from "../domain/review";
 import { LEAVE_REASON_MAX_LENGTH } from "../domain/schemas";
 
 import { LeaveFormDialog } from "./leave-form-dialog";
+import { OwnerEditLeaveDialog } from "./owner-edit-leave-dialog";
 
 type DialogState =
   | { kind: "none" }
   | { kind: "change"; request: OwnLeaveRequest }
   | { kind: "cancel"; request: OwnLeaveRequest }
-  | { kind: "withdraw"; request: OwnLeaveRequest };
+  | { kind: "withdraw"; request: OwnLeaveRequest }
+  | { kind: "owner-edit"; request: OwnLeaveRequest }
+  | { kind: "owner-cancel"; request: OwnLeaveRequest };
 
 function RequestState({ request, dot = false }: { request: OwnLeaveRequest; dot?: boolean }) {
   const label = leaveStateLabel(request);
@@ -46,22 +52,55 @@ function RequestState({ request, dot = false }: { request: OwnLeaveRequest; dot?
 }
 
 /**
- * The member's own requests, newest first, one page at a time (the page and its pager are the
- * route's). What each row offers comes from `leaveRequestActions()`, which mirrors the
- * transition functions, so nothing here is refused by the database for a reason the screen
- * could have known.
+ * One person's requests, newest first, one page at a time (the page and its pager are the
+ * route's). The member sees their own, and what each row offers comes from
+ * `leaveRequestActions()`, which mirrors the transition functions, so nothing here is refused by
+ * the database for a reason the screen could have known. The Owner (`owner`, task 2.4) sees
+ * someone else's, with Edit and Cancel on approved leave (`ownerLeaveActions()`, mirroring
+ * `leave_owner_edit` / `leave_owner_cancel`).
  */
 export function LeaveRequestList({
   requests,
   today,
+  owner,
 }: {
   requests: OwnLeaveRequest[];
   today: string;
+  /** Set when the Owner reads this person's requests: their name, for the wording. */
+  owner?: { name: string };
 }) {
   const [dialog, setDialog] = useState<DialogState>({ kind: "none" });
   const close = () => setDialog({ kind: "none" });
 
+  function ownerButtons(request: OwnLeaveRequest, size: "sm" | "default") {
+    const actions = ownerLeaveActions(request);
+    if (!actions.edit && !actions.cancel) return null;
+    return (
+      <>
+        {actions.edit ? (
+          <Button
+            variant="outline"
+            size={size}
+            onClick={() => setDialog({ kind: "owner-edit", request })}
+          >
+            Edit
+          </Button>
+        ) : null}
+        {actions.cancel ? (
+          <Button
+            variant="outline"
+            size={size}
+            onClick={() => setDialog({ kind: "owner-cancel", request })}
+          >
+            Cancel leave
+          </Button>
+        ) : null}
+      </>
+    );
+  }
+
   function actionButtons(request: OwnLeaveRequest, layout: "row" | "sheet") {
+    if (owner) return ownerButtons(request, layout === "row" ? "sm" : "default");
     const actions = leaveRequestActions(request, today);
     if (!actions.withdraw && !actions.change && !actions.cancel) return null;
     const size = layout === "row" ? "sm" : "default";
@@ -100,7 +139,7 @@ export function LeaveRequestList({
 
   function details(request: OwnLeaveRequest) {
     const kind = leaveKind(request);
-    const note = leaveDecisionNote(request);
+    const note = leaveDecisionNote(request, owner !== undefined);
     return (
       <dl className="flex flex-col gap-3">
         <div className="flex justify-between gap-4">
@@ -121,7 +160,7 @@ export function LeaveRequestList({
         ) : null}
         {request.reason ? (
           <div className="flex flex-col gap-1">
-            <dt className="text-muted-foreground">Your reason</dt>
+            <dt className="text-muted-foreground">{owner ? "Their reason" : "Your reason"}</dt>
             <dd className="break-words">{request.reason}</dd>
           </div>
         ) : null}
@@ -134,9 +173,13 @@ export function LeaveRequestList({
           </div>
         ) : null}
         {request.hasOpenChange ? (
-          <p className="text-muted-foreground">A change to this leave is waiting for the Owner.</p>
+          <p className="text-muted-foreground">
+            {owner
+              ? "A change to this leave is waiting for you in Approvals."
+              : "A change to this leave is waiting for the Owner."}
+          </p>
         ) : null}
-        {leaveHasEnded(request, today) ? (
+        {!owner && leaveHasEnded(request, today) ? (
           <p className="text-muted-foreground">{LEAVE_ENDED_MESSAGE}</p>
         ) : null}
       </dl>
@@ -174,7 +217,7 @@ export function LeaveRequestList({
       enableSorting: false,
       size: 140,
       cell: ({ row }) => {
-        const note = leaveDecisionNote(row.original);
+        const note = leaveDecisionNote(row.original, owner !== undefined);
         return (
           <div className="flex flex-col items-start gap-1">
             <RequestState request={row.original} />
@@ -190,7 +233,7 @@ export function LeaveRequestList({
       header: () => <span className="sr-only">Actions</span>,
       enableSorting: false,
       cell: ({ row }) =>
-        leaveHasEnded(row.original, today) ? (
+        !owner && leaveHasEnded(row.original, today) ? (
           <p className="text-muted-foreground text-right text-xs">{LEAVE_ENDED_MESSAGE}</p>
         ) : (
           <div className="flex justify-end gap-2">{actionButtons(row.original, "row")}</div>
@@ -213,16 +256,24 @@ export function LeaveRequestList({
         columns={columns}
         data={requests}
         getRowId={(request) => request.id}
-        caption="Your leave requests"
+        caption={owner ? `${owner.name}'s leave requests` : "Your leave requests"}
         pageSize={0}
         mobile={mobile}
         mobilePageSize={requests.length || 1}
         emptyState={
-          <EmptyState
-            icon={PlaneIcon}
-            title="No leave requests yet"
-            description="Request a day, a range or a half day. The Owner approves it, and you can change or cancel it later."
-          />
+          owner ? (
+            <EmptyState
+              icon={PlaneIcon}
+              title="No leave requests yet"
+              description={`${firstName(owner.name)} has not asked for leave.`}
+            />
+          ) : (
+            <EmptyState
+              icon={PlaneIcon}
+              title="No leave requests yet"
+              description="Request a day, a range or a half day. The Owner approves it, and you can change or cancel it later."
+            />
+          )
         }
       />
 
@@ -236,6 +287,37 @@ export function LeaveRequestList({
       ) : null}
       {dialog.kind === "cancel" ? (
         <CancelLeaveDialog key={dialog.request.id} request={dialog.request} onClose={close} />
+      ) : null}
+      {dialog.kind === "owner-edit" && owner ? (
+        <OwnerEditLeaveDialog
+          key={dialog.request.id}
+          request={dialog.request}
+          memberName={owner.name}
+          onClose={close}
+        />
+      ) : null}
+      {owner ? (
+        <ReasonDialog
+          open={dialog.kind === "owner-cancel"}
+          onOpenChange={(open) => (open ? undefined : close())}
+          title="Cancel this leave?"
+          description={
+            dialog.kind === "owner-cancel"
+              ? `${leaveTitle(dialog.request)} on ${leaveDates(dialog.request.startDate, dialog.request.endDate)}. ${owner.name} will see this reason.`
+              : undefined
+          }
+          label="Reason"
+          placeholder={`${owner.name} will see this reason.`}
+          submitLabel="Cancel leave"
+          cancelLabel="Keep it"
+          destructive
+          onSubmit={async (reason) => {
+            if (dialog.kind !== "owner-cancel") return;
+            return toastResult(await ownerCancelLeave({ requestId: dialog.request.id, reason }), {
+              success: "Leave cancelled",
+            });
+          }}
+        />
       ) : null}
       {dialog.kind === "withdraw" ? (
         <ConfirmDialog

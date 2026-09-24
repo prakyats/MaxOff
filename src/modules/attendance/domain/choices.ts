@@ -20,6 +20,15 @@ export const CHOICE_COPY: Record<AttendanceChoice, { label: string; hint: string
   comp_leave: { label: "Comp leave", hint: "A day off in return for extra work." },
 };
 
+/** What the Owner can set a day to, in the order the correction dialog lists them. */
+export const DAY_STATUSES = [
+  "present",
+  "absent",
+  "leave",
+  "half_day",
+  "comp_leave",
+] as const satisfies readonly DayStatus[];
+
 export const STATUS_LABELS: Record<DayStatus, string> = {
   present: "Present",
   leave: "Leave",

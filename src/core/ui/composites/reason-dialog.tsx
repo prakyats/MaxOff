@@ -53,7 +53,8 @@ export function ReasonDialog({
   submitLabel?: string;
   cancelLabel?: string;
   destructive?: boolean;
-  onSubmit: (reason: string) => void | Promise<void>;
+  /** Resolve `false` to keep the dialog open with the reason (the save failed). */
+  onSubmit: (reason: string) => void | boolean | Promise<void | boolean>;
 }) {
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -76,7 +77,8 @@ export function ReasonDialog({
     setError(problem);
     if (problem) return;
     startTransition(async () => {
-      await onSubmit(reason.trim());
+      // `false` means it failed (the caller has said why): keep the dialog and what was typed.
+      if ((await onSubmit(reason.trim())) === false) return;
       setReason("");
       onOpenChange(false);
     });

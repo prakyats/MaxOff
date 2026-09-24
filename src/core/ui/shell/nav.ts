@@ -29,10 +29,11 @@ export type NavItem = {
   /** The permission the destination will check. `null` = every signed-in member. */
   permission: PermissionKey | null;
   /**
-   * How many things there need the viewer, shown as a count on the icon. Nothing sets it yet:
-   * **2.4** sets it on Approvals (pending attendance + leave) and **5.1** on Alerts (unread
-   * notifications). The Owner's whole loop is "what needs me", and a bar that carries the count
-   * answers it without a tap. Counts are per viewer and never money (ADR-0007).
+   * How many things there need the viewer, shown as a count on the icon. Set from real data by
+   * the layout through `withBadges()`: **2.4** on Approvals (attendance days + leave requests
+   * waiting for the Owner), **5.1** on Alerts (unread notifications). The Owner's whole loop is
+   * "what needs me", and a bar that carries the count answers it without a tap. Counts are per
+   * viewer and never money (ADR-0007).
    */
   badge?: number;
 };
@@ -44,6 +45,17 @@ export type NavItem = {
  */
 export function totalBadge(items: readonly NavItem[]): number {
   return items.reduce((total, item) => total + Math.max(0, item.badge ?? 0), 0);
+}
+
+/** Counts per nav key (`approvals`, later `alerts`), computed by the layout for this viewer. */
+export type NavBadges = Readonly<Partial<Record<string, number>>>;
+
+/** The items with their counts; a zero or missing count leaves the item without a badge. */
+export function withBadges(items: readonly NavItem[], badges: NavBadges): NavItem[] {
+  return items.map((item) => {
+    const count = badges[item.key] ?? 0;
+    return count > 0 ? { ...item, badge: count } : item;
+  });
 }
 
 /** The home route for each role (PRODUCT §4.7). */

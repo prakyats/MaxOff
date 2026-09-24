@@ -1,9 +1,9 @@
 import { ChevronLeftIcon } from "lucide-react";
-import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { cn } from "@/core/lib/utils";
 
+import { BackLink } from "./back-link";
 import { HeaderBell } from "./header-bell";
 import { HelpSheet } from "./help-sheet";
 
@@ -25,7 +25,11 @@ export function PageHeader({
   description,
   /** A short explanation for a phone, where `description` is hidden. Opens a bottom sheet. */
   help,
-  /** Where "up" goes from a sub-page, e.g. Settings → a section. */
+  /**
+   * The parent of a drill-down screen (Settings → a section, People → a person). Every
+   * drill-down screen has one (ARCHITECTURE §14.2 k): `BackLink` goes back when an entry of the
+   * app is beneath, and to this parent with replace when the page was opened directly.
+   */
   back,
   actions,
   className,
@@ -40,15 +44,14 @@ export function PageHeader({
   return (
     <>
       {back ? (
-        <Link
+        <BackLink
           href={back.href}
-          data-slot="page-back"
           // On a phone the chevron lives inside the title bar below; this is the desktop one.
           className="text-muted-foreground hover:text-foreground mb-4 hidden items-center gap-1 text-sm md:inline-flex"
         >
           <ChevronLeftIcon className="size-4" aria-hidden />
           {back.label}
-        </Link>
+        </BackLink>
       ) : null}
 
       <div
@@ -64,13 +67,13 @@ export function PageHeader({
         )}
       >
         {back ? (
-          <Link
+          <BackLink
             href={back.href}
             aria-label={`Back to ${back.label}`}
             className="text-muted-foreground active:bg-muted -ml-1 flex size-11 shrink-0 items-center justify-center rounded-lg md:hidden"
           >
             <ChevronLeftIcon className="size-5" aria-hidden />
-          </Link>
+          </BackLink>
         ) : null}
 
         <div

@@ -143,17 +143,27 @@ export function leaveKind(
  * worth repeating, and a replaced row has none of its own.
  */
 export function leaveDecisionNote(
-  request: Pick<OwnLeaveRequest, "state" | "decisionReason">,
+  request: Pick<OwnLeaveRequest, "state" | "decisionReason"> & { source?: LeaveSource },
+  /** The Owner reading someone else's request (2.4): the same note, turned around. */
+  forOwner = false,
 ): string | null {
   if (!request.decisionReason) return null;
+  const prefix = forOwner ? "Your reason" : "The Owner's reason";
+  // Leave the Owner set (an edit or a correction, 2.4) carries the Owner's reason for setting
+  // it; the edit dialog tells the Owner the person will read it.
+  if (request.state === "approved" && request.source === "owner") {
+    return `${prefix}: ${request.decisionReason}`;
+  }
   // A superseded row keeps the reason of its own approval: the functions that supersede it
   // write none (the Owner's edit reason lives in the audit meta), so repeating it would
   // present an old note as the reason it was replaced.
   if (request.state === "approved" || request.state === "submitted") return null;
   if (request.state === "superseded") return null;
   // `leave_decide` labels an original cancelled at the member's own request this way.
-  if (request.decisionReason === CANCELLATION_APPROVED) return "Cancelled at your request.";
-  return `The Owner's reason: ${request.decisionReason}`;
+  if (request.decisionReason === CANCELLATION_APPROVED) {
+    return forOwner ? "Cancelled at their request." : "Cancelled at your request.";
+  }
+  return `${prefix}: ${request.decisionReason}`;
 }
 
 const CANCELLATION_APPROVED = "cancellation approved";

@@ -18,6 +18,8 @@ const MOBILE_SPECS = /mobile\.spec\.ts$/;
 const DAY_GATE_SPECS = /day-gate\.spec\.ts$/;
 const LEAVE_SPECS = /leave\.spec\.ts$/;
 const BACK_GESTURE_SPECS = /back-gesture\.spec\.ts$/;
+const OWNER_REVIEW_SPECS = /owner-review\.spec\.ts$/;
+const OWNER_BULK_SPECS = /owner-bulk\.spec\.ts$/;
 
 /**
  * Flow tests (ARCHITECTURE §15). `pnpm test:e2e` runs them; CI runs them as their own job.
@@ -60,7 +62,7 @@ export default defineConfig({
       name: "desktop",
       dependencies: ["setup"],
       // The mobile standard is about phone widths; running it at 1280px proves nothing.
-      testIgnore: [PRODUCTION_SPECS, SETUP_SPECS, MOBILE_SPECS],
+      testIgnore: [PRODUCTION_SPECS, SETUP_SPECS, MOBILE_SPECS, OWNER_BULK_SPECS],
       use: { ...devices["Desktop Chrome"] },
     },
     {
@@ -68,7 +70,7 @@ export default defineConfig({
       // phone of the two widths the standard is checked at.
       name: "mobile",
       dependencies: ["setup"],
-      testIgnore: [PRODUCTION_SPECS, SETUP_SPECS],
+      testIgnore: [PRODUCTION_SPECS, SETUP_SPECS, OWNER_BULK_SPECS],
       use: { ...devices["Pixel 5"], viewport: { width: 375, height: 812 } },
     },
     {
@@ -78,11 +80,26 @@ export default defineConfig({
       // (§14.1). The gate is the first screen every Admin and Staff member sees each morning,
       // on a phone more often than not (2.2). Own leave (2.3) runs here as an Admin, so the
       // Admin's way in (the card on /today) is covered at a phone width too. The back-gesture
-      // spec runs here as well: the installed-app rules are checked at both phone widths.
+      // spec runs here as well: the installed-app rules are checked at both phone widths, and so
+      // does the Owner's review (2.4), whose sheets and dialogs each have a back order.
       name: "mobile-lg",
       dependencies: ["setup"],
-      testMatch: [MOBILE_SPECS, DAY_GATE_SPECS, LEAVE_SPECS, BACK_GESTURE_SPECS],
+      testMatch: [
+        MOBILE_SPECS,
+        DAY_GATE_SPECS,
+        LEAVE_SPECS,
+        BACK_GESTURE_SPECS,
+        OWNER_REVIEW_SPECS,
+      ],
       use: { ...devices["Pixel 5"], viewport: { width: 430, height: 932 } },
+    },
+    {
+      // "Approve all" (2.4) acts on every waiting row, other specs' included, so it runs alone,
+      // after every project that creates rows has finished.
+      name: "owner-bulk",
+      dependencies: ["desktop", "mobile", "mobile-lg"],
+      testMatch: OWNER_BULK_SPECS,
+      use: { ...devices["Desktop Chrome"] },
     },
     {
       name: "production",

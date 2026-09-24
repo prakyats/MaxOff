@@ -92,11 +92,13 @@ const HISTORY_COLUMNS =
   "id, work_date, state, submitted_choice, final_status, is_day_off, worked_on_leave, first_login_at, last_logout_at, logout_not_recorded, overtime_flag, overtime_reason, events:attendance_events(id, action, from_status, to_status, reason, actor_id, at)";
 
 /**
- * The member's own days in one IST month, newest first, each with its events in the order
- * they happened (`id`: one transaction shares one `now()`, so `at` cannot order them). A
- * month is at most 31 rows, which is the page.
+ * One member's days in one IST month, newest first, each with its events in the order they
+ * happened (`id`: one transaction shares one `now()`, so `at` cannot order them). A month is at
+ * most 31 rows, which is the page. RLS decides whose: the member's own, or anyone's for
+ * `attendance.view_all` (the Owner's person history, 2.4). Event actors are relative to the
+ * person the days belong to.
  */
-export async function listOwnDays(memberId: string, month: Month): Promise<HistoryDay[]> {
+export async function listDays(memberId: string, month: Month): Promise<HistoryDay[]> {
   const { first, last } = monthRange(month);
   const supabase = await createServerSupabase();
   const { data, error } = await supabase

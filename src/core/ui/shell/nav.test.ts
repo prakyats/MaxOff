@@ -12,6 +12,7 @@ import {
   PROFILE_NAV_ITEM,
   settingsSectionsFor,
   totalBadge,
+  withBadges,
 } from "./nav";
 import { SHELL_ROLES, type ShellRole } from "./viewer";
 
@@ -188,10 +189,24 @@ describe("mobileNavFor", () => {
     expect(totalBadge([{ ...more[0]! }, { ...more[1]!, badge: -4 }])).toBe(0);
   });
 
-  it("no destination ships with a badge: 2.4 and 5.1 set them from real data", () => {
+  it("no destination ships with a badge: the layout sets them from real data (2.4, 5.1)", () => {
     for (const role of SHELL_ROLES) {
       for (const item of navFor(role)) expect(item.badge).toBeUndefined();
     }
+  });
+
+  it("puts a count on exactly the item it names, and nothing for zero", () => {
+    const items = withBadges(navFor("owner"), { approvals: 4 });
+    expect(items.filter((item) => item.badge !== undefined).map((item) => item.key)).toEqual([
+      "approvals",
+    ]);
+    expect(items.find((item) => item.key === "approvals")?.badge).toBe(4);
+    expect(withBadges(navFor("owner"), { approvals: 0 }).some((item) => item.badge)).toBe(false);
+    // The Owner's Approvals is in the bar, so its count shows without opening More.
+    expect(
+      withBadges(mobileNavFor("owner").primary, { approvals: 2 }).map((i) => i.badge),
+    ).toContain(2);
+    expect(totalBadge(withBadges(mobileNavFor("owner").more, { approvals: 2 }))).toBe(0);
   });
 
   it("puts the bell in the title bar for exactly the roles whose bar has no Alerts", () => {

@@ -30,10 +30,11 @@ function toSource(value: string): LeaveSource {
 }
 
 /**
- * One page of the member's own requests, newest first, with the one fact a row cannot see on
- * its own: whether a change or cancellation of it is waiting (it may sit on another page).
+ * One page of one member's requests, newest first, with the one fact a row cannot see on its
+ * own: whether a change or cancellation of it is waiting (it may sit on another page). RLS
+ * decides whose: the member's own, or anyone's for `attendance.view_all` (the Owner, 2.4).
  */
-export async function listOwnRequests(
+export async function listRequests(
   memberId: string,
   page: number,
 ): Promise<{ requests: OwnLeaveRequest[]; total: number }> {

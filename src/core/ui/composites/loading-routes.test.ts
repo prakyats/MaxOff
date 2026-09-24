@@ -79,10 +79,17 @@ describe("loading.tsx coverage", () => {
     expect(readFileSync(path.join(appDir, "leave/attendance/loading.tsx"), "utf8")).toContain(
       "loading-leave-pager",
     );
-    // Approvals is a grouped list with two actions per row; calendar draws its own day strip.
+    // Approvals is a grouped list with two actions per row (2.4: the Owner's groups are traced
+    // by ApprovalGroupSkeleton); calendar draws its own day strip.
     expect(shapeOf("approvals")).toBe("list");
-    expect(readFileSync(path.join(appDir, "approvals/loading.tsx"), "utf8")).toContain(
-      "actions={2}",
+    const approvals = readFileSync(path.join(appDir, "approvals/loading.tsx"), "utf8");
+    expect(approvals).toContain("actions={2}");
+    expect(approvals).toContain("ApprovalGroupSkeleton");
+    // A person's history (2.4) mirrors /leave: requests and the month, under a painted header.
+    expect(shapeOf("people/[id]")).toBe("cards");
+    expect(shapeOf("people/[id]/attendance")).toBe("cards");
+    expect(readFileSync(path.join(appDir, "people/[id]/attendance/loading.tsx"), "utf8")).toContain(
+      "loading-leave-pager",
     );
     expect(readFileSync(path.join(appDir, "calendar/loading.tsx"), "utf8")).toContain(
       "loading-day-strip",

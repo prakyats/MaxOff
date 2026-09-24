@@ -5,7 +5,7 @@ import { addISTDays, todayIST, toISTDate } from "@/core/time";
 import {
   AttendanceHistory,
   historyMonth,
-  listOwnDays,
+  listDays,
   monthLabel,
   monthOf,
 } from "@/modules/attendance";
@@ -34,7 +34,7 @@ export default async function LeaveAttendancePage({
     first: monthOf(firstDay),
     current: monthOf(today),
   });
-  const days = await listOwnDays(viewer.id, month);
+  const days = await listDays(viewer.id, month);
   const href = (m: string) => `/leave/attendance?month=${m}`;
 
   return (

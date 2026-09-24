@@ -4,8 +4,11 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { MoreHorizontalIcon, UsersIcon } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 
+import Link from "next/link";
+
 import { formatIST } from "@/core/time";
 import { DataTable, type MobileCard } from "@/core/ui/composites/data-table";
+import { OverlayLink } from "@/core/ui/composites/overlay-link";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { StatusBadge, StatusDot } from "@/core/ui/composites/status-badge";
 import { Button } from "@/core/ui/primitives/button";
@@ -27,6 +30,11 @@ import { EditMemberDialog } from "./edit-member-dialog";
 import { InviteLinkDialog, type InviteLinkState } from "./invite-link-dialog";
 import type { JobTitleOption } from "./job-title-select";
 
+/** Whoever has attendance (2.4): not the Owner, and not someone who never joined. */
+function opensHistory(canViewAttendance: boolean, member: TeamMember): boolean {
+  return canViewAttendance && member.role !== "owner" && member.joinedAt !== null;
+}
+
 type DialogState =
   | { kind: "none" }
   | { kind: "edit"; member: TeamMember }
@@ -44,9 +52,11 @@ export function TeamTable({
   jobTitles,
 }: {
   members: TeamMember[];
-  viewer: { id: string; canManage: boolean };
+  /** `canViewAttendance` (2.4): each person's name leads to their attendance and leave. */
+  viewer: { id: string; canManage: boolean; canViewAttendance?: boolean };
   jobTitles: readonly JobTitleOption[];
 }) {
+  const canViewAttendance = viewer.canViewAttendance === true;
   const [dialog, setDialog] = useState<DialogState>({ kind: "none" });
   const [, startTransition] = useTransition();
 
@@ -86,7 +96,16 @@ export function TeamTable({
         header: "Name",
         cell: ({ row }) => (
           <div className="min-w-0">
-            <p className="truncate font-medium">{row.original.fullName}</p>
+            {opensHistory(canViewAttendance, row.original) ? (
+              <Link
+                href={`/people/${row.original.id}`}
+                className="block truncate font-medium underline-offset-4 hover:underline"
+              >
+                {row.original.fullName}
+              </Link>
+            ) : (
+              <p className="truncate font-medium">{row.original.fullName}</p>
+            )}
             <p className="text-muted-foreground truncate text-xs">
               {row.original.jobTitle ?? "No job title"}
             </p>
@@ -192,7 +211,7 @@ export function TeamTable({
     return base;
     // `issueLink` and `reactivate` only close over stable setters.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewer.id, viewer.canManage]);
+  }, [viewer.id, viewer.canManage, canViewAttendance]);
 
   const close = () => setDialog({ kind: "none" });
 
@@ -239,6 +258,15 @@ export function TeamTable({
             <dt className="text-muted-foreground">{member.joinedAt ? "Joined" : "Invited"}</dt>
             <dd className="text-right">{formatIST(at, "d MMM yyyy")}</dd>
           </div>
+          {opensHistory(canViewAttendance, member) ? (
+            // In the sheet body, not its actions: those close the sheet by state, and the link
+            // backs the sheet's entry out itself before opening the person (§14.2 a, b).
+            <div className="pt-1">
+              <Button variant="outline" className="w-full" asChild>
+                <OverlayLink href={`/people/${member.id}`}>Attendance &amp; leave</OverlayLink>
+              </Button>
+            </div>
+          ) : null}
         </dl>
       );
     },

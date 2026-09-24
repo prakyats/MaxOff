@@ -169,6 +169,21 @@ export async function setPasswordFor(userId: string, password: string): Promise<
   await serviceAuth(`users/${userId}`, { method: "PUT", body: JSON.stringify({ password }) });
 }
 
+/**
+ * Inserts one row through `serviceRest`, for a state no flow can reach any more (e.g. a request
+ * that clashes with leave approved since, 2.4). Returns the row.
+ */
+export async function serviceInsert<T>(table: string, row: Record<string, unknown>): Promise<T> {
+  const response = await serviceRest(table, {
+    method: "POST",
+    headers: { "content-type": "application/json", prefer: "return=representation" },
+    body: JSON.stringify(row),
+  });
+  const body = (await response.json()) as T[];
+  expect(response.ok, `insert into ${table}: ${JSON.stringify(body)}`).toBe(true);
+  return body[0] as T;
+}
+
 /** Reads rows through `serviceRest` (a PostgREST query string, e.g. `leave_requests?id=eq.…`). */
 export async function serviceSelect<T>(path: string): Promise<T[]> {
   return (await (await serviceRest(path)).json()) as T[];

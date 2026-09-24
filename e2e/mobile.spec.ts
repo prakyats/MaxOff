@@ -249,11 +249,15 @@ test.describe("More, for Owner and Admin", () => {
         await expect(page.locator('[data-slot="bottom-nav"]')).toBeVisible();
       });
 
-      test("no destination carries a count yet (2.4 and 5.1 set them)", async ({ page }) => {
+      test("only Approvals can carry a count today (2.4; Alerts join in 5.1)", async ({ page }) => {
         await page.goto("/today");
-        await expect(page.locator('[data-slot="bottom-nav"] [data-slot="nav-badge"]')).toHaveCount(
-          0,
+        // Whether a count shows depends on what other specs left waiting; where it shows does not.
+        const badges = page.locator('[data-slot="bottom-nav"] [data-slot="nav-badge"]');
+        const onApprovals = page.locator(
+          '[data-slot="bottom-nav"] [data-nav="approvals"] [data-slot="nav-badge"]',
         );
+        await expect(badges).toHaveCount(await onApprovals.count());
+        expect(await badges.count()).toBeLessThanOrEqual(1);
       });
 
       test("More reads as current while one of its screens is open", async ({ page }) => {
