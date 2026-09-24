@@ -309,7 +309,10 @@ public.leave_withdraw(request_id)
                                 own row, submitted -> withdrawn. Never a source = attendance request:
                                 the attendance day is the single door for those. Audit 'withdrawn'
 public.leave_request_change(request_id, type, start_date, end_date, reason, cancel)
-                                own approved request -> a new submitted row with supersedes_id.
+                                own approved request that has not ended (2.3: end_date < today IST
+                                -> INVALID_STATE "This leave has ended. Ask the Owner to correct it.";
+                                ongoing leave stays changeable; past leave is the Owner's, through
+                                the attendance day) -> a new submitted row with supersedes_id.
                                 cancel = true copies type and dates and sets requests_cancellation;
                                 otherwise the new dates are validated as in leave_submit (start may
                                 stay the original's, end >= today) and checked for overlap against

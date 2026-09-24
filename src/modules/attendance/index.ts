@@ -9,3 +9,6 @@ export {
   TodayAttendanceCardSkeleton,
 } from "./components/today-attendance-card";
 export { dayLabel } from "./domain/today";
+export { AttendanceHistory } from "./components/attendance-history";
+export { listOwnDays } from "./data/attendance";
+export { historyMonth, monthLabel, monthOf } from "./domain/months";

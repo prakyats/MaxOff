@@ -103,6 +103,56 @@ export async function rpcAs<T = unknown>(
   return body as T;
 }
 
+/**
+ * PostgREST as the service role, **for the local test database only**: it bypasses RLS and the
+ * transition functions, so it refuses any URL that is not this machine's stack. For clearing a
+ * spec's own fixture person and for reading ids a spec needs, never for the flow under test.
+ */
+async function serviceRest(path: string, init: RequestInit = {}): Promise<Response> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  const key = process.env.SUPABASE_SECRET_KEY ?? "";
+  expect(new URL(url).hostname, "service-role cleanup runs on the local stack only").toMatch(
+    /^(127\.0\.0\.1|localhost)$/,
+  );
+  expect(key, "SUPABASE_SECRET_KEY is set (playwright.config loads .env.local)").toBeTruthy();
+  const response = await fetch(`${url}/rest/v1/${path}`, {
+    ...init,
+    headers: {
+      apikey: key,
+      // A legacy service_role JWT also needs the bearer header; an sb_secret key does not.
+      ...(key.startsWith("eyJ") ? { authorization: `Bearer ${key}` } : {}),
+      "content-type": "application/json",
+      ...init.headers,
+    },
+  });
+  expect(response.ok, `${init.method ?? "GET"} ${path}: ${response.status}`).toBe(true);
+  return response;
+}
+
+/** Reads rows through `serviceRest` (a PostgREST query string, e.g. `leave_requests?id=eq.…`). */
+export async function serviceSelect<T>(path: string): Promise<T[]> {
+  return (await (await serviceRest(path)).json()) as T[];
+}
+
+/**
+ * Deletes one fixture person's attendance days, their events and every leave request, so a
+ * spec that owns that person can run again without `pnpm db:reset` (2.3). The audit trigger
+ * still logs the deletes; nothing else refers to these rows.
+ */
+export async function resetAttendanceAndLeave(memberId: string): Promise<void> {
+  const days = await serviceSelect<{ id: string }>(
+    `attendance_days?member_id=eq.${memberId}&select=id`,
+  );
+  if (days.length > 0) {
+    const ids = days.map((day) => day.id).join(",");
+    await serviceRest(`attendance_events?attendance_day_id=in.(${ids})`, { method: "DELETE" });
+  }
+  await serviceRest(`attendance_days?member_id=eq.${memberId}`, { method: "DELETE" });
+  // One statement: a change's `supersedes_id` points at its original, and Postgres checks
+  // the foreign key at the end of the statement.
+  await serviceRest(`leave_requests?member_id=eq.${memberId}`, { method: "DELETE" });
+}
+
 /** The local stack's Mailpit (config.toml `[local_smtp]`, port 54324). */
 const MAILPIT_URL = process.env.MAILPIT_URL ?? "http://127.0.0.1:54324";
 

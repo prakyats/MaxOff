@@ -1,8 +1,10 @@
-import { PartyPopperIcon } from "lucide-react";
+import { ChevronRightIcon, PartyPopperIcon } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { LogoutButton } from "@/core/auth/components";
 import { requireMember } from "@/core/auth/server";
+import { can } from "@/core/permissions";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { Avatar, AvatarFallback } from "@/core/ui/primitives/avatar";
 import {
@@ -20,7 +22,8 @@ import { getOwnMember, ProfileForm } from "@/modules/team";
 export const metadata: Metadata = { title: "Me" };
 
 /**
- * Profile, appearance and log out (PRODUCT §4.7: the Staff "Me" tab). An accepted invite
+ * Profile, own attendance and leave (2.3), appearance and log out (PRODUCT §4.7: the Staff
+ * "Me" tab). An accepted invite
  * lands here with `?welcome=1` (WORKFLOWS §1a) to check the name and add a phone. Avatar
  * upload joins in 3.3.
  */
@@ -88,6 +91,25 @@ export default async function MePage({
             <ProfileForm fullName={own?.fullName ?? viewer.name} phone={own?.phone ?? null} />
           </CardContent>
         </Card>
+
+        {can(viewer.role, "attendance.self") ? (
+          <Card className="py-0">
+            {/* Own leave and history (2.3): personal, so it lives here, not in the nav. */}
+            <Link
+              href="/leave"
+              data-slot="me-leave-link"
+              className="active:bg-muted/60 focus-visible:ring-ring flex min-h-14 items-center justify-between gap-4 rounded-xl px-4 py-3 outline-none focus-visible:ring-2"
+            >
+              <div>
+                <p className="text-sm font-medium">Attendance &amp; leave</p>
+                <p className="text-muted-foreground text-sm">
+                  Request leave and see how each day was recorded.
+                </p>
+              </div>
+              <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
+            </Link>
+          </Card>
+        ) : null}
 
         <Card>
           <CardContent className="flex flex-col gap-4">

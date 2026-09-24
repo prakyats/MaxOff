@@ -3,6 +3,8 @@ import "server-only";
 import { createServerSupabase } from "@/core/db/server";
 
 import type { AttendanceChoice } from "../domain/choices";
+import { eventActor, type HistoryDay, isEventAction } from "../domain/history";
+import { type Month, monthRange } from "../domain/months";
 import type { TodayDay } from "../domain/today";
 
 /**
@@ -69,4 +71,55 @@ export async function rpcFlagOvertime(dayId: string, reason: string): Promise<vo
   const supabase = await createServerSupabase();
   const { error } = await supabase.rpc("attendance_flag_overtime", { day_id: dayId, reason });
   if (error) throw error;
+}
+
+const HISTORY_COLUMNS =
+  "id, work_date, state, submitted_choice, final_status, is_day_off, worked_on_leave, first_login_at, last_logout_at, logout_not_recorded, overtime_flag, overtime_reason, events:attendance_events(id, action, from_status, to_status, reason, actor_id, at)";
+
+/**
+ * The member's own days in one IST month, newest first, each with its events in the order
+ * they happened (`id`: one transaction shares one `now()`, so `at` cannot order them). A
+ * month is at most 31 rows, which is the page.
+ */
+export async function listOwnDays(memberId: string, month: Month): Promise<HistoryDay[]> {
+  const { first, last } = monthRange(month);
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase
+    .from("attendance_days")
+    .select(HISTORY_COLUMNS)
+    .eq("member_id", memberId)
+    .gte("work_date", first)
+    .lte("work_date", last)
+    .order("work_date", { ascending: false })
+    .order("id", { referencedTable: "attendance_events", ascending: true });
+  if (error) throw error;
+  return data.map((row) => ({
+    id: row.id,
+    workDate: row.work_date,
+    state: row.state,
+    submittedChoice: row.submitted_choice,
+    finalStatus: row.final_status,
+    isDayOff: row.is_day_off,
+    workedOnLeave: row.worked_on_leave,
+    firstLoginAt: row.first_login_at,
+    lastLogoutAt: row.last_logout_at,
+    logoutNotRecorded: row.logout_not_recorded,
+    overtimeFlag: row.overtime_flag,
+    overtimeReason: row.overtime_reason,
+    events: row.events.flatMap((event) =>
+      isEventAction(event.action)
+        ? [
+            {
+              id: event.id,
+              action: event.action,
+              fromStatus: event.from_status,
+              toStatus: event.to_status,
+              reason: event.reason,
+              actor: eventActor(event.actor_id, memberId),
+              at: event.at,
+            },
+          ]
+        : [],
+    ),
+  }));
 }

@@ -38,7 +38,12 @@ insert into seed_users values
   ('20000000-0000-4000-8000-000000000009', 'gate-staff-mobile-lg@maxoff.local', 'gate-local-password', 'Test Gate Staff (mobile-lg)', null, 'staff', 'active'),
   ('20000000-0000-4000-8000-000000000010', 'gate-admin-mobile-lg@maxoff.local', 'gate-local-password', 'Test Gate Admin (mobile-lg)', null, 'admin', 'active'),
   ('20000000-0000-4000-8000-000000000011', 'gate-leave-mobile-lg@maxoff.local', 'gate-local-password', 'Test On Leave (mobile-lg)', null, 'staff', 'active'),
-  ('20000000-0000-4000-8000-000000000012', 'gate-half-mobile-lg@maxoff.local', 'gate-local-password', 'Test Half Day (mobile-lg)', null, 'staff', 'active');
+  ('20000000-0000-4000-8000-000000000012', 'gate-half-mobile-lg@maxoff.local', 'gate-local-password', 'Test Half Day (mobile-lg)', null, 'staff', 'active'),
+  -- 2.3: e2e/leave.spec.ts, one per Playwright project. The spec clears this person's leave
+  -- and attendance itself at the start, so it re-runs without db:reset.
+  ('20000000-0000-4000-8000-000000000013', 'leave-self-desktop@maxoff.local', 'leave-local-password', 'Test Leave (desktop)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000014', 'leave-self-mobile@maxoff.local', 'leave-local-password', 'Test Leave (mobile)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000015', 'leave-self-mobile-lg@maxoff.local', 'leave-local-password', 'Test Leave (mobile-lg)', null, 'admin', 'active');
 
 -- What GoTrue writes for a confirmed email + password user (`auth.users` + one identity).
 insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,

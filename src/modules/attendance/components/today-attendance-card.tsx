@@ -99,6 +99,10 @@ export async function TodayAttendanceCard({
         ) : null}
       </CardContent>
       <CardFooter className="flex flex-col gap-2 md:flex-row md:justify-end">
+        {/* The way to one's own leave and history (2.3): personal, so no nav entry. */}
+        <Button variant="outline" asChild className="w-full md:w-auto">
+          <Link href="/leave">Attendance &amp; leave</Link>
+        </Button>
         {day && !day.overtimeFlag ? <OvertimeButton dayId={day.id} /> : null}
         <div className="w-full md:w-auto [&>button]:w-full">
           <LogoutButton />
@@ -108,7 +112,10 @@ export async function TodayAttendanceCard({
   );
 }
 
-/** The card's tracing for `loading.tsx` (ARCHITECTURE §14.1): title, date, status line, buttons. */
+/**
+ * The card's tracing for `loading.tsx` (ARCHITECTURE §14.1): title, date, status line, and the
+ * footer's Attendance & leave, overtime and Log out buttons.
+ */
 export function TodayAttendanceCardSkeleton() {
   return (
     <div
@@ -125,6 +132,7 @@ export function TodayAttendanceCardSkeleton() {
         <Skeleton className="h-5 w-44 rounded-md" />
       </div>
       <div className="flex flex-col gap-2 px-4 md:flex-row md:justify-end">
+        <Skeleton className="h-11 w-full rounded-md md:w-40" />
         <Skeleton className="h-11 w-full rounded-md md:w-32" />
         <Skeleton className="h-11 w-full rounded-md md:w-28" />
       </div>

@@ -64,6 +64,11 @@ describe("loading.tsx coverage", () => {
     expect(shapeOf("settings")).toBe("list");
     expect(shapeOf("notifications")).toBe("list");
     expect(shapeOf("me")).toBe("detail");
+    // Tab links and a pager row above the list, on either tab (2.3).
+    expect(shapeOf("leave")).toBe("cards");
+    expect(readFileSync(path.join(appDir, "leave/loading.tsx"), "utf8")).toContain(
+      "loading-leave-tabs",
+    );
     // Approvals is a grouped list with two actions per row; calendar draws its own day strip.
     expect(shapeOf("approvals")).toBe("list");
     expect(readFileSync(path.join(appDir, "approvals/loading.tsx"), "utf8")).toContain(

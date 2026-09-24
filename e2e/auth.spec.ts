@@ -17,7 +17,9 @@ test.describe("signed out", () => {
     await page.getByLabel("Email").fill(USERS.owner.email);
     await page.getByLabel("Password", { exact: true }).fill(USERS.owner.password);
     await page.getByRole("button", { name: "Sign in" }).click();
-    await expect(page).toHaveURL(/\/people$/);
+    // The first sign-in after boot can take 5-6 s (2.2 cold start): the same allowance as
+    // `signIn()` and the unsafe-next test, not a looser assertion.
+    await expect(page).toHaveURL(/\/people$/, { timeout: 15_000 });
     await expect(page.getByRole("heading", { name: "People", exact: true })).toBeVisible();
   });
 

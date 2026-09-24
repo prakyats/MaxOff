@@ -1,0 +1,89 @@
+import { z } from "zod";
+
+import { LEAVE_TYPES } from "./requests";
+
+export const LEAVE_REASON_MAX_LENGTH = 1000;
+
+const reason = z
+  .string()
+  .trim()
+  .max(LEAVE_REASON_MAX_LENGTH, `Keep it under ${LEAVE_REASON_MAX_LENGTH} characters.`)
+  .optional()
+  .transform((value) => (value ? value : null));
+
+const isoDate = (message: string) => z.iso.date({ error: message });
+
+/**
+ * The date rules of WORKFLOWS §2, as the form can check them before the database does (it
+ * checks them again, and it is the rule): the end is not before the start, a half day is one
+ * date (the form sends no end date for it), a new request starts today or later, and a change
+ * may keep its original start but must end today or later.
+ */
+function leaveDatesSchema(today: string, keepStart: string | null) {
+  return z
+    .object({
+      type: z.enum(LEAVE_TYPES, { error: "Choose the kind of leave." }),
+      startDate: isoDate("Choose the first day."),
+      endDate: isoDate("Choose the last day.").optional(),
+      reason,
+    })
+    .transform((value) => ({
+      ...value,
+      endDate: value.type === "half_day" || !value.endDate ? value.startDate : value.endDate,
+    }))
+    .superRefine((value, ctx) => {
+      if (value.startDate < today && value.startDate !== keepStart) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["startDate"],
+          message: "Leave cannot start in the past.",
+        });
+      }
+      if (value.endDate < value.startDate) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["endDate"],
+          message: "The last day is before the first day.",
+        });
+      } else if (keepStart !== null && value.endDate < today) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["endDate"],
+          message: "The changed leave must end today or later.",
+        });
+      }
+    });
+}
+
+/** A new request (`leave_submit`). `today` is the IST date (`todayIST()`), passed in. */
+export function requestLeaveSchema(today: string) {
+  return leaveDatesSchema(today, null);
+}
+export type RequestLeaveInput = z.input<ReturnType<typeof requestLeaveSchema>>;
+
+/**
+ * A change to approved leave (`leave_request_change`). `originalStart` only lets the form
+ * accept a start that has already passed when it is the original's own; the database checks
+ * it against the real row.
+ */
+export function changeLeaveSchema(today: string, originalStart: string) {
+  return leaveDatesSchema(today, originalStart);
+}
+export type ChangeLeaveInput = z.input<ReturnType<typeof changeLeaveSchema>> & {
+  requestId: string;
+  originalStart: string;
+};
+
+/** The request a change, cancellation or withdrawal refers to. */
+export const requestIdSchema = z.object({
+  requestId: z.uuid(),
+  originalStart: z.iso.date().optional(),
+});
+
+/** Asking the Owner to cancel approved leave. The reason is optional (WORKFLOWS §1, 2.1). */
+export const cancelLeaveSchema = z.object({ requestId: z.uuid(), reason });
+export type CancelLeaveInput = z.input<typeof cancelLeaveSchema>;
+
+/** Withdrawing a request that is still waiting. */
+export const withdrawLeaveSchema = z.object({ requestId: z.uuid() });
+export type WithdrawLeaveInput = z.input<typeof withdrawLeaveSchema>;
