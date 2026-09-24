@@ -2,7 +2,13 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+import {
+  CLOSE_THEN_FALLBACK_MS,
+  type CloseThenEnv,
+  createCloseOverlaysThen,
+} from "./overlay-history";
 
 /**
  * `useOverlayHistory` rests on undocumented behaviour of the Next App Router, and on two race
@@ -94,5 +100,77 @@ describe("overlay-history wiring", () => {
 
   it("preserves the existing history state when pushing", () => {
     expect(hook).toContain("{ ...historyState(),");
+  });
+});
+
+describe("closeOverlaysThen (§14.2 c: a More link lands with home underneath)", () => {
+  /** A fake browser: an overlay entry on top or not, a popstate we fire by hand, fake timers. */
+  function setup(hasOverlayEntry: boolean) {
+    vi.useFakeTimers();
+    let popListener: (() => void) | null = null;
+    const env: CloseThenEnv = {
+      hasOverlayEntry: () => hasOverlayEntry,
+      back: vi.fn(),
+      onNextPopState: (callback) => {
+        popListener = callback;
+        return () => {
+          popListener = null;
+        };
+      },
+      setTimer: (callback, ms) => setTimeout(callback, ms),
+      clearTimer: (id) => clearTimeout(id as ReturnType<typeof setTimeout>),
+    };
+    const fn = vi.fn();
+    const closeThen = createCloseOverlaysThen(env);
+    const pop = () => popListener?.();
+    return { env, fn, closeThen, pop };
+  }
+
+  it("runs at once when no overlay entry is on top", () => {
+    const { env, fn, closeThen } = setup(false);
+    expect(closeThen(fn)).toBe(true);
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(env.back).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
+  it("goes back first and runs on the popstate, once", () => {
+    const { env, fn, closeThen, pop } = setup(true);
+    closeThen(fn);
+    expect(env.back).toHaveBeenCalledTimes(1);
+    expect(fn).not.toHaveBeenCalled();
+    pop();
+    expect(fn).toHaveBeenCalledTimes(1);
+    // The fallback timer was cleared: nothing runs a second time.
+    vi.advanceTimersByTime(CLOSE_THEN_FALLBACK_MS * 2);
+    expect(fn).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
+
+  it("falls back after 300 ms when the popstate never comes, and still runs once", () => {
+    const { fn, closeThen, pop } = setup(true);
+    closeThen(fn);
+    vi.advanceTimersByTime(CLOSE_THEN_FALLBACK_MS - 1);
+    expect(fn).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(fn).toHaveBeenCalledTimes(1);
+    // A late popstate after the fallback changes nothing.
+    pop();
+    expect(fn).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
+
+  it("ignores a second call while the first is under way (a fast double tap)", () => {
+    const { env, fn, closeThen, pop } = setup(true);
+    const second = vi.fn();
+    expect(closeThen(fn)).toBe(true);
+    expect(closeThen(second)).toBe(false);
+    expect(env.back).toHaveBeenCalledTimes(1);
+    pop();
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(second).not.toHaveBeenCalled();
+    // Once finished, the next tap is served again.
+    expect(closeThen(second)).toBe(true);
+    vi.useRealTimers();
   });
 });

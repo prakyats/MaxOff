@@ -1,6 +1,15 @@
 import { expect, type Page, test } from "@playwright/test";
 
-import { expectBackStack, runInstalled, storageStateFor } from "./helpers";
+import {
+  chooseAttendance,
+  expectBackStack,
+  recoveryLinkFor,
+  resetAttendanceAndLeave,
+  runInstalled,
+  setPasswordFor,
+  signIn,
+  storageStateFor,
+} from "./helpers";
 
 /**
  * Back behaves like an app, not a website (task 1.5, ARCHITECTURE §14.1).
@@ -205,6 +214,165 @@ test.describe("installed: overlays and view controls", () => {
 
       await expectBackStack(page, [{ url: /\/my-day$/ }]);
     });
+  });
+});
+
+/**
+ * §14.2 e: one-time screens are never in the back stack. After sign-in, a gate choice, a
+ * recovery link or a logout the app lands with nothing of ours underneath, so one back leaves
+ * (Playwright's page starts on about:blank; the installed app would close). Each phone project
+ * has its own seeded person, whose day is cleared first and whose password is put back.
+ */
+test.describe("installed: sign-in, the gate, recovery and logout leave the back stack", () => {
+  test.skip(({ isMobile }) => !isMobile, "the installed app is a phone");
+  test.describe.configure({ mode: "serial" });
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  const PASSWORD = "back-local-password";
+  const PEOPLE: Record<string, { email: string; id: string }> = {
+    mobile: { email: "back-mobile@maxoff.local", id: "20000000-0000-4000-8000-000000000016" },
+    "mobile-lg": {
+      email: "back-mobile-lg@maxoff.local",
+      id: "20000000-0000-4000-8000-000000000017",
+    },
+  };
+  const LEFT = { url: /^about:blank$/ };
+
+  test("sign-in and the gate's choice: back from home leaves", async ({ page }, info) => {
+    const who = PEOPLE[info.project.name]!;
+    await resetAttendanceAndLeave(who.id);
+    await runInstalled(page);
+    await signIn(page, who.email, PASSWORD, { gate: "stop" });
+    await chooseAttendance(page, "Present");
+    await expect(page).toHaveURL(/\/my-day$/);
+    await expectBackStack(page, [LEFT]);
+  });
+
+  test("sign-in with the day settled: back from home leaves", async ({ page }, info) => {
+    const who = PEOPLE[info.project.name]!;
+    await runInstalled(page);
+    await signIn(page, who.email, PASSWORD);
+    await expect(page).toHaveURL(/\/my-day$/);
+    await expectBackStack(page, [LEFT]);
+  });
+
+  test("logout: back from the sign-in page does not return to the app", async ({ page }, info) => {
+    const who = PEOPLE[info.project.name]!;
+    await runInstalled(page);
+    await signIn(page, who.email, PASSWORD);
+    await page.locator('[data-slot="logout-row"]').getByRole("button", { name: "Log out" }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Log out" }).click();
+    await expect(page).toHaveURL(/\/login\?reason=signed_out$/);
+    await expectBackStack(page, [LEFT]);
+  });
+
+  test("a recovery link and set-password: back from home leaves", async ({ page }, info) => {
+    const who = PEOPLE[info.project.name]!;
+    await runInstalled(page);
+    try {
+      await page.goto(await recoveryLinkFor(who.email));
+      await expect(page).toHaveURL(/\/set-password$/);
+      const fresh = `back-new-${crypto.randomUUID().slice(0, 8)}`;
+      await page.getByLabel("New password").fill(fresh);
+      await page.getByLabel("Repeat it").fill(fresh);
+      await page.getByRole("button", { name: "Save password and sign in" }).click();
+      await expect(page).toHaveURL(/\/my-day$/, { timeout: 15_000 });
+      await expectBackStack(page, [LEFT]);
+    } finally {
+      await setPasswordFor(who.id, PASSWORD);
+    }
+  });
+});
+
+/** §14.2 a: a menu or a select is a layer; back closes it before anything under it. */
+test.describe("installed: menus and selects close on back", () => {
+  test.skip(({ isMobile }) => !isMobile, "the installed app is a phone");
+  test.use({ storageState: storageStateFor("staff") });
+
+  test("a select inside a dialog: select, then dialog, then the page", async ({ page }) => {
+    await runInstalled(page);
+    await page.goto("/my-day");
+    await page.goto("/leave");
+    await page.getByRole("button", { name: "Request leave" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByRole("combobox", { name: "Kind of leave" }).click();
+    const list = page.getByRole("listbox");
+    await expect(list).toBeVisible();
+
+    await expectBackStack(page, [
+      { closes: list, url: /\/leave$/ },
+      { closes: dialog, url: /\/leave$/ },
+      { url: /\/my-day$/ },
+    ]);
+  });
+
+  test("a menu: back closes it, the next back leaves", async ({ page }) => {
+    await runInstalled(page);
+    await page.goto("/my-day");
+    await page.goto("/me");
+    await page.getByRole("button", { name: "Change theme" }).click();
+    const menu = page.getByRole("menu");
+    await expect(menu).toBeVisible();
+
+    await expectBackStack(page, [{ closes: menu, url: /\/me$/ }, { url: /\/my-day$/ }]);
+  });
+});
+
+/** §14.2 c: a page opened from More is a tab root: back goes to the home tab. */
+test.describe("installed: More destinations are tab roots", () => {
+  test.skip(({ isMobile }) => !isMobile, "the bottom bar is a phone layout");
+  test.use({ storageState: storageStateFor("owner") });
+
+  const openFromMore = async (page: Page, name: string) => {
+    await page.locator('[data-slot="bottom-nav"] [data-nav="more"]').click();
+    await page.locator('[data-slot="more-sheet"]').getByRole("link", { name, exact: true }).click();
+  };
+  const tapTab = async (page: Page, key: string, url: RegExp) => {
+    await page.locator(`[data-slot="bottom-nav"] [data-nav="${key}"]`).click();
+    await expect(page).toHaveURL(url);
+  };
+
+  test("from home: More → People, back lands on Today", async ({ page }) => {
+    await runInstalled(page);
+    await page.goto("/today");
+    await openFromMore(page, "People");
+    await expect(page).toHaveURL(/\/people$/);
+    await expectBackStack(page, [{ url: /\/today$/ }]);
+  });
+
+  test("from another tab: More → People, back lands on Today, not the tab", async ({ page }) => {
+    await runInstalled(page);
+    await page.goto("/today");
+    await tapTab(page, "calendar", /\/calendar$/);
+    await openFromMore(page, "People");
+    await expect(page).toHaveURL(/\/people$/);
+    await expectBackStack(page, [{ url: /\/today$/ }]);
+  });
+
+  test("the profile row: More → Me, back lands on Today", async ({ page }) => {
+    await runInstalled(page);
+    await page.goto("/today");
+    await tapTab(page, "calendar", /\/calendar$/);
+    await openFromMore(page, "Me");
+    await expect(page).toHaveURL(/\/me$/);
+    await expectBackStack(page, [{ url: /\/today$/ }]);
+  });
+
+  test("a fast double tap lands once, with Today underneath", async ({ page }) => {
+    await runInstalled(page);
+    await page.goto("/today");
+    await tapTab(page, "calendar", /\/calendar$/);
+    await page.locator('[data-slot="bottom-nav"] [data-nav="more"]').click();
+    await page
+      .locator('[data-slot="more-sheet"]')
+      .getByRole("link", { name: "People", exact: true })
+      .dblclick();
+    await expect(page).toHaveURL(/\/people$/);
+    await expect(page.locator('[data-slot="more-sheet"]')).toBeHidden();
+    await expectBackStack(page, [{ url: /\/today$/ }]);
+    // Nothing doubled underneath: the next back leaves the app's tabs.
+    await page.goBack().catch(() => {});
+    await expect(page).not.toHaveURL(/\/(people|calendar|today)$/);
   });
 });
 

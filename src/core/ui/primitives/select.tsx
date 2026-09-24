@@ -5,8 +5,22 @@ import { cn } from "cn";
 import { Select as SelectPrimitive } from "radix-ui";
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react";
 
-function Select({ ...props }: React.ComponentProps<typeof SelectPrimitive.Root>) {
-  return <SelectPrimitive.Root data-slot="select" {...props} />;
+import { useOverlayOpenState } from "@/core/ui/overlay/overlay-history";
+
+/**
+ * An open list is a layer: back (or the phone's back gesture) closes it before anything under
+ * it (ARCHITECTURE §14.2 a) — see `core/ui/overlay/overlay-history`.
+ */
+function Select({
+  open,
+  defaultOpen,
+  onOpenChange,
+  ...props
+}: React.ComponentProps<typeof SelectPrimitive.Root>) {
+  const [isOpen, setOpen] = useOverlayOpenState({ open, defaultOpen, onOpenChange });
+  return (
+    <SelectPrimitive.Root data-slot="select" open={isOpen} onOpenChange={setOpen} {...props} />
+  );
 }
 
 function SelectGroup({ className, ...props }: React.ComponentProps<typeof SelectPrimitive.Group>) {

@@ -129,6 +129,46 @@ async function serviceRest(path: string, init: RequestInit = {}): Promise<Respon
   return response;
 }
 
+/**
+ * GoTrue's admin API as the service role, local stack only (same guard as `serviceRest`): for a
+ * spec that needs a recovery link without Mailpit, or to put a fixture's password back.
+ */
+async function serviceAuth(path: string, init: RequestInit): Promise<unknown> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  const key = process.env.SUPABASE_SECRET_KEY ?? "";
+  expect(new URL(url).hostname, "service-role auth calls run on the local stack only").toMatch(
+    /^(127\.0\.0\.1|localhost)$/,
+  );
+  const response = await fetch(`${url}/auth/v1/admin/${path}`, {
+    ...init,
+    headers: {
+      apikey: key,
+      authorization: `Bearer ${key}`,
+      "content-type": "application/json",
+      ...init.headers,
+    },
+  });
+  const body: unknown = await response.json();
+  expect(response.ok, `${init.method ?? "GET"} admin/${path}: ${JSON.stringify(body)}`).toBe(true);
+  return body;
+}
+
+/** A fresh one-time recovery link for `email`, as `/auth/confirm` expects it (path + query). */
+export async function recoveryLinkFor(email: string): Promise<string> {
+  const body = (await serviceAuth("generate_link", {
+    method: "POST",
+    body: JSON.stringify({ type: "recovery", email }),
+  })) as { hashed_token?: string; properties?: { hashed_token?: string } };
+  const token = body.hashed_token ?? body.properties?.hashed_token;
+  expect(token, "generate_link returned a hashed token").toBeTruthy();
+  return `/auth/confirm?token_hash=${token as string}&type=recovery`;
+}
+
+/** Puts a fixture person's password back after a spec changed it. */
+export async function setPasswordFor(userId: string, password: string): Promise<void> {
+  await serviceAuth(`users/${userId}`, { method: "PUT", body: JSON.stringify({ password }) });
+}
+
 /** Reads rows through `serviceRest` (a PostgREST query string, e.g. `leave_requests?id=eq.…`). */
 export async function serviceSelect<T>(path: string): Promise<T[]> {
   return (await (await serviceRest(path)).json()) as T[];

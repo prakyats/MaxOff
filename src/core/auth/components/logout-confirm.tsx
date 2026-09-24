@@ -3,6 +3,7 @@
 import { createContext, type ReactNode, use, useEffect, useRef, useState } from "react";
 
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
+import { closeOverlaysThen } from "@/core/ui/overlay/overlay-history";
 import { toastResult } from "@/core/ui/toast";
 
 import { logout } from "../actions";
@@ -47,6 +48,13 @@ export function LogoutProvider({ children, extra }: { children: ReactNode; extra
           confirmLabel="Log out"
           onConfirm={async () => {
             if (before.current && !(await before.current())) return false;
+            // The confirmation has its own history entry (it is a layer, §14.2 a). Back it out
+            // first, or the action's redirect to /login would replace that entry and leave the
+            // page underneath in the back stack (§14.2 e). The dialog stays up, pending, until
+            // the redirect lands.
+            await new Promise<void>((resolve) => {
+              if (!closeOverlaysThen(resolve)) resolve();
+            });
             // On success the action redirects; only a failure comes back as a Result.
             toastResult(await logout());
             return true;

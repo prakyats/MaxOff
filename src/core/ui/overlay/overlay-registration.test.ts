@@ -90,7 +90,8 @@ describe("every overlay goes through the registered roots", () => {
   });
 
   it("each root actually registers, rather than merely existing", () => {
-    for (const file of ["sheet", "dialog", "alert-dialog"]) {
+    // Menus and selects are layers too (ARCHITECTURE §14.2 a): back closes them first.
+    for (const file of ["sheet", "dialog", "alert-dialog", "dropdown-menu", "select"]) {
       const text = readFileSync(path.join(primitivesDir, `${file}.tsx`), "utf8");
       expect(text, file).toContain("useOverlayOpenState");
       // Controlled or uncontrolled, the root must hand the real state to the controller.

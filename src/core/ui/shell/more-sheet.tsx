@@ -3,7 +3,7 @@
 import { CircleUserIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { type ReactNode, useState } from "react";
+import { type MouseEvent, type ReactNode, useRef, useState } from "react";
 
 import { cn } from "@/core/lib/utils";
 import {
@@ -15,10 +15,12 @@ import {
   SheetTrigger,
 } from "@/core/ui/primitives/sheet";
 import { ThemeLabel } from "@/core/ui/theme/theme-label";
+import { closeOverlaysThen } from "@/core/ui/overlay/overlay-history";
 import { ThemeToggle } from "@/core/ui/theme/theme-toggle";
 
 import { isActivePath, type NavItem, PROFILE_NAV_ITEM } from "./nav";
 import { NAV_ICONS } from "./nav-icons";
+import type { TabNavigation } from "./tab-history";
 
 const ROW =
   "flex min-h-12 items-center gap-3 rounded-lg px-3 text-sm outline-none transition-colors active:bg-muted focus-visible:ring-ring focus-visible:ring-2";
@@ -34,10 +36,13 @@ const ROW =
  */
 export function MoreSheet({
   items,
+  tabs,
   logoutItem,
   trigger,
 }: {
   items: readonly NavItem[];
+  /** The bottom bar's tab rule: the pages here are tab roots too (ARCHITECTURE §14.2 c). */
+  tabs?: TabNavigation;
   /** `core/auth` owns the action; the app layout passes it in, so `core/ui` never imports auth. */
   logoutItem?: ReactNode;
   trigger: ReactNode;
@@ -45,9 +50,38 @@ export function MoreSheet({
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const close = () => setOpen(false);
+  // One destination per opening: a fast double tap must not navigate twice.
+  const leaving = useRef(false);
+
+  /**
+   * Installed: a page opened from here is a tab root, so back from it goes to the home tab. The
+   * sheet's own history entry is backed out first (`closeOverlaysThen`), then the tab rule
+   * navigates — push from home, replace from another tab — so nothing of the sheet or the
+   * previous tab is left under the new page. In a browser tab this stays an ordinary link.
+   */
+  const follow = (href: string) => (event: MouseEvent<HTMLAnchorElement>) => {
+    if (event.defaultPrevented || event.metaKey || event.ctrlKey) return;
+    if (!tabs?.handles(href)) {
+      close();
+      return;
+    }
+    event.preventDefault();
+    if (leaving.current) return;
+    leaving.current = true;
+    closeOverlaysThen(() => {
+      close();
+      tabs.navigate(href);
+    });
+  };
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
+    <Sheet
+      open={open}
+      onOpenChange={(next) => {
+        if (next) leaving.current = false;
+        setOpen(next);
+      }}
+    >
       <SheetTrigger asChild>{trigger}</SheetTrigger>
       <SheetContent
         side="bottom"
@@ -74,7 +108,7 @@ export function MoreSheet({
                 key={item.key}
                 href={item.href}
                 data-nav={item.key}
-                onClick={close}
+                onClick={follow(item.href)}
                 aria-current={active ? "page" : undefined}
                 className={cn(ROW, active && "bg-muted font-medium")}
               >
@@ -101,7 +135,7 @@ export function MoreSheet({
           <Link
             href={PROFILE_NAV_ITEM.href}
             data-nav={PROFILE_NAV_ITEM.key}
-            onClick={close}
+            onClick={follow(PROFILE_NAV_ITEM.href)}
             aria-current={isActivePath(pathname, PROFILE_NAV_ITEM.href) ? "page" : undefined}
             className={cn(
               ROW,

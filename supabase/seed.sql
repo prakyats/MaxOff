@@ -43,7 +43,11 @@ insert into seed_users values
   -- and attendance itself at the start, so it re-runs without db:reset.
   ('20000000-0000-4000-8000-000000000013', 'leave-self-desktop@maxoff.local', 'leave-local-password', 'Test Leave (desktop)', null, 'staff', 'active'),
   ('20000000-0000-4000-8000-000000000014', 'leave-self-mobile@maxoff.local', 'leave-local-password', 'Test Leave (mobile)', null, 'staff', 'active'),
-  ('20000000-0000-4000-8000-000000000015', 'leave-self-mobile-lg@maxoff.local', 'leave-local-password', 'Test Leave (mobile-lg)', null, 'admin', 'active');
+  ('20000000-0000-4000-8000-000000000015', 'leave-self-mobile-lg@maxoff.local', 'leave-local-password', 'Test Leave (mobile-lg)', null, 'admin', 'active'),
+  -- §14.2 e (the back-stack fix): sign-in, the gate and recovery leave nothing under home. One
+  -- person per phone project; the spec clears their day and puts their password back itself.
+  ('20000000-0000-4000-8000-000000000016', 'back-mobile@maxoff.local', 'back-local-password', 'Test Back (mobile)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000017', 'back-mobile-lg@maxoff.local', 'back-local-password', 'Test Back (mobile-lg)', null, 'staff', 'active');
 
 -- What GoTrue writes for a confirmed email + password user (`auth.users` + one identity).
 insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,

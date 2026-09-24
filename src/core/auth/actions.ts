@@ -1,6 +1,6 @@
 "use server";
 
-import { redirect } from "next/navigation";
+import { redirect, RedirectType } from "next/navigation";
 
 import { createServerSupabase, type ServerSupabase } from "@/core/db/server";
 import { AppError, action, ok, type Result } from "@/core/errors";
@@ -58,7 +58,9 @@ export const login = action(async (input: LoginInput): Promise<Result<never>> =>
 
   await recordLoginOrSignOut(supabase, data.user.id);
   // `/` sends a member to their role's home; the optional `next` wins when it is a safe path.
-  redirect(safeNextPath(next) ?? "/");
+  // Replace, never push: a server action's redirect adds history by default, and sign-in is a
+  // one-time screen that must not sit under home (ARCHITECTURE §14.2 e).
+  redirect(safeNextPath(next) ?? "/", RedirectType.replace);
 });
 
 /**
@@ -77,7 +79,8 @@ export const logout = action(async (): Promise<Result<never>> => {
 
   await supabase.auth.signOut({ scope: "local" });
   setSentryUser(null);
-  redirect(`${LOGIN_PATH}?reason=signed_out`);
+  // Replace: the page you logged out from is not something back should return to (§14.2 e).
+  redirect(`${LOGIN_PATH}?reason=signed_out`, RedirectType.replace);
 });
 
 /**
@@ -107,10 +110,11 @@ export const setPassword = action(async (input: SetPasswordInput): Promise<Resul
     const { error: acceptError } = await supabase.rpc("member_accept_invite");
     if (acceptError) throw acceptError;
     await recordLoginOrSignOut(supabase, userId);
-    redirect(WELCOME_PATH);
+    redirect(WELCOME_PATH, RedirectType.replace);
   }
 
-  redirect("/");
+  // Replace: the set-password screen is one-time and never stays in the back stack (§14.2 e).
+  redirect("/", RedirectType.replace);
 });
 
 /**

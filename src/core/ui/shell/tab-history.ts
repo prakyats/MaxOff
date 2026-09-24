@@ -63,13 +63,19 @@ export function useIsStandalone(): boolean {
 export interface TabNavigation {
   /** True when this click was handled here; the caller must then prevent the default. */
   navigate: (href: string) => boolean;
+  /** Whether `navigate(href)` would handle it, asked before anything is prevented. */
+  handles: (href: string) => boolean;
 }
 
 /**
  * Gives the bottom bar its tab-navigation behaviour. Returns `navigate`, which reports whether
  * it handled the click — in a browser tab it always returns false, so the plain `Link` wins.
  */
-export function useTabNavigation(home: string, pathname: string, topLevel: readonly string[]) {
+export function useTabNavigation(
+  home: string,
+  pathname: string,
+  topLevel: readonly string[],
+): TabNavigation {
   const router = useRouter();
   const standalone = useIsStandalone();
 
@@ -79,12 +85,16 @@ export function useTabNavigation(home: string, pathname: string, topLevel: reado
     if (pathname === home) pushedFromHome = false;
   }, [pathname, home]);
 
+  const handles = useCallback(
+    (href: string) =>
+      // Only the top-level tabs are rewritten, installed only. Anything deeper pushes normally.
+      standalone && topLevel.includes(href) && topLevel.includes(pathname) && href !== pathname,
+    [standalone, topLevel, pathname],
+  );
+
   const navigate = useCallback(
     (href: string) => {
-      if (!standalone) return false;
-      // Only the top-level tabs are rewritten. Anything deeper pushes normally.
-      if (!topLevel.includes(href) || !topLevel.includes(pathname)) return false;
-      if (href === pathname) return false;
+      if (!handles(href)) return false;
 
       if (href === home) {
         if (pushedFromHome) {
@@ -104,8 +114,8 @@ export function useTabNavigation(home: string, pathname: string, topLevel: reado
       }
       return true;
     },
-    [standalone, topLevel, pathname, home, router],
+    [handles, pathname, home, router],
   );
 
-  return { navigate };
+  return { navigate, handles };
 }

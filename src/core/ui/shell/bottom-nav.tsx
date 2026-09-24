@@ -93,9 +93,17 @@ export function BottomNav({
   logoutItem?: ReactNode;
 }) {
   const pathname = usePathname();
-  // Every top-level destination, bar and sheet alike, so switching between them never stacks up.
-  const topLevel = useMemo(() => [...primary, ...more].map((item) => item.href), [primary, more]);
-  const { navigate } = useTabNavigation(home, pathname, topLevel);
+  // Every top-level destination, bar and sheet alike (the profile row included), so switching
+  // between them never stacks up: a page opened from More is a tab root (ARCHITECTURE §14.2 c).
+  const topLevel = useMemo(
+    () => [
+      ...[...primary, ...more].map((item) => item.href),
+      ...(more.length > 0 ? [PROFILE_NAV_ITEM.href] : []),
+    ],
+    [primary, more],
+  );
+  const tabs = useTabNavigation(home, pathname, topLevel);
+  const { navigate } = tabs;
   const hasMore = more.length > 0;
   // Everything the sheet can reach, so "you are here" still holds after you open one of them.
   const moreActive =
@@ -142,6 +150,7 @@ export function BottomNav({
           <li className="flex">
             <MoreSheet
               items={more}
+              tabs={tabs}
               logoutItem={logoutItem}
               trigger={
                 <button

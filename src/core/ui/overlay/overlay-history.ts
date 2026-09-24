@@ -129,6 +129,75 @@ function startListening(): void {
   window.addEventListener("popstate", onPopState);
 }
 
+/** How long `closeOverlaysThen` waits for its popstate before running anyway. */
+export const CLOSE_THEN_FALLBACK_MS = 300;
+
+/** The browser side of `closeOverlaysThen`, injectable so the timing logic is unit-tested. */
+export interface CloseThenEnv {
+  /** True when the current history entry is one an overlay pushed. */
+  hasOverlayEntry: () => boolean;
+  back: () => void;
+  /** Calls `callback` on the next popstate; returns the unsubscribe. */
+  onNextPopState: (callback: () => void) => () => void;
+  setTimer: (callback: () => void, ms: number) => unknown;
+  clearTimer: (id: unknown) => void;
+}
+
+/**
+ * Runs `fn` once the overlay entries on top of the page are gone (ARCHITECTURE §14.2 c).
+ *
+ * A link inside an overlay that navigates to a **tab root** (the More sheet) must not leave the
+ * overlay's entry under the new page, or back would stop there. So it goes back past the entry
+ * first and navigates only once that popstate has arrived — never both at once, which is the
+ * race `reconcile` describes. Two guards keep a tap from ever dying or doubling:
+ * - if the popstate has not arrived within `CLOSE_THEN_FALLBACK_MS`, `fn` runs anyway, and it
+ *   runs **at most once** whichever comes first;
+ * - a second call while one is under way (a fast double tap) is ignored and returns false.
+ */
+export function createCloseOverlaysThen(env: CloseThenEnv): (fn: () => void) => boolean {
+  let pending = false;
+  return (fn) => {
+    if (pending) return false;
+    if (!env.hasOverlayEntry()) {
+      fn();
+      return true;
+    }
+    pending = true;
+    let done = false;
+    let unsubscribe = () => {};
+    let timer: unknown = null;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      pending = false;
+      unsubscribe();
+      env.clearTimer(timer);
+      fn();
+    };
+    unsubscribe = env.onNextPopState(finish);
+    timer = env.setTimer(finish, CLOSE_THEN_FALLBACK_MS);
+    env.back();
+    return true;
+  };
+}
+
+/**
+ * The app's instance. Its popstate listener is added after the controller's own (`onPopState`
+ * starts listening when the first overlay opens), so by the time `fn` runs the overlay has
+ * been closed and the bookkeeping reset.
+ */
+export const closeOverlaysThen = createCloseOverlaysThen({
+  hasOverlayEntry: () => typeof window !== "undefined" && historyState()[MARKER] !== undefined,
+  back: () => window.history.back(),
+  onNextPopState: (callback) => {
+    const listener = () => callback();
+    window.addEventListener("popstate", listener, { once: true });
+    return () => window.removeEventListener("popstate", listener);
+  },
+  setTimer: (callback, ms) => window.setTimeout(callback, ms),
+  clearTimer: (id) => window.clearTimeout(id as number),
+});
+
 /**
  * Makes one overlay dismissible with the back gesture. `onClose` must close it; it is read
  * through a ref, so an inline arrow function will not re-run the effect.
