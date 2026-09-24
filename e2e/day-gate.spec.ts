@@ -25,14 +25,32 @@ function gateUser(kind: GateKind, info: TestInfo): string {
 
 const isPhone = (info: TestInfo) => info.project.name.startsWith("mobile");
 
-function card(page: Page): Locator {
-  return page.locator('[data-slot="attendance-card"]');
+/** Today's attendance, one line at the top of the home screen (2.3 polish). */
+function strip(page: Page): Locator {
+  return page.locator('[data-slot="attendance-strip"]');
 }
 
-async function logOutFromCard(page: Page): Promise<void> {
-  await card(page).getByRole("button", { name: "Log out" }).click();
-  await page.getByRole("alertdialog").getByRole("button", { name: "Log out" }).click();
+function stripStatus(page: Page): Locator {
+  return strip(page).locator('[data-slot="attendance-status"]');
+}
+
+/** The quiet Log out row at the bottom of the home screen, then the confirmation. */
+async function logOutFromHome(page: Page, overtimeNote?: string): Promise<void> {
+  await page.locator('[data-slot="logout-row"]').getByRole("button", { name: "Log out" }).click();
+  const confirm = page.getByRole("alertdialog");
+  if (overtimeNote) {
+    await confirm.getByRole("button", { name: "Worked late today? Add an overtime note" }).click();
+    await confirm.getByLabel("Overtime note").fill(overtimeNote);
+  }
+  await confirm.getByRole("button", { name: "Log out" }).click();
   await expect(page).toHaveURL(/\/login\?reason=signed_out/);
+}
+
+/** Today's entry in the attendance history: a card on a phone, the first row on desktop. */
+function todayEntry(page: Page, info: TestInfo): Locator {
+  return isPhone(info)
+    ? page.locator('[data-slot="data-card"]').first()
+    : page.locator("tbody tr").first();
 }
 
 /** The mobile standard on the gate (ARCHITECTURE §14.1): 44px targets, Submit on screen, no sideways scroll. */
@@ -91,20 +109,43 @@ test("Staff: gated at sign-in, a changed day is refused, Present lands where the
   await page.goto("/me");
   await expect(page).toHaveURL(/\/me$/);
   await page.goto("/my-day");
-  await expect(card(page).locator('[data-slot="attendance-status"]')).toHaveText(
-    "Present, waiting for approval",
+  await expect(stripStatus(page)).toHaveText("Present · waiting for approval");
+  if (isPhone(info)) {
+    // One line at the phone width (PRODUCT §4.10: My Day is mainly tasks).
+    // Polled: the strip can re-render once as the page settles, and a detached node has no box.
+    await expect
+      .poll(async () => (await strip(page).boundingBox())?.height ?? Infinity)
+      .toBeLessThanOrEqual(46);
+  }
+
+  // Overtime as they leave: a note too short is refused and nothing is signed out...
+  await page.locator('[data-slot="logout-row"]').getByRole("button", { name: "Log out" }).click();
+  const confirm = page.getByRole("alertdialog");
+  await confirm.getByRole("button", { name: "Worked late today? Add an overtime note" }).click();
+  await confirm.getByLabel("Overtime note").fill("ab");
+  await confirm.getByRole("button", { name: "Log out" }).click();
+  await expect(confirm.locator('[data-slot="field-error"]')).toHaveText(
+    "Please write a few more words.",
   );
+  await expect(page).toHaveURL(/\/my-day$/);
+  await confirm.getByRole("button", { name: "Cancel" }).click();
 
-  // Overtime, with a reason.
-  await card(page).getByRole("button", { name: "Flag overtime" }).click();
-  await page.getByLabel("What kept you").fill("The shoot ran late");
-  await page.getByRole("dialog").getByRole("button", { name: "Flag overtime" }).click();
-  await expect(card(page)).toContainText("Overtime flagged: The shoot ran late");
+  // ...a real note is flagged, then the logout happens.
+  await logOutFromHome(page, "The shoot ran late");
 
-  await logOutFromCard(page);
+  // It is on today's entry in the history.
+  await signIn(page, gateUser("staff", info), PASSWORD);
+  await page.goto("/leave/attendance");
+  const today = todayEntry(page, info);
+  await expect(today).toContainText("Overtime");
+  if (isPhone(info)) await today.click();
+  else await today.getByRole("button").first().click();
+  await expect(page.locator('[data-slot="day-timeline"]').last()).toContainText(
+    "Your note: The shoot ran late",
+  );
 });
 
-test("Admin: gated too, a half day with a reason, Today shows the card, back never returns to the gate", async ({
+test("Admin: gated too, a half day with a reason, Today shows the strip, back never returns to the gate", async ({
   page,
 }, info) => {
   await signIn(page, gateUser("admin", info), PASSWORD, { gate: "stop" });
@@ -113,9 +154,7 @@ test("Admin: gated too, a half day with a reason, Today shows the card, back nev
 
   await chooseAttendance(page, "Half day", "Dentist in the afternoon");
   await expect(page).toHaveURL(/\/today$/);
-  await expect(card(page).locator('[data-slot="attendance-status"]')).toHaveText(
-    "Half day, waiting for approval",
-  );
+  await expect(stripStatus(page)).toHaveText("Half day · waiting for approval");
 
   // The choice replaced the gate in the history: back leaves Today without meeting the gate.
   await page.goBack();
@@ -123,10 +162,28 @@ test("Admin: gated too, a half day with a reason, Today shows the card, back nev
   await expect(page).not.toHaveURL(/\/attendance/);
   await page.goto("/today");
 
-  await logOutFromCard(page);
+  // Overtime from today's entry in the history, the other way in.
+  await strip(page).getByRole("link").click();
+  await expect(page).toHaveURL(/\/leave\/attendance$/);
+  const today = todayEntry(page, info);
+  if (isPhone(info)) {
+    await today.click();
+    await page
+      .locator('[data-slot="detail-sheet"]')
+      .getByRole("button", { name: "Flag overtime" })
+      .click();
+  } else {
+    await today.getByRole("button", { name: "Flag overtime" }).click();
+  }
+  await page.getByLabel("What kept you").fill("Client call ran over");
+  await page.getByRole("dialog").getByRole("button", { name: "Flag overtime" }).click();
+  await expect(today).toContainText("Overtime");
+
+  await page.goto("/today");
+  await logOutFromHome(page);
 });
 
-test("approved leave: no gate, and the banner offers I'm working today", async ({ page }, info) => {
+test("approved leave: no gate, and the strip offers I'm working today", async ({ page }, info) => {
   const email = gateUser("leave", info);
   const today = todayIST();
   const requestId = await rpcAs<string>(email, PASSWORD, "leave_submit", {
@@ -142,16 +199,14 @@ test("approved leave: no gate, and the banner offers I'm working today", async (
 
   await signIn(page, email, PASSWORD, { gate: "stop" });
   await expect(page).toHaveURL(/\/my-day$/);
-  const status = card(page).locator('[data-slot="attendance-status"]');
-  await expect(status).toHaveText("You're on approved leave today");
+  await expect(stripStatus(page)).toHaveText("On leave today");
 
-  await card(page).getByRole("button", { name: "I'm working today" }).click();
+  await strip(page).getByRole("button", { name: "I'm working today" }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "I'm working today" }).click();
-  await expect(status).toHaveText("Present, waiting for approval");
-  await expect(card(page)).toContainText("You said you're working on a day of approved leave.");
+  await expect(stripStatus(page)).toHaveText("Present · waiting for approval");
 });
 
-test("approved half day: no gate, and the banner offers the full day", async ({ page }, info) => {
+test("approved half day: no gate, and the strip offers the full day", async ({ page }, info) => {
   const email = gateUser("half", info);
   const today = todayIST();
   const requestId = await rpcAs<string>(email, PASSWORD, "leave_submit", {
@@ -166,18 +221,19 @@ test("approved half day: no gate, and the banner offers the full day", async ({ 
 
   await signIn(page, email, PASSWORD, { gate: "stop" });
   await expect(page).toHaveURL(/\/my-day$/);
-  await expect(card(page).locator('[data-slot="attendance-status"]')).toHaveText(
-    "You're on an approved half day today",
-  );
-  await expect(card(page).getByRole("button", { name: "I'm working the full day" })).toBeVisible();
-  await expect(card(page).getByRole("button", { name: "Log out" })).toBeVisible();
+  await expect(stripStatus(page)).toHaveText("Half day today");
+  await expect(strip(page).getByRole("button", { name: "I'm working the full day" })).toBeVisible();
+  await expect(
+    page.locator('[data-slot="logout-row"]').getByRole("button", { name: "Log out" }),
+  ).toBeVisible();
 });
 
-test("the Owner is never gated and has no attendance card", async ({ page }) => {
+test("the Owner is never gated and has no attendance strip", async ({ page }) => {
   await signIn(page, USERS.owner.email, USERS.owner.password, { gate: "stop" });
   await expect(page).toHaveURL(/\/today$/);
   await expect(page.getByRole("heading", { name: "Today" })).toBeVisible();
-  await expect(card(page)).toHaveCount(0);
+  await expect(strip(page)).toHaveCount(0);
+  await expect(page.locator('[data-slot="logout-row"]')).toHaveCount(0);
   await page.goto("/attendance");
   await expect(page).toHaveURL(/\/today$/);
 });

@@ -9,7 +9,7 @@ import {
   STATUS_LABELS,
 } from "./choices";
 
-/** Today's own attendance day, as the card needs it (`data/attendance.ts`). */
+/** Today's own attendance day, as the strip needs it (`data/attendance.ts`). */
 export type TodayDay = {
   id: string;
   workDate: string;
@@ -26,40 +26,41 @@ export type TodayDay = {
   leaveType: LeaveType | null;
 };
 
-/** What the attendance card says and offers (WORKFLOWS §1). Pure, so it is unit-tested. */
-export type TodayView =
+/**
+ * The one-line attendance strip on My Day and /today (the 2.3 polish; PRODUCT §4.10: My Day is
+ * mainly tasks). `text` is "status · standing" in the words the rest of the app uses
+ * (`STATUS_LABELS`, `CHOICE_COPY`); `dot` is the status the dot's colour follows. Pure, so it
+ * is unit-tested.
+ */
+export type TodayStrip =
   /** No day: the joining day (attendance starts tomorrow). */
-  | { kind: "not_started" }
+  | { kind: "not_started"; text: string; dot: string }
   /** Logged in, no choice yet (e.g. a leave cancelled today handed the day back to the gate). */
-  | { kind: "choose"; dayOff: boolean }
-  /** Approved leave derived the day: no gate, and the "I'm working" offer. */
+  | { kind: "choose"; text: string; dot: string }
+  /**
+   * Approved leave derived the day: no gate, and the "I'm working" offer (PRODUCT §4.2: the
+   * banner's optional button stays on the strip).
+   */
   | {
       kind: "on_leave";
-      leaveType: LeaveType;
-      title: string;
+      text: string;
+      dot: string;
       workingLabel: "I'm working today" | "I'm working the full day";
-      dayOff: boolean;
     }
-  | {
-      kind: "status";
-      /** The workflow state, for the badge. */
-      state: AttendanceState;
-      title: string;
-      detail: string | null;
-      dayOff: boolean;
-    };
+  | { kind: "status"; text: string; dot: string };
 
-const LEAVE_TITLES: Record<LeaveType, string> = {
-  leave: "You're on approved leave today",
-  half_day: "You're on an approved half day today",
-  comp_leave: "You're on approved comp leave today",
+const ON_LEAVE_TEXT: Record<LeaveType, string> = {
+  leave: "On leave today",
+  half_day: "Half day today",
+  comp_leave: "On comp leave today",
 };
 
-export function describeToday(day: TodayDay | null): TodayView {
-  if (!day) return { kind: "not_started" };
-  const dayOff = day.isDayOff;
+export function describeTodayStrip(day: TodayDay | null): TodayStrip {
+  if (!day) return { kind: "not_started", text: "Attendance starts tomorrow", dot: "none" };
 
-  if (day.state === "awaiting_choice") return { kind: "choose", dayOff };
+  if (day.state === "awaiting_choice") {
+    return { kind: "choose", text: "Not chosen yet · choose now", dot: day.state };
+  }
 
   if (
     day.state === "approved" &&
@@ -69,39 +70,31 @@ export function describeToday(day: TodayDay | null): TodayView {
   ) {
     return {
       kind: "on_leave",
-      leaveType: day.leaveType,
-      title: LEAVE_TITLES[day.leaveType],
+      text: ON_LEAVE_TEXT[day.leaveType],
+      dot: day.leaveType,
       workingLabel: day.leaveType === "half_day" ? "I'm working the full day" : "I'm working today",
-      dayOff,
     };
   }
 
-  const worked = dayOff && (day.finalStatus ?? day.submittedChoice) === "present";
-
   if (day.state === "pending_review") {
-    const title = day.submittedChoice
-      ? `${CHOICE_COPY[day.submittedChoice].label}, waiting for approval`
-      : "No choice recorded: proposed absent, waiting for review";
-    const detail = worked
-      ? "Worked on a day off."
-      : day.leaveType && day.submittedChoice === "present"
-        ? "You said you're working on a day of approved leave."
-        : null;
-    return { kind: "status", state: day.state, title, detail, dayOff };
+    const status = day.submittedChoice
+      ? CHOICE_COPY[day.submittedChoice].label
+      : `${STATUS_LABELS.absent} (proposed)`;
+    return { kind: "status", text: `${status} · waiting for approval`, dot: day.state };
   }
 
   const status = day.finalStatus ? STATUS_LABELS[day.finalStatus] : "Recorded";
-  const title = day.state === "approved" ? `${status}, approved` : `${status}, corrected`;
-  const detail = worked
-    ? "Worked on a day off."
-    : day.workedOnLeave
-      ? "Worked on a day of approved leave."
-      : day.state === "corrected" && day.decisionReason
-        ? day.decidedBySystem
-          ? `Updated: ${day.decisionReason}.`
-          : `The Owner's note: ${day.decisionReason}`
-        : null;
-  return { kind: "status", state: day.state, title, detail, dayOff };
+  const standing =
+    day.state === "approved"
+      ? "approved"
+      : day.decidedBySystem
+        ? "your leave was approved"
+        : "corrected by the Owner";
+  return {
+    kind: "status",
+    text: `${status} · ${standing}`,
+    dot: day.state === "approved" ? (day.finalStatus ?? day.state) : day.state,
+  };
 }
 
 /** "Wednesday, 23 September" for an IST date (the heading of the gate and the card). */

@@ -60,10 +60,13 @@ async function act(page: Page, info: TestInfo, action: string, ...texts: string[
   }
 }
 
+/** The home screen's attendance strip opens today's history; the Requests tab is one tap on. */
 async function openLeave(page: Page) {
-  await page.getByRole("link", { name: "Attendance & leave" }).first().click();
-  await expect(page).toHaveURL(/\/leave$/);
+  await page.locator('[data-slot="attendance-strip"]').getByRole("link").click();
+  await expect(page).toHaveURL(/\/leave\/attendance$/);
   await expect(page.getByRole("heading", { name: "Attendance & leave" })).toBeVisible();
+  await page.getByRole("link", { name: "Leave requests", exact: true }).click();
+  await expect(page).toHaveURL(/\/leave$/);
 }
 
 async function fillLeave(
@@ -105,6 +108,8 @@ test("request a range and a half day, the refusals, and withdraw", async ({ page
   await signIn(page, person(info), PASSWORD);
   await openLeave(page);
   await expect(page.getByText("No leave requests yet")).toBeVisible();
+  // One page of requests: no pager.
+  await expect(page.locator('[data-slot="leave-pager"]')).toHaveCount(0);
   if (isPhone(info)) await expectFitsThePhone(page);
 
   // A three-day range.
@@ -222,7 +227,7 @@ test("the attendance history says how the day was recorded, in the member's word
     decision: "approve",
   });
 
-  await page.goto("/leave?tab=attendance");
+  await page.goto("/leave/attendance");
   await expect(page.locator('[data-slot="leave-tabs"] [aria-current="page"]')).toHaveText(
     "Attendance",
   );

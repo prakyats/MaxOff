@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, type ReactNode, use, useState } from "react";
+import { createContext, type ReactNode, use, useEffect, useRef, useState } from "react";
 
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { toastResult } from "@/core/ui/toast";
@@ -21,25 +21,58 @@ import { logout } from "../actions";
  */
 const RequestLogout = createContext<() => void>(() => undefined);
 
-export function LogoutProvider({ children }: { children: ReactNode }) {
+/** Runs before the sign-out; `false` keeps the confirmation open (e.g. a note to fix first). */
+type BeforeLogout = () => Promise<boolean>;
+const RegisterBeforeLogout = createContext<(fn: BeforeLogout | null) => void>(() => undefined);
+
+/**
+ * `extra` is rendered inside the confirmation, between the description and the buttons: the
+ * app layout puts the optional overtime note there for whoever marks attendance (2.3 polish).
+ * `core` never imports a module, so the module's component arrives as a prop and takes part
+ * through `useBeforeLogout`.
+ */
+export function LogoutProvider({ children, extra }: { children: ReactNode; extra?: ReactNode }) {
   const [open, setOpen] = useState(false);
+  const before = useRef<BeforeLogout | null>(null);
 
   return (
     <RequestLogout.Provider value={() => setOpen(true)}>
-      {children}
-      <ConfirmDialog
-        open={open}
-        onOpenChange={setOpen}
-        title="Log out?"
-        description="This records your logout time on this device. You'll need your password to sign back in."
-        confirmLabel="Log out"
-        onConfirm={async () => {
-          // On success the action redirects; only a failure comes back as a Result.
-          toastResult(await logout());
-        }}
-      />
+      <RegisterBeforeLogout.Provider value={(fn) => (before.current = fn)}>
+        {children}
+        <ConfirmDialog
+          open={open}
+          onOpenChange={setOpen}
+          title="Log out?"
+          description="This records your logout time on this device. You'll need your password to sign back in."
+          confirmLabel="Log out"
+          onConfirm={async () => {
+            if (before.current && !(await before.current())) return false;
+            // On success the action redirects; only a failure comes back as a Result.
+            toastResult(await logout());
+            return true;
+          }}
+        >
+          {extra}
+        </ConfirmDialog>
+      </RegisterBeforeLogout.Provider>
     </RequestLogout.Provider>
   );
+}
+
+/**
+ * Lets content inside the confirmation run first when Log out is confirmed. Returning `false`
+ * keeps the dialog open and nothing is signed out. Unregisters on unmount.
+ */
+export function useBeforeLogout(fn: BeforeLogout): void {
+  const register = use(RegisterBeforeLogout);
+  const latest = useRef(fn);
+  useEffect(() => {
+    latest.current = fn;
+  });
+  useEffect(() => {
+    register(() => latest.current());
+    return () => register(null);
+  }, [register]);
 }
 
 /** Opens the confirmation. The actual sign-out happens when it is confirmed. */

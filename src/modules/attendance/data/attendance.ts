@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createServerSupabase } from "@/core/db/server";
+import { AppError } from "@/core/errors";
 
 import type { AttendanceChoice } from "../domain/choices";
 import { eventActor, type HistoryDay, isEventAction } from "../domain/history";
@@ -65,6 +66,20 @@ export async function rpcSubmit(
     ...(reason ? { reason } : {}),
   });
   if (error) throw error;
+}
+
+/**
+ * Overtime on the member's own day for that IST date. No day (the joining day) is refused as
+ * `INVALID_STATE` rather than silently ignored.
+ */
+export async function rpcFlagOvertimeOn(
+  memberId: string,
+  date: string,
+  reason: string,
+): Promise<void> {
+  const day = await getOwnDay(memberId, date, { fresh: true });
+  if (!day) throw new AppError("INVALID_STATE", "There is no attendance day to add a note to yet.");
+  await rpcFlagOvertime(day.id, reason);
 }
 
 export async function rpcFlagOvertime(dayId: string, reason: string): Promise<void> {

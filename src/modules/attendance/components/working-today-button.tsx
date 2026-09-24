@@ -13,11 +13,25 @@ import { declareWorkingToday } from "../actions/attendance";
  * approved leave (WORKFLOWS §1). Asks first: it sends the day to the Owner for review, and the
  * leave request itself stays as it is.
  */
-export function WorkingTodayButton({ label, forDate }: { label: string; forDate: string }) {
+export function WorkingTodayButton({
+  label,
+  forDate,
+  size = "default",
+}: {
+  label: string;
+  forDate: string;
+  /** `sm` on the one-line strip; the 44px touch minimum still applies on a phone. */
+  size?: "default" | "sm";
+}) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button variant="outline" onClick={() => setOpen(true)} className="w-full md:w-auto">
+      <Button
+        variant="outline"
+        size={size}
+        onClick={() => setOpen(true)}
+        className={size === "sm" ? undefined : "w-full md:w-auto"}
+      >
         {label}
       </Button>
       <ConfirmDialog

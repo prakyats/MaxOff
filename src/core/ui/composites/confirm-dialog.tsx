@@ -16,7 +16,8 @@ import { Button } from "@/core/ui/primitives/button";
 
 /**
  * "Are you sure?" for actions that don't need a reason (approve, archive, cancel a draft).
- * `onConfirm` may be async; the dialog shows a spinner and closes when it resolves.
+ * `onConfirm` may be async; the dialog shows a spinner and closes when it resolves, unless it
+ * resolves to `false` (something inside the dialog needs fixing first, e.g. a field message).
  * Actions that need a reason use `ReasonDialog` instead (WORKFLOWS: reject, correct, cancel).
  */
 export function ConfirmDialog({
@@ -37,7 +38,7 @@ export function ConfirmDialog({
   confirmLabel?: string;
   cancelLabel?: string;
   destructive?: boolean;
-  onConfirm: () => void | Promise<void>;
+  onConfirm: () => void | boolean | Promise<void | boolean>;
   /** Optional extra content between the description and the buttons. */
   children?: ReactNode;
 }) {
@@ -45,8 +46,8 @@ export function ConfirmDialog({
 
   function confirm() {
     startTransition(async () => {
-      await onConfirm();
-      onOpenChange(false);
+      const keepOpen = (await onConfirm()) === false;
+      if (!keepOpen) onOpenChange(false);
     });
   }
 

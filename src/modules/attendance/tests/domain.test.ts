@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { DAY_CHANGED_MESSAGE } from "../domain/choices";
 import { flagOvertimeSchema, submitChoiceSchema } from "../domain/schemas";
-import { dayLabel, describeToday, type TodayDay } from "../domain/today";
+import { dayLabel, describeTodayStrip, type TodayDay } from "../domain/today";
 
 const BASE: TodayDay = {
   id: "00000000-0000-4000-8000-000000000001",
@@ -22,103 +22,79 @@ const BASE: TodayDay = {
 
 const day = (patch: Partial<TodayDay>): TodayDay => ({ ...BASE, ...patch });
 
-describe("describeToday", () => {
-  it("has nothing to show on the joining day (no day row)", () => {
-    expect(describeToday(null)).toEqual({ kind: "not_started" });
+describe("describeTodayStrip", () => {
+  it("has nothing to decide on the joining day (no day row)", () => {
+    expect(describeTodayStrip(null)).toEqual({
+      kind: "not_started",
+      text: "Attendance starts tomorrow",
+      dot: "none",
+    });
   });
 
   it("offers the choice again when the day is back at the gate", () => {
-    expect(describeToday(day({ isDayOff: true }))).toEqual({ kind: "choose", dayOff: true });
+    expect(describeTodayStrip(day({}))).toEqual({
+      kind: "choose",
+      text: "Not chosen yet · choose now",
+      dot: "awaiting_choice",
+    });
   });
 
   it("offers I'm working today on full and comp leave, and the full day on a half day", () => {
-    const derived = { state: "approved", proposedBySystem: true, finalStatus: "leave" } as const;
-    expect(describeToday(day({ ...derived, leaveType: "leave" }))).toMatchObject({
+    const onLeave = (leaveType: TodayDay["leaveType"]) =>
+      describeTodayStrip(
+        day({ state: "approved", proposedBySystem: true, finalStatus: leaveType, leaveType }),
+      );
+    expect(onLeave("leave")).toMatchObject({
       kind: "on_leave",
-      title: "You're on approved leave today",
+      text: "On leave today",
       workingLabel: "I'm working today",
     });
-    expect(describeToday(day({ ...derived, leaveType: "comp_leave" }))).toMatchObject({
-      workingLabel: "I'm working today",
-    });
-    expect(
-      describeToday(day({ ...derived, finalStatus: "half_day", leaveType: "half_day" })),
-    ).toMatchObject({
-      kind: "on_leave",
-      title: "You're on an approved half day today",
+    expect(onLeave("comp_leave")).toMatchObject({ workingLabel: "I'm working today" });
+    expect(onLeave("half_day")).toMatchObject({
+      text: "Half day today",
       workingLabel: "I'm working the full day",
     });
   });
 
-  it("shows a submitted choice as waiting for approval", () => {
+  it("reads status · standing, in the words the app already uses", () => {
     expect(
-      describeToday(day({ state: "pending_review", submittedChoice: "half_day" })),
-    ).toMatchObject({
-      kind: "status",
-      state: "pending_review",
-      title: "Half day, waiting for approval",
-    });
+      describeTodayStrip(day({ state: "pending_review", submittedChoice: "present" })),
+    ).toEqual({ kind: "status", text: "Present · waiting for approval", dot: "pending_review" });
+    expect(
+      describeTodayStrip(day({ state: "pending_review", submittedChoice: "half_day" })).text,
+    ).toBe("Half day · waiting for approval");
+    expect(describeTodayStrip(day({ state: "pending_review", finalStatus: "absent" })).text).toBe(
+      "Absent (proposed) · waiting for approval",
+    );
+    expect(
+      describeTodayStrip(
+        day({ state: "approved", submittedChoice: "present", finalStatus: "present" }),
+      ),
+    ).toEqual({ kind: "status", text: "Present · approved", dot: "present" });
   });
 
-  it("says a proposed absence plainly", () => {
+  it("says who changed a corrected day", () => {
     expect(
-      describeToday(
-        day({ state: "pending_review", finalStatus: "absent", proposedBySystem: true }),
-      ),
-    ).toMatchObject({ title: "No choice recorded: proposed absent, waiting for review" });
-  });
-
-  it("marks work on a day off", () => {
+      describeTodayStrip(day({ state: "corrected", finalStatus: "absent", decidedBySystem: false }))
+        .text,
+    ).toBe("Absent · corrected by the Owner");
     expect(
-      describeToday(day({ state: "pending_review", submittedChoice: "present", isDayOff: true })),
-    ).toMatchObject({ detail: "Worked on a day off.", dayOff: true });
-    expect(
-      describeToday(
-        day({
-          state: "approved",
-          submittedChoice: "present",
-          finalStatus: "present",
-          isDayOff: true,
-        }),
-      ),
-    ).toMatchObject({ title: "Present, approved", detail: "Worked on a day off." });
-  });
-
-  it("says who corrected the day and why", () => {
-    expect(
-      describeToday(
-        day({
-          state: "corrected",
-          finalStatus: "leave",
-          decisionReason: "leave approved",
-          proposedBySystem: true,
-        }),
-      ),
-    ).toMatchObject({ title: "Leave, corrected", detail: "Updated: leave approved." });
-    expect(
-      describeToday(
-        day({
-          state: "corrected",
-          finalStatus: "present",
-          decidedBySystem: false,
-          decisionReason: "In the studio",
-        }),
-      ),
-    ).toMatchObject({ title: "Present, corrected", detail: "The Owner's note: In the studio" });
+      describeTodayStrip(day({ state: "corrected", finalStatus: "leave", decidedBySystem: true }))
+        .text,
+    ).toBe("Leave · your leave was approved");
   });
 
   it("keeps Present on an approved-leave day as a worked day, not as leave", () => {
     expect(
-      describeToday(
+      describeTodayStrip(
         day({
-          state: "approved",
+          state: "pending_review",
           submittedChoice: "present",
-          finalStatus: "present",
-          workedOnLeave: true,
+          proposedBySystem: true,
           leaveType: "leave",
         }),
-      ),
-    ).toMatchObject({ kind: "status", detail: "Worked on a day of approved leave." });
+      ).text,
+    ).toBe("Present · waiting for approval");
   });
 });
 

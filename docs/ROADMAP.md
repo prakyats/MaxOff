@@ -67,7 +67,7 @@ Exit: every event in WORKFLOWS §9 reaches the right people in-app and by push (
 
 ## Phase 6: Dashboards, calendar and ★ pilot
 Exit: **the team uses MaxOff daily** for attendance, leave and tasks, in production, with backups.
-- [ ] **6.1** [C] Staff **My Day** (mobile-first): pending acknowledgement, today, upcoming, overdue, changes requested, events, request a task, logout
+- [ ] **6.1** [C] Staff **My Day** (mobile-first): pending acknowledgement, today, upcoming, overdue, changes requested, events, request a task, logout **Build around the attendance strip (2.3 polish):** today's attendance is already one line at the top of My Day (`TodayAttendanceStrip`, one line at 375px, tapping through to `/leave/attendance` or the gate) and Log out a quiet full-width row at the bottom (`LogoutRow`); keep both where they are, the task sections go between them, and the skeleton keeps `TodayAttendanceStripSkeleton` first.
 - [ ] **6.2** [C] Owner **Today**: at-a-glance counts, approvals inbox, people board, today's tasks, overdue and risks, events strip, with Realtime updates
 - [ ] **6.3** [C] Admin dashboard: my clients, staff tasks needing attention, approvals, calendar strip, issues
 - [ ] **6.4** [C] Calendar: day, week and month views. Events, leave and holidays. Filters. Busy blocks for Admins

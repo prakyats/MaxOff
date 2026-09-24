@@ -24,6 +24,26 @@ export function LogoutButton() {
   );
 }
 
+/**
+ * The quiet full-width row at the bottom of My Day and the Admin's /today (2.3 polish): Log out
+ * stays one tap away on the home screen — it records the time — without a card of its own.
+ */
+export function LogoutRow() {
+  const requestLogout = useRequestLogout();
+  return (
+    <div data-slot="logout-row" className="border-border mt-8 border-t pt-2">
+      <Button
+        variant="ghost"
+        onClick={requestLogout}
+        className="text-muted-foreground w-full justify-center"
+      >
+        <LogOutIcon aria-hidden />
+        Log out
+      </Button>
+    </div>
+  );
+}
+
 /** The same action as an item of the account menu in the top bar. */
 export function LogoutMenuItem() {
   const requestLogout = useRequestLogout();

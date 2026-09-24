@@ -7,10 +7,13 @@ import { gateNext } from "@/core/auth/day-gate";
 import { setDayPass } from "@/core/auth/gate";
 import { action, ok, type Result } from "@/core/errors";
 import { assertPermission } from "@/core/permissions/server";
+import { todayIST } from "@/core/time";
 
 import {
   type FlagOvertimeInput,
   flagOvertimeSchema,
+  type FlagOvertimeTodayInput,
+  flagOvertimeTodaySchema,
   type SubmitChoiceInput,
   submitChoiceSchema,
   type WorkingTodayInput,
@@ -23,7 +26,7 @@ import * as repo from "../data/attendance";
  * revalidate → `Result`. The rules (states, dates, the day changing) live in the functions.
  */
 
-const HOME_PATHS = ["/my-day", "/today"] as const;
+const HOME_PATHS = ["/my-day", "/today", "/leave/attendance"] as const;
 
 function revalidateHomes(): void {
   for (const path of HOME_PATHS) revalidatePath(path);
@@ -63,3 +66,18 @@ export const flagOvertime = action(async (input: FlagOvertimeInput): Promise<Res
   revalidateHomes();
   return ok(null);
 });
+
+/**
+ * Overtime from the Log out confirmation ("Worked late today? Add an overtime note"): the same
+ * function on today's own day, which the repository finds by the IST date. A second note
+ * replaces the first, as `attendance_flag_overtime` does.
+ */
+export const flagOvertimeToday = action(
+  async (input: FlagOvertimeTodayInput): Promise<Result<null>> => {
+    const data = flagOvertimeTodaySchema.parse(input);
+    const member = await assertPermission("attendance.self");
+    await repo.rpcFlagOvertimeOn(member.id, todayIST(), data.reason);
+    revalidateHomes();
+    return ok(null);
+  },
+);

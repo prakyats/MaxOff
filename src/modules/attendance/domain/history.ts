@@ -158,6 +158,18 @@ export function describeHistoryDay(day: HistoryDay): HistoryDaySummary {
   return { status, standing, dotStatus: day.finalStatus ?? day.state, flags };
 }
 
+/**
+ * Overtime can be flagged on today's own day, once (a second call would only replace the
+ * reason; the Log out confirmation is where a late note is added). The strip on the home
+ * screen is one line, so today's entry in the history carries the action (2.3 polish).
+ */
+export function canFlagOvertime(
+  day: Pick<HistoryDay, "workDate" | "overtimeFlag">,
+  today: string,
+): boolean {
+  return day.workDate === today && !day.overtimeFlag;
+}
+
 /** "Wed, 23 Sep": a history row's date. */
 export function historyDate(date: string): string {
   return formatIST(istDayStart(date), "EEE, d MMM");

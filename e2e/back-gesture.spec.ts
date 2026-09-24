@@ -165,12 +165,12 @@ test.describe("installed: overlays and view controls", () => {
   test.describe("as Staff", () => {
     test.use({ storageState: storageStateFor("staff") });
 
-    /** My Day → the attendance card's link: a real drill-down, so it pushes. */
+    /** My Day → the attendance strip: a real drill-down, so it pushes. */
     async function openLeave(page: Page) {
       await runInstalled(page);
       await page.goto("/my-day");
-      await page.getByRole("link", { name: "Attendance & leave" }).first().click();
-      await expect(page).toHaveURL(/\/leave$/);
+      await page.locator('[data-slot="attendance-strip"]').getByRole("link").click();
+      await expect(page).toHaveURL(/\/leave\/attendance$/);
     }
 
     /** A view control: the URL follows, and the new view has rendered. */
@@ -181,22 +181,22 @@ test.describe("installed: overlays and view controls", () => {
 
     test("/leave: back closes a day's sheet, the next back returns to My Day", async ({ page }) => {
       await openLeave(page);
-      await view(page, "Attendance", /\/leave\?tab=attendance$/);
       await page.locator('[data-slot="data-card"]').first().click();
       const sheet = page.locator('[data-slot="detail-sheet"]');
       await expect(sheet).toBeVisible();
 
       await expectBackStack(page, [
-        { closes: sheet, url: /\/leave\?tab=attendance$/ },
+        { closes: sheet, url: /\/leave\/attendance$/ },
         { url: /\/my-day$/ },
       ]);
     });
 
     test("/leave: tabs and months never add history; one back leaves", async ({ page }) => {
       await openLeave(page);
-      await view(page, "Attendance", /tab=attendance$/);
       await view(page, "Leave requests", /\/leave$/);
-      await view(page, "Attendance", /tab=attendance$/);
+      await view(page, "Attendance", /\/leave\/attendance$/);
+      await view(page, "Leave requests", /\/leave$/);
+      await view(page, "Attendance", /\/leave\/attendance$/);
       // The seed dates everyone 40 days back, so there is always a previous month.
       await page.getByRole("link", { name: "Previous month" }).click();
       await expect(page).toHaveURL(/month=\d{4}-\d{2}$/);

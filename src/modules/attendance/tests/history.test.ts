@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  canFlagOvertime,
   describeEvent,
   describeHistoryDay,
   eventActor,
@@ -175,6 +176,14 @@ describe("describeHistoryDay", () => {
     ).toEqual(["Worked on a day off", "Overtime", "Logout not recorded"]);
     expect(describeHistoryDay(day({ workedOnLeave: true })).flags).toEqual(["1 day worked"]);
     expect(describeHistoryDay(day({ isDayOff: true, finalStatus: "leave" })).flags).toEqual([]);
+  });
+});
+
+describe("canFlagOvertime", () => {
+  it("offers overtime on today's own entry only, once", () => {
+    expect(canFlagOvertime(day({}), "2026-09-24")).toBe(true);
+    expect(canFlagOvertime(day({ overtimeFlag: true }), "2026-09-24")).toBe(false);
+    expect(canFlagOvertime(day({ workDate: "2026-09-23" }), "2026-09-24")).toBe(false);
   });
 });
 

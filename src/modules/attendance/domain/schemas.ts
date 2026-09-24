@@ -36,3 +36,7 @@ export const flagOvertimeSchema = z.object({
     .max(ATTENDANCE_REASON_MAX_LENGTH, `Keep it under ${ATTENDANCE_REASON_MAX_LENGTH} characters.`),
 });
 export type FlagOvertimeInput = z.input<typeof flagOvertimeSchema>;
+
+/** The same reason rule, for today's own day (the Log out confirmation). */
+export const flagOvertimeTodaySchema = flagOvertimeSchema.pick({ reason: true });
+export type FlagOvertimeTodayInput = z.input<typeof flagOvertimeTodaySchema>;

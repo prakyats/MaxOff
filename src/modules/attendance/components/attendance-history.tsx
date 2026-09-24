@@ -2,11 +2,12 @@
 
 import type { ColumnDef } from "@tanstack/react-table";
 import { CalendarCheckIcon } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { DataTable, type MobileCard } from "@/core/ui/composites/data-table";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { StatusDot } from "@/core/ui/composites/status-badge";
+import { Button } from "@/core/ui/primitives/button";
 import {
   Sheet,
   SheetContent,
@@ -16,12 +17,15 @@ import {
 } from "@/core/ui/primitives/sheet";
 
 import {
+  canFlagOvertime,
   clockTime,
   describeEvent,
   describeHistoryDay,
   type HistoryDay,
   historyDate,
 } from "../domain/history";
+
+import { OvertimeDialog } from "./overtime-dialog";
 
 /**
  * The member's own attendance, one IST month (the month pager is the route's). A row says what
@@ -31,66 +35,83 @@ import {
 export function AttendanceHistory({
   days,
   monthName,
+  today,
 }: {
   days: HistoryDay[];
   /** "September 2026", for the empty state. */
   monthName: string;
+  /** The IST date: today's entry carries the day's action (overtime). */
+  today: string;
 }) {
   // Desktop opens the same timeline in a side sheet; a phone uses DataTable's own sheet.
   const [openId, setOpenId] = useState<string | null>(null);
   const open = days.find((day) => day.id === openId) ?? null;
+  // Held here, above both sheets: choosing the action closes the phone's detail sheet.
+  const [overtimeDayId, setOvertimeDayId] = useState<string | null>(null);
 
-  const columns = useMemo<ColumnDef<HistoryDay>[]>(
-    () => [
-      {
-        id: "date",
-        header: "Date",
-        enableSorting: false,
-        size: 140,
-        // A real button, so the day opens from the keyboard too.
-        cell: ({ row }) => (
-          <button
-            type="button"
-            onClick={() => setOpenId(row.original.id)}
-            className="focus-visible:ring-ring -mx-1 rounded px-1 font-medium whitespace-nowrap underline-offset-4 outline-none hover:underline focus-visible:ring-2"
-          >
-            {historyDate(row.original.workDate)}
-          </button>
-        ),
+  const overtimeAction = (day: HistoryDay, size: "sm" | "default") =>
+    canFlagOvertime(day, today) ? (
+      <Button variant="outline" size={size} onClick={() => setOvertimeDayId(day.id)}>
+        Flag overtime
+      </Button>
+    ) : null;
+
+  const columns: ColumnDef<HistoryDay>[] = [
+    {
+      id: "date",
+      header: "Date",
+      enableSorting: false,
+      size: 140,
+      // A real button, so the day opens from the keyboard too.
+      cell: ({ row }) => (
+        <button
+          type="button"
+          onClick={() => setOpenId(row.original.id)}
+          className="focus-visible:ring-ring -mx-1 rounded px-1 font-medium whitespace-nowrap underline-offset-4 outline-none hover:underline focus-visible:ring-2"
+        >
+          {historyDate(row.original.workDate)}
+        </button>
+      ),
+    },
+    {
+      id: "status",
+      header: "Attendance",
+      enableSorting: false,
+      cell: ({ row }) => {
+        const summary = describeHistoryDay(row.original);
+        return (
+          <div className="flex flex-col gap-0.5">
+            <StatusDot status={summary.dotStatus} label={summary.status} className="text-sm" />
+            <span className="text-muted-foreground text-xs">{summary.standing}</span>
+          </div>
+        );
       },
-      {
-        id: "status",
-        header: "Attendance",
-        enableSorting: false,
-        cell: ({ row }) => {
-          const summary = describeHistoryDay(row.original);
-          return (
-            <div className="flex flex-col gap-0.5">
-              <StatusDot status={summary.dotStatus} label={summary.status} className="text-sm" />
-              <span className="text-muted-foreground text-xs">{summary.standing}</span>
-            </div>
-          );
-        },
-      },
-      {
-        id: "times",
-        header: "Login · logout",
-        enableSorting: false,
-        cell: ({ row }) => <span className="text-muted-foreground">{times(row.original)}</span>,
-      },
-      {
-        id: "flags",
-        header: "Notes",
-        enableSorting: false,
-        cell: ({ row }) => (
-          <span className="text-muted-foreground">
-            {describeHistoryDay(row.original).flags.join(" · ")}
-          </span>
-        ),
-      },
-    ],
-    [],
-  );
+    },
+    {
+      id: "times",
+      header: "Login · logout",
+      enableSorting: false,
+      cell: ({ row }) => <span className="text-muted-foreground">{times(row.original)}</span>,
+    },
+    {
+      id: "flags",
+      header: "Notes",
+      enableSorting: false,
+      cell: ({ row }) => (
+        <span className="text-muted-foreground">
+          {describeHistoryDay(row.original).flags.join(" · ")}
+        </span>
+      ),
+    },
+    {
+      id: "actions",
+      header: () => <span className="sr-only">Actions</span>,
+      enableSorting: false,
+      cell: ({ row }) => (
+        <div className="flex justify-end">{overtimeAction(row.original, "sm")}</div>
+      ),
+    },
+  ];
 
   const mobile: MobileCard<HistoryDay> = {
     title: (day) => historyDate(day.workDate),
@@ -104,6 +125,7 @@ export function AttendanceHistory({
     },
     detail: (day) => <DayTimeline day={day} />,
     detailTitle: (day) => historyDate(day.workDate),
+    actions: (day) => overtimeAction(day, "default"),
   };
 
   return (
@@ -139,6 +161,10 @@ export function AttendanceHistory({
           ) : null}
         </SheetContent>
       </Sheet>
+      <OvertimeDialog
+        dayId={overtimeDayId}
+        onOpenChange={(next) => (next ? null : setOvertimeDayId(null))}
+      />
     </>
   );
 }

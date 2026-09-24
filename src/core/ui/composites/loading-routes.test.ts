@@ -44,9 +44,17 @@ describe("loading.tsx coverage", () => {
   });
 
   it.each(routes)("%s renders its title bar while loading", (route) => {
-    // Without a header you cannot tell which screen you are on mid-load.
+    // Without a header you cannot tell which screen you are on mid-load. A route whose own
+    // layout draws the header (and awaits nothing) keeps it painted while the page loads.
     const source = readFileSync(path.join(appDir, route, "loading.tsx"), "utf8");
-    expect(source).toMatch(/PageLoading|PageHeader/);
+    const layouts = route
+      .split("/")
+      .map((_, i, parts) => path.join(appDir, ...parts.slice(0, i + 1), "layout.tsx"))
+      .filter((file) => existsSync(file))
+      .map((file) => readFileSync(file, "utf8"));
+    expect(
+      /PageLoading|PageHeader/.test(source) || layouts.some((l) => l.includes("<PageHeader")),
+    ).toBe(true);
   });
 
   it("gives each route the shape its real content has", () => {
@@ -64,10 +72,12 @@ describe("loading.tsx coverage", () => {
     expect(shapeOf("settings")).toBe("list");
     expect(shapeOf("notifications")).toBe("list");
     expect(shapeOf("me")).toBe("detail");
-    // Tab links and a pager row above the list, on either tab (2.3).
+    // /leave's layout keeps the header and tabs painted; each view traces its own list (2.3),
+    // and only the attendance view has the month switcher row.
     expect(shapeOf("leave")).toBe("cards");
-    expect(readFileSync(path.join(appDir, "leave/loading.tsx"), "utf8")).toContain(
-      "loading-leave-tabs",
+    expect(shapeOf("leave/attendance")).toBe("cards");
+    expect(readFileSync(path.join(appDir, "leave/attendance/loading.tsx"), "utf8")).toContain(
+      "loading-leave-pager",
     );
     // Approvals is a grouped list with two actions per row; calendar draws its own day strip.
     expect(shapeOf("approvals")).toBe("list");
