@@ -12,6 +12,12 @@ import { cn } from "@/core/lib/utils";
  *
  * Like `page-actions` this is one element repositioned by CSS, not a mobile copy and a desktop
  * copy, so a form never submits from two buttons.
+ *
+ * **Phone:** a surface of the card token (a form lives on a card or a sheet, never on the bare
+ * page), a top border, and the side safe areas. **From `md` up:** not a bar at all, just the
+ * form's last row: no background, no border, no padding, buttons right-aligned in their DOM
+ * order (Cancel, then Save). Before 2.9's review it kept `bg-background` there, which drew a
+ * page-coloured band across the card behind the buttons (owner's check, 2026-09-26).
  */
 export function StickyActions({
   children,
@@ -24,9 +30,9 @@ export function StickyActions({
     <div
       data-slot="sticky-actions"
       className={cn(
-        "border-border bg-background/95 supports-[backdrop-filter]:bg-background/80 fixed inset-x-0 bottom-[calc(var(--app-bottom-nav-h)+var(--app-safe-bottom))] z-30 flex gap-2 border-t px-4 py-3 backdrop-blur",
+        "border-border bg-card/95 supports-[backdrop-filter]:bg-card/85 fixed inset-x-0 bottom-[calc(var(--app-bottom-nav-h)+var(--app-safe-bottom))] z-30 flex gap-2 border-t py-3 pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] backdrop-blur",
         "*:flex-1",
-        "md:bg-background md:static md:border-0 md:px-0 md:py-0 md:backdrop-blur-none md:*:flex-none",
+        "md:static md:justify-end md:border-0 md:bg-transparent md:p-0 md:backdrop-blur-none md:*:flex-none",
         className,
       )}
     >

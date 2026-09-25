@@ -285,7 +285,7 @@ Staff work from a phone, often one-handed, often outdoors. These are shell-level
 - **No zoom on focus.** Every input, select and textarea is at least **16px**, or iOS Safari zooms the page when it's tapped and never zooms back.
 - **Touch targets** are at least **44 × 44 px** with 8px between them. This includes icon buttons, table row actions and nav items.
 - **Dialogs are bottom sheets below 768px** (top-anchored dialogs put the buttons out of thumb reach), with a drag handle and a visible close.
-- **The primary action is reachable**: sticky at the bottom of the viewport on mobile forms, above the safe area, never hidden behind the keyboard.
+- **The primary action is reachable**: sticky at the bottom of the viewport on mobile forms, above the safe area, never hidden behind the keyboard. **One shared row decides the look** (2.9 review, owner's check 2026-09-26): `StickyActions` below `md` is a bar on the **card** surface with a top border and the side safe areas; from `md` up it is the form's last row with **no background, no border, not sticky, right-aligned, Cancel then the action**. Dialog footers (`MODAL_FOOTER`) follow the same rule: the sheet's own surface (`bg-popover`) with a top border on a phone, a plain right-aligned row on desktop. Never the page background inside a card. `e2e/edit-pattern.spec.ts` asserts the desktop row has no band, in light and dark.
 - **Tables become cards below 768px.** `DataTable` renders a card list on mobile; horizontal scrolling inside a table is not acceptable.
 - **Nothing is hover-only.** Row actions, tooltips and menus must be reachable by tap.
 - **Scrolling feels native**: momentum scrolling, `overscroll-behavior: contain` on sheets and modals, no scroll chaining to the page behind.

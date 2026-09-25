@@ -261,3 +261,59 @@ test.describe("People cards on a phone (First glance, task 2.9)", () => {
     });
   });
 });
+
+/**
+ * From `md` up an action row is the last row of its card or dialog, not a bar: no background
+ * band, no border, not fixed, buttons right-aligned in DOM order (Cancel, then the action). The
+ * owner found a page-coloured band inside the /me card on desktop (2.9 review, 2026-09-26); the
+ * fix is in the shared `StickyActions` and `MODAL_FOOTER`, so both are checked here.
+ */
+async function expectPlainRow(row: ReturnType<Page["locator"]>, cancel: string, action: string) {
+  const look = await row.evaluate((element) => {
+    const style = getComputedStyle(element);
+    const buttons = [...element.querySelectorAll("button")].map((button) => ({
+      text: button.textContent?.trim() ?? "",
+      right: button.getBoundingClientRect().right,
+    }));
+    return {
+      background: style.backgroundColor,
+      border: style.borderTopWidth,
+      position: style.position,
+      rowRight: element.getBoundingClientRect().right,
+      buttons,
+    };
+  });
+  expect(look.background).toBe("rgba(0, 0, 0, 0)");
+  expect(look.border).toBe("0px");
+  expect(look.position).toBe("static");
+  expect(look.buttons.map((button) => button.text)).toEqual([cancel, action]);
+  // Right-aligned: the action ends where the row ends.
+  expect(Math.abs(look.buttons[1]!.right - look.rowRight)).toBeLessThanOrEqual(1);
+}
+
+test.describe("desktop: action rows have no band", () => {
+  test.skip(({ isMobile }) => isMobile, "the phone keeps its sticky bar");
+
+  test("the /me edit row and the Request leave footer", async ({ page }, info) => {
+    await signIn(page, profilePerson(info).email, PASSWORD);
+    for (const scheme of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme: scheme });
+      await page.goto("/me");
+      await hydrated(page);
+      await editButton(page).click();
+      await expectPlainRow(page.locator('[data-slot="sticky-actions"]'), "Cancel", "Save");
+      await page.getByRole("button", { name: "Cancel" }).click();
+
+      await page.goto("/leave");
+      await hydrated(page);
+      await page.getByRole("button", { name: "Request leave" }).first().click();
+      const dialog = page.getByRole("dialog", { name: "Request leave" });
+      await expectPlainRow(
+        dialog.locator('[data-slot="dialog-footer"]'),
+        "Cancel",
+        "Request leave",
+      );
+      await page.keyboard.press("Escape");
+    }
+  });
+});
