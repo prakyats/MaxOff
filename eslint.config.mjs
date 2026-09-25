@@ -53,6 +53,23 @@ const MONEY_SELECTORS = [
   { selector: `TemplateElement[value.raw=${MONEY_PATTERN}]`, message: MONEY_MESSAGE },
 ];
 
+const BUTTON_COLOUR_MESSAGE =
+  "Buttons get their colour from a variant (primary, destructive, secondary, ghost, strong), never from classes: the action colour rule, ARCHITECTURE §14.1.";
+/**
+ * The action colour rule's lint half (ARCHITECTURE §14.1): outside `core/ui/primitives`, a
+ * `<Button>`, a `<button>` or `buttonVariants(...)` may not carry colour classes or hex values.
+ * Checked in string and template literals anywhere inside `className` (including `cn(...)`).
+ */
+const BUTTON_COLOUR = String.raw`/(^|[\s:])(bg-(red-[0-9]+|black|white|brand|primary|destructive|strong|danger)|text-(white|black|red-[0-9]+|brand|primary-foreground)|border-(red-[0-9]+|brand|primary))([\s/]|$)|#[0-9a-fA-F]{3,8}/`;
+const BUTTON_COLOUR_SELECTORS = [
+  "JSXOpeningElement[name.name=/^(Button|button)$/] JSXAttribute[name.name='className'] Literal",
+  "JSXOpeningElement[name.name=/^(Button|button)$/] JSXAttribute[name.name='className'] TemplateElement",
+  "CallExpression[callee.name='buttonVariants'] Property[key.name='className'] Literal",
+].map((scope) => ({
+  selector: `${scope}[${scope.endsWith("TemplateElement") ? "value.raw" : "value"}=${BUTTON_COLOUR}]`,
+  message: BUTTON_COLOUR_MESSAGE,
+}));
+
 const DB_MESSAGE =
   "Only data/ layers and the listed core/ areas touch the database (CLAUDE.md rule 3). Type imports are fine.";
 /** The Supabase packages themselves. `core/db` imports are checked by the boundaries policy below. */
@@ -132,7 +149,7 @@ const eslintConfig = defineConfig([
         { prefer: "type-imports", fixStyle: "inline-type-imports" },
       ],
       // ADR-0008: business dates come from core/time, never from the wall clock.
-      "no-restricted-syntax": ["error", ...WALL_CLOCK_SELECTORS],
+      "no-restricted-syntax": ["error", ...WALL_CLOCK_SELECTORS, ...BUTTON_COLOUR_SELECTORS],
     },
   },
 
@@ -293,6 +310,18 @@ const eslintConfig = defineConfig([
   {
     files: ["**/src/**/*.{ts,tsx}"],
     ignores: ["**/src/modules/revenue/**", "**/src/core/db/**"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        ...WALL_CLOCK_SELECTORS,
+        ...MONEY_SELECTORS,
+        ...BUTTON_COLOUR_SELECTORS,
+      ],
+    },
+  },
+  // The primitives are where button colours are defined (the variants themselves).
+  {
+    files: ["**/src/core/ui/primitives/**/*.{ts,tsx}"],
     rules: { "no-restricted-syntax": ["error", ...WALL_CLOCK_SELECTORS, ...MONEY_SELECTORS] },
   },
   {

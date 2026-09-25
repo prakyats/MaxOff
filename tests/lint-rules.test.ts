@@ -58,6 +58,9 @@ const EXPECTED: Record<string, readonly string[]> = {
   "core/ui/denied-radix.ts": [IMPORTS],
   "modules/tasks/data/denied-radix.ts": [IMPORTS],
   "modules/tasks/domain/denied-radix.ts": [IMPORTS],
+  // the action colour rule: buttons get colour from a variant, not classes (outside primitives)
+  "modules/tasks/components/denied-button-colour.tsx": [SYNTAX],
+  "modules/tasks/components/denied-button-hex.tsx": [SYNTAX],
 };
 
 function walk(dir: string): string[] {
