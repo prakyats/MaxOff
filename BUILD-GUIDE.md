@@ -30,7 +30,7 @@ Each roadmap task is tagged with a **tier**, not a model name, so the method kee
 | Tier | Use for | Model today |
 |---|---|---|
 | **[H]** highest capability | Schema, security rules, transition functions, scheduled jobs, phase reviews, hard bugs | **Fable 5.1** |
-| **[C]** strong coding | Screens and features | **Opus 5** (about half the cost of Fable 5.1) |
+| **[C]** strong coding | Screens and features | **Opus 5.5** (about half the cost of Fable 5.1) |
 | **[Q]** fast | Polish, small UI fixes, docs | **Sonnet 5** |
 
 Switch with `/model` at the start of a session. If a [C] task goes badly, run `/clear` and redo it on [H]. If your plan's limits allow, running everything on Fable 5.1 is fine too.
