@@ -45,20 +45,22 @@ describe("manifest.webmanifest", () => {
     expect(manifest.display).toBe("standalone");
   });
 
-  it("takes both colours from the DARK token, so the splash hands off invisibly", () => {
-    // They differ on purpose (owner decision 2026-09-23, confirmed on an S23). An installed PWA
-    // takes its band from the manifest, and a manifest has one theme_color that cannot vary by
-    // colour scheme — so the media-query pair that fixes Chrome's tab toolbar cannot reach it.
-    // Dark wins because the app is dark-first on phones: a dark band above a light app reads as
-    // an intentional header, a light band above a dark app reads as broken. Chrome picks the
-    // glyph colour from this value's luminance, so the status bar stays readable either way.
-    // background_color paints the Android splash. It was the light token, which meant a white
-    // splash handing over to a dark app — the flash the band fix was supposed to end (owner
-    // decision 2026-09-23, round 4). Both are dark now, so the hand-off is invisible.
-    expect(manifest.theme_color).toBe(token(".dark", "background"));
-    expect(manifest.theme_color).toBe(THEME_COLORS.dark);
+  it("paints the splash dark and leaves the status bar to the platform", () => {
+    // background_color paints the Android splash: dark, so the hand-off to a dark-first app is
+    // invisible (owner decision 2026-09-23, round 4). Unchanged.
     expect(manifest.background_color).toBe(token(".dark", "background"));
     expect(manifest.background_color).toBe(THEME_COLORS.dark);
+    // No theme_color, on purpose (2026-09-26, owner's device report: "in light mode the status
+    // bar is black with dark icons, the clock is unreadable"). An installed Chrome app (WebAPK)
+    // takes the status bar's COLOUR from the manifest snapshot baked at install and ignores the
+    // page's theme-color meta, while the icons' colour follows the PHONE's light/dark setting.
+    // The 2026-09-23 premise, that Chrome picks the icons from this value's luminance, did not
+    // hold on the S23. One fixed value cannot be readable in both phone modes (dark: black bar,
+    // dark icons in light mode; light: light bar, light icons in dark mode), and Chrome has no
+    // dependable per-scheme manifest colour. With none declared, Chrome uses the platform
+    // defaults: white with dark icons in light mode, black with light icons in dark mode. The
+    // cost: in light mode a white status bar sits above the dark splash for its half second.
+    expect(manifest).not.toHaveProperty("theme_color");
   });
 
   it("names icons that exist, including a maskable one", () => {

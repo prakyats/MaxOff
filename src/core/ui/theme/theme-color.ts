@@ -3,8 +3,10 @@
  *
  * These are the **page background tokens**, not approximations of them: `--background` from
  * `:root` and from `.dark` in `globals.css`. The band and the app must be exactly the same
- * colour, so `pwa-files.test.ts` fails if the two ever drift apart, and the manifest's
- * `theme_color` / `background_color` are checked against the light one.
+ * colour, so `pwa-files.test.ts` fails if the two ever drift apart. They drive the page's
+ * `theme-color` meta (a browser tab's toolbar). An installed Android app ignores that meta and
+ * takes its status bar from the manifest, which declares no `theme_color` on purpose (2026-09-26,
+ * see `pwa-files.test.ts`); the manifest's `background_color` (the splash) is the dark one.
  */
 export const THEME_COLORS = {
   light: "#fafaf9",
