@@ -28,7 +28,7 @@ MaxOff is the **internal operations and control system for Pixora Clips**. It co
 
 ## Engineering rules
 1. **Customization is data.** Task types, stage presets, job titles, holidays, custom fields and templates live in tables. Code depends only on the enums in DATA-MODEL §0.
-2. **Modules are isolated:** `app → modules (index.ts only) → core`, except that `app/` imports a module's **client** components one file at a time from `components/` (never through `index.ts`, which exports no client components; ADR-0011 amendment). Core never imports modules. Lint enforces this.
+2. **Modules are isolated:** `app → modules (index.ts only) → core`. **One exception:** `app/` imports a module's **client** components one file at a time from `components/` (the barrel exports none; ADR-0011 amendment). `data/`, `domain/` and `actions/` are still reached only through `index.ts`. Core never imports modules. Lint enforces all of this.
 3. **Only `data/` layers touch the database:** `src/modules/*/data/` plus the core areas that own tables (`core/db`, `core/auth`, `core/activity`, `core/lists`, `core/custom-fields`, `core/notifications`, `core/storage`). Lint enforces the list; type-only imports are fine anywhere.
 4. **Workflow changes go through Postgres transition functions** (ADR-0006): permission + scope + state check + change + `activity_log` + notifications in one transaction. State columns are never updated directly.
 5. **Plain edits:** server action = zod → `requirePermission` → repository → revalidate → `Result`. Auditing is done by the `audit_row_change()` trigger. **Actions stay thin** — no business logic in an action, and `modules/*/domain` never imports React, Next or DOM APIs (ADR-0011, lint-enforced).
