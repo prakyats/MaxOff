@@ -358,15 +358,19 @@ test.describe("the page title bar", () => {
   const SHORT = { height: 500 };
 
   /**
-   * Opens a long-enough page and waits until the scroll handler is actually attached. The
-   * attribute appears when `MobileChrome` mounts, so its presence is the hydration signal: a
-   * wheel sent before that scrolls the page with nobody listening, and the bar then measures
-   * from the new position and never moves.
+   * Opens a long-enough page and waits until the scroll handler is actually attached **and the
+   * page is long enough to scroll**. The attribute appears when `MobileChrome` mounts, so its
+   * presence is the hydration signal: a wheel sent before that scrolls the page with nobody
+   * listening, and the bar then measures from the new position and never moves. But the shell
+   * hydrates before the streamed list is revealed (since 2.8 cut its JS, often by ~60 ms): a
+   * wheel on the four-row skeleton scrolls nothing, and the bar rightly stays (CI, 2026-09-25,
+   * seen in the screencast). So the list's cards come first.
    */
   async function openScrollable(page: Page): Promise<void> {
     await page.setViewportSize({ width: page.viewportSize()?.width ?? 375, ...SHORT });
     await page.goto("/people");
     await expect(page.locator("html")).toHaveAttribute("data-chrome", "shown");
+    await expect(page.locator('[data-slot="data-card"]').first()).toBeVisible();
   }
 
   test("the brand bar hides on a flick down and comes back on a flick up", async ({ page }) => {
