@@ -2,13 +2,8 @@ import type { Metadata } from "next";
 
 import { requirePermission } from "@/core/permissions/server";
 import { addISTDays, todayIST, toISTDate } from "@/core/time";
-import {
-  AttendanceHistory,
-  historyMonth,
-  listDays,
-  monthLabel,
-  monthOf,
-} from "@/modules/attendance";
+import { historyMonth, listDays, monthLabel, monthOf } from "@/modules/attendance";
+import { AttendanceHistory } from "@/modules/attendance/components/attendance-history";
 import { getOwnMember } from "@/modules/team";
 
 import { LeavePager } from "../leave-nav";

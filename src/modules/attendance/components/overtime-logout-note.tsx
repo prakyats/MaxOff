@@ -2,13 +2,13 @@
 
 import { useId, useState } from "react";
 
-import { useBeforeLogout } from "@/core/auth/components";
+import { useBeforeLogout } from "@/core/auth/components/logout-confirm";
 import { Button } from "@/core/ui/primitives/button";
 import { Label } from "@/core/ui/primitives/label";
 import { Textarea } from "@/core/ui/primitives/textarea";
 
 import { flagOvertimeToday } from "../actions/attendance";
-import { ATTENDANCE_REASON_MAX_LENGTH, flagOvertimeTodaySchema } from "../domain/schemas";
+import { ATTENDANCE_REASON_MAX_LENGTH } from "../domain/limits";
 
 /**
  * "Worked late today? Add an overtime note", inside the Log out confirmation (2.3 polish): the
@@ -24,14 +24,11 @@ export function OvertimeLogoutNote() {
 
   useBeforeLogout(async () => {
     if (!open || note.trim() === "") return true;
-    const parsed = flagOvertimeTodaySchema.safeParse({ reason: note });
-    if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? "Please check the note.");
-      return false;
-    }
+    // Validated by the action's schema only: this note is on every signed-in screen, and a
+    // client-side parse put all of zod in their first load (task 2.8).
     const result = await flagOvertimeToday({ reason: note });
     if (!result.ok) {
-      setError(result.error.message);
+      setError(result.error.fieldErrors?.reason?.[0] ?? result.error.message);
       return false;
     }
     return true;

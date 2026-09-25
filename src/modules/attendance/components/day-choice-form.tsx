@@ -13,7 +13,8 @@ import { Textarea } from "@/core/ui/primitives/textarea";
 
 import { submitDayChoice } from "../actions/attendance";
 import { ATTENDANCE_CHOICES, CHOICE_COPY } from "../domain/choices";
-import { ATTENDANCE_REASON_MAX_LENGTH, type SubmitChoiceInput } from "../domain/schemas";
+import { ATTENDANCE_REASON_MAX_LENGTH } from "../domain/limits";
+import type { SubmitChoiceInput } from "../domain/schemas";
 
 /**
  * The gate's four answers (WORKFLOWS §1), laid out for a thumb: one tall option per line, an

@@ -1,7 +1,7 @@
 import { LayoutDashboardIcon } from "lucide-react";
 import type { Metadata } from "next";
 
-import { LogoutRow } from "@/core/auth/components";
+import { LogoutRow } from "@/core/auth/components/logout-button";
 import { requireMember } from "@/core/auth/server";
 import { can } from "@/core/permissions";
 import {

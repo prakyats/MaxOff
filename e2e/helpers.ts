@@ -430,13 +430,14 @@ export async function runInstalled(page: Page) {
 }
 
 /**
- * The app has hydrated: `MobileChrome` sets `data-chrome` on `<html>` when it mounts, at every
- * width. Before that a link is a plain link (by design, §14.2 k) and no listener is attached, so
- * a spec that checks client behaviour (a typed transition, a scroll restore, refresh on return)
- * waits for this after `goto`, or a fast tap can land first and take the plain path (2.7b).
+ * The app has hydrated: `<HydratedMark>` in the root layout sets `data-hydrated` on `<html>` in
+ * the hydration commit, on every screen. Before that the pre-hydration script answers back, view
+ * and tab taps with the same moves (2.8), but without the slide and without the app's listeners,
+ * so a spec that checks client behaviour (a typed transition, a scroll restore, refresh on
+ * return) waits for this after `goto`.
  */
 export async function hydrated(page: Page): Promise<void> {
-  await expect(page.locator("html")).toHaveAttribute("data-chrome", /.+/);
+  await expect(page.locator("html")).toHaveAttribute("data-hydrated", "");
 }
 
 /** One back press: what it must close (if anything), and where the page must be afterwards. */

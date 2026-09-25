@@ -1,6 +1,8 @@
 import { isValid, parseISO } from "date-fns";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 
+import { type Clock, systemClock } from "./clock";
+
 /**
  * IST helpers (ADR-0008). This file is the only place in `src/` that formats or
  * computes business dates, and the only place allowed to call `new Date()` for
@@ -17,10 +19,7 @@ export type ISODate = string;
 /** Anything that names an instant: a Date, epoch milliseconds or an ISO 8601 string WITH a time. */
 export type Instant = Date | number | string;
 
-/** Returns the current instant. Injected so tests never depend on the wall clock. */
-export type Clock = () => Date;
-
-export const systemClock: Clock = () => new Date();
+export { systemClock, type Clock } from "./clock";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const DAY_MS = 24 * 60 * 60 * 1000;

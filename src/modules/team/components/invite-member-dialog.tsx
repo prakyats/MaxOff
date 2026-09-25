@@ -26,7 +26,7 @@ import {
 import { describeError } from "@/core/ui/toast";
 
 import { type InviteOutcome, inviteMember } from "../actions/members";
-import { INVITABLE_ROLES, type InvitableRole } from "../domain/schemas";
+import { INVITABLE_ROLES, type InvitableRole } from "../domain/limits";
 
 import { InviteLinkPanel } from "./invite-link-panel";
 import { offerableJobTitles } from "../domain/job-titles";

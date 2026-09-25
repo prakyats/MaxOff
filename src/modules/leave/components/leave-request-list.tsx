@@ -28,7 +28,7 @@ import {
   type OwnLeaveRequest,
 } from "../domain/requests";
 import { firstName, ownerLeaveActions } from "../domain/review";
-import { LEAVE_REASON_MAX_LENGTH } from "../domain/schemas";
+import { LEAVE_REASON_MAX_LENGTH } from "../domain/limits";
 
 import { LeaveFormDialog } from "./leave-form-dialog";
 import { OwnerEditLeaveDialog } from "./owner-edit-leave-dialog";

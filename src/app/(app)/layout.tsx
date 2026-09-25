@@ -1,11 +1,8 @@
 import type { ReactNode } from "react";
 
-import {
-  IssueDayPass,
-  LogoutMenuItem,
-  LogoutProvider,
-  LogoutSheetItem,
-} from "@/core/auth/components";
+import { IssueDayPass } from "@/core/auth/components/issue-day-pass";
+import { LogoutMenuItem, LogoutSheetItem } from "@/core/auth/components/logout-button";
+import { LogoutProvider } from "@/core/auth/components/logout-confirm";
 import { requireDayGate } from "@/core/auth/gate";
 import { requireMember } from "@/core/auth/server";
 import { SentryUser } from "@/core/observability/sentry-user";
@@ -16,7 +13,8 @@ import { TooltipProvider } from "@/core/ui/primitives/tooltip";
 import { AppShell } from "@/core/ui/shell/app-shell";
 import { RefreshOnReturn } from "@/core/ui/shell/refresh-on-return";
 import type { NavBadges } from "@/core/ui/shell/nav";
-import { countPendingDays, OvertimeLogoutNote } from "@/modules/attendance";
+import { countPendingDays } from "@/modules/attendance";
+import { OvertimeLogoutNote } from "@/modules/attendance/components/overtime-logout-note";
 import { countPendingRequests } from "@/modules/leave";
 
 /**

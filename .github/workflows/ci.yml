@@ -42,6 +42,9 @@ jobs:
       # The OpenNext build runs `next build` and then bundles the Worker, so a change the
       # Workers runtime can't take fails here, before merge (task 0.5).
       - run: pnpm build:worker
+      # First-load JS per route against bundle-budget.json (task 2.8): /login went to 1.34 MB in
+      # phase 1 without anyone noticing. Reads the manifests `next build` just wrote.
+      - run: pnpm budget
 
   db:
     name: pgTAP

@@ -1,5 +1,7 @@
 import type { ErrorCode } from "./codes";
-import { toAppError } from "./action";
+
+// Server-free on purpose: the approval screens import `bulkSummary` in the browser. `eachId`,
+// which maps throws through `action.ts` (zod, error reporting), lives in `each-id.ts` (2.8).
 
 /**
  * What a bulk action returns (ARCHITECTURE §4.1: "call the function for each id inside one
@@ -12,28 +14,6 @@ export type BulkOutcome = {
   /** One line about the batch as a whole, e.g. the days that kept an earlier decision. */
   note?: string;
 };
-
-/**
- * Runs `run` for each id **one after another** (each is its own transaction and its own audit
- * entry; running them in parallel would only make them queue on the same person's lock), and
- * turns every throw into that row's error. Never throws.
- */
-export async function eachId(
-  ids: readonly string[],
-  run: (id: string) => Promise<unknown>,
-): Promise<BulkOutcome> {
-  const outcome: BulkOutcome = { done: [], failed: [] };
-  for (const id of ids) {
-    try {
-      await run(id);
-      outcome.done.push(id);
-    } catch (error) {
-      const appError = toAppError(error);
-      outcome.failed.push({ id, code: appError.code, message: appError.message });
-    }
-  }
-  return outcome;
-}
 
 /** "5 approved · 2 need review", for the toast after a bulk action. */
 export function bulkSummary(outcome: BulkOutcome, verb: string): string {

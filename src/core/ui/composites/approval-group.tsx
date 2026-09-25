@@ -4,7 +4,9 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
-import { type BulkOutcome, bulkSummary, ERROR_MESSAGES, type Result } from "@/core/errors";
+import { type BulkOutcome, bulkSummary } from "@/core/errors/bulk";
+import { ERROR_MESSAGES } from "@/core/errors/codes";
+import type { Result } from "@/core/errors/result";
 import { cn } from "@/core/lib/utils";
 import { DelayedSends, UNDO_MS } from "@/core/ui/delayed-sends";
 import { Button } from "@/core/ui/primitives/button";

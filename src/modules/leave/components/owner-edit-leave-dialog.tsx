@@ -35,7 +35,7 @@ import {
   type OwnLeaveRequest,
 } from "../domain/requests";
 import { keptDatesNote } from "../domain/review";
-import { LEAVE_REASON_MAX_LENGTH } from "../domain/schemas";
+import { LEAVE_REASON_MAX_LENGTH } from "../domain/limits";
 
 /**
  * The Owner changes approved leave directly (`leave_owner_edit`, WORKFLOWS §2): any kind, any

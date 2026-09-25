@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
 
-import { LogoutButton, LogoutProvider } from "@/core/auth/components";
+import { LogoutButton } from "@/core/auth/components/logout-button";
+import { LogoutProvider } from "@/core/auth/components/logout-confirm";
 import { Toaster } from "@/core/ui/primitives/sonner";
 
 /**

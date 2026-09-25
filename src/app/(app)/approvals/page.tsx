@@ -6,8 +6,10 @@ import { requirePermission } from "@/core/permissions/server";
 import { todayIST } from "@/core/time";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { PageHeader } from "@/core/ui/composites/page-header";
-import { listPendingDays, PendingDaysGroup } from "@/modules/attendance";
-import { listPendingRequests, PendingLeaveGroup } from "@/modules/leave";
+import { listPendingDays } from "@/modules/attendance";
+import { PendingDaysGroup } from "@/modules/attendance/components/pending-days-group";
+import { listPendingRequests } from "@/modules/leave";
+import { PendingLeaveGroup } from "@/modules/leave/components/pending-leave-group";
 
 import { PlaceholderPage } from "../_placeholder/placeholder-page";
 

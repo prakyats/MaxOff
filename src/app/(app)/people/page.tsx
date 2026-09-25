@@ -4,13 +4,9 @@ import { listItems } from "@/core/lists/server";
 import { can } from "@/core/permissions";
 import { requirePermission } from "@/core/permissions/server";
 import { PageHeader } from "@/core/ui/composites/page-header";
-import {
-  InviteMemberDialog,
-  listDirectory,
-  listMembers,
-  sortMembers,
-  TeamTable,
-} from "@/modules/team";
+import { listDirectory, listMembers, sortMembers } from "@/modules/team";
+import { InviteMemberDialog } from "@/modules/team/components/invite-member-dialog";
+import { TeamTable } from "@/modules/team/components/team-table";
 
 export const metadata: Metadata = { title: "People" };
 

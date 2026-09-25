@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 
 import { requirePermission } from "@/core/permissions/server";
 import { PageHeader } from "@/core/ui/composites/page-header";
-import { CompanyForm, getCompany } from "@/modules/settings";
+import { getCompany } from "@/modules/settings";
+import { CompanyForm } from "@/modules/settings/components/company-form";
 
 export const metadata: Metadata = { title: "Company" };
 

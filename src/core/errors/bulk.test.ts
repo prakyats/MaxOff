@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { AppError } from "./app-error";
-import { bulkSummary, eachId } from "./bulk";
+import { bulkSummary } from "./bulk";
+import { eachId } from "./each-id";
 
 describe("eachId", () => {
   it("runs every id in order, one after another, and reports each", async () => {

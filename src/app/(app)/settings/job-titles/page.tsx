@@ -4,7 +4,7 @@ import { LIST_LABELS } from "@/core/lists";
 import { listItems } from "@/core/lists/server";
 import { requirePermission } from "@/core/permissions/server";
 import { PageHeader } from "@/core/ui/composites/page-header";
-import { ListManager } from "@/modules/settings";
+import { ListManager } from "@/modules/settings/components/list-manager";
 
 export const metadata: Metadata = { title: "Job titles" };
 

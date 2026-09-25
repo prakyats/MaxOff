@@ -5,6 +5,11 @@ import { usePathname } from "next/navigation";
 import { type ReactNode, useMemo } from "react";
 
 import { cn } from "@/core/lib/utils";
+import {
+  TAB_ATTRIBUTE,
+  TAB_HOME_ATTRIBUTE,
+  TAB_TOP_ATTRIBUTE,
+} from "@/core/ui/navigation/attributes";
 
 import { MoreSheet } from "./more-sheet";
 import { isActivePath, type NavItem, PROFILE_NAV_ITEM, totalBadge } from "./nav";
@@ -116,6 +121,8 @@ export function BottomNav({
     <nav
       aria-label="Main"
       data-slot="bottom-nav"
+      // What the pre-hydration script needs to make the same tab moves (task 2.8).
+      {...{ [TAB_HOME_ATTRIBUTE]: home, [TAB_TOP_ATTRIBUTE]: topLevel.join(" ") }}
       className="border-border bg-background/95 supports-[backdrop-filter]:bg-background/80 fixed inset-x-0 bottom-0 z-40 border-t pb-[var(--app-safe-bottom)] backdrop-blur md:hidden"
     >
       <ul className="grid" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
@@ -126,6 +133,7 @@ export function BottomNav({
               <Link
                 href={item.href}
                 data-nav={item.key}
+                {...{ [TAB_ATTRIBUTE]: "" }}
                 data-active={active ? "" : undefined}
                 aria-current={active ? "page" : undefined}
                 className={cn(ITEM, "active:bg-muted/60")}

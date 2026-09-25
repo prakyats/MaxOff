@@ -10,13 +10,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/core/ui/primitives/card";
-import {
-  describeWeeklyOff,
-  getSettings,
-  HolidaysPanel,
-  listHolidays,
-  WeeklyOffForm,
-} from "@/modules/settings";
+import { describeWeeklyOff, getSettings, listHolidays } from "@/modules/settings";
+import { HolidaysPanel } from "@/modules/settings/components/holidays-panel";
+import { WeeklyOffForm } from "@/modules/settings/components/weekly-off-form";
 
 export const metadata: Metadata = { title: "Days off & holidays" };
 

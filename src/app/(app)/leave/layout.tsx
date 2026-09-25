@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 import { todayIST } from "@/core/time";
 import { PageHeader } from "@/core/ui/composites/page-header";
-import { RequestLeaveButton } from "@/modules/leave";
+import { RequestLeaveButton } from "@/modules/leave/components/request-leave-button";
 
 import { LeaveTabs } from "./leave-tabs";
 

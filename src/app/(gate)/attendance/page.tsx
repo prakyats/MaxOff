@@ -4,7 +4,8 @@ import { redirect } from "next/navigation";
 import { gateNext, isGated } from "@/core/auth/day-gate";
 import { touchToday } from "@/core/auth/gate";
 import { requireMember } from "@/core/auth/server";
-import { DayChoiceForm, dayLabel } from "@/modules/attendance";
+import { dayLabel } from "@/modules/attendance";
+import { DayChoiceForm } from "@/modules/attendance/components/day-choice-form";
 
 export const metadata: Metadata = { title: "Today's attendance" };
 

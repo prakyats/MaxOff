@@ -1,9 +1,8 @@
 import { z } from "zod";
 
-import { ATTENDANCE_CHOICES, DAY_STATUSES } from "./choices";
+import { ATTENDANCE_REASON_MAX_LENGTH, OVERTIME_REASON_MIN_LENGTH } from "./limits";
 
-export const ATTENDANCE_REASON_MAX_LENGTH = 1000;
-export const OVERTIME_REASON_MIN_LENGTH = 3;
+import { ATTENDANCE_CHOICES, DAY_STATUSES } from "./choices";
 
 const isoDate = z.iso.date({ error: "The date is missing. Reload the page." });
 
@@ -62,3 +61,5 @@ export const correctDaySchema = z.object({
     .max(ATTENDANCE_REASON_MAX_LENGTH, `Keep it under ${ATTENDANCE_REASON_MAX_LENGTH} characters.`),
 });
 export type CorrectDayInput = z.input<typeof correctDaySchema>;
+
+export { ATTENDANCE_REASON_MAX_LENGTH, OVERTIME_REASON_MIN_LENGTH };

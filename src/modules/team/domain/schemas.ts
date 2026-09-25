@@ -1,13 +1,13 @@
 import { z } from "zod";
 
-/** Who can be invited: never a second Owner (CLAUDE.md invariant 1, WORKFLOWS §1a). */
-export const INVITABLE_ROLES = ["admin", "staff"] as const;
-export type InvitableRole = (typeof INVITABLE_ROLES)[number];
-
-export const NAME_MAX_LENGTH = 120;
-export const PHONE_MIN_LENGTH = 3;
-export const PHONE_MAX_LENGTH = 32;
-export const DEACTIVATE_REASON_MAX_LENGTH = 1000;
+import {
+  INVITABLE_ROLES,
+  NAME_MAX_LENGTH,
+  PHONE_MIN_LENGTH,
+  PHONE_MAX_LENGTH,
+  DEACTIVATE_REASON_MAX_LENGTH,
+  type InvitableRole,
+} from "./limits";
 
 const fullName = z
   .string()
@@ -77,3 +77,12 @@ export const deactivateMemberSchema = z.object({
     .transform((value) => (value ? value : null)),
 });
 export type DeactivateMemberInput = z.input<typeof deactivateMemberSchema>;
+
+export {
+  INVITABLE_ROLES,
+  NAME_MAX_LENGTH,
+  PHONE_MIN_LENGTH,
+  PHONE_MAX_LENGTH,
+  DEACTIVATE_REASON_MAX_LENGTH,
+  type InvitableRole,
+};

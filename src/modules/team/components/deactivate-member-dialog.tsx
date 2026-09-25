@@ -18,7 +18,7 @@ import { toastResult } from "@/core/ui/toast";
 
 import { deactivateMember } from "../actions/members";
 import type { TeamMember } from "../domain/members";
-import { DEACTIVATE_REASON_MAX_LENGTH } from "../domain/schemas";
+import { DEACTIVATE_REASON_MAX_LENGTH } from "../domain/limits";
 
 /**
  * Deactivate (active) or Revoke invite (invited): one transition, worded by state, with an

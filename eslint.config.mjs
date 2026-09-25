@@ -172,6 +172,11 @@ const eslintConfig = defineConfig([
                 to: [
                   { element: { type: "core" } },
                   { element: { type: "module", fileInternalPath: "index.ts" } },
+                  // Client components one file at a time (ADR-0011 amendment, task 2.8): a
+                  // barrel of client components is not tree-shaken per route. Only
+                  // components/; data/, domain/ and actions/ stay behind index.ts.
+                  // `tests/module-components.test.ts` holds these imports to "use client" files.
+                  { element: { type: "module-components" } },
                 ],
               },
             },

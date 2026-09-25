@@ -1,6 +1,9 @@
 import { toast } from "sonner";
 
-import { ERROR_MESSAGES, type Result, type ResultError } from "@/core/errors";
+// Not the `@/core/errors` barrel: it also exports the server-side `action()` wrapper, which
+// brings zod and server error reporting into every screen that shows a toast (task 2.8).
+import { ERROR_MESSAGES } from "@/core/errors/codes";
+import type { Result, ResultError } from "@/core/errors/result";
 
 /**
  * Turns an action's error into toast copy. Shows the raiser's own message when it has one

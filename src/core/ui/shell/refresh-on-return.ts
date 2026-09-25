@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
-import { systemClock } from "@/core/time";
+import { systemClock } from "@/core/time/clock";
 import { anySendWaiting } from "@/core/ui/delayed-sends";
 
 /**

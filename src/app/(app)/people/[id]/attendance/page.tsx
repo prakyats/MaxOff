@@ -1,13 +1,8 @@
 import type { Metadata } from "next";
 
 import { addISTDays, todayIST, toISTDate } from "@/core/time";
-import {
-  AttendanceHistory,
-  historyMonth,
-  listDays,
-  monthLabel,
-  monthOf,
-} from "@/modules/attendance";
+import { historyMonth, listDays, monthLabel, monthOf } from "@/modules/attendance";
+import { AttendanceHistory } from "@/modules/attendance/components/attendance-history";
 
 import { LeavePager } from "../../../leave/leave-nav";
 import { loadPerson } from "../person";

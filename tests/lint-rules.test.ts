@@ -23,6 +23,10 @@ const EXPECTED: Record<string, readonly string[]> = {
   // app (and files directly under src/) → core and module index.ts only
   "app/denied-module-internal.ts": [BOUNDARIES],
   "app/denied-module-permissions.ts": [BOUNDARIES],
+  // ...plus one client component file at a time from components/ (task 2.8), nothing else
+  "app/denied-module-domain.ts": [BOUNDARIES],
+  "app/denied-module-actions.ts": [BOUNDARIES],
+  "modules/leave/components/denied-cross-components.ts": [BOUNDARIES],
   "app/denied-db.ts": [BOUNDARIES],
   "app/api/cron/denied-service.ts": [BOUNDARIES],
   "denied-root-db.ts": [BOUNDARIES],

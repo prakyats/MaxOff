@@ -26,7 +26,7 @@ import { describeError, toastResult } from "@/core/ui/toast";
 
 import { updateMember } from "../actions/members";
 import { memberActions, ROLE_LABELS, type TeamMember } from "../domain/members";
-import { INVITABLE_ROLES, type InvitableRole } from "../domain/schemas";
+import { INVITABLE_ROLES, type InvitableRole } from "../domain/limits";
 
 import { offerableJobTitles } from "../domain/job-titles";
 import { JobTitleSelect, type JobTitleOption } from "./job-title-select";

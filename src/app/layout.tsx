@@ -5,6 +5,8 @@ import "./globals.css";
 
 import { cn } from "@/core/lib/utils";
 import { LAUNCH_INTRO_SCRIPT, LaunchIntro } from "@/core/ui/pwa/launch-intro";
+import { HydratedMark } from "@/core/ui/navigation/hydrated-mark";
+import { PRE_HYDRATION_SCRIPT } from "@/core/ui/navigation/pre-hydration";
 import { STANDALONE_SCRIPT } from "@/core/ui/pwa/standalone";
 import launch from "@/core/ui/pwa/launch-screens.json";
 import { RegisterServiceWorker } from "@/core/ui/pwa/register-service-worker";
@@ -78,6 +80,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <script dangerouslySetInnerHTML={{ __html: STANDALONE_SCRIPT }} />
         {/* Before first paint too: marks an installed cold start for the launch intro (2.7). */}
         <script dangerouslySetInnerHTML={{ __html: LAUNCH_INTRO_SCRIPT }} />
+        {/* Until hydration: back, view and tab taps make the app's moves, not pushes (2.8). */}
+        <script dangerouslySetInnerHTML={{ __html: PRE_HYDRATION_SCRIPT }} />
       </head>
       <body className="bg-background text-foreground min-h-dvh">
         <LaunchIntro />
@@ -88,6 +92,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           (task 1.5: ~100 KB decompressed for a page with no toasts and no tooltips).
         */}
         <ThemeProvider>
+          <HydratedMark />
           <ThemeColorMeta />
           {children}
         </ThemeProvider>

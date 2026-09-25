@@ -1,8 +1,8 @@
 import { z } from "zod";
 
-import { LEAVE_TYPES } from "./requests";
+import { LEAVE_REASON_MAX_LENGTH, OWNER_REASON_MIN_LENGTH } from "./limits";
 
-export const LEAVE_REASON_MAX_LENGTH = 1000;
+import { LEAVE_TYPES } from "./requests";
 
 const reason = z
   .string()
@@ -90,8 +90,6 @@ export type WithdrawLeaveInput = z.input<typeof withdrawLeaveSchema>;
 
 // The Owner's decisions (task 2.4) -----------------------------------------------------------
 
-export const OWNER_REASON_MIN_LENGTH = 3;
-
 /** A reason the Owner must give (reject, cancel): the member reads it on /leave. */
 const ownerReason = z
   .string()
@@ -139,3 +137,5 @@ export const ownerEditLeaveSchema = z
     message: "The last day is before the first day.",
   });
 export type OwnerEditLeaveInput = z.input<typeof ownerEditLeaveSchema>;
+
+export { LEAVE_REASON_MAX_LENGTH, OWNER_REASON_MIN_LENGTH };

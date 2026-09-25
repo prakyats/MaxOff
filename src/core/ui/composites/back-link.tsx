@@ -6,20 +6,7 @@ import type { ComponentProps, MouseEvent } from "react";
 
 import { NAV_BACK } from "@/core/ui/motion/nav-types";
 import { slideBack } from "@/core/ui/motion/slide";
-
-/**
- * What the on-screen back control does (ARCHITECTURE §14.2 k): with an entry of this app beneath
- * the current one it goes back to it (no new entry); a page opened directly (a deep link, a new
- * window, the first page after a restart) has nothing of ours beneath, so it goes to its parent
- * and **replaces** itself, never leaving the app and never adding a step.
- *
- * `index` is the Navigation API's `currentEntry.index`, which counts this origin's entries only.
- * Without the API (an older browser) the answer is the parent: the safe one, since it can never
- * leave the app.
- */
-export function backMove(index: number | undefined): "back" | "parent" {
-  return index !== undefined && index > 0 ? "back" : "parent";
-}
+import { backMove } from "@/core/ui/navigation/moves";
 
 type NavigationLike = { currentEntry?: { index: number } | null };
 
@@ -30,9 +17,10 @@ function currentIndex(): number | undefined {
 
 /**
  * The back control in a drill-down screen's header (`PageHeader` `back`). A real link to the
- * parent, so it works before hydration and opens in a new tab like one; a plain tap is handled
- * by `backMove()`. **An installed iOS app has no system back gesture**, so every drill-down
- * screen carries one (§14.2 k).
+ * parent, so it opens in a new tab like one; a plain tap is handled by `backMove()`
+ * (`navigation/moves.ts`), before hydration too (`navigation/pre-hydration.ts`, task 2.8).
+ * **An installed iOS app has no system back gesture**, so every drill-down screen carries one
+ * (§14.2 k).
  */
 export function BackLink({
   href,

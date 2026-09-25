@@ -27,7 +27,7 @@ import { describeError, toastResult } from "@/core/ui/toast";
 import { correctDay } from "../actions/review";
 import { DAY_STATUSES, type DayStatus, STATUS_LABELS } from "../domain/choices";
 import { firstName, historyDate } from "../domain/history";
-import { ATTENDANCE_REASON_MAX_LENGTH } from "../domain/schemas";
+import { ATTENDANCE_REASON_MAX_LENGTH } from "../domain/limits";
 
 export type CorrectTarget = {
   dayId: string;

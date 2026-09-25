@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "budget": "node scripts/bundle-budget.mjs",
     "start": "next start",
     "build:worker": "opennextjs-cloudflare build",
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
@@ -31,7 +32,7 @@
     "db:types": "supabase gen types typescript --local --schema public > src/core/db/database.types.ts && prettier --write src/core/db/database.types.ts",
     "db:test": "supabase test db",
     "bootstrap:owner": "node --env-file=.env.local scripts/bootstrap-owner.mjs",
-    "check": "pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run test && pnpm run db:test && pnpm run build",
+    "check": "pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run test && pnpm run db:test && pnpm run build && pnpm run budget",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui"
   },

@@ -33,7 +33,7 @@ import {
   type LeaveType,
   type OwnLeaveRequest,
 } from "../domain/requests";
-import { LEAVE_REASON_MAX_LENGTH } from "../domain/schemas";
+import { LEAVE_REASON_MAX_LENGTH } from "../domain/limits";
 
 /**
  * A new request, or a change to approved leave (WORKFLOWS §2). A half day is one date, so the

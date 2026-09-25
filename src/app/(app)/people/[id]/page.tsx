@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { todayIST } from "@/core/time";
-import { LEAVE_PAGE_SIZE, LeaveRequestList, listRequests } from "@/modules/leave";
+import { LEAVE_PAGE_SIZE, listRequests } from "@/modules/leave";
+import { LeaveRequestList } from "@/modules/leave/components/leave-request-list";
 
 import { LeavePager } from "../../leave/leave-nav";
 

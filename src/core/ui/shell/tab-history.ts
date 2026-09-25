@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useSyncExternalStore } from "react";
 
+import { tabMove } from "@/core/ui/navigation/moves";
+
 import { holdScroll, saveTabScroll, takeTabScroll } from "./tab-scroll";
 
 /**
@@ -17,7 +19,8 @@ import { holdScroll, saveTabScroll, takeTabScroll } from "./tab-scroll";
  * exactly as everywhere else on the web, and rewriting that would break the browser's own UI.
  * Installed behaves like an app, browser behaves like a website.
  *
- * How each move is made:
+ * How each move is made (`tabMove` in `navigation/moves.ts`, shared with the pre-hydration
+ * script, task 2.8):
  *
  * | From | To | Navigation | Stack after |
  * |---|---|---|---|
@@ -108,31 +111,27 @@ export function useTabNavigation(
     });
   }, [pathname]);
 
-  const handles = useCallback(
+  const move = useCallback(
     (href: string) =>
       // Only the top-level tabs are rewritten, installed only. Anything deeper pushes normally.
-      standalone && topLevel.includes(href) && topLevel.includes(pathname) && href !== pathname,
-    [standalone, topLevel, pathname],
+      tabMove({ href, pathname, home, topLevel, standalone, pushedFromHome }),
+    [pathname, home, topLevel, standalone],
   );
+
+  const handles = useCallback((href: string) => move(href) !== null, [move]);
 
   const navigate = useCallback(
     (href: string) => {
-      if (!handles(href)) return false;
+      const next = move(href);
+      if (next === null) return false;
 
       saveTabScroll(pathname, window.scrollY);
       arriving = { tab: href, y: takeTabScroll(href) };
 
-      if (href === home) {
-        if (pushedFromHome) {
-          pushedFromHome = false;
-          router.back();
-        } else {
-          router.replace(href);
-        }
-        return true;
-      }
-
-      if (pathname === home) {
+      if (next === "back") {
+        pushedFromHome = false;
+        router.back();
+      } else if (next === "push") {
         pushedFromHome = true;
         router.push(href);
       } else {
@@ -140,7 +139,7 @@ export function useTabNavigation(
       }
       return true;
     },
-    [handles, pathname, home, router],
+    [move, pathname, router],
   );
 
   return { navigate, handles };

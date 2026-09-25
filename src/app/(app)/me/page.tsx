@@ -2,7 +2,7 @@ import { ChevronRightIcon, PartyPopperIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { LogoutButton } from "@/core/auth/components";
+import { LogoutButton } from "@/core/auth/components/logout-button";
 import { requireMember } from "@/core/auth/server";
 import { can } from "@/core/permissions";
 import { PageHeader } from "@/core/ui/composites/page-header";
@@ -17,7 +17,8 @@ import {
 import { Separator } from "@/core/ui/primitives/separator";
 import { initialsOf, ROLE_LABELS } from "@/core/ui/shell/viewer";
 import { ThemeToggle } from "@/core/ui/theme/theme-toggle";
-import { getOwnMember, ProfileForm } from "@/modules/team";
+import { getOwnMember } from "@/modules/team";
+import { ProfileForm } from "@/modules/team/components/profile-form";
 
 export const metadata: Metadata = { title: "Me" };
 

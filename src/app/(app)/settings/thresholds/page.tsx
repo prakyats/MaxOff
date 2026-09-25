@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 
 import { requirePermission } from "@/core/permissions/server";
 import { PageHeader } from "@/core/ui/composites/page-header";
-import { getSettings, ThresholdsForm } from "@/modules/settings";
+import { getSettings } from "@/modules/settings";
+import { ThresholdsForm } from "@/modules/settings/components/thresholds-form";
 
 export const metadata: Metadata = { title: "Thresholds" };
 
