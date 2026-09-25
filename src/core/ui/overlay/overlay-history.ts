@@ -36,6 +36,20 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * entry is reused by the next overlay, and `onPopState` skips any that are left, so the visible
  * cost is one back press that lands on the same page after dismissing an overlay by hand.
  *
+ * ## The marker must survive Next rewriting `history.state` (found in 2.6)
+ *
+ * Next's `HistoryUpdater` calls `history.replaceState` with a **fresh** state object after any
+ * navigation, refresh or completed server action, and in Next 16 every replace navigation sets
+ * `preserveCustomHistoryState: false` (`segment-cache/navigation.js`), so our marker vanished
+ * from the entry we had pushed whenever a server action finished while an overlay was open. On
+ * My Day the day-pass action (`<IssueDayPass />`) answers a second after landing, exactly when
+ * someone taps Log out: the confirmation's entry lost its marker, `closeOverlaysThen` believed
+ * nothing was on top and navigated at once, and the redirect replaced the overlay's entry with
+ * /login, leaving My Day underneath (`back-gesture.spec.ts` "logout", 8 of 23 runs). So
+ * `replaceState` is wrapped once (`guardMarker`): an entry that carries the marker keeps it
+ * through any replace, because a replace never changes *which* entry it is. `pushState` is not
+ * touched: a new entry is a new page and starts unmarked, as before.
+ *
  * ## The one rough edge
  *
  * `history.state` survives a reload but React state does not. Refresh with an overlay open and
@@ -47,6 +61,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
  */
 
 const MARKER = "maxoffOverlay";
+/** Tags the wrapped `replaceState`, so the guard is installed once per document. */
+const GUARDED = Symbol.for("maxoff.overlay.guard");
 
 interface OpenOverlay {
   id: number;
@@ -123,59 +139,94 @@ function onPopState(): void {
   pushedCount = 0;
 }
 
+/**
+ * The state a `replaceState` should write: `next`, plus the marker when the entry being
+ * replaced carries one and `next` does not. Pure, so the rule is unit-tested on its own.
+ */
+export function keepMarker(current: unknown, next: unknown): unknown {
+  if (!isRecord(current) || current[MARKER] === undefined) return next;
+  if (next !== null && next !== undefined && !isRecord(next)) return next;
+  if (isRecord(next) && next[MARKER] !== undefined) return next;
+  return { ...(next ?? {}), [MARKER]: current[MARKER] };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+/** Whether the guard is bypassed: the one caller that means to drop the marker sets this. */
+let stripping = false;
+
+/**
+ * Wraps whatever `history.replaceState` is at that moment (Next's own patch, once the router
+ * has mounted) so the marker survives Next's rewrites. Idempotent per document.
+ */
+function guardMarker(): void {
+  const history = window.history as History & {
+    replaceState: History["replaceState"] & { [GUARDED]?: true };
+  };
+  if (history.replaceState[GUARDED]) return;
+  const inner = history.replaceState;
+  const guarded: History["replaceState"] & { [GUARDED]?: true } = function replaceState(
+    this: History,
+    data: unknown,
+    unused: string,
+    url?: string | URL | null,
+  ) {
+    return inner.call(this, stripping ? data : keepMarker(this.state, data), unused, url);
+  };
+  guarded[GUARDED] = true;
+  history.replaceState = guarded;
+}
+
 function startListening(): void {
-  if (listening || typeof window === "undefined") return;
+  if (typeof window === "undefined") return;
+  guardMarker();
+  if (listening) return;
   listening = true;
   window.addEventListener("popstate", onPopState);
 }
 
-/** How long `closeOverlaysThen` waits for its popstate before running anyway. */
-export const CLOSE_THEN_FALLBACK_MS = 300;
-
-/** The browser side of `closeOverlaysThen`, injectable so the timing logic is unit-tested. */
+/** The browser side of `closeOverlaysThen`, injectable so the logic is unit-tested. */
 export interface CloseThenEnv {
-  /** True when the current history entry is one an overlay pushed. */
-  hasOverlayEntry: () => boolean;
+  /**
+   * True only when the controller knows the current history entry is one it pushed: an entry
+   * of its own, marked, with a real page beneath it. Then `history.back()` is a same-document
+   * traversal to that page and its popstate is guaranteed.
+   */
+  ownsTopEntry: () => boolean;
   back: () => void;
   /** Calls `callback` on the next popstate; returns the unsubscribe. */
   onNextPopState: (callback: () => void) => () => void;
-  setTimer: (callback: () => void, ms: number) => unknown;
-  clearTimer: (id: unknown) => void;
 }
 
 /**
- * Runs `fn` once the overlay entries on top of the page are gone (ARCHITECTURE §14.2 c).
+ * Runs `fn` once the overlay entry on top of the page is gone (ARCHITECTURE §14.2 c, e).
  *
- * A link inside an overlay that navigates to a **tab root** (the More sheet) must not leave the
- * overlay's entry under the new page, or back would stop there. So it goes back past the entry
- * first and navigates only once that popstate has arrived — never both at once, which is the
- * race `reconcile` describes. Two guards keep a tap from ever dying or doubling:
- * - if the popstate has not arrived within `CLOSE_THEN_FALLBACK_MS`, `fn` runs anyway, and it
- *   runs **at most once** whichever comes first;
- * - a second call while one is under way (a fast double tap) is ignored and returns false.
+ * A link inside an overlay that navigates to a **tab root** (the More sheet), and a server
+ * action that redirects from inside a confirmation (Log out), must not leave the overlay's entry
+ * under the new page, or back would stop there. So it goes back past the entry first and runs
+ * `fn` only once that popstate has arrived — never both at once, which is the race `reconcile`
+ * describes. It backs out **only when it owns the top entry**, which makes the popstate certain,
+ * so there is no timer: a fallback that could fire while the traversal was still in flight was
+ * the 2.6 logout bug's second half (the redirect then replaced the overlay's entry). When it
+ * owns nothing, `fn` runs at once. A second call while one is under way (a fast double tap) is
+ * ignored and returns false; `fn` runs at most once.
  */
 export function createCloseOverlaysThen(env: CloseThenEnv): (fn: () => void) => boolean {
   let pending = false;
   return (fn) => {
     if (pending) return false;
-    if (!env.hasOverlayEntry()) {
+    if (!env.ownsTopEntry()) {
       fn();
       return true;
     }
     pending = true;
-    let done = false;
-    let unsubscribe = () => {};
-    let timer: unknown = null;
-    const finish = () => {
-      if (done) return;
-      done = true;
+    const unsubscribe = env.onNextPopState(() => {
       pending = false;
       unsubscribe();
-      env.clearTimer(timer);
       fn();
-    };
-    unsubscribe = env.onNextPopState(finish);
-    timer = env.setTimer(finish, CLOSE_THEN_FALLBACK_MS);
+    });
     env.back();
     return true;
   };
@@ -187,15 +238,14 @@ export function createCloseOverlaysThen(env: CloseThenEnv): (fn: () => void) => 
  * been closed and the bookkeeping reset.
  */
 export const closeOverlaysThen = createCloseOverlaysThen({
-  hasOverlayEntry: () => typeof window !== "undefined" && historyState()[MARKER] !== undefined,
+  ownsTopEntry: () =>
+    typeof window !== "undefined" && pushedCount > 0 && historyState()[MARKER] !== undefined,
   back: () => window.history.back(),
   onNextPopState: (callback) => {
     const listener = () => callback();
     window.addEventListener("popstate", listener, { once: true });
     return () => window.removeEventListener("popstate", listener);
   },
-  setTimer: (callback, ms) => window.setTimeout(callback, ms),
-  clearTimer: (id) => window.clearTimeout(id as number),
 });
 
 /**
@@ -214,7 +264,13 @@ export function useOverlayHistory(isOpen: boolean, onClose: () => void): void {
     if (open.length === 0 && pushedCount === 0 && historyState()[MARKER] !== undefined) {
       const cleaned = { ...historyState() };
       delete cleaned[MARKER];
-      window.history.replaceState(cleaned, "");
+      // The one replace that means to drop the marker: the guard must let it through.
+      stripping = true;
+      try {
+        window.history.replaceState(cleaned, "");
+      } finally {
+        stripping = false;
+      }
     }
   }, []);
 

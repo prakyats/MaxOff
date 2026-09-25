@@ -1,6 +1,6 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
 
-import { storageStateFor } from "./helpers";
+import { pageHeader, storageStateFor } from "./helpers";
 
 /**
  * The mobile standard (ARCHITECTURE §14.1, task 1.5). Runs in the `mobile` project at **375px**
@@ -137,7 +137,7 @@ for (const role of ["owner", "admin", "staff"] as const) {
     for (const { path } of screens) {
       test(`${path}: no sideways scroll, 44px targets, 16px inputs`, async ({ page }) => {
         await page.goto(path);
-        await expect(page.locator('[data-slot="page-header"]')).toBeVisible();
+        await expect(pageHeader(page)).toBeVisible();
         await expectNoHorizontalScroll(page);
         await expectTouchTargets(page);
         await expectNoZoomOnFocus(page);
@@ -320,7 +320,7 @@ test.describe("the page title bar", () => {
     await page.mouse.wheel(0, 600);
     await expect(html).toHaveAttribute("data-chrome", "hidden");
     // The title bar has taken the top edge.
-    const header = await page.locator('[data-slot="page-header"]').boundingBox();
+    const header = await pageHeader(page).boundingBox();
     expect(Math.round(header?.y ?? -1)).toBe(0);
 
     await page.mouse.wheel(0, -80);

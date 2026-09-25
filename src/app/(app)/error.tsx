@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect } from "react";
 
+import { describeBoundaryError } from "@/core/errors/boundary";
 import { captureException } from "@/core/observability/client";
 import { ErrorState } from "@/core/ui/composites/error-state";
 import { Button } from "@/core/ui/primitives/button";
@@ -22,14 +23,12 @@ export default function AppError({
     console.error(error);
   }, [error]);
 
+  // A transient session failure says "still signed in, try again" (2.6); the rest is generic.
+  const copy = describeBoundaryError(error);
   return (
     <ErrorState
-      title="This page couldn't load"
-      description={
-        error.digest
-          ? `Reference ${error.digest}. Try again, and mention this code if it keeps happening.`
-          : "Try again in a moment."
-      }
+      title={copy.title}
+      description={copy.description}
       action={
         <>
           <Button onClick={reset}>Try again</Button>

@@ -276,7 +276,7 @@ test.describe("installed: sign-in, the gate, recovery and logout leave the back 
       await page.getByLabel("New password").fill(fresh);
       await page.getByLabel("Repeat it").fill(fresh);
       await page.getByRole("button", { name: "Save password and sign in" }).click();
-      await expect(page).toHaveURL(/\/my-day$/, { timeout: 15_000 });
+      await expect(page).toHaveURL(/\/my-day$/);
       await expectBackStack(page, [LEFT]);
     } finally {
       await setPasswordFor(who.id, PASSWORD);

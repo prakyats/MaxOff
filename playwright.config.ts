@@ -37,17 +37,27 @@ const OWNER_BULK_SPECS = /owner-bulk\.spec\.ts$/;
  */
 export default defineConfig({
   testDir: "e2e",
+  // Before the build and every project: the stack is ready and the IST date is noted (2.6).
+  globalSetup: "./e2e/global-setup.ts",
+  globalTeardown: "./e2e/global-teardown.ts",
   fullyParallel: true,
   forbidOnly: isCI,
-  retries: isCI ? 2 : 0,
-  // One worker in CI (a 2-core runner); Playwright's default locally.
-  ...(isCI ? { workers: 1 } : {}),
+  // No retries anywhere (2.6, owner decision 2026-09-24): a red run has to mean something, and a
+  // retry is how a flake becomes folklore. Proved: five full runs in a row after one db:reset.
+  retries: 0,
+  // One worker in CI (a 2-core runner). Four locally (owner decision 2026-09-25): Playwright's
+  // default of half the cores put eight Chromiums beside a 7.5 GB Docker VM on a 16 GB laptop,
+  // and the resulting memory pressure stalled the whole machine for seconds at a time (a
+  // sign-in whose GoTrue grant took 3.4 s against a 0.2 s mean). A resource setting, not an
+  // allowance: a stall at four workers is a real cause to investigate, not "machine load".
+  workers: isCI ? 1 : 4,
   reporter: isCI
     ? [["github"], ["html", { open: "never" }]]
     : [["list"], ["html", { open: "never" }]],
   use: {
     baseURL,
-    trace: "on-first-retry",
+    // A red run is diagnosable without re-running it (2.6, owner decision 2026-09-24).
+    trace: "retain-on-failure",
   },
   projects: [
     {

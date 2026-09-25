@@ -5,3 +5,4 @@ export { ERROR_CODES, ERROR_MESSAGES, isErrorCode, type ErrorCode } from "./code
 export { isPostgresError, mapPostgresError, type PostgresLikeError } from "./postgres";
 export { fail, failFrom, ok, type Result, type ResultError } from "./result";
 export { bulkSummary, eachId, type BulkOutcome } from "./bulk";
+export { describeBoundaryError, SESSION_UNAVAILABLE_DIGEST, type BoundaryCopy } from "./boundary";

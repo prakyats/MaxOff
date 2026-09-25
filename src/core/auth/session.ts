@@ -6,6 +6,7 @@ import { publicSupabaseEnv, sessionCookieOptions } from "@/core/db";
 
 import { REQUEST_PATH_HEADER } from "./day-gate";
 import { LOGIN_PATH, isPublicPath, isSignedOutOnlyPath } from "./paths";
+import { classifySessionError } from "./session-errors";
 
 /**
  * What `src/proxy.ts` runs on every page request (ADR-0012):
@@ -46,8 +47,17 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
   });
 
   // Verifies the JWT (and refreshes it through the cookie adapter when it is about to expire).
-  const { data } = await supabase.auth.getClaims();
-  const signedIn = Boolean(data?.claims.sub);
+  // A transient failure (GoTrue unreachable, a 5xx, a timeout) is not "signed out": the
+  // request passes through untouched and `requireMember()` in the layout shows a retryable
+  // error instead of sending a signed-in person to /login (2.6, owner decision 2026-09-24).
+  let signedIn: boolean;
+  try {
+    const { data, error } = await supabase.auth.getClaims();
+    if (error && classifySessionError(error) === "transient") return response;
+    signedIn = Boolean(data?.claims.sub);
+  } catch {
+    return response;
+  }
   const { pathname, search } = request.nextUrl;
 
   if (!signedIn && pathname !== "/" && !isPublicPath(pathname)) {

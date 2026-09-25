@@ -119,6 +119,11 @@ test.describe("production build", () => {
     await page.goto("/offline");
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.reload();
+    // `ready` says the worker is active, not that it controls *this* page: a page loaded before
+    // activation is claimed asynchronously (`clients.claim()`), and a navigation made before
+    // that goes to the network. The failure seen in 2.3/2.6 was exactly that: the offline
+    // navigation answered by the server ("Sign in · MaxOff"). Wait for the state itself.
+    await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
     await context.setOffline(true);
     await page.goto("/login");
     await expect(page).toHaveTitle(/Offline/);

@@ -6,8 +6,13 @@ export const USERS = {
   admin: { email: "admin@maxoff.local", password: "admin-local-password", home: "/today" },
   staff: { email: "staff@maxoff.local", password: "staff-local-password", home: "/my-day" },
   deactivated: { email: "gone@maxoff.local", password: "gone-local-password", home: null },
-  /** Only the recovery flow uses this one, since that test changes its password. */
-  reset: { email: "reset@maxoff.local", password: "reset-local-password", home: "/my-day" },
+  /** Only the recovery flow uses this one: it changes the password and puts it back by id. */
+  reset: {
+    email: "reset@maxoff.local",
+    password: "reset-local-password",
+    home: "/my-day",
+    id: "10000000-0000-4000-8000-000000000005",
+  },
   /** Only the team flow uses this one, since that test deactivates them (1.3). */
   leaver: { email: "leaver@maxoff.local", password: "leaver-local-password", home: "/my-day" },
 } as const;
@@ -34,9 +39,22 @@ export async function signIn(
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
-  // The first server action after boot can take a while; the form shows any refusal.
-  await expect(page).not.toHaveURL(/\/login/, { timeout: 15_000 });
+  // The form shows any refusal. No allowance for a cold server: every route is warmed by the
+  // `setup` project before a flow spec runs (`warm.setup.ts`, 2.6).
+  await expect(page).not.toHaveURL(/\/login/);
   if (gate === "present") await passGate(page);
+}
+
+/**
+ * The screen's title bar, **the visible one**. A route's `loading.tsx` draws the same header
+ * so nothing moves when the data lands (ARCHITECTURE §14.1), and React streams the resolved
+ * page into the DOM *hidden* (`<div hidden id="S:…">`) before its `$RC` script swaps it in, so
+ * for a few milliseconds both headers exist. A strict locator on the slot then throws at once
+ * (strictness is not retried) — seen in the 2.6 proof on /people at 375px. Always go through
+ * here, never `locator('[data-slot="page-header"]')` alone.
+ */
+export function pageHeader(page: Page): Locator {
+  return page.locator('[data-slot="page-header"]:visible');
 }
 
 /** The four answers of the gate, as the choice screen labels them. */
@@ -54,7 +72,7 @@ export async function chooseAttendance(
   await page.getByRole("radio", { name: new RegExp(`^${choice}\\b`) }).check();
   if (reason) await page.getByLabel("Reason (optional)").fill(reason);
   await page.getByRole("button", { name: "Submit" }).click();
-  await expect(page).not.toHaveURL(/\/attendance/, { timeout: 15_000 });
+  await expect(page).not.toHaveURL(/\/attendance/);
 }
 
 /**
@@ -65,8 +83,8 @@ export async function chooseAttendance(
  */
 export async function passGate(page: Page): Promise<void> {
   const gate = page.locator('[data-slot="choice-option"]').first();
-  const screen = page.locator('[data-slot="page-header"]').first();
-  await expect(gate.or(screen)).toBeVisible({ timeout: 15_000 });
+  const screen = pageHeader(page);
+  await expect(gate.or(screen)).toBeVisible();
   if (await gate.isVisible()) await chooseAttendance(page, "Present");
 }
 
@@ -208,26 +226,89 @@ export async function resetAttendanceAndLeave(memberId: string): Promise<void> {
   await serviceRest(`leave_requests?member_id=eq.${memberId}`, { method: "DELETE" });
 }
 
+/**
+ * Removes a person a spec creates (an invitee), member row and GoTrue sign-in included, so the
+ * spec can invite them again on a database that is not fresh (2.6: five runs after one
+ * `db:reset`). Every row that points at the member goes first; the audit rows *about* them
+ * (`entity_id`, no foreign key) stay, as history should. A sign-in left behind by an invite
+ * that never became a member is removed too. Nothing to remove is fine.
+ */
+export async function removeFixturePerson(email: string): Promise<void> {
+  const members = await serviceSelect<{ id: string }>(
+    `members?email=eq.${encodeURIComponent(email.toLowerCase())}&select=id`,
+  );
+  for (const { id } of members) {
+    await resetAttendanceAndLeave(id);
+    await serviceRest(`session_events?member_id=eq.${id}`, { method: "DELETE" });
+    await serviceRest(`activity_log?actor_id=eq.${id}`, { method: "DELETE" });
+    await serviceRest(`members?id=eq.${id}`, { method: "DELETE" });
+  }
+  const listed = (await serviceAuth(
+    `users?page=1&per_page=50&filter=${encodeURIComponent(email)}`,
+    {
+      method: "GET",
+    },
+  )) as { users?: Array<{ id: string; email?: string }> };
+  for (const user of listed.users ?? []) {
+    if (user.email?.toLowerCase() !== email.toLowerCase()) continue;
+    await serviceAuth(`users/${user.id}`, { method: "DELETE" });
+  }
+}
+
+/**
+ * Removes job titles a spec adds (archived or not), so the seeded list is what it expects on
+ * a database that is not fresh (2.6). A member still holding one of them is not expected.
+ */
+export async function removeJobTitles(names: string[]): Promise<void> {
+  const list = names.map((name) => `"${name}"`).join(",");
+  await serviceRest(`list_items?list_key=eq.job_title&name=in.(${encodeURIComponent(list)})`, {
+    method: "DELETE",
+  });
+}
+
+/**
+ * `resetAttendanceAndLeave()` for a seeded person known by email (the day-gate people), so a
+ * spec that must meet the gate meets it on every run, not only after `db:reset` (2.6).
+ */
+export async function resetAttendanceAndLeaveOf(email: string): Promise<void> {
+  const [member] = await serviceSelect<{ id: string }>(
+    `members?email=eq.${encodeURIComponent(email.toLowerCase())}&select=id`,
+  );
+  expect(member, `${email} is seeded`).toBeTruthy();
+  await resetAttendanceAndLeave((member as { id: string }).id);
+}
+
 /** The local stack's Mailpit (config.toml `[local_smtp]`, port 54324). */
 const MAILPIT_URL = process.env.MAILPIT_URL ?? "http://127.0.0.1:54324";
 
-type MailpitSearch = { messages: Array<{ ID: string }> };
+type MailpitSearch = { messages: Array<{ ID: string; Created: string }> };
 type MailpitMessage = { HTML: string; Text: string };
 
-/** The newest email sent to `to`, polling for a few seconds. */
-export async function latestEmailTo(to: string): Promise<MailpitMessage> {
+/**
+ * The first email to `to` that Mailpit received **after** `since`, polling for a few seconds.
+ * Take `since` before the request that sends it. Mailpit is shared by every worker and survives
+ * `db:reset`, so "the newest message" could be one from an earlier run or another worker whose
+ * link was already spent; the lower bound is what makes the answer this test's own (2.6).
+ * Nothing clears the mailbox any more: one worker wiping it was itself the hazard for the rest.
+ */
+export async function latestEmailTo(to: string, since: Date): Promise<MailpitMessage> {
   const query = encodeURIComponent(`to:${to}`);
+  // Mailpit stamps `Created` with the Docker VM's clock, which can sit a little behind the
+  // host's; two seconds of slack covers that and admits nothing an earlier test could have sent.
+  const bound = since.getTime() - 2_000;
   for (let attempt = 0; attempt < 20; attempt += 1) {
-    const search = await fetch(`${MAILPIT_URL}/api/v1/search?query=${query}&limit=1`);
+    const search = await fetch(`${MAILPIT_URL}/api/v1/search?query=${query}&limit=5`);
     const { messages } = (await search.json()) as MailpitSearch;
-    const id = messages[0]?.ID;
-    if (id) {
-      const message = await fetch(`${MAILPIT_URL}/api/v1/message/${id}`);
+    const fresh = messages.find((message) => new Date(message.Created).getTime() >= bound);
+    if (fresh) {
+      const message = await fetch(`${MAILPIT_URL}/api/v1/message/${fresh.ID}`);
       return (await message.json()) as MailpitMessage;
     }
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
-  throw new Error(`No email to ${to} reached Mailpit at ${MAILPIT_URL}`);
+  throw new Error(
+    `No email to ${to} newer than ${since.toISOString()} reached Mailpit at ${MAILPIT_URL}`,
+  );
 }
 
 /**
@@ -282,11 +363,6 @@ export function supabaseAuth(): { url: string; apikey: string } {
   expect(url, "NEXT_PUBLIC_SUPABASE_URL is set (playwright.config loads .env.local)").toBeTruthy();
   expect(apikey, "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY is set").toBeTruthy();
   return { url: `${url as string}/auth/v1`, apikey: apikey as string };
-}
-
-/** Removes every message so a re-run never picks up an older link. */
-export async function clearMailbox(): Promise<void> {
-  await fetch(`${MAILPIT_URL}/api/v1/messages`, { method: "DELETE" });
 }
 
 /**

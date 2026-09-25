@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 import {
   onBaseURL,
   refreshTokenFrom,
+  removeFixturePerson,
   signIn,
   storageStateFor,
   supabaseAuth,
@@ -31,6 +32,20 @@ test.describe("Owner", () => {
   test.skip(({ isMobile }) => Boolean(isMobile), "the row menus are the desktop path");
   // Every test here changes the same rows, in order.
   test.describe.configure({ mode: "serial" });
+
+  // The people this block creates, under every address they end up with, so the block runs
+  // again on a database an earlier run used (2.6). One worker runs the block, so nothing races.
+  test.beforeAll(async () => {
+    for (const email of [
+      INVITEE.email,
+      MOVED_EMAIL,
+      "pending@maxoff.local",
+      TYPO_EMAIL,
+      FIXED_EMAIL,
+    ]) {
+      await removeFixturePerson(email);
+    }
+  });
 
   let firstLink = "";
   let secondLink = "";

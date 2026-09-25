@@ -8,6 +8,7 @@ import { createServerSupabase } from "@/core/db/server";
 import { setSentryUser } from "@/core/observability/user";
 
 import { LOGIN_PATH } from "./paths";
+import { classifySessionError, SessionUnavailableError } from "./session-errors";
 import type { CurrentMember } from "./types";
 
 export const SIGN_OUT_INACTIVE_PATH = "/auth/signout?reason=inactive";
@@ -32,7 +33,7 @@ export type SessionState =
  */
 export const getSessionState = cache(async (): Promise<SessionState> => {
   const supabase = await createServerSupabase();
-  const { data: claims } = await supabase.auth.getClaims();
+  const claims = await readClaims(supabase);
   const userId = claims?.claims.sub;
   if (!userId) return { kind: "none" };
 
@@ -59,6 +60,26 @@ export const getSessionState = cache(async (): Promise<SessionState> => {
     },
   };
 });
+
+/**
+ * The verified claims, or `null` when there is no usable session. A transient failure at GoTrue
+ * (unreachable, 5xx, timeout) must never read as "signed out", which would end the session on
+ * the next hop: it throws `SessionUnavailableError`, whose digest the error boundary turns
+ * into "You're still signed in, try again" (2.6, owner decision 2026-09-24). An expired or
+ * refused session is `null`, as before.
+ */
+async function readClaims(supabase: Awaited<ReturnType<typeof createServerSupabase>>) {
+  try {
+    const { data, error } = await supabase.auth.getClaims();
+    if (error && classifySessionError(error) === "transient") {
+      throw new SessionUnavailableError(error);
+    }
+    return data;
+  } catch (error) {
+    if (error instanceof SessionUnavailableError) throw error;
+    throw new SessionUnavailableError(error);
+  }
+}
 
 /** The signed-in active member, or `null`. The seam every page and guard uses. */
 export async function getCurrentMember(): Promise<CurrentMember | null> {

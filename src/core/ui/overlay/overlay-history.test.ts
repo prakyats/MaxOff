@@ -4,11 +4,7 @@ import path from "node:path";
 
 import { describe, expect, it, vi } from "vitest";
 
-import {
-  CLOSE_THEN_FALLBACK_MS,
-  type CloseThenEnv,
-  createCloseOverlaysThen,
-} from "./overlay-history";
+import { type CloseThenEnv, createCloseOverlaysThen, keepMarker } from "./overlay-history";
 
 /**
  * `useOverlayHistory` rests on undocumented behaviour of the Next App Router, and on two race
@@ -53,6 +49,47 @@ describe(`the Next App Router's history contract (next@${nextVersion})`, () => {
       /window\.history\.pushState = function pushState[\s\S]*?\n {8}};/,
     )?.[0];
     expect(patched).toMatch(/if \(url\) \{\s*applyUrlFromHistoryPushReplace\(url\);\s*\}/);
+  });
+
+  it("rewrites history.state without custom keys after a navigation or a server action", () => {
+    // Why the marker is guarded (2.6): HistoryUpdater replaces the current entry's state with a
+    // fresh object unless `preserveCustomHistoryState` is set, and the segment-cache navigation
+    // (every replace navigation, a refresh after a server action included) sets it to false.
+    // If Next ever preserved custom state by default, the guard could go.
+    const updater = appRouter.match(/function HistoryUpdater\([\s\S]*?\n}/)?.[0];
+    expect(updater, "HistoryUpdater is gone from Next").toBeDefined();
+    expect(updater).toContain("pushRef.preserveCustomHistoryState ? window.history.state : {}");
+    expect(updater).toContain("window.history.replaceState(historyState, '', canonicalUrl)");
+    const navigation = readFileSync(
+      path.join(nextRoot, "dist/client/components/segment-cache/navigation.js"),
+      "utf8",
+    );
+    expect(navigation).toContain("preserveCustomHistoryState: false");
+  });
+});
+
+describe("keepMarker (the marker survives Next's replaceState)", () => {
+  it("carries the marker over when the replaced entry has one and the new state does not", () => {
+    expect(keepMarker({ __NA: true, maxoffOverlay: 3 }, { __NA: true, tree: [] })).toEqual({
+      __NA: true,
+      tree: [],
+      maxoffOverlay: 3,
+    });
+    expect(keepMarker({ maxoffOverlay: 3 }, null)).toEqual({ maxoffOverlay: 3 });
+    expect(keepMarker({ maxoffOverlay: 3 }, undefined)).toEqual({ maxoffOverlay: 3 });
+  });
+
+  it("leaves the new state alone when the entry being replaced is a plain page", () => {
+    const next = { __NA: true };
+    expect(keepMarker({ __NA: true }, next)).toBe(next);
+    expect(keepMarker(null, next)).toBe(next);
+    expect(keepMarker(undefined, null)).toBe(null);
+  });
+
+  it("keeps a marker the new state already carries, and never wraps a non-object state", () => {
+    const next = { maxoffOverlay: 5 };
+    expect(keepMarker({ maxoffOverlay: 3 }, next)).toBe(next);
+    expect(keepMarker({ maxoffOverlay: 3 }, "opaque")).toBe("opaque");
   });
 });
 
@@ -101,15 +138,27 @@ describe("overlay-history wiring", () => {
   it("preserves the existing history state when pushing", () => {
     expect(hook).toContain("{ ...historyState(),");
   });
+
+  it("guards replaceState so Next's rewrites keep the marker, once per document", () => {
+    expect(body("guardMarker")).toContain("keepMarker(this.state, data)");
+    expect(body("guardMarker")).toContain("if (history.replaceState[GUARDED]) return;");
+    expect(body("startListening")).toContain("guardMarker();");
+  });
+
+  it("backs out only an entry it owns, and never on a timer", () => {
+    // The 2.6 logout bug: a 300 ms fallback ran the redirect while the back was in flight.
+    expect(hook).toContain("pushedCount > 0 && historyState()[MARKER] !== undefined");
+    expect(hook).not.toContain("setTimeout");
+    expect(hook).not.toContain("FALLBACK");
+  });
 });
 
-describe("closeOverlaysThen (§14.2 c: a More link lands with home underneath)", () => {
-  /** A fake browser: an overlay entry on top or not, a popstate we fire by hand, fake timers. */
-  function setup(hasOverlayEntry: boolean) {
-    vi.useFakeTimers();
+describe("closeOverlaysThen (§14.2 c, e: a tab root or a redirect lands with home underneath)", () => {
+  /** A fake browser: the controller owns the top entry or not; a popstate we fire by hand. */
+  function setup(ownsTopEntry: boolean) {
     let popListener: (() => void) | null = null;
     const env: CloseThenEnv = {
-      hasOverlayEntry: () => hasOverlayEntry,
+      ownsTopEntry: () => ownsTopEntry,
       back: vi.fn(),
       onNextPopState: (callback) => {
         popListener = callback;
@@ -117,8 +166,6 @@ describe("closeOverlaysThen (§14.2 c: a More link lands with home underneath)",
           popListener = null;
         };
       },
-      setTimer: (callback, ms) => setTimeout(callback, ms),
-      clearTimer: (id) => clearTimeout(id as ReturnType<typeof setTimeout>),
     };
     const fn = vi.fn();
     const closeThen = createCloseOverlaysThen(env);
@@ -126,38 +173,23 @@ describe("closeOverlaysThen (§14.2 c: a More link lands with home underneath)",
     return { env, fn, closeThen, pop };
   }
 
-  it("runs at once when no overlay entry is on top", () => {
+  it("runs at once when it owns nothing on top", () => {
     const { env, fn, closeThen } = setup(false);
     expect(closeThen(fn)).toBe(true);
     expect(fn).toHaveBeenCalledTimes(1);
     expect(env.back).not.toHaveBeenCalled();
-    vi.useRealTimers();
   });
 
-  it("goes back first and runs on the popstate, once", () => {
+  it("goes back first and runs on the popstate, once, however long it takes", () => {
     const { env, fn, closeThen, pop } = setup(true);
     closeThen(fn);
     expect(env.back).toHaveBeenCalledTimes(1);
     expect(fn).not.toHaveBeenCalled();
     pop();
     expect(fn).toHaveBeenCalledTimes(1);
-    // The fallback timer was cleared: nothing runs a second time.
-    vi.advanceTimersByTime(CLOSE_THEN_FALLBACK_MS * 2);
-    expect(fn).toHaveBeenCalledTimes(1);
-    vi.useRealTimers();
-  });
-
-  it("falls back after 300 ms when the popstate never comes, and still runs once", () => {
-    const { fn, closeThen, pop } = setup(true);
-    closeThen(fn);
-    vi.advanceTimersByTime(CLOSE_THEN_FALLBACK_MS - 1);
-    expect(fn).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(1);
-    expect(fn).toHaveBeenCalledTimes(1);
-    // A late popstate after the fallback changes nothing.
+    // The listener was one-shot: a second popstate changes nothing.
     pop();
     expect(fn).toHaveBeenCalledTimes(1);
-    vi.useRealTimers();
   });
 
   it("ignores a second call while the first is under way (a fast double tap)", () => {
@@ -171,6 +203,5 @@ describe("closeOverlaysThen (§14.2 c: a More link lands with home underneath)",
     expect(second).not.toHaveBeenCalled();
     // Once finished, the next tap is served again.
     expect(closeThen(second)).toBe(true);
-    vi.useRealTimers();
   });
 });

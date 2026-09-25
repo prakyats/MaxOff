@@ -3,7 +3,7 @@ import { expect, type Locator, type Page, type TestInfo, test } from "@playwrigh
 // The app's own IST clock (ADR-0008), so "today" here is the database's `app.today_ist()`.
 import { todayIST } from "../src/core/time";
 
-import { chooseAttendance, rpcAs, signIn, USERS } from "./helpers";
+import { chooseAttendance, resetAttendanceAndLeaveOf, rpcAs, signIn, USERS } from "./helpers";
 
 /**
  * The day gate (task 2.2, WORKFLOWS §1, ARCHITECTURE §8): sign-in → gate → choice → home, for
@@ -75,6 +75,7 @@ test.use({ storageState: { cookies: [], origins: [] } });
 test("Staff: gated at sign-in, a changed day is refused, Present lands where they were going", async ({
   page,
 }, info) => {
+  await resetAttendanceAndLeaveOf(gateUser("staff", info));
   await signIn(page, gateUser("staff", info), PASSWORD, { gate: "stop" });
   await expect(page).toHaveURL(/\/attendance\?next=/);
   // "Good to see you, Test", or "Today is a day off" when the suite runs on one.
@@ -148,6 +149,7 @@ test("Staff: gated at sign-in, a changed day is refused, Present lands where the
 test("Admin: gated too, a half day with a reason, Today shows the strip, back never returns to the gate", async ({
   page,
 }, info) => {
+  await resetAttendanceAndLeaveOf(gateUser("admin", info));
   await signIn(page, gateUser("admin", info), PASSWORD, { gate: "stop" });
   await expect(page).toHaveURL(/\/attendance\?next=/);
   if (isPhone(info)) await expectGateFitsThePhone(page);
@@ -185,6 +187,7 @@ test("Admin: gated too, a half day with a reason, Today shows the strip, back ne
 
 test("approved leave: no gate, and the strip offers I'm working today", async ({ page }, info) => {
   const email = gateUser("leave", info);
+  await resetAttendanceAndLeaveOf(email);
   const today = todayIST();
   const requestId = await rpcAs<string>(email, PASSWORD, "leave_submit", {
     type: "leave",
@@ -208,6 +211,7 @@ test("approved leave: no gate, and the strip offers I'm working today", async ({
 
 test("approved half day: no gate, and the strip offers the full day", async ({ page }, info) => {
   const email = gateUser("half", info);
+  await resetAttendanceAndLeaveOf(email);
   const today = todayIST();
   const requestId = await rpcAs<string>(email, PASSWORD, "leave_submit", {
     type: "half_day",
