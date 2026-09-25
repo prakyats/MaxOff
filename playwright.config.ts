@@ -24,6 +24,7 @@ const LAUNCH_SPECS = /launch\.spec\.ts$/;
 const MOTION_SPECS = /motion\.spec\.ts$/;
 const REFRESH_SPECS = /refresh\.spec\.ts$/;
 const PRE_HYDRATION_SPECS = /pre-hydration\.spec\.ts$/;
+const EDIT_PATTERN_SPECS = /edit-pattern\.spec\.ts$/;
 
 /**
  * Flow tests (ARCHITECTURE §15). `pnpm test:e2e` runs them; CI runs them as their own job.
@@ -98,7 +99,7 @@ export default defineConfig({
       // does the Owner's review (2.4), whose sheets and dialogs each have a back order. The
       // launch (2.7) too: the intro is drawn for the phone that launched it. And the drill-down
       // slide, per-tab scroll and refresh on return (2.7b), checked at both widths, and taps before
-      // hydration (2.8).
+      // hydration (2.8), and the edit pattern's back order (2.9).
       name: "mobile-lg",
       dependencies: ["setup"],
       testMatch: [
@@ -111,6 +112,7 @@ export default defineConfig({
         MOTION_SPECS,
         REFRESH_SPECS,
         PRE_HYDRATION_SPECS,
+        EDIT_PATTERN_SPECS,
       ],
       use: { ...devices["Pixel 5"], viewport: { width: 430, height: 932 } },
     },

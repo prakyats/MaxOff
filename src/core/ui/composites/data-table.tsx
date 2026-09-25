@@ -12,7 +12,13 @@ import {
   type SortingState,
   useReactTable,
 } from "@tanstack/react-table";
-import { ArrowDownIcon, ArrowUpIcon, ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  EllipsisIcon,
+} from "lucide-react";
 import { type ReactNode, useState } from "react";
 
 import {
@@ -38,6 +44,7 @@ import {
   TableRow,
 } from "@/core/ui/primitives/table";
 
+import { DrillLink } from "./drill-link";
 import { EmptyState } from "./empty-state";
 import { LoadingState } from "./loading-state";
 
@@ -90,6 +97,14 @@ export type MobileCard<TData> = {
   detailTitle?: (row: TData) => ReactNode;
   /** Actions inside the sheet, stacked full width. */
   actions?: (row: TData) => ReactNode;
+  /**
+   * A drill-down for the row (task 2.9): when it returns a path, tapping the card opens that
+   * screen (`DrillLink`, it slides) and the sheet moves behind a trailing ⋯ button. `null` keeps
+   * the card opening the sheet, as without it.
+   */
+  href?: (row: TData) => string | null;
+  /** Accessible name of the ⋯ button, e.g. "More for Ravi". Required with `href`. */
+  moreLabel?: (row: TData) => string;
 };
 
 export type DataTableProps<TData> = {
@@ -361,6 +376,38 @@ function MobileCards<TData>({
               ) : null}
             </>
           );
+
+          const href = card.href?.(row.original) ?? null;
+          if (href !== null) {
+            return (
+              <li key={row.id} data-slot="data-card" className="flex items-stretch">
+                <DrillLink
+                  href={href}
+                  data-slot="data-card-link"
+                  className={cn(
+                    "active:bg-muted/60 focus-visible:ring-ring flex min-w-0 flex-1 flex-wrap items-center gap-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset",
+                    CARD_ROW_MIN_H,
+                    CARD_ROW_PADDING,
+                    card.detail ? "pr-1" : null,
+                  )}
+                >
+                  {body}
+                  <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
+                </DrillLink>
+                {card.detail ? (
+                  <button
+                    type="button"
+                    onClick={() => setOpenId(row.id)}
+                    aria-label={card.moreLabel?.(row.original) ?? "More"}
+                    data-slot="data-card-more"
+                    className="active:bg-muted/60 focus-visible:ring-ring text-muted-foreground flex w-12 shrink-0 items-center justify-center outline-none focus-visible:ring-2 focus-visible:ring-inset"
+                  >
+                    <EllipsisIcon className="size-5" aria-hidden />
+                  </button>
+                ) : null}
+              </li>
+            );
+          }
 
           return (
             <li key={row.id} data-slot="data-card">

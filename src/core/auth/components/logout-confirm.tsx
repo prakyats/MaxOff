@@ -3,6 +3,7 @@
 import { createContext, type ReactNode, use, useEffect, useRef, useState } from "react";
 
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
+import { anyEditDirty } from "@/core/ui/edit/edit-guard";
 import { closeOverlaysThen } from "@/core/ui/overlay/overlay-history";
 import { toastResult } from "@/core/ui/toast";
 
@@ -34,10 +35,17 @@ const RegisterBeforeLogout = createContext<(fn: BeforeLogout | null) => void>(()
  */
 export function LogoutProvider({ children, extra }: { children: ReactNode; extra?: ReactNode }) {
   const [open, setOpen] = useState(false);
+  // Read when the confirmation opens: an editor with unsaved changes is warned about (2.9).
+  const [unsaved, setUnsaved] = useState(false);
   const before = useRef<BeforeLogout | null>(null);
 
   return (
-    <RequestLogout.Provider value={() => setOpen(true)}>
+    <RequestLogout.Provider
+      value={() => {
+        setUnsaved(anyEditDirty());
+        setOpen(true);
+      }}
+    >
       <RegisterBeforeLogout.Provider value={(fn) => (before.current = fn)}>
         {children}
         <ConfirmDialog
@@ -60,6 +68,11 @@ export function LogoutProvider({ children, extra }: { children: ReactNode; extra
             return true;
           }}
         >
+          {unsaved ? (
+            <p data-slot="logout-unsaved" role="alert" className="text-destructive text-sm">
+              Your unsaved changes will be lost.
+            </p>
+          ) : null}
           {extra}
         </ConfirmDialog>
       </RegisterBeforeLogout.Provider>

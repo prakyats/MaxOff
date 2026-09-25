@@ -218,9 +218,16 @@ export function TeamTable({
    * The phone shape (ARCHITECTURE §14.1). A card shows who someone is and where they stand;
    * the email, the date and every action live in the sheet a tap opens. The desktop dropdown
    * is hover-adjacent and 32px wide — neither belongs on a phone.
+   *
+   * For whoever reads attendance (the Owner), a card with a history opens the person's page
+   * directly and the sheet moves behind ⋯ (task 2.9, PRODUCT §2 "First glance"): their
+   * attendance and leave is what the Owner looks someone up for. The Owner's own card and
+   * anyone who never joined keep the sheet: they have no such page.
    */
   const mobile: MobileCard<TeamMember> = {
     title: (member) => member.fullName,
+    href: (member) => (opensHistory(canViewAttendance, member) ? `/people/${member.id}` : null),
+    moreLabel: (member) => `More for ${member.fullName}`,
     subtitle: (member) => `${ROLE_LABELS[member.role]} · ${member.jobTitle ?? "No job title"}`,
     trailing: (member) => <StatusDot status={member.status} label={STATUS_LABELS[member.status]} />,
     detail: (member) => {

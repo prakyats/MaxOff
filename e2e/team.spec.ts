@@ -134,6 +134,16 @@ test.describe("Owner", () => {
     await page.getByLabel("Job title").click();
     await page.getByRole("option", { name: "Video Editor" }).click();
     await page.getByRole("button", { name: "Save" }).click();
+    // Save names each change before anything is written (2.9): a role change is a permission.
+    const confirm = page.getByRole("alertdialog", { name: "Save these changes?" });
+    await expect(confirm).toContainText(
+      `${INVITEE.name}'s name will change from ${INVITEE.name} to Invited Person Jr.`,
+    );
+    await expect(confirm).toContainText(`${INVITEE.name}'s role will change from Staff to Admin.`);
+    await expect(confirm).toContainText(
+      `${INVITEE.name}'s job title will change from Graphic Designer to Video Editor.`,
+    );
+    await confirm.getByRole("button", { name: "Save" }).click();
 
     const row = page.getByRole("row", { name: /Invited Person Jr/ });
     await expect(row).toContainText("Admin");
@@ -364,15 +374,16 @@ test.describe("Staff", () => {
   test.use({ storageState: storageStateFor("staff") });
   // Runs on the phone project too: /me is a Staff screen (375px, CLAUDE.md Definition of Done).
 
-  test("cannot open People, and edits their own profile on Me", async ({ page }) => {
+  test("cannot open People, and sees their own profile read-only on Me", async ({ page }) => {
     await page.goto("/people");
     await expect(page).toHaveURL(/\/forbidden$/);
 
+    // Editing it is the edit pattern's own spec (2.9, e2e/edit-pattern.spec.ts), on people of
+    // its own: this account is shared by every project.
     await page.goto("/me");
-    await page.getByLabel("Phone").fill("9000000003");
-    await page.getByRole("button", { name: "Save profile" }).click();
-    await expect(page.getByText("Profile saved")).toBeVisible();
-    await page.reload();
-    await expect(page.getByLabel("Phone")).toHaveValue("9000000003");
+    const profile = page.locator('[data-slot="editable-record"]');
+    await expect(profile).toContainText("Local Staff");
+    await expect(profile.getByRole("textbox")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Edit profile" })).toBeVisible();
   });
 });

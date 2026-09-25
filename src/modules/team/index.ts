@@ -8,3 +8,6 @@
 export { offerableJobTitles, type JobTitleOption } from "./domain/job-titles";
 export { getOwnMember, listDirectory, listMembers } from "./data/members";
 export { memberActions, sortMembers, type TeamMember } from "./domain/members";
+export { NAME_MAX_LENGTH, PHONE_MAX_LENGTH } from "./domain/limits";
+/** The member's own name and phone, for the edit pattern on /me (2.9). */
+export { updateOwnProfile } from "./actions/members";

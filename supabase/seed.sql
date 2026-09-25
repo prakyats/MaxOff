@@ -70,7 +70,16 @@ insert into seed_users values
   -- has their page open; the spec puts the name back itself, so it re-runs without db:reset.
   ('20000000-0000-4000-8000-000000000032', 'refresh-desktop@maxoff.local', 'refresh-local-password', 'Test Refresh (desktop)', null, 'staff', 'active'),
   ('20000000-0000-4000-8000-000000000033', 'refresh-mobile@maxoff.local', 'refresh-local-password', 'Test Refresh (mobile)', null, 'staff', 'active'),
-  ('20000000-0000-4000-8000-000000000034', 'refresh-mobile-lg@maxoff.local', 'refresh-local-password', 'Test Refresh (mobile-lg)', null, 'staff', 'active');
+  ('20000000-0000-4000-8000-000000000034', 'refresh-mobile-lg@maxoff.local', 'refresh-local-password', 'Test Refresh (mobile-lg)', null, 'staff', 'active'),
+  -- 2.9: the edit pattern (e2e/edit-pattern.spec.ts). "Profile" people edit their own profile on
+  -- /me; the Owner edits "Member Edit" people through the People dialog. One per project; the
+  -- spec puts every value back itself, so it re-runs without db:reset.
+  ('20000000-0000-4000-8000-000000000035', 'profile-desktop@maxoff.local', 'profile-local-password', 'Test Profile (desktop)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000036', 'profile-mobile@maxoff.local', 'profile-local-password', 'Test Profile (mobile)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000037', 'profile-mobile-lg@maxoff.local', 'profile-local-password', 'Test Profile (mobile-lg)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000038', 'memberedit-desktop@maxoff.local', 'profile-local-password', 'Test Member Edit (desktop)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000039', 'memberedit-mobile@maxoff.local', 'profile-local-password', 'Test Member Edit (mobile)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000040', 'memberedit-mobile-lg@maxoff.local', 'profile-local-password', 'Test Member Edit (mobile-lg)', null, 'staff', 'active');
 
 -- What GoTrue writes for a confirmed email + password user (`auth.users` + one identity).
 insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,

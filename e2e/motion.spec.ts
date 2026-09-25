@@ -109,7 +109,7 @@ test.describe("installed at phone width: drill-down slides", () => {
   test("a drill-down from inside a sheet slides in", async ({ page }) => {
     await page.goto("/people");
     await hydrated(page);
-    await page.locator('[data-slot="data-card"]', { hasText: "Local Staff" }).click();
+    await page.getByRole("button", { name: "More for Local Staff" }).click();
     const sheet = page.locator('[data-slot="detail-sheet"]');
     await sheet.getByRole("link", { name: "Attendance & leave" }).click();
     await expect(page).toHaveURL(/\/people\/[^/]+$/);

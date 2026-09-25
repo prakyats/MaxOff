@@ -20,4 +20,10 @@ describe("refresh on return (ARCHITECTURE §14.2 i)", () => {
   it("never refreshes while an approval is inside its Undo window", () => {
     expect(at(10 * 60_000, 0, true)).toBe(false);
   });
+
+  it("never refreshes under unsaved edits (2.9)", () => {
+    expect(
+      shouldRefresh({ now: 10 * 60_000, lastRefresh: 0, sendWaiting: false, editing: true }),
+    ).toBe(false);
+  });
 });

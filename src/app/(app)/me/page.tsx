@@ -5,6 +5,7 @@ import Link from "next/link";
 import { LogoutButton } from "@/core/auth/components/logout-button";
 import { requireMember } from "@/core/auth/server";
 import { can } from "@/core/permissions";
+import { EditableRecord } from "@/core/ui/composites/editable-record";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { Avatar, AvatarFallback } from "@/core/ui/primitives/avatar";
 import {
@@ -17,16 +18,19 @@ import {
 import { Separator } from "@/core/ui/primitives/separator";
 import { initialsOf, ROLE_LABELS } from "@/core/ui/shell/viewer";
 import { ThemeToggle } from "@/core/ui/theme/theme-toggle";
-import { getOwnMember } from "@/modules/team";
-import { ProfileForm } from "@/modules/team/components/profile-form";
+import { getOwnMember, NAME_MAX_LENGTH, PHONE_MAX_LENGTH, updateOwnProfile } from "@/modules/team";
 
 export const metadata: Metadata = { title: "Me" };
 
 /**
  * Profile, own attendance and leave (2.3), appearance and log out (PRODUCT §4.7: the Staff
- * "Me" tab). An accepted invite
- * lands here with `?welcome=1` (WORKFLOWS §1a) to check the name and add a phone. Avatar
- * upload joins in 3.3.
+ * "Me" tab). An accepted invite lands here with `?welcome=1` (WORKFLOWS §1a) to check the name
+ * and add a phone. Avatar upload joins in 3.3.
+ *
+ * The profile is read-only first and edited through the edit pattern (`EditableRecord`, task
+ * 2.9, ARCHITECTURE §14.1): it is who you are in the app, so a change is deliberate and named
+ * before it is saved. Appearance and Log out stay instant: a view preference and an action,
+ * not identity.
  */
 export default async function MePage({
   searchParams,
@@ -89,7 +93,35 @@ export default async function MePage({
               <span className="text-muted-foreground"> (the Owner changes this)</span>
             </p>
             <Separator />
-            <ProfileForm fullName={own?.fullName ?? viewer.name} phone={own?.phone ?? null} />
+            <EditableRecord
+              title="Profile"
+              subject="self"
+              editLabel="Edit profile"
+              savedMessage="Profile saved"
+              onSave={updateOwnProfile}
+              fields={[
+                {
+                  name: "fullName",
+                  label: "Full name",
+                  noun: "name",
+                  value: own?.fullName ?? viewer.name,
+                  input: { autoComplete: "name", maxLength: NAME_MAX_LENGTH, required: true },
+                },
+                {
+                  name: "phone",
+                  label: "Phone",
+                  noun: "phone number",
+                  value: own?.phone ?? null,
+                  hint: "A work contact, visible to the Owner and Admins.",
+                  input: {
+                    type: "tel",
+                    autoComplete: "tel",
+                    inputMode: "tel",
+                    maxLength: PHONE_MAX_LENGTH,
+                  },
+                },
+              ]}
+            />
           </CardContent>
         </Card>
 

@@ -94,7 +94,7 @@ test("what is open stays open through the refresh", async ({ page, isMobile }) =
   await page.clock.install();
   await page.goto("/people");
   await hydrated(page);
-  await page.locator('[data-slot="data-card"]', { hasText: "Local Staff" }).click();
+  await page.getByRole("button", { name: "More for Local Staff" }).click();
   const sheet = page.locator('[data-slot="detail-sheet"]');
   await expect(sheet).toBeVisible();
 

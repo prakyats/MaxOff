@@ -422,9 +422,11 @@ test.describe("People is a card list, not a table", () => {
     await expectNoHorizontalScroll(page);
   });
 
-  test("a card opens a detail sheet with the rest of the row and its actions", async ({ page }) => {
+  test("⋯ on a card opens a detail sheet with the rest of the row and its actions", async ({
+    page,
+  }) => {
     await page.goto("/people");
-    await page.locator('[data-slot="data-card"]', { hasText: "Local Staff" }).click();
+    await page.getByRole("button", { name: "More for Local Staff" }).click();
 
     const sheet = page.locator('[data-slot="detail-sheet"]');
     await expect(sheet).toBeVisible();

@@ -43,7 +43,7 @@ test.describe("overlays close on back", () => {
     // popping per overlay made the closing sheet's asynchronous back() swallow the dialog's
     // entry, and the dialog disappeared the instant it opened.
     await page.goto("/people");
-    await page.locator('[data-slot="data-card"]', { hasText: "Local Staff" }).click();
+    await page.getByRole("button", { name: "More for Local Staff" }).click();
     const sheet = page.locator('[data-slot="detail-sheet"]');
     await expect(sheet).toBeVisible();
 
@@ -71,7 +71,7 @@ test.describe("overlays close on back", () => {
       .click();
     await expect(page).toHaveURL(/\/people$/);
 
-    await page.locator('[data-slot="data-card"]', { hasText: "Local Staff" }).click();
+    await page.getByRole("button", { name: "More for Local Staff" }).click();
     const sheet = page.locator('[data-slot="detail-sheet"]');
     await expect(sheet).toBeVisible();
 
@@ -131,7 +131,7 @@ test.describe("installed: overlays and view controls", () => {
       await runInstalled(page);
       await page.goto("/today");
       await page.goto("/people");
-      await page.locator('[data-slot="data-card"]', { hasText: "Local Staff" }).click();
+      await page.getByRole("button", { name: "More for Local Staff" }).click();
       const sheet = page.locator('[data-slot="detail-sheet"]');
       await expect(sheet).toBeVisible();
 
@@ -147,7 +147,7 @@ test.describe("installed: overlays and view controls", () => {
         .getByRole("link", { name: "People", exact: true })
         .click();
       await expect(page).toHaveURL(/\/people$/);
-      await page.locator('[data-slot="data-card"]', { hasText: "Local Staff" }).click();
+      await page.getByRole("button", { name: "More for Local Staff" }).click();
       const sheet = page.locator('[data-slot="detail-sheet"]');
       await expect(sheet).toBeVisible();
 
@@ -157,7 +157,7 @@ test.describe("installed: overlays and view controls", () => {
     test("a confirm handed off from the sheet: back closes it, the URL stays", async ({ page }) => {
       await runInstalled(page);
       await page.goto("/people");
-      await page.locator('[data-slot="data-card"]', { hasText: "Local Staff" }).click();
+      await page.getByRole("button", { name: "More for Local Staff" }).click();
       await page
         .locator('[data-slot="detail-sheet"]')
         .getByRole("button", { name: "Deactivate" })

@@ -448,12 +448,11 @@ test("installed: the on-screen back goes back after a drill-down, adding nothing
   await runInstalled(page);
   await page.goto("/today");
   await page.goto("/people");
-  // People → the person's sheet → Attendance & leave: a real drill-down.
+  // People → the person's card: a real drill-down (the card opens their page since 2.9).
   // The seeded Staff member is among the first ten cards on a phone.
-  await page.locator('[data-slot="data-card"]', { hasText: "Local Staff" }).click();
   await page
-    .locator('[data-slot="detail-sheet"]')
-    .getByRole("link", { name: "Attendance & leave" })
+    .locator('[data-slot="data-card"]', { hasText: "Local Staff" })
+    .locator('[data-slot="data-card-link"]')
     .click();
   await expect(page).toHaveURL(/\/people\/[0-9a-f-]{36}$/);
   await page.getByRole("link", { name: "Back to People" }).click();
