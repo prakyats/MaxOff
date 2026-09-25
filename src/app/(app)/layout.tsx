@@ -10,9 +10,11 @@ import { requireDayGate } from "@/core/auth/gate";
 import { requireMember } from "@/core/auth/server";
 import { SentryUser } from "@/core/observability/sentry-user";
 import { can } from "@/core/permissions";
+import { RouteTransition } from "@/core/ui/motion/route-transition";
 import { Toaster } from "@/core/ui/primitives/sonner";
 import { TooltipProvider } from "@/core/ui/primitives/tooltip";
 import { AppShell } from "@/core/ui/shell/app-shell";
+import { RefreshOnReturn } from "@/core/ui/shell/refresh-on-return";
 import type { NavBadges } from "@/core/ui/shell/nav";
 import { countPendingDays, OvertimeLogoutNote } from "@/modules/attendance";
 import { countPendingRequests } from "@/modules/leave";
@@ -55,8 +57,9 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           badges={badges}
         >
           <SentryUser id={viewer.id} />
+          <RefreshOnReturn />
           {gate === "issue-pass" ? <IssueDayPass /> : null}
-          {children}
+          <RouteTransition>{children}</RouteTransition>
         </AppShell>
       </TooltipProvider>
       <Toaster position="top-center" closeButton />

@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 
 import { addISTDays, todayIST, toISTDate } from "@/core/time";
-import { PageHeader } from "@/core/ui/composites/page-header";
 import {
   AttendanceHistory,
   historyMonth,
@@ -11,7 +10,6 @@ import {
 } from "@/modules/attendance";
 
 import { LeavePager } from "../../../leave/leave-nav";
-import { PersonTabs } from "../person-nav";
 import { loadPerson } from "../person";
 
 export const metadata: Metadata = { title: "Attendance & leave" };
@@ -42,12 +40,6 @@ export default async function PersonAttendancePage({
 
   return (
     <>
-      <PageHeader
-        title={person.fullName}
-        description={person.jobTitle ?? undefined}
-        back={{ href: "/people", label: "People" }}
-      />
-      <PersonTabs memberId={person.id} />
       <LeavePager
         label={monthLabel(month)}
         previous={previous ? href(previous) : null}

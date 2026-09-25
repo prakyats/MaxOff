@@ -1,7 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useLayoutEffect, useSyncExternalStore } from "react";
+
+import { holdScroll, saveTabScroll, takeTabScroll } from "./tab-scroll";
 
 /**
  * Top-level tabs must not stack up history (task 1.5, ARCHITECTURE §14.1).
@@ -24,7 +26,8 @@ import { useCallback, useEffect, useSyncExternalStore } from "react";
  * | tab | home | `back` (we pushed it) | `[home]` |
  *
  * Back from a tab therefore lands on home, and back on home has nothing of ours left to pop, so
- * the app closes. Detail routes inside a tab are untouched: they are ordinary `Link`s that push,
+ * the app closes. Every one of these moves also keeps the scroll of the tab it leaves and puts
+ * back the scroll of the tab it reaches (`tab-scroll`, §14.2 g). Detail routes inside a tab are untouched: they are ordinary `Link`s that push,
  * so back from a client page still returns to the client list rather than to home.
  *
  * `pushedFromHome` is module state, so it resets on a full reload. Refreshing while on a tab
@@ -34,6 +37,9 @@ import { useCallback, useEffect, useSyncExternalStore } from "react";
  */
 
 let pushedFromHome = false;
+
+/** The tab a move of ours is heading to, and where that tab was left. */
+let arriving: { tab: string; y: number | undefined } | null = null;
 
 /** True when the app is running installed rather than in a browser tab. */
 export function isStandalone(): boolean {
@@ -85,6 +91,23 @@ export function useTabNavigation(
     if (pathname === home) pushedFromHome = false;
   }, [pathname, home]);
 
+  // A layout effect, so the place is back before the arrival paints. It runs after Next's own
+  // scroll-to-top for the same commit (the bottom bar comes after the page in the tree), and
+  // `holdScroll` covers a page that streams in after it.
+  useLayoutEffect(() => {
+    // Anywhere else (a drill-down, a redirect) is not the arrival we were waiting for.
+    if (arriving?.tab !== pathname) {
+      arriving = null;
+      return;
+    }
+    const { y } = arriving;
+    if (!y) return;
+    // Cleared once the hold has run its course, so a later mount of the bar never re-applies it.
+    return holdScroll(y, () => {
+      arriving = null;
+    });
+  }, [pathname]);
+
   const handles = useCallback(
     (href: string) =>
       // Only the top-level tabs are rewritten, installed only. Anything deeper pushes normally.
@@ -95,6 +118,9 @@ export function useTabNavigation(
   const navigate = useCallback(
     (href: string) => {
       if (!handles(href)) return false;
+
+      saveTabScroll(pathname, window.scrollY);
+      arriving = { tab: href, y: takeTabScroll(href) };
 
       if (href === home) {
         if (pushedFromHome) {

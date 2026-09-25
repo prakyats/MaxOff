@@ -4,10 +4,9 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { MoreHorizontalIcon, UsersIcon } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 
-import Link from "next/link";
-
 import { formatIST } from "@/core/time";
 import { DataTable, type MobileCard } from "@/core/ui/composites/data-table";
+import { DrillLink } from "@/core/ui/composites/drill-link";
 import { OverlayLink } from "@/core/ui/composites/overlay-link";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { StatusBadge, StatusDot } from "@/core/ui/composites/status-badge";
@@ -97,12 +96,12 @@ export function TeamTable({
         cell: ({ row }) => (
           <div className="min-w-0">
             {opensHistory(canViewAttendance, row.original) ? (
-              <Link
+              <DrillLink
                 href={`/people/${row.original.id}`}
                 className="block truncate font-medium underline-offset-4 hover:underline"
               >
                 {row.original.fullName}
-              </Link>
+              </DrillLink>
             ) : (
               <p className="truncate font-medium">{row.original.fullName}</p>
             )}

@@ -40,7 +40,7 @@ function Item({
     <>
       <span
         className={cn(
-          "relative flex h-7 w-12 items-center justify-center rounded-full transition-colors",
+          "relative flex h-7 w-12 max-w-full items-center justify-center rounded-full transition-colors",
           active && "bg-brand/15",
         )}
       >

@@ -5,6 +5,7 @@ import "./globals.css";
 
 import { cn } from "@/core/lib/utils";
 import { LAUNCH_INTRO_SCRIPT, LaunchIntro } from "@/core/ui/pwa/launch-intro";
+import { STANDALONE_SCRIPT } from "@/core/ui/pwa/standalone";
 import launch from "@/core/ui/pwa/launch-screens.json";
 import { RegisterServiceWorker } from "@/core/ui/pwa/register-service-worker";
 import { THEME_COLOR_SCRIPT, THEME_COLORS } from "@/core/ui/theme/theme-color";
@@ -73,6 +74,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <head>
         {/* Before first paint: an explicit Light/Dark choice must not flash the other band. */}
         <script dangerouslySetInnerHTML={{ __html: THEME_COLOR_SCRIPT }} />
+        {/* Every document: no zoom in the installed app where system text size applies (2.7b). */}
+        <script dangerouslySetInnerHTML={{ __html: STANDALONE_SCRIPT }} />
         {/* Before first paint too: marks an installed cold start for the launch intro (2.7). */}
         <script dangerouslySetInnerHTML={{ __html: LAUNCH_INTRO_SCRIPT }} />
       </head>

@@ -99,13 +99,7 @@ export async function rpcAs<T = unknown>(
   args: Record<string, unknown>,
 ): Promise<T> {
   const { url, apikey } = supabaseAuth();
-  const token = await fetch(`${url}/token?grant_type=password`, {
-    method: "POST",
-    headers: { apikey, "content-type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  });
-  expect(token.ok, `sign-in for ${email}`).toBe(true);
-  const { access_token: accessToken } = (await token.json()) as { access_token: string };
+  const accessToken = await accessTokenFor(email, password);
   const rest = url.replace(/\/auth\/v1$/, "/rest/v1");
   const response = await fetch(`${rest}/rpc/${fn}`, {
     method: "POST",
@@ -119,6 +113,47 @@ export async function rpcAs<T = unknown>(
   const body: unknown = await response.json();
   expect(response.ok, `${fn} as ${email}: ${JSON.stringify(body)}`).toBe(true);
   return body as T;
+}
+
+/** A real session's access token for a seeded person, from GoTrue's password grant. */
+async function accessTokenFor(email: string, password: string): Promise<string> {
+  const { url, apikey } = supabaseAuth();
+  const token = await fetch(`${url}/token?grant_type=password`, {
+    method: "POST",
+    headers: { apikey, "content-type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  expect(token.ok, `sign-in for ${email}`).toBe(true);
+  const { access_token: accessToken } = (await token.json()) as { access_token: string };
+  return accessToken;
+}
+
+/**
+ * A plain edit through PostgREST as that person, so RLS and the guards apply as in the app:
+ * "someone else changed it" without a second browser.
+ */
+export async function patchAs(
+  email: string,
+  password: string,
+  path: string,
+  patch: Record<string, unknown>,
+): Promise<void> {
+  const { url, apikey } = supabaseAuth();
+  const accessToken = await accessTokenFor(email, password);
+  const rest = url.replace(/\/auth\/v1$/, "/rest/v1");
+  const response = await fetch(`${rest}/${path}`, {
+    method: "PATCH",
+    headers: {
+      apikey,
+      authorization: `Bearer ${accessToken}`,
+      "content-type": "application/json",
+      prefer: "return=representation",
+    },
+    body: JSON.stringify(patch),
+  });
+  const body: unknown = await response.json();
+  expect(response.ok, `PATCH ${path} as ${email}: ${JSON.stringify(body)}`).toBe(true);
+  expect(body, `PATCH ${path} as ${email} changed a row`).not.toEqual([]);
 }
 
 /**
@@ -392,6 +427,16 @@ export async function runInstalled(page: Page) {
           } as unknown as MediaQueryList)
         : real(query);
   });
+}
+
+/**
+ * The app has hydrated: `MobileChrome` sets `data-chrome` on `<html>` when it mounts, at every
+ * width. Before that a link is a plain link (by design, §14.2 k) and no listener is attached, so
+ * a spec that checks client behaviour (a typed transition, a scroll restore, refresh on return)
+ * waits for this after `goto`, or a fast tap can land first and take the plain path (2.7b).
+ */
+export async function hydrated(page: Page): Promise<void> {
+  await expect(page.locator("html")).toHaveAttribute("data-chrome", /.+/);
 }
 
 /** One back press: what it must close (if anything), and where the page must be afterwards. */

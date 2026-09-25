@@ -28,7 +28,7 @@ import { Button } from "@/core/ui/primitives/button";
 import { Checkbox } from "@/core/ui/primitives/checkbox";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 
-import { CARD_ROW_MIN_H, CARD_ROW_PADDING } from "./row-metrics";
+import { CARD_ROW_MIN_H, CARD_ROW_PADDING, CARD_ROW_TITLE, CARD_ROW_TRAILING } from "./row-metrics";
 import {
   Table,
   TableBody,
@@ -348,7 +348,7 @@ function MobileCards<TData>({
         {visible.map((row) => {
           const body = (
             <>
-              <span className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
+              <span className={cn("flex flex-col gap-0.5 text-left", CARD_ROW_TITLE)}>
                 <span className="truncate text-sm font-medium">{card.title(row.original)}</span>
                 {card.subtitle ? (
                   <span className="text-muted-foreground truncate text-xs">
@@ -357,7 +357,7 @@ function MobileCards<TData>({
                 ) : null}
               </span>
               {card.trailing ? (
-                <span className="shrink-0">{card.trailing(row.original)}</span>
+                <span className={CARD_ROW_TRAILING}>{card.trailing(row.original)}</span>
               ) : null}
             </>
           );
@@ -369,7 +369,7 @@ function MobileCards<TData>({
                   type="button"
                   onClick={() => setOpenId(row.id)}
                   className={cn(
-                    "active:bg-muted/60 focus-visible:ring-ring flex w-full items-center gap-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset",
+                    "active:bg-muted/60 focus-visible:ring-ring flex w-full flex-wrap items-center gap-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset",
                     CARD_ROW_MIN_H,
                     CARD_ROW_PADDING,
                   )}
@@ -379,7 +379,11 @@ function MobileCards<TData>({
                 </button>
               ) : (
                 <div
-                  className={cn("flex w-full items-center gap-3", CARD_ROW_MIN_H, CARD_ROW_PADDING)}
+                  className={cn(
+                    "flex w-full flex-wrap items-center gap-3",
+                    CARD_ROW_MIN_H,
+                    CARD_ROW_PADDING,
+                  )}
                 >
                   {body}
                 </div>

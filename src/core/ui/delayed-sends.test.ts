@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { DelayedSends, UNDO_MS } from "./delayed-sends";
+import { anySendWaiting, DelayedSends, UNDO_MS } from "./delayed-sends";
 
 /** Timers you advance by hand, so every rule is checked without waiting six seconds. */
 function fakeTimers() {
@@ -87,6 +87,22 @@ describe("DelayedSends: undo is a delayed send, nothing is recorded unless kept"
     clock.advance(UNDO_MS);
     expect(sent).toEqual(["a", "b"]);
     expect(sends.flush()).toEqual([]);
+  });
+
+  it("reports an open Undo window to refresh-on-return until each send leaves or is undone", () => {
+    const first = setup();
+    const second = setup();
+    expect(anySendWaiting()).toBe(false);
+    first.sends.schedule("a");
+    second.sends.schedule("b");
+    expect(anySendWaiting()).toBe(true);
+    first.sends.undo("a");
+    expect(anySendWaiting()).toBe(true);
+    second.clock.advance(UNDO_MS);
+    expect(anySendWaiting()).toBe(false);
+    first.sends.schedule("c");
+    first.sends.flush();
+    expect(anySendWaiting()).toBe(false);
   });
 
   it("scheduling the same row twice sends it once", () => {

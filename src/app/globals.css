@@ -344,6 +344,12 @@
      * app, and a pull that reloads it loses whatever the person was doing. */
     overscroll-behavior-y: none;
   }
+  /* The installed app does not pinch-zoom where the system text size applies (2.7b,
+   * `core/ui/pwa/standalone.ts`): panning only. Controls keep `manipulation`, whose
+   * intersection with this is the same pan, so taps and scrolling are unchanged. */
+  html[data-zoom-lock] body {
+    touch-action: pan-x pan-y;
+  }
   /* A long-press on a control selects nothing and opens no callout; text content stays
    * selectable (an email, a reason, a date someone wants to copy). */
   button,
@@ -396,5 +402,100 @@ html[data-launch] [data-slot="launch-intro"] svg {
 @media (prefers-reduced-motion: reduce) {
   html[data-launch] [data-slot="launch-intro"] svg {
     animation: none;
+  }
+}
+
+/*
+ * The drill-down slide (ARCHITECTURE §14.2 j, task 2.7b, `core/ui/motion/route-transition.tsx`):
+ * a detail slides in from the right and back slides it out, like a native stack. React names the
+ * page (`[data-slot="route"]`) only for a `nav-forward` or `nav-back` navigation in the installed
+ * app at phone width; everything else changes with no motion.
+ *
+ * The root is not captured, so the shell never cross-fades, and the two bars are pinned above
+ * the moving page: only the content moves. Taps pass through to the live page meanwhile.
+ */
+:root {
+  --nav-slide-duration: 260ms;
+  --nav-slide-offset: 30%;
+  --nav-slide-ease: cubic-bezier(0, 0, 0.2, 1);
+  view-transition-name: none;
+}
+::view-transition {
+  pointer-events: none;
+}
+[data-slot="top-bar"] {
+  view-transition-name: app-top-bar;
+}
+[data-slot="bottom-nav"] {
+  view-transition-name: app-bottom-nav;
+}
+::view-transition-group(app-top-bar),
+::view-transition-group(app-bottom-nav) {
+  z-index: 10;
+  animation: none;
+}
+::view-transition-old(app-top-bar),
+::view-transition-old(app-bottom-nav) {
+  display: none;
+}
+::view-transition-new(app-top-bar),
+::view-transition-new(app-bottom-nav) {
+  animation: none;
+}
+/* `slideBack`: the one slide React does not start, named by hand with React's own class. */
+html[data-nav-slide="back"] [data-slot="route"] {
+  view-transition-name: route;
+  view-transition-class: nav-back;
+}
+::view-transition-old(.nav-forward),
+::view-transition-new(.nav-forward),
+::view-transition-old(.nav-back),
+::view-transition-new(.nav-back) {
+  animation-duration: var(--nav-slide-duration);
+  animation-timing-function: var(--nav-slide-ease);
+  animation-fill-mode: both;
+}
+::view-transition-old(.nav-forward) {
+  animation-name: nav-slide-to-start;
+}
+::view-transition-new(.nav-forward) {
+  animation-name: nav-slide-from-end;
+}
+::view-transition-old(.nav-back) {
+  animation-name: nav-slide-to-end;
+}
+::view-transition-new(.nav-back) {
+  animation-name: nav-slide-from-start;
+}
+@keyframes nav-slide-from-end {
+  from {
+    translate: var(--nav-slide-offset) 0;
+    opacity: 0;
+  }
+}
+@keyframes nav-slide-to-start {
+  to {
+    translate: calc(var(--nav-slide-offset) * -1) 0;
+    opacity: 0;
+  }
+}
+@keyframes nav-slide-from-start {
+  from {
+    translate: calc(var(--nav-slide-offset) * -1) 0;
+    opacity: 0;
+  }
+}
+@keyframes nav-slide-to-end {
+  to {
+    translate: var(--nav-slide-offset) 0;
+    opacity: 0;
+  }
+}
+/* `RouteTransition` already starts nothing under reduced motion; this holds if one ever runs. */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
   }
 }

@@ -207,6 +207,19 @@ describe("launch: icons, iOS launch screens and the intro (2.7)", () => {
   });
 });
 
+describe("zoom lock (§14.2 i, 2.7b)", () => {
+  it("runs on every document, before the launch intro's script", () => {
+    expect(layout).toContain("STANDALONE_SCRIPT");
+    expect(layout.indexOf("STANDALONE_SCRIPT }}")).toBeLessThan(
+      layout.indexOf("LAUNCH_INTRO_SCRIPT }}"),
+    );
+  });
+
+  it("turns off pinch in CSS where the script locked the viewport", () => {
+    expect(css).toMatch(/html\[data-zoom-lock\] body \{[^}]*touch-action: pan-x pan-y;/);
+  });
+});
+
 describe("touch feel (§14.2 i, 2.7)", () => {
   it("removes the tap highlight, the overscroll leak and long-press selection on controls", () => {
     expect(css).toContain("-webkit-tap-highlight-color: transparent;");

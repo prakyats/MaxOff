@@ -82,7 +82,7 @@ export function PageHeader({
             !back && "ml-2 md:ml-0",
           )}
         >
-          <h1 className="min-w-0 truncate text-base font-semibold tracking-tight md:text-2xl">
+          <h1 className="line-clamp-2 min-w-0 text-base font-semibold tracking-tight break-words md:text-2xl">
             {title}
           </h1>
           {help ? <HelpSheet title={title}>{help}</HelpSheet> : null}

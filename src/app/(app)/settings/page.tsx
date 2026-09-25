@@ -1,9 +1,9 @@
 import { ArrowRightIcon } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 
 import { cn } from "@/core/lib/utils";
 import { requirePermission } from "@/core/permissions/server";
+import { DrillLink } from "@/core/ui/composites/drill-link";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { Badge } from "@/core/ui/primitives/badge";
 import { settingsSectionsFor } from "@/core/ui/shell/nav";
@@ -54,7 +54,7 @@ export default async function SettingsPage() {
           return (
             <li key={section.key} className={cn(shell, section.ready && "md:hover:border-ring")}>
               {section.ready ? (
-                <Link
+                <DrillLink
                   href={section.href}
                   data-slot="settings-section"
                   className={cn(
@@ -66,7 +66,7 @@ export default async function SettingsPage() {
                     {section.label}
                   </span>
                   <ArrowRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
-                </Link>
+                </DrillLink>
               ) : (
                 <div className={cn(line, "after:hidden md:min-h-0 md:pt-4")}>
                   <span className="text-muted-foreground min-w-0 flex-1 truncate text-sm">

@@ -12,7 +12,7 @@ import { Skeleton } from "@/core/ui/primitives/skeleton";
 import { describeError } from "@/core/ui/toast";
 
 import { ConfirmDialog } from "./confirm-dialog";
-import { LIST_ROW_MIN_H } from "./row-metrics";
+import { CARD_ROW_TRAILING, LIST_ROW_MIN_H } from "./row-metrics";
 import { StatusDot } from "./status-badge";
 
 /** One row waiting for a decision: what it is, whose, and where it stands. */
@@ -171,7 +171,8 @@ export function ApprovalGroup<T>({
 
   return (
     <section aria-labelledby={headingId} data-slot="approval-group" data-group={id}>
-      <div className="mb-2 flex min-h-11 items-center justify-between gap-3">
+      {/* Wraps under large system text: "Approve all" drops under the heading (§14.2 i). */}
+      <div className="mb-2 flex min-h-11 flex-wrap items-center justify-between gap-3">
         <h2 id={headingId} className="text-muted-foreground text-sm font-medium">
           {heading}{" "}
           <span className="tabular-nums" aria-live="polite" data-slot="approval-count">
@@ -180,7 +181,12 @@ export function ApprovalGroup<T>({
           <span className="sr-only"> waiting</span>
         </h2>
         {count > 1 ? (
-          <Button variant="outline" size="sm" onClick={() => setConfirmAll(true)}>
+          <Button
+            variant="outline"
+            size="sm"
+            className={CARD_ROW_TRAILING}
+            onClick={() => setConfirmAll(true)}
+          >
             Approve all {count}
           </Button>
         ) : null}
@@ -201,8 +207,10 @@ export function ApprovalGroup<T>({
               )}
             >
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <div className="flex min-w-0 items-center gap-2">
-                  <span className="truncate font-medium">{row.title}</span>
+                {/* A name too long to share the line puts its status underneath instead of being
+                    squeezed to nothing (large system text, §14.2 i). */}
+                <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+                  <span className="max-w-full min-w-0 truncate font-medium">{row.title}</span>
                   <StatusDot
                     status={isHeld ? "approved" : row.status}
                     label={isHeld ? "Approved" : row.statusLabel}

@@ -146,6 +146,63 @@ for (const role of ["owner", "admin", "staff"] as const) {
   });
 }
 
+/**
+ * The phone's own text size (§14.2 i, 2.7b). The installed Android app does not zoom; it follows
+ * the system font size instead, so every screen has to survive it: at 130% (a common setting)
+ * and 200% (Android's largest), nothing scrolls sideways or sits past the edge (the bottom bar
+ * included), and a line that is cut short still shows a readable part of itself. Scaling the
+ * root font is the stand-in: every size here is rem, as Chrome's text scaling scales it. The
+ * device check at the S23's largest font size is the real proof.
+ */
+const LARGE_TEXT_SCREENS = {
+  owner: ["/today", "/approvals", "/people", "/settings", "/settings/job-titles", "/me"],
+  admin: ["/today", "/leave", "/leave/attendance", "/me"],
+  staff: ["/my-day", "/leave", "/leave/attendance", "/me"],
+} as const;
+
+/** The narrowest an ellipsis may cut a line to and still say what it is. */
+const MIN_TRUNCATED_WIDTH = 64;
+
+async function expectReadableTruncation(page: Page): Promise<void> {
+  const squeezed = await page.evaluate(
+    (min) =>
+      [...document.querySelectorAll<HTMLElement>("body *")]
+        .filter((el) => {
+          const style = getComputedStyle(el);
+          return (
+            style.textOverflow === "ellipsis" &&
+            el.scrollWidth > el.clientWidth + 1 &&
+            el.clientWidth > 1 &&
+            el.clientWidth < min
+          );
+        })
+        .slice(0, 5)
+        .map((el) => `"${el.textContent?.trim().slice(0, 24)}" ${el.clientWidth}px`),
+    MIN_TRUNCATED_WIDTH,
+  );
+  expect(squeezed, `a cut-short line keeps ${MIN_TRUNCATED_WIDTH}px`).toEqual([]);
+}
+
+for (const [role, paths] of Object.entries(LARGE_TEXT_SCREENS)) {
+  test.describe(`${role} screens at large system text`, () => {
+    test.use({ storageState: storageStateFor(role as keyof typeof LARGE_TEXT_SCREENS) });
+
+    for (const path of paths) {
+      test(`${path}: fits at 130% and 200%`, async ({ page }) => {
+        await page.goto(path);
+        await expect(pageHeader(page)).toBeVisible();
+        for (const scale of [130, 200]) {
+          await page.evaluate((percent) => {
+            document.documentElement.style.fontSize = `${percent}%`;
+          }, scale);
+          await expectNoHorizontalScroll(page);
+          await expectReadableTruncation(page);
+        }
+      });
+    }
+  });
+}
+
 test.describe("the bottom bar, for every role", () => {
   // The owner's stated priority order (2026-09-23). Clients is not in the bar for either role.
   const EXPECTED = {

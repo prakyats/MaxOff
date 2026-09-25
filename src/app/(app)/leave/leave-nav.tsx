@@ -26,7 +26,7 @@ export function LeavePager({
       <PagerLink href={previous} label={previousLabel}>
         <ChevronLeftIcon aria-hidden />
       </PagerLink>
-      <p className="text-sm font-medium tabular-nums" aria-live="polite">
+      <p className="min-w-0 text-center text-sm font-medium tabular-nums" aria-live="polite">
         {label}
       </p>
       <PagerLink href={next} label={nextLabel}>

@@ -62,8 +62,8 @@ export default async function MePage({
               <PartyPopperIcon className="text-brand mt-0.5 size-5 shrink-0" aria-hidden />
               <p>
                 Your password is set and you are signed in as{" "}
-                <span className="font-medium">{viewer.email}</span>. From now on, sign in with that
-                email and your password.
+                <span className="font-medium break-all">{viewer.email}</span>. From now on, sign in
+                with that email and your password.
               </p>
             </CardContent>
           </Card>
@@ -71,7 +71,7 @@ export default async function MePage({
 
         <Card>
           <CardHeader>
-            <div className="flex items-center gap-3">
+            <div className="flex min-w-0 items-center gap-3">
               <Avatar size="lg">
                 <AvatarFallback>{initialsOf(viewer.name)}</AvatarFallback>
               </Avatar>
@@ -84,7 +84,7 @@ export default async function MePage({
           <CardContent className="flex flex-col gap-4 text-sm">
             <p>
               <span className="text-muted-foreground">Signs in as </span>
-              <span className="font-medium">{viewer.email}</span>
+              <span className="font-medium break-all">{viewer.email}</span>
               <span className="text-muted-foreground"> (the Owner changes this)</span>
             </p>
             <Separator />
@@ -113,16 +113,16 @@ export default async function MePage({
 
         <Card>
           <CardContent className="flex flex-col gap-4">
-            <div className="flex items-center justify-between gap-4">
-              <div>
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="min-w-0 flex-[1_1_10rem]">
                 <p className="text-sm font-medium">Appearance</p>
                 <p className="text-muted-foreground text-sm">Light, dark or follow the system.</p>
               </div>
               <ThemeToggle />
             </div>
             <Separator />
-            <div className="flex items-center justify-between gap-4">
-              <div>
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="min-w-0 flex-[1_1_10rem]">
                 <p className="text-sm font-medium">Session</p>
                 <p className="text-muted-foreground text-sm">
                   Logging out records the time, on this device only.

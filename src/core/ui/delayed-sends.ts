@@ -22,6 +22,17 @@ const browserTimers: Timers = {
   clear: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
 };
 
+/** Every group with a send still inside its Undo window. */
+const withWaiting = new Set<DelayedSends>();
+
+/**
+ * True while any approval anywhere is still inside its Undo window: refresh-on-return waits for
+ * it (`shell/refresh-on-return`), so a refresh never races a send that has not left yet.
+ */
+export function anySendWaiting(): boolean {
+  return withWaiting.size > 0;
+}
+
 export class DelayedSends {
   private readonly waiting = new Map<string, unknown>();
 
@@ -38,6 +49,7 @@ export class DelayedSends {
       id,
       this.timers.set(() => this.fire(id), this.delayMs),
     );
+    withWaiting.add(this);
   }
 
   /** Undo: true when the send was still waiting and is now dropped. */
@@ -45,7 +57,7 @@ export class DelayedSends {
     const handle = this.waiting.get(id);
     if (handle === undefined) return false;
     this.timers.clear(handle);
-    this.waiting.delete(id);
+    this.forget(id);
     return true;
   }
 
@@ -64,7 +76,12 @@ export class DelayedSends {
     const handle = this.waiting.get(id);
     if (handle === undefined) return;
     this.timers.clear(handle);
-    this.waiting.delete(id);
+    this.forget(id);
     this.send(id);
+  }
+
+  private forget(id: string): void {
+    this.waiting.delete(id);
+    if (this.waiting.size === 0) withWaiting.delete(this);
   }
 }

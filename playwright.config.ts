@@ -21,6 +21,8 @@ const BACK_GESTURE_SPECS = /back-gesture\.spec\.ts$/;
 const OWNER_REVIEW_SPECS = /owner-review\.spec\.ts$/;
 const OWNER_BULK_SPECS = /owner-bulk\.spec\.ts$/;
 const LAUNCH_SPECS = /launch\.spec\.ts$/;
+const MOTION_SPECS = /motion\.spec\.ts$/;
+const REFRESH_SPECS = /refresh\.spec\.ts$/;
 
 /**
  * Flow tests (ARCHITECTURE §15). `pnpm test:e2e` runs them; CI runs them as their own job.
@@ -93,7 +95,8 @@ export default defineConfig({
       // Admin's way in (the card on /today) is covered at a phone width too. The back-gesture
       // spec runs here as well: the installed-app rules are checked at both phone widths, and so
       // does the Owner's review (2.4), whose sheets and dialogs each have a back order. The
-      // launch (2.7) too: the intro is drawn for the phone that launched it.
+      // launch (2.7) too: the intro is drawn for the phone that launched it. And the drill-down
+      // slide, per-tab scroll and refresh on return (2.7b), checked at both widths.
       name: "mobile-lg",
       dependencies: ["setup"],
       testMatch: [
@@ -103,6 +106,8 @@ export default defineConfig({
         BACK_GESTURE_SPECS,
         OWNER_REVIEW_SPECS,
         LAUNCH_SPECS,
+        MOTION_SPECS,
+        REFRESH_SPECS,
       ],
       use: { ...devices["Pixel 5"], viewport: { width: 430, height: 932 } },
     },

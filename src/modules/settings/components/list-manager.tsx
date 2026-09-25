@@ -12,10 +12,12 @@ import { useActionState, useState } from "react";
 import { toast } from "sonner";
 
 import type { Result } from "@/core/errors";
+import { cn } from "@/core/lib/utils";
 import type { ListKey } from "@/core/lists";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { FormField } from "@/core/ui/composites/form-field";
+import { CARD_ROW_TITLE, CARD_ROW_TRAILING } from "@/core/ui/composites/row-metrics";
 import { Button } from "@/core/ui/primitives/button";
 import { Input } from "@/core/ui/primitives/input";
 import { toastResult } from "@/core/ui/toast";
@@ -120,16 +122,18 @@ export function ListManager({
             <li
               key={item.id}
               data-slot="list-item"
-              className="flex min-h-14 items-center justify-between gap-2 px-3 py-2.5 sm:px-4"
+              className="flex min-h-14 flex-wrap items-center justify-between gap-2 px-3 py-2.5 sm:px-4"
             >
-              <span className="min-w-0 truncate text-sm font-medium">{item.name}</span>
+              <span className={cn("truncate text-sm font-medium", CARD_ROW_TITLE)}>
+                {item.name}
+              </span>
               {/*
                 Four 44px targets and a name do not fit side by side at 375px, so on a phone the
                 row keeps only the two that are used while looking at the order (up and down) and
                 moves Rename and Archive into a sheet behind one button (ARCHITECTURE §14.1:
                 nothing hover-only, nothing clipped). Desktop shows all four.
               */}
-              <div className="flex shrink-0 items-center">
+              <div className={cn("flex items-center", CARD_ROW_TRAILING)}>
                 <Button
                   type="button"
                   variant="ghost"
@@ -197,13 +201,16 @@ export function ListManager({
               <li
                 key={item.id}
                 data-slot="archived-list-item"
-                className="flex min-h-14 items-center justify-between gap-2 px-3 py-2.5 sm:px-4"
+                className="flex min-h-14 flex-wrap items-center justify-between gap-2 px-3 py-2.5 sm:px-4"
               >
-                <span className="text-muted-foreground min-w-0 truncate text-sm">{item.name}</span>
+                <span className={cn("text-muted-foreground truncate text-sm", CARD_ROW_TITLE)}>
+                  {item.name}
+                </span>
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
+                  className={CARD_ROW_TRAILING}
                   disabled={busyId !== null}
                   onClick={async () => {
                     setBusyId(item.id);

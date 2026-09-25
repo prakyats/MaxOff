@@ -4,6 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ComponentProps, MouseEvent } from "react";
 
+import { NAV_BACK } from "@/core/ui/motion/nav-types";
+import { slideBack } from "@/core/ui/motion/slide";
+
 /**
  * What the on-screen back control does (ARCHITECTURE §14.2 k): with an entry of this app beneath
  * the current one it goes back to it (no new entry); a page opened directly (a deep link, a new
@@ -46,8 +49,10 @@ export function BackLink({
         onClick?.(event);
         if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey) return;
         event.preventDefault();
-        if (backMove(currentIndex()) === "back") router.back();
-        else router.replace(href);
+        // Both moves slide back out in the installed app (§14.2 j): the replace through its
+        // transition type, the back through `slideBack`, since a history move carries no type.
+        if (backMove(currentIndex()) === "back") slideBack(() => router.back());
+        else router.replace(href, { transitionTypes: [NAV_BACK] });
       }}
     />
   );

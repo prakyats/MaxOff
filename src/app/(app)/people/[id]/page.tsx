@@ -2,12 +2,10 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { todayIST } from "@/core/time";
-import { PageHeader } from "@/core/ui/composites/page-header";
 import { LEAVE_PAGE_SIZE, LeaveRequestList, listRequests } from "@/modules/leave";
 
 import { LeavePager } from "../../leave/leave-nav";
 
-import { PersonTabs } from "./person-nav";
 import { loadPerson } from "./person";
 
 export const metadata: Metadata = { title: "Attendance & leave" };
@@ -16,7 +14,7 @@ export const metadata: Metadata = { title: "Attendance & leave" };
  * One person's leave requests, newest first, 20 at a time, for the Owner (task 2.4): the same
  * list the member sees on /leave, in the Owner's words, with Edit and Cancel on approved leave.
  * Reached from the people board on /today and from People; a real drill-down, so back returns
- * there (ARCHITECTURE §14.2 b).
+ * there (ARCHITECTURE §14.2 b). The header and tabs are the layout's.
  */
 export default async function PersonLeavePage({
   params,
@@ -36,12 +34,6 @@ export default async function PersonLeavePage({
 
   return (
     <>
-      <PageHeader
-        title={person.fullName}
-        description={person.jobTitle ?? undefined}
-        back={{ href: "/people", label: "People" }}
-      />
-      <PersonTabs memberId={person.id} />
       {pages > 1 ? (
         <LeavePager
           label={`Page ${page} of ${pages}`}

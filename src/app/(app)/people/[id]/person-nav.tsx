@@ -4,7 +4,6 @@ import { usePathname } from "next/navigation";
 
 import { cn } from "@/core/lib/utils";
 import { ViewLink } from "@/core/ui/composites/view-link";
-import { Skeleton } from "@/core/ui/primitives/skeleton";
 
 /**
  * The two views of a person's history (task 2.4), like the member's own /leave. `ViewLink`s:
@@ -40,19 +39,5 @@ export function PersonTabs({ memberId }: { memberId: string }) {
         </ViewLink>
       ))}
     </nav>
-  );
-}
-
-/** The tab bar while the person loads: the same two segments. */
-export function PersonTabsSkeleton() {
-  return (
-    <div
-      aria-hidden
-      data-slot="loading-person-tabs"
-      className="bg-muted mb-4 grid grid-cols-2 gap-1 rounded-lg p-1 md:inline-grid md:w-80"
-    >
-      <Skeleton className="bg-background min-h-11 rounded-md" />
-      <Skeleton className="min-h-11 rounded-md" />
-    </div>
   );
 }

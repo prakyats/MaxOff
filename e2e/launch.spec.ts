@@ -210,3 +210,56 @@ test.describe("touch feel (§14.2 i)", () => {
     });
   });
 });
+
+/**
+ * No zoom in the installed app where the system text size reaches it (§14.2 i, 2.7b): Android,
+ * installed. An installed iPhone app keeps pinch-zoom (iOS text size does not reach a web app
+ * yet), and a browser tab is a website that always zooms. Playwright cannot pinch; what it
+ * proves is the setting, and the device check proves the effect.
+ */
+test.describe("zoom (§14.2 i)", () => {
+  test.use({ storageState: storageStateFor("owner") });
+
+  const zoom = (page: Page) =>
+    page.evaluate(() => {
+      const metas = [...document.querySelectorAll<HTMLMetaElement>('meta[name="viewport"]')];
+      return {
+        viewport: metas.at(-1)?.content ?? "",
+        locked: document.documentElement.hasAttribute("data-zoom-lock"),
+        touchAction: getComputedStyle(document.body).touchAction,
+      };
+    });
+  const LOCKED = {
+    viewport:
+      "width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no",
+    locked: true,
+    touchAction: "pan-x pan-y",
+  };
+  const OPEN = {
+    viewport: "width=device-width, initial-scale=1, viewport-fit=cover",
+    locked: false,
+    touchAction: "auto",
+  };
+
+  test("installed (Android): locked, on every document, reloads included", async ({ page }) => {
+    await runInstalled(page);
+    await page.goto("/today");
+    expect(await zoom(page)).toEqual(LOCKED);
+    await page.reload();
+    expect(await zoom(page)).toEqual(LOCKED);
+  });
+
+  test("installed on an iPhone: still zooms", async ({ page }) => {
+    await runInstalled(page);
+    await page.addInitScript(() => {
+      Object.defineProperty(window.navigator, "standalone", { value: true, configurable: true });
+    });
+    await page.goto("/today");
+    expect(await zoom(page)).toEqual(OPEN);
+  });
+
+  test("a browser tab: still zooms", async ({ page }) => {
+    await page.goto("/today");
+    expect(await zoom(page)).toEqual(OPEN);
+  });
+});

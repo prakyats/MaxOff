@@ -2,7 +2,13 @@ import { ChevronRightIcon } from "lucide-react";
 import Link from "next/link";
 
 import { cn } from "@/core/lib/utils";
-import { CARD_ROW_MIN_H, CARD_ROW_PADDING } from "@/core/ui/composites/row-metrics";
+import { DrillLink } from "@/core/ui/composites/drill-link";
+import {
+  CARD_ROW_MIN_H,
+  CARD_ROW_PADDING,
+  CARD_ROW_TITLE,
+  CARD_ROW_TRAILING,
+} from "@/core/ui/composites/row-metrics";
 import { StatusDot } from "@/core/ui/composites/status-badge";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 
@@ -78,16 +84,16 @@ export function PeopleBoard({ summary }: { summary: TodaySummary }) {
           <ul className="border-border divide-border bg-card divide-y rounded-lg border">
             {people.map((person) => (
               <li key={person.memberId}>
-                <Link
+                <DrillLink
                   href={`/people/${person.memberId}`}
                   data-slot="board-row"
                   className={cn(
-                    "focus-visible:ring-ring active:bg-muted/60 flex items-center gap-3 outline-none focus-visible:ring-2",
+                    "focus-visible:ring-ring active:bg-muted/60 flex flex-wrap items-center gap-3 outline-none focus-visible:ring-2",
                     CARD_ROW_MIN_H,
                     CARD_ROW_PADDING,
                   )}
                 >
-                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className={cn("flex flex-col gap-0.5", CARD_ROW_TITLE)}>
                     <span className="truncate font-medium">{person.name}</span>
                     <span className="text-muted-foreground truncate text-xs">
                       {boardDetail(person)}
@@ -96,10 +102,10 @@ export function PeopleBoard({ summary }: { summary: TodaySummary }) {
                   <StatusDot
                     status={BUCKET_DOT[bucket]}
                     label={boardStatus(person, bucket)}
-                    className="shrink-0"
+                    className={CARD_ROW_TRAILING}
                   />
                   <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
-                </Link>
+                </DrillLink>
               </li>
             ))}
           </ul>
