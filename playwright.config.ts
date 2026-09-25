@@ -54,8 +54,10 @@ export default defineConfig({
   // default of half the cores put eight Chromiums beside a 7.5 GB Docker VM on a 16 GB laptop,
   // and the resulting memory pressure stalled the whole machine for seconds at a time (a
   // sign-in whose GoTrue grant took 3.4 s against a 0.2 s mean). A resource setting, not an
-  // allowance: a stall at four workers is a real cause to investigate, not "machine load".
-  workers: isCI ? 1 : 4,
+  // allowance. Three since 2026-09-26 (owner decision): at four, local full runs showed
+  // server actions stalled 6 s, a bcrypt hash at 2 s, host memory down to 965 MB and Windows
+  // twice failing to start a process (PROGRESS). CI's clean runner is the authoritative proof.
+  workers: isCI ? 1 : 3,
   reporter: isCI
     ? [["github"], ["html", { open: "never" }]]
     : [["list"], ["html", { open: "never" }]],
