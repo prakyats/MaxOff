@@ -63,7 +63,7 @@ export function AttendanceHistory({
     if (owner) {
       return (
         <Button
-          variant="outline"
+          variant="secondary"
           size={size}
           onClick={() =>
             setCorrect({
@@ -80,7 +80,7 @@ export function AttendanceHistory({
       );
     }
     return canFlagOvertime(day, today) ? (
-      <Button variant="outline" size={size} onClick={() => setOvertimeDayId(day.id)}>
+      <Button variant="secondary" size={size} onClick={() => setOvertimeDayId(day.id)}>
         Flag overtime
       </Button>
     ) : null;

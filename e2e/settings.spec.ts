@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 import { removeJobTitles, storageStateFor } from "./helpers";
 
@@ -85,24 +85,34 @@ test.describe("Owner", () => {
     await page.goto("/settings/days-off");
     await expect(page.getByText("No holidays yet")).toBeVisible();
 
-    await page.getByLabel("Date").fill(HOLIDAY.date);
-    await page.getByLabel("Name", { exact: true }).fill(HOLIDAY.name);
-    await page.getByRole("button", { name: "Add holiday" }).click();
+    // "Add holiday" opens a dialog; the red commit is inside it (the action colour rule, 2026-09-26).
+    const addHoliday = async (date: string, name: string) => {
+      await page.getByRole("button", { name: "Add holiday" }).click();
+      const dialog = page.getByRole("dialog", { name: "Add a holiday" });
+      await dialog.getByLabel("Date").fill(date);
+      await dialog.getByLabel("Name", { exact: true }).fill(name);
+      await dialog.getByRole("button", { name: "Add holiday" }).click();
+      return dialog;
+    };
+    await addHoliday(HOLIDAY.date, HOLIDAY.name);
     await expect(page.getByText("Holiday added")).toBeVisible();
     const row = page.locator('[data-slot="holiday-row"]');
     await expect(row).toHaveCount(1);
     await expect(row).toContainText(HOLIDAY.name);
     await expect(row).toContainText("Friday");
 
-    await page.getByLabel("Date").fill(HOLIDAY.date);
-    await page.getByLabel("Name", { exact: true }).fill("Same date again");
-    await page.getByRole("button", { name: "Add holiday" }).click();
-    await expect(page.locator('[data-slot="form-alert"]')).toContainText(
+    const again = await addHoliday(HOLIDAY.date, "Same date again");
+    await expect(again.locator('[data-slot="form-alert"]')).toContainText(
       "already a holiday on that date",
     );
+    await again.getByRole("button", { name: "Cancel" }).click();
+    await expect(again).toBeHidden();
 
     await page.getByRole("button", { name: `Remove ${HOLIDAY.name}` }).click();
-    await page.getByRole("button", { name: "Remove", exact: true }).click();
+    await page
+      .getByRole("alertdialog")
+      .getByRole("button", { name: `Remove ${HOLIDAY.name}` })
+      .click();
     await expect(page.getByText("Holiday removed")).toBeVisible();
     await expect(page.getByText("No holidays yet")).toBeVisible();
   });
@@ -164,7 +174,7 @@ test.describe("Owner", () => {
     await expect(names).toHaveText([/Video Editor/, /Graphic Designer/, /Colourist/]);
 
     await page.getByRole("button", { name: "Archive Colourist" }).click();
-    await page.getByRole("button", { name: "Archive", exact: true }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Archive Colourist" }).click();
     await expect(page.getByText("Job title archived")).toBeVisible();
     await expect(names).toHaveText([/Video Editor/, /Graphic Designer/]);
     // Its own archived row: another spec's archived title may sit beside it.
@@ -216,7 +226,10 @@ test.describe("Admin", () => {
 
     // Put the list back as it was: an Admin may archive too.
     await page.getByRole("button", { name: "Archive Sound Engineer" }).click();
-    await page.getByRole("button", { name: "Archive", exact: true }).click();
+    await page
+      .getByRole("alertdialog")
+      .getByRole("button", { name: "Archive Sound Engineer" })
+      .click();
     await expect(page.getByText("Job title archived")).toBeVisible();
   });
 });

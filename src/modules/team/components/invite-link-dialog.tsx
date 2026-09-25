@@ -16,6 +16,7 @@ import { describeError } from "@/core/ui/toast";
 import type { TeamMember } from "../domain/members";
 
 import { InviteLinkPanel } from "./invite-link-panel";
+import { ErrorText } from "@/core/ui/composites/error-text";
 
 export type InviteLinkState = { link: string } | { error: ResultError } | null;
 
@@ -45,9 +46,7 @@ export function InviteLinkDialog({
           </DialogDescription>
         </DialogHeader>
         {failure ? (
-          <p role="alert" data-slot="form-alert" className="text-destructive text-sm">
-            {failure.description ?? failure.title}
-          </p>
+          <ErrorText slot="form-alert">{failure.description ?? failure.title}</ErrorText>
         ) : state && "link" in state ? (
           <InviteLinkPanel link={state.link} />
         ) : (
@@ -57,7 +56,7 @@ export function InviteLinkDialog({
           </div>
         )}
         <DialogFooter>
-          <Button type="button" onClick={onClose}>
+          <Button variant="secondary" type="button" onClick={onClose}>
             Done
           </Button>
         </DialogFooter>

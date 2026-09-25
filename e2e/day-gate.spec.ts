@@ -1,4 +1,6 @@
-import { expect, type Locator, type Page, type TestInfo, test } from "@playwright/test";
+import { type Locator, type Page, type TestInfo } from "@playwright/test";
+
+import { expect, test } from "./fixtures";
 
 // The app's own IST clock (ADR-0008), so "today" here is the database's `app.today_ist()`.
 import { todayIST } from "../src/core/time";

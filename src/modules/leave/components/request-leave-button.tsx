@@ -12,7 +12,7 @@ export function RequestLeaveButton({ today }: { today: string }) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button onClick={() => setOpen(true)}>
+      <Button variant="strong" onClick={() => setOpen(true)}>
         <CalendarPlusIcon aria-hidden />
         Request leave
       </Button>

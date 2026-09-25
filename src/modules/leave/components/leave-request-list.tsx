@@ -79,7 +79,7 @@ export function LeaveRequestList({
       <>
         {actions.edit ? (
           <Button
-            variant="outline"
+            variant="secondary"
             size={size}
             onClick={() => setDialog({ kind: "owner-edit", request })}
           >
@@ -88,7 +88,7 @@ export function LeaveRequestList({
         ) : null}
         {actions.cancel ? (
           <Button
-            variant="outline"
+            variant="destructive"
             size={size}
             onClick={() => setDialog({ kind: "owner-cancel", request })}
           >
@@ -108,7 +108,7 @@ export function LeaveRequestList({
       <>
         {actions.change ? (
           <Button
-            variant="outline"
+            variant="secondary"
             size={size}
             onClick={() => setDialog({ kind: "change", request })}
           >
@@ -117,7 +117,7 @@ export function LeaveRequestList({
         ) : null}
         {actions.cancel ? (
           <Button
-            variant="outline"
+            variant="destructive"
             size={size}
             onClick={() => setDialog({ kind: "cancel", request })}
           >
@@ -126,7 +126,7 @@ export function LeaveRequestList({
         ) : null}
         {actions.withdraw ? (
           <Button
-            variant="outline"
+            variant="destructive"
             size={size}
             onClick={() => setDialog({ kind: "withdraw", request })}
           >
@@ -310,7 +310,6 @@ export function LeaveRequestList({
           placeholder={`${owner.name} will see this reason.`}
           submitLabel="Cancel leave"
           cancelLabel="Keep it"
-          destructive
           onSubmit={async (reason) => {
             if (dialog.kind !== "owner-cancel") return;
             return toastResult(await ownerCancelLeave({ requestId: dialog.request.id, reason }), {
@@ -325,8 +324,7 @@ export function LeaveRequestList({
           onOpenChange={(open) => (open ? undefined : close())}
           title="Withdraw this request?"
           description={`${leaveTitle(dialog.request)} on ${leaveDates(dialog.request.startDate, dialog.request.endDate)}. The Owner will no longer see it.`}
-          confirmLabel="Withdraw"
-          destructive
+          confirmLabel="Withdraw request"
           onConfirm={async () => {
             toastResult(await withdrawLeave({ requestId: dialog.request.id }), {
               success: "Request withdrawn",

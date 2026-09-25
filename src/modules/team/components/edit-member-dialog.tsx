@@ -33,6 +33,7 @@ import { INVITABLE_ROLES, type InvitableRole } from "../domain/limits";
 import { offerableJobTitles } from "../domain/job-titles";
 import { JobTitleSelect, type JobTitleOption } from "./job-title-select";
 import { memberChangeLines } from "./member-changes";
+import { ErrorText } from "@/core/ui/composites/error-text";
 
 /**
  * Name, role (Admin ↔ Staff; locked on the Owner row) and job title: plain edits, audited. Save
@@ -101,9 +102,7 @@ export function EditMemberDialog({
             </DialogDescription>
           </DialogHeader>
           {summary ? (
-            <p role="alert" data-slot="form-alert" className="text-destructive text-sm">
-              {summary.description ?? summary.title}
-            </p>
+            <ErrorText slot="form-alert">{summary.description ?? summary.title}</ErrorText>
           ) : null}
           <FormField label="Full name" error={fieldErrors.fullName}>
             {(control) => (
@@ -152,10 +151,15 @@ export function EditMemberDialog({
             )}
           </FormField>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose} disabled={pending}>
+            <Button type="button" variant="secondary" onClick={onClose} disabled={pending}>
               Cancel
             </Button>
-            <Button type="submit" disabled={pending || changes.length === 0} aria-busy={pending}>
+            <Button
+              variant="primary"
+              type="submit"
+              disabled={pending || changes.length === 0}
+              aria-busy={pending}
+            >
               {pending ? <Loader2Icon className="animate-spin" aria-hidden /> : null}
               Save
             </Button>

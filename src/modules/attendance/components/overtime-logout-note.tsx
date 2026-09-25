@@ -9,6 +9,7 @@ import { Textarea } from "@/core/ui/primitives/textarea";
 
 import { flagOvertimeToday } from "../actions/attendance";
 import { ATTENDANCE_REASON_MAX_LENGTH } from "../domain/limits";
+import { ErrorText } from "@/core/ui/composites/error-text";
 
 /**
  * "Worked late today? Add an overtime note", inside the Log out confirmation (2.3 polish): the
@@ -38,7 +39,7 @@ export function OvertimeLogoutNote() {
     return (
       <Button
         type="button"
-        variant="link"
+        variant="ghost"
         className="self-start px-0"
         onClick={() => setOpen(true)}
         data-slot="overtime-note-toggle"
@@ -65,9 +66,7 @@ export function OvertimeLogoutNote() {
         }}
       />
       {error ? (
-        <p data-slot="field-error" role="alert" className="text-destructive text-sm">
-          {error}
-        </p>
+        <ErrorText>{error}</ErrorText>
       ) : (
         <p className="text-muted-foreground text-xs">
           A note for the Owner, flagged with today&apos;s logout. Nothing needs approving.

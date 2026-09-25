@@ -288,7 +288,7 @@ export function DataTable<TData>({
           </span>
           <div className="flex items-center gap-1">
             <Button
-              variant="outline"
+              variant="secondary"
               size="icon-sm"
               onClick={() => table.previousPage()}
               disabled={!table.getCanPreviousPage()}
@@ -297,7 +297,7 @@ export function DataTable<TData>({
               <ChevronLeftIcon aria-hidden />
             </Button>
             <Button
-              variant="outline"
+              variant="secondary"
               size="icon-sm"
               onClick={() => table.nextPage()}
               disabled={!table.getCanNextPage()}
@@ -442,7 +442,7 @@ function MobileCards<TData>({
 
       {remaining > 0 ? (
         <Button
-          variant="outline"
+          variant="secondary"
           onClick={() => setShown((current) => current + pageSize)}
           data-slot="data-cards-more"
         >

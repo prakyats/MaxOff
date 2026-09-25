@@ -60,7 +60,7 @@ export function PendingDaysGroup({ days, today }: { days: PendingDay[]; today: s
         actions={
           review ? (
             <Button
-              variant="outline"
+              variant="secondary"
               onClick={() =>
                 setCorrect({
                   dayId: review.id,

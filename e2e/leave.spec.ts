@@ -1,4 +1,6 @@
-import { expect, type Locator, type Page, type TestInfo, test } from "@playwright/test";
+import { type Locator, type Page, type TestInfo } from "@playwright/test";
+
+import { expect, test } from "./fixtures";
 
 // The app's own IST clock (ADR-0008), so "today" here is the database's `app.today_ist()`.
 import { addISTDays, todayIST } from "../src/core/time";
@@ -148,7 +150,7 @@ test("request a range and a half day, the refusals, and withdraw", async ({ page
   await expect(dialog).toBeHidden();
   await expect(row(page, info, "Half day")).toContainText("Waiting");
   await act(page, info, "Withdraw", "Half day");
-  await page.getByRole("alertdialog").getByRole("button", { name: "Withdraw" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Withdraw request" }).click();
   await expect(row(page, info, "Half day")).toContainText("Withdrawn");
 });
 

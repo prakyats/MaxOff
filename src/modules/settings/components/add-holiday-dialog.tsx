@@ -3,7 +3,8 @@
 import { Loader2Icon } from "lucide-react";
 import { type FormEvent, useState, useTransition } from "react";
 
-import type { Result, ResultError } from "@/core/errors";
+import type { ResultError } from "@/core/errors";
+import { ErrorText } from "@/core/ui/composites/error-text";
 import { FormField } from "@/core/ui/composites/form-field";
 import { Button } from "@/core/ui/primitives/button";
 import {
@@ -16,33 +17,27 @@ import {
 } from "@/core/ui/primitives/dialog";
 import { Input } from "@/core/ui/primitives/input";
 import { describeError, toastResult } from "@/core/ui/toast";
-import { ErrorText } from "@/core/ui/composites/error-text";
+
+import { createHoliday } from "../actions/settings";
 
 /**
- * Renaming one list entry. Mounted fresh per entry (`key={item.id}` at the call site) so the
- * field starts from the right name without resetting state in an effect.
+ * Adding a holiday: a date and a name, in a dialog opened by the panel's neutral "Add holiday"
+ * (the action colour rule, owner decision 2026-09-26: the days-off screen's one red button is
+ * "Save days off"; the holiday's own commit is the red button in here). Mounted fresh each time
+ * it opens, so it always starts empty. Back closes it (a dialog is a layer, §14.2 a).
  */
-export function RenameListItemDialog({
-  label,
-  name: initialName,
-  onSubmit,
-  onClose,
-}: {
-  label: string;
-  name: string;
-  onSubmit: (name: string) => Promise<Result<null>>;
-  onClose: () => void;
-}) {
-  const [name, setName] = useState(initialName);
+export function AddHolidayDialog({ onClose }: { onClose: () => void }) {
+  const [date, setDate] = useState("");
+  const [name, setName] = useState("");
   const [error, setError] = useState<ResultError | null>(null);
   const [pending, startTransition] = useTransition();
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     startTransition(async () => {
-      const result = await onSubmit(name);
+      const result = await createHoliday({ date, name });
       if (result.ok) {
-        toastResult(result, { success: `${label} renamed` });
+        toastResult(result, { success: "Holiday added" });
         onClose();
       } else {
         setError(result.error);
@@ -50,6 +45,7 @@ export function RenameListItemDialog({
     });
   }
 
+  const fieldErrors = error?.fieldErrors ?? {};
   const summary = error && !error.fieldErrors ? describeError(error) : null;
 
   return (
@@ -57,22 +53,36 @@ export function RenameListItemDialog({
       <DialogContent>
         <form onSubmit={submit} noValidate className="flex flex-col gap-4">
           <DialogHeader>
-            <DialogTitle>Rename {initialName}</DialogTitle>
+            <DialogTitle>Add a holiday</DialogTitle>
             <DialogDescription>
-              Everyone who has this {label.toLowerCase()} sees the new name.
+              On that date nobody is marked absent. People may still log in and work.
             </DialogDescription>
           </DialogHeader>
           {summary ? (
             <ErrorText slot="form-alert">{summary.description ?? summary.title}</ErrorText>
           ) : null}
-          <FormField label="Name" error={error?.fieldErrors?.["item.name"]}>
+          <FormField label="Date" error={fieldErrors.date}>
             {(control) => (
               <Input
                 {...control}
+                name="date"
+                type="date"
+                value={date}
+                onChange={(event) => setDate(event.target.value)}
+                autoFocus
+                required
+              />
+            )}
+          </FormField>
+          <FormField label="Name" error={fieldErrors.name}>
+            {(control) => (
+              <Input
+                {...control}
+                name="name"
+                placeholder="Diwali"
+                maxLength={120}
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                maxLength={80}
-                autoFocus
                 required
               />
             )}
@@ -83,7 +93,7 @@ export function RenameListItemDialog({
             </Button>
             <Button variant="primary" type="submit" disabled={pending} aria-busy={pending}>
               {pending ? <Loader2Icon className="animate-spin" aria-hidden /> : null}
-              Save
+              Add holiday
             </Button>
           </DialogFooter>
         </form>

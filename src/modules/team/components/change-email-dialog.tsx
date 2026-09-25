@@ -19,6 +19,7 @@ import { describeError, toastResult } from "@/core/ui/toast";
 
 import { changeMemberEmail } from "../actions/members";
 import type { TeamMember } from "../domain/members";
+import { ErrorText } from "@/core/ui/composites/error-text";
 
 /**
  * The Owner moves someone's sign-in to another address (WORKFLOWS §1a). Their password and
@@ -70,9 +71,7 @@ export function ChangeEmailDialog({
             </DialogDescription>
           </DialogHeader>
           {summary ? (
-            <p role="alert" data-slot="form-alert" className="text-destructive text-sm">
-              {summary.description ?? summary.title}
-            </p>
+            <ErrorText slot="form-alert">{summary.description ?? summary.title}</ErrorText>
           ) : null}
           <FormField label="Current address">
             {(control) => <Input {...control} value={member.email ?? ""} readOnly disabled />}
@@ -95,10 +94,10 @@ export function ChangeEmailDialog({
             )}
           </FormField>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose} disabled={pending}>
+            <Button type="button" variant="secondary" onClick={onClose} disabled={pending}>
               Cancel
             </Button>
-            <Button type="submit" disabled={pending} aria-busy={pending}>
+            <Button variant="primary" type="submit" disabled={pending} aria-busy={pending}>
               {pending ? <Loader2Icon className="animate-spin" aria-hidden /> : null}
               Change sign-in
             </Button>

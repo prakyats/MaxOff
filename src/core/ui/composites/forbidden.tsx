@@ -18,7 +18,7 @@ export function Forbidden({ homeHref = "/", message }: { homeHref?: string; mess
       title="You can't open this"
       description={message ?? ERROR_MESSAGES.FORBIDDEN}
       action={
-        <Button variant="outline" asChild>
+        <Button variant="secondary" asChild>
           <Link href={homeHref}>Go home</Link>
         </Button>
       }

@@ -34,6 +34,7 @@ import {
   type OwnLeaveRequest,
 } from "../domain/requests";
 import { LEAVE_REASON_MAX_LENGTH } from "../domain/limits";
+import { ErrorText } from "@/core/ui/composites/error-text";
 
 /**
  * A new request, or a change to approved leave (WORKFLOWS §2). A half day is one date, so the
@@ -103,9 +104,7 @@ export function LeaveFormDialog({
             </DialogDescription>
           </DialogHeader>
           {summary ? (
-            <p role="alert" data-slot="form-alert" className="text-destructive text-sm">
-              {summary.description ?? summary.title}
-            </p>
+            <ErrorText slot="form-alert">{summary.description ?? summary.title}</ErrorText>
           ) : null}
           <FormField label="Kind of leave" error={fieldErrors.type}>
             {(control) => (
@@ -180,10 +179,10 @@ export function LeaveFormDialog({
             )}
           </FormField>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose} disabled={pending}>
+            <Button type="button" variant="secondary" onClick={onClose} disabled={pending}>
               Cancel
             </Button>
-            <Button type="submit" disabled={pending} aria-busy={pending}>
+            <Button variant="primary" type="submit" disabled={pending} aria-busy={pending}>
               {pending ? <Loader2Icon className="animate-spin" aria-hidden /> : null}
               {original ? "Send change" : "Request leave"}
             </Button>

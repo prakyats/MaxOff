@@ -52,6 +52,7 @@ MaxOff is the **internal operations and control system for Pixora Clips**. It co
 - [ ] **Every route that loads data has its own `loading.tsx` whose skeleton traces that screen** (ARCHITECTURE §14.1): same row height, line count, column positions and status-chip placement, so nothing moves when the data arrives. A generic skeleton is not acceptable.
 - [ ] The UI has loading, empty, error and permission-denied states, and forms show validation messages. Every screen meets the **mobile standard** (ARCHITECTURE §14.1: safe areas, 16px inputs, 44px targets, bottom-sheet dialogs, sticky primary action, cards instead of tables) at 375px and 430px — mobile is a first-class layout for every role, not only for Staff.
 - [ ] Every new screen, overlay and view control follows ARCHITECTURE §14.2 and has an installed-mode back-gesture Playwright spec at 375px and 430px.
+- [ ] Actions follow the colour rule (ARCHITECTURE §14.1): one solid red commit action per layer, destructive confirmed with a named red button, red never decorative.
 - [ ] Every mutation is audited (a transition function or the audit trigger). Notifications follow WORKFLOWS §9.
 - [ ] Docs are updated: `PROGRESS.md`, the task is ticked in `ROADMAP.md`, and DATA-MODEL / WORKFLOWS / PERMISSIONS / an ADR if something changed.
 - [ ] No `console.log`, no commented-out code, and no TODO that isn't also listed in PROGRESS.md.

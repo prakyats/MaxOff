@@ -31,8 +31,10 @@ export default function AppError({
       description={copy.description}
       action={
         <>
-          <Button onClick={reset}>Try again</Button>
-          <Button variant="outline" asChild>
+          <Button variant="secondary" onClick={reset}>
+            Try again
+          </Button>
+          <Button variant="secondary" asChild>
             <Link href="/">Go home</Link>
           </Button>
         </>

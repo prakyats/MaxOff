@@ -112,7 +112,7 @@ export function MoreSheet({
                 aria-current={active ? "page" : undefined}
                 className={cn(ROW, active && "bg-muted font-medium")}
               >
-                <Icon className={cn("size-5 shrink-0", active && "text-brand")} aria-hidden />
+                <Icon className={cn("size-5 shrink-0", active && "text-foreground")} aria-hidden />
                 <span className="flex-1">{item.label}</span>
                 {/* The same count the More cell adds up, so you can see which row it came from. */}
                 {item.badge && item.badge > 0 ? (

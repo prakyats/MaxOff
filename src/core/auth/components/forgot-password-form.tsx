@@ -34,7 +34,7 @@ export function ForgotPasswordForm() {
         <p className="text-muted-foreground text-sm">
           The link works once and expires in an hour. Check the spam folder too.
         </p>
-        <Link href={LOGIN_PATH} className={buttonVariants({ variant: "outline" })}>
+        <Link href={LOGIN_PATH} className={buttonVariants({ variant: "secondary" })}>
           Back to sign in
         </Link>
       </div>
@@ -61,7 +61,7 @@ export function ForgotPasswordForm() {
           />
         )}
       </FormField>
-      <Button type="submit" className="w-full" disabled={pending}>
+      <Button variant="primary" type="submit" className="w-full" disabled={pending}>
         {pending ? "Sending…" : "Send me a link"}
       </Button>
       <p className="text-muted-foreground text-center text-sm">

@@ -25,9 +25,9 @@ const ITEM =
   "relative flex min-h-14 w-full flex-col items-center justify-center gap-1 px-1 text-[11px] leading-none outline-none transition-colors focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-inset";
 
 /**
- * The icon sits in a pill that fills with brand colour when the destination is current. A tint
- * plus a heavier icon and label reads at arm's length in daylight, which a 2px hairline on the
- * top edge did not (task 1.5).
+ * The icon sits in a pill that fills when the destination is current, with a heavier icon and
+ * label: it reads at arm's length in daylight (task 1.5). **Neutral, not red** (ARCHITECTURE
+ * §14.1, the action colour rule): red is the commit action, error text and the count badge.
  */
 function Item({
   icon,
@@ -47,11 +47,11 @@ function Item({
       <span
         className={cn(
           "relative flex h-7 w-12 max-w-full items-center justify-center rounded-full transition-colors",
-          active && "bg-brand/15",
+          active && "bg-foreground/10",
         )}
       >
         <Icon
-          className={cn("size-5", active ? "text-brand" : "text-muted-foreground")}
+          className={cn("size-5", active ? "text-foreground" : "text-muted-foreground")}
           strokeWidth={active ? 2.25 : 1.75}
           aria-hidden
         />

@@ -47,6 +47,9 @@
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
+  --color-strong-foreground: var(--strong-foreground);
+  --color-strong: var(--strong);
+  --color-control-border: var(--control-border);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -76,8 +79,17 @@
   --card-foreground: #18181b;
   --popover: #ffffff;
   --popover-foreground: #18181b;
-  --primary: #18181b;
-  --primary-foreground: #fafaf9;
+  /*
+   * The action colour rule (ARCHITECTURE §14.1, PRODUCT §2): brand red is the one action that
+   * commits, in both themes, white text (5.8:1). `--strong` is the neutral solid (selection
+   * states, the Approvals triggers), `--control-border` the secondary outline (≥ 3:1 against the
+   * page and the card, WCAG 1.4.11), and the focus ring is neutral: red is never decoration.
+   */
+  --primary: #c42126;
+  --primary-foreground: #ffffff;
+  --strong: #18181b;
+  --strong-foreground: #fafaf9;
+  --control-border: #8a8a91;
   --secondary: #f2f1ef;
   --secondary-foreground: #18181b;
   --muted: #f2f1ef;
@@ -91,7 +103,7 @@
   --destructive-foreground: #ffffff;
   --border: #e7e5e4;
   --input: #e7e5e4;
-  --ring: #c42126;
+  --ring: #18181b;
   --chart-1: #18181b;
   --chart-2: #52525b;
   --chart-3: #71717a;
@@ -105,7 +117,7 @@
   --sidebar-accent: #f2f1ef;
   --sidebar-accent-foreground: #18181b;
   --sidebar-border: #e7e5e4;
-  --sidebar-ring: #c42126;
+  --sidebar-ring: #18181b;
   --success: #047857;
   --success-soft: #e1efeb;
   --info: #1d4ed8;
@@ -128,8 +140,11 @@
   --card-foreground: #fafaf9;
   --popover: #141416;
   --popover-foreground: #fafaf9;
-  --primary: #fafaf9;
-  --primary-foreground: #18181b;
+  --primary: #c42126;
+  --primary-foreground: #ffffff;
+  --strong: #fafaf9;
+  --strong-foreground: #18181b;
+  --control-border: #6b6b73;
   --secondary: #1f1f23;
   --secondary-foreground: #fafaf9;
   --muted: #1f1f23;
@@ -141,7 +156,7 @@
   --destructive-foreground: #0b0b0c;
   --border: #26262a;
   --input: #26262a;
-  --ring: #f2686d;
+  --ring: #fafaf9;
   --chart-1: #fafaf9;
   --chart-2: #a1a1aa;
   --chart-3: #71717a;
@@ -154,7 +169,7 @@
   --sidebar-accent: #1f1f23;
   --sidebar-accent-foreground: #fafaf9;
   --sidebar-border: #26262a;
-  --sidebar-ring: #f2686d;
+  --sidebar-ring: #fafaf9;
   --success: #34d399;
   --success-soft: #1a362e;
   --info: #7da2ff;
@@ -187,13 +202,14 @@
   body {
     /* Counts, dates and amounts line up in every table and list. */
     font-variant-numeric: tabular-nums;
-    caret-color: var(--brand);
-    accent-color: var(--brand);
+    /* Neutral: red is reserved for the commit action (ARCHITECTURE §14.1). */
+    caret-color: var(--foreground);
+    accent-color: var(--strong);
   }
   ::selection {
-    background: color-mix(in oklch, var(--brand) 22%, transparent);
+    background: color-mix(in oklch, var(--foreground) 18%, transparent);
   }
-  /* Safety net: anything without an explicit ring still shows keyboard focus in the brand colour. */
+  /* Safety net: anything without an explicit ring still shows keyboard focus, neutral and strong. */
   :focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;

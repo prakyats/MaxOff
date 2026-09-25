@@ -268,7 +268,7 @@ export function TeamTable({
             // In the sheet body, not its actions: those close the sheet by state, and the link
             // backs the sheet's entry out itself before opening the person (§14.2 a, b).
             <div className="pt-1">
-              <Button variant="outline" className="w-full" asChild>
+              <Button variant="secondary" className="w-full" asChild>
                 <OverlayLink href={`/people/${member.id}`}>Attendance &amp; leave</OverlayLink>
               </Button>
             </div>
@@ -282,22 +282,22 @@ export function TeamTable({
       return (
         <>
           {actions.edit ? (
-            <Button variant="outline" onClick={() => setDialog({ kind: "edit", member })}>
+            <Button variant="secondary" onClick={() => setDialog({ kind: "edit", member })}>
               Edit
             </Button>
           ) : null}
           {actions.changeEmail ? (
-            <Button variant="outline" onClick={() => setDialog({ kind: "email", member })}>
+            <Button variant="secondary" onClick={() => setDialog({ kind: "email", member })}>
               Change sign-in email
             </Button>
           ) : null}
           {actions.copyInviteLink ? (
-            <Button variant="outline" onClick={() => issueLink(member)}>
+            <Button variant="secondary" onClick={() => issueLink(member)}>
               Copy invite link
             </Button>
           ) : null}
           {actions.reactivate ? (
-            <Button variant="outline" onClick={() => reactivate(member)}>
+            <Button variant="secondary" onClick={() => reactivate(member)}>
               Reactivate
             </Button>
           ) : null}

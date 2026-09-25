@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 import {
   onBaseURL,
@@ -261,7 +261,8 @@ test.describe("Owner", () => {
     await expect(
       page.getByRole("heading", { name: "Revoke Pending Person's invite?" }),
     ).toBeVisible();
-    await page.getByRole("button", { name: "Revoke invite", exact: true }).click();
+    // The confirmation's one red button names what it does (ARCHITECTURE §14.1).
+    await page.getByRole("button", { name: "Revoke Pending Person's invite" }).click();
     await expect(page.getByRole("row", { name: /Pending Person/ })).toContainText("Deactivated");
 
     const pending = await browser.newContext(SIGNED_OUT);
@@ -317,7 +318,7 @@ test.describe("Owner", () => {
       await page.getByRole("menuitem", { name: "Deactivate" }).click();
       await expect(page.getByRole("heading", { name: "Deactivate Leaver Staff?" })).toBeVisible();
       await page.getByLabel("Reason (optional)").fill("Left the company");
-      await page.getByRole("button", { name: "Deactivate", exact: true }).click();
+      await page.getByRole("button", { name: "Deactivate Leaver Staff" }).click();
       await expect(page.getByRole("row", { name: /Leaver Staff/ })).toContainText("Deactivated");
 
       // The open tab's next request ends at sign-in …

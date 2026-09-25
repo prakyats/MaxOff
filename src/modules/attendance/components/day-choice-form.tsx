@@ -15,6 +15,7 @@ import { submitDayChoice } from "../actions/attendance";
 import { ATTENDANCE_CHOICES, CHOICE_COPY } from "../domain/choices";
 import { ATTENDANCE_REASON_MAX_LENGTH } from "../domain/limits";
 import type { SubmitChoiceInput } from "../domain/schemas";
+import { ErrorText } from "@/core/ui/composites/error-text";
 
 /**
  * The gate's four answers (WORKFLOWS §1), laid out for a thumb: one tall option per line, an
@@ -50,9 +51,7 @@ export function DayChoiceForm({ workDate, next }: { workDate: string; next: stri
     <form action={formAction} noValidate className="flex flex-col gap-5">
       <input type="hidden" name="forDate" value={workDate} readOnly />
       {error && !error.fieldErrors ? (
-        <p role="alert" data-slot="form-alert" className="text-destructive text-sm">
-          {error.message}
-        </p>
+        <ErrorText slot="form-alert">{error.message}</ErrorText>
       ) : null}
       <fieldset
         className="flex flex-col gap-2"
@@ -66,14 +65,14 @@ export function DayChoiceForm({ workDate, next }: { workDate: string; next: stri
             data-slot="choice-option"
             className={cn(
               "border-border bg-card flex min-h-14 cursor-pointer items-center gap-3 rounded-lg border px-4 py-3",
-              "has-[:checked]:border-primary has-[:checked]:bg-primary/5 has-[:focus-visible]:ring-ring/50 has-[:focus-visible]:ring-3",
+              "has-[:checked]:border-strong has-[:checked]:bg-strong/5 has-[:focus-visible]:ring-ring/50 has-[:focus-visible]:ring-3",
             )}
           >
             <input
               type="radio"
               name="choice"
               value={choice}
-              className="accent-primary size-5 shrink-0"
+              className="accent-strong size-5 shrink-0"
             />
             <span className="flex flex-col">
               <span className="font-medium">{CHOICE_COPY[choice].label}</span>
@@ -82,13 +81,9 @@ export function DayChoiceForm({ workDate, next }: { workDate: string; next: stri
           </label>
         ))}
         {choiceError ? (
-          <p
-            id={`${reasonId}-choice-error`}
-            data-slot="field-error"
-            className="text-destructive text-sm"
-          >
+          <ErrorText id={`${reasonId}-choice-error`} alert={false}>
             {choiceError}
-          </p>
+          </ErrorText>
         ) : null}
       </fieldset>
       <div className="flex flex-col gap-2">
@@ -101,14 +96,10 @@ export function DayChoiceForm({ workDate, next }: { workDate: string; next: stri
           placeholder="Anything the Owner should know."
           aria-invalid={reasonError ? true : undefined}
         />
-        {reasonError ? (
-          <p data-slot="field-error" className="text-destructive text-sm">
-            {reasonError}
-          </p>
-        ) : null}
+        {reasonError ? <ErrorText alert={false}>{reasonError}</ErrorText> : null}
       </div>
       <StickyActions>
-        <Button type="submit" disabled={pending} aria-busy={pending}>
+        <Button variant="primary" type="submit" disabled={pending} aria-busy={pending}>
           {pending ? <Loader2Icon className="animate-spin" aria-hidden /> : null}
           Submit
         </Button>

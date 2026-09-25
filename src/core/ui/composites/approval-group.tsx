@@ -184,7 +184,7 @@ export function ApprovalGroup<T>({
         </h2>
         {count > 1 ? (
           <Button
-            variant="outline"
+            variant="strong"
             size="sm"
             className={CARD_ROW_TRAILING}
             onClick={() => setConfirmAll(true)}
@@ -231,10 +231,10 @@ export function ApprovalGroup<T>({
                 ) : null}
               </div>
               <div className="flex shrink-0 gap-2 *:flex-1 md:*:flex-none">
-                <Button variant="outline" onClick={() => onReview(row.id)} disabled={isHeld}>
+                <Button variant="secondary" onClick={() => onReview(row.id)} disabled={isHeld}>
                   Review
                 </Button>
-                <Button onClick={() => approveOne(row)} disabled={isHeld}>
+                <Button variant="strong" onClick={() => approveOne(row)} disabled={isHeld}>
                   Approve
                 </Button>
               </div>

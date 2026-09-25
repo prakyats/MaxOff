@@ -79,7 +79,7 @@ export function PendingLeaveGroup({ requests }: { requests: PendingLeave[] }) {
                   {firstName(review.memberName)}&apos;s leave
                 </OverlayLink>
               </Button>
-              <Button variant="outline" onClick={() => setRejectId(review.id)}>
+              <Button variant="destructive" onClick={() => setRejectId(review.id)}>
                 Reject…
               </Button>
             </>
@@ -121,8 +121,7 @@ export function PendingLeaveGroup({ requests }: { requests: PendingLeave[] }) {
         }
         label="Reason"
         placeholder={`${rejecting?.memberName ?? "They"} will see this reason.`}
-        submitLabel="Reject"
-        destructive
+        submitLabel="Reject request"
         onSubmit={async (reason) => {
           if (!rejecting) return;
           const done = toastResult(await rejectLeave({ requestId: rejecting.id, reason }), {

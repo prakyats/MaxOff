@@ -1,4 +1,6 @@
-import { expect, type Page, test, type TestInfo } from "@playwright/test";
+import { type Page, type TestInfo } from "@playwright/test";
+
+import { expect, test } from "./fixtures";
 
 import { hydrated, pageHeader, runInstalled, signIn, storageStateFor } from "./helpers";
 
@@ -109,7 +111,7 @@ test.describe("/me: the profile is read-only first and edited deliberately", () 
     await expect(discardDialog(page)).toBeHidden();
     await expect(page.getByLabel("Full name")).toHaveValue(`${name} typo`);
     await page.goBack();
-    await discardDialog(page).getByRole("button", { name: "Discard" }).click();
+    await discardDialog(page).getByRole("button", { name: "Discard changes" }).click();
     await expect(editButton(page)).toBeVisible();
     await expect(record(page)).toContainText(name);
 
@@ -139,7 +141,7 @@ test.describe("/me: the profile is read-only first and edited deliberately", () 
     await expect(page.getByLabel("Full name")).toHaveValue("Someone Else");
 
     await myDay.click();
-    await discardDialog(page).getByRole("button", { name: "Discard" }).click();
+    await discardDialog(page).getByRole("button", { name: "Discard changes" }).click();
     await expect(page).toHaveURL(/\/my-day$/);
     // Nothing was saved.
     await page.goto("/me");

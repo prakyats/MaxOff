@@ -54,7 +54,7 @@ export function LoginForm({ next }: { next?: string | undefined }) {
           <PasswordInput {...control} name="password" autoComplete="current-password" required />
         )}
       </FormField>
-      <Button type="submit" className="w-full" disabled={pending}>
+      <Button variant="primary" type="submit" className="w-full" disabled={pending}>
         {pending ? "Signing in…" : "Sign in"}
       </Button>
       <p className="text-muted-foreground text-center text-sm">

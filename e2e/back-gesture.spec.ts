@@ -1,4 +1,6 @@
-import { expect, type Page, test } from "@playwright/test";
+import { type Page } from "@playwright/test";
+
+import { expect, test } from "./fixtures";
 
 import {
   chooseAttendance,
@@ -152,6 +154,22 @@ test.describe("installed: overlays and view controls", () => {
       await expect(sheet).toBeVisible();
 
       await expectBackStack(page, [{ closes: sheet, url: /\/people$/ }]);
+    });
+
+    test("/settings/days-off: back closes the Add holiday dialog, the next back leaves", async ({
+      page,
+    }) => {
+      await runInstalled(page);
+      await page.goto("/settings");
+      await page.goto("/settings/days-off");
+      await page.getByRole("button", { name: "Add holiday" }).click();
+      const dialog = page.getByRole("dialog", { name: "Add a holiday" });
+      await expect(dialog).toBeVisible();
+
+      await expectBackStack(page, [
+        { closes: dialog, url: /\/settings\/days-off$/ },
+        { url: /\/settings$/ },
+      ]);
     });
 
     test("a confirm handed off from the sheet: back closes it, the URL stays", async ({ page }) => {

@@ -1,4 +1,6 @@
-import { type BrowserContext, expect, type Page, test } from "@playwright/test";
+import { type BrowserContext, type Page } from "@playwright/test";
+
+import { expect, test } from "./fixtures";
 
 import { runInstalled, signIn, storageStateFor, USERS } from "./helpers";
 

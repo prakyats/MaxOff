@@ -11,6 +11,7 @@ import { toastResult } from "@/core/ui/toast";
 import { updateWeeklyOffDays } from "../actions/settings";
 import { weeklyOffChoices } from "../domain/settings";
 import { FormError } from "./form-error";
+import { ErrorText } from "@/core/ui/composites/error-text";
 
 /**
  * The company's weekly off days (PRODUCT §7: Sunday at launch). A day off means no absent
@@ -41,9 +42,7 @@ export function WeeklyOffForm({ weeklyOffDays }: { weeklyOffDays: readonly numbe
     <div className="flex flex-col gap-4">
       <FormError error={error} />
       {error?.fieldErrors?.weeklyOffDays ? (
-        <p data-slot="field-error" role="alert" className="text-destructive text-sm">
-          {error.fieldErrors.weeklyOffDays[0]}
-        </p>
+        <ErrorText>{error.fieldErrors.weeklyOffDays[0]}</ErrorText>
       ) : null}
       <fieldset className="flex flex-col gap-3">
         <legend className="sr-only">Weekly off days</legend>
@@ -65,6 +64,7 @@ export function WeeklyOffForm({ weeklyOffDays }: { weeklyOffDays: readonly numbe
         </div>
       </fieldset>
       <Button
+        variant="primary"
         type="button"
         onClick={save}
         disabled={pending}

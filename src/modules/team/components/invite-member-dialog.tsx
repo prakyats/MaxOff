@@ -31,6 +31,7 @@ import { INVITABLE_ROLES, type InvitableRole } from "../domain/limits";
 import { InviteLinkPanel } from "./invite-link-panel";
 import { offerableJobTitles } from "../domain/job-titles";
 import { JobTitleSelect, type JobTitleOption } from "./job-title-select";
+import { ErrorText } from "@/core/ui/composites/error-text";
 
 const ROLE_COPY: Record<InvitableRole, string> = {
   admin: "Admin: runs their clients and the staff work they create or approve",
@@ -94,7 +95,7 @@ export function InviteMemberDialog({ jobTitles }: { jobTitles: readonly JobTitle
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
-        <Button>
+        <Button variant="strong">
           <UserPlusIcon aria-hidden />
           Invite
         </Button>
@@ -108,7 +109,7 @@ export function InviteMemberDialog({ jobTitles }: { jobTitles: readonly JobTitle
             </DialogHeader>
             <InviteLinkPanel link={outcome.link} />
             <DialogFooter>
-              <Button type="button" onClick={() => onOpenChange(false)}>
+              <Button variant="secondary" type="button" onClick={() => onOpenChange(false)}>
                 Done
               </Button>
             </DialogFooter>
@@ -123,9 +124,7 @@ export function InviteMemberDialog({ jobTitles }: { jobTitles: readonly JobTitle
               </DialogDescription>
             </DialogHeader>
             {summary ? (
-              <p role="alert" data-slot="form-alert" className="text-destructive text-sm">
-                {summary.description ?? summary.title}
-              </p>
+              <ErrorText slot="form-alert">{summary.description ?? summary.title}</ErrorText>
             ) : null}
             <FormField label="Email" error={fieldErrors.email}>
               {(control) => (
@@ -187,13 +186,13 @@ export function InviteMemberDialog({ jobTitles }: { jobTitles: readonly JobTitle
             <DialogFooter>
               <Button
                 type="button"
-                variant="outline"
+                variant="secondary"
                 onClick={() => onOpenChange(false)}
                 disabled={pending}
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={pending} aria-busy={pending}>
+              <Button variant="primary" type="submit" disabled={pending} aria-busy={pending}>
                 {pending ? <Loader2Icon className="animate-spin" aria-hidden /> : null}
                 Send invite
               </Button>

@@ -27,7 +27,7 @@ export function WorkingTodayButton({
   return (
     <>
       <Button
-        variant="outline"
+        variant="secondary"
         size={size}
         onClick={() => setOpen(true)}
         className={size === "sm" ? undefined : "w-full md:w-auto"}

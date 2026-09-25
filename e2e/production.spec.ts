@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 /**
  * Runs against `next start` (the `production` project in playwright.config.ts), so it checks

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 import { confirmLinkFrom, latestEmailTo, passGate, setPasswordFor, signIn, USERS } from "./helpers";
 import { wallClock } from "./run-state";

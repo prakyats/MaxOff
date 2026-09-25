@@ -28,6 +28,7 @@ import { correctDay } from "../actions/review";
 import { DAY_STATUSES, type DayStatus, STATUS_LABELS } from "../domain/choices";
 import { firstName, historyDate } from "../domain/history";
 import { ATTENDANCE_REASON_MAX_LENGTH } from "../domain/limits";
+import { ErrorText } from "@/core/ui/composites/error-text";
 
 export type CorrectTarget = {
   dayId: string;
@@ -126,9 +127,7 @@ function CorrectForm({
         </DialogDescription>
       </DialogHeader>
       {summary ? (
-        <p role="alert" data-slot="form-alert" className="text-destructive text-sm">
-          {summary.description ?? summary.title}
-        </p>
+        <ErrorText slot="form-alert">{summary.description ?? summary.title}</ErrorText>
       ) : null}
       <FormField label="The day was" error={fieldErrors.status}>
         {(control) => (
@@ -175,10 +174,10 @@ function CorrectForm({
         )}
       </FormField>
       <DialogFooter>
-        <Button type="button" variant="outline" onClick={onCancel} disabled={pending}>
+        <Button type="button" variant="secondary" onClick={onCancel} disabled={pending}>
           Cancel
         </Button>
-        <Button type="submit" disabled={pending} aria-busy={pending}>
+        <Button variant="primary" type="submit" disabled={pending} aria-busy={pending}>
           {pending ? <Loader2Icon className="animate-spin" aria-hidden /> : null}
           Save correction
         </Button>

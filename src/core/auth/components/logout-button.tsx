@@ -17,7 +17,7 @@ import { useRequestLogout } from "./logout-confirm";
 export function LogoutButton() {
   const requestLogout = useRequestLogout();
   return (
-    <Button variant="outline" onClick={requestLogout}>
+    <Button variant="secondary" onClick={requestLogout}>
       <LogOutIcon aria-hidden />
       Log out
     </Button>

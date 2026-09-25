@@ -62,9 +62,9 @@ export default async function MePage({
       />
       <div className="flex max-w-xl flex-col gap-4">
         {isWelcome ? (
-          <Card data-slot="welcome" className="border-brand/40 bg-brand/5">
+          <Card data-slot="welcome" className="bg-muted/40">
             <CardContent className="flex items-start gap-3 text-sm">
-              <PartyPopperIcon className="text-brand mt-0.5 size-5 shrink-0" aria-hidden />
+              <PartyPopperIcon className="text-foreground mt-0.5 size-5 shrink-0" aria-hidden />
               <p>
                 Your password is set and you are signed in as{" "}
                 <span className="font-medium break-all">{viewer.email}</span>. From now on, sign in

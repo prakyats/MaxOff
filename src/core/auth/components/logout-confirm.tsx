@@ -8,6 +8,7 @@ import { closeOverlaysThen } from "@/core/ui/overlay/overlay-history";
 import { toastResult } from "@/core/ui/toast";
 
 import { logout } from "../actions";
+import { ErrorText } from "@/core/ui/composites/error-text";
 
 /**
  * One confirmation for every Log out in the app (task 1.5).
@@ -69,9 +70,7 @@ export function LogoutProvider({ children, extra }: { children: ReactNode; extra
           }}
         >
           {unsaved ? (
-            <p data-slot="logout-unsaved" role="alert" className="text-destructive text-sm">
-              Your unsaved changes will be lost.
-            </p>
+            <ErrorText slot="logout-unsaved">Your unsaved changes will be lost.</ErrorText>
           ) : null}
           {extra}
         </ConfirmDialog>

@@ -152,7 +152,7 @@ export function ThresholdsForm({ thresholds }: { thresholds: Thresholds }) {
       </div>
 
       <StickyActions>
-        <Button type="submit" disabled={pending}>
+        <Button variant="primary" type="submit" disabled={pending}>
           {pending ? "Saving…" : "Save thresholds"}
         </Button>
       </StickyActions>

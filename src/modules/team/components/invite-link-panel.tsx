@@ -39,7 +39,7 @@ export function InviteLinkPanel({ link, note }: { link: string; note?: string | 
           onFocus={(event) => event.currentTarget.select()}
           className="font-mono text-xs"
         />
-        <Button type="button" variant="outline" onClick={copy} aria-label="Copy invite link">
+        <Button type="button" variant="secondary" onClick={copy} aria-label="Copy invite link">
           {copied ? <CheckIcon aria-hidden /> : <CopyIcon aria-hidden />}
           Copy
         </Button>

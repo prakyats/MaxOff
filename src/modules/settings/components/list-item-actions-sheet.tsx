@@ -66,7 +66,7 @@ export function ListItemActionsSheet({
         </SheetHeader>
         <div className="flex flex-col gap-2 px-4">
           <Button
-            variant="outline"
+            variant="secondary"
             className="w-full justify-start"
             onClick={() => choose(onRename)}
           >
@@ -74,7 +74,7 @@ export function ListItemActionsSheet({
             Rename
           </Button>
           <Button
-            variant="outline"
+            variant="destructive"
             className="w-full justify-start"
             onClick={() => choose(onArchive)}
           >

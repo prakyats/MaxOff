@@ -2,6 +2,7 @@ import { type ReactNode, useId } from "react";
 
 import { cn } from "@/core/lib/utils";
 import { Label } from "@/core/ui/primitives/label";
+import { ErrorText } from "@/core/ui/composites/error-text";
 
 /**
  * A labelled control with its validation message wired for assistive tech: the child gets
@@ -45,11 +46,7 @@ export function FormField({
           {hint}
         </p>
       ) : null}
-      {message ? (
-        <p id={messageId} data-slot="field-error" role="alert" className="text-destructive text-sm">
-          {message}
-        </p>
-      ) : null}
+      {message ? <ErrorText id={messageId}>{message}</ErrorText> : null}
     </div>
   );
 }

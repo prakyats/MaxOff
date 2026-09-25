@@ -1,20 +1,16 @@
 "use client";
 
-import { CalendarOffIcon, Trash2Icon } from "lucide-react";
-import { useActionState, useState } from "react";
-import { toast } from "sonner";
+import { CalendarOffIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { useState } from "react";
 
-import type { Result } from "@/core/errors";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { EmptyState } from "@/core/ui/composites/empty-state";
-import { FormField } from "@/core/ui/composites/form-field";
 import { Button } from "@/core/ui/primitives/button";
-import { Input } from "@/core/ui/primitives/input";
 import { toastResult } from "@/core/ui/toast";
 
-import { createHoliday, removeHoliday } from "../actions/settings";
+import { removeHoliday } from "../actions/settings";
 import { type Holiday, holidaysByYear, isUpcoming } from "../domain/settings";
-import { FormError } from "./form-error";
+import { AddHolidayDialog } from "./add-holiday-dialog";
 
 /**
  * The holiday list (PRODUCT §7: none seeded, the Owner adds them). A holiday is not a working
@@ -24,43 +20,21 @@ import { FormError } from "./form-error";
  */
 export function HolidaysPanel({ holidays, today }: { holidays: Holiday[]; today: string }) {
   const [pendingDelete, setPendingDelete] = useState<Holiday | null>(null);
-  const [state, formAction, pending] = useActionState(
-    async (_previous: Result<null> | null, formData: FormData) => {
-      const result = await createHoliday({
-        date: String(formData.get("date") ?? ""),
-        name: String(formData.get("name") ?? ""),
-      });
-      if (result.ok) toast.success("Holiday added");
-      return result;
-    },
-    null,
-  );
-  const error = state && !state.ok ? state.error : null;
-  const fieldErrors = error?.fieldErrors ?? {};
+  const [adding, setAdding] = useState(false);
   const years = holidaysByYear(holidays);
 
   return (
     <div className="flex flex-col gap-6">
-      <form
-        action={formAction}
-        noValidate
-        className="border-border flex flex-col gap-4 rounded-lg border p-4"
+      {/* A trigger, so neutral (the action colour rule): the red commit is inside the dialog. */}
+      <Button
+        variant="strong"
+        type="button"
+        onClick={() => setAdding(true)}
+        className="w-full sm:w-auto sm:self-start"
       >
-        <FormError error={error} />
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-          <FormField label="Date" error={fieldErrors.date} className="sm:w-48">
-            {(control) => <Input {...control} name="date" type="date" required />}
-          </FormField>
-          <FormField label="Name" error={fieldErrors.name} className="flex-1">
-            {(control) => (
-              <Input {...control} name="name" placeholder="Diwali" maxLength={120} required />
-            )}
-          </FormField>
-          <Button type="submit" disabled={pending} className="w-full sm:mt-6 sm:w-auto">
-            {pending ? "Adding…" : "Add holiday"}
-          </Button>
-        </div>
-      </form>
+        <PlusIcon aria-hidden />
+        Add holiday
+      </Button>
 
       {years.length === 0 ? (
         <EmptyState
@@ -92,7 +66,7 @@ export function HolidaysPanel({ holidays, today }: { holidays: Holiday[]; today:
                     </div>
                     <Button
                       type="button"
-                      variant="ghost"
+                      variant="destructive"
                       size="icon"
                       aria-label={`Remove ${holiday.name}`}
                       onClick={() => setPendingDelete(holiday)}
@@ -115,8 +89,7 @@ export function HolidaysPanel({ holidays, today }: { holidays: Holiday[]; today:
           }}
           title={`Remove ${pendingDelete.name}?`}
           description={`${pendingDelete.date} becomes an ordinary day again. Days already recorded keep the meaning they had.`}
-          confirmLabel="Remove"
-          destructive
+          confirmLabel={`Remove ${pendingDelete.name}`}
           onConfirm={async () => {
             toastResult(await removeHoliday({ holidayId: pendingDelete.id }), {
               success: "Holiday removed",
@@ -125,6 +98,7 @@ export function HolidaysPanel({ holidays, today }: { holidays: Holiday[]; today:
           }}
         />
       ) : null}
+      {adding ? <AddHolidayDialog onClose={() => setAdding(false)} /> : null}
     </div>
   );
 }

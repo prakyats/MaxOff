@@ -48,7 +48,7 @@ export function SetPasswordForm() {
           <PasswordInput {...control} name="confirm" autoComplete="new-password" required />
         )}
       </FormField>
-      <Button type="submit" className="w-full" disabled={pending}>
+      <Button variant="primary" type="submit" className="w-full" disabled={pending}>
         {pending ? "Saving…" : "Save password and sign in"}
       </Button>
     </form>

@@ -1,4 +1,6 @@
-import { expect, type Page, type Request, test, type TestInfo } from "@playwright/test";
+import { type Page, type Request, type TestInfo } from "@playwright/test";
+
+import { expect, test } from "./fixtures";
 
 import { hydrated, pageHeader, patchAs, storageStateFor } from "./helpers";
 

@@ -14,6 +14,7 @@ import { closeOverlaysThen, useOverlayHistory } from "@/core/ui/overlay/overlay-
 import { Button } from "@/core/ui/primitives/button";
 import { Input } from "@/core/ui/primitives/input";
 import { describeError } from "@/core/ui/toast";
+import { ErrorText } from "@/core/ui/composites/error-text";
 
 export interface EditableField<K extends string> {
   name: K;
@@ -158,7 +159,7 @@ export function EditableRecord<K extends string>({
           <Button
             ref={editButton}
             type="button"
-            variant="outline"
+            variant="secondary"
             onClick={startEdit}
             data-slot="edit-record"
           >
@@ -177,11 +178,7 @@ export function EditableRecord<K extends string>({
             if (changes.length > 0) setMode("confirm");
           }}
         >
-          {formError ? (
-            <p role="alert" data-slot="form-alert" className="text-destructive text-sm">
-              {formError}
-            </p>
-          ) : null}
+          {formError ? <ErrorText slot="form-alert">{formError}</ErrorText> : null}
           {fields.map((field, index) => (
             <FormField
               key={field.name}
@@ -203,10 +200,15 @@ export function EditableRecord<K extends string>({
           ))}
           {/* Only while editing, so it never hangs over the rest of the page (§14.1). */}
           <StickyActions>
-            <Button type="button" variant="outline" onClick={cancel}>
+            <Button type="button" variant="secondary" onClick={cancel}>
               Cancel
             </Button>
-            <Button type="submit" disabled={changes.length === 0} data-slot="save-record">
+            <Button
+              variant="primary"
+              type="submit"
+              disabled={changes.length === 0}
+              data-slot="save-record"
+            >
               Save
             </Button>
           </StickyActions>
@@ -261,9 +263,8 @@ export function EditableRecord<K extends string>({
         }}
         title="Discard changes?"
         description="What you changed here has not been saved."
-        confirmLabel="Discard"
+        confirmLabel="Discard changes"
         cancelLabel="Keep editing"
-        destructive
         onConfirm={() => {
           const resume = pendingLeave.current;
           pendingLeave.current = null;

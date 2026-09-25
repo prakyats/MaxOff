@@ -101,7 +101,12 @@ export function ListManager({
               />
             )}
           </FormField>
-          <Button type="submit" disabled={pending} className="w-full sm:mt-6 sm:w-auto">
+          <Button
+            variant="primary"
+            type="submit"
+            disabled={pending}
+            className="w-full sm:mt-6 sm:w-auto"
+          >
             {pending ? "Adding…" : "Add"}
           </Button>
         </div>
@@ -166,7 +171,7 @@ export function ListManager({
                 </Button>
                 <Button
                   type="button"
-                  variant="ghost"
+                  variant="destructive"
                   size="icon"
                   aria-label={`Archive ${item.name}`}
                   onClick={() => setArchiving(item)}
@@ -250,7 +255,7 @@ export function ListManager({
           }}
           title={`Archive ${archiving.name}?`}
           description={`It stops being offered. People who already have this ${labels.singular.toLowerCase()} keep it, and you can restore it later.`}
-          confirmLabel="Archive"
+          confirmLabel={`Archive ${archiving.name}`}
           onConfirm={async () => {
             toastResult(await setListItemArchived({ listKey, id: archiving.id, archived: true }), {
               success: `${labels.singular} archived`,
