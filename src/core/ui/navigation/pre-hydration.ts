@@ -6,8 +6,8 @@
  * (detail → parent → detail…), and a view control or an installed tab stacked an entry it should
  * have replaced (found by the 2.7b tests; ~0.9 s of that on a mid-range phone). This script,
  * inline in `<head>` on every document, answers those taps with the same moves as the hydrated
- * app (`moves.ts`, one shared table of cases) and steps aside for good once the root layout
- * marks the document hydrated. There is no slide before hydration; everything else matches.
+ * app (`moves.ts`, one shared table of cases) and leaves each link alone once React has hydrated
+ * it (`data-live`, `attributes.ts`). There is no slide before hydration; everything else matches.
  *
  * Which links it reads: `data-slot="page-back"` (`BackLink`), `data-view-link` (`ViewLink`) and
  * `data-tab` inside the bar that carries `data-tab-home` / `data-tab-top` (`BottomNav`). Any
@@ -15,7 +15,7 @@
  */
 
 import {
-  HYDRATED_ATTRIBUTE,
+  LIVE_ATTRIBUTE,
   TAB_ATTRIBUTE,
   TAB_HOME_ATTRIBUTE,
   TAB_TOP_ATTRIBUTE,
@@ -23,7 +23,7 @@ import {
 } from "./attributes";
 
 export {
-  HYDRATED_ATTRIBUTE,
+  LIVE_ATTRIBUTE,
   TAB_ATTRIBUTE,
   TAB_HOME_ATTRIBUTE,
   TAB_TOP_ATTRIBUTE,
@@ -36,13 +36,13 @@ export {
  * table the app's own functions are tested against.
  */
 export const PRE_HYDRATION_SCRIPT = `(function(){try{
-var d=document,h=d.documentElement;
+var d=document;
 function backMove(i){return i!==undefined&&i>0?"back":"parent"}
 function tabMove(href,path,home,top,standalone,pushed){if(!standalone||top.indexOf(href)<0||top.indexOf(path)<0||href===path)return null;if(href===home)return pushed?"back":"replace";return path===home?"push":"replace"}
 d.addEventListener("click",function(e){try{
-if(h.hasAttribute("${HYDRATED_ATTRIBUTE}")||e.defaultPrevented||e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;
+if(e.defaultPrevented||e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;
 var a=e.target&&e.target.closest?e.target.closest("a[href]"):null;
-if(!a||(a.target&&a.target!=="_self")||a.hasAttribute("download"))return;
+if(!a||a.hasAttribute("${LIVE_ATTRIBUTE}")||(a.target&&a.target!=="_self")||a.hasAttribute("download"))return;
 var u=new URL(a.href,location.href);if(u.origin!==location.origin)return;
 var nav=window.navigation,entry=nav&&nav.currentEntry,i=entry?entry.index:undefined,move=null;
 if(a.getAttribute("data-slot")==="page-back"){move=backMove(i)==="back"?"back":"replace"}

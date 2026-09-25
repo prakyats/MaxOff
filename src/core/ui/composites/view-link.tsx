@@ -5,7 +5,7 @@ import Link, { useLinkStatus } from "next/link";
 import type { ComponentProps, ReactNode } from "react";
 
 import { viewMove } from "@/core/ui/navigation/moves";
-import { VIEW_LINK_ATTRIBUTE } from "@/core/ui/navigation/attributes";
+import { markLive, VIEW_LINK_ATTRIBUTE } from "@/core/ui/navigation/attributes";
 
 /**
  * A link that changes **the view of the page you are on**, not the page: a tab, a pager arrow,
@@ -32,7 +32,12 @@ export function ViewLink({
 }) {
   return (
     // `data-view-link` lets the pre-hydration script replace too (task 2.8).
-    <Link {...props} replace={viewMove() === "replace"} {...{ [VIEW_LINK_ATTRIBUTE]: "" }}>
+    <Link
+      {...props}
+      replace={viewMove() === "replace"}
+      {...{ [VIEW_LINK_ATTRIBUTE]: "" }}
+      ref={markLive}
+    >
       <ViewLinkContent icon={icon}>{children}</ViewLinkContent>
     </Link>
   );

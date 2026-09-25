@@ -22,7 +22,7 @@ async function holdHydration(page: Page) {
 async function open(page: Page, path: string) {
   await page.goto(path, { waitUntil: "commit" });
   await expect(pageHeader(page)).toBeVisible();
-  await expect(page.locator("html")).not.toHaveAttribute("data-hydrated");
+  await expect(page.locator("html")).not.toHaveAttribute("data-chrome");
 }
 
 const historyLength = (page: Page) => page.evaluate(() => history.length);
@@ -109,5 +109,24 @@ test.describe("before hydration, installed at phone width", () => {
     await expect(page).toHaveURL(/\/today$/);
     await page.goForward({ waitUntil: "commit" });
     await expect(page).toHaveURL(/\/tasks$/);
+  });
+});
+
+test.describe("after hydration, installed at phone width", () => {
+  test.use({ storageState: storageStateFor("owner") });
+  test.skip(({ isMobile }) => !isMobile, "the installed app is a phone");
+
+  test("each enhanced link marks itself live, so the script leaves it to the app", async ({
+    page,
+  }) => {
+    await runInstalled(page);
+    await page.goto("/today");
+    await page.locator('[data-slot="board-row"]').first().click();
+    await expect(page).toHaveURL(/\/people\/[^/]+$/);
+    await expect(backControl(page)).toHaveAttribute("data-live", "");
+    await expect(
+      page.locator('[data-slot="person-tabs"]').getByRole("link", { name: "Attendance" }),
+    ).toHaveAttribute("data-live", "");
+    await expect(tab(page, "/approvals")).toHaveAttribute("data-live", "");
   });
 });

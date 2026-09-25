@@ -6,6 +6,7 @@ import type { ComponentProps, MouseEvent } from "react";
 
 import { NAV_BACK } from "@/core/ui/motion/nav-types";
 import { slideBack } from "@/core/ui/motion/slide";
+import { markLive } from "@/core/ui/navigation/attributes";
 import { backMove } from "@/core/ui/navigation/moves";
 
 type NavigationLike = { currentEntry?: { index: number } | null };
@@ -33,6 +34,7 @@ export function BackLink({
       href={href}
       data-slot="page-back"
       {...props}
+      ref={markLive}
       onClick={(event: MouseEvent<HTMLAnchorElement>) => {
         onClick?.(event);
         if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey) return;

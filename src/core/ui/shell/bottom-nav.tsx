@@ -6,6 +6,7 @@ import { type ReactNode, useMemo } from "react";
 
 import { cn } from "@/core/lib/utils";
 import {
+  markLive,
   TAB_ATTRIBUTE,
   TAB_HOME_ATTRIBUTE,
   TAB_TOP_ATTRIBUTE,
@@ -134,6 +135,7 @@ export function BottomNav({
                 href={item.href}
                 data-nav={item.key}
                 {...{ [TAB_ATTRIBUTE]: "" }}
+                ref={markLive}
                 data-active={active ? "" : undefined}
                 aria-current={active ? "page" : undefined}
                 className={cn(ITEM, "active:bg-muted/60")}

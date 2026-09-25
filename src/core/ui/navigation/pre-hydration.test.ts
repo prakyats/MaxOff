@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { BACK_CASES, TAB_CASES, TAB_HOME, TAB_TOP_LEVEL, VIEW_CASES } from "./move-cases";
+import { markLive } from "./attributes";
 import {
-  HYDRATED_ATTRIBUTE,
+  LIVE_ATTRIBUTE,
   PRE_HYDRATION_SCRIPT,
   TAB_ATTRIBUTE,
   TAB_HOME_ATTRIBUTE,
@@ -31,21 +32,19 @@ function tap(
     index,
     below,
     standalone = true,
-    hydrated = false,
+    live = false,
     event = {},
   }: {
     pathname?: string;
     index?: number | undefined;
     below?: string | undefined;
     standalone?: boolean;
-    hydrated?: boolean;
+    live?: boolean;
     event?: Partial<{ button: number; metaKey: boolean; ctrlKey: boolean; shiftKey: boolean }>;
   } = {},
 ) {
   let listener: ((event: object) => void) | undefined;
-  const html = new Set(hydrated ? [HYDRATED_ATTRIBUTE] : []);
   const document = {
-    documentElement: { hasAttribute: (name: string) => html.has(name) },
     addEventListener: (_: string, fn: (event: object) => void, capture: boolean) => {
       expect(capture).toBe(true);
       listener = fn;
@@ -70,11 +69,15 @@ function tap(
     history,
   );
 
+  const attributes: Record<string, string> = {
+    ...link.attributes,
+    ...(live ? { [LIVE_ATTRIBUTE]: "" } : {}),
+  };
   const anchor = {
     href: new URL(link.href, ORIGIN).href,
     target: link.target ?? "",
-    getAttribute: (name: string) => link.attributes[name] ?? null,
-    hasAttribute: (name: string) => name in link.attributes,
+    getAttribute: (name: string) => attributes[name] ?? null,
+    hasAttribute: (name: string) => name in attributes,
     closest: (selector: string) =>
       selector === `[${TAB_HOME_ATTRIBUTE}]` && link.bar
         ? { getAttribute: (name: string) => link.bar![name] ?? null }
@@ -136,12 +139,23 @@ describe("pre-hydration taps (task 2.8), against the shared table", () => {
 });
 
 describe("pre-hydration taps: when the script stays out of the way", () => {
-  it("steps aside once the document is hydrated", () => {
-    expect(tap(BACK, { index: 3, hydrated: true })).toMatchObject({
+  it("leaves a link alone once React has hydrated it (data-live)", () => {
+    expect(tap(BACK, { index: 3, live: true })).toMatchObject({
       move: "default",
       prevented: false,
     });
-    expect(tap(VIEW, { hydrated: true })).toMatchObject({ move: "default", prevented: false });
+    expect(tap(VIEW, { live: true })).toMatchObject({ move: "default", prevented: false });
+    expect(tap(tab("/tasks"), { pathname: "/today", index: 0, live: true })).toMatchObject({
+      move: "default",
+      prevented: false,
+    });
+  });
+
+  it("markLive marks the element React hands it, and ignores the unmount call", () => {
+    const set = vi.fn();
+    markLive({ setAttribute: set } as unknown as HTMLElement);
+    expect(set).toHaveBeenCalledWith(LIVE_ATTRIBUTE, "");
+    expect(() => markLive(null)).not.toThrow();
   });
 
   it("leaves modified clicks, other buttons and new-tab targets to the browser", () => {

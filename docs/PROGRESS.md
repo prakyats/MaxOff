@@ -19,17 +19,17 @@
 
 ## In-progress handoff
 <!-- Filled by /save-progress when a session ends mid-task. Clear it when the task is finished. -->
-**2.8 Client bundle budget + time to interactive** (2026-09-25, commit `4d5d87d` on `phase-2`, pushed; `pnpm check` green, full e2e 406 passed / 74 skipped).
+**2.8 Client bundle budget + time to interactive** (2026-09-25, commits `4d5d87d` + the live-mark fix on `phase-2`, pushed; `pnpm check` green, full e2e green locally).
 
-**Done:** (a) browser Sentry deferred behind an early reporter (`core/observability/early.ts`, ARCHITECTURE §18.2); client components out of every barrel, per-file imports from `app/` (ADR-0011 amendment, lint + `tests/module-components.test.ts`), zod-free `domain/limits.ts`, `core/errors` split for the browser, `core/time/clock.ts`; (b) `pnpm budget` (`scripts/bundle-budget.mjs`, `bundle-budget.json`) in `pnpm check` and CI, failing when a route is over or nothing is budgeted; **taps before hydration** (§14.2 l): `PRE_HYDRATION_SCRIPT`, `<HydratedMark>` (`html[data-hydrated]`, which the e2e `hydrated()` helper now waits for), one case table for app and script, `e2e/pre-hydration.spec.ts` (375, 430; a control run with the script disabled failed 3 of 3).
+**Done:** (a) browser Sentry deferred behind an early reporter (`core/observability/early.ts`, ARCHITECTURE §18.2); client components out of every barrel, per-file imports from `app/` (ADR-0011 amendment, lint + `tests/module-components.test.ts`), zod-free `domain/limits.ts`, `core/errors` split for the browser, `core/time/clock.ts`; (b) `pnpm budget` (`scripts/bundle-budget.mjs`, `bundle-budget.json`) in `pnpm check` and CI, failing when a route is over or nothing is budgeted; **taps before hydration** (§14.2 l): `PRE_HYDRATION_SCRIPT`, a per-link `data-live` hand-over (`markLive` callback refs on `BackLink`, `ViewLink`, the bar's tabs), one case table for app and script, `e2e/pre-hydration.spec.ts` (375, 430; a control run with the script disabled failed 3 of 3). **Found by CI on `4d5d87d`:** a first version marked the whole document hydrated from the root layout; the root hydrates before the streamed shell, so the e2e `hydrated()` helper (switched to that mark) let three specs act before the shell listened, and a back control in a still-streaming page would have fallen through as a push. Fixed with the per-link mark; `hydrated()` waits for `data-chrome` again.
 
 **Numbers** (probes committed: `scripts/bundle-budget.mjs --all`, `scripts/measure-hydration.mjs`, `scripts/measure-coldstart.mjs`):
 | | before (`091815c`) | after (`4d5d87d`) |
 |---|---|---|
-| First-load JS `/login` | 686.6 KB (gzip 216.6) | **559.3 KB** (gzip 177.7) |
-| First-load JS `/today`, `/my-day` | 1440.7 KB (gzip 419.0), identical to `/approvals` | **746.0 KB** (gzip 238.4) |
-| Hydration `/today` (Owner), 4× CPU, 375 px, local `next start`, median of 9, two rounds | 985 / 1022 ms (blocking 301–338) | **964 / 1023 ms** (blocking 251–257) |
-| Hydration `/my-day` (Staff), same | 890 / 902 ms (blocking 286–287) | **802 / 837 ms** (blocking 202–209) |
+| First-load JS `/login` | 686.6 KB (gzip 216.6) | **558.8 KB** (gzip 177.5) |
+| First-load JS `/today`, `/my-day` | 1440.7 KB (gzip 419.0), identical to `/approvals` | **745.8 KB** (gzip 238.4) |
+| Hydration (`html[data-chrome]`, the shell interactive) `/today` (Owner), 4× CPU, 375 px, local `next start`, median of 9, two rounds | 985 / 1022 ms (blocking 301–338) | **937 / 937 ms** (blocking 271–275) |
+| Hydration `/my-day` (Staff), same | 890 / 902 ms (blocking 286–287) | **814 / 805 ms** (blocking 186–205) |
 | Worker upload | 33,816 KiB (gzip 7,321) | **31,514 KiB** (gzip 6,838) |
 | Worker cold start, fresh preview version, signed-out `/login`, 50 requests on fresh connections | 6 cold: median **2305 ms** (1629–2823); warm median 322 | 6 cold: median **2221 ms** (1475–2940); warm median 310 |
 

@@ -11,8 +11,8 @@
 // navigation start):
 //   html       the document fully streamed (the server's part: the layout's reads, the page)
 //   fcp        first contentful paint
-//   hydrated   `html[data-hydrated]` set by the root layout's mount effect (`data-chrome`, set by
-//              the app shell's, on builds from before 2.8)
+//   hydrated   `html[data-chrome]`, set by the app shell's mount effect (`MobileChrome`): the
+//              shell and its bottom bar are interactive
 //   blocking   total main-thread time in long tasks (> 50 ms) up to hydration, minus 50 ms each
 //   js         decompressed script bytes loaded up to hydration
 import { chromium } from "@playwright/test";
@@ -50,9 +50,7 @@ function probe() {
   const marks = { hydrated: NaN, longTasks: [] };
   window.__hydrationProbe = marks;
   // The init script runs before `<html>` is parsed, so the observer watches the document.
-  const done = () =>
-    document.documentElement?.hasAttribute("data-hydrated") ||
-    document.documentElement?.hasAttribute("data-chrome");
+  const done = () => document.documentElement?.hasAttribute("data-chrome");
   new MutationObserver((_, observer) => {
     if (done()) {
       marks.hydrated = performance.now();
@@ -61,7 +59,7 @@ function probe() {
   }).observe(document, {
     subtree: true,
     attributes: true,
-    attributeFilter: ["data-hydrated", "data-chrome"],
+    attributeFilter: ["data-chrome"],
   });
   new PerformanceObserver((list) => {
     for (const entry of list.getEntries()) marks.longTasks.push([entry.startTime, entry.duration]);
