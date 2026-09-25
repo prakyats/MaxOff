@@ -67,7 +67,8 @@ describe("loading.tsx coverage", () => {
     expect(shapeOf("reports")).toBe("tiles");
     expect(shapeOf("tasks")).toBe("cards");
     expect(shapeOf("my-day")).toBe("cards");
-    expect(shapeOf("people")).toBe("cards");
+    // The list sits in a route group so its skeleton never wraps a person (2.9).
+    expect(shapeOf("people/(list)")).toBe("cards");
     expect(shapeOf("clients")).toBe("cards");
     expect(shapeOf("settings")).toBe("list");
     expect(shapeOf("notifications")).toBe("list");
