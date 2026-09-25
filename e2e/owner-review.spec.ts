@@ -8,6 +8,7 @@ import {
   resetAttendanceAndLeave,
   rpcAs,
   runInstalled,
+  serviceInsert,
   serviceSelect,
   storageStateFor,
   USERS,
@@ -19,35 +20,43 @@ import {
  * reason the member reads), the badge, today's card and people board, and a person's history
  * with Edit and Cancel. On a phone, the back order of every layer (ARCHITECTURE §14.2).
  *
- * Runs in `desktop`, `mobile` (375px) and `mobile-lg` (430px). Each project owns three seeded
- * people (`review-{day,fix,leave}-<project>@…`) and arranges them itself, so it re-runs without
+ * Runs in `desktop`, `mobile` (375px) and `mobile-lg` (430px). Each project owns four seeded
+ * people (`review-{day,fix,leave,absent}-<project>@…`) and arranges them itself, so it re-runs without
  * `pnpm db:reset`. Approve all is `owner-bulk.spec.ts`, which runs after every other project: it
  * acts on every row on screen, and other specs' rows are on the same screen.
  */
 
 const PASSWORD = "review-local-password";
-const IDS: Record<string, { day: string; fix: string; leave: string }> = {
+const IDS: Record<string, { day: string; fix: string; leave: string; absent: string }> = {
   desktop: {
     day: "20000000-0000-4000-8000-000000000018",
     fix: "20000000-0000-4000-8000-000000000019",
     leave: "20000000-0000-4000-8000-000000000020",
+    absent: "20000000-0000-4000-8000-000000000029",
   },
   mobile: {
     day: "20000000-0000-4000-8000-000000000021",
     fix: "20000000-0000-4000-8000-000000000022",
     leave: "20000000-0000-4000-8000-000000000023",
+    absent: "20000000-0000-4000-8000-000000000030",
   },
   "mobile-lg": {
     day: "20000000-0000-4000-8000-000000000024",
     fix: "20000000-0000-4000-8000-000000000025",
     leave: "20000000-0000-4000-8000-000000000026",
+    absent: "20000000-0000-4000-8000-000000000031",
   },
 };
 
-type Who = "day" | "fix" | "leave";
+type Who = "day" | "fix" | "leave" | "absent";
 const ids = (info: TestInfo) => IDS[info.project.name] as (typeof IDS)["desktop"];
 const email = (who: Who, info: TestInfo) => `review-${who}-${info.project.name}@maxoff.local`;
-const NAMES: Record<Who, string> = { day: "Review Day", fix: "Review Fix", leave: "Review Leave" };
+const NAMES: Record<Who, string> = {
+  day: "Review Day",
+  fix: "Review Fix",
+  leave: "Review Leave",
+  absent: "Review Absent",
+};
 const nameOf = (who: Who, info: TestInfo) => `Test ${NAMES[who]} (${info.project.name})`;
 const isPhone = (info: TestInfo) => info.project.name.startsWith("mobile");
 const inDays = (n: number) => addISTDays(todayIST(), n);
@@ -81,12 +90,31 @@ async function requestOf(id: string) {
 
 let waitingLeaveId = "";
 let approvedLeaveId = "";
+let proposedDayId = "";
 
 test.beforeAll(async ({}, info) => {
   const people = ids(info);
   for (const id of Object.values(people)) await resetAttendanceAndLeave(id);
   await submitDay("day", info);
   await submitDay("fix", info);
+  // The 23:59 job's proposed absence for yesterday (2.5), as `app.absent_check()` writes it: a
+  // waiting day with no choice and no login. The job itself is pgTAP's (13, 14); the Owner's
+  // path through it is this spec's.
+  proposedDayId = (
+    await serviceInsert<{ id: string }>("attendance_days", {
+      member_id: people.absent,
+      work_date: inDays(-1),
+      state: "pending_review",
+      final_status: "absent",
+      proposed_by_system: true,
+      is_day_off: false,
+    })
+  ).id;
+  await serviceInsert("attendance_events", {
+    attendance_day_id: proposedDayId,
+    action: "proposed_absent",
+    to_status: "absent",
+  });
   // One request waiting for the Owner, and one already approved for the person's history.
   waitingLeaveId = await rpcAs<string>(email("leave", info), PASSWORD, "leave_submit", {
     type: "leave",
@@ -335,6 +363,51 @@ test("Today: the card and the board, and a person's history with Edit and Cancel
   // The attendance tab shows the person's days in the Owner's words.
   await page.getByRole("link", { name: "Attendance", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/people/${ids(info).leave}/attendance$`));
+});
+
+test("a proposed absence from the nightly job: reviewed, approved, and read on the history", async ({
+  page,
+}, info) => {
+  await page.goto("/approvals");
+  const row = approvalRow(page, "attendance", nameOf("absent", info));
+  await expect(row).toHaveAttribute("data-state", "waiting");
+  await expect(row).toContainText("Absent (proposed)");
+
+  // The review sheet says what the system proposed and that nobody signed in.
+  await row.getByRole("button", { name: "Review" }).click();
+  const sheet = page.locator('[data-slot="review-sheet"]');
+  await expect(sheet).toContainText("Proposed");
+  await expect(sheet).toContainText("Absent (proposed)");
+  await expect(sheet).toContainText("Not recorded");
+  await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
+
+  // Approve through the existing path; the app goes to the background so the send goes at once.
+  await row.getByRole("button", { name: "Approve" }).click();
+  await expect(row).toHaveAttribute("data-state", "approved");
+  await page.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await expect
+    .poll(
+      async () =>
+        (
+          await serviceSelect<{ state: string; final_status: string | null }>(
+            `attendance_days?id=eq.${proposedDayId}&select=state,final_status`,
+          )
+        )[0],
+      { timeout: 4_000 },
+    )
+    .toMatchObject({ state: "approved", final_status: "absent" });
+
+  // The person's history for that month reads the outcome and its standing.
+  await page.goto(`/people/${ids(info).absent}/attendance?month=${inDays(-1).slice(0, 7)}`);
+  const day = isPhone(info)
+    ? page.locator('[data-slot="data-card"]').first()
+    : page.locator("tbody tr").first();
+  await expect(day).toContainText("Absent");
+  await expect(day).toContainText("Approved");
 });
 
 test("a corrected day reads in the Owner's words on the person's history", async ({

@@ -61,7 +61,11 @@ insert into seed_users values
   ('20000000-0000-4000-8000-000000000025', 'review-fix-mobile-lg@maxoff.local', 'review-local-password', 'Test Review Fix (mobile-lg)', null, 'staff', 'active'),
   ('20000000-0000-4000-8000-000000000026', 'review-leave-mobile-lg@maxoff.local', 'review-local-password', 'Test Review Leave (mobile-lg)', null, 'staff', 'active'),
   ('20000000-0000-4000-8000-000000000027', 'review-bulk-a@maxoff.local', 'review-local-password', 'Test Review Bulk A', null, 'staff', 'active'),
-  ('20000000-0000-4000-8000-000000000028', 'review-bulk-b@maxoff.local', 'review-local-password', 'Test Review Bulk B', null, 'staff', 'active');
+  ('20000000-0000-4000-8000-000000000028', 'review-bulk-b@maxoff.local', 'review-local-password', 'Test Review Bulk B', null, 'staff', 'active'),
+  -- 2.5: the nightly job's proposed absence, reviewed in e2e/owner-review.spec.ts (one per project).
+  ('20000000-0000-4000-8000-000000000029', 'review-absent-desktop@maxoff.local', 'review-local-password', 'Test Review Absent (desktop)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000030', 'review-absent-mobile@maxoff.local', 'review-local-password', 'Test Review Absent (mobile)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000031', 'review-absent-mobile-lg@maxoff.local', 'review-local-password', 'Test Review Absent (mobile-lg)', null, 'staff', 'active');
 
 -- What GoTrue writes for a confirmed email + password user (`auth.users` + one identity).
 insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,

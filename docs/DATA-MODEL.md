@@ -266,7 +266,8 @@ public.attendance_touch(user_agent, ip_hash)
                                 2.2: serialised per member (pg_advisory_xact_lock on 'touch:' ||
                                 member id, taken first), so two devices at once give one day and one
                                 login row. On the member's joining day (IST date of joined_at) and
-                                before it: the login only, no day, gate_required = false
+                                before it: the login only, no day, gate_required = false. 2.5: the
+                                day itself is opened by app.attendance_open_day (below)
 public.attendance_submit(choice, reason, for_date)
                                 attendance.self, today's own day. for_date (2.2, optional): the IST
                                 date the gate screen was shown for; any other date is INVALID_STATE
@@ -293,7 +294,9 @@ app.attendance_logout(member_id)
                                 day today, yesterday's day when it has a login and no logout (a real
                                 time, never made up). ONLY those two writes: state, final_status and
                                 decisions are never touched, an Owner-approved day included. The
-                                Owner has no day: session_events only
+                                Owner has no day: session_events only. 2.5: when yesterday's day
+                                carries logout_not_recorded (the 00:00 job ran first), that same
+                                write clears it, because a logout is now recorded
 public.attendance_flag_overtime(day_id, reason)
                                 attendance.self, own day, any state: overtime_flag = true and
                                 overtime_reason, REQUIRED (VALIDATION when empty, 2.2; a second call
@@ -366,8 +369,56 @@ public.attendance_today()       2.4. attendance.view_all (FORBIDDEN otherwise). 
                                 the day row's value, else app.is_working_day(today) is false;
                                 on_leave: approved leave covers today). The Owner's card and people
                                 board (WORKFLOWS §1 "Settled in 2.4") derive their buckets from it
+
+-- Jobs (2.5, WORKFLOWS §8). app schema (not an RPC), security definer, search_path = '',
+-- executable by service_role only; pg_cron runs them as postgres. Every write is labelled through
+-- app.audit_override, actor null (system). No notification rows yet (5.1).
+app.job_day(at, cutoff)         -> date: the most recent IST date whose cutoff time has passed at
+                                `at` (stable, strict). 23:59 IST on D -> D; 00:00 IST on D+1 -> D; 23:58
+                                IST on D -> D-1. Both jobs default to job_day(now(), '23:59')
+app.attendance_open_day(member_id, date, first_login)
+                                the member's day for that date, opened when there is none: approved
+                                leave covering it (app.leave_covering) -> approved, final_status =
+                                the leave type, proposed_by_system, leave_request_id, event and audit
+                                'derived_from_leave'; otherwise awaiting_choice, audit 'opened'.
+                                first_login (timestamptz, null for a job) -> first_login_at;
+                                is_day_off = app.is_working_day(date) is false. Named-constraint
+                                on-conflict re-read, so a concurrent writer's row is returned.
+                                THE CALLER HOLDS THE MEMBER'S leave: LOCK. Used by attendance_touch
+                                (2.5 factored today's derivation out of it) and by absent_check
+app.absent_check(for_date default null)
+                                returns (work_date, member_id, day_id, outcome 'proposed_absent' |
+                                'derived_from_leave'), one row per day written. for_date null: the
+                                7 IST dates ending at job_day(now(), '23:59'), oldest first (catch-
+                                up, WORKFLOWS §8); a given date: that date only, INVALID_STATE when
+                                its cutoff has not passed. Per date: app.is_working_day null ->
+                                INVALID_STATE (no single organization in scope, do not act), false
+                                -> nothing at all. Then for each active member whose role holds
+                                attendance.self and whose attendance started before the date
+                                (app.to_ist_date(joined_at) < date), in id order, under the
+                                member's leave: lock (before any row lock): no day + leave covering
+                                -> attendance_open_day (a derived day with no login); no day, no
+                                leave -> pending_review, final_status = absent, proposed_by_system,
+                                first_login_at null; awaiting_choice and not is_day_off -> the same
+                                update, first_login_at kept. Event proposed_absent, audit
+                                'proposed_absent'. Any other state, and a row marked is_day_off,
+                                is left alone: running twice writes nothing. Notifies the Owner
+                                once per run with everyone proposed (5.1; the return value is the
+                                list)
+app.logout_not_recorded(for_date default null)
+                                the same date rule. Every day on the date with first_login_at set,
+                                last_logout_at null and logout_not_recorded false gets the flag,
+                                under the member's leave: lock; audit 'logout_not_recorded', no
+                                event (the flag is a column; the audit row is its history). Returns
+                                (work_date, member_id, day_id). Twice: nothing. Notifies nobody
+                                (the reminder before it is 5.1's)
+cron.job                        'absent_check' at 29 18 * * * (23:59 IST) -> select
+                                app.absent_check(); 'logout_not_recorded' at 30 18 * * * (00:00
+                                IST) -> select app.logout_not_recorded(). Scheduled by the 2.5
+                                migration through cron.schedule(name, schedule, command), which
+                                updates an existing name instead of adding a second job
 ```
-**Lock order (2.4, migration `attendance_owner_review`):** every function that writes a member's days or leave (`attendance_submit`, `attendance_decide`, `leave_submit`, `leave_withdraw`, `leave_request_change`, `leave_decide`, `leave_owner_edit`, `leave_owner_cancel`) takes `pg_advisory_xact_lock(hashtext('leave:' || member_id))` **before any row lock**. A function that starts from a row id reads the row's member without a lock, takes the advisory lock, then locks the row and re-checks it. `attendance_touch()` takes its own `touch:` lock first and, **when it has to open today's day** (it derives the day from approved leave), the `leave:` lock next and then looks for the day again (`touch:` → `leave:` → rows). pgTAP `12` asserts each waits on the advisory lock first. **2.5's jobs follow the same order.** Partial index `attendance_days_pending_idx (work_date) where state = 'pending_review'` serves the Approvals list and badge.
+**Lock order (2.4, migration `attendance_owner_review`):** every function that writes a member's days or leave (`attendance_submit`, `attendance_decide`, `leave_submit`, `leave_withdraw`, `leave_request_change`, `leave_decide`, `leave_owner_edit`, `leave_owner_cancel`) takes `pg_advisory_xact_lock(hashtext('leave:' || member_id))` **before any row lock**. A function that starts from a row id reads the row's member without a lock, takes the advisory lock, then locks the row and re-checks it. `attendance_touch()` takes its own `touch:` lock first and, **when it has to open today's day** (it derives the day from approved leave), the `leave:` lock next and then looks for the day again (`touch:` → `leave:` → rows). pgTAP `12` asserts each waits on the advisory lock first. **2.5's jobs follow the same order:** `app.absent_check()` and `app.logout_not_recorded()` take each member's `leave:` lock before that member's rows (members in id order, so two overlapping runs cannot cross), and `app.attendance_open_day()` is called only under it (pgTAP `14`). Partial index `attendance_days_pending_idx (work_date) where state = 'pending_review'` serves the Approvals list and badge.
 
 ## 4. Clients
 ```
