@@ -149,7 +149,8 @@ export function EditableRecord<K extends string>({
 
   return (
     <section data-slot="editable-record" aria-labelledby={`${formId}-title`}>
-      <div className="flex min-h-11 items-center justify-between gap-3">
+      {/* Wraps: at 200% system text "Profile" and "Edit profile" no longer share a phone's width. */}
+      <div className="flex min-h-11 flex-wrap items-center justify-between gap-3">
         <h2 id={`${formId}-title`} className="text-sm font-medium">
           {title}
         </h2>
