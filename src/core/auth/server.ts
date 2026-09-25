@@ -6,7 +6,9 @@ import { cache } from "react";
 
 import { createServerSupabase } from "@/core/db/server";
 import { setSentryUser } from "@/core/observability/user";
+import type { MemberRole } from "@/core/permissions";
 
+import { formatHomeHint, HOME_HINT_COOKIE } from "./home-hint";
 import { LOGIN_PATH } from "./paths";
 import { classifySessionError, SessionUnavailableError } from "./session-errors";
 import type { CurrentMember } from "./types";
@@ -123,6 +125,22 @@ async function clearAuthCookies(): Promise<void> {
   for (const cookie of store.getAll()) {
     if (cookie.name.startsWith("sb-")) store.delete(cookie.name);
   }
+}
+
+/**
+ * Sets the home hint the proxy reads to answer `/` (2.7, `home-hint.ts`). A route handler or a
+ * server action only. Called at sign-in, set-password and with the day gate's daily pass.
+ */
+export async function setHomeHint(userId: string, role: MemberRole): Promise<void> {
+  const appEnv = process.env.NEXT_PUBLIC_APP_ENV;
+  (await cookies()).set(HOME_HINT_COOKIE, formatHomeHint(userId, role), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: appEnv === "staging" || appEnv === "production",
+    path: "/",
+    // Refreshed at least daily by the gate; the Owner (never gated) refreshes it at sign-in.
+    maxAge: 60 * 60 * 24 * 30,
+  });
 }
 
 export type { CurrentMember } from "./types";

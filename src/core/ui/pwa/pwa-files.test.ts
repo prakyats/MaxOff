@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import { THEME_COLOR_SCRIPT, THEME_COLORS } from "../theme/theme-color";
+import launch from "./launch-screens.json";
 
 /**
  * The PWA files live in public/ with no build step, so this test keeps them consistent with
@@ -24,6 +25,12 @@ const sw = readFileSync(path.join(publicDir, "sw.js"), "utf8");
 const headers = readFileSync(path.join(publicDir, "_headers"), "utf8");
 const css = readFileSync(path.join(root, "src/app/globals.css"), "utf8");
 const layout = readFileSync(path.join(root, "src/app/layout.tsx"), "utf8");
+
+/** Width and height from a PNG's IHDR chunk. */
+function pngSize(file: string): { width: number; height: number } {
+  const bytes = readFileSync(path.join(publicDir, file));
+  return { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20) };
+}
 
 function token(selector: string, name: string): string | undefined {
   const start = css.indexOf(`${selector} {`);
@@ -129,5 +136,83 @@ describe("sw.js", () => {
     expect(immutable).not.toContain("/icons/");
     expect(sw).toContain("isRevalidatingAsset");
     expect(headers).toMatch(/\/icons\/\*\n\s+Cache-Control:[^\n]*must-revalidate/);
+  });
+});
+
+describe("launch: icons, iOS launch screens and the intro (2.7)", () => {
+  const iconSvg = readFileSync(path.join(publicDir, "icons/icon.svg"), "utf8");
+  const intro = readFileSync(path.join(root, "src/core/ui/pwa/launch-intro.tsx"), "utf8");
+  const generator = readFileSync(path.join(root, "scripts/generate-icons.mjs"), "utf8");
+
+  it("draws everything on the splash background", () => {
+    expect(launch.background).toBe(manifest.background_color);
+    expect(css).toMatch(
+      /html\[data-launch\] \[data-slot="launch-intro"\] \{[^}]*background: #0b0b0c;/,
+    );
+    expect(launch.background).toBe(THEME_COLORS.dark);
+  });
+
+  it("puts the maskable mark inside the safe zone, at a launch-screen size", () => {
+    // Android crops a maskable icon to (at least) a circle of radius 40% of the canvas. The
+    // mark is the rounded square (rx 112 of 512), so its farthest point is on a corner arc.
+    const side = launch.maskableMarkFraction;
+    const radius = (112 / 512) * side;
+    const farthest = (side / 2 - radius) * Math.SQRT2 + radius;
+    expect(farthest).toBeLessThanOrEqual(0.4);
+    expect(side).toBeGreaterThanOrEqual(0.58);
+    expect(generator).toContain("launch.maskableMarkFraction");
+    expect(pngSize("icons/icon-maskable-512.png")).toEqual({ width: 512, height: 512 });
+    // The any-purpose icon stays the plain mark for browsers and desktop installs.
+    expect(manifest.icons.some((icon) => icon.src === "/icons/icon-512.png" && !icon.purpose)).toBe(
+      true,
+    );
+  });
+
+  it("has a launch screen for every listed iPhone, at its real pixel size", () => {
+    const names = new Set<string>();
+    for (const { width, height, ratio } of launch.screens) {
+      const file = `icons/startup/iphone-${width}x${height}@${ratio}.png`;
+      expect(names.has(file), `${file} listed twice`).toBe(false);
+      names.add(file);
+      expect(existsSync(path.join(publicDir, file)), file).toBe(true);
+      expect(pngSize(file), file).toEqual({ width: width * ratio, height: height * ratio });
+    }
+    expect(layout).toContain("startupImage: launch.screens.map");
+    expect(layout).toContain("/icons/startup/iphone-${width}x${height}@${ratio}.png");
+  });
+
+  it("draws the intro's mark exactly like the icon", () => {
+    const iconPath = iconSvg.match(/<path d="([^"]+)"/)?.[1];
+    expect(iconPath).toBeTruthy();
+    expect(intro).toContain(`d="${iconPath}"`);
+    expect(intro).toContain('rx="112"');
+    expect(intro).toContain("launch.markSize");
+    expect(generator).toContain("launch.markSize");
+  });
+
+  it("is mounted in the root layout with its pre-paint script", () => {
+    expect(layout).toContain("<LaunchIntro />");
+    expect(layout).toContain("LAUNCH_INTRO_SCRIPT");
+  });
+
+  it("never outlasts 400 ms, and reduced motion drops the settle", () => {
+    const durations = [...css.matchAll(/animation: launch-intro-\w+ (\d+)ms/g)].map((m) =>
+      Number(m[1]),
+    );
+    expect(durations.length).toBe(2);
+    for (const ms of durations) expect(ms).toBeLessThanOrEqual(400);
+    expect(css).toMatch(
+      /@media \(prefers-reduced-motion: reduce\) \{\s*html\[data-launch\] \[data-slot="launch-intro"\] svg \{\s*animation: none;/,
+    );
+  });
+});
+
+describe("touch feel (§14.2 i, 2.7)", () => {
+  it("removes the tap highlight, the overscroll leak and long-press selection on controls", () => {
+    expect(css).toContain("-webkit-tap-highlight-color: transparent;");
+    expect(css).toMatch(/html,\s*body \{[^}]*overscroll-behavior-y: none;/);
+    expect(css).toMatch(
+      /button,[^{]*\ba \{[^}]*user-select: none;[^}]*-webkit-touch-callout: none;/,
+    );
   });
 });

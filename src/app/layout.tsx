@@ -4,6 +4,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
 import { cn } from "@/core/lib/utils";
+import { LAUNCH_INTRO_SCRIPT, LaunchIntro } from "@/core/ui/pwa/launch-intro";
+import launch from "@/core/ui/pwa/launch-screens.json";
 import { RegisterServiceWorker } from "@/core/ui/pwa/register-service-worker";
 import { THEME_COLOR_SCRIPT, THEME_COLORS } from "@/core/ui/theme/theme-color";
 import { ThemeColorMeta } from "@/core/ui/theme/theme-color-meta";
@@ -33,7 +35,17 @@ export const metadata: Metadata = {
   // the light background. iOS has no per-theme status bar style. **Re-check on a real iPhone
   // before the 6.6 pilot** (see PROGRESS): if "default" looks wrong installed, the fallback is
   // "black-translucent" plus a light-mode adjustment.
-  appleWebApp: { capable: true, title: "MaxOff", statusBarStyle: "default" },
+  appleWebApp: {
+    capable: true,
+    title: "MaxOff",
+    statusBarStyle: "default",
+    // Launch screens (2.7): without one an installed iPhone app starts on white. One per
+    // current iPhone size, generated with the icons (`scripts/generate-icons.mjs`).
+    startupImage: launch.screens.map(({ width, height, ratio }) => ({
+      url: `/icons/startup/iphone-${width}x${height}@${ratio}.png`,
+      media: `(device-width: ${width}px) and (device-height: ${height}px) and (-webkit-device-pixel-ratio: ${ratio}) and (orientation: portrait)`,
+    })),
+  },
 };
 
 export const viewport: Viewport = {
@@ -61,8 +73,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <head>
         {/* Before first paint: an explicit Light/Dark choice must not flash the other band. */}
         <script dangerouslySetInnerHTML={{ __html: THEME_COLOR_SCRIPT }} />
+        {/* Before first paint too: marks an installed cold start for the launch intro (2.7). */}
+        <script dangerouslySetInnerHTML={{ __html: LAUNCH_INTRO_SCRIPT }} />
       </head>
       <body className="bg-background text-foreground min-h-dvh">
+        <LaunchIntro />
         {/*
           Toaster (sonner) and TooltipProvider (radix) live in the `(app)` layout, not here.
           Nothing outside the signed-in area raises a toast or a tooltip, and mounting them

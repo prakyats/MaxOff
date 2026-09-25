@@ -5,6 +5,7 @@ import type { Database } from "@/core/db";
 import { publicSupabaseEnv, sessionCookieOptions } from "@/core/db";
 
 import { REQUEST_PATH_HEADER } from "./day-gate";
+import { HOME_HINT_COOKIE, rootRedirect } from "./home-hint";
 import { LOGIN_PATH, isPublicPath, isSignedOutOnlyPath } from "./paths";
 import { classifySessionError } from "./session-errors";
 
@@ -12,7 +13,9 @@ import { classifySessionError } from "./session-errors";
  * What `src/proxy.ts` runs on every page request (ADR-0012):
  * 1. refreshes the Supabase session cookies, which Server Components can't write themselves;
  * 2. an optimistic redirect from the JWT alone: no session on a members-only path → `/login`
- *    with `next=`; a session on `/login` or `/forgot-password` → `/`;
+ *    with `next=`; a session on `/login` or `/forgot-password` → `/`; `/` itself (the installed
+ *    app's `start_url`) → `/login`, or the role's home when the home hint names it (2.7,
+ *    `home-hint.ts`), else it renders and `src/app/page.tsx` reads the member;
  * 3. forwards the page's path + search as `x-maxoff-path` (overwriting anything the browser
  *    sent), so the day gate in the layout knows where to return to (task 2.2). It is only ever
  *    read through `safeNextPath()`.
@@ -50,17 +53,27 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
   // A transient failure (GoTrue unreachable, a 5xx, a timeout) is not "signed out": the
   // request passes through untouched and `requireMember()` in the layout shows a retryable
   // error instead of sending a signed-in person to /login (2.6, owner decision 2026-09-24).
-  let signedIn: boolean;
+  let userId: string | null;
   try {
     const { data, error } = await supabase.auth.getClaims();
     if (error && classifySessionError(error) === "transient") return response;
-    signedIn = Boolean(data?.claims.sub);
+    userId = data?.claims.sub ?? null;
   } catch {
     return response;
   }
+  const signedIn = userId !== null;
   const { pathname, search } = request.nextUrl;
 
-  if (!signedIn && pathname !== "/" && !isPublicPath(pathname)) {
+  if (pathname === "/") {
+    const target = rootRedirect(userId, request.cookies.get(HOME_HINT_COOKIE)?.value);
+    if (!target) return response;
+    const url = request.nextUrl.clone();
+    url.pathname = target;
+    url.search = "";
+    return withCookies(NextResponse.redirect(url), response);
+  }
+
+  if (!signedIn && !isPublicPath(pathname)) {
     const url = request.nextUrl.clone();
     url.pathname = LOGIN_PATH;
     url.search = "";

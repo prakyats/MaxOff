@@ -327,3 +327,74 @@
     }
   }
 }
+
+/*
+ * Touch feel (ARCHITECTURE §14.2 i, task 2.7), in every browser: the app answers a tap like an
+ * app, not like a page of links.
+ */
+@layer base {
+  html {
+    /* Android paints a translucent box over whatever was tapped; every control already has its
+     * own pressed and focus states. */
+    -webkit-tap-highlight-color: transparent;
+  }
+  html,
+  body {
+    /* No rubber-band bounce and no pull-to-refresh leaking out of the shell: the page is the
+     * app, and a pull that reloads it loses whatever the person was doing. */
+    overscroll-behavior-y: none;
+  }
+  /* A long-press on a control selects nothing and opens no callout; text content stays
+   * selectable (an email, a reason, a date someone wants to copy). */
+  button,
+  [role="button"],
+  [role="tab"],
+  [role="menuitem"],
+  [role="radio"],
+  label,
+  summary,
+  a {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+}
+
+/*
+ * The launch intro (task 2.7, `core/ui/pwa/launch-intro.tsx`): the OS splash's mark, drawn in the
+ * same place on the first frame, fading away over the app. Present only under `html[data-launch]`,
+ * which the head script sets on an installed cold start. Fixed launch colours, not theme tokens:
+ * it has to match the splash, which is dark whatever the theme.
+ */
+[data-slot="launch-intro"] {
+  display: none;
+}
+html[data-launch] [data-slot="launch-intro"] {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: #0b0b0c;
+  pointer-events: none;
+  animation: launch-intro-out 300ms cubic-bezier(0.2, 0, 0, 1) forwards;
+}
+html[data-launch] [data-slot="launch-intro"] svg {
+  animation: launch-intro-settle 300ms cubic-bezier(0.2, 0, 0, 1) forwards;
+}
+@keyframes launch-intro-out {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+@keyframes launch-intro-settle {
+  to {
+    transform: scale(0.96);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-launch] [data-slot="launch-intro"] svg {
+    animation: none;
+  }
+}

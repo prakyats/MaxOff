@@ -5,6 +5,8 @@ import { redirect, RedirectType } from "next/navigation";
 import { createServerSupabase, type ServerSupabase } from "@/core/db/server";
 import { AppError, action, ok, type Result } from "@/core/errors";
 import { setSentryUser } from "@/core/observability/user";
+import type { MemberRole } from "@/core/permissions";
+import { homeFor } from "@/core/ui/shell/nav";
 
 import { LOGIN_PATH, safeNextPath, WELCOME_PATH } from "./paths";
 import {
@@ -16,7 +18,7 @@ import {
   setPasswordSchema,
 } from "./schemas";
 import { issueDayPassFor } from "./gate";
-import { getSessionState } from "./server";
+import { getSessionState, setHomeHint } from "./server";
 import { sessionMetaArgs } from "./session-meta";
 
 /**
@@ -35,8 +37,19 @@ async function memberStatus(supabase: ServerSupabase) {
   return data;
 }
 
-/** Records the login and refuses (ending the session) anyone who is not an active member. */
-async function recordLoginOrSignOut(supabase: ServerSupabase, userId: string): Promise<void> {
+/** The caller's own role (RLS shows an active member their own row). */
+async function ownRole(supabase: ServerSupabase, userId: string): Promise<MemberRole> {
+  const { data, error } = await supabase.from("members").select("role").eq("id", userId).single();
+  if (error) throw error;
+  return data.role;
+}
+
+/**
+ * Records the login and refuses (ending the session) anyone who is not an active member.
+ * Returns the role, and sets the home hint from it (2.7): the caller redirects straight to the
+ * role's home, and the next cold start's `/` is answered by the proxy.
+ */
+async function recordLoginOrSignOut(supabase: ServerSupabase, userId: string): Promise<MemberRole> {
   if ((await memberStatus(supabase)) !== "active") {
     await supabase.auth.signOut({ scope: "local" });
     throw new AppError("FORBIDDEN", INACTIVE_MESSAGE);
@@ -47,6 +60,9 @@ async function recordLoginOrSignOut(supabase: ServerSupabase, userId: string): P
     throw error;
   }
   setSentryUser(userId);
+  const role = await ownRole(supabase, userId);
+  await setHomeHint(userId, role);
+  return role;
 }
 
 export const login = action(async (input: LoginInput): Promise<Result<never>> => {
@@ -56,11 +72,11 @@ export const login = action(async (input: LoginInput): Promise<Result<never>> =>
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw error;
 
-  await recordLoginOrSignOut(supabase, data.user.id);
-  // `/` sends a member to their role's home; the optional `next` wins when it is a safe path.
-  // Replace, never push: a server action's redirect adds history by default, and sign-in is a
-  // one-time screen that must not sit under home (ARCHITECTURE §14.2 e).
-  redirect(safeNextPath(next) ?? "/", RedirectType.replace);
+  const role = await recordLoginOrSignOut(supabase, data.user.id);
+  // Straight to the role's home (not through `/`, one hop fewer, 2.7); the optional `next`
+  // wins when it is a safe path. Replace, never push: a server action's redirect adds history
+  // by default, and sign-in is a one-time screen that must not sit under home (§14.2 e).
+  redirect(safeNextPath(next) ?? homeFor(role), RedirectType.replace);
 });
 
 /**
@@ -113,8 +129,10 @@ export const setPassword = action(async (input: SetPasswordInput): Promise<Resul
     redirect(WELCOME_PATH, RedirectType.replace);
   }
 
+  const role = await ownRole(supabase, userId);
+  await setHomeHint(userId, role);
   // Replace: the set-password screen is one-time and never stays in the back stack (§14.2 e).
-  redirect("/", RedirectType.replace);
+  redirect(homeFor(role), RedirectType.replace);
 });
 
 /**
@@ -143,6 +161,10 @@ export const requestPasswordReset = action(
  */
 export const issueDayPass = action(async (): Promise<Result<null>> => {
   const state = await getSessionState();
-  if (state.kind === "member") await issueDayPassFor(state.member);
+  if (state.kind === "member") {
+    await issueDayPassFor(state.member);
+    // The daily refresh of the home hint (2.7): a role change reaches it within a day.
+    await setHomeHint(state.member.id, state.member.role);
+  }
   return ok(null);
 });

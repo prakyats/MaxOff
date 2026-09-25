@@ -5,6 +5,7 @@ import { redirect, RedirectType } from "next/navigation";
 
 import { gateNext } from "@/core/auth/day-gate";
 import { setDayPass } from "@/core/auth/gate";
+import { setHomeHint } from "@/core/auth/server";
 import { action, ok, type Result } from "@/core/errors";
 import { assertPermission } from "@/core/permissions/server";
 import { todayIST } from "@/core/time";
@@ -43,6 +44,8 @@ export const submitDayChoice = action(async (input: SubmitChoiceInput): Promise<
   const member = await assertPermission("attendance.self");
   await repo.rpcSubmit(data.choice, data.reason, data.forDate);
   await setDayPass(member.id, data.forDate);
+  // The home hint's daily refresh (2.7, `core/auth/home-hint.ts`), with the day's pass.
+  await setHomeHint(member.id, member.role);
   revalidateHomes();
   redirect(gateNext(data.next), RedirectType.replace);
 });
