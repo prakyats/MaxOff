@@ -54,5 +54,5 @@ a time: `@/modules/<m>/components/<file>`. The lint rule allows `components/` an
 unchanged: the rules live in Postgres and `domain/`, and a component is web UI either way.
 
 **Consequences.** A route's first load carries only the client components it renders (`/today`
-1441 → 775 KB with the other 2.8 changes). A module's public surface is now `index.ts` plus its
+1441 → 746 KB with the other 2.8 changes). A module's public surface is now `index.ts` plus its
 client component files, which is what a route could render anyway.
