@@ -73,8 +73,8 @@ export function createEarlyReporter(
     load().then(
       (loaded) => {
         sdk = loaded;
-        // The SDK's own handlers are installed by now (`init` is synchronous), so nothing
-        // falls between the two.
+        // The SDK's own handlers are installed by now (`init` is synchronous). An error thrown
+        // in the microtask between the two could be reported twice; nothing is lost.
         target.removeEventListener("error", onError);
         target.removeEventListener("unhandledrejection", onRejection);
         if (user !== undefined) loaded.setUser(user ? { id: user } : null);
@@ -86,8 +86,8 @@ export function createEarlyReporter(
         }
       },
       () => {
-        // The chunk could not load (offline, a deploy replaced it): keep queueing, a later
-        // error or navigation tries again. Nothing to report it with.
+        // The chunk could not load (offline, a deploy replaced it): keep queueing; the next
+        // error or boundary capture tries again. Nothing to report it with.
         loading = false;
       },
     );

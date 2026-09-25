@@ -5,8 +5,9 @@ import { type Clock, systemClock } from "./clock";
 
 /**
  * IST helpers (ADR-0008). This file is the only place in `src/` that formats or
- * computes business dates, and the only place allowed to call `new Date()` for
- * "now" (the lint rule `no-restricted-syntax` enforces that outside `core/time`).
+ * computes business dates. "Now" comes from `clock.ts` (re-exported here), the only place
+ * allowed to call `new Date()` (the lint rule `no-restricted-syntax` enforces that outside
+ * `core/time`).
  *
  * Mirrors the SQL helpers `app.today_ist()` / `app.to_ist_date()`.
  */

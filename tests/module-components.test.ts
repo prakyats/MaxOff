@@ -11,7 +11,8 @@ import { describe, expect, it } from "vitest";
  * data, domain and actions keep going through `index.ts`.
  */
 const ROOT = process.cwd();
-const IMPORT = /from "@\/modules\/([^/"]+)\/components\/([^"]+)"/g;
+// Static `from "..."` and dynamic `import("...")` alike.
+const IMPORT = /(?:from |import\()"@\/modules\/([^/"]+)\/components\/([^"]+)"/g;
 
 function walk(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
