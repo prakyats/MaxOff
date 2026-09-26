@@ -8,7 +8,6 @@ import { setDayPass } from "@/core/auth/gate";
 import { setHomeHint } from "@/core/auth/server";
 import { action, ok, type Result } from "@/core/errors";
 import { assertPermission } from "@/core/permissions/server";
-import { todayIST } from "@/core/time";
 
 import {
   type FlagOvertimeInput,
@@ -71,15 +70,15 @@ export const flagOvertime = action(async (input: FlagOvertimeInput): Promise<Res
 });
 
 /**
- * Overtime from the Log out confirmation ("Worked late today? Add an overtime note"): the same
- * function on today's own day, which the repository finds by the IST date. A second note
- * replaces the first, as `attendance_flag_overtime` does.
+ * Overtime from the Log out confirmation ("Worked late today? Add an overtime note"): the
+ * database picks the day the logout will land on (today's, or yesterday's still-open day after
+ * midnight). A second note replaces the first, as `attendance_flag_overtime` does.
  */
 export const flagOvertimeToday = action(
   async (input: FlagOvertimeTodayInput): Promise<Result<null>> => {
     const data = flagOvertimeTodaySchema.parse(input);
-    const member = await assertPermission("attendance.self");
-    await repo.rpcFlagOvertimeOn(member.id, todayIST(), data.reason);
+    await assertPermission("attendance.self");
+    await repo.rpcFlagOvertimeToday(data.reason);
     revalidateHomes();
     return ok(null);
   },

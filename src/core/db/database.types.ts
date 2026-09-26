@@ -667,6 +667,10 @@ export type Database = {
         Args: { day_id: string; reason?: string };
         Returns: boolean;
       };
+      attendance_flag_overtime_today: {
+        Args: { reason?: string };
+        Returns: string;
+      };
       attendance_submit: {
         Args: {
           choice: Database["public"]["Enums"]["attendance_choice"];

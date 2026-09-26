@@ -302,6 +302,12 @@ public.attendance_flag_overtime(day_id, reason)
                                 overtime_reason, REQUIRED (VALIDATION when empty, 2.2; a second call
                                 replaces the reason). Event overtime_flagged. No approval, no
                                 notification
+public.attendance_flag_overtime_today(reason)
+                                attendance.self. The Log out note (phase 2 review, 2026-09-26):
+                                attendance_flag_overtime() on the caller's day for today, or on
+                                yesterday's when there is none today and yesterday has a login and
+                                no logout, the day app.attendance_logout() will pick. INVALID_STATE
+                                when neither exists. Returns the day id
 public.leave_submit(type, start_date, end_date, reason)
                                 attendance.self. start_date >= today, end_date >= start_date, half_day
                                 a single date, reason optional (VALIDATION otherwise). CONFLICT when
