@@ -18,6 +18,13 @@ delete from auth.identities;
 delete from auth.users;
 delete from public.activity_log; -- again: the member deletes were audited
 
+-- Today is a working day whatever the calendar says (this file went red on its first IST
+-- Sunday, 2026-09-27): the weekly day off is tomorrow's weekday and no holiday falls today.
+-- The day-off tests below set what they need and restore this.
+update public.org_settings
+set weekly_off_days = array[((extract(dow from app.today_ist())::integer + 1) % 7)::smallint];
+delete from public.holidays where date = app.today_ist();
+
 create temporary table fx (key text primary key, id uuid not null);
 insert into fx values
   ('owner',       '00000000-0000-4000-8000-000000000001'),
@@ -305,7 +312,9 @@ select results_eq(
   $$ values (true, true) $$,
   'on a weekly off day the gate still asks and is_day_off is true');
 select pg_temp.as_system();
-update public.org_settings set weekly_off_days = '{0}';
+-- Back to the file's working-day pin (tomorrow's weekday off), never the seed's Sunday.
+update public.org_settings
+set weekly_off_days = array[((extract(dow from app.today_ist())::integer + 1) % 7)::smallint];
 insert into public.holidays (org_id, date, name)
 values (pg_temp.fx('org'), app.today_ist(), 'Fixture holiday')
 on conflict (org_id, date) do nothing;
