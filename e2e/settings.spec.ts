@@ -1,6 +1,8 @@
 import { expect, test } from "./fixtures";
 
 import { removeJobTitles, storageStateFor } from "./helpers";
+import { describeOffDays, istWeekday, pinnedOffDays, WEEKDAY_LONG } from "./calendar";
+import { wallClock } from "./run-state";
 
 /**
  * Settings (task 1.4): the company profile, weekly off days, holidays, thresholds and the job
@@ -56,29 +58,36 @@ test.describe("Owner", () => {
   });
 
   test("sets the weekly off days and refuses a week with no working day", async ({ page }) => {
+    // The suite runs with the seed's Sunday off, unless today is a Sunday: the global setup
+    // then moves that day off to Monday (e2e/calendar.ts), and this test starts from there.
+    const [off] = pinnedOffDays([0], istWeekday(wallClock()));
+    const initial = WEEKDAY_LONG[off ?? 0];
+    const others = WEEKDAY_LONG.filter((day) => day !== initial);
+    const second = others.find((day) => day === "Saturday") ?? others[0];
     await page.goto("/settings/days-off");
-    await expect(page.getByText("Currently Sunday.")).toBeVisible();
+    await expect(page.getByText(`Currently ${describeOffDays([off ?? 0])}.`)).toBeVisible();
 
-    for (const day of ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]) {
+    for (const day of others) {
       await page.getByRole("checkbox", { name: day }).click();
     }
     await page.getByRole("button", { name: "Save days off" }).click();
     await expect(page.locator('[data-slot="field-error"]')).toContainText("working day");
 
-    for (const day of ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]) {
+    for (const day of others.filter((day) => day !== second)) {
       await page.getByRole("checkbox", { name: day }).click();
     }
     await page.getByRole("button", { name: "Save days off" }).click();
     await expect(page.getByText("Weekly off days saved")).toBeVisible();
     await page.reload();
-    await expect(page.getByText("Currently Saturday and Sunday.")).toBeVisible();
+    const both = [off ?? 0, WEEKDAY_LONG.indexOf(second ?? "Saturday")];
+    await expect(page.getByText(`Currently ${describeOffDays(both)}.`)).toBeVisible();
 
-    // Back to the launch setting (PRODUCT §7), which the rest of the suite assumes.
-    await page.getByRole("checkbox", { name: "Saturday" }).click();
+    // Back to the setting the rest of the suite runs with.
+    await page.getByRole("checkbox", { name: second ?? "Saturday" }).click();
     await page.getByRole("button", { name: "Save days off" }).click();
     await expect(page.getByText("Weekly off days saved")).toBeVisible();
     await page.reload();
-    await expect(page.getByText("Currently Sunday.")).toBeVisible();
+    await expect(page.getByText(`Currently ${describeOffDays([off ?? 0])}.`)).toBeVisible();
   });
 
   test("adds a holiday, refuses the same date twice, and removes it again", async ({ page }) => {
