@@ -360,13 +360,13 @@ jobs:
         run: |
           set -euo pipefail
           pnpm supabase link --project-ref "$SUPABASE_PROJECT_REF"
-          # One row per version: LOCAL │ REMOTE │ TIME. A local version with an empty remote
-          # column is pending. The box-drawing bar becomes a pipe first so awk needs no UTF-8.
+          # One row per version: Local | Remote | Time, versions in backticks (CLI 2.117; older
+          # builds drew the table with │). A local version with an empty remote column is pending.
           pnpm supabase migration list --linked --password "$SUPABASE_DB_PASSWORD" \
             | tee "$RUNNER_TEMP/list.txt"
           sed 's/│/|/g' "$RUNNER_TEMP/list.txt" >"$RUNNER_TEMP/list.pipes"
-          rows="$(awk -F'|' 'NF >= 2 { gsub(/[[:space:]]/, "", $1); if ($1 ~ /^[0-9]{14}$/) c++ } END { print c + 0 }' "$RUNNER_TEMP/list.pipes")"
-          pending="$(awk -F'|' 'NF >= 2 { gsub(/[[:space:]]/, "", $1); gsub(/[[:space:]]/, "", $2); if ($1 ~ /^[0-9]{14}$/ && $2 == "") print $1 }' "$RUNNER_TEMP/list.pipes")"
+          rows="$(awk -F'|' 'NF >= 2 { gsub(/[[:space:]`]/, "", $1); if ($1 ~ /^[0-9]{14}$/) c++ } END { print c + 0 }' "$RUNNER_TEMP/list.pipes")"
+          pending="$(awk -F'|' 'NF >= 2 { gsub(/[[:space:]`]/, "", $1); gsub(/[[:space:]`]/, "", $2); if ($1 ~ /^[0-9]{14}$/ && $2 == "") print $1 }' "$RUNNER_TEMP/list.pipes")"
           if [ "$rows" = "0" ]; then
             # The listing could not be read: pushing is idempotent, so push rather than skip.
             echo "::warning::Could not read the migration list; running db push anyway."
