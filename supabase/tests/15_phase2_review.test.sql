@@ -1,8 +1,9 @@
 -- Phase 2 review fixes (2026-09-26), one section per migration:
 --   20260926174147_overtime_note_day: attendance_flag_overtime_today() picks the day the logout will.
+--   20260926174801_leave_span_cap: app.leave_validate() caps a request at 365 days, for every writer.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(12);
+select plan(17);
 
 delete from public.attendance_events;
 delete from public.attendance_days;
@@ -111,6 +112,28 @@ select is((select count(*)::integer from public.attendance_events where action =
   'one overtime_flagged event per note, through the inner function');
 select is((select count(*)::integer from public.activity_log where action = 'overtime_flagged'), 2,
   'one audit row per note');
+
+-- leave_validate: at most 365 days ---------------------------------------------------------------
+select pg_temp.as_member('none');
+select throws_ok($$ select public.leave_submit('leave', app.today_ist() + 1, app.today_ist() + 366) $$,
+  'P0001', 'VALIDATION', 'a request over 366 days is refused');
+select lives_ok($$ select public.leave_submit('leave', app.today_ist() + 1, app.today_ist() + 365) $$,
+  'a request of exactly 365 days is accepted');
+select pg_temp.as_member('owner');
+select lives_ok(
+  $$ select public.leave_decide((select id from public.leave_requests where member_id = pg_temp.fx('none')), 'approve') $$,
+  'the Owner approves it');
+select throws_ok(
+  $$ select public.leave_owner_edit(
+       (select id from public.leave_requests where member_id = pg_temp.fx('none') and state = 'approved'),
+       'leave', app.today_ist() + 1, app.today_ist() + 366, 'One more day') $$,
+  'P0001', 'VALIDATION', 'the Owner''s edit is held to the same cap');
+select pg_temp.as_member('none');
+select throws_ok(
+  $$ select public.leave_request_change(
+       (select id from public.leave_requests where member_id = pg_temp.fx('none') and state = 'approved'),
+       'leave', app.today_ist() + 1, app.today_ist() + 366) $$,
+  'P0001', 'VALIDATION', 'a change request is held to the same cap');
 
 select * from finish();
 rollback;

@@ -136,6 +136,11 @@ test("request a range and a half day, the refusals, and withdraw", async ({ page
   await expect(dialog.locator('[data-slot="field-error"]')).toHaveText(
     "The last day is before the first day.",
   );
+  await fillLeave(dialog, { first: inDays(5), last: inDays(5 + 365) });
+  await dialog.getByRole("button", { name: "Request leave" }).click();
+  await expect(dialog.locator('[data-slot="field-error"]')).toHaveText(
+    "Leave can cover at most 365 days.",
+  );
 
   // The database's: a half day inside the waiting range.
   await fillLeave(dialog, { kind: "Half day", first: inDays(11) });

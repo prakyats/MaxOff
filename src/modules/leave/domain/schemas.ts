@@ -1,6 +1,8 @@
 import { z } from "zod";
 
-import { LEAVE_REASON_MAX_LENGTH, OWNER_REASON_MIN_LENGTH } from "./limits";
+import { addISTDays } from "@/core/time";
+
+import { LEAVE_MAX_DAYS, LEAVE_REASON_MAX_LENGTH, OWNER_REASON_MIN_LENGTH } from "./limits";
 
 import { LEAVE_TYPES } from "./requests";
 
@@ -16,8 +18,9 @@ const isoDate = (message: string) => z.iso.date({ error: message });
 /**
  * The date rules of WORKFLOWS §2, as the form can check them before the database does (it
  * checks them again, and it is the rule): the end is not before the start, a half day is one
- * date (the form sends no end date for it), a new request starts today or later, and a change
- * may keep its original start but must end today or later.
+ * date (the form sends no end date for it), a request covers at most `LEAVE_MAX_DAYS`, a new
+ * request starts today or later, and a change may keep its original start but must end today or
+ * later.
  */
 function leaveDatesSchema(today: string, keepStart: string | null) {
   return z
@@ -44,6 +47,12 @@ function leaveDatesSchema(today: string, keepStart: string | null) {
           code: "custom",
           path: ["endDate"],
           message: "The last day is before the first day.",
+        });
+      } else if (value.endDate > addISTDays(value.startDate, LEAVE_MAX_DAYS - 1)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["endDate"],
+          message: `Leave can cover at most ${LEAVE_MAX_DAYS} days.`,
         });
       } else if (keepStart !== null && value.endDate < today) {
         ctx.addIssue({

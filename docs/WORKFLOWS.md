@@ -105,7 +105,7 @@ submitted ──Owner approve──► approved ──employee requests change/c
     ├──Owner reject(reason)──► rejected
     └──employee withdraw (before decision)──► withdrawn
 ```
-- Types: `leave`, `half_day`, `comp_leave`. Dates: `start_date` to `end_date` (half day: a single date).
+- Types: `leave`, `half_day`, `comp_leave`. Dates: `start_date` to `end_date` (half day: a single date), **at most 365 days** for every writer, member or Owner (owner decision 2026-09-26, phase 2 review: long enough for a 26-week maternity leave, short enough that a mistyped year cannot block a person's requests or derive leave for years).
 - A leave request created at login is linked to that day's `attendance_day`. The Owner's attendance decision and the leave decision are made **together in one action**.
 - Approved leave feeds calendar blocks, availability and assignment warnings.
 - **Overlaps (2.1):** a new request that overlaps the member's own **`submitted` or `approved`** request is refused (`CONFLICT`, "request a change instead"). Rejected, withdrawn, superseded and cancelled rows **never** block a new request. A change request overlaps its own original by design.

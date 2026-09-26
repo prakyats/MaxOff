@@ -6,3 +6,5 @@
 
 export const LEAVE_REASON_MAX_LENGTH = 1000;
 export const OWNER_REASON_MIN_LENGTH = 3;
+/** A request covers at most this many days (owner decision 2026-09-26; `app.leave_validate`). */
+export const LEAVE_MAX_DAYS = 365;

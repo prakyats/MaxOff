@@ -221,6 +221,15 @@ describe("requestLeaveSchema", () => {
     ).toEqual(["endDate"]);
   });
 
+  it("allows 365 days and refuses 366", () => {
+    expect(
+      errorsOf(schema.safeParse({ type: "leave", startDate: "2026-10-01", endDate: "2027-09-30" })),
+    ).toEqual([]);
+    expect(
+      errorsOf(schema.safeParse({ type: "leave", startDate: "2026-10-01", endDate: "2027-10-01" })),
+    ).toEqual(["endDate"]);
+  });
+
   it("refuses an unknown type and a missing date", () => {
     expect(errorsOf(schema.safeParse({ type: "sick", startDate: TODAY }))).toEqual(["type"]);
     expect(errorsOf(schema.safeParse({ type: "leave", startDate: "" }))).toEqual(["startDate"]);

@@ -309,8 +309,10 @@ public.attendance_flag_overtime_today(reason)
                                 no logout, the day app.attendance_logout() will pick. INVALID_STATE
                                 when neither exists. Returns the day id
 public.leave_submit(type, start_date, end_date, reason)
-                                attendance.self. start_date >= today, end_date >= start_date, half_day
-                                a single date, reason optional (VALIDATION otherwise). CONFLICT when
+                                attendance.self. start_date >= today, end_date >= start_date, at most
+                                365 days (phase 2 review, 2026-09-26; app.leave_validate, shared by
+                                leave_request_change and leave_owner_edit), half_day a single date,
+                                reason optional (VALIDATION otherwise). CONFLICT when
                                 the range overlaps the caller's own submitted or approved request;
                                 rejected, withdrawn, superseded and cancelled rows never block.
                                 source = form. Audit 'submitted'. Notifies the Owner
