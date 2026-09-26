@@ -1,5 +1,6 @@
 import { writeFileSync } from "node:fs";
 
+import { describeOffDays, pinWorkingDay } from "./calendar";
 import { istDate, RUN_STATE_FILE, wallClock } from "./run-state";
 
 /**
@@ -15,6 +16,10 @@ import { istDate, RUN_STATE_FILE, wallClock } from "./run-state";
  *    (18:30 UTC): the saved Admin and Staff sessions are then gated again for the new day and
  *    every one of their tests fails in a cascade that looks like nothing in the code (seen on
  *    2026-09-24 at 00:00 IST, 36 failures).
+ * 3. **Today is a working day** (`pinWorkingDay`, e2e/calendar.ts): a weekly day off that falls
+ *    on today moves to tomorrow's weekday and a holiday dated today is removed, so the specs
+ *    that assume a working day (the Owner's board, the strip, the gate) hold on the seed's
+ *    Sunday too; `settings.spec` asserts the pinned days.
  */
 export default async function globalSetup(): Promise<void> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -40,7 +45,17 @@ export default async function globalSetup(): Promise<void> {
   });
   await waitFor("Mailpit", async () => (await fetch(`${mailpit}/api/v1/info`)).status === 200);
 
-  writeFileSync(RUN_STATE_FILE, JSON.stringify({ startedOnIST: istDate(wallClock()) }));
+  const now = wallClock();
+  const serviceKey = process.env.SUPABASE_SECRET_KEY;
+  if (!serviceKey) throw new Error("SUPABASE_SECRET_KEY is needed to pin today as a working day");
+  const { configured, pinned } = await pinWorkingDay(url, serviceKey, now, istDate(now));
+  if (pinned.join() !== [...configured].sort((a, b) => a - b).join()) {
+    console.warn(
+      `e2e: today is a weekly day off (${describeOffDays(configured)}); running with ${describeOffDays(pinned)} off instead.`,
+    );
+  }
+
+  writeFileSync(RUN_STATE_FILE, JSON.stringify({ startedOnIST: istDate(now) }));
 }
 
 async function waitFor(what: string, ready: () => Promise<boolean>): Promise<void> {
