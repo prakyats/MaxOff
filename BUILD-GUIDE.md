@@ -14,7 +14,7 @@ This guide is for **you**: setup, models and the basics. For the day-to-day loop
 | `docs/WORKFLOWS.md` | Every state machine, scheduled job and notification recipient |
 | `docs/DATA-MODEL.md` | The authoritative tables |
 | `docs/ARCHITECTURE.md` + `docs/decisions/` | How it's built, and why |
-| `docs/ROADMAP.md` | ~45 tasks, each sized for one session |
+| `docs/ROADMAP.md` | ~45 tasks grouped into **units** (one session each) from phase 3 on |
 | `docs/PROGRESS.md` | Where you are, what's next, and handoff notes |
 | `docs/research/` | Background only: the v2 spec, your 9 clarification answers, the Kyran study |
 | Git | One commit per task, one tag per phase |
@@ -62,26 +62,32 @@ Then wait for me.
 
 After you've answered its questions and finished the setup, type `/start-task` to begin task 0.1. From then on, use the loop below.
 
-## The loop for each task
+## The loop for each phase (from phase 3)
 ```
-/model                 ← pick the model for the task's tier
-/start-task            ← reads PROGRESS + ROADMAP, proposes a plan, waits
-   review the plan → approve → Claude builds → you try it (pnpm dev → http://localhost:3000)
-/finish-task           ← tests, Definition of Done, docs, commit + push
-/clear                 ← ALWAYS clear before the next task
+/model                 ← [H]
+/kickoff-phase N       ← reads the whole phase, asks EVERY open business question at once, records the answers
+/clear
+/run-phase N           ← builds the phase unit by unit, one subagent per unit (the unit's tier picks its model);
+                          keeps the laptop awake; stops only for a real decision, a red it can't fix twice,
+                          an ADR, money / permissions / RLS beyond plan, production, or something unexplained
+/clear
+/model → [H]
+/review-phase N        ← architecture + security review, the ONE phone walk of the phase, fixes, PR, merge, tag
 ```
-End of each phase: `/review-phase N` (on [H]) → fixes → merge → tag.
+Keep the laptop plugged in with other browsers closed while `/run-phase` runs (3 local e2e workers; CI is the authority when the machine is the problem). If it stops, answer, `/clear`, and run `/run-phase N` again: it resumes from the handoff.
+
+One unit at a time instead (the same gates, you in the loop): `/model` for the unit's tier → `/start-task <unit>` (it plans, then proceeds when the kickoff settled the questions) → try it (`pnpm dev` → http://localhost:3000) → `/finish-task` → `/clear`.
 
 ### Keeping context under control
-- **One task per session**, then `/clear`.
+- **One unit per session** (or one `/run-phase`, which keeps only summaries and writes a handoff at every unit boundary), then `/clear`.
 - Check `/context` now and then. Above ~50% in the middle of a task: `/save-progress` → `/clear` → `/start-task`.
 - If a session goes off track, don't argue with it. Discard the changes yourself (`git restore .`), then `/clear` and restart the task with clearer instructions.
 - Let Claude use subagents for searches and reviews.
 
-### Your job in each session
-1. **Read the plan.** Check the scope, whether it matches how Pixora works, and that no business rule was invented.
-2. **Try the feature yourself** before `/finish-task`. Log in as the Owner, an Admin and a Staff member to see each view.
-3. **Answer business questions.** Claude is told to ask, not guess.
+### Your job in each phase
+1. **Answer the kickoff.** Every business question of the phase comes at once, each with a recommendation; that is where the product is decided. Claude is told to ask, not guess.
+2. **Let `/run-phase` run**, and answer when it stops (it stops only for the reasons above).
+3. **Try the phase yourself** before `/review-phase`: log in as the Owner, an Admin and a Staff member, walk the checkpoints in OPERATING-MANUAL §4, and do the phone walk it asks for.
 
 ---
 
@@ -96,7 +102,7 @@ End of each phase: `/review-phase N` (on [H]) → fixes → merge → tag.
 | 9 | See revenue, close months, export reports for AI analysis |
 | 10 | Full launch |
 
-At 1–2 tasks a day, the pilot is about **4–5 weeks** away and full launch about **8–10 weeks**.
+Phases 3–10 are 19 units. A phase is a kickoff, a `/run-phase` (a day or two of machine time), a review; the pilot (end of phase 6) is about **3 weeks** away at that pace and full launch about **6 weeks**.
 
 ## Adding or changing features later
 ```

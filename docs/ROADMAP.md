@@ -1,6 +1,7 @@
 # MaxOff Roadmap (v2)
 
-> **One task = one Claude Code session.** Tick a task (`[x]`) only when the Definition of Done (CLAUDE.md) is met and it's committed.
+> **One unit = one Claude Code session** (or one step of `/run-phase`). From phase 3 each phase lists its **units** (process change 2026-09-26, owner decision): a unit groups the tasks one session builds together, its tier is the highest of its tasks, and 3A and 6A are the heavy ones (`/save-progress` at ~50% context is the release valve). Tick a task (`[x]`) only when the Definition of Done (CLAUDE.md) is met and it's committed; a unit is done when every task in it is.
+> Before a phase: `/kickoff-phase N` settles every business question it raises, at once. Then `/run-phase N` (one subagent per unit, in order) or `/start-task <unit>` one unit at a time.
 > Each phase ends with `/review-phase N` (review → fixes → merge to `main` → tag `phase-N-done`; the branch stays `phase-N`).
 > **Model tier** per task (mapped to actual models in BUILD-GUIDE.md):
 > **[H]** highest-capability model: schema, security, transition functions, jobs, reviews · **[C]** strong coding model: features and UI · **[Q]** fast model: polish and docs.
@@ -44,6 +45,7 @@ Exit: Admins and Staff pass the daily gate, request leave, and the Owner approve
 
 ## Phase 3: Clients
 Exit: clients exist with their Admin, contacts, brand basics and custom fields. Admins see only theirs.
+**Units:** **3A** [H] 3.1 + 3.2 + 3.3 · **3B** [C] 3.4
 - [ ] **3.1** [H] Schema: clients, client_private, client_admin_assignments, client_contacts, client_brand, `client_labels` view, `admin_client_ids()`, lifecycle transitions (activate, pause, close, reactivate, assign admin), pgTAP (Admin scope, Staff denial)
 - [ ] **3.2** [H] `core/custom-fields`: definitions, zod builder, validation, `<CustomFieldsForm>` / `<CustomFieldsView>`, Settings → Custom fields (per entity, per client, per task type)
 - [ ] **3.3** [H] `core/storage`: R2 adapter, `files` table, presigned single and **multipart** upload, download links, SVG sanitizing, orphan cleanup job. Used first for logo and avatar upload
@@ -51,6 +53,7 @@ Exit: clients exist with their Admin, contacts, brand basics and custom fields. 
 
 ## Phase 4: Staff tasks
 Exit: a task goes assign → everyone acknowledges → updates → Done → Admin → Owner, including rejection loops, with the correct approval route every time.
+**Units:** **4A** [H] 4.1 + 4.2 · **4B** [C] 4.3 + 4.4 · **4C** [C] 4.5 + 4.6
 - [ ] **4.1** [H] Schema: task_types (seeded), tasks, task_assignees, task_stages, task_comments, task_reviews, task_warnings, task visibility RLS, `member_availability()`, pgTAP
 - [ ] **4.2** [H] Transition functions: `task_create` (**approval-route resolution**, PRODUCT §4.6), `task_acknowledge`, `task_start`, `task_submit_done` (late reason, Admin-step skip), `task_review` (admin/owner, reason on reject, bulk), `task_reopen`, `task_cancel`, `task_update_assignment` (field-level audit + notifications), `task_set_approver`. pgTAP for every path
 - [ ] **4.3** [C] Create/assign dialog: type-specific fields (event date/time, location, purpose), client label, assignees + primary owner, deadline, priority, stages, custom fields. Conflict, workload and leave **warnings** with recorded override
@@ -60,6 +63,7 @@ Exit: a task goes assign → everyone acknowledges → updates → Done → Admi
 
 ## Phase 5: Notifications and reminders
 Exit: every event in WORKFLOWS §9 reaches the right people in-app and by push (email for the important few). Reminders and escalations fire on time without duplicates, **and management can see who isn't reachable**.
+**Units:** **5A** [H] 5.1 + 5.2 · **5B** [H] 5.3 + 5.4 + 5.5
 - [ ] **5.1** [H] notifications, notification_deliveries, push_subscriptions. `NotificationService` + channels, notification rows from all existing transition functions, in-app bell + Realtime, history page with deep links **§14.2 h:** opening from a notification or deep link lands on the detail with its parent list underneath (so back goes to the list, not out of the app); installed-mode spec.
 - [ ] **5.2** [H] Web Push: VAPID keys, service worker push handling, subscribe and re-subscribe flow, persistent "enable notifications" banner, `push_dispatch` with retries, **email only for invites, escalations, digests and people with no working push, with a per-person daily cap**, iOS "add to home screen" guidance **Prerequisite, before the Resend sending domain is verified (phase 1 review):** `/auth/confirm` must stop verifying the one-time token on the GET, because mail scanners and chat unfurlers prefetch links and would spend every invite and recovery link before the person clicks: a "Continue to MaxOff" page whose POST verifies, with `e2e/helpers.ts` `confirmLinkFrom()` submitting it.
 - [ ] **5.3** [H] Reminders: `reminder_rules` → `task_reminders`, `reminders_tick` (before due, due, overdue, acknowledgement repeats, escalations), `logout_reminder` job, updating reminders when tasks change or are cancelled. pgTAP + unit tests
@@ -68,6 +72,7 @@ Exit: every event in WORKFLOWS §9 reaches the right people in-app and by push (
 
 ## Phase 6: Dashboards, calendar and ★ pilot
 Exit: **the team uses MaxOff daily** for attendance, leave and tasks, in production, with backups.
+**Units:** **6A** [C] 6.1 + 6.2 + 6.3 · **6B** [H] 6.4 + 6.5 · **6C** [H] 6.5b · **6D** [H] 6.6
 - [ ] **6.1** [C] Staff **My Day** (mobile-first): pending acknowledgement, today, upcoming, overdue, changes requested, events, request a task, logout **Build around the attendance strip (2.3 polish):** today's attendance is already one line at the top of My Day (`TodayAttendanceStrip`, one line at 375px, tapping through to `/leave/attendance` or the gate) and Log out a quiet full-width row at the bottom (`LogoutRow`); keep both where they are, the task sections go between them, and the skeleton keeps `TodayAttendanceStripSkeleton` first.
 - [ ] **6.2** [C] Owner **Today**: at-a-glance counts, approvals inbox, people board, today's tasks, overdue and risks, events strip, with Realtime updates. **First glance, then depth (PRODUCT §2 principle 11, its first application, owner decision 2026-09-24):** order is counts → approvals inbox → "Needs you" → the rest. The 2.4 attendance card's counts stay, and **tapping a count opens the full people board filtered to that group** ("Waiting" opens Approvals). Under it, **"Needs you"**: only people needing attention today (waiting, not chosen yet, absent, logout not recorded, overtime flagged); empty copy **"Everyone's in."** The full board (2.4's `PeopleBoard`) moves to its own drill-down screen behind **"See all N people"**, with the §14.2 k back control (`PageHeader back`), and an installed-mode `expectBackStack` spec at 375px and 430px. Tapping a person still opens their history directly. **Also from the first-glance audit (2026-09-24):** `/people/[id]` opens on the request list, so the Owner tapping from the board does not see the person's *today* first; add a one-line today status (state, login and logout times, overtime) above the person's tabs.
 - [ ] **6.3** [C] Admin dashboard: my clients, staff tasks needing attention, approvals, calendar strip, issues
@@ -78,6 +83,7 @@ Exit: **the team uses MaxOff daily** for attendance, leave and tasks, in product
 
 ## Phase 7: Client work
 Exit: a real client's monthly and weekly projects run in MaxOff. The Admin ticks items, the Owner approves, cycles roll over and carry-forward works.
+**Units:** **7A** [H] 7.1 + 7.2 · **7B** [C] 7.3 + 7.4
 - [ ] **7.1** [H] Schema: stage_presets, projects, project_stages, project_item_blueprints, project_cycles, project_items, project_item_stages, item_reviews, RLS (Admin scope, Staff denial), pgTAP
 - [ ] **7.2** [H] Transition functions + jobs: `project_create` (one-time → first cycle), `item_tick_stage`, `item_mark_done`, `item_approve/reject` (bulk), `item_cancel`, `cycle_generate` (idempotent job on the 1st and Mondays, active clients only), `cycle_carry_decide`, `project_complete/cancel/reopen`, `project_set_billing_category`. pgTAP
 - [ ] **7.3** [C] Client → Projects tab, create project dialog (recurrence, stage preset, item list), project page (cycle switcher, items with stage ticks, bulk tick, "9/12 done · 8/12 approved")
@@ -85,6 +91,7 @@ Exit: a real client's monthly and weekly projects run in MaxOff. The Admin ticks
 
 ## Phase 8: Work submissions, files and the Drive archive
 Exit: Staff submit photos and short videos from any device (iPhone included), large videos come in as Drive links, and **everything is copied into the company Google Drive** with MaxOff cleaning up its own copies.
+**Units:** **8A** [H] 8.1 + 8.2 · **8B** [H] 8.3 + 8.4
 - [ ] **8.1** [H] Submissions: `submission_items`, resumable uploader (images ≤ 25 MB, video ≤ 100 MB), browser-side JPEG preview generation including **HEIC**, originals stored untouched, `task_submit_version`, reviews tied to a version, RLS + pgTAP
 - [ ] **8.2** [C] Review UI: previews (image, video, PDF), versions timeline, download the original, comment and request changes per version, archive status badges
 - [ ] **8.3** [H] `core/drive`: Google OAuth (Owner-only connect and reconnect, tokens encrypted), folder creation and cache, `files.copy` for links, R2 → Drive upload, `drive_jobs` queue with backoff, link access checks and re-checks, quota checks, Settings screen. pgTAP + unit tests
@@ -92,6 +99,7 @@ Exit: Staff submit photos and short videos from any device (iPhone included), la
 
 ## Phase 9: Revenue, reports and month close (Owner)
 Exit: the Owner sees Potential / Achieved / Remaining by client, category and month, closes a month, and exports it for AI analysis.
+**Units:** **9A** [H] 9.1 + 9.2 · **9B** [H] 9.3 + 9.4 · **9C** [C] 9.5 + 9.6
 - [ ] **9.1** [H] Money tables + revenue views + overrides + billing status. pgTAP proving Admin and Staff can't read money through any path
 - [ ] **9.2** [C] Revenue UI (via `modules/revenue` components): project billing setup, per-item values, overrides with notes, billing status, revenue panels on the client page and dashboard
 - [ ] **9.3** [H] Metrics views (raw employee, stage-duration, revision-loop, delay and workload facts) + reports pages (week, month, custom range). Scoped operational reports for Admins
@@ -101,6 +109,7 @@ Exit: the Owner sees Potential / Achieved / Remaining by client, category and mo
 
 ## Phase 10: Search, polish, hardening and full launch
 Exit: everything in PRODUCT §4 is live in production, secured and backed up.
+**Units:** **10A** [C] 10.1 + 10.2 · **10B** [H] 10.3 + 10.4 · **10C** [C] 10.5
 - [ ] **10.1** [C] Global search (Ctrl/Cmd + K), filtered by permissions
 - [ ] **10.2** [Q] UX polish: keyboard shortcuts, empty and loading states, mobile pass, accessibility fixes
 - [ ] **10.3** [H] Security review: RLS audit, money isolation, storage, auth, headers/CSP, rate limits, dependency audit

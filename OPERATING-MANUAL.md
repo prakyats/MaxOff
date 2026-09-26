@@ -29,28 +29,34 @@ So a session only ever loads **one task's worth** of information. When you `/cle
 
 ## 2. The loop (this is the whole job)
 
-```
-/model            → pick the tier shown on the task in ROADMAP.md ([H] Fable 5.1, [C] Opus 5, [Q] Sonnet 5)
-/start-task       → it reads PROGRESS + ROADMAP and proposes a plan, then waits
-                    ↳ YOU read the plan and approve, or correct it
-   (it builds)
-                    ↳ YOU test it using the checkpoint in §4 of this file
-/finish-task      → runs all tests, checks the Definition of Done, updates docs, commits, pushes
-/clear            → start the next task fresh
-```
+From phase 3 a phase is three commands, not a task at a time:
 
-**At the end of each phase:**
 ```
+/model            → [H] (Fable 5.1)
+/kickoff-phase N  → it reads the whole phase and asks you EVERY open business question at once,
+                    each with a recommended answer
+                    ↳ YOU answer them (this is where the product gets decided)
+/clear
+/run-phase N      → it builds the phase unit by unit (one fresh subagent per unit, the unit's tier
+                    picks the model), runs every test, reviews each unit, commits and pushes
+                    ↳ YOU keep the laptop plugged in, other browsers closed, and answer if it stops
+/clear
 /model            → [H]
-/review-phase N   → reviews the whole phase, fixes problems, merges, tags
+/review-phase N   → reviews the whole phase, fixes problems, asks you for the ONE phone walk of the
+                    phase, merges, tags
 /clear
 ```
+
+`/run-phase` stops only for: a business question the kickoff didn't cover, tests still red after two fixes, a new architecture decision (ADR), anything touching money / permissions / security rules beyond its plan, anything touching production, or a failure it can't explain. Answer, `/clear`, and run `/run-phase N` again: it resumes where it stopped.
+
+Prefer to stay in the loop? One unit at a time works the same way: `/model` for the unit's tier → `/start-task <unit>` → test it with the checkpoint in §4 → `/finish-task` → `/clear`.
+
 Then send me (in chat) the **phase report** from §5, and I'll tell you if anything needs attention before you move on.
 
 ### Useful mid-session commands
 | Situation | Command |
 |---|---|
-| Context feels heavy mid-task | `/save-progress` → `/clear` → `/start-task` |
+| Context feels heavy mid-unit | `/save-progress` → `/clear` → `/start-task` (or `/run-phase N`, which resumes from its own handoff) |
 | It went down the wrong path | Tell it to stop. If files are messy: `git restore .` then `/clear` and restart the task |
 | You want to check how full it is | `/context` |
 | You thought of a new feature | `/add-feature <describe it>` (it plans, doesn't build) |
@@ -230,7 +236,7 @@ I'll check it against the plan, flag anything that's drifted, and confirm you're
 |---|---|
 | "Context left: low" or replies get vague | `/save-progress` → `/clear` → `/start-task` |
 | It's editing files it shouldn't | Stop it. `git restore .` (or `git checkout -- .`), `/clear`, then `/start-task` with a clearer instruction |
-| Tests fail repeatedly | Let it try twice. Then `/clear`, switch to `[H]` with `/model`, and `/start-task` again |
+| Tests fail repeatedly | It stops by itself after two fixes and asks. Then `/clear`, switch to `[H]` with `/model`, and `/start-task <unit>` (or `/run-phase N`) again |
 | It asks a business question you can't answer | Tell it to record the question in PROGRESS.md and use the safest option for now, then ask me |
 | It wants to change a rule in CLAUDE.md or an ADR | Say no and ask it to explain why. Then check with me. Those are the product's foundations |
 | A commit went wrong | `git log --oneline` to find the last good commit, and ask Claude to revert to it. Nothing is ever lost, it's all on GitHub |
@@ -240,7 +246,7 @@ I'll check it against the plan, flag anything that's drifted, and confirm you're
 
 ## 7. Rhythm
 
-- **1 to 2 tasks a day** is a good pace. Tasks run 1–3 hours.
+- **A phase in a few days**: the kickoff (an hour of your answers), `/run-phase` (a day or two of machine time; 2–4 units per phase), the review with your phone walk. Nineteen units are left after phase 2.
 - Phases 0–2 feel invisible (setup, database, rules). **That's expected**, and it's what makes the rest fast and safe.
-- The first real payoff is **phase 6**, when the team starts using it. That's about 25 tasks in.
+- The first real payoff is **phase 6**, when the team starts using it. That's 11 units in.
 - Don't skip `/review-phase`. It's the only step that looks at a whole phase at once.

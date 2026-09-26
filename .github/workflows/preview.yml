@@ -14,9 +14,13 @@
 # production environment sets `preview_urls: false` in wrangler.jsonc.
 #
 # Previews run against the **staging** Supabase project with the staging environment's
-# variables, and they **never** run migrations. Migrations reach staging from `main`
-# (deploy.yml) or from the manual `staging-migrations` job at the bottom of this file. A branch
-# that adds migrations previews against a database that lacks them, so the PR comment says so.
+# variables. The preview build itself never runs migrations; the `staging-migrations` job at the
+# bottom of this file does, **before** the build, on every push to a `phase-*` branch: it lists
+# the linked project's migrations and pushes only when staging is missing a local one (seconds
+# when nothing is pending, robust against an earlier failed run). Other branches, and a run
+# where that job failed, preview against a database that lacks them, and the PR comment says so.
+# The manual dispatch stays as the fallback. Staging only: production migrations go out with a
+# `v*` tag (deploy.yml), never from here.
 #
 # Secrets are given to the one step that needs them, as in deploy.yml. Note what is *not* here:
 # no `wrangler secret put` and no `cloudflare/wrangler-action` `secrets:` block, because both
@@ -49,7 +53,13 @@ permissions:
 jobs:
   preview:
     name: preview
-    if: github.event_name == 'push' || inputs.job == 'preview'
+    # After the migrations, so the build previews against the schema it was written for. A
+    # skipped migrations job (another branch, or a manual preview) does not block the preview.
+    needs: [staging-migrations]
+    if: >-
+      always()
+      && (github.event_name == 'push' || inputs.job == 'preview')
+      && contains(fromJSON('["success", "skipped"]'), needs.staging-migrations.result)
     runs-on: ubuntu-latest
     timeout-minutes: 25
     concurrency:
@@ -232,6 +242,7 @@ jobs:
           PREVIEW_URL: ${{ steps.upload.outputs.preview_url }}
           STAGING_URL: ${{ steps.names.outputs.staging_url }}
           MIGRATION_COUNT: ${{ steps.migrations.outputs.count }}
+          MIGRATIONS_JOB: ${{ needs.staging-migrations.result }}
         run: |
           set -euo pipefail
           body="$RUNNER_TEMP/comment.md"
@@ -250,11 +261,17 @@ jobs:
             echo
             echo "Staging Supabase, staging variables, \`noindex\`, same security headers."
             echo "Uploaded as a Worker *version*, not deployed: <$STAGING_URL> still serves \`main\`."
-            if [ "${MIGRATION_COUNT:-0}" != "0" ]; then
+            if [ "${MIGRATION_COUNT:-0}" != "0" ] && [ "${MIGRATIONS_JOB:-skipped}" = "success" ]; then
+              echo
+              echo '> [!NOTE]'
+              echo "> **This branch adds $MIGRATION_COUNT migration(s); the staging database has them** (applied by the \`staging migrations\` job of this run, or already there)."
+              sed 's|^|> - `|; s|$|`|' "$RUNNER_TEMP/migrations.txt"
+              echo '> They are append-only and stay on staging until the branch merges.'
+            elif [ "${MIGRATION_COUNT:-0}" != "0" ]; then
               echo
               echo '> [!WARNING]'
-              echo "> **This branch adds $MIGRATION_COUNT migration(s) that the staging database does not have.**"
-              echo '> Previews never run migrations, so anything that depends on the new schema will error.'
+              echo "> **This branch adds $MIGRATION_COUNT migration(s) that the staging database may not have** (the \`staging migrations\` job did not run or failed)."
+              echo '> Anything that depends on the new schema will error in this preview.'
               sed 's|^|> - `|; s|$|`|' "$RUNNER_TEMP/migrations.txt"
               echo '>'
               echo '> To apply them: Actions → **Preview** → **Run workflow** → this branch → `staging-migrations`.'
@@ -281,13 +298,18 @@ jobs:
             echo "Posted the preview comment on PR #$pr."
           fi
 
-  # Manual, never automatic (task 2.0): a preview must not move the staging schema on its own.
-  # Run this only when a branch's new tables are wanted on staging, and remember that staging is
-  # shared — the migrations stay there until the branch merges.
+  # Automatic on every push to a `phase-*` branch (process change 2026-09-26, owner decision;
+  # manual-only since task 2.0), and still available by hand for any branch. It moves the staging
+  # schema only when staging is missing a local migration, and staging is shared: the migrations
+  # stay there until the branch merges. Production is never in scope.
   staging-migrations:
-    name: staging migrations (manual)
-    if: github.event_name == 'workflow_dispatch' && inputs.job == 'staging-migrations'
+    name: staging migrations
+    if: >-
+      (github.event_name == 'push' && startsWith(github.ref_name, 'phase-'))
+      || (github.event_name == 'workflow_dispatch' && inputs.job == 'staging-migrations')
     runs-on: ubuntu-latest
+    outputs:
+      applied: ${{ steps.push.outputs.applied }}
     timeout-minutes: 15
     concurrency:
       # deploy.yml's staging job uses this same group, so this can never race a `main` deploy.
@@ -329,11 +351,34 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
 
-      - name: Push this branch's migrations to the staging database
+      - name: Push only the migrations staging is missing
+        id: push
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
           SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
         run: |
+          set -euo pipefail
           pnpm supabase link --project-ref "$SUPABASE_PROJECT_REF"
-          pnpm supabase db push
+          # One row per version: LOCAL │ REMOTE │ TIME. A local version with an empty remote
+          # column is pending. The box-drawing bar becomes a pipe first so awk needs no UTF-8.
+          pnpm supabase migration list --linked --password "$SUPABASE_DB_PASSWORD" \
+            | tee "$RUNNER_TEMP/list.txt"
+          sed 's/│/|/g' "$RUNNER_TEMP/list.txt" >"$RUNNER_TEMP/list.pipes"
+          rows="$(awk -F'|' 'NF >= 2 { gsub(/[[:space:]]/, "", $1); if ($1 ~ /^[0-9]{14}$/) c++ } END { print c + 0 }' "$RUNNER_TEMP/list.pipes")"
+          pending="$(awk -F'|' 'NF >= 2 { gsub(/[[:space:]]/, "", $1); gsub(/[[:space:]]/, "", $2); if ($1 ~ /^[0-9]{14}$/ && $2 == "") print $1 }' "$RUNNER_TEMP/list.pipes")"
+          if [ "$rows" = "0" ]; then
+            # The listing could not be read: pushing is idempotent, so push rather than skip.
+            echo "::warning::Could not read the migration list; running db push anyway."
+            pending="(unknown)"
+          fi
+          if [ -z "$pending" ]; then
+            echo "Staging has every local migration; nothing to push."
+            echo "applied=false" >>"$GITHUB_OUTPUT"
+            echo "Staging already had every local migration." >>"$GITHUB_STEP_SUMMARY"
+          else
+            echo "Pending on staging:"; echo "$pending"
+            pnpm supabase db push
+            echo "applied=true" >>"$GITHUB_OUTPUT"
+            { echo "### Applied to staging"; echo; echo "$pending" | sed 's|^|- `|; s|$|`|'; } >>"$GITHUB_STEP_SUMMARY"
+          fi

@@ -58,7 +58,9 @@ MaxOff is the **internal operations and control system for Pixora Clips**. It co
 - [ ] No `console.log`, no commented-out code, and no TODO that isn't also listed in PROGRESS.md.
 
 ## How to work
-- **One roadmap task per session.** Plan first and **wait for approval** before editing files.
-- Stay inside the task. Put ideas and discovered issues in PROGRESS.md under "Ideas / tech debt".
+- **One roadmap unit per session** (ROADMAP groups a phase's tasks into units; `/run-phase` builds a phase one subagent per unit). Plan first. **Proceed without waiting when the phase's kickoff (`/kickoff-phase`, the "Kickoff N decisions" block in PROGRESS.md) settled every business question the unit raises; otherwise plan and wait for approval** before editing files.
+- **Stop and ask, only on:** a business question the kickoff did not settle; tests red after two fix attempts; a new ADR, or one that would be contradicted; anything touching money, permissions or RLS beyond the unit's plan; anything touching production (`deploy.yml`, `v*` tags, production secrets or environment); an unexplained failure. Never make a test pass by raising a timeout, adding a retry, skipping or weakening it.
+- Stay inside the unit. Put ideas and discovered issues in PROGRESS.md under "Ideas / tech debt".
 - Use subagents for broad searches and reviews to keep the main context small.
-- If context gets heavy in the middle of a task, run `/save-progress` before anything else.
+- If context gets heavy in the middle of a unit, run `/save-progress` before anything else. At every unit boundary, write a PROGRESS handoff so a stop can resume.
+- The real-phone gesture walk is **one per phase**, in `/review-phase`; the installed-mode Playwright specs stay per screen. Every Definition of Done item above is unchanged by this.
