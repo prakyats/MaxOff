@@ -16,6 +16,7 @@ import {
 } from "@/core/ui/primitives/dialog";
 import { Input } from "@/core/ui/primitives/input";
 import { describeError, toastResult } from "@/core/ui/toast";
+import { ErrorText } from "@/core/ui/composites/error-text";
 
 /**
  * Renaming one list entry. Mounted fresh per entry (`key={item.id}` at the call site) so the
@@ -62,9 +63,7 @@ export function RenameListItemDialog({
             </DialogDescription>
           </DialogHeader>
           {summary ? (
-            <p role="alert" data-slot="form-alert" className="text-destructive text-sm">
-              {summary.description ?? summary.title}
-            </p>
+            <ErrorText slot="form-alert">{summary.description ?? summary.title}</ErrorText>
           ) : null}
           <FormField label="Name" error={error?.fieldErrors?.["item.name"]}>
             {(control) => (
@@ -79,10 +78,10 @@ export function RenameListItemDialog({
             )}
           </FormField>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose} disabled={pending}>
+            <Button type="button" variant="secondary" onClick={onClose} disabled={pending}>
               Cancel
             </Button>
-            <Button type="submit" disabled={pending} aria-busy={pending}>
+            <Button variant="primary" type="submit" disabled={pending} aria-busy={pending}>
               {pending ? <Loader2Icon className="animate-spin" aria-hidden /> : null}
               Save
             </Button>

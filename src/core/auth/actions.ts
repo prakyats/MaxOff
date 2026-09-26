@@ -1,15 +1,14 @@
 "use server";
 
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { redirect, RedirectType } from "next/navigation";
 
 import { createServerSupabase, type ServerSupabase } from "@/core/db/server";
 import { AppError, action, ok, type Result } from "@/core/errors";
 import { setSentryUser } from "@/core/observability/user";
+import type { MemberRole } from "@/core/permissions";
+import { homeFor } from "@/core/ui/shell/nav";
 
-import { sessionIpHashSalt } from "./env";
 import { LOGIN_PATH, safeNextPath, WELCOME_PATH } from "./paths";
-import { sessionMetaFrom } from "./request-meta";
 import {
   type LoginInput,
   loginSchema,
@@ -18,6 +17,9 @@ import {
   type SetPasswordInput,
   setPasswordSchema,
 } from "./schemas";
+import { issueDayPassFor } from "./gate";
+import { getSessionState, setHomeHint } from "./server";
+import { sessionMetaArgs } from "./session-meta";
 
 /**
  * The sign-in, sign-out and password actions (ARCHITECTURE §4.2: zod → Supabase Auth →
@@ -28,15 +30,6 @@ import {
 
 const INACTIVE_MESSAGE = "This account is not active. Ask the Owner.";
 
-/** The RPC arguments; absent values are left out rather than passed as undefined. */
-async function sessionMeta(): Promise<{ user_agent?: string; ip_hash?: string }> {
-  const { userAgent, ipHash } = await sessionMetaFrom(await headers(), sessionIpHashSalt());
-  return {
-    ...(userAgent ? { user_agent: userAgent } : {}),
-    ...(ipHash ? { ip_hash: ipHash } : {}),
-  };
-}
-
 /** The caller's own status, whatever it is (RLS shows the row only to active members). */
 async function memberStatus(supabase: ServerSupabase) {
   const { data, error } = await supabase.rpc("member_self_status");
@@ -44,18 +37,32 @@ async function memberStatus(supabase: ServerSupabase) {
   return data;
 }
 
-/** Records the login and refuses (ending the session) anyone who is not an active member. */
-async function recordLoginOrSignOut(supabase: ServerSupabase, userId: string): Promise<void> {
+/** The caller's own role (RLS shows an active member their own row). */
+async function ownRole(supabase: ServerSupabase, userId: string): Promise<MemberRole> {
+  const { data, error } = await supabase.from("members").select("role").eq("id", userId).single();
+  if (error) throw error;
+  return data.role;
+}
+
+/**
+ * Records the login and refuses (ending the session) anyone who is not an active member.
+ * Returns the role, and sets the home hint from it (2.7): the caller redirects straight to the
+ * role's home, and the next cold start's `/` is answered by the proxy.
+ */
+async function recordLoginOrSignOut(supabase: ServerSupabase, userId: string): Promise<MemberRole> {
   if ((await memberStatus(supabase)) !== "active") {
     await supabase.auth.signOut({ scope: "local" });
     throw new AppError("FORBIDDEN", INACTIVE_MESSAGE);
   }
-  const { error } = await supabase.rpc("session_login", await sessionMeta());
+  const { error } = await supabase.rpc("session_login", await sessionMetaArgs());
   if (error) {
     await supabase.auth.signOut({ scope: "local" });
     throw error;
   }
   setSentryUser(userId);
+  const role = await ownRole(supabase, userId);
+  await setHomeHint(userId, role);
+  return role;
 }
 
 export const login = action(async (input: LoginInput): Promise<Result<never>> => {
@@ -65,9 +72,11 @@ export const login = action(async (input: LoginInput): Promise<Result<never>> =>
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw error;
 
-  await recordLoginOrSignOut(supabase, data.user.id);
-  // `/` sends a member to their role's home; the optional `next` wins when it is a safe path.
-  redirect(safeNextPath(next) ?? "/");
+  const role = await recordLoginOrSignOut(supabase, data.user.id);
+  // Straight to the role's home (not through `/`, one hop fewer, 2.7); the optional `next`
+  // wins when it is a safe path. Replace, never push: a server action's redirect adds history
+  // by default, and sign-in is a one-time screen that must not sit under home (§14.2 e).
+  redirect(safeNextPath(next) ?? homeFor(role), RedirectType.replace);
 });
 
 /**
@@ -80,13 +89,14 @@ export const logout = action(async (): Promise<Result<never>> => {
   const { data: claims } = await supabase.auth.getClaims();
 
   if (claims?.claims.sub) {
-    const { error } = await supabase.rpc("session_logout", await sessionMeta());
+    const { error } = await supabase.rpc("session_logout", await sessionMetaArgs());
     if (error && error.message !== "UNAUTHENTICATED") throw error;
   }
 
   await supabase.auth.signOut({ scope: "local" });
   setSentryUser(null);
-  redirect(`${LOGIN_PATH}?reason=signed_out`);
+  // Replace: the page you logged out from is not something back should return to (§14.2 e).
+  redirect(`${LOGIN_PATH}?reason=signed_out`, RedirectType.replace);
 });
 
 /**
@@ -116,10 +126,13 @@ export const setPassword = action(async (input: SetPasswordInput): Promise<Resul
     const { error: acceptError } = await supabase.rpc("member_accept_invite");
     if (acceptError) throw acceptError;
     await recordLoginOrSignOut(supabase, userId);
-    redirect(WELCOME_PATH);
+    redirect(WELCOME_PATH, RedirectType.replace);
   }
 
-  redirect("/");
+  const role = await ownRole(supabase, userId);
+  await setHomeHint(userId, role);
+  // Replace: the set-password screen is one-time and never stays in the back stack (§14.2 e).
+  redirect(homeFor(role), RedirectType.replace);
 });
 
 /**
@@ -140,3 +153,18 @@ export const requestPasswordReset = action(
     return ok({ sent: true });
   },
 );
+
+/**
+ * Sets today's day-gate pass (ARCHITECTURE §8) for a member whose day needs no choice. Called
+ * once by `<IssueDayPass />` after the layout found no pass; the database is asked again, so
+ * this can never be used to skip the gate. Nothing to report either way.
+ */
+export const issueDayPass = action(async (): Promise<Result<null>> => {
+  const state = await getSessionState();
+  if (state.kind === "member") {
+    await issueDayPassFor(state.member);
+    // The daily refresh of the home hint (2.7): a role change reaches it within a day.
+    await setHomeHint(state.member.id, state.member.role);
+  }
+  return ok(null);
+});

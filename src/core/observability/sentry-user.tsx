@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-import { setSentryUser } from "./user";
+import { setClientSentryUser } from "./client";
 
 /**
  * Tags browser-side error reports with the member id (and nothing else), for as long as a
@@ -11,8 +11,8 @@ import { setSentryUser } from "./user";
  */
 export function SentryUser({ id }: { id: string }) {
   useEffect(() => {
-    setSentryUser(id);
-    return () => setSentryUser(null);
+    setClientSentryUser(id);
+    return () => setClientSentryUser(null);
   }, [id]);
   return null;
 }

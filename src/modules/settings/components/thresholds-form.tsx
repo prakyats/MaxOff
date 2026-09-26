@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import type { Result } from "@/core/errors";
 import { FormField } from "@/core/ui/composites/form-field";
+import { StickyActions } from "@/core/ui/composites/sticky-actions";
 import { Button } from "@/core/ui/primitives/button";
 import { Input } from "@/core/ui/primitives/input";
 
@@ -150,11 +151,11 @@ export function ThresholdsForm({ thresholds }: { thresholds: Thresholds }) {
         </FormField>
       </div>
 
-      <div>
-        <Button type="submit" disabled={pending}>
+      <StickyActions>
+        <Button variant="primary" type="submit" disabled={pending}>
           {pending ? "Saving…" : "Save thresholds"}
         </Button>
-      </div>
+      </StickyActions>
     </form>
   );
 }

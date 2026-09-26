@@ -8,6 +8,10 @@ select plan(143);
 -- The local seed (1.2) holds five sign-ins; the tests build their own team on an empty one.
 -- Rolled back with everything else at the end.
 -- activity_log first: its actor_id references members (rows exist after a Playwright run).
+-- Attendance and leave rows (2.1) reference members: a Playwright run leaves some behind (2.2).
+delete from public.attendance_events;
+delete from public.attendance_days;
+delete from public.leave_requests;
 delete from public.session_events;
 delete from public.activity_log;
 delete from public.members;

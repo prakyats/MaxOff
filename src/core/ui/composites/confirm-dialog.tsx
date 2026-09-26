@@ -15,8 +15,11 @@ import {
 import { Button } from "@/core/ui/primitives/button";
 
 /**
- * "Are you sure?" for actions that don't need a reason (approve, archive, cancel a draft).
- * `onConfirm` may be async; the dialog shows a spinner and closes when it resolves.
+ * A confirmation for actions that don't need a reason (approve, archive, cancel a draft). Its one
+ * solid red button (`primary`) is named for the action ("Deactivate Ravi", "Approve 3"), never
+ * "Confirm" or "OK", whether the action is destructive or not (ARCHITECTURE §14.1).
+ * `onConfirm` may be async; the dialog shows a spinner and closes when it resolves, unless it
+ * resolves to `false` (something inside the dialog needs fixing first, e.g. a field message).
  * Actions that need a reason use `ReasonDialog` instead (WORKFLOWS: reject, correct, cancel).
  */
 export function ConfirmDialog({
@@ -24,9 +27,8 @@ export function ConfirmDialog({
   onOpenChange,
   title,
   description,
-  confirmLabel = "Confirm",
+  confirmLabel,
   cancelLabel = "Cancel",
-  destructive = false,
   onConfirm,
   children,
 }: {
@@ -34,10 +36,9 @@ export function ConfirmDialog({
   onOpenChange: (open: boolean) => void;
   title: ReactNode;
   description?: ReactNode;
-  confirmLabel?: string;
+  confirmLabel: string;
   cancelLabel?: string;
-  destructive?: boolean;
-  onConfirm: () => void | Promise<void>;
+  onConfirm: () => void | boolean | Promise<void | boolean>;
   /** Optional extra content between the description and the buttons. */
   children?: ReactNode;
 }) {
@@ -45,8 +46,8 @@ export function ConfirmDialog({
 
   function confirm() {
     startTransition(async () => {
-      await onConfirm();
-      onOpenChange(false);
+      const keepOpen = (await onConfirm()) === false;
+      if (!keepOpen) onOpenChange(false);
     });
   }
 
@@ -60,12 +61,7 @@ export function ConfirmDialog({
         {children}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={pending}>{cancelLabel}</AlertDialogCancel>
-          <Button
-            variant={destructive ? "destructive" : "default"}
-            onClick={confirm}
-            disabled={pending}
-            aria-busy={pending}
-          >
+          <Button variant="primary" onClick={confirm} disabled={pending} aria-busy={pending}>
             {pending ? <Loader2Icon className="animate-spin" aria-hidden /> : null}
             {confirmLabel}
           </Button>

@@ -4,6 +4,9 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
+import { THEME_COLOR_SCRIPT, THEME_COLORS } from "../theme/theme-color";
+import launch from "./launch-screens.json";
+
 /**
  * The PWA files live in public/ with no build step, so this test keeps them consistent with
  * each other and with the design tokens (ARCHITECTURE §14, §3.3).
@@ -19,7 +22,15 @@ const manifest = JSON.parse(readFileSync(path.join(publicDir, "manifest.webmanif
   icons: Array<{ src: string; sizes: string; type: string; purpose?: string }>;
 };
 const sw = readFileSync(path.join(publicDir, "sw.js"), "utf8");
+const headers = readFileSync(path.join(publicDir, "_headers"), "utf8");
 const css = readFileSync(path.join(root, "src/app/globals.css"), "utf8");
+const layout = readFileSync(path.join(root, "src/app/layout.tsx"), "utf8");
+
+/** Width and height from a PNG's IHDR chunk. */
+function pngSize(file: string): { width: number; height: number } {
+  const bytes = readFileSync(path.join(publicDir, file));
+  return { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20) };
+}
 
 function token(selector: string, name: string): string | undefined {
   const start = css.indexOf(`${selector} {`);
@@ -34,11 +45,22 @@ describe("manifest.webmanifest", () => {
     expect(manifest.display).toBe("standalone");
   });
 
-  it("uses the light background token for its colours", () => {
-    const background = token(":root", "background");
-    expect(background).toBeDefined();
-    expect(manifest.theme_color).toBe(background);
-    expect(manifest.background_color).toBe(background);
+  it("paints the splash dark and leaves the status bar to the platform", () => {
+    // background_color paints the Android splash: dark, so the hand-off to a dark-first app is
+    // invisible (owner decision 2026-09-23, round 4). Unchanged.
+    expect(manifest.background_color).toBe(token(".dark", "background"));
+    expect(manifest.background_color).toBe(THEME_COLORS.dark);
+    // No theme_color, on purpose (2026-09-26, owner's device report: "in light mode the status
+    // bar is black with dark icons, the clock is unreadable"). An installed Chrome app (WebAPK)
+    // takes the status bar's COLOUR from the manifest snapshot baked at install and ignores the
+    // page's theme-color meta, while the icons' colour follows the PHONE's light/dark setting.
+    // The 2026-09-23 premise, that Chrome picks the icons from this value's luminance, did not
+    // hold on the S23. One fixed value cannot be readable in both phone modes (dark: black bar,
+    // dark icons in light mode; light: light bar, light icons in dark mode), and Chrome has no
+    // dependable per-scheme manifest colour. With none declared, Chrome uses the platform
+    // defaults: white with dark icons in light mode, black with light icons in dark mode. The
+    // cost: in light mode a white status bar sits above the dark splash for its half second.
+    expect(manifest).not.toHaveProperty("theme_color");
   });
 
   it("names icons that exist, including a maskable one", () => {
@@ -56,6 +78,35 @@ describe("manifest.webmanifest", () => {
   });
 });
 
+describe("theme-color", () => {
+  it("declares both a light and a dark entry", () => {
+    // A single light value left the status-bar band white above a dark screen (task 1.5).
+    expect(layout).toContain("(prefers-color-scheme: light)");
+    expect(layout).toContain("(prefers-color-scheme: dark)");
+    expect(layout).toContain("THEME_COLORS.light");
+    expect(layout).toContain("THEME_COLORS.dark");
+  });
+
+  it("uses the page background tokens exactly, not approximations of them", () => {
+    expect(THEME_COLORS.light).toBe(token(":root", "background"));
+    expect(THEME_COLORS.dark).toBe(token(".dark", "background"));
+  });
+
+  it("follows an explicit theme choice, which the media queries cannot", () => {
+    // prefers-color-scheme follows the OS; picking Dark in-app has to rewrite the meta.
+    expect(THEME_COLOR_SCRIPT).toContain('meta[name="theme-color"]');
+    expect(THEME_COLOR_SCRIPT).toContain(THEME_COLORS.dark);
+    expect(THEME_COLOR_SCRIPT).toContain(THEME_COLORS.light);
+    expect(layout).toContain("ThemeColorMeta");
+    expect(layout).toContain("THEME_COLOR_SCRIPT");
+  });
+
+  it("keeps the iOS status bar readable in light mode", () => {
+    // black-translucent forces white glyphs, unreadable on #fafaf9 (owner decision 2026-09-23).
+    expect(layout).toContain('statusBarStyle: "default"');
+  });
+});
+
 describe("sw.js", () => {
   it("precaches the offline page and the page exists", () => {
     expect(sw).toMatch(/OFFLINE_URL = "\/offline"/);
@@ -69,7 +120,114 @@ describe("sw.js", () => {
   });
 
   it("is served without caching so a new version is picked up", () => {
-    const headers = readFileSync(path.join(publicDir, "_headers"), "utf8");
     expect(headers).toMatch(/\/sw\.js\n\s+Cache-Control: no-cache/);
+  });
+
+  it("never caches the manifest, at either layer", () => {
+    // A cached manifest cannot reach an installed app, and the failure is invisible: the app
+    // just keeps the old name, icons and band. This cost four rounds of debugging in 1.5.
+    expect(sw).not.toMatch(/PRECACHE\s*=\s*\[[^\]]*manifest/);
+    expect(headers).toMatch(/\/manifest\.webmanifest\n\s+Cache-Control: no-cache/);
+    expect(headers).not.toMatch(/\/manifest\.webmanifest\n\s+Cache-Control:[^\n]*max-age=[1-9]/);
+  });
+
+  it("treats only content-hashed files as immutable", () => {
+    // /icons names are stable (icon-192.png), so cache-first would pin a changed icon for ever.
+    const immutable = sw.match(/function isImmutableAsset\([\s\S]*?\n}/)?.[0] ?? "";
+    expect(immutable).toContain("/_next/static/");
+    expect(immutable).not.toContain("/icons/");
+    expect(sw).toContain("isRevalidatingAsset");
+    expect(headers).toMatch(/\/icons\/\*\n\s+Cache-Control:[^\n]*must-revalidate/);
+  });
+});
+
+describe("launch: icons, iOS launch screens and the intro (2.7)", () => {
+  const iconSvg = readFileSync(path.join(publicDir, "icons/icon.svg"), "utf8");
+  const intro = readFileSync(path.join(root, "src/core/ui/pwa/launch-intro.tsx"), "utf8");
+  const generator = readFileSync(path.join(root, "scripts/generate-icons.mjs"), "utf8");
+
+  it("draws everything on the splash background", () => {
+    expect(launch.background).toBe(manifest.background_color);
+    expect(css).toMatch(
+      /html\[data-launch\] \[data-slot="launch-intro"\] \{[^}]*background: #0b0b0c;/,
+    );
+    expect(launch.background).toBe(THEME_COLORS.dark);
+  });
+
+  it("puts the maskable mark inside the safe zone, at a launch-screen size", () => {
+    // Android crops a maskable icon to (at least) a circle of radius 40% of the canvas. The
+    // mark is the rounded square (rx 112 of 512), so its farthest point is on a corner arc.
+    const side = launch.maskableMarkFraction;
+    const radius = (112 / 512) * side;
+    const farthest = (side / 2 - radius) * Math.SQRT2 + radius;
+    expect(farthest).toBeLessThanOrEqual(0.4);
+    expect(side).toBeGreaterThanOrEqual(0.58);
+    expect(generator).toContain("launch.maskableMarkFraction");
+    expect(pngSize("icons/icon-maskable-512.png")).toEqual({ width: 512, height: 512 });
+    // The any-purpose icon stays the plain mark for browsers and desktop installs.
+    expect(manifest.icons.some((icon) => icon.src === "/icons/icon-512.png" && !icon.purpose)).toBe(
+      true,
+    );
+  });
+
+  it("has a launch screen for every listed iPhone, at its real pixel size", () => {
+    const names = new Set<string>();
+    for (const { width, height, ratio } of launch.screens) {
+      const file = `icons/startup/iphone-${width}x${height}@${ratio}.png`;
+      expect(names.has(file), `${file} listed twice`).toBe(false);
+      names.add(file);
+      expect(existsSync(path.join(publicDir, file)), file).toBe(true);
+      expect(pngSize(file), file).toEqual({ width: width * ratio, height: height * ratio });
+    }
+    expect(layout).toContain("startupImage: launch.screens.map");
+    expect(layout).toContain("/icons/startup/iphone-${width}x${height}@${ratio}.png");
+  });
+
+  it("draws the intro's mark exactly like the icon", () => {
+    const iconPath = iconSvg.match(/<path d="([^"]+)"/)?.[1];
+    expect(iconPath).toBeTruthy();
+    expect(intro).toContain(`d="${iconPath}"`);
+    expect(intro).toContain('rx="112"');
+    expect(intro).toContain("launch.markSize");
+    expect(generator).toContain("launch.markSize");
+  });
+
+  it("is mounted in the root layout with its pre-paint script", () => {
+    expect(layout).toContain("<LaunchIntro />");
+    expect(layout).toContain("LAUNCH_INTRO_SCRIPT");
+  });
+
+  it("never outlasts 400 ms, and reduced motion drops the settle", () => {
+    const durations = [...css.matchAll(/animation: launch-intro-\w+ (\d+)ms/g)].map((m) =>
+      Number(m[1]),
+    );
+    expect(durations.length).toBe(2);
+    for (const ms of durations) expect(ms).toBeLessThanOrEqual(400);
+    expect(css).toMatch(
+      /@media \(prefers-reduced-motion: reduce\) \{\s*html\[data-launch\] \[data-slot="launch-intro"\] svg \{\s*animation: none;/,
+    );
+  });
+});
+
+describe("zoom lock (§14.2 i, 2.7b)", () => {
+  it("runs on every document, before the launch intro's script", () => {
+    expect(layout).toContain("STANDALONE_SCRIPT");
+    expect(layout.indexOf("STANDALONE_SCRIPT }}")).toBeLessThan(
+      layout.indexOf("LAUNCH_INTRO_SCRIPT }}"),
+    );
+  });
+
+  it("turns off pinch in CSS where the script locked the viewport", () => {
+    expect(css).toMatch(/html\[data-zoom-lock\] body \{[^}]*touch-action: pan-x pan-y;/);
+  });
+});
+
+describe("touch feel (§14.2 i, 2.7)", () => {
+  it("removes the tap highlight, the overscroll leak and long-press selection on controls", () => {
+    expect(css).toContain("-webkit-tap-highlight-color: transparent;");
+    expect(css).toMatch(/html,\s*body \{[^}]*overscroll-behavior-y: none;/);
+    expect(css).toMatch(
+      /button,[^{]*\ba \{[^}]*user-select: none;[^}]*-webkit-touch-callout: none;/,
+    );
   });
 });

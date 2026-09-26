@@ -2,17 +2,25 @@
  * MaxOff service worker (task 0.5, ARCHITECTURE §14): a minimal offline shell.
  *
  * - Precaches the /offline page and serves it when a navigation fails without a connection.
- * - Caches hashed static assets (/_next/static, /icons) cache-first, since they are immutable.
+ * - /_next/static is cache-first: those filenames carry a content hash, so they really are
+ *   immutable and a changed file is a changed URL.
+ * - /icons is stale-while-revalidate: the names are stable (icon-192.png), so a cached copy can
+ *   be wrong. It is served at once to keep the shell working offline, and replaced in the
+ *   background, so a changed icon heals itself on the next load instead of waiting for a human
+ *   to remember to bump VERSION (task 1.5).
+ * - The manifest is never cached here. It drives an installed app's name, icons and status-bar
+ *   band, and a stale copy is invisible until someone reinstalls and finds the change missing.
  * - Never touches /api, non-GET requests or other origins, so Supabase and server actions are
  *   always live. Push handlers arrive with core/notifications (task 5.1).
  *
- * Bump VERSION when the caching rules change or an icon changes (icons are cache-first for
- * ever); the old cache is deleted on activate.
+ * Bump VERSION when the caching rules change; the old cache is deleted on activate.
  */
-const VERSION = "v2";
+const VERSION = "v3";
 const CACHE = `maxoff-${VERSION}`;
 const OFFLINE_URL = "/offline";
-const PRECACHE = [OFFLINE_URL, "/manifest.webmanifest", "/icons/icon-192.png"];
+// The manifest is deliberately absent: see the header comment. It was precached but never
+// served from cache, which is the worst of both — a trap for whoever widens the fetch handler.
+const PRECACHE = [OFFLINE_URL, "/icons/icon-192.png"];
 // The cached /offline page is refreshed once per worker lifetime (the browser stops an idle
 // worker, so roughly once per session), not on every navigation.
 let offlinePageRefreshed = false;
@@ -37,8 +45,14 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+/** Content-hashed filenames: a changed file is a changed URL, so a hit can never be stale. */
 function isImmutableAsset(pathname) {
-  return pathname.startsWith("/_next/static/") || pathname.startsWith("/icons/");
+  return pathname.startsWith("/_next/static/");
+}
+
+/** Stable filenames that still need to work offline: serve the copy, then refresh it. */
+function isRevalidatingAsset(pathname) {
+  return pathname.startsWith("/icons/");
 }
 
 async function refreshOfflinePage() {
@@ -85,19 +99,31 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  const cacheAndReturn = (response) => {
+    if (response.ok) {
+      const copy = response.clone();
+      event.waitUntil(caches.open(CACHE).then((cache) => cache.put(request, copy)));
+    }
+    return response;
+  };
+
   if (isImmutableAsset(url.pathname)) {
     event.respondWith(
-      caches.match(request).then(
-        (cached) =>
-          cached ??
-          fetch(request).then((response) => {
-            if (response.ok) {
-              const copy = response.clone();
-              event.waitUntil(caches.open(CACHE).then((cache) => cache.put(request, copy)));
-            }
-            return response;
-          }),
-      ),
+      caches.match(request).then((cached) => cached ?? fetch(request).then(cacheAndReturn)),
+    );
+    return;
+  }
+
+  if (isRevalidatingAsset(url.pathname)) {
+    event.respondWith(
+      caches.match(request).then((cached) => {
+        // Stale-while-revalidate: the cached icon answers now, the network copy replaces it for
+        // next time. Offline keeps working, and a changed icon is at most one load behind.
+        const fresh = fetch(request).then(cacheAndReturn);
+        if (!cached) return fresh;
+        event.waitUntil(fresh.catch(() => {}));
+        return cached;
+      }),
     );
   }
 });

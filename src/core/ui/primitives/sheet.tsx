@@ -4,11 +4,23 @@ import * as React from "react";
 import { cn } from "cn";
 import { Dialog as SheetPrimitive } from "radix-ui";
 
+import { useOverlayOpenState } from "@/core/ui/overlay/overlay-history";
 import { Button } from "@/core/ui/primitives/button";
 import { XIcon } from "lucide-react";
 
-function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
-  return <SheetPrimitive.Root data-slot="sheet" {...props} />;
+/**
+ * Back (or the phone's back gesture) closes this instead of navigating the page
+ * underneath — see `core/ui/overlay/overlay-history`. Wired here rather than at each
+ * call site so every sheet in the app gets it, including nested ones.
+ */
+function Sheet({
+  open,
+  defaultOpen,
+  onOpenChange,
+  ...props
+}: React.ComponentProps<typeof SheetPrimitive.Root>) {
+  const [isOpen, setOpen] = useOverlayOpenState({ open, defaultOpen, onOpenChange });
+  return <SheetPrimitive.Root data-slot="sheet" open={isOpen} onOpenChange={setOpen} {...props} />;
 }
 
 function SheetTrigger({ ...props }: React.ComponentProps<typeof SheetPrimitive.Trigger>) {

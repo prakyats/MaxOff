@@ -53,6 +53,23 @@ const MONEY_SELECTORS = [
   { selector: `TemplateElement[value.raw=${MONEY_PATTERN}]`, message: MONEY_MESSAGE },
 ];
 
+const BUTTON_COLOUR_MESSAGE =
+  "Buttons get their colour from a variant (primary, destructive, secondary, ghost, strong), never from classes: the action colour rule, ARCHITECTURE §14.1.";
+/**
+ * The action colour rule's lint half (ARCHITECTURE §14.1): outside `core/ui/primitives`, a
+ * `<Button>`, a `<button>` or `buttonVariants(...)` may not carry colour classes or hex values.
+ * Checked in string and template literals anywhere inside `className` (including `cn(...)`).
+ */
+const BUTTON_COLOUR = String.raw`/(^|[\s:])(bg-(red-[0-9]+|black|white|brand|primary|destructive|strong|danger)|text-(white|black|red-[0-9]+|brand|primary-foreground)|border-(red-[0-9]+|brand|primary))([\s/]|$)|#[0-9a-fA-F]{3,8}/`;
+const BUTTON_COLOUR_SELECTORS = [
+  "JSXOpeningElement[name.name=/^(Button|button)$/] JSXAttribute[name.name='className'] Literal",
+  "JSXOpeningElement[name.name=/^(Button|button)$/] JSXAttribute[name.name='className'] TemplateElement",
+  "CallExpression[callee.name='buttonVariants'] Property[key.name='className'] Literal",
+].map((scope) => ({
+  selector: `${scope}[${scope.endsWith("TemplateElement") ? "value.raw" : "value"}=${BUTTON_COLOUR}]`,
+  message: BUTTON_COLOUR_MESSAGE,
+}));
+
 const DB_MESSAGE =
   "Only data/ layers and the listed core/ areas touch the database (CLAUDE.md rule 3). Type imports are fine.";
 /** The Supabase packages themselves. `core/db` imports are checked by the boundaries policy below. */
@@ -63,6 +80,22 @@ const DB_CLIENT_PACKAGES = {
     allowTypeImports: true,
   })),
 };
+
+const OVERLAY_MESSAGE =
+  "Overlays come from @/core/ui/primitives (Sheet, Dialog, AlertDialog), whose roots register with the back-gesture controller (core/ui/overlay). Radix is imported only inside core/ui/primitives.";
+/** Radix itself: reaching past our roots is the only way to get an overlay back ignores. */
+const RADIX_IMPORTS = {
+  paths: [{ name: "radix-ui", message: OVERLAY_MESSAGE }],
+  patterns: [{ group: ["@radix-ui/*", "radix-ui/*"], message: OVERLAY_MESSAGE }],
+};
+
+/** ESLint replaces a rule's options per block, so every block that sets the rule merges these. */
+function restrictedImports(...sets) {
+  return {
+    paths: sets.flatMap((set) => set.paths ?? []),
+    patterns: sets.flatMap((set) => set.patterns ?? []),
+  };
+}
 
 const PLATFORM_MESSAGE =
   "modules/*/domain is platform-free: no react, next, server-only or client-only (ADR-0011).";
@@ -116,7 +149,7 @@ const eslintConfig = defineConfig([
         { prefer: "type-imports", fixStyle: "inline-type-imports" },
       ],
       // ADR-0008: business dates come from core/time, never from the wall clock.
-      "no-restricted-syntax": ["error", ...WALL_CLOCK_SELECTORS],
+      "no-restricted-syntax": ["error", ...WALL_CLOCK_SELECTORS, ...BUTTON_COLOUR_SELECTORS],
     },
   },
 
@@ -156,6 +189,11 @@ const eslintConfig = defineConfig([
                 to: [
                   { element: { type: "core" } },
                   { element: { type: "module", fileInternalPath: "index.ts" } },
+                  // Client components one file at a time (ADR-0011 amendment, task 2.8): a
+                  // barrel of client components is not tree-shaken per route. Only
+                  // components/; data/, domain/ and actions/ stay behind index.ts.
+                  // `tests/module-components.test.ts` holds these imports to "use client" files.
+                  { element: { type: "module-components" } },
                 ],
               },
             },
@@ -235,6 +273,24 @@ const eslintConfig = defineConfig([
       "**/src/modules/*/data/**",
       ...DB_ALLOWED_CORE_AREAS.map((area) => `**/src/core/${area}/**`),
     ],
+    rules: {
+      "@typescript-eslint/no-restricted-imports": [
+        "error",
+        restrictedImports(DB_CLIENT_PACKAGES, RADIX_IMPORTS),
+      ],
+    },
+  },
+  // The database areas above skip that block, but not the overlay rule.
+  {
+    files: [
+      "**/src/modules/*/data/**/*.{ts,tsx}",
+      ...DB_ALLOWED_CORE_AREAS.map((area) => `**/src/core/${area}/**/*.{ts,tsx}`),
+    ],
+    rules: { "@typescript-eslint/no-restricted-imports": ["error", RADIX_IMPORTS] },
+  },
+  // Task 1.5 / the 2.3 fix: the primitives are where Radix is wrapped and registered.
+  {
+    files: ["**/src/core/ui/primitives/**/*.{ts,tsx}"],
     rules: { "@typescript-eslint/no-restricted-imports": ["error", DB_CLIENT_PACKAGES] },
   },
 
@@ -242,7 +298,10 @@ const eslintConfig = defineConfig([
   {
     files: ["**/src/modules/*/domain/**/*.{ts,tsx}"],
     rules: {
-      "@typescript-eslint/no-restricted-imports": ["error", PLATFORM_IMPORTS],
+      "@typescript-eslint/no-restricted-imports": [
+        "error",
+        restrictedImports(PLATFORM_IMPORTS, RADIX_IMPORTS),
+      ],
       "no-restricted-globals": ["error", ...DOM_GLOBALS],
     },
   },
@@ -251,6 +310,18 @@ const eslintConfig = defineConfig([
   {
     files: ["**/src/**/*.{ts,tsx}"],
     ignores: ["**/src/modules/revenue/**", "**/src/core/db/**"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        ...WALL_CLOCK_SELECTORS,
+        ...MONEY_SELECTORS,
+        ...BUTTON_COLOUR_SELECTORS,
+      ],
+    },
+  },
+  // The primitives are where button colours are defined (the variants themselves).
+  {
+    files: ["**/src/core/ui/primitives/**/*.{ts,tsx}"],
     rules: { "no-restricted-syntax": ["error", ...WALL_CLOCK_SELECTORS, ...MONEY_SELECTORS] },
   },
   {

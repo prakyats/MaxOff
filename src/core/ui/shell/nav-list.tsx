@@ -37,11 +37,20 @@ export function NavList({
                   "text-sidebar-foreground/80 relative flex min-h-10 items-center gap-2.5 rounded-md px-2.5 text-sm transition-colors outline-none",
                   "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-sidebar-ring focus-visible:ring-2",
                   active &&
-                    "bg-sidebar-accent text-sidebar-accent-foreground before:bg-brand font-medium before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full",
+                    "bg-sidebar-accent text-sidebar-accent-foreground before:bg-foreground font-medium before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full",
                 )}
               >
                 <Icon className="size-4 shrink-0" aria-hidden />
                 <span className="truncate">{item.label}</span>
+                {item.badge ? (
+                  <span
+                    data-slot="nav-badge"
+                    className="bg-brand text-brand-foreground ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] leading-none font-semibold tabular-nums"
+                  >
+                    <span aria-hidden>{item.badge > 99 ? "99+" : item.badge}</span>
+                    <span className="sr-only">{item.badge} waiting</span>
+                  </span>
+                ) : null}
               </Link>
             </li>
           );

@@ -6,9 +6,10 @@ Review phase $ARGUMENTS of MaxOff before merging it. (Use the highest-capability
 
 1. Confirm that every task for this phase in `docs/ROADMAP.md` is ticked, and that the phase's exit criteria are actually met. Check by running the app or the e2e tests where you can.
 2. Use the `architecture-reviewer` subagent on `git diff main...HEAD`. Separately, review security: RLS on every new table, the permission and scope checks in every transition function, money isolation, file access, input validation, IST handling in jobs.
-3. Show me the findings grouped as **must fix / should fix / later**. Fix the must-fix items (committing each fix), then run `pnpm check` and `pnpm test:e2e`.
-4. Add anything "later" to PROGRESS.md under Ideas / tech debt.
-5. After I confirm, merge **through a pull request** (`main` is protected: PR required, and the three CI jobs must be green):
+3. **Real-phone gesture check** (ARCHITECTURE §14.2), part of the phase gate: on a real phone, installed app, gesture navigation, walk every screen the phase added or changed (PROGRESS lists them per unit; the `/run-phase` summary repeats them). This is the **one** walk per phase: units do not do their own. Back closes the top layer first, drill-down goes up one level, tabs return to home and home exits, view controls add no history, no gate or submitted form comes back. Playwright cannot show a real browser's rules for skipping history entries, so this is not optional. Record the device and the result in PROGRESS.
+4. Show me the findings grouped as **must fix / should fix / later**. Fix the must-fix items (committing each fix), then run `pnpm check` and `pnpm test:e2e`.
+5. Add anything "later" to PROGRESS.md under Ideas / tech debt.
+6. After I confirm, merge **through a pull request** (`main` is protected: PR required, and the three CI jobs must be green):
    - `git push -u origin phase-<N>` and wait for CI to pass on the branch.
    - `gh pr create --base main --head phase-<N> --title "Phase <N>: <name>" --body "<what the phase delivered, and the review findings that were fixed>"`
    - `gh pr checks --watch` until all three are green, then `gh pr merge --merge --delete-branch=false`.

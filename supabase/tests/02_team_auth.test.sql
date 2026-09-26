@@ -10,6 +10,10 @@ select plan(49);
 alter table public.organizations disable trigger audit_row_change;
 alter table public.org_settings disable trigger audit_row_change;
 alter table public.list_items disable trigger audit_row_change;
+-- Attendance and leave rows (2.1) reference members: a Playwright run leaves some behind (2.2).
+delete from public.attendance_events;
+delete from public.attendance_days;
+delete from public.leave_requests;
 delete from public.session_events;
 delete from public.activity_log; -- first: actor_id references members
 delete from public.members;

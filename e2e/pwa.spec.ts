@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 /**
  * PWA shell (task 0.5). The service worker itself is registered only in production builds

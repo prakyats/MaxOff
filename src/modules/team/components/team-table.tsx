@@ -5,9 +5,11 @@ import { MoreHorizontalIcon, UsersIcon } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 
 import { formatIST } from "@/core/time";
-import { DataTable } from "@/core/ui/composites/data-table";
+import { DataTable, type MobileCard } from "@/core/ui/composites/data-table";
+import { DrillLink } from "@/core/ui/composites/drill-link";
+import { OverlayLink } from "@/core/ui/composites/overlay-link";
 import { EmptyState } from "@/core/ui/composites/empty-state";
-import { StatusBadge } from "@/core/ui/composites/status-badge";
+import { StatusBadge, StatusDot } from "@/core/ui/composites/status-badge";
 import { Button } from "@/core/ui/primitives/button";
 import {
   DropdownMenu,
@@ -27,6 +29,11 @@ import { EditMemberDialog } from "./edit-member-dialog";
 import { InviteLinkDialog, type InviteLinkState } from "./invite-link-dialog";
 import type { JobTitleOption } from "./job-title-select";
 
+/** Whoever has attendance (2.4): not the Owner, and not someone who never joined. */
+function opensHistory(canViewAttendance: boolean, member: TeamMember): boolean {
+  return canViewAttendance && member.role !== "owner" && member.joinedAt !== null;
+}
+
 type DialogState =
   | { kind: "none" }
   | { kind: "edit"; member: TeamMember }
@@ -44,9 +51,11 @@ export function TeamTable({
   jobTitles,
 }: {
   members: TeamMember[];
-  viewer: { id: string; canManage: boolean };
+  /** `canViewAttendance` (2.4): each person's name leads to their attendance and leave. */
+  viewer: { id: string; canManage: boolean; canViewAttendance?: boolean };
   jobTitles: readonly JobTitleOption[];
 }) {
+  const canViewAttendance = viewer.canViewAttendance === true;
   const [dialog, setDialog] = useState<DialogState>({ kind: "none" });
   const [, startTransition] = useTransition();
 
@@ -86,7 +95,16 @@ export function TeamTable({
         header: "Name",
         cell: ({ row }) => (
           <div className="min-w-0">
-            <p className="truncate font-medium">{row.original.fullName}</p>
+            {opensHistory(canViewAttendance, row.original) ? (
+              <DrillLink
+                href={`/people/${row.original.id}`}
+                className="block truncate font-medium underline-offset-4 hover:underline"
+              >
+                {row.original.fullName}
+              </DrillLink>
+            ) : (
+              <p className="truncate font-medium">{row.original.fullName}</p>
+            )}
             <p className="text-muted-foreground truncate text-xs">
               {row.original.jobTitle ?? "No job title"}
             </p>
@@ -192,9 +210,107 @@ export function TeamTable({
     return base;
     // `issueLink` and `reactivate` only close over stable setters.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewer.id, viewer.canManage]);
+  }, [viewer.id, viewer.canManage, canViewAttendance]);
 
   const close = () => setDialog({ kind: "none" });
+
+  /**
+   * The phone shape (ARCHITECTURE §14.1). A card shows who someone is and where they stand;
+   * the email, the date and every action live in the sheet a tap opens. The desktop dropdown
+   * is hover-adjacent and 32px wide — neither belongs on a phone.
+   *
+   * For whoever reads attendance (the Owner), a card with a history opens the person's page
+   * directly and the sheet moves behind ⋯ (task 2.9, PRODUCT §2 "First glance"): their
+   * attendance and leave is what the Owner looks someone up for. The Owner's own card and
+   * anyone who never joined keep the sheet: they have no such page.
+   */
+  const mobile: MobileCard<TeamMember> = {
+    title: (member) => member.fullName,
+    href: (member) => (opensHistory(canViewAttendance, member) ? `/people/${member.id}` : null),
+    moreLabel: (member) => `More for ${member.fullName}`,
+    subtitle: (member) => `${ROLE_LABELS[member.role]} · ${member.jobTitle ?? "No job title"}`,
+    trailing: (member) => <StatusDot status={member.status} label={STATUS_LABELS[member.status]} />,
+    detail: (member) => {
+      const at = member.joinedAt ?? member.invitedAt ?? member.createdAt;
+      return (
+        <dl className="flex flex-col gap-3">
+          <div className="flex justify-between gap-4">
+            <dt className="text-muted-foreground">Role</dt>
+            <dd className="text-right font-medium">{ROLE_LABELS[member.role]}</dd>
+          </div>
+          <div className="flex justify-between gap-4">
+            <dt className="text-muted-foreground">Job title</dt>
+            <dd className="text-right">{member.jobTitle ?? "—"}</dd>
+          </div>
+          <div className="flex justify-between gap-4">
+            <dt className="text-muted-foreground">Status</dt>
+            <dd className="text-right">
+              <StatusBadge status={member.status} label={STATUS_LABELS[member.status]} />
+            </dd>
+          </div>
+          {member.email ? (
+            <div className="flex justify-between gap-4">
+              <dt className="text-muted-foreground shrink-0">Email</dt>
+              <dd className="min-w-0 truncate text-right">{member.email}</dd>
+            </div>
+          ) : null}
+          {member.phone ? (
+            <div className="flex justify-between gap-4">
+              <dt className="text-muted-foreground">Phone</dt>
+              <dd className="text-right">{member.phone}</dd>
+            </div>
+          ) : null}
+          <div className="flex justify-between gap-4">
+            <dt className="text-muted-foreground">{member.joinedAt ? "Joined" : "Invited"}</dt>
+            <dd className="text-right">{formatIST(at, "d MMM yyyy")}</dd>
+          </div>
+          {opensHistory(canViewAttendance, member) ? (
+            // In the sheet body, not its actions: those close the sheet by state, and the link
+            // backs the sheet's entry out itself before opening the person (§14.2 a, b).
+            <div className="pt-1">
+              <Button variant="secondary" className="w-full" asChild>
+                <OverlayLink href={`/people/${member.id}`}>Attendance &amp; leave</OverlayLink>
+              </Button>
+            </div>
+          ) : null}
+        </dl>
+      );
+    },
+    actions: (member) => {
+      const actions = memberActions(viewer, member);
+      if (!Object.values(actions).some(Boolean)) return null;
+      return (
+        <>
+          {actions.edit ? (
+            <Button variant="secondary" onClick={() => setDialog({ kind: "edit", member })}>
+              Edit
+            </Button>
+          ) : null}
+          {actions.changeEmail ? (
+            <Button variant="secondary" onClick={() => setDialog({ kind: "email", member })}>
+              Change sign-in email
+            </Button>
+          ) : null}
+          {actions.copyInviteLink ? (
+            <Button variant="secondary" onClick={() => issueLink(member)}>
+              Copy invite link
+            </Button>
+          ) : null}
+          {actions.reactivate ? (
+            <Button variant="secondary" onClick={() => reactivate(member)}>
+              Reactivate
+            </Button>
+          ) : null}
+          {actions.revokeInvite || actions.deactivate ? (
+            // Destructive last, with the others between it and the thumb (§14.1).
+            <Button variant="destructive" onClick={() => setDialog({ kind: "deactivate", member })}>
+              {actions.revokeInvite ? "Revoke invite" : "Deactivate"}
+            </Button>
+          ) : null}
+        </>
+      );
+    },
+  };
 
   return (
     <>
@@ -204,6 +320,7 @@ export function TeamTable({
         getRowId={(member) => member.id}
         pageSize={0}
         caption="The team"
+        mobile={mobile}
         emptyState={
           <EmptyState
             icon={UsersIcon}

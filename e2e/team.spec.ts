@@ -1,8 +1,9 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 import {
   onBaseURL,
   refreshTokenFrom,
+  removeFixturePerson,
   signIn,
   storageStateFor,
   supabaseAuth,
@@ -26,9 +27,25 @@ const SIGNED_OUT = { storageState: { cookies: [], origins: [] } };
 
 test.describe("Owner", () => {
   test.use({ storageState: storageStateFor("owner") });
+  // The phone path is cards and a detail sheet, covered by `mobile.spec.ts` (task 1.5);
+  // these drive the desktop row menus, which a phone never shows.
   test.skip(({ isMobile }) => Boolean(isMobile), "the row menus are the desktop path");
   // Every test here changes the same rows, in order.
   test.describe.configure({ mode: "serial" });
+
+  // The people this block creates, under every address they end up with, so the block runs
+  // again on a database an earlier run used (2.6). One worker runs the block, so nothing races.
+  test.beforeAll(async () => {
+    for (const email of [
+      INVITEE.email,
+      MOVED_EMAIL,
+      "pending@maxoff.local",
+      TYPO_EMAIL,
+      FIXED_EMAIL,
+    ]) {
+      await removeFixturePerson(email);
+    }
+  });
 
   let firstLink = "";
   let secondLink = "";
@@ -117,6 +134,16 @@ test.describe("Owner", () => {
     await page.getByLabel("Job title").click();
     await page.getByRole("option", { name: "Video Editor" }).click();
     await page.getByRole("button", { name: "Save" }).click();
+    // Save names each change before anything is written (2.9): a role change is a permission.
+    const confirm = page.getByRole("alertdialog", { name: "Save these changes?" });
+    await expect(confirm).toContainText(
+      `${INVITEE.name}'s name will change from ${INVITEE.name} to Invited Person Jr.`,
+    );
+    await expect(confirm).toContainText(`${INVITEE.name}'s role will change from Staff to Admin.`);
+    await expect(confirm).toContainText(
+      `${INVITEE.name}'s job title will change from Graphic Designer to Video Editor.`,
+    );
+    await confirm.getByRole("button", { name: "Save" }).click();
 
     const row = page.getByRole("row", { name: /Invited Person Jr/ });
     await expect(row).toContainText("Admin");
@@ -234,7 +261,8 @@ test.describe("Owner", () => {
     await expect(
       page.getByRole("heading", { name: "Revoke Pending Person's invite?" }),
     ).toBeVisible();
-    await page.getByRole("button", { name: "Revoke invite", exact: true }).click();
+    // The confirmation's one red button names what it does (ARCHITECTURE §14.1).
+    await page.getByRole("button", { name: "Revoke Pending Person's invite" }).click();
     await expect(page.getByRole("row", { name: /Pending Person/ })).toContainText("Deactivated");
 
     const pending = await browser.newContext(SIGNED_OUT);
@@ -290,7 +318,7 @@ test.describe("Owner", () => {
       await page.getByRole("menuitem", { name: "Deactivate" }).click();
       await expect(page.getByRole("heading", { name: "Deactivate Leaver Staff?" })).toBeVisible();
       await page.getByLabel("Reason (optional)").fill("Left the company");
-      await page.getByRole("button", { name: "Deactivate", exact: true }).click();
+      await page.getByRole("button", { name: "Deactivate Leaver Staff" }).click();
       await expect(page.getByRole("row", { name: /Leaver Staff/ })).toContainText("Deactivated");
 
       // The open tab's next request ends at sign-in …
@@ -328,7 +356,10 @@ test.describe("Owner", () => {
 
 test.describe("Admin", () => {
   test.use({ storageState: storageStateFor("admin") });
-  test.skip(({ isMobile }) => Boolean(isMobile), "the table is the desktop path");
+  test.skip(
+    ({ isMobile }) => Boolean(isMobile),
+    "the table is the desktop path; cards are in mobile.spec.ts",
+  );
 
   test("sees the team without emails or actions", async ({ page }) => {
     await page.goto("/people");
@@ -344,15 +375,16 @@ test.describe("Staff", () => {
   test.use({ storageState: storageStateFor("staff") });
   // Runs on the phone project too: /me is a Staff screen (375px, CLAUDE.md Definition of Done).
 
-  test("cannot open People, and edits their own profile on Me", async ({ page }) => {
+  test("cannot open People, and sees their own profile read-only on Me", async ({ page }) => {
     await page.goto("/people");
     await expect(page).toHaveURL(/\/forbidden$/);
 
+    // Editing it is the edit pattern's own spec (2.9, e2e/edit-pattern.spec.ts), on people of
+    // its own: this account is shared by every project.
     await page.goto("/me");
-    await page.getByLabel("Phone").fill("9000000003");
-    await page.getByRole("button", { name: "Save profile" }).click();
-    await expect(page.getByText("Profile saved")).toBeVisible();
-    await page.reload();
-    await expect(page.getByLabel("Phone")).toHaveValue("9000000003");
+    const profile = page.locator('[data-slot="editable-record"]');
+    await expect(profile).toContainText("Local Staff");
+    await expect(profile.getByRole("textbox")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Edit profile" })).toBeVisible();
   });
 });

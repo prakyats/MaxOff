@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
-import { SetPasswordForm } from "@/core/auth/components";
+// Direct, not via the barrel: see the note in login/page.tsx.
+import { SetPasswordForm } from "@/core/auth/components/set-password-form";
 import { EXPIRED_LINK_PATH } from "@/core/auth/links";
 import { getSessionState } from "@/core/auth/server";
 

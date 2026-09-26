@@ -61,6 +61,169 @@ export type Database = {
           },
         ];
       };
+      attendance_days: {
+        Row: {
+          created_at: string;
+          decided_at: string | null;
+          decided_by: string | null;
+          decision_reason: string | null;
+          final_status: Database["public"]["Enums"]["day_status"] | null;
+          first_login_at: string | null;
+          id: string;
+          is_day_off: boolean;
+          last_logout_at: string | null;
+          leave_request_id: string | null;
+          logout_not_recorded: boolean;
+          member_id: string;
+          overtime_flag: boolean;
+          overtime_reason: string | null;
+          proposed_by_system: boolean;
+          state: Database["public"]["Enums"]["attendance_state"];
+          submitted_at: string | null;
+          submitted_choice: Database["public"]["Enums"]["attendance_choice"] | null;
+          updated_at: string;
+          work_date: string;
+          worked_on_leave: boolean;
+        };
+        Insert: {
+          created_at?: string;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          decision_reason?: string | null;
+          final_status?: Database["public"]["Enums"]["day_status"] | null;
+          first_login_at?: string | null;
+          id?: string;
+          is_day_off?: boolean;
+          last_logout_at?: string | null;
+          leave_request_id?: string | null;
+          logout_not_recorded?: boolean;
+          member_id: string;
+          overtime_flag?: boolean;
+          overtime_reason?: string | null;
+          proposed_by_system?: boolean;
+          state?: Database["public"]["Enums"]["attendance_state"];
+          submitted_at?: string | null;
+          submitted_choice?: Database["public"]["Enums"]["attendance_choice"] | null;
+          updated_at?: string;
+          work_date: string;
+          worked_on_leave?: boolean;
+        };
+        Update: {
+          created_at?: string;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          decision_reason?: string | null;
+          final_status?: Database["public"]["Enums"]["day_status"] | null;
+          first_login_at?: string | null;
+          id?: string;
+          is_day_off?: boolean;
+          last_logout_at?: string | null;
+          leave_request_id?: string | null;
+          logout_not_recorded?: boolean;
+          member_id?: string;
+          overtime_flag?: boolean;
+          overtime_reason?: string | null;
+          proposed_by_system?: boolean;
+          state?: Database["public"]["Enums"]["attendance_state"];
+          submitted_at?: string | null;
+          submitted_choice?: Database["public"]["Enums"]["attendance_choice"] | null;
+          updated_at?: string;
+          work_date?: string;
+          worked_on_leave?: boolean;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "attendance_days_decided_by_fkey";
+            columns: ["decided_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "attendance_days_decided_by_fkey";
+            columns: ["decided_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "attendance_days_leave_request_id_fkey";
+            columns: ["leave_request_id"];
+            isOneToOne: false;
+            referencedRelation: "leave_requests";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "attendance_days_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "attendance_days_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      attendance_events: {
+        Row: {
+          action: string;
+          actor_id: string | null;
+          at: string;
+          attendance_day_id: string;
+          from_status: Database["public"]["Enums"]["day_status"] | null;
+          id: number;
+          reason: string | null;
+          to_status: Database["public"]["Enums"]["day_status"] | null;
+        };
+        Insert: {
+          action: string;
+          actor_id?: string | null;
+          at?: string;
+          attendance_day_id: string;
+          from_status?: Database["public"]["Enums"]["day_status"] | null;
+          id?: never;
+          reason?: string | null;
+          to_status?: Database["public"]["Enums"]["day_status"] | null;
+        };
+        Update: {
+          action?: string;
+          actor_id?: string | null;
+          at?: string;
+          attendance_day_id?: string;
+          from_status?: Database["public"]["Enums"]["day_status"] | null;
+          id?: never;
+          reason?: string | null;
+          to_status?: Database["public"]["Enums"]["day_status"] | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "attendance_events_actor_id_fkey";
+            columns: ["actor_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "attendance_events_actor_id_fkey";
+            columns: ["actor_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "attendance_events_attendance_day_id_fkey";
+            columns: ["attendance_day_id"];
+            isOneToOne: false;
+            referencedRelation: "attendance_days";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       holidays: {
         Row: {
           created_at: string;
@@ -92,6 +255,96 @@ export type Database = {
             columns: ["org_id"];
             isOneToOne: false;
             referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      leave_requests: {
+        Row: {
+          created_at: string;
+          decided_at: string | null;
+          decided_by: string | null;
+          decision_reason: string | null;
+          end_date: string;
+          id: string;
+          member_id: string;
+          reason: string | null;
+          requests_cancellation: boolean;
+          source: string;
+          start_date: string;
+          state: Database["public"]["Enums"]["leave_state"];
+          supersedes_id: string | null;
+          type: Database["public"]["Enums"]["leave_type"];
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          decision_reason?: string | null;
+          end_date: string;
+          id?: string;
+          member_id: string;
+          reason?: string | null;
+          requests_cancellation?: boolean;
+          source: string;
+          start_date: string;
+          state?: Database["public"]["Enums"]["leave_state"];
+          supersedes_id?: string | null;
+          type: Database["public"]["Enums"]["leave_type"];
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          decision_reason?: string | null;
+          end_date?: string;
+          id?: string;
+          member_id?: string;
+          reason?: string | null;
+          requests_cancellation?: boolean;
+          source?: string;
+          start_date?: string;
+          state?: Database["public"]["Enums"]["leave_state"];
+          supersedes_id?: string | null;
+          type?: Database["public"]["Enums"]["leave_type"];
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "leave_requests_decided_by_fkey";
+            columns: ["decided_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "leave_requests_decided_by_fkey";
+            columns: ["decided_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "leave_requests_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "leave_requests_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "leave_requests_supersedes_id_fkey";
+            columns: ["supersedes_id"];
+            isOneToOne: false;
+            referencedRelation: "leave_requests";
             referencedColumns: ["id"];
           },
         ];
@@ -401,6 +654,65 @@ export type Database = {
       };
     };
     Functions: {
+      attendance_decide: {
+        Args: {
+          day_id: string;
+          decision: string;
+          reason?: string;
+          status?: Database["public"]["Enums"]["day_status"];
+        };
+        Returns: Database["public"]["Enums"]["attendance_state"];
+      };
+      attendance_flag_overtime: {
+        Args: { day_id: string; reason?: string };
+        Returns: boolean;
+      };
+      attendance_flag_overtime_today: {
+        Args: { reason?: string };
+        Returns: string;
+      };
+      attendance_submit: {
+        Args: {
+          choice: Database["public"]["Enums"]["attendance_choice"];
+          for_date?: string;
+          reason?: string;
+        };
+        Returns: Database["public"]["Enums"]["attendance_state"];
+      };
+      attendance_today: {
+        Args: never;
+        Returns: {
+          day_id: string;
+          final_status: Database["public"]["Enums"]["day_status"];
+          first_login_at: string;
+          full_name: string;
+          is_day_off: boolean;
+          job_title: string;
+          last_logout_at: string;
+          leave_type: Database["public"]["Enums"]["leave_type"];
+          logout_not_recorded: boolean;
+          member_id: string;
+          on_leave: boolean;
+          overtime_flag: boolean;
+          proposed_by_system: boolean;
+          started: boolean;
+          state: Database["public"]["Enums"]["attendance_state"];
+          submitted_choice: Database["public"]["Enums"]["attendance_choice"];
+        }[];
+      };
+      attendance_touch: {
+        Args: { ip_hash?: string; user_agent?: string };
+        Returns: {
+          day_id: string;
+          final_status: Database["public"]["Enums"]["day_status"];
+          gate_required: boolean;
+          is_day_off: boolean;
+          leave_request_id: string;
+          proposed_by_system: boolean;
+          state: Database["public"]["Enums"]["attendance_state"];
+          work_date: string;
+        }[];
+      };
       bootstrap_owner: {
         Args: {
           email: string;
@@ -409,6 +721,54 @@ export type Database = {
           user_id: string;
         };
         Returns: string;
+      };
+      leave_decide: {
+        Args: { decision: string; reason?: string; request_id: string };
+        Returns: {
+          kept_dates: string[];
+          state: Database["public"]["Enums"]["leave_state"];
+        }[];
+      };
+      leave_owner_cancel: {
+        Args: { reason?: string; request_id: string };
+        Returns: Database["public"]["Enums"]["leave_state"];
+      };
+      leave_owner_edit: {
+        Args: {
+          end_date: string;
+          reason?: string;
+          request_id: string;
+          start_date: string;
+          type: Database["public"]["Enums"]["leave_type"];
+        };
+        Returns: {
+          kept_dates: string[];
+          new_id: string;
+        }[];
+      };
+      leave_request_change: {
+        Args: {
+          cancel?: boolean;
+          end_date?: string;
+          reason?: string;
+          request_id: string;
+          start_date?: string;
+          type?: Database["public"]["Enums"]["leave_type"];
+        };
+        Returns: string;
+      };
+      leave_submit: {
+        Args: {
+          end_date: string;
+          reason?: string;
+          start_date: string;
+          type: Database["public"]["Enums"]["leave_type"];
+        };
+        Returns: string;
+      };
+      leave_withdraw: {
+        Args: { request_id: string };
+        Returns: Database["public"]["Enums"]["leave_state"];
       };
       list_item_move: {
         Args: { direction: string; item_id: string; list_key: string };
@@ -449,6 +809,11 @@ export type Database = {
       };
     };
     Enums: {
+      attendance_choice: "present" | "leave" | "half_day" | "comp_leave";
+      attendance_state: "awaiting_choice" | "pending_review" | "approved" | "corrected";
+      day_status: "present" | "leave" | "half_day" | "comp_leave" | "absent";
+      leave_state: "submitted" | "approved" | "rejected" | "withdrawn" | "superseded" | "cancelled";
+      leave_type: "leave" | "half_day" | "comp_leave";
       member_role: "owner" | "admin" | "staff";
       member_status: "invited" | "active" | "deactivated";
     };
@@ -572,6 +937,11 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      attendance_choice: ["present", "leave", "half_day", "comp_leave"],
+      attendance_state: ["awaiting_choice", "pending_review", "approved", "corrected"],
+      day_status: ["present", "leave", "half_day", "comp_leave", "absent"],
+      leave_state: ["submitted", "approved", "rejected", "withdrawn", "superseded", "cancelled"],
+      leave_type: ["leave", "half_day", "comp_leave"],
       member_role: ["owner", "admin", "staff"],
       member_status: ["invited", "active", "deactivated"],
     },

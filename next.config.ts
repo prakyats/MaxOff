@@ -26,8 +26,13 @@ const nextConfig: NextConfig = {
   // CLAUDE.md is hand-written project memory, so we keep Next out of it.
   // Next 16's own guidance lives in `node_modules/next/dist/docs/`.
   agentRules: false,
-  // The dev-tools button otherwise sits on the sidebar footer (bottom-left).
-  devIndicators: { position: "bottom-right" },
+  // No dev-tools button. `{ position }` does still work in Next 16 (only `appIsrStatus`,
+  // `buildActivity` and `buildActivityPosition` were removed), but since 1.5 gave every role a
+  // bottom bar there is no free corner left: bottom-left and bottom-right sit on nav items,
+  // top-left on the brand and top-right on the account menu. It covered the More tab, which is
+  // exactly what a real-device pass needs to tap. Next still surfaces every compile and runtime
+  // error with `false` — only the route-type badge and the devtools panel go.
+  devIndicators: false,
 };
 
 const uploadsSourceMaps = Boolean(process.env.SENTRY_AUTH_TOKEN);

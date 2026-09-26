@@ -1,6 +1,7 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
-import { clearMailbox, confirmLinkFrom, latestEmailTo, signIn, USERS } from "./helpers";
+import { confirmLinkFrom, latestEmailTo, passGate, setPasswordFor, signIn, USERS } from "./helpers";
+import { wallClock } from "./run-state";
 
 /**
  * Sign in, sign out, the deactivated path and the recovery link (task 1.2), against
@@ -74,6 +75,9 @@ test.describe("signed in", () => {
 
     await page.getByRole("button", { name: "Account menu" }).click();
     await page.getByRole("menuitem", { name: "Log out" }).click();
+    // Logging out records the time, so it asks first (task 1.5).
+    await expect(page.getByRole("alertdialog")).toContainText("records your logout time");
+    await page.getByRole("alertdialog").getByRole("button", { name: "Log out" }).click();
     await expect(page).toHaveURL(/\/login\?reason=signed_out$/);
     await expect(page.locator('[data-slot="form-alert"], [role="status"]').first()).toContainText(
       "You're logged out",
@@ -105,17 +109,23 @@ test.describe("Staff on a phone", () => {
     await signIn(page, USERS.staff.email, USERS.staff.password);
     await page.goto("/me");
     await page.getByRole("button", { name: "Log out" }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Log out" }).click();
     await expect(page).toHaveURL(/\/login\?reason=signed_out$/);
   });
 });
 
 test.describe("recovery link", () => {
   test.skip(({ isMobile }) => Boolean(isMobile), "one run is enough");
-  // Changes this user's password, so it must not share a worker with anything else.
+  // Changes this user's password, so its steps run in order, and it puts the seeded password
+  // back when it is done (2.6), so the next run finds the person as the seed left them.
   test.describe.configure({ mode: "serial" });
 
+  test.afterAll(async () => {
+    await setPasswordFor(USERS.reset.id, USERS.reset.password);
+  });
+
   test("forgot password → email link → set password → signed in", async ({ page, baseURL }) => {
-    await clearMailbox();
+    const requested = wallClock();
     await page.goto("/forgot-password");
     await page.getByLabel("Email").fill(USERS.reset.email);
     await page.getByRole("button", { name: "Send me a link" }).click();
@@ -123,7 +133,7 @@ test.describe("recovery link", () => {
       "a link is on its way",
     );
 
-    const link = confirmLinkFrom(await latestEmailTo(USERS.reset.email), baseURL);
+    const link = confirmLinkFrom(await latestEmailTo(USERS.reset.email, requested), baseURL);
 
     await page.goto(link);
     await expect(page).toHaveURL(/\/set-password$/);
@@ -144,6 +154,8 @@ test.describe("recovery link", () => {
     await page.getByLabel("New password").fill(newPassword);
     await page.getByLabel("Repeat it").fill(newPassword);
     await page.getByRole("button", { name: "Save password and sign in" }).click();
+    // First sign-in of the day for this person: the day gate (2.2) comes before My Day.
+    await passGate(page);
     await expect(page).toHaveURL(/\/my-day$/);
 
     // The link was one-time: opening it again lands on sign in with the reason.
@@ -159,7 +171,7 @@ test.describe("recovery link", () => {
   });
 
   test("a deactivated member's link opens nothing", async ({ page, baseURL }) => {
-    await clearMailbox();
+    const requested = wallClock();
     await page.goto("/forgot-password");
     await page.getByLabel("Email").fill(USERS.deactivated.email);
     await page.getByRole("button", { name: "Send me a link" }).click();
@@ -167,7 +179,7 @@ test.describe("recovery link", () => {
       "a link is on its way",
     );
 
-    const link = confirmLinkFrom(await latestEmailTo(USERS.deactivated.email), baseURL);
+    const link = confirmLinkFrom(await latestEmailTo(USERS.deactivated.email, requested), baseURL);
 
     // GoTrue issued the link (it knows nothing about members); the app ends the session at once.
     await page.goto(link);

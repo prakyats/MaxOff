@@ -35,7 +35,7 @@
 | `attendance.view_all` | Full attendance and leave history of everyone | ✅ | | |
 | `finance.view` / `finance.edit` | Amounts, overrides, billing status, revenue (the billing **category** is set by the Owner but visible to Admins, see §2) | ✅ | | |
 | `reports.all` | Company reports, metrics, AI export | ✅ | | |
-| `reports.scoped` | Operational reports on their own scope, with no money | | ✅ | |
+| `reports.scoped` | Operational **work** reports on their own scope (PRODUCT §4.13): delivery, cycle progress, rework, their own approval turnaround, overdue, acknowledgement lag, workload per person from visible tasks. Never money, attendance, leave, snapshots or the AI export | | ✅ | |
 | `months.close` | Close a month, make corrections | ✅ | | |
 | `activity.view_all` | The full activity log | ✅ | | |
 | `records.hard_delete` | Permanent deletion (exceptional) | ✅ | | |
@@ -43,6 +43,8 @@
 ¹ Admins can edit lists and field definitions except company-level settings, and except **custom field definitions on `project` and `item`**, which are Owner-only (this closes the "amount in a number field" loophole, since there's no currency type). *Adjustable: it's just a row in `role_permissions`.*
 
 **The Owner doesn't mark attendance.** The first-login attendance gate applies to Admins and Staff only.
+
+**Screens (2.4):** `/approvals` opens for `attendance.decide`, `tasks.approve_final` or `tasks.approve_admin`; each group shows only when the viewer holds its key (Attendance and Leave: `attendance.decide`), so an Admin never sees them. The Approvals badge counts what the viewer may decide. `/people/[id]` (a person's attendance and leave history, with correct, edit and cancel) and the Owner's today card and people board need `attendance.view_all`.
 
 ## 2. Visibility rules (RLS)
 

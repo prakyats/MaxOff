@@ -14,6 +14,7 @@ import {
 } from "@/core/ui/primitives/dialog";
 import { Label } from "@/core/ui/primitives/label";
 import { Textarea } from "@/core/ui/primitives/textarea";
+import { ErrorText } from "@/core/ui/composites/error-text";
 
 export const REASON_MIN_LENGTH = 3;
 export const REASON_MAX_LENGTH = 1000;
@@ -39,9 +40,8 @@ export function ReasonDialog({
   description,
   label = "Reason",
   placeholder = "Explain briefly. This is recorded in the history.",
-  submitLabel = "Submit",
+  submitLabel,
   cancelLabel = "Cancel",
-  destructive = false,
   onSubmit,
 }: {
   open: boolean;
@@ -50,10 +50,14 @@ export function ReasonDialog({
   description?: ReactNode;
   label?: string;
   placeholder?: string;
-  submitLabel?: string;
+  /**
+   * The one solid red button, named for what it does ("Reject leave", "Cancel this leave"),
+   * never "Submit" or "OK" (ARCHITECTURE §14.1, the action colour rule).
+   */
+  submitLabel: string;
   cancelLabel?: string;
-  destructive?: boolean;
-  onSubmit: (reason: string) => void | Promise<void>;
+  /** Resolve `false` to keep the dialog open with the reason (the save failed). */
+  onSubmit: (reason: string) => void | boolean | Promise<void | boolean>;
 }) {
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -76,7 +80,8 @@ export function ReasonDialog({
     setError(problem);
     if (problem) return;
     startTransition(async () => {
-      await onSubmit(reason.trim());
+      // `false` means it failed (the caller has said why): keep the dialog and what was typed.
+      if ((await onSubmit(reason.trim())) === false) return;
       setReason("");
       onOpenChange(false);
     });
@@ -109,21 +114,21 @@ export function ReasonDialog({
               autoFocus
             />
             {error ? (
-              <p id={errorId} role="alert" className="text-destructive text-sm">
+              <ErrorText slot="field-error" id={errorId}>
                 {error}
-              </p>
+              </ErrorText>
             ) : null}
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => close(false)} disabled={pending}>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => close(false)}
+              disabled={pending}
+            >
               {cancelLabel}
             </Button>
-            <Button
-              type="submit"
-              variant={destructive ? "destructive" : "default"}
-              disabled={pending}
-              aria-busy={pending}
-            >
+            <Button type="submit" variant="primary" disabled={pending} aria-busy={pending}>
               {pending ? <Loader2Icon className="animate-spin" aria-hidden /> : null}
               {submitLabel}
             </Button>

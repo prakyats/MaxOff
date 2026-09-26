@@ -38,3 +38,21 @@ Decide after the pilot, based on whether staff need offline work at shoots and w
 - The lint rule makes `domain/` portable permanently, instead of relying on memory.
 - If a native app is built, roughly the backend, rules, permissions, notifications and domain logic carry over; the UI layer does not.
 - A mobile API (route handlers or direct RPC) would be added then, not now.
+
+## Amendment 2026-09-25 (task 2.8): client components are imported per file
+**Context.** The import rule `app → modules (index.ts only)` made every client component a module
+offers go through its barrel. Next does not tree-shake a barrel per route: each client component
+it re-exports becomes a client reference of every route that imports anything from it. Measured
+in 2.8, `/today`, `/my-day` and `/approvals` shipped the same 1441 KB of first-load JS, including
+the sign-in forms, the attendance history table and both Approvals groups.
+
+**Decision (owner, 2026-09-25).** `app/` may import a module's **client** components one file at
+a time: `@/modules/<m>/components/<file>`. The lint rule allows `components/` and nothing else
+(`data/`, `domain/` and `actions/` stay behind `index.ts`; another module still reaches only
+`index.ts`), and `tests/module-components.test.ts` fails if such an import names a file without
+`"use client"`. A module's `index.ts` exports no client components. The seams this ADR keeps are
+unchanged: the rules live in Postgres and `domain/`, and a component is web UI either way.
+
+**Consequences.** A route's first load carries only the client components it renders (`/today`
+1441 → 746 KB with the other 2.8 changes). A module's public surface is now `index.ts` plus its
+client component files, which is what a route could render anyway.

@@ -33,7 +33,7 @@ pnpm dev                     # http://localhost:3000 → /login
 
 ### Local sign-ins
 
-`supabase/seed.sql` creates five accounts for development and Playwright. They exist only on
+`supabase/seed.sql` creates these accounts for development and Playwright. Every seeded member "joined" 30 days before `db:reset`, so the day gate (2.2) applies to them today. They exist only on
 the local stack (the deploy workflow never seeds), and the passwords are fixtures, not secrets:
 
 | Email | Password | Role |
@@ -44,6 +44,7 @@ the local stack (the deploy workflow never seeds), and the passwords are fixture
 | `gone@maxoff.local` | `gone-local-password` | deactivated Staff (refused at sign-in) |
 | `reset@maxoff.local` | `reset-local-password` | Staff, used only by the Playwright recovery-link test (which changes its password) |
 | `leaver@maxoff.local` | `leaver-local-password` | Staff, used only by the Playwright team test (which deactivates and reactivates them) |
+| `gate-<kind>-<project>@maxoff.local` | `gate-local-password` | 12 Admin/Staff accounts used only by `e2e/day-gate.spec.ts` (kind: staff, admin, leave, half; project: desktop, mobile, mobile-lg), because a person has one attendance day per date |
 
 Password-reset emails from the local stack land in Mailpit: http://127.0.0.1:54324.
 
@@ -166,6 +167,7 @@ Secrets (**Environment secrets**):
 | `SUPABASE_DB_PASSWORD` | Supabase → the database password chosen when the project was created (Project Settings → Database to reset) |
 | `SUPABASE_SECRET_KEY` | Supabase → Project Settings → API Keys → Secret key (bypasses RLS; uploaded as a Worker secret) |
 | `SESSION_IP_HASH_SALT` | Any long random string (`openssl rand -hex 32`), different per environment. Salts the IP hash in `session_events`; uploaded as a Worker secret. Unset = the hash is stored as null |
+| `DAY_GATE_COOKIE_SECRET` | Any long random string (`openssl rand -hex 32`), different per environment. Signs the once-a-day gate pass (task 2.2); uploaded as a Worker secret. Unset = every page load asks the database, reported to Sentry once |
 | `SENTRY_AUTH_TOKEN` | Sentry → Settings → Auth Tokens. Optional: without it no source maps are uploaded |
 
 Variables (**Environment variables**):
@@ -228,8 +230,103 @@ email through `core/notifications` (Resend), so GoTrue never mails an invite (ta
    the build) and source maps uploaded to Sentry when the token is present. The build comes
    first so a failed build never leaves the database ahead of the Worker.
 3. `supabase link` + `supabase db push`: applies any new append-only migrations.
-4. Uploads `SUPABASE_SECRET_KEY` and `SESSION_IP_HASH_SALT` as Worker secrets, then
+4. Uploads `SUPABASE_SECRET_KEY`, `SESSION_IP_HASH_SALT` and `DAY_GATE_COOKIE_SECRET` as Worker secrets, then
    `wrangler deploy --env <name>`.
+
+### Branch previews (task 2.0)
+
+Every push to a branch other than `main` builds the app and uploads it as a new **version** of
+the staging Worker, so a phase can be judged on a real phone from the first task instead of
+after the merge. `.github/workflows/preview.yml`. Three URLs come back:
+
+| URL | Shape | Moves when |
+|---|---|---|
+| **Latest** | `https://latest-maxoff-staging.<subdomain>.workers.dev` | *any* branch is pushed. The permanent phone bookmark: add it to the home screen once and it always shows the newest preview |
+| **Branch** | `https://<branch>-maxoff-staging.<subdomain>.workers.dev` | that branch is pushed. The precise one |
+| **Commit** | `https://<version-prefix>-maxoff-staging.<subdomain>.workers.dev` | never. `<version-prefix>` is the first 8 characters of the Worker version ID, not the git SHA |
+
+On the `pixoraclips` subdomain the first two are
+`https://latest-maxoff-staging.pixoraclips.workers.dev` and, for the `phase-2` branch,
+`https://phase-2-maxoff-staging.pixoraclips.workers.dev`.
+
+**With two branches in flight, `latest` follows whichever pushed most recently** — it says nothing
+about which branch it is showing. When it matters which is which (comparing two approaches, or
+handing someone a link to one specific thing), use the branch URL. `latest` is for the common case
+of one branch at a time and a phone that should not need a new bookmark every phase.
+
+The branch alias is the branch name with everything outside `a-z0-9-` turned into a dash,
+lowercased; it gains a `b-` prefix if the branch starts with a digit, and is truncated with a short
+hash if `<alias>-maxoff-staging` would pass the 63-character DNS limit. The workflow log and the PR
+comment always print the URLs Cloudflare actually returned.
+
+An alias is written as an annotation on a version at upload time, and there is no command that
+adds one to an existing version, so a version carries exactly one alias. The workflow therefore
+uploads the same bundle twice per push — once aliased to the branch, once to `latest`. Assets are
+content-addressed, so the second upload re-sends almost nothing; it does mean two versions per
+push in `wrangler versions list`, both carrying the same commit as their tag.
+
+**A preview is never a deployment.** The workflow runs `wrangler versions upload`, which uploads
+code and configuration and stops there: `https://maxoff-staging.<subdomain>.workers.dev` goes on
+serving whatever `main` last deployed, and routes, custom domains and cron triggers are untouched
+(wrangler prints "To deploy this version to production traffic use the command
+`wrangler versions deploy`" at the end of every upload — that command is nowhere in this repo).
+Production is out of reach twice over: the workflow only ever passes `--env staging`, and the
+production environment sets `preview_urls: false` in `wrangler.jsonc`, so production versions get
+no public URL at all. The workflow also never runs `wrangler secret put` and never uses
+`wrangler-action`'s `secrets:` block, because both of those publish a deployment; the preview
+version inherits the staging Worker's existing secrets instead.
+
+**What a preview runs against.** The staging Supabase project, with the `staging` GitHub
+environment's variables, built with `NEXT_PUBLIC_APP_ENV=staging` — which is what gives a preview
+the same security headers, `robots.txt: Disallow: /` and the same security headers as staging.
+**Measured on the first real run:** Cloudflare's preview edge *replaces* `X-Robots-Tag` with its
+own `noindex` on every response from a preview URL — staging serves the app's
+`noindex, nofollow`, a preview serves `noindex`, even on static pages. Previews are therefore
+noindexed whatever the build does, which is stronger than relying on the app header; only
+`nofollow` is lost, and a sign-in-gated app exposes no crawlable links anyway. Signing in works normally (email + password is server-side
+and needs no redirect allow-list). Two smaller notes: `NEXT_PUBLIC_APP_URL` is set to the preview's
+own origin, so **invite** links generated on a preview point back at that preview, while
+**password-recovery** mails come from GoTrue's Site URL and land on staging either way; and
+`SENTRY_AUTH_TOKEN` is deliberately left out, so previews upload no source maps and cut no Sentry
+release — runtime errors still arrive, tagged `staging`, with minified stacks.
+
+**Previews never run migrations.** Migrations reach staging from `main` (the deploy workflow) or
+from a tag, and from nowhere else. A branch that adds migrations therefore previews against a
+staging database that lacks them, and the PR comment says so in a warning block listing the files.
+When that schema really is wanted on staging: **Actions → Preview → Run workflow →** pick the
+branch **→ `staging-migrations`**. It refuses to run on `main`, lists what it will apply, and
+shares a concurrency group with the staging deploy so it can never race one. Staging is shared and
+migrations are append-only, so what it pushes stays there until the branch merges.
+
+**Where the URLs appear.** All three land in the run's job summary always, and in a single PR
+comment that is edited in place on every push (matched by an HTML marker, so pushes never stack
+up comments). A
+phase branch usually has no PR until `/review-phase`, which is fine — the alias is stable, so the
+bookmark works long before a PR exists.
+
+**Not triggered by:** pushes to `main` (that is the staging deploy), tag pushes, or pushes that
+only touch `docs/**`, `**/*.md` or `screenshots/**`. A docs-only commit cannot change the UI and
+the alias keeps serving the last real build, so it is not worth a seven-minute run.
+
+**Two things that must be true in repository settings**, or previews fail before the first step:
+the `staging` environment's **deployment branches** rule has to allow branches other than `main`
+("All branches" is the default), and it must not have a required reviewer. Preview runs appear in
+the Environments panel under `staging` because they borrow its variables and secrets; the job sets
+no environment URL, so the panel still shows the real staging deployment. The **Run workflow**
+button for `staging-migrations` only appears once `preview.yml` is on `main` — GitHub lists
+`workflow_dispatch` from the default branch only. Until then, push a branch's migrations with
+`pnpm supabase db push` locally.
+
+**Cleaning up, and what it costs.** Nothing to delete and nothing to pay for. There is no
+`wrangler` command to remove an alias — an alias is only ever created during a version upload, so
+pushing again just repoints it, and Cloudflare keeps the 1000 most recently deployed aliases and
+drops the least recent beyond that. `latest` is therefore permanent by construction, and a
+finished branch's alias goes on serving its last build until it ages out. That is not a leak: it
+is a staging build, noindexed and sign-in-only, exactly like staging itself. Stale versions and
+aliases are not billed — Workers bills requests and CPU, so a preview nobody opens costs nothing.
+The only recurring cost is the GitHub Actions minutes each build spends, which is why docs-only
+pushes are skipped. To stop preview URLs for good, set `preview_urls: false` on the staging
+environment in `wrangler.jsonc` and let `main` deploy.
 
 ### Confirming the Sentry pipeline
 
@@ -263,6 +360,50 @@ The `Deploy` workflow only triggers once its file is on `main`, so the first sta
 happens when `phase-0` merges. A `v*` tag pushed before the `production` environment is filled
 fails at the build or migration step and deploys nothing. After it, open the staging URL, install the app from the
 browser menu (desktop and phone), and trigger a test error to see it in Sentry.
+
+### Installing on a phone (PWA)
+
+Open the app and use **Add to home screen** / **Install app**. The installed shell is not the
+browser: it takes its status-bar band from the **manifest's `theme_color`**, and a manifest has
+exactly one, which cannot vary by colour scheme.
+
+That is why `theme_color` and `background_color` deliberately differ (`public/manifest.webmanifest`,
+asserted in `pwa-files.test.ts`):
+
+| Field | Token | Why |
+|---|---|---|
+| `theme_color` | **dark** `--background` | The installed band. MaxOff is dark-first on phones, and a dark band above a light app reads as an intentional header, where a light band above a dark app reads as broken. Chrome picks the glyph colour from this value's luminance, so the clock stays readable in both themes |
+| `background_color` | **dark** `--background` | The Android splash while the app starts. Same value as `theme_color` on purpose: a light splash handing over to a dark app is the white flash the band fix was meant to end |
+
+The `<meta name="theme-color">` pair in the root layout — plus `ThemeColorMeta`, which rewrites it
+when someone picks Light or Dark explicitly — governs **Chrome's tab toolbar**, not the installed
+shell. Confirmed on a Galaxy S23: the toolbar follows the in-app theme, the installed band does not.
+
+**Testing a manifest change: install from a fresh origin.** A branch preview URL
+(`https://<branch>-maxoff-staging.<subdomain>.workers.dev`) is a different origin with an empty
+HTTP cache and no service worker, so what you install is definitely the current manifest. This is
+the reliable test, and it is why previews are worth having for more than screenshots.
+
+Uninstall-and-reinstall on the *same* origin is **not** reliable: the browser can hand the install
+a manifest it still holds in its HTTP cache, so the reinstalled app shows the old name, icons or
+band and the change looks like it failed. That is exactly what happened in 1.5, four rounds of it,
+because `/manifest.webmanifest` was served with `max-age=3600`.
+
+Both caching layers are now fixed and covered by `pwa-files.test.ts`:
+
+| File | Cache-Control | Service worker |
+|---|---|---|
+| `/manifest.webmanifest` | `no-cache, must-revalidate` | never cached |
+| `/icons/*` | `public, max-age=0, must-revalidate` | stale-while-revalidate — the names are stable, not content-hashed, so a changed icon heals on the next load |
+| `/_next/static/*` | `immutable`, one year | cache-first, correctly: those names carry a content hash |
+| `/sw.js` | `no-cache` | n/a |
+
+A stale manifest or icon fails **silently** — the app just keeps the old value — so these are
+asserted rather than left to review.
+
+**iOS is different again** and is not covered by any of this: an installed iPhone app takes its
+status bar from `apple-mobile-web-app-status-bar-style`, which is `default` on purpose (see
+PROGRESS). That needs its own check on real hardware before the 6.6 pilot.
 
 ## Architecture rules that lint enforces
 

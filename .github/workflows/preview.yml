@@ -1,0 +1,384 @@
+# Branch previews (task 2.0, ADR-0003, ARCHITECTURE §18).
+#
+# Every push to a branch other than `main` uploads the build as a new **version** of the staging
+# Worker and hands it back as three URLs: one that pins this commit, one alias named after the
+# branch, and a rolling `latest` alias that always points at the newest preview from any branch
+# (the permanent phone bookmark). An alias can only be written when a version is uploaded, and a
+# version carries exactly one, so the same bundle is uploaded twice — see the upload step.
+#
+# A version is not a deployment. `wrangler versions upload` uploads code and configuration and
+# nothing else: `https://maxoff-staging.<subdomain>.workers.dev` keeps serving whatever `main`
+# last deployed until somebody runs `wrangler versions deploy`, and triggers (routes, custom
+# domains, cron) are not touched at all — wrangler says so itself at the end of every upload.
+# Production is never in scope here: this workflow only ever passes `--env staging`, and the
+# production environment sets `preview_urls: false` in wrangler.jsonc.
+#
+# Previews run against the **staging** Supabase project with the staging environment's
+# variables. The preview build itself never runs migrations; the `staging-migrations` job at the
+# bottom of this file does, **before** the build, on every push to a `phase-*` branch: it lists
+# the linked project's migrations and pushes only when staging is missing a local one (seconds
+# when nothing is pending, robust against an earlier failed run). Other branches, and a run
+# where that job failed, preview against a database that lacks them, and the PR comment says so.
+# The manual dispatch stays as the fallback. Staging only: production migrations go out with a
+# `v*` tag (deploy.yml), never from here.
+#
+# Secrets are given to the one step that needs them, as in deploy.yml. Note what is *not* here:
+# no `wrangler secret put` and no `cloudflare/wrangler-action` `secrets:` block, because both
+# publish a new deployment — which is exactly what a preview must not do. The preview version
+# inherits the Worker's existing secrets from the live staging deployment instead.
+name: Preview
+
+on:
+  push:
+    branches-ignore: [main]
+    # A docs-only push cannot change the UI, and the alias keeps serving the last real build,
+    # so there is nothing to look at for the seven minutes it would cost.
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - "screenshots/**"
+  workflow_dispatch:
+    inputs:
+      job:
+        description: "What to run on the selected branch"
+        type: choice
+        default: preview
+        options:
+          - preview
+          - staging-migrations
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    name: preview
+    # After the migrations, so the build previews against the schema it was written for. A
+    # skipped migrations job (another branch, or a manual preview) does not block the preview.
+    needs: [staging-migrations]
+    if: >-
+      always()
+      && (github.event_name == 'push' || inputs.job == 'preview')
+      && contains(fromJSON('["success", "skipped"]'), needs.staging-migrations.result)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    concurrency:
+      # Per branch, and the newest push wins: an older build's alias would land second and
+      # leave the bookmark pointing at stale code.
+      group: preview-${{ github.ref }}
+      cancel-in-progress: true
+    permissions:
+      contents: read
+      # Upserting the one preview comment on the branch's PR, when it has one.
+      pull-requests: write
+    # The `staging` GitHub environment holds the variables and secrets a preview needs, and
+    # borrowing them is the only reason this job names it. There is deliberately no `url:`:
+    # nothing here is deployed, so the Environments panel must go on showing the real staging
+    # deployment. The environment's "deployment branches" rule has to allow branches other than
+    # `main`, or every preview stops before the first step (README → "Branch previews").
+    environment:
+      name: staging
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The migration check diffs the branch against its merge base with `main`.
+          fetch-depth: 0
+
+      - name: Work out the alias and the preview URLs
+        id: names
+        env:
+          STAGING_URL: ${{ vars.NEXT_PUBLIC_APP_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${STAGING_URL:-}" ]; then
+            echo "::error::NEXT_PUBLIC_APP_URL is not set in the staging GitHub environment."
+            exit 1
+          fi
+
+          # A workers.dev URL is <worker>.<subdomain>.workers.dev, so the staging URL already
+          # carries both halves a preview URL needs. Nothing new to configure.
+          host="${STAGING_URL#*://}"; host="${host%%/*}"
+          worker="${host%%.*}"
+          subdomain="${host#*.}"
+
+          branch="$GITHUB_REF_NAME"
+          # Wrangler's own rule: lowercase letters, digits and dashes, starting with a letter,
+          # and `<alias>-<worker>` must fit in a 63-character DNS label.
+          alias="$(printf '%s' "$branch" | tr -c 'a-zA-Z0-9-' '-' | tr -s '-' | sed 's/^-*//; s/-*$//' | tr 'A-Z' 'a-z')"
+          case "$alias" in [a-z]*) ;; *) alias="b-$alias" ;; esac
+          max=$(( 63 - ${#worker} - 1 ))
+          if [ "${#alias}" -gt "$max" ]; then
+            suffix="$(printf '%s' "$branch" | sha1sum | cut -c1-6)"
+            alias="$(printf '%s' "$alias" | cut -c1-"$(( max - 7 ))" | sed 's/-*$//')-$suffix"
+          fi
+          if ! printf '%s' "$alias" | grep -Eq '^[a-z]([a-z0-9-]*[a-z0-9])?$'; then
+            echo "::error::Branch '$branch' does not yield a usable preview alias ('$alias'). Rename the branch."
+            exit 1
+          fi
+
+          # Predicted only so the build can inline its own origin; the comment always uses the
+          # URLs wrangler itself reports. A custom domain on staging would make this
+          # underivable, and the build falls back to the staging origin.
+          if [ "${host%.workers.dev}" != "$host" ] && [ "$host" != "$subdomain" ]; then
+            app_url="https://${alias}-${worker}.${subdomain}"
+          else
+            echo "::notice::$host is not a workers.dev host, so the preview origin cannot be predicted; building with the staging origin."
+            app_url="$STAGING_URL"
+          fi
+
+          {
+            echo "branch=$branch"
+            echo "alias=$alias"
+            echo "app_url=$app_url"
+            echo "staging_url=$STAGING_URL"
+          } >>"$GITHUB_OUTPUT"
+          echo "alias=$alias, app_url=$app_url"
+
+      - name: Look for migrations this branch adds
+        id: migrations
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          # Three-dot: what this branch added since it left `main`. Staging tracks `main`, so
+          # these are exactly the migrations the staging database will not have.
+          git diff --name-only --diff-filter=AR "origin/main...HEAD" -- supabase/migrations \
+            >"$RUNNER_TEMP/migrations.txt" || true
+          count="$(grep -c . "$RUNNER_TEMP/migrations.txt" || true)"
+          echo "count=$count" >>"$GITHUB_OUTPUT"
+          echo "$count migration(s) on this branch that staging does not have."
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      # NEXT_PUBLIC_APP_ENV=staging is what makes a preview noindexed: `responseHeaders()` in
+      # core/http adds `X-Robots-Tag: noindex, nofollow` to the security headers on staging,
+      # and /robots.txt answers `Disallow: /`. A preview is a staging build in every respect.
+      # Cloudflare's preview edge then replaces X-Robots-Tag with its own `noindex` on every
+      # response from a preview URL, so a preview stays unindexable whatever the build does.
+      # SENTRY_AUTH_TOKEN is deliberately absent: no source-map upload and no Sentry release
+      # per push. Runtime errors still report, tagged `staging`, with minified stacks.
+      - name: Build the Worker (OpenNext)
+        env:
+          NEXT_PUBLIC_APP_ENV: staging
+          NEXT_PUBLIC_APP_URL: ${{ steps.names.outputs.app_url }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          NEXT_PUBLIC_SENTRY_DSN: ${{ vars.NEXT_PUBLIC_SENTRY_DSN }}
+        run: pnpm build:worker
+
+      # An alias is a single `workers/alias` annotation written when the version is uploaded,
+      # and no command adds one to an existing version, so one version can carry exactly one
+      # alias. To get both the branch alias and the rolling `latest`, the same bundle is
+      # uploaded twice. The second upload is cheap: the assets are content-addressed, so
+      # Cloudflare already has every file and only the Worker metadata goes up again.
+      - name: Upload the preview versions (upload, never deploy)
+        id: upload
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          ALIAS: ${{ steps.names.outputs.alias }}
+        run: |
+          set -euo pipefail
+          upload() {
+            WRANGLER_OUTPUT_FILE_PATH="$RUNNER_TEMP/wrangler-$1.json" \
+              pnpm exec wrangler versions upload \
+                --env staging \
+                --preview-alias "$1" \
+                --tag "${GITHUB_SHA:0:8}" \
+                --message "$2"
+          }
+          upload "$ALIAS" "$GITHUB_REF_NAME @ ${GITHUB_SHA:0:8}"
+          # A branch actually named `latest` already owns the alias, and its output file is
+          # already the one the parser reads below, so one upload is the whole job.
+          if [ "$ALIAS" != "latest" ]; then
+            upload latest "$GITHUB_REF_NAME @ ${GITHUB_SHA:0:8} (rolling latest)"
+          fi
+          # wrangler's machine-readable log is the authority on every URL, rather than the
+          # shape this workflow guessed earlier. WRANGLER_OUTPUT_FILE_PATH makes it write one
+          # JSON object per line; the last `version-upload` entry is that upload.
+          BRANCH_OUTPUT="$RUNNER_TEMP/wrangler-$ALIAS.json" \
+          LATEST_OUTPUT="$RUNNER_TEMP/wrangler-latest.json" \
+          node -e '
+            const fs = require("node:fs");
+            const read = (file) => {
+              const entry = fs.readFileSync(file, "utf8").trim().split("\n")
+                .map((line) => JSON.parse(line))
+                .reverse()
+                .find((e) => e.type === "version-upload");
+              if (!entry) throw new Error("No version-upload entry in " + file + ".");
+              if (!entry.preview_url) {
+                throw new Error(
+                  "The version uploaded, but Cloudflare returned no preview URL, which means " +
+                    "preview URLs are off for this Worker. Check Workers and Pages -> " +
+                    "maxoff-staging -> Settings -> Domains and Routes, and that wrangler.jsonc " +
+                    "still sets preview_urls: true on the staging environment.",
+                );
+              }
+              return entry;
+            };
+            const branch = read(process.env.BRANCH_OUTPUT);
+            const latest = read(process.env.LATEST_OUTPUT);
+            fs.appendFileSync(
+              process.env.GITHUB_OUTPUT,
+              [
+                "version_id=" + (branch.version_id || ""),
+                "preview_url=" + branch.preview_url,
+                "alias_url=" + (branch.preview_alias_url || branch.preview_url),
+                "latest_url=" + (latest.preview_alias_url || latest.preview_url),
+              ].join("\n") + "\n",
+            );
+          '
+
+      - name: Publish the URLs (job summary, and the PR comment if there is a PR)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ steps.names.outputs.branch }}
+          ALIAS_URL: ${{ steps.upload.outputs.alias_url }}
+          LATEST_URL: ${{ steps.upload.outputs.latest_url }}
+          PREVIEW_URL: ${{ steps.upload.outputs.preview_url }}
+          STAGING_URL: ${{ steps.names.outputs.staging_url }}
+          MIGRATION_COUNT: ${{ steps.migrations.outputs.count }}
+          MIGRATIONS_JOB: ${{ needs.staging-migrations.result }}
+        run: |
+          set -euo pipefail
+          body="$RUNNER_TEMP/comment.md"
+          {
+            # The marker is how the next push finds this comment instead of adding another.
+            echo '<!-- maxoff-preview -->'
+            echo '### Branch preview'
+            echo
+            echo '| What | URL | Moves when |'
+            echo '|---|---|---|'
+            echo "| **Branch** — the precise one | <$ALIAS_URL> | anything is pushed to \`$BRANCH\` |"
+            echo "| **Latest** — permanent bookmark | <$LATEST_URL> | *any* branch is pushed |"
+            echo "| **This commit** (\`${GITHUB_SHA:0:8}\`) | <$PREVIEW_URL> | never |"
+            echo
+            echo "With two branches in flight, \`latest\` follows whichever pushed most recently — use the branch URL when it matters which is which."
+            echo
+            echo "Staging Supabase, staging variables, \`noindex\`, same security headers."
+            echo "Uploaded as a Worker *version*, not deployed: <$STAGING_URL> still serves \`main\`."
+            if [ "${MIGRATION_COUNT:-0}" != "0" ] && [ "${MIGRATIONS_JOB:-skipped}" = "success" ]; then
+              echo
+              echo '> [!NOTE]'
+              echo "> **This branch adds $MIGRATION_COUNT migration(s); the staging database has them** (applied by the \`staging migrations\` job of this run, or already there)."
+              sed 's|^|> - `|; s|$|`|' "$RUNNER_TEMP/migrations.txt"
+              echo '> They are append-only and stay on staging until the branch merges.'
+            elif [ "${MIGRATION_COUNT:-0}" != "0" ]; then
+              echo
+              echo '> [!WARNING]'
+              echo "> **This branch adds $MIGRATION_COUNT migration(s) that the staging database may not have** (the \`staging migrations\` job did not run or failed)."
+              echo '> Anything that depends on the new schema will error in this preview.'
+              sed 's|^|> - `|; s|$|`|' "$RUNNER_TEMP/migrations.txt"
+              echo '>'
+              echo '> To apply them: Actions → **Preview** → **Run workflow** → this branch → `staging-migrations`.'
+              echo '> They are append-only and stay on staging until the branch merges.'
+            fi
+            echo
+            echo "<sub>Updated by \`.github/workflows/preview.yml\` · run [$GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)</sub>"
+          } >"$body"
+
+          cat "$body" >>"$GITHUB_STEP_SUMMARY"
+
+          pr="$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number // empty')"
+          if [ -z "$pr" ]; then
+            echo "No open PR for $BRANCH — the URLs are in the job summary above. The alias is stable, so a bookmark keeps working without one."
+            exit 0
+          fi
+          comment_id="$(gh api "repos/$GITHUB_REPOSITORY/issues/$pr/comments" --paginate \
+            --jq '.[] | select(.body | startswith("<!-- maxoff-preview -->")) | .id' | head -n 1)"
+          if [ -n "$comment_id" ]; then
+            jq -Rs '{body: .}' <"$body" | gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$comment_id" --input - >/dev/null
+            echo "Updated comment $comment_id on PR #$pr."
+          else
+            jq -Rs '{body: .}' <"$body" | gh api -X POST "repos/$GITHUB_REPOSITORY/issues/$pr/comments" --input - >/dev/null
+            echo "Posted the preview comment on PR #$pr."
+          fi
+
+  # Automatic on every push to a `phase-*` branch (process change 2026-09-26, owner decision;
+  # manual-only since task 2.0), and still available by hand for any branch. It moves the staging
+  # schema only when staging is missing a local migration, and staging is shared: the migrations
+  # stay there until the branch merges. Production is never in scope.
+  staging-migrations:
+    name: staging migrations
+    if: >-
+      (github.event_name == 'push' && startsWith(github.ref_name, 'phase-'))
+      || (github.event_name == 'workflow_dispatch' && inputs.job == 'staging-migrations')
+    runs-on: ubuntu-latest
+    outputs:
+      applied: ${{ steps.push.outputs.applied }}
+    timeout-minutes: 15
+    concurrency:
+      # deploy.yml's staging job uses this same group, so this can never race a `main` deploy.
+      group: deploy-staging
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    environment:
+      name: staging
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Refuse to run on main, and list what will be applied
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF_NAME" = "main" ]; then
+            echo "::error::main's migrations go out with the staging deploy (deploy.yml). Nothing to do here."
+            exit 1
+          fi
+          git fetch --no-tags origin main
+          git diff --name-only --diff-filter=AR "origin/main...HEAD" -- supabase/migrations \
+            >"$RUNNER_TEMP/migrations.txt" || true
+          if [ ! -s "$RUNNER_TEMP/migrations.txt" ]; then
+            echo "::notice::$GITHUB_REF_NAME adds no migrations that staging is missing. Running db push anyway is harmless."
+          fi
+          {
+            echo "### Migrations this branch adds"
+            echo
+            sed 's|^|- `|; s|$|`|' "$RUNNER_TEMP/migrations.txt"
+          } >>"$GITHUB_STEP_SUMMARY"
+          cat "$RUNNER_TEMP/migrations.txt"
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Push only the migrations staging is missing
+        id: push
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+        run: |
+          set -euo pipefail
+          pnpm supabase link --project-ref "$SUPABASE_PROJECT_REF"
+          # One row per version: Local | Remote | Time, versions in backticks (CLI 2.117; older
+          # builds drew the table with │). A local version with an empty remote column is pending.
+          pnpm supabase migration list --linked --password "$SUPABASE_DB_PASSWORD" \
+            | tee "$RUNNER_TEMP/list.txt"
+          sed 's/│/|/g' "$RUNNER_TEMP/list.txt" >"$RUNNER_TEMP/list.pipes"
+          rows="$(awk -F'|' 'NF >= 2 { gsub(/[[:space:]`]/, "", $1); if ($1 ~ /^[0-9]{14}$/) c++ } END { print c + 0 }' "$RUNNER_TEMP/list.pipes")"
+          pending="$(awk -F'|' 'NF >= 2 { gsub(/[[:space:]`]/, "", $1); gsub(/[[:space:]`]/, "", $2); if ($1 ~ /^[0-9]{14}$/ && $2 == "") print $1 }' "$RUNNER_TEMP/list.pipes")"
+          if [ "$rows" = "0" ]; then
+            # The listing could not be read: pushing is idempotent, so push rather than skip.
+            echo "::warning::Could not read the migration list; running db push anyway."
+            pending="(unknown)"
+          fi
+          if [ -z "$pending" ]; then
+            echo "Staging has every local migration; nothing to push."
+            echo "applied=false" >>"$GITHUB_OUTPUT"
+            echo "Staging already had every local migration." >>"$GITHUB_STEP_SUMMARY"
+          else
+            echo "Pending on staging:"; echo "$pending"
+            pnpm supabase db push
+            echo "applied=true" >>"$GITHUB_OUTPUT"
+            { echo "### Applied to staging"; echo; echo "$pending" | sed 's|^|- `|; s|$|`|'; } >>"$GITHUB_STEP_SUMMARY"
+          fi

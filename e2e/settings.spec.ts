@@ -1,6 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
-import { storageStateFor } from "./helpers";
+import { removeJobTitles, storageStateFor } from "./helpers";
 
 /**
  * Settings (task 1.4): the company profile, weekly off days, holidays, thresholds and the job
@@ -16,7 +16,9 @@ test.describe.configure({ mode: "serial" });
 
 test.describe("Owner", () => {
   test.use({ storageState: storageStateFor("owner") });
-  test.skip(({ isMobile }) => Boolean(isMobile), "Settings is an Owner desktop screen");
+  // Settings is a first-class phone screen since 1.5; these tests drive the desktop controls
+  // (the four-icon list row, the wide forms). The phone shapes are in `mobile.spec.ts`.
+  test.skip(({ isMobile }) => Boolean(isMobile), "these drive the desktop controls");
 
   test("opens every built section from the control centre", async ({ page }) => {
     await page.goto("/settings");
@@ -83,24 +85,34 @@ test.describe("Owner", () => {
     await page.goto("/settings/days-off");
     await expect(page.getByText("No holidays yet")).toBeVisible();
 
-    await page.getByLabel("Date").fill(HOLIDAY.date);
-    await page.getByLabel("Name", { exact: true }).fill(HOLIDAY.name);
-    await page.getByRole("button", { name: "Add holiday" }).click();
+    // "Add holiday" opens a dialog; the red commit is inside it (the action colour rule, 2026-09-26).
+    const addHoliday = async (date: string, name: string) => {
+      await page.getByRole("button", { name: "Add holiday" }).click();
+      const dialog = page.getByRole("dialog", { name: "Add a holiday" });
+      await dialog.getByLabel("Date").fill(date);
+      await dialog.getByLabel("Name", { exact: true }).fill(name);
+      await dialog.getByRole("button", { name: "Add holiday" }).click();
+      return dialog;
+    };
+    await addHoliday(HOLIDAY.date, HOLIDAY.name);
     await expect(page.getByText("Holiday added")).toBeVisible();
     const row = page.locator('[data-slot="holiday-row"]');
     await expect(row).toHaveCount(1);
     await expect(row).toContainText(HOLIDAY.name);
     await expect(row).toContainText("Friday");
 
-    await page.getByLabel("Date").fill(HOLIDAY.date);
-    await page.getByLabel("Name", { exact: true }).fill("Same date again");
-    await page.getByRole("button", { name: "Add holiday" }).click();
-    await expect(page.locator('[data-slot="form-alert"]')).toContainText(
+    const again = await addHoliday(HOLIDAY.date, "Same date again");
+    await expect(again.locator('[data-slot="form-alert"]')).toContainText(
       "already a holiday on that date",
     );
+    await again.getByRole("button", { name: "Cancel" }).click();
+    await expect(again).toBeHidden();
 
     await page.getByRole("button", { name: `Remove ${HOLIDAY.name}` }).click();
-    await page.getByRole("button", { name: "Remove", exact: true }).click();
+    await page
+      .getByRole("alertdialog")
+      .getByRole("button", { name: `Remove ${HOLIDAY.name}` })
+      .click();
     await expect(page.getByText("Holiday removed")).toBeVisible();
     await expect(page.getByText("No holidays yet")).toBeVisible();
   });
@@ -128,6 +140,9 @@ test.describe("Owner", () => {
   });
 
   test("adds, renames, reorders and archives a job title", async ({ page }) => {
+    // What this test leaves behind (an archived "Colourist") would refuse the rename on the
+    // next run of a database that was not reset (2.6).
+    await removeJobTitles(["Colorist", "Colourist", "Sound Engineer"]);
     await page.goto("/settings/job-titles");
     const names = page.locator('[data-slot="list-item"]');
     await expect(names).toHaveText([/Video Editor/, /Graphic Designer/]);
@@ -159,10 +174,14 @@ test.describe("Owner", () => {
     await expect(names).toHaveText([/Video Editor/, /Graphic Designer/, /Colourist/]);
 
     await page.getByRole("button", { name: "Archive Colourist" }).click();
-    await page.getByRole("button", { name: "Archive", exact: true }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Archive Colourist" }).click();
     await expect(page.getByText("Job title archived")).toBeVisible();
     await expect(names).toHaveText([/Video Editor/, /Graphic Designer/]);
-    await expect(page.locator('[data-slot="archived-list-item"]')).toContainText("Colourist");
+    // Its own archived row: another spec's archived title may sit beside it.
+    const archivedColourist = page.locator('[data-slot="archived-list-item"]', {
+      hasText: "Colourist",
+    });
+    await expect(archivedColourist).toBeVisible();
 
     // An archived title is not offered when someone is invited.
     await page.goto("/people");
@@ -173,7 +192,7 @@ test.describe("Owner", () => {
     await page.keyboard.press("Escape");
 
     await page.goto("/settings/job-titles");
-    await page.getByRole("button", { name: "Restore" }).click();
+    await archivedColourist.getByRole("button", { name: "Restore" }).click();
     await expect(page.getByText("Job title restored")).toBeVisible();
     await expect(names).toHaveText([/Video Editor/, /Graphic Designer/, /Colourist/]);
   });
@@ -181,7 +200,7 @@ test.describe("Owner", () => {
 
 test.describe("Admin", () => {
   test.use({ storageState: storageStateFor("admin") });
-  test.skip(({ isMobile }) => Boolean(isMobile), "Settings is a desktop screen");
+  test.skip(({ isMobile }) => Boolean(isMobile), "these drive the desktop controls");
 
   test("gets the lists but none of the company settings", async ({ page }) => {
     await page.goto("/settings");
@@ -197,6 +216,8 @@ test.describe("Admin", () => {
   });
 
   test("edits the job titles (lists.manage, PERMISSIONS §1)", async ({ page }) => {
+    // The archived one from an earlier run would make "add" a duplicate (2.6).
+    await removeJobTitles(["Colorist", "Colourist", "Sound Engineer"]);
     await page.goto("/settings/job-titles");
     await page.getByLabel("Add a job title").fill("Sound Engineer");
     await page.getByRole("button", { name: "Add", exact: true }).click();
@@ -205,7 +226,10 @@ test.describe("Admin", () => {
 
     // Put the list back as it was: an Admin may archive too.
     await page.getByRole("button", { name: "Archive Sound Engineer" }).click();
-    await page.getByRole("button", { name: "Archive", exact: true }).click();
+    await page
+      .getByRole("alertdialog")
+      .getByRole("button", { name: "Archive Sound Engineer" })
+      .click();
     await expect(page.getByText("Job title archived")).toBeVisible();
   });
 });

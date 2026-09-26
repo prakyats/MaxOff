@@ -21,7 +21,7 @@ It answers these questions every day:
 
 - **Internal only.** Invite-only, with no public sign-up. **Clients never log in.**
 - **Timezone:** everything runs on **Asia/Kolkata (IST)**.
-- **Devices:** desktop-first web app. It must work well on phones for Staff, and be installable as a PWA.
+- **Devices: mobile is a first-class layout for every role, not a narrow version of the desktop one** (decided 2026-09-23). The phone is how the Owner approves on the way to a shoot and how Staff work all day; the desktop is where long lists and reports get read. A screen that only works by shrinking its desktop layout is not finished (ARCHITECTURE §14.1). Installable as a PWA.
 - **SaaS later is possible but isn't the goal.** Only cheap seams are kept (see ARCHITECTURE §1).
 
 ## 2. Product principles
@@ -35,6 +35,8 @@ It answers these questions every day:
 8. **Never destroy history.** Changes are recorded, corrections sit alongside the original, and records are archived rather than deleted.
 9. **Operational progress isn't revenue.** Revenue counts only after the Owner approves the work.
 10. **Collect facts, don't judge.** MaxOff stores raw operational data for the Owner or an AI tool to analyse. It never rates employees.
+11. **First glance, then depth** (owner decision 2026-09-24, CLAUDE.md engineering rule 12). Each screen's first view shows only what answers that role's question (§1 table) and what needs action now; details and occasional actions live one level deeper, on sub-pages or sheets. Guardrails: **daily actions stay on the first screen** (Approve, Log out, the gate); **nothing is more than two taps from its tab**; **every count or summary is tappable** and opens the filtered detail behind it; **exceptions get rows, the normal case collapses to a count.** Every plan that adds or changes UI says what the first screen shows, what moves one tap deeper, and that no daily action got deeper (`/start-task`).
+12. **Red means commit** (owner decision 2026-09-26, the action colour rule; spec in ARCHITECTURE §14.1). Solid brand red is the **one** action that commits a change on a screen, dialog, sheet or sticky bar (Save, Submit, Request leave, the confirmation's button). A destructive action is a red outline until it is confirmed, and its confirmation's one red button names what it does ("Deactivate Ravi"), never "OK" or "Yes". Backing out (Cancel, Keep editing, Review) is a neutral outline anyone can see. A button that only opens a form or a confirmation is neutral solid ("Request leave", "Approve", "Approve all 3"): the red is inside, where the change happens. Red is never decoration: selected tabs and navigation stay neutral, focus is a neutral ring, and red otherwise appears only as error text with an icon and as the count badge that asks for attention.
 
 ---
 
@@ -159,6 +161,18 @@ Daily work allotted to people. **Only the Owner and Admins create tasks.**
   1. Today at a glance: present, on leave, pending attendance, pending leave, pending task approvals, pending item approvals, due today, overdue, upcoming events, client work progress.
   2. **Approvals inbox** with one-click Approve, Reject, Review, Reassign and Extend deadline, plus bulk actions. There's no need to open other modules.
   3. People (attendance, login and logout, logout not recorded, overtime) · Today's tasks · Overdue and risks · Calendar strip · Client progress · Revenue snapshot.
+     Tapping a person on the people board opens **their attendance and leave history** directly (People lives in the More sheet; looking someone up shouldn't take three taps while they're standing in front of you).
+  - **First glance, then depth on Owner Today** (§2 principle 11's first application, decided 2026-09-24, **built in 6.2**): order is **counts → approvals inbox → "Needs you" → the rest of 6.2.** The attendance card's counts stay, and **tapping a count opens the full people board filtered to that group** ("Waiting" opens Approvals). Under it, **"Needs you"** lists only the people who need attention today: waiting for a decision, not chosen yet, absent, logout not recorded, overtime flagged; when nobody does, it says **"Everyone's in."** The full board (everyone expected today, 2.4) moves to its own drill-down screen behind **"See all N people"**, with the ARCHITECTURE §14.2 k back control. Tapping a person anywhere still opens their history directly.
+- **The Approvals screen** (built across 2.4 and 4.5 — **one screen, not one per module**): everything waiting on the Owner's decision, in **one scroll, grouped, no tabs**. Tabs create a mode ("am I seeing everything?"); groups don't.
+  - **Fixed group order: Attendance · Leave · Staff tasks · Client items.** Attendance and leave first because someone's day depends on them; work can wait an hour. Oldest first inside each group.
+  - **Each group header carries a bulk action** ("Approve all 7"), because the Owner's real intent is usually *"attendance today, all fine"* — one tap, not seven. Bulk confirms with the count.
+  - **Two actions per row, never more:** **Approve** (primary) and **Review**. Everything that needs thought — correcting, rejecting, a reason — lives behind Review and opens a sheet. A correction always asks for a reason; an approval never does.
+  - **A single approve is instant with a 6-second Undo** rather than a confirmation; a mis-tap is recoverable and the common case stays fast.
+  - **Filter chips appear only above ~20 waiting items.** Below that they are a mode to learn for no gain.
+  - **Approve is a button, never swipe-only** (a gesture can't be the only route to the main action); status is a dot plus a word, never colour alone; an approved row fades in place without reshuffling the list, and the count is announced politely.
+  - **Empty state is the reward:** "Nothing waiting. You're clear."
+  - The **bottom-nav badge** shows the total waiting, so the bar answers "does anything need me?" without a tap.
+  - The Admin's Approvals screen is the same component, scoped to what they may decide (the Admin step on their tasks).
 - **Admin:** My clients (cycle progress) → client work pending → staff tasks needing attention → approvals → calendar → issues.
 - **Staff: My Day** (very simple): attendance status, **Pending acknowledgement**, Today, Upcoming, Overdue, **Changes requested**, Upcoming events, a request-a-task button and Logout. Nothing else.
 - **Staff navigation** (decided in task 0.3): a bottom bar on phones with exactly five tabs, **My Day · Tasks · Calendar · Alerts · Me**. "Me" holds the profile, appearance (light/dark) and Logout. Staff have no Clients, People, Approvals, Reports or Settings entries. Owner and Admin use a sidebar with Today, Approvals, Clients, Tasks, Calendar, People, Reports and Settings; the Admin's Settings shows only the lists, templates and custom fields they may edit (`PERMISSIONS.md` §1).
@@ -238,6 +252,21 @@ Only **client project items** carry revenue. Staff tasks never do.
 - **Exports:** Markdown, CSV and PDF. The **Markdown export is designed for AI analysis**: an executive summary followed by dense, structured raw data (tables and IDs) that answers questions like *"Which stage takes longest?", "Who is overloaded?", "How much potential revenue wasn't achieved?"*
 - Admins get operational reports for their own scope, with no money in them. These are computed live: the end-of-day reports and month snapshots contain revenue and are Owner-only.
 
+**The Admin's report answers one question: is the work getting done?** (decided 2026-09-23). Six numbers and two lists — no more, or it stops being read. Each is for their assigned clients and the tasks they created, approve or are assigned to. Week, month or custom range, with last period beside it.
+
+| KPI | Definition | What it tells the Admin to do |
+|---|---|---|
+| **On time** | Items approved on or before their planned date ÷ items with a planned date | Falling → the plan is wrong or the team is stretched |
+| **Cycle progress** | Items done ÷ planned, and approved ÷ done, for the current cycle | A wide done-vs-approved gap means work is waiting on the Owner |
+| **Rework** | Submissions sent back as *changes requested* ÷ submissions | Rising → briefs are unclear, not that people are careless |
+| **My turnaround** | Median hours from a task's Done to **their own** approval | This is the Admin's own bottleneck, and the only KPI about them |
+| **Overdue now** | Tasks past deadline + items past planned date, still open | The act-today number. Tap through to the list |
+| **Acknowledgement lag** | Median hours from assignment to "Task Noted" | Rising → people aren't seeing work, check reachability (§4.11) |
+
+Plus two lists: **who is loaded this week** (open and overdue tasks per person, from visible tasks only — workload, never a rating) and **where items sit longest** (the slowest stage, e.g. "8 reels waiting at Edit").
+
+**Not in an Admin's report, ever:** money, attendance, leave, anyone's history outside their scope, saved snapshots, and the AI export. An Admin sees **work**; the Owner sees **people and money**. Attendance and leave are the Owner's decision, so handing an Admin that record would give them a judgement they have no authority over.
+
 ### 4.14 Activity history
 - An **append-only** log of every important action: who, what, which record, when, and old and new values. It can't be edited or deleted.
 - Recorded in the same database transaction as the change. A change can't succeed without its audit record.
@@ -288,5 +317,5 @@ GST invoice generation and invoicing · client login or portal · WhatsApp · na
 | Google Drive archive account | `pcproductions.work@gmail.com` (Google One 2 TB, personal account) |
 
 ## 8. Open questions (not blocking the schema)
-- [ ] **Admin performance metrics:** v2 lets Admins view raw metrics, but clarification #6 limits what they see. Proposed default: an Admin sees metrics calculated only from tasks visible to them. *Confirm before phase 9.*
+- [x] **Admin reports: settled 2026-09-23** (§4.13). Six KPIs plus two lists, computed only from their assigned clients and visible tasks; work only, never money, attendance or leave.
 - [ ] Existing clients, projects or people to import at launch.

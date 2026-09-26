@@ -18,7 +18,8 @@ import { toastResult } from "@/core/ui/toast";
 
 import { deactivateMember } from "../actions/members";
 import type { TeamMember } from "../domain/members";
-import { DEACTIVATE_REASON_MAX_LENGTH } from "../domain/schemas";
+import { DEACTIVATE_REASON_MAX_LENGTH } from "../domain/limits";
+import { ErrorText } from "@/core/ui/composites/error-text";
 
 /**
  * Deactivate (active) or Revoke invite (invited): one transition, worded by state, with an
@@ -70,29 +71,25 @@ export function DeactivateMemberDialog({
             aria-describedby={tooLong ? `${reasonId}-error` : undefined}
           />
           {tooLong ? (
-            <p
-              id={`${reasonId}-error`}
-              data-slot="field-error"
-              role="alert"
-              className="text-destructive text-sm"
-            >
+            <ErrorText id={`${reasonId}-error`}>
               Keep the reason under {DEACTIVATE_REASON_MAX_LENGTH} characters.
-            </p>
+            </ErrorText>
           ) : null}
         </div>
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose} disabled={pending}>
+          <Button type="button" variant="secondary" onClick={onClose} disabled={pending}>
             Cancel
           </Button>
+          {/* The one solid red button, named for the action (ARCHITECTURE §14.1). */}
           <Button
             type="button"
-            variant="destructive"
+            variant="primary"
             onClick={confirm}
             disabled={pending || tooLong}
             aria-busy={pending}
           >
             {pending ? <Loader2Icon className="animate-spin" aria-hidden /> : null}
-            {revoke ? "Revoke invite" : "Deactivate"}
+            {revoke ? `Revoke ${member.fullName}'s invite` : `Deactivate ${member.fullName}`}
           </Button>
         </DialogFooter>
       </DialogContent>

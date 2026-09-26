@@ -2,9 +2,8 @@ import type { Metadata } from "next";
 
 import { requirePermission } from "@/core/permissions/server";
 import { PageHeader } from "@/core/ui/composites/page-header";
-import { getSettings, ThresholdsForm } from "@/modules/settings";
-
-import { SettingsBackLink } from "../back-link";
+import { getSettings } from "@/modules/settings";
+import { ThresholdsForm } from "@/modules/settings/components/thresholds-form";
 
 export const metadata: Metadata = { title: "Thresholds" };
 
@@ -18,10 +17,11 @@ export default async function ThresholdsSettingsPage() {
 
   return (
     <>
-      <SettingsBackLink />
       <PageHeader
+        back={{ href: "/settings", label: "Settings" }}
         title="Thresholds"
         description="How long MaxOff waits before it reminds someone, escalates to the Admin and then to you, and how much email one person can get in a day."
+        help="How long MaxOff waits before it reminds someone, escalates to the Admin and then to you, and how much email one person can get in a day."
       />
       <ThresholdsForm thresholds={settings} />
     </>

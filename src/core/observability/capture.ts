@@ -8,3 +8,6 @@ import * as Sentry from "@sentry/nextjs";
  * which is the only thing safe to put in a log line.
  */
 export const captureException = Sentry.captureException;
+
+/** A handled condition worth knowing about that is not an exception (same scrubber). */
+export const captureMessage = Sentry.captureMessage;

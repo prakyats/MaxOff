@@ -1,4 +1,5 @@
 import type { ResultError } from "@/core/errors";
+import { ErrorText } from "@/core/ui/composites/error-text";
 
 /**
  * The message above a settings form when the failure belongs to no single field (a refusal by
@@ -6,9 +7,5 @@ import type { ResultError } from "@/core/errors";
  */
 export function FormError({ error }: { error: ResultError | null }) {
   if (!error || error.fieldErrors) return null;
-  return (
-    <p role="alert" data-slot="form-alert" className="text-destructive text-sm">
-      {error.message}
-    </p>
-  );
+  return <ErrorText slot="form-alert">{error.message}</ErrorText>;
 }

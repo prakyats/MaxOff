@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 
 /**
  * Proves the architecture rules in `eslint.config.mjs` (ARCHITECTURE §3.1, ADR-0011,
- * CLAUDE.md rules 2 and 3). Each fixture under `tests/lint-fixtures/src` mirrors a real path,
+ * CLAUDE.md rules 2 and 3, and the overlay rule of §14.1). Each fixture under `tests/lint-fixtures/src` mirrors a real path,
  * so it is classified exactly like `src/`. `denied-*` files must trip the listed rules and
  * nothing else; every other fixture must lint clean. The folder is in ESLint's global ignores,
  * so `pnpm lint` never fails on it: only this test looks at it.
@@ -23,6 +23,10 @@ const EXPECTED: Record<string, readonly string[]> = {
   // app (and files directly under src/) → core and module index.ts only
   "app/denied-module-internal.ts": [BOUNDARIES],
   "app/denied-module-permissions.ts": [BOUNDARIES],
+  // ...plus one client component file at a time from components/ (task 2.8), nothing else
+  "app/denied-module-domain.ts": [BOUNDARIES],
+  "app/denied-module-actions.ts": [BOUNDARIES],
+  "modules/leave/components/denied-cross-components.ts": [BOUNDARIES],
   "app/denied-db.ts": [BOUNDARIES],
   "app/api/cron/denied-service.ts": [BOUNDARIES],
   "denied-root-db.ts": [BOUNDARIES],
@@ -48,6 +52,15 @@ const EXPECTED: Record<string, readonly string[]> = {
   "modules/tasks/domain/denied-dom-global.ts": [GLOBALS],
   "modules/tasks/domain/denied-core-ui.ts": [BOUNDARIES],
   "modules/tasks/domain/denied-db.ts": [BOUNDARIES],
+  // overlays come from core/ui/primitives, whose roots register with the back controller
+  "modules/tasks/components/denied-radix.ts": [IMPORTS],
+  "modules/tasks/components/denied-radix-scoped.ts": [IMPORTS],
+  "core/ui/denied-radix.ts": [IMPORTS],
+  "modules/tasks/data/denied-radix.ts": [IMPORTS],
+  "modules/tasks/domain/denied-radix.ts": [IMPORTS],
+  // the action colour rule: buttons get colour from a variant, not classes (outside primitives)
+  "modules/tasks/components/denied-button-colour.tsx": [SYNTAX],
+  "modules/tasks/components/denied-button-hex.tsx": [SYNTAX],
 };
 
 function walk(dir: string): string[] {

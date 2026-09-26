@@ -11,6 +11,7 @@ import { toastResult } from "@/core/ui/toast";
 import { updateWeeklyOffDays } from "../actions/settings";
 import { weeklyOffChoices } from "../domain/settings";
 import { FormError } from "./form-error";
+import { ErrorText } from "@/core/ui/composites/error-text";
 
 /**
  * The company's weekly off days (PRODUCT §7: Sunday at launch). A day off means no absent
@@ -41,9 +42,7 @@ export function WeeklyOffForm({ weeklyOffDays }: { weeklyOffDays: readonly numbe
     <div className="flex flex-col gap-4">
       <FormError error={error} />
       {error?.fieldErrors?.weeklyOffDays ? (
-        <p data-slot="field-error" role="alert" className="text-destructive text-sm">
-          {error.fieldErrors.weeklyOffDays[0]}
-        </p>
+        <ErrorText>{error.fieldErrors.weeklyOffDays[0]}</ErrorText>
       ) : null}
       <fieldset className="flex flex-col gap-3">
         <legend className="sr-only">Weekly off days</legend>
@@ -51,7 +50,8 @@ export function WeeklyOffForm({ weeklyOffDays }: { weeklyOffDays: readonly numbe
           {weeklyOffChoices(selected).map((choice) => (
             <Label
               key={choice.value}
-              className="flex cursor-pointer items-center gap-2 text-sm font-normal"
+              // 44px tall on a phone: the whole label is the target, not the 16px box.
+              className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-normal md:min-h-0"
             >
               <Checkbox
                 checked={choice.checked}
@@ -63,11 +63,15 @@ export function WeeklyOffForm({ weeklyOffDays }: { weeklyOffDays: readonly numbe
           ))}
         </div>
       </fieldset>
-      <div>
-        <Button type="button" onClick={save} disabled={pending}>
-          {pending ? "Saving…" : "Save days off"}
-        </Button>
-      </div>
+      <Button
+        variant="primary"
+        type="button"
+        onClick={save}
+        disabled={pending}
+        className="w-full md:w-auto md:self-start"
+      >
+        {pending ? "Saving…" : "Save days off"}
+      </Button>
     </div>
   );
 }

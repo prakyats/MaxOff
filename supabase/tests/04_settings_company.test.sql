@@ -7,6 +7,10 @@ select plan(63);
 -- The local seed holds an organization (with its org_settings and job titles) and five sign-ins.
 -- Keep the organization; replace the people with fixtures. Rolled back at the end.
 -- activity_log first: its actor_id references members (rows exist after a Playwright run).
+-- Attendance and leave rows (2.1) reference members: a Playwright run leaves some behind (2.2).
+delete from public.attendance_events;
+delete from public.attendance_days;
+delete from public.leave_requests;
 delete from public.session_events;
 delete from public.activity_log;
 delete from public.members;

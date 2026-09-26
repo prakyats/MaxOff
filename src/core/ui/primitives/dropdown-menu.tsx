@@ -5,8 +5,28 @@ import { cn } from "cn";
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui";
 import { CheckIcon, ChevronRightIcon } from "lucide-react";
 
-function DropdownMenu({ ...props }: React.ComponentProps<typeof DropdownMenuPrimitive.Root>) {
-  return <DropdownMenuPrimitive.Root data-slot="dropdown-menu" {...props} />;
+import { useOverlayOpenState } from "@/core/ui/overlay/overlay-history";
+
+/**
+ * An open menu is a layer: back (or the phone's back gesture) closes it before anything under
+ * it (ARCHITECTURE §14.2 a) — see `core/ui/overlay/overlay-history`. Choosing an item that
+ * opens a dialog is the controller's hand-off case (one close and one open in a commit).
+ */
+function DropdownMenu({
+  open,
+  defaultOpen,
+  onOpenChange,
+  ...props
+}: React.ComponentProps<typeof DropdownMenuPrimitive.Root>) {
+  const [isOpen, setOpen] = useOverlayOpenState({ open, defaultOpen, onOpenChange });
+  return (
+    <DropdownMenuPrimitive.Root
+      data-slot="dropdown-menu"
+      open={isOpen}
+      onOpenChange={setOpen}
+      {...props}
+    />
+  );
 }
 
 function DropdownMenuPortal({

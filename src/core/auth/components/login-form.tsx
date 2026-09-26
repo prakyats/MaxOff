@@ -5,6 +5,7 @@ import { useActionState } from "react";
 
 import type { Result } from "@/core/errors";
 import { FormField } from "@/core/ui/composites/form-field";
+import { PasswordInput } from "@/core/ui/composites/password-input";
 import { Button } from "@/core/ui/primitives/button";
 import { Input } from "@/core/ui/primitives/input";
 
@@ -50,16 +51,10 @@ export function LoginForm({ next }: { next?: string | undefined }) {
       </FormField>
       <FormField label="Password" error={fieldErrors.password}>
         {(control) => (
-          <Input
-            {...control}
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            required
-          />
+          <PasswordInput {...control} name="password" autoComplete="current-password" required />
         )}
       </FormField>
-      <Button type="submit" className="w-full" disabled={pending}>
+      <Button variant="primary" type="submit" className="w-full" disabled={pending}>
         {pending ? "Signing in…" : "Sign in"}
       </Button>
       <p className="text-muted-foreground text-center text-sm">

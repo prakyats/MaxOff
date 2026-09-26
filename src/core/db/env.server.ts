@@ -1,17 +1,20 @@
 import "server-only";
 
-import { z } from "zod";
-
-import { parseSupabaseEnv } from "./env";
+import { supabaseEnvError } from "./env";
 
 /** Kept apart from `env.ts` so the secret-key reader can never reach a browser bundle. */
-const serverSchema = z.object({
-  secretKey: z.string().min(1, { error: "SUPABASE_SECRET_KEY is missing" }),
-});
+export interface ServerSupabaseEnv {
+  secretKey: string;
+}
 
-export type ServerSupabaseEnv = z.infer<typeof serverSchema>;
-
-/** The secret key. Server only: it bypasses RLS. */
+/**
+ * The secret key. Server only: it bypasses RLS.
+ *
+ * Plain check rather than zod, to match `env.ts` — see the note there. Nothing is lost: the rule
+ * is "present and non-empty", and the message is the one the rest of the app uses.
+ */
 export function serverSupabaseEnv(): ServerSupabaseEnv {
-  return parseSupabaseEnv(serverSchema, { secretKey: process.env.SUPABASE_SECRET_KEY });
+  const secretKey = process.env.SUPABASE_SECRET_KEY;
+  if (!secretKey) throw supabaseEnvError(["SUPABASE_SECRET_KEY is missing"]);
+  return { secretKey };
 }

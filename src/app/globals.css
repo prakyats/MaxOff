@@ -47,6 +47,9 @@
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
+  --color-strong-foreground: var(--strong-foreground);
+  --color-strong: var(--strong);
+  --color-control-border: var(--control-border);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -76,8 +79,17 @@
   --card-foreground: #18181b;
   --popover: #ffffff;
   --popover-foreground: #18181b;
-  --primary: #18181b;
-  --primary-foreground: #fafaf9;
+  /*
+   * The action colour rule (ARCHITECTURE §14.1, PRODUCT §2): brand red is the one action that
+   * commits, in both themes, white text (5.8:1). `--strong` is the neutral solid (selection
+   * states, the Approvals triggers), `--control-border` the secondary outline (≥ 3:1 against the
+   * page and the card, WCAG 1.4.11), and the focus ring is neutral: red is never decoration.
+   */
+  --primary: #c42126;
+  --primary-foreground: #ffffff;
+  --strong: #18181b;
+  --strong-foreground: #fafaf9;
+  --control-border: #8a8a91;
   --secondary: #f2f1ef;
   --secondary-foreground: #18181b;
   --muted: #f2f1ef;
@@ -91,7 +103,7 @@
   --destructive-foreground: #ffffff;
   --border: #e7e5e4;
   --input: #e7e5e4;
-  --ring: #c42126;
+  --ring: #18181b;
   --chart-1: #18181b;
   --chart-2: #52525b;
   --chart-3: #71717a;
@@ -105,7 +117,7 @@
   --sidebar-accent: #f2f1ef;
   --sidebar-accent-foreground: #18181b;
   --sidebar-border: #e7e5e4;
-  --sidebar-ring: #c42126;
+  --sidebar-ring: #18181b;
   --success: #047857;
   --success-soft: #e1efeb;
   --info: #1d4ed8;
@@ -128,8 +140,11 @@
   --card-foreground: #fafaf9;
   --popover: #141416;
   --popover-foreground: #fafaf9;
-  --primary: #fafaf9;
-  --primary-foreground: #18181b;
+  --primary: #c42126;
+  --primary-foreground: #ffffff;
+  --strong: #fafaf9;
+  --strong-foreground: #18181b;
+  --control-border: #6b6b73;
   --secondary: #1f1f23;
   --secondary-foreground: #fafaf9;
   --muted: #1f1f23;
@@ -141,7 +156,7 @@
   --destructive-foreground: #0b0b0c;
   --border: #26262a;
   --input: #26262a;
-  --ring: #f2686d;
+  --ring: #fafaf9;
   --chart-1: #fafaf9;
   --chart-2: #a1a1aa;
   --chart-3: #71717a;
@@ -154,7 +169,7 @@
   --sidebar-accent: #1f1f23;
   --sidebar-accent-foreground: #fafaf9;
   --sidebar-border: #26262a;
-  --sidebar-ring: #f2686d;
+  --sidebar-ring: #fafaf9;
   --success: #34d399;
   --success-soft: #1a362e;
   --info: #7da2ff;
@@ -187,15 +202,316 @@
   body {
     /* Counts, dates and amounts line up in every table and list. */
     font-variant-numeric: tabular-nums;
-    caret-color: var(--brand);
-    accent-color: var(--brand);
+    /* Neutral: red is reserved for the commit action (ARCHITECTURE §14.1). */
+    caret-color: var(--foreground);
+    accent-color: var(--strong);
   }
   ::selection {
-    background: color-mix(in oklch, var(--brand) 22%, transparent);
+    background: color-mix(in oklch, var(--foreground) 18%, transparent);
   }
-  /* Safety net: anything without an explicit ring still shows keyboard focus in the brand colour. */
+  /* Safety net: anything without an explicit ring still shows keyboard focus, neutral and strong. */
   :focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
+  }
+}
+
+/*
+ * The mobile standard (ARCHITECTURE §14.1, task 1.5). Mobile is its own layout for every role,
+ * not a narrow desktop one, so these are *base* rules: a screen built in a later phase inherits
+ * them without knowing they exist. The breakpoint is `md` (768px) everywhere — the same line the
+ * shell uses to swap the bottom nav for the sidebar and a dialog for a bottom sheet.
+ */
+@layer base {
+  :root {
+    /* Height of the mobile brand bar. The page title bar sticks directly below it, so when the
+     * brand bar hides on scroll this drops to 0 and the title bar takes the top edge.
+     * `core/ui/shell/chrome-scroll.ts` sets `data-chrome` on <html>; nothing else moves. */
+    --app-chrome-h: 0rem;
+    /* Height of the mobile bottom nav, used for page padding and for anything docked above it. */
+    --app-bottom-nav-h: 0rem;
+    /* Everything docked at the bottom clears the home indicator (viewport-fit=cover). */
+    --app-safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  html {
+    /* iOS inflates text in landscape unless this is pinned. */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  /* Sheets and dialogs never chain their scroll to the page behind (§14.1: no scroll chaining),
+   * and keep momentum scrolling inside. */
+  [data-slot="sheet-content"],
+  [data-slot$="dialog-content"],
+  [data-slot="detail-sheet-body"] {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  @media (max-width: 767px) {
+    :root {
+      --app-chrome-h: 3rem;
+      --app-bottom-nav-h: 3.5rem;
+    }
+    /* The brand bar is hidden: it slides out and the title bar moves up to the top edge. */
+    html[data-chrome="hidden"] {
+      --app-chrome-h: 0rem;
+    }
+    html[data-chrome="hidden"] [data-slot="top-bar"] {
+      transform: translateY(-100%);
+    }
+
+    /* Staff already have Alerts in the bottom bar, so the title bar doesn't repeat the bell. */
+    [data-alerts="nav"] [data-slot="header-bell"] {
+      display: none;
+    }
+
+    /* A page with a floating primary action or a sticky save bar gets room for it, so neither
+     * ever covers the last row or the last field. */
+    main:has([data-slot="page-actions"]),
+    main:has([data-slot="sticky-actions"]) {
+      padding-bottom: calc(var(--app-bottom-nav-h) + 5rem + var(--app-safe-bottom));
+    }
+
+    /* No 300ms tap delay, and a tap never double-tap-zooms a control. */
+    button,
+    [role="button"],
+    a,
+    label,
+    summary,
+    input,
+    select,
+    textarea {
+      touch-action: manipulation;
+    }
+
+    /*
+     * Touch targets are at least 44 x 44 (§14.1). `link` buttons are inline text, not targets.
+     *
+     * A button is matched by the pair of attributes only `button.tsx` sets, never by
+     * `data-slot`: Radix's `asChild` lets the trigger overwrite `data-slot`, so the account
+     * menu's button says `dropdown-menu-trigger` and a dialog's says `dialog-trigger`. Keying
+     * on `data-slot="button"` silently missed every trigger in the app (caught by the 44px
+     * sweep in `e2e/mobile.spec.ts`).
+     */
+    [data-variant][data-size]:not([data-variant="link"]) {
+      min-height: 2.75rem;
+    }
+    [data-variant][data-size^="icon"] {
+      min-height: 2.75rem;
+      min-width: 2.75rem;
+    }
+    [data-slot="dropdown-menu-item"],
+    [data-slot="dropdown-menu-radio-item"],
+    [data-slot="dropdown-menu-checkbox-item"],
+    [data-slot="select-item"] {
+      min-height: 2.75rem;
+    }
+
+    /* 16px minimum, or iOS Safari zooms the page on focus and never zooms back (§14.1). */
+    [data-slot="input"],
+    [data-slot="textarea"],
+    [data-slot="select-trigger"] {
+      min-height: 2.75rem;
+      font-size: 1rem;
+      line-height: 1.5;
+    }
+    /* The primitive sets its height from `data-size`; the minimum above has to win. */
+    [data-slot="select-trigger"][data-size] {
+      height: auto;
+    }
+    /* A checkbox is small by design, so the *hit area* grows instead of the box. */
+    [data-slot="checkbox"] {
+      position: relative;
+    }
+    [data-slot="checkbox"]::after {
+      content: "";
+      position: absolute;
+      inset: 50% auto auto 50%;
+      width: 2.75rem;
+      height: 2.75rem;
+      transform: translate(-50%, -50%);
+    }
+  }
+
+  /* The brand bar slides away on scroll down and comes back on scroll up. Someone who asked for
+   * less motion still gets the bar, just without the slide. */
+  @media (prefers-reduced-motion: reduce) {
+    [data-slot="top-bar"] {
+      transition: none !important;
+    }
+  }
+}
+
+/*
+ * Touch feel (ARCHITECTURE §14.2 i, task 2.7), in every browser: the app answers a tap like an
+ * app, not like a page of links.
+ */
+@layer base {
+  html {
+    /* Android paints a translucent box over whatever was tapped; every control already has its
+     * own pressed and focus states. */
+    -webkit-tap-highlight-color: transparent;
+  }
+  html,
+  body {
+    /* No rubber-band bounce and no pull-to-refresh leaking out of the shell: the page is the
+     * app, and a pull that reloads it loses whatever the person was doing. */
+    overscroll-behavior-y: none;
+  }
+  /* The installed app does not pinch-zoom where the system text size applies (2.7b,
+   * `core/ui/pwa/standalone.ts`): panning only. Controls keep `manipulation`, whose
+   * intersection with this is the same pan, so taps and scrolling are unchanged. */
+  html[data-zoom-lock] body {
+    touch-action: pan-x pan-y;
+  }
+  /* A long-press on a control selects nothing and opens no callout; text content stays
+   * selectable (an email, a reason, a date someone wants to copy). */
+  button,
+  [role="button"],
+  [role="tab"],
+  [role="menuitem"],
+  [role="radio"],
+  label,
+  summary,
+  a {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+}
+
+/*
+ * The launch intro (task 2.7, `core/ui/pwa/launch-intro.tsx`): the OS splash's mark, drawn in the
+ * same place on the first frame, fading away over the app. Present only under `html[data-launch]`,
+ * which the head script sets on an installed cold start. Fixed launch colours, not theme tokens:
+ * it has to match the splash, which is dark whatever the theme.
+ */
+[data-slot="launch-intro"] {
+  display: none;
+}
+html[data-launch] [data-slot="launch-intro"] {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: #0b0b0c;
+  pointer-events: none;
+  animation: launch-intro-out 300ms cubic-bezier(0.2, 0, 0, 1) forwards;
+}
+html[data-launch] [data-slot="launch-intro"] svg {
+  animation: launch-intro-settle 300ms cubic-bezier(0.2, 0, 0, 1) forwards;
+}
+@keyframes launch-intro-out {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+@keyframes launch-intro-settle {
+  to {
+    transform: scale(0.96);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-launch] [data-slot="launch-intro"] svg {
+    animation: none;
+  }
+}
+
+/*
+ * The drill-down slide (ARCHITECTURE §14.2 j, task 2.7b, `core/ui/motion/route-transition.tsx`):
+ * a detail slides in from the right and back slides it out, like a native stack. React names the
+ * page (`[data-slot="route"]`) only for a `nav-forward` or `nav-back` navigation in the installed
+ * app at phone width; everything else changes with no motion.
+ *
+ * The root is not captured, so the shell never cross-fades, and the two bars are pinned above
+ * the moving page: only the content moves. Taps pass through to the live page meanwhile.
+ */
+:root {
+  --nav-slide-duration: 260ms;
+  --nav-slide-offset: 30%;
+  --nav-slide-ease: cubic-bezier(0, 0, 0.2, 1);
+  view-transition-name: none;
+}
+::view-transition {
+  pointer-events: none;
+}
+[data-slot="top-bar"] {
+  view-transition-name: app-top-bar;
+}
+[data-slot="bottom-nav"] {
+  view-transition-name: app-bottom-nav;
+}
+::view-transition-group(app-top-bar),
+::view-transition-group(app-bottom-nav) {
+  z-index: 10;
+  animation: none;
+}
+::view-transition-old(app-top-bar),
+::view-transition-old(app-bottom-nav) {
+  display: none;
+}
+::view-transition-new(app-top-bar),
+::view-transition-new(app-bottom-nav) {
+  animation: none;
+}
+/* `slideBack`: the one slide React does not start, named by hand with React's own class. */
+html[data-nav-slide="back"] [data-slot="route"] {
+  view-transition-name: route;
+  view-transition-class: nav-back;
+}
+::view-transition-old(.nav-forward),
+::view-transition-new(.nav-forward),
+::view-transition-old(.nav-back),
+::view-transition-new(.nav-back) {
+  animation-duration: var(--nav-slide-duration);
+  animation-timing-function: var(--nav-slide-ease);
+  animation-fill-mode: both;
+}
+::view-transition-old(.nav-forward) {
+  animation-name: nav-slide-to-start;
+}
+::view-transition-new(.nav-forward) {
+  animation-name: nav-slide-from-end;
+}
+::view-transition-old(.nav-back) {
+  animation-name: nav-slide-to-end;
+}
+::view-transition-new(.nav-back) {
+  animation-name: nav-slide-from-start;
+}
+@keyframes nav-slide-from-end {
+  from {
+    translate: var(--nav-slide-offset) 0;
+    opacity: 0;
+  }
+}
+@keyframes nav-slide-to-start {
+  to {
+    translate: calc(var(--nav-slide-offset) * -1) 0;
+    opacity: 0;
+  }
+}
+@keyframes nav-slide-from-start {
+  from {
+    translate: calc(var(--nav-slide-offset) * -1) 0;
+    opacity: 0;
+  }
+}
+@keyframes nav-slide-to-end {
+  to {
+    translate: var(--nav-slide-offset) 0;
+    opacity: 0;
+  }
+}
+/* `RouteTransition` already starts nothing under reduced motion; this holds if one ever runs. */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
   }
 }

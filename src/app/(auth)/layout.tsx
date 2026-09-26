@@ -7,7 +7,10 @@ import type { ReactNode } from "react";
  */
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
-    <main className="bg-background text-foreground flex min-h-dvh flex-col items-center justify-center px-4 py-10">
+    // Safe-area padding: with `viewport-fit=cover` a centred card can otherwise sit under the
+    // notch in landscape, and the card's bottom edge under the home indicator on a short screen
+    // (ARCHITECTURE §14.1).
+    <main className="bg-background text-foreground flex min-h-dvh flex-col items-center justify-center px-[max(1rem,env(safe-area-inset-left))] py-10 pt-[max(2.5rem,env(safe-area-inset-top))] pb-[max(2.5rem,var(--app-safe-bottom))]">
       <div className="mb-6 flex items-center gap-2">
         <span
           aria-hidden

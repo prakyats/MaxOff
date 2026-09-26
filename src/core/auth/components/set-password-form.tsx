@@ -4,8 +4,8 @@ import { useActionState } from "react";
 
 import type { Result } from "@/core/errors";
 import { FormField } from "@/core/ui/composites/form-field";
+import { PasswordInput } from "@/core/ui/composites/password-input";
 import { Button } from "@/core/ui/primitives/button";
-import { Input } from "@/core/ui/primitives/input";
 
 import { setPassword } from "../actions";
 import { PASSWORD_MIN_LENGTH } from "../schemas";
@@ -34,10 +34,9 @@ export function SetPasswordForm() {
         error={fieldErrors.password}
       >
         {(control) => (
-          <Input
+          <PasswordInput
             {...control}
             name="password"
-            type="password"
             autoComplete="new-password"
             required
             autoFocus
@@ -46,10 +45,10 @@ export function SetPasswordForm() {
       </FormField>
       <FormField label="Repeat it" error={fieldErrors.confirm}>
         {(control) => (
-          <Input {...control} name="confirm" type="password" autoComplete="new-password" required />
+          <PasswordInput {...control} name="confirm" autoComplete="new-password" required />
         )}
       </FormField>
-      <Button type="submit" className="w-full" disabled={pending}>
+      <Button variant="primary" type="submit" className="w-full" disabled={pending}>
         {pending ? "Saving…" : "Save password and sign in"}
       </Button>
     </form>

@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 
 /** The local sign-ins created by `supabase/seed.sql` (README → "Local sign-ins"). */
 export const USERS = {
@@ -6,8 +6,13 @@ export const USERS = {
   admin: { email: "admin@maxoff.local", password: "admin-local-password", home: "/today" },
   staff: { email: "staff@maxoff.local", password: "staff-local-password", home: "/my-day" },
   deactivated: { email: "gone@maxoff.local", password: "gone-local-password", home: null },
-  /** Only the recovery flow uses this one, since that test changes its password. */
-  reset: { email: "reset@maxoff.local", password: "reset-local-password", home: "/my-day" },
+  /** Only the recovery flow uses this one: it changes the password and puts it back by id. */
+  reset: {
+    email: "reset@maxoff.local",
+    password: "reset-local-password",
+    home: "/my-day",
+    id: "10000000-0000-4000-8000-000000000005",
+  },
   /** Only the team flow uses this one, since that test deactivates them (1.3). */
   leaver: { email: "leaver@maxoff.local", password: "leaver-local-password", home: "/my-day" },
 } as const;
@@ -18,36 +23,327 @@ export function storageStateFor(role: SessionRole): string {
   return `e2e/.auth/${role}.json`;
 }
 
-/** Fills the real sign-in form. Resolves once the browser has left /login. */
-export async function signIn(page: Page, email: string, password: string): Promise<void> {
+/**
+ * Fills the real sign-in form. Resolves once the browser has left /login and, for an Admin or
+ * Staff member whose day still needs a choice, once the day gate (2.2) has been answered with
+ * Present, so a flow spec lands where it did before the gate existed. `e2e/day-gate.spec.ts`
+ * passes `{ gate: "stop" }` to meet the gate itself.
+ */
+export async function signIn(
+  page: Page,
+  email: string,
+  password: string,
+  { gate = "present" }: { gate?: "present" | "stop" } = {},
+): Promise<void> {
   await page.goto("/login");
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
-  // The first server action after boot can take a while; the form shows any refusal.
-  await expect(page).not.toHaveURL(/\/login/, { timeout: 15_000 });
+  // The form shows any refusal. No allowance for a cold server: every route is warmed by the
+  // `setup` project before a flow spec runs (`warm.setup.ts`, 2.6).
+  await expect(page).not.toHaveURL(/\/login/);
+  if (gate === "present") await passGate(page);
+}
+
+/**
+ * The screen's title bar, **the visible one**. A route's `loading.tsx` draws the same header
+ * so nothing moves when the data lands (ARCHITECTURE §14.1), and React streams the resolved
+ * page into the DOM *hidden* (`<div hidden id="S:…">`) before its `$RC` script swaps it in, so
+ * for a few milliseconds both headers exist. A strict locator on the slot then throws at once
+ * (strictness is not retried) — seen in the 2.6 proof on /people at 375px. Always go through
+ * here, never `locator('[data-slot="page-header"]')` alone.
+ */
+export function pageHeader(page: Page): Locator {
+  return page.locator('[data-slot="page-header"]:visible');
+}
+
+/** The four answers of the gate, as the choice screen labels them. */
+export type GateChoice = "Present" | "Leave" | "Half day" | "Comp leave";
+
+/** Answers the gate on `/attendance` and waits until the browser has left it. */
+export async function chooseAttendance(
+  page: Page,
+  choice: GateChoice,
+  reason?: string,
+): Promise<void> {
+  await expect(page).toHaveURL(/\/attendance/);
+  // The radio's name is the label plus its hint ("Leave The whole day off."): anchor it, so
+  // "Leave" never matches "Comp leave".
+  await page.getByRole("radio", { name: new RegExp(`^${choice}\\b`) }).check();
+  if (reason) await page.getByLabel("Reason (optional)").fill(reason);
+  await page.getByRole("button", { name: "Submit" }).click();
+  await expect(page).not.toHaveURL(/\/attendance/);
+}
+
+/**
+ * Present at the gate when the browser ends up on it; otherwise nothing. Waits for what is
+ * rendered, not for the URL: after a sign-in the browser passes through `/set-password`, `/`
+ * and the home route before the layout may send it on to the gate, so any URL check can run
+ * too early. Either the gate's options or a shell screen's title bar ends the wait.
+ */
+export async function passGate(page: Page): Promise<void> {
+  const gate = page.locator('[data-slot="choice-option"]').first();
+  const screen = pageHeader(page);
+  await expect(gate.or(screen)).toBeVisible();
+  if (await gate.isVisible()) await chooseAttendance(page, "Present");
+}
+
+/**
+ * Calls a database function as that person, the way the app's server does (GoTrue password
+ * grant, then PostgREST). For arranging state a spec is not about, e.g. an approved leave.
+ */
+export async function rpcAs<T = unknown>(
+  email: string,
+  password: string,
+  fn: string,
+  args: Record<string, unknown>,
+): Promise<T> {
+  const { url, apikey } = supabaseAuth();
+  const accessToken = await accessTokenFor(email, password);
+  const rest = url.replace(/\/auth\/v1$/, "/rest/v1");
+  const response = await fetch(`${rest}/rpc/${fn}`, {
+    method: "POST",
+    headers: {
+      apikey,
+      authorization: `Bearer ${accessToken}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(args),
+  });
+  const body: unknown = await response.json();
+  expect(response.ok, `${fn} as ${email}: ${JSON.stringify(body)}`).toBe(true);
+  return body as T;
+}
+
+/** A real session's access token for a seeded person, from GoTrue's password grant. */
+async function accessTokenFor(email: string, password: string): Promise<string> {
+  const { url, apikey } = supabaseAuth();
+  const token = await fetch(`${url}/token?grant_type=password`, {
+    method: "POST",
+    headers: { apikey, "content-type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  expect(token.ok, `sign-in for ${email}`).toBe(true);
+  const { access_token: accessToken } = (await token.json()) as { access_token: string };
+  return accessToken;
+}
+
+/**
+ * A plain edit through PostgREST as that person, so RLS and the guards apply as in the app:
+ * "someone else changed it" without a second browser.
+ */
+export async function patchAs(
+  email: string,
+  password: string,
+  path: string,
+  patch: Record<string, unknown>,
+): Promise<void> {
+  const { url, apikey } = supabaseAuth();
+  const accessToken = await accessTokenFor(email, password);
+  const rest = url.replace(/\/auth\/v1$/, "/rest/v1");
+  const response = await fetch(`${rest}/${path}`, {
+    method: "PATCH",
+    headers: {
+      apikey,
+      authorization: `Bearer ${accessToken}`,
+      "content-type": "application/json",
+      prefer: "return=representation",
+    },
+    body: JSON.stringify(patch),
+  });
+  const body: unknown = await response.json();
+  expect(response.ok, `PATCH ${path} as ${email}: ${JSON.stringify(body)}`).toBe(true);
+  expect(body, `PATCH ${path} as ${email} changed a row`).not.toEqual([]);
+}
+
+/**
+ * PostgREST as the service role, **for the local test database only**: it bypasses RLS and the
+ * transition functions, so it refuses any URL that is not this machine's stack. For clearing a
+ * spec's own fixture person and for reading ids a spec needs, never for the flow under test.
+ */
+async function serviceRest(path: string, init: RequestInit = {}): Promise<Response> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  const key = process.env.SUPABASE_SECRET_KEY ?? "";
+  expect(new URL(url).hostname, "service-role cleanup runs on the local stack only").toMatch(
+    /^(127\.0\.0\.1|localhost)$/,
+  );
+  expect(key, "SUPABASE_SECRET_KEY is set (playwright.config loads .env.local)").toBeTruthy();
+  const response = await fetch(`${url}/rest/v1/${path}`, {
+    ...init,
+    headers: {
+      apikey: key,
+      // A legacy service_role JWT also needs the bearer header; an sb_secret key does not.
+      ...(key.startsWith("eyJ") ? { authorization: `Bearer ${key}` } : {}),
+      "content-type": "application/json",
+      ...init.headers,
+    },
+  });
+  expect(response.ok, `${init.method ?? "GET"} ${path}: ${response.status}`).toBe(true);
+  return response;
+}
+
+/**
+ * GoTrue's admin API as the service role, local stack only (same guard as `serviceRest`): for a
+ * spec that needs a recovery link without Mailpit, or to put a fixture's password back.
+ */
+async function serviceAuth(path: string, init: RequestInit): Promise<unknown> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  const key = process.env.SUPABASE_SECRET_KEY ?? "";
+  expect(new URL(url).hostname, "service-role auth calls run on the local stack only").toMatch(
+    /^(127\.0\.0\.1|localhost)$/,
+  );
+  const response = await fetch(`${url}/auth/v1/admin/${path}`, {
+    ...init,
+    headers: {
+      apikey: key,
+      authorization: `Bearer ${key}`,
+      "content-type": "application/json",
+      ...init.headers,
+    },
+  });
+  const body: unknown = await response.json();
+  expect(response.ok, `${init.method ?? "GET"} admin/${path}: ${JSON.stringify(body)}`).toBe(true);
+  return body;
+}
+
+/** A fresh one-time recovery link for `email`, as `/auth/confirm` expects it (path + query). */
+export async function recoveryLinkFor(email: string): Promise<string> {
+  const body = (await serviceAuth("generate_link", {
+    method: "POST",
+    body: JSON.stringify({ type: "recovery", email }),
+  })) as { hashed_token?: string; properties?: { hashed_token?: string } };
+  const token = body.hashed_token ?? body.properties?.hashed_token;
+  expect(token, "generate_link returned a hashed token").toBeTruthy();
+  return `/auth/confirm?token_hash=${token as string}&type=recovery`;
+}
+
+/** Puts a fixture person's password back after a spec changed it. */
+export async function setPasswordFor(userId: string, password: string): Promise<void> {
+  await serviceAuth(`users/${userId}`, { method: "PUT", body: JSON.stringify({ password }) });
+}
+
+/**
+ * Inserts one row through `serviceRest`, for a state no flow can reach any more (e.g. a request
+ * that clashes with leave approved since, 2.4). Returns the row.
+ */
+export async function serviceInsert<T>(table: string, row: Record<string, unknown>): Promise<T> {
+  const response = await serviceRest(table, {
+    method: "POST",
+    headers: { "content-type": "application/json", prefer: "return=representation" },
+    body: JSON.stringify(row),
+  });
+  const body = (await response.json()) as T[];
+  expect(response.ok, `insert into ${table}: ${JSON.stringify(body)}`).toBe(true);
+  return body[0] as T;
+}
+
+/** Reads rows through `serviceRest` (a PostgREST query string, e.g. `leave_requests?id=eq.…`). */
+export async function serviceSelect<T>(path: string): Promise<T[]> {
+  return (await (await serviceRest(path)).json()) as T[];
+}
+
+/**
+ * Deletes one fixture person's attendance days, their events and every leave request, so a
+ * spec that owns that person can run again without `pnpm db:reset` (2.3). The audit trigger
+ * still logs the deletes; nothing else refers to these rows.
+ */
+export async function resetAttendanceAndLeave(memberId: string): Promise<void> {
+  const days = await serviceSelect<{ id: string }>(
+    `attendance_days?member_id=eq.${memberId}&select=id`,
+  );
+  if (days.length > 0) {
+    const ids = days.map((day) => day.id).join(",");
+    await serviceRest(`attendance_events?attendance_day_id=in.(${ids})`, { method: "DELETE" });
+  }
+  await serviceRest(`attendance_days?member_id=eq.${memberId}`, { method: "DELETE" });
+  // One statement: a change's `supersedes_id` points at its original, and Postgres checks
+  // the foreign key at the end of the statement.
+  await serviceRest(`leave_requests?member_id=eq.${memberId}`, { method: "DELETE" });
+}
+
+/**
+ * Removes a person a spec creates (an invitee), member row and GoTrue sign-in included, so the
+ * spec can invite them again on a database that is not fresh (2.6: five runs after one
+ * `db:reset`). Every row that points at the member goes first; the audit rows *about* them
+ * (`entity_id`, no foreign key) stay, as history should. A sign-in left behind by an invite
+ * that never became a member is removed too. Nothing to remove is fine.
+ */
+export async function removeFixturePerson(email: string): Promise<void> {
+  const members = await serviceSelect<{ id: string }>(
+    `members?email=eq.${encodeURIComponent(email.toLowerCase())}&select=id`,
+  );
+  for (const { id } of members) {
+    await resetAttendanceAndLeave(id);
+    await serviceRest(`session_events?member_id=eq.${id}`, { method: "DELETE" });
+    await serviceRest(`activity_log?actor_id=eq.${id}`, { method: "DELETE" });
+    await serviceRest(`members?id=eq.${id}`, { method: "DELETE" });
+  }
+  const listed = (await serviceAuth(
+    `users?page=1&per_page=50&filter=${encodeURIComponent(email)}`,
+    {
+      method: "GET",
+    },
+  )) as { users?: Array<{ id: string; email?: string }> };
+  for (const user of listed.users ?? []) {
+    if (user.email?.toLowerCase() !== email.toLowerCase()) continue;
+    await serviceAuth(`users/${user.id}`, { method: "DELETE" });
+  }
+}
+
+/**
+ * Removes job titles a spec adds (archived or not), so the seeded list is what it expects on
+ * a database that is not fresh (2.6). A member still holding one of them is not expected.
+ */
+export async function removeJobTitles(names: string[]): Promise<void> {
+  const list = names.map((name) => `"${name}"`).join(",");
+  await serviceRest(`list_items?list_key=eq.job_title&name=in.(${encodeURIComponent(list)})`, {
+    method: "DELETE",
+  });
+}
+
+/**
+ * `resetAttendanceAndLeave()` for a seeded person known by email (the day-gate people), so a
+ * spec that must meet the gate meets it on every run, not only after `db:reset` (2.6).
+ */
+export async function resetAttendanceAndLeaveOf(email: string): Promise<void> {
+  const [member] = await serviceSelect<{ id: string }>(
+    `members?email=eq.${encodeURIComponent(email.toLowerCase())}&select=id`,
+  );
+  expect(member, `${email} is seeded`).toBeTruthy();
+  await resetAttendanceAndLeave((member as { id: string }).id);
 }
 
 /** The local stack's Mailpit (config.toml `[local_smtp]`, port 54324). */
 const MAILPIT_URL = process.env.MAILPIT_URL ?? "http://127.0.0.1:54324";
 
-type MailpitSearch = { messages: Array<{ ID: string }> };
+type MailpitSearch = { messages: Array<{ ID: string; Created: string }> };
 type MailpitMessage = { HTML: string; Text: string };
 
-/** The newest email sent to `to`, polling for a few seconds. */
-export async function latestEmailTo(to: string): Promise<MailpitMessage> {
+/**
+ * The first email to `to` that Mailpit received **after** `since`, polling for a few seconds.
+ * Take `since` before the request that sends it. Mailpit is shared by every worker and survives
+ * `db:reset`, so "the newest message" could be one from an earlier run or another worker whose
+ * link was already spent; the lower bound is what makes the answer this test's own (2.6).
+ * Nothing clears the mailbox any more: one worker wiping it was itself the hazard for the rest.
+ */
+export async function latestEmailTo(to: string, since: Date): Promise<MailpitMessage> {
   const query = encodeURIComponent(`to:${to}`);
+  // Mailpit stamps `Created` with the Docker VM's clock, which can sit a little behind the
+  // host's; two seconds of slack covers that and admits nothing an earlier test could have sent.
+  const bound = since.getTime() - 2_000;
   for (let attempt = 0; attempt < 20; attempt += 1) {
-    const search = await fetch(`${MAILPIT_URL}/api/v1/search?query=${query}&limit=1`);
+    const search = await fetch(`${MAILPIT_URL}/api/v1/search?query=${query}&limit=5`);
     const { messages } = (await search.json()) as MailpitSearch;
-    const id = messages[0]?.ID;
-    if (id) {
-      const message = await fetch(`${MAILPIT_URL}/api/v1/message/${id}`);
+    const fresh = messages.find((message) => new Date(message.Created).getTime() >= bound);
+    if (fresh) {
+      const message = await fetch(`${MAILPIT_URL}/api/v1/message/${fresh.ID}`);
       return (await message.json()) as MailpitMessage;
     }
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
-  throw new Error(`No email to ${to} reached Mailpit at ${MAILPIT_URL}`);
+  throw new Error(
+    `No email to ${to} newer than ${since.toISOString()} reached Mailpit at ${MAILPIT_URL}`,
+  );
 }
 
 /**
@@ -104,7 +400,59 @@ export function supabaseAuth(): { url: string; apikey: string } {
   return { url: `${url as string}/auth/v1`, apikey: apikey as string };
 }
 
-/** Removes every message so a re-run never picks up an older link. */
-export async function clearMailbox(): Promise<void> {
-  await fetch(`${MAILPIT_URL}/api/v1/messages`, { method: "DELETE" });
+/**
+ * Makes the page look installed, which is how `tab-history` decides which rule to apply.
+ *
+ * Chromium cannot actually emulate `display-mode: standalone` in a normal page: both
+ * `page.emulateMedia` and CDP `Emulation.setEmulatedMedia` with a `display-mode` feature leave
+ * `matchMedia("(display-mode: standalone)").matches` false (checked against this Chromium
+ * build). Only a genuinely installed window reports it. So the media query itself is stubbed
+ * before the page loads — the platform signal is faked, and what gets tested is our logic on top
+ * of it, which is the part that can actually be wrong.
+ */
+export async function runInstalled(page: Page) {
+  await page.addInitScript(() => {
+    const real = window.matchMedia.bind(window);
+    window.matchMedia = (query: string) =>
+      query.includes("display-mode: standalone")
+        ? ({
+            matches: true,
+            media: query,
+            onchange: null,
+            addEventListener() {},
+            removeEventListener() {},
+            addListener() {},
+            removeListener() {},
+            dispatchEvent: () => false,
+          } as unknown as MediaQueryList)
+        : real(query);
+  });
+}
+
+/**
+ * The app has hydrated: `MobileChrome` sets `data-chrome` on `<html>` when it mounts, at every
+ * width. Before that the pre-hydration script answers back, view and tab taps with the same moves
+ * (2.8), but without the slide and without the app's listeners, so a spec that checks client
+ * behaviour (a typed transition, a scroll restore, refresh on return) waits for this after
+ * `goto`. Not the root layout: it hydrates before the streamed shell (2.8, found by CI).
+ */
+export async function hydrated(page: Page): Promise<void> {
+  await expect(page.locator("html")).toHaveAttribute("data-chrome", /.+/);
+}
+
+/** One back press: what it must close (if anything), and where the page must be afterwards. */
+export type BackStep = { closes?: Locator; url: RegExp };
+
+/**
+ * A screen's back order as one readable assertion (ARCHITECTURE §14.2): presses back once per
+ * step, and after each checks that the named layer closed and the URL is where it should be. A
+ * view control that pushed history, or an overlay that failed to register, shows up as the
+ * wrong URL on the step it broke.
+ */
+export async function expectBackStack(page: Page, steps: readonly BackStep[]): Promise<void> {
+  for (const [index, step] of steps.entries()) {
+    await page.goBack();
+    if (step.closes) await expect(step.closes, `back #${index + 1} closes its layer`).toBeHidden();
+    await expect(page, `back #${index + 1} lands`).toHaveURL(step.url);
+  }
 }

@@ -20,7 +20,7 @@ export default function OfflinePage() {
         title="You’re offline"
         description="MaxOff needs a connection. Nothing is lost: everything you submitted is already on the server. Reconnect and try again."
         action={
-          <Link href="/" prefetch={false} className={buttonVariants({ variant: "outline" })}>
+          <Link href="/" prefetch={false} className={buttonVariants({ variant: "secondary" })}>
             Try again
           </Link>
         }

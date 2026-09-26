@@ -9,11 +9,18 @@
  */
 export { BulkBar } from "./composites/bulk-bar";
 export { ConfirmDialog } from "./composites/confirm-dialog";
-export { DataTable, type DataTableProps, selectionColumn } from "./composites/data-table";
+export {
+  DataTable,
+  type DataTableProps,
+  type MobileCard,
+  selectionColumn,
+} from "./composites/data-table";
+export { HelpSheet } from "./composites/help-sheet";
 export { EmptyState } from "./composites/empty-state";
 export { ErrorState } from "./composites/error-state";
 export { Forbidden } from "./composites/forbidden";
-export { LoadingState, PageLoading } from "./composites/loading-state";
+export { LoadingState, PageLoading, type LoadingShape } from "./composites/loading-state";
+export { CARD_ROW_MIN_H, CARD_ROW_PADDING, LIST_ROW_MIN_H } from "./composites/row-metrics";
 export { NotFound } from "./composites/not-found";
 export { PageHeader } from "./composites/page-header";
 export {
@@ -26,18 +33,26 @@ export {
   type KnownStatus,
   STATUS_TONES,
   StatusBadge,
+  StatusDot,
   type StatusTone,
   statusLabel,
   statusTone,
 } from "./composites/status-badge";
+export { StickyActions } from "./composites/sticky-actions";
 export { AppShell } from "./shell/app-shell";
 export {
+  alertsInBottomNav,
   homeFor,
   isActivePath,
+  MOBILE_MORE,
+  MOBILE_PRIMARY,
+  type MobileNav,
+  mobileNavFor,
   NAV_BY_ROLE,
   type NavIconName,
   type NavItem,
   navFor,
+  PROFILE_NAV_ITEM,
   SETTINGS_SECTIONS,
   type SettingsSection,
   settingsSectionsFor,
@@ -50,6 +65,7 @@ export {
   type ShellRole,
   type ShellViewer,
 } from "./shell/viewer";
+export { ThemeLabel } from "./theme/theme-label";
 export { ThemeProvider } from "./theme/theme-provider";
 export { ThemeToggle } from "./theme/theme-toggle";
 export { describeError, toastResult } from "./toast";

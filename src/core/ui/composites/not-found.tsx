@@ -14,7 +14,7 @@ export function NotFound({ homeHref = "/" }: { homeHref?: string }) {
       title="Page not found"
       description="That page doesn't exist, or you can't see it."
       action={
-        <Button variant="outline" asChild>
+        <Button variant="secondary" asChild>
           <Link href={homeHref}>Go home</Link>
         </Button>
       }

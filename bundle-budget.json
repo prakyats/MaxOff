@@ -1,0 +1,9 @@
+{
+  "$comment": "First-load JS per route, decompressed bytes (task 2.8, `pnpm budget`). Set from the 2.8 result plus ~5%: /login 559 KB, /today and /my-day 746 KB, /approvals 842 KB. Raising a number is a decision: say why in the commit.",
+  "routes": {
+    "/login": 604160,
+    "/today": 803840,
+    "/my-day": 803840,
+    "/approvals": 905216
+  }
+}

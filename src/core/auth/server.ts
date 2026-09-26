@@ -6,8 +6,11 @@ import { cache } from "react";
 
 import { createServerSupabase } from "@/core/db/server";
 import { setSentryUser } from "@/core/observability/user";
+import type { MemberRole } from "@/core/permissions";
 
+import { formatHomeHint, HOME_HINT_COOKIE } from "./home-hint";
 import { LOGIN_PATH } from "./paths";
+import { classifySessionError, SessionUnavailableError } from "./session-errors";
 import type { CurrentMember } from "./types";
 
 export const SIGN_OUT_INACTIVE_PATH = "/auth/signout?reason=inactive";
@@ -32,7 +35,7 @@ export type SessionState =
  */
 export const getSessionState = cache(async (): Promise<SessionState> => {
   const supabase = await createServerSupabase();
-  const { data: claims } = await supabase.auth.getClaims();
+  const claims = await readClaims(supabase);
   const userId = claims?.claims.sub;
   if (!userId) return { kind: "none" };
 
@@ -59,6 +62,26 @@ export const getSessionState = cache(async (): Promise<SessionState> => {
     },
   };
 });
+
+/**
+ * The verified claims, or `null` when there is no usable session. A transient failure at GoTrue
+ * (unreachable, 5xx, timeout) must never read as "signed out", which would end the session on
+ * the next hop: it throws `SessionUnavailableError`, whose digest the error boundary turns
+ * into "You're still signed in, try again" (2.6, owner decision 2026-09-24). An expired or
+ * refused session is `null`, as before.
+ */
+async function readClaims(supabase: Awaited<ReturnType<typeof createServerSupabase>>) {
+  try {
+    const { data, error } = await supabase.auth.getClaims();
+    if (error && classifySessionError(error) === "transient") {
+      throw new SessionUnavailableError(error);
+    }
+    return data;
+  } catch (error) {
+    if (error instanceof SessionUnavailableError) throw error;
+    throw new SessionUnavailableError(error);
+  }
+}
 
 /** The signed-in active member, or `null`. The seam every page and guard uses. */
 export async function getCurrentMember(): Promise<CurrentMember | null> {
@@ -102,6 +125,22 @@ async function clearAuthCookies(): Promise<void> {
   for (const cookie of store.getAll()) {
     if (cookie.name.startsWith("sb-")) store.delete(cookie.name);
   }
+}
+
+/**
+ * Sets the home hint the proxy reads to answer `/` (2.7, `home-hint.ts`). A route handler or a
+ * server action only. Called at sign-in, set-password and with the day gate's daily pass.
+ */
+export async function setHomeHint(userId: string, role: MemberRole): Promise<void> {
+  const appEnv = process.env.NEXT_PUBLIC_APP_ENV;
+  (await cookies()).set(HOME_HINT_COOKIE, formatHomeHint(userId, role), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: appEnv === "staging" || appEnv === "production",
+    path: "/",
+    // Refreshed at least daily by the gate; the Owner (never gated) refreshes it at sign-in.
+    maxAge: 60 * 60 * 24 * 30,
+  });
 }
 
 export type { CurrentMember } from "./types";

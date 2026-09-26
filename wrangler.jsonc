@@ -17,18 +17,29 @@
   "observability": { "enabled": true },
   "env": {
     // Staging: deployed from `main` by .github/workflows/deploy.yml. Free plan, no real data.
+    // `preview_urls` is on so branch previews work (task 2.0): every version uploaded by
+    // .github/workflows/preview.yml is reachable at <version>-maxoff-staging.<subdomain>
+    // .workers.dev and at <branch>-maxoff-staging.<subdomain>.workers.dev. Stated here rather
+    // than inherited from the account default (which follows `workers_dev`), so a dashboard
+    // toggle cannot silently break previews.
     "staging": {
       "name": "maxoff-staging",
       "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
       "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "maxoff-staging" }],
       "observability": { "enabled": true },
+      "preview_urls": true,
     },
     // Production: deployed from a `v*` tag. Workers Paid from the pilot (task 6.6).
+    // `preview_urls` is off ON PURPOSE (task 2.0). Left at the account default, every
+    // production version would also be served at <version>-maxoff.<subdomain>.workers.dev:
+    // a public, unlisted address serving real data outside the custom domain and outside
+    // anything put in front of it. Nothing in MaxOff needs that. Do not turn it on.
     "production": {
       "name": "maxoff",
       "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
       "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "maxoff" }],
       "observability": { "enabled": true },
+      "preview_urls": false,
     },
   },
 }

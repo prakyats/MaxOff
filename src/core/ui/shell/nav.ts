@@ -17,7 +17,8 @@ export type NavIconName =
   | "settings"
   | "sunrise"
   | "bell"
-  | "circle-user";
+  | "circle-user"
+  | "more";
 
 export type NavItem = {
   /** Stable id used by tests and e2e selectors. */
@@ -27,7 +28,35 @@ export type NavItem = {
   icon: NavIconName;
   /** The permission the destination will check. `null` = every signed-in member. */
   permission: PermissionKey | null;
+  /**
+   * How many things there need the viewer, shown as a count on the icon. Set from real data by
+   * the layout through `withBadges()`: **2.4** on Approvals (attendance days + leave requests
+   * waiting for the Owner), **5.1** on Alerts (unread notifications). The Owner's whole loop is
+   * "what needs me", and a bar that carries the count answers it without a tap. Counts are per
+   * viewer and never money (ADR-0007).
+   */
+  badge?: number;
 };
+
+/**
+ * What the More cell shows: the counts of the destinations hidden behind it, added up. Without
+ * this, a role whose Approvals sits in More would have no way of knowing anything was waiting.
+ * Zero means no badge.
+ */
+export function totalBadge(items: readonly NavItem[]): number {
+  return items.reduce((total, item) => total + Math.max(0, item.badge ?? 0), 0);
+}
+
+/** Counts per nav key (`approvals`, later `alerts`), computed by the layout for this viewer. */
+export type NavBadges = Readonly<Partial<Record<string, number>>>;
+
+/** The items with their counts; a zero or missing count leaves the item without a badge. */
+export function withBadges(items: readonly NavItem[], badges: NavBadges): NavItem[] {
+  return items.map((item) => {
+    const count = badges[item.key] ?? 0;
+    return count > 0 ? { ...item, badge: count } : item;
+  });
+}
 
 /** The home route for each role (PRODUCT §4.7). */
 export function homeFor(role: ShellRole): string {
@@ -128,6 +157,75 @@ export const NAV_BY_ROLE: Record<ShellRole, readonly NavItem[]> = {
 
 export function navFor(role: ShellRole): readonly NavItem[] {
   return NAV_BY_ROLE[role];
+}
+
+/**
+ * **The bottom navigation split, for every role** (ARCHITECTURE §14.1, task 1.5). Mobile is a
+ * first-class layout, so nobody opens a drawer to reach a screen they use ten times a day.
+ *
+ * `MOBILE_PRIMARY` is the bar; `MOBILE_MORE` is the sheet behind it. Both are in the **owner's
+ * stated priority order** (2026-09-23): today, approvals, tasks, calendar, reports, clients,
+ * people, settings. Clients is deliberately not in the bar for either role — a client is set up
+ * once and visited occasionally, not daily. Staff keep PRODUCT §4.7 unchanged and need no More:
+ * those five are all the screens they have.
+ *
+ * Owner and Admin hold the same four today and stay **separate entries on purpose**: Approvals
+ * and Reports will weigh differently for each once they carry real numbers.
+ *
+ * These two arrays are the only place the split lives — changing what a phone shows is one edit
+ * here, not three components — and `nav.test.ts` proves together they are exactly the role's
+ * navigation, so nothing can be dropped or listed twice.
+ *
+ * **Revisit after the pilot** from what people actually open (PROGRESS).
+ */
+export const MOBILE_PRIMARY: Record<ShellRole, readonly string[]> = {
+  owner: ["today", "approvals", "tasks", "calendar"],
+  admin: ["today", "approvals", "tasks", "calendar"],
+  staff: ["my-day", "tasks", "calendar", "alerts", "me"],
+};
+
+/** Everything the bar didn't take, in the same priority order. */
+export const MOBILE_MORE: Record<ShellRole, readonly string[]> = {
+  owner: ["reports", "clients", "people", "settings"],
+  admin: ["reports", "clients", "people", "settings"],
+  staff: [],
+};
+
+/**
+ * The viewer's own profile. Staff have it in their bar (PRODUCT §4.7); for Owner and Admin it
+ * is a row of the More sheet rather than one of `NAV_BY_ROLE`, which lists screens, not
+ * self-service. It is a real item so that More can read as current while /me is open.
+ */
+export const PROFILE_NAV_ITEM: NavItem = {
+  key: "me",
+  label: "Me",
+  href: "/me",
+  icon: "circle-user",
+  permission: null,
+};
+
+export type MobileNav = {
+  /** The destinations in the bar, in order. */
+  primary: readonly NavItem[];
+  /** Everything else, for the More sheet. Empty for Staff, who then get no More item. */
+  more: readonly NavItem[];
+};
+
+/** Splits a role's navigation into the bottom bar and the More sheet, both in priority order. */
+export function mobileNavFor(role: ShellRole): MobileNav {
+  const items = navFor(role);
+  const pick = (keys: readonly string[]) =>
+    keys.flatMap((key) => items.filter((item) => item.key === key));
+  return { primary: pick(MOBILE_PRIMARY[role]), more: pick(MOBILE_MORE[role]) };
+}
+
+/**
+ * True when the role's bottom bar already carries a notifications destination. When it doesn't
+ * (Owner and Admin), the mobile page title bar carries the bell instead, so the alerts are
+ * never behind a scroll position or a sheet.
+ */
+export function alertsInBottomNav(role: ShellRole): boolean {
+  return mobileNavFor(role).primary.some((item) => item.href === "/notifications");
 }
 
 export type SettingsSection = {
