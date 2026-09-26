@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { fail } from "@/core/errors";
+import { sameOrigin } from "@/core/http/origin";
 import { approveDay } from "@/modules/attendance";
 import { approveLeave } from "@/modules/leave";
 
@@ -17,8 +18,7 @@ import { approveLeave } from "@/modules/leave";
 const bodySchema = z.object({ kind: z.enum(["day", "leave"]), id: z.uuid() });
 
 export async function POST(request: Request): Promise<Response> {
-  const origin = request.headers.get("origin");
-  if (origin === null || new URL(origin).host !== new URL(request.url).host) {
+  if (!sameOrigin(request.headers.get("origin"), request.url)) {
     return Response.json(fail("FORBIDDEN"), { status: 403 });
   }
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
