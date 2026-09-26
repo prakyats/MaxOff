@@ -1,7 +1,7 @@
 "use client";
 
 import { Loader2Icon } from "lucide-react";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 
 import type { ResultError } from "@/core/errors";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
@@ -56,7 +56,10 @@ export function EditMemberDialog({
   const [role, setRole] = useState<InvitableRole>(member.role === "admin" ? "admin" : "staff");
   const [jobTitleId, setJobTitleId] = useState(member.jobTitleId ?? "");
   const [error, setError] = useState<ResultError | null>(null);
-  const [pending, startTransition] = useTransition();
+  // A plain flag, not a transition: the save runs inside the confirmation's own transition, so
+  // this is what keeps the dialog from being dismissed mid-save (Escape, the backdrop) and the
+  // failure from landing on an unmounted form.
+  const [pending, setPending] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const { editRole } = memberActions({ id: viewerId, canManage: true }, member);
   const changes = memberChangeLines(
@@ -71,17 +74,22 @@ export function EditMemberDialog({
   }
 
   async function save(): Promise<boolean> {
-    const result = await updateMember({
-      memberId: member.id,
-      fullName,
-      ...(editRole ? { role } : {}),
-      jobTitleId,
-    });
-    if (result.ok) {
-      toastResult(result, { success: "Saved" });
-      onClose();
-    } else {
-      startTransition(() => setError(result.error));
+    setPending(true);
+    try {
+      const result = await updateMember({
+        memberId: member.id,
+        fullName,
+        ...(editRole ? { role } : {}),
+        jobTitleId,
+      });
+      if (result.ok) {
+        toastResult(result, { success: "Saved" });
+        onClose();
+      } else {
+        setError(result.error);
+      }
+    } finally {
+      setPending(false);
     }
     return true;
   }
