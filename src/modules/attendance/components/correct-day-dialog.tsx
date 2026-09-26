@@ -109,14 +109,10 @@ function CorrectForm({
 
   const fieldErrors = error?.fieldErrors ?? {};
   const summary = error && !error.fieldErrors ? describeError(error) : null;
-  // Correcting to a different leave type keeps the approved leave behind it (DATA-MODEL §3):
-  // the Owner cancels that one from the person's leave if it should go.
-  const keepsLeave =
-    target.leaveType !== null &&
-    status !== "" &&
-    status !== target.leaveType &&
-    status !== "present" &&
-    status !== "absent";
+  // Any correction keeps the approved leave behind the day, Present and Absent included
+  // (WORKFLOWS §1, owner decision 2026-09-26): the Owner cancels that one from the person's
+  // Leave tab if it should go.
+  const keepsLeave = target.leaveType !== null && status !== "" && status !== target.leaveType;
 
   return (
     <form onSubmit={submit} noValidate className="flex flex-col gap-4">
@@ -152,8 +148,7 @@ function CorrectForm({
       </FormField>
       {keepsLeave ? (
         <p data-slot="correct-keeps-leave" className="text-muted-foreground text-sm">
-          Their approved {STATUS_LABELS[target.leaveType ?? "leave"].toLowerCase()} for this date
-          stays. Cancel it from {name}&apos;s leave if it should go.
+          {name}&apos;s approved leave stays. Cancel it from their Leave tab if it shouldn&apos;t.
         </p>
       ) : null}
       <FormField

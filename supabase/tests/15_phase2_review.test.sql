@@ -1,9 +1,10 @@
 -- Phase 2 review fixes (2026-09-26), one section per migration:
 --   20260926174147_overtime_note_day: attendance_flag_overtime_today() picks the day the logout will.
 --   20260926174801_leave_span_cap: app.leave_validate() caps a request at 365 days, for every writer.
+--   20260926175013_correction_worked_on_leave: a Present correction on approved leave is a day worked.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(17);
+select plan(22);
 
 delete from public.attendance_events;
 delete from public.attendance_days;
@@ -21,7 +22,8 @@ insert into fx values
   ('today', '00000000-0000-4000-8000-000000000002'),
   ('late',  '00000000-0000-4000-8000-000000000003'),
   ('gone',  '00000000-0000-4000-8000-000000000004'),
-  ('none',  '00000000-0000-4000-8000-000000000005');
+  ('none',  '00000000-0000-4000-8000-000000000005'),
+  ('onleave', '00000000-0000-4000-8000-000000000006');
 insert into fx select 'org', id from public.organizations limit 1;
 grant select on fx to authenticated, anon, service_role;
 
@@ -54,7 +56,8 @@ insert into public.members (id, org_id, full_name, email, role, status, joined_a
   (pg_temp.fx('today'), pg_temp.fx('org'), 'Tara Today', 'today@example.com', 'staff', 'active', now() - interval '30 days'),
   (pg_temp.fx('late'),  pg_temp.fx('org'), 'Lata Late',  'late@example.com',  'staff', 'active', now() - interval '30 days'),
   (pg_temp.fx('gone'),  pg_temp.fx('org'), 'Gopal Gone', 'gone@example.com',  'staff', 'active', now() - interval '30 days'),
-  (pg_temp.fx('none'),  pg_temp.fx('org'), 'Nila None',  'none@example.com',  'staff', 'active', now() - interval '30 days');
+  (pg_temp.fx('none'),  pg_temp.fx('org'), 'Nila None',  'none@example.com',  'staff', 'active', now() - interval '30 days'),
+  (pg_temp.fx('onleave'), pg_temp.fx('org'), 'Farah Off', 'onleave@example.com', 'staff', 'active', now() - interval '30 days');
 
 -- Tara has today's day. Lata has no day today and yesterday's is still open (worked past
 -- midnight). Gopal has no day today and yesterday's already holds a logout. Nila has no day at all.
@@ -63,6 +66,12 @@ insert into public.attendance_days (member_id, work_date, first_login_at, state,
   (pg_temp.fx('late'),  app.today_ist() - 1, now() - interval '10 hours', 'pending_review', 'present', now() - interval '10 hours');
 insert into public.attendance_days (member_id, work_date, first_login_at, last_logout_at, state, submitted_choice, submitted_at) values
   (pg_temp.fx('gone'),  app.today_ist() - 1, now() - interval '10 hours', now() - interval '2 hours', 'pending_review', 'present', now() - interval '10 hours');
+-- Farah has approved leave over today and today's day was derived from it (2.1).
+insert into public.leave_requests (id, member_id, type, start_date, end_date, state, source, decided_by, decided_at) values
+  ('00000000-0000-4000-8000-0000000000a1', pg_temp.fx('onleave'), 'leave', app.today_ist() - 1, app.today_ist() + 1,
+   'approved', 'form', pg_temp.fx('owner'), now());
+insert into public.attendance_days (member_id, work_date, state, final_status, decided_at, proposed_by_system, leave_request_id) values
+  (pg_temp.fx('onleave'), app.today_ist(), 'approved', 'leave', now(), true, '00000000-0000-4000-8000-0000000000a1');
 delete from public.activity_log;
 
 -- attendance_flag_overtime_today ----------------------------------------------------------------
@@ -134,6 +143,33 @@ select throws_ok(
        (select id from public.leave_requests where member_id = pg_temp.fx('none') and state = 'approved'),
        'leave', app.today_ist() + 1, app.today_ist() + 366) $$,
   'P0001', 'VALIDATION', 'a change request is held to the same cap');
+
+-- attendance_decide(correct): Present on approved leave is a day worked ---------------------------
+select pg_temp.as_member('owner');
+select lives_ok(
+  $$ select public.attendance_decide((select id from public.attendance_days where member_id = pg_temp.fx('onleave')),
+       'correct', 'present', 'Came in for the shoot') $$,
+  'the Owner corrects a leave day to Present');
+select pg_temp.as_system();
+select results_eq(
+  $$ select state::text, final_status::text, worked_on_leave, leave_request_id
+     from public.attendance_days where member_id = pg_temp.fx('onleave') $$,
+  $$ values ('corrected', 'present', true, '00000000-0000-4000-8000-0000000000a1'::uuid) $$,
+  'Present on a date covered by the approved leave: worked_on_leave, still linked');
+select is((select state::text from public.leave_requests where id = '00000000-0000-4000-8000-0000000000a1'), 'approved',
+  'the leave request is untouched');
+select pg_temp.as_member('owner');
+select lives_ok(
+  $$ select public.attendance_decide((select id from public.attendance_days where member_id = pg_temp.fx('onleave')),
+       'correct', 'absent', 'Did not come after all') $$,
+  'the Owner corrects the same day to Absent');
+select pg_temp.as_system();
+select results_eq(
+  $$ select d.final_status::text, d.worked_on_leave, r.state::text
+     from public.attendance_days d join public.leave_requests r on r.id = d.leave_request_id
+     where d.member_id = pg_temp.fx('onleave') $$,
+  $$ values ('absent', false, 'approved') $$,
+  'Absent: no day worked, the leave still approved');
 
 select * from finish();
 rollback;

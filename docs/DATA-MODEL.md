@@ -282,7 +282,9 @@ public.attendance_decide(day_id, decision, status, reason)
                                 worked_on_leave when the choice was Present on a day linked to
                                 approved leave, which stays untouched) or 'correct' (any state,
                                 status required, REASON_REQUIRED without a reason; awaiting_choice
-                                included, the gate then stops asking). A linked submitted request is
+                                included, the gate then stops asking; Present on a date covered by
+                                the linked approved leave sets worked_on_leave and that leave is
+                                never touched, phase 2 review 2026-09-26). A linked submitted request is
                                 decided in the same call: approved when the outcome equals its type,
                                 otherwise rejected with the same reason. Correcting to a leave type
                                 with no approved request of that type behind it creates
