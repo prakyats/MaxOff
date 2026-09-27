@@ -1357,6 +1357,37 @@ export type Database = {
         Args: { client_id: string };
         Returns: Database["public"]["Enums"]["client_state"];
       };
+      file_begin: {
+        Args: {
+          file_id: string;
+          mime: string;
+          name: string;
+          preview_of?: string;
+          size_bytes: number;
+          uploader: string;
+        };
+        Returns: {
+          archived_at: string | null;
+          created_at: string;
+          id: string;
+          mime: string;
+          name: string;
+          org_id: string;
+          preview_of: string | null;
+          sha256: string | null;
+          size_bytes: number;
+          status: string;
+          storage_key: string;
+          updated_at: string;
+          uploaded_by: string | null;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "files";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
       file_cleanup_candidates: {
         Args: {
           archived_before: string;
@@ -1387,7 +1418,12 @@ export type Database = {
         };
       };
       file_complete: {
-        Args: { file_id: string; sha256?: string; size_bytes: number };
+        Args: {
+          file_id: string;
+          sha256?: string;
+          size_bytes: number;
+          uploader: string;
+        };
         Returns: string;
       };
       file_fail: { Args: { file_id: string }; Returns: string };

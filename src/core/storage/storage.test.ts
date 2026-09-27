@@ -1,8 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { attachmentDisposition, createS3Adapter, encodeKey } from "./adapter";
+import { attachmentDisposition, createS3Adapter, encodeKey, StorageError } from "./adapter";
 import { parseStorageEnv } from "./env";
-import { storageKeyFor } from "./keys";
 import {
   ARCHIVED_RETENTION_DAYS,
   checkFile,
@@ -97,10 +96,17 @@ describe("env", () => {
 });
 
 describe("keys and URLs", () => {
-  it("lays a key out as org/yyyy/mm/id/name, in IST", () => {
-    expect(
-      storageKeyFor("org1", "file1", "Logo (final).png", new Date("2026-09-30T20:30:00Z")),
-    ).toBe("org1/2026/10/file1/Logo (final).png");
+  it("refuses a key with an empty, . or .. segment (a URL would collapse it onto another key)", () => {
+    expect(() => encodeKey("org/2026/09/x/../victim/logo.png")).toThrow(StorageError);
+    expect(() => encodeKey("org/2026/09/id/.")).toThrow(StorageError);
+    expect(() => encodeKey("org//id/logo.png")).toThrow(StorageError);
+  });
+
+  it("never names a file . or ..", () => {
+    expect(safeFileName("..")).toBe("file");
+    expect(safeFileName(" . ")).toBe("file");
+    expect(safeFileName("a/..")).toBe("file");
+    expect(safeFileName("..logo.png")).toBe("..logo.png");
   });
 
   it("encodes each key segment and keeps the slashes", () => {

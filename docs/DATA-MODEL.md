@@ -638,6 +638,14 @@ files                id, org_id, storage_key, name, mime, size_bytes, sha256 nul
                      -- candidate too: status ready, not archived, older than 7 days, and referenced by
                      -- no foreign key column that points at files (read from the catalog, so a new
                      -- consumer is protected by declaring its FK; files.preview_of is not a reference).
+                     -- Phase 3 review (security must-fix, 2026-09-27): **no API insert**. A row is created
+                     -- only by file_begin(id, uploader, name, mime, size_bytes, preview_of) and made ready
+                     -- only by file_complete(id, uploader, size_bytes, sha256), both service_role only and
+                     -- called by core/storage's actions after their own checks (permission, type and size
+                     -- against the purpose; the object's size from the bucket; the SVG rewrite). file_begin
+                     -- builds storage_key itself (<org>/<IST yyyy/mm>/<id>/<name>, a name of '', '.' or '..'
+                     -- becomes 'file'), so a key can never alias another object; created_at is always now().
+                     -- Both record the uploader as the activity actor. file_fail(id) stays the uploader's.
                      -- A preview follows its original: a candidate once the original is one or is
                      -- deleted, unless a foreign key references the preview itself (ADR-0010: a
                      -- submission's preview outlives its deleted local original). Signature:

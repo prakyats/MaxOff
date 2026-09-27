@@ -54,10 +54,16 @@ export class StorageError extends Error {
   }
 }
 
-/** Every path segment percent-encoded, slashes kept: the key is a path under the bucket. */
+/**
+ * Every path segment percent-encoded, slashes kept: the key is a path under the bucket. An empty,
+ * `.` or `..` segment is refused: a URL would collapse it and reach another object's key.
+ */
 export function encodeKey(key: string): string {
-  return key
-    .split("/")
+  const segments = key.split("/");
+  if (segments.some((segment) => segment === "" || segment === "." || segment === "..")) {
+    throw new StorageError("EncodeKey", 0, "A storage key has an empty or dot segment.");
+  }
+  return segments
     .map((segment) =>
       encodeURIComponent(segment).replace(
         /[!'()*]/g,

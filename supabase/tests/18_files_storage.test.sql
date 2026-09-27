@@ -3,10 +3,12 @@
 -- the replace trigger, member_directory's new column, the status functions on every path and
 -- the service-only cleanup functions. The 3A review additions (migration 20260927065451): the
 -- activity policy per role, the preview's archive audit, a client logo replacement, file_fail by
--- the wrong actor, and a failed upload as a cleanup candidate.
+-- the wrong actor, and a failed upload as a cleanup candidate. Phase 3 review (migration
+-- 20260927144619): no API insert; file_begin() and file_complete() are service_role only (the
+-- storage actions call them after their checks), file_begin() builds the key.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(78);
+select plan(88);
 
 delete from public.attendance_events;
 delete from public.attendance_days;
@@ -42,7 +44,10 @@ insert into fx values
   ('clogo',    '00000000-0000-4000-8000-0000000000e5'),
   ('logo2',    '00000000-0000-4000-8000-0000000000e6'),
   ('stale',    '00000000-0000-4000-8000-0000000000e7'),
-  ('clogo2',   '00000000-0000-4000-8000-0000000000e8');
+  ('clogo2',   '00000000-0000-4000-8000-0000000000e8'),
+  ('p1',       '00000000-0000-4000-8000-0000000000e9'),
+  ('p2',       '00000000-0000-4000-8000-0000000000ea'),
+  ('dots',     '00000000-0000-4000-8000-0000000000eb');
 insert into fx select 'org', id from public.organizations limit 1;
 grant select on fx to authenticated, anon, service_role;
 
@@ -64,6 +69,30 @@ begin
   reset role;
   perform set_config('request.jwt.claim.sub', '', true);
   perform set_config('request.jwt.claims', '', true);
+end;
+$$;
+
+-- The storage actions' two server-side writes, run as service_role for a member, then back to
+-- that member (what the action does: the member's request, the service client for these two).
+create function pg_temp.begin(k text, who text, fname text, fmime text, fsize bigint, original text default null)
+returns uuid language plpgsql as $$
+declare r public.files;
+begin
+  perform set_config('role', 'service_role', true);
+  select * into r from public.file_begin(pg_temp.fx(k), pg_temp.fx(who), fname, fmime, fsize,
+    case when original is null then null else pg_temp.fx(original) end);
+  perform pg_temp.as_member(who);
+  return r.id;
+end;
+$$;
+
+create function pg_temp.complete(k text, who text, fsize bigint) returns text language plpgsql as $$
+declare r text;
+begin
+  perform set_config('role', 'service_role', true);
+  r := public.file_complete(pg_temp.fx(k), pg_temp.fx(who), fsize);
+  perform pg_temp.as_member(who);
+  return r;
 end;
 $$;
 
@@ -95,7 +124,16 @@ select has_column('public', 'organizations', 'logo_file_id', 'organizations.logo
 select has_column('public', 'members', 'avatar_file_id', 'members.avatar_file_id exists');
 select has_column('public', 'member_directory', 'avatar_file_id', 'member_directory carries avatar_file_id (appended)');
 select has_function('app', 'file_visible', array['uuid'], 'app.file_visible exists');
-select has_function('public', 'file_complete', array['uuid', 'bigint', 'text'], 'file_complete exists');
+select has_function('public', 'file_begin', array['uuid', 'uuid', 'text', 'text', 'bigint', 'uuid'], 'file_begin exists');
+select has_function('public', 'file_complete', array['uuid', 'uuid', 'bigint', 'text'], 'file_complete names the uploader');
+select hasnt_function('public', 'file_complete', array['uuid', 'bigint', 'text'], 'the member-callable file_complete is gone');
+select ok(
+  not has_table_privilege('authenticated', 'public.files', 'insert')
+  and not has_function_privilege('authenticated', 'public.file_begin(uuid, uuid, text, text, bigint, uuid)', 'execute')
+  and not has_function_privilege('authenticated', 'public.file_complete(uuid, uuid, bigint, text)', 'execute')
+  and has_function_privilege('service_role', 'public.file_begin(uuid, uuid, text, text, bigint, uuid)', 'execute')
+  and has_function_privilege('service_role', 'public.file_complete(uuid, uuid, bigint, text)', 'execute'),
+  'members never insert a file row or complete an upload themselves: service_role only (phase 3 review)');
 select has_function('public', 'file_fail', array['uuid'], 'file_fail exists');
 select has_function('public', 'file_mark_deleted', array['uuid'], 'file_mark_deleted exists');
 select has_function('public', 'file_cleanup_candidates', array['timestamptz', 'timestamptz', 'timestamptz', 'integer'], 'file_cleanup_candidates exists (the orphan window since 20260927130730)');
@@ -121,29 +159,43 @@ select ok(
   'the cleanup functions are service_role only');
 
 -- Uploading: a pending row of one''s own ------------------------------------------------------
-select pg_temp.as_member('owner');
-select lives_ok(
-  $$ insert into public.files (id, storage_key, name, mime, size_bytes, status, uploaded_by)
-     values (pg_temp.fx('logo'), 'org/2026/09/logo/logo.png', 'logo.png', 'image/png', 1234, 'ready', pg_temp.fx('staff'))
-     returning id $$,
-  'the Owner starts an upload (RETURNING included: the row is theirs in the same command)');
+select pg_temp.as_member('staff');
+select throws_ok(
+  $$ insert into public.files (id, org_id, storage_key, name, mime, size_bytes)
+     values (pg_temp.fx('p1'), pg_temp.fx('org'), pg_temp.fx('org') || '/2026/09/x/../y/logo.png', 'l.png', 'image/png', 1) $$,
+  '42501', null, 'a member cannot insert a file row with a key of their choosing (phase 3 review)');
+select throws_ok($$ select public.file_complete(pg_temp.fx('p1'), pg_temp.fx('staff'), 1) $$, '42501', null,
+  'nor call file_complete directly');
+select lives_ok($$ select pg_temp.begin('logo', 'owner', 'logo.png', 'image/png', 1234) $$,
+  'the Owner starts an upload (through file_begin)');
 select results_eq(
-  $$ select status, uploaded_by from public.files where id = pg_temp.fx('logo') $$,
-  $$ values ('pending', pg_temp.fx('owner')) $$,
-  'the row is pending and the caller''s, whatever the API sent');
+  $$ select status, uploaded_by, storage_key from public.files where id = pg_temp.fx('logo') $$,
+  $$ values ('pending', pg_temp.fx('owner'),
+             pg_temp.fx('org') || '/' || to_char(app.today_ist(), 'YYYY/MM') || '/' || pg_temp.fx('logo') || '/logo.png') $$,
+  'the row is pending, the uploader''s, and its key is built by the database (IST month)');
+select is(
+  (select actor_id from public.activity_log where entity = 'files' and entity_id = pg_temp.fx('logo') and action = 'insert'),
+  pg_temp.fx('owner'), 'the insert is audited as the uploader, not the service');
+select lives_ok($$ select pg_temp.begin('dots', 'owner', '..', 'image/png', 5) $$, 'a file named .. still starts');
+select is((select storage_key like '%/' || pg_temp.fx('dots') || '/file' from public.files where id = pg_temp.fx('dots')), true,
+  'but its key never ends in a dot segment');
+select lives_ok($$ select pg_temp.complete('dots', 'owner', 5) $$, 'and completes like any other');
 select throws_ok(
   $$ update public.organizations set logo_file_id = pg_temp.fx('logo') where id = pg_temp.fx('org') $$,
   'P0001', 'INVALID_STATE', 'a pending file cannot be attached');
 select pg_temp.as_member('staff');
 select throws_ok(
-  $$ select public.file_complete(pg_temp.fx('logo'), 1234) $$,
+  $$ select pg_temp.complete('logo', 'staff', 1234) $$,
   'P0001', 'NOT_FOUND', 'someone else cannot complete the upload (and does not learn it exists)');
 select is((select count(*) from public.files), 0::bigint, 'a pending upload is visible to its uploader only');
 select pg_temp.as_member('owner');
-select throws_ok($$ select public.file_complete(pg_temp.fx('logo'), 0) $$, 'P0001', 'VALIDATION',
+select throws_ok($$ select pg_temp.complete('logo', 'owner', 0) $$, 'P0001', 'VALIDATION',
   'completing needs the size');
-select is(public.file_complete(pg_temp.fx('logo'), 1234), 'ready', 'pending → ready');
-select throws_ok($$ select public.file_complete(pg_temp.fx('logo'), 1234) $$, 'P0001', 'INVALID_STATE',
+select is(pg_temp.complete('logo', 'owner', 1234), 'ready', 'pending → ready');
+select is(
+  (select actor_id from public.activity_log where entity = 'files' and entity_id = pg_temp.fx('logo') and action = 'ready'),
+  pg_temp.fx('owner'), 'ready is audited as the uploader');
+select throws_ok($$ select pg_temp.complete('logo', 'owner', 1234) $$, 'P0001', 'INVALID_STATE',
   'ready cannot be completed again');
 select throws_ok($$ select public.file_fail(pg_temp.fx('logo')) $$, 'P0001', 'INVALID_STATE',
   'ready cannot fail');
@@ -152,19 +204,15 @@ select throws_ok(
   '42501', null, 'status is not editable directly');
 
 -- Previews ---------------------------------------------------------------------------------------
-select lives_ok(
-  $$ insert into public.files (id, storage_key, name, mime, size_bytes, preview_of)
-     values (pg_temp.fx('logo_prev'), 'org/2026/09/logo_prev/logo-preview.jpg', 'logo-preview.jpg', 'image/jpeg', 300, pg_temp.fx('logo')) $$,
+select lives_ok($$ select pg_temp.begin('logo_prev', 'owner', 'logo-preview.jpg', 'image/jpeg', 300, 'logo') $$,
   'a preview points at the uploader''s original');
-select lives_ok($$ select public.file_complete(pg_temp.fx('logo_prev'), 300) $$, 'the preview completes');
+select lives_ok($$ select pg_temp.complete('logo_prev', 'owner', 300) $$, 'the preview completes');
 select throws_ok(
-  $$ insert into public.files (storage_key, name, mime, size_bytes, preview_of)
-     values ('org/x/y', 'p.jpg', 'image/jpeg', 10, pg_temp.fx('logo_prev')) $$,
+  $$ select pg_temp.begin('p1', 'owner', 'p.jpg', 'image/jpeg', 10, 'logo_prev') $$,
   'P0001', 'VALIDATION', 'a preview never points at a preview');
 select pg_temp.as_member('staff');
 select throws_ok(
-  $$ insert into public.files (storage_key, name, mime, size_bytes, preview_of)
-     values ('org/x/z', 'p.jpg', 'image/jpeg', 10, pg_temp.fx('logo')) $$,
+  $$ select pg_temp.begin('p2', 'staff', 'p.jpg', 'image/jpeg', 10, 'logo') $$,
   'P0001', 'VALIDATION', 'a preview of someone else''s original is refused');
 
 -- The company logo: any member may see it once attached -----------------------------------------
@@ -184,16 +232,12 @@ select is(pg_temp.update_count($$ update public.organizations set logo_file_id =
 
 -- Avatars: own upload, raster only, team.view or the person ---------------------------------------
 select pg_temp.as_member('staff');
-select lives_ok(
-  $$ insert into public.files (id, storage_key, name, mime, size_bytes)
-     values (pg_temp.fx('avatar'), 'org/2026/09/avatar/me.jpg', 'me.jpg', 'image/jpeg', 2000) $$,
+select lives_ok($$ select pg_temp.begin('avatar', 'staff', 'me.jpg', 'image/jpeg', 2000) $$,
   'Staff start their own avatar upload');
-select lives_ok($$ select public.file_complete(pg_temp.fx('avatar'), 2000) $$, 'and complete it');
-select lives_ok(
-  $$ insert into public.files (id, storage_key, name, mime, size_bytes)
-     values (pg_temp.fx('svg'), 'org/2026/09/svg/me.svg', 'me.svg', 'image/svg+xml', 500) $$,
+select lives_ok($$ select pg_temp.complete('avatar', 'staff', 2000) $$, 'and complete it');
+select lives_ok($$ select pg_temp.begin('svg', 'staff', 'me.svg', 'image/svg+xml', 500) $$,
   'an SVG upload is a file like any other');
-select lives_ok($$ select public.file_complete(pg_temp.fx('svg'), 480) $$, 'it completes (sanitised, a new size)');
+select lives_ok($$ select pg_temp.complete('svg', 'staff', 480) $$, 'it completes (sanitised, a new size)');
 select throws_ok(
   $$ update public.members set avatar_file_id = pg_temp.fx('svg') where id = pg_temp.fx('staff') $$,
   'P0001', 'VALIDATION', 'an avatar is never an SVG (kickoff 3)');
@@ -216,11 +260,9 @@ select is(pg_temp.update_count($$ update public.members set avatar_file_id = nul
 
 -- Replacing archives the previous file and its previews --------------------------------------------
 select pg_temp.as_member('owner');
-select lives_ok(
-  $$ insert into public.files (id, storage_key, name, mime, size_bytes)
-     values (pg_temp.fx('logo2'), 'org/2026/09/logo2/logo2.png', 'logo2.png', 'image/png', 999) $$,
+select lives_ok($$ select pg_temp.begin('logo2', 'owner', 'logo2.png', 'image/png', 999) $$,
   'a second logo is uploaded');
-select lives_ok($$ select public.file_complete(pg_temp.fx('logo2'), 999) $$, 'and completed');
+select lives_ok($$ select pg_temp.complete('logo2', 'owner', 999) $$, 'and completed');
 select lives_ok(
   $$ update public.organizations set logo_file_id = pg_temp.fx('logo2') where id = pg_temp.fx('org') $$,
   'the logo is replaced');
@@ -240,11 +282,9 @@ select is((select count(*) from public.files where id = pg_temp.fx('logo')), 0::
 
 -- A client logo follows the client ------------------------------------------------------------
 select pg_temp.as_member('admin');
-select lives_ok(
-  $$ insert into public.files (id, storage_key, name, mime, size_bytes)
-     values (pg_temp.fx('clogo'), 'org/2026/09/clogo/c.png', 'c.png', 'image/png', 50) $$,
+select lives_ok($$ select pg_temp.begin('clogo', 'admin', 'c.png', 'image/png', 50) $$,
   'the Admin uploads a client logo');
-select lives_ok($$ select public.file_complete(pg_temp.fx('clogo'), 50) $$, 'and completes it');
+select lives_ok($$ select pg_temp.complete('clogo', 'admin', 50) $$, 'and completes it');
 select lives_ok(
   $$ update public.client_brand set logo_file_id = pg_temp.fx('clogo') where client_id = pg_temp.fx('client_a') $$,
   'and attaches it to their client');
@@ -269,11 +309,9 @@ select ok((select count(*) from public.activity_log where entity = 'files' and e
   'the client''s Admin reads its logo''s activity');
 
 -- Replacing a client logo archives the previous one too (3A review) ----------------------------
-select lives_ok(
-  $$ insert into public.files (id, storage_key, name, mime, size_bytes)
-     values (pg_temp.fx('clogo2'), 'org/2026/09/clogo2/c2.png', 'c2.png', 'image/png', 60) $$,
+select lives_ok($$ select pg_temp.begin('clogo2', 'admin', 'c2.png', 'image/png', 60) $$,
   'the Admin uploads a second client logo');
-select lives_ok($$ select public.file_complete(pg_temp.fx('clogo2'), 60) $$, 'and completes it');
+select lives_ok($$ select pg_temp.complete('clogo2', 'admin', 60) $$, 'and completes it');
 select lives_ok(
   $$ update public.client_brand set logo_file_id = pg_temp.fx('clogo2') where client_id = pg_temp.fx('client_a') $$,
   'and replaces the client logo (the guard resolves the organization through the client)');
@@ -287,9 +325,7 @@ select ok(
 
 -- Failing and the cleanup job --------------------------------------------------------------------
 select pg_temp.as_member('staff');
-select lives_ok(
-  $$ insert into public.files (id, storage_key, name, mime, size_bytes, created_at)
-     values (pg_temp.fx('stale'), 'org/2026/09/stale/x.png', 'x.png', 'image/png', 10, now()) $$,
+select lives_ok($$ select pg_temp.begin('stale', 'staff', 'x.png', 'image/png', 10) $$,
   'an upload that will be abandoned');
 select pg_temp.as_member('staff2');
 select throws_ok($$ select public.file_fail(pg_temp.fx('stale')) $$, 'P0001', 'NOT_FOUND',

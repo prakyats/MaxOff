@@ -2,20 +2,23 @@ import "server-only";
 
 import type { Tables } from "@/core/db";
 import { createServerSupabase } from "@/core/db/server";
+import { createServiceSupabase } from "@/core/db/service";
 import { AppError } from "@/core/errors";
-import { systemClock } from "@/core/time";
 
 import { createS3Adapter, type StorageAdapter } from "./adapter";
 import { storageEnv } from "./env";
-import { storageKeyFor } from "./keys";
 import { safeFileName } from "./limits";
-
-export { storageKeyFor } from "./keys";
 
 /**
  * The files repository (CLAUDE.md rule 3: core/storage owns `files`) and the adapter singleton.
  * Reads run under RLS as the signed-in member: `app.file_visible()` decides which rows answer,
  * so a file nobody may see reads as "not found", never "forbidden".
+ *
+ * Creating a row and marking it ready are the two writes the API role cannot make (phase 3
+ * review): `file_begin()` and `file_complete()` are service_role only, so they run on the service
+ * client, and only from the storage actions after their checks (permission, type and size for the
+ * purpose; the object's size from the bucket; the SVG rewrite). The uploader is named explicitly
+ * and re-checked in SQL. Nothing else in this file uses the service client.
  */
 
 export type FileStatus = "pending" | "ready" | "failed" | "deleted";
@@ -67,36 +70,26 @@ export function getStorageAdapter(): StorageAdapter {
   return adapter;
 }
 
-async function currentOrgId(): Promise<string> {
-  const supabase = await createServerSupabase();
-  const { data, error } = await supabase.from("organizations").select("id").limit(1).maybeSingle();
-  if (error) throw error;
-  if (!data) throw new AppError("UNAUTHENTICATED");
-  return data.id;
-}
-
-/** A pending row for an upload the caller is about to make (RLS: their own). */
+/**
+ * A pending row for an upload the member is about to make, once the action has checked it. The
+ * database builds the storage key (`<org>/<IST yyyy/mm>/<id>/<name>`).
+ */
 export async function createPendingFile(input: {
+  uploaderId: string;
   name: string;
   mime: string;
   sizeBytes: number;
   previewOf: string | null;
 }): Promise<FileRecord> {
-  const supabase = await createServerSupabase();
-  const orgId = await currentOrgId();
-  const id = crypto.randomUUID();
-  const { data, error } = await supabase
-    .from("files")
-    .insert({
-      id,
-      org_id: orgId,
-      storage_key: storageKeyFor(orgId, id, input.name, systemClock()),
+  const { data, error } = await createServiceSupabase()
+    .rpc("file_begin", {
+      file_id: crypto.randomUUID(),
+      uploader: input.uploaderId,
       name: safeFileName(input.name),
       mime: input.mime,
       size_bytes: input.sizeBytes,
-      preview_of: input.previewOf,
+      ...(input.previewOf ? { preview_of: input.previewOf } : {}),
     })
-    .select("*")
     .single();
   if (error) throw error;
   return toFileRecord(data);
@@ -125,14 +118,16 @@ export async function getPreviewOf(fileId: string): Promise<FileRecord | null> {
   return data ? toFileRecord(data) : null;
 }
 
+/** Marks the uploader's pending row ready, once the action has confirmed the object. */
 export async function completeFile(
   fileId: string,
+  uploaderId: string,
   sizeBytes: number,
   sha256: string | null,
 ): Promise<void> {
-  const supabase = await createServerSupabase();
-  const { error } = await supabase.rpc("file_complete", {
+  const { error } = await createServiceSupabase().rpc("file_complete", {
     file_id: fileId,
+    uploader: uploaderId,
     size_bytes: sizeBytes,
     ...(sha256 ? { sha256 } : {}),
   });

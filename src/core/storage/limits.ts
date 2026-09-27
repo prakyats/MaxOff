@@ -146,5 +146,5 @@ export function safeFileName(name: string, fallback = "file"): string {
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, FILE_NAME_MAX);
-  return cleaned || fallback;
+  return cleaned === "" || cleaned === "." || cleaned === ".." ? fallback : cleaned;
 }

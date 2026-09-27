@@ -75,6 +75,7 @@ export const beginUpload = action(
     }
 
     const file = await createPendingFile({
+      uploaderId: member.id,
       name: data.name,
       mime: data.mime,
       sizeBytes: data.size,
@@ -160,7 +161,7 @@ export const completeUpload = action(
         await storage.put(file.storageKey, bytes, SVG_MIME);
         object = { ...object, size: bytes.byteLength };
       }
-      await completeFile(file.id, object.size, null);
+      await completeFile(file.id, member.id, object.size, null);
       return ok({ fileId: file.id });
     } catch (error) {
       if (error instanceof StorageError) {
