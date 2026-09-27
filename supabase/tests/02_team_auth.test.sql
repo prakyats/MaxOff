@@ -16,6 +16,12 @@ delete from public.attendance_days;
 delete from public.leave_requests;
 delete from public.session_events;
 delete from public.activity_log; -- first: actor_id references members
+-- Client rows (3.1) reference members: a Playwright run leaves some behind.
+delete from public.client_contacts;
+delete from public.client_admin_assignments;
+delete from public.client_brand;
+delete from public.client_private;
+delete from public.clients;
 delete from public.members;
 delete from auth.identities;
 delete from auth.users;

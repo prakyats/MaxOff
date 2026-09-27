@@ -458,21 +458,45 @@ cron.job                        'absent_check' at 29 18 * * * (23:59 IST) -> sel
 ```
 clients              id, org_id, name, legal_name, state client_state, admin_id → members,
                      gstin, address, city, phone, email, website, drive_url, requirements, notes,
-                     custom_fields, activated_at, archived_at, created_by
+                     custom_fields, activated_at, archived_at, created_by, search tsvector (generated),
+                     created_at, updated_at
                      -- kickoff 3 (2026-09-27): unique (org_id, lower(name)) where state <> 'inactive';
                      -- gstin check (15-char format) when not null; website / drive_url https only;
                      -- archived_at reserved (no archive action in phase 3: inactive is the end state)
-client_private       client_id pk, ceo_notes                        -- Owner-only table
-client_admin_assignments  id, client_id, admin_id, assigned_by, from_at, to_at null
-client_contacts      id, client_id, name, designation, email, phone, is_primary, custom_fields, archived_at
+                     -- 3.1: created by a plain INSERT under clients.manage (state draft; admin_id may be
+                     -- given at creation and opens the first assignment row by trigger). state,
+                     -- activated_at, admin_id and archived_at are protected columns (transition
+                     -- functions only). API UPDATE grant: name, legal_name, gstin, address, city, phone,
+                     -- email, website, drive_url, requirements, notes, custom_fields. Audited.
+                     -- RLS: app.client_visible(id) = the org's Owner (clients.manage) or the current
+                     -- Admin (admin_id = caller); writes need clients.edit_assigned on a visible row.
+                     -- Staff never read the table.
+client_private       client_id pk, owner_notes, created_at, updated_at   -- Owner-only table
+                     -- 3.1: one row per client, created by trigger with the client; single policy
+                     -- clients.private_notes for select and update. Its activity_log entries are
+                     -- readable by activity.view_all only (never an Admin).
+client_admin_assignments  id, client_id, admin_id, assigned_by, from_at, to_at null, created_at
+                     -- 3.1: history, never rewritten; unique partial (client_id) where to_at is null.
+                     -- Written only by client_assign_admin() (and the clients insert trigger for an
+                     -- admin given at creation). RLS: clients.manage reads all; an Admin reads the
+                     -- rows where they are the admin. No API write.
+client_contacts      id, org_id, client_id, name, designation, email, phone, is_primary, custom_fields,
+                     archived_at, created_at, updated_at
                      -- unique partial index (client_id) where is_primary and archived_at is null;
-                     -- exactly one primary once any live contact exists (transition functions)
-client_brand         client_id pk, logo_file_id, colors jsonb [{name, hex}], fonts jsonb [{family, usage}],
-                     tone_of_voice, brand_notes                     -- shape validated by zod
-view client_labels   (id, name, logo_file_id, colors, fonts, tone_of_voice, brand_notes)
-                     security-barrier view: rows only for clients the caller may see OR that label a task
-                     the caller is assigned to
+                     -- exactly one primary once any live contact exists: the first live contact is
+                     -- made primary by trigger, is_primary and archived_at move only through
+                     -- client_contact_set_primary() / client_contact_archive(next) /
+                     -- client_contact_restore(). API UPDATE grant: name, designation, email, phone,
+                     -- custom_fields. RLS follows the client (clients.edit_assigned to write). Audited.
+client_brand         client_id pk, logo_file_id → files (FK from 3.3), colors jsonb [{name, hex}],
+                     fonts jsonb [{family, usage}], tone_of_voice, brand_notes, created_at, updated_at
+                     -- shape validated by zod (arrays checked in SQL). Created by trigger with the
+                     -- client. RLS follows the client. Audited (entity_id = client_id).
+view client_labels   (id, name, state, logo_file_id, colors, fonts, tone_of_voice, brand_notes)
+                     security-barrier view: rows for clients the caller may see OR that label a task
+                     the caller is assigned to (app.labelled_client_ids(), empty until 4.1)
 ```
+**Functions (3.1, ADR-0006):** `app.admin_client_ids()` (the caller's assigned clients), `app.client_visible(client_id)`, `app.is_owner()`, `app.labelled_client_ids()` (4.1 replaces the empty placeholder), `client_activate(client_id)` (draft | paused → active; needs an active Admin), `client_pause(client_id)` (active → paused), `client_close(client_id, reason)` (active | paused → inactive), `client_reactivate(client_id)` (inactive → active; the name must be free again), `client_assign_admin(client_id, admin_id)` (any state; closes the open assignment and opens the next; notifies the new and previous Admin, WORKFLOWS §9, delivered by 5.1), `client_contact_set_primary(contact_id)`, `client_contact_archive(contact_id, next_primary_id)`, `client_contact_restore(contact_id)`. Every lifecycle function is `clients.manage`; the contact functions are `clients.edit_assigned` on a visible client.
 
 ## 5. Client work: projects, cycles, items
 ```
