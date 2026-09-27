@@ -15,3 +15,6 @@ supabase/migrations/
 # It is hand-formatted and must stay byte-stable, so Prettier owns code only.
 *.md
 .impeccable/
+
+# The app guide (docs/guide) is hand-formatted HTML: its screen mock-ups depend on exact whitespace.
+docs/guide/
