@@ -32,6 +32,7 @@ export function PageHeader({
    */
   back,
   actions,
+  menu,
   className,
 }: {
   title: ReactNode;
@@ -39,6 +40,12 @@ export function PageHeader({
   help?: ReactNode;
   back?: { href: string; label: string };
   actions?: ReactNode;
+  /**
+   * A record's ⋯ menu (3.4: a person, a client). Unlike `actions` it stays in the title bar on
+   * a phone, next to the bell: it holds occasional actions (Edit, Deactivate, Pause…), not the
+   * screen's primary one.
+   */
+  menu?: ReactNode;
   className?: string;
 }) {
   return (
@@ -90,6 +97,12 @@ export function PageHeader({
             <p className="text-muted-foreground mt-1 hidden text-sm md:block">{description}</p>
           ) : null}
         </div>
+
+        {menu ? (
+          <div data-slot="page-menu" className="flex shrink-0 items-center md:order-last">
+            {menu}
+          </div>
+        ) : null}
 
         <HeaderBell />
 

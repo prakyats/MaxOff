@@ -8,6 +8,7 @@
 ```
 member_role        owner | admin | staff
 member_status      invited | active | deactivated
+engagement         permanent | freelance      -- ADR-0013 (4A): a freelancer has no login; data, not a role
 attendance_choice  present | leave | half_day | comp_leave
 day_status         present | leave | half_day | comp_leave | absent
 attendance_state   awaiting_choice | pending_review | approved | corrected
@@ -144,8 +145,10 @@ app.seed_org_lists()            AFTER INSERT on organizations: the launch job ti
 
 ## 1. Organization, people and access
 ```
-organizations        id, name, logo_file_id (added in 3.3 with files), timezone ('Asia/Kolkata'), created_at, updated_at
-                     -- API UPDATE grant: name only (timezone stays IST, invariant 8; phase 1 review)
+organizations        id, name, logo_file_id → files (3.3), timezone ('Asia/Kolkata'), created_at, updated_at
+                     -- API UPDATE grant: name, logo_file_id (timezone stays IST, invariant 8; phase 1 review).
+                     -- 3.3: logo_file_id must be a ready image file the caller uploaded (app.files_reference_guard);
+                     -- replacing it archives the previous file row (app.files_archive_replaced trigger)
 org_settings         org_id pk, weekly_off_days smallint[] (0=Sun..6=Sat), logout_reminder_time time,
                      ack_repeat_hours int (2), ack_escalate_hours int (4), ack_escalate_owner_hours int (8),
                      overdue_escalate_hours int (24), email_daily_cap_per_member int (20),
@@ -161,16 +164,36 @@ holidays             id, org_id, date, name, created_at, updated_at, unique(org_
                      -- is the Owner's, and audit_row_change() keeps the removed row. Deleting a
                      -- holiday never rewrites the past: attendance_days carries its own is_day_off
                      -- (2.1), decided on the day itself
-members              id (= auth.users.id), org_id, full_name, email, phone, avatar_file_id (added in 3.3),
+members              id (= auth.users.id for a login; a fresh uuid for a freelancer), org_id, full_name,
+                     email null (a freelancer has none), phone, avatar_file_id → files (3.3; own upload, raster only),
                      role member_role, job_title_id null → list_items (1.3), status member_status,
+                     engagement engagement ('permanent'; 4A, ADR-0013),
                      invited_at, joined_at, deactivated_at, created_at, updated_at
                      unique partial index (org_id) where role = 'owner'; unique index on lower(email)
+                     -- 4A: a freelance row has role = staff for permission arithmetic, no auth.users row,
+                     -- no invite (member_invite() refuses engagement = freelance), joined_at set on
+                     -- creation; check: engagement = 'permanent' or email is null. Created only by
+                     -- member_add_freelancer(name, job_title_id, phone, coordinator_id) (team.manage).
+                     -- Every attendance and leave function, the day gate and the 2.5 jobs act on
+                     -- permanent members only (PERMISSIONS §3). A later tasks-only login attaches an
+                     -- auth.users row to this same id (ADR-0013 §7), so nothing about it ever moves.
+member_coordinators  id, member_id → members (the freelancer), coordinator_id → members (an active
+                     permanent Admin or Staff), from_at, to_at null (the current one), set_by, reason,
+                     created_at
+                     -- 4A, ADR-0013: history, never rewritten. unique partial index (member_id) where
+                     -- to_at is null (exactly one current coordinator); check member_id <> coordinator_id.
+                     -- Written only by member_set_coordinator() (team.manage): closes the current row and
+                     -- opens the next in one transaction; refused when the coordinator is not active
+                     -- permanent, or the member is not freelance. RLS: team.view reads all; a member
+                     -- reads the rows where they are the coordinator (their own freelancers).
+                     -- app.coordinator_of(freelancer_id) → the current coordinator, used by every
+                     -- on-behalf check and by notification routing (WORKFLOWS §9).
                      -- status, invited_at, joined_at, deactivated_at are protected columns (transition
                      -- functions only, 1.2/1.3). RLS: own row; every row for team.view; writes team.manage;
                      -- own name/phone/avatar editable (PERMISSIONS §3). job_title_id is in the API
                      -- role's UPDATE grant, and app.members_self_edit_guard() keeps it team.manage-only
 member_directory     view (security definer): id, org_id, full_name, phone, role, status, job_title_id,
-                     created_at (+ avatar_file_id from 3.3). Everyone's row for team.view,
+                     created_at, avatar_file_id (appended in 3.3). Everyone's row for team.view,
                      plus the caller's own.
                      No email (PERMISSIONS §2). Names of people on a member's own tasks join in 4.1
 role_permissions     role member_role, permission text, pk(role, permission)   -- seeded
@@ -210,6 +233,22 @@ field_definitions    id, org_id, entity ('client'|'contact'|'project'|'item'|'ta
                      key, label, help_text, type field_type, options jsonb, required,
                      section, position, archived_at, unique(org_id, entity, key, client_id, task_type_id)
                      -- rows with entity in ('project','item') are Owner-only to create/edit (PERMISSIONS ¹)
+                     -- kickoff 3: global client/contact rows Owner-only; client_id rows by the Owner or
+                     -- that client's current Admin (PERMISSIONS ²); type immutable once a value exists
+                     -- (guard trigger); archive only, never delete; select values store the option key
+                     -- 3.2 as built: key ~ ^[a-z][a-z0-9_]{0,39}$ (derived from the label, then fixed);
+                     -- options jsonb [{key, label}] (non-empty for select / multi_select, [] otherwise);
+                     -- position fractional index (appended); client_id only with entity client|contact,
+                     -- task_type_id only with entity task (4.1). Unique on (org_id, entity, key,
+                     -- coalesce(client_id), coalesce(task_type_id)). API UPDATE grant: label, help_text,
+                     -- type, options, required, section, position, archived_at (entity, key and the
+                     -- scope never move). Writes are decided by app.field_definition_writable(entity,
+                     -- client_id): lists.manage plus PERMISSIONS ¹ ² (global client/contact and every
+                     -- project/item row: the Owner; a client-scoped row: the Owner or that client's
+                     -- current Admin; task rows: lists.manage). Reads: task rows for every active
+                     -- member (4.1 forms); the rest for lists.manage on a visible scope. Audited.
+                     -- app.field_definitions_guard() refuses a type change once any clients.custom_fields
+                     -- or client_contacts.custom_fields holds the key (4.1 / 7.x extend it to their tables).
 ```
 Entities with custom fields have `custom_fields jsonb not null default '{}'`, validated against active definitions on every write (`core/custom-fields`).
 
@@ -434,16 +473,60 @@ cron.job                        'absent_check' at 29 18 * * * (23:59 IST) -> sel
 ```
 clients              id, org_id, name, legal_name, state client_state, admin_id → members,
                      gstin, address, city, phone, email, website, drive_url, requirements, notes,
-                     custom_fields, activated_at, archived_at, created_by
-client_private       client_id pk, ceo_notes                        -- Owner-only table
-client_admin_assignments  id, client_id, admin_id, assigned_by, from_at, to_at null
-client_contacts      id, client_id, name, designation, email, phone, is_primary, custom_fields, archived_at
-client_brand         client_id pk, logo_file_id, colors jsonb [{name, hex}], fonts jsonb [{family, usage}],
-                     tone_of_voice, brand_notes                     -- shape validated by zod
-view client_labels   (id, name, logo_file_id, colors, fonts, tone_of_voice, brand_notes)
-                     security-barrier view: rows only for clients the caller may see OR that label a task
-                     the caller is assigned to
+                     custom_fields, activated_at, archived_at, created_by, search tsvector (generated),
+                     created_at, updated_at
+                     -- kickoff 3 (2026-09-27): unique (org_id, lower(name)) where state <> 'inactive';
+                     -- gstin check (15-char format) when not null; website / drive_url https only;
+                     -- archived_at reserved (no archive action in phase 3: inactive is the end state)
+                     -- 3.1: created by a plain INSERT under clients.manage (state draft; admin_id may be
+                     -- given at creation and opens the first assignment row by trigger). state,
+                     -- activated_at, admin_id and archived_at are protected columns (transition
+                     -- functions only). API UPDATE grant: name, legal_name, gstin, address, city, phone,
+                     -- email, website, drive_url, requirements, notes, custom_fields. Audited.
+                     -- RLS: app.client_visible(id) = the org's Owner (clients.manage) or the current
+                     -- Admin (admin_id = caller, holding clients.edit_assigned since the phase 3 review);
+                     -- writes need clients.edit_assigned on a visible row. members trigger
+                     -- client_admin_guard: an Admin who is some client's admin_id cannot stop being an
+                     -- active Admin; client_hand_over(from_admin, moves jsonb) moves their clients first.
+                     -- custom_fields (and client_contacts.custom_fields) are checked by the database too
+                     -- (phase 3 review): ≤ 32 KB, and every key a write adds or changes has an active
+                     -- definition in scope and a value of its type (app.custom_field_value_ok, the same
+                     -- rules as core/custom-fields; url https only); unchanged keys pass, so an archived
+                     -- field keeps its value. client_brand.colors ≤ 12 {name, hex #RRGGBB}, fonts ≤ 6
+                     -- {family, usage?} (CHECKs app.brand_colors_ok / app.brand_fonts_ok).
+                     -- Staff never read the table.
+client_private       client_id pk, owner_notes, created_at, updated_at   -- Owner-only table
+                     -- 3.1: one row per client, created by trigger with the client; single policy
+                     -- clients.private_notes for select and update. Its activity_log entries are
+                     -- readable by activity.view_all only (never an Admin).
+client_close_reasons activity_id pk → activity_log(id), org_id, client_id, reason, created_at
+                     -- Owner-only table (phase 3 review, 2026-09-27): the optional reason given to
+                     -- client_close(), one row per 'closed' activity entry that had one. The entry's
+                     -- meta carries only from_state, so the client's Admin (who reads the entry under
+                     -- activity_log_select_clients) never reads the reason. Written only by
+                     -- client_close(); select for clients.manage; no API write. Never rewritten.
+client_admin_assignments  id, client_id, admin_id, assigned_by, from_at, to_at null, created_at
+                     -- 3.1: history, never rewritten; unique partial (client_id) where to_at is null.
+                     -- Written only by client_assign_admin() (and the clients insert trigger for an
+                     -- admin given at creation). RLS: clients.manage reads all; an Admin reads the
+                     -- rows where they are the admin. No API write.
+client_contacts      id, org_id, client_id, name, designation, email, phone, is_primary, custom_fields,
+                     archived_at, created_at, updated_at
+                     -- unique partial index (client_id) where is_primary and archived_at is null;
+                     -- exactly one primary once any live contact exists: the first live contact is
+                     -- made primary by trigger, is_primary and archived_at move only through
+                     -- client_contact_set_primary() / client_contact_archive(next) /
+                     -- client_contact_restore(). API UPDATE grant: name, designation, email, phone,
+                     -- custom_fields. RLS follows the client (clients.edit_assigned to write). Audited.
+client_brand         client_id pk, logo_file_id → files (FK from 3.3), colors jsonb [{name, hex}],
+                     fonts jsonb [{family, usage}], tone_of_voice, brand_notes, created_at, updated_at
+                     -- shape validated by zod (arrays checked in SQL). Created by trigger with the
+                     -- client. RLS follows the client. Audited (entity_id = client_id).
+view client_labels   (id, name, state, logo_file_id, colors, fonts, tone_of_voice, brand_notes)
+                     security-barrier view: rows for clients the caller may see OR that label a task
+                     the caller is assigned to (app.labelled_client_ids(), empty until 4.1)
 ```
+**Functions (3.1, ADR-0006):** `app.admin_client_ids()` (the caller's assigned clients), `app.client_visible(client_id)`, `app.is_owner()`, `app.labelled_client_ids()` (4.1 replaces the empty placeholder), `client_activate(client_id)` (draft | paused → active; needs an active Admin), `client_pause(client_id)` (active → paused), `client_close(client_id, reason)` (active | paused → inactive), `client_reactivate(client_id)` (inactive → active; the name must be free again), `client_assign_admin(client_id, admin_id)` (any state; closes the open assignment and opens the next; notifies the new and previous Admin, WORKFLOWS §9, delivered by 5.1), `client_contact_set_primary(contact_id)`, `client_contact_archive(contact_id, next_primary_id)`, `client_contact_restore(contact_id)`. Every lifecycle function is `clients.manage`; the contact functions are `clients.edit_assigned` on a visible client.
 
 ## 5. Client work: projects, cycles, items
 ```
@@ -480,12 +563,17 @@ tasks                id, org_id, title, description, task_type_id, client_id nul
                      custom_fields, template_id null,
                      submitted_at, admin_approved_at, completed_at, cancelled_at, archived_at
 task_assignees       task_id, member_id, is_primary, assigned_at, assigned_by,
-                     acknowledged_at null, removed_at null, pk(task_id, member_id)
-task_stages          id, task_id, name, position, done_at, done_by   -- optional checklist
-task_comments        id, task_id, author_id, body, created_at        -- append-only
+                     acknowledged_at null, acknowledged_by null (the coordinator when on behalf; else = member_id),
+                     removed_at null, pk(task_id, member_id)
+task_stages          id, task_id, name, position, done_at, done_by, on_behalf_of null   -- optional checklist
+task_comments        id, task_id, author_id, on_behalf_of null, body, created_at        -- append-only
+                     -- on_behalf_of (4A, ADR-0013): set when a coordinator acts for a freelancer; the
+                     -- actor column keeps the coordinator. Same pair on task_submissions (submitted_by,
+                     -- on_behalf_of) and on the Done/resubmit transition (tasks.submitted_by,
+                     -- tasks.submitted_on_behalf_of). Never set on a review (a freelancer never reviews).
 task_reviews         id, task_id, step ('admin'|'owner'), decision, reason, reviewer_id,
                      submission_id null, at                          -- append-only
-task_submissions     id, task_id, version int, note, submitted_by, at, unique(task_id, version)
+task_submissions     id, task_id, version int, note, submitted_by, on_behalf_of null, at, unique(task_id, version)
 submission_items     id, submission_id, kind ('upload'|'drive_link'),
                      file_id null (uploads), source_url null (pasted Drive link),
                      source_file_id null (Google file id of THEIR file),
@@ -535,13 +623,58 @@ drive_jobs           id, submission_item_id, kind ('copy_link'|'upload_file'|'re
 ## 9. Files, notifications, audit, reports
 ```
 files                id, org_id, storage_key, name, mime, size_bytes, sha256 null, uploaded_by,
-                     status ('pending'|'ready'|'failed'|'deleted'), created_at, archived_at
+                     status ('pending'|'ready'|'failed'|'deleted'), created_at, archived_at,
+                     preview_of null → files (a browser-made JPEG preview of that original; 3.3)
                      -- 'deleted' = the R2 object was removed by retention; the row stays
+                     -- kickoff 3 (3.3): logos and avatars ≤ 5 MB (logo PNG/JPEG/WebP/SVG, avatar no
+                     -- SVG); replacing archives the old row; storage_cleanup deletes objects of rows
+                     -- archived 30 days ago, of pending or failed rows older than 24 h and of ready
+                     -- originals nothing references after 7 days (3B review). Served to the browser
+                     -- through /api/files/<id> (permission-checked, Cache-Control: private) for
+                     -- previews; presigned GET (5 min) for downloads. Local and e2e use MinIO
+                     -- 3.3 as built: status and archived_at are protected columns. A member inserts their
+                     -- own pending row (uploaded_by = caller, status pending; preview_of must be their own
+                     -- file); file_complete(id, size, sha256) moves pending → ready and file_fail(id) → failed
+                     -- (uploader only); file_mark_deleted(id) (service_role only, the cleanup job) sets
+                     -- deleted. app.file_visible(id): the uploader; any member for the company logo; team.view
+                     -- or the person for an avatar; app.client_visible or a label row for a client logo; a
+                     -- preview follows its original. storage_key = <org>/<yyyy>/<mm>/<file id>/<name>. Audited.
+                     -- 3A review: file_cleanup_candidates also returns failed rows past the pending window
+                     -- (a browser that gave up after the PUT left an object); files_archive_replaced audits
+                     -- each archived row (original and previews) as 'archived'; files_reference_guard
+                     -- resolves client_brand's org through clients.
+                     -- 3B review (owner decision 2026-09-27): an **orphaned ready** original is a
+                     -- candidate too: status ready, not archived, older than 7 days, and referenced by
+                     -- no foreign key column that points at files (read from the catalog, so a new
+                     -- consumer is protected by declaring its FK; files.preview_of is not a reference).
+                     -- Phase 3 review (security must-fix, 2026-09-27): **no API insert**. A row is created
+                     -- only by file_begin(id, uploader, name, mime, size_bytes, preview_of) and made ready
+                     -- only by file_complete(id, uploader, size_bytes, sha256), both service_role only and
+                     -- called by core/storage's actions after their own checks (permission, type and size
+                     -- against the purpose; the object's size from the bucket; the SVG rewrite). file_begin
+                     -- builds storage_key itself (<org>/<IST yyyy/mm>/<id>/<name>, a name of '', '.' or '..'
+                     -- becomes 'file'), so a key can never alias another object; created_at is always now().
+                     -- Both record the uploader as the activity actor. file_fail(id) stays the uploader's.
+                     -- Phase 3 review (should-fix, 2026-09-27): **one upload, one place**: files_reference_guard
+                     -- refuses an archived file and a file already attached elsewhere
+                     -- (app.file_reference_count(id), the catalog scan), and the cleanup's archived branch
+                     -- spares a file any foreign key still references, and a preview whose original is.
+                     -- A preview follows its original: a candidate once the original is one or is
+                     -- deleted, unless a foreign key references the preview itself (ADR-0010: a
+                     -- submission's preview outlives its deleted local original). Signature:
+                     -- file_cleanup_candidates(archived_before, pending_before, orphaned_before, batch
+                     -- default 200); the 3-argument form is dropped (phase-3 only, never on main).
+                     -- files_reference_guard refuses to attach an upload 6 days old or more ("Upload the
+                     -- file again"), so nothing the 7-day rule takes can be referenced mid-cleanup
+                     -- (20260927134340). A new column referencing files needs its FK **and an index**:
+                     -- the cleanup runs one not-exists per FK column on every batch.
 notifications        id, recipient_id, kind, title, body, link, entity, entity_id, payload jsonb,
                      created_at, read_at null, escalation_level int
 notification_deliveries  id, notification_id, channel ('push'|'email'), state ('queued'|'sent'|'failed'),
                      attempts, last_error, sent_at
-activity_log         id bigint identity, org_id, actor_id null (system), entity, entity_id, action,
+activity_log         id bigint identity, org_id, actor_id null (system), on_behalf_of_id null (4A,
+                     ADR-0013: the freelancer a coordinator acted for; actor_id stays the coordinator),
+                     entity, entity_id, action,
                      diff jsonb (old/new), meta jsonb, at               -- append-only (UPDATE/DELETE revoked)
                      -- written only by app.audit_row_change() and transition functions (no INSERT grant).
                      -- RLS: activity.view_all, or entries about the caller's own member row except its

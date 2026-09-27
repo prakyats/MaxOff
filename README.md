@@ -407,6 +407,50 @@ asserted rather than left to review.
 status bar from `apple-mobile-web-app-status-bar-style`, which is `default` on purpose (see
 PROGRESS). That needs its own check on real hardware before the 6.6 pilot.
 
+## Storage (task 3.3)
+
+Uploaded files (the company logo and avatars now; client logos in 3.4, work submissions in
+phase 5) live in an S3-compatible bucket behind one adapter (`src/core/storage`,
+ARCHITECTURE §11). **Local development and every e2e run use MinIO in Docker**; staging and
+production use Cloudflare R2. The app reads the same five variables everywhere
+(`S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_REGION`; see
+`.env.example`).
+
+```bash
+pnpm storage:start           # MinIO on http://127.0.0.1:9000 (console :9001), bucket `maxoff`, CORS for :3000 and :3100
+pnpm storage:stop
+```
+
+The compose file (`docker-compose.storage.yml`) creates the private bucket itself and allows
+browser uploads from `next dev` and the Playwright server; the values in `.env.example` match
+it. CI's `e2e` job runs the same compose file. A preview or thumbnail is served by the app
+(`/api/files/<id>`, permission-checked, privately cached); a download is a 5-minute presigned
+link; an SVG is rewritten from an allow-list on upload.
+
+**R2 (staging and production).** The owner creates the bucket and an API token with object
+read and write on it, and sets the bucket's CORS to allow `PUT` from the app's origin (the
+Worker URL, later the custom domain) with `ETag` exposed. The GitHub environment then holds
+`R2_ACCOUNT_ID` and `R2_BUCKET` (variables) and `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` and
+`CRON_SECRET` (secrets); the deploy workflow maps them onto the `S3_*` names as Worker
+secrets (all five in the deploy's secrets file, nothing in `vars`), with
+`S3_ENDPOINT = https://<R2_ACCOUNT_ID>.r2.cloudflarestorage.com` and `S3_REGION = auto`. A
+branch preview (`wrangler versions upload`) keeps the staging Worker's secrets, so previews
+upload to the staging bucket. `storage_cleanup` runs daily from the Worker's cron trigger
+(`wrangler.jsonc` `triggers.crons` in every environment, `worker/index.js` →
+`/api/cron/storage-cleanup` with `CRON_SECRET`); `wrangler.jsonc`'s `main` is
+`worker/index.js`, which re-exports OpenNext's handler and adds `scheduled`.
+
+**Staging is set up (owner, 2026-09-27):** bucket `maxoff-files-staging` (APAC, private), an
+API token scoped to that bucket, CORS with origins
+`https://maxoff-staging.pixoraclips.workers.dev` and the wildcard
+`https://*-maxoff-staging.pixoraclips.workers.dev` (R2 accepts it, so every branch preview can
+upload directly), methods `GET`, `PUT`, `HEAD`, allowed headers `content-type`, `content-md5`,
+`x-amz-*`, `ExposeHeaders: ETag`. The `staging` GitHub environment holds the secrets
+`R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `CRON_SECRET` and the variables `R2_ACCOUNT_ID`,
+`R2_BUCKET`. The production bucket exists; its token, CORS and GitHub secrets wait for the
+production domain. `deploy.yml` still has to map these names into the secrets file (see
+PROGRESS → "Things the next session must know").
+
 ## Architecture rules that lint enforces
 
 `eslint.config.mjs` encodes ARCHITECTURE §3.1: `app → modules (index.ts only) → core`, core

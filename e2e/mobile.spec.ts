@@ -2,7 +2,16 @@ import { type Locator, type Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 
-import { pageHeader, storageStateFor } from "./helpers";
+import {
+  memberIdOf,
+  pageHeader,
+  removeClientFixture,
+  serviceInsert,
+  serviceSelect,
+  serviceUpdate,
+  storageStateFor,
+  USERS,
+} from "./helpers";
 
 /**
  * The mobile standard (ARCHITECTURE §14.1, task 1.5). Runs in the `mobile` project at **375px**
@@ -124,9 +133,12 @@ const SCREENS = [
   { path: "/settings/days-off", role: "owner" },
   { path: "/settings/thresholds", role: "owner" },
   { path: "/settings/job-titles", role: "owner" },
+  { path: "/settings/custom-fields", role: "owner" },
   { path: "/me", role: "staff" },
   { path: "/my-day", role: "staff" },
   { path: "/today", role: "admin" },
+  { path: "/clients", role: "owner" },
+  { path: "/clients", role: "admin" },
 ] as const;
 
 for (const role of ["owner", "admin", "staff"] as const) {
@@ -157,8 +169,17 @@ for (const role of ["owner", "admin", "staff"] as const) {
  * device check at the S23's largest font size is the real proof.
  */
 const LARGE_TEXT_SCREENS = {
-  owner: ["/today", "/approvals", "/people", "/settings", "/settings/job-titles", "/me"],
-  admin: ["/today", "/leave", "/leave/attendance", "/me"],
+  owner: [
+    "/today",
+    "/approvals",
+    "/people",
+    "/settings",
+    "/settings/job-titles",
+    "/settings/custom-fields",
+    "/me",
+    "/clients",
+  ],
+  admin: ["/today", "/leave", "/leave/attendance", "/me", "/clients"],
   staff: ["/my-day", "/leave", "/leave/attendance", "/me"],
 } as const;
 
@@ -183,6 +204,44 @@ async function expectReadableTruncation(page: Page): Promise<void> {
     MIN_TRUNCATED_WIDTH,
   );
   expect(squeezed, `a cut-short line keeps ${MIN_TRUNCATED_WIDTH}px`).toEqual([]);
+}
+
+/**
+ * A loading screen fits at large text too (phase 3 review: CI caught /today's stat-tile skeleton
+ * reaching past the edge at 200%, only when the check ran before the page streamed in). The
+ * page's data request is held, so its `loading.tsx` stays up for as long as the check needs.
+ */
+for (const role of ["owner", "admin"] as const) {
+  test.describe(`${role}: Today's loading screen at large system text`, () => {
+    test.use({ storageState: storageStateFor(role) });
+
+    test("fits at 130% and 200% while the page loads", async ({ page }) => {
+      await page.goto("/me");
+      await expect(pageHeader(page)).toBeVisible();
+      await page.waitForLoadState("networkidle");
+      let release: () => void = () => undefined;
+      const held = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      await page.route(
+        (url) => url.pathname === "/today",
+        async (route) => {
+          if (route.request().headers()["rsc"] !== "1") return route.continue();
+          await held;
+          await route.continue().catch(() => undefined);
+        },
+      );
+      await page.getByRole("link", { name: "Today" }).filter({ visible: true }).first().click();
+      await expect(page.locator('[data-slot="loading-tile"]').first()).toBeVisible();
+      for (const scale of [130, 200]) {
+        await page.evaluate((percent) => {
+          document.documentElement.style.fontSize = `${percent}%`;
+        }, scale);
+        await expectNoHorizontalScroll(page);
+      }
+      release();
+    });
+  });
 }
 
 for (const [role, paths] of Object.entries(LARGE_TEXT_SCREENS)) {
@@ -435,8 +494,9 @@ test.describe("People is a card list, not a table", () => {
     // The columns a phone has no room for live here (PERMISSIONS §2: the Owner sees email).
     await expect(sheet).toContainText("staff@maxoff.local");
     await expect(sheet).toContainText("Staff");
-    // And the actions, which were a hover-adjacent 32px dropdown on desktop.
-    await expect(sheet.getByRole("button", { name: "Edit" })).toBeVisible();
+    // And the actions, which were a hover-adjacent 32px dropdown on desktop. Edit opens the
+    // person's page in edit mode (3.4), so it is a link.
+    await expect(sheet.getByRole("link", { name: "Edit" })).toBeVisible();
     await expect(sheet.getByRole("button", { name: "Deactivate" })).toBeVisible();
 
     // Anchored to the bottom of the viewport: a bottom sheet, not a centred dialog.
@@ -447,7 +507,8 @@ test.describe("People is a card list, not a table", () => {
     const context = await browser.newContext({ storageState: storageStateFor("admin") });
     const page = await context.newPage();
     await page.goto("/people");
-    await page.locator('[data-slot="data-card"]', { hasText: "Local Staff" }).click();
+    // The card itself opens the person's page (kickoff 3); ⋯ opens the sheet.
+    await page.getByRole("button", { name: "More for Local Staff" }).click();
 
     const sheet = page.locator('[data-slot="detail-sheet"]');
     await expect(sheet).toBeVisible();
@@ -607,5 +668,88 @@ test.describe("password fields can be revealed", () => {
     await page.locator('[data-slot="password-toggle"]').click();
     await expect(page).toHaveURL(/\/login$/);
     await expect(page.locator('[data-slot="field-error"]')).toHaveCount(0);
+  });
+});
+
+/**
+ * The record screens of 3.4, which need an id: a person's Profile and a client's views and
+ * contact. The client and its contact are this project's own fixture, remade on every run.
+ */
+test.describe("record screens meet the mobile standard (3.4)", () => {
+  test.use({ storageState: storageStateFor("owner") });
+
+  async function recordPaths(project: string): Promise<string[]> {
+    const name = `Test Client Mobile (${project})`;
+    await removeClientFixture(name);
+    const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+    const client = await serviceInsert<{ id: string }>("clients", {
+      org_id: org?.id,
+      name,
+      admin_id: await memberIdOf(USERS.admin.email),
+      phone: "98450 12345",
+      website: "https://a-rather-long-client-website-name.example/with/a/path",
+      address: "12 Market Road, Kodialbail, Mangaluru",
+    });
+    const contact = await serviceInsert<{ id: string }>("client_contacts", {
+      org_id: org?.id,
+      client_id: client.id,
+      name: "Kavya Shetty",
+      designation: "Marketing head",
+      phone: "98450 54321",
+    });
+    // A brand with a swatch list and a font list (3B review), so both lists are swept.
+    await serviceUpdate(`client_brand?client_id=eq.${client.id}`, {
+      colors: [
+        { name: "Primary", hex: "#E11D48" },
+        { name: "A rather long colour name for the brand", hex: "#111111" },
+      ],
+      fonts: [{ family: "Inter", usage: "Headings and the body text of every post" }],
+    });
+    const staff = await memberIdOf(USERS.staff.email);
+    return [
+      `/people/${staff}`,
+      `/people/${staff}/leave`,
+      `/clients/${client.id}`,
+      `/clients/${client.id}/brand`,
+      `/clients/${client.id}/activity`,
+      `/clients/${client.id}/contacts/${contact.id}`,
+    ];
+  }
+
+  test("no sideways scroll, 44px targets, 16px inputs, and large text fits", async ({
+    page,
+  }, info) => {
+    const paths = await recordPaths(info.project.name);
+    for (const path of paths) {
+      await page.goto(path);
+      await expect(pageHeader(page)).toBeVisible();
+      await page.waitForLoadState("networkidle");
+      await expectNoHorizontalScroll(page);
+      await expectTouchTargets(page);
+      await expectNoZoomOnFocus(page);
+      for (const scale of [130, 200]) {
+        await page.evaluate((percent) => {
+          document.documentElement.style.fontSize = `${percent}%`;
+        }, scale);
+        await expectNoHorizontalScroll(page);
+        await expectReadableTruncation(page);
+      }
+    }
+
+    // The brand's swatch and font editor (3B review), in edit mode, at 100/130/200%.
+    await page.goto(paths.find((path) => path.endsWith("/brand"))!);
+    await expect(pageHeader(page)).toBeVisible();
+    await page.waitForLoadState("networkidle");
+    await page.locator('[data-slot="edit-record"]').click();
+    await expect(page.getByLabel("Colour 2 hex", { exact: true })).toBeVisible();
+    await expectNoHorizontalScroll(page);
+    await expectTouchTargets(page);
+    await expectNoZoomOnFocus(page);
+    for (const scale of [130, 200]) {
+      await page.evaluate((percent) => {
+        document.documentElement.style.fontSize = `${percent}%`;
+      }, scale);
+      await expectNoHorizontalScroll(page);
+    }
   });
 });

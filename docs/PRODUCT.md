@@ -56,6 +56,7 @@ The full permission and visibility matrix is in `PERMISSIONS.md`. The key rules:
 - **Staff see only tasks allotted to them.** A task can carry a **client label** (the client's name and brand basics), and that's all Staff ever see of a client.
 - **Money is Owner-only**, everywhere, including in exports.
 - The Owner account is created by a secure bootstrap script (Supabase Auth). Passwords are never stored in app tables.
+- **Freelancers are people without a login** (owner decision 2026-09-27, ADR-0013): a person record of engagement type *freelance*, looked after by one **coordinator** (an Admin or Staff employee) who acts on their behalf from their own account. Engagement is data, not a role. See §4.17.
 
 ---
 
@@ -68,40 +69,56 @@ The full permission and visibility matrix is in `PERMISSIONS.md`. The key rules:
 - A deactivated person loses access immediately, and their history is kept.
 
 ### 4.2 Attendance (for Admins and Staff)
-- The first-login choice is **Present / Leave / Half-Day Leave / Compensatory Leave**. Choosing a leave type also creates a leave request for today.
-- MaxOff records the first-login time, the choice, logout times, and the Owner's decision with its time and reason.
+> **Reworked 2026-09-27 (owner, phase 3b; "Kickoff 3b decisions" in PROGRESS):** people stay signed in, and the working day is **Start day** and **End day**, separate from signing in and out. Until phase 3b is built, the app still works the 2.x way (a blocking day gate on first open, logout = end of day).
+
+- **People stay signed in**, so tasks and notifications reach them in the evening and on days off too. The app never signs anyone out on its own; **"Sign out of this device"** (under Me) is only for a lost or shared device. Opening the app is not attendance.
+- **Start day.** On a working day the app opens freely. Until the person starts their day or chooses leave, an in-app prompt asks *"Started working? Start your day to record it."* with **Start day**, **On leave today? Choose leave** (Leave / Half-Day Leave) and **Just looking**. It comes back when the app is opened or returned to, **at most every 30 minutes**, until answered, and My Day (an Admin's Today) shows *"Not started · Start day"*. **The start time is the moment they tap Start day.** Working hours are flexible, so there's no time gate.
+- **End day** records the end time. It's **final for that day** (no resume), and the app stays fully usable afterwards (checking tomorrow's tasks at 9 PM isn't work). Its confirmation offers an optional **overtime note** (§4.3a) and asks **"Any expenses to claim today?"** (§4.18). Work done after ending the day is recorded with an overtime note.
+- MaxOff records the choice, the start and end times, and the Owner's decision with its time and reason.
 - **The Owner approves**, one at a time or in bulk. **When rejecting, the Owner sets the correct status** (Absent / Leave / Half-Day / Comp Leave / Present) and gives a reason, and the employee is notified. The original choice and the correction are both kept.
-- **11:59 PM IST check:** an active employee with no submission on a **working day** is marked **"Absent – pending Owner approval"**, and the Owner gets one notification listing everyone. Absence becomes official only once the Owner approves it. Anyone with **approved leave** for that date is set to their leave status automatically and is never proposed absent.
-- **On an approved-leave day there's no gate.** If the person logs in anyway, a banner says "You're on approved leave today", with an optional **"I'm working today"** button that submits Present for the Owner to review. If the Owner approves it, the day is flagged **"1 day worked"** and the leave request itself is **not** altered. The attendance day is the source of truth for a date.
-- **Approved half-day leave:** no gate either, but the first login, session events and logout are still recorded.
-- **A leave approved later wins.** If leave for today is approved after the person already submitted Present, the day is corrected to the leave status automatically, audited as a system correction, and the person is notified.
+- **11:59 PM IST check:** an active employee with no Start day and no leave on a **working day** is marked **"Absent – pending Owner approval"**, and the Owner gets one notification listing everyone. Absence becomes official only once the Owner approves it. Anyone with **approved leave** for that date is set to their leave status automatically and is never proposed absent.
+- **On an approved-leave day there's no prompt.** A banner says "You're on approved leave today", with an optional **"I'm working today"** button that submits Present for the Owner to review. If the Owner approves it, the day is flagged **"1 day worked"** and the leave request itself is **not** altered. The attendance day is the source of truth for a date.
+- **Approved half-day leave:** no prompt either; Start day and End day stay available and are recorded.
+- **A leave approved later wins** over a day not yet decided (WORKFLOWS §1), and **a day the Owner already decided stays**.
 - **An Owner correction to a leave type** (Leave / Half-Day / Comp Leave) also creates an approved leave request for that date, so the calendar and availability stay right.
-- **Days off:** the Owner sets the **weekly off days** (currently Sunday) and a **holiday list** in Settings. There's no absent check on days off, but anyone who logs in is still asked, and the day is marked **"Worked on a day off"** — useful when granting compensatory leave.
-- **The Owner is exempt** from the attendance gate and its reminders.
-- **Forgotten logout:** around **8:30 PM IST** (configurable), anyone still logged in gets a reminder: *"You may have forgotten to log out. If you're done, log out; if you're working overtime, carry on."* If they never log out, the day is flagged **"Logout not recorded"**. A logout time is **never** made up.
-- **Overtime:** a simple flag with an optional reason. No time tracking.
+- **Days off:** the Owner sets the **weekly off days** (currently Sunday) and a **holiday list** in Settings. On a day off there's **no prompt and no absent check**. Someone who worked adds an **"I worked today"** note, and the Owner decides whether the day counts as worked and whether it earns comp leave (§4.3a).
+- **The Owner is exempt** from Start day, End day and their reminders.
+- **Forgotten End day:** around **8:30 PM IST** (configurable), anyone who started and hasn't ended gets *"You haven't ended your day. If you're done, end it; if you're working late, carry on."* If they never end it, the day is flagged **"End of day not recorded"**. An end time is **never** made up; an End day after midnight lands on the previous day.
 - No working-hours rules and no location rules.
 
 ### 4.3 Leave (for Admins and Staff)
-- Types: **Leave, Half-Day Leave, Compensatory Leave**, for today or any future date or date range, with a free-text reason. There's no advance-notice rule and no leave-balance or policy engine.
+- Types: **Leave, Half-Day Leave, Compensatory Leave**, for today or any future date or date range, with a free-text reason. **Compensatory Leave is offered only while the person has an available comp leave credit** (§4.3a). There's no advance-notice rule and **no general leave balance or policy engine**: the only balance is Owner-granted comp leave.
 - **The Owner approves or rejects** every request, including changes and cancellations.
 - An employee can **request a change or cancellation**. This creates a new request linked to the original. Nothing is overwritten.
 - Only the Owner can change an approved leave directly.
 - Approved leave shows on the calendar and triggers warnings when someone on leave is assigned work.
 
+### 4.3a Extra work and compensatory leave (decided 2026-09-27, phase 3b)
+- **Overtime note:** which day (up to **7 days back**), roughly how long (optional) and **what they worked on** (required). Added from Attendance & leave or when ending the day.
+- **"I worked today" on a day off** (up to 7 days back): a note about the work (required).
+- Both appear in the Owner's **Approvals → Extra work** group (after Leave). For each: **Grant comp leave** (½ or 1 day) or **No comp leave**. For day-off work the Owner also decides whether to **mark the day as worked** ("Worked on a day off"). **Nothing is automatic**: extra work caused by the person's own mistake, for example, earns nothing unless the Owner says so.
+- The person sees the outcome on their note: *"1 comp leave granted · use by 31 Oct"* or *"Reviewed by the Owner"*.
+- **The Owner can grant comp leave at any time, for any reason**, independent of any note: ½ or 1 day, with an optional note the person sees.
+- **A credit expires at the end of the calendar month (IST) it was granted in**, however close that is. Expired credits stay in the history as expired.
+- **Using it:** only through the leave form (Request leave → Compensatory Leave), as a full day (1) or a half day (½), showing the balance and the use-by date. **The leave date must be on or before the credit's expiry.** **It is still a leave request the Owner approves or rejects**, like any other: a credit makes the option available, it doesn't guarantee the day (there may be a shoot). A waiting request holds its credit; approval uses it (oldest first); a rejected, withdrawn or cancelled request gives it back unless it has expired.
+- The Owner can **revoke an unused grant** with a reason the person sees.
+
 ### 4.4 Clients (CRM)
 Each client has one central page, visible to the Owner and the client's Admin.
 
-- **Details:** name, legal or business name, address, GSTIN, phone, email, website, requirements, notes, and **custom fields**. Only the name is required.
+- **Details:** name, legal or business name, address, GSTIN, phone, email, website, requirements, notes, and **custom fields**. Only the name is required. **The name is unique** among clients that are not Inactive, case-insensitively (owner decision 2026-09-27, kickoff 3); a GSTIN must match the 15-character format when given; website and Drive link must be `https://` URLs and nothing more (the Drive access check is 8.4's).
 - **Owner-only notes** (a separate, Owner-only field).
 - **Assigned Admin:** exactly one, set by the Owner. Changes are kept in history.
-- **Contacts:** several per client, with one primary.
+- **Contacts:** several per client, with one primary: **exactly one primary is required once any contact exists**, and archiving the primary asks for the next; no uniqueness on a contact's email or phone (owner decision 2026-09-27, kickoff 3).
 - **Google Drive link:** one link to the client's asset folder, opened in a new tab.
-- **Light Brand Kit:** logo (uploaded), colour codes, font names, tone of voice, brand notes. The logo shows in client lists. Staff see these brand basics on client-labelled tasks.
-- **Lifecycle:** Draft → Active → Paused → Inactive. A client becomes Active once it has a name and an Admin, and only the Owner activates, pauses or closes it.
+- **Light Brand Kit:** logo (uploaded), colour codes, font names, tone of voice, brand notes. The logo shows in client lists. Staff see these brand basics on client-labelled tasks. **Logo upload** (owner decision 2026-09-27, kickoff 3): ≤ 5 MB, PNG / JPEG / WebP / SVG (SVG sanitised, never shown inline); the original is kept and the browser makes a small JPEG preview for lists, exactly as work submissions do. Replacing a logo keeps the old file for 30 days, then only its record; an upload that was never attached is cleaned up after 7 days (owner decision 2026-09-27, 3B review). **Colours are a swatch list** (a colour chip, a name and the hex; tapping a row copies the hex) and **fonts a simple list** (a name and an optional note); both are edited as rows — a colour picker plus a hex field, add, remove and reorder — with the same Edit, Save and named-change confirmation as every record (owner decision 2026-09-27, 3B review).
+- **Lifecycle:** Draft → Active → Paused → Inactive. A client becomes Active once it has a name and an Admin, and only the Owner activates, pauses or closes it (activation waits for an Admin, accepted as built in the 3B review). **The close reason is the Owner's**: only the Owner sees it (owner decision 2026-09-27, 3B review, accepted as built).
   - **Paused:** everything stays visible, and **recurring projects stop creating new cycles**.
-  - **Inactive:** stays searchable, and no new work can be added until the Owner reactivates it.
+  - **Inactive:** stays searchable, and no new work can be added until the Owner reactivates it. **Inactive is the end state**: there is no separate archive action (owner decision 2026-09-27, kickoff 3; `archived_at` stays reserved for a later "hide from lists", never deletion).
+  - **A Paused or Inactive client stays fully editable** (details, contacts, brand, custom fields); only the "no new work" rules apply, and a banner names the state and who can change it (owner decision 2026-09-27, kickoff 3).
+  - **Changing the Admin notifies** the new Admin ("You now run Sharma Weddings") and, if still active, the previous one (owner decision 2026-09-27, kickoff 3).
 - **Page sections:** Overview · Brand · Projects · Staff tasks (labelled with this client) · Activity. Financial panels appear for the Owner only.
+- **The list** (owner decision 2026-09-27, kickoff 3): cards on a phone (logo, name, state, Admin), search by name, state and Admin filters as view controls, the list **defaults to Active** for the Owner and for an Admin (the Admin's by owner decision 2026-09-27, 3B review) with "All states" one tap away; lifecycle actions behind ⋯ for the Owner. As built (3.4, accepted in the 3B review): a client's page has the tabs **Overview · Brand · Activity** (Projects and Staff tasks join with phases 7 and 4).
 
 ### 4.5 Client work: Projects → Items
 **Client work is tracked separately from staff tasks.** The Admin maintains it. Staff never see it, and staff task completion **never** updates it automatically.
@@ -200,6 +217,8 @@ There are two ways to submit, and MaxOff picks the right one automatically:
 - Downloads use short-lived private links. SVGs are sanitized. No transcoding.
 
 ### 4.10 Google Drive archive
+> **Deferred past the launch** (owner, 2026-09-27; ROADMAP 8.3 and 8.4b). Until it lands, a pasted Drive link points at the person's **own** file (if they delete or unshare it, that version's content is gone), and uploaded originals stay in MaxOff storage with no retention cleanup; nothing is deleted before a Drive copy exists.
+
 Google Drive is the **permanent home** for everything submitted. MaxOff is the working copy.
 
 - MaxOff is connected to **one company Google account** (personal Gmail, no Workspace). Only the Owner connects or reconnects it in Settings. Staff have no access to it.
@@ -223,7 +242,7 @@ Google Drive is the **permanent home** for everything submitted. MaxOff is the w
 - **iPhone and iPad:** Apple only delivers push to an app added to the home screen. First login on iOS shows a short "Add MaxOff to your home screen" guide, and a banner stays until push works. In-app notifications and email work regardless.
 - **Reminders:** configurable per task (default: 2 days before, 1 day before, due time, overdue). Unacknowledged tasks get **repeated** reminders at controlled intervals (default every 2 h), then **escalation** to the approving Admin or creator (default after 4 h) and then the Owner (default after 8 h). A task with nothing submitted 24 h past its deadline (configurable) escalates the same way. Never spammy.
 - **Email is a real second channel for the few things that matter**, not only a fallback: **task assigned**, **escalations**, **invites**, the **Owner digest**, and **an event tomorrow** (shoot, site visit, meeting). Everything else is in-app and push only. The per-person daily cap keeps this inside the free allowance.
-- **Push keeps working after logout.** A device stays subscribed when someone logs out, because a person who logs off at 6 PM still needs to know about a 7 AM shoot. Those notifications are **title only** ("MaxOff: new task assigned"), with no client, task or personal detail, and opening one asks for login first. A subscription is removed only when the person chooses **"Sign out of this device"** or the Owner deactivates them (which removes all of theirs).
+- **People stay signed in** (§4.2, owner decision 2026-09-27), so a device keeps receiving push in the evening and on days off, and a notification carries the **full detail** on the lock screen for Admins and Staff (they never hold money) and opens the record directly. **Amounts never appear in a notification's text**, not even the Owner's. A subscription is removed only when the person chooses **"Sign out of this device"** or the Owner deactivates them (which removes all of theirs).
 - **Reachability is visible to management.** Settings → Notifications shows **who isn't reachable** and why: push never allowed, permission revoked, iPhone without the app installed, or repeated delivery failures. The Owner (and each Admin, for people on their tasks) can see it, and it's part of the daily "needs attention" list. Nobody has to discover a silent phone by missing a shoot.
 - **Test notification.** Anyone can send themselves one ("Send a test") and confirm it arrived. Setup is confirmed on day one instead of assumed, and it's part of onboarding a new joiner.
 - WhatsApp comes later (the channel design already allows it without touching business logic).
@@ -249,7 +268,8 @@ Only **client project items** carry revenue. Staff tasks never do.
 - **Reports:** Potential, Achieved and Remaining revenue (by client, category and project) · client work completion (done vs approved) · project progress · Additional Work · overdue and delay patterns · **raw employee metrics** (completed, overdue, average completion time, rejections and revision loops, acknowledgement delay, attendance, overtime, workload) · trends. Available by week, month or custom range.
 - **No automatic ratings or scores**, only raw facts.
 - **Close month:** the Owner closes a month, which saves an **immutable snapshot**. Later changes never alter it. A mistake is fixed with an explicit **correction**, which creates a new snapshot version linked to the old one and records why.
-- **Exports:** Markdown, CSV and PDF. The **Markdown export is designed for AI analysis**: an executive summary followed by dense, structured raw data (tables and IDs) that answers questions like *"Which stage takes longest?", "Who is overloaded?", "How much potential revenue wasn't achieved?"*
+- **Exports** *(deferred past the launch, owner 2026-09-27)*: Markdown, CSV and PDF. The **Markdown export is designed for AI analysis**: an executive summary followed by dense, structured raw data (tables and IDs) that answers questions like *"Which stage takes longest?", "Who is overloaded?", "How much potential revenue wasn't achieved?"*
+- **Freelancer work is shown separately** (ADR-0013): every count, duration and list that is per person carries the engagement type, and totals split employees from freelancers, so employee metrics are not diluted and freelancer output is visible on its own.
 - Admins get operational reports for their own scope, with no money in them. These are computed live: the end-of-day reports and month snapshots contain revenue and are Owner-only.
 
 **The Admin's report answers one question: is the work getting done?** (decided 2026-09-23). Six numbers and two lists — no more, or it stops being read. Each is for their assigned clients and the tasks they created, approve or are assigned to. Week, month or custom range, with last period beside it.
@@ -268,28 +288,70 @@ Plus two lists: **who is loaded this week** (open and overdue tasks per person, 
 **Not in an Admin's report, ever:** money, attendance, leave, anyone's history outside their scope, saved snapshots, and the AI export. An Admin sees **work**; the Owner sees **people and money**. Attendance and leave are the Owner's decision, so handing an Admin that record would give them a judgement they have no authority over.
 
 ### 4.14 Activity history
+> The **search screen** is deferred past the launch (owner, 2026-09-27); every action is still recorded exactly as below.
+
 - An **append-only** log of every important action: who, what, which record, when, and old and new values. It can't be edited or deleted.
 - Recorded in the same database transaction as the change. A change can't succeed without its audit record.
 - The Owner can search by person, client, record, action type and date. Admins see activity within their own scope.
 
 ### 4.15 Global search
+> **Deferred past the launch** (owner, 2026-09-27).
+
 `Ctrl/Cmd + K` searches clients, people, tasks, projects, items and contacts, **only what the user is allowed to see**. Results are grouped by type and open the record directly.
 
 ### 4.16 Settings: the Owner's control centre
 **Everything configurable in MaxOff is editable by the Owner, in one place, with no developer involved.** If a rule, list, threshold or label exists, the Owner can change it here. Admins get only the operational parts (lists, templates, custom fields).
 
 - **Company:** name, logo, timezone (IST), **weekly off days** (currently Sunday), **holidays**, logout-reminder time, acknowledgement and escalation thresholds (Admin and Owner), overdue escalation, workload warning threshold, default reminder schedule, email daily cap per person.
-- **Team:** invite, role, job title, name, deactivate or reactivate (Owner). **Job titles** are an editable list the Owner adds to freely (seeded with Video Editor and Graphic Designer).
+- **Team:** **Add person** chooses **Employee** (an invite by email) or **Freelancer** (no invite; pick the coordinator, §4.17); role, job title, name, coordinator, deactivate or reactivate (Owner). **Every member has a person page** (`/people/[id]`, owner decision 2026-09-27, kickoff 3): a **Profile** tab (name, role, job title, phone, avatar; Edit for the Owner with the edit pattern, ⋯ → Deactivate / Reactivate / Copy invite link) that anyone with `team.view` opens, and an **Attendance** tab (Owner only) once the person has joined and is not the Owner. The Owner edits their own row on /me only. **Avatars**: ≤ 5 MB, PNG / JPEG / WebP, original kept, a small preview made in the browser. **Job titles** are an editable list the Owner adds to freely (seeded with Video Editor and Graphic Designer).
 - **Lists:** task types (with event behaviour, default reminders and fields), stage presets, and other lists.
-- **Custom fields:** for clients, contacts, projects, items and tasks, globally or for one client. Fields on **projects and items are Owner-only** to define (there's no currency type, and this closes the "amount in a number field" loophole).
+- **Custom fields:** for clients, contacts, projects, items and tasks, globally or for one client. **Global client and contact fields are Owner-only; an Admin adds or archives fields scoped to one of their assigned clients only** (owner decision 2026-09-27, kickoff 3). A **required** field is enforced only when the form that shows it is saved (an older record shows "—" and saves once filled; no transition is ever blocked by a custom field). **Archiving** a field keeps its values, removes it from forms and shows it read-only under "Archived fields". **A field's type never changes once it holds a value** (archive it and add a new one); label, help, section, position and select options stay editable, and a select stores the option's key, so renaming an option rewrites nothing. Task and task-type fields arrive with 4.1. Fields on **projects and items are Owner-only** to define (there's no currency type, and this closes the "amount in a number field" loophole). **Number fields stay allowed on clients and contacts** (owner decision 2026-09-27, phase 3 review): the Owner is reminded instead. The field form shows "Admins can see this field. Amounts belong in project billing (Owner only)." whenever the type is number or the field is a client or contact field. The database checks every stored value against its field (type, options, size), so the API holds the same rules as the form.
 - **Templates:** project templates and task templates.
 - **Google Drive (Owner only):** connect or reconnect the company account, choose the archive root folder, and see the archive queue and any failures.
 - **Storage:** how much MaxOff (R2) and Google Drive are using, with warnings before either runs low.
 
+### 4.17 Freelancers
+**A freelancer is a person without a login** (owner decision 2026-09-27, ADR-0013). Pixora gives work to editors and designers who are not employees, may never open MaxOff and must still be assigned, reminded, approved and reported like anyone else, with a true record of who did what.
+
+- **Add person** in Team offers **Employee** (invite by email, as today) or **Freelancer**: name, job title, optional phone, and the **coordinator** instead of an email. No invite, no password, no session, ever, unless the Owner later decides to offer a tasks-only login (a phase-4 kickoff question); the record is designed so that would attach to it without moving any history.
+- **Exactly one coordinator**, an active employee (Admin or Staff), chosen and changeable by the Owner; every change is kept with who, when and why. Deactivating a coordinator first asks where their freelancers go.
+- **The coordinator acts on the freelancer's behalf from their own account**, only on the freelancer's tasks: "Task Noted", comments, stage ticks, uploads and links, Done (with the late reason), resubmit after changes. Screens say so wherever a person is named: **"Done by Ravi for Asha"**, "Noted by Ravi for Asha".
+- **Assigning:** a freelancer is offered in the assignee picker like anyone else, marked *Freelancer* with the coordinator's name. The approval route is unchanged (§4.6); a freelancer is never an approving Admin and never a task creator.
+- **Notifications** meant for the freelancer go to the coordinator, worded for them ("Asha's task *Reel edit* is due tomorrow").
+- **No attendance, no leave, no day gate**, and the nightly attendance jobs never look at them (enforced in the database). They never appear on the Owner's people board.
+- **A Staff coordinator still never sees client records**: the freelancer's tasks carry a client *label* at most, exactly like the coordinator's own.
+- **Reports** show freelancer work separately (§4.13). **Payments** are out of scope for the pilot (§5).
+
 ---
 
+### 4.18 Month summary and expense claims (Owner; decided 2026-09-27, phase 3b)
+**Month summary.** For each person and each IST month, **live at any time** and as a **month report for the whole team**:
+
+| Line | Meaning |
+|---|---|
+| Working days | Days in the month minus weekly off days and holidays |
+| Days worked | Present days + ½ for each half day |
+| Leave · Half days · Absent | Approved leave days · half-day leaves (½ each) · approved absences |
+| Comp leave used | Days taken as comp leave (they never count against the person) |
+| **Additional leave** | **Full leave days + ½ × half days + absent days**: the figure that can reduce pay |
+| Days off worked | Its own line, never added to days worked |
+| Overtime | Notes that month, and how many earned comp leave |
+| Comp leave credits | Granted · used · expired |
+| Expenses | Approved and not yet paid: total and count |
+
+There's **no monthly paid-leave allowance** and **no salary in MaxOff**: the Owner works out pay from these figures. Admins never see the summary; freelancers are not in it.
+
+**Expense claims (reimbursements).**
+- Ending the day asks **"Any expenses to claim today?"** **No** ends the day; **Yes** asks for the **amount (₹)**, a **category** (an Owner-edited list, seeded Travel, Food, Materials, Other), a note and the date, several per day. Claims can also be added later from Attendance & leave.
+- A **receipt photo** is optional, **required above an amount the Owner sets** (default ₹500). Receipts are private and kept as taken.
+- **Claim window:** an expense dated in the current month, or in the previous month during the **first 5 days** of the new one.
+- The Owner **approves** or **rejects** (with a reason the person sees) each claim, and marks it **Paid** when it's paid with the salary. The person can withdraw a claim until it's decided.
+- **Who sees claims:** the person sees their own; the Owner sees everyone's; **Admins never see anyone's**, not even their team's (ADR-0007 amendment 2026-09-27). Freelancers don't claim expenses in the pilot.
+
 ## 5. Out of scope for the prototype
-GST invoice generation and invoicing · client login or portal · WhatsApp · native mobile app · timesheets or time tracking · social publishing · AI features inside MaxOff · HR leave policies and balances · task dependency engine · payroll · accounting integration · leads pipeline · client-facing financial reports · custom RBAC roles · multi-tenant SaaS (billing, sign-up, org admin).
+**Freelancer payments** (owner decision 2026-09-27: out of scope for the pilot; when they come they are Owner-only money through `modules/revenue`, never on the person record) · GST invoice generation and invoicing · client login or portal · WhatsApp · native mobile app · timesheets or time tracking · social publishing · AI features inside MaxOff · HR leave policies and general leave balances (the only balance is Owner-granted comp leave, §4.3a) · task dependency engine · payroll and salary records (the Owner works out pay from the month summary, §4.18) · accounting integration · leads pipeline · client-facing financial reports · custom RBAC roles · multi-tenant SaaS (billing, sign-up, org admin).
+
+**Deferred past the launch** (owner decision 2026-09-27; ROADMAP "Deferred past the launch"): the Google Drive archive (§4.10) with the Drive half of link submissions, exports (§4.13), the activity-history search screen (§4.14) and global search (§4.15). Nothing is dropped: they follow the launch, in that order.
 
 ## 6. Quality bar ("production level")
 | Area | Requirement |

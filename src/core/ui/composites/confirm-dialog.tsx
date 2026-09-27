@@ -30,6 +30,7 @@ export function ConfirmDialog({
   confirmLabel,
   cancelLabel = "Cancel",
   onConfirm,
+  confirmDisabled = false,
   children,
 }: {
   open: boolean;
@@ -39,6 +40,8 @@ export function ConfirmDialog({
   confirmLabel: string;
   cancelLabel?: string;
   onConfirm: () => void | boolean | Promise<void | boolean>;
+  /** The commit waits for something inside the dialog (a choice still to make). */
+  confirmDisabled?: boolean;
   /** Optional extra content between the description and the buttons. */
   children?: ReactNode;
 }) {
@@ -61,7 +64,12 @@ export function ConfirmDialog({
         {children}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={pending}>{cancelLabel}</AlertDialogCancel>
-          <Button variant="primary" onClick={confirm} disabled={pending} aria-busy={pending}>
+          <Button
+            variant="primary"
+            onClick={confirm}
+            disabled={pending || confirmDisabled}
+            aria-busy={pending}
+          >
             {pending ? <Loader2Icon className="animate-spin" aria-hidden /> : null}
             {confirmLabel}
           </Button>

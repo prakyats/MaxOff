@@ -41,7 +41,7 @@ export const getSessionState = cache(async (): Promise<SessionState> => {
 
   const { data: row, error } = await supabase
     .from("members")
-    .select("id, email, full_name, role, status, job_title:list_items(name)")
+    .select("id, email, full_name, role, status, avatar_file_id, job_title:list_items(name)")
     .eq("id", userId)
     .maybeSingle();
   // A failed query (timeout, paused project) must never read as "inactive": that path ends
@@ -59,6 +59,7 @@ export const getSessionState = cache(async (): Promise<SessionState> => {
       role: row.role,
       name: row.full_name,
       jobTitle: row.job_title?.name ?? null,
+      avatarFileId: row.avatar_file_id,
     },
   };
 });

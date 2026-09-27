@@ -22,6 +22,19 @@ export const SECURITY_HEADERS: readonly ResponseHeader[] = [
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
 ];
 
+/**
+ * `/api/files/<id>` (task 3.3, ARCHITECTURE §11): a served file is only ever an `<img>` source,
+ * and an SVG is a document, so on top of the sanitising done at upload the response forbids
+ * every load and script and is sandboxed. Set here, not in the route: a `headers()` rule from
+ * `next.config.ts` replaces a header of the same name that a route handler sets, and the last
+ * matching rule wins, so this rule follows the global one and keeps `frame-ancestors 'none'`.
+ */
+export const FILE_ROUTE_SOURCE = "/api/files/:path*";
+export const FILE_ROUTE_CSP: ResponseHeader = {
+  key: "Content-Security-Policy",
+  value: "default-src 'none'; style-src 'unsafe-inline'; sandbox; frame-ancestors 'none'",
+};
+
 /** Staging must never be indexed. Production stays indexable-by-choice (decided later). */
 export const NOINDEX_HEADER: ResponseHeader = { key: "X-Robots-Tag", value: "noindex, nofollow" };
 

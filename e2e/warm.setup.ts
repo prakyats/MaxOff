@@ -16,6 +16,8 @@ import { serviceSelect, storageStateFor } from "./helpers";
  * Owner, who can open every screen; the gate and the sign-in action were just exercised by the
  * three sign-ins themselves.
  */
+const NO_CLIENT = "00000000-0000-4000-8000-000000000000";
+
 const ROUTES = [
   "/today",
   "/my-day",
@@ -27,6 +29,7 @@ const ROUTES = [
   "/reports",
   "/settings",
   "/settings/company",
+  "/settings/custom-fields",
   "/settings/days-off",
   "/settings/thresholds",
   "/settings/job-titles",
@@ -39,14 +42,28 @@ const ROUTES = [
   "/forgot-password",
   "/set-password",
   "/offline",
+  // A client's screens (3.4): the seed has no client, and a 404 from an unknown one still loads
+  // each route's code, which is the first-render cost this step pays up front.
+  `/clients/${NO_CLIENT}`,
+  `/clients/${NO_CLIENT}/brand`,
+  `/clients/${NO_CLIENT}/activity`,
+  `/clients/${NO_CLIENT}/contacts/${NO_CLIENT}`,
 ];
 
 setup.use({ storageState: storageStateFor("owner") });
 
 setup("warm every route once as the Owner", async ({ page, request }) => {
-  const [someone] = await serviceSelect<{ id: string }>("members?select=id&limit=1");
+  // A Staff member: the Owner's own id is /me, and only a member who joined has the history tabs.
+  const [someone] = await serviceSelect<{ id: string }>(
+    "members?select=id&role=eq.staff&joined_at=not.is.null&limit=1",
+  );
   const routes = someone
-    ? [...ROUTES, `/people/${someone.id}`, `/people/${someone.id}/attendance`]
+    ? [
+        ...ROUTES,
+        `/people/${someone.id}`,
+        `/people/${someone.id}/leave`,
+        `/people/${someone.id}/attendance`,
+      ]
     : ROUTES;
   for (const route of routes) {
     const response = await request.get(route, { maxRedirects: 3 });

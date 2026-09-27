@@ -97,7 +97,14 @@ describe("every overlay goes through the registered roots", () => {
       // Controlled or uncontrolled, the root must hand the real state to the controller.
       expect(text, file).toMatch(/useOverlayOpenState\(\{\s*open,\s*defaultOpen,\s*onOpenChange/);
       expect(text, file).toContain("open={isOpen}");
-      expect(text, file).toContain("onOpenChange={setOpen}");
+      // A select hands the open request to `openList`, which opens the phone sheet (a `Sheet`
+      // root, registered by `sheet.tsx`) below 768px and the registered Radix list above it.
+      expect(text, file).toContain(
+        file === "select" ? "onOpenChange={openList}" : "onOpenChange={setOpen}",
+      );
     }
+    const select = readFileSync(path.join(primitivesDir, "select.tsx"), "utf8");
+    expect(select).toContain('from "@/core/ui/primitives/sheet"');
+    expect(select).toMatch(/<Sheet open=\{open\}/);
   });
 });

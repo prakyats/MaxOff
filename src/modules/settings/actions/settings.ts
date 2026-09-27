@@ -1,5 +1,7 @@
 "use server";
 
+import { z } from "zod";
+
 import { revalidatePath } from "next/cache";
 
 import { action, AppError, isPostgresError, ok, type Result } from "@/core/errors";
@@ -34,6 +36,27 @@ export const updateCompany = action(async (input: UpdateCompanyInput): Promise<R
   await assertPermission("settings.manage");
   const company = await repo.getCompany();
   await repo.updateCompany(company.id, { name: data.name });
+  revalidatePath(COMPANY_PATH);
+  return ok(null);
+});
+
+const logoSchema = z.object({ fileId: z.uuid() });
+export type SetCompanyLogoInput = z.input<typeof logoSchema>;
+
+/** The company logo (3.3, PRODUCT §4.16): the uploaded original; screens show its preview. */
+export const setCompanyLogo = action(async (input: SetCompanyLogoInput): Promise<Result<null>> => {
+  const { fileId } = logoSchema.parse(input);
+  await assertPermission("settings.manage");
+  const company = await repo.getCompany();
+  await repo.setCompanyLogo(company.id, fileId);
+  revalidatePath(COMPANY_PATH);
+  return ok(null);
+});
+
+export const removeCompanyLogo = action(async (): Promise<Result<null>> => {
+  await assertPermission("settings.manage");
+  const company = await repo.getCompany();
+  await repo.setCompanyLogo(company.id, null);
   revalidatePath(COMPANY_PATH);
   return ok(null);
 });

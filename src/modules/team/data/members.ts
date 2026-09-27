@@ -13,9 +13,9 @@ import type { MemberRole, MemberStatus, TeamMember } from "../domain/members";
  */
 
 const MEMBER_COLUMNS =
-  "id, full_name, email, phone, role, status, job_title_id, invited_at, joined_at, created_at, job_title:list_items(name)";
+  "id, full_name, email, phone, role, status, job_title_id, avatar_file_id, invited_at, joined_at, created_at, job_title:list_items(name)";
 const DIRECTORY_COLUMNS =
-  "id, full_name, phone, role, status, job_title_id, created_at, job_title:list_items(name)";
+  "id, full_name, phone, role, status, job_title_id, avatar_file_id, created_at, job_title:list_items(name)";
 
 type MemberRow = {
   id: string;
@@ -25,6 +25,7 @@ type MemberRow = {
   role: MemberRole;
   status: MemberStatus;
   job_title_id: string | null;
+  avatar_file_id: string | null;
   invited_at?: string;
   joined_at?: string | null;
   created_at: string;
@@ -41,6 +42,7 @@ function toTeamMember(row: MemberRow): TeamMember {
     status: row.status,
     jobTitleId: row.job_title_id,
     jobTitle: row.job_title?.name ?? null,
+    avatarFileId: row.avatar_file_id,
     invitedAt: row.invited_at ?? null,
     joinedAt: row.joined_at ?? null,
     createdAt: row.created_at,
@@ -74,6 +76,7 @@ export async function listDirectory(): Promise<TeamMember[]> {
       role: row.role,
       status: row.status,
       job_title_id: row.job_title_id,
+      avatar_file_id: row.avatar_file_id,
       created_at: row.created_at,
       job_title: row.job_title,
     });
@@ -90,6 +93,38 @@ export async function getOwnMember(id: string): Promise<TeamMember | null> {
     .maybeSingle();
   if (error) throw error;
   return data ? toTeamMember(data) : null;
+}
+
+/**
+ * One person for their page (3.4): the `members` row (email, dates) for `team.manage`, the
+ * directory row for everyone else with `team.view` (PERMISSIONS §2: no email).
+ */
+export async function getPerson(id: string, full: boolean): Promise<TeamMember | null> {
+  if (full) return getOwnMember(id);
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase
+    .from("member_directory")
+    .select(DIRECTORY_COLUMNS)
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  if (!data.id || !data.full_name || !data.role || !data.status || !data.created_at) {
+    throw new AppError("INTERNAL", undefined, {
+      cause: new Error("member_directory row incomplete"),
+    });
+  }
+  return toTeamMember({
+    id: data.id,
+    full_name: data.full_name,
+    phone: data.phone,
+    role: data.role,
+    status: data.status,
+    job_title_id: data.job_title_id,
+    avatar_file_id: data.avatar_file_id,
+    created_at: data.created_at,
+    job_title: data.job_title,
+  });
 }
 
 /** Plain edit by `team.manage` (audited by trigger). Role stays as it is when not given. */
@@ -267,4 +302,18 @@ export async function deleteAuthUser(userId: string): Promise<void> {
     console.error(
       `[team] could not remove the auth user after a failed invite (${error.code ?? "no code"})`,
     );
+}
+
+/**
+ * The member's own photo (PERMISSIONS §3: a self edit, audited by trigger). The database checks
+ * the file is a ready raster image the member uploaded (3.3) and archives the previous one.
+ */
+export async function setOwnAvatar(id: string, avatarFileId: string | null): Promise<void> {
+  const supabase = await createServerSupabase();
+  const { error, count } = await supabase
+    .from("members")
+    .update({ avatar_file_id: avatarFileId }, { count: "exact" })
+    .eq("id", id);
+  if (error) throw error;
+  if (count === 0) throw new AppError("FORBIDDEN", "Only you can change your photo.");
 }

@@ -63,6 +63,8 @@ jobs:
       - run: pnpm db:test
       - if: always()
         run: pnpm supabase stop --no-backup
+      - if: always()
+        run: pnpm storage:stop
 
   e2e:
     name: playwright
@@ -81,6 +83,9 @@ jobs:
       # in as the seeded local users, so the local Supabase stack (Auth, PostgREST, Kong,
       # Mailpit for the recovery email) must be up before the build inlines its keys.
       - run: pnpm supabase start -x realtime,storage-api,imgproxy,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+      # File storage (3.3): the same MinIO the developer runs, so uploads and the cleanup route
+      # are exercised end to end offline. Its throwaway values are playwright.config.ts's defaults.
+      - run: pnpm storage:start
       - name: Point the build at the local stack
         run: |
           pnpm exec supabase status -o env | grep -E '^(API_URL|PUBLISHABLE_KEY|SECRET_KEY)=' > supabase-status.env
@@ -94,6 +99,8 @@ jobs:
       - run: pnpm test:e2e
       - if: always()
         run: pnpm supabase stop --no-backup
+      - if: always()
+        run: pnpm storage:stop
       - if: failure()
         uses: actions/upload-artifact@v4
         with:

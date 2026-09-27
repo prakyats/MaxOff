@@ -2,7 +2,11 @@ import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 import { withSentryConfig } from "@sentry/nextjs/config";
 import type { NextConfig } from "next";
 
-import { responseHeaders } from "./src/core/http/response-headers";
+import {
+  FILE_ROUTE_CSP,
+  FILE_ROUTE_SOURCE,
+  responseHeaders,
+} from "./src/core/http/response-headers";
 import { assertObservabilityEnv } from "./src/core/observability/env";
 
 // Lets `next dev` reach Cloudflare bindings through `getCloudflareContext()` (none are used
@@ -21,7 +25,11 @@ const RESPONSE_HEADERS = responseHeaders(appEnv);
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  headers: async () => [{ source: "/:path*", headers: RESPONSE_HEADERS }],
+  // The file route's stricter CSP comes last on purpose: the last rule to set a header wins.
+  headers: async () => [
+    { source: "/:path*", headers: RESPONSE_HEADERS },
+    { source: FILE_ROUTE_SOURCE, headers: [FILE_ROUTE_CSP] },
+  ],
   // `next dev` otherwise appends its own block to CLAUDE.md on every run.
   // CLAUDE.md is hand-written project memory, so we keep Next out of it.
   // Next 16's own guidance lives in `node_modules/next/dist/docs/`.

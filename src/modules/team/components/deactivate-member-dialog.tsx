@@ -17,6 +17,7 @@ import { Textarea } from "@/core/ui/primitives/textarea";
 import { toastResult } from "@/core/ui/toast";
 
 import { deactivateMember } from "../actions/members";
+import { ClientHandover, type HandoverMove } from "./client-handover";
 import type { TeamMember } from "../domain/members";
 import { DEACTIVATE_REASON_MAX_LENGTH } from "../domain/limits";
 import { ErrorText } from "@/core/ui/composites/error-text";
@@ -24,7 +25,8 @@ import { ErrorText } from "@/core/ui/composites/error-text";
 /**
  * Deactivate (active) or Revoke invite (invited): one transition, worded by state, with an
  * optional reason kept in the activity log (decided 2026-09-22). Not `ReasonDialog`, whose
- * reason is required.
+ * reason is required. Deactivating an Admin moves their clients first, chosen here (phase 3
+ * review, owner: no client is ever left without an Admin).
  */
 export function DeactivateMemberDialog({
   member,
@@ -34,6 +36,8 @@ export function DeactivateMemberDialog({
   onClose: () => void;
 }) {
   const [reason, setReason] = useState("");
+  const runsClients = member.role === "admin" && member.status === "active";
+  const [moves, setMoves] = useState<HandoverMove[] | null>(runsClients ? null : []);
   const [pending, startTransition] = useTransition();
   const reasonId = useId();
   const revoke = member.status === "invited";
@@ -41,7 +45,11 @@ export function DeactivateMemberDialog({
 
   function confirm() {
     startTransition(async () => {
-      const result = await deactivateMember({ memberId: member.id, reason });
+      const result = await deactivateMember({
+        memberId: member.id,
+        reason,
+        ...(moves?.length ? { handover: moves } : {}),
+      });
       if (toastResult(result, { success: revoke ? "Invite revoked" : "Deactivated" })) onClose();
     });
   }
@@ -59,6 +67,7 @@ export function DeactivateMemberDialog({
               : "They lose access immediately, on every device. Their history stays, and you can reactivate them later."}
           </DialogDescription>
         </DialogHeader>
+        {runsClients ? <ClientHandover member={member} onChange={setMoves} /> : null}
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={reasonId}>Reason (optional)</Label>
           <Textarea
@@ -85,7 +94,7 @@ export function DeactivateMemberDialog({
             type="button"
             variant="primary"
             onClick={confirm}
-            disabled={pending || tooLong}
+            disabled={pending || tooLong || moves === null}
             aria-busy={pending}
           >
             {pending ? <Loader2Icon className="animate-spin" aria-hidden /> : null}

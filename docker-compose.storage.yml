@@ -1,0 +1,34 @@
+# Local file storage (task 3.3, ARCHITECTURE §11): MinIO speaks the S3 API the app uses on R2
+# in deployed environments, so development and every e2e run (local and CI) stay offline and
+# deterministic. `pnpm storage:start` / `pnpm storage:stop`. The console is at
+# http://127.0.0.1:9001 (user maxoff, password maxoff-local-secret). Throwaway credentials:
+# they match .env.example and never leave this machine.
+#
+# The image is Bitnami's packaging of the MinIO server (MinIO 2025.5.24), pinned by digest. MinIO's own
+# `minio/minio` and `quay.io/minio/minio` images stopped being anonymously pullable in 2026
+# (checked 2026-09-27: "pull access denied" / 401), and the Bitnami catalogue moved its last
+# public builds to `bitnamilegacy`, which is frozen. A frozen local mock of the S3 API is fine;
+# the real bucket is R2. It creates the bucket itself (MINIO_DEFAULT_BUCKETS), private.
+services:
+  minio:
+    image: bitnamilegacy/minio@sha256:451fe6858cb770cc9d0e77ba811ce287420f781c7c1b806a386f6896471a349c
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    environment:
+      MINIO_ROOT_USER: maxoff
+      MINIO_ROOT_PASSWORD: maxoff-local-secret
+      MINIO_DEFAULT_BUCKETS: maxoff
+      # The browser PUTs straight to the bucket (presigned), so the app origins must be allowed:
+      # `next dev` (3000) and the Playwright server (3100).
+      MINIO_API_CORS_ALLOW_ORIGIN: "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3100,http://127.0.0.1:3100"
+    volumes:
+      - maxoff-minio:/bitnami/minio/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  maxoff-minio:

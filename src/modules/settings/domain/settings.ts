@@ -10,6 +10,8 @@ export type Company = {
   name: string;
   /** IST everywhere (ADR-0008). Shown, never edited. */
   timezone: string;
+  /** The company logo (3.3): an original in `files`; screens show its preview. */
+  logoFileId: string | null;
 };
 
 export type Thresholds = {

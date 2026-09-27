@@ -110,8 +110,10 @@ export async function rpcAs<T = unknown>(
     },
     body: JSON.stringify(args),
   });
-  const body: unknown = await response.json();
-  expect(response.ok, `${fn} as ${email}: ${JSON.stringify(body)}`).toBe(true);
+  // A function that returns void answers with an empty body (204).
+  const text = await response.text();
+  const body: unknown = text ? JSON.parse(text) : null;
+  expect(response.ok, `${fn} as ${email}: ${text}`).toBe(true);
   return body as T;
 }
 
@@ -235,6 +237,12 @@ export async function serviceInsert<T>(table: string, row: Record<string, unknow
   const body = (await response.json()) as T[];
   expect(response.ok, `insert into ${table}: ${JSON.stringify(body)}`).toBe(true);
   return body[0] as T;
+}
+
+/** Updates the rows a PostgREST filter names through `serviceRest` (a fixture's own rows only). */
+export async function serviceUpdate(path: string, patch: Record<string, unknown>): Promise<void> {
+  const response = await serviceRest(path, { method: "PATCH", body: JSON.stringify(patch) });
+  expect(response.ok, `update ${path}: ${await response.text()}`).toBe(true);
 }
 
 /** Reads rows through `serviceRest` (a PostgREST query string, e.g. `leave_requests?id=eq.…`). */
@@ -455,4 +463,43 @@ export async function expectBackStack(page: Page, steps: readonly BackStep[]): P
     if (step.closes) await expect(step.closes, `back #${index + 1} closes its layer`).toBeHidden();
     await expect(page, `back #${index + 1} lands`).toHaveURL(step.url);
   }
+}
+
+/**
+ * Removes custom field definitions a spec adds, by key (3.2), so it re-runs on a database an
+ * earlier run used. The audit rows about them stay, as history should.
+ */
+export async function removeFieldDefinitions(keys: string[]): Promise<void> {
+  const list = keys.map((key) => `"${key}"`).join(",");
+  await serviceRest(`field_definitions?key=in.(${encodeURIComponent(list)})`, {
+    method: "DELETE",
+  });
+}
+
+/**
+ * Removes a client a spec creates (3.1), with the rows the triggers made for it and every
+ * definition scoped to it. Nothing to remove is fine.
+ */
+export async function removeClientFixture(name: string): Promise<void> {
+  const clients = await serviceSelect<{ id: string }>(
+    `clients?name=eq.${encodeURIComponent(name)}&select=id`,
+  );
+  for (const { id } of clients) {
+    await serviceRest(`field_definitions?client_id=eq.${id}`, { method: "DELETE" });
+    await serviceRest(`client_contacts?client_id=eq.${id}`, { method: "DELETE" });
+    await serviceRest(`client_admin_assignments?client_id=eq.${id}`, { method: "DELETE" });
+    await serviceRest(`client_brand?client_id=eq.${id}`, { method: "DELETE" });
+    await serviceRest(`client_private?client_id=eq.${id}`, { method: "DELETE" });
+    await serviceRest(`clients?id=eq.${id}`, { method: "DELETE" });
+  }
+}
+
+/** The seeded member's id for an email, through the service role (fixtures only). */
+export async function memberIdOf(email: string): Promise<string> {
+  const rows = await serviceSelect<{ id: string }>(
+    `members?email=eq.${encodeURIComponent(email)}&select=id`,
+  );
+  const id = rows[0]?.id;
+  expect(id, `a member with ${email}`).toBeTruthy();
+  return id as string;
 }

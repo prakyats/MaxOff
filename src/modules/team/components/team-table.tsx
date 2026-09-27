@@ -1,15 +1,16 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
-import { MoreHorizontalIcon, UsersIcon } from "lucide-react";
-import { useMemo, useState, useTransition } from "react";
+import { MoreHorizontalIcon, PencilIcon, UsersIcon } from "lucide-react";
+import { type MouseEvent, useMemo } from "react";
 
 import { formatIST } from "@/core/time";
 import { DataTable, type MobileCard } from "@/core/ui/composites/data-table";
 import { DrillLink } from "@/core/ui/composites/drill-link";
-import { OverlayLink } from "@/core/ui/composites/overlay-link";
 import { EmptyState } from "@/core/ui/composites/empty-state";
+import { OverlayLink } from "@/core/ui/composites/overlay-link";
 import { StatusBadge, StatusDot } from "@/core/ui/composites/status-badge";
+import { requestEdit } from "@/core/ui/edit/edit-requests";
 import { Button } from "@/core/ui/primitives/button";
 import {
   DropdownMenu,
@@ -18,75 +19,39 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/core/ui/primitives/dropdown-menu";
-import { toastResult } from "@/core/ui/toast";
 
-import { issueInviteLink, reactivateMember } from "../actions/members";
-import { memberActions, ROLE_LABELS, STATUS_LABELS, type TeamMember } from "../domain/members";
+import {
+  memberActions,
+  memberEditKey,
+  opensPersonPage,
+  ROLE_LABELS,
+  STATUS_LABELS,
+  type TeamMember,
+} from "../domain/members";
 
-import { ChangeEmailDialog } from "./change-email-dialog";
-import { DeactivateMemberDialog } from "./deactivate-member-dialog";
-import { EditMemberDialog } from "./edit-member-dialog";
-import { InviteLinkDialog, type InviteLinkState } from "./invite-link-dialog";
-import type { JobTitleOption } from "./job-title-select";
+import { useMemberDialogs } from "./use-member-dialogs";
 
-/** Whoever has attendance (2.4): not the Owner, and not someone who never joined. */
-function opensHistory(canViewAttendance: boolean, member: TeamMember): boolean {
-  return canViewAttendance && member.role !== "owner" && member.joinedAt !== null;
+/** Edit on the person's page, unless the link is opening in another tab (3.4 review). */
+function editOnArrival(event: MouseEvent, memberId: string): void {
+  if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+  requestEdit(memberEditKey(memberId));
 }
 
-type DialogState =
-  | { kind: "none" }
-  | { kind: "edit"; member: TeamMember }
-  | { kind: "email"; member: TeamMember }
-  | { kind: "link"; member: TeamMember; state: InviteLinkState }
-  | { kind: "deactivate"; member: TeamMember };
-
 /**
- * The team list (PERMISSIONS §2: Admins see no email). Row actions appear only for
- * `team.manage`; the transition functions and RLS decide for real.
+ * The team list (PERMISSIONS §2: Admins see no email). Every person opens their page
+ * (`/people/[id]`, kickoff 3): the Profile for anyone with `team.view`, and for the Owner their
+ * leave and attendance too. The Owner's own row lives on /me, so it opens the sheet instead.
+ * Row actions appear only for `team.manage`; the transition functions and RLS decide for real.
+ * **Edit** opens the person's page in edit mode (the edit pattern, 3.4), not a dialog.
  */
 export function TeamTable({
   members,
   viewer,
-  jobTitles,
 }: {
   members: TeamMember[];
-  /** `canViewAttendance` (2.4): each person's name leads to their attendance and leave. */
-  viewer: { id: string; canManage: boolean; canViewAttendance?: boolean };
-  jobTitles: readonly JobTitleOption[];
+  viewer: { id: string; canManage: boolean };
 }) {
-  const canViewAttendance = viewer.canViewAttendance === true;
-  const [dialog, setDialog] = useState<DialogState>({ kind: "none" });
-  const [, startTransition] = useTransition();
-
-  // Issued once, on the menu click: a fresh link stops the previous one working.
-  function issueLink(member: TeamMember) {
-    setDialog({ kind: "link", member, state: null });
-    startTransition(async () => {
-      const result = await issueInviteLink({ memberId: member.id });
-      setDialog((current) =>
-        current.kind === "link" && current.member.id === member.id
-          ? { ...current, state: result.ok ? { link: result.data.link } : { error: result.error } }
-          : current,
-      );
-    });
-  }
-
-  function reactivate(member: TeamMember) {
-    startTransition(async () => {
-      const result = await reactivateMember({ memberId: member.id });
-      if (result.ok) {
-        toastResult(result, {
-          success:
-            result.data.status === "active"
-              ? `${member.fullName} is active again`
-              : `${member.fullName} is invited again: issue a new link`,
-        });
-      } else {
-        toastResult(result);
-      }
-    });
-  }
+  const { changeEmail, deactivate, issueLink, reactivate, dialogs } = useMemberDialogs();
 
   const columns = useMemo<ColumnDef<TeamMember>[]>(() => {
     const base: ColumnDef<TeamMember>[] = [
@@ -95,7 +60,7 @@ export function TeamTable({
         header: "Name",
         cell: ({ row }) => (
           <div className="min-w-0">
-            {opensHistory(canViewAttendance, row.original) ? (
+            {opensPersonPage(viewer, row.original) ? (
               <DrillLink
                 href={`/people/${row.original.id}`}
                 className="block truncate font-medium underline-offset-4 hover:underline"
@@ -170,12 +135,18 @@ export function TeamTable({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   {actions.edit ? (
-                    <DropdownMenuItem onSelect={() => setDialog({ kind: "edit", member })}>
-                      Edit
+                    <DropdownMenuItem asChild>
+                      {/* The menu's entry is backed out first, then the page is pushed (§14.2 a). */}
+                      <OverlayLink
+                        href={`/people/${member.id}`}
+                        onClick={(event) => editOnArrival(event, member.id)}
+                      >
+                        Edit
+                      </OverlayLink>
                     </DropdownMenuItem>
                   ) : null}
                   {actions.changeEmail ? (
-                    <DropdownMenuItem onSelect={() => setDialog({ kind: "email", member })}>
+                    <DropdownMenuItem onSelect={() => changeEmail(member)}>
                       Change sign-in email
                     </DropdownMenuItem>
                   ) : null}
@@ -192,10 +163,7 @@ export function TeamTable({
                   {actions.revokeInvite || actions.deactivate ? (
                     <>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        variant="destructive"
-                        onSelect={() => setDialog({ kind: "deactivate", member })}
-                      >
+                      <DropdownMenuItem variant="destructive" onSelect={() => deactivate(member)}>
                         {actions.revokeInvite ? "Revoke invite" : "Deactivate"}
                       </DropdownMenuItem>
                     </>
@@ -208,25 +176,18 @@ export function TeamTable({
       );
     }
     return base;
-    // `issueLink` and `reactivate` only close over stable setters.
+    // The handlers only close over stable setters.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewer.id, viewer.canManage, canViewAttendance]);
-
-  const close = () => setDialog({ kind: "none" });
+  }, [viewer.id, viewer.canManage]);
 
   /**
-   * The phone shape (ARCHITECTURE §14.1). A card shows who someone is and where they stand;
-   * the email, the date and every action live in the sheet a tap opens. The desktop dropdown
-   * is hover-adjacent and 32px wide — neither belongs on a phone.
-   *
-   * For whoever reads attendance (the Owner), a card with a history opens the person's page
-   * directly and the sheet moves behind ⋯ (task 2.9, PRODUCT §2 "First glance"): their
-   * attendance and leave is what the Owner looks someone up for. The Owner's own card and
-   * anyone who never joined keep the sheet: they have no such page.
+   * The phone shape (ARCHITECTURE §14.1). A card shows who someone is and where they stand, and
+   * opens their page (kickoff 3); the email, the date and every action live in the sheet behind
+   * ⋯. The Owner's own card has no person page (/me is theirs), so it opens the sheet.
    */
   const mobile: MobileCard<TeamMember> = {
     title: (member) => member.fullName,
-    href: (member) => (opensHistory(canViewAttendance, member) ? `/people/${member.id}` : null),
+    href: (member) => (opensPersonPage(viewer, member) ? `/people/${member.id}` : null),
     moreLabel: (member) => `More for ${member.fullName}`,
     subtitle: (member) => `${ROLE_LABELS[member.role]} · ${member.jobTitle ?? "No job title"}`,
     trailing: (member) => <StatusDot status={member.status} label={STATUS_LABELS[member.status]} />,
@@ -264,12 +225,18 @@ export function TeamTable({
             <dt className="text-muted-foreground">{member.joinedAt ? "Joined" : "Invited"}</dt>
             <dd className="text-right">{formatIST(at, "d MMM yyyy")}</dd>
           </div>
-          {opensHistory(canViewAttendance, member) ? (
+          {memberActions(viewer, member).edit ? (
             // In the sheet body, not its actions: those close the sheet by state, and the link
             // backs the sheet's entry out itself before opening the person (§14.2 a, b).
             <div className="pt-1">
               <Button variant="secondary" className="w-full" asChild>
-                <OverlayLink href={`/people/${member.id}`}>Attendance &amp; leave</OverlayLink>
+                <OverlayLink
+                  href={`/people/${member.id}`}
+                  onClick={(event) => editOnArrival(event, member.id)}
+                >
+                  <PencilIcon aria-hidden />
+                  Edit
+                </OverlayLink>
               </Button>
             </div>
           ) : null}
@@ -278,16 +245,17 @@ export function TeamTable({
     },
     actions: (member) => {
       const actions = memberActions(viewer, member);
-      if (!Object.values(actions).some(Boolean)) return null;
+      const any =
+        actions.changeEmail ||
+        actions.copyInviteLink ||
+        actions.reactivate ||
+        actions.revokeInvite ||
+        actions.deactivate;
+      if (!any) return null;
       return (
         <>
-          {actions.edit ? (
-            <Button variant="secondary" onClick={() => setDialog({ kind: "edit", member })}>
-              Edit
-            </Button>
-          ) : null}
           {actions.changeEmail ? (
-            <Button variant="secondary" onClick={() => setDialog({ kind: "email", member })}>
+            <Button variant="secondary" onClick={() => changeEmail(member)}>
               Change sign-in email
             </Button>
           ) : null}
@@ -303,7 +271,7 @@ export function TeamTable({
           ) : null}
           {actions.revokeInvite || actions.deactivate ? (
             // Destructive last, with the others between it and the thumb (§14.1).
-            <Button variant="destructive" onClick={() => setDialog({ kind: "deactivate", member })}>
+            <Button variant="destructive" onClick={() => deactivate(member)}>
               {actions.revokeInvite ? "Revoke invite" : "Deactivate"}
             </Button>
           ) : null}
@@ -329,23 +297,7 @@ export function TeamTable({
           />
         }
       />
-      {dialog.kind === "edit" ? (
-        <EditMemberDialog
-          member={dialog.member}
-          viewerId={viewer.id}
-          jobTitles={jobTitles}
-          onClose={close}
-        />
-      ) : null}
-      {dialog.kind === "email" ? (
-        <ChangeEmailDialog key={dialog.member.id} member={dialog.member} onClose={close} />
-      ) : null}
-      {dialog.kind === "deactivate" ? (
-        <DeactivateMemberDialog member={dialog.member} onClose={close} />
-      ) : null}
-      {dialog.kind === "link" ? (
-        <InviteLinkDialog member={dialog.member} state={dialog.state} onClose={close} />
-      ) : null}
+      {dialogs}
     </>
   );
 }

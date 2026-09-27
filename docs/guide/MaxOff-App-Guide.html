@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>MaxOff: How the app works</title>
+<style>
+  @page { size: A4; margin: 18mm 17mm 18mm 17mm; }
+  :root { --red: #C42126; --ink: #16161a; --muted: #5b5b66; --line: #e3e3e8; --soft: #f6f6f8; --ok: #1f7a4d; --soon: #8a5a00; }
+  * { box-sizing: border-box; }
+  body { font-family: "Segoe UI", system-ui, sans-serif; color: var(--ink); font-size: 10.5pt; line-height: 1.5; margin: 0; background: #fff; }
+  h1 { font-size: 26pt; margin: 0 0 6pt; letter-spacing: -0.5pt; }
+  h2 { font-size: 16pt; margin: 22pt 0 8pt; padding-bottom: 4pt; border-bottom: 2px solid var(--ink); page-break-after: avoid; }
+  h2 .num { color: var(--red); margin-right: 6pt; }
+  h3 { font-size: 12pt; margin: 14pt 0 5pt; page-break-after: avoid; }
+  h4 { font-size: 10.5pt; margin: 10pt 0 3pt; page-break-after: avoid; }
+  p { margin: 0 0 7pt; }
+  ul, ol { margin: 0 0 8pt; padding-left: 16pt; }
+  li { margin: 0 0 3pt; }
+  table { width: 100%; border-collapse: collapse; margin: 4pt 0 10pt; font-size: 9.5pt; page-break-inside: avoid; }
+  th, td { border: 1px solid var(--line); padding: 5pt 6pt; vertical-align: top; text-align: left; }
+  th { background: var(--soft); font-weight: 600; }
+  .path { display: inline-block; font-family: "Segoe UI", sans-serif; font-weight: 600; font-size: 9.5pt; background: var(--soft); border: 1px solid var(--line); border-radius: 4pt; padding: 1pt 6pt; white-space: nowrap; }
+  .tag { display: inline-block; font-size: 7.5pt; font-weight: 700; letter-spacing: .3pt; text-transform: uppercase; border-radius: 3pt; padding: 1pt 5pt; vertical-align: 2pt; margin-left: 5pt; }
+  .now { color: var(--ok); border: 1px solid var(--ok); }
+  .soon { color: var(--soon); border: 1px solid var(--soon); }
+  .box { border: 1px solid var(--line); border-left: 3px solid var(--ink); background: var(--soft); padding: 7pt 10pt; margin: 6pt 0 10pt; page-break-inside: avoid; }
+  .box.red { border-left-color: var(--red); }
+  .steps { counter-reset: s; list-style: none; padding-left: 0; }
+  .steps > li { counter-increment: s; position: relative; padding-left: 24pt; margin-bottom: 5pt; }
+  .steps > li::before { content: counter(s); position: absolute; left: 0; top: 0; width: 16pt; height: 16pt; border-radius: 50%; background: var(--ink); color: #fff; font-size: 8pt; font-weight: 700; text-align: center; line-height: 16pt; }
+  .screen { font-family: Consolas, "Cascadia Mono", monospace; font-size: 8.8pt; background: #fbfbfc; border: 1px solid var(--line); border-radius: 6pt; padding: 8pt 10pt; white-space: pre; margin: 6pt 0 10pt; page-break-inside: avoid; line-height: 1.4; }
+  .who { font-weight: 700; }
+  .pr { color: var(--red); }
+  .cover { height: 250mm; display: flex; flex-direction: column; justify-content: space-between; page-break-after: always; }
+  .cover .mark { width: 54pt; height: 54pt; border-radius: 12pt; background: var(--red); color: #fff; font-size: 28pt; font-weight: 800; display: flex; align-items: center; justify-content: center; margin-bottom: 18pt; }
+  .cover .sub { font-size: 13pt; color: var(--muted); max-width: 150mm; }
+  .cast { display: flex; gap: 10pt; margin-top: 18pt; }
+  .cast div { flex: 1; border: 1px solid var(--line); border-radius: 8pt; padding: 10pt; }
+  .cast b { display: block; font-size: 12pt; }
+  .small { font-size: 8.8pt; color: var(--muted); }
+  .toc { columns: 2; column-gap: 18pt; font-size: 10pt; }
+  .toc div { break-inside: avoid; margin-bottom: 3pt; }
+  .pb { page-break-before: always; }
+  .kbd { font-weight: 700; }
+</style>
+</head>
+<body>
+
+<!-- COVER -->
+<section class="cover">
+  <div>
+    <div class="mark">M</div>
+    <h1>MaxOff: how the app works</h1>
+    <p class="sub">A plain-language guide to the finished app, as decided up to 27 September 2026: who does what, where every screen is, and exactly what happens after each tap. For Pixora Clips.</p>
+    <div class="cast">
+      <div><b>Prishit</b><span class="small">Owner. Decides attendance, leave, money and every final approval.</span></div>
+      <div><b>Prakyat</b><span class="small">Admin. Runs his assigned clients and checks the work he gives out. Also an employee.</span></div>
+      <div><b>Xyz</b><span class="small">Employee (Staff). Does the tasks given to them, marks the working day, takes leave.</span></div>
+    </div>
+  </div>
+  <div>
+    <p class="small"><b>How to read this guide.</b> Screens are written as tap paths, for example <span class="path">More → Clients → New client</span>. Each section is tagged <span class="tag now">Ready now</span> (in the app already) or <span class="tag soon">Phase N</span> (decided, being built in that phase). Small details of a screen may change while it is built; the rules in this guide are the decisions.</p>
+    <p class="small">Build order: phases 0–2 done (foundation, sign-in, attendance and leave) · phase 3 built, in review (clients) · 3b the working day, comp leave, month summary, expenses · 4 staff tasks · 5 notifications · 6 dashboards, calendar, <b>pilot</b> · 7 client projects · 8 work submissions · 9 money and reports · 10 polish and full launch.</p>
+  </div>
+</section>
+
+<h2 style="margin-top:0">Contents</h2>
+<div class="toc">
+  <div>1. The app at a glance</div>
+  <div>2. Getting in and staying in</div>
+  <div>3. Xyz's working day</div>
+  <div>4. Leave</div>
+  <div>5. Extra work and comp leave</div>
+  <div>6. Prishit's attendance tools</div>
+  <div>7. Clients</div>
+  <div>8. Client projects and the monthly round</div>
+  <div>9. Staff tasks, from creation to final approval</div>
+  <div>10. Handing in work (files and links)</div>
+  <div>11. Turning finished work into earned money</div>
+  <div>12. Additional work</div>
+  <div>13. Freelancers</div>
+  <div>14. Notifications</div>
+  <div>15. Where to look during the month</div>
+  <div>16. End of the month</div>
+  <div>17. Expense claims</div>
+  <div>18. Settings</div>
+  <div>19. Rules that always hold</div>
+  <div>20. How the app behaves on a phone</div>
+  <div>21. Not in the first version</div>
+</div>
+
+<!-- 1 -->
+<h2><span class="num">1</span>The app at a glance</h2>
+<p>MaxOff is Pixora Clips' internal operations system. Clients never log in. It runs on phones and computers, installs like an app, and works in Indian time (IST) everywhere.</p>
+<h3>Who sees what</h3>
+<table>
+  <tr><th style="width:17%">Person</th><th style="width:43%">Bottom bar on a phone (sidebar on a computer)</th><th>Never sees</th></tr>
+  <tr><td class="who">Prishit (Owner)</td><td><b>Today · Approvals · Tasks · Calendar · More</b><br>More holds Reports, Clients, People, Settings and Me.</td><td>Nothing is hidden from Prishit. He is exempt from marking attendance.</td></tr>
+  <tr><td class="who">Prakyat (Admin)</td><td><b>Today · Approvals · Tasks · Calendar · More</b><br>More holds his Clients, People, his Reports, the parts of Settings he may edit, and Me.</td><td>Any money or amount, anyone's attendance or leave records, clients assigned to other Admins, other people's work beyond "busy" blocks, other people's expense claims.</td></tr>
+  <tr><td class="who">Xyz (Staff)</td><td><b>My Day · Tasks · Calendar · Alerts · Me</b></td><td>Clients' records, projects, money, other people's tasks, approvals, reports, settings.</td></tr>
+</table>
+<div class="box red"><b>The colour rule.</b> The one solid <span class="pr">red</span> button on a screen is the one that saves or commits something (Save, Submit, Request leave, the confirming button). A red <i>outline</i> means "careful, this removes or cancels something", and it always asks you to confirm with a button that says exactly what it does ("Deactivate Xyz"), never just "OK". Grey buttons go back or open something.</div>
+
+<!-- 2 -->
+<h2><span class="num">2</span>Getting in and staying in</h2>
+<h3>Installing the app <span class="tag now">Ready now</span></h3>
+<ol class="steps">
+  <li>Open <b>maxoff-staging.pixoraclips.workers.dev</b> in Chrome on the phone (the production address arrives with the pilot).</li>
+  <li>Tap <span class="path">⋮ → Install app</span> (Android) or <span class="path">Share → Add to Home Screen</span> (iPhone). On iPhone this step is required for notifications.</li>
+  <li>MaxOff now opens from its own icon, full screen, like any other app.</li>
+</ol>
+<h3>Joining the team <span class="tag now">Ready now</span></h3>
+<ol class="steps">
+  <li>Prishit adds a person: <span class="path">More → People → Add person → Employee</span>, with name, email, role (Admin or Staff) and job title. MaxOff sends an invite link (Prishit can also copy the link and send it on WhatsApp).</li>
+  <li>Xyz opens the link, sets a password and lands on a welcome screen on <span class="path">Me</span>.</li>
+  <li>Attendance starts the <b>next day</b>: the joining day is never counted.</li>
+</ol>
+<h3>Staying signed in <span class="tag soon">Phase 3b</span></h3>
+<ul>
+  <li>Once signed in, <b>people stay signed in</b>, like WhatsApp or Gmail. The app never signs anyone out on its own, so tasks and notifications reach them in the evening and on days off too.</li>
+  <li>Opening the app is <b>not</b> attendance. Attendance is the separate <b>Start day</b> and <b>End day</b> (section 3).</li>
+  <li><span class="path">Me → Sign out of this device</span> is only for a lost or shared phone. It warns that notifications stop on that device.</li>
+  <li>When Prishit deactivates someone (<span class="path">People → person → ⋯ → Deactivate</span>), they lose access on every device at once. Their history is kept.</li>
+  <li>Forgot password: <span class="path">Sign-in screen → Forgot password</span> sends a reset link.</li>
+</ul>
+<h3>The Me page <span class="tag now">Ready now</span></h3>
+<p>Shows your name, phone, sign-in email, role and job title as plain text. To change them: <span class="path">Me → ✎ Edit</span> → change a field → <span class="path">Save</span> (red) → a confirmation names the change ("Your name will change from X to Y") → confirm → "Saved". Leaving with unsaved changes asks "Discard changes?". Me also holds <b>Attendance &amp; leave</b>, your photo, and <b>Appearance</b> (light, dark or follow the phone).</p>
+
+<!-- 3 -->
+<h2 class="pb"><span class="num">3</span>Xyz's working day <span class="tag soon">Phase 3b</span></h2>
+<p>Working hours are flexible. MaxOff records when the day really starts and ends, and never guesses.</p>
+<h3>Morning: Start day</h3>
+<p>On a working day Xyz opens the app anywhere, any time. Until the day is started, this appears inside the app:</p>
+<div class="screen">┌──────────────────────────────────────┐
+│  Started working?                    │
+│  Start your day to record it.        │
+│                                      │
+│  [        Start day        ]  (red)  │
+│  On leave today? Choose leave        │
+│  Just looking                        │
+└──────────────────────────────────────┘</div>
+<ul>
+  <li><span class="kbd">Start day</span> → the start time is recorded <b>at that tap</b>. The day shows "Present · waiting for approval" until Prishit approves it.</li>
+  <li><span class="kbd">On leave today?</span> → choose <b>Leave</b> or <b>Half day</b>, add an optional reason, submit. It goes to Prishit.</li>
+  <li><span class="kbd">Just looking</span> → the prompt closes (for example Xyz only wanted to check tasks). It returns when the app is opened or returned to, at most every 30 minutes, until the day is started or leave chosen. My Day also shows a strip: "Not started · Start day".</li>
+</ul>
+<h3>During the day: My Day</h3>
+<div class="screen">● Present · waiting for approval                   ›
+Needs your "Task Noted"      2
+Changes requested            1
+Overdue                      1
+Today                        3
+Upcoming · Events
+[ + Request a task ]
+End day</div>
+<p>Everything is one tap away: tapping a line opens those tasks; tapping the status line opens <span class="path">Attendance &amp; leave</span>.</p>
+<h3>Evening: End day</h3>
+<ol class="steps">
+  <li>Tap <span class="path">My Day → End day</span>.</li>
+  <li>Optional: "Worked late today? Add an overtime note" (what was worked on).</li>
+  <li>"Any expenses to claim today?" → <b>No</b>, or <b>Yes</b> to add claims (section 17).</li>
+  <li>Confirm. The end time is recorded. <b>End day is final</b> for that day: it cannot be reopened. The app stays fully usable afterwards (checking tomorrow's tasks at 9 PM is fine and is not work).</li>
+</ol>
+<h3>If something is missed</h3>
+<table>
+  <tr><th style="width:38%">Situation</th><th>What MaxOff does</th></tr>
+  <tr><td>Started but not ended by 8:30 PM</td><td>A reminder: "You haven't ended your day. If you're done, end it; if you're working late, carry on."</td></tr>
+  <tr><td>Never ended the day</td><td>After midnight the day is marked "End of day not recorded". No time is ever invented. Ending it after midnight still lands on the right day.</td></tr>
+  <tr><td>Never started, no leave, on a working day</td><td>At 11:59 PM the day is proposed as <b>Absent</b>. It is only official once Prishit approves or corrects it.</td></tr>
+  <tr><td>Worked after ending the day</td><td>Add an overtime note (section 5).</td></tr>
+</table>
+<h3>Days off (Sundays and holidays)</h3>
+<p>No prompt and no absence check. If Xyz actually worked, they tap <span class="path">My Day → I worked today</span> and describe the work. Prishit then decides (section 5).</p>
+<h3>Approved leave days</h3>
+<p>No prompt. A banner says "You're on approved leave today" with <b>I'm working today</b> (or <b>I'm working the full day</b> on a half day). If Xyz taps it and Prishit approves, the day counts as "1 day worked" and the leave itself stays as it was.</p>
+<p class="small">Prakyat (Admin) does exactly the same as Xyz; his Start day and End day live on his Today screen. Prishit never marks attendance.</p>
+
+<!-- 4 -->
+<h2><span class="num">4</span>Leave <span class="tag now">Ready now</span></h2>
+<h3>Asking for leave (Xyz or Prakyat)</h3>
+<ol class="steps">
+  <li><span class="path">My Day → status line</span> or <span class="path">Me → Attendance &amp; leave</span> → <span class="path">Request leave</span>.</li>
+  <li>Choose <b>Leave</b> (one day or a range), <b>Half day</b> (one date) or <b>Comp leave</b> (only shown when a comp credit is available, section 5). Dates can be today or later, up to a year long. The reason is optional.</li>
+  <li>Tap <span class="path">Request leave</span> (red). It appears as "Waiting" and in Prishit's Approvals.</li>
+</ol>
+<ul>
+  <li><b>Withdraw</b> a request while it's still waiting: tap it → Withdraw → confirm.</li>
+  <li><b>Change or cancel</b> approved leave: tap it → Change / Ask to cancel. This sends a new request to Prishit; the original stays approved until he decides. Possible only until the leave has ended; after that, only Prishit can correct it.</li>
+  <li>Overlapping requests are refused ("request a change instead").</li>
+  <li>The <b>Attendance</b> tab shows each day of the month with its full story in plain words ("You chose Present", "Prishit changed it to Absent: …" with his reason).</li>
+</ul>
+<div class="box"><b>Only Prishit decides leave.</b> Prakyat has no say in anyone's attendance or leave, including his own.</div>
+
+<!-- 5 -->
+<h2 class="pb"><span class="num">5</span>Extra work and comp leave <span class="tag soon">Phase 3b</span></h2>
+<h3>Recording extra work (Xyz)</h3>
+<ul>
+  <li><b>Overtime note:</b> <span class="path">Attendance &amp; leave → Overtime note</span> (or at End day). Pick the day (up to 7 days back), roughly how long (optional) and what was worked on (required).</li>
+  <li><b>Worked on a day off:</b> <span class="path">My Day → I worked today</span> on a Sunday or holiday (or later, up to 7 days back), with a note about the work.</li>
+</ul>
+<h3>Prishit reviews it</h3>
+<p><span class="path">Approvals → Extra work</span>. For each note: <b>Grant comp leave</b> (½ day or 1 day) or <b>No comp leave</b>. For day-off work he also decides whether to <b>mark the day as worked</b>. Nothing is automatic: if the extra work came from Xyz's own mistake, for example, Prishit simply grants nothing. Xyz sees the outcome on the note: "1 comp leave granted · use by 31 Oct" or "Reviewed by the Owner".</p>
+<p>Prishit can also grant comp leave <b>at any time, for any reason</b>, without a note: <span class="path">People → Xyz → ⋯ → Grant comp leave</span> (½ or 1 day, optional note Xyz sees). He can take back an unused grant, with a reason.</p>
+<h3>Using comp leave (Xyz)</h3>
+<ol class="steps">
+  <li>Xyz sees the balance on <span class="path">Attendance &amp; leave</span>: "1½ comp leave · use by 31 Oct".</li>
+  <li><span class="path">Request leave → Comp leave</span> → a full day (uses 1) or a half day (uses ½). The date must be <b>on or before the end of the month</b> the credit was granted in.</li>
+  <li>It goes to Prishit like any leave. <b>He can refuse it</b> (for example, there's a shoot that day). While it waits, the credit is held; if refused, withdrawn or cancelled, the credit comes back (unless its month has ended).</li>
+</ol>
+<div class="box">Credits expire at the end of the calendar month they were granted in, even if that's two days later. Expired credits stay visible in the history.</div>
+
+<!-- 6 -->
+<h2><span class="num">6</span>Prishit's attendance tools</h2>
+<h3>Today <span class="tag now">Ready now</span> (full screen in phase 6)</h3>
+<div class="screen">Today's attendance                               ›
+  11 Present · 2 On leave · 1 Waiting · 1 Not started
+Needs you
+  Xyz      ● Waiting for decision        ›
+  Abc      ● Not started yet             ›
+[ See all 15 people ]</div>
+<p>Tapping a count opens the full list filtered to that group ("Waiting" opens Approvals). Tapping a person opens their page.</p>
+<h3>Approving attendance and leave <span class="tag now">Ready now</span></h3>
+<p><span class="path">Approvals</span> is one screen, grouped: <b>Attendance · Leave · Extra work · Staff tasks · Client items</b>. The badge on the tab shows how many things wait.</p>
+<ul>
+  <li><b>Approve</b> one row → it fades, with a 6-second <b>Undo</b>. Nothing is saved until the Undo time passes (or the app is left).</li>
+  <li><b>Approve all N</b> on a group → a confirmation with the count → "Approve N" (red). Only the rows on screen are approved.</li>
+  <li><b>Review</b> → a sheet with the details → <b>Correct</b> the day (choose the right status and write a reason) or <b>Reject</b> leave (with a reason). The form says "Xyz will see this reason".</li>
+  <li>Correcting a leave day to Present counts it as "1 day worked"; the approved leave stays, and a note says so.</li>
+  <li>Approving leave that covers days Prishit has already decided leaves those days as he decided, and says so ("These days keep your earlier decision").</li>
+</ul>
+<h3>A person's page <span class="tag now">Ready now</span></h3>
+<p><span class="path">Today → tap a person</span> or <span class="path">More → People → tap a person</span>. Tabs: <b>Profile</b> (details, Edit, and ⋯ for Deactivate, Reactivate, Copy invite link), <b>Leave</b> (their requests, with Edit and Cancel on approved leave), <b>Attendance</b> (month by month, with Correct on every day). The ‹ at the top goes back.</p>
+<h3>The month summary <span class="tag soon">Phase 3b</span></h3>
+<p>On each person's page and as a team report, live at any time (section 16).</p>
+
+<!-- 7 -->
+<h2 class="pb"><span class="num">7</span>Clients <span class="tag now">Ready now</span></h2>
+<h3>Adding a client (Prishit)</h3>
+<ol class="steps">
+  <li><span class="path">More → Clients → New client</span>: name (required, unique), and anything else known: business name, address, GSTIN, phone, email, website, requirements.</li>
+  <li>The client opens in <b>Draft</b>. Add <b>contacts</b> (one is marked primary), the <b>Brand</b> kit (logo, colours, fonts, tone of voice, notes), the <b>Google Drive</b> folder link and any <b>custom fields</b>.</li>
+  <li><span class="path">⋯ → Assign Admin → Prakyat</span>. Prakyat is notified: "You now run Sharma Weddings".</li>
+  <li><span class="path">⋯ → Activate</span>. The client is live.</li>
+</ol>
+<h3>The client page</h3>
+<p>Tabs: <b>Overview</b> (details, contacts, custom fields) · <b>Brand</b> · <b>Projects</b> (phase 7) · <b>Staff tasks</b> labelled with this client (phase 4) · <b>Activity</b> (everything that changed). Prishit also sees his private notes and, later, money panels.</p>
+<ul>
+  <li><b>Pause</b>: everything stays visible and editable, but monthly work stops creating new rounds. <b>Close (Inactive)</b>: stays searchable, no new work until Prishit reactivates it. Only Prishit changes the state.</li>
+  <li>Prakyat sees and edits only the clients assigned to him. Xyz never sees a client's page, only the client's name and brand basics on a task.</li>
+  <li>The client list: cards with logo, name, state and Admin; search and filters; opens on Active clients.</li>
+  <li><b>Brand colours are swatches</b>: each colour shows as a chip with its name and hex code, and a tap copies the code (<i>"Copied #E11D48"</i>). Fonts are a simple list, each with an optional note on where it's used. In <span class="path">Brand → Edit</span> each colour is a row with a colour picker, a name and the hex code; rows can be added, moved up or down and removed, and Save names every change.</li>
+  <li><b>Closing a client</b> asks for an optional reason. Only Prishit ever sees it, on the client's Activity.</li>
+  <li><b>No client is ever left without an Admin.</b> If Prishit makes Prakyat Staff, or deactivates him, the same confirmation first asks <i>"Move Prakyat's 3 clients to: [Admin]"</i> (one Admin for all, or <b>Choose per client</b>), then makes the change.</li>
+</ul>
+
+<!-- 8 -->
+<h2><span class="num">8</span>Client projects and the monthly round <span class="tag soon">Phase 7</span></h2>
+<p>Every client's work is organised as <b>projects</b>, and each project is made of <b>pieces of work</b> (items), for example "Reel 1 – Ambience".</p>
+<div class="screen">Sharma Weddings
+├── Monthly Production     every month · Retainer
+│     └── October: Reel 1 – Ambience · Reel 2 – Menu · … · Post 1 · Post 2
+├── Drone Documentation    every week · Retainer
+│     └── Week 1 · Week 2 · …
+└── Brand Film             one-time · Additional Work
+      └── Make the video</div>
+<h3>Creating a project (Prakyat or Prishit)</h3>
+<ol class="steps">
+  <li><span class="path">Clients → Sharma Weddings → Projects → New project</span> (or start from a saved template).</li>
+  <li>Name it, choose how it repeats (<b>monthly</b>, <b>weekly</b> or <b>one-time</b>), optionally pick the <b>steps</b> every piece goes through (for example Script → Shoot → Edit → Posted), and list the pieces.</li>
+  <li><b>Prishit only</b> sets the money: an amount per month (split across the pieces, or a value per piece) or a fixed amount for a one-time project, and the category (Retainer, Project or Additional Work). Prakyat never sees any of it.</li>
+</ol>
+<h3>The monthly round</h3>
+<ul>
+  <li>On the <b>1st</b> (or every <b>Monday</b> for weekly work), MaxOff creates the new round for every active client, copying the list of pieces. Prakyat renames them for the month's themes.</li>
+  <li>The project page shows the round (switch between months), each piece with its steps, and progress like <b>"9/12 done · 8/12 approved"</b>.</li>
+  <li>Prakyat ticks steps as the work happens and marks a piece <b>done</b> when it's delivered. Several pieces can be ticked at once.</li>
+</ul>
+<div class="box">Planned: a place on Prakyat's and Prishit's <b>Today</b> that shows every client's pieces due this week and overdue, so daily work isn't four screens deep. Settled at the start of phase 7.</div>
+
+<!-- 9 -->
+<h2 class="pb"><span class="num">9</span>Staff tasks, from creation to final approval <span class="tag soon">Phase 4</span></h2>
+<p>Tasks are how work is given to people. They are separate from client projects: Xyz sees tasks, never projects.</p>
+<h3>Creating a task (Prakyat or Prishit)</h3>
+<ol class="steps">
+  <li><span class="path">Tasks → New task</span> (or from a task template).</li>
+  <li>Fill in: title, description, <b>type</b> (Normal, Shoot / Site Visit, Meeting, Posting, Review, Other…), optional <b>client label</b> (Sharma Weddings), priority, <b>deadline</b> (date and time), and the people: <b>Xyz as the main person</b>, others as helpers.</li>
+  <li>MaxOff warns (never blocks) if Xyz is on approved leave that day, has overlapping timed work, or already has a heavy day.</li>
+  <li><span class="path">Create task</span> (red). Xyz is notified at once.</li>
+</ol>
+<p>Shoots, site visits, meetings and postings also get an event date, time, place and purpose, and appear on the <b>Calendar</b>.</p>
+<h3>Xyz receives it</h3>
+<ol class="steps">
+  <li>The task appears in <span class="path">My Day → Needs your "Task Noted"</span>.</li>
+  <li>Xyz taps <b>Task Noted</b>, which records that it was seen, and when. Every person on the task must do this.</li>
+  <li>If nobody taps it: reminders every 2 hours, then after 4 hours Prakyat is told, and after 8 hours Prishit is told. (All times are settings.)</li>
+</ol>
+<h3>Doing and finishing the work</h3>
+<ul>
+  <li>Xyz adds comments and updates, ticks steps, and hands in files or links (section 10).</li>
+  <li><b>Only the main person</b> taps <b>Done</b>. If the deadline has passed, a reason is required.</li>
+  <li>After Done, the task is locked for the assignees (comments still work) until someone asks for changes.</li>
+  <li>A task is <b>overdue</b> the moment its deadline passes without final approval. If nothing was handed in 24 hours after the deadline, Prakyat and Prishit are told.</li>
+</ul>
+<h3>Checking and approving</h3>
+<table>
+  <tr><th style="width:45%">Who created the task</th><th>Who checks it after Done</th></tr>
+  <tr><td>Prishit, directly</td><td>Prishit</td></tr>
+  <tr><td>Prishit, through Prakyat</td><td>Prakyat, then Prishit</td></tr>
+  <tr><td>Prakyat, with a client label</td><td>That client's Admin (Prakyat), then Prishit</td></tr>
+  <tr><td>Prakyat, without a client label</td><td>Prakyat, then Prishit</td></tr>
+  <tr><td>The checking Admin is also on the task</td><td>His step is skipped (recorded); straight to Prishit</td></tr>
+</table>
+<ol class="steps">
+  <li>Prakyat is notified, opens the task (<span class="path">Approvals → Staff tasks</span> or <span class="path">Tasks</span>), looks at the work and taps <b>Approve</b>, or <b>Request changes</b> with a reason.</li>
+  <li>Changes requested: the task goes back to Xyz as "Changes requested" (top of My Day). Xyz fixes it and hands in version 2. Every version is kept.</li>
+  <li>Prishit gives the <b>final approval</b>: <span class="path">Approvals → Staff tasks → Approve</span> (or several at once). Only now is the task complete.</li>
+</ol>
+<ul>
+  <li>Editing, reassigning, cancelling (with a reason) or reopening a task: its creator, its checking Admin, or Prishit. A reopened task goes through the same checks again.</li>
+  <li><b>Suggesting a task:</b> Xyz can tap <span class="path">My Day → Request a task</span>. Prakyat or Prishit turns it into a real task or declines it with a reason.</li>
+</ul>
+
+<!-- 10 -->
+<h2><span class="num">10</span>Handing in work (files and links) <span class="tag soon">Phase 8</span></h2>
+<ol class="steps">
+  <li>On the task: <span class="path">Hand in work</span>.</li>
+  <li><b>Photos and documents</b> (up to 25 MB) and <b>short videos</b> (up to 100 MB) upload straight from the phone or computer. Photos are kept exactly as taken, full quality, including iPhone formats; MaxOff makes a small preview so they open anywhere.</li>
+  <li><b>Large videos:</b> paste a <b>Google Drive link</b> to the file. If a file is too big to upload, MaxOff says so and asks for a link.</li>
+  <li>Each hand-in is a <b>version</b> (v1, v2 …). Prakyat and Prishit preview it, download the original, comment, and approve or ask for changes on that exact version.</li>
+</ol>
+<div class="box">For the first version, a pasted Drive link points to Xyz's <b>own</b> file: if they delete or unshare it, it's gone. The automatic company copy in Pixora's Google Drive comes after the launch (section 21).</div>
+
+<!-- 11 -->
+<h2 class="pb"><span class="num">11</span>Turning finished work into earned money <span class="tag soon">Phases 7 and 9</span></h2>
+<p>A task being approved does <b>not</b> tick the client's piece of work by itself. The two are confirmed separately, on purpose:</p>
+<ol class="steps">
+  <li>Xyz's task "Edit Reel 1" is approved (section 9).</li>
+  <li>Prakyat opens <span class="path">Clients → Sharma Weddings → Projects → Monthly Production</span>, ticks the steps (Edit ✓, Posted ✓) and marks <b>Reel 1 done</b>.</li>
+  <li>Prishit sees it in <span class="path">Approvals → Client items</span> and taps <b>Approve</b> (one or several), or sends it back to Prakyat with a reason.</li>
+  <li><b>Only after Prishit's approval</b> does Reel 1's value count as <b>earned</b>. Until then it is only "planned".</li>
+</ol>
+<p>Prishit's money view (<span class="path">Reports</span>, and panels on each client) shows for each client, category and month: <b>Potential</b> (planned), <b>Achieved</b> (approved) and <b>Remaining</b>. He can adjust a figure with a note; the original calculation is always kept beside it.</p>
+
+<!-- 12 -->
+<h2><span class="num">12</span>Additional work <span class="tag soon">Phase 7</span></h2>
+<p>The client asks for something outside the monthly package, for example one extra reel:</p>
+<ol class="steps">
+  <li><span class="path">Clients → Sharma Weddings → Projects → New project</span>: "Extra Reel – Engagement", <b>one-time</b>.</li>
+  <li>Prishit sets its category to <b>Additional Work</b> and gives it a price.</li>
+  <li>From here it follows the same path: a task for Xyz, hand-in, Prakyat's check, Prishit's approval, Prakyat marks the piece done, Prishit approves it, and it counts as earned.</li>
+</ol>
+<p>Keeping it as its own project means the monthly package's numbers stay clean, and Additional Work shows separately in the reports.</p>
+
+<!-- 13 -->
+<h2><span class="num">13</span>Freelancers <span class="tag soon">Phase 4</span></h2>
+<ul>
+  <li>Freelancers <b>don't get a login</b>. Prishit adds one with <span class="path">People → Add person → Freelancer</span>: name, job title, optional phone, and a <b>coordinator</b> (an employee, for example Xyz).</li>
+  <li>Tasks can be given to the freelancer like anyone else. Xyz, as coordinator, does everything for them <b>from Xyz's own account</b>: Task Noted, hand-ins, Done. The record says so: "Done by Xyz for the freelancer".</li>
+  <li>Notifications meant for the freelancer go to Xyz.</li>
+  <li>No attendance, leave or expense claims for freelancers. Their work shows separately in reports. Payments to freelancers are not in the first version.</li>
+</ul>
+
+<!-- 14 -->
+<h2 class="pb"><span class="num">14</span>Notifications <span class="tag soon">Phase 5</span></h2>
+<ul>
+  <li>Notifications are <b>mandatory</b> and go only to the people concerned: in the app (<span class="path">Alerts</span>, or the bell) and as phone notifications. Tapping one opens the right screen.</li>
+  <li>Because people stay signed in, notifications show the <b>full detail</b> on the lock screen, for example "Reel 4 for Sharma Weddings is due tomorrow 10 AM". <b>Amounts never appear in a notification</b>, not even Prishit's.</li>
+  <li><b>Email</b> is used only for invites, task assigned, escalations, an event tomorrow (shoot, meeting), and Prishit's daily digest, with a daily cap per person.</li>
+  <li>Task reminders by default: 2 days before, 1 day before, at the deadline, and when overdue.</li>
+  <li><span class="path">Me → Send a test</span> confirms a phone really receives notifications. Prishit sees <b>who isn't reachable</b> (notifications blocked, iPhone app not installed, repeated failures) so no one misses a shoot silently.</li>
+</ul>
+
+<!-- 15 -->
+<h2><span class="num">15</span>Where to look during the month</h2>
+<table>
+  <tr><th style="width:38%">Prishit wants to know…</th><th>Where</th></tr>
+  <tr><td>Who's in, who needs him, what's late</td><td><span class="path">Today</span></td></tr>
+  <tr><td>Everything waiting for his decision</td><td><span class="path">Approvals</span> (the tab badge shows the count)</td></tr>
+  <tr><td>Shoots, meetings, leave, planned client pieces</td><td><span class="path">Calendar</span> (day, week, month; filter by client, person, type) <span class="tag soon">Phase 6</span></td></tr>
+  <tr><td>A summary of the day</td><td>The automatic <b>end-of-day report</b> each evening: attendance, tasks finished and overdue (with reasons), approvals, overtime, tomorrow's events <span class="tag soon">Phase 6</span></td></tr>
+  <tr><td>Money, workload, delays, trends</td><td><span class="path">More → Reports</span>, by week, month or any range <span class="tag soon">Phase 9</span></td></tr>
+  <tr><td>One person's month</td><td><span class="path">People → person</span> <span class="tag soon">Phase 3b</span></td></tr>
+</table>
+<p><b>Prakyat's Today</b> shows his clients' progress, client work pending, tasks needing attention, his approvals, the calendar and issues. His <b>report</b> answers one question, "is the work getting done?", with six numbers (on time, round progress, rework, his own turnaround, overdue now, how long people take to tap Task Noted) and two lists (who is loaded this week, where pieces wait longest). Never money, attendance or leave.</p>
+<p><b>Xyz's My Day</b> shows only Xyz's own work.</p>
+
+<!-- 16 -->
+<h2 class="pb"><span class="num">16</span>End of the month</h2>
+<h3>Unfinished client work <span class="tag soon">Phase 7</span></h3>
+<p>MaxOff highlights every piece not finished in the month's round. For each one Prishit chooses:</p>
+<ul>
+  <li><b>Carry forward:</b> it moves into next month but keeps its original month and value, so next month's package isn't inflated.</li>
+  <li><b>Close</b> (with a reason): kept, never deleted; its value stays visible as "not achieved".</li>
+  <li><b>Leave pending.</b></li>
+</ul>
+<h3>Billing and closing the month <span class="tag soon">Phase 9</span></h3>
+<ul>
+  <li>Prishit marks each client's month <b>Billed</b> (optional date and note). MaxOff doesn't send invoices.</li>
+  <li><span class="path">Reports → Close month</span> saves a <b>permanent record</b> of the month. Later mistakes are fixed as dated corrections, never by overwriting.</li>
+</ul>
+<h3>Salaries: the month summary <span class="tag soon">Phase 3b</span></h3>
+<p>For each person (and as a team report), live at any time:</p>
+<table>
+  <tr><th style="width:38%">Line</th><th>Example: Xyz, October</th></tr>
+  <tr><td>Working days in the month (no Sundays or holidays)</td><td>26</td></tr>
+  <tr><td>Days worked (present days + ½ per half day)</td><td>21.5</td></tr>
+  <tr><td>Leave · Half days · Absent</td><td>2 · 1 (counts ½) · 1</td></tr>
+  <tr><td>Comp leave used (never counted against Xyz)</td><td>1</td></tr>
+  <tr><td><b>Additional leave</b> (the figure that can reduce pay)</td><td><b>2 + ½ + 1 = 3.5 days</b></td></tr>
+  <tr><td>Days off worked (shown on its own line)</td><td>1 Sunday</td></tr>
+  <tr><td>Overtime notes</td><td>3 (1 earned comp leave)</td></tr>
+  <tr><td>Comp leave credits granted · used · expired</td><td>2 · 1 · 1</td></tr>
+  <tr><td>Expenses approved, not yet paid</td><td>₹1,840 (5 claims)</td></tr>
+</table>
+<p>There is no free monthly leave allowance and <b>no salary stored in MaxOff</b>: Prishit works out pay (for example, a fixed salary minus the additional leave, plus approved expenses) from these figures. Prakyat never sees this summary.</p>
+
+<!-- 17 -->
+<h2><span class="num">17</span>Expense claims <span class="tag soon">Phase 3b</span></h2>
+<h3>Claiming (Xyz or Prakyat)</h3>
+<ol class="steps">
+  <li>At <span class="path">End day</span>: "Any expenses to claim today?" → <b>Yes</b>. (Or later: <span class="path">Attendance &amp; leave → Expenses → Add</span>.)</li>
+  <li>Enter the <b>amount (₹)</b>, a <b>category</b> (Travel, Food, Materials, Other; Prishit edits the list), a note and the date. Add several if needed.</li>
+  <li>Attach a <b>receipt photo</b>: optional, but required above ₹500 (Prishit sets the amount).</li>
+  <li>Submit. It can be withdrawn until Prishit decides.</li>
+</ol>
+<p>Claims are accepted for expenses dated in the current month, or in the previous month during the first 5 days of the new one.</p>
+<h3>Deciding (Prishit)</h3>
+<p><span class="path">Approvals</span> → each claim → <b>Approve</b>, or <b>Reject</b> with a reason Xyz sees. When he pays it with the salary: <b>Mark paid</b>. The month summary shows what's approved and not yet paid.</p>
+<div class="box"><b>Who sees claims:</b> the person sees their own; Prishit sees everyone's; Prakyat never sees anyone else's, not even his team's.</div>
+
+<!-- 18 -->
+<h2 class="pb"><span class="num">18</span>Settings <span class="tag now">Mostly ready</span></h2>
+<p><span class="path">More → Settings</span>. Everything configurable lives here, changeable by Prishit without a developer. Prakyat sees only lists, templates and custom fields for his own clients.</p>
+<ul>
+  <li><b>Company:</b> name and logo, weekly off days (Sunday), holidays, reminder times, acknowledgement and overdue escalation times, workload warning level, email cap.</li>
+  <li><b>Team:</b> add a person (Employee with an invite, or Freelancer with a coordinator), role, job title, deactivate and reactivate. Job titles are an editable list (Video Editor, Graphic Designer, …).</li>
+  <li><b>Lists:</b> task types, project steps (for example Script → Shoot → Edit → Posted), expense categories.</li>
+  <li><b>Custom fields</b> for clients, contacts, projects, pieces and tasks: for all clients (Prishit only) or for one client (Prakyat for his own). Every client is different, so this is where the app bends to each one. Admins can read client and contact fields, so the form reminds: <i>"Amounts belong in project billing (Owner only)."</i></li>
+  <li><b>Templates:</b> project templates and task templates.</li>
+  <li><b>Storage:</b> how much file space MaxOff is using.</li>
+</ul>
+
+<!-- 19 -->
+<h2><span class="num">19</span>Rules that always hold</h2>
+<ol>
+  <li>Exactly three roles: Owner (Prishit), Admin, Staff. Job titles are just labels.</li>
+  <li><b>Only Prishit</b> decides attendance and leave, and gives every final approval.</li>
+  <li><b>Money is Prishit's only</b>: prices, revenue and reports. The one exception: people see their own expense claims.</li>
+  <li>Money counts as earned only when Prishit approves the client's piece of work.</li>
+  <li>Client work and staff tasks are separate. Staff see only their tasks and a client's name on them.</li>
+  <li>Everyone on a task taps "Task Noted"; only the main person taps Done.</li>
+  <li><b>Nothing is ever deleted or overwritten.</b> Corrections sit next to the original, with who, when and why. Records are closed or archived, not destroyed.</li>
+  <li>All dates and times are Indian time (IST).</li>
+  <li>MaxOff collects facts; it never rates people.</li>
+</ol>
+
+<!-- 20 -->
+<h2><span class="num">20</span>How the app behaves on a phone <span class="tag now">Ready now</span></h2>
+<ul>
+  <li><b>It behaves like a real app, not a website.</b> The back gesture closes the top thing first (a list, a dialog, a sheet), then goes back one screen. Switching tabs or months never piles up "back" steps. Back on the home tab closes the app.</li>
+  <li>Screens you open slide in; the ‹ at the top slides them out.</li>
+  <li>Each tab remembers where you scrolled.</li>
+  <li>When you come back to the app, it quietly refreshes the data. Live updates while you watch come with notifications in phase 5.</li>
+  <li>No pinch-zoom on Android; the app follows the phone's own text size instead.</li>
+  <li><b>First glance, then depth:</b> each tab's first screen shows what needs you now; details are one tap deeper, never more than two.</li>
+</ul>
+
+<!-- 21 -->
+<h2><span class="num">21</span>Not in the first version</h2>
+<h3>Coming right after the launch (decided 27 Sep 2026)</h3>
+<ul>
+  <li>The automatic <b>Google Drive archive</b> of all submitted work, with checks that pasted links are shared and cleanup of MaxOff's own copies.</li>
+  <li>Searching the full <b>activity history</b> (everything is still recorded from day one).</li>
+  <li><b>Exports</b> (Markdown for AI analysis, CSV, PDF).</li>
+  <li><b>Global search</b> (Ctrl/Cmd + K).</li>
+</ul>
+<h3>Out of scope for now</h3>
+<p>Freelancer payments · salary records and payroll · GST invoicing · client login or portal · WhatsApp · a native store app · timesheets · general leave balances (only comp leave credits) · AI features inside MaxOff · leads pipeline · accounting integration · custom roles.</p>
+
+<p class="small" style="margin-top:18pt">Prepared from MaxOff's product decisions (PRODUCT.md, ROADMAP.md and the decision records) as of 27 September 2026.</p>
+
+</body>
+</html>

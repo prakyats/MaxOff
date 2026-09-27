@@ -44,7 +44,7 @@ test.describe("before hydration, installed at phone width", () => {
   test("the back control goes back instead of forward to the parent", async ({ page }) => {
     await open(page, "/today");
     await page.locator('[data-slot="board-row"]').first().click();
-    await expect(page).toHaveURL(/\/people\/[^/]+$/);
+    await expect(page).toHaveURL(/\/people\/[^/]+\/leave$/);
     await expect(pageHeader(page)).toBeVisible();
     const length = await historyLength(page);
 
@@ -53,13 +53,13 @@ test.describe("before hydration, installed at phone width", () => {
     expect(await historyLength(page)).toBe(length);
     // Back from home leaves the app's entries: the detail is ahead, not beneath.
     await page.goForward({ waitUntil: "commit" });
-    await expect(page).toHaveURL(/\/people\/[^/]+$/);
+    await expect(page).toHaveURL(/\/people\/[^/]+\/leave$/);
   });
 
   test("opened directly, the back control replaces itself with the parent", async ({ page }) => {
     await open(page, "/today");
     await page.locator('[data-slot="board-row"]').first().click();
-    await expect(page).toHaveURL(/\/people\/[^/]+$/);
+    await expect(page).toHaveURL(/\/people\/[^/]+\/leave$/);
     const detail = page.url();
 
     const fresh = await page.context().newPage();
@@ -77,7 +77,7 @@ test.describe("before hydration, installed at phone width", () => {
   test("a view control replaces its entry", async ({ page }) => {
     await open(page, "/today");
     await page.locator('[data-slot="board-row"]').first().click();
-    await expect(page).toHaveURL(/\/people\/[^/]+$/);
+    await expect(page).toHaveURL(/\/people\/[^/]+\/leave$/);
     await expect(pageHeader(page)).toBeVisible();
     const length = await historyLength(page);
 
@@ -124,7 +124,7 @@ test.describe("after hydration, installed at phone width", () => {
     await runInstalled(page);
     await page.goto("/today");
     await page.locator('[data-slot="board-row"]').first().click();
-    await expect(page).toHaveURL(/\/people\/[^/]+$/);
+    await expect(page).toHaveURL(/\/people\/[^/]+\/leave$/);
     await expect(backControl(page)).toHaveAttribute("data-live", "");
     await expect(
       page.locator('[data-slot="person-tabs"]').getByRole("link", { name: "Attendance" }),

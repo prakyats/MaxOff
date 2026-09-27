@@ -18,8 +18,10 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   EllipsisIcon,
+  SearchIcon,
 } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { type ReactNode, useMemo, useRef, useState } from "react";
 
 import {
   Sheet,
@@ -30,8 +32,17 @@ import {
 } from "@/core/ui/primitives/sheet";
 
 import { cn } from "@/core/lib/utils";
+import { closeOverlaysThen } from "@/core/ui/overlay/overlay-history";
 import { Button } from "@/core/ui/primitives/button";
 import { Checkbox } from "@/core/ui/primitives/checkbox";
+import { Input } from "@/core/ui/primitives/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/core/ui/primitives/select";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 
 import { CARD_ROW_MIN_H, CARD_ROW_PADDING, CARD_ROW_TITLE, CARD_ROW_TRAILING } from "./row-metrics";
@@ -44,6 +55,16 @@ import {
   TableRow,
 } from "@/core/ui/primitives/table";
 
+import {
+  applyView,
+  type DataTableFilter,
+  type DataTableSearch,
+  type DataTableView,
+  isNarrowed,
+  carriesOldSearch,
+  paramsForView,
+  viewFromParams,
+} from "./data-table-view";
 import { DrillLink } from "./drill-link";
 import { EmptyState } from "./empty-state";
 import { LoadingState } from "./loading-state";
@@ -126,8 +147,19 @@ export type DataTableProps<TData> = {
   mobile?: MobileCard<TData>;
   /** Cards shown before "Show more"; mobile shows fewer rows with a clearer next step (§14.1). */
   mobilePageSize?: number;
+  /**
+   * A search box over the rows (3.4), a view control (ARCHITECTURE §14.2 d). Its text stays in
+   * this component's state, never in the URL (§18.2: request logs keep query strings).
+   */
+  search?: DataTableSearch<TData>;
+  /** Filters as selects (3.4), view controls like the search; each keeps `?<id>=` in the URL. */
+  filters?: readonly DataTableFilter<TData>[];
+  /** What to say when the search and filters leave nothing, e.g. "No clients match". */
+  noMatchTitle?: string;
   className?: string;
 };
+
+const NO_FILTERS: readonly DataTableFilter<never>[] = [];
 
 /**
  * Sortable, paged table on TanStack Table v8 with optional row selection. Server-side
@@ -147,8 +179,41 @@ export function DataTable<TData>({
   caption,
   mobile,
   mobilePageSize = 10,
+  search,
+  filters = NO_FILTERS as readonly DataTableFilter<TData>[],
+  noMatchTitle = "Nothing matches",
   className,
 }: DataTableProps<TData>) {
+  const params = useSearchParams();
+  const hasView = search !== undefined || filters.length > 0;
+  const [view, setView] = useState<DataTableView>(() => viewFromParams(params, filters));
+  const rowsInView = useMemo(
+    () => (hasView ? applyView(data, view, search, filters) : data),
+    [data, view, search, filters, hasView],
+  );
+
+  // The view the URL should end on: a write deferred by an overlay backing out uses the latest.
+  const latestView = useRef<DataTableView>(view);
+
+  function changeView(next: DataTableView) {
+    const filtersChanged = filters.some(
+      (filter) => next.filters[filter.id] !== latestView.current.filters[filter.id],
+    );
+    setView(next);
+    latestView.current = next;
+    // Typing a search writes nothing: only a filter's id belongs in the URL (§18.2).
+    if (!filtersChanged && !carriesOldSearch(window.location.search)) return;
+    // A replace, never a push (§14.2 d); Next keeps `useSearchParams` in step with it. A filter
+    // is chosen inside its open select, whose layer owns the current history entry: that entry
+    // is backed out first, so the page's own entry is the one that keeps the view.
+    // A call made while a back is in flight is dropped, and the write already queued reads
+    // `latestView`, so the URL still ends on the newest view.
+    closeOverlaysThen(() => {
+      const query = paramsForView(window.location.search, latestView.current, filters);
+      window.history.replaceState(null, "", `${window.location.pathname}${query}`);
+    });
+  }
+
   const [sorting, setSorting] = useState<SortingState>([]);
   const [internalSelection, setInternalSelection] = useState<RowSelectionState>({});
   const selection = rowSelection ?? internalSelection;
@@ -157,7 +222,7 @@ export function DataTable<TData>({
   // TanStack Table returns functions the React Compiler can't memoize; skipping this component is expected.
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
-    data,
+    data: rowsInView,
     columns,
     state: { sorting, rowSelection: selection },
     onSortingChange: setSorting,
@@ -187,8 +252,47 @@ export function DataTable<TData>({
     );
   }
 
+  const toolbar = hasView ? (
+    <ViewToolbar search={search} filters={filters} view={view} onChange={changeView} />
+  ) : null;
+
+  if (hasView && rowsInView.length === 0) {
+    return (
+      <div className={cn("flex flex-col gap-3", className)}>
+        {toolbar}
+        <EmptyState
+          size="compact"
+          title={noMatchTitle}
+          description="Try another search or filter."
+          action={
+            isNarrowed(view, filters) ? (
+              <Button
+                variant="secondary"
+                data-slot="clear-view"
+                onClick={() =>
+                  changeView({
+                    query: "",
+                    filters: Object.fromEntries(
+                      filters.map((filter) => [
+                        filter.id,
+                        filter.options[0]?.value ?? filter.defaultValue,
+                      ]),
+                    ),
+                  })
+                }
+              >
+                Show everything
+              </Button>
+            ) : undefined
+          }
+        />
+      </div>
+    );
+  }
+
   return (
     <div className={cn("flex flex-col gap-3", className)}>
+      {toolbar}
       {mobile ? (
         <MobileCards
           rows={rows}
@@ -306,6 +410,74 @@ export function DataTable<TData>({
               <ChevronRightIcon aria-hidden />
             </Button>
           </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * The search box and the filters (3.4). On a phone the search takes the width and the filters
+ * share the row beneath it; from `md` up they sit on one row. Every control is 44px tall on a
+ * phone with a 16px font (§14.1).
+ */
+function ViewToolbar<TData>({
+  search,
+  filters,
+  view,
+  onChange,
+}: {
+  search: DataTableSearch<TData> | undefined;
+  filters: readonly DataTableFilter<TData>[];
+  view: DataTableView;
+  onChange: (next: DataTableView) => void;
+}) {
+  return (
+    <div data-slot="data-toolbar" className="flex flex-col gap-2 md:flex-row md:items-center">
+      {search ? (
+        <div className="relative md:w-72" data-slot="data-search">
+          <SearchIcon
+            className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2"
+            aria-hidden
+          />
+          <Input
+            type="search"
+            inputMode="search"
+            enterKeyHint="search"
+            aria-label={search.label}
+            placeholder={search.placeholder ?? search.label}
+            value={view.query}
+            onChange={(event) => onChange({ ...view, query: event.target.value })}
+            className="h-11 pl-8 md:h-8"
+          />
+        </div>
+      ) : null}
+      {filters.length > 0 ? (
+        <div className="grid grid-cols-2 gap-2 md:flex">
+          {filters.map((filter) => (
+            <Select
+              key={filter.id}
+              value={view.filters[filter.id] ?? filter.defaultValue}
+              onValueChange={(value) =>
+                onChange({ ...view, filters: { ...view.filters, [filter.id]: value } })
+              }
+            >
+              <SelectTrigger
+                aria-label={filter.label}
+                data-filter={filter.id}
+                className="h-11 w-full md:h-8 md:w-auto md:min-w-36"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {filter.options.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ))}
         </div>
       ) : null}
     </div>

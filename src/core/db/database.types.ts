@@ -224,6 +224,557 @@ export type Database = {
           },
         ];
       };
+      client_admin_assignments: {
+        Row: {
+          admin_id: string;
+          assigned_by: string | null;
+          client_id: string;
+          created_at: string;
+          from_at: string;
+          id: string;
+          to_at: string | null;
+        };
+        Insert: {
+          admin_id: string;
+          assigned_by?: string | null;
+          client_id: string;
+          created_at?: string;
+          from_at?: string;
+          id?: string;
+          to_at?: string | null;
+        };
+        Update: {
+          admin_id?: string;
+          assigned_by?: string | null;
+          client_id?: string;
+          created_at?: string;
+          from_at?: string;
+          id?: string;
+          to_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "client_admin_assignments_admin_id_fkey";
+            columns: ["admin_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "client_admin_assignments_admin_id_fkey";
+            columns: ["admin_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "client_admin_assignments_assigned_by_fkey";
+            columns: ["assigned_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "client_admin_assignments_assigned_by_fkey";
+            columns: ["assigned_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "client_admin_assignments_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: false;
+            referencedRelation: "client_labels";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "client_admin_assignments_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: false;
+            referencedRelation: "clients";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      client_brand: {
+        Row: {
+          brand_notes: string | null;
+          client_id: string;
+          colors: Json;
+          created_at: string;
+          fonts: Json;
+          logo_file_id: string | null;
+          tone_of_voice: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          brand_notes?: string | null;
+          client_id: string;
+          colors?: Json;
+          created_at?: string;
+          fonts?: Json;
+          logo_file_id?: string | null;
+          tone_of_voice?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          brand_notes?: string | null;
+          client_id?: string;
+          colors?: Json;
+          created_at?: string;
+          fonts?: Json;
+          logo_file_id?: string | null;
+          tone_of_voice?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "client_brand_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: true;
+            referencedRelation: "client_labels";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "client_brand_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: true;
+            referencedRelation: "clients";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "client_brand_logo_file_id_fkey";
+            columns: ["logo_file_id"];
+            isOneToOne: false;
+            referencedRelation: "files";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      client_close_reasons: {
+        Row: {
+          activity_id: number;
+          client_id: string;
+          created_at: string;
+          org_id: string;
+          reason: string;
+        };
+        Insert: {
+          activity_id: number;
+          client_id: string;
+          created_at?: string;
+          org_id: string;
+          reason: string;
+        };
+        Update: {
+          activity_id?: number;
+          client_id?: string;
+          created_at?: string;
+          org_id?: string;
+          reason?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "client_close_reasons_activity_id_fkey";
+            columns: ["activity_id"];
+            isOneToOne: true;
+            referencedRelation: "activity_log";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "client_close_reasons_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: false;
+            referencedRelation: "client_labels";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "client_close_reasons_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: false;
+            referencedRelation: "clients";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "client_close_reasons_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      client_contacts: {
+        Row: {
+          archived_at: string | null;
+          client_id: string;
+          created_at: string;
+          custom_fields: Json;
+          designation: string | null;
+          email: string | null;
+          id: string;
+          is_primary: boolean;
+          name: string;
+          org_id: string;
+          phone: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          archived_at?: string | null;
+          client_id: string;
+          created_at?: string;
+          custom_fields?: Json;
+          designation?: string | null;
+          email?: string | null;
+          id?: string;
+          is_primary?: boolean;
+          name: string;
+          org_id?: string;
+          phone?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          archived_at?: string | null;
+          client_id?: string;
+          created_at?: string;
+          custom_fields?: Json;
+          designation?: string | null;
+          email?: string | null;
+          id?: string;
+          is_primary?: boolean;
+          name?: string;
+          org_id?: string;
+          phone?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "client_contacts_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: false;
+            referencedRelation: "client_labels";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "client_contacts_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: false;
+            referencedRelation: "clients";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "client_contacts_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      client_private: {
+        Row: {
+          client_id: string;
+          created_at: string;
+          owner_notes: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          client_id: string;
+          created_at?: string;
+          owner_notes?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          client_id?: string;
+          created_at?: string;
+          owner_notes?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "client_private_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: true;
+            referencedRelation: "client_labels";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "client_private_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: true;
+            referencedRelation: "clients";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      clients: {
+        Row: {
+          activated_at: string | null;
+          address: string | null;
+          admin_id: string | null;
+          archived_at: string | null;
+          city: string | null;
+          created_at: string;
+          created_by: string | null;
+          custom_fields: Json;
+          drive_url: string | null;
+          email: string | null;
+          gstin: string | null;
+          id: string;
+          legal_name: string | null;
+          name: string;
+          notes: string | null;
+          org_id: string;
+          phone: string | null;
+          requirements: string | null;
+          search: unknown;
+          state: Database["public"]["Enums"]["client_state"];
+          updated_at: string;
+          website: string | null;
+        };
+        Insert: {
+          activated_at?: string | null;
+          address?: string | null;
+          admin_id?: string | null;
+          archived_at?: string | null;
+          city?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          custom_fields?: Json;
+          drive_url?: string | null;
+          email?: string | null;
+          gstin?: string | null;
+          id?: string;
+          legal_name?: string | null;
+          name: string;
+          notes?: string | null;
+          org_id?: string;
+          phone?: string | null;
+          requirements?: string | null;
+          search?: unknown;
+          state?: Database["public"]["Enums"]["client_state"];
+          updated_at?: string;
+          website?: string | null;
+        };
+        Update: {
+          activated_at?: string | null;
+          address?: string | null;
+          admin_id?: string | null;
+          archived_at?: string | null;
+          city?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          custom_fields?: Json;
+          drive_url?: string | null;
+          email?: string | null;
+          gstin?: string | null;
+          id?: string;
+          legal_name?: string | null;
+          name?: string;
+          notes?: string | null;
+          org_id?: string;
+          phone?: string | null;
+          requirements?: string | null;
+          search?: unknown;
+          state?: Database["public"]["Enums"]["client_state"];
+          updated_at?: string;
+          website?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "clients_admin_id_fkey";
+            columns: ["admin_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "clients_admin_id_fkey";
+            columns: ["admin_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "clients_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "clients_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "clients_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      field_definitions: {
+        Row: {
+          archived_at: string | null;
+          client_id: string | null;
+          created_at: string;
+          entity: string;
+          help_text: string | null;
+          id: string;
+          key: string;
+          label: string;
+          options: Json;
+          org_id: string;
+          position: string;
+          required: boolean;
+          section: string | null;
+          task_type_id: string | null;
+          type: Database["public"]["Enums"]["field_type"];
+          updated_at: string;
+        };
+        Insert: {
+          archived_at?: string | null;
+          client_id?: string | null;
+          created_at?: string;
+          entity: string;
+          help_text?: string | null;
+          id?: string;
+          key: string;
+          label: string;
+          options?: Json;
+          org_id?: string;
+          position: string;
+          required?: boolean;
+          section?: string | null;
+          task_type_id?: string | null;
+          type: Database["public"]["Enums"]["field_type"];
+          updated_at?: string;
+        };
+        Update: {
+          archived_at?: string | null;
+          client_id?: string | null;
+          created_at?: string;
+          entity?: string;
+          help_text?: string | null;
+          id?: string;
+          key?: string;
+          label?: string;
+          options?: Json;
+          org_id?: string;
+          position?: string;
+          required?: boolean;
+          section?: string | null;
+          task_type_id?: string | null;
+          type?: Database["public"]["Enums"]["field_type"];
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "field_definitions_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: false;
+            referencedRelation: "client_labels";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "field_definitions_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: false;
+            referencedRelation: "clients";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "field_definitions_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      files: {
+        Row: {
+          archived_at: string | null;
+          created_at: string;
+          id: string;
+          mime: string;
+          name: string;
+          org_id: string;
+          preview_of: string | null;
+          sha256: string | null;
+          size_bytes: number;
+          status: string;
+          storage_key: string;
+          updated_at: string;
+          uploaded_by: string | null;
+        };
+        Insert: {
+          archived_at?: string | null;
+          created_at?: string;
+          id?: string;
+          mime: string;
+          name: string;
+          org_id?: string;
+          preview_of?: string | null;
+          sha256?: string | null;
+          size_bytes: number;
+          status?: string;
+          storage_key: string;
+          updated_at?: string;
+          uploaded_by?: string | null;
+        };
+        Update: {
+          archived_at?: string | null;
+          created_at?: string;
+          id?: string;
+          mime?: string;
+          name?: string;
+          org_id?: string;
+          preview_of?: string | null;
+          sha256?: string | null;
+          size_bytes?: number;
+          status?: string;
+          storage_key?: string;
+          updated_at?: string;
+          uploaded_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "files_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "files_preview_of_fkey";
+            columns: ["preview_of"];
+            isOneToOne: false;
+            referencedRelation: "files";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "files_uploaded_by_fkey";
+            columns: ["uploaded_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "files_uploaded_by_fkey";
+            columns: ["uploaded_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       holidays: {
         Row: {
           created_at: string;
@@ -407,6 +958,7 @@ export type Database = {
       };
       members: {
         Row: {
+          avatar_file_id: string | null;
           created_at: string;
           deactivated_at: string | null;
           email: string;
@@ -422,6 +974,7 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          avatar_file_id?: string | null;
           created_at?: string;
           deactivated_at?: string | null;
           email: string;
@@ -437,6 +990,7 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          avatar_file_id?: string | null;
           created_at?: string;
           deactivated_at?: string | null;
           email?: string;
@@ -452,6 +1006,13 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "members_avatar_file_id_fkey";
+            columns: ["avatar_file_id"];
+            isOneToOne: false;
+            referencedRelation: "files";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "members_job_title_id_fkey";
             columns: ["job_title_id"];
@@ -525,6 +1086,7 @@ export type Database = {
         Row: {
           created_at: string;
           id: string;
+          logo_file_id: string | null;
           name: string;
           timezone: string;
           updated_at: string;
@@ -532,6 +1094,7 @@ export type Database = {
         Insert: {
           created_at?: string;
           id?: string;
+          logo_file_id?: string | null;
           name: string;
           timezone?: string;
           updated_at?: string;
@@ -539,11 +1102,20 @@ export type Database = {
         Update: {
           created_at?: string;
           id?: string;
+          logo_file_id?: string | null;
           name?: string;
           timezone?: string;
           updated_at?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "organizations_logo_file_id_fkey";
+            columns: ["logo_file_id"];
+            isOneToOne: false;
+            referencedRelation: "files";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       role_permissions: {
         Row: {
@@ -604,8 +1176,30 @@ export type Database = {
       };
     };
     Views: {
+      client_labels: {
+        Row: {
+          brand_notes: string | null;
+          colors: Json | null;
+          fonts: Json | null;
+          id: string | null;
+          logo_file_id: string | null;
+          name: string | null;
+          state: Database["public"]["Enums"]["client_state"] | null;
+          tone_of_voice: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "client_brand_logo_file_id_fkey";
+            columns: ["logo_file_id"];
+            isOneToOne: false;
+            referencedRelation: "files";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       member_directory: {
         Row: {
+          avatar_file_id: string | null;
           created_at: string | null;
           full_name: string | null;
           id: string | null;
@@ -616,6 +1210,7 @@ export type Database = {
           status: Database["public"]["Enums"]["member_status"] | null;
         };
         Insert: {
+          avatar_file_id?: string | null;
           created_at?: string | null;
           full_name?: string | null;
           id?: string | null;
@@ -626,6 +1221,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["member_status"] | null;
         };
         Update: {
+          avatar_file_id?: string | null;
           created_at?: string | null;
           full_name?: string | null;
           id?: string | null;
@@ -636,6 +1232,13 @@ export type Database = {
           status?: Database["public"]["Enums"]["member_status"] | null;
         };
         Relationships: [
+          {
+            foreignKeyName: "members_avatar_file_id_fkey";
+            columns: ["avatar_file_id"];
+            isOneToOne: false;
+            referencedRelation: "files";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "members_job_title_id_fkey";
             columns: ["job_title_id"];
@@ -722,6 +1325,113 @@ export type Database = {
         };
         Returns: string;
       };
+      client_activate: {
+        Args: { client_id: string };
+        Returns: Database["public"]["Enums"]["client_state"];
+      };
+      client_assign_admin: {
+        Args: { admin_id: string; client_id: string };
+        Returns: string;
+      };
+      client_close: {
+        Args: { client_id: string; reason?: string };
+        Returns: Database["public"]["Enums"]["client_state"];
+      };
+      client_contact_archive: {
+        Args: { contact_id: string; next_primary_id?: string };
+        Returns: undefined;
+      };
+      client_contact_restore: {
+        Args: { contact_id: string };
+        Returns: undefined;
+      };
+      client_contact_set_primary: {
+        Args: { contact_id: string };
+        Returns: undefined;
+      };
+      client_hand_over: {
+        Args: { from_admin: string; moves: Json };
+        Returns: number;
+      };
+      client_pause: {
+        Args: { client_id: string };
+        Returns: Database["public"]["Enums"]["client_state"];
+      };
+      client_reactivate: {
+        Args: { client_id: string };
+        Returns: Database["public"]["Enums"]["client_state"];
+      };
+      file_begin: {
+        Args: {
+          file_id: string;
+          mime: string;
+          name: string;
+          preview_of?: string;
+          size_bytes: number;
+          uploader: string;
+        };
+        Returns: {
+          archived_at: string | null;
+          created_at: string;
+          id: string;
+          mime: string;
+          name: string;
+          org_id: string;
+          preview_of: string | null;
+          sha256: string | null;
+          size_bytes: number;
+          status: string;
+          storage_key: string;
+          updated_at: string;
+          uploaded_by: string | null;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "files";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
+      file_cleanup_candidates: {
+        Args: {
+          archived_before: string;
+          batch?: number;
+          orphaned_before: string;
+          pending_before: string;
+        };
+        Returns: {
+          archived_at: string | null;
+          created_at: string;
+          id: string;
+          mime: string;
+          name: string;
+          org_id: string;
+          preview_of: string | null;
+          sha256: string | null;
+          size_bytes: number;
+          status: string;
+          storage_key: string;
+          updated_at: string;
+          uploaded_by: string | null;
+        }[];
+        SetofOptions: {
+          from: "*";
+          to: "files";
+          isOneToOne: false;
+          isSetofReturn: true;
+        };
+      };
+      file_complete: {
+        Args: {
+          file_id: string;
+          sha256?: string;
+          size_bytes: number;
+          uploader: string;
+        };
+        Returns: string;
+      };
+      file_fail: { Args: { file_id: string }; Returns: string };
+      file_mark_deleted: { Args: { file_id: string }; Returns: string };
       leave_decide: {
         Args: { decision: string; reason?: string; request_id: string };
         Returns: {
@@ -811,7 +1521,23 @@ export type Database = {
     Enums: {
       attendance_choice: "present" | "leave" | "half_day" | "comp_leave";
       attendance_state: "awaiting_choice" | "pending_review" | "approved" | "corrected";
+      client_state: "draft" | "active" | "paused" | "inactive";
       day_status: "present" | "leave" | "half_day" | "comp_leave" | "absent";
+      field_type:
+        | "text"
+        | "long_text"
+        | "number"
+        | "date"
+        | "datetime"
+        | "checkbox"
+        | "select"
+        | "multi_select"
+        | "url"
+        | "email"
+        | "phone"
+        | "color"
+        | "member"
+        | "rating";
       leave_state: "submitted" | "approved" | "rejected" | "withdrawn" | "superseded" | "cancelled";
       leave_type: "leave" | "half_day" | "comp_leave";
       member_role: "owner" | "admin" | "staff";
@@ -939,7 +1665,24 @@ export const Constants = {
     Enums: {
       attendance_choice: ["present", "leave", "half_day", "comp_leave"],
       attendance_state: ["awaiting_choice", "pending_review", "approved", "corrected"],
+      client_state: ["draft", "active", "paused", "inactive"],
       day_status: ["present", "leave", "half_day", "comp_leave", "absent"],
+      field_type: [
+        "text",
+        "long_text",
+        "number",
+        "date",
+        "datetime",
+        "checkbox",
+        "select",
+        "multi_select",
+        "url",
+        "email",
+        "phone",
+        "color",
+        "member",
+        "rating",
+      ],
       leave_state: ["submitted", "approved", "rejected", "withdrawn", "superseded", "cancelled"],
       leave_type: ["leave", "half_day", "comp_leave"],
       member_role: ["owner", "admin", "staff"],

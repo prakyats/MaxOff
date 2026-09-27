@@ -53,6 +53,12 @@ Prefer to stay in the loop? One unit at a time works the same way: `/model` for 
 
 Then send me (in chat) the **phase report** from §5, and I'll tell you if anything needs attention before you move on.
 
+### Which app address to use
+- **Everyday app:** https://maxoff-staging.pixoraclips.workers.dev. Install this one on your phone. It updates when a phase merges into `main`.
+- **Work in progress:** https://phase-N-maxoff-staging.pixoraclips.workers.dev (for example `phase-3-…`). Use it to check a phase while it's being built and for the phone walk at `/review-phase`. It **stops updating** once that phase merges.
+- If the installed app stops getting updates, it was installed from a phase address: uninstall it and install again from the everyday address.
+- Both addresses share one staging database, so while a phase is open its migrations only add things (ARCHITECTURE, expand-only rule).
+
 ### Useful mid-session commands
 | Situation | Command |
 |---|---|
@@ -246,7 +252,7 @@ I'll check it against the plan, flag anything that's drifted, and confirm you're
 
 ## 7. Rhythm
 
-- **A phase in a few days**: the kickoff (an hour of your answers), `/run-phase` (a day or two of machine time; 2–4 units per phase), the review with your phone walk. Nineteen units are left after phase 2.
+- **A phase in a few days**: the kickoff (an hour of your answers), `/run-phase` (a day or two of machine time; 2–4 units per phase), the review with your phone walk. Twenty-one units are left after unit 3A (phase 3b added and five tasks deferred past the launch, 2026-09-27).
 - Phases 0–2 feel invisible (setup, database, rules). **That's expected**, and it's what makes the rest fast and safe.
 - The first real payoff is **phase 6**, when the team starts using it. That's 11 units in.
 - Don't skip `/review-phase`. It's the only step that looks at a whole phase at once.

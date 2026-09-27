@@ -307,18 +307,21 @@ test.describe("installed: menus and selects close on back", () => {
   test.skip(({ isMobile }) => !isMobile, "the installed app is a phone");
   test.use({ storageState: storageStateFor("staff") });
 
-  test("a select inside a dialog: select, then dialog, then the page", async ({ page }) => {
+  test("a select inside a dialog: the select sheet, then the dialog, then the page", async ({
+    page,
+  }) => {
     await runInstalled(page);
     await page.goto("/my-day");
     await page.goto("/leave");
     await page.getByRole("button", { name: "Request leave" }).click();
-    const dialog = page.getByRole("dialog");
+    const dialog = page.getByRole("dialog", { name: "Request leave" });
     await dialog.getByRole("combobox", { name: "Kind of leave" }).click();
-    const list = page.getByRole("listbox");
-    await expect(list).toBeVisible();
+    // On a phone the select is a nested bottom sheet, its own layer (3B review).
+    const sheet = page.locator('[data-slot="select-sheet"]');
+    await expect(sheet.getByRole("listbox", { name: "Kind of leave" })).toBeVisible();
 
     await expectBackStack(page, [
-      { closes: list, url: /\/leave$/ },
+      { closes: sheet, url: /\/leave$/ },
       { closes: dialog, url: /\/leave$/ },
       { url: /\/my-day$/ },
     ]);

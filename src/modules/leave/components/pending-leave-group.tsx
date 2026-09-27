@@ -75,7 +75,7 @@ export function PendingLeaveGroup({ requests }: { requests: PendingLeave[] }) {
           review ? (
             <>
               <Button variant="ghost" asChild>
-                <OverlayLink href={`/people/${review.memberId}`}>
+                <OverlayLink href={`/people/${review.memberId}/leave`}>
                   {firstName(review.memberName)}&apos;s leave
                 </OverlayLink>
               </Button>

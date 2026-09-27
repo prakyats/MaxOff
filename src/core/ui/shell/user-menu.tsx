@@ -4,7 +4,8 @@ import { UserIcon } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { Avatar, AvatarFallback } from "@/core/ui/primitives/avatar";
+import { fileUrl } from "@/core/storage";
+import { Avatar, AvatarFallback, AvatarImage } from "@/core/ui/primitives/avatar";
 import { Button } from "@/core/ui/primitives/button";
 import {
   DropdownMenu,
@@ -32,6 +33,7 @@ export function UserMenu({ viewer, logoutItem }: { viewer: ShellViewer; logoutIt
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="rounded-full" aria-label="Account menu">
           <Avatar size="sm">
+            {viewer.avatarFileId ? <AvatarImage src={fileUrl(viewer.avatarFileId)} alt="" /> : null}
             <AvatarFallback>{initialsOf(viewer.name)}</AvatarFallback>
           </Avatar>
         </Button>

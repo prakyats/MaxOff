@@ -3,7 +3,13 @@ import { describe, expect, it } from "vitest";
 import { resolveAppOrigin } from "@/core/lib/app-url";
 
 import { inviteEmail, inviteLinkFor } from "../domain/invite";
-import { memberActions, sortMembers, type TeamMember } from "../domain/members";
+import {
+  hasAttendance,
+  memberActions,
+  opensPersonPage,
+  sortMembers,
+  type TeamMember,
+} from "../domain/members";
 import { offerableJobTitles } from "../domain/job-titles";
 import { emailChangedNewAddressEmail, emailChangedOldAddressEmail } from "../domain/email-change";
 import {
@@ -24,6 +30,7 @@ function member(overrides: Partial<TeamMember>): TeamMember {
     status: "active",
     jobTitleId: null,
     jobTitle: null,
+    avatarFileId: null,
     invitedAt: null,
     joinedAt: "2026-09-22T00:00:00Z",
     createdAt: "2026-09-22T00:00:00Z",
@@ -129,7 +136,21 @@ describe("memberActions", () => {
 
   it("never lets the Owner deactivate themselves or change their own role", () => {
     const actions = memberActions(viewer, member({ id: "owner-id", role: "owner" }));
-    expect(actions).toMatchObject({ edit: true, editRole: false, deactivate: false });
+    // Their own name and phone are edited on /me (3.4, kickoff 3).
+    expect(actions).toMatchObject({ edit: false, editRole: false, deactivate: false });
+  });
+
+  it("opens every person's page except the Owner's own, which is /me (3.4)", () => {
+    expect(opensPersonPage({ id: "owner-id" }, { id: "owner-id", role: "owner" })).toBe(false);
+    expect(opensPersonPage({ id: "owner-id" }, { id: "a", role: "staff" })).toBe(true);
+    expect(opensPersonPage({ id: "admin-id" }, { id: "owner-id", role: "owner" })).toBe(true);
+    expect(opensPersonPage({ id: "admin-id" }, { id: "admin-id", role: "admin" })).toBe(true);
+  });
+
+  it("gives attendance only to someone who joined and is not the Owner (2.4)", () => {
+    expect(hasAttendance({ role: "staff", joinedAt: "2026-09-01T00:00:00Z" })).toBe(true);
+    expect(hasAttendance({ role: "staff", joinedAt: null })).toBe(false);
+    expect(hasAttendance({ role: "owner", joinedAt: "2026-09-01T00:00:00Z" })).toBe(false);
   });
 });
 

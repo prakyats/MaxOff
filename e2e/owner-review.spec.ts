@@ -325,7 +325,7 @@ test("Today: the card and the board, and a person's history with Edit and Cancel
     .locator('[data-slot="board-row"]')
     .filter({ hasText: nameOf("leave", info) })
     .click();
-  await expect(page).toHaveURL(new RegExp(`/people/${ids(info).leave}$`));
+  await expect(page).toHaveURL(new RegExp(`/people/${ids(info).leave}/leave$`));
   await expect(page.getByRole("heading", { name: nameOf("leave", info) })).toBeVisible();
 
   // The rejected request carries the Owner's reason, in the Owner's words.
@@ -432,13 +432,13 @@ test("installed: board → person → tabs and months → one back lands on Toda
     .locator('[data-slot="board-row"]')
     .filter({ hasText: nameOf("fix", info) })
     .click();
-  await expect(page).toHaveURL(new RegExp(`/people/${ids(info).fix}$`));
+  await expect(page).toHaveURL(new RegExp(`/people/${ids(info).fix}/leave$`));
   await page.getByRole("link", { name: "Attendance", exact: true }).click();
   await expect(page).toHaveURL(/\/attendance$/);
   await page.getByRole("link", { name: "Previous month" }).click();
   await expect(page).toHaveURL(/\?month=/);
-  await page.getByRole("link", { name: "Leave requests", exact: true }).click();
-  await expect(page).toHaveURL(new RegExp(`/people/${ids(info).fix}$`));
+  await page.getByRole("link", { name: "Leave", exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/people/${ids(info).fix}/leave$`));
 
   await expectBackStack(page, [{ url: /\/today$/ }]);
 });
@@ -485,7 +485,8 @@ test.describe("who sees what", () => {
       await page.goto("/approvals");
       await expect(page.locator('[data-slot="approval-group"]')).toHaveCount(0);
       await expect(page.getByText("Approvals is filled in task")).toBeVisible();
-      await page.goto(`/people/${ids(info).day}`);
+      // The Profile is theirs to read (kickoff 3); the history tabs are the Owner's.
+      await page.goto(`/people/${ids(info).day}/leave`);
       await expect(page).toHaveURL(/\/forbidden/);
     });
   });

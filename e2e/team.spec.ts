@@ -124,16 +124,18 @@ test.describe("Owner", () => {
     await expect(page.getByRole("row", { name: new RegExp(INVITEE.name) })).toContainText("Active");
   });
 
-  test("edits a member's name, role and job title", async ({ page }) => {
+  test("edits a member's name, role and job title on their page", async ({ page }) => {
     await page.goto("/people");
     await page.getByRole("button", { name: `Actions for ${INVITEE.name}` }).click();
+    // Edit opens the person's page in edit mode: the edit pattern, not a dialog (3.4).
     await page.getByRole("menuitem", { name: "Edit" }).click();
+    await expect(page).toHaveURL(/\/people\/[0-9a-f-]{36}$/);
     await page.getByLabel("Full name").fill("Invited Person Jr");
     await page.getByLabel("Role").click();
     await page.getByRole("option", { name: "Admin" }).click();
     await page.getByLabel("Job title").click();
     await page.getByRole("option", { name: "Video Editor" }).click();
-    await page.getByRole("button", { name: "Save" }).click();
+    await page.locator('[data-slot="save-record"]').click();
     // Save names each change before anything is written (2.9): a role change is a permission.
     const confirm = page.getByRole("alertdialog", { name: "Save these changes?" });
     await expect(confirm).toContainText(
@@ -144,7 +146,9 @@ test.describe("Owner", () => {
       `${INVITEE.name}'s job title will change from Graphic Designer to Video Editor.`,
     );
     await confirm.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByText("Saved", { exact: true })).toBeVisible();
 
+    await page.goto("/people");
     const row = page.getByRole("row", { name: /Invited Person Jr/ });
     await expect(row).toContainText("Admin");
     await expect(row).toContainText("Video Editor");

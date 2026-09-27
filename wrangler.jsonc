@@ -7,7 +7,14 @@
   // environment (GitHub environment variables), not from `vars`.
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "maxoff-dev",
-  "main": ".open-next/worker.js",
+  // `worker/index.js` re-exports OpenNext's handler (`.open-next/worker.js`, from
+  // `pnpm build:worker`) and adds the `scheduled` handler for the cron triggers (task 3.3).
+  "main": "worker/index.js",
+  // Cron triggers (ARCHITECTURE §11, WORKFLOWS §8 "worker" jobs): each expression is mapped
+  // to its `/api/cron/<job>` route in `worker/index.js`; the route checks CRON_SECRET (a
+  // Worker secret). Inheritable, and repeated in each environment on purpose so the schedule
+  // is read where the environment is read. storage_cleanup: 03:00 IST = 21:30 UTC, daily.
+  "triggers": { "crons": ["30 21 * * *"] },
   // 2025-08-16 or later: introduces `https.request`, which the Sentry SDK needs.
   "compatibility_date": "2026-09-01",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
@@ -28,6 +35,7 @@
       "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "maxoff-staging" }],
       "observability": { "enabled": true },
       "preview_urls": true,
+      "triggers": { "crons": ["30 21 * * *"] },
     },
     // Production: deployed from a `v*` tag. Workers Paid from the pilot (task 6.6).
     // `preview_urls` is off ON PURPOSE (task 2.0). Left at the account default, every
@@ -40,6 +48,7 @@
       "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "maxoff" }],
       "observability": { "enabled": true },
       "preview_urls": false,
+      "triggers": { "crons": ["30 21 * * *"] },
     },
   },
 }

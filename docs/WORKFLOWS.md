@@ -93,8 +93,26 @@ invited ──Owner "Revoke invite"──► deactivated (the link opens nothing
 - **Deactivate** (`active`) and **Revoke invite** (`invited`) are the same transition, `member_deactivate(member_id, reason)`, worded by state. The reason is optional and kept in the activity log, where only `activity.view_all` reads it: the person never sees their own deactivation entry, even after reactivation (a management note stays the Owner's; phase 1 review). Never the caller, never the Owner. Deactivation takes effect **immediately**: RLS (no `current_member()` row), `requireMember()` on the next page load, and the deleted refresh tokens, so an open tab cannot renew its session when the JWT expires (≤ 1 h). 5.4 also deletes the person's push subscriptions.
 - **Reactivate** returns a person who had joined to `active`, and someone who never accepted to `invited` (a new link is needed). `deactivated_at` is cleared; the log rows stay.
 - **Edits**: the Owner changes name, role (Admin ↔ Staff; the Owner row's role never changes here) and job title as plain edits (audited by trigger). A member edits their own name and phone on /me.
+- **An Admin who runs clients (owner decision 2026-09-27, phase 3 review): no client is ever left without an Admin.** Making them Staff or deactivating them is refused (`CONFLICT`, "Move Ravi's 2 clients to another Admin first.", the `members` trigger `client_admin_guard`, any client state) while any client's `admin_id` is theirs. The Owner's confirmation (the Profile's Save confirmation, the Deactivate dialog) offers the move inline: "Move Ravi's N clients to: [Admin ▾]", one pick for all or **Choose per client**, among the other active Admins (none: the commit stays off with "Make someone an Admin first"). Confirming runs `client_hand_over(from_admin, moves)` (one transaction; each move is a `client_assign_admin`, so history, audit and the §9 notifications follow), **then** the role change or `member_deactivate`. The two steps are two calls: if the second fails, the clients have already moved, which the rule allows, and the Owner retries the change.
 - **Email change** (1.4, `member_change_email()`): the email is the login identity, so only the Owner (`team.manage`) changes it, never the member. It is allowed on an **active** row, an **invited** row (the usual case: the invite went to a typo) and on the **Owner's own** row. The address must be free: one that already belongs to any member, whatever their status, is `CONFLICT`. The action moves the sign-in at GoTrue first (`auth.admin.updateUserById`, `email_confirm: true`, so no confirmation mail is needed), then calls the transition function, and puts the old address back at GoTrue if the function refuses. **Sessions stay alive** — nothing reads the email from the JWT — and the person signs in with the new address and their existing password from then on. An **invited** person's pending link **stops working** (GoTrue drops the confirmation token when the address moves, proved by probe: `otp_expired`), so the Owner sends a fresh one with "Copy invite link"; the dialog says so. The invite email itself went to the old address, so that second link is how the new address ever hears about the invite.
 - **Notifications**: the invite email, and on an email change **both addresses** get one (the new one: "you'll sign in with this address"; the old one: "your MaxOff login was changed", which is the message that matters when the old mailbox is still live). Both bypass the daily cap, like the invite. Nobody is notified of a deactivation or reactivation (nothing in §9 says so).
+
+### 1b. Freelancers (ADR-0013, owner decision 2026-09-27; built in phase 4)
+
+```
+Owner "Add person → Freelancer" (name, job title, phone?, coordinator)
+   └─► members row: engagement = freelance, role = staff, status = active, email null, NO auth user, NO invite
+         + member_coordinators row (coordinator, from_at = now, set_by = Owner)
+         │
+         ├──Owner "Change coordinator"(new coordinator, reason?)──► current row closed (to_at), new row opened
+         ├──Owner deactivate(reason?)──► deactivated (nothing to sign out; open tasks stay assigned, flagged)
+         └──Owner reactivate──► active (a current coordinator is required again)
+```
+- **Coordinator** = an **active permanent** Admin or Staff. Deactivating a coordinator asks the Owner where each of their freelancers goes first (`member_deactivate()` refuses while a freelancer still points at them).
+- **Acting on behalf:** on the freelancer's tasks the coordinator may do everything an assignee may (`tasks.work`): acknowledge ("Noted by Ravi for Asha"), comment, tick stages, upload and paste links, mark Done with the late reason, resubmit after changes. Each transition takes the freelancer's id as `on_behalf_of`, checks `app.coordinator_of(freelancer) = caller` at that moment, and writes actor = caller, `on_behalf_of` = freelancer in the task rows and `activity_log`. Nothing else changes: the approval route, locking from `submitted`, reopen and cancel are the task's own rules (§3).
+- **Never for a freelancer:** attendance, leave, the day gate (there is no session), the 23:59 / 00:00 jobs (§8, permanent members only), reachability (§9a), being a creator, approving Admin or reviewer.
+- **Notifications** addressed to a freelancer go to their current coordinator (§9).
+- **A later login** (a phase-4 kickoff question) would be an invite that attaches an auth user to the same `members.id`; the coordinator relation and every history row stay.
 
 ## 2. Leave requests
 
@@ -140,6 +158,7 @@ submitted ──Owner approve──► approved ──employee requests change/c
 | `cancelled` | Stopped with a reason, still reportable | Creator / approving Admin / Owner can `reopen` → `todo` (reason required) |
 
 - **Done can be submitted from `todo` or `in_progress`.** `in_progress` is optional.
+- **On behalf of a freelancer (ADR-0013, §1b):** `task_acknowledge`, `task_start`, `task_submit_done`, stage ticks, comments and submissions accept `on_behalf_of` = a freelancer assignee; allowed only to that freelancer's **current** coordinator, recorded as actor = coordinator + `on_behalf_of`. A freelancer's primary ownership means their coordinator marks Done. Reviews never carry `on_behalf_of`.
 - **Done doesn't wait for acknowledgements.** If the primary owner hasn't acknowledged yet, submitting Done records their acknowledgement automatically (audited). Other assignees' acknowledgements stay tracked and still get reminders.
 - **Who may edit, reassign, cancel or reopen a task:** its **creator**, its **approving Admin**, or the **Owner**. Other Admins who can see it can't change it.
 - **Reopen** goes through the **same approval route again** (the Admin step is re-evaluated at the next Done). Acknowledgements are retained. The reopen reason is stored **only in `activity_log`** (`meta.reason`); there's no column for it.
@@ -176,7 +195,21 @@ draft ──Owner activate (needs name + admin)──► active ⇄ paused ─�
 ```
 - **Paused:** readable. No new cycles.
 - **Inactive:** readable and searchable. No new projects, items or client-labelled tasks.
-- Changing the Admin closes the current `client_admin_assignments` row and opens a new one. Access moves immediately.
+- Changing the Admin closes the current `client_admin_assignments` row and opens a new one. Access moves immediately, and the new Admin (and the previous one, if still active) is notified (§9; owner decision 2026-09-27, kickoff 3).
+- **Inactive is the end state** (no archive action). **Paused and Inactive stay fully editable**; only the "no new work" rules apply (owner decision 2026-09-27, kickoff 3).
+- **Name unique** among clients not Inactive (case-insensitive); **one primary contact** required once any contact exists, archiving the primary asks for the next; GSTIN format checked when given; website and Drive link are `https://` URLs only (owner decision 2026-09-27, kickoff 3).
+- **As built (3.1):** `client_activate` (draft | paused → active, needs an active Admin), `client_pause` (active → paused), `client_close(reason)` (active | paused → inactive; the optional reason is the Owner's, kept in `client_close_reasons` keyed by the activity entry, never in its meta: phase 3 review), `client_reactivate` (inactive → active; refused with CONFLICT while another not-inactive client has the name), `client_assign_admin` (any state; closes the open `client_admin_assignments` row and opens the next; the notification is named in the function for 5.1). A client is created as a draft by a plain insert under `clients.manage`, with its Owner-only notes and brand rows created by trigger and, when an Admin is given, the first assignment row. Contacts: the first live contact becomes primary by trigger; `client_contact_set_primary`, `client_contact_archive(next_primary_id)` and `client_contact_restore` move `is_primary` / `archived_at` (`clients.edit_assigned` on a visible client). Audit actions: activated, paused, closed, reactivated, admin_assigned, primary_set, primary_removed, archived, restored.
+- **Screens (3.4):** the Owner's ⋯ (list sheet and client header) offers the state's moves (`clientMenuMoves`: Activate only once an Admin is assigned, "Assign Admin" until then), each behind a confirmation whose red button names it ("Pause Sharma Weddings"; Close takes an optional reason); "Change Admin" names the person ("Make Ravi the Admin"). A Draft, Paused or Inactive client shows a banner with its state note and who can change it; every client stays editable. Contacts: "Add contact" (the first is primary), and a contact's ⋯ holds Make primary, Archive (the primary asks for the next) and Restore.
+
+### 4a. Custom field definitions (owner decision 2026-09-27, kickoff 3; built in 3.2)
+```
+active ──archive──► archived (values kept in every record, hidden from forms, read-only under "Archived fields")
+```
+- **Who:** global `client` / `contact` definitions are Owner-only; an Admin adds or archives definitions scoped to one of **their assigned** clients; `project` / `item` are Owner-only; `task` and per-task-type arrive with 4.1.
+- **Type is immutable once a value exists** (refused: archive and add a new field). Label, help text, section, position and select options stay editable; a select stores the option key, so a renamed option rewrites nothing.
+- **Required** is checked only when the form that shows the field is saved: an older record shows "—" and saves once filled; no client, project, item or task transition is ever blocked by a custom field.
+- **As built (3.2):** `core/custom-fields` — `validateCustomFields({definitions, values, previous})` (the zod builder per type; required refused only here; archived keys keep their previous value; unknown keys dropped; errors keyed `customFields.<key>`), `validateCustomFieldsFor(entity, values, {clientId, previous})` in the server barrel (called by the client and contact actions before every write), `<CustomFieldsForm>` (typed inputs, a select stores the option key) and `<CustomFieldsView>` ("—" for empty, "Archived fields" read-only). Settings → Custom fields (`/settings/custom-fields?entity=client|contact|project|item`): entity tabs are view controls; Add / Edit in a bottom sheet (label, key derived from the label and fixed once saved, type, options one per line, required, help, section, scope "Every client" or one client); Archive / Restore. Who may write is decided by `app.field_definition_writable()`; the type lock by `app.field_definitions_guard()` (pgTAP 17).
+- **Files** (owner decision 2026-09-27, kickoff 3, 3.3): `files.status` pending → ready (upload completed) | failed; **replacing** a logo or avatar archives the old row (`archived_at`); the daily `storage_cleanup` job deletes the R2 object of a row archived **30 days** ago, of a `pending` or `failed` row older than **24 hours**, and (owner decision 2026-09-27, 3B review) of a **`ready` original that nothing references, older than 7 days** (an upload whose save failed, or whose answer was lost), marking it `deleted` (the row stays, invariant 9). "References" are the foreign keys that point at `files` (logo, avatar, client logo today; every later consumer declares one); a preview follows its original unless something references the preview itself (ADR-0010 keeps submission previews). An upload can be attached only within 6 days of its upload, a day inside that window. Work submissions follow §5A instead.
 
 ## 5. Client work
 
@@ -263,7 +296,7 @@ month M (IST) open ──Owner close──► closed (snapshot v1, immutable)
 | `cycle_close_prompt` | pg_cron | 00:05 on the same days | Notifies the Owner about unfinished items in the cycles that just ended |
 | `push_dispatch` | worker | every minute | Sends queued push and email deliveries, retrying with backoff; applies the email cap |
 | `drive_archive_tick` | worker | every 2 min | Runs queued `drive_jobs` (copy link, upload file, recheck link) with backoff |
-| `storage_cleanup` | worker | 03:00 | `delete_local` jobs: photo originals > 90 days, video originals > 30 days, archived only. Also clears orphaned `pending` files from R2 |
+| `storage_cleanup` | worker | 03:00 | `delete_local` jobs: photo originals > 90 days, video originals > 30 days, archived only. Also clears from R2: rows archived 30 days ago, `pending`/`failed` uploads after 24 h, and `ready` originals nothing references after 7 days (previews follow their original) |
 | `drive_quota_check` | worker | 03:30 | Refreshes Google quota and warns the Owner below 10% free |
 | `nightly_backup` | gha | 02:00 | pg_dump to R2 |
 
@@ -272,7 +305,7 @@ month M (IST) open ──Owner close──► closed (snapshot v1, immutable)
 ## 9. Who gets notified
 | Event | Recipients |
 |---|---|
-| Task assigned / assignee added | Each new assignee |
+| Task assigned / assignee added | Each new assignee (**a freelancer's notifications go to their current coordinator**, worded for them: "Asha's task …"; this applies to every row below that names an assignee, ADR-0013) |
 | Acknowledgement missing (repeat) | That assignee |
 | Acknowledgement escalation | Level 1 (`ack_escalate_hours`): approving Admin (or creator). Level 2 (`ack_escalate_owner_hours`): Owner |
 | Overdue escalation (`overdue_escalate_hours` past due, nothing submitted) | Approving Admin (or creator) + Owner |
@@ -284,6 +317,8 @@ month M (IST) open ──Owner close──► closed (snapshot v1, immutable)
 | Task completed / cancelled / reopened | Assignees (+ creator) |
 | Comment added | Other participants on the task (assignees, approving Admin, creator) |
 | Task request created | Owner + the client's Admin (or all Admins if there's no client) |
+| Coordinator changed | The new coordinator (and the previous one, if still active) |
+| Client's Admin assigned or changed (kickoff 3) | The new Admin (and the previous one, if still active) |
 | Attendance submitted | **Nobody.** The Owner's Today counts are the live digest, so no notification per person |
 | Absent proposed (23:59 job) | Owner: **one** notification listing everyone proposed absent |
 | Attendance decided / corrected (by the Owner or automatically when a later leave approval wins) | That member |

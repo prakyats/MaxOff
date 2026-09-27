@@ -64,7 +64,8 @@ export function TodayAttendanceCard({ summary }: { summary: TodaySummary }) {
  * The people board under the card: everyone expected today, each exactly once, in the order the
  * Owner acts on them (waiting, not chosen yet, present, on leave, then absent), by name within
  * each. A row opens that person's
- * attendance and leave (`/people/[id]`), a real drill-down (ARCHITECTURE §14.2 b).
+ * leave requests (`/people/[id]/leave`, with Attendance a tab away, 3.4), a real drill-down
+ * (ARCHITECTURE §14.2 b).
  */
 export function PeopleBoard({ summary }: { summary: TodaySummary }) {
   if (summary.board.length === 0) {
@@ -85,7 +86,7 @@ export function PeopleBoard({ summary }: { summary: TodaySummary }) {
             {people.map((person) => (
               <li key={person.memberId}>
                 <DrillLink
-                  href={`/people/${person.memberId}`}
+                  href={`/people/${person.memberId}/leave`}
                   data-slot="board-row"
                   className={cn(
                     "focus-visible:ring-ring active:bg-muted/60 flex flex-wrap items-center gap-3 outline-none focus-visible:ring-2",
