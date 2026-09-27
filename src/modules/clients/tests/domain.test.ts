@@ -120,3 +120,12 @@ describe("sortClients", () => {
     ).toEqual(["Alpha", "beta", "zeta"]);
   });
 });
+
+describe("updateClientSchema is a patch (3.4 review)", () => {
+  it("takes one record's fields alone, and still refuses a blank name when one is sent", () => {
+    const parsed = updateClientSchema.parse({ clientId: uuid, notes: "Pays late" });
+    expect(parsed.notes).toBe("Pays late");
+    expect(parsed.customFields).toBeUndefined();
+    expect(updateClientSchema.safeParse({ clientId: uuid, name: " " }).success).toBe(false);
+  });
+});

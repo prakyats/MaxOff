@@ -6,7 +6,7 @@ import { requirePermission } from "@/core/permissions/server";
 import { getClient } from "@/modules/clients";
 import { listDirectory, listMembers } from "@/modules/team";
 
-const ID = /^[0-9a-f-]{36}$/i;
+const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * A client's page (3.4): the Owner (`clients.manage`) and the client's Admin

@@ -65,7 +65,7 @@ function nameTaken(error: unknown): never {
   throw error;
 }
 
-type ClientDetails = Omit<ReturnType<typeof updateClientSchema.parse>, "clientId">;
+type ClientDetails = Omit<ReturnType<typeof createClientSchema.parse>, "adminId">;
 
 function detailsOf(data: ClientDetails): repo.ClientDetailsPatch {
   return {
@@ -82,6 +82,35 @@ function detailsOf(data: ClientDetails): repo.ClientDetailsPatch {
     notes: data.notes,
     custom_fields: data.customFields,
   };
+}
+
+const CLIENT_COLUMNS = {
+  name: "name",
+  legalName: "legal_name",
+  gstin: "gstin",
+  address: "address",
+  city: "city",
+  phone: "phone",
+  email: "email",
+  website: "website",
+  driveUrl: "drive_url",
+  requirements: "requirements",
+  notes: "notes",
+} as const satisfies Partial<Record<keyof UpdateClientInput, keyof repo.ClientDetailsPatch>>;
+
+/** The columns of the keys the caller sent, with their parsed values. */
+function clientPatchOf(
+  input: UpdateClientInput,
+  data: ReturnType<typeof updateClientSchema.parse>,
+): Partial<repo.ClientDetailsPatch> {
+  const patch: Partial<Record<keyof repo.ClientDetailsPatch, unknown>> = {};
+  for (const [key, column] of Object.entries(CLIENT_COLUMNS) as [
+    keyof typeof CLIENT_COLUMNS,
+    keyof repo.ClientDetailsPatch,
+  ][]) {
+    if (key in input) patch[column] = data[key];
+  }
+  return patch as Partial<repo.ClientDetailsPatch>;
 }
 
 export const createClient = action(async (input: CreateClientInput): Promise<Result<Client>> => {
@@ -105,12 +134,17 @@ export const updateClient = action(async (input: UpdateClientInput): Promise<Res
   await assertPermission("clients.edit_assigned");
   const current = await repo.getClient(data.clientId);
   if (!current) throw new AppError("NOT_FOUND", "This client is not one of yours.");
-  const customFields = await validateCustomFieldsFor("client", data.customFields, {
-    clientId: data.clientId,
-    previous: current.customFields,
-  });
+  // Only what the saving record sent (3.4 review): the Overview has two records, and one must
+  // never write back the other's values as they were when the page loaded.
+  const patch = clientPatchOf(input, data);
+  if (data.customFields !== undefined) {
+    patch.custom_fields = await validateCustomFieldsFor("client", data.customFields, {
+      clientId: data.clientId,
+      previous: current.customFields,
+    });
+  }
   try {
-    await repo.updateClient(data.clientId, detailsOf({ ...data, customFields }));
+    await repo.updateClient(data.clientId, patch);
   } catch (error) {
     nameTaken(error);
   }

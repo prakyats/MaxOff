@@ -160,11 +160,20 @@ export async function createClient(
   return toClient(data);
 }
 
-export async function updateClient(clientId: string, patch: ClientDetailsPatch): Promise<void> {
+export async function updateClient(
+  clientId: string,
+  patch: Partial<ClientDetailsPatch>,
+): Promise<void> {
+  const { custom_fields: customFields, ...columns } = patch;
+  const values = {
+    ...columns,
+    ...(customFields !== undefined ? { custom_fields: toJson(customFields) } : {}),
+  };
+  if (Object.keys(values).length === 0) return;
   const supabase = await createServerSupabase();
   const { error, count } = await supabase
     .from("clients")
-    .update({ ...patch, custom_fields: toJson(patch.custom_fields) }, { count: "exact" })
+    .update(values, { count: "exact" })
     .eq("id", clientId);
   if (error) throw error;
   refusedWhenNone(count, NOT_YOURS);

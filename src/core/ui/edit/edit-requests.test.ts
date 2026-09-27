@@ -38,3 +38,19 @@ describe("edit requests (task 3.4)", () => {
     expect(onRequest).not.toHaveBeenCalled();
   });
 });
+
+describe("a waiting edit request lapses (3.4 review)", () => {
+  afterEach(() => {
+    clearEditRequests();
+    vi.useRealTimers();
+  });
+
+  it("is dropped when its record mounts too late", () => {
+    vi.useFakeTimers();
+    requestEdit("member");
+    vi.advanceTimersByTime(6000);
+    const onRequest = vi.fn();
+    subscribeEditRequest("member", onRequest);
+    expect(onRequest).not.toHaveBeenCalled();
+  });
+});

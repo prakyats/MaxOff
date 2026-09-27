@@ -2,6 +2,8 @@
 
 import { useEffect, useRef } from "react";
 
+import { systemClock } from "@/core/time";
+
 /**
  * "Edit" from somewhere other than the record's own button (task 3.4): the ⋯ menu in a page
  * header, or a list's sheet that opens the record's page. The menu and the record are separate
@@ -9,10 +11,14 @@ import { useEffect, useRef } from "react";
  *
  * `requestEdit(key)` starts editing the mounted record with that key; with none mounted yet (the
  * menu navigated to the record's page first) the request waits and the record takes it when it
- * mounts. A request is used once.
+ * mounts. A request is used once, and lapses after a few seconds, so a navigation that never
+ * happened (a link opened in a new tab) cannot start editing on a later visit.
  */
 
-const pending = new Set<string>();
+/** A request waits this long for its record to mount, then lapses (3.4 review). */
+const WAIT_MS = 5000;
+
+const pending = new Map<string, number>();
 const listeners = new Map<string, Set<() => void>>();
 
 export function requestEdit(key: string): void {
@@ -21,7 +27,7 @@ export function requestEdit(key: string): void {
     for (const listener of current) listener();
     return;
   }
-  pending.add(key);
+  pending.set(key, systemClock().getTime());
 }
 
 /** Subscribes `onRequest` to `key`; returns the unsubscribe. Takes a request left waiting. */
@@ -29,7 +35,9 @@ export function subscribeEditRequest(key: string, onRequest: () => void): () => 
   const set = listeners.get(key) ?? new Set<() => void>();
   set.add(onRequest);
   listeners.set(key, set);
-  if (pending.delete(key)) onRequest();
+  const at = pending.get(key);
+  pending.delete(key);
+  if (at !== undefined && systemClock().getTime() - at <= WAIT_MS) onRequest();
   return () => {
     set.delete(onRequest);
     if (set.size === 0) listeners.delete(key);

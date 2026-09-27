@@ -21,7 +21,7 @@ import {
   SearchIcon,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useMemo, useRef, useState } from "react";
 
 import {
   Sheet,
@@ -191,13 +191,19 @@ export function DataTable<TData>({
     [data, view, search, filters, hasView],
   );
 
+  // The view the URL should end on: a write deferred by an overlay backing out uses the latest.
+  const latestView = useRef<DataTableView>(view);
+
   function changeView(next: DataTableView) {
     setView(next);
+    latestView.current = next;
     // A replace, never a push (§14.2 d); Next keeps `useSearchParams` in step with it. A filter
     // is chosen inside its open select, whose layer owns the current history entry: that entry
     // is backed out first, so the page's own entry is the one that keeps the view.
+    // A call made while a back is in flight is dropped, and the write already queued reads
+    // `latestView`, so the URL still ends on the newest view.
     closeOverlaysThen(() => {
-      const query = paramsForView(window.location.search, next, filters);
+      const query = paramsForView(window.location.search, latestView.current, filters);
       window.history.replaceState(null, "", `${window.location.pathname}${query}`);
     });
   }

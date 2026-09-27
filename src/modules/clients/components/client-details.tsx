@@ -23,25 +23,6 @@ type DetailField =
 
 type NotesField = "requirements" | "notes";
 
-/** Everything `updateClient` takes, from the record as it is saved now. */
-function savedDetails(client: Client) {
-  return {
-    clientId: client.id,
-    name: client.name,
-    legalName: client.legalName ?? "",
-    gstin: client.gstin ?? "",
-    address: client.address ?? "",
-    city: client.city ?? "",
-    phone: client.phone ?? "",
-    email: client.email ?? "",
-    website: client.website ?? "",
-    driveUrl: client.driveUrl ?? "",
-    requirements: client.requirements ?? "",
-    notes: client.notes ?? "",
-    customFields: client.customFields,
-  };
-}
-
 /**
  * A client's details (3.4, PRODUCT §4.4) through the edit pattern: read-only first, Edit for
  * the Owner and the client's Admin (`clients.edit_assigned`), or from the header's ⋯ (Edit
@@ -166,7 +147,7 @@ export function ClientDetails({
       editKey={clientEditKey(client.id)}
       savedMessage="Details saved"
       onSave={(values, customFields) =>
-        updateClient({ ...savedDetails(client), ...values, customFields })
+        updateClient({ clientId: client.id, ...values, customFields })
       }
     />
   );
@@ -203,7 +184,7 @@ export function ClientNotes({ client, canEdit }: { client: Client; canEdit: bool
       fields={fields}
       canEdit={canEdit}
       savedMessage="Saved"
-      onSave={(values) => updateClient({ ...savedDetails(client), ...values })}
+      onSave={(values) => updateClient({ clientId: client.id, ...values })}
     />
   );
 }

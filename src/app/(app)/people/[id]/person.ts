@@ -5,7 +5,7 @@ import { can } from "@/core/permissions";
 import { requirePermission } from "@/core/permissions/server";
 import { getPerson, type TeamMember } from "@/modules/team";
 
-const ID = /^[0-9a-f-]{36}$/i;
+const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * A person's page (kickoff 3): anyone with `team.view` opens a member's Profile; `team.manage`

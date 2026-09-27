@@ -117,7 +117,16 @@ const clientDetails = {
 export const createClientSchema = z.object({ ...clientDetails, adminId: optionalUuid });
 export type CreateClientInput = z.input<typeof createClientSchema>;
 
-export const updateClientSchema = z.object({ clientId: z.uuid(), ...clientDetails });
+/**
+ * A patch (3.4): only the keys a record sends are written, so two records of one client never
+ * overwrite each other's values. A name, when sent, is still required and unique.
+ */
+export const updateClientSchema = z.object({
+  clientId: z.uuid(),
+  ...clientDetails,
+  name: clientName.optional(),
+  customFields: z.record(z.string(), z.unknown()).optional(),
+});
 export type UpdateClientInput = z.input<typeof updateClientSchema>;
 
 export const clientIdSchema = z.object({ clientId: z.uuid() });

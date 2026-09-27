@@ -1,7 +1,7 @@
 "use client";
 
 import { ExternalLinkIcon, PencilIcon } from "lucide-react";
-import { type ComponentProps, type ReactNode, useId, useRef, useState } from "react";
+import { type ComponentProps, type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import type { Result } from "@/core/errors/result";
@@ -10,6 +10,7 @@ import { ErrorText } from "@/core/ui/composites/error-text";
 import { FormField } from "@/core/ui/composites/form-field";
 import { StickyActions } from "@/core/ui/composites/sticky-actions";
 import { type ChangeSubject, describeChange, diffFields } from "@/core/ui/edit/changes";
+import { claimEditor, releaseEditor, useActiveEditor } from "@/core/ui/edit/active-editor";
 import { useEditRequest } from "@/core/ui/edit/edit-requests";
 import { useLeaveGuard } from "@/core/ui/edit/use-leave-guard";
 import { closeOverlaysThen, useOverlayHistory } from "@/core/ui/overlay/overlay-history";
@@ -149,6 +150,13 @@ export function EditableRecord<K extends string, V = undefined>({
     extra && editing ? extra.changes(extraBaseline as V, extraDraft as V) : ([] as string[]);
   const changeCount = changes.length + extraLines.length;
   const dirty = editing && changeCount > 0;
+  // Another record on the page is in edit mode: this one waits (3.4 review).
+  const activeEditor = useActiveEditor();
+  const blocked = activeEditor !== null && activeEditor !== formId;
+  useEffect(() => {
+    if (!editing) releaseEditor(formId);
+  }, [editing, formId]);
+  useEffect(() => () => releaseEditor(formId), [formId]);
 
   function clearMessages() {
     setFieldErrors({});
@@ -185,7 +193,7 @@ export function EditableRecord<K extends string, V = undefined>({
   useLeaveGuard(dirty, (resume) => askDiscard(resume));
 
   function startEdit() {
-    if (!canEdit || mode !== "read") return;
+    if (!canEdit || mode !== "read" || !claimEditor(formId)) return;
     const current = valuesOf(fields);
     setBaseline(current);
     setDraft(current);
@@ -209,9 +217,22 @@ export function EditableRecord<K extends string, V = undefined>({
       return true;
     }
     const { error } = result;
-    setFieldErrors(error.fieldErrors ?? {});
+    const errors = error.fieldErrors ?? {};
+    setFieldErrors(errors);
     const { title: errorTitle, description } = describeError(error);
-    setFormError(error.fieldErrors ? null : (description ?? errorTitle));
+    // A message for a field this record does not show (a required custom field on a record
+    // without that part) must still be seen: it goes above the fields.
+    const unshown = Object.keys(errors).find(
+      (key) =>
+        !names.includes(key as K) && !(extra !== undefined && key.startsWith("customFields.")),
+    );
+    setFormError(
+      unshown !== undefined
+        ? (errors[unshown]?.[0] ?? description ?? errorTitle)
+        : error.fieldErrors
+          ? null
+          : (description ?? errorTitle),
+    );
     // Back to the fields, where the message is.
     setMode("edit");
     return true;
@@ -238,7 +259,7 @@ export function EditableRecord<K extends string, V = undefined>({
         <h2 id={`${formId}-title`} className="text-sm font-medium">
           {title}
         </h2>
-        {editing || !canEdit ? null : (
+        {editing || !canEdit || blocked ? null : (
           <Button
             ref={editButton}
             type="button"
@@ -358,8 +379,8 @@ export function EditableRecord<K extends string, V = undefined>({
 export function ChangeList({ lines }: { lines: readonly string[] }) {
   return (
     <ul data-slot="change-list" className="flex list-disc flex-col gap-1 pl-5 text-sm">
-      {lines.map((line) => (
-        <li key={line}>{line}</li>
+      {lines.map((line, index) => (
+        <li key={index}>{line}</li>
       ))}
     </ul>
   );
@@ -499,10 +520,10 @@ function ReadValue<K extends string>({ field }: { field: EditableField<K> }) {
           {text
             .split("\n")
             .filter((line) => line.trim())
-            .map((line) => {
+            .map((line, index) => {
               const hex = HEX.exec(line)?.[0];
               return (
-                <li key={line} className="flex items-center gap-2">
+                <li key={index} className="flex items-center gap-2">
                   {hex ? (
                     <span
                       aria-hidden

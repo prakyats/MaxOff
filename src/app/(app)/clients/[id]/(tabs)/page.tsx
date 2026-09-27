@@ -2,7 +2,14 @@ import { ChevronRightIcon, ExternalLinkIcon, PhoneIcon } from "lucide-react";
 import type { Metadata } from "next";
 
 import { listDefinitions } from "@/core/custom-fields/server";
+import { cn } from "@/core/lib/utils";
 import { can } from "@/core/permissions";
+import {
+  CARD_ROW_MIN_H,
+  CARD_ROW_PADDING,
+  CARD_ROW_TITLE,
+  CARD_ROW_TRAILING,
+} from "@/core/ui/composites/row-metrics";
 import { DrillLink } from "@/core/ui/composites/drill-link";
 import { StatusDot } from "@/core/ui/composites/status-badge";
 import { Button } from "@/core/ui/primitives/button";
@@ -121,9 +128,14 @@ export default async function ClientOverviewPage({ params }: { params: Promise<{
                 <DrillLink
                   href={`/clients/${client.id}/contacts/${contact.id}`}
                   data-slot="contact-row"
-                  className="active:bg-muted/60 focus-visible:ring-ring flex min-h-14 items-center gap-3 px-4 py-2 outline-none focus-visible:ring-2 focus-visible:ring-inset"
+                  className={cn(
+                    "active:bg-muted/60 focus-visible:ring-ring flex flex-wrap items-center gap-3 outline-none focus-visible:ring-2 focus-visible:ring-inset",
+                    CARD_ROW_MIN_H,
+                    CARD_ROW_PADDING,
+                  )}
                 >
-                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  {/* The DataTable card metrics: at large text the chip wraps under the name. */}
+                  <span className={cn("flex flex-col gap-0.5", CARD_ROW_TITLE)}>
                     <span className="truncate text-sm font-medium">{contact.name}</span>
                     <span className="text-muted-foreground truncate text-xs">
                       {[contact.designation, contact.phone ?? contact.email]
@@ -131,12 +143,17 @@ export default async function ClientOverviewPage({ params }: { params: Promise<{
                         .join(" · ") || "No details yet"}
                     </span>
                   </span>
-                  {contact.archivedAt ? (
-                    <StatusDot status="inactive" label="Archived" />
-                  ) : contact.isPrimary ? (
-                    <StatusDot status="active" label="Primary" />
-                  ) : null}
-                  <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
+                  <span className={cn("flex items-center gap-3", CARD_ROW_TRAILING)}>
+                    {contact.archivedAt ? (
+                      <StatusDot status="inactive" label="Archived" />
+                    ) : contact.isPrimary ? (
+                      <StatusDot status="active" label="Primary" />
+                    ) : null}
+                    <ChevronRightIcon
+                      className="text-muted-foreground size-4 shrink-0"
+                      aria-hidden
+                    />
+                  </span>
                 </DrillLink>
               </li>
             ))}

@@ -46,7 +46,9 @@
 
 **The Owner doesn't mark attendance.** The first-login attendance gate applies to Admins and Staff only.
 
-**Screens (2.4):** `/approvals` opens for `attendance.decide`, `tasks.approve_final` or `tasks.approve_admin`; each group shows only when the viewer holds its key (Attendance and Leave: `attendance.decide`), so an Admin never sees them. The Approvals badge counts what the viewer may decide. `/people/[id]` (a person's attendance and leave history, with correct, edit and cancel) and the Owner's today card and people board need `attendance.view_all`.
+**Screens (2.4):** `/approvals` opens for `attendance.decide`, `tasks.approve_final` or `tasks.approve_admin`; each group shows only when the viewer holds its key (Attendance and Leave: `attendance.decide`), so an Admin never sees them. The Approvals badge counts what the viewer may decide. `/people/[id]/leave` and `/people/[id]/attendance` (a person's leave and attendance history, with correct, edit and cancel) and the Owner's today card and people board need `attendance.view_all`.
+
+**Screens (3.4):** `/people/[id]` is every member's **Profile** for `team.view` (the Owner and Admins; the Owner's own id redirects to /me); its Edit and ⋯ actions are `team.manage`; the Leave and Attendance tabs show only with `attendance.view_all`, for someone who has joined and is not the Owner, and their routes answer 404 otherwise. `/clients` and a client's pages open for `clients.manage` or `clients.edit_assigned` (Staff are sent to /forbidden; another Admin's client is a 404, RLS decides); New client, the Admin assignment and the lifecycle are `clients.manage`; details, contacts, brand and the logo are `clients.edit_assigned`; the Owner's notes are read only for `clients.private_notes`, so they are never in an Admin's payload. The Activity view reads `activity_log` under RLS (an Admin never gets `client_private` entries); the close reason is shown to `clients.manage` only until the open question on it is settled (PROGRESS).
 
 ## 2. Visibility rules (RLS)
 

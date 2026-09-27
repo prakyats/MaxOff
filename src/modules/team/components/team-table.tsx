@@ -2,7 +2,7 @@
 
 import type { ColumnDef } from "@tanstack/react-table";
 import { MoreHorizontalIcon, PencilIcon, UsersIcon } from "lucide-react";
-import { useMemo } from "react";
+import { type MouseEvent, useMemo } from "react";
 
 import { formatIST } from "@/core/time";
 import { DataTable, type MobileCard } from "@/core/ui/composites/data-table";
@@ -30,6 +30,12 @@ import {
 } from "../domain/members";
 
 import { useMemberDialogs } from "./use-member-dialogs";
+
+/** Edit on the person's page, unless the link is opening in another tab (3.4 review). */
+function editOnArrival(event: MouseEvent, memberId: string): void {
+  if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+  requestEdit(memberEditKey(memberId));
+}
 
 /**
  * The team list (PERMISSIONS §2: Admins see no email). Every person opens their page
@@ -133,7 +139,7 @@ export function TeamTable({
                       {/* The menu's entry is backed out first, then the page is pushed (§14.2 a). */}
                       <OverlayLink
                         href={`/people/${member.id}`}
-                        onClick={() => requestEdit(memberEditKey(member.id))}
+                        onClick={(event) => editOnArrival(event, member.id)}
                       >
                         Edit
                       </OverlayLink>
@@ -226,7 +232,7 @@ export function TeamTable({
               <Button variant="secondary" className="w-full" asChild>
                 <OverlayLink
                   href={`/people/${member.id}`}
-                  onClick={() => requestEdit(memberEditKey(member.id))}
+                  onClick={(event) => editOnArrival(event, member.id)}
                 >
                   <PencilIcon aria-hidden />
                   Edit
