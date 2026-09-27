@@ -352,6 +352,59 @@ export type Database = {
           },
         ];
       };
+      client_close_reasons: {
+        Row: {
+          activity_id: number;
+          client_id: string;
+          created_at: string;
+          org_id: string;
+          reason: string;
+        };
+        Insert: {
+          activity_id: number;
+          client_id: string;
+          created_at?: string;
+          org_id: string;
+          reason: string;
+        };
+        Update: {
+          activity_id?: number;
+          client_id?: string;
+          created_at?: string;
+          org_id?: string;
+          reason?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "client_close_reasons_activity_id_fkey";
+            columns: ["activity_id"];
+            isOneToOne: true;
+            referencedRelation: "activity_log";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "client_close_reasons_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: false;
+            referencedRelation: "client_labels";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "client_close_reasons_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: false;
+            referencedRelation: "clients";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "client_close_reasons_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       client_contacts: {
         Row: {
           archived_at: string | null;

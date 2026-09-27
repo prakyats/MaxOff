@@ -346,8 +346,10 @@ select is(public.client_pause(pg_temp.fx('client_a')), 'paused'::public.client_s
 select is(public.client_close(pg_temp.fx('client_a'), 'Moved to another agency'), 'inactive'::public.client_state,
   'paused → inactive');
 select is(
-  (select meta ->> 'reason' from public.activity_log where entity = 'clients' and entity_id = pg_temp.fx('client_a') and action = 'closed'),
-  'Moved to another agency', 'the close reason is kept in the activity log');
+  (select r.reason from public.client_close_reasons r
+   join public.activity_log l on l.id = r.activity_id
+   where l.entity = 'clients' and l.entity_id = pg_temp.fx('client_a') and l.action = 'closed'),
+  'Moved to another agency', 'the close reason is kept with its activity entry, Owner-only (phase 3 review)');
 select throws_ok($$ select public.client_close(pg_temp.fx('client_a')) $$, 'P0001', 'INVALID_STATE',
   'an inactive client cannot be closed again');
 select throws_ok($$ select public.client_pause(pg_temp.fx('client_a')) $$, 'P0001', 'INVALID_STATE',

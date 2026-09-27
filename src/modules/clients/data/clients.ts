@@ -296,18 +296,36 @@ export async function setLogo(clientId: string, logoFileId: string | null): Prom
 
 /**
  * A client's audit trail (3.4): the client row, its brand, its contacts and, for the Owner, its
- * private notes (RLS answers the rest: an Admin never reads `client_private` entries).
+ * private notes and close reasons (RLS answers the rest: an Admin never reads `client_private`
+ * entries or `client_close_reasons`, so a closed entry reaches them without its reason).
  */
 export async function listClientActivity(
   clientId: string,
   contactIds: readonly string[],
 ): Promise<ActivityEntry[]> {
-  return listActivity([
+  const entries = await listActivity([
     { entity: "clients", ids: [clientId] },
     { entity: "client_brand", ids: [clientId] },
     { entity: "client_private", ids: [clientId] },
     { entity: "client_contacts", ids: contactIds },
   ]);
+  const closed = entries.filter((entry) => entry.entity === "clients" && entry.action === "closed");
+  if (closed.length === 0) return entries;
+
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase
+    .from("client_close_reasons")
+    .select("activity_id, reason")
+    .in(
+      "activity_id",
+      closed.map((entry) => entry.id),
+    );
+  if (error) throw error;
+  const reasons = new Map(data.map((row) => [row.activity_id, row.reason]));
+  return entries.map((entry) => {
+    const reason = reasons.get(entry.id);
+    return reason === undefined ? entry : { ...entry, meta: { ...entry.meta, reason } };
+  });
 }
 
 export async function listAdminAssignments(clientId: string): Promise<ClientAdminAssignment[]> {

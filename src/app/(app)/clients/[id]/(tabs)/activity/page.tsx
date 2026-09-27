@@ -14,8 +14,8 @@ export const metadata: Metadata = { title: "Activity" };
 /**
  * A client's history (3.4, PRODUCT §4.4 "Activity"): the latest changes to the client, its
  * brand, its contacts and (for the Owner) its private notes, newest first, one sentence each,
- * read from the audit log under RLS. The close reason shows to the Owner only until the open
- * question on its visibility is settled (PROGRESS "Open questions").
+ * read from the audit log under RLS. The close reason is the Owner's: it lives in an Owner-only
+ * table, and the view shows it to clients.manage only.
  */
 export default async function ClientActivityPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

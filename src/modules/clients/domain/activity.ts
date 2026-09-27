@@ -25,7 +25,7 @@ export type ActivityLine = {
   at: string;
   actor: string;
   text: string;
-  /** A second line: the Owner's close reason (shown to the Owner only, see PROGRESS). */
+  /** A second line: the Owner's close reason (shown to the Owner only). */
   note?: string;
 };
 
@@ -34,7 +34,7 @@ export type ActivityContext = {
   names: Readonly<Record<string, string>>;
   /** Contact names by id, archived ones included. */
   contacts: Readonly<Record<string, string>>;
-  /** The close reason is the Owner's note until the open question is settled (PROGRESS). */
+  /** The close reason is the Owner's (Owner-only in the database too, phase 3 review). */
   showCloseReason: boolean;
 };
 

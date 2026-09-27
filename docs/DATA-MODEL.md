@@ -490,6 +490,12 @@ client_private       client_id pk, owner_notes, created_at, updated_at   -- Owne
                      -- 3.1: one row per client, created by trigger with the client; single policy
                      -- clients.private_notes for select and update. Its activity_log entries are
                      -- readable by activity.view_all only (never an Admin).
+client_close_reasons activity_id pk → activity_log(id), org_id, client_id, reason, created_at
+                     -- Owner-only table (phase 3 review, 2026-09-27): the optional reason given to
+                     -- client_close(), one row per 'closed' activity entry that had one. The entry's
+                     -- meta carries only from_state, so the client's Admin (who reads the entry under
+                     -- activity_log_select_clients) never reads the reason. Written only by
+                     -- client_close(); select for clients.manage; no API write. Never rewritten.
 client_admin_assignments  id, client_id, admin_id, assigned_by, from_at, to_at null, created_at
                      -- 3.1: history, never rewritten; unique partial (client_id) where to_at is null.
                      -- Written only by client_assign_admin() (and the clients insert trigger for an
