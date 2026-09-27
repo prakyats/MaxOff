@@ -65,14 +65,17 @@ jobs:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: pnpm build:worker
 
+      # Staging is shared with the phase branches (preview.yml applies a `phase-*` branch's
+      # migrations to it on every push), so mid-phase staging is usually *ahead* of `main` and a
+      # blind `db push` refuses. The script lists first and pushes only what main adds; when
+      # main adds a migration while staging is ahead it fails loudly naming both sets (owner
+      # decision 2026-09-27; the script's header has the decision table and the dry run).
       - name: Apply migrations to the staging database
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
           SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
-        run: |
-          pnpm supabase link --project-ref "$SUPABASE_PROJECT_REF"
-          pnpm supabase db push
+        run: bash scripts/staging-migrations.sh
 
       # The Worker secrets travel with the code, in the same version (`wrangler deploy
       # --secrets-file`, additive: a secret left out of the file keeps its current value).
