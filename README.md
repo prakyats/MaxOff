@@ -432,9 +432,24 @@ read and write on it, and sets the bucket's CORS to allow `PUT` from the app's o
 Worker URL, later the custom domain) with `ETag` exposed. The GitHub environment then holds
 `R2_ACCOUNT_ID` and `R2_BUCKET` (variables) and `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` and
 `CRON_SECRET` (secrets); the deploy workflow maps them onto the `S3_*` names as Worker
-secrets, with `S3_ENDPOINT = https://<R2_ACCOUNT_ID>.r2.cloudflarestorage.com` and
-`S3_REGION = auto`. `storage_cleanup` runs daily from the Worker's cron trigger
-(`wrangler.jsonc`, `worker/index.js` → `/api/cron/storage-cleanup` with `CRON_SECRET`).
+secrets (all five in the deploy's secrets file, nothing in `vars`), with
+`S3_ENDPOINT = https://<R2_ACCOUNT_ID>.r2.cloudflarestorage.com` and `S3_REGION = auto`. A
+branch preview (`wrangler versions upload`) keeps the staging Worker's secrets, so previews
+upload to the staging bucket. `storage_cleanup` runs daily from the Worker's cron trigger
+(`wrangler.jsonc` `triggers.crons` in every environment, `worker/index.js` →
+`/api/cron/storage-cleanup` with `CRON_SECRET`); `wrangler.jsonc`'s `main` is
+`worker/index.js`, which re-exports OpenNext's handler and adds `scheduled`.
+
+**Staging is set up (owner, 2026-09-27):** bucket `maxoff-files-staging` (APAC, private), an
+API token scoped to that bucket, CORS with origins
+`https://maxoff-staging.pixoraclips.workers.dev` and the wildcard
+`https://*-maxoff-staging.pixoraclips.workers.dev` (R2 accepts it, so every branch preview can
+upload directly), methods `GET`, `PUT`, `HEAD`, allowed headers `content-type`, `content-md5`,
+`x-amz-*`, `ExposeHeaders: ETag`. The `staging` GitHub environment holds the secrets
+`R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `CRON_SECRET` and the variables `R2_ACCOUNT_ID`,
+`R2_BUCKET`. The production bucket exists; its token, CORS and GitHub secrets wait for the
+production domain. `deploy.yml` still has to map these names into the secrets file (see
+PROGRESS → "Things the next session must know").
 
 ## Architecture rules that lint enforces
 

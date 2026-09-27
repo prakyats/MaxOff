@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import { APP_ENVS } from "@/core/observability/env";
 
 import {
+  FILE_ROUTE_CSP,
+  FILE_ROUTE_SOURCE,
   NOINDEX_HEADER,
   ROBOTS_DISALLOW_ALL,
   SECURITY_HEADERS,
@@ -39,6 +41,15 @@ describe("responseHeaders", () => {
         expect(responseHeaders(env)).toContainEqual(header);
       }
     }
+  });
+
+  it("sandboxes what /api/files serves and still forbids framing (3.3)", () => {
+    expect(FILE_ROUTE_SOURCE).toBe("/api/files/:path*");
+    expect(FILE_ROUTE_CSP.key).toBe("Content-Security-Policy");
+    for (const directive of ["default-src 'none'", "sandbox", "frame-ancestors 'none'"]) {
+      expect(FILE_ROUTE_CSP.value).toContain(directive);
+    }
+    expect(FILE_ROUTE_CSP.value).not.toMatch(/script-src|img-src|connect-src/);
   });
 
   it("robots.txt on staging disallows everything", () => {

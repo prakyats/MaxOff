@@ -34,6 +34,13 @@ const keys = (info: TestInfo) => ({
 const clientName = (info: TestInfo) => `Custom Fields Co (${info.project.name})`;
 
 const addDialog = (page: Page) => page.getByRole("dialog", { name: "Add a field" });
+
+/**
+ * The newest "Field added" toast. A test adds several fields in a row, and a toast lives longer
+ * than the steps between two adds, so two can be on screen at once (CI run 36290240327);
+ * Sonner prepends new toasts, so the first match is the one this add raised.
+ */
+const addedToast = (page: Page) => page.getByText("Field added", { exact: true }).first();
 /** The entity tabs, apart from the sidebar's own "Clients" link. */
 const tabs = (page: Page) => page.getByRole("navigation", { name: "Field entity" });
 const row = (page: Page, key: string) =>
@@ -76,7 +83,7 @@ test.describe("Owner", () => {
       .fill(`Industry ${suffix(info)}`);
     await expect(addDialog(page).getByLabel("Key")).toHaveValue(k.industry);
     await addDialog(page).getByRole("button", { name: "Add field" }).click();
-    await expect(page.getByText("Field added")).toBeVisible();
+    await expect(addedToast(page)).toBeVisible();
     await expect(row(page, k.industry)).toContainText(`Industry ${suffix(info)}`);
     await expect(row(page, k.industry)).toContainText("Text");
 
@@ -101,7 +108,7 @@ test.describe("Owner", () => {
     await expect(addDialog(page)).toContainText("Add at least one option");
     await addDialog(page).getByLabel("Options").fill("Gold\ng2 | Silver");
     await addDialog(page).getByRole("button", { name: "Add field" }).click();
-    await expect(page.getByText("Field added")).toBeVisible();
+    await expect(addedToast(page)).toBeVisible();
     await expect(row(page, k.tier)).toContainText("Choice");
 
     // Edit: the key is fixed, the label moves.
@@ -139,7 +146,7 @@ test.describe("Owner", () => {
       .getByLabel("Label")
       .fill(`PO number ${suffix(info)}`);
     await addDialog(page).getByRole("button", { name: "Add field" }).click();
-    await expect(page.getByText("Field added")).toBeVisible();
+    await expect(addedToast(page)).toBeVisible();
     await expect(row(page, k.po)).toBeVisible();
     await tabs(page).getByRole("link", { name: "Clients", exact: true }).click();
     await expect(row(page, k.po)).toHaveCount(0);
@@ -202,7 +209,7 @@ test.describe("Admin", () => {
     await addDialog(page).getByLabel("Type").click();
     await page.getByRole("option", { name: "Number", exact: true }).click();
     await addDialog(page).getByRole("button", { name: "Add field" }).click();
-    await expect(page.getByText("Field added")).toBeVisible();
+    await expect(addedToast(page)).toBeVisible();
     const group = page.locator('[data-slot="field-group"]', {
       hasText: `${clientName(info)} only`,
     });

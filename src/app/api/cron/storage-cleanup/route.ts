@@ -50,5 +50,5 @@ async function run(request: Request): Promise<Response> {
   }
 }
 
+/** POST only: a job that deletes is never reachable by a safe method; the Worker POSTs. */
 export const POST = run;
-export const GET = run;

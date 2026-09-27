@@ -1,10 +1,12 @@
 -- 3.3 Files: the files table for every role (allowed and denied), app.file_visible() for the
 -- company logo, an avatar, a client logo and a preview, the reference guards on the consumers,
 -- the replace trigger, member_directory's new column, the status functions on every path and
--- the service-only cleanup functions.
+-- the service-only cleanup functions. The 3A review additions (migration 20260927065451): the
+-- activity policy per role, the preview's archive audit, a client logo replacement, file_fail by
+-- the wrong actor, and a failed upload as a cleanup candidate.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(65);
+select plan(78);
 
 delete from public.attendance_events;
 delete from public.attendance_days;
@@ -39,7 +41,8 @@ insert into fx values
   ('svg',      '00000000-0000-4000-8000-0000000000e4'),
   ('clogo',    '00000000-0000-4000-8000-0000000000e5'),
   ('logo2',    '00000000-0000-4000-8000-0000000000e6'),
-  ('stale',    '00000000-0000-4000-8000-0000000000e7');
+  ('stale',    '00000000-0000-4000-8000-0000000000e7'),
+  ('clogo2',   '00000000-0000-4000-8000-0000000000e8');
 insert into fx select 'org', id from public.organizations limit 1;
 grant select on fx to authenticated, anon, service_role;
 
@@ -228,6 +231,9 @@ select results_eq(
 select ok(
   exists (select 1 from public.activity_log where entity = 'files' and entity_id = pg_temp.fx('logo') and action = 'archived'),
   'the archive is audited');
+select ok(
+  exists (select 1 from public.activity_log where entity = 'files' and entity_id = pg_temp.fx('logo_prev') and action = 'archived'),
+  'the preview''s archive is audited as archived too (3A review)');
 select pg_temp.as_member('staff');
 select is((select count(*) from public.files where id = pg_temp.fx('logo')), 0::bigint,
   'the replaced logo is no longer anyone''s to see but its uploader''s');
@@ -250,12 +256,45 @@ select pg_temp.as_member('staff');
 select is((select count(*) from public.files where id = pg_temp.fx('clogo')), 0::bigint,
   'Staff do not until a task carries the label (4.1)');
 
+-- The activity policy follows app.file_visible() (3A review) ------------------------------------
+select ok((select count(*) from public.activity_log where entity = 'files' and entity_id = pg_temp.fx('logo2')) > 0,
+  'Staff read the company logo''s activity');
+select is((select count(*) from public.activity_log where entity = 'files' and entity_id = pg_temp.fx('clogo')), 0::bigint,
+  'Staff read nothing of a client logo');
+select pg_temp.as_member('admin2');
+select is((select count(*) from public.activity_log where entity = 'files' and entity_id = pg_temp.fx('clogo')), 0::bigint,
+  'nor does another Admin');
+select pg_temp.as_member('admin');
+select ok((select count(*) from public.activity_log where entity = 'files' and entity_id = pg_temp.fx('clogo')) > 0,
+  'the client''s Admin reads its logo''s activity');
+
+-- Replacing a client logo archives the previous one too (3A review) ----------------------------
+select lives_ok(
+  $$ insert into public.files (id, storage_key, name, mime, size_bytes)
+     values (pg_temp.fx('clogo2'), 'org/2026/09/clogo2/c2.png', 'c2.png', 'image/png', 60) $$,
+  'the Admin uploads a second client logo');
+select lives_ok($$ select public.file_complete(pg_temp.fx('clogo2'), 60) $$, 'and completes it');
+select lives_ok(
+  $$ update public.client_brand set logo_file_id = pg_temp.fx('clogo2') where client_id = pg_temp.fx('client_a') $$,
+  'and replaces the client logo (the guard resolves the organization through the client)');
+select results_eq(
+  $$ select id, archived_at is not null from public.files where id in (pg_temp.fx('clogo'), pg_temp.fx('clogo2')) order by name $$,
+  $$ values (pg_temp.fx('clogo'), true), (pg_temp.fx('clogo2'), false) $$,
+  'the previous client logo is archived; the new one is live');
+select ok(
+  exists (select 1 from public.activity_log where entity = 'files' and entity_id = pg_temp.fx('clogo') and action = 'archived'),
+  'audited as archived');
+
 -- Failing and the cleanup job --------------------------------------------------------------------
 select pg_temp.as_member('staff');
 select lives_ok(
   $$ insert into public.files (id, storage_key, name, mime, size_bytes, created_at)
      values (pg_temp.fx('stale'), 'org/2026/09/stale/x.png', 'x.png', 'image/png', 10, now()) $$,
   'an upload that will be abandoned');
+select pg_temp.as_member('staff2');
+select throws_ok($$ select public.file_fail(pg_temp.fx('stale')) $$, 'P0001', 'NOT_FOUND',
+  'someone else cannot fail the upload (and does not learn it exists)');
+select pg_temp.as_member('staff');
 select is(public.file_fail(pg_temp.fx('stale')), 'failed', 'pending → failed');
 select throws_ok($$ select public.file_mark_deleted(pg_temp.fx('stale')) $$, '42501', null,
   'the API role cannot mark a file deleted');
@@ -263,14 +302,19 @@ select pg_temp.as_system();
 set local role service_role;
 select results_eq(
   $$ select id from public.file_cleanup_candidates(now(), now() - interval '1 second') order by name $$,
-  $$ values (pg_temp.fx('logo_prev')), (pg_temp.fx('logo')) $$,
+  $$ values (pg_temp.fx('clogo')), (pg_temp.fx('logo_prev')), (pg_temp.fx('logo')) $$,
   'archived rows are candidates once the threshold has passed; a failed row waits for its pending window');
+select results_eq(
+  $$ select id from public.file_cleanup_candidates(now() - interval '31 days', now()) $$,
+  $$ values (pg_temp.fx('stale')) $$,
+  'a failed upload is a candidate once its pending window has passed (3A review)');
 select is((select count(*) from public.file_cleanup_candidates(now() - interval '31 days', now() - interval '25 hours')), 0::bigint,
   'nothing is old enough with the real thresholds');
 select is(public.file_mark_deleted(pg_temp.fx('logo')), 'deleted', 'the job marks the object gone');
 select is(public.file_mark_deleted(pg_temp.fx('logo')), 'deleted', 'idempotent');
-select is((select count(*) from public.file_cleanup_candidates(now(), now())), 1::bigint,
-  'a deleted row is never a candidate again (the preview still is)');
+select is((select count(*) from public.file_cleanup_candidates(now(), now())), 3::bigint,
+  'a deleted row is never a candidate again (the preview, the client logo and the failed upload still are)');
+select is(public.file_mark_deleted(pg_temp.fx('stale')), 'deleted', 'a failed upload''s object goes the same way');
 select is((select status from public.files where id = pg_temp.fx('logo')), 'deleted', 'the row stays, as deleted');
 select pg_temp.as_system();
 set local role anon;

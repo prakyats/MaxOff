@@ -12,8 +12,8 @@
   "main": "worker/index.js",
   // Cron triggers (ARCHITECTURE §11, WORKFLOWS §8 "worker" jobs): each expression is mapped
   // to its `/api/cron/<job>` route in `worker/index.js`; the route checks CRON_SECRET (a
-  // Worker secret). Inheritable: every environment runs them unless it overrides `triggers`.
-  // storage_cleanup: 03:00 IST = 21:30 UTC, daily.
+  // Worker secret). Inheritable, and repeated in each environment on purpose so the schedule
+  // is read where the environment is read. storage_cleanup: 03:00 IST = 21:30 UTC, daily.
   "triggers": { "crons": ["30 21 * * *"] },
   // 2025-08-16 or later: introduces `https.request`, which the Sentry SDK needs.
   "compatibility_date": "2026-09-01",
@@ -48,6 +48,7 @@
       "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "maxoff" }],
       "observability": { "enabled": true },
       "preview_urls": false,
+      "triggers": { "crons": ["30 21 * * *"] },
     },
   },
 }

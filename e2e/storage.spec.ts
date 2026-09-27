@@ -93,7 +93,7 @@ test.describe("Owner: the company logo", () => {
     const fileId = await fileIdFrom((await logo.getAttribute("src")) ?? "");
 
     // The preview (a browser-made JPEG) is what the route serves; the original SVG comes back
-    // sanitised and never inline.
+    // sanitised, sandboxed and as an attachment (never inline on a direct visit).
     const preview = await page.request.get(`/api/files/${fileId}?variant=preview`);
     expect(preview.status()).toBe(200);
     expect(preview.headers()["content-type"]).toBe("image/jpeg");
@@ -102,6 +102,7 @@ test.describe("Owner: the company logo", () => {
     expect(original.status()).toBe(200);
     expect(original.headers()["content-type"]).toBe("image/svg+xml");
     expect(original.headers()["content-security-policy"]).toContain("sandbox");
+    expect(original.headers()["content-disposition"]).toMatch(/^attachment/);
     const body = await original.text();
     expect(body).not.toContain("script");
     expect(body).toContain('fill="#e11d48"');
@@ -217,6 +218,8 @@ test.describe("storage_cleanup (the cron route)", () => {
     page,
   }, info) => {
     expect((await page.request.post("/api/cron/storage-cleanup")).status()).toBe(401);
+    // A safe method never runs a job that deletes.
+    expect((await page.request.get("/api/cron/storage-cleanup")).status()).toBe(405);
     expect(
       (
         await page.request.post("/api/cron/storage-cleanup", {

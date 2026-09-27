@@ -613,7 +613,7 @@ files                id, org_id, storage_key, name, mime, size_bytes, sha256 nul
                      -- 'deleted' = the R2 object was removed by retention; the row stays
                      -- kickoff 3 (3.3): logos and avatars ≤ 5 MB (logo PNG/JPEG/WebP/SVG, avatar no
                      -- SVG); replacing archives the old row; storage_cleanup deletes objects of rows
-                     -- archived 30 days ago and of pending rows older than 24 h. Served to the browser
+                     -- archived 30 days ago and of pending or failed rows older than 24 h. Served to the browser
                      -- through /api/files/<id> (permission-checked, Cache-Control: private) for
                      -- previews; presigned GET (5 min) for downloads. Local and e2e use MinIO
                      -- 3.3 as built: status and archived_at are protected columns. A member inserts their
@@ -623,6 +623,10 @@ files                id, org_id, storage_key, name, mime, size_bytes, sha256 nul
                      -- deleted. app.file_visible(id): the uploader; any member for the company logo; team.view
                      -- or the person for an avatar; app.client_visible or a label row for a client logo; a
                      -- preview follows its original. storage_key = <org>/<yyyy>/<mm>/<file id>/<name>. Audited.
+                     -- 3A review: file_cleanup_candidates also returns failed rows past the pending window
+                     -- (a browser that gave up after the PUT left an object); files_archive_replaced audits
+                     -- each archived row (original and previews) as 'archived'; files_reference_guard
+                     -- resolves client_brand's org through clients.
 notifications        id, recipient_id, kind, title, body, link, entity, entity_id, payload jsonb,
                      created_at, read_at null, escalation_level int
 notification_deliveries  id, notification_id, channel ('push'|'email'), state ('queued'|'sent'|'failed'),

@@ -200,6 +200,7 @@ export type DownloadUrlInput = z.input<typeof downloadSchema>;
 export const getDownloadUrl = action(
   async (input: DownloadUrlInput): Promise<Result<{ url: string; name: string }>> => {
     const { fileId } = downloadSchema.parse(input);
+    if (!(await getCurrentMember())) throw new AppError("UNAUTHENTICATED");
     const file = await getFile(fileId);
     if (!file || file.status !== "ready")
       throw new AppError("NOT_FOUND", "This file is not available.");
