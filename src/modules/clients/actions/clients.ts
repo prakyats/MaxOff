@@ -26,8 +26,6 @@ import {
   setClientLogoSchema,
   type UpdateBrandInput,
   updateBrandSchema,
-  type UpdateBrandTextInput,
-  updateBrandTextSchema,
   type UpdateClientInput,
   updateClientSchema,
   type UpdateContactInput,
@@ -278,25 +276,6 @@ export const updateBrand = action(async (input: UpdateBrandInput): Promise<Resul
   revalidateClients();
   return ok(null);
 });
-
-/**
- * The brand as the edit pattern types it (3.4): colours and fonts one per line, parsed on the
- * server again (`updateBrandTextSchema`), so a bad line comes back as the field's message.
- */
-export const updateBrandText = action(
-  async (input: UpdateBrandTextInput): Promise<Result<null>> => {
-    const data = updateBrandTextSchema.parse(input);
-    await assertPermission("clients.edit_assigned");
-    await repo.updateBrand(data.clientId, {
-      colors: data.colors,
-      fonts: data.fonts,
-      tone_of_voice: data.toneOfVoice,
-      brand_notes: data.brandNotes,
-    });
-    revalidateClients();
-    return ok(null);
-  },
-);
 
 /**
  * The client's logo (3.3 mechanics, 3.4 screen): a plain column update. The guard trigger

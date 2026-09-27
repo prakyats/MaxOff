@@ -13,8 +13,8 @@ import { loadPeople } from "../[id]/client";
 export const metadata: Metadata = { title: "Clients" };
 
 /**
- * The client list (3.4, PRODUCT §4.4): the Owner sees every client, opening on Active, with
- * "New client" and the lifecycle behind ⋯; an Admin sees their assigned clients. Staff never
+ * The client list (3.4, PRODUCT §4.4), opening on Active for everyone: the Owner sees every
+ * client, with "New client" and the lifecycle behind ⋯; an Admin sees their assigned clients. Staff never
  * reach it. In the `(list)` route group so its skeleton never wraps a client (the 2.9 rule).
  */
 export default async function ClientsPage() {

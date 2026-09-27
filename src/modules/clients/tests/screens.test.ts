@@ -2,46 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import { type ActivityEntry, describeClientActivity, joinNouns } from "../domain/activity";
 import { clientMenuMoves } from "../domain/clients";
-import { colorLines, fontLines, parseColorLines, parseFontLines } from "../domain/brand-lines";
-
-describe("brand lines (3.4)", () => {
-  it("reads colours as a name and a hex, in any common separator", () => {
-    expect(parseColorLines("Primary #e11d48\nAccent: #111111\n\n#00FF00", 12)).toEqual({
-      ok: true,
-      value: [
-        { name: "Primary", hex: "#E11D48" },
-        { name: "Accent", hex: "#111111" },
-        { name: "#00FF00", hex: "#00FF00" },
-      ],
-    });
-  });
-
-  it("refuses a line with no hex, and too many colours", () => {
-    expect(parseColorLines("Primary red", 12)).toMatchObject({ ok: false });
-    expect(parseColorLines("#111111\n#222222", 1)).toEqual({
-      ok: false,
-      error: "Up to 1 colours.",
-    });
-  });
-
-  it("round-trips colours and fonts", () => {
-    const colors = [{ name: "Primary", hex: "#E11D48" }];
-    expect(parseColorLines(colorLines(colors), 12)).toEqual({ ok: true, value: colors });
-    const fonts = [
-      { family: "Inter", usage: "Headings" },
-      { family: "Lora", usage: null },
-    ];
-    expect(fontLines(fonts)).toBe("Inter: Headings\nLora");
-    expect(parseFontLines(fontLines(fonts), 6)).toEqual({
-      ok: true,
-      value: [{ family: "Inter", usage: "Headings" }, { family: "Lora" }],
-    });
-  });
-
-  it("refuses a font line with nothing before the colon", () => {
-    expect(parseFontLines(": body", 6)).toMatchObject({ ok: false });
-  });
-});
 
 function entry(overrides: Partial<ActivityEntry>): ActivityEntry {
   return {

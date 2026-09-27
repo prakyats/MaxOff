@@ -8,6 +8,7 @@ import {
   removeClientFixture,
   serviceInsert,
   serviceSelect,
+  serviceUpdate,
   storageStateFor,
   USERS,
 } from "./helpers";
@@ -658,6 +659,14 @@ test.describe("record screens meet the mobile standard (3.4)", () => {
       designation: "Marketing head",
       phone: "98450 54321",
     });
+    // A brand with a swatch list and a font list (3B review), so both lists are swept.
+    await serviceUpdate(`client_brand?client_id=eq.${client.id}`, {
+      colors: [
+        { name: "Primary", hex: "#E11D48" },
+        { name: "A rather long colour name for the brand", hex: "#111111" },
+      ],
+      fonts: [{ family: "Inter", usage: "Headings and the body text of every post" }],
+    });
     const staff = await memberIdOf(USERS.staff.email);
     return [
       `/people/${staff}`,
@@ -672,7 +681,8 @@ test.describe("record screens meet the mobile standard (3.4)", () => {
   test("no sideways scroll, 44px targets, 16px inputs, and large text fits", async ({
     page,
   }, info) => {
-    for (const path of await recordPaths(info.project.name)) {
+    const paths = await recordPaths(info.project.name);
+    for (const path of paths) {
       await page.goto(path);
       await expect(pageHeader(page)).toBeVisible();
       await page.waitForLoadState("networkidle");
@@ -686,6 +696,22 @@ test.describe("record screens meet the mobile standard (3.4)", () => {
         await expectNoHorizontalScroll(page);
         await expectReadableTruncation(page);
       }
+    }
+
+    // The brand's swatch and font editor (3B review), in edit mode, at 100/130/200%.
+    await page.goto(paths.find((path) => path.endsWith("/brand"))!);
+    await expect(pageHeader(page)).toBeVisible();
+    await page.waitForLoadState("networkidle");
+    await page.locator('[data-slot="edit-record"]').click();
+    await expect(page.getByLabel("Colour 2 hex", { exact: true })).toBeVisible();
+    await expectNoHorizontalScroll(page);
+    await expectTouchTargets(page);
+    await expectNoZoomOnFocus(page);
+    for (const scale of [130, 200]) {
+      await page.evaluate((percent) => {
+        document.documentElement.style.fontSize = `${percent}%`;
+      }, scale);
+      await expectNoHorizontalScroll(page);
     }
   });
 });

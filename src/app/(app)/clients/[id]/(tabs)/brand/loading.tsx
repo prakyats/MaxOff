@@ -3,8 +3,8 @@ import { Skeleton } from "@/core/ui/primitives/skeleton";
 
 /**
  * A client's Brand (3.4) under the painted header and tabs: the logo card (the tile, two lines
- * and the upload button), then the Brand record's heading with Edit and its four rows (colours,
- * fonts, tone of voice, notes).
+ * and the upload button), then the Brand record's heading with Edit, the swatch rows (a chip, a
+ * name, the hex), a font with its note, tone of voice and notes.
  */
 export default function Loading() {
   return (
@@ -33,7 +33,24 @@ export default function Loading() {
             <Skeleton className="h-4 w-14" />
             <Skeleton className="h-9 w-20 rounded-lg" />
           </div>
-          {[0, 1, 2, 3].map((row) => (
+          {/* Colours: the label and swatch rows (chip, name, hex). */}
+          <div className="flex flex-col">
+            <Skeleton className="h-3.5 w-16" />
+            {[0, 1].map((row) => (
+              <div key={row} className="flex min-h-12 items-center gap-3 py-1.5">
+                <Skeleton className="size-8 rounded-md" />
+                <Skeleton className="h-4 flex-1" />
+                <Skeleton className="h-4 w-16" />
+              </div>
+            ))}
+          </div>
+          {/* Fonts: the label and a name with its note. */}
+          <div className="flex flex-col gap-1.5">
+            <Skeleton className="h-3.5 w-12" />
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="h-4 w-20" />
+          </div>
+          {[0, 1].map((row) => (
             <div key={row} className="flex flex-col gap-1.5">
               <Skeleton className="h-3.5 w-24" />
               <Skeleton className="h-4 w-52" />

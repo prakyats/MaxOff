@@ -265,26 +265,69 @@ test.describe("the Owner", () => {
     await expect(rows.filter({ hasText: "Meera Rao" })).toContainText("Archived");
   });
 
-  test("the brand: colours as swatches, and a logo the list shows", async ({ page }, info) => {
+  test("the brand: a swatch list and a font list, and a logo the list shows", async ({
+    page,
+    context,
+  }, info) => {
     const name = nameOf(info, "Brand");
     const id = await seedClient(name);
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     await page.goto(`/clients/${id}/brand`);
     await expect(pageHeader(page)).toContainText(name);
     await hydrated(page);
 
     const brand = record(page, "Brand");
+    await expect(brand).toContainText("No colours yet");
     await brand.locator('[data-slot="edit-record"]').click();
-    await page.getByLabel("Colours").fill("Primary #e11d48\nno colour here");
+    await brand.getByRole("button", { name: "Add colour" }).click();
+    await page.getByLabel("Colour 1 name", { exact: true }).fill("Primary");
+    // The hex field takes what is typed or pasted as # and six upper-case digits.
+    await page.getByLabel("Colour 1 hex", { exact: true }).fill("e11d48");
+    await expect(page.getByLabel("Colour 1 hex", { exact: true })).toHaveValue("#E11D48");
+    await brand.getByRole("button", { name: "Add colour" }).click();
+    await page.getByLabel("Colour 2 hex", { exact: true }).fill("#11");
     await brand.locator('[data-slot="save-record"]').click();
     await confirmation(page).getByRole("button", { name: "Save" }).click();
-    await expect(brand).toContainText('"no colour here" has no colour');
-    await page.getByLabel("Colours").fill("Primary #e11d48\nInk #111111");
-    await page.getByLabel("Fonts").fill("Inter: headings");
+    // Each refusal sits under its own row.
+    const second = brand.locator('[data-slot="brand-color-row"]').nth(1);
+    await expect(second).toContainText("Name the colour.");
+    await expect(second).toContainText("A colour is a 6-digit hex value like #E11D48.");
+
+    await page.getByLabel("Colour 2 name", { exact: true }).fill("Ink");
+    await page.getByLabel("Colour 2 hex", { exact: true }).fill("111111");
+    await brand.getByRole("button", { name: "Move colour 2 up" }).click();
+    await expect(page.getByLabel("Colour 1 name", { exact: true })).toHaveValue("Ink");
+    await brand.getByRole("button", { name: "Add font" }).click();
+    await page.getByLabel("Font 1 name", { exact: true }).fill("Inter");
+    await page.getByLabel("Font 1 note", { exact: true }).fill("headings");
     await brand.locator('[data-slot="save-record"]').click();
+    await expect(confirmation(page)).toContainText(`${name}'s colour Ink #111111 will be added.`);
+    await expect(confirmation(page)).toContainText(
+      `${name}'s colour Primary #E11D48 will be added.`,
+    );
+    await expect(confirmation(page)).toContainText(
+      `${name}'s font Inter (headings) will be added.`,
+    );
     await confirmation(page).getByRole("button", { name: "Save" }).click();
     await expect(page.getByText("Brand saved")).toBeVisible();
-    await expect(brand.locator('[data-slot="swatch"]')).toHaveCount(2);
-    await expect(brand).toContainText("Primary #E11D48");
+
+    // Read mode: a swatch per colour (chip, name, hex) in order; a tap copies the hex.
+    const swatches = brand.locator('[data-slot="brand-color"]');
+    await expect(swatches).toHaveCount(2);
+    await expect(swatches.first()).toContainText("Ink");
+    await expect(swatches.nth(1)).toContainText("#E11D48");
+    await expect(brand.locator('[data-slot="brand-font"]')).toContainText("Inter");
+    await expect(brand.locator('[data-slot="brand-font"]')).toContainText("headings");
+    await swatches.nth(1).click();
+    await expect(page.getByText("Copied #E11D48")).toBeVisible();
+
+    // A removal is named too.
+    await brand.locator('[data-slot="edit-record"]').click();
+    await brand.getByRole("button", { name: "Remove colour 1" }).click();
+    await brand.locator('[data-slot="save-record"]').click();
+    await expect(confirmation(page)).toContainText(`${name}'s colour Ink #111111 will be removed.`);
+    await confirmation(page).getByRole("button", { name: "Save" }).click();
+    await expect(swatches).toHaveCount(1);
 
     await page.getByRole("button", { name: "Add logo" }).click();
     const sheet = page.locator('[data-slot="image-upload-sheet"]');
@@ -322,7 +365,12 @@ test.describe("an Admin", () => {
     const list = page.locator(
       info.project.name === "desktop" ? "table" : '[data-slot="data-cards"]',
     );
-    // Every state by default for an Admin: the paused client is listed.
+    // An Admin's list opens on Active too (3B review): the paused client waits behind "All
+    // states"; another Admin's client never shows.
+    await expect(page.locator('[data-filter="state"]')).toHaveText("Active");
+    await expect(list).not.toContainText(mine);
+    await page.locator('[data-filter="state"]').click();
+    await page.getByRole("option", { name: "All states" }).click();
     await expect(list).toContainText(mine);
     await expect(list).not.toContainText(other);
 

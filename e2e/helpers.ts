@@ -237,6 +237,12 @@ export async function serviceInsert<T>(table: string, row: Record<string, unknow
   return body[0] as T;
 }
 
+/** Updates the rows a PostgREST filter names through `serviceRest` (a fixture's own rows only). */
+export async function serviceUpdate(path: string, patch: Record<string, unknown>): Promise<void> {
+  const response = await serviceRest(path, { method: "PATCH", body: JSON.stringify(patch) });
+  expect(response.ok, `update ${path}: ${await response.text()}`).toBe(true);
+}
+
 /** Reads rows through `serviceRest` (a PostgREST query string, e.g. `leave_requests?id=eq.…`). */
 export async function serviceSelect<T>(path: string): Promise<T[]> {
   return (await (await serviceRest(path)).json()) as T[];

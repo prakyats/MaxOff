@@ -53,10 +53,10 @@ export interface EditableField<K extends string> {
   rows?: number;
   /**
    * How read mode shows the value: plain text (default), `multiline` (line breaks kept), a
-   * `link` that opens in a new tab, an `email` or `tel` link, or `swatches` (one colour per line,
-   * each `#RRGGBB` drawn as a swatch).
+   * `link` that opens in a new tab, or an `email` or `tel` link. (A brand's colours are a
+   * structured `extra`, not a display of a string: `modules/clients` `BrandRecord`.)
    */
-  display?: "text" | "multiline" | "link" | "email" | "tel" | "swatches";
+  display?: "text" | "multiline" | "link" | "email" | "tel";
   input?: Pick<
     ComponentProps<typeof Input>,
     "type" | "autoComplete" | "inputMode" | "maxLength" | "required" | "placeholder"
@@ -78,6 +78,13 @@ export interface EditableExtra<V> {
     errors: Record<string, string[]>;
   }) => ReactNode;
   read: (value: V) => ReactNode;
+  /**
+   * The server's field-error keys this part shows itself (under its own rows); any other key a
+   * record does not show goes above the fields. Default: `customFields.*`.
+   */
+  owns?: (key: string) => boolean;
+  /** Shown before the string fields instead of after them (a brand's colours and fonts). */
+  first?: boolean;
 }
 
 type Mode = "read" | "edit" | "confirm" | "discard";
@@ -87,7 +94,7 @@ type Mode = "read" | "edit" | "confirm" | "discard";
  * explicit Save, confirm what changed, guard unsaved work.** Built once, copied everywhere a
  * record is edited (/me, a person's profile, a client, a contact, a brand).
  *
- * - **Read:** the values as plain text (a link, a phone, swatches where `display` says so) and
+ * - **Read:** the values as plain text (a link, a phone where `display` says so) and
  *   a pencil **Edit**; with `canEdit` false, just the values.
  * - **Edit:** the fields (a typed input, a textarea or a select, 3.4) and any `extra` part (a
  *   record's custom fields), and Cancel and Save in a sticky bar; Save stays disabled until a
@@ -224,7 +231,8 @@ export function EditableRecord<K extends string, V = undefined>({
     // without that part) must still be seen: it goes above the fields.
     const unshown = Object.keys(errors).find(
       (key) =>
-        !names.includes(key as K) && !(extra !== undefined && key.startsWith("customFields.")),
+        !names.includes(key as K) &&
+        !(extra !== undefined && (extra.owns ?? isCustomFieldKey)(key)),
     );
     setFormError(
       unshown !== undefined
@@ -238,7 +246,7 @@ export function EditableRecord<K extends string, V = undefined>({
     return true;
   }
 
-  const lines = [
+  const fieldLines = [
     ...changes.map((change) => {
       const field = fields.find((candidate) => candidate.name === change.name);
       return describeChange(
@@ -249,8 +257,12 @@ export function EditableRecord<K extends string, V = undefined>({
         subject,
       );
     }),
-    ...extraLines,
   ];
+  const lines = extra?.first ? [...extraLines, ...fieldLines] : [...fieldLines, ...extraLines];
+  const extraEditor =
+    extra && editing
+      ? extra.edit({ value: extraDraft as V, onChange: setExtraDraft, errors: fieldErrors })
+      : null;
 
   return (
     <section data-slot="editable-record" aria-labelledby={`${formId}-title`}>
@@ -283,6 +295,7 @@ export function EditableRecord<K extends string, V = undefined>({
           }}
         >
           {formError ? <ErrorText slot="form-alert">{formError}</ErrorText> : null}
+          {extra?.first ? extraEditor : null}
           {fields.map((field, index) => (
             <FormField
               key={field.name}
@@ -295,19 +308,13 @@ export function EditableRecord<K extends string, V = undefined>({
                   field={field}
                   control={control}
                   value={draft[field.name]}
-                  autoFocus={index === 0}
+                  autoFocus={index === 0 && !extra?.first}
                   onChange={(next) => setDraft({ ...draft, [field.name]: next })}
                 />
               )}
             </FormField>
           ))}
-          {extra
-            ? extra.edit({
-                value: extraDraft as V,
-                onChange: setExtraDraft,
-                errors: fieldErrors,
-              })
-            : null}
+          {extra?.first ? null : extraEditor}
           {/* Only while editing, so it never hangs over the rest of the page (§14.1). */}
           <StickyActions>
             <Button type="button" variant="secondary" onClick={cancel}>
@@ -325,6 +332,7 @@ export function EditableRecord<K extends string, V = undefined>({
         </form>
       ) : (
         <div className="mt-3 flex flex-col gap-3">
+          {extra?.first ? extra.read(extra.value) : null}
           <dl className="flex flex-col gap-3 text-sm">
             {fields.map((field) => (
               <div key={field.name} data-slot="record-value">
@@ -335,7 +343,7 @@ export function EditableRecord<K extends string, V = undefined>({
               </div>
             ))}
           </dl>
-          {extra ? extra.read(extra.value) : null}
+          {extra && !extra.first ? extra.read(extra.value) : null}
         </div>
       )}
 
@@ -400,6 +408,10 @@ function shown<K extends string>(field: EditableField<K>, value: string): string
 }
 
 const NONE = "__none__";
+
+function isCustomFieldKey(key: string): boolean {
+  return key.startsWith("customFields.");
+}
 
 function FieldControl<K extends string>({
   field,
@@ -469,8 +481,6 @@ function FieldControl<K extends string>({
   );
 }
 
-const HEX = /#[0-9a-fA-F]{6}\b/;
-
 function ReadValue<K extends string>({ field }: { field: EditableField<K> }) {
   const text = field.value ? shown(field, field.value) : "";
   if (!text.trim()) {
@@ -513,30 +523,6 @@ function ReadValue<K extends string>({ field }: { field: EditableField<K> }) {
         >
           {text}
         </a>
-      );
-    case "swatches":
-      return (
-        <ul className="flex flex-col gap-1.5">
-          {text
-            .split("\n")
-            .filter((line) => line.trim())
-            .map((line, index) => {
-              const hex = HEX.exec(line)?.[0];
-              return (
-                <li key={index} className="flex items-center gap-2">
-                  {hex ? (
-                    <span
-                      aria-hidden
-                      data-slot="swatch"
-                      className="border-border inline-block size-5 shrink-0 rounded-sm border"
-                      style={{ backgroundColor: hex }}
-                    />
-                  ) : null}
-                  <span>{line.trim()}</span>
-                </li>
-              );
-            })}
-        </ul>
       );
     default:
       return <>{text}</>;

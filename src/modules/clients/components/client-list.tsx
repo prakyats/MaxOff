@@ -36,9 +36,10 @@ import { type AdminOption, useClientActions } from "./use-client-actions";
 /**
  * The client list (3.4, PRODUCT §4.4, kickoff 3 decision 18): logo, name, state and Admin;
  * cards on a phone, a table from `md` up. Search by name and the state and Admin filters are
- * view controls (the URL keeps them with a replace, §14.2 d). The Owner's list opens on Active,
- * "All states" one tap away, and holds the lifecycle and the Admin behind ⋯; an Admin sees their
- * own clients, every state, and edits them on the client's page.
+ * view controls (the URL keeps them with a replace, §14.2 d). Every list opens on Active, "All
+ * states" one tap away (the Owner's by kickoff 3, an Admin's by the 3B review). The Owner's holds
+ * the lifecycle and the Admin behind ⋯; an Admin sees their own clients and edits them on the
+ * client's page.
  */
 export function ClientList({
   clients,
@@ -65,7 +66,8 @@ export function ClientList({
         { value: ALL, label: "All states" },
         ...CLIENT_STATES.map((value) => ({ value, label: CLIENT_STATE_LABELS[value] })),
       ],
-      defaultValue: canManage ? "active" : ALL,
+      // The Owner's and an Admin's list both open on Active (owner decisions 2026-09-27).
+      defaultValue: "active",
       match: matchesState,
     };
     if (!canManage) return [state];

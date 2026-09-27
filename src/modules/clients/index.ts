@@ -61,7 +61,6 @@ export {
   setClientLogo,
   setPrimaryContact,
   updateBrand,
-  updateBrandText,
   updateClient,
   updateContact,
   updateOwnerNotes,
