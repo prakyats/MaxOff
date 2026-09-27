@@ -488,6 +488,12 @@ clients              id, org_id, name, legal_name, state client_state, admin_id 
                      -- writes need clients.edit_assigned on a visible row. members trigger
                      -- client_admin_guard: an Admin who is some client's admin_id cannot stop being an
                      -- active Admin; client_hand_over(from_admin, moves jsonb) moves their clients first.
+                     -- custom_fields (and client_contacts.custom_fields) are checked by the database too
+                     -- (phase 3 review): ≤ 32 KB, and every key a write adds or changes has an active
+                     -- definition in scope and a value of its type (app.custom_field_value_ok, the same
+                     -- rules as core/custom-fields; url https only); unchanged keys pass, so an archived
+                     -- field keeps its value. client_brand.colors ≤ 12 {name, hex #RRGGBB}, fonts ≤ 6
+                     -- {family, usage?} (CHECKs app.brand_colors_ok / app.brand_fonts_ok).
                      -- Staff never read the table.
 client_private       client_id pk, owner_notes, created_at, updated_at   -- Owner-only table
                      -- 3.1: one row per client, created by trigger with the client; single policy

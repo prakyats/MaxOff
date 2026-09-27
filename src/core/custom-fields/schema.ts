@@ -100,7 +100,7 @@ export function valueSchema(definition: FieldDefinition): z.ZodType {
         .string()
         .trim()
         .max(TEXT_VALUE_MAX, "That link is too long.")
-        .refine((value) => /^https?:\/\/\S+$/.test(value), {
+        .refine((value) => /^https:\/\/\S+$/.test(value), {
           message: "Enter a full link starting with https://.",
         });
     case "email":
