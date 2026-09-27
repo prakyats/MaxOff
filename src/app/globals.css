@@ -267,13 +267,6 @@
       display: none;
     }
 
-    /* A page with a floating primary action or a sticky save bar gets room for it, so neither
-     * ever covers the last row or the last field. */
-    main:has([data-slot="page-actions"]),
-    main:has([data-slot="sticky-actions"]) {
-      padding-bottom: calc(var(--app-bottom-nav-h) + 5rem + var(--app-safe-bottom));
-    }
-
     /* No 300ms tap delay, and a tap never double-tap-zooms a control. */
     button,
     [role="button"],
@@ -513,5 +506,29 @@ html[data-nav-slide="back"] [data-slot="route"] {
   ::view-transition-old(*),
   ::view-transition-new(*) {
     animation: none !important;
+  }
+}
+
+/* A page with a floating primary action or a sticky save bar gets room for it, so neither ever
+ * covers the last row or the last field (ARCHITECTURE §14.1). In the utilities layer on purpose:
+ * the shell's `main` sets its padding with a utility class, which beats anything in `base` (the
+ * phase 3 review found this rule, then in `base`, never applied: "Job title" sat behind the bar).
+ * The save bar publishes its real height (`--app-sticky-actions-h`, StickyActions), so a taller
+ * bar (large system text, a wrapped label) still clears; a focused control scrolls above it. */
+@layer utilities {
+  @media (max-width: 767px) {
+    main:has([data-slot="page-actions"]) {
+      padding-bottom: calc(var(--app-bottom-nav-h) + 5rem + var(--app-safe-bottom));
+    }
+    main:has([data-slot="sticky-actions"]) {
+      padding-bottom: calc(
+        var(--app-bottom-nav-h) + var(--app-sticky-actions-h, 5rem) + 1rem + var(--app-safe-bottom)
+      );
+    }
+    main:has([data-slot="sticky-actions"]) :is(input, textarea, select, [role="combobox"]) {
+      scroll-margin-bottom: calc(
+        var(--app-bottom-nav-h) + var(--app-sticky-actions-h, 5rem) + 1rem + var(--app-safe-bottom)
+      );
+    }
   }
 }

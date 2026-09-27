@@ -246,6 +246,8 @@ test.describe("A member's photo", () => {
       { closes: sheet(page), url: /\/me$/ },
     ]);
     await expect(page.getByRole("button", { name: "Change photo" })).toBeVisible();
+    // Leave no photo behind: pgTAP's fixtures clear `files` before `members`.
+    await patchAs(email, PASSWORD, `members?id=eq.${memberId}`, { avatar_file_id: null });
   });
 });
 
