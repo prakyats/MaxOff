@@ -230,8 +230,10 @@ email through `core/notifications` (Resend), so GoTrue never mails an invite (ta
    the build) and source maps uploaded to Sentry when the token is present. The build comes
    first so a failed build never leaves the database ahead of the Worker.
 3. `supabase link` + `supabase db push`: applies any new append-only migrations.
-4. Uploads `SUPABASE_SECRET_KEY`, `SESSION_IP_HASH_SALT` and `DAY_GATE_COOKIE_SECRET` as Worker secrets, then
-   `wrangler deploy --env <name>`.
+4. `wrangler deploy --env <name> --secrets-file …`: the code and the Worker secrets (`SUPABASE_SECRET_KEY`,
+   plus `SESSION_IP_HASH_SALT` and `DAY_GATE_COOKIE_SECRET` when set) land in **one** deployment. They used
+   to be uploaded first with `wrangler secret`, which Cloudflare refuses (error 10215) while the Worker's
+   newest version is an undeployed branch preview — every push since task 2.0 leaves one.
 
 ### Branch previews (task 2.0)
 

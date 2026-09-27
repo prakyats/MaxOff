@@ -74,6 +74,38 @@ jobs:
           pnpm supabase link --project-ref "$SUPABASE_PROJECT_REF"
           pnpm supabase db push
 
+      # The Worker secrets travel with the code, in the same version (`wrangler deploy
+      # --secrets-file`, additive: a secret left out of the file keeps its current value).
+      # They used to go up first through `wrangler secret bulk`, which Cloudflare refuses with
+      # error 10215 whenever the Worker's newest version is not the deployed one — and since the
+      # branch previews (task 2.0) every push uploads an undeployed version of the staging
+      # Worker, so the first deploy after phase 2 failed exactly there (2026-09-27). The file
+      # lives only for the deploy step and is removed even when that step fails.
+      - name: Write the Worker secrets file
+        run: |
+          set -euo pipefail
+          if [ -z "$SUPABASE_SECRET_KEY" ]; then
+            echo '::error::SUPABASE_SECRET_KEY is not set in this environment (README → Secrets); the app cannot invite without it.'
+            exit 1
+          fi
+          # Optional ones are included only when set: without SESSION_IP_HASH_SALT
+          # session_events.ip_hash stays null, without DAY_GATE_COOKIE_SECRET the day gate asks
+          # the database on every page load (task 2.2); neither fails the deploy.
+          umask 077
+          jq -n \
+            --arg supabase "$SUPABASE_SECRET_KEY" \
+            --arg salt "$SESSION_IP_HASH_SALT" \
+            --arg gate "$DAY_GATE_COOKIE_SECRET" \
+            '{SUPABASE_SECRET_KEY: $supabase}
+             + (if $salt == "" then {} else {SESSION_IP_HASH_SALT: $salt} end)
+             + (if $gate == "" then {} else {DAY_GATE_COOKIE_SECRET: $gate} end)' \
+            >.wrangler-secrets.json
+          jq -r 'keys | "Secrets in this deployment: " + join(", ")' .wrangler-secrets.json
+        env:
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          SESSION_IP_HASH_SALT: ${{ secrets.SESSION_IP_HASH_SALT }}
+          DAY_GATE_COOKIE_SECRET: ${{ secrets.DAY_GATE_COOKIE_SECRET }}
+
       - name: Deploy to Cloudflare Workers
         id: deploy
         uses: cloudflare/wrangler-action@v3
@@ -81,39 +113,11 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           environment: staging
-          command: deploy --env staging
-          # Uploaded as Worker secrets (`wrangler secret`) before the deploy, never bundled.
-          secrets: |
-            SUPABASE_SECRET_KEY
-        env:
-          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
-      # Optional until the secret exists in the GitHub environment (README → Secrets): without
-      # it session_events.ip_hash is stored as null, and the deploy must not fail over it.
-      - name: Upload SESSION_IP_HASH_SALT
-        # `secrets` is not available in a step `if`, so the check happens inside the step.
-        run: |
-          if [ -z "$SESSION_IP_HASH_SALT" ]; then
-            echo 'SESSION_IP_HASH_SALT is not set in this environment; skipping (session_events.ip_hash stays null).'
-            exit 0
-          fi
-          printf '%s' "$SESSION_IP_HASH_SALT" | pnpm exec wrangler secret put SESSION_IP_HASH_SALT --env staging
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          SESSION_IP_HASH_SALT: ${{ secrets.SESSION_IP_HASH_SALT }}
-      # Optional as well (task 2.2): without it the day gate asks the database on every page load
-      # and the app reports that to Sentry once; the deploy must not fail over it.
-      - name: Upload DAY_GATE_COOKIE_SECRET
-        run: |
-          if [ -z "$DAY_GATE_COOKIE_SECRET" ]; then
-            echo 'DAY_GATE_COOKIE_SECRET is not set in this environment; skipping (no day pass, slower pages).'
-            exit 0
-          fi
-          printf '%s' "$DAY_GATE_COOKIE_SECRET" | pnpm exec wrangler secret put DAY_GATE_COOKIE_SECRET --env staging
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          DAY_GATE_COOKIE_SECRET: ${{ secrets.DAY_GATE_COOKIE_SECRET }}
+          command: deploy --env staging --secrets-file .wrangler-secrets.json
+
+      - name: Remove the Worker secrets file
+        if: always()
+        run: rm -f .wrangler-secrets.json
 
   production:
     name: production
@@ -189,6 +193,38 @@ jobs:
           pnpm supabase link --project-ref "$SUPABASE_PROJECT_REF"
           pnpm supabase db push
 
+      # The Worker secrets travel with the code, in the same version (`wrangler deploy
+      # --secrets-file`, additive: a secret left out of the file keeps its current value).
+      # They used to go up first through `wrangler secret bulk`, which Cloudflare refuses with
+      # error 10215 whenever the Worker's newest version is not the deployed one — and since the
+      # branch previews (task 2.0) every push uploads an undeployed version of the staging
+      # Worker, so the first deploy after phase 2 failed exactly there (2026-09-27). The file
+      # lives only for the deploy step and is removed even when that step fails.
+      - name: Write the Worker secrets file
+        run: |
+          set -euo pipefail
+          if [ -z "$SUPABASE_SECRET_KEY" ]; then
+            echo '::error::SUPABASE_SECRET_KEY is not set in this environment (README → Secrets); the app cannot invite without it.'
+            exit 1
+          fi
+          # Optional ones are included only when set: without SESSION_IP_HASH_SALT
+          # session_events.ip_hash stays null, without DAY_GATE_COOKIE_SECRET the day gate asks
+          # the database on every page load (task 2.2); neither fails the deploy.
+          umask 077
+          jq -n \
+            --arg supabase "$SUPABASE_SECRET_KEY" \
+            --arg salt "$SESSION_IP_HASH_SALT" \
+            --arg gate "$DAY_GATE_COOKIE_SECRET" \
+            '{SUPABASE_SECRET_KEY: $supabase}
+             + (if $salt == "" then {} else {SESSION_IP_HASH_SALT: $salt} end)
+             + (if $gate == "" then {} else {DAY_GATE_COOKIE_SECRET: $gate} end)' \
+            >.wrangler-secrets.json
+          jq -r 'keys | "Secrets in this deployment: " + join(", ")' .wrangler-secrets.json
+        env:
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          SESSION_IP_HASH_SALT: ${{ secrets.SESSION_IP_HASH_SALT }}
+          DAY_GATE_COOKIE_SECRET: ${{ secrets.DAY_GATE_COOKIE_SECRET }}
+
       - name: Deploy to Cloudflare Workers
         id: deploy
         uses: cloudflare/wrangler-action@v3
@@ -196,35 +232,8 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           environment: production
-          command: deploy --env production
-          secrets: |
-            SUPABASE_SECRET_KEY
-        env:
-          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
-      # Optional until the secret exists in the GitHub environment (README → Secrets): without
-      # it session_events.ip_hash is stored as null, and the deploy must not fail over it.
-      - name: Upload SESSION_IP_HASH_SALT
-        # `secrets` is not available in a step `if`, so the check happens inside the step.
-        run: |
-          if [ -z "$SESSION_IP_HASH_SALT" ]; then
-            echo 'SESSION_IP_HASH_SALT is not set in this environment; skipping (session_events.ip_hash stays null).'
-            exit 0
-          fi
-          printf '%s' "$SESSION_IP_HASH_SALT" | pnpm exec wrangler secret put SESSION_IP_HASH_SALT --env production
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          SESSION_IP_HASH_SALT: ${{ secrets.SESSION_IP_HASH_SALT }}
-      # Optional as well (task 2.2): without it the day gate asks the database on every page load
-      # and the app reports that to Sentry once; the deploy must not fail over it.
-      - name: Upload DAY_GATE_COOKIE_SECRET
-        run: |
-          if [ -z "$DAY_GATE_COOKIE_SECRET" ]; then
-            echo 'DAY_GATE_COOKIE_SECRET is not set in this environment; skipping (no day pass, slower pages).'
-            exit 0
-          fi
-          printf '%s' "$DAY_GATE_COOKIE_SECRET" | pnpm exec wrangler secret put DAY_GATE_COOKIE_SECRET --env production
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          DAY_GATE_COOKIE_SECRET: ${{ secrets.DAY_GATE_COOKIE_SECRET }}
+          command: deploy --env production --secrets-file .wrangler-secrets.json
+
+      - name: Remove the Worker secrets file
+        if: always()
+        run: rm -f .wrangler-secrets.json
