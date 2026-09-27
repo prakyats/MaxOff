@@ -194,7 +194,18 @@ draft ──Owner activate (needs name + admin)──► active ⇄ paused ─�
 ```
 - **Paused:** readable. No new cycles.
 - **Inactive:** readable and searchable. No new projects, items or client-labelled tasks.
-- Changing the Admin closes the current `client_admin_assignments` row and opens a new one. Access moves immediately.
+- Changing the Admin closes the current `client_admin_assignments` row and opens a new one. Access moves immediately, and the new Admin (and the previous one, if still active) is notified (§9; owner decision 2026-09-27, kickoff 3).
+- **Inactive is the end state** (no archive action). **Paused and Inactive stay fully editable**; only the "no new work" rules apply (owner decision 2026-09-27, kickoff 3).
+- **Name unique** among clients not Inactive (case-insensitive); **one primary contact** required once any contact exists, archiving the primary asks for the next; GSTIN format checked when given; website and Drive link are `https://` URLs only (owner decision 2026-09-27, kickoff 3).
+
+### 4a. Custom field definitions (owner decision 2026-09-27, kickoff 3; built in 3.2)
+```
+active ──archive──► archived (values kept in every record, hidden from forms, read-only under "Archived fields")
+```
+- **Who:** global `client` / `contact` definitions are Owner-only; an Admin adds or archives definitions scoped to one of **their assigned** clients; `project` / `item` are Owner-only; `task` and per-task-type arrive with 4.1.
+- **Type is immutable once a value exists** (refused: archive and add a new field). Label, help text, section, position and select options stay editable; a select stores the option key, so a renamed option rewrites nothing.
+- **Required** is checked only when the form that shows the field is saved: an older record shows "—" and saves once filled; no client, project, item or task transition is ever blocked by a custom field.
+- **Files** (owner decision 2026-09-27, kickoff 3, 3.3): `files.status` pending → ready (upload completed) | failed; **replacing** a logo or avatar archives the old row (`archived_at`); the daily `storage_cleanup` job deletes the R2 object of a row archived **30 days** ago and of a `pending` row older than **24 hours**, marking it `deleted` (the row stays, invariant 9). Work submissions follow §5A instead.
 
 ## 5. Client work
 
@@ -303,6 +314,7 @@ month M (IST) open ──Owner close──► closed (snapshot v1, immutable)
 | Comment added | Other participants on the task (assignees, approving Admin, creator) |
 | Task request created | Owner + the client's Admin (or all Admins if there's no client) |
 | Coordinator changed | The new coordinator (and the previous one, if still active) |
+| Client's Admin assigned or changed (kickoff 3) | The new Admin (and the previous one, if still active) |
 | Attendance submitted | **Nobody.** The Owner's Today counts are the live digest, so no notification per person |
 | Absent proposed (23:59 job) | Owner: **one** notification listing everyone proposed absent |
 | Attendance decided / corrected (by the Owner or automatically when a later leave approval wins) | That member |

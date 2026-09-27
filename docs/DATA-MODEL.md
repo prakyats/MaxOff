@@ -231,6 +231,9 @@ field_definitions    id, org_id, entity ('client'|'contact'|'project'|'item'|'ta
                      key, label, help_text, type field_type, options jsonb, required,
                      section, position, archived_at, unique(org_id, entity, key, client_id, task_type_id)
                      -- rows with entity in ('project','item') are Owner-only to create/edit (PERMISSIONS ¹)
+                     -- kickoff 3: global client/contact rows Owner-only; client_id rows by the Owner or
+                     -- that client's current Admin (PERMISSIONS ²); type immutable once a value exists
+                     -- (guard trigger); archive only, never delete; select values store the option key
 ```
 Entities with custom fields have `custom_fields jsonb not null default '{}'`, validated against active definitions on every write (`core/custom-fields`).
 
@@ -456,9 +459,14 @@ cron.job                        'absent_check' at 29 18 * * * (23:59 IST) -> sel
 clients              id, org_id, name, legal_name, state client_state, admin_id → members,
                      gstin, address, city, phone, email, website, drive_url, requirements, notes,
                      custom_fields, activated_at, archived_at, created_by
+                     -- kickoff 3 (2026-09-27): unique (org_id, lower(name)) where state <> 'inactive';
+                     -- gstin check (15-char format) when not null; website / drive_url https only;
+                     -- archived_at reserved (no archive action in phase 3: inactive is the end state)
 client_private       client_id pk, ceo_notes                        -- Owner-only table
 client_admin_assignments  id, client_id, admin_id, assigned_by, from_at, to_at null
 client_contacts      id, client_id, name, designation, email, phone, is_primary, custom_fields, archived_at
+                     -- unique partial index (client_id) where is_primary and archived_at is null;
+                     -- exactly one primary once any live contact exists (transition functions)
 client_brand         client_id pk, logo_file_id, colors jsonb [{name, hex}], fonts jsonb [{family, usage}],
                      tone_of_voice, brand_notes                     -- shape validated by zod
 view client_labels   (id, name, logo_file_id, colors, fonts, tone_of_voice, brand_notes)
@@ -561,8 +569,14 @@ drive_jobs           id, submission_item_id, kind ('copy_link'|'upload_file'|'re
 ## 9. Files, notifications, audit, reports
 ```
 files                id, org_id, storage_key, name, mime, size_bytes, sha256 null, uploaded_by,
-                     status ('pending'|'ready'|'failed'|'deleted'), created_at, archived_at
+                     status ('pending'|'ready'|'failed'|'deleted'), created_at, archived_at,
+                     preview_of null → files (a browser-made JPEG preview of that original; 3.3)
                      -- 'deleted' = the R2 object was removed by retention; the row stays
+                     -- kickoff 3 (3.3): logos and avatars ≤ 5 MB (logo PNG/JPEG/WebP/SVG, avatar no
+                     -- SVG); replacing archives the old row; storage_cleanup deletes objects of rows
+                     -- archived 30 days ago and of pending rows older than 24 h. Served to the browser
+                     -- through /api/files/<id> (permission-checked, Cache-Control: private) for
+                     -- previews; presigned GET (5 min) for downloads. Local and e2e use MinIO
 notifications        id, recipient_id, kind, title, body, link, entity, entity_id, payload jsonb,
                      created_at, read_at null, escalation_level int
 notification_deliveries  id, notification_id, channel ('push'|'email'), state ('queued'|'sent'|'failed'),

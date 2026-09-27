@@ -8,13 +8,13 @@
 | Key | What it allows | Owner | Admin | Staff |
 |---|---|:-:|:-:|:-:|
 | `team.manage` | Invite, change role or job title, deactivate, edit names; **add a freelancer and set or change their coordinator** (ADR-0013) | ✅ | | |
-| `team.view` | See the member list (names, job titles, roles) | ✅ | ✅ | |
+| `team.view` | See the member list (names, job titles, roles) and open a person's **Profile** tab on `/people/[id]` (kickoff 3; the Attendance tab stays `attendance.view_all`) | ✅ | ✅ | |
 | `availability.view` | See anyone's availability: task counts, busy blocks, approved leave, today's presence | ✅ | ✅ | |
 | `settings.manage` | Company settings, days off, holidays, thresholds | ✅ | | |
 | `drive.manage` | Connect or reconnect the company Google account, set the archive root, retry failed archives | ✅ | | |
 | `drive.view_status` | See archive status on a submission ("Archived ✓", "Link is private") | ✅ | ✅ | ✅ (own tasks) |
 | `notifications.reachability` | See who isn't reachable by push and why | ✅ (everyone) | ✅ (people on their tasks) | own devices only |
-| `lists.manage` | Task types, stage presets, job titles, other lists, custom field definitions | ✅ | ✅ ¹ | |
+| `lists.manage` | Task types, stage presets, job titles, other lists, custom field definitions ² | ✅ | ✅ ¹ | |
 | `templates.manage` | Project and task templates | ✅ | ✅ | |
 | `clients.manage` | Create clients, assign the Admin, activate / pause / close | ✅ | | |
 | `clients.edit_assigned` | Edit details, contacts, brand and custom fields of **their** clients | ✅ | ✅ | |
@@ -41,6 +41,8 @@
 | `records.hard_delete` | Permanent deletion (exceptional) | ✅ | | |
 
 ¹ Admins can edit lists and field definitions except company-level settings, and except **custom field definitions on `project` and `item`**, which are Owner-only (this closes the "amount in a number field" loophole, since there's no currency type). *Adjustable: it's just a row in `role_permissions`.*
+
+² **Custom field definitions (owner decision 2026-09-27, kickoff 3):** global `client` and `contact` fields are **Owner-only**; an Admin may add or archive a field **scoped to one of their assigned clients** only; `project` and `item` fields stay Owner-only (¹); `task` fields arrive with 4.1.
 
 **The Owner doesn't mark attendance.** The first-login attendance gate applies to Admins and Staff only.
 
@@ -71,6 +73,7 @@
 **Scope changes are live:** if the Owner reassigns a client to another Admin, the old Admin loses access immediately and the new Admin gains it.
 
 ## 3. Rules enforced by transition functions (not just RLS)
+- **Clients and custom fields (kickoff 3, 2026-09-27):** a client's name is unique (case-insensitive) among clients not Inactive; exactly one primary contact once any contact exists; a field definition's `type` is immutable once any record holds a value for it; a per-client definition is written only by the Owner or that client's current Admin; a required custom field is checked only by the form that saves it, never by a lifecycle or task transition; `/api/files/<id>` serves a preview only after the same permission check the record needs (a client logo to whoever may see the client or its label; an avatar to `team.view` and the person).
 - **Freelancers (ADR-0013, built in 4A):** only the Owner (`team.manage`) adds a freelancer (`member_add_freelancer()`) or sets their coordinator (`member_set_coordinator()`, an active **permanent** Admin or Staff, never the freelancer themselves). **Acting on behalf** is allowed only to the freelancer's **current** coordinator (`app.coordinator_of()` at the moment of the action), only within `tasks.work` on tasks the freelancer is assigned to, and always recorded as actor = coordinator, `on_behalf_of` = freelancer; a former coordinator, any other member and the Owner-as-coordinator shortcut are refused. A freelancer is never a task creator, approving Admin or reviewer, and their id is never an actor. **Attendance, leave, the day gate and the attendance jobs act on `permanent` members only:** `attendance_touch()`, `attendance_submit()`, `leave_submit()` and the rest refuse a freelance member (`FORBIDDEN`), and `absent_check()` / `logout_not_recorded()` select permanent members. A Staff coordinator's visibility grows by exactly the freelancer's tasks (a client label at most, ADR-0005), never by a client record.
 - Only the task's **approving Admin** can do the Admin approval step, and never on a task they're assigned to (#3).
 - Only the **primary owner** can mark a task Done. From `submitted` onwards, assignees can't edit (they can still comment).

@@ -93,16 +93,19 @@ The full permission and visibility matrix is in `PERMISSIONS.md`. The key rules:
 ### 4.4 Clients (CRM)
 Each client has one central page, visible to the Owner and the client's Admin.
 
-- **Details:** name, legal or business name, address, GSTIN, phone, email, website, requirements, notes, and **custom fields**. Only the name is required.
+- **Details:** name, legal or business name, address, GSTIN, phone, email, website, requirements, notes, and **custom fields**. Only the name is required. **The name is unique** among clients that are not Inactive, case-insensitively (owner decision 2026-09-27, kickoff 3); a GSTIN must match the 15-character format when given; website and Drive link must be `https://` URLs and nothing more (the Drive access check is 8.4's).
 - **Owner-only notes** (a separate, Owner-only field).
 - **Assigned Admin:** exactly one, set by the Owner. Changes are kept in history.
-- **Contacts:** several per client, with one primary.
+- **Contacts:** several per client, with one primary: **exactly one primary is required once any contact exists**, and archiving the primary asks for the next; no uniqueness on a contact's email or phone (owner decision 2026-09-27, kickoff 3).
 - **Google Drive link:** one link to the client's asset folder, opened in a new tab.
-- **Light Brand Kit:** logo (uploaded), colour codes, font names, tone of voice, brand notes. The logo shows in client lists. Staff see these brand basics on client-labelled tasks.
+- **Light Brand Kit:** logo (uploaded), colour codes, font names, tone of voice, brand notes. The logo shows in client lists. Staff see these brand basics on client-labelled tasks. **Logo upload** (owner decision 2026-09-27, kickoff 3): ≤ 5 MB, PNG / JPEG / WebP / SVG (SVG sanitised, never shown inline); the original is kept and the browser makes a small JPEG preview for lists, exactly as work submissions do. Replacing a logo keeps the old file for 30 days, then only its record.
 - **Lifecycle:** Draft → Active → Paused → Inactive. A client becomes Active once it has a name and an Admin, and only the Owner activates, pauses or closes it.
   - **Paused:** everything stays visible, and **recurring projects stop creating new cycles**.
-  - **Inactive:** stays searchable, and no new work can be added until the Owner reactivates it.
+  - **Inactive:** stays searchable, and no new work can be added until the Owner reactivates it. **Inactive is the end state**: there is no separate archive action (owner decision 2026-09-27, kickoff 3; `archived_at` stays reserved for a later "hide from lists", never deletion).
+  - **A Paused or Inactive client stays fully editable** (details, contacts, brand, custom fields); only the "no new work" rules apply, and a banner names the state and who can change it (owner decision 2026-09-27, kickoff 3).
+  - **Changing the Admin notifies** the new Admin ("You now run Sharma Weddings") and, if still active, the previous one (owner decision 2026-09-27, kickoff 3).
 - **Page sections:** Overview · Brand · Projects · Staff tasks (labelled with this client) · Activity. Financial panels appear for the Owner only.
+- **The list** (owner decision 2026-09-27, kickoff 3): cards on a phone (logo, name, state, Admin), search by name, state and Admin filters as view controls, the Owner's list **defaults to Active** with "All states" one tap away; lifecycle actions behind ⋯ for the Owner.
 
 ### 4.5 Client work: Projects → Items
 **Client work is tracked separately from staff tasks.** The Admin maintains it. Staff never see it, and staff task completion **never** updates it automatically.
@@ -281,9 +284,9 @@ Plus two lists: **who is loaded this week** (open and overdue tasks per person, 
 **Everything configurable in MaxOff is editable by the Owner, in one place, with no developer involved.** If a rule, list, threshold or label exists, the Owner can change it here. Admins get only the operational parts (lists, templates, custom fields).
 
 - **Company:** name, logo, timezone (IST), **weekly off days** (currently Sunday), **holidays**, logout-reminder time, acknowledgement and escalation thresholds (Admin and Owner), overdue escalation, workload warning threshold, default reminder schedule, email daily cap per person.
-- **Team:** **Add person** chooses **Employee** (an invite by email) or **Freelancer** (no invite; pick the coordinator, §4.17); role, job title, name, coordinator, deactivate or reactivate (Owner). **Job titles** are an editable list the Owner adds to freely (seeded with Video Editor and Graphic Designer).
+- **Team:** **Add person** chooses **Employee** (an invite by email) or **Freelancer** (no invite; pick the coordinator, §4.17); role, job title, name, coordinator, deactivate or reactivate (Owner). **Every member has a person page** (`/people/[id]`, owner decision 2026-09-27, kickoff 3): a **Profile** tab (name, role, job title, phone, avatar; Edit for the Owner with the edit pattern, ⋯ → Deactivate / Reactivate / Copy invite link) that anyone with `team.view` opens, and an **Attendance** tab (Owner only) once the person has joined and is not the Owner. The Owner edits their own row on /me only. **Avatars**: ≤ 5 MB, PNG / JPEG / WebP, original kept, a small preview made in the browser. **Job titles** are an editable list the Owner adds to freely (seeded with Video Editor and Graphic Designer).
 - **Lists:** task types (with event behaviour, default reminders and fields), stage presets, and other lists.
-- **Custom fields:** for clients, contacts, projects, items and tasks, globally or for one client. Fields on **projects and items are Owner-only** to define (there's no currency type, and this closes the "amount in a number field" loophole).
+- **Custom fields:** for clients, contacts, projects, items and tasks, globally or for one client. **Global client and contact fields are Owner-only; an Admin adds or archives fields scoped to one of their assigned clients only** (owner decision 2026-09-27, kickoff 3). A **required** field is enforced only when the form that shows it is saved (an older record shows "—" and saves once filled; no transition is ever blocked by a custom field). **Archiving** a field keeps its values, removes it from forms and shows it read-only under "Archived fields". **A field's type never changes once it holds a value** (archive it and add a new one); label, help, section, position and select options stay editable, and a select stores the option's key, so renaming an option rewrites nothing. Task and task-type fields arrive with 4.1. Fields on **projects and items are Owner-only** to define (there's no currency type, and this closes the "amount in a number field" loophole).
 - **Templates:** project templates and task templates.
 - **Google Drive (Owner only):** connect or reconnect the company account, choose the archive root folder, and see the archive queue and any failures.
 - **Storage:** how much MaxOff (R2) and Google Drive are using, with warnings before either runs low.
