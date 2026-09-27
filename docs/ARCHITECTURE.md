@@ -269,6 +269,7 @@ transition fn / job ─► notifications row ─► notification_deliveries (que
 - **`core/drive`** wraps the Google Drive API: OAuth for one company account (refresh token encrypted at rest with a server key), `files.copy` for pasted links (server-side, no bytes through us), resumable upload from R2 for our own files, folder creation with a cache, and quota checks. Every call goes through the `drive_jobs` queue, which is idempotent and backs off, so a failure never blocks a user action.
 - Streaming R2 → Drive happens in the cron route, where waiting on the network doesn't consume Worker CPU time. Files are ≤ 100 MB, so this stays well inside limits.
 - **Retention:** the daily `storage_cleanup` job removes local copies only after the Drive copy is confirmed (WORKFLOWS §5A). Orphaned `pending` files are cleaned up in the same job.
+- **Deferred past the launch (owner, 2026-09-27):** `core/drive` (8.3) and submission retention (8.4b). Until they land, uploaded submission originals stay in R2 with no retention cleanup (nothing is deleted before a Drive copy exists, ADR-0010) and a pasted link points at the person's own file. Logo and avatar cleanup (3.3) runs as described above.
 
 ## 12. Revenue (ADR-0007)
 All calculation is in SQL views (WORKFLOWS §6) over Owner-only tables, so reports and exports share one definition. Overrides never replace the calculated value, they sit next to it. Money never leaves the app through error reporting either: §18 scrubs every financial field before an event reaches Sentry.

@@ -102,7 +102,7 @@ One unit at a time instead (the same gates, you in the loop): `/model` for the u
 | 9 | See revenue, close months, export reports for AI analysis |
 | 10 | Full launch |
 
-Phases 3–10 are 19 units. A phase is a kickoff, a `/run-phase` (a day or two of machine time), a review; the pilot (end of phase 6) is about **3 weeks** away at that pace and full launch about **6 weeks**.
+Phases 3–10 are 22 units (phase 3b added and five tasks deferred past the launch, 2026-09-27; 3A is done). A phase is a kickoff, a `/run-phase` (a day or two of machine time), a review; the pilot (end of phase 6) is about **3 weeks** away at that pace and full launch about **6 weeks**.
 
 ## Adding or changing features later
 ```

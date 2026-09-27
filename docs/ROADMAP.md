@@ -7,6 +7,7 @@
 > **[H]** highest-capability model: schema, security, transition functions, jobs, reviews · **[C]** strong coding model: features and UI · **[Q]** fast model: polish and docs.
 >
 > ★ **Pilot at the end of phase 6:** the team starts using MaxOff for attendance, leave and staff tasks, with notifications, dashboards and backups in place. Client work, files, revenue and reports follow.
+> **Phase 3b** (owner, 2026-09-27) sits between phases 3 and 4: the working-day rework, comp leave, the month summary and expense claims land **before the team starts using MaxOff**. Five tasks are **deferred past the launch** (section at the end).
 
 ---
 
@@ -51,6 +52,14 @@ Exit: clients exist with their Admin, contacts, brand basics and custom fields. 
 - [x] **3.3** [H] `core/storage`: R2 adapter, `files` table, presigned single and **multipart** upload, download links, SVG sanitizing, orphan cleanup job. Used first for logo and avatar upload. **Kickoff 3 (2026-09-27):** S3 adapter with **MinIO for local and every e2e run** (local and CI; R2 only on deployed staging/production); logos and avatars ≤ 5 MB with a browser-made JPEG preview (`files.preview_of`), the original kept; `/api/files/<id>` permission-checked preview route; `storage_cleanup` as the first Worker cron trigger (`/api/cron/storage-cleanup`, `CRON_SECRET`): objects of rows archived 30 days ago and of `pending` rows older than 24 h; `member_directory` recreated with `avatar_file_id` appended; env names `R2_ACCOUNT_ID`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `S3_ENDPOINT` (MinIO), `CRON_SECRET` in `.env.example`, README and `deploy.yml`'s secrets file **Done 2026-09-27** (unit 3A): S3 adapter on `aws4fetch`, single + multipart presigned upload, `/api/files/<id>`, SVG allow-list sanitiser, `storage_cleanup` as the first Worker cron (`worker/index.js`), MinIO in Docker for local and CI e2e, the company logo and the member photo; `deploy.yml` secrets lines pending (stop list).
 - [ ] **3.4** [C] Clients UI: list (logo, state, Admin), filters, create/edit form, client page (overview, contacts, brand, Drive link, Owner-only notes, activity), lifecycle actions, Admin assignment (Owner). **The edit pattern (2.9):** client records are edited with `EditableRecord` (read-only first, Edit, sticky Save/Cancel, a named-change confirmation, "Discard changes?" on every way out), copied, not reinvented. **Also here (owner decision 2026-09-25):** move the Owner's member edits (name, role, job title; `EditMemberDialog`) onto `EditableRecord` on `/people/[id]`, and give that page's header a ⋯ menu with **Edit** and **Deactivate**, so the Owner can edit from the person's page. **Kickoff 3 (2026-09-27):** `/people/[id]` becomes the person page for **every** member (a Profile tab for `team.view`, Attendance for `attendance.view_all` once joined and not the Owner; the Owner's own row on /me only); `EditableRecord` gains select, textarea and typed inputs (custom fields need them too); `DataTable` gains search and filters; the client list defaults to Active; Paused/Inactive clients stay editable with a state banner; the People sheet's redundant "Attendance & leave" row goes. **Expand-only (owner decision 2026-09-27, ARCHITECTURE §18): this unit reworks the person page that attendance and leave live on, and its migrations reach staging while `main` serves phase 2's attendance code — add, never rename, drop or change the meaning of what `main` reads; any removal waits for a follow-up migration after the phase-3 merge.**
 
+## Phase 3b: The working day, comp leave, month summary and expenses
+Exit (owner decisions 2026-09-27, "Kickoff 3b decisions" in PROGRESS): people stay signed in and notifications always reach them; the day starts and ends with explicit actions; extra work and comp leave go through the Owner; the Owner sees each person's month (days worked, additional leave, overtime, comp leave) and approves expense claims. **Before the team starts using MaxOff.** Branch `phase-3b` from `main` after the phase 3 merge; the kickoff is already recorded, so it starts with `/run-phase 3b`.
+**Units:** **3bA** [H] 3b.1 + 3b.2 · **3bB** [H] 3b.3 + 3b.4
+- [ ] **3b.1** [H] **Stay signed in; Start day and End day** (decisions 1–9): no automatic sign-out, "Sign out of this device" under Me; attendance decoupled from sign-in and sign-out (ADR-0012 amendment 2026-09-27): Start day and End day transition functions, the in-app Start-day prompt replacing the blocking gate on working days (Just looking, at most every 30 min, start time = the tap), no prompt on days off, End day final with no resume, "end of day not recorded" and the 20:30 "You haven't ended your day" reminder, the late-after-midnight rule carried over, the day-gate cookie and routes retired or repurposed, existing specs rewritten. pgTAP per path, installed-mode specs at 375 and 430
+- [ ] **3b.2** [H] **Extra work and comp leave credits** (decisions 10–17): overtime and day-off work notes (7 days back), the Owner's "Extra work" group in Approvals (grant ½ / 1, no comp leave, mark a day off as worked), standalone grants, revoke, calendar-month expiry, comp leave in the leave form only with an available credit (balance, use-by, date on or before expiry, oldest-first consumption, returned on reject / withdraw / cancel), comp leave removed from the Start-day prompt. RLS + pgTAP per role and path
+- [ ] **3b.3** [H] **Expense claims** (decisions 21–27, ADR-0007 amendment 2026-09-27): claims table with own-row + Owner-only RLS (Admins denied, pgTAP), the Owner-edited category list, receipts through `core/storage` (required above the Owner-set amount, default ₹500), the End-day question, the member's claims screen, the Owner's review (approve, reject with reason, mark paid), the claim window (current month + first 5 days of the next)
+- [ ] **3b.4** [C] **Month summary** (decisions 18–20): per-person live summary on `/people/[id]` and a team month report for the Owner (working days, days worked, leave, half days, absent, comp leave used, additional leave, days off worked, overtime, comp credits, expenses approved-unpaid), IST months, no salary; Admins and freelancers excluded
+
 ## Phase 4: Staff tasks
 Exit: a task goes assign → everyone acknowledges → updates → Done → Admin → Owner, including rejection loops, with the correct approval route every time.
 **Units:** **4A** [H] 4.1 + 4.2 · **4B** [C] 4.3 + 4.4 · **4C** [C] 4.5 + 4.6
@@ -91,31 +100,37 @@ Exit: a real client's monthly and weekly projects run in MaxOff. The Admin ticks
 - [ ] **7.4** [C] Owner item approvals in the inbox, carry-forward decision screen, stage presets in Settings, project templates
 
 ## Phase 8: Work submissions, files and the Drive archive
-Exit: Staff submit photos and short videos from any device (iPhone included), large videos come in as Drive links, and **everything is copied into the company Google Drive** with MaxOff cleaning up its own copies.
-**Units:** **8A** [H] 8.1 + 8.2 · **8B** [H] 8.3 + 8.4
+Exit: Staff submit photos and short videos from any device (iPhone included) and large videos as Drive links; the Owner and Admins review every version. (The company Drive archive and its cleanup, 8.3 and 8.4b, are **deferred past the launch**, owner 2026-09-27.)
+**Units:** **8A** [H] 8.1 + 8.2 · **8B** [C] 8.4a
 - [ ] **8.1** [H] Submissions: `submission_items`, resumable uploader (images ≤ 25 MB, video ≤ 100 MB), browser-side JPEG preview generation including **HEIC**, originals stored untouched, `task_submit_version`, reviews tied to a version, RLS + pgTAP
 - [ ] **8.2** [C] Review UI: previews (image, video, PDF), versions timeline, download the original, comment and request changes per version, archive status badges
-- [ ] **8.3** [H] `core/drive`: Google OAuth (Owner-only connect and reconnect, tokens encrypted), folder creation and cache, `files.copy` for links, R2 → Drive upload, `drive_jobs` queue with backoff, link access checks and re-checks, quota checks, Settings screen. pgTAP + unit tests
-- [ ] **8.4** [C] Link submission flow: paste, validate access immediately, "Link is private" flag and notification, automatic re-check, and the `storage_cleanup` retention job (90/30 days, archived only)
+- [ ] **8.4a** [C] Link submissions, the pilot half of 8.4 (owner, 2026-09-27): paste a Drive link as a version, basic `https://` validation, stored with the version, the Owner and Admins open it to review. No Drive API access check and no retention job (8.4b, deferred past the launch)
 
 ## Phase 9: Revenue, reports and month close (Owner)
-Exit: the Owner sees Potential / Achieved / Remaining by client, category and month, closes a month, and exports it for AI analysis.
-**Units:** **9A** [H] 9.1 + 9.2 · **9B** [H] 9.3 + 9.4 · **9C** [C] 9.5 + 9.6
+Exit: the Owner sees Potential / Achieved / Remaining by client, category and month, and closes a month. (Exports and the activity-history search, 9.5 and 9.6, are **deferred past the launch**, owner 2026-09-27.)
+**Units:** **9A** [H] 9.1 + 9.2 · **9B** [H] 9.3 + 9.4
 - [ ] **9.1** [H] Money tables + revenue views + overrides + billing status. pgTAP proving Admin and Staff can't read money through any path
 - [ ] **9.2** [C] Revenue UI (via `modules/revenue` components): project billing setup, per-item values, overrides with notes, billing status, revenue panels on the client page and dashboard
 - [ ] **9.3** [H] Metrics views (raw employee, stage-duration, revision-loop, delay and workload facts) + reports pages (week, month, custom range). Scoped operational reports for Admins
 - [ ] **9.4** [H] Month close: snapshot builder, immutable versions, corrections
-- [ ] **9.5** [C] Exports: AI-oriented Markdown, CSV (zipped datasets), PDF summary
-- [ ] **9.6** [C] Activity history: search by person, client, record, action and date
 
-## Phase 10: Search, polish, hardening and full launch
-Exit: everything in PRODUCT §4 is live in production, secured and backed up.
-**Units:** **10A** [C] 10.1 + 10.2 · **10B** [H] 10.3 + 10.4 · **10C** [C] 10.5
-- [ ] **10.1** [C] Global search (Ctrl/Cmd + K), filtered by permissions
+## Phase 10: Polish, hardening and full launch
+Exit: everything in PRODUCT §4 **except the items deferred past the launch** is live in production, secured and backed up.
+**Units:** **10A** [Q] 10.2 · **10B** [H] 10.3 + 10.4 · **10C** [C] 10.5
 - [ ] **10.2** [Q] UX polish: keyboard shortcuts, empty and loading states, mobile pass, accessibility fixes
 - [ ] **10.3** [H] Security review: RLS audit, money isolation, storage, auth, headers/CSP, rate limits, dependency audit
 - [ ] **10.4** [C] Performance: slow query review, indexes, bundle size, pagination
 - [ ] **10.5** [C] Full launch: import existing clients and projects, finish the user guide, second restore drill
+
+## Deferred past the launch (owner decision 2026-09-27): next up after 10.5, in this order
+Moved out of phases 8–10 to reach a production-ready prototype sooner. Nothing here is dropped; each keeps its original ROADMAP wording.
+- [ ] **8.3** [H] `core/drive`: Google OAuth (Owner-only connect and reconnect, tokens encrypted), folder creation and cache, `files.copy` for links, R2 → Drive upload, `drive_jobs` queue with backoff, link access checks and re-checks, quota checks, Settings screen. pgTAP + unit tests
+- [ ] **8.4b** [C] The Drive half of link submissions: validate access immediately, "Link is private" flag and notification, automatic re-check, and the `storage_cleanup` retention job for submissions (90/30 days, archived only)
+- [ ] **9.6** [C] Activity history: search by person, client, record, action and date
+- [ ] **9.5** [C] Exports: AI-oriented Markdown, CSV (zipped datasets), PDF summary
+- [ ] **10.1** [C] Global search (Ctrl/Cmd + K), filtered by permissions
+
+**Until 8.3 lands:** a pasted Drive link points at the person's **own** file (if they delete or unshare it, that submission's content is gone; there is no company copy), and uploaded submission originals stay in R2 with no retention cleanup (ADR-0010 holds: nothing is deleted before a Drive copy exists). R2 is free to 10 GB, then about $0.015 per GB-month; the Owner sees R2 usage (8A or the 6.6 pilot checklist). Logo and avatar cleanup (3.3) is unaffected.
 
 ---
 
