@@ -10,8 +10,8 @@ public static extern uint SetThreadExecutionState(uint esFlags);
 "@
 $kernel = Add-Type -MemberDefinition $signature -Name "KeepAwake" -Namespace "MaxOff" -PassThru
 
-$ES_CONTINUOUS = [uint32]0x80000000
-$ES_SYSTEM_REQUIRED = [uint32]0x00000001
+$ES_CONTINUOUS = [uint32]2147483648
+$ES_SYSTEM_REQUIRED = [uint32]1
 
 try {
     Write-Host "keep-awake: holding the system awake (Ctrl+C to release)."
