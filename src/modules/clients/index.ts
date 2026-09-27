@@ -39,10 +39,12 @@ export {
   getBrand,
   getClient,
   getOwnerNotes,
+  handOverClients,
   listAdminAssignments,
   listClientActivity,
   listClientLabels,
   listClients,
+  listClientsRunBy,
   listClientSummaries,
   listContacts,
 } from "./data/clients";

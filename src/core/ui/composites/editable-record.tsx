@@ -117,6 +117,7 @@ export function EditableRecord<K extends string, V = undefined>({
   fields,
   extra,
   onSave,
+  confirmation,
   savedMessage,
   editLabel = "Edit",
   canEdit = true,
@@ -128,6 +129,11 @@ export function EditableRecord<K extends string, V = undefined>({
   /** Custom fields and the like (3.4), edited and saved with the fields. */
   extra?: EditableExtra<V>;
   onSave: (values: Record<K, string>, extra: V) => Promise<Result<unknown>>;
+  /**
+   * More for the save confirmation, from the draft: content under the named changes and whether
+   * Save may run yet (a demoted Admin's clients still to hand over, phase 3 review). Null: none.
+   */
+  confirmation?: (values: Record<K, string>) => { content: ReactNode; ready: boolean } | null;
   savedMessage: string;
   editLabel?: string;
   /** False shows the record read-only with no Edit (a viewer who may not change it). */
@@ -259,6 +265,7 @@ export function EditableRecord<K extends string, V = undefined>({
     }),
   ];
   const lines = extra?.first ? [...extraLines, ...fieldLines] : [...fieldLines, ...extraLines];
+  const more = mode === "confirm" && confirmation ? confirmation(draft) : null;
   const extraEditor =
     extra && editing
       ? extra.edit({ value: extraDraft as V, onChange: setExtraDraft, errors: fieldErrors })
@@ -356,8 +363,10 @@ export function EditableRecord<K extends string, V = undefined>({
         confirmLabel="Save"
         cancelLabel="Keep editing"
         onConfirm={save}
+        confirmDisabled={more ? !more.ready : false}
       >
         <ChangeList lines={lines} />
+        {more?.content}
       </ConfirmDialog>
 
       <ConfirmDialog

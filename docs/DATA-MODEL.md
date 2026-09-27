@@ -484,7 +484,10 @@ clients              id, org_id, name, legal_name, state client_state, admin_id 
                      -- functions only). API UPDATE grant: name, legal_name, gstin, address, city, phone,
                      -- email, website, drive_url, requirements, notes, custom_fields. Audited.
                      -- RLS: app.client_visible(id) = the org's Owner (clients.manage) or the current
-                     -- Admin (admin_id = caller); writes need clients.edit_assigned on a visible row.
+                     -- Admin (admin_id = caller, holding clients.edit_assigned since the phase 3 review);
+                     -- writes need clients.edit_assigned on a visible row. members trigger
+                     -- client_admin_guard: an Admin who is some client's admin_id cannot stop being an
+                     -- active Admin; client_hand_over(from_admin, moves jsonb) moves their clients first.
                      -- Staff never read the table.
 client_private       client_id pk, owner_notes, created_at, updated_at   -- Owner-only table
                      -- 3.1: one row per client, created by trigger with the client; single policy

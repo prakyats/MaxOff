@@ -328,6 +328,35 @@ export async function listClientActivity(
   });
 }
 
+/** The clients a member runs, any state, by name: what moves before a demotion (phase 3 review). */
+export async function listClientsRunBy(adminId: string): Promise<{ id: string; name: string }[]> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase
+    .from("clients")
+    .select("id, name")
+    .eq("admin_id", adminId)
+    .order("name", { ascending: true });
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Moves some or all of an Admin's clients to other Admins in one transaction
+ * (`client_hand_over`, each move through `client_assign_admin`: history, audit, notifications).
+ */
+export async function handOverClients(
+  fromAdminId: string,
+  moves: readonly { clientId: string; adminId: string }[],
+): Promise<number> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("client_hand_over", {
+    from_admin: fromAdminId,
+    moves: moves.map((move) => ({ client_id: move.clientId, admin_id: move.adminId })),
+  });
+  if (error) throw error;
+  return data;
+}
+
 export async function listAdminAssignments(clientId: string): Promise<ClientAdminAssignment[]> {
   const supabase = await createServerSupabase();
   const { data, error } = await supabase

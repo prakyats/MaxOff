@@ -56,7 +56,7 @@
 |---|---|---|---|
 | Members | All | Everyone's name, job title, role, status and **phone** (a work contact), through the `member_directory` view. **Email is Owner-only**: it's the login identity | Own profile. Names of people on their own tasks (through `member_directory`, from 4.1) |
 | Attendance / leave | All | **Own**. Others only through `availability` (present or on leave today, approved leave dates) | Own |
-| Clients (full record) | All | **Assigned clients only** | ❌ Never |
+| Clients (full record) | All | **Assigned clients only**, and only while they hold `clients.edit_assigned` (phase 3 review: a role change never leaves access behind) | ❌ Never |
 | Client label (name, logo, colours, fonts, tone, brand notes) | All | Assigned clients + labels on visible tasks | Only for clients on their **own** tasks (through `client_labels` view) |
 | Owner-only client notes | ✅ | ❌ | ❌ |
 | Projects / cycles / items | All | Projects of assigned clients | ❌ Never |

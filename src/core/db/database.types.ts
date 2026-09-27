@@ -1349,6 +1349,10 @@ export type Database = {
         Args: { contact_id: string };
         Returns: undefined;
       };
+      client_hand_over: {
+        Args: { from_admin: string; moves: Json };
+        Returns: number;
+      };
       client_pause: {
         Args: { client_id: string };
         Returns: Database["public"]["Enums"]["client_state"];

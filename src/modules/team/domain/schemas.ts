@@ -46,12 +46,22 @@ export const inviteMemberSchema = z.object({
 });
 export type InviteMemberInput = z.input<typeof inviteMemberSchema>;
 
+/**
+ * Where an Admin's clients go before they stop being an Admin (phase 3 review, owner): one move
+ * per client, applied before the role change or the deactivation.
+ */
+const handover = z
+  .array(z.object({ clientId: z.uuid(), adminId: z.uuid() }))
+  .max(500)
+  .optional();
+
 export const updateMemberSchema = z.object({
   memberId: z.uuid(),
   fullName,
   /** The Owner row keeps its role: the form never offers a choice for it (the guard refuses anyway). */
   role: z.enum(INVITABLE_ROLES, { error: "Choose Admin or Staff." }).optional(),
   jobTitleId,
+  handover,
 });
 export type UpdateMemberInput = z.input<typeof updateMemberSchema>;
 
@@ -75,6 +85,7 @@ export const deactivateMemberSchema = z.object({
     )
     .optional()
     .transform((value) => (value ? value : null)),
+  handover,
 });
 export type DeactivateMemberInput = z.input<typeof deactivateMemberSchema>;
 

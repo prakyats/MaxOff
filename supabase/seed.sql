@@ -84,7 +84,12 @@ insert into seed_users values
   -- photo; the spec clears it first, so it re-runs without db:reset.
   ('20000000-0000-4000-8000-000000000041', 'avatar-desktop@maxoff.local', 'avatar-local-password', 'Test Avatar (desktop)', null, 'staff', 'active'),
   ('20000000-0000-4000-8000-000000000042', 'avatar-mobile@maxoff.local', 'avatar-local-password', 'Test Avatar (mobile)', null, 'staff', 'active'),
-  ('20000000-0000-4000-8000-000000000043', 'avatar-mobile-lg@maxoff.local', 'avatar-local-password', 'Test Avatar (mobile-lg)', null, 'staff', 'active');
+  ('20000000-0000-4000-8000-000000000043', 'avatar-mobile-lg@maxoff.local', 'avatar-local-password', 'Test Avatar (mobile-lg)', null, 'staff', 'active'),
+  -- Phase 3 review: the client hand-over before a demotion or deactivation (e2e/handover.spec.ts).
+  -- One Admin per project; the spec gives them clients, then puts the role and status back itself.
+  ('20000000-0000-4000-8000-000000000044', 'handover-desktop@maxoff.local', 'handover-local-password', 'Test Handover (desktop)', null, 'admin', 'active'),
+  ('20000000-0000-4000-8000-000000000045', 'handover-mobile@maxoff.local', 'handover-local-password', 'Test Handover (mobile)', null, 'admin', 'active'),
+  ('20000000-0000-4000-8000-000000000046', 'handover-mobile-lg@maxoff.local', 'handover-local-password', 'Test Handover (mobile-lg)', null, 'admin', 'active');
 
 -- What GoTrue writes for a confirmed email + password user (`auth.users` + one identity).
 insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,

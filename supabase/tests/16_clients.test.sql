@@ -488,7 +488,14 @@ select is((select count(*) from public.client_contacts where client_id = pg_temp
 
 -- Deactivating the Admin ends their scope; the client keeps the reference for history --------
 select pg_temp.as_member('owner');
-select lives_ok($$ select public.member_deactivate(pg_temp.fx('admin2')) $$, 'the Owner deactivates an Admin');
+select throws_ok($$ select public.member_deactivate(pg_temp.fx('admin2')) $$, 'P0001', 'CONFLICT',
+  'an Admin who runs a client is not deactivated until it moves (phase 3 review, 21 has every path)');
+-- The state is forced to prove what RLS and the lifecycle do if it ever exists.
+select pg_temp.as_system();
+alter table public.members disable trigger client_admin_guard;
+update public.members set status = 'deactivated', deactivated_at = now() where id = pg_temp.fx('admin2');
+alter table public.members enable trigger client_admin_guard;
+select pg_temp.as_member('owner');
 select throws_ok($$ select public.client_activate(pg_temp.fx('client_c')) $$, 'P0001', 'VALIDATION',
   'a client whose Admin is deactivated cannot be activated until reassigned');
 select pg_temp.as_member('admin2');

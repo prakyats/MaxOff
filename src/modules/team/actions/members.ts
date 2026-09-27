@@ -11,6 +11,7 @@ import { resolveAppOrigin } from "@/core/lib/app-url";
 import type { EmailSendResult } from "@/core/notifications/email";
 import { sendEmail } from "@/core/notifications/email";
 import { assertPermission } from "@/core/permissions/server";
+import { handOverClients, listClientsRunBy } from "@/modules/clients";
 
 import { emailChangedNewAddressEmail, emailChangedOldAddressEmail } from "../domain/email-change";
 import { inviteEmail, inviteLinkFor } from "../domain/invite";
@@ -128,15 +129,51 @@ export const issueInviteLink = action(
   },
 );
 
+export type ClientHandoverData = {
+  clients: { id: string; name: string }[];
+  /** Every other active Admin, by name: who may take the clients. */
+  admins: { id: string; name: string }[];
+};
+
+/**
+ * What an Admin runs and who may take it, read when the Owner opens a demotion or a deactivation
+ * (phase 3 review, owner: no client is ever left without an Admin).
+ */
+export const getClientHandover = action(
+  async (input: MemberIdInput): Promise<Result<ClientHandoverData>> => {
+    const { memberId } = memberIdSchema.parse(input);
+    await assertPermission("team.manage");
+    const [clients, members] = await Promise.all([listClientsRunBy(memberId), repo.listMembers()]);
+    const admins = members
+      .filter((member) => member.role === "admin" && member.status === "active")
+      .filter((member) => member.id !== memberId)
+      .map((member) => ({ id: member.id, name: member.fullName }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    return ok({ clients, admins });
+  },
+);
+
+/** The clients move first; the database refuses the change while any is left (CONFLICT). */
+async function handOver(
+  memberId: string,
+  moves: readonly { clientId: string; adminId: string }[] | undefined,
+) {
+  if (!moves || moves.length === 0) return;
+  await assertPermission("clients.manage");
+  await handOverClients(memberId, moves);
+}
+
 export const updateMember = action(async (input: UpdateMemberInput): Promise<Result<null>> => {
   const data = updateMemberSchema.parse(input);
   await assertPermission("team.manage");
+  await handOver(data.memberId, data.handover);
   await repo.updateMember(data.memberId, {
     full_name: data.fullName,
     role: data.role,
     job_title_id: data.jobTitleId,
   });
   revalidatePath(PEOPLE_PATH, "layout");
+  if (data.handover?.length) revalidatePath("/clients", "layout");
   return ok(null);
 });
 
@@ -211,8 +248,10 @@ export const deactivateMember = action(
   async (input: DeactivateMemberInput): Promise<Result<null>> => {
     const data = deactivateMemberSchema.parse(input);
     await assertPermission("team.manage");
+    await handOver(data.memberId, data.handover);
     await repo.rpcDeactivate(data.memberId, data.reason);
     revalidatePath(PEOPLE_PATH, "layout");
+    revalidatePath("/clients", "layout");
     return ok(null);
   },
 );
