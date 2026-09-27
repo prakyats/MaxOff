@@ -107,12 +107,14 @@ test.describe("the Owner", () => {
     );
     await expect(list).toContainText(active);
     await expect(list).not.toContainText(draft);
-    await expect(page).toHaveURL(/\?q=/);
+    // Search text never enters the URL (ARCHITECTURE §18.2, phase 3 review).
+    await expect(page).not.toHaveURL(/q=/);
 
     await page.locator('[data-filter="state"]').click();
     await page.getByRole("option", { name: "All states" }).click();
     await expect(list).toContainText(draft);
     await expect(page).toHaveURL(/state=all/);
+    await expect(page).not.toHaveURL(/q=/);
 
     await search.fill("nothing like this at all");
     await expect(page.getByText("No clients match")).toBeVisible();

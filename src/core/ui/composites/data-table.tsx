@@ -61,6 +61,7 @@ import {
   type DataTableSearch,
   type DataTableView,
   isNarrowed,
+  carriesOldSearch,
   paramsForView,
   viewFromParams,
 } from "./data-table-view";
@@ -147,8 +148,8 @@ export type DataTableProps<TData> = {
   /** Cards shown before "Show more"; mobile shows fewer rows with a clearer next step (§14.1). */
   mobilePageSize?: number;
   /**
-   * A search box over the rows (3.4), a view control: the URL keeps it (`?q=`) with a replace,
-   * never a new history entry (ARCHITECTURE §14.2 d).
+   * A search box over the rows (3.4), a view control (ARCHITECTURE §14.2 d). Its text stays in
+   * this component's state, never in the URL (§18.2: request logs keep query strings).
    */
   search?: DataTableSearch<TData>;
   /** Filters as selects (3.4), view controls like the search; each keeps `?<id>=` in the URL. */
@@ -195,8 +196,13 @@ export function DataTable<TData>({
   const latestView = useRef<DataTableView>(view);
 
   function changeView(next: DataTableView) {
+    const filtersChanged = filters.some(
+      (filter) => next.filters[filter.id] !== latestView.current.filters[filter.id],
+    );
     setView(next);
     latestView.current = next;
+    // Typing a search writes nothing: only a filter's id belongs in the URL (§18.2).
+    if (!filtersChanged && !carriesOldSearch(window.location.search)) return;
     // A replace, never a push (§14.2 d); Next keeps `useSearchParams` in step with it. A filter
     // is chosen inside its open select, whose layer owns the current history entry: that entry
     // is backed out first, so the page's own entry is the one that keeps the view.

@@ -1,7 +1,9 @@
 /**
  * The search and filters of a `DataTable` (3.4): pure, so the rules are unit-tested. They are
- * **view controls** (ARCHITECTURE §14.2 d): they change what the list shows, keep the URL in
- * sync with a replace (a refresh or a shared link keeps the place) and never add history.
+ * **view controls** (ARCHITECTURE §14.2 d): they change what the list shows and never add
+ * history. A filter's id keeps the URL in sync with a replace (a refresh or a shared link keeps
+ * the place); **the search text never enters the URL** (ARCHITECTURE §18.2: Workers Logs record
+ * query strings; phase 3 review), it lives in the component's state.
  */
 
 export type DataTableSearch<T> = {
@@ -27,20 +29,21 @@ export type DataTableFilter<T> = {
 
 export type DataTableView = { query: string; filters: Record<string, string> };
 
-export const SEARCH_PARAM = "q";
+/** Where search text went before the phase 3 review: a link that still carries it is cleaned. */
+const OLD_SEARCH_PARAM = "q";
 
 /** Folds case and accents, so "sharma" finds "Sharmā" and "SHARMA". */
 export function foldText(text: string): string {
   return text.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase().trim();
 }
 
-/** The view a URL asks for; an unknown filter value falls back to the default. */
+/** The view a URL asks for, with no search; an unknown filter value falls back to the default. */
 export function viewFromParams<T>(
   params: { get: (key: string) => string | null },
   filters: readonly DataTableFilter<T>[],
 ): DataTableView {
   return {
-    query: params.get(SEARCH_PARAM) ?? "",
+    query: "",
     filters: Object.fromEntries(
       filters.map((filter) => {
         const asked = params.get(filter.id);
@@ -51,16 +54,19 @@ export function viewFromParams<T>(
   };
 }
 
-/** The query string for a view: defaults and an empty search are left out. */
+/** True when a URL still carries search text from before the phase 3 review. */
+export function carriesOldSearch(search: string): boolean {
+  return new URLSearchParams(search).has(OLD_SEARCH_PARAM);
+}
+
+/** The query string for a view's filters: defaults are left out, and search text never goes in. */
 export function paramsForView<T>(
   current: string,
   view: DataTableView,
   filters: readonly DataTableFilter<T>[],
 ): string {
   const params = new URLSearchParams(current);
-  const query = view.query.trim();
-  if (query) params.set(SEARCH_PARAM, query);
-  else params.delete(SEARCH_PARAM);
+  params.delete(OLD_SEARCH_PARAM);
   for (const filter of filters) {
     const value = view.filters[filter.id] ?? filter.defaultValue;
     if (value === filter.defaultValue) params.delete(filter.id);

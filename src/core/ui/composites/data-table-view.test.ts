@@ -32,13 +32,13 @@ const state: DataTableFilter<Row> = {
 const search = { label: "Search", text: (row: Row) => row.name };
 
 describe("DataTable view (3.4)", () => {
-  it("defaults the filter when the URL says nothing or something unknown", () => {
+  it("defaults the filter when the URL says nothing or something unknown, and never reads a search", () => {
     expect(viewFromParams(new URLSearchParams(""), [state])).toEqual({
       query: "",
       filters: { state: "active" },
     });
     expect(viewFromParams(new URLSearchParams("state=bogus&q=kap"), [state])).toEqual({
-      query: "kap",
+      query: "",
       filters: { state: "active" },
     });
   });
@@ -59,10 +59,16 @@ describe("DataTable view (3.4)", () => {
     expect(applyView(rows, { query: "", filters: {} }, search, [state])).toEqual([rows[0]]);
   });
 
-  it("writes only what differs from the defaults, keeping other parameters", () => {
+  it("writes only the filters that differ from the defaults, keeping other parameters", () => {
     expect(paramsForView("", { query: "", filters: { state: "active" } }, [state])).toBe("");
     expect(paramsForView("page=2", { query: " kap ", filters: { state: "all" } }, [state])).toBe(
-      "?page=2&q=kap&state=all",
+      "?page=2&state=all",
+    );
+  });
+
+  it("never writes search text, and drops a search an old link carried (ARCHITECTURE §18.2)", () => {
+    expect(paramsForView("q=kap", { query: "kap", filters: { state: "active" } }, [state])).toBe(
+      "",
     );
   });
 
