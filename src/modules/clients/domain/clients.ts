@@ -50,6 +50,9 @@ export type Client = {
   updatedAt: string;
 };
 
+/** A row of the client list (3.4): the record and the logo the list shows. */
+export type ClientSummary = Client & { logoFileId: string | null };
+
 export type ClientContact = {
   id: string;
   clientId: string;
@@ -111,6 +114,18 @@ export function clientLifecycleActions(state: ClientState): readonly ClientLifec
   }
 }
 
+/**
+ * What the Owner's ⋯ offers (3.4): the state's moves, except Activate while no Admin is
+ * assigned (`client_activate` refuses it); the menu offers "Assign Admin" instead.
+ */
+export function clientMenuMoves(
+  client: Pick<Client, "state" | "adminId">,
+): readonly ClientLifecycleAction[] {
+  return clientLifecycleActions(client.state).filter(
+    (move) => move !== "activate" || client.adminId !== null,
+  );
+}
+
 export const CLIENT_ACTION_LABELS: Record<ClientLifecycleAction, string> = {
   activate: "Activate",
   pause: "Pause",
@@ -121,4 +136,26 @@ export const CLIENT_ACTION_LABELS: Record<ClientLifecycleAction, string> = {
 /** Sorts by name, case-insensitively; a stable order for lists and pickers. */
 export function sortClients<T extends { name: string }>(clients: readonly T[]): T[] {
   return [...clients].sort((a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" }));
+}
+
+/** The `EditableRecord` keys a ⋯ menu starts editing by (3.4). */
+export function clientEditKey(clientId: string): string {
+  return `client:${clientId}`;
+}
+
+/**
+ * The list's filters (kickoff 3 decision 18): state, where the Owner's list opens on Active with
+ * "All states" first, and the Admin (the Owner's list only), with "No Admin" for drafts.
+ */
+export const ALL = "all";
+export const NO_ADMIN = "none";
+
+export function matchesState(client: Pick<Client, "state">, value: string): boolean {
+  return value === ALL || client.state === value;
+}
+
+export function matchesAdmin(client: Pick<Client, "adminId">, value: string): boolean {
+  if (value === ALL) return true;
+  if (value === NO_ADMIN) return client.adminId === null;
+  return client.adminId === value;
 }

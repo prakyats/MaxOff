@@ -1,12 +1,18 @@
 /**
  * modules/clients: the public API (ARCHITECTURE §3.1: `app → modules (index.ts only) → core`).
- * Clients, their Admin, contacts and brand basics (PRODUCT §4.4). Task 3.1 ships the schema, the
- * transition functions and this server surface; the screens arrive with 3.4.
+ * Clients, their Admin, contacts and brand basics (PRODUCT §4.4). Task 3.1 shipped the schema, the
+ * transition functions and this server surface; 3.4 the screens (`components/`).
  *
  * Client components are not exported here: a route imports them one file at a time from
  * `components/` (ADR-0011 amendment, task 2.8), because a barrel is not tree-shaken per route.
  */
 export {
+  ALL,
+  clientEditKey,
+  matchesAdmin,
+  matchesState,
+  NO_ADMIN,
+  type ClientSummary,
   CLIENT_ACTION_LABELS,
   CLIENT_STATE_LABELS,
   CLIENT_STATE_NOTES,
@@ -34,10 +40,13 @@ export {
   getClient,
   getOwnerNotes,
   listAdminAssignments,
+  listClientActivity,
   listClientLabels,
   listClients,
+  listClientSummaries,
   listContacts,
 } from "./data/clients";
+export { type ActivityLine, describeClientActivity } from "./domain/activity";
 export {
   activateClient,
   archiveContact,
@@ -47,9 +56,12 @@ export {
   createContact,
   pauseClient,
   reactivateClient,
+  removeClientLogo,
   restoreContact,
+  setClientLogo,
   setPrimaryContact,
   updateBrand,
+  updateBrandText,
   updateClient,
   updateContact,
   updateOwnerNotes,

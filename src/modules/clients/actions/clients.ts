@@ -22,8 +22,12 @@ import {
   createClientSchema,
   type CreateContactInput,
   createContactSchema,
+  type SetClientLogoInput,
+  setClientLogoSchema,
   type UpdateBrandInput,
   updateBrandSchema,
+  type UpdateBrandTextInput,
+  updateBrandTextSchema,
   type UpdateClientInput,
   updateClientSchema,
   type UpdateContactInput,
@@ -43,13 +47,12 @@ import * as repo from "../data/clients";
 
 const CLIENTS_PATH = "/clients";
 
-function clientPath(clientId: string): string {
-  return `${CLIENTS_PATH}/${clientId}`;
-}
-
-function revalidateClient(clientId: string): void {
-  revalidatePath(CLIENTS_PATH);
-  revalidatePath(clientPath(clientId));
+/**
+ * The list and every client screen (overview, brand, activity, a contact) read the same rows, so
+ * a change revalidates them all (3.4).
+ */
+function revalidateClients(): void {
+  revalidatePath(CLIENTS_PATH, "layout");
 }
 
 /** unique (org_id, lower(name)) where state <> 'inactive': the generic message says nothing about the name. */
@@ -90,7 +93,7 @@ export const createClient = action(async (input: CreateClientInput): Promise<Res
       ...detailsOf({ ...data, customFields }),
       admin_id: data.adminId,
     });
-    revalidatePath(CLIENTS_PATH);
+    revalidateClients();
     return ok(client);
   } catch (error) {
     nameTaken(error);
@@ -111,7 +114,7 @@ export const updateClient = action(async (input: UpdateClientInput): Promise<Res
   } catch (error) {
     nameTaken(error);
   }
-  revalidateClient(data.clientId);
+  revalidateClients();
   return ok(null);
 });
 
@@ -120,7 +123,7 @@ export const updateOwnerNotes = action(
     const data = updateOwnerNotesSchema.parse(input);
     await assertPermission("clients.private_notes");
     await repo.updateOwnerNotes(data.clientId, data.ownerNotes);
-    revalidateClient(data.clientId);
+    revalidateClients();
     return ok(null);
   },
 );
@@ -132,7 +135,7 @@ async function lifecycle(
   const { clientId } = clientIdSchema.parse(input);
   await assertPermission("clients.manage");
   const state = await move(clientId);
-  revalidateClient(clientId);
+  revalidateClients();
   return ok(state);
 }
 
@@ -152,7 +155,7 @@ export const closeClient = action(async (input: CloseClientInput): Promise<Resul
   const data = closeClientSchema.parse(input);
   await assertPermission("clients.manage");
   const state = await repo.closeClient(data.clientId, data.reason);
-  revalidateClient(data.clientId);
+  revalidateClients();
   return ok(state);
 });
 
@@ -161,7 +164,7 @@ export const assignClientAdmin = action(
     const data = assignClientAdminSchema.parse(input);
     await assertPermission("clients.manage");
     await repo.assignClientAdmin(data.clientId, data.adminId);
-    revalidateClient(data.clientId);
+    revalidateClients();
     return ok(null);
   },
 );
@@ -180,7 +183,7 @@ export const createContact = action(
       phone: data.phone,
       custom_fields: customFields,
     });
-    revalidateClient(data.clientId);
+    revalidateClients();
     return ok(contact);
   },
 );
@@ -201,7 +204,7 @@ export const updateContact = action(async (input: UpdateContactInput): Promise<R
     phone: data.phone,
     custom_fields: customFields,
   });
-  revalidatePath(CLIENTS_PATH);
+  revalidateClients();
   return ok(null);
 });
 
@@ -209,7 +212,7 @@ export const setPrimaryContact = action(async (input: ContactIdInput): Promise<R
   const { contactId } = contactIdSchema.parse(input);
   await assertPermission("clients.edit_assigned");
   await repo.setPrimaryContact(contactId);
-  revalidatePath(CLIENTS_PATH);
+  revalidateClients();
   return ok(null);
 });
 
@@ -217,7 +220,7 @@ export const archiveContact = action(async (input: ArchiveContactInput): Promise
   const data = archiveContactSchema.parse(input);
   await assertPermission("clients.edit_assigned");
   await repo.archiveContact(data.contactId, data.nextPrimaryId);
-  revalidatePath(CLIENTS_PATH);
+  revalidateClients();
   return ok(null);
 });
 
@@ -225,7 +228,7 @@ export const restoreContact = action(async (input: ContactIdInput): Promise<Resu
   const { contactId } = contactIdSchema.parse(input);
   await assertPermission("clients.edit_assigned");
   await repo.restoreContact(contactId);
-  revalidatePath(CLIENTS_PATH);
+  revalidateClients();
   return ok(null);
 });
 
@@ -238,6 +241,46 @@ export const updateBrand = action(async (input: UpdateBrandInput): Promise<Resul
     tone_of_voice: data.toneOfVoice,
     brand_notes: data.brandNotes,
   });
-  revalidateClient(data.clientId);
+  revalidateClients();
+  return ok(null);
+});
+
+/**
+ * The brand as the edit pattern types it (3.4): colours and fonts one per line, parsed on the
+ * server again (`updateBrandTextSchema`), so a bad line comes back as the field's message.
+ */
+export const updateBrandText = action(
+  async (input: UpdateBrandTextInput): Promise<Result<null>> => {
+    const data = updateBrandTextSchema.parse(input);
+    await assertPermission("clients.edit_assigned");
+    await repo.updateBrand(data.clientId, {
+      colors: data.colors,
+      fonts: data.fonts,
+      tone_of_voice: data.toneOfVoice,
+      brand_notes: data.brandNotes,
+    });
+    revalidateClients();
+    return ok(null);
+  },
+);
+
+/**
+ * The client's logo (3.3 mechanics, 3.4 screen): a plain column update. The guard trigger
+ * requires a ready original image the caller uploaded, and the replaced file is archived (its
+ * object deleted 30 days later by `storage_cleanup`).
+ */
+export const setClientLogo = action(async (input: SetClientLogoInput): Promise<Result<null>> => {
+  const data = setClientLogoSchema.parse(input);
+  await assertPermission("clients.edit_assigned");
+  await repo.setLogo(data.clientId, data.fileId);
+  revalidateClients();
+  return ok(null);
+});
+
+export const removeClientLogo = action(async (input: ClientIdInput): Promise<Result<null>> => {
+  const { clientId } = clientIdSchema.parse(input);
+  await assertPermission("clients.edit_assigned");
+  await repo.setLogo(clientId, null);
+  revalidateClients();
   return ok(null);
 });

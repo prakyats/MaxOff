@@ -1,34 +1,82 @@
 "use client";
 
-import { PencilIcon } from "lucide-react";
-import { type ComponentProps, useId, useRef, useState } from "react";
+import { ExternalLinkIcon, PencilIcon } from "lucide-react";
+import { type ComponentProps, type ReactNode, useId, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import type { Result } from "@/core/errors/result";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
+import { ErrorText } from "@/core/ui/composites/error-text";
 import { FormField } from "@/core/ui/composites/form-field";
 import { StickyActions } from "@/core/ui/composites/sticky-actions";
 import { type ChangeSubject, describeChange, diffFields } from "@/core/ui/edit/changes";
+import { useEditRequest } from "@/core/ui/edit/edit-requests";
 import { useLeaveGuard } from "@/core/ui/edit/use-leave-guard";
 import { closeOverlaysThen, useOverlayHistory } from "@/core/ui/overlay/overlay-history";
 import { Button } from "@/core/ui/primitives/button";
 import { Input } from "@/core/ui/primitives/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/core/ui/primitives/select";
+import { Textarea } from "@/core/ui/primitives/textarea";
 import { describeError } from "@/core/ui/toast";
-import { ErrorText } from "@/core/ui/composites/error-text";
+
+export interface EditableOption {
+  value: string;
+  label: string;
+}
 
 export interface EditableField<K extends string> {
   name: K;
   label: string;
   /** How the field reads in the confirmation: "Your **phone number** will change …". */
   noun: string;
-  /** The saved value; `null` or "" shows `emptyLabel`. */
+  /** The saved value; `null` or "" shows `emptyLabel`. A select holds the option's `value`. */
   value: string | null;
   emptyLabel?: string;
   hint?: string;
+  /**
+   * The control (3.4): a one-line `Input` (typed through `input.type`: email, tel, url, date,
+   * number…), a `textarea`, or a `select` of `options` (read mode and the confirmation show the
+   * option's label, never its value).
+   */
+  kind?: "text" | "textarea" | "select";
+  options?: readonly EditableOption[];
+  /** A select that may be left empty offers this choice (value ""), e.g. "No job title". */
+  noneLabel?: string;
+  /** Lines a textarea opens with. */
+  rows?: number;
+  /**
+   * How read mode shows the value: plain text (default), `multiline` (line breaks kept), a
+   * `link` that opens in a new tab, an `email` or `tel` link, or `swatches` (one colour per line,
+   * each `#RRGGBB` drawn as a swatch).
+   */
+  display?: "text" | "multiline" | "link" | "email" | "tel" | "swatches";
   input?: Pick<
     ComponentProps<typeof Input>,
-    "type" | "autoComplete" | "inputMode" | "maxLength" | "required"
+    "type" | "autoComplete" | "inputMode" | "maxLength" | "required" | "placeholder"
   >;
+}
+
+/**
+ * A part of the record that is not a string field (3.4): a record's custom fields. It brings
+ * its own controls and its own sentences for the confirmation; the record keeps one draft, one
+ * Save and one "Discard changes?" for everything. `changes` names each difference as a full line
+ * ("Sharma Weddings' Industry will change from A to B.") and returns none when nothing changed.
+ */
+export interface EditableExtra<V> {
+  value: V;
+  changes: (before: V, after: V) => string[];
+  edit: (props: {
+    value: V;
+    onChange: (next: V) => void;
+    errors: Record<string, string[]>;
+  }) => ReactNode;
+  read: (value: V) => ReactNode;
 }
 
 type Mode = "read" | "edit" | "confirm" | "discard";
@@ -36,42 +84,56 @@ type Mode = "read" | "edit" | "confirm" | "discard";
 /**
  * The edit pattern (ARCHITECTURE §14.1, task 2.9): **read-only by default, explicit Edit,
  * explicit Save, confirm what changed, guard unsaved work.** Built once, copied everywhere a
- * record is edited (3.4's client screens are the next).
+ * record is edited (/me, a person's profile, a client, a contact, a brand).
  *
- * - **Read:** the values as plain text and a pencil **Edit**.
- * - **Edit:** the fields, and Cancel and Save in a sticky bar; Save stays disabled until a value
- *   really differs from what was there when Edit was tapped (the baseline is taken then, so a
- *   refresh on return cannot move it).
+ * - **Read:** the values as plain text (a link, a phone, swatches where `display` says so) and
+ *   a pencil **Edit**; with `canEdit` false, just the values.
+ * - **Edit:** the fields (a typed input, a textarea or a select, 3.4) and any `extra` part (a
+ *   record's custom fields), and Cancel and Save in a sticky bar; Save stays disabled until a
+ *   value really differs from what was there when Edit was tapped (the baseline is taken then,
+ *   so a refresh on return cannot move it).
  * - **Save** opens a confirmation that names each change ("Your name will change from X to
- *   Y"); confirming runs `onSave`. Success returns to read mode with "Saved"; field errors land
- *   under their fields, in edit mode.
+ *   Y"; a select by its label); confirming runs `onSave`. Success returns to read mode with
+ *   "Saved"; field errors land under their fields, in edit mode.
  * - **Leaving with unsaved changes asks "Discard changes?"**: Cancel, the back gesture (edit mode
  *   is a history layer, §14.2 a and f), any in-app link, Log out and a reload (`useLeaveGuard`).
  *   Back with nothing changed simply leaves edit mode.
+ * - **Edit from elsewhere** (a header ⋯ menu, 3.4): `requestEdit(editKey)`.
  *
  * Every way out of edit mode backs out the layer's history entry (`closeOverlaysThen`), so a save
  * or a cancel never leaves a back press that lands on the same page.
  */
-export function EditableRecord<K extends string>({
+export function EditableRecord<K extends string, V = undefined>({
   title,
   subject,
   fields,
+  extra,
   onSave,
   savedMessage,
   editLabel = "Edit",
+  canEdit = true,
+  editKey,
 }: {
   title: string;
   subject: ChangeSubject;
   fields: readonly EditableField<K>[];
-  onSave: (values: Record<K, string>) => Promise<Result<unknown>>;
+  /** Custom fields and the like (3.4), edited and saved with the fields. */
+  extra?: EditableExtra<V>;
+  onSave: (values: Record<K, string>, extra: V) => Promise<Result<unknown>>;
   savedMessage: string;
   editLabel?: string;
+  /** False shows the record read-only with no Edit (a viewer who may not change it). */
+  canEdit?: boolean;
+  /** Lets a ⋯ menu start editing (`requestEdit(editKey)`, `core/ui/edit/edit-requests`). */
+  editKey?: string;
 }) {
   const formId = useId();
   const editButton = useRef<HTMLButtonElement>(null);
   const [mode, setMode] = useState<Mode>("read");
   const [baseline, setBaseline] = useState<Record<K, string>>(() => valuesOf(fields));
   const [draft, setDraft] = useState<Record<K, string>>(() => valuesOf(fields));
+  const [extraBaseline, setExtraBaseline] = useState<V | undefined>(() => extra?.value);
+  const [extraDraft, setExtraDraft] = useState<V | undefined>(() => extra?.value);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [formError, setFormError] = useState<string | null>(null);
   // Set while a way out of edit mode is backing out the history entry, so a dialog closing on
@@ -81,9 +143,12 @@ export function EditableRecord<K extends string>({
   const pendingLeave = useRef<(() => void) | null>(null);
 
   const names = fields.map((field) => field.name);
-  const changes = diffFields(names, baseline, draft);
   const editing = mode !== "read";
-  const dirty = editing && changes.length > 0;
+  const changes = diffFields(names, baseline, draft);
+  const extraLines =
+    extra && editing ? extra.changes(extraBaseline as V, extraDraft as V) : ([] as string[]);
+  const changeCount = changes.length + extraLines.length;
+  const dirty = editing && changeCount > 0;
 
   function clearMessages() {
     setFieldErrors({});
@@ -120,12 +185,16 @@ export function EditableRecord<K extends string>({
   useLeaveGuard(dirty, (resume) => askDiscard(resume));
 
   function startEdit() {
+    if (!canEdit || mode !== "read") return;
     const current = valuesOf(fields);
     setBaseline(current);
     setDraft(current);
+    setExtraBaseline(extra?.value);
+    setExtraDraft(extra?.value);
     clearMessages();
     setMode("edit");
   }
+  useEditRequest(canEdit ? editKey : undefined, startEdit);
 
   function cancel() {
     if (dirty) askDiscard(null);
@@ -133,7 +202,7 @@ export function EditableRecord<K extends string>({
   }
 
   async function save(): Promise<boolean> {
-    const result = await onSave(draft);
+    const result = await onSave(draft, extraDraft as V);
     if (result.ok) {
       toast.success(savedMessage);
       toRead();
@@ -148,6 +217,20 @@ export function EditableRecord<K extends string>({
     return true;
   }
 
+  const lines = [
+    ...changes.map((change) => {
+      const field = fields.find((candidate) => candidate.name === change.name);
+      return describeChange(
+        field
+          ? { ...change, from: shown(field, change.from), to: shown(field, change.to) }
+          : change,
+        field?.noun ?? change.name,
+        subject,
+      );
+    }),
+    ...extraLines,
+  ];
+
   return (
     <section data-slot="editable-record" aria-labelledby={`${formId}-title`}>
       {/* Wraps: at 200% system text "Profile" and "Edit profile" no longer share a phone's width. */}
@@ -155,7 +238,7 @@ export function EditableRecord<K extends string>({
         <h2 id={`${formId}-title`} className="text-sm font-medium">
           {title}
         </h2>
-        {editing ? null : (
+        {editing || !canEdit ? null : (
           <Button
             ref={editButton}
             type="button"
@@ -175,7 +258,7 @@ export function EditableRecord<K extends string>({
           className="mt-3 flex flex-col gap-4"
           onSubmit={(event) => {
             event.preventDefault();
-            if (changes.length > 0) setMode("confirm");
+            if (changeCount > 0) setMode("confirm");
           }}
         >
           {formError ? <ErrorText slot="form-alert">{formError}</ErrorText> : null}
@@ -187,17 +270,23 @@ export function EditableRecord<K extends string>({
               error={fieldErrors[field.name]}
             >
               {(control) => (
-                <Input
-                  {...control}
-                  {...field.input}
-                  name={field.name}
+                <FieldControl
+                  field={field}
+                  control={control}
                   value={draft[field.name]}
                   autoFocus={index === 0}
-                  onChange={(event) => setDraft({ ...draft, [field.name]: event.target.value })}
+                  onChange={(next) => setDraft({ ...draft, [field.name]: next })}
                 />
               )}
             </FormField>
           ))}
+          {extra
+            ? extra.edit({
+                value: extraDraft as V,
+                onChange: setExtraDraft,
+                errors: fieldErrors,
+              })
+            : null}
           {/* Only while editing, so it never hangs over the rest of the page (§14.1). */}
           <StickyActions>
             <Button type="button" variant="secondary" onClick={cancel}>
@@ -206,7 +295,7 @@ export function EditableRecord<K extends string>({
             <Button
               variant="primary"
               type="submit"
-              disabled={changes.length === 0}
+              disabled={changeCount === 0}
               data-slot="save-record"
             >
               Save
@@ -214,22 +303,19 @@ export function EditableRecord<K extends string>({
           </StickyActions>
         </form>
       ) : (
-        <dl className="mt-3 flex flex-col gap-3 text-sm">
-          {fields.map((field) => (
-            <div key={field.name} data-slot="record-value">
-              <dt className="text-muted-foreground">{field.label}</dt>
-              <dd className="font-medium break-words">
-                {field.value ? (
-                  field.value
-                ) : (
-                  <span className="text-muted-foreground font-normal">
-                    {field.emptyLabel ?? "Not added"}
-                  </span>
-                )}
-              </dd>
-            </div>
-          ))}
-        </dl>
+        <div className="mt-3 flex flex-col gap-3">
+          <dl className="flex flex-col gap-3 text-sm">
+            {fields.map((field) => (
+              <div key={field.name} data-slot="record-value">
+                <dt className="text-muted-foreground">{field.label}</dt>
+                <dd className="font-medium break-words">
+                  <ReadValue field={field} />
+                </dd>
+              </div>
+            ))}
+          </dl>
+          {extra ? extra.read(extra.value) : null}
+        </div>
       )}
 
       <ConfirmDialog
@@ -242,15 +328,7 @@ export function EditableRecord<K extends string>({
         cancelLabel="Keep editing"
         onConfirm={save}
       >
-        <ChangeList
-          lines={changes.map((change) =>
-            describeChange(
-              change,
-              fields.find((field) => field.name === change.name)?.noun ?? change.name,
-              subject,
-            ),
-          )}
-        />
+        <ChangeList lines={lines} />
       </ConfirmDialog>
 
       <ConfirmDialog
@@ -285,6 +363,163 @@ export function ChangeList({ lines }: { lines: readonly string[] }) {
       ))}
     </ul>
   );
+}
+
+/** What a value reads as: a select's option label, anything else as it is. */
+export function shownValue(
+  field: Pick<EditableField<string>, "kind" | "options">,
+  value: string,
+): string {
+  if (field.kind !== "select" || value === "") return value;
+  return field.options?.find((option) => option.value === value)?.label ?? value;
+}
+
+function shown<K extends string>(field: EditableField<K>, value: string): string {
+  return shownValue(field, value);
+}
+
+const NONE = "__none__";
+
+function FieldControl<K extends string>({
+  field,
+  control,
+  value,
+  autoFocus,
+  onChange,
+}: {
+  field: EditableField<K>;
+  control: { id: string; "aria-invalid": true | undefined; "aria-describedby": string | undefined };
+  value: string;
+  autoFocus: boolean;
+  onChange: (next: string) => void;
+}) {
+  if (field.kind === "select") {
+    return (
+      <Select
+        value={value === "" ? NONE : value}
+        onValueChange={(next) => onChange(next === NONE ? "" : next)}
+      >
+        <SelectTrigger
+          id={control.id}
+          className="w-full"
+          aria-describedby={control["aria-describedby"]}
+          aria-invalid={control["aria-invalid"]}
+          name={field.name}
+          autoFocus={autoFocus}
+        >
+          <SelectValue placeholder="Choose" />
+        </SelectTrigger>
+        <SelectContent>
+          {field.noneLabel !== undefined ? (
+            <SelectItem value={NONE}>{field.noneLabel}</SelectItem>
+          ) : null}
+          {(field.options ?? []).map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
+  }
+  if (field.kind === "textarea") {
+    return (
+      <Textarea
+        {...control}
+        name={field.name}
+        value={value}
+        rows={field.rows ?? 3}
+        maxLength={field.input?.maxLength}
+        placeholder={field.input?.placeholder}
+        autoFocus={autoFocus}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    );
+  }
+  return (
+    <Input
+      {...control}
+      {...field.input}
+      name={field.name}
+      value={value}
+      autoFocus={autoFocus}
+      onChange={(event) => onChange(event.target.value)}
+    />
+  );
+}
+
+const HEX = /#[0-9a-fA-F]{6}\b/;
+
+function ReadValue<K extends string>({ field }: { field: EditableField<K> }) {
+  const text = field.value ? shown(field, field.value) : "";
+  if (!text.trim()) {
+    return (
+      <span className="text-muted-foreground font-normal">{field.emptyLabel ?? "Not added"}</span>
+    );
+  }
+  switch (field.display) {
+    case "multiline":
+      return <span className="whitespace-pre-line">{text}</span>;
+    case "link":
+      return (
+        <a
+          href={text}
+          target="_blank"
+          rel="noreferrer"
+          data-slot="record-link"
+          aria-label={`${text} (opens in a new tab)`}
+          className="inline-flex min-h-11 max-w-full items-center gap-1 underline underline-offset-4"
+        >
+          {/* A flex item keeps its text's width unless told otherwise: a long URL would overflow. */}
+          <span className="min-w-0 break-all">{text}</span>
+          <ExternalLinkIcon className="size-3.5 shrink-0" aria-hidden />
+        </a>
+      );
+    case "email":
+      return (
+        <a
+          href={`mailto:${text}`}
+          className="inline-flex min-h-11 max-w-full min-w-11 items-center underline underline-offset-4"
+        >
+          <span className="min-w-0 break-all">{text}</span>
+        </a>
+      );
+    case "tel":
+      return (
+        <a
+          href={`tel:${text.replace(/\s+/g, "")}`}
+          className="inline-flex min-h-11 min-w-11 items-center underline underline-offset-4"
+        >
+          {text}
+        </a>
+      );
+    case "swatches":
+      return (
+        <ul className="flex flex-col gap-1.5">
+          {text
+            .split("\n")
+            .filter((line) => line.trim())
+            .map((line) => {
+              const hex = HEX.exec(line)?.[0];
+              return (
+                <li key={line} className="flex items-center gap-2">
+                  {hex ? (
+                    <span
+                      aria-hidden
+                      data-slot="swatch"
+                      className="border-border inline-block size-5 shrink-0 rounded-sm border"
+                      style={{ backgroundColor: hex }}
+                    />
+                  ) : null}
+                  <span>{line.trim()}</span>
+                </li>
+              );
+            })}
+        </ul>
+      );
+    default:
+      return <>{text}</>;
+  }
 }
 
 function valuesOf<K extends string>(fields: readonly EditableField<K>[]): Record<K, string> {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { describeChange, diffFields, normalise } from "./changes";
+import { describeChange, diffFields, normalise, possessive } from "./changes";
 
 describe("diffFields (task 2.9)", () => {
   const names = ["fullName", "phone"];
@@ -48,5 +48,13 @@ describe("describeChange: the confirmation names the change (ARCHITECTURE §14.1
     expect(describeChange({ name: "phone", from: "98450", to: "" }, "phone number", "self")).toBe(
       "Your phone number will be removed.",
     );
+  });
+});
+
+describe("possessive (3.4)", () => {
+  it("adds only an apostrophe to a name ending in s", () => {
+    expect(possessive("Sharma Weddings")).toBe("Sharma Weddings'");
+    expect(possessive("Ravi")).toBe("Ravi's");
+    expect(possessive("self")).toBe("Your");
   });
 });

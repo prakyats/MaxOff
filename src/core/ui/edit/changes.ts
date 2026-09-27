@@ -36,8 +36,10 @@ export function diffFields(
   });
 }
 
-function possessive(subject: ChangeSubject): string {
-  return subject === "self" ? "Your" : `${subject}'s`;
+/** "Your", "Ravi's", and "Sharma Weddings'" for a name that already ends in s (a client, 3.4). */
+export function possessive(subject: ChangeSubject): string {
+  if (subject === "self") return "Your";
+  return /s$/i.test(subject) ? `${subject}'` : `${subject}'s`;
 }
 
 /**

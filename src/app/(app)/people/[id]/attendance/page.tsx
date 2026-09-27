@@ -5,7 +5,7 @@ import { historyMonth, listDays, monthLabel, monthOf } from "@/modules/attendanc
 import { AttendanceHistory } from "@/modules/attendance/components/attendance-history";
 
 import { LeavePager } from "../../../leave/leave-nav";
-import { loadPerson } from "../person";
+import { loadHistoryPerson } from "../person";
 
 export const metadata: Metadata = { title: "Attendance & leave" };
 
@@ -22,7 +22,7 @@ export default async function PersonAttendancePage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const [{ id }, { month: requested }] = await Promise.all([params, searchParams]);
-  const person = await loadPerson(id);
+  const person = await loadHistoryPerson(id);
   const today = todayIST();
   // Attendance starts the IST day after joining (WORKFLOWS §1, 2.2).
   const firstDay = person.joinedAt ? addISTDays(toISTDate(person.joinedAt), 1) : today;

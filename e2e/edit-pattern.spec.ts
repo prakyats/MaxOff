@@ -2,7 +2,14 @@ import { type Page, type TestInfo } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 
-import { hydrated, pageHeader, runInstalled, signIn, storageStateFor } from "./helpers";
+import {
+  expectBackStack,
+  hydrated,
+  pageHeader,
+  runInstalled,
+  signIn,
+  storageStateFor,
+} from "./helpers";
 
 /**
  * The edit pattern (ARCHITECTURE §14.1, §14.2 f, task 2.9): read-only by default, explicit
@@ -165,35 +172,36 @@ test.describe("/me: the profile is read-only first and edited deliberately", () 
   });
 });
 
-test.describe("People: the Owner's edit of a member names the change", () => {
+test.describe("A person's page: the Owner's edit of a member names the change (3.4)", () => {
   test.use({ storageState: storageStateFor("owner") });
 
-  async function openEdit(page: Page, isMobile: boolean, name: string) {
+  /** The person's page, from People: the table's name link or the phone card. */
+  async function openPerson(page: Page, isMobile: boolean, name: string) {
+    if (isMobile) await runInstalled(page);
     await page.goto("/people");
     await hydrated(page);
     if (isMobile) {
       // Cards come ten at a time; the seeded people sit further down.
-      const more = page.getByRole("button", { name: `More for ${name}` });
-      while (!(await more.isVisible())) {
+      const card = page.locator('[data-slot="data-card"]', { hasText: name });
+      while (!(await card.isVisible())) {
         await page.locator('[data-slot="data-cards-more"]').click();
       }
-      await more.click();
-      await page
-        .locator('[data-slot="detail-sheet"]')
-        .getByRole("button", { name: "Edit" })
-        .click();
+      await card.locator('[data-slot="data-card-link"]').click();
     } else {
-      await page.getByRole("button", { name: `Actions for ${name}` }).click();
-      await page.getByRole("menuitem", { name: "Edit" }).click();
+      await page.getByRole("link", { name, exact: true }).click();
     }
-    return page.getByRole("dialog", { name: `Edit ${name}` });
+    await expect(page).toHaveURL(/\/people\/[0-9a-f-]{36}$/);
+    await expect(pageHeader(page)).toContainText(name);
+    await hydrated(page);
   }
 
-  async function changeRole(page: Page, isMobile: boolean, name: string, from: string, to: string) {
-    const dialog = await openEdit(page, isMobile, name);
-    const save = dialog.getByRole("button", { name: "Save" });
+  async function changeRole(page: Page, name: string, from: string, to: string) {
+    // The header's ⋯ holds Edit (owner decision 2026-09-25); it starts the Profile's edit mode.
+    await page.getByRole("button", { name: `Actions for ${name}` }).click();
+    await page.getByRole("menuitem", { name: "Edit" }).click();
+    const save = record(page).locator('[data-slot="save-record"]');
     await expect(save).toBeDisabled();
-    await dialog.getByLabel("Role").click();
+    await page.getByLabel("Role").click();
     await page.getByRole("option", { name: to }).click();
     await expect(save).toBeEnabled();
     await save.click();
@@ -202,18 +210,43 @@ test.describe("People: the Owner's edit of a member names the change", () => {
     );
     await confirmation(page).getByRole("button", { name: "Save" }).click();
     await expect(page.getByText("Saved", { exact: true })).toBeVisible();
-    await expect(dialog).toBeHidden();
+    await expect(record(page).locator('[data-slot="edit-record"]')).toBeVisible();
+    await expect(record(page)).toContainText(to);
   }
 
   test("a role change is confirmed in the person's name", async ({ page, isMobile }, info) => {
     const name = memberEditName(info);
-    await changeRole(page, isMobile, name, "Staff", "Admin");
+    await openPerson(page, isMobile, name);
+    // Read-only first: the values, no inputs.
+    await expect(record(page).getByRole("textbox")).toHaveCount(0);
+    await changeRole(page, name, "Staff", "Admin");
     // Put it back, through the same confirmation.
-    await changeRole(page, isMobile, name, "Admin", "Staff");
+    await changeRole(page, name, "Admin", "Staff");
+  });
+
+  test("back leaves edit mode, then the page; with a change it asks first", async ({
+    page,
+    isMobile,
+  }, info) => {
+    test.skip(!isMobile, "the back gesture is the installed phone's");
+    const name = memberEditName(info);
+    await openPerson(page, isMobile, name);
+    await record(page).locator('[data-slot="edit-record"]').click();
+    await page.getByLabel("Full name").fill(`${name} changed`);
+    await page.goBack();
+    await expect(discardDialog(page)).toBeVisible();
+    // Back on the dialog keeps editing (it is the top layer, §14.2 a).
+    await page.goBack();
+    await expect(discardDialog(page)).toBeHidden();
+    await expect(page.getByLabel("Full name")).toHaveValue(`${name} changed`);
+    await record(page).getByRole("button", { name: "Cancel" }).click();
+    await discardDialog(page).getByRole("button", { name: "Discard changes" }).click();
+    await expect(record(page).locator('[data-slot="edit-record"]')).toBeVisible();
+    await expectBackStack(page, [{ url: /\/people$/ }]);
   });
 });
 
-test.describe("People cards on a phone (First glance, task 2.9)", () => {
+test.describe("People cards on a phone (kickoff 3: every member has a page)", () => {
   test.skip(({ isMobile }) => !isMobile, "cards are the phone layout");
 
   test.describe("the Owner", () => {
@@ -229,16 +262,23 @@ test.describe("People cards on a phone (First glance, task 2.9)", () => {
 
       await card.getByRole("button", { name: "More for Local Staff" }).click();
       const sheet = page.locator('[data-slot="detail-sheet"]');
-      await expect(sheet.getByRole("button", { name: "Edit" })).toBeVisible();
+      await expect(sheet.getByRole("link", { name: "Edit" })).toBeVisible();
       await expect(sheet.getByRole("button", { name: "Deactivate" })).toBeVisible();
+      // The redundant "Attendance & leave" row is gone (kickoff 3): the card opens the page.
+      await expect(sheet.getByRole("link", { name: "Attendance & leave" })).toHaveCount(0);
       await page.goBack();
       await expect(sheet).toBeHidden();
 
       await card.locator('[data-slot="data-card-link"]').click();
       await expect(page).toHaveURL(/\/people\/[^/]+$/);
       await expect(pageHeader(page)).toContainText("Local Staff");
-      await page.goBack();
-      await expect(page).toHaveURL(/\/people$/);
+      // The Owner gets the history tabs; each is a view, so one back still leaves.
+      const tabs = page.locator('[data-slot="person-tabs"]');
+      await tabs.getByRole("link", { name: "Leave" }).click();
+      await expect(page).toHaveURL(/\/people\/[^/]+\/leave$/);
+      await tabs.getByRole("link", { name: "Attendance" }).click();
+      await expect(page).toHaveURL(/\/people\/[^/]+\/attendance$/);
+      await expectBackStack(page, [{ url: /\/people$/ }]);
     });
 
     test("their own card has no person page, so it opens the sheet", async ({ page }) => {
@@ -254,12 +294,20 @@ test.describe("People cards on a phone (First glance, task 2.9)", () => {
   test.describe("an Admin", () => {
     test.use({ storageState: storageStateFor("admin") });
 
-    test("cards open the sheet: no attendance history to open", async ({ page }) => {
+    test("cards open the person's Profile, read-only, with no history tabs", async ({ page }) => {
+      await runInstalled(page);
       await page.goto("/people");
       await hydrated(page);
-      await expect(page.locator('[data-slot="data-card-link"]')).toHaveCount(0);
-      await page.locator('[data-slot="data-card"]', { hasText: "Local Staff" }).click();
-      await expect(page.locator('[data-slot="detail-sheet"]')).toBeVisible();
+      await page
+        .locator('[data-slot="data-card"]', { hasText: "Local Staff" })
+        .locator('[data-slot="data-card-link"]')
+        .click();
+      await expect(page).toHaveURL(/\/people\/[^/]+$/);
+      await expect(record(page)).toContainText("Local Staff");
+      await expect(record(page).locator('[data-slot="edit-record"]')).toHaveCount(0);
+      await expect(page.locator('[data-slot="person-tabs"]')).toHaveCount(0);
+      await expect(page.locator('[data-slot="person-menu"]')).toHaveCount(0);
+      await expectBackStack(page, [{ url: /\/people$/ }]);
     });
   });
 });

@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { parseColorLines, parseFontLines } from "./brand-lines";
 import {
   BRAND_COLORS_MAX,
   BRAND_FONTS_MAX,
@@ -201,6 +202,43 @@ export const updateBrandSchema = z.object({
   brandNotes: optionalText(BRAND_NOTES_MAX, `Keep the notes under ${BRAND_NOTES_MAX} characters.`),
 });
 export type UpdateBrandInput = z.input<typeof updateBrandSchema>;
+
+/** Colours and fonts one per line (3.4, `brand-lines.ts`); each bad line is the field's message. */
+export const updateBrandTextSchema = z
+  .object({
+    clientId: z.uuid(),
+    colors: z.string().max(2000, "That is a lot of colours.").default(""),
+    fonts: z.string().max(2000, "That is a lot of fonts.").default(""),
+    toneOfVoice: optionalText(BRAND_TONE_MAX, `Keep the tone under ${BRAND_TONE_MAX} characters.`),
+    brandNotes: optionalText(
+      BRAND_NOTES_MAX,
+      `Keep the notes under ${BRAND_NOTES_MAX} characters.`,
+    ),
+  })
+  .transform((data, context) => {
+    const colors = parseColorLines(data.colors, BRAND_COLORS_MAX);
+    const fonts = parseFontLines(data.fonts, BRAND_FONTS_MAX);
+    if (!colors.ok) context.addIssue({ code: "custom", path: ["colors"], message: colors.error });
+    if (!fonts.ok) context.addIssue({ code: "custom", path: ["fonts"], message: fonts.error });
+    if (!colors.ok || !fonts.ok) return z.NEVER;
+    const checked = z
+      .object({
+        colors: z.array(brandColorSchema),
+        fonts: z.array(brandFontSchema),
+      })
+      .safeParse({ colors: colors.value, fonts: fonts.value });
+    if (!checked.success) {
+      for (const issue of checked.error.issues) {
+        context.addIssue({ code: "custom", path: [String(issue.path[0])], message: issue.message });
+      }
+      return z.NEVER;
+    }
+    return { ...data, colors: checked.data.colors, fonts: checked.data.fonts };
+  });
+export type UpdateBrandTextInput = z.input<typeof updateBrandTextSchema>;
+
+export const setClientLogoSchema = z.object({ clientId: z.uuid(), fileId: z.uuid() });
+export type SetClientLogoInput = z.input<typeof setClientLogoSchema>;
 
 /** Parses what the database holds; a malformed row (never written by the app) reads as empty. */
 export function parseBrandColors(value: unknown): BrandColor[] {

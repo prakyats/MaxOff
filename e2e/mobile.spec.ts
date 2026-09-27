@@ -2,7 +2,15 @@ import { type Locator, type Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 
-import { pageHeader, storageStateFor } from "./helpers";
+import {
+  memberIdOf,
+  pageHeader,
+  removeClientFixture,
+  serviceInsert,
+  serviceSelect,
+  storageStateFor,
+  USERS,
+} from "./helpers";
 
 /**
  * The mobile standard (ARCHITECTURE §14.1, task 1.5). Runs in the `mobile` project at **375px**
@@ -128,6 +136,8 @@ const SCREENS = [
   { path: "/me", role: "staff" },
   { path: "/my-day", role: "staff" },
   { path: "/today", role: "admin" },
+  { path: "/clients", role: "owner" },
+  { path: "/clients", role: "admin" },
 ] as const;
 
 for (const role of ["owner", "admin", "staff"] as const) {
@@ -166,8 +176,9 @@ const LARGE_TEXT_SCREENS = {
     "/settings/job-titles",
     "/settings/custom-fields",
     "/me",
+    "/clients",
   ],
-  admin: ["/today", "/leave", "/leave/attendance", "/me"],
+  admin: ["/today", "/leave", "/leave/attendance", "/me", "/clients"],
   staff: ["/my-day", "/leave", "/leave/attendance", "/me"],
 } as const;
 
@@ -444,8 +455,9 @@ test.describe("People is a card list, not a table", () => {
     // The columns a phone has no room for live here (PERMISSIONS §2: the Owner sees email).
     await expect(sheet).toContainText("staff@maxoff.local");
     await expect(sheet).toContainText("Staff");
-    // And the actions, which were a hover-adjacent 32px dropdown on desktop.
-    await expect(sheet.getByRole("button", { name: "Edit" })).toBeVisible();
+    // And the actions, which were a hover-adjacent 32px dropdown on desktop. Edit opens the
+    // person's page in edit mode (3.4), so it is a link.
+    await expect(sheet.getByRole("link", { name: "Edit" })).toBeVisible();
     await expect(sheet.getByRole("button", { name: "Deactivate" })).toBeVisible();
 
     // Anchored to the bottom of the viewport: a bottom sheet, not a centred dialog.
@@ -456,7 +468,8 @@ test.describe("People is a card list, not a table", () => {
     const context = await browser.newContext({ storageState: storageStateFor("admin") });
     const page = await context.newPage();
     await page.goto("/people");
-    await page.locator('[data-slot="data-card"]', { hasText: "Local Staff" }).click();
+    // The card itself opens the person's page (kickoff 3); ⋯ opens the sheet.
+    await page.getByRole("button", { name: "More for Local Staff" }).click();
 
     const sheet = page.locator('[data-slot="detail-sheet"]');
     await expect(sheet).toBeVisible();
@@ -616,5 +629,63 @@ test.describe("password fields can be revealed", () => {
     await page.locator('[data-slot="password-toggle"]').click();
     await expect(page).toHaveURL(/\/login$/);
     await expect(page.locator('[data-slot="field-error"]')).toHaveCount(0);
+  });
+});
+
+/**
+ * The record screens of 3.4, which need an id: a person's Profile and a client's views and
+ * contact. The client and its contact are this project's own fixture, remade on every run.
+ */
+test.describe("record screens meet the mobile standard (3.4)", () => {
+  test.use({ storageState: storageStateFor("owner") });
+
+  async function recordPaths(project: string): Promise<string[]> {
+    const name = `Test Client Mobile (${project})`;
+    await removeClientFixture(name);
+    const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+    const client = await serviceInsert<{ id: string }>("clients", {
+      org_id: org?.id,
+      name,
+      admin_id: await memberIdOf(USERS.admin.email),
+      phone: "98450 12345",
+      website: "https://a-rather-long-client-website-name.example/with/a/path",
+      address: "12 Market Road, Kodialbail, Mangaluru",
+    });
+    const contact = await serviceInsert<{ id: string }>("client_contacts", {
+      org_id: org?.id,
+      client_id: client.id,
+      name: "Kavya Shetty",
+      designation: "Marketing head",
+      phone: "98450 54321",
+    });
+    const staff = await memberIdOf(USERS.staff.email);
+    return [
+      `/people/${staff}`,
+      `/people/${staff}/leave`,
+      `/clients/${client.id}`,
+      `/clients/${client.id}/brand`,
+      `/clients/${client.id}/activity`,
+      `/clients/${client.id}/contacts/${contact.id}`,
+    ];
+  }
+
+  test("no sideways scroll, 44px targets, 16px inputs, and large text fits", async ({
+    page,
+  }, info) => {
+    for (const path of await recordPaths(info.project.name)) {
+      await page.goto(path);
+      await expect(pageHeader(page)).toBeVisible();
+      await page.waitForLoadState("networkidle");
+      await expectNoHorizontalScroll(page);
+      await expectTouchTargets(page);
+      await expectNoZoomOnFocus(page);
+      for (const scale of [130, 200]) {
+        await page.evaluate((percent) => {
+          document.documentElement.style.fontSize = `${percent}%`;
+        }, scale);
+        await expectNoHorizontalScroll(page);
+        await expectReadableTruncation(page);
+      }
+    }
   });
 });

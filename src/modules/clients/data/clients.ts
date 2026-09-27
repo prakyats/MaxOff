@@ -1,5 +1,7 @@
 import "server-only";
 
+import { type ActivityEntry } from "@/core/activity";
+import { listActivity } from "@/core/activity/server";
 import type { Json, Tables } from "@/core/db";
 import { createServerSupabase } from "@/core/db/server";
 import { AppError } from "@/core/errors";
@@ -11,6 +13,7 @@ import {
   type ClientContact,
   type ClientLabel,
   type ClientState,
+  type ClientSummary,
 } from "../domain/clients";
 import { parseBrandColors, parseBrandFonts } from "../domain/schemas";
 
@@ -112,6 +115,24 @@ export async function listClients(
   const { data, error } = await query;
   if (error) throw error;
   return data.map(toClient);
+}
+
+/**
+ * The list screen's rows (3.4): every client the viewer may see (RLS: the Owner all, an Admin
+ * theirs) with the logo the list shows. Filtering by state and Admin is the screen's view control.
+ */
+export async function listClientSummaries(): Promise<ClientSummary[]> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase
+    .from("clients")
+    .select("*, client_brand(logo_file_id)")
+    .order("name", { ascending: true });
+  if (error) throw error;
+  return data.map((row) => {
+    const { client_brand: brand, ...client } = row;
+    const first = Array.isArray(brand) ? brand[0] : brand;
+    return { ...toClient(client), logoFileId: first?.logo_file_id ?? null };
+  });
 }
 
 export async function getClient(clientId: string): Promise<Client | null> {
@@ -251,6 +272,33 @@ export async function updateBrand(
     .eq("client_id", clientId);
   if (error) throw error;
   refusedWhenNone(count, NOT_YOURS);
+}
+
+/** The logo (3.3's guard and archive triggers do the checking and the clean-up). */
+export async function setLogo(clientId: string, logoFileId: string | null): Promise<void> {
+  const supabase = await createServerSupabase();
+  const { error, count } = await supabase
+    .from("client_brand")
+    .update({ logo_file_id: logoFileId }, { count: "exact" })
+    .eq("client_id", clientId);
+  if (error) throw error;
+  refusedWhenNone(count, NOT_YOURS);
+}
+
+/**
+ * A client's audit trail (3.4): the client row, its brand, its contacts and, for the Owner, its
+ * private notes (RLS answers the rest: an Admin never reads `client_private` entries).
+ */
+export async function listClientActivity(
+  clientId: string,
+  contactIds: readonly string[],
+): Promise<ActivityEntry[]> {
+  return listActivity([
+    { entity: "clients", ids: [clientId] },
+    { entity: "client_brand", ids: [clientId] },
+    { entity: "client_private", ids: [clientId] },
+    { entity: "client_contacts", ids: contactIds },
+  ]);
 }
 
 export async function listAdminAssignments(clientId: string): Promise<ClientAdminAssignment[]> {

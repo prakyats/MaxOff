@@ -6,8 +6,14 @@
  * `components/` (ADR-0011 amendment, task 2.8), because a barrel is not tree-shaken per route.
  */
 export { offerableJobTitles, type JobTitleOption } from "./domain/job-titles";
-export { getOwnMember, listDirectory, listMembers } from "./data/members";
-export { memberActions, sortMembers, type TeamMember } from "./domain/members";
+export { getOwnMember, getPerson, listDirectory, listMembers } from "./data/members";
+export {
+  memberActions,
+  ROLE_LABELS,
+  sortMembers,
+  STATUS_LABELS,
+  type TeamMember,
+} from "./domain/members";
 export { NAME_MAX_LENGTH, PHONE_MAX_LENGTH } from "./domain/limits";
 /** The member's own name and phone, for the edit pattern on /me (2.9). */
 export { updateOwnProfile } from "./actions/members";

@@ -11,8 +11,10 @@
 const TAB_ROUTES: readonly RegExp[] = [
   // `/leave` and `/leave/attendance` (2.3), under `leave/layout.tsx`.
   /^(\/leave)(?:\/attendance)?$/,
-  // A person's leave requests and attendance (2.4, `person-nav.tsx`).
-  /^(\/people\/[^/]+)(?:\/attendance)?$/,
+  // A person's page (3.4, `person-nav.tsx`): Profile, and for the Owner Leave and Attendance.
+  /^(\/people\/[^/]+)(?:\/(?:leave|attendance))?$/,
+  // A client's page (3.4, `client-nav.tsx`): Overview, Brand, Activity.
+  /^(\/clients\/[^/]+)(?:\/(?:brand|activity))?$/,
 ];
 
 export function routeKey(pathname: string): string {

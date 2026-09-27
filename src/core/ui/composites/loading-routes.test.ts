@@ -69,7 +69,7 @@ describe("loading.tsx coverage", () => {
     expect(shapeOf("my-day")).toBe("cards");
     // The list sits in a route group so its skeleton never wraps a person (2.9).
     expect(shapeOf("people/(list)")).toBe("cards");
-    expect(shapeOf("clients")).toBe("cards");
+    expect(shapeOf("clients/(list)")).toBe("cards");
     expect(shapeOf("settings")).toBe("list");
     expect(shapeOf("notifications")).toBe("list");
     expect(shapeOf("me")).toBe("detail");
@@ -86,8 +86,12 @@ describe("loading.tsx coverage", () => {
     const approvals = readFileSync(path.join(appDir, "approvals/loading.tsx"), "utf8");
     expect(approvals).toContain("actions={2}");
     expect(approvals).toContain("ApprovalGroupSkeleton");
-    // A person's history (2.4) mirrors /leave: requests and the month, under a painted header.
-    expect(shapeOf("people/[id]")).toBe("cards");
+    // A person's page (3.4): the Profile traces its card; the history (2.4) mirrors /leave,
+    // requests and the month, under a painted header and tabs.
+    expect(readFileSync(path.join(appDir, "people/[id]/loading.tsx"), "utf8")).toContain(
+      "loading-profile",
+    );
+    expect(shapeOf("people/[id]/leave")).toBe("cards");
     expect(shapeOf("people/[id]/attendance")).toBe("cards");
     expect(readFileSync(path.join(appDir, "people/[id]/attendance/loading.tsx"), "utf8")).toContain(
       "loading-leave-pager",

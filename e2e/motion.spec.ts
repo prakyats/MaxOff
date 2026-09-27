@@ -66,12 +66,12 @@ async function slides(page: Page): Promise<string[]> {
 const FORWARD = ["nav-forward:nav-slide-from-end", "nav-forward:nav-slide-to-start"];
 const BACK = ["nav-back:nav-slide-from-start", "nav-back:nav-slide-to-end"];
 
-/** From /today, one person on the board: a drill-down to `/people/<id>`. */
+/** From /today, one person on the board: a drill-down to their leave, `/people/<id>/leave`. */
 async function openPersonFromToday(page: Page) {
   await page.goto("/today");
   await hydrated(page);
   await page.locator('[data-slot="board-row"]').first().click();
-  await expect(page).toHaveURL(/\/people\/[^/]+$/);
+  await expect(page).toHaveURL(/\/people\/[^/]+\/leave$/);
 }
 
 const backControl = (page: Page) => page.getByRole("link", { name: "Back to People" });
@@ -113,7 +113,8 @@ test.describe("installed at phone width: drill-down slides", () => {
     await hydrated(page);
     await page.getByRole("button", { name: "More for Local Staff" }).click();
     const sheet = page.locator('[data-slot="detail-sheet"]');
-    await sheet.getByRole("link", { name: "Attendance & leave" }).click();
+    // The Owner's Edit opens the person's page (3.4), a drill-down from inside the sheet.
+    await sheet.getByRole("link", { name: "Edit" }).click();
     await expect(page).toHaveURL(/\/people\/[^/]+$/);
     await expect(sheet).toBeHidden();
     await expect.poll(() => slides(page)).toEqual(FORWARD);
@@ -222,7 +223,7 @@ test.describe("installed: scroll is kept", () => {
     expect(y).toBeGreaterThan(1000);
 
     await row.click();
-    await expect(page).toHaveURL(/\/people\/[^/]+$/);
+    await expect(page).toHaveURL(/\/people\/[^/]+\/leave$/);
     await page.getByRole("link", { name: "Back to People" }).click();
     await expect(page).toHaveURL(/\/today$/);
     await near(page, y);
@@ -302,8 +303,8 @@ test.describe("switching a screen's tabs keeps its header and tabs", () => {
       await tabs.getByRole("link", { name: "Attendance" }).click();
       await expect(page).toHaveURL(/\/attendance$/);
       await expect(page.locator('[data-slot="leave-pager"]')).toBeVisible();
-      await tabs.getByRole("link", { name: "Leave requests" }).click();
-      await expect(page).toHaveURL(/\/people\/[^/]+$/);
+      await tabs.getByRole("link", { name: "Leave" }).click();
+      await expect(page).toHaveURL(/\/people\/[^/]+\/leave$/);
       await page.waitForLoadState("networkidle");
       await expectHeaderAndTabsKept(page);
     });
@@ -324,7 +325,7 @@ test.describe("switching a screen's tabs keeps its header and tabs", () => {
         });
       });
       await page.locator('[data-slot="board-row"]').first().click();
-      await expect(page).toHaveURL(/\/people\/[^/]+$/);
+      await expect(page).toHaveURL(/\/people\/[^/]+\/leave$/);
       await expect(page.locator('[data-slot="person-tabs"]')).toBeVisible();
       await page.waitForLoadState("networkidle");
       const titles = await page.evaluate(

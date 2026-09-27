@@ -95,6 +95,38 @@ export async function getOwnMember(id: string): Promise<TeamMember | null> {
   return data ? toTeamMember(data) : null;
 }
 
+/**
+ * One person for their page (3.4): the `members` row (email, dates) for `team.manage`, the
+ * directory row for everyone else with `team.view` (PERMISSIONS §2: no email).
+ */
+export async function getPerson(id: string, full: boolean): Promise<TeamMember | null> {
+  if (full) return getOwnMember(id);
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase
+    .from("member_directory")
+    .select(DIRECTORY_COLUMNS)
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  if (!data.id || !data.full_name || !data.role || !data.status || !data.created_at) {
+    throw new AppError("INTERNAL", undefined, {
+      cause: new Error("member_directory row incomplete"),
+    });
+  }
+  return toTeamMember({
+    id: data.id,
+    full_name: data.full_name,
+    phone: data.phone,
+    role: data.role,
+    status: data.status,
+    job_title_id: data.job_title_id,
+    avatar_file_id: data.avatar_file_id,
+    created_at: data.created_at,
+    job_title: data.job_title,
+  });
+}
+
 /** Plain edit by `team.manage` (audited by trigger). Role stays as it is when not given. */
 export async function updateMember(
   id: string,
