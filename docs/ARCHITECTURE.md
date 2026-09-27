@@ -384,6 +384,31 @@ Real data never goes on local or staging. Each deploy job first builds the Worke
 
 **Branch previews (task 2.0).** A fourth path that deploys nothing. `.github/workflows/preview.yml` builds every push to a non-`main` branch (docs-only paths excluded) and runs `wrangler versions upload --env staging`, which uploads a Worker **version** without promoting it: the `maxoff-staging` deployment keeps serving `main`, and routes, custom domains and cron triggers are untouched. Each push produces three URLs — `latest-maxoff-staging.<subdomain>.workers.dev` (rolling, any branch), `<branch>-maxoff-staging.…` and `<version-prefix>-maxoff-staging.…` — posted to the job summary and to one PR comment edited in place. An alias is a `workers/alias` annotation written at upload time and a version carries exactly one, so the same bundle is uploaded twice per push, once per alias. Previews build with `NEXT_PUBLIC_APP_ENV=staging`, so they inherit the staging security headers and `robots.txt` (§18.3) by construction; Cloudflare's preview edge additionally replaces `X-Robots-Tag` with its own `noindex` on every preview response, so a preview cannot be indexed even if a build lost the header, and they reuse the `staging` GitHub environment's variables and Worker secrets (wrangler uploads with `keepSecrets: true`; the workflow never runs `wrangler secret put`, which would publish a deployment). **Previews never run migrations** — that stays with `main` and tags, plus a manual `staging-migrations` job sharing the `deploy-staging` concurrency group — so a branch that adds a migration previews against a staging database without it, and the PR comment says so. `preview_urls` is stated in `wrangler.jsonc`: **`true` on staging, `false` on production**, so no production version is ever served at a public unlisted URL.
 
+### 18.1a CI: what runs when (owner decision 2026-09-27)
+The goal is **speed per push**, not minutes (the repo is public, so Actions minutes are free). `.github/workflows/ci.yml`:
+
+| Trigger | typecheck · lint · format · unit · build · budget | pgTAP | Playwright |
+|---|---|---|---|
+| Push to `main` or `phase-*` that touches code | ✅ | ✅ | only on `main` (Deploy waits for this run) |
+| Push that touches only `docs/**`, `*.md`, `screenshots/**` | no run (`paths-ignore`) | | |
+| Pull request (to `main`) | ✅ | ✅ | ✅ |
+| Docs-only pull request | skipped (the `changes` job) | skipped | skipped |
+| `workflow_dispatch` ("Full tests", default on) | ✅ | ✅ | ✅ (always on `main`) |
+
+- **The three checks stay required on `main`.** A pull request therefore has no trigger-level path filter (a workflow that never starts leaves required checks pending forever): its `changes` job diffs base...head and the jobs skip for a docs-only change, and a skipped required job passes.
+- **CI is still the authority per unit:** `/run-phase` dispatches the full run on the phase branch after each unit's last push and waits for it (`gh workflow run CI --ref phase-<N> -f full=true`); `/review-phase` does the same before its pull request, whose own run is full too.
+- **Deploy** (`deploy.yml`, unchanged) follows a green CI run on `main`; every such run includes Playwright (a push to `main` runs it, and a dispatch on `main` always does, whatever the input), so nothing reaches staging untested.
+- **Concurrency:** CI groups by branch **and** trigger with `cancel-in-progress`, so a newer push cancels the older push run on the same branch while a dispatched full run is never cancelled by a push. Preview already had it per job: the build cancels per branch, and the staging-migrations job shares `deploy-staging` with the staging deploy and is never cancelled (a half-applied push to the shared database is not worth the seconds).
+- **This month before and after** (1–27 September 2026, 191 runs, replayed from the Actions history; minutes = the sum of job durations):
+
+| Workflow | Before: runs / job-minutes | After (same history, new rules) | Wall clock per code push on a phase branch |
+|---|---|---|---|
+| CI | 125 / 1107 | 82 / 409, plus one dispatched full run per unit (≈ 14 min each) | ≈ 12–14 min (Playwright) → ≈ 2–2.5 min (check ∥ pgTAP) |
+| Preview | 51 / 94 | unchanged (already skipped docs-only pushes) | ≈ 2–4 min, unchanged |
+| Deploy | 14 / 19 | unchanged | — |
+
+  The CI saving: 303 job-minutes of Playwright on phase-branch pushes, and ≈ 395 of runs whose pushed commit touched only docs (judged by the pushed head commit, so an estimate).
+
 ### 18.2 Error reporting (Sentry)
 `@sentry/nextjs`, initialised once per runtime from `src/core/observability` (`server.ts`, `edge.ts`, `client.ts` through `src/instrumentation.ts` and `src/instrumentation-client.ts`), errors only: `tracesSampleRate: 0`, no replay, no profiling. **On the Worker, the server runtime drops the Node SDK's `ContextLines`, `Modules`, `LocalVariablesAsync` and `Context` integrations** (`WORKER_UNSAFE_INTEGRATIONS` in `server.ts`): they read the filesystem or attach the inspector, which never answers under `nodejs_compat`, so event processing stalled to the 2 s flush timeout and every error was lost while client reports still arrived (proved on staging, 2026-09-22; with them gone the flush takes ~400 ms). The server and edge runtimes also send with `core/observability/transport.ts` (platform `fetch`, what `@sentry/cloudflare` uses). Never set `debug: true` in a committed build: the SDK logger prints the raw, unscrubbed event message to Workers Logs. With no DSN the SDK is disabled, which is the local and CI state. Source maps are uploaded only when the deploy workflow provides `SENTRY_AUTH_TOKEN`, and an upload failure never fails a deploy.
 

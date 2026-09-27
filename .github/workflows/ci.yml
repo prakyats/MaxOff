@@ -1,14 +1,39 @@
 # CI (task 0.4). Red never merges: enable branch protection on `main` requiring these three
 # checks (README → "Branch protection").
+#
+# What runs when (owner decision 2026-09-27, ARCHITECTURE §18 "CI"; speed, not minutes: the repo
+# is public):
+#   * every code push (main, phase-*): typecheck, lint, format, unit, build, budget, and pgTAP;
+#   * Playwright only where a full run is the gate: pull requests (to main), pushes to main (so
+#     Deploy, which waits for this workflow on main, always follows a full e2e run), and a manual
+#     dispatch with "full tests" on (`/run-phase` dispatches it on the phase branch after each
+#     unit's last push and waits for it, so CI stays the authority per unit);
+#   * a docs-only push runs nothing (`paths-ignore`). A pull request has no path filter at the
+#     trigger, because the three checks are required on `main` and a workflow that never starts
+#     leaves them pending forever; its jobs skip instead (the `changes` job), and a skipped
+#     required job counts as passed.
 name: CI
 
 on:
   push:
     branches: [main, "phase-*"]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - "screenshots/**"
   pull_request:
+  workflow_dispatch:
+    inputs:
+      full:
+        description: "Full tests: run Playwright too"
+        type: boolean
+        default: true
 
+# One run per branch and trigger: a newer push cancels the older run on the same branch, and a
+# push never cancels a dispatched full run (or the reverse). On main a cancelled run never
+# deploys; the newer one, which carries its changes, does.
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 permissions:
@@ -23,8 +48,39 @@ env:
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-placeholder
 
 jobs:
+  # Pull requests only: does the change touch anything but docs? (A push is filtered at the
+  # trigger instead.) Plain git, no third-party action.
+  changes:
+    name: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: diff
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          files=$(git diff --name-only "$BASE...$HEAD")
+          echo "$files"
+          if echo "$files" | grep -vqE '^(docs/|screenshots/)|\.md$'; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Docs-only pull request: the checks skip (a skipped required check passes)."
+          fi
+
   check:
     name: typecheck · lint · format · unit · build
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -48,6 +104,8 @@ jobs:
 
   db:
     name: pgTAP
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -68,6 +126,16 @@ jobs:
 
   e2e:
     name: playwright
+    needs: changes
+    # The full run: pull requests, pushes to main (before Deploy), and a dispatch with "full
+    # tests" on. A push to a phase branch skips it; /run-phase dispatches it once per unit. A
+    # dispatch on main always runs it: Deploy follows any green CI run on main, so none may skip it.
+    if: >-
+      needs.changes.outputs.code == 'true' && (
+        github.event_name == 'pull_request' ||
+        (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+        (github.event_name == 'workflow_dispatch' && (inputs.full || github.ref == 'refs/heads/main'))
+      )
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
