@@ -124,6 +124,7 @@ const SCREENS = [
   { path: "/settings/days-off", role: "owner" },
   { path: "/settings/thresholds", role: "owner" },
   { path: "/settings/job-titles", role: "owner" },
+  { path: "/settings/custom-fields", role: "owner" },
   { path: "/me", role: "staff" },
   { path: "/my-day", role: "staff" },
   { path: "/today", role: "admin" },
@@ -157,7 +158,15 @@ for (const role of ["owner", "admin", "staff"] as const) {
  * device check at the S23's largest font size is the real proof.
  */
 const LARGE_TEXT_SCREENS = {
-  owner: ["/today", "/approvals", "/people", "/settings", "/settings/job-titles", "/me"],
+  owner: [
+    "/today",
+    "/approvals",
+    "/people",
+    "/settings",
+    "/settings/job-titles",
+    "/settings/custom-fields",
+    "/me",
+  ],
   admin: ["/today", "/leave", "/leave/attendance", "/me"],
   staff: ["/my-day", "/leave", "/leave/attendance", "/me"],
 } as const;

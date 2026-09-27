@@ -27,6 +27,7 @@ const ROUTES = [
   "/reports",
   "/settings",
   "/settings/company",
+  "/settings/custom-fields",
   "/settings/days-off",
   "/settings/thresholds",
   "/settings/job-titles",

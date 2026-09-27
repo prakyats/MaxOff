@@ -456,3 +456,42 @@ export async function expectBackStack(page: Page, steps: readonly BackStep[]): P
     await expect(page, `back #${index + 1} lands`).toHaveURL(step.url);
   }
 }
+
+/**
+ * Removes custom field definitions a spec adds, by key (3.2), so it re-runs on a database an
+ * earlier run used. The audit rows about them stay, as history should.
+ */
+export async function removeFieldDefinitions(keys: string[]): Promise<void> {
+  const list = keys.map((key) => `"${key}"`).join(",");
+  await serviceRest(`field_definitions?key=in.(${encodeURIComponent(list)})`, {
+    method: "DELETE",
+  });
+}
+
+/**
+ * Removes a client a spec creates (3.1), with the rows the triggers made for it and every
+ * definition scoped to it. Nothing to remove is fine.
+ */
+export async function removeClientFixture(name: string): Promise<void> {
+  const clients = await serviceSelect<{ id: string }>(
+    `clients?name=eq.${encodeURIComponent(name)}&select=id`,
+  );
+  for (const { id } of clients) {
+    await serviceRest(`field_definitions?client_id=eq.${id}`, { method: "DELETE" });
+    await serviceRest(`client_contacts?client_id=eq.${id}`, { method: "DELETE" });
+    await serviceRest(`client_admin_assignments?client_id=eq.${id}`, { method: "DELETE" });
+    await serviceRest(`client_brand?client_id=eq.${id}`, { method: "DELETE" });
+    await serviceRest(`client_private?client_id=eq.${id}`, { method: "DELETE" });
+    await serviceRest(`clients?id=eq.${id}`, { method: "DELETE" });
+  }
+}
+
+/** The seeded member's id for an email, through the service role (fixtures only). */
+export async function memberIdOf(email: string): Promise<string> {
+  const rows = await serviceSelect<{ id: string }>(
+    `members?email=eq.${encodeURIComponent(email)}&select=id`,
+  );
+  const id = rows[0]?.id;
+  expect(id, `a member with ${email}`).toBeTruthy();
+  return id as string;
+}

@@ -234,6 +234,19 @@ field_definitions    id, org_id, entity ('client'|'contact'|'project'|'item'|'ta
                      -- kickoff 3: global client/contact rows Owner-only; client_id rows by the Owner or
                      -- that client's current Admin (PERMISSIONS ²); type immutable once a value exists
                      -- (guard trigger); archive only, never delete; select values store the option key
+                     -- 3.2 as built: key ~ ^[a-z][a-z0-9_]{0,39}$ (derived from the label, then fixed);
+                     -- options jsonb [{key, label}] (non-empty for select / multi_select, [] otherwise);
+                     -- position fractional index (appended); client_id only with entity client|contact,
+                     -- task_type_id only with entity task (4.1). Unique on (org_id, entity, key,
+                     -- coalesce(client_id), coalesce(task_type_id)). API UPDATE grant: label, help_text,
+                     -- type, options, required, section, position, archived_at (entity, key and the
+                     -- scope never move). Writes are decided by app.field_definition_writable(entity,
+                     -- client_id): lists.manage plus PERMISSIONS ¹ ² (global client/contact and every
+                     -- project/item row: the Owner; a client-scoped row: the Owner or that client's
+                     -- current Admin; task rows: lists.manage). Reads: task rows for every active
+                     -- member (4.1 forms); the rest for lists.manage on a visible scope. Audited.
+                     -- app.field_definitions_guard() refuses a type change once any clients.custom_fields
+                     -- or client_contacts.custom_fields holds the key (4.1 / 7.x extend it to their tables).
 ```
 Entities with custom fields have `custom_fields jsonb not null default '{}'`, validated against active definitions on every write (`core/custom-fields`).
 

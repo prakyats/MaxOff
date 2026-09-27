@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { validateCustomFieldsFor } from "@/core/custom-fields/server";
 import { action, AppError, isPostgresError, ok, type Result } from "@/core/errors";
 import { assertPermission } from "@/core/permissions/server";
 
@@ -83,8 +84,12 @@ function detailsOf(data: ClientDetails): repo.ClientDetailsPatch {
 export const createClient = action(async (input: CreateClientInput): Promise<Result<Client>> => {
   const data = createClientSchema.parse(input);
   await assertPermission("clients.manage");
+  const customFields = await validateCustomFieldsFor("client", data.customFields);
   try {
-    const client = await repo.createClient({ ...detailsOf(data), admin_id: data.adminId });
+    const client = await repo.createClient({
+      ...detailsOf({ ...data, customFields }),
+      admin_id: data.adminId,
+    });
     revalidatePath(CLIENTS_PATH);
     return ok(client);
   } catch (error) {
@@ -95,8 +100,14 @@ export const createClient = action(async (input: CreateClientInput): Promise<Res
 export const updateClient = action(async (input: UpdateClientInput): Promise<Result<null>> => {
   const data = updateClientSchema.parse(input);
   await assertPermission("clients.edit_assigned");
+  const current = await repo.getClient(data.clientId);
+  if (!current) throw new AppError("NOT_FOUND", "This client is not one of yours.");
+  const customFields = await validateCustomFieldsFor("client", data.customFields, {
+    clientId: data.clientId,
+    previous: current.customFields,
+  });
   try {
-    await repo.updateClient(data.clientId, detailsOf(data));
+    await repo.updateClient(data.clientId, detailsOf({ ...data, customFields }));
   } catch (error) {
     nameTaken(error);
   }
@@ -159,12 +170,15 @@ export const createContact = action(
   async (input: CreateContactInput): Promise<Result<ClientContact>> => {
     const data = createContactSchema.parse(input);
     await assertPermission("clients.edit_assigned");
+    const customFields = await validateCustomFieldsFor("contact", data.customFields, {
+      clientId: data.clientId,
+    });
     const contact = await repo.createContact(data.clientId, {
       name: data.name,
       designation: data.designation,
       email: data.email,
       phone: data.phone,
-      custom_fields: data.customFields,
+      custom_fields: customFields,
     });
     revalidateClient(data.clientId);
     return ok(contact);
@@ -174,12 +188,18 @@ export const createContact = action(
 export const updateContact = action(async (input: UpdateContactInput): Promise<Result<null>> => {
   const data = updateContactSchema.parse(input);
   await assertPermission("clients.edit_assigned");
+  const current = await repo.getContact(data.contactId);
+  if (!current) throw new AppError("NOT_FOUND", "This contact does not exist.");
+  const customFields = await validateCustomFieldsFor("contact", data.customFields, {
+    clientId: current.clientId,
+    previous: current.customFields,
+  });
   await repo.updateContact(data.contactId, {
     name: data.name,
     designation: data.designation,
     email: data.email,
     phone: data.phone,
-    custom_fields: data.customFields,
+    custom_fields: customFields,
   });
   revalidatePath(CLIENTS_PATH);
   return ok(null);

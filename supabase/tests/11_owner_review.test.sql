@@ -13,6 +13,7 @@ delete from public.leave_requests;
 delete from public.session_events;
 delete from public.activity_log;
 -- Client rows (3.1) reference members: a Playwright run leaves some behind.
+delete from public.field_definitions;
 delete from public.client_contacts;
 delete from public.client_admin_assignments;
 delete from public.client_brand;

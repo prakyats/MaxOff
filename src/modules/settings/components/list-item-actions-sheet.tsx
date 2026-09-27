@@ -22,12 +22,15 @@ import {
 export function ListItemActionsSheet({
   item,
   label,
+  renameLabel = "Rename",
   onRename,
   onArchive,
 }: {
   item: { name: string };
   /** The singular list label, e.g. "Job title". */
   label: string;
+  /** The first action's name: "Rename" for a list entry, "Edit" for a field definition (3.2). */
+  renameLabel?: string;
   onRename: () => void;
   onArchive: () => void;
 }) {
@@ -71,7 +74,7 @@ export function ListItemActionsSheet({
             onClick={() => choose(onRename)}
           >
             <PencilIcon aria-hidden />
-            Rename
+            {renameLabel}
           </Button>
           <Button
             variant="destructive"

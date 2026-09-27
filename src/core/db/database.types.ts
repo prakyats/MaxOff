@@ -559,6 +559,85 @@ export type Database = {
           },
         ];
       };
+      field_definitions: {
+        Row: {
+          archived_at: string | null;
+          client_id: string | null;
+          created_at: string;
+          entity: string;
+          help_text: string | null;
+          id: string;
+          key: string;
+          label: string;
+          options: Json;
+          org_id: string;
+          position: string;
+          required: boolean;
+          section: string | null;
+          task_type_id: string | null;
+          type: Database["public"]["Enums"]["field_type"];
+          updated_at: string;
+        };
+        Insert: {
+          archived_at?: string | null;
+          client_id?: string | null;
+          created_at?: string;
+          entity: string;
+          help_text?: string | null;
+          id?: string;
+          key: string;
+          label: string;
+          options?: Json;
+          org_id?: string;
+          position: string;
+          required?: boolean;
+          section?: string | null;
+          task_type_id?: string | null;
+          type: Database["public"]["Enums"]["field_type"];
+          updated_at?: string;
+        };
+        Update: {
+          archived_at?: string | null;
+          client_id?: string | null;
+          created_at?: string;
+          entity?: string;
+          help_text?: string | null;
+          id?: string;
+          key?: string;
+          label?: string;
+          options?: Json;
+          org_id?: string;
+          position?: string;
+          required?: boolean;
+          section?: string | null;
+          task_type_id?: string | null;
+          type?: Database["public"]["Enums"]["field_type"];
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "field_definitions_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: false;
+            referencedRelation: "client_labels";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "field_definitions_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: false;
+            referencedRelation: "clients";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "field_definitions_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       holidays: {
         Row: {
           created_at: string;
@@ -1193,6 +1272,21 @@ export type Database = {
       attendance_state: "awaiting_choice" | "pending_review" | "approved" | "corrected";
       client_state: "draft" | "active" | "paused" | "inactive";
       day_status: "present" | "leave" | "half_day" | "comp_leave" | "absent";
+      field_type:
+        | "text"
+        | "long_text"
+        | "number"
+        | "date"
+        | "datetime"
+        | "checkbox"
+        | "select"
+        | "multi_select"
+        | "url"
+        | "email"
+        | "phone"
+        | "color"
+        | "member"
+        | "rating";
       leave_state: "submitted" | "approved" | "rejected" | "withdrawn" | "superseded" | "cancelled";
       leave_type: "leave" | "half_day" | "comp_leave";
       member_role: "owner" | "admin" | "staff";
@@ -1322,6 +1416,22 @@ export const Constants = {
       attendance_state: ["awaiting_choice", "pending_review", "approved", "corrected"],
       client_state: ["draft", "active", "paused", "inactive"],
       day_status: ["present", "leave", "half_day", "comp_leave", "absent"],
+      field_type: [
+        "text",
+        "long_text",
+        "number",
+        "date",
+        "datetime",
+        "checkbox",
+        "select",
+        "multi_select",
+        "url",
+        "email",
+        "phone",
+        "color",
+        "member",
+        "rating",
+      ],
       leave_state: ["submitted", "approved", "rejected", "withdrawn", "superseded", "cancelled"],
       leave_type: ["leave", "half_day", "comp_leave"],
       member_role: ["owner", "admin", "staff"],

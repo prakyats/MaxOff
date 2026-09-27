@@ -181,6 +181,17 @@ export async function listContacts(clientId: string): Promise<ClientContact[]> {
   return data.map(toContact);
 }
 
+export async function getContact(contactId: string): Promise<ClientContact | null> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase
+    .from("client_contacts")
+    .select("*")
+    .eq("id", contactId)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? toContact(data) : null;
+}
+
 export type ContactPatch = {
   name: string;
   designation: string | null;

@@ -304,10 +304,10 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     key: "custom-fields",
     label: "Custom fields",
     href: "/settings/custom-fields",
-    description: "Extra fields on clients, projects, items and tasks.",
+    description: "Extra fields on clients and contacts, for everyone or for one client.",
     permission: "lists.manage",
     arrivesIn: "3.2",
-    ready: false,
+    ready: true,
   },
   {
     key: "templates",
