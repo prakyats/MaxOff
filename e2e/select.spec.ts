@@ -22,6 +22,20 @@ async function openLeaveForm(page: Page) {
   return { dialog, trigger: dialog.getByRole("combobox", { name: "Kind of leave" }) };
 }
 
+/** A real touch drag (the phone projects have touch), through the DevTools protocol. */
+async function touchDrag(page: Page, x: number, y: number, by: number) {
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
+  for (let step = 1; step <= 8; step += 1) {
+    await cdp.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [{ x, y: y + (by * step) / 8 }],
+    });
+  }
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await cdp.detach();
+}
+
 test.describe("on a phone: a nested bottom sheet", () => {
   test.skip(({ isMobile }) => !isMobile, "the sheet is the phone layout");
 
@@ -79,14 +93,19 @@ test.describe("on a phone: a nested bottom sheet", () => {
     await page.mouse.up();
     await expect(sheet).toBeVisible();
 
-    // A long pull closes it.
-    await page.mouse.move(x, y);
-    await page.mouse.down();
-    await page.mouse.move(x, y + 160, { steps: 8 });
-    await page.mouse.up();
+    // A long pull closes it, by touch from the title...
+    await touchDrag(page, x, y, 160);
     await expect(sheet).toBeHidden();
     await expect(trigger).toHaveText(before);
     await expect(dialog).toBeVisible();
+
+    // ...and from a row, which it never picks.
+    await trigger.click();
+    const row = sheet.getByRole("option", { name: "Half day", exact: true });
+    const at = (await row.boundingBox())!;
+    await touchDrag(page, at.x + at.width / 2, at.y + at.height / 2, 200);
+    await expect(sheet).toBeHidden();
+    await expect(trigger).toHaveText(before);
   });
   test("fits the phone at 130% and 200% system text", async ({ page }) => {
     const { trigger } = await openLeaveForm(page);

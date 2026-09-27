@@ -633,9 +633,14 @@ files                id, org_id, storage_key, name, mime, size_bytes, sha256 nul
                      -- no foreign key column that points at files (read from the catalog, so a new
                      -- consumer is protected by declaring its FK; files.preview_of is not a reference).
                      -- A preview follows its original: a candidate once the original is one or is
-                     -- deleted. Signature: file_cleanup_candidates(archived_before, pending_before,
-                     -- orphaned_before, batch default 200); the 3-argument form is dropped (phase-3 only,
-                     -- never on main).
+                     -- deleted, unless a foreign key references the preview itself (ADR-0010: a
+                     -- submission's preview outlives its deleted local original). Signature:
+                     -- file_cleanup_candidates(archived_before, pending_before, orphaned_before, batch
+                     -- default 200); the 3-argument form is dropped (phase-3 only, never on main).
+                     -- files_reference_guard refuses to attach an upload 6 days old or more ("Upload the
+                     -- file again"), so nothing the 7-day rule takes can be referenced mid-cleanup
+                     -- (20260927134340). A new column referencing files needs its FK **and an index**:
+                     -- the cleanup runs one not-exists per FK column on every batch.
 notifications        id, recipient_id, kind, title, body, link, entity, entity_id, payload jsonb,
                      created_at, read_at null, escalation_level int
 notification_deliveries  id, notification_id, channel ('push'|'email'), state ('queued'|'sent'|'failed'),

@@ -117,9 +117,10 @@ function Select({
       sheetOpen,
       closeSheet: () => setSheetOpen(false),
       // The value first, then the close, as Radix does: a caller that writes the URL from the
-      // change (`DataTable`) backs out the sheet's entry itself (`closeOverlaysThen`).
+      // change (`DataTable`) backs out the sheet's entry itself (`closeOverlaysThen`). The chosen
+      // row again is no change, so no callback (as in Radix).
       pick: (next) => {
-        change(next);
+        if (next !== current) change(next);
         setSheetOpen(false);
       },
       title,
@@ -240,7 +241,9 @@ function SelectSheet({ children }: { children: React.ReactNode }) {
   const swipe = useSwipeDismiss(() => closeSheet?.());
   const open = state?.sheetOpen ?? false;
 
-  // A list that cannot scroll takes the swipe too; one that can keeps its own scrolling. Measured
+  // The sheet takes every touch drag for the swipe (`touch-none`: a pan the browser claimed
+  // would cancel the pointer). A list that cannot scroll does too; one that can keeps vertical
+  // panning for its own scroll, and the swipe then starts from the handle and the title. Measured
   // when the list mounts (the sheet's portal mounts a render after `open`).
   const measureList = React.useCallback((node: HTMLDivElement | null) => {
     list.current = node;
@@ -255,7 +258,7 @@ function SelectSheet({ children }: { children: React.ReactNode }) {
         data-slot="select-sheet"
         aria-describedby={undefined}
         overlayClassName="data-closed:animate-none"
-        className="max-h-[85dvh] gap-0 rounded-t-2xl pb-[var(--app-safe-bottom)] data-closed:animate-none"
+        className="max-h-[85dvh] touch-none gap-0 rounded-t-2xl pb-[var(--app-safe-bottom)] data-closed:animate-none"
         onOpenAutoFocus={(event) => {
           // Focus the chosen row (or the first), not the ✕: the list is what the sheet is for.
           event.preventDefault();
@@ -266,7 +269,7 @@ function SelectSheet({ children }: { children: React.ReactNode }) {
         {...swipe}
       >
         <div aria-hidden className={MODAL_HANDLE} />
-        <SheetHeader className="touch-none pt-5 pr-14 pb-2">
+        <SheetHeader className="pt-5 pr-14 pb-2">
           <SheetTitle>{state.title}</SheetTitle>
         </SheetHeader>
         <div
@@ -276,7 +279,7 @@ function SelectSheet({ children }: { children: React.ReactNode }) {
           data-swipe-scroll
           className={cn(
             "flex flex-col gap-0.5 overflow-y-auto overscroll-contain px-2 pb-4",
-            !listScrolls && "touch-none",
+            listScrolls ? "touch-pan-y" : "touch-none",
           )}
         >
           <SheetListContext.Provider value={true}>{children}</SheetListContext.Provider>

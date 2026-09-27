@@ -5,10 +5,13 @@
 -- a candidate; a preview follows its original (kept with a referenced or young one, a candidate
 -- with an orphan, and still one once the original is deleted); a new table that declares a
 -- foreign key to files protects its files with no change to the function; archived and pending
--- rows are not orphans; and the orphan window is the caller's.
+-- rows are not orphans; and the orphan window is the caller's. The review fixes (migration
+-- 20260927134340): a preview a foreign key references is kept even once its original is deleted
+-- (ADR-0010: submission previews outlive the local original), and an upload 6 days old can no
+-- longer be attached, so nothing the cleanup is about to take can be referenced.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(14);
+select plan(18);
 
 delete from public.attendance_events;
 delete from public.attendance_days;
@@ -43,9 +46,12 @@ insert into fx values
   ('young_prev', '00000000-0000-4000-8000-0000000000f8'),
   ('new_ref',    '00000000-0000-4000-8000-0000000000f9'),
   ('archived',   '00000000-0000-4000-8000-0000000000fa'),
-  ('pending',    '00000000-0000-4000-8000-0000000000fb');
+  ('pending',    '00000000-0000-4000-8000-0000000000fb'),
+  ('sub_orig',   '00000000-0000-4000-8000-0000000000fc'),
+  ('sub_prev',   '00000000-0000-4000-8000-0000000000fd'),
+  ('fresh',      '00000000-0000-4000-8000-0000000000fe');
 insert into fx select 'org', id from public.organizations limit 1;
-grant select on fx to service_role;
+grant select on fx to service_role, authenticated;
 
 create function pg_temp.fx(k text) returns uuid language sql stable as $$
   select id from fx where key = k;
@@ -80,6 +86,11 @@ select pg_temp.file('young_prev', '6 days', 'ready', 'young');
 select pg_temp.file('new_ref',    '40 days');
 select pg_temp.file('archived',   '40 days', 'ready', null, '1 day');
 select pg_temp.file('pending',    '40 days', 'pending');
+-- A submission original whose local copy the retention job has deleted, and its preview, which a
+-- submission still shows (ADR-0010).
+select pg_temp.file('sub_orig',   '40 days', 'deleted');
+select pg_temp.file('sub_prev',   '40 days', 'ready', 'sub_orig');
+select pg_temp.file('fresh',      '1 hour');
 
 update public.organizations set logo_file_id = pg_temp.fx('ref_org') where id = pg_temp.fx('org');
 update public.members set avatar_file_id = pg_temp.fx('ref_avatar') where id = pg_temp.fx('staff');
@@ -88,7 +99,7 @@ update public.client_brand set logo_file_id = pg_temp.fx('ref_client') where cli
 -- A consumer added later (phase 5's submissions, say): declaring the foreign key is enough. A real
 -- table (a temporary one cannot reference files), gone with the rollback.
 create table public.pgtap_later_consumer (file_id uuid references public.files (id));
-insert into public.pgtap_later_consumer values (pg_temp.fx('new_ref'));
+insert into public.pgtap_later_consumer values (pg_temp.fx('new_ref')), (pg_temp.fx('sub_prev'));
 
 create function pg_temp.orphans() returns setof uuid language sql as $$
   -- Only the orphan rule: the archived and pending windows are closed (nothing that old).
@@ -140,6 +151,26 @@ select is(
     where id = pg_temp.fx('old_prev')),
   1::bigint,
   'a preview whose original is deleted is a candidate whatever the windows');
+
+select ok(pg_temp.fx('sub_prev') not in (select pg_temp.orphans())
+          and not exists (select 1 from public.file_cleanup_candidates(now(), now(), now())
+                          where id = pg_temp.fx('sub_prev')),
+  'a preview a foreign key references is kept, even once its original is deleted (ADR-0010)');
+
+-- Attaching stops a day before the cleanup can take an upload ------------------------------------
+reset role;
+select set_config('request.jwt.claim.sub', pg_temp.fx('staff')::text, true);
+select set_config('request.jwt.claims',
+  json_build_object('sub', pg_temp.fx('staff'), 'role', 'authenticated')::text, true);
+set local role authenticated;
+select throws_ok(
+  $$ update public.members set avatar_file_id = pg_temp.fx('young') where id = pg_temp.fx('staff') $$,
+  'P0001', 'INVALID_STATE', 'an upload 6 days old can no longer be attached');
+select lives_ok(
+  $$ update public.members set avatar_file_id = pg_temp.fx('fresh') where id = pg_temp.fx('staff') $$,
+  'a fresh upload attaches as before');
+select is((select avatar_file_id from public.members where id = pg_temp.fx('staff')), pg_temp.fx('fresh'),
+  'and is the avatar now');
 
 select * from finish();
 rollback;
