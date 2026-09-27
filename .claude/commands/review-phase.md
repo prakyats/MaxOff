@@ -10,8 +10,8 @@ Review phase $ARGUMENTS of MaxOff before merging it. (Use the highest-capability
 4. Show me the findings grouped as **must fix / should fix / later**. Fix the must-fix items (committing each fix), then run `pnpm check` and `pnpm test:e2e`.
 5. Add anything "later" to PROGRESS.md under Ideas / tech debt.
 6. After I confirm, merge **through a pull request** (`main` is protected: PR required, and the three CI jobs must be green):
-   - `git push -u origin phase-<N>` and wait for CI to pass on the branch.
+   - `git push -u origin phase-<N>`, then dispatch the full CI run on the branch and wait for it to pass (a push alone runs no Playwright, ARCHITECTURE §18 "CI"): `gh workflow run CI --ref phase-<N> -f full=true`, find it with `gh run list --workflow CI --branch phase-<N> --event workflow_dispatch --limit 1` (check its `headSha` is the pushed one), then `gh run watch <id> --exit-status`.
    - `gh pr create --base main --head phase-<N> --title "Phase <N>: <name>" --body "<what the phase delivered, and the review findings that were fixed>"`
-   - `gh pr checks --watch` until all three are green, then `gh pr merge --merge --delete-branch=false`.
+   - `gh pr checks --watch` until all three are green (the pull request runs Playwright), then `gh pr merge --merge --delete-branch=false`. The push to `main` runs the full CI again, and Deploy follows it.
    - `git switch main && git pull`, then tag the merge commit **`phase-<N>-done`** (never the branch name, and never `v*`, which triggers the production deploy): `git tag -a phase-<N>-done -m "Phase <N>: <name>" && git push origin phase-<N>-done`.
    - Update PROGRESS.md for the next phase. The merge to `main` triggers the staging deploy; report the URL it prints.
