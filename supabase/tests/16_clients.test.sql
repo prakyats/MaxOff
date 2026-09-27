@@ -17,6 +17,9 @@ delete from public.client_admin_assignments;
 delete from public.client_brand;
 delete from public.client_private;
 delete from public.clients;
+-- File rows (3.3) reference members and are referenced by the organization's logo.
+update public.organizations set logo_file_id = null;
+delete from public.files;
 delete from public.members;
 delete from auth.identities;
 delete from auth.users;

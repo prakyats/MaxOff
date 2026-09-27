@@ -14,4 +14,6 @@ export type CurrentMember = {
   name: string;
   /** The job title's name (`list_items`, PRODUCT §3): context only, never a permission. */
   jobTitle: string | null;
+  /** The member's photo (`files`, task 3.3), shown through `/api/files/<id>`; null = initials. */
+  avatarFileId: string | null;
 };

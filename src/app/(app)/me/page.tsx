@@ -7,7 +7,8 @@ import { requireMember } from "@/core/auth/server";
 import { can } from "@/core/permissions";
 import { EditableRecord } from "@/core/ui/composites/editable-record";
 import { PageHeader } from "@/core/ui/composites/page-header";
-import { Avatar, AvatarFallback } from "@/core/ui/primitives/avatar";
+import { fileUrl } from "@/core/storage";
+import { Avatar, AvatarFallback, AvatarImage } from "@/core/ui/primitives/avatar";
 import {
   Card,
   CardContent,
@@ -19,13 +20,15 @@ import { Separator } from "@/core/ui/primitives/separator";
 import { initialsOf, ROLE_LABELS } from "@/core/ui/shell/viewer";
 import { ThemeToggle } from "@/core/ui/theme/theme-toggle";
 import { getOwnMember, NAME_MAX_LENGTH, PHONE_MAX_LENGTH, updateOwnProfile } from "@/modules/team";
+import { AvatarEditor } from "@/modules/team/components/avatar-editor";
 
 export const metadata: Metadata = { title: "Me" };
 
 /**
  * Profile, own attendance and leave (2.3), appearance and log out (PRODUCT §4.7: the Staff
  * "Me" tab). An accepted invite lands here with `?welcome=1` (WORKFLOWS §1a) to check the name
- * and add a phone. Avatar upload joins in 3.3.
+ * and add a phone. The photo is chosen through `AvatarEditor` (3.3): the original is kept and
+ * a browser-made preview is what the app shows.
  *
  * The profile is read-only first and edited through the edit pattern (`EditableRecord`, task
  * 2.9, ARCHITECTURE §14.1): it is who you are in the app, so a change is deliberate and named
@@ -78,6 +81,7 @@ export default async function MePage({
           <CardHeader>
             <div className="flex min-w-0 items-center gap-3">
               <Avatar size="lg">
+                {own?.avatarFileId ? <AvatarImage src={fileUrl(own.avatarFileId)} alt="" /> : null}
                 <AvatarFallback>{initialsOf(viewer.name)}</AvatarFallback>
               </Avatar>
               <div className="min-w-0">
@@ -92,6 +96,7 @@ export default async function MePage({
               <span className="font-medium break-all">{viewer.email}</span>
               <span className="text-muted-foreground"> (the Owner changes this)</span>
             </p>
+            <AvatarEditor hasAvatar={Boolean(own?.avatarFileId)} />
             <Separator />
             <EditableRecord
               title="Profile"

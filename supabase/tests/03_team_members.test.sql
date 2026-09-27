@@ -20,6 +20,9 @@ delete from public.client_admin_assignments;
 delete from public.client_brand;
 delete from public.client_private;
 delete from public.clients;
+-- File rows (3.3) reference members and are referenced by the organization's logo.
+update public.organizations set logo_file_id = null;
+delete from public.files;
 delete from public.members;
 -- Settings (1.4) lets the team add, rename and archive job titles, so a Playwright run leaves
 -- more than the seed behind. These tests are about the seeded pair: put the list back the way

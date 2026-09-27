@@ -145,8 +145,10 @@ app.seed_org_lists()            AFTER INSERT on organizations: the launch job ti
 
 ## 1. Organization, people and access
 ```
-organizations        id, name, logo_file_id (added in 3.3 with files), timezone ('Asia/Kolkata'), created_at, updated_at
-                     -- API UPDATE grant: name only (timezone stays IST, invariant 8; phase 1 review)
+organizations        id, name, logo_file_id → files (3.3), timezone ('Asia/Kolkata'), created_at, updated_at
+                     -- API UPDATE grant: name, logo_file_id (timezone stays IST, invariant 8; phase 1 review).
+                     -- 3.3: logo_file_id must be a ready image file the caller uploaded (app.files_reference_guard);
+                     -- replacing it archives the previous file row (app.files_archive_replaced trigger)
 org_settings         org_id pk, weekly_off_days smallint[] (0=Sun..6=Sat), logout_reminder_time time,
                      ack_repeat_hours int (2), ack_escalate_hours int (4), ack_escalate_owner_hours int (8),
                      overdue_escalate_hours int (24), email_daily_cap_per_member int (20),
@@ -163,7 +165,7 @@ holidays             id, org_id, date, name, created_at, updated_at, unique(org_
                      -- holiday never rewrites the past: attendance_days carries its own is_day_off
                      -- (2.1), decided on the day itself
 members              id (= auth.users.id for a login; a fresh uuid for a freelancer), org_id, full_name,
-                     email null (a freelancer has none), phone, avatar_file_id (added in 3.3),
+                     email null (a freelancer has none), phone, avatar_file_id → files (3.3; own upload, raster only),
                      role member_role, job_title_id null → list_items (1.3), status member_status,
                      engagement engagement ('permanent'; 4A, ADR-0013),
                      invited_at, joined_at, deactivated_at, created_at, updated_at
@@ -191,7 +193,7 @@ member_coordinators  id, member_id → members (the freelancer), coordinator_id 
                      -- own name/phone/avatar editable (PERMISSIONS §3). job_title_id is in the API
                      -- role's UPDATE grant, and app.members_self_edit_guard() keeps it team.manage-only
 member_directory     view (security definer): id, org_id, full_name, phone, role, status, job_title_id,
-                     created_at (+ avatar_file_id from 3.3). Everyone's row for team.view,
+                     created_at, avatar_file_id (appended in 3.3). Everyone's row for team.view,
                      plus the caller's own.
                      No email (PERMISSIONS §2). Names of people on a member's own tasks join in 4.1
 role_permissions     role member_role, permission text, pk(role, permission)   -- seeded
@@ -614,6 +616,13 @@ files                id, org_id, storage_key, name, mime, size_bytes, sha256 nul
                      -- archived 30 days ago and of pending rows older than 24 h. Served to the browser
                      -- through /api/files/<id> (permission-checked, Cache-Control: private) for
                      -- previews; presigned GET (5 min) for downloads. Local and e2e use MinIO
+                     -- 3.3 as built: status and archived_at are protected columns. A member inserts their
+                     -- own pending row (uploaded_by = caller, status pending; preview_of must be their own
+                     -- file); file_complete(id, size, sha256) moves pending → ready and file_fail(id) → failed
+                     -- (uploader only); file_mark_deleted(id) (service_role only, the cleanup job) sets
+                     -- deleted. app.file_visible(id): the uploader; any member for the company logo; team.view
+                     -- or the person for an avatar; app.client_visible or a label row for a client logo; a
+                     -- preview follows its original. storage_key = <org>/<yyyy>/<mm>/<file id>/<name>. Audited.
 notifications        id, recipient_id, kind, title, body, link, entity, entity_id, payload jsonb,
                      created_at, read_at null, escalation_level int
 notification_deliveries  id, notification_id, channel ('push'|'email'), state ('queued'|'sent'|'failed'),

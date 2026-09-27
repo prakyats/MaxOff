@@ -13,6 +13,8 @@ export type TeamMember = {
   status: MemberStatus;
   jobTitleId: string | null;
   jobTitle: string | null;
+  /** The member's photo (3.3), an original in `files`; lists show its preview. */
+  avatarFileId: string | null;
   invitedAt: string | null;
   joinedAt: string | null;
   createdAt: string;

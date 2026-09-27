@@ -343,6 +343,13 @@ export type Database = {
             referencedRelation: "clients";
             referencedColumns: ["id"];
           },
+          {
+            foreignKeyName: "client_brand_logo_file_id_fkey";
+            columns: ["logo_file_id"];
+            isOneToOne: false;
+            referencedRelation: "files";
+            referencedColumns: ["id"];
+          },
         ];
       };
       client_contacts: {
@@ -638,6 +645,83 @@ export type Database = {
           },
         ];
       };
+      files: {
+        Row: {
+          archived_at: string | null;
+          created_at: string;
+          id: string;
+          mime: string;
+          name: string;
+          org_id: string;
+          preview_of: string | null;
+          sha256: string | null;
+          size_bytes: number;
+          status: string;
+          storage_key: string;
+          updated_at: string;
+          uploaded_by: string | null;
+        };
+        Insert: {
+          archived_at?: string | null;
+          created_at?: string;
+          id?: string;
+          mime: string;
+          name: string;
+          org_id?: string;
+          preview_of?: string | null;
+          sha256?: string | null;
+          size_bytes: number;
+          status?: string;
+          storage_key: string;
+          updated_at?: string;
+          uploaded_by?: string | null;
+        };
+        Update: {
+          archived_at?: string | null;
+          created_at?: string;
+          id?: string;
+          mime?: string;
+          name?: string;
+          org_id?: string;
+          preview_of?: string | null;
+          sha256?: string | null;
+          size_bytes?: number;
+          status?: string;
+          storage_key?: string;
+          updated_at?: string;
+          uploaded_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "files_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "files_preview_of_fkey";
+            columns: ["preview_of"];
+            isOneToOne: false;
+            referencedRelation: "files";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "files_uploaded_by_fkey";
+            columns: ["uploaded_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "files_uploaded_by_fkey";
+            columns: ["uploaded_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       holidays: {
         Row: {
           created_at: string;
@@ -821,6 +905,7 @@ export type Database = {
       };
       members: {
         Row: {
+          avatar_file_id: string | null;
           created_at: string;
           deactivated_at: string | null;
           email: string;
@@ -836,6 +921,7 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          avatar_file_id?: string | null;
           created_at?: string;
           deactivated_at?: string | null;
           email: string;
@@ -851,6 +937,7 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          avatar_file_id?: string | null;
           created_at?: string;
           deactivated_at?: string | null;
           email?: string;
@@ -866,6 +953,13 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "members_avatar_file_id_fkey";
+            columns: ["avatar_file_id"];
+            isOneToOne: false;
+            referencedRelation: "files";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "members_job_title_id_fkey";
             columns: ["job_title_id"];
@@ -939,6 +1033,7 @@ export type Database = {
         Row: {
           created_at: string;
           id: string;
+          logo_file_id: string | null;
           name: string;
           timezone: string;
           updated_at: string;
@@ -946,6 +1041,7 @@ export type Database = {
         Insert: {
           created_at?: string;
           id?: string;
+          logo_file_id?: string | null;
           name: string;
           timezone?: string;
           updated_at?: string;
@@ -953,11 +1049,20 @@ export type Database = {
         Update: {
           created_at?: string;
           id?: string;
+          logo_file_id?: string | null;
           name?: string;
           timezone?: string;
           updated_at?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "organizations_logo_file_id_fkey";
+            columns: ["logo_file_id"];
+            isOneToOne: false;
+            referencedRelation: "files";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       role_permissions: {
         Row: {
@@ -1029,10 +1134,19 @@ export type Database = {
           state: Database["public"]["Enums"]["client_state"] | null;
           tone_of_voice: string | null;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "client_brand_logo_file_id_fkey";
+            columns: ["logo_file_id"];
+            isOneToOne: false;
+            referencedRelation: "files";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       member_directory: {
         Row: {
+          avatar_file_id: string | null;
           created_at: string | null;
           full_name: string | null;
           id: string | null;
@@ -1043,6 +1157,7 @@ export type Database = {
           status: Database["public"]["Enums"]["member_status"] | null;
         };
         Insert: {
+          avatar_file_id?: string | null;
           created_at?: string | null;
           full_name?: string | null;
           id?: string | null;
@@ -1053,6 +1168,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["member_status"] | null;
         };
         Update: {
+          avatar_file_id?: string | null;
           created_at?: string | null;
           full_name?: string | null;
           id?: string | null;
@@ -1063,6 +1179,13 @@ export type Database = {
           status?: Database["public"]["Enums"]["member_status"] | null;
         };
         Relationships: [
+          {
+            foreignKeyName: "members_avatar_file_id_fkey";
+            columns: ["avatar_file_id"];
+            isOneToOne: false;
+            referencedRelation: "files";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "members_job_title_id_fkey";
             columns: ["job_title_id"];
@@ -1181,6 +1304,40 @@ export type Database = {
         Args: { client_id: string };
         Returns: Database["public"]["Enums"]["client_state"];
       };
+      file_cleanup_candidates: {
+        Args: {
+          archived_before: string;
+          batch?: number;
+          pending_before: string;
+        };
+        Returns: {
+          archived_at: string | null;
+          created_at: string;
+          id: string;
+          mime: string;
+          name: string;
+          org_id: string;
+          preview_of: string | null;
+          sha256: string | null;
+          size_bytes: number;
+          status: string;
+          storage_key: string;
+          updated_at: string;
+          uploaded_by: string | null;
+        }[];
+        SetofOptions: {
+          from: "*";
+          to: "files";
+          isOneToOne: false;
+          isSetofReturn: true;
+        };
+      };
+      file_complete: {
+        Args: { file_id: string; sha256?: string; size_bytes: number };
+        Returns: string;
+      };
+      file_fail: { Args: { file_id: string }; Returns: string };
+      file_mark_deleted: { Args: { file_id: string }; Returns: string };
       leave_decide: {
         Args: { decision: string; reason?: string; request_id: string };
         Returns: {

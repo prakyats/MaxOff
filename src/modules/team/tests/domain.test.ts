@@ -24,6 +24,7 @@ function member(overrides: Partial<TeamMember>): TeamMember {
     status: "active",
     jobTitleId: null,
     jobTitle: null,
+    avatarFileId: null,
     invitedAt: null,
     joinedAt: "2026-09-22T00:00:00Z",
     createdAt: "2026-09-22T00:00:00Z",

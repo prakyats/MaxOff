@@ -26,6 +26,7 @@ const REFRESH_SPECS = /refresh\.spec\.ts$/;
 const PRE_HYDRATION_SPECS = /pre-hydration\.spec\.ts$/;
 const EDIT_PATTERN_SPECS = /edit-pattern\.spec\.ts$/;
 const CUSTOM_FIELDS_SPECS = /custom-fields\.spec\.ts$/;
+const STORAGE_SPECS = /storage\.spec\.ts$/;
 
 /**
  * Flow tests (ARCHITECTURE §15). `pnpm test:e2e` runs them; CI runs them as their own job.
@@ -103,7 +104,7 @@ export default defineConfig({
       // launch (2.7) too: the intro is drawn for the phone that launched it. And the drill-down
       // slide, per-tab scroll and refresh on return (2.7b), checked at both widths, and taps before
       // hydration (2.8), and the edit pattern's back order (2.9), and the custom fields
-      // screen's add sheet and entity tabs (3.2).
+      // screen's add sheet and entity tabs (3.2), and the logo and photo upload sheets (3.3).
       name: "mobile-lg",
       dependencies: ["setup"],
       testMatch: [
@@ -118,6 +119,7 @@ export default defineConfig({
         PRE_HYDRATION_SPECS,
         EDIT_PATTERN_SPECS,
         CUSTOM_FIELDS_SPECS,
+        STORAGE_SPECS,
       ],
       use: { ...devices["Pixel 5"], viewport: { width: 430, height: 932 } },
     },
@@ -145,6 +147,15 @@ export default defineConfig({
     env: {
       DAY_GATE_COOKIE_SECRET:
         process.env.DAY_GATE_COOKIE_SECRET ?? "e2e-only-day-gate-secret-not-used-anywhere-else",
+      // File storage (3.3): every e2e run uploads to the local MinIO (`pnpm storage:start`,
+      // docker-compose.storage.yml); these are its throwaway values, the same as .env.example.
+      S3_ENDPOINT: process.env.S3_ENDPOINT ?? "http://127.0.0.1:9000",
+      S3_BUCKET: process.env.S3_BUCKET ?? "maxoff",
+      S3_ACCESS_KEY_ID: process.env.S3_ACCESS_KEY_ID ?? "maxoff",
+      S3_SECRET_ACCESS_KEY: process.env.S3_SECRET_ACCESS_KEY ?? "maxoff-local-secret",
+      S3_REGION: process.env.S3_REGION ?? "auto",
+      // The cron route is exercised with a fixed test secret (storage.spec.ts).
+      CRON_SECRET: process.env.CRON_SECRET ?? "e2e-only-cron-secret-not-used-anywhere-else",
     },
   },
 });

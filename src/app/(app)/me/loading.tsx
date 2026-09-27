@@ -8,7 +8,8 @@ import { Skeleton } from "@/core/ui/primitives/skeleton";
 /**
  * Traces `page.tsx` card for card (ARCHITECTURE §14.1): the profile card with the avatar block,
  * the sign-in line, the read-only Profile record (its heading row with Edit, two label and value
- * rows, task 2.9), then the "Attendance & leave" row for whoever marks attendance (2.3), then
+ * rows, task 2.9) under the photo button row (3.3), then the "Attendance & leave" row for
+ * whoever marks attendance (2.3), then
  * Appearance and Session. Same member check as `my-day/loading.tsx`.
  */
 export default async function Loading() {
@@ -35,6 +36,7 @@ export default async function Loading() {
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <Skeleton className="h-4 w-64 max-w-full" />
+            <Skeleton className="h-11 w-36 rounded-lg" />
             <Separator />
             <div data-slot="loading-record">
               <div className="flex min-h-11 items-center justify-between gap-3">

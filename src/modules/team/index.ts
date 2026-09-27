@@ -11,3 +11,5 @@ export { memberActions, sortMembers, type TeamMember } from "./domain/members";
 export { NAME_MAX_LENGTH, PHONE_MAX_LENGTH } from "./domain/limits";
 /** The member's own name and phone, for the edit pattern on /me (2.9). */
 export { updateOwnProfile } from "./actions/members";
+/** The member's own photo (3.3). */
+export { removeOwnAvatar, setOwnAvatar } from "./actions/members";

@@ -18,12 +18,26 @@ export async function getCompany(): Promise<Company & { id: string }> {
   const supabase = await createServerSupabase();
   const { data, error } = await supabase
     .from("organizations")
-    .select("id, name, timezone")
+    .select("id, name, timezone, logo_file_id")
     .limit(1)
     .maybeSingle();
   if (error) throw error;
   if (!data) throw new AppError("NOT_FOUND", "No company record was found.");
-  return { id: data.id, name: data.name, timezone: data.timezone };
+  return { id: data.id, name: data.name, timezone: data.timezone, logoFileId: data.logo_file_id };
+}
+
+/**
+ * The company logo (3.3). The database checks the file is a ready image the caller uploaded
+ * and archives the previous one (kickoff 3 rule 13); null removes it.
+ */
+export async function setCompanyLogo(id: string, logoFileId: string | null): Promise<void> {
+  const supabase = await createServerSupabase();
+  const { error, count } = await supabase
+    .from("organizations")
+    .update({ logo_file_id: logoFileId }, { count: "exact" })
+    .eq("id", id);
+  if (error) throw error;
+  if (count === 0) throw new AppError("FORBIDDEN", "Only the Owner changes the company logo.");
 }
 
 export async function updateCompany(id: string, patch: { name: string }): Promise<void> {

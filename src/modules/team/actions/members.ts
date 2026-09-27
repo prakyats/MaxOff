@@ -1,5 +1,7 @@
 "use server";
 
+import { z } from "zod";
+
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 
@@ -223,3 +225,26 @@ export const reactivateMember = action(
     return ok({ status });
   },
 );
+
+const avatarSchema = z.object({ fileId: z.uuid() });
+export type SetOwnAvatarInput = z.input<typeof avatarSchema>;
+
+/** The member's own photo (3.3): the uploaded original; lists show its browser-made preview. */
+export const setOwnAvatar = action(async (input: SetOwnAvatarInput): Promise<Result<null>> => {
+  const { fileId } = avatarSchema.parse(input);
+  const viewer = await getCurrentMember();
+  if (!viewer) throw new AppError("UNAUTHENTICATED");
+  await repo.setOwnAvatar(viewer.id, fileId);
+  revalidatePath("/me");
+  revalidatePath(PEOPLE_PATH);
+  return ok(null);
+});
+
+export const removeOwnAvatar = action(async (): Promise<Result<null>> => {
+  const viewer = await getCurrentMember();
+  if (!viewer) throw new AppError("UNAUTHENTICATED");
+  await repo.setOwnAvatar(viewer.id, null);
+  revalidatePath("/me");
+  revalidatePath(PEOPLE_PATH);
+  return ok(null);
+});

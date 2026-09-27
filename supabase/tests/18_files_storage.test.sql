@@ -1,0 +1,281 @@
+-- 3.3 Files: the files table for every role (allowed and denied), app.file_visible() for the
+-- company logo, an avatar, a client logo and a preview, the reference guards on the consumers,
+-- the replace trigger, member_directory's new column, the status functions on every path and
+-- the service-only cleanup functions.
+begin;
+create extension if not exists pgtap with schema extensions;
+select plan(65);
+
+delete from public.attendance_events;
+delete from public.attendance_days;
+delete from public.leave_requests;
+delete from public.session_events;
+delete from public.activity_log;
+delete from public.field_definitions;
+delete from public.client_contacts;
+delete from public.client_admin_assignments;
+delete from public.client_brand;
+delete from public.client_private;
+delete from public.clients;
+update public.organizations set logo_file_id = null;
+delete from public.files;
+delete from public.members;
+delete from auth.identities;
+delete from auth.users;
+delete from public.activity_log;
+
+create temporary table fx (key text primary key, id uuid not null);
+insert into fx values
+  ('owner',    '00000000-0000-4000-8000-000000000001'),
+  ('admin',    '00000000-0000-4000-8000-000000000002'),
+  ('admin2',   '00000000-0000-4000-8000-000000000003'),
+  ('staff',    '00000000-0000-4000-8000-000000000004'),
+  ('staff2',   '00000000-0000-4000-8000-000000000005'),
+  ('nobody',   '00000000-0000-4000-8000-000000000009'),
+  ('client_a', '00000000-0000-4000-8000-0000000000a1'),
+  ('logo',     '00000000-0000-4000-8000-0000000000e1'),
+  ('logo_prev','00000000-0000-4000-8000-0000000000e2'),
+  ('avatar',   '00000000-0000-4000-8000-0000000000e3'),
+  ('svg',      '00000000-0000-4000-8000-0000000000e4'),
+  ('clogo',    '00000000-0000-4000-8000-0000000000e5'),
+  ('logo2',    '00000000-0000-4000-8000-0000000000e6'),
+  ('stale',    '00000000-0000-4000-8000-0000000000e7');
+insert into fx select 'org', id from public.organizations limit 1;
+grant select on fx to authenticated, anon, service_role;
+
+create function pg_temp.fx(k text) returns uuid language sql stable as $$
+  select id from fx where key = k;
+$$;
+
+create function pg_temp.as_member(k text) returns void language plpgsql as $$
+begin
+  perform set_config('request.jwt.claim.sub', pg_temp.fx(k)::text, true);
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', pg_temp.fx(k), 'role', 'authenticated')::text, true);
+  perform set_config('role', 'authenticated', true);
+end;
+$$;
+
+create function pg_temp.as_system() returns void language plpgsql as $$
+begin
+  reset role;
+  perform set_config('request.jwt.claim.sub', '', true);
+  perform set_config('request.jwt.claims', '', true);
+end;
+$$;
+
+create function pg_temp.update_count(sql text) returns bigint language plpgsql as $$
+declare n bigint;
+begin
+  execute sql;
+  get diagnostics n = row_count;
+  return n;
+end;
+$$;
+
+insert into auth.users (id, email)
+select id, key || '@example.com' from fx where key in ('owner', 'admin', 'admin2', 'staff', 'staff2');
+
+insert into public.members (id, org_id, full_name, email, phone, role, status, joined_at, deactivated_at) values
+  (pg_temp.fx('owner'),  pg_temp.fx('org'), 'Test Owner',  'owner@example.com',  '9000000001', 'owner', 'active', now(), null),
+  (pg_temp.fx('admin'),  pg_temp.fx('org'), 'Test Admin',  'admin@example.com',  null,         'admin', 'active', now(), null),
+  (pg_temp.fx('admin2'), pg_temp.fx('org'), 'Other Admin', 'admin2@example.com', null,         'admin', 'active', now(), null),
+  (pg_temp.fx('staff'),  pg_temp.fx('org'), 'Test Staff',  'staff@example.com',  null,         'staff', 'active', now(), null),
+  (pg_temp.fx('staff2'), pg_temp.fx('org'), 'Other Staff', 'staff2@example.com', null,         'staff', 'active', now(), null);
+insert into public.clients (id, org_id, name, admin_id) values
+  (pg_temp.fx('client_a'), pg_temp.fx('org'), 'Client A', pg_temp.fx('admin'));
+delete from public.activity_log;
+
+-- Structure and grants ----------------------------------------------------------------------
+select has_table('public', 'files', 'files exists');
+select has_column('public', 'organizations', 'logo_file_id', 'organizations.logo_file_id exists');
+select has_column('public', 'members', 'avatar_file_id', 'members.avatar_file_id exists');
+select has_column('public', 'member_directory', 'avatar_file_id', 'member_directory carries avatar_file_id (appended)');
+select has_function('app', 'file_visible', array['uuid'], 'app.file_visible exists');
+select has_function('public', 'file_complete', array['uuid', 'bigint', 'text'], 'file_complete exists');
+select has_function('public', 'file_fail', array['uuid'], 'file_fail exists');
+select has_function('public', 'file_mark_deleted', array['uuid'], 'file_mark_deleted exists');
+select has_function('public', 'file_cleanup_candidates', array['timestamptz', 'timestamptz', 'integer'], 'file_cleanup_candidates exists');
+select ok(not has_table_privilege('anon', 'public.files', 'select, insert, update, delete'),
+  'anon has no privilege on files');
+select ok(not has_table_privilege('authenticated', 'public.files', 'delete, truncate, references, trigger'),
+  'authenticated never deletes a file row');
+select ok(
+  has_column_privilege('authenticated', 'public.files', 'name', 'update')
+  and not has_column_privilege('authenticated', 'public.files', 'status', 'update')
+  and not has_column_privilege('authenticated', 'public.files', 'storage_key', 'update')
+  and not has_column_privilege('authenticated', 'public.files', 'archived_at', 'update'),
+  'only the name is editable through the API; status and the key are the functions''');
+select ok(
+  has_column_privilege('authenticated', 'public.organizations', 'logo_file_id', 'update')
+  and has_column_privilege('authenticated', 'public.members', 'avatar_file_id', 'update'),
+  'the two consumer columns are granted');
+select ok(
+  not has_function_privilege('authenticated', 'public.file_mark_deleted(uuid)', 'execute')
+  and not has_function_privilege('authenticated', 'public.file_cleanup_candidates(timestamptz, timestamptz, integer)', 'execute')
+  and has_function_privilege('service_role', 'public.file_mark_deleted(uuid)', 'execute')
+  and has_function_privilege('service_role', 'public.file_cleanup_candidates(timestamptz, timestamptz, integer)', 'execute'),
+  'the cleanup functions are service_role only');
+
+-- Uploading: a pending row of one''s own ------------------------------------------------------
+select pg_temp.as_member('owner');
+select lives_ok(
+  $$ insert into public.files (id, storage_key, name, mime, size_bytes, status, uploaded_by)
+     values (pg_temp.fx('logo'), 'org/2026/09/logo/logo.png', 'logo.png', 'image/png', 1234, 'ready', pg_temp.fx('staff'))
+     returning id $$,
+  'the Owner starts an upload (RETURNING included: the row is theirs in the same command)');
+select results_eq(
+  $$ select status, uploaded_by from public.files where id = pg_temp.fx('logo') $$,
+  $$ values ('pending', pg_temp.fx('owner')) $$,
+  'the row is pending and the caller''s, whatever the API sent');
+select throws_ok(
+  $$ update public.organizations set logo_file_id = pg_temp.fx('logo') where id = pg_temp.fx('org') $$,
+  'P0001', 'INVALID_STATE', 'a pending file cannot be attached');
+select pg_temp.as_member('staff');
+select throws_ok(
+  $$ select public.file_complete(pg_temp.fx('logo'), 1234) $$,
+  'P0001', 'NOT_FOUND', 'someone else cannot complete the upload (and does not learn it exists)');
+select is((select count(*) from public.files), 0::bigint, 'a pending upload is visible to its uploader only');
+select pg_temp.as_member('owner');
+select throws_ok($$ select public.file_complete(pg_temp.fx('logo'), 0) $$, 'P0001', 'VALIDATION',
+  'completing needs the size');
+select is(public.file_complete(pg_temp.fx('logo'), 1234), 'ready', 'pending → ready');
+select throws_ok($$ select public.file_complete(pg_temp.fx('logo'), 1234) $$, 'P0001', 'INVALID_STATE',
+  'ready cannot be completed again');
+select throws_ok($$ select public.file_fail(pg_temp.fx('logo')) $$, 'P0001', 'INVALID_STATE',
+  'ready cannot fail');
+select throws_ok(
+  $$ update public.files set status = 'pending' where id = pg_temp.fx('logo') $$,
+  '42501', null, 'status is not editable directly');
+
+-- Previews ---------------------------------------------------------------------------------------
+select lives_ok(
+  $$ insert into public.files (id, storage_key, name, mime, size_bytes, preview_of)
+     values (pg_temp.fx('logo_prev'), 'org/2026/09/logo_prev/logo-preview.jpg', 'logo-preview.jpg', 'image/jpeg', 300, pg_temp.fx('logo')) $$,
+  'a preview points at the uploader''s original');
+select lives_ok($$ select public.file_complete(pg_temp.fx('logo_prev'), 300) $$, 'the preview completes');
+select throws_ok(
+  $$ insert into public.files (storage_key, name, mime, size_bytes, preview_of)
+     values ('org/x/y', 'p.jpg', 'image/jpeg', 10, pg_temp.fx('logo_prev')) $$,
+  'P0001', 'VALIDATION', 'a preview never points at a preview');
+select pg_temp.as_member('staff');
+select throws_ok(
+  $$ insert into public.files (storage_key, name, mime, size_bytes, preview_of)
+     values ('org/x/z', 'p.jpg', 'image/jpeg', 10, pg_temp.fx('logo')) $$,
+  'P0001', 'VALIDATION', 'a preview of someone else''s original is refused');
+
+-- The company logo: any member may see it once attached -----------------------------------------
+select pg_temp.as_member('owner');
+select throws_ok(
+  $$ update public.organizations set logo_file_id = pg_temp.fx('logo_prev') where id = pg_temp.fx('org') $$,
+  'P0001', 'VALIDATION', 'the original is attached, never its preview');
+select lives_ok(
+  $$ update public.organizations set logo_file_id = pg_temp.fx('logo') where id = pg_temp.fx('org') $$,
+  'the Owner attaches the company logo');
+select pg_temp.as_member('staff');
+select is((select count(*) from public.files where id in (pg_temp.fx('logo'), pg_temp.fx('logo_prev'))), 2::bigint,
+  'Staff read the company logo and its preview');
+select pg_temp.as_member('admin');
+select is(pg_temp.update_count($$ update public.organizations set logo_file_id = null where id = pg_temp.fx('org') $$), 0::bigint,
+  'an Admin''s change of the company logo matches no row (settings.manage)');
+
+-- Avatars: own upload, raster only, team.view or the person ---------------------------------------
+select pg_temp.as_member('staff');
+select lives_ok(
+  $$ insert into public.files (id, storage_key, name, mime, size_bytes)
+     values (pg_temp.fx('avatar'), 'org/2026/09/avatar/me.jpg', 'me.jpg', 'image/jpeg', 2000) $$,
+  'Staff start their own avatar upload');
+select lives_ok($$ select public.file_complete(pg_temp.fx('avatar'), 2000) $$, 'and complete it');
+select lives_ok(
+  $$ insert into public.files (id, storage_key, name, mime, size_bytes)
+     values (pg_temp.fx('svg'), 'org/2026/09/svg/me.svg', 'me.svg', 'image/svg+xml', 500) $$,
+  'an SVG upload is a file like any other');
+select lives_ok($$ select public.file_complete(pg_temp.fx('svg'), 480) $$, 'it completes (sanitised, a new size)');
+select throws_ok(
+  $$ update public.members set avatar_file_id = pg_temp.fx('svg') where id = pg_temp.fx('staff') $$,
+  'P0001', 'VALIDATION', 'an avatar is never an SVG (kickoff 3)');
+select throws_ok(
+  $$ update public.members set avatar_file_id = pg_temp.fx('logo') where id = pg_temp.fx('staff') $$,
+  'P0001', 'FORBIDDEN', 'only the uploader attaches a file');
+select lives_ok(
+  $$ update public.members set avatar_file_id = pg_temp.fx('avatar') where id = pg_temp.fx('staff') $$,
+  'a member sets their own avatar (self edit, PERMISSIONS §3)');
+select is((select avatar_file_id from public.member_directory where id = pg_temp.fx('staff')), pg_temp.fx('avatar'),
+  'the directory shows it');
+select pg_temp.as_member('staff2');
+select is((select count(*) from public.files where id = pg_temp.fx('avatar')), 0::bigint,
+  'another Staff member (no team.view) cannot read the avatar');
+select pg_temp.as_member('admin');
+select is((select count(*) from public.files where id = pg_temp.fx('avatar')), 1::bigint,
+  'an Admin (team.view) reads it');
+select is(pg_temp.update_count($$ update public.members set avatar_file_id = null where id = pg_temp.fx('staff') $$), 0::bigint,
+  'an Admin cannot touch someone else''s avatar');
+
+-- Replacing archives the previous file and its previews --------------------------------------------
+select pg_temp.as_member('owner');
+select lives_ok(
+  $$ insert into public.files (id, storage_key, name, mime, size_bytes)
+     values (pg_temp.fx('logo2'), 'org/2026/09/logo2/logo2.png', 'logo2.png', 'image/png', 999) $$,
+  'a second logo is uploaded');
+select lives_ok($$ select public.file_complete(pg_temp.fx('logo2'), 999) $$, 'and completed');
+select lives_ok(
+  $$ update public.organizations set logo_file_id = pg_temp.fx('logo2') where id = pg_temp.fx('org') $$,
+  'the logo is replaced');
+select results_eq(
+  $$ select id, archived_at is not null from public.files where id in (pg_temp.fx('logo'), pg_temp.fx('logo_prev'), pg_temp.fx('logo2')) order by name $$,
+  $$ values (pg_temp.fx('logo_prev'), true), (pg_temp.fx('logo'), true), (pg_temp.fx('logo2'), false) $$,
+  'the previous logo and its preview are archived; the new one is live');
+select ok(
+  exists (select 1 from public.activity_log where entity = 'files' and entity_id = pg_temp.fx('logo') and action = 'archived'),
+  'the archive is audited');
+select pg_temp.as_member('staff');
+select is((select count(*) from public.files where id = pg_temp.fx('logo')), 0::bigint,
+  'the replaced logo is no longer anyone''s to see but its uploader''s');
+
+-- A client logo follows the client ------------------------------------------------------------
+select pg_temp.as_member('admin');
+select lives_ok(
+  $$ insert into public.files (id, storage_key, name, mime, size_bytes)
+     values (pg_temp.fx('clogo'), 'org/2026/09/clogo/c.png', 'c.png', 'image/png', 50) $$,
+  'the Admin uploads a client logo');
+select lives_ok($$ select public.file_complete(pg_temp.fx('clogo'), 50) $$, 'and completes it');
+select lives_ok(
+  $$ update public.client_brand set logo_file_id = pg_temp.fx('clogo') where client_id = pg_temp.fx('client_a') $$,
+  'and attaches it to their client');
+select pg_temp.as_member('owner');
+select is((select count(*) from public.files where id = pg_temp.fx('clogo')), 1::bigint, 'the Owner sees a client logo');
+select pg_temp.as_member('admin2');
+select is((select count(*) from public.files where id = pg_temp.fx('clogo')), 0::bigint, 'another Admin does not');
+select pg_temp.as_member('staff');
+select is((select count(*) from public.files where id = pg_temp.fx('clogo')), 0::bigint,
+  'Staff do not until a task carries the label (4.1)');
+
+-- Failing and the cleanup job --------------------------------------------------------------------
+select pg_temp.as_member('staff');
+select lives_ok(
+  $$ insert into public.files (id, storage_key, name, mime, size_bytes, created_at)
+     values (pg_temp.fx('stale'), 'org/2026/09/stale/x.png', 'x.png', 'image/png', 10, now()) $$,
+  'an upload that will be abandoned');
+select is(public.file_fail(pg_temp.fx('stale')), 'failed', 'pending → failed');
+select throws_ok($$ select public.file_mark_deleted(pg_temp.fx('stale')) $$, '42501', null,
+  'the API role cannot mark a file deleted');
+select pg_temp.as_system();
+set local role service_role;
+select results_eq(
+  $$ select id from public.file_cleanup_candidates(now(), now() - interval '1 second') order by name $$,
+  $$ values (pg_temp.fx('logo_prev')), (pg_temp.fx('logo')) $$,
+  'archived rows are candidates once the threshold has passed; a failed row waits for its pending window');
+select is((select count(*) from public.file_cleanup_candidates(now() - interval '31 days', now() - interval '25 hours')), 0::bigint,
+  'nothing is old enough with the real thresholds');
+select is(public.file_mark_deleted(pg_temp.fx('logo')), 'deleted', 'the job marks the object gone');
+select is(public.file_mark_deleted(pg_temp.fx('logo')), 'deleted', 'idempotent');
+select is((select count(*) from public.file_cleanup_candidates(now(), now())), 1::bigint,
+  'a deleted row is never a candidate again (the preview still is)');
+select is((select status from public.files where id = pg_temp.fx('logo')), 'deleted', 'the row stays, as deleted');
+select pg_temp.as_system();
+set local role anon;
+select throws_ok($$ select count(*) from public.files $$, '42501', null, 'anon cannot read files');
+select pg_temp.as_system();
+
+select * from finish();
+rollback;

@@ -79,7 +79,12 @@ insert into seed_users values
   ('20000000-0000-4000-8000-000000000037', 'profile-mobile-lg@maxoff.local', 'profile-local-password', 'Test Profile (mobile-lg)', null, 'staff', 'active'),
   ('20000000-0000-4000-8000-000000000038', 'memberedit-desktop@maxoff.local', 'profile-local-password', 'Test Member Edit (desktop)', null, 'staff', 'active'),
   ('20000000-0000-4000-8000-000000000039', 'memberedit-mobile@maxoff.local', 'profile-local-password', 'Test Member Edit (mobile)', null, 'staff', 'active'),
-  ('20000000-0000-4000-8000-000000000040', 'memberedit-mobile-lg@maxoff.local', 'profile-local-password', 'Test Member Edit (mobile-lg)', null, 'staff', 'active');
+  ('20000000-0000-4000-8000-000000000040', 'memberedit-mobile-lg@maxoff.local', 'profile-local-password', 'Test Member Edit (mobile-lg)', null, 'staff', 'active'),
+  -- 3.3: file storage (e2e/storage.spec.ts). Each project's person sets and removes their own
+  -- photo; the spec clears it first, so it re-runs without db:reset.
+  ('20000000-0000-4000-8000-000000000041', 'avatar-desktop@maxoff.local', 'avatar-local-password', 'Test Avatar (desktop)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000042', 'avatar-mobile@maxoff.local', 'avatar-local-password', 'Test Avatar (mobile)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000043', 'avatar-mobile-lg@maxoff.local', 'avatar-local-password', 'Test Avatar (mobile-lg)', null, 'staff', 'active');
 
 -- What GoTrue writes for a confirmed email + password user (`auth.users` + one identity).
 insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,

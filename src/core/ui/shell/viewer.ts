@@ -15,6 +15,8 @@ export type ShellViewer = {
   name: string;
   /** Job titles are data (PRODUCT §3), shown for context only. */
   jobTitle: string | null;
+  /** The member's photo (3.3); the menu shows initials without one. */
+  avatarFileId?: string | null;
 };
 
 export const ROLE_LABELS: Record<ShellRole, string> = {

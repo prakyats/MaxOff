@@ -17,6 +17,9 @@ delete from public.client_admin_assignments;
 delete from public.client_brand;
 delete from public.client_private;
 delete from public.clients;
+-- File rows (3.3) reference members and are referenced by the organization's logo.
+update public.organizations set logo_file_id = null;
+delete from public.files;
 delete from public.members;
 delete from public.holidays;
 delete from public.list_items
@@ -147,13 +150,14 @@ select throws_ok($$ update public.holidays set org_id = gen_random_uuid() where 
 select throws_ok($$ update public.holidays set created_at = now() where date = '2026-10-03' $$,
   '42501', null, 'holidays.created_at has no UPDATE privilege');
 
--- members keeps the 1.1/1.3 grant: the same rule, already tested in 01 and 03.
+-- members keeps the 1.1/1.3 grant (plus avatar_file_id, added by 3.3 as DATA-MODEL §1 planned):
+-- the same rule, already tested in 01, 03 and 18.
 select is(
   (select array_agg(column_name::text order by column_name)
      from information_schema.column_privileges
      where table_schema = 'public' and table_name = 'members' and grantee = 'authenticated'
        and privilege_type = 'UPDATE'),
-  array['full_name', 'job_title_id', 'phone', 'role'],
+  array['avatar_file_id', 'full_name', 'job_title_id', 'phone', 'role'],
   'members'' editable columns are unchanged');
 
 select pg_temp.as_system();
