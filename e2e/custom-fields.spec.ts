@@ -11,6 +11,7 @@ import {
   removeFieldDefinitions,
   runInstalled,
   serviceInsert,
+  serviceSelect,
   storageStateFor,
   USERS,
 } from "./helpers";
@@ -175,6 +176,57 @@ test.describe("Owner", () => {
       { closes: addDialog(page), url: /entity=project/ },
       { url: /\/settings$/ },
     ]);
+  });
+  test("installed: the Edit sheet and the Archive confirmation close on back", async ({
+    page,
+    isMobile,
+  }, info) => {
+    test.skip(!isMobile, "the installed back gesture is a phone behaviour");
+    const key = `back_${suffix(info)}`;
+    const label = `Back ${suffix(info)}`;
+    await removeFieldDefinitions([key]);
+    const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+    await serviceInsert("field_definitions", {
+      org_id: org?.id,
+      entity: "item",
+      key,
+      label,
+      type: "text",
+      position: "a0",
+    });
+    await runInstalled(page);
+    await page.goto("/settings");
+    await expect(pageHeader(page)).toBeVisible();
+    await page.getByRole("link", { name: "Custom fields", exact: true }).click();
+    await expect(page).toHaveURL(/\/settings\/custom-fields$/);
+    await hydrated(page);
+    await tabs(page).getByRole("link", { name: "Items", exact: true }).click();
+    await expect(page).toHaveURL(/entity=item/);
+    const actions = row(page, key).getByRole("button", { name: `Actions for ${label}` });
+    const sheet = page.locator('[data-slot="list-item-actions"]');
+
+    // The row's ⋯ sheet is a layer.
+    await actions.click();
+    await expect(sheet).toBeVisible();
+    await expectBackStack(page, [{ closes: sheet, url: /entity=item/ }]);
+
+    // It hands off to Edit and closes itself: back closes the Edit sheet and leaves the screen.
+    await actions.click();
+    await sheet.getByRole("button", { name: "Edit" }).click();
+    const edit = page.getByRole("dialog", { name: `Edit ${label}` });
+    await expect(edit).toBeVisible();
+    await expect(sheet).toBeHidden();
+    await expectBackStack(page, [{ closes: edit, url: /entity=item/ }]);
+
+    await actions.click();
+    await sheet.getByRole("button", { name: "Archive" }).click();
+    const archive = page.getByRole("alertdialog", { name: `Archive ${label}?` });
+    await expect(archive).toBeVisible();
+    await expectBackStack(page, [{ closes: archive, url: /entity=item/ }]);
+    // Nothing was archived, and the tabs added no history: one back leaves for Settings.
+    await expect(row(page, key)).toBeVisible();
+    await expectBackStack(page, [{ url: /\/settings$/ }]);
+    await removeFieldDefinitions([key]);
   });
 });
 

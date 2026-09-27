@@ -502,4 +502,210 @@ test.describe("installed on a phone: the back order of the client screens (§14.
     await expect(record(page, "Contact").locator('[data-slot="edit-record"]')).toBeVisible();
     await expectBackStack(page, [{ url: new RegExp(`/clients/${id}$`) }]);
   });
+
+  test("the lifecycle confirmations close on back and leave the client in place", async ({
+    page,
+  }, info) => {
+    const name = nameOf(info, "Lifecycle back");
+    const id = await seedClient(name, USERS.admin.email);
+    const here = new RegExp(`/clients/${id}$`);
+    await runInstalled(page);
+    await page.goto("/clients");
+
+    /** Opens the ⋯, picks the move, and backs out of its named confirmation. */
+    async function backOutOf(move: string) {
+      await openClient(page, id, name);
+      await menu(page, name).click();
+      const items = page.getByRole("menu");
+      await expect(items).toBeVisible();
+      // The menu is a layer of its own.
+      await expectBackStack(page, [{ closes: items, url: here }]);
+      await menu(page, name).click();
+      await page.getByRole("menuitem", { name: move }).click();
+      const confirm = page.getByRole("alertdialog", { name: `${move} ${name}?` });
+      await expect(confirm).toBeVisible();
+      await expectBackStack(page, [{ closes: confirm, url: here }]);
+      await expect(pageHeader(page)).toContainText(name);
+    }
+
+    // A draft with an Admin: Activate. Backing out moved nothing.
+    await backOutOf("Activate");
+    await expect(banner(page)).toContainText("Not active yet");
+    await activateAsOwner(id);
+    await backOutOf("Pause");
+    await backOutOf("Close");
+    await rpcAs(USERS.owner.email, USERS.owner.password, "client_close", { client_id: id });
+    await backOutOf("Reactivate");
+    await expect(banner(page)).toContainText("Inactive");
+  });
+
+  test("Assign Admin: back closes the select sheet, then the dialog", async ({ page }, info) => {
+    const name = nameOf(info, "Assign back");
+    const id = await seedClient(name);
+    const here = new RegExp(`/clients/${id}$`);
+    await runInstalled(page);
+    await page.goto("/clients");
+    await openClient(page, id, name);
+    await menu(page, name).click();
+    await page.getByRole("menuitem", { name: "Assign Admin" }).click();
+    const assign = page.getByRole("alertdialog", { name: `Assign an Admin to ${name}` });
+    await assign.getByRole("combobox").click();
+    // Below 768px a select's list is a nested sheet (§14.2 a).
+    const sheet = page.locator('[data-slot="select-sheet"]');
+    await expect(sheet).toBeVisible();
+    await expectBackStack(page, [
+      { closes: sheet, url: here },
+      { closes: assign, url: here },
+    ]);
+    await expect(pageHeader(page)).toContainText(name);
+  });
+
+  test("a contact's ⋯ and its confirmations close on back, the top layer first", async ({
+    page,
+  }, info) => {
+    const name = nameOf(info, "Contact menu");
+    const id = await seedClient(name);
+    const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+    const contact = async (person: string) =>
+      (
+        await serviceInsert<{ id: string }>("client_contacts", {
+          org_id: org?.id,
+          client_id: id,
+          name: person,
+        })
+      ).id;
+    // The first live contact is the primary one (by trigger).
+    const primary = await contact("Meera Rao");
+    const other = await contact("Arjun Das");
+    const gone = await contact("Old Contact");
+    await rpcAs(USERS.owner.email, USERS.owner.password, "client_contact_archive", {
+      contact_id: gone,
+    });
+    await runInstalled(page);
+    await page.goto(`/clients/${id}`);
+    await hydrated(page);
+
+    // A contact that is not the primary: ⋯, Make primary, Archive.
+    await page.locator('[data-slot="contact-row"]', { hasText: "Arjun Das" }).click();
+    const otherPage = new RegExp(`/contacts/${other}$`);
+    await expect(page).toHaveURL(otherPage);
+    await hydrated(page);
+    await menu(page, "Arjun Das").click();
+    const items = page.getByRole("menu");
+    await expect(items).toBeVisible();
+    await expectBackStack(page, [{ closes: items, url: otherPage }]);
+    await menu(page, "Arjun Das").click();
+    await page.getByRole("menuitem", { name: "Make primary" }).click();
+    const makePrimary = page.getByRole("alertdialog", {
+      name: "Make Arjun Das the primary contact?",
+    });
+    await expect(makePrimary).toBeVisible();
+    await expectBackStack(page, [{ closes: makePrimary, url: otherPage }]);
+    await menu(page, "Arjun Das").click();
+    await page.getByRole("menuitem", { name: "Archive" }).click();
+    const archiveOther = page.getByRole("alertdialog", { name: "Archive Arjun Das?" });
+    await expect(archiveOther).toBeVisible();
+    await expectBackStack(page, [{ closes: archiveOther, url: otherPage }]);
+    // The contact is still one back from the client.
+    await expectBackStack(page, [{ url: new RegExp(`/clients/${id}$`) }]);
+
+    // The primary: Archive asks for the next primary through a select, a sheet on a phone.
+    const primaryPage = new RegExp(`/contacts/${primary}$`);
+    await page.goto(`/clients/${id}/contacts/${primary}`);
+    await hydrated(page);
+    await menu(page, "Meera Rao").click();
+    await page.getByRole("menuitem", { name: "Archive" }).click();
+    const archivePrimary = page.getByRole("alertdialog", { name: "Archive Meera Rao?" });
+    await archivePrimary.getByRole("combobox").click();
+    const sheet = page.locator('[data-slot="select-sheet"]');
+    await expect(sheet).toBeVisible();
+    await expectBackStack(page, [
+      { closes: sheet, url: primaryPage },
+      { closes: archivePrimary, url: primaryPage },
+    ]);
+
+    // An archived contact's ⋯ holds Restore (no confirmation); the menu closes on back.
+    const gonePage = new RegExp(`/contacts/${gone}$`);
+    await page.goto(`/clients/${id}/contacts/${gone}`);
+    await hydrated(page);
+    await menu(page, "Old Contact").click();
+    await expect(page.getByRole("menuitem", { name: "Restore" })).toBeVisible();
+    await expectBackStack(page, [{ closes: page.getByRole("menu"), url: gonePage }]);
+    await expect(pageHeader(page)).toContainText("Old Contact");
+  });
+
+  test("the logo sheet and the remove-logo confirmation close on back", async ({ page }, info) => {
+    const name = nameOf(info, "Logo back");
+    const id = await seedClient(name);
+    const here = new RegExp(`/clients/${id}/brand$`);
+    const sheet = page.locator('[data-slot="image-upload-sheet"]');
+    await runInstalled(page);
+    await page.goto(`/clients/${id}/brand`);
+    await expect(pageHeader(page)).toContainText(name);
+    await hydrated(page);
+
+    await page.getByRole("button", { name: "Add logo" }).click();
+    await expect(sheet).toBeVisible();
+    await expectBackStack(page, [{ closes: sheet, url: here }]);
+
+    await page.getByRole("button", { name: "Add logo" }).click();
+    await page
+      .locator('[data-slot="image-upload-input"]')
+      .setInputFiles({ name: "logo.png", mimeType: "image/png", buffer: PNG });
+    await sheet.getByRole("button", { name: "Save logo" }).click();
+    await expect(page.getByText(`${name} logo saved`)).toBeVisible();
+    await expect(sheet).toBeHidden();
+
+    await page.getByRole("button", { name: "Change logo" }).click();
+    await sheet.getByRole("button", { name: "Remove logo" }).click();
+    const remove = page.getByRole("alertdialog", { name: "Remove logo?" });
+    await expect(remove).toBeVisible();
+    // The confirmation sits on the sheet: back closes it, then the sheet.
+    await expectBackStack(page, [
+      { closes: remove, url: here },
+      { closes: sheet, url: here },
+    ]);
+    // Nothing was removed.
+    await expect(page.getByRole("button", { name: "Change logo" })).toBeVisible();
+  });
+
+  test("brand edit mode is a layer; back with a change asks Discard changes?", async ({
+    page,
+  }, info) => {
+    const name = nameOf(info, "Brand back");
+    const id = await seedClient(name);
+    const brand = record(page, "Brand");
+    const discard = page.getByRole("alertdialog", { name: "Discard changes?" });
+    await runInstalled(page);
+    await page.goto("/clients");
+    await page.goto(`/clients/${id}/brand`);
+    await expect(pageHeader(page)).toContainText(name);
+    await hydrated(page);
+
+    // Nothing changed: one back leaves edit mode, the page stays.
+    await brand.locator('[data-slot="edit-record"]').click();
+    await expect(brand.locator('[data-slot="save-record"]')).toBeVisible();
+    await page.goBack();
+    await expect(brand.locator('[data-slot="edit-record"]')).toBeVisible();
+    await expect(page).toHaveURL(/\/brand$/);
+
+    // A change: back asks; back on the dialog keeps editing; Discard leaves edit mode.
+    await brand.locator('[data-slot="edit-record"]').click();
+    await brand.getByRole("button", { name: "Add colour" }).click();
+    await page.getByLabel("Colour 1 name", { exact: true }).fill("Primary");
+    await page.goBack();
+    await expect(discard).toBeVisible();
+    await expect(page).toHaveURL(/\/brand$/);
+    await page.goBack();
+    await expect(discard).toBeHidden();
+    await expect(page.getByLabel("Colour 1 name", { exact: true })).toHaveValue("Primary");
+    await page.goBack();
+    await expect(discard).toBeVisible();
+    await discard.getByRole("button", { name: "Discard changes" }).click();
+    await expect(brand.locator('[data-slot="edit-record"]')).toBeVisible();
+    await expect(brand).toContainText("No colours yet");
+
+    // Every way out backed its entry out: one back leaves the client for the list.
+    await expectBackStack(page, [{ url: /\/clients$/ }]);
+  });
 });

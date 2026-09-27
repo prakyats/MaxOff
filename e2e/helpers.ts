@@ -110,8 +110,10 @@ export async function rpcAs<T = unknown>(
     },
     body: JSON.stringify(args),
   });
-  const body: unknown = await response.json();
-  expect(response.ok, `${fn} as ${email}: ${JSON.stringify(body)}`).toBe(true);
+  // A function that returns void answers with an empty body (204).
+  const text = await response.text();
+  const body: unknown = text ? JSON.parse(text) : null;
+  expect(response.ok, `${fn} as ${email}: ${text}`).toBe(true);
   return body as T;
 }
 

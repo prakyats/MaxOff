@@ -159,6 +159,9 @@ test.describe("Owner: the company logo", () => {
 });
 
 test.describe("A member's photo", () => {
+  // Both tests use the project's own photo person, so they run one after the other.
+  test.describe.configure({ mode: "serial" });
+
   test("is their own to set, shown to team.view, never an SVG", async ({
     page,
     browser,
@@ -208,6 +211,41 @@ test.describe("A member's photo", () => {
       .click();
     await expect(page.getByText("Your photo removed")).toBeVisible();
     await expect(page.getByRole("button", { name: "Add photo" })).toBeVisible();
+  });
+  test("installed: the photo sheet and Remove photo? close on back", async ({
+    page,
+    isMobile,
+  }, info) => {
+    test.skip(!isMobile, "the installed back gesture is a phone behaviour");
+    await runInstalled(page);
+    const email = avatarPerson(info);
+    const memberId = await memberIdOf(email);
+    await patchAs(email, PASSWORD, `members?id=eq.${memberId}`, { avatar_file_id: null });
+    await signIn(page, email, PASSWORD);
+    await page.goto("/me");
+    await expect(pageHeader(page)).toContainText("Me");
+    await hydrated(page);
+
+    await page.getByRole("button", { name: "Add photo" }).click();
+    await expect(sheet(page)).toBeVisible();
+    await expectBackStack(page, [{ closes: sheet(page), url: /\/me$/ }]);
+
+    await page.getByRole("button", { name: "Add photo" }).click();
+    await fileInput(page).setInputFiles({ name: "me.png", mimeType: "image/png", buffer: PNG });
+    await sheet(page).getByRole("button", { name: "Save photo" }).click();
+    await expect(page.getByText("Your photo saved")).toBeVisible();
+    await expect(sheet(page)).toBeHidden();
+
+    await page.getByRole("button", { name: "Change photo" }).click();
+    await sheet(page).getByRole("button", { name: "Remove photo" }).click();
+    const remove = page.getByRole("alertdialog", { name: "Remove photo?" });
+    await expect(remove).toBeVisible();
+    // The confirmation sits on the sheet: back closes it, then the sheet; nothing is removed.
+    await expectBackStack(page, [
+      { closes: remove, url: /\/me$/ },
+      { closes: sheet(page), url: /\/me$/ },
+    ]);
+    await expect(page.getByRole("button", { name: "Change photo" })).toBeVisible();
   });
 });
 
