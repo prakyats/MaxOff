@@ -649,6 +649,10 @@ files                id, org_id, storage_key, name, mime, size_bytes, sha256 nul
                      -- builds storage_key itself (<org>/<IST yyyy/mm>/<id>/<name>, a name of '', '.' or '..'
                      -- becomes 'file'), so a key can never alias another object; created_at is always now().
                      -- Both record the uploader as the activity actor. file_fail(id) stays the uploader's.
+                     -- Phase 3 review (should-fix, 2026-09-27): **one upload, one place**: files_reference_guard
+                     -- refuses an archived file and a file already attached elsewhere
+                     -- (app.file_reference_count(id), the catalog scan), and the cleanup's archived branch
+                     -- spares a file any foreign key still references, and a preview whose original is.
                      -- A preview follows its original: a candidate once the original is one or is
                      -- deleted, unless a foreign key references the preview itself (ADR-0010: a
                      -- submission's preview outlives its deleted local original). Signature:
