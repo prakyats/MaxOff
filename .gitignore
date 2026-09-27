@@ -35,3 +35,6 @@ next-env.d.ts
 
 # Local UI screenshots per task (before/after comparison). Never committed.
 screenshots/
+
+# Written by deploy.yml for one `wrangler deploy --secrets-file`; never committed.
+.wrangler-secrets.json
