@@ -66,6 +66,17 @@ export type SettingsEntity = (typeof SETTINGS_ENTITIES)[number];
 /** Entities whose definitions may be scoped to one client (kickoff 3). */
 export const CLIENT_SCOPED_ENTITIES = ["client", "contact"] as const;
 
+/**
+ * The field form's reminder that money stays out of custom fields (owner decision 2026-09-27,
+ * phase 3 review, PRODUCT §4.16): shown for a number field, and for any client or contact field,
+ * because Admins read those. Null when it does not apply.
+ */
+export function adminVisibleNote(entity: string, type: FieldType): string | null {
+  return type === "number" || (CLIENT_SCOPED_ENTITIES as readonly string[]).includes(entity)
+    ? "Admins can see this field. Amounts belong in project billing (Owner only)."
+    : null;
+}
+
 /** Entities whose definitions only the Owner writes, globally (PERMISSIONS ¹). */
 export const OWNER_ONLY_ENTITIES = ["project", "item"] as const;
 

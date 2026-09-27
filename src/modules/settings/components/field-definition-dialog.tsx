@@ -4,6 +4,7 @@ import { Loader2Icon } from "lucide-react";
 import { type FormEvent, useState, useTransition } from "react";
 
 import {
+  adminVisibleNote,
   CLIENT_SCOPED_ENTITIES,
   FIELD_HELP_MAX,
   FIELD_KEY_MAX,
@@ -218,7 +219,11 @@ export function FieldDefinitionDialog({
             )}
           </FormField>
 
-          <FormField label="Type" error={error?.fieldErrors?.type}>
+          <FormField
+            label="Type"
+            error={error?.fieldErrors?.type}
+            hint={adminVisibleNote(entity, type) ?? undefined}
+          >
             {(control) => (
               <Select value={type} onValueChange={(next) => isFieldType(next) && setType(next)}>
                 <SelectTrigger

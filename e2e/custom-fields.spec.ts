@@ -78,6 +78,10 @@ test.describe("Owner", () => {
     // A global text field: the key follows the label until typed by hand.
     await openAdd(page);
     await expect(addDialog(page).getByLabel("Applies to")).toBeVisible();
+    // Admins read client fields, so money stays out of them (PRODUCT §4.16, phase 3 review).
+    await expect(addDialog(page)).toContainText(
+      "Admins can see this field. Amounts belong in project billing (Owner only).",
+    );
     await addDialog(page)
       .getByLabel("Label")
       .fill(`Industry ${suffix(info)}`);

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { CustomFieldsView } from "./components/custom-fields-view";
 import {
+  adminVisibleNote,
   describeValue,
   type FieldDefinition,
   type FieldType,
@@ -51,6 +52,16 @@ describe("keys", () => {
   it("derives an option key from its label", () => {
     expect(optionKeyFromLabel("Gold tier")).toBe("gold-tier");
     expect(optionKeyFromLabel(" Silver ")).toBe("silver");
+  });
+});
+
+describe("the money reminder on the field form (PRODUCT §4.16)", () => {
+  it("shows for a number field and for any client or contact field, nowhere else", () => {
+    const note = "Admins can see this field. Amounts belong in project billing (Owner only).";
+    expect(adminVisibleNote("client", "text")).toBe(note);
+    expect(adminVisibleNote("contact", "date")).toBe(note);
+    expect(adminVisibleNote("project", "number")).toBe(note);
+    expect(adminVisibleNote("task", "text")).toBeNull();
   });
 });
 

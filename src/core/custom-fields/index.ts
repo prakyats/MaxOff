@@ -6,6 +6,7 @@
  * from a barrel (ADR-0011 amendment).
  */
 export {
+  adminVisibleNote,
   CLIENT_SCOPED_ENTITIES,
   CUSTOM_FIELD_ENTITIES,
   describeValue,
