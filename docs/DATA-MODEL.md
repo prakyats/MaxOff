@@ -8,6 +8,7 @@
 ```
 member_role        owner | admin | staff
 member_status      invited | active | deactivated
+engagement         permanent | freelance      -- ADR-0013 (4A): a freelancer has no login; data, not a role
 attendance_choice  present | leave | half_day | comp_leave
 day_status         present | leave | half_day | comp_leave | absent
 attendance_state   awaiting_choice | pending_review | approved | corrected
@@ -161,10 +162,30 @@ holidays             id, org_id, date, name, created_at, updated_at, unique(org_
                      -- is the Owner's, and audit_row_change() keeps the removed row. Deleting a
                      -- holiday never rewrites the past: attendance_days carries its own is_day_off
                      -- (2.1), decided on the day itself
-members              id (= auth.users.id), org_id, full_name, email, phone, avatar_file_id (added in 3.3),
+members              id (= auth.users.id for a login; a fresh uuid for a freelancer), org_id, full_name,
+                     email null (a freelancer has none), phone, avatar_file_id (added in 3.3),
                      role member_role, job_title_id null → list_items (1.3), status member_status,
+                     engagement engagement ('permanent'; 4A, ADR-0013),
                      invited_at, joined_at, deactivated_at, created_at, updated_at
                      unique partial index (org_id) where role = 'owner'; unique index on lower(email)
+                     -- 4A: a freelance row has role = staff for permission arithmetic, no auth.users row,
+                     -- no invite (member_invite() refuses engagement = freelance), joined_at set on
+                     -- creation; check: engagement = 'permanent' or email is null. Created only by
+                     -- member_add_freelancer(name, job_title_id, phone, coordinator_id) (team.manage).
+                     -- Every attendance and leave function, the day gate and the 2.5 jobs act on
+                     -- permanent members only (PERMISSIONS §3). A later tasks-only login attaches an
+                     -- auth.users row to this same id (ADR-0013 §7), so nothing about it ever moves.
+member_coordinators  id, member_id → members (the freelancer), coordinator_id → members (an active
+                     permanent Admin or Staff), from_at, to_at null (the current one), set_by, reason,
+                     created_at
+                     -- 4A, ADR-0013: history, never rewritten. unique partial index (member_id) where
+                     -- to_at is null (exactly one current coordinator); check member_id <> coordinator_id.
+                     -- Written only by member_set_coordinator() (team.manage): closes the current row and
+                     -- opens the next in one transaction; refused when the coordinator is not active
+                     -- permanent, or the member is not freelance. RLS: team.view reads all; a member
+                     -- reads the rows where they are the coordinator (their own freelancers).
+                     -- app.coordinator_of(freelancer_id) → the current coordinator, used by every
+                     -- on-behalf check and by notification routing (WORKFLOWS §9).
                      -- status, invited_at, joined_at, deactivated_at are protected columns (transition
                      -- functions only, 1.2/1.3). RLS: own row; every row for team.view; writes team.manage;
                      -- own name/phone/avatar editable (PERMISSIONS §3). job_title_id is in the API
@@ -480,12 +501,17 @@ tasks                id, org_id, title, description, task_type_id, client_id nul
                      custom_fields, template_id null,
                      submitted_at, admin_approved_at, completed_at, cancelled_at, archived_at
 task_assignees       task_id, member_id, is_primary, assigned_at, assigned_by,
-                     acknowledged_at null, removed_at null, pk(task_id, member_id)
-task_stages          id, task_id, name, position, done_at, done_by   -- optional checklist
-task_comments        id, task_id, author_id, body, created_at        -- append-only
+                     acknowledged_at null, acknowledged_by null (the coordinator when on behalf; else = member_id),
+                     removed_at null, pk(task_id, member_id)
+task_stages          id, task_id, name, position, done_at, done_by, on_behalf_of null   -- optional checklist
+task_comments        id, task_id, author_id, on_behalf_of null, body, created_at        -- append-only
+                     -- on_behalf_of (4A, ADR-0013): set when a coordinator acts for a freelancer; the
+                     -- actor column keeps the coordinator. Same pair on task_submissions (submitted_by,
+                     -- on_behalf_of) and on the Done/resubmit transition (tasks.submitted_by,
+                     -- tasks.submitted_on_behalf_of). Never set on a review (a freelancer never reviews).
 task_reviews         id, task_id, step ('admin'|'owner'), decision, reason, reviewer_id,
                      submission_id null, at                          -- append-only
-task_submissions     id, task_id, version int, note, submitted_by, at, unique(task_id, version)
+task_submissions     id, task_id, version int, note, submitted_by, on_behalf_of null, at, unique(task_id, version)
 submission_items     id, submission_id, kind ('upload'|'drive_link'),
                      file_id null (uploads), source_url null (pasted Drive link),
                      source_file_id null (Google file id of THEIR file),
@@ -541,7 +567,9 @@ notifications        id, recipient_id, kind, title, body, link, entity, entity_i
                      created_at, read_at null, escalation_level int
 notification_deliveries  id, notification_id, channel ('push'|'email'), state ('queued'|'sent'|'failed'),
                      attempts, last_error, sent_at
-activity_log         id bigint identity, org_id, actor_id null (system), entity, entity_id, action,
+activity_log         id bigint identity, org_id, actor_id null (system), on_behalf_of_id null (4A,
+                     ADR-0013: the freelancer a coordinator acted for; actor_id stays the coordinator),
+                     entity, entity_id, action,
                      diff jsonb (old/new), meta jsonb, at               -- append-only (UPDATE/DELETE revoked)
                      -- written only by app.audit_row_change() and transition functions (no INSERT grant).
                      -- RLS: activity.view_all, or entries about the caller's own member row except its

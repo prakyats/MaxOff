@@ -96,6 +96,23 @@ invited ──Owner "Revoke invite"──► deactivated (the link opens nothing
 - **Email change** (1.4, `member_change_email()`): the email is the login identity, so only the Owner (`team.manage`) changes it, never the member. It is allowed on an **active** row, an **invited** row (the usual case: the invite went to a typo) and on the **Owner's own** row. The address must be free: one that already belongs to any member, whatever their status, is `CONFLICT`. The action moves the sign-in at GoTrue first (`auth.admin.updateUserById`, `email_confirm: true`, so no confirmation mail is needed), then calls the transition function, and puts the old address back at GoTrue if the function refuses. **Sessions stay alive** — nothing reads the email from the JWT — and the person signs in with the new address and their existing password from then on. An **invited** person's pending link **stops working** (GoTrue drops the confirmation token when the address moves, proved by probe: `otp_expired`), so the Owner sends a fresh one with "Copy invite link"; the dialog says so. The invite email itself went to the old address, so that second link is how the new address ever hears about the invite.
 - **Notifications**: the invite email, and on an email change **both addresses** get one (the new one: "you'll sign in with this address"; the old one: "your MaxOff login was changed", which is the message that matters when the old mailbox is still live). Both bypass the daily cap, like the invite. Nobody is notified of a deactivation or reactivation (nothing in §9 says so).
 
+### 1b. Freelancers (ADR-0013, owner decision 2026-09-27; built in phase 4)
+
+```
+Owner "Add person → Freelancer" (name, job title, phone?, coordinator)
+   └─► members row: engagement = freelance, role = staff, status = active, email null, NO auth user, NO invite
+         + member_coordinators row (coordinator, from_at = now, set_by = Owner)
+         │
+         ├──Owner "Change coordinator"(new coordinator, reason?)──► current row closed (to_at), new row opened
+         ├──Owner deactivate(reason?)──► deactivated (nothing to sign out; open tasks stay assigned, flagged)
+         └──Owner reactivate──► active (a current coordinator is required again)
+```
+- **Coordinator** = an **active permanent** Admin or Staff. Deactivating a coordinator asks the Owner where each of their freelancers goes first (`member_deactivate()` refuses while a freelancer still points at them).
+- **Acting on behalf:** on the freelancer's tasks the coordinator may do everything an assignee may (`tasks.work`): acknowledge ("Noted by Ravi for Asha"), comment, tick stages, upload and paste links, mark Done with the late reason, resubmit after changes. Each transition takes the freelancer's id as `on_behalf_of`, checks `app.coordinator_of(freelancer) = caller` at that moment, and writes actor = caller, `on_behalf_of` = freelancer in the task rows and `activity_log`. Nothing else changes: the approval route, locking from `submitted`, reopen and cancel are the task's own rules (§3).
+- **Never for a freelancer:** attendance, leave, the day gate (there is no session), the 23:59 / 00:00 jobs (§8, permanent members only), reachability (§9a), being a creator, approving Admin or reviewer.
+- **Notifications** addressed to a freelancer go to their current coordinator (§9).
+- **A later login** (a phase-4 kickoff question) would be an invite that attaches an auth user to the same `members.id`; the coordinator relation and every history row stay.
+
 ## 2. Leave requests
 
 ```
@@ -140,6 +157,7 @@ submitted ──Owner approve──► approved ──employee requests change/c
 | `cancelled` | Stopped with a reason, still reportable | Creator / approving Admin / Owner can `reopen` → `todo` (reason required) |
 
 - **Done can be submitted from `todo` or `in_progress`.** `in_progress` is optional.
+- **On behalf of a freelancer (ADR-0013, §1b):** `task_acknowledge`, `task_start`, `task_submit_done`, stage ticks, comments and submissions accept `on_behalf_of` = a freelancer assignee; allowed only to that freelancer's **current** coordinator, recorded as actor = coordinator + `on_behalf_of`. A freelancer's primary ownership means their coordinator marks Done. Reviews never carry `on_behalf_of`.
 - **Done doesn't wait for acknowledgements.** If the primary owner hasn't acknowledged yet, submitting Done records their acknowledgement automatically (audited). Other assignees' acknowledgements stay tracked and still get reminders.
 - **Who may edit, reassign, cancel or reopen a task:** its **creator**, its **approving Admin**, or the **Owner**. Other Admins who can see it can't change it.
 - **Reopen** goes through the **same approval route again** (the Admin step is re-evaluated at the next Done). Acknowledgements are retained. The reopen reason is stored **only in `activity_log`** (`meta.reason`); there's no column for it.
@@ -272,7 +290,7 @@ month M (IST) open ──Owner close──► closed (snapshot v1, immutable)
 ## 9. Who gets notified
 | Event | Recipients |
 |---|---|
-| Task assigned / assignee added | Each new assignee |
+| Task assigned / assignee added | Each new assignee (**a freelancer's notifications go to their current coordinator**, worded for them: "Asha's task …"; this applies to every row below that names an assignee, ADR-0013) |
 | Acknowledgement missing (repeat) | That assignee |
 | Acknowledgement escalation | Level 1 (`ack_escalate_hours`): approving Admin (or creator). Level 2 (`ack_escalate_owner_hours`): Owner |
 | Overdue escalation (`overdue_escalate_hours` past due, nothing submitted) | Approving Admin (or creator) + Owner |
@@ -284,6 +302,7 @@ month M (IST) open ──Owner close──► closed (snapshot v1, immutable)
 | Task completed / cancelled / reopened | Assignees (+ creator) |
 | Comment added | Other participants on the task (assignees, approving Admin, creator) |
 | Task request created | Owner + the client's Admin (or all Admins if there's no client) |
+| Coordinator changed | The new coordinator (and the previous one, if still active) |
 | Attendance submitted | **Nobody.** The Owner's Today counts are the live digest, so no notification per person |
 | Absent proposed (23:59 job) | Owner: **one** notification listing everyone proposed absent |
 | Attendance decided / corrected (by the Owner or automatically when a later leave approval wins) | That member |

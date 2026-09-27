@@ -56,6 +56,7 @@ The full permission and visibility matrix is in `PERMISSIONS.md`. The key rules:
 - **Staff see only tasks allotted to them.** A task can carry a **client label** (the client's name and brand basics), and that's all Staff ever see of a client.
 - **Money is Owner-only**, everywhere, including in exports.
 - The Owner account is created by a secure bootstrap script (Supabase Auth). Passwords are never stored in app tables.
+- **Freelancers are people without a login** (owner decision 2026-09-27, ADR-0013): a person record of engagement type *freelance*, looked after by one **coordinator** (an Admin or Staff employee) who acts on their behalf from their own account. Engagement is data, not a role. See §4.17.
 
 ---
 
@@ -250,6 +251,7 @@ Only **client project items** carry revenue. Staff tasks never do.
 - **No automatic ratings or scores**, only raw facts.
 - **Close month:** the Owner closes a month, which saves an **immutable snapshot**. Later changes never alter it. A mistake is fixed with an explicit **correction**, which creates a new snapshot version linked to the old one and records why.
 - **Exports:** Markdown, CSV and PDF. The **Markdown export is designed for AI analysis**: an executive summary followed by dense, structured raw data (tables and IDs) that answers questions like *"Which stage takes longest?", "Who is overloaded?", "How much potential revenue wasn't achieved?"*
+- **Freelancer work is shown separately** (ADR-0013): every count, duration and list that is per person carries the engagement type, and totals split employees from freelancers, so employee metrics are not diluted and freelancer output is visible on its own.
 - Admins get operational reports for their own scope, with no money in them. These are computed live: the end-of-day reports and month snapshots contain revenue and are Owner-only.
 
 **The Admin's report answers one question: is the work getting done?** (decided 2026-09-23). Six numbers and two lists — no more, or it stops being read. Each is for their assigned clients and the tasks they created, approve or are assigned to. Week, month or custom range, with last period beside it.
@@ -279,17 +281,29 @@ Plus two lists: **who is loaded this week** (open and overdue tasks per person, 
 **Everything configurable in MaxOff is editable by the Owner, in one place, with no developer involved.** If a rule, list, threshold or label exists, the Owner can change it here. Admins get only the operational parts (lists, templates, custom fields).
 
 - **Company:** name, logo, timezone (IST), **weekly off days** (currently Sunday), **holidays**, logout-reminder time, acknowledgement and escalation thresholds (Admin and Owner), overdue escalation, workload warning threshold, default reminder schedule, email daily cap per person.
-- **Team:** invite, role, job title, name, deactivate or reactivate (Owner). **Job titles** are an editable list the Owner adds to freely (seeded with Video Editor and Graphic Designer).
+- **Team:** **Add person** chooses **Employee** (an invite by email) or **Freelancer** (no invite; pick the coordinator, §4.17); role, job title, name, coordinator, deactivate or reactivate (Owner). **Job titles** are an editable list the Owner adds to freely (seeded with Video Editor and Graphic Designer).
 - **Lists:** task types (with event behaviour, default reminders and fields), stage presets, and other lists.
 - **Custom fields:** for clients, contacts, projects, items and tasks, globally or for one client. Fields on **projects and items are Owner-only** to define (there's no currency type, and this closes the "amount in a number field" loophole).
 - **Templates:** project templates and task templates.
 - **Google Drive (Owner only):** connect or reconnect the company account, choose the archive root folder, and see the archive queue and any failures.
 - **Storage:** how much MaxOff (R2) and Google Drive are using, with warnings before either runs low.
 
+### 4.17 Freelancers
+**A freelancer is a person without a login** (owner decision 2026-09-27, ADR-0013). Pixora gives work to editors and designers who are not employees, may never open MaxOff and must still be assigned, reminded, approved and reported like anyone else, with a true record of who did what.
+
+- **Add person** in Team offers **Employee** (invite by email, as today) or **Freelancer**: name, job title, optional phone, and the **coordinator** instead of an email. No invite, no password, no session, ever, unless the Owner later decides to offer a tasks-only login (a phase-4 kickoff question); the record is designed so that would attach to it without moving any history.
+- **Exactly one coordinator**, an active employee (Admin or Staff), chosen and changeable by the Owner; every change is kept with who, when and why. Deactivating a coordinator first asks where their freelancers go.
+- **The coordinator acts on the freelancer's behalf from their own account**, only on the freelancer's tasks: "Task Noted", comments, stage ticks, uploads and links, Done (with the late reason), resubmit after changes. Screens say so wherever a person is named: **"Done by Ravi for Asha"**, "Noted by Ravi for Asha".
+- **Assigning:** a freelancer is offered in the assignee picker like anyone else, marked *Freelancer* with the coordinator's name. The approval route is unchanged (§4.6); a freelancer is never an approving Admin and never a task creator.
+- **Notifications** meant for the freelancer go to the coordinator, worded for them ("Asha's task *Reel edit* is due tomorrow").
+- **No attendance, no leave, no day gate**, and the nightly attendance jobs never look at them (enforced in the database). They never appear on the Owner's people board.
+- **A Staff coordinator still never sees client records**: the freelancer's tasks carry a client *label* at most, exactly like the coordinator's own.
+- **Reports** show freelancer work separately (§4.13). **Payments** are out of scope for the pilot (§5).
+
 ---
 
 ## 5. Out of scope for the prototype
-GST invoice generation and invoicing · client login or portal · WhatsApp · native mobile app · timesheets or time tracking · social publishing · AI features inside MaxOff · HR leave policies and balances · task dependency engine · payroll · accounting integration · leads pipeline · client-facing financial reports · custom RBAC roles · multi-tenant SaaS (billing, sign-up, org admin).
+**Freelancer payments** (owner decision 2026-09-27: out of scope for the pilot; when they come they are Owner-only money through `modules/revenue`, never on the person record) · GST invoice generation and invoicing · client login or portal · WhatsApp · native mobile app · timesheets or time tracking · social publishing · AI features inside MaxOff · HR leave policies and balances · task dependency engine · payroll · accounting integration · leads pipeline · client-facing financial reports · custom RBAC roles · multi-tenant SaaS (billing, sign-up, org admin).
 
 ## 6. Quality bar ("production level")
 | Area | Requirement |

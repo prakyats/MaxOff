@@ -7,7 +7,7 @@
 
 | Key | What it allows | Owner | Admin | Staff |
 |---|---|:-:|:-:|:-:|
-| `team.manage` | Invite, change role or job title, deactivate, edit names | ✅ | | |
+| `team.manage` | Invite, change role or job title, deactivate, edit names; **add a freelancer and set or change their coordinator** (ADR-0013) | ✅ | | |
 | `team.view` | See the member list (names, job titles, roles) | ✅ | ✅ | |
 | `availability.view` | See anyone's availability: task counts, busy blocks, approved leave, today's presence | ✅ | ✅ | |
 | `settings.manage` | Company settings, days off, holidays, thresholds | ✅ | | |
@@ -27,7 +27,7 @@
 | `tasks.create` | Create, assign, edit, reassign and cancel tasks within their scope | ✅ | ✅ | |
 | `tasks.approve_admin` | The Admin approval step (only as the task's approving Admin) | | ✅ | |
 | `tasks.approve_final` | The final approval step | ✅ | | |
-| `tasks.work` | Acknowledge, comment, tick stages, upload, mark done (as an assignee) | ✅ | ✅ | ✅ |
+| `tasks.work` | Acknowledge, comment, tick stages, upload, mark done (as an assignee, **or as the current coordinator of a freelancer assignee, on that freelancer's tasks only**, ADR-0013) | ✅ | ✅ | ✅ |
 | `task_requests.create` | Suggest a task | | ✅ | ✅ |
 | `task_requests.decide` | Convert or decline a task request | ✅ | ✅ | |
 | `attendance.self` | Submit own attendance and logout, request own leave | | ✅ | ✅ |
@@ -71,6 +71,7 @@
 **Scope changes are live:** if the Owner reassigns a client to another Admin, the old Admin loses access immediately and the new Admin gains it.
 
 ## 3. Rules enforced by transition functions (not just RLS)
+- **Freelancers (ADR-0013, built in 4A):** only the Owner (`team.manage`) adds a freelancer (`member_add_freelancer()`) or sets their coordinator (`member_set_coordinator()`, an active **permanent** Admin or Staff, never the freelancer themselves). **Acting on behalf** is allowed only to the freelancer's **current** coordinator (`app.coordinator_of()` at the moment of the action), only within `tasks.work` on tasks the freelancer is assigned to, and always recorded as actor = coordinator, `on_behalf_of` = freelancer; a former coordinator, any other member and the Owner-as-coordinator shortcut are refused. A freelancer is never a task creator, approving Admin or reviewer, and their id is never an actor. **Attendance, leave, the day gate and the attendance jobs act on `permanent` members only:** `attendance_touch()`, `attendance_submit()`, `leave_submit()` and the rest refuse a freelance member (`FORBIDDEN`), and `absent_check()` / `logout_not_recorded()` select permanent members. A Staff coordinator's visibility grows by exactly the freelancer's tasks (a client label at most, ADR-0005), never by a client record.
 - Only the task's **approving Admin** can do the Admin approval step, and never on a task they're assigned to (#3).
 - Only the **primary owner** can mark a task Done. From `submitted` onwards, assignees can't edit (they can still comment).
 - A task may be **edited, reassigned, cancelled or reopened** only by its **creator**, its **approving Admin** or the **Owner**. Other Admins who can see it can't change it.
