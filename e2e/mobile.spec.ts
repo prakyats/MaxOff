@@ -206,6 +206,44 @@ async function expectReadableTruncation(page: Page): Promise<void> {
   expect(squeezed, `a cut-short line keeps ${MIN_TRUNCATED_WIDTH}px`).toEqual([]);
 }
 
+/**
+ * A loading screen fits at large text too (phase 3 review: CI caught /today's stat-tile skeleton
+ * reaching past the edge at 200%, only when the check ran before the page streamed in). The
+ * page's data request is held, so its `loading.tsx` stays up for as long as the check needs.
+ */
+for (const role of ["owner", "admin"] as const) {
+  test.describe(`${role}: Today's loading screen at large system text`, () => {
+    test.use({ storageState: storageStateFor(role) });
+
+    test("fits at 130% and 200% while the page loads", async ({ page }) => {
+      await page.goto("/me");
+      await expect(pageHeader(page)).toBeVisible();
+      await page.waitForLoadState("networkidle");
+      let release: () => void = () => undefined;
+      const held = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      await page.route(
+        (url) => url.pathname === "/today",
+        async (route) => {
+          if (route.request().headers()["rsc"] !== "1") return route.continue();
+          await held;
+          await route.continue().catch(() => undefined);
+        },
+      );
+      await page.getByRole("link", { name: "Today" }).filter({ visible: true }).first().click();
+      await expect(page.locator('[data-slot="loading-tile"]').first()).toBeVisible();
+      for (const scale of [130, 200]) {
+        await page.evaluate((percent) => {
+          document.documentElement.style.fontSize = `${percent}%`;
+        }, scale);
+        await expectNoHorizontalScroll(page);
+      }
+      release();
+    });
+  });
+}
+
 for (const [role, paths] of Object.entries(LARGE_TEXT_SCREENS)) {
   test.describe(`${role} screens at large system text`, () => {
     test.use({ storageState: storageStateFor(role as keyof typeof LARGE_TEXT_SCREENS) });
