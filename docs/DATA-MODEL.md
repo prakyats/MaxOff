@@ -613,7 +613,8 @@ files                id, org_id, storage_key, name, mime, size_bytes, sha256 nul
                      -- 'deleted' = the R2 object was removed by retention; the row stays
                      -- kickoff 3 (3.3): logos and avatars ≤ 5 MB (logo PNG/JPEG/WebP/SVG, avatar no
                      -- SVG); replacing archives the old row; storage_cleanup deletes objects of rows
-                     -- archived 30 days ago and of pending or failed rows older than 24 h. Served to the browser
+                     -- archived 30 days ago, of pending or failed rows older than 24 h and of ready
+                     -- originals nothing references after 7 days (3B review). Served to the browser
                      -- through /api/files/<id> (permission-checked, Cache-Control: private) for
                      -- previews; presigned GET (5 min) for downloads. Local and e2e use MinIO
                      -- 3.3 as built: status and archived_at are protected columns. A member inserts their
@@ -627,6 +628,14 @@ files                id, org_id, storage_key, name, mime, size_bytes, sha256 nul
                      -- (a browser that gave up after the PUT left an object); files_archive_replaced audits
                      -- each archived row (original and previews) as 'archived'; files_reference_guard
                      -- resolves client_brand's org through clients.
+                     -- 3B review (owner decision 2026-09-27): an **orphaned ready** original is a
+                     -- candidate too: status ready, not archived, older than 7 days, and referenced by
+                     -- no foreign key column that points at files (read from the catalog, so a new
+                     -- consumer is protected by declaring its FK; files.preview_of is not a reference).
+                     -- A preview follows its original: a candidate once the original is one or is
+                     -- deleted. Signature: file_cleanup_candidates(archived_before, pending_before,
+                     -- orphaned_before, batch default 200); the 3-argument form is dropped (phase-3 only,
+                     -- never on main).
 notifications        id, recipient_id, kind, title, body, link, entity, entity_id, payload jsonb,
                      created_at, read_at null, escalation_level int
 notification_deliveries  id, notification_id, channel ('push'|'email'), state ('queued'|'sent'|'failed'),

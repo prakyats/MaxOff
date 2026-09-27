@@ -1308,6 +1308,7 @@ export type Database = {
         Args: {
           archived_before: string;
           batch?: number;
+          orphaned_before: string;
           pending_before: string;
         };
         Returns: {

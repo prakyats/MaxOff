@@ -58,13 +58,16 @@ export const FILE_NAME_MAX = 255;
 /** `storage_cleanup` (kickoff 3 decision 13): objects of rows archived this long ago, and of uploads still pending this long, are deleted. */
 export const ARCHIVED_RETENTION_DAYS = 30;
 export const PENDING_RETENTION_HOURS = 24;
+/** …and of a ready original nothing references this long after upload (owner decision 2026-09-27, 3B review). */
+export const ORPHANED_RETENTION_DAYS = 7;
 
-export type CleanupThresholds = { archivedBefore: Date; pendingBefore: Date };
+export type CleanupThresholds = { archivedBefore: Date; pendingBefore: Date; orphanedBefore: Date };
 
 export function cleanupThresholds(now: Date): CleanupThresholds {
   return {
     archivedBefore: new Date(now.getTime() - ARCHIVED_RETENTION_DAYS * 24 * 60 * 60 * 1000),
     pendingBefore: new Date(now.getTime() - PENDING_RETENTION_HOURS * 60 * 60 * 1000),
+    orphanedBefore: new Date(now.getTime() - ORPHANED_RETENTION_DAYS * 24 * 60 * 60 * 1000),
   };
 }
 

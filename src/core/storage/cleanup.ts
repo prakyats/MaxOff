@@ -6,7 +6,9 @@ import { type FileRecord, getStorageAdapter, toFileRecord } from "./server";
 
 /**
  * `storage_cleanup` (WORKFLOWS §8, kickoff 3 decision 13): deletes the objects of rows archived
- * **30 days** ago and of rows still `pending` after **24 hours**, and marks each `deleted`. The
+ * **30 days** ago, of rows still `pending` (or `failed`) after **24 hours**, and of `ready`
+ * originals nothing references after **7 days** with their previews (owner decision 2026-09-27,
+ * 3B review; the database decides what "references" means), and marks each `deleted`. The
  * row stays (invariant 9). Idempotent: a deleted row is never a candidate again, an object that
  * is already gone counts as deleted, and a failure on one object leaves the others alone and is
  * reported. Runs with the service client from the cron route, in batches until nothing is left.
@@ -29,7 +31,7 @@ export async function runStorageCleanup({
   storage: StorageAdapter;
   now: Date;
 }): Promise<CleanupReport> {
-  const { archivedBefore, pendingBefore } = cleanupThresholds(now);
+  const { archivedBefore, pendingBefore, orphanedBefore } = cleanupThresholds(now);
   const report: CleanupReport = { examined: 0, deleted: 0, failed: [] };
   const seen = new Set<string>();
 
@@ -37,6 +39,7 @@ export async function runStorageCleanup({
     const { data, error } = await service.rpc("file_cleanup_candidates", {
       archived_before: archivedBefore.toISOString(),
       pending_before: pendingBefore.toISOString(),
+      orphaned_before: orphanedBefore.toISOString(),
       batch: BATCH,
     });
     if (error) throw error;

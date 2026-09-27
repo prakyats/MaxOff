@@ -7,6 +7,7 @@ import {
   ARCHIVED_RETENTION_DAYS,
   checkFile,
   cleanupThresholds,
+  ORPHANED_RETENTION_DAYS,
   MAX_BYTES,
   MULTIPART_PART_SIZE,
   partCount,
@@ -237,11 +238,13 @@ describe("sanitiseSvg (kickoff 3: an SVG logo is rewritten from an allow-list)",
 });
 
 describe("cleanup thresholds (WORKFLOWS §4a Files)", () => {
-  it("looks 30 days back for archived rows and 24 hours for pending ones", () => {
+  it("looks 30 days back for archived rows, 24 hours for pending ones, 7 days for orphans", () => {
     const now = new Date("2026-09-27T21:30:00Z");
-    const { archivedBefore, pendingBefore } = cleanupThresholds(now);
+    const { archivedBefore, pendingBefore, orphanedBefore } = cleanupThresholds(now);
     expect(ARCHIVED_RETENTION_DAYS).toBe(30);
     expect(PENDING_RETENTION_HOURS).toBe(24);
+    expect(ORPHANED_RETENTION_DAYS).toBe(7);
+    expect(orphanedBefore.toISOString()).toBe("2026-09-20T21:30:00.000Z");
     expect(archivedBefore.toISOString()).toBe("2026-08-28T21:30:00.000Z");
     expect(pendingBefore.toISOString()).toBe("2026-09-26T21:30:00.000Z");
   });

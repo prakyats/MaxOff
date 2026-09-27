@@ -98,7 +98,7 @@ select has_function('app', 'file_visible', array['uuid'], 'app.file_visible exis
 select has_function('public', 'file_complete', array['uuid', 'bigint', 'text'], 'file_complete exists');
 select has_function('public', 'file_fail', array['uuid'], 'file_fail exists');
 select has_function('public', 'file_mark_deleted', array['uuid'], 'file_mark_deleted exists');
-select has_function('public', 'file_cleanup_candidates', array['timestamptz', 'timestamptz', 'integer'], 'file_cleanup_candidates exists');
+select has_function('public', 'file_cleanup_candidates', array['timestamptz', 'timestamptz', 'timestamptz', 'integer'], 'file_cleanup_candidates exists (the orphan window since 20260927130730)');
 select ok(not has_table_privilege('anon', 'public.files', 'select, insert, update, delete'),
   'anon has no privilege on files');
 select ok(not has_table_privilege('authenticated', 'public.files', 'delete, truncate, references, trigger'),
@@ -115,9 +115,9 @@ select ok(
   'the two consumer columns are granted');
 select ok(
   not has_function_privilege('authenticated', 'public.file_mark_deleted(uuid)', 'execute')
-  and not has_function_privilege('authenticated', 'public.file_cleanup_candidates(timestamptz, timestamptz, integer)', 'execute')
+  and not has_function_privilege('authenticated', 'public.file_cleanup_candidates(timestamptz, timestamptz, timestamptz, integer)', 'execute')
   and has_function_privilege('service_role', 'public.file_mark_deleted(uuid)', 'execute')
-  and has_function_privilege('service_role', 'public.file_cleanup_candidates(timestamptz, timestamptz, integer)', 'execute'),
+  and has_function_privilege('service_role', 'public.file_cleanup_candidates(timestamptz, timestamptz, timestamptz, integer)', 'execute'),
   'the cleanup functions are service_role only');
 
 -- Uploading: a pending row of one''s own ------------------------------------------------------
@@ -301,18 +301,18 @@ select throws_ok($$ select public.file_mark_deleted(pg_temp.fx('stale')) $$, '42
 select pg_temp.as_system();
 set local role service_role;
 select results_eq(
-  $$ select id from public.file_cleanup_candidates(now(), now() - interval '1 second') order by name $$,
+  $$ select id from public.file_cleanup_candidates(now(), now() - interval '1 second', now() - interval '7 days') order by name $$,
   $$ values (pg_temp.fx('clogo')), (pg_temp.fx('logo_prev')), (pg_temp.fx('logo')) $$,
   'archived rows are candidates once the threshold has passed; a failed row waits for its pending window');
 select results_eq(
-  $$ select id from public.file_cleanup_candidates(now() - interval '31 days', now()) $$,
+  $$ select id from public.file_cleanup_candidates(now() - interval '31 days', now(), now() - interval '7 days') $$,
   $$ values (pg_temp.fx('stale')) $$,
   'a failed upload is a candidate once its pending window has passed (3A review)');
-select is((select count(*) from public.file_cleanup_candidates(now() - interval '31 days', now() - interval '25 hours')), 0::bigint,
+select is((select count(*) from public.file_cleanup_candidates(now() - interval '31 days', now() - interval '25 hours', now() - interval '7 days')), 0::bigint,
   'nothing is old enough with the real thresholds');
 select is(public.file_mark_deleted(pg_temp.fx('logo')), 'deleted', 'the job marks the object gone');
 select is(public.file_mark_deleted(pg_temp.fx('logo')), 'deleted', 'idempotent');
-select is((select count(*) from public.file_cleanup_candidates(now(), now())), 3::bigint,
+select is((select count(*) from public.file_cleanup_candidates(now(), now(), now() - interval '7 days')), 3::bigint,
   'a deleted row is never a candidate again (the preview, the client logo and the failed upload still are)');
 select is(public.file_mark_deleted(pg_temp.fx('stale')), 'deleted', 'a failed upload''s object goes the same way');
 select is((select status from public.files where id = pg_temp.fx('logo')), 'deleted', 'the row stays, as deleted');
