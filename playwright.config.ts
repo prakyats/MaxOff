@@ -28,6 +28,7 @@ const EDIT_PATTERN_SPECS = /edit-pattern\.spec\.ts$/;
 const CUSTOM_FIELDS_SPECS = /custom-fields\.spec\.ts$/;
 const STORAGE_SPECS = /storage\.spec\.ts$/;
 const CLIENTS_SPECS = /clients\.spec\.ts$/;
+const SELECT_SPECS = /select\.spec\.ts$/;
 
 /**
  * Flow tests (ARCHITECTURE §15). `pnpm test:e2e` runs them; CI runs them as their own job.
@@ -106,7 +107,7 @@ export default defineConfig({
       // slide, per-tab scroll and refresh on return (2.7b), checked at both widths, and taps before
       // hydration (2.8), and the edit pattern's back order (2.9), and the custom fields
       // screen's add sheet and entity tabs (3.2), and the logo and photo upload sheets (3.3), and
-      // the client screens' views, menus and sheets (3.4).
+      // the client screens' views, menus and sheets (3.4), and the select's phone sheet (3B review).
       name: "mobile-lg",
       dependencies: ["setup"],
       testMatch: [
@@ -123,6 +124,7 @@ export default defineConfig({
         CUSTOM_FIELDS_SPECS,
         STORAGE_SPECS,
         CLIENTS_SPECS,
+        SELECT_SPECS,
       ],
       use: { ...devices["Pixel 5"], viewport: { width: 430, height: 932 } },
     },
