@@ -3,13 +3,16 @@ import { type Locator, type Page, type TestInfo } from "@playwright/test";
 import { expect, test } from "./fixtures";
 
 import { addISTDays, todayIST } from "../src/core/time";
+import { compDateLabel } from "../src/modules/leave/domain/credits";
 
 import {
   expectBackStack,
+  hydrated,
   memberIdOf,
   resetAttendanceAndLeave,
   rpcAs,
   runInstalled,
+  serviceInsert,
   serviceSelect,
   signIn,
   startPrompt,
@@ -117,12 +120,15 @@ test("a note, a grant, a comp leave request, a rejection and a revoke", async ({
   await form.getByLabel("Kind of leave").click();
   await page.getByRole("option", { name: "Comp leave (1 day)" }).click();
   await expect(form).toContainText("1 day of comp leave");
-  // On or before the use-by date: the day after the month's end is refused by the form.
+  // The date is picked from the working days up to the use-by date (3b review): the day after
+  // the month's end is never offered (a weekly day off or a holiday isn't either; pgTAP 28).
   const date = today <= useBy ? today : useBy;
-  await form.getByLabel("Date").fill(addISTDays(useBy, 1));
-  await form.getByRole("button", { name: "Request leave" }).click();
-  await expect(form.locator('[data-slot="field-error"]')).toContainText("use-by date");
-  await form.getByLabel("Date").fill(date);
+  await form.getByLabel("Date").click();
+  await expect(page.getByRole("option", { name: compDateLabel(date) })).toBeVisible();
+  await expect(page.getByRole("option", { name: compDateLabel(addISTDays(useBy, 1)) })).toHaveCount(
+    0,
+  );
+  await page.getByRole("option", { name: compDateLabel(date) }).click();
   await form.getByRole("button", { name: "Request leave" }).click();
   await expect(form).toBeHidden();
   await expect(page).toHaveURL(/\/leave\/extra-work$/);
@@ -159,13 +165,17 @@ test("a note, a grant, a comp leave request, a rejection and a revoke", async ({
   await expect(card.locator('[data-slot="comp-credit"]').first()).toContainText("Revoked");
   await expect(card.locator('[data-slot="comp-balance"]')).toHaveText("No comp leave available");
 
-  // A standalone grant, half a day, from the same card.
+  // A standalone grant, half a day, from the same card: a double tap grants it once (3b review).
   await card.getByRole("button", { name: "Grant comp leave" }).click();
   const grant = page.locator('[data-slot="grant-comp-leave-dialog"]');
   await grant.getByRole("radio", { name: "½ day" }).check();
-  await grant.getByRole("button", { name: "Grant ½ day" }).click();
+  await grant.getByRole("button", { name: "Grant ½ day" }).dblclick();
   await expect(grant).toBeHidden();
   await expect(card.locator('[data-slot="comp-balance"]')).toContainText("½ day of comp leave");
+  const halfGrants = await serviceSelect<{ id: string }>(
+    `comp_leave_credits?select=id&member_id=eq.${memberId}&days=eq.0.5&revoked_at=is.null`,
+  );
+  expect(halfGrants).toHaveLength(1);
 
   // The member reads the revoke reason, and the form offers only the half day now.
   await page.context().clearCookies();
@@ -234,6 +244,26 @@ test("a day off worked: the note, and the Owner counts the day as worked", async
   await page.goto("/leave/extra-work");
   await expect(noteRows(page).first()).toContainText(
     "Reviewed by the Owner · Counted as a day worked",
+  );
+});
+
+test("a prompt left open while the day starts elsewhere closes on its own Start day", async ({
+  page,
+}, info) => {
+  const email = person(info);
+  await resetAttendanceAndLeave(await memberIdOf(email));
+  await signIn(page, email, PASSWORD, { day: "stop" });
+  await expect(page).toHaveURL(/\/my-day$/);
+  const prompt = startPrompt(page);
+  await expect(prompt).toBeVisible();
+  // Another device (a phone beside the laptop) starts the day first.
+  await rpcAs(email, PASSWORD, "attendance_start_day", {});
+  await prompt.getByRole("button", { name: "Start day" }).click();
+  await expect(page.getByText("Your day has already started.")).toBeVisible();
+  await expect(prompt).toBeHidden();
+  await expect(page.locator('[data-slot="attendance-strip"]')).toHaveAttribute(
+    "data-kind",
+    "started",
   );
 });
 
@@ -313,6 +343,58 @@ test.describe("installed: the back order of the note dialog and the Owner's deci
       { closes: confirm, url: /\/my-day$/ },
       LEFT,
     ]);
+  });
+
+  test("on approved leave: back closes the I'm working today confirmation, then leaves", async ({
+    page,
+  }, info) => {
+    const memberId = await memberIdOf(person(info));
+    await resetAttendanceAndLeave(memberId);
+    const today = todayIST();
+    const requestId = await rpcAs<string>(person(info), PASSWORD, "leave_submit", {
+      type: "leave",
+      start_date: today,
+      end_date: today,
+    });
+    await rpcAs(USERS.owner.email, USERS.owner.password, "leave_decide", {
+      request_id: requestId,
+      decision: "approve",
+    });
+    await runInstalled(page);
+    await signIn(page, person(info), PASSWORD, { day: "stop" });
+    await expect(page).toHaveURL(/\/my-day$/);
+    await hydrated(page);
+    await page
+      .locator('[data-slot="attendance-strip"]')
+      .getByRole("button", { name: "I'm working today" })
+      .click();
+    const confirm = page.getByRole("alertdialog");
+    await expect(confirm).toBeVisible();
+    await expectBackStack(page, [{ closes: confirm, url: /\/my-day$/ }, LEFT]);
+  });
+
+  test("on a day off: back closes the strip's I worked today note, then leaves", async ({
+    page,
+  }, info) => {
+    const memberId = await memberIdOf(person(info));
+    await resetAttendanceAndLeave(memberId);
+    // A day-off row for this person only (the suite keeps today a working day for everyone).
+    await serviceInsert("attendance_days", {
+      member_id: memberId,
+      work_date: todayIST(),
+      is_day_off: true,
+    });
+    await runInstalled(page);
+    await signIn(page, person(info), PASSWORD, { day: "stop" });
+    await expect(page).toHaveURL(/\/my-day$/);
+    await hydrated(page);
+    await page
+      .locator('[data-slot="attendance-strip"]')
+      .getByRole("button", { name: "I worked today" })
+      .click();
+    const note = page.getByRole("dialog");
+    await expect(note).toBeVisible();
+    await expectBackStack(page, [{ closes: note, url: /\/my-day$/ }, LEFT]);
   });
 
   test("the prompt's leave view is the same layer: one back closes it", async ({ page }, info) => {

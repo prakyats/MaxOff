@@ -2,12 +2,16 @@ import { type Locator, type Page, type TestInfo } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 
+import { addISTDays, todayIST } from "../src/core/time";
+
 import {
   expectBackStack,
   memberIdOf,
   resetAttendanceAndLeave,
   resetExpenseClaims,
+  rpcAs,
   runInstalled,
+  serviceSelect,
   signIn,
   USERS,
 } from "./helpers";
@@ -220,6 +224,48 @@ test("Settings → Expenses: the Owner's categories and receipt amount", async (
   await expect(amount).toHaveValue("500");
 });
 
+test("Approvals lists attendance, leave, extra work, then expenses (kickoff 3b decision 29)", async ({
+  page,
+}, info) => {
+  test.skip(info.project.name !== "desktop", "the order is the same at every width");
+  const email = person(info);
+  const memberId = await memberIdOf(email);
+  await resetExpenseClaims(memberId);
+  await resetAttendanceAndLeave(memberId);
+  // One row in each group, all this person's: the started day waits as Present, a leave
+  // request, an overtime note and a claim.
+  await signIn(page, email, PASSWORD);
+  const today = todayIST();
+  await rpcAs(email, PASSWORD, "leave_submit", {
+    type: "leave",
+    start_date: addISTDays(today, 20),
+    end_date: addISTDays(today, 20),
+  });
+  await rpcAs(email, PASSWORD, "extra_work_note_submit", {
+    kind: "overtime",
+    work_date: today,
+    note: "Late colour pass",
+  });
+  const [travel] = await serviceSelect<{ id: string }>(
+    "list_items?list_key=eq.expense_category&name=eq.Travel&archived_at=is.null&select=id",
+  );
+  await rpcAs(email, PASSWORD, "expense_claim_submit", {
+    expense_date: today,
+    amount: 80,
+    category_id: travel?.id,
+    note: "Auto to the studio",
+  });
+
+  await signInOwner(page);
+  await page.goto("/approvals");
+  const groups = page.locator('[data-slot="approval-group"]');
+  await expect(groups.filter({ hasText: personName(info) })).toHaveCount(4);
+  const order = await groups.evaluateAll((nodes) =>
+    nodes.map((node) => node.getAttribute("data-group")),
+  );
+  expect(order).toEqual(["attendance", "leave", "extra-work", "expenses"]);
+});
+
 test.describe("installed: the back order of the claim form and the Owner's review", () => {
   test.skip(({ isMobile }) => !isMobile, "the installed app is a phone");
 
@@ -301,6 +347,28 @@ test.describe("installed: the back order of the claim form and the Owner's revie
       "data-kind",
       "ended",
     );
+  });
+
+  test("Settings → Expenses: back closes a category's actions and its rename, then goes up", async ({
+    page,
+  }) => {
+    await runInstalled(page);
+    await signIn(page, USERS.owner.email, USERS.owner.password);
+    await page.goto("/settings");
+    await page.getByRole("link", { name: "Expenses" }).click();
+    await expect(page).toHaveURL(/\/settings\/expenses$/);
+    const actions = page.locator('[data-slot="list-item-actions"]');
+    await page.getByRole("button", { name: "Actions for Travel" }).click();
+    await expect(actions).toBeVisible();
+    await expectBackStack(page, [{ closes: actions, url: /\/settings\/expenses$/ }]);
+    await page.getByRole("button", { name: "Actions for Travel" }).click();
+    await actions.getByRole("button", { name: "Rename" }).click();
+    const rename = page.getByRole("dialog");
+    await expect(rename).toBeVisible();
+    await expectBackStack(page, [
+      { closes: rename, url: /\/settings\/expenses$/ },
+      { url: /\/settings$/ },
+    ]);
   });
 
   test("back closes the reject dialog, then the review sheet, then leaves Approvals", async ({

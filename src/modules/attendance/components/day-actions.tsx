@@ -55,7 +55,12 @@ export function StartDayButton({
       onClick={() =>
         startTransition(async () => {
           const result = await startDay();
-          if (!toastResult(result, { success: "Your day has started" })) return;
+          if (!toastResult(result, { success: "Your day has started" })) {
+            // Refused ("Your day has already started": another device, or a prompt left open):
+            // re-read today, so a prompt or strip that no longer applies goes away.
+            router.refresh();
+            return;
+          }
           if (onStarted) onStarted();
           else router.refresh();
         })
