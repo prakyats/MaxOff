@@ -2,6 +2,8 @@ import { type Locator, type Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 
+import { STAND_INS, type StandIn } from "../src/app/(app)/_placeholder/stand-ins";
+
 import {
   memberIdOf,
   pageHeader,
@@ -260,6 +262,64 @@ for (const [role, paths] of Object.entries(LARGE_TEXT_SCREENS)) {
       test(`${path}: fits at 130% and 200%`, async ({ page }) => {
         await page.goto(path);
         await expect(pageHeader(page)).toBeVisible();
+        for (const scale of [130, 200]) {
+          await page.evaluate((percent) => {
+            document.documentElement.style.fontSize = `${percent}%`;
+          }, scale);
+          await expectNoHorizontalScroll(page);
+          await expectReadableTruncation(page);
+        }
+      });
+    }
+  });
+}
+
+/**
+ * The stand-in screens (3c.3, kickoff 3c amendment (3e)): every screen a member can reach before
+ * its real version arrives says, in plain words, what it will be for and that it is coming, for
+ * every role that can open it. Nothing on it names a task number or a build step, and it fits at
+ * both phone widths and at large system text.
+ */
+const STAND_IN_SCREENS: Record<"owner" | "admin" | "staff", { path: string; copy: StandIn }[]> = {
+  owner: [
+    { path: "/today", copy: STAND_INS.todayOwner },
+    { path: "/tasks", copy: STAND_INS.tasksTeam },
+    { path: "/calendar", copy: STAND_INS.calendar },
+    { path: "/notifications", copy: STAND_INS.alertsOwner },
+  ],
+  admin: [
+    { path: "/today", copy: STAND_INS.todayAdmin },
+    { path: "/approvals", copy: STAND_INS.approvalsAdmin },
+    { path: "/tasks", copy: STAND_INS.tasksTeam },
+    { path: "/calendar", copy: STAND_INS.calendar },
+    { path: "/notifications", copy: STAND_INS.alertsMember },
+    { path: "/reports", copy: STAND_INS.reportsAdmin },
+  ],
+  staff: [
+    { path: "/my-day", copy: STAND_INS.myDay },
+    { path: "/tasks", copy: STAND_INS.tasksMine },
+    { path: "/calendar", copy: STAND_INS.calendar },
+    { path: "/notifications", copy: STAND_INS.alertsMember },
+  ],
+};
+
+/** What a stand-in used to say, and anything like it. */
+const BUILD_WORDS = /is filled in|\b(task|phase) \d|arrives with its module|shared components/i;
+
+for (const [role, screens] of Object.entries(STAND_IN_SCREENS)) {
+  test.describe(`${role}: the stand-in screens speak plainly`, () => {
+    test.use({ storageState: storageStateFor(role as keyof typeof STAND_IN_SCREENS) });
+
+    for (const { path, copy } of screens) {
+      test(`${path}: says what is coming, and fits`, async ({ page }) => {
+        await page.goto(path);
+        await expect(pageHeader(page)).toBeVisible();
+        const stand = page.locator('[data-slot="empty-state"]').filter({ hasText: copy.title });
+        await expect(stand).toBeVisible();
+        await expect(stand).toContainText(copy.message);
+        await expect(page.locator("main")).not.toContainText(BUILD_WORDS);
+        await expectNoHorizontalScroll(page);
+        await expectTouchTargets(page);
         for (const scale of [130, 200]) {
           await page.evaluate((percent) => {
             document.documentElement.style.fontSize = `${percent}%`;
@@ -589,6 +649,15 @@ test.describe("Settings is a list of rows", () => {
     await expect(sections.filter({ hasText: "Company" })).toHaveCount(1);
     await sections.filter({ hasText: "Company" }).click();
     await expect(page).toHaveURL(/\/settings\/company$/);
+  });
+
+  test("a section still to come says so plainly and links nowhere (3c.3)", async ({ page }) => {
+    await page.goto("/settings");
+    const list = page.locator('[data-slot="settings-list"]');
+    const later = list.locator("li").filter({ hasText: "Task types" });
+    await expect(later).toContainText("Coming soon");
+    await expect(later.getByRole("link")).toHaveCount(0);
+    await expect(list).not.toContainText(BUILD_WORDS);
   });
 
   test("the explanation is behind the help sheet, not above the first row", async ({ page }) => {

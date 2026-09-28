@@ -16,6 +16,7 @@ import { getClaimSetup } from "@/modules/expenses";
 import { EndDayClaims } from "@/modules/expenses/components/end-day-claims";
 
 import { PlaceholderPage } from "../_placeholder/placeholder-page";
+import { STAND_INS } from "../_placeholder/stand-ins";
 
 export const metadata: Metadata = { title: "Today" };
 
@@ -36,8 +37,7 @@ export default async function TodayPage() {
     <PlaceholderPage
       greet={viewer.name}
       title="Today"
-      description="What needs to happen next: approvals, people, today's tasks and risks."
-      task="6.2 (Owner) and 6.3 (Admin)"
+      copy={seesEveryone ? STAND_INS.todayOwner : STAND_INS.todayAdmin}
       icon={LayoutDashboardIcon}
     >
       {marksAttendance ? (

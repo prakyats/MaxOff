@@ -15,6 +15,7 @@ import { listPendingClaims } from "@/modules/expenses";
 import { PendingClaimsGroup } from "@/modules/expenses/components/pending-claims-group";
 
 import { PlaceholderPage } from "../_placeholder/placeholder-page";
+import { STAND_INS } from "../_placeholder/stand-ins";
 
 export const metadata: Metadata = { title: "Approvals" };
 
@@ -25,7 +26,7 @@ const DESCRIPTION = "Everything waiting for your decision, oldest first.";
  * decides it (PERMISSIONS "Screens (2.4)"): Attendance, Leave and Extra work (3b.2) for
  * `attendance.decide`, Expenses (3b.3) for `expenses.decide` (both the Owner's), in the order of
  * kickoff 3b decision 29. Tasks and client items
- * join in 4.5 and 7.4; until then an Admin, who decides none of these, still sees the placeholder.
+ * join in 4.5 and 7.4; until then an Admin, who decides none of these, sees the stand-in.
  */
 export default async function ApprovalsPage() {
   const viewer = await requirePermission([
@@ -35,12 +36,7 @@ export default async function ApprovalsPage() {
   ]);
   if (!can(viewer.role, "attendance.decide")) {
     return (
-      <PlaceholderPage
-        title="Approvals"
-        description="Tasks and client items waiting for your decision, with bulk approve and reject."
-        task="4.5 (tasks) and 7.4 (items)"
-        icon={ClipboardListIcon}
-      />
+      <PlaceholderPage title="Approvals" copy={STAND_INS.approvalsAdmin} icon={ClipboardListIcon} />
     );
   }
 

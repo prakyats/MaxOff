@@ -12,7 +12,8 @@ export const metadata: Metadata = { title: "Settings" };
 
 /**
  * The Owner's control centre (PRODUCT §4.16). Admins see only the lists they may edit
- * (PERMISSIONS §1). A section that is not built yet stays a row with the task that brings it.
+ * (PERMISSIONS §1). A section that is not built yet stays a row marked "Coming soon", never a
+ * link into an empty page (and never a task number: kickoff 3c amendment (3e)).
  *
  * One list, two shapes (ARCHITECTURE §14.1): on a phone it is a list of 56px rows — the label,
  * where it goes, nothing between you and the next tap — and from `md` up the same items become
@@ -68,17 +69,19 @@ export default async function SettingsPage() {
                   <ArrowRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
                 </DrillLink>
               ) : (
-                <div className={cn(line, "after:hidden md:min-h-0 md:pt-4")}>
-                  <span className="text-muted-foreground min-w-0 flex-1 truncate text-sm">
+                <div className={cn(line, "py-2 after:hidden md:min-h-0 md:pt-4 md:pb-0")}>
+                  {/* Wraps rather than truncates: at large system text "Coming soon" leaves the
+                      label too little room for a readable ellipsis (§14.2 i). */}
+                  <span className="text-muted-foreground min-w-0 flex-1 text-sm break-words">
                     {section.label}
                   </span>
                   <Badge variant="outline" className="text-muted-foreground shrink-0 font-normal">
-                    task {section.arrivesIn}
+                    Coming soon
                   </Badge>
                 </div>
               )}
               <p className="text-muted-foreground hidden px-4 pt-1.5 pb-4 text-sm md:block">
-                {section.ready ? section.description : `Filled in task ${section.arrivesIn}.`}
+                {section.description}
               </p>
             </li>
           );

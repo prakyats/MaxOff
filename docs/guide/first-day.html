@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your first day with MaxOff</title>
+<style>
+  /* One long, narrow page: it is read on a phone (sent with the invite on WhatsApp), so the PDF is
+     phone-width and one page tall. The same conventions as MaxOff-App-Guide.html. */
+  @page { size: 110mm 720mm; margin: 7mm 7mm 7mm 7mm; }
+  :root { --red: #C42126; --ink: #16161a; --muted: #5b5b66; --line: #e3e3e8; --soft: #f6f6f8; --ok: #1f7a4d; }
+  * { box-sizing: border-box; }
+  body { font-family: "Segoe UI", system-ui, sans-serif; color: var(--ink); font-size: 9.5pt; line-height: 1.45; margin: 0 auto; max-width: 30rem; background: #fff; }
+  @media screen { body { font-size: 16px; padding: 16px; } }
+  h1 { font-size: 17pt; margin: 0 0 3pt; letter-spacing: -0.3pt; line-height: 1.2; }
+  h2 { font-size: 11.5pt; margin: 13pt 0 5pt; padding-bottom: 3pt; border-bottom: 2px solid var(--ink); page-break-after: avoid; }
+  h2 .num { color: var(--red); margin-right: 5pt; }
+  p { margin: 0 0 6pt; }
+  ul { margin: 0 0 7pt; padding-left: 13pt; }
+  li { margin: 0 0 3pt; }
+  .head { display: flex; align-items: center; gap: 9pt; margin-bottom: 6pt; }
+  .mark { width: 30pt; height: 30pt; flex: none; border-radius: 7pt; background: var(--red); color: #fff; font-size: 16pt; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+  .sub { color: var(--muted); margin: 0 0 4pt; }
+  .path { display: inline; font-weight: 600; font-size: 0.92em; background: var(--soft); border: 1px solid var(--line); border-radius: 4pt; padding: 0 4pt; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+  li, p, td { line-height: 1.6; }
+  .kbd { font-weight: 700; }
+  .box { border: 1px solid var(--line); border-left: 3px solid var(--ink); background: var(--soft); padding: 6pt 8pt; margin: 6pt 0 8pt; page-break-inside: avoid; }
+  .box.red { border-left-color: var(--red); }
+  .steps { counter-reset: s; list-style: none; padding-left: 0; }
+  .steps > li { counter-increment: s; position: relative; padding-left: 20pt; margin-bottom: 5pt; }
+  .steps > li::before { content: counter(s); position: absolute; left: 0; top: 0; width: 14pt; height: 14pt; border-radius: 50%; background: var(--ink); color: #fff; font-size: 7.5pt; font-weight: 700; text-align: center; line-height: 14pt; }
+  .screen { font-family: Consolas, "Cascadia Mono", monospace; font-size: 8pt; background: #fbfbfc; border: 1px solid var(--line); border-radius: 6pt; padding: 6pt 8pt; white-space: pre; margin: 5pt 0 8pt; line-height: 1.4; overflow-x: auto; }
+  .small { font-size: 8.3pt; color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; margin: 3pt 0 8pt; font-size: 8.8pt; }
+  th, td { border: 1px solid var(--line); padding: 4pt 5pt; vertical-align: top; text-align: left; }
+  th { background: var(--soft); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="head">
+  <div class="mark">M</div>
+  <div>
+    <h1>Your first day with MaxOff</h1>
+    <p class="sub">Pixora Clips' app for your working day, leave and expenses. Keep this on your phone.</p>
+  </div>
+</div>
+<p>MaxOff records when your day starts and ends, your leave and your expense claims. <b>Prishit</b> (the Owner) approves them. Working hours are flexible: MaxOff records what really happens and never guesses. All times are Indian time.</p>
+
+<h2><span class="num">1</span>Get the app</h2>
+<ol class="steps">
+  <li>Open the <b>invite link</b> Prishit sent you. It works once, within 24 hours. Choose a password (at least 12 characters) → <span class="path">Save password and sign in</span>.</li>
+  <li><b>Android:</b> open <b>https://app.maxoff.in</b> in Chrome → <span class="path">⋮ → Install app</span>.<br><b>iPhone:</b> open it in Safari → <span class="path">Share → Add to Home Screen</span>, then open MaxOff from the home screen and sign in once more.</li>
+  <li>From now on, open MaxOff from its icon. You stay signed in.</li>
+</ol>
+<div class="box"><b>Your attendance starts tomorrow:</b> the day you join is never counted. Tasks, Calendar and Alerts say "coming soon" for now; your tasks still reach you the usual way.</div>
+
+<h2><span class="num">2</span>Every working day</h2>
+<p><b>Start.</b> Open MaxOff when you start work. It asks:</p>
+<div class="screen">Started working?
+Start your day to record it.
+
+[        Start day        ]
+On leave today? Choose leave
+Just looking</div>
+<ul>
+  <li><span class="kbd">Start day</span>: the start time is the moment you tap. Your day shows "waiting for approval" until Prishit approves it.</li>
+  <li><span class="kbd">Just looking</span>: only checking something? It closes, and asks again later until you start.</li>
+</ul>
+<p><b>End.</b> When you finish: <span class="path">My Day → End day</span>.</p>
+<ul>
+  <li>Worked late? <span class="kbd">Add an overtime note</span>: how long, and what you worked on.</li>
+  <li>"Any expenses to claim today?" <b>No</b>, or <b>Yes</b> to claim them straight away (section 3).</li>
+  <li>Confirm. <b>End day is final</b> for that day. You can still use the app afterwards.</li>
+</ul>
+<ul>
+  <li><b>Forgot to end it?</b> Until 5:00 AM the next morning (and before you start the new day), My Day offers <span class="path">Yesterday not ended · End day</span>. After that the day stays "End of day not recorded". No time is ever made up: if you worked late, add an overtime note.</li>
+  <li><b>Sundays and holidays:</b> no question at all. Worked anyway? <span class="path">My Day → I worked today</span>.</li>
+</ul>
+<p class="small">Admins: the same, on Today.</p>
+
+<h2><span class="num">3</span>Expenses</h2>
+<ul>
+  <li>At End day: "Any expenses to claim today?" → <b>Yes</b> → <span class="path">End day, add expenses</span>. Or any time: <span class="path">Me → Attendance &amp; leave → Expenses → Add expense</span>.</li>
+  <li>Enter the <b>amount (₹)</b>, a <b>category</b>, what it was for and the date. <span class="kbd">Add another</span> for more.</li>
+  <li>A <b>receipt photo</b> is needed above ₹500 (Prishit sets the amount). Claims are for this month, or last month during the first 5 days of a new one.</li>
+  <li>You can withdraw a claim until Prishit decides. You'll see Approved, Rejected (with his reason) or Paid.</li>
+</ul>
+
+<h2><span class="num">4</span>Leave</h2>
+<ul>
+  <li><span class="path">Me → Attendance &amp; leave → Request leave</span> → <b>Leave</b> (a day or a range) or <b>Half day</b> (one date) → a reason if you like → <span class="path">Request leave</span>.</li>
+  <li>On leave today? Answer the morning question with <span class="path">On leave today? Choose leave</span>.</li>
+  <li>Prishit approves or rejects every request. Withdraw it while it waits; to change or cancel approved leave, tap it and ask. The original stays until he decides.</li>
+  <li>On a <b>half day</b>, Start day and End day still work as usual.</li>
+  <li><b>Comp leave</b> shows in the form only when Prishit has given you comp leave, usually for extra work.</li>
+</ul>
+
+<h2><span class="num">5</span>What Prishit sees</h2>
+<p>Your start and end times, your leave, your notes and your expense claims, and he decides each one. When he changes something, you see his reason in <span class="path">Attendance &amp; leave</span>. No one else sees your attendance, leave or claims. MaxOff collects facts; it never rates you, and nothing is overwritten.</p>
+
+<h2><span class="num">6</span>When something goes wrong</h2>
+<table>
+  <tr><th style="width:42%">If…</th><th>Then</th></tr>
+  <tr><td>You forgot your password</td><td>Sign-in screen → <span class="path">Forgot your password?</span> → your email → open "Set your MaxOff password" (from noreply@mail.maxoff.in; check spam) → set a new one.</td></tr>
+  <tr><td>The invite link says "expired or already used"</td><td>Ask Prishit for a new one.</td></tr>
+  <tr><td>A day says "End of day not recorded"</td><td>You didn't end it in time. Worked late? Add an overtime note. Anything wrong? Tell Prishit: he can correct any day, with a reason you'll see.</td></tr>
+  <tr><td>A day looks wrong</td><td><span class="path">Attendance &amp; leave → Attendance</span> shows each day's story. Tell Prishit.</td></tr>
+  <tr><td>Your phone is lost or shared</td><td><span class="path">Me → Sign out of this device</span>, and tell Prishit.</td></tr>
+  <tr><td>Anything else</td><td>Tell Prishit.</td></tr>
+</table>
+
+</body>
+</html>

@@ -285,6 +285,12 @@ environment connects `app.maxoff.in` to the Worker `maxoff` as a **Custom Domain
   (ADR-0003) and the monitor sees the database, not only the Worker.
 - **By hand, any time:** `bash scripts/smoke-deploy.sh https://app.maxoff.in https://maxoff.pixoraclips.workers.dev`.
 - **Backups** (3c.2): the next section and `docs/runbooks/backup-restore.md`.
+- **Go-live (3c.3):** `docs/runbooks/go-live.md` is the whole stage-1 go-live in order, each step with what you
+  should see: the first tag and deploy, the bootstrap, UptimeRobot, the two-day smoke test with a test member
+  (Forgot password, the installed app, Copy invite link, Start day → approve, leave, a claim with a receipt,
+  End day, the month, deactivation), the first backup and the production drill, the seeded defaults production
+  starts with (only the Owner is entered), and the staff invites with a message to paste and the staff's
+  one-page `docs/guide/first-day.pdf`.
 
 ### Backups (3c.2)
 

@@ -51,7 +51,7 @@
   <div>
     <div class="mark">M</div>
     <h1>MaxOff: how the app works</h1>
-    <p class="sub">A plain-language guide to the finished app, as decided up to 27 September 2026: who does what, where every screen is, and exactly what happens after each tap. For Pixora Clips.</p>
+    <p class="sub">A plain-language guide to the finished app, as decided up to 28 September 2026: who does what, where every screen is, and exactly what happens after each tap. For Pixora Clips. <b>Stage 1 is live at app.maxoff.in.</b></p>
     <div class="cast">
       <div><b>Prishit</b><span class="small">Owner. Decides attendance, leave, money and every final approval.</span></div>
       <div><b>Prakyat</b><span class="small">Admin. Runs his assigned clients and checks the work he gives out. Also an employee.</span></div>
@@ -59,8 +59,8 @@
     </div>
   </div>
   <div>
-    <p class="small"><b>How to read this guide.</b> Screens are written as tap paths, for example <span class="path">More → Clients → New client</span>. Each section is tagged <span class="tag now">Ready now</span> (in the app already) or <span class="tag soon">Phase N</span> (decided, being built in that phase). Small details of a screen may change while it is built; the rules in this guide are the decisions.</p>
-    <p class="small">Launch order (staff first, staged; each stage goes live as soon as it is ready): <b>3c Go live</b>: attendance, leave, comp leave, expenses, month summary, clients and people in production · 4 staff tasks · 5 notifications · 6 My Day, Today, calendar, end-of-day report · 8 handing in work · 7 client projects · 9 money and reports · 10 polish and full launch. A tag like <span class="tag soon">Phase 4</span> means "live once phase 4 is released".</p>
+    <p class="small"><b>How to read this guide.</b> Screens are written as tap paths, for example <span class="path">More → Clients → New client</span>. Each section is tagged <span class="tag now">Ready now</span> (live in the app at <b>https://app.maxoff.in</b>) or <span class="tag soon">Phase N</span> (decided, arriving with that phase). Small details of a screen may change while it is built; the rules in this guide are the decisions.</p>
+    <p class="small"><b>Stage 1 is live</b> at <b>https://app.maxoff.in</b>: attendance, leave, comp leave, expenses, the month summary, clients and people. Screens from later phases are already in the app and say "coming soon" until they arrive. Next, in this order (staff first; each stage goes live as soon as it is ready): 4 staff tasks · 5 notifications · 6 My Day, Today, calendar, end-of-day report · 8 handing in work · 7 client projects · 9 money and reports · 10 polish and full launch. A tag like <span class="tag soon">Phase 4</span> means "live once phase 4 is released".</p>
   </div>
 </section>
 
@@ -99,20 +99,21 @@
   <tr><td class="who">Prakyat (Admin)</td><td><b>Today · Approvals · Tasks · Calendar · More</b><br>More holds his Clients, People, his Reports, the parts of Settings he may edit, and Me.</td><td>Any money or amount, anyone's attendance or leave records, clients assigned to other Admins, other people's work beyond "busy" blocks, other people's expense claims.</td></tr>
   <tr><td class="who">Xyz (Staff)</td><td><b>My Day · Tasks · Calendar · Alerts · Me</b></td><td>Clients' records, projects, money, other people's tasks, approvals, reports, settings.</td></tr>
 </table>
+<p class="small">In stage 1, <b>Tasks</b>, <b>Calendar</b> and <b>Alerts</b> (and Prakyat's Approvals and Reports) are in place and say, in plain words, what they will be for and that they are coming soon. Staff tasks keep running outside MaxOff until phase 4.</p>
 <div class="box red"><b>The colour rule.</b> The one solid <span class="pr">red</span> button on a screen is the one that saves or commits something (Save, Submit, Request leave, the confirming button). A red <i>outline</i> means "careful, this removes or cancels something", and it always asks you to confirm with a button that says exactly what it does ("Deactivate Xyz"), never just "OK". Grey buttons go back or open something.</div>
 
 <!-- 2 -->
 <h2><span class="num">2</span>Getting in and staying in</h2>
 <h3>Installing the app <span class="tag now">Ready now</span></h3>
 <ol class="steps">
-  <li>Open <b>maxoff-staging.pixoraclips.workers.dev</b> in Chrome on the phone (the production address arrives with the pilot).</li>
+  <li>Open <b>https://app.maxoff.in</b> on the phone: in Chrome on Android, in Safari on iPhone. Sign in.</li>
   <li>Tap <span class="path">⋮ → Install app</span> (Android) or <span class="path">Share → Add to Home Screen</span> (iPhone). On iPhone this step is required for notifications.</li>
-  <li>MaxOff now opens from its own icon, full screen, like any other app.</li>
+  <li>MaxOff now opens from its own icon, full screen, like any other app. On iPhone, sign in once more inside the app the first time (the installed app keeps its own sign-in).</li>
 </ol>
 <h3>Joining the team <span class="tag now">Ready now</span></h3>
 <ol class="steps">
-  <li>Prishit adds a person: <span class="path">More → People → Add person → Employee</span>, with name, email, role (Admin or Staff) and job title. MaxOff sends an invite link (Prishit can also copy the link and send it on WhatsApp).</li>
-  <li>Xyz opens the link, sets a password and lands on a welcome screen on <span class="path">Me</span>.</li>
+  <li>Prishit invites a person: <span class="path">More → People → Invite</span>, with email, name, role (Admin or Staff) and job title → <span class="path">Send invite</span>. The invite link appears with <span class="path">Copy</span>, and Prishit sends it on WhatsApp together with the one-page "Your first day with MaxOff". (Invite emails come later; from phase 4 the button is <span class="path">Add person → Employee</span> or <span class="path">Freelancer</span>.)</li>
+  <li>Xyz opens the link on the phone, sets a password and lands on a welcome screen on <span class="path">Me</span>. The link works <b>once</b>, within 24 hours; if it has expired or was used, Prishit taps <span class="path">People → Xyz → ⋯ → Copy invite link</span> for a fresh one.</li>
   <li>Attendance starts the <b>next day</b>: the joining day is never counted.</li>
 </ol>
 <h3>Staying signed in <span class="tag now">Ready now</span></h3>
@@ -121,7 +122,7 @@
   <li>Opening the app is <b>not</b> attendance. Attendance is the separate <b>Start day</b> and <b>End day</b> (section 3).</li>
   <li><span class="path">Me → Sign out of this device</span> is only for a lost or shared phone. It warns that notifications stop on that device.</li>
   <li>When Prishit deactivates someone (<span class="path">People → person → ⋯ → Deactivate</span>), they lose access on every device at once. Their history is kept.</li>
-  <li>Forgot password: <span class="path">Sign-in screen → Forgot password</span> sends a reset link.</li>
+  <li>Forgot password: <span class="path">Sign-in screen → Forgot your password?</span> emails a link (from <b>noreply@mail.maxoff.in</b>, "Set your MaxOff password") that sets a new password.</li>
 </ul>
 <h3>The Me page <span class="tag now">Ready now</span></h3>
 <p>Shows your name, phone, sign-in email, role and job title as plain text. To change them: <span class="path">Me → ✎ Edit</span> → change a field → <span class="path">Save</span> (red) → a confirmation names the change ("Your name will change from X to Y") → confirm → "Saved". Leaving with unsaved changes asks "Discard changes?". Me also holds <b>Attendance &amp; leave</b>, your photo, and <b>Appearance</b> (light, dark or follow the phone).</p>
@@ -144,7 +145,7 @@
   <li><span class="kbd">On leave today?</span> → choose <b>Leave</b> or <b>Half day</b>, add an optional reason, submit. It goes to Prishit.</li>
   <li><span class="kbd">Just looking</span> → the prompt closes (for example Xyz only wanted to check tasks). It returns when the app is opened or returned to, at most every 30 minutes, until the day is started or leave chosen. My Day also shows a strip: "Not started · Start day".</li>
 </ul>
-<h3>During the day: My Day</h3>
+<h3>During the day: My Day <span class="tag soon">Phase 6</span></h3>
 <div class="screen">● Started 9:12 am · waiting for approval  [End day]
 Needs your "Task Noted"      2
 Changes requested            1
@@ -153,7 +154,7 @@ Today                        3
 Upcoming · Events
 [ + Request a task ]
 End day</div>
-<p>Everything is one tap away: tapping a line opens those tasks; tapping the status line opens <span class="path">Attendance &amp; leave</span>.</p>
+<p>Everything is one tap away: tapping a line opens those tasks; tapping the status line opens <span class="path">Attendance &amp; leave</span>. <b>In stage 1</b> My Day is the status line with Start day and End day, and below it "More of your day is coming soon".</p>
 <h3>Evening: End day</h3>
 <ol class="steps">
   <li>Tap <span class="path">My Day → End day</span>.</li>
@@ -164,7 +165,7 @@ End day</div>
 <h3>If something is missed</h3>
 <table>
   <tr><th style="width:38%">Situation</th><th>What MaxOff does</th></tr>
-  <tr><td>Started but not ended by 8:30 PM</td><td>A reminder: "You haven't ended your day. If you're done, end it; if you're working late, carry on."</td></tr>
+  <tr><td>Started but not ended by 8:30 PM</td><td>A reminder: "You haven't ended your day. If you're done, end it; if you're working late, carry on." <span class="tag soon">Phase 5</span></td></tr>
   <tr><td>Never ended the day</td><td>After midnight the day is marked "End of day not recorded". No time is ever invented. Until <b>5:00 AM</b> (and only before starting the new day) the strip still offers "Yesterday not ended · End day", and the end lands on the right day. After that the day stays "End of day not recorded"; late work goes in an overtime note. Prishit sets the 5:00 AM in <span class="path">Settings → Thresholds</span>.</td></tr>
   <tr><td>Never started, no leave, on a working day</td><td>At 11:59 PM the day is proposed as <b>Absent</b>. It is only official once Prishit approves or corrects it.</td></tr>
   <tr><td>Worked after ending the day</td><td>Add an overtime note (section 5).</td></tr>
@@ -239,7 +240,7 @@ Needs you
 <ol class="steps">
   <li><span class="path">More → Clients → New client</span>: name (required, unique), and anything else known: business name, address, GSTIN, phone, email, website, requirements.</li>
   <li>The client opens in <b>Draft</b>. Add <b>contacts</b> (one is marked primary), the <b>Brand</b> kit (logo, colours, fonts, tone of voice, notes), the <b>Google Drive</b> folder link and any <b>custom fields</b>.</li>
-  <li><span class="path">⋯ → Assign Admin → Prakyat</span>. Prakyat is notified: "You now run Sharma Weddings".</li>
+  <li><span class="path">⋯ → Assign Admin → Prakyat</span>. Prakyat is notified: "You now run Sharma Weddings" (once notifications arrive, phase 5).</li>
   <li><span class="path">⋯ → Activate</span>. The client is live.</li>
 </ol>
 <h3>The client page</h3>
@@ -433,11 +434,11 @@ Needs you
 <p><span class="path">More → Settings</span>. Everything configurable lives here, changeable by Prishit without a developer. Prakyat sees only lists, templates and custom fields for his own clients.</p>
 <ul>
   <li><b>Company:</b> name and logo, weekly off days (Sunday), holidays, reminder times, how late a forgotten End day can still be recorded (5:00 AM), acknowledgement and overdue escalation times, workload warning level, email cap.</li>
-  <li><b>Team:</b> add a person (Employee with an invite, or Freelancer with a coordinator), role, job title, deactivate and reactivate. Job titles are an editable list (Video Editor, Graphic Designer, …).</li>
-  <li><b>Lists:</b> task types, project steps (for example Script → Shoot → Edit → Posted), expense categories (<span class="path">Settings → Expenses</span>, with the receipt amount).</li>
+  <li><b>Team:</b> invite a person (and, from phase 4, add a Freelancer with a coordinator), role, job title, deactivate and reactivate. Job titles are an editable list (Video Editor, Graphic Designer, …).</li>
+  <li><b>Lists:</b> expense categories (<span class="path">Settings → Expenses</span>, with the receipt amount), task types (phase 4), project steps (for example Script → Shoot → Edit → Posted; phase 7). A list still to come shows "Coming soon".</li>
   <li><b>Custom fields</b> for clients, contacts, projects, pieces and tasks: for all clients (Prishit only) or for one client (Prakyat for his own). Every client is different, so this is where the app bends to each one. Admins can read client and contact fields, so the form reminds: <i>"Amounts belong in project billing (Owner only)."</i></li>
-  <li><b>Templates:</b> project templates and task templates.</li>
-  <li><b>Storage:</b> how much file space MaxOff is using.</li>
+  <li><b>Templates:</b> project templates and task templates (phases 4 and 7).</li>
+  <li><b>Storage:</b> how much file space MaxOff is using (phase 8).</li>
 </ul>
 
 <!-- 19 -->
@@ -467,7 +468,18 @@ Needs you
 
 <!-- 21 -->
 <h2><span class="num">21</span>Not in the first version</h2>
-<h3>Coming right after the launch (decided 27 Sep 2026)</h3>
+<h3>Coming after stage 1, in this order</h3>
+<ol>
+  <li><b>Phase 4:</b> staff tasks, with freelancers.</li>
+  <li><b>Phase 5:</b> notifications and reminders (Alerts, phone notifications, the few emails).</li>
+  <li><b>Phase 6:</b> My Day, Prishit's Today, Prakyat's dashboard, the calendar and the end-of-day report.</li>
+  <li><b>Phase 8:</b> handing in work (files and links).</li>
+  <li><b>Phase 7:</b> client projects and the monthly round.</li>
+  <li><b>Phase 9:</b> money, reports and closing the month.</li>
+  <li><b>Phase 10:</b> polish, the security review and the full launch.</li>
+</ol>
+<p class="small">Each goes live as soon as it is reviewed; there are no fixed dates. Staff-facing phases (4, 5, 6, 8) come before the Owner-only ones (7, 9).</p>
+<h3>Right after the full launch (decided 27 Sep 2026)</h3>
 <ul>
   <li>The automatic <b>Google Drive archive</b> of all submitted work, with checks that pasted links are shared and cleanup of MaxOff's own copies.</li>
   <li>Searching the full <b>activity history</b> (everything is still recorded from day one).</li>
@@ -477,7 +489,7 @@ Needs you
 <h3>Out of scope for now</h3>
 <p>Freelancer payments · salary records and payroll · GST invoicing · client login or portal · WhatsApp · a native store app · timesheets · general leave balances (only comp leave credits) · AI features inside MaxOff · leads pipeline · accounting integration · custom roles.</p>
 
-<p class="small" style="margin-top:18pt">Prepared from MaxOff's product decisions (PRODUCT.md, ROADMAP.md and the decision records) as of 27 September 2026.</p>
+<p class="small" style="margin-top:18pt">Prepared from MaxOff's product decisions (PRODUCT.md, ROADMAP.md and the decision records) as of 28 September 2026, for stage 1.</p>
 
 </body>
 </html>

@@ -168,7 +168,7 @@ Tick it off yourself. If a checkpoint fails, say so in the same session before `
 |---|---|
 | 3c.1 | Sign in on the **production** address; see staging and production are separate (a test on one never shows on the other) |
 | 3c.2 | See last night's backup file and read the restore drill's write-up |
-| 3c.3 | Invite a test member with Copy invite link, run a whole day with them in production, then deactivate them; hand the staff the "first day" page |
+| 3c.3 | Invite a test member with Copy invite link, run a whole day with them in production, then deactivate them; hand the staff the "first day" page (all of it in order: `docs/runbooks/go-live.md`) |
 
 **Phase 3c exit ★ STAGE 1 LIVE:** the team uses MaxOff for attendance, leave, comp leave and expenses. ➜ **phase report + tell me how the first days go**
 
