@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
-vi.mock("./service", () => ({ createServiceSupabase: () => fake({ error: null }) }));
+vi.mock("./service", () => ({ createServiceSupabase: vi.fn(() => fake({ error: null })) }));
 
 import { databaseReachable } from "./health";
+import { createServiceSupabase } from "./service";
 
 type Answer = { error: null | { message: string } };
 
@@ -38,5 +39,12 @@ describe("databaseReachable (3c.1)", () => {
 
   it("uses the service client by default", async () => {
     expect(await databaseReachable()).toBe(true);
+  });
+
+  it("is false, not a throw, when the service client cannot be created (no SUPABASE_SECRET_KEY)", async () => {
+    vi.mocked(createServiceSupabase).mockImplementationOnce(() => {
+      throw new Error("SUPABASE_SECRET_KEY is not set");
+    });
+    expect(await databaseReachable()).toBe(false);
   });
 });

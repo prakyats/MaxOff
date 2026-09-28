@@ -138,12 +138,6 @@ jobs:
         if: always()
         run: rm -f .wrangler-secrets.json
 
-      # As on staging, plus the workers.dev address must send visitors to the custom domain.
-      - name: Smoke-check the deployed Worker
-        env:
-          APP_URL: ${{ vars.NEXT_PUBLIC_APP_URL }}
-        run: bash scripts/smoke-deploy.sh "$APP_URL" https://maxoff.pixoraclips.workers.dev
-
       # What the Worker really answers (3c.1): the health route reaches the database, and a
       # redirect the proxy answers itself carries the security headers (they are set in
       # `updateSession()`, because `next.config.ts`'s rule does not reach a proxy redirect on the
@@ -285,3 +279,9 @@ jobs:
       - name: Remove the Worker secrets file
         if: always()
         run: rm -f .wrangler-secrets.json
+
+      # As on staging, plus the workers.dev address must send visitors to the custom domain.
+      - name: Smoke-check the deployed Worker
+        env:
+          APP_URL: ${{ vars.NEXT_PUBLIC_APP_URL }}
+        run: bash scripts/smoke-deploy.sh "$APP_URL" https://maxoff.pixoraclips.workers.dev

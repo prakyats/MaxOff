@@ -277,8 +277,9 @@ environment connects `app.maxoff.in` to the Worker `maxoff` as a **Custom Domain
   `https://app.maxoff.in/**`, custom SMTP through Resend on `mail.maxoff.in`, sender
   `MaxOff <noreply@mail.maxoff.in>`; "Forgot password works" is a step of the go-live smoke test.
 - **First deploy:** tag a green commit on `main` (`git tag v1.0.0 && git push origin v1.0.0`), approve the
-  `production` environment in GitHub, read the run's smoke step. Then the Owner bootstrap (above), then
-  UptimeRobot.
+  `production` environment in GitHub, read the run's smoke step (the production job's checks the health
+  route, the headers on a proxy redirect and the workers.dev → `app.maxoff.in` 308; the staging job's the
+  first two). Then the Owner bootstrap (above), then UptimeRobot.
 - **UptimeRobot:** an HTTP(S) monitor on **`https://app.maxoff.in/api/health`**, every 5 minutes, keyword
   `ok` optional. The route makes one cheap database round trip, so the free Supabase project never pauses
   (ADR-0003) and the monitor sees the database, not only the Worker.
@@ -289,9 +290,12 @@ environment connects `app.maxoff.in` to the Worker `maxoff` as a **Custom Domain
 
 `.github/workflows/backup.yml` runs every night at 02:00 IST (and on demand): `scripts/backup/dump.sh`
 takes a `pg_dump` of the production database through the **session pooler**, encrypts it to the Owner's
-**age** public key and uploads it to the private R2 bucket `maxoff-backups-production` (30-day retention).
+**age** public key and uploads it to the private R2 bucket `maxoff-backups-production` (30-day retention:
+the nightly run prunes objects older than 30 days, never below 7 and never the one it has just uploaded;
+"Run workflow" takes another value, or blank to prune nothing and leave it to the bucket's lifecycle rule).
 The private key never reaches CI; a restore is done on the Owner's machine with `scripts/backup/fetch.sh`
-and `scripts/backup/restore.sh` (ARCHITECTURE §17, the runbook). One-time setup, all by the Owner:
+and `scripts/backup/restore.sh`, which verifies the rows, the migration list, RLS and the two pg_cron jobs
+against the backup's manifest (ARCHITECTURE §17, the runbook). One-time setup, all by the Owner:
 
 1. **The key pair.** Install [age](https://github.com/FiloSottile/age) (`winget install FiloSottile.age`,
    or `apt install age`), then `age-keygen -o maxoff-backup.key`. The file holds the private key: keep it
@@ -311,6 +315,7 @@ and `scripts/backup/restore.sh` (ARCHITECTURE §17, the runbook). One-time setup
    `R2_ACCOUNT_ID`, `BACKUP_R2_BUCKET` (`maxoff-backups-production`), `BACKUP_AGE_RECIPIENT` (the `age1…` line).
 5. **Prove it:** Actions → Backup → Run workflow. The run's summary names the object. Then the
    production restore drill (the runbook) once, after the first production deploy, and every quarter.
+   Locally, `bash scripts/backup/drill.sh` rehearses both restore modes against the local stack.
 6. On the 1st of each month the same workflow opens a "Monthly Supabase usage check" issue with ADR-0003's
    thresholds (~4 GB transfer, ~400 MB database); tick and close it.
 

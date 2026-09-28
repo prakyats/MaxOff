@@ -8,7 +8,7 @@
 -- 07, 08, 09, 12 and 13 keep proving.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(106);
+select plan(111);
 
 -- Fixtures as 13: keep the organization, replace the people. Rolled back at the end.
 delete from public.attendance_events;
@@ -53,7 +53,9 @@ insert into fx values
   ('done',    '00000000-0000-4000-8000-000000000212'),
   ('open',    '00000000-0000-4000-8000-000000000213'),
   ('quit',    '00000000-0000-4000-8000-000000000214'),
-  ('twice',   '00000000-0000-4000-8000-000000000215');
+  ('twice',   '00000000-0000-4000-8000-000000000215'),
+  ('deactivated', '00000000-0000-4000-8000-000000000216'),
+  ('invited', '00000000-0000-4000-8000-000000000217');
 insert into fx select 'org', id from public.organizations limit 1;
 grant select on fx to authenticated, anon, service_role;
 
@@ -117,6 +119,11 @@ from (values
   ('quit',   'staff', now() - interval '30 days'),
   ('twice',  'staff', now() - interval '30 days')
 ) as v(k, r, j);
+-- Not active: neither may start a day nor sign out of a device (as 02 and 07 proved for the 2.x
+-- functions the 3c.1 contract migration dropped).
+insert into public.members (id, org_id, full_name, email, role, status, joined_at, deactivated_at) values
+  (pg_temp.fx('deactivated'), pg_temp.fx('org'), 'Gone Staff', 'deactivated@example.com', 'staff', 'deactivated', now() - interval '30 days', now()),
+  (pg_temp.fx('invited'),     pg_temp.fx('org'), 'New Admin',  'invited@example.com',     'admin', 'invited',     null, null);
 
 -- Approved leave for today: leaver a full day, halfer a half day.
 insert into public.leave_requests (member_id, type, start_date, end_date, state, source, decided_by, decided_at)
@@ -214,6 +221,10 @@ select pg_temp.as_member('staff');
 select is((select covering_leave_type from public.attendance_own_today()), null, 'no leave covering today: nothing reported');
 
 -- attendance_start_day: refusals -----------------------------------------------------------------
+select pg_temp.as_member('deactivated');
+select throws_ok('select public.attendance_start_day()', 'P0001', 'UNAUTHENTICATED', 'a deactivated member cannot start a day');
+select pg_temp.as_member('invited');
+select throws_ok('select public.attendance_start_day()', 'P0001', 'UNAUTHENTICATED', 'an invited member cannot start a day');
 select pg_temp.as_member('owner');
 select throws_ok('select public.attendance_start_day()', 'P0001', 'FORBIDDEN', 'the Owner does not start a day');
 select pg_temp.as_member('newbie');
@@ -390,8 +401,14 @@ select results_eq(
   $$ select d.ended_at, d.started_at is not null from public.attendance_days d where d.member_id = pg_temp.fx('gated') $$,
   $$ values (null::timestamptz, true) $$,
   'signing out touches no attendance day: no end is written');
+select pg_temp.as_member('deactivated');
+select throws_ok($$ select public.session_sign_out('UA', null) $$, 'P0001', 'UNAUTHENTICATED', 'a deactivated member cannot sign out of a device');
+select pg_temp.as_member('invited');
+select throws_ok($$ select public.session_sign_out('UA', null) $$, 'P0001', 'UNAUTHENTICATED', 'an invited member cannot sign out of a device');
 select pg_temp.as_system();
 select throws_ok($$ select public.session_sign_out() $$, 'P0001', 'UNAUTHENTICATED', 'nobody signed in: refused');
+select is((select count(*) from public.session_events where member_id in (pg_temp.fx('deactivated'), pg_temp.fx('invited'))),
+  0::bigint, 'nothing was recorded for the deactivated or invited members');
 
 -- app.end_not_recorded ----------------------------------------------------------------------------
 select pg_temp.as_system();

@@ -24,13 +24,16 @@ export interface HealthClient {
 }
 
 export async function databaseReachable(
-  client: HealthClient = createServiceSupabase(),
+  client?: HealthClient,
   timeoutMs: number = HEALTH_TIMEOUT_MS,
 ): Promise<boolean> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const { error } = await client
+    // Created inside the guard, not as a default argument: a missing or malformed
+    // `SUPABASE_SECRET_KEY` throws on creation, and that is a 503 like any other unreachable
+    // database, never a 500 from the route.
+    const { error } = await (client ?? createServiceSupabase())
       .from("organizations")
       .select("id", { count: "exact", head: true })
       .abortSignal(controller.signal);

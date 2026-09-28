@@ -74,7 +74,7 @@ export function sortPending<T extends Pick<PendingDay, "workDate" | "submittedAt
   );
 }
 
-/** One row of `attendance_today()` (DATA-MODEL §3). */
+/** One row of `attendance_today_detail()` (3b.1; DATA-MODEL §3). */
 export type TodayPerson = {
   memberId: string;
   name: string;

@@ -19,6 +19,7 @@ set -euo pipefail
 : "${BACKUP_S3_REGION:=auto}"
 
 say() { printf '%s\n' "backup: $*" >&2; }
+warn() { printf '%s\n' "backup: WARNING: $*" >&2; }
 die() { printf '%s\n' "backup: $*" >&2; exit 1; }
 
 require_env() {
@@ -41,10 +42,12 @@ s3_get() { s3_curl "$(s3_url "$1")" -o "$2"; }
 s3_delete() { s3_curl -X DELETE "$(s3_url "$1")" -o /dev/null; }
 
 # Keys under a prefix, one per line with their last-modified instant: "<key> <iso>". Sorted by key.
+# An empty prefix prints nothing and succeeds (grep alone would fail the pipeline under pipefail
+# and hide the caller's own message); a failed request still fails it.
 s3_list() {
   local prefix="$1"
   s3_curl "$(s3_url "")?list-type=2&prefix=$(printf '%s' "$prefix" | sed 's/\//%2F/g')" \
-    | tr -d '\n' | sed 's/<Contents>/\n<Contents>/g' | grep '<Contents>' \
+    | tr -d '\n' | sed 's/<Contents>/\n<Contents>/g' | { grep '<Contents>' || true; } \
     | sed -E 's/.*<Key>([^<]*)<\/Key>.*<LastModified>([^<]*)<\/LastModified>.*/\1 \2/' | sort
 }
 
@@ -72,4 +75,16 @@ row_counts() {
 # The applied migrations, one version per line.
 migration_versions() {
   $PSQL "$1" -X -At -v ON_ERROR_STOP=1 -c "select version from supabase_migrations.schema_migrations order by version"
+}
+
+# The pg_cron jobs as JSON, [{"jobname", "schedule", "command"}, …] by name, or null when the
+# database has no pg_cron. The cron schema is the platform's (its run history is not ours) and is
+# never dumped, and a restored migration history re-runs no migration, so a recovery re-creates
+# the jobs from this list by hand (docs/runbooks/backup-restore.md); restore.sh checks them.
+cron_jobs() {
+  if [ "$($PSQL "$1" -X -At -v ON_ERROR_STOP=1 -c "select to_regclass('cron.job') is not null")" = "t" ]; then
+    $PSQL "$1" -X -At -v ON_ERROR_STOP=1 -c "select coalesce(json_agg(json_build_object('jobname', jobname, 'schedule', schedule, 'command', command) order by jobname), '[]'::json) from cron.job"
+  else
+    printf 'null\n'
+  fi
 }

@@ -24,7 +24,7 @@ on:
   workflow_dispatch:
     inputs:
       retention_days:
-        description: "Also delete backups older than this many days (blank: leave pruning to the bucket's lifecycle rule)"
+        description: "Also delete backups older than this many days (at least 7; blank: leave pruning to the bucket's lifecycle rule)"
         type: string
         default: "30"
 
@@ -65,7 +65,10 @@ jobs:
           BACKUP_DATABASE_URL: host=${{ vars.SUPABASE_DB_POOLER_HOST }} port=5432 user=postgres.${{ vars.SUPABASE_PROJECT_REF }} dbname=postgres sslmode=require
           BACKUP_AGE_RECIPIENT: ${{ vars.BACKUP_AGE_RECIPIENT }}
           BACKUP_PREFIX: postgres/${{ vars.SUPABASE_PROJECT_REF }}
-          BACKUP_RETENTION_DAYS: ${{ inputs.retention_days || '30' }}
+          # The nightly run prunes at 30 days. A dispatch passes its input through unchanged: blank
+          # prunes nothing, and dump.sh refuses anything below 7 days (and never deletes the
+          # object it has just uploaded), so a slip can never empty the bucket.
+          BACKUP_RETENTION_DAYS: ${{ github.event_name == 'schedule' && '30' || inputs.retention_days }}
           BACKUP_S3_ENDPOINT: https://${{ vars.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
           BACKUP_S3_BUCKET: ${{ vars.BACKUP_R2_BUCKET }}
           BACKUP_S3_ACCESS_KEY_ID: ${{ secrets.BACKUP_R2_ACCESS_KEY_ID }}
