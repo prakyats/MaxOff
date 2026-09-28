@@ -8,7 +8,7 @@ the one-time setup.
 ## What runs every night
 
 `.github/workflows/backup.yml` (02:00 IST; also Actions → Backup → Run workflow), in the GitHub
-environment `backups`:
+environment `backup`:
 
 1. `scripts/backup/dump.sh`: `pg_dump --format=custom` of the schemas `public`, `app`, `auth` and
    `supabase_migrations` (schema and data) through the **session pooler** (`postgres.<ref>@<pooler
@@ -62,7 +62,7 @@ reads no expense claim). It stops at the first difference.
   project's **session pooler** connection string (IPv4) as the target. Then point `production`'s
   `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`,
   `SUPABASE_PROJECT_REF` and `SUPABASE_DB_PASSWORD` at it, apply README → "Hosted auth settings" (Site URL,
-  SMTP, the recovery template), tag a deploy, and re-point the `backups` environment.
+  SMTP, the recovery template), tag a deploy, and re-point the `backup` environment.
 - **A throwaway container (a drill):** `AUTH_MODE=schema` (the default) and the target
   `supabase/postgres` image's superuser `supabase_admin`; the dump's `auth` objects replace the image's
   initial ones. `scripts/backup/drill.sh` does all of this on the local stack.

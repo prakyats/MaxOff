@@ -303,7 +303,7 @@ and `scripts/backup/restore.sh` (ARCHITECTURE §17, the runbook). One-time setup
 3. **The token.** R2 → Manage R2 API Tokens → Create: **Object Read & Write**, scoped to **that bucket only**
    (never the files bucket's token, which is scoped to `maxoff-files-production`). Note the Access Key ID and
    Secret Access Key.
-4. **The GitHub environment `backups`** (Settings → Environments → New; **no required reviewer**, the job runs
+4. **The GitHub environment `backup`** (Settings → Environments → New; **no required reviewer**, the job runs
    at night). Secrets: `SUPABASE_DB_PASSWORD` (the production database password), `BACKUP_R2_ACCESS_KEY_ID`,
    `BACKUP_R2_SECRET_ACCESS_KEY`. Variables: `SUPABASE_PROJECT_REF` (`peshoflxypujbzecgwqq`),
    `SUPABASE_DB_POOLER_HOST` (Supabase → project → Connect → **Session pooler**: the host, e.g.
