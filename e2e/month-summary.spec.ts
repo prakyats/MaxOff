@@ -110,7 +110,9 @@ test("the team's month, one person's month, and the month's claims marked paid",
   await expect(row).toContainText("Worked 1 of");
   await expect(row).toContainText("additional leave 2");
   await expect(row).toContainText("1 day waiting for your review");
-  await expect(row.locator('[data-slot="team-month-unpaid"]')).toHaveText("₹420.50 to pay");
+  await expect(row.locator('[data-slot="team-month-unpaid"]')).toHaveText(
+    "₹420.50 to pay · 2 claims",
+  );
 
   // Their month: the lines, and the claims.
   await row.getByRole("link").click();

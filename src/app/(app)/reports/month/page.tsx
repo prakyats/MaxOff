@@ -51,16 +51,21 @@ export default async function TeamMonthPage({
     seesExpenses ? listApprovedInMonth(monthRange(month)) : Promise.resolve([]),
   ]);
 
-  // Paise as integers, so a column of amounts adds up exactly.
-  const unpaid = new Map<string, number>();
+  // Paise as integers, so a column of amounts adds up exactly; the count beside the total
+  // (kickoff 3b decision 18: approved-and-unpaid, total and count).
+  const unpaid = new Map<string, { paise: number; count: number }>();
   for (const claim of approved) {
-    unpaid.set(claim.memberId, (unpaid.get(claim.memberId) ?? 0) + Math.round(claim.amount * 100));
+    const sum = unpaid.get(claim.memberId) ?? { paise: 0, count: 0 };
+    unpaid.set(claim.memberId, {
+      paise: sum.paise + Math.round(claim.amount * 100),
+      count: sum.count + 1,
+    });
   }
   const extra = Object.fromEntries(
-    [...unpaid].map(([memberId, paise]) => [
+    [...unpaid].map(([memberId, { paise, count }]) => [
       memberId,
       <span key={memberId} data-slot="team-month-unpaid" className="tabular-nums">
-        {formatRupees(paise / 100)} to pay
+        {formatRupees(paise / 100)} to pay · {count} {count === 1 ? "claim" : "claims"}
       </span>,
     ]),
   );

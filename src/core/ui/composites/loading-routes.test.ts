@@ -69,7 +69,10 @@ describe("loading.tsx coverage", () => {
     expect(readFileSync(path.join(appDir, "reports/loading.tsx"), "utf8")).toContain(
       'shape="tiles"',
     );
-    expect(shapeOf("reports/month")).toBe("cards");
+    // The team's month traces its own rows (3b review), under the month switcher.
+    const teamMonth = readFileSync(path.join(appDir, "reports/month/loading.tsx"), "utf8");
+    expect(teamMonth).toContain("loading-team-month");
+    expect(teamMonth).toContain("loading-leave-pager");
     expect(shapeOf("tasks")).toBe("cards");
     expect(shapeOf("my-day")).toBe("cards");
     // The list sits in a route group so its skeleton never wraps a person (2.9).
