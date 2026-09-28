@@ -59,6 +59,24 @@ Then send me (in chat) the **phase report** from §5, and I'll tell you if anyth
 - If the installed app stops getting updates, it was installed from a phase address: uninstall it and install again from the everyday address.
 - Both addresses share one staging database, so while a phase is open its migrations only add things (ARCHITECTURE, expand-only rule).
 
+### The launch order (staff first, staged)
+The build follows ROADMAP "Launch order", and **there are no dates**: the next phase starts as soon as the previous one is reviewed and merged. Give it a full day and a phase can be done in a day.
+
+`3b` review → **`3c` Go live (stage 1: attendance, leave, comp leave, expenses, month summary, clients, people are live in production)** → `4` tasks → `5` notifications → `6` dashboards and calendar → `8` handing in work → `7` client projects → `9` money and reports → `10` polish and full launch.
+
+- Each phase is **released to production** when its review merges, and the team uses it straight away.
+- Staff-facing phases (4, 5, 6, 8) never wait for Owner-only ones (7, 9).
+- Before phase 5 you need a domain and an email sending domain (Resend). Stage 1 needs neither: people join through **Copy invite link**.
+
+### Cloud and local
+| Where | What runs there |
+|---|---|
+| **Cloud session** (claude.ai/code, or Cloud in the desktop app) | `/kickoff-phase`, `/run-phase`, `/review-phase`, any fix bigger than a few lines. 16 GB of RAM, the laptop can sleep, you answer from your phone. |
+| **Laptop, Local** | Planning and decisions, the app guide and its PDF (`docs/guide/build-pdf.ps1` needs Edge on Windows), anything that uses files on the laptop. |
+| **Your phone** | Phone walks on the phase preview, answering the cloud session when it stops. |
+
+Three rules: **one writer per branch** (never a cloud and a local session on the same branch at once; small side fixes get their own branch and a PR to `main`); **`git pull` before any local session that edits files** (the cloud pushes to GitHub, not to the laptop); **one phase at a time**, even in the cloud (phases share PROGRESS, the ROADMAP and the staging database). In a cloud session there is no `/clear`: start a new session instead.
+
 ### Useful mid-session commands
 | Situation | Command |
 |---|---|
@@ -135,6 +153,23 @@ Tick it off yourself. If a checkpoint fails, say so in the same session before `
 
 **Phase 3 exit:** your real clients can be entered. ➜ **phase report**
 
+### Phase 3b: The working day, comp leave, month summary, expenses
+| Task | You should be able to |
+|---|---|
+| 3b.1 | Stay signed in; see the Start day prompt, tap Just looking, then Start day; End day at night; Me → Sign out of this device |
+| 3b.2 | Add an overtime note and an "I worked today" note; as Owner grant comp leave from Approvals → Extra work; use a credit in the leave form |
+| 3b.3 | Claim an expense at End day with a receipt; as Owner approve it and mark it paid |
+| 3b.4 | Open More → Reports → Month and a person's Month tab and check the additional-leave figure |
+
+### Phase 3c: Go live (stage 1)
+| Task | You should be able to |
+|---|---|
+| 3c.1 | Sign in on the **production** address; see staging and production are separate (a test on one never shows on the other) |
+| 3c.2 | See last night's backup file and read the restore drill's write-up |
+| 3c.3 | Invite a test member with Copy invite link, run a whole day with them in production, then deactivate them; hand the staff the "first day" page |
+
+**Phase 3c exit ★ STAGE 1 LIVE:** the team uses MaxOff for attendance, leave, comp leave and expenses. ➜ **phase report + tell me how the first days go**
+
 ### Phase 4: Staff tasks
 | Task | You should be able to |
 |---|---|
@@ -155,7 +190,7 @@ Tick it off yourself. If a checkpoint fails, say so in the same session before `
 
 **Phase 5 exit:** nobody can say "I didn't know". ➜ **phase report**
 
-### Phase 6: Dashboards and ★ pilot
+### Phase 6: Dashboards and calendar
 | Task | You should be able to |
 |---|---|
 | 6.1 | As Staff on your phone, see My Day and do a full day's work from it |
@@ -163,9 +198,9 @@ Tick it off yourself. If a checkpoint fails, say so in the same session before `
 | 6.3 | As Admin see your clients and the tasks needing attention |
 | 6.4 | See shoots, meetings and leave on the calendar, in day, week and month views |
 | 6.5 | Open the end-of-day report and see the day summarized |
-| 6.6 | Log in on the **production URL**, confirm a backup file exists, and confirm a restore was tested |
+| 6.6 | Trigger a test error and read it in Sentry with real file and line numbers |
 
-**Phase 6 exit ★ PILOT:** the team starts using MaxOff daily. ➜ **phase report + tell me how the first week goes**
+**Phase 6 exit:** everyone works from My Day and Today. ➜ **phase report**
 
 ### Phase 7: Client work
 | Task | You should be able to |
@@ -252,7 +287,7 @@ I'll check it against the plan, flag anything that's drifted, and confirm you're
 
 ## 7. Rhythm
 
-- **A phase in a few days**: the kickoff (an hour of your answers), `/run-phase` (a day or two of machine time; 2–4 units per phase), the review with your phone walk. Twenty-one units are left after unit 3A (phase 3b added and five tasks deferred past the launch, 2026-09-27).
+- **A phase can take a single day** if you give it the day: the kickoff (a few minutes to an hour of your answers), `/run-phase` (machine time, in the cloud), the review with your phone walk. **There are no dates in the plan**: the order is fixed (ROADMAP "Launch order"), the pace is yours. Twenty units are left after phase 3b's build (3c to 10).
 - Phases 0–2 feel invisible (setup, database, rules). **That's expected**, and it's what makes the rest fast and safe.
-- The first real payoff is **phase 6**, when the team starts using it. That's 11 units in.
+- The first real payoff is **3c (Go live)**: the team starts using MaxOff for attendance, leave, comp leave and expenses, and every later phase switches its part on as soon as it is reviewed.
 - Don't skip `/review-phase`. It's the only step that looks at a whole phase at once.
