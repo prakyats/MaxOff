@@ -77,6 +77,8 @@ The build follows ROADMAP "Launch order", and **there are no dates**: the next p
 
 Three rules: **one writer per branch** (never a cloud and a local session on the same branch at once; small side fixes get their own branch and a PR to `main`); **`git pull` before any local session that edits files** (the cloud pushes to GitHub, not to the laptop); **one phase at a time**, even in the cloud (phases share PROGRESS, the ROADMAP and the staging database). In a cloud session there is no `/clear`: start a new session instead.
 
+Setting up the cloud environment (setup script, environment variables, what the network refuses and why `CI` stays unset): §8 "Running in the cloud".
+
 ### Useful mid-session commands
 | Situation | Command |
 |---|---|
@@ -291,3 +293,119 @@ I'll check it against the plan, flag anything that's drifted, and confirm you're
 - Phases 0–2 feel invisible (setup, database, rules). **That's expected**, and it's what makes the rest fast and safe.
 - The first real payoff is **3c (Go live)**: the team starts using MaxOff for attendance, leave, comp leave and expenses, and every later phase switches its part on as soon as it is reviewed.
 - Don't skip `/review-phase`. It's the only step that looks at a whole phase at once.
+
+---
+
+## 8. Running in the cloud
+
+Claude Code on the web (claude.ai/code) can run the whole loop, `pnpm check` and the full Playwright run included, in a cloud environment instead of your laptop. Set the environment up once; every new session then starts ready. Proved on 2026-09-28 (numbers below).
+
+### Network
+
+Keep the **Trusted** network level. Nothing needs adding: the three hosts it refuses each have a working route, and the setup script takes it.
+
+| Refused host | What wanted it | Route the script takes |
+|---|---|---|
+| `cdn.playwright.dev` | `playwright install` (Chromium) | The same Chrome for Testing build from `storage.googleapis.com` |
+| `public.ecr.aws` image layers (`*.cloudfront.net`, 403 / "Data limit exceeded") and `pkg-containers.githubusercontent.com` (ghcr.io) | The Supabase CLI's image pulls | Docker Hub (`SUPABASE_INTERNAL_IMAGE_REGISTRY=docker.io`) |
+| `eu.i.posthog.com` | Supabase CLI telemetry | None needed; harmless |
+
+If you would rather use the plain `pnpm exec playwright install chromium`, add `cdn.playwright.dev` to the environment's allowed domains.
+
+### Environment variables
+
+In the environment's settings (cloud environment menu in the session title bar → Edit → Environment variables). All are local throwaways. Take the two Supabase keys from `pnpm db:status` (run it once in any session; every local Supabase CLI stack prints the same fixed defaults). They are not written here: GitHub's secret scanning blocks key-shaped strings even when they are local defaults. The S3 values match `docker-compose.storage.yml`. **Never put staging or production values here.**
+
+```
+BASH_DEFAULT_TIMEOUT_MS=1800000
+BASH_MAX_TIMEOUT_MS=1800000
+SUPABASE_INTERNAL_IMAGE_REGISTRY=docker.io
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_APP_ENV=local
+NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<take this from pnpm db:status (PUBLISHABLE_KEY)>
+SUPABASE_SECRET_KEY=<take this from pnpm db:status (SECRET_KEY)>
+S3_ENDPOINT=http://127.0.0.1:9000
+S3_BUCKET=maxoff
+S3_ACCESS_KEY_ID=maxoff
+S3_SECRET_ACCESS_KEY=maxoff-local-secret
+S3_REGION=auto
+```
+
+- The two timeouts (30 minutes) let one command run the whole Playwright suite (build included) without being cut off.
+- These replace `.env.local`, which the cloud session has no copy of (and Claude is blocked from reading anyway). `DAY_GATE_COOKIE_SECRET` and `CRON_SECRET` stay unset: Playwright supplies its own test values, and the app runs without them.
+- Do **not** set `CI`: Playwright would drop to one worker and skip its own build.
+
+### Setup script
+
+Environment settings → Setup script. It is idempotent and takes about 80 seconds from nothing.
+
+```bash
+#!/usr/bin/env bash
+# MaxOff cloud environment setup (OPERATING-MANUAL.md §8). Idempotent.
+set -euo pipefail
+cd /home/user/MaxOff
+
+# 1. Docker: the container ships dockerd but does not start it.
+if ! docker info >/dev/null 2>&1; then
+  nohup dockerd >/tmp/dockerd.log 2>&1 &
+  for _ in $(seq 60); do docker info >/dev/null 2>&1 && break; sleep 1; done
+  docker info >/dev/null
+fi
+
+# 2. Dependencies. The Supabase CLI is the `supabase` devDependency, as locally and in CI.
+pnpm install --frozen-lockfile
+
+# 3. Images. The CLI's default registry (public.ecr.aws) and ghcr.io are refused here; Docker Hub
+#    works. Starting the stack pulls every image `pnpm db:start` needs, one pgTAP run pulls pg_prove.
+export SUPABASE_INTERNAL_IMAGE_REGISTRY=docker.io
+pnpm db:start
+pnpm db:test >/dev/null
+pnpm exec supabase stop --no-backup
+docker compose -f docker-compose.storage.yml pull
+
+# 4. Playwright's Chromium. cdn.playwright.dev is refused here, but Playwright's Chromium IS
+#    Google's Chrome for Testing build, published on storage.googleapis.com. Versions and folders
+#    come from the pinned @playwright/test, so an upgrade needs no edit here.
+export PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/opt/pw-browsers}"
+plan="$(pnpm exec playwright install --dry-run chromium)"
+install_cft() { # $1 = dry-run heading, $2 = zip name, $3 = Playwright folder prefix
+  local line version rev dir
+  line="$(grep -m1 "^$1 " <<<"$plan")"
+  version="$(sed -E 's/^.* ([0-9.]+) \(playwright .*$/\1/' <<<"$line")"
+  rev="$(sed -E 's/^.* v([0-9]+)\)$/\1/' <<<"$line")"
+  dir="$PLAYWRIGHT_BROWSERS_PATH/$3-$rev"
+  [ -f "$dir/INSTALLATION_COMPLETE" ] && return 0
+  mkdir -p "$dir"
+  curl -fsSL -o "/tmp/$2.zip" \
+    "https://storage.googleapis.com/chrome-for-testing-public/$version/linux64/$2.zip"
+  unzip -q -o "/tmp/$2.zip" -d "$dir"
+  rm "/tmp/$2.zip"
+  touch "$dir/INSTALLATION_COMPLETE"
+}
+install_cft "Chrome for Testing" chrome-linux64 chromium
+install_cft "Chrome Headless Shell" chrome-headless-shell-linux64 chromium_headless_shell
+```
+
+### In each session
+
+```bash
+docker info >/dev/null 2>&1 || (nohup dockerd >/tmp/dockerd.log 2>&1 &)   # if Docker isn't up
+pnpm db:start && pnpm storage:start
+pnpm check
+pnpm test:e2e      # builds, then runs every project with 3 workers
+```
+
+Anything worth keeping must be committed and pushed: the container is thrown away when the session ends.
+
+### Proof (2026-09-28, 4 cores, 15 GB)
+
+| Step | Result | Time |
+|---|---|---|
+| Setup script, empty image cache | every image from Docker Hub, Chromium 153 (Playwright v1243) from Google | 79 s |
+| `pnpm db:start` (images cached) | 27 migrations + seed | 32 s |
+| `pnpm storage:start` | MinIO healthy | 3 s |
+| `pnpm check` | typecheck, lint, format ✓ · unit 877/877 (73 files) · pgTAP 1453/1453 (24 files) · build ✓ · budget ✓ | 132 s cold, 54 s warm |
+| `pnpm test:e2e` (3 workers, build included) | **528 passed, 0 failed, 0 flaky**, 105 skipped (the viewport skips in the specs: phone-only on desktop and the reverse) | 6.8 min |
+
+The `[WebServer] ⨯ Error: The destination stream closed early` lines during the run are the server noting navigations a test abandoned on purpose; they are not failures.
