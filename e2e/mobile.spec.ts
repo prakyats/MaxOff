@@ -665,6 +665,46 @@ test.describe("Settings is a list of rows", () => {
     await page.getByRole("button", { name: "About this screen" }).click();
     await expect(page.locator('[data-slot="help-sheet"]')).toContainText("Everything configurable");
   });
+
+  test("at 200% text every row's label keeps its width; a badge drops under it (3cB review)", async ({
+    page,
+  }) => {
+    await page.goto("/settings");
+    await expect(pageHeader(page)).toBeVisible();
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = "200%";
+    });
+    // The tappable line's first span is the label, on a ready row (a link) and a "Coming soon"
+    // row (a div) alike; the desktop-only description is hidden at a phone width.
+    const labels = page.locator(
+      '[data-slot="settings-list"] > li > :first-child > span:first-child',
+    );
+    const measured = await labels.evaluateAll((els) =>
+      els.map((el) => {
+        const box = el.getBoundingClientRect();
+        return { text: el.textContent?.trim() ?? "", width: box.width };
+      }),
+    );
+    expect(measured.length).toBeGreaterThan(0);
+    for (const { text, width } of measured) {
+      expect(width, `"${text}" keeps ${MIN_TRUNCATED_WIDTH}px at 200%`).toBeGreaterThanOrEqual(
+        MIN_TRUNCATED_WIDTH,
+      );
+    }
+    // A label that reads "Tas/k/typ/es" is a width problem, not a wrapping one: an inline span
+    // has one client rect per line, so more lines than words means a word was broken.
+    const brokenWords = await labels.evaluateAll((els) =>
+      els
+        .filter((el) => {
+          const words = (el.textContent ?? "").trim().split(/\s+/).length;
+          const lines = new Set([...el.getClientRects()].map((rect) => Math.round(rect.top)));
+          return lines.size > words;
+        })
+        .map((el) => el.textContent?.trim() ?? ""),
+    );
+    expect(brokenWords, "no label breaks inside a word").toEqual([]);
+    await expectNoHorizontalScroll(page);
+  });
 });
 
 test.describe("forms", () => {

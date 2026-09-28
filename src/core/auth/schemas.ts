@@ -41,3 +41,14 @@ export type SetPasswordInput = z.input<typeof setPasswordSchema>;
 
 export const passwordResetSchema = z.object({ email });
 export type PasswordResetInput = z.input<typeof passwordResetSchema>;
+
+/**
+ * What the Continue page's form posts back (3cB review): the link's own two values, as hidden
+ * fields. Whether they name a real, unspent link is `verifyAuthLink()`'s answer, not zod's:
+ * anything malformed ends on the same "expired or already used" sign-in page as a spent token.
+ */
+export const confirmLinkSchema = z.object({
+  tokenHash: z.string().max(512),
+  type: z.string().max(32),
+});
+export type ConfirmLinkInput = z.input<typeof confirmLinkSchema>;

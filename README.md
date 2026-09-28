@@ -80,8 +80,9 @@ node scripts/bootstrap-owner.mjs --email "<the Owner's email>" --name "<Full Nam
 Remove-Item Env:SUPABASE_SECRET_KEY, Env:NEXT_PUBLIC_SUPABASE_URL, Env:NEXT_PUBLIC_APP_URL
 ```
 
-It prints the one-time link (`https://app.maxoff.in/auth/confirm?…`) to open within 24 hours; the
-Owner chooses the password there. A re-run is safe (it reuses the auth user and refuses once a
+It prints the one-time link (`https://app.maxoff.in/auth/confirm?…`) to open within 24 hours: a
+**Continue to MaxOff** page, and the Owner chooses the password after tapping it (the tap is what spends
+the link, so a chat preview or a mail scanner cannot). A re-run is safe (it reuses the auth user and refuses once a
 member exists: `CONFLICT`).
 
 The link expires after 24 hours (`otp_expiry`); "Forgot your password?" on `/login` issues a new one (that one
@@ -215,9 +216,11 @@ People → **Invite** (Owner only): email, name, role (Admin or Staff) and job t
 creates the sign-in without a password (`auth.admin.generateLink`, type `invite`), writes the
 member row as `invited` and shows the **invite link** once. The same link goes out by email when
 `RESEND_API_KEY` is set; until a sending domain exists, copy it from the dialog and send it
-yourself (WhatsApp is fine: the link is one-time and expires after 24 h). **Copy invite link**
-on a pending row issues a fresh link and the previous one stops working. The person opens the
-link, chooses a password and lands on their profile as an active member.
+yourself (WhatsApp is fine: the link opens a **Continue to MaxOff** page and is spent only when the
+person taps Continue, so a chat preview or a mail scanner cannot use it up; it expires after 24 h).
+**Copy invite link** on a pending row issues a fresh link and the previous one stops working. The
+person opens the link, taps Continue, chooses a password and lands on their profile as an active
+member.
 
 **Deactivate** (or **Revoke invite** on a pending row) takes effect at once: the person's auth
 sessions and refresh tokens are deleted inside the transition, so an open tab cannot renew its

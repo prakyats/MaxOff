@@ -35,6 +35,19 @@ export const FILE_ROUTE_CSP: ResponseHeader = {
   value: "default-src 'none'; style-src 'unsafe-inline'; sandbox; frame-ancestors 'none'",
 };
 
+/**
+ * `/auth/confirm` (3cB review), where a one-time invite or recovery link lands: the page shows
+ * the link's token in its form, so no cache may keep it, no index may list it, and no referrer
+ * may carry the URL to wherever a person goes next. Like the file route, a rule after the
+ * global one, so its `Referrer-Policy` replaces the build's.
+ */
+export const AUTH_LINK_ROUTE_SOURCE = "/auth/confirm";
+export const AUTH_LINK_ROUTE_HEADERS: readonly ResponseHeader[] = [
+  { key: "Cache-Control", value: "no-store" },
+  { key: "X-Robots-Tag", value: "noindex, nofollow" },
+  { key: "Referrer-Policy", value: "no-referrer" },
+];
+
 /** Staging must never be indexed. Production stays indexable-by-choice (decided later). */
 export const NOINDEX_HEADER: ResponseHeader = { key: "X-Robots-Tag", value: "noindex, nofollow" };
 

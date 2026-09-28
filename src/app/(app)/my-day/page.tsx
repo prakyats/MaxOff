@@ -10,7 +10,7 @@ import { getClaimSetup } from "@/modules/expenses";
 import { EndDayClaims } from "@/modules/expenses/components/end-day-claims";
 
 import { PlaceholderPage } from "../_placeholder/placeholder-page";
-import { STAND_INS } from "../_placeholder/stand-ins";
+import { dayStandIn } from "../_placeholder/stand-ins";
 
 export const metadata: Metadata = { title: "My Day" };
 
@@ -19,13 +19,19 @@ export const metadata: Metadata = { title: "My Day" };
  * "Not started · Start day", "Started 9:12 am · End day"; 6.1 builds the tasks around it), for
  * whoever marks attendance; the Owner can open this route too (no permission) but has no day.
  * Signing out lives under Me (kickoff 3b decision 1). The rest arrives in 6.1; until then the
- * stand-in says so in plain words.
+ * stand-in says so in plain words, worded for the viewer's role (the Owner reads about the
+ * team's day, not a working day of their own; 3cB review).
  */
 export default async function MyDayPage() {
   const viewer = await requireMember();
   const marksAttendance = can(viewer.role, "attendance.self");
   return (
-    <PlaceholderPage greet={viewer.name} title="My Day" copy={STAND_INS.myDay} icon={SunriseIcon}>
+    <PlaceholderPage
+      greet={viewer.name}
+      title="My Day"
+      copy={dayStandIn(viewer.role)}
+      icon={SunriseIcon}
+    >
       {marksAttendance ? (
         <TodayAttendanceStrip
           endDayFollowUp={

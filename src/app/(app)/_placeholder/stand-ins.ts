@@ -7,6 +7,8 @@
  * `stand-ins.test.ts` keeps the words plain, and `e2e/mobile.spec.ts` reads each screen at 375
  * and 430px against this file.
  */
+import type { MemberRole } from "@/core/permissions";
+
 export type StandIn = {
   /** The page header's line (a phone shows the title only, ARCHITECTURE §14.1). */
   description: string;
@@ -89,3 +91,15 @@ export const STAND_INS = {
       "Your tasks for today and what's due next will join your day here. For now, MaxOff is for your working day, leave and expenses.",
   },
 } as const satisfies Record<string, StandIn>;
+
+/**
+ * The day screens' stand-in, by who is looking, on `/today` and `/my-day` alike (3cB review): the
+ * Owner has no day of their own (their Today is the team's), an Admin's day includes their
+ * clients, and a Staff member's is their working day, leave and expenses, also when they open
+ * `/today` by typing it or through a `?next=` after sign-in.
+ */
+export function dayStandIn(role: MemberRole): StandIn {
+  if (role === "owner") return STAND_INS.todayOwner;
+  if (role === "admin") return STAND_INS.todayAdmin;
+  return STAND_INS.myDay;
+}

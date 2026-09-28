@@ -1,6 +1,7 @@
 import { expect, test } from "./fixtures";
 
 import {
+  followAuthLink,
   onBaseURL,
   refreshTokenFrom,
   removeFixturePerson,
@@ -97,10 +98,11 @@ test.describe("Owner", () => {
     const invitee = await browser.newContext(SIGNED_OUT);
     try {
       const tab = await invitee.newPage();
-      await tab.goto(firstLink);
+      // Every link is opened as a person does (3cB review): the page, then Continue.
+      await followAuthLink(tab, firstLink);
       await expect(tab).toHaveURL(/\/login\?reason=link$/);
 
-      await tab.goto(secondLink);
+      await followAuthLink(tab, secondLink);
       await expect(tab).toHaveURL(/\/set-password$/);
       await tab.getByLabel("New password").fill(INVITEE_PASSWORD);
       await tab.getByLabel("Repeat it").fill(INVITEE_PASSWORD);
@@ -111,7 +113,7 @@ test.describe("Owner", () => {
 
       // The link was one-time.
       await tab.context().clearCookies();
-      await tab.goto(secondLink);
+      await followAuthLink(tab, secondLink);
       await expect(tab).toHaveURL(/\/login\?reason=link$/);
 
       await signIn(tab, INVITEE.email, INVITEE_PASSWORD);
@@ -233,10 +235,10 @@ test.describe("Owner", () => {
     const invitee = await browser.newContext(SIGNED_OUT);
     try {
       const tab = await invitee.newPage();
-      await tab.goto(staleLink);
+      await followAuthLink(tab, staleLink);
       await expect(tab).toHaveURL(/\/login\?reason=link$/);
 
-      await tab.goto(freshLink);
+      await followAuthLink(tab, freshLink);
       await expect(tab).toHaveURL(/\/set-password$/);
     } finally {
       await invitee.close();
@@ -273,7 +275,7 @@ test.describe("Owner", () => {
     try {
       const tab = await pending.newPage();
       // GoTrue verifies the token (and confirms the sign-in); the app ends the session at once.
-      await tab.goto(pendingLink);
+      await followAuthLink(tab, pendingLink);
       await expect(tab).toHaveURL(/\/login\?reason=inactive$/);
 
       await page.getByRole("button", { name: "Actions for Pending Person" }).click();
@@ -289,7 +291,7 @@ test.describe("Owner", () => {
       expect(shown).toContain("type=recovery");
       await page.getByRole("button", { name: "Done" }).click();
 
-      await tab.goto(onBaseURL(shown, baseURL));
+      await followAuthLink(tab, onBaseURL(shown, baseURL));
       await expect(tab).toHaveURL(/\/set-password$/);
     } finally {
       await pending.close();

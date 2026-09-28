@@ -3,6 +3,8 @@ import { withSentryConfig } from "@sentry/nextjs/config";
 import type { NextConfig } from "next";
 
 import {
+  AUTH_LINK_ROUTE_HEADERS,
+  AUTH_LINK_ROUTE_SOURCE,
   FILE_ROUTE_CSP,
   FILE_ROUTE_SOURCE,
   responseHeaders,
@@ -25,10 +27,12 @@ const RESPONSE_HEADERS = responseHeaders(appEnv);
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  // The file route's stricter CSP comes last on purpose: the last rule to set a header wins.
+  // The file route's stricter CSP and the auth link page's headers come after the global rule
+  // on purpose: the last rule to set a header wins.
   headers: async () => [
     { source: "/:path*", headers: RESPONSE_HEADERS },
     { source: FILE_ROUTE_SOURCE, headers: [FILE_ROUTE_CSP] },
+    { source: AUTH_LINK_ROUTE_SOURCE, headers: [...AUTH_LINK_ROUTE_HEADERS] },
   ],
   // `next dev` otherwise appends its own block to CLAUDE.md on every run.
   // CLAUDE.md is hand-written project memory, so we keep Next out of it.

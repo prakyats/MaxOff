@@ -367,7 +367,8 @@ export async function latestEmailTo(to: string, since: Date): Promise<MailpitMes
  * The `/auth/confirm` link inside an auth email, re-pointed at the server under test. GoTrue
  * builds the link from config.toml `site_url` (port 3000) while Playwright serves the app on
  * its own port, so only the path and query are kept: a link that only opens because a stray
- * dev server happens to listen on 3000 would hide exactly the failure CI sees.
+ * dev server happens to listen on 3000 would hide exactly the failure CI sees. A spec opens the
+ * link with `followAuthLink()`.
  */
 export function confirmLinkFrom(email: MailpitMessage, baseURL: string | undefined): string {
   const href = email.HTML.match(/href="([^"]*\/auth\/confirm[^"]*)"/)?.[1]?.replace(/&amp;/g, "&");
@@ -386,6 +387,22 @@ export function onBaseURL(href: string, baseURL: string | undefined): string {
   expect(link.pathname).toBe("/auth/confirm");
   expect(link.searchParams.get("token_hash"), "the token hash survives").toBeTruthy();
   return new URL(`${link.pathname}${link.search}`, baseURL).toString();
+}
+
+/** The one button on the Continue page (3cB review). */
+export const CONTINUE_BUTTON = "Continue to MaxOff";
+
+/**
+ * Opens an `/auth/confirm` link the way a person does (3cB review; ROADMAP 5.2's prerequisite):
+ * the Continue page, then **Continue to MaxOff**. The page's GET spends nothing, so a chat
+ * preview or a mail scanner fetching the link first changes nothing; the POST behind the button
+ * verifies the one-time token and lands on /set-password, or on /login with the reason when the
+ * link is spent, expired or not an active member's. `e2e/auth-link.spec.ts` proves each of those.
+ */
+export async function followAuthLink(page: Page, link: string): Promise<void> {
+  await page.goto(link);
+  await page.getByRole("button", { name: CONTINUE_BUTTON }).click();
+  await expect(page).not.toHaveURL(/\/auth\/confirm/);
 }
 
 /**

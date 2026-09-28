@@ -58,8 +58,8 @@ Tag pushes are refused from cloud sessions, so this is done **from the laptop**.
    deployments** → tick `production` → **Approve and deploy**.
 
 **Expected:** the job's steps are all green. "Require the tagged commit to be on main with green CI"
-prints `success` for the three checks; "Apply migrations to the production database" applies the 34
-migrations (the last one `20260928131234_contract_phase3b`); "Smoke-check the deployed Worker" passes:
+prints `success` for the three checks; "Apply migrations to the production database" applies every file
+in `supabase/migrations`; "Smoke-check the deployed Worker" passes:
 `/api/health` answers `200 ok` with `no-store`, the signed-out `/today` redirect carries every security
 header, and `https://maxoff.pixoraclips.workers.dev` answers a **308** to `https://app.maxoff.in`.
 
@@ -101,17 +101,20 @@ has passed.**
 
 ### Day A
 
-**4.1 The Owner signs in.** Open the one-time link from step 2 → "Set your password" → choose a password
-of at least 12 characters → **Save password and sign in**.
+**4.1 The Owner signs in.** Open the one-time link from step 2 → "Continue to MaxOff" → tap **Continue to
+MaxOff** (the tap is what spends the link; opening the page does not) → "Set your password" → choose a
+password of at least 12 characters → **Save password and sign in**.
 *Expected:* Today opens with the attendance card (nobody expected yet) and, below it, "More of your day is
-coming soon". *If "This link has expired or was already used":* run step 2 again (it reuses the account)
-for a fresh link, or use "Forgot your password?" (4.2).
+coming soon". *If "This link has expired or was already used":* use "Forgot your password?" (4.2). Step 2
+cannot issue another link: once the Owner exists the bootstrap refuses (`CONFLICT`) before it gets to the
+link.
 
 **4.2 "Forgot password" works.** In a private browser window: `https://app.maxoff.in/login` → **Forgot
 your password?** → your email → *expected:* "If that email belongs to a member, a link is on its way."
 *Expected email, within a minute or two:* from **MaxOff `<noreply@mail.maxoff.in>`**, subject **"Set your
-MaxOff password"**, the branded template (the MaxOff mark, a red button). The button opens "Set your
-password" on `app.maxoff.in`; set a new password → you are signed in. Sign in with the new password
+MaxOff password"**, the branded template (the MaxOff mark, a red button). The button opens "Continue to
+MaxOff" on `app.maxoff.in` → **Continue to MaxOff** → "Set your password"; set a new password → you are
+signed in. Sign in with the new password
 elsewhere to be sure.
 *If no email:* the spam folder; Resend dashboard → Emails (was it sent, delivered or bounced?); Supabase →
 Authentication → Logs; Authentication → Emails → SMTP settings (host `smtp.resend.com`, sender
@@ -131,18 +134,19 @@ smoke step already proved the **308**; this is the same check by eye.
 (see "Before you start"), full name (for example "Test Member"), role **Staff**, any job title → **Send
 invite**. *Expected:* "Test Member is invited", "Email is not set up yet, so share this link yourself.",
 and the invite link with **Copy**. Tap **Copy**, then send the link on **WhatsApp** to the test phone,
-exactly the way the staff invites will go (read "WhatsApp and one-time links" in step 7 first, and set
-WhatsApp up the way it says). On People the person shows as **Invited**.
+exactly the way the staff invites will go (read "WhatsApp and one-time links" in step 7 first). On People
+the person shows as **Invited**.
 
-**4.6 The test member joins.** On the test phone, open the link. *Expected:* "Set your password" → save →
-"Welcome, Test" on Me ("Your password is set and you are signed in as …"). Install the app as in 4.3 and
-open it. *Expected on the test phone:* My Day shows "Attendance starts tomorrow" and "More of your day is
-coming soon"; Tasks, Calendar and Alerts each say what is coming, in plain words, with no numbers. On your
-People list the person is **Active**, "Joined" today.
-*If the test phone sees "This link has expired or was already used":* the link was used before the test
-member opened it (see "WhatsApp and one-time links"): People → the person → ⋯ → **Copy invite link**
-issues a fresh one (the old one stops working); send it again the way step 7 says. Note in the record that
-it happened.
+**4.6 The test member joins.** On the test phone, open the link. *Expected:* "Continue to MaxOff" → tap
+**Continue to MaxOff** → "Set your password" → save → "Welcome, Test" on Me ("Your password is set and you
+are signed in as …"). Install the app as in 4.3 and open it. *Expected on the test phone:* My Day shows
+"Attendance starts tomorrow" and "More of your day is coming soon"; Tasks, Calendar and Alerts each say
+what is coming, in plain words, with no numbers. On your People list the person is **Active**, "Joined"
+today.
+*If the test phone sees "This link has expired or was already used":* Continue was tapped on it before
+(only the tap spends a link, see "WhatsApp and one-time links"), or 24 hours passed: People → the person →
+⋯ → **Copy invite link** issues a fresh one (the old one stops working); send it again the way step 7
+says. Note in the record that it happened.
 
 **4.7 A leave request.** Test phone: Me → **Attendance & leave** → **Request leave** → Leave, one date
 **after day B** (day B is for the working day) → optional reason → **Request leave**. *Expected:* the
@@ -150,8 +154,9 @@ request shows as "Waiting". Your phone: the Approvals badge shows 1 → **Approv
 (a 6-second Undo, then it is saved). *Expected on the test phone:* the request reads Approved.
 
 **4.8 An expense claim with a receipt photo.** Test phone: Attendance & leave → **Expenses** → **Add
-expense** → an amount **above ₹500** (so the photo is required, for example ₹600), category Travel, a note,
-today's date, take or choose a photo → submit. *Expected:* the claim shows as waiting, with the photo. The
+expense** → the amount **₹501** (above ₹500, so the photo is required; a token amount, because the claim
+stays in the go-live month for good, see step 6), category Travel, the note **"Go-live test"**, today's
+date, take or choose a photo → submit. *Expected:* the claim shows as waiting, with the photo. The
 upload proves the production file bucket and its CORS for `app.maxoff.in`. Your phone: Approvals →
 **Expenses** → **Review** (the receipt shows in the sheet) → **Approve**.
 *If the upload fails:* R2 → `maxoff-files-production` → Settings → CORS allows `PUT` from
@@ -165,8 +170,9 @@ member as waiting; **Approvals** → Attendance → **Approve**. *Expected on th
 "Started <time> · approved".
 
 **4.10 End day, with a claim.** Test phone: **End day** → "Any expenses to claim today?" → **Yes** → **End
-day, add expenses** → a small claim (for example ₹50, Food, no photo needed) → Done. *Expected:* the strip
-reads "Present · ended <time> · approved". Your phone: Approvals → Expenses → approve it.
+day, add expenses** → a token claim (**₹1**, Food, the note "Go-live test", no photo needed) → Done.
+*Expected:* the strip reads "Present · ended <time> · approved". Your phone: Approvals → Expenses → approve
+it.
 
 **4.11 The month summary.** Your phone: More → People → the test member → **Month**. *Expected:* 1 day
 worked, the approved expenses "to pay". **Mark all paid** with today's date → nothing left to pay. More →
@@ -191,14 +197,18 @@ write down the step, what you saw and the time, and fix it (a session) before go
    runs every night at 02:00 IST.
 2. The **production restore drill**, once now and then every quarter: `docs/runbooks/backup-restore.md` →
    "The drill" → "Production", into a throwaway target. *Expected:* its three "verified" lines (row counts,
-   the 34 migrations, RLS refuses). Write the date and the numbers into that runbook's "Drills done" table.
+   every file in `supabase/migrations`, RLS refuses). Write the date and the numbers into that runbook's
+   "Drills done" table.
 
 ## 6. Go-live data: the Owner only, seeded defaults kept
 
 The only data entered into production at go-live is **the Owner**, by the bootstrap in step 2 (owner
 decision, kickoff 3c amendment (3f)). No staff list, holidays, expense categories or receipt limit are
-typed in with a session. The bootstrap creates the organization, and the database gives it these
-defaults at that moment; **you change any of them yourself in Settings, whenever the team needs it**:
+typed in with a session. **The smoke test's records stay, though** (nothing is ever deleted): the
+deactivated test member, their approved leave, their two claims (₹501 and ₹1, marked paid) and the one
+receipt photo remain in the go-live month, on their page and in Reports → Month. That is why the test
+uses token amounts with the note "Go-live test"; list them in the go-live record. The bootstrap creates
+the organization, and the database gives it these defaults at that moment; **you change any of them yourself in Settings, whenever the team needs it**:
 
 | Setting | Starts as | Where you change it |
 |---|---|---|
@@ -247,7 +257,7 @@ A message you can paste (replace the two `< >`):
 ```
 Hi <first name>, welcome to MaxOff, Pixora Clips' app for attendance, leave and expenses.
 
-1. Open this link on your phone. It works once, within 24 hours:
+1. Open this link on your phone and tap Continue to MaxOff. It works once, within 24 hours:
 <the invite link>
 2. Choose your password.
 3. Put MaxOff on your home screen: in Chrome, ⋮ → Install app (Android), or in Safari, Share → Add to Home Screen (iPhone).
@@ -255,12 +265,13 @@ Hi <first name>, welcome to MaxOff, Pixora Clips' app for attendance, leave and 
 Your attendance starts tomorrow. Open MaxOff when you start work and tap Start day, and End day when you finish. The one-page guide is attached.
 ```
 
-**WhatsApp and one-time links.** An invite link works once, and opening it is what uses it. WhatsApp can
-open a link by itself to draw its preview while you write the message, which would use the link up before
-your person taps it. Before you send any invite, turn link previews off in WhatsApp (in recent versions:
-Settings → Privacy → Advanced → **Disable link previews**), and send the test member's link (4.5) the same
-way, so the smoke test proves it. If someone still sees "This link has expired or was already used. Ask
-for a new one.", issue a fresh link with Copy invite link and send it again.
+**WhatsApp and one-time links.** An invite link works once, and **tapping Continue to MaxOff** on the page
+it opens is what uses it (3cB review fixes): WhatsApp drawing a preview of the link while you write the
+message, or a mail scanner fetching it, opens the page and spends nothing. Turning link previews off in
+WhatsApp (in recent versions: Settings → Privacy → Advanced → **Disable link previews**) is belt and
+braces, not a must. If someone sees "This link has expired or was already used. Ask for a new one."
+(Continue was tapped twice, or the 24 hours passed), issue a fresh link with Copy invite link and send it
+again.
 
 ## Go-live record
 
@@ -273,4 +284,5 @@ for a new one.", issue a fresh link with Copy invite link and send it again.
 | 4. Smoke test, day A (4.1–4.8) | | | |
 | 4. Smoke test, day B (4.9–4.12) | | | |
 | 5. First backup; production restore drill | | | |
+| 6. Smoke-test records kept in the go-live month: the test member (deactivated), their approved leave, the ₹501 and ₹1 claims (paid), one receipt | | | |
 | 7. Staff invites sent | | | |
