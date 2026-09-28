@@ -4,6 +4,9 @@ node_modules/
 .wrangler/
 coverage/
 playwright-report/
+blob-report/
+blob-report-bulk/
+all-blob-reports/
 test-results/
 pnpm-lock.yaml
 next-env.d.ts
