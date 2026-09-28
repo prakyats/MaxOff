@@ -25,12 +25,10 @@ export type TodayDay = {
   overtimeFlag: boolean;
   overtimeReason: string | null;
   leaveType: LeaveType | null;
-  /** The Start day and End day taps (3b.1); null on a day recorded the 2.x way. */
+  /** The Start day and End day taps (3b.1). */
   startedAt: string | null;
   endedAt: string | null;
   endNotRecorded: boolean;
-  /** The 2.x sign-in time, still written by main's gate on the shared staging database. */
-  firstLoginAt: string | null;
 };
 
 /** What `attendance_own_today()` answers: the day (or none) and what today is. */

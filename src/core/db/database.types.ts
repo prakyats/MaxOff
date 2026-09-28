@@ -70,12 +70,9 @@ export type Database = {
           end_not_recorded: boolean;
           ended_at: string | null;
           final_status: Database["public"]["Enums"]["day_status"] | null;
-          first_login_at: string | null;
           id: string;
           is_day_off: boolean;
-          last_logout_at: string | null;
           leave_request_id: string | null;
-          logout_not_recorded: boolean;
           member_id: string;
           overtime_flag: boolean;
           overtime_reason: string | null;
@@ -96,12 +93,9 @@ export type Database = {
           end_not_recorded?: boolean;
           ended_at?: string | null;
           final_status?: Database["public"]["Enums"]["day_status"] | null;
-          first_login_at?: string | null;
           id?: string;
           is_day_off?: boolean;
-          last_logout_at?: string | null;
           leave_request_id?: string | null;
-          logout_not_recorded?: boolean;
           member_id: string;
           overtime_flag?: boolean;
           overtime_reason?: string | null;
@@ -122,12 +116,9 @@ export type Database = {
           end_not_recorded?: boolean;
           ended_at?: string | null;
           final_status?: Database["public"]["Enums"]["day_status"] | null;
-          first_login_at?: string | null;
           id?: string;
           is_day_off?: boolean;
-          last_logout_at?: string | null;
           leave_request_id?: string | null;
-          logout_not_recorded?: boolean;
           member_id?: string;
           overtime_flag?: boolean;
           overtime_reason?: string | null;
@@ -1664,7 +1655,6 @@ export type Database = {
           end_not_recorded: boolean;
           ended_at: string;
           final_status: Database["public"]["Enums"]["day_status"];
-          first_login_at: string;
           is_day_off: boolean;
           is_working_day: boolean;
           leave_type: Database["public"]["Enums"]["leave_type"];
@@ -1689,27 +1679,6 @@ export type Database = {
         };
         Returns: Database["public"]["Enums"]["attendance_state"];
       };
-      attendance_today: {
-        Args: never;
-        Returns: {
-          day_id: string;
-          final_status: Database["public"]["Enums"]["day_status"];
-          first_login_at: string;
-          full_name: string;
-          is_day_off: boolean;
-          job_title: string;
-          last_logout_at: string;
-          leave_type: Database["public"]["Enums"]["leave_type"];
-          logout_not_recorded: boolean;
-          member_id: string;
-          on_leave: boolean;
-          overtime_flag: boolean;
-          proposed_by_system: boolean;
-          started: boolean;
-          state: Database["public"]["Enums"]["attendance_state"];
-          submitted_choice: Database["public"]["Enums"]["attendance_choice"];
-        }[];
-      };
       attendance_today_detail: {
         Args: never;
         Returns: {
@@ -1717,13 +1686,10 @@ export type Database = {
           end_not_recorded: boolean;
           ended_at: string;
           final_status: Database["public"]["Enums"]["day_status"];
-          first_login_at: string;
           full_name: string;
           is_day_off: boolean;
           job_title: string;
-          last_logout_at: string;
           leave_type: Database["public"]["Enums"]["leave_type"];
-          logout_not_recorded: boolean;
           member_id: string;
           on_leave: boolean;
           overtime_flag: boolean;
@@ -1732,19 +1698,6 @@ export type Database = {
           started_at: string;
           state: Database["public"]["Enums"]["attendance_state"];
           submitted_choice: Database["public"]["Enums"]["attendance_choice"];
-        }[];
-      };
-      attendance_touch: {
-        Args: { ip_hash?: string; user_agent?: string };
-        Returns: {
-          day_id: string;
-          final_status: Database["public"]["Enums"]["day_status"];
-          gate_required: boolean;
-          is_day_off: boolean;
-          leave_request_id: string;
-          proposed_by_system: boolean;
-          state: Database["public"]["Enums"]["attendance_state"];
-          work_date: string;
         }[];
       };
       bootstrap_owner: {
@@ -2034,10 +1987,6 @@ export type Database = {
         }[];
       };
       session_login: {
-        Args: { ip_hash?: string; user_agent?: string };
-        Returns: string;
-      };
-      session_logout: {
         Args: { ip_hash?: string; user_agent?: string };
         Returns: string;
       };

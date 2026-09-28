@@ -60,11 +60,29 @@ sending domain exists.
 # locally (values from .env.local)
 pnpm bootstrap:owner -- --email owner@example.com --name "Full Name" --org "Pixora Clips"
 
-# staging / production: the same script with that project's URL, secret key and app URL
+# staging: the same script with that project's URL, secret key and app URL
 NEXT_PUBLIC_SUPABASE_URL=https://<ref>.supabase.co SUPABASE_SECRET_KEY=<secret> \
 NEXT_PUBLIC_APP_URL=https://maxoff-staging.<subdomain>.workers.dev \
   node scripts/bootstrap-owner.mjs --email owner@example.com --name "Full Name" --org "Pixora Clips"
 ```
+
+**Production (the Owner's own PowerShell, 3c.1).** The secret key is read from a masked prompt,
+lives only in that shell and is removed at the end; it never goes in a file, a chat or a session.
+Run from the repository root (`pnpm install` done, Node 20+), after the first production deploy
+has applied the migrations:
+
+```powershell
+$secure = Read-Host -AsSecureString "Production Supabase secret key (Project Settings → API Keys → Secret key)"
+$env:NEXT_PUBLIC_SUPABASE_URL = "https://peshoflxypujbzecgwqq.supabase.co"
+$env:NEXT_PUBLIC_APP_URL = "https://app.maxoff.in"
+$env:SUPABASE_SECRET_KEY = [Runtime.InteropServices.Marshal]::PtrToStringBSTR([Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure))
+node scripts/bootstrap-owner.mjs --email "<the Owner's email>" --name "<Full Name>" --org "Pixora Clips"
+Remove-Item Env:SUPABASE_SECRET_KEY, Env:NEXT_PUBLIC_SUPABASE_URL, Env:NEXT_PUBLIC_APP_URL
+```
+
+It prints the one-time link (`https://app.maxoff.in/auth/confirm?…`) to open within 24 hours; the
+Owner chooses the password there. A re-run is safe (it reuses the auth user and refuses once a
+member exists: `CONFLICT`).
 
 The link expires after 24 hours (`otp_expiry`); "Forgot your password?" on `/login` issues a new one (that one
 is emailed by Supabase Auth, see "Hosted auth settings").
@@ -167,14 +185,16 @@ Secrets (**Environment secrets**):
 | `SUPABASE_DB_PASSWORD` | Supabase → the database password chosen when the project was created (Project Settings → Database to reset) |
 | `SUPABASE_SECRET_KEY` | Supabase → Project Settings → API Keys → Secret key (bypasses RLS; uploaded as a Worker secret) |
 | `SESSION_IP_HASH_SALT` | Any long random string (`openssl rand -hex 32`), different per environment. Salts the IP hash in `session_events`; uploaded as a Worker secret. Unset = the hash is stored as null |
-| `DAY_GATE_COOKIE_SECRET` | **No longer read since 3b.1** (the day gate gave way to the Start-day prompt). The deploy workflow still passes it when set; the variable is removed from the GitHub environments with the contract migration after phase 3b merges. |
+| `R2_ACCESS_KEY_ID` · `R2_SECRET_ACCESS_KEY` | The R2 API token scoped to that environment's files bucket (task 3.3, README → "Storage"); uploaded as `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` |
+| `CRON_SECRET` | Any long random string; the Worker's cron trigger presents it to `/api/cron/*` |
 | `SENTRY_AUTH_TOKEN` | Sentry → Settings → Auth Tokens. Optional: without it no source maps are uploaded |
 
 Variables (**Environment variables**):
 
 | Name | From |
 |---|---|
-| `NEXT_PUBLIC_APP_URL` | The Worker URL, e.g. `https://maxoff-staging.<subdomain>.workers.dev` |
+| `NEXT_PUBLIC_APP_URL` | The app's address: `https://maxoff-staging.<subdomain>.workers.dev` on staging, **`https://app.maxoff.in`** on production |
+| `R2_ACCOUNT_ID` · `R2_BUCKET` | The Cloudflare account id and the files bucket (`maxoff-files-staging` / `maxoff-files-production`) |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Project Settings → API Keys → Project URL |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase → Project Settings → API Keys → Publishable key |
 | `SUPABASE_PROJECT_REF` | Supabase → Project Settings → General → Reference ID |
@@ -182,7 +202,8 @@ Variables (**Environment variables**):
 | `SENTRY_ORG` | Sentry organisation slug (Settings → General Settings). Optional |
 | `SENTRY_PROJECT` | Sentry project slug, e.g. `maxoff`. Optional |
 
-`NEXT_PUBLIC_APP_ENV` is set by the workflow itself (`staging` or `production`).
+`NEXT_PUBLIC_APP_ENV` is set by the workflow itself (`staging` or `production`). `DAY_GATE_COOKIE_SECRET`
+(2.2) is no longer read anywhere since the 3c.1 contract migration; delete it from both environments.
 
 `RESEND_API_KEY` and `EMAIL_FROM` (app email: invites from 1.3, notification email from 5.2)
 are **not** wired yet: they need a verified sending domain (`mail.maxoff.app`, see PROGRESS.md).
@@ -231,9 +252,67 @@ email through `core/notifications` (Resend), so GoTrue never mails an invite (ta
    first so a failed build never leaves the database ahead of the Worker.
 3. `supabase link` + `supabase db push`: applies any new append-only migrations.
 4. `wrangler deploy --env <name> --secrets-file …`: the code and the Worker secrets (`SUPABASE_SECRET_KEY`,
-   plus `SESSION_IP_HASH_SALT` and `DAY_GATE_COOKIE_SECRET` when set) land in **one** deployment. They used
+   plus `SESSION_IP_HASH_SALT`, the `S3_*` set and `CRON_SECRET` when set) land in **one** deployment. They used
    to be uploaded first with `wrangler secret`, which Cloudflare refuses (error 10215) while the Worker's
    newest version is an undeployed branch preview — every push since task 2.0 leaves one.
+5. `scripts/smoke-deploy.sh` against the deployed address (3c.1): `/api/health` answers `200 ok` (the database
+   was reached), the signed-out `/today` redirect carries every security header, and on production
+   `https://maxoff.pixoraclips.workers.dev` answers a 308 to `https://app.maxoff.in`. A failed smoke fails the
+   run after the deploy: the Worker is live, so fix forward or roll back in the dashboard.
+
+### Production runbook (3c.1)
+
+Production is **`https://app.maxoff.in`** (kickoff 3c decision 3a): `wrangler.jsonc`'s production
+environment connects `app.maxoff.in` to the Worker `maxoff` as a **Custom Domain** and keeps the
+`workers.dev` address on only for the redirect. Nothing is ever added for the bare `maxoff.in`, `www`
+(reserved for a landing page) or `mail.maxoff.in` (Resend's records).
+
+- **Cloudflare API token.** A Custom Domain is created through the zone, so the token behind
+  `CLOUDFLARE_API_TOKEN` needs, besides the "Edit Cloudflare Workers" template, **Zone → Workers
+  Routes: Edit, DNS: Edit and SSL and Certificates: Edit** on `maxoff.in`. If the first tag deploy fails
+  on the domain step with a permissions error, either add those to the token or attach the domain once by
+  hand (Workers & Pages → maxoff → Settings → Domains & Routes → Add → Custom domain →
+  `app.maxoff.in`) and re-run the deploy: wrangler then finds the route already in place.
+- **Supabase Auth** (README → "Hosted auth settings"): Site URL `https://app.maxoff.in`, Redirect URL
+  `https://app.maxoff.in/**`, custom SMTP through Resend on `mail.maxoff.in`, sender
+  `MaxOff <noreply@mail.maxoff.in>`; "Forgot password works" is a step of the go-live smoke test.
+- **First deploy:** tag a green commit on `main` (`git tag v1.0.0 && git push origin v1.0.0`), approve the
+  `production` environment in GitHub, read the run's smoke step. Then the Owner bootstrap (above), then
+  UptimeRobot.
+- **UptimeRobot:** an HTTP(S) monitor on **`https://app.maxoff.in/api/health`**, every 5 minutes, keyword
+  `ok` optional. The route makes one cheap database round trip, so the free Supabase project never pauses
+  (ADR-0003) and the monitor sees the database, not only the Worker.
+- **By hand, any time:** `bash scripts/smoke-deploy.sh https://app.maxoff.in https://maxoff.pixoraclips.workers.dev`.
+- **Backups** (3c.2): the next section and `docs/runbooks/backup-restore.md`.
+
+### Backups (3c.2)
+
+`.github/workflows/backup.yml` runs every night at 02:00 IST (and on demand): `scripts/backup/dump.sh`
+takes a `pg_dump` of the production database through the **session pooler**, encrypts it to the Owner's
+**age** public key and uploads it to the private R2 bucket `maxoff-backups-production` (30-day retention).
+The private key never reaches CI; a restore is done on the Owner's machine with `scripts/backup/fetch.sh`
+and `scripts/backup/restore.sh` (ARCHITECTURE §17, the runbook). One-time setup, all by the Owner:
+
+1. **The key pair.** Install [age](https://github.com/FiloSottile/age) (`winget install FiloSottile.age`,
+   or `apt install age`), then `age-keygen -o maxoff-backup.key`. The file holds the private key: keep it
+   **offline** (a password manager entry and a printed copy), never in the repository or a chat. The line
+   `# public key: age1…` is the recipient, safe to share.
+2. **The bucket.** Cloudflare → R2 → Create bucket `maxoff-backups-production` (location hint Asia-Pacific),
+   private (no public access, no custom domain). Settings → Object lifecycle rules → add a rule that
+   **deletes objects 31 days after upload** (the prefix can stay empty).
+3. **The token.** R2 → Manage R2 API Tokens → Create: **Object Read & Write**, scoped to **that bucket only**
+   (never the files bucket's token, which is scoped to `maxoff-files-production`). Note the Access Key ID and
+   Secret Access Key.
+4. **The GitHub environment `backups`** (Settings → Environments → New; **no required reviewer**, the job runs
+   at night). Secrets: `SUPABASE_DB_PASSWORD` (the production database password), `BACKUP_R2_ACCESS_KEY_ID`,
+   `BACKUP_R2_SECRET_ACCESS_KEY`. Variables: `SUPABASE_PROJECT_REF` (`peshoflxypujbzecgwqq`),
+   `SUPABASE_DB_POOLER_HOST` (Supabase → project → Connect → **Session pooler**: the host, e.g.
+   `aws-0-ap-south-1.pooler.supabase.com`; the user is `postgres.<ref>` and the workflow builds it),
+   `R2_ACCOUNT_ID`, `BACKUP_R2_BUCKET` (`maxoff-backups-production`), `BACKUP_AGE_RECIPIENT` (the `age1…` line).
+5. **Prove it:** Actions → Backup → Run workflow. The run's summary names the object. Then the
+   production restore drill (the runbook) once, after the first production deploy, and every quarter.
+6. On the 1st of each month the same workflow opens a "Monthly Supabase usage check" issue with ADR-0003's
+   thresholds (~4 GB transfer, ~400 MB database); tick and close it.
 
 ### Branch previews (task 2.0)
 

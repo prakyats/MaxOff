@@ -27,7 +27,6 @@ const BASE_DAY: TodayDay = {
   startedAt: null,
   endedAt: null,
   endNotRecorded: false,
-  firstLoginAt: null,
 };
 
 const BASE: OwnToday = {
@@ -58,12 +57,8 @@ describe("promptDue (PRODUCT §4.2, kickoff 3b decision 3)", () => {
     expect(promptDue(withDay({ isDayOff: true }))).toBe(false);
     expect(promptDue(withDay({ state: "pending_review", submittedChoice: "present" }))).toBe(false);
     expect(promptDue(withDay({ state: "pending_review", submittedChoice: "leave" }))).toBe(false);
-    // A 2.x gate choice on the shared staging database counts as recorded (decision 28).
-    expect(
-      promptDue(
-        withDay({ state: "pending_review", submittedChoice: "present", firstLoginAt: STARTED }),
-      ),
-    ).toBe(false);
+    // A Present recorded without a start (an Owner correction, say) counts as recorded.
+    expect(promptDue(withDay({ state: "pending_review", submittedChoice: "present" }))).toBe(false);
   });
 
   it("never asks on a day of approved leave, full or half, whether or not a row exists yet", () => {
@@ -148,11 +143,9 @@ describe("describeTodayStrip", () => {
     ).toBe("Present · ended 6:30 pm · approved");
   });
 
-  it("offers Start day on a Present recorded without one (a 2.x gate choice, decision 28)", () => {
+  it("offers Start day on a Present recorded without one (an Owner correction, say)", () => {
     expect(
-      describeTodayStrip(
-        withDay({ state: "pending_review", submittedChoice: "present", firstLoginAt: STARTED }),
-      ),
+      describeTodayStrip(withDay({ state: "pending_review", submittedChoice: "present" })),
     ).toEqual({
       kind: "status",
       text: "Present · waiting for approval",

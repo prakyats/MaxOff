@@ -47,11 +47,7 @@ export type HistoryDay = {
   finalStatus: DayStatus | null;
   isDayOff: boolean;
   workedOnLeave: boolean;
-  /** The 2.x sign-in and sign-out times; a day's start and end until 3b.1 (decision 31). */
-  firstLoginAt: string | null;
-  lastLogoutAt: string | null;
-  logoutNotRecorded: boolean;
-  /** The Start day and End day taps (3b.1). */
+  /** The Start day and End day taps (3b.1; a 2.x sign-in day was backfilled onto them, 3c.1). */
   startedAt: string | null;
   endedAt: string | null;
   endNotRecorded: boolean;
@@ -61,26 +57,17 @@ export type HistoryDay = {
 };
 
 /**
- * The day's start and end, as the history shows them: the Start day and End day taps, and for a
- * day recorded before 3b.1 the sign-in and sign-out times that stood for them (kickoff 3b
+ * The day's start and end, as the history shows them: the Start day and End day taps (a day
+ * recorded the 2.x way carries its sign-in and sign-out there since the 3c.1 backfill, kickoff 3b
  * decision 31). "not recorded" names the nightly flag; "—" is a time that never came.
  */
-export function dayTimes(
-  day: Pick<
-    HistoryDay,
-    | "startedAt"
-    | "endedAt"
-    | "endNotRecorded"
-    | "firstLoginAt"
-    | "lastLogoutAt"
-    | "logoutNotRecorded"
-  >,
-): { start: string; end: string } {
-  const start = day.startedAt ?? day.firstLoginAt;
-  const end = day.endedAt ?? day.lastLogoutAt;
+export function dayTimes(day: Pick<HistoryDay, "startedAt" | "endedAt" | "endNotRecorded">): {
+  start: string;
+  end: string;
+} {
   return {
-    start: start ? clockTime(start) : "—",
-    end: end ? clockTime(end) : day.endNotRecorded || day.logoutNotRecorded ? "not recorded" : "—",
+    start: day.startedAt ? clockTime(day.startedAt) : "—",
+    end: day.endedAt ? clockTime(day.endedAt) : day.endNotRecorded ? "not recorded" : "—",
   };
 }
 
@@ -262,7 +249,6 @@ export function describeHistoryDay(
   if (day.workedOnLeave) flags.push("1 day worked");
   if (day.overtimeFlag) flags.push("Overtime");
   if (day.endNotRecorded) flags.push("End of day not recorded");
-  if (day.logoutNotRecorded) flags.push("Logout not recorded");
 
   if (day.state === "awaiting_choice") {
     return { status: "Not chosen", standing: "No choice made", dotStatus: day.state, flags };

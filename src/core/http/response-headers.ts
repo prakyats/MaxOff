@@ -51,3 +51,17 @@ export function responseHeaders(appEnv: AppEnv | string | undefined): ResponseHe
     ? [...SECURITY_HEADERS, NOINDEX_HEADER]
     : [...SECURITY_HEADERS];
 }
+
+/**
+ * Puts the same list on a response the proxy builds itself (3c.1). `next.config.ts`'s `headers()`
+ * covers what Next renders, but on the Worker a redirect answered by `updateSession()` (no
+ * session → `/login`, `/` → the role's home) leaves the proxy before that rule applies, so the
+ * proxy sets them here. Existing values are replaced, never appended: the list is the policy.
+ */
+export function applyResponseHeaders(
+  headers: Headers,
+  appEnv: AppEnv | string | undefined = process.env.NEXT_PUBLIC_APP_ENV,
+): Headers {
+  for (const { key, value } of responseHeaders(appEnv)) headers.set(key, value);
+  return headers;
+}

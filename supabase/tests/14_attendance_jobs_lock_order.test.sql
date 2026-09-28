@@ -1,5 +1,6 @@
 -- 2.5 Lock order for the jobs (DATA-MODEL §3 "Lock order", WORKFLOWS §1 "Settled in 2.5"):
--- app.absent_check and app.logout_not_recorded take each member's leave: advisory lock BEFORE
+-- app.absent_check and app.end_not_recorded (3b.1; since the 3c.1 contract migration in place of
+-- app.logout_not_recorded) take each member's leave: advisory lock BEFORE
 -- that member's rows, so a job running while the Owner decides someone's day or leave waits for
 -- the decision instead of deadlocking with it. Built like 12 (dblink, fixtures committed through
 -- c0 and removed at both ends): A holds leave:<member>; B runs the job for yesterday and must be
@@ -116,8 +117,8 @@ create temporary table b_pid as
   select pid from extensions.dblink('b', 'select pg_backend_pid()') as t(pid integer);
 
 select pg_temp.cleanup();
--- waiting: logged in yesterday, never chose (the absent check proposes it). logged: logged in
--- yesterday, never logged out (the logout job flags it). Yesterday is a working day for this
+-- waiting: a day yesterday, never chose (the absent check proposes it). logged: started
+-- yesterday, never ended (the 00:00 job flags it). Yesterday is a working day for this
 -- file: the weekly off days are cleared on c0 and put back at the end.
 create temporary table saved as
   select * from extensions.dblink('c0', 'select weekly_off_days::text from public.org_settings limit 1') as t(days text);
@@ -128,9 +129,9 @@ select extensions.dblink_exec('c0', format($q$
   insert into public.members (id, org_id, full_name, email, role, status, joined_at) values
     (%1$L, (select id from public.organizations limit 1), 'Lock Waiting', 'lock-waiting@example.com', 'staff', 'active', now() - interval '30 days'),
     (%2$L, (select id from public.organizations limit 1), 'Lock Logged',  'lock-logged@example.com',  'staff', 'active', now() - interval '30 days');
-  insert into public.attendance_days (member_id, work_date, first_login_at, state) values
-    (%1$L, app.today_ist() - 1, app.ist_day_start(app.today_ist() - 1) + interval '9 hours', 'awaiting_choice');
-  insert into public.attendance_days (member_id, work_date, first_login_at, state, submitted_choice, submitted_at) values
+  insert into public.attendance_days (member_id, work_date, state) values
+    (%1$L, app.today_ist() - 1, 'awaiting_choice');
+  insert into public.attendance_days (member_id, work_date, started_at, state, submitted_choice, submitted_at) values
     (%2$L, app.today_ist() - 1, app.ist_day_start(app.today_ist() - 1) + interval '9 hours', 'pending_review', 'present', now());
 $q$, pg_temp.fx('waiting'), pg_temp.fx('logged')));
 
@@ -148,22 +149,22 @@ create temporary table checks (fn text primary key, r text[]);
 insert into checks values
   ('absent_check', pg_temp.waits_first('waiting',
      'select count(*)::text from app.absent_check(app.today_ist() - 1)', pg_temp.id('waiting_day'))),
-  ('logout_not_recorded', pg_temp.waits_first('logged',
-     'select count(*)::text from app.logout_not_recorded(app.today_ist() - 1)', pg_temp.id('logged_day')));
+  ('end_not_recorded', pg_temp.waits_first('logged',
+     'select count(*)::text from app.end_not_recorded(app.today_ist() - 1)', pg_temp.id('logged_day')));
 
 select is((select r[1] from checks where fn = 'absent_check'), 'advisory', 'absent_check waits on the member''s leave: lock first');
 select is((select r[2] from checks where fn = 'absent_check'), 'ok', 'absent_check: the member''s day is not locked yet');
 select is((select r[3] from checks where fn = 'absent_check'), 'ok', 'absent_check then finishes');
-select is((select r[1] from checks where fn = 'logout_not_recorded'), 'advisory', 'logout_not_recorded waits on the member''s leave: lock first');
-select is((select r[2] from checks where fn = 'logout_not_recorded'), 'ok', 'logout_not_recorded: the member''s day is not locked yet');
-select is((select r[3] from checks where fn = 'logout_not_recorded'), 'ok', 'logout_not_recorded then finishes');
+select is((select r[1] from checks where fn = 'end_not_recorded'), 'advisory', 'end_not_recorded waits on the member''s leave: lock first');
+select is((select r[2] from checks where fn = 'end_not_recorded'), 'ok', 'end_not_recorded: the member''s day is not locked yet');
+select is((select r[3] from checks where fn = 'end_not_recorded'), 'ok', 'end_not_recorded then finishes');
 
 -- Both runs were rolled back on B: the fixtures are as arranged.
 select is(
   (select state from extensions.dblink('c0', format('select state::text from public.attendance_days where id = %L', pg_temp.id('waiting_day'))) as t(state text)),
   'awaiting_choice', 'the proposal was rolled back with B');
 select is(
-  (select f from extensions.dblink('c0', format('select logout_not_recorded::text from public.attendance_days where id = %L', pg_temp.id('logged_day'))) as t(f text)),
+  (select f from extensions.dblink('c0', format('select end_not_recorded::text from public.attendance_days where id = %L', pg_temp.id('logged_day'))) as t(f text)),
   'false', 'the flag was rolled back with B');
 
 select pg_temp.cleanup();

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { APP_ENVS } from "@/core/observability/env";
 
 import {
+  applyResponseHeaders,
   FILE_ROUTE_CSP,
   FILE_ROUTE_SOURCE,
   NOINDEX_HEADER,
@@ -50,6 +51,17 @@ describe("responseHeaders", () => {
       expect(FILE_ROUTE_CSP.value).toContain(directive);
     }
     expect(FILE_ROUTE_CSP.value).not.toMatch(/script-src|img-src|connect-src/);
+  });
+
+  it("puts the build's list on a response the proxy answers itself (3c.1)", () => {
+    const headers = applyResponseHeaders(
+      new Headers({ "X-Frame-Options": "SAMEORIGIN" }),
+      "staging",
+    );
+    for (const header of [...SECURITY_HEADERS, NOINDEX_HEADER]) {
+      expect(headers.get(header.key)).toBe(header.value);
+    }
+    expect(applyResponseHeaders(new Headers(), "production").get("X-Robots-Tag")).toBeNull();
   });
 
   it("robots.txt on staging disallows everything", () => {

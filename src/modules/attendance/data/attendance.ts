@@ -50,7 +50,6 @@ export const getOwnToday = cache(async (): Promise<OwnToday> => {
             startedAt: row.started_at,
             endedAt: row.ended_at,
             endNotRecorded: row.end_not_recorded,
-            firstLoginAt: row.first_login_at,
           }
         : null,
     yesterdayOpen:
@@ -102,7 +101,7 @@ export async function rpcChooseLeaveToday(
 }
 
 const HISTORY_COLUMNS =
-  "id, work_date, state, submitted_choice, final_status, is_day_off, worked_on_leave, first_login_at, last_logout_at, logout_not_recorded, started_at, ended_at, end_not_recorded, overtime_flag, overtime_reason, events:attendance_events(id, action, from_status, to_status, reason, actor_id, at)";
+  "id, work_date, state, submitted_choice, final_status, is_day_off, worked_on_leave, started_at, ended_at, end_not_recorded, overtime_flag, overtime_reason, events:attendance_events(id, action, from_status, to_status, reason, actor_id, at)";
 
 /**
  * One member's days in one IST month, newest first, each with its events in the order they
@@ -131,9 +130,6 @@ export async function listDays(memberId: string, month: Month): Promise<HistoryD
     finalStatus: row.final_status,
     isDayOff: row.is_day_off,
     workedOnLeave: row.worked_on_leave,
-    firstLoginAt: row.first_login_at,
-    lastLogoutAt: row.last_logout_at,
-    logoutNotRecorded: row.logout_not_recorded,
     startedAt: row.started_at,
     endedAt: row.ended_at,
     endNotRecorded: row.end_not_recorded,

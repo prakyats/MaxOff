@@ -122,18 +122,18 @@ from (values
 insert into public.leave_requests (member_id, type, start_date, end_date, state, source, decided_by, decided_at)
 values (pg_temp.fx('leaver'), 'leave', pg_temp.today(), pg_temp.today(), 'approved', 'form', pg_temp.fx('owner'), now()),
        (pg_temp.fx('halfer'), 'half_day', pg_temp.today(), pg_temp.today(), 'approved', 'form', pg_temp.fx('owner'), now());
--- gated chose Present at the 2.x gate this morning (main's app on the shared staging database).
-insert into public.attendance_days (member_id, work_date, first_login_at, state, submitted_choice, submitted_at)
-values (pg_temp.fx('gated'), pg_temp.today(), now() - interval '2 hours', 'pending_review', 'present', now() - interval '2 hours');
+-- gated is Present without a start (a 2.x gate choice backfilled with no sign-in, or an Owner correction).
+insert into public.attendance_days (member_id, work_date, state, submitted_choice, submitted_at)
+values (pg_temp.fx('gated'), pg_temp.today(), 'pending_review', 'present', now() - interval '2 hours');
 -- chose picked leave this morning (pending, a source = attendance request behind it).
-insert into public.attendance_days (member_id, work_date, first_login_at, state, submitted_choice, submitted_at)
-values (pg_temp.fx('chose'), pg_temp.today(), now() - interval '2 hours', 'pending_review', 'leave', now() - interval '2 hours');
+insert into public.attendance_days (member_id, work_date, state, submitted_choice, submitted_at)
+values (pg_temp.fx('chose'), pg_temp.today(), 'pending_review', 'leave', now() - interval '2 hours');
 -- absent: the Owner already corrected today to absent.
 insert into public.attendance_days (member_id, work_date, state, final_status, decided_by, decided_at, decision_reason)
 values (pg_temp.fx('absent'), pg_temp.today(), 'corrected', 'absent', pg_temp.fx('owner'), now(), 'no show');
--- offrow opened the app on a day off under 2.x: a row marked is_day_off, no choice.
-insert into public.attendance_days (member_id, work_date, first_login_at, is_day_off)
-values (pg_temp.fx('offrow'), pg_temp.today(), now() - interval '1 hour', true);
+-- offrow: a row marked is_day_off, no choice.
+insert into public.attendance_days (member_id, work_date, is_day_off)
+values (pg_temp.fx('offrow'), pg_temp.today(), true);
 -- late started yesterday and never ended; the 00:00 job flagged it.
 insert into public.attendance_days (member_id, work_date, state, submitted_choice, submitted_at, started_at, end_not_recorded)
 values (pg_temp.fx('late'), pg_temp.today() - 1, 'pending_review', 'present',
@@ -168,11 +168,11 @@ select has_function('public', 'session_sign_out', array['text', 'text'], 'sessio
 select has_function('public', 'attendance_today_detail', '{}'::text[], 'attendance_today_detail exists');
 select has_function('app', 'end_not_recorded', array['date'], 'app.end_not_recorded exists');
 select has_function('app', 'end_day_reminder_due', array['timestamp with time zone'], 'app.end_day_reminder_due exists');
--- Expand-only: the 2.x functions are still there with their signatures.
-select has_function('public', 'attendance_touch', array['text', 'text'], 'attendance_touch (2.x) is kept for main');
-select has_function('public', 'session_logout', array['text', 'text'], 'session_logout (2.x) is kept for main');
-select has_function('app', 'attendance_logout', array['uuid'], 'app.attendance_logout (2.x) is kept for main');
-select has_function('public', 'attendance_today', '{}'::text[], 'attendance_today (2.x) is kept for main');
+-- 3c.1 (the contract migration): the 2.x functions are gone.
+select hasnt_function('public', 'attendance_touch', array['text', 'text'], 'attendance_touch (2.x) is gone');
+select hasnt_function('public', 'session_logout', array['text', 'text'], 'session_logout (2.x) is gone');
+select hasnt_function('app', 'attendance_logout', array['uuid'], 'app.attendance_logout (2.x) is gone');
+select hasnt_function('public', 'attendance_today', '{}'::text[], 'attendance_today (2.x) is gone');
 select ok(
   not has_function_privilege('authenticated', 'app.end_not_recorded(date)', 'execute')
   and not has_function_privilege('authenticated', 'app.end_day_reminder_due(timestamptz)', 'execute')
@@ -202,9 +202,9 @@ select is((select yesterday_open_day_id from public.attendance_own_today()),
           (pg_temp.day_on('late', pg_temp.today() - 1)).id, 'a started, unended yesterday is reported for the late End day');
 select pg_temp.as_member('gated');
 select results_eq(
-  $$ select state::text, submitted_choice::text, first_login_at is not null, started_at from public.attendance_own_today() $$,
-  $$ values ('pending_review', 'present', true, null::timestamptz) $$,
-  'a 2.x gate choice is read as it is: Present waiting, signed in, not started');
+  $$ select state::text, submitted_choice::text, started_at from public.attendance_own_today() $$,
+  $$ values ('pending_review', 'present', null::timestamptz) $$,
+  'a Present without a start is read as it is: waiting, not started');
 select pg_temp.as_member('halfer');
 select results_eq(
   $$ select state::text, final_status::text, proposed_by_system, leave_type::text, covering_leave_type::text from public.attendance_own_today() $$,
@@ -241,10 +241,10 @@ select throws_ok('select public.attendance_start_day()', 'P0001', 'INVALID_STATE
 select pg_temp.as_member('staff');
 select lives_ok('select public.attendance_start_day()', 'staff starts the day');
 select results_eq(
-  $$ select state::text, submitted_choice::text, first_login_at, started_at is not null, submitted_at = started_at, is_day_off
+  $$ select state::text, submitted_choice::text, started_at is not null, submitted_at = started_at, is_day_off
      from public.attendance_days where member_id = pg_temp.fx('staff') $$,
-  $$ values ('pending_review', 'present', null::timestamptz, true, true, false) $$,
-  'the day is opened and waits for the Owner as Present; the tap is the start; no sign-in time is invented');
+  $$ values ('pending_review', 'present', true, true, false) $$,
+  'the day is opened and waits for the Owner as Present; the tap is the start');
 select is(pg_temp.events((pg_temp.day_on('staff', pg_temp.today())).id), array['started'], 'one started event');
 select is(pg_temp.audit_actions((pg_temp.day_on('staff', pg_temp.today())).id), array['opened', 'started'],
   'audited as opened then started');
@@ -283,14 +283,14 @@ select results_eq(
 select is(pg_temp.events((pg_temp.day_on('halfer', pg_temp.today())).id), array['derived_from_leave', 'started'], 'derived, then started');
 select is((select leave_type from public.attendance_own_today()), 'half_day'::public.leave_type, 'own_today reports the half-day leave');
 
--- attendance_start_day: a 2.x gate Present (shared staging) ---------------------------------------
+-- attendance_start_day: a Present recorded without a start ---------------------------------------
 select pg_temp.as_member('gated');
-select lives_ok('select public.attendance_start_day()', 'Present chosen at the 2.x gate, then Start day in 3b');
+select lives_ok('select public.attendance_start_day()', 'Present already recorded, then Start day');
 select results_eq(
-  $$ select d.state::text, d.submitted_choice::text, d.first_login_at is not null, d.started_at is not null
+  $$ select d.state::text, d.submitted_choice::text, d.started_at is not null
      from public.attendance_days d where d.member_id = pg_temp.fx('gated') $$,
-  $$ values ('pending_review', 'present', true, true) $$,
-  'the gate choice stands, the sign-in time stays, the start is added (decision 28: either counts)');
+  $$ values ('pending_review', 'present', true) $$,
+  'the standing stays, the start is added');
 select is(pg_temp.audit_actions((pg_temp.day_on('gated', pg_temp.today())).id), array['started'], 'one audit row, started');
 
 -- attendance_choose_leave_today -----------------------------------------------------------------
@@ -301,11 +301,11 @@ select throws_ok($$ select public.attendance_choose_leave_today('comp_leave') $$
 select is((select count(*) from public.attendance_days where member_id = pg_temp.fx('open')), 0::bigint, 'a refused choice opens no row');
 select is(public.attendance_choose_leave_today('half_day', 'Dentist'), 'pending_review'::public.attendance_state, 'a half day chosen at the prompt');
 select results_eq(
-  $$ select d.state::text, d.submitted_choice::text, d.first_login_at, d.started_at, r.source, r.state::text, r.reason
+  $$ select d.state::text, d.submitted_choice::text, d.started_at, r.source, r.state::text, r.reason
      from public.attendance_days d join public.leave_requests r on r.id = d.leave_request_id
      where d.member_id = pg_temp.fx('open') $$,
-  $$ values ('pending_review', 'half_day', null::timestamptz, null::timestamptz, 'attendance', 'submitted', 'Dentist') $$,
-  'the day is opened (no sign-in, no start) and the 2.1 source = attendance request is behind it');
+  $$ values ('pending_review', 'half_day', null::timestamptz, 'attendance', 'submitted', 'Dentist') $$,
+  'the day is opened (no start) and the 2.1 source = attendance request is behind it');
 select is(pg_temp.events((pg_temp.day_on('open', pg_temp.today())).id), array['submitted'], 'the event is the 2.1 submitted one');
 select throws_ok($$ select public.attendance_choose_leave_today('leave') $$, 'P0001', 'INVALID_STATE', 'a second choice is refused (2.1 rule)');
 -- A half day chosen at the prompt is still half a working day: Start and End stay available.
@@ -387,9 +387,9 @@ select pg_temp.as_member('gated');
 select lives_ok($$ select public.session_sign_out('Pixel', null) $$, 'sign out of this device records the logout event');
 select is((select count(*) from public.session_events where member_id = pg_temp.fx('gated') and kind = 'logout'), 1::bigint, 'one logout event');
 select results_eq(
-  $$ select d.last_logout_at, d.ended_at, d.started_at is not null from public.attendance_days d where d.member_id = pg_temp.fx('gated') $$,
-  $$ values (null::timestamptz, null::timestamptz, true) $$,
-  'signing out touches no attendance day: neither the 2.x logout time nor the end');
+  $$ select d.ended_at, d.started_at is not null from public.attendance_days d where d.member_id = pg_temp.fx('gated') $$,
+  $$ values (null::timestamptz, true) $$,
+  'signing out touches no attendance day: no end is written');
 select pg_temp.as_system();
 select throws_ok($$ select public.session_sign_out() $$, 'P0001', 'UNAUTHENTICATED', 'nobody signed in: refused');
 
@@ -448,8 +448,8 @@ select results_eq(
   $$ values (false, true, false) $$,
   'a person on their joining day: not started, no day');
 select is((select count(*) from public.attendance_today_detail()),
-          (select count(*) from public.attendance_today()),
-          'the detail read lists the same people as the 2.4 read (expand-only)');
+          (select count(*) from public.members m where m.status = 'active' and m.role <> 'owner'),
+          'the detail read lists every active member who marks attendance');
 
 select * from finish();
 rollback;

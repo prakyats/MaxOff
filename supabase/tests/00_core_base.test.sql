@@ -73,11 +73,11 @@ select ok(not has_schema_privilege('anon', 'app', 'usage'), 'anon may not use ap
 create temporary table app_internal (name text primary key);
 insert into app_internal values
   ('attendance_event'), ('attendance_apply_leave'), ('attendance_release_leave'),
-  ('attendance_logout'), ('leave_covering'), ('leave_overlaps'),
+  ('leave_covering'), ('leave_overlaps'),
   -- 2.2
   ('leave_supersede_gate'), ('leave_clash'), ('leave_clash_label'),
   -- 2.5: the jobs (pg_cron runs them as postgres) and the day opener they share with touch
-  ('attendance_open_day'), ('absent_check'), ('logout_not_recorded'),
+  ('attendance_open_day'), ('absent_check'),
   -- 3b.1: the 00:00 end-not-recorded job and the 20:30 reminder list (service_role only)
   ('end_not_recorded'), ('end_day_reminder_due'),
   -- 3b.2: the settle between a comp leave request and its credits
@@ -87,6 +87,7 @@ insert into app_internal values
   -- 3b review: the org's End day cutoff (read inside the attendance functions) and the holidays
   -- trigger that gives comp leave credits back
   ('end_day_cutoff'), ('holiday_release_comp');
+  -- 3c.1 (contract migration): attendance_logout and logout_not_recorded are gone with the 2.x gate.
 select is(
   (select count(*) from pg_proc p
     where p.pronamespace = 'app'::regnamespace
@@ -106,7 +107,7 @@ select is(
   0::bigint,
   'the internal helpers: service_role only, never the API role');
 select is((select count(*) from pg_proc p where p.pronamespace = 'app'::regnamespace
-             and p.proname in (select name from app_internal)), 18::bigint,
+             and p.proname in (select name from app_internal)), 16::bigint,
   'the internal helper list matches what exists');
 select cmp_ok((select count(*) from pg_proc where pronamespace = 'app'::regnamespace), '>=', 4::bigint,
   'the grant check saw the app functions');

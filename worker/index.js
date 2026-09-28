@@ -5,8 +5,20 @@
 // shared secret the route checks. `wrangler deploy` bundles this file; `.open-next/worker.js`
 // is what `pnpm build:worker` produced.
 import openNext from "../.open-next/worker.js";
+import { canonicalRedirectUrl } from "../src/core/http/canonical-host.ts";
 
 export { BucketCachePurge, DOQueueHandler, DOShardedTagCache } from "../.open-next/worker.js";
+
+/** The security headers a redirect the Worker answers itself still carries (ARCHITECTURE §18.3). */
+const REDIRECT_HEADERS = {
+  "X-Frame-Options": "DENY",
+  "Content-Security-Policy": "frame-ancestors 'none'",
+  "X-Content-Type-Options": "nosniff",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+  "Strict-Transport-Security": "max-age=63072000; includeSubDomains",
+  "Cache-Control": "no-store",
+};
 
 /** Cron expression → the job route it runs (WORKFLOWS §8, `worker` rows). */
 const CRON_ROUTES = {
@@ -15,7 +27,27 @@ const CRON_ROUTES = {
 };
 
 const worker = {
-  fetch: openNext.fetch,
+  /**
+   * Production only (3c.1, kickoff 3c decision 3a): `CANONICAL_HOST` is a `vars` entry of the
+   * production environment in `wrangler.jsonc`, so a request on `maxoff.pixoraclips.workers.dev`
+   * is sent to the same path on `https://app.maxoff.in` with one 308. Staging and the branch
+   * previews have no such var and are served as they are.
+   *
+   * @param {Request} request
+   * @param {Record<string, unknown>} env
+   * @param {ExecutionContext} ctx
+   */
+  fetch(request, env, ctx) {
+    const canonical = typeof env.CANONICAL_HOST === "string" ? env.CANONICAL_HOST : undefined;
+    const target = canonicalRedirectUrl(request.url, canonical);
+    if (target) {
+      return new Response(null, {
+        status: 308,
+        headers: { ...REDIRECT_HEADERS, Location: target },
+      });
+    }
+    return openNext.fetch(request, env, ctx);
+  },
 
   /**
    * @param {ScheduledController} controller

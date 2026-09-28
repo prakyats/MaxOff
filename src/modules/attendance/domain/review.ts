@@ -20,20 +20,18 @@ export type PendingDay = {
   /** The member said they were working on a day of approved leave. */
   onApprovedLeave: boolean;
   isDayOff: boolean;
-  /** The 2.x sign-in time; the Start day tap since 3b.1. */
-  firstLoginAt: string | null;
+  /** The Start day tap (3b.1). */
   startedAt: string | null;
   note: string | null;
   submittedAt: string | null;
 };
 
-/** "Started 9:12 am" (3b.1), or the 2.x "Signed in 9:12 am", or nothing recorded. */
-export function pendingStart(day: Pick<PendingDay, "startedAt" | "firstLoginAt">): {
-  label: "Started" | "Signed in";
+/** "Started 9:12 am" (3b.1), or nothing recorded. */
+export function pendingStart(day: Pick<PendingDay, "startedAt">): {
+  label: "Started";
   value: string;
 } {
   if (day.startedAt) return { label: "Started", value: clockTime(day.startedAt) };
-  if (day.firstLoginAt) return { label: "Signed in", value: clockTime(day.firstLoginAt) };
   return { label: "Started", value: "Not recorded" };
 }
 
@@ -53,11 +51,10 @@ export function pendingLabel(day: PendingDay): string {
   return label;
 }
 
-/** The row's second line: the date, and when they started (or, for a 2.x day, signed in). */
+/** The row's second line: the date, and when they started. */
 export function pendingSubtitle(day: PendingDay, today: string): string {
   const date = day.workDate === today ? "Today" : historyDate(day.workDate);
-  const start = day.startedAt ?? day.firstLoginAt;
-  return start ? `${date} · ${day.startedAt ? "started" : "in at"} ${clockTime(start)}` : date;
+  return day.startedAt ? `${date} · started ${clockTime(day.startedAt)}` : date;
 }
 
 /** "Approved Asha's present", for the Undo toast. */
@@ -88,10 +85,7 @@ export type TodayPerson = {
   state: AttendanceState | null;
   finalStatus: DayStatus | null;
   submittedChoice: AttendanceChoice | null;
-  firstLoginAt: string | null;
-  lastLogoutAt: string | null;
-  logoutNotRecorded: boolean;
-  /** The Start day and End day taps (3b.1); the 2.x sign-in columns stand in when null. */
+  /** The Start day and End day taps (3b.1). */
   startedAt: string | null;
   endedAt: string | null;
   endNotRecorded: boolean;
@@ -195,25 +189,18 @@ export function boardStatus(person: TodayPerson, bucket: BoardBucket): string {
     const status = person.finalStatus ?? person.leaveType;
     return status ? STATUS_LABELS[status] : STATUS_LABELS.leave;
   }
-  if (bucket === "not_chosen")
-    return person.firstLoginAt ? "Signed in, not started" : "Not started";
+  if (bucket === "not_chosen") return "Not started";
   if (bucket === "absent") return STATUS_LABELS.absent;
   return STATUS_LABELS.present;
 }
 
-/**
- * The day's start and end (the Start day and End day taps, or a 2.x day's sign-in and sign-out,
- * decision 31) and its flags, for the board row's second line.
- */
+/** The day's start and end (the Start day and End day taps) and its flags, for the board row's second line. */
 export function boardDetail(person: TodayPerson): string {
   const parts: string[] = [];
   if (person.startedAt) parts.push(`Started ${clockTime(person.startedAt)}`);
-  else if (person.firstLoginAt) parts.push(`In ${clockTime(person.firstLoginAt)}`);
   if (person.endedAt) parts.push(`Ended ${clockTime(person.endedAt)}`);
-  else if (person.lastLogoutAt) parts.push(`Out ${clockTime(person.lastLogoutAt)}`);
   if (person.endNotRecorded) parts.push("End not recorded");
-  if (person.logoutNotRecorded) parts.push("Logout not recorded");
   if (person.overtimeFlag) parts.push("Overtime");
-  if (person.isDayOff && (person.startedAt || person.firstLoginAt)) parts.push("Day off");
+  if (person.isDayOff && person.startedAt) parts.push("Day off");
   return parts.join(" · ") || (person.jobTitle ?? "");
 }
