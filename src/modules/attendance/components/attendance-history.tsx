@@ -17,8 +17,8 @@ import {
 } from "@/core/ui/primitives/sheet";
 
 import {
-  canFlagOvertime,
   clockTime,
+  dayTimes,
   describeEvent,
   describeHistoryDay,
   firstName,
@@ -28,34 +28,40 @@ import {
   type Viewpoint,
 } from "../domain/history";
 
+import { canAddNote, type NoteDay } from "../domain/notes";
+
 import { CorrectDayDialog, type CorrectTarget } from "./correct-day-dialog";
-import { OvertimeDialog } from "./overtime-dialog";
+import { ExtraWorkNoteDialog } from "./extra-work-note-dialog";
 
 /**
  * One person's attendance, one IST month (the month pager is the route's). A row says what the
  * day came to; opening it shows how, event by event: what they chose, what the Owner decided and
  * why, and what their leave changed. The member reads their own in their words (`SELF`, with
- * overtime on today's entry); the Owner reads someone else's in the same words turned around,
- * with **Correct** on every day (task 2.4, WORKFLOWS §1: any state, reason required).
+ * **Add note** on the last 7 days: an overtime note, or "I worked that day" on a day off, 3b.2);
+ * the Owner reads someone else's in the same words turned around, with **Correct** on every day
+ * (task 2.4, WORKFLOWS §1: any state, reason required).
  */
 export function AttendanceHistory({
   days,
   monthName,
   today,
   viewpoint = SELF,
+  noteDays = [],
 }: {
   days: HistoryDay[];
   /** "September 2026", for the empty state. */
   monthName: string;
-  /** The IST date: today's entry carries the day's action (overtime). */
+  /** The IST date: the last 7 days carry the extra work note. */
   today: string;
   viewpoint?: Viewpoint;
+  /** The days a note may be about (`noteDays()`), for the member's own history. */
+  noteDays?: NoteDay[];
 }) {
   // Desktop opens the same timeline in a side sheet; a phone uses DataTable's own sheet.
   const [openId, setOpenId] = useState<string | null>(null);
   const open = days.find((day) => day.id === openId) ?? null;
   // Held here, above both sheets: choosing the action closes the phone's detail sheet.
-  const [overtimeDayId, setOvertimeDayId] = useState<string | null>(null);
+  const [noteDate, setNoteDate] = useState<string | null>(null);
   const [correct, setCorrect] = useState<CorrectTarget | null>(null);
   const owner = viewpoint.kind === "owner" ? viewpoint : null;
 
@@ -79,11 +85,14 @@ export function AttendanceHistory({
         </Button>
       );
     }
-    return canFlagOvertime(day, today) ? (
-      <Button variant="secondary" size={size} onClick={() => setOvertimeDayId(day.id)}>
-        Flag overtime
+    if (!canAddNote(day.workDate, today) || !noteDays.some((d) => d.date === day.workDate)) {
+      return null;
+    }
+    return (
+      <Button variant="secondary" size={size} onClick={() => setNoteDate(day.workDate)}>
+        {day.isDayOff ? "I worked that day" : "Add overtime note"}
       </Button>
-    ) : null;
+    );
   };
 
   const columns: ColumnDef<HistoryDay>[] = [
@@ -119,7 +128,7 @@ export function AttendanceHistory({
     },
     {
       id: "times",
-      header: "Login · logout",
+      header: "Start · end",
       enableSorting: false,
       cell: ({ row }) => <span className="text-muted-foreground">{times(row.original)}</span>,
     },
@@ -194,10 +203,13 @@ export function AttendanceHistory({
           ) : null}
         </SheetContent>
       </Sheet>
-      <OvertimeDialog
-        dayId={overtimeDayId}
-        onOpenChange={(next) => (next ? null : setOvertimeDayId(null))}
-      />
+      {noteDate ? (
+        <ExtraWorkNoteDialog
+          days={noteDays}
+          initialDate={noteDate}
+          onClose={() => setNoteDate(null)}
+        />
+      ) : null}
       <CorrectDayDialog
         target={correct}
         onOpenChange={(next) => (next ? null : setCorrect(null))}
@@ -208,13 +220,8 @@ export function AttendanceHistory({
 }
 
 function times(day: HistoryDay): string {
-  const login = day.firstLoginAt ? clockTime(day.firstLoginAt) : "—";
-  const logout = day.lastLogoutAt
-    ? clockTime(day.lastLogoutAt)
-    : day.logoutNotRecorded
-      ? "not recorded"
-      : "—";
-  return `${login} · ${logout}`;
+  const { start, end } = dayTimes(day);
+  return `${start} · ${end}`;
 }
 
 /** The day's leave status, when it is one: correcting to another leave type keeps that leave. */
@@ -236,7 +243,7 @@ function DayTimeline({ day, viewpoint }: { day: HistoryDay; viewpoint: Viewpoint
           </dd>
         </div>
         <div className="flex justify-between gap-4">
-          <dt className="text-muted-foreground">Login · logout</dt>
+          <dt className="text-muted-foreground">Start · end</dt>
           <dd className="text-right">{times(day)}</dd>
         </div>
         {summary.flags.length > 0 ? (

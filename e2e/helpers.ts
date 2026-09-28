@@ -25,15 +25,15 @@ export function storageStateFor(role: SessionRole): string {
 
 /**
  * Fills the real sign-in form. Resolves once the browser has left /login and, for an Admin or
- * Staff member whose day still needs a choice, once the day gate (2.2) has been answered with
- * Present, so a flow spec lands where it did before the gate existed. `e2e/day-gate.spec.ts`
- * passes `{ gate: "stop" }` to meet the gate itself.
+ * Staff member whose day has not started, once the Start-day prompt (3b.1) has been answered
+ * with **Start day**, so a flow spec lands on a started day as it landed past the gate before.
+ * `e2e/working-day.spec.ts` passes `{ day: "stop" }` to meet the prompt itself.
  */
 export async function signIn(
   page: Page,
   email: string,
   password: string,
-  { gate = "present" }: { gate?: "present" | "stop" } = {},
+  { day = "start" }: { day?: "start" | "stop" } = {},
 ): Promise<void> {
   await page.goto("/login");
   await page.getByLabel("Email").fill(email);
@@ -42,7 +42,7 @@ export async function signIn(
   // The form shows any refusal. No allowance for a cold server: every route is warmed by the
   // `setup` project before a flow spec runs (`warm.setup.ts`, 2.6).
   await expect(page).not.toHaveURL(/\/login/);
-  if (gate === "present") await passGate(page);
+  if (day === "start") await answerStartPrompt(page);
 }
 
 /**
@@ -57,35 +57,27 @@ export function pageHeader(page: Page): Locator {
   return page.locator('[data-slot="page-header"]:visible');
 }
 
-/** The four answers of the gate, as the choice screen labels them. */
-export type GateChoice = "Present" | "Leave" | "Half day" | "Comp leave";
-
-/** Answers the gate on `/attendance` and waits until the browser has left it. */
-export async function chooseAttendance(
-  page: Page,
-  choice: GateChoice,
-  reason?: string,
-): Promise<void> {
-  await expect(page).toHaveURL(/\/attendance/);
-  // The radio's name is the label plus its hint ("Leave The whole day off."): anchor it, so
-  // "Leave" never matches "Comp leave".
-  await page.getByRole("radio", { name: new RegExp(`^${choice}\\b`) }).check();
-  if (reason) await page.getByLabel("Reason (optional)").fill(reason);
-  await page.getByRole("button", { name: "Submit" }).click();
-  await expect(page).not.toHaveURL(/\/attendance/);
+/** The Start-day prompt (3b.1): a bottom sheet on a phone, a dialog on desktop. */
+export function startPrompt(page: Page): Locator {
+  return page.locator('[data-slot="start-day-prompt"]');
 }
 
 /**
- * Present at the gate when the browser ends up on it; otherwise nothing. Waits for what is
- * rendered, not for the URL: after a sign-in the browser passes through `/set-password`, `/`
- * and the home route before the layout may send it on to the gate, so any URL check can run
- * too early. Either the gate's options or a shell screen's title bar ends the wait.
+ * Starts the day from the prompt when the layout mounted it; otherwise nothing. Waits for what
+ * is rendered, not for the URL: after a sign-in the browser passes through `/set-password`, `/`
+ * and the home route before the layout renders, so any URL check can run too early. The screen's
+ * title bar ends the wait; the layout's hidden marker says whether the prompt is there at all,
+ * and the prompt itself opens once hydrated. After Start day the tree re-renders without it.
  */
-export async function passGate(page: Page): Promise<void> {
-  const gate = page.locator('[data-slot="choice-option"]').first();
-  const screen = pageHeader(page);
-  await expect(gate.or(screen)).toBeVisible();
-  if (await gate.isVisible()) await chooseAttendance(page, "Present");
+export async function answerStartPrompt(page: Page): Promise<void> {
+  await expect(pageHeader(page)).toBeVisible();
+  const mounted = page.locator('[data-slot="start-day-prompt-mount"]');
+  if ((await mounted.count()) === 0) return;
+  const prompt = startPrompt(page);
+  await expect(prompt).toBeVisible();
+  await prompt.getByRole("button", { name: "Start day" }).click();
+  await expect(prompt).toBeHidden();
+  await expect(mounted).toHaveCount(0);
 }
 
 /**
@@ -251,11 +243,27 @@ export async function serviceSelect<T>(path: string): Promise<T[]> {
 }
 
 /**
- * Deletes one fixture person's attendance days, their events and every leave request, so a
- * spec that owns that person can run again without `pnpm db:reset` (2.3). The audit trigger
- * still logs the deletes; nothing else refers to these rows.
+ * Deletes one fixture person's attendance days, their events, every leave request and, since
+ * 3b.2, their extra work notes and comp leave credits, so a spec that owns that person can run
+ * again without `pnpm db:reset` (2.3). The audit trigger still logs the deletes; nothing else
+ * refers to these rows.
  */
+/** Removes a member's expense claims (3b.3), so a spec re-runs on a used database. */
+export async function resetExpenseClaims(memberId: string): Promise<void> {
+  await serviceRest(`expense_claims?member_id=eq.${memberId}`, { method: "DELETE" });
+}
+
 export async function resetAttendanceAndLeave(memberId: string): Promise<void> {
+  // 3b.2: comp leave credits point at leave requests (through their uses) and at notes.
+  const credits = await serviceSelect<{ id: string }>(
+    `comp_leave_credits?member_id=eq.${memberId}&select=id`,
+  );
+  if (credits.length > 0) {
+    const ids = credits.map((credit) => credit.id).join(",");
+    await serviceRest(`comp_leave_credit_uses?credit_id=in.(${ids})`, { method: "DELETE" });
+  }
+  await serviceRest(`comp_leave_credits?member_id=eq.${memberId}`, { method: "DELETE" });
+  await serviceRest(`extra_work_notes?member_id=eq.${memberId}`, { method: "DELETE" });
   const days = await serviceSelect<{ id: string }>(
     `attendance_days?member_id=eq.${memberId}&select=id`,
   );
@@ -282,6 +290,7 @@ export async function removeFixturePerson(email: string): Promise<void> {
   );
   for (const { id } of members) {
     await resetAttendanceAndLeave(id);
+    await resetExpenseClaims(id);
     await serviceRest(`session_events?member_id=eq.${id}`, { method: "DELETE" });
     await serviceRest(`activity_log?actor_id=eq.${id}`, { method: "DELETE" });
     await serviceRest(`members?id=eq.${id}`, { method: "DELETE" });
@@ -310,8 +319,8 @@ export async function removeJobTitles(names: string[]): Promise<void> {
 }
 
 /**
- * `resetAttendanceAndLeave()` for a seeded person known by email (the day-gate people), so a
- * spec that must meet the gate meets it on every run, not only after `db:reset` (2.6).
+ * `resetAttendanceAndLeave()` for a seeded person known by email (the working-day people), so a
+ * spec that must meet the Start-day prompt meets it on every run, not only after `db:reset`.
  */
 export async function resetAttendanceAndLeaveOf(email: string): Promise<void> {
   const [member] = await serviceSelect<{ id: string }>(

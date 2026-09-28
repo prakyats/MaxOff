@@ -134,7 +134,12 @@ const SCREENS = [
   { path: "/settings/thresholds", role: "owner" },
   { path: "/settings/job-titles", role: "owner" },
   { path: "/settings/custom-fields", role: "owner" },
+  { path: "/settings/expenses", role: "owner" },
+  { path: "/reports", role: "owner" },
+  { path: "/reports/month", role: "owner" },
   { path: "/me", role: "staff" },
+  { path: "/leave/expenses", role: "staff" },
+  { path: "/leave/expenses", role: "admin" },
   { path: "/my-day", role: "staff" },
   { path: "/today", role: "admin" },
   { path: "/clients", role: "owner" },
@@ -176,11 +181,14 @@ const LARGE_TEXT_SCREENS = {
     "/settings",
     "/settings/job-titles",
     "/settings/custom-fields",
+    "/settings/expenses",
+    "/reports",
+    "/reports/month",
     "/me",
     "/clients",
   ],
-  admin: ["/today", "/leave", "/leave/attendance", "/me", "/clients"],
-  staff: ["/my-day", "/leave", "/leave/attendance", "/me"],
+  admin: ["/today", "/leave", "/leave/attendance", "/leave/expenses", "/me", "/clients"],
+  staff: ["/my-day", "/leave", "/leave/attendance", "/leave/expenses", "/me"],
 } as const;
 
 /** The narrowest an ellipsis may cut a line to and still say what it is. */
@@ -312,7 +320,9 @@ test.describe("More, for Owner and Admin", () => {
     test.describe(`as ${role}`, () => {
       test.use({ storageState: storageStateFor(role) });
 
-      test("holds the rest of the navigation, profile and Log out", async ({ page }) => {
+      test("holds the rest of the navigation and the profile, with no sign-out", async ({
+        page,
+      }) => {
         await page.goto("/today");
         await page.locator('[data-slot="bottom-nav"] [data-nav="more"]').click();
 
@@ -326,8 +336,8 @@ test.describe("More, for Owner and Admin", () => {
           "Settings",
           "Me",
         ]);
-        // Log out is a recorded attendance action (WORKFLOWS §1), so it is one tap from the bar.
-        await expect(sheet.getByRole("button", { name: /Log out/ })).toBeVisible();
+        // "Sign out of this device" lives under Me only (kickoff 3b decision 1): nothing here.
+        await expect(sheet.getByRole("button", { name: /Log out|Sign out/ })).toHaveCount(0);
 
         await sheet.getByRole("link", { name: "People", exact: true }).click();
         await expect(page).toHaveURL(/\/people$/);
@@ -348,22 +358,17 @@ test.describe("More, for Owner and Admin", () => {
         await expect(sheet).toContainText("Appearance · Dark");
       });
 
-      test("Log out asks first, and cancelling leaves you signed in", async ({ page }) => {
-        await page.goto("/today");
-        await page.locator('[data-slot="bottom-nav"] [data-nav="more"]').click();
-        await page
-          .locator('[data-slot="more-sheet"]')
-          .getByRole("button", { name: "Log out" })
-          .click();
+      test("Sign out asks first on Me, and cancelling leaves you signed in", async ({ page }) => {
+        await page.goto("/me");
+        await page.getByRole("button", { name: "Sign out" }).click();
 
-        // It records the time (WORKFLOWS §1), so a mis-tap must not be able to do it.
-        const confirm = page.getByRole("alertdialog");
-        await expect(confirm).toContainText("records your logout time");
-        // The sheet got out of the way rather than stacking behind the confirmation.
-        await expect(page.locator('[data-slot="more-sheet"]')).toBeHidden();
+        // Notifications stop on the device (kickoff 3b decision 1), so a mis-tap must not do it.
+        const confirm = page.getByRole("alertdialog", { name: "Sign out of this device?" });
+        await expect(confirm).toContainText("Notifications stop reaching this device");
 
         await confirm.getByRole("button", { name: "Cancel" }).click();
-        await expect(page).toHaveURL(/\/today$/);
+        await expect(confirm).toBeHidden();
+        await expect(page).toHaveURL(/\/me$/);
         await expect(page.locator('[data-slot="bottom-nav"]')).toBeVisible();
       });
 
@@ -709,6 +714,8 @@ test.describe("record screens meet the mobile standard (3.4)", () => {
     return [
       `/people/${staff}`,
       `/people/${staff}/leave`,
+      // 3b.4: the summary's lines and, for the Owner, the month's expense claims.
+      `/people/${staff}/month`,
       `/clients/${client.id}`,
       `/clients/${client.id}/brand`,
       `/clients/${client.id}/activity`,

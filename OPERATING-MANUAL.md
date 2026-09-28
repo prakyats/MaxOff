@@ -59,6 +59,26 @@ Then send me (in chat) the **phase report** from §5, and I'll tell you if anyth
 - If the installed app stops getting updates, it was installed from a phase address: uninstall it and install again from the everyday address.
 - Both addresses share one staging database, so while a phase is open its migrations only add things (ARCHITECTURE, expand-only rule).
 
+### The launch order (staff first, staged)
+The build follows ROADMAP "Launch order", and **there are no dates**: the next phase starts as soon as the previous one is reviewed and merged. Give it a full day and a phase can be done in a day.
+
+`3b` review → **`3c` Go live (stage 1: attendance, leave, comp leave, expenses, month summary, clients, people are live in production)** → `4` tasks → `5` notifications → `6` dashboards and calendar → `8` handing in work → `7` client projects → `9` money and reports → `10` polish and full launch.
+
+- Each phase is **released to production** when its review merges, and the team uses it straight away.
+- Staff-facing phases (4, 5, 6, 8) never wait for Owner-only ones (7, 9).
+- Before phase 5 you need a domain and an email sending domain (Resend). Stage 1 needs neither: people join through **Copy invite link**.
+
+### Cloud and local
+| Where | What runs there |
+|---|---|
+| **Cloud session** (claude.ai/code, or Cloud in the desktop app) | `/kickoff-phase`, `/run-phase`, `/review-phase`, any fix bigger than a few lines. 16 GB of RAM, the laptop can sleep, you answer from your phone. |
+| **Laptop, Local** | Planning and decisions, the app guide and its PDF (`docs/guide/build-pdf.ps1` needs Edge on Windows), anything that uses files on the laptop. |
+| **Your phone** | Phone walks on the phase preview, answering the cloud session when it stops. |
+
+Three rules: **one writer per branch** (never a cloud and a local session on the same branch at once; small side fixes get their own branch and a PR to `main`); **`git pull` before any local session that edits files** (the cloud pushes to GitHub, not to the laptop); **one phase at a time**, even in the cloud (phases share PROGRESS, the ROADMAP and the staging database). In a cloud session there is no `/clear`: start a new session instead.
+
+Setting up the cloud environment (setup script, environment variables, what the network refuses and why `CI` stays unset): §8 "Running in the cloud".
+
 ### Useful mid-session commands
 | Situation | Command |
 |---|---|
@@ -135,6 +155,23 @@ Tick it off yourself. If a checkpoint fails, say so in the same session before `
 
 **Phase 3 exit:** your real clients can be entered. ➜ **phase report**
 
+### Phase 3b: The working day, comp leave, month summary, expenses
+| Task | You should be able to |
+|---|---|
+| 3b.1 | Stay signed in; see the Start day prompt, tap Just looking, then Start day; End day at night; Me → Sign out of this device |
+| 3b.2 | Add an overtime note and an "I worked today" note; as Owner grant comp leave from Approvals → Extra work; use a credit in the leave form |
+| 3b.3 | Claim an expense at End day with a receipt; as Owner approve it and mark it paid |
+| 3b.4 | Open More → Reports → Month and a person's Month tab and check the additional-leave figure |
+
+### Phase 3c: Go live (stage 1)
+| Task | You should be able to |
+|---|---|
+| 3c.1 | Sign in on the **production** address; see staging and production are separate (a test on one never shows on the other) |
+| 3c.2 | See last night's backup file and read the restore drill's write-up |
+| 3c.3 | Invite a test member with Copy invite link, run a whole day with them in production, then deactivate them; hand the staff the "first day" page |
+
+**Phase 3c exit ★ STAGE 1 LIVE:** the team uses MaxOff for attendance, leave, comp leave and expenses. ➜ **phase report + tell me how the first days go**
+
 ### Phase 4: Staff tasks
 | Task | You should be able to |
 |---|---|
@@ -155,7 +192,7 @@ Tick it off yourself. If a checkpoint fails, say so in the same session before `
 
 **Phase 5 exit:** nobody can say "I didn't know". ➜ **phase report**
 
-### Phase 6: Dashboards and ★ pilot
+### Phase 6: Dashboards and calendar
 | Task | You should be able to |
 |---|---|
 | 6.1 | As Staff on your phone, see My Day and do a full day's work from it |
@@ -163,9 +200,9 @@ Tick it off yourself. If a checkpoint fails, say so in the same session before `
 | 6.3 | As Admin see your clients and the tasks needing attention |
 | 6.4 | See shoots, meetings and leave on the calendar, in day, week and month views |
 | 6.5 | Open the end-of-day report and see the day summarized |
-| 6.6 | Log in on the **production URL**, confirm a backup file exists, and confirm a restore was tested |
+| 6.6 | Trigger a test error and read it in Sentry with real file and line numbers |
 
-**Phase 6 exit ★ PILOT:** the team starts using MaxOff daily. ➜ **phase report + tell me how the first week goes**
+**Phase 6 exit:** everyone works from My Day and Today. ➜ **phase report**
 
 ### Phase 7: Client work
 | Task | You should be able to |
@@ -252,7 +289,123 @@ I'll check it against the plan, flag anything that's drifted, and confirm you're
 
 ## 7. Rhythm
 
-- **A phase in a few days**: the kickoff (an hour of your answers), `/run-phase` (a day or two of machine time; 2–4 units per phase), the review with your phone walk. Twenty-one units are left after unit 3A (phase 3b added and five tasks deferred past the launch, 2026-09-27).
+- **A phase can take a single day** if you give it the day: the kickoff (a few minutes to an hour of your answers), `/run-phase` (machine time, in the cloud), the review with your phone walk. **There are no dates in the plan**: the order is fixed (ROADMAP "Launch order"), the pace is yours. Twenty units are left after phase 3b's build (3c to 10).
 - Phases 0–2 feel invisible (setup, database, rules). **That's expected**, and it's what makes the rest fast and safe.
-- The first real payoff is **phase 6**, when the team starts using it. That's 11 units in.
+- The first real payoff is **3c (Go live)**: the team starts using MaxOff for attendance, leave, comp leave and expenses, and every later phase switches its part on as soon as it is reviewed.
 - Don't skip `/review-phase`. It's the only step that looks at a whole phase at once.
+
+---
+
+## 8. Running in the cloud
+
+Claude Code on the web (claude.ai/code) can run the whole loop, `pnpm check` and the full Playwright run included, in a cloud environment instead of your laptop. Set the environment up once; every new session then starts ready. Proved on 2026-09-28 (numbers below).
+
+### Network
+
+Keep the **Trusted** network level. Nothing needs adding: the three hosts it refuses each have a working route, and the setup script takes it.
+
+| Refused host | What wanted it | Route the script takes |
+|---|---|---|
+| `cdn.playwright.dev` | `playwright install` (Chromium) | The same Chrome for Testing build from `storage.googleapis.com` |
+| `public.ecr.aws` image layers (`*.cloudfront.net`, 403 / "Data limit exceeded") and `pkg-containers.githubusercontent.com` (ghcr.io) | The Supabase CLI's image pulls | Docker Hub (`SUPABASE_INTERNAL_IMAGE_REGISTRY=docker.io`) |
+| `eu.i.posthog.com` | Supabase CLI telemetry | None needed; harmless |
+
+If you would rather use the plain `pnpm exec playwright install chromium`, add `cdn.playwright.dev` to the environment's allowed domains.
+
+### Environment variables
+
+In the environment's settings (cloud environment menu in the session title bar → Edit → Environment variables). All are local throwaways. Take the two Supabase keys from `pnpm db:status` (run it once in any session; every local Supabase CLI stack prints the same fixed defaults). They are not written here: GitHub's secret scanning blocks key-shaped strings even when they are local defaults. The S3 values match `docker-compose.storage.yml`. **Never put staging or production values here.**
+
+```
+BASH_DEFAULT_TIMEOUT_MS=1800000
+BASH_MAX_TIMEOUT_MS=1800000
+SUPABASE_INTERNAL_IMAGE_REGISTRY=docker.io
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_APP_ENV=local
+NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<take this from pnpm db:status (PUBLISHABLE_KEY)>
+SUPABASE_SECRET_KEY=<take this from pnpm db:status (SECRET_KEY)>
+S3_ENDPOINT=http://127.0.0.1:9000
+S3_BUCKET=maxoff
+S3_ACCESS_KEY_ID=maxoff
+S3_SECRET_ACCESS_KEY=maxoff-local-secret
+S3_REGION=auto
+```
+
+- The two timeouts (30 minutes) let one command run the whole Playwright suite (build included) without being cut off.
+- These replace `.env.local`, which the cloud session has no copy of (and Claude is blocked from reading anyway). `DAY_GATE_COOKIE_SECRET` and `CRON_SECRET` stay unset: Playwright supplies its own test values, and the app runs without them.
+- Do **not** set `CI`: Playwright would drop to one worker and skip its own build.
+
+### Setup script
+
+Environment settings → Setup script. It is idempotent and takes about 80 seconds from nothing.
+
+```bash
+#!/usr/bin/env bash
+# MaxOff cloud environment setup (OPERATING-MANUAL.md §8). Idempotent.
+set -euo pipefail
+cd /home/user/MaxOff
+
+# 1. Docker: the container ships dockerd but does not start it.
+if ! docker info >/dev/null 2>&1; then
+  nohup dockerd >/tmp/dockerd.log 2>&1 &
+  for _ in $(seq 60); do docker info >/dev/null 2>&1 && break; sleep 1; done
+  docker info >/dev/null
+fi
+
+# 2. Dependencies. The Supabase CLI is the `supabase` devDependency, as locally and in CI.
+pnpm install --frozen-lockfile
+
+# 3. Images. The CLI's default registry (public.ecr.aws) and ghcr.io are refused here; Docker Hub
+#    works. Starting the stack pulls every image `pnpm db:start` needs, one pgTAP run pulls pg_prove.
+export SUPABASE_INTERNAL_IMAGE_REGISTRY=docker.io
+pnpm db:start
+pnpm db:test >/dev/null
+pnpm exec supabase stop --no-backup
+docker compose -f docker-compose.storage.yml pull
+
+# 4. Playwright's Chromium. cdn.playwright.dev is refused here, but Playwright's Chromium IS
+#    Google's Chrome for Testing build, published on storage.googleapis.com. Versions and folders
+#    come from the pinned @playwright/test, so an upgrade needs no edit here.
+export PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/opt/pw-browsers}"
+plan="$(pnpm exec playwright install --dry-run chromium)"
+install_cft() { # $1 = dry-run heading, $2 = zip name, $3 = Playwright folder prefix
+  local line version rev dir
+  line="$(grep -m1 "^$1 " <<<"$plan")"
+  version="$(sed -E 's/^.* ([0-9.]+) \(playwright .*$/\1/' <<<"$line")"
+  rev="$(sed -E 's/^.* v([0-9]+)\)$/\1/' <<<"$line")"
+  dir="$PLAYWRIGHT_BROWSERS_PATH/$3-$rev"
+  [ -f "$dir/INSTALLATION_COMPLETE" ] && return 0
+  mkdir -p "$dir"
+  curl -fsSL -o "/tmp/$2.zip" \
+    "https://storage.googleapis.com/chrome-for-testing-public/$version/linux64/$2.zip"
+  unzip -q -o "/tmp/$2.zip" -d "$dir"
+  rm "/tmp/$2.zip"
+  touch "$dir/INSTALLATION_COMPLETE"
+}
+install_cft "Chrome for Testing" chrome-linux64 chromium
+install_cft "Chrome Headless Shell" chrome-headless-shell-linux64 chromium_headless_shell
+```
+
+### In each session
+
+```bash
+docker info >/dev/null 2>&1 || (nohup dockerd >/tmp/dockerd.log 2>&1 &)   # if Docker isn't up
+pnpm db:start && pnpm storage:start
+pnpm check
+pnpm test:e2e      # builds, then runs every project with 3 workers
+```
+
+Anything worth keeping must be committed and pushed: the container is thrown away when the session ends.
+
+### Proof (2026-09-28, 4 cores, 15 GB)
+
+| Step | Result | Time |
+|---|---|---|
+| Setup script, empty image cache | every image from Docker Hub, Chromium 153 (Playwright v1243) from Google | 79 s |
+| `pnpm db:start` (images cached) | 27 migrations + seed | 32 s |
+| `pnpm storage:start` | MinIO healthy | 3 s |
+| `pnpm check` | typecheck, lint, format ✓ · unit 877/877 (73 files) · pgTAP 1453/1453 (24 files) · build ✓ · budget ✓ | 132 s cold, 54 s warm |
+| `pnpm test:e2e` (3 workers, build included) | **528 passed, 0 failed, 0 flaky**, 105 skipped (the viewport skips in the specs: phone-only on desktop and the reverse) | 6.8 min |
+
+The `[WebServer] ⨯ Error: The destination stream closed early` lines during the run are the server noting navigations a test abandoned on purpose; they are not failures.

@@ -24,6 +24,7 @@ export function ThresholdsForm({ thresholds }: { thresholds: Thresholds }) {
       const value = (name: string) => String(formData.get(name) ?? "");
       const result = await updateThresholds({
         logoutReminderTime: value("logoutReminderTime"),
+        endDayCutoffTime: value("endDayCutoffTime"),
         ackRepeatHours: value("ackRepeatHours"),
         ackEscalateHours: value("ackEscalateHours"),
         ackEscalateOwnerHours: value("ackEscalateOwnerHours"),
@@ -42,8 +43,8 @@ export function ThresholdsForm({ thresholds }: { thresholds: Thresholds }) {
     <form action={formAction} noValidate className="flex max-w-xl flex-col gap-4">
       <FormError error={error} />
       <FormField
-        label="Logout reminder"
-        hint="IST. Anyone with a login today and no logout since gets a nudge."
+        label="End-of-day reminder"
+        hint="IST. Anyone who started their day and hasn't ended it gets a nudge: end it, or carry on."
         error={fieldErrors.logoutReminderTime}
       >
         {(control) => (
@@ -52,6 +53,22 @@ export function ThresholdsForm({ thresholds }: { thresholds: Thresholds }) {
             name="logoutReminderTime"
             type="time"
             defaultValue={thresholds.logoutReminderTime}
+            className="max-w-40"
+            required
+          />
+        )}
+      </FormField>
+      <FormField
+        label="Late End day until"
+        hint="IST, the next morning. Until then a day left open can still be ended; after it, it stays “End of day not recorded” and late work goes in an overtime note."
+        error={fieldErrors.endDayCutoffTime}
+      >
+        {(control) => (
+          <Input
+            {...control}
+            name="endDayCutoffTime"
+            type="time"
+            defaultValue={thresholds.endDayCutoffTime}
             className="max-w-40"
             required
           />

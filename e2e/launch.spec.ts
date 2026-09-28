@@ -84,16 +84,8 @@ test.describe("/ goes home in one redirect", () => {
     });
   });
 
-  test.describe("the day gate refreshes the hint", () => {
-    test.use({ storageState: storageStateFor("staff") });
-
-    test("a day with no pass sets the pass and the hint again", async ({ page, context }) => {
-      await context.clearCookies({ name: HOME_HINT });
-      await context.clearCookies({ name: "maxoff_day" });
-      await page.goto("/my-day");
-      await expect.poll(() => hint(context)).toMatch(/\|\/my-day$/);
-    });
-  });
+  // Start day refreshes the hint (3b.1): proved in `working-day.spec.ts`, where a person's day
+  // is reset first; the saved Staff session here has already started theirs.
 });
 
 test.describe("the launch intro", () => {

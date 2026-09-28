@@ -31,8 +31,54 @@ const BASE: OwnLeaveRequest = {
   createdAt: "2026-09-24T04:00:00Z",
   original: null,
   hasOpenChange: false,
+  creditDays: null,
 };
 const request = (patch: Partial<OwnLeaveRequest>): OwnLeaveRequest => ({ ...BASE, ...patch });
+
+describe("comp leave requests (3b.2)", () => {
+  it("can be cancelled but never changed: cancel and request again (mirrors leave_request_change)", () => {
+    const comp = request({
+      type: "comp_leave",
+      state: "approved",
+      creditDays: 1,
+      endDate: "2026-10-14",
+    });
+    expect(leaveRequestActions(comp, "2026-10-01")).toEqual({
+      withdraw: false,
+      change: false,
+      cancel: true,
+    });
+    expect(
+      leaveRequestActions(request({ type: "comp_leave", creditDays: 1 }), "2026-10-01").withdraw,
+    ).toBe(true);
+  });
+
+  it("titles a half comp day as a half day with comp", () => {
+    expect(
+      leaveTitle(
+        request({
+          type: "half_day",
+          startDate: "2026-10-12",
+          endDate: "2026-10-12",
+          creditDays: 0.5,
+        }),
+      ),
+    ).toBe("Half day · comp");
+    expect(
+      leaveTitle(request({ type: "half_day", startDate: "2026-10-12", endDate: "2026-10-12" })),
+    ).toBe("Half day");
+    expect(
+      leaveTitle(
+        request({
+          type: "comp_leave",
+          startDate: "2026-10-12",
+          endDate: "2026-10-12",
+          creditDays: 1,
+        }),
+      ),
+    ).toBe("Comp leave · 1 day");
+  });
+});
 
 /**
  * What the transition functions accept from the member, written out independently of the
@@ -207,9 +253,15 @@ describe("requestLeaveSchema", () => {
   });
 
   it("makes a missing end date a single day", () => {
-    expect(schema.parse({ type: "comp_leave", startDate: "2026-09-30" })).toMatchObject({
+    expect(schema.parse({ type: "leave", startDate: "2026-09-30" })).toMatchObject({
       endDate: "2026-09-30",
     });
+  });
+
+  it("takes no comp leave: that goes through the credit (3b.2)", () => {
+    expect(errorsOf(schema.safeParse({ type: "comp_leave", startDate: "2026-09-30" }))).toEqual([
+      "type",
+    ]);
   });
 
   it("refuses a start in the past and an end before the start", () => {

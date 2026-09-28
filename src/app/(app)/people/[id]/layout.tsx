@@ -13,7 +13,8 @@ const BACK = { href: "/people", label: "People" };
 
 /**
  * A person's page (kickoff 3, task 3.4): **Profile** for everyone with `team.view`, and for the
- * Owner **Leave** and **Attendance** (2.4) once the person has joined and is not the Owner. One
+ * Owner **Leave**, **Attendance** (2.4) and **Month** (3b.4) once the person has joined and is
+ * not the Owner. One
  * header and tab bar over the views; **they live here, not in the pages** (2.7b), so a tab
  * switch swaps only the view below them. The header carries the Owner's ⋯ menu (Edit,
  * Deactivate and the rest, owner decision 2026-09-25).
@@ -67,15 +68,15 @@ async function PersonHeader({ id }: { id: string }) {
   );
 }
 
-/** The tab bar's shape while the person loads: three 44px cells, as `PersonTabs` draws them. */
+/** The tab bar's shape while the person loads: four 44px cells, as `PersonTabs` draws them. */
 function TabsSkeleton() {
   return (
     <div
       aria-hidden
       data-slot="loading-person-tabs"
-      className="bg-muted mb-4 grid grid-cols-3 gap-1 rounded-lg p-1 md:inline-grid md:w-96"
+      className="bg-muted mb-4 grid grid-cols-[repeat(auto-fit,minmax(min(100%,4.5rem),1fr))] gap-1 rounded-lg p-1 md:inline-grid md:w-[32rem]"
     >
-      {[0, 1, 2].map((cell) => (
+      {[0, 1, 2, 3].map((cell) => (
         <div key={cell} className="flex min-h-11 items-center justify-center">
           <Skeleton className="h-3.5 w-14" />
         </div>

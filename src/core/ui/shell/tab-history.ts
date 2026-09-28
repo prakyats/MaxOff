@@ -69,6 +69,23 @@ export function useIsStandalone(): boolean {
   );
 }
 
+/**
+ * Backs out of a tab we pushed from home, then runs `fn` (§14.2 e, 3b.1): "Sign out of this
+ * device" lives on Me, a tab above home in the installed app's stack, and its redirect to /login
+ * replaces only the current entry, so home would stay underneath and back would return to the
+ * app. Stepping back to home first leaves /login alone on the stack. In a browser tab, or when
+ * nothing of ours was pushed, `fn` runs at once. Waits for the popstate, never a timer.
+ */
+export function backToHomeThen(fn: () => void): void {
+  if (!pushedFromHome || !isStandalone()) {
+    fn();
+    return;
+  }
+  pushedFromHome = false;
+  window.addEventListener("popstate", () => fn(), { once: true });
+  window.history.back();
+}
+
 export interface TabNavigation {
   /** True when this click was handled here; the caller must then prevent the default. */
   navigate: (href: string) => boolean;

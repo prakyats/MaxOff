@@ -8,7 +8,7 @@ export default function Loading() {
     <PageLoading
       title="Thresholds"
       shape="detail"
-      count={5}
+      count={6}
       back={{ href: "/settings", label: "Settings" }}
     />
   );

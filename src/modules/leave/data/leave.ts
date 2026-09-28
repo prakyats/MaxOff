@@ -18,7 +18,7 @@ import {
 export const LEAVE_PAGE_SIZE = 20;
 
 const REQUEST_COLUMNS =
-  "id, type, start_date, end_date, reason, state, source, supersedes_id, requests_cancellation, decision_reason, created_at, original:leave_requests!supersedes_id(type, start_date, end_date)";
+  "id, type, start_date, end_date, reason, state, source, supersedes_id, requests_cancellation, decision_reason, created_at, credit_days, original:leave_requests!supersedes_id(type, start_date, end_date)";
 
 /**
  * The check constraint allows exactly these three. An unknown one fails loudly: guessing
@@ -85,9 +85,25 @@ export async function listRequests(
         ? { type: original.type, startDate: original.start_date, endDate: original.end_date }
         : null,
       hasOpenChange: openChanges.has(row.id),
+      creditDays: row.credit_days === null ? null : Number(row.credit_days),
     };
   });
   return { requests, total: list.count ?? requests.length };
+}
+
+/** A comp leave request for one date (`leave_submit_comp`, 3b.2): the credit is reserved with it. */
+export async function rpcSubmitComp(input: {
+  date: string;
+  halfDay: boolean;
+  reason: string | null;
+}): Promise<void> {
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.rpc("leave_submit_comp", {
+    start_date: input.date,
+    half_day: input.halfDay,
+    ...(input.reason ? { reason: input.reason } : {}),
+  });
+  if (error) throw error;
 }
 
 export async function rpcSubmit(input: {

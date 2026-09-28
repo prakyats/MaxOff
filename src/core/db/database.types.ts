@@ -67,6 +67,8 @@ export type Database = {
           decided_at: string | null;
           decided_by: string | null;
           decision_reason: string | null;
+          end_not_recorded: boolean;
+          ended_at: string | null;
           final_status: Database["public"]["Enums"]["day_status"] | null;
           first_login_at: string | null;
           id: string;
@@ -78,6 +80,7 @@ export type Database = {
           overtime_flag: boolean;
           overtime_reason: string | null;
           proposed_by_system: boolean;
+          started_at: string | null;
           state: Database["public"]["Enums"]["attendance_state"];
           submitted_at: string | null;
           submitted_choice: Database["public"]["Enums"]["attendance_choice"] | null;
@@ -90,6 +93,8 @@ export type Database = {
           decided_at?: string | null;
           decided_by?: string | null;
           decision_reason?: string | null;
+          end_not_recorded?: boolean;
+          ended_at?: string | null;
           final_status?: Database["public"]["Enums"]["day_status"] | null;
           first_login_at?: string | null;
           id?: string;
@@ -101,6 +106,7 @@ export type Database = {
           overtime_flag?: boolean;
           overtime_reason?: string | null;
           proposed_by_system?: boolean;
+          started_at?: string | null;
           state?: Database["public"]["Enums"]["attendance_state"];
           submitted_at?: string | null;
           submitted_choice?: Database["public"]["Enums"]["attendance_choice"] | null;
@@ -113,6 +119,8 @@ export type Database = {
           decided_at?: string | null;
           decided_by?: string | null;
           decision_reason?: string | null;
+          end_not_recorded?: boolean;
+          ended_at?: string | null;
           final_status?: Database["public"]["Enums"]["day_status"] | null;
           first_login_at?: string | null;
           id?: string;
@@ -124,6 +132,7 @@ export type Database = {
           overtime_flag?: boolean;
           overtime_reason?: string | null;
           proposed_by_system?: boolean;
+          started_at?: string | null;
           state?: Database["public"]["Enums"]["attendance_state"];
           submitted_at?: string | null;
           submitted_choice?: Database["public"]["Enums"]["attendance_choice"] | null;
@@ -619,6 +628,352 @@ export type Database = {
           },
         ];
       };
+      comp_leave_credit_uses: {
+        Row: {
+          created_at: string;
+          credit_id: string;
+          days: number;
+          id: string;
+          leave_request_id: string;
+          state: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          credit_id: string;
+          days: number;
+          id?: string;
+          leave_request_id: string;
+          state?: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          credit_id?: string;
+          days?: number;
+          id?: string;
+          leave_request_id?: string;
+          state?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "comp_leave_credit_uses_credit_id_fkey";
+            columns: ["credit_id"];
+            isOneToOne: false;
+            referencedRelation: "comp_leave_credits";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "comp_leave_credit_uses_leave_request_id_fkey";
+            columns: ["leave_request_id"];
+            isOneToOne: false;
+            referencedRelation: "leave_requests";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      comp_leave_credits: {
+        Row: {
+          created_at: string;
+          days: number;
+          expires_on: string;
+          granted_at: string;
+          granted_by: string;
+          granted_on: string;
+          id: string;
+          member_id: string;
+          note: string | null;
+          note_id: string | null;
+          request_key: string | null;
+          reserved_days: number;
+          revoke_reason: string | null;
+          revoked_at: string | null;
+          revoked_by: string | null;
+          updated_at: string;
+          used_days: number;
+        };
+        Insert: {
+          created_at?: string;
+          days: number;
+          expires_on: string;
+          granted_at?: string;
+          granted_by: string;
+          granted_on: string;
+          id?: string;
+          member_id: string;
+          note?: string | null;
+          note_id?: string | null;
+          request_key?: string | null;
+          reserved_days?: number;
+          revoke_reason?: string | null;
+          revoked_at?: string | null;
+          revoked_by?: string | null;
+          updated_at?: string;
+          used_days?: number;
+        };
+        Update: {
+          created_at?: string;
+          days?: number;
+          expires_on?: string;
+          granted_at?: string;
+          granted_by?: string;
+          granted_on?: string;
+          id?: string;
+          member_id?: string;
+          note?: string | null;
+          note_id?: string | null;
+          request_key?: string | null;
+          reserved_days?: number;
+          revoke_reason?: string | null;
+          revoked_at?: string | null;
+          revoked_by?: string | null;
+          updated_at?: string;
+          used_days?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "comp_leave_credits_granted_by_fkey";
+            columns: ["granted_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "comp_leave_credits_granted_by_fkey";
+            columns: ["granted_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "comp_leave_credits_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "comp_leave_credits_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "comp_leave_credits_note_id_fkey";
+            columns: ["note_id"];
+            isOneToOne: false;
+            referencedRelation: "extra_work_notes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "comp_leave_credits_revoked_by_fkey";
+            columns: ["revoked_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "comp_leave_credits_revoked_by_fkey";
+            columns: ["revoked_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      expense_claims: {
+        Row: {
+          amount: number;
+          category_id: string;
+          created_at: string;
+          decided_at: string | null;
+          decided_by: string | null;
+          decision_reason: string | null;
+          expense_date: string;
+          id: string;
+          member_id: string;
+          note: string;
+          paid_at: string | null;
+          paid_by: string | null;
+          paid_on: string | null;
+          receipt_file_id: string | null;
+          state: string;
+          updated_at: string;
+        };
+        Insert: {
+          amount: number;
+          category_id: string;
+          created_at?: string;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          decision_reason?: string | null;
+          expense_date: string;
+          id?: string;
+          member_id: string;
+          note: string;
+          paid_at?: string | null;
+          paid_by?: string | null;
+          paid_on?: string | null;
+          receipt_file_id?: string | null;
+          state?: string;
+          updated_at?: string;
+        };
+        Update: {
+          amount?: number;
+          category_id?: string;
+          created_at?: string;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          decision_reason?: string | null;
+          expense_date?: string;
+          id?: string;
+          member_id?: string;
+          note?: string;
+          paid_at?: string | null;
+          paid_by?: string | null;
+          paid_on?: string | null;
+          receipt_file_id?: string | null;
+          state?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "expense_claims_category_id_fkey";
+            columns: ["category_id"];
+            isOneToOne: false;
+            referencedRelation: "list_items";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "expense_claims_decided_by_fkey";
+            columns: ["decided_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "expense_claims_decided_by_fkey";
+            columns: ["decided_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "expense_claims_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "expense_claims_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "expense_claims_paid_by_fkey";
+            columns: ["paid_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "expense_claims_paid_by_fkey";
+            columns: ["paid_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "expense_claims_receipt_file_id_fkey";
+            columns: ["receipt_file_id"];
+            isOneToOne: true;
+            referencedRelation: "files";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      extra_work_notes: {
+        Row: {
+          created_at: string;
+          day_marked_worked: boolean;
+          decided_at: string | null;
+          decided_by: string | null;
+          decision: string | null;
+          duration_minutes: number | null;
+          id: string;
+          kind: string;
+          member_id: string;
+          note: string;
+          state: string;
+          updated_at: string;
+          work_date: string;
+        };
+        Insert: {
+          created_at?: string;
+          day_marked_worked?: boolean;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          decision?: string | null;
+          duration_minutes?: number | null;
+          id?: string;
+          kind: string;
+          member_id: string;
+          note: string;
+          state?: string;
+          updated_at?: string;
+          work_date: string;
+        };
+        Update: {
+          created_at?: string;
+          day_marked_worked?: boolean;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          decision?: string | null;
+          duration_minutes?: number | null;
+          id?: string;
+          kind?: string;
+          member_id?: string;
+          note?: string;
+          state?: string;
+          updated_at?: string;
+          work_date?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "extra_work_notes_decided_by_fkey";
+            columns: ["decided_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "extra_work_notes_decided_by_fkey";
+            columns: ["decided_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "extra_work_notes_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "extra_work_notes_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       field_definitions: {
         Row: {
           archived_at: string | null;
@@ -813,6 +1168,7 @@ export type Database = {
       leave_requests: {
         Row: {
           created_at: string;
+          credit_days: number | null;
           decided_at: string | null;
           decided_by: string | null;
           decision_reason: string | null;
@@ -830,6 +1186,7 @@ export type Database = {
         };
         Insert: {
           created_at?: string;
+          credit_days?: number | null;
           decided_at?: string | null;
           decided_by?: string | null;
           decision_reason?: string | null;
@@ -847,6 +1204,7 @@ export type Database = {
         };
         Update: {
           created_at?: string;
+          credit_days?: number | null;
           decided_at?: string | null;
           decided_by?: string | null;
           decision_reason?: string | null;
@@ -1037,6 +1395,8 @@ export type Database = {
           created_at: string;
           default_task_reminders: Json;
           email_daily_cap_per_member: number;
+          end_day_cutoff_time: string;
+          expense_receipt_above: number;
           logout_reminder_time: string;
           org_id: string;
           overdue_escalate_hours: number;
@@ -1051,6 +1411,8 @@ export type Database = {
           created_at?: string;
           default_task_reminders?: Json;
           email_daily_cap_per_member?: number;
+          end_day_cutoff_time?: string;
+          expense_receipt_above?: number;
           logout_reminder_time?: string;
           org_id: string;
           overdue_escalate_hours?: number;
@@ -1065,6 +1427,8 @@ export type Database = {
           created_at?: string;
           default_task_reminders?: Json;
           email_daily_cap_per_member?: number;
+          end_day_cutoff_time?: string;
+          expense_receipt_above?: number;
           logout_reminder_time?: string;
           org_id?: string;
           overdue_escalate_hours?: number;
@@ -1257,6 +1621,13 @@ export type Database = {
       };
     };
     Functions: {
+      attendance_choose_leave_today: {
+        Args: {
+          choice: Database["public"]["Enums"]["attendance_choice"];
+          reason?: string;
+        };
+        Returns: Database["public"]["Enums"]["attendance_state"];
+      };
       attendance_decide: {
         Args: {
           day_id: string;
@@ -1266,6 +1637,14 @@ export type Database = {
         };
         Returns: Database["public"]["Enums"]["attendance_state"];
       };
+      attendance_end_day: {
+        Args: { overtime_minutes?: number; overtime_note?: string };
+        Returns: {
+          day_id: string;
+          note_id: string;
+          work_date: string;
+        }[];
+      };
       attendance_flag_overtime: {
         Args: { day_id: string; reason?: string };
         Returns: boolean;
@@ -1274,6 +1653,34 @@ export type Database = {
         Args: { reason?: string };
         Returns: string;
       };
+      attendance_own_today: {
+        Args: never;
+        Returns: {
+          attendance_started: boolean;
+          covering_leave_type: Database["public"]["Enums"]["leave_type"];
+          day_id: string;
+          decided_by_system: boolean;
+          decision_reason: string;
+          end_not_recorded: boolean;
+          ended_at: string;
+          final_status: Database["public"]["Enums"]["day_status"];
+          first_login_at: string;
+          is_day_off: boolean;
+          is_working_day: boolean;
+          leave_type: Database["public"]["Enums"]["leave_type"];
+          overtime_flag: boolean;
+          overtime_reason: string;
+          proposed_by_system: boolean;
+          started_at: string;
+          state: Database["public"]["Enums"]["attendance_state"];
+          submitted_choice: Database["public"]["Enums"]["attendance_choice"];
+          work_date: string;
+          worked_on_leave: boolean;
+          yesterday_open_day_id: string;
+          yesterday_started_at: string;
+        }[];
+      };
+      attendance_start_day: { Args: never; Returns: string };
       attendance_submit: {
         Args: {
           choice: Database["public"]["Enums"]["attendance_choice"];
@@ -1299,6 +1706,30 @@ export type Database = {
           overtime_flag: boolean;
           proposed_by_system: boolean;
           started: boolean;
+          state: Database["public"]["Enums"]["attendance_state"];
+          submitted_choice: Database["public"]["Enums"]["attendance_choice"];
+        }[];
+      };
+      attendance_today_detail: {
+        Args: never;
+        Returns: {
+          day_id: string;
+          end_not_recorded: boolean;
+          ended_at: string;
+          final_status: Database["public"]["Enums"]["day_status"];
+          first_login_at: string;
+          full_name: string;
+          is_day_off: boolean;
+          job_title: string;
+          last_logout_at: string;
+          leave_type: Database["public"]["Enums"]["leave_type"];
+          logout_not_recorded: boolean;
+          member_id: string;
+          on_leave: boolean;
+          overtime_flag: boolean;
+          proposed_by_system: boolean;
+          started: boolean;
+          started_at: string;
           state: Database["public"]["Enums"]["attendance_state"];
           submitted_choice: Database["public"]["Enums"]["attendance_choice"];
         }[];
@@ -1360,6 +1791,71 @@ export type Database = {
       client_reactivate: {
         Args: { client_id: string };
         Returns: Database["public"]["Enums"]["client_state"];
+      };
+      comp_leave_balance: {
+        Args: { member_id?: string };
+        Returns: {
+          available_days: number;
+          use_by: string;
+        }[];
+      };
+      comp_leave_dates: {
+        Args: never;
+        Returns: {
+          available_days: number;
+          work_date: string;
+        }[];
+      };
+      comp_leave_grant: {
+        Args: {
+          days: number;
+          member_id: string;
+          note?: string;
+          request_key?: string;
+        };
+        Returns: string;
+      };
+      comp_leave_revoke: {
+        Args: { credit_id: string; reason?: string };
+        Returns: undefined;
+      };
+      expense_claim_decide: {
+        Args: { claim_id: string; decision: string; reason?: string };
+        Returns: string;
+      };
+      expense_claim_mark_paid: {
+        Args: { claim_id: string; paid_on?: string };
+        Returns: string;
+      };
+      expense_claim_submit: {
+        Args: {
+          amount: number;
+          category_id: string;
+          expense_date: string;
+          note: string;
+          receipt_file_id?: string;
+        };
+        Returns: string;
+      };
+      expense_claim_withdraw: { Args: { claim_id: string }; Returns: string };
+      extra_work_note_decide: {
+        Args: {
+          days?: number;
+          decision: string;
+          mark_day_worked?: boolean;
+          note?: string;
+          note_id: string;
+        };
+        Returns: string;
+      };
+      extra_work_note_submit: {
+        Args: {
+          duration_minutes?: number;
+          kind: string;
+          note: string;
+          work_date: string;
+        };
+        Returns: string;
       };
       file_begin: {
         Args: {
@@ -1476,6 +1972,10 @@ export type Database = {
         };
         Returns: string;
       };
+      leave_submit_comp: {
+        Args: { half_day?: boolean; reason?: string; start_date: string };
+        Returns: string;
+      };
       leave_withdraw: {
         Args: { request_id: string };
         Returns: Database["public"]["Enums"]["leave_state"];
@@ -1509,11 +2009,39 @@ export type Database = {
         Args: never;
         Returns: Database["public"]["Enums"]["member_status"];
       };
+      month_summary: {
+        Args: { member_id?: string; month: string };
+        Returns: {
+          absent_days: number;
+          additional_leave: number;
+          comp_leave_days: number;
+          credits_expired: number;
+          credits_granted: number;
+          credits_used: number;
+          days_off_worked: number;
+          days_worked: number;
+          full_name: string;
+          half_days: number;
+          id: string;
+          leave_days: number;
+          overtime_granted: number;
+          overtime_notes: number;
+          pending_days: number;
+          present_days: number;
+          role: Database["public"]["Enums"]["member_role"];
+          status: Database["public"]["Enums"]["member_status"];
+          working_days: number;
+        }[];
+      };
       session_login: {
         Args: { ip_hash?: string; user_agent?: string };
         Returns: string;
       };
       session_logout: {
+        Args: { ip_hash?: string; user_agent?: string };
+        Returns: string;
+      };
+      session_sign_out: {
         Args: { ip_hash?: string; user_agent?: string };
         Returns: string;
       };

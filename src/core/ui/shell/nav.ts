@@ -274,6 +274,15 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     ready: true,
   },
   {
+    key: "expenses",
+    label: "Expenses",
+    href: "/settings/expenses",
+    description: "Expense categories and when a claim needs a receipt photo.",
+    permission: "expenses.decide",
+    arrivesIn: "3b.3",
+    ready: true,
+  },
+  {
     key: "job-titles",
     label: "Job titles",
     href: "/settings/job-titles",

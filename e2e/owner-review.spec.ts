@@ -66,10 +66,9 @@ const inDays = (n: number) => addISTDays(todayIST(), n);
 test.use({ storageState: storageStateFor("owner") });
 test.describe.configure({ mode: "serial" });
 
-/** Opens today's day for the person and answers the gate with `choice`. */
-async function submitDay(who: Who, info: TestInfo, choice = "present") {
-  await rpcAs(email(who, info), PASSWORD, "attendance_touch", {});
-  await rpcAs(email(who, info), PASSWORD, "attendance_submit", { choice });
+/** The person starts their day (3b.1): today's day opens as Present, waiting for the Owner. */
+async function submitDay(who: Who, info: TestInfo) {
+  await rpcAs(email(who, info), PASSWORD, "attendance_start_day", {});
 }
 
 async function dayOf(memberId: string) {

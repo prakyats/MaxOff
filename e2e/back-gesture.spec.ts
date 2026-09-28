@@ -3,7 +3,6 @@ import { type Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
 
 import {
-  chooseAttendance,
   expectBackStack,
   recoveryLinkFor,
   resetAttendanceAndLeave,
@@ -11,6 +10,7 @@ import {
   setPasswordFor,
   signIn,
   storageStateFor,
+  startPrompt,
 } from "./helpers";
 
 /**
@@ -236,12 +236,13 @@ test.describe("installed: overlays and view controls", () => {
 });
 
 /**
- * §14.2 e: one-time screens are never in the back stack. After sign-in, a gate choice, a
- * recovery link or a logout the app lands with nothing of ours underneath, so one back leaves
- * (Playwright's page starts on about:blank; the installed app would close). Each phone project
- * has its own seeded person, whose day is cleared first and whose password is put back.
+ * §14.2 e: one-time screens are never in the back stack. After sign-in (with the Start-day
+ * prompt answered or not), a recovery link or a sign-out the app lands with nothing of ours
+ * underneath, so one back leaves (Playwright's page starts on about:blank; the installed app
+ * would close). Each phone project has its own seeded person, whose day is cleared first and
+ * whose password is put back.
  */
-test.describe("installed: sign-in, the gate, recovery and logout leave the back stack", () => {
+test.describe("installed: sign-in, the prompt, recovery and sign-out leave the back stack", () => {
   test.skip(({ isMobile }) => !isMobile, "the installed app is a phone");
   test.describe.configure({ mode: "serial" });
   test.use({ storageState: { cookies: [], origins: [] } });
@@ -256,13 +257,24 @@ test.describe("installed: sign-in, the gate, recovery and logout leave the back 
   };
   const LEFT = { url: /^about:blank$/ };
 
-  test("sign-in and the gate's choice: back from home leaves", async ({ page }, info) => {
+  test("sign-in and Start day from the prompt: back from home leaves", async ({ page }, info) => {
     const who = PEOPLE[info.project.name]!;
     await resetAttendanceAndLeave(who.id);
     await runInstalled(page);
-    await signIn(page, who.email, PASSWORD, { gate: "stop" });
-    await chooseAttendance(page, "Present");
+    await signIn(page, who.email, PASSWORD, { day: "stop" });
     await expect(page).toHaveURL(/\/my-day$/);
+    // The prompt is a layer, not a page: back closes it and the next back leaves (§14.2 a, e).
+    const prompt = startPrompt(page);
+    await expect(prompt).toBeVisible();
+    await expectBackStack(page, [{ closes: prompt, url: /\/my-day$/ }, LEFT]);
+  });
+
+  test("sign-in, prompt answered with Start day: back from home leaves", async ({ page }, info) => {
+    const who = PEOPLE[info.project.name]!;
+    await runInstalled(page);
+    await signIn(page, who.email, PASSWORD);
+    await expect(page).toHaveURL(/\/my-day$/);
+    await expect(startPrompt(page)).toBeHidden();
     await expectBackStack(page, [LEFT]);
   });
 
@@ -274,12 +286,17 @@ test.describe("installed: sign-in, the gate, recovery and logout leave the back 
     await expectBackStack(page, [LEFT]);
   });
 
-  test("logout: back from the sign-in page does not return to the app", async ({ page }, info) => {
+  test("sign-out: back from the sign-in page does not return to the app", async ({
+    page,
+  }, info) => {
     const who = PEOPLE[info.project.name]!;
     await runInstalled(page);
     await signIn(page, who.email, PASSWORD);
-    await page.locator('[data-slot="logout-row"]').getByRole("button", { name: "Log out" }).click();
-    await page.getByRole("alertdialog").getByRole("button", { name: "Log out" }).click();
+    // Me is a root (a bottom-bar tab): replace, so nothing of ours sits beneath the sign-in page.
+    await page.locator('[data-slot="bottom-nav"] [data-nav="me"]').click();
+    await expect(page).toHaveURL(/\/me$/);
+    await page.getByRole("button", { name: "Sign out" }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Sign out" }).click();
     await expect(page).toHaveURL(/\/login\?reason=signed_out$/);
     await expectBackStack(page, [LEFT]);
   });

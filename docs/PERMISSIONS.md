@@ -30,9 +30,10 @@
 | `tasks.work` | Acknowledge, comment, tick stages, upload, mark done (as an assignee, **or as the current coordinator of a freelancer assignee, on that freelancer's tasks only**, ADR-0013) | ✅ | ✅ | ✅ |
 | `task_requests.create` | Suggest a task | | ✅ | ✅ |
 | `task_requests.decide` | Convert or decline a task request | ✅ | ✅ | |
-| `attendance.self` | Submit own attendance and logout, request own leave | | ✅ | ✅ |
-| `attendance.decide` | Approve or correct attendance, decide leave, edit approved leave | ✅ | | |
+| `attendance.self` | Start and end own day, choose own leave for today, request own leave (2.x: submit own attendance and logout) | | ✅ | ✅ |
+| `attendance.decide` | Approve or correct attendance, decide leave, edit approved leave; decide extra work notes, grant and revoke comp leave (3b.2) | ✅ | | |
 | `attendance.view_all` | Full attendance and leave history of everyone | ✅ | | |
+| `expenses.decide` | Read everyone's expense claims and their receipts, approve, reject, mark paid; edit the expense categories; the month summary's expense line (the receipt amount is an org setting: `settings.manage`, also the Owner's) (3b.3, ADR-0007 amendment 2026-09-27). **Own claims need no key beyond `attendance.self`** | ✅ | | |
 | `finance.view` / `finance.edit` | Amounts, overrides, billing status, revenue (the billing **category** is set by the Owner but visible to Admins, see §2) | ✅ | | |
 | `reports.all` | Company reports, metrics, AI export | ✅ | | |
 | `reports.scoped` | Operational **work** reports on their own scope (PRODUCT §4.13): delivery, cycle progress, rework, their own approval turnaround, overdue, acknowledgement lag, workload per person from visible tasks. Never money, attendance, leave, snapshots or the AI export | | ✅ | |
@@ -44,9 +45,13 @@
 
 ² **Custom field definitions (owner decision 2026-09-27, kickoff 3):** global `client` and `contact` fields are **Owner-only**; an Admin may add or archive a field **scoped to one of their assigned clients** only; `project` and `item` fields stay Owner-only (¹); `task` fields arrive with 4.1.
 
-**The Owner doesn't mark attendance.** The first-login attendance gate applies to Admins and Staff only.
+**The Owner doesn't mark attendance.** The Start-day prompt, Start day and End day (3b.1; the first-login gate before it) apply to Admins and Staff only.
 
 **Screens (2.4):** `/approvals` opens for `attendance.decide`, `tasks.approve_final` or `tasks.approve_admin`; each group shows only when the viewer holds its key (Attendance and Leave: `attendance.decide`), so an Admin never sees them. The Approvals badge counts what the viewer may decide. `/people/[id]/leave` and `/people/[id]/attendance` (a person's leave and attendance history, with correct, edit and cancel) and the Owner's today card and people board need `attendance.view_all`.
+
+**Screens (3b):** `/leave/extra-work` (a member's extra work notes and comp leave credits, `attendance.self`), Add note from the Extra work tab, the attendance history's last 7 days, the strip on a day off and the End-day confirmation (`attendance.self`); Approvals → **Extra work** (decide a note), **Grant comp leave** and **Revoke** on `/people/[id]/leave` (`attendance.decide`); the comp leave balance and credits of a person are `attendance.view_all` (own: `attendance.self`). The Start-day prompt, the strip's Start day / End day and "Sign out of this device" on /me are 3b.1 (WORKFLOWS §1 "Settled in 3b.1").
+
+**Screens (3b.3, 3b.4):** `/leave/expenses` (a member's own claims, Add expense, Withdraw) and End day's "Any expenses to claim today?" are `attendance.self`; Approvals → **Expenses**, Settings → **Expenses** (the categories; its receipt amount saves under `settings.manage`) and Mark paid are `expenses.decide`; the month summary (`/people/[id]/month`, **More → Reports → Month** at `/reports/month`) is `attendance.view_all`, its expense line `expenses.decide`. The Reports list itself stays `reports.all` / `reports.scoped` (an Admin still gets the placeholder). A receipt is served by `/api/files/<id>` to its uploader and `expenses.decide` only.
 
 **Screens (3.4):** `/people/[id]` is every member's **Profile** for `team.view` (the Owner and Admins; the Owner's own id redirects to /me); its Edit and ⋯ actions are `team.manage`; the Leave and Attendance tabs show only with `attendance.view_all`, for someone who has joined and is not the Owner, and their routes answer 404 otherwise. `/clients` and a client's pages open for `clients.manage` or `clients.edit_assigned` (Staff are sent to /forbidden; another Admin's client is a 404, RLS decides); New client, the Admin assignment and the lifecycle are `clients.manage`; details, contacts, brand and the logo are `clients.edit_assigned`; the Owner's notes are read only for `clients.private_notes`, so they are never in an Admin's payload. The Activity view reads `activity_log` under RLS (an Admin never gets `client_private` entries); **the close reason is the Owner's**: the Activity view shows it to `clients.manage` only (owner decision 2026-09-27; since the phase 3 review the database enforces it: the reason lives in the Owner-only `client_close_reasons`, and the `closed` entry an Admin reads carries only `from_state`). The Owner's own details are edited on /me only.
 
@@ -65,6 +70,8 @@
 | Task requests | All | Their own + requests labelled with their clients + requests with no client | Their own |
 | Availability of others | Full detail | **Counts and busy blocks only** (`member_availability()` function) | ❌ |
 | Money (any amount, override, billing status, revenue) | ✅ | ❌ (not even in exports) | ❌ |
+| Expense claims (3b.3) | All (`expenses.decide`) | **Own only**: never anyone else's, not even their team's | Own only |
+| Month summary (3b.4) | All | ❌ | ❌ |
 | A project's billing **category** (Retainer / Project / Additional Work) | ✅ set and see | See only (it's operational context, not an amount) | ❌ |
 | Reports / snapshots | All | Scoped operational reports, **computed live**. `eod_reports` and `month_snapshots` hold revenue and are Owner-only tables | ❌ |
 | Activity log | All | Entries about records they can see | Entries about their own tasks, attendance and leave |

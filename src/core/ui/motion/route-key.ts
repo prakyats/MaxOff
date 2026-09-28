@@ -9,10 +9,12 @@
  * with tab routes adds its entry here (`route-key.test.ts` lists the current ones).
  */
 const TAB_ROUTES: readonly RegExp[] = [
-  // `/leave` and `/leave/attendance` (2.3), under `leave/layout.tsx`.
-  /^(\/leave)(?:\/attendance)?$/,
-  // A person's page (3.4, `person-nav.tsx`): Profile, and for the Owner Leave and Attendance.
-  /^(\/people\/[^/]+)(?:\/(?:leave|attendance))?$/,
+  // `/leave`, `/leave/attendance` (2.3), `/leave/extra-work` (3b.2) and `/leave/expenses` (3b.3),
+  // under `leave/layout.tsx`.
+  /^(\/leave)(?:\/(?:attendance|extra-work|expenses))?$/,
+  // A person's page (3.4, `person-nav.tsx`): Profile, and for the Owner Leave, Attendance and
+  // Month (3b.4).
+  /^(\/people\/[^/]+)(?:\/(?:leave|attendance|month))?$/,
   // A client's page (3.4, `client-nav.tsx`): Overview, Brand, Activity.
   /^(\/clients\/[^/]+)(?:\/(?:brand|activity))?$/,
 ];

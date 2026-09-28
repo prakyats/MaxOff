@@ -7,7 +7,7 @@
 //
 // `--as` takes the local seed roles (owner, admin, staff). Against staging, sign in as a real
 // person instead: `--email you@example.com` with the password in MEASURE_PASSWORD (never on the
-// command line). Each person signs in once through the real form, which also passes the day gate.
+// command line). Each person signs in once through the real form.
 //
 // Reported per person, as the median of the runs (ms from navigation start):
 //   redirects  time spent in same-origin redirects before the final document (`/` → home)

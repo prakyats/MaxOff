@@ -11,6 +11,10 @@ select plan(143);
 -- Attendance and leave rows (2.1) reference members: a Playwright run leaves some behind (2.2).
 delete from public.attendance_events;
 delete from public.attendance_days;
+delete from public.expense_claims;
+delete from public.comp_leave_credit_uses;
+delete from public.comp_leave_credits;
+delete from public.extra_work_notes;
 delete from public.leave_requests;
 delete from public.session_events;
 delete from public.activity_log;
@@ -123,8 +127,8 @@ select results_eq(
 rollback to savepoint fresh_org;
 
 -- Seed (PERMISSIONS §1) -------------------------------------------------------------------
-select is((select count(*) from public.role_permissions), 49::bigint, '49 grants are seeded');
-select is((select count(*) from public.role_permissions where role = 'owner'), 29::bigint, 'the Owner holds 29 keys');
+select is((select count(*) from public.role_permissions), 50::bigint, '50 grants are seeded (expenses.decide since 3b.3)');
+select is((select count(*) from public.role_permissions where role = 'owner'), 30::bigint, 'the Owner holds 30 keys');
 select is((select count(*) from public.role_permissions where role = 'admin'), 16::bigint, 'Admins hold 16 keys');
 select results_eq(
   $$ select permission from public.role_permissions where role = 'staff' order by 1 $$,
@@ -390,7 +394,7 @@ select throws_ok(
 
 -- role_permissions ------------------------------------------------------------------------
 select pg_temp.as_member('staff');
-select is((select count(*) from public.role_permissions), 49::bigint, 'any active member reads the grants');
+select is((select count(*) from public.role_permissions), 50::bigint, 'any active member reads the grants');
 select pg_temp.as_member('deactivated');
 select is((select count(*) from public.role_permissions), 0::bigint, 'a deactivated member reads no grants');
 select pg_temp.as_member('owner');

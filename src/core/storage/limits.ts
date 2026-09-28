@@ -5,7 +5,7 @@
  * join in phase 5 on the same table.
  */
 
-export const FILE_PURPOSES = ["logo", "avatar", "preview"] as const;
+export const FILE_PURPOSES = ["logo", "avatar", "receipt", "preview"] as const;
 export type FilePurpose = (typeof FILE_PURPOSES)[number];
 
 export function isFilePurpose(value: unknown): value is FilePurpose {
@@ -17,6 +17,8 @@ const MB = 1024 * 1024;
 export const MAX_BYTES: Record<FilePurpose, number> = {
   logo: 5 * MB,
   avatar: 5 * MB,
+  /** An expense receipt photo (3b.3): a phone camera's JPEG is 2-8 MB. */
+  receipt: 10 * MB,
   /** A browser-made JPEG of at most 512px on its long edge is far under this. */
   preview: 1 * MB,
 };
@@ -24,6 +26,7 @@ export const MAX_BYTES: Record<FilePurpose, number> = {
 export const ALLOWED_MIMES: Record<FilePurpose, readonly string[]> = {
   logo: ["image/png", "image/jpeg", "image/webp", "image/svg+xml"],
   avatar: ["image/png", "image/jpeg", "image/webp"],
+  receipt: ["image/png", "image/jpeg", "image/webp"],
   preview: ["image/jpeg"],
 };
 
@@ -87,7 +90,7 @@ export function checkFile(
 ): string | null {
   if (!ALLOWED_MIMES[purpose].includes(file.mime)) {
     const kinds = ALLOWED_MIMES[purpose].map(mimeLabel).join(", ");
-    return purpose === "avatar"
+    return purpose === "avatar" || purpose === "receipt"
       ? `A photo is ${kinds}. SVG is not accepted for photos.`
       : `Use ${kinds}.`;
   }

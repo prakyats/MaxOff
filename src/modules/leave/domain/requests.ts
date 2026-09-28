@@ -11,6 +11,9 @@ export const LEAVE_TYPES = [
   "half_day",
   "comp_leave",
 ] as const satisfies readonly LeaveType[];
+/** What a member's plain request or change may be (3b.2: comp leave goes through a credit). */
+export const MEMBER_LEAVE_TYPES = ["leave", "half_day"] as const satisfies readonly LeaveType[];
+export type MemberLeaveType = (typeof MEMBER_LEAVE_TYPES)[number];
 export const LEAVE_STATES = [
   "submitted",
   "approved",
@@ -58,6 +61,8 @@ export type OwnLeaveRequest = {
   original: { type: LeaveType; startDate: string; endDate: string } | null;
   /** A change or cancellation of this request is waiting for the Owner. */
   hasOpenChange: boolean;
+  /** The comp leave credit it uses (3b.2): 1 for a comp day, 0.5 for a half comp day, else null. */
+  creditDays: number | null;
 };
 
 export type LeaveRequestActions = { withdraw: boolean; change: boolean; cancel: boolean };
@@ -75,13 +80,17 @@ export type LeaveRequestActions = { withdraw: boolean; change: boolean; cancel: 
  * Whether the member is active and holds `attendance.self` is the page's check, not this one.
  */
 export function leaveRequestActions(
-  request: Pick<OwnLeaveRequest, "state" | "source" | "hasOpenChange" | "endDate">,
+  request: Pick<OwnLeaveRequest, "state" | "source" | "hasOpenChange" | "endDate"> & {
+    creditDays?: number | null;
+  },
   today: string,
 ): LeaveRequestActions {
   const withdraw = request.state === "submitted" && request.source !== "attendance";
   const changeable =
     request.state === "approved" && request.endDate >= today && !request.hasOpenChange;
-  return { withdraw, change: changeable, cancel: changeable };
+  // 3b.2: comp leave is tied to the credits it drew for that date: cancel and request again,
+  // never move it (`leave_request_change` refuses a change of a request with credit_days).
+  return { withdraw, change: changeable && !request.creditDays, cancel: changeable };
 }
 
 /** What `leave_request_change` answers for approved leave that has fully passed (2.3). */
@@ -112,11 +121,13 @@ export function leaveDayCount(startDate: string, endDate: string): number {
   return days + 1;
 }
 
-/** "Leave · 3 days", "Half day", "Comp leave · 1 day". */
+/** "Leave · 3 days", "Half day", "Half day · comp" (a half comp day, 3b.2), "Comp leave · 1 day". */
 export function leaveTitle(
-  request: Pick<OwnLeaveRequest, "type" | "startDate" | "endDate">,
+  request: Pick<OwnLeaveRequest, "type" | "startDate" | "endDate"> & { creditDays?: number | null },
 ): string {
-  if (request.type === "half_day") return LEAVE_TYPE_LABELS.half_day;
+  if (request.type === "half_day") {
+    return request.creditDays ? `${LEAVE_TYPE_LABELS.half_day} · comp` : LEAVE_TYPE_LABELS.half_day;
+  }
   const count = leaveDayCount(request.startDate, request.endDate);
   return `${LEAVE_TYPE_LABELS[request.type]} · ${count} ${count === 1 ? "day" : "days"}`;
 }

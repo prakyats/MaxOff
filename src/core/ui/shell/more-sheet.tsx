@@ -27,12 +27,11 @@ const ROW =
 
 /**
  * The fifth slot of the bottom bar for Owner and Admin: the destinations that didn't make the
- * primary four, plus profile, appearance and **Log out** (ARCHITECTURE §14.1).
+ * primary four, plus profile and appearance (ARCHITECTURE §14.1).
  *
- * Log out is here rather than only in the account menu because it is a recorded attendance
- * action (WORKFLOWS §1 `session_logout` writes the time), so it must not sit behind a brand bar
- * that has scrolled away. Staff never see this sheet: their five destinations are the whole app,
- * and their Log out is on Me.
+ * `logoutItem` is an optional last row. Since 3b.1 the layout passes none: "Sign out of this
+ * device" lives under Me only (kickoff 3b decision 1), because signing out is no longer
+ * attendance.
  */
 export function MoreSheet({
   items,
@@ -156,9 +155,10 @@ export function MoreSheet({
             </span>
             <ThemeToggle />
           </div>
-          {/* Log out closes the sheet; its confirmation is owned above the shell and opens over
-              the page, not over a sheet that is still sitting there. */}
-          <div onClick={close}>{logoutItem}</div>
+          {/* A sign-out item closes the sheet; its confirmation is owned above the shell and opens
+              over the page, not over a sheet that is still sitting there. Since 3b.1 the layout
+              passes none: "Sign out of this device" lives under Me (kickoff 3b decision 1). */}
+          {logoutItem ? <div onClick={close}>{logoutItem}</div> : null}
         </div>
       </SheetContent>
     </Sheet>

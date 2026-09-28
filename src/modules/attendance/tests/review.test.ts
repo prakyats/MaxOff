@@ -27,6 +27,9 @@ const PERSON: TodayPerson = {
   firstLoginAt: null,
   lastLogoutAt: null,
   logoutNotRecorded: false,
+  startedAt: null,
+  endedAt: null,
+  endNotRecorded: false,
   overtimeFlag: false,
   isDayOff: false,
   onLeave: false,
@@ -160,8 +163,11 @@ describe("summariseToday: the card and the board from one read", () => {
   it("names each row's status in words", () => {
     expect(boardStatus(person({ submittedChoice: "half_day" }), "waiting")).toBe("Half day");
     expect(boardStatus(person({}), "waiting")).toBe("Absent (proposed)");
-    expect(boardStatus(person({ dayId: "d" }), "not_chosen")).toBe("Signed in");
-    expect(boardStatus(person({}), "not_chosen")).toBe("Not signed in");
+    expect(
+      boardStatus(person({ dayId: "d", firstLoginAt: "2026-09-24T03:40:00Z" }), "not_chosen"),
+    ).toBe("Signed in, not started");
+    expect(boardStatus(person({}), "not_chosen")).toBe("Not started");
+    expect(boardStatus(person({ dayId: "d" }), "not_chosen")).toBe("Not started");
     expect(boardStatus(person({ leaveType: "comp_leave" }), "on_leave")).toBe("Comp leave");
   });
 });
@@ -177,6 +183,7 @@ const PENDING: PendingDay = {
   onApprovedLeave: false,
   isDayOff: false,
   firstLoginAt: null,
+  startedAt: null,
   note: null,
   submittedAt: "2026-09-24T03:40:00Z",
 };
@@ -284,6 +291,9 @@ describe("the history in the Owner's words (one vocabulary, turned around)", () 
       firstLoginAt: null,
       lastLogoutAt: null,
       logoutNotRecorded: false,
+      startedAt: null,
+      endedAt: null,
+      endNotRecorded: false,
       overtimeFlag: false,
       overtimeReason: null,
       events: [],

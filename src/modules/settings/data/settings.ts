@@ -80,6 +80,7 @@ export async function updateThresholds(
   orgId: string,
   patch: {
     logoutReminderTime: string;
+    endDayCutoffTime: string;
     ackRepeatHours: number;
     ackEscalateHours: number;
     ackEscalateOwnerHours: number;
@@ -89,6 +90,7 @@ export async function updateThresholds(
 ): Promise<void> {
   await updateSettings(orgId, {
     logout_reminder_time: patch.logoutReminderTime,
+    end_day_cutoff_time: patch.endDayCutoffTime,
     ack_repeat_hours: patch.ackRepeatHours,
     ack_escalate_hours: patch.ackEscalateHours,
     ack_escalate_owner_hours: patch.ackEscalateOwnerHours,

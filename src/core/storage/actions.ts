@@ -68,6 +68,10 @@ export const beginUpload = action(
     ) {
       throw new AppError("FORBIDDEN");
     }
+    // A receipt is attached to the uploader's own expense claim (3b.3): whoever claims.
+    if (data.purpose === "receipt" && !can(member.role, "attendance.self")) {
+      throw new AppError("FORBIDDEN");
+    }
     const problem = checkFile(data.purpose, { mime: data.mime, size: data.size });
     if (problem) throw new AppError("VALIDATION", problem, { fieldErrors: { file: [problem] } });
     if ((data.purpose === "preview") !== (data.previewOf !== undefined)) {

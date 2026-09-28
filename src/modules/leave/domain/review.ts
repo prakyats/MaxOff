@@ -27,6 +27,8 @@ export type PendingLeave = {
   source: LeaveSource;
   requestsCancellation: boolean;
   createdAt: string;
+  /** The comp leave credit it uses (3b.2), so the Owner sees "Half day · comp". */
+  creditDays: number | null;
   /** The approved leave this one changes or cancels, as it stands now. */
   original: { type: LeaveType; startDate: string; endDate: string; state: LeaveState } | null;
 };

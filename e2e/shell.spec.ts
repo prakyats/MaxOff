@@ -60,11 +60,14 @@ test.describe("Owner on desktop", () => {
     await expect(html).not.toHaveClass(/\bdark\b/);
   });
 
-  test("the account menu names the member and offers Log out", async ({ page }) => {
+  test("the account menu names the member and opens the profile; sign-out lives on Me", async ({
+    page,
+  }) => {
     await page.goto("/today");
     await page.getByRole("button", { name: "Account menu" }).click();
     await expect(page.getByRole("menu")).toContainText("Prishit Shetty");
-    await expect(page.getByRole("menuitem", { name: "Log out" })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: "Profile" })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: /Log out|Sign out/ })).toHaveCount(0);
     await page.keyboard.press("Escape");
   });
 });

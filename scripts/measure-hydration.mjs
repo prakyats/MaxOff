@@ -5,7 +5,7 @@
 //   node scripts/measure-hydration.mjs [--base http://localhost:3200] [--runs 9] [--cpu 4]
 //                                      [--as owner,staff]
 //
-// Each seed person signs in once through the real form (passing the day gate), then opens their
+// Each seed person signs in once through the real form, then opens their
 // home (`/today` for the Owner and Admin, `/my-day` for Staff) in a fresh context: nothing in the
 // HTTP cache, the session cookies already there. Reported as the median of the runs (ms from
 // navigation start):

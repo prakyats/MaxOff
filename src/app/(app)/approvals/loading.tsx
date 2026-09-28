@@ -5,8 +5,8 @@ import { LoadingState } from "@/core/ui/composites/loading-state";
 import { PageHeader } from "@/core/ui/composites/page-header";
 
 /**
- * One Approvals screen, grouped, no tabs (2.4): the Owner's Attendance and Leave groups, traced
- * row for row by `ApprovalGroupSkeleton`. An Admin decides neither and still gets the
+ * One Approvals screen, grouped, no tabs (2.4): the Owner's Attendance, Leave, Extra work (3b.2)
+ * and Expenses (3b.3) groups, traced row for row by `ApprovalGroupSkeleton`. An Admin decides neither and still gets the
  * placeholder until 4.5; the `(app)` layout already resolved the member for this request
  * (`cache()`), so asking costs no query.
  */
@@ -20,6 +20,8 @@ export default async function Loading() {
         <div className="flex flex-col gap-6">
           <ApprovalGroupSkeleton rows={3} />
           <ApprovalGroupSkeleton rows={2} />
+          <ApprovalGroupSkeleton rows={1} />
+          <ApprovalGroupSkeleton rows={1} />
           <span className="sr-only">Loading approvals</span>
         </div>
       ) : (

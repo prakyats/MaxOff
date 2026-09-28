@@ -15,7 +15,7 @@ try {
 const PRODUCTION_SPECS = /production\.spec\.ts$/;
 const SETUP_SPECS = /\.setup\.ts$/;
 const MOBILE_SPECS = /mobile\.spec\.ts$/;
-const DAY_GATE_SPECS = /day-gate\.spec\.ts$/;
+const WORKING_DAY_SPECS = /working-day\.spec\.ts$/;
 const LEAVE_SPECS = /leave\.spec\.ts$/;
 const BACK_GESTURE_SPECS = /back-gesture\.spec\.ts$/;
 const OWNER_REVIEW_SPECS = /owner-review\.spec\.ts$/;
@@ -29,6 +29,9 @@ const CUSTOM_FIELDS_SPECS = /custom-fields\.spec\.ts$/;
 const STORAGE_SPECS = /storage\.spec\.ts$/;
 const CLIENTS_SPECS = /clients\.spec\.ts$/;
 const SELECT_SPECS = /select\.spec\.ts$/;
+const EXTRA_WORK_SPECS = /extra-work\.spec\.ts$/;
+const EXPENSES_SPECS = /expenses\.spec\.ts$/;
+const MONTH_SUMMARY_SPECS = /month-summary\.spec\.ts$/;
 
 /**
  * Flow tests (ARCHITECTURE §15). `pnpm test:e2e` runs them; CI runs them as their own job.
@@ -95,11 +98,11 @@ export default defineConfig({
       use: { ...devices["Pixel 5"], viewport: { width: 375, height: 812 } },
     },
     {
-      // The large phone. Only `mobile.spec.ts` and the day gate run here: the flow specs prove
+      // The large phone. Only `mobile.spec.ts` and the working day run here: the flow specs prove
       // behaviour, which does not change with 55px of width, while the mobile standard is
       // checked at **both** 375px and 430px because that is where a layout stops fitting
-      // (§14.1). The gate is the first screen every Admin and Staff member sees each morning,
-      // on a phone more often than not (2.2). Own leave (2.3) runs here as an Admin, so the
+      // (§14.1). The Start-day prompt is the first thing every Admin and Staff member meets each
+      // morning, on a phone more often than not (2.2, reworked in 3b.1). Own leave (2.3) runs here as an Admin, so the
       // Admin's way in (the card on /today) is covered at a phone width too. The back-gesture
       // spec runs here as well: the installed-app rules are checked at both phone widths, and so
       // does the Owner's review (2.4), whose sheets and dialogs each have a back order. The
@@ -107,12 +110,15 @@ export default defineConfig({
       // slide, per-tab scroll and refresh on return (2.7b), checked at both widths, and taps before
       // hydration (2.8), and the edit pattern's back order (2.9), and the custom fields
       // screen's add sheet and entity tabs (3.2), and the logo and photo upload sheets (3.3), and
-      // the client screens' views, menus and sheets (3.4), and the select's phone sheet (3B review).
+      // the client screens' views, menus and sheets (3.4), the select's phone sheet (3B review), and
+      // the extra work notes, the Owner's Extra work group and comp leave (3b.2), and the expense
+      // claims' and the month summary's layers (3b.3, 3b.4; added at `/review-phase 3b`, which
+      // found them checked at 375px only).
       name: "mobile-lg",
       dependencies: ["setup"],
       testMatch: [
         MOBILE_SPECS,
-        DAY_GATE_SPECS,
+        WORKING_DAY_SPECS,
         LEAVE_SPECS,
         BACK_GESTURE_SPECS,
         OWNER_REVIEW_SPECS,
@@ -125,6 +131,9 @@ export default defineConfig({
         STORAGE_SPECS,
         CLIENTS_SPECS,
         SELECT_SPECS,
+        EXTRA_WORK_SPECS,
+        EXPENSES_SPECS,
+        MONTH_SUMMARY_SPECS,
       ],
       use: { ...devices["Pixel 5"], viewport: { width: 430, height: 932 } },
     },
@@ -147,11 +156,7 @@ export default defineConfig({
     url: `${baseURL}/offline`,
     reuseExistingServer: false,
     timeout: 300_000,
-    // The day gate's pass cookie (2.2) is exercised end to end with a fixed test secret; the
-    // no-secret path (touch on every page load) is the same database call without the cookie.
     env: {
-      DAY_GATE_COOKIE_SECRET:
-        process.env.DAY_GATE_COOKIE_SECRET ?? "e2e-only-day-gate-secret-not-used-anywhere-else",
       // File storage (3.3): every e2e run uploads to the local MinIO (`pnpm storage:start`,
       // docker-compose.storage.yml); these are its throwaway values, the same as .env.example.
       S3_ENDPOINT: process.env.S3_ENDPOINT ?? "http://127.0.0.1:9000",

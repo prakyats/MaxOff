@@ -232,6 +232,7 @@ describe("settingsSectionsFor", () => {
       "company",
       "days-off",
       "thresholds",
+      "expenses",
       "job-titles",
       "task-types",
       "stage-presets",

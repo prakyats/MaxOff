@@ -92,17 +92,20 @@ One unit at a time instead (the same gates, you in the loop): `/model` for the u
 ---
 
 ## Milestones
-| After phase | You can |
+| In launch order | You can |
 |---|---|
 | 1 | Log in, invite the team |
-| 2 | Run daily attendance and leave approvals |
+| 2 · 3 · 3b | Attendance and leave, clients, the working day, comp leave, expenses, the month summary (built on staging) |
+| **3c ★ Stage 1 live** | **Use MaxOff every day in production** for attendance, leave, comp leave and expenses, with backups |
 | 4 | Assign tasks, with acknowledgement and the Admin → Owner approval chain |
-| **6 ★ Pilot** | **Use MaxOff every day in production** (attendance, leave, tasks, notifications, dashboards, calendar, EOD report, backups) |
+| 5 | Notifications and reminders reach everyone |
+| 6 | My Day, your Today, the Admin dashboard, the calendar, the end-of-day report |
+| 8 | Staff hand in work (files and links) on their tasks |
 | 7 | Track client projects, cycles and Owner item approvals |
-| 9 | See revenue, close months, export reports for AI analysis |
+| 9 | See revenue, close months |
 | 10 | Full launch |
 
-Phases 3–10 are 22 units (phase 3b added and five tasks deferred past the launch, 2026-09-27; 3A is done). A phase is a kickoff, a `/run-phase` (a day or two of machine time), a review; the pilot (end of phase 6) is about **3 weeks** away at that pace and full launch about **6 weeks**.
+The order is fixed (ROADMAP "Launch order", owner decision: staff first, staged) and **there are no dates**: each phase starts as soon as the previous one merges and is released to production at once. Twenty units are left after phase 3b's build (3c to 10); a phase is a kickoff, a `/run-phase` (machine time, best in a cloud session) and a review, and with a full day's attention a phase can be done in a day.
 
 ## Adding or changing features later
 ```

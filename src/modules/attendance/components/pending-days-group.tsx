@@ -9,11 +9,12 @@ import { Button } from "@/core/ui/primitives/button";
 import { postKeepalive } from "@/core/ui/keepalive";
 
 import { approveDays } from "../actions/review";
-import { firstName, historyDate, clockTime } from "../domain/history";
+import { firstName, historyDate } from "../domain/history";
 import {
   approvedLabel,
   pendingLabel,
   pendingOutcome,
+  pendingStart,
   pendingSubtitle,
   type PendingDay,
 } from "../domain/review";
@@ -86,10 +87,7 @@ export function PendingDaysGroup({ days, today }: { days: PendingDay[]; today: s
                 value: pendingLabel(review),
               },
               ...(review.note ? [{ label: "Their note", value: review.note }] : []),
-              {
-                label: "Signed in",
-                value: review.firstLoginAt ? clockTime(review.firstLoginAt) : "Not recorded",
-              },
+              pendingStart(review),
               ...(review.onApprovedLeave
                 ? [{ label: "Leave", value: "Approved leave covers this day; it stays as it is" }]
                 : []),

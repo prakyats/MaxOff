@@ -19,6 +19,7 @@ const root = fileURLToPath(new URL("..", import.meta.url));
 const MIGRATIONS = [
   "supabase/migrations/20260922103634_team_identity.sql",
   "supabase/migrations/20260922130118_team_owner_role.sql",
+  "supabase/migrations/20260928025738_expense_claims.sql",
 ];
 
 type Grants = Record<MemberRole, string[]>;
@@ -73,7 +74,8 @@ function grantsFromMigrations(): Grants {
   let seeded = false;
   for (const file of MIGRATIONS) {
     const sql = readFileSync(`${root}${file}`, "utf8");
-    const insert = sql.split("insert into public.role_permissions")[1];
+    // The insert statement only: a later migration's functions carry `('a', 'b')` pairs too.
+    const insert = sql.split("insert into public.role_permissions")[1]?.split(";")[0];
     if (insert) {
       seeded = true;
       for (const match of insert.matchAll(/\('([a-z_]+)',\s*'([a-z_.]+)'\)/g)) {

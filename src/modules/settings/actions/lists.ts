@@ -4,7 +4,13 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { action, AppError, isPostgresError, ok, type Result } from "@/core/errors";
-import { LIST_KEYS, LIST_LABELS, type ListKey, listItemInputSchema } from "@/core/lists";
+import {
+  LIST_EDIT_PERMISSION,
+  LIST_KEYS,
+  LIST_LABELS,
+  type ListKey,
+  listItemInputSchema,
+} from "@/core/lists";
 import { archiveListItem, createListItem, moveListItem, updateListItem } from "@/core/lists/server";
 import { assertPermission } from "@/core/permissions/server";
 
@@ -32,6 +38,7 @@ function revalidateLists(): void {
   revalidatePath("/settings", "layout");
   revalidatePath("/people");
   revalidatePath("/me");
+  revalidatePath("/leave/expenses");
 }
 
 /** unique (org_id, list_key, lower(name)) where archived_at is null. */
@@ -47,7 +54,7 @@ function friendlyConflict(key: ListKey, error: unknown): never {
 
 export const addListItem = action(async (input: AddListItemInput): Promise<Result<null>> => {
   const data = addSchema.parse(input);
-  await assertPermission("lists.manage");
+  await assertPermission(LIST_EDIT_PERMISSION[data.listKey]);
   try {
     await createListItem(data.listKey, data.item);
   } catch (error) {
@@ -59,7 +66,7 @@ export const addListItem = action(async (input: AddListItemInput): Promise<Resul
 
 export const renameListItem = action(async (input: RenameListItemInput): Promise<Result<null>> => {
   const data = renameSchema.parse(input);
-  await assertPermission("lists.manage");
+  await assertPermission(LIST_EDIT_PERMISSION[data.listKey]);
   try {
     await updateListItem(data.id, data.item);
   } catch (error) {
@@ -73,7 +80,7 @@ export const renameListItem = action(async (input: RenameListItemInput): Promise
 export const setListItemArchived = action(
   async (input: ArchiveListItemInput): Promise<Result<null>> => {
     const data = archiveSchema.parse(input);
-    await assertPermission("lists.manage");
+    await assertPermission(LIST_EDIT_PERMISSION[data.listKey]);
     try {
       await archiveListItem(data.id, data.archived);
     } catch (error) {
@@ -87,7 +94,7 @@ export const setListItemArchived = action(
 
 export const moveListItemBy = action(async (input: MoveListItemInput): Promise<Result<null>> => {
   const data = moveSchema.parse(input);
-  await assertPermission("lists.manage");
+  await assertPermission(LIST_EDIT_PERMISSION[data.listKey]);
   await moveListItem(data.listKey, data.id, data.direction);
   revalidateLists();
   return ok(null);
