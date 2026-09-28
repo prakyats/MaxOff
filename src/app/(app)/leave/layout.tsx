@@ -4,7 +4,7 @@ import { getCurrentMember } from "@/core/auth/server";
 import { can } from "@/core/permissions";
 import { todayIST } from "@/core/time";
 import { PageHeader } from "@/core/ui/composites/page-header";
-import { type CompBalance, getCompBalance } from "@/modules/leave";
+import { type CompBalance, getCompBalance, listCompDates } from "@/modules/leave";
 import { RequestLeaveButton } from "@/modules/leave/components/request-leave-button";
 
 import { LeaveTabs } from "./leave-tabs";
@@ -33,9 +33,13 @@ export default async function LeaveLayout({ children }: { children: ReactNode })
   // The Owner (no `attendance.self`) never opens these routes, so the promise is only made for
   // someone who marks attendance; a failed read is caught here, so it is never an unobserved
   // rejection, and the form then offers no comp leave (the database is the rule either way).
+  // The working days the form may offer for comp leave come with it (3b review); without them
+  // the form falls back to a plain date field.
   const balance =
     viewer && can(viewer.role, "attendance.self")
-      ? getCompBalance(viewer.id).catch(() => NO_COMP_BALANCE)
+      ? Promise.all([getCompBalance(viewer.id), listCompDates().catch(() => undefined)])
+          .then(([own, dates]): CompBalance => (dates ? { ...own, dates } : own))
+          .catch(() => NO_COMP_BALANCE)
       : Promise.resolve(NO_COMP_BALANCE);
   return (
     <>

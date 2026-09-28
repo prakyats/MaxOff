@@ -16,6 +16,8 @@ export type Company = {
 
 export type Thresholds = {
   logoutReminderTime: string;
+  /** IST: yesterday's open day can be ended until this time the next morning (3b review). */
+  endDayCutoffTime: string;
   ackRepeatHours: number;
   ackEscalateHours: number;
   ackEscalateOwnerHours: number;
@@ -38,6 +40,7 @@ export function toOrgSettings(row: Tables<"org_settings">): OrgSettings {
     weeklyOffDays: [...row.weekly_off_days].sort((a, b) => a - b),
     // Postgres serialises `time` as HH:MM:SS; the form's input wants HH:MM.
     logoutReminderTime: row.logout_reminder_time.slice(0, 5),
+    endDayCutoffTime: row.end_day_cutoff_time.slice(0, 5),
     ackRepeatHours: row.ack_repeat_hours,
     ackEscalateHours: row.ack_escalate_hours,
     ackEscalateOwnerHours: row.ack_escalate_owner_hours,

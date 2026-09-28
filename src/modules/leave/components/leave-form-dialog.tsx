@@ -30,6 +30,8 @@ import { requestCompLeave, requestLeave, requestLeaveChange } from "../actions/l
 import {
   COMP_KIND_LABELS,
   type CompBalance,
+  compDateLabel,
+  compDatesFor,
   type CompLeaveKind,
   compKindsAvailable,
   daysLabel,
@@ -140,6 +142,17 @@ function LeaveForm({
   const [pending, startTransition] = useTransition();
   const isComp = kind === "comp_full" || kind === "comp_half";
   const singleDate = kind === "half_day" || isComp;
+  // Comp leave picks from the working days it can cover (3b review): a weekly day off or a
+  // holiday is never offered. Without the list (it failed to load) the date field stays.
+  const compDates = isComp && comp.dates ? compDatesFor(comp.dates, kind) : null;
+
+  function chooseKind(next: Kind) {
+    setKind(next);
+    if (next === "comp_full" || next === "comp_half") {
+      const offered = comp.dates ? compDatesFor(comp.dates, next) : null;
+      if (offered && !offered.includes(startDate)) setStartDate(offered[0] ?? "");
+    }
+  }
   // A change may keep a start that has already passed (WORKFLOWS §2); nothing else may.
   const minStart = original && original.startDate < today ? original.startDate : today;
 
@@ -195,7 +208,7 @@ function LeaveForm({
           : {})}
       >
         {(control) => (
-          <Select value={kind} onValueChange={(next) => setKind(next as Kind)}>
+          <Select value={kind} onValueChange={(next) => chooseKind(next as Kind)}>
             <SelectTrigger
               id={control.id}
               className="w-full"
@@ -221,22 +234,43 @@ function LeaveForm({
       </FormField>
       <div className="flex flex-col gap-4 sm:flex-row">
         <FormField label={singleDate ? "Date" : "First day"} error={dateError} className="flex-1">
-          {(control) => (
-            <Input
-              {...control}
-              name="startDate"
-              type="date"
-              min={minStart}
-              {...(isComp && comp.useBy ? { max: comp.useBy } : {})}
-              value={startDate}
-              onChange={(event) => {
-                setStartDate(event.target.value);
-                // Keep the range the right way round while picking forward.
-                if (event.target.value > endDate) setEndDate(event.target.value);
-              }}
-              required
-            />
-          )}
+          {(control) =>
+            compDates ? (
+              <Select value={startDate} onValueChange={setStartDate}>
+                <SelectTrigger
+                  id={control.id}
+                  className="w-full"
+                  aria-describedby={control["aria-describedby"]}
+                  aria-invalid={control["aria-invalid"]}
+                  data-slot="comp-date"
+                >
+                  <SelectValue placeholder="No working day left before the use-by date" />
+                </SelectTrigger>
+                <SelectContent>
+                  {compDates.map((date) => (
+                    <SelectItem key={date} value={date}>
+                      {compDateLabel(date)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Input
+                {...control}
+                name="startDate"
+                type="date"
+                min={minStart}
+                {...(isComp && comp.useBy ? { max: comp.useBy } : {})}
+                value={startDate}
+                onChange={(event) => {
+                  setStartDate(event.target.value);
+                  // Keep the range the right way round while picking forward.
+                  if (event.target.value > endDate) setEndDate(event.target.value);
+                }}
+                required
+              />
+            )
+          }
         </FormField>
         {singleDate ? null : (
           <FormField label="Last day" error={fieldErrors.endDate} className="flex-1">

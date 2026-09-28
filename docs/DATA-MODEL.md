@@ -155,8 +155,11 @@ org_settings         org_id pk, weekly_off_days smallint[] (0=Sun..6=Sat), logou
                      default_task_reminders jsonb, workload_warning_threshold int,
                      expense_receipt_above numeric(12,2) (500; 3b.3, expand-only: a claim above this
                      amount needs a receipt photo; check >= 0; in the API UPDATE grant, so
-                     settings.manage edits it like the rest, from Settings -> Expenses)
-                     -- API UPDATE grant: the ten settings columns above, never org_id or the timestamps
+                     settings.manage edits it like the rest, from Settings -> Expenses),
+                     end_day_cutoff_time time ('05:00'; 3b review, expand-only: yesterday's open day
+                     can be ended until this IST time, never once today started; Settings ->
+                     Thresholds, which offers 00:00-11:59)
+                     -- API UPDATE grant: the eleven settings columns above, never org_id or the timestamps
                      -- defaults in brackets = launch settings (PRODUCT §7); default_task_reminders '[]' until
                      -- 5.3, workload_warning_threshold null until 4.3. Created by trigger with the organization
 holidays             id, org_id, date, name, created_at, updated_at, unique(org_id, date)
@@ -315,7 +318,8 @@ comp_leave_credits   id, member_id, days numeric(2,1) (0.5 | 1.0), used_days num
                      granted_by, granted_at, granted_on date (IST), expires_on date (the last day of
                      the IST month of granted_on), note null (the Owner's, shown to the member),
                      note_id null -> extra_work_notes, revoked_at null, revoked_by null, revoke_reason null,
-                     created_at, updated_at
+                     request_key uuid null (3b review: the grant dialog's key; unique per
+                     (member_id, request_key) where not null), created_at, updated_at
                      -- 3b.2 (decisions 12, 14, 15, 17). check used + reserved <= days; a revoked
                      -- credit has used = reserved = 0. The status is DERIVED, never stored:
                      -- revoked_at -> revoked; used_days = days -> used; expires_on < today ->
@@ -566,7 +570,10 @@ public.attendance_end_day()     attendance.self. The caller's day with started_a
                                 first") or when today's day has ended ("Your day has already ended":
                                 End day is final, no resume). Yesterday is looked at only when today
                                 has no start at all, so a second tap after today ended never writes an
-                                end onto an open yesterday (3bA review). Returns (day_id, work_date). 3b.2
+                                end onto an open yesterday (3bA review), and only while the IST time
+                                is before org_settings.end_day_cutoff_time (3b review, default 05:00;
+                                INVALID_STATE past it: yesterday stays end_not_recorded, late work
+                                goes in an overtime note). Returns (day_id, work_date). 3b.2
                                 re-creates it with the optional overtime note (below)
 public.session_sign_out(user_agent, ip_hash)
                                 "Sign out of this device" (ADR-0012 amendment): session_events(logout)
@@ -622,11 +629,13 @@ public.extra_work_note_decide(note_id, decision, days default null, mark_day_wor
                                 note -> reviewed with decision, day_marked_worked, decided_by/at.
                                 Audit 'reviewed' (+ 'granted' on the credit, 'corrected' on the
                                 day). Returns the credit id or null. Notifies the member
-public.comp_leave_grant(member_id, days, note default null)
+public.comp_leave_grant(member_id, days, note default null, request_key default null)
                                 attendance.decide, independent of any note (decision 14): an active
                                 member of the org whose role holds attendance.self (NOT_FOUND /
                                 VALIDATION otherwise), days 0.5 | 1.0, expires_on = the end of this
-                                IST month. Takes the member's leave: lock. Audit 'granted'. Returns the id. Notifies the member
+                                IST month. Takes the member's leave: lock. Idempotent on request_key
+                                (3b review): the same key returns the first credit, CONFLICT when the
+                                amount differs. Audit 'granted' (once). Returns the id. Notifies the member
 public.comp_leave_revoke(credit_id, reason)
                                 attendance.decide, REASON_REQUIRED. Only an unused, unreserved,
                                 unexpired, unrevoked credit (INVALID_STATE naming why). The
@@ -641,8 +650,9 @@ public.comp_leave_balance(member_id default null)
 public.leave_submit_comp(start_date, half_day default false, reason default null)
                                 attendance.self. A comp leave request for ONE date (a full day, type
                                 comp_leave with credit_days 1.0, or a half day, type half_day with
-                                credit_days 0.5), start_date >= today, reason optional, CONFLICT on
-                                overlap as leave_submit. Under the leave: lock the credits with
+                                credit_days 0.5), start_date >= today and a working day (VALIDATION
+                                on a weekly day off or a holiday, 3b review), reason optional,
+                                CONFLICT on overlap as leave_submit. Under the leave: lock the credits with
                                 expires_on >= start_date (the date counts, not the decision) and
                                 free days are drawn oldest first (granted_at, id): VALIDATION "not
                                 enough comp leave for that date" when they do not cover it (checked
@@ -650,6 +660,19 @@ public.leave_submit_comp(start_date, half_day default false, reason default null
                                 the request, one comp_leave_credit_uses row per credit drawn
                                 (reserved) and reserved_days. Audit 'submitted' (meta comp). Returns
                                 the id. Notifies the Owner
+public.comp_leave_dates()       attendance.self, read (3b review): the working days (no weekly day off,
+                                no holiday) from today to the latest use-by date of the caller's free
+                                credits, each with the free days valid on it: (work_date,
+                                available_days). Empty with no free credit. What the leave form lists
+app.holiday_release_comp()      AFTER INSERT / UPDATE OF date on holidays (3b review): every waiting or
+                                approved comp leave request (credit_days not null) covering the new
+                                date -> cancelled, decided_by = the Owner adding it, a reason naming
+                                the holiday; today's untouched derived day released; the credit
+                                released (app.comp_credit_settle). Audit 'cancelled' (meta holiday)
+                                and 'released'. Notifies the member (5.1)
+app.end_day_late_allowed(at, cutoff), app.end_day_cutoff(org)
+                                3b review: whether an IST instant is before the End day cutoff, and
+                                the org's cutoff (internal)
 app.comp_credit_settle(request_id, outcome)
                                 internal (service_role only). outcome used: every reserved use of
                                 the request -> used (reserved_days -> used_days on the credit);

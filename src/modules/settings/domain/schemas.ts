@@ -61,6 +61,11 @@ export const updateThresholdsSchema = z
       .string()
       .trim()
       .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use a time like 20:30."),
+    // The next morning: past noon it would swallow the working day it is meant to guard.
+    endDayCutoffTime: z
+      .string()
+      .trim()
+      .regex(/^(0\d|1[01]):[0-5]\d$/, "Use a morning time between 00:00 and 11:59, like 05:00."),
     ackRepeatHours: hours("The acknowledgement reminder"),
     ackEscalateHours: hours("The escalation to the Admin"),
     ackEscalateOwnerHours: hours("The escalation to the Owner"),

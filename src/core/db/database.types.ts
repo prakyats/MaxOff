@@ -685,6 +685,7 @@ export type Database = {
           member_id: string;
           note: string | null;
           note_id: string | null;
+          request_key: string | null;
           reserved_days: number;
           revoke_reason: string | null;
           revoked_at: string | null;
@@ -703,6 +704,7 @@ export type Database = {
           member_id: string;
           note?: string | null;
           note_id?: string | null;
+          request_key?: string | null;
           reserved_days?: number;
           revoke_reason?: string | null;
           revoked_at?: string | null;
@@ -721,6 +723,7 @@ export type Database = {
           member_id?: string;
           note?: string | null;
           note_id?: string | null;
+          request_key?: string | null;
           reserved_days?: number;
           revoke_reason?: string | null;
           revoked_at?: string | null;
@@ -1392,6 +1395,7 @@ export type Database = {
           created_at: string;
           default_task_reminders: Json;
           email_daily_cap_per_member: number;
+          end_day_cutoff_time: string;
           expense_receipt_above: number;
           logout_reminder_time: string;
           org_id: string;
@@ -1407,6 +1411,7 @@ export type Database = {
           created_at?: string;
           default_task_reminders?: Json;
           email_daily_cap_per_member?: number;
+          end_day_cutoff_time?: string;
           expense_receipt_above?: number;
           logout_reminder_time?: string;
           org_id: string;
@@ -1422,6 +1427,7 @@ export type Database = {
           created_at?: string;
           default_task_reminders?: Json;
           email_daily_cap_per_member?: number;
+          end_day_cutoff_time?: string;
           expense_receipt_above?: number;
           logout_reminder_time?: string;
           org_id?: string;
@@ -1793,8 +1799,20 @@ export type Database = {
           use_by: string;
         }[];
       };
+      comp_leave_dates: {
+        Args: never;
+        Returns: {
+          available_days: number;
+          work_date: string;
+        }[];
+      };
       comp_leave_grant: {
-        Args: { days: number; member_id: string; note?: string };
+        Args: {
+          days: number;
+          member_id: string;
+          note?: string;
+          request_key?: string;
+        };
         Returns: string;
       };
       comp_leave_revoke: {

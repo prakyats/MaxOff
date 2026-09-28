@@ -2,7 +2,7 @@
 
 import { Loader2Icon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useId, useState, useTransition } from "react";
+import { useId, useRef, useState, useTransition } from "react";
 
 import type { ResultError } from "@/core/errors";
 import { cn } from "@/core/lib/utils";
@@ -39,21 +39,36 @@ export function GrantCompLeaveButton({ memberId, name }: { memberId: string; nam
   const [note, setNote] = useState("");
   const [error, setError] = useState<ResultError | null>(null);
   const [pending, startTransition] = useTransition();
+  // A double tap must not grant twice (3b review): the ref stops a second submit before React
+  // re-renders the disabled button, and the key (one per opened dialog) makes the database
+  // return the first grant if a second request still gets through (a retry, a slow network).
+  const inFlight = useRef(false);
+  const requestKey = useRef("");
 
   function close(next: boolean) {
-    if (pending) return;
+    if (pending || inFlight.current) return;
     if (!next) {
       setDays(null);
       setNote("");
       setError(null);
+    } else {
+      requestKey.current = crypto.randomUUID();
     }
     setOpen(next);
   }
 
   function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (inFlight.current) return;
+    inFlight.current = true;
     startTransition(async () => {
-      const result = await grantCompLeave({ memberId, days: days as 0.5 | 1, note });
+      const result = await grantCompLeave({
+        memberId,
+        days: days as 0.5 | 1,
+        note,
+        requestKey: requestKey.current,
+      });
+      inFlight.current = false;
       if (toastResult(result, { success: `Comp leave granted to ${firstName(name)}` })) {
         close(false);
         router.refresh();
@@ -66,10 +81,10 @@ export function GrantCompLeaveButton({ memberId, name }: { memberId: string; nam
   const daysError = error?.fieldErrors?.days?.[0];
   return (
     <>
-      <Button variant="strong" size="sm" onClick={() => setOpen(true)} data-slot="grant-comp-leave">
+      <Button variant="strong" size="sm" onClick={() => close(true)} data-slot="grant-comp-leave">
         Grant comp leave
       </Button>
-      <Dialog open={open} onOpenChange={close}>
+      <Dialog open={open} onOpenChange={(next) => close(next)}>
         <DialogContent data-slot="grant-comp-leave-dialog">
           <form onSubmit={submit} noValidate className="flex flex-col gap-4">
             <DialogHeader>

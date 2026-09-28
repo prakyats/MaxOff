@@ -29,7 +29,7 @@ export const grantCompLeave = action(
   async (input: GrantCompLeaveInput): Promise<Result<{ creditId: string }>> => {
     const data = grantCompLeaveSchema.parse(input);
     await assertPermission("attendance.decide");
-    const creditId = await repo.rpcGrant(data.memberId, data.days, data.note);
+    const creditId = await repo.rpcGrant(data.memberId, data.days, data.note, data.requestKey);
     revalidateCredits();
     return ok({ creditId });
   },

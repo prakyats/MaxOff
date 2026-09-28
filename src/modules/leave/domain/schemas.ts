@@ -189,6 +189,8 @@ export const grantCompLeaveSchema = z.object({
   memberId: z.uuid(),
   days: z.union([z.literal(0.5), z.literal(1)], { error: "Grant half a day or one day." }),
   note: reason,
+  /** One per opened dialog: a double tap or a retry is the same grant (3b review). */
+  requestKey: z.uuid(),
 });
 export type GrantCompLeaveInput = z.input<typeof grantCompLeaveSchema>;
 

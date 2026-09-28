@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   balanceLine,
   type CompCredit,
+  compDateLabel,
+  compDatesFor,
   compKindsAvailable,
   creditFree,
   creditStatus,
@@ -97,14 +99,41 @@ describe("comp leave credits (PRODUCT §4.3a, kickoff 3b decisions 14-17)", () =
 
   it("grants half a day or one day, and revokes with a reason", () => {
     const member = "00000000-0000-4000-8000-000000000001";
-    expect(grantCompLeaveSchema.safeParse({ memberId: member, days: 0.5 }).success).toBe(true);
+    const requestKey = "00000000-0000-4000-8000-00000000abcd";
     expect(
-      grantCompLeaveSchema.safeParse({ memberId: member, days: 1, note: "Sunday edit" }).success,
+      grantCompLeaveSchema.safeParse({ memberId: member, days: 0.5, requestKey }).success,
     ).toBe(true);
-    expect(grantCompLeaveSchema.safeParse({ memberId: member, days: 2 }).success).toBe(false);
+    expect(
+      grantCompLeaveSchema.safeParse({ memberId: member, days: 1, note: "Sunday edit", requestKey })
+        .success,
+    ).toBe(true);
+    expect(grantCompLeaveSchema.safeParse({ memberId: member, days: 2, requestKey }).success).toBe(
+      false,
+    );
+    // The dialog's key is what makes a double tap one grant (3b review).
+    expect(grantCompLeaveSchema.safeParse({ memberId: member, days: 1 }).success).toBe(false);
     expect(
       revokeCompLeaveSchema.safeParse({ creditId: member, reason: "Granted by mistake" }).success,
     ).toBe(true);
     expect(revokeCompLeaveSchema.safeParse({ creditId: member, reason: "no" }).success).toBe(false);
+  });
+
+  it("offers comp leave only on the listed working days, per kind (3b review)", () => {
+    const dates = [
+      { date: "2026-09-28", availableDays: 1.5 },
+      { date: "2026-09-29", availableDays: 1.5 },
+      // A day off is never listed; 1 Oct is past the half-day credit's month.
+      { date: "2026-10-01", availableDays: 1 },
+      { date: "2026-10-02", availableDays: 0.5 },
+    ];
+    expect(compDatesFor(dates, "comp_full")).toEqual(["2026-09-28", "2026-09-29", "2026-10-01"]);
+    expect(compDatesFor(dates, "comp_half")).toEqual([
+      "2026-09-28",
+      "2026-09-29",
+      "2026-10-01",
+      "2026-10-02",
+    ]);
+    expect(compDatesFor([], "comp_full")).toEqual([]);
+    expect(compDateLabel("2026-09-28")).toBe("Mon 28 Sep");
   });
 });

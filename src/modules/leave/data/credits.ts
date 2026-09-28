@@ -3,7 +3,7 @@ import "server-only";
 import { withDeadlockRetry } from "@/core/db/retry";
 import { createServerSupabase } from "@/core/db/server";
 
-import type { CompBalance, CompCredit } from "../domain/credits";
+import type { CompBalance, CompCredit, CompDate } from "../domain/credits";
 
 /**
  * Comp leave credits (CLAUDE.md rule 3; DATA-MODEL §3 `comp_leave_credits`). Reads go through
@@ -21,6 +21,17 @@ export async function getCompBalance(memberId?: string): Promise<CompBalance> {
   if (error) throw error;
   const row = data[0];
   return { availableDays: Number(row?.available_days ?? 0), useBy: row?.use_by ?? null };
+}
+
+/**
+ * The caller's own dates for comp leave (`comp_leave_dates()`, 3b review): working days from
+ * today to the latest use-by date, each with the free days valid on it.
+ */
+export async function listCompDates(): Promise<CompDate[]> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("comp_leave_dates");
+  if (error) throw error;
+  return data.map((row) => ({ date: row.work_date, availableDays: Number(row.available_days) }));
 }
 
 const CREDIT_COLUMNS =
@@ -51,15 +62,18 @@ export async function listCredits(memberId: string): Promise<CompCredit[]> {
   }));
 }
 
+/** A standalone grant; the same `requestKey` returns the first grant's credit (3b review). */
 export async function rpcGrant(
   memberId: string,
   days: number,
   note: string | null,
+  requestKey: string,
 ): Promise<string> {
   const supabase = await createServerSupabase();
   const { data, error } = await supabase.rpc("comp_leave_grant", {
     member_id: memberId,
     days,
+    request_key: requestKey,
     ...(note ? { note } : {}),
   });
   if (error) throw error;

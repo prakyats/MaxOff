@@ -33,7 +33,9 @@ delete from auth.identities;
 delete from auth.users;
 delete from public.activity_log;
 delete from public.holidays;
-update public.org_settings set weekly_off_days = '{}';
+update public.org_settings set weekly_off_days = '{}',
+  -- The late End day paths below run at any wall-clock time; the 05:00 cutoff itself is 28's.
+  end_day_cutoff_time = '23:59:59';
 
 create temporary table fx (key text primary key, id uuid not null);
 insert into fx values

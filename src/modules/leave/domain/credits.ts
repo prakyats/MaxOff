@@ -67,8 +67,26 @@ export function expiryLabel(expiresOn: string): string {
   return `use by ${formatIST(istDayStart(expiresOn), "d MMM")}`;
 }
 
-/** The balance the leave form and the cards show (`comp_leave_balance()`). */
-export type CompBalance = { availableDays: number; useBy: string | null };
+/** One date the leave form may offer for comp leave, with the free days valid on it. */
+export type CompDate = { date: string; availableDays: number };
+
+/**
+ * The balance the leave form and the cards show (`comp_leave_balance()`). The leave form also
+ * gets `dates` (`comp_leave_dates()`, 3b review): the working days it may offer, so a weekly day
+ * off or a holiday is never on the list.
+ */
+export type CompBalance = { availableDays: number; useBy: string | null; dates?: CompDate[] };
+
+/** The dates a full (1 day) or a half comp day can be taken on. */
+export function compDatesFor(dates: readonly CompDate[], kind: CompLeaveKind): string[] {
+  const needed = kind === "comp_full" ? 1 : 0.5;
+  return dates.filter((entry) => entry.availableDays >= needed).map((entry) => entry.date);
+}
+
+/** "Mon 29 Sep": a date in the comp leave list. */
+export function compDateLabel(date: string): string {
+  return formatIST(istDayStart(date), "EEE d MMM");
+}
 
 /**
  * "1½ days of comp leave · use by 30 Sep", or "No comp leave available": the one line on top of

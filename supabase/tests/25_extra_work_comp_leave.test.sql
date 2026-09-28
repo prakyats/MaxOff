@@ -321,10 +321,11 @@ select pg_temp.as_member('staff2');
 select throws_ok($$ select public.leave_submit_comp(pg_temp.today() + 2, true) $$, 'P0001', 'VALIDATION', 'nothing left to draw on');
 select is((select count(*) from public.comp_leave_credit_uses), 1::bigint, 'staff2 reads the use through their own credit');
 
--- The date counts, not the decision (decision 16): a date after the credit's month is refused.
+-- The date counts, not the decision (decision 16): a date after the credit's month is refused
+-- (today + 62: a working day in this file, so the refusal is the credit's, not the day off's).
 select pg_temp.as_member('staff');
 select throws_ok(
-  $$ select public.leave_submit_comp(pg_temp.today() + 61, false) $$, 'P0001', 'VALIDATION',
+  $$ select public.leave_submit_comp(pg_temp.today() + 62, false) $$, 'P0001', 'VALIDATION',
   'a date after the use-by date has no credit to cover it');
 select lives_ok($$ select public.leave_submit_comp(pg_temp.today(), false, 'Rest day') $$, 'a full comp day today, the last day allowed or earlier');
 select results_eq(
@@ -389,10 +390,11 @@ select pg_temp.as_member('owner');
 select lives_ok(format($$ select public.leave_owner_cancel(%L, 'Needed on set') $$, (pg_temp.request_on('staff', pg_temp.today() + 3)).id), 'the Owner cancels it');
 select is(pg_temp.balance('staff'), 1.0, 'an Owner cancellation gives the day back');
 select pg_temp.as_member('staff');
-select lives_ok($$ select public.leave_submit_comp(pg_temp.today() + 4, false) $$, 'requested for +4');
+-- +6: +4 and +5 are this file's weekly days off by now, and comp leave is never on a day off.
+select lives_ok($$ select public.leave_submit_comp(pg_temp.today() + 6, false) $$, 'requested for +6');
 select pg_temp.as_member('owner');
-select lives_ok(format($$ select * from public.leave_decide(%L, 'approve') $$, (pg_temp.request_on('staff', pg_temp.today() + 4)).id), 'approved');
-select lives_ok(format($$ select * from public.leave_owner_edit(%L, 'leave', pg_temp.today() + 5, pg_temp.today() + 5, 'Moved it') $$, (pg_temp.request_on('staff', pg_temp.today() + 4)).id),
+select lives_ok(format($$ select * from public.leave_decide(%L, 'approve') $$, (pg_temp.request_on('staff', pg_temp.today() + 6)).id), 'approved');
+select lives_ok(format($$ select * from public.leave_owner_edit(%L, 'leave', pg_temp.today() + 5, pg_temp.today() + 5, 'Moved it') $$, (pg_temp.request_on('staff', pg_temp.today() + 6)).id),
   'the Owner edits it into plain leave on another day');
 select is(pg_temp.balance('staff'), 1.0, 'the superseded comp leave gives its day back; the Owner''s leave carries no credit');
 select is((select credit_days from public.leave_requests r where r.member_id = pg_temp.fx('staff') and r.source = 'owner'), null, 'the Owner''s replacement has no credit_days');

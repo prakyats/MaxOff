@@ -60,6 +60,7 @@ describe("createHolidaySchema", () => {
 describe("updateThresholdsSchema", () => {
   const valid = {
     logoutReminderTime: "20:30",
+    endDayCutoffTime: "05:00",
     ackRepeatHours: "2",
     ackEscalateHours: "4",
     ackEscalateOwnerHours: "8",
@@ -70,6 +71,7 @@ describe("updateThresholdsSchema", () => {
   it("takes the launch settings (PRODUCT §7) as numbers", () => {
     expect(updateThresholdsSchema.parse(valid)).toEqual({
       logoutReminderTime: "20:30",
+      endDayCutoffTime: "05:00",
       ackRepeatHours: 2,
       ackEscalateHours: 4,
       ackEscalateOwnerHours: 8,
@@ -85,6 +87,21 @@ describe("updateThresholdsSchema", () => {
     expect(
       updateThresholdsSchema.safeParse({ ...valid, logoutReminderTime: "24:00" }).success,
     ).toBe(false);
+  });
+
+  it("takes a late End day cutoff only in the morning (3b review)", () => {
+    expect(updateThresholdsSchema.safeParse({ ...valid, endDayCutoffTime: "00:00" }).success).toBe(
+      true,
+    );
+    expect(updateThresholdsSchema.safeParse({ ...valid, endDayCutoffTime: "11:59" }).success).toBe(
+      true,
+    );
+    expect(updateThresholdsSchema.safeParse({ ...valid, endDayCutoffTime: "12:00" }).success).toBe(
+      false,
+    );
+    expect(updateThresholdsSchema.safeParse({ ...valid, endDayCutoffTime: "5am" }).success).toBe(
+      false,
+    );
   });
 
   it("refuses zero, fractional and absurd hours", () => {

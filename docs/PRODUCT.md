@@ -82,7 +82,7 @@ The full permission and visibility matrix is in `PERMISSIONS.md`. The key rules:
 - **An Owner correction to a leave type** (Leave / Half-Day / Comp Leave) also creates an approved leave request for that date, so the calendar and availability stay right.
 - **Days off:** the Owner sets the **weekly off days** (currently Sunday) and a **holiday list** in Settings. On a day off there's **no prompt and no absent check**. Someone who worked adds an **"I worked today"** note, and the Owner decides whether the day counts as worked and whether it earns comp leave (§4.3a).
 - **The Owner is exempt** from Start day, End day and their reminders.
-- **Forgotten End day:** around **8:30 PM IST** (configurable), anyone who started and hasn't ended gets *"You haven't ended your day. If you're done, end it; if you're working late, carry on."* If they never end it, the day is flagged **"End of day not recorded"**. An end time is **never** made up; an End day after midnight lands on the previous day.
+- **Forgotten End day:** around **8:30 PM IST** (configurable), anyone who started and hasn't ended gets *"You haven't ended your day. If you're done, end it; if you're working late, carry on."* If they never end it, the day is flagged **"End of day not recorded"**. An end time is **never** made up; an End day after midnight lands on the previous day, **only until 05:00 IST** (a setting, Settings → Thresholds) and never once today's Start day exists. After that the previous day stays "End of day not recorded" and the late work goes in an overtime note (owner decision 2026-09-28, `/review-phase 3b`).
 - No working-hours rules and no location rules.
 
 ### 4.3 Leave (for Admins and Staff)
