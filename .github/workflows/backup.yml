@@ -1,0 +1,109 @@
+# Backups (task 3c.2, ADR-0003, ARCHITECTURE §17): on the free plan Supabase keeps no backup of
+# its own, so this is the only safety net. Every night `scripts/backup/dump.sh` takes a pg_dump
+# of the production database through the session pooler (the runner has no IPv6, so the
+# direct host is out of reach), encrypts it to the Owner's age public key and uploads it to a
+# private R2 bucket outside Supabase (30-day retention: the bucket's lifecycle rule, plus the
+# script's own pruning). The private key never comes near CI: a restore happens on the Owner's
+# machine (docs/runbooks/backup-restore.md, `scripts/backup/fetch.sh` + `restore.sh`).
+#
+# Every value comes from the GitHub environment `backups` (Settings → Environments), which has
+# NO required reviewer: a nightly job cannot wait for an approval. It holds only what a backup
+# needs: read access to the database and write access to the backup bucket. Names in README →
+# "Backups".
+#
+# The first job of each month also opens the "Monthly Supabase usage check" issue (ADR-0003's
+# upgrade triggers: ~4 GB transfer, ~400 MB database), so the check is never forgotten.
+name: Backup
+
+on:
+  schedule:
+    # 20:30 UTC = 02:00 IST, after the day's last End day and before the 03:00 IST storage cleanup.
+    - cron: "30 20 * * *"
+    # 03:15 UTC on the 1st = 08:45 IST: the monthly usage check.
+    - cron: "15 3 1 * *"
+  workflow_dispatch:
+    inputs:
+      retention_days:
+        description: "Also delete backups older than this many days (blank: leave pruning to the bucket's lifecycle rule)"
+        type: string
+        default: "30"
+
+permissions:
+  contents: read
+
+jobs:
+  nightly:
+    name: nightly pg_dump → age → R2
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '30 20 * * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: backup-production
+      cancel-in-progress: false
+    environment:
+      name: backups
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install age
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq age >/dev/null
+          age --version
+
+      # The database is Postgres 17 (supabase/postgres); the runner's own client is older, so the
+      # dump runs from the official image (a pg_dump older than the server refuses to run).
+      - name: Pull the Postgres 17 client
+        run: docker pull -q postgres:17
+
+      - name: Dump, encrypt and upload
+        env:
+          PG_DUMP: docker run --rm --network host -e PGPASSWORD postgres:17 pg_dump
+          PSQL: docker run --rm -i --network host -e PGPASSWORD postgres:17 psql
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          # The session pooler (IPv4), never the direct host: user postgres.<ref>, port 5432.
+          BACKUP_DATABASE_URL: host=${{ vars.SUPABASE_DB_POOLER_HOST }} port=5432 user=postgres.${{ vars.SUPABASE_PROJECT_REF }} dbname=postgres sslmode=require
+          BACKUP_AGE_RECIPIENT: ${{ vars.BACKUP_AGE_RECIPIENT }}
+          BACKUP_PREFIX: postgres/${{ vars.SUPABASE_PROJECT_REF }}
+          BACKUP_RETENTION_DAYS: ${{ inputs.retention_days || '30' }}
+          BACKUP_S3_ENDPOINT: https://${{ vars.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          BACKUP_S3_BUCKET: ${{ vars.BACKUP_R2_BUCKET }}
+          BACKUP_S3_ACCESS_KEY_ID: ${{ secrets.BACKUP_R2_ACCESS_KEY_ID }}
+          BACKUP_S3_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_R2_SECRET_ACCESS_KEY }}
+        run: |
+          set -euo pipefail
+          key="$(bash scripts/backup/dump.sh)"
+          echo "Backed up to \`$key\` (encrypted to the Owner's age key)." >> "$GITHUB_STEP_SUMMARY"
+
+  usage-check:
+    name: monthly Supabase usage check
+    if: github.event.schedule == '15 3 1 * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Open the month's checklist issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          month="$(date -u +'%B %Y')"
+          title="Monthly Supabase usage check: $month"
+          if gh issue list --search "\"$title\" in:title" --state all --json number --jq 'length' | grep -qv '^0$'; then
+            echo "already opened"; exit 0
+          fi
+          gh issue create --title "$title" --body "$(cat <<'MD'
+          ADR-0003 (Supabase stays on the free plan) names the upgrade triggers. Open the production project's **Usage** page (Supabase dashboard → project → Usage) and tick:
+
+          - [ ] **Egress / transfer this month** is below **~4 GB** (the free plan allows 5 GB). Above it: upgrade to Pro before the cap.
+          - [ ] **Database size** is below **~400 MB** (the free plan allows 500 MB). Above it: archive `activity_log` rows older than a year (PRODUCT), then consider Pro.
+          - [ ] The nightly **Backup** workflow ran green every night this month (Actions → Backup); the bucket `maxoff-backups-production` holds about 30 objects, none older than 31 days.
+          - [ ] UptimeRobot shows `https://app.maxoff.in/api/health` up (the project must never pause: 7 idle days on the free plan).
+          - [ ] Point-in-time recovery ($25/mo) is still not worth it (ADR-0003).
+
+          Close this issue when every box is ticked. `docs/runbooks/backup-restore.md` has the restore drill, due once a quarter.
+          MD
+          )"
