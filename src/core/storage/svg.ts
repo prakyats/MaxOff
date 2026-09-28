@@ -97,13 +97,37 @@ function nameOf(node: Node): string | undefined {
   return Object.keys(node).find((key) => key !== ":@");
 }
 
+const SVG_NS = "http://www.w3.org/2000/svg";
+const XLINK_NS = "http://www.w3.org/1999/xlink";
+
+/**
+ * Namespace declarations: only the SVG default and the XLink prefix under its usual name
+ * survive. Any other `xmlns:*` could alias XLink (`xmlns:f` + `f:href`) or bring in a foreign
+ * vocabulary, so it goes, and an attribute under a prefix it declared no longer resolves.
+ */
+function keepsNamespace(name: string, value: string): boolean {
+  if (name === "xmlns") return value.trim() === SVG_NS;
+  if (name === "xmlns:xlink") return value.trim() === XLINK_NS;
+  return false;
+}
+
 function cleanAttributes(attrs: Record<string, string>): Record<string, string> {
   const kept: Record<string, string> = {};
   for (const [name, raw] of Object.entries(attrs)) {
     const value = String(raw);
     const lower = name.toLowerCase();
+    const localName = lower.slice(lower.lastIndexOf(":") + 1);
     if (lower.startsWith("on") || DROPPED_ATTRIBUTES.has(name)) continue;
-    if (REFERENCE_ATTRIBUTES.has(name)) {
+    if (lower === "xmlns" || lower.startsWith("xmlns:")) {
+      if (keepsNamespace(name, value)) kept[name] = value.trim();
+      continue;
+    }
+    // A CSS escape (`\75rl(`) hides `url(` from the tests below, in a style and in a
+    // presentation attribute alike; nothing a logo needs carries a backslash.
+    if (value.includes("\\")) continue;
+    if (localName === "href") {
+      // Any prefix bound to XLink is still a link: only the two usual spellings are kept.
+      if (!REFERENCE_ATTRIBUTES.has(name)) continue;
       if (!value.trim().startsWith("#")) continue;
       kept[name] = value.trim();
       continue;
@@ -159,15 +183,19 @@ export function sanitiseSvg(source: string): string {
     allowBooleanAttributes: true,
     ignoreDeclaration: true,
     ignorePiTags: true,
-    processEntities: false,
-    htmlEntities: false,
+    // Entities are decoded on the way in, so the checks see what a renderer would (`&#117;rl(`
+    // is `url(`), and the builder escapes each character exactly once on the way out (parsing
+    // them raw and escaping on build turned `&amp;` into `&amp;amp;`). The DOCTYPE, with any
+    // internal subset, is removed first, so no declared entity is ever expanded.
+    processEntities: true,
+    htmlEntities: true, // also decodes numeric references (`&#117;`, `&#x75;`)
     parseTagValue: false,
     parseAttributeValue: false,
     trimValues: false,
   });
   let tree: unknown;
   try {
-    tree = parser.parse(source.replace(/<!DOCTYPE[\s\S]*?>/i, ""));
+    tree = parser.parse(source.replace(/<!DOCTYPE[^[>]*(\[[\s\S]*?\])?\s*>/i, ""));
   } catch (error) {
     throw new SvgSanitiseError(
       `Not a well-formed SVG: ${error instanceof Error ? error.message : String(error)}`,
@@ -176,7 +204,7 @@ export function sanitiseSvg(source: string): string {
   const roots = cleanNodes(tree, 0).filter((node) => nameOf(node) === "svg");
   if (roots.length !== 1) throw new SvgSanitiseError("Not an SVG document (no single <svg> root).");
   const root = roots[0] as Node;
-  const attrs = { xmlns: "http://www.w3.org/2000/svg", ...(attributesOf(root) ?? {}) };
+  const attrs = { xmlns: SVG_NS, ...(attributesOf(root) ?? {}) };
   root[":@"] = attrs;
 
   const builder = new XMLBuilder({

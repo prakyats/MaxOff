@@ -201,7 +201,7 @@ export const failUpload = action(async (input: FailUploadInput): Promise<Result<
 const downloadSchema = z.object({ fileId: z.uuid() });
 export type DownloadUrlInput = z.input<typeof downloadSchema>;
 
-/** A 5-minute link to the original, as an attachment (never inline: SVG and HTML stay downloads). */
+/** A 5-minute link to the original, as an attachment typed from the row's validated mime (never inline, never HTML). */
 export const getDownloadUrl = action(
   async (input: DownloadUrlInput): Promise<Result<{ url: string; name: string }>> => {
     const { fileId } = downloadSchema.parse(input);
@@ -212,6 +212,7 @@ export const getDownloadUrl = action(
     const url = await getStorageAdapter().presignGet(file.storageKey, {
       expiresIn: PRESIGN_DOWNLOAD_SECONDS,
       downloadName: file.name,
+      contentType: file.mime,
     });
     return ok({ url, name: file.name });
   },

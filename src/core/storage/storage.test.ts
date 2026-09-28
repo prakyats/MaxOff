@@ -151,6 +151,29 @@ describe("S3 adapter (aws4fetch over path-style URLs)", () => {
     expect(url.searchParams.get("X-Amz-Expires")).toBe("300");
   });
 
+  it("signs a content-type override, so a download is never served as HTML", async () => {
+    const adapter = createS3Adapter(ENV);
+    const svg = new URL(
+      await adapter.presignGet("k/logo.svg", {
+        expiresIn: 300,
+        downloadName: "logo.svg",
+        contentType: "image/svg+xml",
+      }),
+    );
+    expect(svg.searchParams.get("response-content-type")).toBe("image/svg+xml");
+    for (const risky of ["text/html", "application/xhtml+xml", "TEXT/HTML; charset=utf-8", ""]) {
+      const url = new URL(
+        await adapter.presignGet("k/x", { expiresIn: 60, downloadName: "x", contentType: risky }),
+      );
+      expect(url.searchParams.get("response-content-type")).toBe("application/octet-stream");
+    }
+    const unnamed = new URL(
+      await adapter.presignGet("k/y", { expiresIn: 60, contentType: "image/png" }),
+    );
+    expect(unnamed.searchParams.get("response-content-disposition")).toMatch(/^attachment/);
+    expect(unnamed.searchParams.get("response-content-type")).toBe("image/png");
+  });
+
   it("runs a multipart upload through the REST calls, in part order", async () => {
     const calls: { method: string; url: string; body: string }[] = [];
     vi.stubGlobal(
@@ -240,6 +263,44 @@ describe("sanitiseSvg (kickoff 3: an SVG logo is rewritten from an allow-list)",
     );
     expect(out).not.toContain("DOCTYPE");
     expect(out).toContain("<title>");
+  });
+
+  it("treats an href under any namespace prefix as a reference, and drops foreign namespace aliases", () => {
+    const out = sanitiseSvg(
+      `<svg xmlns="http://www.w3.org/2000/svg" xmlns:f="http://www.w3.org/1999/xlink" xmlns:xlink="http://www.w3.org/1999/xlink"><use f:href="https://evil/a#x"/><use f:href="#ok"/><use xlink:href="#r"/></svg>`,
+    );
+    expect(out).not.toContain("evil");
+    expect(out).not.toContain("xmlns:f");
+    expect(out).not.toContain("f:href");
+    expect(out).toContain('xmlns:xlink="http://www.w3.org/1999/xlink"');
+    expect(out).toContain('<use xlink:href="#r"/>');
+  });
+
+  it("drops a style or presentation value holding a CSS escape", () => {
+    const out = sanitiseSvg(
+      String.raw`<svg xmlns="http://www.w3.org/2000/svg"><rect style="background:\75rl(https://evil/a)" width="1"/><circle fill="\75rl(https://evil/b)" r="1"/></svg>`,
+    );
+    expect(out).not.toContain("evil");
+    expect(out).not.toContain("\\");
+    expect(out).toContain('<rect width="1"/>');
+    expect(out).toContain('<circle r="1"/>');
+  });
+
+  it("catches a url( hidden behind a character reference", () => {
+    const out = sanitiseSvg(
+      `<svg xmlns="http://www.w3.org/2000/svg"><rect style="fill:&#117;rl(https://evil/a)" width="1"/><circle fill="&#x75;rl(https://evil/b)" r="1"/></svg>`,
+    );
+    expect(out).not.toContain("evil");
+    expect(out).toContain('<rect width="1"/>');
+  });
+
+  it("keeps text entities escaped exactly once", () => {
+    const out = sanitiseSvg(
+      `<svg xmlns="http://www.w3.org/2000/svg"><title>Pixora &amp; Co &lt;3</title><text x="1">A &amp; B</text></svg>`,
+    );
+    expect(out).toContain("<title>Pixora &amp; Co &lt;3</title>");
+    expect(out).toContain("A &amp; B");
+    expect(out).not.toContain("&amp;amp;");
   });
 });
 
