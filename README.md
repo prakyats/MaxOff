@@ -290,7 +290,8 @@ environment connects `app.maxoff.in` to the Worker `maxoff` as a **Custom Domain
   (Forgot password, the installed app, Copy invite link, Start day → approve, leave, a claim with a receipt,
   End day, the month, deactivation), the first backup and the production drill, the seeded defaults production
   starts with (only the Owner is entered), and the staff invites with a message to paste and the staff's
-  one-page `docs/guide/first-day.pdf`.
+  one-page "Your first day with MaxOff" (`docs/guide/first-day.html`, printed with the guide by
+  `docs/guide/build-pdf.ps1` on the laptop).
 
 ### Backups (3c.2)
 

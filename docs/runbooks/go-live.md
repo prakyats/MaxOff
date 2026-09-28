@@ -31,6 +31,12 @@ the result of each step into "Go-live record" at the end.
   settings", "Production runbook (3c.1)", "Backups (3c.2)").
 - On the laptop: the repository up to date (`git checkout main && git pull`), Node and `pnpm install`
   done, PowerShell.
+- **The two PDFs, rebuilt on the laptop.** The committed app guide PDF is behind its HTML after the 3c merge,
+  and the staff page's PDF does not exist yet (PDFs are printed with Edge only, for the Windows fonts). Run
+  `powershell -NoProfile -ExecutionPolicy Bypass -File docs/guide/build-pdf.ps1`: it prints
+  `docs/guide/MaxOff-App-Guide.pdf` and `docs/guide/first-day.pdf` ("Your first day with MaxOff", one tall
+  page). Open both; check the first-day PDF is **one** page. Commit them on a small branch with a pull
+  request to `main` (docs only, so CI skips). Step 7 hands `first-day.pdf` to every new person.
 - Two phones: yours, and one that plays the **test member** (a family member's, or a spare). The test
   member needs an email address that **no real person will ever use** in MaxOff, because the address stays
   taken after the test member is deactivated: a `+` alias of your own mailbox works (for example
@@ -229,7 +235,7 @@ and job title. It stays with you, never in the repository or a chat.
 For each person:
 1. More → People → **Invite** → email, full name, role, job title → **Send invite**.
 2. **Copy** the link, paste it into the message below, send it on WhatsApp, with the first-day page
-   (`docs/guide/first-day.pdf`, "Your first day with MaxOff").
+   (`docs/guide/first-day.pdf`, "Your first day with MaxOff", from "Before you start").
 3. **Done.** People shows them as Invited until they open the link, then Active.
 
 The link works **once**, within **24 hours**. If it expires, is used up or gets lost: People → the person →
@@ -260,6 +266,7 @@ for a new one.", issue a fresh link with Copy invite link and send it again.
 
 | Step | Date | Result | Notes |
 |---|---|---|---|
+| Both PDFs rebuilt on the laptop and committed | | | |
 | 1. Tag `v1.0.0` and the production deploy | | | |
 | 2. Owner bootstrap | | | |
 | 3. UptimeRobot | | | |
