@@ -32,8 +32,15 @@ export interface StorageAdapter {
     parts: readonly { partNumber: number; etag: string }[],
   ): Promise<void>;
   abortMultipart(key: string, uploadId: string): Promise<void>;
-  /** A short-lived GET, as an attachment when a file name is given. */
-  presignGet(key: string, options: { expiresIn: number; downloadName?: string }): Promise<string>;
+  /**
+   * A short-lived GET, always as an attachment (named when a file name is given), with the
+   * response type signed in: `contentType` when it is a media type (`downloadContentType`),
+   * otherwise `application/octet-stream`, so an object is never served as HTML.
+   */
+  presignGet(
+    key: string,
+    options: { expiresIn: number; downloadName?: string; contentType?: string },
+  ): Promise<string>;
   head(key: string): Promise<StorageObject | null>;
   /** The object's bytes as a stream, with its metadata; null when it does not exist. */
   get(key: string): Promise<(StorageObject & { body: ReadableStream<Uint8Array> }) | null>;
@@ -71,6 +78,18 @@ export function encodeKey(key: string): string {
       ),
     )
     .join("/");
+}
+
+/**
+ * The type a download is served as. The stored Content-Type came from the uploader's unsigned PUT,
+ * so the signed URL overrides it: an image, video, audio or PDF type keeps its name, anything else
+ * (HTML, XHTML, XML, script, empty) becomes `application/octet-stream`.
+ */
+export function downloadContentType(contentType: string | undefined): string {
+  const type = (contentType ?? "").split(";")[0]?.trim().toLowerCase() ?? "";
+  return /^(image|video|audio)\/[a-z0-9][a-z0-9.+-]*$/.test(type) || type === "application/pdf"
+    ? type
+    : "application/octet-stream";
 }
 
 /** An RFC 5987 `Content-Disposition` for a download, with an ASCII fallback for old clients. */
@@ -190,10 +209,11 @@ export function createS3Adapter(env: StorageEnv): StorageAdapter {
       }
     },
 
-    presignGet(key, { expiresIn, downloadName }) {
-      const query = downloadName
-        ? `?response-content-disposition=${encodeURIComponent(attachmentDisposition(downloadName))}`
-        : "";
+    presignGet(key, { expiresIn, downloadName, contentType }) {
+      const disposition = downloadName ? attachmentDisposition(downloadName) : "attachment";
+      const query =
+        `?response-content-disposition=${encodeURIComponent(disposition)}` +
+        `&response-content-type=${encodeURIComponent(downloadContentType(contentType))}`;
       return presign(objectUrl(key, env.publicEndpoint, query), "GET", expiresIn);
     },
 
