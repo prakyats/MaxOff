@@ -6,8 +6,9 @@ import { cn } from "@/core/lib/utils";
 import { ViewLink } from "@/core/ui/composites/view-link";
 
 /**
- * The views of a person's page for the Owner (3.4): Profile, and their leave requests and
- * attendance (2.4). `ViewLink`s: switching replaces the entry, so one back from any view returns
+ * The views of a person's page for the Owner (3.4): Profile, their leave requests and
+ * attendance (2.4), and their month (3b.4). Four in a row at the default text size; the cells are
+ * rem-wide at least, so under large system text they wrap to two rows (§14.2 i). `ViewLink`s: switching replaces the entry, so one back from any view returns
  * to where the Owner came from (People, the board, Approvals), whatever they switched to
  * (ARCHITECTURE §14.2 d).
  */
@@ -17,12 +18,13 @@ export function PersonTabs({ memberId }: { memberId: string }) {
     { label: "Profile", href: `/people/${memberId}` },
     { label: "Leave", href: `/people/${memberId}/leave` },
     { label: "Attendance", href: `/people/${memberId}/attendance` },
+    { label: "Month", href: `/people/${memberId}/month` },
   ];
   return (
     <nav
       aria-label="Person"
       data-slot="person-tabs"
-      className="bg-muted mb-4 grid grid-cols-3 gap-1 rounded-lg p-1 md:inline-grid md:w-96"
+      className="bg-muted mb-4 grid grid-cols-[repeat(auto-fit,minmax(min(100%,4.5rem),1fr))] gap-1 rounded-lg p-1 md:inline-grid md:w-[32rem]"
     >
       {tabs.map(({ label, href }) => (
         <ViewLink

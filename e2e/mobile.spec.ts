@@ -176,11 +176,14 @@ const LARGE_TEXT_SCREENS = {
     "/settings",
     "/settings/job-titles",
     "/settings/custom-fields",
+    "/settings/expenses",
+    "/reports",
+    "/reports/month",
     "/me",
     "/clients",
   ],
-  admin: ["/today", "/leave", "/leave/attendance", "/me", "/clients"],
-  staff: ["/my-day", "/leave", "/leave/attendance", "/me"],
+  admin: ["/today", "/leave", "/leave/attendance", "/leave/expenses", "/me", "/clients"],
+  staff: ["/my-day", "/leave", "/leave/attendance", "/leave/expenses", "/me"],
 } as const;
 
 /** The narrowest an ellipsis may cut a line to and still say what it is. */
@@ -706,6 +709,8 @@ test.describe("record screens meet the mobile standard (3.4)", () => {
     return [
       `/people/${staff}`,
       `/people/${staff}/leave`,
+      // 3b.4: the summary's lines and, for the Owner, the month's expense claims.
+      `/people/${staff}/month`,
       `/clients/${client.id}`,
       `/clients/${client.id}/brand`,
       `/clients/${client.id}/activity`,

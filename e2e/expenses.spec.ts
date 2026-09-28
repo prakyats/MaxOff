@@ -215,6 +215,7 @@ test("Settings → Expenses: the Owner's categories and receipt amount", async (
   await expect(amount).toHaveValue("600");
   await amount.fill("500");
   await page.getByRole("button", { name: "Save receipt amount" }).click();
+  await expect(page.getByText("Receipt amount saved")).toBeVisible();
   await page.reload();
   await expect(amount).toHaveValue("500");
 });

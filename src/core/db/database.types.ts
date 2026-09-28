@@ -1991,6 +1991,30 @@ export type Database = {
         Args: never;
         Returns: Database["public"]["Enums"]["member_status"];
       };
+      month_summary: {
+        Args: { member_id?: string; month: string };
+        Returns: {
+          absent_days: number;
+          additional_leave: number;
+          comp_leave_days: number;
+          credits_expired: number;
+          credits_granted: number;
+          credits_used: number;
+          days_off_worked: number;
+          days_worked: number;
+          full_name: string;
+          half_days: number;
+          id: string;
+          leave_days: number;
+          overtime_granted: number;
+          overtime_notes: number;
+          pending_days: number;
+          present_days: number;
+          role: Database["public"]["Enums"]["member_role"];
+          status: Database["public"]["Enums"]["member_status"];
+          working_days: number;
+        }[];
+      };
       session_login: {
         Args: { ip_hash?: string; user_agent?: string };
         Returns: string;

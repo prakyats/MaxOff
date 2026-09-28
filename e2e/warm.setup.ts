@@ -27,6 +27,7 @@ const ROUTES = [
   "/clients",
   "/people",
   "/reports",
+  "/reports/month",
   "/settings",
   "/settings/company",
   "/settings/custom-fields",
@@ -66,6 +67,7 @@ setup("warm every route once as the Owner", async ({ page, request }) => {
         `/people/${someone.id}`,
         `/people/${someone.id}/leave`,
         `/people/${someone.id}/attendance`,
+        `/people/${someone.id}/month`,
       ]
     : ROUTES;
   for (const route of routes) {

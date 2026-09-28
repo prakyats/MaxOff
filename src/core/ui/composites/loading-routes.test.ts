@@ -64,7 +64,12 @@ describe("loading.tsx coverage", () => {
     };
     // The shapes the owner specified, screen by screen.
     expect(shapeOf("today")).toBe("tiles");
-    expect(shapeOf("reports")).toBe("tiles");
+    // Reports (3b.4): the Owner's list of reports first; an Admin's placeholder traces tiles.
+    expect(shapeOf("reports")).toBe("list");
+    expect(readFileSync(path.join(appDir, "reports/loading.tsx"), "utf8")).toContain(
+      'shape="tiles"',
+    );
+    expect(shapeOf("reports/month")).toBe("cards");
     expect(shapeOf("tasks")).toBe("cards");
     expect(shapeOf("my-day")).toBe("cards");
     // The list sits in a route group so its skeleton never wraps a person (2.9).
@@ -93,6 +98,10 @@ describe("loading.tsx coverage", () => {
     );
     expect(shapeOf("people/[id]/leave")).toBe("cards");
     expect(shapeOf("people/[id]/attendance")).toBe("cards");
+    // A person's month (3b.4): the pager and the summary's lines.
+    expect(readFileSync(path.join(appDir, "people/[id]/month/loading.tsx"), "utf8")).toContain(
+      "MonthSummarySkeleton",
+    );
     expect(readFileSync(path.join(appDir, "people/[id]/attendance/loading.tsx"), "utf8")).toContain(
       "loading-leave-pager",
     );
