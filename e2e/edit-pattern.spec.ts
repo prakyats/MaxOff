@@ -209,7 +209,9 @@ test.describe("A person's page: the Owner's edit of a member names the change (3
       `${name}'s role will change from ${from} to ${to}.`,
     );
     await confirmation(page).getByRole("button", { name: "Save" }).click();
-    await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+    // The test saves twice in a row, so the first "Saved" toast may still be up when the second
+    // arrives: take the newest. The record below is what proves this save.
+    await expect(page.getByText("Saved", { exact: true }).last()).toBeVisible();
     await expect(record(page).locator('[data-slot="edit-record"]')).toBeVisible();
     await expect(record(page)).toContainText(to);
   }
