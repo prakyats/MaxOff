@@ -1,11 +1,13 @@
 import { ChevronRightIcon } from "lucide-react";
 import Link from "next/link";
 
+import { addISTDays } from "@/core/time";
+
 import { StatusDot } from "@/core/ui/composites/status-badge";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 
 import { getOwnToday } from "../data/attendance";
-import { getNoteDays } from "../data/notes";
+import { getNoteDays, hasOvertimeNote } from "../data/notes";
 import type { NoteDay } from "../domain/notes";
 import { describeTodayStrip, type StripAction } from "../domain/today";
 
@@ -29,6 +31,10 @@ export async function TodayAttendanceStrip() {
   const strip = describeTodayStrip(today);
   // A day off offers the "I worked today" note (3b.2), whose dialog needs the last 8 days' kinds.
   const noteDays = strip.action?.kind === "worked_day_off" ? await getNoteDays(today.workDate) : [];
+  // End day offers the overtime note only while the day it ends has none: a second note would
+  // refuse the whole End day (one note per day and kind).
+  const endsOn = strip.kind === "end_yesterday" ? addISTDays(today.workDate, -1) : today.workDate;
+  const noteTaken = strip.action?.kind === "end" ? await hasOvertimeNote(endsOn) : false;
 
   return (
     <div
@@ -51,7 +57,13 @@ export async function TodayAttendanceStrip() {
       </Link>
       {strip.action ? (
         <div className="shrink-0">
-          <StripActionButton action={strip.action} workDate={today.workDate} noteDays={noteDays} />
+          <StripActionButton
+            action={strip.action}
+            workDate={today.workDate}
+            noteDays={noteDays}
+            yesterday={strip.kind === "end_yesterday"}
+            noteTaken={noteTaken}
+          />
         </div>
       ) : null}
     </div>
@@ -62,19 +74,25 @@ function StripActionButton({
   action,
   workDate,
   noteDays,
+  yesterday,
+  noteTaken,
 }: {
   action: StripAction;
   workDate: string;
   noteDays: NoteDay[];
+  /** The open day is yesterday's (worked past midnight): End day's copy says so. */
+  yesterday: boolean;
+  /** The day End day closes already has an overtime note. */
+  noteTaken: boolean;
 }) {
   switch (action.kind) {
     case "start":
       // The one solid red commit action on the screen: the tap records the start (§14.1).
       return <StartDayButton size="sm" />;
     case "end":
-      return <EndDayButton size="sm" />;
+      return <EndDayButton size="sm" yesterday={yesterday} noteTaken={noteTaken} />;
     case "working":
-      return <WorkingTodayButton label={action.label} forDate={workDate} size="sm" />;
+      return <WorkingTodayButton size="sm" />;
     case "worked_day_off":
       return (
         <AddNoteButton days={noteDays} initialDate={workDate} label={action.label} size="sm" />

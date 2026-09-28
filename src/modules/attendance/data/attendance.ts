@@ -101,16 +101,6 @@ export async function rpcChooseLeaveToday(
   if (error) throw error;
 }
 
-/** "I'm working the full day" on a half-day leave day: `attendance_submit(present)` (2.1). */
-export async function rpcSubmitPresent(forDate: string): Promise<void> {
-  const supabase = await createServerSupabase();
-  const { error } = await supabase.rpc("attendance_submit", {
-    choice: "present",
-    for_date: forDate,
-  });
-  if (error) throw error;
-}
-
 const HISTORY_COLUMNS =
   "id, work_date, state, submitted_choice, final_status, is_day_off, worked_on_leave, first_login_at, last_logout_at, logout_not_recorded, started_at, ended_at, end_not_recorded, overtime_flag, overtime_reason, events:attendance_events(id, action, from_status, to_status, reason, actor_id, at)";
 

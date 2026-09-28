@@ -8,7 +8,7 @@
 -- expired credit, attendance_end_day with an overtime note, and main's leave_submit unchanged.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(138);
+select plan(149);
 
 -- Fixtures as 24: keep the organization, replace the people. Rolled back at the end.
 delete from public.comp_leave_credit_uses;
@@ -470,6 +470,49 @@ select lives_ok($$ select * from public.attendance_end_day() $$, 'ended without 
 select pg_temp.as_member('other');
 select lives_ok($$ select public.leave_submit('comp_leave', pg_temp.today() + 10, pg_temp.today() + 10) $$, 'the 2.x function still takes comp leave');
 select is((select credit_days from public.leave_requests r where r.member_id = pg_temp.fx('other')), null, 'with no credit behind it');
+
+-- RLS on the audit entries and the uses, per role (architecture review of 3bA) -------------------
+select pg_temp.as_system();
+create temporary table staff2_rows as
+  select 'comp_leave_credits'::text as entity, c.id from public.comp_leave_credits c where c.member_id = pg_temp.fx('staff2')
+  union all
+  select 'extra_work_notes', n.id from public.extra_work_notes n where n.member_id = pg_temp.fx('staff2');
+grant select on staff2_rows to authenticated;
+create function pg_temp.staff2_audit() returns bigint language sql stable as $$
+  select count(*) from public.activity_log a join staff2_rows r on r.entity = a.entity and r.id = a.entity_id;
+$$;
+select ok(pg_temp.staff2_audit() > 0, 'the fixture has audit entries about staff2''s note and credit');
+select pg_temp.as_member('staff2');
+select ok(pg_temp.staff2_audit() > 0, 'staff2 reads the entries about their own note and credit');
+select pg_temp.as_member('other');
+select is(pg_temp.staff2_audit(), 0::bigint, 'another staff member reads none of them');
+select pg_temp.as_member('admin');
+select is(pg_temp.staff2_audit(), 0::bigint, 'an Admin reads none of them');
+select pg_temp.as_member('owner');
+select ok(pg_temp.staff2_audit() > 0, 'the Owner reads them');
+
+select pg_temp.as_system();
+create temporary table all_uses as select count(*) as n from public.comp_leave_credit_uses;
+grant select on all_uses to authenticated;
+select ok((select n from all_uses) > 0, 'the fixture has credit uses');
+select pg_temp.as_member('admin');
+select is((select count(*) from public.comp_leave_credit_uses u
+           where not exists (select 1 from public.comp_leave_credits c where c.id = u.credit_id and c.member_id = pg_temp.fx('admin'))),
+          0::bigint, 'an Admin reads no one else''s credit uses (only those of their own credits)');
+select pg_temp.as_member('other');
+select is((select count(*) from public.comp_leave_credit_uses u join public.comp_leave_credits c on c.id = u.credit_id
+           where c.member_id <> pg_temp.fx('other')), 0::bigint, 'a staff member reads no one else''s credit uses');
+select pg_temp.as_member('owner');
+select is((select count(*) from public.comp_leave_credit_uses), (select n from all_uses), 'the Owner reads every use');
+
+-- A note for a day before attendance started is refused (it starts the day after joining).
+select pg_temp.as_system();
+update public.members set joined_at = now() - interval '1 day' where id = pg_temp.fx('other');
+select pg_temp.as_member('other');
+select throws_ok($$ select public.extra_work_note_submit('overtime', pg_temp.today() - 1, 'Before I joined') $$,
+  'P0001', 'VALIDATION', 'no note for the joining day');
+select throws_ok($$ select public.extra_work_note_submit('overtime', pg_temp.today() - 3, 'Before I joined') $$,
+  'P0001', 'VALIDATION', 'nor for a day before it');
 
 select * from finish();
 rollback;

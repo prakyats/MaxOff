@@ -23,7 +23,14 @@ import { ErrorText } from "@/core/ui/composites/error-text";
  */
 const RequestLogout = createContext<() => void>(() => undefined);
 
-export function LogoutProvider({ children }: { children: ReactNode }) {
+export function LogoutProvider({
+  children,
+  hasWorkingDay,
+}: {
+  children: ReactNode;
+  /** Admins and Staff have a working day to reassure about; the Owner has none. */
+  hasWorkingDay: boolean;
+}) {
   const [open, setOpen] = useState(false);
   // Read when the confirmation opens: an editor with unsaved changes is warned about (2.9).
   const [unsaved, setUnsaved] = useState(false);
@@ -40,7 +47,7 @@ export function LogoutProvider({ children }: { children: ReactNode }) {
         open={open}
         onOpenChange={setOpen}
         title="Sign out of this device?"
-        description="Notifications stop reaching this device until you sign in again, and you'll need your password. Your working day is not affected: End day is on your home screen."
+        description={`Notifications stop reaching this device until you sign in again, and you'll need your password.${hasWorkingDay ? " Your working day is not affected: End day is on your home screen." : ""}`}
         confirmLabel="Sign out"
         onConfirm={async () => {
           // The confirmation has its own history entry (it is a layer, §14.2 a). Back it out

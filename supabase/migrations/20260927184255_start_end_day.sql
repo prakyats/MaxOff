@@ -281,6 +281,12 @@ begin
   where d.member_id = v_caller and d.work_date = v_today and d.started_at is not null and d.ended_at is null
   for update;
   if v_day.id is null then
+    -- Today started and ended: final, no resume. Checked before yesterday, or a second tap (another
+    -- device, a stale tab) would write a false end onto an open yesterday.
+    if exists (select 1 from public.attendance_days d
+               where d.member_id = v_caller and d.work_date = v_today and d.started_at is not null) then
+      perform app.fail('INVALID_STATE', 'Your day has already ended.');
+    end if;
     -- Worked past midnight: the end belongs to yesterday's day, a real time, never made up.
     select d.* into v_day
     from public.attendance_days d

@@ -8,9 +8,11 @@ import {
   expectBackStack,
   memberIdOf,
   resetAttendanceAndLeave,
+  rpcAs,
   runInstalled,
   serviceSelect,
   signIn,
+  startPrompt,
   USERS,
 } from "./helpers";
 
@@ -285,5 +287,92 @@ test.describe("installed: the back order of the note dialog and the Owner's deci
       { closes: sheet, url: /\/approvals$/ },
       { url: /\/today$/ },
     ]);
+  });
+
+  const LEFT = { url: /^about:blank$/ };
+
+  test("End day: back closes the overtime select, then the confirmation, then leaves", async ({
+    page,
+  }, info) => {
+    await resetAttendanceAndLeave(await memberIdOf(person(info)));
+    await runInstalled(page);
+    // Signed in with the day started from the prompt: home with nothing of ours beneath it.
+    await signIn(page, person(info), PASSWORD);
+    await expect(page).toHaveURL(/\/my-day$/);
+    await page
+      .locator('[data-slot="attendance-strip"]')
+      .getByRole("button", { name: "End day" })
+      .click();
+    const confirm = page.getByRole("alertdialog", { name: "End your day?" });
+    await confirm.getByRole("button", { name: "Worked late? Add an overtime note" }).click();
+    await confirm.getByLabel("Roughly how long (optional)").click();
+    const select = page.locator('[data-slot="select-sheet"]');
+    await expect(select).toBeVisible();
+    await expectBackStack(page, [
+      { closes: select, url: /\/my-day$/ },
+      { closes: confirm, url: /\/my-day$/ },
+      LEFT,
+    ]);
+  });
+
+  test("the prompt's leave view is the same layer: one back closes it", async ({ page }, info) => {
+    await resetAttendanceAndLeave(await memberIdOf(person(info)));
+    await runInstalled(page);
+    await signIn(page, person(info), PASSWORD, { day: "stop" });
+    await expect(page).toHaveURL(/\/my-day$/);
+    const prompt = startPrompt(page);
+    await prompt.getByRole("button", { name: "On leave today? Choose leave" }).click();
+    await expect(prompt.getByRole("heading", { name: "On leave today?" })).toBeVisible();
+    await expectBackStack(page, [{ closes: prompt, url: /\/my-day$/ }, LEFT]);
+  });
+
+  test("the tabs replace, and back closes the comp leave select, then the form, then leaves", async ({
+    page,
+  }, info) => {
+    const memberId = await memberIdOf(person(info));
+    await resetAttendanceAndLeave(memberId);
+    await rpcAs(USERS.owner.email, USERS.owner.password, "comp_leave_grant", {
+      member_id: memberId,
+      days: 1,
+    });
+    await runInstalled(page);
+    await signIn(page, person(info), PASSWORD);
+    await page.goto("/my-day");
+    await page.goto("/leave/extra-work");
+    // View controls never add history (§14.2 d).
+    await page.getByRole("link", { name: "Attendance", exact: true }).click();
+    await expect(page).toHaveURL(/\/leave\/attendance$/);
+    await page.getByRole("link", { name: "Extra work", exact: true }).click();
+    await expect(page).toHaveURL(/\/leave\/extra-work$/);
+    await page.getByRole("button", { name: "Request leave" }).click();
+    const form = page.getByRole("dialog", { name: "Request leave" });
+    await form.getByLabel("Kind of leave").click();
+    const select = page.locator('[data-slot="select-sheet"]');
+    await expect(select.getByRole("option", { name: "Comp leave (1 day)" })).toBeVisible();
+    await expectBackStack(page, [
+      { closes: select, url: /\/leave\/extra-work$/ },
+      { closes: form, url: /\/leave\/extra-work$/ },
+      { url: /\/my-day$/ },
+    ]);
+  });
+
+  test("the Owner's Grant and Revoke dialogs close on back, then the page is left", async ({
+    page,
+  }, info) => {
+    const memberId = await memberIdOf(person(info));
+    await runInstalled(page);
+    await signIn(page, USERS.owner.email, USERS.owner.password);
+    await page.goto("/today");
+    await page.goto(`/people/${memberId}/leave`);
+    const card = page.locator('[data-slot="comp-leave-card"]');
+    await card.getByRole("button", { name: "Grant comp leave" }).click();
+    const grant = page.locator('[data-slot="grant-comp-leave-dialog"]');
+    await expect(grant).toBeVisible();
+    await expectBackStack(page, [{ closes: grant, url: /\/leave$/ }]);
+    // The previous test's credit is unused, so Revoke is offered.
+    await card.getByRole("button", { name: "Revoke" }).click();
+    const revoke = page.getByRole("dialog").or(page.getByRole("alertdialog"));
+    await expect(revoke).toBeVisible();
+    await expectBackStack(page, [{ closes: revoke, url: /\/leave$/ }, { url: /\/today$/ }]);
   });
 });

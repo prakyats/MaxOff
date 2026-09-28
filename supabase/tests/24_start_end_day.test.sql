@@ -8,7 +8,7 @@
 -- 07, 08, 09, 12 and 13 keep proving.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(103);
+select plan(106);
 
 -- Fixtures as 13: keep the organization, replace the people. Rolled back at the end.
 delete from public.attendance_events;
@@ -49,7 +49,8 @@ insert into fx values
   ('late',    '00000000-0000-4000-8000-000000000211'),
   ('done',    '00000000-0000-4000-8000-000000000212'),
   ('open',    '00000000-0000-4000-8000-000000000213'),
-  ('quit',    '00000000-0000-4000-8000-000000000214');
+  ('quit',    '00000000-0000-4000-8000-000000000214'),
+  ('twice',   '00000000-0000-4000-8000-000000000215');
 insert into fx select 'org', id from public.organizations limit 1;
 grant select on fx to authenticated, anon, service_role;
 
@@ -110,7 +111,8 @@ from (values
   ('late',   'staff', now() - interval '30 days'),
   ('done',   'staff', now() - interval '30 days'),
   ('open',   'staff', now() - interval '30 days'),
-  ('quit',   'staff', now() - interval '30 days')
+  ('quit',   'staff', now() - interval '30 days'),
+  ('twice',  'staff', now() - interval '30 days')
 ) as v(k, r, j);
 
 -- Approved leave for today: leaver a full day, halfer a half day.
@@ -136,6 +138,14 @@ values (pg_temp.fx('late'), pg_temp.today() - 1, 'pending_review', 'present',
 -- done started and ended today already.
 insert into public.attendance_days (member_id, work_date, state, submitted_choice, submitted_at, started_at, ended_at)
 values (pg_temp.fx('done'), pg_temp.today(), 'pending_review', 'present', now() - interval '8 hours',
+        now() - interval '8 hours', now() - interval '1 hour');
+-- twice left yesterday open (flagged) and started and ended today: a second End day tap (another
+-- device, a stale tab) must not land on yesterday (architecture review of 3bA, must-fix).
+insert into public.attendance_days (member_id, work_date, state, submitted_choice, submitted_at, started_at, end_not_recorded)
+values (pg_temp.fx('twice'), pg_temp.today() - 1, 'pending_review', 'present',
+        app.ist_day_start(pg_temp.today() - 1) + interval '9 hours', app.ist_day_start(pg_temp.today() - 1) + interval '9 hours', true);
+insert into public.attendance_days (member_id, work_date, state, submitted_choice, submitted_at, started_at, ended_at)
+values (pg_temp.fx('twice'), pg_temp.today(), 'pending_review', 'present', now() - interval '8 hours',
         now() - interval '8 hours', now() - interval '1 hour');
 delete from public.activity_log; -- the fixture writes are not under test
 
@@ -311,6 +321,11 @@ select pg_temp.as_member('done');
 select throws_ok('select * from public.attendance_end_day()', 'P0001', 'INVALID_STATE', 'a day that ended cannot end again (no resume)');
 select is((select count(*) from public.attendance_events where attendance_day_id = (pg_temp.day_on('done', pg_temp.today())).id), 0::bigint,
   'and nothing was written');
+select pg_temp.as_member('twice');
+select throws_ok('select * from public.attendance_end_day()', 'P0001', 'INVALID_STATE',
+  'today ended: a second End day is refused even with yesterday still open');
+select is((pg_temp.day_on('twice', pg_temp.today() - 1)).ended_at, null::timestamptz, 'yesterday gets no made-up end');
+select is((pg_temp.day_on('twice', pg_temp.today() - 1)).end_not_recorded, true, 'and keeps its flag');
 
 select pg_temp.as_member('staff');
 select results_eq(
@@ -412,8 +427,9 @@ select results_eq(
   'select member_id from app.end_day_reminder_due()',
   $$ select pg_temp.fx('gated') union all select pg_temp.fx('halfer') union all select pg_temp.fx('leaver') union all select pg_temp.fx('open') order by 1 $$,
   'the 20:30 reminder goes to everyone with a start and no end today (gated, halfer, leaver, open), not to staff or done');
-select is((select count(*) from app.end_day_reminder_due(app.ist_day_start(pg_temp.today() - 1) + interval '20 hours 30 minutes')),
-          0::bigint, 'for yesterday at 20:30 nothing is due any more (both late ends were recorded)');
+select results_eq($$ select member_id from app.end_day_reminder_due(app.ist_day_start(pg_temp.today() - 1) + interval '20 hours 30 minutes') $$,
+  $$ select pg_temp.fx('twice') $$,
+  'for yesterday at 20:30 only twice is still due (both late ends were recorded; twice''s refused one was not)');
 
 -- attendance_today_detail --------------------------------------------------------------------------
 select pg_temp.as_member('staff');

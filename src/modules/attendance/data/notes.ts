@@ -1,5 +1,6 @@
 import "server-only";
 
+import { getCurrentMember } from "@/core/auth/server";
 import { createServerSupabase } from "@/core/db/server";
 import { addISTDays, isWorkingDay, type WeekdayIndex } from "@/core/time";
 
@@ -138,6 +139,21 @@ export async function rpcDecideNote(input: {
   });
   if (error) throw error;
   return data;
+}
+
+/** Whether the caller already noted overtime on that day (End day then offers no note). */
+export async function hasOvertimeNote(workDate: string): Promise<boolean> {
+  const member = await getCurrentMember();
+  if (!member) return false;
+  const supabase = await createServerSupabase();
+  const { count, error } = await supabase
+    .from("extra_work_notes")
+    .select("id", { count: "exact", head: true })
+    .eq("member_id", member.id)
+    .eq("work_date", workDate)
+    .eq("kind", "overtime");
+  if (error) throw error;
+  return (count ?? 0) > 0;
 }
 
 /** The days a note may be about, today first, each with the kind of note it takes. */

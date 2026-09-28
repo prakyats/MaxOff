@@ -11,6 +11,9 @@ export const LEAVE_TYPES = [
   "half_day",
   "comp_leave",
 ] as const satisfies readonly LeaveType[];
+/** What a member's plain request or change may be (3b.2: comp leave goes through a credit). */
+export const MEMBER_LEAVE_TYPES = ["leave", "half_day"] as const satisfies readonly LeaveType[];
+export type MemberLeaveType = (typeof MEMBER_LEAVE_TYPES)[number];
 export const LEAVE_STATES = [
   "submitted",
   "approved",

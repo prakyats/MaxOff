@@ -75,10 +75,13 @@ export function StartDayButton({
 export function EndDayButton({
   size = "default",
   yesterday = false,
+  noteTaken = false,
 }: {
   size?: "default" | "sm";
   /** The open day is yesterday's (worked past midnight): the copy says so. */
   yesterday?: boolean;
+  /** That day already has an overtime note: the confirmation offers none (one per day). */
+  noteTaken?: boolean;
 }) {
   const router = useRouter();
   const id = useId();
@@ -145,6 +148,10 @@ export function EndDayButton({
             }}
             error={error}
           />
+        ) : noteTaken ? (
+          error ? (
+            <ErrorText>{error}</ErrorText>
+          ) : null
         ) : (
           <div className="flex flex-col gap-2">
             {error ? <ErrorText>{error}</ErrorText> : null}

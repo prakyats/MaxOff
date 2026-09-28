@@ -51,7 +51,9 @@ export const requestLeave = action(async (input: RequestLeaveInput): Promise<Res
  */
 export const requestCompLeave = action(
   async (input: RequestCompLeaveInput): Promise<Result<null>> => {
+    requestCompLeaveSchema(todayIST(), null).parse(input);
     const member = await assertPermission("attendance.self");
+    // The use-by date is the member's own, so the full check needs the balance read after it.
     const balance = await getCompBalance(member.id);
     const data = requestCompLeaveSchema(todayIST(), balance.useBy).parse(input);
     await repo.rpcSubmitComp(data);

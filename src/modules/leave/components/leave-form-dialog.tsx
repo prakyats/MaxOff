@@ -40,6 +40,7 @@ import {
   LEAVE_TYPES,
   leaveDates,
   type LeaveType,
+  type MemberLeaveType,
   type OwnLeaveRequest,
 } from "../domain/requests";
 import { LEAVE_REASON_MAX_LENGTH } from "../domain/limits";
@@ -150,7 +151,7 @@ function LeaveForm({
         ? await requestCompLeave({ date: startDate, halfDay: kind === "comp_half", reason })
         : original
           ? await requestLeaveChange({
-              type: kind as LeaveType,
+              type: kind as MemberLeaveType,
               startDate,
               ...(singleDate ? {} : { endDate }),
               reason,
@@ -158,7 +159,7 @@ function LeaveForm({
               originalStart: original.startDate,
             })
           : await requestLeave({
-              type: kind as LeaveType,
+              type: kind as MemberLeaveType,
               startDate,
               ...(singleDate ? {} : { endDate }),
               reason,

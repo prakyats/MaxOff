@@ -1,12 +1,15 @@
 import type { ReactNode } from "react";
 
 import { getCurrentMember } from "@/core/auth/server";
+import { can } from "@/core/permissions";
 import { todayIST } from "@/core/time";
 import { PageHeader } from "@/core/ui/composites/page-header";
-import { getCompBalance } from "@/modules/leave";
+import { type CompBalance, getCompBalance } from "@/modules/leave";
 import { RequestLeaveButton } from "@/modules/leave/components/request-leave-button";
 
 import { LeaveTabs } from "./leave-tabs";
+
+const NO_COMP_BALANCE: CompBalance = { availableDays: 0, useBy: null };
 
 const DESCRIPTION =
   "Request leave, change or cancel it, note extra work, and see how each day was recorded.";
@@ -27,11 +30,13 @@ const DESCRIPTION =
  */
 export default async function LeaveLayout({ children }: { children: ReactNode }) {
   const viewer = await getCurrentMember();
-  // The Owner (no `attendance.self`) never opens these routes; a rejected read must not break
-  // the header, so the promise is only made for someone who marks attendance.
-  const balance = viewer
-    ? getCompBalance(viewer.id)
-    : Promise.resolve({ availableDays: 0, useBy: null });
+  // The Owner (no `attendance.self`) never opens these routes, so the promise is only made for
+  // someone who marks attendance; a failed read is caught here, so it is never an unobserved
+  // rejection, and the form then offers no comp leave (the database is the rule either way).
+  const balance =
+    viewer && can(viewer.role, "attendance.self")
+      ? getCompBalance(viewer.id).catch(() => NO_COMP_BALANCE)
+      : Promise.resolve(NO_COMP_BALANCE);
   return (
     <>
       <PageHeader

@@ -4,7 +4,7 @@ import { addISTDays } from "@/core/time";
 
 import { LEAVE_MAX_DAYS, LEAVE_REASON_MAX_LENGTH, OWNER_REASON_MIN_LENGTH } from "./limits";
 
-import { LEAVE_TYPES } from "./requests";
+import { LEAVE_TYPES, MEMBER_LEAVE_TYPES } from "./requests";
 
 const reason = z
   .string()
@@ -22,10 +22,13 @@ const isoDate = (message: string) => z.iso.date({ error: message });
  * request starts today or later, and a change may keep its original start but must end today or
  * later.
  */
+
 function leaveDatesSchema(today: string, keepStart: string | null) {
   return z
     .object({
-      type: z.enum(LEAVE_TYPES, { error: "Choose the kind of leave." }),
+      // Comp leave only through `requestCompLeaveSchema`, with a credit behind it (3b.2): the
+      // member's plain request and change take leave or a half day.
+      type: z.enum(MEMBER_LEAVE_TYPES, { error: "Choose the kind of leave." }),
       startDate: isoDate("Choose the first day."),
       endDate: isoDate("Choose the last day.").optional(),
       reason,

@@ -22,10 +22,6 @@ export const chooseLeaveTodaySchema = z.object({
 });
 export type ChooseLeaveTodayInput = z.input<typeof chooseLeaveTodaySchema>;
 
-/** "I'm working the full day" on an approved half-day leave day: `attendance_submit(present)`. */
-export const workingTodaySchema = z.object({ forDate: isoDate });
-export type WorkingTodayInput = z.input<typeof workingTodaySchema>;
-
 /**
  * An extra work note (PRODUCT §4.3a, 3b.2): the day (one of the last 8, the database checks the
  * window), its kind by the calendar, a rough duration for overtime, and what they worked on.

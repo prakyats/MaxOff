@@ -11,8 +11,6 @@ import {
   chooseLeaveTodaySchema,
   type EndDayInput,
   endDaySchema,
-  type WorkingTodayInput,
-  workingTodaySchema,
 } from "../domain/schemas";
 import * as repo from "../data/attendance";
 
@@ -62,17 +60,6 @@ export const chooseLeaveToday = action(
     const data = chooseLeaveTodaySchema.parse(input);
     await assertPermission("attendance.self");
     await repo.rpcChooseLeaveToday(data.choice, data.reason);
-    revalidateDay();
-    return ok(null);
-  },
-);
-
-/** "I'm working the full day" on an approved half-day leave day: Present for the Owner to review. */
-export const declareWorkingToday = action(
-  async (input: WorkingTodayInput): Promise<Result<null>> => {
-    const data = workingTodaySchema.parse(input);
-    await assertPermission("attendance.self");
-    await repo.rpcSubmitPresent(data.forDate);
     revalidateDay();
     return ok(null);
   },

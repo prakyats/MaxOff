@@ -515,7 +515,7 @@ cron.job                        'absent_check' at 29 18 * * * (23:59 IST) -> sel
 -- still calls on the shared staging database: attendance_touch(), attendance_submit(),
 -- app.attendance_logout(), session_logout(), attendance_today() and the day-gate cookie are
 -- untouched and listed in PROGRESS for the contract migration after the merge. The 3b app calls
--- only the functions below (plus attendance_submit(present) for "I'm working the full day").
+-- only the functions below.
 public.attendance_own_today()   attendance.self (FORBIDDEN otherwise: the Owner has no day). Read only,
                                 security definer (it needs app.is_working_day). One row for the caller
                                 and today (IST): (work_date, attendance_started: today > the IST date
@@ -558,7 +558,9 @@ public.attendance_end_day()     attendance.self. The caller's day with started_a
                                 write (a late End day clears the 00:00 flag, as 2.5 did for logout),
                                 event ended. INVALID_STATE with no started day ("Start your day
                                 first") or when today's day has ended ("Your day has already ended":
-                                End day is final, no resume). Returns (day_id, work_date). 3b.2
+                                End day is final, no resume). Yesterday is looked at only when today
+                                has no start at all, so a second tap after today ended never writes an
+                                end onto an open yesterday (3bA review). Returns (day_id, work_date). 3b.2
                                 re-creates it with the optional overtime note (below)
 public.session_sign_out(user_agent, ip_hash)
                                 "Sign out of this device" (ADR-0012 amendment): session_events(logout)
@@ -596,8 +598,10 @@ public.extra_work_note_submit(kind, work_date, note, duration_minutes default nu
                                 required (VALIDATION); duration_minutes 1..1440, overtime only (a
                                 day_off note stores none). An overtime note on a day off, or a
                                 day_off note on a working day (app.is_working_day), is VALIDATION
-                                naming the other kind. One note per member, date and kind
-                                (CONFLICT). Audit 'submitted'. Returns the id. Notifies the Owner
+                                naming the other kind. A day before attendance started (the joining
+                                day or earlier) is VALIDATION. One note per member, date and kind
+                                (CONFLICT, a concurrent duplicate included). Audit 'submitted'.
+                                Returns the id. Notifies the Owner
 public.extra_work_note_decide(note_id, decision, days default null, mark_day_worked default false, note default null)
                                 attendance.decide, submitted only (INVALID_STATE). decision grant
                                 (days 0.5 | 1.0 required, VALIDATION) creates a comp_leave_credits
@@ -616,10 +620,12 @@ public.comp_leave_grant(member_id, days, note default null)
                                 attendance.decide, independent of any note (decision 14): an active
                                 member of the org whose role holds attendance.self (NOT_FOUND /
                                 VALIDATION otherwise), days 0.5 | 1.0, expires_on = the end of this
-                                IST month. Audit 'granted'. Returns the id. Notifies the member
+                                IST month. Takes the member's leave: lock. Audit 'granted'. Returns the id. Notifies the member
 public.comp_leave_revoke(credit_id, reason)
                                 attendance.decide, REASON_REQUIRED. Only an unused, unreserved,
-                                unexpired, unrevoked credit (INVALID_STATE naming why). Sets
+                                unexpired, unrevoked credit (INVALID_STATE naming why). The
+                                member's leave: lock before the credit row, so a revoke and a
+                                comp leave request serialise. Sets
                                 revoked_at/by/reason. Audit 'revoked'. Notifies the member
 public.comp_leave_balance(member_id default null)
                                 read: the caller's own (attendance.self) or, with attendance.view_all,
@@ -633,7 +639,8 @@ public.leave_submit_comp(start_date, half_day default false, reason default null
                                 overlap as leave_submit. Under the leave: lock the credits with
                                 expires_on >= start_date (the date counts, not the decision) and
                                 free days are drawn oldest first (granted_at, id): VALIDATION "not
-                                enough comp leave for that date" when they do not cover it. Writes
+                                enough comp leave for that date" when they do not cover it (checked
+                                again after the draw, so a request never stands on nothing). Writes
                                 the request, one comp_leave_credit_uses row per credit drawn
                                 (reserved) and reserved_days. Audit 'submitted' (meta comp). Returns
                                 the id. Notifies the Owner

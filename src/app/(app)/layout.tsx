@@ -56,7 +56,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   return (
     // The sign-out confirmation lives above the shell, so the edit pattern's unsaved-changes
     // warning (2.9) reaches it from any screen.
-    <LogoutProvider>
+    <LogoutProvider hasWorkingDay={can(viewer.role, "attendance.self")}>
       {/* Here rather than in the root layout: sonner and radix-tooltip are only ever used by
           signed-in screens, and mounting them globally shipped both to /login (task 1.5). */}
       <TooltipProvider>

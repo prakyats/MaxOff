@@ -308,12 +308,20 @@ begin
              where n.member_id = v_caller and n.work_date = extra_work_note_submit.work_date and n.kind = extra_work_note_submit.kind) then
     perform app.fail('CONFLICT', 'You already added a note for that day.');
   end if;
+  if app.to_ist_date((select m.joined_at from public.members m where m.id = v_caller)) >= work_date then
+    perform app.fail('VALIDATION', 'Your attendance had not started on that day.');
+  end if;
 
   perform set_config('app.audit_override', jsonb_build_object(
     'action', 'submitted', 'meta', jsonb_build_object('kind', kind))::text, true);
-  insert into public.extra_work_notes (member_id, work_date, kind, duration_minutes, note)
-  values (v_caller, work_date, kind, case when kind = 'overtime' then duration_minutes end, v_note)
-  returning id into v_id;
+  begin
+    insert into public.extra_work_notes (member_id, work_date, kind, duration_minutes, note)
+    values (v_caller, work_date, kind, case when kind = 'overtime' then duration_minutes end, v_note)
+    returning id into v_id;
+  exception when unique_violation then
+    -- Two submits at once (two devices): the second reads as the rule, not a raw 23505.
+    perform app.fail('CONFLICT', 'You already added a note for that day.');
+  end;
   return v_id;
 end;
 $$;
@@ -459,6 +467,7 @@ begin
       and exists (select 1 from public.role_permissions rp where rp.role = m.role and rp.permission = 'attendance.self')) then
     perform app.fail('NOT_FOUND', 'Comp leave is granted to an active Admin or Staff member.');
   end if;
+  perform pg_advisory_xact_lock(hashtext('leave:' || comp_leave_grant.member_id::text));
 
   perform set_config('app.audit_override', jsonb_build_object(
     'action', 'granted', 'meta', jsonb_build_object('days', days, 'standalone', true))::text, true);
@@ -489,12 +498,22 @@ declare
   v_org uuid;
   v_reason text := app.clean_reason(reason);
   v_credit public.comp_leave_credits;
+  v_member uuid;
 begin
   select r.caller_id, r.org_id into v_caller, v_org from app.attendance_require_decider() r;
   if v_reason is null then
     perform app.fail('REASON_REQUIRED', 'Revoking comp leave needs a reason the person will read.');
   end if;
 
+  -- Whose credit (no lock), then that person's leave: lock, then the row (DATA-MODEL §3 lock
+  -- order), so a revoke and a comp leave request for the same person serialise.
+  select c.member_id into v_member
+  from public.comp_leave_credits c
+  join public.members m on m.id = c.member_id and m.org_id = v_org
+  where c.id = comp_leave_revoke.credit_id;
+  if v_member is not null then
+    perform pg_advisory_xact_lock(hashtext('leave:' || v_member::text));
+  end if;
   select c.* into v_credit
   from public.comp_leave_credits c
   join public.members m on m.id = c.member_id and m.org_id = v_org
@@ -627,6 +646,11 @@ begin
     values (v_credit.id, v_id, v_take, 'reserved');
     v_left := v_left - v_take;
   end loop;
+  -- The sum above is read before the credits are locked: a credit revoked in between is skipped
+  -- by the loop, and the request must not stand on nothing.
+  if v_left > 0 then
+    perform app.fail('VALIDATION', 'You don''t have enough comp leave for that date.');
+  end if;
 
   return v_id;
 end;
@@ -1039,6 +1063,12 @@ begin
   where d.member_id = v_caller and d.work_date = v_today and d.started_at is not null and d.ended_at is null
   for update;
   if v_day.id is null then
+    -- Today started and ended: final, no resume. Checked before yesterday, or a second tap (another
+    -- device, a stale tab) would write a false end onto an open yesterday.
+    if exists (select 1 from public.attendance_days d
+               where d.member_id = v_caller and d.work_date = v_today and d.started_at is not null) then
+      perform app.fail('INVALID_STATE', 'Your day has already ended.');
+    end if;
     -- Worked past midnight: the end belongs to yesterday's day, a real time, never made up.
     select d.* into v_day
     from public.attendance_days d

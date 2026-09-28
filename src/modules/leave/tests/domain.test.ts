@@ -253,9 +253,15 @@ describe("requestLeaveSchema", () => {
   });
 
   it("makes a missing end date a single day", () => {
-    expect(schema.parse({ type: "comp_leave", startDate: "2026-09-30" })).toMatchObject({
+    expect(schema.parse({ type: "leave", startDate: "2026-09-30" })).toMatchObject({
       endDate: "2026-09-30",
     });
+  });
+
+  it("takes no comp leave: that goes through the credit (3b.2)", () => {
+    expect(errorsOf(schema.safeParse({ type: "comp_leave", startDate: "2026-09-30" }))).toEqual([
+      "type",
+    ]);
   });
 
   it("refuses a start in the past and an end before the start", () => {
