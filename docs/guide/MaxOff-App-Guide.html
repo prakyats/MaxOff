@@ -115,7 +115,7 @@
   <li>Xyz opens the link, sets a password and lands on a welcome screen on <span class="path">Me</span>.</li>
   <li>Attendance starts the <b>next day</b>: the joining day is never counted.</li>
 </ol>
-<h3>Staying signed in <span class="tag soon">Phase 3b</span></h3>
+<h3>Staying signed in <span class="tag now">Ready now</span></h3>
 <ul>
   <li>Once signed in, <b>people stay signed in</b>, like WhatsApp or Gmail. The app never signs anyone out on its own, so tasks and notifications reach them in the evening and on days off too.</li>
   <li>Opening the app is <b>not</b> attendance. Attendance is the separate <b>Start day</b> and <b>End day</b> (section 3).</li>
@@ -127,7 +127,7 @@
 <p>Shows your name, phone, sign-in email, role and job title as plain text. To change them: <span class="path">Me → ✎ Edit</span> → change a field → <span class="path">Save</span> (red) → a confirmation names the change ("Your name will change from X to Y") → confirm → "Saved". Leaving with unsaved changes asks "Discard changes?". Me also holds <b>Attendance &amp; leave</b>, your photo, and <b>Appearance</b> (light, dark or follow the phone).</p>
 
 <!-- 3 -->
-<h2 class="pb"><span class="num">3</span>Xyz's working day <span class="tag soon">Phase 3b</span></h2>
+<h2 class="pb"><span class="num">3</span>Xyz's working day <span class="tag now">Ready now</span></h2>
 <p>Working hours are flexible. MaxOff records when the day really starts and ends, and never guesses.</p>
 <h3>Morning: Start day</h3>
 <p>On a working day Xyz opens the app anywhere, any time. Until the day is started, this appears inside the app:</p>
@@ -145,7 +145,7 @@
   <li><span class="kbd">Just looking</span> → the prompt closes (for example Xyz only wanted to check tasks). It returns when the app is opened or returned to, at most every 30 minutes, until the day is started or leave chosen. My Day also shows a strip: "Not started · Start day".</li>
 </ul>
 <h3>During the day: My Day</h3>
-<div class="screen">● Present · waiting for approval                   ›
+<div class="screen">● Started 9:12 am · waiting for approval  [End day]
 Needs your "Task Noted"      2
 Changes requested            1
 Overdue                      1
@@ -157,22 +157,22 @@ End day</div>
 <h3>Evening: End day</h3>
 <ol class="steps">
   <li>Tap <span class="path">My Day → End day</span>.</li>
-  <li>Optional: "Worked late today? Add an overtime note" (what was worked on).</li>
-  <li>"Any expenses to claim today?" → <b>No</b>, or <b>Yes</b> to add claims (section 17).</li>
+  <li>Optional: <span class="kbd">Worked late? Add an overtime note</span> (roughly how long, and what was worked on).</li>
+  <li>"Any expenses to claim today?" → <b>No</b> (the default), or <b>Yes</b>: the button becomes <span class="kbd">End day, add expenses</span> and the claim form opens right after (section 17).</li>
   <li>Confirm. The end time is recorded. <b>End day is final</b> for that day: it cannot be reopened. The app stays fully usable afterwards (checking tomorrow's tasks at 9 PM is fine and is not work).</li>
 </ol>
 <h3>If something is missed</h3>
 <table>
   <tr><th style="width:38%">Situation</th><th>What MaxOff does</th></tr>
   <tr><td>Started but not ended by 8:30 PM</td><td>A reminder: "You haven't ended your day. If you're done, end it; if you're working late, carry on."</td></tr>
-  <tr><td>Never ended the day</td><td>After midnight the day is marked "End of day not recorded". No time is ever invented. Ending it after midnight still lands on the right day.</td></tr>
+  <tr><td>Never ended the day</td><td>After midnight the day is marked "End of day not recorded". No time is ever invented. Until <b>5:00 AM</b> (and only before starting the new day) the strip still offers "Yesterday not ended · End day", and the end lands on the right day. After that the day stays "End of day not recorded"; late work goes in an overtime note. Prishit sets the 5:00 AM in <span class="path">Settings → Thresholds</span>.</td></tr>
   <tr><td>Never started, no leave, on a working day</td><td>At 11:59 PM the day is proposed as <b>Absent</b>. It is only official once Prishit approves or corrects it.</td></tr>
   <tr><td>Worked after ending the day</td><td>Add an overtime note (section 5).</td></tr>
 </table>
 <h3>Days off (Sundays and holidays)</h3>
 <p>No prompt and no absence check. If Xyz actually worked, they tap <span class="path">My Day → I worked today</span> and describe the work. Prishit then decides (section 5).</p>
 <h3>Approved leave days</h3>
-<p>No prompt. A banner says "You're on approved leave today" with <b>I'm working today</b> (or <b>I'm working the full day</b> on a half day). If Xyz taps it and Prishit approves, the day counts as "1 day worked" and the leave itself stays as it was.</p>
+<p>No prompt. The strip says "On leave today" with <b>I'm working today</b>, which asks to confirm. If Xyz confirms and Prishit approves, the day counts as "1 day worked" and the leave itself stays as it was. On an approved <b>half day</b> the strip says "Half day today" and <b>Start day</b> and <b>End day</b> stay available: the half day stands.</p>
 <p class="small">Prakyat (Admin) does exactly the same as Xyz; his Start day and End day live on his Today screen. Prishit never marks attendance.</p>
 
 <!-- 4 -->
@@ -192,22 +192,22 @@ End day</div>
 <div class="box"><b>Only Prishit decides leave.</b> Prakyat has no say in anyone's attendance or leave, including his own.</div>
 
 <!-- 5 -->
-<h2 class="pb"><span class="num">5</span>Extra work and comp leave <span class="tag soon">Phase 3b</span></h2>
+<h2 class="pb"><span class="num">5</span>Extra work and comp leave <span class="tag now">Ready now</span></h2>
 <h3>Recording extra work (Xyz)</h3>
 <ul>
-  <li><b>Overtime note:</b> <span class="path">Attendance &amp; leave → Overtime note</span> (or at End day). Pick the day (up to 7 days back), roughly how long (optional) and what was worked on (required).</li>
+  <li><b>Overtime note:</b> <span class="path">Attendance &amp; leave → Extra work → Add note</span> (or at End day). Pick the day (up to 7 days back), roughly how long (optional) and what was worked on (required).</li>
   <li><b>Worked on a day off:</b> <span class="path">My Day → I worked today</span> on a Sunday or holiday (or later, up to 7 days back), with a note about the work.</li>
 </ul>
 <h3>Prishit reviews it</h3>
-<p><span class="path">Approvals → Extra work</span>. For each note: <b>Grant comp leave</b> (½ day or 1 day) or <b>No comp leave</b>. For day-off work he also decides whether to <b>mark the day as worked</b>. Nothing is automatic: if the extra work came from Xyz's own mistake, for example, Prishit simply grants nothing. Xyz sees the outcome on the note: "1 comp leave granted · use by 31 Oct" or "Reviewed by the Owner".</p>
-<p>Prishit can also grant comp leave <b>at any time, for any reason</b>, without a note: <span class="path">People → Xyz → ⋯ → Grant comp leave</span> (½ or 1 day, optional note Xyz sees). He can take back an unused grant, with a reason.</p>
+<p><span class="path">Approvals → Extra work → Review → Decide…</span>. For each note: <b>Grant 1 day</b>, <b>Grant ½ day</b> or <b>No comp leave</b>. For day-off work he also decides whether to <b>mark the day as worked</b>. Nothing is automatic: if the extra work came from Xyz's own mistake, for example, Prishit simply grants nothing. Xyz sees the outcome on the note: "1 comp leave granted · use by 31 Oct" or "Reviewed by the Owner".</p>
+<p>Prishit can also grant comp leave <b>at any time, for any reason</b>, without a note: <span class="path">People → Xyz → Leave → Grant comp leave</span> (½ or 1 day, optional note Xyz sees). A double tap grants it once. He can take back an unused grant with <b>Revoke</b>, with a reason Xyz reads.</p>
 <h3>Using comp leave (Xyz)</h3>
 <ol class="steps">
-  <li>Xyz sees the balance on <span class="path">Attendance &amp; leave</span>: "1½ comp leave · use by 31 Oct".</li>
-  <li><span class="path">Request leave → Comp leave</span> → a full day (uses 1) or a half day (uses ½). The date must be <b>on or before the end of the month</b> the credit was granted in.</li>
+  <li>Xyz sees the balance on <span class="path">Attendance &amp; leave → Extra work</span>: "1½ days of comp leave · use by 31 Oct".</li>
+  <li><span class="path">Request leave → Comp leave (1 day)</span> or <span class="path">Comp leave, half day (½)</span> → pick the date from the list. The list holds only <b>working days</b> (no Sundays, no holidays) <b>up to the end of the month</b> the credit was granted in.</li>
   <li>It goes to Prishit like any leave. <b>He can refuse it</b> (for example, there's a shoot that day). While it waits, the credit is held; if refused, withdrawn or cancelled, the credit comes back (unless its month has ended).</li>
 </ol>
-<div class="box">Credits expire at the end of the calendar month they were granted in, even if that's two days later. Expired credits stay visible in the history.</div>
+<div class="box">Credits expire at the end of the calendar month they were granted in, even if that's two days later. Expired credits stay visible in the history. If Prishit later adds a <b>holiday</b> on a date that already has comp leave (waiting or approved), that comp leave is cancelled and the credit goes back to Xyz, with a note saying which holiday.</div>
 
 <!-- 6 -->
 <h2><span class="num">6</span>Prishit's attendance tools</h2>
@@ -220,7 +220,7 @@ Needs you
 [ See all 15 people ]</div>
 <p>Tapping a count opens the full list filtered to that group ("Waiting" opens Approvals). Tapping a person opens their page.</p>
 <h3>Approving attendance and leave <span class="tag now">Ready now</span></h3>
-<p><span class="path">Approvals</span> is one screen, grouped: <b>Attendance · Leave · Extra work · Staff tasks · Client items</b>. The badge on the tab shows how many things wait.</p>
+<p><span class="path">Approvals</span> is one screen, grouped: <b>Attendance · Leave · Extra work · Expenses</b> (and, when they arrive, Staff tasks · Client items). The badge on the tab shows how many things wait. Extra work and Expenses are review-only: every one is opened and decided on its own.</p>
 <ul>
   <li><b>Approve</b> one row → it fades, with a 6-second <b>Undo</b>. Nothing is saved until the Undo time passes (or the app is left).</li>
   <li><b>Approve all N</b> on a group → a confirmation with the count → "Approve N" (red). Only the rows on screen are approved.</li>
@@ -230,8 +230,8 @@ Needs you
 </ul>
 <h3>A person's page <span class="tag now">Ready now</span></h3>
 <p><span class="path">Today → tap a person</span> or <span class="path">More → People → tap a person</span>. Tabs: <b>Profile</b> (details, Edit, and ⋯ for Deactivate, Reactivate, Copy invite link), <b>Leave</b> (their requests, with Edit and Cancel on approved leave), <b>Attendance</b> (month by month, with Correct on every day). The ‹ at the top goes back.</p>
-<h3>The month summary <span class="tag soon">Phase 3b</span></h3>
-<p>On each person's page and as a team report, live at any time (section 16).</p>
+<h3>The month summary <span class="tag now">Ready now</span></h3>
+<p><span class="path">People → person → Month</span>, and the team report at <span class="path">More → Reports → Month</span>, live at any time (section 16).</p>
 
 <!-- 7 -->
 <h2 class="pb"><span class="num">7</span>Clients <span class="tag now">Ready now</span></h2>
@@ -379,7 +379,7 @@ Needs you
   <tr><td>Shoots, meetings, leave, planned client pieces</td><td><span class="path">Calendar</span> (day, week, month; filter by client, person, type) <span class="tag soon">Phase 6</span></td></tr>
   <tr><td>A summary of the day</td><td>The automatic <b>end-of-day report</b> each evening: attendance, tasks finished and overdue (with reasons), approvals, overtime, tomorrow's events <span class="tag soon">Phase 6</span></td></tr>
   <tr><td>Money, workload, delays, trends</td><td><span class="path">More → Reports</span>, by week, month or any range <span class="tag soon">Phase 9</span></td></tr>
-  <tr><td>One person's month</td><td><span class="path">People → person</span> <span class="tag soon">Phase 3b</span></td></tr>
+  <tr><td>One person's month</td><td><span class="path">People → person → Month</span> <span class="tag now">Ready now</span></td></tr>
 </table>
 <p><b>Prakyat's Today</b> shows his clients' progress, client work pending, tasks needing attention, his approvals, the calendar and issues. His <b>report</b> answers one question, "is the work getting done?", with six numbers (on time, round progress, rework, his own turnaround, overdue now, how long people take to tap Task Noted) and two lists (who is loaded this week, where pieces wait longest). Never money, attendance or leave.</p>
 <p><b>Xyz's My Day</b> shows only Xyz's own work.</p>
@@ -398,8 +398,8 @@ Needs you
   <li>Prishit marks each client's month <b>Billed</b> (optional date and note). MaxOff doesn't send invoices.</li>
   <li><span class="path">Reports → Close month</span> saves a <b>permanent record</b> of the month. Later mistakes are fixed as dated corrections, never by overwriting.</li>
 </ul>
-<h3>Salaries: the month summary <span class="tag soon">Phase 3b</span></h3>
-<p>For each person (and as a team report), live at any time:</p>
+<h3>Salaries: the month summary <span class="tag now">Ready now</span></h3>
+<p>For each person (<span class="path">People → person → Month</span>, with ‹ › for other months) and as a team report (<span class="path">More → Reports → Month</span>: one row per Admin and Staff member, "Worked 21½ of 26 · additional leave 3½", days still waiting for review, and "₹1,840 to pay · 5 claims"; a row opens that person's month), live at any time. Only days Prishit has decided are counted; days still waiting are shown on top.</p>
 <table>
   <tr><th style="width:38%">Line</th><th>Example: Xyz, October</th></tr>
   <tr><td>Working days in the month (no Sundays or holidays)</td><td>26</td></tr>
@@ -412,29 +412,29 @@ Needs you
   <tr><td>Comp leave credits granted · used · expired</td><td>2 · 1 · 1</td></tr>
   <tr><td>Expenses approved, not yet paid</td><td>₹1,840 (5 claims)</td></tr>
 </table>
-<p>There is no free monthly leave allowance and <b>no salary stored in MaxOff</b>: Prishit works out pay (for example, a fixed salary minus the additional leave, plus approved expenses) from these figures. Prakyat never sees this summary.</p>
+<p>There is no free monthly leave allowance and <b>no salary stored in MaxOff</b>: Prishit works out pay (for example, a fixed salary minus the additional leave, plus approved expenses) from these figures. Prakyat never sees this summary, though his own month is in it like everyone's. Freelancers will be left out (phase 4).</p>
 
 <!-- 17 -->
-<h2><span class="num">17</span>Expense claims <span class="tag soon">Phase 3b</span></h2>
+<h2><span class="num">17</span>Expense claims <span class="tag now">Ready now</span></h2>
 <h3>Claiming (Xyz or Prakyat)</h3>
 <ol class="steps">
-  <li>At <span class="path">End day</span>: "Any expenses to claim today?" → <b>Yes</b>. (Or later: <span class="path">Attendance &amp; leave → Expenses → Add</span>.)</li>
-  <li>Enter the <b>amount (₹)</b>, a <b>category</b> (Travel, Food, Materials, Other; Prishit edits the list), a note and the date. Add several if needed.</li>
-  <li>Attach a <b>receipt photo</b>: optional, but required above ₹500 (Prishit sets the amount).</li>
+  <li>At <span class="path">End day</span>: "Any expenses to claim today?" → <b>Yes</b> → <span class="kbd">End day, add expenses</span>. (Or later: <span class="path">Attendance &amp; leave → Expenses → Add expense</span>.)</li>
+  <li>Enter the <b>amount (₹)</b>, a <b>category</b> (Travel, Food, Materials, Other; Prishit edits the list in <span class="path">Settings → Expenses</span>), what it was for and the date. <b>Add another</b> for several.</li>
+  <li>Attach a <b>receipt photo</b>: optional, but required above ₹500 (Prishit sets the amount in <span class="path">Settings → Expenses</span>).</li>
   <li>Submit. It can be withdrawn until Prishit decides.</li>
 </ol>
 <p>Claims are accepted for expenses dated in the current month, or in the previous month during the first 5 days of the new one.</p>
 <h3>Deciding (Prishit)</h3>
-<p><span class="path">Approvals</span> → each claim → <b>Approve</b>, or <b>Reject</b> with a reason Xyz sees. When he pays it with the salary: <b>Mark paid</b>. The month summary shows what's approved and not yet paid.</p>
+<p><span class="path">Approvals → Expenses → Review</span> (the receipt is in the sheet) → <b>Approve</b>, or <b>Reject…</b> with a reason Xyz sees. When he pays it with the salary: <span class="path">People → Xyz → Month → Mark paid</span> (one claim, or <b>Mark all paid</b>, with the date). The team report shows what's approved and not yet paid.</p>
 <div class="box"><b>Who sees claims:</b> the person sees their own; Prishit sees everyone's; Prakyat never sees anyone else's, not even his team's.</div>
 
 <!-- 18 -->
 <h2 class="pb"><span class="num">18</span>Settings <span class="tag now">Mostly ready</span></h2>
 <p><span class="path">More → Settings</span>. Everything configurable lives here, changeable by Prishit without a developer. Prakyat sees only lists, templates and custom fields for his own clients.</p>
 <ul>
-  <li><b>Company:</b> name and logo, weekly off days (Sunday), holidays, reminder times, acknowledgement and overdue escalation times, workload warning level, email cap.</li>
+  <li><b>Company:</b> name and logo, weekly off days (Sunday), holidays, reminder times, how late a forgotten End day can still be recorded (5:00 AM), acknowledgement and overdue escalation times, workload warning level, email cap.</li>
   <li><b>Team:</b> add a person (Employee with an invite, or Freelancer with a coordinator), role, job title, deactivate and reactivate. Job titles are an editable list (Video Editor, Graphic Designer, …).</li>
-  <li><b>Lists:</b> task types, project steps (for example Script → Shoot → Edit → Posted), expense categories.</li>
+  <li><b>Lists:</b> task types, project steps (for example Script → Shoot → Edit → Posted), expense categories (<span class="path">Settings → Expenses</span>, with the receipt amount).</li>
   <li><b>Custom fields</b> for clients, contacts, projects, pieces and tasks: for all clients (Prishit only) or for one client (Prakyat for his own). Every client is different, so this is where the app bends to each one. Admins can read client and contact fields, so the form reminds: <i>"Amounts belong in project billing (Owner only)."</i></li>
   <li><b>Templates:</b> project templates and task templates.</li>
   <li><b>Storage:</b> how much file space MaxOff is using.</li>
