@@ -390,6 +390,9 @@ const eslintConfig = defineConfig([
     ".wrangler/**",
     "coverage/**",
     "playwright-report/**",
+    "blob-report/**",
+    "blob-report-bulk/**",
+    "all-blob-reports/**",
     "test-results/**",
     "supabase/migrations/**",
     // Deliberate violations, linted only by tests/lint-rules.test.ts.
