@@ -241,6 +241,30 @@ test.describe("installed: the back order of the claim form and the Owner's revie
     ]);
   });
 
+  test("back closes the Withdraw confirmation, then leaves Expenses", async ({ page }, info) => {
+    await resetExpenseClaims(await memberIdOf(person(info)));
+    await runInstalled(page);
+    await signIn(page, person(info), PASSWORD);
+    await page.goto("/leave/expenses");
+    await page.getByRole("button", { name: "Add expense" }).click();
+    const dialog = claimDialog(page);
+    await dialog.getByLabel("Amount (₹)").fill("60");
+    await pickCategory(page, dialog, "Food");
+    await dialog.getByLabel("What was it for?").fill("Lunch at the shoot");
+    await dialog.getByRole("button", { name: "Add claim" }).click();
+    await expect(dialog).toBeHidden();
+    // A dialog closed by its button leaves its entry spent (3.4 mechanics 5): start clean.
+    await page.goto("/my-day");
+    await page.goto("/leave/expenses");
+    await claimRows(page).first().getByRole("button", { name: "Withdraw" }).click();
+    const withdraw = page.getByRole("alertdialog", { name: "Withdraw this claim?" });
+    await expect(withdraw).toBeVisible();
+    await expectBackStack(page, [
+      { closes: withdraw, url: /\/leave\/expenses$/ },
+      { url: /\/my-day$/ },
+    ]);
+  });
+
   test("the tabs replace: one back from Expenses leaves Attendance & leave", async ({
     page,
   }, info) => {

@@ -69,7 +69,14 @@ export function MonthSummaryCard({ summary }: { summary: MonthSummary }) {
   );
 }
 
-/** The card's tracing for `loading.tsx`: the eight lines, label left and figure right. */
+/** Which of the eight lines carry a detail line under the label (`summaryLines`). */
+const LINES_WITH_DETAIL = [false, true, false, false, true, false, true, true];
+
+/**
+ * The card's tracing for `loading.tsx`: the eight lines, label left and figure right, with the
+ * detail line under the four that have one. The "waiting for your review" row is data (most
+ * months have none), so it is not reserved.
+ */
 export function MonthSummarySkeleton() {
   return (
     <div
@@ -77,10 +84,13 @@ export function MonthSummarySkeleton() {
       data-slot="loading-month-summary"
       className="border-border bg-card divide-border divide-y rounded-lg border"
     >
-      {Array.from({ length: 8 }, (_, i) => (
+      {LINES_WITH_DETAIL.map((detail, i) => (
         <div key={i} className="flex min-h-12 items-center gap-3 px-4 py-2">
-          <Skeleton className="h-4 w-2/5" />
-          <Skeleton className="ml-auto h-4 w-10" />
+          <span className="flex flex-1 flex-col gap-1">
+            <Skeleton className="h-4 w-2/5" />
+            {detail ? <Skeleton className="h-3 w-3/5" /> : null}
+          </span>
+          <Skeleton className="h-4 w-10" />
         </div>
       ))}
     </div>

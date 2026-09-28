@@ -5,6 +5,14 @@ import { CLAIM_AMOUNT_LIMIT, CLAIM_NOTE_MAX_LENGTH } from "./claims";
 const isoDate = z.iso.date({ error: "Pick the day of the expense." });
 
 /**
+ * At most two decimals, read in paise with a tolerance: `150.1 * 100` is 15009.999999999998 in
+ * floating point, so an exact comparison would refuse valid amounts (3bB review must-fix).
+ */
+export function hasAtMostTwoDecimals(value: number): boolean {
+  return Math.abs(value * 100 - Math.round(value * 100)) < 1e-6;
+}
+
+/**
  * A new claim (PRODUCT §4.18, 3b.3): the date (the database checks the window), the amount in
  * rupees with at most two decimals, a category, what it was for, and the receipt when there is
  * one. The receipt amount is the database's to check: it is the Owner's setting.
@@ -15,7 +23,7 @@ export const submitClaimSchema = z.object({
     .number({ error: "Enter the amount in rupees." })
     .positive("Enter an amount above ₹0.")
     .lt(CLAIM_AMOUNT_LIMIT, "That amount is too large.")
-    .refine((value) => Math.round(value * 100) === value * 100, "Use two decimals at most."),
+    .refine(hasAtMostTwoDecimals, "Use two decimals at most."),
   categoryId: z.uuid({ error: "Choose a category." }),
   note: z
     .string()
@@ -52,6 +60,6 @@ export const receiptAboveSchema = z.object({
     .number({ error: "Enter an amount in rupees." })
     .min(0, "Zero or more.")
     .lt(CLAIM_AMOUNT_LIMIT, "That amount is too large.")
-    .refine((value) => Math.round(value * 100) === value * 100, "Use two decimals at most."),
+    .refine(hasAtMostTwoDecimals, "Use two decimals at most."),
 });
 export type ReceiptAboveInput = z.input<typeof receiptAboveSchema>;

@@ -347,7 +347,14 @@ const eslintConfig = defineConfig([
   // The primitives are where button colours are defined (the variants themselves).
   {
     files: ["**/src/core/ui/primitives/**/*.{ts,tsx}"],
-    rules: { "no-restricted-syntax": ["error", ...WALL_CLOCK_SELECTORS, ...MONEY_SELECTORS] },
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        ...WALL_CLOCK_SELECTORS,
+        ...MONEY_SELECTORS,
+        ...EXPENSE_SELECTORS,
+      ],
+    },
   },
   {
     // The one place that may read the clock. Tests build explicit instants instead.

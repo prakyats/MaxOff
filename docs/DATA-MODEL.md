@@ -854,7 +854,8 @@ app.file_visible(file)          re-created (same signature): also true for a rec
 No table: the summary is computed live from the attendance and extra-work tables (PRODUCT §4.18, kickoff 3b decisions 18–20, 31).
 ```
 month_summary(month date, member_id uuid default null)
-                                attendance.view_all (the Owner). One row per member who marks attendance
+                                attendance.view_all (the Owner). One row (id = the member, full_name,
+                                role, status, then the figures) per member who marks attendance
                                 (a role holding attendance.self), joined by the month's last day and not
                                 deactivated before its first, or the one member asked for, over the IST
                                 month containing `month`: working_days (days of the month that are

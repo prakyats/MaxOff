@@ -150,7 +150,9 @@ export function EndDayButton({
           return true;
         }}
       >
-        {openClaims ? <ExpensesQuestion id={id} claim={claim} onClaim={setClaim} /> : null}
+        {openClaims ? (
+          <ExpensesQuestion id={id} claim={claim} onClaim={setClaim} yesterday={yesterday} />
+        ) : null}
         {withNote ? (
           <OvertimeNoteFields
             id={id}
@@ -191,10 +193,13 @@ function ExpensesQuestion({
   id,
   claim,
   onClaim,
+  yesterday,
 }: {
   id: string;
   claim: boolean;
   onClaim: (claim: boolean) => void;
+  /** Ending yesterday's day after midnight: the question is about yesterday. */
+  yesterday: boolean;
 }) {
   const options = [
     { value: false, label: "No" },
@@ -202,7 +207,9 @@ function ExpensesQuestion({
   ];
   return (
     <fieldset className="flex flex-col gap-2" data-slot="expenses-question">
-      <legend className="mb-1 text-sm font-medium">Any expenses to claim today?</legend>
+      <legend className="mb-1 text-sm font-medium">
+        {yesterday ? "Any expenses to claim for yesterday?" : "Any expenses to claim today?"}
+      </legend>
       <div className="grid grid-cols-2 gap-2">
         {options.map((option) => (
           <label

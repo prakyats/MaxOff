@@ -115,6 +115,17 @@ describe("the schemas", () => {
     expect(submitClaimSchema.parse(valid).receiptFileId).toBeNull();
   });
 
+  it("take every amount in rupees and paise, floating point notwithstanding (3bB review)", () => {
+    for (const amount of [1.1, 4.35, 150.1, 0.07, 999.99, 1200.5, 0.01]) {
+      expect(submitClaimSchema.safeParse({ ...valid, amount }).success, String(amount)).toBe(true);
+    }
+    for (let paise = 1; paise < 100000; paise += 1) {
+      if (!submitClaimSchema.safeParse({ ...valid, amount: paise / 100 }).success) {
+        throw new Error(`refused ${paise / 100}`);
+      }
+    }
+  });
+
   it("refuse three decimals, zero and an empty note", () => {
     expect(submitClaimSchema.safeParse({ ...valid, amount: 1.005 }).success).toBe(false);
     expect(submitClaimSchema.safeParse({ ...valid, amount: 0 }).success).toBe(false);

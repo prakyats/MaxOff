@@ -7,7 +7,7 @@
 -- actions and who reads them, and a receipt's visibility (app.file_visible).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(97);
+select plan(100);
 
 -- Fixtures as 25: keep the organization, replace the people. Rolled back at the end.
 delete from public.expense_claims;
@@ -146,9 +146,15 @@ select throws_ok(format($$ update public.list_items set name = 'Trips' where id 
   'P0001', 'FORBIDDEN', 'an Admin cannot rename one');
 select lives_ok($$ insert into public.list_items (list_key, name, position) values ('job_title', 'Colour Tester', 'z9') $$,
   'an Admin still edits the other lists');
+select throws_ok(format($$ select public.list_item_move('expense_category', %L, 'down') $$, pg_temp.fx('travel')),
+  'P0001', 'FORBIDDEN', 'an Admin cannot reorder the categories through list_item_move (3bB review)');
+select lives_ok($$ select public.list_item_move('job_title', (select id from public.list_items where list_key = 'job_title' and name = 'Colour Tester'), 'up') $$,
+  'an Admin still reorders the other lists');
 select pg_temp.as_member('owner');
 select lives_ok($$ insert into public.list_items (list_key, name, position) values ('expense_category', 'Parking', 'b0') $$,
   'the Owner adds a category');
+select lives_ok(format($$ select public.list_item_move('expense_category', %L, 'down') $$, pg_temp.fx('travel')),
+  'the Owner reorders the categories');
 select lives_ok($$ update public.list_items set archived_at = now() where list_key = 'expense_category' and name = 'Parking' $$,
   'the Owner archives it');
 select pg_temp.as_member('staff');
