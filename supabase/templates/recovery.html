@@ -1,15 +1,206 @@
-<h2>Set your MaxOff password</h2>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light only" />
+    <title>Set your MaxOff password</title>
+  </head>
+  <!--
+    GoTrue's password-recovery email (Supabase Auth). Hosted projects paste this file into
+    Authentication → Emails → Templates → Reset password (README → "Hosted auth settings");
+    locally, supabase/config.toml points at it.
+    Email clients ignore most CSS, so the layout is tables with inline styles.
+    The link MUST stay {{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery:
+    the app verifies the token hash server-side, and e2e/helpers.ts confirmLinkFrom() reads the
+    first href containing /auth/confirm. The logo is served by the sending environment itself.
+  -->
+  <body style="margin: 0; padding: 0; background-color: #f4f4f5">
+    <div style="display: none; max-height: 0; overflow: hidden; opacity: 0">
+      Your link to set a new MaxOff password. It works once, within 24 hours.
+    </div>
+    <table
+      role="presentation"
+      width="100%"
+      cellpadding="0"
+      cellspacing="0"
+      border="0"
+      style="background-color: #f4f4f5"
+    >
+      <tr>
+        <td align="center" style="padding: 32px 16px">
+          <table
+            role="presentation"
+            width="100%"
+            cellpadding="0"
+            cellspacing="0"
+            border="0"
+            style="max-width: 560px"
+          >
+            <!-- Brand -->
+            <tr>
+              <td style="padding: 0 4px 20px 4px">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td style="vertical-align: middle; padding-right: 12px">
+                      <img
+                        src="{{ .SiteURL }}/icons/icon-192.png"
+                        width="44"
+                        height="44"
+                        alt="MaxOff"
+                        style="display: block; border: 0; border-radius: 10px"
+                      />
+                    </td>
+                    <td
+                      style="
+                        vertical-align: middle;
+                        font-family: &quot;Segoe UI&quot;, Roboto, Helvetica, Arial, sans-serif;
+                      "
+                    >
+                      <div
+                        style="font-size: 20px; font-weight: 700; color: #16161a; line-height: 1.2"
+                      >
+                        MaxOff
+                      </div>
+                      <div style="font-size: 12px; color: #52525b; line-height: 1.4">
+                        Pixora Clips operations
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
 
-<p>
-  Open the link below to choose a new password for MaxOff. It works once and expires in an hour.
-</p>
+            <!-- Card -->
+            <tr>
+              <td
+                style="
+                  background-color: #ffffff;
+                  border: 1px solid #e4e4e7;
+                  border-radius: 14px;
+                  padding: 32px 28px;
+                  font-family: &quot;Segoe UI&quot;, Roboto, Helvetica, Arial, sans-serif;
+                  color: #16161a;
+                "
+              >
+                <h1 style="margin: 0 0 12px 0; font-size: 22px; line-height: 1.3; font-weight: 700">
+                  Set your MaxOff password
+                </h1>
+                <p style="margin: 0 0 20px 0; font-size: 15px; line-height: 1.6; color: #3f3f46">
+                  We received a request to set a password for the MaxOff account
+                  <strong style="color: #16161a">{{ .Email }}</strong>. Use the button below to
+                  choose a new one. If you never finished setting up your account, this also sets
+                  your first password.
+                </p>
 
-<p>
-  <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery"
-    >Set my password</a
-  >
-</p>
+                <!-- Button -->
+                <table
+                  role="presentation"
+                  cellpadding="0"
+                  cellspacing="0"
+                  border="0"
+                  style="margin: 0 0 24px 0"
+                >
+                  <tr>
+                    <td align="center" bgcolor="#C42126" style="border-radius: 10px">
+                      <a
+                        href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery"
+                        style="
+                          display: inline-block;
+                          padding: 14px 28px;
+                          font-size: 16px;
+                          font-weight: 600;
+                          color: #ffffff;
+                          text-decoration: none;
+                          border-radius: 10px;
+                        "
+                        >Set my password</a
+                      >
+                    </td>
+                  </tr>
+                </table>
 
-<p>
-  If you did not ask for this, you can ignore this email; nothing changes until the link is used.
-</p>
+                <!-- What to know -->
+                <table
+                  role="presentation"
+                  width="100%"
+                  cellpadding="0"
+                  cellspacing="0"
+                  border="0"
+                  style="background-color: #f8f8f9; border-radius: 10px; margin: 0 0 24px 0"
+                >
+                  <tr>
+                    <td
+                      style="padding: 16px 18px; font-size: 14px; line-height: 1.6; color: #3f3f46"
+                    >
+                      <div style="font-weight: 600; color: #16161a; margin-bottom: 6px">
+                        Good to know
+                      </div>
+                      <div>
+                        • The link works <strong>once</strong> and expires in
+                        <strong>24 hours</strong>.
+                      </div>
+                      <div>
+                        • Use at least <strong>12 characters</strong>. A short sentence is easy to
+                        remember.
+                      </div>
+                      <div>
+                        • After saving, MaxOff opens straight away. On your phone, open it from the
+                        installed MaxOff app.
+                      </div>
+                    </td>
+                  </tr>
+                </table>
+
+                <p style="margin: 0 0 8px 0; font-size: 13px; line-height: 1.6; color: #71717a">
+                  Button not working? Copy this link into your browser:
+                </p>
+                <p
+                  style="
+                    margin: 0 0 24px 0;
+                    font-size: 12px;
+                    line-height: 1.5;
+                    color: #52525b;
+                    word-break: break-all;
+                  "
+                >
+                  {{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&amp;type=recovery
+                </p>
+
+                <div style="border-top: 1px solid #e4e4e7; padding-top: 18px">
+                  <p style="margin: 0 0 8px 0; font-size: 14px; line-height: 1.6; color: #3f3f46">
+                    <strong style="color: #16161a">Didn't ask for this?</strong> You can ignore this
+                    email. Your password stays the same unless the link is used.
+                  </p>
+                  <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #3f3f46">
+                    <strong style="color: #16161a">Stay safe:</strong> MaxOff and Pixora Clips will
+                    never ask for your password by phone, WhatsApp or email. Don't forward this
+                    email.
+                  </p>
+                </div>
+              </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+              <td
+                style="
+                  padding: 20px 8px 0 8px;
+                  font-family: &quot;Segoe UI&quot;, Roboto, Helvetica, Arial, sans-serif;
+                  font-size: 12px;
+                  line-height: 1.6;
+                  color: #52525b;
+                  text-align: center;
+                "
+              >
+                MaxOff is Pixora Clips' internal work app. You're receiving this because a password
+                was requested for your MaxOff account. This mailbox isn't monitored: for help, ask
+                the MaxOff owner at Pixora Clips.
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
