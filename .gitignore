@@ -4,6 +4,10 @@ node_modules/
 .wrangler/
 coverage/
 playwright-report/
+# Sharded CI runs (merged into playwright-report/ by the `playwright` job)
+blob-report/
+blob-report-bulk/
+all-blob-reports/
 e2e/.auth/
 test-results/
 .env

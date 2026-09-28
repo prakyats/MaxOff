@@ -124,8 +124,15 @@ jobs:
       - if: always()
         run: pnpm storage:stop
 
+  # Playwright in two shards on two runners (owner decision 2026-09-28, after phase 3b: one runner
+  # took 18 of its 20 minutes). Each shard builds and starts its own stack, so the shards share
+  # nothing. `owner-bulk` depends on desktop, mobile and mobile-lg (its "Approve all" must run
+  # alone, after every project that creates rows), and a dependency chain is never split, so
+  # sharding it with the rest put ~98% of the suite in shard 1. The shards therefore run every
+  # project but it, and shard 2 runs it afterwards with `--no-deps`, alone, on its own database.
+  # The required check is the `playwright` job below, not these.
   e2e:
-    name: playwright
+    name: playwright (shard ${{ matrix.shard }}/2)
     needs: changes
     # The full run: pull requests, pushes to main (before Deploy), and a dispatch with "full
     # tests" on. A push to a phase branch skips it; /run-phase dispatches it once per unit. A
@@ -137,7 +144,12 @@ jobs:
         (github.event_name == 'workflow_dispatch' && (inputs.full || github.ref == 'refs/heads/main'))
       )
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
+    strategy:
+      # Both shards always finish, so one red run shows every failure.
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -164,14 +176,74 @@ jobs:
           # runtime. Never a real project's key.
           echo "SUPABASE_SECRET_KEY=$(grep '^SECRET_KEY=' supabase-status.env | cut -d= -f2- | tr -d '"')" >> "$GITHUB_ENV"
       - run: pnpm build
-      - run: pnpm test:e2e
+      # A blob report per shard (the `playwright` job merges them into one HTML report); the
+      # github reporter keeps failures annotated on the run.
+      - run: >-
+          pnpm test:e2e --shard=${{ matrix.shard }}/2 --reporter=github,blob
+          --project=setup --project=desktop --project=mobile --project=mobile-lg --project=production
+      - name: Approve all (owner-bulk), alone, after the rest of shard 2
+        if: matrix.shard == 2
+        env:
+          PLAYWRIGHT_BLOB_OUTPUT_DIR: blob-report-bulk
+        run: |
+          pnpm test:e2e --project=owner-bulk --no-deps --reporter=github,blob
+          mv blob-report-bulk/*.zip blob-report/report-owner-bulk.zip
       - if: always()
         run: pnpm supabase stop --no-backup
       - if: always()
         run: pnpm storage:stop
-      - if: failure()
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: blob-report-${{ matrix.shard }}
+          path: blob-report
+          retention-days: 7
+
+  # The required check keeps its name: green only when both shards passed (or the e2e run was
+  # skipped by the rules above, which a required check counts as passed anyway). It also merges
+  # the shards' blob reports into the one HTML report, `playwright-report`.
+  playwright:
+    name: playwright
+    needs: [changes, e2e]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - if: needs.e2e.result == 'success' || needs.e2e.result == 'failure'
+        uses: actions/checkout@v4
+      - if: needs.e2e.result == 'success' || needs.e2e.result == 'failure'
+        uses: pnpm/action-setup@v4
+      - if: needs.e2e.result == 'success' || needs.e2e.result == 'failure'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - if: needs.e2e.result == 'success' || needs.e2e.result == 'failure'
+        run: pnpm install --frozen-lockfile
+      - if: needs.e2e.result == 'success' || needs.e2e.result == 'failure'
+        uses: actions/download-artifact@v4
+        with:
+          pattern: blob-report-*
+          path: all-blob-reports
+          merge-multiple: true
+      - if: needs.e2e.result == 'success' || needs.e2e.result == 'failure'
+        run: pnpm exec playwright merge-reports --reporter html ./all-blob-reports
+      - if: needs.e2e.result == 'success' || needs.e2e.result == 'failure'
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
           path: playwright-report
           retention-days: 7
+      - name: Both shards passed
+        if: always()
+        env:
+          CHANGES: ${{ needs.changes.result }}
+          SHARDS: ${{ needs.e2e.result }}
+        run: |
+          echo "changes: $CHANGES, shards: $SHARDS"
+          if [ "$CHANGES" != "success" ]; then
+            echo "::error::The changes job did not succeed, so nothing was tested."; exit 1
+          fi
+          if [ "$SHARDS" != "success" ] && [ "$SHARDS" != "skipped" ]; then
+            echo "::error::A Playwright shard did not pass ($SHARDS). The merged report is the playwright-report artifact."; exit 1
+          fi
