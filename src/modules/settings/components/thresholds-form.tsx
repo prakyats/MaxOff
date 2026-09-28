@@ -42,8 +42,8 @@ export function ThresholdsForm({ thresholds }: { thresholds: Thresholds }) {
     <form action={formAction} noValidate className="flex max-w-xl flex-col gap-4">
       <FormError error={error} />
       <FormField
-        label="Logout reminder"
-        hint="IST. Anyone with a login today and no logout since gets a nudge."
+        label="End-of-day reminder"
+        hint="IST. Anyone who started their day and hasn't ended it gets a nudge: end it, or carry on."
         error={fieldErrors.logoutReminderTime}
       >
         {(control) => (

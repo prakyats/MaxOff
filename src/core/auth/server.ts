@@ -130,7 +130,7 @@ async function clearAuthCookies(): Promise<void> {
 
 /**
  * Sets the home hint the proxy reads to answer `/` (2.7, `home-hint.ts`). A route handler or a
- * server action only. Called at sign-in, set-password and with the day gate's daily pass.
+ * server action only. Called at sign-in, set-password and with each Start day (3b.1).
  */
 export async function setHomeHint(userId: string, role: MemberRole): Promise<void> {
   const appEnv = process.env.NEXT_PUBLIC_APP_ENV;
@@ -139,7 +139,7 @@ export async function setHomeHint(userId: string, role: MemberRole): Promise<voi
     sameSite: "lax",
     secure: appEnv === "staging" || appEnv === "production",
     path: "/",
-    // Refreshed at least daily by the gate; the Owner (never gated) refreshes it at sign-in.
+    // Refreshed with each Start day; the Owner (who has no day) refreshes it at sign-in.
     maxAge: 60 * 60 * 24 * 30,
   });
 }

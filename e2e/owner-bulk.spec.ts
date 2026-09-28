@@ -31,8 +31,7 @@ let clashing = "";
 test.beforeAll(async () => {
   for (const person of [A, B]) {
     await resetAttendanceAndLeave(person.id);
-    await rpcAs(person.email, PASSWORD, "attendance_touch", {});
-    await rpcAs(person.email, PASSWORD, "attendance_submit", { choice: "present" });
+    await rpcAs(person.email, PASSWORD, "attendance_start_day", {});
   }
   requestA = await rpcAs<string>(A.email, PASSWORD, "leave_submit", {
     type: "leave",

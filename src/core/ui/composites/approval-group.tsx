@@ -32,7 +32,9 @@ export type ApprovalRow = {
 /**
  * One group of the Approvals screen (PRODUCT "Approvals", WORKFLOWS §1 "Settled in 2.4"). Two
  * actions per row, never more: **Approve** (primary) and **Review** (everything that needs
- * thought opens the module's sheet). The header carries **Approve all N**.
+ * thought opens the module's sheet). The header carries **Approve all N**. A group whose
+ * decisions all need thought (Extra work, 3b.2: grant ½ or 1 day, or none) passes no `approve`
+ * and offers Review alone, with no Approve all.
  *
  * - A single Approve fades the row in place and shows a 6-second Undo: the send is delayed
  *   (`DelayedSends`), and flushed at once when the page is hidden, left or unmounted. A send
@@ -62,9 +64,10 @@ export function ApprovalGroup<T>({
   /**
    * Sends one approval. It may run while the page is being hidden or left, so it should outlive
    * the page (`postKeepalive`); a rejection (the network) is that row's error like any other.
+   * Absent: the group is review-only (no Approve, no Approve all).
    */
-  approve: (id: string) => Promise<Result<T>>;
-  approveAll: (ids: string[]) => Promise<Result<BulkOutcome>>;
+  approve?: (id: string) => Promise<Result<T>>;
+  approveAll?: (ids: string[]) => Promise<Result<BulkOutcome>>;
   /** Runs when a single approval has been recorded (e.g. to show kept dates). */
   onApproved?: (id: string, data: T) => void;
   onReview: (id: string) => void;
@@ -93,7 +96,7 @@ export function ApprovalGroup<T>({
         setErrors((errors) => ({ ...errors, [rowId]: message }));
         setHeld((held) => without(held, rowId));
       };
-      latest.current.approve(rowId).then(
+      latest.current.approve?.(rowId).then(
         (result) => {
           if (!result.ok) {
             const { title, description } = describeError(result.error);
@@ -145,6 +148,7 @@ export function ApprovalGroup<T>({
   }
 
   async function approveEveryone(): Promise<boolean> {
+    if (!approveAll) return true;
     const ids = waiting.map((row) => row.id);
     const result = await approveAll(ids);
     if (!result.ok) {
@@ -182,7 +186,7 @@ export function ApprovalGroup<T>({
           </span>
           <span className="sr-only"> waiting</span>
         </h2>
-        {count > 1 ? (
+        {count > 1 && approve && approveAll ? (
           <Button
             variant="strong"
             size="sm"
@@ -234,9 +238,11 @@ export function ApprovalGroup<T>({
                 <Button variant="secondary" onClick={() => onReview(row.id)} disabled={isHeld}>
                   Review
                 </Button>
-                <Button variant="strong" onClick={() => approveOne(row)} disabled={isHeld}>
-                  Approve
-                </Button>
+                {approve ? (
+                  <Button variant="strong" onClick={() => approveOne(row)} disabled={isHeld}>
+                    Approve
+                  </Button>
+                ) : null}
               </div>
             </li>
           );

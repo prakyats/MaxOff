@@ -222,7 +222,7 @@ test("approved leave can be changed or cancelled; a refusal shows the Owner's re
 test("the attendance history says how the day was recorded, in the member's words", async ({
   page,
 }, info) => {
-  // Present at the gate, then leave for today approved: the later leave wins (WORKFLOWS §1).
+  // The day started (Present), then leave for today approved: the later leave wins (WORKFLOWS §1).
   await signIn(page, person(info), PASSWORD);
   const today = await rpcAs<string>(person(info), PASSWORD, "leave_submit", {
     type: "leave",
@@ -255,7 +255,7 @@ test("the attendance history says how the day was recorded, in the member's word
     await day.getByRole("button").first().click();
   }
   const timeline = page.locator('[data-slot="day-timeline"]').last();
-  await expect(timeline).toContainText("You chose present");
+  await expect(timeline).toContainText("You started your day");
   await expect(timeline).toContainText("Changed to leave: your leave request was approved");
   await expect(timeline).not.toContainText("corrected");
 });

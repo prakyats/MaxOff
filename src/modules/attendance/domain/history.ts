@@ -16,6 +16,8 @@ export const ATTENDANCE_EVENT_ACTIONS = [
   "corrected",
   "logout",
   "overtime_flagged",
+  "started",
+  "ended",
 ] as const;
 export type AttendanceEventAction = (typeof ATTENDANCE_EVENT_ACTIONS)[number];
 
@@ -45,13 +47,42 @@ export type HistoryDay = {
   finalStatus: DayStatus | null;
   isDayOff: boolean;
   workedOnLeave: boolean;
+  /** The 2.x sign-in and sign-out times; a day's start and end until 3b.1 (decision 31). */
   firstLoginAt: string | null;
   lastLogoutAt: string | null;
   logoutNotRecorded: boolean;
+  /** The Start day and End day taps (3b.1). */
+  startedAt: string | null;
+  endedAt: string | null;
+  endNotRecorded: boolean;
   overtimeFlag: boolean;
   overtimeReason: string | null;
   events: HistoryEvent[];
 };
+
+/**
+ * The day's start and end, as the history shows them: the Start day and End day taps, and for a
+ * day recorded before 3b.1 the sign-in and sign-out times that stood for them (kickoff 3b
+ * decision 31). "not recorded" names the nightly flag; "—" is a time that never came.
+ */
+export function dayTimes(
+  day: Pick<
+    HistoryDay,
+    | "startedAt"
+    | "endedAt"
+    | "endNotRecorded"
+    | "firstLoginAt"
+    | "lastLogoutAt"
+    | "logoutNotRecorded"
+  >,
+): { start: string; end: string } {
+  const start = day.startedAt ?? day.firstLoginAt;
+  const end = day.endedAt ?? day.lastLogoutAt;
+  return {
+    start: start ? clockTime(start) : "—",
+    end: end ? clockTime(end) : day.endNotRecorded || day.logoutNotRecorded ? "not recorded" : "—",
+  };
+}
 
 /** The reasons the transition functions write when MaxOff itself changes a day (2.1, 2.2). */
 const LEAVE_APPROVED = "leave approved";
@@ -187,6 +218,16 @@ export function describeEvent(
       };
     case "logout":
       return { text: "Logged out", note: null };
+    case "started":
+      return {
+        text:
+          event.fromStatus !== null && to === "present"
+            ? `${w.who} started ${w.their} day on a day of approved leave`
+            : `${w.who} started ${w.their} day`,
+        note: null,
+      };
+    case "ended":
+      return { text: `${w.who} ended ${w.their} day`, note: null };
     case "overtime_flagged":
       return {
         text: `${w.who} flagged overtime`,
@@ -220,6 +261,7 @@ export function describeHistoryDay(
   if (day.isDayOff && worked) flags.push("Worked on a day off");
   if (day.workedOnLeave) flags.push("1 day worked");
   if (day.overtimeFlag) flags.push("Overtime");
+  if (day.endNotRecorded) flags.push("End of day not recorded");
   if (day.logoutNotRecorded) flags.push("Logout not recorded");
 
   if (day.state === "awaiting_choice") {
@@ -237,18 +279,6 @@ export function describeHistoryDay(
   const standing =
     day.state === "approved" ? "Approved" : last?.actor === "system" ? w.leaveApproved : w.changed;
   return { status, standing, dotStatus: day.finalStatus ?? day.state, flags };
-}
-
-/**
- * Overtime can be flagged on today's own day, once (a second call would only replace the
- * reason; the Log out confirmation is where a late note is added). The strip on the home
- * screen is one line, so today's entry in the history carries the action (2.3 polish).
- */
-export function canFlagOvertime(
-  day: Pick<HistoryDay, "workDate" | "overtimeFlag">,
-  today: string,
-): boolean {
-  return day.workDate === today && !day.overtimeFlag;
 }
 
 /** "Wed, 23 Sep": a history row's date. */

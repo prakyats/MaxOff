@@ -13,7 +13,7 @@ import { serviceSelect, storageStateFor } from "./helpers";
  * that storm a request took 1.5–3.8 s and a logout action over 5 s — the "cold-start" timeouts
  * 2.2 and 2.3 met and papered over with 15 s allowances. Those allowances are gone; this step
  * is why they are not needed. It runs last in the serial `setup` project (file order), as the
- * Owner, who can open every screen; the gate and the sign-in action were just exercised by the
+ * Owner, who can open every screen; the prompt and the sign-in action were just exercised by the
  * three sign-ins themselves.
  */
 const NO_CLIENT = "00000000-0000-4000-8000-000000000000";

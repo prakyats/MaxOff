@@ -1,91 +1,118 @@
 import "server-only";
 
+import { cache } from "react";
+
 import { createServerSupabase } from "@/core/db/server";
 
-import type { AttendanceChoice } from "../domain/choices";
+import type { PromptLeaveChoice } from "../domain/choices";
 import { eventActor, type HistoryDay, isEventAction } from "../domain/history";
 import { type Month, monthRange } from "../domain/months";
-import type { TodayDay } from "../domain/today";
+import type { OwnToday } from "../domain/today";
 
 /**
  * The attendance repository (CLAUDE.md rule 3). Reads go through RLS as the signed-in member
- * (own rows only); every write is a transition function (ADR-0006). Opening the day is
- * `core/auth` `touchToday()`, because the layout's gate needs it before any module renders.
+ * (own rows only) or through the security-definer reads of DATA-MODEL §3; every write is a
+ * transition function (ADR-0006).
  */
-
-const TODAY_COLUMNS =
-  "id, work_date, state, submitted_choice, final_status, is_day_off, proposed_by_system, decided_by, decision_reason, worked_on_leave, overtime_flag, overtime_reason, leave_request:leave_requests(type)";
 
 /**
- * The member's own day for that IST date, or null (the joining day, or the Owner). `fresh`
- * re-reads after a write in the same render: Next memoizes identical GET fetches for the
- * length of a request, and a request with an abort signal is exempt from that.
+ * The caller's own day for today, and what today is (`attendance_own_today()`, 3b.1). Once per
+ * request (`cache()`): the `(app)` layout asks for the Start-day prompt and the page's strip asks
+ * again, and Next renders the two in parallel.
  */
-export async function getOwnDay(
-  memberId: string,
-  date: string,
-  { fresh = false }: { fresh?: boolean } = {},
-): Promise<TodayDay | null> {
+export const getOwnToday = cache(async (): Promise<OwnToday> => {
   const supabase = await createServerSupabase();
-  let query = supabase
-    .from("attendance_days")
-    .select(TODAY_COLUMNS)
-    .eq("member_id", memberId)
-    .eq("work_date", date);
-  if (fresh) query = query.abortSignal(new AbortController().signal);
-  const { data, error } = await query.maybeSingle();
+  const { data, error } = await supabase.rpc("attendance_own_today");
   if (error) throw error;
-  if (!data) return null;
+  // `returns table`: PostgREST hands back a one-row array.
+  const row = data[0];
+  if (!row) throw new Error("attendance_own_today returned no row");
   return {
-    id: data.id,
-    workDate: data.work_date,
-    state: data.state,
-    submittedChoice: data.submitted_choice,
-    finalStatus: data.final_status,
-    isDayOff: data.is_day_off,
-    proposedBySystem: data.proposed_by_system,
-    decidedBySystem: data.decided_by === null,
-    decisionReason: data.decision_reason,
-    workedOnLeave: data.worked_on_leave,
-    overtimeFlag: data.overtime_flag,
-    overtimeReason: data.overtime_reason,
-    leaveType: data.leave_request?.type ?? null,
+    workDate: row.work_date,
+    attendanceStarted: row.attendance_started,
+    isWorkingDay: row.is_working_day,
+    day:
+      row.day_id && row.state
+        ? {
+            id: row.day_id,
+            workDate: row.work_date,
+            state: row.state,
+            submittedChoice: row.submitted_choice,
+            finalStatus: row.final_status,
+            isDayOff: row.is_day_off,
+            proposedBySystem: row.proposed_by_system,
+            decidedBySystem: row.decided_by_system,
+            decisionReason: row.decision_reason,
+            workedOnLeave: row.worked_on_leave,
+            overtimeFlag: row.overtime_flag,
+            overtimeReason: row.overtime_reason,
+            leaveType: row.leave_type,
+            startedAt: row.started_at,
+            endedAt: row.ended_at,
+            endNotRecorded: row.end_not_recorded,
+            firstLoginAt: row.first_login_at,
+          }
+        : null,
+    yesterdayOpen:
+      row.yesterday_open_day_id && row.yesterday_started_at
+        ? { dayId: row.yesterday_open_day_id, startedAt: row.yesterday_started_at }
+        : null,
+    coveringLeaveType: row.covering_leave_type,
   };
+});
+
+/** Start day: the tap is the start (`attendance_start_day()`). Returns the day id. */
+export async function rpcStartDay(): Promise<string> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("attendance_start_day");
+  if (error) throw error;
+  return data;
 }
 
-export async function rpcSubmit(
-  choice: AttendanceChoice,
+/**
+ * End day: today's started day, or yesterday's after midnight (`attendance_end_day()`), with the
+ * confirmation's optional overtime note written in the same transaction (3b.2).
+ */
+export async function rpcEndDay(
+  overtimeNote: string | null,
+  overtimeMinutes: number | null,
+): Promise<{ dayId: string; workDate: string }> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("attendance_end_day", {
+    ...(overtimeNote ? { overtime_note: overtimeNote } : {}),
+    ...(overtimeNote && overtimeMinutes ? { overtime_minutes: overtimeMinutes } : {}),
+  });
+  if (error) throw error;
+  const row = data[0];
+  if (!row) throw new Error("attendance_end_day returned no row");
+  return { dayId: row.day_id, workDate: row.work_date };
+}
+
+/** The prompt's leave choice for today (`attendance_choose_leave_today()`). */
+export async function rpcChooseLeaveToday(
+  choice: PromptLeaveChoice,
   reason: string | null,
-  forDate: string,
 ): Promise<void> {
   const supabase = await createServerSupabase();
-  const { error } = await supabase.rpc("attendance_submit", {
+  const { error } = await supabase.rpc("attendance_choose_leave_today", {
     choice,
-    for_date: forDate,
     ...(reason ? { reason } : {}),
   });
   if (error) throw error;
 }
 
-/**
- * The Log out note: `attendance_flag_overtime_today` picks the day the logout will land on
- * (today's, else yesterday's still-open day after midnight) and flags it. No day is
- * `INVALID_STATE` (the joining day).
- */
-export async function rpcFlagOvertimeToday(reason: string): Promise<void> {
+/** "I'm working the full day" on a half-day leave day: `attendance_submit(present)` (2.1). */
+export async function rpcSubmitPresent(forDate: string): Promise<void> {
   const supabase = await createServerSupabase();
-  const { error } = await supabase.rpc("attendance_flag_overtime_today", { reason });
-  if (error) throw error;
-}
-
-export async function rpcFlagOvertime(dayId: string, reason: string): Promise<void> {
-  const supabase = await createServerSupabase();
-  const { error } = await supabase.rpc("attendance_flag_overtime", { day_id: dayId, reason });
+  const { error } = await supabase.rpc("attendance_submit", {
+    choice: "present",
+    for_date: forDate,
+  });
   if (error) throw error;
 }
 
 const HISTORY_COLUMNS =
-  "id, work_date, state, submitted_choice, final_status, is_day_off, worked_on_leave, first_login_at, last_logout_at, logout_not_recorded, overtime_flag, overtime_reason, events:attendance_events(id, action, from_status, to_status, reason, actor_id, at)";
+  "id, work_date, state, submitted_choice, final_status, is_day_off, worked_on_leave, first_login_at, last_logout_at, logout_not_recorded, started_at, ended_at, end_not_recorded, overtime_flag, overtime_reason, events:attendance_events(id, action, from_status, to_status, reason, actor_id, at)";
 
 /**
  * One member's days in one IST month, newest first, each with its events in the order they
@@ -117,6 +144,9 @@ export async function listDays(memberId: string, month: Month): Promise<HistoryD
     firstLoginAt: row.first_login_at,
     lastLogoutAt: row.last_logout_at,
     logoutNotRecorded: row.logout_not_recorded,
+    startedAt: row.started_at,
+    endedAt: row.ended_at,
+    endNotRecorded: row.end_not_recorded,
     overtimeFlag: row.overtime_flag,
     overtimeReason: row.overtime_reason,
     events: row.events.flatMap((event) =>

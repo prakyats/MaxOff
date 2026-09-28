@@ -1,6 +1,13 @@
 import { expect, test } from "./fixtures";
 
-import { confirmLinkFrom, latestEmailTo, passGate, setPasswordFor, signIn, USERS } from "./helpers";
+import {
+  answerStartPrompt,
+  confirmLinkFrom,
+  latestEmailTo,
+  setPasswordFor,
+  signIn,
+  USERS,
+} from "./helpers";
 import { wallClock } from "./run-state";
 
 /**
@@ -67,20 +74,29 @@ test.describe("signed out", () => {
 });
 
 test.describe("signed in", () => {
-  test.skip(({ isMobile }) => Boolean(isMobile), "the account menu is the desktop path");
+  test.skip(({ isMobile }) => Boolean(isMobile), "the desktop path; the phone's is below");
 
-  test("logging out records the time and closes the shell", async ({ page }) => {
+  test("Sign out of this device lives under Me only, asks first and closes the shell", async ({
+    page,
+  }) => {
     await signIn(page, USERS.admin.email, USERS.admin.password);
     await expect(page).toHaveURL(/\/today$/);
 
+    // The account menu offers the profile, not a sign-out (kickoff 3b decision 1).
     await page.getByRole("button", { name: "Account menu" }).click();
-    await page.getByRole("menuitem", { name: "Log out" }).click();
-    // Logging out records the time, so it asks first (task 1.5).
-    await expect(page.getByRole("alertdialog")).toContainText("records your logout time");
-    await page.getByRole("alertdialog").getByRole("button", { name: "Log out" }).click();
+    await expect(page.getByRole("menuitem", { name: "Profile" })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: /Log out|Sign out/ })).toHaveCount(0);
+    await page.keyboard.press("Escape");
+
+    await page.goto("/me");
+    await page.getByRole("button", { name: "Sign out" }).click();
+    // Notifications stop on the device, so it asks first (task 1.5, reworded in 3b.1).
+    const confirm = page.getByRole("alertdialog", { name: "Sign out of this device?" });
+    await expect(confirm).toContainText("Notifications stop reaching this device");
+    await confirm.getByRole("button", { name: "Sign out" }).click();
     await expect(page).toHaveURL(/\/login\?reason=signed_out$/);
     await expect(page.locator('[data-slot="form-alert"], [role="status"]').first()).toContainText(
-      "You're logged out",
+      "You're signed out of this device",
     );
 
     await page.goto("/today");
@@ -105,11 +121,11 @@ test.describe("Staff on a phone", () => {
     await expect(page.locator("[data-slot='bottom-nav']")).toBeVisible();
   });
 
-  test("logs out from the Me tab", async ({ page }) => {
+  test("signs out of this device from the Me tab", async ({ page }) => {
     await signIn(page, USERS.staff.email, USERS.staff.password);
     await page.goto("/me");
-    await page.getByRole("button", { name: "Log out" }).click();
-    await page.getByRole("alertdialog").getByRole("button", { name: "Log out" }).click();
+    await page.getByRole("button", { name: "Sign out" }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Sign out" }).click();
     await expect(page).toHaveURL(/\/login\?reason=signed_out$/);
   });
 });
@@ -154,8 +170,8 @@ test.describe("recovery link", () => {
     await page.getByLabel("New password").fill(newPassword);
     await page.getByLabel("Repeat it").fill(newPassword);
     await page.getByRole("button", { name: "Save password and sign in" }).click();
-    // First sign-in of the day for this person: the day gate (2.2) comes before My Day.
-    await passGate(page);
+    // First open of the day for this person: the Start-day prompt (3b.1) asks on My Day.
+    await answerStartPrompt(page);
     await expect(page).toHaveURL(/\/my-day$/);
 
     // The link was one-time: opening it again lands on sign in with the reason.

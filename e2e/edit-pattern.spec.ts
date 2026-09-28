@@ -14,7 +14,7 @@ import {
 /**
  * The edit pattern (ARCHITECTURE §14.1, §14.2 f, task 2.9): read-only by default, explicit
  * Edit, Save disabled until something changed, a confirmation that names each change, and
- * "Discard changes?" on every way out — Cancel, the back gesture, an in-app link, Log out.
+ * "Discard changes?" on every way out — Cancel, the back gesture, an in-app link, Sign out.
  *
  * Each project owns its people (`profile-<project>@`, `memberedit-<project>@`, seeded in 2.9) and
  * every test puts the values back, so projects never race and the spec re-runs without a reset.
@@ -155,15 +155,15 @@ test.describe("/me: the profile is read-only first and edited deliberately", () 
     await expect(record(page)).toContainText(profilePerson(info).name);
   });
 
-  test("Log out while editing warns that the changes will be lost", async ({
+  test("Sign out while editing warns that the changes will be lost", async ({
     page,
     isMobile,
   }, info) => {
     await openMe(page, isMobile, info);
     await editButton(page).click();
     await page.getByLabel("Full name").fill("Someone Else");
-    await page.getByRole("button", { name: "Log out" }).click();
-    const logout = page.getByRole("alertdialog", { name: "Log out?" });
+    await page.getByRole("button", { name: "Sign out" }).click();
+    const logout = page.getByRole("alertdialog", { name: "Sign out of this device?" });
     await expect(logout.locator('[data-slot="logout-unsaved"]')).toHaveText(
       "Your unsaved changes will be lost.",
     );

@@ -4,7 +4,6 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/core/db";
 import { publicSupabaseEnv, sessionCookieOptions } from "@/core/db";
 
-import { REQUEST_PATH_HEADER } from "./day-gate";
 import { HOME_HINT_COOKIE, rootRedirect } from "./home-hint";
 import { LOGIN_PATH, isPublicPath, isSignedOutOnlyPath } from "./paths";
 import { classifySessionError } from "./session-errors";
@@ -16,9 +15,7 @@ import { classifySessionError } from "./session-errors";
  *    with `next=`; a session on `/login` or `/forgot-password` → `/`; `/` itself (the installed
  *    app's `start_url`) → `/login`, or the role's home when the home hint names it (2.7,
  *    `home-hint.ts`), else it renders and `src/app/page.tsx` reads the member;
- * 3. forwards the page's path + search as `x-maxoff-path` (overwriting anything the browser
- *    sent), so the day gate in the layout knows where to return to (task 2.2). It is only ever
- *    read through `safeNextPath()`.
+ * (3b.1 dropped the `x-maxoff-path` header the 2.2 day gate read: nothing reads it now.)
  *
  * It reads no table on purpose (Next's own guidance for proxies). The decision that counts,
  * "is this an active member", is `requireMember()` in `server.ts`, run by the app layout.
@@ -26,9 +23,7 @@ import { classifySessionError } from "./session-errors";
 export async function updateSession(request: NextRequest): Promise<NextResponse> {
   const forward = () => {
     // Rebuilt after every cookie refresh: `request.cookies.set` rewrites the Cookie header.
-    const headers = new Headers(request.headers);
-    headers.set(REQUEST_PATH_HEADER, `${request.nextUrl.pathname}${request.nextUrl.search}`);
-    return NextResponse.next({ request: { headers } });
+    return NextResponse.next({ request: { headers: new Headers(request.headers) } });
   };
   let response = forward();
   const env = publicSupabaseEnv();

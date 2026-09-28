@@ -1,9 +1,6 @@
 import type { ReactNode } from "react";
 
-import { IssueDayPass } from "@/core/auth/components/issue-day-pass";
-import { LogoutMenuItem, LogoutSheetItem } from "@/core/auth/components/logout-button";
 import { LogoutProvider } from "@/core/auth/components/logout-confirm";
-import { requireDayGate } from "@/core/auth/gate";
 import { requireMember } from "@/core/auth/server";
 import { SentryUser } from "@/core/observability/sentry-user";
 import { can } from "@/core/permissions";
@@ -13,50 +10,60 @@ import { TooltipProvider } from "@/core/ui/primitives/tooltip";
 import { AppShell } from "@/core/ui/shell/app-shell";
 import { RefreshOnReturn } from "@/core/ui/shell/refresh-on-return";
 import type { NavBadges } from "@/core/ui/shell/nav";
-import { countPendingDays } from "@/modules/attendance";
-import { OvertimeLogoutNote } from "@/modules/attendance/components/overtime-logout-note";
+import { countPendingDays, countPendingNotes, getOwnToday, promptDue } from "@/modules/attendance";
+import { StartDayPrompt } from "@/modules/attendance/components/start-day-prompt";
 import { countPendingRequests } from "@/modules/leave";
 
 /**
- * The viewer's nav counts. Approvals (2.4): the attendance days and leave requests waiting for
- * whoever decides them (`attendance.decide`, the Owner); tasks and client items join in 4.5 and
- * 7.4. Two indexed counts per page load, only for the Owner.
+ * The viewer's nav counts. Approvals (2.4): the attendance days, leave requests and extra work
+ * notes (3b.2) waiting for whoever decides them (`attendance.decide`, the Owner); tasks and client
+ * items join in 4.5 and 7.4. Three indexed counts per page load, only for the Owner.
  */
 async function navBadges(role: Parameters<typeof can>[0]): Promise<NavBadges> {
   if (!can(role, "attendance.decide")) return {};
-  const [days, requests] = await Promise.all([countPendingDays(), countPendingRequests()]);
-  return { approvals: days + requests };
+  const [days, requests, notes] = await Promise.all([
+    countPendingDays(),
+    countPendingRequests(),
+    countPendingNotes(),
+  ]);
+  return { approvals: days + requests + notes };
+}
+
+/**
+ * Whether the Start-day prompt is mounted for this request (PRODUCT §4.2, 3b.1): an Admin or
+ * Staff member on a working day whose attendance has begun, with no Start day and no leave
+ * chosen. Reading, never writing: the day exists only once they start it or choose leave. The
+ * prompt itself decides when to open (at most every 30 minutes). The Owner has no day.
+ */
+async function startDayPrompt(viewer: Awaited<ReturnType<typeof requireMember>>) {
+  if (!can(viewer.role, "attendance.self")) return null;
+  const today = await getOwnToday();
+  return promptDue(today) ? (
+    <StartDayPrompt memberId={viewer.id} workDate={today.workDate} />
+  ) : null;
 }
 
 /**
  * The signed-in area. `requireMember()` is the auth decision (ADR-0011 rule 3): signed out →
- * /login, a session whose member is not active → ended, then /login. Then the day gate
- * (ARCHITECTURE §8, task 2.2): an Admin or Staff member who has not settled today goes to the
- * choice screen first; the Owner is never gated.
+ * /login, a session whose member is not active → ended, then /login. Since 3b.1 the app then
+ * opens freely (the 2.2 blocking day gate is gone, ADR-0012 amendment 2026-09-27): the Start-day
+ * prompt asks in the app, and "Sign out of this device" lives under Me only.
  */
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const viewer = await requireMember();
-  const [gate, badges] = await Promise.all([requireDayGate(viewer), navBadges(viewer.role)]);
+  const [prompt, badges] = await Promise.all([startDayPrompt(viewer), navBadges(viewer.role)]);
 
   return (
-    // The Log out confirmation lives above the shell: the account menu and the More sheet both
-    // close when you choose an item, and a dialog rendered inside either would close with them.
-    // Whoever marks attendance can add an overtime note as they log out (2.3 polish).
-    <LogoutProvider
-      extra={can(viewer.role, "attendance.self") ? <OvertimeLogoutNote /> : undefined}
-    >
+    // The sign-out confirmation lives above the shell, so the edit pattern's unsaved-changes
+    // warning (2.9) reaches it from any screen.
+    <LogoutProvider>
       {/* Here rather than in the root layout: sonner and radix-tooltip are only ever used by
           signed-in screens, and mounting them globally shipped both to /login (task 1.5). */}
       <TooltipProvider>
-        <AppShell
-          viewer={viewer}
-          logoutItem={<LogoutMenuItem />}
-          logoutSheetItem={<LogoutSheetItem />}
-          badges={badges}
-        >
+        <AppShell viewer={viewer} badges={badges}>
           <SentryUser id={viewer.id} />
           <RefreshOnReturn />
-          {gate === "issue-pass" ? <IssueDayPass /> : null}
+          {prompt}
           <RouteTransition>{children}</RouteTransition>
         </AppShell>
       </TooltipProvider>

@@ -24,6 +24,7 @@ const REQUEST: PendingLeave = {
   source: "form",
   requestsCancellation: false,
   createdAt: "2026-09-24T03:40:00Z",
+  creditDays: null,
   original: null,
 };
 const request = (patch: Partial<PendingLeave>): PendingLeave => ({ ...REQUEST, ...patch });

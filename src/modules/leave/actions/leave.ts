@@ -6,12 +6,15 @@ import { action, ok, type Result } from "@/core/errors";
 import { assertPermission } from "@/core/permissions/server";
 import { todayIST } from "@/core/time";
 
+import { getCompBalance } from "../data/credits";
 import * as repo from "../data/leave";
 import {
   type CancelLeaveInput,
   cancelLeaveSchema,
   type ChangeLeaveInput,
   changeLeaveSchema,
+  type RequestCompLeaveInput,
+  requestCompLeaveSchema,
   type RequestLeaveInput,
   requestIdSchema,
   requestLeaveSchema,
@@ -27,6 +30,7 @@ import {
 
 function revalidateLeave() {
   revalidatePath("/leave");
+  revalidatePath("/leave/extra-work");
   // Today's card follows a request for today.
   revalidatePath("/my-day");
   revalidatePath("/today");
@@ -39,6 +43,22 @@ export const requestLeave = action(async (input: RequestLeaveInput): Promise<Res
   revalidateLeave();
   return ok(null);
 });
+
+/**
+ * Comp leave, only with a credit (PRODUCT §4.3a, decision 16): one date on or before the use-by
+ * date, a full or a half day. The form's own check reads the balance; `leave_submit_comp()` is
+ * the rule and reserves the credits oldest first.
+ */
+export const requestCompLeave = action(
+  async (input: RequestCompLeaveInput): Promise<Result<null>> => {
+    const member = await assertPermission("attendance.self");
+    const balance = await getCompBalance(member.id);
+    const data = requestCompLeaveSchema(todayIST(), balance.useBy).parse(input);
+    await repo.rpcSubmitComp(data);
+    revalidateLeave();
+    return ok(null);
+  },
+);
 
 export const requestLeaveChange = action(async (input: ChangeLeaveInput): Promise<Result<null>> => {
   const { requestId, originalStart } = requestIdSchema.parse(input);

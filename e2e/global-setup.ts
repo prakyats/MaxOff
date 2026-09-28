@@ -13,12 +13,12 @@ import { istDate, RUN_STATE_FILE, wallClock } from "./run-state";
  *    suite needs (GoTrue answers, PostgREST reaches Postgres, Mailpit accepts API calls) and a
  *    stack that never comes fails within two minutes with the reason.
  * 2. **The IST date is recorded**, so the teardown can say when a run crossed midnight IST
- *    (18:30 UTC): the saved Admin and Staff sessions are then gated again for the new day and
- *    every one of their tests fails in a cascade that looks like nothing in the code (seen on
- *    2026-09-24 at 00:00 IST, 36 failures).
+ *    (18:30 UTC): the saved Admin and Staff sessions then meet the Start-day prompt again for the
+ *    new day and every one of their tests fails in a cascade that looks like nothing in the code
+ *    (seen on 2026-09-24 at 00:00 IST, 36 failures, with the 2.2 day gate).
  * 3. **Today is a working day** (`pinWorkingDay`, e2e/calendar.ts): a weekly day off that falls
  *    on today moves to tomorrow's weekday and a holiday dated today is removed, so the specs
- *    that assume a working day (the Owner's board, the strip, the gate) hold on the seed's
+ *    that assume a working day (the Owner's board, the strip, the prompt) hold on the seed's
  *    Sunday too; `settings.spec` asserts the pinned days.
  */
 export default async function globalSetup(): Promise<void> {

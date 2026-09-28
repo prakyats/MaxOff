@@ -2,7 +2,13 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { todayIST } from "@/core/time";
-import { LEAVE_PAGE_SIZE, listRequests } from "@/modules/leave";
+import {
+  CompLeaveCard,
+  getCompBalance,
+  LEAVE_PAGE_SIZE,
+  listCredits,
+  listRequests,
+} from "@/modules/leave";
 import { LeaveRequestList } from "@/modules/leave/components/leave-request-list";
 
 import { LeavePager } from "../../../leave/leave-nav";
@@ -12,8 +18,9 @@ import { loadHistoryPerson } from "../person";
 export const metadata: Metadata = { title: "Attendance & leave" };
 
 /**
- * One person's leave requests, newest first, 20 at a time, for the Owner (task 2.4): the same
- * list the member sees on /leave, in the Owner's words, with Edit and Cancel on approved leave.
+ * One person's comp leave (3b.2: the balance, the credits, **Grant comp leave** and **Revoke**)
+ * and their leave requests, newest first, 20 at a time, for the Owner (task 2.4): the same list
+ * the member sees on /leave, in the Owner's words, with Edit and Cancel on approved leave.
  * Reached from the people board on /today and from People; a real drill-down, so back returns
  * there (ARCHITECTURE §14.2 b). The header and tabs are the layout's.
  */
@@ -28,13 +35,24 @@ export default async function PersonLeavePage({
   const person = await loadHistoryPerson(id);
   const page =
     typeof requested === "string" && /^[1-9]\d{0,4}$/.test(requested) ? Number(requested) : 1;
-  const { requests, total } = await listRequests(person.id, page);
+  const today = todayIST();
+  const [{ requests, total }, balance, credits] = await Promise.all([
+    listRequests(person.id, page),
+    getCompBalance(person.id),
+    listCredits(person.id),
+  ]);
   const pages = Math.max(1, Math.ceil(total / LEAVE_PAGE_SIZE));
   const base = `/people/${person.id}/leave`;
   if (page > pages) redirect(base);
 
   return (
     <>
+      <CompLeaveCard
+        balance={balance}
+        credits={credits}
+        today={today}
+        owner={{ memberId: person.id, name: person.fullName }}
+      />
       {pages > 1 ? (
         <LeavePager
           label={`Page ${page} of ${pages}`}
@@ -44,7 +62,7 @@ export default async function PersonLeavePage({
           nextLabel="Older requests"
         />
       ) : null}
-      <LeaveRequestList requests={requests} today={todayIST()} owner={{ name: person.fullName }} />
+      <LeaveRequestList requests={requests} today={today} owner={{ name: person.fullName }} />
     </>
   );
 }

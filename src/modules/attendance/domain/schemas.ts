@@ -2,43 +2,79 @@ import { z } from "zod";
 
 import { ATTENDANCE_REASON_MAX_LENGTH, OVERTIME_REASON_MIN_LENGTH } from "./limits";
 
-import { ATTENDANCE_CHOICES, DAY_STATUSES } from "./choices";
+import { DAY_STATUSES, PROMPT_LEAVE_CHOICES } from "./choices";
+import { DURATION_OPTIONS, EXTRA_WORK_KINDS, NOTE_DECISIONS } from "./notes";
 
 const isoDate = z.iso.date({ error: "The date is missing. Reload the page." });
 
-/** The gate's answer. The reason is optional for every member submission (WORKFLOWS §1, 2.1). */
-export const submitChoiceSchema = z.object({
-  choice: z.enum(ATTENDANCE_CHOICES, { error: "Choose one." }),
+/**
+ * The Start-day prompt's "On leave today? Choose leave" (3b.1): Leave or Half day, an optional
+ * reason (WORKFLOWS §1, 2.1). Comp leave is requested from the leave form (decision 16).
+ */
+export const chooseLeaveTodaySchema = z.object({
+  choice: z.enum(PROMPT_LEAVE_CHOICES, { error: "Choose Leave or Half day." }),
   reason: z
     .string()
     .trim()
     .max(ATTENDANCE_REASON_MAX_LENGTH, `Keep it under ${ATTENDANCE_REASON_MAX_LENGTH} characters.`)
     .optional()
     .transform((value) => (value ? value : null)),
-  /** The IST date the screen was shown for: another date is refused ("The day changed"). */
-  forDate: isoDate,
-  next: z.string().max(2048).optional(),
 });
-export type SubmitChoiceInput = z.input<typeof submitChoiceSchema>;
+export type ChooseLeaveTodayInput = z.input<typeof chooseLeaveTodaySchema>;
 
-/** "I'm working today" on an approved-leave day: `attendance_submit(present)`. */
+/** "I'm working the full day" on an approved half-day leave day: `attendance_submit(present)`. */
 export const workingTodaySchema = z.object({ forDate: isoDate });
 export type WorkingTodayInput = z.input<typeof workingTodaySchema>;
 
-/** Overtime is flagged "with a reason" (WORKFLOWS §1); a notice, no approval. */
-export const flagOvertimeSchema = z.object({
-  dayId: z.uuid(),
-  reason: z
+/**
+ * An extra work note (PRODUCT §4.3a, 3b.2): the day (one of the last 8, the database checks the
+ * window), its kind by the calendar, a rough duration for overtime, and what they worked on.
+ */
+export const submitNoteSchema = z.object({
+  kind: z.enum(EXTRA_WORK_KINDS, { error: "Pick the day." }),
+  workDate: isoDate,
+  durationMinutes: z
+    .union([z.literal(null), ...DURATION_OPTIONS.map((minutes) => z.literal(minutes))])
+    .default(null),
+  note: z
     .string()
     .trim()
-    .min(OVERTIME_REASON_MIN_LENGTH, "Please write a few more words.")
+    .min(OVERTIME_REASON_MIN_LENGTH, "Say what you worked on.")
     .max(ATTENDANCE_REASON_MAX_LENGTH, `Keep it under ${ATTENDANCE_REASON_MAX_LENGTH} characters.`),
 });
-export type FlagOvertimeInput = z.input<typeof flagOvertimeSchema>;
+export type SubmitNoteInput = z.input<typeof submitNoteSchema>;
 
-/** The same reason rule, for today's own day (the Log out confirmation). */
-export const flagOvertimeTodaySchema = flagOvertimeSchema.pick({ reason: true });
-export type FlagOvertimeTodayInput = z.input<typeof flagOvertimeTodaySchema>;
+/** The Owner's decision on a note (decision 12): grant ½ or 1 day, or none; a day off worked. */
+export const decideNoteSchema = z.object({
+  noteId: z.uuid(),
+  decision: z.enum(NOTE_DECISIONS, { error: "Choose what the note earns." }),
+  markDayWorked: z.boolean().default(false),
+  note: z
+    .string()
+    .trim()
+    .max(ATTENDANCE_REASON_MAX_LENGTH, `Keep it under ${ATTENDANCE_REASON_MAX_LENGTH} characters.`)
+    .optional()
+    .transform((value) => (value ? value : null)),
+});
+export type DecideNoteInput = z.input<typeof decideNoteSchema>;
+
+/** End day (3b.1) with the confirmation's optional overtime note (3b.2). */
+export const endDaySchema = z.object({
+  // Empty means "no note"; a note that is there says what they worked on, as on the Extra work tab.
+  overtimeNote: z
+    .string()
+    .trim()
+    .max(ATTENDANCE_REASON_MAX_LENGTH, `Keep it under ${ATTENDANCE_REASON_MAX_LENGTH} characters.`)
+    .refine((value) => value === "" || value.length >= OVERTIME_REASON_MIN_LENGTH, {
+      message: "Say what you worked on.",
+    })
+    .optional()
+    .transform((value) => (value ? value : null)),
+  overtimeMinutes: z
+    .union([z.literal(null), ...DURATION_OPTIONS.map((minutes) => z.literal(minutes))])
+    .default(null),
+});
+export type EndDayInput = z.input<typeof endDaySchema>;
 
 /** Owner review (2.4): approve one day. Approve never asks for a reason (PRODUCT "Approvals"). */
 export const approveDaySchema = z.object({ dayId: z.uuid() });

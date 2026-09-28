@@ -17,15 +17,14 @@ import {
   type SetPasswordInput,
   setPasswordSchema,
 } from "./schemas";
-import { issueDayPassFor } from "./gate";
-import { getSessionState, setHomeHint } from "./server";
+import { setHomeHint } from "./server";
 import { sessionMetaArgs } from "./session-meta";
 
 /**
  * The sign-in, sign-out and password actions (ARCHITECTURE §4.2: zod → Supabase Auth →
  * transition function → redirect, wrapped in `action()` so the form only ever sees a
- * `Result`). Session events go through `session_login()` / `session_logout()` (1.2 migration);
- * nothing here writes a table directly.
+ * `Result`). Session events go through `session_login()` / `session_sign_out()` (1.2 and 3b.1
+ * migrations); nothing here writes a table directly.
  */
 
 const INACTIVE_MESSAGE = "This account is not active. Ask the Owner.";
@@ -80,22 +79,24 @@ export const login = action(async (input: LoginInput): Promise<Result<never>> =>
 });
 
 /**
- * Logout is manual and its time is recorded immediately (PRODUCT §4.1). This device only:
- * other signed-in devices stay in (decided 2026-09-22). A session whose member is no longer
- * active can't record anything (UNAUTHENTICATED from the function) and is simply ended.
+ * "Sign out of this device" (ADR-0012 amendment 2026-09-27, PRODUCT §4.2): for a lost or shared
+ * device only. It ends this device's session and records `session_events(logout)`; it is **not**
+ * attendance (`session_sign_out()` never touches the day). Other signed-in devices stay in. A
+ * session whose member is no longer active can't record anything (UNAUTHENTICATED from the
+ * function) and is simply ended.
  */
 export const logout = action(async (): Promise<Result<never>> => {
   const supabase = await createServerSupabase();
   const { data: claims } = await supabase.auth.getClaims();
 
   if (claims?.claims.sub) {
-    const { error } = await supabase.rpc("session_logout", await sessionMetaArgs());
+    const { error } = await supabase.rpc("session_sign_out", await sessionMetaArgs());
     if (error && error.message !== "UNAUTHENTICATED") throw error;
   }
 
   await supabase.auth.signOut({ scope: "local" });
   setSentryUser(null);
-  // Replace: the page you logged out from is not something back should return to (§14.2 e).
+  // Replace: the page you signed out from is not something back should return to (§14.2 e).
   redirect(`${LOGIN_PATH}?reason=signed_out`, RedirectType.replace);
 });
 
@@ -153,18 +154,3 @@ export const requestPasswordReset = action(
     return ok({ sent: true });
   },
 );
-
-/**
- * Sets today's day-gate pass (ARCHITECTURE §8) for a member whose day needs no choice. Called
- * once by `<IssueDayPass />` after the layout found no pass; the database is asked again, so
- * this can never be used to skip the gate. Nothing to report either way.
- */
-export const issueDayPass = action(async (): Promise<Result<null>> => {
-  const state = await getSessionState();
-  if (state.kind === "member") {
-    await issueDayPassFor(state.member);
-    // The daily refresh of the home hint (2.7): a role change reaches it within a day.
-    await setHomeHint(state.member.id, state.member.role);
-  }
-  return ok(null);
-});

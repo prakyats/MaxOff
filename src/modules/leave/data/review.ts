@@ -20,7 +20,7 @@ import {
 const PENDING_LIMIT = 200;
 
 const PENDING_COLUMNS =
-  "id, member_id, type, start_date, end_date, reason, source, requests_cancellation, created_at, member:members!member_id(full_name), original:leave_requests!supersedes_id(type, start_date, end_date, state)";
+  "id, member_id, type, start_date, end_date, reason, source, requests_cancellation, created_at, credit_days, member:members!member_id(full_name), original:leave_requests!supersedes_id(type, start_date, end_date, state)";
 
 function toSource(value: string): LeaveSource {
   if ((LEAVE_SOURCES as readonly string[]).includes(value)) return value as LeaveSource;
@@ -62,6 +62,7 @@ export async function listPendingRequests(): Promise<PendingLeave[]> {
         source: toSource(row.source),
         requestsCancellation: row.requests_cancellation,
         createdAt: row.created_at,
+        creditDays: row.credit_days === null ? null : Number(row.credit_days),
         original: original
           ? {
               type: original.type,

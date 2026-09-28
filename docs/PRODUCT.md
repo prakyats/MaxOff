@@ -64,8 +64,7 @@ The full permission and visibility matrix is in `PERMISSIONS.md`. The key rules:
 
 ### 4.1 Authentication and sessions
 - Email + password through Supabase Auth, with invites only and several devices allowed.
-- **First login of each IST day:** the person must choose today's status before using the app (see §4.2). Later logins that day skip this.
-- **Logout is manual.** The exact time is recorded immediately.
+- **People stay signed in** (since phase 3b, 2026-09-27): signing in and out is not attendance. The working day is **Start day** and **End day** (§4.2); the 2.x first-login day gate is gone from the app. **"Sign out of this device"** (under Me) is for a lost or shared device; it records the time in the security log only.
 - A deactivated person loses access immediately, and their history is kept.
 
 ### 4.2 Attendance (for Admins and Staff)

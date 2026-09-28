@@ -23,9 +23,10 @@ import type { ShellViewer } from "./viewer";
  *
  * **Tablet and desktop** (`md` up): the sidebar, unchanged.
  *
- * `logoutItem` / `logoutSheetItem` are the Log out action in the account menu and in the More
+ * `logoutItem` / `logoutSheetItem` are an optional sign-out action in the account menu and the More
  * sheet. `core/auth` owns them and the app layout passes them in, so `core/ui` never imports
- * auth. Log out is in both because it records the time (WORKFLOWS §1).
+ * auth. Since 3b.1 the layout passes neither: "Sign out of this device" lives under Me only
+ * (kickoff 3b decision 1), because signing out is no longer attendance.
  *
  * `badges` are the viewer's counts per nav key (Approvals since 2.4), computed by the layout
  * from real data; every place that draws the item draws the count.

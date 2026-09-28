@@ -12,8 +12,9 @@ import { LOGIN_PATH } from "./paths";
  * decision**: the page it leads to still runs `requireMember()` and every permission check.
  * So it carries no MAC: forging one only sends you to a page you can already open, and the
  * value is bound to the user id so another person signing in on the same device never
- * inherits it. It is set at sign-in and set-password, and refreshed by the day gate's daily
- * pass (`setDayPass` callers), so a role change reaches it within a day at most. Anything the
+ * inherits it. It is set at sign-in and set-password, and refreshed with each Start day (3b.1;
+ * the 2.2 day gate's daily pass before that), so a role change reaches it within a day at most
+ * for anyone who marks attendance; the Owner's role never changes. Anything the
  * proxy does not recognise falls through to `src/app/page.tsx`, which reads the member; the
  * proxy never redirects `/` to `/`, so a bad hint costs one extra hop and cannot loop.
  */

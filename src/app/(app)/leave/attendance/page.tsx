@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 import { requirePermission } from "@/core/permissions/server";
 import { addISTDays, todayIST, toISTDate } from "@/core/time";
-import { historyMonth, listDays, monthLabel, monthOf } from "@/modules/attendance";
+import { getNoteDays, historyMonth, listDays, monthLabel, monthOf } from "@/modules/attendance";
 import { AttendanceHistory } from "@/modules/attendance/components/attendance-history";
 import { getOwnMember } from "@/modules/team";
 
@@ -12,8 +12,9 @@ export const metadata: Metadata = { title: "Attendance & leave" };
 
 /**
  * The member's own attendance, one IST month at a time, from the month of their first
- * attendance day to this one (owner decision 2026-09-24). Today's entry carries the day's
- * actions (overtime), since the strip on the home screen is one line.
+ * attendance day to this one (owner decision 2026-09-24). The last 7 days carry **Add note**
+ * (an overtime note, or "I worked that day" on a day off, 3b.2), since the strip on the home
+ * screen is one line.
  */
 export default async function LeaveAttendancePage({
   searchParams,
@@ -29,7 +30,7 @@ export default async function LeaveAttendancePage({
     first: monthOf(firstDay),
     current: monthOf(today),
   });
-  const days = await listDays(viewer.id, month);
+  const [days, noteDays] = await Promise.all([listDays(viewer.id, month), getNoteDays(today)]);
   const href = (m: string) => `/leave/attendance?month=${m}`;
 
   return (
@@ -41,7 +42,12 @@ export default async function LeaveAttendancePage({
         previousLabel="Previous month"
         nextLabel="Next month"
       />
-      <AttendanceHistory days={days} monthName={monthLabel(month)} today={today} />
+      <AttendanceHistory
+        days={days}
+        monthName={monthLabel(month)}
+        today={today}
+        noteDays={noteDays}
+      />
     </>
   );
 }

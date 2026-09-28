@@ -25,8 +25,8 @@ import { AvatarEditor } from "@/modules/team/components/avatar-editor";
 export const metadata: Metadata = { title: "Me" };
 
 /**
- * Profile, own attendance and leave (2.3), appearance and log out (PRODUCT §4.7: the Staff
- * "Me" tab). An accepted invite lands here with `?welcome=1` (WORKFLOWS §1a) to check the name
+ * Profile, own attendance and leave (2.3), appearance and "Sign out of this device" (PRODUCT
+ * §4.7: the Staff "Me" tab; kickoff 3b decision 1: the sign-out lives here only). An accepted invite lands here with `?welcome=1` (WORKFLOWS §1a) to check the name
  * and add a phone. The photo is chosen through `AvatarEditor` (3.3): the original is kept and
  * a browser-made preview is what the app shows.
  *
@@ -55,7 +55,7 @@ export default async function MePage({
         description={
           isWelcome
             ? "You're in. Check your name, add a phone number, and you're set."
-            : "Your profile, appearance and session."
+            : "Your profile, appearance and this device."
         }
         // The welcome line is the one thing here a phone genuinely needs to be told; the rest
         // of the screen says what it is (ARCHITECTURE §14.1).
@@ -161,9 +161,9 @@ export default async function MePage({
             <Separator />
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="min-w-0 flex-[1_1_10rem]">
-                <p className="text-sm font-medium">Session</p>
+                <p className="text-sm font-medium">Sign out of this device</p>
                 <p className="text-muted-foreground text-sm">
-                  Logging out records the time, on this device only.
+                  For a lost or shared device. Notifications stop here until you sign in again.
                 </p>
               </div>
               <LogoutButton />

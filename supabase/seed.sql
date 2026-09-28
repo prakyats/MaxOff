@@ -89,7 +89,12 @@ insert into seed_users values
   -- One Admin per project; the spec gives them clients, then puts the role and status back itself.
   ('20000000-0000-4000-8000-000000000044', 'handover-desktop@maxoff.local', 'handover-local-password', 'Test Handover (desktop)', null, 'admin', 'active'),
   ('20000000-0000-4000-8000-000000000045', 'handover-mobile@maxoff.local', 'handover-local-password', 'Test Handover (mobile)', null, 'admin', 'active'),
-  ('20000000-0000-4000-8000-000000000046', 'handover-mobile-lg@maxoff.local', 'handover-local-password', 'Test Handover (mobile-lg)', null, 'admin', 'active');
+  ('20000000-0000-4000-8000-000000000046', 'handover-mobile-lg@maxoff.local', 'handover-local-password', 'Test Handover (mobile-lg)', null, 'admin', 'active'),
+  -- 3b.2: extra work and comp leave (e2e/extra-work.spec.ts). One Staff member per project; the spec
+  -- clears their notes, credits, leave and days itself, so it re-runs without db:reset.
+  ('20000000-0000-4000-8000-000000000047', 'extra-desktop@maxoff.local', 'extra-local-password', 'Test Extra Work (desktop)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000048', 'extra-mobile@maxoff.local', 'extra-local-password', 'Test Extra Work (mobile)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000049', 'extra-mobile-lg@maxoff.local', 'extra-local-password', 'Test Extra Work (mobile-lg)', null, 'staff', 'active');
 
 -- What GoTrue writes for a confirmed email + password user (`auth.users` + one identity).
 insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,

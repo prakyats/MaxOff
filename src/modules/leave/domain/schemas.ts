@@ -83,6 +83,35 @@ export type ChangeLeaveInput = z.input<ReturnType<typeof changeLeaveSchema>> & {
   originalStart: string;
 };
 
+/**
+ * A comp leave request (`leave_submit_comp`, 3b.2): one date, today or later and on or before the
+ * credit's use-by date (the database checks the credit), a full or a half day, an optional reason.
+ */
+export function requestCompLeaveSchema(today: string, useBy: string | null) {
+  return z
+    .object({
+      date: isoDate("Choose the day."),
+      halfDay: z.boolean(),
+      reason,
+    })
+    .superRefine((value, ctx) => {
+      if (value.date < today) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["date"],
+          message: "Leave cannot start in the past.",
+        });
+      } else if (useBy !== null && value.date > useBy) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["date"],
+          message: "Comp leave must be taken on or before its use-by date.",
+        });
+      }
+    });
+}
+export type RequestCompLeaveInput = z.input<ReturnType<typeof requestCompLeaveSchema>>;
+
 /** The request a change, cancellation or withdrawal refers to. */
 export const requestIdSchema = z.object({
   requestId: z.uuid(),
@@ -146,5 +175,22 @@ export const ownerEditLeaveSchema = z
     message: "The last day is before the first day.",
   });
 export type OwnerEditLeaveInput = z.input<typeof ownerEditLeaveSchema>;
+
+// Comp leave credits (task 3b.2) --------------------------------------------------------------
+
+/** ½ or 1 day: the only grants there are (PRODUCT §4.3a). */
+export const COMP_DAYS = [0.5, 1] as const;
+
+/** A standalone grant (decision 14): to whom, how much, an optional note the member sees. */
+export const grantCompLeaveSchema = z.object({
+  memberId: z.uuid(),
+  days: z.union([z.literal(0.5), z.literal(1)], { error: "Grant half a day or one day." }),
+  note: reason,
+});
+export type GrantCompLeaveInput = z.input<typeof grantCompLeaveSchema>;
+
+/** Revoke an unused grant, with a reason the member reads (decision 17). */
+export const revokeCompLeaveSchema = z.object({ creditId: z.uuid(), reason: ownerReason });
+export type RevokeCompLeaveInput = z.input<typeof revokeCompLeaveSchema>;
 
 export { LEAVE_REASON_MAX_LENGTH, OWNER_REASON_MIN_LENGTH };

@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: "Sign in" };
 
 /** Why someone arrived here, when the app sent them (`?reason=`); anything else is ignored. */
 const REASONS: Record<string, { tone: "info" | "danger"; text: string }> = {
-  signed_out: { tone: "info", text: "You're logged out. The time was recorded." },
+  signed_out: { tone: "info", text: "You're signed out of this device." },
   inactive: { tone: "danger", text: "This account is not active. Ask the Owner." },
   link: { tone: "danger", text: "This link has expired or was already used. Ask for a new one." },
 };

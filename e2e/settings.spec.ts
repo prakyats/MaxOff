@@ -130,20 +130,20 @@ test.describe("Owner", () => {
     page,
   }) => {
     await page.goto("/settings/thresholds");
-    await expect(page.getByLabel("Logout reminder")).toHaveValue("20:30");
+    await expect(page.getByLabel("End-of-day reminder")).toHaveValue("20:30");
 
     await page.getByLabel("Escalate to the Owner after (hours)").fill("2");
     await page.getByRole("button", { name: "Save thresholds" }).click();
     await expect(page.locator('[data-slot="field-error"]')).toContainText("second level");
 
     await page.getByLabel("Escalate to the Owner after (hours)").fill("8");
-    await page.getByLabel("Logout reminder").fill("21:00");
+    await page.getByLabel("End-of-day reminder").fill("21:00");
     await page.getByRole("button", { name: "Save thresholds" }).click();
     await expect(page.getByText("Thresholds saved")).toBeVisible();
     await page.reload();
-    await expect(page.getByLabel("Logout reminder")).toHaveValue("21:00");
+    await expect(page.getByLabel("End-of-day reminder")).toHaveValue("21:00");
 
-    await page.getByLabel("Logout reminder").fill("20:30");
+    await page.getByLabel("End-of-day reminder").fill("20:30");
     await page.getByRole("button", { name: "Save thresholds" }).click();
     await expect(page.getByText("Thresholds saved")).toBeVisible();
   });

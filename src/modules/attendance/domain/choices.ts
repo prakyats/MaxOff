@@ -5,13 +5,16 @@ export type DayStatus = Enums<"day_status">;
 export type AttendanceState = Enums<"attendance_state">;
 export type LeaveType = Enums<"leave_type">;
 
-/** The four answers of the gate, in the order the screen shows them (PRODUCT §4.2). */
-export const ATTENDANCE_CHOICES = [
-  "present",
+/**
+ * The leave the Start-day prompt offers (PRODUCT §4.2, kickoff 3b decision 3): Leave or Half
+ * day. Comp leave is requested only from the leave form, with a credit (decision 16), and
+ * Present is Start day itself; `attendance_choose_leave_today()` refuses both.
+ */
+export const PROMPT_LEAVE_CHOICES = [
   "leave",
   "half_day",
-  "comp_leave",
 ] as const satisfies readonly AttendanceChoice[];
+export type PromptLeaveChoice = (typeof PROMPT_LEAVE_CHOICES)[number];
 
 export const CHOICE_COPY: Record<AttendanceChoice, { label: string; hint: string }> = {
   present: { label: "Present", hint: "I'm working today." },
@@ -36,6 +39,3 @@ export const STATUS_LABELS: Record<DayStatus, string> = {
   comp_leave: "Comp leave",
   absent: "Absent",
 };
-
-/** The message `attendance_submit()` sends when the gate screen was shown for another date. */
-export const DAY_CHANGED_MESSAGE = "The day changed. Choose again for today.";

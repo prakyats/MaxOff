@@ -19,7 +19,7 @@ import {
 import { initialsOf, ROLE_LABELS, type ShellViewer } from "./viewer";
 
 /**
- * Avatar button with the viewer's name, role and job title, a Profile link and Log out.
+ * Avatar button with the viewer's name, role and job title and a Profile link. An optional
  * `logoutItem` is rendered by the app layout (`core/auth` owns the action), so the design
  * system never depends on auth.
  */

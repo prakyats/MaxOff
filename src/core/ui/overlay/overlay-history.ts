@@ -42,8 +42,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * navigation, refresh or completed server action, and in Next 16 every replace navigation sets
  * `preserveCustomHistoryState: false` (`segment-cache/navigation.js`), so our marker vanished
  * from the entry we had pushed whenever a server action finished while an overlay was open. On
- * My Day the day-pass action (`<IssueDayPass />`) answers a second after landing, exactly when
- * someone taps Log out: the confirmation's entry lost its marker, `closeOverlaysThen` believed
+ * My Day the 2.2 day-pass action (a server action answering a second after landing, since
+ * replaced by the Start-day prompt) landed exactly when
+ * someone tapped Log out: the confirmation's entry lost its marker, `closeOverlaysThen` believed
  * nothing was on top and navigated at once, and the redirect replaced the overlay's entry with
  * /login, leaving My Day underneath (`back-gesture.spec.ts` "logout", 8 of 23 runs). So
  * `replaceState` is wrapped once (`guardMarker`): an entry that carries the marker keeps it

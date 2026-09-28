@@ -7,6 +7,9 @@ select plan(57);
 
 delete from public.attendance_events;
 delete from public.attendance_days;
+delete from public.comp_leave_credit_uses;
+delete from public.comp_leave_credits;
+delete from public.extra_work_notes;
 delete from public.leave_requests;
 delete from public.session_events;
 delete from public.activity_log;

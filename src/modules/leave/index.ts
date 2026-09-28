@@ -8,5 +8,9 @@
  */
 export { LEAVE_PAGE_SIZE, listRequests } from "./data/leave";
 export { countPendingRequests, listPendingRequests } from "./data/review";
+/** Comp leave credits (3b.2): the balance for the leave form and the cards, the credit history. */
+export { getCompBalance, listCredits } from "./data/credits";
+export { CompLeaveCard } from "./components/comp-leave-card";
+export type { CompBalance } from "./domain/credits";
 /** The single approval, for the Approvals delayed send (`app/api/approvals/approve`). */
 export { approveLeave } from "./actions/review";

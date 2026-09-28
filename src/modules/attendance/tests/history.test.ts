@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  canFlagOvertime,
+  dayTimes,
   describeEvent,
   describeHistoryDay,
   eventActor,
@@ -42,11 +42,37 @@ const DAY: HistoryDay = {
   firstLoginAt: "2026-09-24T03:40:00Z",
   lastLogoutAt: null,
   logoutNotRecorded: false,
+  startedAt: null,
+  endedAt: null,
+  endNotRecorded: false,
   overtimeFlag: false,
   overtimeReason: null,
   events: [],
 };
 const day = (patch: Partial<HistoryDay>): HistoryDay => ({ ...DAY, ...patch });
+
+describe("dayTimes (3b.1, kickoff 3b decision 31)", () => {
+  it("shows the Start day and End day taps, and the 2.x sign-in times for older days", () => {
+    expect(
+      dayTimes(day({ startedAt: "2026-09-24T03:42:00Z", endedAt: "2026-09-24T13:00:00Z" })),
+    ).toEqual({
+      start: "9:12 am",
+      end: "6:30 pm",
+    });
+    expect(dayTimes(day({ lastLogoutAt: "2026-09-24T12:30:00Z" }))).toEqual({
+      start: "9:10 am",
+      end: "6:00 pm",
+    });
+    expect(dayTimes(day({ firstLoginAt: null }))).toEqual({ start: "—", end: "—" });
+  });
+
+  it("names the nightly flag instead of a time that never came", () => {
+    expect(dayTimes(day({ startedAt: "2026-09-24T03:42:00Z", endNotRecorded: true })).end).toBe(
+      "not recorded",
+    );
+    expect(dayTimes(day({ logoutNotRecorded: true })).end).toBe("not recorded");
+  });
+});
 
 describe("eventActor", () => {
   it("tells the member, the Owner and MaxOff apart", () => {
@@ -117,6 +143,21 @@ describe("describeEvent speaks to the member, not in database words", () => {
       "No attendance was chosen, so absent was proposed for the Owner",
     );
     expect(describeEvent(event({ action: "logout", toStatus: null })).text).toBe("Logged out");
+    expect(describeEvent(event({ action: "started", toStatus: "present" })).text).toBe(
+      "You started your day",
+    );
+    expect(
+      describeEvent(event({ action: "started", fromStatus: "leave", toStatus: "present" })).text,
+    ).toBe("You started your day on a day of approved leave");
+    expect(describeEvent(event({ action: "ended", toStatus: null })).text).toBe(
+      "You ended your day",
+    );
+    expect(
+      describeEvent(event({ action: "started", toStatus: null }), {
+        kind: "owner",
+        name: "Asha Rao",
+      }).text,
+    ).toBe("Asha started their day");
     expect(
       describeEvent(event({ action: "overtime_flagged", toStatus: null, reason: "Late edit" })),
     ).toEqual({ text: "You flagged overtime", note: "Your note: Late edit" });
@@ -174,16 +215,11 @@ describe("describeHistoryDay", () => {
       describeHistoryDay(day({ isDayOff: true, overtimeFlag: true, logoutNotRecorded: true }))
         .flags,
     ).toEqual(["Worked on a day off", "Overtime", "Logout not recorded"]);
+    expect(describeHistoryDay(day({ endNotRecorded: true })).flags).toEqual([
+      "End of day not recorded",
+    ]);
     expect(describeHistoryDay(day({ workedOnLeave: true })).flags).toEqual(["1 day worked"]);
     expect(describeHistoryDay(day({ isDayOff: true, finalStatus: "leave" })).flags).toEqual([]);
-  });
-});
-
-describe("canFlagOvertime", () => {
-  it("offers overtime on today's own entry only, once", () => {
-    expect(canFlagOvertime(day({}), "2026-09-24")).toBe(true);
-    expect(canFlagOvertime(day({ overtimeFlag: true }), "2026-09-24")).toBe(false);
-    expect(canFlagOvertime(day({ workDate: "2026-09-23" }), "2026-09-24")).toBe(false);
   });
 });
 

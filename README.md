@@ -33,7 +33,7 @@ pnpm dev                     # http://localhost:3000 → /login
 
 ### Local sign-ins
 
-`supabase/seed.sql` creates these accounts for development and Playwright. Every seeded member "joined" 30 days before `db:reset`, so the day gate (2.2) applies to them today. They exist only on
+`supabase/seed.sql` creates these accounts for development and Playwright. Every seeded member "joined" 30 days before `db:reset`, so their attendance has started (the Start-day prompt, 3b.1, applies to them today). They exist only on
 the local stack (the deploy workflow never seeds), and the passwords are fixtures, not secrets:
 
 | Email | Password | Role |
@@ -44,7 +44,7 @@ the local stack (the deploy workflow never seeds), and the passwords are fixture
 | `gone@maxoff.local` | `gone-local-password` | deactivated Staff (refused at sign-in) |
 | `reset@maxoff.local` | `reset-local-password` | Staff, used only by the Playwright recovery-link test (which changes its password) |
 | `leaver@maxoff.local` | `leaver-local-password` | Staff, used only by the Playwright team test (which deactivates and reactivates them) |
-| `gate-<kind>-<project>@maxoff.local` | `gate-local-password` | 12 Admin/Staff accounts used only by `e2e/day-gate.spec.ts` (kind: staff, admin, leave, half; project: desktop, mobile, mobile-lg), because a person has one attendance day per date |
+| `gate-<kind>-<project>@maxoff.local` | `gate-local-password` | 12 Admin/Staff accounts used only by `e2e/working-day.spec.ts` (the Start/End day flow, 3b.1; the name dates from the 2.2 day gate) (kind: staff, admin, leave, half; project: desktop, mobile, mobile-lg), because a person has one attendance day per date |
 
 Password-reset emails from the local stack land in Mailpit: http://127.0.0.1:54324.
 
@@ -167,7 +167,7 @@ Secrets (**Environment secrets**):
 | `SUPABASE_DB_PASSWORD` | Supabase → the database password chosen when the project was created (Project Settings → Database to reset) |
 | `SUPABASE_SECRET_KEY` | Supabase → Project Settings → API Keys → Secret key (bypasses RLS; uploaded as a Worker secret) |
 | `SESSION_IP_HASH_SALT` | Any long random string (`openssl rand -hex 32`), different per environment. Salts the IP hash in `session_events`; uploaded as a Worker secret. Unset = the hash is stored as null |
-| `DAY_GATE_COOKIE_SECRET` | Any long random string (`openssl rand -hex 32`), different per environment. Signs the once-a-day gate pass (task 2.2); uploaded as a Worker secret. Unset = every page load asks the database, reported to Sentry once |
+| `DAY_GATE_COOKIE_SECRET` | **No longer read since 3b.1** (the day gate gave way to the Start-day prompt). The deploy workflow still passes it when set; the variable is removed from the GitHub environments with the contract migration after phase 3b merges. |
 | `SENTRY_AUTH_TOKEN` | Sentry → Settings → Auth Tokens. Optional: without it no source maps are uploaded |
 
 Variables (**Environment variables**):

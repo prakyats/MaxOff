@@ -11,6 +11,7 @@ describe("routeKey (ARCHITECTURE §14.2 j)", () => {
   it("gives the tabs of one screen one key", () => {
     expect(routeKey("/leave")).toBe("/leave");
     expect(routeKey("/leave/attendance")).toBe("/leave");
+    expect(routeKey("/leave/extra-work")).toBe("/leave");
     expect(routeKey(PERSON)).toBe(PERSON);
     expect(routeKey(`${PERSON}/attendance`)).toBe(PERSON);
     expect(routeKey(`${PERSON}/leave`)).toBe(PERSON);
@@ -38,6 +39,7 @@ describe("routeKey (ARCHITECTURE §14.2 j)", () => {
     const personNav = readFileSync("src/app/(app)/people/[id]/person-nav.tsx", "utf8");
     const clientNav = readFileSync("src/app/(app)/clients/[id]/client-nav.tsx", "utf8");
     expect(leaveTabs).toContain('"/leave/attendance"');
+    expect(leaveTabs).toContain('"/leave/extra-work"');
     expect(personNav).toContain("/attendance`");
     expect(personNav).toContain("/leave`");
     expect(clientNav).toContain("/brand`");
