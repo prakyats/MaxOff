@@ -152,8 +152,11 @@ organizations        id, name, logo_file_id → files (3.3), timezone ('Asia/Kol
 org_settings         org_id pk, weekly_off_days smallint[] (0=Sun..6=Sat), logout_reminder_time time,
                      ack_repeat_hours int (2), ack_escalate_hours int (4), ack_escalate_owner_hours int (8),
                      overdue_escalate_hours int (24), email_daily_cap_per_member int (20),
-                     default_task_reminders jsonb, workload_warning_threshold int
-                     -- API UPDATE grant: the nine settings columns above, never org_id or the timestamps
+                     default_task_reminders jsonb, workload_warning_threshold int,
+                     expense_receipt_above numeric(12,2) (500; 3b.3, expand-only: a claim above this
+                     amount needs a receipt photo; check >= 0; in the API UPDATE grant, so
+                     settings.manage edits it like the rest, from Settings -> Expenses)
+                     -- API UPDATE grant: the ten settings columns above, never org_id or the timestamps
                      -- defaults in brackets = launch settings (PRODUCT §7); default_task_reminders '[]' until
                      -- 5.3, workload_warning_threshold null until 4.3. Created by trigger with the organization
 holidays             id, org_id, date, name, created_at, updated_at, unique(org_id, date)
@@ -221,6 +224,9 @@ list_items           id, org_id, list_key ('job_title'|...), name, description, 
                      -- null. RLS: every active member reads; insert/update need lists.manage; no
                      -- DELETE (archive instead). Audited. Seeded per organization by trigger with the
                      -- launch job titles (PRODUCT §7); 1.4 adds the Settings screen
+                     -- 3b.3: list_key 'expense_category' (seeded Travel, Food, Materials, Other) is the
+                     -- Owner's list: app.list_items_owner_guard() refuses an API insert or update of
+                     -- it without expenses.decide, although Admins hold lists.manage
 task_types           id, org_id, name, kind task_type_kind, shows_on_calendar bool,
                      has_location bool, default_reminders jsonb, color, icon, position,
                      is_system, archived_at
@@ -804,6 +810,70 @@ revenue_overrides    id, scope ('cycle'|'project'), ref_id, calculated_value, ad
 views (security invoker, Owner only): item_values_v, revenue_by_cycle_v, revenue_by_client_month_v
 ```
 All amounts are `numeric(12,2)` in INR.
+
+### 7a. Expense claims (a member's own money; ADR-0007 amendment 2026-09-27, task 3b.3)
+Not business money and not in `modules/revenue`: a member's own reimbursement claims, read and written only through `modules/expenses` (lint: the relation name appears nowhere else in `src/`).
+```
+expense_claims       id, member_id → members, expense_date date (IST), amount numeric(12,2) (> 0, INR),
+                     category_id → list_items (list_key 'expense_category'), note (required, ≤ 500),
+                     receipt_file_id null → files (unique: one upload, one claim), state ('submitted'|
+                     'approved'|'rejected'|'withdrawn'|'paid'), decided_by null, decided_at null,
+                     decision_reason null (the reject reason, shown to the member), paid_on date null,
+                     paid_by null, paid_at null, created_at, updated_at
+                     -- 3b.3 (PRODUCT §4.18, kickoff 3b decisions 21-27). checks: decided_* set exactly
+                     -- when approved | rejected | paid; decision_reason exactly when rejected; paid_*
+                     -- exactly when paid. RLS: SELECT own rows, or every row for expenses.decide (the
+                     -- Owner); **an Admin reads no one else's row, not even their team's** (pgTAP per
+                     -- role). No API writes at all (functions only), protect_columns on every column,
+                     -- audited (the claimant and the Owner read the entries: activity_log policy
+                     -- activity_log_select_expenses_self + activity.view_all). Never in a Realtime
+                     -- publication, search or an export. Admins and Staff claim (attendance.self);
+                     -- freelancers never (phase 4 adds engagement = permanent to the check).
+```
+Functions (3b.3, `public`, security definer, `search_path = ''`, audited through `app.audit_override`; the WORKFLOWS §9 recipient is named in each comment, delivery is 5.1's, **an amount never appears in a notification's text**):
+```
+expense_claim_submit(expense_date, amount, category_id, note, receipt_file_id default null) -> uuid
+                                attendance.self. The claim window (app.expense_window_start: the 1st of
+                                this IST month, or of last month through the 5th; never a future date),
+                                an active expense_category, > 0 with at most two decimals, the note
+                                required; a receipt required when amount > org_settings.expense_receipt_above;
+                                a receipt is a ready, unarchived PNG / JPEG / WebP original the caller
+                                uploaded less than 6 days ago and attached nowhere else. Audit: submitted.
+expense_claim_withdraw(claim_id)    the claimant, while submitted -> withdrawn. Audit: withdrawn.
+expense_claim_decide(claim_id, decision 'approve'|'reject', reason)
+                                expenses.decide, submitted only; reject needs the reason. Audit:
+                                approved | rejected.
+expense_claim_mark_paid(claim_id, paid_on default today IST)
+                                expenses.decide, approved only -> paid; paid_on not in the future and not
+                                before the expense. Audit: paid.
+app.file_visible(file)          re-created (same signature): also true for a receipt when the caller holds
+                                expenses.decide (the claimant is its uploader already).
+```
+
+### 7b. Month summary (task 3b.4)
+No table: the summary is computed live from the attendance and extra-work tables (PRODUCT §4.18, kickoff 3b decisions 18–20, 31).
+```
+month_summary(month date, member_id uuid default null)
+                                attendance.view_all (the Owner). One row per member who marks attendance
+                                (a role holding attendance.self), joined by the month's last day and not
+                                deactivated before its first, or the one member asked for, over the IST
+                                month containing `month`: working_days (days of the month that are
+                                working days by app.is_working_day), days_worked (decided Present on a
+                                working day + ½ per decided half day), present_days, leave_days, half_days
+                                (a half day that is not comp leave), absent_days, comp_leave_days (a
+                                comp_leave day, + ½ for a half day that used a comp credit, + the Owner's
+                                comp leave), additional_leave (leave_days + ½ × half_days + absent_days;
+                                comp leave never counts), days_off_worked (decided Present on a day off,
+                                its own line), pending_days (days waiting for the Owner: pending_review),
+                                overtime_notes, overtime_granted (notes of the month whose decision is
+                                granted), credits_granted / credits_used / credits_expired (days of the
+                                month's unrevoked comp credits: granted, used, and what was left when
+                                the month ended). "Decided" is state approved | corrected: attendance is
+                                the Owner's decision (invariant 7), so a day still waiting shows as
+                                pending, never as worked. The 2.x gate days count like any other (their
+                                final_status is the same; decision 31). No money: the Owner's
+                                approved-unpaid expenses come from modules/expenses beside it.
+```
 
 ## 8. Google Drive archive (Owner-managed, core module `drive`)
 ```

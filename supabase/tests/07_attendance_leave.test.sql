@@ -10,6 +10,7 @@ select plan(261);
 -- Children first (attendance_days → members), activity_log before members (actor_id).
 delete from public.attendance_events;
 delete from public.attendance_days;
+delete from public.expense_claims;
 delete from public.comp_leave_credit_uses;
 delete from public.comp_leave_credits;
 delete from public.extra_work_notes;

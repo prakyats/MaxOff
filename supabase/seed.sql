@@ -94,7 +94,17 @@ insert into seed_users values
   -- clears their notes, credits, leave and days itself, so it re-runs without db:reset.
   ('20000000-0000-4000-8000-000000000047', 'extra-desktop@maxoff.local', 'extra-local-password', 'Test Extra Work (desktop)', null, 'staff', 'active'),
   ('20000000-0000-4000-8000-000000000048', 'extra-mobile@maxoff.local', 'extra-local-password', 'Test Extra Work (mobile)', null, 'staff', 'active'),
-  ('20000000-0000-4000-8000-000000000049', 'extra-mobile-lg@maxoff.local', 'extra-local-password', 'Test Extra Work (mobile-lg)', null, 'staff', 'active');
+  ('20000000-0000-4000-8000-000000000049', 'extra-mobile-lg@maxoff.local', 'extra-local-password', 'Test Extra Work (mobile-lg)', null, 'staff', 'active'),
+  -- 3b.3: expense claims (e2e/expenses.spec.ts). One Staff member per project; the spec clears their
+  -- claims, days and leave itself, so it re-runs without db:reset.
+  ('20000000-0000-4000-8000-000000000050', 'expense-desktop@maxoff.local', 'expense-local-password', 'Test Expenses (desktop)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000051', 'expense-mobile@maxoff.local', 'expense-local-password', 'Test Expenses (mobile)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000052', 'expense-mobile-lg@maxoff.local', 'expense-local-password', 'Test Expenses (mobile-lg)', null, 'staff', 'active'),
+  -- 3b.4: the month summary (e2e/month-summary.spec.ts). One Staff member per project whose days the
+  -- spec arranges itself.
+  ('20000000-0000-4000-8000-000000000053', 'month-desktop@maxoff.local', 'month-local-password', 'Test Month (desktop)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000054', 'month-mobile@maxoff.local', 'month-local-password', 'Test Month (mobile)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000055', 'month-mobile-lg@maxoff.local', 'month-local-password', 'Test Month (mobile-lg)', null, 'staff', 'active');
 
 -- What GoTrue writes for a confirmed email + password user (`auth.users` + one identity).
 insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,

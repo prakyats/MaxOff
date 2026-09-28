@@ -780,6 +780,120 @@ export type Database = {
           },
         ];
       };
+      expense_claims: {
+        Row: {
+          amount: number;
+          category_id: string;
+          created_at: string;
+          decided_at: string | null;
+          decided_by: string | null;
+          decision_reason: string | null;
+          expense_date: string;
+          id: string;
+          member_id: string;
+          note: string;
+          paid_at: string | null;
+          paid_by: string | null;
+          paid_on: string | null;
+          receipt_file_id: string | null;
+          state: string;
+          updated_at: string;
+        };
+        Insert: {
+          amount: number;
+          category_id: string;
+          created_at?: string;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          decision_reason?: string | null;
+          expense_date: string;
+          id?: string;
+          member_id: string;
+          note: string;
+          paid_at?: string | null;
+          paid_by?: string | null;
+          paid_on?: string | null;
+          receipt_file_id?: string | null;
+          state?: string;
+          updated_at?: string;
+        };
+        Update: {
+          amount?: number;
+          category_id?: string;
+          created_at?: string;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          decision_reason?: string | null;
+          expense_date?: string;
+          id?: string;
+          member_id?: string;
+          note?: string;
+          paid_at?: string | null;
+          paid_by?: string | null;
+          paid_on?: string | null;
+          receipt_file_id?: string | null;
+          state?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "expense_claims_category_id_fkey";
+            columns: ["category_id"];
+            isOneToOne: false;
+            referencedRelation: "list_items";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "expense_claims_decided_by_fkey";
+            columns: ["decided_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "expense_claims_decided_by_fkey";
+            columns: ["decided_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "expense_claims_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "expense_claims_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "expense_claims_paid_by_fkey";
+            columns: ["paid_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "expense_claims_paid_by_fkey";
+            columns: ["paid_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "expense_claims_receipt_file_id_fkey";
+            columns: ["receipt_file_id"];
+            isOneToOne: true;
+            referencedRelation: "files";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       extra_work_notes: {
         Row: {
           created_at: string;
@@ -1278,6 +1392,7 @@ export type Database = {
           created_at: string;
           default_task_reminders: Json;
           email_daily_cap_per_member: number;
+          expense_receipt_above: number;
           logout_reminder_time: string;
           org_id: string;
           overdue_escalate_hours: number;
@@ -1292,6 +1407,7 @@ export type Database = {
           created_at?: string;
           default_task_reminders?: Json;
           email_daily_cap_per_member?: number;
+          expense_receipt_above?: number;
           logout_reminder_time?: string;
           org_id: string;
           overdue_escalate_hours?: number;
@@ -1306,6 +1422,7 @@ export type Database = {
           created_at?: string;
           default_task_reminders?: Json;
           email_daily_cap_per_member?: number;
+          expense_receipt_above?: number;
           logout_reminder_time?: string;
           org_id?: string;
           overdue_escalate_hours?: number;
@@ -1684,6 +1801,25 @@ export type Database = {
         Args: { credit_id: string; reason?: string };
         Returns: undefined;
       };
+      expense_claim_decide: {
+        Args: { claim_id: string; decision: string; reason?: string };
+        Returns: string;
+      };
+      expense_claim_mark_paid: {
+        Args: { claim_id: string; paid_on?: string };
+        Returns: string;
+      };
+      expense_claim_submit: {
+        Args: {
+          amount: number;
+          category_id: string;
+          expense_date: string;
+          note: string;
+          receipt_file_id?: string;
+        };
+        Returns: string;
+      };
+      expense_claim_withdraw: { Args: { claim_id: string }; Returns: string };
       extra_work_note_decide: {
         Args: {
           days?: number;

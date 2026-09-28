@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 
 import { requireMember } from "@/core/auth/server";
 import { can } from "@/core/permissions";
+import { todayIST } from "@/core/time";
 import {
   getTodayPeople,
   PeopleBoard,
@@ -10,6 +11,9 @@ import {
   TodayAttendanceCard,
   TodayAttendanceStrip,
 } from "@/modules/attendance";
+
+import { getClaimSetup } from "@/modules/expenses";
+import { EndDayClaims } from "@/modules/expenses/components/end-day-claims";
 
 import { PlaceholderPage } from "../_placeholder/placeholder-page";
 
@@ -36,7 +40,15 @@ export default async function TodayPage() {
       task="6.2 (Owner) and 6.3 (Admin)"
       icon={LayoutDashboardIcon}
     >
-      {marksAttendance ? <TodayAttendanceStrip /> : null}
+      {marksAttendance ? (
+        <TodayAttendanceStrip
+          endDayFollowUp={
+            // End day's "Any expenses to claim today?" (3b.3): the claim form's setup is a
+            // promise, read only if the person answers Yes.
+            <EndDayClaims today={todayIST()} setup={getClaimSetup().catch(() => null)} />
+          }
+        />
+      ) : null}
       {summary ? (
         <>
           <TodayAttendanceCard summary={summary} />

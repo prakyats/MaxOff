@@ -13,20 +13,23 @@ import type { NavBadges } from "@/core/ui/shell/nav";
 import { countPendingDays, countPendingNotes, getOwnToday, promptDue } from "@/modules/attendance";
 import { StartDayPrompt } from "@/modules/attendance/components/start-day-prompt";
 import { countPendingRequests } from "@/modules/leave";
+import { countPendingClaims } from "@/modules/expenses";
 
 /**
- * The viewer's nav counts. Approvals (2.4): the attendance days, leave requests and extra work
- * notes (3b.2) waiting for whoever decides them (`attendance.decide`, the Owner); tasks and client
- * items join in 4.5 and 7.4. Three indexed counts per page load, only for the Owner.
+ * The viewer's nav counts. Approvals (2.4): the attendance days, leave requests, extra work notes
+ * (3b.2) and expense claims (3b.3, `expenses.decide`) waiting for whoever decides them (the
+ * Owner); tasks and client items join in 4.5 and 7.4. Four indexed counts per page load, only
+ * for the Owner.
  */
 async function navBadges(role: Parameters<typeof can>[0]): Promise<NavBadges> {
   if (!can(role, "attendance.decide")) return {};
-  const [days, requests, notes] = await Promise.all([
+  const [days, requests, notes, claims] = await Promise.all([
     countPendingDays(),
     countPendingRequests(),
     countPendingNotes(),
+    can(role, "expenses.decide") ? countPendingClaims() : Promise.resolve(0),
   ]);
-  return { approvals: days + requests + notes };
+  return { approvals: days + requests + notes + claims };
 }
 
 /**

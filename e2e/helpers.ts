@@ -248,6 +248,11 @@ export async function serviceSelect<T>(path: string): Promise<T[]> {
  * again without `pnpm db:reset` (2.3). The audit trigger still logs the deletes; nothing else
  * refers to these rows.
  */
+/** Removes a member's expense claims (3b.3), so a spec re-runs on a used database. */
+export async function resetExpenseClaims(memberId: string): Promise<void> {
+  await serviceRest(`expense_claims?member_id=eq.${memberId}`, { method: "DELETE" });
+}
+
 export async function resetAttendanceAndLeave(memberId: string): Promise<void> {
   // 3b.2: comp leave credits point at leave requests (through their uses) and at notes.
   const credits = await serviceSelect<{ id: string }>(
@@ -285,6 +290,7 @@ export async function removeFixturePerson(email: string): Promise<void> {
   );
   for (const { id } of members) {
     await resetAttendanceAndLeave(id);
+    await resetExpenseClaims(id);
     await serviceRest(`session_events?member_id=eq.${id}`, { method: "DELETE" });
     await serviceRest(`activity_log?actor_id=eq.${id}`, { method: "DELETE" });
     await serviceRest(`members?id=eq.${id}`, { method: "DELETE" });

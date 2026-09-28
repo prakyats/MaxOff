@@ -5,7 +5,9 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useId, useState, useTransition } from "react";
 
+import { cn } from "@/core/lib/utils";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
+import { useFollowUpTrigger } from "@/core/ui/composites/follow-up";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { Button } from "@/core/ui/primitives/button";
 import { toastResult } from "@/core/ui/toast";
@@ -71,17 +73,25 @@ export function StartDayButton({
  * §4.2, 3b.2: the moment someone ends late is the moment they remember it), written in the same
  * transaction as the end; a refused note keeps the confirmation open with the message. After
  * midnight the database closes yesterday's started day.
+ *
+ * It also asks **"Any expenses to claim today?"** (PRODUCT §4.18, decision 21) when the page put
+ * the claim form in a `FollowUpHost` around the strip (the form lives in `modules/expenses`, so
+ * the page composes the two): **No** ends the day as before; **Yes** ends it and then opens the
+ * form for that day.
  */
 export function EndDayButton({
   size = "default",
   yesterday = false,
   noteTaken = false,
+  endsOn,
 }: {
   size?: "default" | "sm";
   /** The open day is yesterday's (worked past midnight): the copy says so. */
   yesterday?: boolean;
   /** That day already has an overtime note: the confirmation offers none (one per day). */
   noteTaken?: boolean;
+  /** The IST date the End day closes (today, or yesterday after midnight). */
+  endsOn: string;
 }) {
   const router = useRouter();
   const id = useId();
@@ -90,12 +100,15 @@ export function EndDayButton({
   const [note, setNote] = useState("");
   const [minutes, setMinutes] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [claim, setClaim] = useState(false);
+  const openClaims = useFollowUpTrigger();
 
   function reset() {
     setWithNote(false);
     setNote("");
     setMinutes("");
     setError(null);
+    setClaim(false);
   }
 
   return (
@@ -115,7 +128,7 @@ export function EndDayButton({
             ? "You never ended yesterday. The end time recorded is now, on yesterday's day. This is final."
             : "The end time is now, and it's final for today: there's no resume. You can keep using MaxOff."
         }
-        confirmLabel="End day"
+        confirmLabel={claim ? "End day, add expenses" : "End day"}
         onConfirm={async () => {
           const result = await endDay(
             withNote && note.trim()
@@ -133,9 +146,11 @@ export function EndDayButton({
           }
           toastResult(result, { success: "Your day has ended" });
           router.refresh();
+          if (claim && openClaims) openClaims(endsOn);
           return true;
         }}
       >
+        {openClaims ? <ExpensesQuestion id={id} claim={claim} onClaim={setClaim} /> : null}
         {withNote ? (
           <OvertimeNoteFields
             id={id}
@@ -168,5 +183,46 @@ export function EndDayButton({
         )}
       </ConfirmDialog>
     </>
+  );
+}
+
+/** "Any expenses to claim today?" No / Yes, inside End day's confirmation (decision 21). */
+function ExpensesQuestion({
+  id,
+  claim,
+  onClaim,
+}: {
+  id: string;
+  claim: boolean;
+  onClaim: (claim: boolean) => void;
+}) {
+  const options = [
+    { value: false, label: "No" },
+    { value: true, label: "Yes" },
+  ];
+  return (
+    <fieldset className="flex flex-col gap-2" data-slot="expenses-question">
+      <legend className="mb-1 text-sm font-medium">Any expenses to claim today?</legend>
+      <div className="grid grid-cols-2 gap-2">
+        {options.map((option) => (
+          <label
+            key={option.label}
+            className={cn(
+              "border-border bg-card flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border px-4",
+              "has-[:checked]:border-strong has-[:checked]:bg-strong/5 has-[:focus-visible]:ring-ring/50 has-[:focus-visible]:ring-3",
+            )}
+          >
+            <input
+              type="radio"
+              name={`${id}-expenses`}
+              checked={claim === option.value}
+              onChange={() => onClaim(option.value)}
+              className="accent-strong size-5 shrink-0"
+            />
+            <span className="font-medium">{option.label}</span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
   );
 }

@@ -81,7 +81,9 @@ insert into app_internal values
   -- 3b.1: the 00:00 end-not-recorded job and the 20:30 reminder list (service_role only)
   ('end_not_recorded'), ('end_day_reminder_due'),
   -- 3b.2: the settle between a comp leave request and its credits
-  ('comp_credit_settle');
+  ('comp_credit_settle'),
+  -- 3b.3: a claim row locked inside the expense functions
+  ('expense_claim_lock');
 select is(
   (select count(*) from pg_proc p
     where p.pronamespace = 'app'::regnamespace
@@ -101,7 +103,7 @@ select is(
   0::bigint,
   'the internal helpers: service_role only, never the API role');
 select is((select count(*) from pg_proc p where p.pronamespace = 'app'::regnamespace
-             and p.proname in (select name from app_internal)), 15::bigint,
+             and p.proname in (select name from app_internal)), 16::bigint,
   'the internal helper list matches what exists');
 select cmp_ok((select count(*) from pg_proc where pronamespace = 'app'::regnamespace), '>=', 4::bigint,
   'the grant check saw the app functions');

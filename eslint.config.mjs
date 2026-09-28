@@ -53,6 +53,18 @@ const MONEY_SELECTORS = [
   { selector: `TemplateElement[value.raw=${MONEY_PATTERN}]`, message: MONEY_MESSAGE },
 ];
 
+/**
+ * ADR-0007 amendment 2026-09-27: a member's own expense claims are money too, sealed in
+ * `modules/expenses` the way revenue is sealed in `modules/revenue`. Same word-bounded check.
+ */
+const EXPENSE_MESSAGE =
+  "Expense claims are read and written only through modules/expenses (ADR-0007 amendment 2026-09-27).";
+const EXPENSE_PATTERN = "/(^|[^A-Za-z0-9_])(expense_claims)([^A-Za-z0-9_]|$)/";
+const EXPENSE_SELECTORS = [
+  { selector: `Literal[value=${EXPENSE_PATTERN}]`, message: EXPENSE_MESSAGE },
+  { selector: `TemplateElement[value.raw=${EXPENSE_PATTERN}]`, message: EXPENSE_MESSAGE },
+];
+
 const BUTTON_COLOUR_MESSAGE =
   "Buttons get their colour from a variant (primary, destructive, secondary, ghost, strong), never from classes: the action colour rule, ARCHITECTURE §14.1.";
 /**
@@ -310,6 +322,19 @@ const eslintConfig = defineConfig([
   {
     files: ["**/src/**/*.{ts,tsx}"],
     ignores: ["**/src/modules/revenue/**", "**/src/core/db/**"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        ...WALL_CLOCK_SELECTORS,
+        ...MONEY_SELECTORS,
+        ...EXPENSE_SELECTORS,
+        ...BUTTON_COLOUR_SELECTORS,
+      ],
+    },
+  },
+  // modules/expenses names its own table; revenue's relations stay closed to it.
+  {
+    files: ["**/src/modules/expenses/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-syntax": [
         "error",

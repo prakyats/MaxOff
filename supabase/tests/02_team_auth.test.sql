@@ -13,6 +13,7 @@ alter table public.list_items disable trigger audit_row_change;
 -- Attendance and leave rows (2.1) reference members: a Playwright run leaves some behind (2.2).
 delete from public.attendance_events;
 delete from public.attendance_days;
+delete from public.expense_claims;
 delete from public.comp_leave_credit_uses;
 delete from public.comp_leave_credits;
 delete from public.extra_work_notes;

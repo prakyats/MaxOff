@@ -11,6 +11,7 @@ create extension if not exists pgtap with schema extensions;
 select plan(149);
 
 -- Fixtures as 24: keep the organization, replace the people. Rolled back at the end.
+delete from public.expense_claims;
 delete from public.comp_leave_credit_uses;
 delete from public.comp_leave_credits;
 delete from public.extra_work_notes;

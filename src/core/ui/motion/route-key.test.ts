@@ -12,9 +12,11 @@ describe("routeKey (ARCHITECTURE §14.2 j)", () => {
     expect(routeKey("/leave")).toBe("/leave");
     expect(routeKey("/leave/attendance")).toBe("/leave");
     expect(routeKey("/leave/extra-work")).toBe("/leave");
+    expect(routeKey("/leave/expenses")).toBe("/leave");
     expect(routeKey(PERSON)).toBe(PERSON);
     expect(routeKey(`${PERSON}/attendance`)).toBe(PERSON);
     expect(routeKey(`${PERSON}/leave`)).toBe(PERSON);
+    expect(routeKey(`${PERSON}/month`)).toBe(PERSON);
     expect(routeKey(`${CLIENT}/brand`)).toBe(CLIENT);
     expect(routeKey(`${CLIENT}/activity`)).toBe(CLIENT);
   });

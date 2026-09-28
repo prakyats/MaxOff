@@ -12,12 +12,12 @@ import { LeaveTabs } from "./leave-tabs";
 const NO_COMP_BALANCE: CompBalance = { availableDays: 0, useBy: null };
 
 const DESCRIPTION =
-  "Request leave, change or cancel it, note extra work, and see how each day was recorded.";
+  "Request leave, change or cancel it, note extra work, claim expenses, and see how each day was recorded.";
 
 /**
- * The member's own attendance and leave (task 2.3, WORKFLOWS §1/§2): three views, `/leave`
- * (requests), `/leave/attendance` (the month's days) and `/leave/extra-work` (notes and comp
- * leave, 3b.2), under one header and tab bar. Personal,
+ * The member's own attendance and leave (task 2.3, WORKFLOWS §1/§2): four views, `/leave`
+ * (requests), `/leave/attendance` (the month's days), `/leave/extra-work` (notes and comp
+ * leave, 3b.2) and `/leave/expenses` (expense claims, 3b.3), under one header and tab bar. Personal,
  * not operations, so it has no tab or sidebar entry (owner decision 2026-09-24): the attendance
  * strip on My Day and /today, and a row on Me, lead here.
  *

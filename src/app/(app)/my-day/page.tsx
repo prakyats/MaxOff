@@ -3,7 +3,11 @@ import type { Metadata } from "next";
 
 import { requireMember } from "@/core/auth/server";
 import { can } from "@/core/permissions";
+import { todayIST } from "@/core/time";
 import { TodayAttendanceStrip } from "@/modules/attendance";
+
+import { getClaimSetup } from "@/modules/expenses";
+import { EndDayClaims } from "@/modules/expenses/components/end-day-claims";
 
 import { PlaceholderPage } from "../_placeholder/placeholder-page";
 
@@ -26,7 +30,15 @@ export default async function MyDayPage() {
       task="6.1"
       icon={SunriseIcon}
     >
-      {marksAttendance ? <TodayAttendanceStrip /> : null}
+      {marksAttendance ? (
+        <TodayAttendanceStrip
+          endDayFollowUp={
+            // End day's "Any expenses to claim today?" (3b.3): the claim form's setup is a
+            // promise, read only if the person answers Yes.
+            <EndDayClaims today={todayIST()} setup={getClaimSetup().catch(() => null)} />
+          }
+        />
+      ) : null}
     </PlaceholderPage>
   );
 }

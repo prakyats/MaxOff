@@ -163,6 +163,27 @@ submitted ──Owner approve──► approved ──employee requests change/c
   - **Using a credit.** Only through the leave form (Request leave → "Comp leave (1 day)" / "Comp leave, half day (½)", offered **only with a credit**, showing the balance and the use-by date; `comp_leave_balance()`): **one date**, today or later and **on or before the credit's use-by date** (the date counts, not the decision), a full day (`type = comp_leave`, `credit_days = 1.0`) or a half day (`type = half_day`, `credit_days = 0.5`, the day derives as any half day). `leave_submit_comp()` draws the free credits valid on that date **oldest first** and **reserves** them (`comp_leave_credit_uses`); it is still an ordinary request the Owner approves or rejects. **Approval uses the credit; reject, withdraw, the Owner's cancellation, an approved cancellation and an Owner edit release it** (`app.comp_credit_settle`; a credit past its month shows the returned days as expired). **A comp leave request is never changed, only cancelled and requested again** (`leave_request_change` refuses a change of a request with `credit_days`; asking to cancel stays allowed). The 2.x `leave_submit()` is untouched: a comp leave it creates carries no credit (main's app on the shared staging database; the contract migration decides its fate).
   - **The Owner's 2.x correction to Comp leave and `leave_owner_edit` to comp leave stay as they were:** Owner-set comp leave carries no credit (the Owner grants and takes as they see fit); the month summary (3b.4) counts comp leave from the attendance days.
 
+## 2a. Expense claims (3b.3; PRODUCT §4.18, kickoff 3b decisions 21–27, ADR-0007 amendment 2026-09-27)
+
+```
+submitted ──Owner approve──► approved ──Owner mark paid (date, default today)──► paid
+    ├──Owner reject(reason)──► rejected
+    └──member withdraw (before a decision)──► withdrawn
+```
+- **Who:** Admins and Staff claim their own (`attendance.self`; the Owner has no claims, freelancers none in the pilot). Only the Owner (`expenses.decide`) reads everyone's and decides. **An Admin never reads anyone else's claim**, not even their team's (RLS, pgTAP per role).
+- **Adding a claim:** amount (₹, above 0, paise allowed), a category from the Owner's list (Settings → Expenses; seeded Travel, Food, Materials, Other; archived categories leave the form and stay on old claims), a note (what it was for; required) and the date, **several per day**. From **End day** ("Any expenses to claim today?" **No** ends the day as before; **Yes** ends it and then opens the claim form for that day, which offers **Add another**) or later from **Attendance & leave → Expenses**. `expense_claim_submit()`.
+- **The claim window (decision 24):** the expense date is in the current IST month, or in the previous month while today is the **1st–5th**; never in the future (an expense not yet spent is not a claim). Outside it: VALIDATION, "Claims are for this month (and last month until the 5th)."
+- **Receipts (decision 23):** a photo (PNG, JPEG or WebP, ≤ 10 MB) through `core/storage`, kept as taken (a small JPEG preview is made beside it, ADR-0010). Optional, **required when the amount is above `org_settings.expense_receipt_above`** (default ₹500; strictly above: ₹500 exactly needs none). The Owner sets the amount in Settings → Expenses; the form reads it and the database checks it. A receipt is visible to the claimant and the Owner only (`app.file_visible`).
+- **Deciding:** Approvals → **Expenses**, after Extra work (decision 29), a **review-only** group: Review opens the claim (who, the date, category, amount, note, the receipt) with **Approve** and **Reject…** (a reason the member reads). `expense_claim_decide()`. **Mark paid** (optional date, default today) is on the person's month (`/people/[id]/month`, the Expenses part: one claim, or all approved claims of that month at once), when the claim is paid with the salary. `expense_claim_mark_paid()`. Nothing is reversed: a mistake is a note to the person, never an edit (invariant 9).
+- **The member sees** each claim with its state: Waiting · Approved · Paid on <date> · Rejected: <reason> · Withdrawn; **Withdraw** while it waits.
+- **Money rules:** amounts appear only on the claimant's own screens and the Owner's; never in a notification's text (decision 9), in search, in an Admin payload or in a Realtime publication.
+
+## 2b. Month summary (3b.4; PRODUCT §4.18, kickoff 3b decisions 18–20, 30, 31)
+- **The Owner only** (`attendance.view_all`; the expense line also needs `expenses.decide`): per person on **`/people/[id]/month`** (a fourth tab, "Month", `?m=YYYY-MM`, a month pager that never adds history) and for the team at **More → Reports → Month** (`/reports/month`, one row per person, a tap opens that person's month). Live at any time; IST months; the current month by default.
+- **What counts (`month_summary()`, DATA-MODEL §7b):** only days the Owner has decided (approved or corrected); days still waiting show as **"Waiting for your review"**, never as worked. Days recorded by the 2.x gate count like any other (decision 31). Comp leave is its own line and never counts as additional leave, a half day that used a comp credit included. **Additional leave = leave days + ½ × half days + absent days.** Days off worked are their own line. No salary anywhere; the Owner works out pay.
+- **Expenses line:** approved and not yet paid, total and count, for claims dated in that month; the person's month lists that month's claims with **Mark paid**.
+- Admins and Staff never see it; freelancers are not in it (phase 4 filters `engagement = permanent`).
+
 ## 3. Staff tasks
 
 ### 3.1 Task state
@@ -358,6 +379,8 @@ month M (IST) open ──Owner close──► closed (snapshot v1, immutable)
 | Extra work note added (overtime, or a day off worked) | Owner (3b.2) |
 | Extra work note decided (comp leave granted, or reviewed), comp leave granted standalone, comp leave revoked | That member (3b.2) |
 | Forgot to end the day (20:30, started and not ended) | That member (3b.1; replaces "forgot to log out") |
+| Expense claim submitted | Owner (3b.3; **no amount in the text**: "Ravi added an expense claim") |
+| Expense claim approved, rejected (with the reason) or marked paid | That member (3b.3; no amount in the text) |
 | Item done (Admin tick) | **Nobody.** It shows in the Owner's pending-approval count |
 | Item rejected | The client's Admin |
 | Cycle generated / unfinished items to decide | Client's Admin / Owner |

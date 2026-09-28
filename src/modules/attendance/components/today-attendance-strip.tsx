@@ -1,8 +1,10 @@
 import { ChevronRightIcon } from "lucide-react";
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 import { addISTDays } from "@/core/time";
 
+import { FollowUpHost } from "@/core/ui/composites/follow-up";
 import { StatusDot } from "@/core/ui/composites/status-badge";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 
@@ -26,7 +28,12 @@ const HISTORY_HREF = "/leave/attendance";
  * (`describeTodayStrip`). Since 3b.1 nothing is opened by rendering this: the day exists only
  * once the person starts it or chooses leave (`attendance_own_today()` reads, never writes).
  */
-export async function TodayAttendanceStrip() {
+export async function TodayAttendanceStrip({
+  endDayFollowUp,
+}: {
+  /** The expense claim form End day opens after "Yes" (3b.3; the page hands it over). */
+  endDayFollowUp?: ReactNode;
+} = {}) {
   const today = await getOwnToday();
   const strip = describeTodayStrip(today);
   // A day off offers the "I worked today" note (3b.2), whose dialog needs the last 8 days' kinds.
@@ -36,7 +43,7 @@ export async function TodayAttendanceStrip() {
   const endsOn = strip.kind === "end_yesterday" ? addISTDays(today.workDate, -1) : today.workDate;
   const noteTaken = strip.action?.kind === "end" ? await hasOvertimeNote(endsOn) : false;
 
-  return (
+  const content = (
     <div
       data-slot="attendance-strip"
       data-kind={strip.kind}
@@ -63,11 +70,15 @@ export async function TodayAttendanceStrip() {
             noteDays={noteDays}
             yesterday={strip.kind === "end_yesterday"}
             noteTaken={noteTaken}
+            endsOn={endsOn}
           />
         </div>
       ) : null}
     </div>
   );
+  // The host keeps End day's follow-up (the expense claim form) mounted and open across the
+  // refresh that removes End day itself once the day has ended.
+  return endDayFollowUp ? <FollowUpHost node={endDayFollowUp}>{content}</FollowUpHost> : content;
 }
 
 function StripActionButton({
@@ -76,6 +87,7 @@ function StripActionButton({
   noteDays,
   yesterday,
   noteTaken,
+  endsOn,
 }: {
   action: StripAction;
   workDate: string;
@@ -84,13 +96,14 @@ function StripActionButton({
   yesterday: boolean;
   /** The day End day closes already has an overtime note. */
   noteTaken: boolean;
+  endsOn: string;
 }) {
   switch (action.kind) {
     case "start":
       // The one solid red commit action on the screen: the tap records the start (§14.1).
       return <StartDayButton size="sm" />;
     case "end":
-      return <EndDayButton size="sm" yesterday={yesterday} noteTaken={noteTaken} />;
+      return <EndDayButton size="sm" yesterday={yesterday} noteTaken={noteTaken} endsOn={endsOn} />;
     case "working":
       return <WorkingTodayButton size="sm" />;
     case "worked_day_off":
