@@ -1,8 +1,9 @@
 "use client";
 
-import { Loader2Icon } from "lucide-react";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 
+import { ActionStatus } from "@/core/ui/action/action-status";
+import { useAction } from "@/core/ui/action/use-action";
 import { FormField } from "@/core/ui/composites/form-field";
 import { Button } from "@/core/ui/primitives/button";
 import {
@@ -22,6 +23,8 @@ import { STAGE_NAME_MAX } from "../domain/limits";
 /**
  * "Add a stage" (4.4), loaded on the first tap of Add stage (4B review S12). It stays mounted after
  * that, so a name typed before a back is still there on the next open (§14.2 f; 4B review L6).
+ * A create (ARCHITECTURE §14.1): after a lost reply it offers no Retry, which could add the stage
+ * twice.
  */
 export function AddStageDialog({
   open,
@@ -34,15 +37,8 @@ export function AddStageDialog({
 }) {
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
-
-  function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!name.trim()) {
-      setError("Name the stage.");
-      return;
-    }
-    startTransition(async () => {
+  const action = useAction(
+    async () => {
       const result = await addTaskStage({ taskId, name });
       if (!result.ok) {
         setError(result.error.fieldErrors?.name?.[0] ?? result.error.message);
@@ -51,7 +47,18 @@ export function AddStageDialog({
       toastResult(result, { success: "Stage added" });
       setName("");
       onClose();
-    });
+    },
+    { resetKey: open, creates: true },
+  );
+  const { pending } = action;
+
+  function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!name.trim()) {
+      setError("Name the stage.");
+      return;
+    }
+    action.run();
   }
 
   return (
@@ -78,12 +85,12 @@ export function AddStageDialog({
               />
             )}
           </FormField>
+          <ActionStatus action={action} />
           <DialogFooter>
             <Button type="button" variant="secondary" onClick={onClose} disabled={pending}>
               Cancel
             </Button>
-            <Button variant="primary" type="submit" disabled={pending} aria-busy={pending}>
-              {pending ? <Loader2Icon className="animate-spin" aria-hidden /> : null}
+            <Button variant="primary" type="submit" pending={pending} pendingLabel="Adding…">
               Add stage
             </Button>
           </DialogFooter>

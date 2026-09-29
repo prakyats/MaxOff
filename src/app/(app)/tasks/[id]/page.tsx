@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 import { ACTIVITY_LIMIT } from "@/core/activity";
 import { CustomFieldsView } from "@/core/custom-fields/components/custom-fields-view";
+import { startEarly } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
 import { requirePermission } from "@/core/permissions/server";
 import { formatIST, systemClock } from "@/core/time";
@@ -53,13 +54,16 @@ const WHEN = "d MMM, h:mm a";
 export default async function TaskPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!UUID.test(id)) notFound();
-  // The reads start with the session check and are awaited after it (ARCHITECTURE §19); the
-  // names follow them for anyone without `team.view` (`loadNames`: a genuine dependency).
+  // The task's reads are keyed by the URL, so they start with the session check and are awaited
+  // after it (ARCHITECTURE §19, `startEarly`). The names wait for the role (a genuine dependency):
+  // the Owner and Admins read the whole directory, anyone else only the people the task names, and
+  // starting both branches early would start Staff's whole-directory read, 2 s on a real volume
+  // (PROGRESS "4B mechanics" (1)).
   const reads = loadTask(id);
-  void reads.catch(() => undefined);
+  startEarly(reads);
   const viewer = await requirePermission("tasks.work");
   const namesRead = loadNames(can(viewer.role, "team.view"), reads);
-  void namesRead.catch(() => undefined);
+  startEarly(namesRead);
   const data = await reads;
   const { task } = data;
   if (!task) notFound();

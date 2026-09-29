@@ -8,7 +8,8 @@ import { linkSegments } from "../domain/links";
  * Text that may carry links (a Done note, a comment, a description; kickoff 4 decision 10): the
  * `http`/`https` addresses become links the reviewer taps, opening in a new tab with
  * `rel="noopener noreferrer"`, and everything else stays text. No markup is ever read from it:
- * each segment is rendered as a React text node or an anchor built here. A server component.
+ * each segment is rendered as a React text node or an anchor built here. A link takes the text
+ * link's pressed tint (`pressable-row`, ARCHITECTURE §14.1). A server component.
  */
 export function LinkedText({
   text,
@@ -29,7 +30,7 @@ export function LinkedText({
             target="_blank"
             rel="noopener noreferrer"
             data-slot="task-link"
-            className="text-foreground font-medium break-all underline underline-offset-2"
+            className="pressable-row text-foreground rounded-sm font-medium break-all underline underline-offset-2"
           >
             {segment.text}
           </a>

@@ -1,8 +1,9 @@
 "use client";
 
-import { Loader2Icon } from "lucide-react";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 
+import { ActionStatus } from "@/core/ui/action/action-status";
+import { useAction } from "@/core/ui/action/use-action";
 import { FormField } from "@/core/ui/composites/form-field";
 import { Button } from "@/core/ui/primitives/button";
 import {
@@ -40,21 +41,23 @@ export function ApproverDialog({
   onClose: () => void;
 }) {
   const [value, setValue] = useState(current ?? OWNER_APPROVES);
-  const [pending, startTransition] = useTransition();
   const unchanged = value === (current ?? OWNER_APPROVES);
+  // The choice is read when it runs, so a Retry sends the one on screen now.
+  const action = useAction(async () => {
+    const ok = toastResult(
+      await setTaskApprover({
+        taskId,
+        approvingAdminId: value === OWNER_APPROVES ? null : value,
+      }),
+      { success: "Approver changed" },
+    );
+    if (ok) onClose();
+  });
+  const { pending } = action;
 
   function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    startTransition(async () => {
-      const ok = toastResult(
-        await setTaskApprover({
-          taskId,
-          approvingAdminId: value === OWNER_APPROVES ? null : value,
-        }),
-        { success: "Approver changed" },
-      );
-      if (ok) onClose();
-    });
+    action.run();
   }
 
   return (
@@ -88,6 +91,7 @@ export function ApproverDialog({
               </Select>
             )}
           </FormField>
+          <ActionStatus action={action} />
           <DialogFooter>
             <Button type="button" variant="secondary" onClick={onClose} disabled={pending}>
               Cancel
@@ -95,10 +99,10 @@ export function ApproverDialog({
             <Button
               variant="primary"
               type="submit"
-              disabled={pending || unchanged}
-              aria-busy={pending}
+              disabled={unchanged}
+              pending={pending}
+              pendingLabel="Saving…"
             >
-              {pending ? <Loader2Icon className="animate-spin" aria-hidden /> : null}
               Save approver
             </Button>
           </DialogFooter>

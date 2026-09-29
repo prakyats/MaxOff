@@ -1,10 +1,11 @@
 "use client";
 
-import { Loader2Icon } from "lucide-react";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 
 import type { ResultError } from "@/core/errors/result";
 import { systemClock } from "@/core/time";
+import { ActionStatus } from "@/core/ui/action/action-status";
+import { useAction } from "@/core/ui/action/use-action";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { FormField } from "@/core/ui/composites/form-field";
 import { Button } from "@/core/ui/primitives/button";
@@ -25,7 +26,8 @@ import { NOTE_MAX, REASON_MAX } from "../domain/limits";
 /**
  * Done (WORKFLOWS §3.1, §3.3): an optional note whose http/https links the reviewer taps (the
  * hand-in until phase 8, kickoff 4 decision 10) and, past the deadline, the reason it is late
- * (required). A layer: back closes it.
+ * (required). A layer: back closes it. A state change (ARCHITECTURE §14.1): Retry after a lost
+ * reply is safe, because `task_submit_done` refuses a second Done.
  */
 export function DoneDialog({
   open,
@@ -49,28 +51,17 @@ export function DoneDialog({
     lateReason?: string | undefined;
   }>({});
   const [formError, setFormError] = useState<ResultError | null>(null);
-  const [pending, startTransition] = useTransition();
   // Read when the dialog renders: the deadline may pass while it is open, and the function
   // decides at the moment it runs (REASON_REQUIRED then shows under the field).
   const late = systemClock().getTime() > Date.parse(dueAt) || errors.lateReason !== undefined;
-
-  function close(next: boolean) {
-    if (pending) return;
-    if (!next) {
-      setErrors({});
-      setFormError(null);
-    }
-    onOpenChange(next);
-  }
-
-  function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const reason = lateReason.trim();
-    if (late && reason.length < 3) {
-      setErrors({ lateReason: "Say why it's late: a few words are enough." });
-      return;
-    }
-    startTransition(async () => {
+  // The inputs are read when it runs, so a Retry sends what is in the fields now.
+  const action = useAction(
+    async () => {
+      const reason = lateReason.trim();
+      if (late && reason.length < 3) {
+        setErrors({ lateReason: "Say why it's late: a few words are enough." });
+        return;
+      }
       const result = await submitDone({
         taskId,
         note: note.trim() || null,
@@ -91,7 +82,28 @@ export function DoneDialog({
       setNote("");
       setLateReason("");
       onOpenChange(false);
-    });
+    },
+    { resetKey: open },
+  );
+  const { pending } = action;
+
+  function close(next: boolean) {
+    if (pending) return;
+    if (!next) {
+      setErrors({});
+      setFormError(null);
+    }
+    onOpenChange(next);
+  }
+
+  function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const reason = lateReason.trim();
+    if (late && reason.length < 3) {
+      setErrors({ lateReason: "Say why it's late: a few words are enough." });
+      return;
+    }
+    action.run();
   }
 
   const summary = formError ? describeError(formError) : null;
@@ -146,6 +158,7 @@ export function DoneDialog({
               )}
             </FormField>
           ) : null}
+          <ActionStatus action={action} />
           <DialogFooter>
             <Button
               type="button"
@@ -155,8 +168,12 @@ export function DoneDialog({
             >
               Cancel
             </Button>
-            <Button variant="primary" type="submit" disabled={pending} aria-busy={pending}>
-              {pending ? <Loader2Icon className="animate-spin" aria-hidden /> : null}
+            <Button
+              variant="primary"
+              type="submit"
+              pending={pending}
+              pendingLabel={forName ? `Marking done for ${forName}…` : "Marking done…"}
+            >
               {forName ? `Mark done for ${forName}` : "Mark done"}
             </Button>
           </DialogFooter>

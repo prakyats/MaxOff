@@ -8,6 +8,8 @@ import type { FieldDefinition } from "@/core/custom-fields";
 import { CustomFieldsForm } from "@/core/custom-fields/components/custom-fields-form";
 import type { ResultError } from "@/core/errors/result";
 import { type ISODate, isISODate, systemClock, toISTDate } from "@/core/time";
+import { ActionStatus } from "@/core/ui/action/action-status";
+import { useAction } from "@/core/ui/action/use-action";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { FormField } from "@/core/ui/composites/form-field";
@@ -276,7 +278,6 @@ function TaskForm({
   const [errors, setErrors] = useState<DraftErrors>({});
   const [customErrors, setCustomErrors] = useState<Record<string, string[]>>({});
   const [formError, setFormError] = useState<ResultError | null>(null);
-  const [pending, setPending] = useState(false);
   const creating = mode.kind === "create";
 
   const type = loaded ? draftType(draft, loaded.types) : null;
@@ -339,6 +340,12 @@ function TaskForm({
         })
       : [];
 
+  // One request per tap, "Creating…" / "Saving…" at once, a slow or lost connection said under
+  // the form (ARCHITECTURE §14.1). A create offers no Retry after a lost reply: it could make the
+  // task twice. `send` reads the form when it runs, so a Retry of an edit sends what is on screen.
+  const action = useAction(send, { creates: creating });
+  const { pending } = action;
+
   if (!loaded) {
     return (
       <div className="flex flex-col gap-4">
@@ -393,13 +400,23 @@ function TaskForm({
     update(patch);
   }
 
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
+  function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!loaded || !type) return;
     const found = validateDraft(draft, type, { creating, now: systemClock() });
     setErrors(found);
     setCustomErrors({});
     if (Object.keys(found).length > 0 || checking) return;
+    action.run();
+  }
+
+  async function send() {
+    if (!loaded || !type) return;
+    const found = validateDraft(draft, type, { creating, now: systemClock() });
+    if (Object.keys(found).length > 0 || checking) {
+      setErrors(found);
+      return;
+    }
 
     const applies = definitions.map((definition) => definition.key);
     const after = taskFromDraft(
@@ -413,7 +430,6 @@ function TaskForm({
         details: warning.details,
       }));
 
-    setPending(true);
     onBusy(true);
     try {
       if (mode.kind === "create") {
@@ -452,7 +468,6 @@ function TaskForm({
       onLeave();
       closeOverlaysThen(onClose);
     } finally {
-      setPending(false);
       onBusy(false);
     }
   }
@@ -940,6 +955,8 @@ function TaskForm({
         </p>
       ) : null}
 
+      <ActionStatus action={action} />
+
       <DialogFooter className="sticky bottom-[calc(-1rem-var(--app-safe-bottom))] z-10 md:static">
         <Button type="button" variant="secondary" onClick={onCancel} disabled={pending}>
           Cancel
@@ -947,10 +964,10 @@ function TaskForm({
         <Button
           variant="primary"
           type="submit"
-          disabled={pending || checking || (!creating && !dirty)}
-          aria-busy={pending}
+          disabled={checking || (!creating && !dirty)}
+          pending={pending}
+          pendingLabel={creating ? "Creating…" : "Saving…"}
         >
-          {pending ? <Loader2Icon className="animate-spin" aria-hidden /> : null}
           {creating ? "Create task" : "Save changes"}
         </Button>
       </DialogFooter>

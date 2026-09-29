@@ -1,8 +1,9 @@
 "use client";
 
-import { Loader2Icon } from "lucide-react";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 
+import { ActionStatus } from "@/core/ui/action/action-status";
+import { useAction } from "@/core/ui/action/use-action";
 import { FormField } from "@/core/ui/composites/form-field";
 import { Button } from "@/core/ui/primitives/button";
 import {
@@ -31,6 +32,7 @@ const SELF = "__self__";
 /**
  * The "Add a comment" sheet (4.4), loaded on the first tap of its button (4B review S12). It stays
  * mounted after that, so a comment typed before a back is still there on the next open (§14.2 f).
+ * A create (ARCHITECTURE §14.1): after a lost reply it offers no Retry, which could post it twice.
  */
 export function TaskCommentDialog({
   open,
@@ -48,7 +50,24 @@ export function TaskCommentDialog({
   const [body, setBody] = useState("");
   const [writingFor, setWritingFor] = useState<string>(defaultFor ?? SELF);
   const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const action = useAction(
+    async () => {
+      const result = await addTaskComment({
+        taskId,
+        body,
+        onBehalfOf: writingFor === SELF ? null : writingFor,
+      });
+      if (!result.ok) {
+        setError(result.error.fieldErrors?.body?.[0] ?? result.error.message);
+        return;
+      }
+      toastResult(result, { success: "Comment added" });
+      setBody("");
+      onOpenChange(false);
+    },
+    { resetKey: open, creates: true },
+  );
+  const { pending } = action;
 
   function close(next: boolean) {
     if (pending) return;
@@ -62,20 +81,7 @@ export function TaskCommentDialog({
       setError("Write something first.");
       return;
     }
-    startTransition(async () => {
-      const result = await addTaskComment({
-        taskId,
-        body,
-        onBehalfOf: writingFor === SELF ? null : writingFor,
-      });
-      if (!result.ok) {
-        setError(result.error.fieldErrors?.body?.[0] ?? result.error.message);
-        return;
-      }
-      toastResult(result, { success: "Comment added" });
-      setBody("");
-      onOpenChange(false);
-    });
+    action.run();
   }
 
   return (
@@ -125,6 +131,7 @@ export function TaskCommentDialog({
               />
             )}
           </FormField>
+          <ActionStatus action={action} />
           <DialogFooter>
             <Button
               type="button"
@@ -134,8 +141,7 @@ export function TaskCommentDialog({
             >
               Cancel
             </Button>
-            <Button variant="primary" type="submit" disabled={pending} aria-busy={pending}>
-              {pending ? <Loader2Icon className="animate-spin" aria-hidden /> : null}
+            <Button variant="primary" type="submit" pending={pending} pendingLabel="Posting…">
               Post comment
             </Button>
           </DialogFooter>

@@ -1,9 +1,11 @@
 "use client";
 
-import { CheckIcon, Loader2Icon, PlayIcon } from "lucide-react";
+import { CheckIcon, PlayIcon } from "lucide-react";
 import dynamic from "next/dynamic";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 
+import { ActionStatus } from "@/core/ui/action/action-status";
+import { useAction } from "@/core/ui/action/use-action";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { ReasonDialog } from "@/core/ui/composites/reason-dialog";
 import { Button } from "@/core/ui/primitives/button";
@@ -22,7 +24,11 @@ const DoneDialog = dynamic(() => import("./task-done-dialog").then((module) => m
 
 type WorkActions = Pick<TaskActions, "note" | "start" | "done" | "review" | "takeOver">;
 
-/** 44px at least, and a long name ("Mark done for Asha Kumar") wraps instead of overflowing. */
+/**
+ * 44px at least, and a long name ("Mark done for Asha Kumar") wraps instead of overflowing. The
+ * pending label shares the label's grid cell (`Button`), so it wraps the same way and the button
+ * keeps its size when it switches.
+ */
 const ACTION = "h-auto min-h-11 py-2 text-center whitespace-normal";
 
 /**
@@ -31,7 +37,10 @@ const ACTION = "h-auto min-h-11 py-2 text-center whitespace-normal";
  * and the Owner's way past a waiting Admin. Only what the viewer may do now is shown; the
  * database decides again. The action colour rule: Task Noted is the screen's one solid red
  * commit; Mark done and Approve open a form or a confirmation (neutral solid), Request changes is
- * a red outline until its reason is sent.
+ * a red outline until its reason is sent. Task Noted, "Noted for Asha" and Start commit at the
+ * tap (ARCHITECTURE §14.1): one request per tap, a working label at once ("Noting…",
+ * "Starting…"), disabled offline, and a slow or lost connection said under the buttons with
+ * Retry, which is safe because the transition functions refuse a second note or start.
  */
 export function TaskWorkActions({
   taskId,
@@ -48,20 +57,23 @@ export function TaskWorkActions({
   approverName: string | null;
   primaryName: string;
 }) {
-  const [pending, startTransition] = useTransition();
+  // Which of the tap-to-commit buttons sent the request on its way (its label turns to the
+  // working one); every action waits while it is.
   const [busy, setBusy] = useState<string | null>(null);
   const [dialog, setDialog] = useState<"done" | "approve" | "reject" | "takeOver" | null>(null);
   const [doneLoaded, setDoneLoaded] = useState(false);
+  const action = useAction(async (work: () => Promise<unknown>) => {
+    await work();
+  });
+  const { pending } = action;
 
   const forName = (acting: ActingFor) =>
     acting.onBehalfOf ? (names[acting.onBehalfOf] ?? "them") : null;
 
-  function run(key: string, work: () => Promise<boolean>) {
+  function run(key: string, work: () => Promise<unknown>) {
+    if (pending) return;
     setBusy(key);
-    startTransition(async () => {
-      await work();
-      setBusy(null);
-    });
+    action.run(work);
   }
 
   const nothing =
@@ -83,8 +95,10 @@ export function TaskWorkActions({
             // The first Task Noted is the screen's commit; a second one (for a freelancer) is not.
             variant={index === 0 ? "primary" : "secondary"}
             className={ACTION}
-            disabled={pending}
-            aria-busy={busy === key}
+            commits
+            disabled={pending && busy !== key}
+            pending={pending && busy === key}
+            pendingLabel={who ? `Noting for ${who}…` : "Noting…"}
             onClick={() =>
               run(key, async () =>
                 toastResult(await acknowledgeTask({ taskId, onBehalfOf: acting.onBehalfOf }), {
@@ -93,11 +107,7 @@ export function TaskWorkActions({
               )
             }
           >
-            {busy === key ? (
-              <Loader2Icon className="animate-spin" aria-hidden />
-            ) : (
-              <CheckIcon aria-hidden />
-            )}
+            <CheckIcon aria-hidden />
             {who ? `Noted for ${who}` : "Task Noted"}
           </Button>
         );
@@ -122,8 +132,12 @@ export function TaskWorkActions({
         <Button
           variant="secondary"
           className={ACTION}
-          disabled={pending}
-          aria-busy={busy === "start"}
+          commits
+          disabled={pending && busy !== "start"}
+          pending={pending && busy === "start"}
+          pendingLabel={
+            forName(actions.start) ? `Starting for ${forName(actions.start)}…` : "Starting…"
+          }
           onClick={() => {
             const acting = actions.start as ActingFor;
             const who = forName(acting);
@@ -134,11 +148,7 @@ export function TaskWorkActions({
             );
           }}
         >
-          {busy === "start" ? (
-            <Loader2Icon className="animate-spin" aria-hidden />
-          ) : (
-            <PlayIcon aria-hidden />
-          )}
+          <PlayIcon aria-hidden />
           {forName(actions.start) ? `Start for ${forName(actions.start)}` : "Start work"}
         </Button>
       ) : null}
@@ -174,6 +184,7 @@ export function TaskWorkActions({
           Decide it yourself
         </Button>
       ) : null}
+      <ActionStatus action={action} className="sm:basis-full" />
 
       {actions.done && doneLoaded ? (
         <DoneDialog
