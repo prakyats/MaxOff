@@ -6,6 +6,7 @@ import { Dialog as DialogPrimitive } from "radix-ui";
 
 import { useOverlayOpenState } from "@/core/ui/overlay/overlay-history";
 import { Button } from "@/core/ui/primitives/button";
+import { ModalOpening, useModalOpening } from "@/core/ui/primitives/modal-opening";
 import { MODAL_FOOTER, MODAL_HANDLE, MODAL_SURFACE } from "@/core/ui/primitives/modal-surface";
 import { XIcon } from "lucide-react";
 
@@ -21,8 +22,11 @@ function Dialog({
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Root>) {
   const [isOpen, setOpen] = useOverlayOpenState({ open, defaultOpen, onOpenChange });
+  const opening = useModalOpening(isOpen);
   return (
-    <DialogPrimitive.Root data-slot="dialog" open={isOpen} onOpenChange={setOpen} {...props} />
+    <ModalOpening.Provider value={opening}>
+      <DialogPrimitive.Root data-slot="dialog" open={isOpen} onOpenChange={setOpen} {...props} />
+    </ModalOpening.Provider>
   );
 }
 
@@ -62,8 +66,10 @@ function DialogContent({
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean;
 }) {
+  // A fresh overlay and content per opening, overlay first (`modal-opening.ts`).
+  const opening = React.useContext(ModalOpening);
   return (
-    <DialogPortal>
+    <DialogPortal key={opening}>
       <DialogOverlay />
       <DialogPrimitive.Content
         data-slot="dialog-content"
