@@ -39,9 +39,6 @@ const DAY: HistoryDay = {
   finalStatus: "present",
   isDayOff: false,
   workedOnLeave: false,
-  firstLoginAt: "2026-09-24T03:40:00Z",
-  lastLogoutAt: null,
-  logoutNotRecorded: false,
   startedAt: null,
   endedAt: null,
   endNotRecorded: false,
@@ -52,25 +49,25 @@ const DAY: HistoryDay = {
 const day = (patch: Partial<HistoryDay>): HistoryDay => ({ ...DAY, ...patch });
 
 describe("dayTimes (3b.1, kickoff 3b decision 31)", () => {
-  it("shows the Start day and End day taps, and the 2.x sign-in times for older days", () => {
+  it("shows the Start day and End day taps", () => {
     expect(
       dayTimes(day({ startedAt: "2026-09-24T03:42:00Z", endedAt: "2026-09-24T13:00:00Z" })),
     ).toEqual({
       start: "9:12 am",
       end: "6:30 pm",
     });
-    expect(dayTimes(day({ lastLogoutAt: "2026-09-24T12:30:00Z" }))).toEqual({
+    expect(dayTimes(day({ startedAt: "2026-09-24T03:40:00Z" }))).toEqual({
       start: "9:10 am",
-      end: "6:00 pm",
+      end: "—",
     });
-    expect(dayTimes(day({ firstLoginAt: null }))).toEqual({ start: "—", end: "—" });
+    expect(dayTimes(day({}))).toEqual({ start: "—", end: "—" });
   });
 
   it("names the nightly flag instead of a time that never came", () => {
     expect(dayTimes(day({ startedAt: "2026-09-24T03:42:00Z", endNotRecorded: true })).end).toBe(
       "not recorded",
     );
-    expect(dayTimes(day({ logoutNotRecorded: true })).end).toBe("not recorded");
+    expect(dayTimes(day({ endNotRecorded: true })).end).toBe("not recorded");
   });
 });
 
@@ -212,9 +209,8 @@ describe("describeHistoryDay", () => {
 
   it("flags what is worth seeing without opening the day", () => {
     expect(
-      describeHistoryDay(day({ isDayOff: true, overtimeFlag: true, logoutNotRecorded: true }))
-        .flags,
-    ).toEqual(["Worked on a day off", "Overtime", "Logout not recorded"]);
+      describeHistoryDay(day({ isDayOff: true, overtimeFlag: true, endNotRecorded: true })).flags,
+    ).toEqual(["Worked on a day off", "Overtime", "End of day not recorded"]);
     expect(describeHistoryDay(day({ endNotRecorded: true })).flags).toEqual([
       "End of day not recorded",
     ]);

@@ -16,6 +16,7 @@ import { getClaimSetup } from "@/modules/expenses";
 import { EndDayClaims } from "@/modules/expenses/components/end-day-claims";
 
 import { PlaceholderPage } from "../_placeholder/placeholder-page";
+import { dayStandIn } from "../_placeholder/stand-ins";
 
 export const metadata: Metadata = { title: "Today" };
 
@@ -25,6 +26,8 @@ export const metadata: Metadata = { title: "Today" };
  * polish; Start day / End day since 3b.1). The Owner has no day of their own; since 2.4 they
  * get **Today's attendance** (the four counts, tapping through to Approvals) and the **people
  * board** under it (`attendance.view_all`). Both stay when 6.2 builds the rest of the screen.
+ * The stand-in below follows the viewer's role, so a Staff member who types the URL reads about
+ * their own day, not an Admin's clients (3cB review).
  */
 export default async function TodayPage() {
   const viewer = await requireMember();
@@ -36,8 +39,7 @@ export default async function TodayPage() {
     <PlaceholderPage
       greet={viewer.name}
       title="Today"
-      description="What needs to happen next: approvals, people, today's tasks and risks."
-      task="6.2 (Owner) and 6.3 (Admin)"
+      copy={dayStandIn(viewer.role)}
       icon={LayoutDashboardIcon}
     >
       {marksAttendance ? (

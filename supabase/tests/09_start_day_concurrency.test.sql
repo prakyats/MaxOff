@@ -1,11 +1,13 @@
--- 2.2 Two devices at once (WORKFLOWS §1 "Settled in 2.2"): attendance_touch() is serialised per
--- member, so a phone and a laptop opening the app at the same instant give one day and ONE
--- session_events(login). One pgTAP session cannot prove that, so this file opens two more real
--- connections with dblink and orders them deterministically:
---   A touches and keeps its transaction open; B touches and must be WAITING ON THE ADVISORY LOCK
+-- 3b.1 / 3c.1 Two devices at once (WORKFLOWS §1): attendance_start_day() is serialised per
+-- member by the leave: advisory lock, so a phone and a laptop tapping Start day at the same
+-- instant give ONE day, ONE started event and one start time; the second tap is told the day has
+-- already started. (Until the 3c.1 contract migration this file proved the same for the 2.x
+-- attendance_touch(), which is gone.) One pgTAP session cannot prove that, so this file opens two
+-- more real connections with dblink and orders them deterministically:
+--   A starts and keeps its transaction open; B starts and must be WAITING ON THE ADVISORY LOCK
 --   (polled in pg_stat_activity with a bounded timeout, no fixed sleep); A commits; B finishes.
--- Without the lock B would insert its own login row and only block later on the day's unique key,
--- which is exactly the double login this file refuses.
+-- Without the lock B would open its own row and only block later on the day's unique key, and
+-- both taps would write a start.
 --
 -- The other connections cannot see this file's uncommitted rows, so the fixture member is
 -- COMMITTED through a third connection and removed again at the start and at the end (a failed
@@ -73,9 +75,14 @@ select extensions.dblink_connect('c0', pg_temp.conninfo());
 select extensions.dblink_connect('a', pg_temp.conninfo());
 select extensions.dblink_connect('b', pg_temp.conninfo());
 
--- A committed staff member who joined a month ago (so the gate asks today).
+-- A committed staff member who joined a month ago (so attendance has started). Today is a
+-- working day for this file: the weekly off days are cleared on c0 and put back at the end.
 select pg_temp.cleanup();
+create temporary table saved as
+  select * from extensions.dblink('c0', 'select weekly_off_days::text from public.org_settings limit 1') as t(days text);
 select extensions.dblink_exec('c0', format($q$
+  update public.org_settings set weekly_off_days = '{}';
+  delete from public.holidays where date = app.today_ist();
   insert into auth.users (id, email) values (%1$L, 'concurrency@example.com');
   insert into public.members (id, org_id, full_name, email, role, status, joined_at)
   values (%1$L, (select id from public.organizations limit 1), 'Two Devices',
@@ -86,41 +93,58 @@ create temporary table b_pid as
   select pid from extensions.dblink('b', 'select pg_backend_pid()') as t(pid integer);
 create temporary table result (device text, day_id uuid);
 
--- A: the laptop touches first and holds its transaction open.
+-- A: the laptop starts first and holds its transaction open.
 select pg_temp.begin_as_member('a');
 insert into result
-  select 'a', day_id from extensions.dblink('a', 'select day_id from public.attendance_touch()') as t(day_id uuid);
+  select 'a', day_id from extensions.dblink('a', 'select public.attendance_start_day()') as t(day_id uuid);
 
--- B: the phone touches at the same instant.
+-- B: the phone starts at the same instant.
 select pg_temp.begin_as_member('b');
-select is(extensions.dblink_send_query('b', 'select day_id from public.attendance_touch()'), 1,
-  'the second device sends its touch while the first is still open');
+select is(extensions.dblink_send_query('b', 'select public.attendance_start_day()'), 1,
+  'the second device sends its Start day while the first is still open');
 select is(pg_temp.lock_wait_of((select pid from b_pid)), 'advisory',
-  'the second touch waits on the member''s touch lock, before writing anything');
-select is((select count(*) from public.session_events where member_id = pg_temp.member()), 0::bigint,
+  'the second start waits on the member''s leave: lock, before writing anything');
+select is((select count(*) from public.attendance_days where member_id = pg_temp.member()), 0::bigint,
   'nothing is committed yet by either device');
 
--- A commits; B continues and finds A's login and day.
+-- A commits; B continues, finds A's started day and is refused.
 select extensions.dblink_exec('a', 'commit');
-insert into result
-  select 'b', day_id from extensions.dblink_get_result('b') as t(day_id uuid);
-select is((select count(*) from extensions.dblink_get_result('b') as t(day_id uuid)), 0::bigint,
-  'the second touch returned exactly one row');
-select extensions.dblink_exec('b', 'commit');
+create temporary table b_error (message text);
+do $$
+begin
+  insert into result select 'b', day_id from extensions.dblink_get_result('b') as t(day_id uuid);
+exception when others then
+  insert into b_error values (sqlerrm);
+end;
+$$;
+select is((select message from b_error), 'INVALID_STATE', 'the second tap is refused: the day has already started');
+do $$
+begin
+  perform * from extensions.dblink_get_result('b', false) as t(day_id uuid);
+exception when others then
+  null;
+end;
+$$;
+select extensions.dblink_exec('b', 'rollback');
 
-select is((select count(*) from public.session_events where member_id = pg_temp.member() and kind = 'login'), 1::bigint,
-  'two devices at once: exactly one login row');
 select is((select count(*) from public.attendance_days where member_id = pg_temp.member()), 1::bigint,
-  'and exactly one day');
-select is((select count(distinct day_id) from result where day_id is not null), 1::bigint,
-  'both devices were handed the same day');
-select is((select count(*) from result), 2::bigint, 'and both got an answer');
+  'two devices at once: exactly one day');
+select is((select count(*) from public.attendance_events where action = 'started'
+             and attendance_day_id in (select id from public.attendance_days where member_id = pg_temp.member())),
+  1::bigint, 'and exactly one started event');
+select is((select count(*) from result where day_id is not null), 1::bigint,
+  'one device was handed the day');
 select is(
   (select count(*) from public.activity_log where entity = 'attendance_days' and action = 'opened'
      and entity_id in (select id from public.attendance_days where member_id = pg_temp.member())),
   1::bigint, 'the day was opened once, audited once');
+select is(
+  (select count(*) from public.activity_log where entity = 'attendance_days' and action = 'started'
+     and entity_id in (select id from public.attendance_days where member_id = pg_temp.member())),
+  1::bigint, 'and started once');
 
 select pg_temp.cleanup();
+select extensions.dblink_exec('c0', format('update public.org_settings set weekly_off_days = %L', (select days from saved)));
 select extensions.dblink_disconnect('a');
 select extensions.dblink_disconnect('b');
 select extensions.dblink_disconnect('c0');

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { PROMPT_LEAVE_CHOICES } from "../domain/choices";
+import { compLeaveOption, PROMPT_LEAVE_CHOICES } from "../domain/choices";
 import { chooseLeaveTodaySchema, submitNoteSchema } from "../domain/schemas";
 import {
   dayLabel,
@@ -27,7 +27,6 @@ const BASE_DAY: TodayDay = {
   startedAt: null,
   endedAt: null,
   endNotRecorded: false,
-  firstLoginAt: null,
 };
 
 const BASE: OwnToday = {
@@ -58,12 +57,8 @@ describe("promptDue (PRODUCT §4.2, kickoff 3b decision 3)", () => {
     expect(promptDue(withDay({ isDayOff: true }))).toBe(false);
     expect(promptDue(withDay({ state: "pending_review", submittedChoice: "present" }))).toBe(false);
     expect(promptDue(withDay({ state: "pending_review", submittedChoice: "leave" }))).toBe(false);
-    // A 2.x gate choice on the shared staging database counts as recorded (decision 28).
-    expect(
-      promptDue(
-        withDay({ state: "pending_review", submittedChoice: "present", firstLoginAt: STARTED }),
-      ),
-    ).toBe(false);
+    // A Present recorded without a start (an Owner correction, say) counts as recorded.
+    expect(promptDue(withDay({ state: "pending_review", submittedChoice: "present" }))).toBe(false);
   });
 
   it("never asks on a day of approved leave, full or half, whether or not a row exists yet", () => {
@@ -148,11 +143,9 @@ describe("describeTodayStrip", () => {
     ).toBe("Present · ended 6:30 pm · approved");
   });
 
-  it("offers Start day on a Present recorded without one (a 2.x gate choice, decision 28)", () => {
+  it("offers Start day on a Present recorded without one (an Owner correction, say)", () => {
     expect(
-      describeTodayStrip(
-        withDay({ state: "pending_review", submittedChoice: "present", firstLoginAt: STARTED }),
-      ),
+      describeTodayStrip(withDay({ state: "pending_review", submittedChoice: "present" })),
     ).toEqual({
       kind: "status",
       text: "Present · waiting for approval",
@@ -310,5 +303,35 @@ describe("schemas", () => {
         durationMinutes: 45,
       }).success,
     ).toBe(false);
+  });
+});
+
+describe("compLeaveOption (3c review: the Owner's comp leave uses a credit)", () => {
+  it("greys comp leave out when the person has no credit, and says to grant one", () => {
+    expect(compLeaveOption(0, null, "Asha")).toEqual({
+      disabled: true,
+      hint: "Asha has no comp leave credit: grant one first from their Leave tab.",
+    });
+    expect(compLeaveOption(0, "leave", "Asha").disabled).toBe(true);
+  });
+
+  it("names the balance when there is one", () => {
+    expect(compLeaveOption(1, null, "Asha")).toEqual({
+      disabled: false,
+      hint: "Asha has 1 day of comp leave.",
+    });
+    expect(compLeaveOption(0.5, null, "Asha").hint).toBe("Asha has ½ day of comp leave.");
+    expect(compLeaveOption(1.5, "half_day", "Asha").hint).toBe("Asha has 1½ days of comp leave.");
+  });
+
+  it("keeps a day that already is comp leave choosable: correcting it again uses no credit", () => {
+    expect(compLeaveOption(0, "comp_leave", "Asha")).toEqual({
+      disabled: false,
+      hint: "Asha's day is already comp leave, so no new credit is used.",
+    });
+  });
+
+  it("stays choosable with no hint where the balance is unknown (Approvals): the database refuses", () => {
+    expect(compLeaveOption(null, null, "Asha")).toEqual({ disabled: false, hint: null });
   });
 });

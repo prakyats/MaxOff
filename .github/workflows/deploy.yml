@@ -6,7 +6,9 @@
 #             all three required checks (CI does not run on tags, so the job reads the commit's
 #             check runs). Until the `production` GitHub environment is filled in, a tag push
 #             fails at the build or migration step with the missing name in the log; nothing is
-#             deployed.
+#             deployed. Both jobs end with `scripts/smoke-deploy.sh` against the deployed
+#             address (3c.1): health route, security headers on a proxy redirect, and on
+#             production the workers.dev → app.maxoff.in redirect.
 #
 # Every value comes from the GitHub *environment* of the same name (Settings → Environments).
 # Secrets and variables are listed in README → "Deploying". Secrets are given only to the step
@@ -92,17 +94,15 @@ jobs:
             exit 1
           fi
           # Optional ones are included only when set: without SESSION_IP_HASH_SALT
-          # session_events.ip_hash stays null, without DAY_GATE_COOKIE_SECRET the day gate asks
-          # the database on every page load (task 2.2); neither fails the deploy. The R2 set
-          # (task 3.3: S3_* from the environment's R2 token, bucket and account) and CRON_SECRET
-          # are optional the same way until production's R2 exists: without them a deployed
-          # app refuses uploads with "File storage is not configured" and the cron route
-          # answers 401 (reported once to Sentry).
+          # session_events.ip_hash stays null, which never fails the deploy. (DAY_GATE_COOKIE_SECRET
+          # went with the 2.x day gate: the 3c.1 contract migration.) The R2 set (task 3.3: S3_*
+          # from the environment's R2 token, bucket and account) and CRON_SECRET are optional the
+          # same way: without them a deployed app refuses uploads with "File storage is not
+          # configured" and the cron route answers 401 (reported once to Sentry).
           umask 077
           jq -n \
             --arg supabase "$SUPABASE_SECRET_KEY" \
             --arg salt "$SESSION_IP_HASH_SALT" \
-            --arg gate "$DAY_GATE_COOKIE_SECRET" \
             --arg s3_endpoint "https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com" \
             --arg s3_bucket "$R2_BUCKET" \
             --arg s3_key "$R2_ACCESS_KEY_ID" \
@@ -110,7 +110,6 @@ jobs:
             --arg cron "$CRON_SECRET" \
             '{SUPABASE_SECRET_KEY: $supabase}
              + (if $salt == "" then {} else {SESSION_IP_HASH_SALT: $salt} end)
-             + (if $gate == "" then {} else {DAY_GATE_COOKIE_SECRET: $gate} end)
              + (if $s3_key == "" or $s3_secret == "" or $s3_bucket == "" then {}
                 else {S3_ENDPOINT: $s3_endpoint, S3_BUCKET: $s3_bucket, S3_ACCESS_KEY_ID: $s3_key,
                       S3_SECRET_ACCESS_KEY: $s3_secret, S3_REGION: "auto"} end)
@@ -120,7 +119,6 @@ jobs:
         env:
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
           SESSION_IP_HASH_SALT: ${{ secrets.SESSION_IP_HASH_SALT }}
-          DAY_GATE_COOKIE_SECRET: ${{ secrets.DAY_GATE_COOKIE_SECRET }}
           R2_ACCOUNT_ID: ${{ vars.R2_ACCOUNT_ID }}
           R2_BUCKET: ${{ vars.R2_BUCKET }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
@@ -139,6 +137,15 @@ jobs:
       - name: Remove the Worker secrets file
         if: always()
         run: rm -f .wrangler-secrets.json
+
+      # What the Worker really answers (3c.1): the health route reaches the database, and a
+      # redirect the proxy answers itself carries the security headers (they are set in
+      # `updateSession()`, because `next.config.ts`'s rule does not reach a proxy redirect on the
+      # Worker). Runs against the deployed address, never `next start`.
+      - name: Smoke-check the deployed Worker
+        env:
+          APP_URL: ${{ vars.NEXT_PUBLIC_APP_URL }}
+        run: bash scripts/smoke-deploy.sh "$APP_URL"
 
   production:
     name: production
@@ -229,17 +236,15 @@ jobs:
             exit 1
           fi
           # Optional ones are included only when set: without SESSION_IP_HASH_SALT
-          # session_events.ip_hash stays null, without DAY_GATE_COOKIE_SECRET the day gate asks
-          # the database on every page load (task 2.2); neither fails the deploy. The R2 set
-          # (task 3.3: S3_* from the environment's R2 token, bucket and account) and CRON_SECRET
-          # are optional the same way until production's R2 exists: without them a deployed
-          # app refuses uploads with "File storage is not configured" and the cron route
-          # answers 401 (reported once to Sentry).
+          # session_events.ip_hash stays null, which never fails the deploy. (DAY_GATE_COOKIE_SECRET
+          # went with the 2.x day gate: the 3c.1 contract migration.) The R2 set (task 3.3: S3_*
+          # from the environment's R2 token, bucket and account) and CRON_SECRET are optional the
+          # same way: without them a deployed app refuses uploads with "File storage is not
+          # configured" and the cron route answers 401 (reported once to Sentry).
           umask 077
           jq -n \
             --arg supabase "$SUPABASE_SECRET_KEY" \
             --arg salt "$SESSION_IP_HASH_SALT" \
-            --arg gate "$DAY_GATE_COOKIE_SECRET" \
             --arg s3_endpoint "https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com" \
             --arg s3_bucket "$R2_BUCKET" \
             --arg s3_key "$R2_ACCESS_KEY_ID" \
@@ -247,7 +252,6 @@ jobs:
             --arg cron "$CRON_SECRET" \
             '{SUPABASE_SECRET_KEY: $supabase}
              + (if $salt == "" then {} else {SESSION_IP_HASH_SALT: $salt} end)
-             + (if $gate == "" then {} else {DAY_GATE_COOKIE_SECRET: $gate} end)
              + (if $s3_key == "" or $s3_secret == "" or $s3_bucket == "" then {}
                 else {S3_ENDPOINT: $s3_endpoint, S3_BUCKET: $s3_bucket, S3_ACCESS_KEY_ID: $s3_key,
                       S3_SECRET_ACCESS_KEY: $s3_secret, S3_REGION: "auto"} end)
@@ -257,7 +261,6 @@ jobs:
         env:
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
           SESSION_IP_HASH_SALT: ${{ secrets.SESSION_IP_HASH_SALT }}
-          DAY_GATE_COOKIE_SECRET: ${{ secrets.DAY_GATE_COOKIE_SECRET }}
           R2_ACCOUNT_ID: ${{ vars.R2_ACCOUNT_ID }}
           R2_BUCKET: ${{ vars.R2_BUCKET }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
@@ -276,3 +279,9 @@ jobs:
       - name: Remove the Worker secrets file
         if: always()
         run: rm -f .wrangler-secrets.json
+
+      # As on staging, plus the workers.dev address must send visitors to the custom domain.
+      - name: Smoke-check the deployed Worker
+        env:
+          APP_URL: ${{ vars.NEXT_PUBLIC_APP_URL }}
+        run: bash scripts/smoke-deploy.sh "$APP_URL" https://maxoff.pixoraclips.workers.dev

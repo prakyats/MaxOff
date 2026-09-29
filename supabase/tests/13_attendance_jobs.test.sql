@@ -2,11 +2,11 @@
 -- boundaries, the pg_cron rows, app.absent_check on every path (a working day, a weekly off day, a
 -- holiday, no organization in scope, the Owner, a deactivated and an invited person, someone
 -- whose attendance has not started, every day state, idempotency, the 7-day catch-up, the guard
--- on a day still running), app.logout_not_recorded (flagged, not flagged, other dates, twice,
--- the guard) and the late logout that clears the flag.
+-- on a day still running). app.logout_not_recorded went with the 2.x gate (3c.1 contract
+-- migration); its successor app.end_not_recorded is 24's.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(86);
+select plan(64);
 
 -- Fixtures as 07: keep the organization, replace the people. Rolled back at the end.
 delete from public.attendance_events;
@@ -93,19 +93,19 @@ $$;
 -- Fixture rows written as the owner (in_transition() is true, so the guards pass).
 create function pg_temp.mk_day(
   k text, d date, st public.attendance_state, ch public.attendance_choice, fs public.day_status,
-  proposed boolean, login boolean default true, day_off boolean default false, logout boolean default false)
+  proposed boolean, started boolean default true, day_off boolean default false, ended boolean default false)
 returns uuid language plpgsql as $$
 declare v uuid;
 begin
   insert into public.attendance_days (
-    member_id, work_date, first_login_at, is_day_off, state, submitted_choice, submitted_at,
-    proposed_by_system, final_status, decided_at, decided_by, last_logout_at)
+    member_id, work_date, started_at, is_day_off, state, submitted_choice, submitted_at,
+    proposed_by_system, final_status, decided_at, decided_by, ended_at)
   values (
-    pg_temp.fx(k), d, case when login then app.ist_day_start(d) + interval '9 hours' end, day_off, st, ch,
+    pg_temp.fx(k), d, case when started then app.ist_day_start(d) + interval '9 hours' end, day_off, st, ch,
     case when ch is not null then app.ist_day_start(d) + interval '9 hours' end, proposed, fs,
     case when st in ('approved', 'corrected') then now() end,
     case when st in ('approved', 'corrected') and not proposed then pg_temp.fx('owner') end,
-    case when logout then app.ist_day_start(d) + interval '18 hours' end)
+    case when ended then app.ist_day_start(d) + interval '18 hours' end)
   returning id into v;
   return v;
 end;
@@ -150,27 +150,24 @@ delete from public.activity_log; -- the fixture writes are not under test
 
 -- Structure and grants ---------------------------------------------------------------------------
 select has_function('app', 'job_day', array['timestamp with time zone', 'time without time zone'], 'app.job_day exists');
-select has_function('app', 'attendance_open_day', array['uuid', 'date', 'timestamp with time zone'], 'app.attendance_open_day exists');
+select has_function('app', 'attendance_open_day', array['uuid', 'date'], 'app.attendance_open_day exists (3c.1: no sign-in argument)');
 select has_function('app', 'absent_check', array['date'], 'app.absent_check exists');
-select has_function('app', 'logout_not_recorded', array['date'], 'app.logout_not_recorded exists');
+select hasnt_function('app', 'logout_not_recorded', array['date'], 'app.logout_not_recorded is gone (3c.1)');
 select ok(
   not has_function_privilege('authenticated', 'app.absent_check(date)', 'execute')
-  and not has_function_privilege('authenticated', 'app.logout_not_recorded(date)', 'execute')
-  and not has_function_privilege('authenticated', 'app.attendance_open_day(uuid, date, timestamptz)', 'execute')
+  and not has_function_privilege('authenticated', 'app.attendance_open_day(uuid, date)', 'execute')
   and not has_function_privilege('anon', 'app.absent_check(date)', 'execute'),
   'the API role cannot run a job or open another member''s day');
 select ok(
   has_function_privilege('service_role', 'app.absent_check(date)', 'execute')
-  and has_function_privilege('service_role', 'app.logout_not_recorded(date)', 'execute')
   and has_function_privilege('authenticated', 'app.job_day(timestamptz, time)', 'execute'),
   'service_role may run the jobs; job_day is a plain helper');
 
 select results_eq(
   $$ select jobname::text, schedule, command, active from cron.job
      where jobname in ('absent_check', 'logout_not_recorded') order by jobname $$,
-  $$ values ('absent_check', '29 18 * * *', 'select app.absent_check()', true),
-            ('logout_not_recorded', '30 18 * * *', 'select app.logout_not_recorded()', true) $$,
-  'pg_cron runs absent_check at 23:59 IST and logout_not_recorded at 00:00 IST');
+  $$ values ('absent_check', '29 18 * * *', 'select app.absent_check()', true) $$,
+  'pg_cron runs absent_check at 23:59 IST; the logout_not_recorded row is gone (3c.1)');
 
 -- job_day: the IST boundaries ------------------------------------------------------------------
 select is(app.job_day('2026-09-25 18:29:00+00', '23:59'), date '2026-09-25', '23:59 IST is that day');
@@ -238,12 +235,12 @@ select is((select count(*) from run1 where member_id in (select id from fx where
 select is((select count(*) from public.attendance_days where member_id in (select id from fx where key in ('owner', 'newbie', 'leaver', 'invited'))),
   0::bigint, 'no day was opened for the Owner, the newcomer, the deactivated or the invited person');
 
--- staff: no row -> a proposed absence with no login.
+-- staff: no row -> a proposed absence with no start.
 select results_eq(
-  format($$ select state::text, final_status::text, proposed_by_system, submitted_choice::text, first_login_at, is_day_off, decided_by
+  format($$ select state::text, final_status::text, proposed_by_system, submitted_choice::text, started_at, is_day_off, decided_by
             from public.attendance_days where id = %L $$, pg_temp.day_on('staff', pg_temp.d(-1))),
   $$ values ('pending_review', 'absent', true, null::text, null::timestamptz, false, null::uuid) $$,
-  'no row: pending_review, absent, proposed by the system, no login');
+  'no row: pending_review, absent, proposed by the system, no start');
 select is(pg_temp.events(pg_temp.day_on('staff', pg_temp.d(-1))), '{proposed_absent}', 'no row: one proposed_absent event');
 select is(pg_temp.audit_actions(pg_temp.day_on('staff', pg_temp.d(-1))), '{proposed_absent}', 'no row: one audit row, labelled proposed_absent');
 select is((select actor_id from public.activity_log where entity = 'attendance_days' and entity_id = pg_temp.day_on('staff', pg_temp.d(-1))),
@@ -251,21 +248,21 @@ select is((select actor_id from public.activity_log where entity = 'attendance_d
 select is((select to_status::text from public.attendance_events where attendance_day_id = pg_temp.day_on('staff', pg_temp.d(-1))),
   'absent', 'the event says absent');
 
--- staff2: awaiting_choice -> proposed, the login kept.
+-- staff2: awaiting_choice -> proposed.
 select results_eq(
-  format($$ select state::text, final_status::text, proposed_by_system, first_login_at is not null
+  format($$ select state::text, final_status::text, proposed_by_system, started_at is not null
             from public.attendance_days where id = %L $$, pg_temp.day_on('staff2', pg_temp.d(-1))),
   $$ values ('pending_review', 'absent', true, true) $$,
-  'awaiting_choice counts as no submission: proposed, first_login_at kept');
+  'awaiting_choice counts as no submission: proposed, the row''s start kept');
 select is(pg_temp.events(pg_temp.day_on('staff2', pg_temp.d(-1))), '{proposed_absent}', 'awaiting_choice: one proposed_absent event');
 select is(pg_temp.audit_actions(pg_temp.day_on('staff2', pg_temp.d(-1))), '{proposed_absent}', 'awaiting_choice: one audit row');
 
--- worker: approved leave, never logged in -> a derived day, never proposed absent.
+-- worker: approved leave, never started -> a derived day, never proposed absent.
 select results_eq(
-  format($$ select state::text, final_status::text, proposed_by_system, first_login_at, leave_request_id is not null, decided_at is not null
+  format($$ select state::text, final_status::text, proposed_by_system, started_at, leave_request_id is not null, decided_at is not null
             from public.attendance_days where id = %L $$, pg_temp.day_on('worker', pg_temp.d(-1))),
   $$ values ('approved', 'leave', true, null::timestamptz, true, true) $$,
-  'approved leave becomes an approved leave day with no login');
+  'approved leave becomes an approved leave day with no start');
 select is(pg_temp.events(pg_temp.day_on('worker', pg_temp.d(-1))), '{derived_from_leave}', 'leave: one derived_from_leave event');
 select is(pg_temp.audit_actions(pg_temp.day_on('worker', pg_temp.d(-1))), '{derived_from_leave}', 'leave: one audit row, labelled derived_from_leave');
 
@@ -299,42 +296,38 @@ select results_eq(
   'approved absent, decided by the Owner');
 select is(pg_temp.events(pg_temp.day_on('staff', pg_temp.d(-1))), '{proposed_absent,approved}', 'the history reads proposed, then approved');
 
--- attendance_touch on a day the job opened: first_login_at is set, nothing else moves. (The job
--- never opens today's day before 23:59, so the row is arranged; the touch path is the one 2.5
--- re-created.)
+-- attendance_start_day on a day the job opened: the proposal stands, the start is added (the job
+-- never opens today's day before 23:59, so the row is arranged).
 select pg_temp.mk_day('fresh', app.today_ist(), 'pending_review', null, 'absent', true, false);
 delete from public.activity_log;
 select pg_temp.as_member('fresh');
-select results_eq(
-  $$ select state::text, gate_required, final_status::text, proposed_by_system from public.attendance_touch() $$,
-  $$ values ('pending_review', false, 'absent', true) $$,
-  'touch on a job-opened day: no gate, the proposal stands');
+select throws_ok($$ select public.attendance_start_day() $$, 'P0001', 'INVALID_STATE',
+  'Start day on a proposed absence is refused: the Owner decides it');
 select pg_temp.as_system();
-select ok((select first_login_at is not null from public.attendance_days where id = pg_temp.day_on('fresh', app.today_ist())),
-  'touch stamps first_login_at on the job-opened day');
-select is(pg_temp.audit_actions(pg_temp.day_on('fresh', app.today_ist())), '{first_login}', 'audited as first_login');
-select is((select count(*) from public.session_events where member_id = pg_temp.fx('fresh') and kind = 'login'), 1::bigint,
-  'and the login event is recorded');
+select is((select started_at from public.attendance_days where id = pg_temp.day_on('fresh', app.today_ist())), null,
+  'and no start is written');
 
--- attendance_touch still opens today's day the 2.4 way (through app.attendance_open_day).
+-- attendance_start_day opens today's day through app.attendance_open_day.
 select pg_temp.as_member('staff');
-select results_eq(
-  $$ select state::text, gate_required from public.attendance_touch() $$,
-  $$ values ('awaiting_choice', true) $$,
-  'touch opens today''s day awaiting a choice');
+select lives_ok($$ select public.attendance_start_day() $$, 'Start day opens today''s day');
 select pg_temp.as_system();
-select ok((select first_login_at is not null from public.attendance_days where id = pg_temp.day_on('staff', app.today_ist())), 'with the login time');
-select is(pg_temp.audit_actions(pg_temp.day_on('staff', app.today_ist())), '{opened}', 'audited as opened');
+select results_eq(
+  $$ select state::text, started_at is not null from public.attendance_days where id = pg_temp.day_on('staff', app.today_ist()) $$,
+  $$ values ('pending_review', true) $$,
+  'as Present waiting for the Owner, with the start');
+select is(pg_temp.audit_actions(pg_temp.day_on('staff', app.today_ist())), '{opened,started}', 'audited as opened then started');
 insert into public.leave_requests (member_id, type, start_date, end_date, state, source, decided_by, decided_at)
 values (pg_temp.fx('worker'), 'half_day', app.today_ist(), app.today_ist(), 'approved', 'form', pg_temp.fx('owner'), now());
 select pg_temp.as_member('worker');
-select results_eq(
-  $$ select state::text, gate_required, final_status::text, proposed_by_system, leave_request_id is not null from public.attendance_touch() $$,
-  $$ values ('approved', false, 'half_day', true, true) $$,
-  'touch derives today''s day from approved leave');
+select lives_ok($$ select public.attendance_start_day() $$, 'Start day on an approved half day');
 select pg_temp.as_system();
-select is(pg_temp.events(pg_temp.day_on('worker', app.today_ist())), '{derived_from_leave}', 'with the derived_from_leave event');
-select is(pg_temp.audit_actions(pg_temp.day_on('worker', app.today_ist())), '{derived_from_leave}', 'and audit row');
+select results_eq(
+  $$ select state::text, final_status::text, proposed_by_system, leave_request_id is not null, started_at is not null
+     from public.attendance_days where id = pg_temp.day_on('worker', app.today_ist()) $$,
+  $$ values ('approved', 'half_day', true, true, true) $$,
+  'the day is derived from the approved leave and the start recorded');
+select is(pg_temp.events(pg_temp.day_on('worker', app.today_ist())), '{derived_from_leave,started}', 'with the derived_from_leave and started events');
+select is(pg_temp.audit_actions(pg_temp.day_on('worker', app.today_ist())), '{derived_from_leave,started}', 'and audit rows');
 
 -- absent_check: the 7-day catch-up -------------------------------------------------------------
 -- A missed night: nobody has a row on L-2 (or L-3 .. L-6). The default run covers L-6 .. L, oldest
@@ -371,66 +364,6 @@ select results_eq(
   $$ select (select count(*) from public.attendance_days), (select count(*) from public.attendance_events), (select count(*) from public.activity_log) $$,
   $$ select days, events, audits from before3 $$,
   'and writes nothing');
-
--- logout_not_recorded ---------------------------------------------------------------------------
--- lo1: login, no logout on L-1 -> flagged. lo2: logged out -> not. lo3: login, no logout on L-2 ->
--- only the catch-up reaches it. staff's proposed row on L-1 has no login -> not. (The catch-up
--- above proposed absences for the lo people; those rows make way for the arranged ones.)
-delete from public.attendance_events where attendance_day_id in (select id from public.attendance_days where member_id in (select id from fx where key like 'lo%'));
-delete from public.attendance_days where member_id in (select id from fx where key like 'lo%');
-select pg_temp.mk_day('lo1', pg_temp.d(-1), 'approved', 'present', 'present', false, true, false, false);
-select pg_temp.mk_day('lo2', pg_temp.d(-1), 'approved', 'present', 'present', false, true, false, true);
-select pg_temp.mk_day('lo3', pg_temp.d(-2), 'pending_review', 'present', null, false, true, false, false);
-delete from public.activity_log;
-
-select throws_ok(
-  format('select * from app.logout_not_recorded(%L)', pg_temp.d(1)),
-  'P0001', 'INVALID_STATE', 'logout_not_recorded refuses a day still running');
-
-create temporary table lrun1 as select * from app.logout_not_recorded(pg_temp.d(-1));
-select results_eq(
-  $$ select member_id from lrun1 where member_id in (select id from fx where key like 'lo%') $$,
-  $$ select pg_temp.fx('lo1') $$,
-  'of the arranged people, the one with a login and no logout is flagged');
-select ok((select bool_and(work_date = pg_temp.d(-1)) from lrun1), 'a single-date run reports that date only');
-select ok((select logout_not_recorded from public.attendance_days where id = pg_temp.day_on('lo1', pg_temp.d(-1))), 'lo1 is flagged');
-select ok((select not logout_not_recorded from public.attendance_days where id = pg_temp.day_on('lo2', pg_temp.d(-1))), 'a day with a logout is not');
-select ok((select not logout_not_recorded from public.attendance_days where id = pg_temp.day_on('staff', pg_temp.d(-1))), 'a day with no login is not');
-select ok((select not logout_not_recorded from public.attendance_days where id = pg_temp.day_on('lo3', pg_temp.d(-2))), 'another date is not touched by a single-date run');
-select is(pg_temp.audit_actions(pg_temp.day_on('lo1', pg_temp.d(-1))), '{logout_not_recorded}', 'audited as logout_not_recorded');
-select is((select diff -> 'new' from public.activity_log where entity = 'attendance_days' and entity_id = pg_temp.day_on('lo1', pg_temp.d(-1))),
-  '{"logout_not_recorded": true}'::jsonb, 'the audit diff holds the flag alone');
-select is(pg_temp.events(pg_temp.day_on('lo1', pg_temp.d(-1))), '{}', 'no event row: the flag is a column');
-select is((select state::text || '/' || final_status::text from public.attendance_days where id = pg_temp.day_on('lo1', pg_temp.d(-1))), 'approved/present',
-  'the Owner''s decision is untouched');
-
-select is((select count(*) from app.logout_not_recorded(pg_temp.d(-1))), 0::bigint, 'the same date again flags nothing');
-select is((select count(*) from public.activity_log where entity = 'attendance_days' and action = 'logout_not_recorded' and entity_id = pg_temp.day_on('lo1', pg_temp.d(-1))), 1::bigint, 'and writes no second audit row');
-
-create temporary table lrun2 as select * from app.logout_not_recorded();
-select results_eq(
-  $$ select member_id, work_date from lrun2 $$,
-  $$ select pg_temp.fx('lo3'), pg_temp.d(-2) $$,
-  'the catch-up reaches the missed date and nothing else');
-select is((select count(*) from app.logout_not_recorded()), 0::bigint, 'a processed week flags nothing');
-
--- A logout after midnight clears the flag (owner decision 2026-09-25). lo4 logged in yesterday
--- (IST), never logged out, the 00:00 job flagged the day; they log out now with no day today.
-select pg_temp.mk_day('lo4', app.today_ist() - 1, 'pending_review', 'present', null, false, true, false, false);
-select is((select count(*) from app.logout_not_recorded(app.today_ist() - 1) where member_id = pg_temp.fx('lo4')), 1::bigint, 'lo4''s day is flagged');
-delete from public.activity_log;
-select pg_temp.as_member('lo4');
-select lives_ok('select public.session_logout()', 'lo4 logs out after midnight');
-select pg_temp.as_system();
-select results_eq(
-  format($$ select last_logout_at is not null, logout_not_recorded, state::text from public.attendance_days where id = %L $$, pg_temp.day_on('lo4', app.today_ist() - 1)),
-  $$ values (true, false, 'pending_review') $$,
-  'the late logout is recorded on yesterday''s day and clears the flag; the state is untouched');
-select is(
-  (select (diff -> 'new') - 'last_logout_at'::text from public.activity_log where entity = 'attendance_days' and entity_id = pg_temp.day_on('lo4', app.today_ist() - 1) and action = 'logout'),
-  '{"logout_not_recorded": false}'::jsonb, 'the logout audit diff holds last_logout_at and the cleared flag, nothing else');
-select is(pg_temp.events(pg_temp.day_on('lo4', app.today_ist() - 1)), '{logout}', 'with the logout event');
-select is((select count(*) from public.attendance_days where member_id = pg_temp.fx('lo4') and work_date = app.today_ist()), 0::bigint, 'no day was opened for today');
 
 select * from finish();
 rollback;

@@ -1,5 +1,7 @@
 import type { Enums } from "@/core/db";
 
+import { daysLabel } from "./comp-days";
+
 export type AttendanceChoice = Enums<"attendance_choice">;
 export type DayStatus = Enums<"day_status">;
 export type AttendanceState = Enums<"attendance_state">;
@@ -39,3 +41,32 @@ export const STATUS_LABELS: Record<DayStatus, string> = {
   comp_leave: "Comp leave",
   absent: "Absent",
 };
+
+/**
+ * Whether the Owner's correction dialog offers comp leave (3c review): the correction draws one
+ * of the person's credits (`attendance_decide`, kickoff 3b decision 16), so with none it is
+ * greyed out and the hint says what to do. `compDays` is the person's balance today, or `null`
+ * where the screen does not know it (Approvals, many members: the database's refusal shows in the
+ * dialog's alert then). A day whose approved leave already is comp leave stays choosable:
+ * correcting it to comp leave again creates nothing and uses no credit.
+ */
+export function compLeaveOption(
+  compDays: number | null,
+  leaveType: DayStatus | null,
+  name: string,
+): { disabled: boolean; hint: string | null } {
+  if (leaveType === "comp_leave") {
+    return {
+      disabled: false,
+      hint: `${name}'s day is already comp leave, so no new credit is used.`,
+    };
+  }
+  if (compDays === null) return { disabled: false, hint: null };
+  if (compDays <= 0) {
+    return {
+      disabled: true,
+      hint: `${name} has no comp leave credit: grant one first from their Leave tab.`,
+    };
+  }
+  return { disabled: false, hint: `${name} has ${daysLabel(compDays)} of comp leave.` };
+}

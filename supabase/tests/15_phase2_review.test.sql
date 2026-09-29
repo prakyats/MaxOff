@@ -1,5 +1,6 @@
 -- Phase 2 review fixes (2026-09-26), one section per migration:
---   20260926174147_overtime_note_day: attendance_flag_overtime_today() picks the day the logout will.
+--   20260926174147_overtime_note_day: attendance_flag_overtime_today() picks the day End day will
+--   (3c.1: yesterday's started, unended day, since the 2.x logout is gone).
 --   20260926174801_leave_span_cap: app.leave_validate() caps a request at 365 days, for every writer.
 --   20260926175013_correction_worked_on_leave: a Present correction on approved leave is a day worked.
 begin;
@@ -74,11 +75,11 @@ insert into public.members (id, org_id, full_name, email, role, status, joined_a
   (pg_temp.fx('onleave'), pg_temp.fx('org'), 'Farah Off', 'onleave@example.com', 'staff', 'active', now() - interval '30 days');
 
 -- Tara has today's day. Lata has no day today and yesterday's is still open (worked past
--- midnight). Gopal has no day today and yesterday's already holds a logout. Nila has no day at all.
-insert into public.attendance_days (member_id, work_date, first_login_at, state, submitted_choice, submitted_at) values
+-- midnight). Gopal has no day today and yesterday's already ended. Nila has no day at all.
+insert into public.attendance_days (member_id, work_date, started_at, state, submitted_choice, submitted_at) values
   (pg_temp.fx('today'), app.today_ist(),     now(),                       'pending_review', 'present', now()),
   (pg_temp.fx('late'),  app.today_ist() - 1, now() - interval '10 hours', 'pending_review', 'present', now() - interval '10 hours');
-insert into public.attendance_days (member_id, work_date, first_login_at, last_logout_at, state, submitted_choice, submitted_at) values
+insert into public.attendance_days (member_id, work_date, started_at, ended_at, state, submitted_choice, submitted_at) values
   (pg_temp.fx('gone'),  app.today_ist() - 1, now() - interval '10 hours', now() - interval '2 hours', 'pending_review', 'present', now() - interval '10 hours');
 -- Farah has approved leave over today and today's day was derived from it (2.1).
 insert into public.leave_requests (id, member_id, type, start_date, end_date, state, source, decided_by, decided_at) values
@@ -113,7 +114,7 @@ select pg_temp.as_member('late');
 select is(
   public.attendance_flag_overtime_today('Render ran past midnight'),
   (select id from public.attendance_days where member_id = pg_temp.fx('late')),
-  'no day today and yesterday still open: the note lands on yesterday, where the logout will');
+  'no day today and yesterday still open: the note lands on yesterday, where End day will');
 select results_eq(
   $$ select work_date = app.today_ist() - 1, overtime_flag, overtime_reason
      from public.attendance_days where member_id = pg_temp.fx('late') $$,
@@ -124,7 +125,7 @@ select is((select count(*)::integer from public.attendance_days where member_id 
 
 select pg_temp.as_member('gone');
 select throws_ok($$ select public.attendance_flag_overtime_today('Late again') $$, 'P0001', 'INVALID_STATE',
-  'yesterday already logged out and nothing today: refused, as the logout would find no day');
+  'yesterday already ended and nothing today: refused, as End day would find no day');
 
 select pg_temp.as_member('none');
 select throws_ok($$ select public.attendance_flag_overtime_today('First day') $$, 'P0001', 'INVALID_STATE',

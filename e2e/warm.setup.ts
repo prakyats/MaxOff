@@ -45,6 +45,8 @@ const ROUTES = [
   "/login",
   "/forgot-password",
   "/set-password",
+  // The Continue page renders for any well-formed link without verifying it (3cB review).
+  `/auth/confirm?token_hash=${"0".repeat(56)}&type=recovery`,
   "/offline",
   // A client's screens (3.4): the seed has no client, and a 404 from an unknown one still loads
   // each route's code, which is the first-render cost this step pays up front.

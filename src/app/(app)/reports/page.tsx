@@ -7,6 +7,7 @@ import { DrillLink } from "@/core/ui/composites/drill-link";
 import { PageHeader } from "@/core/ui/composites/page-header";
 
 import { PlaceholderPage } from "../_placeholder/placeholder-page";
+import { STAND_INS } from "../_placeholder/stand-ins";
 
 export const metadata: Metadata = { title: "Reports" };
 
@@ -27,18 +28,13 @@ const OWNER_REPORTS = [
  * Owner reports (task 9.3) and the Admin's scoped operational reports (6.x) share this route.
  * Since 3b.4 the Owner's first real report is here: **Month** (the team's month summary,
  * `attendance.view_all`), a row that drills into it, in the shape of the Settings list. An Admin
- * keeps the placeholder until their reports arrive.
+ * keeps the stand-in until their reports arrive.
  */
 export default async function ReportsPage() {
   const viewer = await requirePermission(["reports.all", "reports.scoped"]);
   if (!can(viewer.role, "attendance.view_all")) {
     return (
-      <PlaceholderPage
-        title="Reports"
-        description="End-of-day reports, week and month views and exports."
-        task="6.5 (end of day) and 9.3 (reports)"
-        icon={FileBarChart2Icon}
-      />
+      <PlaceholderPage title="Reports" copy={STAND_INS.reportsAdmin} icon={FileBarChart2Icon} />
     );
   }
   return (

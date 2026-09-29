@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
+import { LINK_TYPES, parseAuthLinkParams } from "./link-params";
 import { isPublicPath, isSignedOutOnlyPath, safeNextPath } from "./paths";
 import { clientIpFrom, hashIp, sessionMetaFrom } from "./request-meta";
 import {
+  confirmLinkSchema,
   loginSchema,
   PASSWORD_MIN_LENGTH,
   passwordResetSchema,
@@ -138,5 +140,47 @@ describe("request meta", () => {
     expect(meta.ipHash).toMatch(/^[0-9a-f]{64}$/);
     const empty = await sessionMetaFrom(new Headers(), undefined);
     expect(empty).toEqual({ userAgent: null, ipHash: null });
+  });
+});
+
+describe("parseAuthLinkParams (the Continue page, 3cB review)", () => {
+  const hash = "a".repeat(56);
+
+  it("reads the two values a MaxOff template puts in a link", () => {
+    expect(parseAuthLinkParams({ tokenHash: hash, type: "recovery" })).toEqual({
+      tokenHash: hash,
+      type: "recovery",
+    });
+    expect(parseAuthLinkParams({ tokenHash: "pkce_abc-DEF_123", type: "invite" })).toEqual({
+      tokenHash: "pkce_abc-DEF_123",
+      type: "invite",
+    });
+    expect(LINK_TYPES).toEqual(["recovery", "invite"]);
+  });
+
+  it("refuses a missing, repeated, blank or unprintable token", () => {
+    for (const tokenHash of [undefined, null, "", " ", "abc def", "a\tb", "é", [hash, hash]]) {
+      expect(parseAuthLinkParams({ tokenHash, type: "recovery" }), String(tokenHash)).toBeNull();
+    }
+    expect(parseAuthLinkParams({ tokenHash: "x".repeat(513), type: "recovery" })).toBeNull();
+  });
+
+  it("refuses every link type a MaxOff template does not issue", () => {
+    for (const type of [undefined, null, "", "magiclink", "signup", "email_change", "Recovery"]) {
+      expect(parseAuthLinkParams({ tokenHash: hash, type }), String(type)).toBeNull();
+    }
+    expect(parseAuthLinkParams({ tokenHash: hash, type: ["recovery"] })).toBeNull();
+  });
+
+  it("the form's schema only bounds what the hidden fields post back", () => {
+    expect(confirmLinkSchema.parse({ tokenHash: hash, type: "recovery" })).toEqual({
+      tokenHash: hash,
+      type: "recovery",
+    });
+    // Malformed values pass zod and fail at verifyAuthLink(), on the sign-in page with the reason.
+    expect(confirmLinkSchema.safeParse({ tokenHash: "", type: "nope" }).success).toBe(true);
+    expect(confirmLinkSchema.safeParse({ tokenHash: "x".repeat(513), type: "" }).success).toBe(
+      false,
+    );
   });
 });

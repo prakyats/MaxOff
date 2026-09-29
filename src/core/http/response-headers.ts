@@ -35,6 +35,19 @@ export const FILE_ROUTE_CSP: ResponseHeader = {
   value: "default-src 'none'; style-src 'unsafe-inline'; sandbox; frame-ancestors 'none'",
 };
 
+/**
+ * `/auth/confirm` (3cB review), where a one-time invite or recovery link lands: the page shows
+ * the link's token in its form, so no cache may keep it, no index may list it, and no referrer
+ * may carry the URL to wherever a person goes next. Like the file route, a rule after the
+ * global one, so its `Referrer-Policy` replaces the build's.
+ */
+export const AUTH_LINK_ROUTE_SOURCE = "/auth/confirm";
+export const AUTH_LINK_ROUTE_HEADERS: readonly ResponseHeader[] = [
+  { key: "Cache-Control", value: "no-store" },
+  { key: "X-Robots-Tag", value: "noindex, nofollow" },
+  { key: "Referrer-Policy", value: "no-referrer" },
+];
+
 /** Staging must never be indexed. Production stays indexable-by-choice (decided later). */
 export const NOINDEX_HEADER: ResponseHeader = { key: "X-Robots-Tag", value: "noindex, nofollow" };
 
@@ -50,4 +63,18 @@ export function responseHeaders(appEnv: AppEnv | string | undefined): ResponseHe
   return isNoindexEnvironment(appEnv)
     ? [...SECURITY_HEADERS, NOINDEX_HEADER]
     : [...SECURITY_HEADERS];
+}
+
+/**
+ * Puts the same list on a response the proxy builds itself (3c.1). `next.config.ts`'s `headers()`
+ * covers what Next renders, but on the Worker a redirect answered by `updateSession()` (no
+ * session → `/login`, `/` → the role's home) leaves the proxy before that rule applies, so the
+ * proxy sets them here. Existing values are replaced, never appended: the list is the policy.
+ */
+export function applyResponseHeaders(
+  headers: Headers,
+  appEnv: AppEnv | string | undefined = process.env.NEXT_PUBLIC_APP_ENV,
+): Headers {
+  for (const { key, value } of responseHeaders(appEnv)) headers.set(key, value);
+  return headers;
 }

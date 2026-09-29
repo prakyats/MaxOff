@@ -62,7 +62,11 @@ export default async function PersonLeavePage({
           nextLabel="Older requests"
         />
       ) : null}
-      <LeaveRequestList requests={requests} today={today} owner={{ name: person.fullName }} />
+      <LeaveRequestList
+        requests={requests}
+        today={today}
+        owner={{ name: person.fullName, compDays: balance.availableDays }}
+      />
     </>
   );
 }

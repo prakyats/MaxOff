@@ -24,9 +24,6 @@ const PERSON: TodayPerson = {
   state: null,
   finalStatus: null,
   submittedChoice: null,
-  firstLoginAt: null,
-  lastLogoutAt: null,
-  logoutNotRecorded: false,
   startedAt: null,
   endedAt: null,
   endNotRecorded: false,
@@ -49,7 +46,7 @@ describe("todayBucket: the four counts of today's card (WORKFLOWS §1 'Settled i
     ).toBe("waiting");
   });
 
-  it("not chosen yet: signed in without choosing, or not signed in at all", () => {
+  it("not chosen yet: a day opened without a choice, or no day at all", () => {
     expect(todayBucket(person({ dayId: "d", state: "awaiting_choice" }))).toBe("not_chosen");
     expect(todayBucket(person({}))).toBe("not_chosen");
   });
@@ -163,9 +160,6 @@ describe("summariseToday: the card and the board from one read", () => {
   it("names each row's status in words", () => {
     expect(boardStatus(person({ submittedChoice: "half_day" }), "waiting")).toBe("Half day");
     expect(boardStatus(person({}), "waiting")).toBe("Absent (proposed)");
-    expect(
-      boardStatus(person({ dayId: "d", firstLoginAt: "2026-09-24T03:40:00Z" }), "not_chosen"),
-    ).toBe("Signed in, not started");
     expect(boardStatus(person({}), "not_chosen")).toBe("Not started");
     expect(boardStatus(person({ dayId: "d" }), "not_chosen")).toBe("Not started");
     expect(boardStatus(person({ leaveType: "comp_leave" }), "on_leave")).toBe("Comp leave");
@@ -182,7 +176,6 @@ const PENDING: PendingDay = {
   proposedBySystem: false,
   onApprovedLeave: false,
   isDayOff: false,
-  firstLoginAt: null,
   startedAt: null,
   note: null,
   submittedAt: "2026-09-24T03:40:00Z",
@@ -288,9 +281,6 @@ describe("the history in the Owner's words (one vocabulary, turned around)", () 
       finalStatus: null,
       isDayOff: false,
       workedOnLeave: false,
-      firstLoginAt: null,
-      lastLogoutAt: null,
-      logoutNotRecorded: false,
       startedAt: null,
       endedAt: null,
       endNotRecorded: false,

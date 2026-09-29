@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import type { Database } from "@/core/db";
 import { publicSupabaseEnv, sessionCookieOptions } from "@/core/db";
+import { applyResponseHeaders } from "@/core/http/response-headers";
 
 import { HOME_HINT_COOKIE, rootRedirect } from "./home-hint";
 import { LOGIN_PATH, isPublicPath, isSignedOutOnlyPath } from "./paths";
@@ -15,6 +16,8 @@ import { classifySessionError } from "./session-errors";
  *    with `next=`; a session on `/login` or `/forgot-password` → `/`; `/` itself (the installed
  *    app's `start_url`) → `/login`, or the role's home when the home hint names it (2.7,
  *    `home-hint.ts`), else it renders and `src/app/page.tsx` reads the member;
+ * 3. every redirect it answers carries the security headers itself (3c.1, ARCHITECTURE §18.3):
+ *    on the Worker a proxy redirect never reaches `next.config.ts`'s `headers()` rule.
  * (3b.1 dropped the `x-maxoff-path` header the 2.2 day gate read: nothing reads it now.)
  *
  * It reads no table on purpose (Next's own guidance for proxies). The decision that counts,
@@ -86,8 +89,12 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
   return response;
 }
 
-/** A redirect must still carry the refreshed cookies, or the next request repeats the refresh. */
+/**
+ * A redirect must still carry the refreshed cookies, or the next request repeats the refresh,
+ * and the security headers, which nothing else puts on a response the proxy answers itself.
+ */
 function withCookies(target: NextResponse, source: NextResponse): NextResponse {
   for (const cookie of source.cookies.getAll()) target.cookies.set(cookie);
+  applyResponseHeaders(target.headers);
   return target;
 }

@@ -5,6 +5,7 @@ import {
   approvedLeaveLabel,
   changeOfGoneLeave,
   keptDatesNote,
+  ownerCompLeaveOption,
   ownerLeaveActions,
   type PendingLeave,
   pendingLeaveStatus,
@@ -173,5 +174,45 @@ describe("the Owner's forms", () => {
     });
     expect(backwards.success).toBe(false);
     expect(backwards.error?.issues[0]?.path).toEqual(["endDate"]);
+  });
+  it("an edit into comp leave is one date too (3c review: it draws a credit)", () => {
+    expect(
+      ownerEditLeaveSchema.parse({
+        requestId: id,
+        type: "comp_leave",
+        startDate: "2026-10-01",
+        endDate: "2026-10-03",
+      }).endDate,
+    ).toBe("2026-10-01");
+    expect(
+      ownerEditLeaveSchema.parse({ requestId: id, type: "comp_leave", startDate: "2026-10-01" })
+        .endDate,
+    ).toBe("2026-10-01");
+  });
+});
+
+describe("ownerCompLeaveOption (3c review: the Owner's comp leave uses a credit)", () => {
+  const plain = { type: "leave" } as const;
+  it("greys comp leave out with no credit and says to grant one", () => {
+    expect(ownerCompLeaveOption(0, plain, "Asha")).toEqual({
+      disabled: true,
+      hint: "Asha has no comp leave credit: grant one first.",
+    });
+  });
+  it("names the balance when there is one", () => {
+    expect(ownerCompLeaveOption(1, plain, "Asha").hint).toBe("Asha has 1 day of comp leave.");
+    expect(ownerCompLeaveOption(0.5, { type: "half_day" }, "Asha")).toEqual({
+      disabled: false,
+      hint: "Asha has ½ day of comp leave.",
+    });
+  });
+  it("lets a request that already is comp leave move: its own credit comes back first", () => {
+    expect(ownerCompLeaveOption(0, { type: "comp_leave" }, "Asha")).toEqual({
+      disabled: false,
+      hint: "Asha's credit moves with the day.",
+    });
+  });
+  it("stays choosable with no hint where the balance is unknown", () => {
+    expect(ownerCompLeaveOption(undefined, plain, "Asha")).toEqual({ disabled: false, hint: null });
   });
 });

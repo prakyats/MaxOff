@@ -272,6 +272,21 @@ const eslintConfig = defineConfig([
               ],
               allow: { to: { element: { type: "core", captured: { area: "db" } } } },
             },
+            // 3c.1: `/api/health` is the one route that reads the database outside a data/
+            // layer, through `core/db/health` alone: a HEAD count that returns no data, so
+            // UptimeRobot keeps the free Supabase project awake (ADR-0003). By file, on purpose.
+            {
+              from: { element: { type: "app" } },
+              allow: {
+                to: {
+                  element: {
+                    type: "core",
+                    captured: { area: "db" },
+                    fileInternalPath: "health.ts",
+                  },
+                },
+              },
+            },
           ],
         },
       ],
