@@ -19,6 +19,8 @@ describe("workingLabel", () => {
     ["Remove Diwali", "Removing Diwali…"],
     ["Agree", "Agreeing…"],
     ["", "Working…"],
+    ["I'm working today", "Working…"],
+    ["3 left", "Working…"],
   ])("%s → %s", (label, expected) => {
     expect(workingLabel(label)).toBe(expected);
   });

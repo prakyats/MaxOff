@@ -25,9 +25,10 @@ export type ActionOptions = {
    * What the action is for right now: a dialog's open state, the item a sheet shows. When it
    * changes, a failure or slowness from before is forgotten, so Retry can never re-send an earlier
    * item's request while another is on screen (found in the v1.0.0 review: reject claim A fails,
-   * the dialog opens for B, Retry would have rejected B with A's reason).
+   * the dialog opens for B, Retry would have rejected B with A's reason). A failure that answers
+   * after the key has changed is dropped too. A plain value: compared with `Object.is`.
    */
-  resetKey?: unknown;
+  resetKey?: string | number | boolean | null;
   /** See `ActionState.creates`. */
   creates?: boolean;
 };
@@ -47,7 +48,8 @@ export type ActionOptions = {
  *   says so; a **create** (`creates`) is not, so it offers no Retry, only "it may have been
  *   saved: check before trying again". The request is never aborted on a timer: a server action
  *   cannot be recalled, so the person decides. `resetKey` forgets a failure when the target
- *   changes.
+ *   changes, and drops one that answers after it changed. Retry re-sends the arguments of the
+ *   first attempt, so a form reads its current inputs inside `fn` and runs with none.
  *
  * `fn` does what the handler did before: calls the action and handles its `Result` (a refusal
  * is a `Result`, not a throw). Anything else it throws still goes to the error boundary.
@@ -75,6 +77,11 @@ export function useAction<Args extends unknown[]>(
     setFailed(false);
     setSlowRunId(-1);
   }
+  // The target now, for a failure that answers late (a ref, read after an await).
+  const currentKey = useRef(resetKey);
+  useEffect(() => {
+    currentKey.current = resetKey;
+  });
   const running = useRef(false);
   const nextRunId = useRef(0);
   const last = useRef<Args | null>(null);
@@ -93,11 +100,17 @@ export function useAction<Args extends unknown[]>(
     setPending(true);
     setFailed(false);
     window.setTimeout(() => setSlowRunId(id), ACTION_SLOW_MS);
+    const runKey = currentKey.current;
     startTransition(async () => {
       try {
         await latest.current(...args);
       } catch (error) {
         if (!isNetworkError(error)) throw error;
+        // Another item is on screen by now: its Retry must not re-send this one's request.
+        if (!Object.is(currentKey.current, runKey)) {
+          last.current = null;
+          return;
+        }
         setFailed(true);
       } finally {
         running.current = false;

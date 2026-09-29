@@ -14,12 +14,13 @@ import { Skeleton } from "@/core/ui/primitives/skeleton";
  */
 /**
  * The device card's rows as `page.tsx` draws them at 375 px: the description's lines (Sign out's
- * and Reload app's wrap to two) and the control (an 8×8 theme toggle, `h-8` buttons).
+ * and Reload app's wrap to two) and the control, at the shell's 44px minimum for buttons on a
+ * phone (`globals.css`) and its own 32px from `md` up.
  */
 const DEVICE_ROWS = [
-  { name: "appearance", lines: ["w-52"], control: "size-8" },
-  { name: "sign-out", lines: ["w-56", "w-40"], control: "h-8 w-24" },
-  { name: "reload", lines: ["w-56", "w-28"], control: "h-8 w-28" },
+  { name: "appearance", lines: ["w-52"], control: "size-11 md:size-8" },
+  { name: "sign-out", lines: ["w-56", "w-40"], control: "h-11 w-24 md:h-8" },
+  { name: "reload", lines: ["w-56", "w-28"], control: "h-11 w-28 md:h-8" },
 ] as const;
 
 export default async function Loading() {

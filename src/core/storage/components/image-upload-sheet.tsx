@@ -99,14 +99,19 @@ export function ImageUploadSheet({
 
   // One upload per tap; a slow or lost connection is said under the buttons, and the chosen
   // file stays chosen (ARCHITECTURE §14.1).
-  const action = useAction(async (chosen: File) => {
-    setProgress(0);
-    try {
-      await upload(chosen);
-    } finally {
-      setProgress(null);
-    }
-  });
+  const action = useAction(
+    async (chosen: File) => {
+      setProgress(0);
+      try {
+        await upload(chosen);
+      } finally {
+        setProgress(null);
+      }
+    },
+    // A failure belongs to the file it was for: choosing another, or closing the sheet, forgets
+    // it, so Retry never uploads a file that is no longer on screen (v1.0.0 review).
+    { resetKey: file ? `${file.name}:${file.size}:${file.lastModified}` : null },
+  );
   const { pending } = action;
 
   async function upload(chosen: File) {

@@ -16,6 +16,13 @@ import {
   navStage,
   type NavStage,
 } from "./progress";
+import {
+  TAB_ATTRIBUTE,
+  TAB_HOME_ATTRIBUTE,
+  TAB_TOP_ATTRIBUTE,
+  VIEW_LINK_ATTRIBUTE,
+} from "./attributes";
+import { backMove, tabMove } from "./moves";
 import { noteScreenFetchSettled } from "./screen-fetches";
 
 /** How long a tap may go without the router starting anything before the bar stands down. */
@@ -36,6 +43,41 @@ function standalone(): boolean {
     window.matchMedia("(display-mode: standalone)").matches ||
     (window.navigator as { standalone?: boolean }).standalone === true
   );
+}
+
+type NavigationLike = {
+  currentEntry?: { index: number } | null;
+  entries?: () => { url: string | null }[];
+};
+
+/**
+ * The move a tapped link made, for loading its destination in full (§14.2 b–d, the rules in
+ * `moves.ts` that the links and the head script share): a view control replaces; the back
+ * control goes back when an entry of the app is beneath and otherwise replaces with the parent;
+ * an installed tab pushes, replaces or goes back as `tabMove` says; anything else pushes.
+ */
+function fullLoadMove(link: HTMLElement | null, to: string): "push" | "replace" | "back" {
+  const navigation = (window as { navigation?: NavigationLike }).navigation;
+  const index = navigation?.currentEntry?.index;
+  if (link?.hasAttribute(VIEW_LINK_ATTRIBUTE)) return "replace";
+  if (link?.getAttribute("data-slot") === "page-back") {
+    return backMove(index) === "back" ? "back" : "replace";
+  }
+  if (link?.hasAttribute(TAB_ATTRIBUTE)) {
+    const bar = link.closest(`[${TAB_HOME_ATTRIBUTE}]`);
+    const home = bar?.getAttribute(TAB_HOME_ATTRIBUTE) ?? "";
+    const below = index !== undefined && index > 0 ? navigation?.entries?.()[index - 1] : null;
+    const move = tabMove({
+      href: new URL(to, location.href).pathname,
+      pathname: location.pathname,
+      home,
+      topLevel: (bar?.getAttribute(TAB_TOP_ATTRIBUTE) ?? "").split(" "),
+      standalone: standalone(),
+      pushedFromHome: Boolean(below?.url && new URL(below.url).pathname === home),
+    });
+    if (move === "back" || move === "replace") return move;
+  }
+  return "push";
 }
 
 /** The page's address without its hash: a hash-only change is not a navigation. */
@@ -66,9 +108,10 @@ export function NavProgressBar() {
  * - **stands down** quietly when a tap turns out not to navigate (the unsaved-changes guard held
  *   it): nothing started within `IDLE_CANCEL_MS`. A page that is really unloading is left alone,
  *   and a `beforeunload` that did not unload is forgotten after `UNLOAD_GRACE_MS`;
- * - after 8 s shows one quiet line, "Still loading" with **Retry** (the tapped link clicked again,
- *   so the same move and no extra history entry); after 25 s Retry loads the destination in full.
- *   Never while a dialog or sheet is open, never a layer, never a history entry.
+ * - after 8 s shows one quiet line, "Still loading" with **Retry**: the tapped link clicked again
+ *   (the same move, no extra history entry), or, for a back or forward, the screen it reached
+ *   asked for again; after 25 s Retry loads the destination in full with the same move
+ *   (`fullLoadMove`). Never while a dialog or sheet is open, never a layer, never a history entry.
  */
 export function NavProgress() {
   const router = useRouter();
@@ -263,29 +306,24 @@ export function NavProgress() {
   const retry = () => {
     const to = destination.current;
     const link = document.querySelector<HTMLElement>(`[${NAV_TARGET_ATTRIBUTE}]`);
-    // A back or forward already stands on its address (the back control's own move included):
-    // repeating it would go one level further, so the screen there is asked for again instead.
-    const history = kind.current === "history" || link?.getAttribute("data-slot") === "page-back";
-    // Long past hope for the router: the destination, loaded in full, with the move it was. A
-    // view control, and an installed tab away from home, replace; anything else pushes.
-    if (stage === "stuck") {
-      if (history || !to) {
-        window.location.reload();
-        return;
-      }
-      const bar = link?.closest("[data-tab-home]");
-      const replaces =
-        link?.hasAttribute("data-view-link") ||
-        (link?.hasAttribute("data-tab") &&
-          standalone() &&
-          location.pathname !== bar?.getAttribute("data-tab-home"));
-      if (replaces) window.location.replace(to);
+    // A back or forward (a `popstate`) already stands on its address: repeating it would go one
+    // level further, so the screen there is asked for again (at 25 s, loaded in full) instead.
+    if (kind.current === "history") {
+      if (stage === "stuck") window.location.reload();
+      else router.refresh();
+      return;
+    }
+    // Long past hope for the router: the destination, loaded in full, with the same move the
+    // tap made (`fullLoadMove`, the app's own rules), so the back stack stays as it would be.
+    if (stage === "stuck" && to) {
+      const move = fullLoadMove(link, to);
+      if (move === "back") window.history.back();
+      else if (move === "replace") window.location.replace(to);
       else window.location.assign(to);
       return;
     }
-    if (history) router.refresh();
-    // The same move again: the tapped link knows whether it pushes or replaces.
-    else if (link?.isConnected) link.click();
+    // The same move again: the tapped link knows whether it pushes, replaces or goes back.
+    if (link?.isConnected) link.click();
     else if (to) router.push(to);
   };
 

@@ -3,11 +3,13 @@ import { type Locator, type Page, type Request, type Route, type TestInfo } from
 import { expect, test } from "./fixtures";
 
 import {
+  animationsSettled,
   hydrated,
   pageHeader,
   resetAttendanceAndLeave,
   resetExpenseClaims,
   runInstalled,
+  serviceDelete,
   serviceInsert,
   serviceSelect,
   serviceUpdate,
@@ -461,6 +463,14 @@ test.describe("a commit button shows it is working", () => {
     );
     await expect(commit).toBeDisabled();
     await expect(commit).toHaveAttribute("aria-describedby", "offline-banner");
+    if (isMobile) {
+      // The band (two lines on a phone) never covers the sticky bar's Save: the bar sits above it.
+      await animationsSettled(page);
+      const bar = await page.locator('[data-slot="sticky-actions"]').boundingBox();
+      const band = await banner.boundingBox();
+      expect(bar && band, "both on screen").toBeTruthy();
+      expect(bar!.y + bar!.height).toBeLessThanOrEqual(band!.y + 0.5);
+    }
 
     await page.context().setOffline(false);
     await expect(banner).toBeHidden();
@@ -555,5 +565,65 @@ test.describe("a failed action never retries onto another item", () => {
     await expect(dialog).toBeVisible();
     await expect(dialog.locator('[data-slot="action-failed"]')).toHaveCount(0);
     await expect(dialog.getByRole("button", { name: "Retry" })).toHaveCount(0);
+  });
+
+  test("Decide fails on one extra work note; the next note's dialog offers no Retry", async ({
+    page,
+  }) => {
+    const notes = [
+      { member: A, text: "Tap A: late edit" },
+      { member: B, text: "Tap B: weekend shoot" },
+    ];
+    for (const { member } of notes) {
+      await serviceDelete(`extra_work_notes?member_id=eq.${member.id}`);
+    }
+    for (const { member, text } of notes) {
+      await serviceInsert("extra_work_notes", {
+        member_id: member.id,
+        work_date: "2026-09-01",
+        kind: "overtime",
+        duration_minutes: 60,
+        note: text,
+      });
+    }
+    try {
+      let failNext = true;
+      await page.route("**/*", (route) => {
+        if (!isAction(route.request()) || !failNext) return route.fallback();
+        failNext = false;
+        return route.abort("internetdisconnected");
+      });
+      await page.goto("/approvals");
+      await hydrated(page);
+      const group = page.locator('[data-slot="approval-group"][data-group="extra-work"]');
+      const noteRow = (name: string) =>
+        group.locator('[data-slot="approval-row"]').filter({ hasText: name });
+      const sheet = page.locator('[data-slot="review-sheet"]');
+      const decide = page.locator('[data-slot="decide-note-dialog"]');
+
+      await noteRow(A.name).getByRole("button", { name: "Review" }).click();
+      await sheet.getByRole("button", { name: "Decide…" }).click();
+      await decide.getByRole("radio", { name: "Grant 1 day of comp leave" }).check();
+      await decide.getByRole("button", { name: "Grant comp leave" }).click();
+      await expect(decide.locator('[data-slot="action-failed"]')).toBeVisible();
+      await decide.getByRole("button", { name: "Cancel" }).click();
+      await expect(decide).toBeHidden();
+      // A's review sheet is beneath: its own Close (a dialog closed by its button leaves its
+      // entry spent, PROGRESS 3.4 mechanics 5).
+      await expect(sheet).toBeVisible();
+      await sheet.getByRole("button", { name: "Close" }).click();
+      await expect(sheet).toBeHidden();
+
+      await noteRow(B.name).getByRole("button", { name: "Review" }).click();
+      await expect(sheet).toContainText("Tap B: weekend shoot");
+      await sheet.getByRole("button", { name: "Decide…" }).click();
+      await expect(decide).toBeVisible();
+      await expect(decide.locator('[data-slot="action-failed"]')).toHaveCount(0);
+      await expect(decide.getByRole("button", { name: "Retry" })).toHaveCount(0);
+    } finally {
+      for (const { member } of notes) {
+        await serviceDelete(`extra_work_notes?member_id=eq.${member.id}`);
+      }
+    }
   });
 });

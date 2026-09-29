@@ -108,7 +108,11 @@ export function PullToRefresh({ tabRoots }: { tabRoots: readonly string[] }) {
     window.addEventListener("touchmove", onMove, { passive: true });
     window.addEventListener("touchend", onEnd, { passive: true });
     window.addEventListener("touchcancel", onCancel, { passive: true });
+    // Listening: it loads after the page (`pull-to-refresh-lazy.tsx`), so this is the signal
+    // that a pull now works (the e2e specs wait for it before pulling).
+    document.documentElement.setAttribute("data-pull-ready", "");
     return () => {
+      document.documentElement.removeAttribute("data-pull-ready");
       window.removeEventListener("touchstart", onStart);
       window.removeEventListener("touchmove", onMove);
       window.removeEventListener("touchend", onEnd);

@@ -69,10 +69,17 @@ export function ReasonDialog({
   const [error, setError] = useState<string | null>(null);
   // One request per tap; a slow or failed one is said under the buttons and what was typed
   // stays (ARCHITECTURE §14.1).
+  // The reason is read when it runs, not when it was first tapped: a Retry after the reason was
+  // corrected sends the corrected one (v1.0.0 review), checked again the same way.
   const action = useAction(
-    async (trimmed: string) => {
+    async () => {
+      const problem = validateReason(reason);
+      if (problem) {
+        setError(problem);
+        return;
+      }
       // `false` means it failed (the caller has said why): keep the dialog and what was typed.
-      if ((await onSubmit(trimmed)) === false) return;
+      if ((await onSubmit(reason.trim())) === false) return;
       setReason("");
       onOpenChange(false);
     },
@@ -96,7 +103,7 @@ export function ReasonDialog({
     const problem = validateReason(reason);
     setError(problem);
     if (problem) return;
-    action.run(reason.trim());
+    action.run();
   }
 
   return (

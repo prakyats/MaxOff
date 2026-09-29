@@ -42,8 +42,12 @@ const isRefreshOf = (request: Request, path: string) =>
   !request.headers()["next-router-prefetch"] &&
   new URL(request.url()).pathname === path;
 
-/** A finger pulling down from near the top of the screen and letting go. */
+/**
+ * A finger pulling down from near the top of the screen and letting go, once the pull is
+ * listening (it loads after the page and marks `html[data-pull-ready]`).
+ */
 async function pull(page: Page, distance = 220) {
+  await expect(page.locator("html")).toHaveAttribute("data-pull-ready", "");
   const cdp = await page.context().newCDPSession(page);
   const x = 180;
   const y = 220;

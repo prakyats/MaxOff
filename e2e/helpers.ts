@@ -237,6 +237,12 @@ export async function serviceUpdate(path: string, patch: Record<string, unknown>
   expect(response.ok, `update ${path}: ${await response.text()}`).toBe(true);
 }
 
+/** Deletes rows through `serviceRest` (a PostgREST filter, e.g. `extra_work_notes?member_id=eq.…`). */
+export async function serviceDelete(path: string): Promise<void> {
+  const response = await serviceRest(path, { method: "DELETE" });
+  expect(response.ok, `delete ${path}: ${await response.text()}`).toBe(true);
+}
+
 /** Reads rows through `serviceRest` (a PostgREST query string, e.g. `leave_requests?id=eq.…`). */
 export async function serviceSelect<T>(path: string): Promise<T[]> {
   return (await (await serviceRest(path)).json()) as T[];

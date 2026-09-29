@@ -37,12 +37,15 @@ export function StartDayButton({
   variant = "primary",
   label = "Start day",
   onStarted,
+  statusClassName,
 }: {
   size?: "default" | "sm";
   variant?: "primary" | "strong";
   label?: string;
   /** A caller that closes a layer first refreshes itself once that has happened. */
   onStarted?: () => void;
+  /** Where the slow or failed line goes in the caller's layout (the strip: a row of its own). */
+  statusClassName?: string;
 }) {
   const router = useRouter();
   // One request per tap, "Starting…" at once, and a slow or lost connection said under it
@@ -58,8 +61,10 @@ export function StartDayButton({
     if (onStarted) onStarted();
     else router.refresh();
   });
+  // Siblings, not a wrapper: the button keeps its place in the caller's layout (full width in the
+  // prompt), and the status line goes where the caller says, never widening the button's cell.
   return (
-    <span className="inline-flex flex-col items-start gap-1">
+    <>
       <Button
         variant={variant}
         size={size}
@@ -71,8 +76,8 @@ export function StartDayButton({
       >
         {label}
       </Button>
-      <ActionStatus action={action} />
-    </span>
+      <ActionStatus action={action} className={statusClassName} />
+    </>
   );
 }
 
@@ -138,6 +143,7 @@ export function EndDayButton({
             : "The end time is now, and it's final for today: there's no resume. You can keep using MaxOff."
         }
         confirmLabel={claim ? "End day, add expenses" : "End day"}
+        pendingLabel="Ending day…"
         onConfirm={async () => {
           const result = await endDay(
             withNote && note.trim()

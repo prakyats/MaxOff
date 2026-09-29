@@ -27,6 +27,8 @@ function ing(verb: string): string {
 
 export function workingLabel(label: string): string {
   const [verb = "", ...rest] = label.trim().split(/\s+/);
-  if (!verb) return "Working…";
+  // Only a plain verb takes -ing ("I'm working today" would become "I'ming…"): anything else
+  // gets the neutral label, and its caller can pass a better one.
+  if (!/^[A-Za-z]+$/.test(verb)) return "Working…";
   return `${[ing(verb), ...rest].join(" ")}…`;
 }

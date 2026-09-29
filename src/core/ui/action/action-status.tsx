@@ -22,7 +22,7 @@ export function ActionStatus({
   className,
 }: {
   action: Pick<ActionState, "slow" | "failed" | "retry" | "creates">;
-  className?: string;
+  className?: string | undefined;
 }) {
   if (action.failed && action.creates) {
     // A create may have landed before the reply was lost: no Retry, which could duplicate it.

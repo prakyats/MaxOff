@@ -121,42 +121,52 @@ function DecideNoteDialog({
   const [markWorked, setMarkWorked] = useState(false);
   const [ownerNote, setOwnerNote] = useState("");
   const [error, setError] = useState<ResultError | null>(null);
-  const action = useAction(async (target: PendingNote) => {
-    const result = await decideExtraWorkNote({
-      noteId: target.id,
-      decision: (decision ?? "") as NoteDecision,
-      markDayWorked: target.kind === "day_off" && markWorked,
-      note: ownerNote,
-    });
-    if (
-      toastResult(result, {
-        success: decision === "no_comp_leave" ? "Reviewed, no comp leave" : "Comp leave granted",
-      })
-    ) {
-      onDecided();
-      close(false);
-      router.refresh();
-    } else if (!result.ok) {
-      setError(result.error);
-    }
-  });
+  // The note on screen, read when it runs (a Retry sends what is shown now), and a failure
+  // belongs to its note: opening another forgets it (v1.0.0 review).
+  const action = useAction(
+    async () => {
+      if (!note) return;
+      const result = await decideExtraWorkNote({
+        noteId: note.id,
+        decision: (decision ?? "") as NoteDecision,
+        markDayWorked: note.kind === "day_off" && markWorked,
+        note: ownerNote,
+      });
+      if (
+        toastResult(result, {
+          success: decision === "no_comp_leave" ? "Reviewed, no comp leave" : "Comp leave granted",
+        })
+      ) {
+        onDecided();
+        // Closed directly: `close` refuses while the action is still pending, which it is here.
+        reset();
+        onOpenChange(false);
+        router.refresh();
+      } else if (!result.ok) {
+        setError(result.error);
+      }
+    },
+    { resetKey: note?.id ?? null },
+  );
   const { pending } = action;
+
+  function reset() {
+    setDecision(null);
+    setMarkWorked(false);
+    setOwnerNote("");
+    setError(null);
+  }
 
   function close(open: boolean) {
     if (pending) return;
-    if (!open) {
-      setDecision(null);
-      setMarkWorked(false);
-      setOwnerNote("");
-      setError(null);
-    }
+    if (!open) reset();
     onOpenChange(open);
   }
 
   function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!note) return;
-    action.run(note);
+    action.run();
   }
 
   const decisionError = error?.fieldErrors?.decision?.[0];

@@ -37,7 +37,8 @@ export function PendingClaimsGroup({ claims }: { claims: PendingClaim[] }) {
     async (claimId: string) => {
       const result = await approveExpenseClaim({ claimId });
       if (toastResult(result, { success: "Claim approved" })) {
-        setReviewId(null);
+        // Only the sheet of the claim it approved (the sheet cannot change while it runs, below).
+        setReviewId((current) => (current === claimId ? null : current));
         router.refresh();
       }
     },
@@ -65,7 +66,9 @@ export function PendingClaimsGroup({ claims }: { claims: PendingClaim[] }) {
       />
       <ReviewSheet
         open={review !== null}
-        onOpenChange={(open) => (open ? null : setReviewId(null))}
+        // Held open while its Approve is on its way, as a confirmation is: another claim opened
+        // meanwhile would show this one's pending state and outcome (v1.0.0 review).
+        onOpenChange={(open) => (open || approving ? null : setReviewId(null))}
         title={review?.memberName ?? ""}
         description={review ? `${formatRupees(review.amount)} · ${review.categoryName}` : undefined}
         actions={

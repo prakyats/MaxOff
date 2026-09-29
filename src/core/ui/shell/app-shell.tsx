@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 import { BottomNav } from "./bottom-nav";
 import { MobileChrome } from "./mobile-chrome";
-import { PullToRefresh } from "./pull-to-refresh";
+import { PullToRefreshLazy } from "./pull-to-refresh-lazy";
 import {
   alertsInBottomNav,
   homeFor,
@@ -83,7 +83,7 @@ export function AppShell({
         </main>
       </div>
       <BottomNav primary={primary} more={more} home={home} logoutItem={logoutSheetItem} />
-      <PullToRefresh tabRoots={tabRoots} />
+      <PullToRefreshLazy tabRoots={tabRoots} />
     </div>
   );
 }
