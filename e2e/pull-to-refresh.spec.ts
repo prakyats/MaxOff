@@ -191,6 +191,71 @@ test("a pull goes on when what the finger came down on leaves the page", async (
   expect(await sameDocument(page), "refreshed in place, never reloaded").toBe(true);
 });
 
+test("a pull begun on the skeleton survives React revealing the screen mid-pull", async ({
+  page,
+}, info) => {
+  // Found on CI (2026-09-29, after the first fix): on a cold open, React reveals a streamed screen
+  // up to 300 ms after its HTML arrived ($RV batches reveals), and meanwhile the app is hydrated
+  // and the pull listening. A touch on the skeleton then was stopped by React (the part it
+  // targets is not hydrated yet), and the reveal took the skeleton away mid-pull. Here the reveal
+  // that replaces the People skeleton is held until the finger is down on it: React's own reveal
+  // ($RV, the page's inline runtime), so this is the path a phone takes, every time.
+  await page.addInitScript(() => {
+    const w = window as unknown as Record<string, unknown>;
+    let real: ((batch: unknown) => void) | undefined;
+    const queue: unknown[] = [];
+    w.__releaseReveal = () => {
+      w.__held = false;
+      for (const batch of queue.splice(0)) real?.(batch);
+    };
+    w.__held = true;
+    Object.defineProperty(window, "$RV", {
+      configurable: true,
+      get: () => (batch: unknown) => {
+        // The reveal that brings the People skeleton goes through; the ones after it wait.
+        const items = batch as { outerHTML?: string }[];
+        const now: unknown[] = [];
+        for (let i = 0; i < items.length; i += 2) {
+          const pair = [items[i], items[i + 1]];
+          const bringsSkeleton = items[i + 1]?.outerHTML?.includes("Loading People");
+          if (w.__held && !bringsSkeleton) queue.push(pair);
+          else now.push(...pair);
+        }
+        if (now.length) real?.(now);
+        (batch as unknown[]).length = 0;
+      },
+      set: (fn: (batch: unknown) => void) => {
+        real = fn;
+      },
+    });
+  });
+  await page.goto("/people", { waitUntil: "commit" });
+  const skeleton = page.locator('[aria-label="Loading People"]');
+  await expect(skeleton).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("data-pull-ready", "");
+  await markDocument(page);
+  const refreshed = page.waitForRequest((request) => isRefreshOf(request, "/people"));
+  await pull(page, {
+    between: async () => {
+      expect(
+        await page.evaluate(
+          ({ x, y }) =>
+            document.elementFromPoint(x, y)?.closest('[aria-label="Loading People"]') != null,
+          FINGER,
+        ),
+        "the finger is down on the skeleton",
+      ).toBe(true);
+      await page.evaluate(() =>
+        (window as unknown as { __releaseReveal: () => void }).__releaseReveal(),
+      );
+      await expect(card(page, person(info).name)).toBeVisible();
+      await expect(skeleton).toHaveCount(0);
+    },
+  });
+  await refreshed;
+  expect(await sameDocument(page), "refreshed in place, never reloaded").toBe(true);
+});
+
 test("never under an open sheet, and never on a drill-down", async ({ page }, info) => {
   await page.goto("/people");
   await hydrated(page);

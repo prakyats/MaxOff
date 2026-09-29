@@ -28,10 +28,14 @@ const OVERLAY = '[role="dialog"], [role="alertdialog"], [role="menu"], [role="li
  * move either; a small spinner comes down under the title bar, and on release past the line the
  * screen's data is fetched again in place and the spinner turns until it has arrived.
  *
- * The rest of a touch is followed on the element the finger came down on, not on `window`: the
- * browser sends a touch's later events to that element even after it has left the page, and from
- * there they never bubble. A screen that arrives mid-pull replaces its skeleton under the finger,
- * and the pull was lost (found on CI, 2026-09-29).
+ * A screen still arriving must not swallow the pull (both found on CI, 2026-09-29):
+ * - **`window` listens in the capture phase.** A touch on a part React has not hydrated yet (a
+ *   skeleton whose screen is waiting to be revealed) is stopped by React's own capture listener
+ *   on the root (`stopPropagation`, while it tries to hydrate), so it never bubbled to `window`.
+ * - **The rest of a touch is also followed on the element the finger came down on:** the browser
+ *   sends a touch's later events to that element even after it has left the page (the skeleton
+ *   replaced by the screen mid-pull), and from there they never reach `window` at all.
+ * Each event is handled once, whichever listener hears it first.
  */
 export function PullToRefresh({ tabRoots }: { tabRoots: readonly string[] }) {
   const router = useRouter();
@@ -58,6 +62,13 @@ export function PullToRefresh({ tabRoots }: { tabRoots: readonly string[] }) {
     const endGesture = () => {
       gesture?.abort();
       gesture = null;
+    };
+    // `window` (capture) and the touch's own element can both hear one event: handle it once.
+    let lastEvent: Event | null = null;
+    const once = (handler: (event: TouchEvent) => void) => (event: TouchEvent) => {
+      if (event === lastEvent) return;
+      lastEvent = event;
+      handler(event);
     };
 
     const onMove = (event: TouchEvent) => {
@@ -122,18 +133,29 @@ export function PullToRefresh({ tabRoots }: { tabRoots: readonly string[] }) {
         target instanceof HTMLElement || target instanceof SVGElement ? target : window;
       gesture = new AbortController();
       const options = { passive: true, signal: gesture.signal };
-      followed.addEventListener("touchmove", onMove, options);
-      followed.addEventListener("touchend", onEnd, options);
-      followed.addEventListener("touchcancel", onCancel, options);
+      followed.addEventListener("touchmove", move, options);
+      followed.addEventListener("touchend", end, options);
+      followed.addEventListener("touchcancel", cancel, options);
     };
+    const start = once(onStart);
+    const move = once(onMove);
+    const end = once(onEnd);
+    const cancel = once(onCancel);
 
-    window.addEventListener("touchstart", onStart, { passive: true });
+    const onWindow = { passive: true, capture: true };
+    window.addEventListener("touchstart", start, onWindow);
+    window.addEventListener("touchmove", move, onWindow);
+    window.addEventListener("touchend", end, onWindow);
+    window.addEventListener("touchcancel", cancel, onWindow);
     // Listening: it loads after the page (`pull-to-refresh-lazy.tsx`), so this is the signal
     // that a pull now works (the e2e specs wait for it before pulling).
     document.documentElement.setAttribute("data-pull-ready", "");
     return () => {
       document.documentElement.removeAttribute("data-pull-ready");
-      window.removeEventListener("touchstart", onStart);
+      window.removeEventListener("touchstart", start, onWindow);
+      window.removeEventListener("touchmove", move, onWindow);
+      window.removeEventListener("touchend", end, onWindow);
+      window.removeEventListener("touchcancel", cancel, onWindow);
       endGesture();
     };
   }, [router]);
