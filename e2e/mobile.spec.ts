@@ -502,6 +502,8 @@ test.describe("the page title bar", () => {
   test("the first row of real content is visible without scrolling", async ({ page }) => {
     await page.goto("/people");
     const firstCard = page.locator('[data-slot="data-card"]').first();
+    // Revealed, not still in the streamed `<div hidden>`, where the box is null and y reads 0.
+    await expect(firstCard).toBeVisible();
     const box = await firstCard.boundingBox();
     // Brand bar (48) + title bar (44) + a little breathing room. Before 1.5 a title, a two-line
     // description and a button pushed the first row past 200px.
@@ -702,7 +704,9 @@ test.describe("Settings is a list of rows", () => {
     page,
   }) => {
     await page.goto("/settings");
-    await expect(pageHeader(page)).toBeVisible();
+    // The list itself, not the loading screen's title bar: until React reveals the streamed page
+    // its rows sit in a `<div hidden>` and every label measures 0px (CI run 36602212936).
+    await expectSettled(page);
     await page.evaluate(() => {
       document.documentElement.style.fontSize = "200%";
     });
