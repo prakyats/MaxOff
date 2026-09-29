@@ -8,11 +8,14 @@ import {
   expectBackStack,
   memberIdOf,
   pageHeader,
+  removeClientFixture,
   removeFieldDefinitions,
   removeTasksTitled,
   resetAttendanceAndLeave,
   rpcAs,
+  rpcRefusedAs,
   runInstalled,
+  serviceInsert,
   serviceSelect,
   signIn,
   storageStateFor,
@@ -105,6 +108,18 @@ async function ownerCreates(args: TaskArgs): Promise<string> {
         }
       : {}),
   });
+}
+
+/** A draft client run by that Admin (a fixture): the dialog offers draft, active and paused ones. */
+async function seedClient(name: string, adminEmail: string): Promise<string> {
+  await removeClientFixture(name);
+  const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+  const row = await serviceInsert<{ id: string }>("clients", {
+    org_id: org?.id,
+    name,
+    admin_id: await memberIdOf(adminEmail),
+  });
+  return row.id;
 }
 
 function summary(page: Page): Locator {
@@ -358,6 +373,155 @@ test.describe("staff tasks, the flows", () => {
       await expect(summary(page)).toContainText("To do");
       await expect(historyRows(page).first()).toContainText("reopened the task");
     });
+
+    test("a client label pre-selects that client's Admin; the picker names a freelancer's coordinator", async ({
+      page,
+    }, info) => {
+      const prefix = `Label ${info.project.name} `;
+      const own = `Task Label Own (${info.project.name})`;
+      await removeTasksTitled(prefix);
+      const admin = person("admin", info);
+      await seedClient(own, admin.email);
+      try {
+        await page.goto("/tasks");
+        await page.getByRole("button", { name: "New task" }).click();
+        const dialog = formDialog(page);
+        await expect(dialog).toBeVisible();
+        // Who looks after a freelancer is on their row in the picker (ADR-0013).
+        await dialog.getByLabel("Add a person").click();
+        await expect(
+          page.getByRole("option", { name: new RegExp(`^${escape(freelancer(info).name)}`) }),
+        ).toContainText(`Freelancer · with ${person("coord", info).name}`);
+        await page.keyboard.press("Escape");
+
+        await dialog.getByLabel("Title").fill(`${prefix}poster`);
+        await pick(
+          page,
+          dialog.getByLabel("Add a person"),
+          new RegExp(`^${escape(person("staff", info).name)}`),
+        );
+        await dialog.getByLabel("Deadline").fill(workingDay(24));
+        await expect(dialog.getByLabel("Checked first by")).toContainText("Nobody");
+        // Kickoff 4 decision 3: the label pre-selects that client's Admin.
+        await pick(page, dialog.getByLabel("Client label"), own);
+        await expect(dialog.getByLabel("Checked first by")).toContainText(admin.name);
+        await dialog.getByRole("button", { name: "Create task" }).click();
+        await expect(page).toHaveURL(TASK_URL);
+        await expect(summary(page)).toContainText(own);
+        await expect(summary(page)).toContainText(
+          `${admin.name} checks it, then the Owner approves it`,
+        );
+      } finally {
+        await removeTasksTitled(prefix);
+        await removeClientFixture(own);
+      }
+    });
+
+    test("a stage added and a stage removed are saved; a typed stage name waits for the next open", async ({
+      page,
+    }, info) => {
+      const prefix = `Stages ${info.project.name} `;
+      await removeTasksTitled(prefix);
+      const staffId = await memberIdOf(person("staff", info).email);
+      const taskId = await ownerCreates({
+        title: `${prefix}list`,
+        assignees: [staffId],
+        primary: staffId,
+        due: istInstant(workingDay(27), "18:00"),
+        stages: ["Draft"],
+      });
+
+      await page.goto(`/tasks/${taskId}`);
+      await page.getByRole("button", { name: "Add stage" }).click();
+      const add = page.locator('[data-slot="task-stage-dialog"]');
+      await add.getByLabel("Stage").fill("Captions");
+      // Closed without saving, the name is kept for the next open (§14.2 f; 4B review L6).
+      await add.getByRole("button", { name: "Cancel" }).click();
+      await expect(add).toBeHidden();
+      await page.getByRole("button", { name: "Add stage" }).click();
+      await expect(add.getByLabel("Stage")).toHaveValue("Captions");
+      await add.getByRole("button", { name: "Add stage" }).click();
+      await expect(add).toBeHidden();
+      const stages = page.locator('[data-slot="task-stage"]');
+      await expect(stages).toHaveCount(2);
+
+      await page.getByRole("button", { name: "Remove stage Draft" }).click();
+      await page
+        .getByRole("alertdialog", { name: "Remove this stage?" })
+        .getByRole("button", { name: "Remove stage" })
+        .click();
+      await expect(stages).toHaveCount(1);
+
+      // Saved, not only drawn: a fresh load reads the same checklist and its history.
+      await page.reload();
+      await expect(stages).toHaveCount(1);
+      await expect(stages.first()).toContainText("Captions");
+      await expect(historyRows(page).filter({ hasText: "added the stage “Captions”" })).toHaveCount(
+        1,
+      );
+      await expect(historyRows(page).filter({ hasText: "removed the stage “Draft”" })).toHaveCount(
+        1,
+      );
+    });
+
+    test("an edit records the warning of a person it adds; a title-only edit of a timed event records none again", async ({
+      page,
+    }, info) => {
+      const prefix = `Edit warn ${info.project.name} `;
+      await removeTasksTitled(prefix);
+      const coord = person("coord", info);
+      const [staffId, coordId] = await Promise.all([
+        memberIdOf(person("staff", info).email),
+        memberIdOf(coord.email),
+      ]);
+      const day = workingDay(23);
+      // Four open tasks due that day: the coordinator is at the threshold (kickoff 4 decision 11).
+      for (const n of [1, 2, 3, 4]) {
+        await ownerCreates({
+          title: `${prefix}load ${n}`,
+          assignees: [coordId],
+          primary: coordId,
+          due: istInstant(day, "17:00"),
+        });
+      }
+      const taskId = await ownerCreates({
+        title: `${prefix}shoot`,
+        assignees: [staffId],
+        primary: staffId,
+        due: istInstant(day, "18:00"),
+        type: await taskTypeId("Shoot / Site Visit"),
+        event: { date: day, start: "10:00", end: "12:00" },
+      });
+      const recorded = () =>
+        serviceSelect<{ kind: string; member_id: string }>(
+          `task_warnings?task_id=eq.${taskId}&select=kind,member_id`,
+        );
+
+      await page.goto(`/tasks/${taskId}`);
+      await page.getByRole("button", { name: "Task actions" }).click();
+      await page.getByRole("menuitem", { name: "Edit task" }).click();
+      const dialog = formDialog(page);
+      await pick(page, dialog.getByLabel("Add a person"), new RegExp(`^${escape(coord.name)}`));
+      await expect(
+        dialog.locator(
+          `[data-slot="task-assignee"][data-member="${coordId}"] [data-slot="task-warning"][data-kind="workload"]`,
+        ),
+      ).toContainText("4 tasks already due");
+      await dialog.getByRole("button", { name: "Save changes" }).click();
+      await expect(dialog).toBeHidden();
+      expect(await recorded()).toEqual([{ kind: "workload", member_id: coordId }]);
+      await expect(historyRows(page).filter({ hasText: "despite a heavy day" })).toHaveCount(1);
+
+      // Only the title: no date moved and nobody was added, so nothing is recorded again (S1).
+      await page.getByRole("button", { name: "Task actions" }).click();
+      await page.getByRole("menuitem", { name: "Edit task" }).click();
+      await dialog.getByLabel("Title").fill(`${prefix}shoot, day 2`);
+      await dialog.getByRole("button", { name: "Save changes" }).click();
+      await expect(dialog).toBeHidden();
+      await expect(pageHeader(page)).toContainText(`${prefix}shoot, day 2`);
+      expect(await recorded()).toHaveLength(1);
+      await expect(historyRows(page).filter({ hasText: "despite a heavy day" })).toHaveCount(1);
+    });
   });
 
   test.describe("signed in as each person", () => {
@@ -568,6 +732,86 @@ test.describe("staff tasks, the flows", () => {
       await page.goto(url);
       await expect(page.getByText("Page not found")).toBeVisible();
     });
+
+    test("an Admin labels a task only with their own clients; another Admin's is refused", async ({
+      page,
+    }, info) => {
+      const prefix = `Own label ${info.project.name} `;
+      const own = `Task Label Mine (${info.project.name})`;
+      const other = `Task Label Other (${info.project.name})`;
+      await removeTasksTitled(prefix);
+      const admin = person("admin", info);
+      await seedClient(own, admin.email);
+      const otherId = await seedClient(other, USERS.admin.email);
+      try {
+        await page.context().clearCookies();
+        await signIn(page, admin.email, PASSWORD);
+        await page.goto("/tasks");
+        await page.getByRole("button", { name: "New task" }).click();
+        const dialog = formDialog(page);
+        await dialog.getByLabel("Title").fill(`${prefix}teaser`);
+        await pick(
+          page,
+          dialog.getByLabel("Add a person"),
+          new RegExp(`^${escape(person("staff", info).name)}`),
+        );
+        await dialog.getByLabel("Deadline").fill(workingDay(25));
+        // Kickoff 4 decision 2: their own clients only.
+        await dialog.getByLabel("Client label").click();
+        await expect(page.getByRole("option", { name: own })).toBeVisible();
+        await expect(page.getByRole("option", { name: other })).toHaveCount(0);
+        await page.getByRole("option", { name: own }).click();
+        await dialog.getByRole("button", { name: "Create task" }).click();
+        await expect(page).toHaveURL(TASK_URL);
+        await expect(summary(page)).toContainText(own);
+        const taskId = page.url().split("/").at(-1) as string;
+        // What the dialog never offers, the database refuses too.
+        const refused = await rpcRefusedAs(admin.email, PASSWORD, "task_update_assignment", {
+          task_id: taskId,
+          changes: { client_id: otherId },
+        });
+        expect(refused.message).toBe("FORBIDDEN");
+      } finally {
+        await removeTasksTitled(prefix);
+        await removeClientFixture(own);
+        await removeClientFixture(other);
+      }
+    });
+
+    test("an assignee who coordinates nobody ticks and unticks a stage", async ({ page }, info) => {
+      const prefix = `Tick ${info.project.name} `;
+      await removeTasksTitled(prefix);
+      const staff = person("staff", info);
+      const staffId = await memberIdOf(staff.email);
+      const taskId = await ownerCreates({
+        title: `${prefix}script`,
+        assignees: [staffId],
+        primary: staffId,
+        due: istInstant(workingDay(26), "18:00"),
+        stages: ["Script", "Voice-over"],
+      });
+
+      await page.context().clearCookies();
+      await signIn(page, staff.email, PASSWORD);
+      await page.goto(`/tasks/${taskId}`);
+      const stage = page.locator('[data-slot="task-stage"]', { hasText: "Script" });
+      await page.getByRole("checkbox", { name: "Script" }).click();
+      await expect(stage).toHaveAttribute("data-done", "true");
+      await expect(stage).toContainText(`Ticked by ${staff.name},`);
+      await expect(page.locator('[data-slot="task-stages-count"]')).toContainText("1 of 2 done");
+
+      await page.getByRole("checkbox", { name: "Script" }).click();
+      await expect(stage).toHaveAttribute("data-done", "false");
+      await expect(stage).not.toContainText("Ticked by");
+      await expect(page.locator('[data-slot="task-stages-count"]')).toContainText("0 of 2 done");
+      const by = escape(staff.name);
+      await expect(
+        historyRows(page).filter({ hasText: new RegExp(`${by} ticked a stage`) }),
+      ).toHaveCount(1);
+      await expect(
+        historyRows(page).filter({ hasText: new RegExp(`${by} unticked a stage`) }),
+      ).toHaveCount(1);
+    });
   });
 });
 
@@ -713,6 +957,77 @@ test.describe("staff tasks, installed: back closes each layer", () => {
       await expect(remove).toBeVisible();
       await expectBackStack(page, [{ closes: remove, url }]);
       await expect(summary(page)).toContainText("Waiting for approval");
+    });
+
+    test("Reopen's reason, Decide it yourself and the edit's Discard question close on back", async ({
+      page,
+    }, info) => {
+      const prefix = `More back ${info.project.name} `;
+      await removeTasksTitled(prefix);
+      const staff = person("staff", info);
+      const [staffId, adminId] = await Promise.all([
+        memberIdOf(staff.email),
+        memberIdOf(person("admin", info).email),
+      ]);
+      const due = istInstant(workingDay(28), "18:00");
+      const completed = await ownerCreates({
+        title: `${prefix}complete`,
+        assignees: [staffId],
+        primary: staffId,
+        due,
+      });
+      await rpcAs(staff.email, PASSWORD, "task_submit_done", { task_id: completed });
+      await rpcAs(USERS.owner.email, USERS.owner.password, "task_review", {
+        task_id: completed,
+        decision: "approved",
+      });
+      const waiting = await ownerCreates({
+        title: `${prefix}waiting`,
+        assignees: [staffId],
+        primary: staffId,
+        approver: adminId,
+        due,
+      });
+      await rpcAs(staff.email, PASSWORD, "task_submit_done", { task_id: waiting });
+      await runInstalled(page);
+
+      // A completed task's ⋯ → Reopen task: back closes the reason, the task stays complete.
+      await page.goto(`/tasks/${completed}`);
+      await page.getByRole("button", { name: "Task actions" }).click();
+      await page.getByRole("menuitem", { name: "Reopen task" }).click();
+      const reopen = page.getByRole("dialog", { name: "Reopen this task?" });
+      await expect(reopen).toBeVisible();
+      await expectBackStack(page, [{ closes: reopen, url: new RegExp(`/tasks/${completed}$`) }]);
+      await expect(summary(page)).toContainText("Completed");
+
+      // A task waiting for its Admin: the Owner's Decide it yourself closes on back.
+      await page.goto(`/tasks/${waiting}`);
+      const url = new RegExp(`/tasks/${waiting}$`);
+      await summary(page).getByRole("button", { name: "Decide it yourself" }).click();
+      const takeOver = page.getByRole("alertdialog", { name: "Decide it yourself?" });
+      await expect(takeOver).toBeVisible();
+      await expectBackStack(page, [{ closes: takeOver, url }]);
+      await expect(summary(page)).toContainText("Waiting for");
+
+      // Edit with a change typed: back asks first, and back on the question keeps editing.
+      await page.getByRole("button", { name: "Task actions" }).click();
+      await page.getByRole("menuitem", { name: "Edit task" }).click();
+      const dialog = formDialog(page);
+      await dialog.getByLabel("Title").fill(`${prefix}waiting, renamed`);
+      const discard = page.getByRole("alertdialog", { name: "Discard your changes?" });
+      await page.goBack();
+      await expect(discard).toBeVisible();
+      await expect(page).toHaveURL(url);
+      await page.goBack();
+      await expect(discard).toBeHidden();
+      await expect(dialog.getByLabel("Title")).toHaveValue(`${prefix}waiting, renamed`);
+      await page.goBack();
+      await discard.getByRole("button", { name: "Discard changes" }).click();
+      await expect(discard).toBeHidden();
+      await expect(dialog).toBeHidden();
+      await expect(page).toHaveURL(url);
+      await expect(pageHeader(page)).toContainText(`${prefix}waiting`);
+      await expect(pageHeader(page)).not.toContainText("renamed");
     });
   });
 

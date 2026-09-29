@@ -93,6 +93,33 @@ export async function rpcAs<T = unknown>(
   fn: string,
   args: Record<string, unknown>,
 ): Promise<T> {
+  const { ok, text } = await rpcCall(email, password, fn, args);
+  expect(ok, `${fn} as ${email}: ${text}`).toBe(true);
+  // A function that returns void answers with an empty body (204).
+  return (text ? JSON.parse(text) : null) as T;
+}
+
+/**
+ * The same call where the database must refuse (4B review S10): resolves with the error's body,
+ * whose `message` is the code (`FORBIDDEN`, `VALIDATION`, …) and `details` the sentence.
+ */
+export async function rpcRefusedAs(
+  email: string,
+  password: string,
+  fn: string,
+  args: Record<string, unknown>,
+): Promise<{ message: string; details: string | null }> {
+  const { ok, text } = await rpcCall(email, password, fn, args);
+  expect(ok, `${fn} as ${email} is refused: ${text}`).toBe(false);
+  return JSON.parse(text) as { message: string; details: string | null };
+}
+
+async function rpcCall(
+  email: string,
+  password: string,
+  fn: string,
+  args: Record<string, unknown>,
+): Promise<{ ok: boolean; text: string }> {
   const { url, apikey } = supabaseAuth();
   const accessToken = await accessTokenFor(email, password);
   const rest = url.replace(/\/auth\/v1$/, "/rest/v1");
@@ -105,11 +132,7 @@ export async function rpcAs<T = unknown>(
     },
     body: JSON.stringify(args),
   });
-  // A function that returns void answers with an empty body (204).
-  const text = await response.text();
-  const body: unknown = text ? JSON.parse(text) : null;
-  expect(response.ok, `${fn} as ${email}: ${text}`).toBe(true);
-  return body as T;
+  return { ok: response.ok, text: await response.text() };
 }
 
 /** A real session's access token for a seeded person, from GoTrue's password grant. */
