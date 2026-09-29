@@ -5,6 +5,7 @@ import { expect, test } from "./fixtures";
 import { STAND_INS, type StandIn } from "../src/app/(app)/_placeholder/stand-ins";
 
 import {
+  heldShell,
   memberIdOf,
   pageHeader,
   removeClientFixture,
@@ -127,6 +128,19 @@ async function expectNoZoomOnFocus(page: Page): Promise<void> {
   expect(small, `every input is at least ${MIN_INPUT_FONT}px`).toEqual([]);
 }
 
+/**
+ * The screen has streamed in: its title bar is up and no skeleton is left. `page.goto` resolves
+ * on `load`, and that is not the end of a streamed page: React 19.2 reveals a server-rendered
+ * Suspense boundary in batches (`$RC` schedules the swap up to 300 ms after the previous reveal),
+ * so a route's `loading.tsx` can still be on screen for a moment after `goto` returns (CI,
+ * 2026-09-29: the Owner's /me measured its skeleton at 200%). The loading screens have their own
+ * check below (`LOADING_SCREENS`), where the skeleton is held on screen on purpose.
+ */
+async function expectSettled(page: Page): Promise<void> {
+  await expect(pageHeader(page)).toBeVisible();
+  await expect(page.locator('[data-slot="skeleton"]')).toHaveCount(0);
+}
+
 /** The screens that exist after phase 1, with the role that may open each. */
 const SCREENS = [
   { path: "/people", role: "owner" },
@@ -158,7 +172,7 @@ for (const role of ["owner", "admin", "staff"] as const) {
     for (const { path } of screens) {
       test(`${path}: no sideways scroll, 44px targets, 16px inputs`, async ({ page }) => {
         await page.goto(path);
-        await expect(pageHeader(page)).toBeVisible();
+        await expectSettled(page);
         await expectNoHorizontalScroll(page);
         await expectTouchTargets(page);
         await expectNoZoomOnFocus(page);
@@ -219,39 +233,44 @@ async function expectReadableTruncation(page: Page): Promise<void> {
 /**
  * A loading screen fits at large text too (phase 3 review: CI caught /today's stat-tile skeleton
  * reaching past the edge at 200%, only when the check ran before the page streamed in; since the
- * 3c review the route's skeleton traces the stand-in, `loading-stand-in`). The page's data
- * request is held, so its `loading.tsx` stays up for as long as the check needs.
+ * 3c review the route's skeleton traces the stand-in, `loading-stand-in`; the 3c review's CI then
+ * caught /me the same way, its skeleton columns keeping their rem widths at 200%). The page is
+ * opened through `heldShell`, which delivers the route's loading screen (`marker` is in its
+ * markup) and holds what streams after it, so the skeleton is what is measured, every time, on
+ * the path a cold open takes.
  */
-for (const role of ["owner", "admin"] as const) {
-  test.describe(`${role}: Today's loading screen at large system text`, () => {
+const LOADING_SCREENS = [
+  { role: "owner", path: "/today", marker: 'data-slot="loading-stand-in"' },
+  { role: "admin", path: "/today", marker: 'data-slot="loading-stand-in"' },
+  { role: "owner", path: "/me", marker: 'aria-label="Loading Me"' },
+  { role: "admin", path: "/me", marker: 'aria-label="Loading Me"' },
+  { role: "staff", path: "/me", marker: 'aria-label="Loading Me"' },
+] as const;
+
+for (const role of ["owner", "admin", "staff"] as const) {
+  test.describe(`${role}: loading screens at large system text`, () => {
     test.use({ storageState: storageStateFor(role) });
 
-    test("fits at 130% and 200% while the page loads", async ({ page }) => {
-      await page.goto("/me");
-      await expect(pageHeader(page)).toBeVisible();
-      await page.waitForLoadState("networkidle");
-      let release: () => void = () => undefined;
-      const held = new Promise<void>((resolve) => {
-        release = resolve;
+    for (const { path, marker } of LOADING_SCREENS.filter((screen) => screen.role === role)) {
+      test(`${path}: fits at 100%, 130% and 200% while the page loads`, async ({
+        page,
+        baseURL,
+      }) => {
+        const held = await heldShell(baseURL!, path, marker);
+        try {
+          await page.goto(`${held.origin}${path}`, { waitUntil: "commit" });
+          await expect(page.locator(`[${marker}]`)).toBeVisible();
+          for (const scale of [100, 130, 200]) {
+            await page.evaluate((percent) => {
+              document.documentElement.style.fontSize = `${percent}%`;
+            }, scale);
+            await expectNoHorizontalScroll(page);
+          }
+        } finally {
+          await held.close();
+        }
       });
-      await page.route(
-        (url) => url.pathname === "/today",
-        async (route) => {
-          if (route.request().headers()["rsc"] !== "1") return route.continue();
-          await held;
-          await route.continue().catch(() => undefined);
-        },
-      );
-      await page.getByRole("link", { name: "Today" }).filter({ visible: true }).first().click();
-      await expect(page.locator('[data-slot="loading-stand-in"]')).toBeVisible();
-      for (const scale of [130, 200]) {
-        await page.evaluate((percent) => {
-          document.documentElement.style.fontSize = `${percent}%`;
-        }, scale);
-        await expectNoHorizontalScroll(page);
-      }
-      release();
-    });
+    }
   });
 }
 
@@ -262,7 +281,7 @@ for (const [role, paths] of Object.entries(LARGE_TEXT_SCREENS)) {
     for (const path of paths) {
       test(`${path}: fits at 130% and 200%`, async ({ page }) => {
         await page.goto(path);
-        await expect(pageHeader(page)).toBeVisible();
+        await expectSettled(page);
         for (const scale of [130, 200]) {
           await page.evaluate((percent) => {
             document.documentElement.style.fontSize = `${percent}%`;

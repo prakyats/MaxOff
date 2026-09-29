@@ -145,9 +145,9 @@ function TilesSkeleton({ items }: { items: number }) {
 function DetailSkeleton({ items }: { items: number }) {
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center gap-3">
+      <div className="flex min-w-0 items-center gap-3">
         <Skeleton className="size-12 shrink-0 rounded-full" />
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <Skeleton className="h-4 w-40" />
           <Skeleton className="h-3 w-24" />
         </div>

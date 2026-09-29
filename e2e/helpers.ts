@@ -1,3 +1,6 @@
+import { createServer, request as httpRequest, type ServerResponse } from "node:http";
+import type { AddressInfo } from "node:net";
+
 import { expect, type Locator, type Page } from "@playwright/test";
 
 /** The local sign-ins created by `supabase/seed.sql` (README → "Local sign-ins"). */
@@ -528,4 +531,92 @@ export async function memberIdOf(email: string): Promise<string> {
   const id = rows[0]?.id;
   expect(id, `a member with ${email}`).toBeTruthy();
   return id as string;
+}
+
+/**
+ * A pass-through proxy in front of the app that holds back what one page streams once its
+ * loading screen is up. A server-rendered route's HTML is a shell followed by its Suspense
+ * boundaries as they resolve, each a `<div hidden id="S:…">` with the `$RC` script that swaps it
+ * in. The route's `loading.tsx` is itself one of them: the shell carries the neutral
+ * `(app)/loading.tsx`, the route's own skeleton (an async component, it awaits the member)
+ * streams in first, the page after it. Every request passes through untouched except a document
+ * request for `path`: everything up to and including the chunk that carries `marker` (a string
+ * in the route's loading screen, e.g. `aria-label="Loading Me"`) is delivered, the rest is held
+ * until `release()`. So the browser shows that loading screen for as long as a check needs, on
+ * the path a phone takes on a cold open, which is what CI happened to measure on 2026-09-29
+ * (React 19.2 batches reveals, so `load` can come before the swap; `mobile.spec.ts`). Open the
+ * page at `origin`: the saved sign-in holds, since cookies for `localhost` ignore the port. A
+ * soft navigation cannot be held this way: its loading screen comes from the router's prefetch
+ * cache, whose state a test cannot see.
+ */
+export async function heldShell(
+  baseURL: string,
+  path: string,
+  marker: string,
+): Promise<{ origin: string; release: () => void; close: () => Promise<void> }> {
+  const upstream = new URL(baseURL);
+  const pending = new Set<{ response: ServerResponse; tail: string }>();
+  let released = false;
+  const server = createServer((request, response) => {
+    const headers = { ...request.headers };
+    // Plain bodies, so the shell can be split; what is forwarded is re-chunked here.
+    delete headers["accept-encoding"];
+    const forwarded = httpRequest(
+      {
+        host: upstream.hostname,
+        port: upstream.port,
+        path: request.url ?? "/",
+        method: request.method,
+        headers,
+      },
+      (answer) => {
+        const url = new URL(request.url ?? "/", baseURL);
+        const isPage =
+          request.method === "GET" &&
+          url.pathname === path &&
+          request.headers["rsc"] !== "1" &&
+          (answer.headers["content-type"] ?? "").includes("text/html");
+        const answerHeaders = { ...answer.headers };
+        delete answerHeaders["content-length"];
+        delete answerHeaders["content-encoding"];
+        delete answerHeaders["transfer-encoding"];
+        response.writeHead(answer.statusCode ?? 200, answerHeaders);
+        if (!isPage) {
+          answer.pipe(response);
+          return;
+        }
+        const chunks: Buffer[] = [];
+        answer.on("data", (chunk: Buffer) => chunks.push(chunk));
+        answer.on("end", () => {
+          const html = Buffer.concat(chunks).toString("utf8");
+          // The first streamed chunk after the loading screen: the page, or what resolves next.
+          const streamed = html.indexOf('<div hidden id="S:', Math.max(0, html.indexOf(marker)));
+          if (streamed < 0 || released) {
+            response.end(html);
+            return;
+          }
+          response.write(html.slice(0, streamed));
+          pending.add({ response, tail: html.slice(streamed) });
+        });
+      },
+    );
+    forwarded.on("error", () => response.destroy());
+    request.pipe(forwarded);
+  });
+  await new Promise<void>((resolve) => server.listen(0, resolve));
+  const { port } = server.address() as AddressInfo;
+  const release = () => {
+    released = true;
+    for (const { response, tail } of pending) response.end(tail);
+    pending.clear();
+  };
+  return {
+    origin: `http://localhost:${port}`,
+    release,
+    close: async () => {
+      release();
+      server.closeAllConnections();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    },
+  };
 }
