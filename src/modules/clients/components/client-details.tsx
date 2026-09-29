@@ -1,5 +1,7 @@
 "use client";
 
+import type { ReactNode } from "react";
+
 import { customFieldsExtra } from "@/core/custom-fields/components/custom-fields-extra";
 import type { MemberOption } from "@/core/custom-fields/components/custom-fields-form";
 import type { FieldDefinition } from "@/core/custom-fields";
@@ -28,17 +30,21 @@ type NotesField = "requirements" | "notes";
  * the Owner and the client's Admin (`clients.edit_assigned`), or from the header's ⋯ (Edit
  * details). The client's custom fields are part of the same record, so a required one is checked
  * when this form is saved (WORKFLOWS §4a). Paused and Inactive clients stay editable (kickoff 3).
+ * `addField` (composed by the page, from `modules/settings`) closes the edit form's fields.
  */
 export function ClientDetails({
   client,
   definitions,
   members,
   canEdit,
+  addField,
 }: {
   client: Client;
   definitions: readonly FieldDefinition[];
   members: readonly MemberOption[];
   canEdit: boolean;
+  /** "Add a field for this client", shown at the bottom of the edit form only. */
+  addField?: ReactNode;
 }) {
   const fields: EditableField<DetailField>[] = [
     {
@@ -125,23 +131,35 @@ export function ClientDetails({
     },
   ];
 
+  const custom = customFieldsExtra({
+    definitions,
+    values: client.customFields,
+    subject: client.name,
+    members,
+  }) ?? {
+    value: client.customFields,
+    changes: () => [],
+    edit: () => null,
+    read: () => null,
+  };
+
   return (
     <EditableRecord<DetailField, Record<string, unknown>>
       title="Details"
       subject={client.name}
       fields={fields}
       extra={
-        customFieldsExtra({
-          definitions,
-          values: client.customFields,
-          subject: client.name,
-          members,
-        }) ?? {
-          value: client.customFields,
-          changes: () => [],
-          edit: () => null,
-          read: () => null,
-        }
+        addField
+          ? {
+              ...custom,
+              edit: (props) => (
+                <>
+                  {custom.edit(props)}
+                  {addField}
+                </>
+              ),
+            }
+          : custom
       }
       canEdit={canEdit}
       editKey={clientEditKey(client.id)}
