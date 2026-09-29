@@ -42,16 +42,20 @@ const isRefreshOf = (request: Request, path: string) =>
   !request.headers()["next-router-prefetch"] &&
   new URL(request.url()).pathname === path;
 
+/** Where the finger comes down: near the top of the screen, over the first rows. */
+const FINGER = { x: 180, y: 220 };
+
 /**
- * A finger pulling down from near the top of the screen and letting go, once the pull is
- * listening (it loads after the page and marks `html[data-pull-ready]`).
+ * A finger pulling down from `FINGER` and letting go, once the pull is listening (it loads after
+ * the page and marks `html[data-pull-ready]`). `between` runs with the finger down, before it
+ * moves.
  */
-async function pull(page: Page, distance = 220) {
+async function pull(page: Page, { distance = 220, between = async () => {} } = {}) {
   await expect(page.locator("html")).toHaveAttribute("data-pull-ready", "");
   const cdp = await page.context().newCDPSession(page);
-  const x = 180;
-  const y = 220;
+  const { x, y } = FINGER;
   await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
+  await between();
   for (let step = 1; step <= 8; step++) {
     await cdp.send("Input.dispatchTouchEvent", {
       type: "touchMove",
@@ -154,6 +158,37 @@ test("the spinner turns while the data comes back, and a second pull waits 5 s",
   await pull(page);
   await page.waitForTimeout(500);
   expect(refreshes, "the second pull was inside the throttle").toBe(1);
+});
+
+test("a pull goes on when what the finger came down on leaves the page", async ({ page }) => {
+  // Found on CI (2026-09-29): on a cold open the finger came down on the People skeleton and the
+  // list replaced it while the finger moved. A touch's later events go to the element it started
+  // on even after that element has left the page, and from there they never reach `window`, so
+  // the pull never saw them. React's own swap cannot be timed from a test (it waits on the reveal
+  // and the prefetch cache), so a plain layer stands in for the skeleton: the finger comes down
+  // on it, and it leaves the page before the finger moves.
+  await page.goto("/people");
+  await hydrated(page);
+  await page.evaluate(() => {
+    const layer = document.createElement("div");
+    layer.id = "leaves-mid-pull";
+    layer.style.cssText = "position: fixed; inset: 0; z-index: 100";
+    document.body.append(layer);
+  });
+  await markDocument(page);
+  const refreshed = page.waitForRequest((request) => isRefreshOf(request, "/people"));
+  await pull(page, {
+    between: async () => {
+      expect(
+        await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.id, FINGER),
+        "the finger is down on the layer",
+      ).toBe("leaves-mid-pull");
+      await page.evaluate(() => document.getElementById("leaves-mid-pull")?.remove());
+    },
+  });
+  await refreshed;
+  await expect(page.locator('[data-slot="pull-refresh"]')).toHaveCount(0);
+  expect(await sameDocument(page), "refreshed in place, never reloaded").toBe(true);
 });
 
 test("never under an open sheet, and never on a drill-down", async ({ page }, info) => {
