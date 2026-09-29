@@ -3,7 +3,9 @@ import { type Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
 
 import {
+  CONTINUE_BUTTON,
   expectBackStack,
+  followAuthLink,
   recoveryLinkFor,
   resetAttendanceAndLeave,
   runInstalled,
@@ -237,8 +239,8 @@ test.describe("installed: overlays and view controls", () => {
 
 /**
  * §14.2 e: one-time screens are never in the back stack. After sign-in (with the Start-day
- * prompt answered or not), a recovery link or a sign-out the app lands with nothing of ours
- * underneath, so one back leaves (Playwright's page starts on about:blank; the installed app
+ * prompt answered or not), a recovery link's Continue page, set-password or a sign-out the app
+ * lands with nothing of ours underneath, so one back leaves (Playwright's page starts on about:blank; the installed app
  * would close). Each phone project has its own seeded person, whose day is cleared first and
  * whose password is put back.
  */
@@ -301,11 +303,20 @@ test.describe("installed: sign-in, the prompt, recovery and sign-out leave the b
     await expectBackStack(page, [LEFT]);
   });
 
-  test("a recovery link and set-password: back from home leaves", async ({ page }, info) => {
+  test("a recovery link's Continue page and set-password: back from each leaves", async ({
+    page,
+  }, info) => {
     const who = PEOPLE[info.project.name]!;
     await runInstalled(page);
     try {
-      await page.goto(await recoveryLinkFor(who.email));
+      const link = await recoveryLinkFor(who.email);
+      // The Continue page (3cB review) is a one-time screen with nothing of ours beneath it: one
+      // back leaves, and leaves the link unspent, since only Continue verifies it.
+      await page.goto(link);
+      await expect(page.getByRole("button", { name: CONTINUE_BUTTON })).toBeVisible();
+      await expectBackStack(page, [LEFT]);
+
+      await followAuthLink(page, link);
       await expect(page).toHaveURL(/\/set-password$/);
       const fresh = `back-new-${crypto.randomUUID().slice(0, 8)}`;
       await page.getByLabel("New password").fill(fresh);

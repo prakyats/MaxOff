@@ -1,11 +1,12 @@
--- 2.2 Day gate hardening (migration 20260923171029): the per-member touch lock, the joining day,
--- "the day changed" at the gate, and "the later decision wins" over an approved gate leave in
+-- 2.2 Day gate hardening (migration 20260923171029): the joining day, "the day changed" at the gate, and "the later decision wins" over an approved gate leave in
 -- both orders, through leave_decide and leave_owner_edit, with the dates the Owner's corrections
--- keep and the CONFLICT that still names a form or owner request. The two-connection proof that
--- the touch lock holds is 09 (dblink).
+-- keep and the CONFLICT that still names a form or owner request. Since the 3c.1 contract
+-- migration a day is opened by app.attendance_open_day(member, date) (pg_temp.open_today below,
+-- as the system, the way attendance_start_day() and the prompt's leave choice do); the 2.x
+-- attendance_touch() is gone, and the two-connection proof of the start's lock is 09 (dblink).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(108);
+select plan(104);
 
 -- Keep the seeded organization; replace the people with fixtures. Rolled back at the end.
 delete from public.attendance_events;
@@ -120,11 +121,23 @@ create function pg_temp.reset_attendance() returns void language sql as $$
   delete from public.activity_log where entity in ('attendance_days', 'leave_requests');
 $$;
 
+-- Opens today's day for the member the session is acting as, then acts as them again.
+create function pg_temp.open_today() returns void language plpgsql as $$
+declare v_sub uuid := current_setting('request.jwt.claim.sub', true)::uuid;
+begin
+  perform pg_temp.as_system();
+  perform app.attendance_open_day(v_sub, app.today_ist());
+  perform set_config('request.jwt.claim.sub', v_sub::text, true);
+  perform set_config('request.jwt.claims', json_build_object('sub', v_sub, 'role', 'authenticated')::text, true);
+  perform set_config('role', 'authenticated', true);
+end;
+$$;
+
 -- A gate choice made by the member and approved by the Owner, as the real functions do it.
 create function pg_temp.gate_approved(k text, ch public.attendance_choice) returns void language plpgsql as $$
 begin
   perform pg_temp.as_member(k);
-  perform public.attendance_touch();
+  perform pg_temp.open_today();
   perform public.attendance_submit(ch, 'At the gate');
   perform pg_temp.as_member('owner');
   perform public.attendance_decide(pg_temp.day(k), 'approve');
@@ -161,13 +174,11 @@ select is(pg_get_function_result('app.attendance_apply_leave(public.leave_reques
 select ok(
   has_function_privilege('authenticated', 'public.attendance_submit(public.attendance_choice, text, date)', 'execute')
   and has_function_privilege('authenticated', 'public.leave_decide(uuid, text, text)', 'execute')
-  and has_function_privilege('authenticated', 'public.attendance_touch(text, text)', 'execute')
   and has_function_privilege('authenticated', 'public.leave_owner_edit(uuid, public.leave_type, date, date, text)', 'execute'),
   'authenticated may execute the re-created functions');
 select ok(
   not has_function_privilege('anon', 'public.attendance_submit(public.attendance_choice, text, date)', 'execute')
   and not has_function_privilege('anon', 'public.leave_decide(uuid, text, text)', 'execute')
-  and not has_function_privilege('anon', 'public.attendance_touch(text, text)', 'execute')
   and not has_function_privilege('anon', 'public.leave_owner_edit(uuid, public.leave_type, date, date, text)', 'execute'),
   'anon may execute none of them');
 select ok(
@@ -177,39 +188,35 @@ select ok(
   and not has_function_privilege('authenticated', 'app.attendance_apply_leave(public.leave_requests)', 'execute'),
   'the new helpers are closed to the API role');
 
--- attendance_touch: the per-member lock ----------------------------------------------------------
+-- Opening a day twice in one transaction ----------------------------------------------------------
 select pg_temp.as_member('staff');
-select is((select gate_required from public.attendance_touch()), true, 'a staff member is asked');
-select ok(exists (
-    select 1 from pg_locks l
-    where l.locktype = 'advisory' and l.pid = pg_backend_pid() and l.granted
-      and l.objid::bigint = (hashtext('touch:' || pg_temp.fx('staff')::text)::bigint & 4294967295)),
-  'the touch holds the member''s touch lock until the transaction ends');
-select is((select gate_required from public.attendance_touch()), true, 'a second touch in the same transaction still works (the lock is re-entrant)');
+select pg_temp.open_today();
+select pg_temp.open_today();
 select pg_temp.as_system();
-select is((select count(*) from public.session_events where member_id = pg_temp.fx('staff') and kind = 'login'), 1::bigint,
-  'two touches: one login row');
-select is((select count(*) from public.attendance_days where member_id = pg_temp.fx('staff')), 1::bigint, 'and one day');
+select is((select count(*) from public.attendance_days where member_id = pg_temp.fx('staff')), 1::bigint,
+  'opening the day twice gives one day');
 
 -- The joining day ---------------------------------------------------------------------------------
 select pg_temp.as_member('newbie');
 select results_eq(
-  $$ select day_id is null, gate_required, state is null from public.attendance_touch() $$,
-  $$ values (true, false, true) $$,
-  'on the joining day the gate does not ask and no day opens');
+  $$ select attendance_started, day_id from public.attendance_own_today() $$,
+  $$ values (false, null::uuid) $$,
+  'on the joining day attendance has not started and no day exists');
+select results_eq(
+  $$ select split_part(pg_temp.err($q$ select public.attendance_start_day() $q$), ':', 1) $$,
+  $$ values ('INVALID_STATE') $$,
+  'Start day is refused on the joining day');
 select results_eq(
   $$ select split_part(pg_temp.err($q$ select public.attendance_submit('present') $q$), ':', 1) $$,
   $$ values ('NOT_FOUND') $$,
   'and there is nothing to submit');
 select pg_temp.as_member('midnight');
-select is((select gate_required from public.attendance_touch()), false, 'joined at 00:00 IST today: still the joining day');
+select is((select attendance_started from public.attendance_own_today()), false, 'joined at 00:00 IST today: still the joining day');
 select pg_temp.as_member('lastnight');
-select is((select gate_required from public.attendance_touch()), true, 'joined at 23:59 IST yesterday: asked today');
+select is((select attendance_started from public.attendance_own_today()), true, 'joined at 23:59 IST yesterday: attendance starts today');
 select pg_temp.as_system();
 select is((select count(*) from public.attendance_days where member_id in (pg_temp.fx('newbie'), pg_temp.fx('midnight'))), 0::bigint,
   'no day for anyone on their joining day');
-select is((select count(*) from public.session_events where member_id in (pg_temp.fx('newbie'), pg_temp.fx('midnight')) and kind = 'login'), 2::bigint,
-  'but their logins are recorded');
 
 -- The day changed ---------------------------------------------------------------------------------
 select pg_temp.as_member('staff');
@@ -226,6 +233,7 @@ select is((select count(*) from public.leave_requests where member_id = pg_temp.
 select pg_temp.as_member('staff');
 select is(public.attendance_submit('present', null, app.today_ist()), 'pending_review', 'today''s date is accepted');
 select pg_temp.as_member('lastnight');
+select pg_temp.open_today();
 select is(public.attendance_submit('present'), 'pending_review', 'no date at all is accepted (older callers)');
 select pg_temp.as_system();
 
@@ -305,7 +313,7 @@ select results_eq(
 select pg_temp.reset_attendance();
 select pg_temp.as_member('staff');
 select isnt(public.leave_submit('leave', app.today_ist(), app.today_ist()), null, 'a form request is waiting');
-select public.attendance_touch();
+select pg_temp.open_today();
 select is(public.attendance_submit('half_day'), 'pending_review', 'a half day is chosen at the gate');
 select pg_temp.as_member('owner');
 select is(public.attendance_decide(pg_temp.day('staff'), 'correct', 'half_day', 'Confirmed by phone'), 'corrected',
@@ -366,7 +374,7 @@ select results_eq(
 select pg_temp.reset_attendance();
 select pg_temp.as_member('staff');
 select isnt(public.leave_submit('half_day', app.today_ist(), app.today_ist()), null, 'a half-day form request is waiting');
-select public.attendance_touch();
+select pg_temp.open_today();
 select is(public.attendance_submit('leave', 'Whole day'), 'pending_review', 'a full day is chosen at the gate');
 select pg_temp.as_member('owner');
 select results_eq(
@@ -388,7 +396,7 @@ select is((select state::text from public.leave_requests where id = pg_temp.gate
 select pg_temp.reset_attendance();
 select pg_temp.as_member('staff');
 select isnt(public.leave_submit('leave', app.today_ist(), app.today_ist() + 1, 'Two days'), null, 'a two-day request is waiting');
-select public.attendance_touch();
+select pg_temp.open_today();
 select is(public.attendance_submit('half_day'), 'pending_review', 'a half day is chosen at the gate');
 select pg_temp.as_member('owner');
 select is(public.attendance_decide(pg_temp.day('staff'), 'correct', 'present', 'Was in the studio all day'), 'corrected',
@@ -413,7 +421,7 @@ select is((select state::text from public.leave_requests where id = pg_temp.gate
 select pg_temp.reset_attendance();
 select pg_temp.as_member('staff2');
 select isnt(public.leave_submit('leave', app.today_ist(), app.today_ist()), null, 'a form request is waiting');
-select public.attendance_touch();
+select pg_temp.open_today();
 select is(public.attendance_submit('present'), 'pending_review', 'Present is chosen at the gate');
 select pg_temp.as_member('owner');
 select is(public.attendance_decide(pg_temp.day('staff2'), 'correct', 'half_day', 'Left at noon'), 'corrected',
@@ -476,7 +484,7 @@ select results_eq(
 select pg_temp.reset_attendance();
 select pg_temp.mk_leave('staff2', 'leave', 1, 1, 'approved');
 select pg_temp.as_member('staff2');
-select public.attendance_touch();
+select pg_temp.open_today();
 select is(public.attendance_submit('half_day'), 'pending_review', 'a half day waits at the gate');
 select pg_temp.as_member('owner');
 select is(pg_temp.err(format($$ select public.leave_owner_edit(%L, 'leave', app.today_ist(), app.today_ist() + 1) $$,
@@ -500,7 +508,7 @@ select pg_temp.as_system();
 -- A day the Owner DECIDED stays: an approved Present is kept and reported ------------------------
 select pg_temp.reset_attendance();
 select pg_temp.as_member('staff');
-select public.attendance_touch();
+select pg_temp.open_today();
 select is(public.attendance_submit('present'), 'pending_review', 'Present is chosen at the gate');
 select isnt(public.leave_submit('leave', app.today_ist(), app.today_ist() + 1, 'Two days off'), null,
   'a two-day request starting today is waiting');
@@ -523,7 +531,7 @@ select results_eq(
 -- ...while a Present still waiting becomes the leave -------------------------------------------------
 select pg_temp.reset_attendance();
 select pg_temp.as_member('staff2');
-select public.attendance_touch();
+select pg_temp.open_today();
 select is(public.attendance_submit('present'), 'pending_review', 'Present is chosen at the gate and waits');
 select isnt(public.leave_submit('leave', app.today_ist(), app.today_ist()), null, 'a leave request for today is waiting');
 select pg_temp.as_member('owner');
@@ -539,7 +547,7 @@ select results_eq(
 
 -- Overtime needs a reason, in the database too ---------------------------------------------------------
 select pg_temp.as_member('worker');
-select public.attendance_touch();
+select pg_temp.open_today();
 select is(pg_temp.err($$ select public.attendance_flag_overtime(pg_temp.day('worker')) $$),
   'VALIDATION: Say what kept you: overtime needs a reason.', 'no reason is refused');
 select is(pg_temp.err($$ select public.attendance_flag_overtime(pg_temp.day('worker'), '') $$),

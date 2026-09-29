@@ -16,15 +16,15 @@ export default function Loading() {
       className="flex max-w-2xl flex-col gap-4"
     >
       <Card aria-hidden>
-        <CardContent className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <Skeleton className="size-16 rounded-xl" />
-            <div className="flex flex-col gap-1.5">
+        <CardContent className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <Skeleton className="size-16 shrink-0 rounded-xl" />
+            <div className="flex min-w-0 flex-col gap-1.5">
               <Skeleton className="h-4 w-12" />
               <Skeleton className="h-3.5 w-36" />
             </div>
           </div>
-          <Skeleton className="h-9 w-28 rounded-lg" />
+          <Skeleton className="h-9 w-28 shrink-0 rounded-lg" />
         </CardContent>
       </Card>
       <Card aria-hidden>

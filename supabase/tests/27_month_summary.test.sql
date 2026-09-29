@@ -96,14 +96,13 @@ insert into public.leave_requests (id, member_id, type, start_date, end_date, st
 values (pg_temp.fx('halfreq'), pg_temp.fx('staff'), 'half_day', '2026-02-06', '2026-02-06', 'approved', 'form', pg_temp.fx('owner'), now(), null),
        (pg_temp.fx('compreq'), pg_temp.fx('staff'), 'half_day', '2026-02-10', '2026-02-10', 'approved', 'form', pg_temp.fx('owner'), now(), 0.5);
 
-insert into public.attendance_days (member_id, work_date, is_day_off, state, final_status, submitted_choice, decided_by, decided_at, leave_request_id, first_login_at, started_at)
+insert into public.attendance_days (member_id, work_date, is_day_off, state, final_status, submitted_choice, decided_by, decided_at, leave_request_id, started_at)
 select pg_temp.fx('staff'), d::date, off, st::public.attendance_state, fs::public.day_status,
        case when st = 'pending_review' then 'present'::public.attendance_choice end,
        case when st in ('approved', 'corrected') then pg_temp.fx('owner') end,
        case when st in ('approved', 'corrected') then now() end,
        case when k = 'half' then pg_temp.fx('halfreq') when k = 'comphalf' then pg_temp.fx('compreq') end,
-       case when k = 'gate' then '2026-02-11 04:00:00+00'::timestamptz end,
-       null
+       case when k = 'gate' then '2026-02-11 04:00:00+00'::timestamptz end
 from (values ('2026-02-02', false, 'approved',        'present',    'p1'),
              ('2026-02-03', false, 'corrected',       'present',    'p2'),
              ('2026-02-04', false, 'pending_review',  null,         'wait'),
@@ -113,7 +112,7 @@ from (values ('2026-02-02', false, 'approved',        'present',    'p1'),
              ('2026-02-08', true,  'corrected',       'present',    'offworked'),
              ('2026-02-09', false, 'approved',        'comp_leave', 'comp'),
              ('2026-02-10', false, 'approved',        'half_day',   'comphalf'),
-             -- A 2.x gate day (first_login_at, no Start day), decided by the Owner: worked.
+             -- A day with a start (a backfilled 2.x sign-in), decided by the Owner: worked.
              ('2026-02-11', false, 'approved',        'present',    'gate'),
              ('2026-02-12', false, 'awaiting_choice', null,         'none'),
              -- March is not February.

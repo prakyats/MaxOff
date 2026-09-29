@@ -1,46 +1,43 @@
-import { HammerIcon, type LucideIcon } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { PageHeader } from "@/core/ui/composites/page-header";
 
+import type { StandIn } from "./stand-ins";
+
 /**
- * Stand-in for a screen a later roadmap task builds. Each page names its task so the
- * "filled in task N" note stays visible until the real screen replaces it.
+ * Stand-in for a screen a later roadmap task builds. It says in plain words what the screen will
+ * be for and that it is coming (`stand-ins.ts`, kickoff 3c amendment (3e)); the task that replaces
+ * it is named in a comment at each caller, never on screen.
  */
 export function PlaceholderPage({
   title,
-  description,
-  task,
-  icon = HammerIcon,
+  copy,
+  icon,
   greet,
   children,
   footer,
 }: {
   title: string;
-  description: string;
-  /** Roadmap task that builds this screen, e.g. "6.1". */
-  task: string;
-  icon?: LucideIcon;
+  /** What the screen says until it arrives, from `STAND_INS`. */
+  copy: StandIn;
+  icon: LucideIcon;
   /** The signed-in member's name: the dashboards greet the person, never a hard-coded name. */
   greet?: string;
   /** The parts of the screen that are already built (e.g. the attendance strip, 2.2/2.3). */
   children?: ReactNode;
-  /** The bottom of the screen, below the placeholder (e.g. the quiet Log out row). */
+  /** The bottom of the screen, below the stand-in. */
   footer?: ReactNode;
 }) {
   return (
     <>
       <PageHeader
         title={title}
-        description={greet ? `Hello, ${greet}. ${description}` : description}
+        description={greet ? `Hello, ${greet}. ${copy.description}` : copy.description}
       />
       {children}
-      <EmptyState
-        icon={icon}
-        title={`${title} is filled in task ${task}`}
-        description="The shell, navigation and shared components are in place. This screen arrives with its module."
-      />
+      <EmptyState icon={icon} title={copy.title} description={copy.message} />
       {footer}
     </>
   );

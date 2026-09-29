@@ -34,22 +34,27 @@ import {
   type LeaveType,
   type OwnLeaveRequest,
 } from "../domain/requests";
-import { keptDatesNote } from "../domain/review";
+import { firstName, keptDatesNote, ownerCompLeaveOption } from "../domain/review";
 import { LEAVE_REASON_MAX_LENGTH } from "../domain/limits";
 import { ErrorText } from "@/core/ui/composites/error-text";
 
 /**
  * The Owner changes approved leave directly (`leave_owner_edit`, WORKFLOWS §2): any kind, any
  * dates, past included. The original is replaced by an Owner row; days the Owner had already
- * decided keep that decision, and the toast names them (2.2 follow-up a, closed in 2.4).
+ * decided keep that decision, and the toast names them (2.2 follow-up a, closed in 2.4). Comp
+ * leave is one date and draws one of the person's credits (3c review), so it is greyed out when
+ * `compDays` says there is none; the database stays the rule and its refusal shows in the alert.
  */
 export function OwnerEditLeaveDialog({
   request,
   memberName,
+  compDays,
   onClose,
 }: {
   request: OwnLeaveRequest;
   memberName: string;
+  /** The person's comp leave balance today; undefined where the screen does not know it. */
+  compDays?: number | undefined;
   onClose: () => void;
 }) {
   const [type, setType] = useState<LeaveType>(request.type);
@@ -58,7 +63,9 @@ export function OwnerEditLeaveDialog({
   const [reason, setReason] = useState("");
   const [error, setError] = useState<ResultError | null>(null);
   const [pending, startTransition] = useTransition();
-  const halfDay = type === "half_day";
+  // A half day and comp leave are one date: no "Last day", and none is sent.
+  const singleDate = type === "half_day" || type === "comp_leave";
+  const comp = ownerCompLeaveOption(compDays, request, firstName(memberName));
 
   function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -67,7 +74,7 @@ export function OwnerEditLeaveDialog({
         requestId: request.id,
         type,
         startDate,
-        ...(halfDay ? {} : { endDate }),
+        ...(singleDate ? {} : { endDate }),
         reason,
       });
       if (!result.ok) {
@@ -111,17 +118,28 @@ export function OwnerEditLeaveDialog({
                 </SelectTrigger>
                 <SelectContent>
                   {LEAVE_TYPES.map((option) => (
-                    <SelectItem key={option} value={option}>
-                      {LEAVE_TYPE_LABELS[option]}
+                    <SelectItem
+                      key={option}
+                      value={option}
+                      disabled={option === "comp_leave" && comp.disabled}
+                    >
+                      {option === "comp_leave" && comp.disabled
+                        ? "Comp leave (no credit)"
+                        : LEAVE_TYPE_LABELS[option]}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             )}
           </FormField>
+          {type === "comp_leave" && comp.hint ? (
+            <p data-slot="edit-comp-hint" className="text-muted-foreground text-sm">
+              {comp.hint}
+            </p>
+          ) : null}
           <div className="flex flex-col gap-4 sm:flex-row">
             <FormField
-              label={halfDay ? "Date" : "First day"}
+              label={singleDate ? "Date" : "First day"}
               error={fieldErrors.startDate}
               className="flex-1"
             >
@@ -139,7 +157,7 @@ export function OwnerEditLeaveDialog({
                 />
               )}
             </FormField>
-            {halfDay ? null : (
+            {singleDate ? null : (
               <FormField label="Last day" error={fieldErrors.endDate} className="flex-1">
                 {(control) => (
                   <Input

@@ -58,59 +58,59 @@ describe("loading.tsx coverage", () => {
   });
 
   it("gives each route the shape its real content has", () => {
-    const shapeOf = (route: string) => {
-      const source = readFileSync(path.join(appDir, route, "loading.tsx"), "utf8");
-      return source.match(/shape="(\w+)"/)?.[1];
-    };
-    // The shapes the owner specified, screen by screen.
-    expect(shapeOf("today")).toBe("tiles");
-    // Reports (3b.4): the Owner's list of reports first; an Admin's placeholder traces tiles.
+    const sourceOf = (route: string) =>
+      readFileSync(path.join(appDir, route, "loading.tsx"), "utf8");
+    const shapeOf = (route: string) => sourceOf(route).match(/shape="(\w+)"/)?.[1];
+    // The stand-in routes (3c review, owner decision): while a route shows the stand-in copy of
+    // `_placeholder/stand-ins.ts`, its skeleton traces that stand-in (`StandInSkeleton`: the
+    // dashed box, the circle, one title line, the measured message lines), never the future
+    // screen. The shapes the owner specified come back when each phase builds the real screen:
+    // 4.5 Tasks → cards and the Admin's Approvals → list with actions={2}; 5.1 Alerts → list;
+    // 6.1 My Day → cards under the strip; 6.2 / 6.3 Today → tiles under the card and the board;
+    // 6.4 Calendar → its own day strip (`loading-day-strip`); 6.5 / 9.3 the Admin's Reports →
+    // tiles.
+    const standIn = "StandInSkeleton";
+    expect(sourceOf("today")).toContain(standIn);
+    // The Owner's Today keeps the attendance card and the people board in front of the stand-in.
+    expect(sourceOf("today")).toContain("TodayBoardSkeleton");
+    expect(sourceOf("today")).toContain("TodayAttendanceStripSkeleton");
+    expect(sourceOf("my-day")).toContain(standIn);
+    expect(sourceOf("my-day")).toContain("TodayAttendanceStripSkeleton");
+    expect(sourceOf("tasks")).toContain(standIn);
+    expect(sourceOf("calendar")).toContain(standIn);
+    expect(sourceOf("notifications")).toContain(standIn);
+    // Reports (3b.4): the Owner's list of reports first; the Admin's branch is the stand-in.
     expect(shapeOf("reports")).toBe("list");
-    expect(readFileSync(path.join(appDir, "reports/loading.tsx"), "utf8")).toContain(
-      'shape="tiles"',
-    );
+    expect(sourceOf("reports")).toContain(standIn);
+    // Approvals is a grouped list (2.4: the Owner's groups are traced by ApprovalGroupSkeleton);
+    // the Admin's branch is the stand-in.
+    expect(sourceOf("approvals")).toContain("ApprovalGroupSkeleton");
+    expect(sourceOf("approvals")).toContain(standIn);
+    for (const route of ["today", "my-day", "tasks", "calendar", "notifications"]) {
+      expect(shapeOf(route), `${route} traces the stand-in, not a shape`).toBeUndefined();
+    }
     // The team's month traces its own rows (3b review), under the month switcher.
-    const teamMonth = readFileSync(path.join(appDir, "reports/month/loading.tsx"), "utf8");
+    const teamMonth = sourceOf("reports/month");
     expect(teamMonth).toContain("loading-team-month");
     expect(teamMonth).toContain("loading-leave-pager");
-    expect(shapeOf("tasks")).toBe("cards");
-    expect(shapeOf("my-day")).toBe("cards");
     // The list sits in a route group so its skeleton never wraps a person (2.9).
     expect(shapeOf("people/(list)")).toBe("cards");
     expect(shapeOf("clients/(list)")).toBe("cards");
     expect(shapeOf("settings")).toBe("list");
-    expect(shapeOf("notifications")).toBe("list");
     expect(shapeOf("me")).toBe("detail");
     // /leave's layout keeps the header and tabs painted; each view traces its own list (2.3),
     // and only the attendance view has the month switcher row.
     expect(shapeOf("leave")).toBe("cards");
     expect(shapeOf("leave/attendance")).toBe("cards");
-    expect(readFileSync(path.join(appDir, "leave/attendance/loading.tsx"), "utf8")).toContain(
-      "loading-leave-pager",
-    );
-    // Approvals is a grouped list with two actions per row (2.4: the Owner's groups are traced
-    // by ApprovalGroupSkeleton); calendar draws its own day strip.
-    expect(shapeOf("approvals")).toBe("list");
-    const approvals = readFileSync(path.join(appDir, "approvals/loading.tsx"), "utf8");
-    expect(approvals).toContain("actions={2}");
-    expect(approvals).toContain("ApprovalGroupSkeleton");
+    expect(sourceOf("leave/attendance")).toContain("loading-leave-pager");
     // A person's page (3.4): the Profile traces its card; the history (2.4) mirrors /leave,
     // requests and the month, under a painted header and tabs.
-    expect(readFileSync(path.join(appDir, "people/[id]/loading.tsx"), "utf8")).toContain(
-      "loading-profile",
-    );
+    expect(sourceOf("people/[id]")).toContain("loading-profile");
     expect(shapeOf("people/[id]/leave")).toBe("cards");
     expect(shapeOf("people/[id]/attendance")).toBe("cards");
     // A person's month (3b.4): the pager and the summary's lines.
-    expect(readFileSync(path.join(appDir, "people/[id]/month/loading.tsx"), "utf8")).toContain(
-      "MonthSummarySkeleton",
-    );
-    expect(readFileSync(path.join(appDir, "people/[id]/attendance/loading.tsx"), "utf8")).toContain(
-      "loading-leave-pager",
-    );
-    expect(readFileSync(path.join(appDir, "calendar/loading.tsx"), "utf8")).toContain(
-      "loading-day-strip",
-    );
+    expect(sourceOf("people/[id]/month")).toContain("MonthSummarySkeleton");
+    expect(sourceOf("people/[id]/attendance")).toContain("loading-leave-pager");
   });
 
   it("never lets a route fall back to the avatar list that caused this rule", () => {

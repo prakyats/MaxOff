@@ -86,8 +86,10 @@ public.session_login(user_agent, ip_hash)    inserts session_events(login) for t
                                 member (app.current_member()); UNAUTHENTICATED otherwise. Called
                                 once per sign-in and once when a recovery link opens a session.
                                 No activity_log row: the session_events row is the record
-public.session_logout(user_agent, ip_hash)   the same for logout, then app.attendance_logout()
-                                (2.1, §3): today's attendance day gets last_logout_at
+public.session_sign_out(user_agent, ip_hash)   "Sign out of this device" (3b.1, §3): the same for
+                                logout and nothing else. (session_logout() and app.attendance_logout(),
+                                the 2.x pair that also stamped the attendance day, were dropped by the
+                                3c.1 contract migration)
 public.bootstrap_owner(user_id, email, full_name, org_name)   service_role only. Creates the single
                                 organization when none exists and the first, active Owner member for
                                 an existing auth user; CONFLICT once any member exists. Called by
@@ -213,8 +215,8 @@ member_directory     view (security definer): id, org_id, full_name, phone, role
                      No email (PERMISSIONS §2). Names of people on a member's own tasks join in 4.1
 role_permissions     role member_role, permission text, pk(role, permission)   -- seeded
 session_events       id, member_id, kind ('login'|'logout'), at, user_agent (≤ 512), ip_hash
-                     -- append-only, written only by session_login() / session_logout() (1.2) and
-                     -- attendance_touch() (2.1). ip_hash = salted SHA-256 of the client IP
+                     -- append-only, written only by session_login() (1.2) and
+                     -- session_sign_out() (3b.1). ip_hash = salted SHA-256 of the client IP
                      -- (SESSION_IP_HASH_SALT) or null; never the IP, never an unsalted hash.
                      -- RLS: own rows; all for attendance.view_all
 push_subscriptions   id, member_id, endpoint unique, p256dh, auth, user_agent, created_at,
@@ -275,22 +277,21 @@ Entities with custom fields have `custom_fields jsonb not null default '{}'`, va
 
 ## 3. Attendance and leave
 ```
-attendance_days      id, member_id, work_date date (IST), first_login_at, is_day_off bool,
+attendance_days      id, member_id, work_date date (IST), is_day_off bool,
                      state attendance_state, submitted_choice attendance_choice null, submitted_at,
                      proposed_by_system bool (the absent check, or a day derived from approved leave,
                      or a system correction), final_status day_status null,
                      decided_by null (system), decided_at, decision_reason,
-                     last_logout_at, logout_not_recorded bool, overtime_flag bool, overtime_reason,
+                     overtime_flag bool, overtime_reason,
                      worked_on_leave bool ("1 day worked": Present approved on an approved-leave day),
                      leave_request_id null, created_at, updated_at, unique(member_id, work_date),
                      started_at null, ended_at null, end_not_recorded bool (3b.1, expand-only:
                      the Start day and End day taps, and the 00:00 job's "end of day not
                      recorded"; check ended_at needs started_at and is not before it; all three
-                     under protect_columns. first_login_at / last_logout_at / logout_not_recorded
-                     are the 2.x sign-in columns: still written by attendance_touch() and
-                     session_logout() for main's app on the shared staging database, read by 3b as
-                     a day's start / end when started_at / ended_at are null (kickoff 3b decision
-                     31); they are removed by the contract migration after the phase merges)
+                     under protect_columns. The 2.x sign-in columns first_login_at /
+                     last_logout_at / logout_not_recorded were backfilled onto started_at /
+                     ended_at / end_not_recorded (audit 'backfilled', kickoff 3b decision 31) and
+                     dropped by the 3c.1 contract migration)
                      -- 2.1. No org_id: the member carries it (like session_events). RLS: own rows,
                      -- all for attendance.view_all. NO insert/update/delete grant for the API role:
                      -- every change is a transition function, and the state columns carry
@@ -299,9 +300,10 @@ attendance_days      id, member_id, work_date date (IST), first_login_at, is_day
                      -- today's holidays / weekly_off_days. Every time is the server clock (now());
                      -- session_events.user_agent / ip_hash are caller-supplied and are not evidence
 attendance_events    id bigint identity, attendance_day_id, action ('submitted'|'proposed_absent'|'derived_from_leave'|
-                     'approved'|'corrected'|'logout'|'overtime_flagged'|'started'|'ended'), from_status, to_status, reason,
-                     -- started | ended (3b.1): the Start day and End day taps (actor = the member);
-                     -- the check constraint was widened, never narrowed (expand-only)
+                     'approved'|'corrected'|'overtime_flagged'|'started'|'ended'), from_status, to_status, reason,
+                     -- started | ended (3b.1): the Start day and End day taps (actor = the member).
+                     -- 'logout' (2.x) is closed for new rows by a NOT VALID check (3c.1): rows that
+                     -- carry it stay readable (never destroy history), nothing writes it
                      actor_id null (system), at                    -- append-only (no API writes);
                      -- readable with the parent day. Not audited: it is the history
 leave_requests       id, member_id, type leave_type, start_date, end_date, reason,
@@ -315,8 +317,10 @@ leave_requests       id, member_id, type leave_type, start_date, end_date, reaso
                      -- state = approved and nothing else
                      credit_days numeric(2,1) null (3b.2, expand-only: the comp leave credit this
                      request uses; check: null, or type = comp_leave with 1.0, or type = half_day
-                     with 0.5. Set only by leave_submit_comp(); a 2.x gate or Owner-set comp leave
-                     carries null. Under protect_columns)
+                     with 0.5. Set by leave_submit_comp() (1.0 / 0.5) and, since the 3c review, by
+                     the two Owner routes attendance_decide(correct, comp_leave) and
+                     leave_owner_edit(comp_leave) at 1.0; a 2.x gate comp leave carries null.
+                     Under protect_columns)
 extra_work_notes     id, member_id, work_date (IST, today or up to 7 days back), kind ('overtime'|'day_off'),
                      duration_minutes null (overtime only, rough), note (required), state ('submitted'|'reviewed'),
                      decision null ('granted'|'no_comp_leave'), day_marked_worked bool (day_off only),
@@ -348,30 +352,15 @@ comp_leave_credit_uses
                      -- the credit, which is simply expired by then if its month has passed). RLS:
                      -- through the credit's member (own, or attendance.view_all). Audited.
 ```
-Functions (2.1, WORKFLOWS §1/§2). `public` schema (RPC), security definer, search_path = '', the usual grants. Each audited write is labelled through `app.audit_override`; a system correction carries `meta.system = true` (the audit trigger records the caller as actor). **No notification rows yet:** 5.1 adds them to every function below; the WORKFLOWS §9 recipient is named in each function's comment. The `app.*` helpers of this task that write or read across members (`attendance_event`, `attendance_apply_leave`, `attendance_release_leave`, `attendance_logout`, `leave_covering`, `leave_overlaps`, and since 2.2 `leave_supersede_gate`, `leave_clash`, `leave_clash_label`) are **executable by service_role only**: the security definer functions call them as the owner, and `00_core_base` lists them as the exception to "authenticated may execute app.*".
+Functions (2.1, WORKFLOWS §1/§2). `public` schema (RPC), security definer, search_path = '', the usual grants. Each audited write is labelled through `app.audit_override`; a system correction carries `meta.system = true` (the audit trigger records the caller as actor). **No notification rows yet:** 5.1 adds them to every function below; the WORKFLOWS §9 recipient is named in each function's comment. The `app.*` helpers of this task that write or read across members (`attendance_event`, `attendance_apply_leave`, `attendance_release_leave`, `leave_covering`, `leave_overlaps`, and since 2.2 `leave_supersede_gate`, `leave_clash`, `leave_clash_label`; `attendance_logout` went with 3c.1) are **executable by service_role only**: the security definer functions call them as the owner, and `00_core_base` lists them as the exception to "authenticated may execute app.*".
 ```
 app.ist_day_start(date)         -> timestamptz: midnight IST of that date (stable). SQL mirror of
                                 core/time istDayStart(); use it for "events on this IST date" so an
                                 index on the timestamp still applies
-public.attendance_touch(user_agent, ip_hash)
-                                every active member. Writes session_events(login) when the caller has
-                                none on today's IST date (a session kept across midnight). For an
-                                Admin or Staff member with no day row yet: approved leave covering
-                                today creates it approved (final_status = the leave type,
-                                proposed_by_system, leave_request_id, event derived_from_leave; two
-                                covering requests -> the most recently decided), otherwise
-                                awaiting_choice. first_login_at = now(); is_day_off =
-                                app.is_working_day(today) is false. Idempotent: a second call, or a
-                                second device, gets the same row. Returns (day_id, work_date, state,
-                                gate_required, is_day_off, final_status, proposed_by_system,
-                                leave_request_id); whoever lacks attendance.self (the Owner) gets
-                                gate_required = false and no day. Audit action 'opened' |
-                                'derived_from_leave' | 'first_login' (a day the 23:59 job opened).
-                                2.2: serialised per member (pg_advisory_xact_lock on 'touch:' ||
-                                member id, taken first), so two devices at once give one day and one
-                                login row. On the member's joining day (IST date of joined_at) and
-                                before it: the login only, no day, gate_required = false. 2.5: the
-                                day itself is opened by app.attendance_open_day (below)
+(attendance_touch(user_agent, ip_hash), the 2.x first-request gate that opened the day on sign-in,
+                                was dropped by the 3c.1 contract migration; a day is opened by the
+                                Start day tap, the prompt's leave choice or the 23:59 job, all through
+                                app.attendance_open_day below)
 public.attendance_submit(choice, reason, for_date)
                                 attendance.self, today's own day. for_date (2.2, optional): the IST
                                 date the gate screen was shown for; any other date is INVALID_STATE
@@ -379,7 +368,8 @@ public.attendance_submit(choice, reason, for_date)
                                 or approved + proposed_by_system -> pending_review for choice =
                                 present only ("I'm working today", leave_request_id kept). A leave
                                 choice inserts leave_requests(source = attendance, today, submitted)
-                                and links it. reason optional. Event submitted. Notifies nobody
+                                and links it; comp_leave is VALIDATION (3c.1: a credit is spent only
+                                through leave_submit_comp). reason optional. Event submitted. Notifies nobody
 public.attendance_decide(day_id, decision, status, reason)
                                 attendance.decide. decision = 'approve' (pending_review only;
                                 final_status = the submitted choice, or the proposed absent;
@@ -392,17 +382,19 @@ public.attendance_decide(day_id, decision, status, reason)
                                 decided in the same call: approved when the outcome equals its type,
                                 otherwise rejected with the same reason. Correcting to a leave type
                                 with no approved request of that type behind it creates
-                                leave_requests(source = owner, approved) and links it. Events
-                                approved | corrected. Bulk = one call per row. Notifies the member
-app.attendance_logout(member_id)
-                                called by session_logout() (re-created in 2.1, same signature).
-                                Today's day gets last_logout_at = now() and an event logout; with no
-                                day today, yesterday's day when it has a login and no logout (a real
-                                time, never made up). ONLY those two writes: state, final_status and
-                                decisions are never touched, an Owner-approved day included. The
-                                Owner has no day: session_events only. 2.5: when yesterday's day
-                                carries logout_not_recorded (the 00:00 job ran first), that same
-                                write clears it, because a logout is now recorded
+                                leave_requests(source = owner, approved) and links it; for
+                                comp_leave (3c review) that request carries credit_days 1.0 and
+                                draws the member's free credits valid on that date, oldest first
+                                (app.comp_credit_draw), used at once (app.comp_credit_settle):
+                                VALIDATION with none ("Comp leave needs an earned credit valid on
+                                that date. Grant one first from their Leave tab.") or on a day off
+                                ("That date is a day off. Comp leave is for a working day."); a
+                                half comp day is not set here (leave_submit_comp's). A day whose
+                                approved request already is comp leave is re-corrected without a
+                                new request or credit. Events approved | corrected. Bulk = one call
+                                per row. Notifies the member
+(app.attendance_logout(member_id), the 2.x logout stamp, was dropped by the 3c.1 contract migration:
+                                the End day tap is the end of a day, attendance_end_day below)
 public.attendance_flag_overtime(day_id, reason)
                                 attendance.self, own day, any state: overtime_flag = true and
                                 overtime_reason, REQUIRED (VALIDATION when empty, 2.2; a second call
@@ -411,11 +403,13 @@ public.attendance_flag_overtime(day_id, reason)
 public.attendance_flag_overtime_today(reason)
                                 attendance.self. The Log out note (phase 2 review, 2026-09-26):
                                 attendance_flag_overtime() on the caller's day for today, or on
-                                yesterday's when there is none today and yesterday has a login and
-                                no logout, the day app.attendance_logout() will pick. INVALID_STATE
+                                yesterday's when there is none today and yesterday has a start and
+                                no end, the day attendance_end_day() will close (3c.1). INVALID_STATE
                                 when neither exists. Returns the day id
 public.leave_submit(type, start_date, end_date, reason)
-                                attendance.self. start_date >= today, end_date >= start_date, at most
+                                attendance.self. Never comp_leave (VALIDATION, 3c.1: a comp leave
+                                request reserves a credit through leave_submit_comp). start_date >=
+                                today, end_date >= start_date, at most
                                 365 days (phase 2 review, 2026-09-26; app.leave_validate, shared by
                                 leave_request_change and leave_owner_edit), half_day a single date,
                                 reason optional (VALIDATION otherwise). CONFLICT when
@@ -429,7 +423,9 @@ public.leave_request_change(request_id, type, start_date, end_date, reason, canc
                                 own approved request that has not ended (2.3: end_date < today IST
                                 -> INVALID_STATE "This leave has ended. Ask the Owner to correct it.";
                                 ongoing leave stays changeable; past leave is the Owner's, through
-                                the attendance day) -> a new submitted row with supersedes_id.
+                                the attendance day) -> a new submitted row with supersedes_id. A
+                                change to type comp_leave is VALIDATION (3c.1: no credit would be
+                                spent; cancel and request comp leave from the credit instead).
                                 cancel = true copies type and dates and sets requests_cancellation;
                                 otherwise the new dates are validated as in leave_submit (start may
                                 stay the original's, end >= today) and checked for overlap against
@@ -468,21 +464,21 @@ public.leave_owner_edit(request_id, type, start_date, end_date, reason)
                                 overlap check (app.leave_supersede_gate, as leave_decide). Audit
                                 'superseded' + 'approved'. Notifies the member. 2.4: returns
                                 (new_id uuid, kept_dates date[]), the new row's id and the dates whose
-                                Owner decision was kept, as leave_decide
+                                Owner decision was kept, as leave_decide. 3c review: type =
+                                comp_leave is one date ("Comp leave is one day at a time. Edit it
+                                to a single date.") on a working day ("That date is a day off. Comp
+                                leave is for a working day."), the new row carries credit_days 1.0
+                                and, after the superseded row's release, draws the member's free
+                                credits valid on that date oldest first (app.comp_credit_draw) and
+                                uses them at once; VALIDATION with none ("Grant one first from
+                                their Leave tab"), the original then stays approved. A comp day
+                                moved to another date re-uses its own credit
 public.leave_owner_cancel(request_id, reason)
                                 attendance.decide, approved only, REASON_REQUIRED: -> cancelled, and
                                 today's untouched derived day returns to awaiting_choice. Notifies
                                 the member
-public.attendance_today()       2.4. attendance.view_all (FORBIDDEN otherwise). Read only, security
-                                definer (it needs app.is_working_day and members without a day row).
-                                One row per active member other than the Owner, for today (IST):
-                                (member_id, full_name, job_title, started boolean: attendance has
-                                begun, i.e. today > the IST date of joined_at; day_id, state,
-                                final_status, submitted_choice, proposed_by_system, first_login_at,
-                                last_logout_at, logout_not_recorded, overtime_flag, is_day_off:
-                                the day row's value, else app.is_working_day(today) is false;
-                                on_leave: approved leave covers today). The Owner's card and people
-                                board (WORKFLOWS §1 "Settled in 2.4") derive their buckets from it
+(attendance_today(), the 2.4 read, was dropped by the 3c.1 contract migration in favour of
+                                attendance_today_detail() below, which the Owner's card and board read)
 
 -- Jobs (2.5, WORKFLOWS §8). app schema (not an RPC), security definer, search_path = '',
 -- executable by service_role only; pg_cron runs them as postgres. Every write is labelled through
@@ -490,16 +486,16 @@ public.attendance_today()       2.4. attendance.view_all (FORBIDDEN otherwise). 
 app.job_day(at, cutoff)         -> date: the most recent IST date whose cutoff time has passed at
                                 `at` (stable, strict). 23:59 IST on D -> D; 00:00 IST on D+1 -> D; 23:58
                                 IST on D -> D-1. Both jobs default to job_day(now(), '23:59')
-app.attendance_open_day(member_id, date, first_login)
+app.attendance_open_day(member_id, date)
                                 the member's day for that date, opened when there is none: approved
                                 leave covering it (app.leave_covering) -> approved, final_status =
                                 the leave type, proposed_by_system, leave_request_id, event and audit
                                 'derived_from_leave'; otherwise awaiting_choice, audit 'opened'.
-                                first_login (timestamptz, null for a job) -> first_login_at;
-                                is_day_off = app.is_working_day(date) is false. Named-constraint
-                                on-conflict re-read, so a concurrent writer's row is returned.
-                                THE CALLER HOLDS THE MEMBER'S leave: LOCK. Used by attendance_touch
-                                (2.5 factored today's derivation out of it) and by absent_check
+                                No sign-in time (3c.1 dropped the third argument: a start is the
+                                Start day tap); is_day_off = app.is_working_day(date) is false.
+                                Named-constraint on-conflict re-read, so a concurrent writer's row
+                                is returned. THE CALLER HOLDS THE MEMBER'S leave: LOCK. Used by
+                                attendance_start_day, attendance_choose_leave_today and absent_check
 app.absent_check(for_date default null)
                                 returns (work_date, member_id, day_id, outcome 'proposed_absent' |
                                 'derived_from_leave'), one row per day written. for_date null: the
@@ -511,33 +507,27 @@ app.absent_check(for_date default null)
                                 attendance.self and whose attendance started before the date
                                 (app.to_ist_date(joined_at) < date), in id order, under the
                                 member's leave: lock (before any row lock): no day + leave covering
-                                -> attendance_open_day (a derived day with no login); no day, no
-                                leave -> pending_review, final_status = absent, proposed_by_system,
-                                first_login_at null; awaiting_choice and not is_day_off -> the same
-                                update, first_login_at kept. Event proposed_absent, audit
+                                -> attendance_open_day (a derived day with no start); no day, no
+                                leave -> pending_review, final_status = absent, proposed_by_system;
+                                awaiting_choice and not is_day_off -> the same
+                                update. Event proposed_absent, audit
                                 'proposed_absent'. Any other state, and a row marked is_day_off,
                                 is left alone: running twice writes nothing. Notifies the Owner
                                 once per run with everyone proposed (5.1; the return value is the
                                 list)
-app.logout_not_recorded(for_date default null)
-                                the same date rule. Every day on the date with first_login_at set,
-                                last_logout_at null and logout_not_recorded false gets the flag,
-                                under the member's leave: lock; audit 'logout_not_recorded', no
-                                event (the flag is a column; the audit row is its history). Returns
-                                (work_date, member_id, day_id). Twice: nothing. Notifies nobody
-                                (the reminder before it is 5.1's)
+(app.logout_not_recorded(), the 2.x 00:00 job, and its cron row were dropped by the 3c.1 contract
+                                migration; app.end_not_recorded below is the 3b.1 job in its place)
 cron.job                        'absent_check' at 29 18 * * * (23:59 IST) -> select
-                                app.absent_check(); 'logout_not_recorded' at 30 18 * * * (00:00
-                                IST) -> select app.logout_not_recorded(). Scheduled by the 2.5
+                                app.absent_check(). Scheduled by the 2.5
                                 migration through cron.schedule(name, schedule, command), which
                                 updates an existing name instead of adding a second job
 
 -- 3b.1 Start day / End day (migration start_end_day; PRODUCT §4.2, WORKFLOWS §1 "Settled in
--- 3b.1", ADR-0012 amendment 2026-09-27). EXPAND-ONLY beside the 2.x functions, which main's app
--- still calls on the shared staging database: attendance_touch(), attendance_submit(),
--- app.attendance_logout(), session_logout(), attendance_today() and the day-gate cookie are
--- untouched and listed in PROGRESS for the contract migration after the merge. The 3b app calls
--- only the functions below.
+-- 3b.1", ADR-0012 amendment 2026-09-27). Built EXPAND-ONLY beside the 2.x functions while main's
+-- app still called them on the shared staging database; the 3c.1 contract migration
+-- (20260928131234_contract_phase3b) then removed attendance_touch(), session_logout(),
+-- app.attendance_logout(), attendance_today(), app.logout_not_recorded() and the three sign-in
+-- columns, and re-created the readers below without them.
 public.attendance_own_today()   attendance.self (FORBIDDEN otherwise: the Owner has no day). Read only,
                                 security definer (it needs app.is_working_day). One row for the caller
                                 and today (IST): (work_date, attendance_started: today > the IST date
@@ -554,8 +544,7 @@ public.attendance_start_day()   attendance.self, the caller's own day for today 
                                 marked is_day_off: "add an I worked today note"), when started_at is
                                 already set, or when today is a leave or a decided absence.
                                 Takes the leave: lock, opens today's row through
-                                app.attendance_open_day(member, today, null) when there is none
-                                (first_login_at stays null: a start is not a sign-in). Then:
+                                app.attendance_open_day(member, today) when there is none. Then:
                                 awaiting_choice -> pending_review, submitted_choice = present,
                                 submitted_at = started_at = now(), event started (null -> present);
                                 an untouched day derived from full leave or comp leave -> the same
@@ -570,7 +559,7 @@ public.attendance_choose_leave_today(choice, reason)
                                 choice must be leave or half_day (VALIDATION for present or
                                 comp_leave: comp leave is requested from the leave form, decision
                                 16). Joining day and a day off are INVALID_STATE. Takes the leave:
-                                lock, opens today's row when there is none (first_login null), then
+                                lock, opens today's row when there is none, then
                                 calls attendance_submit(choice, reason, today), so the rules, the
                                 source = attendance request and the audit are the 2.1 ones
 public.attendance_end_day()     attendance.self. The caller's day with started_at and no ended_at:
@@ -590,17 +579,17 @@ public.attendance_end_day()     attendance.self. The caller's day with started_a
 public.session_sign_out(user_agent, ip_hash)
                                 "Sign out of this device" (ADR-0012 amendment): session_events(logout)
                                 for the calling active member and nothing else; the attendance day
-                                is never touched. Replaces session_logout() in the 3b app (the 2.x
-                                function stays for main until the contract migration). The push
+                                is never touched. Replaced session_logout(), dropped in 3c.1. The push
                                 subscription of the device goes with 5.2 (no table yet)
 public.attendance_today_detail()
-                                attendance_today() plus started_at, ended_at and end_not_recorded per
-                                row: the Owner's Today card and people board (3b: "Not started",
+                                the 2.4 attendance_today() shape plus started_at, ended_at and
+                                end_not_recorded per row (and without the three 2.x columns since
+                                3c.1): the Owner's Today card and people board (3b: "Not started",
                                 "Started 9:12", "End not recorded"). attendance.view_all. The old
                                 function keeps its shape for main
 app.end_not_recorded(for_date default null)
                                 the 00:00 IST job (WORKFLOWS §8), the same date rule as
-                                app.logout_not_recorded: every day on the date with started_at set,
+                                app.absent_check: every day on the date with started_at set,
                                 ended_at null and end_not_recorded false gets the flag, under the
                                 member's leave: lock; audit end_not_recorded, no event. Returns
                                 (work_date, member_id, day_id). Idempotent. Notifies nobody
@@ -611,7 +600,7 @@ app.end_day_reminder_due(at default now())
                                 members. Returns (member_id, day_id, started_at). The notification
                                 rows and the schedule are 5.1's (kickoff 3b decision 32)
 cron.job                        'end_not_recorded' at 30 18 * * * (00:00 IST) -> select
-                                app.end_not_recorded(), beside logout_not_recorded
+                                app.end_not_recorded() (the 2.x logout_not_recorded row is gone, 3c.1)
 
 -- 3b.2 Extra work and comp leave credits (migration extra_work_comp_leave; PRODUCT §4.3a,
 -- WORKFLOWS §2 "Settled in 3b.2", kickoff 3b decisions 10-17). Expand-only again: the 2.x
@@ -685,6 +674,15 @@ app.holiday_release_comp()      AFTER INSERT / UPDATE OF date on holidays (3b re
 app.end_day_late_allowed(at, cutoff), app.end_day_cutoff(org)
                                 3b review: whether an IST instant is before the End day cutoff, and
                                 the org's cutoff (internal)
+app.comp_credit_draw(p_member, p_request_id, p_on, p_days) returns numeric
+                                internal (3c review; service_role only; the caller holds the
+                                member's leave: lock). Reserves p_days of the member's unrevoked
+                                credits with expires_on >= p_on, oldest first (granted_at, id, for
+                                update): reserved_days on each credit drawn, one
+                                comp_leave_credit_uses row (reserved) per credit, audit 'reserved'
+                                with {leave_request_id, days}. Returns the days left undrawn; the
+                                caller refuses the request when it is above zero. The
+                                leave_submit_comp() loop, lifted; that function keeps its own copy
 app.comp_credit_settle(request_id, outcome)
                                 internal (service_role only). outcome used: every reserved use of
                                 the request -> used (reserved_days -> used_days on the credit);
@@ -708,7 +706,7 @@ public.attendance_end_day(overtime_note default null, overtime_minutes default n
                                 ('overtime', the ended day's date, note, minutes) in the same
                                 transaction. Returns (day_id, work_date, note_id)
 ```
-**Lock order (2.4, migration `attendance_owner_review`):** every function that writes a member's days or leave (`attendance_submit`, `attendance_decide`, `leave_submit`, `leave_withdraw`, `leave_request_change`, `leave_decide`, `leave_owner_edit`, `leave_owner_cancel`) takes `pg_advisory_xact_lock(hashtext('leave:' || member_id))` **before any row lock**. A function that starts from a row id reads the row's member without a lock, takes the advisory lock, then locks the row and re-checks it. `attendance_touch()` takes its own `touch:` lock first and, **when it has to open today's day** (it derives the day from approved leave), the `leave:` lock next and then looks for the day again (`touch:` → `leave:` → rows). pgTAP `12` asserts each waits on the advisory lock first. **2.5's jobs follow the same order:** `app.absent_check()` and `app.logout_not_recorded()` take each member's `leave:` lock before that member's rows (members in id order, so two overlapping runs cannot cross), and `app.attendance_open_day()` is called only under it (pgTAP `14`). Partial index `attendance_days_pending_idx (work_date) where state = 'pending_review'` serves the Approvals list and badge.
+**Lock order (2.4, migration `attendance_owner_review`):** every function that writes a member's days or leave (`attendance_submit`, `attendance_decide`, `leave_submit`, `leave_withdraw`, `leave_request_change`, `leave_decide`, `leave_owner_edit`, `leave_owner_cancel`) takes `pg_advisory_xact_lock(hashtext('leave:' || member_id))` **before any row lock**. A function that starts from a row id reads the row's member without a lock, takes the advisory lock, then locks the row and re-checks it. `attendance_start_day()` (3b.1) takes the member's `leave:` lock before any row lock too, then looks for today's day and opens it under that lock (it derives the day from approved leave), so a phone and a laptop tapping Start day at the same instant produce one day (pgTAP `09`, two real connections); 2.2's `attendance_touch()`, with its own `touch:` lock in front of the `leave:` lock, went with the 3c.1 contract migration. pgTAP `12` asserts each waits on the advisory lock first. **2.5's jobs follow the same order:** `app.absent_check()` and `app.end_not_recorded()` (3b.1; 2.5's `app.logout_not_recorded()` went with 3c.1) take each member's `leave:` lock before that member's rows (members in id order, so two overlapping runs cannot cross), and `app.attendance_open_day()` is called only under it (pgTAP `14`). The comp leave draw and settle (`app.comp_credit_draw`, `app.comp_credit_settle`) lock credit rows after the day and request rows, under the same `leave:` lock. Partial index `attendance_days_pending_idx (work_date) where state = 'pending_review'` serves the Approvals list and badge.
 
 ## 4. Clients
 ```
@@ -907,8 +905,9 @@ month_summary(month date, member_id uuid default null)
                                 working days by app.is_working_day), days_worked (decided Present on a
                                 working day + ½ per decided half day), present_days, leave_days, half_days
                                 (a half day that is not comp leave), absent_days, comp_leave_days (a
-                                comp_leave day, + ½ for a half day that used a comp credit, + the Owner's
-                                comp leave), additional_leave (leave_days + ½ × half_days + absent_days;
+                                comp_leave day, + ½ for a half day that used a comp credit; the Owner's
+                                comp leave uses a credit too since the 3c review, so comp_leave_days and
+                                credits_used agree), additional_leave (leave_days + ½ × half_days + absent_days;
                                 comp leave never counts), days_off_worked (decided Present on a day off,
                                 its own line), pending_days (days waiting for the Owner: pending_review),
                                 overtime_notes, overtime_granted (notes of the month whose decision is

@@ -5,7 +5,7 @@
 --   1. For each function: A holds leave:<member>; B calls the function and must be WAITING ON THE
 --      ADVISORY LOCK; meanwhile C can still lock the function's row (FOR UPDATE NOWAIT), which
 --      proves B took no row lock first. A lets go; B finishes and rolls back.
---      attendance_touch is checked on a member with no day yet: opening one takes leave: too.
+--      attendance_start_day is checked on a member with no day yet: opening one takes leave: too.
 --   2. The old deadlock replayed: attendance_decide on a gate day (it used to lock day → request)
 --      against leave_decide approving leave over the same date (request → gate request → days).
 --      Both now finish, one after the other.
@@ -147,22 +147,22 @@ select extensions.dblink_exec('c0', format($q$
     (%3$L, (select id from public.organizations limit 1), 'Lock Race',   'lock-race@example.com',   'staff', 'active', now() - interval '30 days'),
     (%5$L, (select id from public.organizations limit 1), 'Lock Fresh',  'lock-fresh@example.com',  'staff', 'active', now() - interval '30 days');
   -- member: a waiting day, a waiting form request, an approved one, another waiting one.
-  insert into public.attendance_days (member_id, work_date, first_login_at, state, submitted_choice, submitted_at)
+  insert into public.attendance_days (member_id, work_date, started_at, state, submitted_choice, submitted_at)
     values (%1$L, app.today_ist(), now(), 'pending_review', 'present', now());
   insert into public.leave_requests (member_id, type, start_date, end_date, state, source, decided_by, decided_at) values
     (%1$L, 'leave', app.today_ist() + 20, app.today_ist() + 20, 'submitted', 'form', null, null),
     (%1$L, 'leave', app.today_ist() + 30, app.today_ist() + 31, 'approved',  'form', %4$L, now()),
     (%1$L, 'leave', app.today_ist() + 40, app.today_ist() + 40, 'submitted', 'form', null, null);
   -- gate: today's day still waiting for a choice.
-  insert into public.attendance_days (member_id, work_date, first_login_at, state)
-    values (%2$L, app.today_ist(), now(), 'awaiting_choice');
+  insert into public.attendance_days (member_id, work_date, state)
+    values (%2$L, app.today_ist(), 'awaiting_choice');
   -- race: chose Leave at the gate today (a submitted gate request linked to the waiting day) and
   -- also has a waiting form request covering today.
   insert into public.leave_requests (id, member_id, type, start_date, end_date, state, source) values
     ('0e000000-0000-4000-8000-0000000000a1', %3$L, 'leave', app.today_ist(), app.today_ist(), 'submitted', 'attendance'),
     ('0e000000-0000-4000-8000-0000000000a2', %3$L, 'leave', app.today_ist(), app.today_ist() + 1, 'submitted', 'form');
-  insert into public.attendance_days (member_id, work_date, first_login_at, state, submitted_choice, submitted_at, leave_request_id)
-    values (%3$L, app.today_ist(), now(), 'pending_review', 'leave', now(), '0e000000-0000-4000-8000-0000000000a1');
+  insert into public.attendance_days (member_id, work_date, state, submitted_choice, submitted_at, leave_request_id)
+    values (%3$L, app.today_ist(), 'pending_review', 'leave', now(), '0e000000-0000-4000-8000-0000000000a1');
 $q$, pg_temp.fx('member'), pg_temp.fx('gate'), pg_temp.fx('race'), pg_temp.fx('owner'), pg_temp.fx('fresh')));
 
 create temporary table ids as
@@ -195,10 +195,10 @@ insert into checks values
      format('select public.leave_withdraw(%L)::text', pg_temp.id('withdraw')), 'leave_requests', pg_temp.id('withdraw'))),
   ('attendance_submit', pg_temp.waits_first('gate', 'gate',
      'select public.attendance_submit(''leave'')::text', 'attendance_days', pg_temp.id('gate_day'))),
-  -- Opening a day (no row yet, so there is no row lock to hold): touch waits for the Owner's
+  -- Opening a day (no row yet, so there is no row lock to hold): Start day waits for the Owner's
   -- leave decision instead of deriving the day from leave that is being changed.
-  ('attendance_touch', pg_temp.waits_first('fresh', 'fresh',
-     'select day_id::text from public.attendance_touch()', 'attendance_days', gen_random_uuid()));
+  ('attendance_start_day', pg_temp.waits_first('fresh', 'fresh',
+     'select public.attendance_start_day()::text', 'attendance_days', gen_random_uuid()));
 
 select is((select r[1] from checks where fn = 'attendance_decide'), 'advisory', 'attendance_decide waits on the leave: lock first');
 select is((select r[2] from checks where fn = 'attendance_decide'), 'ok', 'attendance_decide: the day is not locked yet');
@@ -218,8 +218,8 @@ select is((select r[3] from checks where fn = 'leave_withdraw'), 'ok', 'leave_wi
 select is((select r[1] from checks where fn = 'attendance_submit'), 'advisory', 'attendance_submit waits on the leave: lock first');
 select is((select r[2] from checks where fn = 'attendance_submit'), 'ok', 'attendance_submit: the day is not locked yet');
 select is((select r[3] from checks where fn = 'attendance_submit'), 'ok', 'attendance_submit then succeeds');
-select is((select r[1] from checks where fn = 'attendance_touch'), 'advisory', 'attendance_touch opening a day waits on the leave: lock');
-select is((select r[3] from checks where fn = 'attendance_touch'), 'ok', 'attendance_touch then opens the day');
+select is((select r[1] from checks where fn = 'attendance_start_day'), 'advisory', 'attendance_start_day opening a day waits on the leave: lock');
+select is((select r[3] from checks where fn = 'attendance_start_day'), 'ok', 'attendance_start_day then opens the day');
 
 -- 2. The old deadlock, replayed ----------------------------------------------------------------
 -- A: the Owner approves Race's day from the Attendance group and keeps the transaction open.

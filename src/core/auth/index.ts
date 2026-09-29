@@ -2,7 +2,7 @@
  * `core/auth` public surface for client-safe code: types, path rules and form schemas.
  * Server-side pieces are imported by path so `server-only` never reaches a browser bundle:
  * - `@/core/auth/server`: `getCurrentMember()`, `requireMember()`, `getSessionState()`
- * - `@/core/auth/actions`: `login`, `logout`, `setPassword`, `requestPasswordReset`
+ * - `@/core/auth/actions`: `login`, `logout`, `confirmAuthLink`, `setPassword`, `requestPasswordReset`
  * - `@/core/auth/session`: `updateSession()` for `src/proxy.ts`
  */
 export {

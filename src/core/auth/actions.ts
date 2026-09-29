@@ -1,5 +1,6 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect, RedirectType } from "next/navigation";
 
 import { createServerSupabase, type ServerSupabase } from "@/core/db/server";
@@ -8,8 +9,11 @@ import { setSentryUser } from "@/core/observability/user";
 import type { MemberRole } from "@/core/permissions";
 import { homeFor } from "@/core/ui/shell/nav";
 
+import { verifyAuthLink } from "./links";
 import { LOGIN_PATH, safeNextPath, WELCOME_PATH } from "./paths";
 import {
+  type ConfirmLinkInput,
+  confirmLinkSchema,
   type LoginInput,
   loginSchema,
   type PasswordResetInput,
@@ -98,6 +102,20 @@ export const logout = action(async (): Promise<Result<never>> => {
   setSentryUser(null);
   // Replace: the page you signed out from is not something back should return to (§14.2 e).
   redirect(`${LOGIN_PATH}?reason=signed_out`, RedirectType.replace);
+});
+
+/**
+ * "Continue to MaxOff" on `/auth/confirm` (ADR-0012; the 3cB review). The page's GET shows the
+ * button and verifies nothing, so a chat drawing a link preview or a mail scanner fetching the
+ * link spends nothing; this POST is where the one-time token is verified, with the outcome the
+ * GET handler had before: the session cookies, `/set-password`, or the sign-in page with the
+ * reason (expired or already used, or not an active member). Replace, never push: the Continue
+ * page is a one-time screen and must not sit under what follows it (ARCHITECTURE §14.2 e).
+ */
+export const confirmAuthLink = action(async (input: ConfirmLinkInput): Promise<Result<never>> => {
+  const { tokenHash, type } = confirmLinkSchema.parse(input);
+  const target = await verifyAuthLink({ tokenHash, type, headers: await headers() });
+  redirect(target, RedirectType.replace);
 });
 
 /**

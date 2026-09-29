@@ -1,5 +1,6 @@
 import { formatIST, istDayStart } from "@/core/time";
 
+import { daysLabel } from "./credits";
 import {
   LEAVE_TYPE_LABELS,
   leaveDates,
@@ -110,4 +111,26 @@ export function keptDatesNote(dates: readonly string[]): string | null {
 /** "Asha" from "Asha Rao": what the Owner's screens call a person in a sentence. */
 export function firstName(name: string): string {
   return name.trim().split(/\s+/)[0] || name;
+}
+
+/**
+ * Whether the Owner's edit dialog offers comp leave (3c review): `leave_owner_edit` into comp
+ * leave draws one of the person's credits (kickoff 3b decision 16), so with none the option is
+ * greyed out and the hint says what to do; the request's own credit goes back first, so a request
+ * that already is comp leave can always be moved. `compDays` is the person's balance today, or
+ * undefined where the screen does not know it.
+ */
+export function ownerCompLeaveOption(
+  compDays: number | undefined,
+  request: Pick<OwnLeaveRequest, "type">,
+  name: string,
+): { disabled: boolean; hint: string | null } {
+  if (request.type === "comp_leave") {
+    return { disabled: false, hint: `${name}'s credit moves with the day.` };
+  }
+  if (compDays === undefined) return { disabled: false, hint: null };
+  if (compDays <= 0) {
+    return { disabled: true, hint: `${name} has no comp leave credit: grant one first.` };
+  }
+  return { disabled: false, hint: `${name} has ${daysLabel(compDays)} of comp leave.` };
 }

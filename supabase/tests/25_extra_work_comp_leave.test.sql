@@ -233,15 +233,15 @@ select is((select array_agg(e.action || ':' || coalesce(e.to_status::text, '') o
            where d.member_id = pg_temp.fx('staff') and d.work_date = pg_temp.today() - 2),
   array['corrected:present'], 'one corrected event to present');
 
--- A day-off row a 2.x sign-in opened (awaiting_choice) is corrected; an approved Present is left alone.
+-- A day-off row opened without a choice (awaiting_choice) is corrected; an approved Present is left alone.
 select pg_temp.as_system();
 update public.org_settings set weekly_off_days = array[extract(dow from pg_temp.today() - 2)::smallint, extract(dow from pg_temp.today() - 3)::smallint];
-insert into public.attendance_days (member_id, work_date, first_login_at, is_day_off)
+insert into public.attendance_days (member_id, work_date, started_at, is_day_off)
 values (pg_temp.fx('other'), pg_temp.today() - 2, now() - interval '2 days', true);
-insert into public.attendance_days (member_id, work_date, first_login_at, is_day_off, state, submitted_choice, submitted_at, final_status, decided_by, decided_at)
+insert into public.attendance_days (member_id, work_date, started_at, is_day_off, state, submitted_choice, submitted_at, final_status, decided_by, decided_at)
 values (pg_temp.fx('other'), pg_temp.today() - 3, now() - interval '3 days', true, 'approved', 'present', now() - interval '3 days', 'present', pg_temp.fx('owner'), now());
 select pg_temp.as_member('other');
-select lives_ok($$ select public.extra_work_note_submit('day_off', pg_temp.today() - 2, 'Sunday shoot') $$, 'other: a day-off note on a 2.x opened day');
+select lives_ok($$ select public.extra_work_note_submit('day_off', pg_temp.today() - 2, 'Sunday shoot') $$, 'other: a day-off note on an opened, unchosen day');
 select lives_ok($$ select public.extra_work_note_submit('day_off', pg_temp.today() - 3, 'Saturday shoot') $$, 'other: a day-off note on an approved Present');
 select pg_temp.as_member('owner');
 select lives_ok(
@@ -249,10 +249,10 @@ select lives_ok(
          (select id from public.extra_work_notes where member_id = pg_temp.fx('other') and work_date = pg_temp.today() - 2)),
   'granted half a day and marked as worked');
 select results_eq(
-  $$ select d.state::text, d.final_status::text, d.first_login_at is not null, d.decision_reason
+  $$ select d.state::text, d.final_status::text, d.started_at is not null, d.decision_reason
      from public.attendance_days d where d.member_id = pg_temp.fx('other') and d.work_date = pg_temp.today() - 2 $$,
   $$ values ('corrected', 'present', true, 'worked on a day off') $$,
-  'the 2.x row is corrected to Present; its sign-in time stays');
+  'the row is corrected to Present; its start stays');
 select lives_ok(
   format($$ select public.extra_work_note_decide(%L, 'no_comp_leave', null, true) $$,
          (select id from public.extra_work_notes where member_id = pg_temp.fx('other') and work_date = pg_temp.today() - 3)),
@@ -469,10 +469,11 @@ select is((select ended_at from public.attendance_days d where d.member_id = pg_
   'and the day was not ended either (one transaction)');
 select lives_ok($$ select * from public.attendance_end_day() $$, 'ended without a note');
 
--- main's leave_submit is untouched (expand-only): a 2.x comp leave request carries no credit.
+-- 3c.1 (the contract migration): leave_submit() refuses comp leave, so no request carries no credit.
 select pg_temp.as_member('other');
-select lives_ok($$ select public.leave_submit('comp_leave', pg_temp.today() + 10, pg_temp.today() + 10) $$, 'the 2.x function still takes comp leave');
-select is((select credit_days from public.leave_requests r where r.member_id = pg_temp.fx('other')), null, 'with no credit behind it');
+select throws_ok($$ select public.leave_submit('comp_leave', pg_temp.today() + 10, pg_temp.today() + 10) $$, 'P0001', 'VALIDATION',
+  'comp leave through leave_submit is refused');
+select is((select count(*) from public.leave_requests r where r.member_id = pg_temp.fx('other')), 0::bigint, 'and nothing was written');
 
 -- RLS on the audit entries and the uses, per role (architecture review of 3bA) -------------------
 select pg_temp.as_system();

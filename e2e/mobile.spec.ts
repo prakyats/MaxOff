@@ -2,7 +2,10 @@ import { type Locator, type Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 
+import { STAND_INS, type StandIn } from "../src/app/(app)/_placeholder/stand-ins";
+
 import {
+  heldShell,
   memberIdOf,
   pageHeader,
   removeClientFixture,
@@ -125,6 +128,19 @@ async function expectNoZoomOnFocus(page: Page): Promise<void> {
   expect(small, `every input is at least ${MIN_INPUT_FONT}px`).toEqual([]);
 }
 
+/**
+ * The screen has streamed in: its title bar is up and no skeleton is left. `page.goto` resolves
+ * on `load`, and that is not the end of a streamed page: React 19.2 reveals a server-rendered
+ * Suspense boundary in batches (`$RC` schedules the swap up to 300 ms after the previous reveal),
+ * so a route's `loading.tsx` can still be on screen for a moment after `goto` returns (CI,
+ * 2026-09-29: the Owner's /me measured its skeleton at 200%). The loading screens have their own
+ * check below (`LOADING_SCREENS`), where the skeleton is held on screen on purpose.
+ */
+async function expectSettled(page: Page): Promise<void> {
+  await expect(pageHeader(page)).toBeVisible();
+  await expect(page.locator('[data-slot="skeleton"]')).toHaveCount(0);
+}
+
 /** The screens that exist after phase 1, with the role that may open each. */
 const SCREENS = [
   { path: "/people", role: "owner" },
@@ -156,7 +172,7 @@ for (const role of ["owner", "admin", "staff"] as const) {
     for (const { path } of screens) {
       test(`${path}: no sideways scroll, 44px targets, 16px inputs`, async ({ page }) => {
         await page.goto(path);
-        await expect(pageHeader(page)).toBeVisible();
+        await expectSettled(page);
         await expectNoHorizontalScroll(page);
         await expectTouchTargets(page);
         await expectNoZoomOnFocus(page);
@@ -216,39 +232,45 @@ async function expectReadableTruncation(page: Page): Promise<void> {
 
 /**
  * A loading screen fits at large text too (phase 3 review: CI caught /today's stat-tile skeleton
- * reaching past the edge at 200%, only when the check ran before the page streamed in). The
- * page's data request is held, so its `loading.tsx` stays up for as long as the check needs.
+ * reaching past the edge at 200%, only when the check ran before the page streamed in; since the
+ * 3c review the route's skeleton traces the stand-in, `loading-stand-in`; the 3c review's CI then
+ * caught /me the same way, its skeleton columns keeping their rem widths at 200%). The page is
+ * opened through `heldShell`, which delivers the route's loading screen (`marker` is in its
+ * markup) and holds what streams after it, so the skeleton is what is measured, every time, on
+ * the path a cold open takes.
  */
-for (const role of ["owner", "admin"] as const) {
-  test.describe(`${role}: Today's loading screen at large system text`, () => {
+const LOADING_SCREENS = [
+  { role: "owner", path: "/today", marker: 'data-slot="loading-stand-in"' },
+  { role: "admin", path: "/today", marker: 'data-slot="loading-stand-in"' },
+  { role: "owner", path: "/me", marker: 'aria-label="Loading Me"' },
+  { role: "admin", path: "/me", marker: 'aria-label="Loading Me"' },
+  { role: "staff", path: "/me", marker: 'aria-label="Loading Me"' },
+] as const;
+
+for (const role of ["owner", "admin", "staff"] as const) {
+  test.describe(`${role}: loading screens at large system text`, () => {
     test.use({ storageState: storageStateFor(role) });
 
-    test("fits at 130% and 200% while the page loads", async ({ page }) => {
-      await page.goto("/me");
-      await expect(pageHeader(page)).toBeVisible();
-      await page.waitForLoadState("networkidle");
-      let release: () => void = () => undefined;
-      const held = new Promise<void>((resolve) => {
-        release = resolve;
+    for (const { path, marker } of LOADING_SCREENS.filter((screen) => screen.role === role)) {
+      test(`${path}: fits at 100%, 130% and 200% while the page loads`, async ({
+        page,
+        baseURL,
+      }) => {
+        const held = await heldShell(baseURL!, path, marker);
+        try {
+          await page.goto(`${held.origin}${path}`, { waitUntil: "commit" });
+          await expect(page.locator(`[${marker}]`)).toBeVisible();
+          for (const scale of [100, 130, 200]) {
+            await page.evaluate((percent) => {
+              document.documentElement.style.fontSize = `${percent}%`;
+            }, scale);
+            await expectNoHorizontalScroll(page);
+          }
+        } finally {
+          await held.close();
+        }
       });
-      await page.route(
-        (url) => url.pathname === "/today",
-        async (route) => {
-          if (route.request().headers()["rsc"] !== "1") return route.continue();
-          await held;
-          await route.continue().catch(() => undefined);
-        },
-      );
-      await page.getByRole("link", { name: "Today" }).filter({ visible: true }).first().click();
-      await expect(page.locator('[data-slot="loading-tile"]').first()).toBeVisible();
-      for (const scale of [130, 200]) {
-        await page.evaluate((percent) => {
-          document.documentElement.style.fontSize = `${percent}%`;
-        }, scale);
-        await expectNoHorizontalScroll(page);
-      }
-      release();
-    });
+    }
   });
 }
 
@@ -259,7 +281,65 @@ for (const [role, paths] of Object.entries(LARGE_TEXT_SCREENS)) {
     for (const path of paths) {
       test(`${path}: fits at 130% and 200%`, async ({ page }) => {
         await page.goto(path);
+        await expectSettled(page);
+        for (const scale of [130, 200]) {
+          await page.evaluate((percent) => {
+            document.documentElement.style.fontSize = `${percent}%`;
+          }, scale);
+          await expectNoHorizontalScroll(page);
+          await expectReadableTruncation(page);
+        }
+      });
+    }
+  });
+}
+
+/**
+ * The stand-in screens (3c.3, kickoff 3c amendment (3e)): every screen a member can reach before
+ * its real version arrives says, in plain words, what it will be for and that it is coming, for
+ * every role that can open it. Nothing on it names a task number or a build step, and it fits at
+ * both phone widths and at large system text.
+ */
+const STAND_IN_SCREENS: Record<"owner" | "admin" | "staff", { path: string; copy: StandIn }[]> = {
+  owner: [
+    { path: "/today", copy: STAND_INS.todayOwner },
+    { path: "/tasks", copy: STAND_INS.tasksTeam },
+    { path: "/calendar", copy: STAND_INS.calendar },
+    { path: "/notifications", copy: STAND_INS.alertsOwner },
+  ],
+  admin: [
+    { path: "/today", copy: STAND_INS.todayAdmin },
+    { path: "/approvals", copy: STAND_INS.approvalsAdmin },
+    { path: "/tasks", copy: STAND_INS.tasksTeam },
+    { path: "/calendar", copy: STAND_INS.calendar },
+    { path: "/notifications", copy: STAND_INS.alertsMember },
+    { path: "/reports", copy: STAND_INS.reportsAdmin },
+  ],
+  staff: [
+    { path: "/my-day", copy: STAND_INS.myDay },
+    { path: "/tasks", copy: STAND_INS.tasksMine },
+    { path: "/calendar", copy: STAND_INS.calendar },
+    { path: "/notifications", copy: STAND_INS.alertsMember },
+  ],
+};
+
+/** What a stand-in used to say, and anything like it. */
+const BUILD_WORDS = /is filled in|\b(task|phase) \d|arrives with its module|shared components/i;
+
+for (const [role, screens] of Object.entries(STAND_IN_SCREENS)) {
+  test.describe(`${role}: the stand-in screens speak plainly`, () => {
+    test.use({ storageState: storageStateFor(role as keyof typeof STAND_IN_SCREENS) });
+
+    for (const { path, copy } of screens) {
+      test(`${path}: says what is coming, and fits`, async ({ page }) => {
+        await page.goto(path);
         await expect(pageHeader(page)).toBeVisible();
+        const stand = page.locator('[data-slot="empty-state"]').filter({ hasText: copy.title });
+        await expect(stand).toBeVisible();
+        await expect(stand).toContainText(copy.message);
+        await expect(page.locator("main")).not.toContainText(BUILD_WORDS);
+        await expectNoHorizontalScroll(page);
+        await expectTouchTargets(page);
         for (const scale of [130, 200]) {
           await page.evaluate((percent) => {
             document.documentElement.style.fontSize = `${percent}%`;
@@ -591,10 +671,59 @@ test.describe("Settings is a list of rows", () => {
     await expect(page).toHaveURL(/\/settings\/company$/);
   });
 
+  test("a section still to come says so plainly and links nowhere (3c.3)", async ({ page }) => {
+    await page.goto("/settings");
+    const list = page.locator('[data-slot="settings-list"]');
+    const later = list.locator("li").filter({ hasText: "Task types" });
+    await expect(later).toContainText("Coming soon");
+    await expect(later.getByRole("link")).toHaveCount(0);
+    await expect(list).not.toContainText(BUILD_WORDS);
+  });
+
   test("the explanation is behind the help sheet, not above the first row", async ({ page }) => {
     await page.goto("/settings");
     await page.getByRole("button", { name: "About this screen" }).click();
     await expect(page.locator('[data-slot="help-sheet"]')).toContainText("Everything configurable");
+  });
+
+  test("at 200% text every row's label keeps its width; a badge drops under it (3cB review)", async ({
+    page,
+  }) => {
+    await page.goto("/settings");
+    await expect(pageHeader(page)).toBeVisible();
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = "200%";
+    });
+    // The tappable line's first span is the label, on a ready row (a link) and a "Coming soon"
+    // row (a div) alike; the desktop-only description is hidden at a phone width.
+    const labels = page.locator(
+      '[data-slot="settings-list"] > li > :first-child > span:first-child',
+    );
+    const measured = await labels.evaluateAll((els) =>
+      els.map((el) => {
+        const box = el.getBoundingClientRect();
+        return { text: el.textContent?.trim() ?? "", width: box.width };
+      }),
+    );
+    expect(measured.length).toBeGreaterThan(0);
+    for (const { text, width } of measured) {
+      expect(width, `"${text}" keeps ${MIN_TRUNCATED_WIDTH}px at 200%`).toBeGreaterThanOrEqual(
+        MIN_TRUNCATED_WIDTH,
+      );
+    }
+    // A label that reads "Tas/k/typ/es" is a width problem, not a wrapping one: an inline span
+    // has one client rect per line, so more lines than words means a word was broken.
+    const brokenWords = await labels.evaluateAll((els) =>
+      els
+        .filter((el) => {
+          const words = (el.textContent ?? "").trim().split(/\s+/).length;
+          const lines = new Set([...el.getClientRects()].map((rect) => Math.round(rect.top)));
+          return lines.size > words;
+        })
+        .map((el) => el.textContent?.trim() ?? ""),
+    );
+    expect(brokenWords, "no label breaks inside a word").toEqual([]);
+    await expectNoHorizontalScroll(page);
   });
 });
 
