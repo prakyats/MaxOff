@@ -9,7 +9,7 @@
 -- (fields, assignees, primary, the audit) and task_set_approver in every state.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(196);
+select plan(198);
 
 -- Fixtures as 32. Rolled back at the end.
 delete from public.task_warnings;
@@ -479,6 +479,8 @@ select throws_ok(format($$ select public.task_update_assignment(%L, '{}') $$, pg
 select throws_ok(format($$ select public.task_update_assignment(%L, '{"priority": "urgent"}') $$, pg_temp.fx('via')), 'P0001', 'VALIDATION', 'nothing changed');
 select throws_ok(format($$ select public.task_update_assignment(%L, '{"title": ""}') $$, pg_temp.fx('via')), 'P0001', 'VALIDATION', 'a title is required');
 select throws_ok(format($$ select public.task_update_assignment(%L, '{"due_at": null}') $$, pg_temp.fx('via')), 'P0001', 'VALIDATION', 'the deadline stays required');
+select throws_ok(format($$ select public.task_update_assignment(%L, '{"due_at": "next tuesday-ish"}') $$, pg_temp.fx('via')), 'P0001', 'VALIDATION', 'a value of the wrong shape is VALIDATION, not a raw cast error');
+select throws_ok(format($$ select public.task_update_assignment(%L, '{"priority": "asap"}') $$, pg_temp.fx('via')), 'P0001', 'VALIDATION', 'an unknown priority too');
 select throws_ok(format($$ select public.task_update_assignment(%L, jsonb_build_object('client_id', %L)) $$, pg_temp.fx('via'), pg_temp.fx('client_b')),
   'P0001', 'FORBIDDEN', 'an Admin labels only their own clients');
 select throws_ok(format($$ select public.task_update_assignment(%L, jsonb_build_object('assignee_ids', jsonb_build_array(%L, %L), 'primary_owner_id', %L)) $$,

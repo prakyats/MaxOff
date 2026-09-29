@@ -157,7 +157,9 @@ begin
   if p_coordinator_id = p_member_id then
     perform app.fail('VALIDATION', 'A freelancer cannot coordinate themselves.');
   end if;
-  select m.* into v from public.members m where m.id = p_coordinator_id and m.org_id = p_org;
+  -- Locked, so a deactivation running at the same instant waits and then counts this freelancer
+  -- (member_deactivate locks the coordinator's row first; no cycle: it takes no other member row).
+  select m.* into v from public.members m where m.id = p_coordinator_id and m.org_id = p_org for update;
   if v.id is null then
     perform app.fail('NOT_FOUND', 'This coordinator is not on the team.');
   end if;
@@ -651,10 +653,17 @@ comment on function app.directory_visible(uuid) is
   'may read: their own, everyone''s for team.view, their current freelancers'' (4A), and (from the '
   'tasks migration) the people on the caller''s visible tasks (PERMISSIONS §2).';
 
+-- The phone is a work contact for team.view (PERMISSIONS §2), the person themselves and, since 4A,
+-- the current coordinator of a freelancer; a co-worker seen only through a shared task gets the
+-- name, job title and role, not the number.
 create or replace view public.member_directory
 with (security_invoker = false, security_barrier = true)
 as
-  select m.id, m.org_id, m.full_name, m.phone, m.role, m.status, m.created_at, m.job_title_id,
+  select m.id, m.org_id, m.full_name,
+         case when m.id = auth.uid() or (select app.has_permission('team.view'))
+                   or app.coordinator_of(m.id) = auth.uid()
+              then m.phone end as phone,
+         m.role, m.status, m.created_at, m.job_title_id,
          m.avatar_file_id, m.engagement
   from public.members m
   where m.org_id = (select c.org_id from app.current_member() c)
@@ -662,8 +671,8 @@ as
 
 comment on view public.member_directory is
   'Who is on the team, without email. Everyone''s row for team.view, always the caller''s own, a '
-  'coordinator''s freelancers and the people on the caller''s tasks (4A, PERMISSIONS §2). '
-  'engagement marks a freelancer.';
+  'coordinator''s freelancers and the people on the caller''s tasks (4A, PERMISSIONS §2). phone '
+  'for team.view, the person and a freelancer''s current coordinator only. engagement marks a freelancer.';
 
 -- 5. activity_log.on_behalf_of_id -------------------------------------------------------------------
 alter table public.activity_log add column on_behalf_of_id uuid null references public.members (id);

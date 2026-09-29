@@ -61,7 +61,7 @@
 
 | Data | Owner | Admin | Staff |
 |---|---|---|---|
-| Members | All | Everyone's name, job title, role, status and **phone** (a work contact), through the `member_directory` view. **Email is Owner-only**: it's the login identity | Own profile. Names of people on their own tasks (through `member_directory`, from 4.1) |
+| Members | All | Everyone's name, job title, role, status and **phone** (a work contact), through the `member_directory` view. **Email is Owner-only**: it's the login identity | Own profile. Names, job titles and roles of people on their own tasks (through `member_directory`, since 4A; no phone), plus their own freelancers with phone when they coordinate one (ADR-0013) |
 | Attendance / leave | All | **Own**. Others only through `availability` (present or on leave today, approved leave dates) | Own |
 | Clients (full record) | All | **Assigned clients only**, and only while they hold `clients.edit_assigned` (phase 3 review: a role change never leaves access behind) | ❌ Never |
 | Client label (name, logo, colours, fonts, tone, brand notes) | All | Assigned clients + labels on visible tasks | Only for clients on their **own** tasks (through `client_labels` view) |

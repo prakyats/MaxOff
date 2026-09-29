@@ -262,7 +262,9 @@ member_directory     view (security definer): id, org_id, full_name, phone, role
                      created_at, avatar_file_id (appended in 3.3), engagement (appended in 4A).
                      Everyone's row for team.view, plus the caller's own, plus (4A, PERMISSIONS §2) the
                      people on the caller's visible tasks (assignees, creator, approving Admin) and
-                     the freelancers the caller currently coordinates. No email (PERMISSIONS §2).
+                     the freelancers the caller currently coordinates. No email (PERMISSIONS §2); phone
+                     only for team.view, the person themselves and a freelancer's current coordinator
+                     (null on a co-worker seen through a shared task).
 role_permissions     role member_role, permission text, pk(role, permission)   -- seeded
 session_events       id, member_id, kind ('login'|'logout'), at, user_agent (≤ 512), ip_hash
                      -- append-only, written only by session_login() (1.2) and

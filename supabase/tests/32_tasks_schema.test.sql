@@ -8,7 +8,7 @@
 -- custom fields guard and field_definitions.task_type_id, and member_availability.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(109);
+select plan(113);
 
 -- Fixtures as 31: keep the organization, replace the people. Rolled back at the end.
 delete from public.task_warnings;
@@ -116,8 +116,11 @@ insert into public.clients (id, org_id, name, state, admin_id, activated_at) val
 
 -- The freelancer: coordinated by old first, then by coord (so old is a former coordinator).
 select pg_temp.as_member('owner');
-insert into fx values ('asha', public.member_add_freelancer('Asha', null, null, pg_temp.fx('old')));
+insert into fx values ('asha', public.member_add_freelancer('Asha', null, 'asha-phone', pg_temp.fx('old')));
 select public.member_set_coordinator(pg_temp.fx('asha'), pg_temp.fx('coord'), 'handover');
+select pg_temp.as_system();
+update public.members set phone = 'staff1-phone' where id = pg_temp.fx('staff1');
+update public.members set phone = 'owner-phone' where id = pg_temp.fx('owner');
 
 -- Schema ---------------------------------------------------------------------------------------
 select pg_temp.as_system();
@@ -249,6 +252,13 @@ select is((select count(*) from public.activity_log a where a.entity_id = pg_tem
 select set_eq($$ select id from public.member_directory $$,
   array[pg_temp.fx('staff1'), pg_temp.fx('owner'), pg_temp.fx('admin1'), pg_temp.fx('asha'), pg_temp.fx('admin2')],
   'staff1''s directory: themselves and the people on their tasks (creators, approvers, co-assignees)');
+select is((select d.phone from public.member_directory d where d.id = pg_temp.fx('owner')), null,
+  'a co-worker seen through a task comes without a phone number (the Owner has one)');
+select is((select d.phone from public.member_directory d where d.id = pg_temp.fx('staff1')), 'staff1-phone', 'the caller''s own number is there');
+select pg_temp.as_member('coord');
+select is((select d.phone from public.member_directory d where d.id = pg_temp.fx('asha')), 'asha-phone', 'a coordinator reads their freelancer''s number');
+select pg_temp.as_member('admin1');
+select is((select d.phone from public.member_directory d where d.id = pg_temp.fx('staff1')), 'staff1-phone', 'team.view reads everyone''s (a work contact)');
 select pg_temp.as_member('old');
 select set_eq($$ select id from public.member_directory $$, array[pg_temp.fx('old')], 'a former coordinator''s directory: themselves only');
 
