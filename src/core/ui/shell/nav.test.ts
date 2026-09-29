@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  badgeTotal,
   alertsInBottomNav,
   homeFor,
   isActivePath,
@@ -11,8 +12,6 @@ import {
   navFor,
   PROFILE_NAV_ITEM,
   settingsSectionsFor,
-  totalBadge,
-  withBadges,
 } from "./nav";
 import { SHELL_ROLES, type ShellRole } from "./viewer";
 
@@ -176,37 +175,17 @@ describe("mobileNavFor", () => {
     }
   });
 
-  it("adds up what is hidden behind More, so a count never disappears into the sheet", () => {
-    const more = mobileNavFor("owner").more;
-    expect(totalBadge(more)).toBe(0);
-    expect(
-      totalBadge([
-        { ...more[0]!, badge: 3 },
-        { ...more[1]!, badge: 2 },
-      ]),
-    ).toBe(5);
-    // A count nothing has set, and a nonsense negative, are both just "nothing waiting".
-    expect(totalBadge([{ ...more[0]! }, { ...more[1]!, badge: -4 }])).toBe(0);
-  });
-
-  it("no destination ships with a badge: the layout sets them from real data (2.4, 5.1)", () => {
-    for (const role of SHELL_ROLES) {
-      for (const item of navFor(role)) expect(item.badge).toBeUndefined();
-    }
-  });
-
-  it("puts a count on exactly the item it names, and nothing for zero", () => {
-    const items = withBadges(navFor("owner"), { approvals: 4 });
-    expect(items.filter((item) => item.badge !== undefined).map((item) => item.key)).toEqual([
-      "approvals",
-    ]);
-    expect(items.find((item) => item.key === "approvals")?.badge).toBe(4);
-    expect(withBadges(navFor("owner"), { approvals: 0 }).some((item) => item.badge)).toBe(false);
-    // The Owner's Approvals is in the bar, so its count shows without opening More.
-    expect(
-      withBadges(mobileNavFor("owner").primary, { approvals: 2 }).map((i) => i.badge),
-    ).toContain(2);
-    expect(totalBadge(withBadges(mobileNavFor("owner").more, { approvals: 2 }))).toBe(0);
+  it("adds up the counts of the keys a spot carries; a missing or negative one is nothing (4C)", () => {
+    const more = mobileNavFor("owner").more.map((item) => item.key);
+    expect(badgeTotal({ approvals: 4 }, more)).toBe(0);
+    expect(badgeTotal({ reports: 3, people: 2 }, more)).toBe(5);
+    expect(badgeTotal({ people: -4 }, more)).toBe(0);
+    expect(badgeTotal({ approvals: 4, tasks: 2 }, ["approvals"])).toBe(4);
+    // The Owner's Approvals and Tasks are in the bar, so their counts show without opening More.
+    expect(mobileNavFor("owner").primary.map((item) => item.key)).toEqual(
+      expect.arrayContaining(["approvals", "tasks"]),
+    );
+    expect(mobileNavFor("staff").primary.map((item) => item.key)).toContain("tasks");
   });
 
   it("puts the bell in the title bar for exactly the roles whose bar has no Alerts", () => {

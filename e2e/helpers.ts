@@ -325,6 +325,10 @@ export async function removeFixturePerson(email: string): Promise<void> {
     await resetExpenseClaims(id);
     await serviceRest(`session_events?member_id=eq.${id}`, { method: "DELETE" });
     await serviceRest(`activity_log?actor_id=eq.${id}`, { method: "DELETE" });
+    // 4C: a freelancer invited as an employee keeps their coordinator history (ADR-0013).
+    await serviceRest(`member_coordinators?or=(member_id.eq.${id},coordinator_id.eq.${id})`, {
+      method: "DELETE",
+    });
     await serviceRest(`members?id=eq.${id}`, { method: "DELETE" });
   }
   const listed = (await serviceAuth(
@@ -633,8 +637,7 @@ export async function heldShell(
         answer.on("data", (chunk: Buffer) => chunks.push(chunk));
         answer.on("end", () => {
           const html = Buffer.concat(chunks).toString("utf8");
-          // The first streamed chunk after the loading screen: the page, or what resolves next.
-          const streamed = html.indexOf('<div hidden id="S:', Math.max(0, html.indexOf(marker)));
+          const streamed = cutAfterLoadingScreen(html, marker);
           if (streamed < 0 || released) {
             response.end(html);
             return;
@@ -666,6 +669,30 @@ export async function heldShell(
 }
 
 /**
+ * Where `heldShell` cuts a streamed document: just after the loading screen carrying `marker` is
+ * delivered **and revealed**. When the loading screen was streamed inside a hidden segment
+ * (`<div hidden id="S:n">`, which React shows with its `$RC(…,"S:n")` script), the cut goes after
+ * that script: since the nav counts stream in their own boundaries (4C), React can write the
+ * page's segments before the script that reveals the loading screen, so cutting at the next
+ * hidden segment would hold the loading screen itself hidden. Otherwise (the loading screen in the
+ * first flush), the cut is the first streamed segment after it: the page, or what resolves next.
+ * -1 when there is nothing to hold.
+ */
+export function cutAfterLoadingScreen(html: string, marker: string): number {
+  const at = html.indexOf(marker);
+  const enclosing = at < 0 ? -1 : html.lastIndexOf('<div hidden id="S:', at);
+  const id = enclosing < 0 ? null : /^<div hidden id="(S:[^"]+)"/.exec(html.slice(enclosing))?.[1];
+  if (id) {
+    const reveal = html.indexOf(`"${id}")`, enclosing);
+    if (reveal > at) {
+      const end = html.indexOf("</script>", reveal);
+      if (end > 0) return end + "</script>".length;
+    }
+  }
+  return html.indexOf('<div hidden id="S:', Math.max(0, at));
+}
+
+/**
  * Removes the tasks a spec made (4B), by title prefix, with every child row, so the spec re-runs
  * on a used database. The audit rows about them stay (history; no foreign key). Service role,
  * local stack only: `tasks` has no API delete at all.
@@ -676,6 +703,8 @@ export async function removeTasksTitled(prefix: string): Promise<void> {
   );
   if (tasks.length === 0) return;
   const ids = tasks.map((task) => task.id).join(",");
+  // 4.6: a request converted into one of them points at it.
+  await serviceRest(`task_requests?task_id=in.(${ids})`, { method: "DELETE" });
   for (const table of [
     "task_warnings",
     "task_reviews",
@@ -696,4 +725,45 @@ export async function taskTypeId(name: string): Promise<string> {
   );
   expect(row, `the task type ${name} is seeded`).toBeTruthy();
   return (row as { id: string }).id;
+}
+
+/**
+ * Removes the task requests a spec suggested (4.6), by title prefix, whatever their state. A task
+ * one became is the spec's own to remove (`removeTasksTitled`).
+ */
+export async function removeRequestsTitled(prefix: string): Promise<void> {
+  await serviceRest(`task_requests?title=like.${encodeURIComponent(`${prefix}*`)}`, {
+    method: "DELETE",
+  });
+}
+
+/**
+ * Removes the task templates a spec made (4.6), by name prefix; a task started from one forgets
+ * it first (`tasks.template_id`). Service role, local stack only: templates are never deleted in
+ * the app.
+ */
+export async function removeTemplatesNamed(prefix: string): Promise<void> {
+  const templates = await serviceSelect<{ id: string }>(
+    `task_templates?name=like.${encodeURIComponent(`${prefix}*`)}&select=id`,
+  );
+  if (templates.length === 0) return;
+  const ids = templates.map((template) => template.id).join(",");
+  await serviceUpdate(`tasks?template_id=in.(${ids})`, { template_id: null });
+  await serviceRest(`task_templates?id=in.(${ids})`, { method: "DELETE" });
+}
+
+/**
+ * Removes the freelancers a spec added (4C, ADR-0013: no email, so by name prefix), their
+ * coordinator rows and any task row naming them first. A freelancer who was invited as an
+ * employee has an email by then: `removeFixturePerson` removes them.
+ */
+export async function removeFreelancersNamed(prefix: string): Promise<void> {
+  const members = await serviceSelect<{ id: string }>(
+    `members?engagement=eq.freelance&full_name=like.${encodeURIComponent(`${prefix}*`)}&select=id`,
+  );
+  for (const { id } of members) {
+    await serviceRest(`task_assignees?member_id=eq.${id}`, { method: "DELETE" });
+    await serviceRest(`member_coordinators?member_id=eq.${id}`, { method: "DELETE" });
+    await serviceRest(`members?id=eq.${id}`, { method: "DELETE" });
+  }
 }

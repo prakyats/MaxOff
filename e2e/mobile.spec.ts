@@ -160,6 +160,13 @@ const SCREENS = [
   { path: "/today", role: "admin" },
   { path: "/clients", role: "owner" },
   { path: "/clients", role: "admin" },
+  // 4.5: the Tasks tab per role, the full list and an Admin's Approvals.
+  { path: "/tasks", role: "owner" },
+  { path: "/tasks", role: "admin" },
+  { path: "/tasks", role: "staff" },
+  { path: "/tasks/all", role: "owner" },
+  { path: "/tasks/all", role: "staff" },
+  { path: "/approvals", role: "admin" },
 ] as const;
 
 for (const role of ["owner", "admin", "staff"] as const) {
@@ -202,9 +209,28 @@ const LARGE_TEXT_SCREENS = {
     "/reports/month",
     "/me",
     "/clients",
+    "/tasks",
+    "/tasks/all",
   ],
-  admin: ["/today", "/leave", "/leave/attendance", "/leave/expenses", "/me", "/clients"],
-  staff: ["/my-day", "/leave", "/leave/attendance", "/leave/expenses", "/me"],
+  admin: [
+    "/today",
+    "/leave",
+    "/leave/attendance",
+    "/leave/expenses",
+    "/me",
+    "/clients",
+    "/tasks",
+    "/approvals",
+  ],
+  staff: [
+    "/my-day",
+    "/leave",
+    "/leave/attendance",
+    "/leave/expenses",
+    "/me",
+    "/tasks",
+    "/tasks/all",
+  ],
 } as const;
 
 /** The narrowest an ellipsis may cut a line to and still say what it is. */
@@ -257,6 +283,12 @@ const LOADING_SCREENS = [
     path: "/tasks/00000000-0000-4000-8000-000000000000",
     marker: 'aria-label="Loading the task"',
   },
+  // The Tasks tab (4.5): the Owner's and Admins' sections, Staff's groups; the full list's
+  // toolbar and rows. (An Admin's Approvals is often quicker than its shell and then streams no
+  // loading screen at all, measured 6 of 12 loads: it is checked settled, above, not held.)
+  { role: "owner", path: "/tasks", marker: 'aria-label="Loading tasks"' },
+  { role: "staff", path: "/tasks", marker: 'aria-label="Loading tasks"' },
+  { role: "owner", path: "/tasks/all", marker: 'data-slot="loading-all-tasks"' },
 ] as const;
 
 for (const role of ["owner", "admin", "staff"] as const) {
@@ -315,21 +347,17 @@ for (const [role, paths] of Object.entries(LARGE_TEXT_SCREENS)) {
 const STAND_IN_SCREENS: Record<"owner" | "admin" | "staff", { path: string; copy: StandIn }[]> = {
   owner: [
     { path: "/today", copy: STAND_INS.todayOwner },
-    { path: "/tasks", copy: STAND_INS.tasksTeam },
     { path: "/calendar", copy: STAND_INS.calendar },
     { path: "/notifications", copy: STAND_INS.alertsOwner },
   ],
   admin: [
     { path: "/today", copy: STAND_INS.todayAdmin },
-    { path: "/approvals", copy: STAND_INS.approvalsAdmin },
-    { path: "/tasks", copy: STAND_INS.tasksTeam },
     { path: "/calendar", copy: STAND_INS.calendar },
     { path: "/notifications", copy: STAND_INS.alertsMember },
     { path: "/reports", copy: STAND_INS.reportsAdmin },
   ],
   staff: [
     { path: "/my-day", copy: STAND_INS.myDay },
-    { path: "/tasks", copy: STAND_INS.tasksMine },
     { path: "/calendar", copy: STAND_INS.calendar },
     { path: "/notifications", copy: STAND_INS.alertsMember },
   ],

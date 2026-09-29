@@ -18,3 +18,7 @@ export const REASON_MAX = 1000;
 export const DEFAULT_DUE_TIME = "18:00";
 /** Nobody assigns a task to more people than this. */
 export const ASSIGNEES_MAX = 20;
+/** A suggested task's details (4.6, `task_requests.details`). */
+export const REQUEST_DETAILS_MAX = 5000;
+/** A task template's name (4.6). */
+export const TEMPLATE_NAME_MAX = 120;

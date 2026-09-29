@@ -9,6 +9,13 @@
  * `LinkedText` is a server component (no state, no handlers), so it is.
  */
 export { LinkedText } from "./components/linked-text";
+/** Server components (no state, no handlers): a list row and its block (4.5). */
+export {
+  TaskRow,
+  TaskRowList,
+  TaskRowsSkeleton,
+  TaskSectionHeadingSkeleton,
+} from "./components/task-row";
 export {
   getTask,
   listAssignees,
@@ -18,7 +25,62 @@ export {
   listSubmissions,
   listTaskActivity,
   listTaskTypes,
+  countTasks,
+  listFinishedTaskRows,
+  listOpenTaskRows,
+  listTasksToDecide,
+  type TaskToDecide,
 } from "./data/tasks";
+export { countPendingRequests, listTaskRequests } from "./data/requests";
+export { listTaskTemplates } from "./data/templates";
+export {
+  badgeCount,
+  byDeadline,
+  forLabel,
+  isOwnWork,
+  managesTask,
+  MY_GROUP_TITLES,
+  MY_GROUPS,
+  myTaskGroups,
+  needsYou,
+  openByDeadline,
+  ownPart,
+  rowMeta,
+  waitedLabel,
+  type ListViewer,
+  type MyGroup,
+  type MyTaskItem,
+  type NeedsYouItem,
+  type NeedsYouReason,
+  type OwnPart,
+  type TaskListRow,
+} from "./domain/lists";
+export {
+  ALL,
+  NO_CLIENT,
+  STATE_FILTER_LABELS,
+  STATE_FILTERS,
+  type FilterableTask,
+  type StateFilter,
+} from "./domain/list-filters";
+export {
+  REQUEST_STATE_LABELS,
+  requestActions,
+  requestByline,
+  requestOutcome,
+  splitRequests,
+  type RequestActions,
+  type RequestState,
+  type RequestViewer,
+  type TaskRequest,
+} from "./domain/requests";
+export {
+  activeTemplates,
+  applyTemplate,
+  templateActions,
+  type TaskTemplate,
+  type TemplateActions,
+} from "./domain/templates";
 export {
   describeTaskActivity,
   type TaskActivityContext,
@@ -57,3 +119,5 @@ export {
   type TaskSubmission,
   type TaskType,
 } from "./domain/types";
+/** The Approvals screen's single approve, behind the delayed send's route (4.5). */
+export { approveTask } from "./actions/approvals";

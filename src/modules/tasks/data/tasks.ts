@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cache } from "react";
+
 import { listActivity } from "@/core/activity/server";
 import type { ActivityEntry } from "@/core/activity";
 import type { Database, Json, Tables } from "@/core/db";
@@ -9,6 +11,7 @@ import { nextPosition } from "@/core/lists";
 import { systemClock } from "@/core/time";
 
 import type { TaskChanges, TaskFields } from "../domain/form";
+import type { TaskListRow } from "../domain/lists";
 import type {
   ReviewDecision,
   Task,
@@ -204,6 +207,176 @@ const TASK_ENTITIES = ["tasks", "task_assignees", "task_stages", "task_warnings"
  */
 export async function listTaskActivity(taskId: string): Promise<ActivityEntry[]> {
   return listActivity(TASK_ENTITIES.map((entity) => ({ entity, ids: [taskId] })));
+}
+
+// Lists (4.5) --------------------------------------------------------------------------------------
+
+const LIST_COLUMNS =
+  "id, title, state, admin_step, priority, due_at, client_id, task_type_id, primary_owner_id, approving_admin_id, created_by, submitted_at, created_at, task_assignees(member_id, is_primary, assigned_at, acknowledged_at, removed_at)";
+
+type ListRowData = {
+  id: string;
+  title: string;
+  state: TaskState;
+  admin_step: Tables<"tasks">["admin_step"];
+  priority: Tables<"tasks">["priority"];
+  due_at: string;
+  client_id: string | null;
+  task_type_id: string;
+  primary_owner_id: string;
+  approving_admin_id: string | null;
+  created_by: string;
+  submitted_at: string | null;
+  created_at: string;
+  task_assignees: {
+    member_id: string;
+    is_primary: boolean;
+    assigned_at: string;
+    acknowledged_at: string | null;
+    removed_at: string | null;
+  }[];
+};
+
+function toListRow(row: ListRowData): TaskListRow {
+  return {
+    id: row.id,
+    title: row.title,
+    state: row.state,
+    adminStep: row.admin_step,
+    priority: row.priority,
+    dueAt: row.due_at,
+    clientId: row.client_id,
+    taskTypeId: row.task_type_id,
+    primaryOwnerId: row.primary_owner_id,
+    approvingAdminId: row.approving_admin_id,
+    createdBy: row.created_by,
+    submittedAt: row.submitted_at,
+    createdAt: row.created_at,
+    assignees: row.task_assignees.map((a) => ({
+      memberId: a.member_id,
+      isPrimary: a.is_primary,
+      assignedAt: a.assigned_at,
+      acknowledgedAt: a.acknowledged_at,
+      removedAt: a.removed_at,
+    })),
+  };
+}
+
+/**
+ * Every open task the viewer may see (RLS: `app.task_visible()`), with its people: the Tasks
+ * tab's first screen and the full list's open part. Open tasks are bounded by the work in hand.
+ */
+export async function listOpenTaskRows(): Promise<TaskListRow[]> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase
+    .from("tasks")
+    .select(LIST_COLUMNS)
+    .not("state", "in", "(completed,cancelled)")
+    .order("due_at", { ascending: true });
+  if (error) throw error;
+  return (data as ListRowData[]).map(toListRow);
+}
+
+/** The finished tasks, the latest first, at most `limit` (the full list's window). */
+export async function listFinishedTaskRows(limit: number): Promise<TaskListRow[]> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase
+    .from("tasks")
+    .select(LIST_COLUMNS)
+    .in("state", ["completed", "cancelled"])
+    .order("updated_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data as ListRowData[]).map(toListRow);
+}
+
+/**
+ * The viewer's badge counts (`task_counts()`, Kickoff 4 decision 16); zeros when there is no row.
+ * Once per request (`cache()`): the layout's badges and the Tasks and Approvals screens share it.
+ */
+export const countTasks = cache(
+  async (): Promise<{
+    notNoted: number;
+    changesRequested: number;
+    badge: number;
+    toDecide: number;
+  }> => {
+    const supabase = await createServerSupabase();
+    const { data, error } = await supabase.rpc("task_counts");
+    if (error) throw error;
+    const row = data[0];
+    return {
+      notNoted: row?.not_noted ?? 0,
+      changesRequested: row?.changes_requested ?? 0,
+      badge: row?.badge ?? 0,
+      toDecide: row?.to_decide ?? 0,
+    };
+  },
+);
+
+/** A task waiting for a decision, with its latest hand-in (the Approvals group, 4.5). */
+export type TaskToDecide = {
+  row: TaskListRow;
+  lateReason: string | null;
+  submission: TaskSubmission | null;
+};
+
+/**
+ * The tasks at the step the viewer decides (WORKFLOWS §3.1): the Owner the ones waiting for the
+ * final approval, an approving Admin the ones waiting for their check (never a task they are on:
+ * the step is skipped). Oldest hand-in first (PRODUCT §4.7).
+ */
+export async function listTasksToDecide(viewer: {
+  id: string;
+  final: boolean;
+}): Promise<TaskToDecide[]> {
+  const supabase = await createServerSupabase();
+  const query = supabase
+    .from("tasks")
+    .select(
+      `${LIST_COLUMNS}, late_reason, task_submissions(id, version, note, submitted_by, on_behalf_of, at)`,
+    )
+    .order("submitted_at", { ascending: true })
+    .order("version", { referencedTable: "task_submissions", ascending: false })
+    .limit(1, { referencedTable: "task_submissions" });
+  const { data, error } = viewer.final
+    ? await query.eq("state", "admin_approved")
+    : await query.eq("state", "submitted").eq("approving_admin_id", viewer.id);
+  if (error) throw error;
+  type Row = ListRowData & {
+    late_reason: string | null;
+    task_submissions: {
+      id: string;
+      version: number;
+      note: string | null;
+      submitted_by: string;
+      on_behalf_of: string | null;
+      at: string;
+    }[];
+  };
+  return (data as unknown as Row[])
+    .map((row) => {
+      const latest = row.task_submissions[0];
+      return {
+        row: toListRow(row),
+        lateReason: row.late_reason,
+        submission: latest
+          ? {
+              id: latest.id,
+              version: latest.version,
+              note: latest.note,
+              submittedBy: latest.submitted_by,
+              onBehalfOf: latest.on_behalf_of,
+              at: latest.at,
+            }
+          : null,
+      };
+    })
+    .filter(
+      ({ row }) =>
+        viewer.final ||
+        !row.assignees.some((a) => a.memberId === viewer.id && a.removedAt === null),
+    );
 }
 
 // Warnings (4.3) -----------------------------------------------------------------------------------

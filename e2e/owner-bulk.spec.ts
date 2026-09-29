@@ -1,19 +1,21 @@
 import { expect, test } from "./fixtures";
 
-import { addISTDays, todayIST } from "../src/core/time";
+import { addISTDays, istInstant, todayIST } from "../src/core/time";
 
 import {
+  removeTasksTitled,
   resetAttendanceAndLeave,
   rpcAs,
   serviceInsert,
   serviceSelect,
   storageStateFor,
+  USERS,
 } from "./helpers";
 
 /**
  * "Approve all N" (task 2.4, WORKFLOWS §1 "Settled in 2.4"): a confirmation with the count, no
  * Undo, only the ids on screen, one call per row, and a clash reported on its own row, which
- * stays. Approve all acts on **every** row of a group, other specs' rows included, so this file
+ * stays; the Staff tasks group's too (4.5, the Owner's final approvals, approve only). Approve all acts on **every** row of a group, other specs' rows included, so this file
  * runs in its own project (`owner-bulk`) after `desktop`, `mobile` and `mobile-lg` have finished.
  */
 
@@ -108,4 +110,42 @@ test("Approve all requests: a clash stays on its row with the reason", async ({ 
   );
   expect(a?.state).toBe("approved");
   expect(b?.state).toBe("submitted");
+});
+
+test("Approve all tasks: the Owner's final approvals, approve only, every one completed", async ({
+  page,
+}) => {
+  // Two tasks the Owner gave Bulk A directly (no Admin step, kickoff 4 decision 5): handed in,
+  // they wait for the Owner's approval.
+  const [org] = await serviceSelect<{ id: string }>("task_types?name=eq.Normal&select=id");
+  await removeTasksTitled("Bulk task ");
+  const tasks: string[] = [];
+  for (const n of [1, 2]) {
+    const id = await rpcAs<string>(USERS.owner.email, USERS.owner.password, "task_create", {
+      title: `Bulk task ${n}`,
+      description: null,
+      task_type_id: org?.id,
+      client_id: null,
+      priority: "medium",
+      due_at: istInstant(inDays(40), "18:00"),
+      assignee_ids: [A.id],
+      primary_owner_id: A.id,
+    });
+    await rpcAs(A.email, PASSWORD, "task_submit_done", { task_id: id });
+    tasks.push(id);
+  }
+  await page.goto("/approvals");
+  const group = page.locator('[data-slot="approval-group"][data-group="tasks"]');
+  await expect(group).toContainText("Bulk task 1");
+  await group.getByRole("button", { name: /^Approve all \d+$/ }).click();
+  const confirm = page.getByRole("alertdialog");
+  await expect(confirm).toContainText(/Approve all \d+ tasks\?/);
+  await confirm.getByRole("button", { name: /^Approve \d+$/ }).click();
+  await expect(confirm).toBeHidden();
+  await expect(page.getByText(/^\d+ approved/)).toBeVisible();
+  for (const id of tasks) {
+    const [task] = await serviceSelect<{ state: string }>(`tasks?id=eq.${id}&select=state`);
+    expect(task?.state).toBe("completed");
+  }
+  await removeTasksTitled("Bulk task ");
 });

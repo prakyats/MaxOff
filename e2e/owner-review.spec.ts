@@ -4,10 +4,10 @@ import { expect, test } from "./fixtures";
 
 // The app's own IST clock (ADR-0008), so "today" here is the database's `app.today_ist()`.
 import { addISTDays, todayIST } from "../src/core/time";
-import { STAND_INS } from "../src/app/(app)/_placeholder/stand-ins";
 
 import {
   expectBackStack,
+  pageHeader,
   resetAttendanceAndLeave,
   rpcAs,
   runInstalled,
@@ -579,10 +579,13 @@ test.describe("who sees what", () => {
     test.use({ storageState: storageStateFor("admin") });
     test("gets no attendance or leave groups and no person history", async ({ page }, info) => {
       await page.goto("/approvals");
-      await expect(page.locator('[data-slot="approval-group"]')).toHaveCount(0);
-      // Their Approvals is the stand-in until task approvals arrive, in plain words (3c.3).
-      await expect(page.getByText(STAND_INS.approvalsAdmin.title)).toBeVisible();
-      await expect(page.getByText(STAND_INS.approvalsAdmin.message)).toBeVisible();
+      await expect(pageHeader(page)).toHaveText(/Approvals/);
+      // Only the tasks they check (4.5): never attendance, leave, extra work or expenses.
+      for (const group of ["attendance", "leave", "extra-work", "expenses"]) {
+        await expect(
+          page.locator(`[data-slot="approval-group"][data-group="${group}"]`),
+        ).toHaveCount(0);
+      }
       // The Profile is theirs to read (kickoff 3); the history tabs are the Owner's.
       await page.goto(`/people/${ids(info).day}/leave`);
       await expect(page).toHaveURL(/\/forbidden/);

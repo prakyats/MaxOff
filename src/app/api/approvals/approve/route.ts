@@ -4,6 +4,7 @@ import { fail } from "@/core/errors";
 import { sameOrigin } from "@/core/http/origin";
 import { approveDay } from "@/modules/attendance";
 import { approveLeave } from "@/modules/leave";
+import { approveTask } from "@/modules/tasks";
 
 /**
  * One approval from the Approvals screen's delayed send (WORKFLOWS §1 "Settled in 2.4"). A route
@@ -15,7 +16,7 @@ import { approveLeave } from "@/modules/leave";
  * `/api/*` is public in the proxy, so this authenticates itself: the action's permission check
  * reads the session cookie, and a request from another origin is refused before anything runs.
  */
-const bodySchema = z.object({ kind: z.enum(["day", "leave"]), id: z.uuid() });
+const bodySchema = z.object({ kind: z.enum(["day", "leave", "task"]), id: z.uuid() });
 
 export async function POST(request: Request): Promise<Response> {
   if (!sameOrigin(request.headers.get("origin"), request.url)) {
@@ -26,6 +27,10 @@ export async function POST(request: Request): Promise<Response> {
 
   const { kind, id } = parsed.data;
   const result =
-    kind === "day" ? await approveDay({ dayId: id }) : await approveLeave({ requestId: id });
+    kind === "day"
+      ? await approveDay({ dayId: id })
+      : kind === "leave"
+        ? await approveLeave({ requestId: id })
+        : await approveTask({ taskId: id });
   return Response.json(result);
 }

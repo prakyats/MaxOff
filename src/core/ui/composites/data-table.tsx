@@ -433,7 +433,10 @@ function ViewToolbar<TData>({
   onChange: (next: DataTableView) => void;
 }) {
   return (
-    <div data-slot="data-toolbar" className="flex flex-col gap-2 md:flex-row md:items-center">
+    <div
+      data-slot="data-toolbar"
+      className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center"
+    >
       {search ? (
         <div className="relative md:w-72" data-slot="data-search">
           <SearchIcon
@@ -453,7 +456,7 @@ function ViewToolbar<TData>({
         </div>
       ) : null}
       {filters.length > 0 ? (
-        <div className="grid grid-cols-2 gap-2 md:flex">
+        <div className="grid grid-cols-2 gap-2 md:flex md:flex-wrap">
           {filters.map((filter) => (
             <Select
               key={filter.id}

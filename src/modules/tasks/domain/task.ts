@@ -70,7 +70,9 @@ export function eventLabel(
     : `${day}, ${start}`;
 }
 
-export function activeAssignees(assignees: readonly TaskAssignee[]): TaskAssignee[] {
+export function activeAssignees<T extends Pick<TaskAssignee, "removedAt">>(
+  assignees: readonly T[],
+): T[] {
   return assignees.filter((assignee) => assignee.removedAt === null);
 }
 

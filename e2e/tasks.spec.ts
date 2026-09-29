@@ -732,7 +732,7 @@ test.describe("staff tasks, the flows", () => {
       await page.context().clearCookies();
       await signIn(page, person("helper", info).email, PASSWORD);
       await page.goto("/tasks");
-      await expect(pageHeader(page)).toContainText("Tasks");
+      await expect(pageHeader(page)).toContainText("My tasks");
       await expect(page.getByRole("button", { name: "New task" })).toHaveCount(0);
       await page.goto(url);
       await expect(page.getByText("Page not found")).toBeVisible();

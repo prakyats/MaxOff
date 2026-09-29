@@ -76,8 +76,12 @@ describe("loading.tsx coverage", () => {
     expect(sourceOf("today")).toContain("TodayAttendanceStripSkeleton");
     expect(sourceOf("my-day")).toContain(standIn);
     expect(sourceOf("my-day")).toContain("TodayAttendanceStripSkeleton");
-    // Tasks sits in a `(list)` group since 4B, so its skeleton never wraps a task's page.
-    expect(sourceOf("tasks/(list)")).toContain(standIn);
+    // Tasks sits in a `(list)` group since 4B, so its skeleton never wraps a task's page; since
+    // 4.5 it traces the real lists: `TaskRow`s under their section headings, per role.
+    expect(sourceOf("tasks/(list)")).toContain("TaskRowsSkeleton");
+    expect(sourceOf("tasks/(list)")).not.toContain(standIn);
+    // The full list (4.5): the toolbar over cards on a phone and the table from `md` up.
+    expect(sourceOf("tasks/all")).toContain("loading-toolbar");
     // A task's page (4.4) traces its first card and sections, not a generic detail.
     expect(sourceOf("tasks/[id]")).toContain("loading-task");
     expect(sourceOf("calendar")).toContain(standIn);
@@ -85,11 +89,11 @@ describe("loading.tsx coverage", () => {
     // Reports (3b.4): the Owner's list of reports first; the Admin's branch is the stand-in.
     expect(shapeOf("reports")).toBe("list");
     expect(sourceOf("reports")).toContain(standIn);
-    // Approvals is a grouped list (2.4: the Owner's groups are traced by ApprovalGroupSkeleton);
-    // the Admin's branch is the stand-in.
+    // Approvals is a grouped list (2.4: the groups are traced by ApprovalGroupSkeleton); since 4.5
+    // an Admin's is too (the tasks they check), so no branch shows the stand-in.
     expect(sourceOf("approvals")).toContain("ApprovalGroupSkeleton");
-    expect(sourceOf("approvals")).toContain(standIn);
-    for (const route of ["today", "my-day", "tasks/(list)", "calendar", "notifications"]) {
+    expect(sourceOf("approvals")).not.toContain(standIn);
+    for (const route of ["today", "my-day", "calendar", "notifications"]) {
       expect(shapeOf(route), `${route} traces the stand-in, not a shape`).toBeUndefined();
     }
     // The team's month traces its own rows (3b review), under the month switcher.

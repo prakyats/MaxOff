@@ -48,9 +48,12 @@ function taskPath(taskId: string): string {
   return `/tasks/${taskId}`;
 }
 
-function refresh(taskId: string): void {
-  revalidatePath(taskPath(taskId));
-  revalidatePath("/tasks");
+/**
+ * A task's state changed: its page, the lists and the badges (the Tasks and Approvals counts live
+ * in the `(app)` layout, 4.5), so the whole signed-in tree refreshes, as Approvals does.
+ */
+function refresh(): void {
+  revalidatePath("/", "layout");
 }
 
 function warningRows(warnings: WarningsInput) {
@@ -87,7 +90,7 @@ export const createTask = action(
         warnings: warningRows(data.warnings),
       },
     );
-    revalidatePath("/tasks");
+    revalidatePath("/", "layout");
     return ok({ id });
   },
 );
@@ -110,7 +113,7 @@ export const updateTask = action(
       });
     }
     const fields = await repo.rpcUpdateTask(data.taskId, changes, warningRows(data.warnings));
-    refresh(data.taskId);
+    refresh();
     return ok({ fields });
   },
 );
@@ -120,7 +123,7 @@ export const acknowledgeTask = action(async (input: ActingInput): Promise<Result
   const data = actingSchema.parse(input);
   await assertPermission("tasks.work");
   await repo.rpcAcknowledge(data.taskId, data.onBehalfOf);
-  refresh(data.taskId);
+  refresh();
   return ok(null);
 });
 
@@ -128,7 +131,7 @@ export const startTask = action(async (input: ActingInput): Promise<Result<null>
   const data = actingSchema.parse(input);
   await assertPermission("tasks.work");
   await repo.rpcStart(data.taskId, data.onBehalfOf);
-  refresh(data.taskId);
+  refresh();
   return ok(null);
 });
 
@@ -137,7 +140,7 @@ export const submitDone = action(async (input: SubmitDoneInput): Promise<Result<
   const data = submitDoneSchema.parse(input);
   await assertPermission("tasks.work");
   await repo.rpcSubmitDone(data);
-  refresh(data.taskId);
+  refresh();
   return ok(null);
 });
 
@@ -150,7 +153,7 @@ export const reviewTask = action(async (input: ReviewInput): Promise<Result<null
     data.decision,
     data.decision === "rejected" ? data.reason : null,
   );
-  refresh(data.taskId);
+  refresh();
   return ok(null);
 });
 
@@ -158,7 +161,7 @@ export const cancelTask = action(async (input: ReasonInput): Promise<Result<null
   const data = reasonSchema.parse(input);
   await assertPermission("tasks.create");
   await repo.rpcCancel(data.taskId, data.reason);
-  refresh(data.taskId);
+  refresh();
   return ok(null);
 });
 
@@ -166,7 +169,7 @@ export const reopenTask = action(async (input: ReasonInput): Promise<Result<null
   const data = reasonSchema.parse(input);
   await assertPermission("tasks.create");
   await repo.rpcReopen(data.taskId, data.reason);
-  refresh(data.taskId);
+  refresh();
   return ok(null);
 });
 
@@ -175,7 +178,7 @@ export const setTaskApprover = action(async (input: SetApproverInput): Promise<R
   const data = setApproverSchema.parse(input);
   await assertPermission("tasks.approve_final");
   await repo.rpcSetApprover(data.taskId, data.approvingAdminId);
-  refresh(data.taskId);
+  refresh();
   return ok(null);
 });
 

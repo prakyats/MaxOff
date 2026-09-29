@@ -1,10 +1,10 @@
-import { CheckCheckIcon, ClipboardListIcon } from "lucide-react";
+import { CheckCheckIcon } from "lucide-react";
 import type { Metadata } from "next";
 
 import { startEarly } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
 import { requirePermission } from "@/core/permissions/server";
-import { todayIST } from "@/core/time";
+import { formatIST, todayIST } from "@/core/time";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { listPendingDays, listPendingNotes } from "@/modules/attendance";
@@ -14,9 +14,18 @@ import { listPendingRequests } from "@/modules/leave";
 import { PendingLeaveGroup } from "@/modules/leave/components/pending-leave-group";
 import { listPendingClaims } from "@/modules/expenses";
 import { PendingClaimsGroup } from "@/modules/expenses/components/pending-claims-group";
-
-import { PlaceholderPage } from "../_placeholder/placeholder-page";
-import { STAND_INS } from "../_placeholder/stand-ins";
+import {
+  deadlineLabel,
+  listTasksToDecide,
+  pairName,
+  stateLabel,
+  type TaskToDecide,
+} from "@/modules/tasks";
+import {
+  type TaskApprovalItem,
+  TaskApprovalGroup,
+} from "@/modules/tasks/components/task-approval-group";
+import { listDirectory } from "@/modules/team";
 
 export const metadata: Metadata = { title: "Approvals" };
 
@@ -25,18 +34,20 @@ const DESCRIPTION = "Everything waiting for your decision, oldest first.";
 /**
  * One Approvals screen, grouped, no tabs (PRODUCT "Approvals"). Each group shows only to whoever
  * decides it (PERMISSIONS "Screens (2.4)"): Attendance, Leave and Extra work (3b.2) for
- * `attendance.decide`, Expenses (3b.3) for `expenses.decide` (both the Owner's), in the order of
- * kickoff 3b decision 29. Tasks and client items
- * join in 4.5 and 7.4; until then an Admin, who decides none of these, sees the stand-in.
+ * `attendance.decide`, Expenses (3b.3) for `expenses.decide` (both the Owner's), then **Staff
+ * tasks** (4.5) at the step the viewer decides: the Owner's final approvals, an Admin's checks
+ * (kickoff 3b decision 29's order). Client items join in 7.4.
  */
 export default async function ApprovalsPage() {
-  // The four lists start with the session read (§19); RLS decides what each returns, and an
-  // Admin's (who sees the placeholder) are dropped.
+  // The lists start with the session read (§19); RLS decides what each returns, and the ones an
+  // Admin does not decide are dropped. Which task step to read waits for the role (the Owner's
+  // final approvals or the viewer's own checks), started as soon as the session says who it is.
   const lists = Promise.all([
     listPendingDays(),
     listPendingRequests(),
     listPendingNotes(),
     listPendingClaims(),
+    listDirectory(),
   ]);
   startEarly(lists);
   const viewer = await requirePermission([
@@ -44,17 +55,31 @@ export default async function ApprovalsPage() {
     "tasks.approve_final",
     "tasks.approve_admin",
   ]);
-  if (!can(viewer.role, "attendance.decide")) {
-    return (
-      <PlaceholderPage title="Approvals" copy={STAND_INS.approvalsAdmin} icon={ClipboardListIcon} />
-    );
-  }
-
+  // perf: sequential (which step's tasks to read needs the viewer's role and id)
+  const taskRead = listTasksToDecide({
+    id: viewer.id,
+    final: can(viewer.role, "tasks.approve_final"),
+  });
+  const [[days, requests, notes, pendingClaims, directory], toDecide] = await Promise.all([
+    lists,
+    taskRead,
+  ]);
+  const decidesAttendance = can(viewer.role, "attendance.decide");
   const decidesExpenses = can(viewer.role, "expenses.decide");
-  const [days, requests, notes, pendingClaims] = await lists;
+  const names = Object.fromEntries(directory.map((member) => [member.id, member.fullName]));
+  const tasks = toDecide.map((item) => taskItem(item, names, viewer.role === "owner"));
   const claims = decidesExpenses ? pendingClaims : [];
+  const own = {
+    days: decidesAttendance ? days : [],
+    requests: decidesAttendance ? requests : [],
+    notes: decidesAttendance ? notes : [],
+  };
   const nothing =
-    days.length === 0 && requests.length === 0 && notes.length === 0 && claims.length === 0;
+    own.days.length === 0 &&
+    own.requests.length === 0 &&
+    own.notes.length === 0 &&
+    claims.length === 0 &&
+    tasks.length === 0;
 
   return (
     <>
@@ -63,16 +88,61 @@ export default async function ApprovalsPage() {
         <EmptyState
           icon={CheckCheckIcon}
           title="Nothing waiting. You're clear."
-          description="Attendance, leave, extra work and expense claims that need you appear here."
+          description={
+            decidesAttendance
+              ? "Attendance, leave, extra work, expense claims and tasks that need you appear here."
+              : "The tasks you check before they go to the Owner appear here. Attendance, leave and expenses are the Owner's to decide."
+          }
         />
       ) : (
         <div className="flex flex-col gap-6">
-          <PendingDaysGroup days={days} today={todayIST()} />
-          <PendingLeaveGroup requests={requests} />
-          <PendingNotesGroup notes={notes} />
+          {decidesAttendance ? (
+            <>
+              <PendingDaysGroup days={own.days} today={todayIST()} />
+              <PendingLeaveGroup requests={own.requests} />
+              <PendingNotesGroup notes={own.notes} />
+            </>
+          ) : null}
           {decidesExpenses ? <PendingClaimsGroup claims={claims} /> : null}
+          <TaskApprovalGroup
+            tasks={tasks}
+            heading={viewer.role === "owner" ? "Staff tasks" : "Tasks to check"}
+          />
         </div>
       )}
     </>
   );
+}
+
+const WHEN = "d MMM, h:mm a";
+
+/** A task as the group shows it: who handed it in and when, and the words for its step. */
+function taskItem(
+  item: TaskToDecide,
+  names: Readonly<Record<string, string>>,
+  owner: boolean,
+): TaskApprovalItem {
+  const { row, submission, lateReason } = item;
+  const by = submission ? pairName(names, submission.submittedBy, submission.onBehalfOf) : null;
+  const at = submission?.at ?? row.submittedAt;
+  const handedIn = [
+    by ? `Done by ${by}` : "Done",
+    at ? formatIST(at, WHEN) : null,
+    submission && submission.version > 1 ? `version ${submission.version}` : null,
+  ]
+    .filter(Boolean)
+    .join(", ");
+  return {
+    id: row.id,
+    title: row.title,
+    subtitle: lateReason ? `${handedIn} · late` : handedIn,
+    status: row.state,
+    statusLabel: owner ? stateLabel(row) : "Waiting for your check",
+    primaryName: names[row.primaryOwnerId] ?? "The people on it",
+    deadline: deadlineLabel(row.dueAt).replace(/^Due /, ""),
+    handedIn,
+    note: submission?.note ?? null,
+    lateReason,
+    approvedLabel: owner ? `Approved ${row.title}` : `Checked ${row.title}: on to the Owner`,
+  };
 }

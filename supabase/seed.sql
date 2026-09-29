@@ -138,7 +138,32 @@ insert into seed_users values
   -- or failing connection, one per project; the spec puts the name back itself.
   ('20000000-0000-4000-8000-000000000076', 'tap-desktop@maxoff.local', 'tap-local-password', 'Test Tap (desktop)', null, 'staff', 'active'),
   ('20000000-0000-4000-8000-000000000077', 'tap-mobile@maxoff.local', 'tap-local-password', 'Test Tap (mobile)', null, 'staff', 'active'),
-  ('20000000-0000-4000-8000-000000000078', 'tap-mobile-lg@maxoff.local', 'tap-local-password', 'Test Tap (mobile-lg)', null, 'staff', 'active');
+  ('20000000-0000-4000-8000-000000000078', 'tap-mobile-lg@maxoff.local', 'tap-local-password', 'Test Tap (mobile-lg)', null, 'staff', 'active'),
+  -- 4C: the task lists, Approvals and the badges (e2e/task-lists.spec.ts). Per project: a Staff
+  -- member whose "My tasks" the spec fills, a coordinator (their freelancer is below) and an Admin
+  -- who gives out and checks tasks. The spec removes the tasks it made first.
+  ('20000000-0000-4000-8000-000000000079', 'list-staff-desktop@maxoff.local', 'list-local-password', 'Test List Staff (desktop)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000080', 'list-coord-desktop@maxoff.local', 'list-local-password', 'Test List Coordinator (desktop)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000081', 'list-admin-desktop@maxoff.local', 'list-local-password', 'Test List Admin (desktop)', null, 'admin', 'active'),
+  ('20000000-0000-4000-8000-000000000082', 'list-staff-mobile@maxoff.local', 'list-local-password', 'Test List Staff (mobile)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000083', 'list-coord-mobile@maxoff.local', 'list-local-password', 'Test List Coordinator (mobile)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000084', 'list-admin-mobile@maxoff.local', 'list-local-password', 'Test List Admin (mobile)', null, 'admin', 'active'),
+  ('20000000-0000-4000-8000-000000000085', 'list-staff-mobile-lg@maxoff.local', 'list-local-password', 'Test List Staff (mobile-lg)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000086', 'list-coord-mobile-lg@maxoff.local', 'list-local-password', 'Test List Coordinator (mobile-lg)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000087', 'list-admin-mobile-lg@maxoff.local', 'list-local-password', 'Test List Admin (mobile-lg)', null, 'admin', 'active'),
+  -- 4C: freelancers around People (e2e/freelancers.spec.ts). Per project: two Staff coordinators
+  -- (the spec adds freelancers to the first and moves them to the second) and a Staff member who
+  -- suggests tasks (e2e/task-requests.spec.ts). The specs remove what they made and put a
+  -- deactivated coordinator back.
+  ('20000000-0000-4000-8000-000000000088', 'people-coord-desktop@maxoff.local', 'people-local-password', 'Test People Coordinator (desktop)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000089', 'people-coord2-desktop@maxoff.local', 'people-local-password', 'Test People Coordinator B (desktop)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000090', 'req-staff-desktop@maxoff.local', 'req-local-password', 'Test Request Staff (desktop)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000091', 'people-coord-mobile@maxoff.local', 'people-local-password', 'Test People Coordinator (mobile)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000092', 'people-coord2-mobile@maxoff.local', 'people-local-password', 'Test People Coordinator B (mobile)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000093', 'req-staff-mobile@maxoff.local', 'req-local-password', 'Test Request Staff (mobile)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000094', 'people-coord-mobile-lg@maxoff.local', 'people-local-password', 'Test People Coordinator (mobile-lg)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000095', 'people-coord2-mobile-lg@maxoff.local', 'people-local-password', 'Test People Coordinator B (mobile-lg)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000096', 'req-staff-mobile-lg@maxoff.local', 'req-local-password', 'Test Request Staff (mobile-lg)', null, 'staff', 'active');
 
 -- What GoTrue writes for a confirmed email + password user (`auth.users` + one identity).
 insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -179,7 +204,11 @@ select f.id, (select id from public.organizations limit 1), f.full_name, null, '
 from (values
   ('40000000-0000-4000-8000-000000000001'::uuid, 'Test Task Freelancer (desktop)'),
   ('40000000-0000-4000-8000-000000000002'::uuid, 'Test Task Freelancer (mobile)'),
-  ('40000000-0000-4000-8000-000000000003'::uuid, 'Test Task Freelancer (mobile-lg)')
+  ('40000000-0000-4000-8000-000000000003'::uuid, 'Test Task Freelancer (mobile-lg)'),
+  -- 4C: the list coordinator's freelancer, per project (e2e/task-lists.spec.ts).
+  ('40000000-0000-4000-8000-000000000004'::uuid, 'Test List Freelancer (desktop)'),
+  ('40000000-0000-4000-8000-000000000005'::uuid, 'Test List Freelancer (mobile)'),
+  ('40000000-0000-4000-8000-000000000006'::uuid, 'Test List Freelancer (mobile-lg)')
 ) f(id, full_name)
 on conflict (id) do nothing;
 
@@ -188,7 +217,10 @@ select c.member_id, c.coordinator_id, '10000000-0000-4000-8000-000000000001'
 from (values
   ('40000000-0000-4000-8000-000000000001'::uuid, '20000000-0000-4000-8000-000000000062'::uuid),
   ('40000000-0000-4000-8000-000000000002'::uuid, '20000000-0000-4000-8000-000000000067'::uuid),
-  ('40000000-0000-4000-8000-000000000003'::uuid, '20000000-0000-4000-8000-000000000072'::uuid)
+  ('40000000-0000-4000-8000-000000000003'::uuid, '20000000-0000-4000-8000-000000000072'::uuid),
+  ('40000000-0000-4000-8000-000000000004'::uuid, '20000000-0000-4000-8000-000000000080'::uuid),
+  ('40000000-0000-4000-8000-000000000005'::uuid, '20000000-0000-4000-8000-000000000083'::uuid),
+  ('40000000-0000-4000-8000-000000000006'::uuid, '20000000-0000-4000-8000-000000000086'::uuid)
 ) c(member_id, coordinator_id)
 where not exists (
   select 1 from public.member_coordinators mc where mc.member_id = c.member_id and mc.to_at is null

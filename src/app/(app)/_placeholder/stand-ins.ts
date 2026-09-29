@@ -21,30 +21,6 @@ export type StandIn = {
 const ALERTS_DESCRIPTION = "Your notifications, each one a tap away from what it's about.";
 
 export const STAND_INS = {
-  /** Tasks for Staff (task 4.5): the work given to them. Tasks run outside MaxOff until then. */
-  tasksMine: {
-    description: "The work given to you, and what's due next.",
-    title: "Your tasks are coming soon",
-    message:
-      "This is where you'll see the work given to you, note it and mark it done. Until then, tasks reach you the usual way.",
-  },
-  /**
-   * Tasks for the Owner and an Admin (task 4.5): the work they give out. Since 4.3 they create
-   * tasks here ("New task") and each one has its own page; the list itself is still to come.
-   */
-  tasksTeam: {
-    description: "The work you give out, and where each task stands.",
-    title: "The task list is coming soon",
-    message:
-      "Give out work with New task. Each task opens on its own page, where people note it and you approve it. Every task will be listed here.",
-  },
-  /** An Admin's Approvals (tasks 4.5 and 7.4): they decide no attendance, leave or expenses. */
-  approvalsAdmin: {
-    description: "The work waiting for your check.",
-    title: "Task approvals are coming soon",
-    message:
-      "The tasks you check before they go to the Owner will wait here. Attendance, leave and expenses are the Owner's to decide.",
-  },
   /** Alerts for Admins and Staff (task 5.1). */
   alertsMember: {
     description: ALERTS_DESCRIPTION,

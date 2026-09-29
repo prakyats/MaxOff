@@ -263,7 +263,14 @@ test("Approvals lists attendance, leave, extra work, then expenses (kickoff 3b d
   const order = await groups.evaluateAll((nodes) =>
     nodes.map((node) => node.getAttribute("data-group")),
   );
-  expect(order).toEqual(["attendance", "leave", "extra-work", "expenses"]);
+  // Staff tasks (4.5) come after, when any wait for the Owner (other specs' tasks may).
+  expect(order.filter((group) => group !== "tasks")).toEqual([
+    "attendance",
+    "leave",
+    "extra-work",
+    "expenses",
+  ]);
+  if (order.includes("tasks")) expect(order.at(-1)).toBe("tasks");
 });
 
 test.describe("installed: the back order of the claim form and the Owner's review", () => {

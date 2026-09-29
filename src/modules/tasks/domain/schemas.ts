@@ -8,8 +8,10 @@ import {
   NOTE_MAX,
   PURPOSE_MAX,
   REASON_MAX,
+  REQUEST_DETAILS_MAX,
   STAGE_NAME_MAX,
   STAGES_MAX,
+  TEMPLATE_NAME_MAX,
   TITLE_MAX,
 } from "./limits";
 import { PRIORITIES } from "./types";
@@ -205,3 +207,67 @@ export const commentSchema = z.object({
   onBehalfOf: z.uuid().nullable(),
 });
 export type CommentInput = z.input<typeof commentSchema>;
+
+// 4.5: Approvals ------------------------------------------------------------------------------------
+
+export const approveTaskSchema = z.object({ taskId: z.uuid() });
+export type ApproveTaskInput = z.input<typeof approveTaskSchema>;
+
+/** "Approve all N" (Kickoff 4 decision 5: approve only): the ids on screen, one call each. */
+export const approveTasksSchema = z.object({ taskIds: z.array(z.uuid()).min(1).max(200) });
+export type ApproveTasksInput = z.input<typeof approveTasksSchema>;
+
+// 4.6: Task requests -------------------------------------------------------------------------------
+
+export const createRequestSchema = z.object({
+  title,
+  details: optionalText(
+    REQUEST_DETAILS_MAX,
+    `Keep the details under ${REQUEST_DETAILS_MAX} characters.`,
+  ),
+  clientId: z.uuid().nullable(),
+});
+export type CreateRequestInput = z.input<typeof createRequestSchema>;
+
+export const requestIdSchema = z.object({ requestId: z.uuid() });
+export type RequestIdInput = z.input<typeof requestIdSchema>;
+
+export const declineRequestSchema = z.object({ requestId: z.uuid(), reason });
+export type DeclineRequestInput = z.input<typeof declineRequestSchema>;
+
+/** Convert = the create dialog's fields, for this request (one transaction). */
+export const convertRequestSchema = createTaskSchema.extend({ requestId: z.uuid() });
+export type ConvertRequestInput = z.input<typeof convertRequestSchema>;
+
+// 4.6: Task templates ------------------------------------------------------------------------------
+
+export const templateSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, "Name the template.")
+    .max(TEMPLATE_NAME_MAX, `Keep the name under ${TEMPLATE_NAME_MAX} characters.`),
+  taskTypeId: z.uuid({ error: "Choose a task type." }),
+  description,
+  defaultPriority: z.enum(PRIORITIES, { error: "Pick a priority." }),
+  stages: z
+    .array(
+      z
+        .string()
+        .trim()
+        .min(1, "Name each stage, or remove it.")
+        .max(STAGE_NAME_MAX, `Keep each stage under ${STAGE_NAME_MAX} characters.`),
+    )
+    .max(STAGES_MAX, `Up to ${STAGES_MAX} stages.`),
+  fieldDefaults: customFields,
+});
+export type TemplateInput = z.input<typeof templateSchema>;
+
+export const saveTemplateSchema = z.object({
+  templateId: z.uuid().nullable(),
+  template: templateSchema,
+});
+export type SaveTemplateInput = z.input<typeof saveTemplateSchema>;
+
+export const archiveTemplateSchema = z.object({ templateId: z.uuid(), archived: z.boolean() });
+export type ArchiveTemplateInput = z.input<typeof archiveTemplateSchema>;

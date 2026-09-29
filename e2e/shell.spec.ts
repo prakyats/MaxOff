@@ -87,7 +87,7 @@ test.describe("permission guards", () => {
         );
       }
       await page.goto("/tasks");
-      await expect(page.getByRole("heading", { name: "Tasks", exact: true })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "My tasks", exact: true })).toBeVisible();
     });
   });
 

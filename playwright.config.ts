@@ -36,6 +36,7 @@ const TAP_FEEDBACK_SPECS = /tap-feedback\.spec\.ts$/;
 const PULL_TO_REFRESH_SPECS = /pull-to-refresh\.spec\.ts$/;
 const AUTH_LINK_SPECS = /auth-link\.spec\.ts$/;
 const TASKS_SPECS = /tasks\.spec\.ts$/;
+const TASK_LISTS_SPECS = /task-lists\.spec\.ts$/;
 
 /**
  * Flow tests (ARCHITECTURE §15). `pnpm test:e2e` runs them; CI runs them as their own job.
@@ -121,7 +122,7 @@ export default defineConfig({
       // (3cB review), a public page laid out for the phone the link was sent to. And tap feedback
       // and pull-to-refresh (2026-09-28): the pressed, pending, slow and offline states and the
       // pull, at both phone widths; and the task screens' layers and large text (4B; the task
-      // flows themselves skip 430px).
+      // flows themselves skip 430px), the task lists' and Approvals' too (4C).
       name: "mobile-lg",
       dependencies: ["setup"],
       testMatch: [
@@ -146,6 +147,7 @@ export default defineConfig({
         PULL_TO_REFRESH_SPECS,
         AUTH_LINK_SPECS,
         TASKS_SPECS,
+        TASK_LISTS_SPECS,
       ],
       use: { ...devices["Pixel 5"], viewport: { width: 430, height: 932 } },
     },
