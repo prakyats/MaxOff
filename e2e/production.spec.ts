@@ -1,3 +1,5 @@
+import type { Page } from "@playwright/test";
+
 import { expect, test } from "./fixtures";
 
 /**
@@ -123,18 +125,77 @@ test.describe("production build", () => {
   });
 
   test("serves the offline page when the network is gone", async ({ page, context }) => {
-    await page.goto("/offline");
-    await page.evaluate(() => navigator.serviceWorker.ready);
-    await page.reload();
-    // `ready` says the worker is active, not that it controls *this* page: a page loaded before
-    // activation is claimed asynchronously (`clients.claim()`), and a navigation made before
-    // that goes to the network. The failure seen in 2.3/2.6 was exactly that: the offline
-    // navigation answered by the server ("Sign in · MaxOff"). Wait for the state itself.
-    await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
+    await underWorker(page);
     await context.setOffline(true);
     await page.goto("/login");
     await expect(page).toHaveTitle(/Offline/);
     // Next's route announcer is a second role=alert, so target the composite itself.
     await expect(page.locator('[data-slot="error-state"]')).toContainText("offline");
   });
+
+  test("a navigation that fails once is tried again: a network switch never shows the page", async ({
+    page,
+    context,
+  }) => {
+    await underWorker(page);
+    let failed = 0;
+    await context.route(isLoginPage, (route) => {
+      if (failed > 0) return route.fallback();
+      failed++;
+      return route.abort("internetdisconnected");
+    });
+    await page.goto("/login");
+    await expect(page).toHaveTitle(/Sign in/);
+    expect(failed, "the first try failed and the worker tried again").toBe(1);
+  });
+
+  test("back online, the offline page reloads its address by itself, adding no history", async ({
+    page,
+    context,
+  }) => {
+    await underWorker(page);
+    await context.setOffline(true);
+    await page.goto("/login");
+    await expect(page).toHaveTitle(/Offline/);
+    const entries = await page.evaluate(() => history.length);
+    await context.setOffline(false);
+    await expect(page).toHaveTitle(/Sign in/);
+    await expect(page).toHaveURL(/\/login$/);
+    expect(await page.evaluate(() => history.length)).toBe(entries);
+  });
+
+  test("Try again reloads the address that failed, adding no history", async ({
+    page,
+    context,
+  }) => {
+    await underWorker(page);
+    // The device still says it is online (a network switch, a dead Wi-Fi): only the server
+    // cannot be reached, so no `online` event comes and the button is the way back.
+    await context.route(isLoginPage, (route) => route.abort("internetdisconnected"));
+    await page.goto("/login");
+    await expect(page).toHaveTitle(/Offline/);
+    const entries = await page.evaluate(() => history.length);
+    await context.unroute(isLoginPage);
+    await page.getByRole("button", { name: "Try again" }).click();
+    await expect(page).toHaveTitle(/Sign in/);
+    await expect(page).toHaveURL(/\/login$/);
+    expect(await page.evaluate(() => history.length)).toBe(entries);
+  });
 });
+
+/** The sign-in page's own document, wherever it is fetched from (the page or the worker). */
+const isLoginPage = (url: URL) => url.pathname === "/login" && !url.searchParams.has("_rsc");
+
+/**
+ * The page is controlled by the service worker. `ready` says the worker is active, not that it
+ * controls *this* page: a page loaded before activation is claimed asynchronously
+ * (`clients.claim()`), and a navigation made before that goes to the network. The failure seen
+ * in 2.3/2.6 was exactly that: the offline navigation answered by the server ("Sign in ·
+ * MaxOff"). So wait for the state itself.
+ */
+async function underWorker(page: Page) {
+  await page.goto("/offline");
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await page.reload();
+  await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
+}

@@ -2,6 +2,8 @@
  * MaxOff service worker (task 0.5, ARCHITECTURE §14): a minimal offline shell.
  *
  * - Precaches the /offline page and serves it when a navigation fails without a connection.
+ *   A failed navigation is tried once more after 1.5 s first, so a phone switching networks
+ *   for a moment never sees the page (2026-09-29). The page reloads its address to go back.
  * - /_next/static is cache-first: those filenames carry a content hash, so they really are
  *   immutable and a changed file is a changed URL.
  * - /icons is stale-while-revalidate: the names are stable (icon-192.png), so a cached copy can
@@ -15,9 +17,11 @@
  *
  * Bump VERSION when the caching rules change; the old cache is deleted on activate.
  */
-const VERSION = "v3";
+const VERSION = "v4";
 const CACHE = `maxoff-${VERSION}`;
 const OFFLINE_URL = "/offline";
+/** A failed navigation waits this long, then is tried once more before the offline page. */
+const NAVIGATION_RETRY_MS = 1500;
 // The manifest is deliberately absent: see the header comment. It was precached but never
 // served from cache, which is the worst of both — a trap for whoever widens the fetch handler.
 const PRECACHE = [OFFLINE_URL, "/icons/icon-192.png"];
@@ -71,6 +75,13 @@ async function refreshOfflinePage() {
   }
 }
 
+/** A navigation that fails is tried once more: a network switch drops a few seconds at most. */
+function fetchNavigation(request) {
+  return fetch(request).catch(() =>
+    new Promise((resolve) => setTimeout(resolve, NAVIGATION_RETRY_MS)).then(() => fetch(request)),
+  );
+}
+
 async function offlineFallback() {
   const cached = await caches.match(OFFLINE_URL);
   if (cached) return cached;
@@ -88,7 +99,7 @@ self.addEventListener("fetch", (event) => {
 
   if (request.mode === "navigate") {
     event.respondWith(
-      fetch(request)
+      fetchNavigation(request)
         .then((response) => {
           // A deploy changes the asset hashes inside /offline; keep the cached copy current.
           if (response.ok && url.pathname !== OFFLINE_URL) event.waitUntil(refreshOfflinePage());
