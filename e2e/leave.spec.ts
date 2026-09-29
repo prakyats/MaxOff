@@ -7,6 +7,7 @@ import { addISTDays, todayIST } from "../src/core/time";
 import { monthLabel, monthOf } from "../src/modules/attendance/domain/months";
 
 import {
+  animationsSettled,
   resetAttendanceAndLeave,
   rpcAs,
   serviceSelect,
@@ -86,6 +87,8 @@ async function fillLeave(
 
 /** The mobile standard on the screen (ARCHITECTURE §14.1): 44px targets, no sideways scroll. */
 async function expectFitsThePhone(page: Page) {
+  // The tab just tapped is still easing back from its pressed scale: measure what stays.
+  await animationsSettled(page);
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
   );

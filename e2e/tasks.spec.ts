@@ -48,9 +48,9 @@ const LABELS = {
 type Kind = keyof typeof LABELS;
 
 const FREELANCER_IDS: Record<string, string> = {
-  desktop: "30000000-0000-4000-8000-000000000001",
-  mobile: "30000000-0000-4000-8000-000000000002",
-  "mobile-lg": "30000000-0000-4000-8000-000000000003",
+  desktop: "40000000-0000-4000-8000-000000000001",
+  mobile: "40000000-0000-4000-8000-000000000002",
+  "mobile-lg": "40000000-0000-4000-8000-000000000003",
 };
 
 function person(kind: Kind, info: TestInfo) {

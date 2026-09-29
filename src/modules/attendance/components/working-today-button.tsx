@@ -35,6 +35,7 @@ export function WorkingTodayButton({ size = "default" }: { size?: "default" | "s
         title={`${label}?`}
         description="The Owner reviews it. If approved, today counts as a day worked; your leave request stays as it is."
         confirmLabel={label}
+        pendingLabel="Sending…"
         onConfirm={async () => {
           const result = await startDay();
           if (!toastResult(result, { success: "Sent to the Owner" })) return false;

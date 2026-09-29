@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 
+import { checkThenRead } from "@/core/lib/start-early";
 import { Card, CardContent } from "@/core/ui/primitives/card";
 import { getBrand } from "@/modules/clients";
 import { BrandRecord, ClientLogoEditor } from "@/modules/clients/components/brand-record";
 import { ClientLogo } from "@/modules/clients/components/client-logo";
 
-import { loadClient } from "../../client";
+import { assertClientId, loadClient } from "../../client";
 
 export const metadata: Metadata = { title: "Brand" };
 
@@ -15,8 +16,10 @@ export const metadata: Metadata = { title: "Brand" };
  */
 export default async function ClientBrandPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { client, canEdit } = await loadClient(id);
-  const brand = (await getBrand(client.id)) ?? {
+  // Keyed by the client id in the URL: read together with the client (ARCHITECTURE §19).
+  assertClientId(id);
+  const [{ client, canEdit }, saved] = await checkThenRead(loadClient(id), getBrand(id));
+  const brand = saved ?? {
     clientId: client.id,
     logoFileId: null,
     colors: [],

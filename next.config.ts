@@ -45,6 +45,16 @@ const nextConfig: NextConfig = {
   // exactly what a real-device pass needs to tap. Next still surfaces every compile and runtime
   // error with `false` — only the route-type badge and the devtools panel go.
   devIndicators: false,
+  experimental: {
+    // The client router cache (ARCHITECTURE §19, owner decision 2026-09-28). A tab seen in the
+    // last 30 s comes back at once with no request (Next's default for dynamic pages is 0 s: every
+    // revisit went back to the server, 424–466 ms on the phase-3c preview). 30 s is refresh on
+    // return's own minimum interval, so a cached view never outlives the rule that refreshes it;
+    // every action revalidates what it changed, pull-to-refresh fetches on demand, and Realtime
+    // (5.1) pushes the rest. `static` (loading boundaries and fully prefetched routes) stays at
+    // 180 s, below Next's 300 s default.
+    staleTimes: { dynamic: 30, static: 180 },
+  },
 };
 
 const uploadsSourceMaps = Boolean(process.env.SENTRY_AUTH_TOKEN);

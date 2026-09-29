@@ -5,10 +5,10 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { type BulkOutcome, bulkSummary } from "@/core/errors/bulk";
-import { ERROR_MESSAGES } from "@/core/errors/codes";
 import type { Result } from "@/core/errors/result";
 import { cn } from "@/core/lib/utils";
 import { DelayedSends, UNDO_MS } from "@/core/ui/delayed-sends";
+import { NETWORK_ERROR_MESSAGE } from "@/core/ui/action/network-error";
 import { Button } from "@/core/ui/primitives/button";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 import { describeError } from "@/core/ui/toast";
@@ -107,7 +107,7 @@ export function ApprovalGroup<T>({
           latest.current.router.refresh();
         },
         // The network, or a page that went away mid-request: never a silent approval.
-        () => failed(`${ERROR_MESSAGES.INTERNAL} It was not approved; try again.`),
+        () => failed(`${NETWORK_ERROR_MESSAGE} It was not approved.`),
       );
     }, UNDO_MS);
     sends.current = current;
@@ -190,6 +190,7 @@ export function ApprovalGroup<T>({
           <Button
             variant="strong"
             size="sm"
+            commits
             className={CARD_ROW_TRAILING}
             onClick={() => setConfirmAll(true)}
           >
@@ -239,7 +240,12 @@ export function ApprovalGroup<T>({
                   Review
                 </Button>
                 {approve ? (
-                  <Button variant="strong" onClick={() => approveOne(row)} disabled={isHeld}>
+                  <Button
+                    variant="strong"
+                    commits
+                    onClick={() => approveOne(row)}
+                    disabled={isHeld}
+                  >
                     Approve
                   </Button>
                 ) : null}

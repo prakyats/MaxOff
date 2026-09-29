@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { checkThenRead } from "@/core/lib/start-early";
 import { listItems } from "@/core/lists/server";
 import { can } from "@/core/permissions";
 import { fileUrl } from "@/core/storage";
@@ -25,12 +26,18 @@ export const metadata: Metadata = { title: "Person" };
  */
 export default async function PersonProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { viewer, person } = await loadPerson(id);
-  const canManage = can(viewer.role, "team.manage");
-  // Archived titles travel too: the person keeps the one they have (1.3 follow-up).
-  const jobTitles = (await listItems("job_title", { includeArchived: true })).map(
-    ({ id: titleId, name, archived_at }) => ({ id: titleId, name, archived: archived_at !== null }),
+  // Archived titles travel too: the person keeps the one they have (1.3 follow-up). Read
+  // together with the person, not after (ARCHITECTURE §19).
+  const [{ viewer, person }, titles] = await checkThenRead(
+    loadPerson(id),
+    listItems("job_title", { includeArchived: true }),
   );
+  const canManage = can(viewer.role, "team.manage");
+  const jobTitles = titles.map(({ id: titleId, name, archived_at }) => ({
+    id: titleId,
+    name,
+    archived: archived_at !== null,
+  }));
   const since = person.joinedAt ?? person.invitedAt;
 
   return (
@@ -56,7 +63,7 @@ export default async function PersonProfilePage({ params }: { params: Promise<{ 
                 {person.phone ? (
                   <a
                     href={`tel:${person.phone.replace(/\s+/g, "")}`}
-                    className="inline-flex min-h-11 min-w-11 items-center underline underline-offset-4"
+                    className="pressable-row inline-flex min-h-11 min-w-11 items-center underline underline-offset-4"
                   >
                     {person.phone}
                   </a>

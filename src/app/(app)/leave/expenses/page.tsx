@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 
+import { checkThenRead } from "@/core/lib/start-early";
+import { withSessionUserId } from "@/core/auth/server";
 import { requirePermission } from "@/core/permissions/server";
 import { todayIST } from "@/core/time";
 import { getClaimSetup, listOwnClaims } from "@/modules/expenses";
@@ -15,8 +17,11 @@ export const metadata: Metadata = { title: "Attendance & leave" };
  * whoever marks attendance opens it: the Owner has no claims, and an Admin sees only their own.
  */
 export default async function ExpensesPage() {
-  const viewer = await requirePermission("attendance.self");
-  const claims = await listOwnClaims(viewer.id);
+  // Keyed by the session's id, so it starts with the session read (ARCHITECTURE §19).
+  const [, claims] = await checkThenRead(
+    requirePermission("attendance.self"),
+    withSessionUserId(listOwnClaims),
+  );
   const waiting = claims.filter((claim) => claim.state === "submitted").length;
 
   return (

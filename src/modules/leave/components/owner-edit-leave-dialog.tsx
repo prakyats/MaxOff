@@ -1,10 +1,11 @@
 "use client";
 
-import { Loader2Icon } from "lucide-react";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import type { ResultError } from "@/core/errors";
+import { ActionStatus } from "@/core/ui/action/action-status";
+import { useAction } from "@/core/ui/action/use-action";
 import { FormField } from "@/core/ui/composites/form-field";
 import { Button } from "@/core/ui/primitives/button";
 import {
@@ -62,29 +63,30 @@ export function OwnerEditLeaveDialog({
   const [endDate, setEndDate] = useState(request.endDate);
   const [reason, setReason] = useState("");
   const [error, setError] = useState<ResultError | null>(null);
-  const [pending, startTransition] = useTransition();
   // A half day and comp leave are one date: no "Last day", and none is sent.
   const singleDate = type === "half_day" || type === "comp_leave";
   const comp = ownerCompLeaveOption(compDays, request, firstName(memberName));
+  const action = useAction(async () => {
+    const result = await ownerEditLeave({
+      requestId: request.id,
+      type,
+      startDate,
+      ...(singleDate ? {} : { endDate }),
+      reason,
+    });
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    const note = keptDatesNote(result.data.keptDates);
+    toast.success("Leave changed", note ? { description: note } : undefined);
+    onClose();
+  });
+  const { pending } = action;
 
   function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    startTransition(async () => {
-      const result = await ownerEditLeave({
-        requestId: request.id,
-        type,
-        startDate,
-        ...(singleDate ? {} : { endDate }),
-        reason,
-      });
-      if (!result.ok) {
-        setError(result.error);
-        return;
-      }
-      const note = keptDatesNote(result.data.keptDates);
-      toast.success("Leave changed", note ? { description: note } : undefined);
-      onClose();
-    });
+    action.run();
   }
 
   const fieldErrors = error?.fieldErrors ?? {};
@@ -189,12 +191,12 @@ export function OwnerEditLeaveDialog({
               />
             )}
           </FormField>
+          <ActionStatus action={action} />
           <DialogFooter>
             <Button type="button" variant="secondary" onClick={onClose} disabled={pending}>
               Cancel
             </Button>
-            <Button variant="primary" type="submit" disabled={pending} aria-busy={pending}>
-              {pending ? <Loader2Icon className="animate-spin" aria-hidden /> : null}
+            <Button variant="primary" type="submit" pending={pending} pendingLabel="Saving leave…">
               Save leave
             </Button>
           </DialogFooter>

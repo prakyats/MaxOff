@@ -34,6 +34,7 @@ export function NavList({
                 aria-current={active ? "page" : undefined}
                 {...(onNavigate ? { onClick: onNavigate } : {})}
                 className={cn(
+                  "pressable-row",
                   "text-sidebar-foreground/80 relative flex min-h-10 items-center gap-2.5 rounded-md px-2.5 text-sm transition-colors outline-none",
                   "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-sidebar-ring focus-visible:ring-2",
                   active &&

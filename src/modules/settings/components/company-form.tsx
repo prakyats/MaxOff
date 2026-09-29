@@ -46,8 +46,8 @@ export function CompanyForm({ company }: { company: Company }) {
         {(control) => <Input {...control} value={company.timezone} readOnly disabled />}
       </FormField>
       <StickyActions>
-        <Button variant="primary" type="submit" disabled={pending}>
-          {pending ? "Saving…" : "Save company"}
+        <Button variant="primary" type="submit" pending={pending} pendingLabel="Saving…">
+          Save company
         </Button>
       </StickyActions>
     </form>

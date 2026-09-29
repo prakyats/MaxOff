@@ -2,9 +2,11 @@ import { LayoutDashboardIcon } from "lucide-react";
 import type { Metadata } from "next";
 
 import { requireMember } from "@/core/auth/server";
+import { startEarly } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
 import { todayIST } from "@/core/time";
 import {
+  getOwnToday,
   getTodayPeople,
   PeopleBoard,
   summariseToday,
@@ -30,6 +32,10 @@ export const metadata: Metadata = { title: "Today" };
  * their own day, not an Admin's clients (3cB review).
  */
 export default async function TodayPage() {
+  // The Owner's board, an Admin's own day and End day's claim setup start with the session
+  // read, not after it (§19): the role is not known yet, and what this viewer doesn't need is
+  // dropped.
+  startEarly(getTodayPeople(), getOwnToday(), getClaimSetup());
   const viewer = await requireMember();
   const marksAttendance = can(viewer.role, "attendance.self");
   const seesEveryone = can(viewer.role, "attendance.view_all");

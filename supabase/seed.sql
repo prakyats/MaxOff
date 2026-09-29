@@ -129,7 +129,16 @@ insert into seed_users values
   ('20000000-0000-4000-8000-000000000070', 'task-helper-mobile-lg@maxoff.local', 'task-local-password', 'Test Task Helper (mobile-lg)', null, 'staff', 'active'),
   ('20000000-0000-4000-8000-000000000071', 'task-away-mobile-lg@maxoff.local', 'task-local-password', 'Test Task Away (mobile-lg)', null, 'staff', 'active'),
   ('20000000-0000-4000-8000-000000000072', 'task-coord-mobile-lg@maxoff.local', 'task-local-password', 'Test Task Coordinator (mobile-lg)', null, 'staff', 'active'),
-  ('20000000-0000-4000-8000-000000000073', 'task-admin-mobile-lg@maxoff.local', 'task-local-password', 'Test Task Admin (mobile-lg)', null, 'admin', 'active');
+  ('20000000-0000-4000-8000-000000000073', 'task-admin-mobile-lg@maxoff.local', 'task-local-password', 'Test Task Admin (mobile-lg)', null, 'admin', 'active'),
+  -- Pull-to-refresh (e2e/pull-to-refresh.spec.ts): renamed behind the Owner's back while the
+  -- People list is open, one per phone project; the spec puts the name back itself.
+  ('20000000-0000-4000-8000-000000000074', 'pull-mobile@maxoff.local', 'pull-local-password', 'Aa Pull (mobile)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000075', 'pull-mobile-lg@maxoff.local', 'pull-local-password', 'Aa Pull (mobile-lg)', null, 'staff', 'active'),
+  -- Tap feedback (e2e/tap-feedback.spec.ts): each edits their own profile on /me through a slow
+  -- or failing connection, one per project; the spec puts the name back itself.
+  ('20000000-0000-4000-8000-000000000076', 'tap-desktop@maxoff.local', 'tap-local-password', 'Test Tap (desktop)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000077', 'tap-mobile@maxoff.local', 'tap-local-password', 'Test Tap (mobile)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000078', 'tap-mobile-lg@maxoff.local', 'tap-local-password', 'Test Tap (mobile-lg)', null, 'staff', 'active');
 
 -- What GoTrue writes for a confirmed email + password user (`auth.users` + one identity).
 insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -163,22 +172,23 @@ on conflict (id) do nothing;
 -- 4B: one freelancer per Playwright project (ADR-0013): a person with no login and no email,
 -- looked after by that project's "Test Task Coordinator". Written as the migration owner, like
 -- the members above (the insert guard lets `engagement` through only inside a transition).
+-- Ids 40000000-…: scripts/measure-seed.sql owns 3000000K-… (its members are 30000000-…-<n>).
 insert into public.members (id, org_id, full_name, email, role, status, engagement, joined_at)
 select f.id, (select id from public.organizations limit 1), f.full_name, null, 'staff', 'active',
   'freelance', now() - interval '40 days'
 from (values
-  ('30000000-0000-4000-8000-000000000001'::uuid, 'Test Task Freelancer (desktop)'),
-  ('30000000-0000-4000-8000-000000000002'::uuid, 'Test Task Freelancer (mobile)'),
-  ('30000000-0000-4000-8000-000000000003'::uuid, 'Test Task Freelancer (mobile-lg)')
+  ('40000000-0000-4000-8000-000000000001'::uuid, 'Test Task Freelancer (desktop)'),
+  ('40000000-0000-4000-8000-000000000002'::uuid, 'Test Task Freelancer (mobile)'),
+  ('40000000-0000-4000-8000-000000000003'::uuid, 'Test Task Freelancer (mobile-lg)')
 ) f(id, full_name)
 on conflict (id) do nothing;
 
 insert into public.member_coordinators (member_id, coordinator_id, set_by)
 select c.member_id, c.coordinator_id, '10000000-0000-4000-8000-000000000001'
 from (values
-  ('30000000-0000-4000-8000-000000000001'::uuid, '20000000-0000-4000-8000-000000000062'::uuid),
-  ('30000000-0000-4000-8000-000000000002'::uuid, '20000000-0000-4000-8000-000000000067'::uuid),
-  ('30000000-0000-4000-8000-000000000003'::uuid, '20000000-0000-4000-8000-000000000072'::uuid)
+  ('40000000-0000-4000-8000-000000000001'::uuid, '20000000-0000-4000-8000-000000000062'::uuid),
+  ('40000000-0000-4000-8000-000000000002'::uuid, '20000000-0000-4000-8000-000000000067'::uuid),
+  ('40000000-0000-4000-8000-000000000003'::uuid, '20000000-0000-4000-8000-000000000072'::uuid)
 ) c(member_id, coordinator_id)
 where not exists (
   select 1 from public.member_coordinators mc where mc.member_id = c.member_id and mc.to_at is null

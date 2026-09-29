@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cache } from "react";
+
 import { withDeadlockRetry } from "@/core/db/retry";
 import { createServerSupabase } from "@/core/db/server";
 
@@ -65,33 +67,36 @@ type Loose<T> = { [K in keyof T]: T[K] | null };
 
 /**
  * Today for everyone who marks attendance (`attendance_today_detail()`, 3b.1, with the day's
- * start and end). The generated types read every column as non-null; a person with no
- * day yet has nulls, so the row is read loosely.
+ * start and end). The generated types read every column as non-null; a person with no day yet
+ * has nulls, so the row is read loosely. Once per request (`cache()`): /today starts it
+ * alongside the session read (`startEarly`) and reads it again once the role is known.
  */
-export async function getTodayPeople(): Promise<{ people: TodayPerson[]; isDayOff: boolean }> {
-  const supabase = await createServerSupabase();
-  const { data, error } = await supabase.rpc("attendance_today_detail");
-  if (error) throw error;
-  const people = (data as Loose<(typeof data)[number]>[]).map((row): TodayPerson => ({
-    memberId: row.member_id ?? "",
-    name: row.full_name ?? "",
-    jobTitle: row.job_title,
-    started: row.started ?? false,
-    dayId: row.day_id,
-    state: row.state,
-    finalStatus: row.final_status,
-    submittedChoice: row.submitted_choice,
-    startedAt: row.started_at,
-    endedAt: row.ended_at,
-    endNotRecorded: row.end_not_recorded ?? false,
-    overtimeFlag: row.overtime_flag ?? false,
-    isDayOff: row.is_day_off ?? false,
-    onLeave: row.on_leave ?? false,
-    leaveType: row.leave_type,
-  }));
-  // A day row opened on a working day records false, so any true means today is a day off.
-  return { people, isDayOff: people.some((person) => person.isDayOff) };
-}
+export const getTodayPeople = cache(
+  async (): Promise<{ people: TodayPerson[]; isDayOff: boolean }> => {
+    const supabase = await createServerSupabase();
+    const { data, error } = await supabase.rpc("attendance_today_detail");
+    if (error) throw error;
+    const people = (data as Loose<(typeof data)[number]>[]).map((row): TodayPerson => ({
+      memberId: row.member_id ?? "",
+      name: row.full_name ?? "",
+      jobTitle: row.job_title,
+      started: row.started ?? false,
+      dayId: row.day_id,
+      state: row.state,
+      finalStatus: row.final_status,
+      submittedChoice: row.submitted_choice,
+      startedAt: row.started_at,
+      endedAt: row.ended_at,
+      endNotRecorded: row.end_not_recorded ?? false,
+      overtimeFlag: row.overtime_flag ?? false,
+      isDayOff: row.is_day_off ?? false,
+      onLeave: row.on_leave ?? false,
+      leaveType: row.leave_type,
+    }));
+    // A day row opened on a working day records false, so any true means today is a day off.
+    return { people, isDayOff: people.some((person) => person.isDayOff) };
+  },
+);
 
 export async function rpcApproveDay(dayId: string): Promise<void> {
   const supabase = await createServerSupabase();

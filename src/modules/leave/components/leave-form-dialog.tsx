@@ -1,9 +1,10 @@
 "use client";
 
-import { Loader2Icon } from "lucide-react";
-import { Suspense, use, useState, useTransition } from "react";
+import { Suspense, use, useEffect, useState } from "react";
 
 import type { ResultError } from "@/core/errors";
+import { ActionStatus } from "@/core/ui/action/action-status";
+import { useAction } from "@/core/ui/action/use-action";
 import { FormField } from "@/core/ui/composites/form-field";
 import { Button } from "@/core/ui/primitives/button";
 import {
@@ -139,27 +140,13 @@ function LeaveForm({
   const [endDate, setEndDate] = useState(original?.endDate ?? today);
   const [reason, setReason] = useState("");
   const [error, setError] = useState<ResultError | null>(null);
-  const [pending, startTransition] = useTransition();
   const isComp = kind === "comp_full" || kind === "comp_half";
   const singleDate = kind === "half_day" || isComp;
   // Comp leave picks from the working days it can cover (3b review): a weekly day off or a
   // holiday is never offered. Without the list (it failed to load) the date field stays.
   const compDates = isComp && comp.dates ? compDatesFor(comp.dates, kind) : null;
-
-  function chooseKind(next: Kind) {
-    setKind(next);
-    if (next === "comp_full" || next === "comp_half") {
-      const offered = comp.dates ? compDatesFor(comp.dates, next) : null;
-      if (offered && !offered.includes(startDate)) setStartDate(offered[0] ?? "");
-    }
-  }
-  // A change may keep a start that has already passed (WORKFLOWS §2); nothing else may.
-  const minStart = original && original.startDate < today ? original.startDate : today;
-
-  function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    onPending(true);
-    startTransition(async () => {
+  const action = useAction(
+    async () => {
       const result = isComp
         ? await requestCompLeave({ date: startDate, halfDay: kind === "comp_half", reason })
         : original
@@ -177,7 +164,6 @@ function LeaveForm({
               ...(singleDate ? {} : { endDate }),
               reason,
             });
-      onPending(false);
       if (result.ok) {
         toastResult(result, {
           success: original ? "Change sent to the Owner" : "Leave requested",
@@ -186,7 +172,27 @@ function LeaveForm({
       } else {
         setError(result.error);
       }
-    });
+    },
+    { creates: !original },
+  );
+  const { pending } = action;
+  // The dialog around the form cannot close while the request is on its way (a failed one ends
+  // pending too, so the dialog can close again).
+  useEffect(() => onPending(pending), [onPending, pending]);
+
+  function chooseKind(next: Kind) {
+    setKind(next);
+    if (next === "comp_full" || next === "comp_half") {
+      const offered = comp.dates ? compDatesFor(comp.dates, next) : null;
+      if (offered && !offered.includes(startDate)) setStartDate(offered[0] ?? "");
+    }
+  }
+  // A change may keep a start that has already passed (WORKFLOWS §2); nothing else may.
+  const minStart = original && original.startDate < today ? original.startDate : today;
+
+  function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    action.run();
   }
 
   const fieldErrors = error?.fieldErrors ?? {};
@@ -301,12 +307,17 @@ function LeaveForm({
           />
         )}
       </FormField>
+      <ActionStatus action={action} />
       <DialogFooter>
         <Button type="button" variant="secondary" onClick={onClose} disabled={pending}>
           Cancel
         </Button>
-        <Button variant="primary" type="submit" disabled={pending} aria-busy={pending}>
-          {pending ? <Loader2Icon className="animate-spin" aria-hidden /> : null}
+        <Button
+          variant="primary"
+          type="submit"
+          pending={pending}
+          pendingLabel={original ? "Sending change…" : "Sending request…"}
+        >
           {original ? "Send change" : "Request leave"}
         </Button>
       </DialogFooter>

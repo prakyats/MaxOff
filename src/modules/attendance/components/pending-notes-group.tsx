@@ -1,11 +1,12 @@
 "use client";
 
-import { Loader2Icon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useId, useState, useTransition } from "react";
+import { useId, useState } from "react";
 
 import type { ResultError } from "@/core/errors";
 import { cn } from "@/core/lib/utils";
+import { ActionStatus } from "@/core/ui/action/action-status";
+import { useAction } from "@/core/ui/action/use-action";
 import { ApprovalGroup } from "@/core/ui/composites/approval-group";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { ReviewFacts, ReviewSheet } from "@/core/ui/composites/review-sheet";
@@ -120,23 +121,11 @@ function DecideNoteDialog({
   const [markWorked, setMarkWorked] = useState(false);
   const [ownerNote, setOwnerNote] = useState("");
   const [error, setError] = useState<ResultError | null>(null);
-  const [pending, startTransition] = useTransition();
-
-  function close(open: boolean) {
-    if (pending) return;
-    if (!open) {
-      setDecision(null);
-      setMarkWorked(false);
-      setOwnerNote("");
-      setError(null);
-    }
-    onOpenChange(open);
-  }
-
-  function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!note) return;
-    startTransition(async () => {
+  // The note on screen, read when it runs (a Retry sends what is shown now), and a failure
+  // belongs to its note: opening another forgets it (v1.0.0 review).
+  const action = useAction(
+    async () => {
+      if (!note) return;
       const result = await decideExtraWorkNote({
         noteId: note.id,
         decision: (decision ?? "") as NoteDecision,
@@ -149,12 +138,35 @@ function DecideNoteDialog({
         })
       ) {
         onDecided();
-        close(false);
+        // Closed directly: `close` refuses while the action is still pending, which it is here.
+        reset();
+        onOpenChange(false);
         router.refresh();
       } else if (!result.ok) {
         setError(result.error);
       }
-    });
+    },
+    { resetKey: note?.id ?? null },
+  );
+  const { pending } = action;
+
+  function reset() {
+    setDecision(null);
+    setMarkWorked(false);
+    setOwnerNote("");
+    setError(null);
+  }
+
+  function close(open: boolean) {
+    if (pending) return;
+    if (!open) reset();
+    onOpenChange(open);
+  }
+
+  function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!note) return;
+    action.run();
   }
 
   const decisionError = error?.fieldErrors?.decision?.[0];
@@ -228,6 +240,7 @@ function DecideNoteDialog({
               />
             </div>
           ) : null}
+          <ActionStatus action={action} />
           <DialogFooter>
             <Button
               type="button"
@@ -240,10 +253,12 @@ function DecideNoteDialog({
             <Button
               variant="primary"
               type="submit"
-              disabled={pending || !decision}
-              aria-busy={pending}
+              disabled={!decision}
+              pending={pending}
+              pendingLabel={
+                decision === "no_comp_leave" ? "Marking reviewed…" : "Granting comp leave…"
+              }
             >
-              {pending ? <Loader2Icon className="animate-spin" aria-hidden /> : null}
               {decision === "no_comp_leave" ? "Mark reviewed" : "Grant comp leave"}
             </Button>
           </DialogFooter>

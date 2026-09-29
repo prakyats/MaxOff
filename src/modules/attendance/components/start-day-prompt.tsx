@@ -1,12 +1,13 @@
 "use client";
 
-import { Loader2Icon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useId, useState, useTransition } from "react";
+import { useEffect, useId, useState } from "react";
 
 import type { ResultError } from "@/core/errors";
 import { cn } from "@/core/lib/utils";
 import { systemClock } from "@/core/time";
+import { ActionStatus } from "@/core/ui/action/action-status";
+import { useAction } from "@/core/ui/action/use-action";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { Button } from "@/core/ui/primitives/button";
 import {
@@ -143,21 +144,22 @@ function LeaveChoice({
   const [choice, setChoice] = useState<PromptLeaveChoice | null>(null);
   const [reason, setReason] = useState("");
   const [error, setError] = useState<ResultError | null>(null);
-  const [pending, startTransition] = useTransition();
+  const action = useAction(async () => {
+    // Unchecked sends "": zod answers "Choose Leave or Half day."
+    const result = await chooseLeaveToday({
+      choice: (choice ?? "") as PromptLeaveChoice,
+      reason,
+    });
+    if (toastResult(result, { success: "Sent to the Owner" })) onDone();
+    else if (!result.ok) setError(result.error);
+  });
+  const { pending } = action;
   const choiceError = error?.fieldErrors?.choice?.[0];
   const reasonError = error?.fieldErrors?.reason?.[0];
 
   function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    startTransition(async () => {
-      // Unchecked sends "": zod answers "Choose Leave or Half day."
-      const result = await chooseLeaveToday({
-        choice: (choice ?? "") as PromptLeaveChoice,
-        reason,
-      });
-      if (toastResult(result, { success: "Sent to the Owner" })) onDone();
-      else if (!result.ok) setError(result.error);
-    });
+    action.run();
   }
 
   return (
@@ -215,12 +217,12 @@ function LeaveChoice({
         />
         {reasonError ? <ErrorText alert={false}>{reasonError}</ErrorText> : null}
       </div>
+      <ActionStatus action={action} />
       <DialogFooter>
         <Button type="button" variant="secondary" onClick={onBack} disabled={pending}>
           Back
         </Button>
-        <Button variant="primary" type="submit" disabled={pending} aria-busy={pending}>
-          {pending ? <Loader2Icon className="animate-spin" aria-hidden /> : null}
+        <Button variant="primary" type="submit" pending={pending} pendingLabel="Recording leave…">
           Record leave
         </Button>
       </DialogFooter>

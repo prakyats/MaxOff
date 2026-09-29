@@ -5,7 +5,15 @@ import { expect, test } from "./fixtures";
 // The app's own IST clock (ADR-0008), so "today" here is the database's `app.today_ist()`.
 import { todayIST } from "../src/core/time";
 
-import { hydrated, resetAttendanceAndLeaveOf, rpcAs, signIn, startPrompt, USERS } from "./helpers";
+import {
+  animationsSettled,
+  hydrated,
+  resetAttendanceAndLeaveOf,
+  rpcAs,
+  signIn,
+  startPrompt,
+  USERS,
+} from "./helpers";
 
 /**
  * The working day (task 3b.1, PRODUCT §4.2, WORKFLOWS §1 "Settled in 3b.1"): the app opens
@@ -52,6 +60,8 @@ async function homeHint(context: BrowserContext): Promise<string | undefined> {
 
 /** The mobile standard on the prompt (ARCHITECTURE §14.1): 44px targets, all on screen, no sideways scroll. */
 async function expectPromptFitsThePhone(page: Page): Promise<void> {
+  // The prompt's sheet slides in: measure where it comes to rest.
+  await animationsSettled(page);
   const viewport = page.viewportSize();
   expect(viewport).not.toBeNull();
   for (const name of ["Start day", "On leave today? Choose leave", "Just looking"]) {

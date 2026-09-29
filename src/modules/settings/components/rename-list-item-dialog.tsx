@@ -1,9 +1,10 @@
 "use client";
 
-import { Loader2Icon } from "lucide-react";
-import { type FormEvent, useState, useTransition } from "react";
+import { type FormEvent, useState } from "react";
 
 import type { Result, ResultError } from "@/core/errors";
+import { ActionStatus } from "@/core/ui/action/action-status";
+import { useAction } from "@/core/ui/action/use-action";
 import { FormField } from "@/core/ui/composites/form-field";
 import { Button } from "@/core/ui/primitives/button";
 import {
@@ -35,19 +36,20 @@ export function RenameListItemDialog({
 }) {
   const [name, setName] = useState(initialName);
   const [error, setError] = useState<ResultError | null>(null);
-  const [pending, startTransition] = useTransition();
+  const action = useAction(async () => {
+    const result = await onSubmit(name);
+    if (result.ok) {
+      toastResult(result, { success: `${label} renamed` });
+      onClose();
+    } else {
+      setError(result.error);
+    }
+  });
+  const { pending } = action;
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    startTransition(async () => {
-      const result = await onSubmit(name);
-      if (result.ok) {
-        toastResult(result, { success: `${label} renamed` });
-        onClose();
-      } else {
-        setError(result.error);
-      }
-    });
+    action.run();
   }
 
   const summary = error && !error.fieldErrors ? describeError(error) : null;
@@ -77,12 +79,12 @@ export function RenameListItemDialog({
               />
             )}
           </FormField>
+          <ActionStatus action={action} />
           <DialogFooter>
             <Button type="button" variant="secondary" onClick={onClose} disabled={pending}>
               Cancel
             </Button>
-            <Button variant="primary" type="submit" disabled={pending} aria-busy={pending}>
-              {pending ? <Loader2Icon className="animate-spin" aria-hidden /> : null}
+            <Button variant="primary" type="submit" pending={pending} pendingLabel="Saving…">
               Save
             </Button>
           </DialogFooter>

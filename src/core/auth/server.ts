@@ -34,10 +34,9 @@ export type SessionState =
  * (own row only). Sets the Sentry user to the member id and nothing else (ARCHITECTURE §18.2).
  */
 export const getSessionState = cache(async (): Promise<SessionState> => {
-  const supabase = await createServerSupabase();
-  const claims = await readClaims(supabase);
-  const userId = claims?.claims.sub;
+  const userId = await getSessionUserId();
   if (!userId) return { kind: "none" };
+  const supabase = await createServerSupabase();
 
   const { data: row, error } = await supabase
     .from("members")
@@ -63,6 +62,33 @@ export const getSessionState = cache(async (): Promise<SessionState> => {
     },
   };
 });
+
+/**
+ * The verified session's user id (the member id), or `null`: the JWT alone, **no round trip**
+ * (`getClaims()` verifies locally once the JWKS is cached). Performance rule (ARCHITECTURE §19):
+ * a page starts the reads keyed by the viewer's id together with `requireMember()` /
+ * `requirePermission()` instead of after them, so the member row is not a gate in front of
+ * every screen's queries. It is not an authorisation decision: RLS still decides every row, and
+ * the page still awaits `requireMember()` (which redirects a signed-out or inactive session)
+ * before it renders anything the reads returned.
+ */
+export const getSessionUserId = cache(async (): Promise<string | null> => {
+  const supabase = await createServerSupabase();
+  const claims = await readClaims(supabase);
+  return claims?.claims.sub ?? null;
+});
+
+/**
+ * Runs a read keyed by the viewer's id without waiting for the member row:
+ * `Promise.all([requireMember(), withSessionUserId(getOwnMember)])`. With no session it sends
+ * the visitor to sign in, exactly as `requireMember()` would; an inactive member's session
+ * still has an id, their reads come back empty under RLS, and `requireMember()` ends it.
+ */
+export async function withSessionUserId<T>(read: (id: string) => Promise<T>): Promise<T> {
+  const id = await getSessionUserId();
+  if (!id) redirect(LOGIN_PATH);
+  return read(id);
+}
 
 /**
  * The verified claims, or `null` when there is no usable session. A transient failure at GoTrue

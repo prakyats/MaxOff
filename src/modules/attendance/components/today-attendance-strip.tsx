@@ -47,12 +47,12 @@ export async function TodayAttendanceStrip({
     <div
       data-slot="attendance-strip"
       data-kind={strip.kind}
-      className="border-border bg-card mb-4 flex min-h-11 items-center gap-2 rounded-lg border pr-1"
+      className="border-border bg-card mb-4 flex min-h-11 flex-wrap items-center gap-2 rounded-lg border pr-1"
     >
       <Link
         href={HISTORY_HREF}
         aria-label={`Today's attendance: ${strip.text}`}
-        className="active:bg-muted/60 focus-visible:ring-ring flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg pl-3 outline-none select-none focus-visible:ring-2"
+        className="pressable-row focus-visible:ring-ring flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg pl-3 outline-none select-none focus-visible:ring-2"
       >
         <StatusDot status={strip.dot} label="" className="shrink-0" />
         <span data-slot="attendance-status" className="truncate text-sm font-medium">
@@ -62,8 +62,11 @@ export async function TodayAttendanceStrip({
           <ChevronRightIcon className="text-muted-foreground ml-auto size-4 shrink-0" aria-hidden />
         )}
       </Link>
+      {/* `contents`: the action's buttons sit in the strip itself (each keeps its size), and a
+          slow or failed line after Start day wraps to a full row under the strip's text rather
+          than widening the cell past a phone's width (v1.0.0 review). */}
       {strip.action ? (
-        <div className="shrink-0">
+        <div className="contents">
           <StripActionButton
             action={strip.action}
             workDate={today.workDate}
@@ -101,7 +104,7 @@ function StripActionButton({
   switch (action.kind) {
     case "start":
       // The one solid red commit action on the screen: the tap records the start (§14.1).
-      return <StartDayButton size="sm" />;
+      return <StartDayButton size="sm" statusClassName="basis-full px-3 pb-2" />;
     case "end":
       return <EndDayButton size="sm" yesterday={yesterday} noteTaken={noteTaken} endsOn={endsOn} />;
     case "working":

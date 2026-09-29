@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import { LogoutProvider } from "@/core/auth/components/logout-confirm";
 import { requireMember } from "@/core/auth/server";
+import { startEarly } from "@/core/lib/start-early";
 import { SentryUser } from "@/core/observability/sentry-user";
 import { can } from "@/core/permissions";
 import { RouteTransition } from "@/core/ui/motion/route-transition";
@@ -53,6 +54,8 @@ async function startDayPrompt(viewer: Awaited<ReturnType<typeof requireMember>>)
  * prompt asks in the app, and "Sign out of this device" lives under Me only.
  */
 export default async function AppLayout({ children }: { children: ReactNode }) {
+  // The prompt's read (everyone but the Owner has a day) starts with the session read (§19).
+  startEarly(getOwnToday());
   const viewer = await requireMember();
   const [prompt, badges] = await Promise.all([startDayPrompt(viewer), navBadges(viewer.role)]);
 

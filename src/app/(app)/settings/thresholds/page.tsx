@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { checkThenRead } from "@/core/lib/start-early";
 import { requirePermission } from "@/core/permissions/server";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { getSettings } from "@/modules/settings";
@@ -12,8 +13,8 @@ export const metadata: Metadata = { title: "Thresholds" };
  * scheduled jobs read when they run: changing one never rewrites what already happened.
  */
 export default async function ThresholdsSettingsPage() {
-  await requirePermission("settings.manage");
-  const settings = await getSettings();
+  // Read together with the permission check, not after it (ARCHITECTURE §19).
+  const [, settings] = await checkThenRead(requirePermission("settings.manage"), getSettings());
 
   return (
     <>

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { listDefinitions } from "@/core/custom-fields/server";
+import { startEarly } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
 import { requirePermission } from "@/core/permissions/server";
 import { PageHeader } from "@/core/ui/composites/page-header";
@@ -18,13 +19,14 @@ export const metadata: Metadata = { title: "Clients" };
  * reach it. In the `(list)` route group so its skeleton never wraps a client (the 2.9 rule).
  */
 export default async function ClientsPage() {
+  // The reads start with the session read (ARCHITECTURE §19); an Admin's field definitions
+  // are dropped.
+  const reads = Promise.all([listClientSummaries(), loadPeople(), listDefinitions("client")]);
+  startEarly(reads);
   const viewer = await requirePermission(["clients.manage", "clients.edit_assigned"]);
   const canManage = can(viewer.role, "clients.manage");
-  const [clients, people, definitions] = await Promise.all([
-    listClientSummaries(),
-    loadPeople(canManage),
-    canManage ? listDefinitions("client") : Promise.resolve([]),
-  ]);
+  const [clients, people, allDefinitions] = await reads;
+  const definitions = canManage ? allDefinitions : [];
 
   const description = canManage
     ? "Every client, its Admin and state. New clients start as drafts."

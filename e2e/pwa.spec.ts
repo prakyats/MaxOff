@@ -45,6 +45,6 @@ test.describe("PWA shell", () => {
     await page.goto("/offline");
     // Next's route announcer is a second role=alert, so target the composite itself.
     await expect(page.locator('[data-slot="error-state"]')).toContainText("offline");
-    await expect(page.getByRole("link", { name: "Try again" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
   });
 });

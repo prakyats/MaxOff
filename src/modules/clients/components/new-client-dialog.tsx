@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2Icon, PlusIcon } from "lucide-react";
+import { PlusIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -10,6 +10,8 @@ import {
 } from "@/core/custom-fields/components/custom-fields-form";
 import type { FieldDefinition } from "@/core/custom-fields";
 import type { ResultError } from "@/core/errors";
+import { ActionStatus } from "@/core/ui/action/action-status";
+import { useAction } from "@/core/ui/action/use-action";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { FormField } from "@/core/ui/composites/form-field";
 import { NAV_FORWARD } from "@/core/ui/motion/nav-types";
@@ -61,7 +63,19 @@ export function NewClientDialog({
   const [adminId, setAdminId] = useState("");
   const [customFields, setCustomFields] = useState<CustomFieldValues>({});
   const [error, setError] = useState<ResultError | null>(null);
-  const [pending, setPending] = useState(false);
+  const action = useAction(
+    async () => {
+      const result = await createClient({ name, adminId, customFields });
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      const href = `/clients/${result.data.id}`;
+      closeOverlaysThen(() => router.push(href, { transitionTypes: [NAV_FORWARD] }));
+    },
+    { resetKey: open, creates: true },
+  );
+  const { pending } = action;
 
   function onOpenChange(next: boolean) {
     if (pending) return;
@@ -74,20 +88,9 @@ export function NewClientDialog({
     }
   }
 
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
+  function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setPending(true);
-    try {
-      const result = await createClient({ name, adminId, customFields });
-      if (!result.ok) {
-        setError(result.error);
-        return;
-      }
-      const href = `/clients/${result.data.id}`;
-      closeOverlaysThen(() => router.push(href, { transitionTypes: [NAV_FORWARD] }));
-    } finally {
-      setPending(false);
-    }
+    action.run();
   }
 
   const fieldErrors = error?.fieldErrors ?? {};
@@ -162,6 +165,7 @@ export function NewClientDialog({
             errors={fieldErrors}
             disabled={pending}
           />
+          <ActionStatus action={action} />
           <DialogFooter>
             <Button
               type="button"
@@ -171,8 +175,12 @@ export function NewClientDialog({
             >
               Cancel
             </Button>
-            <Button variant="primary" type="submit" disabled={pending} aria-busy={pending}>
-              {pending ? <Loader2Icon className="animate-spin" aria-hidden /> : null}
+            <Button
+              variant="primary"
+              type="submit"
+              pending={pending}
+              pendingLabel="Creating client…"
+            >
               Create client
             </Button>
           </DialogFooter>

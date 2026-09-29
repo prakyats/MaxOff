@@ -52,7 +52,7 @@ export function PasswordInput({
         data-slot="password-toggle"
         // 44px target per §14.1, pinned to the right edge and vertically centred. `-my-px` keeps
         // it clear of the input's own border rather than sitting on it.
-        className="text-muted-foreground hover:text-foreground focus-visible:ring-ring absolute top-1/2 right-0 flex size-11 -translate-y-1/2 items-center justify-center rounded-lg outline-none focus-visible:ring-2"
+        className="pressable text-muted-foreground hover:text-foreground focus-visible:ring-ring absolute top-1/2 right-0 flex size-11 -translate-y-1/2 items-center justify-center rounded-lg outline-none focus-visible:ring-2"
       >
         <Icon className="size-4" aria-hidden />
       </button>

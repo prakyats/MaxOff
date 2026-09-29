@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ComponentProps, MouseEvent } from "react";
 
+import { cn } from "@/core/lib/utils";
 import { NAV_BACK } from "@/core/ui/motion/nav-types";
 import { slideBack } from "@/core/ui/motion/slide";
 import { markLive } from "@/core/ui/navigation/attributes";
@@ -26,6 +27,7 @@ function currentIndex(): number | undefined {
 export function BackLink({
   href,
   onClick,
+  className,
   ...props
 }: ComponentProps<typeof Link> & { href: string }) {
   const router = useRouter();
@@ -34,6 +36,7 @@ export function BackLink({
       href={href}
       data-slot="page-back"
       {...props}
+      className={cn("pressable", className)}
       ref={markLive}
       onClick={(event: MouseEvent<HTMLAnchorElement>) => {
         onClick?.(event);

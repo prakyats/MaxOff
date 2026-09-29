@@ -113,6 +113,12 @@ describe("sw.js", () => {
     expect(existsSync(path.join(root, "src/app/offline/page.tsx"))).toBe(true);
   });
 
+  it("tries a failed navigation once more before the offline page", () => {
+    // A phone switching networks drops a few seconds; the page is for a real outage.
+    expect(sw).toMatch(/NAVIGATION_RETRY_MS = 1500/);
+    expect(sw).toMatch(/respondWith\(\s*fetchNavigation\(request\)/);
+  });
+
   it("never intercepts API calls, other origins or non-GET requests", () => {
     expect(sw).toContain('request.method !== "GET"');
     expect(sw).toContain('url.pathname.startsWith("/api/")');

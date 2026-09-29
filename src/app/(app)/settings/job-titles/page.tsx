@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { checkThenRead } from "@/core/lib/start-early";
 import { LIST_LABELS } from "@/core/lists";
 import { listItems } from "@/core/lists/server";
 import { requirePermission } from "@/core/permissions/server";
@@ -14,8 +15,11 @@ export const metadata: Metadata = { title: "Job titles" };
  * (CLAUDE.md invariant 1).
  */
 export default async function JobTitlesSettingsPage() {
-  await requirePermission("lists.manage");
-  const items = await listItems("job_title", { includeArchived: true });
+  // Read together with the permission check, not after it (ARCHITECTURE §19).
+  const [, items] = await checkThenRead(
+    requirePermission("lists.manage"),
+    listItems("job_title", { includeArchived: true }),
+  );
 
   return (
     <>

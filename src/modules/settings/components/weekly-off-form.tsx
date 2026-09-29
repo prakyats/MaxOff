@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 
 import type { ResultError } from "@/core/errors";
+import { ActionStatus } from "@/core/ui/action/action-status";
+import { useAction } from "@/core/ui/action/use-action";
 import { Button } from "@/core/ui/primitives/button";
 import { Checkbox } from "@/core/ui/primitives/checkbox";
 import { Label } from "@/core/ui/primitives/label";
@@ -22,7 +24,12 @@ import { ErrorText } from "@/core/ui/composites/error-text";
 export function WeeklyOffForm({ weeklyOffDays }: { weeklyOffDays: readonly number[] }) {
   const [selected, setSelected] = useState<number[]>([...weeklyOffDays]);
   const [error, setError] = useState<ResultError | null>(null);
-  const [pending, startTransition] = useTransition();
+  const action = useAction(async () => {
+    const result = await updateWeeklyOffDays({ weeklyOffDays: selected });
+    setError(result.ok ? null : result.error);
+    toastResult(result, { success: "Weekly off days saved" });
+  });
+  const { pending } = action;
 
   function toggle(day: number, checked: boolean): void {
     setSelected((days) =>
@@ -31,11 +38,7 @@ export function WeeklyOffForm({ weeklyOffDays }: { weeklyOffDays: readonly numbe
   }
 
   function save(): void {
-    startTransition(async () => {
-      const result = await updateWeeklyOffDays({ weeklyOffDays: selected });
-      setError(result.ok ? null : result.error);
-      toastResult(result, { success: "Weekly off days saved" });
-    });
+    action.run();
   }
 
   return (
@@ -63,14 +66,16 @@ export function WeeklyOffForm({ weeklyOffDays }: { weeklyOffDays: readonly numbe
           ))}
         </div>
       </fieldset>
+      <ActionStatus action={action} />
       <Button
         variant="primary"
         type="button"
         onClick={save}
-        disabled={pending}
+        pending={pending}
+        pendingLabel="Saving…"
         className="w-full md:w-auto md:self-start"
       >
-        {pending ? "Saving…" : "Save days off"}
+        Save days off
       </Button>
     </div>
   );

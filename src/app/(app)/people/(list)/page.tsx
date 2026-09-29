@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { listItems } from "@/core/lists/server";
+import { startEarly } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
 import { requirePermission } from "@/core/permissions/server";
 import { PageHeader } from "@/core/ui/composites/page-header";
@@ -16,12 +17,15 @@ export const metadata: Metadata = { title: "People" };
  * page (`/people/[id]`, kickoff 3): the Profile, and for the Owner their leave and attendance.
  */
 export default async function PeoplePage() {
+  // Both shapes of the list and the titles start with the session read (ARCHITECTURE §19); the
+  // role picks one, and RLS decides what each returns.
+  const full = listMembers();
+  const directory = listDirectory();
+  const titles = listItems("job_title");
+  startEarly(full, directory, titles);
   const viewer = await requirePermission("team.view");
   const canManage = can(viewer.role, "team.manage");
-  const [members, jobTitleOptions] = await Promise.all([
-    canManage ? listMembers() : listDirectory(),
-    listItems("job_title"),
-  ]);
+  const [members, jobTitleOptions] = await Promise.all([canManage ? full : directory, titles]);
   const jobTitles = jobTitleOptions.map(({ id, name, archived_at }) => ({
     id,
     name,

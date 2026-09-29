@@ -1,6 +1,7 @@
 import { CheckCheckIcon, ClipboardListIcon } from "lucide-react";
 import type { Metadata } from "next";
 
+import { startEarly } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
 import { requirePermission } from "@/core/permissions/server";
 import { todayIST } from "@/core/time";
@@ -29,6 +30,15 @@ const DESCRIPTION = "Everything waiting for your decision, oldest first.";
  * join in 4.5 and 7.4; until then an Admin, who decides none of these, sees the stand-in.
  */
 export default async function ApprovalsPage() {
+  // The four lists start with the session read (§19); RLS decides what each returns, and an
+  // Admin's (who sees the placeholder) are dropped.
+  const lists = Promise.all([
+    listPendingDays(),
+    listPendingRequests(),
+    listPendingNotes(),
+    listPendingClaims(),
+  ]);
+  startEarly(lists);
   const viewer = await requirePermission([
     "attendance.decide",
     "tasks.approve_final",
@@ -41,12 +51,8 @@ export default async function ApprovalsPage() {
   }
 
   const decidesExpenses = can(viewer.role, "expenses.decide");
-  const [days, requests, notes, claims] = await Promise.all([
-    listPendingDays(),
-    listPendingRequests(),
-    listPendingNotes(),
-    decidesExpenses ? listPendingClaims() : Promise.resolve([]),
-  ]);
+  const [days, requests, notes, pendingClaims] = await lists;
+  const claims = decidesExpenses ? pendingClaims : [];
   const nothing =
     days.length === 0 && requests.length === 0 && notes.length === 0 && claims.length === 0;
 

@@ -1,9 +1,10 @@
 "use client";
 
-import { Loader2Icon } from "lucide-react";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 
 import type { ResultError } from "@/core/errors";
+import { ActionStatus } from "@/core/ui/action/action-status";
+import { useAction } from "@/core/ui/action/use-action";
 import { FormField } from "@/core/ui/composites/form-field";
 import { Button } from "@/core/ui/primitives/button";
 import {
@@ -93,12 +94,9 @@ function CorrectForm({
   const [status, setStatus] = useState<DayStatus | "">(target.current ?? "");
   const [reason, setReason] = useState("");
   const [error, setError] = useState<ResultError | null>(null);
-  const [pending, startTransition] = useTransition();
   const name = firstName(target.memberName);
-
-  function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    startTransition(async () => {
+  const action = useAction(
+    async () => {
       // An empty choice goes to the schema, which answers with the field's own message.
       const result = await correctDay({ dayId: target.dayId, status: status as DayStatus, reason });
       if (result.ok) {
@@ -109,7 +107,14 @@ function CorrectForm({
       } else {
         setError(result.error);
       }
-    });
+    },
+    { resetKey: target.dayId },
+  );
+  const { pending } = action;
+
+  function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    action.run();
   }
 
   const fieldErrors = error?.fieldErrors ?? {};
@@ -187,12 +192,12 @@ function CorrectForm({
           />
         )}
       </FormField>
+      <ActionStatus action={action} />
       <DialogFooter>
         <Button type="button" variant="secondary" onClick={onCancel} disabled={pending}>
           Cancel
         </Button>
-        <Button variant="primary" type="submit" disabled={pending} aria-busy={pending}>
-          {pending ? <Loader2Icon className="animate-spin" aria-hidden /> : null}
+        <Button variant="primary" type="submit" pending={pending} pendingLabel="Saving correction…">
           Save correction
         </Button>
       </DialogFooter>
