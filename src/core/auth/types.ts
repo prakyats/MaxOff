@@ -8,8 +8,12 @@ import type { MemberRole } from "@/core/permissions";
 export type CurrentMember = {
   /** `members.id` = `auth.users.id`. The only thing Sentry ever learns about a person. */
   id: string;
-  /** The login identity; Owner-only elsewhere (PERMISSIONS §2), shown to the member on /me. */
-  email: string;
+  /**
+   * The login identity; Owner-only elsewhere (PERMISSIONS §2), shown to the member on /me. The
+   * column is nullable since 4A (a freelancer has no login, ADR-0013), so the type says so; a
+   * session always belongs to an employee, whose row carries one.
+   */
+  email: string | null;
   role: MemberRole;
   name: string;
   /** The job title's name (`list_items`, PRODUCT §3): context only, never a permission. */

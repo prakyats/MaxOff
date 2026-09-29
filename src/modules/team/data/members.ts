@@ -20,7 +20,8 @@ const DIRECTORY_COLUMNS =
 type MemberRow = {
   id: string;
   full_name: string;
-  email?: string;
+  /** Null for a freelancer (no login, 4A) and for everyone but `team.manage` (PERMISSIONS §2). */
+  email?: string | null;
   phone: string | null;
   role: MemberRole;
   status: MemberStatus;

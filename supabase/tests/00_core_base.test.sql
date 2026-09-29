@@ -88,7 +88,10 @@ insert into app_internal values
   -- trigger that gives comp leave credits back
   ('end_day_cutoff'), ('holiday_release_comp'),
   -- 3c review: the oldest-first draw the Owner's comp leave routes share
-  ('comp_credit_draw');
+  ('comp_credit_draw'),
+  -- 4A: the freelancer and task helpers the transition functions call (service_role only)
+  ('coordinator_eligible'), ('next_position'), ('task_require_creator'), ('task_lock'),
+  ('task_actor'), ('task_assignee_check'), ('task_check_fields'), ('task_record_warnings');
   -- 3c.1 (contract migration): attendance_logout and logout_not_recorded are gone with the 2.x gate.
 select is(
   (select count(*) from pg_proc p
@@ -109,7 +112,7 @@ select is(
   0::bigint,
   'the internal helpers: service_role only, never the API role');
 select is((select count(*) from pg_proc p where p.pronamespace = 'app'::regnamespace
-             and p.proname in (select name from app_internal)), 17::bigint,
+             and p.proname in (select name from app_internal)), 25::bigint,
   'the internal helper list matches what exists');
 select cmp_ok((select count(*) from pg_proc where pronamespace = 'app'::regnamespace), '>=', 4::bigint,
   'the grant check saw the app functions');

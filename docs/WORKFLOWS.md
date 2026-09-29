@@ -129,10 +129,13 @@ Owner "Add person → Freelancer" (name, job title, phone?, coordinator)
          + member_coordinators row (coordinator, from_at = now, set_by = Owner)
          │
          ├──Owner "Change coordinator"(new coordinator, reason?)──► current row closed (to_at), new row opened
-         ├──Owner deactivate(reason?)──► deactivated (nothing to sign out; open tasks stay assigned, flagged)
-         └──Owner reactivate──► active (a current coordinator is required again)
+         ├──Owner deactivate(reason?)──► deactivated (nothing to sign out; open tasks stay assigned, flagged;
+         │                                 the current coordinator row is closed, reason 'deactivated')
+         └──Owner "Change coordinator" then reactivate──► active (4A as built: member_reactivate() is
+                                            INVALID_STATE until a current coordinator row exists again,
+                                            so the screen sets the coordinator first: two calls)
 ```
-- **Coordinator** = an **active permanent** Admin or Staff. Deactivating a coordinator asks the Owner where each of their freelancers goes first (`member_deactivate()` refuses while a freelancer still points at them).
+- **Coordinator** = an **active permanent** Admin or Staff. Deactivating a coordinator asks the Owner where each of their freelancers goes first (`member_deactivate()` refuses with `CONFLICT` while an active freelancer still points at them; a deactivated freelancer's row was closed with them). `member_change_email()` refuses a freelancer (no sign-in exists; "Invite as employee" is the door), and `member_invite()` refuses a freelancer's id for the same reason.
 - **Acting on behalf:** on the freelancer's tasks the coordinator may do everything an assignee may (`tasks.work`): acknowledge ("Noted by Ravi for Asha"), comment, tick stages, upload and paste links, mark Done with the late reason, resubmit after changes. Each transition takes the freelancer's id as `on_behalf_of`, checks `app.coordinator_of(freelancer) = caller` at that moment, and writes actor = caller, `on_behalf_of` = freelancer in the task rows and `activity_log`. Nothing else changes: the approval route, locking from `submitted`, reopen and cancel are the task's own rules (§3).
 - **Never for a freelancer:** attendance, leave, the day gate (there is no session), the 23:59 / 00:00 jobs (§8, permanent members only), reachability (§9a), being a creator, approving Admin or reviewer.
 - **Notifications** addressed to a freelancer go to their current coordinator (§9).
@@ -144,7 +147,7 @@ Owner "Add person → Freelancer" (name, job title, phone?, coordinator)
         engagement → permanent, the current member_coordinators row closed (to_at, reason 'became_employee'),
         status → invited → active on acceptance; attendance starts the IST day after joined_at (§1, as for any joiner)
   ```
-  Task history, on-behalf rows and audit stay on the same id. **Never the other way:** an employee does not become a freelancer; the Owner deactivates them and adds a new freelancer record.
+  Task history, on-behalf rows and audit stay on the same id. **Never the other way:** an employee does not become a freelancer; the Owner deactivates them and adds a new freelancer record. **As built (4A):** the action creates the auth user **with the freelancer's id** (`auth.admin.createUser({ id, email })`), then calls `member_invite_employee(member_id, email)`, which checks the auth user carries that address, sets `engagement`, `email`, `status = invited`, `invited_at`, clears `joined_at` (acceptance stamps the join, as for any joiner) and closes the coordinator row; the invite link is then issued exactly as for `member_invite()`. Refused on a permanent row, a deactivated freelancer or a taken address.
 
 ## 2. Leave requests
 
@@ -222,7 +225,7 @@ submitted ──Owner approve──► approved ──Owner mark paid (date, def
 | `completed` | **Final.** Owner approved | Creator / approving Admin / Owner can `reopen` → `in_progress` (reason required) |
 | `cancelled` | Stopped with a reason, still reportable | Creator / approving Admin / Owner can `reopen` → `todo` (reason required) |
 
-- **Done can be submitted from `todo` or `in_progress`.** `in_progress` is optional.
+- **Done can be submitted from `todo` or `in_progress`.** `in_progress` is optional. `task_start` records no acknowledgement (only "Task Noted" and Done do).
 - **On behalf of a freelancer (ADR-0013, §1b):** `task_acknowledge`, `task_start`, `task_submit_done`, stage ticks, comments and submissions accept `on_behalf_of` = a freelancer assignee; allowed only to that freelancer's **current** coordinator, recorded as actor = coordinator + `on_behalf_of`. A freelancer's primary ownership means their coordinator marks Done. Reviews never carry `on_behalf_of`.
 - **Done doesn't wait for acknowledgements.** If the primary owner hasn't acknowledged yet, submitting Done records their acknowledgement automatically (audited). Other assignees' acknowledgements stay tracked and still get reminders.
 - **Who may edit, reassign, cancel or reopen a task:** its **creator**, its **approving Admin**, or the **Owner**. Other Admins who can see it can't change it.
@@ -234,13 +237,13 @@ submitted ──Owner approve──► approved ──Owner mark paid (date, def
 - **Overdue** is **derived**: `now() > due_at AND state NOT IN (completed, cancelled)`. It's a badge and a filter, not a state. Moving the deadline recalculates it.
 - **Overdue escalation:** `overdue_escalate_hours` (default 24) after `due_at`, if the task is still in `todo`, `in_progress` or `changes_requested` (nothing submitted), a `task_reminders(kind = overdue_escalation)` fires once to the approving Admin (or creator) **and** the Owner.
 - **Late reason:** when submitting after `due_at`, `late_reason` is required from the primary owner.
-- **Approving Admin** is set when the task is created (PRODUCT §4.6 table) and can be changed or removed by the Owner. Changing it while the task is `submitted` sends the review to the new approver.
+- **Approving Admin** is set when the task is created (PRODUCT §4.6 table) and can be changed or removed by the Owner (`task_set_approver`, never on a completed or cancelled task). Changing it while the task is `submitted` sends the review to the new approver; removing it then, or naming an Admin who is an assignee, moves the task to `admin_approved` at once (`admin_step` `none` / `skipped`), waiting for the Owner. **The Owner does not decide at the Admin step:** `task_review` on a `submitted` task is the approving Admin's (`INVALID_STATE` for the Owner, whose way is to change or remove the approver).
 - **Settled at kickoff 4 (owner decision 2026-09-28):**
   - **The Owner is never an assignee.** `task_create` and `task_update_assignment` refuse an Owner assignee.
   - **An Admin labels only their own assigned clients.** `task_create` refuses another Admin's client for an Admin creator, so an Admin-created task's approving Admin is always the creator. The Owner may set any client label.
   - **"Through an Admin":** the Owner may pick any active Admin as the approver. A client label only pre-selects that client's Admin in the dialog; the function takes the Admin the Owner chose.
   - **Deadline:** `due_at` is required. `task_create` refuses a `due_at` already in the past; a later edit may move it anywhere, and overdue follows it. The dialog's time defaults to 18:00 IST and priority to `medium`.
-  - **Bulk review is approve only**, at both steps. `task_review` in bulk accepts `approved` only; a rejection is one task with a reason.
+  - **Bulk review is approve only**, at both steps. Bulk = the app calling `task_review(id, 'approved')` once per task (each its own review row and audit entry, clashes reported per row, as the attendance bulk does); a rejection is one task with a reason.
   - **Warnings:** see "Assignment warnings" below.
 
 #### Assignment warnings (4.3; owner decision 2026-09-28, kickoff 4)
@@ -268,7 +271,7 @@ assigned (acknowledged_at null) ──"Task Noted"──► acknowledged (timest
 ### 3.3 Reviews and submissions
 - Every approve or reject is a `task_reviews` row (step, decision, reason, reviewer, the submission version it refers to).
 - File submissions are versioned per task (`task_submissions.version` 1, 2, …). Files are never replaced.
-- **Until phase 8 (owner decision 2026-09-28, kickoff 4):** there are no uploads on tasks. Every Done (and every resubmit) writes a `task_submissions` version with an **optional note** and no `submission_items`. The note may contain `http`/`https` links, which the task page and the review sheet render as tappable links, so work can be handed in as a Drive link. The review refers to that version. Phase 8 adds items to the same versions.
+- **Until phase 8 (owner decision 2026-09-28, kickoff 4):** there are no uploads on tasks. Every Done (and every resubmit) writes a `task_submissions` version with an **optional note** (≤ 5000 characters) and no `submission_items`. The note may contain `http`/`https` links, which the task page and the review sheet render as tappable links, so work can be handed in as a Drive link. The review refers to that version. Phase 8 adds items to the same versions.
 
 ### 3.4 Task requests
 `pending ─convert─► converted (task_id set) | ─decline(reason)─► declined | ─withdraw─► withdrawn`
