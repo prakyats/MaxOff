@@ -65,23 +65,25 @@ export function requestByline(
   return `Suggested by ${who}, ${formatIST(request.createdAt, "d MMM")}`;
 }
 
-/** What happened to a decided request, one line: "Declined by Local Admin, 3 Oct". */
+/**
+ * What happened to a decided request, one line: "Declined by Local Admin, 3 Oct". The decider is
+ * named when the viewer's directory holds them (a Staff suggester's may not: "Declined, 3 Oct").
+ */
 export function requestOutcome(
   request: Pick<TaskRequest, "state" | "decidedBy" | "decidedAt">,
   viewerId: string,
-  nameOf: (memberId: string) => string,
+  nameOf: (memberId: string) => string | null,
 ): string | null {
   if (request.state === "pending") return null;
-  if (request.state === "withdrawn") return "Withdrawn";
+  const when = request.decidedAt ? `, ${formatIST(request.decidedAt, "d MMM")}` : "";
+  if (request.state === "withdrawn") return `Withdrawn${when}`;
   const who = request.decidedBy
     ? request.decidedBy === viewerId
       ? "you"
       : nameOf(request.decidedBy)
-    : "someone";
-  const when = request.decidedAt ? `, ${formatIST(request.decidedAt, "d MMM")}` : "";
-  return request.state === "converted"
-    ? `Made a task by ${who}${when}`
-    : `Declined by ${who}${when}`;
+    : null;
+  const by = who ? ` by ${who}` : "";
+  return request.state === "converted" ? `Made a task${by}${when}` : `Declined${by}${when}`;
 }
 
 /** The waiting ones first (oldest first), then the decided (as read: the latest first). */

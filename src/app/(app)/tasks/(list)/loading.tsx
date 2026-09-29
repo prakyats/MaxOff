@@ -7,8 +7,8 @@ import { TaskRowsSkeleton, TaskSectionHeadingSkeleton } from "@/modules/tasks";
 /**
  * The Tasks tab as it renders (4.5), traced per role (ARCHITECTURE §14.1). The Owner and Admins:
  * the header with "New task" (the FAB on a phone), "Needs you" with two rows that carry their
- * reason line, the open tasks, then the two links deeper. Staff, "My tasks": two groups of rows
- * and the links. Every row is a `TaskRow`'s height and lines (`TaskRowsSkeleton`). In the `(list)`
+ * reason line, the open tasks, then the two links deeper. Staff, "My tasks" with "Suggest a task"
+ * (the FAB on a phone, 4.6): two groups of rows and the links. Every row is a `TaskRow`'s height and lines (`TaskRowsSkeleton`). In the `(list)`
  * group so it never wraps a task's page (the 2.9 rule). The `(app)` layout already read the member
  * for this request (`cache()`), so asking costs no query.
  */
@@ -24,7 +24,11 @@ export default async function Loading() {
           actions={<Skeleton aria-hidden data-slot="loading-fab" className="w-32" />}
         />
       ) : (
-        <PageHeader title="My tasks" description="The work given to you, and what's due next." />
+        <PageHeader
+          title="My tasks"
+          description="The work given to you, and what's due next."
+          actions={<Skeleton aria-hidden data-slot="loading-fab" className="w-40" />}
+        />
       )}
       <div
         role="status"

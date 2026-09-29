@@ -31,6 +31,7 @@ import {
   waitedLabel,
 } from "@/modules/tasks";
 import { NewTaskButton } from "@/modules/tasks/components/new-task-button";
+import { SuggestTaskButton } from "@/modules/tasks/components/suggest-task-button";
 
 import { loadTaskFormSetup } from "../task-form-setup";
 import { readClientLabels, readDirectory, readOpenTasks, readOwnFreelancers } from "../reads";
@@ -78,7 +79,13 @@ export default async function TasksPage() {
   const now = systemClock();
 
   if (!can(viewer.role, "tasks.create")) {
-    return <MyTasks rows={rows} viewer={listViewer} context={context} now={now} />;
+    // "Suggest a task" (4.6): a client label the suggester sees, Active or Paused (decision 22).
+    const choices = labels
+      .filter((label) => label.state === "active" || label.state === "paused")
+      .map((label) => ({ id: label.id, name: label.name }));
+    return (
+      <MyTasks rows={rows} viewer={listViewer} context={context} now={now} clients={choices} />
+    );
   }
 
   const needs = needsYou(rows, listViewer, now, settings);
@@ -197,11 +204,13 @@ function MyTasks({
   viewer,
   context,
   now,
+  clients,
 }: {
   rows: TaskListRow[];
   viewer: { id: string; role: "owner" | "admin" | "staff"; coordinates: string[] };
   context: Parameters<typeof rowMeta>[1];
   now: Date;
+  clients: { id: string; name: string }[];
 }) {
   const groups = myTaskGroups(rows, viewer, now, todayIST());
   const order = ["not_noted", "changes_requested", "due_today", "upcoming", "overdue"] as const;
@@ -210,7 +219,11 @@ function MyTasks({
 
   return (
     <>
-      <PageHeader title="My tasks" description="The work given to you, and what's due next." />
+      <PageHeader
+        title="My tasks"
+        description="The work given to you, and what's due next."
+        actions={<SuggestTaskButton clients={clients} />}
+      />
       <div className="flex max-w-3xl min-w-0 flex-col gap-6" data-slot="tasks-mine">
         {empty ? (
           <EmptyState

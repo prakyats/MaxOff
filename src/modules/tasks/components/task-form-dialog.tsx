@@ -37,6 +37,7 @@ import { Textarea } from "@/core/ui/primitives/textarea";
 import { describeError } from "@/core/ui/toast";
 import { toast } from "sonner";
 
+import { convertRequest } from "../actions/requests";
 import { createTask, loadAvailability, updateTask } from "../actions/tasks";
 import {
   addAssignee,
@@ -64,6 +65,7 @@ import {
   TITLE_MAX,
 } from "../domain/limits";
 import { isFinal } from "../domain/task";
+import { applyTemplate, type TaskTemplate } from "../domain/templates";
 import {
   type AdminOption,
   type AssignablePerson,
@@ -100,10 +102,17 @@ export type TaskFormSetup = {
   admins: AdminOption[];
   /** Task custom fields, company-wide and per type, archived included. */
   definitions: FieldDefinition[];
+  /** The active task templates, for "Start from" (4.6; shared company-wide, decision 19). */
+  templates: TaskTemplate[];
 };
 
 export type TaskFormMode =
   | { kind: "create" }
+  /** A suggested task made into one (4.6, WORKFLOWS §3.4): the form starts from the request. */
+  | {
+      kind: "convert";
+      request: { id: string; title: string; details: string | null; clientId: string | null };
+    }
   | {
       kind: "edit";
       task: Task;
@@ -113,6 +122,7 @@ export type TaskFormMode =
     };
 
 const NO_CLIENT = "__none__";
+const NO_TEMPLATE = "__no_template__";
 const OWNER_APPROVES = "__owner__";
 const ADD_PERSON = "";
 
@@ -137,16 +147,25 @@ export function TaskFormDialog({
   mode: TaskFormMode;
   onClose: () => void;
 }) {
-  const [initial] = useState<TaskDraft>(() =>
-    mode.kind === "edit" ? draftFromTask(mode.task, mode.assignees) : emptyDraft(),
-  );
+  const [initial] = useState<TaskDraft>(() => {
+    if (mode.kind === "edit") return draftFromTask(mode.task, mode.assignees);
+    if (mode.kind === "convert") {
+      return {
+        ...emptyDraft(),
+        title: mode.request.title,
+        description: mode.request.details ?? "",
+        clientId: mode.request.clientId ?? "",
+      };
+    }
+    return emptyDraft();
+  });
   const [draft, setDraft] = useState<TaskDraft>(initial);
   const [phase, setPhase] = useState<"form" | "discard">("form");
   const busy = useRef(false);
   // Set while a save backs the layer out, so the close it causes asks nothing.
   const leaving = useRef(false);
   const dirty = isDraftDirty(initial, draft);
-  const creating = mode.kind === "create";
+  const creating = mode.kind !== "edit";
 
   function requestClose() {
     if (busy.current || leaving.current) return;
@@ -164,11 +183,15 @@ export function TaskFormDialog({
       >
         <DialogContent className="md:max-w-xl" data-slot="task-form-dialog">
           <DialogHeader>
-            <DialogTitle>{creating ? "New task" : "Edit task"}</DialogTitle>
+            <DialogTitle>
+              {mode.kind === "convert" ? "Make it a task" : creating ? "New task" : "Edit task"}
+            </DialogTitle>
             <DialogDescription>
-              {creating
-                ? "Everyone you assign notes it; the primary owner marks it done."
-                : "Changes are recorded in the task's history."}
+              {mode.kind === "convert"
+                ? "Starts from the suggestion. Whoever suggested it sees that it became a task."
+                : creating
+                  ? "Everyone you assign notes it; the primary owner marks it done."
+                  : "Changes are recorded in the task's history."}
             </DialogDescription>
           </DialogHeader>
           <Suspense fallback={<FormSkeleton />}>
@@ -278,7 +301,8 @@ function TaskForm({
   const [errors, setErrors] = useState<DraftErrors>({});
   const [customErrors, setCustomErrors] = useState<Record<string, string[]>>({});
   const [formError, setFormError] = useState<ResultError | null>(null);
-  const creating = mode.kind === "create";
+  const [templateId, setTemplateId] = useState("");
+  const creating = mode.kind !== "edit";
 
   const type = loaded ? draftType(draft, loaded.types) : null;
   const isEvent = type?.kind === "event";
@@ -372,6 +396,9 @@ function TaskForm({
         ]
       : loaded.clients;
   const types = loaded.types.filter((option) => !option.archived || option.id === draft.taskTypeId);
+  // A suggestion's client may have closed since (a label is Active or Paused, decision 22).
+  const clientOffered = draft.clientId === "" || clients.some((c) => c.id === draft.clientId);
+  const templates = creating ? loaded.templates : [];
   const definitions = loaded.definitions.filter(
     (definition) => definition.taskTypeId === null || definition.taskTypeId === type?.id,
   );
@@ -420,7 +447,11 @@ function TaskForm({
 
     const applies = definitions.map((definition) => definition.key);
     const after = taskFromDraft(
-      { ...draft, customFields: keepFieldKeys(draft.customFields, applies) },
+      {
+        ...draft,
+        clientId: clientOffered ? draft.clientId : "",
+        customFields: keepFieldKeys(draft.customFields, applies),
+      },
       type,
     );
     const warningInput = (list: AssignmentWarning[]) =>
@@ -432,13 +463,18 @@ function TaskForm({
 
     onBusy(true);
     try {
-      if (mode.kind === "create") {
-        const result = await createTask({
+      if (mode.kind !== "edit") {
+        const fields = {
           ...after,
           approvingAdminId: loaded.isOwner ? draft.approverId || null : null,
           stages: draft.stages.map((stage) => stage.trim()).filter(Boolean),
           warnings: warningInput(warnings),
-        });
+          templateId: templateId || null,
+        };
+        const result =
+          mode.kind === "convert"
+            ? await convertRequest({ ...fields, requestId: mode.request.id })
+            : await createTask(fields);
         if (!result.ok) {
           showServerError(result.error);
           return;
@@ -507,6 +543,44 @@ function TaskForm({
     >
       {summary ? (
         <ErrorText slot="form-alert">{summary.description ?? summary.title}</ErrorText>
+      ) : null}
+
+      {templates.length > 0 ? (
+        <FormField
+          label="Start from"
+          hint="A template sets the type, priority, stages and field defaults. You pick the people, the deadline and the client."
+        >
+          {(control) => (
+            <Select
+              value={templateId || NO_TEMPLATE}
+              onValueChange={(value) => {
+                const template = templates.find((option) => option.id === value);
+                setTemplateId(template ? template.id : "");
+                if (template) {
+                  setDraft((currentDraft) => applyTemplate(currentDraft, template));
+                  setErrors({});
+                }
+              }}
+            >
+              <SelectTrigger
+                id={control.id}
+                className="w-full"
+                aria-describedby={control["aria-describedby"]}
+                data-slot="task-template-select"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_TEMPLATE}>No template</SelectItem>
+                {templates.map((template) => (
+                  <SelectItem key={template.id} value={template.id}>
+                    {template.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </FormField>
       ) : null}
 
       <FormField label="Title" error={errors.title}>
@@ -803,7 +877,7 @@ function TaskForm({
 
       <FormField label="Client label" hint="Staff see only the client's name and brand basics.">
         {(control) => (
-          <Select value={draft.clientId || NO_CLIENT} onValueChange={pickClient}>
+          <Select value={(clientOffered && draft.clientId) || NO_CLIENT} onValueChange={pickClient}>
             <SelectTrigger
               id={control.id}
               className="w-full"

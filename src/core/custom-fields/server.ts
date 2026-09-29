@@ -228,12 +228,20 @@ export async function validateCustomFieldsFor(
     clientId?: string | null;
     taskTypeId?: string | null;
     previous?: CustomFieldValues;
+    /**
+     * Defaults, not a record (a task template's, 4.6): each value is checked, but a required
+     * field may be left empty, since the form that makes the record asks for it then.
+     */
+    skipRequired?: boolean;
   } = {},
 ): Promise<CustomFieldValues> {
-  const definitions = await listDefinitions(entity, {
+  const found = await listDefinitions(entity, {
     clientId: options.clientId ?? null,
     taskTypeId: options.taskTypeId ?? null,
   });
+  const definitions = options.skipRequired
+    ? found.map((definition) => ({ ...definition, required: false }))
+    : found;
   const result = validateCustomFields({
     definitions,
     values,

@@ -39,6 +39,7 @@ const TASKS_SPECS = /tasks\.spec\.ts$/;
 const TASK_LISTS_SPECS = /task-lists\.spec\.ts$/;
 const FREELANCERS_SPECS = /freelancers\.spec\.ts$/;
 const TASK_SETTINGS_SPECS = /task-settings\.spec\.ts$/;
+const TASK_REQUESTS_SPECS = /task-requests\.spec\.ts$/;
 
 /**
  * Flow tests (ARCHITECTURE §15). `pnpm test:e2e` runs them; CI runs them as their own job.
@@ -125,7 +126,8 @@ export default defineConfig({
       // and pull-to-refresh (2026-09-28): the pressed, pending, slow and offline states and the
       // pull, at both phone widths; and the task screens' layers and large text (4B; the task
       // flows themselves skip 430px), the task lists' and Approvals' too, and the freelancers'
-      // dialogs and screens around People, and Settings → Task types (4C).
+      // dialogs and screens around People, Settings → Task types, and the task requests and
+      // templates (4C).
       name: "mobile-lg",
       dependencies: ["setup"],
       testMatch: [
@@ -153,6 +155,7 @@ export default defineConfig({
         TASK_LISTS_SPECS,
         FREELANCERS_SPECS,
         TASK_SETTINGS_SPECS,
+        TASK_REQUESTS_SPECS,
       ],
       use: { ...devices["Pixel 5"], viewport: { width: 430, height: 932 } },
     },

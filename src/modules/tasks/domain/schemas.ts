@@ -91,6 +91,8 @@ export const createTaskSchema = z.object({
     .max(STAGES_MAX, `Up to ${STAGES_MAX} stages.`),
   customFields,
   warnings: warningsSchema,
+  /** "Start from" a template (4.6): recorded on the task; it fixes nothing (PRODUCT §4.6). */
+  templateId: z.uuid().nullable().default(null),
 });
 export type CreateTaskInput = z.input<typeof createTaskSchema>;
 

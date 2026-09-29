@@ -88,6 +88,7 @@ export const createTask = action(
         approvingAdminId: data.approvingAdminId,
         stages: data.stages,
         warnings: warningRows(data.warnings),
+        templateId: data.templateId,
       },
     );
     revalidatePath("/", "layout");

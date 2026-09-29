@@ -312,10 +312,10 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     key: "templates",
     label: "Templates",
     href: "/settings/templates",
-    description: "Project and task templates.",
+    description: "Task templates: a type, a priority, stages and field defaults.",
     permission: "templates.manage",
     arrivesIn: "4.6",
-    ready: false,
+    ready: true,
   },
   {
     key: "drive",

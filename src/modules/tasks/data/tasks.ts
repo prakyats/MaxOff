@@ -450,7 +450,12 @@ type WarningRow = { kind: string; member_id: string; details: Record<string, str
 
 export async function rpcCreateTask(
   fields: TaskFields,
-  options: { approvingAdminId: string | null; stages: string[]; warnings: WarningRow[] },
+  options: {
+    approvingAdminId: string | null;
+    stages: string[];
+    warnings: WarningRow[];
+    templateId: string | null;
+  },
 ): Promise<string> {
   const supabase = await createServerSupabase();
   const args: Nullable<
@@ -463,6 +468,7 @@ export async function rpcCreateTask(
     | "event_end_at"
     | "location"
     | "purpose"
+    | "template_id"
   > = {
     title: fields.title,
     description: fields.description,
@@ -481,6 +487,7 @@ export async function rpcCreateTask(
     stages: options.stages,
     custom_fields: fields.customFields as Json,
     warnings: options.warnings as unknown as Json,
+    template_id: options.templateId,
   };
   // The function takes null for each of these (the generated types cannot say so).
   const { data, error } = await supabase.rpc(
