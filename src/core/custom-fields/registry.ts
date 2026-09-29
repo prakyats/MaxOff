@@ -56,11 +56,13 @@ export const ENTITY_LABELS: Record<CustomFieldEntity, { singular: string; plural
 };
 
 /**
- * The entities Settings → Custom fields edits in 3.2: client and contact for everyone with
+ * The entities Settings → Custom fields edits: client and contact for everyone with
  * `lists.manage` (global rows Owner-only, client-scoped rows by that client's Admin), project
- * and item Owner-only with no consumer yet. Task and per-task-type scoping arrive with 4.1.
+ * and item Owner-only with no consumer yet (3.2), and task (4B): company-wide task fields for
+ * everyone with `lists.manage` (PERMISSIONS ³: task fields stay `lists.manage`). A field for one
+ * task type is stored and applied (4A) but not yet offered here.
  */
-export const SETTINGS_ENTITIES = ["client", "contact", "project", "item"] as const;
+export const SETTINGS_ENTITIES = ["client", "contact", "project", "item", "task"] as const;
 export type SettingsEntity = (typeof SETTINGS_ENTITIES)[number];
 
 /** Entities whose definitions may be scoped to one client (kickoff 3). */

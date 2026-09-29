@@ -23,7 +23,15 @@ export type Thresholds = {
   ackEscalateOwnerHours: number;
   overdueEscalateHours: number;
   emailDailyCapPerMember: number;
+  /**
+   * The workload warning (kickoff 4 decision 11, WORKFLOWS §3.1): assigning someone who already
+   * has this many open tasks due that IST day warns (never blocks). Default 4.
+   */
+  workloadWarningThreshold: number;
 };
+
+/** Kickoff 4 decision 11: four open tasks due the same IST day. */
+export const DEFAULT_WORKLOAD_WARNING_THRESHOLD = 4;
 
 export type OrgSettings = Thresholds & {
   weeklyOffDays: number[];
@@ -46,6 +54,8 @@ export function toOrgSettings(row: Tables<"org_settings">): OrgSettings {
     ackEscalateOwnerHours: row.ack_escalate_owner_hours,
     overdueEscalateHours: row.overdue_escalate_hours,
     emailDailyCapPerMember: row.email_daily_cap_per_member,
+    // Set to 4 on every row by 4A (default 4); a null would only come from an older row.
+    workloadWarningThreshold: row.workload_warning_threshold ?? DEFAULT_WORKLOAD_WARNING_THRESHOLD,
   };
 }
 

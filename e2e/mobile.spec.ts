@@ -245,6 +245,18 @@ const LOADING_SCREENS = [
   { role: "owner", path: "/me", marker: 'aria-label="Loading Me"' },
   { role: "admin", path: "/me", marker: 'aria-label="Loading Me"' },
   { role: "staff", path: "/me", marker: 'aria-label="Loading Me"' },
+  // A task's page (4.4): its skeleton streams before the page decides (an unknown id is a 404
+  // afterwards), so it is held here for the Owner (the ⋯ placeholder) and Staff (none).
+  {
+    role: "owner",
+    path: "/tasks/00000000-0000-4000-8000-000000000000",
+    marker: 'aria-label="Loading the task"',
+  },
+  {
+    role: "staff",
+    path: "/tasks/00000000-0000-4000-8000-000000000000",
+    marker: 'aria-label="Loading the task"',
+  },
 ] as const;
 
 for (const role of ["owner", "admin", "staff"] as const) {

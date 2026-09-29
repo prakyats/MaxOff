@@ -2,6 +2,8 @@ import type { Enums } from "@/core/db";
 
 export type MemberRole = Enums<"member_role">;
 export type MemberStatus = Enums<"member_status">;
+/** ADR-0013 (4A): `freelance` is a person with no login, looked after by a coordinator. */
+export type Engagement = Enums<"engagement">;
 
 /** One row of the Team screen. `email` is null for everyone but `team.manage` (PERMISSIONS §2). */
 export type TeamMember = {
@@ -11,6 +13,8 @@ export type TeamMember = {
   phone: string | null;
   role: MemberRole;
   status: MemberStatus;
+  /** Data, not a role (ADR-0013): a freelancer carries `role = staff` and has no login. */
+  engagement: Engagement;
   jobTitleId: string | null;
   jobTitle: string | null;
   /** The member's photo (3.3), an original in `files`; lists show its preview. */

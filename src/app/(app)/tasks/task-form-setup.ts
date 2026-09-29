@@ -1,0 +1,69 @@
+import "server-only";
+
+import { listAllDefinitions } from "@/core/custom-fields/server";
+import type { CurrentMember } from "@/core/auth/server";
+import { todayIST } from "@/core/time";
+import { listClients } from "@/modules/clients";
+import { getSettings } from "@/modules/settings";
+import { listTaskTypes } from "@/modules/tasks";
+import type { TaskFormSetup } from "@/modules/tasks/components/task-form-dialog";
+import { listCurrentCoordinators, listDirectory } from "@/modules/team";
+
+/**
+ * What the create / edit dialog needs (4.3), composed by the route from the modules that own it:
+ * the task types (tasks), the people and their coordinators (team, ADR-0013), the client labels
+ * the viewer may set (clients: RLS gives an Admin their own, kickoff 4 decision 2), the workload
+ * threshold (settings, decision 11) and the task custom fields (`core/custom-fields`). Started by
+ * the page and handed to the dialog as a promise, so the screen never waits for it.
+ */
+export async function loadTaskFormSetup(viewer: CurrentMember): Promise<TaskFormSetup> {
+  const [types, directory, coordinators, clients, settings, definitions] = await Promise.all([
+    listTaskTypes(),
+    listDirectory(),
+    listCurrentCoordinators(),
+    listClients({ states: ["draft", "active", "paused"] }),
+    getSettings(),
+    listAllDefinitions("task"),
+  ]);
+  const names = new Map(directory.map((member) => [member.id, member.fullName]));
+  const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name);
+  return {
+    viewerId: viewer.id,
+    isOwner: viewer.role === "owner",
+    today: todayIST(),
+    threshold: settings.workloadWarningThreshold,
+    types,
+    // Kickoff 4 decision 1: never the Owner; only active people can be assigned.
+    people: directory
+      .filter((member) => member.status === "active" && member.role !== "owner")
+      .map((member) => {
+        const coordinatorId = coordinators[member.id];
+        return {
+          id: member.id,
+          name: member.fullName,
+          role: member.role,
+          engagement: member.engagement,
+          jobTitle: member.jobTitle,
+          coordinatorName:
+            member.engagement === "freelance" && coordinatorId
+              ? (names.get(coordinatorId) ?? null)
+              : null,
+        };
+      })
+      .sort(byName),
+    clients: clients
+      .map((client) => ({ id: client.id, name: client.name, adminId: client.adminId }))
+      .sort(byName),
+    // Kickoff 4 decision 3: any active Admin (a permanent employee: a freelancer is never one).
+    admins: directory
+      .filter(
+        (member) =>
+          member.role === "admin" &&
+          member.status === "active" &&
+          member.engagement === "permanent",
+      )
+      .map((member) => ({ id: member.id, name: member.fullName }))
+      .sort(byName),
+    definitions,
+  };
+}

@@ -620,3 +620,36 @@ export async function heldShell(
     },
   };
 }
+
+/**
+ * Removes the tasks a spec made (4B), by title prefix, with every child row, so the spec re-runs
+ * on a used database. The audit rows about them stay (history; no foreign key). Service role,
+ * local stack only: `tasks` has no API delete at all.
+ */
+export async function removeTasksTitled(prefix: string): Promise<void> {
+  const tasks = await serviceSelect<{ id: string }>(
+    `tasks?title=like.${encodeURIComponent(`${prefix}*`)}&select=id`,
+  );
+  if (tasks.length === 0) return;
+  const ids = tasks.map((task) => task.id).join(",");
+  for (const table of [
+    "task_warnings",
+    "task_reviews",
+    "task_submissions",
+    "task_comments",
+    "task_stages",
+    "task_assignees",
+  ]) {
+    await serviceRest(`${table}?task_id=in.(${ids})`, { method: "DELETE" });
+  }
+  await serviceRest(`tasks?id=in.(${ids})`, { method: "DELETE" });
+}
+
+/** A task type's id by its seeded name ("Normal", "Shoot / Site Visit", …). */
+export async function taskTypeId(name: string): Promise<string> {
+  const [row] = await serviceSelect<{ id: string }>(
+    `task_types?name=eq.${encodeURIComponent(name)}&select=id`,
+  );
+  expect(row, `the task type ${name} is seeded`).toBeTruthy();
+  return (row as { id: string }).id;
+}

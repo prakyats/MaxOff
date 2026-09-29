@@ -28,6 +28,7 @@ function member(overrides: Partial<TeamMember>): TeamMember {
     phone: null,
     role: "staff",
     status: "active",
+    engagement: "permanent",
     jobTitleId: null,
     jobTitle: null,
     avatarFileId: null,

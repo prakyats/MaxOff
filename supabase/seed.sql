@@ -110,7 +110,26 @@ insert into seed_users values
   -- other spec may) and changes nothing else.
   ('20000000-0000-4000-8000-000000000056', 'link-desktop@maxoff.local', 'link-local-password', 'Test Link (desktop)', null, 'staff', 'active'),
   ('20000000-0000-4000-8000-000000000057', 'link-mobile@maxoff.local', 'link-local-password', 'Test Link (mobile)', null, 'staff', 'active'),
-  ('20000000-0000-4000-8000-000000000058', 'link-mobile-lg@maxoff.local', 'link-local-password', 'Test Link (mobile-lg)', null, 'staff', 'active');
+  ('20000000-0000-4000-8000-000000000058', 'link-mobile-lg@maxoff.local', 'link-local-password', 'Test Link (mobile-lg)', null, 'staff', 'active'),
+  -- 4B: staff tasks (e2e/tasks.spec.ts). Per project: the primary assignee, a second one whose
+  -- day the spec loads for the workload warning, one with a pending leave request, a coordinator
+  -- (whose freelancer is below) and an Admin who checks and creates tasks. The spec removes the
+  -- tasks it made (and the away person's leave) first, so it re-runs without db:reset.
+  ('20000000-0000-4000-8000-000000000059', 'task-staff-desktop@maxoff.local', 'task-local-password', 'Test Task Staff (desktop)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000060', 'task-helper-desktop@maxoff.local', 'task-local-password', 'Test Task Helper (desktop)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000061', 'task-away-desktop@maxoff.local', 'task-local-password', 'Test Task Away (desktop)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000062', 'task-coord-desktop@maxoff.local', 'task-local-password', 'Test Task Coordinator (desktop)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000063', 'task-admin-desktop@maxoff.local', 'task-local-password', 'Test Task Admin (desktop)', null, 'admin', 'active'),
+  ('20000000-0000-4000-8000-000000000064', 'task-staff-mobile@maxoff.local', 'task-local-password', 'Test Task Staff (mobile)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000065', 'task-helper-mobile@maxoff.local', 'task-local-password', 'Test Task Helper (mobile)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000066', 'task-away-mobile@maxoff.local', 'task-local-password', 'Test Task Away (mobile)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000067', 'task-coord-mobile@maxoff.local', 'task-local-password', 'Test Task Coordinator (mobile)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000068', 'task-admin-mobile@maxoff.local', 'task-local-password', 'Test Task Admin (mobile)', null, 'admin', 'active'),
+  ('20000000-0000-4000-8000-000000000069', 'task-staff-mobile-lg@maxoff.local', 'task-local-password', 'Test Task Staff (mobile-lg)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000070', 'task-helper-mobile-lg@maxoff.local', 'task-local-password', 'Test Task Helper (mobile-lg)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000071', 'task-away-mobile-lg@maxoff.local', 'task-local-password', 'Test Task Away (mobile-lg)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000072', 'task-coord-mobile-lg@maxoff.local', 'task-local-password', 'Test Task Coordinator (mobile-lg)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000073', 'task-admin-mobile-lg@maxoff.local', 'task-local-password', 'Test Task Admin (mobile-lg)', null, 'admin', 'active');
 
 -- What GoTrue writes for a confirmed email + password user (`auth.users` + one identity).
 insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -140,3 +159,27 @@ select u.id, (select id from public.organizations limit 1), u.full_name, u.email
   now() - interval '40 days', case when u.status = 'deactivated' then now() end
 from seed_users u
 on conflict (id) do nothing;
+
+-- 4B: one freelancer per Playwright project (ADR-0013): a person with no login and no email,
+-- looked after by that project's "Test Task Coordinator". Written as the migration owner, like
+-- the members above (the insert guard lets `engagement` through only inside a transition).
+insert into public.members (id, org_id, full_name, email, role, status, engagement, joined_at)
+select f.id, (select id from public.organizations limit 1), f.full_name, null, 'staff', 'active',
+  'freelance', now() - interval '40 days'
+from (values
+  ('30000000-0000-4000-8000-000000000001'::uuid, 'Test Task Freelancer (desktop)'),
+  ('30000000-0000-4000-8000-000000000002'::uuid, 'Test Task Freelancer (mobile)'),
+  ('30000000-0000-4000-8000-000000000003'::uuid, 'Test Task Freelancer (mobile-lg)')
+) f(id, full_name)
+on conflict (id) do nothing;
+
+insert into public.member_coordinators (member_id, coordinator_id, set_by)
+select c.member_id, c.coordinator_id, '10000000-0000-4000-8000-000000000001'
+from (values
+  ('30000000-0000-4000-8000-000000000001'::uuid, '20000000-0000-4000-8000-000000000062'::uuid),
+  ('30000000-0000-4000-8000-000000000002'::uuid, '20000000-0000-4000-8000-000000000067'::uuid),
+  ('30000000-0000-4000-8000-000000000003'::uuid, '20000000-0000-4000-8000-000000000072'::uuid)
+) c(member_id, coordinator_id)
+where not exists (
+  select 1 from public.member_coordinators mc where mc.member_id = c.member_id and mc.to_at is null
+);

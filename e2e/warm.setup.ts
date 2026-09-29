@@ -54,6 +54,8 @@ const ROUTES = [
   `/clients/${NO_CLIENT}/brand`,
   `/clients/${NO_CLIENT}/activity`,
   `/clients/${NO_CLIENT}/contacts/${NO_CLIENT}`,
+  // A task's page (4.4): an unknown id is a 404 that still loads the route's code.
+  `/tasks/${NO_CLIENT}`,
 ];
 
 setup.use({ storageState: storageStateFor("owner") });

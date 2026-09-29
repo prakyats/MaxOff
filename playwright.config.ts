@@ -33,6 +33,7 @@ const EXTRA_WORK_SPECS = /extra-work\.spec\.ts$/;
 const EXPENSES_SPECS = /expenses\.spec\.ts$/;
 const MONTH_SUMMARY_SPECS = /month-summary\.spec\.ts$/;
 const AUTH_LINK_SPECS = /auth-link\.spec\.ts$/;
+const TASKS_SPECS = /tasks\.spec\.ts$/;
 
 /**
  * Flow tests (ARCHITECTURE §15). `pnpm test:e2e` runs them; CI runs them as their own job.
@@ -115,7 +116,8 @@ export default defineConfig({
       // the extra work notes, the Owner's Extra work group and comp leave (3b.2), and the expense
       // claims' and the month summary's layers (3b.3, 3b.4; added at `/review-phase 3b`, which
       // found them checked at 375px only), and the Continue page a one-time link lands on
-      // (3cB review), a public page laid out for the phone the link was sent to.
+      // (3cB review), a public page laid out for the phone the link was sent to, and the task
+      // screens' layers and large text (4B; the task flows themselves skip 430px).
       name: "mobile-lg",
       dependencies: ["setup"],
       testMatch: [
@@ -137,6 +139,7 @@ export default defineConfig({
         EXPENSES_SPECS,
         MONTH_SUMMARY_SPECS,
         AUTH_LINK_SPECS,
+        TASKS_SPECS,
       ],
       use: { ...devices["Pixel 5"], viewport: { width: 430, height: 932 } },
     },

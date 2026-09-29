@@ -143,6 +143,15 @@ test.describe("Owner", () => {
     await page.reload();
     await expect(page.getByLabel("End-of-day reminder")).toHaveValue("21:00");
 
+    // The workload warning (4B, kickoff 4 decision 11): 4 by default, at least 1. Never saved
+    // as anything else here: the task spec's warning check runs against 4 in parallel.
+    const workload = page.getByLabel("Workload warning (tasks due that day)");
+    await expect(workload).toHaveValue("4");
+    await workload.fill("0");
+    await page.getByRole("button", { name: "Save thresholds" }).click();
+    await expect(page.locator('[data-slot="field-error"]')).toContainText("at least 1 task");
+    await workload.fill("4");
+
     await page.getByLabel("End-of-day reminder").fill("20:30");
     await page.getByRole("button", { name: "Save thresholds" }).click();
     await expect(page.getByText("Thresholds saved")).toBeVisible();

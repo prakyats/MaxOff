@@ -3,6 +3,11 @@ export type ActivityEntry = {
   id: number;
   /** The member who acted (their auth id); `null` for the system (a job, a trigger). */
   actorId: string | null;
+  /**
+   * The freelancer the actor acted for (ADR-0013, 4A: `activity_log.on_behalf_of_id`): a
+   * coordinator's "Noted by Ravi for Asha". Null when the actor acted for themselves.
+   */
+  onBehalfOfId: string | null;
   entity: string;
   entityId: string;
   action: string;

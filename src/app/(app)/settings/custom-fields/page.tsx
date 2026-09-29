@@ -14,15 +14,19 @@ import {
 export const metadata: Metadata = { title: "Custom fields" };
 
 const DESCRIPTION =
-  "Extra fields on clients and contacts: for every client, or for one client only. Project and item fields are the Owner's.";
+  "Extra fields on clients, contacts and tasks. Client and contact fields apply to every client or one client only; project and item fields are the Owner's.";
 
-/** The entities an Admin may define fields for (client-scoped rows only, PERMISSIONS ²). */
-const ADMIN_ENTITIES: readonly SettingsEntity[] = ["client", "contact"];
+/**
+ * The entities an Admin may define fields for: client and contact fields scoped to one of their
+ * clients (PERMISSIONS ²), and task fields (`lists.manage`, PERMISSIONS ³; 4B).
+ */
+const ADMIN_ENTITIES: readonly SettingsEntity[] = ["client", "contact", "task"];
 
 /**
  * Settings → Custom fields (task 3.2, PRODUCT §4.16, WORKFLOWS §4a). The entity is a view
  * control (`?entity=`); the Owner defines global fields and project / item fields, an Admin
- * only fields scoped to one of their own clients. Task fields arrive with 4.1.
+ * only fields scoped to one of their own clients. Task fields (4B) are company-wide and open to
+ * everyone with `lists.manage`, the Owner and the Admins alike.
  */
 export default async function CustomFieldsSettingsPage({
   searchParams,
@@ -38,6 +42,8 @@ export default async function CustomFieldsSettingsPage({
 
   const [definitions, clients] = await Promise.all([listAllDefinitions(entity), listClients()]);
   const scopes = sortClients(clients).map((client) => ({ id: client.id, name: client.name }));
+  // Task fields are company-wide and `lists.manage`'s (4B); the other global rows are the Owner's.
+  const canGlobal = isOwner || entity === "task";
 
   return (
     <>
@@ -46,7 +52,7 @@ export default async function CustomFieldsSettingsPage({
         title="Custom fields"
         description={DESCRIPTION}
         help={DESCRIPTION}
-        actions={<AddFieldButton entity={entity} scopes={scopes} canGlobal={isOwner} />}
+        actions={<AddFieldButton entity={entity} scopes={scopes} canGlobal={canGlobal} />}
       />
       <CustomFieldEntityTabs entities={entities} current={entity} />
       <div className="max-w-2xl">
@@ -55,7 +61,7 @@ export default async function CustomFieldsSettingsPage({
           entity={entity}
           definitions={definitions}
           scopes={scopes}
-          canGlobal={isOwner}
+          canGlobal={canGlobal}
         />
       </div>
     </>

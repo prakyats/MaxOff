@@ -18,6 +18,7 @@ export function PlaceholderPage({
   greet,
   children,
   footer,
+  actions,
 }: {
   title: string;
   /** What the screen says until it arrives, from `STAND_INS`. */
@@ -29,12 +30,15 @@ export function PlaceholderPage({
   children?: ReactNode;
   /** The bottom of the screen, below the stand-in. */
   footer?: ReactNode;
+  /** The screen's one action, already built (Tasks' "New task", 4.3): a FAB on a phone. */
+  actions?: ReactNode;
 }) {
   return (
     <>
       <PageHeader
         title={title}
         description={greet ? `Hello, ${greet}. ${copy.description}` : copy.description}
+        actions={actions}
       />
       {children}
       <EmptyState icon={icon} title={copy.title} description={copy.message} />

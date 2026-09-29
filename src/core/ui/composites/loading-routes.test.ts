@@ -35,7 +35,7 @@ const routes = routesWithPages(appDir).filter((route) => !NO_DATA.has(route));
 describe("loading.tsx coverage", () => {
   it("finds the app routes at all (guards against a silently empty sweep)", () => {
     expect(routes.length).toBeGreaterThanOrEqual(13);
-    expect(routes).toContain("tasks");
+    expect(routes).toContain("tasks/(list)");
     expect(routes).toContain("settings/company");
   });
 
@@ -76,7 +76,10 @@ describe("loading.tsx coverage", () => {
     expect(sourceOf("today")).toContain("TodayAttendanceStripSkeleton");
     expect(sourceOf("my-day")).toContain(standIn);
     expect(sourceOf("my-day")).toContain("TodayAttendanceStripSkeleton");
-    expect(sourceOf("tasks")).toContain(standIn);
+    // Tasks sits in a `(list)` group since 4B, so its skeleton never wraps a task's page.
+    expect(sourceOf("tasks/(list)")).toContain(standIn);
+    // A task's page (4.4) traces its first card and sections, not a generic detail.
+    expect(sourceOf("tasks/[id]")).toContain("loading-task");
     expect(sourceOf("calendar")).toContain(standIn);
     expect(sourceOf("notifications")).toContain(standIn);
     // Reports (3b.4): the Owner's list of reports first; the Admin's branch is the stand-in.
@@ -86,7 +89,7 @@ describe("loading.tsx coverage", () => {
     // the Admin's branch is the stand-in.
     expect(sourceOf("approvals")).toContain("ApprovalGroupSkeleton");
     expect(sourceOf("approvals")).toContain(standIn);
-    for (const route of ["today", "my-day", "tasks", "calendar", "notifications"]) {
+    for (const route of ["today", "my-day", "tasks/(list)", "calendar", "notifications"]) {
       expect(shapeOf(route), `${route} traces the stand-in, not a shape`).toBeUndefined();
     }
     // The team's month traces its own rows (3b review), under the month switcher.
