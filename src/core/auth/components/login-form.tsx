@@ -64,8 +64,15 @@ export function LoginForm({ next }: { next?: string | undefined }) {
         Sign in
       </Button>
       <p className="text-muted-foreground text-center text-sm">
+        {/* Never prefetched: a sign-in re-prefetches the links still on screen with the new
+            session, and the proxy sends a signed-in member from /forgot-password home (/ →
+            /my-day). Next answers that redirected prefetch with a 307 from /my-day to
+            /my-day?_rsc=…, the browser keeps it, and a later back to that My Day entry replayed
+            it: the app landed on the ?_rsc= address (expenses.spec "the tabs replace", local
+            full runs on 2026-09-28 and -29). The page is one tap away and rarely used. */}
         <Link
           href={FORGOT_PASSWORD_PATH}
+          prefetch={false}
           className="pressable-row hover:text-foreground underline underline-offset-4"
         >
           Forgot your password?
