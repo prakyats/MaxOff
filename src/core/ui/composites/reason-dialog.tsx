@@ -69,12 +69,15 @@ export function ReasonDialog({
   const [error, setError] = useState<string | null>(null);
   // One request per tap; a slow or failed one is said under the buttons and what was typed
   // stays (ARCHITECTURE §14.1).
-  const action = useAction(async (trimmed: string) => {
-    // `false` means it failed (the caller has said why): keep the dialog and what was typed.
-    if ((await onSubmit(trimmed)) === false) return;
-    setReason("");
-    onOpenChange(false);
-  });
+  const action = useAction(
+    async (trimmed: string) => {
+      // `false` means it failed (the caller has said why): keep the dialog and what was typed.
+      if ((await onSubmit(trimmed)) === false) return;
+      setReason("");
+      onOpenChange(false);
+    },
+    { resetKey: open },
+  );
   const { pending } = action;
   const id = useId();
   const errorId = `${id}-error`;

@@ -90,18 +90,21 @@ function CorrectForm({
   const [reason, setReason] = useState("");
   const [error, setError] = useState<ResultError | null>(null);
   const name = firstName(target.memberName);
-  const action = useAction(async () => {
-    // An empty choice goes to the schema, which answers with the field's own message.
-    const result = await correctDay({ dayId: target.dayId, status: status as DayStatus, reason });
-    if (result.ok) {
-      toastResult(result, {
-        success: `${name}'s day is now ${status ? STATUS_LABELS[status].toLowerCase() : "corrected"}`,
-      });
-      onDone();
-    } else {
-      setError(result.error);
-    }
-  });
+  const action = useAction(
+    async () => {
+      // An empty choice goes to the schema, which answers with the field's own message.
+      const result = await correctDay({ dayId: target.dayId, status: status as DayStatus, reason });
+      if (result.ok) {
+        toastResult(result, {
+          success: `${name}'s day is now ${status ? STATUS_LABELS[status].toLowerCase() : "corrected"}`,
+        });
+        onDone();
+      } else {
+        setError(result.error);
+      }
+    },
+    { resetKey: target.dayId },
+  );
   const { pending } = action;
 
   function submit(event: React.FormEvent<HTMLFormElement>) {

@@ -31,15 +31,18 @@ export function AddHolidayDialog({ onClose }: { onClose: () => void }) {
   const [date, setDate] = useState("");
   const [name, setName] = useState("");
   const [error, setError] = useState<ResultError | null>(null);
-  const action = useAction(async () => {
-    const result = await createHoliday({ date, name });
-    if (result.ok) {
-      toastResult(result, { success: "Holiday added" });
-      onClose();
-    } else {
-      setError(result.error);
-    }
-  });
+  const action = useAction(
+    async () => {
+      const result = await createHoliday({ date, name });
+      if (result.ok) {
+        toastResult(result, { success: "Holiday added" });
+        onClose();
+      } else {
+        setError(result.error);
+      }
+    },
+    { creates: true },
+  );
   const { pending } = action;
 
   function submit(event: FormEvent<HTMLFormElement>) {

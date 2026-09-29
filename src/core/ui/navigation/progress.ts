@@ -16,12 +16,18 @@ export const NAV_PENDING_ATTRIBUTE = "data-nav-pending";
 export const NAV_DONE_ATTRIBUTE = "data-nav-done";
 export const NAV_TARGET_ATTRIBUTE = "data-nav-target";
 
-/** After this long, the bar area says the connection is slow (§14.2 i, owner 2026-09-28). */
+/**
+ * After this long, a quiet line under the bar says "Still loading" with Retry (§14.2 i, owner
+ * 2026-09-29): before it, the bar alone.
+ */
 export const NAV_SLOW_MS = 8_000;
-/** After this long, it offers Retry: the same navigation again. */
-export const NAV_RETRY_MS = 10_000;
-/** After this long, it also offers Reload: a full load of the destination, the last resort. */
+/** After this long, Retry reloads the destination in full instead of asking the router again. */
 export const NAV_RELOAD_MS = 25_000;
+/**
+ * Once the destination's fetch has answered and its address is showing, the bar finishes within
+ * this long even if a skeleton is still in `main` (a section that loads on its own later).
+ */
+export const NAV_SETTLE_MS = 3_000;
 
 type Place = { origin: string; pathname: string; search: string };
 
@@ -37,12 +43,11 @@ export function startsNavigation(link: Place, current: Place): boolean {
   return link.pathname !== current.pathname || link.search !== current.search;
 }
 
-/** What the bar area says after `elapsed` ms of one navigation. */
-export type NavStage = "working" | "slow" | "retry" | "reload";
+/** What the bar area offers after `elapsed` ms of one navigation. */
+export type NavStage = "working" | "slow" | "stuck";
 
 export function navStage(elapsed: number): NavStage {
-  if (elapsed >= NAV_RELOAD_MS) return "reload";
-  if (elapsed >= NAV_RETRY_MS) return "retry";
+  if (elapsed >= NAV_RELOAD_MS) return "stuck";
   if (elapsed >= NAV_SLOW_MS) return "slow";
   return "working";
 }

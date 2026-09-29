@@ -178,8 +178,7 @@ export default async function MePage({
               <div className="min-w-0 flex-[1_1_10rem]">
                 <p className="text-sm font-medium">Reload app</p>
                 <p className="text-muted-foreground text-sm">
-                  If a screen looks stuck, this starts MaxOff again. To just update a screen, pull
-                  it down.
+                  If a screen looks stuck, this starts MaxOff again from the beginning.
                 </p>
               </div>
               <ReloadAppButton />

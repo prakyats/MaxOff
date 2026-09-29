@@ -23,6 +23,8 @@ export function isNetworkError(error: unknown): boolean {
 }
 
 export const NETWORK_ERROR_MESSAGE = "Couldn't reach MaxOff. Check your connection and try again.";
+export const NETWORK_ERROR_CREATE_MESSAGE =
+  "Couldn't reach MaxOff, so it may or may not have been saved. Check before trying again.";
 export const SLOW_MESSAGE = "Still working… slow connection";
 
 /** After this long a pending action says the connection is slow (owner 2026-09-28). */

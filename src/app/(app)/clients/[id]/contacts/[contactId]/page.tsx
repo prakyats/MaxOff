@@ -2,13 +2,14 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { listDefinitions } from "@/core/custom-fields/server";
+import { checkThenRead } from "@/core/lib/start-early";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { StatusBadge } from "@/core/ui/composites/status-badge";
 import { Card, CardContent } from "@/core/ui/primitives/card";
 import { listContacts } from "@/modules/clients";
 import { ContactMenu, ContactRecord } from "@/modules/clients/components/contact-record";
 
-import { loadClient, loadPeople } from "../../client";
+import { assertClientId, loadClient, loadPeople } from "../../client";
 
 export const metadata: Metadata = { title: "Contact" };
 
@@ -24,12 +25,11 @@ export default async function ContactPage({
 }) {
   const { id, contactId } = await params;
   // Keyed by the client id in the URL: read together with the client (ARCHITECTURE §19).
-  const [{ client, canEdit }, contacts, definitions, people] = await Promise.all([
+  assertClientId(id);
+  const [{ client, canEdit }, [contacts, definitions, people]] = await checkThenRead(
     loadClient(id),
-    listContacts(id),
-    listDefinitions("contact", { clientId: id }),
-    loadPeople(),
-  ]);
+    Promise.all([listContacts(id), listDefinitions("contact", { clientId: id }), loadPeople()]),
+  );
   const contact = contacts.find((candidate) => candidate.id === contactId);
   if (!contact) notFound();
   const others = contacts

@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 
 import "./globals.css";
@@ -6,7 +7,7 @@ import "./globals.css";
 import { cn } from "@/core/lib/utils";
 import { LAUNCH_INTRO_SCRIPT, LaunchIntro } from "@/core/ui/pwa/launch-intro";
 import { OfflineBanner } from "@/core/ui/connection/offline-banner";
-import { NavProgress } from "@/core/ui/navigation/nav-progress";
+import { NavProgress, NavProgressBar } from "@/core/ui/navigation/nav-progress";
 import { PRE_HYDRATION_SCRIPT } from "@/core/ui/navigation/pre-hydration";
 import { STANDALONE_SCRIPT } from "@/core/ui/pwa/standalone";
 import launch from "@/core/ui/pwa/launch-screens.json";
@@ -86,8 +87,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       </head>
       <body className="bg-background text-foreground min-h-dvh">
         <LaunchIntro />
-        {/* The navigation progress bar and its slow-connection messages (§14.2 i). */}
-        <NavProgress />
+        {/* The navigation progress bar (server HTML, so a tap draws it before hydration) and what
+            drives it, which reads the address through Next's hooks (§14.2 i). */}
+        <NavProgressBar />
+        <Suspense fallback={null}>
+          <NavProgress />
+        </Suspense>
         {/* "You're offline…" above the bottom bar; commit buttons wait for the connection. */}
         <OfflineBanner />
         {/*

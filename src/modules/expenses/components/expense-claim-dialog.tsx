@@ -158,67 +158,70 @@ function ClaimForm({
 
   // One request per tap: the photo goes up, then the claim; a slow or failed one is said under
   // the buttons and what was typed stays (ARCHITECTURE §14.1).
-  const action = useAction(async (amount: number) => {
-    onBusy(true);
-    try {
-      let receiptFileId: string | null = null;
-      if (file) {
-        if (uploaded?.file === file) {
-          receiptFileId = uploaded.fileId;
-        } else {
-          setPhase("uploading");
-          const outcome = await uploadImageWithPreview({ purpose: "receipt", file });
-          if (!outcome.ok) {
-            setFieldErrors({ receipt: outcome.message });
-            return;
+  const action = useAction(
+    async (amount: number) => {
+      onBusy(true);
+      try {
+        let receiptFileId: string | null = null;
+        if (file) {
+          if (uploaded?.file === file) {
+            receiptFileId = uploaded.fileId;
+          } else {
+            setPhase("uploading");
+            const outcome = await uploadImageWithPreview({ purpose: "receipt", file });
+            if (!outcome.ok) {
+              setFieldErrors({ receipt: outcome.message });
+              return;
+            }
+            setUploaded({ file, fileId: outcome.fileId });
+            receiptFileId = outcome.fileId;
           }
-          setUploaded({ file, fileId: outcome.fileId });
-          receiptFileId = outcome.fileId;
         }
-      }
-      setPhase("saving");
-      const result = await submitExpenseClaim({
-        expenseDate,
-        amount,
-        categoryId,
-        note,
-        receiptFileId,
-      });
-      if (!result.ok) {
-        const fields = result.error.fieldErrors;
-        if (fields) {
-          setFieldErrors({
-            amount: fields.amount?.[0],
-            categoryId: fields.categoryId?.[0],
-            expenseDate: fields.expenseDate?.[0],
-            note: fields.note?.[0],
-          });
-        } else {
-          setError(result.error);
+        setPhase("saving");
+        const result = await submitExpenseClaim({
+          expenseDate,
+          amount,
+          categoryId,
+          note,
+          receiptFileId,
+        });
+        if (!result.ok) {
+          const fields = result.error.fieldErrors;
+          if (fields) {
+            setFieldErrors({
+              amount: fields.amount?.[0],
+              categoryId: fields.categoryId?.[0],
+              expenseDate: fields.expenseDate?.[0],
+              note: fields.note?.[0],
+            });
+          } else {
+            setError(result.error);
+          }
+          return;
         }
-        return;
+        const category = loaded?.categories.find((option) => option.id === categoryId)?.name ?? "";
+        toastResult(result, { success: "Expense claim added" });
+        router.refresh();
+        if (!several) {
+          onClose();
+          return;
+        }
+        setAdded((current) => [
+          ...current,
+          { key: result.data.claimId, label: `${formatRupees(amount)} · ${category}` },
+        ]);
+        setAmountText("");
+        setNote("");
+        setFile(null);
+        setUploaded(null);
+        setFieldErrors({});
+      } finally {
+        setPhase("idle");
+        onBusy(false);
       }
-      const category = loaded?.categories.find((option) => option.id === categoryId)?.name ?? "";
-      toastResult(result, { success: "Expense claim added" });
-      router.refresh();
-      if (!several) {
-        onClose();
-        return;
-      }
-      setAdded((current) => [
-        ...current,
-        { key: result.data.claimId, label: `${formatRupees(amount)} · ${category}` },
-      ]);
-      setAmountText("");
-      setNote("");
-      setFile(null);
-      setUploaded(null);
-      setFieldErrors({});
-    } finally {
-      setPhase("idle");
-      onBusy(false);
-    }
-  });
+    },
+    { creates: true },
+  );
 
   if (!loaded) {
     return (

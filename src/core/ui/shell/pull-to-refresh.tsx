@@ -2,7 +2,7 @@
 
 import { Loader2Icon, RefreshCwIcon } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { startTransition, useEffect, useRef, useState } from "react";
 
 import { cn } from "@/core/lib/utils";
 import { systemClock } from "@/core/time/clock";
@@ -10,7 +10,12 @@ import { anySendWaiting } from "@/core/ui/delayed-sends";
 import { useActiveEditor } from "@/core/ui/edit/active-editor";
 import { anyEditDirty } from "@/core/ui/edit/edit-guard";
 
+import { nextScreenFetch } from "@/core/ui/navigation/screen-fetches";
+
 import { canPull, PULL_MAX_PX, PULL_TRIGGER_PX, pullDistance } from "./pull-rules";
+
+/** A refresh that never answers (superseded by a navigation) stops the spinner after this. */
+const REFRESH_GIVE_UP_MS = 15_000;
 
 /** Anything that owns the gesture: a sheet, a dialog, a confirmation, an open select or menu. */
 const OVERLAY = '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]';
@@ -28,7 +33,12 @@ export function PullToRefresh({ tabRoots }: { tabRoots: readonly string[] }) {
   const pathname = usePathname();
   const editor = useActiveEditor();
   const [distance, setDistance] = useState(0);
-  const [refreshing, startRefresh] = useTransition();
+  // Its own lifetime, not a transition's: Next queues a refresh behind any router action already
+  // in flight and runs it outside the caller's transition, whose pending state could then end
+  // before the refresh had started (the spinner never showed on CI). It turns until the
+  // refresh's own screen fetch has answered (`nextScreenFetch`), or gives up after 15 s if a
+  // navigation superseded the refresh.
+  const [refreshing, setRefreshing] = useState(false);
   const lastPull = useRef(0);
   const state = useRef({ tabRoots, pathname, editor });
   useEffect(() => {
@@ -81,18 +91,28 @@ export function PullToRefresh({ tabRoots }: { tabRoots: readonly string[] }) {
       setDistance(0);
       if (travelled < PULL_TRIGGER_PX) return;
       lastPull.current = systemClock().getTime();
-      startRefresh(() => router.refresh());
+      setRefreshing(true);
+      const answered = nextScreenFetch(location.pathname + location.search, REFRESH_GIVE_UP_MS);
+      startTransition(() => router.refresh());
+      void answered.then(() => setRefreshing(false));
+    };
+
+    // The browser took the gesture over (a scroll, a system gesture): nothing to refresh.
+    const onCancel = () => {
+      startY = null;
+      travelled = 0;
+      setDistance(0);
     };
 
     window.addEventListener("touchstart", onStart, { passive: true });
     window.addEventListener("touchmove", onMove, { passive: true });
     window.addEventListener("touchend", onEnd, { passive: true });
-    window.addEventListener("touchcancel", onEnd, { passive: true });
+    window.addEventListener("touchcancel", onCancel, { passive: true });
     return () => {
       window.removeEventListener("touchstart", onStart);
       window.removeEventListener("touchmove", onMove);
       window.removeEventListener("touchend", onEnd);
-      window.removeEventListener("touchcancel", onEnd);
+      window.removeEventListener("touchcancel", onCancel);
     };
   }, [router]);
 

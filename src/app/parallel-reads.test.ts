@@ -11,6 +11,9 @@ import { describe, expect, it } from "vitest";
  * standalone `await require…()` followed by another `await` in the same file, with no reads
  * started before it (`startEarly(`, or the reads inside the same `Promise.all`).
  *
+ * Also flagged: `loadClient`/`loadPerson`/`loadHistoryPerson` (which carry the permission check)
+ * in one `Promise.all` with reads; they go first, through `checkThenRead`.
+ *
  * Awaiting `params` or `searchParams` is not a read. A page whose reads genuinely need the role
  * first says so on the line above with `perf: sequential` and why.
  */
@@ -29,6 +32,11 @@ export function findWaterfalls(text: string): number[] {
     const after = text.slice(match.index + match[0].length).replace(NOT_A_READ, "");
     if (/\bawait\b/.test(after)) found.push(line);
   }
+  // A permission-carrying loader in one `Promise.all` with reads: a read that refuses could beat
+  // its redirect to /forbidden. It goes first, through `checkThenRead`.
+  for (const match of text.matchAll(/Promise\.all\(\[\s*load(?:Client|Person|HistoryPerson)\(/g)) {
+    found.push(text.slice(0, match.index).split("\n").length);
+  }
   return found;
 }
 
@@ -39,6 +47,17 @@ describe("the checker (fixtures)", () => {
   const rows = await listRows(viewer.id);
 }`;
     expect(findWaterfalls(page)).toEqual([2]);
+  });
+
+  it("flags a permission-carrying loader raced against reads", () => {
+    expect(
+      findWaterfalls(
+        `  const [a, b] = await Promise.all([\n    loadClient(id),\n    listX(id),\n  ]);`,
+      ),
+    ).toEqual([1]);
+    expect(
+      findWaterfalls(`  const [a, b] = await checkThenRead(loadClient(id), listX(id));`),
+    ).toEqual([]);
   });
 
   it("passes parallel reads, early starts, a page with no reads and a marked one", () => {

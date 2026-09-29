@@ -58,15 +58,18 @@ export function InviteMemberDialog({ jobTitles }: { jobTitles: readonly JobTitle
   const [jobTitleId, setJobTitleId] = useState("");
   const [error, setError] = useState<ResultError | null>(null);
   const [outcome, setOutcome] = useState<InviteOutcome | null>(null);
-  const action = useAction(async () => {
-    const result = await inviteMember({ email, fullName, role, jobTitleId });
-    if (result.ok) {
-      setError(null);
-      setOutcome(result.data);
-    } else {
-      setError(result.error);
-    }
-  });
+  const action = useAction(
+    async () => {
+      const result = await inviteMember({ email, fullName, role, jobTitleId });
+      if (result.ok) {
+        setError(null);
+        setOutcome(result.data);
+      } else {
+        setError(result.error);
+      }
+    },
+    { resetKey: open, creates: true },
+  );
   const { pending } = action;
 
   function reset() {

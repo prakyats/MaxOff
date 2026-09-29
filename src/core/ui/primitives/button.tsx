@@ -41,7 +41,7 @@ function Button({
     /** The action this button started is on its way. */
     pending?: boolean;
     /** What it says while pending: "Saving…", "Starting…". Defaults to its label. */
-    pendingLabel?: React.ReactNode;
+    pendingLabel?: string;
     /** It commits a change, so it waits for a connection. `primary` buttons do by default. */
     commits?: boolean;
   }) {

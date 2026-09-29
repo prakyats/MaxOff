@@ -1,6 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { Loader2Icon } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { systemClock } from "@/core/time/clock";
@@ -10,15 +11,32 @@ import {
   isNavigationFetch,
   NAV_DONE_ATTRIBUTE,
   NAV_PENDING_ATTRIBUTE,
+  NAV_SETTLE_MS,
   NAV_TARGET_ATTRIBUTE,
   navStage,
   type NavStage,
 } from "./progress";
+import { noteScreenFetchSettled } from "./screen-fetches";
 
 /** How long a tap may go without the router starting anything before the bar stands down. */
 const IDLE_CANCEL_MS = 600;
 /** How long the finished bar stays full before it fades (`globals.css`). */
 const DONE_MS = 300;
+/** A `beforeunload` that did not unload (a `tel:` link, a download) is forgotten after this. */
+const UNLOAD_GRACE_MS = 2_000;
+/** Anything that owns the screen while open: the status line waits until it has closed. */
+const OVERLAY = '[role="dialog"], [role="alertdialog"]';
+
+/** How a navigation began: it decides what Retry repeats (§14.2 i). */
+type Kind = "tap" | "router" | "history";
+
+/** Whether the app runs installed: a tab move then replaces (§14.2 c). */
+function standalone(): boolean {
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    (window.navigator as { standalone?: boolean }).standalone === true
+  );
+}
 
 /** The page's address without its hash: a hash-only change is not a navigation. */
 function here(): string {
@@ -26,39 +44,66 @@ function here(): string {
 }
 
 /**
- * The navigation progress bar (ARCHITECTURE §14.2 i, owner 2026-09-28), mounted once in the root
- * layout. The bar itself is CSS on `html[data-nav-pending]` (`globals.css`), so it shows on the
- * tap, before hydration and before the server has answered; this component:
+ * The bar itself: a plain element, in the root layout's server HTML, so the CSS on
+ * `html[data-nav-pending]` draws it on a tap before anything has hydrated (§14.2 i).
+ */
+export function NavProgressBar() {
+  return <div data-slot="nav-progress-bar" aria-hidden />;
+}
+
+/**
+ * What drives the bar (ARCHITECTURE §14.2 i, owner 2026-09-28 and 2026-09-29), mounted once in the
+ * root layout inside `<Suspense>` (it reads the address through Next's hooks):
  *
- * - **starts** it for navigations no tap started: any router fetch for a screen (`router.push`,
- *   `router.replace`, a redirect, a refresh on return), by watching `fetch` for the RSC request,
- *   and the browser's back and forward (`popstate`);
+ * - **starts** it for navigations no tap started: any router fetch for another screen
+ *   (`router.push`/`replace`, a redirect), by watching `fetch`, and back or forward to **another
+ *   address** (`popstate`). Closing a sheet or dialog is a history move back to the same address,
+ *   so it never starts the bar;
  * - **finishes** it once the address has changed and no route skeleton (`loading-state`) is left
- *   in `main`: the new screen is really there, not just its outline. A fetch that ends without an
- *   address change (a refresh) finishes it too;
+ *   in `main`, or at most `NAV_SETTLE_MS` after the destination's fetch has answered (a section
+ *   that loads on its own may keep a skeleton); a fetch that ends without an address change (a
+ *   refresh) finishes it too;
  * - **stands down** quietly when a tap turns out not to navigate (the unsaved-changes guard held
- *   it): nothing started within `IDLE_CANCEL_MS` and the page is not unloading;
- * - after 8 s says the connection is slow, after 10 s offers **Retry** (the same move again: the
- *   tapped link is clicked again, or the address pushed), after 25 s also **Reload** (a full load
- *   of the destination). Never a history entry, never a layer: back is unaffected.
+ *   it): nothing started within `IDLE_CANCEL_MS`. A page that is really unloading is left alone,
+ *   and a `beforeunload` that did not unload is forgotten after `UNLOAD_GRACE_MS`;
+ * - after 8 s shows one quiet line, "Still loading" with **Retry** (the tapped link clicked again,
+ *   so the same move and no extra history entry); after 25 s Retry loads the destination in full.
+ *   Never while a dialog or sheet is open, never a layer, never a history entry.
  */
 export function NavProgress() {
   const router = useRouter();
+  const pathname = usePathname();
+  const search = useSearchParams();
   const [stage, setStage] = useState<NavStage | null>(null);
   const destination = useRef<string | null>(null);
+  const kind = useRef<Kind>("tap");
+  // The address the app is showing, as React last rendered it: at a `popstate` it is still the
+  // address before the move, so a move to the same address (an overlay closing) is told apart.
+  const shown = useRef("");
+  useEffect(() => {
+    const query = search.toString();
+    shown.current = pathname + (query ? `?${query}` : "");
+  }, [pathname, search]);
 
   useEffect(() => {
     const html = document.documentElement;
     let startedAt = 0;
     let from = "";
+    let movedAt = 0;
+    let settledAt = 0;
     let fetches = 0;
     let fetched = false;
+    // A counted fetch for another address: then only the address changing ends the bar. A fetch
+    // for the address it started from is a refresh, which ends it when it answers.
+    let elsewhere = false;
     let unloading = false;
+    let unloadTimer = 0;
     let doneTimer = 0;
     let frame = 0;
     let ticker = 0;
 
     const pending = () => html.hasAttribute(NAV_PENDING_ATTRIBUTE);
+    const now = () => systemClock().getTime();
 
     const clear = () => {
       window.cancelAnimationFrame(frame);
@@ -79,20 +124,27 @@ export function NavProgress() {
       doneTimer = window.setTimeout(() => html.removeAttribute(NAV_DONE_ATTRIBUTE), DONE_MS);
     };
 
-    // One loop per navigation: arrival, standing down, and the slow messages.
+    // One loop per navigation: arrival, standing down, and the slow line.
     const watch = () => {
       window.cancelAnimationFrame(frame);
       window.clearInterval(ticker);
       const check = () => {
         if (!pending()) return;
+        const t = now();
         const moved = here() !== from;
+        if (moved && !movedAt) movedAt = t;
         const skeleton = document.querySelector('main [data-slot="loading-state"]');
-        if ((moved && !skeleton) || (!moved && fetched && fetches === 0)) {
+        const answered = fetched && fetches === 0;
+        const arrived =
+          moved &&
+          (!skeleton ||
+            (answered && t - settledAt > NAV_SETTLE_MS) ||
+            (fetches === 0 && t - movedAt > NAV_SETTLE_MS));
+        if (arrived || (!moved && answered && !elsewhere)) {
           finish();
           return;
         }
-        const elapsed = systemClock().getTime() - startedAt;
-        if (!moved && fetches === 0 && !fetched && !unloading && elapsed > IDLE_CANCEL_MS) {
+        if (!moved && fetches === 0 && !fetched && !unloading && t - startedAt > IDLE_CANCEL_MS) {
           clear();
           return;
         }
@@ -100,18 +152,24 @@ export function NavProgress() {
       };
       frame = window.requestAnimationFrame(check);
       ticker = window.setInterval(() => {
-        const next = navStage(systemClock().getTime() - startedAt);
-        setStage(next === "working" ? null : next);
+        const next = navStage(now() - startedAt);
+        const covered = document.querySelector(OVERLAY) !== null;
+        setStage(next === "working" || covered ? null : next);
       }, 500);
     };
 
     // A navigation begins (a tap marked the document already, or the router started one).
-    const begin = (to: string | null) => {
+    const begin = (to: string | null, how: Kind, origin: string = here()) => {
       window.clearTimeout(doneTimer);
       html.removeAttribute(NAV_DONE_ATTRIBUTE);
-      if (!pending()) html.setAttribute(NAV_PENDING_ATTRIBUTE, String(systemClock().getTime()));
-      startedAt = Number(html.getAttribute(NAV_PENDING_ATTRIBUTE)) || systemClock().getTime();
-      from = here();
+      if (!pending()) html.setAttribute(NAV_PENDING_ATTRIBUTE, String(now()));
+      startedAt = Number(html.getAttribute(NAV_PENDING_ATTRIBUTE)) || now();
+      // A back or forward has already changed the address: it is measured from where it left.
+      from = origin;
+      kind.current = how;
+      elsewhere = false;
+      movedAt = 0;
+      settledAt = 0;
       fetched = false;
       if (to) destination.current = to;
       watch();
@@ -120,7 +178,7 @@ export function NavProgress() {
     // A tap before hydration may already have started one: carry on from its start time.
     if (pending()) {
       const target = document.querySelector(`[${NAV_TARGET_ATTRIBUTE}]`);
-      begin(target?.getAttribute(NAV_TARGET_ATTRIBUTE) ?? null);
+      begin(target?.getAttribute(NAV_TARGET_ATTRIBUTE) ?? null, "tap");
     }
 
     // Taps: the head script marks the document in the capture phase; pick it up after the
@@ -128,11 +186,20 @@ export function NavProgress() {
     const onClick = () => {
       if (!pending()) return;
       const target = document.querySelector(`[${NAV_TARGET_ATTRIBUTE}]`);
-      begin(target?.getAttribute(NAV_TARGET_ATTRIBUTE) ?? null);
+      begin(target?.getAttribute(NAV_TARGET_ATTRIBUTE) ?? null, "tap");
     };
-    const onPopState = () => begin(null);
+    // Back or forward: only a move to another address is a navigation. Closing a sheet or a
+    // dialog goes back to the entry beneath at the same address (§14.2 a).
+    const onPopState = () => {
+      if (here() === shown.current) return;
+      begin(here(), "history", shown.current);
+    };
     const onUnload = () => {
       unloading = true;
+      window.clearTimeout(unloadTimer);
+      unloadTimer = window.setTimeout(() => {
+        unloading = false;
+      }, UNLOAD_GRACE_MS);
     };
 
     // Router fetches: `router.push`/`replace`, redirects and refreshes reach the server here.
@@ -145,25 +212,35 @@ export function NavProgress() {
       const url = new URL(request?.url ?? String(input), location.href);
       url.searchParams.delete("_rsc");
       const to = url.pathname + url.search;
+      // Every screen fetch reports when it has answered (pull-to-refresh waits on its own).
+      const reported = (response: Promise<Response>) => {
+        const report = () => noteScreenFetchSettled(to);
+        response.then(report, report);
+        return response;
+      };
       // A refresh of the screen you are on (refresh on return, pull-to-refresh with its own
       // spinner) is not a navigation: no bar for it unless a tap already started one.
-      if (!pending() && to === here()) return realFetch(input, init);
-      if (!pending()) begin(to);
+      if (!pending() && to === here()) return reported(realFetch(input, init));
+      if (!pending()) begin(to, "router");
       else if (!destination.current) destination.current = to;
+      if (to !== from) elsewhere = true;
       fetches++;
       const settle = () => {
         fetches--;
         fetched = true;
+        settledAt = now();
       };
-      return realFetch(input, init).then(
-        (response) => {
-          settle();
-          return response;
-        },
-        (error: unknown) => {
-          settle();
-          throw error;
-        },
+      return reported(
+        realFetch(input, init).then(
+          (response) => {
+            settle();
+            return response;
+          },
+          (error: unknown) => {
+            settle();
+            throw error;
+          },
+        ),
       );
     };
     window.fetch = patched;
@@ -179,46 +256,62 @@ export function NavProgress() {
       window.cancelAnimationFrame(frame);
       window.clearInterval(ticker);
       window.clearTimeout(doneTimer);
+      window.clearTimeout(unloadTimer);
     };
   }, []);
 
   const retry = () => {
     const to = destination.current;
     const link = document.querySelector<HTMLElement>(`[${NAV_TARGET_ATTRIBUTE}]`);
-    // The same move again: the tapped link knows whether it pushes, replaces or goes back.
-    if (link?.isConnected) link.click();
+    // A back or forward already stands on its address (the back control's own move included):
+    // repeating it would go one level further, so the screen there is asked for again instead.
+    const history = kind.current === "history" || link?.getAttribute("data-slot") === "page-back";
+    // Long past hope for the router: the destination, loaded in full, with the move it was. A
+    // view control, and an installed tab away from home, replace; anything else pushes.
+    if (stage === "stuck") {
+      if (history || !to) {
+        window.location.reload();
+        return;
+      }
+      const bar = link?.closest("[data-tab-home]");
+      const replaces =
+        link?.hasAttribute("data-view-link") ||
+        (link?.hasAttribute("data-tab") &&
+          standalone() &&
+          location.pathname !== bar?.getAttribute("data-tab-home"));
+      if (replaces) window.location.replace(to);
+      else window.location.assign(to);
+      return;
+    }
+    if (history) router.refresh();
+    // The same move again: the tapped link knows whether it pushes or replaces.
+    else if (link?.isConnected) link.click();
     else if (to) router.push(to);
   };
-  const reload = () => {
-    const to = destination.current;
-    if (to) window.location.assign(to);
-    else window.location.reload();
-  };
 
+  if (!stage) return null;
   return (
-    <div data-slot="nav-progress" aria-hidden={stage === null}>
-      <div data-slot="nav-progress-bar" />
-      {stage ? (
-        <div
-          data-slot="nav-progress-status"
-          role="status"
-          className="bg-popover text-popover-foreground border-border fixed top-[calc(var(--app-safe-top,0px)+0.5rem)] left-1/2 z-[60] flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-2 rounded-full border py-1 pr-1 pl-3 text-sm shadow-md"
-        >
-          <span>
-            {stage === "slow" ? "Still working… slow connection" : "Taking longer than usual"}
-          </span>
-          {stage === "retry" || stage === "reload" ? (
-            <Button size="sm" variant="secondary" onClick={retry} data-slot="nav-retry">
-              Retry
-            </Button>
-          ) : null}
-          {stage === "reload" ? (
-            <Button size="sm" variant="ghost" onClick={reload} data-slot="nav-reload">
-              Reload
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
+    <div
+      data-slot="nav-progress-status"
+      role="status"
+      className="bg-background/95 text-muted-foreground ring-border fixed top-[calc(var(--app-safe-top)+0.375rem)] left-1/2 z-[60] flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-1.5 rounded-full py-1 pr-1 pl-2.5 text-xs shadow-sm ring-1 backdrop-blur"
+    >
+      <Loader2Icon className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden />
+      <span>Still loading</span>
+      {/* Quiet: underlined text, not a boxed button (it isn't a commit); the shell's 44px minimum
+          for buttons gives it its tap area on a phone, the negative margin keeps the line small.
+          The shared `Button` on purpose: it keeps `Button` in the root layout's chunk, so pages
+          reuse it instead of each bundling a copy (the first-load budget, `pnpm budget`). */}
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        data-slot="nav-retry"
+        onClick={retry}
+        className="-my-3 underline underline-offset-2"
+      >
+        Retry
+      </Button>
     </div>
   );
 }

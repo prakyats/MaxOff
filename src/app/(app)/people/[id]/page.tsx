@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { checkThenRead } from "@/core/lib/start-early";
 import { listItems } from "@/core/lists/server";
 import { can } from "@/core/permissions";
 import { fileUrl } from "@/core/storage";
@@ -27,10 +28,10 @@ export default async function PersonProfilePage({ params }: { params: Promise<{ 
   const { id } = await params;
   // Archived titles travel too: the person keeps the one they have (1.3 follow-up). Read
   // together with the person, not after (ARCHITECTURE §19).
-  const [{ viewer, person }, titles] = await Promise.all([
+  const [{ viewer, person }, titles] = await checkThenRead(
     loadPerson(id),
     listItems("job_title", { includeArchived: true }),
-  ]);
+  );
   const canManage = can(viewer.role, "team.manage");
   const jobTitles = titles.map(({ id: titleId, name, archived_at }) => ({
     id: titleId,

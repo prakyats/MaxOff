@@ -7,7 +7,7 @@ import { ErrorText } from "@/core/ui/composites/error-text";
 import { Button } from "@/core/ui/primitives/button";
 
 import type { ActionState } from "./use-action";
-import { NETWORK_ERROR_MESSAGE, SLOW_MESSAGE } from "./network-error";
+import { NETWORK_ERROR_CREATE_MESSAGE, NETWORK_ERROR_MESSAGE, SLOW_MESSAGE } from "./network-error";
 
 /**
  * The line under a commit button (ARCHITECTURE §14.1, owner 2026-09-28): nothing while all is
@@ -21,9 +21,17 @@ export function ActionStatus({
   action,
   className,
 }: {
-  action: Pick<ActionState, "slow" | "failed" | "retry">;
+  action: Pick<ActionState, "slow" | "failed" | "retry" | "creates">;
   className?: string;
 }) {
+  if (action.failed && action.creates) {
+    // A create may have landed before the reply was lost: no Retry, which could duplicate it.
+    return (
+      <div data-slot="action-failed" className={className}>
+        <ErrorText slot="form-alert">{NETWORK_ERROR_CREATE_MESSAGE}</ErrorText>
+      </div>
+    );
+  }
   if (action.failed) {
     return (
       <div

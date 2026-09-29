@@ -10,6 +10,14 @@ import { listDirectory } from "@/modules/team";
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
+ * A 404 for anything that is not a client id, before a page starts reads keyed by it: the id goes
+ * into PostgREST filters (`listDefinitions`' `or=`), so it is validated first (ARCHITECTURE §19).
+ */
+export function assertClientId(id: string): void {
+  if (!ID.test(id)) notFound();
+}
+
+/**
  * A client's page (3.4): the Owner (`clients.manage`) and the client's Admin
  * (`clients.edit_assigned` on an assigned client, RLS decides). Staff never reach it (the
  * permission redirects to /forbidden); an unknown client, or another Admin's, is a 404. Cached
@@ -18,7 +26,7 @@ const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * comes first.
  */
 export const loadClient = cache(async (id: string) => {
-  if (!ID.test(id)) notFound();
+  assertClientId(id);
   const read = getClient(id);
   startEarly(read);
   const viewer = await requirePermission(["clients.manage", "clients.edit_assigned"]);

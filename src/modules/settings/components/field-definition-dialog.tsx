@@ -93,23 +93,26 @@ export function FieldDefinitionDialog({
       : (defaultScope ?? (canGlobal ? GLOBAL : (scopes[0]?.id ?? GLOBAL))),
   );
   const [error, setError] = useState<ResultError | null>(null);
-  const action = useAction(async () => {
-    const shared = { label, type, optionsText, required, helpText, section };
-    const result: Result<unknown> = editing
-      ? await updateFieldDefinition({ definitionId: definition.id, ...shared })
-      : await createFieldDefinition({
-          entity,
-          clientId: scoped && scope !== GLOBAL ? scope : "",
-          key,
-          ...shared,
-        });
-    if (result.ok) {
-      toastResult(result, { success: editing ? "Field saved" : "Field added" });
-      onClose();
-    } else {
-      setError(result.error);
-    }
-  });
+  const action = useAction(
+    async () => {
+      const shared = { label, type, optionsText, required, helpText, section };
+      const result: Result<unknown> = editing
+        ? await updateFieldDefinition({ definitionId: definition.id, ...shared })
+        : await createFieldDefinition({
+            entity,
+            clientId: scoped && scope !== GLOBAL ? scope : "",
+            key,
+            ...shared,
+          });
+      if (result.ok) {
+        toastResult(result, { success: editing ? "Field saved" : "Field added" });
+        onClose();
+      } else {
+        setError(result.error);
+      }
+    },
+    { creates: !editing },
+  );
   const { pending } = action;
 
   function submit(event: FormEvent<HTMLFormElement>) {

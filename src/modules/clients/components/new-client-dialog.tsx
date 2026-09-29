@@ -63,15 +63,18 @@ export function NewClientDialog({
   const [adminId, setAdminId] = useState("");
   const [customFields, setCustomFields] = useState<CustomFieldValues>({});
   const [error, setError] = useState<ResultError | null>(null);
-  const action = useAction(async () => {
-    const result = await createClient({ name, adminId, customFields });
-    if (!result.ok) {
-      setError(result.error);
-      return;
-    }
-    const href = `/clients/${result.data.id}`;
-    closeOverlaysThen(() => router.push(href, { transitionTypes: [NAV_FORWARD] }));
-  });
+  const action = useAction(
+    async () => {
+      const result = await createClient({ name, adminId, customFields });
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      const href = `/clients/${result.data.id}`;
+      closeOverlaysThen(() => router.push(href, { transitionTypes: [NAV_FORWARD] }));
+    },
+    { resetKey: open, creates: true },
+  );
   const { pending } = action;
 
   function onOpenChange(next: boolean) {

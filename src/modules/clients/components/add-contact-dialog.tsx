@@ -54,17 +54,20 @@ export function AddContactDialog({
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [customFields, setCustomFields] = useState<CustomFieldValues>({});
   const [error, setError] = useState<ResultError | null>(null);
-  const action = useAction(async () => {
-    const result = await createContact({ clientId, ...draft, customFields });
-    if (result.ok) {
-      toastResult(result, { success: `${result.data.name} added` });
-      // Closed directly: `onOpenChange` ignores a close while the action is still pending.
-      setOpen(false);
-      reset();
-    } else {
-      setError(result.error);
-    }
-  });
+  const action = useAction(
+    async () => {
+      const result = await createContact({ clientId, ...draft, customFields });
+      if (result.ok) {
+        toastResult(result, { success: `${result.data.name} added` });
+        // Closed directly: `onOpenChange` ignores a close while the action is still pending.
+        setOpen(false);
+        reset();
+      } else {
+        setError(result.error);
+      }
+    },
+    { resetKey: open, creates: true },
+  );
   const { pending } = action;
 
   function reset() {

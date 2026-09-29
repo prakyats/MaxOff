@@ -145,33 +145,36 @@ function LeaveForm({
   // Comp leave picks from the working days it can cover (3b review): a weekly day off or a
   // holiday is never offered. Without the list (it failed to load) the date field stays.
   const compDates = isComp && comp.dates ? compDatesFor(comp.dates, kind) : null;
-  const action = useAction(async () => {
-    const result = isComp
-      ? await requestCompLeave({ date: startDate, halfDay: kind === "comp_half", reason })
-      : original
-        ? await requestLeaveChange({
-            type: kind as MemberLeaveType,
-            startDate,
-            ...(singleDate ? {} : { endDate }),
-            reason,
-            requestId: original.id,
-            originalStart: original.startDate,
-          })
-        : await requestLeave({
-            type: kind as MemberLeaveType,
-            startDate,
-            ...(singleDate ? {} : { endDate }),
-            reason,
-          });
-    if (result.ok) {
-      toastResult(result, {
-        success: original ? "Change sent to the Owner" : "Leave requested",
-      });
-      onClose();
-    } else {
-      setError(result.error);
-    }
-  });
+  const action = useAction(
+    async () => {
+      const result = isComp
+        ? await requestCompLeave({ date: startDate, halfDay: kind === "comp_half", reason })
+        : original
+          ? await requestLeaveChange({
+              type: kind as MemberLeaveType,
+              startDate,
+              ...(singleDate ? {} : { endDate }),
+              reason,
+              requestId: original.id,
+              originalStart: original.startDate,
+            })
+          : await requestLeave({
+              type: kind as MemberLeaveType,
+              startDate,
+              ...(singleDate ? {} : { endDate }),
+              reason,
+            });
+      if (result.ok) {
+        toastResult(result, {
+          success: original ? "Change sent to the Owner" : "Leave requested",
+        });
+        onClose();
+      } else {
+        setError(result.error);
+      }
+    },
+    { creates: !original },
+  );
   const { pending } = action;
   // The dialog around the form cannot close while the request is on its way (a failed one ends
   // pending too, so the dialog can close again).

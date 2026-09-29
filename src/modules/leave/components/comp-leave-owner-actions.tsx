@@ -43,22 +43,25 @@ export function GrantCompLeaveButton({ memberId, name }: { memberId: string; nam
   // re-renders the disabled button, and the key (one per opened dialog) makes the database
   // return the first grant if a second request still gets through (a retry, a slow network).
   const requestKey = useRef("");
-  const action = useAction(async () => {
-    const result = await grantCompLeave({
-      memberId,
-      days: days as 0.5 | 1,
-      note,
-      requestKey: requestKey.current,
-    });
-    if (toastResult(result, { success: `Comp leave granted to ${firstName(name)}` })) {
-      // Closed directly: `close` ignores a close while the action is still pending.
-      reset();
-      setOpen(false);
-      router.refresh();
-    } else if (!result.ok) {
-      setError(result.error);
-    }
-  });
+  const action = useAction(
+    async () => {
+      const result = await grantCompLeave({
+        memberId,
+        days: days as 0.5 | 1,
+        note,
+        requestKey: requestKey.current,
+      });
+      if (toastResult(result, { success: `Comp leave granted to ${firstName(name)}` })) {
+        // Closed directly: `close` ignores a close while the action is still pending.
+        reset();
+        setOpen(false);
+        router.refresh();
+      } else if (!result.ok) {
+        setError(result.error);
+      }
+    },
+    { resetKey: open },
+  );
   const { pending } = action;
 
   function reset() {

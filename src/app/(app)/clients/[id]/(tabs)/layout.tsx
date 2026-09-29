@@ -1,6 +1,7 @@
 import { InfoIcon } from "lucide-react";
 import { type ReactNode, Suspense } from "react";
 
+import { checkThenRead } from "@/core/lib/start-early";
 import { StatusBadge } from "@/core/ui/composites/status-badge";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
@@ -44,10 +45,10 @@ export default async function ClientLayout({
 }
 
 async function ClientHeader({ id }: { id: string }) {
-  const [{ client, canManage, canEdit }, { admins }] = await Promise.all([
+  const [{ client, canManage, canEdit }, { admins }] = await checkThenRead(
     loadClient(id),
     loadPeople(),
-  ]);
+  );
   return (
     <PageHeader
       title={client.name}

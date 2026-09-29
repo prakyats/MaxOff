@@ -2,12 +2,13 @@ import { HistoryIcon } from "lucide-react";
 import type { Metadata } from "next";
 
 import { ACTIVITY_LIMIT } from "@/core/activity";
+import { checkThenRead } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
 import { formatIST } from "@/core/time";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { describeClientActivity, listClientActivity, listContacts } from "@/modules/clients";
 
-import { loadClient, loadPeople } from "../../client";
+import { assertClientId, loadClient, loadPeople } from "../../client";
 
 export const metadata: Metadata = { title: "Activity" };
 
@@ -20,11 +21,11 @@ export const metadata: Metadata = { title: "Activity" };
 export default async function ClientActivityPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   // Keyed by the client id in the URL: read together with the client (ARCHITECTURE §19).
-  const [{ viewer, client }, people, contacts] = await Promise.all([
+  assertClientId(id);
+  const [{ viewer, client }, [people, contacts]] = await checkThenRead(
     loadClient(id),
-    loadPeople(),
-    listContacts(id),
-  ]);
+    Promise.all([loadPeople(), listContacts(id)]),
+  );
   const entries = await listClientActivity(
     client.id,
     contacts.map((contact) => contact.id),

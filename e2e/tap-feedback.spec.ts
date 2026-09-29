@@ -5,9 +5,14 @@ import { expect, test } from "./fixtures";
 import {
   hydrated,
   pageHeader,
+  resetAttendanceAndLeave,
+  resetExpenseClaims,
   runInstalled,
+  serviceInsert,
+  serviceSelect,
   serviceUpdate,
   signIn,
+  startPrompt,
   storageStateFor,
 } from "./helpers";
 
@@ -20,8 +25,9 @@ import {
  *
  * - the pressed state is on the control the moment the pointer goes down;
  * - a navigation's progress bar and the tapped tab's highlight show at once, before the server
- *   has answered, and before hydration too; after 8 s the bar area says the connection is slow,
- *   after 10 s it offers Retry (the same move again: no extra history entry), after 25 s Reload;
+ *   has answered, and before hydration too; after 8 s one quiet line, "Still loading" with Retry
+ *   (the same move again: no extra history entry), which after 25 s loads the destination in full;
+ *   the bar never starts for a sheet closing or Start day, and never gets stuck;
  * - a commit button switches to its spinner and working label at once, a double tap sends one
  *   request, 8 s says the connection is slow, a failed request says so with Retry and keeps
  *   what was typed, and offline shows the banner and disables commit buttons.
@@ -93,6 +99,28 @@ const bottomTab = (page: Page, href: string) =>
   page.locator(`[data-slot="bottom-nav"] a[href="${href}"]`);
 const record = (page: Page) => page.locator('[data-slot="editable-record"]');
 const confirmation = (page: Page) => page.getByRole("alertdialog", { name: "Save these changes?" });
+
+/** Counts every time the bar starts on this page (`data-nav-pending` set on `<html>`). */
+async function recordBar(page: Page) {
+  await page.addInitScript(() => {
+    const record = { starts: 0 };
+    (window as unknown as { __bar: typeof record }).__bar = record;
+    new MutationObserver((changes) => {
+      for (const change of changes) {
+        const target = change.target as Element;
+        if (target !== document.documentElement) continue;
+        if (target.hasAttribute("data-nav-pending") && change.oldValue === null) record.starts++;
+      }
+    }).observe(document, {
+      attributes: true,
+      attributeOldValue: true,
+      subtree: true,
+      attributeFilter: ["data-nav-pending"],
+    });
+  });
+}
+const barStarts = (page: Page) =>
+  page.evaluate(() => (window as unknown as { __bar: { starts: number } }).__bar.starts);
 
 /**
  * The control's look in the first frame after the pointer goes down, and how long after the
@@ -232,7 +260,7 @@ test.describe("navigation shows it is on its way", () => {
     await expect(bar(page)).toHaveCSS("opacity", "1");
   });
 
-  test("a stuck navigation says so, offers Retry, then Reload; Retry adds no entry", async ({
+  test("after 8 s one quiet line: Still loading, Retry; Retry adds no entry", async ({
     page,
     isMobile,
   }) => {
@@ -246,25 +274,72 @@ test.describe("navigation shows it is on its way", () => {
 
     await bottomTab(page, "/tasks").click();
     const status = page.locator('[data-slot="nav-progress-status"]');
-    await page.clock.fastForward(8_500);
-    await expect(status).toContainText("Still working… slow connection");
-    await page.clock.fastForward(2_000);
-    await expect(status).toContainText("Taking longer than usual");
-    await expect(status.getByRole("button", { name: "Retry" })).toBeVisible();
-    await page.clock.fastForward(15_000);
-    await expect(status.getByRole("button", { name: "Reload" })).toBeVisible();
+    // The bar alone for the first 8 s.
+    await page.clock.fastForward(7_000);
+    await expect(status).toHaveCount(0);
+    await page.clock.fastForward(1_500);
+    await expect(status).toHaveText("Still loadingRetry");
+    const retry = status.getByRole("button", { name: "Retry" });
+    // Quiet: underlined text, not a boxed or red button; still a 44px target.
+    await expect(retry).toHaveCSS("text-decoration-line", "underline");
+    expect((await retry.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
 
-    await status.getByRole("button", { name: "Retry" }).click();
+    await retry.click();
     await slow.release();
     await page.clock.runFor(1_000);
     await expect(pageHeader(page).getByRole("heading", { name: "Tasks" })).toBeVisible();
     await page.clock.runFor(1_000);
     await expect(html(page)).not.toHaveAttribute("data-nav-pending");
-    await expect(status).toBeHidden();
+    await expect(status).toHaveCount(0);
     // One tab move from home pushes one entry, however many times it was asked for (§14.2 c).
     expect(await page.evaluate(() => history.length)).toBe(before + 1);
     await page.goBack();
     await expect(page).toHaveURL(/\/today$/);
+  });
+
+  test("after 25 s Retry loads the destination in full", async ({ page, isMobile }) => {
+    test.skip(!isMobile, "measured on the installed phone");
+    await runInstalled(page);
+    await page.clock.install();
+    await holdScreen(page, "/tasks");
+    await page.goto("/today");
+    await hydrated(page);
+    await page.evaluate(() => {
+      (window as unknown as { __sameDocument: boolean }).__sameDocument = true;
+    });
+    await bottomTab(page, "/tasks").click();
+    await page.clock.fastForward(26_000);
+    const status = page.locator('[data-slot="nav-progress-status"]');
+    await status.getByRole("button", { name: "Retry" }).click();
+    await expect(page).toHaveURL(/\/tasks$/);
+    await expect(pageHeader(page).getByRole("heading", { name: "Tasks" })).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => (window as unknown as { __sameDocument?: boolean }).__sameDocument === true,
+      ),
+      "a full load: a new document",
+    ).toBe(false);
+  });
+
+  test("closing a sheet never starts the bar, even after a beforeunload that did not unload", async ({
+    page,
+    isMobile,
+  }) => {
+    test.skip(!isMobile, "the More sheet is the phone's");
+    await runInstalled(page);
+    await recordBar(page);
+    await page.goto("/today");
+    await hydrated(page);
+    // What a tel: or mailto: link, or a download, does: beforeunload, and the page stays.
+    await page.evaluate(() => window.dispatchEvent(new Event("beforeunload")));
+    await page.locator('[data-slot="bottom-nav"] [data-nav="more"]').click();
+    const sheet = page.getByRole("dialog");
+    await expect(sheet).toBeVisible();
+    await page.goBack();
+    await expect(sheet).toBeHidden();
+    await page.waitForTimeout(1_000);
+    await expect(html(page)).not.toHaveAttribute("data-nav-pending");
+    expect(await barStarts(page), "the bar never started").toBe(0);
   });
 });
 
@@ -285,6 +360,27 @@ test.describe("a commit button shows it is working", () => {
 
   test.afterEach(async ({}, info) => {
     await serviceUpdate(`members?id=eq.${tapPerson(info).id}`, { phone: null });
+  });
+
+  test("Start day: the bar finishes, and no Still loading line appears", async ({
+    page,
+    isMobile,
+  }, info) => {
+    if (isMobile) await runInstalled(page);
+    await resetAttendanceAndLeave(tapPerson(info).id);
+    await recordBar(page);
+    await page.clock.install();
+    await signIn(page, tapPerson(info).email, PASSWORD, { day: "stop" });
+    const prompt = startPrompt(page);
+    await expect(prompt).toBeVisible();
+    await prompt.getByRole("button", { name: "Start day" }).click();
+    await expect(prompt).toBeHidden();
+    await expect(page.locator('[data-slot="start-day-prompt-mount"]')).toHaveCount(0);
+    await page.clock.fastForward(11_000);
+    await expect(page.locator('[data-slot="nav-progress-status"]')).toHaveCount(0);
+    await expect(html(page)).not.toHaveAttribute("data-nav-pending");
+    // Closing the prompt is a move back to the same address: not a navigation.
+    expect(await barStarts(page), "no bar for Start day").toBe(0);
   });
 
   test("at once: spinner, working label, disabled; a double tap sends one request; slow is said", async ({
@@ -369,5 +465,95 @@ test.describe("a commit button shows it is working", () => {
     await page.context().setOffline(false);
     await expect(banner).toBeHidden();
     await expect(commit).toBeEnabled();
+  });
+});
+
+test.describe("a failed action never retries onto another item", () => {
+  // Owner decisions on two claims; the desktop covers it (the sheets are shared components).
+  test.use({ storageState: storageStateFor("owner") });
+  // Both tests arrange and remove the same two claims: in parallel, one test's clean-up removed
+  // the claim the other was about to open.
+  test.describe.configure({ mode: "serial" });
+  const A = { id: IDS.desktop ?? "", name: "Test Tap (desktop)", note: "Tap A: taxi" };
+  const B = { id: IDS.mobile ?? "", name: "Test Tap (mobile)", note: "Tap B: parking" };
+
+  test.beforeEach(async ({ isMobile }) => {
+    test.skip(isMobile, "shared components: checked once, on the desktop");
+    const [travel] = await serviceSelect<{ id: string }>(
+      "list_items?list_key=eq.expense_category&name=eq.Travel&archived_at=is.null&select=id",
+    );
+    for (const claim of [A, B]) {
+      await resetExpenseClaims(claim.id);
+      await serviceInsert("expense_claims", {
+        member_id: claim.id,
+        expense_date: "2026-09-01",
+        amount: 150,
+        category_id: travel?.id,
+        note: claim.note,
+      });
+    }
+  });
+  test.afterEach(async ({ isMobile }) => {
+    if (isMobile) return;
+    for (const claim of [A, B]) await resetExpenseClaims(claim.id);
+  });
+
+  const row = (page: Page, name: string) =>
+    page.locator('[data-slot="approval-group"][data-group="expenses"] li', { hasText: name });
+
+  test("Approve fails on one claim; the next claim's sheet offers no Retry", async ({ page }) => {
+    let failNext = true;
+    await page.route("**/*", (route) => {
+      if (!isAction(route.request()) || !failNext) return route.fallback();
+      failNext = false;
+      return route.abort("internetdisconnected");
+    });
+    await page.goto("/approvals");
+    await hydrated(page);
+    await row(page, A.name).getByRole("button", { name: "Review" }).click();
+    const sheet = page.locator('[data-slot="review-sheet"]');
+    await sheet.getByRole("button", { name: "Approve", exact: true }).click();
+    await expect(sheet.locator('[data-slot="action-failed"]')).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(sheet).toBeHidden();
+
+    await row(page, B.name).getByRole("button", { name: "Review" }).click();
+    await expect(sheet).toContainText(B.note);
+    await expect(sheet.locator('[data-slot="action-failed"]')).toHaveCount(0);
+    await expect(sheet.getByRole("button", { name: "Retry" })).toHaveCount(0);
+  });
+
+  test("Reject fails on one claim; the next claim's reason dialog offers no Retry", async ({
+    page,
+  }) => {
+    let failNext = true;
+    await page.route("**/*", (route) => {
+      if (!isAction(route.request()) || !failNext) return route.fallback();
+      failNext = false;
+      return route.abort("internetdisconnected");
+    });
+    await page.goto("/approvals");
+    await hydrated(page);
+    const sheet = page.locator('[data-slot="review-sheet"]');
+    await row(page, A.name).getByRole("button", { name: "Review" }).click();
+    await sheet.getByRole("button", { name: "Reject…" }).click();
+    const dialog = page.getByRole("dialog", { name: /Reject .*'s claim\?/ });
+    await dialog.getByLabel("Reason").fill("Not a work trip");
+    await dialog.getByRole("button", { name: "Reject claim" }).click();
+    await expect(dialog.locator('[data-slot="action-failed"]')).toBeVisible();
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).toBeHidden();
+
+    // The review sheet is still A's, beneath: close it, then open B.
+    // Its own Close: a dialog closed by its button leaves its entry spent (PROGRESS, 3.4
+    // mechanics 5), so a key or a back here would land on that spent entry first.
+    await expect(sheet).toBeVisible();
+    await sheet.getByRole("button", { name: "Close" }).click();
+    await expect(sheet).toBeHidden();
+    await row(page, B.name).getByRole("button", { name: "Review" }).click();
+    await sheet.getByRole("button", { name: "Reject…" }).click();
+    await expect(dialog).toBeVisible();
+    await expect(dialog.locator('[data-slot="action-failed"]')).toHaveCount(0);
+    await expect(dialog.getByRole("button", { name: "Retry" })).toHaveCount(0);
   });
 });

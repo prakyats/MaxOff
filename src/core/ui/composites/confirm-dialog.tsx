@@ -53,10 +53,13 @@ export function ConfirmDialog({
   /** Optional extra content between the description and the buttons. */
   children?: ReactNode;
 }) {
-  const action = useAction(async () => {
-    const keepOpen = (await onConfirm()) === false;
-    if (!keepOpen) onOpenChange(false);
-  });
+  const action = useAction(
+    async () => {
+      const keepOpen = (await onConfirm()) === false;
+      if (!keepOpen) onOpenChange(false);
+    },
+    { resetKey: open },
+  );
   const { pending } = action;
 
   return (

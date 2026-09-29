@@ -33,13 +33,16 @@ export function PendingClaimsGroup({ claims }: { claims: PendingClaim[] }) {
   const router = useRouter();
   const [reviewId, setReviewId] = useState<string | null>(null);
   const [rejectId, setRejectId] = useState<string | null>(null);
-  const approve = useAction(async (claimId: string) => {
-    const result = await approveExpenseClaim({ claimId });
-    if (toastResult(result, { success: "Claim approved" })) {
-      setReviewId(null);
-      router.refresh();
-    }
-  });
+  const approve = useAction(
+    async (claimId: string) => {
+      const result = await approveExpenseClaim({ claimId });
+      if (toastResult(result, { success: "Claim approved" })) {
+        setReviewId(null);
+        router.refresh();
+      }
+    },
+    { resetKey: reviewId },
+  );
   const approving = approve.pending;
   const review = claims.find((claim) => claim.id === reviewId) ?? null;
   const rejecting = claims.find((claim) => claim.id === rejectId) ?? null;

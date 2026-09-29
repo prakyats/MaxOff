@@ -12,6 +12,16 @@ import { Skeleton } from "@/core/ui/primitives/skeleton";
  * whoever marks attendance (2.3), then
  * Appearance, Session and Reload app. Same member check as `my-day/loading.tsx`.
  */
+/**
+ * The device card's rows as `page.tsx` draws them at 375 px: the description's lines (Sign out's
+ * and Reload app's wrap to two) and the control (an 8×8 theme toggle, `h-8` buttons).
+ */
+const DEVICE_ROWS = [
+  { name: "appearance", lines: ["w-52"], control: "size-8" },
+  { name: "sign-out", lines: ["w-56", "w-40"], control: "h-8 w-24" },
+  { name: "reload", lines: ["w-56", "w-28"], control: "h-8 w-28" },
+] as const;
+
 export default async function Loading() {
   const member = await getCurrentMember();
   const leaveRow = member !== null && can(member.role, "attendance.self");
@@ -69,15 +79,17 @@ export default async function Loading() {
         ) : null}
         <Card aria-hidden>
           <CardContent className="flex flex-col gap-4">
-            {[0, 1, 2].map((row) => (
-              <div key={row} className="flex flex-col gap-4">
-                {row > 0 ? <Separator /> : null}
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex flex-col gap-1.5">
+            {DEVICE_ROWS.map((row, index) => (
+              <div key={row.name} className="flex flex-col gap-4">
+                {index > 0 ? <Separator /> : null}
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="flex min-w-0 flex-[1_1_10rem] flex-col gap-1.5">
                     <Skeleton className="h-4 w-24" />
-                    <Skeleton className="h-3.5 w-52 max-w-full" />
+                    {row.lines.map((width, line) => (
+                      <Skeleton key={line} className={`h-3.5 max-w-full ${width}`} />
+                    ))}
                   </div>
-                  <Skeleton className="h-9 w-24 rounded-lg" />
+                  <Skeleton className={`rounded-lg ${row.control}`} />
                 </div>
               </div>
             ))}
