@@ -512,3 +512,18 @@ export async function memberIdOf(email: string): Promise<string> {
   expect(id, `a member with ${email}`).toBeTruthy();
   return id as string;
 }
+
+/**
+ * Every finite animation and transition on the page has finished (looping ones, a spinner or a
+ * skeleton's pulse, never do and are ignored). Measure layout after this: a control that was just
+ * tapped eases back from its pressed scale (`pressable`, 120 ms), and a sheet slides in, so a box
+ * read during either is a few pixels off what the person sees a moment later.
+ */
+export async function animationsSettled(page: Page): Promise<void> {
+  await page.waitForFunction(() =>
+    document.getAnimations().every((animation) => {
+      const iterations = animation.effect?.getComputedTiming().iterations;
+      return iterations === Infinity || animation.playState !== "running";
+    }),
+  );
+}
