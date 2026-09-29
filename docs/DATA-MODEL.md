@@ -164,6 +164,9 @@ org_settings         org_id pk, weekly_off_days smallint[] (0=Sun..6=Sat), logou
                      -- API UPDATE grant: the eleven settings columns above, never org_id or the timestamps
                      -- defaults in brackets = launch settings (PRODUCT §7); default_task_reminders '[]' until
                      -- 5.3, workload_warning_threshold null until 4.3. Created by trigger with the organization
+                     -- kickoff 4 (owner decision 2026-09-28): workload_warning_threshold defaults to 4 and is
+                     -- set to 4 on existing rows (open tasks due the same IST day, WORKFLOWS §3.1 "Assignment
+                     -- warnings"; check > 0), edited in Settings -> Thresholds
 holidays             id, org_id, date, name, created_at, updated_at, unique(org_id, date)
                      -- API UPDATE grant: date, name
                      -- 1.4. RLS: every active member reads (a holiday is everyone's calendar);
@@ -194,6 +197,12 @@ member_coordinators  id, member_id → members (the freelancer), coordinator_id 
                      -- opens the next in one transaction; refused when the coordinator is not active
                      -- permanent, or the member is not freelance. RLS: team.view reads all; a member
                      -- reads the rows where they are the coordinator (their own freelancers).
+                     -- kickoff 4 (owner decision 2026-09-28): the coordinator is never the Owner (refused
+                     -- as not an Admin or Staff); a coordinator may have many freelancers (no uniqueness on
+                     -- coordinator_id). Freelancer -> employee: the Owner's "Invite as employee" (
+                     -- team.manage) attaches an auth.users row to the SAME members.id, sets engagement =
+                     -- permanent and email, closes the current row (to_at, reason 'became_employee'); never
+                     -- permanent -> freelance. No tasks-only login in phase 4 (ADR-0013 §7 keeps it possible)
                      -- app.coordinator_of(freelancer_id) → the current coordinator, used by every
                      -- on-behalf check and by notification routing (WORKFLOWS §9).
                      -- status, invited_at, joined_at, deactivated_at are protected columns (transition
@@ -237,6 +246,9 @@ task_types           id, org_id, name, kind task_type_kind, shows_on_calendar bo
                      is_system, archived_at
                      -- seeds: Normal(normal), Shoot / Site Visit(event), Meeting(event),
                      --        Posting(event), Review / Approval(normal), Other(normal), Custom(custom)
+                     -- kickoff 4 (owner decision 2026-09-28): the Owner's list. A guard refuses insert,
+                     -- update, move and archive without settings.manage (Admins hold lists.manage but only
+                     -- pick types; PERMISSIONS ³). Tasks have no stage presets: stage_presets are projects' (7.4)
 stage_presets        id, org_id, name, stages text[] (ordered), archived_at
 field_definitions    id, org_id, entity ('client'|'contact'|'project'|'item'|'task'),
                      client_id null (a field that exists for one client only),
@@ -789,7 +801,12 @@ tasks                id, org_id, title, description, task_type_id, client_id nul
                      primary_owner_id, reminder_rules jsonb, late_reason, cancelled_reason,
                      custom_fields, template_id null,
                      submitted_at, admin_approved_at, completed_at, cancelled_at, archived_at
+                     -- kickoff 4 (owner decision 2026-09-28): due_at NOT NULL; task_create refuses a due_at
+                     -- in the past (later edits may move it anywhere); priority default 'medium'. An Admin
+                     -- creator's client_id must be one of admin_client_ids() (so approving_admin_id = the
+                     -- creator); the Owner sets any client_id and picks any active Admin as approver
 task_assignees       task_id, member_id, is_primary, assigned_at, assigned_by,
+                     -- kickoff 4: member_id is never the Owner (refused by task_create / task_update_assignment)
                      acknowledged_at null, acknowledged_by null (the coordinator when on behalf; else = member_id),
                      removed_at null, pk(task_id, member_id)
 task_stages          id, task_id, name, position, done_at, done_by, on_behalf_of null   -- optional checklist
@@ -801,6 +818,9 @@ task_comments        id, task_id, author_id, on_behalf_of null, body, created_at
 task_reviews         id, task_id, step ('admin'|'owner'), decision, reason, reviewer_id,
                      submission_id null, at                          -- append-only
 task_submissions     id, task_id, version int, note, submitted_by, on_behalf_of null, at, unique(task_id, version)
+                     -- kickoff 4 (owner decision 2026-09-28): built in 4A, before phase 8. Every Done and
+                     -- resubmit writes a version; note null or text that may contain http/https
+                     -- links, rendered as tappable links for the reviewer; no submission_items until 8.1
 submission_items     id, submission_id, kind ('upload'|'drive_link'),
                      file_id null (uploads), source_url null (pasted Drive link),
                      source_file_id null (Google file id of THEIR file),
@@ -818,7 +838,9 @@ task_warnings        id, task_id, kind ('overlap'|'workload'|'on_leave'), detail
 task_requests        id, org_id, requested_by, title, details, client_id null, state request_state,
                      decided_by, decided_at, decision_reason, task_id null
 task_templates       id, org_id, name, task_type_id, description, default_priority,
-                     stages text[], reminder_rules jsonb, field_defaults jsonb, archived_at
+                     stages text[], reminder_rules jsonb, field_defaults jsonb, archived_at,
+                     created_by                                     -- kickoff 4: shared company-wide; an Admin
+                     -- edits and archives only rows they created, the Owner any (PERMISSIONS ³)
 ```
 
 ## 7. Money (all Owner-only tables)

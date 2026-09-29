@@ -45,6 +45,8 @@
 
 ² **Custom field definitions (owner decision 2026-09-27, kickoff 3):** global `client` and `contact` fields are **Owner-only**; an Admin may add or archive a field **scoped to one of their assigned clients** only; `project` and `item` fields stay Owner-only (¹); `task` fields arrive with 4.1.
 
+³ **Task types and templates (owner decision 2026-09-28, kickoff 4):** **task types are the Owner's**. Like the expense categories, a guard refuses an insert, update, move or archive of a `task_types` row without `settings.manage`, although Admins hold `lists.manage`. Admins only pick from them. `task` custom fields stay `lists.manage` (DATA-MODEL §2). **Task templates** (`templates.manage`) are shared by the whole company: an Admin edits and archives only the templates they created (`created_by`), and the Owner edits any.
+
 **The Owner doesn't mark attendance.** The Start-day prompt, Start day and End day (3b.1; the first-login gate before it) apply to Admins and Staff only.
 
 **Screens (2.4):** `/approvals` opens for `attendance.decide`, `tasks.approve_final` or `tasks.approve_admin`; each group shows only when the viewer holds its key (Attendance and Leave: `attendance.decide`), so an Admin never sees them. The Approvals badge counts what the viewer may decide. `/people/[id]/leave` and `/people/[id]/attendance` (a person's leave and attendance history, with correct, edit and cancel) and the Owner's today card and people board need `attendance.view_all`.
@@ -86,6 +88,14 @@
 - **Freelancers (ADR-0013, built in 4A):** only the Owner (`team.manage`) adds a freelancer (`member_add_freelancer()`) or sets their coordinator (`member_set_coordinator()`, an active **permanent** Admin or Staff, never the freelancer themselves). **Acting on behalf** is allowed only to the freelancer's **current** coordinator (`app.coordinator_of()` at the moment of the action), only within `tasks.work` on tasks the freelancer is assigned to, and always recorded as actor = coordinator, `on_behalf_of` = freelancer; a former coordinator, any other member and the Owner-as-coordinator shortcut are refused. A freelancer is never a task creator, approving Admin or reviewer, and their id is never an actor. **Attendance, leave, the day gate and the attendance jobs act on `permanent` members only:** `attendance_start_day()`, `attendance_submit()`, `leave_submit()` and the rest refuse a freelance member (`FORBIDDEN`), and `absent_check()` / `end_not_recorded()` select permanent members. A Staff coordinator's visibility grows by exactly the freelancer's tasks (a client label at most, ADR-0005), never by a client record.
 - Only the task's **approving Admin** can do the Admin approval step, and never on a task they're assigned to (#3).
 - Only the **primary owner** can mark a task Done. From `submitted` onwards, assignees can't edit (they can still comment).
+- **Settled at kickoff 4 (owner decision 2026-09-28):**
+  - **The Owner is never a task assignee.** Also refused in `task_update_assignment`.
+  - **The Owner is never a coordinator** (`member_set_coordinator()`). One coordinator may have many freelancers.
+  - **An Admin creator may set a client label only for their own assigned clients** (`task_create`, and any label change by an Admin), so the task always routes to that Admin. The Owner may set any label.
+  - When the Owner assigns through an Admin, **any active Admin** may be chosen as the approving Admin.
+  - **Bulk review approves only**; a rejection is always one task with a reason.
+  - **A freelancer becomes an employee** only through the Owner (`team.manage`): the invite attaches to the same member id and closes the coordinator row (WORKFLOWS §1b). No tasks-only login exists in phase 4.
+  - **Freelancer payments**, when they come, are Owner-only money in `modules/revenue` tables, never on `members` or `tasks` (ADR-0007, ADR-0013).
 - A task may be **edited, reassigned, cancelled or reopened** only by its **creator**, its **approving Admin** or the **Owner**. Other Admins who can see it can't change it.
 - Only the Owner can move money fields, approve items, approve tasks finally, decide attendance and leave, and close months.
 - Only the Owner can change `projects.billing_category`, `projects.client_id` and `projects.recurrence` (guard trigger, like state columns). An Admin-created project takes its billing category from its recurrence; a template's default category applies only when the Owner creates the project.

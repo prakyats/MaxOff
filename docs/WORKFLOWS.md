@@ -136,7 +136,15 @@ Owner "Add person → Freelancer" (name, job title, phone?, coordinator)
 - **Acting on behalf:** on the freelancer's tasks the coordinator may do everything an assignee may (`tasks.work`): acknowledge ("Noted by Ravi for Asha"), comment, tick stages, upload and paste links, mark Done with the late reason, resubmit after changes. Each transition takes the freelancer's id as `on_behalf_of`, checks `app.coordinator_of(freelancer) = caller` at that moment, and writes actor = caller, `on_behalf_of` = freelancer in the task rows and `activity_log`. Nothing else changes: the approval route, locking from `submitted`, reopen and cancel are the task's own rules (§3).
 - **Never for a freelancer:** attendance, leave, the day gate (there is no session), the 23:59 / 00:00 jobs (§8, permanent members only), reachability (§9a), being a creator, approving Admin or reviewer.
 - **Notifications** addressed to a freelancer go to their current coordinator (§9).
-- **A later login** (a phase-4 kickoff question) would be an invite that attaches an auth user to the same `members.id`; the coordinator relation and every history row stay.
+- **A later login** would be an invite that attaches an auth user to the same `members.id`; the coordinator relation and every history row stay. **Not offered in phase 4** (owner decision 2026-09-28, kickoff 4; revisited after the full launch; if ever offered: own tasks only, never attendance, leave, clients or People).
+- **Coordinator eligibility (owner decision 2026-09-28, kickoff 4):** any active permanent Admin or Staff; **one coordinator may have many freelancers**; **the Owner is never a coordinator** (`member_set_coordinator()` refuses the Owner, pgTAP).
+- **Freelancer → employee (owner decision 2026-09-28, kickoff 4):**
+  ```
+  freelance (active) ──Owner "Invite as employee"(email)──► the invite attaches an auth user to the SAME members.id
+        engagement → permanent, the current member_coordinators row closed (to_at, reason 'became_employee'),
+        status → invited → active on acceptance; attendance starts the IST day after joined_at (§1, as for any joiner)
+  ```
+  Task history, on-behalf rows and audit stay on the same id. **Never the other way:** an employee does not become a freelancer; the Owner deactivates them and adds a new freelancer record.
 
 ## 2. Leave requests
 
@@ -227,6 +235,24 @@ submitted ──Owner approve──► approved ──Owner mark paid (date, def
 - **Overdue escalation:** `overdue_escalate_hours` (default 24) after `due_at`, if the task is still in `todo`, `in_progress` or `changes_requested` (nothing submitted), a `task_reminders(kind = overdue_escalation)` fires once to the approving Admin (or creator) **and** the Owner.
 - **Late reason:** when submitting after `due_at`, `late_reason` is required from the primary owner.
 - **Approving Admin** is set when the task is created (PRODUCT §4.6 table) and can be changed or removed by the Owner. Changing it while the task is `submitted` sends the review to the new approver.
+- **Settled at kickoff 4 (owner decision 2026-09-28):**
+  - **The Owner is never an assignee.** `task_create` and `task_update_assignment` refuse an Owner assignee.
+  - **An Admin labels only their own assigned clients.** `task_create` refuses another Admin's client for an Admin creator, so an Admin-created task's approving Admin is always the creator. The Owner may set any client label.
+  - **"Through an Admin":** the Owner may pick any active Admin as the approver. A client label only pre-selects that client's Admin in the dialog; the function takes the Admin the Owner chose.
+  - **Deadline:** `due_at` is required. `task_create` refuses a `due_at` already in the past; a later edit may move it anywhere, and overdue follows it. The dialog's time defaults to 18:00 IST and priority to `medium`.
+  - **Bulk review is approve only**, at both steps. `task_review` in bulk accepts `approved` only; a rejection is one task with a reason.
+  - **Warnings:** see "Assignment warnings" below.
+
+#### Assignment warnings (4.3; owner decision 2026-09-28, kickoff 4)
+Computed when assigning. They never block, and a person kept despite one is recorded as a `task_warnings` row (`overridden_by`, `at`).
+
+| Kind | Fires when | Notes |
+|---|---|---|
+| `workload` | the person already has **≥ `workload_warning_threshold` (default 4)** open tasks (not `completed` / `cancelled`) due on the same IST day as this task's `due_at` | freelancers count |
+| `overlap` | an event task of the person overlaps this task's event window | no `event_end_at` = 1 hour from `event_start_at`; a date-only event never overlaps (it adds only to workload) |
+| `on_leave` | approved leave, half day or comp leave on the IST date of `due_at` or of the event, **or a pending (`submitted`) leave request** for it, shown as "Leave requested" | never for a freelancer (no leave) |
+
+An Admin reads others' load only through `member_availability()` (counts and busy blocks, PERMISSIONS §2).
 
 ### 3.2 Acknowledgement (per assignee)
 ```
@@ -242,9 +268,13 @@ assigned (acknowledged_at null) ──"Task Noted"──► acknowledged (timest
 ### 3.3 Reviews and submissions
 - Every approve or reject is a `task_reviews` row (step, decision, reason, reviewer, the submission version it refers to).
 - File submissions are versioned per task (`task_submissions.version` 1, 2, …). Files are never replaced.
+- **Until phase 8 (owner decision 2026-09-28, kickoff 4):** there are no uploads on tasks. Every Done (and every resubmit) writes a `task_submissions` version with an **optional note** and no `submission_items`. The note may contain `http`/`https` links, which the task page and the review sheet render as tappable links, so work can be handed in as a Drive link. The review refers to that version. Phase 8 adds items to the same versions.
 
 ### 3.4 Task requests
 `pending ─convert─► converted (task_id set) | ─decline(reason)─► declined | ─withdraw─► withdrawn`
+
+### 3.5 Task templates (4.6; owner decision 2026-09-28, kickoff 4)
+Templates are **shared by the whole company**: any holder of `templates.manage` uses any active template. An Admin edits and archives **the templates they created**; the Owner edits and archives any. A task's stages are typed on the task or copied from a template; **tasks have no stage presets** (`stage_presets` stay for projects, 7.4).
 
 ## 4. Clients
 ```
@@ -393,6 +423,8 @@ month M (IST) open ──Owner close──► closed (snapshot v1, immutable)
 | Google Drive needs reconnecting, or is low on space | Owner only |
 | Anything financial | Owner only |
 | Upcoming event (shoot, meeting…) on task reminders | Assignees + approving Admin |
+
+**Phase 4 ships before phase 5 (owner decision 2026-09-28, kickoff 4):** the task transition functions name their recipients from this table in their comments, and the rows and delivery arrive with 5.1, as in phase 3b. Until then, the **Tasks tab badge** counts tasks the member (or a freelancer they coordinate) has not noted, plus those in `changes_requested`, and the **Approvals badge** includes the tasks the viewer may decide. Nothing in phase 4 waits for notifications.
 
 Every notification is stored in `notifications` (in-app history + deep link) and then delivered by push. **Email** is sent for **invites, an email change (to both addresses, §1a), escalations, task assigned, an event tomorrow, the Owner digest**, and to anyone with no working push subscription, within the per-person daily cap (invites, email changes and escalations bypass it).
 
