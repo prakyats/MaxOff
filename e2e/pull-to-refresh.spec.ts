@@ -83,6 +83,13 @@ test.use({ serviceWorkers: "block" });
 
 test.skip(({ isMobile }) => !isMobile, "the pull is a touch gesture on a phone");
 
+// One person per project, shared by every test here: the first renames them, the others find
+// them by name, and each test puts the name back before and after. Side by side (`fullyParallel`,
+// three local workers), another test's restore landed between the first test's rename and its
+// pull, so the refresh brought the old name back (the full run after the phase-4 merge,
+// 2026-09-29). In order, in one worker, like the other specs that share a seeded person.
+test.describe.configure({ mode: "serial" });
+
 test.beforeEach(async ({ page }, info) => {
   if (!IDS[info.project.name]) return;
   await rename(info, person(info).name);
