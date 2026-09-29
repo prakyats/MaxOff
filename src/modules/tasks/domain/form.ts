@@ -284,6 +284,14 @@ function sameValues(a: Record<string, unknown>, b: Record<string, unknown>): boo
 }
 
 /**
+ * Two instants as the same moment: the task's own come from PostgREST (`…+00:00`), the dialog's
+ * from `istInstant` (`….000Z`), so the strings differ for the same time.
+ */
+function sameInstant(a: string | null, b: string | null): boolean {
+  return a === null || b === null ? a === b : Date.parse(a) === Date.parse(b);
+}
+
+/**
  * What an edit changes: only the keys whose value differs from the task as it stands, so the
  * function's audit names exactly what moved. Custom-field keys the new type does not carry are
  * dropped with a type change (4A later item L4) by the caller, through `keepFieldKeys`.
@@ -305,10 +313,7 @@ export function draftChanges(before: TaskFields, after: TaskFields): TaskChanges
     if (before[key] !== after[key]) Object.assign(changes, { [key]: after[key] });
   }
   for (const key of ["dueAt", "eventStartAt", "eventEndAt"] as const) {
-    const a = before[key];
-    const b = after[key];
-    const same = a === null || b === null ? a === b : Date.parse(a) === Date.parse(b);
-    if (!same) Object.assign(changes, { [key]: b });
+    if (!sameInstant(before[key], after[key])) Object.assign(changes, { [key]: after[key] });
   }
   if (!sameSet(before.assigneeIds, after.assigneeIds)) changes.assigneeIds = [...after.assigneeIds];
   if (!sameValues(before.customFields, after.customFields))
@@ -338,7 +343,7 @@ export function assignmentChange(
   const datesMoved =
     toISTDate(before.dueAt) !== toISTDate(after.dueAt) ||
     before.eventDate !== after.eventDate ||
-    before.eventStartAt !== after.eventStartAt ||
-    before.eventEndAt !== after.eventEndAt;
+    !sameInstant(before.eventStartAt, after.eventStartAt) ||
+    !sameInstant(before.eventEndAt, after.eventEndAt);
   return { added, datesMoved };
 }

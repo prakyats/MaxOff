@@ -92,12 +92,12 @@ export const createTaskSchema = z.object({
 export type CreateTaskInput = z.input<typeof createTaskSchema>;
 
 /**
- * An edit (`task_update_assignment`, 4A mechanics 4): only the fields that changed. `taskTypeId`
- * is the type the task will have, so its custom fields are checked against the right definitions.
+ * An edit (`task_update_assignment`, 4A mechanics 4): only the fields that changed. The custom
+ * fields are checked against the type the task will have: the one in `changes`, else the task's
+ * own as read on the server (never a type the client names beside the changes; 4B review S3).
  */
 export const updateTaskSchema = z.object({
   taskId: z.uuid(),
-  taskTypeId: z.uuid(),
   changes: z
     .object({
       title,

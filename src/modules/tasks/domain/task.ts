@@ -140,6 +140,17 @@ function capitalise(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
+/**
+ * Who asked for changes: their name, or "The Owner" at the Owner's step when the viewer's
+ * directory does not hold them (a Staff viewer on an Admin's task; 4B review S8).
+ */
+export function reviewerName(
+  review: Pick<TaskReview, "reviewerId" | "step">,
+  names: Readonly<Record<string, string>>,
+): string {
+  return names[review.reviewerId] ?? (review.step === "owner" ? "The Owner" : "Someone");
+}
+
 /** The reason of the latest rejection, shown while the task is back with its assignees. */
 export function latestChangeRequest(reviews: readonly TaskReview[]): TaskReview | null {
   const rejections = reviews

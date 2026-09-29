@@ -211,6 +211,24 @@ describe("an edit sends only what changed (4A mechanics 4)", () => {
     expect(assignmentChange(before, nextDay).datesMoved).toBe(true);
   });
 
+  it("a title-only edit of a timed event moves no dates (4B review S1)", () => {
+    // PostgREST writes `+00:00`; the dialog's instants are `….000Z`: the same moments.
+    const shoot: Task = {
+      ...existing,
+      taskTypeId: "shoot",
+      eventDate: "2026-10-02",
+      eventStartAt: "2026-10-02T04:30:00+00:00",
+      eventEndAt: "2026-10-02T06:30:00+00:00",
+    };
+    const before = fieldsFromTask(shoot, assignees);
+    const draft = draftFromTask(shoot, assignees);
+    const after = taskFromDraft({ ...draft, title: "Reel shoot, day 2" }, SHOOT);
+    expect(draftChanges(before, after)).toEqual({ title: "Reel shoot, day 2" });
+    expect(assignmentChange(before, after)).toEqual({ added: [], datesMoved: false });
+    const later = taskFromDraft({ ...draft, eventStart: "11:00" }, SHOOT);
+    expect(assignmentChange(before, later).datesMoved).toBe(true);
+  });
+
   it("drops custom-field values the new type does not carry", () => {
     expect(keepFieldKeys({ reel_length: 30, venue: "x" }, ["venue"])).toEqual({ venue: "x" });
   });

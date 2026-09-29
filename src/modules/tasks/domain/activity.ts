@@ -247,6 +247,27 @@ function describe(
   }
 }
 
+/**
+ * Entries only the Owner can write (WORKFLOWS §3.3): the final approval, a change request at the
+ * Owner's step, and an approver change (`task_set_approver` is the Owner's).
+ */
+function isOwnersEntry(entry: TaskActivityEntry): boolean {
+  if (entry.entity !== "tasks") return false;
+  if (entry.action === "completed" || entry.action === "approver_changed") return true;
+  return entry.action === "changes_requested" && entry.meta.step === "owner";
+}
+
+/**
+ * Who acted. A Staff viewer's directory need not hold the Owner (an Admin's task never shows it
+ * to them), so an entry only the Owner writes names "The Owner" rather than "Someone" (4B review
+ * S8: there is one Owner; who else Staff may name is the owner's question).
+ */
+function actorOf(entry: TaskActivityEntry, context: TaskActivityContext): string {
+  const hidden = entry.actorId !== null && context.names[entry.actorId] === undefined;
+  if (hidden && entry.onBehalfOfId === null && isOwnersEntry(entry)) return "The Owner";
+  return pairName(context.names, entry.actorId, entry.onBehalfOfId);
+}
+
 /** The history line for one entry, or null when it only echoes another (or is a comment). */
 export function describeTaskActivity(
   entry: TaskActivityEntry,
@@ -257,7 +278,7 @@ export function describeTaskActivity(
   return {
     id: entry.id,
     at: entry.at,
-    actor: pairName(context.names, entry.actorId, entry.onBehalfOfId),
+    actor: actorOf(entry, context),
     text: line.text,
     ...(line.note ? { note: line.note } : {}),
   };

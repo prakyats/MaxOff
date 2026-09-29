@@ -441,7 +441,6 @@ function TaskForm({
       }
       const result = await updateTask({
         taskId: mode.task.id,
-        taskTypeId: after.taskTypeId,
         changes,
         warnings: warningInput(warningsToRecord(warnings, assignmentChange(before, after))),
       });

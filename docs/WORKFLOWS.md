@@ -289,7 +289,7 @@ Templates are **shared by the whole company**: any holder of `templates.manage` 
 draft ──Owner activate (needs name + admin)──► active ⇄ paused ──► inactive ──Owner reactivate──► active
 ```
 - **Paused:** readable. No new cycles.
-- **Inactive:** readable and searchable. No new projects, items or client-labelled tasks.
+- **Inactive:** readable and searchable. No new projects, items or client-labelled tasks (for tasks the database refuses a label set or changed to an Inactive client, the Owner's too; a task labelled before the client closed keeps its label: 4B review, `app.task_check_fields()`).
 - Changing the Admin closes the current `client_admin_assignments` row and opens a new one. Access moves immediately, and the new Admin (and the previous one, if still active) is notified (§9; owner decision 2026-09-27, kickoff 3).
 - **Inactive is the end state** (no archive action). **Paused and Inactive stay fully editable**; only the "no new work" rules apply (owner decision 2026-09-27, kickoff 3).
 - **Name unique** among clients not Inactive (case-insensitive); **one primary contact** required once any contact exists, archiving the primary asks for the next; GSTIN format checked when given; website and Drive link are `https://` URLs only (owner decision 2026-09-27, kickoff 3).

@@ -1,13 +1,12 @@
 import "server-only";
 
-import { listAllDefinitions } from "@/core/custom-fields/server";
 import type { CurrentMember } from "@/core/auth/server";
 import { todayIST } from "@/core/time";
 import { listClients } from "@/modules/clients";
 import { getSettings } from "@/modules/settings";
-import { listTaskTypes } from "@/modules/tasks";
 import type { TaskFormSetup } from "@/modules/tasks/components/task-form-dialog";
-import { listCurrentCoordinators, listDirectory } from "@/modules/team";
+
+import { readCoordinators, readDirectory, readTaskDefinitions, readTaskTypes } from "./reads";
 
 /**
  * What the create / edit dialog needs (4.3), composed by the route from the modules that own it:
@@ -18,12 +17,12 @@ import { listCurrentCoordinators, listDirectory } from "@/modules/team";
  */
 export async function loadTaskFormSetup(viewer: CurrentMember): Promise<TaskFormSetup> {
   const [types, directory, coordinators, clients, settings, definitions] = await Promise.all([
-    listTaskTypes(),
-    listDirectory(),
-    listCurrentCoordinators(),
+    readTaskTypes(),
+    readDirectory(),
+    readCoordinators(),
     listClients({ states: ["draft", "active", "paused"] }),
     getSettings(),
-    listAllDefinitions("task"),
+    readTaskDefinitions(),
   ]);
   const names = new Map(directory.map((member) => [member.id, member.fullName]));
   const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name);

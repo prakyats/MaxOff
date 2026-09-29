@@ -5,6 +5,7 @@ import {
   joinNames,
   latestChangeRequest,
   pairName,
+  reviewerName,
   routeLine,
   stateLabel,
   statusLine,
@@ -227,5 +228,14 @@ describe("naming who acted (ADR-0013: the pair wherever a person is named)", () 
     expect(pairName(names, "hidden", "asha")).toBe("Asha's coordinator");
     expect(pairName(names, "hidden", null)).toBe("Someone");
     expect(pairName(names, null, null)).toBe("MaxOff");
+  });
+
+  it("names the Owner who asked for changes even when the viewer cannot see them (4B review S8)", () => {
+    expect(reviewerName({ reviewerId: "owner", step: "owner" }, names)).toBe("The Owner");
+    expect(reviewerName({ reviewerId: "admin", step: "admin" }, names)).toBe("Someone");
+    expect(reviewerName({ reviewerId: "ravi", step: "admin" }, names)).toBe("Ravi");
+    expect(reviewerName({ reviewerId: "owner", step: "owner" }, { owner: "Prishit" })).toBe(
+      "Prishit",
+    );
   });
 });

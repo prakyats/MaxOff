@@ -2,7 +2,6 @@ import "server-only";
 
 import { cache } from "react";
 
-import { listAllDefinitions } from "@/core/custom-fields/server";
 import { listClientLabels } from "@/modules/clients";
 import {
   getTask,
@@ -12,15 +11,10 @@ import {
   listStages,
   listSubmissions,
   listTaskActivity,
-  listTaskTypes,
 } from "@/modules/tasks";
-import {
-  listCurrentCoordinators,
-  listDirectory,
-  listDirectoryOf,
-  listOwnFreelancerIds,
-  type TeamMember,
-} from "@/modules/team";
+import { listDirectoryOf, listOwnFreelancerIds, type TeamMember } from "@/modules/team";
+
+import { readCoordinators, readDirectory, readTaskDefinitions, readTaskTypes } from "../reads";
 
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -29,7 +23,8 @@ export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{1
  * and its children (RLS: `app.task_visible()`, so a task the viewer may not see comes back null),
  * its history, who coordinates whom (the Owner's and Admins' `member_coordinators`; the viewer's
  * own freelancers from `coordinated_freelancers`, ADR-0013), the client label (ADR-0005: a label
- * at most) and the task custom fields. `cache()`d per request. The names are `loadNames`.
+ * at most) and the task custom fields. `cache()`d per request, and the four reads the dialog's
+ * setup also makes are shared with it (`../reads`). The names are `loadNames`.
  */
 export const loadTask = cache(async (id: string) => {
   const [
@@ -53,11 +48,11 @@ export const loadTask = cache(async (id: string) => {
     listSubmissions(id),
     listReviews(id),
     listTaskActivity(id),
-    listTaskTypes(),
-    listCurrentCoordinators(),
+    readTaskTypes(),
+    readCoordinators(),
     listOwnFreelancerIds(),
     listClientLabels(),
-    listAllDefinitions("task"),
+    readTaskDefinitions(),
   ]);
   return {
     task,
@@ -114,5 +109,5 @@ export function peopleNamed(data: TaskReads): string[] {
  * people named, because `member_directory` is slow for them row by row (4A later item (a)).
  */
 export function loadNames(teamView: boolean, data: Promise<TaskReads>): Promise<TeamMember[]> {
-  return teamView ? listDirectory() : data.then((reads) => listDirectoryOf(peopleNamed(reads)));
+  return teamView ? readDirectory() : data.then((reads) => listDirectoryOf(peopleNamed(reads)));
 }

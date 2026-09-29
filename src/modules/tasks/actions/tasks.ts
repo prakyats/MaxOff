@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { validateCustomFieldsFor } from "@/core/custom-fields/server";
-import { action, ok, type Result } from "@/core/errors";
+import { action, AppError, ok, type Result } from "@/core/errors";
 import { assertPermission } from "@/core/permissions/server";
 
 import * as repo from "../data/tasks";
@@ -65,7 +65,8 @@ function warningRows(warnings: WarningsInput) {
 export const loadAvailability = action(
   async (input: AvailabilityInput): Promise<Result<AvailabilityDay[]>> => {
     const data = availabilitySchema.parse(input);
-    await assertPermission("tasks.create");
+    // The permission `member_availability()` itself checks (PERMISSIONS §1; 4B review S4).
+    await assertPermission("availability.view");
     return ok(await repo.availability(data.days, data.memberIds));
   },
 );
@@ -98,12 +99,14 @@ export const updateTask = action(
     await assertPermission("tasks.create");
     const changes = { ...data.changes };
     if (changes.customFields) {
-      // An archived field's value is kept, read-only (WORKFLOWS §4a): the task's own values are
-      // the `previous` the validation keeps them from.
+      // The fields are checked against the type the task will have, read here rather than taken
+      // from the client (4B review S3); an archived field's value is kept, read-only (WORKFLOWS
+      // §4a): the task's own values are the `previous` the validation keeps them from.
       const current = await repo.getTask(data.taskId);
+      if (!current) throw new AppError("NOT_FOUND", "This task is gone. Refresh the page.");
       changes.customFields = await validateCustomFieldsFor("task", changes.customFields, {
-        taskTypeId: data.taskTypeId,
-        previous: current?.customFields ?? {},
+        taskTypeId: changes.taskTypeId ?? current.taskTypeId,
+        previous: current.customFields,
       });
     }
     const fields = await repo.rpcUpdateTask(data.taskId, changes, warningRows(data.warnings));

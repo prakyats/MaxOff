@@ -35,6 +35,7 @@ export {
   isOverdue,
   latestChangeRequest,
   pairName,
+  reviewerName,
   routeLine,
   stateLabel,
   statusLine,

@@ -21,6 +21,7 @@ import {
   LinkedText,
   pairName,
   PRIORITY_LABELS,
+  reviewerName,
   routeLine,
   stateLabel,
   statusLine,
@@ -196,7 +197,7 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
               className="bg-attention-soft flex flex-col gap-1 rounded-lg px-3 py-2 text-sm"
             >
               <span className="text-attention text-xs font-medium">
-                {name(changeRequest.reviewerId)} asked for changes
+                {reviewerName(changeRequest, names)} asked for changes
               </span>
               <LinkedText text={changeRequest.reason} />
             </div>
@@ -376,32 +377,41 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
         </Section>
 
         <Section title="History" slot="task-history">
-          <ol
-            aria-label="History"
-            className="border-border divide-border bg-card divide-y rounded-lg border"
-          >
-            {history.map((line) => (
-              <li
-                key={line.id}
-                data-slot="task-history-row"
-                className="flex min-w-0 flex-col gap-0.5 px-3 py-2.5"
-              >
-                <p className="text-sm break-words">
-                  <span className="font-medium">{line.actor}</span> {line.text}
-                </p>
-                {line.note ? (
-                  <p className="text-muted-foreground text-sm break-words">
-                    &ldquo;{line.note}&rdquo;
+          {history.length === 0 ? (
+            <p className="text-muted-foreground text-sm" data-slot="task-history-empty">
+              No changes to show yet.
+            </p>
+          ) : (
+            <ol
+              aria-label="History"
+              className="border-border divide-border bg-card divide-y rounded-lg border"
+            >
+              {history.map((line) => (
+                <li
+                  key={line.id}
+                  data-slot="task-history-row"
+                  className="flex min-w-0 flex-col gap-0.5 px-3 py-2.5"
+                >
+                  <p className="text-sm break-words">
+                    <span className="font-medium">{line.actor}</span> {line.text}
                   </p>
-                ) : null}
-                <p className="text-muted-foreground text-xs">
-                  <time dateTime={line.at}>{formatIST(line.at, "d MMM yyyy, h:mm a")}</time>
-                </p>
-              </li>
-            ))}
-          </ol>
-          {data.activity.length >= ACTIVITY_LIMIT ? (
-            <p className="text-muted-foreground text-xs">The latest {ACTIVITY_LIMIT} changes.</p>
+                  {line.note ? (
+                    <p className="text-muted-foreground text-sm break-words">
+                      &ldquo;{line.note}&rdquo;
+                    </p>
+                  ) : null}
+                  <p className="text-muted-foreground text-xs">
+                    <time dateTime={line.at}>{formatIST(line.at, "d MMM yyyy, h:mm a")}</time>
+                  </p>
+                </li>
+              ))}
+            </ol>
+          )}
+          {/* The read stops at ACTIVITY_LIMIT entries; the note counts the lines shown from them. */}
+          {data.activity.length >= ACTIVITY_LIMIT && history.length > 0 ? (
+            <p className="text-muted-foreground text-xs" data-slot="task-history-limit">
+              The latest {history.length} changes.
+            </p>
           ) : null}
         </Section>
       </div>

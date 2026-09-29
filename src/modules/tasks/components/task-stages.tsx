@@ -1,27 +1,23 @@
 "use client";
 
 import { Loader2Icon, PlusIcon, XIcon } from "lucide-react";
+import dynamic from "next/dynamic";
 import { useState, useTransition } from "react";
 
 import { cn } from "@/core/lib/utils";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
-import { FormField } from "@/core/ui/composites/form-field";
 import { Button } from "@/core/ui/primitives/button";
 import { Checkbox } from "@/core/ui/primitives/checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/core/ui/primitives/dialog";
-import { Input } from "@/core/ui/primitives/input";
 import { toastResult } from "@/core/ui/toast";
 
-import { addTaskStage, removeTaskStage, tickStage } from "../actions/tasks";
-import { STAGE_NAME_MAX } from "../domain/limits";
+import { removeTaskStage, tickStage } from "../actions/tasks";
 import type { ActingFor } from "../domain/task";
+
+/** Loaded on the first tap of Add stage, not with the page (4B review S12). */
+const AddStageDialog = dynamic(
+  () => import("./task-stage-dialog").then((module) => module.AddStageDialog),
+  { ssr: false },
+);
 
 /** A stage as the page shows it: the tick's line is written on the server (IST, the pair). */
 export type StageRow = { id: string; name: string; done: boolean; doneLine: string | null };
@@ -48,6 +44,8 @@ export function TaskStages({
   const [pending, startTransition] = useTransition();
   const [busy, setBusy] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  // Mounted from the first Add stage on, so its typed name survives a back (4B review L6).
+  const [addLoaded, setAddLoaded] = useState(false);
   const [removing, setRemoving] = useState<StageRow | null>(null);
   const done = stages.filter((stage) => stage.done).length;
 
@@ -153,14 +151,19 @@ export function TaskStages({
           type="button"
           variant="secondary"
           className="h-11 self-start"
-          onClick={() => setAdding(true)}
+          onClick={() => {
+            setAddLoaded(true);
+            setAdding(true);
+          }}
         >
           <PlusIcon aria-hidden />
           Add stage
         </Button>
       ) : null}
 
-      {adding ? <AddStageDialog taskId={taskId} onClose={() => setAdding(false)} /> : null}
+      {addLoaded ? (
+        <AddStageDialog open={adding} onClose={() => setAdding(false)} taskId={taskId} />
+      ) : null}
       <ConfirmDialog
         open={removing !== null}
         onOpenChange={(open) => {
@@ -182,66 +185,5 @@ export function TaskStages({
         }
       />
     </section>
-  );
-}
-
-function AddStageDialog({ taskId, onClose }: { taskId: string; onClose: () => void }) {
-  const [name, setName] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
-
-  function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!name.trim()) {
-      setError("Name the stage.");
-      return;
-    }
-    startTransition(async () => {
-      const result = await addTaskStage({ taskId, name });
-      if (!result.ok) {
-        setError(result.error.fieldErrors?.name?.[0] ?? result.error.message);
-        return;
-      }
-      toastResult(result, { success: "Stage added" });
-      onClose();
-    });
-  }
-
-  return (
-    <Dialog open onOpenChange={(open) => (open || pending ? undefined : onClose())}>
-      <DialogContent data-slot="task-stage-dialog">
-        <form onSubmit={submit} noValidate className="flex min-w-0 flex-col gap-4">
-          <DialogHeader>
-            <DialogTitle>Add a stage</DialogTitle>
-            <DialogDescription>It goes at the end of the checklist.</DialogDescription>
-          </DialogHeader>
-          <FormField label="Stage" error={error ?? undefined}>
-            {(control) => (
-              <Input
-                {...control}
-                name="stage"
-                value={name}
-                maxLength={STAGE_NAME_MAX}
-                autoComplete="off"
-                autoFocus
-                onChange={(event) => {
-                  setName(event.target.value);
-                  setError(null);
-                }}
-              />
-            )}
-          </FormField>
-          <DialogFooter>
-            <Button type="button" variant="secondary" onClick={onClose} disabled={pending}>
-              Cancel
-            </Button>
-            <Button variant="primary" type="submit" disabled={pending} aria-busy={pending}>
-              {pending ? <Loader2Icon className="animate-spin" aria-hidden /> : null}
-              Add stage
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
   );
 }

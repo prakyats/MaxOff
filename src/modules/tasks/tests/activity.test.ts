@@ -154,6 +154,33 @@ describe("a task's history (4.4, ADR-0013)", () => {
 });
 
 describe("a Staff co-assignee's history", () => {
+  it("names the Owner where only the Owner acts, when a Staff viewer cannot see them (4B review S8)", () => {
+    const staff = { ...context, names: { ravi: "Ravi", asha: "Asha", admin: "Local Admin" } };
+    const staffLine = (overrides: Partial<TaskActivityEntry>) =>
+      describeTaskActivity(entry(overrides), staff);
+    expect(staffLine({ action: "completed", meta: { step: "owner" } })).toMatchObject({
+      actor: "The Owner",
+      text: "approved it: the task is complete",
+    });
+    expect(
+      staffLine({ action: "changes_requested", meta: { step: "owner", reason: "Tighter cut" } }),
+    ).toMatchObject({ actor: "The Owner", text: "asked for changes", note: "Tighter cut" });
+    expect(
+      staffLine({ action: "approver_changed", meta: { from: "admin", to: null } }),
+    ).toMatchObject({ actor: "The Owner" });
+    // An Admin's step, or anything a manager may do, stays unnamed when the actor is hidden.
+    expect(
+      staffLine({ action: "changes_requested", actorId: "hidden-admin", meta: { step: "admin" } }),
+    ).toMatchObject({ actor: "Someone" });
+    expect(staffLine({ action: "cancelled", meta: { reason: "Client dropped it" } })).toMatchObject(
+      { actor: "Someone" },
+    );
+    // Whoever can see the Owner reads their name.
+    expect(line({ action: "completed", meta: { step: "owner" } })).toMatchObject({
+      actor: "Prishit Shetty",
+    });
+  });
+
   it("names a coordinator they cannot see through the freelancer", () => {
     expect(
       describeTaskActivity(

@@ -190,16 +190,13 @@ export async function listReviews(taskId: string): Promise<TaskReview[]> {
   }));
 }
 
-/** Every task table audits with `entity_id` = the task (4A), so one read covers its history. */
-const TASK_ENTITIES = [
-  "tasks",
-  "task_assignees",
-  "task_stages",
-  "task_comments",
-  "task_reviews",
-  "task_submissions",
-  "task_warnings",
-] as const;
+/**
+ * Every task table audits with `entity_id` = the task (4A), so one read covers its history. Only
+ * the tables the history describes: a comment has its own timeline, and a review or a submission
+ * row only echoes the task's own entry (4B review S2: they spent the read's limit on rows never
+ * shown).
+ */
+const TASK_ENTITIES = ["tasks", "task_assignees", "task_stages", "task_warnings"] as const;
 
 /**
  * The task's history, newest first, under RLS: a Staff viewer gets no `task_warnings` entries
@@ -426,8 +423,9 @@ export async function rpcSetApprover(
 // The plain paths: stages and comments (guarded, audited) ------------------------------------------
 
 /**
- * A worker's tick or untick. `done_by` is set by the guard to the caller; the tick's time is the
- * server's. A refused tick matches no row under RLS, or raises from the guard.
+ * A worker's tick or untick. The guard sets `done_by` to the caller and stamps `done_at` with the
+ * database's own time (4B review S5): the time sent here only says "tick". A refused tick matches
+ * no row under RLS, or raises from the guard.
  */
 export async function setStageDone(input: {
   taskId: string;
