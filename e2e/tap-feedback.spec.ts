@@ -171,7 +171,7 @@ test.describe("the pressed state", () => {
     await page.goto("/people");
     await hydrated(page);
     const button = page
-      .getByRole("button", { name: "Invite", exact: true })
+      .getByRole("button", { name: "Add person", exact: true })
       .filter({ visible: true });
     const pressedButton = await pressedLook(page, button);
     expect(pressedButton.tint, "the neutral tint").toContain("gradient");

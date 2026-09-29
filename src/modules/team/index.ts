@@ -9,18 +9,26 @@ export { offerableJobTitles, type JobTitleOption } from "./domain/job-titles";
 export {
   getOwnMember,
   getPerson,
+  listCoordinatorHistory,
   listCurrentCoordinators,
   listDirectory,
   listDirectoryOf,
   listMembers,
   listOwnFreelancerIds,
+  listOwnFreelancers,
 } from "./data/members";
 export {
+  coordinatorOptions,
+  freelancerLine,
+  hasAttendance,
   memberActions,
   ROLE_LABELS,
+  roleLabel,
   sortMembers,
   STATUS_LABELS,
+  type CoordinatorSpell,
   type Engagement,
+  type OwnFreelancer,
   type TeamMember,
 } from "./domain/members";
 export { NAME_MAX_LENGTH, PHONE_MAX_LENGTH } from "./domain/limits";

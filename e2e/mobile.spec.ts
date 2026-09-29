@@ -661,13 +661,13 @@ test.describe("People is a card list, not a table", () => {
 test.describe("dialogs are bottom sheets", () => {
   test.use({ storageState: storageStateFor("owner") });
 
-  test("the invite dialog opens from the bottom edge and scrolls inside itself", async ({
+  test("the Add person dialog opens from the bottom edge and scrolls inside itself", async ({
     page,
   }) => {
     await page.goto("/people");
     await page
       .locator('[data-slot="page-actions"]')
-      .getByRole("button", { name: /Invite/ })
+      .getByRole("button", { name: "Add person" })
       .click();
 
     const dialog = page.locator('[data-slot="dialog-content"]');

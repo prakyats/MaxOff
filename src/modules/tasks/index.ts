@@ -25,6 +25,7 @@ export {
   listSubmissions,
   listTaskActivity,
   listTaskTypes,
+  countOpenAssignments,
   countTasks,
   listFinishedTaskRows,
   listOpenTaskRows,

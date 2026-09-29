@@ -4,7 +4,7 @@ import { cache } from "react";
 import { startEarly } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
 import { requirePermission } from "@/core/permissions/server";
-import { getPerson, type TeamMember } from "@/modules/team";
+import { getPerson, hasAttendance, type TeamMember } from "@/modules/team";
 
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -33,11 +33,13 @@ export const loadPerson = cache(async (id: string) => {
   return { viewer, person };
 });
 
-/** Whether the viewer sees this person's leave and attendance (2.4): the Owner, once joined. */
+/**
+ * Whether the viewer sees this person's leave, attendance and month (2.4, 3b.4): the Owner, once
+ * an employee has joined. Never a freelancer's (ADR-0013: no attendance or leave; 4A later item
+ * (e)).
+ */
 export function showsHistory(viewer: { role: Parameters<typeof can>[0] }, person: TeamMember) {
-  return (
-    can(viewer.role, "attendance.view_all") && person.role !== "owner" && person.joinedAt !== null
-  );
+  return can(viewer.role, "attendance.view_all") && hasAttendance(person);
 }
 
 /**

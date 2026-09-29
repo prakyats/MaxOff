@@ -21,7 +21,17 @@ import { Separator } from "@/core/ui/primitives/separator";
 import { ReloadAppButton } from "@/core/ui/shell/reload-app-button";
 import { initialsOf, ROLE_LABELS } from "@/core/ui/shell/viewer";
 import { ThemeToggle } from "@/core/ui/theme/theme-toggle";
-import { getOwnMember, NAME_MAX_LENGTH, PHONE_MAX_LENGTH, updateOwnProfile } from "@/modules/team";
+import { formatIST } from "@/core/time";
+import {
+  getOwnMember,
+  listDirectoryOf,
+  listOwnFreelancers,
+  NAME_MAX_LENGTH,
+  type OwnFreelancer,
+  PHONE_MAX_LENGTH,
+  type TeamMember,
+  updateOwnProfile,
+} from "@/modules/team";
 import { AvatarEditor } from "@/modules/team/components/avatar-editor";
 
 export const metadata: Metadata = { title: "Me" };
@@ -42,11 +52,17 @@ export default async function MePage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  // The profile row starts with the session read, not after it (ARCHITECTURE §19).
-  const [viewer, [{ welcome }, own]] = await checkThenRead(
+  // The profile row and the freelancers the member looks after (ADR-0013, 4C) start with the
+  // session read, not after it (ARCHITECTURE §19).
+  const [viewer, [{ welcome }, own, spells]] = await checkThenRead(
     requireMember(),
-    Promise.all([searchParams, withSessionUserId(getOwnMember)]),
+    Promise.all([searchParams, withSessionUserId(getOwnMember), listOwnFreelancers()]),
   );
+  const freelancers = spells.filter((spell) => spell.toAt === null);
+  // perf: sequential. Their names need their ids; most people coordinate nobody, and then
+  // nothing more is read.
+  const people =
+    freelancers.length > 0 ? await listDirectoryOf(freelancers.map((row) => row.memberId)) : [];
   const isWelcome = welcome === "1";
 
   const subtitle = viewer.jobTitle
@@ -185,7 +201,62 @@ export default async function MePage({
             </div>
           </CardContent>
         </Card>
+
+        {freelancers.length > 0 ? (
+          <YourFreelancers freelancers={freelancers} people={people} />
+        ) : null}
       </div>
     </>
+  );
+}
+
+/**
+ * "Your freelancers" (ADR-0013, 4C): the people the member coordinates now, whose tasks they
+ * note, update and hand in ("for Asha" in My tasks), with a phone to reach them. Last on the
+ * page, so nothing above it moves for a coordinator when it arrives. Only the current ones: the
+ * directory names a freelancer to their current coordinator (Kickoff 4 decision 21), and the
+ * reason for a change is never here (4A review S4).
+ */
+function YourFreelancers({
+  freelancers,
+  people,
+}: {
+  freelancers: readonly OwnFreelancer[];
+  people: readonly TeamMember[];
+}) {
+  const byId = new Map(people.map((person) => [person.id, person]));
+  return (
+    <Card data-slot="me-freelancers">
+      <CardHeader>
+        <CardTitle>Your freelancers</CardTitle>
+        <CardDescription>You note, update and hand in their tasks for them.</CardDescription>
+      </CardHeader>
+      <CardContent className="text-sm">
+        <ul className="flex flex-col gap-3">
+          {freelancers.map((row) => {
+            const person = byId.get(row.memberId);
+            return (
+              <li key={row.memberId} className="flex min-w-0 flex-col gap-0.5">
+                <p className="font-medium break-words">{person?.fullName ?? "A freelancer"}</p>
+                <p className="text-muted-foreground">
+                  {person?.jobTitle ? `${person.jobTitle} · ` : ""}
+                  {person?.status === "deactivated"
+                    ? "deactivated for now"
+                    : `since ${formatIST(row.fromAt, "d MMM yyyy")}`}
+                </p>
+                {person?.phone ? (
+                  <a
+                    href={`tel:${person.phone.replace(/\s+/g, "")}`}
+                    className="pressable-row inline-flex min-h-11 min-w-11 items-center self-start underline underline-offset-4"
+                  >
+                    {person.phone}
+                  </a>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      </CardContent>
+    </Card>
   );
 }

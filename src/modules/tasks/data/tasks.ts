@@ -277,6 +277,22 @@ export async function listOpenTaskRows(): Promise<TaskListRow[]> {
   return (data as ListRowData[]).map(toListRow);
 }
 
+/**
+ * How many open tasks a person is on (an active assignee): the warning in the Owner's "Invite as
+ * employee" (4A later item L5). RLS: the Owner sees every task.
+ */
+export async function countOpenAssignments(memberId: string): Promise<number> {
+  const supabase = await createServerSupabase();
+  const { count, error } = await supabase
+    .from("tasks")
+    .select("id, task_assignees!inner(member_id)", { count: "exact", head: true })
+    .eq("task_assignees.member_id", memberId)
+    .is("task_assignees.removed_at", null)
+    .not("state", "in", "(completed,cancelled)");
+  if (error) throw error;
+  return count ?? 0;
+}
+
 /** The finished tasks, the latest first, at most `limit` (the full list's window). */
 export async function listFinishedTaskRows(limit: number): Promise<TaskListRow[]> {
   const supabase = await createServerSupabase();

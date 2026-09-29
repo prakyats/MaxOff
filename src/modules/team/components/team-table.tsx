@@ -21,15 +21,25 @@ import {
 } from "@/core/ui/primitives/dropdown-menu";
 
 import {
+  freelancerLine,
   memberActions,
   memberEditKey,
   opensPersonPage,
-  ROLE_LABELS,
+  roleLabel,
   STATUS_LABELS,
   type TeamMember,
 } from "../domain/members";
 
 import { useMemberDialogs } from "./use-member-dialogs";
+
+/** A row of the list: the person, and a freelancer's coordinator's name (ADR-0013, 4C). */
+type TeamRow = TeamMember & { coordinatorName: string | null };
+
+/** A freelancer was added, not invited or joined (ADR-0013: no login). */
+function sinceWord(member: TeamMember): string {
+  if (member.engagement === "freelance") return "Added";
+  return member.joinedAt ? "Joined" : "Invited";
+}
 
 /** Edit on the person's page, unless the link is opening in another tab (3.4 review). */
 function editOnArrival(event: MouseEvent, memberId: string): void {
@@ -47,14 +57,36 @@ function editOnArrival(event: MouseEvent, memberId: string): void {
 export function TeamTable({
   members,
   viewer,
+  coordinators,
 }: {
   members: TeamMember[];
   viewer: { id: string; canManage: boolean };
+  /** A freelancer's current coordinator's name, by the freelancer's id (ADR-0013, 4C). */
+  coordinators: Readonly<Record<string, string>>;
 }) {
-  const { changeEmail, deactivate, issueLink, reactivate, dialogs } = useMemberDialogs();
+  // The coordinator's name travels in the row, not the columns: the columns stay the same object
+  // across refreshes, so an open row menu is not remounted (and closed) when the list refreshes.
+  const rows = useMemo<TeamRow[]>(
+    () =>
+      members.map((member) => ({
+        ...member,
+        coordinatorName:
+          member.engagement === "freelance" ? (coordinators[member.id] ?? null) : null,
+      })),
+    [members, coordinators],
+  );
+  const {
+    changeEmail,
+    changeCoordinator,
+    deactivate,
+    inviteAsEmployee,
+    issueLink,
+    reactivate,
+    dialogs,
+  } = useMemberDialogs();
 
-  const columns = useMemo<ColumnDef<TeamMember>[]>(() => {
-    const base: ColumnDef<TeamMember>[] = [
+  const columns = useMemo<ColumnDef<TeamRow>[]>(() => {
+    const base: ColumnDef<TeamRow>[] = [
       {
         accessorKey: "fullName",
         header: "Name",
@@ -72,6 +104,7 @@ export function TeamTable({
             )}
             <p className="text-muted-foreground truncate text-xs">
               {row.original.jobTitle ?? "No job title"}
+              {row.original.coordinatorName ? ` · with ${row.original.coordinatorName}` : null}
             </p>
           </div>
         ),
@@ -79,8 +112,9 @@ export function TeamTable({
       {
         accessorKey: "role",
         header: "Role",
-        cell: ({ row }) => ROLE_LABELS[row.original.role],
-        size: 90,
+        accessorFn: (member) => roleLabel(member),
+        cell: ({ row }) => roleLabel(row.original),
+        size: 110,
       },
       {
         accessorKey: "status",
@@ -96,7 +130,11 @@ export function TeamTable({
         {
           accessorKey: "email",
           header: "Email",
-          cell: ({ row }) => <span className="text-muted-foreground">{row.original.email}</span>,
+          cell: ({ row }) => (
+            <span className="text-muted-foreground">
+              {row.original.email ?? (row.original.engagement === "freelance" ? "No login" : "")}
+            </span>
+          ),
         },
         {
           id: "since",
@@ -107,7 +145,7 @@ export function TeamTable({
             const at = member.joinedAt ?? member.invitedAt ?? member.createdAt;
             return (
               <span className="text-muted-foreground whitespace-nowrap">
-                {member.joinedAt ? "Joined" : "Invited"} {formatIST(at, "d MMM yyyy")}
+                {sinceWord(member)} {formatIST(at, "d MMM yyyy")}
               </span>
             );
           },
@@ -150,6 +188,16 @@ export function TeamTable({
                       Change sign-in email
                     </DropdownMenuItem>
                   ) : null}
+                  {actions.changeCoordinator ? (
+                    <DropdownMenuItem onSelect={() => changeCoordinator(member)}>
+                      Change coordinator
+                    </DropdownMenuItem>
+                  ) : null}
+                  {actions.inviteAsEmployee ? (
+                    <DropdownMenuItem onSelect={() => inviteAsEmployee(member)}>
+                      Invite as employee
+                    </DropdownMenuItem>
+                  ) : null}
                   {actions.copyInviteLink ? (
                     <DropdownMenuItem onSelect={() => issueLink(member)}>
                       Copy invite link
@@ -185,11 +233,12 @@ export function TeamTable({
    * opens their page (kickoff 3); the email, the date and every action live in the sheet behind
    * ⋯. The Owner's own card has no person page (/me is theirs), so it opens the sheet.
    */
-  const mobile: MobileCard<TeamMember> = {
+  const mobile: MobileCard<TeamRow> = {
     title: (member) => member.fullName,
     href: (member) => (opensPersonPage(viewer, member) ? `/people/${member.id}` : null),
     moreLabel: (member) => `More for ${member.fullName}`,
-    subtitle: (member) => `${ROLE_LABELS[member.role]} · ${member.jobTitle ?? "No job title"}`,
+    subtitle: (member) =>
+      `${member.engagement === "freelance" ? freelancerLine(member.coordinatorName) : roleLabel(member)} · ${member.jobTitle ?? "No job title"}`,
     trailing: (member) => <StatusDot status={member.status} label={STATUS_LABELS[member.status]} />,
     detail: (member) => {
       const at = member.joinedAt ?? member.invitedAt ?? member.createdAt;
@@ -197,8 +246,14 @@ export function TeamTable({
         <dl className="flex flex-col gap-3">
           <div className="flex justify-between gap-4">
             <dt className="text-muted-foreground">Role</dt>
-            <dd className="text-right font-medium">{ROLE_LABELS[member.role]}</dd>
+            <dd className="text-right font-medium">{roleLabel(member)}</dd>
           </div>
+          {member.engagement === "freelance" ? (
+            <div className="flex justify-between gap-4">
+              <dt className="text-muted-foreground">Coordinator</dt>
+              <dd className="text-right">{member.coordinatorName ?? "None"}</dd>
+            </div>
+          ) : null}
           <div className="flex justify-between gap-4">
             <dt className="text-muted-foreground">Job title</dt>
             <dd className="text-right">{member.jobTitle ?? "—"}</dd>
@@ -222,7 +277,7 @@ export function TeamTable({
             </div>
           ) : null}
           <div className="flex justify-between gap-4">
-            <dt className="text-muted-foreground">{member.joinedAt ? "Joined" : "Invited"}</dt>
+            <dt className="text-muted-foreground">{sinceWord(member)}</dt>
             <dd className="text-right">{formatIST(at, "d MMM yyyy")}</dd>
           </div>
           {memberActions(viewer, member).edit ? (
@@ -247,6 +302,8 @@ export function TeamTable({
       const actions = memberActions(viewer, member);
       const any =
         actions.changeEmail ||
+        actions.changeCoordinator ||
+        actions.inviteAsEmployee ||
         actions.copyInviteLink ||
         actions.reactivate ||
         actions.revokeInvite ||
@@ -257,6 +314,16 @@ export function TeamTable({
           {actions.changeEmail ? (
             <Button variant="secondary" onClick={() => changeEmail(member)}>
               Change sign-in email
+            </Button>
+          ) : null}
+          {actions.changeCoordinator ? (
+            <Button variant="secondary" onClick={() => changeCoordinator(member)}>
+              Change coordinator
+            </Button>
+          ) : null}
+          {actions.inviteAsEmployee ? (
+            <Button variant="secondary" onClick={() => inviteAsEmployee(member)}>
+              Invite as employee
             </Button>
           ) : null}
           {actions.copyInviteLink ? (
@@ -284,7 +351,7 @@ export function TeamTable({
     <>
       <DataTable
         columns={columns}
-        data={members}
+        data={rows}
         getRowId={(member) => member.id}
         pageSize={0}
         caption="The team"
@@ -293,7 +360,7 @@ export function TeamTable({
           <EmptyState
             icon={UsersIcon}
             title="Nobody here yet"
-            description="Invite the first person and they appear here."
+            description="Add the first person and they appear here."
           />
         }
       />

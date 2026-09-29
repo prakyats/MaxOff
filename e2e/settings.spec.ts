@@ -203,7 +203,7 @@ test.describe("Owner", () => {
 
     // An archived title is not offered when someone is invited.
     await page.goto("/people");
-    await page.getByRole("button", { name: "Invite", exact: true }).click();
+    await page.getByRole("button", { name: "Add person", exact: true }).click();
     await page.getByLabel("Job title").click();
     await expect(page.getByRole("option", { name: "Colourist" })).toHaveCount(0);
     await page.keyboard.press("Escape");

@@ -492,7 +492,7 @@ test.describe("on desktop too", () => {
 
   test("back closes a dialog instead of leaving the page", async ({ page }) => {
     await page.goto("/people");
-    await page.getByRole("button", { name: "Invite", exact: true }).click();
+    await page.getByRole("button", { name: "Add person", exact: true }).click();
     const dialog = page.locator('[data-slot="dialog-content"]');
     await expect(dialog).toBeVisible();
 

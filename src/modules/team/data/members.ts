@@ -4,7 +4,14 @@ import { createServerSupabase } from "@/core/db/server";
 import { createServiceSupabase } from "@/core/db/service";
 import { AppError } from "@/core/errors";
 
-import type { Engagement, MemberRole, MemberStatus, TeamMember } from "../domain/members";
+import type {
+  CoordinatorSpell,
+  Engagement,
+  MemberRole,
+  MemberStatus,
+  OwnFreelancer,
+  TeamMember,
+} from "../domain/members";
 
 /**
  * The team repository: every database and Auth-admin call of the module (CLAUDE.md rule 3).
@@ -157,6 +164,47 @@ export async function listOwnFreelancerIds(): Promise<string[]> {
   return data.flatMap((row) => (row.member_id ? [row.member_id] : []));
 }
 
+/**
+ * A freelancer's coordinators, now and before, newest first (`member_coordinators`, 4A): RLS
+ * gives them to `team.view` (the Owner and Admins) with the reason (Kickoff 4 decision 20), and
+ * nothing to anyone else.
+ */
+export async function listCoordinatorHistory(memberId: string): Promise<CoordinatorSpell[]> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase
+    .from("member_coordinators")
+    .select("id, coordinator_id, from_at, to_at, set_by, reason")
+    .eq("member_id", memberId)
+    .order("from_at", { ascending: false });
+  if (error) throw error;
+  return data.map((row) => ({
+    id: row.id,
+    coordinatorId: row.coordinator_id,
+    fromAt: row.from_at,
+    toAt: row.to_at,
+    setBy: row.set_by,
+    reason: row.reason,
+  }));
+}
+
+/**
+ * The freelancers the signed-in member looks after, now and before, newest first (their own
+ * `coordinated_freelancers` rows, 4A review S4: never the reason): "Your freelancers" on /me.
+ */
+export async function listOwnFreelancers(): Promise<OwnFreelancer[]> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase
+    .from("coordinated_freelancers")
+    .select("member_id, from_at, to_at")
+    .order("from_at", { ascending: false });
+  if (error) throw error;
+  return data.flatMap((row) =>
+    row.member_id && row.from_at
+      ? [{ memberId: row.member_id, fromAt: row.from_at, toAt: row.to_at }]
+      : [],
+  );
+}
+
 /** The caller's own row (RLS: always visible), for the profile form. */
 export async function getOwnMember(id: string): Promise<TeamMember | null> {
   const supabase = await createServerSupabase();
@@ -261,6 +309,49 @@ export async function rpcInvite(args: {
   return data;
 }
 
+/** "Add person → Freelancer" (ADR-0013): no email, no sign-in, a coordinator. */
+export async function rpcAddFreelancer(args: {
+  fullName: string;
+  jobTitleId: string | null;
+  phone: string | null;
+  coordinatorId: string;
+}): Promise<string> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("member_add_freelancer", {
+    full_name: args.fullName,
+    coordinator_id: args.coordinatorId,
+    ...(args.jobTitleId ? { job_title_id: args.jobTitleId } : {}),
+    ...(args.phone ? { phone: args.phone } : {}),
+  });
+  if (error) throw error;
+  return data;
+}
+
+/** "Change coordinator": the current row closes, the next opens (history kept, 4A). */
+export async function rpcSetCoordinator(
+  memberId: string,
+  coordinatorId: string,
+  reason: string | null,
+): Promise<void> {
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.rpc("member_set_coordinator", {
+    member_id: memberId,
+    coordinator_id: coordinatorId,
+    ...(reason ? { reason } : {}),
+  });
+  if (error) throw error;
+}
+
+/** Kickoff 4 decision 7: the freelancer's record becomes an invited employee (same id). */
+export async function rpcInviteEmployee(memberId: string, email: string): Promise<void> {
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.rpc("member_invite_employee", {
+    member_id: memberId,
+    email,
+  });
+  if (error) throw error;
+}
+
 export async function rpcRefreshInvite(memberId: string): Promise<string> {
   const supabase = await createServerSupabase();
   const { data, error } = await supabase.rpc("member_invite_refresh", { member_id: memberId });
@@ -347,6 +438,17 @@ function tokenFrom(
     });
   }
   return { userId: data.user.id, tokenHash, type };
+}
+
+/**
+ * The sign-in for a freelancer who becomes an employee (4A mechanics (10)): created under the
+ * freelancer's own id, so their task history and on-behalf rows stay theirs, unconfirmed until
+ * they open the invite.
+ */
+export async function createAuthUserWithId(id: string, email: string): Promise<void> {
+  const service = createServiceSupabase();
+  const { error } = await service.auth.admin.createUser({ id, email, email_confirm: false });
+  if (error) throw error;
 }
 
 /**
