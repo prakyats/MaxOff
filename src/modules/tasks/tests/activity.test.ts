@@ -152,3 +152,20 @@ describe("a task's history (4.4, ADR-0013)", () => {
     expect(line({ entity: "task_comments", action: "insert", new: { body: "hi" } })).toBeNull();
   });
 });
+
+describe("a Staff co-assignee's history", () => {
+  it("names a coordinator they cannot see through the freelancer", () => {
+    expect(
+      describeTaskActivity(
+        entry({
+          entity: "task_assignees",
+          action: "acknowledged",
+          actorId: "hidden",
+          onBehalfOfId: "asha",
+          meta: { member_id: "asha" },
+        }),
+        { names: { asha: "Asha" }, types: {}, clients: {} },
+      ),
+    ).toMatchObject({ actor: "Asha's coordinator", text: "noted the task" });
+  });
+});

@@ -11,7 +11,6 @@ import { PageHeader } from "@/core/ui/composites/page-header";
 import { StatusBadge, StatusDot } from "@/core/ui/composites/status-badge";
 import {
   activeAssignees,
-  actorPair,
   deadlineLabel,
   describeTaskActivity,
   eventLabel,
@@ -20,6 +19,7 @@ import {
   isOverdue,
   latestChangeRequest,
   LinkedText,
+  pairName,
   PRIORITY_LABELS,
   routeLine,
   stateLabel,
@@ -100,7 +100,7 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
   const changeRequest =
     task.state === "changes_requested" ? latestChangeRequest(data.reviews) : null;
   const pair = (actorId: string | null, onBehalfOf: string | null) =>
-    actorPair(name(actorId), onBehalfOf ? name(onBehalfOf) : null);
+    pairName(names, actorId, onBehalfOf);
   const latest = data.submissions[0] ?? null;
   const admins = directory
     .filter(
@@ -284,10 +284,7 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
               const noted = assignee.acknowledgedAt !== null;
               const notedBy =
                 assignee.acknowledgedBy && assignee.acknowledgedBy !== assignee.memberId
-                  ? actorPair(
-                      names[assignee.acknowledgedBy] ?? `${name(assignee.memberId)}'s coordinator`,
-                      name(assignee.memberId),
-                    )
+                  ? pair(assignee.acknowledgedBy, assignee.memberId)
                   : null;
               return (
                 <li

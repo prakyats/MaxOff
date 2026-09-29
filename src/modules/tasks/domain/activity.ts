@@ -1,6 +1,6 @@
 import { formatIST } from "@/core/time";
 
-import { actorPair } from "./task";
+import { pairName } from "./task";
 import { PRIORITY_LABELS, type Priority } from "./types";
 
 /**
@@ -254,12 +254,10 @@ export function describeTaskActivity(
 ): TaskHistoryLine | null {
   const line = describe(entry, context);
   if (!line) return null;
-  const actorName = entry.actorId ? (context.names[entry.actorId] ?? "Someone") : "MaxOff";
-  const forName = entry.onBehalfOfId ? (context.names[entry.onBehalfOfId] ?? "a freelancer") : null;
   return {
     id: entry.id,
     at: entry.at,
-    actor: actorPair(actorName, forName),
+    actor: pairName(context.names, entry.actorId, entry.onBehalfOfId),
     text: line.text,
     ...(line.note ? { note: line.note } : {}),
   };

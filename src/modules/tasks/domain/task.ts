@@ -265,6 +265,21 @@ export function actorPair(actorName: string, onBehalfOfName: string | null): str
   return onBehalfOfName ? `${actorName} for ${onBehalfOfName}` : actorName;
 }
 
+/**
+ * The pair from ids: "Ravi for Asha". A Staff co-assignee may not see the coordinator in the
+ * directory (they are not on the task): then "Asha's coordinator", which still names both.
+ */
+export function pairName(
+  names: Readonly<Record<string, string>>,
+  actorId: string | null,
+  onBehalfOf: string | null,
+): string {
+  const forName = onBehalfOf ? (names[onBehalfOf] ?? "a freelancer") : null;
+  const actor = actorId ? names[actorId] : undefined;
+  if (actor === undefined && forName) return `${forName}'s coordinator`;
+  return actorPair(actor ?? (actorId ? "Someone" : "MaxOff"), forName);
+}
+
 /** An event type carries an event date, optional times and a purpose (4A mechanics 6). */
 export function isEventKind(kind: TaskTypeKind | undefined): boolean {
   return kind === "event";

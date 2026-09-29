@@ -34,6 +34,7 @@ export {
   isLocked,
   isOverdue,
   latestChangeRequest,
+  pairName,
   routeLine,
   stateLabel,
   statusLine,

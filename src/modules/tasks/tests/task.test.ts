@@ -4,6 +4,7 @@ import {
   isOverdue,
   joinNames,
   latestChangeRequest,
+  pairName,
   routeLine,
   stateLabel,
   statusLine,
@@ -211,5 +212,20 @@ describe("the task at a glance", () => {
       },
     ];
     expect(latestChangeRequest(reviews)?.reason).toBe("new");
+  });
+});
+
+describe("naming who acted (ADR-0013: the pair wherever a person is named)", () => {
+  const names = { ravi: "Ravi", asha: "Asha" };
+
+  it("names the coordinator and the freelancer", () => {
+    expect(pairName(names, "ravi", "asha")).toBe("Ravi for Asha");
+    expect(pairName(names, "ravi", null)).toBe("Ravi");
+  });
+
+  it("still names both when the coordinator is not in the viewer's directory", () => {
+    expect(pairName(names, "hidden", "asha")).toBe("Asha's coordinator");
+    expect(pairName(names, "hidden", null)).toBe("Someone");
+    expect(pairName(names, null, null)).toBe("MaxOff");
   });
 });

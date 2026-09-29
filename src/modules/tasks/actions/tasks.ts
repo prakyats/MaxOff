@@ -98,8 +98,12 @@ export const updateTask = action(
     await assertPermission("tasks.create");
     const changes = { ...data.changes };
     if (changes.customFields) {
+      // An archived field's value is kept, read-only (WORKFLOWS §4a): the task's own values are
+      // the `previous` the validation keeps them from.
+      const current = await repo.getTask(data.taskId);
       changes.customFields = await validateCustomFieldsFor("task", changes.customFields, {
         taskTypeId: data.taskTypeId,
+        previous: current?.customFields ?? {},
       });
     }
     const fields = await repo.rpcUpdateTask(data.taskId, changes, warningRows(data.warnings));
