@@ -64,8 +64,8 @@ export function ReceiptAboveForm({ receiptAbove }: { receiptAbove: number }) {
         )}
       </FormField>
       <StickyActions>
-        <Button variant="primary" type="submit" disabled={pending}>
-          {pending ? "Saving…" : "Save receipt amount"}
+        <Button variant="primary" type="submit" pending={pending} pendingLabel="Saving…">
+          Save receipt amount
         </Button>
       </StickyActions>
     </form>

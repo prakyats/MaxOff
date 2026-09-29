@@ -12,6 +12,14 @@
  * Which links it reads: `data-slot="page-back"` (`BackLink`), `data-view-link` (`ViewLink`) and
  * `data-tab` inside the bar that carries `data-tab-home` / `data-tab-top` (`BottomNav`). Any
  * other link, a modified click, another origin or a new-tab target keeps the browser's default.
+ *
+ * Every in-app link tap, before and after hydration, also starts the navigation progress bar
+ * (`progress.ts`): `data-nav-pending` on `<html>` and `data-nav-target` on the tapped link, which
+ * CSS draws at once, so a tap on a slow connection never looks dead (§14.2 i). `NavProgress`
+ * finishes it when the new screen is there.
+ *
+ * It also registers an empty passive `touchstart` listener: without one, iOS Safari never applies
+ * `:active`, and the pressed state (`pressable`, `globals.css`) would not show on an iPhone.
  */
 
 import {
@@ -21,6 +29,12 @@ import {
   TAB_TOP_ATTRIBUTE,
   VIEW_LINK_ATTRIBUTE,
 } from "./attributes";
+import {
+  NAV_DONE_ATTRIBUTE,
+  NAV_PENDING_ATTRIBUTE,
+  NAV_TARGET_ATTRIBUTE,
+  startsNavigation,
+} from "./progress";
 
 export {
   LIVE_ATTRIBUTE,
@@ -37,13 +51,18 @@ export {
  */
 export const PRE_HYDRATION_SCRIPT = `(function(){try{
 var d=document;
+d.addEventListener("touchstart",function(){},{passive:true});
 function backMove(i){return i!==undefined&&i>0?"back":"parent"}
+var startsNavigation=${startsNavigation.toString()};
+function startNav(a,u){try{if(!startsNavigation({origin:u.origin,pathname:u.pathname,search:u.search},location))return;var h=d.documentElement;h.removeAttribute("${NAV_DONE_ATTRIBUTE}");h.setAttribute("${NAV_PENDING_ATTRIBUTE}",String(Date.now()));var old=d.querySelectorAll("[${NAV_TARGET_ATTRIBUTE}]");for(var k=0;k<old.length;k++)old[k].removeAttribute("${NAV_TARGET_ATTRIBUTE}");a.setAttribute("${NAV_TARGET_ATTRIBUTE}",u.href)}catch(err){}}
 function tabMove(href,path,home,top,standalone,pushed){if(!standalone||top.indexOf(href)<0||top.indexOf(path)<0||href===path)return null;if(href===home)return pushed?"back":"replace";return path===home?"push":"replace"}
 d.addEventListener("click",function(e){try{
 if(e.defaultPrevented||e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;
 var a=e.target&&e.target.closest?e.target.closest("a[href]"):null;
-if(!a||a.hasAttribute("${LIVE_ATTRIBUTE}")||(a.target&&a.target!=="_self")||a.hasAttribute("download"))return;
+if(!a||(a.target&&a.target!=="_self")||a.hasAttribute("download"))return;
 var u=new URL(a.href,location.href);if(u.origin!==location.origin)return;
+startNav(a,u);
+if(a.hasAttribute("${LIVE_ATTRIBUTE}"))return;
 var nav=window.navigation,entry=nav&&nav.currentEntry,i=entry?entry.index:undefined,move=null;
 if(a.getAttribute("data-slot")==="page-back"){move=backMove(i)==="back"?"back":"replace"}
 else if(a.hasAttribute("${VIEW_LINK_ATTRIBUTE}")){move="replace"}

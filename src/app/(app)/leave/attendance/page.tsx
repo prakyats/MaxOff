@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 
+import { checkThenRead } from "@/core/lib/start-early";
+import { withSessionUserId } from "@/core/auth/server";
 import { requirePermission } from "@/core/permissions/server";
 import { addISTDays, todayIST, toISTDate } from "@/core/time";
 import { getNoteDays, historyMonth, listDays, monthLabel, monthOf } from "@/modules/attendance";
@@ -21,16 +23,20 @@ export default async function LeaveAttendancePage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const viewer = await requirePermission("attendance.self");
-  const [{ month: requested }, own] = await Promise.all([searchParams, getOwnMember(viewer.id)]);
   const today = todayIST();
+  // Keyed by the session's id, so they start with the session read (ARCHITECTURE §19).
+  const noteDaysRead = getNoteDays(today);
+  const [viewer, [{ month: requested }, own]] = await checkThenRead(
+    requirePermission("attendance.self"),
+    Promise.all([searchParams, withSessionUserId(getOwnMember), noteDaysRead]),
+  );
   // Attendance starts the IST day after joining (WORKFLOWS §1, 2.2).
   const firstDay = own?.joinedAt ? addISTDays(toISTDate(own.joinedAt), 1) : today;
   const { month, previous, next } = historyMonth(requested, {
     first: monthOf(firstDay),
     current: monthOf(today),
   });
-  const [days, noteDays] = await Promise.all([listDays(viewer.id, month), getNoteDays(today)]);
+  const [days, noteDays] = await Promise.all([listDays(viewer.id, month), noteDaysRead]);
   const href = (m: string) => `/leave/attendance?month=${m}`;
 
   return (

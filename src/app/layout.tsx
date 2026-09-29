@@ -5,6 +5,8 @@ import "./globals.css";
 
 import { cn } from "@/core/lib/utils";
 import { LAUNCH_INTRO_SCRIPT, LaunchIntro } from "@/core/ui/pwa/launch-intro";
+import { OfflineBanner } from "@/core/ui/connection/offline-banner";
+import { NavProgress } from "@/core/ui/navigation/nav-progress";
 import { PRE_HYDRATION_SCRIPT } from "@/core/ui/navigation/pre-hydration";
 import { STANDALONE_SCRIPT } from "@/core/ui/pwa/standalone";
 import launch from "@/core/ui/pwa/launch-screens.json";
@@ -84,6 +86,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       </head>
       <body className="bg-background text-foreground min-h-dvh">
         <LaunchIntro />
+        {/* The navigation progress bar and its slow-connection messages (§14.2 i). */}
+        <NavProgress />
+        {/* "You're offline…" above the bottom bar; commit buttons wait for the connection. */}
+        <OfflineBanner />
         {/*
           Toaster (sonner) and TooltipProvider (radix) live in the `(app)` layout, not here.
           Nothing outside the signed-in area raises a toast or a tooltip, and mounting them

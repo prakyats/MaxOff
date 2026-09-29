@@ -104,7 +104,16 @@ insert into seed_users values
   -- spec arranges itself.
   ('20000000-0000-4000-8000-000000000053', 'month-desktop@maxoff.local', 'month-local-password', 'Test Month (desktop)', null, 'staff', 'active'),
   ('20000000-0000-4000-8000-000000000054', 'month-mobile@maxoff.local', 'month-local-password', 'Test Month (mobile)', null, 'staff', 'active'),
-  ('20000000-0000-4000-8000-000000000055', 'month-mobile-lg@maxoff.local', 'month-local-password', 'Test Month (mobile-lg)', null, 'staff', 'active');
+  ('20000000-0000-4000-8000-000000000055', 'month-mobile-lg@maxoff.local', 'month-local-password', 'Test Month (mobile-lg)', null, 'staff', 'active'),
+  -- Tap feedback (e2e/tap-feedback.spec.ts): each edits their own profile on /me through a slow
+  -- or failing connection, one per project; the spec puts the name back itself.
+  ('20000000-0000-4000-8000-000000000056', 'tap-desktop@maxoff.local', 'tap-local-password', 'Test Tap (desktop)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000057', 'tap-mobile@maxoff.local', 'tap-local-password', 'Test Tap (mobile)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000058', 'tap-mobile-lg@maxoff.local', 'tap-local-password', 'Test Tap (mobile-lg)', null, 'staff', 'active'),
+  -- Pull-to-refresh (e2e/pull-to-refresh.spec.ts): renamed behind the Owner's back while the
+  -- People list is open, one per phone project; the spec puts the name back itself.
+  ('20000000-0000-4000-8000-000000000059', 'pull-mobile@maxoff.local', 'pull-local-password', 'Aa Pull (mobile)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000060', 'pull-mobile-lg@maxoff.local', 'pull-local-password', 'Aa Pull (mobile-lg)', null, 'staff', 'active');
 
 -- What GoTrue writes for a confirmed email + password user (`auth.users` + one identity).
 insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,

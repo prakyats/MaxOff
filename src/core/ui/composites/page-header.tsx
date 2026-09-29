@@ -113,7 +113,7 @@ export function PageHeader({
             // header's right-hand side on desktop. `globals.css` gives a page that has one
             // extra bottom padding, so the FAB never covers the last row.
             className={cn(
-              "fixed right-4 bottom-[calc(var(--app-bottom-nav-h)+1rem+var(--app-safe-bottom))] z-30 flex items-center gap-2",
+              "fixed right-4 bottom-[calc(var(--app-bottom-nav-h)+1rem+var(--app-safe-bottom)+var(--app-offline-h,0px))] z-30 flex items-center gap-2",
               "*:h-12 *:rounded-full *:px-5 *:shadow-lg",
               "md:static md:shrink-0 md:flex-wrap md:*:h-8 md:*:rounded-lg md:*:px-2.5 md:*:shadow-none",
             )}

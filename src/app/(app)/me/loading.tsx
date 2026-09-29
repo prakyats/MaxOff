@@ -10,7 +10,7 @@ import { Skeleton } from "@/core/ui/primitives/skeleton";
  * the sign-in line, the read-only Profile record (its heading row with Edit, two label and value
  * rows, task 2.9) under the photo button row (3.3), then the "Attendance & leave" row for
  * whoever marks attendance (2.3), then
- * Appearance and Session. Same member check as `my-day/loading.tsx`.
+ * Appearance, Session and Reload app. Same member check as `my-day/loading.tsx`.
  */
 export default async function Loading() {
   const member = await getCurrentMember();
@@ -69,9 +69,9 @@ export default async function Loading() {
         ) : null}
         <Card aria-hidden>
           <CardContent className="flex flex-col gap-4">
-            {[0, 1].map((row) => (
+            {[0, 1, 2].map((row) => (
               <div key={row} className="flex flex-col gap-4">
-                {row === 1 ? <Separator /> : null}
+                {row > 0 ? <Separator /> : null}
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex flex-col gap-1.5">
                     <Skeleton className="h-4 w-24" />

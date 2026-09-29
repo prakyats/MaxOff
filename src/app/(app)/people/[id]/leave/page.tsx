@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
+import { checkThenRead } from "@/core/lib/start-early";
 import { todayIST } from "@/core/time";
 import {
   CompLeaveCard,
@@ -13,7 +14,7 @@ import { LeaveRequestList } from "@/modules/leave/components/leave-request-list"
 
 import { LeavePager } from "../../../leave/leave-nav";
 
-import { loadHistoryPerson } from "../person";
+import { assertMemberId, loadHistoryPerson } from "../person";
 
 export const metadata: Metadata = { title: "Attendance & leave" };
 
@@ -32,15 +33,16 @@ export default async function PersonLeavePage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const [{ id }, { page: requested }] = await Promise.all([params, searchParams]);
-  const person = await loadHistoryPerson(id);
   const page =
     typeof requested === "string" && /^[1-9]\d{0,4}$/.test(requested) ? Number(requested) : 1;
   const today = todayIST();
-  const [{ requests, total }, balance, credits] = await Promise.all([
-    listRequests(person.id, page),
-    getCompBalance(person.id),
-    listCredits(person.id),
-  ]);
+  // Keyed by the id in the URL: read together with the person (ARCHITECTURE §19); RLS decides
+  // each read and `loadHistoryPerson` still decides the page.
+  assertMemberId(id);
+  const [person, [{ requests, total }, balance, credits]] = await checkThenRead(
+    loadHistoryPerson(id),
+    Promise.all([listRequests(id, page), getCompBalance(id), listCredits(id)]),
+  );
   const pages = Math.max(1, Math.ceil(total / LEAVE_PAGE_SIZE));
   const base = `/people/${person.id}/leave`;
   if (page > pages) redirect(base);

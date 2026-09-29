@@ -15,8 +15,9 @@ export const metadata: Metadata = { title: "Brand" };
  */
 export default async function ClientBrandPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { client, canEdit } = await loadClient(id);
-  const brand = (await getBrand(client.id)) ?? {
+  // Keyed by the client id in the URL: read together with the client (ARCHITECTURE §19).
+  const [{ client, canEdit }, saved] = await Promise.all([loadClient(id), getBrand(id)]);
+  const brand = saved ?? {
     clientId: client.id,
     logoFileId: null,
     colors: [],

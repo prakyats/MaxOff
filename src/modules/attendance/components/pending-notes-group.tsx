@@ -1,11 +1,12 @@
 "use client";
 
-import { Loader2Icon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useId, useState, useTransition } from "react";
+import { useId, useState } from "react";
 
 import type { ResultError } from "@/core/errors";
 import { cn } from "@/core/lib/utils";
+import { ActionStatus } from "@/core/ui/action/action-status";
+import { useAction } from "@/core/ui/action/use-action";
 import { ApprovalGroup } from "@/core/ui/composites/approval-group";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { ReviewFacts, ReviewSheet } from "@/core/ui/composites/review-sheet";
@@ -120,7 +121,26 @@ function DecideNoteDialog({
   const [markWorked, setMarkWorked] = useState(false);
   const [ownerNote, setOwnerNote] = useState("");
   const [error, setError] = useState<ResultError | null>(null);
-  const [pending, startTransition] = useTransition();
+  const action = useAction(async (target: PendingNote) => {
+    const result = await decideExtraWorkNote({
+      noteId: target.id,
+      decision: (decision ?? "") as NoteDecision,
+      markDayWorked: target.kind === "day_off" && markWorked,
+      note: ownerNote,
+    });
+    if (
+      toastResult(result, {
+        success: decision === "no_comp_leave" ? "Reviewed, no comp leave" : "Comp leave granted",
+      })
+    ) {
+      onDecided();
+      close(false);
+      router.refresh();
+    } else if (!result.ok) {
+      setError(result.error);
+    }
+  });
+  const { pending } = action;
 
   function close(open: boolean) {
     if (pending) return;
@@ -136,25 +156,7 @@ function DecideNoteDialog({
   function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!note) return;
-    startTransition(async () => {
-      const result = await decideExtraWorkNote({
-        noteId: note.id,
-        decision: (decision ?? "") as NoteDecision,
-        markDayWorked: note.kind === "day_off" && markWorked,
-        note: ownerNote,
-      });
-      if (
-        toastResult(result, {
-          success: decision === "no_comp_leave" ? "Reviewed, no comp leave" : "Comp leave granted",
-        })
-      ) {
-        onDecided();
-        close(false);
-        router.refresh();
-      } else if (!result.ok) {
-        setError(result.error);
-      }
-    });
+    action.run(note);
   }
 
   const decisionError = error?.fieldErrors?.decision?.[0];
@@ -228,6 +230,7 @@ function DecideNoteDialog({
               />
             </div>
           ) : null}
+          <ActionStatus action={action} />
           <DialogFooter>
             <Button
               type="button"
@@ -240,10 +243,12 @@ function DecideNoteDialog({
             <Button
               variant="primary"
               type="submit"
-              disabled={pending || !decision}
-              aria-busy={pending}
+              disabled={!decision}
+              pending={pending}
+              pendingLabel={
+                decision === "no_comp_leave" ? "Marking reviewed…" : "Granting comp leave…"
+              }
             >
-              {pending ? <Loader2Icon className="animate-spin" aria-hidden /> : null}
               {decision === "no_comp_leave" ? "Mark reviewed" : "Grant comp leave"}
             </Button>
           </DialogFooter>

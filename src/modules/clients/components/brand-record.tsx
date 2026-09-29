@@ -124,7 +124,7 @@ function BrandLists({ value }: { value: BrandDraft }) {
                   data-slot="brand-color"
                   aria-label={`${row.name} ${row.hex}. Copy the hex value`}
                   onClick={() => copyHex(row)}
-                  className="active:bg-muted hover:bg-muted/60 focus-visible:ring-ring -mx-2 flex min-h-12 w-[calc(100%+1rem)] items-center gap-3 rounded-lg px-2 py-1.5 text-left outline-none focus-visible:ring-2"
+                  className="pressable hover:bg-muted/60 focus-visible:ring-ring -mx-2 flex min-h-12 w-[calc(100%+1rem)] items-center gap-3 rounded-lg px-2 py-1.5 text-left outline-none focus-visible:ring-2"
                 >
                   <span
                     aria-hidden

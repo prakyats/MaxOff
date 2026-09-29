@@ -1,11 +1,12 @@
 "use client";
 
-import { Loader2Icon } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { useId, useState, useTransition } from "react";
+import { useId, useState } from "react";
 
 import { cn } from "@/core/lib/utils";
+import { ActionStatus } from "@/core/ui/action/action-status";
+import { useAction } from "@/core/ui/action/use-action";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { useFollowUpTrigger } from "@/core/ui/composites/follow-up";
 import { ErrorText } from "@/core/ui/composites/error-text";
@@ -44,31 +45,34 @@ export function StartDayButton({
   onStarted?: () => void;
 }) {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  // One request per tap, "Starting…" at once, and a slow or lost connection said under it
+  // (ARCHITECTURE §14.1): the tap is the start, so it must never be sent twice.
+  const action = useAction(async () => {
+    const result = await startDay();
+    if (!toastResult(result, { success: "Your day has started" })) {
+      // Refused ("Your day has already started": another device, or a prompt left open):
+      // re-read today, so a prompt or strip that no longer applies goes away.
+      router.refresh();
+      return;
+    }
+    if (onStarted) onStarted();
+    else router.refresh();
+  });
   return (
-    <Button
-      variant={variant}
-      size={size}
-      disabled={pending}
-      aria-busy={pending}
-      data-slot="start-day"
-      onClick={() =>
-        startTransition(async () => {
-          const result = await startDay();
-          if (!toastResult(result, { success: "Your day has started" })) {
-            // Refused ("Your day has already started": another device, or a prompt left open):
-            // re-read today, so a prompt or strip that no longer applies goes away.
-            router.refresh();
-            return;
-          }
-          if (onStarted) onStarted();
-          else router.refresh();
-        })
-      }
-    >
-      {pending ? <Loader2Icon className="animate-spin" aria-hidden /> : null}
-      {label}
-    </Button>
+    <span className="inline-flex flex-col items-start gap-1">
+      <Button
+        variant={variant}
+        size={size}
+        commits
+        pending={action.pending}
+        pendingLabel="Starting…"
+        data-slot="start-day"
+        onClick={() => action.run()}
+      >
+        {label}
+      </Button>
+      <ActionStatus action={action} />
+    </span>
   );
 }
 

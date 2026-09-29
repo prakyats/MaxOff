@@ -333,7 +333,7 @@ export function DataTable<TData>({
                         <button
                           type="button"
                           onClick={header.column.getToggleSortingHandler()}
-                          className="hover:text-foreground focus-visible:ring-ring -mx-1 inline-flex items-center gap-1 rounded px-1 outline-none focus-visible:ring-2"
+                          className="pressable-row hover:text-foreground focus-visible:ring-ring -mx-1 inline-flex items-center gap-1 rounded px-1 outline-none focus-visible:ring-2"
                         >
                           {flexRender(header.column.columnDef.header, header.getContext())}
                           {sorted === "asc" ? (
@@ -572,7 +572,7 @@ function MobileCards<TData>({
                     onClick={() => setOpenId(row.id)}
                     aria-label={card.moreLabel?.(row.original) ?? "More"}
                     data-slot="data-card-more"
-                    className="active:bg-muted/60 focus-visible:ring-ring text-muted-foreground flex w-12 shrink-0 items-center justify-center outline-none focus-visible:ring-2 focus-visible:ring-inset"
+                    className="pressable focus-visible:ring-ring text-muted-foreground flex w-12 shrink-0 items-center justify-center outline-none focus-visible:ring-2 focus-visible:ring-inset"
                   >
                     <EllipsisIcon className="size-5" aria-hidden />
                   </button>
@@ -588,7 +588,8 @@ function MobileCards<TData>({
                   type="button"
                   onClick={() => setOpenId(row.id)}
                   className={cn(
-                    "active:bg-muted/60 focus-visible:ring-ring flex w-full flex-wrap items-center gap-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset",
+                    "pressable-row",
+                    "focus-visible:ring-ring flex w-full flex-wrap items-center gap-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset",
                     CARD_ROW_MIN_H,
                     CARD_ROW_PADDING,
                   )}
@@ -649,6 +650,7 @@ function MobileCards<TData>({
                 rendered an empty bordered block.
               */}
               {card.actions?.(open.original) ? (
+                // pressable: none (not a control: it only hears the sheet's own buttons to close it)
                 <div
                   data-slot="detail-sheet-actions"
                   // Any action closes the sheet: the ones that go on to open a dialog would

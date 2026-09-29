@@ -2,12 +2,14 @@ import type { ReactNode } from "react";
 
 import { BottomNav } from "./bottom-nav";
 import { MobileChrome } from "./mobile-chrome";
+import { PullToRefresh } from "./pull-to-refresh";
 import {
   alertsInBottomNav,
   homeFor,
   mobileNavFor,
   type NavBadges,
   navFor,
+  PROFILE_NAV_ITEM,
   withBadges,
 } from "./nav";
 import { Sidebar } from "./sidebar";
@@ -49,6 +51,8 @@ export function AppShell({
   const mobile = mobileNavFor(viewer.role);
   const primary = withBadges(mobile.primary, badges);
   const more = withBadges(mobile.more, badges);
+  // Every tab's first screen, whichever bar or sidebar reaches it: where a pull refreshes.
+  const tabRoots = [...new Set([home, PROFILE_NAV_ITEM.href, ...items.map((item) => item.href)])];
 
   return (
     <div
@@ -57,6 +61,7 @@ export function AppShell({
       // already has an Alerts destination (Staff), a second bell is noise.
       data-alerts={alertsInBottomNav(viewer.role) ? "nav" : "bar"}
     >
+      {/* pressable: none (a skip link: it takes keyboard focus, nobody taps it) */}
       <a
         href="#main"
         className="bg-card text-foreground ring-ring sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:px-3 focus:py-2 focus:text-sm focus:ring-2"
@@ -72,12 +77,13 @@ export function AppShell({
           tabIndex={-1}
           // No top padding on a phone: the sticky title bar provides the separation, and the
           // first real row of content has to be visible without scrolling (§14.1).
-          className="mx-auto w-full max-w-[80rem] flex-1 px-4 pt-0 pb-[calc(var(--app-bottom-nav-h)+1.5rem+var(--app-safe-bottom))] md:px-6 md:py-6 lg:px-8"
+          className="mx-auto w-full max-w-[80rem] flex-1 px-4 pt-0 pb-[calc(var(--app-bottom-nav-h)+1.5rem+var(--app-safe-bottom)+var(--app-offline-h,0px))] md:px-6 md:py-6 lg:px-8"
         >
           {children}
         </main>
       </div>
       <BottomNav primary={primary} more={more} home={home} logoutItem={logoutSheetItem} />
+      <PullToRefresh tabRoots={tabRoots} />
     </div>
   );
 }

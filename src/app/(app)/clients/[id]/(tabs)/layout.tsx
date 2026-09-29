@@ -44,8 +44,10 @@ export default async function ClientLayout({
 }
 
 async function ClientHeader({ id }: { id: string }) {
-  const { client, canManage, canEdit } = await loadClient(id);
-  const { admins } = await loadPeople(canManage);
+  const [{ client, canManage, canEdit }, { admins }] = await Promise.all([
+    loadClient(id),
+    loadPeople(),
+  ]);
   return (
     <PageHeader
       title={client.name}

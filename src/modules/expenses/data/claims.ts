@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cache } from "react";
+
 import { createServerSupabase } from "@/core/db/server";
 
 import {
@@ -135,8 +137,11 @@ export async function listApprovedInMonth(range: {
   return data.map((row) => ({ memberId: row.member_id, amount: Number(row.amount) }));
 }
 
-/** The claim form's setup: the active categories in the Owner's order, and the receipt amount. */
-export async function getClaimSetup(): Promise<ClaimSetup> {
+/**
+ * The claim form's setup: the active categories in the Owner's order, and the receipt amount.
+ * Once per request (`cache()`): My Day and Today start it with the session read (`startEarly`).
+ */
+export const getClaimSetup = cache(async (): Promise<ClaimSetup> => {
   const supabase = await createServerSupabase();
   const [categories, settings] = await Promise.all([
     supabase
@@ -153,7 +158,7 @@ export async function getClaimSetup(): Promise<ClaimSetup> {
     categories: categories.data,
     receiptAbove: Number(settings.data?.expense_receipt_above ?? 500),
   };
-}
+});
 
 /** The receipt amount alone (Settings → Expenses). */
 export async function getReceiptAbove(): Promise<number> {

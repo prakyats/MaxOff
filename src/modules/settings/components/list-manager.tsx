@@ -104,10 +104,11 @@ export function ListManager({
           <Button
             variant="primary"
             type="submit"
-            disabled={pending}
+            pending={pending}
+            pendingLabel="Adding…"
             className="w-full sm:mt-6 sm:w-auto"
           >
-            {pending ? "Adding…" : "Add"}
+            Add
           </Button>
         </div>
       </form>

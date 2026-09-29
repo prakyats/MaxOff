@@ -61,11 +61,20 @@ export function ForgotPasswordForm() {
           />
         )}
       </FormField>
-      <Button variant="primary" type="submit" className="w-full" disabled={pending}>
-        {pending ? "Sending…" : "Send me a link"}
+      <Button
+        variant="primary"
+        type="submit"
+        className="w-full"
+        pending={pending}
+        pendingLabel="Sending…"
+      >
+        Send me a link
       </Button>
       <p className="text-muted-foreground text-center text-sm">
-        <Link href={LOGIN_PATH} className="hover:text-foreground underline underline-offset-4">
+        <Link
+          href={LOGIN_PATH}
+          className="pressable-row hover:text-foreground underline underline-offset-4"
+        >
           Back to sign in
         </Link>
       </p>

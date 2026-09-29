@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { isSettingsEntity, SETTINGS_ENTITIES, type SettingsEntity } from "@/core/custom-fields";
 import { listAllDefinitions } from "@/core/custom-fields/server";
+import { startEarly } from "@/core/lib/start-early";
 import { requirePermission } from "@/core/permissions/server";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { listClients, sortClients } from "@/modules/clients";
@@ -29,14 +30,20 @@ export default async function CustomFieldsSettingsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const viewer = await requirePermission("lists.manage");
+  // The clients list does not depend on the role: read together with the check (§19). Which
+  // entities the viewer may pick does, so the definitions follow it.
+  const clientsRead = listClients();
+  startEarly(clientsRead);
+  const [viewer, { entity: requested }] = await Promise.all([
+    requirePermission("lists.manage"),
+    searchParams,
+  ]);
   const isOwner = viewer.role === "owner";
   const entities = isOwner ? SETTINGS_ENTITIES : ADMIN_ENTITIES;
-  const { entity: requested } = await searchParams;
   const entity: SettingsEntity =
     isSettingsEntity(requested) && entities.includes(requested) ? requested : "client";
 
-  const [definitions, clients] = await Promise.all([listAllDefinitions(entity), listClients()]);
+  const [definitions, clients] = await Promise.all([listAllDefinitions(entity), clientsRead]);
   const scopes = sortClients(clients).map((client) => ({ id: client.id, name: client.name }));
 
   return (

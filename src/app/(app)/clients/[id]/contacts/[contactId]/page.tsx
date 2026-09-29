@@ -23,11 +23,12 @@ export default async function ContactPage({
   params: Promise<{ id: string; contactId: string }>;
 }) {
   const { id, contactId } = await params;
-  const { client, canManage, canEdit } = await loadClient(id);
-  const [contacts, definitions, people] = await Promise.all([
-    listContacts(client.id),
-    listDefinitions("contact", { clientId: client.id }),
-    loadPeople(canManage),
+  // Keyed by the client id in the URL: read together with the client (ARCHITECTURE §19).
+  const [{ client, canEdit }, contacts, definitions, people] = await Promise.all([
+    loadClient(id),
+    listContacts(id),
+    listDefinitions("contact", { clientId: id }),
+    loadPeople(),
   ]);
   const contact = contacts.find((candidate) => candidate.id === contactId);
   if (!contact) notFound();

@@ -52,7 +52,7 @@ export async function TodayAttendanceStrip({
       <Link
         href={HISTORY_HREF}
         aria-label={`Today's attendance: ${strip.text}`}
-        className="active:bg-muted/60 focus-visible:ring-ring flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg pl-3 outline-none select-none focus-visible:ring-2"
+        className="pressable-row focus-visible:ring-ring flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg pl-3 outline-none select-none focus-visible:ring-2"
       >
         <StatusDot status={strip.dot} label="" className="shrink-0" />
         <span data-slot="attendance-status" className="truncate text-sm font-medium">

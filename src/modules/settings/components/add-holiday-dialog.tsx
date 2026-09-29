@@ -1,9 +1,10 @@
 "use client";
 
-import { Loader2Icon } from "lucide-react";
-import { type FormEvent, useState, useTransition } from "react";
+import { type FormEvent, useState } from "react";
 
 import type { ResultError } from "@/core/errors";
+import { ActionStatus } from "@/core/ui/action/action-status";
+import { useAction } from "@/core/ui/action/use-action";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { FormField } from "@/core/ui/composites/form-field";
 import { Button } from "@/core/ui/primitives/button";
@@ -30,19 +31,20 @@ export function AddHolidayDialog({ onClose }: { onClose: () => void }) {
   const [date, setDate] = useState("");
   const [name, setName] = useState("");
   const [error, setError] = useState<ResultError | null>(null);
-  const [pending, startTransition] = useTransition();
+  const action = useAction(async () => {
+    const result = await createHoliday({ date, name });
+    if (result.ok) {
+      toastResult(result, { success: "Holiday added" });
+      onClose();
+    } else {
+      setError(result.error);
+    }
+  });
+  const { pending } = action;
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    startTransition(async () => {
-      const result = await createHoliday({ date, name });
-      if (result.ok) {
-        toastResult(result, { success: "Holiday added" });
-        onClose();
-      } else {
-        setError(result.error);
-      }
-    });
+    action.run();
   }
 
   const fieldErrors = error?.fieldErrors ?? {};
@@ -87,12 +89,17 @@ export function AddHolidayDialog({ onClose }: { onClose: () => void }) {
               />
             )}
           </FormField>
+          <ActionStatus action={action} />
           <DialogFooter>
             <Button type="button" variant="secondary" onClick={onClose} disabled={pending}>
               Cancel
             </Button>
-            <Button variant="primary" type="submit" disabled={pending} aria-busy={pending}>
-              {pending ? <Loader2Icon className="animate-spin" aria-hidden /> : null}
+            <Button
+              variant="primary"
+              type="submit"
+              pending={pending}
+              pendingLabel="Adding holiday…"
+            >
               Add holiday
             </Button>
           </DialogFooter>

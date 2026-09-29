@@ -1,7 +1,10 @@
 "use client";
 
-import { Loader2Icon } from "lucide-react";
-import { type ReactNode, useId, useState, useTransition } from "react";
+import { type ReactNode, useId, useState } from "react";
+
+import { ActionStatus } from "@/core/ui/action/action-status";
+import { useAction } from "@/core/ui/action/use-action";
+import { workingLabel } from "@/core/ui/action/working-label";
 
 import { Button } from "@/core/ui/primitives/button";
 import {
@@ -41,6 +44,7 @@ export function ReasonDialog({
   label = "Reason",
   placeholder = "Explain briefly. This is recorded in the history.",
   submitLabel,
+  pendingLabel,
   cancelLabel = "Cancel",
   onSubmit,
 }: {
@@ -55,13 +59,23 @@ export function ReasonDialog({
    * never "Submit" or "OK" (ARCHITECTURE §14.1, the action colour rule).
    */
   submitLabel: string;
+  /** The button while it runs; defaults to the label's verb in -ing ("Rejecting leave…"). */
+  pendingLabel?: string;
   cancelLabel?: string;
   /** Resolve `false` to keep the dialog open with the reason (the save failed). */
   onSubmit: (reason: string) => void | boolean | Promise<void | boolean>;
 }) {
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  // One request per tap; a slow or failed one is said under the buttons and what was typed
+  // stays (ARCHITECTURE §14.1).
+  const action = useAction(async (trimmed: string) => {
+    // `false` means it failed (the caller has said why): keep the dialog and what was typed.
+    if ((await onSubmit(trimmed)) === false) return;
+    setReason("");
+    onOpenChange(false);
+  });
+  const { pending } = action;
   const id = useId();
   const errorId = `${id}-error`;
 
@@ -79,12 +93,7 @@ export function ReasonDialog({
     const problem = validateReason(reason);
     setError(problem);
     if (problem) return;
-    startTransition(async () => {
-      // `false` means it failed (the caller has said why): keep the dialog and what was typed.
-      if ((await onSubmit(reason.trim())) === false) return;
-      setReason("");
-      onOpenChange(false);
-    });
+    action.run(reason.trim());
   }
 
   return (
@@ -119,6 +128,7 @@ export function ReasonDialog({
               </ErrorText>
             ) : null}
           </div>
+          <ActionStatus action={action} />
           <DialogFooter>
             <Button
               type="button"
@@ -128,8 +138,12 @@ export function ReasonDialog({
             >
               {cancelLabel}
             </Button>
-            <Button type="submit" variant="primary" disabled={pending} aria-busy={pending}>
-              {pending ? <Loader2Icon className="animate-spin" aria-hidden /> : null}
+            <Button
+              type="submit"
+              variant="primary"
+              pending={pending}
+              pendingLabel={pendingLabel ?? workingLabel(submitLabel)}
+            >
               {submitLabel}
             </Button>
           </DialogFooter>

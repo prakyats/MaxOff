@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 
 import { listDefinitions } from "@/core/custom-fields/server";
 import { cn } from "@/core/lib/utils";
+import { startEarly } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
 import {
   CARD_ROW_MIN_H,
@@ -34,14 +35,20 @@ export const metadata: Metadata = { title: "Client" };
  */
 export default async function ClientOverviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { viewer, client, canManage, canEdit } = await loadClient(id);
-  const [people, contacts, clientFields, contactFields, ownerNotes] = await Promise.all([
-    loadPeople(canManage),
-    listContacts(client.id),
-    listDefinitions("client", { clientId: client.id }),
-    listDefinitions("contact", { clientId: client.id }),
-    can(viewer.role, "clients.private_notes") ? getOwnerNotes(client.id) : Promise.resolve(null),
-  ]);
+  // Everything is keyed by the client id in the URL, so it is read together with the client
+  // and the session (ARCHITECTURE §19): RLS decides each read, `loadClient` still decides the
+  // page (404 for a client this viewer may not see), and an Admin's owner notes are dropped.
+  const notes = getOwnerNotes(id);
+  startEarly(notes);
+  const [{ viewer, client, canEdit }, people, contacts, clientFields, contactFields] =
+    await Promise.all([
+      loadClient(id),
+      loadPeople(),
+      listContacts(id),
+      listDefinitions("client", { clientId: id }),
+      listDefinitions("contact", { clientId: id }),
+    ]);
+  const ownerNotes = can(viewer.role, "clients.private_notes") ? await notes : null;
   const live = contacts.filter((contact) => contact.archivedAt === null);
   const archived = contacts.filter((contact) => contact.archivedAt !== null);
   const primary = live.find((contact) => contact.isPrimary) ?? null;

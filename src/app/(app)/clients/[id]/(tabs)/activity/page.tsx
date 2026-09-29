@@ -19,8 +19,12 @@ export const metadata: Metadata = { title: "Activity" };
  */
 export default async function ClientActivityPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { viewer, client, canManage } = await loadClient(id);
-  const [people, contacts] = await Promise.all([loadPeople(canManage), listContacts(client.id)]);
+  // Keyed by the client id in the URL: read together with the client (ARCHITECTURE §19).
+  const [{ viewer, client }, people, contacts] = await Promise.all([
+    loadClient(id),
+    loadPeople(),
+    listContacts(id),
+  ]);
   const entries = await listClientActivity(
     client.id,
     contacts.map((contact) => contact.id),

@@ -40,7 +40,7 @@ export function TodayAttendanceCard({ summary }: { summary: TodaySummary }) {
     <Link
       href="/approvals"
       data-slot="today-attendance-card"
-      className="border-border bg-card focus-visible:ring-ring active:bg-muted/60 mb-4 flex flex-col gap-3 rounded-lg border p-4 outline-none focus-visible:ring-2"
+      className="pressable-row border-border bg-card focus-visible:ring-ring mb-4 flex flex-col gap-3 rounded-lg border p-4 outline-none focus-visible:ring-2"
     >
       <span className="flex items-center justify-between gap-2">
         <span className="text-sm font-medium">

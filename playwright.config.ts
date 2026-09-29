@@ -32,6 +32,8 @@ const SELECT_SPECS = /select\.spec\.ts$/;
 const EXTRA_WORK_SPECS = /extra-work\.spec\.ts$/;
 const EXPENSES_SPECS = /expenses\.spec\.ts$/;
 const MONTH_SUMMARY_SPECS = /month-summary\.spec\.ts$/;
+const TAP_FEEDBACK_SPECS = /tap-feedback\.spec\.ts$/;
+const PULL_TO_REFRESH_SPECS = /pull-to-refresh\.spec\.ts$/;
 
 /**
  * Flow tests (ARCHITECTURE §15). `pnpm test:e2e` runs them; CI runs them as their own job.
@@ -113,7 +115,8 @@ export default defineConfig({
       // the client screens' views, menus and sheets (3.4), the select's phone sheet (3B review), and
       // the extra work notes, the Owner's Extra work group and comp leave (3b.2), and the expense
       // claims' and the month summary's layers (3b.3, 3b.4; added at `/review-phase 3b`, which
-      // found them checked at 375px only).
+      // found them checked at 375px only). And tap feedback and pull-to-refresh (2026-09-28): the
+      // pressed, pending, slow and offline states and the pull, at both phone widths.
       name: "mobile-lg",
       dependencies: ["setup"],
       testMatch: [
@@ -134,6 +137,8 @@ export default defineConfig({
         EXTRA_WORK_SPECS,
         EXPENSES_SPECS,
         MONTH_SUMMARY_SPECS,
+        TAP_FEEDBACK_SPECS,
+        PULL_TO_REFRESH_SPECS,
       ],
       use: { ...devices["Pixel 5"], viewport: { width: 430, height: 932 } },
     },

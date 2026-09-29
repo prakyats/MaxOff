@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { ErrorState } from "@/core/ui/composites/error-state";
-import { buttonVariants } from "@/core/ui/primitives/button";
+import { buttonVariants } from "@/core/ui/primitives/button-variants";
 
 export const metadata: Metadata = { title: "Offline" };
 

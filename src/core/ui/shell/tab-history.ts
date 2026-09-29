@@ -97,6 +97,30 @@ export interface TabNavigation {
  * Gives the bottom bar its tab-navigation behaviour. Returns `navigate`, which reports whether
  * it handled the click — in a browser tab it always returns false, so the plain `Link` wins.
  */
+/**
+ * Prefetch every top-level destination once the app is idle (ARCHITECTURE §19, P5): the bar's
+ * visible links prefetch themselves, but the More sheet's pages and home are not on screen, and
+ * the installed app reaches all of them through `router.push`/`replace`, which only use what is
+ * already cached. A dynamic route prefetches up to its `loading.tsx`, so the tap shows the
+ * destination's skeleton at once and the data follows; no page is rendered ahead of time. Never
+ * the page you are on: its prefetch could answer a pull-to-refresh with the data from before the
+ * pull (found by the e2e suite under load), and it is already on screen.
+ */
+export function usePrefetchTabs(hrefs: readonly string[], pathname: string): void {
+  const router = useRouter();
+  useEffect(() => {
+    const run = () => {
+      for (const href of hrefs) if (href !== pathname) router.prefetch(href);
+    };
+    if (typeof window.requestIdleCallback === "function") {
+      const handle = window.requestIdleCallback(run, { timeout: 3000 });
+      return () => window.cancelIdleCallback(handle);
+    }
+    const timer = window.setTimeout(run, 1500);
+    return () => window.clearTimeout(timer);
+  }, [hrefs, pathname, router]);
+}
+
 export function useTabNavigation(
   home: string,
   pathname: string,

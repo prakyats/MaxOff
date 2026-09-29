@@ -57,7 +57,7 @@ export function StickyActions({
       ref={ref}
       data-slot="sticky-actions"
       className={cn(
-        "border-border bg-card/95 supports-[backdrop-filter]:bg-card/85 fixed inset-x-0 bottom-[calc(var(--app-bottom-nav-h)+var(--app-safe-bottom))] z-30 flex gap-2 border-t py-3 pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] shadow-[0_-6px_16px_-10px_rgb(0_0_0/0.25)] backdrop-blur",
+        "border-border bg-card/95 supports-[backdrop-filter]:bg-card/85 fixed inset-x-0 bottom-[calc(var(--app-bottom-nav-h)+var(--app-safe-bottom)+var(--app-offline-h,0px))] z-30 flex gap-2 border-t py-3 pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] shadow-[0_-6px_16px_-10px_rgb(0_0_0/0.25)] backdrop-blur",
         "*:flex-1",
         "md:static md:justify-end md:border-0 md:bg-transparent md:p-0 md:shadow-none md:backdrop-blur-none md:*:flex-none",
         className,

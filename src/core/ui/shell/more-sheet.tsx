@@ -23,7 +23,7 @@ import { NAV_ICONS } from "./nav-icons";
 import type { TabNavigation } from "./tab-history";
 
 const ROW =
-  "flex min-h-12 items-center gap-3 rounded-lg px-3 text-sm outline-none transition-colors active:bg-muted focus-visible:ring-ring focus-visible:ring-2";
+  "flex min-h-12 items-center gap-3 rounded-lg px-3 text-sm outline-none transition-colors focus-visible:ring-ring focus-visible:ring-2";
 
 /**
  * The fifth slot of the bottom bar for Owner and Admin: the destinations that didn't make the
@@ -109,7 +109,7 @@ export function MoreSheet({
                 data-nav={item.key}
                 onClick={follow(item.href)}
                 aria-current={active ? "page" : undefined}
-                className={cn(ROW, active && "bg-muted font-medium")}
+                className={cn(ROW, "pressable-row", active && "bg-muted font-medium")}
               >
                 <Icon className={cn("size-5 shrink-0", active && "text-foreground")} aria-hidden />
                 <span className="flex-1">{item.label}</span>
@@ -138,13 +138,14 @@ export function MoreSheet({
             aria-current={isActivePath(pathname, PROFILE_NAV_ITEM.href) ? "page" : undefined}
             className={cn(
               ROW,
+              "pressable-row",
               isActivePath(pathname, PROFILE_NAV_ITEM.href) && "bg-muted font-medium",
             )}
           >
             <CircleUserIcon className="size-5 shrink-0" aria-hidden />
             {PROFILE_NAV_ITEM.label}
           </Link>
-          <div className={cn(ROW, "justify-between active:bg-transparent")}>
+          <div className={cn(ROW, "justify-between")}>
             {/* The row states the current mode: an icon alone makes you tap to find out. */}
             <span className="flex-1">
               Appearance
@@ -158,6 +159,7 @@ export function MoreSheet({
           {/* A sign-out item closes the sheet; its confirmation is owned above the shell and opens
               over the page, not over a sheet that is still sitting there. Since 3b.1 the layout
               passes none: "Sign out of this device" lives under Me (kickoff 3b decision 1). */}
+          {/* pressable: none (not a control: it hears its row's tap to close the sheet) */}
           {logoutItem ? <div onClick={close}>{logoutItem}</div> : null}
         </div>
       </SheetContent>

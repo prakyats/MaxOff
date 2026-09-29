@@ -1,8 +1,9 @@
 "use client";
 
-import { Loader2Icon } from "lucide-react";
-import { useId, useState, useTransition } from "react";
+import { useId, useState } from "react";
 
+import { ActionStatus } from "@/core/ui/action/action-status";
+import { useAction } from "@/core/ui/action/use-action";
 import { Button } from "@/core/ui/primitives/button";
 import {
   Dialog,
@@ -38,20 +39,21 @@ export function DeactivateMemberDialog({
   const [reason, setReason] = useState("");
   const runsClients = member.role === "admin" && member.status === "active";
   const [moves, setMoves] = useState<HandoverMove[] | null>(runsClients ? null : []);
-  const [pending, startTransition] = useTransition();
+  const action = useAction(async () => {
+    const result = await deactivateMember({
+      memberId: member.id,
+      reason,
+      ...(moves?.length ? { handover: moves } : {}),
+    });
+    if (toastResult(result, { success: revoke ? "Invite revoked" : "Deactivated" })) onClose();
+  });
+  const { pending } = action;
   const reasonId = useId();
   const revoke = member.status === "invited";
   const tooLong = reason.trim().length > DEACTIVATE_REASON_MAX_LENGTH;
 
   function confirm() {
-    startTransition(async () => {
-      const result = await deactivateMember({
-        memberId: member.id,
-        reason,
-        ...(moves?.length ? { handover: moves } : {}),
-      });
-      if (toastResult(result, { success: revoke ? "Invite revoked" : "Deactivated" })) onClose();
-    });
+    action.run();
   }
 
   return (
@@ -85,6 +87,7 @@ export function DeactivateMemberDialog({
             </ErrorText>
           ) : null}
         </div>
+        <ActionStatus action={action} />
         <DialogFooter>
           <Button type="button" variant="secondary" onClick={onClose} disabled={pending}>
             Cancel
@@ -94,10 +97,10 @@ export function DeactivateMemberDialog({
             type="button"
             variant="primary"
             onClick={confirm}
-            disabled={pending || tooLong || moves === null}
-            aria-busy={pending}
+            disabled={tooLong || moves === null}
+            pending={pending}
+            pendingLabel={revoke ? "Revoking invite…" : "Deactivating…"}
           >
-            {pending ? <Loader2Icon className="animate-spin" aria-hidden /> : null}
             {revoke ? `Revoke ${member.fullName}'s invite` : `Deactivate ${member.fullName}`}
           </Button>
         </DialogFooter>

@@ -1,11 +1,12 @@
 "use client";
 
-import { Loader2Icon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useId, useRef, useState, useTransition } from "react";
+import { useId, useRef, useState } from "react";
 
 import type { ResultError } from "@/core/errors";
 import { cn } from "@/core/lib/utils";
+import { ActionStatus } from "@/core/ui/action/action-status";
+import { useAction } from "@/core/ui/action/use-action";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { ReasonDialog } from "@/core/ui/composites/reason-dialog";
 import { Button } from "@/core/ui/primitives/button";
@@ -38,19 +39,38 @@ export function GrantCompLeaveButton({ memberId, name }: { memberId: string; nam
   const [days, setDays] = useState<0.5 | 1 | null>(null);
   const [note, setNote] = useState("");
   const [error, setError] = useState<ResultError | null>(null);
-  const [pending, startTransition] = useTransition();
-  // A double tap must not grant twice (3b review): the ref stops a second submit before React
+  // A double tap must not grant twice (3b review): `useAction` stops a second submit before React
   // re-renders the disabled button, and the key (one per opened dialog) makes the database
   // return the first grant if a second request still gets through (a retry, a slow network).
-  const inFlight = useRef(false);
   const requestKey = useRef("");
+  const action = useAction(async () => {
+    const result = await grantCompLeave({
+      memberId,
+      days: days as 0.5 | 1,
+      note,
+      requestKey: requestKey.current,
+    });
+    if (toastResult(result, { success: `Comp leave granted to ${firstName(name)}` })) {
+      // Closed directly: `close` ignores a close while the action is still pending.
+      reset();
+      setOpen(false);
+      router.refresh();
+    } else if (!result.ok) {
+      setError(result.error);
+    }
+  });
+  const { pending } = action;
+
+  function reset() {
+    setDays(null);
+    setNote("");
+    setError(null);
+  }
 
   function close(next: boolean) {
-    if (pending || inFlight.current) return;
+    if (pending) return;
     if (!next) {
-      setDays(null);
-      setNote("");
-      setError(null);
+      reset();
     } else {
       requestKey.current = crypto.randomUUID();
     }
@@ -59,23 +79,7 @@ export function GrantCompLeaveButton({ memberId, name }: { memberId: string; nam
 
   function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (inFlight.current) return;
-    inFlight.current = true;
-    startTransition(async () => {
-      const result = await grantCompLeave({
-        memberId,
-        days: days as 0.5 | 1,
-        note,
-        requestKey: requestKey.current,
-      });
-      inFlight.current = false;
-      if (toastResult(result, { success: `Comp leave granted to ${firstName(name)}` })) {
-        close(false);
-        router.refresh();
-      } else if (!result.ok) {
-        setError(result.error);
-      }
-    });
+    action.run();
   }
 
   const daysError = error?.fieldErrors?.days?.[0];
@@ -134,6 +138,7 @@ export function GrantCompLeaveButton({ memberId, name }: { memberId: string; nam
                 onChange={(event) => setNote(event.target.value)}
               />
             </div>
+            <ActionStatus action={action} />
             <DialogFooter>
               <Button
                 type="button"
@@ -146,10 +151,10 @@ export function GrantCompLeaveButton({ memberId, name }: { memberId: string; nam
               <Button
                 variant="primary"
                 type="submit"
-                disabled={pending || !days}
-                aria-busy={pending}
+                disabled={!days}
+                pending={pending}
+                pendingLabel="Granting…"
               >
-                {pending ? <Loader2Icon className="animate-spin" aria-hidden /> : null}
                 Grant {days ? daysLabel(days) : "comp leave"}
               </Button>
             </DialogFooter>

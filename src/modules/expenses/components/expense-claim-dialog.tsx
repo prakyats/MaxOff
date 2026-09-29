@@ -1,12 +1,14 @@
 "use client";
 
-import { CameraIcon, Loader2Icon, XIcon } from "lucide-react";
+import { CameraIcon, XIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Suspense, use, useEffect, useMemo, useRef, useState } from "react";
 
 import type { ResultError } from "@/core/errors";
 import { acceptFor, checkFile } from "@/core/storage";
 import { uploadImageWithPreview } from "@/core/storage/client/upload";
+import { ActionStatus } from "@/core/ui/action/action-status";
+import { useAction } from "@/core/ui/action/use-action";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { FormField } from "@/core/ui/composites/form-field";
 import { Button } from "@/core/ui/primitives/button";
@@ -154,63 +156,9 @@ function ClaimForm({
     [previewUrl],
   );
 
-  if (!loaded) {
-    return (
-      <div className="flex flex-col gap-4">
-        <ErrorText slot="form-alert">
-          The categories could not be loaded. Close this and try again.
-        </ErrorText>
-        <DialogFooter>
-          <Button type="button" variant="secondary" onClick={onClose}>
-            Close
-          </Button>
-        </DialogFooter>
-      </div>
-    );
-  }
-  const { categories, receiptAbove } = loaded;
-  const range = claimWindow(today);
-  const amount = parseAmount(amountText);
-  const needsReceipt = amount !== null && receiptRequired(amount, receiptAbove);
-  const pending = phase !== "idle";
-
-  function clearError(key: keyof FieldErrors) {
-    setFieldErrors((current) => ({ ...current, [key]: undefined }));
-    setError(null);
-  }
-
-  function pick(next: File | null) {
-    if (next) {
-      const problem = checkFile("receipt", { mime: next.type, size: next.size });
-      if (problem) {
-        setFieldErrors((current) => ({ ...current, receipt: problem }));
-        return;
-      }
-    }
-    setFile(next);
-    clearError("receipt");
-  }
-
-  function validate(): FieldErrors {
-    const errors: FieldErrors = {};
-    if (amount === null) errors.amount = "Enter the amount in rupees, e.g. 250 or 250.50.";
-    if (!categoryId) errors.categoryId = "Choose a category.";
-    if (!expenseDate || expenseDate > today) errors.expenseDate = "Pick a day up to today.";
-    else if (!inClaimWindow(expenseDate, today))
-      errors.expenseDate = "Claims are for this month (and last month until the 5th).";
-    if (!note.trim()) errors.note = "Say what it was for.";
-    if (needsReceipt && !file)
-      errors.receipt = `Add a receipt photo: it's needed above ${formatRupees(receiptAbove)}.`;
-    return errors;
-  }
-
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const errors = validate();
-    if (Object.values(errors).some(Boolean) || amount === null) {
-      setFieldErrors(errors);
-      return;
-    }
+  // One request per tap: the photo goes up, then the claim; a slow or failed one is said under
+  // the buttons and what was typed stays (ARCHITECTURE §14.1).
+  const action = useAction(async (amount: number) => {
     onBusy(true);
     try {
       let receiptFileId: string | null = null;
@@ -250,7 +198,7 @@ function ClaimForm({
         }
         return;
       }
-      const category = categories.find((option) => option.id === categoryId)?.name ?? "";
+      const category = loaded?.categories.find((option) => option.id === categoryId)?.name ?? "";
       toastResult(result, { success: "Expense claim added" });
       router.refresh();
       if (!several) {
@@ -270,6 +218,66 @@ function ClaimForm({
       setPhase("idle");
       onBusy(false);
     }
+  });
+
+  if (!loaded) {
+    return (
+      <div className="flex flex-col gap-4">
+        <ErrorText slot="form-alert">
+          The categories could not be loaded. Close this and try again.
+        </ErrorText>
+        <DialogFooter>
+          <Button type="button" variant="secondary" onClick={onClose}>
+            Close
+          </Button>
+        </DialogFooter>
+      </div>
+    );
+  }
+  const { categories, receiptAbove } = loaded;
+  const range = claimWindow(today);
+  const amount = parseAmount(amountText);
+  const needsReceipt = amount !== null && receiptRequired(amount, receiptAbove);
+  const { pending } = action;
+
+  function clearError(key: keyof FieldErrors) {
+    setFieldErrors((current) => ({ ...current, [key]: undefined }));
+    setError(null);
+  }
+
+  function pick(next: File | null) {
+    if (next) {
+      const problem = checkFile("receipt", { mime: next.type, size: next.size });
+      if (problem) {
+        setFieldErrors((current) => ({ ...current, receipt: problem }));
+        return;
+      }
+    }
+    setFile(next);
+    clearError("receipt");
+  }
+
+  function validate(): FieldErrors {
+    const errors: FieldErrors = {};
+    if (amount === null) errors.amount = "Enter the amount in rupees, e.g. 250 or 250.50.";
+    if (!categoryId) errors.categoryId = "Choose a category.";
+    if (!expenseDate || expenseDate > today) errors.expenseDate = "Pick a day up to today.";
+    else if (!inClaimWindow(expenseDate, today))
+      errors.expenseDate = "Claims are for this month (and last month until the 5th).";
+    if (!note.trim()) errors.note = "Say what it was for.";
+    if (needsReceipt && !file)
+      errors.receipt = `Add a receipt photo: it's needed above ${formatRupees(receiptAbove)}.`;
+    return errors;
+  }
+
+  function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const errors = validate();
+    if (Object.values(errors).some(Boolean) || amount === null) {
+      setFieldErrors(errors);
+      return;
+    }
+    action.run(amount);
   }
 
   const summary = error ? describeError(error) : null;
@@ -431,17 +439,24 @@ function ClaimForm({
           </p>
         )}
       </div>
+      <ActionStatus action={action} />
       <DialogFooter>
         <Button type="button" variant="secondary" onClick={onClose} disabled={pending}>
           {several && added.length > 0 ? "Done" : "Cancel"}
         </Button>
-        <Button variant="primary" type="submit" disabled={pending} aria-busy={pending}>
-          {pending ? <Loader2Icon className="animate-spin" aria-hidden /> : null}
-          {phase === "uploading"
-            ? "Uploading photo…"
-            : several && added.length > 0
-              ? "Add another"
-              : "Add claim"}
+        <Button
+          variant="primary"
+          type="submit"
+          pending={pending}
+          pendingLabel={
+            phase === "uploading"
+              ? "Uploading photo…"
+              : several && added.length > 0
+                ? "Adding another…"
+                : "Adding claim…"
+          }
+        >
+          {several && added.length > 0 ? "Add another" : "Add claim"}
         </Button>
       </DialogFooter>
     </form>

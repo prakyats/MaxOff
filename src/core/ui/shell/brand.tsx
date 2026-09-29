@@ -8,6 +8,7 @@ export function Brand({ href, className }: { href: string; className?: string })
     <Link
       href={href}
       className={cn(
+        "pressable",
         // A 44px target on a phone (ARCHITECTURE §14.1): it is the way home from every screen.
         "focus-visible:ring-ring flex min-h-11 items-center gap-2 rounded-md outline-none focus-visible:ring-2 md:min-h-0",
         className,

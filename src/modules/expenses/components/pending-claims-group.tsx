@@ -1,10 +1,11 @@
 "use client";
 
-import { Loader2Icon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 
 import { fileUrl } from "@/core/storage";
+import { ActionStatus } from "@/core/ui/action/action-status";
+import { useAction } from "@/core/ui/action/use-action";
 import { FileImage } from "@/core/storage/components/file-image";
 import { ApprovalGroup } from "@/core/ui/composites/approval-group";
 import { ReasonDialog } from "@/core/ui/composites/reason-dialog";
@@ -32,7 +33,14 @@ export function PendingClaimsGroup({ claims }: { claims: PendingClaim[] }) {
   const router = useRouter();
   const [reviewId, setReviewId] = useState<string | null>(null);
   const [rejectId, setRejectId] = useState<string | null>(null);
-  const [approving, startApprove] = useTransition();
+  const approve = useAction(async (claimId: string) => {
+    const result = await approveExpenseClaim({ claimId });
+    if (toastResult(result, { success: "Claim approved" })) {
+      setReviewId(null);
+      router.refresh();
+    }
+  });
+  const approving = approve.pending;
   const review = claims.find((claim) => claim.id === reviewId) ?? null;
   const rejecting = claims.find((claim) => claim.id === rejectId) ?? null;
 
@@ -69,19 +77,10 @@ export function PendingClaimsGroup({ claims }: { claims: PendingClaim[] }) {
               </Button>
               <Button
                 variant="primary"
-                disabled={approving}
-                aria-busy={approving}
-                onClick={() =>
-                  startApprove(async () => {
-                    const result = await approveExpenseClaim({ claimId: review.id });
-                    if (toastResult(result, { success: "Claim approved" })) {
-                      setReviewId(null);
-                      router.refresh();
-                    }
-                  })
-                }
+                pending={approving}
+                pendingLabel="Approving…"
+                onClick={() => approve.run(review.id)}
               >
-                {approving ? <Loader2Icon className="animate-spin" aria-hidden /> : null}
                 Approve
               </Button>
             </>
@@ -104,7 +103,7 @@ export function PendingClaimsGroup({ claims }: { claims: PendingClaim[] }) {
                 target="_blank"
                 rel="noreferrer"
                 data-slot="receipt-link"
-                className="focus-visible:ring-ring self-start rounded-lg outline-none focus-visible:ring-2"
+                className="pressable-row focus-visible:ring-ring self-start rounded-lg outline-none focus-visible:ring-2"
               >
                 <FileImage
                   fileId={review.receiptFileId}
@@ -118,6 +117,7 @@ export function PendingClaimsGroup({ claims }: { claims: PendingClaim[] }) {
             ) : (
               <p className="text-muted-foreground text-sm">No receipt photo.</p>
             )}
+            <ActionStatus action={approve} />
           </div>
         ) : null}
       </ReviewSheet>

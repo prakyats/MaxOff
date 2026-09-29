@@ -4,6 +4,7 @@ import { Loader2Icon } from "lucide-react";
 import Link, { useLinkStatus } from "next/link";
 import type { ComponentProps, ReactNode } from "react";
 
+import { cn } from "@/core/lib/utils";
 import { viewMove } from "@/core/ui/navigation/moves";
 import { markLive, VIEW_LINK_ATTRIBUTE } from "@/core/ui/navigation/attributes";
 
@@ -25,6 +26,7 @@ import { markLive, VIEW_LINK_ATTRIBUTE } from "@/core/ui/navigation/attributes";
 export function ViewLink({
   children,
   icon = false,
+  className,
   ...props
 }: Omit<ComponentProps<typeof Link>, "replace"> & {
   /** The child is a single icon: while pending it is swapped for a spinner of the same size. */
@@ -34,6 +36,7 @@ export function ViewLink({
     // `data-view-link` lets the pre-hydration script replace too (task 2.8).
     <Link
       {...props}
+      className={cn("pressable", className)}
       replace={viewMove() === "replace"}
       {...{ [VIEW_LINK_ATTRIBUTE]: "" }}
       ref={markLive}

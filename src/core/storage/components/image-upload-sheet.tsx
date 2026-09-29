@@ -1,17 +1,11 @@
 "use client";
 
-import { ImageUpIcon, Loader2Icon, Trash2Icon } from "lucide-react";
-import {
-  type ChangeEvent,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-  useTransition,
-} from "react";
+import { ImageUpIcon, Trash2Icon } from "lucide-react";
+import { type ChangeEvent, useEffect, useId, useMemo, useRef, useState } from "react";
 
 import type { Result } from "@/core/errors";
+import { ActionStatus } from "@/core/ui/action/action-status";
+import { useAction } from "@/core/ui/action/use-action";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { Button } from "@/core/ui/primitives/button";
@@ -68,7 +62,6 @@ export function ImageUploadSheet({
   const [file, setFile] = useState<File | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [progress, setProgress] = useState<number | null>(null);
-  const [pending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
   const inputId = useId();
 
@@ -104,30 +97,44 @@ export function ImageUploadSheet({
     setFile(chosen);
   }
 
-  function save() {
-    if (!file) return;
-    startTransition(async () => {
-      setProgress(0);
-      const uploaded = await uploadImageWithPreview({ purpose, file, onProgress: setProgress });
-      if (!uploaded.ok) {
-        setProgress(null);
-        setProblem(uploaded.message);
-        return;
-      }
-      const saved = await onSave({
-        fileId: uploaded.fileId,
-        ...(uploaded.previewFileId ? { previewFileId: uploaded.previewFileId } : {}),
-      });
+  // One upload per tap; a slow or lost connection is said under the buttons, and the chosen
+  // file stays chosen (ARCHITECTURE §14.1).
+  const action = useAction(async (chosen: File) => {
+    setProgress(0);
+    try {
+      await upload(chosen);
+    } finally {
       setProgress(null);
-      if (!saved.ok) {
-        const summary = describeError(saved.error);
-        setProblem(summary.description ?? summary.title);
-        return;
-      }
-      toastResult(saved, { success: `${title} saved` });
-      setOpen(false);
-      setFile(null);
+    }
+  });
+  const { pending } = action;
+
+  async function upload(chosen: File) {
+    const uploaded = await uploadImageWithPreview({
+      purpose,
+      file: chosen,
+      onProgress: setProgress,
     });
+    if (!uploaded.ok) {
+      setProblem(uploaded.message);
+      return;
+    }
+    const saved = await onSave({
+      fileId: uploaded.fileId,
+      ...(uploaded.previewFileId ? { previewFileId: uploaded.previewFileId } : {}),
+    });
+    if (!saved.ok) {
+      const summary = describeError(saved.error);
+      setProblem(summary.description ?? summary.title);
+      return;
+    }
+    toastResult(saved, { success: `${title} saved` });
+    setOpen(false);
+    setFile(null);
+  }
+
+  function save() {
+    if (file) action.run(file);
   }
 
   const busyLabel =
@@ -189,6 +196,7 @@ export function ImageUploadSheet({
               {problem ? <ErrorText slot="form-alert">{problem}</ErrorText> : null}
             </div>
 
+            <ActionStatus action={action} />
             <DialogFooter>
               {hasCurrent && onRemove ? (
                 <Button
@@ -209,11 +217,11 @@ export function ImageUploadSheet({
                 type="button"
                 variant="primary"
                 onClick={save}
-                disabled={pending || !file}
-                aria-busy={pending}
+                disabled={!file}
+                pending={pending}
+                pendingLabel={busyLabel}
               >
-                {pending ? <Loader2Icon className="animate-spin" aria-hidden /> : null}
-                {pending ? busyLabel : saveLabel}
+                {saveLabel}
               </Button>
             </DialogFooter>
           </DialogContent>
