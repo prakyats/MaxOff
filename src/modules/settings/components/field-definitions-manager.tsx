@@ -4,10 +4,12 @@ import { ArchiveIcon, ArchiveRestoreIcon, ListPlusIcon, PencilIcon, PlusIcon } f
 import { useState } from "react";
 
 import {
-  CLIENT_SCOPED_ENTITIES,
   ENTITY_LABELS,
   FIELD_TYPE_LABELS,
   type FieldDefinition,
+  SCOPE_WORDS,
+  scopeIdOf,
+  scopeKindOf,
   type SettingsEntity,
   splitDefinitions,
 } from "@/core/custom-fields";
@@ -27,7 +29,9 @@ import { ListItemActionsSheet } from "./list-item-actions-sheet";
  * Settings → Custom fields for one entity (3.2, PRODUCT §4.16): the live definitions grouped by
  * scope ("Every client", then one group per client), Add, Edit, Archive and Restore. Global
  * rows are the Owner's; an Admin sees them read-only and edits only the rows scoped to their
- * own clients (PERMISSIONS ²). The database decides again on every write.
+ * own clients (PERMISSIONS ²). Task fields (4C) group the same way by task type ("Every task",
+ * then a group per type that has fields), all `lists.manage`'s. The database decides again on
+ * every write.
  *
  * Rows follow the list-manager shape (1.4): on a phone the row keeps the name and a ⋯ sheet with
  * Edit and Archive; from `md` up both buttons sit on the row.
@@ -48,39 +52,58 @@ export function FieldDefinitionsManager({
   const [archiving, setArchiving] = useState<FieldDefinition | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  const scoped = (CLIENT_SCOPED_ENTITIES as readonly string[]).includes(entity);
+  const kind = scopeKindOf(entity);
+  const scoped = kind !== null;
   const { active, archived } = splitDefinitions(definitions);
   const labels = ENTITY_LABELS[entity];
   const scopeName = new Map(scopes.map((scope) => [scope.id, scope.name]));
   const canAdd = canGlobal || (scoped && scopes.length > 0);
 
-  // A group per scope, "Every client" first, then the clients in name order.
-  const groups: Array<{ scope: string | null; title: string; fields: FieldDefinition[] }> = [];
-  if (canGlobal || active.some((d) => d.clientId === null)) {
+  // A group per scope, "Every client" first, then the clients in name order (a task type's in
+  // the Owner's order, and only once it has a field: seven empty groups say nothing).
+  const groups: Array<{
+    scope: string | null;
+    title: string;
+    fields: FieldDefinition[];
+    canAddHere: boolean;
+  }> = [];
+  if (canGlobal || active.some((d) => scopeIdOf(d) === null)) {
     groups.push({
       scope: null,
-      title: scoped
-        ? `Every ${labels.singular.toLowerCase()}`
-        : `All ${labels.plural.toLowerCase()}`,
-      fields: active.filter((d) => d.clientId === null),
+      title: kind ? SCOPE_WORDS[kind].every : `All ${labels.plural.toLowerCase()}`,
+      fields: active.filter((d) => scopeIdOf(d) === null),
+      canAddHere: canGlobal,
     });
   }
-  if (scoped) {
+  if (kind) {
     for (const scope of scopes) {
-      const fields = active.filter((d) => d.clientId === scope.id);
-      if (fields.length > 0 || scopes.length <= 12) {
-        groups.push({ scope: scope.id, title: `${scope.name} only`, fields });
+      const fields = active.filter((d) => scopeIdOf(d) === scope.id);
+      if (fields.length > 0 || (kind === "client" && scopes.length <= 12)) {
+        groups.push({
+          scope: scope.id,
+          title: scope.archived ? `${scope.name} only (archived type)` : `${scope.name} only`,
+          fields,
+          canAddHere: !scope.archived,
+        });
       }
     }
     for (const field of active) {
-      if (field.clientId && !scopeName.has(field.clientId)) {
-        groups.push({ scope: field.clientId, title: "Another client", fields: [field] });
+      const id = scopeIdOf(field);
+      if (id && !scopeName.has(id)) {
+        groups.push({
+          scope: id,
+          title: SCOPE_WORDS[kind].another,
+          fields: [field],
+          canAddHere: false,
+        });
       }
     }
   }
 
-  const editable = (definition: FieldDefinition) =>
-    canGlobal || (definition.clientId !== null && scopeName.has(definition.clientId));
+  const editable = (definition: FieldDefinition) => {
+    const id = scopeIdOf(definition);
+    return canGlobal || (id !== null && scopeName.has(id));
+  };
 
   async function restore(definition: FieldDefinition) {
     setBusyId(definition.id);
@@ -120,8 +143,7 @@ export function FieldDefinitionsManager({
           <section key={group.scope ?? "_"} className="flex flex-col gap-2" data-slot="field-group">
             <div className="flex min-h-9 items-center justify-between gap-2">
               <h2 className="text-muted-foreground text-sm font-medium">{group.title}</h2>
-              {(group.scope === null ? canGlobal : scopeName.has(group.scope)) &&
-              active.length > 0 ? (
+              {group.canAddHere && active.length > 0 ? (
                 <Button
                   type="button"
                   variant="ghost"
@@ -219,10 +241,12 @@ export function FieldDefinitionsManager({
               >
                 <span className={cn("text-muted-foreground truncate text-sm", CARD_ROW_TITLE)}>
                   {definition.label}
-                  {definition.clientId ? (
+                  {scopeIdOf(definition) ? (
                     <span className="text-xs">
                       {" "}
-                      · {scopeName.get(definition.clientId) ?? "one client"}
+                      ·{" "}
+                      {scopeName.get(scopeIdOf(definition) ?? "") ??
+                        (kind === "task_type" ? "one task type" : "one client")}
                     </span>
                   ) : null}
                 </span>
@@ -262,7 +286,7 @@ export function FieldDefinitionsManager({
           definition={editing}
           scopes={scopes}
           canGlobal={canGlobal}
-          defaultScope={editing.clientId}
+          defaultScope={scopeIdOf(editing)}
           onClose={() => setEditing(null)}
         />
       ) : null}
@@ -301,7 +325,7 @@ export function AddFieldButton({
   canGlobal: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const scoped = (CLIENT_SCOPED_ENTITIES as readonly string[]).includes(entity);
+  const scoped = scopeKindOf(entity) !== null;
   if (!canGlobal && !(scoped && scopes.length > 0)) return null;
   return (
     <>

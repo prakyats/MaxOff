@@ -59,14 +59,34 @@ export const ENTITY_LABELS: Record<CustomFieldEntity, { singular: string; plural
  * The entities Settings → Custom fields edits: client and contact for everyone with
  * `lists.manage` (global rows Owner-only, client-scoped rows by that client's Admin), project
  * and item Owner-only with no consumer yet (3.2), and task (4B): company-wide task fields for
- * everyone with `lists.manage` (PERMISSIONS ³: task fields stay `lists.manage`). A field for one
- * task type is stored and applied (4A) but not yet offered here.
+ * everyone with `lists.manage` (PERMISSIONS ³: task fields stay `lists.manage`), for every task or
+ * for one task type (4A stores and applies them; 4C offers them here).
  */
 export const SETTINGS_ENTITIES = ["client", "contact", "project", "item", "task"] as const;
 export type SettingsEntity = (typeof SETTINGS_ENTITIES)[number];
 
 /** Entities whose definitions may be scoped to one client (kickoff 3). */
 export const CLIENT_SCOPED_ENTITIES = ["client", "contact"] as const;
+
+/**
+ * What a definition of this entity may be scoped to: one client (client and contact fields,
+ * kickoff 3), one task type (task fields, 4C), or nothing (project and item fields).
+ */
+export function scopeKindOf(entity: string): "client" | "task_type" | null {
+  if ((CLIENT_SCOPED_ENTITIES as readonly string[]).includes(entity)) return "client";
+  return entity === "task" ? "task_type" : null;
+}
+
+/** The client or task type a definition is scoped to; null for a field on every record. */
+export function scopeIdOf(definition: Pick<FieldDefinition, "clientId" | "taskTypeId">) {
+  return definition.clientId ?? definition.taskTypeId;
+}
+
+/** How the scopes read in Settings: "Every client" / "Every task", "Another client" / "type". */
+export const SCOPE_WORDS: Record<"client" | "task_type", { every: string; another: string }> = {
+  client: { every: "Every client", another: "Another client" },
+  task_type: { every: "Every task", another: "Another type" },
+};
 
 /**
  * The field form's reminder that money stays out of custom fields (owner decision 2026-09-27,

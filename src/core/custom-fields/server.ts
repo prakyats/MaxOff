@@ -124,6 +124,8 @@ export async function getDefinition(id: string): Promise<FieldDefinition | null>
 export type DefinitionInput = {
   entity: CustomFieldEntity;
   clientId: string | null;
+  /** A task field for one task type only (4C); null or absent = every task. */
+  taskTypeId?: string | null;
   key: string;
   label: string;
   helpText: string | null;
@@ -145,6 +147,9 @@ export async function createDefinition(input: DefinitionInput): Promise<FieldDef
   lastQuery = input.clientId
     ? lastQuery.eq("client_id", input.clientId)
     : lastQuery.is("client_id", null);
+  lastQuery = input.taskTypeId
+    ? lastQuery.eq("task_type_id", input.taskTypeId)
+    : lastQuery.is("task_type_id", null);
   const { data: last, error: lastError } = await lastQuery.maybeSingle();
   if (lastError) throw lastError;
 
@@ -153,6 +158,7 @@ export async function createDefinition(input: DefinitionInput): Promise<FieldDef
     .insert({
       entity: input.entity,
       client_id: input.clientId,
+      task_type_id: input.taskTypeId ?? null,
       key: input.key,
       label: input.label,
       help_text: input.helpText,

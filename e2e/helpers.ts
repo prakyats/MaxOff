@@ -753,6 +753,21 @@ export async function removeTemplatesNamed(prefix: string): Promise<void> {
 }
 
 /**
+ * Removes the task types a spec added (4C: archived, never deleted, in the app), with the task
+ * fields and templates scoped to them. The spec removes its tasks first (`removeTasksTitled`).
+ */
+export async function removeTaskTypesNamed(prefix: string): Promise<void> {
+  const types = await serviceSelect<{ id: string }>(
+    `task_types?name=like.${encodeURIComponent(`${prefix}*`)}&select=id`,
+  );
+  if (types.length === 0) return;
+  const ids = types.map((type) => type.id).join(",");
+  await serviceRest(`task_templates?task_type_id=in.(${ids})`, { method: "DELETE" });
+  await serviceRest(`field_definitions?task_type_id=in.(${ids})`, { method: "DELETE" });
+  await serviceRest(`task_types?id=in.(${ids})`, { method: "DELETE" });
+}
+
+/**
  * Removes the freelancers a spec added (4C, ADR-0013: no email, so by name prefix), their
  * coordinator rows and any task row naming them first. A freelancer who was invited as an
  * employee has an email by then: `removeFixturePerson` removes them.

@@ -34,6 +34,8 @@ export {
 } from "./data/tasks";
 export { countPendingRequests, listTaskRequests } from "./data/requests";
 export { listTaskTemplates } from "./data/templates";
+export { listTaskTypeSettings } from "./data/task-types";
+export { type TaskTypeSetting } from "./domain/task-types";
 export {
   badgeCount,
   byDeadline,

@@ -716,7 +716,7 @@ test.describe("Settings is a list of rows", () => {
   test("a section still to come says so plainly and links nowhere (3c.3)", async ({ page }) => {
     await page.goto("/settings");
     const list = page.locator('[data-slot="settings-list"]');
-    const later = list.locator("li").filter({ hasText: "Task types" });
+    const later = list.locator("li").filter({ hasText: "Stage presets" });
     await expect(later).toContainText("Coming soon");
     await expect(later.getByRole("link")).toHaveCount(0);
     await expect(list).not.toContainText(BUILD_WORDS);

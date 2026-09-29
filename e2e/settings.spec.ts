@@ -26,13 +26,14 @@ test.describe("Owner", () => {
     await page.goto("/settings");
     await expect(page.getByRole("heading", { name: "Settings", exact: true })).toBeVisible();
     // Sections that are not built yet are cards, not links (they name the task instead).
-    await expect(page.getByRole("link", { name: "Task types" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Stage presets" })).toHaveCount(0);
 
     for (const [name, heading] of [
       ["Company", "Company"],
       ["Days off & holidays", "Days off & holidays"],
       ["Thresholds", "Thresholds"],
       ["Job titles", "Job titles"],
+      ["Task types", "Task types"],
     ] as const) {
       await page.goto("/settings");
       await page.getByRole("link", { name, exact: true }).click();
@@ -223,11 +224,23 @@ test.describe("Admin", () => {
   test("gets the lists but none of the company settings", async ({ page }) => {
     await page.goto("/settings");
     await expect(page.getByRole("link", { name: "Job titles", exact: true })).toBeVisible();
-    for (const ownerOnly of ["Company", "Days off & holidays", "Thresholds", "Google Drive"]) {
+    // Task types are the Owner's too (Kickoff 4 decision 15), although the lists are theirs.
+    for (const ownerOnly of [
+      "Company",
+      "Days off & holidays",
+      "Thresholds",
+      "Google Drive",
+      "Task types",
+    ]) {
       await expect(page.getByText(ownerOnly, { exact: true })).toHaveCount(0);
     }
 
-    for (const path of ["/settings/company", "/settings/days-off", "/settings/thresholds"]) {
+    for (const path of [
+      "/settings/company",
+      "/settings/days-off",
+      "/settings/thresholds",
+      "/settings/task-types",
+    ]) {
       await page.goto(path);
       await expect(page, `${path} for an Admin`).toHaveURL(/\/forbidden$/);
     }

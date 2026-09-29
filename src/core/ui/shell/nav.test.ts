@@ -225,12 +225,12 @@ describe("settingsSectionsFor", () => {
     const admin = settingsSectionsFor("admin");
     expect(admin.map((s) => s.key)).toEqual([
       "job-titles",
-      "task-types",
       "stage-presets",
       "custom-fields",
       "templates",
     ]);
-    for (const ceoOnly of ["company", "days-off", "thresholds", "drive"]) {
+    // Task types are the Owner's (Kickoff 4 decision 15), although lists.manage is the Admins'.
+    for (const ceoOnly of ["company", "days-off", "thresholds", "drive", "task-types"]) {
       expect(admin.map((s) => s.key)).not.toContain(ceoOnly);
     }
     expect(admin.map((s) => s.permission)).not.toContain("settings.manage");

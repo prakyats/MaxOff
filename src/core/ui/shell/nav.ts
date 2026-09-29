@@ -284,10 +284,11 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     key: "task-types",
     label: "Task types",
     href: "/settings/task-types",
-    description: "Kinds of task, their behaviour and default reminders.",
-    permission: "lists.manage",
+    description: "The kinds of task, their order and what each asks for.",
+    // The Owner's list (Kickoff 4 decision 15), although lists.manage opens the others to Admins.
+    permission: "settings.manage",
     arrivesIn: "4.1",
-    ready: false,
+    ready: true,
   },
   {
     key: "stage-presets",

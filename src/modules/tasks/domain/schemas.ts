@@ -14,7 +14,8 @@ import {
   TEMPLATE_NAME_MAX,
   TITLE_MAX,
 } from "./limits";
-import { PRIORITIES } from "./types";
+import { TASK_TYPE_KINDS, TASK_TYPE_NAME_MAX } from "./task-types";
+import { PRIORITIES, type TaskTypeKind } from "./types";
 
 /**
  * What the task actions accept (ARCHITECTURE §4.2: zod first). The transition functions check
@@ -271,3 +272,47 @@ export type SaveTemplateInput = z.input<typeof saveTemplateSchema>;
 
 export const archiveTemplateSchema = z.object({ templateId: z.uuid(), archived: z.boolean() });
 export type ArchiveTemplateInput = z.input<typeof archiveTemplateSchema>;
+
+// 4C: Settings → Task types (the Owner's, Kickoff 4 decision 15) ------------------------------------
+
+const taskTypeName = z
+  .string()
+  .trim()
+  .min(1, "Name the task type.")
+  .max(TASK_TYPE_NAME_MAX, `Keep the name under ${TASK_TYPE_NAME_MAX} characters.`);
+
+/** The two switches only an event has (the location is one of the event's fields). */
+const taskTypeSwitches = {
+  showsOnCalendar: z.boolean().default(false),
+  hasLocation: z.boolean().default(false),
+};
+
+export const addTaskTypeSchema = z
+  .object({
+    name: taskTypeName,
+    kind: z.enum(TASK_TYPE_KINDS as [TaskTypeKind, ...TaskTypeKind[]], {
+      error: "Choose what kind of task it is.",
+    }),
+    ...taskTypeSwitches,
+  })
+  .transform((data) =>
+    data.kind === "event" ? data : { ...data, showsOnCalendar: false, hasLocation: false },
+  );
+export type AddTaskTypeInput = z.input<typeof addTaskTypeSchema>;
+
+/** The kind is not here: it is fixed once the type exists (open tasks were shaped by it). */
+export const editTaskTypeSchema = z.object({
+  taskTypeId: z.uuid(),
+  name: taskTypeName,
+  ...taskTypeSwitches,
+});
+export type EditTaskTypeInput = z.input<typeof editTaskTypeSchema>;
+
+export const archiveTaskTypeSchema = z.object({ taskTypeId: z.uuid(), archived: z.boolean() });
+export type ArchiveTaskTypeInput = z.input<typeof archiveTaskTypeSchema>;
+
+export const moveTaskTypeSchema = z.object({
+  taskTypeId: z.uuid(),
+  direction: z.enum(["up", "down"]),
+});
+export type MoveTaskTypeInput = z.input<typeof moveTaskTypeSchema>;

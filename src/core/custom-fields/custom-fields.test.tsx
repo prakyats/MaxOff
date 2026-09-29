@@ -9,8 +9,11 @@ import {
   type FieldType,
   keyFromLabel,
   optionKeyFromLabel,
+  scopeIdOf,
+  scopeKindOf,
   splitDefinitions,
 } from "./registry";
+import { createDefinitionSchema } from "./definition-schema";
 import { buildCustomFieldsSchema, validateCustomFields } from "./schema";
 
 let counter = 0;
@@ -206,5 +209,34 @@ describe("describeValue and the view", () => {
     expect(kept).toContain("Archived fields");
     expect(kept).toContain("Old");
     expect(renderToStaticMarkup(<CustomFieldsView definitions={[]} values={{}} />)).toBe("");
+  });
+});
+
+describe("a definition's scope (3.2, 4C)", () => {
+  const typeId = "00000000-0000-4000-8000-000000000009";
+  const base = { key: "brief", label: "Brief", type: "text" as const };
+
+  it("scopes client and contact fields to a client, task fields to a task type", () => {
+    expect(scopeKindOf("client")).toBe("client");
+    expect(scopeKindOf("contact")).toBe("client");
+    expect(scopeKindOf("task")).toBe("task_type");
+    expect(scopeKindOf("project")).toBeNull();
+    expect(scopeIdOf({ clientId: null, taskTypeId: typeId })).toBe(typeId);
+    expect(scopeIdOf({ clientId: null, taskTypeId: null })).toBeNull();
+  });
+
+  it("takes a task type for a task field only", () => {
+    expect(
+      createDefinitionSchema.parse({ entity: "task", taskTypeId: typeId, ...base }).taskTypeId,
+    ).toBe(typeId);
+    expect(
+      createDefinitionSchema.parse({ entity: "task", taskTypeId: "", ...base }).taskTypeId,
+    ).toBeNull();
+    expect(
+      createDefinitionSchema.safeParse({ entity: "client", taskTypeId: typeId, ...base }).success,
+    ).toBe(false);
+    expect(
+      createDefinitionSchema.safeParse({ entity: "task", clientId: typeId, ...base }).success,
+    ).toBe(false);
   });
 });
