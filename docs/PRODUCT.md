@@ -79,7 +79,7 @@ The full permission and visibility matrix is in `PERMISSIONS.md`. The key rules:
 - **On an approved-leave day there's no prompt.** A banner says "You're on approved leave today", with an optional **"I'm working today"** button that submits Present for the Owner to review. If the Owner approves it, the day is flagged **"1 day worked"** and the leave request itself is **not** altered. The attendance day is the source of truth for a date.
 - **Approved half-day leave:** no prompt either; Start day and End day stay available and are recorded.
 - **A leave approved later wins** over a day not yet decided (WORKFLOWS §1), and **a day the Owner already decided stays**.
-- **An Owner correction to a leave type** (Leave / Half-Day / Comp Leave) also creates an approved leave request for that date, so the calendar and availability stay right.
+- **An Owner correction to a leave type** (Leave / Half-Day / Comp Leave) also creates an approved leave request for that date, so the calendar and availability stay right (Comp Leave uses one of the person's credits; grant one first).
 - **Days off:** the Owner sets the **weekly off days** (currently Sunday) and a **holiday list** in Settings. On a day off there's **no prompt and no absent check**. Someone who worked adds an **"I worked today"** note, and the Owner decides whether the day counts as worked and whether it earns comp leave (§4.3a).
 - **The Owner is exempt** from Start day, End day and their reminders.
 - **Forgotten End day:** around **8:30 PM IST** (configurable), anyone who started and hasn't ended gets *"You haven't ended your day. If you're done, end it; if you're working late, carry on."* If they never end it, the day is flagged **"End of day not recorded"**. An end time is **never** made up; an End day after midnight lands on the previous day, **only until 05:00 IST** (a setting, Settings → Thresholds) and never once today's Start day exists. After that the previous day stays "End of day not recorded" and the late work goes in an overtime note (owner decision 2026-09-28, `/review-phase 3b`).
@@ -171,6 +171,23 @@ Daily work allotted to people. **Only the Owner and Admins create tasks.**
 - **Task requests:** Staff and Admins can **suggest** a task (title, details, optional client). The Owner or Admin turns it into a real task or declines it with a reason.
 - **Task templates:** type, default stages, reminders, priority and field defaults. They **never** fix the client, assignee or deadline.
 - **Duration without time tracking:** MaxOff keeps these timestamps: *assigned*, *each acknowledgement*, *Done*, *Admin approved*, *Owner approved*. Rough durations are worked out from them.
+- **Settled at kickoff 4 (owner decision 2026-09-28, kickoff 4; "Kickoff 4 decisions" in PROGRESS):**
+  - **The Owner is never an assignee.** The Owner approves the work, so a task the Owner did would approve itself. The assignee picker offers active Admins, Staff and freelancers only.
+  - **An Admin labels a task only with their own assigned clients.** So an Admin-created task always routes to the creating Admin (the route table's "client's Admin" row is that same Admin). When the Owner assigns **through an Admin**, the Owner picks any active Admin; choosing a client label pre-selects that client's Admin.
+  - **Deadline and priority:** the deadline is required (IST date and time); picking a date sets the time to **6:00 PM**; a deadline already in the past is refused when the task is created. Priority defaults to **Medium**.
+  - **Bulk is approve only**, at both the Admin and the Owner step. A rejection always needs a reason, so it lives behind Review (§4.7), one task at a time.
+  - **No file uploads on tasks until phase 8** (work submissions). **Done carries an optional note, and the note may contain links (http or https)**, shown to the reviewer as tappable links, so work can be handed in as a Drive link until phase 8. A brief's links go in the description as text.
+  - **Warnings** (never blocking, override recorded):
+    - **Workload:** the person already has **4 or more open tasks due that same IST day**. The number is Owner-editable in Settings → Thresholds, and freelancers count.
+    - **Overlap:** two event tasks of the same person whose times overlap. An event with a start time and no end counts as **1 hour**, and a date-only event never overlaps (it only adds to that day's workload).
+    - **Leave:** approved leave, half day or comp leave on the deadline date or the event date, and also a **pending** request, shown as "Leave requested". A freelancer never triggers it.
+  - **Reminders:** the create dialog has **no reminder editor** in phase 4; a task takes its type's default reminders, and the editor arrives with 5.3.
+  - **Task types are the Owner's to edit** (like expense categories), because they drive the calendar, event fields and custom fields for everyone; Admins pick from them.
+  - **Templates are shared by the whole company.** An Admin edits and archives the templates they created; the Owner edits any. A task's stages are typed on the task or come from a template; **there are no stage presets for tasks** (presets stay for projects, 7.4).
+  - **Tasks tab, first glance:**
+    - **Owner and Admins:** **"Needs you"** comes first: overdue, not noted past the escalation time, and waiting for your approval (which opens Approvals). Open tasks by deadline follow. The full list with filters is one tap deeper.
+    - **Staff, "My tasks":** Not noted · Changes requested · Due today · Upcoming · Overdue. A coordinator's freelancers' tasks are mixed in, labelled "for Asha".
+  - **Before phase 5 (notifications):** phase 4 is released first, so its notifications are rows and recipients named in the function comments, and delivery arrives with 5.1. Until then, the **Tasks tab badge** counts tasks not yet noted plus changes requested, and the **Approvals badge** includes tasks.
 
 ### 4.7 Dashboards and daily reports
 - **Owner: Today** (actions first):
@@ -268,7 +285,7 @@ Only **client project items** carry revenue. Staff tasks never do.
 - **No automatic ratings or scores**, only raw facts.
 - **Close month:** the Owner closes a month, which saves an **immutable snapshot**. Later changes never alter it. A mistake is fixed with an explicit **correction**, which creates a new snapshot version linked to the old one and records why.
 - **Exports** *(deferred past the launch, owner 2026-09-27)*: Markdown, CSV and PDF. The **Markdown export is designed for AI analysis**: an executive summary followed by dense, structured raw data (tables and IDs) that answers questions like *"Which stage takes longest?", "Who is overloaded?", "How much potential revenue wasn't achieved?"*
-- **Freelancer work is shown separately** (ADR-0013): every count, duration and list that is per person carries the engagement type, and totals split employees from freelancers, so employee metrics are not diluted and freelancer output is visible on its own.
+- **Freelancer work is shown separately** (ADR-0013): every count, duration and list that is per person carries the engagement type, and totals split employees from freelancers, so employee metrics are not diluted and freelancer output is visible on its own. **The split numbers** (owner decision 2026-09-28, kickoff 4), in the Admin reports (6.3) and the Owner's reports (9.3): **tasks completed, on-time %, acknowledgement lag, turnaround and rework count**, by engagement. The management task list filters by engagement; the month summary already leaves freelancers out (§4.18).
 - Admins get operational reports for their own scope, with no money in them. These are computed live: the end-of-day reports and month snapshots contain revenue and are Owner-only.
 
 **The Admin's report answers one question: is the work getting done?** (decided 2026-09-23). Six numbers and two lists — no more, or it stops being read. Each is for their assigned clients and the tasks they created, approve or are assigned to. Week, month or custom range, with last period beside it.
@@ -312,7 +329,7 @@ Plus two lists: **who is loaded this week** (open and overdue tasks per person, 
 ### 4.17 Freelancers
 **A freelancer is a person without a login** (owner decision 2026-09-27, ADR-0013). Pixora gives work to editors and designers who are not employees, may never open MaxOff and must still be assigned, reminded, approved and reported like anyone else, with a true record of who did what.
 
-- **Add person** in Team offers **Employee** (invite by email, as today) or **Freelancer**: name, job title, optional phone, and the **coordinator** instead of an email. No invite, no password, no session, ever, unless the Owner later decides to offer a tasks-only login (a phase-4 kickoff question); the record is designed so that would attach to it without moving any history.
+- **Add person** in Team offers **Employee** (invite by email, as today) or **Freelancer**: name, job title, optional phone, and the **coordinator** instead of an email. No invite, no password, no session, ever, unless the Owner later decides to offer a tasks-only login (not in phase 4: kickoff 4, below); the record is designed so that would attach to it without moving any history.
 - **Exactly one coordinator**, an active employee (Admin or Staff), chosen and changeable by the Owner; every change is kept with who, when and why. Deactivating a coordinator first asks where their freelancers go.
 - **The coordinator acts on the freelancer's behalf from their own account**, only on the freelancer's tasks: "Task Noted", comments, stage ticks, uploads and links, Done (with the late reason), resubmit after changes. Screens say so wherever a person is named: **"Done by Ravi for Asha"**, "Noted by Ravi for Asha".
 - **Assigning:** a freelancer is offered in the assignee picker like anyone else, marked *Freelancer* with the coordinator's name. The approval route is unchanged (§4.6); a freelancer is never an approving Admin and never a task creator.
@@ -320,6 +337,11 @@ Plus two lists: **who is loaded this week** (open and overdue tasks per person, 
 - **No attendance, no leave, no day gate**, and the nightly attendance jobs never look at them (enforced in the database). They never appear on the Owner's people board.
 - **A Staff coordinator still never sees client records**: the freelancer's tasks carry a client *label* at most, exactly like the coordinator's own.
 - **Reports** show freelancer work separately (§4.13). **Payments** are out of scope for the pilot (§5).
+- **Settled at kickoff 4 (owner decision 2026-09-28):**
+  - **No tasks-only login in phase 4.** The record stays login-ready (ADR-0013 §7), and it is revisited after the full launch. If one is ever offered, a freelancer sees **their own tasks only**: Task Noted, comments and Done. They never see attendance, leave, clients or People.
+  - **A freelancer can become an employee.** The Owner invites them, and the login attaches to the **same person record**, so their task history stays theirs. They become a permanent employee, their coordinator link is closed, and attendance starts the day after they join. An employee never becomes a freelancer: the Owner deactivates them and adds a new freelancer record.
+  - **Coordinators:** any active permanent Admin or Staff. **One coordinator can look after many freelancers.** **The Owner can't coordinate**, because the Owner approves the work.
+  - **Payments later** (phase 9 or later): a per-task amount or rate lives in an **Owner-only table read through `modules/revenue`**, never on the person record or the task. Nothing is built in phase 4.
 
 ---
 

@@ -45,6 +45,13 @@ test.describe("production build", () => {
     });
   }
 
+  test("/api/health reaches the database and answers ok, uncached (3c.1)", async ({ request }) => {
+    const response = await request.get("/api/health", { maxRedirects: 0 });
+    expect(response.status()).toBe(200);
+    expect(await response.text()).toBe("ok");
+    expect(response.headers()["cache-control"]).toBe("no-store");
+  });
+
   test("is a production build: the service worker registers", async ({ page }) => {
     await page.goto("/offline");
     // Registration happens only when NODE_ENV is `production` (should-register.ts), so this

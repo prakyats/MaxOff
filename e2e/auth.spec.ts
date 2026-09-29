@@ -3,6 +3,7 @@ import { expect, test } from "./fixtures";
 import {
   answerStartPrompt,
   confirmLinkFrom,
+  followAuthLink,
   latestEmailTo,
   setPasswordFor,
   signIn,
@@ -151,7 +152,8 @@ test.describe("recovery link", () => {
 
     const link = confirmLinkFrom(await latestEmailTo(USERS.reset.email, requested), baseURL);
 
-    await page.goto(link);
+    // The page, then Continue (3cB review): the tap is what verifies the one-time token.
+    await followAuthLink(page, link);
     await expect(page).toHaveURL(/\/set-password$/);
 
     const newPassword = `reset-new-${crypto.randomUUID().slice(0, 8)}`;
@@ -174,9 +176,9 @@ test.describe("recovery link", () => {
     await answerStartPrompt(page);
     await expect(page).toHaveURL(/\/my-day$/);
 
-    // The link was one-time: opening it again lands on sign in with the reason.
+    // The link was one-time: Continue on it again lands on sign in with the reason.
     await page.context().clearCookies();
-    await page.goto(link);
+    await followAuthLink(page, link);
     await expect(page).toHaveURL(/\/login\?reason=link$/);
     await expect(page.locator('[data-slot="form-alert"]')).toContainText(
       "expired or was already used",
@@ -198,7 +200,7 @@ test.describe("recovery link", () => {
     const link = confirmLinkFrom(await latestEmailTo(USERS.deactivated.email, requested), baseURL);
 
     // GoTrue issued the link (it knows nothing about members); the app ends the session at once.
-    await page.goto(link);
+    await followAuthLink(page, link);
     await expect(page).toHaveURL(/\/login\?reason=inactive$/);
     await expect(page.locator('[data-slot="form-alert"]')).toContainText("not active");
     await page.goto("/set-password");

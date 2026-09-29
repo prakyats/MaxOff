@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { addISTDays, todayIST, toISTDate } from "@/core/time";
 import { historyMonth, listDays, monthLabel, monthOf } from "@/modules/attendance";
 import { AttendanceHistory } from "@/modules/attendance/components/attendance-history";
+import { getCompBalance } from "@/modules/leave";
 
 import { LeavePager } from "../../../leave/leave-nav";
 import { loadHistoryPerson } from "../person";
@@ -30,7 +31,12 @@ export default async function PersonAttendancePage({
     first: monthOf(firstDay),
     current: monthOf(today),
   });
-  const days = await listDays(person.id, month);
+  // The Correct dialog greys out comp leave when the person has no credit to draw (3c review):
+  // the app composes the two modules here, attendance never reads leave itself.
+  const [days, balance] = await Promise.all([
+    listDays(person.id, month),
+    getCompBalance(person.id),
+  ]);
   const href = (m: string) => `/people/${person.id}/attendance?month=${m}`;
 
   return (
@@ -46,7 +52,7 @@ export default async function PersonAttendancePage({
         days={days}
         monthName={monthLabel(month)}
         today={today}
-        viewpoint={{ kind: "owner", name: person.fullName }}
+        viewpoint={{ kind: "owner", name: person.fullName, compDays: balance.availableDays }}
       />
     </>
   );

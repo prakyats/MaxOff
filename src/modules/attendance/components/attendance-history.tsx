@@ -78,6 +78,7 @@ export function AttendanceHistory({
               workDate: day.workDate,
               current: day.finalStatus ?? day.submittedChoice,
               leaveType: leaveStatusOf(day),
+              compDays: owner.compDays ?? null,
             })
           }
         >

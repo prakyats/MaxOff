@@ -11,6 +11,12 @@ import { Skeleton } from "@/core/ui/primitives/skeleton";
  * rows, task 2.9) under the photo button row (3.3), then the "Attendance & leave" row for
  * whoever marks attendance (2.3), then
  * Appearance, Session and Reload app. Same member check as `my-day/loading.tsx`.
+ *
+ * Every column beside something else is `min-w-0`, as the page's is (3c review, CI red on /me at
+ * 200%): a bar's `w-40` is 320px at 200% system text, and a flex or grid column with no minimum
+ * takes its widest bar as its own minimum, so `max-w-full` on the bar had nothing to clamp to
+ * and the column reached past a 430px phone. The device rows wrap like the page's
+ * (`flex-[1_1_10rem]`).
  */
 /**
  * The device card's rows as `page.tsx` draws them at 375 px: the description's lines (Sign out's
@@ -37,9 +43,9 @@ export default async function Loading() {
       >
         <Card aria-hidden>
           <CardHeader>
-            <div className="flex items-center gap-3">
+            <div className="flex min-w-0 items-center gap-3">
               <Skeleton className="size-10 shrink-0 rounded-full" />
-              <div className="flex flex-col gap-1.5">
+              <div className="flex min-w-0 flex-col gap-1.5">
                 <Skeleton className="h-4 w-40" />
                 <Skeleton className="h-3.5 w-24" />
               </div>
@@ -71,7 +77,7 @@ export default async function Loading() {
             aria-hidden
             className="bg-card ring-foreground/10 flex min-h-14 items-center justify-between gap-4 rounded-xl px-4 py-3 ring-1"
           >
-            <div className="flex flex-col gap-1.5">
+            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
               <Skeleton className="h-4 w-36" />
               <Skeleton className="h-3.5 w-64 max-w-full" />
             </div>
@@ -90,7 +96,7 @@ export default async function Loading() {
                       <Skeleton key={line} className={`h-3.5 max-w-full ${width}`} />
                     ))}
                   </div>
-                  <Skeleton className={`rounded-lg ${row.control}`} />
+                  <Skeleton className={`shrink-0 rounded-lg ${row.control}`} />
                 </div>
               </div>
             ))}

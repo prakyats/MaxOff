@@ -12,13 +12,13 @@ export default function Loading() {
       <div
         data-slot="loading-comp-leave-card"
         aria-hidden
-        className="border-border bg-card mb-4 flex items-center justify-between gap-3 rounded-xl border px-6 py-6"
+        className="border-border bg-card mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border px-6 py-6"
       >
-        <div className="flex flex-col gap-2">
+        <div className="flex min-w-0 flex-col gap-2">
           <Skeleton className="h-4 w-24" />
           <Skeleton className="h-3.5 w-52" />
         </div>
-        <Skeleton className="h-8 w-36 rounded-md" />
+        <Skeleton className="h-8 w-36 shrink-0 rounded-md" />
       </div>
       <LoadingState shape="cards" count={5} label="Loading their leave" className="md:hidden" />
       <LoadingState

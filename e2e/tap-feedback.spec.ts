@@ -43,9 +43,9 @@ test.use({ serviceWorkers: "block" });
 
 const PASSWORD = "tap-local-password";
 const IDS: Record<string, string> = {
-  desktop: "20000000-0000-4000-8000-000000000056",
-  mobile: "20000000-0000-4000-8000-000000000057",
-  "mobile-lg": "20000000-0000-4000-8000-000000000058",
+  desktop: "20000000-0000-4000-8000-000000000061",
+  mobile: "20000000-0000-4000-8000-000000000062",
+  "mobile-lg": "20000000-0000-4000-8000-000000000063",
 };
 const tapPerson = (info: TestInfo) => ({
   id: IDS[info.project.name] ?? "",

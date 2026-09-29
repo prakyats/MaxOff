@@ -258,10 +258,10 @@ select id, member_id, type, start_date, end_date, reason, state, 'form', credit_
 from lr;
 
 create temporary table ad (
-  id uuid, member_id uuid, work_date date, first_login_at timestamptz, is_day_off boolean,
+  id uuid, member_id uuid, work_date date, opened_at timestamptz, is_day_off boolean,
   state public.attendance_state, submitted_choice public.attendance_choice, submitted_at timestamptz,
   proposed_by_system boolean, final_status public.day_status, decided_by uuid, decided_at timestamptz,
-  decision_reason text, last_logout_at timestamptz, logout_not_recorded boolean, leave_request_id uuid,
+  decision_reason text, leave_request_id uuid,
   started_at timestamptz, ended_at timestamptz, end_not_recorded boolean, kind text
 ) on commit drop;
 
@@ -298,7 +298,8 @@ with days as (
 )
 insert into ad
 select null, k.member_id, k.d,
-       -- first_login_at: a sign-in; none on a day that was only derived or proposed.
+       -- opened_at: when the person opened the day (for created_at); none on a day that was
+       -- only derived or proposed.
        case when k.kind in ('leave', 'absent', 'absent_pending') then null else k.login end,
        false,
        case k.kind when 'leave' then 'approved' when 'half' then 'approved'
@@ -320,7 +321,6 @@ select null, k.member_id, k.d,
          when 'present' then least(pg_temp.ist(k.d + 1, make_interval(mins => 600 + k.r % 60)), k.at_now)
        end,
        case when k.kind = 'corrected' then 'Left at lunch for a family emergency: half day.' end,
-       null, false,
        case when k.kind in ('leave', 'half') then k.leave_id end,
        case when k.kind in ('today', 'pending', 'present', 'corrected', 'half') then k.login + make_interval(mins => k.r % 7) end,
        case
@@ -336,25 +336,22 @@ where k.kind is not null;
 -- A worked weekly off the Owner marked as worked (extra_work_note_decide's corrected day).
 insert into ad
 select null, e.member_id, e.work_date, null, true, 'corrected', null, null, false, 'present',
-       e.decided_by, e.decided_at, 'worked on a day off', null, false, null, null, null, false, 'day_off_worked'
+       e.decided_by, e.decided_at, 'worked on a day off', null, null, null, false, 'day_off_worked'
 from ew e
 where e.day_marked_worked;
 
-update ad set id = pg_temp.uid(4, s.rn),
-              last_logout_at = case when ad.ended_at is not null then ad.ended_at + interval '3 minutes' end,
-              logout_not_recorded = ad.end_not_recorded
+update ad set id = pg_temp.uid(4, s.rn)
 from (select ctid as c, row_number() over (order by member_id, work_date) as rn from ad) s
 where ad.ctid = s.c;
 
-insert into public.attendance_days (id, member_id, work_date, first_login_at, is_day_off, state,
+insert into public.attendance_days (id, member_id, work_date, is_day_off, state,
   submitted_choice, submitted_at, proposed_by_system, final_status, decided_by, decided_at,
-  decision_reason, last_logout_at, logout_not_recorded, leave_request_id, started_at, ended_at,
-  end_not_recorded, created_at, updated_at)
-select id, member_id, work_date, first_login_at, is_day_off, state, submitted_choice, submitted_at,
-       proposed_by_system, final_status, decided_by, decided_at, decision_reason, last_logout_at,
-       logout_not_recorded, leave_request_id, started_at, ended_at, end_not_recorded,
-       coalesce(first_login_at, decided_at, pg_temp.ist(work_date, interval '23 hours 59 minutes')),
-       greatest(coalesce(first_login_at, decided_at), decided_at, ended_at, started_at,
+  decision_reason, leave_request_id, started_at, ended_at, end_not_recorded, created_at, updated_at)
+select id, member_id, work_date, is_day_off, state, submitted_choice, submitted_at,
+       proposed_by_system, final_status, decided_by, decided_at, decision_reason,
+       leave_request_id, started_at, ended_at, end_not_recorded,
+       coalesce(opened_at, decided_at, pg_temp.ist(work_date, interval '23 hours 59 minutes')),
+       greatest(coalesce(opened_at, decided_at), decided_at, ended_at, started_at,
                 pg_temp.ist(work_date, interval '0 hours'))
 from ad;
 

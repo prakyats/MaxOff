@@ -1,4 +1,4 @@
--- 2.4 Owner review (20260924155937_attendance_owner_review.sql): attendance_today() for each role
+-- 2.4 Owner review (20260924155937_attendance_owner_review.sql): attendance_today_detail() for each role
 -- and each bucket, leave_owner_edit's new (new_id, kept_dates), and the re-created Owner functions
 -- on the paths their new "whose row is it, then lock" preamble added (NOT_FOUND, FORBIDDEN). The
 -- rest of their behaviour is 07's, which runs against the re-created bodies unchanged. The lock
@@ -82,20 +82,20 @@ insert into public.members (id, org_id, full_name, email, role, status, joined_a
   (pg_temp.fx('gone'),     pg_temp.fx('org'), 'Hari Gone',  'gone@example.com',     'staff', 'deactivated', now() - interval '30 days', now()),
   (pg_temp.fx('invited'),  pg_temp.fx('org'), 'Isha Asked', 'invited@example.com',  'staff', 'invited',     null,                       null);
 
--- Today: Asha (Admin) and Bala wait for a decision, Chitra signed in without choosing, Dev has
--- not signed in, Esha is approved Present, Farah has approved leave and has not signed in.
+-- Today: Asha (Admin) and Bala wait for a decision, Chitra's day is open without a choice, Dev has
+-- no day, Esha is approved Present, Farah has approved leave and has not signed in.
 -- Today is a working day whatever the calendar says: the weekly day off is tomorrow's weekday and
 -- no holiday falls today (the seed's Sunday would otherwise break this file on a Sunday).
 update public.org_settings
 set weekly_off_days = array[((extract(dow from app.today_ist())::integer + 1) % 7)::smallint];
 delete from public.holidays where date = app.today_ist();
 
-insert into public.attendance_days (member_id, work_date, first_login_at, state, submitted_choice, submitted_at) values
+insert into public.attendance_days (member_id, work_date, started_at, state, submitted_choice, submitted_at) values
   (pg_temp.fx('admin'),   app.today_ist(), now(), 'pending_review', 'present', now()),
   (pg_temp.fx('waiting'), app.today_ist(), now(), 'pending_review', 'present', now());
-insert into public.attendance_days (member_id, work_date, first_login_at, state) values
-  (pg_temp.fx('nochoice'), app.today_ist(), now(), 'awaiting_choice');
-insert into public.attendance_days (member_id, work_date, first_login_at, state, submitted_choice, submitted_at,
+insert into public.attendance_days (member_id, work_date, state) values
+  (pg_temp.fx('nochoice'), app.today_ist(), 'awaiting_choice');
+insert into public.attendance_days (member_id, work_date, started_at, state, submitted_choice, submitted_at,
                                     final_status, decided_by, decided_at, overtime_flag, overtime_reason) values
   (pg_temp.fx('present'), app.today_ist(), now(), 'approved', 'present', now(), 'present',
    pg_temp.fx('owner'), now(), true, 'Launch night');
@@ -104,51 +104,51 @@ insert into public.leave_requests (member_id, type, start_date, end_date, state,
 delete from public.activity_log;
 
 -- attendance_today: who may call it -------------------------------------------------------------
-select has_function('public', 'attendance_today', array[]::text[], 'attendance_today exists');
-select ok(has_function_privilege('authenticated', 'public.attendance_today()', 'execute')
-          and not has_function_privilege('anon', 'public.attendance_today()', 'execute'),
-  'authenticated may execute attendance_today, anon may not');
+select has_function('public', 'attendance_today_detail', array[]::text[], 'attendance_today_detail exists');
+select ok(has_function_privilege('authenticated', 'public.attendance_today_detail()', 'execute')
+          and not has_function_privilege('anon', 'public.attendance_today_detail()', 'execute'),
+  'authenticated may execute attendance_today_detail, anon may not');
 
 select pg_temp.as_member('admin');
-select throws_ok($$ select * from public.attendance_today() $$, 'P0001', 'FORBIDDEN',
+select throws_ok($$ select * from public.attendance_today_detail() $$, 'P0001', 'FORBIDDEN',
   'an Admin cannot read everyone''s day');
 select pg_temp.as_member('waiting');
-select throws_ok($$ select * from public.attendance_today() $$, 'P0001', 'FORBIDDEN',
+select throws_ok($$ select * from public.attendance_today_detail() $$, 'P0001', 'FORBIDDEN',
   'Staff cannot read everyone''s day');
 
 -- attendance_today: the rows -------------------------------------------------------------------
 select pg_temp.as_member('owner');
 select results_eq(
-  $$ select full_name from public.attendance_today() $$,
+  $$ select full_name from public.attendance_today_detail() $$,
   $$ values ('Asha Admin'), ('Bala Wait'), ('Chitra Gate'), ('Dev Away'), ('Esha Here'), ('Farah Off'), ('Gita New') $$,
   'active members who mark attendance, by name: not the Owner, not deactivated, not invited');
-select is((select started from public.attendance_today() where member_id = pg_temp.fx('newbie')), false,
+select is((select started from public.attendance_today_detail() where member_id = pg_temp.fx('newbie')), false,
   'attendance has not started on the joining day');
-select is((select count(*)::integer from public.attendance_today() where started), 6,
+select is((select count(*)::integer from public.attendance_today_detail() where started), 6,
   'everyone else has started');
 select results_eq(
-  $$ select state::text, submitted_choice::text from public.attendance_today()
+  $$ select state::text, submitted_choice::text from public.attendance_today_detail()
      where member_id in (pg_temp.fx('admin'), pg_temp.fx('waiting')) $$,
   $$ values ('pending_review', 'present'), ('pending_review', 'present') $$,
   'a day waiting for the Owner, an Admin''s included');
 select results_eq(
-  $$ select day_id is not null, state::text from public.attendance_today() where member_id = pg_temp.fx('nochoice') $$,
+  $$ select day_id is not null, state::text from public.attendance_today_detail() where member_id = pg_temp.fx('nochoice') $$,
   $$ values (true, 'awaiting_choice') $$,
-  'signed in without choosing: the day is awaiting_choice');
+  'open without a choice: the day is awaiting_choice');
 select results_eq(
-  $$ select day_id, state::text, on_leave from public.attendance_today() where member_id = pg_temp.fx('notin') $$,
+  $$ select day_id, state::text, on_leave from public.attendance_today_detail() where member_id = pg_temp.fx('notin') $$,
   $$ values (null::uuid, null::text, false) $$,
-  'not signed in yet: no day, not on leave');
+  'no day yet, not on leave');
 select results_eq(
-  $$ select state::text, final_status::text, overtime_flag, first_login_at is not null
-     from public.attendance_today() where member_id = pg_temp.fx('present') $$,
+  $$ select state::text, final_status::text, overtime_flag, started_at is not null
+     from public.attendance_today_detail() where member_id = pg_temp.fx('present') $$,
   $$ values ('approved', 'present', true, true) $$,
-  'an approved Present with its overtime flag and first login');
+  'an approved Present with its overtime flag and start');
 select results_eq(
-  $$ select day_id, on_leave, leave_type::text from public.attendance_today() where member_id = pg_temp.fx('onleave') $$,
+  $$ select day_id, on_leave, leave_type::text from public.attendance_today_detail() where member_id = pg_temp.fx('onleave') $$,
   $$ values (null::uuid, true, 'leave') $$,
-  'approved leave covering today counts even before the person signs in');
-select is((select count(*)::integer from public.attendance_today() where is_day_off), 0,
+  'approved leave covering today counts even before any row exists');
+select is((select count(*)::integer from public.attendance_today_detail() where is_day_off), 0,
   'a working day');
 
 -- A day off: every row without a day follows the working-day rule; a day row keeps its own.
@@ -156,7 +156,7 @@ select pg_temp.as_system();
 update public.org_settings set weekly_off_days = array[extract(dow from app.today_ist())::smallint];
 select pg_temp.as_member('owner');
 select results_eq(
-  $$ select full_name, is_day_off from public.attendance_today() order by full_name $$,
+  $$ select full_name, is_day_off from public.attendance_today_detail() order by full_name $$,
   $$ values ('Asha Admin', false), ('Bala Wait', false), ('Chitra Gate', false), ('Dev Away', true),
             ('Esha Here', false), ('Farah Off', true), ('Gita New', true) $$,
   'on a day off, the people with no day row are off; a day opened earlier keeps its own flag');
@@ -202,7 +202,7 @@ select is(
   public.attendance_decide((select id from public.attendance_days where member_id = pg_temp.fx('admin')), 'correct', 'half_day', 'Left at 2'),
   'corrected'::public.attendance_state, 'the Owner corrects a waiting day with a reason');
 select results_eq(
-  $$ select state::text, final_status::text from public.attendance_today() where member_id = pg_temp.fx('admin') $$,
+  $$ select state::text, final_status::text from public.attendance_today_detail() where member_id = pg_temp.fx('admin') $$,
   $$ values ('corrected', 'half_day') $$,
   'the board reads the correction');
 
@@ -210,7 +210,7 @@ select results_eq(
 -- Farah's leave covered yesterday..tomorrow. Yesterday the Owner had corrected her to Present;
 -- that decision stays when the Owner moves the leave, and its date comes back.
 select pg_temp.as_system();
-insert into public.attendance_days (member_id, work_date, first_login_at, state, final_status,
+insert into public.attendance_days (member_id, work_date, started_at, state, final_status,
                                     decided_by, decided_at, decision_reason) values
   (pg_temp.fx('onleave'), app.today_ist() - 1, now() - interval '1 day', 'corrected', 'present',
    pg_temp.fx('owner'), now() - interval '1 day', 'Came in after all');

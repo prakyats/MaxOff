@@ -18,7 +18,7 @@ import { type PendingDay, sortPending, type TodayPerson } from "../domain/review
 const PENDING_LIMIT = 200;
 
 const PENDING_COLUMNS =
-  "id, member_id, work_date, submitted_choice, submitted_at, final_status, proposed_by_system, is_day_off, first_login_at, started_at, member:members!member_id(full_name), leave_request:leave_requests!leave_request_id(state), events:attendance_events(id, action, reason)";
+  "id, member_id, work_date, submitted_choice, submitted_at, final_status, proposed_by_system, is_day_off, started_at, member:members!member_id(full_name), leave_request:leave_requests!leave_request_id(state), events:attendance_events(id, action, reason)";
 
 /** Every day waiting for the Owner, oldest first (PRODUCT "Approvals"). */
 export async function listPendingDays(): Promise<PendingDay[]> {
@@ -44,7 +44,6 @@ export async function listPendingDays(): Promise<PendingDay[]> {
         proposedBySystem: row.proposed_by_system,
         onApprovedLeave: row.leave_request?.state === "approved",
         isDayOff: row.is_day_off,
-        firstLoginAt: row.first_login_at,
         startedAt: row.started_at,
         note: submitted?.reason ?? null,
         submittedAt: row.submitted_at,
@@ -67,9 +66,9 @@ export async function countPendingDays(): Promise<number> {
 type Loose<T> = { [K in keyof T]: T[K] | null };
 
 /**
- * Today for everyone who marks attendance (`attendance_today_detail()`, 3b.1: the 2.4 read plus
- * the day's start and end). The generated types read every column as non-null; a person with no
- * day yet has nulls, so the row is read loosely. Once per request (`cache()`): /today starts it
+ * Today for everyone who marks attendance (`attendance_today_detail()`, 3b.1, with the day's
+ * start and end). The generated types read every column as non-null; a person with no day yet
+ * has nulls, so the row is read loosely. Once per request (`cache()`): /today starts it
  * alongside the session read (`startEarly`) and reads it again once the role is known.
  */
 export const getTodayPeople = cache(
@@ -86,9 +85,6 @@ export const getTodayPeople = cache(
       state: row.state,
       finalStatus: row.final_status,
       submittedChoice: row.submitted_choice,
-      firstLoginAt: row.first_login_at,
-      lastLogoutAt: row.last_logout_at,
-      logoutNotRecorded: row.logout_not_recorded ?? false,
       startedAt: row.started_at,
       endedAt: row.ended_at,
       endNotRecorded: row.end_not_recorded ?? false,

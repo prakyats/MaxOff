@@ -2,9 +2,10 @@
   // Cloudflare Workers configuration (task 0.5, ADR-0003). OpenNext turns `next build` output
   // into `.open-next/`; `pnpm preview` runs it locally, the deploy workflow ships it.
   // Bindings are not inherited by environments, so each one repeats `assets` and `services`.
-  // Runtime secrets (SUPABASE_SECRET_KEY) are set with `wrangler secret put --env <env>`, never
+  // Runtime secrets (SUPABASE_SECRET_KEY) travel with each deploy (`--secrets-file`), never
   // here. Public NEXT_PUBLIC_* values are inlined by `next build`, so they come from the build
-  // environment (GitHub environment variables), not from `vars`.
+  // environment (GitHub environment variables), not from `vars`. The one `vars` entry is
+  // production's CANONICAL_HOST (below): routing, not configuration.
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "maxoff-dev",
   // `worker/index.js` re-exports OpenNext's handler (`.open-next/worker.js`, from
@@ -42,12 +43,25 @@
     // production version would also be served at <version>-maxoff.<subdomain>.workers.dev:
     // a public, unlisted address serving real data outside the custom domain and outside
     // anything put in front of it. Nothing in MaxOff needs that. Do not turn it on.
+    //
+    // The app lives at https://app.maxoff.in (3c.1, kickoff 3c decision 3a): `routes` connects
+    // that hostname to this Worker as a Custom Domain (Cloudflare creates the DNS record and the
+    // certificate in the maxoff.in zone; the deploy token needs the zone permissions README
+    // names, or the owner attaches it once in the dashboard under Workers → maxoff → Domains &
+    // Routes). The workers.dev address stays ON only so `worker/index.js` can send it to the
+    // custom domain (308, path and query kept), keyed on `CANONICAL_HOST`: the one `vars`
+    // entry in this file, production-only by construction. Never add the bare `maxoff.in`,
+    // `www` or `mail.maxoff.in` here: the first two are reserved for a landing page, the
+    // third belongs to Resend.
     "production": {
       "name": "maxoff",
       "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
       "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "maxoff" }],
       "observability": { "enabled": true },
       "preview_urls": false,
+      "workers_dev": true,
+      "routes": [{ "pattern": "app.maxoff.in", "custom_domain": true }],
+      "vars": { "CANONICAL_HOST": "app.maxoff.in" },
       "triggers": { "crons": ["30 21 * * *"] },
     },
   },

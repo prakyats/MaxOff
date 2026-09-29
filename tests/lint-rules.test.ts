@@ -29,6 +29,8 @@ const EXPECTED: Record<string, readonly string[]> = {
   "modules/leave/components/denied-cross-components.ts": [BOUNDARIES],
   "app/denied-db.ts": [BOUNDARIES],
   "app/api/cron/denied-service.ts": [BOUNDARIES],
+  // 3c.1: only core/db/health.ts is reachable from app (app/api/health/allowed-health.ts)
+  "app/api/health/denied-service.ts": [BOUNDARIES],
   "denied-root-db.ts": [BOUNDARIES],
   // core never imports modules; only the listed core areas hold a database client
   "core/ui/denied-module.ts": [BOUNDARIES],

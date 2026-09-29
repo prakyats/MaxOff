@@ -234,7 +234,7 @@ export type SettingsSection = {
   href: string;
   description: string;
   permission: PermissionKey;
-  /** Roadmap task that builds the section. */
+  /** Roadmap task that builds the section: for the code only, the screen says "Coming soon". */
   arrivesIn: string;
   /** False while the section is still a placeholder card, so nothing links into an empty page. */
   ready: boolean;

@@ -1,7 +1,8 @@
--- 1.2 Auth: session_login / session_logout for every role, and the Owner bootstrap.
+-- 1.2 Auth: session_login for every role, and the Owner bootstrap. session_logout() went with the
+-- 2.x day gate (3c.1 contract migration); "Sign out of this device" is session_sign_out() (24).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(49);
+select plan(46);
 
 -- Start from nothing: the local seed (1.2) holds an organization and five sign-ins, and the
 -- bootstrap must be proven on an empty install. Rolled back with everything else at the end.
@@ -78,17 +79,14 @@ select id, key || '@example.com' from fx where key <> 'nobody';
 
 -- Structure and grants ----------------------------------------------------------------------
 select has_function('public', 'session_login', array['text', 'text'], 'session_login(text, text) exists');
-select has_function('public', 'session_logout', array['text', 'text'], 'session_logout(text, text) exists');
+select hasnt_function('public', 'session_logout', array['text', 'text'], 'session_logout(text, text) is gone (3c.1)');
 select has_function('public', 'bootstrap_owner', array['uuid', 'text', 'text', 'text'], 'bootstrap_owner(uuid, text, text, text) exists');
 select ok(
   has_function_privilege('authenticated', 'public.session_login(text, text)', 'execute')
-  and has_function_privilege('authenticated', 'public.session_logout(text, text)', 'execute')
-  and has_function_privilege('service_role', 'public.session_login(text, text)', 'execute')
-  and has_function_privilege('service_role', 'public.session_logout(text, text)', 'execute'),
+  and has_function_privilege('service_role', 'public.session_login(text, text)', 'execute'),
   'authenticated and service_role may call the session functions');
 select ok(
   not has_function_privilege('anon', 'public.session_login(text, text)', 'execute')
-  and not has_function_privilege('anon', 'public.session_logout(text, text)', 'execute')
   and not has_function_privilege('anon', 'public.bootstrap_owner(uuid, text, text, text)', 'execute'),
   'anon may call none of them');
 select ok(
@@ -201,27 +199,17 @@ set local role anon;
 select throws_ok($$ select public.session_login('UA', null) $$, '42501', null, 'anon cannot call session_login');
 select pg_temp.as_system();
 
--- session_logout -----------------------------------------------------------------------------
+-- session_sign_out (the 3b.1 sign-out; its paths are 24's) ------------------------------------
 select pg_temp.as_member('owner');
-select isnt(public.session_logout('Mozilla/5.0 test', 'abc123'), null, 'the Owner records a logout');
+select isnt(public.session_sign_out('Mozilla/5.0 test', 'abc123'), null, 'the Owner records a sign-out');
 select pg_temp.as_member('admin');
-select isnt(public.session_logout('UA', 'h2'), null, 'an Admin records a logout');
+select isnt(public.session_sign_out('UA', 'h2'), null, 'an Admin records a sign-out');
 select pg_temp.as_member('staff');
-select isnt(public.session_logout(null, null), null, 'Staff record a logout with no metadata');
+select isnt(public.session_sign_out(null, null), null, 'Staff record a sign-out with no metadata');
 select results_eq(
   $$ select kind, user_agent, ip_hash from public.session_events order by at $$,
   $$ values ('login', repeat('x', 512), null::text), ('logout', null::text, null::text) $$,
-  'Staff see their own login then logout');
-
-select pg_temp.as_member('deactivated');
-select throws_ok($$ select public.session_logout('UA', null) $$, 'P0001', 'UNAUTHENTICATED',
-  'a deactivated member cannot record a logout');
-select pg_temp.as_member('invited');
-select throws_ok($$ select public.session_logout('UA', null) $$, 'P0001', 'UNAUTHENTICATED',
-  'an invited member cannot record a logout');
-select pg_temp.as_system();
-set local role anon;
-select throws_ok($$ select public.session_logout('UA', null) $$, '42501', null, 'anon cannot call session_logout');
+  'Staff see their own login then sign-out');
 select pg_temp.as_system();
 
 -- What was written -------------------------------------------------------------------------

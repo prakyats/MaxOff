@@ -69,6 +69,9 @@ export function PendingDaysGroup({ days, today }: { days: PendingDay[]; today: s
                   workDate: review.workDate,
                   current: pendingOutcome(review),
                   leaveType: null,
+                  // Many members on one screen: the balance is not read here, so comp leave
+                  // stays choosable and the database's refusal shows in the dialog (3c review).
+                  compDays: null,
                 })
               }
             >
