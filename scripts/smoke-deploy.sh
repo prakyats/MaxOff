@@ -8,6 +8,11 @@
 #      reach a proxy redirect.
 #   3. With a second argument, that address (the workers.dev one) answers 308 to the first,
 #      path and query kept, and carries the headers too.
+#   4. The Continue page a one-time link lands on (GET /auth/confirm?token_hash=…&type=recovery,
+#      3cB review) answers 200 with its own headers (AUTH_LINK_ROUTE_HEADERS in
+#      src/core/http/response-headers.ts): cache-control no-store, x-robots-tag noindex,
+#      referrer-policy no-referrer. The GET verifies nothing, so a never-issued token is safe to
+#      send (e2e/warm.setup.ts warms the same URL).
 #
 # Only curl. Exit 1 on the first failure, naming it.
 set -euo pipefail
@@ -87,5 +92,22 @@ if [ -n "$alias_origin" ]; then
   expect_security_headers "$alias_headers" "$alias_origin (canonical redirect)"
   echo "smoke: $alias_origin → $origin ok"
 fi
+
+# 4. The Continue page keeps a one-time link out of caches, indexes and referrers.
+confirm_url="$origin/auth/confirm?token_hash=$(printf '%056d' 0)&type=recovery"
+confirm_status="$(curl -sS -o /dev/null -w '%{http_code}' --max-redirs 0 "$confirm_url")"
+[ "$confirm_status" = "200" ] || fail "$origin/auth/confirm answered $confirm_status, expected 200 (the Continue page)"
+confirm_headers="$(headers_of "$confirm_url")"
+case "$(header "$confirm_headers" cache-control)" in
+  *no-store*) ;;
+  *) fail "/auth/confirm must be cache-control: no-store, got '$(header "$confirm_headers" cache-control)'" ;;
+esac
+case "$(header "$confirm_headers" x-robots-tag)" in
+  *noindex*) ;;
+  *) fail "/auth/confirm must be x-robots-tag: noindex, got '$(header "$confirm_headers" x-robots-tag)'" ;;
+esac
+[ "$(header "$confirm_headers" referrer-policy)" = "no-referrer" ] \
+  || fail "/auth/confirm must be referrer-policy: no-referrer, got '$(header "$confirm_headers" referrer-policy)'"
+echo "smoke: the Continue page's headers ok"
 
 echo "smoke: all checks passed for $origin"

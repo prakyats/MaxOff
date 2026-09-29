@@ -6,7 +6,7 @@
 -- (attendance_flag_overtime_today), 24 (attendance_own_today, attendance_start_day).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(32);
+select plan(34);
 
 delete from public.attendance_events;
 delete from public.attendance_days;
@@ -151,12 +151,24 @@ select is((select count(*) from public.leave_requests), 0::bigint, 'and no reque
 
 -- Comp leave without a credit: leave_request_change --------------------------------------------------
 insert into public.leave_requests (member_id, type, start_date, end_date, state, source, decided_by, decided_at) values
-  (pg_temp.fx('staff'), 'leave', app.today_ist() + 5, app.today_ist() + 5, 'approved', 'form', pg_temp.fx('owner'), now());
+  (pg_temp.fx('staff'), 'leave', app.today_ist() + 5, app.today_ist() + 5, 'approved', 'form', pg_temp.fx('owner'), now()),
+  (pg_temp.fx('admin'), 'leave', app.today_ist() + 5, app.today_ist() + 5, 'approved', 'form', pg_temp.fx('owner'), now());
 select pg_temp.as_member('staff');
 select throws_ok(
   format($$ select public.leave_request_change(%L, 'comp_leave', app.today_ist() + 6, app.today_ist() + 6, 'Swap') $$,
          (select id from public.leave_requests where member_id = pg_temp.fx('staff'))),
-  'P0001', 'VALIDATION', 'a change to comp_leave is refused');
+  'P0001', 'VALIDATION', 'Staff: a change to comp_leave is refused');
+select pg_temp.as_member('admin');
+select throws_ok(
+  format($$ select public.leave_request_change(%L, 'comp_leave', app.today_ist() + 6, app.today_ist() + 6, 'Swap') $$,
+         (select id from public.leave_requests where member_id = pg_temp.fx('admin'))),
+  'P0001', 'VALIDATION', 'Admin: a change to comp_leave is refused');
+select pg_temp.as_member('owner');
+select throws_ok(
+  format($$ select public.leave_request_change(%L, 'comp_leave', app.today_ist() + 6, app.today_ist() + 6, 'Swap') $$,
+         (select id from public.leave_requests where member_id = pg_temp.fx('staff'))),
+  'P0001', 'FORBIDDEN', 'the Owner has no leave to change (FORBIDDEN before the type is looked at)');
+select pg_temp.as_member('staff');
 select lives_ok(
   format($$ select public.leave_request_change(%L, 'leave', app.today_ist() + 6, app.today_ist() + 6, 'Moved') $$,
          (select id from public.leave_requests where member_id = pg_temp.fx('staff'))),

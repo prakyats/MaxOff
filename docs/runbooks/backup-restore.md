@@ -13,6 +13,12 @@ environment `backup`:
 1. `scripts/backup/dump.sh`: `pg_dump --format=custom` of the schemas `public`, `app`, `auth` and
    `supabase_migrations` (schema and data) through the **session pooler** (`postgres.<ref>@<pooler
    host>:5432`, `sslmode=require`; the runner has no IPv6, which the direct host needs).
+   **Owner step at the first production backup run:** `sslmode=require` encrypts but does not verify
+   the pooler's certificate (its chain is unknown until the first hosted run). If the pooler's
+   certificate is publicly signed, switch `backup.yml`'s `BACKUP_DATABASE_URL` to `sslmode=verify-full
+   sslrootcert=system` (libpq 16+, the `postgres:17` image); otherwise commit Supabase's CA (Dashboard →
+   Database → SSL) as `scripts/backup/supabase-ca.crt`, mount it into the client container and pass
+   `sslrootcert=/certs/supabase-ca.crt` with `sslmode=verify-full`.
 2. A **manifest** beside it: the instant, the server version, the applied migrations, the row count of
    every table in `public` and `auth`, and the pg_cron jobs (name, schedule, command; the `cron` schema
    itself is the platform's and is never dumped). A restore is verified against it, so the source is
@@ -51,13 +57,17 @@ export BACKUP_AGE_IDENTITY=/path/to/maxoff-backup.key             # the Owner's 
 bash scripts/backup/fetch.sh "$RESTORE_DIR"
 
 # 2. Restore into the fresh target and verify it. The target is the NEW project's session pooler
-#    (Supabase → Connect → Session pooler; IPv4): user postgres.<new ref>, port 5432. Percent-encode
-#    the password if it holds anything but letters and digits.
-export PG_RESTORE="docker run --rm --network host -v $RESTORE_DIR:/drill postgres:17 pg_restore"
-export PSQL="docker run --rm -i --network host postgres:17 psql"
+#    (Supabase → Connect → Session pooler; IPv4): user postgres.<new ref>, port 5432. The password
+#    never goes on a command line (a shell history and `ps` would keep it): read it into PGPASSWORD
+#    and hand the variable to the client containers, as backup.yml does. restore.sh passes the
+#    key=value target string to pg_restore --dbname and psql unchanged.
+read -rs -p "Database password: " PGPASSWORD; echo; export PGPASSWORD
+export PG_RESTORE="docker run --rm --network host -e PGPASSWORD -v $RESTORE_DIR:/drill postgres:17 pg_restore"
+export PSQL="docker run --rm -i --network host -e PGPASSWORD postgres:17 psql"
 export RESTORE_DUMP_PATH=/drill/db.dump
 AUTH_MODE=data bash scripts/backup/restore.sh "$RESTORE_DIR" \
-  "postgresql://postgres.<new ref>:<password>@<pooler host>:5432/postgres?sslmode=require"
+  "host=<pooler host> port=5432 user=postgres.<new ref> dbname=postgres sslmode=require"
+unset PGPASSWORD
 ```
 
 ```sql
@@ -125,8 +135,11 @@ containers, the temp files and the object. About a minute.
 **Production, once after the first production deploy (3c.3) and then every quarter:** the "Restore"
 steps above against the latest production backup into a **throwaway** target (a fresh local container
 of the `supabase/postgres` image, `AUTH_MODE=schema`, or a scratch Supabase project, `AUTH_MODE=data`),
-read the three "verified" lines, then delete the target. Write the date and the numbers into the table
-below.
+read the three "verified" lines **and the pg_cron WARNING**: a throwaway target has no `cron.job` rows, so
+the run ends with the WARNING naming the two `cron.schedule` calls and the closing line "restore verified,
+with 1 warning(s)". That is the expected outcome, not a failure; a run with no warning line at all, or with
+any line other than that one, is what to look into. Then delete the target. Write the date and the numbers
+into the table below.
 
 ## Drills done
 

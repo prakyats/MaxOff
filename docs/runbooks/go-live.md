@@ -197,8 +197,10 @@ write down the step, what you saw and the time, and fix it (a session) before go
    runs every night at 02:00 IST.
 2. The **production restore drill**, once now and then every quarter: `docs/runbooks/backup-restore.md` →
    "The drill" → "Production", into a throwaway target. *Expected:* its three "verified" lines (row counts,
-   every file in `supabase/migrations`, RLS refuses). Write the date and the numbers into that runbook's
-   "Drills done" table.
+   every file in `supabase/migrations`, RLS refuses), then the pg_cron **WARNING** naming the two
+   `cron.schedule` calls (a throwaway target has no jobs) and the closing line **"restore verified, with 1
+   warning(s)"**: that warning is the expected ending, not a failure. Write the date and the numbers into
+   that runbook's "Drills done" table.
 
 ## 6. Go-live data: the Owner only, seeded defaults kept
 

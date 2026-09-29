@@ -7,9 +7,11 @@
 # machine (docs/runbooks/backup-restore.md, `scripts/backup/fetch.sh` + `restore.sh`).
 #
 # Every value comes from the GitHub environment `backup` (Settings → Environments), which has
-# NO required reviewer: a nightly job cannot wait for an approval. It holds only what a backup
-# needs: read access to the database and write access to the backup bucket. Names in README →
-# "Backups".
+# NO required reviewer: a nightly job cannot wait for an approval. Trust model, plainly:
+# SUPABASE_DB_PASSWORD is the `postgres` role's password, which reads AND writes the whole
+# database (hosted Supabase has no read-only role a dump could use), so anyone who can run or
+# edit this workflow holds a full database credential; the bucket token is scoped to the backup
+# bucket alone. Names in README → "Backups".
 #
 # The first job of each month also opens the "Monthly Supabase usage check" issue (ADR-0003's
 # upgrade triggers: ~4 GB transfer, ~400 MB database), so the check is never forgotten.

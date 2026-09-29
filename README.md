@@ -78,6 +78,7 @@ $env:NEXT_PUBLIC_APP_URL = "https://app.maxoff.in"
 $env:SUPABASE_SECRET_KEY = [Runtime.InteropServices.Marshal]::PtrToStringBSTR([Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure))
 node scripts/bootstrap-owner.mjs --email "<the Owner's email>" --name "<Full Name>" --org "Pixora Clips"
 Remove-Item Env:SUPABASE_SECRET_KEY, Env:NEXT_PUBLIC_SUPABASE_URL, Env:NEXT_PUBLIC_APP_URL
+Remove-Variable secure
 ```
 
 It prints the one-time link (`https://app.maxoff.in/auth/confirm?…`) to open within 24 hours: a
@@ -259,9 +260,10 @@ email through `core/notifications` (Resend), so GoTrue never mails an invite (ta
    to be uploaded first with `wrangler secret`, which Cloudflare refuses (error 10215) while the Worker's
    newest version is an undeployed branch preview — every push since task 2.0 leaves one.
 5. `scripts/smoke-deploy.sh` against the deployed address (3c.1): `/api/health` answers `200 ok` (the database
-   was reached), the signed-out `/today` redirect carries every security header, and on production
-   `https://maxoff.pixoraclips.workers.dev` answers a 308 to `https://app.maxoff.in`. A failed smoke fails the
-   run after the deploy: the Worker is live, so fix forward or roll back in the dashboard.
+   was reached), the signed-out `/today` redirect carries every security header, the Continue page a one-time
+   link lands on (`/auth/confirm`, 3cB review) answers 200 with `no-store`, `noindex` and `no-referrer`, and on
+   production `https://maxoff.pixoraclips.workers.dev` answers a 308 to `https://app.maxoff.in`. A failed smoke
+   fails the run after the deploy: the Worker is live, so fix forward or roll back in the dashboard.
 
 ### Production runbook (3c.1)
 
@@ -281,8 +283,8 @@ environment connects `app.maxoff.in` to the Worker `maxoff` as a **Custom Domain
   `MaxOff <noreply@mail.maxoff.in>`; "Forgot password works" is a step of the go-live smoke test.
 - **First deploy:** tag a green commit on `main` (`git tag v1.0.0 && git push origin v1.0.0`), approve the
   `production` environment in GitHub, read the run's smoke step (the production job's checks the health
-  route, the headers on a proxy redirect and the workers.dev → `app.maxoff.in` 308; the staging job's the
-  first two). Then the Owner bootstrap (above), then UptimeRobot.
+  route, the headers on a proxy redirect, the Continue page's headers and the workers.dev → `app.maxoff.in`
+  308; the staging job's all but the 308). Then the Owner bootstrap (above), then UptimeRobot.
 - **UptimeRobot:** an HTTP(S) monitor on **`https://app.maxoff.in/api/health`**, every 5 minutes, keyword
   `ok` optional. The route makes one cheap database round trip, so the free Supabase project never pauses
   (ADR-0003) and the monitor sees the database, not only the Worker.
@@ -318,14 +320,24 @@ against the backup's manifest (ARCHITECTURE §17, the runbook). One-time setup, 
    (never the files bucket's token, which is scoped to `maxoff-files-production`). Note the Access Key ID and
    Secret Access Key.
 4. **The GitHub environment `backup`** (Settings → Environments → New; **no required reviewer**, the job runs
-   at night). Secrets: `SUPABASE_DB_PASSWORD` (the production database password), `BACKUP_R2_ACCESS_KEY_ID`,
-   `BACKUP_R2_SECRET_ACCESS_KEY`. Variables: `SUPABASE_PROJECT_REF` (`peshoflxypujbzecgwqq`),
+   at night). Secrets: `SUPABASE_DB_PASSWORD` (the production database password: the `postgres` role, which
+   reads **and writes** everything; hosted Supabase has no read-only role a dump could use, so whoever can run
+   or edit this workflow holds a full database credential, and the environment has no reviewer by design),
+   `BACKUP_R2_ACCESS_KEY_ID`, `BACKUP_R2_SECRET_ACCESS_KEY`. Variables: `SUPABASE_PROJECT_REF` (`peshoflxypujbzecgwqq`),
    `SUPABASE_DB_POOLER_HOST` (Supabase → project → Connect → **Session pooler**: the host, e.g.
    `aws-0-ap-south-1.pooler.supabase.com`; the user is `postgres.<ref>` and the workflow builds it),
    `R2_ACCOUNT_ID`, `BACKUP_R2_BUCKET` (`maxoff-backups-production`), `BACKUP_AGE_RECIPIENT` (the `age1…` line).
 5. **Prove it:** Actions → Backup → Run workflow. The run's summary names the object. Then the
    production restore drill (the runbook) once, after the first production deploy, and every quarter.
    Locally, `bash scripts/backup/drill.sh` rehearses both restore modes against the local stack.
+   **At that first run, turn certificate verification on** (`backup.yml`'s `BACKUP_DATABASE_URL` ships
+   with `sslmode=require`, which encrypts but does not verify the pooler's certificate, because its
+   chain is unknown until the first hosted run): if the pooler's certificate is publicly signed, switch
+   to `sslmode=verify-full sslrootcert=system` (libpq 16+; the dump runs from the `postgres:17` image);
+   otherwise download Supabase's CA (Dashboard → Database → SSL), commit it as
+   `scripts/backup/supabase-ca.crt`, mount it into the client container (`-v
+   "$PWD/scripts/backup:/certs:ro"` on `PG_DUMP` and `PSQL`) and pass `sslrootcert=/certs/supabase-ca.crt`
+   with `sslmode=verify-full`. The runbook's "What runs every night" says the same.
 6. On the 1st of each month the same workflow opens a "Monthly Supabase usage check" issue with ADR-0003's
    thresholds (~4 GB transfer, ~400 MB database); tick and close it.
 
