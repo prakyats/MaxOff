@@ -9,3 +9,8 @@ export function formatDays(days: number): string {
   if (whole === 0) return half ? "½" : "0";
   return half ? `${whole}½` : String(whole);
 }
+
+/** "½ day", "1 day", "1½ days": the balance in a sentence (the leave module has the same). */
+export function daysLabel(days: number): string {
+  return `${formatDays(days)} ${days === 1 || days === 0.5 ? "day" : "days"}`;
+}

@@ -412,7 +412,23 @@ test("a proposed absence from the nightly job: reviewed, approved, and read on t
   await expect(day).toContainText("Approved");
 });
 
-test("a corrected day reads in the Owner's words on the person's history", async ({
+/** The Owner's Correct dialog for a person's day: the row's button, or the card's sheet on a phone. */
+async function openCorrect(page: Page, info: TestInfo, day: Locator): Promise<Locator> {
+  if (isPhone(info)) {
+    await day.click();
+    await page
+      .locator('[data-slot="detail-sheet"]')
+      .getByRole("button", { name: "Correct" })
+      .click();
+  } else {
+    await day.getByRole("button", { name: "Correct" }).click();
+  }
+  const dialog = page.locator('[data-slot="dialog-content"]');
+  await expect(dialog).toBeVisible();
+  return dialog;
+}
+
+test("a corrected day reads in the Owner's words on the person's history, and comp leave needs a credit", async ({
   page,
 }, info) => {
   await page.goto(`/people/${ids(info).fix}/attendance`);
@@ -420,6 +436,86 @@ test("a corrected day reads in the Owner's words on the person's history", async
     ? page.locator('[data-slot="data-card"]').first()
     : page.locator("tbody tr").first();
   await expect(day).toContainText("Changed by you");
+
+  // 3c review: the Owner's comp leave draws one of the person's credits, and fix has none, so the
+  // dialog greys the option out and says so in its label.
+  let dialog = await openCorrect(page, info, day);
+  await dialog.getByRole("combobox", { name: "The day was" }).click();
+  const greyed = page.getByRole("option", { name: "Comp leave (no credit)" });
+  await expect(greyed).toBeVisible();
+  await expect(greyed).toBeDisabled();
+  await page.getByRole("option", { name: "Present", exact: true }).click();
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(dialog).toBeHidden();
+
+  // Where the screen does not know the balance (Approvals lists many people), the option stays
+  // and the database refuses: the alert says to grant a credit first.
+  await submitDay("leave", info);
+  await page.goto("/approvals");
+  await approvalRow(page, "attendance", nameOf("leave", info))
+    .getByRole("button", { name: "Review" })
+    .click();
+  const sheet = page.locator('[data-slot="review-sheet"]');
+  await sheet.getByRole("button", { name: "Correct…" }).click();
+  dialog = page.locator('[data-slot="dialog-content"]');
+  await dialog.getByRole("combobox", { name: "The day was" }).click();
+  await page.getByRole("option", { name: "Comp leave", exact: true }).click();
+  await dialog.getByLabel("Reason").fill("Owed a day");
+  await dialog.getByRole("button", { name: "Save correction" }).click();
+  await expect(dialog.locator('[data-slot="form-alert"]')).toContainText("Grant one first");
+  expect((await dayOf(ids(info).leave))?.state).toBe("pending_review");
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(dialog).toBeHidden();
+
+  // With a credit the correction goes through and uses it at once.
+  await rpcAs(USERS.owner.email, USERS.owner.password, "comp_leave_grant", {
+    member_id: ids(info).fix,
+    days: 1,
+  });
+  await page.goto(`/people/${ids(info).fix}/attendance`);
+  dialog = await openCorrect(page, info, day);
+  await dialog.getByRole("combobox", { name: "The day was" }).click();
+  await page.getByRole("option", { name: "Comp leave", exact: true }).click();
+  await expect(dialog.locator('[data-slot="correct-comp-hint"]')).toContainText(
+    "has 1 day of comp leave",
+  );
+  await dialog.getByLabel("Reason").fill("Took the day for the Sunday shoot");
+  await dialog.getByRole("button", { name: "Save correction" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(day).toContainText("Comp leave");
+  const credits = await serviceSelect<{ id: string }>(
+    `comp_leave_credits?member_id=eq.${ids(info).fix}&select=id`,
+  );
+  expect(credits).toHaveLength(1);
+  await expect
+    .poll(async () =>
+      serviceSelect<{ state: string; days: number }>(
+        `comp_leave_credit_uses?credit_id=eq.${credits[0]?.id}&select=state,days`,
+      ),
+    )
+    .toEqual([{ state: "used", days: 1 }]);
+
+  // The Owner's edit of approved leave greys comp leave out the same way when there is no credit
+  // (the earlier test cancelled this person's approved leave, so one is arranged again).
+  const laterLeaveId = await rpcAs<string>(email("leave", info), PASSWORD, "leave_submit", {
+    type: "leave",
+    start_date: inDays(30),
+    end_date: inDays(30),
+  });
+  await rpcAs(USERS.owner.email, USERS.owner.password, "leave_decide", {
+    request_id: laterLeaveId,
+    decision: "approve",
+  });
+  await page.goto(`/people/${ids(info).leave}/leave`);
+  await requestAction(page, info, "Approved", "Edit");
+  const edit = page.locator('[data-slot="dialog-content"]');
+  await edit.getByRole("combobox", { name: "Kind of leave" }).click();
+  const greyedEdit = page.getByRole("option", { name: "Comp leave (no credit)" });
+  await expect(greyedEdit).toBeVisible();
+  await expect(greyedEdit).toBeDisabled();
+  await page.getByRole("option", { name: "Leave", exact: true }).click();
+  await edit.getByRole("button", { name: "Cancel" }).click();
+  await expect(edit).toBeHidden();
 });
 
 test("installed: board → person → tabs and months → one back lands on Today", async ({

@@ -6,7 +6,7 @@
 -- attendance_start_day() and the prompt's leave choice call it).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(235);
+select plan(236);
 
 -- The local seed holds an organization (with its org_settings and job titles) and five sign-ins.
 -- Keep the organization; replace the people with fixtures. Rolled back at the end.
@@ -477,16 +477,18 @@ select results_eq(
   $$ select 'corrected', null::text, 'present', 'You were here', pg_temp.fx('owner') $$,
   'with a corrected event');
 
--- Correcting to a leave type with nothing behind it creates an approved Owner request.
+-- Correcting to a leave type with nothing behind it creates an approved Owner request. Comp leave
+-- draws one of the member's credits (3c review, pgTAP 30 has every path), so one is granted first.
 select pg_temp.as_member('owner');
+select isnt(public.comp_leave_grant(pg_temp.fx('staff'), 1.0, 'Worked Sunday'), null, 'the Owner grants Staff a comp leave credit');
 select is(public.attendance_decide(pg_temp.day('staff'), 'correct', 'comp_leave', 'Worked Sunday, took Monday'), 'corrected',
   'the Owner corrects an approved day again, to comp leave');
 select pg_temp.as_system();
 select results_eq(
-  $$ select d.state::text, d.final_status::text, r.type::text, r.state::text, r.source, r.start_date, r.end_date, r.decided_by, r.reason
+  $$ select d.state::text, d.final_status::text, r.type::text, r.state::text, r.source, r.start_date, r.end_date, r.decided_by, r.reason, r.credit_days
      from public.attendance_days d join public.leave_requests r on r.id = d.leave_request_id where d.id = pg_temp.day('staff') $$,
-  $$ select 'corrected', 'comp_leave', 'comp_leave', 'approved', 'owner', app.today_ist(), app.today_ist(), pg_temp.fx('owner'), 'Worked Sunday, took Monday' $$,
-  'an approved source = owner request for that date is created and linked');
+  $$ select 'corrected', 'comp_leave', 'comp_leave', 'approved', 'owner', app.today_ist(), app.today_ist(), pg_temp.fx('owner'), 'Worked Sunday, took Monday', 1.0::numeric(2,1) $$,
+  'an approved source = owner request for that date is created and linked, on the credit');
 select is((select count(*) from public.attendance_events where attendance_day_id = pg_temp.day('staff')), 3::bigint,
   'submitted, approved, corrected: nothing overwritten');
 

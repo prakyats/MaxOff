@@ -66,8 +66,11 @@ export function LeaveRequestList({
 }: {
   requests: OwnLeaveRequest[];
   today: string;
-  /** Set when the Owner reads this person's requests: their name, for the wording. */
-  owner?: { name: string };
+  /**
+   * Set when the Owner reads this person's requests: their name, for the wording, and their comp
+   * leave balance today, so the edit dialog greys out comp leave with no credit (3c review).
+   */
+  owner?: { name: string; compDays?: number | undefined };
 }) {
   const [dialog, setDialog] = useState<DialogState>({ kind: "none" });
   const close = () => setDialog({ kind: "none" });
@@ -293,6 +296,7 @@ export function LeaveRequestList({
           key={dialog.request.id}
           request={dialog.request}
           memberName={owner.name}
+          compDays={owner.compDays}
           onClose={close}
         />
       ) : null}

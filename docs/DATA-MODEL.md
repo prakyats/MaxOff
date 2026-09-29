@@ -305,8 +305,10 @@ leave_requests       id, member_id, type leave_type, start_date, end_date, reaso
                      -- state = approved and nothing else
                      credit_days numeric(2,1) null (3b.2, expand-only: the comp leave credit this
                      request uses; check: null, or type = comp_leave with 1.0, or type = half_day
-                     with 0.5. Set only by leave_submit_comp(); a 2.x gate or Owner-set comp leave
-                     carries null. Under protect_columns)
+                     with 0.5. Set by leave_submit_comp() (1.0 / 0.5) and, since the 3c review, by
+                     the two Owner routes attendance_decide(correct, comp_leave) and
+                     leave_owner_edit(comp_leave) at 1.0; a 2.x gate comp leave carries null.
+                     Under protect_columns)
 extra_work_notes     id, member_id, work_date (IST, today or up to 7 days back), kind ('overtime'|'day_off'),
                      duration_minutes null (overtime only, rough), note (required), state ('submitted'|'reviewed'),
                      decision null ('granted'|'no_comp_leave'), day_marked_worked bool (day_off only),
@@ -368,8 +370,17 @@ public.attendance_decide(day_id, decision, status, reason)
                                 decided in the same call: approved when the outcome equals its type,
                                 otherwise rejected with the same reason. Correcting to a leave type
                                 with no approved request of that type behind it creates
-                                leave_requests(source = owner, approved) and links it. Events
-                                approved | corrected. Bulk = one call per row. Notifies the member
+                                leave_requests(source = owner, approved) and links it; for
+                                comp_leave (3c review) that request carries credit_days 1.0 and
+                                draws the member's free credits valid on that date, oldest first
+                                (app.comp_credit_draw), used at once (app.comp_credit_settle):
+                                VALIDATION with none ("Comp leave needs an earned credit valid on
+                                that date. Grant one first from their Leave tab.") or on a day off
+                                ("That date is a day off. Comp leave is for a working day."); a
+                                half comp day is not set here (leave_submit_comp's). A day whose
+                                approved request already is comp leave is re-corrected without a
+                                new request or credit. Events approved | corrected. Bulk = one call
+                                per row. Notifies the member
 (app.attendance_logout(member_id), the 2.x logout stamp, was dropped by the 3c.1 contract migration:
                                 the End day tap is the end of a day, attendance_end_day below)
 public.attendance_flag_overtime(day_id, reason)
@@ -441,7 +452,15 @@ public.leave_owner_edit(request_id, type, start_date, end_date, reason)
                                 overlap check (app.leave_supersede_gate, as leave_decide). Audit
                                 'superseded' + 'approved'. Notifies the member. 2.4: returns
                                 (new_id uuid, kept_dates date[]), the new row's id and the dates whose
-                                Owner decision was kept, as leave_decide
+                                Owner decision was kept, as leave_decide. 3c review: type =
+                                comp_leave is one date ("Comp leave is one day at a time. Edit it
+                                to a single date.") on a working day ("That date is a day off. Comp
+                                leave is for a working day."), the new row carries credit_days 1.0
+                                and, after the superseded row's release, draws the member's free
+                                credits valid on that date oldest first (app.comp_credit_draw) and
+                                uses them at once; VALIDATION with none ("Grant one first from
+                                their Leave tab"), the original then stays approved. A comp day
+                                moved to another date re-uses its own credit
 public.leave_owner_cancel(request_id, reason)
                                 attendance.decide, approved only, REASON_REQUIRED: -> cancelled, and
                                 today's untouched derived day returns to awaiting_choice. Notifies
@@ -643,6 +662,15 @@ app.holiday_release_comp()      AFTER INSERT / UPDATE OF date on holidays (3b re
 app.end_day_late_allowed(at, cutoff), app.end_day_cutoff(org)
                                 3b review: whether an IST instant is before the End day cutoff, and
                                 the org's cutoff (internal)
+app.comp_credit_draw(p_member, p_request_id, p_on, p_days) returns numeric
+                                internal (3c review; service_role only; the caller holds the
+                                member's leave: lock). Reserves p_days of the member's unrevoked
+                                credits with expires_on >= p_on, oldest first (granted_at, id, for
+                                update): reserved_days on each credit drawn, one
+                                comp_leave_credit_uses row (reserved) per credit, audit 'reserved'
+                                with {leave_request_id, days}. Returns the days left undrawn; the
+                                caller refuses the request when it is above zero. The
+                                leave_submit_comp() loop, lifted; that function keeps its own copy
 app.comp_credit_settle(request_id, outcome)
                                 internal (service_role only). outcome used: every reserved use of
                                 the request -> used (reserved_days -> used_days on the credit);
@@ -855,8 +883,9 @@ month_summary(month date, member_id uuid default null)
                                 working days by app.is_working_day), days_worked (decided Present on a
                                 working day + ½ per decided half day), present_days, leave_days, half_days
                                 (a half day that is not comp leave), absent_days, comp_leave_days (a
-                                comp_leave day, + ½ for a half day that used a comp credit, + the Owner's
-                                comp leave), additional_leave (leave_days + ½ × half_days + absent_days;
+                                comp_leave day, + ½ for a half day that used a comp credit; the Owner's
+                                comp leave uses a credit too since the 3c review, so comp_leave_days and
+                                credits_used agree), additional_leave (leave_days + ½ × half_days + absent_days;
                                 comp leave never counts), days_off_worked (decided Present on a day off,
                                 its own line), pending_days (days waiting for the Owner: pending_review),
                                 overtime_notes, overtime_granted (notes of the month whose decision is

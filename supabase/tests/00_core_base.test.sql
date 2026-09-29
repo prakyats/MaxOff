@@ -86,7 +86,9 @@ insert into app_internal values
   ('expense_claim_lock'),
   -- 3b review: the org's End day cutoff (read inside the attendance functions) and the holidays
   -- trigger that gives comp leave credits back
-  ('end_day_cutoff'), ('holiday_release_comp');
+  ('end_day_cutoff'), ('holiday_release_comp'),
+  -- 3c review: the oldest-first draw the Owner's comp leave routes share
+  ('comp_credit_draw');
   -- 3c.1 (contract migration): attendance_logout and logout_not_recorded are gone with the 2.x gate.
 select is(
   (select count(*) from pg_proc p
@@ -107,7 +109,7 @@ select is(
   0::bigint,
   'the internal helpers: service_role only, never the API role');
 select is((select count(*) from pg_proc p where p.pronamespace = 'app'::regnamespace
-             and p.proname in (select name from app_internal)), 16::bigint,
+             and p.proname in (select name from app_internal)), 17::bigint,
   'the internal helper list matches what exists');
 select cmp_ok((select count(*) from pg_proc where pronamespace = 'app'::regnamespace), '>=', 4::bigint,
   'the grant check saw the app functions');

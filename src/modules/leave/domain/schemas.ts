@@ -171,7 +171,11 @@ export const ownerEditLeaveSchema = z
   })
   .transform((value) => ({
     ...value,
-    endDate: value.type === "half_day" || !value.endDate ? value.startDate : value.endDate,
+    // A half day and comp leave are one date (comp leave since the 3c review: it draws a credit).
+    endDate:
+      value.type === "half_day" || value.type === "comp_leave" || !value.endDate
+        ? value.startDate
+        : value.endDate,
   }))
   .refine((value) => value.endDate >= value.startDate, {
     path: ["endDate"],

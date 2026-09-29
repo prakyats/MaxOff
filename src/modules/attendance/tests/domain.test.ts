@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { PROMPT_LEAVE_CHOICES } from "../domain/choices";
+import { compLeaveOption, PROMPT_LEAVE_CHOICES } from "../domain/choices";
 import { chooseLeaveTodaySchema, submitNoteSchema } from "../domain/schemas";
 import {
   dayLabel,
@@ -303,5 +303,35 @@ describe("schemas", () => {
         durationMinutes: 45,
       }).success,
     ).toBe(false);
+  });
+});
+
+describe("compLeaveOption (3c review: the Owner's comp leave uses a credit)", () => {
+  it("greys comp leave out when the person has no credit, and says to grant one", () => {
+    expect(compLeaveOption(0, null, "Asha")).toEqual({
+      disabled: true,
+      hint: "Asha has no comp leave credit: grant one first from their Leave tab.",
+    });
+    expect(compLeaveOption(0, "leave", "Asha").disabled).toBe(true);
+  });
+
+  it("names the balance when there is one", () => {
+    expect(compLeaveOption(1, null, "Asha")).toEqual({
+      disabled: false,
+      hint: "Asha has 1 day of comp leave.",
+    });
+    expect(compLeaveOption(0.5, null, "Asha").hint).toBe("Asha has ½ day of comp leave.");
+    expect(compLeaveOption(1.5, "half_day", "Asha").hint).toBe("Asha has 1½ days of comp leave.");
+  });
+
+  it("keeps a day that already is comp leave choosable: correcting it again uses no credit", () => {
+    expect(compLeaveOption(0, "comp_leave", "Asha")).toEqual({
+      disabled: false,
+      hint: "Asha's day is already comp leave, so no new credit is used.",
+    });
+  });
+
+  it("stays choosable with no hint where the balance is unknown (Approvals): the database refuses", () => {
+    expect(compLeaveOption(null, null, "Asha")).toEqual({ disabled: false, hint: null });
   });
 });

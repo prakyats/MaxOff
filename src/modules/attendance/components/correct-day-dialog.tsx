@@ -25,7 +25,7 @@ import { Textarea } from "@/core/ui/primitives/textarea";
 import { describeError, toastResult } from "@/core/ui/toast";
 
 import { correctDay } from "../actions/review";
-import { DAY_STATUSES, type DayStatus, STATUS_LABELS } from "../domain/choices";
+import { compLeaveOption, DAY_STATUSES, type DayStatus, STATUS_LABELS } from "../domain/choices";
 import { firstName, historyDate } from "../domain/history";
 import { ATTENDANCE_REASON_MAX_LENGTH } from "../domain/limits";
 import { ErrorText } from "@/core/ui/composites/error-text";
@@ -38,6 +38,11 @@ export type CorrectTarget = {
   current: DayStatus | null;
   /** The linked approved leave, when correcting to another leave type would leave it standing. */
   leaveType: DayStatus | null;
+  /**
+   * The person's comp leave balance today, or null where the screen does not know it
+   * (Approvals): comp leave draws a credit (3c review), so with none the option is greyed out.
+   */
+  compDays: number | null;
 };
 
 /**
@@ -113,6 +118,9 @@ function CorrectForm({
   // (WORKFLOWS §1, owner decision 2026-09-26): the Owner cancels that one from the person's
   // Leave tab if it should go.
   const keepsLeave = target.leaveType !== null && status !== "" && status !== target.leaveType;
+  // Comp leave uses one of the person's credits (kickoff 3b decision 16; the database is the
+  // rule): the option is greyed out when there is none, and the hint names the balance.
+  const comp = compLeaveOption(target.compDays, target.leaveType, name);
 
   return (
     <form onSubmit={submit} noValidate className="flex flex-col gap-4">
@@ -138,14 +146,25 @@ function CorrectForm({
             </SelectTrigger>
             <SelectContent>
               {DAY_STATUSES.map((option) => (
-                <SelectItem key={option} value={option}>
-                  {STATUS_LABELS[option]}
+                <SelectItem
+                  key={option}
+                  value={option}
+                  disabled={option === "comp_leave" && comp.disabled}
+                >
+                  {option === "comp_leave" && comp.disabled
+                    ? "Comp leave (no credit)"
+                    : STATUS_LABELS[option]}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         )}
       </FormField>
+      {status === "comp_leave" && comp.hint ? (
+        <p data-slot="correct-comp-hint" className="text-muted-foreground text-sm">
+          {comp.hint}
+        </p>
+      ) : null}
       {keepsLeave ? (
         <p data-slot="correct-keeps-leave" className="text-muted-foreground text-sm">
           {name}&apos;s approved leave stays. Cancel it from their Leave tab if it shouldn&apos;t.

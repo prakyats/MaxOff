@@ -87,7 +87,14 @@ export function eventActor(actorId: string | null, memberId: string): EventActor
  * Owner's reason: …"); the Owner reads someone else's in the same words turned around ("Asha
  * chose leave", "Your reason: …"), so there is one vocabulary, not two (2.4).
  */
-export type Viewpoint = { kind: "self" } | { kind: "owner"; name: string };
+export type Viewpoint =
+  | { kind: "self" }
+  | {
+      kind: "owner";
+      name: string;
+      /** The person's comp leave balance today, for the Correct dialog (3c review). */
+      compDays?: number | undefined;
+    };
 export const SELF: Viewpoint = { kind: "self" };
 
 type Words = {
