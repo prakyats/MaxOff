@@ -218,8 +218,9 @@ async function expectReadableTruncation(page: Page): Promise<void> {
 
 /**
  * A loading screen fits at large text too (phase 3 review: CI caught /today's stat-tile skeleton
- * reaching past the edge at 200%, only when the check ran before the page streamed in). The
- * page's data request is held, so its `loading.tsx` stays up for as long as the check needs.
+ * reaching past the edge at 200%, only when the check ran before the page streamed in; since the
+ * 3c review the route's skeleton traces the stand-in, `loading-stand-in`). The page's data
+ * request is held, so its `loading.tsx` stays up for as long as the check needs.
  */
 for (const role of ["owner", "admin"] as const) {
   test.describe(`${role}: Today's loading screen at large system text`, () => {
@@ -242,7 +243,7 @@ for (const role of ["owner", "admin"] as const) {
         },
       );
       await page.getByRole("link", { name: "Today" }).filter({ visible: true }).first().click();
-      await expect(page.locator('[data-slot="loading-tile"]').first()).toBeVisible();
+      await expect(page.locator('[data-slot="loading-stand-in"]')).toBeVisible();
       for (const scale of [130, 200]) {
         await page.evaluate((percent) => {
           document.documentElement.style.fontSize = `${percent}%`;

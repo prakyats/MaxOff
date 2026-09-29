@@ -1,19 +1,26 @@
 import { getCurrentMember } from "@/core/auth/server";
 import { can } from "@/core/permissions";
-import { LoadingState, PageLoading } from "@/core/ui/composites/loading-state";
+import { PageHeader } from "@/core/ui/composites/page-header";
 import { TodayAttendanceStripSkeleton } from "@/modules/attendance";
 
+import { StandInSkeleton } from "../_placeholder/stand-in-skeleton";
+import { dayStandIn } from "../_placeholder/stand-ins";
+
 /**
- * Staff "My Day": the one-line attendance strip (2.3) on top for whoever marks attendance, then the
- * card list of today's tasks (4.6). Same member check as `today/loading.tsx`.
+ * My Day, as it renders now (3c review: the skeleton traces the stand-in): the one-line
+ * attendance strip (2.3) for whoever marks attendance, then the stand-in worded for the viewer
+ * (`myDay` for Staff, whose home this is; the Owner reads the team's). Same member check as
+ * `today/loading.tsx`. When 6.1 builds the tasks around the strip, this goes back to the card
+ * list the owner specified.
  */
 export default async function Loading() {
   const member = await getCurrentMember();
   const strip = member !== null && can(member.role, "attendance.self");
   return (
-    <PageLoading title="My Day" shape="cards">
+    <>
+      <PageHeader title="My Day" />
       {strip ? <TodayAttendanceStripSkeleton /> : null}
-      <LoadingState shape="cards" label="Loading My Day" />
-    </PageLoading>
+      <StandInSkeleton copy={dayStandIn(member?.role ?? "staff")} label="Loading My Day" />
+    </>
   );
 }
