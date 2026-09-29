@@ -288,8 +288,8 @@ select throws_ok($$ update public.task_comments set body = 'edited' $$, '42501',
 select throws_ok($$ delete from public.task_comments $$, '42501', null, 'nor deleted');
 select is((select count(*) from public.activity_log a where a.entity = 'task_comments' and a.entity_id = pg_temp.fx('t1')), 3::bigint,
   'each comment is audited on the task');
-select is((select a.on_behalf_of_id from public.activity_log a where a.entity = 'task_comments' and a.actor_id = pg_temp.fx('coord')), null,
-  'the API path leaves the audit''s on_behalf_of_id null (the comment row carries the pair)');
+select is((select a.on_behalf_of_id from public.activity_log a where a.entity = 'task_comments' and a.actor_id = pg_temp.fx('coord')), pg_temp.fx('asha'),
+  'the API path carries the audit''s on_behalf_of_id from the row (4A review S2)');
 
 -- Stages through the API ----------------------------------------------------------------------------
 select pg_temp.as_member('admin1');

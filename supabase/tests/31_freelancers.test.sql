@@ -189,11 +189,12 @@ select is((select count(*) from public.member_coordinators), 1::bigint, 'the Own
 select pg_temp.as_member('admin');
 select is((select count(*) from public.member_coordinators), 1::bigint, 'an Admin (team.view) reads it');
 select pg_temp.as_member('staff');
-select is((select count(*) from public.member_coordinators), 1::bigint, 'the coordinator reads their own freelancer''s row');
-select is((select count(*) from public.activity_log a where a.entity = 'member_coordinators'), 1::bigint,
-  'and its activity entry');
+select is((select count(*) from public.coordinated_freelancers), 1::bigint,
+  'the coordinator reads their own freelancer''s row through coordinated_freelancers (4A review S4)');
+select is((select count(*) from public.member_coordinators) + (select count(*) from public.activity_log a where a.entity = 'member_coordinators'),
+  0::bigint, 'but not the table nor its activity entry, which carry the reason (team.view only, S4)');
 select pg_temp.as_member('staff2');
-select is((select count(*) from public.member_coordinators), 0::bigint, 'another Staff member reads none');
+select is((select count(*) from public.coordinated_freelancers), 0::bigint, 'another Staff member reads none');
 select is((select count(*) from public.activity_log a where a.entity = 'member_coordinators'), 0::bigint,
   'nor its activity entry');
 
@@ -228,10 +229,10 @@ select results_eq(
 select is((select array_agg(a.action order by a.id) from public.activity_log a where a.entity = 'member_coordinators'),
   array['coordinator_set', 'coordinator_closed', 'coordinator_changed'], 'audit: closed then changed');
 select pg_temp.as_member('staff');
-select is((select count(*) from public.member_coordinators), 1::bigint,
-  'the former coordinator still reads their closed row (history)');
+select is((select count(*) from public.coordinated_freelancers f where f.to_at is not null), 1::bigint,
+  'the former coordinator still reads their closed row (history, without the reason)');
 select pg_temp.as_member('staff2');
-select is((select count(*) from public.member_coordinators), 1::bigint, 'the new coordinator reads the current one');
+select is((select count(*) from public.coordinated_freelancers f where f.to_at is null), 1::bigint, 'the new coordinator reads the current one');
 
 -- Deactivate and reactivate (WORKFLOWS §1b) -------------------------------------------------------
 select pg_temp.as_member('owner');

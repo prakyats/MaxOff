@@ -2333,6 +2333,79 @@ export type Database = {
           },
         ];
       };
+      coordinated_freelancers: {
+        Row: {
+          coordinator_id: string | null;
+          created_at: string | null;
+          from_at: string | null;
+          id: string | null;
+          member_id: string | null;
+          set_by: string | null;
+          to_at: string | null;
+        };
+        Insert: {
+          coordinator_id?: string | null;
+          created_at?: string | null;
+          from_at?: string | null;
+          id?: string | null;
+          member_id?: string | null;
+          set_by?: string | null;
+          to_at?: string | null;
+        };
+        Update: {
+          coordinator_id?: string | null;
+          created_at?: string | null;
+          from_at?: string | null;
+          id?: string | null;
+          member_id?: string | null;
+          set_by?: string | null;
+          to_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "member_coordinators_coordinator_id_fkey";
+            columns: ["coordinator_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "member_coordinators_coordinator_id_fkey";
+            columns: ["coordinator_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "member_coordinators_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "member_coordinators_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "member_coordinators_set_by_fkey";
+            columns: ["set_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "member_coordinators_set_by_fkey";
+            columns: ["set_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       member_directory: {
         Row: {
           avatar_file_id: string | null;
@@ -2354,7 +2427,7 @@ export type Database = {
           id?: string | null;
           job_title_id?: string | null;
           org_id?: string | null;
-          phone?: string | null;
+          phone?: never;
           role?: Database["public"]["Enums"]["member_role"] | null;
           status?: Database["public"]["Enums"]["member_status"] | null;
         };
@@ -2366,7 +2439,7 @@ export type Database = {
           id?: string | null;
           job_title_id?: string | null;
           org_id?: string | null;
-          phone?: string | null;
+          phone?: never;
           role?: Database["public"]["Enums"]["member_role"] | null;
           status?: Database["public"]["Enums"]["member_status"] | null;
         };
