@@ -248,23 +248,11 @@ function describe(
 }
 
 /**
- * Entries only the Owner can write (WORKFLOWS §3.3): the final approval, a change request at the
- * Owner's step, and an approver change (`task_set_approver` is the Owner's).
- */
-function isOwnersEntry(entry: TaskActivityEntry): boolean {
-  if (entry.entity !== "tasks") return false;
-  if (entry.action === "completed" || entry.action === "approver_changed") return true;
-  return entry.action === "changes_requested" && entry.meta.step === "owner";
-}
-
-/**
- * Who acted. A Staff viewer's directory need not hold the Owner (an Admin's task never shows it
- * to them), so an entry only the Owner writes names "The Owner" rather than "Someone" (4B review
- * S8: there is one Owner; who else Staff may name is the owner's question).
+ * Who acted: "Ravi", or "Ravi for Asha" when a coordinator acted for a freelancer. Since Kickoff 4
+ * decision 21 every viewer's directory holds whoever acted on a task they can see, so the name is
+ * always there; "Someone" only covers a row the read raced.
  */
 function actorOf(entry: TaskActivityEntry, context: TaskActivityContext): string {
-  const hidden = entry.actorId !== null && context.names[entry.actorId] === undefined;
-  if (hidden && entry.onBehalfOfId === null && isOwnersEntry(entry)) return "The Owner";
   return pairName(context.names, entry.actorId, entry.onBehalfOfId);
 }
 

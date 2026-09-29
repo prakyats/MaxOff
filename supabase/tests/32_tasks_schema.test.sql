@@ -250,8 +250,9 @@ select pg_temp.as_member('staff1');
 select ok((select count(*) from public.activity_log a where a.entity_id = pg_temp.fx('t1')) > 0, 'staff1 reads t1''s history');
 select is((select count(*) from public.activity_log a where a.entity_id = pg_temp.fx('t2')), 0::bigint, 'and none of t2''s');
 select set_eq($$ select id from public.member_directory $$,
-  array[pg_temp.fx('staff1'), pg_temp.fx('owner'), pg_temp.fx('admin1'), pg_temp.fx('asha'), pg_temp.fx('admin2')],
-  'staff1''s directory: themselves and the people on their tasks (creators, approvers, co-assignees)');
+  array[pg_temp.fx('staff1'), pg_temp.fx('owner'), pg_temp.fx('admin1'), pg_temp.fx('asha'), pg_temp.fx('admin2'),
+        pg_temp.fx('coord')],
+  'staff1''s directory: themselves and the people on their tasks (creators, approvers, co-assignees, and since 4C a freelancer co-assignee''s current coordinator: Kickoff 4 decision 21)');
 select is((select d.phone from public.member_directory d where d.id = pg_temp.fx('owner')), null,
   'a co-worker seen through a task comes without a phone number (the Owner has one)');
 select is((select d.phone from public.member_directory d where d.id = pg_temp.fx('staff1')), 'staff1-phone', 'the caller''s own number is there');

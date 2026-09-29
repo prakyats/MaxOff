@@ -2406,6 +2406,43 @@ export type Database = {
           },
         ];
       };
+      freelancer_coordinators: {
+        Row: {
+          coordinator_id: string | null;
+          from_at: string | null;
+          member_id: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "member_coordinators_coordinator_id_fkey";
+            columns: ["coordinator_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "member_coordinators_coordinator_id_fkey";
+            columns: ["coordinator_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "member_coordinators_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "member_coordinators_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       member_directory: {
         Row: {
           avatar_file_id: string | null;

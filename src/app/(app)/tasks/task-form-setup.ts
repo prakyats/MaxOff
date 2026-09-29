@@ -20,7 +20,8 @@ export async function loadTaskFormSetup(viewer: CurrentMember): Promise<TaskForm
     readTaskTypes(),
     readDirectory(),
     readCoordinators(),
-    listClients({ states: ["draft", "active", "paused"] }),
+    // Kickoff 4 decision 22: a label is an Active or Paused client (a draft may have no Admin).
+    listClients({ states: ["active", "paused"] }),
     getSettings(),
     readTaskDefinitions(),
   ]);

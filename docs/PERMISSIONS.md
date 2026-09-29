@@ -63,7 +63,7 @@
 
 | Data | Owner | Admin | Staff |
 |---|---|---|---|
-| Members | All | Everyone's name, job title, role, status and **phone** (a work contact), through the `member_directory` view. **Email is Owner-only**: it's the login identity | Own profile. Names, job titles and roles of people on their own tasks (through `member_directory`, since 4A; no phone), plus their own freelancers with phone when they coordinate one (ADR-0013) |
+| Members | All | Everyone's name, job title, role, status and **phone** (a work contact), through the `member_directory` view. **Email is Owner-only**: it's the login identity | Own profile. Names, job titles and roles of **everyone who was on or acted on a task they can see** (Kickoff 4 decision 21, 4C): its creator, current and past approvers, current and removed assignees, reviewers, whoever commented, ticked, handed in or changed it, and the current coordinator of a freelancer assignee (through `member_directory`; **no phone**), plus their own freelancers with phone when they coordinate one (ADR-0013). Who coordinates a freelancer they may name comes from `freelancer_coordinators` (current rows, never the reason) |
 | Attendance / leave | All | **Own**. Others only through `availability` (present or on leave today, approved leave dates) | Own |
 | Clients (full record) | All | **Assigned clients only**, and only while they hold `clients.edit_assigned` (phase 3 review: a role change never leaves access behind) | ❌ Never |
 | Client label (name, logo, colours, fonts, tone, brand notes) | All | Assigned clients + labels on visible tasks | Only for clients on their **own** tasks (through `client_labels` view) |
@@ -81,6 +81,8 @@
 | Activity log | All | Entries about records they can see | Entries about their own tasks, attendance and leave |
 | Notifications | Own | Own | Own |
 
+**Names on a task (Kickoff 4 decision 21, owner 2026-09-29, built in 4C):** ADR-0013 says every screen that names "who" shows both, so a Staff member reads the **names** of everyone on or acting on a task they can see (the Members row above), never a stranger's, and never a phone (the phone stays `team.view`'s, the person's own and a freelancer's current coordinator's). `app.directory_visible_ids()` computes the set once per read; `member_directory` keeps its columns.
+
 **Task warnings (4A review, 2026-09-29):** a `task_warnings` row and its `warning_overridden` activity entry name another person's leave or workload, so they are read only with `availability.view` (the Owner and Admins) on a task the reader can see; a Staff co-assignee or coordinator never reads them, although they see the task.
 
 **A person's own member row in the activity log:** every role reads the entries about their own `members` row (edits, the invite, a reactivation) **except the deactivation entry**: the Owner's reason is a management note and is never shown to the person, even after reactivation (phase 1 review, 2026-09-23).
@@ -96,6 +98,7 @@
   - **The Owner is never a task assignee.** Also refused in `task_update_assignment`.
   - **The Owner is never a coordinator** (`member_set_coordinator()`). One coordinator may have many freelancers.
   - **An Admin creator may set a client label only for their own assigned clients** (`task_create`, and any label change by an Admin), so the task always routes to that Admin. The Owner may set any label. The rule is checked only when an Admin sets or changes the label: the approving Admin of an Owner task labelled with another Admin's client still edits its other fields (4A review).
+  - **A client label is an Active or Paused client** (Kickoff 4 decision 22, owner 2026-09-29, built in 4C): `task_create` and `task_update_assignment` refuse a **Draft** client (a draft may have no Admin, and a labelled task routes to the client's Admin) and an **Inactive** one (WORKFLOWS §4) when the label is set or changed, the Owner's too; a task labelled before keeps its label and stays editable.
   - When the Owner assigns through an Admin, **any active Admin** may be chosen as the approving Admin.
   - **Bulk review approves only**; a rejection is always one task with a reason.
   - **A freelancer becomes an employee** only through the Owner (`team.manage`): the invite attaches to the same member id and closes the coordinator row (WORKFLOWS §1b). No tasks-only login exists in phase 4.

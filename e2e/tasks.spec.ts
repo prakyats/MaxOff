@@ -2,7 +2,7 @@ import { type Locator, type Page, type TestInfo } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 
-import { addISTDays, istInstant, istWeekday, todayIST } from "../src/core/time";
+import { addISTDays, istInstant, istWeekday, systemClock, todayIST } from "../src/core/time";
 
 import {
   expectBackStack,
@@ -110,7 +110,10 @@ async function ownerCreates(args: TaskArgs): Promise<string> {
   });
 }
 
-/** A draft client run by that Admin (a fixture): the dialog offers draft, active and paused ones. */
+/**
+ * An active client run by that Admin (a fixture): the dialog offers active and paused ones only
+ * (Kickoff 4 decision 22).
+ */
 async function seedClient(name: string, adminEmail: string): Promise<string> {
   await removeClientFixture(name);
   const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
@@ -118,6 +121,8 @@ async function seedClient(name: string, adminEmail: string): Promise<string> {
     org_id: org?.id,
     name,
     admin_id: await memberIdOf(adminEmail),
+    state: "active",
+    activated_at: systemClock().toISOString(),
   });
   return row.id;
 }

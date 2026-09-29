@@ -104,9 +104,10 @@ export function peopleNamed(data: TaskReads): string[] {
 }
 
 /**
- * The names on the page. The Owner and Admins (`team.view`) read the whole directory, which is
- * quick for them and gives the Owner the Admins to route through; anyone else reads only the
- * people named, because `member_directory` is slow for them row by row (4A later item (a)).
+ * The names on the page. The Owner and Admins (`team.view`) read the whole directory, which gives
+ * the Owner the Admins to route through; anyone else reads only the people the page names. Since
+ * 4C their directory holds everyone who was on or acted on a task they can see (Kickoff 4 decision
+ * 21), computed once per read (no longer row by row), so every name here resolves.
  */
 export function loadNames(teamView: boolean, data: Promise<TaskReads>): Promise<TeamMember[]> {
   return teamView ? readDirectory() : data.then((reads) => listDirectoryOf(peopleNamed(reads)));

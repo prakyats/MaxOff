@@ -141,14 +141,14 @@ function capitalise(text: string): string {
 }
 
 /**
- * Who asked for changes: their name, or "The Owner" at the Owner's step when the viewer's
- * directory does not hold them (a Staff viewer on an Admin's task; 4B review S8).
+ * Who asked for changes, by name: a reviewer is always in the viewer's directory (Kickoff 4
+ * decision 21). "Someone" only covers a read that raced.
  */
 export function reviewerName(
-  review: Pick<TaskReview, "reviewerId" | "step">,
+  review: Pick<TaskReview, "reviewerId">,
   names: Readonly<Record<string, string>>,
 ): string {
-  return names[review.reviewerId] ?? (review.step === "owner" ? "The Owner" : "Someone");
+  return names[review.reviewerId] ?? "Someone";
 }
 
 /** The reason of the latest rejection, shown while the task is back with its assignees. */
@@ -277,8 +277,9 @@ export function actorPair(actorName: string, onBehalfOfName: string | null): str
 }
 
 /**
- * The pair from ids: "Ravi for Asha". A Staff co-assignee may not see the coordinator in the
- * directory (they are not on the task): then "Asha's coordinator", which still names both.
+ * The pair from ids: "Ravi for Asha". Whoever acted on a task and the freelancer they acted for
+ * are both in every viewer's directory (Kickoff 4 decision 21), so both are named; "Someone" and
+ * "a freelancer" only cover a read that raced, and "MaxOff" an entry with no actor.
  */
 export function pairName(
   names: Readonly<Record<string, string>>,
@@ -286,9 +287,8 @@ export function pairName(
   onBehalfOf: string | null,
 ): string {
   const forName = onBehalfOf ? (names[onBehalfOf] ?? "a freelancer") : null;
-  const actor = actorId ? names[actorId] : undefined;
-  if (actor === undefined && forName) return `${forName}'s coordinator`;
-  return actorPair(actor ?? (actorId ? "Someone" : "MaxOff"), forName);
+  const actor = actorId ? (names[actorId] ?? "Someone") : "MaxOff";
+  return actorPair(actor, forName);
 }
 
 /** An event type carries an event date, optional times and a purpose (4A mechanics 6). */

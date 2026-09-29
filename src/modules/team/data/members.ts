@@ -72,10 +72,9 @@ export async function listDirectory(): Promise<TeamMember[]> {
 
 /**
  * The directory rows of these people only (4B): what a Staff member's task page names. For
- * someone without `team.view`, `member_directory` decides row by row through
- * `app.directory_visible()`, which walks the organization's tasks for each member (4A later item
- * (a)): 2 s for 82 members and 33 tasks, measured 2026-09-29. Asking for the ids on the screen
- * keeps it to those rows (the id filter reaches the index under the view).
+ * someone without `team.view`, `member_directory` holds the people on or acting on their visible
+ * tasks (Kickoff 4 decision 21), computed once per read by `app.directory_visible_ids()` since 4C
+ * (it walked the tasks per member row before: 2 s for 82 members, 4A later item (a)).
  */
 export async function listDirectoryOf(ids: readonly string[]): Promise<TeamMember[]> {
   const wanted = [...new Set(ids)].filter((id) => UUID.test(id));
@@ -125,18 +124,22 @@ function toDirectoryMember(row: DirectoryRow): TeamMember {
 
 /**
  * Who looks after each freelancer now (ADR-0013): freelancer id → current coordinator id, from
- * `member_coordinators` (4A review S4: `team.view`, the Owner and Admins; RLS returns nothing
- * to anyone else, so a Staff member gets an empty map). The task dialog marks a freelancer with
- * their coordinator's name (4.3).
+ * `freelancer_coordinators` (4C, no reason): every freelancer for `team.view` (the Owner and
+ * Admins), and for anyone else the freelancers and coordinators they may both name (Kickoff 4
+ * decision 21: a freelancer on their task). The task dialog and page mark a freelancer with their
+ * coordinator's name ("Freelancer · with Ravi").
  */
 export async function listCurrentCoordinators(): Promise<Record<string, string>> {
   const supabase = await createServerSupabase();
   const { data, error } = await supabase
-    .from("member_coordinators")
-    .select("member_id, coordinator_id")
-    .is("to_at", null);
+    .from("freelancer_coordinators")
+    .select("member_id, coordinator_id");
   if (error) throw error;
-  return Object.fromEntries(data.map((row) => [row.member_id, row.coordinator_id]));
+  return Object.fromEntries(
+    data.flatMap((row) =>
+      row.member_id && row.coordinator_id ? [[row.member_id, row.coordinator_id] as const] : [],
+    ),
+  );
 }
 
 /**

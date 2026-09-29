@@ -55,10 +55,9 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
   const { id } = await params;
   if (!UUID.test(id)) notFound();
   // The task's reads are keyed by the URL, so they start with the session check and are awaited
-  // after it (ARCHITECTURE §19, `startEarly`). The names wait for the role (a genuine dependency):
-  // the Owner and Admins read the whole directory, anyone else only the people the task names, and
-  // starting both branches early would start Staff's whole-directory read, 2 s on a real volume
-  // (PROGRESS "4B mechanics" (1)).
+  // after it (ARCHITECTURE §19, `startEarly`). The names wait for the role and the task's reads (a
+  // genuine dependency): the Owner and Admins read the whole directory, anyone else only the people
+  // the task names (PROGRESS "4B mechanics" (1)).
   const reads = loadTask(id);
   startEarly(reads);
   const viewer = await requirePermission("tasks.work");

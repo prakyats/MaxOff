@@ -224,18 +224,15 @@ describe("naming who acted (ADR-0013: the pair wherever a person is named)", () 
     expect(pairName(names, "ravi", null)).toBe("Ravi");
   });
 
-  it("still names both when the coordinator is not in the viewer's directory", () => {
-    expect(pairName(names, "hidden", "asha")).toBe("Asha's coordinator");
+  it("names both from the directory; a missing name reads Someone (a race), never a role", () => {
+    expect(pairName(names, "hidden", "asha")).toBe("Someone for Asha");
     expect(pairName(names, "hidden", null)).toBe("Someone");
     expect(pairName(names, null, null)).toBe("MaxOff");
   });
 
-  it("names the Owner who asked for changes even when the viewer cannot see them (4B review S8)", () => {
-    expect(reviewerName({ reviewerId: "owner", step: "owner" }, names)).toBe("The Owner");
-    expect(reviewerName({ reviewerId: "admin", step: "admin" }, names)).toBe("Someone");
-    expect(reviewerName({ reviewerId: "ravi", step: "admin" }, names)).toBe("Ravi");
-    expect(reviewerName({ reviewerId: "owner", step: "owner" }, { owner: "Prishit" })).toBe(
-      "Prishit",
-    );
+  it("names the reviewer who asked for changes (Kickoff 4 decision 21)", () => {
+    expect(reviewerName({ reviewerId: "ravi" }, names)).toBe("Ravi");
+    expect(reviewerName({ reviewerId: "owner" }, { owner: "Prishit" })).toBe("Prishit");
+    expect(reviewerName({ reviewerId: "gone" }, names)).toBe("Someone");
   });
 });
