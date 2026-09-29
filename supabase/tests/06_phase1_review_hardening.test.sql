@@ -14,6 +14,17 @@ delete from public.extra_work_notes;
 delete from public.leave_requests;
 delete from public.session_events;
 delete from public.activity_log;
+-- 4A: task rows and coordinator rows reference members (a Playwright run leaves some behind).
+delete from public.task_requests;
+delete from public.task_warnings;
+delete from public.task_reviews;
+delete from public.task_submissions;
+delete from public.task_comments;
+delete from public.task_stages;
+delete from public.task_assignees;
+delete from public.tasks;
+delete from public.task_templates;
+delete from public.member_coordinators;
 -- Client rows (3.1) reference members: a Playwright run leaves some behind.
 delete from public.field_definitions;
 delete from public.client_contacts;
@@ -24,15 +35,6 @@ delete from public.clients;
 -- File rows (3.3) reference members and are referenced by the organization's logo.
 update public.organizations set logo_file_id = null;
 delete from public.files;
--- 4A: task rows and coordinator rows reference members (a Playwright run leaves some behind).
-delete from public.task_warnings;
-delete from public.task_reviews;
-delete from public.task_submissions;
-delete from public.task_comments;
-delete from public.task_stages;
-delete from public.task_assignees;
-delete from public.tasks;
-delete from public.member_coordinators;
 delete from public.members;
 delete from public.holidays;
 delete from public.list_items

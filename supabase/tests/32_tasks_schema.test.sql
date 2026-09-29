@@ -10,7 +10,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 select plan(113);
 
--- Fixtures as 31: keep the organization, replace the people. Rolled back at the end.
+delete from public.task_requests;
 delete from public.task_warnings;
 delete from public.task_reviews;
 delete from public.task_submissions;
@@ -18,7 +18,9 @@ delete from public.task_comments;
 delete from public.task_stages;
 delete from public.task_assignees;
 delete from public.tasks;
+delete from public.task_templates;
 delete from public.member_coordinators;
+-- Fixtures as 31: keep the organization, replace the people. Rolled back at the end.
 delete from public.attendance_events;
 delete from public.attendance_days;
 delete from public.expense_claims;

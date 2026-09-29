@@ -1778,6 +1778,111 @@ export type Database = {
           },
         ];
       };
+      task_requests: {
+        Row: {
+          client_id: string | null;
+          created_at: string;
+          decided_at: string | null;
+          decided_by: string | null;
+          decision_reason: string | null;
+          details: string | null;
+          id: string;
+          org_id: string;
+          requested_by: string;
+          state: Database["public"]["Enums"]["request_state"];
+          task_id: string | null;
+          title: string;
+          updated_at: string;
+        };
+        Insert: {
+          client_id?: string | null;
+          created_at?: string;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          decision_reason?: string | null;
+          details?: string | null;
+          id?: string;
+          org_id?: string;
+          requested_by: string;
+          state?: Database["public"]["Enums"]["request_state"];
+          task_id?: string | null;
+          title: string;
+          updated_at?: string;
+        };
+        Update: {
+          client_id?: string | null;
+          created_at?: string;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          decision_reason?: string | null;
+          details?: string | null;
+          id?: string;
+          org_id?: string;
+          requested_by?: string;
+          state?: Database["public"]["Enums"]["request_state"];
+          task_id?: string | null;
+          title?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "task_requests_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: false;
+            referencedRelation: "client_labels";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_requests_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: false;
+            referencedRelation: "clients";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_requests_decided_by_fkey";
+            columns: ["decided_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_requests_decided_by_fkey";
+            columns: ["decided_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_requests_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_requests_requested_by_fkey";
+            columns: ["requested_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_requests_requested_by_fkey";
+            columns: ["requested_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_requests_task_id_fkey";
+            columns: ["task_id"];
+            isOneToOne: false;
+            referencedRelation: "tasks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       task_reviews: {
         Row: {
           at: string;
@@ -1974,6 +2079,83 @@ export type Database = {
             columns: ["task_id"];
             isOneToOne: false;
             referencedRelation: "tasks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      task_templates: {
+        Row: {
+          archived_at: string | null;
+          created_at: string;
+          created_by: string;
+          default_priority: Database["public"]["Enums"]["priority"];
+          description: string | null;
+          field_defaults: Json;
+          id: string;
+          name: string;
+          org_id: string;
+          reminder_rules: Json;
+          stages: string[];
+          task_type_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          archived_at?: string | null;
+          created_at?: string;
+          created_by?: string;
+          default_priority?: Database["public"]["Enums"]["priority"];
+          description?: string | null;
+          field_defaults?: Json;
+          id?: string;
+          name: string;
+          org_id?: string;
+          reminder_rules?: Json;
+          stages?: string[];
+          task_type_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          archived_at?: string | null;
+          created_at?: string;
+          created_by?: string;
+          default_priority?: Database["public"]["Enums"]["priority"];
+          description?: string | null;
+          field_defaults?: Json;
+          id?: string;
+          name?: string;
+          org_id?: string;
+          reminder_rules?: Json;
+          stages?: string[];
+          task_type_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "task_templates_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_templates_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_templates_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_templates_task_type_id_fkey";
+            columns: ["task_type_id"];
+            isOneToOne: false;
+            referencedRelation: "task_types";
             referencedColumns: ["id"];
           },
         ];
@@ -2306,6 +2488,13 @@ export type Database = {
             columns: ["task_type_id"];
             isOneToOne: false;
             referencedRelation: "task_types";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tasks_template_id_fkey";
+            columns: ["template_id"];
+            isOneToOne: false;
+            referencedRelation: "task_templates";
             referencedColumns: ["id"];
           },
         ];
@@ -2925,6 +3114,15 @@ export type Database = {
         Args: { reason: string; task_id: string };
         Returns: Database["public"]["Enums"]["task_state"];
       };
+      task_counts: {
+        Args: never;
+        Returns: {
+          badge: number;
+          changes_requested: number;
+          not_noted: number;
+          to_decide: number;
+        }[];
+      };
       task_create: {
         Args: {
           approving_admin_id?: string;
@@ -2953,6 +3151,43 @@ export type Database = {
         Args: { reason: string; task_id: string };
         Returns: Database["public"]["Enums"]["task_state"];
       };
+      task_request_convert: {
+        Args: {
+          approving_admin_id?: string;
+          assignee_ids: string[];
+          client_id: string;
+          custom_fields?: Json;
+          description: string;
+          due_at: string;
+          event_date?: string;
+          event_end_at?: string;
+          event_start_at?: string;
+          location?: string;
+          primary_owner_id: string;
+          priority: Database["public"]["Enums"]["priority"];
+          purpose?: string;
+          reminder_rules?: Json;
+          request_id: string;
+          stages?: string[];
+          task_type_id: string;
+          template_id?: string;
+          title: string;
+          warnings?: Json;
+        };
+        Returns: string;
+      };
+      task_request_create: {
+        Args: { client_id?: string; details?: string; title: string };
+        Returns: string;
+      };
+      task_request_decline: {
+        Args: { reason: string; request_id: string };
+        Returns: Database["public"]["Enums"]["request_state"];
+      };
+      task_request_withdraw: {
+        Args: { request_id: string };
+        Returns: Database["public"]["Enums"]["request_state"];
+      };
       task_review: {
         Args: {
           decision: Database["public"]["Enums"]["review_decision"];
@@ -2977,6 +3212,10 @@ export type Database = {
           task_id: string;
         };
         Returns: Database["public"]["Enums"]["task_state"];
+      };
+      task_type_move: {
+        Args: { direction: string; task_type_id: string };
+        Returns: string;
       };
       task_update_assignment: {
         Args: { changes: Json; task_id: string; warnings?: Json };
@@ -3010,6 +3249,7 @@ export type Database = {
       member_role: "owner" | "admin" | "staff";
       member_status: "invited" | "active" | "deactivated";
       priority: "low" | "medium" | "high" | "urgent";
+      request_state: "pending" | "converted" | "declined" | "withdrawn";
       review_decision: "approved" | "rejected";
       task_state:
         | "todo"
@@ -3168,6 +3408,7 @@ export const Constants = {
       member_role: ["owner", "admin", "staff"],
       member_status: ["invited", "active", "deactivated"],
       priority: ["low", "medium", "high", "urgent"],
+      request_state: ["pending", "converted", "declined", "withdrawn"],
       review_decision: ["approved", "rejected"],
       task_state: [
         "todo",
