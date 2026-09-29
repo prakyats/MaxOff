@@ -159,6 +159,10 @@ org_settings         org_id pk, weekly_off_days smallint[] (0=Sun..6=Sat), logou
                      end_day_cutoff_time time ('05:00'; 3b review, expand-only: yesterday's open day
                      can be ended until this IST time, never once today started; Settings ->
                      Thresholds, which offers 00:00-11:59)
+                     -- kickoff 5 (2026-09-29, expand-only, added by 5.2/5.3): quiet_hours_start time ('22:00'),
+                     -- quiet_hours_end time ('07:00'), email_daily_cap_org int (90; check > 0), and
+                     -- default_task_reminders becomes the launch schedule (WORKFLOWS "Settled at kickoff 5");
+                     -- all in the API UPDATE grant, edited in Settings -> Thresholds
                      -- API UPDATE grant: the eleven settings columns above, never org_id or the timestamps
                      -- defaults in brackets = launch settings (PRODUCT §7); default_task_reminders '[]' until
                      -- 5.3, workload_warning_threshold null until 4.3. Created by trigger with the organization
@@ -986,7 +990,9 @@ files                id, org_id, storage_key, name, mime, size_bytes, sha256 nul
                      -- the cleanup runs one not-exists per FK column on every batch.
 notifications        id, recipient_id, kind, title, body, link, entity, entity_id, payload jsonb,
                      created_at, read_at null, escalation_level int
-notification_deliveries  id, notification_id, channel ('push'|'email'), state ('queued'|'sent'|'failed'),
+notification_deliveries  id, notification_id, channel ('push'|'email'), state ('queued'|'held'|'sent'|'failed'|'skipped_cap'),
+                     -- kickoff 5 (2026-09-29): 'held' = push waiting out quiet hours (one summary push per person at
+                     -- the window's end); 'skipped_cap' = over the per-person or org-wide email ceiling
                      attempts, last_error, sent_at
 activity_log         id bigint identity, org_id, actor_id null (system), on_behalf_of_id null (4A,
                      ADR-0013: the freelancer a coordinator acted for; actor_id stays the coordinator),

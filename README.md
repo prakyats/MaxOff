@@ -185,7 +185,7 @@ Variables (**Environment variables**):
 `NEXT_PUBLIC_APP_ENV` is set by the workflow itself (`staging` or `production`).
 
 `RESEND_API_KEY` and `EMAIL_FROM` (app email: invites from 1.3, notification email from 5.2)
-are **not** wired yet: they need a verified sending domain (`mail.maxoff.app`, see PROGRESS.md).
+are **not** wired yet: they need a verified sending domain (`mail.maxoff.in`, see PROGRESS.md).
 Until then the app logs a start-up warning and sends nothing. They stay out of CI on purpose.
 
 ### Inviting people (task 1.3)
@@ -214,7 +214,7 @@ in the Supabase dashboard (**Authentication**), once per project:
 | Sign In / Providers → Email | **Minimum password length: 12**, no character requirements. Leaked password protection is **Pro-only, so it stays off** on the free plan (ADR-0003); invite-only access and the 12-character minimum cover it for now |
 | URL Configuration | **Site URL** = the app URL (`NEXT_PUBLIC_APP_URL`). **Redirect URLs**: add `<app URL>/**` |
 | Emails → Templates → **Reset password** | Subject "Set your MaxOff password"; body = `supabase/templates/recovery.html`. The link **must** be `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery` (the app verifies the token hash server-side; the default `{{ .ConfirmationURL }}` will not work) |
-| Emails → SMTP settings | **Until a sending domain exists, leave Supabase's built-in mailer**: it delivers only to the email addresses of the Supabase project's own team members, a few per hour, which is enough for the Owner on staging. With `mail.maxoff.app` verified in Resend: host `smtp.resend.com`, port `465`, user `resend`, password = a Resend API key, sender `MaxOff <noreply@mail.maxoff.app>` |
+| Emails → SMTP settings | **Until a sending domain exists, leave Supabase's built-in mailer**: it delivers only to the email addresses of the Supabase project's own team members, a few per hour, which is enough for the Owner on staging. With `mail.maxoff.in` verified in Resend: host `smtp.resend.com`, port `465`, user `resend`, password = a Resend API key, sender `MaxOff <noreply@mail.maxoff.in>` |
 | Rate Limits | Keep the defaults (30 sign-in attempts per 5 min per IP, 30 token verifications, 150 refreshes). Raise **emails sent per hour** only after custom SMTP is on |
 | Sign In / Providers → Email | **Email OTP expiration: 86400 s (24 h)**, the same as `config.toml` `otp_expiry` (decided 2026-09-22): invite links get shared and opened hours later. It also governs recovery links; every link is still one-time |
 | Sign In / Providers → Email | **Secure password change: on** ("Require current password when updating" / reauthentication), the same as `config.toml` `secure_password_change` (phase 1 review, 2026-09-23). GoTrue asks for a nonce only when the session is older than 24 h, so link-opened sessions (invite, recovery) are unaffected; the real fix for a stolen session is 10.3 |
