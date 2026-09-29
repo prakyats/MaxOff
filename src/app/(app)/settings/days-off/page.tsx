@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { checkThenRead } from "@/core/lib/start-early";
 import { requirePermission } from "@/core/permissions/server";
 import { todayIST } from "@/core/time";
 import { PageHeader } from "@/core/ui/composites/page-header";
@@ -21,8 +22,11 @@ export const metadata: Metadata = { title: "Days off & holidays" };
  * (`app.is_working_day()`), which the attendance jobs of phase 2 ask every night.
  */
 export default async function DaysOffSettingsPage() {
-  await requirePermission("settings.manage");
-  const [settings, holidays] = await Promise.all([getSettings(), listHolidays()]);
+  // Read together with the permission check, not after it (ARCHITECTURE §19).
+  const [, [settings, holidays]] = await checkThenRead(
+    requirePermission("settings.manage"),
+    Promise.all([getSettings(), listHolidays()]),
+  );
 
   return (
     <>

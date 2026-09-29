@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 
+import { checkThenRead } from "@/core/lib/start-early";
+import { withSessionUserId } from "@/core/auth/server";
 import { requirePermission } from "@/core/permissions/server";
 import { todayIST } from "@/core/time";
 import { ExtraWorkNotesList, getNoteDays, listOwnNotes } from "@/modules/attendance";
@@ -15,14 +17,17 @@ export const metadata: Metadata = { title: "Attendance & leave" };
  * overtime or a day off worked in the last 7 days. Only whoever marks attendance opens it.
  */
 export default async function ExtraWorkPage() {
-  const viewer = await requirePermission("attendance.self");
   const today = todayIST();
-  const [balance, credits, notes, noteDays] = await Promise.all([
-    getCompBalance(viewer.id),
-    listCredits(viewer.id),
-    listOwnNotes(viewer.id),
-    getNoteDays(today),
-  ]);
+  // Keyed by the session's id, so they start with the session read (ARCHITECTURE §19).
+  const [, [balance, credits, notes, noteDays]] = await checkThenRead(
+    requirePermission("attendance.self"),
+    Promise.all([
+      withSessionUserId(getCompBalance),
+      withSessionUserId(listCredits),
+      withSessionUserId(listOwnNotes),
+      getNoteDays(today),
+    ]),
+  );
 
   return (
     <>

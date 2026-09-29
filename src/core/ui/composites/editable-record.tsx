@@ -327,6 +327,7 @@ export function EditableRecord<K extends string, V = undefined>({
             <Button type="button" variant="secondary" onClick={cancel}>
               Cancel
             </Button>
+            {/* pending: none (it opens the confirmation; the confirmation's Save commits) */}
             <Button
               variant="primary"
               type="submit"
@@ -508,7 +509,7 @@ function ReadValue<K extends string>({ field }: { field: EditableField<K> }) {
           rel="noreferrer"
           data-slot="record-link"
           aria-label={`${text} (opens in a new tab)`}
-          className="inline-flex min-h-11 max-w-full items-center gap-1 underline underline-offset-4"
+          className="pressable-row inline-flex min-h-11 max-w-full items-center gap-1 underline underline-offset-4"
         >
           {/* A flex item keeps its text's width unless told otherwise: a long URL would overflow. */}
           <span className="min-w-0 break-all">{text}</span>
@@ -519,7 +520,7 @@ function ReadValue<K extends string>({ field }: { field: EditableField<K> }) {
       return (
         <a
           href={`mailto:${text}`}
-          className="inline-flex min-h-11 max-w-full min-w-11 items-center underline underline-offset-4"
+          className="pressable-row inline-flex min-h-11 max-w-full min-w-11 items-center underline underline-offset-4"
         >
           <span className="min-w-0 break-all">{text}</span>
         </a>
@@ -528,7 +529,7 @@ function ReadValue<K extends string>({ field }: { field: EditableField<K> }) {
       return (
         <a
           href={`tel:${text.replace(/\s+/g, "")}`}
-          className="inline-flex min-h-11 min-w-11 items-center underline underline-offset-4"
+          className="pressable-row inline-flex min-h-11 min-w-11 items-center underline underline-offset-4"
         >
           {text}
         </a>

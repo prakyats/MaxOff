@@ -1,7 +1,6 @@
 "use client";
 
-import { Loader2Icon } from "lucide-react";
-import { type FormEvent, useState, useTransition } from "react";
+import { type FormEvent, useState } from "react";
 
 import {
   adminVisibleNote,
@@ -21,6 +20,8 @@ import {
   type SettingsEntity,
 } from "@/core/custom-fields";
 import type { Result, ResultError } from "@/core/errors";
+import { ActionStatus } from "@/core/ui/action/action-status";
+import { useAction } from "@/core/ui/action/use-action";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { FormField } from "@/core/ui/composites/form-field";
 import { Button } from "@/core/ui/primitives/button";
@@ -92,11 +93,8 @@ export function FieldDefinitionDialog({
       : (defaultScope ?? (canGlobal ? GLOBAL : (scopes[0]?.id ?? GLOBAL))),
   );
   const [error, setError] = useState<ResultError | null>(null);
-  const [pending, startTransition] = useTransition();
-
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    startTransition(async () => {
+  const action = useAction(
+    async () => {
       const shared = { label, type, optionsText, required, helpText, section };
       const result: Result<unknown> = editing
         ? await updateFieldDefinition({ definitionId: definition.id, ...shared })
@@ -112,7 +110,14 @@ export function FieldDefinitionDialog({
       } else {
         setError(result.error);
       }
-    });
+    },
+    { creates: !editing },
+  );
+  const { pending } = action;
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    action.run();
   }
 
   const summary = error && !error.fieldErrors ? describeError(error) : null;
@@ -306,12 +311,17 @@ export function FieldDefinitionDialog({
             )}
           </FormField>
 
+          <ActionStatus action={action} />
           <DialogFooter>
             <Button type="button" variant="secondary" onClick={onClose} disabled={pending}>
               Cancel
             </Button>
-            <Button variant="primary" type="submit" disabled={pending} aria-busy={pending}>
-              {pending ? <Loader2Icon className="animate-spin" aria-hidden /> : null}
+            <Button
+              variant="primary"
+              type="submit"
+              pending={pending}
+              pendingLabel={editing ? "Saving field…" : "Adding field…"}
+            >
               {editing ? "Save field" : "Add field"}
             </Button>
           </DialogFooter>

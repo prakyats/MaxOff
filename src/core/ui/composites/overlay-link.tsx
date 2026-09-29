@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ComponentProps, MouseEvent } from "react";
 
+import { cn } from "@/core/lib/utils";
 import { NAV_FORWARD } from "@/core/ui/motion/nav-types";
 import { closeOverlaysThen } from "@/core/ui/overlay/overlay-history";
 
@@ -17,6 +18,7 @@ import { closeOverlaysThen } from "@/core/ui/overlay/overlay-history";
 export function OverlayLink({
   href,
   onClick,
+  className,
   ...props
 }: ComponentProps<typeof Link> & { href: string }) {
   const router = useRouter();
@@ -24,6 +26,7 @@ export function OverlayLink({
     <Link
       href={href}
       {...props}
+      className={cn("pressable-row", className)}
       onClick={(event: MouseEvent<HTMLAnchorElement>) => {
         onClick?.(event);
         if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey) return;

@@ -1,9 +1,11 @@
 "use client";
 
-import { Loader2Icon, UserPlusIcon } from "lucide-react";
-import { useState, useTransition } from "react";
+import { UserPlusIcon } from "lucide-react";
+import { useState } from "react";
 
 import type { ResultError } from "@/core/errors";
+import { ActionStatus } from "@/core/ui/action/action-status";
+import { useAction } from "@/core/ui/action/use-action";
 import { FormField } from "@/core/ui/composites/form-field";
 import { Button } from "@/core/ui/primitives/button";
 import {
@@ -56,7 +58,19 @@ export function InviteMemberDialog({ jobTitles }: { jobTitles: readonly JobTitle
   const [jobTitleId, setJobTitleId] = useState("");
   const [error, setError] = useState<ResultError | null>(null);
   const [outcome, setOutcome] = useState<InviteOutcome | null>(null);
-  const [pending, startTransition] = useTransition();
+  const action = useAction(
+    async () => {
+      const result = await inviteMember({ email, fullName, role, jobTitleId });
+      if (result.ok) {
+        setError(null);
+        setOutcome(result.data);
+      } else {
+        setError(result.error);
+      }
+    },
+    { resetKey: open, creates: true },
+  );
+  const { pending } = action;
 
   function reset() {
     setEmail("");
@@ -78,15 +92,7 @@ export function InviteMemberDialog({ jobTitles }: { jobTitles: readonly JobTitle
 
   function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    startTransition(async () => {
-      const result = await inviteMember({ email, fullName, role, jobTitleId });
-      if (result.ok) {
-        setError(null);
-        setOutcome(result.data);
-      } else {
-        setError(result.error);
-      }
-    });
+    action.run();
   }
 
   const fieldErrors = error?.fieldErrors ?? {};
@@ -183,6 +189,7 @@ export function InviteMemberDialog({ jobTitles }: { jobTitles: readonly JobTitle
                 />
               )}
             </FormField>
+            <ActionStatus action={action} />
             <DialogFooter>
               <Button
                 type="button"
@@ -192,8 +199,12 @@ export function InviteMemberDialog({ jobTitles }: { jobTitles: readonly JobTitle
               >
                 Cancel
               </Button>
-              <Button variant="primary" type="submit" disabled={pending} aria-busy={pending}>
-                {pending ? <Loader2Icon className="animate-spin" aria-hidden /> : null}
+              <Button
+                variant="primary"
+                type="submit"
+                pending={pending}
+                pendingLabel="Sending invite…"
+              >
                 Send invite
               </Button>
             </DialogFooter>

@@ -18,7 +18,7 @@ export function HeaderBell() {
       href="/notifications"
       data-slot="header-bell"
       aria-label="Notifications"
-      className="text-muted-foreground active:bg-muted relative flex size-11 shrink-0 items-center justify-center rounded-lg md:hidden"
+      className="pressable text-muted-foreground relative flex size-11 shrink-0 items-center justify-center rounded-lg md:hidden"
     >
       <BellIcon className="size-5" aria-hidden />
     </Link>

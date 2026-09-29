@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { checkThenRead } from "@/core/lib/start-early";
 import { LIST_LABELS } from "@/core/lists";
 import { listItems } from "@/core/lists/server";
 import { requirePermission } from "@/core/permissions/server";
@@ -20,11 +21,11 @@ const DESCRIPTION =
  * `lists.manage` does not reach this list, in the database either.
  */
 export default async function ExpensesSettingsPage() {
-  await requirePermission("expenses.decide");
-  const [items, receiptAbove] = await Promise.all([
-    listItems("expense_category", { includeArchived: true }),
-    getReceiptAbove(),
-  ]);
+  // Read together with the permission check, not after it (ARCHITECTURE §19).
+  const [, [items, receiptAbove]] = await checkThenRead(
+    requirePermission("expenses.decide"),
+    Promise.all([listItems("expense_category", { includeArchived: true }), getReceiptAbove()]),
+  );
 
   return (
     <>

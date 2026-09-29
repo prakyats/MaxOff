@@ -54,13 +54,19 @@ export function LoginForm({ next }: { next?: string | undefined }) {
           <PasswordInput {...control} name="password" autoComplete="current-password" required />
         )}
       </FormField>
-      <Button variant="primary" type="submit" className="w-full" disabled={pending}>
-        {pending ? "Signing in…" : "Sign in"}
+      <Button
+        variant="primary"
+        type="submit"
+        className="w-full"
+        pending={pending}
+        pendingLabel="Signing in…"
+      >
+        Sign in
       </Button>
       <p className="text-muted-foreground text-center text-sm">
         <Link
           href={FORGOT_PASSWORD_PATH}
-          className="hover:text-foreground underline underline-offset-4"
+          className="pressable-row hover:text-foreground underline underline-offset-4"
         >
           Forgot your password?
         </Link>

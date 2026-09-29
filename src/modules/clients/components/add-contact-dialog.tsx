@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2Icon, UserPlusIcon } from "lucide-react";
+import { UserPlusIcon } from "lucide-react";
 import { useState } from "react";
 
 import {
@@ -10,6 +10,8 @@ import {
 } from "@/core/custom-fields/components/custom-fields-form";
 import type { FieldDefinition } from "@/core/custom-fields";
 import type { ResultError } from "@/core/errors";
+import { ActionStatus } from "@/core/ui/action/action-status";
+import { useAction } from "@/core/ui/action/use-action";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { FormField } from "@/core/ui/composites/form-field";
 import { Button } from "@/core/ui/primitives/button";
@@ -52,34 +54,37 @@ export function AddContactDialog({
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [customFields, setCustomFields] = useState<CustomFieldValues>({});
   const [error, setError] = useState<ResultError | null>(null);
-  const [pending, setPending] = useState(false);
+  const action = useAction(
+    async () => {
+      const result = await createContact({ clientId, ...draft, customFields });
+      if (result.ok) {
+        toastResult(result, { success: `${result.data.name} added` });
+        // Closed directly: `onOpenChange` ignores a close while the action is still pending.
+        setOpen(false);
+        reset();
+      } else {
+        setError(result.error);
+      }
+    },
+    { resetKey: open, creates: true },
+  );
+  const { pending } = action;
+
+  function reset() {
+    setDraft(EMPTY);
+    setCustomFields({});
+    setError(null);
+  }
 
   function onOpenChange(next: boolean) {
     if (pending) return;
     setOpen(next);
-    if (!next) {
-      setDraft(EMPTY);
-      setCustomFields({});
-      setError(null);
-    }
+    if (!next) reset();
   }
 
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
+  function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setPending(true);
-    let added = false;
-    try {
-      const result = await createContact({ clientId, ...draft, customFields });
-      if (result.ok) {
-        toastResult(result, { success: `${result.data.name} added` });
-        added = true;
-      } else {
-        setError(result.error);
-      }
-    } finally {
-      setPending(false);
-    }
-    if (added) onOpenChange(false);
+    action.run();
   }
 
   const fieldErrors = error?.fieldErrors ?? {};
@@ -165,6 +170,7 @@ export function AddContactDialog({
             members={members}
             disabled={pending}
           />
+          <ActionStatus action={action} />
           <DialogFooter>
             <Button
               type="button"
@@ -174,8 +180,12 @@ export function AddContactDialog({
             >
               Cancel
             </Button>
-            <Button variant="primary" type="submit" disabled={pending} aria-busy={pending}>
-              {pending ? <Loader2Icon className="animate-spin" aria-hidden /> : null}
+            <Button
+              variant="primary"
+              type="submit"
+              pending={pending}
+              pendingLabel="Adding contact…"
+            >
               Add contact
             </Button>
           </DialogFooter>

@@ -10,14 +10,25 @@ import { Skeleton } from "@/core/ui/primitives/skeleton";
  * the sign-in line, the read-only Profile record (its heading row with Edit, two label and value
  * rows, task 2.9) under the photo button row (3.3), then the "Attendance & leave" row for
  * whoever marks attendance (2.3), then
- * Appearance and Session. Same member check as `my-day/loading.tsx`.
+ * Appearance, Session and Reload app. Same member check as `my-day/loading.tsx`.
  *
  * Every column beside something else is `min-w-0`, as the page's is (3c review, CI red on /me at
  * 200%): a bar's `w-40` is 320px at 200% system text, and a flex or grid column with no minimum
  * takes its widest bar as its own minimum, so `max-w-full` on the bar had nothing to clamp to
- * and the column reached past a 430px phone. The Appearance and Sign out rows wrap like the
- * page's (`flex-[1_1_10rem]`).
+ * and the column reached past a 430px phone. The device rows wrap like the page's
+ * (`flex-[1_1_10rem]`).
  */
+/**
+ * The device card's rows as `page.tsx` draws them at 375 px: the description's lines (Sign out's
+ * and Reload app's wrap to two) and the control, at the shell's 44px minimum for buttons on a
+ * phone (`globals.css`) and its own 32px from `md` up.
+ */
+const DEVICE_ROWS = [
+  { name: "appearance", lines: ["w-52"], control: "size-11 md:size-8" },
+  { name: "sign-out", lines: ["w-56", "w-40"], control: "h-11 w-24 md:h-8" },
+  { name: "reload", lines: ["w-56", "w-28"], control: "h-11 w-28 md:h-8" },
+] as const;
+
 export default async function Loading() {
   const member = await getCurrentMember();
   const leaveRow = member !== null && can(member.role, "attendance.self");
@@ -75,15 +86,17 @@ export default async function Loading() {
         ) : null}
         <Card aria-hidden>
           <CardContent className="flex flex-col gap-4">
-            {[0, 1].map((row) => (
-              <div key={row} className="flex flex-col gap-4">
-                {row === 1 ? <Separator /> : null}
+            {DEVICE_ROWS.map((row, index) => (
+              <div key={row.name} className="flex flex-col gap-4">
+                {index > 0 ? <Separator /> : null}
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div className="flex min-w-0 flex-[1_1_10rem] flex-col gap-1.5">
                     <Skeleton className="h-4 w-24" />
-                    <Skeleton className="h-3.5 w-52 max-w-full" />
+                    {row.lines.map((width, line) => (
+                      <Skeleton key={line} className={`h-3.5 max-w-full ${width}`} />
+                    ))}
                   </div>
-                  <Skeleton className="h-9 w-24 shrink-0 rounded-lg" />
+                  <Skeleton className={`shrink-0 rounded-lg ${row.control}`} />
                 </div>
               </div>
             ))}

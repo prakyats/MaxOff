@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { checkThenRead } from "@/core/lib/start-early";
 import { requirePermission } from "@/core/permissions/server";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { getCompany } from "@/modules/settings";
@@ -10,8 +11,8 @@ export const metadata: Metadata = { title: "Company" };
 
 /** Settings → Company (PRODUCT §4.16): the name, the timezone and the logo (3.3). */
 export default async function CompanySettingsPage() {
-  await requirePermission("settings.manage");
-  const company = await getCompany();
+  // Read together with the permission check, not after it (ARCHITECTURE §19).
+  const [, company] = await checkThenRead(requirePermission("settings.manage"), getCompany());
 
   return (
     <>

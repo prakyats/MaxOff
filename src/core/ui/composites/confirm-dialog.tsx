@@ -1,7 +1,10 @@
 "use client";
 
-import { Loader2Icon } from "lucide-react";
-import { type ReactNode, useTransition } from "react";
+import type { ReactNode } from "react";
+
+import { ActionStatus } from "@/core/ui/action/action-status";
+import { useAction } from "@/core/ui/action/use-action";
+import { workingLabel } from "@/core/ui/action/working-label";
 
 import {
   AlertDialog,
@@ -21,6 +24,8 @@ import { Button } from "@/core/ui/primitives/button";
  * `onConfirm` may be async; the dialog shows a spinner and closes when it resolves, unless it
  * resolves to `false` (something inside the dialog needs fixing first, e.g. a field message).
  * Actions that need a reason use `ReasonDialog` instead (WORKFLOWS: reject, correct, cancel).
+ * While it runs, the button says what is happening ("Deactivating Ravi…", `workingLabel`), and a
+ * slow or failed request is said under it with Retry (`useAction`, ARCHITECTURE §14.1).
  */
 export function ConfirmDialog({
   open,
@@ -28,6 +33,7 @@ export function ConfirmDialog({
   title,
   description,
   confirmLabel,
+  pendingLabel,
   cancelLabel = "Cancel",
   onConfirm,
   confirmDisabled = false,
@@ -38,6 +44,8 @@ export function ConfirmDialog({
   title: ReactNode;
   description?: ReactNode;
   confirmLabel: string;
+  /** The button while it runs; defaults to the label's verb in -ing ("Approving 3…"). */
+  pendingLabel?: string;
   cancelLabel?: string;
   onConfirm: () => void | boolean | Promise<void | boolean>;
   /** The commit waits for something inside the dialog (a choice still to make). */
@@ -45,14 +53,14 @@ export function ConfirmDialog({
   /** Optional extra content between the description and the buttons. */
   children?: ReactNode;
 }) {
-  const [pending, startTransition] = useTransition();
-
-  function confirm() {
-    startTransition(async () => {
+  const action = useAction(
+    async () => {
       const keepOpen = (await onConfirm()) === false;
       if (!keepOpen) onOpenChange(false);
-    });
-  }
+    },
+    { resetKey: open },
+  );
+  const { pending } = action;
 
   return (
     <AlertDialog open={open} onOpenChange={pending ? () => undefined : onOpenChange}>
@@ -62,15 +70,16 @@ export function ConfirmDialog({
           {description ? <AlertDialogDescription>{description}</AlertDialogDescription> : null}
         </AlertDialogHeader>
         {children}
+        <ActionStatus action={action} />
         <AlertDialogFooter>
           <AlertDialogCancel disabled={pending}>{cancelLabel}</AlertDialogCancel>
           <Button
             variant="primary"
-            onClick={confirm}
-            disabled={pending || confirmDisabled}
-            aria-busy={pending}
+            onClick={() => action.run()}
+            disabled={confirmDisabled}
+            pending={pending}
+            pendingLabel={pendingLabel ?? workingLabel(confirmLabel)}
           >
-            {pending ? <Loader2Icon className="animate-spin" aria-hidden /> : null}
             {confirmLabel}
           </Button>
         </AlertDialogFooter>

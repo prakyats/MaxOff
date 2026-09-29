@@ -42,6 +42,8 @@ export default function GlobalError({
           <p style={{ fontSize: 14, margin: "0 0 16px", color: "#525252" }}>
             {error.digest ? `Reference ${error.digest}. ` : ""}Try again in a moment.
           </p>
+          {/* The root layout and its stylesheet are gone here: the browser's own pressed look is all */}
+          {/* a last-resort page has. pressable: none */}
           <button
             type="button"
             onClick={reset}

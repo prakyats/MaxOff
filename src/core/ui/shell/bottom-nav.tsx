@@ -15,7 +15,7 @@ import {
 import { MoreSheet } from "./more-sheet";
 import { isActivePath, type NavItem, PROFILE_NAV_ITEM, totalBadge } from "./nav";
 import { NAV_ICONS } from "./nav-icons";
-import { useTabNavigation } from "./tab-history";
+import { usePrefetchTabs, useTabNavigation } from "./tab-history";
 
 /**
  * Shared shape for a bar item, link or More button. `min-h-14` with a 44px inner target and
@@ -45,6 +45,7 @@ function Item({
   return (
     <>
       <span
+        data-slot="nav-pill"
         className={cn(
           "relative flex h-7 w-12 max-w-full items-center justify-center rounded-full transition-colors",
           active && "bg-foreground/10",
@@ -66,6 +67,7 @@ function Item({
         ) : null}
       </span>
       <span
+        data-slot="nav-label"
         className={cn(
           "max-w-full truncate",
           active ? "text-foreground font-semibold" : "text-muted-foreground",
@@ -109,6 +111,7 @@ export function BottomNav({
     [primary, more],
   );
   const tabs = useTabNavigation(home, pathname, topLevel);
+  usePrefetchTabs(topLevel, pathname);
   const { navigate } = tabs;
   const hasMore = more.length > 0;
   // Everything the sheet can reach, so "you are here" still holds after you open one of them.
@@ -138,7 +141,7 @@ export function BottomNav({
                 ref={markLive}
                 data-active={active ? "" : undefined}
                 aria-current={active ? "page" : undefined}
-                className={cn(ITEM, "active:bg-muted/60")}
+                className={cn(ITEM, "pressable")}
                 // Installed: tabs replace each other over home instead of stacking. In a browser
                 // tab `navigate` returns false and this stays an ordinary link.
                 onClick={(event) => {
@@ -167,7 +170,7 @@ export function BottomNav({
                   type="button"
                   data-nav="more"
                   data-active={moreActive ? "" : undefined}
-                  className={cn(ITEM, "active:bg-muted/60")}
+                  className={cn(ITEM, "pressable")}
                 >
                   <Item icon="more" label="More" active={moreActive} badge={moreBadge} />
                 </button>

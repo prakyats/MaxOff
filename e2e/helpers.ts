@@ -240,6 +240,12 @@ export async function serviceUpdate(path: string, patch: Record<string, unknown>
   expect(response.ok, `update ${path}: ${await response.text()}`).toBe(true);
 }
 
+/** Deletes rows through `serviceRest` (a PostgREST filter, e.g. `extra_work_notes?member_id=eq.…`). */
+export async function serviceDelete(path: string): Promise<void> {
+  const response = await serviceRest(path, { method: "DELETE" });
+  expect(response.ok, `delete ${path}: ${await response.text()}`).toBe(true);
+}
+
 /** Reads rows through `serviceRest` (a PostgREST query string, e.g. `leave_requests?id=eq.…`). */
 export async function serviceSelect<T>(path: string): Promise<T[]> {
   return (await (await serviceRest(path)).json()) as T[];
@@ -531,6 +537,21 @@ export async function memberIdOf(email: string): Promise<string> {
   const id = rows[0]?.id;
   expect(id, `a member with ${email}`).toBeTruthy();
   return id as string;
+}
+
+/**
+ * Every finite animation and transition on the page has finished (looping ones, a spinner or a
+ * skeleton's pulse, never do and are ignored). Measure layout after this: a control that was just
+ * tapped eases back from its pressed scale (`pressable`, 120 ms), and a sheet slides in, so a box
+ * read during either is a few pixels off what the person sees a moment later.
+ */
+export async function animationsSettled(page: Page): Promise<void> {
+  await page.waitForFunction(() =>
+    document.getAnimations().every((animation) => {
+      const iterations = animation.effect?.getComputedTiming().iterations;
+      return iterations === Infinity || animation.playState !== "running";
+    }),
+  );
 }
 
 /**

@@ -107,7 +107,7 @@ export function AttendanceHistory({
         <button
           type="button"
           onClick={() => setOpenId(row.original.id)}
-          className="focus-visible:ring-ring -mx-1 rounded px-1 font-medium whitespace-nowrap underline-offset-4 outline-none hover:underline focus-visible:ring-2"
+          className="pressable-row focus-visible:ring-ring -mx-1 rounded px-1 font-medium whitespace-nowrap underline-offset-4 outline-none hover:underline focus-visible:ring-2"
         >
           {historyDate(row.original.workDate)}
         </button>

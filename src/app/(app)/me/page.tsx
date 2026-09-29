@@ -2,8 +2,9 @@ import { ChevronRightIcon, PartyPopperIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { checkThenRead } from "@/core/lib/start-early";
 import { LogoutButton } from "@/core/auth/components/logout-button";
-import { requireMember } from "@/core/auth/server";
+import { requireMember, withSessionUserId } from "@/core/auth/server";
 import { can } from "@/core/permissions";
 import { EditableRecord } from "@/core/ui/composites/editable-record";
 import { PageHeader } from "@/core/ui/composites/page-header";
@@ -17,6 +18,7 @@ import {
   CardTitle,
 } from "@/core/ui/primitives/card";
 import { Separator } from "@/core/ui/primitives/separator";
+import { ReloadAppButton } from "@/core/ui/shell/reload-app-button";
 import { initialsOf, ROLE_LABELS } from "@/core/ui/shell/viewer";
 import { ThemeToggle } from "@/core/ui/theme/theme-toggle";
 import { getOwnMember, NAME_MAX_LENGTH, PHONE_MAX_LENGTH, updateOwnProfile } from "@/modules/team";
@@ -40,8 +42,11 @@ export default async function MePage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const viewer = await requireMember();
-  const [{ welcome }, own] = await Promise.all([searchParams, getOwnMember(viewer.id)]);
+  // The profile row starts with the session read, not after it (ARCHITECTURE §19).
+  const [viewer, [{ welcome }, own]] = await checkThenRead(
+    requireMember(),
+    Promise.all([searchParams, withSessionUserId(getOwnMember)]),
+  );
   const isWelcome = welcome === "1";
 
   const subtitle = viewer.jobTitle
@@ -136,7 +141,7 @@ export default async function MePage({
             <Link
               href="/leave"
               data-slot="me-leave-link"
-              className="active:bg-muted/60 focus-visible:ring-ring flex min-h-14 items-center justify-between gap-4 rounded-xl px-4 py-3 outline-none focus-visible:ring-2"
+              className="pressable-row focus-visible:ring-ring flex min-h-14 items-center justify-between gap-4 rounded-xl px-4 py-3 outline-none focus-visible:ring-2"
             >
               <div>
                 <p className="text-sm font-medium">Attendance &amp; leave</p>
@@ -167,6 +172,16 @@ export default async function MePage({
                 </p>
               </div>
               <LogoutButton />
+            </div>
+            <Separator />
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="min-w-0 flex-[1_1_10rem]">
+                <p className="text-sm font-medium">Reload app</p>
+                <p className="text-muted-foreground text-sm">
+                  If a screen looks stuck, this starts MaxOff again from the beginning.
+                </p>
+              </div>
+              <ReloadAppButton />
             </div>
           </CardContent>
         </Card>

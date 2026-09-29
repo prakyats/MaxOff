@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { getCurrentMember } from "@/core/auth/server";
+import { getCurrentMember, withSessionUserId } from "@/core/auth/server";
 import { can } from "@/core/permissions";
 import { todayIST } from "@/core/time";
 import { PageHeader } from "@/core/ui/composites/page-header";
@@ -29,6 +29,11 @@ const DESCRIPTION =
  * `attendance.self` itself.
  */
 export default async function LeaveLayout({ children }: { children: ReactNode }) {
+  // Started with the session read (ARCHITECTURE §19), used only for someone who marks attendance.
+  const ownBalance = withSessionUserId((id) =>
+    Promise.all([getCompBalance(id), listCompDates().catch(() => undefined)]),
+  );
+  ownBalance.catch(() => undefined);
   const viewer = await getCurrentMember();
   // The Owner (no `attendance.self`) never opens these routes, so the promise is only made for
   // someone who marks attendance; a failed read is caught here, so it is never an unobserved
@@ -37,7 +42,7 @@ export default async function LeaveLayout({ children }: { children: ReactNode })
   // the form falls back to a plain date field.
   const balance =
     viewer && can(viewer.role, "attendance.self")
-      ? Promise.all([getCompBalance(viewer.id), listCompDates().catch(() => undefined)])
+      ? ownBalance
           .then(([own, dates]): CompBalance => (dates ? { ...own, dates } : own))
           .catch(() => NO_COMP_BALANCE)
       : Promise.resolve(NO_COMP_BALANCE);

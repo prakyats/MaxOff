@@ -31,8 +31,14 @@ export function ContinueForm({ tokenHash, type }: { tokenHash: string; type: str
       {error ? <FormAlert>{error.message}</FormAlert> : null}
       <input type="hidden" name="token_hash" value={tokenHash} />
       <input type="hidden" name="type" value={type} />
-      <Button variant="primary" type="submit" className="h-11 w-full" disabled={pending}>
-        {pending ? "Opening…" : "Continue to MaxOff"}
+      <Button
+        variant="primary"
+        type="submit"
+        className="h-11 w-full"
+        pending={pending}
+        pendingLabel="Opening…"
+      >
+        Continue to MaxOff
       </Button>
     </form>
   );

@@ -2,9 +2,10 @@ import { SunriseIcon } from "lucide-react";
 import type { Metadata } from "next";
 
 import { requireMember } from "@/core/auth/server";
+import { startEarly } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
 import { todayIST } from "@/core/time";
-import { TodayAttendanceStrip } from "@/modules/attendance";
+import { getOwnToday, TodayAttendanceStrip } from "@/modules/attendance";
 
 import { getClaimSetup } from "@/modules/expenses";
 import { EndDayClaims } from "@/modules/expenses/components/end-day-claims";
@@ -23,6 +24,8 @@ export const metadata: Metadata = { title: "My Day" };
  * team's day, not a working day of their own; 3cB review).
  */
 export default async function MyDayPage() {
+  // The strip's day and End day's claim setup start with the session read, not after it (§19).
+  startEarly(getOwnToday(), getClaimSetup());
   const viewer = await requireMember();
   const marksAttendance = can(viewer.role, "attendance.self");
   return (

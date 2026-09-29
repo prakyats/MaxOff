@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
+import { checkThenRead } from "@/core/lib/start-early";
+import { withSessionUserId } from "@/core/auth/server";
 import { requirePermission } from "@/core/permissions/server";
 import { todayIST } from "@/core/time";
 import { LEAVE_PAGE_SIZE, listRequests } from "@/modules/leave";
@@ -20,11 +22,15 @@ export default async function LeaveRequestsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const viewer = await requirePermission("attendance.self");
   const { page: requested } = await searchParams;
   const page =
     typeof requested === "string" && /^[1-9]\d{0,4}$/.test(requested) ? Number(requested) : 1;
-  const { requests, total } = await listRequests(viewer.id, page);
+  // The list is keyed by the session's id, so it starts with the session read (§19).
+  const [, listing] = await checkThenRead(
+    requirePermission("attendance.self"),
+    withSessionUserId((id) => listRequests(id, page)),
+  );
+  const { requests, total } = listing;
   const pages = Math.max(1, Math.ceil(total / LEAVE_PAGE_SIZE));
   // A page that no longer exists (the list got shorter): the first one.
   if (page > pages) redirect("/leave");

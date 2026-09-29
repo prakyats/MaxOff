@@ -232,6 +232,12 @@
     --app-bottom-nav-h: 0rem;
     /* Everything docked at the bottom clears the home indicator (viewport-fit=cover). */
     --app-safe-bottom: env(safe-area-inset-bottom, 0px);
+    /* The top edge the navigation progress bar sits on (below the notch or status bar). */
+    --app-safe-top: env(safe-area-inset-top, 0px);
+  }
+  /* The offline banner's band (`OfflineBanner`): what is docked at the bottom sits above it. */
+  html[data-offline] {
+    --app-offline-h: 2rem;
   }
 
   html {
@@ -372,6 +378,150 @@
     -webkit-user-select: none;
     user-select: none;
     -webkit-touch-callout: none;
+  }
+}
+
+/*
+ * The pressed state (ARCHITECTURE §14.1 and §14.2 i): every tappable thing answers within one
+ * frame, in CSS, so it works before the page has hydrated and on the slowest connection. Two
+ * shapes, applied by the shared primitives and composites (`pressable.test.ts` sweeps for any
+ * other clickable element without one):
+ * - `pressable`: buttons, tabs, icon buttons, menu items, the back control. A 0.97 scale plus a
+ *   neutral tint laid over whatever the background is (a gradient, so it never fights a
+ *   variant's own colour).
+ * - `pressable-row`: list rows and cards. The tint only: a full-width card that shrinks wobbles.
+ * The press lands with no transition and eases out on release. Neutral (`--foreground`), never
+ * red. A disabled control does not react. Reduced motion keeps the tint and drops the scale.
+ * iOS fires `:active` only when the document listens for touches: the pre-hydration script adds
+ * that listener (`core/ui/navigation/pre-hydration.ts`).
+ */
+@utility pressable {
+  transition-property: transform, background-image, color, background-color, border-color;
+  transition-duration: 120ms;
+  transition-timing-function: ease-out;
+  &:active:not(:disabled, [aria-disabled="true"], [data-pending]) {
+    transform: scale(0.97);
+    background-image: linear-gradient(var(--press-tint), var(--press-tint));
+    transition-duration: 0ms;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    &:active:not(:disabled, [aria-disabled="true"], [data-pending]) {
+      transform: none;
+    }
+  }
+}
+@utility pressable-row {
+  transition-property: background-image, background-color;
+  transition-duration: 120ms;
+  transition-timing-function: ease-out;
+  &:active:not(:disabled, [aria-disabled="true"]) {
+    background-image: linear-gradient(var(--press-tint), var(--press-tint));
+    transition-duration: 0ms;
+  }
+}
+:root {
+  --press-tint: color-mix(in oklab, var(--foreground) 10%, transparent);
+}
+
+/*
+ * The navigation progress bar (ARCHITECTURE §14.2 i, `core/ui/navigation/progress.ts`). Drawn
+ * from attributes alone, so a tap shows it before hydration and before the server answers:
+ * `html[data-nav-pending]` runs it, `html[data-nav-done]` fills and fades it. It creeps towards
+ * 90% and never finishes on its own; a fast load finishes it before it is noticed. Neutral
+ * (`--foreground`), never red: red is the commit colour (§14.1). Reduced motion: no sliding, a
+ * still bar at a third while pending, full when done. Never a layer and never a history entry.
+ */
+[data-slot="nav-progress-bar"] {
+  position: fixed;
+  top: var(--app-safe-top);
+  left: 0;
+  z-index: 60;
+  width: 100%;
+  height: 3px;
+  background: var(--foreground);
+  transform: scaleX(0);
+  transform-origin: left center;
+  opacity: 0;
+  pointer-events: none;
+}
+html[data-nav-pending] [data-slot="nav-progress-bar"] {
+  opacity: 1;
+  animation: nav-progress-creep 12s cubic-bezier(0.1, 0.7, 0.2, 1) forwards;
+}
+html[data-nav-done]:not([data-nav-pending]) [data-slot="nav-progress-bar"] {
+  transform: scaleX(1);
+  opacity: 0;
+  transition:
+    transform 120ms ease-out,
+    opacity 200ms ease-out 100ms;
+}
+@keyframes nav-progress-creep {
+  0% {
+    transform: scaleX(0.08);
+  }
+  10% {
+    transform: scaleX(0.45);
+  }
+  100% {
+    transform: scaleX(0.9);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-nav-pending] [data-slot="nav-progress-bar"] {
+    animation: none;
+    transform: scaleX(0.33);
+  }
+  html[data-nav-done]:not([data-nav-pending]) [data-slot="nav-progress-bar"] {
+    transition: opacity 200ms linear 100ms;
+  }
+}
+
+/*
+ * The tapped tab answers at once (§14.2 i): while a navigation it started is pending, it takes
+ * the bar's highlight (pill, heavier icon and label) and the tab it leaves gives it up, before the
+ * destination has answered, with a small pulsing dot on the pill until it arrives. Attributes
+ * only (`data-nav-target`, set by the head script), so it works before hydration.
+ */
+[data-slot="bottom-nav"]:has([data-nav-target])
+  [data-nav]:not([data-nav-target])
+  [data-slot="nav-pill"] {
+  background-color: transparent;
+}
+[data-slot="bottom-nav"]:has([data-nav-target])
+  [data-nav]:not([data-nav-target])
+  :is([data-slot="nav-pill"] svg, [data-slot="nav-label"]) {
+  color: var(--muted-foreground);
+  font-weight: 400;
+}
+[data-slot="bottom-nav"] [data-nav-target] [data-slot="nav-pill"] {
+  background-color: color-mix(in oklab, var(--foreground) 10%, transparent);
+}
+[data-slot="bottom-nav"]
+  [data-nav-target]
+  :is([data-slot="nav-pill"] svg, [data-slot="nav-label"]) {
+  color: var(--foreground);
+  font-weight: 600;
+}
+[data-slot="bottom-nav"] [data-nav-target] [data-slot="nav-pill"]::after {
+  content: "";
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  border-radius: 9999px;
+  background: var(--foreground);
+  animation: nav-pending-dot 900ms ease-in-out infinite;
+}
+@keyframes nav-pending-dot {
+  50% {
+    opacity: 0.25;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="bottom-nav"] [data-nav-target] [data-slot="nav-pill"]::after {
+    animation: none;
   }
 }
 
@@ -518,16 +668,20 @@ html[data-nav-slide="back"] [data-slot="route"] {
 @layer utilities {
   @media (max-width: 767px) {
     main:has([data-slot="page-actions"]) {
-      padding-bottom: calc(var(--app-bottom-nav-h) + 5rem + var(--app-safe-bottom));
+      padding-bottom: calc(
+        var(--app-bottom-nav-h) + 5rem + var(--app-safe-bottom) + var(--app-offline-h, 0px)
+      );
     }
     main:has([data-slot="sticky-actions"]) {
       padding-bottom: calc(
-        var(--app-bottom-nav-h) + var(--app-sticky-actions-h, 5rem) + 1rem + var(--app-safe-bottom)
+        var(--app-bottom-nav-h) + var(--app-sticky-actions-h, 5rem) + 1rem +
+          var(--app-safe-bottom) + var(--app-offline-h, 0px)
       );
     }
     main:has([data-slot="sticky-actions"]) :is(input, textarea, select, [role="combobox"]) {
       scroll-margin-bottom: calc(
-        var(--app-bottom-nav-h) + var(--app-sticky-actions-h, 5rem) + 1rem + var(--app-safe-bottom)
+        var(--app-bottom-nav-h) + var(--app-sticky-actions-h, 5rem) + 1rem +
+          var(--app-safe-bottom) + var(--app-offline-h, 0px)
       );
     }
   }

@@ -80,7 +80,12 @@ function Row({ definition, value }: { definition: FieldDefinition; value: unknow
             {text}
           </span>
         ) : definition.type === "url" && text ? (
-          <a href={text} target="_blank" rel="noreferrer" className="break-all underline">
+          <a
+            href={text}
+            target="_blank"
+            rel="noreferrer"
+            className="pressable-row break-all underline"
+          >
             {text}
           </a>
         ) : (
