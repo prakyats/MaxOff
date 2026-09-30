@@ -37,7 +37,7 @@ export function templateActions(
  * "Start from" a template in the create dialog: the type, the priority and the stages are the
  * template's; the description only when none was typed; each field default only where the task
  * has no value yet. The title, the client label, the people and the deadline stay as they are
- * (PRODUCT §4.6: a template never fixes them).
+ * (PRODUCT §4.6: a template never fixes them). The draft records the template (`tasks.template_id`).
  */
 export function applyTemplate(draft: TaskDraft, template: TaskTemplate): TaskDraft {
   const customFields = { ...draft.customFields };
@@ -52,6 +52,7 @@ export function applyTemplate(draft: TaskDraft, template: TaskTemplate): TaskDra
     stages: [...template.stages],
     description: draft.description.trim() ? draft.description : (template.description ?? ""),
     customFields,
+    templateId: template.id,
   };
 }
 

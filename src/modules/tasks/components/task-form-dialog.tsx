@@ -109,10 +109,7 @@ export type TaskFormSetup = {
 export type TaskFormMode =
   | { kind: "create" }
   /** A suggested task made into one (4.6, WORKFLOWS §3.4): the form starts from the request. */
-  | {
-      kind: "convert";
-      request: { id: string; title: string; details: string | null; clientId: string | null };
-    }
+  | { kind: "convert"; request: ConvertedRequest }
   | {
       kind: "edit";
       task: Task;
@@ -120,6 +117,19 @@ export type TaskFormMode =
       /** The label's name, when the viewer's client list does not hold it (another Admin's). */
       clientName: string | null;
     };
+
+/**
+ * The suggestion a "Make it a task" form starts from: its title, its details as the description,
+ * its client label and, for the Owner, that client's Admin as "Checked first by" (Kickoff 4
+ * decision 3, as picking the label does).
+ */
+export type ConvertedRequest = {
+  id: string;
+  title: string;
+  details: string | null;
+  clientId: string | null;
+  approverId: string | null;
+};
 
 const NO_CLIENT = "__none__";
 const NO_TEMPLATE = "__no_template__";
@@ -155,6 +165,7 @@ export function TaskFormDialog({
         title: mode.request.title,
         description: mode.request.details ?? "",
         clientId: mode.request.clientId ?? "",
+        approverId: mode.request.approverId ?? "",
       };
     }
     return emptyDraft();
@@ -301,7 +312,6 @@ function TaskForm({
   const [errors, setErrors] = useState<DraftErrors>({});
   const [customErrors, setCustomErrors] = useState<Record<string, string[]>>({});
   const [formError, setFormError] = useState<ResultError | null>(null);
-  const [templateId, setTemplateId] = useState("");
   const creating = mode.kind !== "edit";
 
   const type = loaded ? draftType(draft, loaded.types) : null;
@@ -403,6 +413,10 @@ function TaskForm({
     (definition) => definition.taskTypeId === null || definition.taskTypeId === type?.id,
   );
   const available = loaded.people.filter((person) => !draft.assigneeIds.includes(person.id));
+  // An approver no longer offered (a suggestion's client Admin who left since) is nobody's pick.
+  const approverId = loaded.admins.some((admin) => admin.id === draft.approverId)
+    ? draft.approverId
+    : "";
 
   function update(patch: Partial<TaskDraft>, clear: (keyof DraftErrors)[] = []) {
     setDraft((currentDraft) => ({ ...currentDraft, ...patch }));
@@ -466,10 +480,10 @@ function TaskForm({
       if (mode.kind !== "edit") {
         const fields = {
           ...after,
-          approvingAdminId: loaded.isOwner ? draft.approverId || null : null,
+          approvingAdminId: loaded.isOwner ? approverId || null : null,
           stages: draft.stages.map((stage) => stage.trim()).filter(Boolean),
           warnings: warningInput(warnings),
-          templateId: templateId || null,
+          templateId: draft.templateId || null,
         };
         const result =
           mode.kind === "convert"
@@ -532,7 +546,7 @@ function TaskForm({
       warning,
     ]);
   }
-  const approverName = loaded.admins.find((admin) => admin.id === draft.approverId)?.name;
+  const approverName = loaded.admins.find((admin) => admin.id === approverId)?.name;
 
   return (
     <form
@@ -552,14 +566,17 @@ function TaskForm({
         >
           {(control) => (
             <Select
-              value={templateId || NO_TEMPLATE}
+              value={
+                templates.some((option) => option.id === draft.templateId)
+                  ? draft.templateId
+                  : NO_TEMPLATE
+              }
               onValueChange={(value) => {
                 const template = templates.find((option) => option.id === value);
-                setTemplateId(template ? template.id : "");
-                if (template) {
-                  setDraft((currentDraft) => applyTemplate(currentDraft, template));
-                  setErrors({});
-                }
+                // "No template" keeps what one gave and records none.
+                if (template) setDraft((currentDraft) => applyTemplate(currentDraft, template));
+                else update({ templateId: "" });
+                setErrors({});
               }}
             >
               <SelectTrigger
@@ -909,7 +926,7 @@ function TaskForm({
           >
             {(control) => (
               <Select
-                value={draft.approverId || OWNER_APPROVES}
+                value={approverId || OWNER_APPROVES}
                 onValueChange={(value) =>
                   update({ approverId: value === OWNER_APPROVES ? "" : value })
                 }

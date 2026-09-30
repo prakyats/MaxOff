@@ -2,7 +2,6 @@ import "server-only";
 
 import type { CurrentMember } from "@/core/auth/server";
 import { todayIST } from "@/core/time";
-import { listClients } from "@/modules/clients";
 import { getSettings } from "@/modules/settings";
 import { activeTemplates } from "@/modules/tasks";
 import type { TaskFormSetup } from "@/modules/tasks/components/task-form-dialog";
@@ -10,6 +9,7 @@ import type { TaskFormSetup } from "@/modules/tasks/components/task-form-dialog"
 import {
   readCoordinators,
   readDirectory,
+  readLabelClients,
   readTaskDefinitions,
   readTaskTemplates,
   readTaskTypes,
@@ -20,8 +20,8 @@ import {
  * the task types (tasks), the people and their coordinators (team, ADR-0013), the client labels
  * the viewer may set (clients: RLS gives an Admin their own, kickoff 4 decision 2), the workload
  * threshold (settings, decision 11), the task custom fields (`core/custom-fields`) and the active
- * templates for "Start from" (tasks, 4.6). Started by
- * the page and handed to the dialog as a promise, so the screen never waits for it.
+ * templates for "Start from" (tasks, 4.6). Started by the page and handed to the dialog as a
+ * promise, so the screen never waits for it.
  */
 export async function loadTaskFormSetup(viewer: CurrentMember): Promise<TaskFormSetup> {
   const [types, directory, coordinators, clients, settings, definitions, templates] =
@@ -30,7 +30,7 @@ export async function loadTaskFormSetup(viewer: CurrentMember): Promise<TaskForm
       readDirectory(),
       readCoordinators(),
       // Kickoff 4 decision 22: a label is an Active or Paused client (a draft may have no Admin).
-      listClients({ states: ["active", "paused"] }),
+      readLabelClients(),
       getSettings(),
       readTaskDefinitions(),
       readTaskTemplates(),

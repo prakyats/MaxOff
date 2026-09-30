@@ -10,7 +10,7 @@ import { toastResult } from "@/core/ui/toast";
 
 import { declineRequest, withdrawRequest } from "../actions/requests";
 import type { RequestActions as Allowed } from "../domain/requests";
-import type { TaskFormSetup } from "./task-form-dialog";
+import type { ConvertedRequest, TaskFormSetup } from "./task-form-dialog";
 
 /** The form loads when it first opens (§19), as "New task" does. */
 const TaskFormDialog = dynamic(
@@ -22,14 +22,15 @@ const TaskFormDialog = dynamic(
  * A waiting suggestion's controls (4.6; WORKFLOWS §3.4): **Make it a task** opens the create
  * form started from it (`task_request_convert`: the task and the conversion in one transaction),
  * **Decline…** asks the reason the suggester reads, **Withdraw** is the suggester's own while it
- * waits. Each is a layer (§14.2 a). The functions decide again.
+ * waits: both red outlines until confirmed (the action colour rule). Each is a layer (§14.2 a).
+ * The functions decide again.
  */
 export function RequestActions({
   request,
   allowed,
   setup,
 }: {
-  request: { id: string; title: string; details: string | null; clientId: string | null };
+  request: ConvertedRequest;
   allowed: Allowed;
   /** The create form's setup, for those who decide (null for everyone else). */
   setup: Promise<TaskFormSetup | null> | null;
@@ -45,12 +46,12 @@ export function RequestActions({
         </Button>
       ) : null}
       {allowed.decline ? (
-        <Button type="button" variant="secondary" onClick={() => setLayer("decline")}>
+        <Button type="button" variant="destructive" onClick={() => setLayer("decline")}>
           Decline…
         </Button>
       ) : null}
       {allowed.withdraw ? (
-        <Button type="button" variant="secondary" onClick={() => setLayer("withdraw")}>
+        <Button type="button" variant="destructive" onClick={() => setLayer("withdraw")}>
           Withdraw
         </Button>
       ) : null}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { emptyDraft } from "../domain/form";
+import { emptyDraft, isDraftDirty } from "../domain/form";
 import {
   requestActions,
   requestByline,
@@ -176,8 +176,29 @@ describe("task templates (4.6)", () => {
       description: "Cut a 60 s reel.",
       // A value typed stays; an empty one takes the default.
       customFields: { reel_length: 90, music: "Calm" },
+      // Recorded on the task (tasks.template_id), and kept by the draft through "Discard?".
+      templateId: "t",
     });
     expect(applyTemplate({ ...draft, description: "Mine" }, template({})).description).toBe("Mine");
+  });
+
+  it("starts with no template, and a template picked makes the form ask before it is discarded", () => {
+    const start = emptyDraft();
+    expect(start.templateId).toBe("");
+    const started = applyTemplate(start, template({}));
+    expect(isDraftDirty(start, started)).toBe(true);
+    // Another template replaces the type, priority and stages, and records itself instead.
+    const other = applyTemplate(
+      started,
+      template({ id: "u", taskTypeId: "meeting", defaultPriority: "low", stages: [] }),
+    );
+    expect(other).toMatchObject({
+      templateId: "u",
+      taskTypeId: "meeting",
+      priority: "low",
+      stages: [],
+      description: "Cut a 60 s reel.",
+    });
   });
 
   it("offers the active ones by name", () => {

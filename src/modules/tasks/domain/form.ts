@@ -40,6 +40,11 @@ export type TaskDraft = {
   approverId: string;
   stages: string[];
   customFields: Record<string, unknown>;
+  /**
+   * The template the form started from (4.6), "" for none: recorded on the task, it fixes
+   * nothing. In the draft, so it survives "Discard?" → Keep editing with the values it gave.
+   */
+  templateId: string;
 };
 
 export function emptyDraft(): TaskDraft {
@@ -62,6 +67,7 @@ export function emptyDraft(): TaskDraft {
     approverId: "",
     stages: [],
     customFields: {},
+    templateId: "",
   };
 }
 
@@ -85,6 +91,7 @@ export function draftFromTask(task: Task, assignees: readonly TaskAssignee[]): T
     approverId: task.approvingAdminId ?? "",
     stages: [],
     customFields: { ...task.customFields },
+    templateId: "",
   };
 }
 

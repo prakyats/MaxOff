@@ -19,7 +19,7 @@ import {
 import { RequestActions } from "@/modules/tasks/components/request-actions";
 import { SuggestTaskButton } from "@/modules/tasks/components/suggest-task-button";
 
-import { readClientLabels, readDirectory } from "../reads";
+import { readClientLabels, readDirectory, readLabelClients } from "../reads";
 import { loadTaskFormSetup } from "../task-form-setup";
 
 export const metadata: Metadata = { title: "Suggested tasks" };
@@ -36,15 +36,25 @@ const DECIDED_LIMIT = 50;
  * own. The decided ones follow, with what happened.
  */
 export default async function TaskRequestsPage() {
-  const [viewer, [requests, directory, labels]] = await checkThenRead(
+  const [viewer, [requests, directory, labels, labelClients]] = await checkThenRead(
     requirePermission(["task_requests.create", "task_requests.decide"]),
-    Promise.all([listTaskRequests(DECIDED_LIMIT), readDirectory(), readClientLabels()]),
+    Promise.all([
+      listTaskRequests(DECIDED_LIMIT),
+      readDirectory(),
+      readClientLabels(),
+      // The clients a task may carry, with their Admins (RLS: none for Staff).
+      readLabelClients(),
+    ]),
   );
   const decides = can(viewer.role, "task_requests.decide");
   const suggests = can(viewer.role, "task_requests.create");
   const names = new Map(directory.map((member) => [member.id, member.fullName]));
   const nameOf = (id: string) => names.get(id) ?? null;
   const clients = new Map(labels.map((label) => [label.id, label.name]));
+  // The Owner's "Make it a task" pre-selects the label's Admin as the first check (decision 3).
+  const adminOf = new Map(labelClients.map((client) => [client.id, client.adminId]));
+  const approverFor = (clientId: string | null) =>
+    viewer.role === "owner" && clientId ? (adminOf.get(clientId) ?? null) : null;
   // A suggestion names a client label the suggester can see, Active or Paused (decision 22).
   const choices = labels
     .filter((label) => label.state === "active" || label.state === "paused")
@@ -93,6 +103,7 @@ export default async function TaskRequestsPage() {
                     title: request.title,
                     details: request.details,
                     clientId: request.clientId,
+                    approverId: approverFor(request.clientId),
                   }}
                   allowed={requestActions(request, requestViewer)}
                   setup={setup}

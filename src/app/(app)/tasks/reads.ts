@@ -3,7 +3,7 @@ import "server-only";
 import { cache } from "react";
 
 import { listAllDefinitions } from "@/core/custom-fields/server";
-import { listClientLabels } from "@/modules/clients";
+import { listClientLabels, listClients } from "@/modules/clients";
 import { listOpenTaskRows, listTaskTemplates, listTaskTypes } from "@/modules/tasks";
 import { listCurrentCoordinators, listDirectory, listOwnFreelancerIds } from "@/modules/team";
 
@@ -21,3 +21,9 @@ export const readOpenTasks = cache(listOpenTaskRows);
 export const readClientLabels = cache(listClientLabels);
 export const readOwnFreelancers = cache(listOwnFreelancerIds);
 export const readTaskTemplates = cache(listTaskTemplates);
+/**
+ * The clients a task may be labelled with (Kickoff 4 decision 22: Active or Paused; RLS gives an
+ * Admin their own), with each one's Admin: the dialog's label list, and the Admin a suggestion's
+ * label pre-selects for the Owner (decision 3).
+ */
+export const readLabelClients = cache(() => listClients({ states: ["active", "paused"] }));
