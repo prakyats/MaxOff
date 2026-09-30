@@ -106,7 +106,6 @@ export {
   newestCommentAt,
   nextStep,
   parseTaskView,
-  priorityLabel,
   relativeDeadline,
   shownView,
   TASK_VIEWS,

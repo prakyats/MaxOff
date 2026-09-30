@@ -31,7 +31,12 @@ export default async function Loading() {
         <PageHeader
           className="mb-0 md:mb-0"
           back={{ href: "/tasks", label: "Tasks" }}
-          title={<Skeleton className="h-5 w-48" />}
+          title={
+            // The title's own line box: 24px on a phone, 32px from `md` up (`PageHeader`'s h1).
+            <span className="flex h-6 items-center md:h-8">
+              <Skeleton className="h-5 w-48 max-w-full" />
+            </span>
+          }
           menu={
             manages ? <Skeleton aria-hidden className="size-11 rounded-lg md:size-8" /> : undefined
           }

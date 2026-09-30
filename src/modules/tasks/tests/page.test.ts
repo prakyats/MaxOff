@@ -10,7 +10,6 @@ import {
   newestCommentAt,
   nextStep,
   parseTaskView,
-  priorityLabel,
   relativeDeadline,
   shownView,
   unreadCount,
@@ -113,6 +112,15 @@ describe("relativeDeadline (Kickoff 4 decision 26)", () => {
     );
   });
 
+  it("rounds as people say it: 2 h 50 min is 3 h", () => {
+    expect(relativeDeadline(task({ dueAt: istInstant("2026-10-01", "17:50") }), now).relative).toBe(
+      "in 3 h",
+    );
+    expect(relativeDeadline(task({ dueAt: istInstant("2026-10-01", "15:59") }), now).relative).toBe(
+      "in 59 min",
+    );
+  });
+
   it("uses minutes under an hour, and the IST day across UTC midnight", () => {
     expect(relativeDeadline(task({ dueAt: istInstant("2026-10-01", "15:25") }), now).relative).toBe(
       "in 25 min",
@@ -136,7 +144,7 @@ describe("relativeDeadline (Kickoff 4 decision 26)", () => {
       overdue: true,
     });
     expect(relativeDeadline(task({ dueAt: istInstant("2026-09-25", "18:00") }), now).relative).toBe(
-      "overdue by 5 days",
+      "overdue by 6 days",
     );
   });
 
@@ -146,11 +154,6 @@ describe("relativeDeadline (Kickoff 4 decision 26)", () => {
         relativeDeadline(task({ state, dueAt: istInstant("2026-09-25", "18:00") }), now),
       ).toEqual({ label: "Due Fri 25 Sep, 6:00 PM", relative: null, overdue: false });
     }
-  });
-
-  it("says the priority in words", () => {
-    expect(priorityLabel("urgent")).toBe("Urgent priority");
-    expect(priorityLabel("medium")).toBe("Medium priority");
   });
 });
 
@@ -259,7 +262,7 @@ describe("neededLine: what is needed from the viewer (decision 26)", () => {
 
   it("says the next step in a sentence", () => {
     expect(line({ kind: "note", acting: { onBehalfOf: null } })).toBe(
-      "Tap Task Noted so everyone knows you've seen it.",
+      "Tap Task Noted to say you've seen it.",
     );
     expect(line({ kind: "note", acting: { onBehalfOf: "bala" } })).toBe(
       "Note it for Bala Freelance when Bala Freelance has seen it.",

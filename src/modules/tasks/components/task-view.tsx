@@ -13,6 +13,7 @@ import {
 } from "react";
 
 import { cn } from "@/core/lib/utils";
+import { markLive } from "@/core/ui/navigation/attributes";
 import { closeOverlaysThen } from "@/core/ui/overlay/overlay-history";
 import { useIsDesktop } from "@/core/ui/viewport/use-desktop";
 
@@ -209,10 +210,16 @@ export function TaskTabs() {
       className="bg-background sticky top-[calc(var(--app-chrome-h)+var(--app-page-header-h,2.75rem))] z-10 -mx-4 border-b px-4 py-2 md:static md:mx-0 md:border-0 md:p-0"
     >
       <div
-        ref={bar}
+        ref={(element) => {
+          bar.current = element;
+          // `data-live` once hydrated: a tap from then on is the app's (specs wait for it).
+          markLive(element);
+        }}
         role="group"
         aria-label="Task views"
         data-slot="task-tabs"
+        // A designed sideways scroller (decision 32): at large text the views scroll, not squeeze.
+        data-scroll-x=""
         className="bg-muted flex gap-1 overflow-x-auto rounded-lg p-1 md:inline-flex md:max-w-full"
       >
         {tabs.map((tab) => {
@@ -223,7 +230,7 @@ export function TaskTabs() {
               type="button"
               id={`task-tab-${tab.name}`}
               data-slot="task-tab"
-              data-tab={tab.name}
+              data-view-tab={tab.name}
               data-view={view}
               aria-current={current ? "true" : undefined}
               aria-controls={

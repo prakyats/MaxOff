@@ -1,4 +1,4 @@
-import { CircleAlertIcon } from "lucide-react";
+import { CircleAlertIcon, FlagIcon } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
@@ -29,7 +29,7 @@ import {
   newestCommentAt,
   nextStep,
   pairName,
-  priorityLabel,
+  PRIORITY_LABELS,
   relativeDeadline,
   reviewerName,
   routeLine,
@@ -195,8 +195,13 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
               <span aria-hidden className="text-muted-foreground">
                 ·
               </span>
-              <span data-slot="task-priority" className="text-muted-foreground">
-                {priorityLabel(task.priority)}
+              <span
+                data-slot="task-priority"
+                className="text-muted-foreground inline-flex items-center gap-1"
+              >
+                <FlagIcon aria-hidden className="size-3.5 shrink-0" />
+                {PRIORITY_LABELS[task.priority]}
+                <span className="sr-only"> priority</span>
               </span>
               <span aria-hidden className="text-muted-foreground">
                 ·
