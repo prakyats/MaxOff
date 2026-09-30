@@ -147,7 +147,7 @@ into the table below.
 |---|---|---|---|
 | 2026-09-28 | Local stack → MinIO → fresh `supabase/postgres:17.6.1.167` container (`scripts/backup/drill.sh`, unit 3cA) | `drill/…/20260928T133637Z.tar.age` (727 KB) | Verified: 46 tables' row counts equal, 34 migrations equal (last `20260928131234`), RLS refuses (anon on members; authenticated without a JWT: 0 claims) |
 | 2026-09-28 | Local stack → MinIO → two fresh `supabase/postgres:17.6.1.167` containers (`scripts/backup/drill.sh both`, the 3cA review fixes) | `drill/…/20260928T163849Z.tar.age` (840 KB) | **schema** as `supabase_admin`: 46 tables equal, 34 migrations, RLS refuses. **data** (23 auth tables, 77 GoTrue migrations, pg_cron) as `postgres`: 45 tables equal (`auth.schema_migrations` is GoTrue's), 34 migrations, RLS refuses, WARNING naming the two `cron.schedule` calls. The first data-mode run failed on `identities_user_id_fkey` (rows loaded by name, identities before users); fixed by loading auth's rows parents-first. |
-| _pending_ | Production bucket → throwaway target, after the first production deploy (3c.3) | | |
+| 2026-09-30 | Production bucket → fresh local `supabase/postgres:17.6.1.166` container on the Owner's Windows laptop (Git Bash: `MSYS2_ARG_CONV_EXCL="/drill;--use-list="`, the dump folder mounted as `C:/…`, and `python3` output stripped of ``) | `postgres/peshoflxypujbzecgwqq/20260929T234838Z.tar.age` (the first scheduled nightly) | **schema** as `supabase_admin`: 50 tables' row counts equal, 35 migrations equal (last `20260929020230`), RLS refuses (anon 0; authenticated without a JWT: 0 claims), the expected pg_cron WARNING naming the two `cron.schedule` calls; "restore verified, with 1 warning(s)". Next drill: by the end of December 2026. |
 
 ## Monthly usage check
 
