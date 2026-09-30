@@ -3,6 +3,7 @@ import "server-only";
 import { cache } from "react";
 
 import { createServerSupabase } from "@/core/db/server";
+import { displayName } from "@/core/lib/display-name";
 
 import {
   type ClaimSetup,
@@ -85,7 +86,7 @@ export async function listPendingClaims(): Promise<(ExpenseClaim & { memberName:
     .limit(PENDING_LIMIT);
   if (error) throw error;
   return (data as unknown as (ClaimRow & { member: { full_name: string } | null })[]).map(
-    (row) => ({ ...toClaim(row), memberName: row.member?.full_name ?? "Someone" }),
+    (row) => ({ ...toClaim(row), memberName: displayName(row.member?.full_name) }),
   );
 }
 

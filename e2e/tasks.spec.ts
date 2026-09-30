@@ -6,6 +6,7 @@ import { addISTDays, istInstant, istWeekday, systemClock, todayIST } from "../sr
 
 import {
   expectBackStack,
+  expectNoHorizontalScroll,
   memberIdOf,
   pageHeader,
   removeClientFixture,
@@ -127,11 +128,48 @@ async function seedClient(name: string, adminEmail: string): Promise<string> {
   return row.id;
 }
 
+/** The first glance: the state · priority · deadline line and what is needed from the viewer. */
 function summary(page: Page): Locator {
   return page.locator('[data-slot="task-summary"]');
 }
 
-function historyRows(page: Page): Locator {
+/** The one next step (a sticky bar on a phone, a row on a desktop; Kickoff 4 decision 26). */
+function step(page: Page): Locator {
+  return page.locator('[data-slot="task-next-step"]');
+}
+
+/** The ⋯: the viewer's other work and a manager's edits (decision 26). */
+async function fromMenu(page: Page, item: string | RegExp): Promise<void> {
+  await page.getByRole("button", { name: "Task actions" }).click();
+  await page.getByRole("menuitem", { name: item }).click();
+}
+
+/**
+ * Shows a view (decisions 27, 32): taps its tab. Details has no tab on a desktop, where it is
+ * the right panel, always there.
+ */
+async function openView(page: Page, view: "work" | "activity" | "details"): Promise<void> {
+  await expect(page.locator('[data-slot="task-tabs"]')).toHaveAttribute("data-live", "");
+  const tab = page.locator(`[data-slot="task-tab"][data-view-tab="${view}"]`);
+  if (await tab.isVisible()) await tab.click();
+}
+
+/** Chat, whichever way the screen has it: the view on a desktop, the sheet on a phone. */
+async function openChat(page: Page): Promise<Locator> {
+  await expect(page.locator('[data-slot="task-tabs"]')).toHaveAttribute("data-live", "");
+  await page.locator('[data-slot="task-tab"][data-view-tab="chat"]').click();
+  const chat = page.locator(
+    '[data-slot="task-chat-sheet"]:visible, [data-slot="task-panel-chat"]:visible',
+  );
+  await expect(chat).toBeVisible();
+  return chat;
+}
+
+/** The history, every line of it (Activity, then Show all when there are more than five). */
+async function historyRows(page: Page): Promise<Locator> {
+  await openView(page, "activity");
+  const all = page.locator('[data-slot="task-history-show-all"]');
+  if (await all.isVisible()) await all.click();
   return page.locator('[data-slot="task-history-row"]');
 }
 
@@ -231,7 +269,7 @@ test.describe("staff tasks, the flows", () => {
       await dialog.getByRole("button", { name: "Create task" }).click();
       await expect(page).toHaveURL(TASK_URL);
       await expect(pageHeader(page)).toContainText(`${prefix}main`);
-      const taskId = page.url().split("/").at(-1) as string;
+      const taskId = new URL(page.url()).pathname.split("/").at(-1) as string;
       const warnings = await serviceSelect<{ kind: string; member_id: string }>(
         `task_warnings?task_id=eq.${taskId}&select=kind,member_id&order=kind`,
       );
@@ -241,9 +279,16 @@ test.describe("staff tasks, the flows", () => {
         { kind: "workload", member_id: helperId },
       ]);
       // The history shows the Owner the warnings kept (availability.view, 4A review M1).
-      await expect(historyRows(page).filter({ hasText: "despite a heavy day" })).toHaveCount(1);
-      await expect(historyRows(page).filter({ hasText: "despite leave that day" })).toHaveCount(1);
-      await expect(summary(page)).toContainText("Shoot / Site Visit");
+      await expect(
+        (await historyRows(page)).filter({ hasText: "despite a heavy day" }),
+      ).toHaveCount(1);
+      await expect(
+        (await historyRows(page)).filter({ hasText: "despite leave that day" }),
+      ).toHaveCount(1);
+      await openView(page, "details");
+      await expect(page.locator('[data-slot="task-type"]:visible')).toHaveText(
+        "Shoot / Site Visit",
+      );
     });
 
     test("a task field defined in Settings is filled in the dialog and read on the page", async ({
@@ -310,20 +355,23 @@ test.describe("staff tasks, the flows", () => {
 
       await page.goto(`/tasks/${taskId}`);
       await expect(summary(page)).toContainText(`Waiting for ${admin.name} to check it`);
-      // The Owner never decides at the Admin step (4A mechanics 5): no Approve here.
-      await expect(summary(page).getByRole("button", { name: "Approve" })).toHaveCount(0);
-      await summary(page).getByRole("button", { name: "Decide it yourself" }).click();
+      // The Owner never decides at the Admin step (4A mechanics 5): no Approve here, and the
+      // way past the Admin is under ⋯ (decision 26: only the next step is on the screen).
+      await expect(page.getByRole("button", { name: "Approve" })).toHaveCount(0);
+      await fromMenu(page, "Decide it yourself");
       await page
         .getByRole("alertdialog")
         .getByRole("button", { name: `Remove ${admin.name} as approver` })
         .click();
       await expect(summary(page)).toContainText("Waiting for approval");
-      await summary(page).getByRole("button", { name: "Approve" }).click();
+      await step(page).getByRole("button", { name: "Approve" }).click();
       await page.getByRole("alertdialog").getByRole("button", { name: "Approve task" }).click();
       await expect(summary(page)).toContainText("Completed");
-      await expect(historyRows(page).first()).toContainText("approved it: the task is complete");
+      await expect((await historyRows(page)).first()).toContainText(
+        "approved it: the task is complete",
+      );
       await expect(
-        historyRows(page).filter({ hasText: `removed ${admin.name} as approver` }),
+        (await historyRows(page)).filter({ hasText: `removed ${admin.name} as approver` }),
       ).toHaveCount(1);
     });
 
@@ -355,9 +403,11 @@ test.describe("staff tasks, the flows", () => {
       await expect(summary(page)).toContainText("High");
       await expect(summary(page)).toContainText("7:00 PM");
       await expect(
-        historyRows(page).filter({ hasText: "changed the priority from Medium to High" }),
+        (await historyRows(page)).filter({ hasText: "changed the priority from Medium to High" }),
       ).toHaveCount(1);
-      await expect(historyRows(page).filter({ hasText: "moved the deadline from" })).toHaveCount(1);
+      await expect(
+        (await historyRows(page)).filter({ hasText: "moved the deadline from" }),
+      ).toHaveCount(1);
 
       await page.getByRole("button", { name: "Task actions" }).click();
       await page.getByRole("menuitem", { name: "Cancel task" }).click();
@@ -376,7 +426,7 @@ test.describe("staff tasks, the flows", () => {
       await reopen.getByRole("button", { name: "Reopen task" }).click();
       await expect(reopen).toBeHidden();
       await expect(summary(page)).toContainText("To do");
-      await expect(historyRows(page).first()).toContainText("reopened the task");
+      await expect((await historyRows(page)).first()).toContainText("reopened the task");
     });
 
     test("a client label pre-selects that client's Admin; the picker names a freelancer's coordinator", async ({
@@ -412,8 +462,9 @@ test.describe("staff tasks, the flows", () => {
         await expect(dialog.getByLabel("Checked first by")).toContainText(admin.name);
         await dialog.getByRole("button", { name: "Create task" }).click();
         await expect(page).toHaveURL(TASK_URL);
-        await expect(summary(page)).toContainText(own);
-        await expect(summary(page)).toContainText(
+        await openView(page, "details");
+        await expect(page.locator('[data-slot="task-panel-details"]')).toContainText(own);
+        await expect(page.locator('[data-slot="task-route"]:visible')).toContainText(
           `${admin.name} checks it, then the Owner approves it`,
         );
       } finally {
@@ -461,12 +512,12 @@ test.describe("staff tasks, the flows", () => {
       await page.reload();
       await expect(stages).toHaveCount(1);
       await expect(stages.first()).toContainText("Captions");
-      await expect(historyRows(page).filter({ hasText: "added the stage “Captions”" })).toHaveCount(
-        1,
-      );
-      await expect(historyRows(page).filter({ hasText: "removed the stage “Draft”" })).toHaveCount(
-        1,
-      );
+      await expect(
+        (await historyRows(page)).filter({ hasText: "added the stage “Captions”" }),
+      ).toHaveCount(1);
+      await expect(
+        (await historyRows(page)).filter({ hasText: "removed the stage “Draft”" }),
+      ).toHaveCount(1);
     });
 
     test("an edit records the warning of a person it adds; a title-only edit of a timed event records none again", async ({
@@ -515,7 +566,9 @@ test.describe("staff tasks, the flows", () => {
       await dialog.getByRole("button", { name: "Save changes" }).click();
       await expect(dialog).toBeHidden();
       expect(await recorded()).toEqual([{ kind: "workload", member_id: coordId }]);
-      await expect(historyRows(page).filter({ hasText: "despite a heavy day" })).toHaveCount(1);
+      await expect(
+        (await historyRows(page)).filter({ hasText: "despite a heavy day" }),
+      ).toHaveCount(1);
 
       // Only the title: no date moved and nobody was added, so nothing is recorded again (S1).
       await page.getByRole("button", { name: "Task actions" }).click();
@@ -525,7 +578,9 @@ test.describe("staff tasks, the flows", () => {
       await expect(dialog).toBeHidden();
       await expect(pageHeader(page)).toContainText(`${prefix}shoot, day 2`);
       expect(await recorded()).toHaveLength(1);
-      await expect(historyRows(page).filter({ hasText: "despite a heavy day" })).toHaveCount(1);
+      await expect(
+        (await historyRows(page)).filter({ hasText: "despite a heavy day" }),
+      ).toHaveCount(1);
     });
   });
 
@@ -554,12 +609,19 @@ test.describe("staff tasks, the flows", () => {
       await signIn(page, coord.email, PASSWORD);
       await page.goto(`/tasks/${taskId}`);
       const card = summary(page);
-      await card.getByRole("button", { name: `Noted for ${asha.name}` }).click();
-      await expect(card.getByRole("button", { name: `Noted for ${asha.name}` })).toHaveCount(0);
+      await step(page)
+        .getByRole("button", { name: `Noted for ${asha.name}` })
+        .click();
+      await expect(page.getByRole("button", { name: `Noted for ${asha.name}` })).toHaveCount(0);
+      await openView(page, "details");
       const row = page.locator(`[data-slot="task-person"][data-member="${asha.id}"]`);
       await expect(row).toContainText(`Noted by ${coord.name} for ${asha.name}`);
+      await openView(page, "work");
 
-      await card.getByRole("button", { name: `Start for ${asha.name}` }).click();
+      // One step at a time (decision 26): Start work, then Mark done.
+      await step(page)
+        .getByRole("button", { name: `Start work for ${asha.name}` })
+        .click();
       await expect(card).toContainText("In progress");
 
       await page.getByRole("checkbox", { name: "Rough cut" }).click();
@@ -567,7 +629,9 @@ test.describe("staff tasks, the flows", () => {
         page.locator('[data-slot="task-stage"]', { hasText: "Rough cut" }),
       ).toContainText(`Ticked by ${coord.name} for ${asha.name}`);
 
-      await card.getByRole("button", { name: `Mark done for ${asha.name}` }).click();
+      await step(page)
+        .getByRole("button", { name: `Mark done for ${asha.name}` })
+        .click();
       const done = page.locator('[data-slot="task-done-dialog"]');
       await done
         .getByLabel("Note (optional)")
@@ -583,22 +647,22 @@ test.describe("staff tasks, the flows", () => {
       // Locked from Done on (WORKFLOWS §3.1): no more ticks; comments stay open.
       await expect(page.getByRole("checkbox", { name: "Colour grade" })).toBeDisabled();
       await expect(page.locator('[data-slot="task-stages-locked"]')).toBeVisible();
+      const history = await historyRows(page);
       await expect(
-        historyRows(page).filter({ hasText: `${coord.name} for ${asha.name} noted the task` }),
+        history.filter({ hasText: `${coord.name} for ${asha.name} noted the task` }),
       ).toHaveCount(1);
       await expect(
-        historyRows(page).filter({ hasText: `${coord.name} for ${asha.name} marked it done` }),
+        history.filter({ hasText: `${coord.name} for ${asha.name} marked it done` }),
       ).toHaveCount(1);
 
-      // A comment for the freelancer, named as the pair.
-      await page.getByRole("button", { name: "Add a comment" }).click();
-      const comment = page.locator('[data-slot="task-comment-dialog"]');
-      await expect(comment.getByLabel("Writing as")).toContainText(`For ${asha.name}`);
-      await comment.getByLabel("Comment").fill("Uploaded the final cut.");
-      await comment.getByRole("button", { name: "Post comment" }).click();
-      await expect(comment).toBeHidden();
-      await expect(page.locator('[data-slot="task-comment"]')).toContainText(
-        `${coord.name} for ${asha.name}`,
+      // A comment for the freelancer: the coordinator reads it as theirs, "You for Asha".
+      const chat = await openChat(page);
+      await expect(chat.getByLabel("Writing as")).toContainText(`For ${asha.name}`);
+      await chat.getByRole("textbox", { name: "Comment" }).fill("Uploaded the final cut.");
+      await chat.getByRole("button", { name: "Send" }).click();
+      await expect(chat.getByRole("textbox", { name: "Comment" })).toHaveValue("");
+      await expect(chat.locator('[data-slot="task-comment"]')).toContainText(
+        `You for ${asha.name}`,
       );
     });
 
@@ -632,18 +696,18 @@ test.describe("staff tasks, the flows", () => {
         "href",
         "https://example.com/carousel",
       );
-      await summary(page).getByRole("button", { name: "Approve" }).click();
+      await step(page).getByRole("button", { name: "Approve" }).click();
       await page.getByRole("alertdialog").getByRole("button", { name: "Approve task" }).click();
       await expect(summary(page)).toContainText("Checked. Waiting for the Owner's approval.");
 
       await page.context().clearCookies();
       await signIn(page, USERS.owner.email, USERS.owner.password);
       await page.goto(`/tasks/${taskId}`);
-      await summary(page).getByRole("button", { name: "Approve" }).click();
+      await step(page).getByRole("button", { name: "Approve" }).click();
       await page.getByRole("alertdialog").getByRole("button", { name: "Approve task" }).click();
       await expect(summary(page)).toContainText("Completed");
       await expect(
-        historyRows(page).filter({
+        (await historyRows(page)).filter({
           hasText: `${admin.name} checked it and passed it to the Owner`,
         }),
       ).toHaveCount(1);
@@ -667,7 +731,7 @@ test.describe("staff tasks, the flows", () => {
       await page.context().clearCookies();
       await signIn(page, USERS.owner.email, USERS.owner.password);
       await page.goto(`/tasks/${taskId}`);
-      await summary(page).getByRole("button", { name: "Request changes" }).click();
+      await step(page).getByRole("button", { name: "Request changes" }).click();
       const reject = page.getByRole("dialog", { name: "Request changes" });
       await reject.getByLabel("What needs to change?").fill("Use the new logo colours");
       await reject.getByRole("button", { name: "Request changes" }).click();
@@ -687,8 +751,12 @@ test.describe("staff tasks, the flows", () => {
       await expect(card.locator('[data-slot="task-change-request"]')).toContainText(
         "Use the new logo colours",
       );
-      await expect(card).toContainText("Overdue");
-      await card.getByRole("button", { name: "Mark done again" }).click();
+      await expect(card.locator('[data-slot="task-deadline"]')).toHaveAttribute(
+        "data-overdue",
+        "true",
+      );
+      await expect(card.locator('[data-slot="task-deadline"]')).toContainText("overdue by");
+      await step(page).getByRole("button", { name: "Mark done again" }).click();
       const done = page.locator('[data-slot="task-done-dialog"]');
       await done.getByRole("button", { name: "Mark done" }).click();
       await expect(done).toContainText("Say why it's late");
@@ -723,7 +791,8 @@ test.describe("staff tasks, the flows", () => {
       await dialog.getByLabel("Deadline").fill(workingDay(16));
       await dialog.getByRole("button", { name: "Create task" }).click();
       await expect(page).toHaveURL(TASK_URL);
-      await expect(summary(page)).toContainText(
+      await openView(page, "details");
+      await expect(page.locator('[data-slot="task-route"]:visible')).toContainText(
         `${admin.name} checks it, then the Owner approves it`,
       );
       const url = page.url();
@@ -768,8 +837,9 @@ test.describe("staff tasks, the flows", () => {
         await page.getByRole("option", { name: own }).click();
         await dialog.getByRole("button", { name: "Create task" }).click();
         await expect(page).toHaveURL(TASK_URL);
-        await expect(summary(page)).toContainText(own);
-        const taskId = page.url().split("/").at(-1) as string;
+        await openView(page, "details");
+        await expect(page.locator('[data-slot="task-panel-details"]')).toContainText(own);
+        const taskId = new URL(page.url()).pathname.split("/").at(-1) as string;
         // What the dialog never offers, the database refuses too.
         const refused = await rpcRefusedAs(admin.email, PASSWORD, "task_update_assignment", {
           task_id: taskId,
@@ -809,12 +879,12 @@ test.describe("staff tasks, the flows", () => {
       await expect(stage).toHaveAttribute("data-done", "false");
       await expect(stage).not.toContainText("Ticked by");
       await expect(page.locator('[data-slot="task-stages-count"]')).toContainText("0 of 2 done");
+      // A tick and an untick by the same person within ten minutes are one line (decision 29).
       const by = escape(staff.name);
       await expect(
-        historyRows(page).filter({ hasText: new RegExp(`${by} ticked a stage`) }),
-      ).toHaveCount(1);
-      await expect(
-        historyRows(page).filter({ hasText: new RegExp(`${by} unticked a stage`) }),
+        (await historyRows(page)).filter({
+          hasText: new RegExp(`${by} ticked a stage, unticked a stage`),
+        }),
       ).toHaveCount(1);
     });
   });
@@ -900,10 +970,9 @@ test.describe("staff tasks, installed: back closes each layer", () => {
       await expect(cancel).toBeVisible();
       await expectBackStack(page, [{ closes: cancel, url }]);
 
-      await page.getByRole("button", { name: "Add a comment" }).click();
-      const comment = page.locator('[data-slot="task-comment-dialog"]');
-      await expect(comment).toBeVisible();
-      await expectBackStack(page, [{ closes: comment, url }]);
+      // Chat is a full-height sheet on a phone (decision 28): a layer, back closes it.
+      const chat = await openChat(page);
+      await expectBackStack(page, [{ closes: chat, url }]);
 
       await page.getByRole("button", { name: "Task actions" }).click();
       await page.getByRole("menuitem", { name: "Edit task" }).click();
@@ -946,12 +1015,12 @@ test.describe("staff tasks, installed: back closes each layer", () => {
       await page.goto(`/tasks/${taskId}`);
       const url = new RegExp(`/tasks/${taskId}$`);
 
-      await summary(page).getByRole("button", { name: "Approve" }).click();
+      await step(page).getByRole("button", { name: "Approve" }).click();
       const approve = page.getByRole("alertdialog", { name: "Approve this task?" });
       await expect(approve).toBeVisible();
       await expectBackStack(page, [{ closes: approve, url }]);
 
-      await summary(page).getByRole("button", { name: "Request changes" }).click();
+      await step(page).getByRole("button", { name: "Request changes" }).click();
       const reject = page.getByRole("dialog", { name: "Request changes" });
       await expect(reject).toBeVisible();
       await expectBackStack(page, [{ closes: reject, url }]);
@@ -1005,10 +1074,10 @@ test.describe("staff tasks, installed: back closes each layer", () => {
       await expectBackStack(page, [{ closes: reopen, url: new RegExp(`/tasks/${completed}$`) }]);
       await expect(summary(page)).toContainText("Completed");
 
-      // A task waiting for its Admin: the Owner's Decide it yourself closes on back.
+      // A task waiting for its Admin: the Owner's Decide it yourself (under ⋯) closes on back.
       await page.goto(`/tasks/${waiting}`);
       const url = new RegExp(`/tasks/${waiting}$`);
-      await summary(page).getByRole("button", { name: "Decide it yourself" }).click();
+      await fromMenu(page, "Decide it yourself");
       const takeOver = page.getByRole("alertdialog", { name: "Decide it yourself?" });
       await expect(takeOver).toBeVisible();
       await expectBackStack(page, [{ closes: takeOver, url }]);
@@ -1056,15 +1125,17 @@ test.describe("staff tasks, installed: back closes each layer", () => {
       await page.goto(`/tasks/${taskId}`);
       // The mobile standard on a worker's view: 44px targets and 16px inputs.
       await expectTargets(page);
-      await summary(page).getByRole("button", { name: "Mark done" }).click();
+      // Task Noted is the next step; Mark done waits under ⋯ (decision 26).
+      await fromMenu(page, "Mark done");
       const done = page.locator('[data-slot="task-done-dialog"]');
       await expect(done).toBeVisible();
       await expectTargets(page);
       await expect(done).toBeVisible();
       await expectBackStack(page, [{ closes: done, url: new RegExp(`/tasks/${taskId}$`) }]);
-      // Task Noted is the one commit on the screen.
-      await summary(page).getByRole("button", { name: "Task Noted" }).click();
-      await expect(summary(page).getByRole("button", { name: "Task Noted" })).toHaveCount(0);
+      // Task Noted is the one commit on the screen, then Start work is the step.
+      await step(page).getByRole("button", { name: "Task Noted" }).click();
+      await expect(step(page).getByRole("button", { name: "Start work" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Task Noted" })).toHaveCount(0);
     });
   });
 });
@@ -1153,16 +1224,7 @@ async function expectTargets(page: Page): Promise<void> {
 }
 
 async function expectFits(page: Page): Promise<void> {
-  const overflow = await page.evaluate(() => ({
-    scrollWidth: document.documentElement.scrollWidth,
-    clientWidth: document.documentElement.clientWidth,
-    wide: [...document.querySelectorAll<HTMLElement>("body *")]
-      .filter((el) => el.getBoundingClientRect().right > document.documentElement.clientWidth + 1)
-      .slice(0, 5)
-      .map((el) => `${el.tagName.toLowerCase()}${el.dataset.slot ? `[${el.dataset.slot}]` : ""}`),
-  }));
-  expect(overflow.wide, "nothing reaches past the right edge").toEqual([]);
-  expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
+  await expectNoHorizontalScroll(page);
 }
 
 function escape(text: string): string {

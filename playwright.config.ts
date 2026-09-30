@@ -43,6 +43,7 @@ const FREELANCERS_SPECS = /freelancers\.spec\.ts$/;
 const TASK_SETTINGS_SPECS = /task-settings\.spec\.ts$/;
 const TASK_REQUESTS_SPECS = /task-requests\.spec\.ts$/;
 const LOADING_SCREENS_SPECS = /loading-screens\.spec\.ts$/;
+const TASK_PAGE_SPECS = /task-page\.spec\.ts$/;
 
 /**
  * Flow tests (ARCHITECTURE §15). `pnpm test:e2e` runs them; CI runs them as their own job.
@@ -133,7 +134,8 @@ export default defineConfig({
       // flows themselves skip 430px), the task lists' and Approvals' too, and the freelancers'
       // dialogs and screens around People, Settings → Task types, and the task requests and
       // templates (4C). And the held loading screens (4C review M1): they fit at large text and
-      // trace their screen at every width.
+      // trace their screen at every width. And the reworked task page (Kickoff 4 decisions
+      // 26–32): its views, the Chat sheet and every layer on back, and large text, at both widths.
       name: "mobile-lg",
       dependencies: ["setup"],
       testMatch: [
@@ -163,6 +165,7 @@ export default defineConfig({
         TASK_SETTINGS_SPECS,
         TASK_REQUESTS_SPECS,
         LOADING_SCREENS_SPECS,
+        TASK_PAGE_SPECS,
       ],
       use: { ...devices["Pixel 5"], viewport: { width: 430, height: 932 } },
     },

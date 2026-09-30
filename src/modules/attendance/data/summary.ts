@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createServerSupabase } from "@/core/db/server";
+import { displayName } from "@/core/lib/display-name";
 
 import type { MonthSummary } from "../domain/summary";
 
@@ -18,7 +19,7 @@ export async function getMonthSummary(month: string, memberId?: string): Promise
   if (error) throw error;
   return data.map((row) => ({
     memberId: row.id,
-    fullName: row.full_name,
+    fullName: displayName(row.full_name),
     role: row.role,
     workingDays: Number(row.working_days),
     daysWorked: Number(row.days_worked),

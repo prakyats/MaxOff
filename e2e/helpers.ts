@@ -611,17 +611,32 @@ export async function animationsSettled(page: Page): Promise<void> {
   );
 }
 
-/** Fails if the page can be scrolled sideways at all: no clipped columns, no wide table. */
+/**
+ * Fails if the page can be scrolled sideways at all: no clipped columns, no wide table. One
+ * designed exception (Kickoff 4 decision 32, owner 2026-09-30): a bar marked `data-scroll-x` (the
+ * task page's views) scrolls sideways at large text instead of squeezing its labels, so what it
+ * holds may reach past the edge **inside** it; the bar itself must fit and must clip
+ * (`overflow-x: auto`), and the page still never scrolls sideways.
+ */
 export async function expectNoHorizontalScroll(page: Page): Promise<void> {
-  const overflow = await page.evaluate(() => ({
-    scrollWidth: document.documentElement.scrollWidth,
-    clientWidth: document.documentElement.clientWidth,
-    // Whatever is actually sticking out, so a failure names the culprit.
-    wide: [...document.querySelectorAll<HTMLElement>("body *")]
-      .filter((el) => el.getBoundingClientRect().right > document.documentElement.clientWidth + 1)
-      .slice(0, 5)
-      .map((el) => `${el.tagName.toLowerCase()}${el.dataset.slot ? `[${el.dataset.slot}]` : ""}`),
-  }));
+  const overflow = await page.evaluate(() => {
+    const edge = document.documentElement.clientWidth + 1;
+    const insideFittingScroller = (el: HTMLElement) => {
+      const scroller = el.parentElement?.closest<HTMLElement>("[data-scroll-x]");
+      if (!scroller) return false;
+      const clips = ["auto", "scroll"].includes(getComputedStyle(scroller).overflowX);
+      return clips && scroller.getBoundingClientRect().right <= edge;
+    };
+    return {
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+      // Whatever is actually sticking out, so a failure names the culprit.
+      wide: [...document.querySelectorAll<HTMLElement>("body *")]
+        .filter((el) => el.getBoundingClientRect().right > edge && !insideFittingScroller(el))
+        .slice(0, 5)
+        .map((el) => `${el.tagName.toLowerCase()}${el.dataset.slot ? `[${el.dataset.slot}]` : ""}`),
+    };
+  });
   expect(overflow.wide, "nothing reaches past the right edge").toEqual([]);
   expect(overflow.scrollWidth, "the page does not scroll sideways").toBeLessThanOrEqual(
     overflow.clientWidth,

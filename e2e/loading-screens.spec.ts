@@ -5,6 +5,7 @@ import { expect, test } from "./fixtures";
 import { addISTDays, istInstant, todayIST } from "../src/core/time";
 
 import {
+  animationsSettled,
   expectNoHorizontalScroll,
   expectSettled,
   holdReads,
@@ -57,10 +58,11 @@ const TRACE_TOLERANCE = 1;
 /** A point the skeleton must meet: its selector while held, and the page's once settled. */
 type Point = { held: string; settled: string };
 
-type Fixture = "staff task" | "suggestion" | "template" | "task to check";
+type Fixture = "staff task" | "suggestion" | "template" | "task to check" | "task page";
 
 type LoadingScreen = {
   role: SessionRole;
+  /** The address; `:task` is the fixture's task (the task page's views). */
   path: string;
   /** An attribute of the route's loading screen, which marks it on screen. */
   marker: string;
@@ -69,6 +71,8 @@ type LoadingScreen = {
   /** Where the skeleton meets the settled page (none: the page ends somewhere else). */
   trace: Readonly<Record<string, Point>>;
   fixture?: Fixture;
+  /** What the settled page waits for before it is measured (a sheet that slides in). */
+  settle?: (page: Page) => Promise<void>;
 };
 
 const TASKS_TEAM: Record<string, Point> = {
@@ -101,6 +105,39 @@ const REQUESTS: Record<string, Point> = {
   "first row": {
     held: '[data-slot="loading-task-requests"] li',
     settled: '[data-slot="task-request"]',
+  },
+};
+
+/**
+ * A task's page (Kickoff 4 decisions 26–32, 31): the first glance, the views' bar and the view the
+ * address asks for. The Staff member's task is theirs to note (the next step, a sticky bar on a
+ * phone and a row from `md` up, is in the skeleton for Staff), due in three days, so the glance
+ * is one line at 375px.
+ */
+const TASK_GLANCE: Record<string, Point> = {
+  glance: {
+    held: '[data-slot="loading-task-glance"]',
+    settled: '[data-slot="task-summary"]',
+  },
+};
+
+const TASK_VIEWS: Record<string, Point> = {
+  ...TASK_GLANCE,
+  "views bar": {
+    held: '[data-slot="loading-task-tabs"]',
+    settled: '[data-slot="task-tabs-band"]',
+  },
+};
+
+const TASK_WORK: Record<string, Point> = {
+  ...TASK_VIEWS,
+  "first section": {
+    held: '[data-slot="loading-task-work"] > :first-child',
+    settled: '[data-slot="task-panel-work"] > section:first-child > :first-child',
+  },
+  "first stage": {
+    held: '[data-slot="loading-task-work"] > :nth-child(2) > :first-child',
+    settled: '[data-slot="task-stage"]',
   },
 };
 
@@ -188,6 +225,76 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
     marker: 'aria-label="Loading the task"',
     hold: "/rest/v1/tasks",
     trace: {},
+  },
+  // The reworked task page (decisions 26–32): each view, held by a read only it waits for, and
+  // traced; Chat is the inline view on a desktop and the full-height sheet on a phone.
+  {
+    role: "staff",
+    path: "/tasks/:task",
+    marker: 'aria-label="Loading the task"',
+    hold: "/rest/v1/task_stages",
+    fixture: "task page",
+    trace: TASK_WORK,
+  },
+  {
+    role: "owner",
+    path: "/tasks/:task",
+    marker: 'aria-label="Loading the task"',
+    hold: "/rest/v1/task_stages",
+    fixture: "task page",
+    // The Owner's "needed" line names the Staff member and may take two lines on a phone.
+    trace: TASK_GLANCE,
+  },
+  {
+    role: "staff",
+    path: "/tasks/:task?tab=activity",
+    marker: 'aria-label="Loading the task"',
+    hold: "/rest/v1/activity_log",
+    fixture: "task page",
+    trace: {
+      ...TASK_VIEWS,
+      "first change": {
+        held: '[data-slot="loading-task-activity"] > div > :first-child',
+        settled: '[data-slot="task-history-row"]',
+      },
+    },
+  },
+  {
+    role: "staff",
+    path: "/tasks/:task?tab=details",
+    marker: 'aria-label="Loading the task"',
+    hold: "/rest/v1/task_assignees",
+    fixture: "task page",
+    trace: {
+      ...TASK_VIEWS,
+      "first person": {
+        held: '[data-slot="loading-task-details"] > :first-child > :nth-child(2) > :first-child',
+        settled: '[data-slot="task-person"]',
+      },
+    },
+  },
+  {
+    role: "staff",
+    path: "/tasks/:task?tab=chat",
+    marker: 'aria-label="Loading the task"',
+    hold: "/rest/v1/task_comments",
+    fixture: "task page",
+    settle: async (page) => {
+      await expect(
+        page.locator('[data-slot="task-chat-sheet"], [data-slot="task-panel-chat"]').filter({
+          visible: true,
+        }),
+      ).toBeVisible();
+      await animationsSettled(page);
+    },
+    trace: {
+      ...TASK_GLANCE,
+      "first comment": {
+        held: '[data-slot="loading-task-chat"] > :first-child > :first-child, [data-slot="loading-task-chat-sheet"] > :nth-child(2) > div > :first-child',
+        settled:
+          '[data-slot="task-panel-chat"] [data-slot="task-comment"], [data-slot="task-chat-sheet"] [data-slot="task-comment"]',
+      },
+    },
   },
   // The Tasks tab (4.5) per role: the Owner's and an Admin's "Needs you" (always there, whatever
   // it holds), Staff's first group (their own task, not noted).
@@ -326,23 +433,37 @@ function prefixOf(info: TestInfo, screen: LoadingScreen): string {
   return `Held ${info.project.name} ${screen.role} ${screen.path} `;
 }
 
-/** Makes what the settled page needs; resolves with its removal. */
-async function makeFixture(prefix: string, fixture: Fixture): Promise<() => Promise<void>> {
+/**
+ * A short, unique task title for a task page fixture ("Ta" + a hash of the prefix): the page's
+ * title bar is traced, and a long title would wrap on a phone.
+ */
+function shortTag(prefix: string): string {
+  let hash = 0;
+  for (const char of prefix) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  return ` ${hash.toString(36)}`;
+}
+
+/** Makes what the settled page needs; resolves with its removal (and the task, if any). */
+async function makeFixture(
+  prefix: string,
+  fixture: Fixture,
+): Promise<{ remove: () => Promise<void>; task?: string }> {
   const { owner, admin, staff } = USERS;
   if (fixture === "suggestion") {
     await rpcAs(staff.email, staff.password, "task_request_create", { title: `${prefix}reel` });
-    return () => removeRequestsTitled(prefix);
+    return { remove: () => removeRequestsTitled(prefix) };
   }
   if (fixture === "template") {
     await insertAs(owner.email, owner.password, "task_templates", {
       name: `${prefix}template`,
       task_type_id: await taskTypeId("Normal"),
     });
-    return () => removeTemplatesNamed(prefix);
+    return { remove: () => removeTemplatesNamed(prefix) };
   }
   const staffId = await memberIdOf(staff.email);
   const id = await rpcAs<string>(owner.email, owner.password, "task_create", {
-    title: `${prefix}task`,
+    // The task page traces its title bar: a title that fits one line on a phone.
+    title: fixture === "task page" ? `${prefix.slice(0, 2)}${shortTag(prefix)}` : `${prefix}task`,
     description: null,
     task_type_id: await taskTypeId("Normal"),
     client_id: null,
@@ -351,12 +472,30 @@ async function makeFixture(prefix: string, fixture: Fixture): Promise<() => Prom
     assignee_ids: [staffId],
     primary_owner_id: staffId,
     approving_admin_id: fixture === "task to check" ? await memberIdOf(admin.email) : null,
+    ...(fixture === "task page" ? { stages: ["Rough cut", "Colour grade"] } : {}),
   });
   // Handed in: it waits for the Admin's check.
   if (fixture === "task to check") {
     await rpcAs(staff.email, staff.password, "task_submit_done", { task_id: id });
   }
-  return () => removeTasksTitled(prefix);
+  // The task page's Chat: the Owner's comment and the Staff member's reply.
+  if (fixture === "task page") {
+    await insertAs(owner.email, owner.password, "task_comments", {
+      task_id: id,
+      body: "Please use the drone shots too.",
+    });
+    await insertAs(staff.email, staff.password, "task_comments", {
+      task_id: id,
+      body: "Will do.",
+    });
+  }
+  return {
+    remove: () =>
+      removeTasksTitled(
+        fixture === "task page" ? `${prefix.slice(0, 2)}${shortTag(prefix)}` : prefix,
+      ),
+    task: id,
+  };
 }
 
 /** Each point's top (document coordinates) on its first visible match, or null. */
@@ -399,11 +538,13 @@ for (const role of ["owner", "admin", "staff"] as const) {
           expect(day?.started_at, "the seeded Admin's day is started (auth.setup)").toBeTruthy();
           expect(day?.ended_at, "and not ended").toBeNull();
         }
-        const remove = screen.fixture ? await makeFixture(prefix, screen.fixture) : null;
+        const made = screen.fixture ? await makeFixture(prefix, screen.fixture) : null;
+        const remove = made?.remove;
+        const path = screen.path.replace(":task", made?.task ?? ":task");
         const session = await ownSession(page, user.email, user.password);
         const held = await holdReads(screen.hold, session);
         try {
-          await page.goto(screen.path, { waitUntil: "commit" });
+          await page.goto(path, { waitUntil: "commit" });
           const loading = page.locator(`[${screen.marker}]`);
           await expect(loading).toBeVisible();
           await expect
@@ -428,6 +569,7 @@ for (const role of ["owner", "admin", "staff"] as const) {
           await expectSettled(page);
           // What the page settles to, hydrated: a control may still take its final size then.
           await hydrated(page);
+          await screen.settle?.(page);
           const settled = await topsOf(page, pick(screen.trace, "settled"));
           const moved = Object.keys(screen.trace).flatMap((name) => {
             const from = skeleton[name];

@@ -1,7 +1,7 @@
 import { formatIST, toISTDate } from "@/core/time";
 
 import { isFinal, isLocked, statusLine, type ActingFor, type TaskActions } from "./task";
-import { PRIORITY_LABELS, type Task, type TaskAssignee, type TaskState } from "./types";
+import type { Task, TaskAssignee, TaskState } from "./types";
 
 /**
  * The task page as the owner reworked it (Kickoff 4 decisions 26–32): the first glance (a line
@@ -30,12 +30,16 @@ function dayDistance(from: string, to: string): number {
   return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY);
 }
 
-/** "25 min", "3 h", "4 days": minutes under an hour, hours under two days, then days. */
+/**
+ * "25 min", "3 h", "4 days", rounded as people say them: minutes under an hour, hours under two
+ * days, then days.
+ */
 function span(ms: number): string {
-  if (ms < HOUR) return `${Math.max(1, Math.floor(ms / MINUTE))} min`;
-  if (ms < 2 * DAY) return `${Math.floor(ms / HOUR)} h`;
-  const days = Math.floor(ms / DAY);
-  return `${days} days`;
+  const minutes = Math.max(1, Math.round(ms / MINUTE));
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.round(ms / HOUR);
+  if (hours < 48) return `${hours} h`;
+  return `${Math.round(ms / DAY)} days`;
 }
 
 /**
@@ -67,11 +71,6 @@ export function relativeDeadline(task: Pick<Task, "dueAt" | "state">, now: Date)
   if (left >= 0)
     return { label, relative: left < MINUTE ? "now" : `in ${span(left)}`, overdue: false };
   return { label, relative: `overdue by ${span(-left)}`, overdue: true };
-}
-
-/** "High priority" for the first glance's line. */
-export function priorityLabel(priority: Task["priority"]): string {
-  return `${PRIORITY_LABELS[priority]} priority`;
 }
 
 /**
@@ -138,7 +137,7 @@ export function neededLine(input: {
         const who = forName(next.acting);
         return who
           ? `Note it for ${who} when ${who} has seen it.`
-          : "Tap Task Noted so everyone knows you've seen it.";
+          : "Tap Task Noted to say you've seen it.";
       }
       case "start": {
         const who = forName(next.acting);
