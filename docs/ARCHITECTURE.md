@@ -385,7 +385,7 @@ Locally, `pnpm check` = typecheck + lint + format:check + unit tests + pgTAP + b
 ### 18.1 Environments
 | | Local | Staging | Production |
 |---|---|---|---|
-| App | `next dev` | Worker `maxoff-staging` (`*.workers.dev`, free plan) | Worker `maxoff` (Workers Paid) at **`https://app.maxoff.in`** (a Custom Domain in `wrangler.jsonc`, 3c.1); `maxoff.pixoraclips.workers.dev` answers a 308 to it (`worker/index.js`, keyed on the production-only `CANONICAL_HOST` var) |
+| App | `next dev` | Worker `maxoff-staging` (`*.workers.dev`, Workers Paid, the account's plan) | Worker `maxoff` (Workers Paid) at **`https://app.maxoff.in`** (a Custom Domain in `wrangler.jsonc`, 3c.1); `maxoff.pixoraclips.workers.dev` answers a 308 to it (`worker/index.js`, keyed on the production-only `CANONICAL_HOST` var) |
 | Database | Supabase in Docker | free Supabase project `maxoff-staging` (Mumbai) | separate Supabase project |
 | Deployed by | — | `.github/workflows/deploy.yml`, when **CI has passed on `main`** (`workflow_run`) | the same workflow, on a `v*` tag that points at a commit **on `main` with all three CI checks green** (the job reads the commit's check runs; CI itself never runs on tags) |
 | Values from | `.env.local` | GitHub environment `staging` | GitHub environment `production` |

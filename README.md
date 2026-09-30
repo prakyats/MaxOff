@@ -189,6 +189,8 @@ Secrets (**Environment secrets**):
 | `SESSION_IP_HASH_SALT` | Any long random string (`openssl rand -hex 32`), different per environment. Salts the IP hash in `session_events`; uploaded as a Worker secret. Unset = the hash is stored as null |
 | `R2_ACCESS_KEY_ID` · `R2_SECRET_ACCESS_KEY` | The R2 API token scoped to that environment's files bucket (task 3.3, README → "Storage"); uploaded as `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` |
 | `CRON_SECRET` | Any long random string; the Worker's cron trigger presents it to `/api/cron/*` |
+| `RESEND_API_KEY` | Resend → API Keys, a key allowed to send from `mail.maxoff.in` (5.2: invites and notification email). Unset = no app email is sent |
+| `VAPID_PRIVATE_KEY` | The private half of the Web Push key pair the owner generates on their own laptop (5.2; no session generates or sees it). Unset = no push is sent |
 | `SENTRY_AUTH_TOKEN` | Sentry → Settings → Auth Tokens. Optional: without it no source maps are uploaded |
 
 Variables (**Environment variables**):
@@ -203,13 +205,17 @@ Variables (**Environment variables**):
 | `NEXT_PUBLIC_SENTRY_DSN` | Sentry → Settings → Projects → maxoff → Client Keys (DSN). Optional: empty keeps Sentry off |
 | `SENTRY_ORG` | Sentry organisation slug (Settings → General Settings). Optional |
 | `SENTRY_PROJECT` | Sentry project slug, e.g. `maxoff`. Optional |
+| `EMAIL_FROM` | `MaxOff <notifications@mail.maxoff.in>` (kickoff 5, no reply-to). Sent with `RESEND_API_KEY`: both or neither |
+| `VAPID_PUBLIC_KEY` | The public half of the same Web Push key pair (not secret; the server hands it to the browser at runtime) |
+| `VAPID_SUBJECT` | `mailto:` the owner's own address (the push services' contact) |
 
 `NEXT_PUBLIC_APP_ENV` is set by the workflow itself (`staging` or `production`). `DAY_GATE_COOKIE_SECRET`
 (2.2) is no longer read anywhere since the 3c.1 contract migration; delete it from both environments.
 
-`RESEND_API_KEY` and `EMAIL_FROM` (app email: invites from 1.3, notification email from 5.2)
-are **not** wired yet: they need a verified sending domain (`mail.maxoff.in`, see PROGRESS.md).
-Until then the app logs a start-up warning and sends nothing. They stay out of CI on purpose.
+`RESEND_API_KEY` + `EMAIL_FROM` and the three `VAPID_*` values reach the Worker at runtime through
+the deploy workflow's secrets file (5.2), each set only when complete (email: both; push: all three).
+Without them the app sends no email or no push and in-app notifications still work; the app logs a
+start-up warning. They stay out of CI on purpose.
 
 ### Inviting people (task 1.3)
 
