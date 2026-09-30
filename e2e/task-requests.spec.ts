@@ -13,6 +13,7 @@ import {
   removeTasksTitled,
   removeTemplatesNamed,
   rpcAs,
+  rpcRefusedAs,
   runInstalled,
   serviceInsert,
   serviceSelect,
@@ -227,10 +228,21 @@ test.describe("task requests and templates, the flows", () => {
     const title = `${prefix}brand refresh`;
     const clientId = await adminClient(info);
     try {
-      await rpcAs(admin.email, admin.password, "task_request_create", {
+      const requestId = await rpcAs<string>(admin.email, admin.password, "task_request_create", {
         title,
         client_id: clientId,
       });
+
+      // Kickoff 4 decision 23: an Admin's own suggestion goes to the Owner; they may withdraw it,
+      // never make it a task or decline it (the screen offers Withdraw only; the database refuses).
+      await signInAs(page, admin);
+      await page.goto("/tasks/requests");
+      await expect(requestRow(page, title).getByRole("button")).toHaveText(["Withdraw"]);
+      const refused = await rpcRefusedAs(admin.email, admin.password, "task_request_decline", {
+        request_id: requestId,
+        reason: "Not this month",
+      });
+      expect(refused.message).toBe("FORBIDDEN");
 
       await signInAs(page, USERS.owner);
       await page.goto("/tasks/requests");

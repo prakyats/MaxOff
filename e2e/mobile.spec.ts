@@ -5,7 +5,8 @@ import { expect, test } from "./fixtures";
 import { STAND_INS, type StandIn } from "../src/app/(app)/_placeholder/stand-ins";
 
 import {
-  heldShell,
+  expectNoHorizontalScroll,
+  expectSettled,
   memberIdOf,
   pageHeader,
   removeClientFixture,
@@ -54,23 +55,6 @@ async function settledBottom(locator: Locator): Promise<number> {
 const MIN_INPUT_FONT = 16;
 
 test.describe.configure({ mode: "parallel" });
-
-/** Fails if the page can be scrolled sideways at all: no clipped columns, no wide table. */
-async function expectNoHorizontalScroll(page: Page): Promise<void> {
-  const overflow = await page.evaluate(() => ({
-    scrollWidth: document.documentElement.scrollWidth,
-    clientWidth: document.documentElement.clientWidth,
-    // Whatever is actually sticking out, so a failure names the culprit.
-    wide: [...document.querySelectorAll<HTMLElement>("body *")]
-      .filter((el) => el.getBoundingClientRect().right > document.documentElement.clientWidth + 1)
-      .slice(0, 5)
-      .map((el) => `${el.tagName.toLowerCase()}${el.dataset.slot ? `[${el.dataset.slot}]` : ""}`),
-  }));
-  expect(overflow.wide, "nothing reaches past the right edge").toEqual([]);
-  expect(overflow.scrollWidth, "the page does not scroll sideways").toBeLessThanOrEqual(
-    overflow.clientWidth,
-  );
-}
 
 /**
  * Every control you can actually tap is at least 44 x 44. Inline text links are excluded: they
@@ -126,19 +110,6 @@ async function expectNoZoomOnFocus(page: Page): Promise<void> {
       );
   }, MIN_INPUT_FONT);
   expect(small, `every input is at least ${MIN_INPUT_FONT}px`).toEqual([]);
-}
-
-/**
- * The screen has streamed in: its title bar is up and no skeleton is left. `page.goto` resolves
- * on `load`, and that is not the end of a streamed page: React 19.2 reveals a server-rendered
- * Suspense boundary in batches (`$RC` schedules the swap up to 300 ms after the previous reveal),
- * so a route's `loading.tsx` can still be on screen for a moment after `goto` returns (CI,
- * 2026-09-29: the Owner's /me measured its skeleton at 200%). The loading screens have their own
- * check below (`LOADING_SCREENS`), where the skeleton is held on screen on purpose.
- */
-async function expectSettled(page: Page): Promise<void> {
-  await expect(pageHeader(page)).toBeVisible();
-  await expect(page.locator('[data-slot="skeleton"]')).toHaveCount(0);
 }
 
 /** The screens that exist after phase 1, with the role that may open each. */
@@ -269,72 +240,6 @@ async function expectReadableTruncation(page: Page): Promise<void> {
     MIN_TRUNCATED_WIDTH,
   );
   expect(squeezed, `a cut-short line keeps ${MIN_TRUNCATED_WIDTH}px`).toEqual([]);
-}
-
-/**
- * A loading screen fits at large text too (phase 3 review: CI caught /today's stat-tile skeleton
- * reaching past the edge at 200%, only when the check ran before the page streamed in; since the
- * 3c review the route's skeleton traces the stand-in, `loading-stand-in`; the 3c review's CI then
- * caught /me the same way, its skeleton columns keeping their rem widths at 200%). The page is
- * opened through `heldShell`, which delivers the route's loading screen (`marker` is in its
- * markup) and holds what streams after it, so the skeleton is what is measured, every time, on
- * the path a cold open takes.
- */
-const LOADING_SCREENS = [
-  { role: "owner", path: "/today", marker: 'data-slot="loading-stand-in"' },
-  { role: "admin", path: "/today", marker: 'data-slot="loading-stand-in"' },
-  { role: "owner", path: "/me", marker: 'aria-label="Loading Me"' },
-  { role: "admin", path: "/me", marker: 'aria-label="Loading Me"' },
-  { role: "staff", path: "/me", marker: 'aria-label="Loading Me"' },
-  // A task's page (4.4): its skeleton streams before the page decides (an unknown id is a 404
-  // afterwards), so it is held here for the Owner (the ⋯ placeholder) and Staff (none).
-  {
-    role: "owner",
-    path: "/tasks/00000000-0000-4000-8000-000000000000",
-    marker: 'aria-label="Loading the task"',
-  },
-  {
-    role: "staff",
-    path: "/tasks/00000000-0000-4000-8000-000000000000",
-    marker: 'aria-label="Loading the task"',
-  },
-  // The Tasks tab (4.5): the Owner's and Admins' sections, Staff's groups; the full list's
-  // toolbar and rows. (An Admin's Approvals is often quicker than its shell and then streams no
-  // loading screen at all, measured 6 of 12 loads: it is checked settled, above, not held.)
-  { role: "owner", path: "/tasks", marker: 'aria-label="Loading tasks"' },
-  { role: "staff", path: "/tasks", marker: 'aria-label="Loading tasks"' },
-  { role: "owner", path: "/tasks/all", marker: 'data-slot="loading-all-tasks"' },
-  // 4.6's Suggested tasks, Settings → Task types and → Templates are not held here: their reads
-  // are few and small, so the page often answers before its shell streams and no loading
-  // screen is sent at all, as with an Admin's Approvals (the Owner's /tasks/requests lost that
-  // race in a full run, 2026-09-30). They are checked settled above.
-] as const;
-
-for (const role of ["owner", "admin", "staff"] as const) {
-  test.describe(`${role}: loading screens at large system text`, () => {
-    test.use({ storageState: storageStateFor(role) });
-
-    for (const { path, marker } of LOADING_SCREENS.filter((screen) => screen.role === role)) {
-      test(`${path}: fits at 100%, 130% and 200% while the page loads`, async ({
-        page,
-        baseURL,
-      }) => {
-        const held = await heldShell(baseURL!, path, marker);
-        try {
-          await page.goto(`${held.origin}${path}`, { waitUntil: "commit" });
-          await expect(page.locator(`[${marker}]`)).toBeVisible();
-          for (const scale of [100, 130, 200]) {
-            await page.evaluate((percent) => {
-              document.documentElement.style.fontSize = `${percent}%`;
-            }, scale);
-            await expectNoHorizontalScroll(page);
-          }
-        } finally {
-          await held.close();
-        }
-      });
-    }
-  });
 }
 
 for (const [role, paths] of Object.entries(LARGE_TEXT_SCREENS)) {

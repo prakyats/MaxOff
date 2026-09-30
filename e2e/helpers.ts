@@ -1,7 +1,8 @@
-import { createServer, request as httpRequest, type ServerResponse } from "node:http";
-import type { AddressInfo } from "node:net";
+import { request as httpRequest } from "node:http";
 
 import { expect, type Locator, type Page } from "@playwright/test";
+
+import { HOLD_PROXY_URL } from "./hold-proxy-config";
 
 /** The local sign-ins created by `supabase/seed.sql` (README → "Local sign-ins"). */
 export const USERS = {
@@ -174,6 +175,35 @@ export async function patchAs(
   const body: unknown = await response.json();
   expect(response.ok, `PATCH ${path} as ${email}: ${JSON.stringify(body)}`).toBe(true);
   expect(body, `PATCH ${path} as ${email} changed a row`).not.toEqual([]);
+}
+
+/**
+ * A plain insert through PostgREST as that person (RLS and the guards apply as in the app), for a
+ * fixture only the person may write: a task template is written by its author (4C mechanics (6)).
+ * Resolves with the row.
+ */
+export async function insertAs<T>(
+  email: string,
+  password: string,
+  table: string,
+  row: Record<string, unknown>,
+): Promise<T> {
+  const { url, apikey } = supabaseAuth();
+  const accessToken = await accessTokenFor(email, password);
+  const rest = url.replace(/\/auth\/v1$/, "/rest/v1");
+  const response = await fetch(`${rest}/${table}`, {
+    method: "POST",
+    headers: {
+      apikey,
+      authorization: `Bearer ${accessToken}`,
+      "content-type": "application/json",
+      prefer: "return=representation",
+    },
+    body: JSON.stringify(row),
+  });
+  const body: unknown = await response.json();
+  expect(response.ok, `POST ${table} as ${email}: ${JSON.stringify(body)}`).toBe(true);
+  return (body as T[])[0] as T;
 }
 
 /**
@@ -581,115 +611,137 @@ export async function animationsSettled(page: Page): Promise<void> {
   );
 }
 
-/**
- * A pass-through proxy in front of the app that holds back what one page streams once its
- * loading screen is up. A server-rendered route's HTML is a shell followed by its Suspense
- * boundaries as they resolve, each a `<div hidden id="S:…">` with the `$RC` script that swaps it
- * in. The route's `loading.tsx` is itself one of them: the shell carries the neutral
- * `(app)/loading.tsx`, the route's own skeleton (an async component, it awaits the member)
- * streams in first, the page after it. Every request passes through untouched except a document
- * request for `path`: everything up to and including the chunk that carries `marker` (a string
- * in the route's loading screen, e.g. `aria-label="Loading Me"`) is delivered, the rest is held
- * until `release()`. So the browser shows that loading screen for as long as a check needs, on
- * the path a phone takes on a cold open, which is what CI happened to measure on 2026-09-29
- * (React 19.2 batches reveals, so `load` can come before the swap; `mobile.spec.ts`). Open the
- * page at `origin`: the saved sign-in holds, since cookies for `localhost` ignore the port. A
- * soft navigation cannot be held this way: its loading screen comes from the router's prefetch
- * cache, whose state a test cannot see.
- */
-export async function heldShell(
-  baseURL: string,
-  path: string,
-  marker: string,
-): Promise<{ origin: string; release: () => void; close: () => Promise<void> }> {
-  const upstream = new URL(baseURL);
-  const pending = new Set<{ response: ServerResponse; tail: string }>();
-  let released = false;
-  const server = createServer((request, response) => {
-    const headers = { ...request.headers };
-    // Plain bodies, so the shell can be split; what is forwarded is re-chunked here.
-    delete headers["accept-encoding"];
-    const forwarded = httpRequest(
-      {
-        host: upstream.hostname,
-        port: upstream.port,
-        path: request.url ?? "/",
-        method: request.method,
-        headers,
-      },
-      (answer) => {
-        const url = new URL(request.url ?? "/", baseURL);
-        const isPage =
-          request.method === "GET" &&
-          url.pathname === path &&
-          request.headers["rsc"] !== "1" &&
-          (answer.headers["content-type"] ?? "").includes("text/html");
-        const answerHeaders = { ...answer.headers };
-        delete answerHeaders["content-length"];
-        delete answerHeaders["content-encoding"];
-        delete answerHeaders["transfer-encoding"];
-        response.writeHead(answer.statusCode ?? 200, answerHeaders);
-        if (!isPage) {
-          answer.pipe(response);
-          return;
-        }
-        const chunks: Buffer[] = [];
-        answer.on("data", (chunk: Buffer) => chunks.push(chunk));
-        answer.on("end", () => {
-          const html = Buffer.concat(chunks).toString("utf8");
-          const streamed = cutAfterLoadingScreen(html, marker);
-          if (streamed < 0 || released) {
-            response.end(html);
-            return;
-          }
-          response.write(html.slice(0, streamed));
-          pending.add({ response, tail: html.slice(streamed) });
-        });
-      },
-    );
-    forwarded.on("error", () => response.destroy());
-    request.pipe(forwarded);
-  });
-  await new Promise<void>((resolve) => server.listen(0, resolve));
-  const { port } = server.address() as AddressInfo;
-  const release = () => {
-    released = true;
-    for (const { response, tail } of pending) response.end(tail);
-    pending.clear();
-  };
-  return {
-    origin: `http://localhost:${port}`,
-    release,
-    close: async () => {
-      release();
-      server.closeAllConnections();
-      await new Promise<void>((resolve) => server.close(() => resolve()));
-    },
-  };
+/** Fails if the page can be scrolled sideways at all: no clipped columns, no wide table. */
+export async function expectNoHorizontalScroll(page: Page): Promise<void> {
+  const overflow = await page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    clientWidth: document.documentElement.clientWidth,
+    // Whatever is actually sticking out, so a failure names the culprit.
+    wide: [...document.querySelectorAll<HTMLElement>("body *")]
+      .filter((el) => el.getBoundingClientRect().right > document.documentElement.clientWidth + 1)
+      .slice(0, 5)
+      .map((el) => `${el.tagName.toLowerCase()}${el.dataset.slot ? `[${el.dataset.slot}]` : ""}`),
+  }));
+  expect(overflow.wide, "nothing reaches past the right edge").toEqual([]);
+  expect(overflow.scrollWidth, "the page does not scroll sideways").toBeLessThanOrEqual(
+    overflow.clientWidth,
+  );
 }
 
 /**
- * Where `heldShell` cuts a streamed document: just after the loading screen carrying `marker` is
- * delivered **and revealed**. When the loading screen was streamed inside a hidden segment
- * (`<div hidden id="S:n">`, which React shows with its `$RC(…,"S:n")` script), the cut goes after
- * that script: since the nav counts stream in their own boundaries (4C), React can write the
- * page's segments before the script that reveals the loading screen, so cutting at the next
- * hidden segment would hold the loading screen itself hidden. Otherwise (the loading screen in the
- * first flush), the cut is the first streamed segment after it: the page, or what resolves next.
- * -1 when there is nothing to hold.
+ * The screen has streamed in: its title bar is up and no skeleton is left. `page.goto` resolves
+ * on `load`, and that is not the end of a streamed page: React 19.2 reveals a server-rendered
+ * Suspense boundary in batches (`$RC` schedules the swap up to 300 ms after the previous reveal),
+ * so a route's `loading.tsx` can still be on screen for a moment after `goto` returns (CI,
+ * 2026-09-29: the Owner's /me measured its skeleton at 200%). The loading screens have their own
+ * check (`e2e/loading-screens.spec.ts`), where the skeleton is held on screen on purpose.
  */
-export function cutAfterLoadingScreen(html: string, marker: string): number {
-  const at = html.indexOf(marker);
-  const enclosing = at < 0 ? -1 : html.lastIndexOf('<div hidden id="S:', at);
-  const id = enclosing < 0 ? null : /^<div hidden id="(S:[^"]+)"/.exec(html.slice(enclosing))?.[1];
-  if (id) {
-    const reveal = html.indexOf(`"${id}")`, enclosing);
-    if (reveal > at) {
-      const end = html.indexOf("</script>", reveal);
-      if (end > 0) return end + "</script>".length;
-    }
-  }
-  return html.indexOf('<div hidden id="S:', Math.max(0, at));
+export async function expectSettled(page: Page): Promise<void> {
+  await expect(pageHeader(page)).toBeVisible();
+  await expect(page.locator('[data-slot="skeleton"]')).toHaveCount(0);
+}
+
+/**
+ * Signs this page's browser context in as `email` with a session of its own (GoTrue's password
+ * grant, stored in the cookie as `@supabase/ssr` stores it, over the saved storage state's), and
+ * returns that session's id (the access token's `session_id`). A hold on the e2e server's
+ * Supabase proxy keyed by it (`holdReads`) catches this test's page and nobody else's: every
+ * other test of the same person runs on the saved sessions and is never held.
+ */
+export async function ownSession(page: Page, email: string, password: string): Promise<string> {
+  const { url, apikey } = supabaseAuth();
+  const answer = await fetch(`${url}/token?grant_type=password`, {
+    method: "POST",
+    headers: { apikey, "content-type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  expect(answer.ok, `sign-in for ${email}`).toBe(true);
+  const session = (await answer.json()) as { access_token: string };
+  const claims = JSON.parse(
+    Buffer.from(session.access_token.split(".")[1] ?? "", "base64url").toString("utf8"),
+  ) as { session_id?: string };
+  expect(claims.session_id, "the access token names its session").toBeTruthy();
+
+  const context = page.context();
+  const saved = (await context.cookies()).filter((cookie) =>
+    /^sb-.*-auth-token(\.\d+)?$/.test(cookie.name),
+  );
+  const base = saved[0];
+  if (!base) throw new Error("the saved storage state holds no session cookie");
+  const name = base.name.replace(/\.\d+$/, "");
+  // `@supabase/ssr`: "base64-" + base64url(JSON), split into `.0`, `.1`, … past 3180 characters.
+  const value = `base64-${Buffer.from(JSON.stringify(session), "utf8").toString("base64url")}`;
+  const size = 3180;
+  const chunks =
+    value.length <= size
+      ? [{ name, value }]
+      : Array.from({ length: Math.ceil(value.length / size) }, (_, index) => ({
+          name: `${name}.${index}`,
+          value: value.slice(index * size, (index + 1) * size),
+        }));
+  await context.clearCookies({ name: /^sb-.*-auth-token(\.\d+)?$/ });
+  await context.addCookies(
+    chunks.map((chunk) => ({
+      ...chunk,
+      domain: base.domain,
+      path: base.path,
+      expires: base.expires,
+      httpOnly: base.httpOnly,
+      secure: base.secure,
+      sameSite: base.sameSite,
+    })),
+  );
+  return claims.session_id as string;
+}
+
+/**
+ * Holds one browser session's reads of one PostgREST path (`/rest/v1/task_types`,
+ * `/rest/v1/rpc/…`) at the e2e server's Supabase proxy (`e2e/hold-proxy.ts`, 4C review M1) until
+ * `release()`: the page that needs them cannot answer, so React streams its loading screen and
+ * keeps it up, on the path a phone takes on a cold open, for as long as a check needs, and never
+ * races the page. Hold a read only the **page** makes (never one the `(app)` layout awaits, or no
+ * shell streams), for a session of the test's own (`ownSession`), so no other test is held.
+ * `caught()` says whether the proxy has held one of those requests yet (the page's read reached
+ * it). Release it in `finally`: a hold is the open connection, so a test that dies releases it
+ * too.
+ */
+export async function holdReads(
+  path: string,
+  session: string,
+): Promise<{ caught: () => boolean; release: () => void }> {
+  let caught = false;
+  const request = httpRequest(`${HOLD_PROXY_URL}/__hold`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+  });
+  await new Promise<void>((resolve, reject) => {
+    request.on("error", reject);
+    request.on("response", (response) => {
+      if (response.statusCode !== 200) {
+        reject(new Error(`hold-proxy refused the hold of ${path}: ${response.statusCode}`));
+        return;
+      }
+      let buffered = "";
+      response.setEncoding("utf8");
+      response.on("data", (chunk: string) => {
+        buffered += chunk;
+        const lines = buffered.split("\n");
+        buffered = lines.pop() ?? "";
+        for (const line of lines) {
+          const event = JSON.parse(line) as { hold?: number; caught?: string };
+          if (event.hold !== undefined) resolve();
+          if (event.caught !== undefined) caught = true;
+        }
+      });
+    });
+    request.end(JSON.stringify({ path, session }));
+  });
+  return {
+    caught: () => caught,
+    release: () => {
+      request.destroy();
+    },
+  };
 }
 
 /**
