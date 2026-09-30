@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { withSessionUserId } from "@/core/auth/server";
 import { checkThenRead } from "@/core/lib/start-early";
 import { cn } from "@/core/lib/utils";
 import { can } from "@/core/permissions";
@@ -13,11 +14,12 @@ import { EmptyState } from "@/core/ui/composites/empty-state";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { getSettings } from "@/modules/settings";
 import {
-  countPendingRequests,
+  countRequestsToDecide,
   countTasks,
   forLabel,
   isOverdue,
   MY_GROUP_TITLES,
+  MY_LIST_GROUPS,
   myTaskGroups,
   needsYou,
   type NeedsYouItem,
@@ -63,7 +65,8 @@ export default async function TasksPage() {
       readClientLabels(),
       readOwnFreelancers(),
       countTasks(),
-      countPendingRequests(),
+      // The suggestions to decide, never the viewer's own (Kickoff 4 decision 23).
+      withSessionUserId(countRequestsToDecide),
       getSettings(),
     ]),
   );
@@ -213,8 +216,7 @@ function MyTasks({
   clients: { id: string; name: string }[];
 }) {
   const groups = myTaskGroups(rows, viewer, now, todayIST());
-  const order = ["not_noted", "changes_requested", "due_today", "upcoming", "overdue"] as const;
-  const empty = order.every((group) => groups[group].length === 0);
+  const empty = MY_LIST_GROUPS.every((group) => groups[group].length === 0);
   const reviewing = groups.with_reviewers.length;
 
   return (
@@ -232,7 +234,7 @@ function MyTasks({
             size="compact"
           />
         ) : (
-          order.map((group) =>
+          MY_LIST_GROUPS.map((group) =>
             groups[group].length > 0 ? (
               <Section
                 key={group}

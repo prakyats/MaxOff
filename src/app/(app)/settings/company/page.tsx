@@ -7,6 +7,8 @@ import { getCompany } from "@/modules/settings";
 import { CompanyForm } from "@/modules/settings/components/company-form";
 import { CompanyLogoCard } from "@/modules/settings/components/company-logo-card";
 
+import { SETTINGS_HEADERS } from "../headers";
+
 export const metadata: Metadata = { title: "Company" };
 
 /** Settings → Company (PRODUCT §4.16): the name, the timezone and the logo (3.3). */
@@ -19,8 +21,7 @@ export default async function CompanySettingsPage() {
       <PageHeader
         back={{ href: "/settings", label: "Settings" }}
         title="Company"
-        description="The name people see across MaxOff, and the timezone every date is read in."
-        help="MaxOff runs on IST everywhere. The company name is what people see across the app."
+        {...SETTINGS_HEADERS.company}
       />
       <div className="flex max-w-md flex-col gap-6">
         <CompanyLogoCard name={company.name} logoFileId={company.logoFileId} />

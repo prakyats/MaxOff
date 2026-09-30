@@ -186,7 +186,7 @@ Daily work allotted to people. **Only the Owner and Admins create tasks.**
   - **Templates are shared by the whole company.** An Admin edits and archives the templates they created; the Owner edits any. A task's stages are typed on the task or come from a template; **there are no stage presets for tasks** (presets stay for projects, 7.4).
   - **Tasks tab, first glance:**
     - **Owner and Admins:** **"Needs you"** comes first: overdue, not noted past the escalation time, and waiting for your approval (which opens Approvals). Open tasks by deadline follow. The full list with filters is one tap deeper.
-    - **Staff, "My tasks":** Not noted · Changes requested · Due today · Upcoming · Overdue. A coordinator's freelancers' tasks are mixed in, labelled "for Asha".
+    - **Staff, "My tasks":** Not noted · Changes requested · Overdue · Due today · Upcoming (Kickoff 4 decision 25, owner 2026-09-30: Overdue moved up from last). A coordinator's freelancers' tasks are mixed in, labelled "for Asha".
   - **Before phase 5 (notifications):** phase 4 is released first, so its notifications are rows and recipients named in the function comments, and delivery arrives with 5.1. Until then, the **Tasks tab badge** counts tasks not yet noted plus changes requested, and the **Approvals badge** includes tasks.
 
 ### 4.7 Dashboards and daily reports

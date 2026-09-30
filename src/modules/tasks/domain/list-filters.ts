@@ -50,6 +50,28 @@ export const STATE_FILTER_LABELS: Record<StateFilter, string> = {
 export const ALL = "all";
 export const NO_CLIENT = "none";
 
+/**
+ * The label each filter of the full list shows until someone picks (its default option), by
+ * filter: the list writes its options with these, and its loading screen draws its toolbar with
+ * them, so the filters wrap on a wide screen exactly as the list's do (4C review M1).
+ */
+export const FILTER_DEFAULT_LABELS = {
+  state: STATE_FILTER_LABELS.open,
+  overdue: "Any deadline",
+  person: "Anyone",
+  client: "Any client",
+  type: "Any type",
+  engagement: "Employees and freelancers",
+} as const;
+
+/** The filters' default labels in screen order: six for the Owner and Admins, three for Staff. */
+export function filterDefaultLabels(team: boolean): string[] {
+  const labels = FILTER_DEFAULT_LABELS;
+  return team
+    ? [labels.state, labels.overdue, labels.person, labels.client, labels.type, labels.engagement]
+    : [labels.state, labels.overdue, labels.type];
+}
+
 export function matchesState(task: Pick<FilterableTask, "state">, value: string): boolean {
   switch (value) {
     case "all":

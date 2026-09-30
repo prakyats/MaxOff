@@ -14,8 +14,13 @@ import type { TaskRequest } from "../domain/requests";
 
 type Functions = Database["public"]["Functions"];
 
+/**
+ * The request's columns, and its task when the viewer may open it: the embed goes through the
+ * tasks' RLS, so it is null for a task the viewer cannot see (4C review S5: "Open the task" never
+ * lands on the not-found screen).
+ */
 const COLUMNS =
-  "id, requested_by, title, details, client_id, state, decided_by, decided_at, decision_reason, task_id, created_at";
+  "id, requested_by, title, details, client_id, state, decided_by, decided_at, decision_reason, task_id, created_at, task:tasks!task_id(id)";
 
 /** The requests the viewer sees: pending first, then the latest decided (at most `limit` of those). */
 export async function listTaskRequests(limit: number): Promise<TaskRequest[]> {
@@ -46,17 +51,23 @@ export async function listTaskRequests(limit: number): Promise<TaskRequest[]> {
     decidedAt: row.decided_at,
     decisionReason: row.decision_reason,
     taskId: row.task_id,
+    taskVisible: row.task !== null,
     createdAt: row.created_at,
   }));
 }
 
-/** How many pending requests the viewer sees ("Needs you": suggested tasks to decide). */
-export async function countPendingRequests(): Promise<number> {
+/**
+ * How many pending requests the viewer may decide ("Needs you": suggested tasks to decide): the
+ * ones RLS shows them, never their own (Kickoff 4 decision 23: an Admin's own suggestion goes to
+ * the Owner; the Owner never suggests).
+ */
+export async function countRequestsToDecide(viewerId: string): Promise<number> {
   const supabase = await createServerSupabase();
   const { count, error } = await supabase
     .from("task_requests")
     .select("id", { count: "exact", head: true })
-    .eq("state", "pending");
+    .eq("state", "pending")
+    .neq("requested_by", viewerId);
   if (error) throw error;
   return count ?? 0;
 }

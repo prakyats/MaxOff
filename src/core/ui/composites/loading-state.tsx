@@ -164,11 +164,11 @@ function DetailSkeleton({ items }: { items: number }) {
   );
 }
 
-/** The desktop table: a header row, then aligned columns. */
+/** The desktop table: a header row (`TableHead`'s 40px), then aligned columns. */
 function TableSkeleton({ items, columns }: { items: number; columns: readonly string[] }) {
   return (
     <div className="border-border bg-card overflow-hidden rounded-lg border">
-      <div className="border-border flex items-center gap-4 border-b px-4 py-3">
+      <div className="border-border flex h-10 items-center gap-4 border-b px-4">
         {columns.map((width, c) => (
           <Skeleton key={c} className={cn("h-3", width)} />
         ))}
@@ -196,6 +196,8 @@ function TableSkeleton({ items, columns }: { items: number; columns: readonly st
  */
 export function PageLoading({
   title,
+  description,
+  help,
   shape,
   count,
   actions,
@@ -203,6 +205,13 @@ export function PageLoading({
   children,
 }: {
   title: string;
+  /**
+   * The page's own header line and help, passed as the page passes them: the description takes
+   * a line under the title on a wide screen, the help a button beside it on a phone, so a
+   * loading screen without them moves the content when the page arrives (4C review S7).
+   */
+  description?: string | undefined;
+  help?: string | undefined;
   shape: LoadingShape;
   count?: number | undefined;
   actions?: number | undefined;
@@ -212,7 +221,12 @@ export function PageLoading({
 }) {
   return (
     <>
-      <PageHeader title={title} {...(back ? { back } : {})} />
+      <PageHeader
+        title={title}
+        {...(description ? { description } : {})}
+        {...(help ? { help } : {})}
+        {...(back ? { back } : {})}
+      />
       {children ?? (
         <LoadingState shape={shape} count={count} actions={actions} label={`Loading ${title}`} />
       )}

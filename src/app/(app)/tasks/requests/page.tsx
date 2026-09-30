@@ -10,6 +10,7 @@ import { PageHeader } from "@/core/ui/composites/page-header";
 import {
   LinkedText,
   listTaskRequests,
+  opensTask,
   requestActions,
   requestByline,
   requestOutcome,
@@ -21,6 +22,8 @@ import { SuggestTaskButton } from "@/modules/tasks/components/suggest-task-butto
 
 import { readClientLabels, readDirectory, readLabelClients } from "../reads";
 import { loadTaskFormSetup } from "../task-form-setup";
+
+import { requestsDescription } from "./copy";
 
 export const metadata: Metadata = { title: "Suggested tasks" };
 
@@ -55,17 +58,18 @@ export default async function TaskRequestsPage() {
   const adminOf = new Map(labelClients.map((client) => [client.id, client.adminId]));
   const approverFor = (clientId: string | null) =>
     viewer.role === "owner" && clientId ? (adminOf.get(clientId) ?? null) : null;
-  // A suggestion names a client label the suggester can see, Active or Paused (decision 22).
-  const choices = labels
-    .filter((label) => label.state === "active" || label.state === "paused")
-    .map((label) => ({ id: label.id, name: label.name }));
+  // A suggestion's client, Active or Paused (decision 22): an Admin's own clients (decision 2,
+  // 4C review S8a: `labelClients` holds only theirs under RLS), a label Staff can see.
+  const choices = can(viewer.role, "clients.edit_assigned")
+    ? labelClients.map((client) => ({ id: client.id, name: client.name }))
+    : labels
+        .filter((label) => label.state === "active" || label.state === "paused")
+        .map((label) => ({ id: label.id, name: label.name }));
   const { waiting, decided } = splitRequests(requests);
   const setup = decides ? loadTaskFormSetup(viewer).catch(() => null) : null;
   const requestViewer = { id: viewer.id, role: viewer.role, decides };
 
-  const description = decides
-    ? "Tasks the team suggested: make one a task, or decline it with a reason."
-    : "Tasks you suggested, and what became of them.";
+  const description = requestsDescription(decides);
 
   return (
     <>
@@ -129,7 +133,7 @@ export default async function TaskRequestsPage() {
                     {request.decisionReason}
                   </p>
                 ) : null}
-                {request.taskId && decides ? (
+                {opensTask(request) ? (
                   <DrillLink
                     href={`/tasks/${request.taskId}`}
                     className="self-start text-sm font-medium underline underline-offset-4"

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { emptyDraft, isDraftDirty } from "../domain/form";
 import {
+  opensTask,
   requestActions,
   requestByline,
   requestOutcome,
@@ -28,6 +29,7 @@ function request(overrides: Partial<TaskRequest>): TaskRequest {
     decidedAt: null,
     decisionReason: null,
     taskId: null,
+    taskVisible: false,
     createdAt: "2026-10-02T06:30:00Z",
     ...overrides,
   };
@@ -65,17 +67,32 @@ describe("task requests (4.6)", () => {
       decline: false,
       withdraw: true,
     });
-    // An Admin's own suggestion: both.
+    // An Admin's own suggestion goes to the Owner: withdraw only (Kickoff 4 decision 23).
     expect(requestActions(request({ requestedBy: "admin" }), admin)).toEqual({
+      convert: false,
+      decline: false,
+      withdraw: true,
+    });
+    // The Owner decides an Admin's.
+    const owner = { id: "owner", role: "owner" as const, decides: true };
+    expect(requestActions(request({ requestedBy: "admin" }), owner)).toEqual({
       convert: true,
       decline: true,
-      withdraw: true,
+      withdraw: false,
     });
     expect(requestActions(request({ state: "declined" }), admin)).toEqual({
       convert: false,
       decline: false,
       withdraw: false,
     });
+  });
+
+  it("offers the task it became only to whoever may see it (4C review S5)", () => {
+    expect(opensTask(request({ state: "converted", taskId: "t1", taskVisible: true }))).toBe(true);
+    expect(opensTask(request({ state: "converted", taskId: "t1", taskVisible: false }))).toBe(
+      false,
+    );
+    expect(opensTask(request({ state: "declined" }))).toBe(false);
   });
 
   it("says who suggested it and what became of it", () => {

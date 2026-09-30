@@ -11,6 +11,8 @@ import {
 import {
   badgeCount,
   forLabel,
+  managesTask,
+  MY_LIST_GROUPS,
   rowMeta,
   myGroupOf,
   myTaskGroups,
@@ -60,6 +62,16 @@ const MEERA: ListViewer = { id: "meera", role: "staff", coordinates: [] };
 const RAVI: ListViewer = { id: "ravi", role: "staff", coordinates: ["asha"] };
 
 describe("Staff: My tasks (Kickoff 4 decision 17)", () => {
+  it("lists its groups in the owner's order (Kickoff 4 decision 25: Overdue before Due today)", () => {
+    expect(MY_LIST_GROUPS).toEqual([
+      "not_noted",
+      "changes_requested",
+      "overdue",
+      "due_today",
+      "upcoming",
+    ]);
+  });
+
   it("puts each open task in one group, the first that applies", () => {
     const part = ownPart(row("a"), MEERA);
     const group = (over: Partial<TaskListRow>) =>
@@ -184,6 +196,25 @@ describe("Owner and Admins: Needs you (Kickoff 4 decision 17)", () => {
     });
     expect(needsYou([other], ADMIN, NOW, ESC)).toEqual([]);
     expect(needsYou([other], OWNER, NOW, ESC)).toHaveLength(1);
+  });
+
+  it("sends an Admin's escalations to the approving Admin, or the creator when there is none (4C review L6)", () => {
+    const quiet = {
+      assignees: [
+        assignee("meera", { acknowledgedAt: null, assignedAt: "2026-09-30T20:00:00.000Z" }),
+      ],
+    };
+    // Created by this Admin, now approved by another: the approver hears, not the creator.
+    const routed = row("routed", { ...quiet, createdBy: "admin", approvingAdminId: "admin2" });
+    expect(managesTask(routed, ADMIN)).toBe(false);
+    expect(needsYou([routed], ADMIN, NOW, ESC)).toEqual([]);
+    expect(needsYou([routed], { ...ADMIN, id: "admin2" }, NOW, ESC)[0]?.reason).toBe("not_noted");
+    // Nobody approves it: its creator hears.
+    const direct = row("direct", { ...quiet, createdBy: "admin", approvingAdminId: null });
+    expect(managesTask(direct, ADMIN)).toBe(true);
+    expect(needsYou([direct], ADMIN, NOW, ESC)[0]?.reason).toBe("not_noted");
+    // The Owner hears about every task.
+    expect(managesTask(routed, OWNER)).toBe(true);
   });
 
   it("lists an Admin's own note and change request, by deadline", () => {

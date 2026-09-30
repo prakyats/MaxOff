@@ -32,7 +32,7 @@ export {
   listTasksToDecide,
   type TaskToDecide,
 } from "./data/tasks";
-export { countPendingRequests, listTaskRequests } from "./data/requests";
+export { countRequestsToDecide, listTaskRequests } from "./data/requests";
 export { listTaskTemplates } from "./data/templates";
 export { listTaskTypeSettings } from "./data/task-types";
 export { type TaskTypeSetting } from "./domain/task-types";
@@ -44,6 +44,7 @@ export {
   managesTask,
   MY_GROUP_TITLES,
   MY_GROUPS,
+  MY_LIST_GROUPS,
   myTaskGroups,
   needsYou,
   openByDeadline,
@@ -60,6 +61,8 @@ export {
 } from "./domain/lists";
 export {
   ALL,
+  FILTER_DEFAULT_LABELS,
+  filterDefaultLabels,
   NO_CLIENT,
   STATE_FILTER_LABELS,
   STATE_FILTERS,
@@ -67,6 +70,7 @@ export {
   type StateFilter,
 } from "./domain/list-filters";
 export {
+  opensTask,
   REQUEST_STATE_LABELS,
   requestActions,
   requestByline,

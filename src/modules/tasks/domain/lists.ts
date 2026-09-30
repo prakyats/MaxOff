@@ -69,20 +69,26 @@ export function isOwnWork(part: OwnPart): boolean {
 }
 
 /**
- * Staff "My tasks" (decision 17): Not noted · Changes requested · Due today · Upcoming · Overdue,
- * and the tasks with the reviewers (done, waiting for a check or the approval) as a count at the
- * end. Each open task is in exactly one group, the first that applies: not noted, changes
- * requested, with the reviewers, overdue, due today, upcoming.
+ * Staff "My tasks" (decision 17, the order since Kickoff 4 decision 25): Not noted · Changes
+ * requested · Overdue · Due today · Upcoming, and the tasks with the reviewers (done, waiting for
+ * a check or the approval) as a count at the end. Each open task is in exactly one group, the
+ * first that applies: not noted, changes requested, with the reviewers, overdue, due today,
+ * upcoming.
  */
 export const MY_GROUPS = [
   "not_noted",
   "changes_requested",
+  "overdue",
   "due_today",
   "upcoming",
-  "overdue",
   "with_reviewers",
 ] as const;
 export type MyGroup = (typeof MY_GROUPS)[number];
+
+/** The groups "My tasks" lists as sections, in screen order (with the reviewers is a count). */
+export const MY_LIST_GROUPS = MY_GROUPS.filter(
+  (group): group is Exclude<MyGroup, "with_reviewers"> => group !== "with_reviewers",
+);
 
 export const MY_GROUP_TITLES: Record<MyGroup, string> = {
   not_noted: "Not noted",
@@ -154,10 +160,16 @@ export type NeedsYouItem = {
 
 export type Escalation = { ackEscalateHours: number; ackEscalateOwnerHours: number };
 
-/** A task the viewer runs: the Owner every task; an Admin the ones they created or approve. */
+/**
+ * A task the viewer answers for when it runs late or goes unnoted: the Owner every task; an Admin
+ * the ones they approve, or created when nobody approves them (WORKFLOWS §3.2 level 1 and §9's
+ * overdue escalation: "the approving Admin (or creator)"; 4C review L6).
+ */
 export function managesTask(row: TaskListRow, viewer: ListViewer): boolean {
   if (viewer.role === "owner") return true;
-  return row.createdBy === viewer.id || row.approvingAdminId === viewer.id;
+  return row.approvingAdminId !== null
+    ? row.approvingAdminId === viewer.id
+    : row.createdBy === viewer.id;
 }
 
 const HOUR = 3_600_000;

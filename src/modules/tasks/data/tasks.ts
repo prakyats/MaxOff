@@ -342,10 +342,9 @@ export type TaskToDecide = {
  * final approval, an approving Admin the ones waiting for their check (never a task they are on:
  * the step is skipped). Oldest hand-in first (PRODUCT §4.7).
  */
-export async function listTasksToDecide(viewer: {
-  id: string;
-  final: boolean;
-}): Promise<TaskToDecide[]> {
+export async function listTasksToDecide(
+  viewer: { final: true } | { final: false; id: string },
+): Promise<TaskToDecide[]> {
   const supabase = await createServerSupabase();
   const query = supabase
     .from("tasks")
@@ -358,6 +357,7 @@ export async function listTasksToDecide(viewer: {
   const { data, error } = viewer.final
     ? await query.eq("state", "admin_approved")
     : await query.eq("state", "submitted").eq("approving_admin_id", viewer.id);
+  const checker = viewer.final ? null : viewer.id;
   if (error) throw error;
   type Row = ListRowData & {
     late_reason: string | null;
@@ -390,8 +390,8 @@ export async function listTasksToDecide(viewer: {
     })
     .filter(
       ({ row }) =>
-        viewer.final ||
-        !row.assignees.some((a) => a.memberId === viewer.id && a.removedAt === null),
+        checker === null ||
+        !row.assignees.some((a) => a.memberId === checker && a.removedAt === null),
     );
 }
 

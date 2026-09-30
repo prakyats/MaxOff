@@ -8,10 +8,9 @@ import { listTaskTemplates, listTaskTypes } from "@/modules/tasks";
 import { AddTemplateButton, TemplateManager } from "@/modules/tasks/components/template-manager";
 import { listDirectory } from "@/modules/team";
 
-export const metadata: Metadata = { title: "Templates" };
+import { SETTINGS_HEADERS } from "../headers";
 
-const DESCRIPTION =
-  "Task templates for work that repeats: a type, a priority, stages and field defaults. New task offers them under Start from.";
+export const metadata: Metadata = { title: "Templates" };
 
 /**
  * Settings → Templates (4.6; PRODUCT §4.6, WORKFLOWS §3.5, Kickoff 4 decision 19): task templates,
@@ -44,8 +43,7 @@ export default async function TemplatesSettingsPage() {
       <PageHeader
         back={{ href: "/settings", label: "Settings" }}
         title="Templates"
-        description={DESCRIPTION}
-        help={DESCRIPTION}
+        {...SETTINGS_HEADERS.templates}
         actions={<AddTemplateButton {...context} />}
       />
       <div className="max-w-2xl">

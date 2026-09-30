@@ -1,6 +1,7 @@
 import { CheckCheckIcon } from "lucide-react";
 import type { Metadata } from "next";
 
+import { withSessionUserId } from "@/core/auth/server";
 import { startEarly } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
 import { requirePermission } from "@/core/permissions/server";
@@ -40,8 +41,8 @@ const DESCRIPTION = "Everything waiting for your decision, oldest first.";
  */
 export default async function ApprovalsPage() {
   // The lists start with the session read (§19); RLS decides what each returns, and the ones an
-  // Admin does not decide are dropped. Which task step to read waits for the role (the Owner's
-  // final approvals or the viewer's own checks), started as soon as the session says who it is.
+  // Admin does not decide are dropped. Both task steps start too (the Owner's final approvals,
+  // the viewer's own checks, keyed by the session's id), and the role picks one (4C review S6).
   const lists = Promise.all([
     listPendingDays(),
     listPendingRequests(),
@@ -49,20 +50,17 @@ export default async function ApprovalsPage() {
     listPendingClaims(),
     listDirectory(),
   ]);
-  startEarly(lists);
+  const finalTasks = listTasksToDecide({ final: true });
+  const checkTasks = withSessionUserId((id) => listTasksToDecide({ final: false, id }));
+  startEarly(lists, finalTasks, checkTasks);
   const viewer = await requirePermission([
     "attendance.decide",
     "tasks.approve_final",
     "tasks.approve_admin",
   ]);
-  // perf: sequential (which step's tasks to read needs the viewer's role and id)
-  const taskRead = listTasksToDecide({
-    id: viewer.id,
-    final: can(viewer.role, "tasks.approve_final"),
-  });
   const [[days, requests, notes, pendingClaims, directory], toDecide] = await Promise.all([
     lists,
-    taskRead,
+    can(viewer.role, "tasks.approve_final") ? finalTasks : checkTasks,
   ]);
   const decidesAttendance = can(viewer.role, "attendance.decide");
   const decidesExpenses = can(viewer.role, "expenses.decide");

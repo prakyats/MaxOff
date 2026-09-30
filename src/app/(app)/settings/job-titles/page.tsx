@@ -7,6 +7,8 @@ import { requirePermission } from "@/core/permissions/server";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { ListManager } from "@/modules/settings/components/list-manager";
 
+import { SETTINGS_HEADERS } from "../headers";
+
 export const metadata: Metadata = { title: "Job titles" };
 
 /**
@@ -26,8 +28,7 @@ export default async function JobTitlesSettingsPage() {
       <PageHeader
         back={{ href: "/settings", label: "Settings" }}
         title="Job titles"
-        description="What people do, shown next to their name. A job title carries no permissions: roles do that."
-        help="What people do, shown next to their name. A job title carries no permissions: roles do that."
+        {...SETTINGS_HEADERS.jobTitles}
       />
       <div className="max-w-2xl">
         <ListManager

@@ -9,9 +9,9 @@ import { PageHeader } from "@/core/ui/composites/page-header";
 import { PlaceholderPage } from "../_placeholder/placeholder-page";
 import { STAND_INS } from "../_placeholder/stand-ins";
 
-export const metadata: Metadata = { title: "Reports" };
+import { REPORTS_DESCRIPTION } from "./copy";
 
-const DESCRIPTION = "Reports on the team and the work. More arrive with the end-of-day reports.";
+export const metadata: Metadata = { title: "Reports" };
 
 /** The reports the Owner can open today (kickoff 3b decision 30: Month is the first). */
 const OWNER_REPORTS = [
@@ -39,7 +39,7 @@ export default async function ReportsPage() {
   }
   return (
     <>
-      <PageHeader title="Reports" description={DESCRIPTION} help={DESCRIPTION} />
+      <PageHeader title="Reports" description={REPORTS_DESCRIPTION} help={REPORTS_DESCRIPTION} />
       <ul
         data-slot="reports-list"
         className="border-border divide-border divide-y overflow-hidden rounded-lg border md:max-w-2xl"

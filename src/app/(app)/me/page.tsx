@@ -34,6 +34,8 @@ import {
 } from "@/modules/team";
 import { AvatarEditor } from "@/modules/team/components/avatar-editor";
 
+import { ME_DESCRIPTION } from "./copy";
+
 export const metadata: Metadata = { title: "Me" };
 
 /**
@@ -76,7 +78,7 @@ export default async function MePage({
         description={
           isWelcome
             ? "You're in. Check your name, add a phone number, and you're set."
-            : "Your profile, appearance and this device."
+            : ME_DESCRIPTION
         }
         // The welcome line is the one thing here a phone genuinely needs to be told; the rest
         // of the screen says what it is (ARCHITECTURE §14.1).

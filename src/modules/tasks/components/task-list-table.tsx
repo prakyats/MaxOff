@@ -12,6 +12,7 @@ import { StatusDot } from "@/core/ui/composites/status-badge";
 
 import {
   ALL,
+  FILTER_DEFAULT_LABELS,
   type FilterableTask,
   matchesClient,
   matchesEngagement,
@@ -78,7 +79,7 @@ export function TaskListTable({
       id: "overdue",
       label: "Deadline",
       options: [
-        { value: ALL, label: "Any deadline" },
+        { value: ALL, label: FILTER_DEFAULT_LABELS.overdue },
         { value: "overdue", label: "Overdue" },
       ],
       defaultValue: ALL,
@@ -88,7 +89,7 @@ export function TaskListTable({
       id: "client",
       label: "Client",
       options: [
-        { value: ALL, label: "Any client" },
+        { value: ALL, label: FILTER_DEFAULT_LABELS.client },
         ...options.clients,
         { value: NO_CLIENT, label: "No client" },
       ],
@@ -98,7 +99,7 @@ export function TaskListTable({
     const type: DataTableFilter<TaskListItem> = {
       id: "type",
       label: "Type",
-      options: [{ value: ALL, label: "Any type" }, ...options.types],
+      options: [{ value: ALL, label: FILTER_DEFAULT_LABELS.type }, ...options.types],
       defaultValue: ALL,
       match: matchesType,
     };
@@ -109,7 +110,7 @@ export function TaskListTable({
       {
         id: "person",
         label: "Person",
-        options: [{ value: ALL, label: "Anyone" }, ...options.people],
+        options: [{ value: ALL, label: FILTER_DEFAULT_LABELS.person }, ...options.people],
         defaultValue: ALL,
         match: matchesPerson,
       },
@@ -119,7 +120,7 @@ export function TaskListTable({
         id: "engagement",
         label: "Engagement",
         options: [
-          { value: ALL, label: "Employees and freelancers" },
+          { value: ALL, label: FILTER_DEFAULT_LABELS.engagement },
           { value: "permanent", label: "Employees" },
           { value: "freelance", label: "Freelancers" },
         ],

@@ -6,10 +6,9 @@ import { PageHeader } from "@/core/ui/composites/page-header";
 import { listTaskTypeSettings } from "@/modules/tasks";
 import { AddTaskTypeButton, TaskTypesManager } from "@/modules/tasks/components/task-types-manager";
 
-export const metadata: Metadata = { title: "Task types" };
+import { SETTINGS_HEADERS } from "../headers";
 
-const DESCRIPTION =
-  "The kinds of task offered when one is created. An archived type stays on the tasks that have it.";
+export const metadata: Metadata = { title: "Task types" };
 
 /**
  * Settings → Task types (4C; PRODUCT §4.6, Kickoff 4 decisions 14, 15): the Owner's list
@@ -29,8 +28,7 @@ export default async function TaskTypesSettingsPage() {
       <PageHeader
         back={{ href: "/settings", label: "Settings" }}
         title="Task types"
-        description={DESCRIPTION}
-        help={DESCRIPTION}
+        {...SETTINGS_HEADERS.taskTypes}
         actions={<AddTaskTypeButton />}
       />
       <div className="max-w-2xl">
