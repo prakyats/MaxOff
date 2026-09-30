@@ -11,13 +11,13 @@ import { Button } from "@/core/ui/primitives/button";
 import { toastResult } from "@/core/ui/toast";
 
 import { postKeepalive } from "@/core/ui/keepalive";
+import { displayName } from "@/core/lib/display-name";
 
 import { approveLeaves, rejectLeave } from "../actions/review";
 import { LEAVE_TYPE_LABELS, leaveDates } from "../domain/requests";
 import {
   approvedLeaveLabel,
   changeOfGoneLeave,
-  firstName,
   keptDatesNote,
   type PendingLeave,
   pendingLeaveStatus,
@@ -54,7 +54,7 @@ export function PendingLeaveGroup({ requests }: { requests: PendingLeave[] }) {
           subtitle: pendingLeaveSubtitle(request),
           status: "submitted",
           statusLabel: pendingLeaveStatus(request),
-          approvedLabel: approvedLeaveLabel(request, firstName(request.memberName)),
+          approvedLabel: approvedLeaveLabel(request, displayName(request.memberName)),
         }))}
         approve={(requestId) =>
           postKeepalive<{ keptDates: string[] }>(APPROVE_URL, { kind: "leave", id: requestId })
@@ -76,7 +76,7 @@ export function PendingLeaveGroup({ requests }: { requests: PendingLeave[] }) {
             <>
               <Button variant="ghost" asChild>
                 <OverlayLink href={`/people/${review.memberId}/leave`}>
-                  {firstName(review.memberName)}&apos;s leave
+                  {displayName(review.memberName)}&apos;s leave
                 </OverlayLink>
               </Button>
               <Button variant="destructive" onClick={() => setRejectId(review.id)}>
@@ -113,7 +113,7 @@ export function PendingLeaveGroup({ requests }: { requests: PendingLeave[] }) {
       <ReasonDialog
         open={rejecting !== null}
         onOpenChange={(open) => (open ? null : setRejectId(null))}
-        title={rejecting ? `Reject ${firstName(rejecting.memberName)}'s request?` : "Reject"}
+        title={rejecting ? `Reject ${displayName(rejecting.memberName)}'s request?` : "Reject"}
         description={
           rejecting
             ? `${pendingLeaveTitle(rejecting)} on ${leaveDates(rejecting.startDate, rejecting.endDate)}. ${rejecting.memberName} will see this reason.`

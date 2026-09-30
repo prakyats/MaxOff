@@ -18,6 +18,7 @@ import { PendingClaimsGroup } from "@/modules/expenses/components/pending-claims
 import {
   deadlineLabel,
   listTasksToDecide,
+  listUnreadCounts,
   pairName,
   stateLabel,
   type TaskToDecide,
@@ -49,6 +50,8 @@ export default async function ApprovalsPage() {
     listPendingNotes(),
     listPendingClaims(),
     listDirectory(),
+    // The task rows' unread comments (Kickoff 4 decision 28); empty for whoever has no tasks.
+    listUnreadCounts(),
   ]);
   const finalTasks = listTasksToDecide({ final: true });
   const checkTasks = withSessionUserId((id) => listTasksToDecide({ final: false, id }));
@@ -58,14 +61,17 @@ export default async function ApprovalsPage() {
     "tasks.approve_final",
     "tasks.approve_admin",
   ]);
-  const [[days, requests, notes, pendingClaims, directory], toDecide] = await Promise.all([
+  const [[days, requests, notes, pendingClaims, directory, unread], toDecide] = await Promise.all([
     lists,
     can(viewer.role, "tasks.approve_final") ? finalTasks : checkTasks,
   ]);
   const decidesAttendance = can(viewer.role, "attendance.decide");
   const decidesExpenses = can(viewer.role, "expenses.decide");
   const names = Object.fromEntries(directory.map((member) => [member.id, member.fullName]));
-  const tasks = toDecide.map((item) => taskItem(item, names, viewer.role === "owner"));
+  const tasks = toDecide.map((item) => ({
+    ...taskItem(item, names, viewer.role === "owner"),
+    unread: unread[item.row.id] ?? 0,
+  }));
   const claims = decidesExpenses ? pendingClaims : [];
   const own = {
     days: decidesAttendance ? days : [],
@@ -119,7 +125,7 @@ function taskItem(
   item: TaskToDecide,
   names: Readonly<Record<string, string>>,
   owner: boolean,
-): TaskApprovalItem {
+): Omit<TaskApprovalItem, "unread"> {
   const { row, submission, lateReason } = item;
   const by = submission ? pairName(names, submission.submittedBy, submission.onBehalfOf) : null;
   const at = submission?.at ?? row.submittedAt;

@@ -54,9 +54,9 @@ export function pendingLeaveStatus(request: PendingLeave): string {
 }
 
 /** "Approved Asha's leave", for the Undo toast. */
-export function approvedLeaveLabel(request: PendingLeave, firstName: string): string {
-  if (request.requestsCancellation) return `Cancelled ${firstName}'s leave`;
-  return `Approved ${firstName}'s ${LEAVE_TYPE_LABELS[request.type].toLowerCase()}`;
+export function approvedLeaveLabel(request: PendingLeave, name: string): string {
+  if (request.requestsCancellation) return `Cancelled ${name}'s leave`;
+  return `Approved ${name}'s ${LEAVE_TYPE_LABELS[request.type].toLowerCase()}`;
 }
 
 /**
@@ -106,11 +106,6 @@ export function keptDatesNote(dates: readonly string[]): string | null {
       ? labels[0]
       : `${labels.slice(0, -1).join(", ")} and ${labels[labels.length - 1]}`;
   return `${dates.length === 1 ? "This day keeps" : "These days keep"} your earlier decision: ${list}.`;
-}
-
-/** "Asha" from "Asha Rao": what the Owner's screens call a person in a sentence. */
-export function firstName(name: string): string {
-  return name.trim().split(/\s+/)[0] || name;
 }
 
 /**

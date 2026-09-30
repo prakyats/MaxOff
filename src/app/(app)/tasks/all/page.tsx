@@ -10,6 +10,7 @@ import {
   deadlineLabel,
   isOverdue,
   listFinishedTaskRows,
+  listUnreadCounts,
   stateLabel,
   type TaskListRow,
 } from "@/modules/tasks";
@@ -31,7 +32,7 @@ const DESCRIPTION = `Every open task, and the latest ${FINISHED_LIMIT} finished 
  * too.
  */
 export default async function AllTasksPage() {
-  const [viewer, [open, finished, directory, labels, types]] = await checkThenRead(
+  const [viewer, [open, finished, directory, labels, types, unread]] = await checkThenRead(
     requirePermission("tasks.work"),
     Promise.all([
       readOpenTasks(),
@@ -39,6 +40,7 @@ export default async function AllTasksPage() {
       readDirectory(),
       readClientLabels(),
       readTaskTypes(),
+      listUnreadCounts(),
     ]),
   );
   const team = can(viewer.role, "tasks.create");
@@ -75,6 +77,7 @@ export default async function AllTasksPage() {
         const engagement = people.get(id)?.engagement;
         return engagement ? [engagement] : [];
       }),
+      unread: unread[row.id] ?? 0,
     };
   };
   const tasks = [...open, ...finished].map(item);

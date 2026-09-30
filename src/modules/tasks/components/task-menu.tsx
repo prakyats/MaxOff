@@ -16,10 +16,12 @@ import {
 import { toastResult } from "@/core/ui/toast";
 
 import { cancelTask, reopenTask } from "../actions/tasks";
+import type { MoreStep } from "../domain/page";
 import type { TaskActions } from "../domain/task";
 import type { AdminOption, Task, TaskAssignee } from "../domain/types";
 
 import type { TaskFormSetup } from "./task-form-dialog";
+import { useTaskView } from "./task-view";
 
 const TaskFormDialog = dynamic(
   () => import("./task-form-dialog").then((module) => module.TaskFormDialog),
@@ -35,10 +37,12 @@ const ApproverDialog = dynamic(
 type Open = "edit" | "approver" | "cancel" | "reopen" | null;
 
 /**
- * The task page's ⋯ (4.4; PERMISSIONS §3): Edit, Change approver (the Owner), Cancel and Reopen,
- * for the task's creator, its approving Admin and the Owner. Occasional actions, one tap deeper
- * than the task's next action (PRODUCT §2). A layer like every menu (§14.2 a); each item hands
- * off to its own dialog.
+ * The task page's ⋯ (4.4; PERMISSIONS §3; Kickoff 4 decision 26: "everything else under ⋯"):
+ * the viewer's other work beside the next step (Mark done while Start work is the step; the
+ * Owner's "Decide it yourself" at a waiting Admin step), then Edit, Change approver (the Owner),
+ * Cancel and Reopen for the task's creator, its approving Admin and the Owner. Occasional actions,
+ * one tap deeper than the next step (PRODUCT §2). A layer like every menu (§14.2 a); each item
+ * hands off to its own dialog (the work's live beside the next step, `TaskNextStep`).
  */
 export function TaskMenu({
   task,
@@ -48,6 +52,8 @@ export function TaskMenu({
   admins,
   manage,
   changeApprover,
+  more,
+  doneLabel,
 }: {
   task: Task;
   assignees: TaskAssignee[];
@@ -56,9 +62,14 @@ export function TaskMenu({
   admins: AdminOption[];
   manage: TaskActions["manage"];
   changeApprover: boolean;
+  more: MoreStep[];
+  /** "Mark done", "Mark done again", "Mark done for Asha". */
+  doneLabel: string;
 }) {
   const [open, setOpen] = useState<Open>(null);
-  if (!manage.edit && !manage.cancel && !manage.reopen && !changeApprover) return null;
+  const { setDialog } = useTaskView();
+  const managing = manage.edit || manage.cancel || manage.reopen || changeApprover;
+  if (!managing && more.length === 0) return null;
 
   return (
     <>
@@ -75,6 +86,15 @@ export function TaskMenu({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-48">
+          {more.includes("done") ? (
+            <DropdownMenuItem onSelect={() => setDialog("done")}>{doneLabel}</DropdownMenuItem>
+          ) : null}
+          {more.includes("takeOver") ? (
+            <DropdownMenuItem onSelect={() => setDialog("takeOver")}>
+              Decide it yourself
+            </DropdownMenuItem>
+          ) : null}
+          {more.length > 0 && managing ? <DropdownMenuSeparator /> : null}
           {manage.edit && setup ? (
             <DropdownMenuItem onSelect={() => setOpen("edit")}>Edit task</DropdownMenuItem>
           ) : null}

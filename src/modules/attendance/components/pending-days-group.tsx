@@ -7,9 +7,10 @@ import { ReviewFacts, ReviewSheet } from "@/core/ui/composites/review-sheet";
 import { Button } from "@/core/ui/primitives/button";
 
 import { postKeepalive } from "@/core/ui/keepalive";
+import { displayName } from "@/core/lib/display-name";
 
 import { approveDays } from "../actions/review";
-import { firstName, historyDate } from "../domain/history";
+import { historyDate } from "../domain/history";
 import {
   approvedLabel,
   pendingLabel,
@@ -85,7 +86,7 @@ export function PendingDaysGroup({ days, today }: { days: PendingDay[]; today: s
             facts={[
               {
                 label: review.submittedChoice
-                  ? `${firstName(review.memberName)} chose`
+                  ? `${displayName(review.memberName)} chose`
                   : "Proposed",
                 value: pendingLabel(review),
               },

@@ -42,10 +42,19 @@ export type TaskHistoryLine = {
   at: string;
   /** "Ravi", or "Ravi for Asha" when a coordinator acted for a freelancer. */
   actor: string;
+  /** Who acted, by id ("<actor>|<for>"): consecutive ticks by the same pair collapse (29). */
+  actorKey: string;
   text: string;
   /** A second line: a reason (late, changes requested, cancel, reopen). */
   note?: string;
+  /** A stage tick or untick: which way, and the stage when it is known. */
+  tick?: StageTick;
+  /** How many entries the line stands for: more than one when ticks collapsed into it. */
+  count?: number;
 };
+
+/** A stage tick (`done`) or untick, and the stage's name when the history can tell it. */
+export type StageTick = { done: boolean; stage: string | null };
 
 const WARNING_TEXT: Record<string, string> = {
   workload: "a heavy day",
@@ -128,7 +137,7 @@ function joinClauses(clauses: readonly string[]): string {
 function describe(
   entry: TaskActivityEntry,
   context: TaskActivityContext,
-): { text: string; note?: string } | null {
+): { text: string; note?: string; tick?: StageTick } | null {
   const meta = entry.meta;
   switch (entry.entity) {
     case "tasks":
@@ -223,9 +232,14 @@ function describe(
         case "update": {
           if ("done_at" in entry.new) {
             const at = typeof entry.new.done_at === "string" ? Date.parse(entry.new.done_at) : NaN;
-            if (Number.isNaN(at)) return { text: "unticked a stage" };
-            const name = context.tickedStages?.[at];
-            return { text: name ? `ticked ${quoted(name)}` : "ticked a stage" };
+            if (Number.isNaN(at)) {
+              return { text: "unticked a stage", tick: { done: false, stage: null } };
+            }
+            const name = context.tickedStages?.[at] ?? null;
+            return {
+              text: name ? `ticked ${quoted(name)}` : "ticked a stage",
+              tick: { done: true, stage: name },
+            };
           }
           if ("name" in entry.new) {
             return {
@@ -267,7 +281,80 @@ export function describeTaskActivity(
     id: entry.id,
     at: entry.at,
     actor: actorOf(entry, context),
+    actorKey: `${entry.actorId ?? ""}|${entry.onBehalfOfId ?? ""}`,
     text: line.text,
     ...(line.note ? { note: line.note } : {}),
+    ...(line.tick ? { tick: line.tick } : {}),
   };
+}
+
+/** How close consecutive ticks by the same person must be to share a line (decision 29). */
+export const TICK_COLLAPSE_MS = 10 * 60_000;
+
+/** "“Cut”", "“Cut” and “Grade”", "“Cut” and another stage", "3 stages". */
+function stagesPhrase(stages: readonly (string | null)[]): string {
+  const named = stages.filter((stage): stage is string => stage !== null);
+  const parts = named.filter((stage, index) => named.indexOf(stage) === index).map(quoted);
+  const unknown = stages.length - named.length;
+  if (unknown > 0) {
+    parts.push(
+      parts.length > 0
+        ? unknown === 1
+          ? "another stage"
+          : `${unknown} more stages`
+        : unknown === 1
+          ? "a stage"
+          : `${unknown} stages`,
+    );
+  }
+  return joinClauses(parts);
+}
+
+/** One line for a run of ticks: "ticked “Cut” and “Grade”, unticked a stage". */
+function mergeTicks(run: readonly TaskHistoryLine[]): TaskHistoryLine {
+  const newest = run[run.length - 1] as TaskHistoryLine;
+  const ticked = run.flatMap((line) => (line.tick?.done ? [line.tick.stage] : []));
+  const unticked = run.flatMap((line) => (line.tick && !line.tick.done ? [line.tick.stage] : []));
+  const clauses = [
+    ...(ticked.length > 0 ? [`ticked ${stagesPhrase(ticked)}`] : []),
+    ...(unticked.length > 0 ? [`unticked ${stagesPhrase(unticked)}`] : []),
+  ];
+  return { ...newest, text: clauses.join(", "), count: run.length };
+}
+
+/**
+ * The history with consecutive stage ticks and unticks by the same person (the same pair, for a
+ * coordinator) collapsed into one line (Kickoff 4 decision 29): a run starts at a tick and takes
+ * the ticks right after it by the same person within `TICK_COLLAPSE_MS` of its first, so an hour
+ * of ticking never becomes one line. Anything else between two ticks ends the run. `lines` and
+ * the result are newest first, as the history reads; a collapsed line carries its newest time.
+ */
+export function collapseTicks(
+  lines: readonly TaskHistoryLine[],
+  windowMs: number = TICK_COLLAPSE_MS,
+): TaskHistoryLine[] {
+  const out: TaskHistoryLine[] = [];
+  let run: TaskHistoryLine[] = [];
+  const flush = () => {
+    const [only] = run;
+    if (only) out.push(run.length === 1 ? only : mergeTicks(run));
+    run = [];
+  };
+  for (const line of [...lines].reverse()) {
+    const first = run[0];
+    if (
+      line.tick &&
+      first &&
+      first.actorKey === line.actorKey &&
+      Date.parse(line.at) - Date.parse(first.at) <= windowMs
+    ) {
+      run.push(line);
+      continue;
+    }
+    flush();
+    if (line.tick) run = [line];
+    else out.push(line);
+  }
+  flush();
+  return out.reverse();
 }

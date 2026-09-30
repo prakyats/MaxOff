@@ -18,6 +18,7 @@ import {
   countTasks,
   forLabel,
   isOverdue,
+  listUnreadCounts,
   MY_GROUP_TITLES,
   MY_LIST_GROUPS,
   myTaskGroups,
@@ -57,19 +58,22 @@ const OPEN_ON_FIRST_SCREEN = 15;
 export default async function TasksPage() {
   // Every read starts with the session read (ARCHITECTURE §19); RLS decides what each returns,
   // and the ones only managers use are cheap for Staff (their own rows, a count).
-  const [viewer, [rows, directory, labels, own, counts, requests, settings]] = await checkThenRead(
-    requirePermission("tasks.work"),
-    Promise.all([
-      readOpenTasks(),
-      readDirectory(),
-      readClientLabels(),
-      readOwnFreelancers(),
-      countTasks(),
-      // The suggestions to decide, never the viewer's own (Kickoff 4 decision 23).
-      withSessionUserId(countRequestsToDecide),
-      getSettings(),
-    ]),
-  );
+  const [viewer, [rows, directory, labels, own, counts, requests, settings, unread]] =
+    await checkThenRead(
+      requirePermission("tasks.work"),
+      Promise.all([
+        readOpenTasks(),
+        readDirectory(),
+        readClientLabels(),
+        readOwnFreelancers(),
+        countTasks(),
+        // The suggestions to decide, never the viewer's own (Kickoff 4 decision 23).
+        withSessionUserId(countRequestsToDecide),
+        getSettings(),
+        // Each row's unread comments (Kickoff 4 decision 28).
+        listUnreadCounts(),
+      ]),
+    );
   const names = new Map(directory.map((member) => [member.id, member]));
   const clients = new Map(labels.map((label) => [label.id, label.name]));
   const context = {
@@ -87,7 +91,14 @@ export default async function TasksPage() {
       .filter((label) => label.state === "active" || label.state === "paused")
       .map((label) => ({ id: label.id, name: label.name }));
     return (
-      <MyTasks rows={rows} viewer={listViewer} context={context} now={now} clients={choices} />
+      <MyTasks
+        rows={rows}
+        viewer={listViewer}
+        context={context}
+        now={now}
+        clients={choices}
+        unread={unread}
+      />
     );
   }
 
@@ -152,6 +163,7 @@ export default async function TasksPage() {
                       statusLabel={stateLabel(item.row)}
                       flag={reasonFlag(item)}
                       note={needsNote(item, viewer.id, context.nameOf)}
+                      unread={unread[item.row.id] ?? 0}
                     />
                   ))}
                 </TaskRowList>
@@ -180,6 +192,7 @@ export default async function TasksPage() {
                   status={row.state}
                   statusLabel={stateLabel(row)}
                   flag={rowFlag(row, now)}
+                  unread={unread[row.id] ?? 0}
                 />
               ))}
             </TaskRowList>
@@ -208,12 +221,14 @@ function MyTasks({
   context,
   now,
   clients,
+  unread,
 }: {
   rows: TaskListRow[];
   viewer: { id: string; role: "owner" | "admin" | "staff"; coordinates: string[] };
   context: Parameters<typeof rowMeta>[1];
   now: Date;
   clients: { id: string; name: string }[];
+  unread: Readonly<Record<string, number>>;
 }) {
   const groups = myTaskGroups(rows, viewer, now, todayIST());
   const empty = MY_LIST_GROUPS.every((group) => groups[group].length === 0);
@@ -262,6 +277,7 @@ function MyTasks({
                         statusLabel={stateLabel(row)}
                         flag={rowFlag(row, now)}
                         note={note}
+                        unread={unread[row.id] ?? 0}
                       />
                     );
                   })}

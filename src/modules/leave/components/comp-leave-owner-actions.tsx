@@ -21,11 +21,11 @@ import {
 import { Label } from "@/core/ui/primitives/label";
 import { Textarea } from "@/core/ui/primitives/textarea";
 import { toastResult } from "@/core/ui/toast";
+import { displayName } from "@/core/lib/display-name";
 
 import { grantCompLeave, revokeCompLeave } from "../actions/credits";
 import { daysLabel } from "../domain/credits";
 import { LEAVE_REASON_MAX_LENGTH } from "../domain/limits";
-import { firstName } from "../domain/review";
 
 /**
  * The Owner grants comp leave to a person at any time, independent of any note (PRODUCT §4.3a,
@@ -51,7 +51,7 @@ export function GrantCompLeaveButton({ memberId, name }: { memberId: string; nam
         note,
         requestKey: requestKey.current,
       });
-      if (toastResult(result, { success: `Comp leave granted to ${firstName(name)}` })) {
+      if (toastResult(result, { success: `Comp leave granted to ${displayName(name)}` })) {
         // Closed directly: `close` ignores a close while the action is still pending.
         reset();
         setOpen(false);
@@ -95,7 +95,7 @@ export function GrantCompLeaveButton({ memberId, name }: { memberId: string; nam
         <DialogContent data-slot="grant-comp-leave-dialog">
           <form onSubmit={submit} noValidate className="flex flex-col gap-4">
             <DialogHeader>
-              <DialogTitle>Grant {firstName(name)} comp leave</DialogTitle>
+              <DialogTitle>Grant {displayName(name)} comp leave</DialogTitle>
               <DialogDescription>
                 It can be used until the end of this month, through a leave request you approve.
               </DialogDescription>
@@ -131,7 +131,7 @@ export function GrantCompLeaveButton({ memberId, name }: { memberId: string; nam
               {daysError ? <ErrorText alert={false}>{daysError}</ErrorText> : null}
             </fieldset>
             <div className="flex flex-col gap-2">
-              <Label htmlFor={`${id}-note`}>A note for {firstName(name)} (optional)</Label>
+              <Label htmlFor={`${id}-note`}>A note for {displayName(name)} (optional)</Label>
               <Textarea
                 id={`${id}-note`}
                 rows={2}
@@ -185,7 +185,7 @@ export function RevokeCreditButton({ creditId, name }: { creditId: string; name:
       <ReasonDialog
         open={open}
         onOpenChange={setOpen}
-        title={`Revoke ${firstName(name)}'s comp leave?`}
+        title={`Revoke ${displayName(name)}'s comp leave?`}
         description={`${name} will see this reason.`}
         label="Reason"
         placeholder={`${name} will see this reason.`}

@@ -9,7 +9,8 @@
  * `LinkedText` is a server component (no state, no handlers), so it is.
  */
 export { LinkedText } from "./components/linked-text";
-/** Server components (no state, no handlers): a list row and its block (4.5). */
+/** Server components (no state, no handlers): a list row and its block (4.5), the unread marker. */
+export { UnreadMarker } from "./components/unread-marker";
 export {
   TaskRow,
   TaskRowList,
@@ -18,6 +19,8 @@ export {
 } from "./components/task-row";
 export {
   getTask,
+  getTaskRead,
+  listUnreadCounts,
   listAssignees,
   listComments,
   listReviews,
@@ -89,10 +92,32 @@ export {
   type TemplateActions,
 } from "./domain/templates";
 export {
+  collapseTicks,
   describeTaskActivity,
+  TICK_COLLAPSE_MS,
   type TaskActivityContext,
   type TaskHistoryLine,
 } from "./domain/activity";
+export {
+  chatLabel,
+  handInFirst,
+  moreSteps,
+  neededLine,
+  newestCommentAt,
+  nextStep,
+  parseTaskView,
+  priorityLabel,
+  relativeDeadline,
+  shownView,
+  TASK_VIEWS,
+  unreadCount,
+  unreadLabel,
+  viewQuery,
+  type MoreStep,
+  type NextStep,
+  type RelativeDeadline,
+  type TaskView,
+} from "./domain/page";
 export { linkSegments, type TextSegment } from "./domain/links";
 export {
   activeAssignees,

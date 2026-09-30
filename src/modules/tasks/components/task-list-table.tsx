@@ -25,6 +25,8 @@ import {
   STATE_FILTERS,
 } from "../domain/list-filters";
 
+import { UnreadMarker } from "./unread-marker";
+
 /** One task as the full list shows it: worked out on the server (names, labels, overdue). */
 export type TaskListItem = FilterableTask & {
   id: string;
@@ -37,6 +39,8 @@ export type TaskListItem = FilterableTask & {
   owner: string;
   clientName: string | null;
   typeName: string;
+  /** The viewer's unread comments on it (Kickoff 4 decision 28). */
+  unread: number;
 };
 
 export type TaskListOptions = {
@@ -135,12 +139,15 @@ export function TaskListTable({
       accessorKey: "title",
       header: "Task",
       cell: ({ row }) => (
-        <DrillLink
-          href={`/tasks/${row.original.id}`}
-          className="block min-w-0 font-medium break-words underline-offset-4 hover:underline"
-        >
-          {row.original.title}
-        </DrillLink>
+        <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+          <DrillLink
+            href={`/tasks/${row.original.id}`}
+            className="min-w-0 font-medium break-words underline-offset-4 hover:underline"
+          >
+            {row.original.title}
+          </DrillLink>
+          <UnreadMarker count={row.original.unread} />
+        </span>
       ),
     },
     {
@@ -173,7 +180,16 @@ export function TaskListTable({
   // A card's trailing part is one marker (it never wraps beside the title): an overdue task shows
   // "Overdue" there and its state in the second line.
   const mobile: MobileCard<TaskListItem> = {
-    title: (task) => task.title,
+    // The unread bubble leads the title, so the title's ellipsis never cuts it.
+    title: (task) =>
+      task.unread > 0 ? (
+        <>
+          <UnreadMarker count={task.unread} className="mr-1.5 align-middle" />
+          {task.title}
+        </>
+      ) : (
+        task.title
+      ),
     subtitle: (task) =>
       [task.overdue ? task.stateLabel : null, task.dueLabel, task.owner, task.clientName]
         .filter(Boolean)
