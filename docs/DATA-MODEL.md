@@ -28,6 +28,19 @@ task_type_kind     normal | event | custom          -- behaviour category; names
 review_decision    approved | rejected
 request_state      pending | converted | declined | withdrawn
 billing_status     not_billed | billed
+notification_kind  a lookup table, not an enum (5.1, expand-only across releases): notification_kinds
+                   (kind pk, actionable, always_email, description). The 5.1 set: task_assigned*†,
+                   task_unassigned, task_changed, task_submitted, task_admin_approved,
+                   task_changes_requested*, task_completed, task_cancelled, task_reopened,
+                   task_comment (never email, 5A decision 15), task_request_created,
+                   task_request_converted, task_request_declined, coordinator_assigned,
+                   coordinator_removed, coordinator_missing, client_admin_assigned,
+                   client_admin_removed, attendance_decided*, absent_proposed, leave_requested,
+                   leave_decided*, extra_work_submitted, extra_work_decided*, comp_leave_granted*,
+                   comp_leave_revoked*, expense_submitted, expense_decided*, end_day_reminder.
+                   * actionable = email fallback when the person has no working push (kickoff 5
+                   decision 6); † always_email (ADR-0009). 5B adds the reminder, escalation, digest
+                   and reachability kinds by inserting rows.
 field_type         text | long_text | number | date | datetime | checkbox | select |
                    multi_select | url | email | phone | color | member | rating
                    -- deliberately NO currency type: money lives only in the Owner-only tables (§7)
@@ -192,10 +205,11 @@ org_settings         org_id pk, weekly_off_days smallint[] (0=Sun..6=Sat), logou
                      end_day_cutoff_time time ('05:00'; 3b review, expand-only: yesterday's open day
                      can be ended until this IST time, never once today started; Settings ->
                      Thresholds, which offers 00:00-11:59)
-                     -- kickoff 5 (2026-09-29, expand-only, added by 5.2/5.3): quiet_hours_start time ('22:00'),
-                     -- quiet_hours_end time ('07:00'), email_daily_cap_org int (90; check > 0), and
-                     -- default_task_reminders becomes the launch schedule (WORKFLOWS "Settled at kickoff 5");
-                     -- all in the API UPDATE grant, edited in Settings -> Thresholds
+                     -- kickoff 5 (2026-09-29, expand-only): quiet_hours_start time ('22:00'),
+                     -- quiet_hours_end time ('07:00'), email_daily_cap_org int (90; check > 0) **added in
+                     -- 5.1 step 1 (20260930050132), in the API UPDATE grant, no UI yet** (Settings ->
+                     -- Thresholds edits them in a later 5A step); default_task_reminders becomes the launch
+                     -- schedule in 5B (WORKFLOWS "Settled at kickoff 5")
                      -- API UPDATE grant: the eleven settings columns above, never org_id or the timestamps
                      -- defaults in brackets = launch settings (PRODUCT §7); default_task_reminders '[]' until
                      -- 5.3, workload_warning_threshold null until 4.3. Created by trigger with the organization
@@ -302,13 +316,22 @@ session_events       id, member_id, kind ('login'|'logout'), at, user_agent (≤
                      -- session_sign_out() (3b.1). ip_hash = salted SHA-256 of the client IP
                      -- (SESSION_IP_HASH_SALT) or null; never the IP, never an unsalted hash.
                      -- RLS: own rows; all for attendance.view_all
-push_subscriptions   id, member_id, endpoint unique, p256dh, auth, user_agent, created_at,
+push_subscriptions   id, member_id (default auth.uid(), cascade), endpoint unique, p256dh, auth, user_agent,
+                     created_at, last_seen_at,
                      platform ('android'|'ios'|'desktop'|'other'), is_standalone bool (PWA installed),
                      label (device name shown to the member), last_success_at, last_failure_at,
                      failure_count, disabled_at, disabled_reason ('gone'|'expired'|'signed_out'|
                      'deactivated'), last_test_at
-                     -- kept across logout (title-only payloads); removed on "sign out of this
-                     -- device" or deactivation. See PRODUCT §4.11 and WORKFLOWS §9a.
+                     -- kept across closing the app (full payloads, ADR-0009 amendment); removed on
+                     -- "sign out of this device"; deactivation disables every row ('deactivated',
+                     -- member_deactivate, 5.1). See PRODUCT §4.11 and WORKFLOWS §9a.
+                     -- 5.1 as built: RLS own rows only (nobody else ever reads an endpoint). The API
+                     -- inserts (member_id = self, endpoint, p256dh, auth, user_agent, platform,
+                     -- is_standalone, label; app.push_subscriptions_guard: an active permanent member),
+                     -- updates (p256dh, auth, user_agent, platform, is_standalone, label, last_seen_at)
+                     -- and deletes its own rows; the result columns (last_success_at, last_failure_at,
+                     -- failure_count, disabled_*, last_test_at) are the dispatcher's (service_role,
+                     -- protect_columns). 5.2 (step 3) decides "Sign out of this device" (a delete).
 ```
 
 ## 2. Configuration (customization as data)
@@ -1173,12 +1196,35 @@ files                id, org_id, storage_key, name, mime, size_bytes, sha256 nul
                      -- file again"), so nothing the 7-day rule takes can be referenced mid-cleanup
                      -- (20260927134340). A new column referencing files needs its FK **and an index**:
                      -- the cleanup runs one not-exists per FK column on every batch.
-notifications        id, recipient_id, kind, title, body, link, entity, entity_id, payload jsonb,
-                     created_at, read_at null, escalation_level int
-notification_deliveries  id, notification_id, channel ('push'|'email'), state ('queued'|'held'|'sent'|'failed'|'skipped_cap'),
+notification_kinds   kind pk, actionable bool, always_email bool, description   -- §0 (5.1); API select only
+notifications        id, org_id, recipient_id → members (cascade), actor_id null → members (set null),
+                     kind → notification_kinds, title (≤ 200), body null (≤ 2000), link null (an app route,
+                     '/…', ≤ 500), entity null, entity_id null (together or neither), payload jsonb
+                     (object), escalation_level int (0-2), created_at, read_at null
+                     -- 5.1 as built: written only by app.notify() (service_role only, called inside the
+                     -- transition or job that caused it, ADR-0006): one row per remaining recipient after
+                     -- dedupe, the actor dropped, deactivated / invited / unknown ids dropped, a
+                     -- freelancer's row to their current coordinator with " · for <name>" on the title
+                     -- and payload.for_member_id (ADR-0013 §4; nobody when they have none or the
+                     -- coordinator is the actor). RLS: the recipient only; the API updates read_at alone
+                     -- (column grant + protect_columns), no insert or delete; notifications_mark_read(entity,
+                     -- entity_id) and notifications_mark_all_read() for the caller's own rows. Not audited
+                     -- (the event is audited by its transition; a read is view state, as task_reads).
+                     -- Never purged (kickoff 5 decision 4). Money never in title, body, link or payload.
+                     -- The cascade exists for the local stack's fixture deletes; production deactivates.
+                     -- Indexes: (recipient_id, read_at, created_at desc), (recipient_id, created_at desc),
+                     -- (entity, entity_id), actor_id, org_id.
+notification_deliveries  id, notification_id → notifications (cascade), channel ('push'|'email'),
+                     state ('queued'|'held'|'sent'|'failed'|'skipped_cap') default 'queued',
                      -- kickoff 5 (2026-09-29): 'held' = push waiting out quiet hours (one summary push per person at
                      -- the window's end); 'skipped_cap' = over the per-person or org-wide email ceiling
-                     attempts, last_error, sent_at
+                     attempts, last_error, sent_at, next_attempt_at (default now()), created_at,
+                     unique (notification_id, channel)
+                     -- 5.1 as built: app.notify() queues the push row; the email row is the dispatcher's
+                     -- (step 4: queued for an always_email kind, or an actionable kind when the person has
+                     -- no working push; skipped_cap over a ceiling); the hold and the summary push are the
+                     -- dispatcher's too (step 3). No API access at all (service_role only, RLS with no
+                     -- policy). Index (next_attempt_at) where state in ('queued', 'held').
 activity_log         id bigint identity, org_id, actor_id null (system), on_behalf_of_id null (4A,
                      ADR-0013: the freelancer a coordinator acted for; actor_id stays the coordinator;
                      written by app.audit_row_change() from the override's on_behalf_of key, else
