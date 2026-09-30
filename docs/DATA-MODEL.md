@@ -331,7 +331,8 @@ task_types           id, org_id, name, kind task_type_kind, shows_on_calendar bo
                      -- archives them). unique (org_id, lower(btrim(name))) where archived_at is null.
                      -- RLS: every active member reads; insert / update need settings.manage, and
                      -- app.task_types_owner_guard() refuses a write without it even where a policy
-                     -- would allow one (PERMISSIONS ³). API UPDATE grant: name, shows_on_calendar,
+                     -- would allow one (PERMISSIONS ³), and, for every writer, archiving the
+                     -- organization's last active type (INVALID_STATE; 4C review L1). API UPDATE grant: name, shows_on_calendar,
                      -- has_location, default_reminders, color, icon, archived_at (position through a
                      -- move function with the Settings screen). No DELETE. Audited. kind decides the
                      -- task's fields (task_create): event -> event_date required, event times and
@@ -974,12 +975,17 @@ task_requests        id, org_id, requested_by, title, details, client_id null, s
                      -- decision_reason <= 1000; checks: converted <=> task_id, declined <=> reason,
                      -- converted / declined <=> decided_by + decided_at (withdrawn leaves them null).
                      -- NO API writes: task_request_create(title, details, client_id) (task_requests.create:
-                     -- Admins and Staff; the client a label the caller can see, Active or Paused),
+                     -- Admins and Staff; the client a label the caller can see, Active or Paused;
+                     -- an Admin's one of their own clients, FORBIDDEN otherwise: 4C review S8a),
                      -- task_request_withdraw(request_id) (the requester, pending only),
                      -- task_request_decline(request_id, reason) (task_requests.decide on a visible
                      -- request; REASON_REQUIRED), task_request_convert(request_id, <task_create's
                      -- arguments>) (task_create and the conversion in one transaction; the task is the
-                     -- decider's own). RLS select app.task_request_visible(requested_by, client_id): the
+                     -- decider's own). Neither lets an Admin decide their own request (FORBIDDEN,
+                     -- Kickoff 4 decision 23, migration phase4c_review_fixes); the Owner never
+                     -- suggests. The requester is told of a conversion or a decline, nobody of a
+                     -- withdrawal (decision 24, WORKFLOWS §9; delivery 5.1). RLS select
+                     -- app.task_request_visible(requested_by, client_id): the
                      -- Owner all; the requester their own; a decider (an Admin) those with no client and
                      -- those labelled with their clients (PERMISSIONS §2); the same rule decides who may
                      -- decide. Audited (requested, withdrawn, declined meta.reason, converted meta.task_id);
@@ -990,12 +996,17 @@ task_templates       id, org_id, name, task_type_id, description, default_priori
                      -- edits and archives only rows they created, the Owner any (PERMISSIONS ³).
                      -- 4.6 as built: name 1..120 (unique among active per organization), description
                      -- <= 10000, stages <= 30 of 1..120 characters (trimmed), reminder_rules '[]' (the
-                     -- editor is 5.3's), field_defaults an object of task custom field values (validated
-                     -- by core/custom-fields in the action, required never enforced on a default),
+                     -- editor is 5.3's; no API insert or update grant until then, 4C review S1),
+                     -- field_defaults an object of task custom field values (validated by
+                     -- core/custom-fields in the action and, since the 4C review (S1), by the guard:
+                     -- at most 32 KB, every key the write adds or changes an active task field of the
+                     -- organization, company-wide or the template's type, holding a value of its type
+                     -- (app.custom_field_value_ok); unchanged keys pass; required never enforced),
                      -- created_by default auth.uid(). A plain edit: RLS select templates.manage; insert
                      -- templates.manage with created_by = the caller; update the Owner any, an Admin their
                      -- own; no DELETE (archive). app.task_templates_guard(): the author never changes,
-                     -- the type is the organization's and active when chosen, stage lengths. Audited.
+                     -- the type is the organization's and active when chosen, stage lengths, the
+                     -- field defaults (above). Audited.
                      -- No client, assignee or deadline column (PRODUCT §4.6)
                      -- tasks.template_id → task_templates since 4.6 (the stale values nulled first, 4A
                      -- later item L3); app.tasks_template_check() refuses another organization's or an
@@ -1014,7 +1025,7 @@ task_templates       id, org_id, name, task_type_id, description, default_priori
 `task_update_assignment(task_id, changes, warnings)` → text[] of changed fields (`app.task_manager` with `tasks.create`; not on a final task; `changes` is a jsonb object of the keys to change: title, description, task_type_id, client_id (a label an Admin sets or changes: own clients only; 4A review S1), priority, due_at (any value), event_date, event_start_at, event_end_at, location, purpose, custom_fields, reminder_rules, assignee_ids (the full new set: added rows get a fresh acknowledgement, removed rows get `removed_at`, a person re-added is re-opened; an element that is not a uuid is VALIDATION), primary_owner_id; the field-level audit is the trigger's diff on `tasks` (action `updated`, meta.fields) plus `assigned` / `unassigned` / `primary_changed` rows; notifies the affected assignees);
 `task_set_approver(task_id, approving_admin_id)` (the Owner; an active permanent Admin or null; not on a final task; `admin_step` follows: null → `none`, else `required`; while `submitted`, the review moves to the new approver, or the task goes to `admin_approved` at once when the approver is removed (`none`) or is an assignee (`skipped`); audit `approver_changed`, meta.from / meta.to);
 **As built (4B):** the screens read the task tables under RLS (no reader function was needed). A stage tick's audit row holds only the columns it changed (`done_at`, `done_by`, `on_behalf_of`; `entity_id` is the task), so the history names the stage when it is still ticked from that instant and says "a stage" otherwise. Task custom fields are company-wide or one type's (`field_definitions.task_type_id`, 4A); a task reads the company-wide ones and its type's (`core/custom-fields` `listDefinitions("task", { taskTypeId })`); Settings → Custom fields edits the company-wide ones (4B), a per-type field is stored and applied but not yet offered there. `org_settings.workload_warning_threshold` is edited on Settings → Thresholds (1–50).
-**4C reads and moves:** `task_counts()` → one row `(not_noted, changes_requested, badge, to_decide)` for the caller (security definer, their own counts only; Kickoff 4 decision 16): open tasks not noted by the caller or a freelancer they coordinate now, those in `changes_requested`, the badge (either, each task once), and the tasks the caller may decide now (`tasks.approve_final`: `admin_approved`; `tasks.approve_admin`: `submitted` with the caller as approving Admin and not an assignee). `task_type_move(task_type_id, direction)` (`settings.manage`; swaps positions with the neighbour, archived types skipped, as `list_item_move`).
+**4C reads and moves:** `task_counts()` → one row `(not_noted, changes_requested, badge, to_decide)` for the caller (security definer, their own counts only; Kickoff 4 decision 16): open tasks not noted by the caller or a freelancer they coordinate now, those in `changes_requested`, the badge (either, each task once), and the tasks the caller may decide now (`tasks.approve_final`: `admin_approved`; `tasks.approve_admin`: `submitted` with the caller as approving Admin and not an assignee). `task_type_move(task_type_id, direction)` (`settings.manage`; swaps positions with the neighbour, archived types skipped, as `list_item_move`; since the 4C review (L2) moves in one organization run one at a time, a transaction advisory lock, and lock the two rows in id order, so opposite moves never deadlock).
 `member_availability(from_date, to_date, member_ids)` (`availability.view`; read only; one row per active non-Owner member per IST day in the range (≤ 62 days): `open_tasks_due` (tasks not completed / cancelled whose `due_at` falls on that day), `event_blocks` (`[{start_at, end_at}]` of the person's event tasks that day, no end = one hour; no titles or ids), `leave` (`leave` / `half_day` / `comp_leave` for approved leave covering the day, `requested` for a pending request, null for a freelancer), `present` (today only: a Start day recorded). What 4.3's warnings and an Admin's view of others are computed from).
 
 ## 7. Money (all Owner-only tables)
