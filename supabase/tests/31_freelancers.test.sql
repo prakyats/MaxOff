@@ -316,17 +316,20 @@ insert into fx values ('chitra', public.member_add_freelancer('Chitra', null, nu
 select pg_temp.as_system();
 -- Backdated so "attendance has started" would hold if engagement were ignored.
 update public.members set joined_at = now() - interval '30 days' where id = pg_temp.fx('chitra');
+-- A sign-in on a freelancer's id is nobody since the phase 4 review (S-S3: app.current_member() and
+-- app.has_permission() resolve permanent members only), so each of these is refused before its own
+-- permanent-only check (app.attendance_require_self's FORBIDDEN) is reached.
 select pg_temp.as_member('chitra');
-select throws_ok($$ select public.attendance_start_day() $$, 'P0001', 'FORBIDDEN', 'a freelancer cannot start a day');
-select throws_ok($$ select * from public.attendance_own_today() $$, 'P0001', 'FORBIDDEN', 'nor read one');
-select throws_ok($$ select public.attendance_choose_leave_today('leave', null) $$, 'P0001', 'FORBIDDEN', 'nor choose leave at the prompt');
-select throws_ok($$ select * from public.attendance_end_day() $$, 'P0001', 'FORBIDDEN', 'nor end a day');
-select throws_ok($$ select public.attendance_submit('present', null, app.today_ist()) $$, 'P0001', 'FORBIDDEN', 'nor submit attendance');
-select throws_ok($$ select public.leave_submit('leave', app.today_ist() + 1, app.today_ist() + 1, null) $$, 'P0001', 'FORBIDDEN', 'nor request leave');
-select throws_ok($$ select public.leave_submit_comp(app.today_ist() + 1, false, null) $$, 'P0001', 'FORBIDDEN', 'nor comp leave');
-select throws_ok($$ select public.extra_work_note_submit('overtime', app.today_ist(), 'late', 60) $$, 'P0001', 'FORBIDDEN', 'nor an extra work note');
+select throws_ok($$ select public.attendance_start_day() $$, 'P0001', 'UNAUTHENTICATED', 'a freelancer cannot start a day');
+select throws_ok($$ select * from public.attendance_own_today() $$, 'P0001', 'UNAUTHENTICATED', 'nor read one');
+select throws_ok($$ select public.attendance_choose_leave_today('leave', null) $$, 'P0001', 'UNAUTHENTICATED', 'nor choose leave at the prompt');
+select throws_ok($$ select * from public.attendance_end_day() $$, 'P0001', 'UNAUTHENTICATED', 'nor end a day');
+select throws_ok($$ select public.attendance_submit('present', null, app.today_ist()) $$, 'P0001', 'UNAUTHENTICATED', 'nor submit attendance');
+select throws_ok($$ select public.leave_submit('leave', app.today_ist() + 1, app.today_ist() + 1, null) $$, 'P0001', 'UNAUTHENTICATED', 'nor request leave');
+select throws_ok($$ select public.leave_submit_comp(app.today_ist() + 1, false, null) $$, 'P0001', 'UNAUTHENTICATED', 'nor comp leave');
+select throws_ok($$ select public.extra_work_note_submit('overtime', app.today_ist(), 'late', 60) $$, 'P0001', 'UNAUTHENTICATED', 'nor an extra work note');
 select throws_ok($$ select public.expense_claim_submit(app.today_ist(), 100, (select id from public.list_items where list_key = 'expense_category' limit 1), 'taxi') $$,
-  'P0001', 'FORBIDDEN', 'nor an expense claim (kickoff 3b decision 27)');
+  'P0001', 'UNAUTHENTICATED', 'nor an expense claim (kickoff 3b decision 27)');
 select pg_temp.as_member('owner');
 select throws_ok($$ select public.comp_leave_grant(pg_temp.fx('chitra'), 1.0, null, null) $$,
   'P0001', 'NOT_FOUND', 'comp leave is never granted to a freelancer');
