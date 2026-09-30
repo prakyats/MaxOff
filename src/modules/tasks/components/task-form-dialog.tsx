@@ -583,7 +583,6 @@ function TaskForm({
                 id={control.id}
                 className="w-full"
                 aria-describedby={control["aria-describedby"]}
-                data-slot="task-template-select"
               >
                 <SelectValue />
               </SelectTrigger>

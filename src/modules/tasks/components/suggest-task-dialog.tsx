@@ -91,7 +91,7 @@ export function SuggestTaskDialog({
           if (!open) requestClose();
         }}
       >
-        <DialogContent data-slot="suggest-task-dialog">
+        <DialogContent>
           <form onSubmit={submit} noValidate className="flex min-w-0 flex-col gap-4">
             <DialogHeader>
               <DialogTitle>Suggest a task</DialogTitle>

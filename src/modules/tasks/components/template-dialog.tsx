@@ -146,7 +146,7 @@ export function TemplateDialog({
           if (!open) requestClose();
         }}
       >
-        <DialogContent className="md:max-w-xl" data-slot="template-dialog">
+        <DialogContent className="md:max-w-xl">
           <form onSubmit={submit} noValidate className="flex min-w-0 flex-col gap-4">
             <DialogHeader>
               <DialogTitle>{editing ? `Edit ${template.name}` : "Add a template"}</DialogTitle>

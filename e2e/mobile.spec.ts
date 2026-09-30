@@ -304,12 +304,10 @@ const LOADING_SCREENS = [
   { role: "owner", path: "/tasks", marker: 'aria-label="Loading tasks"' },
   { role: "staff", path: "/tasks", marker: 'aria-label="Loading tasks"' },
   { role: "owner", path: "/tasks/all", marker: 'data-slot="loading-all-tasks"' },
-  // Suggested tasks (4.6) and the Owner's task settings. (Staff's suggested tasks, a read of
-  // their own few rows, is often quicker than its shell, as an Admin's Approvals is above:
-  // checked settled, not held.)
-  { role: "owner", path: "/tasks/requests", marker: 'data-slot="loading-task-requests"' },
-  { role: "owner", path: "/settings/templates", marker: 'data-slot="loading-templates"' },
-  { role: "owner", path: "/settings/task-types", marker: 'data-slot="loading-task-types"' },
+  // 4.6's Suggested tasks, Settings → Task types and → Templates are not held here: their reads
+  // are few and small, so the page often answers before its shell streams and no loading
+  // screen is sent at all, as with an Admin's Approvals (the Owner's /tasks/requests lost that
+  // race in a full run, 2026-09-30). They are checked settled above.
 ] as const;
 
 for (const role of ["owner", "admin", "staff"] as const) {
