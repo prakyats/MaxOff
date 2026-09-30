@@ -2,6 +2,7 @@ import "server-only";
 
 import { withDeadlockRetry } from "@/core/db/retry";
 import { createServerSupabase } from "@/core/db/server";
+import { displayName } from "@/core/lib/display-name";
 
 import { type PendingLeave, sortPendingLeave } from "../domain/review";
 import {
@@ -54,7 +55,7 @@ export async function listPendingRequests(): Promise<PendingLeave[]> {
       return {
         id: row.id,
         memberId: row.member_id,
-        memberName: row.member?.full_name ?? "Someone",
+        memberName: displayName(row.member?.full_name),
         type: row.type,
         startDate: row.start_date,
         endDate: row.end_date,

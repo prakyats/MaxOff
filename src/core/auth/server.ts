@@ -7,6 +7,7 @@ import { cache } from "react";
 import { createServerSupabase } from "@/core/db/server";
 import { setSentryUser } from "@/core/observability/user";
 import type { MemberRole } from "@/core/permissions";
+import { displayName } from "@/core/lib/display-name";
 
 import { formatHomeHint, HOME_HINT_COOKIE } from "./home-hint";
 import { LOGIN_PATH } from "./paths";
@@ -56,7 +57,7 @@ export const getSessionState = cache(async (): Promise<SessionState> => {
       id: row.id,
       email: row.email,
       role: row.role,
-      name: row.full_name,
+      name: displayName(row.full_name),
       jobTitle: row.job_title?.name ?? null,
       avatarFileId: row.avatar_file_id,
     },

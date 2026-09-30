@@ -4,6 +4,7 @@ import { cache } from "react";
 
 import { withDeadlockRetry } from "@/core/db/retry";
 import { createServerSupabase } from "@/core/db/server";
+import { displayName } from "@/core/lib/display-name";
 
 import type { DayStatus } from "../domain/choices";
 import { type PendingDay, sortPending, type TodayPerson } from "../domain/review";
@@ -37,7 +38,7 @@ export async function listPendingDays(): Promise<PendingDay[]> {
       return {
         id: row.id,
         memberId: row.member_id,
-        memberName: row.member?.full_name ?? "Someone",
+        memberName: displayName(row.member?.full_name),
         workDate: row.work_date,
         submittedChoice: row.submitted_choice,
         finalStatus: row.final_status,
@@ -78,7 +79,7 @@ export const getTodayPeople = cache(
     if (error) throw error;
     const people = (data as Loose<(typeof data)[number]>[]).map((row): TodayPerson => ({
       memberId: row.member_id ?? "",
-      name: row.full_name ?? "",
+      name: displayName(row.full_name, ""),
       jobTitle: row.job_title,
       started: row.started ?? false,
       dayId: row.day_id,

@@ -5,6 +5,7 @@ import { expect, test } from "./fixtures";
 import { addISTDays, istInstant, istWeekday, todayIST } from "../src/core/time";
 
 import {
+  animationsSettled,
   expectBackStack,
   expectNoHorizontalScroll,
   hydrated,
@@ -512,7 +513,8 @@ test.describe("the task page on a phone, installed: back closes each layer, one 
       assignees: [staffId, helperId],
       primary: staffId,
       day: 38,
-      stages: ["One", "Two", "Three", "Four", "Five"],
+      // A history long enough to scroll the page well past the views' bar, at 430px too.
+      stages: Array.from({ length: 14 }, (_, index) => `Stage ${index + 1}`),
     });
     await insertAs(helper.email, PASSWORD, "task_comments", {
       task_id: taskId,
@@ -536,11 +538,23 @@ test.describe("the task page on a phone, installed: back closes each layer, one 
     }
     await tab(page, "activity").click();
     await page.locator('[data-slot="task-history-show-all"]').click();
+    // Scrolled down the whole history, the views' bar sticks right under the title bar.
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await expect
+      .poll(async () => {
+        const header = await page.locator('[data-slot="page-header"]:visible').boundingBox();
+        const band = await page.locator('[data-slot="task-tabs-band"]').boundingBox();
+        return header && band ? Math.round(band.y - (header.y + header.height)) : null;
+      })
+      .toBe(0);
+    await expect(page.locator('[data-slot="task-tabs-band"]')).toBeInViewport();
 
     // The Chat sheet is a layer: full height, back closes it.
     await tab(page, "chat").click();
     const sheet = chatSheet(page);
     await expect(sheet).toBeVisible();
+    // Measured once it has slid in.
+    await animationsSettled(page);
     const viewport = page.viewportSize() as { width: number; height: number };
     const box = (await sheet.boundingBox()) as { y: number; height: number };
     expect(box.y).toBeLessThanOrEqual(24);

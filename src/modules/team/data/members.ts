@@ -3,6 +3,7 @@ import "server-only";
 import { createServerSupabase } from "@/core/db/server";
 import { createServiceSupabase } from "@/core/db/service";
 import { AppError } from "@/core/errors";
+import { displayName } from "@/core/lib/display-name";
 
 import type {
   CoordinatorSpell,
@@ -46,7 +47,7 @@ type MemberRow = {
 function toTeamMember(row: MemberRow): TeamMember {
   return {
     id: row.id,
-    fullName: row.full_name,
+    fullName: displayName(row.full_name),
     email: row.email ?? null,
     phone: row.phone,
     role: row.role,
