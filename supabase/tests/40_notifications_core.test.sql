@@ -118,9 +118,11 @@ end;
 $$;
 
 -- The rows a person holds of a kind (read as the system: RLS is tested on its own below).
+-- $2, not the parameter's name: in a SQL function a column wins over a same-named parameter,
+-- so "x.kind = kind" compared the column with itself and counted every row (5.1 review).
 create function pg_temp.n(k text, kind text default null) returns bigint language sql stable as $$
   select count(*) from public.notifications x
-  where x.recipient_id = pg_temp.fx(k) and (kind is null or x.kind = kind);
+  where x.recipient_id = pg_temp.fx(k) and ($2 is null or x.kind = $2);
 $$;
 create function pg_temp.last(k text, kind text) returns public.notifications language sql stable as $$
   select x.* from public.notifications x
@@ -216,8 +218,8 @@ select is((select array_agg(kind order by kind) from public.notification_kinds w
   array['task_assigned'], 'the always-email set among the 5.1 kinds: task assigned');
 select ok(not (select actionable or always_email from public.notification_kinds where kind = 'task_comment'),
   'a comment is never email (5A decision 15)');
-select is((select schedule from cron.job where jobname = 'end_day_reminder'), '*/5 12-18 * * *',
-  'the 20:30 reminder job is scheduled through the IST evening');
+select is((select schedule from cron.job where jobname = 'end_day_reminder'), '*/5 * * * *',
+  'the 20:30 reminder job runs every 5 minutes all day (5.1 review S1: the org''s time may be anything)');
 
 -- 2. app.notify() ---------------------------------------------------------------------------------------
 select pg_temp.as_member('owner');
@@ -317,7 +319,7 @@ select lives_ok($$ insert into public.push_subscriptions (endpoint, p256dh, auth
     values ('https://push.example/s1', 'k', 'a', 'android', true, 'Phone') $$, 'staff1 subscribes their own device');
 select throws_ok(format($$ insert into public.push_subscriptions (member_id, endpoint, p256dh, auth)
     values (%L, 'https://push.example/x', 'k', 'a') $$, pg_temp.fx('staff2')),
-  '42501', null, 'never for someone else (RLS)');
+  'P0001', 'FORBIDDEN', 'never for someone else (the guard, which runs before RLS; 5.1 review S4)');
 select throws_ok($$ insert into public.push_subscriptions (endpoint, p256dh, auth, failure_count)
     values ('https://push.example/s2', 'k', 'a', 3) $$, '42501', null, 'the result columns are not the member''s to write');
 select is((select count(*) from public.push_subscriptions), 1::bigint, 'staff1 sees their row');
@@ -405,11 +407,11 @@ select pg_temp.clear();
 select pg_temp.as_member('admin1');
 insert into public.task_comments (task_id, body) values (pg_temp.fx('t1'), 'Looks good');
 select pg_temp.as_system();
-select is(pg_temp.n('coord', 'task_comment'), 1::bigint,
-  'an earlier commenter who left the task (the coordinator, for Asha and as themselves) is still told, once');
+select is(pg_temp.n('coord', 'task_comment'), 0::bigint,
+  'an earlier commenter who can no longer see the task (the coordinator, for Asha and as themselves) is not told (5.1 review M1)');
 select is(pg_temp.n('staff2'), 0::bigint, 'a removed assignee who never commented is not');
 select is(pg_temp.n('admin1'), 0::bigint, 'the author none');
-select is(pg_temp.total(), 3::bigint, 'creator, staff1, the coordinator');
+select is(pg_temp.total(), 2::bigint, 'creator and staff1: the people who can still open it');
 select pg_temp.as_member('owner');
 select public.task_update_assignment(pg_temp.fx('t1'), jsonb_build_object('assignee_ids', jsonb_build_array(pg_temp.fx('staff1'), pg_temp.fx('asha'))));
 
@@ -673,8 +675,10 @@ select pg_temp.as_member('staff1');
 insert into fx values ('n1', public.extra_work_note_submit('overtime', pg_temp.today() - 1, 'Colour grade for the reel', 90));
 select pg_temp.as_system();
 select is((pg_temp.last('owner', 'extra_work_submitted')).title, 'Staff1 added an overtime note', 'an overtime note reaches the Owner');
+-- The payload's ids are random uuids that may hold "90": the check looks past them (as e260128).
 select ok((pg_temp.last('owner', 'extra_work_submitted')).body not like '%90%'
-          and (pg_temp.last('owner', 'extra_work_submitted')).payload::text not like '%90%',
+          and ((pg_temp.last('owner', 'extra_work_submitted')).payload - 'note_id' - 'member_id')::text not like '%90%'
+          and (pg_temp.last('owner', 'extra_work_submitted')).payload ? 'note_id',
   'the minutes never appear (decision 24)');
 select is(pg_temp.total(), 1::bigint, 'one row');
 select pg_temp.clear();
@@ -767,12 +771,17 @@ update public.clients set admin_id = pg_temp.fx('admin2') where id = pg_temp.fx(
 select pg_temp.as_member('owner');
 select public.member_deactivate(pg_temp.fx('admin1'), 'Left the company');
 select pg_temp.as_system();
-select is(pg_temp.n('owner', 'coordinator_missing'), 1::bigint,
-  'a deactivated coordinator: the Owner once per affected freelancer, although the Owner is the actor (decision 17)');
-select is((pg_temp.last('owner', 'coordinator_missing')).actor_id, null, 'written with no actor');
-select is(((pg_temp.last('owner', 'coordinator_missing')).title, (pg_temp.last('owner', 'coordinator_missing')).link)::text,
-  ('Bina has no coordinator: choose one', '/people/' || pg_temp.fx('bina'))::text, 'with the decision-17 wording');
-select is(pg_temp.total(), 1::bigint, 'one row');
+-- 5.1 review (L2): past the CONFLICT check the closed rows belong to deactivated freelancers, who
+-- need no coordinator, so the decision-17 row is not written for them (its wording and the
+-- no-actor form are checked on the function's text below; 41_ covers the paths).
+select is(pg_temp.n('owner', 'coordinator_missing'), 0::bigint,
+  'a deactivated coordinator of a deactivated freelancer: no "choose one" to-do for the Owner (5.1 review L2)');
+select is((select count(*) from public.member_coordinators mc where mc.member_id = pg_temp.fx('bina') and mc.to_at is null), 0::bigint,
+  'the row is closed with the leaver all the same (4A review M2)');
+select ok((select p.prosrc from pg_proc p where p.oid = 'public.member_deactivate(uuid, text)'::regprocedure)
+          like '%has no coordinator: choose one%',
+  'the decision-17 wording is there for an active freelancer');
+select is(pg_temp.total(), 0::bigint, 'no row');
 select is((select count(*) from public.push_subscriptions s where s.member_id = pg_temp.fx('admin1')
            and s.disabled_reason = 'deactivated' and s.disabled_at is not null), 2::bigint,
   'their push subscriptions (both devices) are disabled');
