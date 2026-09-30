@@ -73,6 +73,7 @@
 | Projects / cycles / items | All | Projects of assigned clients | ❌ Never |
 | Staff tasks | All | Tasks they **created**, **approve**, are **assigned to**, or labelled with **their clients** | Tasks they're **assigned to** |
 | Task comments / files / submissions | All | Same as the task | Same as the task |
+| Task reads (`task_reads`, Kickoff 4 decision 28) | **Own rows only** | Own rows only | Own rows only |
 | Task requests | All | Their own + requests labelled with their clients + requests with no client | Their own |
 | Availability of others | Full detail | **Counts and busy blocks only** (`member_availability()` function) | ❌ |
 | Money (any amount, override, billing status, revenue) | ✅ | ❌ (not even in exports) | ❌ |
@@ -84,6 +85,8 @@
 | Notifications | Own | Own | Own |
 
 **Names on a task (Kickoff 4 decision 21, owner 2026-09-29, built in 4C):** ADR-0013 says every screen that names "who" shows both, so a Staff member reads the **names** of everyone on or acting on a task they can see (the Members row above), never a stranger's, and never a phone (the phone stays `team.view`'s, the person's own and a freelancer's current coordinator's). `app.directory_visible_ids()` computes the set once per read; `member_directory` keeps its columns.
+
+**Task reads (Kickoff 4 decision 28, owner 2026-09-30):** each member's last read of a task's comments is theirs alone: every role, the Owner included, reads only their own `task_reads` rows (a coordinator's reads are their own, never their freelancer's), and nobody writes one through the API: `task_mark_read()` moves the caller's own read forward on a task they see (`tasks.work`). `task_unread_counts()` counts, for the caller only, the comments by others after that read on the tasks they see.
 
 **Task warnings (4A review, 2026-09-29):** a `task_warnings` row and its `warning_overridden` activity entry name another person's leave or workload, so they are read only with `availability.view` (the Owner and Admins) on a task the reader can see; a Staff co-assignee or coordinator never reads them, although they see the task.
 
