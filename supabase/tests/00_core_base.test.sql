@@ -93,7 +93,11 @@ insert into app_internal values
   ('coordinator_eligible'), ('next_position'), ('task_require_creator'), ('task_lock'),
   ('task_actor'), ('task_assignee_check'), ('task_check_fields'), ('task_record_warnings'),
   -- 4C: a task request row locked inside the request functions
-  ('task_request_lock');
+  ('task_request_lock'),
+  -- 5.1: app.notify() and the helpers the retrofitted transition functions and jobs call
+  ('notify'), ('org_owner_id'), ('member_name'), ('notify_date'), ('notify_when'), ('notify_span'),
+  ('task_people'), ('notify_leave_owner'), ('notify_leave_member'), ('coordinator_link'),
+  ('end_day_reminder');
   -- 3c.1 (contract migration): attendance_logout and logout_not_recorded are gone with the 2.x gate.
 select is(
   (select count(*) from pg_proc p
@@ -114,7 +118,7 @@ select is(
   0::bigint,
   'the internal helpers: service_role only, never the API role');
 select is((select count(*) from pg_proc p where p.pronamespace = 'app'::regnamespace
-             and p.proname in (select name from app_internal)), 26::bigint,
+             and p.proname in (select name from app_internal)), 37::bigint,
   'the internal helper list matches what exists');
 select cmp_ok((select count(*) from pg_proc where pronamespace = 'app'::regnamespace), '>=', 4::bigint,
   'the grant check saw the app functions');

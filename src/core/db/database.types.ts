@@ -1481,6 +1481,165 @@ export type Database = {
           },
         ];
       };
+      notification_deliveries: {
+        Row: {
+          attempts: number;
+          channel: string;
+          created_at: string;
+          id: string;
+          last_error: string | null;
+          next_attempt_at: string;
+          notification_id: string;
+          sent_at: string | null;
+          state: string;
+        };
+        Insert: {
+          attempts?: number;
+          channel: string;
+          created_at?: string;
+          id?: string;
+          last_error?: string | null;
+          next_attempt_at?: string;
+          notification_id: string;
+          sent_at?: string | null;
+          state?: string;
+        };
+        Update: {
+          attempts?: number;
+          channel?: string;
+          created_at?: string;
+          id?: string;
+          last_error?: string | null;
+          next_attempt_at?: string;
+          notification_id?: string;
+          sent_at?: string | null;
+          state?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "notification_deliveries_notification_id_fkey";
+            columns: ["notification_id"];
+            isOneToOne: false;
+            referencedRelation: "notifications";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      notification_kinds: {
+        Row: {
+          actionable: boolean;
+          always_email: boolean;
+          description: string;
+          kind: string;
+        };
+        Insert: {
+          actionable?: boolean;
+          always_email?: boolean;
+          description: string;
+          kind: string;
+        };
+        Update: {
+          actionable?: boolean;
+          always_email?: boolean;
+          description?: string;
+          kind?: string;
+        };
+        Relationships: [];
+      };
+      notifications: {
+        Row: {
+          actor_id: string | null;
+          body: string | null;
+          created_at: string;
+          entity: string | null;
+          entity_id: string | null;
+          escalation_level: number;
+          id: string;
+          kind: string;
+          link: string | null;
+          org_id: string;
+          payload: Json;
+          read_at: string | null;
+          recipient_id: string;
+          title: string;
+        };
+        Insert: {
+          actor_id?: string | null;
+          body?: string | null;
+          created_at?: string;
+          entity?: string | null;
+          entity_id?: string | null;
+          escalation_level?: number;
+          id?: string;
+          kind: string;
+          link?: string | null;
+          org_id: string;
+          payload?: Json;
+          read_at?: string | null;
+          recipient_id: string;
+          title: string;
+        };
+        Update: {
+          actor_id?: string | null;
+          body?: string | null;
+          created_at?: string;
+          entity?: string | null;
+          entity_id?: string | null;
+          escalation_level?: number;
+          id?: string;
+          kind?: string;
+          link?: string | null;
+          org_id?: string;
+          payload?: Json;
+          read_at?: string | null;
+          recipient_id?: string;
+          title?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "notifications_actor_id_fkey";
+            columns: ["actor_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "notifications_actor_id_fkey";
+            columns: ["actor_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "notifications_kind_fkey";
+            columns: ["kind"];
+            isOneToOne: false;
+            referencedRelation: "notification_kinds";
+            referencedColumns: ["kind"];
+          },
+          {
+            foreignKeyName: "notifications_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "notifications_recipient_id_fkey";
+            columns: ["recipient_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "notifications_recipient_id_fkey";
+            columns: ["recipient_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       org_settings: {
         Row: {
           ack_escalate_hours: number;
@@ -1488,12 +1647,15 @@ export type Database = {
           ack_repeat_hours: number;
           created_at: string;
           default_task_reminders: Json;
+          email_daily_cap_org: number;
           email_daily_cap_per_member: number;
           end_day_cutoff_time: string;
           expense_receipt_above: number;
           logout_reminder_time: string;
           org_id: string;
           overdue_escalate_hours: number;
+          quiet_hours_end: string;
+          quiet_hours_start: string;
           updated_at: string;
           weekly_off_days: number[];
           workload_warning_threshold: number | null;
@@ -1504,12 +1666,15 @@ export type Database = {
           ack_repeat_hours?: number;
           created_at?: string;
           default_task_reminders?: Json;
+          email_daily_cap_org?: number;
           email_daily_cap_per_member?: number;
           end_day_cutoff_time?: string;
           expense_receipt_above?: number;
           logout_reminder_time?: string;
           org_id: string;
           overdue_escalate_hours?: number;
+          quiet_hours_end?: string;
+          quiet_hours_start?: string;
           updated_at?: string;
           weekly_off_days?: number[];
           workload_warning_threshold?: number | null;
@@ -1520,12 +1685,15 @@ export type Database = {
           ack_repeat_hours?: number;
           created_at?: string;
           default_task_reminders?: Json;
+          email_daily_cap_org?: number;
           email_daily_cap_per_member?: number;
           end_day_cutoff_time?: string;
           expense_receipt_above?: number;
           logout_reminder_time?: string;
           org_id?: string;
           overdue_escalate_hours?: number;
+          quiet_hours_end?: string;
+          quiet_hours_start?: string;
           updated_at?: string;
           weekly_off_days?: number[];
           workload_warning_threshold?: number | null;
@@ -1571,6 +1739,81 @@ export type Database = {
             columns: ["logo_file_id"];
             isOneToOne: false;
             referencedRelation: "files";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      push_subscriptions: {
+        Row: {
+          auth: string;
+          created_at: string;
+          disabled_at: string | null;
+          disabled_reason: string | null;
+          endpoint: string;
+          failure_count: number;
+          id: string;
+          is_standalone: boolean;
+          label: string | null;
+          last_failure_at: string | null;
+          last_seen_at: string;
+          last_success_at: string | null;
+          last_test_at: string | null;
+          member_id: string;
+          p256dh: string;
+          platform: string;
+          user_agent: string | null;
+        };
+        Insert: {
+          auth: string;
+          created_at?: string;
+          disabled_at?: string | null;
+          disabled_reason?: string | null;
+          endpoint: string;
+          failure_count?: number;
+          id?: string;
+          is_standalone?: boolean;
+          label?: string | null;
+          last_failure_at?: string | null;
+          last_seen_at?: string;
+          last_success_at?: string | null;
+          last_test_at?: string | null;
+          member_id?: string;
+          p256dh: string;
+          platform?: string;
+          user_agent?: string | null;
+        };
+        Update: {
+          auth?: string;
+          created_at?: string;
+          disabled_at?: string | null;
+          disabled_reason?: string | null;
+          endpoint?: string;
+          failure_count?: number;
+          id?: string;
+          is_standalone?: boolean;
+          label?: string | null;
+          last_failure_at?: string | null;
+          last_seen_at?: string;
+          last_success_at?: string | null;
+          last_test_at?: string | null;
+          member_id?: string;
+          p256dh?: string;
+          platform?: string;
+          user_agent?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "push_subscriptions_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "push_subscriptions_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
             referencedColumns: ["id"];
           },
         ];
@@ -3137,6 +3380,11 @@ export type Database = {
           status: Database["public"]["Enums"]["member_status"];
           working_days: number;
         }[];
+      };
+      notifications_mark_all_read: { Args: never; Returns: number };
+      notifications_mark_read: {
+        Args: { entity: string; entity_id: string };
+        Returns: number;
       };
       session_login: {
         Args: { ip_hash?: string; user_agent?: string };
