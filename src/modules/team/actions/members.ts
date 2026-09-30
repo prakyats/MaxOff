@@ -16,7 +16,12 @@ import { countOpenAssignments } from "@/modules/tasks";
 
 import { emailChangedNewAddressEmail, emailChangedOldAddressEmail } from "../domain/email-change";
 import { inviteEmail, inviteLinkFor } from "../domain/invite";
-import { coordinatorOptions, type MemberStatus } from "../domain/members";
+import {
+  coordinatorOptions,
+  inviteAsEmployeeRefusal,
+  LEFTOVER_SIGN_IN_MESSAGE,
+  type MemberStatus,
+} from "../domain/members";
 import {
   type AddFreelancerInput,
   addFreelancerSchema,
@@ -110,7 +115,9 @@ export const inviteMember = action(
         job_title_id: data.jobTitleId,
       });
     } catch (error) {
-      await repo.deleteAuthUser(userId);
+      if (!(await repo.deleteAuthUser(userId))) {
+        throw new AppError("INTERNAL", LEFTOVER_SIGN_IN_MESSAGE, { cause: error });
+      }
       throw error;
     }
 
@@ -387,7 +394,9 @@ export const getOpenTaskCount = action(
  * "Invite as employee" (Kickoff 4 decision 7, WORKFLOWS §1b): the sign-in is created **under the
  * freelancer's own id** (4A mechanics (10)), then `member_invite_employee()` makes the record an
  * invited employee (same id, the coordinator row closed), then the invite link is issued and
- * mailed exactly as for any invite. The sign-in is removed again if the function refuses.
+ * mailed exactly as for any invite. Only an active freelancer, checked before the sign-in is
+ * created; the sign-in is removed again if the function refuses, and a removal that fails is
+ * reported and told to the Owner (phase 4 review S-S3).
  */
 export const inviteAsEmployee = action(
   async (input: InviteEmployeeInput): Promise<Result<InviteOutcome>> => {
@@ -400,12 +409,17 @@ export const inviteAsEmployee = action(
     }
     const member = await repo.getOwnMember(data.memberId); // RLS: team.manage reads every row
     if (!member) throw new AppError("NOT_FOUND", "This person is not on the team.");
+    // Before any sign-in exists under their id (phase 4 review S-S3): only an active freelancer.
+    const refusal = inviteAsEmployeeRefusal(member);
+    if (refusal) throw new AppError("INVALID_STATE", refusal);
 
     await repo.createAuthUserWithId(data.memberId, data.email);
     try {
       await repo.rpcInviteEmployee(data.memberId, data.email);
     } catch (error) {
-      await repo.deleteAuthUser(data.memberId);
+      if (!(await repo.deleteAuthUser(data.memberId))) {
+        throw new AppError("INTERNAL", LEFTOVER_SIGN_IN_MESSAGE, { cause: error });
+      }
       throw error;
     }
     const { tokenHash, type } = await repo.issueInviteToken(data.email);

@@ -404,13 +404,17 @@ own origin, so **invite** links generated on a preview point back at that previe
 `SENTRY_AUTH_TOKEN` is deliberately left out, so previews upload no source maps and cut no Sentry
 release — runtime errors still arrive, tagged `staging`, with minified stacks.
 
-**Previews never run migrations.** Migrations reach staging from `main` (the deploy workflow) or
-from a tag, and from nowhere else. A branch that adds migrations therefore previews against a
-staging database that lacks them, and the PR comment says so in a warning block listing the files.
-When that schema really is wanted on staging: **Actions → Preview → Run workflow →** pick the
-branch **→ `staging-migrations`**. It refuses to run on `main`, lists what it will apply, and
-shares a concurrency group with the staging deploy so it can never race one. Staging is shared and
-migrations are append-only, so what it pushes stays there until the branch merges.
+**Staging migrations.** A preview build never runs migrations; the `staging migrations` job
+does, before the build, on every push to a `phase-*` branch (and by hand: **Actions → Preview → Run
+workflow →** the branch **→ `staging-migrations`**; it refuses `main`, whose migrations go out with
+the staging deploy). It runs `scripts/staging-migrations.sh`, as `deploy.yml`'s staging job does:
+list staging's migrations, apply only the ones staging is missing (also while staging holds another
+open branch's versions: those get empty stand-ins in a scratch copy, so the CLI's history check
+passes; nothing is ever repaired or reverted), then list again. It shares a concurrency group with
+the staging deploy so it can never race one. Staging is shared and migrations are append-only, so
+what it applies stays there; when two open branches re-create the same function, staging runs the
+one applied last and the job warns naming both files. Branches other than `phase-*` preview against
+a staging database that may lack their migrations, and the PR comment says so.
 
 **Where the URLs appear.** All three land in the run's job summary always, and in a single PR
 comment that is edited in place on every push (matched by an HTML marker, so pushes never stack
@@ -428,8 +432,7 @@ the `staging` environment's **deployment branches** rule has to allow branches o
 the Environments panel under `staging` because they borrow its variables and secrets; the job sets
 no environment URL, so the panel still shows the real staging deployment. The **Run workflow**
 button for `staging-migrations` only appears once `preview.yml` is on `main` — GitHub lists
-`workflow_dispatch` from the default branch only. Until then, push a branch's migrations with
-`pnpm supabase db push` locally.
+`workflow_dispatch` from the default branch only.
 
 **Cleaning up, and what it costs.** Nothing to delete and nothing to pay for. There is no
 `wrangler` command to remove an alias — an alias is only ever created during a version upload, so

@@ -50,8 +50,6 @@ export default async function ApprovalsPage() {
     listPendingNotes(),
     listPendingClaims(),
     listDirectory(),
-    // The task rows' unread comments (Kickoff 4 decision 28); empty for whoever has no tasks.
-    listUnreadCounts(),
   ]);
   const finalTasks = listTasksToDecide({ final: true });
   const checkTasks = withSessionUserId((id) => listTasksToDecide({ final: false, id }));
@@ -61,10 +59,15 @@ export default async function ApprovalsPage() {
     "tasks.approve_final",
     "tasks.approve_admin",
   ]);
-  const [[days, requests, notes, pendingClaims, directory, unread], toDecide] = await Promise.all([
-    lists,
-    can(viewer.role, "tasks.approve_final") ? finalTasks : checkTasks,
-  ]);
+  const [[days, requests, notes, pendingClaims, directory], [toDecide, unread]] = await Promise.all(
+    [
+      lists,
+      // The task rows' unread comments (Kickoff 4 decision 28), for these rows only (A-S4).
+      (can(viewer.role, "tasks.approve_final") ? finalTasks : checkTasks).then(
+        async (items) => [items, await listUnreadCounts(items.map((item) => item.row.id))] as const,
+      ),
+    ],
+  );
   const decidesAttendance = can(viewer.role, "attendance.decide");
   const decidesExpenses = can(viewer.role, "expenses.decide");
   const names = Object.fromEntries(directory.map((member) => [member.id, member.fullName]));

@@ -98,7 +98,7 @@ $$;
 
 -- The caller's unread count on one task (0 when the function gives no row).
 create function pg_temp.unread(k text) returns integer language sql stable as $$
-  select coalesce((select u.unread from public.task_unread_counts() u where u.task_id = pg_temp.fx(k)), 0);
+  select coalesce((select u.unread from public.task_unread_counts(array[pg_temp.fx(k)]) u where u.task_id = pg_temp.fx(k)), 0);
 $$;
 
 -- A comment written at a given time (the tests run in one transaction, so now() never moves).
@@ -185,7 +185,7 @@ select is(pg_temp.unread('t1'), 2,
 select pg_temp.as_member('admin1');
 select is(pg_temp.unread('t1'), 2, 'the approving Admin: the other two');
 select pg_temp.as_member('admin2');
-select is((select count(*)::int from public.task_unread_counts()), 0,
+select is((select count(*)::int from public.task_unread_counts(array[pg_temp.fx('t1'), pg_temp.fx('t2')])), 0,
   'an Admin with nothing to do with either task counts nothing');
 select pg_temp.as_member('owner');
 select is(pg_temp.unread('t1'), 3, 'the Owner: every comment on T1 (none is theirs)');
@@ -252,7 +252,7 @@ select throws_ok(format($$ select public.task_mark_read(%L) $$, pg_temp.fx('t1')
 select pg_temp.as_nobody();
 select throws_ok(format($$ select public.task_mark_read(%L) $$, pg_temp.fx('t1')),
   'P0001', 'UNAUTHENTICATED', 'someone who is no longer a member cannot');
-select is((select count(*)::int from public.task_unread_counts()), 0, 'and counts nothing');
+select is((select count(*)::int from public.task_unread_counts(array[pg_temp.fx('t1'), pg_temp.fx('t2')])), 0, 'and counts nothing');
 
 -- Taken off the task: it is gone from their counts and their reads.
 select pg_temp.as_member('owner');

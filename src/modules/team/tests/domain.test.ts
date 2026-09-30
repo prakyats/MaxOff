@@ -7,6 +7,7 @@ import {
   coordinatorOptions,
   freelancerLine,
   hasAttendance,
+  inviteAsEmployeeRefusal,
   memberActions,
   opensPersonPage,
   roleLabel,
@@ -101,6 +102,26 @@ describe("the other schemas", () => {
     expect(
       deactivateMemberSchema.safeParse({ memberId: id, reason: "x".repeat(1001) }).success,
     ).toBe(false);
+  });
+});
+
+describe("inviteAsEmployeeRefusal (phase 4 review S-S3)", () => {
+  it("lets an active freelancer through", () => {
+    expect(
+      inviteAsEmployeeRefusal(member({ engagement: "freelance", status: "active" })),
+    ).toBeNull();
+  });
+
+  it("refuses an employee and a freelancer who is not active, before any sign-in exists", () => {
+    expect(inviteAsEmployeeRefusal(member({ engagement: "permanent", status: "active" }))).toBe(
+      "This person is already an employee.",
+    );
+    expect(
+      inviteAsEmployeeRefusal(member({ engagement: "freelance", status: "deactivated" })),
+    ).toBe("Reactivate this freelancer before inviting them as an employee.");
+    expect(inviteAsEmployeeRefusal(member({ engagement: "freelance", status: "invited" }))).toBe(
+      "Reactivate this freelancer before inviting them as an employee.",
+    );
   });
 });
 

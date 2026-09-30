@@ -25,9 +25,11 @@ export function HolidaysPanel({ holidays, today }: { holidays: Holiday[]; today:
 
   return (
     <div className="flex flex-col gap-6">
-      {/* A trigger, so neutral (the action colour rule): the red commit is inside the dialog. */}
+      {/* A trigger, so neutral (the action colour rule): the red commit is inside the dialog. An
+          outline, not the neutral solid: the screen's red "Save days off" is its one solid button
+          (Kickoff 4 decision 26: no second solid button; phase 4 review). */}
       <Button
-        variant="strong"
+        variant="secondary"
         type="button"
         onClick={() => setAdding(true)}
         className="w-full sm:w-auto sm:self-start"

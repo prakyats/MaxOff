@@ -2,6 +2,7 @@ import "server-only";
 
 import { createServerSupabase } from "@/core/db/server";
 import { createServiceSupabase } from "@/core/db/service";
+import { captureMessage } from "@/core/observability/capture";
 import { AppError } from "@/core/errors";
 import { displayName } from "@/core/lib/display-name";
 
@@ -479,14 +480,27 @@ export async function restoreAuthEmail(userId: string, email: string): Promise<v
   }
 }
 
-/** Rolls back the auth user when the member row could not be written. Best effort. */
-export async function deleteAuthUser(userId: string): Promise<void> {
-  const service = createServiceSupabase();
-  const { error } = await service.auth.admin.deleteUser(userId);
-  if (error)
-    console.error(
-      `[team] could not remove the auth user after a failed invite (${error.code ?? "no code"})`,
-    );
+/**
+ * Rolls back the auth user when the member row could not be written. Answers whether it is gone:
+ * a sign-in left behind is reported to Sentry (code only, ARCHITECTURE §18.2) and the caller tells
+ * the Owner that something needs a look (phase 4 review S-S3), never only a log line.
+ */
+export async function deleteAuthUser(userId: string): Promise<boolean> {
+  let code = "no code";
+  try {
+    const service = createServiceSupabase();
+    const { error } = await service.auth.admin.deleteUser(userId);
+    if (!error) return true;
+    code = error.code ?? code;
+  } catch {
+    code = "unreachable";
+  }
+  const eventId = captureMessage(
+    `[team] a sign-in could not be removed after a failed invite (${code})`,
+    "error",
+  );
+  console.error(`[team] a failed invite left a sign-in behind (sentry event ${eventId})`);
+  return false;
 }
 
 /**

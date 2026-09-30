@@ -70,8 +70,8 @@ export default async function TasksPage() {
         // The suggestions to decide, never the viewer's own (Kickoff 4 decision 23).
         withSessionUserId(countRequestsToDecide),
         getSettings(),
-        // Each row's unread comments (Kickoff 4 decision 28).
-        listUnreadCounts(),
+        // Each row's unread comments (Kickoff 4 decision 28), for these rows only (A-S4).
+        readOpenTasks().then((open) => listUnreadCounts(open.map((row) => row.id))),
       ]),
     );
   const names = new Map(directory.map((member) => [member.id, member]));

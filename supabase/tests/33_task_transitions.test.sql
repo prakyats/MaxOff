@@ -218,7 +218,7 @@ insert into fx values ('meet', public.task_create('Client meeting', null, pg_tem
   array[pg_temp.fx('staff2')], pg_temp.fx('staff2'), event_date => app.today_ist() + 1,
   event_start_at => app.ist_day_start(app.today_ist() + 1) + interval '10 hours', location => ' Client office ', purpose => 'Kick-off',
   stages => array[' Agenda ', 'Minutes'], reminder_rules => '[{"kind": "event", "hours": 2}]', warnings => jsonb_build_array(
-    jsonb_build_object('kind', 'workload', 'member_id', pg_temp.fx('staff2'), 'details', jsonb_build_object('open', 5)))));
+    jsonb_build_object('kind', 'workload', 'member_id', pg_temp.fx('staff2'), 'details', jsonb_build_object('open_tasks', 5)))));
 select results_eq(
   $$ select t.event_date, t.location, t.purpose, t.reminder_rules from public.tasks t where t.id = pg_temp.fx('meet') $$,
   $$ values (app.today_ist() + 1, 'Client office', 'Kick-off', '[{"kind": "event", "hours": 2}]'::jsonb) $$,
@@ -228,7 +228,7 @@ select results_eq(
   $$ values ('Agenda', 'a0', null::timestamptz), ('Minutes', 'a1', null) $$, 'the stages typed on the task, in order, unticked');
 select results_eq(
   $$ select w.kind, w.member_id, w.details, w.overridden_by from public.task_warnings w where w.task_id = pg_temp.fx('meet') $$,
-  $$ values ('workload', pg_temp.fx('staff2'), '{"open": 5}'::jsonb, pg_temp.fx('owner')) $$,
+  $$ values ('workload', pg_temp.fx('staff2'), '{"open_tasks": 5}'::jsonb, pg_temp.fx('owner')) $$,
   'the warning the Owner proceeded past is recorded');
 select is((select count(*) from public.activity_log a where a.entity_id = pg_temp.fx('meet') and a.action = 'warning_overridden'), 1::bigint,
   'audit: warning_overridden');
@@ -267,9 +267,11 @@ select is((pg_temp.assignee('direct', 'staff1')).acknowledged_by, pg_temp.fx('st
 select throws_ok(format($$ select public.task_acknowledge(%L) $$, pg_temp.fx('direct')), 'P0001', 'INVALID_STATE', 'once');
 select throws_ok(format($$ select public.task_acknowledge(%L, %L) $$, pg_temp.fx('direct'), pg_temp.fx('asha')),
   'P0001', 'FORBIDDEN', 'a co-assignee cannot acknowledge for the freelancer');
+-- A sign-in on a freelancer's id is nobody since the phase 4 review (S-S3): app.current_member()
+-- resolves permanent members only, so it fails before app.task_actor's own FORBIDDEN.
 select pg_temp.as_member('asha');
 select throws_ok(format($$ select public.task_acknowledge(%L) $$, pg_temp.fx('direct')),
-  'P0001', 'FORBIDDEN', 'the freelancer''s own id is never an actor');
+  'P0001', 'UNAUTHENTICATED', 'the freelancer''s own id is never an actor');
 select pg_temp.as_member('old');
 select throws_ok(format($$ select public.task_acknowledge(%L, %L) $$, pg_temp.fx('direct'), pg_temp.fx('asha')),
   'P0001', 'FORBIDDEN', 'a former coordinator is refused');
@@ -294,7 +296,7 @@ select results_eq(
 select pg_temp.as_member('staff2');
 select throws_ok(format($$ select public.task_start(%L) $$, pg_temp.fx('direct')), 'P0001', 'FORBIDDEN', 'not an assignee: cannot start');
 select pg_temp.as_member('asha');
-select throws_ok(format($$ select public.task_start(%L) $$, pg_temp.fx('direct')), 'P0001', 'FORBIDDEN', 'the freelancer never acts');
+select throws_ok(format($$ select public.task_start(%L) $$, pg_temp.fx('direct')), 'P0001', 'UNAUTHENTICATED', 'the freelancer never acts');
 select pg_temp.as_member('old');
 select throws_ok(format($$ select public.task_start(%L, %L) $$, pg_temp.fx('direct'), pg_temp.fx('asha')), 'P0001', 'FORBIDDEN', 'nor a former coordinator for them');
 select pg_temp.as_member('coord');
@@ -361,7 +363,7 @@ select is((select (a.meta ->> 'late')::boolean from public.activity_log a where 
 select pg_temp.as_member('owner');
 insert into fx values ('fl', pg_temp.mk('Asha edits', array['asha'], 'asha', 'admin1'));
 select pg_temp.as_member('asha');
-select throws_ok(format($$ select public.task_submit_done(%L) $$, pg_temp.fx('fl')), 'P0001', 'FORBIDDEN', 'the freelancer never acts');
+select throws_ok(format($$ select public.task_submit_done(%L) $$, pg_temp.fx('fl')), 'P0001', 'UNAUTHENTICATED', 'the freelancer never acts');
 select pg_temp.as_member('old');
 select throws_ok(format($$ select public.task_submit_done(%L, null, null, %L) $$, pg_temp.fx('fl'), pg_temp.fx('asha')), 'P0001', 'FORBIDDEN', 'a former coordinator neither');
 select pg_temp.as_member('staff1');

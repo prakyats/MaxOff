@@ -150,8 +150,17 @@ export function TeamMonthList({
                 />
               ) : null}
             </span>
-            <span className={cn("flex items-center gap-2 text-sm", CARD_ROW_TRAILING)}>
-              {extra?.[summary.memberId] ?? null}
+            {/* The trailing part may wrap (phase 4 review A-S3): at 130% / 200% text a long
+                unpaid line ("₹1,200.50 to pay · 1 claim") takes a line of its own and wraps
+                inside it instead of reaching past the phone's edge. */}
+            <span
+              className={cn(
+                "flex max-w-full min-w-0 items-center gap-2 text-sm",
+                CARD_ROW_TRAILING,
+                "shrink",
+              )}
+            >
+              <span className="min-w-0 text-right">{extra?.[summary.memberId] ?? null}</span>
               <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
             </span>
           </DrillLink>

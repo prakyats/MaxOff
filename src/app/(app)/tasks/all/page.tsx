@@ -32,15 +32,20 @@ const DESCRIPTION = `Every open task, and the latest ${FINISHED_LIMIT} finished 
  * too.
  */
 export default async function AllTasksPage() {
+  const openRows = readOpenTasks();
+  const finishedRows = listFinishedTaskRows(FINISHED_LIMIT);
   const [viewer, [open, finished, directory, labels, types, unread]] = await checkThenRead(
     requirePermission("tasks.work"),
     Promise.all([
-      readOpenTasks(),
-      listFinishedTaskRows(FINISHED_LIMIT),
+      openRows,
+      finishedRows,
       readDirectory(),
       readClientLabels(),
       readTaskTypes(),
-      listUnreadCounts(),
+      // The rows' unread comments, for these rows only (A-S4).
+      Promise.all([openRows, finishedRows]).then((lists) =>
+        listUnreadCounts(lists.flat().map((row) => row.id)),
+      ),
     ]),
   );
   const team = can(viewer.role, "tasks.create");
