@@ -69,9 +69,9 @@ jobs:
 
       # Staging is shared with the phase branches (preview.yml applies a `phase-*` branch's
       # migrations to it on every push), so mid-phase staging is usually *ahead* of `main` and a
-      # blind `db push` refuses. The script lists first and pushes only what main adds; when
-      # main adds a migration while staging is ahead it fails loudly naming both sets (owner
-      # decision 2026-09-27; the script's header has the decision table and the dry run).
+      # blind `db push` refuses. The script lists first and applies only what main adds, also
+      # while staging is ahead (stand-ins for the other branches' versions in a scratch copy;
+      # never a history repair). Its header has the decision table and the dry run.
       - name: Apply migrations to the staging database
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
