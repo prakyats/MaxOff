@@ -106,6 +106,10 @@ describe("what a viewer may do (4.4; PERMISSIONS §3, ADR-0013)", () => {
     const submitted = task({ state: "submitted" });
     expect(taskActions(submitted, TEAM, PEOPLE, ADMIN).review).toBe("admin");
     expect(taskActions(submitted, [...TEAM, assignee("admin")], PEOPLE, ADMIN).review).toBeNull();
+    // Kickoff 4 decision 34: coordinating Asha, a freelancer on the task, counts as being on it.
+    expect(
+      taskActions(submitted, TEAM, PEOPLE, { ...ADMIN, coordinates: ["asha"] }).review,
+    ).toBeNull();
     expect(taskActions(submitted, TEAM, PEOPLE, OWNER).review).toBeNull();
     expect(taskActions(submitted, TEAM, PEOPLE, OWNER).takeOver).toBe(true);
     expect(taskActions(task({ state: "admin_approved" }), TEAM, PEOPLE, OWNER).review).toBe(

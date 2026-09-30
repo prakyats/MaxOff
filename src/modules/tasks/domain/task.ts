@@ -242,7 +242,9 @@ export function taskActions(
     task.state === "submitted" &&
     viewer.role === "admin" &&
     task.approvingAdminId === viewer.id &&
-    !own
+    !own &&
+    // Kickoff 4 decision 34: coordinating a freelancer on the task counts as being on it.
+    coordinated.length === 0
   ) {
     review = "admin";
   } else if (task.state === "admin_approved" && viewer.role === "owner") {

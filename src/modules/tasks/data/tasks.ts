@@ -171,17 +171,34 @@ export async function getTaskRead(taskId: string): Promise<string | null> {
   return data?.last_read_at ?? null;
 }
 
+/** `task_unread_counts()` takes at most this many ids a call (phase 4 review A-S4). */
+const UNREAD_CHUNK = 500;
+
 /**
- * The viewer's unread comments per task, for the lists' markers (`task_unread_counts()`: comments
- * by someone else after the viewer's last read, on the tasks they see; only tasks with any). Once
- * per request.
+ * The viewer's unread comments on these tasks, for the lists' markers (`task_unread_counts()`:
+ * comments by someone else after the viewer's last read, on the tasks they see; only tasks with
+ * any). A list passes its own rows' ids, so the count never scans the whole organization; more
+ * than 500 go in parallel chunks.
  */
-export const listUnreadCounts = cache(async (): Promise<Record<string, number>> => {
+export async function listUnreadCounts(
+  taskIds: readonly string[],
+): Promise<Record<string, number>> {
+  if (taskIds.length === 0) return {};
   const supabase = await createServerSupabase();
-  const { data, error } = await supabase.rpc("task_unread_counts");
-  if (error) throw error;
-  return Object.fromEntries(data.map((row) => [row.task_id, row.unread]));
-});
+  const chunks: string[][] = [];
+  for (let at = 0; at < taskIds.length; at += UNREAD_CHUNK) {
+    chunks.push(taskIds.slice(at, at + UNREAD_CHUNK));
+  }
+  const answers = await Promise.all(
+    chunks.map((ids) => supabase.rpc("task_unread_counts", { task_ids: ids })),
+  );
+  const counts: Record<string, number> = {};
+  for (const { data, error } of answers) {
+    if (error) throw error;
+    for (const row of data) counts[row.task_id] = row.unread;
+  }
+  return counts;
+}
 
 /** The hand-ins, newest version first. */
 export async function listSubmissions(taskId: string): Promise<TaskSubmission[]> {

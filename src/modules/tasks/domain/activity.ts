@@ -134,6 +134,13 @@ function joinClauses(clauses: readonly string[]): string {
   return `${clauses.slice(0, -1).join(", ")} and ${clauses.at(-1)}`;
 }
 
+/** Why the Admin step was skipped (WORKFLOWS §3.1; Kickoff 4 decision 34). */
+function skipReason(reason: unknown): string {
+  return reason === "approver_is_coordinator"
+    ? "the approver coordinates a freelancer on it"
+    : "the approver is on the task";
+}
+
 function describe(
   entry: TaskActivityEntry,
   context: TaskActivityContext,
@@ -149,12 +156,7 @@ function describe(
         case "submitted": {
           const late = meta.late === true;
           const step = meta.admin_step;
-          const route =
-            step === "skipped"
-              ? " (no Admin check: the approver is on the task)"
-              : step === "none"
-                ? ""
-                : "";
+          const route = step === "skipped" ? ` (no Admin check: ${skipReason(meta.reason)})` : "";
           const reason = late ? text(entry.new.late_reason) : null;
           return {
             text: `${meta.version === 1 || meta.version === undefined ? "marked it done" : "marked it done again"}${late ? " after the deadline" : ""}${route}`,
@@ -180,12 +182,18 @@ function describe(
         case "approver_changed": {
           const from = typeof meta.from === "string" ? meta.from : null;
           const to = typeof meta.to === "string" ? meta.to : null;
-          if (!to)
-            return {
-              text: `removed ${from ? nameOf(context, from) : "the approver"} as approver: the Owner decides`,
-            };
+          const who = from ? nameOf(context, from) : "the approver";
+          // Kickoff 4 decision 33: the approver left the Admin role, not someone's edit.
+          if (!to && meta.reason === "approver_deactivated")
+            return { text: `took ${who} off as approver (deactivated): the Owner decides` };
+          if (!to && meta.reason === "approver_role_changed")
+            return { text: `took ${who} off as approver (no longer an Admin): the Owner decides` };
+          if (!to) return { text: `removed ${who} as approver: the Owner decides` };
           return { text: `made ${nameOf(context, to)} the approver` };
         }
+        case "admin_step_skipped":
+          // Phase 4 review A-M2, decision 34: the approver ended up on a task waiting for them.
+          return { text: `passed it to the Owner (no Admin check: ${skipReason(meta.reason)})` };
         case "updated": {
           const fields = Array.isArray(meta.fields)
             ? meta.fields.filter((field): field is string => typeof field === "string")

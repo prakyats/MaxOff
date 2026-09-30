@@ -98,6 +98,7 @@ export function TaskChat({
     if (node) node.scrollTop = node.scrollHeight;
   }, [count]);
 
+  const phone = desktop === false;
   const composer = (
     <ChatComposer
       taskId={taskId}
@@ -106,9 +107,9 @@ export function TaskChat({
       writingFor={writingFor}
       onWritingForChange={setWritingFor}
       forOptions={forOptions}
+      inSheet={phone}
     />
   );
-  const phone = desktop === false;
   const typing = isKeyboardOpen(keyboard);
 
   return (

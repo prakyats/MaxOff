@@ -107,6 +107,30 @@ describe("a task's history (4.4, ADR-0013)", () => {
     expect(line({ action: "approver_changed", meta: { from: "admin", to: null } })?.text).toBe(
       "removed Local Admin as approver: the Owner decides",
     );
+    expect(
+      line({
+        action: "approver_changed",
+        meta: { from: "admin", to: null, reason: "approver_deactivated" },
+      })?.text,
+    ).toBe("took Local Admin off as approver (deactivated): the Owner decides");
+    expect(
+      line({
+        action: "approver_changed",
+        meta: { from: "admin", to: null, reason: "approver_role_changed" },
+      })?.text,
+    ).toBe("took Local Admin off as approver (no longer an Admin): the Owner decides");
+    expect(
+      line({ action: "admin_step_skipped", meta: { reason: "approver_is_assignee" } })?.text,
+    ).toBe("passed it to the Owner (no Admin check: the approver is on the task)");
+    expect(
+      line({ action: "admin_step_skipped", meta: { reason: "approver_is_coordinator" } })?.text,
+    ).toBe("passed it to the Owner (no Admin check: the approver coordinates a freelancer on it)");
+    expect(
+      line({
+        action: "submitted",
+        meta: { version: 1, admin_step: "skipped", reason: "approver_is_coordinator" },
+      })?.text,
+    ).toBe("marked it done (no Admin check: the approver coordinates a freelancer on it)");
     // The review row only echoes its decision.
     expect(line({ entity: "task_reviews", action: "review_recorded" })).toBeNull();
   });
