@@ -1,3 +1,5 @@
+import { generateKeyPairSync } from "node:crypto";
+
 import { defineConfig, devices } from "@playwright/test";
 
 import { HOLD_PROXY_PORT, HOLD_PROXY_URL } from "./e2e/hold-proxy-config";
@@ -44,6 +46,26 @@ const TASK_SETTINGS_SPECS = /task-settings\.spec\.ts$/;
 const TASK_REQUESTS_SPECS = /task-requests\.spec\.ts$/;
 const LOADING_SCREENS_SPECS = /loading-screens\.spec\.ts$/;
 const TASK_PAGE_SPECS = /task-page\.spec\.ts$/;
+const PUSH_SPECS = /push\.spec\.ts$/;
+
+/**
+ * Web Push (5.2): the e2e server sends real, encrypted pushes to a fake push service the spec
+ * runs on the loopback host, so it needs a VAPID key pair. A throwaway pair is made here, in
+ * memory, for this run alone: never printed, never written, never the owner's (kickoff 5
+ * decision 10). The spec reads the public half from `process.env` to verify the signatures.
+ */
+function throwawayVapid(): { publicKey: string; privateKey: string } {
+  const { privateKey } = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
+  const jwk = privateKey.export({ format: "jwk" }) as { d: string; x: string; y: string };
+  const point = Buffer.concat([
+    Buffer.from([4]),
+    Buffer.from(jwk.x, "base64url"),
+    Buffer.from(jwk.y, "base64url"),
+  ]);
+  return { publicKey: point.toString("base64url"), privateKey: jwk.d };
+}
+const VAPID = throwawayVapid();
+process.env.E2E_VAPID_PUBLIC_KEY = VAPID.publicKey;
 
 /**
  * Flow tests (ARCHITECTURE §15). `pnpm test:e2e` runs them; CI runs them as their own job.
@@ -136,6 +158,7 @@ export default defineConfig({
       // templates (4C). And the held loading screens (4C review M1): they fit at large text and
       // trace their screen at every width. And the reworked task page (Kickoff 4 decisions
       // 26–32): its views, the Chat sheet and every layer on back, and large text, at both widths.
+      // And Web Push (5.2): the banner, Me's rows and the deep-link entry's back at both widths.
       name: "mobile-lg",
       dependencies: ["setup"],
       testMatch: [
@@ -166,6 +189,7 @@ export default defineConfig({
         TASK_REQUESTS_SPECS,
         LOADING_SCREENS_SPECS,
         TASK_PAGE_SPECS,
+        PUSH_SPECS,
       ],
       use: { ...devices["Pixel 5"], viewport: { width: 430, height: 932 } },
     },
@@ -213,8 +237,12 @@ export default defineConfig({
         S3_ACCESS_KEY_ID: process.env.S3_ACCESS_KEY_ID ?? "maxoff",
         S3_SECRET_ACCESS_KEY: process.env.S3_SECRET_ACCESS_KEY ?? "maxoff-local-secret",
         S3_REGION: process.env.S3_REGION ?? "auto",
-        // The cron route is exercised with a fixed test secret (storage.spec.ts).
+        // The cron routes are exercised with a fixed test secret (storage.spec.ts, push.spec.ts).
         CRON_SECRET: process.env.CRON_SECRET ?? "e2e-only-cron-secret-not-used-anywhere-else",
+        // Web Push (5.2): this run's throwaway key pair (above).
+        VAPID_PUBLIC_KEY: VAPID.publicKey,
+        VAPID_PRIVATE_KEY: VAPID.privateKey,
+        VAPID_SUBJECT: "mailto:e2e@maxoff.local",
       },
     },
   ],

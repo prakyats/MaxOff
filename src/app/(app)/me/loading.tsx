@@ -12,7 +12,8 @@ import { ME_DESCRIPTION } from "./copy";
  * the sign-in line, the read-only Profile record (its heading row with Edit, two label and value
  * rows, task 2.9) under the photo button row (3.3), then the "Attendance & leave" row for
  * whoever marks attendance (2.3), then
- * Appearance, Session and Reload app. Same member check as `my-day/loading.tsx`.
+ * Appearance, Notifications and the test push (5.2), Sign out and Reload app. Same member check
+ * as `my-day/loading.tsx`.
  *
  * Every column beside something else is `min-w-0`, as the page's is (3c review, CI red on /me at
  * 200%): a bar's `w-40` is 320px at 200% system text, and a flex or grid column with no minimum
@@ -27,6 +28,10 @@ import { ME_DESCRIPTION } from "./copy";
  */
 const DEVICE_ROWS = [
   { name: "appearance", lines: ["w-52"], control: "size-11 md:size-8" },
+  // 5.2: the Notifications row ("Checking this device…", no control until it is known) and the
+  // test row (two description lines at 375 px, "Send test").
+  { name: "notifications", lines: ["w-40"], control: "" },
+  { name: "push-test", lines: ["w-56", "w-44"], control: "h-11 w-28 md:h-8" },
   { name: "sign-out", lines: ["w-56", "w-40"], control: "h-11 w-24 md:h-8" },
   { name: "reload", lines: ["w-56", "w-28"], control: "h-11 w-28 md:h-8" },
 ] as const;
@@ -98,7 +103,9 @@ export default async function Loading() {
                       <Skeleton key={line} className={`h-3.5 max-w-full ${width}`} />
                     ))}
                   </div>
-                  <Skeleton className={`shrink-0 rounded-lg ${row.control}`} />
+                  {row.control ? (
+                    <Skeleton className={`shrink-0 rounded-lg ${row.control}`} />
+                  ) : null}
                 </div>
               </div>
             ))}

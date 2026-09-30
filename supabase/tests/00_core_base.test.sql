@@ -99,7 +99,9 @@ insert into app_internal values
   ('task_people'), ('notify_leave_owner'), ('notify_leave_member'), ('coordinator_link'),
   ('end_day_reminder'),
   -- 5.1 review (M1): a comment's recipients kept to the people who can still see the task
-  ('task_visible_to');
+  ('task_visible_to'),
+  -- 5.2: the dispatcher's backoff (its functions are public, service_role only, for PostgREST)
+  ('push_backoff');
   -- 3c.1 (contract migration): attendance_logout and logout_not_recorded are gone with the 2.x gate.
 select is(
   (select count(*) from pg_proc p
@@ -120,7 +122,7 @@ select is(
   0::bigint,
   'the internal helpers: service_role only, never the API role');
 select is((select count(*) from pg_proc p where p.pronamespace = 'app'::regnamespace
-             and p.proname in (select name from app_internal)), 38::bigint,
+             and p.proname in (select name from app_internal)), 39::bigint,
   'the internal helper list matches what exists');
 select cmp_ok((select count(*) from pg_proc where pronamespace = 'app'::regnamespace), '>=', 4::bigint,
   'the grant check saw the app functions');

@@ -3386,6 +3386,59 @@ export type Database = {
         Args: { entity: string; entity_id: string };
         Returns: number;
       };
+      push_claim: {
+        Args: { p_limit?: number; p_now?: string };
+        Returns: {
+          attempts: number;
+          body: string;
+          delivery_ids: string[];
+          held_count: number;
+          is_summary: boolean;
+          kind: string;
+          link: string;
+          notification_id: string;
+          org_id: string;
+          recipient_id: string;
+          title: string;
+        }[];
+      };
+      push_quiet: { Args: { p_at: string; p_org: string }; Returns: boolean };
+      push_record: {
+        Args: {
+          p_error?: string;
+          p_ids: string[];
+          p_now?: string;
+          p_outcome: string;
+        };
+        Returns: number;
+      };
+      push_subscription_remove: { Args: { endpoint: string }; Returns: boolean };
+      push_subscription_result: {
+        Args: { p_id: string; p_now?: string; p_outcome: string };
+        Returns: string;
+      };
+      push_subscription_upsert: {
+        Args: {
+          auth: string;
+          endpoint: string;
+          is_standalone?: boolean;
+          label?: string;
+          p256dh: string;
+          platform?: string;
+          user_agent?: string;
+        };
+        Returns: string;
+      };
+      push_subscriptions_tested: { Args: never; Returns: number };
+      push_targets: {
+        Args: { p_recipient: string };
+        Returns: {
+          auth: string;
+          endpoint: string;
+          id: string;
+          p256dh: string;
+        }[];
+      };
       session_login: {
         Args: { ip_hash?: string; user_agent?: string };
         Returns: string;

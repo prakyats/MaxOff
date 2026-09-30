@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { action, type BulkOutcome, eachId, ok, type Result } from "@/core/errors";
+import { dispatchPushSoon } from "@/core/notifications/push/dispatch";
 import { assertPermission } from "@/core/permissions/server";
 
 import * as repo from "../data/tasks";
@@ -33,6 +34,7 @@ export const approveTask = action(async (input: ApproveTaskInput): Promise<Resul
   await assertPermission([...DECIDERS]);
   await repo.rpcReview(data.taskId, "approved", null);
   revalidateApprovals();
+  dispatchPushSoon();
   return ok(null);
 });
 
@@ -43,6 +45,7 @@ export const approveTasks = action(
     await assertPermission([...DECIDERS]);
     const outcome = await eachId(data.taskIds, (id) => repo.rpcReview(id, "approved", null));
     revalidateApprovals();
+    dispatchPushSoon();
     return ok(outcome);
   },
 );
