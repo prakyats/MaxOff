@@ -447,8 +447,7 @@ Every notification is stored in `notifications` (in-app history + deep link) and
 notification created
    ├─ in-app (Realtime)                       always
    ├─ push → every active subscription of the recipient
-   │     ├─ member has a live session → full payload (title + body + deep link)
-   │     └─ member logged out         → TITLE ONLY ("MaxOff: new task assigned"), link opens login → target
+   │     └─ full payload (title + body + deep link), held during quiet hours (see "Settled at kickoff 5")
    └─ email  when the kind is in the email set, or no subscription is healthy
 ```
 
@@ -456,7 +455,7 @@ notification created
 | Event | What happens to the subscription |
 |---|---|
 | Permission granted / re-granted | Created or re-activated, with `platform`, `is_standalone`, `label` |
-| Logout (normal) | **Kept.** Push continues, title-only |
+| App closed, or the session expires | **Kept.** Push continues with the full text (title-only was dropped at kickoff 5) |
 | "Sign out of this device" | Deleted (`disabled_reason = 'signed_out'`) |
 | Member deactivated | All of theirs deleted (`'deactivated'`) |
 | Push returns 404/410 | Disabled (`'gone'`), and the member sees the banner on next visit |
@@ -467,3 +466,21 @@ notification created
 Shown in Settings → Notifications to the Owner for everyone, and to an Admin for people on their tasks. Anyone `no_subscription`, `permission_revoked`, `ios_not_installed` or `failing` for **48 h** raises one notification to the Owner, at most weekly per person.
 
 **Test notification:** `notification_send_test()` sends a push to the caller's own subscriptions, records `last_test_at`, and the UI reports whether it was accepted by the push service. It's part of onboarding and is available in Settings → Notifications for everyone. Emails per person per day are capped by `org_settings.email_daily_cap_per_member` (default 20); **invites and escalations bypass the cap**.
+
+### Settled at kickoff 5 (owner decision 2026-09-29; built in phase 5)
+- **Payloads:** always the full text and a deep link; no title-only mode and no per-device session tracking (ADR-0009 amendment). The link opens with the parent list underneath (ARCHITECTURE §14.2 h).
+- **Quiet hours:** `org_settings.quiet_hours_start` / `quiet_hours_end` (default 22:00 / 07:00 IST, Owner-editable in Settings → Thresholds). The notification row is created on time and shows in-app at once; **push deliveries created inside the window are held** (`notification_deliveries.state = 'held'`) and at the end of the window each person gets **one summary push** ("5 updates while you were away", opening the history page); a single held row is sent as itself. No exceptions (no Urgent bypass, escalations included); only `notification_send_test()` ignores it. Email is not held. The 23:59 absent check and the 00:01 EOD report therefore reach the Owner at 07:00.
+- **Approved leave, comp leave or a holiday:** the acknowledgement repeats and the before-due and due reminders to that person are paused for the day. Assignment, change and decision notifications and **every escalation** still go out. Weekly off days pause nothing.
+- **Default reminder schedule** (`org_settings.default_task_reminders`): 2 days before, 1 day before, and **at the deadline** ("Due now"), then **one** overdue reminder 1 h after the deadline (plus the 24 h overdue escalation, §3.1); no repeated overdue nagging. An event task also gets "tomorrow" at 18:00 IST the day before, with the email. A reminder whose time has already passed when it would be created is skipped; nothing fires once the task is submitted, completed or cancelled.
+- **Reminder editor and precedence:** a list of up to 5 rows, "N minutes / hours / days before"; precedence is the task's own, then its type's `default_reminders`, then the org default, and each **replaces** the one below (no merge). The task's creator, approving Admin or the Owner edits it (the people who edit the task); assignees cannot mute. A moved deadline re-arms every reminder and escalation not yet sent (sent ones stay sent); a reopen regenerates the future ones. The acknowledgement thresholds stay org-wide and are not in the editor.
+- **Email for people with no working push:** only **actionable kinds**: task assigned, changes requested, due-now and overdue reminders, escalations, and leave, attendance, comp leave and expense **decisions**. **No email** for comments, "task changed" or any information-only row. The always-email set is unchanged: invites, email change, task assigned, escalations, an event tomorrow, the Owner digest.
+- **Two ceilings:** per person `email_daily_cap_per_member` (20; invites, email-change mails and escalations bypass it) and **org-wide `email_daily_cap_org` (default 90)**, because Resend's free plan allows 100 a day for the whole org. Over either limit the delivery is recorded `skipped_cap` (the row and the push are unaffected). **Invites, password and email-change mails are never counted against the org ceiling and never skipped.** Escalations and the digest bypass only the per-person cap; they count toward the org ceiling.
+- **Owner digest:** `digest_daily`, a `worker` job at 08:00 IST every day (weekly offs included), one email to the Owner: yesterday's end-of-day summary and today's needs-attention counts (pending approvals, proposed absences, overdue and unacknowledged tasks, unreachable people), each with a link. **No money.** Skipped when every count is zero.
+- **Actor and roles:** the person who did the action is never notified of it, and a person who appears in several roles on one event (creator and approving Admin, for example) gets **one** notification.
+- **Recipients added to §9:** a task request **converted or declined** notifies the requester (withdrawn: nobody); an **assignee removed** from a task is told (part of "task changed"); a **new approving Admin**, when changed while the task is `submitted`, gets the "Task submitted" notification; "Task Noted" notifies nobody; an Owner rejection notifies the assignees only.
+- **Rule for later phases:** 5.1 retrofits the functions that exist; **from phase 6 on every new transition function writes its own notification rows through the one helper `app.notify()`**, naming the §9 recipient in its comment.
+- **In-app:** the bell shows an unread count; tapping a row marks it read and opens its deep link; "Mark all read"; opening a record marks that record's notifications read. The history page is paginated, newest first. **Nothing is purged** (revisit in phase 10).
+- **Reachability:** tracked for joined Admins, Staff and the Owner; invited people and freelancers (no login) are excluded and a freelancer's coordinator is judged. The 48 h clock starts at first login or when the state changed; the Owner's own problem shows as their banner, never as an alert to themselves; the alert is one notification to the Owner, at most weekly per person. An Admin sees status and reason for members currently assigned to open tasks the Admin created or approves (and a freelancer's coordinator); the Owner sees everyone with platform and last success; nobody sees endpoints. A missing `RESEND_API_KEY`, `VAPID_*` or `CRON_SECRET` shows to the Owner as an operational warning there.
+- **The enable-notifications banner** is **judged per member, not per device:** shown to every member (the Owner included) on every platform until the member has **one working subscription on any device**, then it stops on every device; permission is requested only on a tap; no dismiss; denied shows how to re-enable it. On a device without a subscription, **Me** shows a quiet row instead: "Notifications are on for your phone. Turn them on here too."
+- **Sender and secrets:** `MaxOff <notifications@mail.maxoff.in>`, no reply-to. Set by the owner through the GitHub environments, names only: `RESEND_API_KEY`, `EMAIL_FROM`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (a `mailto:` of the owner's own address, set by the owner), `CRON_SECRET`. **No session generates, prints or handles the VAPID keys**; the owner generates them on their laptop when 5.2 is built.
+
