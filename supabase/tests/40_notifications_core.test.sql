@@ -703,7 +703,7 @@ select pg_temp.as_system();
 select is((pg_temp.last('owner', 'expense_submitted')).title, 'Staff1 added an expense claim', 'a claim reaches the Owner');
 select is((pg_temp.last('owner', 'expense_submitted')).body, 'Travel · ' || app.notify_date(pg_temp.today()), 'the category and the date');
 select ok((select x.title || coalesce(x.body, '') || coalesce(x.link, '') || x.payload::text from public.notifications x
-           where x.recipient_id = pg_temp.fx('owner')) not like '%123%',
+           where x.recipient_id = pg_temp.fx('owner')) !~ '123[.,]45|amount|₹',
   'no amount anywhere in the row (invariant 2)');
 select is(pg_temp.total(), 1::bigint, 'one row');
 select pg_temp.clear();
@@ -711,7 +711,7 @@ select pg_temp.as_member('owner');
 select public.expense_claim_decide(pg_temp.fx('x1'), 'approve');
 select pg_temp.as_system();
 select is((pg_temp.last('staff1', 'expense_decided')).title, 'Expense claim approved', 'the member is told of the approval');
-select ok((select x.title || coalesce(x.body, '') || x.payload::text from public.notifications x where x.recipient_id = pg_temp.fx('staff1')) not like '%123%',
+select ok((select x.title || coalesce(x.body, '') || x.payload::text from public.notifications x where x.recipient_id = pg_temp.fx('staff1')) !~ '123[.,]45|amount|₹',
   'without the amount');
 select pg_temp.clear();
 select pg_temp.as_member('owner');
