@@ -11,7 +11,7 @@
 -- an expense row, the 23:59 job's one row, the 20:30 reminder once per day.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(216);
+select plan(217);
 
 delete from public.task_requests;
 delete from public.task_warnings;
@@ -255,6 +255,10 @@ select is(app.notify(array[pg_temp.fx('asha')], 'task_changed', 'Hi', null, null
   0, 'a freelancer''s row is dropped when the coordinator is the actor');
 select is(app.notify(array[pg_temp.fx('asha'), pg_temp.fx('coord')], 'task_changed', 'Hi', null, null, null, null, '{}', pg_temp.fx('owner')),
   1, 'the coordinator named twice (as themselves and through the freelancer) gets one row');
+update public.members set status = 'deactivated', deactivated_at = now() where id = pg_temp.fx('coord');
+select is(app.notify(array[pg_temp.fx('asha')], 'task_changed', 'Hi', null, null, null, null, '{}', pg_temp.fx('owner')),
+  0, 'a freelancer whose current coordinator is deactivated reaches nobody (never the freelancer)');
+update public.members set status = 'active', deactivated_at = null where id = pg_temp.fx('coord');
 select is(app.notify('{}', 'task_changed', 'Hi'), 0, 'no recipients, no rows');
 select is(app.notify(null, 'task_changed', 'Hi'), 0, 'null recipients, no rows');
 select throws_ok($$ insert into public.notifications (org_id, recipient_id, kind, title, entity)
