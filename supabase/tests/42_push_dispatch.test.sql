@@ -202,7 +202,9 @@ select lives_ok($$ select public.push_subscription_upsert('https://push.example/
 select pg_temp.as_member('owner');
 select lives_ok($$ select public.push_subscription_upsert('https://push.example/owner', 'k', 'a', 'ios', true, 'iPhone') $$, 'the Owner too (decision 9)');
 select pg_temp.as_member('asha');
-select throws_ok($$ select public.push_subscription_upsert('https://push.example/asha', 'k', 'a') $$, 'P0001', 'FORBIDDEN',
+-- UNAUTHENTICATED, not FORBIDDEN: since the phase 4 review (20260930070616, S-S3 c)
+-- app.current_member() resolves a permanent member only, so a sign-in on a freelancer's id is nobody.
+select throws_ok($$ select public.push_subscription_upsert('https://push.example/asha', 'k', 'a') $$, 'P0001', 'UNAUTHENTICATED',
   'a freelancer (no login) cannot');
 select pg_temp.as_member('gone');
 select throws_ok($$ select public.push_subscription_upsert('https://push.example/gone', 'k', 'a') $$, 'P0001', 'UNAUTHENTICATED',

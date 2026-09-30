@@ -148,7 +148,9 @@ describe("sw.js", () => {
     expect(sw).toContain('addEventListener("pushsubscriptionchange"');
     expect(sw).toContain('fetch("/api/push/subscription"');
     // The caching rules are untouched: the fetch handler still ignores /api and other origins.
-    expect(sw.indexOf('addEventListener("push"')).toBeGreaterThan(sw.indexOf('addEventListener("fetch"'));
+    expect(sw.indexOf('addEventListener("push"')).toBeGreaterThan(
+      sw.indexOf('addEventListener("fetch"'),
+    );
   });
 
   it("treats only content-hashed files as immutable", () => {

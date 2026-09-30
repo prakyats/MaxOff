@@ -1,7 +1,7 @@
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 
-import { type Page } from "@playwright/test";
+import { type Page, type TestInfo } from "@playwright/test";
 
 import { fromBase64Url } from "../src/core/notifications/push/base64url";
 import { systemClock } from "../src/core/time";
@@ -17,6 +17,7 @@ import {
   serviceDelete,
   serviceSelect,
   serviceUpdate,
+  signIn,
   storageStateFor,
   taskTypeId,
   USERS,
@@ -31,7 +32,9 @@ import {
  * keeps every POST; the spec decrypts them with the throwaway receiver keys it made and
  * verifies the VAPID token with the run's throwaway public key (playwright.config.ts).
  *
- * The staff user is this file's: their subscriptions are removed at the start and the end.
+ * Each project has its own Staff member (seeded `push-<project>@maxoff.local`): the banner is
+ * judged per member, so the projects running side by side never share one person's
+ * subscriptions. Their subscriptions are removed at the start and the end.
  */
 const CRON_SECRET = process.env.CRON_SECRET ?? "e2e-only-cron-secret-not-used-anywhere-else";
 
@@ -116,9 +119,16 @@ async function stubPush(
   }, options);
 }
 
-async function removeStaffSubscriptions(): Promise<void> {
-  const staffId = await memberIdOf(USERS.staff.email);
-  await serviceDelete(`push_subscriptions?member_id=eq.${staffId}`);
+const PUSH_PASSWORD = "push-local-password";
+
+/** This project's own Staff member. */
+function pushPerson(info: TestInfo): string {
+  return `push-${info.project.name}@maxoff.local`;
+}
+
+async function removeSubscriptionsOf(email: string): Promise<void> {
+  const memberId = await memberIdOf(email);
+  await serviceDelete(`push_subscriptions?member_id=eq.${memberId}`);
 }
 
 async function noQuietHours(): Promise<() => Promise<void>> {
@@ -140,27 +150,33 @@ async function noQuietHours(): Promise<() => Promise<void>> {
 
 test.describe("Web Push", () => {
   test.describe.configure({ mode: "serial" });
-  test.use({ storageState: storageStateFor("staff") });
+  // Signed in as this project's own person in beforeEach, not from a saved session.
+  test.use({ storageState: { cookies: [], origins: [] } });
 
   let service: Awaited<ReturnType<typeof fakePushService>>;
   let receiver: Receiver;
   let restoreQuietHours: () => Promise<void>;
 
-  test.beforeAll(async () => {
+  test.beforeAll(async ({}, info) => {
     service = await fakePushService();
     receiver = await generateReceiverKeys();
     restoreQuietHours = await noQuietHours();
-    await removeStaffSubscriptions();
+    await removeSubscriptionsOf(pushPerson(info));
   });
 
-  test.afterAll(async () => {
-    await removeStaffSubscriptions();
+  test.beforeEach(async ({ page }, info) => {
+    await signIn(page, pushPerson(info), PUSH_PASSWORD);
+  });
+
+  test.afterAll(async ({}, info) => {
+    await removeSubscriptionsOf(pushPerson(info));
     await restoreQuietHours();
     await new Promise<void>((resolve) => service.server.close(() => resolve()));
   });
 
   test("the banner asks on every screen, permission only on the tap; one device stops it everywhere", async ({
     page,
+    isMobile,
   }) => {
     await stubPush(page, {
       permission: "default",
@@ -192,14 +208,19 @@ test.describe("Web Push", () => {
       ),
     ).toBe(true);
     await expect(page.locator('[data-slot="push-banner"]')).toBeHidden();
-    const staffId = await memberIdOf(USERS.staff.email);
+    const staffId = await memberIdOf(pushPerson(test.info()));
     const rows = await serviceSelect<{
       endpoint: string;
       platform: string;
       disabled_at: string | null;
     }>(`push_subscriptions?member_id=eq.${staffId}&select=endpoint,platform,disabled_at`);
     expect(rows).toEqual([
-      { endpoint: `${service.url}/ok/staff-phone`, platform: "desktop", disabled_at: null },
+      // The phone projects emulate an Android phone, so the platform follows the device.
+      {
+        endpoint: `${service.url}/ok/staff-phone`,
+        platform: isMobile ? "android" : "desktop",
+        disabled_at: null,
+      },
     ]);
 
     // Judged per member: a second browser of theirs with no subscription sees no banner, and Me
@@ -208,7 +229,7 @@ test.describe("Web Push", () => {
       .context()
       .browser()!
       .newContext({
-        storageState: storageStateFor("staff"),
+        storageState: await page.context().storageState(),
         viewport: page.viewportSize(),
       });
     const second = await other.newPage();
@@ -265,7 +286,7 @@ test.describe("Web Push", () => {
       tag: string;
     };
     expect(opened).toMatchObject({ title: "MaxOff notifications are on", url: "/me", tag: "test" });
-    const staffId = await memberIdOf(USERS.staff.email);
+    const staffId = await memberIdOf(pushPerson(test.info()));
     const [sub] = await serviceSelect<{ last_test_at: string | null }>(
       `push_subscriptions?member_id=eq.${staffId}&select=last_test_at`,
     );
@@ -275,7 +296,7 @@ test.describe("Web Push", () => {
   test("a real transition's push reaches the device through the cron dispatch", async ({
     page,
   }) => {
-    const staffId = await memberIdOf(USERS.staff.email);
+    const staffId = await memberIdOf(pushPerson(test.info()));
     const before = service.received.length;
     const now = systemClock();
     const title = `Push proof ${now.getTime()}`;
@@ -322,11 +343,21 @@ test.describe("Web Push", () => {
     const again = await page.request.post("/api/cron/push-dispatch", {
       headers: { authorization: `Bearer ${CRON_SECRET}` },
     });
-    expect(((await again.json()) as { claimed: number }).claimed).toBe(0);
+    expect(again.ok()).toBe(true);
+    // Other projects' rows may be due at the same moment (the dispatcher is organization-wide),
+    // so the proof is this row's: it is never sent twice.
+    const resent = [];
+    for (const push of service.received.slice(before)) {
+      const opened = JSON.parse(
+        Buffer.from(await decryptPayload(new Uint8Array(push.body), receiver)).toString(),
+      ) as { title: string };
+      if (opened.title === `New task: ${title}`) resent.push(opened);
+    }
+    expect(resent).toHaveLength(1);
   });
 
   test("a device that answers gone is disabled and the test says so", async ({ page }) => {
-    const staffId = await memberIdOf(USERS.staff.email);
+    const staffId = await memberIdOf(pushPerson(test.info()));
     await serviceDelete(`push_subscriptions?member_id=eq.${staffId}`);
     await stubPush(page, {
       permission: "granted",
@@ -346,7 +377,7 @@ test.describe("Web Push", () => {
   });
 
   test("denied: the banner says how to re-enable and never asks again", async ({ page }) => {
-    const staffId = await memberIdOf(USERS.staff.email);
+    const staffId = await memberIdOf(pushPerson(test.info()));
     await serviceDelete(`push_subscriptions?member_id=eq.${staffId}`);
     await stubPush(page, { permission: "denied", endpoint: `${service.url}/ok/x`, receiver });
     await page.goto("/my-day");
@@ -368,7 +399,7 @@ test.describe("Web Push", () => {
     isMobile,
   }) => {
     test.skip(!isMobile, "the phone layout");
-    const staffId = await memberIdOf(USERS.staff.email);
+    const staffId = await memberIdOf(pushPerson(test.info()));
     await serviceDelete(`push_subscriptions?member_id=eq.${staffId}`);
     await stubPush(page, { permission: "default", endpoint: `${service.url}/ok/x`, receiver });
     await page.goto("/my-day");
@@ -391,7 +422,8 @@ test.describe("the deep-link entry (ARCHITECTURE §14.2 h)", () => {
     const staffId = await memberIdOf(USERS.staff.email);
     await page.goto(`/open?to=${encodeURIComponent(`/people/${staffId}`)}`);
     await expect(page).toHaveURL(new RegExp(`/people/${staffId}$`));
-    await expect(page.locator('[data-slot="page-back"]')).toBeVisible();
+    // One back link per breakpoint (the header's on a phone, the text link from md up).
+    await expect(page.locator('[data-slot="page-back"]:visible')).toBeVisible();
     await expectBackStack(page, [{ url: /\/people$/ }]);
   });
 

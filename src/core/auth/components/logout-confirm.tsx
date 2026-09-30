@@ -9,7 +9,6 @@ import { backToHomeThen } from "@/core/ui/shell/tab-history";
 import { toastResult } from "@/core/ui/toast";
 
 import { logout } from "../actions";
-import { releaseThisDevice } from "@/core/notifications/push/release";
 import { ErrorText } from "@/core/ui/composites/error-text";
 
 /**
@@ -64,7 +63,11 @@ export function LogoutProvider({
           await new Promise<void>((resolve) => backToHomeThen(resolve));
           // This device's push subscription goes with the sign-out (5.2): the browser's copy is
           // dropped and its endpoint handed to the action, which deletes the row.
-          const pushEndpoint = await releaseThisDevice();
+          // Loaded on the tap, so the push code stays out of every screen's first load (A-L6); a
+          // chunk that fails to load (offline) never stops the sign-out.
+          const pushEndpoint = await import("@/core/notifications/push/release")
+            .then((module) => module.releaseThisDevice())
+            .catch(() => null);
           // On success the action redirects; only a failure comes back as a Result.
           toastResult(await logout(pushEndpoint ? { pushEndpoint } : {}));
           return true;

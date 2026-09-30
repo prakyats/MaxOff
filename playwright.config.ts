@@ -64,8 +64,14 @@ function throwawayVapid(): { publicKey: string; privateKey: string } {
   ]);
   return { publicKey: point.toString("base64url"), privateKey: jwk.d };
 }
-const VAPID = throwawayVapid();
+// The config is loaded again in every worker process: the runner's pair is handed to the workers
+// through the environment they inherit, so the spec verifies with the key the server signs with.
+const VAPID =
+  process.env.E2E_VAPID_PUBLIC_KEY && process.env.E2E_VAPID_PRIVATE_KEY
+    ? { publicKey: process.env.E2E_VAPID_PUBLIC_KEY, privateKey: process.env.E2E_VAPID_PRIVATE_KEY }
+    : throwawayVapid();
 process.env.E2E_VAPID_PUBLIC_KEY = VAPID.publicKey;
+process.env.E2E_VAPID_PRIVATE_KEY = VAPID.privateKey;
 
 /**
  * Flow tests (ARCHITECTURE §15). `pnpm test:e2e` runs them; CI runs them as their own job.

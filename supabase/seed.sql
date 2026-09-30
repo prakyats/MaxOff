@@ -163,7 +163,12 @@ insert into seed_users values
   ('20000000-0000-4000-8000-000000000093', 'req-staff-mobile@maxoff.local', 'req-local-password', 'Test Request Staff (mobile)', null, 'staff', 'active'),
   ('20000000-0000-4000-8000-000000000094', 'people-coord-mobile-lg@maxoff.local', 'people-local-password', 'Test People Coordinator (mobile-lg)', null, 'staff', 'active'),
   ('20000000-0000-4000-8000-000000000095', 'people-coord2-mobile-lg@maxoff.local', 'people-local-password', 'Test People Coordinator B (mobile-lg)', null, 'staff', 'active'),
-  ('20000000-0000-4000-8000-000000000096', 'req-staff-mobile-lg@maxoff.local', 'req-local-password', 'Test Request Staff (mobile-lg)', null, 'staff', 'active');
+  ('20000000-0000-4000-8000-000000000096', 'req-staff-mobile-lg@maxoff.local', 'req-local-password', 'Test Request Staff (mobile-lg)', null, 'staff', 'active'),
+  -- 5.2: Web Push (e2e/push.spec.ts), one person per project: the banner is judged per member,
+  -- so the projects running side by side must never share a person's subscriptions.
+  ('20000000-0000-4000-8000-000000000097', 'push-desktop@maxoff.local', 'push-local-password', 'Test Push (desktop)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000098', 'push-mobile@maxoff.local', 'push-local-password', 'Test Push (mobile)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000099', 'push-mobile-lg@maxoff.local', 'push-local-password', 'Test Push (mobile-lg)', null, 'staff', 'active');
 
 -- What GoTrue writes for a confirmed email + password user (`auth.users` + one identity).
 insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
