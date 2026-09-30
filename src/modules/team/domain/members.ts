@@ -103,6 +103,30 @@ export function memberActions(
 }
 
 /**
+ * Why "Invite as employee" cannot go ahead for this person, or null when it can (Kickoff 4
+ * decision 7): only an active freelancer becomes an employee. Checked by the action **before** it
+ * creates a sign-in under the freelancer's id (phase 4 review S-S3), in the words
+ * `member_invite_employee()` uses for the same refusals.
+ */
+export function inviteAsEmployeeRefusal(
+  member: Pick<TeamMember, "status" | "engagement">,
+): string | null {
+  if (member.engagement !== "freelance") return "This person is already an employee.";
+  if (member.status !== "active") {
+    return "Reactivate this freelancer before inviting them as an employee.";
+  }
+  return null;
+}
+
+/**
+ * What the Owner reads when an invite was refused **and** the sign-in it had created could not
+ * be removed again (S-S3 b): the error is reported to Sentry, and the screen says plainly that
+ * something needs a look, instead of only the refusal's own reason.
+ */
+export const LEFTOVER_SIGN_IN_MESSAGE =
+  "This didn't go through, and the sign-in it had started couldn't be removed. Something needs a look before you try again: the error has been reported.";
+
+/**
  * Who may coordinate a freelancer (Kickoff 4 decision 8, ADR-0013): an active permanent Admin or
  * Staff member, never the Owner and never a freelancer; `except` leaves out whoever the choice is
  * about (the current coordinator, a coordinator being deactivated).
