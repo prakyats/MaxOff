@@ -60,7 +60,8 @@ const GLOBAL = "__global__";
  * key follows the label until it is typed by hand, and is fixed once saved (values are stored
  * under it); the scope is fixed too. The type stays editable until a record holds a value, and
  * the database says so when it refuses (kickoff 3). Mounted fresh per definition (`key=` at the
- * call site) so the fields start from the right values.
+ * call site) so the fields start from the right values. Also opened from a client's Edit form
+ * (`AddClientFieldButton`), whose own form is its parent in React's tree: its submit stops here.
  */
 export function FieldDefinitionDialog({
   entity,
@@ -68,6 +69,7 @@ export function FieldDefinitionDialog({
   scopes,
   canGlobal,
   defaultScope,
+  onSaved,
   onClose,
 }: {
   entity: SettingsEntity;
@@ -80,6 +82,8 @@ export function FieldDefinitionDialog({
    *  field on every task is `lists.manage`'s (PERMISSIONS ³). */
   canGlobal: boolean;
   defaultScope: string | null;
+  /** After a successful save, before the dialog closes. */
+  onSaved?: () => void;
   onClose: () => void;
 }) {
   const kind = scopeKindOf(entity);
@@ -112,6 +116,7 @@ export function FieldDefinitionDialog({
           });
       if (result.ok) {
         toastResult(result, { success: editing ? "Field saved" : "Field added" });
+        onSaved?.();
         onClose();
       } else {
         setError(result.error);
@@ -123,6 +128,9 @@ export function FieldDefinitionDialog({
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    // A portal still bubbles through React's tree: opened from a client's Edit form, this
+    // submit would also reach that form and open its "Save these changes?".
+    event.stopPropagation();
     action.run();
   }
 
@@ -144,7 +152,9 @@ export function FieldDefinitionDialog({
               {editing
                 ? "The key and the scope stay as they are; the type can change until a record holds a value."
                 : kind === "client"
-                  ? "A field for every client, or for one client only."
+                  ? canGlobal
+                    ? "A field for every client, or for one client only."
+                    : "A field for one of your clients. Fields for every client are added by the Owner."
                   : kind === "task_type"
                     ? "A field on every task, or on one task type only."
                     : "Only the Owner defines these fields."}

@@ -22,6 +22,7 @@ import {
   ClientNotes,
   OwnerNotes,
 } from "@/modules/clients/components/client-details";
+import { AddClientFieldButton } from "@/modules/settings/components/add-client-field-button";
 
 import { assertClientId, loadClient, loadPeople } from "../client";
 
@@ -178,6 +179,16 @@ export default async function ClientOverviewPage({ params }: { params: Promise<{
             definitions={clientFields}
             members={people.options}
             canEdit={canEdit}
+            addField={
+              // Whoever edits this client and defines fields (the Owner, its Admin) adds one
+              // here; every client is the Owner's (PERMISSIONS ²). Settings manages them all.
+              canEdit && can(viewer.role, "lists.manage") ? (
+                <AddClientFieldButton
+                  client={{ id: client.id, name: client.name }}
+                  canGlobal={viewer.role === "owner"}
+                />
+              ) : undefined
+            }
           />
         </CardContent>
       </Card>
