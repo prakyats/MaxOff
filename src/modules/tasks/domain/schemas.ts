@@ -211,6 +211,16 @@ export const commentSchema = z.object({
 });
 export type CommentInput = z.input<typeof commentSchema>;
 
+/**
+ * Opening Chat marks the comments read (Kickoff 4 decision 28): up to the newest comment the
+ * viewer was shown (the database never moves a read back, nor past its own clock).
+ */
+export const markReadSchema = z.object({
+  taskId: z.uuid(),
+  upTo: z.iso.datetime({ offset: true }),
+});
+export type MarkReadInput = z.input<typeof markReadSchema>;
+
 // 4.5: Approvals ------------------------------------------------------------------------------------
 
 export const approveTaskSchema = z.object({ taskId: z.uuid() });

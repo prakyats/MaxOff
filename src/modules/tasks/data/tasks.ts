@@ -156,6 +156,33 @@ export async function listComments(taskId: string): Promise<TaskComment[]> {
   }));
 }
 
+/**
+ * The viewer's own last read of the task's comments (Kickoff 4 decision 28), or null when they
+ * have not opened its Chat. RLS: a member reads only their own `task_reads` rows.
+ */
+export async function getTaskRead(taskId: string): Promise<string | null> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase
+    .from("task_reads")
+    .select("last_read_at")
+    .eq("task_id", taskId)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.last_read_at ?? null;
+}
+
+/**
+ * The viewer's unread comments per task, for the lists' markers (`task_unread_counts()`: comments
+ * by someone else after the viewer's last read, on the tasks they see; only tasks with any). Once
+ * per request.
+ */
+export const listUnreadCounts = cache(async (): Promise<Record<string, number>> => {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("task_unread_counts");
+  if (error) throw error;
+  return Object.fromEntries(data.map((row) => [row.task_id, row.unread]));
+});
+
 /** The hand-ins, newest version first. */
 export async function listSubmissions(taskId: string): Promise<TaskSubmission[]> {
   const supabase = await createServerSupabase();
@@ -669,6 +696,13 @@ export async function removeStage(taskId: string, stageId: string): Promise<void
     .eq("task_id", taskId);
   if (error) throw error;
   if (count === 0) throw new AppError("NOT_FOUND", "This stage is gone. Refresh the task.");
+}
+
+/** Moves the viewer's own read of the task's comments forward to `upTo` (`task_mark_read`). */
+export async function rpcMarkRead(taskId: string, upTo: string): Promise<void> {
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.rpc("task_mark_read", { task_id: taskId, up_to: upTo });
+  if (error) throw error;
 }
 
 /** A comment, as the caller or for a freelancer they coordinate (the guard checks, ADR-0013). */

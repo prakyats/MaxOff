@@ -10,6 +10,8 @@ import * as repo from "../data/tasks";
 import {
   type ActingInput,
   actingSchema,
+  type MarkReadInput,
+  markReadSchema,
   type AddStageInput,
   addStageSchema,
   type AvailabilityInput,
@@ -212,5 +214,19 @@ export const addTaskComment = action(async (input: CommentInput): Promise<Result
   await assertPermission("tasks.work");
   await repo.addComment(data);
   revalidatePath(taskPath(data.taskId));
+  return ok(null);
+});
+
+/**
+ * Opening Chat marks its comments read for the viewer (Kickoff 4 decision 28; `task_mark_read`,
+ * their own row). The lists' unread markers (the Tasks tab, all tasks, Approvals) follow on their
+ * next render, so they are revalidated with the page.
+ */
+export const markTaskRead = action(async (input: MarkReadInput): Promise<Result<null>> => {
+  const data = markReadSchema.parse(input);
+  await assertPermission("tasks.work");
+  await repo.rpcMarkRead(data.taskId, data.upTo);
+  revalidatePath("/tasks", "layout");
+  revalidatePath("/approvals");
   return ok(null);
 });
