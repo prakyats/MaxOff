@@ -5,16 +5,21 @@ import { usePathname } from "next/navigation";
 
 import { cn } from "@/core/lib/utils";
 
+import type { ReactNode } from "react";
+
 import { isActivePath, type NavItem } from "./nav";
 import { NAV_ICONS } from "./nav-icons";
 
 /** Vertical navigation list with the active route highlighted. Used by the sidebar and the mobile sheet. */
 export function NavList({
   items,
+  badges = {},
   onNavigate,
   className,
 }: {
   items: readonly NavItem[];
+  /** Each item's count by key, streamed by the shell (`NavCount`, 2.4, 4C). */
+  badges?: Readonly<Partial<Record<string, ReactNode>>>;
   onNavigate?: () => void;
   className?: string;
 }) {
@@ -43,15 +48,7 @@ export function NavList({
               >
                 <Icon className="size-4 shrink-0" aria-hidden />
                 <span className="truncate">{item.label}</span>
-                {item.badge ? (
-                  <span
-                    data-slot="nav-badge"
-                    className="bg-brand text-brand-foreground ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] leading-none font-semibold tabular-nums"
-                  >
-                    <span aria-hidden>{item.badge > 99 ? "99+" : item.badge}</span>
-                    <span className="sr-only">{item.badge} waiting</span>
-                  </span>
-                ) : null}
+                {badges[item.key]}
               </Link>
             </li>
           );

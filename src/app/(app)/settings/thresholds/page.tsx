@@ -6,6 +6,8 @@ import { PageHeader } from "@/core/ui/composites/page-header";
 import { getSettings } from "@/modules/settings";
 import { ThresholdsForm } from "@/modules/settings/components/thresholds-form";
 
+import { SETTINGS_HEADERS } from "../headers";
+
 export const metadata: Metadata = { title: "Thresholds" };
 
 /**
@@ -21,8 +23,7 @@ export default async function ThresholdsSettingsPage() {
       <PageHeader
         back={{ href: "/settings", label: "Settings" }}
         title="Thresholds"
-        description="How long MaxOff waits before it reminds someone, escalates to the Admin and then to you, and how much email one person can get in a day."
-        help="How long MaxOff waits before it reminds someone, escalates to the Admin and then to you, and how much email one person can get in a day."
+        {...SETTINGS_HEADERS.thresholds}
       />
       <ThresholdsForm thresholds={settings} />
     </>

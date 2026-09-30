@@ -1,4 +1,5 @@
 import { formatIST, istDayStart } from "@/core/time";
+import { displayName } from "@/core/lib/display-name";
 
 import {
   type AttendanceChoice,
@@ -129,23 +130,19 @@ function words(viewpoint: Viewpoint): Words {
       leaveApproved: "Your leave was approved",
     };
   }
-  const first = firstName(viewpoint.name);
+  // Kickoff 4 decision 30: the full name, never a first name.
+  const name = displayName(viewpoint.name);
   return {
-    who: first,
+    who: name,
     theyAre: "they're",
     their: "their",
-    theirNote: `${first}'s note`,
+    theirNote: `${name}'s note`,
     owner: "You",
     ownerReason: "Your reason",
     waiting: "Waiting for you",
     changed: "Changed by you",
     leaveApproved: "Leave approved",
   };
-}
-
-/** "Asha" from "Asha Rao": what the Owner's screens call a person in a sentence. */
-export function firstName(name: string): string {
-  return name.trim().split(/\s+/)[0] || name;
 }
 
 /**

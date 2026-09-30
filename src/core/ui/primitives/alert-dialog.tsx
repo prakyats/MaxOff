@@ -6,6 +6,7 @@ import { AlertDialog as AlertDialogPrimitive } from "radix-ui";
 
 import { useOverlayOpenState } from "@/core/ui/overlay/overlay-history";
 import { Button } from "@/core/ui/primitives/button";
+import { ModalOpening, useModalOpening } from "@/core/ui/primitives/modal-opening";
 import { MODAL_FOOTER, MODAL_HANDLE, MODAL_SURFACE } from "@/core/ui/primitives/modal-surface";
 
 /**
@@ -20,13 +21,16 @@ function AlertDialog({
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Root>) {
   const [isOpen, setOpen] = useOverlayOpenState({ open, defaultOpen, onOpenChange });
+  const opening = useModalOpening(isOpen);
   return (
-    <AlertDialogPrimitive.Root
-      data-slot="alert-dialog"
-      open={isOpen}
-      onOpenChange={setOpen}
-      {...props}
-    />
+    <ModalOpening.Provider value={opening}>
+      <AlertDialogPrimitive.Root
+        data-slot="alert-dialog"
+        open={isOpen}
+        onOpenChange={setOpen}
+        {...props}
+      />
+    </ModalOpening.Provider>
   );
 }
 
@@ -64,8 +68,10 @@ function AlertDialogContent({
 }: React.ComponentProps<typeof AlertDialogPrimitive.Content> & {
   size?: "default" | "sm";
 }) {
+  // A fresh overlay and content per opening, overlay first (`modal-opening.ts`).
+  const opening = React.useContext(ModalOpening);
   return (
-    <AlertDialogPortal>
+    <AlertDialogPortal key={opening}>
       <AlertDialogOverlay />
       <AlertDialogPrimitive.Content
         data-slot="alert-dialog-content"

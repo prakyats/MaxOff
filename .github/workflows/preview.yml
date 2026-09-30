@@ -15,9 +15,10 @@
 #
 # Previews run against the **staging** Supabase project with the staging environment's
 # variables. The preview build itself never runs migrations; the `staging-migrations` job at the
-# bottom of this file does, **before** the build, on every push to a `phase-*` branch: it lists
-# the linked project's migrations and pushes only when staging is missing a local one (seconds
-# when nothing is pending, robust against an earlier failed run). Other branches, and a run
+# bottom of this file does, **before** the build, on every push to a `phase-*` branch, through
+# scripts/staging-migrations.sh: it lists the linked project's migrations and applies only what
+# staging is missing, also while staging holds another open branch's (seconds when nothing is
+# pending, robust against an earlier failed run). Other branches, and a run
 # where that job failed, preview against a database that lacks them, and the PR comment says so.
 # The manual dispatch stays as the fallback. Staging only: production migrations go out with a
 # `v*` tag (deploy.yml), never from here.
@@ -335,7 +336,7 @@ jobs:
           git diff --name-only --diff-filter=AR "origin/main...HEAD" -- supabase/migrations \
             >"$RUNNER_TEMP/migrations.txt" || true
           if [ ! -s "$RUNNER_TEMP/migrations.txt" ]; then
-            echo "::notice::$GITHUB_REF_NAME adds no migrations that staging is missing. Running db push anyway is harmless."
+            echo "::notice::$GITHUB_REF_NAME adds no migrations of its own. The listing below still applies anything else staging is missing."
           fi
           {
             echo "### Migrations this branch adds"
@@ -351,34 +352,13 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
 
-      - name: Push only the migrations staging is missing
+      # The same script as deploy.yml's staging job: it lists first and applies only what staging
+      # is missing, also while staging holds another open branch's migrations (the header of
+      # scripts/staging-migrations.sh has the decision table and why a plain push cannot).
+      - name: Apply the migrations staging is missing
         id: push
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
           SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
-        run: |
-          set -euo pipefail
-          pnpm supabase link --project-ref "$SUPABASE_PROJECT_REF"
-          # One row per version: Local | Remote | Time, versions in backticks (CLI 2.117; older
-          # builds drew the table with │). A local version with an empty remote column is pending.
-          pnpm supabase migration list --linked --password "$SUPABASE_DB_PASSWORD" \
-            | tee "$RUNNER_TEMP/list.txt"
-          sed 's/│/|/g' "$RUNNER_TEMP/list.txt" >"$RUNNER_TEMP/list.pipes"
-          rows="$(awk -F'|' 'NF >= 2 { gsub(/[[:space:]`]/, "", $1); if ($1 ~ /^[0-9]{14}$/) c++ } END { print c + 0 }' "$RUNNER_TEMP/list.pipes")"
-          pending="$(awk -F'|' 'NF >= 2 { gsub(/[[:space:]`]/, "", $1); gsub(/[[:space:]`]/, "", $2); if ($1 ~ /^[0-9]{14}$/ && $2 == "") print $1 }' "$RUNNER_TEMP/list.pipes")"
-          if [ "$rows" = "0" ]; then
-            # The listing could not be read: pushing is idempotent, so push rather than skip.
-            echo "::warning::Could not read the migration list; running db push anyway."
-            pending="(unknown)"
-          fi
-          if [ -z "$pending" ]; then
-            echo "Staging has every local migration; nothing to push."
-            echo "applied=false" >>"$GITHUB_OUTPUT"
-            echo "Staging already had every local migration." >>"$GITHUB_STEP_SUMMARY"
-          else
-            echo "Pending on staging:"; echo "$pending"
-            pnpm supabase db push
-            echo "applied=true" >>"$GITHUB_OUTPUT"
-            { echo "### Applied to staging"; echo; echo "$pending" | sed 's|^|- `|; s|$|`|'; } >>"$GITHUB_STEP_SUMMARY"
-          fi
+        run: bash scripts/staging-migrations.sh

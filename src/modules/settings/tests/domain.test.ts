@@ -66,6 +66,7 @@ describe("updateThresholdsSchema", () => {
     ackEscalateOwnerHours: "8",
     overdueEscalateHours: "24",
     emailDailyCapPerMember: "20",
+    workloadWarningThreshold: "4",
   };
 
   it("takes the launch settings (PRODUCT §7) as numbers", () => {
@@ -77,7 +78,21 @@ describe("updateThresholdsSchema", () => {
       ackEscalateOwnerHours: 8,
       overdueEscalateHours: 24,
       emailDailyCapPerMember: 20,
+      workloadWarningThreshold: 4,
     });
+  });
+
+  it("takes a workload warning of 1 to 50 tasks, whole (kickoff 4 decision 11)", () => {
+    for (const ok of ["1", "4", "50"]) {
+      expect(
+        updateThresholdsSchema.safeParse({ ...valid, workloadWarningThreshold: ok }).success,
+      ).toBe(true);
+    }
+    for (const bad of ["0", "2.5", "51", ""]) {
+      expect(
+        updateThresholdsSchema.safeParse({ ...valid, workloadWarningThreshold: bad }).success,
+      ).toBe(false);
+    }
   });
 
   it("refuses a time that is not HH:MM", () => {

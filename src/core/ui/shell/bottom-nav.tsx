@@ -13,7 +13,7 @@ import {
 } from "@/core/ui/navigation/attributes";
 
 import { MoreSheet } from "./more-sheet";
-import { isActivePath, type NavItem, PROFILE_NAV_ITEM, totalBadge } from "./nav";
+import { isActivePath, type NavItem, PROFILE_NAV_ITEM } from "./nav";
 import { NAV_ICONS } from "./nav-icons";
 import { usePrefetchTabs, useTabNavigation } from "./tab-history";
 
@@ -33,13 +33,13 @@ function Item({
   icon,
   label,
   active,
-  badge = 0,
+  badge,
 }: {
   icon: NavItem["icon"];
   label: string;
   active: boolean;
-  /** Things waiting for the viewer behind this destination; 0 shows nothing. */
-  badge?: number;
+  /** Things waiting for the viewer behind this destination, streamed by the shell (`NavCount`). */
+  badge?: NavItemBadge | undefined;
 }) {
   const Icon = NAV_ICONS[icon];
   return (
@@ -56,15 +56,7 @@ function Item({
           strokeWidth={active ? 2.25 : 1.75}
           aria-hidden
         />
-        {badge > 0 ? (
-          <span
-            data-slot="nav-badge"
-            // The ring punches the badge out of the icon so it stays readable over either.
-            className="bg-brand text-brand-foreground ring-background absolute -top-0.5 right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] leading-none font-semibold ring-2"
-          >
-            {badge > 99 ? "99+" : badge}
-          </span>
-        ) : null}
+        {badge?.mark}
       </span>
       <span
         data-slot="nav-label"
@@ -76,10 +68,13 @@ function Item({
         {label}
       </span>
       {/* The number is decoration next to the label; this is what a screen reader hears. */}
-      {badge > 0 ? <span className="sr-only">{badge} waiting</span> : null}
+      {badge?.words}
     </>
   );
 }
+
+/** A bar item's count, in its two places: the disc on the icon and the words after the label. */
+export type NavItemBadge = { mark: ReactNode; words: ReactNode };
 
 /**
  * Bottom navigation, **for every role** (ARCHITECTURE §14.1, task 1.5 — before it, only Staff
@@ -93,9 +88,18 @@ export function BottomNav({
   more,
   home,
   logoutItem,
+  badges = {},
+  moreBadge,
+  sheetBadges = {},
 }: {
   primary: readonly NavItem[];
   more: readonly NavItem[];
+  /** Each bar item's count by key, streamed by the shell (2.4, 4C). */
+  badges?: Readonly<Partial<Record<string, NavItemBadge>>>;
+  /** What waits behind More, added up, so nothing needing the viewer hides in the sheet. */
+  moreBadge?: NavItemBadge;
+  /** The More sheet's rows' counts by key. */
+  sheetBadges?: Readonly<Partial<Record<string, ReactNode>>>;
   /** The role's home tab: where back from any other tab lands when installed (`tab-history`). */
   home: string;
   logoutItem?: ReactNode;
@@ -117,8 +121,6 @@ export function BottomNav({
   // Everything the sheet can reach, so "you are here" still holds after you open one of them.
   const moreActive =
     hasMore && [...more, PROFILE_NAV_ITEM].some((item) => isActivePath(pathname, item.href));
-  // What is waiting behind More, added up, so nothing needing the viewer hides in the sheet.
-  const moreBadge = totalBadge(more);
   const columns = primary.length + (hasMore ? 1 : 0);
 
   return (
@@ -153,7 +155,7 @@ export function BottomNav({
                   icon={item.icon}
                   label={item.label}
                   active={active}
-                  {...(item.badge === undefined ? {} : { badge: item.badge })}
+                  badge={badges[item.key]}
                 />
               </Link>
             </li>
@@ -163,6 +165,7 @@ export function BottomNav({
           <li className="flex">
             <MoreSheet
               items={more}
+              badges={sheetBadges}
               tabs={tabs}
               logoutItem={logoutItem}
               trigger={

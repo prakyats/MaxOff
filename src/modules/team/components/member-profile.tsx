@@ -7,7 +7,13 @@ import { EditableRecord, type EditableField } from "@/core/ui/composites/editabl
 import { updateMember } from "../actions/members";
 import { offerableJobTitles, type JobTitleOption } from "../domain/job-titles";
 import { INVITABLE_ROLES, NAME_MAX_LENGTH } from "../domain/limits";
-import { memberActions, memberEditKey, ROLE_LABELS, type TeamMember } from "../domain/members";
+import {
+  memberActions,
+  memberEditKey,
+  ROLE_LABELS,
+  roleLabel,
+  type TeamMember,
+} from "../domain/members";
 import { ClientHandover, type HandoverMove } from "./client-handover";
 
 type Field = "fullName" | "role" | "jobTitleId";
@@ -42,7 +48,7 @@ export function MemberProfile({
         kind: "select",
         options: INVITABLE_ROLES.map((value) => ({ value, label: ROLE_LABELS[value] })),
       }
-    : { name: "role", label: "Role", noun: "role", value: ROLE_LABELS[member.role] };
+    : { name: "role", label: "Role", noun: "role", value: roleLabel(member) };
   const fields: EditableField<Field>[] = [
     {
       name: "fullName",
@@ -51,7 +57,8 @@ export function MemberProfile({
       value: member.fullName,
       input: { autoComplete: "off", maxLength: NAME_MAX_LENGTH, required: true },
     },
-    // A role that cannot change is shown, never offered as an input.
+    // A role that cannot change is shown, never offered as an input; a freelancer's is in the
+    // header card ("Freelancer", ADR-0013), so the Owner's record leaves it out.
     ...(edit && !editRole ? [] : [role]),
     {
       name: "jobTitleId",

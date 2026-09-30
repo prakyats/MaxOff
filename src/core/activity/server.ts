@@ -32,7 +32,7 @@ export async function listActivity(
   const supabase = await createServerSupabase();
   const { data, error } = await supabase
     .from("activity_log")
-    .select("id, actor_id, entity, entity_id, action, diff, meta, at")
+    .select("id, actor_id, on_behalf_of_id, entity, entity_id, action, diff, meta, at")
     .or(clauses.join(","))
     .order("at", { ascending: false })
     .order("id", { ascending: false })
@@ -43,6 +43,7 @@ export async function listActivity(
     return {
       id: row.id,
       actorId: row.actor_id,
+      onBehalfOfId: row.on_behalf_of_id,
       entity: row.entity,
       entityId: row.entity_id,
       action: row.action,

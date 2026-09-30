@@ -3,13 +3,17 @@ export {
   addISTDays,
   formatIST,
   isISODate,
+  isISTTime,
   istDayRange,
   istDayStart,
+  istInstant,
   systemClock,
   toISTDate,
+  toISTTime,
   todayIST,
   type Clock,
   type ISODate,
+  type ISTTime,
   type Instant,
 } from "./ist";
 export {

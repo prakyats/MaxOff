@@ -154,7 +154,7 @@ describe("describeEvent speaks to the member, not in database words", () => {
         kind: "owner",
         name: "Asha Rao",
       }).text,
-    ).toBe("Asha started their day");
+    ).toBe("Asha Rao started their day");
     expect(
       describeEvent(event({ action: "overtime_flagged", toStatus: null, reason: "Late edit" })),
     ).toEqual({ text: "You flagged overtime", note: "Your note: Late edit" });

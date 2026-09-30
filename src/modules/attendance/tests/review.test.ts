@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { describeEvent, describeHistoryDay, firstName, type HistoryDay } from "../domain/history";
+import { describeEvent, describeHistoryDay, type HistoryDay } from "../domain/history";
 import {
   approvedLabel,
   expectedToday,
@@ -194,7 +194,7 @@ describe("the Attendance group's rows", () => {
     expect(pendingLabel(pending({ onApprovedLeave: true }))).toBe("Present on a leave day");
     expect(pendingLabel(pending({ isDayOff: true }))).toBe("Present on a day off");
     expect(approvedLabel(pending({ submittedChoice: "half_day" }))).toBe(
-      "Approved Asha's half day",
+      "Approved Asha Rao's half day",
     );
   });
 
@@ -222,20 +222,20 @@ describe("the history in the Owner's words (one vocabulary, turned around)", () 
     expect(
       describeEvent({ ...base, action: "submitted", actor: "you", reason: "Fever" }, owner),
     ).toEqual({
-      text: "Asha chose leave",
-      note: "Asha's note: Fever",
+      text: "Asha Rao chose leave",
+      note: "Asha Rao's note: Fever",
     });
     expect(
       describeEvent(
         { ...base, action: "submitted", actor: "you", fromStatus: "leave", toStatus: "present" },
         owner,
       ).text,
-    ).toBe("Asha said they're working on a day of approved leave");
+    ).toBe("Asha Rao said they're working on a day of approved leave");
     expect(
       describeEvent({ ...base, action: "overtime_flagged", actor: "you", reason: "Launch" }, owner),
     ).toEqual({
-      text: "Asha flagged overtime",
-      note: "Asha's note: Launch",
+      text: "Asha Rao flagged overtime",
+      note: "Asha Rao's note: Launch",
     });
   });
 
@@ -303,9 +303,11 @@ describe("the history in the Owner's words (one vocabulary, turned around)", () 
     ).toBe("Changed by you");
   });
 
-  it("uses the first name in a sentence", () => {
-    expect(firstName("Asha Rao")).toBe("Asha");
-    expect(firstName("  Madhu  ")).toBe("Madhu");
+  it("names the person by their full name in a sentence (Kickoff 4 decision 30)", () => {
+    const owner = { kind: "owner" as const, name: "  Asha   Rao " };
+    expect(
+      describeEvent({ ...base, action: "submitted", actor: "you", reason: null }, owner).text,
+    ).toBe("Asha Rao chose leave");
   });
 });
 

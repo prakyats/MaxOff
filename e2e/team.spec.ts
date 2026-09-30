@@ -36,7 +36,11 @@ test.describe("Owner", () => {
 
   // The people this block creates, under every address they end up with, so the block runs
   // again on a database an earlier run used (2.6). One worker runs the block, so nothing races.
-  test.beforeAll(async () => {
+  // Only in the project that runs it: `isMobile` is a test-scoped option, so the skip above is
+  // decided after the hooks, and the phone projects' `beforeAll` used to remove these people in
+  // the middle of the desktop run (4C: "This person is not on the team" on the email change).
+  test.beforeAll(async ({}, info) => {
+    if (info.project.use.isMobile) return;
     for (const email of [
       INVITEE.email,
       MOVED_EMAIL,
@@ -55,7 +59,7 @@ test.describe("Owner", () => {
     await page.goto("/people");
     await expect(page.getByRole("heading", { name: "People", exact: true })).toBeVisible();
 
-    await page.getByRole("button", { name: "Invite", exact: true }).click();
+    await page.getByRole("button", { name: "Add person", exact: true }).click();
     await page.getByRole("button", { name: "Send invite" }).click();
     await expect(page.locator('[data-slot="field-error"]').first()).toBeVisible();
 
@@ -204,7 +208,7 @@ test.describe("Owner", () => {
     baseURL,
   }) => {
     await page.goto("/people");
-    await page.getByRole("button", { name: "Invite", exact: true }).click();
+    await page.getByRole("button", { name: "Add person", exact: true }).click();
     await page.getByLabel("Email").fill(TYPO_EMAIL);
     await page.getByLabel("Full name").fill("Typo Person");
     await page.getByRole("button", { name: "Send invite" }).click();
@@ -251,7 +255,7 @@ test.describe("Owner", () => {
     baseURL,
   }) => {
     await page.goto("/people");
-    await page.getByRole("button", { name: "Invite", exact: true }).click();
+    await page.getByRole("button", { name: "Add person", exact: true }).click();
     await page.getByLabel("Email").fill("pending@maxoff.local");
     await page.getByLabel("Full name").fill("Pending Person");
     await page.getByRole("button", { name: "Send invite" }).click();
@@ -371,7 +375,7 @@ test.describe("Admin", () => {
     await page.goto("/people");
     await expect(page.getByRole("heading", { name: "People", exact: true })).toBeVisible();
     await expect(page.getByRole("row", { name: /Local Staff/ })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Invite", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Add person", exact: true })).toHaveCount(0);
     await expect(page.getByText(USERS.owner.email)).toHaveCount(0);
     await expect(page.getByRole("button", { name: /^Actions for/ })).toHaveCount(0);
   });

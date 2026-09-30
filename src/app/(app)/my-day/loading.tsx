@@ -4,7 +4,7 @@ import { PageHeader } from "@/core/ui/composites/page-header";
 import { TodayAttendanceStripSkeleton } from "@/modules/attendance";
 
 import { StandInSkeleton } from "../_placeholder/stand-in-skeleton";
-import { dayStandIn } from "../_placeholder/stand-ins";
+import { dayStandIn, standInDescription } from "../_placeholder/stand-ins";
 
 /**
  * My Day, as it renders now (3c review: the skeleton traces the stand-in): the one-line
@@ -16,11 +16,12 @@ import { dayStandIn } from "../_placeholder/stand-ins";
 export default async function Loading() {
   const member = await getCurrentMember();
   const strip = member !== null && can(member.role, "attendance.self");
+  const copy = dayStandIn(member?.role ?? "staff");
   return (
     <>
-      <PageHeader title="My Day" />
+      <PageHeader title="My Day" description={standInDescription(copy, member?.name)} />
       {strip ? <TodayAttendanceStripSkeleton /> : null}
-      <StandInSkeleton copy={dayStandIn(member?.role ?? "staff")} label="Loading My Day" />
+      <StandInSkeleton copy={copy} label="Loading My Day" />
     </>
   );
 }

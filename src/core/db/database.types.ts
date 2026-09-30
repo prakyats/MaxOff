@@ -13,6 +13,7 @@ export type Database = {
           entity_id: string;
           id: number;
           meta: Json;
+          on_behalf_of_id: string | null;
           org_id: string;
         };
         Insert: {
@@ -24,6 +25,7 @@ export type Database = {
           entity_id: string;
           id?: never;
           meta?: Json;
+          on_behalf_of_id?: string | null;
           org_id: string;
         };
         Update: {
@@ -35,6 +37,7 @@ export type Database = {
           entity_id?: string;
           id?: never;
           meta?: Json;
+          on_behalf_of_id?: string | null;
           org_id?: string;
         };
         Relationships: [
@@ -48,6 +51,20 @@ export type Database = {
           {
             foreignKeyName: "activity_log_actor_id_fkey";
             columns: ["actor_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "activity_log_on_behalf_of_id_fkey";
+            columns: ["on_behalf_of_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "activity_log_on_behalf_of_id_fkey";
+            columns: ["on_behalf_of_id"];
             isOneToOne: false;
             referencedRelation: "members";
             referencedColumns: ["id"];
@@ -1042,6 +1059,13 @@ export type Database = {
             referencedRelation: "organizations";
             referencedColumns: ["id"];
           },
+          {
+            foreignKeyName: "field_definitions_task_type_id_fkey";
+            columns: ["task_type_id"];
+            isOneToOne: false;
+            referencedRelation: "task_types";
+            referencedColumns: ["id"];
+          },
         ];
       };
       files: {
@@ -1305,12 +1329,89 @@ export type Database = {
           },
         ];
       };
+      member_coordinators: {
+        Row: {
+          coordinator_id: string;
+          created_at: string;
+          from_at: string;
+          id: string;
+          member_id: string;
+          reason: string | null;
+          set_by: string | null;
+          to_at: string | null;
+        };
+        Insert: {
+          coordinator_id: string;
+          created_at?: string;
+          from_at?: string;
+          id?: string;
+          member_id: string;
+          reason?: string | null;
+          set_by?: string | null;
+          to_at?: string | null;
+        };
+        Update: {
+          coordinator_id?: string;
+          created_at?: string;
+          from_at?: string;
+          id?: string;
+          member_id?: string;
+          reason?: string | null;
+          set_by?: string | null;
+          to_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "member_coordinators_coordinator_id_fkey";
+            columns: ["coordinator_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "member_coordinators_coordinator_id_fkey";
+            columns: ["coordinator_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "member_coordinators_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "member_coordinators_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "member_coordinators_set_by_fkey";
+            columns: ["set_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "member_coordinators_set_by_fkey";
+            columns: ["set_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       members: {
         Row: {
           avatar_file_id: string | null;
           created_at: string;
           deactivated_at: string | null;
-          email: string;
+          email: string | null;
+          engagement: Database["public"]["Enums"]["engagement"];
           full_name: string;
           id: string;
           invited_at: string;
@@ -1326,7 +1427,8 @@ export type Database = {
           avatar_file_id?: string | null;
           created_at?: string;
           deactivated_at?: string | null;
-          email: string;
+          email?: string | null;
+          engagement?: Database["public"]["Enums"]["engagement"];
           full_name: string;
           id: string;
           invited_at?: string;
@@ -1342,7 +1444,8 @@ export type Database = {
           avatar_file_id?: string | null;
           created_at?: string;
           deactivated_at?: string | null;
-          email?: string;
+          email?: string | null;
+          engagement?: Database["public"]["Enums"]["engagement"];
           full_name?: string;
           id?: string;
           invited_at?: string;
@@ -1529,6 +1632,913 @@ export type Database = {
           },
         ];
       };
+      task_assignees: {
+        Row: {
+          acknowledged_at: string | null;
+          acknowledged_by: string | null;
+          assigned_at: string;
+          assigned_by: string | null;
+          is_primary: boolean;
+          member_id: string;
+          removed_at: string | null;
+          task_id: string;
+        };
+        Insert: {
+          acknowledged_at?: string | null;
+          acknowledged_by?: string | null;
+          assigned_at?: string;
+          assigned_by?: string | null;
+          is_primary?: boolean;
+          member_id: string;
+          removed_at?: string | null;
+          task_id: string;
+        };
+        Update: {
+          acknowledged_at?: string | null;
+          acknowledged_by?: string | null;
+          assigned_at?: string;
+          assigned_by?: string | null;
+          is_primary?: boolean;
+          member_id?: string;
+          removed_at?: string | null;
+          task_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "task_assignees_acknowledged_by_fkey";
+            columns: ["acknowledged_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_assignees_acknowledged_by_fkey";
+            columns: ["acknowledged_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_assignees_assigned_by_fkey";
+            columns: ["assigned_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_assignees_assigned_by_fkey";
+            columns: ["assigned_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_assignees_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_assignees_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_assignees_task_id_fkey";
+            columns: ["task_id"];
+            isOneToOne: false;
+            referencedRelation: "tasks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      task_comments: {
+        Row: {
+          author_id: string;
+          body: string;
+          created_at: string;
+          id: string;
+          on_behalf_of: string | null;
+          task_id: string;
+        };
+        Insert: {
+          author_id?: string;
+          body: string;
+          created_at?: string;
+          id?: string;
+          on_behalf_of?: string | null;
+          task_id: string;
+        };
+        Update: {
+          author_id?: string;
+          body?: string;
+          created_at?: string;
+          id?: string;
+          on_behalf_of?: string | null;
+          task_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "task_comments_author_id_fkey";
+            columns: ["author_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_comments_author_id_fkey";
+            columns: ["author_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_comments_on_behalf_of_fkey";
+            columns: ["on_behalf_of"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_comments_on_behalf_of_fkey";
+            columns: ["on_behalf_of"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_comments_task_id_fkey";
+            columns: ["task_id"];
+            isOneToOne: false;
+            referencedRelation: "tasks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      task_reads: {
+        Row: {
+          last_read_at: string;
+          member_id: string;
+          task_id: string;
+        };
+        Insert: {
+          last_read_at?: string;
+          member_id: string;
+          task_id: string;
+        };
+        Update: {
+          last_read_at?: string;
+          member_id?: string;
+          task_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "task_reads_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_reads_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_reads_task_id_fkey";
+            columns: ["task_id"];
+            isOneToOne: false;
+            referencedRelation: "tasks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      task_requests: {
+        Row: {
+          client_id: string | null;
+          created_at: string;
+          decided_at: string | null;
+          decided_by: string | null;
+          decision_reason: string | null;
+          details: string | null;
+          id: string;
+          org_id: string;
+          requested_by: string;
+          state: Database["public"]["Enums"]["request_state"];
+          task_id: string | null;
+          title: string;
+          updated_at: string;
+        };
+        Insert: {
+          client_id?: string | null;
+          created_at?: string;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          decision_reason?: string | null;
+          details?: string | null;
+          id?: string;
+          org_id?: string;
+          requested_by: string;
+          state?: Database["public"]["Enums"]["request_state"];
+          task_id?: string | null;
+          title: string;
+          updated_at?: string;
+        };
+        Update: {
+          client_id?: string | null;
+          created_at?: string;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          decision_reason?: string | null;
+          details?: string | null;
+          id?: string;
+          org_id?: string;
+          requested_by?: string;
+          state?: Database["public"]["Enums"]["request_state"];
+          task_id?: string | null;
+          title?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "task_requests_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: false;
+            referencedRelation: "client_labels";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_requests_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: false;
+            referencedRelation: "clients";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_requests_decided_by_fkey";
+            columns: ["decided_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_requests_decided_by_fkey";
+            columns: ["decided_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_requests_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_requests_requested_by_fkey";
+            columns: ["requested_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_requests_requested_by_fkey";
+            columns: ["requested_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_requests_task_id_fkey";
+            columns: ["task_id"];
+            isOneToOne: false;
+            referencedRelation: "tasks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      task_reviews: {
+        Row: {
+          at: string;
+          decision: Database["public"]["Enums"]["review_decision"];
+          id: string;
+          reason: string | null;
+          reviewer_id: string;
+          step: string;
+          submission_id: string | null;
+          task_id: string;
+        };
+        Insert: {
+          at?: string;
+          decision: Database["public"]["Enums"]["review_decision"];
+          id?: string;
+          reason?: string | null;
+          reviewer_id: string;
+          step: string;
+          submission_id?: string | null;
+          task_id: string;
+        };
+        Update: {
+          at?: string;
+          decision?: Database["public"]["Enums"]["review_decision"];
+          id?: string;
+          reason?: string | null;
+          reviewer_id?: string;
+          step?: string;
+          submission_id?: string | null;
+          task_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "task_reviews_reviewer_id_fkey";
+            columns: ["reviewer_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_reviews_reviewer_id_fkey";
+            columns: ["reviewer_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_reviews_submission_id_fkey";
+            columns: ["submission_id"];
+            isOneToOne: false;
+            referencedRelation: "task_submissions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_reviews_task_id_fkey";
+            columns: ["task_id"];
+            isOneToOne: false;
+            referencedRelation: "tasks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      task_stages: {
+        Row: {
+          created_at: string;
+          done_at: string | null;
+          done_by: string | null;
+          id: string;
+          name: string;
+          on_behalf_of: string | null;
+          position: string;
+          task_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          done_at?: string | null;
+          done_by?: string | null;
+          id?: string;
+          name: string;
+          on_behalf_of?: string | null;
+          position?: string;
+          task_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          done_at?: string | null;
+          done_by?: string | null;
+          id?: string;
+          name?: string;
+          on_behalf_of?: string | null;
+          position?: string;
+          task_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "task_stages_done_by_fkey";
+            columns: ["done_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_stages_done_by_fkey";
+            columns: ["done_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_stages_on_behalf_of_fkey";
+            columns: ["on_behalf_of"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_stages_on_behalf_of_fkey";
+            columns: ["on_behalf_of"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_stages_task_id_fkey";
+            columns: ["task_id"];
+            isOneToOne: false;
+            referencedRelation: "tasks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      task_submissions: {
+        Row: {
+          at: string;
+          id: string;
+          note: string | null;
+          on_behalf_of: string | null;
+          submitted_by: string;
+          task_id: string;
+          version: number;
+        };
+        Insert: {
+          at?: string;
+          id?: string;
+          note?: string | null;
+          on_behalf_of?: string | null;
+          submitted_by: string;
+          task_id: string;
+          version: number;
+        };
+        Update: {
+          at?: string;
+          id?: string;
+          note?: string | null;
+          on_behalf_of?: string | null;
+          submitted_by?: string;
+          task_id?: string;
+          version?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "task_submissions_on_behalf_of_fkey";
+            columns: ["on_behalf_of"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_submissions_on_behalf_of_fkey";
+            columns: ["on_behalf_of"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_submissions_submitted_by_fkey";
+            columns: ["submitted_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_submissions_submitted_by_fkey";
+            columns: ["submitted_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_submissions_task_id_fkey";
+            columns: ["task_id"];
+            isOneToOne: false;
+            referencedRelation: "tasks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      task_templates: {
+        Row: {
+          archived_at: string | null;
+          created_at: string;
+          created_by: string;
+          default_priority: Database["public"]["Enums"]["priority"];
+          description: string | null;
+          field_defaults: Json;
+          id: string;
+          name: string;
+          org_id: string;
+          reminder_rules: Json;
+          stages: string[];
+          task_type_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          archived_at?: string | null;
+          created_at?: string;
+          created_by?: string;
+          default_priority?: Database["public"]["Enums"]["priority"];
+          description?: string | null;
+          field_defaults?: Json;
+          id?: string;
+          name: string;
+          org_id?: string;
+          reminder_rules?: Json;
+          stages?: string[];
+          task_type_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          archived_at?: string | null;
+          created_at?: string;
+          created_by?: string;
+          default_priority?: Database["public"]["Enums"]["priority"];
+          description?: string | null;
+          field_defaults?: Json;
+          id?: string;
+          name?: string;
+          org_id?: string;
+          reminder_rules?: Json;
+          stages?: string[];
+          task_type_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "task_templates_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_templates_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_templates_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_templates_task_type_id_fkey";
+            columns: ["task_type_id"];
+            isOneToOne: false;
+            referencedRelation: "task_types";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      task_types: {
+        Row: {
+          archived_at: string | null;
+          color: string | null;
+          created_at: string;
+          default_reminders: Json;
+          has_location: boolean;
+          icon: string | null;
+          id: string;
+          is_system: boolean;
+          kind: Database["public"]["Enums"]["task_type_kind"];
+          name: string;
+          org_id: string;
+          position: string;
+          shows_on_calendar: boolean;
+          updated_at: string;
+        };
+        Insert: {
+          archived_at?: string | null;
+          color?: string | null;
+          created_at?: string;
+          default_reminders?: Json;
+          has_location?: boolean;
+          icon?: string | null;
+          id?: string;
+          is_system?: boolean;
+          kind?: Database["public"]["Enums"]["task_type_kind"];
+          name: string;
+          org_id?: string;
+          position?: string;
+          shows_on_calendar?: boolean;
+          updated_at?: string;
+        };
+        Update: {
+          archived_at?: string | null;
+          color?: string | null;
+          created_at?: string;
+          default_reminders?: Json;
+          has_location?: boolean;
+          icon?: string | null;
+          id?: string;
+          is_system?: boolean;
+          kind?: Database["public"]["Enums"]["task_type_kind"];
+          name?: string;
+          org_id?: string;
+          position?: string;
+          shows_on_calendar?: boolean;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "task_types_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      task_warnings: {
+        Row: {
+          at: string;
+          details: Json;
+          id: string;
+          kind: string;
+          member_id: string;
+          overridden_by: string;
+          task_id: string;
+        };
+        Insert: {
+          at?: string;
+          details?: Json;
+          id?: string;
+          kind: string;
+          member_id: string;
+          overridden_by: string;
+          task_id: string;
+        };
+        Update: {
+          at?: string;
+          details?: Json;
+          id?: string;
+          kind?: string;
+          member_id?: string;
+          overridden_by?: string;
+          task_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "task_warnings_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_warnings_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_warnings_overridden_by_fkey";
+            columns: ["overridden_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_warnings_overridden_by_fkey";
+            columns: ["overridden_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_warnings_task_id_fkey";
+            columns: ["task_id"];
+            isOneToOne: false;
+            referencedRelation: "tasks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      tasks: {
+        Row: {
+          admin_approved_at: string | null;
+          admin_step: Database["public"]["Enums"]["admin_step"];
+          approving_admin_id: string | null;
+          archived_at: string | null;
+          cancelled_at: string | null;
+          cancelled_reason: string | null;
+          client_id: string | null;
+          completed_at: string | null;
+          created_at: string;
+          created_by: string;
+          custom_fields: Json;
+          description: string | null;
+          due_at: string;
+          event_date: string | null;
+          event_end_at: string | null;
+          event_start_at: string | null;
+          id: string;
+          late_reason: string | null;
+          location: string | null;
+          org_id: string;
+          primary_owner_id: string;
+          priority: Database["public"]["Enums"]["priority"];
+          purpose: string | null;
+          reminder_rules: Json;
+          search: unknown;
+          state: Database["public"]["Enums"]["task_state"];
+          submitted_at: string | null;
+          submitted_by: string | null;
+          submitted_on_behalf_of: string | null;
+          task_type_id: string;
+          template_id: string | null;
+          title: string;
+          updated_at: string;
+        };
+        Insert: {
+          admin_approved_at?: string | null;
+          admin_step?: Database["public"]["Enums"]["admin_step"];
+          approving_admin_id?: string | null;
+          archived_at?: string | null;
+          cancelled_at?: string | null;
+          cancelled_reason?: string | null;
+          client_id?: string | null;
+          completed_at?: string | null;
+          created_at?: string;
+          created_by: string;
+          custom_fields?: Json;
+          description?: string | null;
+          due_at: string;
+          event_date?: string | null;
+          event_end_at?: string | null;
+          event_start_at?: string | null;
+          id?: string;
+          late_reason?: string | null;
+          location?: string | null;
+          org_id?: string;
+          primary_owner_id: string;
+          priority?: Database["public"]["Enums"]["priority"];
+          purpose?: string | null;
+          reminder_rules?: Json;
+          search?: unknown;
+          state?: Database["public"]["Enums"]["task_state"];
+          submitted_at?: string | null;
+          submitted_by?: string | null;
+          submitted_on_behalf_of?: string | null;
+          task_type_id: string;
+          template_id?: string | null;
+          title: string;
+          updated_at?: string;
+        };
+        Update: {
+          admin_approved_at?: string | null;
+          admin_step?: Database["public"]["Enums"]["admin_step"];
+          approving_admin_id?: string | null;
+          archived_at?: string | null;
+          cancelled_at?: string | null;
+          cancelled_reason?: string | null;
+          client_id?: string | null;
+          completed_at?: string | null;
+          created_at?: string;
+          created_by?: string;
+          custom_fields?: Json;
+          description?: string | null;
+          due_at?: string;
+          event_date?: string | null;
+          event_end_at?: string | null;
+          event_start_at?: string | null;
+          id?: string;
+          late_reason?: string | null;
+          location?: string | null;
+          org_id?: string;
+          primary_owner_id?: string;
+          priority?: Database["public"]["Enums"]["priority"];
+          purpose?: string | null;
+          reminder_rules?: Json;
+          search?: unknown;
+          state?: Database["public"]["Enums"]["task_state"];
+          submitted_at?: string | null;
+          submitted_by?: string | null;
+          submitted_on_behalf_of?: string | null;
+          task_type_id?: string;
+          template_id?: string | null;
+          title?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "tasks_approving_admin_id_fkey";
+            columns: ["approving_admin_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tasks_approving_admin_id_fkey";
+            columns: ["approving_admin_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tasks_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: false;
+            referencedRelation: "client_labels";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tasks_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: false;
+            referencedRelation: "clients";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tasks_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tasks_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tasks_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tasks_primary_owner_id_fkey";
+            columns: ["primary_owner_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tasks_primary_owner_id_fkey";
+            columns: ["primary_owner_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tasks_submitted_by_fkey";
+            columns: ["submitted_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tasks_submitted_by_fkey";
+            columns: ["submitted_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tasks_submitted_on_behalf_of_fkey";
+            columns: ["submitted_on_behalf_of"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tasks_submitted_on_behalf_of_fkey";
+            columns: ["submitted_on_behalf_of"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tasks_task_type_id_fkey";
+            columns: ["task_type_id"];
+            isOneToOne: false;
+            referencedRelation: "task_types";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tasks_template_id_fkey";
+            columns: ["template_id"];
+            isOneToOne: false;
+            referencedRelation: "task_templates";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
       client_labels: {
@@ -1552,10 +2562,121 @@ export type Database = {
           },
         ];
       };
+      coordinated_freelancers: {
+        Row: {
+          coordinator_id: string | null;
+          created_at: string | null;
+          from_at: string | null;
+          id: string | null;
+          member_id: string | null;
+          set_by: string | null;
+          to_at: string | null;
+        };
+        Insert: {
+          coordinator_id?: string | null;
+          created_at?: string | null;
+          from_at?: string | null;
+          id?: string | null;
+          member_id?: string | null;
+          set_by?: string | null;
+          to_at?: string | null;
+        };
+        Update: {
+          coordinator_id?: string | null;
+          created_at?: string | null;
+          from_at?: string | null;
+          id?: string | null;
+          member_id?: string | null;
+          set_by?: string | null;
+          to_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "member_coordinators_coordinator_id_fkey";
+            columns: ["coordinator_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "member_coordinators_coordinator_id_fkey";
+            columns: ["coordinator_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "member_coordinators_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "member_coordinators_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "member_coordinators_set_by_fkey";
+            columns: ["set_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "member_coordinators_set_by_fkey";
+            columns: ["set_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      freelancer_coordinators: {
+        Row: {
+          coordinator_id: string | null;
+          from_at: string | null;
+          member_id: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "member_coordinators_coordinator_id_fkey";
+            columns: ["coordinator_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "member_coordinators_coordinator_id_fkey";
+            columns: ["coordinator_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "member_coordinators_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "member_coordinators_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       member_directory: {
         Row: {
           avatar_file_id: string | null;
           created_at: string | null;
+          engagement: Database["public"]["Enums"]["engagement"] | null;
           full_name: string | null;
           id: string | null;
           job_title_id: string | null;
@@ -1567,22 +2688,24 @@ export type Database = {
         Insert: {
           avatar_file_id?: string | null;
           created_at?: string | null;
+          engagement?: Database["public"]["Enums"]["engagement"] | null;
           full_name?: string | null;
           id?: string | null;
           job_title_id?: string | null;
           org_id?: string | null;
-          phone?: string | null;
+          phone?: never;
           role?: Database["public"]["Enums"]["member_role"] | null;
           status?: Database["public"]["Enums"]["member_status"] | null;
         };
         Update: {
           avatar_file_id?: string | null;
           created_at?: string | null;
+          engagement?: Database["public"]["Enums"]["engagement"] | null;
           full_name?: string | null;
           id?: string | null;
           job_title_id?: string | null;
           org_id?: string | null;
-          phone?: string | null;
+          phone?: never;
           role?: Database["public"]["Enums"]["member_role"] | null;
           status?: Database["public"]["Enums"]["member_status"] | null;
         };
@@ -1938,6 +3061,27 @@ export type Database = {
         Returns: string;
       };
       member_accept_invite: { Args: never; Returns: string };
+      member_add_freelancer: {
+        Args: {
+          coordinator_id?: string;
+          full_name: string;
+          job_title_id?: string;
+          phone?: string;
+        };
+        Returns: string;
+      };
+      member_availability: {
+        Args: { from_date: string; member_ids?: string[]; to_date: string };
+        Returns: {
+          day: string;
+          engagement: Database["public"]["Enums"]["engagement"];
+          event_blocks: Json;
+          leave: string;
+          member_id: string;
+          open_tasks_due: number;
+          present: boolean;
+        }[];
+      };
       member_change_email: {
         Args: { member_id: string; new_email: string };
         Returns: string;
@@ -1956,11 +3100,19 @@ export type Database = {
         };
         Returns: string;
       };
+      member_invite_employee: {
+        Args: { email: string; member_id: string };
+        Returns: string;
+      };
       member_invite_refresh: { Args: { member_id: string }; Returns: string };
       member_reactivate: { Args: { member_id: string }; Returns: string };
       member_self_status: {
         Args: never;
         Returns: Database["public"]["Enums"]["member_status"];
+      };
+      member_set_coordinator: {
+        Args: { coordinator_id: string; member_id: string; reason?: string };
+        Returns: string;
       };
       month_summary: {
         Args: { member_id?: string; month: string };
@@ -1994,12 +3146,140 @@ export type Database = {
         Args: { ip_hash?: string; user_agent?: string };
         Returns: string;
       };
+      task_acknowledge: {
+        Args: { on_behalf_of?: string; task_id: string };
+        Returns: string;
+      };
+      task_cancel: {
+        Args: { reason: string; task_id: string };
+        Returns: Database["public"]["Enums"]["task_state"];
+      };
+      task_counts: {
+        Args: never;
+        Returns: {
+          badge: number;
+          changes_requested: number;
+          not_noted: number;
+          to_decide: number;
+        }[];
+      };
+      task_create: {
+        Args: {
+          approving_admin_id?: string;
+          assignee_ids: string[];
+          client_id: string;
+          custom_fields?: Json;
+          description: string;
+          due_at: string;
+          event_date?: string;
+          event_end_at?: string;
+          event_start_at?: string;
+          location?: string;
+          primary_owner_id: string;
+          priority: Database["public"]["Enums"]["priority"];
+          purpose?: string;
+          reminder_rules?: Json;
+          stages?: string[];
+          task_type_id: string;
+          template_id?: string;
+          title: string;
+          warnings?: Json;
+        };
+        Returns: string;
+      };
+      task_mark_read: {
+        Args: { task_id: string; up_to?: string };
+        Returns: string;
+      };
+      task_reopen: {
+        Args: { reason: string; task_id: string };
+        Returns: Database["public"]["Enums"]["task_state"];
+      };
+      task_request_convert: {
+        Args: {
+          approving_admin_id?: string;
+          assignee_ids: string[];
+          client_id: string;
+          custom_fields?: Json;
+          description: string;
+          due_at: string;
+          event_date?: string;
+          event_end_at?: string;
+          event_start_at?: string;
+          location?: string;
+          primary_owner_id: string;
+          priority: Database["public"]["Enums"]["priority"];
+          purpose?: string;
+          reminder_rules?: Json;
+          request_id: string;
+          stages?: string[];
+          task_type_id: string;
+          template_id?: string;
+          title: string;
+          warnings?: Json;
+        };
+        Returns: string;
+      };
+      task_request_create: {
+        Args: { client_id?: string; details?: string; title: string };
+        Returns: string;
+      };
+      task_request_decline: {
+        Args: { reason: string; request_id: string };
+        Returns: Database["public"]["Enums"]["request_state"];
+      };
+      task_request_withdraw: {
+        Args: { request_id: string };
+        Returns: Database["public"]["Enums"]["request_state"];
+      };
+      task_review: {
+        Args: {
+          decision: Database["public"]["Enums"]["review_decision"];
+          reason?: string;
+          task_id: string;
+        };
+        Returns: Database["public"]["Enums"]["task_state"];
+      };
+      task_set_approver: {
+        Args: { approving_admin_id: string; task_id: string };
+        Returns: Database["public"]["Enums"]["task_state"];
+      };
+      task_start: {
+        Args: { on_behalf_of?: string; task_id: string };
+        Returns: Database["public"]["Enums"]["task_state"];
+      };
+      task_submit_done: {
+        Args: {
+          late_reason?: string;
+          note?: string;
+          on_behalf_of?: string;
+          task_id: string;
+        };
+        Returns: Database["public"]["Enums"]["task_state"];
+      };
+      task_type_move: {
+        Args: { direction: string; task_type_id: string };
+        Returns: string;
+      };
+      task_unread_counts: {
+        Args: { task_ids?: string[] };
+        Returns: {
+          task_id: string;
+          unread: number;
+        }[];
+      };
+      task_update_assignment: {
+        Args: { changes: Json; task_id: string; warnings?: Json };
+        Returns: string[];
+      };
     };
     Enums: {
+      admin_step: "required" | "none" | "skipped";
       attendance_choice: "present" | "leave" | "half_day" | "comp_leave";
       attendance_state: "awaiting_choice" | "pending_review" | "approved" | "corrected";
       client_state: "draft" | "active" | "paused" | "inactive";
       day_status: "present" | "leave" | "half_day" | "comp_leave" | "absent";
+      engagement: "permanent" | "freelance";
       field_type:
         | "text"
         | "long_text"
@@ -2019,6 +3299,18 @@ export type Database = {
       leave_type: "leave" | "half_day" | "comp_leave";
       member_role: "owner" | "admin" | "staff";
       member_status: "invited" | "active" | "deactivated";
+      priority: "low" | "medium" | "high" | "urgent";
+      request_state: "pending" | "converted" | "declined" | "withdrawn";
+      review_decision: "approved" | "rejected";
+      task_state:
+        | "todo"
+        | "in_progress"
+        | "submitted"
+        | "admin_approved"
+        | "changes_requested"
+        | "completed"
+        | "cancelled";
+      task_type_kind: "normal" | "event" | "custom";
     };
     CompositeTypes: {
       [_ in never]: never;
@@ -2140,10 +3432,12 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      admin_step: ["required", "none", "skipped"],
       attendance_choice: ["present", "leave", "half_day", "comp_leave"],
       attendance_state: ["awaiting_choice", "pending_review", "approved", "corrected"],
       client_state: ["draft", "active", "paused", "inactive"],
       day_status: ["present", "leave", "half_day", "comp_leave", "absent"],
+      engagement: ["permanent", "freelance"],
       field_type: [
         "text",
         "long_text",
@@ -2164,6 +3458,19 @@ export const Constants = {
       leave_type: ["leave", "half_day", "comp_leave"],
       member_role: ["owner", "admin", "staff"],
       member_status: ["invited", "active", "deactivated"],
+      priority: ["low", "medium", "high", "urgent"],
+      request_state: ["pending", "converted", "declined", "withdrawn"],
+      review_decision: ["approved", "rejected"],
+      task_state: [
+        "todo",
+        "in_progress",
+        "submitted",
+        "admin_approved",
+        "changes_requested",
+        "completed",
+        "cancelled",
+      ],
+      task_type_kind: ["normal", "event", "custom"],
     },
   },
 } as const;

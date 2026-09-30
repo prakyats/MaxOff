@@ -3,6 +3,8 @@ import { PageLoading } from "@/core/ui/composites/loading-state";
 import { CARD_ROW_TITLE, CARD_ROW_TRAILING } from "@/core/ui/composites/row-metrics";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 
+import { SETTINGS_HEADERS } from "../headers";
+
 /**
  * Traces `page.tsx` (ARCHITECTURE §14.1): the entity tabs (a 4-column pill bar, the Owner's
  * shape; an Admin's two-column bar is narrower but sits in the same band), then one scope group:
@@ -11,7 +13,12 @@ import { Skeleton } from "@/core/ui/primitives/skeleton";
  */
 export default function Loading() {
   return (
-    <PageLoading title="Custom fields" shape="list" back={{ href: "/settings", label: "Settings" }}>
+    <PageLoading
+      title="Custom fields"
+      {...SETTINGS_HEADERS.customFields}
+      shape="list"
+      back={{ href: "/settings", label: "Settings" }}
+    >
       <div
         role="status"
         aria-busy="true"

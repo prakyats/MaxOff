@@ -13,6 +13,7 @@ import { Button } from "@/core/ui/primitives/button";
 import { Label } from "@/core/ui/primitives/label";
 import { Textarea } from "@/core/ui/primitives/textarea";
 import { toastResult } from "@/core/ui/toast";
+import { displayName } from "@/core/lib/display-name";
 
 import { requestLeaveCancellation, withdrawLeave } from "../actions/leave";
 import { ownerCancelLeave } from "../actions/review";
@@ -27,7 +28,7 @@ import {
   leaveTitle,
   type OwnLeaveRequest,
 } from "../domain/requests";
-import { firstName, ownerLeaveActions } from "../domain/review";
+import { ownerLeaveActions } from "../domain/review";
 import { LEAVE_REASON_MAX_LENGTH } from "../domain/limits";
 
 import { LeaveFormDialog } from "./leave-form-dialog";
@@ -268,7 +269,7 @@ export function LeaveRequestList({
             <EmptyState
               icon={PlaneIcon}
               title="No leave requests yet"
-              description={`${firstName(owner.name)} has not asked for leave.`}
+              description={`${displayName(owner.name)} has not asked for leave.`}
             />
           ) : (
             <EmptyState

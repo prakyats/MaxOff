@@ -4,18 +4,26 @@ import { resolveAppOrigin } from "@/core/lib/app-url";
 
 import { inviteEmail, inviteLinkFor } from "../domain/invite";
 import {
+  coordinatorOptions,
+  freelancerLine,
   hasAttendance,
+  inviteAsEmployeeRefusal,
   memberActions,
   opensPersonPage,
+  roleLabel,
   sortMembers,
   type TeamMember,
 } from "../domain/members";
 import { offerableJobTitles } from "../domain/job-titles";
 import { emailChangedNewAddressEmail, emailChangedOldAddressEmail } from "../domain/email-change";
 import {
+  addFreelancerSchema,
+  changeCoordinatorSchema,
   changeMemberEmailSchema,
   deactivateMemberSchema,
+  inviteEmployeeSchema,
   inviteMemberSchema,
+  reactivateSchema,
   updateMemberSchema,
   updateOwnProfileSchema,
 } from "../domain/schemas";
@@ -28,6 +36,7 @@ function member(overrides: Partial<TeamMember>): TeamMember {
     phone: null,
     role: "staff",
     status: "active",
+    engagement: "permanent",
     jobTitleId: null,
     jobTitle: null,
     avatarFileId: null,
@@ -96,6 +105,26 @@ describe("the other schemas", () => {
   });
 });
 
+describe("inviteAsEmployeeRefusal (phase 4 review S-S3)", () => {
+  it("lets an active freelancer through", () => {
+    expect(
+      inviteAsEmployeeRefusal(member({ engagement: "freelance", status: "active" })),
+    ).toBeNull();
+  });
+
+  it("refuses an employee and a freelancer who is not active, before any sign-in exists", () => {
+    expect(inviteAsEmployeeRefusal(member({ engagement: "permanent", status: "active" }))).toBe(
+      "This person is already an employee.",
+    );
+    expect(
+      inviteAsEmployeeRefusal(member({ engagement: "freelance", status: "deactivated" })),
+    ).toBe("Reactivate this freelancer before inviting them as an employee.");
+    expect(inviteAsEmployeeRefusal(member({ engagement: "freelance", status: "invited" }))).toBe(
+      "Reactivate this freelancer before inviting them as an employee.",
+    );
+  });
+});
+
 describe("memberActions", () => {
   const viewer = { id: "owner-id", canManage: true };
 
@@ -151,6 +180,117 @@ describe("memberActions", () => {
     expect(hasAttendance({ role: "staff", joinedAt: "2026-09-01T00:00:00Z" })).toBe(true);
     expect(hasAttendance({ role: "staff", joinedAt: null })).toBe(false);
     expect(hasAttendance({ role: "owner", joinedAt: "2026-09-01T00:00:00Z" })).toBe(false);
+  });
+
+  it("gives a freelancer no attendance, leave or month (ADR-0013)", () => {
+    expect(
+      hasAttendance({ role: "staff", joinedAt: "2026-09-01T00:00:00Z", engagement: "freelance" }),
+    ).toBe(false);
+  });
+});
+
+describe("a freelancer's actions and words (ADR-0013, 4C)", () => {
+  const viewer = { id: "owner-id", canManage: true };
+  const freelancer = member({ engagement: "freelance" });
+
+  it("changes the coordinator, invites as employee, never the sign-in email or the role", () => {
+    expect(memberActions(viewer, freelancer)).toMatchObject({
+      edit: true,
+      editRole: false,
+      changeEmail: false,
+      changeCoordinator: true,
+      inviteAsEmployee: true,
+      deactivate: true,
+    });
+  });
+
+  it("keeps Change coordinator on a deactivated freelancer, to prepare a return", () => {
+    expect(
+      memberActions(viewer, member({ engagement: "freelance", status: "deactivated" })),
+    ).toMatchObject({ changeCoordinator: true, inviteAsEmployee: false, reactivate: true });
+  });
+
+  it("offers neither to an employee, nor anything to an Admin", () => {
+    expect(memberActions(viewer, member({}))).toMatchObject({
+      changeCoordinator: false,
+      inviteAsEmployee: false,
+    });
+    expect(Object.values(memberActions({ id: "x", canManage: false }, freelancer))).not.toContain(
+      true,
+    );
+  });
+
+  it("names the role Freelancer, and the coordinator beside it", () => {
+    expect(roleLabel(freelancer)).toBe("Freelancer");
+    expect(roleLabel(member({ role: "admin" }))).toBe("Admin");
+    expect(freelancerLine("Ravi")).toBe("Freelancer · with Ravi");
+    expect(freelancerLine(null)).toBe("Freelancer");
+  });
+
+  it("lets only an active employee, Admin or Staff, coordinate (Kickoff 4 decision 8)", () => {
+    const options = coordinatorOptions(
+      [
+        member({ id: "o", fullName: "Owen", role: "owner" }),
+        member({ id: "a", fullName: "Zara", role: "admin" }),
+        member({ id: "s", fullName: "Bea" }),
+        member({ id: "i", fullName: "Ivy", status: "invited" }),
+        member({ id: "d", fullName: "Dan", status: "deactivated" }),
+        member({ id: "f", fullName: "Fay", engagement: "freelance" }),
+        member({ id: "x", fullName: "Xan" }),
+      ],
+      ["x"],
+    );
+    expect(options).toEqual([
+      { id: "s", name: "Bea" },
+      { id: "a", name: "Zara" },
+    ]);
+  });
+});
+
+describe("the freelancer schemas", () => {
+  const id = "00000000-0000-4000-8000-000000000002";
+
+  it("needs a coordinator for a new freelancer, and trims the rest", () => {
+    expect(addFreelancerSchema.safeParse({ fullName: "Asha", coordinatorId: "" }).success).toBe(
+      false,
+    );
+    const parsed = addFreelancerSchema.parse({
+      fullName: "  Asha  ",
+      coordinatorId: id,
+      jobTitleId: "",
+      phone: " ",
+    });
+    expect(parsed).toMatchObject({ fullName: "Asha", coordinatorId: id });
+  });
+
+  it("keeps a change's reason optional and bounded", () => {
+    expect(changeCoordinatorSchema.parse({ memberId: id, coordinatorId: id }).reason).toBeNull();
+    expect(
+      changeCoordinatorSchema.parse({ memberId: id, coordinatorId: id, reason: " moved " }).reason,
+    ).toBe("moved");
+    expect(
+      changeCoordinatorSchema.safeParse({
+        memberId: id,
+        coordinatorId: id,
+        reason: "x".repeat(1001),
+      }).success,
+    ).toBe(false);
+  });
+
+  it("asks an email of an invite as employee, and a coordinator of a reactivation only if given", () => {
+    expect(inviteEmployeeSchema.safeParse({ memberId: id, email: "nope" }).success).toBe(false);
+    expect(inviteEmployeeSchema.parse({ memberId: id, email: "Asha@Example.com" }).email).toBe(
+      "asha@example.com",
+    );
+    expect(reactivateSchema.parse({ memberId: id })).toEqual({ memberId: id });
+  });
+
+  it("carries a coordinator's freelancers with their deactivation", () => {
+    const parsed = deactivateMemberSchema.parse({
+      memberId: id,
+      freelancers: [{ memberId: id, coordinatorId: id }],
+    });
+    expect(parsed.freelancers).toEqual([{ memberId: id, coordinatorId: id }]);
   });
 });
 

@@ -1,7 +1,7 @@
 import { PageHeader } from "@/core/ui/composites/page-header";
 
 import { StandInSkeleton } from "../_placeholder/stand-in-skeleton";
-import { STAND_INS } from "../_placeholder/stand-ins";
+import { STAND_INS, standInDescription } from "../_placeholder/stand-ins";
 
 /**
  * The calendar, as it renders now (3c review: the skeleton traces the stand-in, the same for
@@ -11,7 +11,7 @@ import { STAND_INS } from "../_placeholder/stand-ins";
 export default function Loading() {
   return (
     <>
-      <PageHeader title="Calendar" />
+      <PageHeader title="Calendar" description={standInDescription(STAND_INS.calendar)} />
       <StandInSkeleton copy={STAND_INS.calendar} label="Loading Calendar" />
     </>
   );

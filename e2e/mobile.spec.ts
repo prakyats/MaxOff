@@ -5,7 +5,8 @@ import { expect, test } from "./fixtures";
 import { STAND_INS, type StandIn } from "../src/app/(app)/_placeholder/stand-ins";
 
 import {
-  heldShell,
+  expectNoHorizontalScroll,
+  expectSettled,
   memberIdOf,
   pageHeader,
   removeClientFixture,
@@ -54,23 +55,6 @@ async function settledBottom(locator: Locator): Promise<number> {
 const MIN_INPUT_FONT = 16;
 
 test.describe.configure({ mode: "parallel" });
-
-/** Fails if the page can be scrolled sideways at all: no clipped columns, no wide table. */
-async function expectNoHorizontalScroll(page: Page): Promise<void> {
-  const overflow = await page.evaluate(() => ({
-    scrollWidth: document.documentElement.scrollWidth,
-    clientWidth: document.documentElement.clientWidth,
-    // Whatever is actually sticking out, so a failure names the culprit.
-    wide: [...document.querySelectorAll<HTMLElement>("body *")]
-      .filter((el) => el.getBoundingClientRect().right > document.documentElement.clientWidth + 1)
-      .slice(0, 5)
-      .map((el) => `${el.tagName.toLowerCase()}${el.dataset.slot ? `[${el.dataset.slot}]` : ""}`),
-  }));
-  expect(overflow.wide, "nothing reaches past the right edge").toEqual([]);
-  expect(overflow.scrollWidth, "the page does not scroll sideways").toBeLessThanOrEqual(
-    overflow.clientWidth,
-  );
-}
 
 /**
  * Every control you can actually tap is at least 44 x 44. Inline text links are excluded: they
@@ -128,19 +112,6 @@ async function expectNoZoomOnFocus(page: Page): Promise<void> {
   expect(small, `every input is at least ${MIN_INPUT_FONT}px`).toEqual([]);
 }
 
-/**
- * The screen has streamed in: its title bar is up and no skeleton is left. `page.goto` resolves
- * on `load`, and that is not the end of a streamed page: React 19.2 reveals a server-rendered
- * Suspense boundary in batches (`$RC` schedules the swap up to 300 ms after the previous reveal),
- * so a route's `loading.tsx` can still be on screen for a moment after `goto` returns (CI,
- * 2026-09-29: the Owner's /me measured its skeleton at 200%). The loading screens have their own
- * check below (`LOADING_SCREENS`), where the skeleton is held on screen on purpose.
- */
-async function expectSettled(page: Page): Promise<void> {
-  await expect(pageHeader(page)).toBeVisible();
-  await expect(page.locator('[data-slot="skeleton"]')).toHaveCount(0);
-}
-
 /** The screens that exist after phase 1, with the role that may open each. */
 const SCREENS = [
   { path: "/people", role: "owner" },
@@ -160,6 +131,20 @@ const SCREENS = [
   { path: "/today", role: "admin" },
   { path: "/clients", role: "owner" },
   { path: "/clients", role: "admin" },
+  // 4.5: the Tasks tab per role, the full list and an Admin's Approvals.
+  { path: "/tasks", role: "owner" },
+  { path: "/tasks", role: "admin" },
+  { path: "/tasks", role: "staff" },
+  { path: "/tasks/all", role: "owner" },
+  { path: "/tasks/all", role: "staff" },
+  { path: "/approvals", role: "admin" },
+  // 4C: suggested tasks for each role, the Owner's task settings and an Admin's templates.
+  { path: "/tasks/requests", role: "owner" },
+  { path: "/tasks/requests", role: "admin" },
+  { path: "/tasks/requests", role: "staff" },
+  { path: "/settings/task-types", role: "owner" },
+  { path: "/settings/templates", role: "owner" },
+  { path: "/settings/templates", role: "admin" },
 ] as const;
 
 for (const role of ["owner", "admin", "staff"] as const) {
@@ -202,9 +187,36 @@ const LARGE_TEXT_SCREENS = {
     "/reports/month",
     "/me",
     "/clients",
+    "/tasks",
+    "/tasks/all",
+    // 4C: suggested tasks and the Owner's two task settings.
+    "/tasks/requests",
+    "/settings/task-types",
+    "/settings/templates",
   ],
-  admin: ["/today", "/leave", "/leave/attendance", "/leave/expenses", "/me", "/clients"],
-  staff: ["/my-day", "/leave", "/leave/attendance", "/leave/expenses", "/me"],
+  admin: [
+    "/today",
+    "/leave",
+    "/leave/attendance",
+    "/leave/expenses",
+    "/me",
+    "/clients",
+    "/tasks",
+    "/tasks/all",
+    "/tasks/requests",
+    "/approvals",
+    "/settings/templates",
+  ],
+  staff: [
+    "/my-day",
+    "/leave",
+    "/leave/attendance",
+    "/leave/expenses",
+    "/me",
+    "/tasks",
+    "/tasks/all",
+    "/tasks/requests",
+  ],
 } as const;
 
 /** The narrowest an ellipsis may cut a line to and still say what it is. */
@@ -228,50 +240,6 @@ async function expectReadableTruncation(page: Page): Promise<void> {
     MIN_TRUNCATED_WIDTH,
   );
   expect(squeezed, `a cut-short line keeps ${MIN_TRUNCATED_WIDTH}px`).toEqual([]);
-}
-
-/**
- * A loading screen fits at large text too (phase 3 review: CI caught /today's stat-tile skeleton
- * reaching past the edge at 200%, only when the check ran before the page streamed in; since the
- * 3c review the route's skeleton traces the stand-in, `loading-stand-in`; the 3c review's CI then
- * caught /me the same way, its skeleton columns keeping their rem widths at 200%). The page is
- * opened through `heldShell`, which delivers the route's loading screen (`marker` is in its
- * markup) and holds what streams after it, so the skeleton is what is measured, every time, on
- * the path a cold open takes.
- */
-const LOADING_SCREENS = [
-  { role: "owner", path: "/today", marker: 'data-slot="loading-stand-in"' },
-  { role: "admin", path: "/today", marker: 'data-slot="loading-stand-in"' },
-  { role: "owner", path: "/me", marker: 'aria-label="Loading Me"' },
-  { role: "admin", path: "/me", marker: 'aria-label="Loading Me"' },
-  { role: "staff", path: "/me", marker: 'aria-label="Loading Me"' },
-] as const;
-
-for (const role of ["owner", "admin", "staff"] as const) {
-  test.describe(`${role}: loading screens at large system text`, () => {
-    test.use({ storageState: storageStateFor(role) });
-
-    for (const { path, marker } of LOADING_SCREENS.filter((screen) => screen.role === role)) {
-      test(`${path}: fits at 100%, 130% and 200% while the page loads`, async ({
-        page,
-        baseURL,
-      }) => {
-        const held = await heldShell(baseURL!, path, marker);
-        try {
-          await page.goto(`${held.origin}${path}`, { waitUntil: "commit" });
-          await expect(page.locator(`[${marker}]`)).toBeVisible();
-          for (const scale of [100, 130, 200]) {
-            await page.evaluate((percent) => {
-              document.documentElement.style.fontSize = `${percent}%`;
-            }, scale);
-            await expectNoHorizontalScroll(page);
-          }
-        } finally {
-          await held.close();
-        }
-      });
-    }
-  });
 }
 
 for (const [role, paths] of Object.entries(LARGE_TEXT_SCREENS)) {
@@ -303,21 +271,17 @@ for (const [role, paths] of Object.entries(LARGE_TEXT_SCREENS)) {
 const STAND_IN_SCREENS: Record<"owner" | "admin" | "staff", { path: string; copy: StandIn }[]> = {
   owner: [
     { path: "/today", copy: STAND_INS.todayOwner },
-    { path: "/tasks", copy: STAND_INS.tasksTeam },
     { path: "/calendar", copy: STAND_INS.calendar },
     { path: "/notifications", copy: STAND_INS.alertsOwner },
   ],
   admin: [
     { path: "/today", copy: STAND_INS.todayAdmin },
-    { path: "/approvals", copy: STAND_INS.approvalsAdmin },
-    { path: "/tasks", copy: STAND_INS.tasksTeam },
     { path: "/calendar", copy: STAND_INS.calendar },
     { path: "/notifications", copy: STAND_INS.alertsMember },
     { path: "/reports", copy: STAND_INS.reportsAdmin },
   ],
   staff: [
     { path: "/my-day", copy: STAND_INS.myDay },
-    { path: "/tasks", copy: STAND_INS.tasksMine },
     { path: "/calendar", copy: STAND_INS.calendar },
     { path: "/notifications", copy: STAND_INS.alertsMember },
   ],
@@ -490,6 +454,8 @@ test.describe("the page title bar", () => {
   test("the first row of real content is visible without scrolling", async ({ page }) => {
     await page.goto("/people");
     const firstCard = page.locator('[data-slot="data-card"]').first();
+    // Revealed, not still in the streamed `<div hidden>`, where the box is null and y reads 0.
+    await expect(firstCard).toBeVisible();
     const box = await firstCard.boundingBox();
     // Brand bar (48) + title bar (44) + a little breathing room. Before 1.5 a title, a two-line
     // description and a button pushed the first row past 200px.
@@ -619,13 +585,13 @@ test.describe("People is a card list, not a table", () => {
 test.describe("dialogs are bottom sheets", () => {
   test.use({ storageState: storageStateFor("owner") });
 
-  test("the invite dialog opens from the bottom edge and scrolls inside itself", async ({
+  test("the Add person dialog opens from the bottom edge and scrolls inside itself", async ({
     page,
   }) => {
     await page.goto("/people");
     await page
       .locator('[data-slot="page-actions"]')
-      .getByRole("button", { name: /Invite/ })
+      .getByRole("button", { name: "Add person" })
       .click();
 
     const dialog = page.locator('[data-slot="dialog-content"]');
@@ -674,7 +640,7 @@ test.describe("Settings is a list of rows", () => {
   test("a section still to come says so plainly and links nowhere (3c.3)", async ({ page }) => {
     await page.goto("/settings");
     const list = page.locator('[data-slot="settings-list"]');
-    const later = list.locator("li").filter({ hasText: "Task types" });
+    const later = list.locator("li").filter({ hasText: "Stage presets" });
     await expect(later).toContainText("Coming soon");
     await expect(later.getByRole("link")).toHaveCount(0);
     await expect(list).not.toContainText(BUILD_WORDS);
@@ -690,7 +656,9 @@ test.describe("Settings is a list of rows", () => {
     page,
   }) => {
     await page.goto("/settings");
-    await expect(pageHeader(page)).toBeVisible();
+    // The list itself, not the loading screen's title bar: until React reveals the streamed page
+    // its rows sit in a `<div hidden>` and every label measures 0px (CI run 36602212936).
+    await expectSettled(page);
     await page.evaluate(() => {
       document.documentElement.style.fontSize = "200%";
     });

@@ -12,11 +12,25 @@ import type { EmailSendResult } from "@/core/notifications/email";
 import { sendEmail } from "@/core/notifications/email";
 import { assertPermission } from "@/core/permissions/server";
 import { handOverClients, listClientsRunBy } from "@/modules/clients";
+import { countOpenAssignments } from "@/modules/tasks";
 
 import { emailChangedNewAddressEmail, emailChangedOldAddressEmail } from "../domain/email-change";
 import { inviteEmail, inviteLinkFor } from "../domain/invite";
-import type { MemberStatus } from "../domain/members";
 import {
+  coordinatorOptions,
+  inviteAsEmployeeRefusal,
+  LEFTOVER_SIGN_IN_MESSAGE,
+  type MemberStatus,
+} from "../domain/members";
+import {
+  type AddFreelancerInput,
+  addFreelancerSchema,
+  type ChangeCoordinatorInput,
+  changeCoordinatorSchema,
+  type InviteEmployeeInput,
+  inviteEmployeeSchema,
+  type ReactivateInput,
+  reactivateSchema,
   type ChangeMemberEmailInput,
   changeMemberEmailSchema,
   type DeactivateMemberInput,
@@ -101,7 +115,9 @@ export const inviteMember = action(
         job_title_id: data.jobTitleId,
       });
     } catch (error) {
-      await repo.deleteAuthUser(userId);
+      if (!(await repo.deleteAuthUser(userId))) {
+        throw new AppError("INTERNAL", LEFTOVER_SIGN_IN_MESSAGE, { cause: error });
+      }
       throw error;
     }
 
@@ -243,26 +259,177 @@ export const changeMemberEmail = action(
   },
 );
 
-/** Deactivate an active member, or revoke a pending invite: the same transition (WORKFLOWS §1a). */
+/** The reason a freelancer's move carries when their coordinator leaves (Owner and Admins read it). */
+const MOVED_REASON = "Their coordinator was deactivated";
+
+/**
+ * Deactivate an active member, or revoke a pending invite: the same transition (WORKFLOWS §1a).
+ * An Admin's clients move first (phase 3 review), and so do a coordinator's freelancers (ADR-0013
+ * §2: `member_deactivate()` refuses while an active freelancer points at them): each move is a
+ * `member_set_coordinator`, then the deactivation. Two steps, as the client hand-over: if the
+ * second fails, the freelancers have already moved, which the rule allows.
+ */
 export const deactivateMember = action(
   async (input: DeactivateMemberInput): Promise<Result<null>> => {
     const data = deactivateMemberSchema.parse(input);
     await assertPermission("team.manage");
     await handOver(data.memberId, data.handover);
+    for (const move of data.freelancers ?? []) {
+      await repo.rpcSetCoordinator(move.memberId, move.coordinatorId, MOVED_REASON);
+    }
     await repo.rpcDeactivate(data.memberId, data.reason);
     revalidatePath(PEOPLE_PATH, "layout");
     revalidatePath("/clients", "layout");
+    revalidatePath("/me");
     return ok(null);
   },
 );
 
+/**
+ * Reactivate (WORKFLOWS §1a). A freelancer comes back only with a coordinator (4A decision (a),
+ * `member_reactivate()` answers INVALID_STATE without one): the dialog names one and it is set
+ * first.
+ */
 export const reactivateMember = action(
-  async (input: MemberIdInput): Promise<Result<{ status: MemberStatus }>> => {
-    const { memberId } = memberIdSchema.parse(input);
+  async (input: ReactivateInput): Promise<Result<{ status: MemberStatus }>> => {
+    const { memberId, coordinatorId } = reactivateSchema.parse(input);
     await assertPermission("team.manage");
+    if (coordinatorId) await repo.rpcSetCoordinator(memberId, coordinatorId, null);
     const status = await repo.rpcReactivate(memberId);
     revalidatePath(PEOPLE_PATH, "layout");
     return ok({ status });
+  },
+);
+
+/** "Add person → Freelancer" (PRODUCT §4.17, ADR-0013): no invite, no sign-in, a coordinator. */
+export const addFreelancer = action(
+  async (input: AddFreelancerInput): Promise<Result<{ memberId: string }>> => {
+    const data = addFreelancerSchema.parse(input);
+    await assertPermission("team.manage");
+    const memberId = await repo.rpcAddFreelancer(data);
+    revalidatePath(PEOPLE_PATH, "layout");
+    revalidatePath("/me");
+    return ok({ memberId });
+  },
+);
+
+/** "Change coordinator": the history keeps who, when and why (the why is the Owner's and Admins'). */
+export const changeCoordinator = action(
+  async (input: ChangeCoordinatorInput): Promise<Result<null>> => {
+    const data = changeCoordinatorSchema.parse(input);
+    await assertPermission("team.manage");
+    await repo.rpcSetCoordinator(data.memberId, data.coordinatorId, data.reason);
+    revalidatePath(PEOPLE_PATH, "layout");
+    revalidatePath("/me");
+    revalidatePath("/tasks", "layout");
+    return ok(null);
+  },
+);
+
+export type CoordinatorChoices = {
+  /** The freelancer's current coordinator, if any (none once deactivated). */
+  current: { id: string; name: string } | null;
+  /** Who may coordinate: every active permanent Admin or Staff member but the current one. */
+  options: { id: string; name: string }[];
+};
+
+/** Read when the Owner opens "Change coordinator" or a freelancer's reactivation (ADR-0013). */
+export const getCoordinatorChoices = action(
+  async (input: MemberIdInput): Promise<Result<CoordinatorChoices>> => {
+    const { memberId } = memberIdSchema.parse(input);
+    await assertPermission("team.manage");
+    const [coordinators, members] = await Promise.all([
+      repo.listCurrentCoordinators(),
+      repo.listMembers(),
+    ]);
+    const currentId = coordinators[memberId] ?? null;
+    const current = currentId ? members.find((member) => member.id === currentId) : undefined;
+    return ok({
+      current: current ? { id: current.id, name: current.fullName } : null,
+      options: coordinatorOptions(members, [memberId, ...(currentId ? [currentId] : [])]),
+    });
+  },
+);
+
+export type FreelancerHandoverData = {
+  freelancers: { id: string; name: string }[];
+  /** Who may take them: every other active permanent Admin or Staff member (decision 8). */
+  coordinators: { id: string; name: string }[];
+};
+
+/**
+ * The freelancers a person looks after now, and who may take them, read when the Owner opens a
+ * deactivation (ADR-0013 §2: deactivating a coordinator first asks where their freelancers go).
+ */
+export const getFreelancerHandover = action(
+  async (input: MemberIdInput): Promise<Result<FreelancerHandoverData>> => {
+    const { memberId } = memberIdSchema.parse(input);
+    await assertPermission("team.manage");
+    const [coordinators, members] = await Promise.all([
+      repo.listCurrentCoordinators(),
+      repo.listMembers(),
+    ]);
+    const names = new Map(members.map((member) => [member.id, member]));
+    const freelancers = Object.entries(coordinators)
+      .filter(
+        ([freelancer, coordinator]) =>
+          coordinator === memberId && names.get(freelancer)?.status === "active",
+      )
+      .map(([freelancer]) => ({ id: freelancer, name: names.get(freelancer)?.fullName ?? "" }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    return ok({ freelancers, coordinators: coordinatorOptions(members, [memberId]) });
+  },
+);
+
+/** The freelancer's open tasks, for the warning in "Invite as employee" (4A later item L5). */
+export const getOpenTaskCount = action(
+  async (input: MemberIdInput): Promise<Result<{ openTasks: number }>> => {
+    const { memberId } = memberIdSchema.parse(input);
+    await assertPermission("team.manage");
+    return ok({ openTasks: await countOpenAssignments(memberId) });
+  },
+);
+
+/**
+ * "Invite as employee" (Kickoff 4 decision 7, WORKFLOWS §1b): the sign-in is created **under the
+ * freelancer's own id** (4A mechanics (10)), then `member_invite_employee()` makes the record an
+ * invited employee (same id, the coordinator row closed), then the invite link is issued and
+ * mailed exactly as for any invite. Only an active freelancer, checked before the sign-in is
+ * created; the sign-in is removed again if the function refuses, and a removal that fails is
+ * reported and told to the Owner (phase 4 review S-S3).
+ */
+export const inviteAsEmployee = action(
+  async (input: InviteEmployeeInput): Promise<Result<InviteOutcome>> => {
+    const data = inviteEmployeeSchema.parse(input);
+    const viewer = await assertPermission("team.manage");
+    if (await repo.findMemberByEmail(data.email)) {
+      throw new AppError("CONFLICT", "Someone with this email is already on the team.", {
+        fieldErrors: { email: ["Someone with this email is already on the team."] },
+      });
+    }
+    const member = await repo.getOwnMember(data.memberId); // RLS: team.manage reads every row
+    if (!member) throw new AppError("NOT_FOUND", "This person is not on the team.");
+    // Before any sign-in exists under their id (phase 4 review S-S3): only an active freelancer.
+    const refusal = inviteAsEmployeeRefusal(member);
+    if (refusal) throw new AppError("INVALID_STATE", refusal);
+
+    await repo.createAuthUserWithId(data.memberId, data.email);
+    try {
+      await repo.rpcInviteEmployee(data.memberId, data.email);
+    } catch (error) {
+      if (!(await repo.deleteAuthUser(data.memberId))) {
+        throw new AppError("INTERNAL", LEFTOVER_SIGN_IN_MESSAGE, { cause: error });
+      }
+      throw error;
+    }
+    const { tokenHash, type } = await repo.issueInviteToken(data.email);
+    const link = inviteLinkFor(await appOrigin(), tokenHash, type);
+    const sent = await sendEmail(
+      inviteEmail({ to: data.email, inviteeName: member.fullName, inviterName: viewer.name, link }),
+    );
+    revalidatePath(PEOPLE_PATH, "layout");
+    revalidatePath("/tasks", "layout");
+    return ok({ memberId: data.memberId, link, email: outcomeOf(sent) });
   },
 );
 

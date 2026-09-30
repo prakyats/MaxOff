@@ -116,22 +116,34 @@ export function PeopleBoard({ summary }: { summary: TodaySummary }) {
   );
 }
 
-/** The card and the board while `/today` loads: the same boxes, rows and counts. */
+/**
+ * The card and the board while `/today` loads: the same boxes, rows and counts. Each bar sits in
+ * the line box of the text it stands for (the card's title and a bucket heading `text-sm`, 20px;
+ * a count `text-2xl`, 32px, over its `text-xs` label, 16px), so nothing moves when they arrive.
+ */
 export function TodayBoardSkeleton() {
   return (
     <div aria-hidden data-slot="loading-today-board">
       <div className="border-border bg-card mb-4 flex flex-col gap-3 rounded-lg border p-4">
-        <Skeleton className="h-4 w-36" />
+        <div className="flex h-5 items-center">
+          <Skeleton className="h-4 w-36" />
+        </div>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           {TODAY_BUCKETS.map((bucket) => (
-            <div key={bucket} className="flex flex-col gap-1.5">
-              <Skeleton className="h-7 w-8" />
-              <Skeleton className="h-3 w-24" />
+            <div key={bucket} className="flex flex-col">
+              <div className="flex h-8 items-center">
+                <Skeleton className="h-7 w-8" />
+              </div>
+              <div className="flex h-4 items-center">
+                <Skeleton className="h-3 w-24" />
+              </div>
             </div>
           ))}
         </div>
       </div>
-      <Skeleton className="mb-2 h-3.5 w-36" />
+      <div className="mb-2 flex h-5 items-center">
+        <Skeleton className="h-3.5 w-36" />
+      </div>
       <ul className="border-border divide-border bg-card mb-4 divide-y rounded-lg border">
         {[0, 1, 2].map((i) => (
           <li key={i} className={cn("flex items-center gap-3", CARD_ROW_MIN_H, CARD_ROW_PADDING)}>

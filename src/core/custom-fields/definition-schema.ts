@@ -9,6 +9,7 @@ import {
   type FieldOption,
   hasOptions,
   parseOptionLines,
+  scopeKindOf,
   SETTINGS_ENTITIES,
 } from "./registry";
 
@@ -79,6 +80,11 @@ export const createDefinitionSchema = z
       .union([z.uuid(), z.literal("")])
       .optional()
       .transform((value) => (value ? value : null)),
+    /** A task field: "" = every task; an id = that task type only (4C). */
+    taskTypeId: z
+      .union([z.uuid(), z.literal("")])
+      .optional()
+      .transform((value) => (value ? value : null)),
     key: z
       .string()
       .trim()
@@ -90,6 +96,23 @@ export const createDefinitionSchema = z
     ...base,
   })
   .superRefine(checkOptions)
+  .superRefine((data, ctx) => {
+    // One scope, and only the one the entity has (the table's field_definitions_scope check).
+    if (data.clientId && scopeKindOf(data.entity) !== "client") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["clientId"],
+        message: "Only a client or contact field applies to one client.",
+      });
+    }
+    if (data.taskTypeId && scopeKindOf(data.entity) !== "task_type") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["taskTypeId"],
+        message: "Only a task field applies to one task type.",
+      });
+    }
+  })
   .transform(({ optionsText, ...rest }) => ({
     ...rest,
     options: hasOptions(rest.type) ? optionsText : [],

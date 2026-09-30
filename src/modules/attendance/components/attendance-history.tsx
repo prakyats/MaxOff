@@ -8,6 +8,7 @@ import { DataTable, type MobileCard } from "@/core/ui/composites/data-table";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { StatusDot } from "@/core/ui/composites/status-badge";
 import { Button } from "@/core/ui/primitives/button";
+import { displayName } from "@/core/lib/display-name";
 import {
   Sheet,
   SheetContent,
@@ -21,7 +22,6 @@ import {
   dayTimes,
   describeEvent,
   describeHistoryDay,
-  firstName,
   type HistoryDay,
   historyDate,
   SELF,
@@ -182,7 +182,7 @@ export function AttendanceHistory({
             title={`Nothing recorded in ${monthName}`}
             description={
               owner
-                ? `A day appears here once ${firstName(owner.name)} opens MaxOff on it.`
+                ? `A day appears here once ${displayName(owner.name)} opens MaxOff on it.`
                 : "A day appears here once you open MaxOff on it."
             }
           />

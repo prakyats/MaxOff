@@ -86,6 +86,7 @@ export async function updateThresholds(
     ackEscalateOwnerHours: number;
     overdueEscalateHours: number;
     emailDailyCapPerMember: number;
+    workloadWarningThreshold: number;
   },
 ): Promise<void> {
   await updateSettings(orgId, {
@@ -96,6 +97,7 @@ export async function updateThresholds(
     ack_escalate_owner_hours: patch.ackEscalateOwnerHours,
     overdue_escalate_hours: patch.overdueEscalateHours,
     email_daily_cap_per_member: patch.emailDailyCapPerMember,
+    workload_warning_threshold: patch.workloadWarningThreshold,
   });
 }
 

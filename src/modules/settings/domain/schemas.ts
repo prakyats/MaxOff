@@ -7,6 +7,8 @@ export const HOLIDAY_NAME_MAX = 120;
 /** The table's own checks say the same; these messages are what the form shows. */
 export const MAX_HOURS = 240;
 export const MAX_EMAIL_CAP = 200;
+/** A workload warning at more than this many open tasks due in one day would never fire. */
+export const MAX_WORKLOAD_THRESHOLD = 50;
 
 export const updateCompanySchema = z.object({
   name: z
@@ -75,6 +77,14 @@ export const updateThresholdsSchema = z
       .int("The email cap is a whole number.")
       .min(0, "The email cap cannot be negative.")
       .max(MAX_EMAIL_CAP, `Keep the email cap at ${MAX_EMAIL_CAP} or less.`),
+    workloadWarningThreshold: z.coerce
+      .number({ error: "The workload warning is a number of tasks." })
+      .int("The workload warning is a whole number of tasks.")
+      .min(1, "The workload warning needs at least 1 task.")
+      .max(
+        MAX_WORKLOAD_THRESHOLD,
+        `Keep the workload warning at ${MAX_WORKLOAD_THRESHOLD} or less.`,
+      ),
   })
   // An escalation that reaches the Owner before the Admin would skip the first level entirely
   // (WORKFLOWS §9: level 1 is the approving Admin, level 2 the Owner).

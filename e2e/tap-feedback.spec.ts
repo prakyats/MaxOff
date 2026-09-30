@@ -43,9 +43,9 @@ test.use({ serviceWorkers: "block" });
 
 const PASSWORD = "tap-local-password";
 const IDS: Record<string, string> = {
-  desktop: "20000000-0000-4000-8000-000000000061",
-  mobile: "20000000-0000-4000-8000-000000000062",
-  "mobile-lg": "20000000-0000-4000-8000-000000000063",
+  desktop: "20000000-0000-4000-8000-000000000076",
+  mobile: "20000000-0000-4000-8000-000000000077",
+  "mobile-lg": "20000000-0000-4000-8000-000000000078",
 };
 const tapPerson = (info: TestInfo) => ({
   id: IDS[info.project.name] ?? "",
@@ -171,7 +171,7 @@ test.describe("the pressed state", () => {
     await page.goto("/people");
     await hydrated(page);
     const button = page
-      .getByRole("button", { name: "Invite", exact: true })
+      .getByRole("button", { name: "Add person", exact: true })
       .filter({ visible: true });
     const pressedButton = await pressedLook(page, button);
     expect(pressedButton.tint, "the neutral tint").toContain("gradient");

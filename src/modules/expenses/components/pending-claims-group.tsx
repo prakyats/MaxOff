@@ -12,15 +12,12 @@ import { ReasonDialog } from "@/core/ui/composites/reason-dialog";
 import { ReviewFacts, ReviewSheet } from "@/core/ui/composites/review-sheet";
 import { Button } from "@/core/ui/primitives/button";
 import { toastResult } from "@/core/ui/toast";
+import { displayName } from "@/core/lib/display-name";
 
 import { approveExpenseClaim, rejectExpenseClaim } from "../actions/claims";
 import { claimDate, type ExpenseClaim, formatRupees } from "../domain/claims";
 
 export type PendingClaim = ExpenseClaim & { memberName: string };
-
-function firstName(name: string): string {
-  return name.trim().split(/\s+/)[0] || name;
-}
 
 /**
  * The Expenses group of Approvals (PRODUCT §4.18, 3b.3; kickoff 3b decision 29: after Extra
@@ -100,7 +97,7 @@ export function PendingClaimsGroup({ claims }: { claims: PendingClaim[] }) {
                 { label: "Spent on", value: claimDate(review.expenseDate) },
                 { label: "Amount", value: formatRupees(review.amount) },
                 { label: "Category", value: review.categoryName },
-                { label: `${firstName(review.memberName)} says`, value: review.note },
+                { label: `${displayName(review.memberName)} says`, value: review.note },
               ]}
             />
             {review.receiptFileId ? (
@@ -113,7 +110,7 @@ export function PendingClaimsGroup({ claims }: { claims: PendingClaim[] }) {
               >
                 <FileImage
                   fileId={review.receiptFileId}
-                  alt={`${firstName(review.memberName)}'s receipt`}
+                  alt={`${displayName(review.memberName)}'s receipt`}
                   className="border-border max-h-64 w-auto max-w-full rounded-lg border"
                 />
                 <span className="text-muted-foreground mt-1 block text-xs">
@@ -130,7 +127,7 @@ export function PendingClaimsGroup({ claims }: { claims: PendingClaim[] }) {
       <ReasonDialog
         open={rejecting !== null}
         onOpenChange={(open) => (open ? null : setRejectId(null))}
-        title={rejecting ? `Reject ${firstName(rejecting.memberName)}'s claim?` : "Reject"}
+        title={rejecting ? `Reject ${displayName(rejecting.memberName)}'s claim?` : "Reject"}
         description={
           rejecting
             ? `${formatRupees(rejecting.amount)} · ${rejecting.categoryName}. ${rejecting.memberName} will see this reason.`

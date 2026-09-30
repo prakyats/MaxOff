@@ -26,13 +26,14 @@ test.describe("Owner", () => {
     await page.goto("/settings");
     await expect(page.getByRole("heading", { name: "Settings", exact: true })).toBeVisible();
     // Sections that are not built yet are cards, not links (they name the task instead).
-    await expect(page.getByRole("link", { name: "Task types" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Stage presets" })).toHaveCount(0);
 
     for (const [name, heading] of [
       ["Company", "Company"],
       ["Days off & holidays", "Days off & holidays"],
       ["Thresholds", "Thresholds"],
       ["Job titles", "Job titles"],
+      ["Task types", "Task types"],
     ] as const) {
       await page.goto("/settings");
       await page.getByRole("link", { name, exact: true }).click();
@@ -143,6 +144,15 @@ test.describe("Owner", () => {
     await page.reload();
     await expect(page.getByLabel("End-of-day reminder")).toHaveValue("21:00");
 
+    // The workload warning (4B, kickoff 4 decision 11): 4 by default, at least 1. Never saved
+    // as anything else here: the task spec's warning check runs against 4 in parallel.
+    const workload = page.getByLabel("Workload warning (tasks due that day)");
+    await expect(workload).toHaveValue("4");
+    await workload.fill("0");
+    await page.getByRole("button", { name: "Save thresholds" }).click();
+    await expect(page.locator('[data-slot="field-error"]')).toContainText("at least 1 task");
+    await workload.fill("4");
+
     await page.getByLabel("End-of-day reminder").fill("20:30");
     await page.getByRole("button", { name: "Save thresholds" }).click();
     await expect(page.getByText("Thresholds saved")).toBeVisible();
@@ -194,7 +204,7 @@ test.describe("Owner", () => {
 
     // An archived title is not offered when someone is invited.
     await page.goto("/people");
-    await page.getByRole("button", { name: "Invite", exact: true }).click();
+    await page.getByRole("button", { name: "Add person", exact: true }).click();
     await page.getByLabel("Job title").click();
     await expect(page.getByRole("option", { name: "Colourist" })).toHaveCount(0);
     await page.keyboard.press("Escape");
@@ -214,11 +224,23 @@ test.describe("Admin", () => {
   test("gets the lists but none of the company settings", async ({ page }) => {
     await page.goto("/settings");
     await expect(page.getByRole("link", { name: "Job titles", exact: true })).toBeVisible();
-    for (const ownerOnly of ["Company", "Days off & holidays", "Thresholds", "Google Drive"]) {
+    // Task types are the Owner's too (Kickoff 4 decision 15), although the lists are theirs.
+    for (const ownerOnly of [
+      "Company",
+      "Days off & holidays",
+      "Thresholds",
+      "Google Drive",
+      "Task types",
+    ]) {
       await expect(page.getByText(ownerOnly, { exact: true })).toHaveCount(0);
     }
 
-    for (const path of ["/settings/company", "/settings/days-off", "/settings/thresholds"]) {
+    for (const path of [
+      "/settings/company",
+      "/settings/days-off",
+      "/settings/thresholds",
+      "/settings/task-types",
+    ]) {
       await page.goto(path);
       await expect(page, `${path} for an Admin`).toHaveURL(/\/forbidden$/);
     }

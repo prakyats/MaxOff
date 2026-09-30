@@ -28,34 +28,23 @@ export type NavItem = {
   icon: NavIconName;
   /** The permission the destination will check. `null` = every signed-in member. */
   permission: PermissionKey | null;
-  /**
-   * How many things there need the viewer, shown as a count on the icon. Set from real data by
-   * the layout through `withBadges()`: **2.4** on Approvals (attendance days + leave requests
-   * waiting for the Owner), **5.1** on Alerts (unread notifications). The Owner's whole loop is
-   * "what needs me", and a bar that carries the count answers it without a tap. Counts are per
-   * viewer and never money (ADR-0007).
-   */
-  badge?: number;
 };
 
 /**
- * What the More cell shows: the counts of the destinations hidden behind it, added up. Without
- * this, a role whose Approvals sits in More would have no way of knowing anything was waiting.
- * Zero means no badge.
+ * Counts per nav key (`approvals` since 2.4, `tasks` since 4.5, `alerts` with 5.1): how many
+ * things there need the viewer, computed by the layout from real data and **streamed** into the
+ * bars (`NavCount`, 4C), so no screen waits for them. The Owner's whole loop is "what needs me",
+ * and a bar that carries the count answers it without a tap. Counts are per viewer and never
+ * money (ADR-0007).
  */
-export function totalBadge(items: readonly NavItem[]): number {
-  return items.reduce((total, item) => total + Math.max(0, item.badge ?? 0), 0);
-}
-
-/** Counts per nav key (`approvals`, later `alerts`), computed by the layout for this viewer. */
 export type NavBadges = Readonly<Partial<Record<string, number>>>;
 
-/** The items with their counts; a zero or missing count leaves the item without a badge. */
-export function withBadges(items: readonly NavItem[], badges: NavBadges): NavItem[] {
-  return items.map((item) => {
-    const count = badges[item.key] ?? 0;
-    return count > 0 ? { ...item, badge: count } : item;
-  });
+/**
+ * The count for one spot: the keys added up (the More cell counts every destination hidden behind
+ * it, so nothing needing the viewer hides in the sheet). A missing or negative count is nothing.
+ */
+export function badgeTotal(badges: NavBadges, keys: readonly string[]): number {
+  return keys.reduce((total, key) => total + Math.max(0, badges[key] ?? 0), 0);
 }
 
 /** The home route for each role (PRODUCT §4.7). */
@@ -295,10 +284,11 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     key: "task-types",
     label: "Task types",
     href: "/settings/task-types",
-    description: "Kinds of task, their behaviour and default reminders.",
-    permission: "lists.manage",
+    description: "The kinds of task, their order and what each asks for.",
+    // The Owner's list (Kickoff 4 decision 15), although lists.manage opens the others to Admins.
+    permission: "settings.manage",
     arrivesIn: "4.1",
-    ready: false,
+    ready: true,
   },
   {
     key: "stage-presets",
@@ -322,10 +312,10 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     key: "templates",
     label: "Templates",
     href: "/settings/templates",
-    description: "Project and task templates.",
+    description: "Task templates: a type, a priority, stages and field defaults.",
     permission: "templates.manage",
     arrivesIn: "4.6",
-    ready: false,
+    ready: true,
   },
   {
     key: "drive",

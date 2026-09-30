@@ -14,9 +14,9 @@ import type { Thresholds } from "../domain/settings";
 import { FormError } from "./form-error";
 
 /**
- * The timings that drive reminders and escalations (PRODUCT §7, WORKFLOWS §9). Nothing reads
- * them yet: tasks arrive in phase 4 and the jobs in 2.5 and 5.3. Changing one never rewrites
- * what already happened — each job reads the value when it runs.
+ * The timings that drive reminders and escalations (PRODUCT §7, WORKFLOWS §9), and the workload
+ * warning the task dialog shows (4.3, kickoff 4 decision 11). The reminder jobs arrive with 5.3.
+ * Changing one never rewrites what already happened — each job reads the value when it runs.
  */
 export function ThresholdsForm({ thresholds }: { thresholds: Thresholds }) {
   const [state, formAction, pending] = useActionState(
@@ -30,6 +30,7 @@ export function ThresholdsForm({ thresholds }: { thresholds: Thresholds }) {
         ackEscalateOwnerHours: value("ackEscalateOwnerHours"),
         overdueEscalateHours: value("overdueEscalateHours"),
         emailDailyCapPerMember: value("emailDailyCapPerMember"),
+        workloadWarningThreshold: value("workloadWarningThreshold"),
       });
       if (result.ok) toast.success("Thresholds saved");
       return result;
@@ -162,6 +163,24 @@ export function ThresholdsForm({ thresholds }: { thresholds: Thresholds }) {
               min={0}
               max={200}
               defaultValue={thresholds.emailDailyCapPerMember}
+              required
+            />
+          )}
+        </FormField>
+        <FormField
+          label="Workload warning (tasks due that day)"
+          hint="Assigning someone who already has this many open tasks due that day shows a warning. It never blocks."
+          error={fieldErrors.workloadWarningThreshold}
+        >
+          {(control) => (
+            <Input
+              {...control}
+              name="workloadWarningThreshold"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={50}
+              defaultValue={thresholds.workloadWarningThreshold}
               required
             />
           )}

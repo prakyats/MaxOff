@@ -87,6 +87,32 @@ export function addISTDays(date: ISODate, days: number): ISODate {
   return new Date(calendarDate(date).getTime() + days * DAY_MS).toISOString().slice(0, 10);
 }
 
+/** A wall-clock time in IST, `HH:mm` on the 24-hour clock (what `<input type="time">` gives). */
+export type ISTTime = string;
+
+const IST_TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/** True for a well-formed `HH:mm` wall-clock time such as `18:00`. */
+export function isISTTime(value: unknown): value is ISTTime {
+  return typeof value === "string" && IST_TIME.test(value);
+}
+
+/**
+ * The instant at which an IST date reaches a wall-clock time, as an ISO 8601 string in UTC:
+ * `istInstant("2026-10-01", "18:00")` is `2026-10-01T12:30:00.000Z`. How a form's date and time
+ * fields become a `timestamptz` (a task's deadline and event times, 4.3).
+ */
+export function istInstant(date: ISODate, time: ISTTime): string {
+  assertISODate(date);
+  if (!isISTTime(time)) throw new RangeError(`Invalid IST time: ${time}`);
+  return fromZonedTime(`${date}T${time}:00`, IST_TIMEZONE).toISOString();
+}
+
+/** The IST wall-clock time of an instant, `HH:mm`: the other half of `istInstant`. */
+export function toISTTime(instant: Instant): ISTTime {
+  return formatInTimeZone(toDate(instant), IST_TIMEZONE, "HH:mm");
+}
+
 /** Formats an instant in IST with a date-fns pattern. Default: `21 Sep 2026, 6:05 pm`. */
 export function formatIST(instant: Instant, pattern = "d MMM yyyy, h:mm aaa"): string {
   return formatInTimeZone(toDate(instant), IST_TIMEZONE, pattern);

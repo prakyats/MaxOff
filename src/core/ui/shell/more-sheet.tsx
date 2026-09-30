@@ -35,11 +35,14 @@ const ROW =
  */
 export function MoreSheet({
   items,
+  badges = {},
   tabs,
   logoutItem,
   trigger,
 }: {
   items: readonly NavItem[];
+  /** Each row's count by key, streamed by the shell (`NavCount`, 4C). */
+  badges?: Readonly<Partial<Record<string, ReactNode>>>;
   /** The bottom bar's tab rule: the pages here are tab roots too (ARCHITECTURE §14.2 c). */
   tabs?: TabNavigation;
   /** `core/auth` owns the action; the app layout passes it in, so `core/ui` never imports auth. */
@@ -114,15 +117,7 @@ export function MoreSheet({
                 <Icon className={cn("size-5 shrink-0", active && "text-foreground")} aria-hidden />
                 <span className="flex-1">{item.label}</span>
                 {/* The same count the More cell adds up, so you can see which row it came from. */}
-                {item.badge && item.badge > 0 ? (
-                  <span
-                    data-slot="nav-badge"
-                    className="bg-brand text-brand-foreground flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-semibold"
-                  >
-                    {item.badge > 99 ? "99+" : item.badge}
-                    <span className="sr-only"> waiting</span>
-                  </span>
-                ) : null}
+                {badges[item.key]}
               </Link>
             );
           })}

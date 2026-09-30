@@ -19,6 +19,7 @@ import { toastResult } from "@/core/ui/toast";
 
 import { deactivateMember } from "../actions/members";
 import { ClientHandover, type HandoverMove } from "./client-handover";
+import { FreelancerHandover, type FreelancerMove } from "./coordinator-dialogs";
 import type { TeamMember } from "../domain/members";
 import { DEACTIVATE_REASON_MAX_LENGTH } from "../domain/limits";
 import { ErrorText } from "@/core/ui/composites/error-text";
@@ -27,7 +28,8 @@ import { ErrorText } from "@/core/ui/composites/error-text";
  * Deactivate (active) or Revoke invite (invited): one transition, worded by state, with an
  * optional reason kept in the activity log (decided 2026-09-22). Not `ReasonDialog`, whose
  * reason is required. Deactivating an Admin moves their clients first, chosen here (phase 3
- * review, owner: no client is ever left without an Admin).
+ * review, owner: no client is ever left without an Admin), and deactivating a coordinator moves
+ * their freelancers first (ADR-0013 §2, 4C: no freelancer is ever left without a coordinator).
  */
 export function DeactivateMemberDialog({
   member,
@@ -39,11 +41,17 @@ export function DeactivateMemberDialog({
   const [reason, setReason] = useState("");
   const runsClients = member.role === "admin" && member.status === "active";
   const [moves, setMoves] = useState<HandoverMove[] | null>(runsClients ? null : []);
+  // Only an active employee can coordinate; the list loads with the dialog (null until then).
+  const mayCoordinate = member.status === "active" && member.engagement === "permanent";
+  const [freelancers, setFreelancers] = useState<FreelancerMove[] | null>(
+    mayCoordinate ? null : [],
+  );
   const action = useAction(async () => {
     const result = await deactivateMember({
       memberId: member.id,
       reason,
       ...(moves?.length ? { handover: moves } : {}),
+      ...(freelancers?.length ? { freelancers } : {}),
     });
     if (toastResult(result, { success: revoke ? "Invite revoked" : "Deactivated" })) onClose();
   });
@@ -70,6 +78,7 @@ export function DeactivateMemberDialog({
           </DialogDescription>
         </DialogHeader>
         {runsClients ? <ClientHandover member={member} onChange={setMoves} /> : null}
+        {mayCoordinate ? <FreelancerHandover member={member} onChange={setFreelancers} /> : null}
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={reasonId}>Reason (optional)</Label>
           <Textarea
@@ -97,7 +106,7 @@ export function DeactivateMemberDialog({
             type="button"
             variant="primary"
             onClick={confirm}
-            disabled={tooLong || moves === null}
+            disabled={tooLong || moves === null || freelancers === null}
             pending={pending}
             pendingLabel={revoke ? "Revoking invite…" : "Deactivating…"}
           >

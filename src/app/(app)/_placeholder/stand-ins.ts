@@ -21,27 +21,6 @@ export type StandIn = {
 const ALERTS_DESCRIPTION = "Your notifications, each one a tap away from what it's about.";
 
 export const STAND_INS = {
-  /** Tasks for Staff (task 4.5): the work given to them. Tasks run outside MaxOff until then. */
-  tasksMine: {
-    description: "The work given to you, and what's due next.",
-    title: "Your tasks are coming soon",
-    message:
-      "This is where you'll see the work given to you, note it and mark it done. Until then, tasks reach you the usual way.",
-  },
-  /** Tasks for the Owner and an Admin (task 4.5): the work they give out. */
-  tasksTeam: {
-    description: "The work you give out, and where each task stands.",
-    title: "Tasks are coming soon",
-    message:
-      "This is where you'll give out work, see who has noted it and approve it when it's done. Until then, give out tasks the usual way.",
-  },
-  /** An Admin's Approvals (tasks 4.5 and 7.4): they decide no attendance, leave or expenses. */
-  approvalsAdmin: {
-    description: "The work waiting for your check.",
-    title: "Task approvals are coming soon",
-    message:
-      "The tasks you check before they go to the Owner will wait here. Attendance, leave and expenses are the Owner's to decide.",
-  },
   /** Alerts for Admins and Staff (task 5.1). */
   alertsMember: {
     description: ALERTS_DESCRIPTION,
@@ -102,4 +81,13 @@ export function dayStandIn(role: MemberRole): StandIn {
   if (role === "owner") return STAND_INS.todayOwner;
   if (role === "admin") return STAND_INS.todayAdmin;
   return STAND_INS.myDay;
+}
+
+/**
+ * A stand-in screen's header line: what `PlaceholderPage` writes (greeting the member on the
+ * dashboards) and what its loading screen repeats, so the header does not change when the page
+ * arrives (4C review S7, ARCHITECTURE §14.1).
+ */
+export function standInDescription(copy: StandIn, greet?: string): string {
+  return greet ? `Hello, ${greet}. ${copy.description}` : copy.description;
 }

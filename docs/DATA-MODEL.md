@@ -54,8 +54,11 @@ app.is_working_day(date)        (1.4) false when the date's weekday is in org_se
 app.current_org_id()            the caller's org; with no member row (bootstrap, service role) the single
                                 organizations row; null when there are none or several. Default of every
                                 root table's org_id
-app.current_member()            the caller's member row when status = 'active', else no row
-app.has_permission(text)        caller's role has this key in role_permissions (active members only)
+app.current_member()            the caller's member row when status = 'active' and engagement =
+                                'permanent', else no row (a freelancer never signs in: a sign-in on
+                                a freelancer's id is nobody; phase 4 review S-S3)
+app.has_permission(text)        caller's role has this key in role_permissions (active permanent
+                                members only)
 app.audit_row_change()          AFTER INSERT/UPDATE/DELETE row trigger writing activity_log:
                                 entity = table name, action = insert|update|delete, entity_id = new/old.id
                                 (or TG_ARGV[0] as the id column), diff = {old:{}, new:{}} of the changed
@@ -66,7 +69,11 @@ app.audit_row_change()          AFTER INSERT/UPDATE/DELETE row trigger writing a
                                 (e.g. the deactivation reason) instead of a generic 'update', and the
                                 function writes no second row. Consumed by the FIRST audited write of
                                 the transaction, so set it right before the row it describes (a
-                                function that writes a history row first labels that row instead)
+                                function that writes a history row first labels that row instead).
+                                on_behalf_of_id (4A): the override's on_behalf_of, else (4A review S2)
+                                the row's own on_behalf_of column on an insert or on an update that
+                                changes on_behalf_of or done_at (a comment or a stage tick for a
+                                freelancer through the API); never on another update or a delete
 app.in_transition()             true while the statement runs as the function owner (inside a security
                                 definer transition function, a migration, a seed or a service-role job);
                                 false for a direct API write as authenticated / anon. Nothing to switch on
@@ -143,6 +150,33 @@ public.member_change_email(member_id, new_email)
 app.members_job_title_guard()   BEFORE INSERT/UPDATE on members: job_title_id, when set, is an
                                 unarchived list_items row with list_key = 'job_title' of the same org
 app.seed_org_lists()            AFTER INSERT on organizations: the launch job titles (PRODUCT §7)
+
+-- Freelancers (4A, ADR-0013, WORKFLOWS §1b). Same conventions and grants as the team functions.
+public.member_add_freelancer(full_name, job_title_id, phone, coordinator_id)
+                                team.manage. The freelance member row (a fresh uuid, role staff, active,
+                                engagement freelance, no email, joined_at now) and its first
+                                member_coordinators row. The coordinator: an active permanent Admin or
+                                Staff (VALIDATION otherwise, the Owner included). Audit actions
+                                'freelancer_added' (members) and 'coordinator_set' (member_coordinators).
+                                Notifies the coordinator (§9; the row is 5.1's)
+public.member_set_coordinator(member_id, coordinator_id, reason)
+                                team.manage. Closes the freelancer's current member_coordinators row
+                                (to_at) and opens the next (set_by, reason) in one transaction; allowed
+                                on a deactivated freelancer too (it prepares the reactivation).
+                                VALIDATION for a permanent member or an ineligible coordinator,
+                                INVALID_STATE when that coordinator is already current. Audit actions
+                                'coordinator_closed' and 'coordinator_changed' (or 'coordinator_set'
+                                when none was current). Notifies the new coordinator and the previous
+                                one if still active (§9)
+public.member_invite_employee(member_id, email)
+                                team.manage. "Invite as employee": the active freelance row becomes an
+                                invited permanent employee with that email on the SAME id (the action
+                                created the auth user with this id first; the address must match it and
+                                be free), invited_at now, joined_at cleared, the current coordinator row
+                                closed (reason 'became_employee'). Audit action 'invited_as_employee'.
+                                The action then issues the invite link exactly as member_invite's does
+app.coordinator_of(member_id)   the freelancer's current coordinator (to_at null), or null. Security
+                                definer, stable: every on-behalf check calls it at the moment of the action
 ```
 
 ## 1. Organization, people and access
@@ -181,38 +215,86 @@ members              id (= auth.users.id for a login; a fresh uuid for a freelan
                      engagement engagement ('permanent'; 4A, ADR-0013),
                      invited_at, joined_at, deactivated_at, created_at, updated_at
                      unique partial index (org_id) where role = 'owner'; unique index on lower(email)
-                     -- 4A: a freelance row has role = staff for permission arithmetic, no auth.users row,
-                     -- no invite (member_invite() refuses engagement = freelance), joined_at set on
-                     -- creation; check: engagement = 'permanent' or email is null. Created only by
-                     -- member_add_freelancer(name, job_title_id, phone, coordinator_id) (team.manage).
+                     -- 4A as built: the FK members.id → auth.users is gone (a freelancer has no auth
+                     -- row; expand-only, nothing reads it); check members_email_matches_engagement:
+                     -- (engagement = 'permanent') = (email is not null). A freelance row has role =
+                     -- staff for permission arithmetic, no auth.users row, no invite (member_invite()
+                     -- refuses the id: "Use Invite as employee"), joined_at set on creation. Created
+                     -- only by member_add_freelancer(full_name, job_title_id, phone, coordinator_id)
+                     -- (team.manage): app.members_insert_guard() refuses an API insert with engagement
+                     -- = freelance, and engagement is a protected column (transition functions only).
                      -- Every attendance and leave function, the day gate and the 2.5 jobs act on
-                     -- permanent members only (PERMISSIONS §3). A later tasks-only login attaches an
-                     -- auth.users row to this same id (ADR-0013 §7), so nothing about it ever moves.
+                     -- permanent members only (PERMISSIONS §3): app.attendance_require_self() refuses a
+                     -- freelance caller, comp_leave_grant() a freelance member, app.absent_check(),
+                     -- app.end_day_reminder_due(), attendance_today_detail() and month_summary() select
+                     -- engagement = 'permanent'. A later tasks-only login attaches an auth.users row to
+                     -- this same id (ADR-0013 §7), so nothing about it ever moves.
 member_coordinators  id, member_id → members (the freelancer), coordinator_id → members (an active
                      permanent Admin or Staff), from_at, to_at null (the current one), set_by, reason,
                      created_at
                      -- 4A, ADR-0013: history, never rewritten. unique partial index (member_id) where
                      -- to_at is null (exactly one current coordinator); check member_id <> coordinator_id.
-                     -- Written only by member_set_coordinator() (team.manage): closes the current row and
-                     -- opens the next in one transaction; refused when the coordinator is not active
-                     -- permanent, or the member is not freelance. RLS: team.view reads all; a member
-                     -- reads the rows where they are the coordinator (their own freelancers).
+                     -- Written only by the team functions (team.manage): member_add_freelancer() opens
+                     -- the first row; member_set_coordinator(member_id, coordinator_id, reason) closes
+                     -- the current row and opens the next in one transaction (INVALID_STATE when that
+                     -- coordinator is already current; allowed on a deactivated freelancer, so
+                     -- reactivation can be prepared); refused when the coordinator is not an active
+                     -- permanent Admin or Staff, is the freelancer, or the member is not freelance.
+                     -- member_deactivate(freelancer) closes the current row (reason 'deactivated') and
+                     -- member_reactivate(freelancer) needs a current row again (INVALID_STATE "Set a
+                     -- coordinator first"), the handover pattern: two calls. member_deactivate(coordinator)
+                     -- is CONFLICT while an active freelancer points at them.
+                     -- 4A review (M2): member_deactivate(coordinator) also closes the current rows of
+                     -- DEACTIVATED freelancers still pointing at them (a coordinator set to prepare a
+                     -- reactivation; reason 'coordinator_deactivated'), and member_reactivate(freelancer)
+                     -- also refuses (INVALID_STATE) while the current coordinator is no longer an active
+                     -- permanent Admin or Staff (their row locked, as app.coordinator_eligible() does).
+                     -- RLS (4A review S4, owner decision 2026-09-29): team.view reads every row, reason
+                     -- included; the reason of a coordinator change is the Owner's and the Admins' (like a
+                     -- deactivation reason), so a coordinator, current or former, reads their own rows
+                     -- only through the coordinated_freelancers view, without it. No API writes. Audited
+                     -- (actions coordinator_set, coordinator_changed, coordinator_closed, with meta.reason;
+                     -- those entries are team.view only, activity_log_select_member_coordinators).
                      -- kickoff 4 (owner decision 2026-09-28): the coordinator is never the Owner (refused
                      -- as not an Admin or Staff); a coordinator may have many freelancers (no uniqueness on
-                     -- coordinator_id). Freelancer -> employee: the Owner's "Invite as employee" (
-                     -- team.manage) attaches an auth.users row to the SAME members.id, sets engagement =
-                     -- permanent and email, closes the current row (to_at, reason 'became_employee'); never
-                     -- permanent -> freelance. No tasks-only login in phase 4 (ADR-0013 §7 keeps it possible)
-                     -- app.coordinator_of(freelancer_id) → the current coordinator, used by every
-                     -- on-behalf check and by notification routing (WORKFLOWS §9).
+                     -- coordinator_id). Freelancer -> employee: the Owner's "Invite as employee",
+                     -- member_invite_employee(member_id, email) (team.manage): the action first creates
+                     -- the auth user WITH THE SAME id (auth.admin.createUser({ id, email })), then the
+                     -- function sets engagement = permanent and email, status -> invited (invited_at =
+                     -- now(), joined_at cleared so acceptance stamps the join and attendance starts the
+                     -- IST day after it), closes the current row (to_at, reason 'became_employee');
+                     -- refused on a permanent row, a deactivated freelancer, a taken email or when the
+                     -- auth user is missing or carries another address. Never permanent -> freelance.
+                     -- member_change_email() refuses a freelance row (INVALID_STATE: no sign-in exists).
+                     -- No tasks-only login in phase 4 (ADR-0013 §7 keeps it possible).
+                     -- app.coordinator_of(freelancer_id) → the current coordinator (null when none),
+                     -- used by every on-behalf check and by notification routing (WORKFLOWS §9).
                      -- status, invited_at, joined_at, deactivated_at are protected columns (transition
                      -- functions only, 1.2/1.3). RLS: own row; every row for team.view; writes team.manage;
                      -- own name/phone/avatar editable (PERMISSIONS §3). job_title_id is in the API
                      -- role's UPDATE grant, and app.members_self_edit_guard() keeps it team.manage-only
 member_directory     view (security definer): id, org_id, full_name, phone, role, status, job_title_id,
-                     created_at, avatar_file_id (appended in 3.3). Everyone's row for team.view,
-                     plus the caller's own.
-                     No email (PERMISSIONS §2). Names of people on a member's own tasks join in 4.1
+                     created_at, avatar_file_id (appended in 3.3), engagement (appended in 4A).
+                     Everyone's row for team.view, plus the caller's own, plus the freelancers the
+                     caller currently coordinates and (Kickoff 4 decision 21, 4C) everyone who was on
+                     or acted on a task the caller can see: creator, current and past approvers
+                     (activity meta from/to), current and removed assignees and who noted for them,
+                     reviewers, commenters, tickers, submitters, every actor of the task's audit
+                     entries (warnings aside) and the current coordinator of a freelancer assignee.
+                     4C rewrote it set-based: the WHERE is team.view or m.id in
+                     app.directory_visible_ids(), computed once per query (4A's per-row walk took 2 s
+                     for one Staff read of 82 members); app.directory_visible(uuid) stays as the
+                     single-row form. No email (PERMISSIONS §2); phone only for team.view, the person
+                     themselves and a freelancer's current coordinator (null on a co-worker seen
+                     through a shared task).
+freelancer_coordinators  view (security definer; 4C, decision 21): member_id, coordinator_id, from_at of
+                     the CURRENT member_coordinators rows, never the reason: every row for team.view,
+                     otherwise the rows whose freelancer and coordinator the caller may both name (a
+                     freelancer on their task: "Asha · Freelancer · with Ravi"). Select only
+coordinated_freelancers  view (security definer; 4A review S4): id, member_id, coordinator_id, from_at,
+                     to_at, set_by, created_at: the caller's own member_coordinators rows (coordinator_id =
+                     the caller), current (to_at null) and past, never the reason. "Your freelancers"
+                     on /me (4C) reads it; names and phones come from member_directory. Select only
 role_permissions     role member_role, permission text, pk(role, permission)   -- seeded
 session_events       id, member_id, kind ('login'|'logout'), at, user_agent (≤ 512), ip_hash
                      -- append-only, written only by session_login() (1.2) and
@@ -243,16 +325,29 @@ list_items           id, org_id, list_key ('job_title'|...), name, description, 
                      -- it without expenses.decide, although Admins hold lists.manage
 task_types           id, org_id, name, kind task_type_kind, shows_on_calendar bool,
                      has_location bool, default_reminders jsonb, color, icon, position,
-                     is_system, archived_at
-                     -- seeds: Normal(normal), Shoot / Site Visit(event), Meeting(event),
-                     --        Posting(event), Review / Approval(normal), Other(normal), Custom(custom)
+                     is_system, archived_at, created_at, updated_at
+                     -- seeds: Normal(normal), Shoot / Site Visit(event, calendar, location),
+                     --        Meeting(event, calendar, location), Posting(event, calendar),
+                     --        Review / Approval(normal), Other(normal), Custom(custom)
+                     -- 4A as built: seeded for every organization by app.seed_org_task_types() (AFTER
+                     -- INSERT on organizations) and backfilled; is_system false (the Owner renames or
+                     -- archives them). unique (org_id, lower(btrim(name))) where archived_at is null.
+                     -- RLS: every active member reads; insert / update need settings.manage, and
+                     -- app.task_types_owner_guard() refuses a write without it even where a policy
+                     -- would allow one (PERMISSIONS ³), and, for every writer, archiving the
+                     -- organization's last active type (INVALID_STATE; 4C review L1). API UPDATE grant: name, shows_on_calendar,
+                     -- has_location, default_reminders, color, icon, archived_at (position through a
+                     -- move function with the Settings screen). No DELETE. Audited. kind decides the
+                     -- task's fields (task_create): event -> event_date required, event times and
+                     -- purpose allowed; has_location -> location allowed; default_reminders -> the
+                     -- task's reminder_rules when none are given (kickoff 4 decision 14).
                      -- kickoff 4 (owner decision 2026-09-28): the Owner's list. A guard refuses insert,
                      -- update, move and archive without settings.manage (Admins hold lists.manage but only
                      -- pick types; PERMISSIONS ³). Tasks have no stage presets: stage_presets are projects' (7.4)
 stage_presets        id, org_id, name, stages text[] (ordered), archived_at
 field_definitions    id, org_id, entity ('client'|'contact'|'project'|'item'|'task'),
                      client_id null (a field that exists for one client only),
-                     task_type_id null (a field that exists for one task type only),
+                     task_type_id null (a field that exists for one task type only; FK → task_types since 4A),
                      key, label, help_text, type field_type, options jsonb, required,
                      section, position, archived_at, unique(org_id, entity, key, client_id, task_type_id)
                      -- rows with entity in ('project','item') are Owner-only to create/edit (PERMISSIONS ¹)
@@ -763,9 +858,10 @@ client_brand         client_id pk, logo_file_id → files (FK from 3.3), colors 
                      -- client. RLS follows the client. Audited (entity_id = client_id).
 view client_labels   (id, name, state, logo_file_id, colors, fonts, tone_of_voice, brand_notes)
                      security-barrier view: rows for clients the caller may see OR that label a task
-                     the caller is assigned to (app.labelled_client_ids(), empty until 4.1)
+                     the caller is assigned to (app.labelled_client_ids(): the labels of the caller's
+                     visible tasks since 4A)
 ```
-**Functions (3.1, ADR-0006):** `app.admin_client_ids()` (the caller's assigned clients), `app.client_visible(client_id)`, `app.is_owner()`, `app.labelled_client_ids()` (4.1 replaces the empty placeholder), `client_activate(client_id)` (draft | paused → active; needs an active Admin), `client_pause(client_id)` (active → paused), `client_close(client_id, reason)` (active | paused → inactive), `client_reactivate(client_id)` (inactive → active; the name must be free again), `client_assign_admin(client_id, admin_id)` (any state; closes the open assignment and opens the next; notifies the new and previous Admin, WORKFLOWS §9, delivered by 5.1), `client_contact_set_primary(contact_id)`, `client_contact_archive(contact_id, next_primary_id)`, `client_contact_restore(contact_id)`. Every lifecycle function is `clients.manage`; the contact functions are `clients.edit_assigned` on a visible client.
+**Functions (3.1, ADR-0006):** `app.admin_client_ids()` (the caller's assigned clients), `app.client_visible(client_id)`, `app.is_owner()`, `app.labelled_client_ids()` (since 4A: the client labels of the tasks the caller can see, `app.task_visible()`; empty before that), `client_activate(client_id)` (draft | paused → active; needs an active Admin), `client_pause(client_id)` (active → paused), `client_close(client_id, reason)` (active | paused → inactive), `client_reactivate(client_id)` (inactive → active; the name must be free again), `client_assign_admin(client_id, admin_id)` (any state; closes the open assignment and opens the next; notifies the new and previous Admin, WORKFLOWS §9, delivered by 5.1), `client_contact_set_primary(contact_id)`, `client_contact_archive(contact_id, next_primary_id)`, `client_contact_restore(contact_id)`. Every lifecycle function is `clients.manage`; the contact functions are `clients.edit_assigned` on a visible client.
 
 ## 5. Client work: projects, cycles, items
 ```
@@ -795,32 +891,65 @@ project_templates    id, org_id, name, description, recurrence, default_billing_
 ## 6. Staff tasks
 ```
 tasks                id, org_id, title, description, task_type_id, client_id null (label only),
-                     priority, due_at timestamptz, event_start_at null, event_end_at null,
-                     location null, purpose null, state task_state,
+                     priority, due_at timestamptz, event_date date null, event_start_at null,
+                     event_end_at null, location null, purpose null, state task_state,
                      approving_admin_id null, admin_step admin_step, created_by,
                      primary_owner_id, reminder_rules jsonb, late_reason, cancelled_reason,
                      custom_fields, template_id null,
-                     submitted_at, admin_approved_at, completed_at, cancelled_at, archived_at
+                     submitted_at, submitted_by null, submitted_on_behalf_of null,
+                     admin_approved_at, completed_at, cancelled_at, archived_at,
+                     search tsvector (generated: title, description, location), created_at, updated_at
                      -- kickoff 4 (owner decision 2026-09-28): due_at NOT NULL; task_create refuses a due_at
                      -- in the past (later edits may move it anywhere); priority default 'medium'. An Admin
                      -- creator's client_id must be one of admin_client_ids() (so approving_admin_id = the
                      -- creator); the Owner sets any client_id and picks any active Admin as approver
+                     -- 4A as built: an event type (task_types.kind = event) requires event_date and may
+                     -- carry event_start_at / event_end_at (the optional time, on that IST date; no end =
+                     -- 1 hour for the overlap warning; no start = a date-only event) and purpose; location
+                     -- only when the type has_location. template_id has no FK until 4.6 creates
+                     -- task_templates. Checks: cancelled_reason / cancelled_at exactly when cancelled,
+                     -- completed_at exactly when completed, admin_step 'required' | 'skipped' only with an
+                     -- approving Admin, event times need event_date, end after start. NO API writes at all
+                     -- (every change is a task_* function); the state columns carry protect_columns too.
+                     -- RLS select: app.task_visible(id) (the Owner all; created / approving / assigned /
+                     -- labelled with an assigned client; a coordinator sees their current freelancers'
+                     -- tasks). Audited through app.audit_override; a task's history is every activity_log
+                     -- row with entity_id = the task (the child tables audit with entity_id = task_id)
 task_assignees       task_id, member_id, is_primary, assigned_at, assigned_by,
                      -- kickoff 4: member_id is never the Owner (refused by task_create / task_update_assignment)
                      acknowledged_at null, acknowledged_by null (the coordinator when on behalf; else = member_id),
                      removed_at null, pk(task_id, member_id)
-task_stages          id, task_id, name, position, done_at, done_by, on_behalf_of null   -- optional checklist
+                     -- 4A: unique partial index (task_id) where is_primary and removed_at is null. A
+                     -- removed person re-added gets a fresh assigned_at and acknowledgement (WORKFLOWS
+                     -- §3.2). No API writes. Audited (entity_id = task_id; actions assigned, unassigned,
+                     -- acknowledged, primary_changed)
+task_stages          id, task_id, name, position, done_at, done_by, on_behalf_of null,   -- optional checklist
+                     created_at, updated_at
+                     -- 4A: created by task_create / task_update_assignment, or through the API by a task
+                     -- manager (creator, approving Admin, Owner) while the task is not completed or
+                     -- cancelled: insert, rename, reorder, delete an unticked stage. Ticked (done_at,
+                     -- done_by = the caller, on_behalf_of) through the API by an active assignee, or by
+                     -- the current coordinator of a freelancer assignee, while the task is todo,
+                     -- in_progress or changes_requested (locked from submitted, WORKFLOWS §3.1);
+                     -- app.task_stages_guard() enforces it. Audited (entity_id = task_id)
+                     -- 4B review (S5): the guard stamps done_at = now() on a tick, whatever the caller
+                     -- sent (a non-null done_at only says "tick"), so a tick's time is never forged
 task_comments        id, task_id, author_id, on_behalf_of null, body, created_at        -- append-only
                      -- on_behalf_of (4A, ADR-0013): set when a coordinator acts for a freelancer; the
                      -- actor column keeps the coordinator. Same pair on task_submissions (submitted_by,
                      -- on_behalf_of) and on the Done/resubmit transition (tasks.submitted_by,
                      -- tasks.submitted_on_behalf_of). Never set on a review (a freelancer never reviews).
+                     -- 4A: inserted through the API (tasks.work, a visible task, author_id = the caller;
+                     -- app.task_comments_guard() checks on_behalf_of: a freelancer assignee the caller
+                     -- currently coordinates), in any state (assignees still comment once locked).
+                     -- UPDATE / DELETE revoked. body 1..5000. Audited (entity_id = task_id)
 task_reviews         id, task_id, step ('admin'|'owner'), decision, reason, reviewer_id,
-                     submission_id null, at                          -- append-only
+                     submission_id null, at                          -- append-only; written by task_review only
 task_submissions     id, task_id, version int, note, submitted_by, on_behalf_of null, at, unique(task_id, version)
                      -- kickoff 4 (owner decision 2026-09-28): built in 4A, before phase 8. Every Done and
-                     -- resubmit writes a version; note null or text that may contain http/https
-                     -- links, rendered as tappable links for the reviewer; no submission_items until 8.1
+                     -- resubmit writes a version; note null or text (≤ 5000) that may contain http/https
+                     -- links, rendered as tappable links for the reviewer; no submission_items until 8.1.
+                     -- Written by task_submit_done only
 submission_items     id, submission_id, kind ('upload'|'drive_link'),
                      file_id null (uploads), source_url null (pasted Drive link),
                      source_file_id null (Google file id of THEIR file),
@@ -833,16 +962,98 @@ submission_items     id, submission_id, kind ('upload'|'drive_link'),
 task_reminders       id, task_id, member_id null, kind ('before_due'|'due'|'overdue'|'ack'|
                      'ack_escalation'|'overdue_escalation'|'event'), escalation_level int null (1 = Admin, 2 = Owner),
                      fire_at, sent_at null, cancelled_at null       -- materialized from reminder_rules + org_settings
-task_warnings        id, task_id, kind ('overlap'|'workload'|'on_leave'), details jsonb,
-                     overridden_by, at
+task_warnings        id, task_id, kind ('overlap'|'workload'|'on_leave'), member_id (the person the
+                     warning is about; 4A), details jsonb, overridden_by, at
+                     -- 4A: the dialog computes the warnings (4.3, member_availability()); a person kept
+                     -- despite one is recorded by task_create / task_update_assignment (the warnings
+                     -- argument), overridden_by = the caller; a member_id that is not a uuid is
+                     -- VALIDATION. No API writes. Audited (entity_id = task_id).
+                     -- RLS (4A review M1): a warning names another person's leave or load, so the rows
+                     -- and their warning_overridden entries are read with app.task_visible(task_id) AND
+                     -- availability.view (the Owner and Admins, PERMISSIONS §2), never by a Staff
+                     -- co-assignee or coordinator
 task_requests        id, org_id, requested_by, title, details, client_id null, state request_state,
-                     decided_by, decided_at, decision_reason, task_id null
+                     decided_by, decided_at, decision_reason, task_id null, created_at, updated_at
+                     -- 4.6 as built (migration phase4c_requests_templates): title 1..200, details <= 5000,
+                     -- decision_reason <= 1000; checks: converted <=> task_id, declined <=> reason,
+                     -- converted / declined <=> decided_by + decided_at (withdrawn leaves them null).
+                     -- NO API writes: task_request_create(title, details, client_id) (task_requests.create:
+                     -- Admins and Staff; the client a label the caller can see, Active or Paused;
+                     -- an Admin's one of their own clients, FORBIDDEN otherwise: 4C review S8a),
+                     -- task_request_withdraw(request_id) (the requester, pending only),
+                     -- task_request_decline(request_id, reason) (task_requests.decide on a visible
+                     -- request; REASON_REQUIRED), task_request_convert(request_id, <task_create's
+                     -- arguments>) (task_create and the conversion in one transaction; the task is the
+                     -- decider's own). Neither lets an Admin decide their own request (FORBIDDEN,
+                     -- Kickoff 4 decision 23, migration phase4c_review_fixes); the Owner never
+                     -- suggests. The requester is told of a conversion or a decline, nobody of a
+                     -- withdrawal (decision 24, WORKFLOWS §9; delivery 5.1). RLS select
+                     -- app.task_request_visible(requested_by, client_id): the
+                     -- Owner all; the requester their own; a decider (an Admin) those labelled with their
+                     -- clients and those with no client that an Admin did not make (an Admin's
+                     -- no-client suggestion is the Owner's to decide: Kickoff 4 decision 35, migration
+                     -- phase4_review_fixes) (PERMISSIONS §2); the same rule decides who may decide. Audited (requested, withdrawn, declined meta.reason, converted meta.task_id);
+                     -- the activity entries follow the request's visibility.
 task_templates       id, org_id, name, task_type_id, description, default_priority,
                      stages text[], reminder_rules jsonb, field_defaults jsonb, archived_at,
                      created_by                                     -- kickoff 4: shared company-wide; an Admin
-                     -- edits and archives only rows they created, the Owner any (PERMISSIONS ³)
+                     -- edits and archives only rows they created, the Owner any (PERMISSIONS ³).
+                     -- 4.6 as built: name 1..120 (unique among active per organization), description
+                     -- <= 10000, stages <= 30 of 1..120 characters (trimmed), reminder_rules '[]' (the
+                     -- editor is 5.3's; no API insert or update grant until then, 4C review S1),
+                     -- field_defaults an object of task custom field values (validated by
+                     -- core/custom-fields in the action and, since the 4C review (S1), by the guard:
+                     -- at most 32 KB, every key the write adds or changes an active task field of the
+                     -- organization, company-wide or the template's type, holding a value of its type
+                     -- (app.custom_field_value_ok); unchanged keys pass; required never enforced),
+                     -- created_by default auth.uid(). A plain edit: RLS select templates.manage; insert
+                     -- templates.manage with created_by = the caller; update the Owner any, an Admin their
+                     -- own; no DELETE (archive). app.task_templates_guard(): the author never changes,
+                     -- the type is the organization's and active when chosen, stage lengths, the
+                     -- field defaults (above). Audited.
+                     -- No client, assignee or deadline column (PRODUCT §4.6)
+                     -- tasks.template_id → task_templates since 4.6 (the stale values nulled first, 4A
+                     -- later item L3); app.tasks_template_check() refuses another organization's or an
+                     -- archived template when it is set
+task_reads           task_id → tasks (on delete cascade), member_id → members (on delete cascade),
+                     last_read_at timestamptz default now(), pk(task_id, member_id)
+                     -- the task page rework (Kickoff 4 decision 28, owner 2026-09-30; migration
+                     -- task_reads): each member's last read of a task's comments, for the Chat tab's
+                     -- "N new" and the lists' unread marker. RLS select: the caller's own rows only
+                     -- (member_id = app.current_member()), every role, the Owner included. No API
+                     -- writes at all: task_mark_read() writes it. NOT audited: a read is the member's
+                     -- own view state, not a fact about the task (like session_events, the row is its
+                     -- own record), and an audit row per opened chat would flood the history. The
+                     -- foreign keys cascade: a read marker means nothing without its task or member
+                     -- and is never history (so no pgTAP teardown block needs it). Index member_id.
 ```
+**Helpers (4A, ARCHITECTURE §5), `app` schema, security definer, stable:** `app.task_visible(task_id)` (the RLS gate of every task table: the Owner sees every task of the organization; otherwise the caller created it, is its approving Admin, is an active assignee, holds `clients.edit_assigned` and the label is one of `app.admin_client_ids()`, or is the current coordinator of an active freelancer assignee), `app.is_task_assignee(task_id, member_id)` (active row, `removed_at` null), `app.is_approving_admin(task_id)`, `app.task_manager(task_id)` (creator, approving Admin or the Owner: who may edit, reassign, cancel, reopen), `app.task_on_behalf_ok(task_id, freelancer_id)` (the freelancer is an active freelance assignee and `app.coordinator_of()` is the caller; a coordinator's on-behalf right on comments and stage ticks). Internal (service_role only, called inside the functions): `app.task_lock(task_id, org_id)` (the row `for update`, NOT_FOUND outside the organization), `app.task_actor(task_id, on_behalf_of)` (who acts and for whom: the caller must hold `tasks.work`, be `permanent` (a freelancer's own id is never an actor: FORBIDDEN) and be an active assignee, or `on_behalf_of` names a freelance assignee whose current coordinator is the caller; a former coordinator, another member or anyone naming a non-freelancer is FORBIDDEN), `app.task_check_fields(..., p_client_changed)` (the field rules shared by `task_create` and `task_update_assignment`; since the 4A review (S1) the own-clients rule runs only when `p_client_changed`: always on create, on an edit only when `client_id` is sent and differs, so the approving Admin edits the other fields of an Owner task labelled with another Admin's client). **4C (Kickoff 4 decision 22):** a label set or changed to a **Draft** client is VALIDATION too, the Owner's included (a label is an Active or Paused client; a task labelled before keeps it). **4B review (S6, S7):** a label set or changed to an **Inactive** client is VALIDATION, the Owner's too (WORKFLOWS §4: no new client-labelled tasks for an Inactive client; a task labelled before the client closed keeps its label); an archived task type is refused only when the type is set or changed (`p_type_changed`, default true for `task_create`; `task_update_assignment` passes whether `task_type_id` is sent and differs), so a task keeps an archived type and stays editable.
 
+**Transition functions (4.2, ADR-0006, WORKFLOWS §3), `public` schema, the usual grants; each names its WORKFLOWS §9 recipients in its comment (delivery 5.1):**
+`task_create(title, description, task_type_id, client_id, priority, due_at, assignee_ids, primary_owner_id, approving_admin_id, event_date, event_start_at, event_end_at, location, purpose, stages, custom_fields, reminder_rules, template_id, warnings)` → task id (`tasks.create`; the approval route: the Owner names any active Admin or none, an Admin's task routes to the Admin and its label must be one of their clients; assignees are active Admins, Staff or freelancers, never the Owner, the primary among them; `due_at` required and not in the past; the type's field rules; `reminder_rules` default to the type's; `warnings` = `[{kind, member_id, details}]` recorded as overridden; audit `created`, `assigned` per assignee, `warning_overridden`);
+`task_acknowledge(task_id, on_behalf_of)` ("Task Noted", any non-final state, once; audit `acknowledged`);
+`task_start(task_id, on_behalf_of)` (`todo` → `in_progress`, any assignee; no acknowledgement is implied);
+`task_submit_done(task_id, note, late_reason, on_behalf_of)` (the primary owner, or their coordinator, from `todo` / `in_progress` / `changes_requested`; `late_reason` required past `due_at` (REASON_REQUIRED); writes the next `task_submissions` version; acknowledges the primary owner if not yet (audit `acknowledged`, meta `implied`); → `submitted` with `admin_step` `required` when an approving Admin exists and is not an assignee, else → `admin_approved` with `admin_step` `none` (no approver) or `skipped` (approver is an assignee, meta.reason `approver_is_assignee`); audit `submitted`);
+`task_review(task_id, decision, reason)` (`submitted`: the approving Admin only, `tasks.approve_admin`, never an assignee → `admin_approved` or `changes_requested`; `admin_approved`: `tasks.approve_final` → `completed` or `changes_requested`; the Owner does not decide at the Admin step (INVALID_STATE: remove or change the approver instead); `rejected` needs a reason (REASON_REQUIRED); one `task_reviews` row pointing at the latest submission; bulk approve = the app calling it per id, as the attendance bulk does; audit `admin_approved`, `completed`, `changes_requested`);
+`task_reopen(task_id, reason)` (`app.task_manager`; `completed` → `in_progress`, `cancelled` → `todo`; reason required; `admin_step` back to `required` / `none`, the completion and cancellation stamps cleared (the diff keeps them); acknowledgements kept; audit `reopened`, meta.reason);
+`task_cancel(task_id, reason)` (`app.task_manager`; any non-final state → `cancelled`; audit `cancelled`);
+`task_update_assignment(task_id, changes, warnings)` → text[] of changed fields (`app.task_manager` with `tasks.create`; not on a final task; `changes` is a jsonb object of the keys to change: title, description, task_type_id, client_id (a label an Admin sets or changes: own clients only; 4A review S1), priority, due_at (any value), event_date, event_start_at, event_end_at, location, purpose, custom_fields, reminder_rules, assignee_ids (the full new set: added rows get a fresh acknowledgement, removed rows get `removed_at`, a person re-added is re-opened; an element that is not a uuid is VALIDATION), primary_owner_id; the field-level audit is the trigger's diff on `tasks` (action `updated`, meta.fields) plus `assigned` / `unassigned` / `primary_changed` rows; notifies the affected assignees);
+`task_set_approver(task_id, approving_admin_id)` (the Owner; an active permanent Admin or null; not on a final task; `admin_step` follows: null → `none`, else `required`; while `submitted`, the review moves to the new approver, or the task goes to `admin_approved` at once when the approver is removed (`none`) or is an assignee (`skipped`); audit `approver_changed`, meta.from / meta.to);
+**As built (4B):** the screens read the task tables under RLS (no reader function was needed). A stage tick's audit row holds only the columns it changed (`done_at`, `done_by`, `on_behalf_of`; `entity_id` is the task), so the history names the stage when it is still ticked from that instant and says "a stage" otherwise. Task custom fields are company-wide or one type's (`field_definitions.task_type_id`, 4A); a task reads the company-wide ones and its type's (`core/custom-fields` `listDefinitions("task", { taskTypeId })`); Settings → Custom fields edits the company-wide ones (4B), a per-type field is stored and applied but not yet offered there. `org_settings.workload_warning_threshold` is edited on Settings → Thresholds (1–50).
+**4C reads and moves:** `task_counts()` → one row `(not_noted, changes_requested, badge, to_decide)` for the caller (security definer, their own counts only; Kickoff 4 decision 16): open tasks not noted by the caller or a freelancer they coordinate now, those in `changes_requested`, the badge (either, each task once), and the tasks the caller may decide now (`tasks.approve_final`: `admin_approved`; `tasks.approve_admin`: `submitted` with the caller as approving Admin and not an assignee). `task_type_move(task_type_id, direction)` (`settings.manage`; swaps positions with the neighbour, archived types skipped, as `list_item_move`; since the 4C review (L2) moves in one organization run one at a time, a transaction advisory lock, and lock the two rows in id order, so opposite moves never deadlock).
+**The task page rework (Kickoff 4 decision 28, migration `task_reads`):** `task_mark_read(task_id, up_to)` → timestamptz (`tasks.work`, on a task the caller sees, NOT_FOUND otherwise, UNAUTHENTICATED for a non-member; security definer; moves the caller's own `task_reads` row forward to `up_to`, the newest comment they were shown, `now()` when null and never later than `now()`, never back; not audited; notifies nobody). `task_unread_counts(task_ids uuid[] default null)` → `(task_id, unread)` (security definer, stable: for the caller, per task they see (`app.task_visible`), the comments whose author is not the caller (their own, written for a freelancer included, never count) after the caller's last read, every comment when there is none; only tasks with any; `task_ids` narrows it; nothing for an inactive member or without `tasks.work`; **since the phase 4 review `task_ids` is required and the tasks narrow further: see below**). The lists read it with their own rows' ids, right after those rows (the Tasks tab, All tasks, Approvals); the task page counts from its own comments and the caller's row with the same rule (`unreadCount`, `modules/tasks/domain/page.ts`). pgTAP `39`.
+
+**Phase 4 review (migration `phase4_review_fixes`, 2026-09-30; the review's fixes and the owner's answers, Kickoff 4 decisions 33–36; pgTAP `40`, `41`):** expand-only, every function keeps its signature.
+- **A manager's reach needs the key (S-M1):** `app.task_visible`, `app.labelled_client_ids`, the visible-tasks set of `app.directory_visible_ids`, `app.task_manager` and `app.is_approving_admin` count being a task's creator only with `tasks.create` and its approving Admin only with `tasks.approve_admin`; the stage guard's manager paths (add, rename, reorder, delete) also require `tasks.create`. An Admin made Staff keeps only the tasks they are assigned to.
+- **Active freelancers only (S-S2):** `app.task_actor` refuses acting for a deactivated freelancer (FORBIDDEN); the coordinator branch of `app.task_visible`, `app.labelled_client_ids`, `app.directory_visible_ids`' visible set, `task_counts()` and the stage guard's untick path count only active freelancers (as `app.task_on_behalf_ok` already did).
+- **`app.current_member()` and `app.has_permission()` resolve permanent members only (S-S3 c).**
+- **Bounds (L2, L4):** `task_create` takes 1–20 assignees and up to 30 stages; a stage inserted through the API stops at 30 per task; `reminder_rules` a caller gives to `task_create` / `task_update_assignment` is a list of at most 10 objects, 4 KB (`app.task_check_reminders`, internal); `app.task_record_warnings` takes at most 60 warnings, each `details` holding only the keys the dialog writes for its kind (workload: `date`, `open_tasks`, `threshold`; overlap: `date`, `start_at`, `end_at`; on_leave: `date`, `leave`), texts up to 64 characters or numbers, 512 bytes. A tick on an already ticked stage keeps its first `done_at`, `done_by`, `on_behalf_of`.
+- **`task_unread_counts(task_ids)` (A-S4, decision 36):** `task_ids` is required (null VALIDATION) and at most 500 (the data layer sends a list's own rows, in chunks); a task counts only when the caller is on it or decides it: an active assignee, the current coordinator of an active freelancer assignee, the approving Admin (`tasks.approve_admin`), the creator (`tasks.create`), and for the Owner also every task with no approving Admin and every task at `admin_approved`. The task page's own Chat count is unchanged.
+- **The route (A-M2, decisions 33, 34):** `app.task_approver_on_task(task_id, admin_id)` (internal): the Admin is an active assignee or the current coordinator of an active freelancer assignee. `task_submit_done` skips the Admin step for such an approver (`admin_step` skipped, `meta.reason` `approver_is_assignee` | `approver_is_coordinator`), `task_set_approver` too, and `task_review` refuses them at the Admin step (FORBIDDEN). `app.task_skip_admin_step(task_id)` (internal) moves a `submitted` task whose approver is now on it to `admin_approved` / skipped, audited `admin_step_skipped` (meta.reason, approving_admin_id, from_state, to_state): called by `task_update_assignment` (an assignee added; its result then includes `state`), by the AFTER INSERT trigger `task_route` on `member_coordinators` (a coordinator set) and by the members trigger below (a freelancer reactivated). **`task_route` AFTER UPDATE OF role, status on `members`** (`app.members_task_route`, beside `client_admin_guard`, so `member_deactivate()` and a role edit both run it in their transaction): an active Admin deactivated or no longer an Admin loses every open task they approve (`approving_admin_id` null, `admin_step` none; `submitted` → `admin_approved`), each audited `approver_changed` (meta.from, to null, reason `approver_deactivated` | `approver_role_changed`, from_state, to_state); a completed or cancelled task keeps its record.
+- **Suggestions (decision 35):** `app.task_request_visible` leaves an Admin's no-client suggestion out of every other Admin's view, so another Admin neither lists, counts, converts nor declines it (NOT_FOUND); the Owner decides it.
+`member_availability(from_date, to_date, member_ids)` (`availability.view`; read only; one row per active non-Owner member per IST day in the range (≤ 62 days): `open_tasks_due` (tasks not completed / cancelled whose `due_at` falls on that day), `event_blocks` (`[{start_at, end_at}]` of the person's event tasks that day, no end = one hour; no titles or ids), `leave` (`leave` / `half_day` / `comp_leave` for approved leave covering the day, `requested` for a pending request, null for a freelancer), `present` (today only: a Start day recorded). What 4.3's warnings and an Admin's view of others are computed from).
+
+## 7. Money (all Owner-only tables)
 ## 7. Money (all Owner-only tables)
 ```
 project_billing      project_id pk, cycle_amount numeric null (recurring), fixed_amount numeric null (one-time)
@@ -988,7 +1199,10 @@ notifications        id, recipient_id, kind, title, body, link, entity, entity_i
 notification_deliveries  id, notification_id, channel ('push'|'email'), state ('queued'|'sent'|'failed'),
                      attempts, last_error, sent_at
 activity_log         id bigint identity, org_id, actor_id null (system), on_behalf_of_id null (4A,
-                     ADR-0013: the freelancer a coordinator acted for; actor_id stays the coordinator),
+                     ADR-0013: the freelancer a coordinator acted for; actor_id stays the coordinator;
+                     written by app.audit_row_change() from the override's on_behalf_of key, else
+                     from the audited row's own on_behalf_of on an insert or a tick (4A review S2: the
+                     API comments and stage ticks), or by a transition function's own insert),
                      entity, entity_id, action,
                      diff jsonb (old/new), meta jsonb, at               -- append-only (UPDATE/DELETE revoked)
                      -- written only by app.audit_row_change() and transition functions (no INSERT grant).

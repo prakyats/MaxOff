@@ -1,9 +1,15 @@
 {
-  "$comment": "First-load JS per route, decompressed bytes (task 2.8, `pnpm budget`). Set from the 2.8 result plus ~5%: /login 559 KB, /today and /my-day 746 KB, /approvals 842 KB. Raising a number is a decision: say why in the commit.",
+  "$comment": "First-load JS per route, decompressed bytes (task 2.8, `pnpm budget`). Set from the 2.8 result plus ~5%: /login 559 KB, /today and /my-day 746 KB, /approvals 842 KB. /tasks and /tasks/[id] added at the 4B review (S12) the same way, from 774.5 KB and 790.9 KB plus ~5%. Raising a number is a decision: say why in the commit. /tasks/all added in 4C (4.5) the same way, from 892.2 KB plus ~5%. /settings/task-types added in 4C (4.6 settings) the same way, from 801.9 KB plus ~5%. /tasks/requests and /settings/templates added in 4C (4.6) the same way, from 785.9 KB and 791.7 KB plus ~5%.",
   "routes": {
     "/login": 604160,
     "/today": 803840,
     "/my-day": 803840,
-    "/approvals": 905216
+    "/approvals": 905216,
+    "/tasks": 834560,
+    "/tasks/[id]": 855040,
+    "/tasks/all": 959488,
+    "/settings/task-types": 862208,
+    "/tasks/requests": 844800,
+    "/settings/templates": 850944
   }
 }

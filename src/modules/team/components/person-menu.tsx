@@ -21,14 +21,23 @@ import { useMemberDialogs } from "./use-member-dialogs";
 /**
  * The ⋯ menu in a person's page header (3.4, owner decision 2026-09-25): **Edit** and
  * **Deactivate**, and the rest of the Owner's member actions (change the sign-in email, copy an
- * invite link, reactivate, revoke an invite). A layer like every menu (§14.2 a). Edit starts the
+ * invite link, reactivate, revoke an invite; a freelancer's coordinator and "Invite as employee",
+ * 4C). A layer like every menu (§14.2 a). Edit starts the
  * Profile's edit pattern; from the Leave or Attendance tab it switches to Profile first with a
  * replace (the tabs are views of one screen, §14.2 d).
  */
 export function PersonMenu({ member, viewerId }: { member: TeamMember; viewerId: string }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { changeEmail, deactivate, issueLink, reactivate, dialogs } = useMemberDialogs();
+  const {
+    changeEmail,
+    changeCoordinator,
+    deactivate,
+    inviteAsEmployee,
+    issueLink,
+    reactivate,
+    dialogs,
+  } = useMemberDialogs();
   const actions = memberActions({ id: viewerId, canManage: true }, member);
   if (!Object.values(actions).some(Boolean)) return null;
 
@@ -60,6 +69,16 @@ export function PersonMenu({ member, viewerId }: { member: TeamMember; viewerId:
           {actions.changeEmail ? (
             <DropdownMenuItem onSelect={() => changeEmail(member)}>
               Change sign-in email
+            </DropdownMenuItem>
+          ) : null}
+          {actions.changeCoordinator ? (
+            <DropdownMenuItem onSelect={() => changeCoordinator(member)}>
+              Change coordinator
+            </DropdownMenuItem>
+          ) : null}
+          {actions.inviteAsEmployee ? (
+            <DropdownMenuItem onSelect={() => inviteAsEmployee(member)}>
+              Invite as employee
             </DropdownMenuItem>
           ) : null}
           {actions.copyInviteLink ? (

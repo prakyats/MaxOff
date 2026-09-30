@@ -416,6 +416,11 @@ export function DataTable<TData>({
   );
 }
 
+/** The label of a filter's chosen option ("" for a value it does not offer). */
+function optionLabel<TData>(filter: DataTableFilter<TData>, value: string): string {
+  return filter.options.find((option) => option.value === value)?.label ?? "";
+}
+
 /**
  * The search box and the filters (3.4). On a phone the search takes the width and the filters
  * share the row beneath it; from `md` up they sit on one row. Every control is 44px tall on a
@@ -433,7 +438,10 @@ function ViewToolbar<TData>({
   onChange: (next: DataTableView) => void;
 }) {
   return (
-    <div data-slot="data-toolbar" className="flex flex-col gap-2 md:flex-row md:items-center">
+    <div
+      data-slot="data-toolbar"
+      className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center"
+    >
       {search ? (
         <div className="relative md:w-72" data-slot="data-search">
           <SearchIcon
@@ -453,7 +461,7 @@ function ViewToolbar<TData>({
         </div>
       ) : null}
       {filters.length > 0 ? (
-        <div className="grid grid-cols-2 gap-2 md:flex">
+        <div className="grid grid-cols-2 gap-2 md:flex md:flex-wrap">
           {filters.map((filter) => (
             <Select
               key={filter.id}
@@ -467,7 +475,12 @@ function ViewToolbar<TData>({
                 data-filter={filter.id}
                 className="h-11 w-full md:h-8 md:w-auto md:min-w-36"
               >
-                <SelectValue />
+                {/* The label is written on the server too (Radix fills an empty value only once
+                    it hydrates), so a filter never widens, and the bar never re-wraps, after the
+                    page arrives (4C review M1: the loading screen traces the bar as it lands). */}
+                <SelectValue>
+                  {optionLabel(filter, view.filters[filter.id] ?? filter.defaultValue)}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {filter.options.map((option) => (

@@ -21,6 +21,17 @@ delete from public.extra_work_notes;
 delete from public.leave_requests;
 delete from public.session_events;
 delete from public.activity_log; -- first: actor_id references members
+-- 4A: task rows and coordinator rows reference members (a Playwright run leaves some behind).
+delete from public.task_requests;
+delete from public.task_warnings;
+delete from public.task_reviews;
+delete from public.task_submissions;
+delete from public.task_comments;
+delete from public.task_stages;
+delete from public.task_assignees;
+delete from public.tasks;
+delete from public.task_templates;
+delete from public.member_coordinators;
 -- Client rows (3.1) reference members: a Playwright run leaves some behind.
 delete from public.field_definitions;
 delete from public.client_contacts;
@@ -32,6 +43,7 @@ delete from public.clients;
 update public.organizations set logo_file_id = null;
 delete from public.files;
 delete from public.members;
+delete from public.task_types; -- 4A: the seeded task types reference the organization
 delete from auth.identities;
 delete from auth.users;
 delete from public.activity_log; -- again: the member deletes were audited, and rows name the organization

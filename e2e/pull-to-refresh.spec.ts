@@ -25,8 +25,8 @@ import {
  */
 
 const IDS: Record<string, string> = {
-  mobile: "20000000-0000-4000-8000-000000000059",
-  "mobile-lg": "20000000-0000-4000-8000-000000000060",
+  mobile: "20000000-0000-4000-8000-000000000074",
+  "mobile-lg": "20000000-0000-4000-8000-000000000075",
 };
 const person = (info: TestInfo) => ({
   id: IDS[info.project.name] ?? "",
@@ -82,6 +82,13 @@ test.use({ storageState: storageStateFor("owner") });
 test.use({ serviceWorkers: "block" });
 
 test.skip(({ isMobile }) => !isMobile, "the pull is a touch gesture on a phone");
+
+// One person per project, shared by every test here: the first renames them, the others find
+// them by name, and each test puts the name back before and after. Side by side (`fullyParallel`,
+// three local workers), another test's restore landed between the first test's rename and its
+// pull, so the refresh brought the old name back (the full run after the phase-4 merge,
+// 2026-09-29). In order, in one worker, like the other specs that share a seeded person.
+test.describe.configure({ mode: "serial" });
 
 test.beforeEach(async ({ page }, info) => {
   if (!IDS[info.project.name]) return;

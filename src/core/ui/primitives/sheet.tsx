@@ -6,6 +6,7 @@ import { Dialog as SheetPrimitive } from "radix-ui";
 
 import { useOverlayOpenState } from "@/core/ui/overlay/overlay-history";
 import { Button } from "@/core/ui/primitives/button";
+import { ModalOpening, useModalOpening } from "@/core/ui/primitives/modal-opening";
 import { XIcon } from "lucide-react";
 
 /**
@@ -20,7 +21,12 @@ function Sheet({
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Root>) {
   const [isOpen, setOpen] = useOverlayOpenState({ open, defaultOpen, onOpenChange });
-  return <SheetPrimitive.Root data-slot="sheet" open={isOpen} onOpenChange={setOpen} {...props} />;
+  const opening = useModalOpening(isOpen);
+  return (
+    <ModalOpening.Provider value={opening}>
+      <SheetPrimitive.Root data-slot="sheet" open={isOpen} onOpenChange={setOpen} {...props} />
+    </ModalOpening.Provider>
+  );
 }
 
 function SheetTrigger({ ...props }: React.ComponentProps<typeof SheetPrimitive.Trigger>) {
@@ -63,8 +69,10 @@ function SheetContent({
   showCloseButton?: boolean;
   overlayClassName?: string;
 }) {
+  // A fresh overlay and content per opening, overlay first (`modal-opening.ts`).
+  const opening = React.useContext(ModalOpening);
   return (
-    <SheetPortal>
+    <SheetPortal key={opening}>
       <SheetOverlay className={overlayClassName} />
       <SheetPrimitive.Content
         data-slot="sheet-content"

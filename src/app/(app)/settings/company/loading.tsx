@@ -1,13 +1,20 @@
 import { PageLoading } from "@/core/ui/composites/loading-state";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 
+import { SETTINGS_HEADERS } from "../headers";
+
 /**
  * Traces `page.tsx`: the logo card (a 96px logo tile beside a title line and a 44px button,
  * 3.3), then the company form's two labelled fields.
  */
 export default function Loading() {
   return (
-    <PageLoading title="Company" shape="detail" back={{ href: "/settings", label: "Settings" }}>
+    <PageLoading
+      title="Company"
+      {...SETTINGS_HEADERS.company}
+      shape="detail"
+      back={{ href: "/settings", label: "Settings" }}
+    >
       <div
         role="status"
         aria-busy="true"

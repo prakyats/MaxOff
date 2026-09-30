@@ -9,10 +9,9 @@ import { getReceiptAbove } from "@/modules/expenses";
 import { ReceiptAboveForm } from "@/modules/expenses/components/receipt-above-form";
 import { ListManager } from "@/modules/settings/components/list-manager";
 
-export const metadata: Metadata = { title: "Expenses" };
+import { SETTINGS_HEADERS } from "../headers";
 
-const DESCRIPTION =
-  "The categories people choose when they claim an expense, and the amount above which a claim needs a receipt photo.";
+export const metadata: Metadata = { title: "Expenses" };
 
 /**
  * Settings → Expenses (PRODUCT §4.18, decisions 22 and 23; 3b.3): the Owner's category list
@@ -32,15 +31,17 @@ export default async function ExpensesSettingsPage() {
       <PageHeader
         back={{ href: "/settings", label: "Settings" }}
         title="Expenses"
-        description={DESCRIPTION}
-        help={DESCRIPTION}
+        {...SETTINGS_HEADERS.expenses}
       />
       <div className="flex max-w-2xl flex-col gap-8">
         <section aria-labelledby="expense-categories" className="flex flex-col gap-3">
           <h2 id="expense-categories" className="text-sm font-medium">
             Categories
           </h2>
+          {/* The screen's red commit is the receipt amount's Save (a floating bar on a phone, the
+              form's last row from md up), so Add is the neutral outline here. */}
           <ListManager
+            addVariant="secondary"
             listKey="expense_category"
             labels={LIST_LABELS.expense_category}
             items={items.map((item) => ({

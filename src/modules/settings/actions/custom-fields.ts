@@ -23,7 +23,8 @@ import { assertPermission } from "@/core/permissions/server";
  * Settings → Custom fields (3.2): zod → `assertPermission("lists.manage")` → the
  * `core/custom-fields` repository → revalidate → `Result`. Who may write which definition is
  * decided in the database (`app.field_definition_writable`, PERMISSIONS ¹ ²): the Owner for
- * global and project / item rows, the Owner or that client's Admin for a client-scoped row. A
+ * global and project / item rows, the Owner or that client's Admin for a client-scoped row, and
+ * `lists.manage` for a task row, for every task or one task type (4C). A
  * refused write comes back as NOT_FOUND from the repository or 42501 from RLS, mapped by
  * `action()`; the screen only hides what the caller may not do.
  */
@@ -48,6 +49,7 @@ export const createFieldDefinition = action(
       const definition = await createDefinition({
         entity: data.entity,
         clientId: data.clientId,
+        taskTypeId: data.taskTypeId,
         key: data.key,
         label: data.label,
         helpText: data.helpText,

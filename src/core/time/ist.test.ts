@@ -4,9 +4,12 @@ import {
   addISTDays,
   formatIST,
   isISODate,
+  isISTTime,
   istDayRange,
   istDayStart,
+  istInstant,
   toISTDate,
+  toISTTime,
   todayIST,
 } from "./ist";
 
@@ -91,5 +94,31 @@ describe("formatIST", () => {
 
   it("accepts a custom pattern", () => {
     expect(formatIST("2026-09-21T18:30:00Z", "yyyy-MM-dd HH:mm")).toBe("2026-09-22 00:00");
+  });
+});
+
+describe("istInstant and toISTTime (4.3: a deadline from a date and a time)", () => {
+  it("reads the date and the wall-clock time in IST", () => {
+    expect(istInstant("2026-10-01", "18:00")).toBe("2026-10-01T12:30:00.000Z");
+    expect(istInstant("2026-10-01", "00:00")).toBe("2026-09-30T18:30:00.000Z");
+    expect(istInstant("2026-10-01", "23:59")).toBe("2026-10-01T18:29:00.000Z");
+  });
+
+  it("round-trips with toISTDate and toISTTime", () => {
+    const instant = istInstant("2026-12-31", "05:45");
+    expect(toISTDate(instant)).toBe("2026-12-31");
+    expect(toISTTime(instant)).toBe("05:45");
+  });
+
+  it("refuses a malformed date or time", () => {
+    expect(() => istInstant("2026-02-30", "18:00")).toThrow(RangeError);
+    expect(() => istInstant("2026-10-01", "6 pm")).toThrow(RangeError);
+    expect(() => istInstant("2026-10-01", "24:00")).toThrow(RangeError);
+  });
+
+  it("knows a well-formed time", () => {
+    expect(isISTTime("18:00")).toBe(true);
+    expect(isISTTime("7:00")).toBe(false);
+    expect(isISTTime(1800)).toBe(false);
   });
 });

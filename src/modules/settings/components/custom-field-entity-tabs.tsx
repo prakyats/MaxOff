@@ -6,8 +6,8 @@ import { ViewLink } from "@/core/ui/composites/view-link";
 
 /**
  * Which entity's fields the screen shows (3.2). A view control: `ViewLink` replaces the entry,
- * so one back leaves Settings → Custom fields (ARCHITECTURE §14.2 d). Admins see client and
- * contact; the Owner also project and item (PERMISSIONS ¹).
+ * so one back leaves Settings → Custom fields (ARCHITECTURE §14.2 d). Admins see client, contact
+ * and task (4B); the Owner also project and item (PERMISSIONS ¹).
  */
 export function CustomFieldEntityTabs({
   entities,
@@ -22,7 +22,10 @@ export function CustomFieldEntityTabs({
       data-slot="custom-field-entity-tabs"
       className={cn(
         "bg-muted mb-4 grid gap-1 rounded-lg p-1 md:inline-grid",
-        entities.length === 2 ? "grid-cols-2 md:w-80" : "grid-cols-4 md:w-[32rem]",
+        // Admins: three (client, contact, task); the Owner: five, in two rows on a phone.
+        entities.length === 3
+          ? "grid-cols-3 md:w-[24rem]"
+          : "grid-cols-3 md:w-[40rem] md:grid-cols-5",
       )}
     >
       {entities.map((entity) => (

@@ -59,17 +59,20 @@ function toDefinition(row: Row): FieldDefinition {
   };
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 function optionsJson(options: readonly FieldOption[]): Json {
   return options.map((option) => ({ key: option.key, label: option.label }));
 }
 
 /**
  * The definitions that apply to a record: the entity's global rows plus, for a client-scoped
- * entity, the rows of that client. Archived ones included (a view shows them read-only).
+ * entity, the rows of that client, and for a task (4B) the rows of its task type. Archived ones
+ * included (a view shows them read-only).
  */
 export async function listDefinitions(
   entity: CustomFieldEntity,
-  scope: { clientId?: string | null } = {},
+  scope: { clientId?: string | null; taskTypeId?: string | null } = {},
 ): Promise<FieldDefinition[]> {
   const supabase = await createServerSupabase();
   let query = supabase
@@ -80,6 +83,16 @@ export async function listDefinitions(
   query = scope.clientId
     ? query.or(`client_id.is.null,client_id.eq.${scope.clientId}`)
     : query.is("client_id", null);
+  // A task field is company-wide or one task type's (DATA-MODEL §2, 4A): a task sees both. The
+  // id is spliced into the filter, so it must be a uuid (callers pass a zod-checked one).
+  if (scope.taskTypeId && !UUID.test(scope.taskTypeId)) {
+    throw new AppError("VALIDATION", "Choose a task type from the list.");
+  }
+  if (entity === "task") {
+    query = scope.taskTypeId
+      ? query.or(`task_type_id.is.null,task_type_id.eq.${scope.taskTypeId}`)
+      : query.is("task_type_id", null);
+  }
   const { data, error } = await query;
   if (error) throw error;
   return data.map(toDefinition);
@@ -111,6 +124,8 @@ export async function getDefinition(id: string): Promise<FieldDefinition | null>
 export type DefinitionInput = {
   entity: CustomFieldEntity;
   clientId: string | null;
+  /** A task field for one task type only (4C); null or absent = every task. */
+  taskTypeId?: string | null;
   key: string;
   label: string;
   helpText: string | null;
@@ -132,6 +147,9 @@ export async function createDefinition(input: DefinitionInput): Promise<FieldDef
   lastQuery = input.clientId
     ? lastQuery.eq("client_id", input.clientId)
     : lastQuery.is("client_id", null);
+  lastQuery = input.taskTypeId
+    ? lastQuery.eq("task_type_id", input.taskTypeId)
+    : lastQuery.is("task_type_id", null);
   const { data: last, error: lastError } = await lastQuery.maybeSingle();
   if (lastError) throw lastError;
 
@@ -140,6 +158,7 @@ export async function createDefinition(input: DefinitionInput): Promise<FieldDef
     .insert({
       entity: input.entity,
       client_id: input.clientId,
+      task_type_id: input.taskTypeId ?? null,
       key: input.key,
       label: input.label,
       help_text: input.helpText,
@@ -205,9 +224,24 @@ export async function setDefinitionArchived(id: string, archived: boolean): Prom
 export async function validateCustomFieldsFor(
   entity: CustomFieldEntity,
   values: CustomFieldValues,
-  options: { clientId?: string | null; previous?: CustomFieldValues } = {},
+  options: {
+    clientId?: string | null;
+    taskTypeId?: string | null;
+    previous?: CustomFieldValues;
+    /**
+     * Defaults, not a record (a task template's, 4.6): each value is checked, but a required
+     * field may be left empty, since the form that makes the record asks for it then.
+     */
+    skipRequired?: boolean;
+  } = {},
 ): Promise<CustomFieldValues> {
-  const definitions = await listDefinitions(entity, { clientId: options.clientId ?? null });
+  const found = await listDefinitions(entity, {
+    clientId: options.clientId ?? null,
+    taskTypeId: options.taskTypeId ?? null,
+  });
+  const definitions = options.skipRequired
+    ? found.map((definition) => ({ ...definition, required: false }))
+    : found;
   const result = validateCustomFields({
     definitions,
     values,

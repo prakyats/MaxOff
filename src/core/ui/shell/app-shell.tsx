@@ -1,6 +1,6 @@
-import type { ReactNode } from "react";
+import { type ReactNode, Suspense } from "react";
 
-import { BottomNav } from "./bottom-nav";
+import { BottomNav, type NavItemBadge } from "./bottom-nav";
 import { MobileChrome } from "./mobile-chrome";
 import { PullToRefreshLazy } from "./pull-to-refresh-lazy";
 import {
@@ -8,13 +8,17 @@ import {
   homeFor,
   mobileNavFor,
   type NavBadges,
+  type NavItem,
   navFor,
   PROFILE_NAV_ITEM,
-  withBadges,
 } from "./nav";
+import type { NavBadgePlace } from "./nav-badge";
+import { NavCount } from "./nav-count";
 import { Sidebar } from "./sidebar";
 import { TopBar } from "./top-bar";
 import type { ShellViewer } from "./viewer";
+
+const NO_BADGES: Promise<NavBadges> = Promise.resolve({});
 
 /**
  * The signed-in app chrome.
@@ -30,27 +34,40 @@ import type { ShellViewer } from "./viewer";
  * auth. Since 3b.1 the layout passes neither: "Sign out of this device" lives under Me only
  * (kickoff 3b decision 1), because signing out is no longer attendance.
  *
- * `badges` are the viewer's counts per nav key (Approvals since 2.4), computed by the layout
- * from real data; every place that draws the item draws the count.
+ * `badges` are the viewer's counts per nav key (Approvals since 2.4, Tasks since 4.5), a
+ * promise the layout starts and never waits for: each count streams into its own `<Suspense>`
+ * (`NavCount`, 4C), so the shell, the page and its loading screen never wait for the counts, and
+ * every place that draws the item draws the count. Server-rendered: no JavaScript of their own.
  */
 export function AppShell({
   viewer,
   logoutItem,
   logoutSheetItem,
-  badges = {},
+  badges = NO_BADGES,
   children,
 }: {
   viewer: ShellViewer;
   logoutItem?: ReactNode;
   logoutSheetItem?: ReactNode;
-  badges?: NavBadges;
+  badges?: Promise<NavBadges>;
   children: ReactNode;
 }) {
-  const items = withBadges(navFor(viewer.role), badges);
+  const items = navFor(viewer.role);
   const home = homeFor(viewer.role);
   const mobile = mobileNavFor(viewer.role);
-  const primary = withBadges(mobile.primary, badges);
-  const more = withBadges(mobile.more, badges);
+  const { primary, more } = mobile;
+  // One streamed count per spot (Suspense with no fallback: a count appears when it is known).
+  const count = (keys: readonly string[], place: NavBadgePlace, part?: "mark" | "words") => (
+    <Suspense fallback={null}>
+      <NavCount counts={badges} keys={keys} place={place} {...(part ? { part } : {})} />
+    </Suspense>
+  );
+  const barBadge = (keys: readonly string[]): NavItemBadge => ({
+    mark: count(keys, "bar"),
+    words: count(keys, "bar", "words"),
+  });
+  const byKey = <T,>(list: readonly NavItem[], make: (key: string) => T) =>
+    Object.fromEntries(list.map((item) => [item.key, make(item.key)]));
   // Every tab's first screen, whichever bar or sidebar reaches it: where a pull refreshes.
   const tabRoots = [...new Set([home, PROFILE_NAV_ITEM.href, ...items.map((item) => item.href)])];
 
@@ -69,7 +86,7 @@ export function AppShell({
         Skip to content
       </a>
       <MobileChrome />
-      <Sidebar home={home} items={items} />
+      <Sidebar home={home} items={items} badges={byKey(items, (key) => count([key], "list"))} />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar viewer={viewer} home={home} logoutItem={logoutItem} />
         <main
@@ -82,7 +99,15 @@ export function AppShell({
           {children}
         </main>
       </div>
-      <BottomNav primary={primary} more={more} home={home} logoutItem={logoutSheetItem} />
+      <BottomNav
+        primary={primary}
+        more={more}
+        home={home}
+        logoutItem={logoutSheetItem}
+        badges={byKey(primary, (key) => barBadge([key]))}
+        {...(more.length > 0 ? { moreBadge: barBadge(more.map((item) => item.key)) } : {})}
+        sheetBadges={byKey(more, (key) => count([key], "sheet"))}
+      />
       <PullToRefreshLazy tabRoots={tabRoots} />
     </div>
   );

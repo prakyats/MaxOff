@@ -29,13 +29,20 @@ const HEIGHT_VAR = "--app-sticky-actions-h";
  * height as `--app-sticky-actions-h` on `<html>`; below `md` the page reserves that height plus
  * the bottom bar and the safe area, and every field keeps the same scroll margin, so the last
  * field can scroll above the bar and a focused one lands above it, at any text size.
+ *
+ * **`keyboardOpen`** (the task page's next step, Kickoff 4 decision 32): a bar that belongs to
+ * the page rather than to a form steps aside on a phone while the on-screen keyboard is open; the
+ * caller measures it (`useKeyboard`, `core/ui/viewport`), so the forms' bars carry none of that
+ * code. A form's Save never passes it: it must stay reachable while the fields are typed in.
  */
 export function StickyActions({
   children,
   className,
+  keyboardOpen = false,
 }: {
   children: ReactNode;
   className?: string;
+  keyboardOpen?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
@@ -56,10 +63,12 @@ export function StickyActions({
     <div
       ref={ref}
       data-slot="sticky-actions"
+      data-keyboard={keyboardOpen ? "open" : undefined}
       className={cn(
         "border-border bg-card/95 supports-[backdrop-filter]:bg-card/85 fixed inset-x-0 bottom-[calc(var(--app-bottom-nav-h)+var(--app-safe-bottom)+var(--app-offline-h,0px))] z-30 flex gap-2 border-t py-3 pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] shadow-[0_-6px_16px_-10px_rgb(0_0_0/0.25)] backdrop-blur",
         "*:flex-1",
         "md:static md:justify-end md:border-0 md:bg-transparent md:p-0 md:shadow-none md:backdrop-blur-none md:*:flex-none",
+        "max-md:data-[keyboard=open]:hidden",
         className,
       )}
     >

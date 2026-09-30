@@ -75,7 +75,7 @@ test.describe("Owner", () => {
     const k = keys(info);
     await page.goto("/settings/custom-fields");
     await expect(pageHeader(page)).toContainText("Custom fields");
-    for (const tab of ["Clients", "Contacts", "Projects", "Items"]) {
+    for (const tab of ["Clients", "Contacts", "Projects", "Items", "Tasks"]) {
       await expect(tabs(page).getByRole("link", { name: tab, exact: true })).toBeVisible();
     }
 
@@ -258,6 +258,8 @@ test.describe("Admin", () => {
     await expect(pageHeader(page)).toContainText("Custom fields");
     await expect(tabs(page).getByRole("link", { name: "Clients", exact: true })).toBeVisible();
     await expect(tabs(page).getByRole("link", { name: "Projects", exact: true })).toHaveCount(0);
+    // Task fields are lists.manage's (PERMISSIONS ³, 4B): an Admin has the tab and may add one.
+    await expect(tabs(page).getByRole("link", { name: "Tasks", exact: true })).toBeVisible();
 
     await openAdd(page);
     // No "Every client" for an Admin, and the sheet says why (owner's phone walk, 2026-09-30).

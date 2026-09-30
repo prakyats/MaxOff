@@ -3,6 +3,7 @@ import "server-only";
 import { getCurrentMember } from "@/core/auth/server";
 import { createServerSupabase } from "@/core/db/server";
 import { addISTDays, isWorkingDay, type WeekdayIndex } from "@/core/time";
+import { displayName } from "@/core/lib/display-name";
 
 import {
   type ExtraWorkKind,
@@ -90,7 +91,7 @@ export async function listPendingNotes(): Promise<(ExtraWorkNote & { memberName:
   if (error) throw error;
   return (data as unknown as (NoteRow & { member: { full_name: string } | null })[]).map((row) => ({
     ...toNote(row),
-    memberName: row.member?.full_name ?? "Someone",
+    memberName: displayName(row.member?.full_name),
   }));
 }
 

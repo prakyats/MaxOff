@@ -4,7 +4,6 @@ import { type FormEvent, useState } from "react";
 
 import {
   adminVisibleNote,
-  CLIENT_SCOPED_ENTITIES,
   FIELD_HELP_MAX,
   FIELD_KEY_MAX,
   FIELD_LABEL_MAX,
@@ -17,6 +16,9 @@ import {
   isFieldType,
   keyFromLabel,
   optionLinesOf,
+  SCOPE_WORDS,
+  scopeIdOf,
+  scopeKindOf,
   type SettingsEntity,
 } from "@/core/custom-fields";
 import type { Result, ResultError } from "@/core/errors";
@@ -48,7 +50,8 @@ import { describeError, toastResult } from "@/core/ui/toast";
 
 import { createFieldDefinition, updateFieldDefinition } from "../actions/custom-fields";
 
-export type ScopeOption = { id: string; name: string };
+/** A client, or a task type (4C; an archived one names its fields but is not offered). */
+export type ScopeOption = { id: string; name: string; archived?: boolean };
 
 const GLOBAL = "__global__";
 
@@ -72,16 +75,18 @@ export function FieldDefinitionDialog({
   entity: SettingsEntity;
   /** Editing this one; undefined = adding. */
   definition?: FieldDefinition;
-  /** The clients a field may be scoped to (the Owner: every client; an Admin: theirs). */
+  /** The clients a field may be scoped to (the Owner: every client; an Admin: theirs), or the
+   *  task types for a task field (4C). */
   scopes: readonly ScopeOption[];
-  /** May a field apply to every client? Global rows are the Owner's (PERMISSIONS ²). */
+  /** May a field apply to every client? Global rows are the Owner's (PERMISSIONS ²); a task
+   *  field on every task is `lists.manage`'s (PERMISSIONS ³). */
   canGlobal: boolean;
   defaultScope: string | null;
   /** After a successful save, before the dialog closes. */
   onSaved?: () => void;
   onClose: () => void;
 }) {
-  const scoped = (CLIENT_SCOPED_ENTITIES as readonly string[]).includes(entity);
+  const kind = scopeKindOf(entity);
   const editing = definition !== undefined;
   const [label, setLabel] = useState(definition?.label ?? "");
   const [key, setKey] = useState(definition?.key ?? "");
@@ -93,7 +98,7 @@ export function FieldDefinitionDialog({
   const [section, setSection] = useState(definition?.section ?? "");
   const [scope, setScope] = useState<string>(
     definition
-      ? (definition.clientId ?? GLOBAL)
+      ? (scopeIdOf(definition) ?? GLOBAL)
       : (defaultScope ?? (canGlobal ? GLOBAL : (scopes[0]?.id ?? GLOBAL))),
   );
   const [error, setError] = useState<ResultError | null>(null);
@@ -104,7 +109,8 @@ export function FieldDefinitionDialog({
         ? await updateFieldDefinition({ definitionId: definition.id, ...shared })
         : await createFieldDefinition({
             entity,
-            clientId: scoped && scope !== GLOBAL ? scope : "",
+            clientId: kind === "client" && scope !== GLOBAL ? scope : "",
+            taskTypeId: kind === "task_type" && scope !== GLOBAL ? scope : "",
             key,
             ...shared,
           });
@@ -145,24 +151,33 @@ export function FieldDefinitionDialog({
             <DialogDescription>
               {editing
                 ? "The key and the scope stay as they are; the type can change until a record holds a value."
-                : scoped
+                : kind === "client"
                   ? canGlobal
                     ? "A field for every client, or for one client only."
                     : "A field for one of your clients. Fields for every client are added by the Owner."
-                  : "Only the Owner defines these fields."}
+                  : kind === "task_type"
+                    ? "A field on every task, or on one task type only."
+                    : "Only the Owner defines these fields."}
             </DialogDescription>
           </DialogHeader>
           {summary ? (
             <ErrorText slot="form-alert">{summary.description ?? summary.title}</ErrorText>
           ) : null}
 
-          {scoped ? (
-            <FormField label="Applies to" error={error?.fieldErrors?.clientId}>
+          {kind ? (
+            <FormField
+              label="Applies to"
+              error={error?.fieldErrors?.[kind === "client" ? "clientId" : "taskTypeId"]}
+            >
               {(control) =>
                 editing ? (
                   <Input
                     {...control}
-                    value={definition.clientId ? (scopeName ?? "One client") : "Every client"}
+                    value={
+                      scopeIdOf(definition)
+                        ? (scopeName ?? (kind === "client" ? "One client" : "One task type"))
+                        : SCOPE_WORDS[kind].every
+                    }
                     readOnly
                     disabled
                   />
@@ -177,12 +192,16 @@ export function FieldDefinitionDialog({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {canGlobal ? <SelectItem value={GLOBAL}>Every client</SelectItem> : null}
-                      {scopes.map((option) => (
-                        <SelectItem key={option.id} value={option.id}>
-                          {option.name} only
-                        </SelectItem>
-                      ))}
+                      {canGlobal ? (
+                        <SelectItem value={GLOBAL}>{SCOPE_WORDS[kind].every}</SelectItem>
+                      ) : null}
+                      {scopes
+                        .filter((option) => !option.archived)
+                        .map((option) => (
+                          <SelectItem key={option.id} value={option.id}>
+                            {option.name} only
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                 )

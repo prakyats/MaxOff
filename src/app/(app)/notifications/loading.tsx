@@ -3,7 +3,7 @@ import { can } from "@/core/permissions";
 import { PageHeader } from "@/core/ui/composites/page-header";
 
 import { StandInSkeleton } from "../_placeholder/stand-in-skeleton";
-import { STAND_INS } from "../_placeholder/stand-ins";
+import { STAND_INS, standInDescription } from "../_placeholder/stand-ins";
 
 /**
  * Alerts, as it renders now (3c review: the skeleton traces the stand-in, worded as the page
@@ -13,13 +13,11 @@ import { STAND_INS } from "../_placeholder/stand-ins";
 export default async function Loading() {
   const member = await getCurrentMember();
   const own = member !== null && can(member.role, "attendance.self");
+  const copy = own ? STAND_INS.alertsMember : STAND_INS.alertsOwner;
   return (
     <>
-      <PageHeader title="Alerts" />
-      <StandInSkeleton
-        copy={own ? STAND_INS.alertsMember : STAND_INS.alertsOwner}
-        label="Loading Alerts"
-      />
+      <PageHeader title="Alerts" description={standInDescription(copy)} />
+      <StandInSkeleton copy={copy} label="Loading Alerts" />
     </>
   );
 }
