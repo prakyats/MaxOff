@@ -13,10 +13,9 @@ import {
   FieldDefinitionsManager,
 } from "@/modules/settings/components/field-definitions-manager";
 
-export const metadata: Metadata = { title: "Custom fields" };
+import { SETTINGS_HEADERS } from "../headers";
 
-const DESCRIPTION =
-  "Extra fields on clients, contacts and tasks. Client and contact fields apply to every client or one client only, task fields to every task or one task type; project and item fields are the Owner's.";
+export const metadata: Metadata = { title: "Custom fields" };
 
 /**
  * The entities an Admin may define fields for: client and contact fields scoped to one of their
@@ -68,8 +67,7 @@ export default async function CustomFieldsSettingsPage({
       <PageHeader
         back={{ href: "/settings", label: "Settings" }}
         title="Custom fields"
-        description={DESCRIPTION}
-        help={DESCRIPTION}
+        {...SETTINGS_HEADERS.customFields}
         actions={<AddFieldButton entity={entity} scopes={scopes} canGlobal={canGlobal} />}
       />
       <CustomFieldEntityTabs entities={entities} current={entity} />

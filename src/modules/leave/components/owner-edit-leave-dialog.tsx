@@ -35,9 +35,10 @@ import {
   type LeaveType,
   type OwnLeaveRequest,
 } from "../domain/requests";
-import { firstName, keptDatesNote, ownerCompLeaveOption } from "../domain/review";
+import { keptDatesNote, ownerCompLeaveOption } from "../domain/review";
 import { LEAVE_REASON_MAX_LENGTH } from "../domain/limits";
 import { ErrorText } from "@/core/ui/composites/error-text";
+import { displayName } from "@/core/lib/display-name";
 
 /**
  * The Owner changes approved leave directly (`leave_owner_edit`, WORKFLOWS §2): any kind, any
@@ -65,7 +66,7 @@ export function OwnerEditLeaveDialog({
   const [error, setError] = useState<ResultError | null>(null);
   // A half day and comp leave are one date: no "Last day", and none is sent.
   const singleDate = type === "half_day" || type === "comp_leave";
-  const comp = ownerCompLeaveOption(compDays, request, firstName(memberName));
+  const comp = ownerCompLeaveOption(compDays, request, displayName(memberName));
   const action = useAction(async () => {
     const result = await ownerEditLeave({
       requestId: request.id,

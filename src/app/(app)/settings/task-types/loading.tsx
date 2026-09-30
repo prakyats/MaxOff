@@ -3,6 +3,8 @@ import { PageLoading } from "@/core/ui/composites/loading-state";
 import { CARD_ROW_TITLE, CARD_ROW_TRAILING } from "@/core/ui/composites/row-metrics";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 
+import { SETTINGS_HEADERS } from "../headers";
+
 /**
  * Traces `page.tsx` (ARCHITECTURE §14.1): one bordered list of the seven launch types, each a
  * 56px row with the name over its kind line on the left and, on the right, the two order buttons
@@ -10,7 +12,12 @@ import { Skeleton } from "@/core/ui/primitives/skeleton";
  */
 export default function Loading() {
   return (
-    <PageLoading title="Task types" shape="list" back={{ href: "/settings", label: "Settings" }}>
+    <PageLoading
+      title="Task types"
+      {...SETTINGS_HEADERS.taskTypes}
+      shape="list"
+      back={{ href: "/settings", label: "Settings" }}
+    >
       <div
         role="status"
         aria-busy="true"

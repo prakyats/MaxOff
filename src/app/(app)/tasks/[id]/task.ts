@@ -5,6 +5,7 @@ import { cache } from "react";
 import { listClientLabels } from "@/modules/clients";
 import {
   getTask,
+  getTaskRead,
   listAssignees,
   listComments,
   listReviews,
@@ -23,8 +24,9 @@ export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{1
  * and its children (RLS: `app.task_visible()`, so a task the viewer may not see comes back null),
  * its history, who coordinates whom (the Owner's and Admins' `member_coordinators`; the viewer's
  * own freelancers from `coordinated_freelancers`, ADR-0013), the client label (ADR-0005: a label
- * at most) and the task custom fields. `cache()`d per request, and the four reads the dialog's
- * setup also makes are shared with it (`../reads`). The names are `loadNames`.
+ * at most), the task custom fields and the viewer's own last read of the comments (Kickoff 4
+ * decision 28). `cache()`d per request, and the four reads the dialog's setup also makes are
+ * shared with it (`../reads`). The names are `loadNames`.
  */
 export const loadTask = cache(async (id: string) => {
   const [
@@ -40,6 +42,7 @@ export const loadTask = cache(async (id: string) => {
     ownFreelancers,
     labels,
     definitions,
+    lastRead,
   ] = await Promise.all([
     getTask(id),
     listAssignees(id),
@@ -53,6 +56,7 @@ export const loadTask = cache(async (id: string) => {
     listOwnFreelancerIds(),
     listClientLabels(),
     readTaskDefinitions(),
+    getTaskRead(id),
   ]);
   return {
     task,
@@ -67,6 +71,7 @@ export const loadTask = cache(async (id: string) => {
     ownFreelancers,
     labels,
     definitions,
+    lastRead,
   };
 });
 

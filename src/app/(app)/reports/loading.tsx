@@ -4,7 +4,9 @@ import { LoadingState } from "@/core/ui/composites/loading-state";
 import { PageHeader } from "@/core/ui/composites/page-header";
 
 import { StandInSkeleton } from "../_placeholder/stand-in-skeleton";
-import { STAND_INS } from "../_placeholder/stand-ins";
+import { STAND_INS, standInDescription } from "../_placeholder/stand-ins";
+
+import { REPORTS_DESCRIPTION } from "./copy";
 
 /**
  * Reports: the Owner's list of reports (3b.4: Month first, rows like Settings), traced as a list;
@@ -17,7 +19,11 @@ export default async function Loading() {
   const owner = member !== null && can(member.role, "attendance.view_all");
   return (
     <>
-      <PageHeader title="Reports" />
+      {owner ? (
+        <PageHeader title="Reports" description={REPORTS_DESCRIPTION} help={REPORTS_DESCRIPTION} />
+      ) : (
+        <PageHeader title="Reports" description={standInDescription(STAND_INS.reportsAdmin)} />
+      )}
       {owner ? (
         <LoadingState shape="list" count={1} label="Loading reports" className="md:max-w-2xl" />
       ) : (

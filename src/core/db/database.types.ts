@@ -1778,6 +1778,46 @@ export type Database = {
           },
         ];
       };
+      task_reads: {
+        Row: {
+          last_read_at: string;
+          member_id: string;
+          task_id: string;
+        };
+        Insert: {
+          last_read_at?: string;
+          member_id: string;
+          task_id: string;
+        };
+        Update: {
+          last_read_at?: string;
+          member_id?: string;
+          task_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "task_reads_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_reads_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_reads_task_id_fkey";
+            columns: ["task_id"];
+            isOneToOne: false;
+            referencedRelation: "tasks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       task_requests: {
         Row: {
           client_id: string | null;
@@ -3147,6 +3187,10 @@ export type Database = {
         };
         Returns: string;
       };
+      task_mark_read: {
+        Args: { task_id: string; up_to?: string };
+        Returns: string;
+      };
       task_reopen: {
         Args: { reason: string; task_id: string };
         Returns: Database["public"]["Enums"]["task_state"];
@@ -3216,6 +3260,13 @@ export type Database = {
       task_type_move: {
         Args: { direction: string; task_type_id: string };
         Returns: string;
+      };
+      task_unread_counts: {
+        Args: { task_ids?: string[] };
+        Returns: {
+          task_id: string;
+          unread: number;
+        }[];
       };
       task_update_assignment: {
         Args: { changes: Json; task_id: string; warnings?: Json };

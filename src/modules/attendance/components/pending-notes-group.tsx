@@ -23,9 +23,10 @@ import {
 import { Label } from "@/core/ui/primitives/label";
 import { Textarea } from "@/core/ui/primitives/textarea";
 import { toastResult } from "@/core/ui/toast";
+import { displayName } from "@/core/lib/display-name";
 
 import { decideExtraWorkNote } from "../actions/notes";
-import { firstName, historyDate } from "../domain/history";
+import { historyDate } from "../domain/history";
 import { ATTENDANCE_REASON_MAX_LENGTH } from "../domain/limits";
 import {
   durationLabel,
@@ -91,7 +92,7 @@ export function PendingNotesGroup({ notes }: { notes: PendingNote[] }) {
               ...(review.durationMinutes
                 ? [{ label: "Roughly", value: durationLabel(review.durationMinutes) }]
                 : []),
-              { label: `${firstName(review.memberName)} worked on`, value: review.note },
+              { label: `${displayName(review.memberName)} worked on`, value: review.note },
             ]}
           />
         ) : null}
@@ -177,7 +178,7 @@ function DecideNoteDialog({
           <DialogHeader>
             <DialogTitle>
               {note
-                ? `${firstName(note.memberName)}'s ${KIND_LABELS[note.kind].toLowerCase()}`
+                ? `${displayName(note.memberName)}'s ${KIND_LABELS[note.kind].toLowerCase()}`
                 : "Decide"}
             </DialogTitle>
             <DialogDescription>

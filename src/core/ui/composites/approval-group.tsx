@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { type BulkOutcome, bulkSummary } from "@/core/errors/bulk";
@@ -27,6 +27,8 @@ export type ApprovalRow = {
   statusLabel: string;
   /** The Undo toast's text, e.g. "Approved Asha's present". */
   approvedLabel: string;
+  /** A marker beside the status, e.g. a task's unread comments (Kickoff 4 decision 28). */
+  marker?: ReactNode;
 };
 
 /**
@@ -223,6 +225,7 @@ export function ApprovalGroup<T>({
                     label={isHeld ? "Approved" : row.statusLabel}
                     className="shrink-0"
                   />
+                  {row.marker}
                 </div>
                 <span className="text-muted-foreground truncate text-sm">{row.subtitle}</span>
                 {error ? (

@@ -175,7 +175,10 @@ jobs:
           # flow (1.3) creates sign-ins through the Auth admin API, which `next start` needs at
           # runtime. Never a real project's key.
           echo "SUPABASE_SECRET_KEY=$(grep '^SECRET_KEY=' supabase-status.env | cut -d= -f2- | tr -d '"')" >> "$GITHUB_ENV"
-      - run: pnpm build
+      # The e2e server reaches Supabase through the hold proxy (4C review M1, e2e/hold-proxy.ts,
+      # started by playwright.config.ts on the port in e2e/hold-proxy-config.ts), so the build
+      # inlines the proxy's URL; the tests themselves keep the stack's own URL.
+      - run: NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54331 pnpm build
       # A blob report per shard (the `playwright` job merges them into one HTML report); the
       # github reporter keeps failures annotated on the run.
       - run: >-

@@ -15,6 +15,8 @@ import { describeWeeklyOff, getSettings, listHolidays } from "@/modules/settings
 import { HolidaysPanel } from "@/modules/settings/components/holidays-panel";
 import { WeeklyOffForm } from "@/modules/settings/components/weekly-off-form";
 
+import { SETTINGS_HEADERS } from "../headers";
+
 export const metadata: Metadata = { title: "Days off & holidays" };
 
 /**
@@ -33,8 +35,7 @@ export default async function DaysOffSettingsPage() {
       <PageHeader
         back={{ href: "/settings", label: "Settings" }}
         title="Days off & holidays"
-        description="A day off means nobody is marked absent. People may still log in and mark attendance, and the day shows as worked on a day off."
-        help="A day off means nobody is marked absent. People may still log in and mark attendance, and the day shows as worked on a day off."
+        {...SETTINGS_HEADERS.daysOff}
       />
       <div className="flex max-w-3xl flex-col gap-6">
         <Card>

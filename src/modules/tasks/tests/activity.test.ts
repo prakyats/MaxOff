@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { describeTaskActivity, type TaskActivityEntry } from "../domain/activity";
+import {
+  collapseTicks,
+  describeTaskActivity,
+  type TaskActivityEntry,
+  type TaskHistoryLine,
+} from "../domain/activity";
 
 function entry(overrides: Partial<TaskActivityEntry>): TaskActivityEntry {
   return {
@@ -186,5 +191,111 @@ describe("a Staff co-assignee's history (Kickoff 4 decision 21: every actor is n
         clients: {},
       }),
     ).toMatchObject({ actor: "Someone" });
+  });
+});
+
+describe("collapseTicks: consecutive ticks by one person are one line (Kickoff 4 decision 29)", () => {
+  const minutes = (n: number) =>
+    new Date(Date.parse("2026-10-02T05:00:00Z") + n * 60_000).toISOString();
+  let nextId = 0;
+  function tick(
+    at: number,
+    done: boolean,
+    stage: string | null,
+    who: { actorId: string; onBehalfOfId?: string | null } = { actorId: "ravi" },
+  ): TaskHistoryLine {
+    nextId += 1;
+    return {
+      id: nextId,
+      at: minutes(at),
+      actor: who.actorId,
+      actorKey: `${who.actorId}|${who.onBehalfOfId ?? ""}`,
+      text: done ? (stage ? `ticked “${stage}”` : "ticked a stage") : "unticked a stage",
+      tick: { done, stage },
+    };
+  }
+  function other(at: number): TaskHistoryLine {
+    nextId += 1;
+    return {
+      id: nextId,
+      at: minutes(at),
+      actor: "asha",
+      actorKey: "asha|",
+      text: "noted the task",
+    };
+  }
+  // The history reads newest first.
+  const newestFirst = (...lines: TaskHistoryLine[]) => [...lines].reverse();
+
+  it("folds a run of ticks within ten minutes into one line with the newest time", () => {
+    const lines = newestFirst(tick(0, true, "Cut"), tick(3, true, "Grade"), tick(8, false, null));
+    const [only, ...rest] = collapseTicks(lines);
+    expect(rest).toEqual([]);
+    expect(only).toMatchObject({
+      text: "ticked “Cut” and “Grade”, unticked a stage",
+      at: minutes(8),
+      count: 3,
+    });
+  });
+
+  it("names unknown stages by count, and a stage ticked twice once", () => {
+    const lines = newestFirst(
+      tick(0, true, null),
+      tick(1, true, "Cut"),
+      tick(2, true, "Cut"),
+      tick(3, true, null),
+    );
+    expect(collapseTicks(lines)[0]?.text).toBe("ticked “Cut” and 2 more stages");
+    expect(collapseTicks(newestFirst(tick(0, true, null), tick(1, true, null)))[0]?.text).toBe(
+      "ticked 2 stages",
+    );
+    expect(collapseTicks(newestFirst(tick(0, true, null), tick(1, false, null)))[0]?.text).toBe(
+      "ticked a stage, unticked a stage",
+    );
+  });
+
+  it("keeps ticks apart when they are more than ten minutes from the run's first", () => {
+    const lines = newestFirst(tick(0, true, "Cut"), tick(6, true, "Grade"), tick(11, true, "Mix"));
+    expect(collapseTicks(lines).map((line) => line.text)).toEqual([
+      "ticked “Mix”",
+      "ticked “Cut” and “Grade”",
+    ]);
+  });
+
+  it("never folds another person's ticks, a coordinator's for a freelancer into theirs, or across another entry", () => {
+    const byAsha = { actorId: "asha" };
+    const forBala = { actorId: "ravi", onBehalfOfId: "bala" };
+    expect(
+      collapseTicks(newestFirst(tick(0, true, "Cut"), tick(1, true, "Grade", byAsha))),
+    ).toHaveLength(2);
+    expect(
+      collapseTicks(newestFirst(tick(0, true, "Cut"), tick(1, true, "Grade", forBala))),
+    ).toHaveLength(2);
+    expect(
+      collapseTicks(newestFirst(tick(0, true, "Cut"), other(1), tick(2, true, "Grade"))).map(
+        (line) => line.text,
+      ),
+    ).toEqual(["ticked “Grade”", "noted the task", "ticked “Cut”"]);
+  });
+
+  it("leaves a single tick and every other entry as they were", () => {
+    const lines = newestFirst(other(0), tick(5, true, "Cut"), other(20));
+    expect(collapseTicks(lines)).toEqual(lines);
+  });
+
+  it("gives every line the pair it describes, and a tick its way and stage", () => {
+    expect(
+      line({
+        entity: "task_stages",
+        action: "update",
+        actorId: "ravi",
+        onBehalfOfId: "asha",
+        new: { done_at: TICK_AT },
+      }),
+    ).toMatchObject({ actorKey: "ravi|asha", tick: { done: true, stage: "Colour grade" } });
+    expect(line({ entity: "task_stages", action: "update", new: { done_at: null } })).toMatchObject(
+      { actorKey: "owner|", tick: { done: false, stage: null } },
+    );
+    expect(line({ action: "created" })?.tick).toBeUndefined();
   });
 });

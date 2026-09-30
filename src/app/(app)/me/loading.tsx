@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader } from "@/core/ui/primitives/card";
 import { Separator } from "@/core/ui/primitives/separator";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 
+import { ME_DESCRIPTION } from "./copy";
+
 /**
  * Traces `page.tsx` card for card (ARCHITECTURE §14.1): the profile card with the avatar block,
  * the sign-in line, the read-only Profile record (its heading row with Edit, two label and value
@@ -33,7 +35,7 @@ export default async function Loading() {
   const member = await getCurrentMember();
   const leaveRow = member !== null && can(member.role, "attendance.self");
   return (
-    <PageLoading title="Me" shape="detail">
+    <PageLoading title="Me" description={ME_DESCRIPTION} shape="detail">
       <div
         role="status"
         aria-busy="true"

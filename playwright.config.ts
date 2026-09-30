@@ -1,5 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
+import { HOLD_PROXY_PORT, HOLD_PROXY_URL } from "./e2e/hold-proxy-config";
+
 const PORT = 3100;
 const baseURL = `http://localhost:${PORT}`;
 const isCI = Boolean(process.env.CI);
@@ -40,6 +42,7 @@ const TASK_LISTS_SPECS = /task-lists\.spec\.ts$/;
 const FREELANCERS_SPECS = /freelancers\.spec\.ts$/;
 const TASK_SETTINGS_SPECS = /task-settings\.spec\.ts$/;
 const TASK_REQUESTS_SPECS = /task-requests\.spec\.ts$/;
+const LOADING_SCREENS_SPECS = /loading-screens\.spec\.ts$/;
 
 /**
  * Flow tests (ARCHITECTURE §15). `pnpm test:e2e` runs them; CI runs them as their own job.
@@ -47,7 +50,9 @@ const TASK_REQUESTS_SPECS = /task-requests\.spec\.ts$/;
  * One server: `next start` of a fresh production build on its own port (task 1.2; before it,
  * the flow specs ran against `next dev` with a preview-role cookie). Locally the build runs
  * first, so a stale build can never make this pass; CI builds in its own step. The server is
- * never reused, so a lingering `next dev` can't stand in.
+ * never reused, so a lingering `next dev` can't stand in. It reaches Supabase through the hold
+ * proxy (`e2e/hold-proxy.ts`, 4C review M1), started first, so a loading-screen check can hold
+ * its own page's reads.
  *
  * The local Supabase stack must be up and reset (`pnpm db:start`, `pnpm db:reset`): `setup`
  * signs in as the seeded users through the real form and saves one storage state per role
@@ -127,7 +132,8 @@ export default defineConfig({
       // pull, at both phone widths; and the task screens' layers and large text (4B; the task
       // flows themselves skip 430px), the task lists' and Approvals' too, and the freelancers'
       // dialogs and screens around People, Settings → Task types, and the task requests and
-      // templates (4C).
+      // templates (4C). And the held loading screens (4C review M1): they fit at large text and
+      // trace their screen at every width.
       name: "mobile-lg",
       dependencies: ["setup"],
       testMatch: [
@@ -156,6 +162,7 @@ export default defineConfig({
         FREELANCERS_SPECS,
         TASK_SETTINGS_SPECS,
         TASK_REQUESTS_SPECS,
+        LOADING_SCREENS_SPECS,
       ],
       use: { ...devices["Pixel 5"], viewport: { width: 430, height: 932 } },
     },
@@ -173,21 +180,39 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
   ],
-  webServer: {
-    command: isCI ? `pnpm start --port ${PORT}` : `pnpm build && pnpm start --port ${PORT}`,
-    url: `${baseURL}/offline`,
-    reuseExistingServer: false,
-    timeout: 300_000,
-    env: {
-      // File storage (3.3): every e2e run uploads to the local MinIO (`pnpm storage:start`,
-      // docker-compose.storage.yml); these are its throwaway values, the same as .env.example.
-      S3_ENDPOINT: process.env.S3_ENDPOINT ?? "http://127.0.0.1:9000",
-      S3_BUCKET: process.env.S3_BUCKET ?? "maxoff",
-      S3_ACCESS_KEY_ID: process.env.S3_ACCESS_KEY_ID ?? "maxoff",
-      S3_SECRET_ACCESS_KEY: process.env.S3_SECRET_ACCESS_KEY ?? "maxoff-local-secret",
-      S3_REGION: process.env.S3_REGION ?? "auto",
-      // The cron route is exercised with a fixed test secret (storage.spec.ts).
-      CRON_SECRET: process.env.CRON_SECRET ?? "e2e-only-cron-secret-not-used-anywhere-else",
+  webServer: [
+    {
+      // The e2e server reaches Supabase through a pass-through proxy (4C review M1,
+      // `e2e/hold-proxy.ts`): a loading-screen check holds its own session's page reads there, so
+      // the page cannot answer before its loading screen streams. Started first; the build and
+      // the server below point `NEXT_PUBLIC_SUPABASE_URL` at it (CI's build step too, ci.yml).
+      // The Playwright process keeps talking to Supabase directly.
+      // Node strips the types; the file is an ES module in a package without "type".
+      command: "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON e2e/hold-proxy.ts",
+      url: `${HOLD_PROXY_URL}/__hold/health`,
+      reuseExistingServer: false,
+      env: {
+        HOLD_PROXY_PORT: String(HOLD_PROXY_PORT),
+        HOLD_PROXY_UPSTREAM: process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+      },
     },
-  },
+    {
+      command: isCI ? `pnpm start --port ${PORT}` : `pnpm build && pnpm start --port ${PORT}`,
+      url: `${baseURL}/offline`,
+      reuseExistingServer: false,
+      timeout: 300_000,
+      env: {
+        NEXT_PUBLIC_SUPABASE_URL: HOLD_PROXY_URL,
+        // File storage (3.3): every e2e run uploads to the local MinIO (`pnpm storage:start`,
+        // docker-compose.storage.yml); these are its throwaway values, the same as .env.example.
+        S3_ENDPOINT: process.env.S3_ENDPOINT ?? "http://127.0.0.1:9000",
+        S3_BUCKET: process.env.S3_BUCKET ?? "maxoff",
+        S3_ACCESS_KEY_ID: process.env.S3_ACCESS_KEY_ID ?? "maxoff",
+        S3_SECRET_ACCESS_KEY: process.env.S3_SECRET_ACCESS_KEY ?? "maxoff-local-secret",
+        S3_REGION: process.env.S3_REGION ?? "auto",
+        // The cron route is exercised with a fixed test secret (storage.spec.ts).
+        CRON_SECRET: process.env.CRON_SECRET ?? "e2e-only-cron-secret-not-used-anywhere-else",
+      },
+    },
+  ],
 });

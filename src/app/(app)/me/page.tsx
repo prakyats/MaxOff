@@ -22,6 +22,7 @@ import { ReloadAppButton } from "@/core/ui/shell/reload-app-button";
 import { initialsOf, ROLE_LABELS } from "@/core/ui/shell/viewer";
 import { ThemeToggle } from "@/core/ui/theme/theme-toggle";
 import { formatIST } from "@/core/time";
+import { displayName } from "@/core/lib/display-name";
 import {
   getOwnMember,
   listDirectoryOf,
@@ -33,6 +34,8 @@ import {
   updateOwnProfile,
 } from "@/modules/team";
 import { AvatarEditor } from "@/modules/team/components/avatar-editor";
+
+import { ME_DESCRIPTION } from "./copy";
 
 export const metadata: Metadata = { title: "Me" };
 
@@ -72,11 +75,11 @@ export default async function MePage({
   return (
     <>
       <PageHeader
-        title={isWelcome ? `Welcome, ${viewer.name.split(" ")[0]}` : "Me"}
+        title={isWelcome ? `Welcome, ${displayName(viewer.name)}` : "Me"}
         description={
           isWelcome
             ? "You're in. Check your name, add a phone number, and you're set."
-            : "Your profile, appearance and this device."
+            : ME_DESCRIPTION
         }
         // The welcome line is the one thing here a phone genuinely needs to be told; the rest
         // of the screen says what it is (ARCHITECTURE §14.1).

@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { withSessionUserId } from "@/core/auth/server";
 import { checkThenRead } from "@/core/lib/start-early";
 import { cn } from "@/core/lib/utils";
 import { can } from "@/core/permissions";
@@ -13,11 +14,13 @@ import { EmptyState } from "@/core/ui/composites/empty-state";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { getSettings } from "@/modules/settings";
 import {
-  countPendingRequests,
+  countRequestsToDecide,
   countTasks,
   forLabel,
   isOverdue,
+  listUnreadCounts,
   MY_GROUP_TITLES,
+  MY_LIST_GROUPS,
   myTaskGroups,
   needsYou,
   type NeedsYouItem,
@@ -55,18 +58,22 @@ const OPEN_ON_FIRST_SCREEN = 15;
 export default async function TasksPage() {
   // Every read starts with the session read (ARCHITECTURE §19); RLS decides what each returns,
   // and the ones only managers use are cheap for Staff (their own rows, a count).
-  const [viewer, [rows, directory, labels, own, counts, requests, settings]] = await checkThenRead(
-    requirePermission("tasks.work"),
-    Promise.all([
-      readOpenTasks(),
-      readDirectory(),
-      readClientLabels(),
-      readOwnFreelancers(),
-      countTasks(),
-      countPendingRequests(),
-      getSettings(),
-    ]),
-  );
+  const [viewer, [rows, directory, labels, own, counts, requests, settings, unread]] =
+    await checkThenRead(
+      requirePermission("tasks.work"),
+      Promise.all([
+        readOpenTasks(),
+        readDirectory(),
+        readClientLabels(),
+        readOwnFreelancers(),
+        countTasks(),
+        // The suggestions to decide, never the viewer's own (Kickoff 4 decision 23).
+        withSessionUserId(countRequestsToDecide),
+        getSettings(),
+        // Each row's unread comments (Kickoff 4 decision 28).
+        listUnreadCounts(),
+      ]),
+    );
   const names = new Map(directory.map((member) => [member.id, member]));
   const clients = new Map(labels.map((label) => [label.id, label.name]));
   const context = {
@@ -84,7 +91,14 @@ export default async function TasksPage() {
       .filter((label) => label.state === "active" || label.state === "paused")
       .map((label) => ({ id: label.id, name: label.name }));
     return (
-      <MyTasks rows={rows} viewer={listViewer} context={context} now={now} clients={choices} />
+      <MyTasks
+        rows={rows}
+        viewer={listViewer}
+        context={context}
+        now={now}
+        clients={choices}
+        unread={unread}
+      />
     );
   }
 
@@ -149,6 +163,7 @@ export default async function TasksPage() {
                       statusLabel={stateLabel(item.row)}
                       flag={reasonFlag(item)}
                       note={needsNote(item, viewer.id, context.nameOf)}
+                      unread={unread[item.row.id] ?? 0}
                     />
                   ))}
                 </TaskRowList>
@@ -177,6 +192,7 @@ export default async function TasksPage() {
                   status={row.state}
                   statusLabel={stateLabel(row)}
                   flag={rowFlag(row, now)}
+                  unread={unread[row.id] ?? 0}
                 />
               ))}
             </TaskRowList>
@@ -205,16 +221,17 @@ function MyTasks({
   context,
   now,
   clients,
+  unread,
 }: {
   rows: TaskListRow[];
   viewer: { id: string; role: "owner" | "admin" | "staff"; coordinates: string[] };
   context: Parameters<typeof rowMeta>[1];
   now: Date;
   clients: { id: string; name: string }[];
+  unread: Readonly<Record<string, number>>;
 }) {
   const groups = myTaskGroups(rows, viewer, now, todayIST());
-  const order = ["not_noted", "changes_requested", "due_today", "upcoming", "overdue"] as const;
-  const empty = order.every((group) => groups[group].length === 0);
+  const empty = MY_LIST_GROUPS.every((group) => groups[group].length === 0);
   const reviewing = groups.with_reviewers.length;
 
   return (
@@ -232,7 +249,7 @@ function MyTasks({
             size="compact"
           />
         ) : (
-          order.map((group) =>
+          MY_LIST_GROUPS.map((group) =>
             groups[group].length > 0 ? (
               <Section
                 key={group}
@@ -260,6 +277,7 @@ function MyTasks({
                         statusLabel={stateLabel(row)}
                         flag={rowFlag(row, now)}
                         note={note}
+                        unread={unread[row.id] ?? 0}
                       />
                     );
                   })}

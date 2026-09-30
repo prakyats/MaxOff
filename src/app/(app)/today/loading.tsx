@@ -4,7 +4,7 @@ import { PageHeader } from "@/core/ui/composites/page-header";
 import { TodayAttendanceStripSkeleton, TodayBoardSkeleton } from "@/modules/attendance";
 
 import { StandInSkeleton } from "../_placeholder/stand-in-skeleton";
-import { dayStandIn } from "../_placeholder/stand-ins";
+import { dayStandIn, standInDescription } from "../_placeholder/stand-ins";
 
 /**
  * Today, as it renders now (3c review, owner decision: a stand-in route's skeleton traces the
@@ -20,12 +20,13 @@ export default async function Loading() {
   const member = await getCurrentMember();
   const strip = member !== null && can(member.role, "attendance.self");
   const board = member !== null && can(member.role, "attendance.view_all");
+  const copy = dayStandIn(member?.role ?? "owner");
   return (
     <>
-      <PageHeader title="Today" />
+      <PageHeader title="Today" description={standInDescription(copy, member?.name)} />
       {strip ? <TodayAttendanceStripSkeleton /> : null}
       {board ? <TodayBoardSkeleton /> : null}
-      <StandInSkeleton copy={dayStandIn(member?.role ?? "owner")} label="Loading Today" />
+      <StandInSkeleton copy={copy} label="Loading Today" />
     </>
   );
 }

@@ -22,6 +22,8 @@ export type TaskRequest = {
   decidedAt: string | null;
   decisionReason: string | null;
   taskId: string | null;
+  /** The viewer may open `taskId` (RLS on the task): the decider, the Owner, anyone on it. */
+  taskVisible: boolean;
   createdAt: string;
 };
 
@@ -43,16 +45,23 @@ export type RequestActions = { convert: boolean; decline: boolean; withdraw: boo
 
 /**
  * A pending request the viewer sees is theirs to decide when they hold the key (RLS already
- * scoped it: an Admin sees those with no client and their clients'), and theirs to withdraw when
- * they suggested it. An Admin's own suggestion can be both.
+ * scoped it: an Admin sees those with no client and their clients') and did not suggest it
+ * themselves, and theirs to withdraw when they did: an Admin's own suggestion goes to the Owner
+ * (Kickoff 4 decision 23; `task_request_convert` / `_decline` refuse it too).
  */
 export function requestActions(request: TaskRequest, viewer: RequestViewer): RequestActions {
   const pending = request.state === "pending";
+  const own = request.requestedBy === viewer.id;
   return {
-    convert: pending && viewer.decides,
-    decline: pending && viewer.decides,
-    withdraw: pending && request.requestedBy === viewer.id,
+    convert: pending && viewer.decides && !own,
+    decline: pending && viewer.decides && !own,
+    withdraw: pending && own,
   };
+}
+
+/** "Open the task" on a decided request: only when the viewer may see the task it became. */
+export function opensTask(request: Pick<TaskRequest, "taskId" | "taskVisible">): boolean {
+  return request.taskId !== null && request.taskVisible;
 }
 
 /** "Suggested by Meera, 2 Oct" (or "by you"). */

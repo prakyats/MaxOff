@@ -3,6 +3,7 @@ import { can } from "@/core/permissions";
 import { LoadingState } from "@/core/ui/composites/loading-state";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
+import { filterDefaultLabels } from "@/modules/tasks";
 
 /**
  * The full task list (4.5) traced: the header with its back control, the search box and the
@@ -29,8 +30,16 @@ export default async function Loading() {
         >
           <Skeleton className="h-11 w-full rounded-lg md:h-8 md:w-72" />
           <div className="grid grid-cols-2 gap-2 md:flex md:flex-wrap">
-            {Array.from({ length: team ? 6 : 3 }, (_, index) => (
-              <Skeleton key={index} className="h-11 w-full rounded-lg md:h-8 md:w-36" />
+            {filterDefaultLabels(team).map((label) => (
+              // A filter's box on a wide screen is as wide as its label (the select trigger's
+              // padding, text and chevron), so the filters wrap where the list's do.
+              <Skeleton
+                key={label}
+                className="flex h-11 w-full items-center gap-1.5 rounded-lg border border-transparent pr-2 pl-2.5 text-sm whitespace-nowrap md:h-8 md:w-auto md:min-w-36"
+              >
+                <span className="invisible hidden md:inline">{label}</span>
+                <span className="invisible hidden size-4 md:inline-block" />
+              </Skeleton>
             ))}
           </div>
         </div>

@@ -1,6 +1,8 @@
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 
+import { SETTINGS_HEADERS } from "../headers";
+
 /**
  * Settings → Expenses: the Categories heading, the add form (a field and Add), four category
  * rows, then the Receipts heading and its one amount field, as the page draws them.
@@ -8,7 +10,11 @@ import { Skeleton } from "@/core/ui/primitives/skeleton";
 export default function Loading() {
   return (
     <>
-      <PageHeader back={{ href: "/settings", label: "Settings" }} title="Expenses" />
+      <PageHeader
+        back={{ href: "/settings", label: "Settings" }}
+        title="Expenses"
+        {...SETTINGS_HEADERS.expenses}
+      />
       <div
         aria-hidden
         className="flex max-w-2xl flex-col gap-8"

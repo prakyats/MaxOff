@@ -6,12 +6,15 @@ import { CARD_ROW_TITLE, CARD_ROW_TRAILING } from "@/core/ui/composites/row-metr
 import { type StatusTone, StatusDot } from "@/core/ui/composites/status-badge";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 
+import { UnreadMarker } from "./unread-marker";
+
 /**
  * One task in a list (4.5): the Tasks tab's groups, "Needs you" and the open tasks. A drill-down
  * to the task's page (ARCHITECTURE §14.2 b, it slides in the installed app), phone first: the
  * title with the state as a dot and a word (§14.1: never a badge column), the deadline and whose
  * it is on the second line, and at most one line that says why it is here ("for Asha", "Asha
  * hasn't noted it · 9 h"). Under large text the state drops under the title (`CARD_ROW_*`).
+ * Unread comments show as a bubble with the count beside the state (Kickoff 4 decision 28).
  * A server component: it draws nothing a phone has to hydrate.
  */
 export function TaskRow({
@@ -23,6 +26,7 @@ export function TaskRow({
   tone,
   flag,
   note,
+  unread = 0,
 }: {
   id: string;
   title: string;
@@ -36,6 +40,8 @@ export function TaskRow({
   flag?: { label: string; tone: StatusTone } | null;
   /** Why the task is in this list, one line. */
   note?: ReactNode;
+  /** The viewer's unread comments on it (`task_unread_counts()`). */
+  unread?: number;
 }) {
   return (
     <li data-slot="task-row" data-task={id}>
@@ -57,6 +63,7 @@ export function TaskRow({
               CARD_ROW_TRAILING,
             )}
           >
+            <UnreadMarker count={unread} />
             {flag ? <StatusDot status={flag.label} tone={flag.tone} label={flag.label} /> : null}
             <StatusDot status={status} label={statusLabel} {...(tone ? { tone } : {})} />
           </span>

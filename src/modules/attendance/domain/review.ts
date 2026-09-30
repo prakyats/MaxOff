@@ -1,6 +1,7 @@
 import type { AttendanceChoice, AttendanceState, DayStatus, LeaveType } from "./choices";
 import { STATUS_LABELS } from "./choices";
-import { clockTime, firstName, historyDate } from "./history";
+import { clockTime, historyDate } from "./history";
+import { displayName } from "@/core/lib/display-name";
 
 /**
  * The Owner's side of attendance (task 2.4, WORKFLOWS §1 "Settled in 2.4"): the days waiting in
@@ -59,7 +60,7 @@ export function pendingSubtitle(day: PendingDay, today: string): string {
 
 /** "Approved Asha's present", for the Undo toast. */
 export function approvedLabel(day: PendingDay): string {
-  return `Approved ${firstName(day.memberName)}'s ${STATUS_LABELS[pendingOutcome(day)].toLowerCase()}`;
+  return `Approved ${displayName(day.memberName)}'s ${STATUS_LABELS[pendingOutcome(day)].toLowerCase()}`;
 }
 
 /** Oldest first inside the group (PRODUCT "Approvals"): by date, then by when it was sent. */

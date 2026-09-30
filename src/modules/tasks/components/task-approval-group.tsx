@@ -14,6 +14,7 @@ import { approveTasks } from "../actions/approvals";
 import { reviewTask } from "../actions/tasks";
 
 import { LinkedText } from "./linked-text";
+import { UnreadMarker } from "./unread-marker";
 
 /** The route behind the delayed send (`app/api/approvals/approve`): it outlives the page. */
 const APPROVE_URL = "/api/approvals/approve";
@@ -35,6 +36,8 @@ export type TaskApprovalItem = {
   lateReason: string | null;
   /** The approval's Undo toast: "Checked Reel edit: on to the Owner". */
   approvedLabel: string;
+  /** The viewer's unread comments on it (Kickoff 4 decision 28). */
+  unread: number;
 };
 
 /**
@@ -69,6 +72,7 @@ export function TaskApprovalGroup({
           status: task.status,
           statusLabel: task.statusLabel,
           approvedLabel: task.approvedLabel,
+          marker: <UnreadMarker count={task.unread} />,
         }))}
         approve={(taskId) => postKeepalive<null>(APPROVE_URL, { kind: "task", id: taskId })}
         approveAll={(taskIds) => approveTasks({ taskIds })}

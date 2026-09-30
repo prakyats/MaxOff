@@ -1,8 +1,10 @@
+import { unstable_rethrow } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { LogoutProvider } from "@/core/auth/components/logout-confirm";
 import { requireMember } from "@/core/auth/server";
 import { startEarly } from "@/core/lib/start-early";
+import { captureException } from "@/core/observability/capture";
 import { SentryUser } from "@/core/observability/sentry-user";
 import { can } from "@/core/permissions";
 import { RouteTransition } from "@/core/ui/motion/route-transition";
@@ -11,6 +13,7 @@ import { TooltipProvider } from "@/core/ui/primitives/tooltip";
 import { AppShell } from "@/core/ui/shell/app-shell";
 import { RefreshOnReturn } from "@/core/ui/shell/refresh-on-return";
 import type { NavBadges } from "@/core/ui/shell/nav";
+import { countsOrNone } from "@/core/ui/shell/nav-counts";
 import { countPendingDays, countPendingNotes, getOwnToday, promptDue } from "@/modules/attendance";
 import { StartDayPrompt } from "@/modules/attendance/components/start-day-prompt";
 import { countPendingRequests } from "@/modules/leave";
@@ -70,9 +73,13 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   startEarly(getOwnToday(), countTasks());
   const viewer = await requireMember();
   // The counts stream into the bars (`NavCount`, 4C): the shell and the page never wait for them,
-  // so a screen's loading state paints as soon as the member is known.
-  const badges = navBadges(viewer.role);
-  startEarly(badges);
+  // so a screen's loading state paints as soon as the member is known. A count that cannot be
+  // read is reported and shows as none, never the error screen (4C review S3); Next's own
+  // signals still go through.
+  const badges = countsOrNone(navBadges(viewer.role), (error) => {
+    unstable_rethrow(error);
+    captureException(error);
+  });
   const prompt = await startDayPrompt(viewer);
 
   return (

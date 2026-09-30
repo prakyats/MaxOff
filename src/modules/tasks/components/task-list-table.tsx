@@ -12,6 +12,7 @@ import { StatusDot } from "@/core/ui/composites/status-badge";
 
 import {
   ALL,
+  FILTER_DEFAULT_LABELS,
   type FilterableTask,
   matchesClient,
   matchesEngagement,
@@ -23,6 +24,8 @@ import {
   STATE_FILTER_LABELS,
   STATE_FILTERS,
 } from "../domain/list-filters";
+
+import { UnreadMarker } from "./unread-marker";
 
 /** One task as the full list shows it: worked out on the server (names, labels, overdue). */
 export type TaskListItem = FilterableTask & {
@@ -36,6 +39,8 @@ export type TaskListItem = FilterableTask & {
   owner: string;
   clientName: string | null;
   typeName: string;
+  /** The viewer's unread comments on it (Kickoff 4 decision 28). */
+  unread: number;
 };
 
 export type TaskListOptions = {
@@ -78,7 +83,7 @@ export function TaskListTable({
       id: "overdue",
       label: "Deadline",
       options: [
-        { value: ALL, label: "Any deadline" },
+        { value: ALL, label: FILTER_DEFAULT_LABELS.overdue },
         { value: "overdue", label: "Overdue" },
       ],
       defaultValue: ALL,
@@ -88,7 +93,7 @@ export function TaskListTable({
       id: "client",
       label: "Client",
       options: [
-        { value: ALL, label: "Any client" },
+        { value: ALL, label: FILTER_DEFAULT_LABELS.client },
         ...options.clients,
         { value: NO_CLIENT, label: "No client" },
       ],
@@ -98,7 +103,7 @@ export function TaskListTable({
     const type: DataTableFilter<TaskListItem> = {
       id: "type",
       label: "Type",
-      options: [{ value: ALL, label: "Any type" }, ...options.types],
+      options: [{ value: ALL, label: FILTER_DEFAULT_LABELS.type }, ...options.types],
       defaultValue: ALL,
       match: matchesType,
     };
@@ -109,7 +114,7 @@ export function TaskListTable({
       {
         id: "person",
         label: "Person",
-        options: [{ value: ALL, label: "Anyone" }, ...options.people],
+        options: [{ value: ALL, label: FILTER_DEFAULT_LABELS.person }, ...options.people],
         defaultValue: ALL,
         match: matchesPerson,
       },
@@ -119,7 +124,7 @@ export function TaskListTable({
         id: "engagement",
         label: "Engagement",
         options: [
-          { value: ALL, label: "Employees and freelancers" },
+          { value: ALL, label: FILTER_DEFAULT_LABELS.engagement },
           { value: "permanent", label: "Employees" },
           { value: "freelance", label: "Freelancers" },
         ],
@@ -134,12 +139,15 @@ export function TaskListTable({
       accessorKey: "title",
       header: "Task",
       cell: ({ row }) => (
-        <DrillLink
-          href={`/tasks/${row.original.id}`}
-          className="block min-w-0 font-medium break-words underline-offset-4 hover:underline"
-        >
-          {row.original.title}
-        </DrillLink>
+        <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+          <DrillLink
+            href={`/tasks/${row.original.id}`}
+            className="min-w-0 font-medium break-words underline-offset-4 hover:underline"
+          >
+            {row.original.title}
+          </DrillLink>
+          <UnreadMarker count={row.original.unread} />
+        </span>
       ),
     },
     {
@@ -172,7 +180,16 @@ export function TaskListTable({
   // A card's trailing part is one marker (it never wraps beside the title): an overdue task shows
   // "Overdue" there and its state in the second line.
   const mobile: MobileCard<TaskListItem> = {
-    title: (task) => task.title,
+    // The unread bubble leads the title, so the title's ellipsis never cuts it.
+    title: (task) =>
+      task.unread > 0 ? (
+        <>
+          <UnreadMarker count={task.unread} className="mr-1.5 align-middle" />
+          {task.title}
+        </>
+      ) : (
+        task.title
+      ),
     subtitle: (task) =>
       [task.overdue ? task.stateLabel : null, task.dueLabel, task.owner, task.clientName]
         .filter(Boolean)

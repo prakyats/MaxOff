@@ -3,6 +3,8 @@ import { PageHeader } from "@/core/ui/composites/page-header";
 import { CARD_ROW_TITLE, CARD_ROW_TRAILING } from "@/core/ui/composites/row-metrics";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 
+import { SETTINGS_HEADERS } from "../headers";
+
 /**
  * Traces `page.tsx` (ARCHITECTURE §14.1): the header with "Add template" (the FAB on a phone),
  * then one bordered list of templates, each a 56px row with the name over its line (type,
@@ -13,6 +15,7 @@ export default function Loading() {
     <>
       <PageHeader
         title="Templates"
+        {...SETTINGS_HEADERS.templates}
         back={{ href: "/settings", label: "Settings" }}
         actions={<Skeleton aria-hidden data-slot="loading-fab" className="w-36" />}
       />

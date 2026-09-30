@@ -27,9 +27,10 @@ import { describeError, toastResult } from "@/core/ui/toast";
 
 import { correctDay } from "../actions/review";
 import { compLeaveOption, DAY_STATUSES, type DayStatus, STATUS_LABELS } from "../domain/choices";
-import { firstName, historyDate } from "../domain/history";
+import { historyDate } from "../domain/history";
 import { ATTENDANCE_REASON_MAX_LENGTH } from "../domain/limits";
 import { ErrorText } from "@/core/ui/composites/error-text";
+import { displayName } from "@/core/lib/display-name";
 
 export type CorrectTarget = {
   dayId: string;
@@ -94,7 +95,7 @@ function CorrectForm({
   const [status, setStatus] = useState<DayStatus | "">(target.current ?? "");
   const [reason, setReason] = useState("");
   const [error, setError] = useState<ResultError | null>(null);
-  const name = firstName(target.memberName);
+  const name = displayName(target.memberName);
   const action = useAction(
     async () => {
       // An empty choice goes to the schema, which answers with the field's own message.

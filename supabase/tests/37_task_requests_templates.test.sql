@@ -124,7 +124,10 @@ select pg_temp.as_member('owner');
 insert into fx values ('asha', public.member_add_freelancer('Asha', null, null, pg_temp.fx('coord')));
 
 -- 1. Templates ----------------------------------------------------------------------------------------
+-- The task field the Owner's template gives a default (a default names a real field since the 4C
+-- review, S1; file 38 checks the rest).
 select pg_temp.as_member('owner');
+insert into public.field_definitions (entity, key, label, type, position) values ('task', 'format', 'Format', 'text', 'a0');
 select lives_ok($$ with t as (
     insert into public.task_templates (name, task_type_id, description, default_priority, stages, field_defaults)
     values ('Reel edit', pg_temp.type_id('Normal'), 'Cut, grade, export', 'high', array[' Cut ', 'Grade'], '{"format": "9:16"}')

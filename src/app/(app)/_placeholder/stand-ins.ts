@@ -82,3 +82,12 @@ export function dayStandIn(role: MemberRole): StandIn {
   if (role === "admin") return STAND_INS.todayAdmin;
   return STAND_INS.myDay;
 }
+
+/**
+ * A stand-in screen's header line: what `PlaceholderPage` writes (greeting the member on the
+ * dashboards) and what its loading screen repeats, so the header does not change when the page
+ * arrives (4C review S7, ARCHITECTURE §14.1).
+ */
+export function standInDescription(copy: StandIn, greet?: string): string {
+  return greet ? `Hello, ${greet}. ${copy.description}` : copy.description;
+}

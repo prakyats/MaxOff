@@ -200,6 +200,20 @@ test.describe("the task lists, the flows", () => {
     if (dueToday) {
       await expect(section(page, "tasks-group-due_today")).toContainText(`${prefix}today`);
     }
+    // The groups in the owner's order (Kickoff 4 decision 25): Overdue before Due today.
+    await expect
+      .poll(() =>
+        page
+          .locator('[data-slot^="tasks-group-"]:visible')
+          .evaluateAll((groups) => groups.map((group) => group.getAttribute("data-slot"))),
+      )
+      .toEqual([
+        "tasks-group-not_noted",
+        "tasks-group-changes_requested",
+        "tasks-group-overdue",
+        ...(dueToday ? ["tasks-group-due_today"] : []),
+        "tasks-group-upcoming",
+      ]);
     // Handed in: one count row into the full list, not a group of rows.
     await expect(rowOf(page, `${prefix}handed in`)).toHaveCount(0);
     await expect(section(page, "tasks-with-reviewers")).toHaveText(/1 task with the reviewers/);
@@ -426,10 +440,20 @@ test.describe("the task lists, the flows", () => {
     await expect.poll(() => stateOf(ids.fix)).toBe("changes_requested");
     await expect(row("fix")).toHaveCount(0);
 
-    // Approve: the row fades with Undo, and the approval is sent after the Undo window.
+    // Approve: the row fades with Undo. The send waits out the Undo window, or goes at once when
+    // the app goes to the background (2.4's delayed send, as owner-review.spec proves): the spec
+    // sends it that way instead of waiting on the clock (4C review S4).
     await row("one").getByRole("button", { name: "Approve" }).click();
     await expect(page.getByText(`Checked ${prefix}one: on to the Owner`)).toBeVisible();
-    await expect.poll(() => stateOf(ids.one), { timeout: 15_000 }).toBe("admin_approved");
+    await page.evaluate(() => {
+      Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await expect.poll(() => stateOf(ids.one)).toBe("admin_approved");
+    await page.evaluate(() => {
+      Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
 
     // Approve all confirms with the count and approves only (decision 5).
     await expect(group.getByRole("button", { name: "Approve all 2" })).toBeVisible();
