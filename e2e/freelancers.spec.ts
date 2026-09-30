@@ -395,6 +395,48 @@ test.describe("freelancers, installed: back and large text", () => {
     ]);
   });
 
+  test("Deactivating a coordinator and reactivating a freelancer: each picker's sheet, then its dialog, close on back", async ({
+    page,
+  }, info) => {
+    const prefix = prefixOf(info);
+    const ids = await fresh(info);
+    const who = people(info);
+    const name = `${prefix}Layers`;
+    const id = await addFreelancer(name, ids.coord);
+    await runInstalled(page);
+    // The coordinator's page (People lists ten at a time on a phone, so opened by its address).
+    await openPerson(page, ids.coord, who.coord.name);
+    const coordinator = new RegExp(`/people/${ids.coord}$`);
+    await personMenu(page, "Deactivate");
+    const deactivate = page.getByRole("dialog", { name: `Deactivate ${who.coord.name}?` });
+    await deactivate
+      .getByRole("combobox", { name: `Move ${who.coord.name}'s 1 freelancer to` })
+      .click();
+    const sheet = page.locator('[data-slot="select-sheet"]');
+    await expect(sheet.getByRole("listbox")).toBeVisible();
+    await expectBackStack(page, [
+      { closes: sheet, url: coordinator },
+      { closes: deactivate, url: coordinator },
+    ]);
+    // Nothing was decided on the way: the coordinator is still active, the freelancer theirs.
+    expect(await currentCoordinator(id)).toMatchObject({ coordinator_id: ids.coord });
+
+    await owner("member_deactivate", { member_id: id });
+    await page.goto(`/people/${id}`);
+    const freelancer = new RegExp(`/people/${id}$`);
+    await expect(pageHeader(page)).toContainText(name);
+    await personMenu(page, "Reactivate");
+    const reactivate = page.getByRole("dialog", { name: `Reactivate ${name}?` });
+    await reactivate.getByRole("combobox", { name: "Coordinator" }).click();
+    await expect(sheet.getByRole("listbox")).toBeVisible();
+    await expectBackStack(page, [
+      { closes: sheet, url: freelancer },
+      { closes: reactivate, url: freelancer },
+    ]);
+    const [row] = await serviceSelect<{ status: string }>(`members?id=eq.${id}&select=status`);
+    expect(row?.status).toBe("deactivated");
+  });
+
   test("People, a freelancer's page and a coordinator's /me fit at 130% and 200% text", async ({
     page,
   }, info) => {

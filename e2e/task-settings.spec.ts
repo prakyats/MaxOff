@@ -13,6 +13,7 @@ import {
   rpcAs,
   runInstalled,
   serviceSelect,
+  signIn,
   storageStateFor,
   USERS,
 } from "./helpers";
@@ -21,8 +22,9 @@ import {
  * Settings → Task types and per-type task fields, 4C (PRODUCT §4.6, Kickoff 4 decisions 14, 15):
  * the Owner adds an event type with its switches, edits it, moves it, archives it (the create
  * dialog stops offering it, an open task keeps it) and restores it; a task field for one type
- * shows in the create dialog for that type only. Installed at 375 and 430px: the new dialogs
- * and the ⋯ sheet close on back; the screens at 130% and 200% text.
+ * shows in the create dialog for that type only; an Admin picks from the types but never opens
+ * the editor. Installed at 375 and 430px: the new dialogs, the ⋯ sheet, the archive question and
+ * the custom field's "Applies to" sheet close on back; the screens at 130% and 200% text.
  *
  * The flows run on the desktop project only: the order of the list is one shared thing, and two
  * projects moving their own new types at the end of it would swap each other's.
@@ -199,6 +201,22 @@ test.describe("task types and per-type fields, the flows", () => {
   });
 });
 
+test.describe("task types, the Owner's only", () => {
+  test.skip(({ viewport }) => viewport?.width === 430, "runs at 1280 and 375px");
+
+  test("an Admin has no Task types row and is refused the editor (Kickoff 4 decision 15)", async ({
+    page,
+  }) => {
+    await page.context().clearCookies();
+    await signIn(page, USERS.admin.email, USERS.admin.password);
+    await page.goto("/settings");
+    await expect(page.locator('[data-slot="settings-list"]')).toContainText("Templates");
+    await expect(page.locator('[data-slot="settings-list"]')).not.toContainText("Task types");
+    await page.goto("/settings/task-types");
+    await expect(page).toHaveURL(/\/forbidden$/);
+  });
+});
+
 test.describe("task types, installed: back and large text", () => {
   test.skip(({ viewport }) => (viewport?.width ?? 1280) >= 768, "the installed app is a phone");
 
@@ -228,7 +246,34 @@ test.describe("task types, installed: back and large text", () => {
     await sheet.getByRole("button", { name: "Edit" }).click();
     const edit = page.getByRole("dialog", { name: "Edit Meeting" });
     await expect(edit).toBeVisible();
-    await expectBackStack(page, [{ closes: edit, url }, { url: /\/settings$/ }]);
+    await expectBackStack(page, [{ closes: edit, url }]);
+
+    // The sheet hands off to the archive question, which one back closes (nothing archived).
+    await page.getByRole("button", { name: "Actions for Meeting" }).click();
+    await sheet.getByRole("button", { name: "Archive" }).click();
+    const archive = page.getByRole("alertdialog", { name: "Archive Meeting?" });
+    await expect(archive).toBeVisible();
+    await expectBackStack(page, [{ closes: archive, url }, { url: /\/settings$/ }]);
+    await expect(
+      page.locator('[data-slot="archived-task-type"]').filter({ hasText: "Meeting" }),
+    ).toHaveCount(0);
+  });
+
+  test("Custom fields → Tasks: the Add dialog's Applies to sheet, then the dialog, close on back", async ({
+    page,
+  }) => {
+    await runInstalled(page);
+    await page.goto("/settings/custom-fields?entity=task");
+    const url = /\/settings\/custom-fields\?entity=task$/;
+    await page.getByRole("button", { name: "Add field" }).first().click();
+    const add = page.getByRole("dialog", { name: "Add a field" });
+    await add.getByLabel("Applies to").click();
+    const sheet = page.locator('[data-slot="select-sheet"]');
+    await expect(sheet.getByRole("option", { name: "Meeting only" })).toBeVisible();
+    await expectBackStack(page, [
+      { closes: sheet, url },
+      { closes: add, url },
+    ]);
   });
 
   test("Task types, the Add dialog and task custom fields fit at 130% and 200% text", async ({

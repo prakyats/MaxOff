@@ -167,6 +167,13 @@ const SCREENS = [
   { path: "/tasks/all", role: "owner" },
   { path: "/tasks/all", role: "staff" },
   { path: "/approvals", role: "admin" },
+  // 4C: suggested tasks for each role, the Owner's task settings and an Admin's templates.
+  { path: "/tasks/requests", role: "owner" },
+  { path: "/tasks/requests", role: "admin" },
+  { path: "/tasks/requests", role: "staff" },
+  { path: "/settings/task-types", role: "owner" },
+  { path: "/settings/templates", role: "owner" },
+  { path: "/settings/templates", role: "admin" },
 ] as const;
 
 for (const role of ["owner", "admin", "staff"] as const) {
@@ -211,6 +218,10 @@ const LARGE_TEXT_SCREENS = {
     "/clients",
     "/tasks",
     "/tasks/all",
+    // 4C: suggested tasks and the Owner's two task settings.
+    "/tasks/requests",
+    "/settings/task-types",
+    "/settings/templates",
   ],
   admin: [
     "/today",
@@ -220,7 +231,10 @@ const LARGE_TEXT_SCREENS = {
     "/me",
     "/clients",
     "/tasks",
+    "/tasks/all",
+    "/tasks/requests",
     "/approvals",
+    "/settings/templates",
   ],
   staff: [
     "/my-day",
@@ -230,6 +244,7 @@ const LARGE_TEXT_SCREENS = {
     "/me",
     "/tasks",
     "/tasks/all",
+    "/tasks/requests",
   ],
 } as const;
 
@@ -289,6 +304,12 @@ const LOADING_SCREENS = [
   { role: "owner", path: "/tasks", marker: 'aria-label="Loading tasks"' },
   { role: "staff", path: "/tasks", marker: 'aria-label="Loading tasks"' },
   { role: "owner", path: "/tasks/all", marker: 'data-slot="loading-all-tasks"' },
+  // Suggested tasks (4.6) and the Owner's task settings. (Staff's suggested tasks, a read of
+  // their own few rows, is often quicker than its shell, as an Admin's Approvals is above:
+  // checked settled, not held.)
+  { role: "owner", path: "/tasks/requests", marker: 'data-slot="loading-task-requests"' },
+  { role: "owner", path: "/settings/templates", marker: 'data-slot="loading-templates"' },
+  { role: "owner", path: "/settings/task-types", marker: 'data-slot="loading-task-types"' },
 ] as const;
 
 for (const role of ["owner", "admin", "staff"] as const) {
