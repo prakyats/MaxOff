@@ -35,6 +35,9 @@ const keys = (info: TestInfo) => ({
 const clientName = (info: TestInfo) => `Custom Fields Co (${info.project.name})`;
 
 const addDialog = (page: Page) => page.getByRole("dialog", { name: "Add a field" });
+const OWNER_ADD_COPY = "A field for every client, or for one client only.";
+const ADMIN_ADD_COPY =
+  "A field for one of your clients. Fields for every client are added by the Owner.";
 
 /**
  * The newest "Field added" toast. A test adds several fields in a row, and a toast lives longer
@@ -79,6 +82,7 @@ test.describe("Owner", () => {
     // A global text field: the key follows the label until typed by hand.
     await openAdd(page);
     await expect(addDialog(page).getByLabel("Applies to")).toBeVisible();
+    await expect(addDialog(page)).toContainText(OWNER_ADD_COPY);
     // Admins read client fields, so money stays out of them (PRODUCT §4.16, phase 3 review).
     await expect(addDialog(page)).toContainText(
       "Admins can see this field. Amounts belong in project billing (Owner only).",
@@ -256,6 +260,9 @@ test.describe("Admin", () => {
     await expect(tabs(page).getByRole("link", { name: "Projects", exact: true })).toHaveCount(0);
 
     await openAdd(page);
+    // No "Every client" for an Admin, and the sheet says why (owner's phone walk, 2026-09-30).
+    await expect(addDialog(page)).toContainText(ADMIN_ADD_COPY);
+    await expect(addDialog(page)).not.toContainText(OWNER_ADD_COPY);
     await addDialog(page).getByLabel("Applies to").click();
     await expect(page.getByRole("option", { name: "Every client" })).toHaveCount(0);
     await page.getByRole("option", { name: `${clientName(info)} only` }).click();
@@ -273,5 +280,125 @@ test.describe("Admin", () => {
     // A global row (the Owner's) offers no Edit or Archive to an Admin.
     const global = page.locator('[data-slot="field-group"]', { hasText: "Every client" });
     await expect(global.getByRole("button", { name: /^(Edit|Archive) / })).toHaveCount(0);
+  });
+});
+
+/**
+ * "Add a field for this client" at the bottom of a client's Edit form (owner's phone walk,
+ * 2026-09-30): the same sheet, Applies to set to this client; the new field appears in the open
+ * form at once, with what was typed kept, and the sheet's own submit never reaches the form
+ * (no "Save these changes?"). Each role and project has its own client.
+ */
+const shortcutClient = (info: TestInfo, role: string) =>
+  `Field Shortcut ${role} (${info.project.name})`;
+const details = (page: Page) =>
+  page.locator('[data-slot="editable-record"]', {
+    has: page.getByRole("heading", { name: "Details", exact: true }),
+  });
+const saveConfirmation = (page: Page) =>
+  page.getByRole("alertdialog", { name: "Save these changes?" });
+
+async function seedShortcutClient(name: string, adminEmail?: string): Promise<string> {
+  await removeClientFixture(name);
+  const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+  const row = await serviceInsert<{ id: string }>("clients", {
+    org_id: org?.id,
+    name,
+    admin_id: adminEmail ? await memberIdOf(adminEmail) : null,
+  });
+  return row.id;
+}
+
+/** The client page, its Details in edit mode, and the city typed in (the form is dirty). */
+async function editDetails(page: Page, id: string, name: string, city?: string) {
+  await page.goto(`/clients/${id}`);
+  await expect(pageHeader(page)).toContainText(name);
+  await hydrated(page);
+  await details(page).locator('[data-slot="edit-record"]').click();
+  await expect(details(page).locator('[data-slot="save-record"]')).toBeVisible();
+  if (city !== undefined) await details(page).getByLabel("City").fill(city);
+}
+
+/** Adds a text field from the Edit form and checks it lands in the open form. */
+async function addFromForm(page: Page, label: string) {
+  await addDialog(page).getByLabel("Label").fill(label);
+  await addDialog(page).getByRole("button", { name: "Add field" }).click();
+  await expect(addedToast(page)).toBeVisible();
+  await expect(addDialog(page)).toBeHidden();
+  await expect(details(page).getByLabel(label)).toBeVisible();
+  // The sheet's submit stopped at the sheet: the form never asked to save.
+  await expect(saveConfirmation(page)).toHaveCount(0);
+  await expect(details(page).locator('[data-slot="save-record"]')).toBeVisible();
+}
+
+test.describe("Add a field from a client's Edit form: the Owner", () => {
+  test.use({ storageState: storageStateFor("owner") });
+  test.describe.configure({ mode: "serial" });
+  let clientId = "";
+
+  test.beforeAll(async ({}, info) => {
+    clientId = await seedShortcutClient(shortcutClient(info, "Owner"));
+  });
+  test.afterAll(async ({}, info) => {
+    await removeClientFixture(shortcutClient(info, "Owner"));
+  });
+
+  test("adds a field for this client; it appears in the open form, typed text kept", async ({
+    page,
+  }, info) => {
+    const name = shortcutClient(info, "Owner");
+    await editDetails(page, clientId, name, "Pune");
+    await details(page).getByRole("button", { name: "Add a field for this client" }).click();
+    await expect(addDialog(page)).toBeVisible();
+    await expect(addDialog(page)).toContainText(OWNER_ADD_COPY);
+    // Set to this client; the Owner may switch to every client.
+    await expect(addDialog(page).getByLabel("Applies to")).toContainText(`${name} only`);
+    await addDialog(page).getByLabel("Applies to").click();
+    await expect(page.getByRole("option", { name: "Every client" })).toBeVisible();
+    await page.getByRole("option", { name: `${name} only` }).click();
+    await addFromForm(page, `Shoot location ${suffix(info)}`);
+    await expect(details(page).getByLabel("City")).toHaveValue("Pune");
+  });
+
+  test("installed: back closes the sheet, then leaves the clean form", async ({
+    page,
+    isMobile,
+  }, info) => {
+    test.skip(!isMobile, "the installed back gesture is a phone behaviour");
+    await runInstalled(page);
+    await editDetails(page, clientId, shortcutClient(info, "Owner"));
+    await details(page).getByRole("button", { name: "Add a field for this client" }).click();
+    await expect(addDialog(page)).toBeVisible();
+    const url = new RegExp(`/clients/${clientId}$`);
+    await expectBackStack(page, [
+      { closes: addDialog(page), url },
+      { closes: details(page).locator('[data-slot="save-record"]'), url },
+    ]);
+    await expect(details(page).locator('[data-slot="edit-record"]')).toBeVisible();
+  });
+});
+
+test.describe("Add a field from a client's Edit form: an Admin", () => {
+  test.use({ storageState: storageStateFor("admin") });
+  test.describe.configure({ mode: "serial" });
+  let clientId = "";
+
+  test.beforeAll(async ({}, info) => {
+    clientId = await seedShortcutClient(shortcutClient(info, "Admin"), USERS.admin.email);
+  });
+  test.afterAll(async ({}, info) => {
+    await removeClientFixture(shortcutClient(info, "Admin"));
+  });
+
+  test("adds a field for their own client only, never for every client", async ({ page }, info) => {
+    const name = shortcutClient(info, "Admin");
+    await editDetails(page, clientId, name, "Mysuru");
+    await details(page).getByRole("button", { name: "Add a field for this client" }).click();
+    await expect(addDialog(page)).toContainText(ADMIN_ADD_COPY);
+    await addDialog(page).getByLabel("Applies to").click();
+    await expect(page.getByRole("option", { name: "Every client" })).toHaveCount(0);
+    await page.getByRole("option", { name: `${name} only` }).click();
+    await addFromForm(page, `Venue ${suffix(info)}`);
+    await expect(details(page).getByLabel("City")).toHaveValue("Mysuru");
   });
 });
