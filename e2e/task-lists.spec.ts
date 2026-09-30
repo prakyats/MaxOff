@@ -477,6 +477,39 @@ test.describe("the task lists, installed: back and large text", () => {
     await expectBackStack(page, [{ url: /\/tasks$/ }, { url: /\/today$/ }]);
   });
 
+  test("Staff: the reviewers' count row and All my tasks are drill-downs; back goes to My Day", async ({
+    page,
+  }, info) => {
+    const prefix = prefixOf(info);
+    await removeTasksTitled(prefix);
+    const who = people(info);
+    const staffId = await memberIdOf(who.staff.email);
+    const handed = await adminCreates(who.admin.email, {
+      title: `${prefix}with the reviewers`,
+      assignees: [staffId],
+      due: istInstant(workingDay(34), "18:00"),
+    });
+    await rpcAs(who.staff.email, PASSWORD, "task_submit_done", { task_id: handed });
+    await runInstalled(page);
+    await signIn(page, who.staff.email, PASSWORD);
+    await expect(page).toHaveURL(/\/my-day$/);
+    await page.locator('[data-slot="bottom-nav"] [data-nav="tasks"]').click();
+    const tasks = /\/tasks$/;
+    await expect(page).toHaveURL(tasks);
+
+    // The count row opens the full list on its filter: a drill-down, back returns to My tasks.
+    await section(page, "tasks-with-reviewers").click();
+    await expect(page).toHaveURL(/\/tasks\/all\?state=review$/);
+    await expect(pageHeader(page)).toHaveText(/All my tasks/);
+    await expectBackStack(page, [{ url: tasks }]);
+
+    await section(page, "tasks-see-all").click();
+    await expect(page).toHaveURL(/\/tasks\/all$/);
+    await pickFilter(page, "state", "With the reviewers");
+    await expect(page).toHaveURL(/\/tasks\/all\?state=review$/);
+    await expectBackStack(page, [{ url: tasks }, { url: /\/my-day$/ }]);
+  });
+
   test("Approvals: the task's Review sheet, its reason dialog and Approve all's question close on back", async ({
     page,
   }, info) => {
