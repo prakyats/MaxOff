@@ -390,6 +390,12 @@ test.describe("Chat and the unread comments (decision 28)", () => {
     const composer = phone(page) ? chatSheet(page) : panel(page, "chat");
     await tab(page, "chat").click();
     await composer.getByRole("textbox", { name: "Comment" }).fill("Got it, thanks.");
+    // One solid red per layer (decision 26, phase 4 review A-M1): Send is red only in the phone's
+    // sheet, its own layer; inline on desktop it sits beside the next step's solid button.
+    await expect(composer.getByRole("button", { name: "Send" })).toHaveAttribute(
+      "data-variant",
+      phone(page) ? "primary" : "secondary",
+    );
     await composer.getByRole("button", { name: "Send" }).click();
     await expect(composer.locator('[data-slot="task-comment"][data-own="true"]')).toContainText(
       "Got it, thanks.",

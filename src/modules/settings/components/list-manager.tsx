@@ -44,10 +44,17 @@ export function ListManager({
   listKey,
   labels,
   items,
+  addVariant = "primary",
 }: {
   listKey: ListKey;
   labels: { singular: string; plural: string };
   items: ManagedListItem[];
+  /**
+   * Add's colour: the screen's red commit by default; the neutral outline (still a commit) on a
+   * screen whose red commit is another form's, such as Settings → Expenses' receipt amount, so
+   * the screen never shows two solid red buttons (colour rule; phase 4 review).
+   */
+  addVariant?: "primary" | "secondary";
 }) {
   const [renaming, setRenaming] = useState<ManagedListItem | null>(null);
   const [archiving, setArchiving] = useState<ManagedListItem | null>(null);
@@ -102,7 +109,8 @@ export function ListManager({
             )}
           </FormField>
           <Button
-            variant="primary"
+            variant={addVariant}
+            commits
             type="submit"
             pending={pending}
             pendingLabel="Adding…"

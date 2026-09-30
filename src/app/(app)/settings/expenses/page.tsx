@@ -38,7 +38,10 @@ export default async function ExpensesSettingsPage() {
           <h2 id="expense-categories" className="text-sm font-medium">
             Categories
           </h2>
+          {/* The screen's red commit is the receipt amount's Save (a floating bar on a phone, the
+              form's last row from md up), so Add is the neutral outline here. */}
           <ListManager
+            addVariant="secondary"
             listKey="expense_category"
             labels={LIST_LABELS.expense_category}
             items={items.map((item) => ({
