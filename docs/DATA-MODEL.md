@@ -336,7 +336,17 @@ push_subscriptions   id, member_id (default auth.uid(), cascade), endpoint uniqu
                      -- updates (p256dh, auth, user_agent, platform, is_standalone, label, last_seen_at)
                      -- and deletes its own rows; the result columns (last_success_at, last_failure_at,
                      -- failure_count, disabled_*, last_test_at) are the dispatcher's (service_role,
-                     -- protect_columns). 5.2 (step 3) decides "Sign out of this device" (a delete).
+                     -- protect_columns). 5.2 as built (step 2): the API writes through three RPCs:
+                     -- push_subscription_upsert(endpoint, p256dh, auth, platform, is_standalone, label,
+                     -- user_agent) (an active permanent member; takes the endpoint over from another
+                     -- member or a disabled row and clears the result columns; https, or http on the
+                     -- loopback host for the local e2e fake push service), push_subscription_remove(
+                     -- endpoint) ("Sign out of this device": the row is deleted, own rows only) and
+                     -- push_subscriptions_tested() ("Send a test notification" stamps last_test_at; no
+                     -- notifications row). The dispatcher's writes: push_subscription_result(id, sent |
+                     -- gone | error) (service_role): sent = last_success_at + failure_count 0; gone =
+                     -- disabled 'gone'; error = failure_count + 1, disabled 'expired' at the fifth in a
+                     -- row; a disabled row stays disabled.
                      -- Not audited (5.1 review S5): the member's own device state, as task_reads; its
                      -- writes are the member's subscribe / sign-out on their own device and the
                      -- dispatcher's result of every send (an audit row per send would flood
@@ -1257,6 +1267,20 @@ notification_deliveries  id, notification_id → notifications (cascade), channe
                      -- no working push; skipped_cap over a ceiling); the hold and the summary push are the
                      -- dispatcher's too (step 3). No API access at all (service_role only, RLS with no
                      -- policy). Index (next_attempt_at) where state in ('queued', 'held').
+                     -- 5.2 as built (step 2, migration push_dispatch; the dispatcher is
+                     -- /api/cron/push-dispatch every minute and after() a transition): push_claim(now,
+                     -- limit) (service_role, public for PostgREST) holds due queued push rows whose
+                     -- org is in quiet hours (push_quiet(at, org): [start, end) IST, crossing midnight
+                     -- when start > end, none when equal); leases the due queued rows and the held rows
+                     -- whose window is over (attempts + 1, next_attempt_at + 5 min, FOR UPDATE SKIP
+                     -- LOCKED) and returns them as work items: a held person's rows as one summary item
+                     -- ("N updates while you were away", link /notifications) or, for one row, as
+                     -- itself. push_targets(recipient) lists the active devices. push_record(ids,
+                     -- sent | retry | failed, error): sent + sent_at; retry after 1, 5, 15, 60 min by
+                     -- the attempt (app.push_backoff), failed after the fifth; failed with last_error
+                     -- 'no_subscription' when the person has no active device (or every device answered
+                     -- gone): the seam step 3's email fallback reads. A lease that expires (a crashed
+                     -- run) is claimed again. Rows and email are never held.
 activity_log         id bigint identity, org_id, actor_id null (system), on_behalf_of_id null (4A,
                      ADR-0013: the freelancer a coordinator acted for; actor_id stays the coordinator;
                      written by app.audit_row_change() from the override's on_behalf_of key, else

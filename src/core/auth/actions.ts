@@ -16,6 +16,8 @@ import {
   confirmLinkSchema,
   type LoginInput,
   loginSchema,
+  type LogoutInput,
+  logoutSchema,
   type PasswordResetInput,
   passwordResetSchema,
   type SetPasswordInput,
@@ -89,11 +91,18 @@ export const login = action(async (input: LoginInput): Promise<Result<never>> =>
  * session whose member is no longer active can't record anything (UNAUTHENTICATED from the
  * function) and is simply ended.
  */
-export const logout = action(async (): Promise<Result<never>> => {
+export const logout = action(async (input?: LogoutInput): Promise<Result<never>> => {
+  const { pushEndpoint } = logoutSchema.parse(input ?? {});
   const supabase = await createServerSupabase();
   const { data: claims } = await supabase.auth.getClaims();
 
   if (claims?.claims.sub) {
+    // "Sign out of this device" ends push here too (kickoff 5 decision 1, WORKFLOWS §9a): the
+    // browser's subscription for this device, when the page could read it, is deleted first.
+    if (pushEndpoint) {
+      const { error } = await supabase.rpc("push_subscription_remove", { endpoint: pushEndpoint });
+      if (error && error.message !== "UNAUTHENTICATED") throw error;
+    }
     const { error } = await supabase.rpc("session_sign_out", await sessionMetaArgs());
     if (error && error.message !== "UNAUTHENTICATED") throw error;
   }

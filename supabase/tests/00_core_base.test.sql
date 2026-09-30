@@ -102,7 +102,9 @@ insert into app_internal values
   ('task_visible_to'),
   -- Phase 4 review: the reminder rules' bounds task_create and task_update_assignment share, and the
   -- route's rule and move (Kickoff 4 decision 34)
-  ('task_check_reminders'), ('task_approver_on_task'), ('task_skip_admin_step');
+  ('task_check_reminders'), ('task_approver_on_task'), ('task_skip_admin_step'),
+  -- 5.2: the dispatcher's backoff (its functions are public, service_role only, for PostgREST)
+  ('push_backoff');
   -- 3c.1 (contract migration): attendance_logout and logout_not_recorded are gone with the 2.x gate.
 select is(
   (select count(*) from pg_proc p
@@ -123,7 +125,7 @@ select is(
   0::bigint,
   'the internal helpers: service_role only, never the API role');
 select is((select count(*) from pg_proc p where p.pronamespace = 'app'::regnamespace
-             and p.proname in (select name from app_internal)), 41::bigint,
+             and p.proname in (select name from app_internal)), 42::bigint,
   'the internal helper list matches what exists');
 select cmp_ok((select count(*) from pg_proc where pronamespace = 'app'::regnamespace), '>=', 4::bigint,
   'the grant check saw the app functions');

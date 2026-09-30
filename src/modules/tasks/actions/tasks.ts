@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { validateCustomFieldsFor } from "@/core/custom-fields/server";
 import { action, AppError, ok, type Result } from "@/core/errors";
+import { dispatchPushSoon } from "@/core/notifications/push/dispatch";
 import { assertPermission } from "@/core/permissions/server";
 
 import * as repo from "../data/tasks";
@@ -94,6 +95,7 @@ export const createTask = action(
       },
     );
     revalidatePath("/", "layout");
+    dispatchPushSoon();
     return ok({ id });
   },
 );
@@ -117,6 +119,7 @@ export const updateTask = action(
     }
     const fields = await repo.rpcUpdateTask(data.taskId, changes, warningRows(data.warnings));
     refresh();
+    dispatchPushSoon();
     return ok({ fields });
   },
 );
@@ -144,6 +147,7 @@ export const submitDone = action(async (input: SubmitDoneInput): Promise<Result<
   await assertPermission("tasks.work");
   await repo.rpcSubmitDone(data);
   refresh();
+  dispatchPushSoon();
   return ok(null);
 });
 
@@ -157,6 +161,7 @@ export const reviewTask = action(async (input: ReviewInput): Promise<Result<null
     data.decision === "rejected" ? data.reason : null,
   );
   refresh();
+  dispatchPushSoon();
   return ok(null);
 });
 
@@ -165,6 +170,7 @@ export const cancelTask = action(async (input: ReasonInput): Promise<Result<null
   await assertPermission("tasks.create");
   await repo.rpcCancel(data.taskId, data.reason);
   refresh();
+  dispatchPushSoon();
   return ok(null);
 });
 
@@ -173,6 +179,7 @@ export const reopenTask = action(async (input: ReasonInput): Promise<Result<null
   await assertPermission("tasks.create");
   await repo.rpcReopen(data.taskId, data.reason);
   refresh();
+  dispatchPushSoon();
   return ok(null);
 });
 
@@ -182,6 +189,7 @@ export const setTaskApprover = action(async (input: SetApproverInput): Promise<R
   await assertPermission("tasks.approve_final");
   await repo.rpcSetApprover(data.taskId, data.approvingAdminId);
   refresh();
+  dispatchPushSoon();
   return ok(null);
 });
 
@@ -214,6 +222,7 @@ export const addTaskComment = action(async (input: CommentInput): Promise<Result
   await assertPermission("tasks.work");
   await repo.addComment(data);
   revalidatePath(taskPath(data.taskId));
+  dispatchPushSoon();
   return ok(null);
 });
 

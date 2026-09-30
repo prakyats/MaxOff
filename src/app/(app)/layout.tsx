@@ -6,6 +6,10 @@ import { requireMember } from "@/core/auth/server";
 import { startEarly } from "@/core/lib/start-early";
 import { captureException } from "@/core/observability/capture";
 import { SentryUser } from "@/core/observability/sentry-user";
+import { PushBanner } from "@/core/notifications/components/push-banner";
+import { PushSync } from "@/core/notifications/components/push-sync";
+import { readPushEnv } from "@/core/notifications/env";
+import { listOwnActiveEndpoints } from "@/core/notifications/push/subscriptions";
 import { can } from "@/core/permissions";
 import { RouteTransition } from "@/core/ui/motion/route-transition";
 import { Toaster } from "@/core/ui/primitives/sonner";
@@ -81,6 +85,12 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     captureException(error);
   });
   const prompt = await startDayPrompt(viewer);
+  // The enable-notifications banner is judged per member (kickoff 5 decision 9): the member's
+  // own active endpoints decide it, and tell this device whether it is one of them (PushSync).
+  // The public key is read at runtime and handed to the browser (decision 26); null = push off.
+  const push = readPushEnv();
+  const endpoints = await listOwnActiveEndpoints();
+  const publicKey = push.mode === "on" ? push.publicKey : null;
 
   return (
     // The sign-out confirmation lives above the shell, so the edit pattern's unsaved-changes
@@ -93,7 +103,11 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           <SentryUser id={viewer.id} />
           <RefreshOnReturn />
           {prompt}
-          <RouteTransition>{children}</RouteTransition>
+          <PushSync publicKey={publicKey} endpoints={endpoints} />
+          <RouteTransition>
+            {endpoints.length === 0 ? <PushBanner publicKey={publicKey} /> : null}
+            {children}
+          </RouteTransition>
         </AppShell>
       </TooltipProvider>
       <Toaster position="top-center" closeButton />

@@ -53,12 +53,3 @@ function isHttpUrl(value: string): boolean {
 export function storageEnv(): StorageEnv {
   return parseStorageEnv(process.env);
 }
-
-/**
- * The shared secret a cron trigger presents (WORKFLOWS §8 `worker` jobs). `null` when unset:
- * every cron route then answers 401 and the job never runs, which is the safe default.
- */
-export function cronSecret(): string | null {
-  const value = process.env.CRON_SECRET?.trim();
-  return value ? value : null;
-}
