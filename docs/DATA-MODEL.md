@@ -340,8 +340,10 @@ push_subscriptions   id, member_id (default auth.uid(), cascade), endpoint uniqu
                      -- failure_count, disabled_*, last_test_at) are the dispatcher's (service_role,
                      -- protect_columns). 5.2 as built (step 2): the API writes through three RPCs:
                      -- push_subscription_upsert(endpoint, p256dh, auth, platform, is_standalone, label,
-                     -- user_agent) (an active permanent member; takes the endpoint over from another
-                     -- member or a disabled row and clears the result columns; https, or http on the
+                     -- user_agent) (an active permanent member; takes the endpoint over from a disabled
+                     -- row, or from another member's ACTIVE row only with that row's own p256dh and auth,
+                     -- else FORBIDDEN (20261001003242: a shared browser hands everyone the same keys;
+                     -- knowing an endpoint is not enough); clears the result columns; https, or http on the
                      -- loopback host for the local e2e fake push service), push_subscription_remove(
                      -- endpoint) ("Sign out of this device": the row is deleted, own rows only) and
                      -- push_subscriptions_tested() ("Send a test notification" stamps last_test_at; no
@@ -1283,6 +1285,22 @@ notification_deliveries  id, notification_id → notifications (cascade), channe
                      -- 'no_subscription' when the person has no active device (or every device answered
                      -- gone): the seam step 3's email fallback reads. A lease that expires (a crashed
                      -- run) is claimed again. Rows and email are never held.
+                     -- 5.2 as built (step 3, migration 20261001003353_email_dispatch): the email row is
+                     -- created by the DISPATCHER at claim time, never by app.notify(): email_claim(now,
+                     -- limit) (service_role) queues one for a row of the last 24 hours of an active
+                     -- member with an address when its kind is always_email, or actionable while the
+                     -- person has no active push subscription and the row's push was not sent;
+                     -- comments, task changed and information rows never. Under a transaction advisory
+                     -- lock it then counts, per IST day of the email row's created_at, the rows already
+                     -- leased (attempts > 0, last_error not 'not_configured') against
+                     -- org_settings.email_daily_cap_org (org-wide) and email_daily_cap_per_member (that
+                     -- person; bypassed when notifications.escalation_level > 0): over either the row is
+                     -- 'skipped_cap' with last_error 'org_cap' | 'member_cap' (the notification and its
+                     -- push untouched); else leased. Due retries are leased too, never re-counted.
+                     -- email_record(id, sent | retry | failed, error) uses app.push_backoff (1, 5, 15,
+                     -- 60 min, failed after the fifth); 'not_configured' when RESEND_API_KEY is unset,
+                     -- 'resend_<status>' otherwise. Invites, password and email-change mails never use
+                     -- deliveries, so they are never counted or skipped. Index notifications(created_at).
 activity_log         id bigint identity, org_id, actor_id null (system), on_behalf_of_id null (4A,
                      ADR-0013: the freelancer a coordinator acted for; actor_id stays the coordinator;
                      written by app.audit_row_change() from the override's on_behalf_of key, else
