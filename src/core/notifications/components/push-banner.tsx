@@ -25,7 +25,8 @@ import {
  * everywhere. No dismiss. Permission is asked only on the tap. Server-rendered in its default
  * shape, so nothing moves when the page arrives; after hydration the text follows the device:
  * denied → how to re-enable; iOS in a browser tab → "Add to Home Screen" (push needs the
- * installed app); no push at all → says so. One row high in every state.
+ * installed app); no push at all → says so. Every state's copy shares one grid cell, so the
+ * banner's height never depends on the state.
  */
 /** The device's state as one key: what the banner says follows it. */
 type StateKey =
@@ -65,79 +66,106 @@ export function PushBanner({ publicKey }: { publicKey: string | null }) {
     if (toastResult(result, { success: "Notifications are on for this device" })) router.refresh();
   });
 
-  const copy = bannerCopy(state, refused);
+  // Every state's copy is laid out in the same grid cell and only the device's own is visible,
+  // so the banner is as tall as its longest copy in every state: the server's "loading" render
+  // and the hydrated state (denied, iOS, unsupported…) take the same height and nothing under
+  // the banner moves (ARCHITECTURE §14.1; `loading-screens.spec`).
+  const active = copyKey(state, refused);
   return (
     <section
       data-slot="push-banner"
       data-state={state}
       aria-label="Notifications"
-      className="bg-muted/40 ring-foreground/10 mb-4 flex min-h-16 flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-xl px-4 py-3 ring-1"
+      className="bg-muted/40 ring-foreground/10 mb-4 grid rounded-xl px-4 py-3 ring-1"
     >
-      <div className="flex min-w-0 flex-[1_1_14rem] items-start gap-3">
-        {state === "ios_not_installed" ? (
-          <ShareIcon className="text-foreground mt-0.5 size-5 shrink-0" aria-hidden />
-        ) : (
-          <BellRingIcon className="text-foreground mt-0.5 size-5 shrink-0" aria-hidden />
-        )}
-        <div className="min-w-0">
-          <p className="text-sm font-medium">{copy.title}</p>
-          <p className="text-muted-foreground text-sm">{copy.body}</p>
-          <ActionStatus action={enable} className="mt-1" />
-        </div>
-      </div>
-      {copy.button ? (
-        <Button
-          variant="secondary"
-          onClick={() => enable.run()}
-          disabled={enable.pending}
-          data-slot="push-enable"
-        >
-          {enable.pending ? "Turning on…" : copy.button}
-        </Button>
-      ) : null}
+      {COPY_KEYS.map((key) => {
+        const copy = COPY[key];
+        const shown = key === active;
+        return (
+          <div
+            key={key}
+            data-copy={key}
+            aria-hidden={shown ? undefined : true}
+            className={`col-start-1 row-start-1 flex min-h-10 flex-wrap items-center justify-between gap-x-4 gap-y-2 ${shown ? "" : "invisible"}`}
+          >
+            <div className="flex min-w-0 flex-[1_1_14rem] items-start gap-3">
+              {key === "ios_not_installed" ? (
+                <ShareIcon className="text-foreground mt-0.5 size-5 shrink-0" aria-hidden />
+              ) : (
+                <BellRingIcon className="text-foreground mt-0.5 size-5 shrink-0" aria-hidden />
+              )}
+              <div className="min-w-0">
+                <p className="text-sm font-medium">{copy.title}</p>
+                <p className="text-muted-foreground text-sm">{copy.body}</p>
+                {shown ? <ActionStatus action={enable} className="mt-1" /> : null}
+              </div>
+            </div>
+            {copy.button ? (
+              <Button
+                variant="secondary"
+                onClick={() => enable.run()}
+                disabled={enable.pending || !shown}
+                tabIndex={shown ? undefined : -1}
+                data-slot={shown ? "push-enable" : undefined}
+              >
+                {enable.pending ? "Turning on…" : copy.button}
+              </Button>
+            ) : null}
+          </div>
+        );
+      })}
     </section>
   );
 }
 
-function bannerCopy(
-  state: StateKey,
-  refused: boolean,
-): { title: string; body: string; button: string | null } {
-  const ask = {
-    title: "Turn on notifications",
-    body: "Tasks, approvals and reminders reach you the moment they happen.",
-    button: "Turn on",
-  };
+type CopyKey = "ask" | "denied" | "refused" | "ios_not_installed" | "unsupported" | "off";
+
+const COPY_KEYS: readonly CopyKey[] = [
+  "ask",
+  "denied",
+  "refused",
+  "ios_not_installed",
+  "unsupported",
+  "off",
+];
+
+function copyKey(state: StateKey, refused: boolean): CopyKey {
   switch (state) {
     case "loading":
     case "default":
     case "granted":
-      return ask;
+      return "ask";
     case "denied":
-      return {
-        title: refused
-          ? "Notifications were not allowed"
-          : "Notifications are blocked on this device",
-        body: "To turn them on, allow notifications for MaxOff in your browser's site settings (the lock icon by the address, or the app's info screen on a phone), then come back here.",
-        button: null,
-      };
-    case "ios_not_installed":
-      return {
-        title: "Add MaxOff to your Home Screen for notifications",
-        body: 'On iPhone, notifications work only from the installed app: tap Share, then "Add to Home Screen", and open MaxOff from there.',
-        button: null,
-      };
-    case "unsupported":
-      return {
-        title: "This browser cannot receive notifications",
-        body: "Open MaxOff in Chrome or Safari, or install it, to be notified.",
-        button: null,
-      };
-    case "off":
-      return {
-        title: "Notifications are not set up yet",
-        body: "The Owner has to finish the notification setup before devices can be turned on.",
-        button: null,
-      };
+      return refused ? "refused" : "denied";
+    default:
+      return state;
   }
 }
+
+const DENIED_BODY =
+  "Allow notifications for MaxOff in your browser's site settings (or the app's info screen), then come back.";
+
+const COPY: Record<CopyKey, { title: string; body: string; button: string | null }> = {
+  ask: {
+    title: "Turn on notifications",
+    body: "Tasks, approvals and reminders reach you the moment they happen.",
+    button: "Turn on",
+  },
+  denied: { title: "Notifications are blocked on this device", body: DENIED_BODY, button: null },
+  refused: { title: "Notifications were not allowed", body: DENIED_BODY, button: null },
+  ios_not_installed: {
+    title: "Add MaxOff to your Home Screen",
+    body: 'iPhone notifies only the installed app: tap Share, then "Add to Home Screen".',
+    button: null,
+  },
+  unsupported: {
+    title: "This browser cannot receive notifications",
+    body: "Open MaxOff in Chrome or Safari, or install it.",
+    button: null,
+  },
+  off: {
+    title: "Notifications are not set up yet",
+    body: "The Owner has to finish the setup before devices can be turned on.",
+    button: null,
+  },
+};

@@ -4,6 +4,7 @@ import type { AddressInfo } from "node:net";
 import { type Page, type TestInfo } from "@playwright/test";
 
 import { fromBase64Url } from "../src/core/notifications/push/base64url";
+import { DISPATCH_LIMIT } from "../src/core/notifications/push/dispatcher";
 import { systemClock } from "../src/core/time";
 import { decryptPayload, generateReceiverKeys } from "../src/core/notifications/push/encrypt";
 import { verifyVapidToken } from "../src/core/notifications/push/vapid";
@@ -146,6 +147,19 @@ async function noQuietHours(): Promise<() => Promise<void>> {
   });
   return () =>
     serviceUpdate(`org_settings?org_id=eq.${org_id}`, { quiet_hours_start, quiet_hours_end });
+}
+
+/** Runs the cron dispatch until a run claims less than a full batch: the backlog is worked off. */
+async function drainDispatch(page: Page): Promise<void> {
+  for (let run = 0; run < 50; run += 1) {
+    const response = await page.request.post("/api/cron/push-dispatch", {
+      headers: { authorization: `Bearer ${CRON_SECRET}` },
+    });
+    expect(response.ok()).toBe(true);
+    const report = (await response.json()) as { claimed: number };
+    if (report.claimed < DISPATCH_LIMIT) return;
+  }
+  throw new Error("the dispatch backlog did not drain");
 }
 
 test.describe("Web Push", () => {
@@ -297,6 +311,9 @@ test.describe("Web Push", () => {
     page,
   }) => {
     const staffId = await memberIdOf(pushPerson(test.info()));
+    // The dispatcher sends the oldest due rows first, up to its batch: rows the earlier specs
+    // queued for people with no device are worked off first, so this row is the next run's.
+    await drainDispatch(page);
     const before = service.received.length;
     const now = systemClock();
     const title = `Push proof ${now.getTime()}`;
@@ -384,7 +401,8 @@ test.describe("Web Push", () => {
     const banner = page.locator('[data-slot="push-banner"]');
     await expect(banner).toHaveAttribute("data-state", "denied");
     await expect(banner.getByText("Notifications are blocked on this device")).toBeVisible();
-    await expect(banner.getByText(/site settings/)).toBeVisible();
+    // Every state's copy is laid out in the banner (one height for all); only this one shows.
+    await expect(banner.getByText(/site settings/).filter({ visible: true })).toBeVisible();
     await expect(page.locator('[data-slot="push-enable"]')).toHaveCount(0);
     await page.goto("/me");
     await expect(page.locator('[data-slot="push-device-row"]')).toHaveAttribute(
