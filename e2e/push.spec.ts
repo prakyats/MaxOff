@@ -1,37 +1,29 @@
-import { createServer, type Server } from "node:http";
-import type { AddressInfo } from "node:net";
-
 import { type Page, type TestInfo } from "@playwright/test";
 
 import { fromBase64Url } from "../src/core/notifications/push/base64url";
-import { DISPATCH_LIMIT } from "../src/core/notifications/push/dispatcher";
-import { systemClock } from "../src/core/time";
 import { decryptPayload, generateReceiverKeys } from "../src/core/notifications/push/encrypt";
 import { verifyVapidToken } from "../src/core/notifications/push/vapid";
 import { expect, test } from "./fixtures";
 import {
   expectBackStack,
   hydrated,
-  insertAs,
   memberIdOf,
-  rpcAs,
   runInstalled,
   serviceDelete,
-  serviceInsert,
   serviceSelect,
-  serviceUpdate,
   signIn,
   storageStateFor,
-  taskTypeId,
   USERS,
 } from "./helpers";
+import { addDevice, fakePushService, PUSH_PASSWORD, type Receiver } from "./push-shared";
 
 /**
  * Web Push (task 5.2, WORKFLOWS §9a, kickoff 5 decisions 1, 5 and 9). Headless Chromium has no
  * push service, so `PushManager.subscribe` and `Notification` are stubbed **in the browser**
  * (the platform's answer is faked); everything behind them is real: the subscription RPC, the
- * banner's per-member rule, Me's rows, the test push, the cron dispatch, VAPID and the RFC 8291
- * encryption. The pushes go to a fake push service this file runs on the loopback host, which
+ * banner's per-member rule, Me's rows, the test push, VAPID and the RFC 8291 encryption. The
+ * cron and after-action dispatch are push-cron.spec.ts's, in a serial project of their own
+ * (owner decision 29): this file never runs the cron nor touches the organisation's settings. The pushes go to a fake push service this file runs on the loopback host, which
  * keeps every POST; the spec decrypts them with the throwaway receiver keys it made and
  * verifies the VAPID token with the run's throwaway public key (playwright.config.ts).
  *
@@ -39,40 +31,6 @@ import {
  * judged per member, so the projects running side by side never share one person's
  * subscriptions. Their subscriptions are removed at the start and the end.
  */
-const CRON_SECRET = process.env.CRON_SECRET ?? "e2e-only-cron-secret-not-used-anywhere-else";
-
-type Received = { path: string; authorization: string; encoding: string; body: Buffer };
-
-/** The fake push service: 201 for `/ok/*`, 410 for `/gone/*`, 500 for `/down/*`. */
-function fakePushService(): Promise<{ server: Server; url: string; received: Received[] }> {
-  const received: Received[] = [];
-  const server = createServer((request, response) => {
-    const chunks: Buffer[] = [];
-    request.on("data", (chunk: Buffer) => chunks.push(chunk));
-    request.on("end", () => {
-      received.push({
-        path: request.url ?? "",
-        authorization: request.headers.authorization ?? "",
-        encoding: String(request.headers["content-encoding"] ?? ""),
-        body: Buffer.concat(chunks),
-      });
-      const status = request.url?.startsWith("/gone/")
-        ? 410
-        : request.url?.startsWith("/down/")
-          ? 500
-          : 201;
-      response.writeHead(status).end();
-    });
-  });
-  return new Promise((resolve) => {
-    server.listen(0, "127.0.0.1", () => {
-      const { port } = server.address() as AddressInfo;
-      resolve({ server, url: `http://127.0.0.1:${port}`, received });
-    });
-  });
-}
-
-type Receiver = { privateKey: string; publicKey: string; auth: string };
 
 /**
  * Fakes the platform before the page's scripts: `Notification.permission` and
@@ -143,8 +101,6 @@ async function stubPush(
   }, options);
 }
 
-const PUSH_PASSWORD = "push-local-password";
-
 /** This project's own Staff member. */
 function pushPerson(info: TestInfo): string {
   return `push-${info.project.name}@maxoff.local`;
@@ -155,88 +111,6 @@ async function removeSubscriptionsOf(email: string): Promise<void> {
   await serviceDelete(`push_subscriptions?member_id=eq.${memberId}`);
 }
 
-async function noQuietHours(): Promise<() => Promise<void>> {
-  const [row] = await serviceSelect<{
-    org_id: string;
-    quiet_hours_start: string;
-    quiet_hours_end: string;
-  }>("org_settings?select=org_id,quiet_hours_start,quiet_hours_end");
-  expect(row, "one org_settings row").toBeTruthy();
-  const { org_id, quiet_hours_start, quiet_hours_end } = row!;
-  // Equal times mean no window (push_quiet), so the dispatch proof holds at any hour.
-  await serviceUpdate(`org_settings?org_id=eq.${org_id}`, {
-    quiet_hours_start: "07:00",
-    quiet_hours_end: "07:00",
-  });
-  return () =>
-    serviceUpdate(`org_settings?org_id=eq.${org_id}`, { quiet_hours_start, quiet_hours_end });
-}
-
-/** Runs the cron dispatch until a run claims less than a full batch: the backlog is worked off. */
-async function drainDispatch(page: Page): Promise<void> {
-  for (let run = 0; run < 50; run += 1) {
-    const response = await page.request.post("/api/cron/push-dispatch", {
-      headers: { authorization: `Bearer ${CRON_SECRET}` },
-    });
-    expect(response.ok()).toBe(true);
-    const report = (await response.json()) as { claimed: number };
-    if (report.claimed < DISPATCH_LIMIT) return;
-  }
-  throw new Error("the dispatch backlog did not drain");
-}
-
-async function runDispatch(page: Page): Promise<void> {
-  const response = await page.request.post("/api/cron/push-dispatch", {
-    headers: { authorization: `Bearer ${CRON_SECRET}` },
-  });
-  expect(response.ok()).toBe(true);
-}
-
-/** A task the Owner assigns to this person (task_assigned), through the API. */
-async function assignTask(staffId: string, title: string): Promise<string> {
-  return rpcAs<string>(USERS.owner.email, USERS.owner.password, "task_create", {
-    title,
-    description: null,
-    task_type_id: await taskTypeId("Normal"),
-    client_id: null,
-    priority: "medium",
-    due_at: new Date(systemClock().getTime() + 3 * 24 * 3600 * 1000).toISOString(),
-    assignee_ids: [staffId],
-    primary_owner_id: staffId,
-    approving_admin_id: null,
-    stages: [],
-  });
-}
-
-type PushDelivery = {
-  id: string;
-  state: string;
-  attempts: number;
-  last_error: string | null;
-  next_attempt_at: string;
-};
-
-/** The push delivery of this person's row about a task. */
-async function pushDeliveryOf(staffId: string, taskId: string): Promise<PushDelivery> {
-  const rows = await serviceSelect<PushDelivery>(
-    `notification_deliveries?channel=eq.push&select=id,state,attempts,last_error,next_attempt_at,notifications!inner(recipient_id,entity_id)&notifications.recipient_id=eq.${staffId}&notifications.entity_id=eq.${taskId}`,
-  );
-  expect(rows).toHaveLength(1);
-  return rows[0]!;
-}
-
-/** A device of this person at the fake push service, stored as the API would. */
-async function addDevice(staffId: string, endpoint: string, receiver: Receiver): Promise<string> {
-  const row = await serviceInsert<{ id: string }>("push_subscriptions", {
-    member_id: staffId,
-    endpoint,
-    p256dh: receiver.publicKey,
-    auth: receiver.auth,
-    platform: "android",
-  });
-  return row.id;
-}
-
 test.describe("Web Push", () => {
   test.describe.configure({ mode: "serial" });
   // Signed in as this project's own person in beforeEach, not from a saved session.
@@ -244,12 +118,10 @@ test.describe("Web Push", () => {
 
   let service: Awaited<ReturnType<typeof fakePushService>>;
   let receiver: Receiver;
-  let restoreQuietHours: () => Promise<void>;
 
   test.beforeAll(async ({}, info) => {
     service = await fakePushService();
     receiver = await generateReceiverKeys();
-    restoreQuietHours = await noQuietHours();
     await removeSubscriptionsOf(pushPerson(info));
   });
 
@@ -259,7 +131,6 @@ test.describe("Web Push", () => {
 
   test.afterAll(async ({}, info) => {
     await removeSubscriptionsOf(pushPerson(info));
-    await restoreQuietHours();
     await new Promise<void>((resolve) => service.server.close(() => resolve()));
   });
 
@@ -393,78 +264,6 @@ test.describe("Web Push", () => {
     expect(sub?.last_test_at, "last_test_at is stamped").toBeTruthy();
   });
 
-  test("a real transition's push reaches the device through the cron dispatch", async ({
-    page,
-  }) => {
-    const staffId = await memberIdOf(pushPerson(test.info()));
-    // The dispatcher sends the oldest due rows first, up to its batch: rows the earlier specs
-    // queued for people with no device are worked off first.
-    await drainDispatch(page);
-    const before = service.received.length;
-    const now = systemClock();
-    const title = `Push proof ${now.getTime()}`;
-    const taskId = await rpcAs<string>(USERS.owner.email, USERS.owner.password, "task_create", {
-      title,
-      description: null,
-      task_type_id: await taskTypeId("Normal"),
-      client_id: null,
-      priority: "medium",
-      due_at: new Date(now.getTime() + 3 * 24 * 3600 * 1000).toISOString(),
-      assignee_ids: [staffId],
-      primary_owner_id: staffId,
-      approving_admin_id: null,
-      stages: [],
-    });
-    // The cron route: refused without the secret, then the run that sends what is due.
-    expect((await page.request.post("/api/cron/push-dispatch")).status()).toBe(401);
-    const run = await page.request.post("/api/cron/push-dispatch", {
-      headers: { authorization: `Bearer ${CRON_SECRET}` },
-    });
-    expect(run.ok()).toBe(true);
-    const report = (await run.json()) as { job: string; sent: number };
-    expect(report.job).toBe("push_dispatch");
-    // A run sends the oldest due rows first, up to its batch; while other specs keep queueing
-    // rows for people with no device, the next minute's runs catch up (the cron's contract).
-    for (let run = 0; run < 20; run += 1) {
-      if ((await pushDeliveryOf(staffId, taskId)).state !== "queued") break;
-      await runDispatch(page);
-    }
-    const pushes = service.received.slice(before);
-    const mine = [];
-    for (const push of pushes) {
-      const opened = JSON.parse(
-        Buffer.from(await decryptPayload(new Uint8Array(push.body), receiver)).toString(),
-      ) as {
-        title: string;
-        url: string;
-        notificationId: string | null;
-      };
-      if (opened.title === `New task: ${title}`) mine.push(opened);
-    }
-    expect(mine).toHaveLength(1);
-    expect(mine[0]).toMatchObject({ url: `/tasks/${taskId}` });
-    expect(mine[0]!.notificationId).toBeTruthy();
-    const deliveries = await serviceSelect<{ state: string; sent_at: string | null }>(
-      `notification_deliveries?channel=eq.push&select=state,sent_at,notifications!inner(recipient_id,entity_id)&notifications.recipient_id=eq.${staffId}&notifications.entity_id=eq.${taskId}`,
-    );
-    expect(deliveries.map((row) => row.state)).toEqual(["sent"]);
-    // A second run sends nothing again (idempotent).
-    const again = await page.request.post("/api/cron/push-dispatch", {
-      headers: { authorization: `Bearer ${CRON_SECRET}` },
-    });
-    expect(again.ok()).toBe(true);
-    // Other projects' rows may be due at the same moment (the dispatcher is organization-wide),
-    // so the proof is this row's: it is never sent twice.
-    const resent = [];
-    for (const push of service.received.slice(before)) {
-      const opened = JSON.parse(
-        Buffer.from(await decryptPayload(new Uint8Array(push.body), receiver)).toString(),
-      ) as { title: string };
-      if (opened.title === `New task: ${title}`) resent.push(opened);
-    }
-    expect(resent).toHaveLength(1);
-  });
-
   test("a device that answers gone is disabled and the test says so", async ({ page }) => {
     const staffId = await memberIdOf(pushPerson(test.info()));
     await serviceDelete(`push_subscriptions?member_id=eq.${staffId}`);
@@ -483,111 +282,6 @@ test.describe("Web Push", () => {
     await expect(page.locator('[data-slot="push-test-outcome"]')).toHaveText(
       "No device accepted it. Check the device's notification settings, then try again.",
     );
-  });
-
-  test("the cron dispatch: a device answering 410 is disabled; one failing is retried with backoff", async ({
-    page,
-  }) => {
-    const staffId = await memberIdOf(pushPerson(test.info()));
-    await serviceDelete(`push_subscriptions?member_id=eq.${staffId}`);
-    await drainDispatch(page);
-
-    // 410: the device is gone, and with no other device the row fails `no_subscription`.
-    const goneId = await addDevice(staffId, `${service.url}/gone/dispatch`, receiver);
-    const goneTask = await assignTask(staffId, `Push gone ${systemClock().getTime()}`);
-    await runDispatch(page);
-    expect(service.received.some((push) => push.path === "/gone/dispatch")).toBe(true);
-    const [gone] = await serviceSelect<{ disabled_reason: string | null }>(
-      `push_subscriptions?id=eq.${goneId}&select=disabled_reason`,
-    );
-    expect(gone?.disabled_reason).toBe("gone");
-    expect(await pushDeliveryOf(staffId, goneTask)).toMatchObject({
-      state: "failed",
-      last_error: "no_subscription",
-    });
-
-    // 500: retried after 1 minute, then 5; nothing is sent before it is due.
-    const downId = await addDevice(staffId, `${service.url}/down/dispatch`, receiver);
-    const downTask = await assignTask(staffId, `Push down ${systemClock().getTime()}`);
-    const sentAt = systemClock().getTime();
-    await runDispatch(page);
-    const first = await pushDeliveryOf(staffId, downTask);
-    expect(first).toMatchObject({ state: "queued", attempts: 1 });
-    expect(first.last_error).toBeTruthy();
-    const wait = Date.parse(first.next_attempt_at) - sentAt;
-    expect(wait).toBeGreaterThan(30_000);
-    expect(wait).toBeLessThan(120_000);
-
-    const tries = () => service.received.filter((push) => push.path === "/down/dispatch").length;
-    const triedOnce = tries();
-    await runDispatch(page);
-    expect(tries(), "not retried before it is due").toBe(triedOnce);
-
-    // Due now (the minute is moved back, not waited out): retried, then 5 minutes.
-    await serviceUpdate(`notification_deliveries?id=eq.${first.id}`, {
-      next_attempt_at: new Date(sentAt - 1000).toISOString(),
-    });
-    const retriedAt = systemClock().getTime();
-    await runDispatch(page);
-    expect(tries()).toBe(triedOnce + 1);
-    const second = await pushDeliveryOf(staffId, downTask);
-    expect(second).toMatchObject({ state: "queued", attempts: 2 });
-    const wait2 = Date.parse(second.next_attempt_at) - retriedAt;
-    expect(wait2).toBeGreaterThan(4 * 60_000);
-    expect(wait2).toBeLessThan(6 * 60_000);
-    const [down] = await serviceSelect<{ failure_count: number; disabled_at: string | null }>(
-      `push_subscriptions?id=eq.${downId}&select=failure_count,disabled_at`,
-    );
-    expect(down).toEqual({ failure_count: 2, disabled_at: null });
-    await serviceDelete(`push_subscriptions?member_id=eq.${staffId}`);
-  });
-
-  test("a transition's push goes out right after the action, without waiting for the cron", async ({
-    page,
-    isMobile,
-  }) => {
-    test.skip(isMobile, "the desktop composer; the dispatch itself is the server's");
-    const staffId = await memberIdOf(pushPerson(test.info()));
-    await serviceDelete(`push_subscriptions?member_id=eq.${staffId}`);
-    await addDevice(staffId, `${service.url}/ok/after`, receiver);
-    const title = `Push after ${systemClock().getTime()}`;
-    const taskId = await assignTask(staffId, title);
-    // The assignment came through the API (no action, so no after()): the cron sends it.
-    await drainDispatch(page);
-
-    // The Owner comments through the app: the action's after() sends the comment's push. No
-    // cron runs in this e2e server, so a push arriving now can only be that dispatch.
-    const owner = await page
-      .context()
-      .browser()!
-      .newContext({ storageState: storageStateFor("owner"), viewport: page.viewportSize() });
-    const ownerPage = await owner.newPage();
-    await ownerPage.goto(`/tasks/${taskId}`);
-    await ownerPage.locator('[data-slot="task-tab"][data-view-tab="chat"]').click();
-    const composer = ownerPage.locator('[data-slot="task-panel-chat"]');
-    await composer.getByRole("textbox", { name: "Comment" }).fill("Straight to the phone");
-    await composer.getByRole("button", { name: "Send" }).click();
-    await expect(composer.locator('[data-slot="task-comment"][data-own="true"]')).toContainText(
-      "Straight to the phone",
-    );
-    await owner.close();
-
-    const commentPushes = async () => {
-      const found = [];
-      for (const push of service.received.filter((each) => each.path === "/ok/after")) {
-        const opened = JSON.parse(
-          Buffer.from(await decryptPayload(new Uint8Array(push.body), receiver)).toString(),
-        ) as { title: string; body: string | null; url: string };
-        if (opened.title === `Comment on ${title}`) found.push(opened);
-      }
-      return found;
-    };
-    await expect.poll(async () => (await commentPushes()).length).toBe(1);
-    expect((await commentPushes())[0]).toMatchObject({
-      body: expect.stringContaining("Straight to the phone"),
-      url: `/tasks/${taskId}`,
-    });
-    await serviceDelete(`push_subscriptions?member_id=eq.${staffId}`);
   });
 
   test("Sign out of this device deletes this device's subscription", async ({ page }) => {
@@ -693,48 +387,6 @@ test.describe("Web Push", () => {
     // Me is a tab above home: back returns to My Day, the next back leaves.
     await expectBackStack(page, [{ url: /\/my-day$/ }, { url: /^about:blank$/ }]);
     await serviceDelete(`push_subscriptions?member_id=eq.${staffId}`);
-  });
-
-  test("email: a person with no push gets one email per actionable row; a comment none", async ({
-    page,
-  }) => {
-    const email = pushPerson(test.info());
-    const staffId = await memberIdOf(email);
-    await serviceDelete(`push_subscriptions?member_id=eq.${staffId}`);
-    const taskId = await assignTask(staffId, `Email proof ${systemClock().getTime()}`);
-    await rpcAs(email, PUSH_PASSWORD, "task_submit_done", { task_id: taskId });
-    await rpcAs(USERS.owner.email, USERS.owner.password, "task_review", {
-      task_id: taskId,
-      decision: "rejected",
-      reason: "Brighter colours",
-    });
-    await insertAs(USERS.owner.email, USERS.owner.password, "task_comments", {
-      task_id: taskId,
-      body: "The music is in the folder.",
-    });
-    await drainDispatch(page);
-    const mails = async () =>
-      (
-        await serviceSelect<{
-          state: string;
-          last_error: string | null;
-          notifications: { kind: string };
-        }>(
-          `notification_deliveries?channel=eq.email&select=state,last_error,notifications!inner(kind,recipient_id,entity_id)&notifications.recipient_id=eq.${staffId}&notifications.entity_id=eq.${taskId}`,
-        )
-      )
-        .map((row) => `${row.notifications.kind}:${row.state}:${row.last_error ?? "-"}`)
-        .sort();
-    // Task assigned is always emailed; changes requested is actionable and they have no push;
-    // the comment never. The e2e server has no RESEND_API_KEY (as team.spec's invites rely on),
-    // so each is recorded not_configured: nothing is sent, nothing crashed.
-    expect(await mails()).toEqual([
-      "task_assigned:failed:not_configured",
-      "task_changes_requested:failed:not_configured",
-    ]);
-    // Another run adds nothing: one email row per notification.
-    await runDispatch(page);
-    expect(await mails()).toHaveLength(2);
   });
 
   test("denied: the band's sheet says how to re-enable and never asks again", async ({ page }) => {

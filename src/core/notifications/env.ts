@@ -115,3 +115,18 @@ export function pushEnvOrWarn(env: EnvSource = process.env): PushEnv {
   }
   return push;
 }
+
+/**
+ * `PUSH_ALLOW_LOOPBACK_ENDPOINTS=1` lets the push sender POST to plain http on the loopback host,
+ * where the e2e fake push service runs (playwright.config.ts sets it for the e2e server only).
+ * Never honoured in staging or production, whatever the variable says: there every endpoint must
+ * be https on a public DNS name (5A review M2, defence in depth behind the database's check).
+ */
+export const PUSH_ALLOW_LOOPBACK_ENDPOINTS = "PUSH_ALLOW_LOOPBACK_ENDPOINTS";
+
+export function pushLoopbackAllowed(env: EnvSource = process.env): boolean {
+  // Read literally from process.env so the build inlines it, as everywhere else.
+  const appEnv = env === process.env ? process.env.NEXT_PUBLIC_APP_ENV : env.NEXT_PUBLIC_APP_ENV;
+  if (appEnv === "staging" || appEnv === "production") return false;
+  return env[PUSH_ALLOW_LOOPBACK_ENDPOINTS] === "1";
+}

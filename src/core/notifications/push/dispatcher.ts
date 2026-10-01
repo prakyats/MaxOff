@@ -83,6 +83,10 @@ export async function runPushDispatch(input: {
   fetch: PushFetch;
   now?: Date;
   limit?: number;
+  /** Plain http on the loopback host (the e2e fake push service); `pushLoopbackAllowed()`. */
+  allowLoopback?: boolean;
+  /** Told about an item that threw; the run goes on with the next one. */
+  onItemError?: (error: unknown) => void;
 }): Promise<DispatchReport> {
   const now = input.now ?? systemClock();
   const report: DispatchReport = {
@@ -96,44 +100,80 @@ export async function runPushDispatch(input: {
   const items = await input.store.claim(now, input.limit ?? DISPATCH_LIMIT);
   report.claimed = items.length;
   for (const item of items) {
-    const targets = await input.store.targets(item.recipientId);
-    if (targets.length === 0) {
-      await input.store.record(item.deliveryIds, "failed", "no_subscription", now);
-      report.noSubscription += 1;
-      report.failed += 1;
-      continue;
-    }
-    const message = messageFor(item);
-    let accepted = 0;
-    let gone = 0;
-    let lastDetail: string | null = null;
-    for (const target of targets) {
-      const result = await sendWebPush({ target, message, vapid: input.vapid, fetch: input.fetch });
-      report.devices[result.outcome] += 1;
-      await input.store.subscriptionResult(target.id, result.outcome, now);
-      if (result.outcome === "sent") accepted += 1;
-      else if (result.outcome === "gone") gone += 1;
-      else lastDetail = result.detail;
-    }
-    // One device accepting it is the notification delivered; a device that is gone is the
-    // subscription's problem, not the row's. Every device gone means the person has no device
-    // any more (the same seam as none at all); anything else is retried with backoff.
-    if (accepted > 0) {
-      await input.store.record(item.deliveryIds, "sent", null, now);
-      report.sent += 1;
-    } else if (gone === targets.length) {
-      await input.store.record(item.deliveryIds, "failed", "no_subscription", now);
-      report.noSubscription += 1;
-      report.failed += 1;
-    } else {
-      await input.store.record(
-        item.deliveryIds,
-        "retry",
-        lastDetail ?? "no device accepted it",
-        now,
-      );
-      report.retried += 1;
+    // One item that throws (a store call, a device's answer) never stops the run for everyone
+    // else (5A review M1): it is recorded as a retry, so it fails at the last backoff like any
+    // error, and the email pass after this run still happens.
+    try {
+      await dispatchItem(item, input, now, report);
+    } catch (error) {
+      input.onItemError?.(error);
+      try {
+        await input.store.record(item.deliveryIds, "retry", "dispatch_error", now);
+        report.retried += 1;
+      } catch (recordError) {
+        // The lease expires and the next run claims it again (attempts counted by the claim).
+        input.onItemError?.(recordError);
+      }
     }
   }
   return report;
+}
+
+async function dispatchItem(
+  item: ClaimedItem,
+  input: {
+    store: PushStore;
+    vapid: VapidKeys;
+    fetch: PushFetch;
+    allowLoopback?: boolean;
+    onItemError?: (error: unknown) => void;
+  },
+  now: Date,
+  report: DispatchReport,
+): Promise<void> {
+  const targets = await input.store.targets(item.recipientId);
+  if (targets.length === 0) {
+    await input.store.record(item.deliveryIds, "failed", "no_subscription", now);
+    report.noSubscription += 1;
+    report.failed += 1;
+    return;
+  }
+  const message = messageFor(item);
+  let accepted = 0;
+  let gone = 0;
+  let lastDetail: string | null = null;
+  for (const target of targets) {
+    // sendWebPush never throws: a poisoned subscription is an `error` for that device alone.
+    const result = await sendWebPush({
+      target,
+      message,
+      vapid: input.vapid,
+      fetch: input.fetch,
+      allowLoopback: input.allowLoopback ?? false,
+    });
+    report.devices[result.outcome] += 1;
+    try {
+      await input.store.subscriptionResult(target.id, result.outcome, now);
+    } catch (error) {
+      // The device's bookkeeping failing must not cost the other devices their push.
+      input.onItemError?.(error);
+    }
+    if (result.outcome === "sent") accepted += 1;
+    else if (result.outcome === "gone") gone += 1;
+    else lastDetail = result.detail;
+  }
+  // One device accepting it is the notification delivered; a device that is gone is the
+  // subscription's problem, not the row's. Every device gone means the person has no device
+  // any more (the same seam as none at all); anything else is retried with backoff.
+  if (accepted > 0) {
+    await input.store.record(item.deliveryIds, "sent", null, now);
+    report.sent += 1;
+  } else if (gone === targets.length) {
+    await input.store.record(item.deliveryIds, "failed", "no_subscription", now);
+    report.noSubscription += 1;
+    report.failed += 1;
+  } else {
+    await input.store.record(item.deliveryIds, "retry", lastDetail ?? "no device accepted it", now);
+    report.retried += 1;
+  }
 }

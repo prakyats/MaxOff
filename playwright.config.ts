@@ -23,8 +23,11 @@ const WORKING_DAY_SPECS = /working-day\.spec\.ts$/;
 const LEAVE_SPECS = /leave\.spec\.ts$/;
 const BACK_GESTURE_SPECS = /back-gesture\.spec\.ts$/;
 const OWNER_REVIEW_SPECS = /owner-review\.spec\.ts$/;
-// push-quiet moves the organisation's quiet hours, so it runs alone with "Approve all" (5.2).
-const OWNER_BULK_SPECS = /(owner-bulk|push-quiet)\.spec\.ts$/;
+const OWNER_BULK_SPECS = /owner-bulk\.spec\.ts$/;
+// The push and email dispatch through the cron route (owner decision 29): the dispatcher is
+// organisation-wide and push-quiet moves the organisation's quiet hours, so these run serially,
+// one worker, after everything else, owning the queue (push-shared.ts `ownTheDispatchQueue`).
+const PUSH_CRON_SPECS = /push-(cron|quiet)\.spec\.ts$/;
 const LAUNCH_SPECS = /launch\.spec\.ts$/;
 const MOTION_SPECS = /motion\.spec\.ts$/;
 const REFRESH_SPECS = /refresh\.spec\.ts$/;
@@ -130,7 +133,7 @@ export default defineConfig({
       name: "desktop",
       dependencies: ["setup"],
       // The mobile standard is about phone widths; running it at 1280px proves nothing.
-      testIgnore: [PRODUCTION_SPECS, SETUP_SPECS, MOBILE_SPECS, OWNER_BULK_SPECS],
+      testIgnore: [PRODUCTION_SPECS, SETUP_SPECS, MOBILE_SPECS, OWNER_BULK_SPECS, PUSH_CRON_SPECS],
       use: { ...devices["Desktop Chrome"] },
     },
     {
@@ -138,7 +141,7 @@ export default defineConfig({
       // phone of the two widths the standard is checked at.
       name: "mobile",
       dependencies: ["setup"],
-      testIgnore: [PRODUCTION_SPECS, SETUP_SPECS, OWNER_BULK_SPECS],
+      testIgnore: [PRODUCTION_SPECS, SETUP_SPECS, OWNER_BULK_SPECS, PUSH_CRON_SPECS],
       use: { ...devices["Pixel 5"], viewport: { width: 375, height: 812 } },
     },
     {
@@ -212,6 +215,17 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
     {
+      // The cron dispatch (owner decision 29): after owner-bulk, so after every project that
+      // creates rows; one worker, one file at a time, each test one dispatch on a queue it owns.
+      // CI runs it alone after owner-bulk with `--no-deps` (ci.yml), like owner-bulk.
+      name: "push-cron",
+      dependencies: ["owner-bulk"],
+      testMatch: PUSH_CRON_SPECS,
+      fullyParallel: false,
+      workers: 1,
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
       name: "production",
       testMatch: PRODUCTION_SPECS,
       use: { ...devices["Desktop Chrome"] },
@@ -253,6 +267,9 @@ export default defineConfig({
         VAPID_PUBLIC_KEY: VAPID.publicKey,
         VAPID_PRIVATE_KEY: VAPID.privateKey,
         VAPID_SUBJECT: "mailto:e2e@maxoff.local",
+        // The fake push services the specs run are plain http on the loopback host: the sender
+        // refuses those everywhere but here (5A review M2; never honoured in staging/production).
+        PUSH_ALLOW_LOOPBACK_ENDPOINTS: "1",
       },
     },
   ],

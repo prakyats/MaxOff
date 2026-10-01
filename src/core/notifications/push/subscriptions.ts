@@ -5,7 +5,8 @@ import { createServerSupabase } from "@/core/db/server";
 /**
  * A member's own push subscriptions (DATA-MODEL §9 `push_subscriptions`, WORKFLOWS §9a), read
  * and written as the member (RLS: own rows only; the endpoint never leaves the member's own
- * session). The writes are the three `push_subscription_*` RPCs of migration `push_dispatch`.
+ * session). The writes are the `push_subscription_*` RPCs of migration `push_dispatch` and
+ * `push_test_claim` (20261001053934); INSERT and UPDATE are not the API role's (5A review M2).
  */
 export interface OwnPushSubscription {
   id: string;
@@ -94,9 +95,13 @@ export async function rpcPushSubscriptionRemove(endpoint: string): Promise<boole
   return data;
 }
 
-export async function rpcPushSubscriptionsTested(): Promise<number> {
+/**
+ * "Send a test notification" claims its send first (5A review S2): RATE_LIMITED while a test is
+ * under 30 seconds old, else last_test_at is stamped on every active row. Returns how many.
+ */
+export async function rpcPushTestClaim(): Promise<number> {
   const supabase = await createServerSupabase();
-  const { data, error } = await supabase.rpc("push_subscriptions_tested");
+  const { data, error } = await supabase.rpc("push_test_claim");
   if (error) throw error;
   return data;
 }

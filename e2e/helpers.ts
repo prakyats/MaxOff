@@ -211,7 +211,7 @@ export async function insertAs<T>(
  * transition functions, so it refuses any URL that is not this machine's stack. For clearing a
  * spec's own fixture person and for reading ids a spec needs, never for the flow under test.
  */
-async function serviceRest(path: string, init: RequestInit = {}): Promise<Response> {
+export async function serviceRest(path: string, init: RequestInit = {}): Promise<Response> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
   const key = process.env.SUPABASE_SECRET_KEY ?? "";
   expect(new URL(url).hostname, "service-role cleanup runs on the local stack only").toMatch(

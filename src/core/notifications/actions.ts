@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getCurrentMember } from "@/core/auth/server";
 import { action, AppError, ok, type Result } from "@/core/errors";
 
-import { pushEnvOrWarn } from "./env";
+import { pushEnvOrWarn, pushLoopbackAllowed } from "./env";
 import {
   type EndpointInput,
   endpointSchema,
@@ -16,8 +16,8 @@ import { sendWebPush } from "./push/send";
 import {
   listOwnPushSubscriptions,
   rpcPushSubscriptionRemove,
-  rpcPushSubscriptionsTested,
   rpcPushSubscriptionUpsert,
+  rpcPushTestClaim,
 } from "./push/subscriptions";
 
 /**
@@ -68,13 +68,19 @@ export type TestPushResult = {
  * "Send a test notification": a push right now to every active device of the caller, quiet
  * hours ignored (kickoff 5 decision 5's one exception), no notifications row (a device check,
  * not an event). Reports what the push services accepted; a device that answered gone or an
- * error is left to the dispatcher's next real push to disable.
+ * error is left to the dispatcher's next real push to disable. One test per 30 seconds: the
+ * database claims it (stamping last_test_at) before anything is sent, and refuses a second tap
+ * inside the window with RATE_LIMITED and a friendly message (5A review S2).
  */
 export const sendTestPush = action(async (): Promise<Result<TestPushResult>> => {
   const member = await requireCurrentMember();
-  const devices = (await listOwnPushSubscriptions()).filter((row) => row.disabledReason === null);
   const push = pushEnvOrWarn();
-  if (push.mode === "off") return ok({ accepted: 0, devices: devices.length, pushOff: true });
+  if (push.mode === "off") {
+    const devices = (await listOwnPushSubscriptions()).filter((row) => row.disabledReason === null);
+    return ok({ accepted: 0, devices: devices.length, pushOff: true });
+  }
+  await rpcPushTestClaim();
+  const devices = (await listOwnPushSubscriptions()).filter((row) => row.disabledReason === null);
   let accepted = 0;
   for (const device of devices) {
     const result = await sendWebPush({
@@ -89,9 +95,9 @@ export const sendTestPush = action(async (): Promise<Result<TestPushResult>> => 
       vapid: { publicKey: push.publicKey, privateKey: push.privateKey, subject: push.subject },
       fetch: (url, init) => fetch(url, init),
       urgency: "high",
+      allowLoopback: pushLoopbackAllowed(),
     });
     if (result.outcome === "sent") accepted += 1;
   }
-  await rpcPushSubscriptionsTested();
   return ok({ accepted, devices: devices.length, pushOff: false });
 });

@@ -12,7 +12,14 @@ import {
   runPushDispatch,
 } from "./dispatcher";
 import { decryptPayload, generateReceiverKeys, generateVapidKeysForTests } from "./encrypt";
-import { classifyStatus, type PushMessage } from "./send";
+import { MAX_PLAINTEXT_BYTES } from "./encrypt";
+import {
+  classifyStatus,
+  fitPayload,
+  type PushMessage,
+  pushEndpointAllowed,
+  sendWebPush,
+} from "./send";
 import { verifyVapidToken } from "./vapid";
 
 type Recorded = { ids: string[]; outcome: string; error: string | null };
@@ -229,7 +236,8 @@ describe("runPushDispatch", () => {
         fetch: fakePushService(() => "network").fetch,
       }),
     ).toMatchObject({ retried: 1 });
-    expect(net.recorded).toEqual([{ ids: ["d1"], outcome: "retry", error: "ECONNRESET" }]);
+    // A code, never the error's message (it could name a host; 5A review, later item).
+    expect(net.recorded).toEqual([{ ids: ["d1"], outcome: "retry", error: "network_error" }]);
   });
 
   it("claims a bounded batch and sends a summary as one push over all its rows", async () => {
@@ -263,5 +271,183 @@ describe("runPushDispatch", () => {
       claimed: 0,
     });
     expect(empty.claims).toEqual([DISPATCH_LIMIT]);
+  });
+});
+
+describe("one bad subscription never stalls the run (5A review M1)", () => {
+  it("a poisoned device beside a good one: the good one is sent, the bad one is an error", async () => {
+    const vapid = { ...(await generateVapidKeysForTests()), subject: "mailto:o@example.com" };
+    const good = await generateReceiverKeys();
+    const targets: PushTargetRow[] = [
+      { id: "bad", endpoint: "https://push.example/bad", p256dh: "not-a-key", auth: "x" },
+      {
+        id: "good",
+        endpoint: "https://push.example/good",
+        p256dh: good.publicKey,
+        auth: good.auth,
+      },
+    ];
+    const { store, recorded, devices } = fakeStore([item()], { m1: targets });
+    const service = fakePushService(() => 201);
+    const report = await runPushDispatch({ store, vapid, fetch: service.fetch });
+    expect(report).toMatchObject({ sent: 1, devices: { sent: 1, gone: 0, error: 1 } });
+    expect(devices).toEqual([
+      { id: "bad", outcome: "error" },
+      { id: "good", outcome: "sent" },
+    ]);
+    expect(recorded).toEqual([{ ids: ["d1"], outcome: "sent", error: null }]);
+    expect(service.requests.map((request) => request.url)).toEqual(["https://push.example/good"]);
+  });
+
+  it("a person whose only device is poisoned is retried (failing at the last backoff); the next item still goes", async () => {
+    const vapid = { ...(await generateVapidKeysForTests()), subject: "mailto:o@example.com" };
+    const good = await generateReceiverKeys();
+    const { store, recorded } = fakeStore(
+      [item(), item({ deliveryIds: ["d2"], recipientId: "m2", notificationId: "n2" })],
+      {
+        m1: [
+          {
+            id: "bad",
+            endpoint: "https://push.example/bad",
+            p256dh: "B" + "A".repeat(86),
+            auth: "x",
+          },
+        ],
+        m2: [
+          {
+            id: "ok",
+            endpoint: "https://push.example/ok",
+            p256dh: good.publicKey,
+            auth: good.auth,
+          },
+        ],
+      },
+    );
+    const report = await runPushDispatch({ store, vapid, fetch: fakePushService(() => 201).fetch });
+    expect(report).toMatchObject({ claimed: 2, sent: 1, retried: 1 });
+    expect(recorded).toEqual([
+      { ids: ["d1"], outcome: "retry", error: "encrypt_failed" },
+      { ids: ["d2"], outcome: "sent", error: null },
+    ]);
+  });
+
+  it("a store call that throws for one item records it as a retry and goes on", async () => {
+    const vapid = { ...(await generateVapidKeysForTests()), subject: "mailto:o@example.com" };
+    const good = await generateReceiverKeys();
+    const base = fakeStore([item(), item({ deliveryIds: ["d2"], recipientId: "m2" })], {
+      m2: [
+        { id: "ok", endpoint: "https://push.example/ok", p256dh: good.publicKey, auth: good.auth },
+      ],
+    });
+    const errors: unknown[] = [];
+    const store: PushStore = {
+      ...base.store,
+      async targets(recipientId) {
+        if (recipientId === "m1") throw new Error("connection reset");
+        return base.store.targets(recipientId);
+      },
+    };
+    const report = await runPushDispatch({
+      store,
+      vapid,
+      fetch: fakePushService(() => 201).fetch,
+      onItemError: (error) => errors.push(error),
+    });
+    expect(report).toMatchObject({ claimed: 2, sent: 1, retried: 1 });
+    expect(base.recorded).toEqual([
+      { ids: ["d1"], outcome: "retry", error: "dispatch_error" },
+      { ids: ["d2"], outcome: "sent", error: null },
+    ]);
+    expect(errors).toHaveLength(1);
+  });
+
+  it("a body too long for one record is cut with an ellipsis; the title and link stay whole", async () => {
+    const vapid = { ...(await generateVapidKeysForTests()), subject: "mailto:o@example.com" };
+    const phone = await generateReceiverKeys();
+    const long = item({ body: "Brighter colours, please. ".repeat(400) + "€ ✓ 漢字" });
+    expect(new TextEncoder().encode(JSON.stringify(messageFor(long))).length).toBeGreaterThan(
+      MAX_PLAINTEXT_BYTES,
+    );
+    const { store, recorded } = fakeStore([long], {
+      m1: [
+        { id: "s1", endpoint: "https://push.example/p", p256dh: phone.publicKey, auth: phone.auth },
+      ],
+    });
+    const service = fakePushService(() => 201);
+    await runPushDispatch({ store, vapid, fetch: service.fetch });
+    expect(recorded).toEqual([{ ids: ["d1"], outcome: "sent", error: null }]);
+    const opened = JSON.parse(
+      new TextDecoder().decode(await decryptPayload(service.requests[0]!.body, phone)),
+    ) as PushMessage;
+    expect(opened.title).toBe(long.title);
+    expect(opened.url).toBe(long.link);
+    expect(opened.body?.endsWith("…")).toBe(true);
+    expect(long.body?.startsWith(opened.body!.slice(0, -1))).toBe(true);
+    // As long as fits: one more character would not.
+    expect(fitPayload(messageFor(long)).length).toBeLessThanOrEqual(MAX_PLAINTEXT_BYTES);
+    expect(fitPayload(messageFor(long)).length).toBeGreaterThan(MAX_PLAINTEXT_BYTES - 8);
+    // A message that fits is untouched.
+    expect(new TextDecoder().decode(fitPayload(messageFor(item())))).toBe(
+      JSON.stringify(messageFor(item())),
+    );
+  });
+
+  it("a push service that never answers times out as a retryable error", async () => {
+    const vapid = { ...(await generateVapidKeysForTests()), subject: "mailto:o@example.com" };
+    const phone = await generateReceiverKeys();
+    const hanging = (_url: string, init: RequestInit) =>
+      new Promise<Response>((_resolve, reject) => {
+        init.signal?.addEventListener("abort", () => reject(init.signal?.reason));
+      });
+    const result = await sendWebPush({
+      target: { endpoint: "https://push.example/slow", p256dh: phone.publicKey, auth: phone.auth },
+      message: messageFor(item()),
+      vapid,
+      fetch: hanging,
+      timeoutMs: 20,
+    });
+    expect(result).toEqual({ outcome: "error", status: null, detail: "timeout" });
+  });
+});
+
+describe("pushEndpointAllowed (5A review M2, defence in depth)", () => {
+  it("takes https on a public DNS name only; loopback http only when allowed", () => {
+    const allowed = (url: string, loopback = false) => pushEndpointAllowed(url, loopback);
+    expect(allowed("https://fcm.googleapis.com/fcm/send/abc")).toBe(true);
+    expect(allowed("https://web.push.apple.com/QK")).toBe(true);
+    expect(allowed("https://updates.push.services.mozilla.com:443/wpush/v2/x")).toBe(true);
+    for (const refused of [
+      "http://169.254.169.254/latest/meta-data",
+      "https://169.254.169.254/latest/meta-data",
+      "https://2130706433/",
+      "https://0x7f.1/",
+      "https://[::1]/x",
+      "https://localhost/x",
+      "https://metadata.google.internal/x",
+      "https://printer.local/x",
+      "https://user:pw@push.example/x",
+      "ftp://push.example/x",
+      "not a url",
+    ]) {
+      expect(allowed(refused), refused).toBe(false);
+    }
+    expect(allowed("http://127.0.0.1:3111/ok/x")).toBe(false);
+    expect(allowed("http://127.0.0.1:3111/ok/x", true)).toBe(true);
+    expect(allowed("http://localhost:3111/ok/x", true)).toBe(true);
+    expect(allowed("http://10.0.0.1/x", true)).toBe(false);
+  });
+
+  it("a refused endpoint is never fetched", async () => {
+    const vapid = { ...(await generateVapidKeysForTests()), subject: "mailto:o@example.com" };
+    const phone = await generateReceiverKeys();
+    const service = fakePushService(() => 201);
+    const result = await sendWebPush({
+      target: { endpoint: "http://169.254.169.254/x", p256dh: phone.publicKey, auth: phone.auth },
+      message: messageFor(item()),
+      vapid,
+      fetch: service.fetch,
+    });
+    expect(result).toEqual({ outcome: "error", status: null, detail: "endpoint_refused" });
+    expect(service.requests).toHaveLength(0);
   });
 });

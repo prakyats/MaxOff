@@ -1,6 +1,3 @@
-import { createServer, type Server } from "node:http";
-import type { AddressInfo } from "node:net";
-
 import { decryptPayload, generateReceiverKeys } from "../src/core/notifications/push/encrypt";
 import { systemClock, toISTTime } from "../src/core/time";
 import { expect, test } from "./fixtures";
@@ -14,38 +11,19 @@ import {
   taskTypeId,
   USERS,
 } from "./helpers";
+import { fakePushService, ownTheDispatchQueue, runDispatch } from "./push-shared";
 
 /**
  * Quiet hours (kickoff 5 decision 5, WORKFLOWS §9a) through the real cron route: push rows due
  * inside the window are held, and the first run after the window's end sends one summary push
  * per person ("N updates while you were away", opening the history). The window is the
- * organisation's, so this spec runs in the `owner-bulk` project, alone, after every other
- * project (playwright.config.ts): moving it can never hold another spec's push. The clock is
- * never faked: the window is moved around the real time instead (07:00 IST is only its default
- * end). The device is a fake push service on the loopback host, as in push.spec.ts.
+ * organisation's, so this spec runs in the serial `push-cron` project, alone, after every other
+ * project (playwright.config.ts): moving it can never hold another spec's push. It owns the
+ * queue first (owner decision 29), so each run handles only its own rows. The clock is never
+ * faked: the window is moved around the real time instead (07:00 IST is only its default end).
+ * The device is a fake push service on the loopback host (push-shared.ts).
  */
-const CRON_SECRET = process.env.CRON_SECRET ?? "e2e-only-cron-secret-not-used-anywhere-else";
 const PERSON = "push-desktop@maxoff.local";
-
-type Received = { path: string; body: Buffer };
-
-function fakePushService(): Promise<{ server: Server; url: string; received: Received[] }> {
-  const received: Received[] = [];
-  const server = createServer((request, response) => {
-    const chunks: Buffer[] = [];
-    request.on("data", (chunk: Buffer) => chunks.push(chunk));
-    request.on("end", () => {
-      received.push({ path: request.url ?? "", body: Buffer.concat(chunks) });
-      response.writeHead(201).end();
-    });
-  });
-  return new Promise((resolve) => {
-    server.listen(0, "127.0.0.1", () => {
-      const { port } = server.address() as AddressInfo;
-      resolve({ server, url: `http://127.0.0.1:${port}`, received });
-    });
-  });
-}
 
 /** The IST wall time `minutes` from now, as the org_settings time columns take it. */
 function istIn(minutes: number): string {
@@ -64,14 +42,9 @@ test.describe("quiet hours hold push and release one summary", () => {
       quiet_hours_end: string;
     }>("org_settings?select=org_id,quiet_hours_start,quiet_hours_end");
     const staffId = await memberIdOf(PERSON);
-    const dispatch = async () => {
-      const response = await request.post("/api/cron/push-dispatch", {
-        headers: { authorization: `Bearer ${CRON_SECRET}` },
-      });
-      expect(response.ok()).toBe(true);
-      return (await response.json()) as { claimed: number };
-    };
+    const dispatch = () => runDispatch(request);
     try {
+      await ownTheDispatchQueue();
       await serviceDelete(`push_subscriptions?member_id=eq.${staffId}`);
       await serviceInsert("push_subscriptions", {
         member_id: staffId,

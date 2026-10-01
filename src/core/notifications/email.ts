@@ -23,12 +23,15 @@ export interface EmailSender {
 }
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
+/** Resend not answering in 10 s is a provider error, retried with backoff (5A review S1). */
+export const EMAIL_TIMEOUT_MS = 10_000;
 
 /** Resend's REST API through plain `fetch` (no SDK: it runs the same on the Worker). */
 export function resendSender(
   apiKey: string,
   from: string,
   fetchImpl: typeof fetch = fetch,
+  timeoutMs: number = EMAIL_TIMEOUT_MS,
 ): EmailSender {
   return {
     async send(message) {
@@ -44,6 +47,7 @@ export function resendSender(
             text: message.text,
             ...(message.html ? { html: message.html } : {}),
           }),
+          signal: AbortSignal.timeout(timeoutMs),
         });
         if (!response.ok) {
           // Status only: the body could quote the recipient.

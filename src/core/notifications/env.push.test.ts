@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { pushStartupWarning, readPushEnv } from "./env";
-import { generateVapidKeysForTests } from "./push/encrypt";
+import { pushLoopbackAllowed, pushStartupWarning, readPushEnv } from "./env";
+import { generateReceiverKeys, generateVapidKeysForTests } from "./push/encrypt";
+import { subscriptionSchema } from "./push/schemas";
 
 describe("readPushEnv", () => {
   it("is on with three well-formed values (throwaway keys made here)", async () => {
@@ -53,5 +54,50 @@ describe("readPushEnv", () => {
       reason: expect.stringContaining("mailto: or https:"),
     });
     expect(pushStartupWarning({})).toContain("VAPID_PUBLIC_KEY");
+  });
+});
+
+describe("pushLoopbackAllowed (5A review M2)", () => {
+  it("only with the e2e switch, and never in staging or production", () => {
+    expect(pushLoopbackAllowed({})).toBe(false);
+    expect(pushLoopbackAllowed({ PUSH_ALLOW_LOOPBACK_ENDPOINTS: "1" })).toBe(true);
+    expect(
+      pushLoopbackAllowed({ PUSH_ALLOW_LOOPBACK_ENDPOINTS: "1", NEXT_PUBLIC_APP_ENV: "local" }),
+    ).toBe(true);
+    for (const appEnv of ["staging", "production"]) {
+      expect(
+        pushLoopbackAllowed({ PUSH_ALLOW_LOOPBACK_ENDPOINTS: "1", NEXT_PUBLIC_APP_ENV: appEnv }),
+      ).toBe(false);
+    }
+  });
+});
+
+describe("subscriptionSchema: the keys exactly as a browser makes them (5A review M1)", () => {
+  it("takes a real subscription's keys and refuses anything else", async () => {
+    const keys = await generateReceiverKeys();
+    const base = {
+      endpoint: "https://fcm.googleapis.com/fcm/send/abc",
+      p256dh: keys.publicKey,
+      auth: keys.auth,
+      platform: "android" as const,
+      isStandalone: true,
+      label: null,
+      userAgent: null,
+    };
+    expect(subscriptionSchema.safeParse(base).success).toBe(true);
+    for (const [p256dh, auth] of [
+      ["k", keys.auth],
+      ["A" + "A".repeat(86), keys.auth],
+      ["B" + "+".repeat(86), keys.auth],
+      [keys.publicKey + "=", keys.auth],
+      [keys.publicKey, "a"],
+      [keys.publicKey, "A".repeat(23)],
+      [keys.publicKey, keys.auth + "=="],
+    ]) {
+      expect(
+        subscriptionSchema.safeParse({ ...base, p256dh, auth }).success,
+        `${p256dh} ${auth}`,
+      ).toBe(false);
+    }
   });
 });

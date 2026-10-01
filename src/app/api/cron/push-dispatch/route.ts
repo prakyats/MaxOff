@@ -15,19 +15,19 @@ import { captureException } from "@/core/observability/capture";
  */
 export async function POST(request: Request): Promise<Response> {
   if (!cronAuthorised(request)) return Response.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  try {
-    const report = await dispatchPush();
-    // Email after push (5.2 step 3): an actionable row whose push just went out is not mailed.
-    // Its own failure is reported, never hiding the push run's result.
-    const email = await dispatchEmail().catch((error: unknown) => {
-      const eventId = captureException(error);
-      console.error(`[cron] email dispatch failed (sentry event ${eventId})`);
-      return { error: "INTERNAL", eventId } as const;
-    });
-    return Response.json({ job: "push_dispatch", ...report, email });
-  } catch (error) {
+  // Push first, then email, each reported on its own: a push run that fails (its claim or the
+  // database) never stops the email pass (5A review M1), nor the other way round.
+  const report = await dispatchPush().catch((error: unknown) => {
     const eventId = captureException(error);
     console.error(`[cron] push_dispatch failed (sentry event ${eventId})`);
-    return Response.json({ error: "INTERNAL", eventId }, { status: 500 });
-  }
+    return { error: "INTERNAL", eventId } as const;
+  });
+  // Email after push (5.2 step 3): an actionable row whose push just went out is not mailed.
+  const email = await dispatchEmail().catch((error: unknown) => {
+    const eventId = captureException(error);
+    console.error(`[cron] email dispatch failed (sentry event ${eventId})`);
+    return { error: "INTERNAL", eventId } as const;
+  });
+  const failed = "error" in report;
+  return Response.json({ job: "push_dispatch", ...report, email }, { status: failed ? 500 : 200 });
 }

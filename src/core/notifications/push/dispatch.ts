@@ -8,7 +8,7 @@ import { captureException } from "@/core/observability/capture";
 import { createEmailSender } from "../email";
 import { type EmailDispatchReport, runEmailDispatch } from "../email-dispatcher";
 import { supabaseEmailStore } from "../email-store";
-import { pushEnvOrWarn, readEmailEnv } from "../env";
+import { pushEnvOrWarn, pushLoopbackAllowed, readEmailEnv } from "../env";
 import { type DispatchReport, runPushDispatch } from "./dispatcher";
 import { supabasePushStore } from "./store";
 
@@ -30,6 +30,10 @@ export async function dispatchPush(limit?: number): Promise<DispatchReport | { s
     store: supabasePushStore(),
     vapid: { publicKey: push.publicKey, privateKey: push.privateKey, subject: push.subject },
     fetch: (url, init) => fetch(url, init),
+    allowLoopback: pushLoopbackAllowed(),
+    onItemError: (error) => {
+      captureException(error);
+    },
     ...(limit === undefined ? {} : { limit }),
   });
 }
