@@ -332,7 +332,9 @@ select pg_temp.clear();
 update public.members set role = 'staff' where id = pg_temp.fx('admin3');
 select is((select (t.state, t.admin_step, t.approving_admin_id)::text from public.tasks t where t.id = pg_temp.fx('x1')),
   ('admin_approved', 'none', null)::text, 'decision 33: the waiting task goes to the Owner, approver removed');
-select is(pg_temp.total(), 0::bigint, 'decision 33 writes no notification (WORKFLOWS §3.1: none defined)');
+-- 5A decision 27 (2026-10-01) gave the re-route its one row: the Owner's approvals_moved (44 has its paths).
+select ok(pg_temp.total() = 1 and pg_temp.n('owner', 'approvals_moved') = 1,
+  'decision 33 writes one row only, the Owner''s approvals_moved (5A decision 27)');
 
 -- 8. app.task_visible_to follows the phase 4 review ---------------------------------------------------
 -- admin3 (now Staff) created c9 while an Admin; bina's coordinator admin1 is not otherwise on c9.

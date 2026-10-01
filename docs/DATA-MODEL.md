@@ -37,7 +37,9 @@ notification_kind  a lookup table, not an enum (5.1, expand-only across releases
                    coordinator_removed, coordinator_missing, client_admin_assigned,
                    client_admin_removed, attendance_decided*, absent_proposed, leave_requested,
                    leave_decided*, extra_work_submitted, extra_work_decided*, comp_leave_granted*,
-                   comp_leave_revoked*, expense_submitted, expense_decided*, end_day_reminder.
+                   comp_leave_revoked*, expense_submitted, expense_decided*, end_day_reminder;
+                   approvals_moved (5A decision 27, 20261001001614: the Owner's one row when an
+                   approving Admin's submitted tasks moved to them).
                    * actionable = email fallback when the person has no working push (kickoff 5
                    decision 6); † always_email (ADR-0009). 5B adds the reminder, escalation, digest
                    and reachability kinds by inserting rows.

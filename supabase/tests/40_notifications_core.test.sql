@@ -209,7 +209,7 @@ select ok(has_function_privilege('authenticated', 'public.notifications_mark_rea
           and has_function_privilege('authenticated', 'public.notifications_mark_all_read()', 'execute')
           and not has_function_privilege('anon', 'public.notifications_mark_all_read()', 'execute'),
   'the mark-read helpers are the API''s');
-select is((select count(*) from public.notification_kinds), 29::bigint, '29 kinds are seeded');
+select is((select count(*) from public.notification_kinds), 30::bigint, '29 kinds are seeded, plus approvals_moved (5A decision 27)');
 select is((select array_agg(kind order by kind) from public.notification_kinds where actionable),
   array['attendance_decided', 'comp_leave_granted', 'comp_leave_revoked', 'expense_decided', 'extra_work_decided',
         'leave_decided', 'task_assigned', 'task_changes_requested'],
@@ -276,7 +276,7 @@ select app.notify(array[pg_temp.fx('staff1'), pg_temp.fx('owner')], 'task_change
 select app.notify(array[pg_temp.fx('staff1')], 'task_changed', 'Only staff1', null, '/tasks', 'tasks', pg_temp.fx('client_b'), '{}', null);
 select pg_temp.as_member('staff1');
 select is((select count(*) from public.notifications), 2::bigint, 'staff1 reads their own two rows');
-select is((select count(*) from public.notification_kinds), 29::bigint, 'and the kinds');
+select is((select count(*) from public.notification_kinds), 30::bigint, 'and the kinds (29 + approvals_moved)');
 select pg_temp.as_member('owner');
 select is((select count(*) from public.notifications), 1::bigint, 'the Owner reads their own row only, never another member''s');
 select pg_temp.as_member('admin1');
