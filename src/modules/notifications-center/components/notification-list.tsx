@@ -57,13 +57,7 @@ export function NotificationList({ rows, today }: { rows: InboxRow[]; today: str
 function NotificationTarget({ row, children }: { row: InboxRow; children: ReactNode }) {
   if (row.link) {
     return (
-      <NotificationLink
-        href={openNotificationUrl(row.id)}
-        className={cn(
-          ROW,
-          "pressable-row focus-visible:ring-ring outline-none focus-visible:ring-2 focus-visible:ring-inset",
-        )}
-      >
+      <NotificationLink href={openNotificationUrl(row.id)} className={ROW}>
         {children}
       </NotificationLink>
     );

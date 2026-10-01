@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { cn } from "@/core/lib/utils";
 import { noteNotificationsChanged } from "@/core/notifications/live-state";
 
 /**
@@ -20,7 +21,17 @@ export function NotificationLink({
   children: ReactNode;
 }) {
   return (
-    <Link href={href} prefetch={false} className={className} onClick={noteNotificationsChanged}>
+    <Link
+      href={href}
+      prefetch={false}
+      onClick={noteNotificationsChanged}
+      // Its own pressed state, as `NotificationReadButton` has (the shared `pressable-row`,
+      // ARCHITECTURE §14.1 "Every tap is acknowledged").
+      className={cn(
+        className,
+        "pressable-row focus-visible:ring-ring outline-none focus-visible:ring-2 focus-visible:ring-inset",
+      )}
+    >
       {children}
     </Link>
   );
