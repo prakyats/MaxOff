@@ -1,3 +1,5 @@
+-- LOCAL ONLY. PRODUCTION IS LIVE (https://app.maxoff.in, in daily use since 2026-10-01): never run
+-- this seed, `db:reset` or any hand-written SQL against production or staging (CLAUDE.md).
 -- Dev seed, loaded by `pnpm db:reset` after the migrations (config.toml [db.seed]).
 -- Real data never goes into local or staging (ARCHITECTURE §2). The deploy workflow runs
 -- `db push` only, so nothing here reaches a hosted project.

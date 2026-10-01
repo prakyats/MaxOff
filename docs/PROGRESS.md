@@ -1,5 +1,7 @@
 # MaxOff Progress
 
+> **PRODUCTION IS LIVE (since 2026-10-01): `https://app.maxoff.in` is in daily use by the Pixora Clips team with real data.** Expand-only migrations, releases only by an Owner-approved `v*` tag on a green `main` commit, never a seed, reset or hand-written SQL on production. The rules are in `CLAUDE.md` → "Production is live".
+
 > Claude reads this **first** in every session. `/finish-task` and `/save-progress` keep it up to date.
 > Keep it short: current state, what's next, and anything the next session must know.
 

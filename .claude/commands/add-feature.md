@@ -2,6 +2,8 @@
 description: Plan a new feature or change so it fits the architecture without disturbing existing modules
 argument-hint: "<describe the feature>"
 ---
+
+> **Production is live** (`https://app.maxoff.in`, in daily use since 2026-10-01). Read `CLAUDE.md` → "Production is live" before any change: expand-only migrations, no merge/tag/approve by a session, nothing run against production.
 I want to add this to MaxOff: $ARGUMENTS
 
 Don't write any code yet.
