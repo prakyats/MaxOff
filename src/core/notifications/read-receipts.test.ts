@@ -113,6 +113,21 @@ describe("the bell's count on the device (owner decision 2026-10-01)", () => {
     serverUnreadSeen(server(9, 100));
     expect(unreadShown(server(9, 100))).toBe(3);
   });
+
+  it("a bell that hydrates after Mark all read shows 0 at every step (CI 2026-10-01)", () => {
+    // Under CPU load the shell's streamed bell can still be server HTML ("2") when the page's own
+    // "All read" is drawn; it hydrates later with the page's count, made before the write.
+    const page = server(2, 100);
+    serverUnreadSeen(page);
+    const token = readIssued(Number.POSITIVE_INFINITY, "all");
+    expect(unreadShown(page)).toBe(0);
+    readWritten(token, 2, 150);
+    expect(unreadShown(page)).toBe(0);
+    // The live bell's confirmation lands and lets the receipt go; the late bell still reads 0.
+    serverUnreadSeen(server(0, 200));
+    expect(readsUnconfirmed()).toBe(false);
+    expect(unreadShown(page)).toBe(0);
+  });
 });
 
 describe("sendRead: the write in the background", () => {

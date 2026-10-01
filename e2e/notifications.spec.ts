@@ -90,13 +90,15 @@ async function unreadOf(email: string): Promise<number> {
 
 /** The visible unread count on whichever bell this screen shows; 0 when there is none. */
 async function bellCount(page: Page): Promise<number> {
-  const badge = page
+  // One look at the page, never a wait: a count-then-read could see the badge, then wait for it
+  // forever once it went (CI 2026-10-01: a bell hydrating late dropped to 0 between the two).
+  const shown = await page
     .locator(
       '[data-slot="header-bell"], [data-slot="top-bar-bell"], [data-slot="bottom-nav"] [data-nav="alerts"]',
     )
-    .locator('[data-slot="nav-badge"]:visible');
-  if ((await badge.count()) === 0) return 0;
-  return Number((await badge.first().textContent())?.trim() ?? "0");
+    .locator('[data-slot="nav-badge"]:visible')
+    .evaluateAll((badges) => badges.map((badge) => badge.textContent?.trim() ?? ""));
+  return Number(shown[0] ?? "0");
 }
 
 function rowOf(page: Page, title: string) {
