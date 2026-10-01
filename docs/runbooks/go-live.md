@@ -279,7 +279,7 @@ again.
 
 | Step | Date | Result | Notes |
 |---|---|---|---|
-| Both PDFs rebuilt on the laptop and committed | | Pending | Deferred by the owner until phase 4 (tasks) and the "Crew" label are in, so the guide and the first-day page describe what staff will use |
+| Both PDFs rebuilt on the laptop and committed | 2026-10-01 | Done | Built with Edge from the v1.2 guide (tasks, the "Crew" label, notifications): `MaxOff-App-Guide.pdf` (24 pages) and `first-day.pdf` (1 page) |
 | 1. Tag `v1.0.0` and the production deploy | 2026-09-29 | Passed | `v1.0.0` on `dbf8242`. Every step green except the smoke step: `app.maxoff.in` did not resolve yet on the runner seconds after the custom domain was attached. The same `scripts/smoke-deploy.sh` passed from the laptop minutes later (health, headers, the workers.dev 308, the Continue page). `v1.1.0` (tap feedback, pull-to-refresh, offline recovery) deployed 2026-09-30 with every step green |
 | 2. Owner bootstrap | 2026-09-29 | Passed | Run in the Owner's own PowerShell from a clean `main` worktree; the one-time link opened "Continue to MaxOff" and the password was set |
 | 3. UptimeRobot | 2026-09-29 | Passed | HTTP(s) monitor on `https://app.maxoff.in/api/health`, every 5 minutes, Up |
@@ -287,4 +287,4 @@ again.
 | 4. Smoke test, day B (4.9–4.12) | 2026-09-30 | Passed | Start day approved, End day with the ₹1 claim approved, month summary and Mark all paid, the test member deactivated |
 | 5. First backup; production restore drill | 2026-09-29 / 2026-09-30 | Passed | First backup by hand on 2026-09-29, the first scheduled nightly green; the production drill restored `20260929T234838Z` on 2026-09-30 (backup-restore.md → Drills done) |
 | 6. Smoke-test records kept in the go-live month: the test member (deactivated), their approved leave, the ₹501 and ₹1 claims (paid), one receipt | 2026-09-30 | Kept | Test member `shettyprishit+maxofftest@gmail.com`, deactivated; only the Owner sees its attendance, leave and claims |
-| 7. Staff invites sent | | Pending | After phase 4 and the "Crew" label are released (`v1.2.0`), owner decision 2026-09-30 |
+| 7. Staff invites sent | 2026-10-01 | Done | The Owner onboarded the team in person at 12:30 IST on `v1.2.1` (tasks, the "Crew" label, the branded invite email): invites by email and copied link, the app installed, a demo task noted by everyone. `v1.3.0` (push, email and the bell) followed the same evening |
