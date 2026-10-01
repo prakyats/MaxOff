@@ -1211,9 +1211,13 @@ activity_log         id bigint identity, org_id, actor_id null (system), on_beha
                      -- actor: a row an Admin's action produced may describe an Owner-only table.
                      -- Each module adds a policy for the entities it owns (PERMISSIONS §2)
 eod_reports          id, org_id, report_date, data jsonb, generated_at, unique(org_id, report_date)
+                     -- kickoff 6 (owner decision 2026-10-01, built in 6.5): written only by the eod_report
+                     -- job (one row per IST date, every date, never updated: no API INSERT/UPDATE/DELETE
+                     -- grant); data holds no money, ever (WORKFLOWS §8a). Owner-only (reports.all) all the
+                     -- same (ADR-0007 amendment 2026-10-01)
 month_snapshots      id, org_id, month date (1st), version int, data jsonb, closed_by, closed_at,
                      corrects_id null, correction_note, unique(org_id, month, version)
-                     -- eod_reports and month_snapshots contain revenue: Owner-only tables
+                     -- month_snapshots contain revenue; both are Owner-only tables
                      -- (single policy has_permission('reports.all')). Admin scoped reports are computed live.
 feature_flags        key pk, enabled, description
 ```
