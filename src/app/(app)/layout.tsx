@@ -114,10 +114,9 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           {live ? (
             <LiveUpdatesLazy memberId={viewer.id} token={live.token} expiresIn={live.expiresIn} />
           ) : null}
-          <RouteTransition>
-            {endpoints.length === 0 ? <PushBanner publicKey={publicKey} /> : null}
-            {children}
-          </RouteTransition>
+          {/* A band above the bottom bar (5A decision 30), never at the top of a screen. */}
+          {endpoints.length === 0 ? <PushBanner publicKey={publicKey} /> : null}
+          <RouteTransition>{children}</RouteTransition>
         </AppShell>
       </TooltipProvider>
       <Toaster position="top-center" closeButton />

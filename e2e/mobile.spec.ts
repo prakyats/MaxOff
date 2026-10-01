@@ -5,6 +5,7 @@ import { expect, test } from "./fixtures";
 import { STAND_INS, type StandIn } from "../src/app/(app)/_placeholder/stand-ins";
 
 import {
+  dockTop,
   expectNoHorizontalScroll,
   expectSettled,
   memberIdOf,
@@ -708,10 +709,12 @@ test.describe("forms", () => {
     const bar = page.locator('[data-slot="sticky-actions"]');
     await expect(bar).toBeVisible();
 
-    const nav = await page.locator('[data-slot="bottom-nav"]').boundingBox();
     const box = await bar.boundingBox();
-    // Sitting directly on the bar, within a pixel of sub-pixel layout rounding.
-    expect(Math.abs((box?.y ?? 0) + (box?.height ?? 0) - (nav?.y ?? 0))).toBeLessThanOrEqual(1);
+    // Sitting directly on what is docked below it (the bottom bar, or the push band while it
+    // shows), within a pixel of sub-pixel layout rounding.
+    expect(
+      Math.abs((box?.y ?? 0) + (box?.height ?? 0) - (await dockTop(page))),
+    ).toBeLessThanOrEqual(1);
 
     // Still there after scrolling to the end of the form.
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));

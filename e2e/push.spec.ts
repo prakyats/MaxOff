@@ -255,7 +255,8 @@ test.describe("Web Push", () => {
     const banner = page.locator('[data-slot="push-banner"]');
     await expect(banner).toBeVisible();
     await expect(banner).toHaveAttribute("data-state", "default");
-    await expect(banner.getByText("Turn on notifications")).toBeVisible();
+    // One line above the bottom bar (5A decision 30): "Notifications are off · Turn on".
+    await expect(banner.getByText("Notifications are off").filter({ visible: true })).toBeVisible();
     // Nothing was asked yet: permission is requested only on the tap (decision 9).
     expect(
       await page.evaluate(
@@ -269,13 +270,23 @@ test.describe("Web Push", () => {
       page.locator('[data-slot="push-banner"]').getByRole("button", { name: /dismiss|close/i }),
     ).toHaveCount(0);
 
-    await page.locator('[data-slot="push-enable"]').click();
+    // The band opens a sheet; opening it asks nothing yet, its button does.
+    await page.locator('[data-slot="push-banner"]').click();
+    const sheet = page.locator('[data-slot="push-sheet"]');
+    await expect(sheet.getByRole("heading", { name: "Turn on notifications" })).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => (window as unknown as { __permissionAsked?: boolean }).__permissionAsked,
+      ),
+    ).toBeUndefined();
+    await sheet.locator('[data-slot="push-enable"]').click();
     expect(
       await page.evaluate(
         () => (window as unknown as { __permissionAsked?: boolean }).__permissionAsked,
       ),
     ).toBe(true);
     await expect(page.locator('[data-slot="push-banner"]')).toBeHidden();
+    await expect(sheet).toHaveCount(0);
     const staffId = await memberIdOf(pushPerson(test.info()));
     const rows = await serviceSelect<{
       endpoint: string;
@@ -597,7 +608,7 @@ test.describe("Web Push", () => {
     await serviceDelete(`push_subscriptions?member_id=eq.${staffId}`);
   });
 
-  test("installed: the banner's Turn on adds no history; back from home leaves", async ({
+  test("installed: the band's sheet closes on back; its Turn on adds no history; back from home leaves", async ({
     page,
     isMobile,
   }) => {
@@ -612,10 +623,22 @@ test.describe("Web Push", () => {
     });
     await page.goto("/my-day");
     await hydrated(page);
-    await page.locator('[data-slot="push-enable"]').click();
-    await expect(page.locator('[data-slot="push-banner"]')).toBeHidden();
+    const band = page.locator('[data-slot="push-banner"]');
+    const sheet = page.locator('[data-slot="push-sheet"]');
+    // The sheet is a layer (§14.2 a): back closes it and the screen stays.
+    await band.click();
+    await expect(sheet).toBeVisible();
+    await page.goBack();
+    await expect(sheet).toHaveCount(0);
     await expect(page).toHaveURL(/\/my-day$/);
-    // The banner is no layer and its tap no drill-down: one back leaves the app.
+    await expect(band).toBeVisible();
+    // Turned on from the sheet: the sheet's entry goes, the band goes, nothing is added.
+    await band.click();
+    await sheet.locator('[data-slot="push-enable"]').click();
+    await expect(band).toBeHidden();
+    await expect(sheet).toHaveCount(0);
+    await expect(page).toHaveURL(/\/my-day$/);
+    // The band is no drill-down: one back leaves the app.
     await expectBackStack(page, [{ url: /^about:blank$/ }]);
     await serviceDelete(`push_subscriptions?member_id=eq.${staffId}`);
   });
@@ -693,17 +716,23 @@ test.describe("Web Push", () => {
     expect(await mails()).toHaveLength(2);
   });
 
-  test("denied: the banner says how to re-enable and never asks again", async ({ page }) => {
+  test("denied: the band's sheet says how to re-enable and never asks again", async ({ page }) => {
     const staffId = await memberIdOf(pushPerson(test.info()));
     await serviceDelete(`push_subscriptions?member_id=eq.${staffId}`);
     await stubPush(page, { permission: "denied", endpoint: `${service.url}/ok/x`, receiver });
     await page.goto("/my-day");
     const banner = page.locator('[data-slot="push-banner"]');
     await expect(banner).toHaveAttribute("data-state", "denied");
-    await expect(banner.getByText("Notifications are blocked on this device")).toBeVisible();
-    // Every state's copy is laid out in the banner (one height for all); only this one shows.
-    await expect(banner.getByText(/site settings/).filter({ visible: true })).toBeVisible();
+    await expect(banner.getByText("Notifications are off").filter({ visible: true })).toBeVisible();
+    await banner.click();
+    const sheet = page.locator('[data-slot="push-sheet"]');
+    await expect(
+      sheet.getByRole("heading", { name: "Notifications are blocked on this device" }),
+    ).toBeVisible();
+    await expect(sheet.getByText(/site settings/)).toBeVisible();
     await expect(page.locator('[data-slot="push-enable"]')).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(sheet).toHaveCount(0);
     await page.goto("/me");
     await expect(page.locator('[data-slot="push-device-row"]')).toHaveAttribute(
       "data-state",
@@ -712,7 +741,7 @@ test.describe("Web Push", () => {
     await expect(page.locator('[data-slot="push-test"]')).toBeDisabled();
   });
 
-  test("the banner fits a phone: 44px target, no sideways scroll, one row high in every state", async ({
+  test("the band fits a phone: 44px targets, no sideways scroll, nothing at the top moves, nothing hides behind it", async ({
     page,
     isMobile,
   }) => {
@@ -722,14 +751,28 @@ test.describe("Web Push", () => {
     await stubPush(page, { permission: "default", endpoint: `${service.url}/ok/x`, receiver });
     await page.goto("/my-day");
     await hydrated(page);
-    const button = page.locator('[data-slot="push-enable"]');
-    const box = await button.boundingBox();
-    expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+    const band = page.locator('[data-slot="push-banner"]');
+    const bandBox = await band.boundingBox();
+    expect(bandBox?.height ?? 0).toBeGreaterThanOrEqual(44);
+    expect(bandBox?.width ?? 0).toBeLessThanOrEqual(page.viewportSize()!.width);
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true);
-    const banner = await page.locator('[data-slot="push-banner"]').boundingBox();
-    expect(banner?.width ?? 0).toBeLessThanOrEqual(page.viewportSize()!.width - 32);
+    // Never at the top (decision 30): the title bar sits right under the brand bar…
+    const title = await page.locator('[data-slot="page-header"]').first().boundingBox();
+    const brand = await page.locator('[data-slot="top-bar"]').first().boundingBox();
+    expect(
+      Math.abs((title?.y ?? 0) - ((brand?.y ?? 0) + (brand?.height ?? 0))),
+    ).toBeLessThanOrEqual(1);
+    // …and its height is reserved: scrolled to the end, the last content ends above it.
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    const last = await page.locator("main > *").last().boundingBox();
+    const bandNow = await band.boundingBox();
+    expect((last?.y ?? 0) + (last?.height ?? 0)).toBeLessThanOrEqual((bandNow?.y ?? 0) + 1);
+    // The sheet's button is a 44px target too.
+    await band.click();
+    const button = await page.locator('[data-slot="push-enable"]').boundingBox();
+    expect(button?.height ?? 0).toBeGreaterThanOrEqual(44);
   });
 });
 

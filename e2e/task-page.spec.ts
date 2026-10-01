@@ -5,6 +5,7 @@ import { expect, test } from "./fixtures";
 import { addISTDays, istInstant, istWeekday, todayIST } from "../src/core/time";
 
 import {
+  dockTop,
   animationsSettled,
   expectBackStack,
   expectNoHorizontalScroll,
@@ -149,8 +150,10 @@ test.describe("the task page, one step at a time (decision 26)", () => {
       // A sticky bar above the bottom bar (decision 32)…
       await expect(bar).toHaveCSS("position", "fixed");
       const box = await bar.boundingBox();
-      const nav = await page.locator('[data-slot="bottom-nav"]').boundingBox();
-      expect(Math.abs((box?.y ?? 0) + (box?.height ?? 0) - (nav?.y ?? 0))).toBeLessThanOrEqual(1);
+      // Directly on what is docked below it: the bottom bar, or the push band while it shows.
+      expect(
+        Math.abs((box?.y ?? 0) + (box?.height ?? 0) - (await dockTop(page))),
+      ).toBeLessThanOrEqual(1);
       // …that steps aside while the keyboard is open, and comes back after.
       await openKeyboard(page, 320);
       await expect(bar).toBeHidden();

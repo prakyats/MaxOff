@@ -2,11 +2,20 @@
 
 import { BellRingIcon, ShareIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import { ActionStatus } from "@/core/ui/action/action-status";
 import { useAction } from "@/core/ui/action/use-action";
+import { closeOverlaysThen } from "@/core/ui/overlay/overlay-history";
 import { Button } from "@/core/ui/primitives/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/core/ui/primitives/sheet";
 import { toastResult } from "@/core/ui/toast";
 
 import { subscribePush } from "../actions";
@@ -19,16 +28,25 @@ import {
 } from "../push/browser";
 
 /**
- * The enable-notifications banner (kickoff 5 decision 9; WORKFLOWS "Settled at kickoff 5"):
- * judged **per member**, so the layout mounts it on every screen only while the member has no
- * working subscription on any device, the Owner included; once one device works it is gone
- * everywhere. No dismiss. Permission is asked only on the tap. Server-rendered in its default
- * shape, so nothing moves when the page arrives; after hydration the text follows the device:
- * denied → how to re-enable; iOS in a browser tab → "Add to Home Screen" (push needs the
- * installed app); no push at all → says so. Every state's copy shares one grid cell, so the
- * banner's height never depends on the state.
+ * The enable-notifications band (kickoff 5 decision 9; WORKFLOWS "Settled at kickoff 5"; its
+ * shape is 5A decision 30): judged **per member**, so the layout mounts it only while the member
+ * has no working subscription on any device, the Owner included; once one device works it is
+ * gone everywhere. No dismiss.
+ *
+ * **A slim one-line band pinned above the bottom bar, never at the top** (owner 2026-10-01): the
+ * banner it replaces sat between the brand bar and the title bar and pushed every phone screen's
+ * title and first rows 136 px down. The band is fixed, so nothing at the top of a screen moves;
+ * its height is reserved (`--app-push-h`, `globals.css`: by `:has()` before hydration, then
+ * measured, as the offline band's) and everything docked at the bottom, and the page's own
+ * padding, sits above it (`--app-bands-h`), so no content hides behind it. It sits above the
+ * offline band when both show.
+ *
+ * Tapping it opens a bottom sheet (a layer: back closes it) with the explanation and, on a device
+ * that can ask, the permission button: **permission is asked only on that tap**. After hydration
+ * the copy follows the device: iOS in a browser tab → "Install MaxOff…" and how; denied → how to
+ * re-enable; no push at all → says so. Both band copies share one grid cell, so its height never
+ * depends on the state.
  */
-/** The device's state as one key: what the banner says follows it. */
 type StateKey =
   "loading" | "default" | "denied" | "granted" | "ios_not_installed" | "unsupported" | "off";
 
@@ -45,7 +63,7 @@ const noSubscribe = () => () => {};
 export function PushBanner({ publicKey }: { publicKey: string | null }) {
   const router = useRouter();
   // "loading" on the server and the first client render, then the device's real state
-  // (`useSyncExternalStore`, as `useIsStandalone`): one row high either way, so nothing moves.
+  // (`useSyncExternalStore`, as `useIsStandalone`).
   const detected = useSyncExternalStore(
     noSubscribe,
     () => stateFor(currentSupport(), publicKey),
@@ -53,6 +71,7 @@ export function PushBanner({ publicKey }: { publicKey: string | null }) {
   );
   // The tap's own answer: a refusal is remembered without re-reading the device.
   const [refused, setRefused] = useState(false);
+  const [open, setOpen] = useState(false);
   const state: StateKey = refused ? "denied" : detected;
 
   const enable = useAction(async () => {
@@ -63,73 +82,114 @@ export function PushBanner({ publicKey }: { publicKey: string | null }) {
     }
     const subscription = await subscribeBrowser(publicKey ?? "");
     const result = await subscribePush(toPayload(subscription));
-    if (toastResult(result, { success: "Notifications are on for this device" })) router.refresh();
+    if (toastResult(result, { success: "Notifications are on for this device" })) {
+      // The sheet's history entry goes first (§14.2 e), then the layout drops the band.
+      if (!closeOverlaysThen(() => router.refresh())) {
+        setOpen(false);
+        router.refresh();
+      }
+    }
   });
 
-  // Every state's copy is laid out in the same grid cell and only the device's own is visible,
-  // so the banner is as tall as its longest copy in every state: the server's "loading" render
-  // and the hydrated state (denied, iOS, unsupported…) take the same height and nothing under
-  // the banner moves (ARCHITECTURE §14.1; `loading-screens.spec`).
-  const active = copyKey(state, refused);
+  // The band's real height (two lines at large text), published for everything docked above it.
+  const band = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const element = band.current;
+    if (!element) return;
+    const html = document.documentElement;
+    const measure = () => html.style.setProperty("--app-push-h", `${element.offsetHeight}px`);
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    measure();
+    return () => {
+      observer.disconnect();
+      html.style.removeProperty("--app-push-h");
+    };
+  }, []);
+
+  const bandKey: BandKey = state === "ios_not_installed" ? "install" : "off";
+  const sheet = SHEET[sheetKey(state, refused)];
   return (
-    <section
-      data-slot="push-banner"
-      data-state={state}
-      aria-label="Notifications"
-      className="bg-muted/40 ring-foreground/10 mb-4 grid rounded-xl px-4 py-3 ring-1"
-    >
-      {COPY_KEYS.map((key) => {
-        const copy = COPY[key];
-        const shown = key === active;
-        return (
-          <div
-            key={key}
-            data-copy={key}
-            aria-hidden={shown ? undefined : true}
-            className={`col-start-1 row-start-1 flex min-h-10 flex-wrap items-center justify-between gap-x-4 gap-y-2 ${shown ? "" : "invisible"}`}
-          >
-            <div className="flex min-w-0 flex-[1_1_14rem] items-start gap-3">
-              {key === "ios_not_installed" ? (
-                <ShareIcon className="text-foreground mt-0.5 size-5 shrink-0" aria-hidden />
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger
+        ref={band}
+        // From `md` up it starts after the sidebar (`w-60`), whose foot it would otherwise hide.
+        data-slot="push-banner"
+        data-state={state}
+        className="pressable bg-muted text-foreground border-border fixed inset-x-0 bottom-[calc(var(--app-bottom-nav-h)+var(--app-safe-bottom)+var(--app-offline-h,0px))] z-30 grid min-h-11 border-t px-4 py-1.5 text-left text-sm md:left-60"
+      >
+        {BAND_KEYS.map((key) => {
+          const shown = key === bandKey;
+          return (
+            <span
+              key={key}
+              data-copy={key}
+              aria-hidden={shown ? undefined : true}
+              className={`col-start-1 row-start-1 flex min-w-0 items-center justify-center gap-2 ${shown ? "" : "invisible"}`}
+            >
+              {key === "install" ? (
+                <ShareIcon className="size-4 shrink-0" aria-hidden />
               ) : (
-                <BellRingIcon className="text-foreground mt-0.5 size-5 shrink-0" aria-hidden />
+                <BellRingIcon className="size-4 shrink-0" aria-hidden />
               )}
-              <div className="min-w-0">
-                <p className="text-sm font-medium">{copy.title}</p>
-                <p className="text-muted-foreground text-sm">{copy.body}</p>
-                {shown ? <ActionStatus action={enable} className="mt-1" /> : null}
-              </div>
-            </div>
-            {copy.button ? (
-              <Button
-                variant="secondary"
-                onClick={() => enable.run()}
-                disabled={enable.pending || !shown}
-                tabIndex={shown ? undefined : -1}
-                data-slot={shown ? "push-enable" : undefined}
-              >
-                {enable.pending ? "Turning on…" : copy.button}
-              </Button>
-            ) : null}
+              <span className="min-w-0">
+                {BAND[key].text}
+                <span aria-hidden> · </span>
+                <span className="font-semibold underline underline-offset-2">
+                  {BAND[key].action}
+                </span>
+              </span>
+            </span>
+          );
+        })}
+      </SheetTrigger>
+      <SheetContent
+        side="bottom"
+        data-slot="push-sheet"
+        className="max-h-[80dvh] gap-3 overflow-y-auto rounded-t-2xl pb-[calc(1.5rem+var(--app-safe-bottom))]"
+      >
+        <div
+          aria-hidden
+          className="bg-border pointer-events-none absolute top-2 left-1/2 h-1 w-10 -translate-x-1/2 rounded-full"
+        />
+        <SheetHeader className="pt-3 pb-0">
+          <SheetTitle>{sheet.title}</SheetTitle>
+          <SheetDescription>{sheet.body}</SheetDescription>
+        </SheetHeader>
+        {sheet.button ? (
+          <div className="flex flex-col gap-2 px-4">
+            {/* The screen's one commit: permission is asked only here (decision 9). */}
+            <Button
+              variant="primary"
+              className="h-11"
+              onClick={() => enable.run()}
+              pending={enable.pending}
+              pendingLabel="Turning on…"
+              data-slot="push-enable"
+            >
+              {sheet.button}
+            </Button>
+            <ActionStatus action={enable} />
           </div>
-        );
-      })}
-    </section>
+        ) : null}
+      </SheetContent>
+    </Sheet>
   );
 }
 
-type CopyKey = "ask" | "denied" | "refused" | "ios_not_installed" | "unsupported" | "off";
+type BandKey = "off" | "install";
 
-const COPY_KEYS: readonly CopyKey[] = [
-  "ask",
-  "denied",
-  "refused",
-  "ios_not_installed",
-  "unsupported",
-  "off",
-];
+const BAND_KEYS: readonly BandKey[] = ["off", "install"];
 
-function copyKey(state: StateKey, refused: boolean): CopyKey {
+/** The band's one line (owner 2026-10-01): "Notifications are off · Turn on". */
+const BAND: Record<BandKey, { text: string; action: string }> = {
+  off: { text: "Notifications are off", action: "Turn on" },
+  install: { text: "Install MaxOff to get notifications", action: "How" },
+};
+
+type SheetKey = "ask" | "denied" | "refused" | "ios_not_installed" | "unsupported" | "off";
+
+function sheetKey(state: StateKey, refused: boolean): SheetKey {
   switch (state) {
     case "loading":
     case "default":
@@ -145,17 +205,17 @@ function copyKey(state: StateKey, refused: boolean): CopyKey {
 const DENIED_BODY =
   "Allow notifications for MaxOff in your browser's site settings (or the app's info screen), then come back.";
 
-const COPY: Record<CopyKey, { title: string; body: string; button: string | null }> = {
+const SHEET: Record<SheetKey, { title: string; body: string; button: string | null }> = {
   ask: {
     title: "Turn on notifications",
-    body: "Tasks, approvals and reminders reach you the moment they happen.",
+    body: "Tasks, approvals and reminders reach you the moment they happen. Your device asks once.",
     button: "Turn on",
   },
   denied: { title: "Notifications are blocked on this device", body: DENIED_BODY, button: null },
   refused: { title: "Notifications were not allowed", body: DENIED_BODY, button: null },
   ios_not_installed: {
-    title: "Add MaxOff to your Home Screen",
-    body: 'iPhone notifies only the installed app: tap Share, then "Add to Home Screen".',
+    title: "Install MaxOff to get notifications",
+    body: 'iPhone notifies only the installed app: tap Share, then "Add to Home Screen", and open MaxOff from there.',
     button: null,
   },
   unsupported: {

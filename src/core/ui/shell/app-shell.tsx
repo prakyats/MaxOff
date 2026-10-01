@@ -111,7 +111,7 @@ export function AppShell({
             tabIndex={-1}
             // No top padding on a phone: the sticky title bar provides the separation, and the
             // first real row of content has to be visible without scrolling (§14.1).
-            className="mx-auto w-full max-w-[80rem] flex-1 px-4 pt-0 pb-[calc(var(--app-bottom-nav-h)+1.5rem+var(--app-safe-bottom)+var(--app-offline-h,0px))] md:px-6 md:py-6 lg:px-8"
+            className="mx-auto w-full max-w-[80rem] flex-1 px-4 pt-0 pb-[calc(var(--app-bottom-nav-h)+1.5rem+var(--app-safe-bottom)+var(--app-bands-h,0px))] md:px-6 md:py-6 md:pb-[calc(1.5rem+var(--app-bands-h,0px))] lg:px-8"
           >
             {children}
           </main>
