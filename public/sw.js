@@ -23,7 +23,7 @@
  *
  * Bump VERSION when the caching rules or the handlers change; the old cache is deleted on activate.
  */
-const VERSION = "v5";
+const VERSION = "v6";
 const CACHE = `maxoff-${VERSION}`;
 const OFFLINE_URL = "/offline";
 /** A failed navigation waits this long, then is tried once more before the offline page. */
@@ -148,7 +148,13 @@ self.addEventListener("fetch", (event) => {
 // Web Push (5.2) ---------------------------------------------------------------------------------
 
 const NOTIFICATIONS_URL = "/notifications";
-const ICON_URL = "/icons/icon-192.png";
+/**
+ * The status-bar badge: the M alone, white on transparent (public/icons/badge.svg). Android draws a
+ * notification's small icon from its alpha, so the full-colour app icon showed as a white square.
+ * No `icon` (large picture) is sent: the installed app already shows its own icon beside every
+ * notification, so an `icon` drew a second M (owner's phone test, 2026-10-01).
+ */
+const BADGE_URL = "/icons/badge-96.png";
 
 /** The dispatcher's JSON, or a bare-text fallback: a push with no payload still shows something. */
 function readPushMessage(event) {
@@ -172,8 +178,7 @@ self.addEventListener("push", (event) => {
   const message = readPushMessage(event);
   const options = {
     body: message.body || undefined,
-    icon: ICON_URL,
-    badge: ICON_URL,
+    badge: BADGE_URL,
     tag: message.tag || undefined,
     // A newer push with the same tag replaces the older quietly: no second buzz for the same
     // notification, one buzz for a fresh one.

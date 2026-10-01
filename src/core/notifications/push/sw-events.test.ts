@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { runInNewContext } from "node:vm";
 
@@ -90,6 +90,15 @@ describe("sw.js push events (5.2)", () => {
       tag: "n:1",
       data: { url: "/tasks/1" },
     });
+  });
+
+  it("draws one M: the white badge for the status bar and no large icon (owner's phone test)", async () => {
+    const worker = loadWorker();
+    await worker.fire("push", { data: pushData({ title: "Test", body: "b", url: "/me" }) });
+    const options = worker.shown[0]!.options;
+    expect(options.badge).toBe("/icons/badge-96.png");
+    expect(options).not.toHaveProperty("icon");
+    expect(existsSync(path.join(process.cwd(), "public", "icons", "badge-96.png"))).toBe(true);
   });
 
   it("a tap opens the deep-link entry; an outside link falls back to the history", async () => {

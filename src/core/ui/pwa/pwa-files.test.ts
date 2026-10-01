@@ -138,7 +138,7 @@ describe("sw.js", () => {
   });
 
   it("shows a push, opens its link through the deep-link entry and re-subscribes on change (5.2)", () => {
-    expect(sw).toMatch(/VERSION = "v5"/);
+    expect(sw).toMatch(/VERSION = "v6"/);
     expect(sw).toContain('addEventListener("push"');
     expect(sw).toContain("self.registration.showNotification(message.title");
     // The tap lands on the record with its list underneath (ARCHITECTURE §14.2 h).
