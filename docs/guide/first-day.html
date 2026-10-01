@@ -7,7 +7,7 @@
 <style>
   /* One long, narrow page: it is read on a phone (sent with the invite on WhatsApp), so the PDF is
      phone-width and one page tall. The same conventions as MaxOff-App-Guide.html. */
-  @page { size: 110mm 1040mm; margin: 7mm 7mm 7mm 7mm; }
+  @page { size: 110mm 1080mm; margin: 7mm 7mm 7mm 7mm; }
   :root { --red: #C42126; --ink: #16161a; --muted: #5b5b66; --line: #e3e3e8; --soft: #f6f6f8; --ok: #1f7a4d; }
   * { box-sizing: border-box; }
   body { font-family: "Segoe UI", system-ui, sans-serif; color: var(--ink); font-size: 9.5pt; line-height: 1.45; margin: 0 auto; max-width: 30rem; background: #fff; }
@@ -49,24 +49,25 @@
 
 <h2><span class="num">1</span>Get the app</h2>
 <ol class="steps">
-  <li>Open the <b>invite link</b> Prishit sent you and tap <span class="path">Continue to MaxOff</span>. It works once, within 24 hours. Choose a password (at least 12 characters) → <span class="path">Save password and sign in</span>.</li>
+  <li>Open your <b>invite link</b>: it comes by email (from notifications@mail.maxoff.in; check spam), and Prishit may send it to you as well. Tap <span class="path">Continue to MaxOff</span>. It works once, within 24 hours, whichever you open first. Choose a password (at least 12 characters) → <span class="path">Save password and sign in</span>.</li>
   <li><b>Android:</b> open <b>https://app.maxoff.in</b> in Chrome → <span class="path">⋮ → Install app</span>.<br><b>iPhone:</b> open it in Safari → <span class="path">Share → Add to Home Screen</span>, then open MaxOff from the home screen and sign in once more.</li>
   <li>From now on, open MaxOff from its icon. You stay signed in.</li>
 </ol>
-<div class="box"><b>Your attendance starts tomorrow:</b> the day you join is never counted. Calendar and Alerts say "coming soon" for now.</div>
+<div class="box"><b>Your attendance starts tomorrow:</b> the day you join is never counted. Calendar says "coming soon" for now.</div>
 
 <h2><span class="num">2</span>Turn on notifications</h2>
 <p>This is how a new task, a decision on your leave or a change request reaches you. Do it once, on your phone.</p>
 <ol class="steps">
-  <li><b>iPhone:</b> do <span class="path">Add to Home Screen</span> first (step 1) and open MaxOff from its icon. An iPhone notifies only the installed app.</li>
-  <li>MaxOff shows a band, <b>"Turn on notifications"</b>. Tap <span class="path">Turn on</span>.</li>
-  <li>Your phone asks for permission: tap <b>Allow</b>. The band goes away.</li>
+  <li><b>iPhone:</b> do <span class="path">Add to Home Screen</span> first (step 1) and open MaxOff from its icon. An iPhone notifies only the installed app; until then the band says "Install MaxOff to get notifications · How".</li>
+  <li>Just above the bottom bar is a slim band: <b>"Notifications are off · Turn on"</b>. Tap it.</li>
+  <li>A sheet opens. Tap <span class="path">Turn on</span>, then <b>Allow</b> when your phone asks. The band goes away.</li>
   <li>Check it: <span class="path">Me → Send a test notification → Send test</span>.</li>
 </ol>
 <ul>
   <li><b>Quiet hours:</b> between 10:00 PM and 7:00 AM nothing is sent to your phone. At 7:00 AM you get one notification with what happened overnight ("3 updates while you were away").</li>
   <li>A new task is also emailed to you.</li>
   <li>Tapping a notification opens what it is about.</li>
+  <li><span class="path">Alerts</span> in the bottom bar keeps them all, newest first. The number on it is how many you haven't read; tap one to open it.</li>
 </ul>
 
 <h2><span class="num">3</span>Every working day</h2>
@@ -142,7 +143,7 @@ Just looking</div>
   <tr><td>You forgot your password</td><td>Sign-in screen → <span class="path">Forgot your password?</span> → your email → open "Set your MaxOff password" (from noreply@mail.maxoff.in; check spam) → <span class="path">Continue to MaxOff</span> → set a new one.</td></tr>
   <tr><td>The invite link says "expired or already used"</td><td>Ask Prishit for a new one.</td></tr>
   <tr><td>No notifications arrive</td><td><span class="path">Me → Notifications</span> says what is wrong on this phone. On iPhone, open MaxOff from its home-screen icon. Then <span class="path">Send test</span>.</td></tr>
-  <tr><td>It says "Notifications are blocked on this device"</td><td>Allow notifications for MaxOff in the browser's site settings (or the app's info screen), then open MaxOff again.</td></tr>
+  <tr><td>The band's sheet says "Notifications are blocked on this device"</td><td>Allow notifications for MaxOff in the browser's site settings (or the app's info screen), then open MaxOff again.</td></tr>
   <tr><td>A day says "End of day not recorded"</td><td>You didn't end it in time. Worked late? Add an overtime note. Anything wrong? Tell Prishit: he can correct any day, with a reason you'll see.</td></tr>
   <tr><td>A day looks wrong</td><td><span class="path">Attendance &amp; leave → Attendance</span> shows each day's story. Tell Prishit.</td></tr>
   <tr><td>Your phone is lost or shared</td><td><span class="path">Me → Sign out of this device</span>, and tell Prishit.</td></tr>
