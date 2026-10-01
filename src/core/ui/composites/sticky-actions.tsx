@@ -3,6 +3,7 @@
 import { type ReactNode, useLayoutEffect, useRef } from "react";
 
 import { cn } from "@/core/lib/utils";
+import { changeBottomReserve } from "@/core/ui/viewport/bottom-reserve";
 
 /** The bar's height, read by the page padding and the fields' scroll margin (globals.css). */
 const HEIGHT_VAR = "--app-sticky-actions-h";
@@ -28,7 +29,9 @@ const HEIGHT_VAR = "--app-sticky-actions-h";
  * **Room for it (phase 3 review, owner's phone walk):** while mounted it publishes its measured
  * height as `--app-sticky-actions-h` on `<html>`; below `md` the page reserves that height plus
  * the bottom bar and the safe area, and every field keeps the same scroll margin, so the last
- * field can scroll above the bar and a focused one lands above it, at any text size.
+ * field can scroll above the bar and a focused one lands above it, at any text size. A bar that
+ * grows while the person is at the page's end keeps them there (`changeBottomReserve`), so it
+ * never moves up over the last field.
  *
  * **`keyboardOpen`** (the task page's next step, Kickoff 4 decision 32): a bar that belongs to
  * the page rather than to a form steps aside on a phone while the on-screen keyboard is open; the
@@ -49,7 +52,8 @@ export function StickyActions({
     const bar = ref.current;
     if (!bar) return;
     const root = document.documentElement;
-    const publish = () => root.style.setProperty(HEIGHT_VAR, `${bar.offsetHeight}px`);
+    const publish = () =>
+      changeBottomReserve(() => root.style.setProperty(HEIGHT_VAR, `${bar.offsetHeight}px`));
     publish();
     const observer = new ResizeObserver(publish);
     observer.observe(bar);

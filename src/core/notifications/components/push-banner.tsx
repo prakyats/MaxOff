@@ -17,6 +17,7 @@ import {
   SheetTrigger,
 } from "@/core/ui/primitives/sheet";
 import { toastResult } from "@/core/ui/toast";
+import { changeBottomReserve } from "@/core/ui/viewport/bottom-reserve";
 
 import { subscribePush } from "../actions";
 import {
@@ -107,7 +108,11 @@ export function PushBanner({ publicKey }: { publicKey: string | null }) {
     const element = band.current;
     if (!element) return;
     const html = document.documentElement;
-    const measure = () => html.style.setProperty("--app-push-h", `${element.offsetHeight}px`);
+    // A taller band keeps a person at the page's end there (`changeBottomReserve`).
+    const measure = () =>
+      changeBottomReserve(() =>
+        html.style.setProperty("--app-push-h", `${element.offsetHeight}px`),
+      );
     const observer = new ResizeObserver(measure);
     observer.observe(element);
     measure();
