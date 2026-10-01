@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Applies the migrations the shared **staging** database is missing. Called by deploy.yml's staging
 # job (`main`) and by preview.yml's `staging migrations` job (a `phase-*` branch). Staging only:
-# production keeps deploy.yml's plain `supabase db push`, and nothing here reads a production value.
+# production has scripts/production-migrations.sh (stricter: no stand-ins, it fails instead), and
+# nothing here reads a production value.
 #
 # Why not a plain `supabase db push`: staging is shared by `main` and every open phase branch, and
 # each branch's migrations reach it on push, so staging's history usually holds versions this

@@ -211,7 +211,7 @@ export async function insertAs<T>(
  * transition functions, so it refuses any URL that is not this machine's stack. For clearing a
  * spec's own fixture person and for reading ids a spec needs, never for the flow under test.
  */
-async function serviceRest(path: string, init: RequestInit = {}): Promise<Response> {
+export async function serviceRest(path: string, init: RequestInit = {}): Promise<Response> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
   const key = process.env.SUPABASE_SECRET_KEY ?? "";
   expect(new URL(url).hostname, "service-role cleanup runs on the local stack only").toMatch(
@@ -602,6 +602,19 @@ export async function memberIdOf(email: string): Promise<string> {
  * tapped eases back from its pressed scale (`pressable`, 120 ms), and a sheet slides in, so a box
  * read during either is a few pixels off what the person sees a moment later.
  */
+/**
+ * The top edge of what a phone's docked bars (the sticky action bar, the task's next step) sit
+ * on: the push band while it shows (5A decision 30: the bands sit between the bottom bar and
+ * everything docked above it), else the bottom bar itself.
+ */
+export async function dockTop(page: Page): Promise<number> {
+  const band = page.locator('[data-slot="push-banner"]');
+  const below = (await band.count())
+    ? await band.boundingBox()
+    : await page.locator('[data-slot="bottom-nav"]').boundingBox();
+  return below?.y ?? 0;
+}
+
 export async function animationsSettled(page: Page): Promise<void> {
   await page.waitForFunction(() =>
     document.getAnimations().every((animation) => {

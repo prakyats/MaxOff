@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { action, type BulkOutcome, eachId, ok, type Result } from "@/core/errors";
+import { dispatchPushSoon } from "@/core/notifications/push/dispatch";
 import { assertPermission } from "@/core/permissions/server";
 
 import * as repo from "../data/review";
@@ -37,6 +38,7 @@ export const approveLeave = action(
     await assertPermission("attendance.decide");
     const keptDates = await repo.rpcApprove(data.requestId);
     revalidateReview();
+    dispatchPushSoon();
     return ok({ keptDates });
   },
 );
@@ -52,6 +54,7 @@ export const approveLeaves = action(
     });
     revalidateReview();
     const note = keptDatesNote(kept);
+    dispatchPushSoon();
     return ok(note ? { ...outcome, note } : outcome);
   },
 );
@@ -61,6 +64,7 @@ export const rejectLeave = action(async (input: RejectLeaveInput): Promise<Resul
   await assertPermission("attendance.decide");
   await repo.rpcDecide(data.requestId, "reject", data.reason);
   revalidateReview();
+  dispatchPushSoon();
   return ok(null);
 });
 
@@ -70,6 +74,7 @@ export const ownerEditLeave = action(
     await assertPermission("attendance.decide");
     const keptDates = await repo.rpcOwnerEdit(data);
     revalidateReview();
+    dispatchPushSoon();
     return ok({ keptDates });
   },
 );
@@ -80,6 +85,7 @@ export const ownerCancelLeave = action(
     await assertPermission("attendance.decide");
     await repo.rpcOwnerCancel(data.requestId, data.reason);
     revalidateReview();
+    dispatchPushSoon();
     return ok(null);
   },
 );

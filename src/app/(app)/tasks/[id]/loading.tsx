@@ -60,7 +60,7 @@ export default async function Loading() {
             <div
               aria-hidden
               data-slot="loading-task-step"
-              className="border-border bg-card/95 fixed inset-x-0 bottom-[calc(var(--app-bottom-nav-h)+var(--app-safe-bottom)+var(--app-offline-h,0px))] z-30 flex border-t py-3 pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] md:hidden"
+              className="border-border bg-card/95 fixed inset-x-0 bottom-[calc(var(--app-bottom-nav-h)+var(--app-safe-bottom)+var(--app-bands-h,0px))] z-30 flex border-t py-3 pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] md:hidden"
             >
               <Skeleton className="h-11 flex-1 rounded-lg" />
             </div>

@@ -17,6 +17,9 @@ import {
   removeTasksTitled,
   removeTemplatesNamed,
   rpcAs,
+  serviceDelete,
+  serviceInsert,
+  serviceSelect,
   type SessionRole,
   storageStateFor,
   taskTypeId,
@@ -58,7 +61,8 @@ const TRACE_TOLERANCE = 1;
 /** A point the skeleton must meet: its selector while held, and the page's once settled. */
 type Point = { held: string; settled: string };
 
-type Fixture = "staff task" | "suggestion" | "template" | "task to check" | "task page";
+type Fixture =
+  "staff task" | "suggestion" | "template" | "task to check" | "task page" | "notification";
 
 type LoadingScreen = {
   role: SessionRole;
@@ -73,6 +77,17 @@ type LoadingScreen = {
   fixture?: Fixture;
   /** What the settled page waits for before it is measured (a sheet that slides in). */
   settle?: (page: Page) => Promise<void>;
+};
+
+const ALERTS: Record<string, Point> = {
+  "unread line": {
+    held: '[data-slot="loading-notifications"] > :first-child',
+    settled: '[data-slot="notification-bar"]',
+  },
+  "first row": {
+    held: '[data-slot="loading-notifications"] li',
+    settled: '[data-slot="notification-row"]',
+  },
 };
 
 const TASKS_TEAM: Record<string, Point> = {
@@ -409,6 +424,15 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
       },
     },
   },
+  // 5.1: Alerts, every role: the "N unread" line, then the rows.
+  ...(["owner", "admin", "staff"] as const).map((role): LoadingScreen => ({
+    role,
+    path: "/notifications",
+    marker: 'data-slot="loading-notifications"',
+    hold: "/rest/v1/notifications",
+    fixture: "notification",
+    trace: ALERTS,
+  })),
   // An Admin's Approvals: the one group, the tasks they check (4.5).
   {
     role: "admin",
@@ -447,8 +471,23 @@ function shortTag(prefix: string): string {
 async function makeFixture(
   prefix: string,
   fixture: Fixture,
+  role: SessionRole,
 ): Promise<{ remove: () => Promise<void>; task?: string }> {
   const { owner, admin, staff } = USERS;
+  if (fixture === "notification") {
+    const [member] = await serviceSelect<{ id: string; org_id: string }>(
+      `members?email=eq.${encodeURIComponent(USERS[role].email)}&select=id,org_id`,
+    );
+    const row = await serviceInsert<{ id: string }>("notifications", {
+      org_id: member?.org_id,
+      recipient_id: member?.id,
+      kind: "leave_decided",
+      title: `${prefix}alert`,
+      body: "Open your requests.",
+      link: "/leave",
+    });
+    return { remove: () => serviceDelete(`notifications?id=eq.${row.id}`) };
+  }
   if (fixture === "suggestion") {
     await rpcAs(staff.email, staff.password, "task_request_create", { title: `${prefix}reel` });
     return { remove: () => removeRequestsTitled(prefix) };
@@ -538,7 +577,7 @@ for (const role of ["owner", "admin", "staff"] as const) {
           expect(day?.started_at, "the seeded Admin's day is started (auth.setup)").toBeTruthy();
           expect(day?.ended_at, "and not ended").toBeNull();
         }
-        const made = screen.fixture ? await makeFixture(prefix, screen.fixture) : null;
+        const made = screen.fixture ? await makeFixture(prefix, screen.fixture, role) : null;
         const remove = made?.remove;
         const path = screen.path.replace(":task", made?.task ?? ":task");
         const session = await ownSession(page, user.email, user.password);

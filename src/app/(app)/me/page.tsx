@@ -8,6 +8,9 @@ import { requireMember, withSessionUserId } from "@/core/auth/server";
 import { can } from "@/core/permissions";
 import { EditableRecord } from "@/core/ui/composites/editable-record";
 import { PageHeader } from "@/core/ui/composites/page-header";
+import { PushDeviceRows } from "@/core/notifications/components/push-device-rows";
+import { readPushEnv } from "@/core/notifications/env";
+import { listOwnActiveEndpoints } from "@/core/notifications/push/subscriptions";
 import { fileUrl } from "@/core/storage";
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/ui/primitives/avatar";
 import {
@@ -41,7 +44,8 @@ import { ME_DESCRIPTION } from "./copy";
 export const metadata: Metadata = { title: "Me" };
 
 /**
- * Profile, own attendance and leave (2.3), appearance and "Sign out of this device" (PRODUCT
+ * Profile, own attendance and leave (2.3), appearance, notifications on this device and the test
+ * push (5.2), and "Sign out of this device" (PRODUCT
  * §4.7: the Staff "Me" tab; kickoff 3b decision 1: the sign-out lives here only). An accepted invite lands here with `?welcome=1` (WORKFLOWS §1a) to check the name
  * and add a phone. The photo is chosen through `AvatarEditor` (3.3): the original is kept and
  * a browser-made preview is what the app shows.
@@ -58,10 +62,16 @@ export default async function MePage({
 }) {
   // The profile row and the freelancers the member looks after (ADR-0013, 4C) start with the
   // session read, not after it (ARCHITECTURE §19).
-  const [viewer, [{ welcome }, own, spells]] = await checkThenRead(
+  const [viewer, [{ welcome }, own, spells, endpoints]] = await checkThenRead(
     requireMember(),
-    Promise.all([searchParams, withSessionUserId(getOwnMember), listOwnFreelancers()]),
+    Promise.all([
+      searchParams,
+      withSessionUserId(getOwnMember),
+      listOwnFreelancers(),
+      listOwnActiveEndpoints(),
+    ]),
   );
+  const push = readPushEnv();
   const freelancers = spells.filter((spell) => spell.toAt === null);
   // perf: sequential. Their names need their ids; most people coordinate nobody, and then
   // nothing more is read.
@@ -183,6 +193,12 @@ export default async function MePage({
               </div>
               <ThemeToggle />
             </div>
+            <Separator />
+            {/* Notifications on this device and the test push (5.2, kickoff 5 decision 9). */}
+            <PushDeviceRows
+              publicKey={push.mode === "on" ? push.publicKey : null}
+              endpoints={endpoints}
+            />
             <Separator />
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="min-w-0 flex-[1_1_10rem]">

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- MaxOff push badge (5B decision 9, in v1.3.0): the logo's M alone, white on transparent.
+       Android draws a notification's small icon from its alpha only, so a full-colour icon shows
+       as a white square in the status bar; this one shows as the M. Source of badge-96.png. -->
+  <path d="M132 372V152l124 128 124-128v220" fill="none" stroke="#ffffff" stroke-width="52" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
