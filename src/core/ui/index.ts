@@ -60,7 +60,6 @@ export {
 export {
   initialsOf,
   isShellRole,
-  ROLE_LABELS,
   SHELL_ROLES,
   type ShellRole,
   type ShellViewer,

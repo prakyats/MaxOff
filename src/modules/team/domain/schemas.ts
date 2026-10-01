@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { ROLE_LABELS } from "@/core/lib/role-labels";
+
 import {
   INVITABLE_ROLES,
   NAME_MAX_LENGTH,
@@ -8,6 +10,8 @@ import {
   DEACTIVATE_REASON_MAX_LENGTH,
   type InvitableRole,
 } from "./limits";
+
+const CHOOSE_ROLE = `Choose ${ROLE_LABELS.admin} or ${ROLE_LABELS.staff}.`;
 
 const fullName = z
   .string()
@@ -41,7 +45,7 @@ const phone = z
 export const inviteMemberSchema = z.object({
   email,
   fullName,
-  role: z.enum(INVITABLE_ROLES, { error: "Choose Admin or Staff." }),
+  role: z.enum(INVITABLE_ROLES, { error: CHOOSE_ROLE }),
   jobTitleId,
 });
 export type InviteMemberInput = z.input<typeof inviteMemberSchema>;
@@ -102,7 +106,7 @@ export const updateMemberSchema = z.object({
   memberId: z.uuid(),
   fullName,
   /** The Owner row keeps its role: the form never offers a choice for it (the guard refuses anyway). */
-  role: z.enum(INVITABLE_ROLES, { error: "Choose Admin or Staff." }).optional(),
+  role: z.enum(INVITABLE_ROLES, { error: CHOOSE_ROLE }).optional(),
   jobTitleId,
   handover,
 });

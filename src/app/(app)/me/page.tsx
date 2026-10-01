@@ -22,10 +22,11 @@ import {
 } from "@/core/ui/primitives/card";
 import { Separator } from "@/core/ui/primitives/separator";
 import { ReloadAppButton } from "@/core/ui/shell/reload-app-button";
-import { initialsOf, ROLE_LABELS } from "@/core/ui/shell/viewer";
+import { initialsOf } from "@/core/ui/shell/viewer";
 import { ThemeToggle } from "@/core/ui/theme/theme-toggle";
 import { formatIST } from "@/core/time";
 import { displayName } from "@/core/lib/display-name";
+import { ROLE_LABELS } from "@/core/lib/role-labels";
 import {
   getOwnMember,
   listDirectoryOf,

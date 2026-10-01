@@ -549,7 +549,7 @@ test.describe("People is a card list, not a table", () => {
     await expect(sheet).toBeVisible();
     // The columns a phone has no room for live here (PERMISSIONS §2: the Owner sees email).
     await expect(sheet).toContainText("staff@maxoff.local");
-    await expect(sheet).toContainText("Staff");
+    await expect(sheet).toContainText("Crew");
     // And the actions, which were a hover-adjacent 32px dropdown on desktop. Edit opens the
     // person's page in edit mode (3.4), so it is a link.
     await expect(sheet.getByRole("link", { name: "Edit" })).toBeVisible();

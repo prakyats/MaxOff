@@ -5,6 +5,7 @@ import { useId, useState } from "react";
 import { toast } from "sonner";
 
 import type { ResultError } from "@/core/errors";
+import { ROLE_LABELS } from "@/core/lib/role-labels";
 import { cn } from "@/core/lib/utils";
 import { ActionStatus } from "@/core/ui/action/action-status";
 import { useAction } from "@/core/ui/action/use-action";
@@ -43,8 +44,8 @@ import { InviteLinkPanel } from "./invite-link-panel";
 import { JobTitleSelect, type JobTitleOption } from "./job-title-select";
 
 const ROLE_COPY: Record<InvitableRole, string> = {
-  admin: "Admin: runs their clients and the staff work they create or approve",
-  staff: "Staff: does the tasks allotted to them",
+  admin: `${ROLE_LABELS.admin}: runs their clients and the ${ROLE_LABELS.staff.toLowerCase()} work they create or approve`,
+  staff: `${ROLE_LABELS.staff}: does the tasks allotted to them`,
 };
 
 const EMAIL_COPY: Record<InviteOutcome["email"], string> = {
@@ -255,7 +256,7 @@ export function AddPersonDialog({
                     <SelectContent>
                       {INVITABLE_ROLES.map((option) => (
                         <SelectItem key={option} value={option}>
-                          {option === "admin" ? "Admin" : "Staff"}
+                          {ROLE_LABELS[option]}
                         </SelectItem>
                       ))}
                     </SelectContent>

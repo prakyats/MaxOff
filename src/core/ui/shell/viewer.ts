@@ -19,12 +19,6 @@ export type ShellViewer = {
   avatarFileId?: string | null;
 };
 
-export const ROLE_LABELS: Record<ShellRole, string> = {
-  owner: "Owner",
-  admin: "Admin",
-  staff: "Staff",
-};
-
 export function initialsOf(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   const first = parts[0]?.[0] ?? "";

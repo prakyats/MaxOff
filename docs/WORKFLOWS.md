@@ -2,6 +2,7 @@
 
 > Every workflow state change goes through a **Postgres transition function** (e.g. `task_submit_done()`). The function checks the actor, the current state and the inputs, updates the record, writes `activity_log`, and queues notifications, **all in one transaction**. Direct `UPDATE`s of state columns are blocked by RLS and triggers.
 > Times are `timestamptz`. "Today" means the **IST date**: `(now() at time zone 'Asia/Kolkata')::date`.
+> **Staff** below is the `staff` role, which people see as **"Crew"** (owner decision 2026-09-30, PRODUCT §3): text written for people (screens, notifications, emails) says Crew; in the app it comes from `ROLE_LABELS`.
 
 ---
 

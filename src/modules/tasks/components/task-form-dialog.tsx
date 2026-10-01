@@ -7,6 +7,7 @@ import { Suspense, use, useEffect, useMemo, useRef, useState } from "react";
 import type { FieldDefinition } from "@/core/custom-fields";
 import { CustomFieldsForm } from "@/core/custom-fields/components/custom-fields-form";
 import type { ResultError } from "@/core/errors/result";
+import { ROLE_LABELS } from "@/core/lib/role-labels";
 import { type ISODate, isISODate, systemClock, toISTDate } from "@/core/time";
 import { ActionStatus } from "@/core/ui/action/action-status";
 import { useAction } from "@/core/ui/action/use-action";
@@ -283,7 +284,7 @@ function personMeta(person: AssignablePerson): string {
   if (person.engagement === "freelance") {
     return person.coordinatorName ? `Freelancer · with ${person.coordinatorName}` : "Freelancer";
   }
-  return person.jobTitle ?? (person.role === "admin" ? "Admin" : "Staff");
+  return person.jobTitle ?? ROLE_LABELS[person.role];
 }
 
 function TaskForm({
@@ -891,7 +892,10 @@ function TaskForm({
         </div>
       ) : null}
 
-      <FormField label="Client label" hint="Staff see only the client's name and brand basics.">
+      <FormField
+        label="Client label"
+        hint={`${ROLE_LABELS.staff} see only the client's name and brand basics.`}
+      >
         {(control) => (
           <Select value={(clientOffered && draft.clientId) || NO_CLIENT} onValueChange={pickClient}>
             <SelectTrigger

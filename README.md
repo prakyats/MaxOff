@@ -227,7 +227,7 @@ allows 100 a day, and invites are never counted). The Supabase table editor (ser
 
 ### Inviting people (task 1.3)
 
-People → **Invite** (Owner only): email, name, role (Admin or Staff) and job title. The app
+People → **Invite** (Owner only): email, name, role (Admin or Crew) and job title. The app
 creates the sign-in without a password (`auth.admin.generateLink`, type `invite`), writes the
 member row as `invited` and shows the **invite link** once. The same link goes out by email when
 `RESEND_API_KEY` is set; until a sending domain exists, copy it from the dialog and send it
