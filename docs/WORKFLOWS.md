@@ -291,6 +291,13 @@ assigned (acknowledged_at null) ──"Task Noted"──► acknowledged (timest
 - Every approve or reject is a `task_reviews` row (step, decision, reason, reviewer, the submission version it refers to).
 - File submissions are versioned per task (`task_submissions.version` 1, 2, …). Files are never replaced.
 - **Until phase 8 (owner decision 2026-09-28, kickoff 4):** there are no uploads on tasks. Every Done (and every resubmit) writes a `task_submissions` version with an **optional note** (≤ 5000 characters) and no `submission_items`. The note may contain `http`/`https` links, which the task page and the review sheet render as tappable links, so work can be handed in as a Drive link. The review refers to that version. Phase 8 adds items to the same versions.
+- **Phase 8 (owner decisions 2026-10-01, kickoff 8; built in 8.1 / 8.4a):**
+  - **The next hand-in.** While the task is `todo`, `in_progress` or `changes_requested`, an assignee (or the current coordinator for a freelancer assignee, `on_behalf_of`) adds `submission_items` (uploads and `https` links) that belong to the task and to **no version yet**. Visible to whoever sees the task, marked "Not handed in yet"; removable before Done by the person who added it or the primary owner (their coordinator for a freelancer). Adding or removing one notifies nobody and is audited.
+  - **Mark done seals them:** `task_submit_done` writes version N (the note) and attaches every unsealed item of the task to it in the same transaction (`task_submit_version`'s work, ADR-0010: the step that later queues the Drive jobs). From `submitted` on nothing is added or removed; a change request reopens the next hand-in for version N+1.
+  - **Limits per version:** 20 files and 10 links; types and sizes in PRODUCT §4.9 "Settled at kickoff 8".
+  - **Reviews name their version:** `task_review` takes the version the reviewer saw and refuses (`STALE`, "A newer hand-in arrived. Check it first.") when it is no longer the latest. A review is always of the latest version.
+  - **Comment on a version:** a comment may carry the version it is about (shown "on v2"); one Chat thread per task.
+  - **Archive:** sealed upload items start `archive_state = 'queued'` with no `drive_jobs` (8.3 queues jobs for every waiting item); links are never fetched; only Google Drive links are access-checked and copied, by 8.4b; **any other https link is stored as given and never archived** (ADR-0010 amendment 2026-10-01): it carries a permanent "Not archived" badge, and adding it shows a neutral hint that never blocks.
 
 ### 3.4 Task requests
 `pending ─convert─► converted (task_id set) | ─decline(reason)─► declined | ─withdraw─► withdrawn`
@@ -425,7 +432,7 @@ month M (IST) open ──Owner close──► closed (snapshot v1, immutable)
 | Overdue escalation (`overdue_escalate_hours` past due, nothing submitted) | Approving Admin (or creator) + Owner |
 | Task changed (deadline, scope, priority, assignee, reminders) | Affected assignees |
 | Reminder: before due / due / overdue | Assignees. Overdue also goes to the approving Admin (or creator) |
-| Task submitted (Done) | The approving Admin, or the Owner if there's no Admin step |
+| Task submitted (Done) | The approving Admin, or the Owner if there's no Admin step (from phase 8 the text adds the version's counts, "v2 · 3 files, 1 link", never file names; kickoff 8) |
 | Admin approved | Owner |
 | Changes requested | Assignees |
 | Task completed / cancelled / reopened | Assignees (+ creator) |
@@ -450,6 +457,7 @@ month M (IST) open ──Owner close──► closed (snapshot v1, immutable)
 | Submitted link is private or unreachable | The submitter (with instructions), and the approving Admin on the task card |
 | Google Drive needs reconnecting, or is low on space | Owner only |
 | Anything financial | Owner only |
+| MaxOff storage passes 8 GB (first time; checked by the daily `storage_cleanup`; kickoff 8) | Owner only, once |
 | Upcoming event (shoot, meeting…) on task reminders | Assignees + approving Admin |
 
 **Phase 4 ships before phase 5 (owner decision 2026-09-28, kickoff 4):** the task transition functions name their recipients from this table in their comments, and the rows and delivery arrive with 5.1, as in phase 3b. Until then, the **Tasks tab badge** counts tasks the member (or a freelancer they coordinate) has not noted, plus those in `changes_requested`, and the **Approvals badge** includes the tasks the viewer may decide. Nothing in phase 4 waits for notifications.

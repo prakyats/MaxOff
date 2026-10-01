@@ -935,6 +935,8 @@ task_stages          id, task_id, name, position, done_at, done_by, on_behalf_of
                      -- 4B review (S5): the guard stamps done_at = now() on a tick, whatever the caller
                      -- sent (a non-null done_at only says "tick"), so a tick's time is never forged
 task_comments        id, task_id, author_id, on_behalf_of null, body, created_at        -- append-only
+                     -- kickoff 8 (2026-10-01, 8.2, expand-only): submission_id null → task_submissions of the
+                     -- same task ("Comment on v2"); one Chat thread per task
                      -- on_behalf_of (4A, ADR-0013): set when a coordinator acts for a freelancer; the
                      -- actor column keeps the coordinator. Same pair on task_submissions (submitted_by,
                      -- on_behalf_of) and on the Done/resubmit transition (tasks.submitted_by,
@@ -959,6 +961,20 @@ submission_items     id, submission_id, kind ('upload'|'drive_link'),
                      archive_state ('queued'|'archived'|'failed'|'blocked'),
                      drive_file_id null, drive_web_link null, archived_at,
                      archive_error, archive_attempts, local_deleted_at, created_at
+                     -- kickoff 8 (owner decisions 2026-10-01; built in 8.1 / 8.4a, expand-only):
+                     -- task_id (the item belongs to a task before it is sealed), submission_id null
+                     -- until Mark done seals it into the version (task_submit_done, same transaction),
+                     -- added_by, on_behalf_of null (a coordinator for a freelancer assignee), removed_at /
+                     -- removed_by null (removal only before sealing; a sealed item is never removed).
+                     -- kind 'drive_link' covers every https link (site label derived from the host:
+                     -- Google Drive, WeTransfer, Frame.io, Vimeo, YouTube, Dropbox, else the domain);
+                     -- MaxOff never fetches a link; link_state stays 'unchecked' (8.4b checks Google
+                     -- Drive links only). Uploads and Google Drive links start archive_state 'queued',
+                     -- no drive_jobs until 8.3; any other link is never archived (ADR-0010 amendment
+                     -- 2026-10-01: archive_state null, shown "Not archived" for good).
+                     -- Per version: ≤ 20 uploads and ≤ 10 links. file_id / preview_file_id are FKs to
+                     -- files, so storage_cleanup never treats them as orphans. RLS: app.task_visible(task_id)
+                     -- to read; writes only through transition functions. Audited (entity_id = task_id)
 task_reminders       id, task_id, member_id null, kind ('before_due'|'due'|'overdue'|'ack'|
                      'ack_escalation'|'overdue_escalation'|'event'), escalation_level int null (1 = Admin, 2 = Owner),
                      fire_at, sent_at null, cancelled_at null       -- materialized from reminder_rules + org_settings
