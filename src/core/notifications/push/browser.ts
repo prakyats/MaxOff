@@ -107,3 +107,46 @@ export async function subscribeBrowser(publicKey: string): Promise<PushSubscript
     applicationServerKey: fromBase64Url(publicKey).slice().buffer as ArrayBuffer,
   });
 }
+
+/**
+ * Why `pushManager.subscribe` failed after permission was granted, as the screens word it
+ * (owner 2026-10-01, found on Brave desktop): `denied` when the browser refused it after all
+ * (`NotAllowedError`: the permission was taken back meanwhile), `brave` for any other failure on
+ * Brave, which turns Google's push service off by default ("Use Google services for push
+ * messaging"), and `generic` for every other browser. Never a thrown error: a failed subscribe
+ * is something to explain, not a request to retry, so the screen never falls into Retry.
+ */
+export type SubscribeFailure = "denied" | "brave" | "generic";
+
+export function subscribeFailureFor(error: unknown, browser: { brave: boolean }): SubscribeFailure {
+  const name =
+    typeof error === "object" && error !== null && "name" in error
+      ? String((error as { name: unknown }).name)
+      : "";
+  if (name === "NotAllowedError") return "denied";
+  return browser.brave ? "brave" : "generic";
+}
+
+/** Brave announces itself with `navigator.brave.isBrave()` (its user agent reads as Chrome). */
+export function isBrave(nav: unknown): boolean {
+  if (typeof nav !== "object" || nav === null || !("brave" in nav)) return false;
+  const brave = (nav as { brave: unknown }).brave;
+  return (
+    typeof brave === "object" &&
+    brave !== null &&
+    typeof (brave as { isBrave?: unknown }).isBrave === "function"
+  );
+}
+
+/** `subscribeBrowser` that answers instead of throwing: the subscription, or why it failed. */
+export async function trySubscribeBrowser(
+  publicKey: string,
+): Promise<
+  { ok: true; subscription: PushSubscription } | { ok: false; failure: SubscribeFailure }
+> {
+  try {
+    return { ok: true, subscription: await subscribeBrowser(publicKey) };
+  } catch (error) {
+    return { ok: false, failure: subscribeFailureFor(error, { brave: isBrave(navigator) }) };
+  }
+}

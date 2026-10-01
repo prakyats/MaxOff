@@ -14,8 +14,8 @@ import {
   browserSubscription,
   currentPermission,
   currentSupport,
-  subscribeBrowser,
   toPayload,
+  trySubscribeBrowser,
 } from "../push/browser";
 
 /**
@@ -26,7 +26,16 @@ import {
  * now, quiet hours ignored, and reports what the push services accepted. Two rows always, so
  * the card never changes height; only their words follow the device.
  */
-type Device = "checking" | "here" | "elsewhere" | "none" | "blocked" | "unavailable";
+type Device =
+  | "checking"
+  | "here"
+  | "elsewhere"
+  | "none"
+  | "blocked"
+  | "unavailable"
+  // Allowed, but the browser could not subscribe (`subscribeFailureFor`, owner 2026-10-01).
+  | "brave"
+  | "failed";
 
 function describe(result: TestPushResult): string {
   if (result.pushOff) return "Push is not set up on the server yet: nothing was sent.";
@@ -74,8 +83,15 @@ export function PushDeviceRows({
       setDevice("blocked");
       return;
     }
-    const subscription = await subscribeBrowser(publicKey ?? "");
-    const result = await subscribePush(toPayload(subscription));
+    const attempt = await trySubscribeBrowser(publicKey ?? "");
+    if (!attempt.ok) {
+      // Explained in the row with Try again, never the network Retry.
+      setDevice(
+        attempt.failure === "denied" ? "blocked" : attempt.failure === "brave" ? "brave" : "failed",
+      );
+      return;
+    }
+    const result = await subscribePush(toPayload(attempt.subscription));
     if (toastResult(result, { success: "Notifications are on for this device" })) router.refresh();
   });
 
@@ -103,6 +119,16 @@ export function PushDeviceRows({
       title: "Notifications",
       body: "Not available on this device or browser. On iPhone, add MaxOff to the Home Screen first.",
       button: null,
+    },
+    brave: {
+      title: "Notifications",
+      body: "Brave blocks notifications by default: Settings → Privacy and security → turn on “Use Google services for push messaging”, then try again.",
+      button: "Try again",
+    },
+    failed: {
+      title: "Notifications",
+      body: "This browser couldn't turn on notifications. Try again, or use Chrome, Safari or the installed app.",
+      button: "Try again",
     },
   };
   const row = words[device];

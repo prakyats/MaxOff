@@ -82,9 +82,27 @@ type Receiver = { privateKey: string; publicKey: string; auth: string };
  */
 async function stubPush(
   page: Page,
-  options: { permission: "default" | "granted" | "denied"; endpoint: string; receiver: Receiver },
+  options: {
+    permission: "default" | "granted" | "denied";
+    endpoint: string;
+    receiver: Receiver;
+    /**
+     * `pushManager.subscribe` rejects after Allow, as on Brave with Google's push service off
+     * (an AbortError "push service error"); `brave` also stands in Brave's `navigator.brave`.
+     * `window.__subscribeFails = false` lets the next try through.
+     */
+    rejectSubscribe?: "brave" | "other";
+  },
 ) {
-  await page.addInitScript(({ permission, endpoint, receiver }) => {
+  await page.addInitScript(({ permission, endpoint, receiver, rejectSubscribe }) => {
+    const w = window as unknown as { __subscribeFails?: boolean };
+    w.__subscribeFails = rejectSubscribe !== undefined;
+    if (rejectSubscribe === "brave") {
+      Object.defineProperty(navigator, "brave", {
+        value: { isBrave: async () => true },
+        configurable: true,
+      });
+    }
     const decode = (text: string) => {
       const normalised = text.replace(/-/g, "+").replace(/_/g, "/");
       const binary = atob(normalised + "=".repeat((4 - (normalised.length % 4)) % 4));
@@ -113,6 +131,9 @@ async function stubPush(
       return state;
     };
     PushManager.prototype.subscribe = async function subscribe() {
+      if (w.__subscribeFails) {
+        throw new DOMException("Registration failed - push service error", "AbortError");
+      }
       current = fake;
       return fake;
     };
@@ -740,6 +761,61 @@ test.describe("Web Push", () => {
     );
     await expect(page.locator('[data-slot="push-test"]')).toBeDisabled();
   });
+
+  for (const browser of ["brave", "other"] as const) {
+    test(`a subscribe the browser rejects after Allow (${browser}): the sheet explains it with Try again, never Retry`, async ({
+      page,
+    }) => {
+      const staffId = await memberIdOf(pushPerson(test.info()));
+      await serviceDelete(`push_subscriptions?member_id=eq.${staffId}`);
+      await stubPush(page, {
+        permission: "default",
+        endpoint: `${service.url}/ok/rejected-${browser}`,
+        receiver,
+        rejectSubscribe: browser,
+      });
+      await page.goto("/my-day");
+      await hydrated(page);
+      const band = page.locator('[data-slot="push-banner"]');
+      await band.click();
+      const sheet = page.locator('[data-slot="push-sheet"]');
+      await sheet.locator('[data-slot="push-enable"]').click();
+      await expect(sheet).toHaveAttribute(
+        "data-failure",
+        browser === "brave" ? "brave" : "generic",
+      );
+      await expect(
+        sheet.getByRole("heading", {
+          name:
+            browser === "brave"
+              ? "Brave blocks notifications by default"
+              : "This browser couldn't turn on notifications",
+        }),
+      ).toBeVisible();
+      if (browser === "brave") {
+        await expect(sheet).toContainText("Use Google services for push messaging");
+      }
+      // Not the network failure's Retry: the page is not broken, nothing was saved.
+      await expect(page.getByRole("button", { name: "Retry" })).toHaveCount(0);
+      await expect(page.locator('[data-slot="action-failed"]')).toHaveCount(0);
+      const enable = sheet.locator('[data-slot="push-enable"]');
+      await expect(enable).toHaveText("Try again");
+      await expect(enable).toBeEnabled();
+      await expect(band).toBeVisible();
+      expect(
+        await serviceSelect(`push_subscriptions?member_id=eq.${staffId}&select=endpoint`),
+      ).toEqual([]);
+
+      // Fixed in the browser (Brave's setting turned on), Try again goes through.
+      await page.evaluate(() => {
+        (window as unknown as { __subscribeFails: boolean }).__subscribeFails = false;
+      });
+      await enable.click();
+      await expect(band).toBeHidden();
+      await expect(sheet).toHaveCount(0);
+      await serviceDelete(`push_subscriptions?member_id=eq.${staffId}`);
+    });
+  }
 
   test("the band fits a phone: 44px targets, no sideways scroll, nothing at the top moves, nothing hides behind it", async ({
     page,

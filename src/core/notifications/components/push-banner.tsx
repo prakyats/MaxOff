@@ -23,8 +23,9 @@ import {
   currentPermission,
   currentSupport,
   type PushSupport,
-  subscribeBrowser,
+  type SubscribeFailure,
   toPayload,
+  trySubscribeBrowser,
 } from "../push/browser";
 
 /**
@@ -72,6 +73,9 @@ export function PushBanner({ publicKey }: { publicKey: string | null }) {
   // The tap's own answer: a refusal is remembered without re-reading the device.
   const [refused, setRefused] = useState(false);
   const [open, setOpen] = useState(false);
+  // A subscribe the browser could not complete after Allow (Brave's default, or any other): its
+  // explanation in the sheet with Try again, never the network Retry (owner 2026-10-01).
+  const [failure, setFailure] = useState<Exclude<SubscribeFailure, "denied"> | null>(null);
   const state: StateKey = refused ? "denied" : detected;
 
   const enable = useAction(async () => {
@@ -80,8 +84,14 @@ export function PushBanner({ publicKey }: { publicKey: string | null }) {
       setRefused(true);
       return;
     }
-    const subscription = await subscribeBrowser(publicKey ?? "");
-    const result = await subscribePush(toPayload(subscription));
+    setFailure(null);
+    const attempt = await trySubscribeBrowser(publicKey ?? "");
+    if (!attempt.ok) {
+      if (attempt.failure === "denied") setRefused(true);
+      else setFailure(attempt.failure);
+      return;
+    }
+    const result = await subscribePush(toPayload(attempt.subscription));
     if (toastResult(result, { success: "Notifications are on for this device" })) {
       // The sheet's history entry goes first (§14.2 e), then the layout drops the band.
       if (!closeOverlaysThen(() => router.refresh())) {
@@ -108,7 +118,7 @@ export function PushBanner({ publicKey }: { publicKey: string | null }) {
   }, []);
 
   const bandKey: BandKey = state === "ios_not_installed" ? "install" : "off";
-  const sheet = SHEET[sheetKey(state, refused)];
+  const sheet = SHEET[failure ?? sheetKey(state, refused)];
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger
@@ -146,6 +156,7 @@ export function PushBanner({ publicKey }: { publicKey: string | null }) {
       <SheetContent
         side="bottom"
         data-slot="push-sheet"
+        data-failure={failure ?? undefined}
         className="max-h-[80dvh] gap-3 overflow-y-auto rounded-t-2xl pb-[calc(1.5rem+var(--app-safe-bottom))]"
       >
         <div
@@ -187,7 +198,8 @@ const BAND: Record<BandKey, { text: string; action: string }> = {
   install: { text: "Install MaxOff to get notifications", action: "How" },
 };
 
-type SheetKey = "ask" | "denied" | "refused" | "ios_not_installed" | "unsupported" | "off";
+type SheetKey =
+  "ask" | "denied" | "refused" | "ios_not_installed" | "unsupported" | "off" | "brave" | "generic";
 
 function sheetKey(state: StateKey, refused: boolean): SheetKey {
   switch (state) {
@@ -227,5 +239,16 @@ const SHEET: Record<SheetKey, { title: string; body: string; button: string | nu
     title: "Notifications are not set up yet",
     body: "The Owner has to finish the setup before devices can be turned on.",
     button: null,
+  },
+  // Allowed, but the browser could not subscribe (`subscribeFailureFor`, owner 2026-10-01).
+  brave: {
+    title: "Brave blocks notifications by default",
+    body: "In Brave: Settings → Privacy and security → turn on “Use Google services for push messaging”, then try again.",
+    button: "Try again",
+  },
+  generic: {
+    title: "This browser couldn't turn on notifications",
+    body: "Try again. If it keeps happening, open MaxOff in Chrome or Safari, or from the installed app.",
+    button: "Try again",
   },
 };
