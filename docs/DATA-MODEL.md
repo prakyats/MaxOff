@@ -1277,7 +1277,8 @@ notifications        id, org_id, recipient_id → members (cascade), actor_id nu
                      -- (column grant + protect_columns), no insert or delete; notifications_mark_read(entity,
                      -- entity_id) and notifications_mark_all_read() for the caller's own rows. Not audited
                      -- (the event is audited by its transition; a read is view state, as task_reads).
-                     -- Never purged (kickoff 5 decision 4). Money never in title, body, link or payload.
+                     -- Never purged in 5A (kickoff 5 decision 4); from 5B a daily job removes READ rows older than 90 days
+                     -- (owner decision 2026-10-01, PROGRESS "5B decisions" (11)); unread rows stay. Money never in title, body, link or payload.
                      -- The cascade exists for the local stack's fixture deletes; production deactivates.
                      -- Indexes: (recipient_id, read_at, created_at desc), (recipient_id, created_at desc),
                      -- (entity, entity_id), actor_id, org_id.
