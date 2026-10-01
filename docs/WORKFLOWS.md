@@ -405,7 +405,7 @@ month M (IST) open ──Owner close──► closed (snapshot v1, immutable)
 | `end_day_reminder` | pg_cron (5.1) | 20:30 (`logout_reminder_time`) | "You haven't ended your day": everyone with a Start day and no End day today (`app.end_day_reminder_due()`, 3b.1; the notification rows and the schedule arrive with 5.1) |
 | `absent_check` | pg_cron | 23:59 (18:29 UTC) | Creates leave-derived days for anyone who never logged in, then proposed-absent days for working days, and notifies the Owner (5.1). Built in 2.5 |
 | `end_not_recorded` | pg_cron | 00:00 (18:30 UTC, the minute after absent_check) | Flags days with a Start day and no End day ("End of day not recorded"). Built in 3b.1 |
-| `eod_report` | pg_cron | 00:01 (after the above) | Builds the Owner end-of-day report and notifies the Owner |
+| `eod_report` | pg_cron | 00:01 (after the above) | Builds the Owner end-of-day report for the IST day just ended (`app.job_day`, the 7-day catch-up), saves it once and never rewrites it, and notifies the Owner unless every count is zero ("Settled at kickoff 6" below) |
 | `cycle_generate` | pg_cron | 00:00 on the 1st and every Monday | Creates recurring cycles (skips any already created by a carry decision) |
 | `cycle_close_prompt` | pg_cron | 00:05 on the same days | Notifies the Owner about unfinished items in the cycles that just ended |
 | `push_dispatch` | worker | every minute | Sends queued push and email deliveries, retrying with backoff; applies the email cap |
@@ -415,6 +415,13 @@ month M (IST) open ──Owner close──► closed (snapshot v1, immutable)
 | `nightly_backup` | gha | 02:00 | pg_dump to R2 |
 
 **The job date is derived inside the job, never taken from the clock at face value (ADR-0008, 2.5).** `app.job_day(at, cutoff)` answers the most recent IST date whose cutoff (23:59 for the attendance jobs) has passed at `at`: at 23:59 IST it is that day, at 00:00 IST the next day it is still the day that just ended, and at 23:58 it is yesterday. So a run that pg_cron starts late still processes the right day, and a run started early repeats yesterday, which writes nothing. **Catch-up (owner decision 2026-09-25):** each nightly run processes the **last 7 IST dates** up to the job day, oldest first. The jobs are idempotent, so already-processed days write nothing, and a missed night (an outage, or the free-plan project paused) is filled on the next run; a date before a member's first attendance day is still skipped. `app.absent_check(for_date)` and `app.logout_not_recorded(for_date)` stay callable for a single date (a manual re-run as `postgres`), and refuse a date whose cutoff has not passed. Each run is recorded in `cron.job_run_details`.
+
+### 8a. The end-of-day report (owner decisions 2026-10-01, kickoff 6; built in 6.5)
+- **The day it covers:** the IST day that just ended (`app.job_day(at, '23:59')`), after `absent_check` and `end_not_recorded` have run. Like the other nightly jobs it processes the **last 7 IST dates**, oldest first, and a date that already has a row is skipped, so a missed night is filled and nothing is written twice.
+- **Saved once, never rewritten:** `eod_reports` has one row per org and date (`unique(org_id, report_date)`); a later correction (an attendance correction the next morning, a late approval) never changes it. A report is saved for **every** date, weekly offs and holidays included.
+- **Live and saved:** the report page renders **today so far** live, computed on demand with the same builder; a past date shows only its saved row. History is listed under Reports → End of day and kept forever.
+- **Contents:** attendance (each person's start and end times, leave, proposed absences, end of day not recorded, overtime flags); the decisions made that day (attendance, leave, comp leave, and expense claims as a **count**, never an amount); tasks (completed = Owner-approved that day, handed in and waiting, overdue with the primary owner's late reason, cancelled, created); approvals (a count per approver at each step); tomorrow's events. Freelancers are counted separately (PRODUCT §4.13). **No money, ever.**
+- **Notification:** one row to the Owner through `app.notify()` ("Yesterday's report is ready"), not written when every count is zero; quiet hours hold its push to the 07:00 summary; no email of its own (the 08:00 `digest_daily` links to the report).
 
 ## 9. Who gets notified
 | Event | Recipients |
@@ -451,6 +458,7 @@ month M (IST) open ──Owner close──► closed (snapshot v1, immutable)
 | Google Drive needs reconnecting, or is low on space | Owner only |
 | Anything financial | Owner only |
 | Upcoming event (shoot, meeting…) on task reminders | Assignees + approving Admin |
+| End-of-day report saved (00:01, `eod_report`; kickoff 6) | Owner: one row, "Yesterday's report is ready", opening the saved report. Held by quiet hours to the 07:00 summary; **no email of its own** (the 08:00 digest links to it); none when every count is zero |
 
 **Phase 4 ships before phase 5 (owner decision 2026-09-28, kickoff 4):** the task transition functions name their recipients from this table in their comments, and the rows and delivery arrive with 5.1, as in phase 3b. Until then, the **Tasks tab badge** counts tasks the member (or a freelancer they coordinate) has not noted, plus those in `changes_requested`, and the **Approvals badge** includes the tasks the viewer may decide. Nothing in phase 4 waits for notifications.
 
