@@ -297,7 +297,7 @@ assigned (acknowledged_at null) ──"Task Noted"──► acknowledged (timest
   - **Limits per version:** 20 files and 10 links; types and sizes in PRODUCT §4.9 "Settled at kickoff 8".
   - **Reviews name their version:** `task_review` takes the version the reviewer saw and refuses (`STALE`, "A newer hand-in arrived. Check it first.") when it is no longer the latest. A review is always of the latest version.
   - **Comment on a version:** a comment may carry the version it is about (shown "on v2"); one Chat thread per task.
-  - **Archive:** sealed upload items start `archive_state = 'queued'` with no `drive_jobs` (8.3 queues jobs for every waiting item); links are never fetched; only Google Drive links are access-checked, by 8.4b.
+  - **Archive:** sealed upload items start `archive_state = 'queued'` with no `drive_jobs` (8.3 queues jobs for every waiting item); links are never fetched; only Google Drive links are access-checked and copied, by 8.4b; **any other https link is stored as given and never archived** (ADR-0010 amendment 2026-10-01): it carries a permanent "Not archived" badge, and adding it shows a neutral hint that never blocks.
 
 ### 3.4 Task requests
 `pending ─convert─► converted (task_id set) | ─decline(reason)─► declined | ─withdraw─► withdrawn`

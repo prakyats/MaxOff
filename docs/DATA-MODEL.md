@@ -969,7 +969,9 @@ submission_items     id, submission_id, kind ('upload'|'drive_link'),
                      -- kind 'drive_link' covers every https link (site label derived from the host:
                      -- Google Drive, WeTransfer, Frame.io, Vimeo, YouTube, Dropbox, else the domain);
                      -- MaxOff never fetches a link; link_state stays 'unchecked' (8.4b checks Google
-                     -- Drive links only). Uploads start archive_state 'queued', no drive_jobs until 8.3.
+                     -- Drive links only). Uploads and Google Drive links start archive_state 'queued',
+                     -- no drive_jobs until 8.3; any other link is never archived (ADR-0010 amendment
+                     -- 2026-10-01: archive_state null, shown "Not archived" for good).
                      -- Per version: ≤ 20 uploads and ≤ 10 links. file_id / preview_file_id are FKs to
                      -- files, so storage_cleanup never treats them as orphans. RLS: app.task_visible(task_id)
                      -- to read; writes only through transition functions. Audited (entity_id = task_id)
