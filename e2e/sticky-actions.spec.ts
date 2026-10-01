@@ -29,9 +29,18 @@ test.describe("the sticky save bar never covers the last field (§14.1)", () => 
       has: page.getByRole("heading", { name: title, exact: true }),
     });
 
-  /** The last form control of the record, and the bar, after scrolling to the very end. */
+  /**
+   * The last form control of the record, and the bar, after scrolling to the very end.
+   *
+   * The scroll is inside the retry (CI 36879970598, 2026-10-01: "Job title" 20 px behind the
+   * bar at 200%, once). The bar and the push band publish their measured heights from a
+   * `ResizeObserver`, which runs after layout and before paint: a person never sees a stale
+   * frame, but a `scrollTo` evaluated in the same frame as the text-size change reads
+   * `scrollHeight` with the 100% reserves, the padding then grows, and a page no longer at its
+   * end says nothing about the bar. Measured only, the retry could never recover; scrolled
+   * again, it measures what the person sees after scrolling to the end.
+   */
   async function lastFieldClearsTheBar(page: Page, title: string, label: string) {
-    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
     const bar = page.locator('[data-slot="sticky-actions"]');
     await expect(bar).toBeVisible();
     const fields = record(page, title).locator(
@@ -39,6 +48,7 @@ test.describe("the sticky save bar never covers the last field (§14.1)", () => 
     );
     const last = fields.last();
     await expect(async () => {
+      await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
       const [field, barBox] = await Promise.all([last.boundingBox(), bar.boundingBox()]);
       expect(field, "the last field is laid out").not.toBeNull();
       expect(barBox, "the bar is laid out").not.toBeNull();
