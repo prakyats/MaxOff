@@ -9,7 +9,8 @@ import { SentryUser } from "@/core/observability/sentry-user";
 import { LiveUpdatesLazy } from "@/core/notifications/components/live-lazy";
 import { PushBanner, PushSync } from "@/core/notifications/components/push-lazy";
 import { readPushEnv } from "@/core/notifications/env";
-import { countUnread } from "@/core/notifications/inbox";
+import { readUnread } from "@/core/notifications/inbox";
+import type { ServerUnread } from "@/core/notifications/read-receipts";
 import { listOwnActiveEndpoints } from "@/core/notifications/push/subscriptions";
 import { can } from "@/core/permissions";
 import { RouteTransition } from "@/core/ui/motion/route-transition";
@@ -33,16 +34,20 @@ import { countTasks } from "@/modules/tasks";
  * waiting for whoever decides them (the Owner), plus the tasks at the step the viewer decides
  * (4.5: the Owner's final approvals, an Admin's checks); client items join in 7.4. **Alerts**
  * (5.1, kickoff 5 decision 4): the viewer's unread notifications, on Staff's Alerts tab and every
- * role's bell (`countUnread()`, which the title bar's bell shares in the same request).
+ * role's bell (`readUnread()`, which the title bar's bell shares in the same request; `unread`,
+ * that count with the server's clock, or null when it could not be read).
  */
-async function navBadges(role: Parameters<typeof can>[0]): Promise<NavBadges> {
+async function navBadges(
+  role: Parameters<typeof can>[0],
+  unread: Promise<ServerUnread | null>,
+): Promise<NavBadges> {
   const tasks = can(role, "tasks.work") ? countTasks() : Promise.resolve(null);
-  const alerts = countUnread();
+  const alerts = unread.then((server) => server?.count ?? 0);
   if (!can(role, "attendance.decide")) {
-    const [counts, unread] = await Promise.all([tasks, alerts]);
-    return { tasks: counts?.badge ?? 0, approvals: counts?.toDecide ?? 0, alerts: unread };
+    const [counts, unreadCount] = await Promise.all([tasks, alerts]);
+    return { tasks: counts?.badge ?? 0, approvals: counts?.toDecide ?? 0, alerts: unreadCount };
   }
-  const [counts, unread, days, requests, notes, claims] = await Promise.all([
+  const [counts, unreadCount, days, requests, notes, claims] = await Promise.all([
     tasks,
     alerts,
     countPendingDays(),
@@ -53,7 +58,7 @@ async function navBadges(role: Parameters<typeof can>[0]): Promise<NavBadges> {
   return {
     tasks: counts?.badge ?? 0,
     approvals: days + requests + notes + claims + (counts?.toDecide ?? 0),
-    alerts: unread,
+    alerts: unreadCount,
   };
 }
 
@@ -86,10 +91,15 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   // so a screen's loading state paints as soon as the member is known. A count that cannot be
   // read is reported and shows as none, never the error screen (4C review S3); Next's own
   // signals still go through.
-  const badges = countsOrNone(navBadges(viewer.role), (error) => {
+  const report = (error: unknown) => {
     unstable_rethrow(error);
     captureException(error);
+  };
+  const unread = readUnread().catch((error: unknown) => {
+    report(error);
+    return null;
   });
+  const badges = countsOrNone(navBadges(viewer.role, unread), report);
   const prompt = await startDayPrompt(viewer);
   // The enable-notifications banner is judged per member (kickoff 5 decision 9): the member's
   // own active endpoints decide it, and tell this device whether it is one of them (PushSync).
@@ -106,7 +116,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       {/* Here rather than in the root layout: sonner and radix-tooltip are only ever used by
           signed-in screens, and mounting them globally shipped both to /login (task 1.5). */}
       <TooltipProvider>
-        <AppShell viewer={viewer} badges={badges}>
+        <AppShell viewer={viewer} badges={badges} unread={unread}>
           <SentryUser id={viewer.id} />
           <RefreshOnReturn />
           {prompt}

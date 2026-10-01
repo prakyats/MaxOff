@@ -228,14 +228,15 @@ export const addTaskComment = action(async (input: CommentInput): Promise<Result
 
 /**
  * Opening Chat marks its comments read for the viewer (Kickoff 4 decision 28; `task_mark_read`,
- * their own row). The lists' unread markers (the Tasks tab, all tasks, Approvals) follow on their
- * next render, so they are revalidated with the page.
+ * their own row). **Nothing is revalidated** (owner decision 2026-10-01): an answer that
+ * re-renders the page reloads it when it lands after a view switch. The task page already shows
+ * the count gone; the lists' unread markers (the Tasks tab, all tasks, Approvals) follow on their
+ * next render, and a list shown again from the router's cache re-reads itself
+ * (`TasksFreshOnReturn`).
  */
 export const markTaskRead = action(async (input: MarkReadInput): Promise<Result<null>> => {
   const data = markReadSchema.parse(input);
   await assertPermission("tasks.work");
   await repo.rpcMarkRead(data.taskId, data.upTo);
-  revalidatePath("/tasks", "layout");
-  revalidatePath("/approvals");
   return ok(null);
 });

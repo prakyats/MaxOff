@@ -84,13 +84,14 @@ const tab = (page: Page, view: string) =>
 
 /**
  * The task page sends read receipts in the background: the bell's `markRecordRead` as it opens
- * (kickoff 5 decision 4) and `markTaskRead` as Chat opens (decision 28). Each revalidates the
- * screen, and one answering while the view is being switched (`history.replaceState`) made Next
- * reload the page under the spec: the old 1-in-8 failure of the large-text and installed specs
- * (5A review S4; PROGRESS Ideas). An action still running at a test's end also raced the next
- * repetition's cleanup (a `task_reads` row for a task being deleted: 23503 → 409). So a spec lets
- * the screen settle as a person would: every server action this page sent has answered and the
- * answer is painted. Nothing is sent again; this only waits.
+ * (kickoff 5 decision 4) and `markTaskRead` as Chat opens (decision 28). They used to revalidate
+ * the screen, and one answering while the view was being switched (`history.replaceState`) made
+ * Next reload the page under the spec (5A review S4); since the owner's decision of 2026-10-01 no
+ * read revalidates anything (`notifications.spec` proves the page is never reloaded). An action
+ * still running at a test's end also raced the next repetition's cleanup (a `task_reads` row for
+ * a task being deleted: 23503 → 409). So a spec lets the screen settle as a person would: every
+ * server action this page sent has answered and the answer is painted. Nothing is sent again;
+ * this only waits.
  */
 const actionsInFlight = new WeakMap<Page, Set<Request>>();
 
@@ -100,6 +101,10 @@ function trackActions(page: Page): void {
   page.on("request", (request) => {
     if (request.method() === "POST" && request.headers()["next-action"]) pending.add(request);
   });
+  // A new document (a reload, a back across a full load) ends the old one's requests: one still
+  // out then never answers, and Chromium reports no failure for it. The new document's own
+  // actions start after it has loaded (they are sent from effects).
+  page.on("domcontentloaded", () => pending.clear());
   page.on("requestfinished", (request) => pending.delete(request));
   page.on("requestfailed", (request) => pending.delete(request));
 }
@@ -120,8 +125,8 @@ async function receiptsSettled(page: Page): Promise<void> {
 /**
  * The fixture's notifications about this task, read before the page opens: they are not what a
  * layout spec is about, and an unread one makes the page send the bell's receipt, whose read then
- * comes back as a Realtime event and re-reads the screen (`router.refresh()`) seconds later, in
- * the middle of a measurement (5A review S4).
+ * comes back as a Realtime event seconds later (it asks the server for the bell's count), in the
+ * middle of a measurement (5A review S4).
  */
 async function fixtureNotificationsRead(taskId: string): Promise<void> {
   await serviceUpdate(`notifications?entity_id=eq.${taskId}&read_at=is.null`, {
@@ -608,7 +613,14 @@ test.describe("the task page on a phone, installed: back closes each layer, one 
       await expect(tab(page, view)).toHaveAttribute("aria-current", "true");
     }
     await tab(page, "activity").click();
-    await page.locator('[data-slot="task-history-show-all"]').click();
+    const showAll = page.locator('[data-slot="task-history-show-all"]');
+    const lines = Number((await showAll.textContent())?.match(/\d+/)?.[0]);
+    await showAll.click();
+    // The whole history is on screen before it is scrolled, as a person sees it open first. A
+    // Show all tapped while the view switch's own page request is still out (Next re-requests
+    // the page for the new `?tab=`) can paint a few hundred ms later, and a scroll made before
+    // that moved a page that was still short (PROGRESS Ideas (h): the gap of 101–104 px).
+    await expect(historyRows(page)).toHaveCount(lines);
     // Scrolled down the whole history, the views' bar sticks right under the title bar.
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
     await expect

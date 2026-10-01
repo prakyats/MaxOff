@@ -1,5 +1,7 @@
 import { type ReactNode, Suspense } from "react";
 
+import type { ServerUnread } from "@/core/notifications/read-receipts";
+
 import { BellCountProvider } from "./bell-count";
 import { BottomNav, type NavItemBadge } from "./bottom-nav";
 import { MobileChrome } from "./mobile-chrome";
@@ -21,6 +23,7 @@ import { TopBar } from "./top-bar";
 import type { ShellViewer } from "./viewer";
 
 const NO_BADGES: Promise<NavBadges> = Promise.resolve({});
+const NO_UNREAD: Promise<ServerUnread | null> = Promise.resolve(null);
 
 /**
  * The signed-in app chrome.
@@ -40,19 +43,24 @@ const NO_BADGES: Promise<NavBadges> = Promise.resolve({});
  * the desktop bell since 5.1: the unread notifications), a
  * promise the layout starts and never waits for: each count streams into its own `<Suspense>`
  * (`NavCount`, 4C), so the shell, the page and its loading screen never wait for the counts, and
- * every place that draws the item draws the count. Server-rendered: no JavaScript of their own.
+ * every place that draws the item draws the count. Server-rendered: no JavaScript of their own,
+ * but for the bell's: `unread` is the same count with the server's clock, drawn by a small client
+ * piece so the member's own reads come off it on the device at once (owner decision 2026-10-01).
  */
 export function AppShell({
   viewer,
   logoutItem,
   logoutSheetItem,
   badges = NO_BADGES,
+  unread = NO_UNREAD,
   children,
 }: {
   viewer: ShellViewer;
   logoutItem?: ReactNode;
   logoutSheetItem?: ReactNode;
   badges?: Promise<NavBadges>;
+  /** The bell's count with the server's clock (`readUnread()`); null when it could not be read. */
+  unread?: Promise<ServerUnread | null>;
   children: ReactNode;
 }) {
   const items = navFor(viewer.role);
@@ -62,7 +70,13 @@ export function AppShell({
   // One streamed count per spot (Suspense with no fallback: a count appears when it is known).
   const count = (keys: readonly string[], place: NavBadgePlace, part?: "mark" | "words") => (
     <Suspense fallback={null}>
-      <NavCount counts={badges} keys={keys} place={place} {...(part ? { part } : {})} />
+      <NavCount
+        counts={badges}
+        unread={unread}
+        keys={keys}
+        place={place}
+        {...(part ? { part } : {})}
+      />
     </Suspense>
   );
   const barBadge = (keys: readonly string[]): NavItemBadge => ({
@@ -75,10 +89,13 @@ export function AppShell({
   const tabRoots = [...new Set([home, PROFILE_NAV_ITEM.href, ...items.map((item) => item.href)])];
 
   // The title bar's bell (in each page's header) reads the same count through context.
-  const unread = badges.then((counts) => badgeTotal(counts, ["alerts"]));
+  const bell = Promise.all([unread, badges]).then(
+    ([server, counts]): ServerUnread =>
+      server ?? { count: badgeTotal(counts, ["alerts"]), countedAt: Number.NEGATIVE_INFINITY },
+  );
 
   return (
-    <BellCountProvider count={unread}>
+    <BellCountProvider count={bell}>
       <div
         className="bg-background text-foreground flex min-h-dvh"
         // The page title bar reads this to decide whether to carry the bell: when the bottom bar

@@ -1,19 +1,18 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { type ReactNode, useRef } from "react";
 
 import { cn } from "@/core/lib/utils";
-import { noteOwnReadRevalidated } from "@/core/notifications/live-state";
-import { systemClock } from "@/core/time/clock";
-import { ActionStatus } from "@/core/ui/action/action-status";
-import { useAction } from "@/core/ui/action/use-action";
-import { toastResult } from "@/core/ui/toast";
+import { sendRead } from "@/core/notifications/send-read";
 
 import { markNotificationRead } from "../actions/inbox";
 
 /**
  * A history row with nothing to open (someone who lost access to what it was about, kickoff 5
- * decision 25): a tap reads it. The row's own content, pressed and pending like any row.
+ * decision 25): a tap reads it. The row's own content, pressed like any row. The row shows as
+ * read and the bell drops at once, on the device; the write goes in the background and never
+ * re-reads the page (owner decision 2026-10-01). A write that fails is undone quietly by the
+ * server's next count: the row is unread again, no toast.
  */
 export function NotificationReadButton({
   id,
@@ -24,30 +23,26 @@ export function NotificationReadButton({
   className?: string;
   children: ReactNode;
 }) {
-  const action = useAction(async () => {
-    const result = await markNotificationRead({ id });
-    toastResult(result);
-    if (result.ok && result.data.marked > 0) {
-      noteOwnReadRevalidated(systemClock().getTime());
-    }
-  });
+  // One read per row at a time: a second tap would take it off the count twice until the
+  // answer. A failed one can be tapped again once the server's next count shows it unread.
+  const sent = useRef(false);
   return (
-    <>
-      <button
-        type="button"
-        data-slot="notification-read"
-        aria-busy={action.pending || undefined}
-        disabled={action.pending}
-        onClick={() => action.run()}
-        className={cn(
-          className,
-          "pressable-row focus-visible:ring-ring outline-none focus-visible:ring-2 focus-visible:ring-inset",
-        )}
-      >
-        {children}
-      </button>
-      {/* A tap that never reached MaxOff says so, with Retry (§14.1). */}
-      <ActionStatus action={action} className="px-4 pb-3" />
-    </>
+    <button
+      type="button"
+      data-slot="notification-read"
+      onClick={() => {
+        if (sent.current) return;
+        sent.current = true;
+        void sendRead(1, [id], () => markNotificationRead({ id })).then((written) => {
+          if (!written) sent.current = false;
+        });
+      }}
+      className={cn(
+        className,
+        "pressable-row focus-visible:ring-ring outline-none focus-visible:ring-2 focus-visible:ring-inset",
+      )}
+    >
+      {children}
+    </button>
   );
 }

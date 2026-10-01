@@ -1285,7 +1285,8 @@ notifications        id, org_id, recipient_id → members (cascade), actor_id nu
                      -- ONLY table in the supabase_realtime publication (pgTAP 46; money tables in none).
                      -- Realtime checks each INSERT / UPDATE against the subscriber's RLS, so a member
                      -- receives their own rows, the rows the API already lets them read; the browser
-                     -- uses an event only as a signal to re-read the screen. Default replica identity:
+                     -- uses an event only as a signal to re-read the screen (for the member's own
+                     -- reads on that device, the bell's count alone: owner 2026-10-01). Default replica identity:
                      -- an UPDATE sends the new row; a DELETE (local fixtures only) is not RLS-checked
                      -- by Realtime and carries the id alone. A connection with no member token (the
                      -- publishable key) hears at most that a change happened, never a row (e2e).

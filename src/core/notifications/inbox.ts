@@ -5,6 +5,8 @@ import { cache } from "react";
 import { createServerSupabase } from "@/core/db/server";
 import { systemClock } from "@/core/time";
 
+import type { ServerUnread } from "./read-receipts";
+
 /**
  * The member's own notifications (task 5.1, kickoff 5 decision 4; DATA-MODEL §9): the bell's
  * unread count, the history screen's pages and the read receipts. Read and written as the member:
@@ -29,17 +31,26 @@ export interface InboxRow {
 /**
  * How many of the member's notifications are unread: the bell's count (the bar's Alerts for
  * Staff, the title bar's and the top bar's bell for the Owner and Admins). One read per request:
- * the layout's nav counts and each title bar's bell share it.
+ * the layout's nav counts and each title bar's bell share it. With the server's clock when it was
+ * counted, so the device knows which of its own reads the count already holds.
  */
-export const countUnread = cache(async (): Promise<number> => {
+export const readUnread = cache(async (): Promise<ServerUnread> => {
+  // Stamped before the count is asked: a read written before this moment is in it (the device's
+  // read receipts, `read-receipts.ts`, compare the two).
+  const countedAt = systemClock().getTime();
   const supabase = await createServerSupabase();
   const { count, error } = await supabase
     .from("notifications")
     .select("id", { count: "exact", head: true })
     .is("read_at", null);
   if (error) throw error;
-  return count ?? 0;
+  return { count: count ?? 0, countedAt };
 });
+
+/** The bell's count alone (`readUnread()`'s). */
+export async function countUnread(): Promise<number> {
+  return (await readUnread()).count;
+}
 
 /** One page of the member's history, newest first, with the total for the pager. */
 export async function listInbox(page: number): Promise<{ rows: InboxRow[]; total: number }> {
@@ -91,6 +102,22 @@ export async function markOneRead(
     .maybeSingle();
   if (readError) throw readError;
   return row ? { link: row.link, marked: false } : null;
+}
+
+/**
+ * How many of the member's unread rows are about one record: what opening it takes off the bell
+ * on the device at once (owner decision 2026-10-01), and whether there is anything to mark.
+ */
+export async function countUnreadAbout(entity: string, entityId: string): Promise<number> {
+  const supabase = await createServerSupabase();
+  const { count, error } = await supabase
+    .from("notifications")
+    .select("id", { count: "exact", head: true })
+    .eq("entity", entity)
+    .eq("entity_id", entityId)
+    .is("read_at", null);
+  if (error) throw error;
+  return count ?? 0;
 }
 
 /** Opening a record marks the member's unread rows about it read (`notifications_mark_read`). */

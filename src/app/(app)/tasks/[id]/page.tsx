@@ -1,7 +1,7 @@
 import { CircleAlertIcon, FlagIcon } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import type { ReactNode } from "react";
+import { type ReactNode, Suspense } from "react";
 
 import { ACTIVITY_LIMIT } from "@/core/activity";
 import { CustomFieldsView } from "@/core/custom-fields/components/custom-fields-view";
@@ -44,7 +44,7 @@ import { TaskMenu } from "@/modules/tasks/components/task-menu";
 import { TaskNextStep } from "@/modules/tasks/components/task-next-step";
 import { TaskStages } from "@/modules/tasks/components/task-stages";
 import { TaskTabs, TaskViewPanel, TaskViewProvider } from "@/modules/tasks/components/task-view";
-import { MarkRecordRead } from "@/modules/notifications-center/components/mark-record-read";
+import { RecordReadReceipt } from "@/modules/notifications-center";
 
 import { loadTaskFormSetup } from "../task-form-setup";
 
@@ -158,7 +158,9 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
       unread={unreadCount(data.comments, data.lastRead, viewer.id)}
       newestAt={newestCommentAt(data.comments)}
     >
-      <MarkRecordRead entity="tasks" id={task.id} />
+      <Suspense fallback={null}>
+        <RecordReadReceipt entity="tasks" id={task.id} />
+      </Suspense>
       <div
         data-slot="task-page"
         className="flex min-w-0 flex-col gap-4 md:flex-row md:items-start md:gap-8"

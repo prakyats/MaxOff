@@ -1,22 +1,26 @@
 import type { ReactNode } from "react";
 
 import type { InboxRow } from "@/core/notifications/inbox";
+import type { ServerUnread } from "@/core/notifications/read-receipts";
 import { cn } from "@/core/lib/utils";
 import { CARD_ROW_TITLE, CARD_ROW_TRAILING } from "@/core/ui/composites/row-metrics";
 import { openNotificationUrl } from "@/core/ui/navigation/deep-link";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 
 import { notificationWhen } from "../domain/when";
-import { MarkAllRead } from "./mark-all-read";
 import { NotificationLink } from "./notification-link";
 import { NotificationReadButton } from "./notification-read-button";
+import { NotificationRow } from "./notification-row";
+import { UnreadSummary } from "./unread-summary";
 
 /**
  * The bell's history (task 5.1, kickoff 5 decision 4; owner cut (b), the simplest form): a plain
  * list, newest first. An unread row is marked by a dot and a bold title. A row with a link opens
  * it through the deep-link entry (`/open?n=<id>`: marked read, the record with its parent list
  * underneath, ARCHITECTURE §14.2 h); a row with nothing to open is read by a tap. Server
- * components: the rows are plain links and work before hydration.
+ * components: the rows are plain links and work before hydration. A read shows at once on the
+ * device (`NotificationRow`, `UnreadSummary`) and never re-reads the page (owner decision
+ * 2026-10-01). `unread` / `countedAt` are the server's count and when it was counted.
  */
 
 const ROW = "flex min-h-16 w-full min-w-0 flex-col gap-1 px-4 py-3 text-left";
@@ -24,31 +28,36 @@ const LIST = "border-border divide-border bg-card divide-y overflow-hidden round
 /** The line above the list: how many are unread, and "Mark all read". */
 const BAR = "mb-3 flex min-h-11 flex-wrap items-center justify-between gap-x-3 gap-y-1";
 
-export function NotificationBar({ unread }: { unread: number }) {
+export function NotificationBar({ unread }: { unread: ServerUnread }) {
   return (
     <div data-slot="notification-bar" className={BAR}>
-      <p className="text-muted-foreground min-w-0 text-sm" aria-live="polite">
-        {unread === 0 ? "All read" : `${unread} unread`}
-      </p>
-      {unread > 0 ? <MarkAllRead /> : null}
+      <UnreadSummary unread={unread} />
     </div>
   );
 }
 
-export function NotificationList({ rows, today }: { rows: InboxRow[]; today: string }) {
+export function NotificationList({
+  rows,
+  today,
+  countedAt,
+}: {
+  rows: InboxRow[];
+  today: string;
+  countedAt: number;
+}) {
   return (
     <ul aria-label="Your alerts" data-slot="notification-rows" className={LIST}>
       {rows.map((row) => (
-        <li
+        <NotificationRow
           key={row.id}
-          data-slot="notification-row"
-          data-notification={row.id}
-          data-unread={row.readAt === null ? "true" : undefined}
+          id={row.id}
+          unread={row.readAt === null}
+          countedAt={countedAt}
         >
           <NotificationTarget row={row}>
             <RowContent row={row} today={today} />
           </NotificationTarget>
-        </li>
+        </NotificationRow>
       ))}
     </ul>
   );
@@ -63,6 +72,8 @@ function NotificationTarget({ row, children }: { row: InboxRow; children: ReactN
     );
   }
   if (row.readAt === null) {
+    // Once read on the device it stays a button for the moment the page holds it: a second tap
+    // writes nothing (the server marks only an unread row).
     return (
       <NotificationReadButton id={row.id} className={ROW}>
         {children}
@@ -73,6 +84,8 @@ function NotificationTarget({ row, children }: { row: InboxRow; children: ReactN
 }
 
 function RowContent({ row, today }: { row: InboxRow; today: string }) {
+  // Unread is the row's `data-unread` (`NotificationRow`): the dot and the bold title follow a
+  // read made on the device without the page being drawn again.
   const unread = row.readAt === null;
   return (
     <>
@@ -82,12 +95,12 @@ function RowContent({ row, today }: { row: InboxRow; today: string }) {
           data-slot="notification-title"
         >
           {unread ? (
-            <span className="flex h-5 shrink-0 items-center">
+            <span className="hidden h-5 shrink-0 items-center group-data-[unread]/row:flex">
               <span className="bg-foreground size-2 rounded-full" aria-hidden />
               <span className="sr-only">Unread: </span>
             </span>
           ) : null}
-          <span className={cn("min-w-0", unread ? "font-semibold" : "font-medium")}>
+          <span className="min-w-0 font-medium group-data-[unread]/row:font-semibold">
             {row.title}
           </span>
         </span>

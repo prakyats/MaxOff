@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   noteNotificationsChanged,
-  noteOwnReadRevalidated,
+  noteOwnRead,
   ownReadWithin,
   staleSinceDrawn,
 } from "./live-state";
@@ -23,10 +23,10 @@ describe("staleSinceDrawn", () => {
 });
 
 describe("ownReadWithin", () => {
-  it("is quiet for the window after the member's own revalidated read, and marks a change", () => {
+  it("is quiet for the window after the member's own read, and marks a change", () => {
     expect(ownReadWithin(1_000, 3_000)).toBe(false);
     expect(staleSinceDrawn("c")).toBe(false);
-    noteOwnReadRevalidated(10_000);
+    noteOwnRead(10_000);
     expect(ownReadWithin(12_999, 3_000)).toBe(true);
     expect(ownReadWithin(13_000, 3_000)).toBe(false);
     expect(staleSinceDrawn("c")).toBe(true);

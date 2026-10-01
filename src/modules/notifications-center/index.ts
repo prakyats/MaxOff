@@ -9,4 +9,5 @@ export {
   NotificationList,
   NotificationListSkeleton,
 } from "./components/notification-list";
+export { RecordReadReceipt } from "./components/record-read-receipt";
 export { pageFrom } from "./domain/when";

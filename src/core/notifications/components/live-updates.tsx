@@ -17,6 +17,8 @@ import {
   tokenRefreshIn,
 } from "../live-rules";
 import { noteNotificationsChanged, ownReadWithin } from "../live-state";
+import { readInFlight, readsUnconfirmed, serverUnreadSeen } from "../read-receipts";
+import { readUnreadCount } from "../unread-actions";
 
 export type LiveUpdatesProps = {
   memberId: string;
@@ -33,6 +35,9 @@ export type LiveUpdatesProps = {
  * history list follow without a reload: a new notification, a row read on another device, Mark
  * all read. The event's row is never shown. A rejoin after a dropped connection re-reads too (what
  * came meanwhile). Refresh on return (2.7b) stays the fallback when Realtime is unreachable.
+ * The member's **own** reads on this device never re-read the screen (owner decision 2026-10-01):
+ * their receipts only ask the server for the bell's count (`readUnreadCount`, nothing
+ * revalidated), which confirms the drop the device already shows (`read-receipts.ts`).
  * `html[data-live]` says whether the channel is joined (`on`) or not (`off`), for the e2e checks.
  *
  * Every refresh, the token's included, goes through one guard (`liveRefreshWaits`: never inside
@@ -45,6 +50,20 @@ export function LiveUpdates({ memberId, token, expiresIn }: LiveUpdatesProps): n
   const tokenRef = useRef(token);
   const client = useRef<RealtimeSupabase | null>(null);
   const timer = useRef<number | undefined>(undefined);
+  const confirmTimer = useRef<number | undefined>(undefined);
+
+  // The member's own reads: the count alone, never the screen. A count that cannot be read is
+  // left to the next refresh.
+  const confirmSoon = useCallback(() => {
+    window.clearTimeout(confirmTimer.current);
+    confirmTimer.current = window.setTimeout(() => {
+      readUnreadCount()
+        .then((result) => {
+          if (result.ok) serverUnreadSeen(result.data);
+        })
+        .catch(() => undefined);
+    }, LIVE_REFRESH_DELAY_MS);
+  }, []);
 
   const refreshSoon = useCallback(
     (delay: number) => {
@@ -92,11 +111,13 @@ export function LiveUpdates({ memberId, token, expiresIn }: LiveUpdatesProps): n
           },
           (change) => {
             noteNotificationsChanged();
-            // The member's own read already re-read the screen: its receipts need no second one.
+            // The member's own read on this device never re-reads the screen: the count alone
+            // confirms it, once, while a read still waits for it.
             if (
               change.eventType === "UPDATE" &&
-              ownReadWithin(systemClock().getTime(), OWN_READ_QUIET_MS)
+              (readInFlight() || ownReadWithin(systemClock().getTime(), OWN_READ_QUIET_MS))
             ) {
+              if (readsUnconfirmed()) confirmSoon();
               return;
             }
             refreshSoon(LIVE_REFRESH_DELAY_MS);
@@ -113,6 +134,7 @@ export function LiveUpdates({ memberId, token, expiresIn }: LiveUpdatesProps): n
     return () => {
       cancelled = true;
       window.clearTimeout(timer.current);
+      window.clearTimeout(confirmTimer.current);
       client.current = null;
       delete root.dataset.live;
       const joined = channel;
@@ -120,7 +142,7 @@ export function LiveUpdates({ memberId, token, expiresIn }: LiveUpdatesProps): n
         supabase.realtime.disconnect(),
       );
     };
-  }, [memberId, refreshSoon]);
+  }, [memberId, refreshSoon, confirmSoon]);
 
   // A new token from the server: Realtime reads it through the callback.
   useEffect(() => {

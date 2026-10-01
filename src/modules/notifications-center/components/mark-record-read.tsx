@@ -1,30 +1,33 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
-import { noteOwnReadRevalidated } from "@/core/notifications/live-state";
-import { systemClock } from "@/core/time/clock";
+import { sendRead } from "@/core/notifications/send-read";
 
 import { markRecordRead } from "../actions/inbox";
 
 /**
  * Opening a record marks the viewer's unread notifications about it read (kickoff 5 decision 4):
- * mounted on a task's, a client's and a person's page, it sends the mark once per record, in the
- * background. A failed mark leaves the rows unread for the next visit; nothing to retry.
+ * drawn by `RecordReadReceipt` on a task's, a client's and a person's page when some are unread,
+ * it sends the mark once per record, in the background. The `unread` rows come off the bell on
+ * the device at once and nothing re-reads the page (owner decision 2026-10-01); a failed mark is
+ * undone quietly by the server's next count and the rows stay unread for the next visit.
  */
 export function MarkRecordRead({
   entity,
   id,
+  unread,
 }: {
   entity: "tasks" | "clients" | "members";
   id: string;
+  unread: number;
 }): null {
+  const sent = useRef<string | null>(null);
   useEffect(() => {
-    markRecordRead({ entity, id })
-      .then((result) => {
-        if (result.ok && result.data.marked > 0) noteOwnReadRevalidated(systemClock().getTime());
-      })
-      .catch(() => undefined);
-  }, [entity, id]);
+    const record = `${entity}:${id}`;
+    if (unread <= 0 || sent.current === record) return;
+    sent.current = record;
+    void sendRead(unread, [], () => markRecordRead({ entity, id }));
+  }, [entity, id, unread]);
   return null;
 }

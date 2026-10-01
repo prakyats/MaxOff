@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 
 import { requireMember } from "@/core/auth/server";
 import { checkThenRead } from "@/core/lib/start-early";
-import { countUnread, INBOX_PAGE_SIZE, listInbox } from "@/core/notifications/inbox";
+import { INBOX_PAGE_SIZE, listInbox, readUnread } from "@/core/notifications/inbox";
 import { todayIST } from "@/core/time";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { PageHeader } from "@/core/ui/composites/page-header";
@@ -34,7 +34,7 @@ export default async function NotificationsPage({
   // The reads start with the session read; the member check is awaited first (§19).
   const [, [listing, unread]] = await checkThenRead(
     requireMember(),
-    Promise.all([listInbox(page), countUnread()]),
+    Promise.all([listInbox(page), readUnread()]),
   );
   const pages = Math.max(1, Math.ceil(listing.total / INBOX_PAGE_SIZE));
   // A page that no longer exists: the first one.
@@ -53,7 +53,7 @@ export default async function NotificationsPage({
       ) : (
         <>
           <NotificationBar unread={unread} />
-          <NotificationList rows={listing.rows} today={todayIST()} />
+          <NotificationList rows={listing.rows} today={todayIST()} countedAt={unread.countedAt} />
           {pages > 1 ? (
             <AlertsPager
               label={`Page ${page} of ${pages}`}

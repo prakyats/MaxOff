@@ -18,9 +18,10 @@ export const TOKEN_GRACE_MS = 5_000;
 export const TOKEN_RETRY_MS = 30_000;
 
 /**
- * After the member's own read that already re-read the screen (the action revalidated it), the
- * read receipts it causes come back as UPDATE events: they are not refreshed again for this long.
- * A new notification (an INSERT) always is.
+ * After the member's own read (sent or answered), the read receipts it causes come back as UPDATE
+ * events: for this long they only confirm the bell's count, never re-read the screen (owner
+ * decision 2026-10-01: a read never refreshes the page). A new notification (an INSERT) always
+ * re-reads it, and so does a read from another device outside the window.
  */
 export const OWN_READ_QUIET_MS = 3_000;
 

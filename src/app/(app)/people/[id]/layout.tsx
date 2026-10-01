@@ -5,7 +5,7 @@ import { requirePermission } from "@/core/permissions/server";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 import { PersonMenu } from "@/modules/team/components/person-menu";
-import { MarkRecordRead } from "@/modules/notifications-center/components/mark-record-read";
+import { RecordReadReceipt } from "@/modules/notifications-center";
 
 import { PersonTabs } from "./person-nav";
 import { loadPerson, showsHistory } from "./person";
@@ -35,7 +35,9 @@ export default async function PersonLayout({
   const [{ id }, viewer] = await Promise.all([params, requirePermission("team.view")]);
   return (
     <>
-      <MarkRecordRead entity="members" id={id} />
+      <Suspense fallback={null}>
+        <RecordReadReceipt entity="members" id={id} />
+      </Suspense>
       <Suspense
         fallback={
           <>
