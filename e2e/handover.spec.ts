@@ -76,14 +76,14 @@ async function openPerson(page: Page, id: string, name: string) {
   await hydrated(page);
 }
 
-/** Edit → Role: Staff → Save, up to the confirmation. */
+/** Edit → Role: Crew → Save, up to the confirmation. */
 async function demote(page: Page, name: string) {
   await page.getByRole("button", { name: `Actions for ${name}` }).click();
   await page.getByRole("menuitem", { name: "Edit" }).click();
   await page.getByLabel("Role").click();
-  await page.getByRole("option", { name: "Staff" }).click();
+  await page.getByRole("option", { name: "Crew" }).click();
   await record(page).locator('[data-slot="save-record"]').click();
-  await expect(confirmation(page)).toContainText(`${name}'s role will change from Admin to Staff.`);
+  await expect(confirmation(page)).toContainText(`${name}'s role will change from Admin to Crew.`);
 }
 
 test.describe("the Owner hands an Admin's clients over", () => {
@@ -106,7 +106,7 @@ test.describe("the Owner hands an Admin's clients over", () => {
     await expect(save).toBeEnabled();
     await save.click();
     await expect(page.getByText("Saved", { exact: true })).toBeVisible();
-    await expect(record(page)).toContainText("Staff");
+    await expect(record(page)).toContainText("Crew");
     expect(await adminOf(client)).toBe(await memberIdOf(USERS.admin.email));
 
     await resetPerson(info);

@@ -22,7 +22,6 @@ export {
   freelancerLine,
   hasAttendance,
   memberActions,
-  ROLE_LABELS,
   roleLabel,
   sortMembers,
   STATUS_LABELS,

@@ -55,12 +55,12 @@
     <div class="cast">
       <div><b>Prishit</b><span class="small">Owner. Decides attendance, leave, money and every final approval.</span></div>
       <div><b>Prakyat</b><span class="small">Admin. Runs his assigned clients and checks the work he gives out. Also an employee.</span></div>
-      <div><b>Xyz</b><span class="small">Employee (Staff). Does the tasks given to them, marks the working day, takes leave.</span></div>
+      <div><b>Xyz</b><span class="small">Employee (Crew). Does the tasks given to them, marks the working day, takes leave.</span></div>
     </div>
   </div>
   <div>
     <p class="small"><b>How to read this guide.</b> Screens are written as tap paths, for example <span class="path">More → Clients → New client</span>. Each section is tagged <span class="tag now">Ready now</span> (live in the app at <b>https://app.maxoff.in</b>) or <span class="tag soon">Phase N</span> (decided, arriving with that phase). Small details of a screen may change while it is built; the rules in this guide are the decisions.</p>
-    <p class="small"><b>Stage 1 is live</b> at <b>https://app.maxoff.in</b>: attendance, leave, comp leave, expenses, the month summary, clients and people. Screens from later phases are already in the app and say "coming soon" until they arrive. Next, in this order (staff first; each stage goes live as soon as it is ready): 4 staff tasks · 5 notifications · 6 My Day, Today, calendar, end-of-day report · 8 handing in work · 7 client projects · 9 money and reports · 10 polish and full launch. A tag like <span class="tag soon">Phase 4</span> means "live once phase 4 is released".</p>
+    <p class="small"><b>Stage 1 is live</b> at <b>https://app.maxoff.in</b>: attendance, leave, comp leave, expenses, the month summary, clients and people. Screens from later phases are already in the app and say "coming soon" until they arrive. Next, in this order (crew first; each stage goes live as soon as it is ready): 4 crew tasks · 5 notifications · 6 My Day, Today, calendar, end-of-day report · 8 handing in work · 7 client projects · 9 money and reports · 10 polish and full launch. A tag like <span class="tag soon">Phase 4</span> means "live once phase 4 is released".</p>
   </div>
 </section>
 
@@ -74,7 +74,7 @@
   <div>6. Prishit's attendance tools</div>
   <div>7. Clients</div>
   <div>8. Client projects and the monthly round</div>
-  <div>9. Staff tasks, from creation to final approval</div>
+  <div>9. Crew tasks, from creation to final approval</div>
   <div>10. Handing in work (files and links)</div>
   <div>11. Turning finished work into earned money</div>
   <div>12. Additional work</div>
@@ -97,9 +97,9 @@
   <tr><th style="width:17%">Person</th><th style="width:43%">Bottom bar on a phone (sidebar on a computer)</th><th>Never sees</th></tr>
   <tr><td class="who">Prishit (Owner)</td><td><b>Today · Approvals · Tasks · Calendar · More</b><br>More holds Reports, Clients, People, Settings and Me.</td><td>Nothing is hidden from Prishit. He is exempt from marking attendance.</td></tr>
   <tr><td class="who">Prakyat (Admin)</td><td><b>Today · Approvals · Tasks · Calendar · More</b><br>More holds his Clients, People, his Reports, the parts of Settings he may edit, and Me.</td><td>Any money or amount, anyone's attendance or leave records, clients assigned to other Admins, other people's work beyond "busy" blocks, other people's expense claims.</td></tr>
-  <tr><td class="who">Xyz (Staff)</td><td><b>My Day · Tasks · Calendar · Alerts · Me</b></td><td>Clients' records, projects, money, other people's tasks, approvals, reports, settings.</td></tr>
+  <tr><td class="who">Xyz (Crew)</td><td><b>My Day · Tasks · Calendar · Alerts · Me</b></td><td>Clients' records, projects, money, other people's tasks, approvals, reports, settings.</td></tr>
 </table>
-<p class="small">In stage 1, <b>Tasks</b>, <b>Calendar</b> and <b>Alerts</b> (and Prakyat's Approvals and Reports) are in place and say, in plain words, what they will be for and that they are coming soon. Staff tasks keep running outside MaxOff until phase 4.</p>
+<p class="small">In stage 1, <b>Tasks</b>, <b>Calendar</b> and <b>Alerts</b> (and Prakyat's Approvals and Reports) are in place and say, in plain words, what they will be for and that they are coming soon. Crew tasks keep running outside MaxOff until phase 4.</p>
 <div class="box red"><b>The colour rule.</b> The one solid <span class="pr">red</span> button on a screen is the one that saves or commits something (Save, Submit, Request leave, the confirming button). A red <i>outline</i> means "careful, this removes or cancels something", and it always asks you to confirm with a button that says exactly what it does ("Deactivate Xyz"), never just "OK". Grey buttons go back or open something.</div>
 
 <!-- 2 -->
@@ -112,7 +112,7 @@
 </ol>
 <h3>Joining the team <span class="tag now">Ready now</span></h3>
 <ol class="steps">
-  <li>Prishit invites a person: <span class="path">More → People → Invite</span>, with email, name, role (Admin or Staff) and job title → <span class="path">Send invite</span>. The invite link appears with <span class="path">Copy</span>, and Prishit sends it on WhatsApp together with the one-page "Your first day with MaxOff". (Invite emails come later; from phase 4 the button is <span class="path">Add person → Employee</span> or <span class="path">Freelancer</span>.)</li>
+  <li>Prishit invites a person: <span class="path">More → People → Invite</span>, with email, name, role (Admin or Crew) and job title → <span class="path">Send invite</span>. The invite link appears with <span class="path">Copy</span>, and Prishit sends it on WhatsApp together with the one-page "Your first day with MaxOff". (Invite emails come later; from phase 4 the button is <span class="path">Add person → Employee</span> or <span class="path">Freelancer</span>.)</li>
   <li>Xyz opens the link on the phone, taps <span class="path">Continue to MaxOff</span> (only that tap uses the link up, so a chat preview cannot), sets a password and lands on a welcome screen on <span class="path">Me</span>. The link works <b>once</b>, within 24 hours; if it has expired or was used, Prishit taps <span class="path">People → Xyz → ⋯ → Copy invite link</span> for a fresh one.</li>
   <li>Attendance starts the <b>next day</b>: the joining day is never counted.</li>
 </ol>
@@ -221,7 +221,7 @@ Needs you
 [ See all 15 people ]</div>
 <p>Tapping a count opens the full list filtered to that group ("Waiting" opens Approvals). Tapping a person opens their page.</p>
 <h3>Approving attendance and leave <span class="tag now">Ready now</span></h3>
-<p><span class="path">Approvals</span> is one screen, grouped: <b>Attendance · Leave · Extra work · Expenses</b> (and, when they arrive, Staff tasks · Client items). The badge on the tab shows how many things wait. Extra work and Expenses are review-only: every one is opened and decided on its own.</p>
+<p><span class="path">Approvals</span> is one screen, grouped: <b>Attendance · Leave · Extra work · Expenses</b> (and, when they arrive, Crew tasks · Client items). The badge on the tab shows how many things wait. Extra work and Expenses are review-only: every one is opened and decided on its own.</p>
 <ul>
   <li><b>Approve</b> one row → it fades, with a 6-second <b>Undo</b>. Nothing is saved until the Undo time passes (or the app is left).</li>
   <li><b>Approve all N</b> on a group → a confirmation with the count → "Approve N" (red). Only the rows on screen are approved.</li>
@@ -244,14 +244,14 @@ Needs you
   <li><span class="path">⋯ → Activate</span>. The client is live.</li>
 </ol>
 <h3>The client page</h3>
-<p>Tabs: <b>Overview</b> (details, contacts, custom fields) · <b>Brand</b> · <b>Projects</b> (phase 7) · <b>Staff tasks</b> labelled with this client (phase 4) · <b>Activity</b> (everything that changed). Prishit also sees his private notes and, later, money panels.</p>
+<p>Tabs: <b>Overview</b> (details, contacts, custom fields) · <b>Brand</b> · <b>Projects</b> (phase 7) · <b>Crew tasks</b> labelled with this client (phase 4) · <b>Activity</b> (everything that changed). Prishit also sees his private notes and, later, money panels.</p>
 <ul>
   <li><b>Pause</b>: everything stays visible and editable, but monthly work stops creating new rounds. <b>Close (Inactive)</b>: stays searchable, no new work until Prishit reactivates it. Only Prishit changes the state.</li>
   <li>Prakyat sees and edits only the clients assigned to him. Xyz never sees a client's page, only the client's name and brand basics on a task.</li>
   <li>The client list: cards with logo, name, state and Admin; search and filters; opens on Active clients.</li>
   <li><b>Brand colours are swatches</b>: each colour shows as a chip with its name and hex code, and a tap copies the code (<i>"Copied #E11D48"</i>). Fonts are a simple list, each with an optional note on where it's used. In <span class="path">Brand → Edit</span> each colour is a row with a colour picker, a name and the hex code; rows can be added, moved up or down and removed, and Save names every change.</li>
   <li><b>Closing a client</b> asks for an optional reason. Only Prishit ever sees it, on the client's Activity.</li>
-  <li><b>No client is ever left without an Admin.</b> If Prishit makes Prakyat Staff, or deactivates him, the same confirmation first asks <i>"Move Prakyat's 3 clients to: [Admin]"</i> (one Admin for all, or <b>Choose per client</b>), then makes the change.</li>
+  <li><b>No client is ever left without an Admin.</b> If Prishit makes Prakyat Crew, or deactivates him, the same confirmation first asks <i>"Move Prakyat's 3 clients to: [Admin]"</i> (one Admin for all, or <b>Choose per client</b>), then makes the change.</li>
 </ul>
 
 <!-- 8 -->
@@ -279,7 +279,7 @@ Needs you
 <div class="box">Planned: a place on Prakyat's and Prishit's <b>Today</b> that shows every client's pieces due this week and overdue, so daily work isn't four screens deep. Settled at the start of phase 7.</div>
 
 <!-- 9 -->
-<h2 class="pb"><span class="num">9</span>Staff tasks, from creation to final approval <span class="tag soon">Phase 4</span></h2>
+<h2 class="pb"><span class="num">9</span>Crew tasks, from creation to final approval <span class="tag soon">Phase 4</span></h2>
 <p>Tasks are how work is given to people. They are separate from client projects: Xyz sees tasks, never projects.</p>
 <h3>Creating a task (Prakyat or Prishit)</h3>
 <ol class="steps">
@@ -312,9 +312,9 @@ Needs you
   <tr><td>The checking Admin is also on the task</td><td>His step is skipped (recorded); straight to Prishit</td></tr>
 </table>
 <ol class="steps">
-  <li>Prakyat is notified, opens the task (<span class="path">Approvals → Staff tasks</span> or <span class="path">Tasks</span>), looks at the work and taps <b>Approve</b>, or <b>Request changes</b> with a reason.</li>
+  <li>Prakyat is notified, opens the task (<span class="path">Approvals → Tasks to check</span> or <span class="path">Tasks</span>), looks at the work and taps <b>Approve</b>, or <b>Request changes</b> with a reason.</li>
   <li>Changes requested: the task goes back to Xyz as "Changes requested" (top of My Day). Xyz fixes it and hands in version 2. Every version is kept.</li>
-  <li>Prishit gives the <b>final approval</b>: <span class="path">Approvals → Staff tasks → Approve</span> (or several at once). Only now is the task complete.</li>
+  <li>Prishit gives the <b>final approval</b>: <span class="path">Approvals → Crew tasks → Approve</span> (or several at once). Only now is the task complete.</li>
 </ol>
 <ul>
   <li>Editing, reassigning, cancelling (with a reason) or reopening a task: its creator, its checking Admin, or Prishit. A reopened task goes through the same checks again.</li>
@@ -400,7 +400,7 @@ Needs you
   <li><span class="path">Reports → Close month</span> saves a <b>permanent record</b> of the month. Later mistakes are fixed as dated corrections, never by overwriting.</li>
 </ul>
 <h3>Salaries: the month summary <span class="tag now">Ready now</span></h3>
-<p>For each person (<span class="path">People → person → Month</span>, with ‹ › for other months) and as a team report (<span class="path">More → Reports → Month</span>: one row per Admin and Staff member, "Worked 21½ of 26 · additional leave 3½", days still waiting for review, and "₹1,840 to pay · 5 claims"; a row opens that person's month), live at any time. Only days Prishit has decided are counted; days still waiting are shown on top.</p>
+<p>For each person (<span class="path">People → person → Month</span>, with ‹ › for other months) and as a team report (<span class="path">More → Reports → Month</span>: one row per Admin and Crew member, "Worked 21½ of 26 · additional leave 3½", days still waiting for review, and "₹1,840 to pay · 5 claims"; a row opens that person's month), live at any time. Only days Prishit has decided are counted; days still waiting are shown on top.</p>
 <table>
   <tr><th style="width:38%">Line</th><th>Example: Xyz, October</th></tr>
   <tr><td>Working days in the month (no Sundays or holidays)</td><td>26</td></tr>
@@ -444,11 +444,11 @@ Needs you
 <!-- 19 -->
 <h2><span class="num">19</span>Rules that always hold</h2>
 <ol>
-  <li>Exactly three roles: Owner (Prishit), Admin, Staff. Job titles are just labels.</li>
+  <li>Exactly three roles: Owner (Prishit), Admin, Crew. Job titles are just labels.</li>
   <li><b>Only Prishit</b> decides attendance and leave, and gives every final approval.</li>
   <li><b>Money is Prishit's only</b>: prices, revenue and reports. The one exception: people see their own expense claims.</li>
   <li>Money counts as earned only when Prishit approves the client's piece of work.</li>
-  <li>Client work and staff tasks are separate. Staff see only their tasks and a client's name on them.</li>
+  <li>Client work and crew tasks are separate. Crew see only their tasks and a client's name on them.</li>
   <li>Everyone on a task taps "Task Noted"; only the main person taps Done.</li>
   <li><b>Nothing is ever deleted or overwritten.</b> Corrections sit next to the original, with who, when and why. Records are closed or archived, not destroyed.</li>
   <li>All dates and times are Indian time (IST).</li>
@@ -470,7 +470,7 @@ Needs you
 <h2><span class="num">21</span>Not in the first version</h2>
 <h3>Coming after stage 1, in this order</h3>
 <ol>
-  <li><b>Phase 4:</b> staff tasks, with freelancers.</li>
+  <li><b>Phase 4:</b> crew tasks, with freelancers.</li>
   <li><b>Phase 5:</b> notifications and reminders (Alerts, phone notifications, the few emails).</li>
   <li><b>Phase 6:</b> My Day, Prishit's Today, Prakyat's dashboard, the calendar and the end-of-day report.</li>
   <li><b>Phase 8:</b> handing in work (files and links).</li>
@@ -478,7 +478,7 @@ Needs you
   <li><b>Phase 9:</b> money, reports and closing the month.</li>
   <li><b>Phase 10:</b> polish, the security review and the full launch.</li>
 </ol>
-<p class="small">Each goes live as soon as it is reviewed; there are no fixed dates. Staff-facing phases (4, 5, 6, 8) come before the management ones (7, 9).</p>
+<p class="small">Each goes live as soon as it is reviewed; there are no fixed dates. Crew-facing phases (4, 5, 6, 8) come before the management ones (7, 9).</p>
 <h3>Right after the full launch (decided 27 Sep 2026)</h3>
 <ul>
   <li>The automatic <b>Google Drive archive</b> of all submitted work, with checks that pasted links are shared and cleanup of MaxOff's own copies.</li>

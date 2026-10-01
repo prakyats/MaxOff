@@ -147,7 +147,7 @@ test.describe("Owner", () => {
     await expect(confirm).toContainText(
       `${INVITEE.name}'s name will change from ${INVITEE.name} to Invited Person Jr.`,
     );
-    await expect(confirm).toContainText(`${INVITEE.name}'s role will change from Staff to Admin.`);
+    await expect(confirm).toContainText(`${INVITEE.name}'s role will change from Crew to Admin.`);
     await expect(confirm).toContainText(
       `${INVITEE.name}'s job title will change from Graphic Designer to Video Editor.`,
     );
