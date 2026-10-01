@@ -476,7 +476,7 @@ notification created
 **Subscription lifecycle**
 | Event | What happens to the subscription |
 |---|---|
-| Permission granted / re-granted | Created or re-activated, with `platform`, `is_standalone`, `label` |
+| Permission granted / re-granted | Created or re-activated, with `platform`, `is_standalone`, `label` (5A review: only through `push_subscription_upsert`; an https endpoint on a public DNS name and keys in the browser's exact shape; at most **10 active a person**: the 11th disables the least recently seen other one as `'expired'`) |
 | App closed, or the session expires | **Kept.** Push continues with the full text (title-only was dropped at kickoff 5) |
 | "Sign out of this device" | Deleted (5.2 as built: `push_subscription_remove(endpoint)` from the logout action, the browser's copy dropped first; `'signed_out'` stays a reason for a row the dispatcher may keep in a later phase) |
 | Member deactivated | All of theirs disabled (`'deactivated'`; 5.1 as built keeps the rows as history) |
@@ -489,7 +489,7 @@ notification created
 `ok` · `no_subscription` (never allowed) · `permission_revoked` · `ios_not_installed` (iOS with no standalone subscription) · `failing`.
 Shown in Settings → Notifications to the Owner for everyone, and to an Admin for people on their tasks. Anyone `no_subscription`, `permission_revoked`, `ios_not_installed` or `failing` for **48 h** raises one notification to the Owner, at most weekly per person.
 
-**Test notification:** "Send a test notification" on **Me** (5.2 as built; the owner's 5A ask) sends a push right now to the caller's own active devices, quiet hours ignored, through the same encryption as the dispatcher; `push_subscriptions_tested()` records `last_test_at`; the row reports "Sent to N devices", "No device accepted it" or that push is not set up on the server. It writes **no notifications row** (a device check is not an event). Emails per person per day are capped by `org_settings.email_daily_cap_per_member` (default 20); **invites and escalations bypass the cap**.
+**Test notification:** "Send a test notification" on **Me** (5.2 as built; the owner's 5A ask) sends a push right now to the caller's own active devices, quiet hours ignored, through the same encryption as the dispatcher; **one test per 30 seconds** (5A review S2: `push_test_claim()` refuses a second tap inside the window with "A test was sent a moment ago. Try again in half a minute." and otherwise records `last_test_at` before anything is sent); the row reports "Sent to N devices", "No device accepted it" or that push is not set up on the server. It writes **no notifications row** (a device check is not an event). Emails per person per day are capped by `org_settings.email_daily_cap_per_member` (default 20); **invites and escalations bypass the cap**.
 
 ### Settled at kickoff 5 (owner decision 2026-09-29; built in phase 5)
 - **Added 2026-10-01 (owner, 5A build decision 27):** an approving Admin deactivated or made Staff gives the Owner **one** combined `approvals_moved` row for their `submitted` tasks that moved to the Owner ("3 submitted tasks moved to you: Ravi was deactivated" / "… is no longer an Admin", singular for one, linking to `/approvals`), written with no actor; nothing when no submitted task moved; open tasks that only lose the approver notify nobody. Info kind: no email.

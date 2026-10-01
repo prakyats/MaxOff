@@ -66,6 +66,12 @@ insert into fx values
 insert into fx select 'org', id from public.organizations limit 1;
 grant all on fx to authenticated, anon, service_role;
 
+-- Web Push keys in the shape the browser hands over (5A review M1: the upsert checks them strictly).
+create function pg_temp.p256(tag text) returns text language sql immutable as $k$
+  select rtrim(translate(replace(encode('\x04'::bytea || sha256(convert_to(tag, 'utf8'))
+    || sha256(convert_to(tag || '.', 'utf8')), 'base64'), E'\n', ''), '+/', '-_'), '=') $k$;
+create function pg_temp.auth16(tag text) returns text language sql immutable as $k$
+  select rtrim(translate(encode(substring(sha256(convert_to(tag, 'utf8')) from 1 for 16), 'base64'), '+/', '-_'), '=') $k$;
 create function pg_temp.fx(k text) returns uuid language sql stable as $$
   select id from fx where key = k;
 $$;
@@ -195,12 +201,12 @@ select ok(not has_table_privilege('authenticated', 'public.notification_deliveri
   'notification_deliveries: no API access; the dispatcher (service_role) owns it');
 select ok(has_table_privilege('authenticated', 'public.push_subscriptions', 'select')
           and has_table_privilege('authenticated', 'public.push_subscriptions', 'delete')
-          and has_column_privilege('authenticated', 'public.push_subscriptions', 'endpoint', 'insert')
-          and has_column_privilege('authenticated', 'public.push_subscriptions', 'label', 'update')
+          and not has_column_privilege('authenticated', 'public.push_subscriptions', 'endpoint', 'insert')
+          and not has_column_privilege('authenticated', 'public.push_subscriptions', 'label', 'update')
           and not has_column_privilege('authenticated', 'public.push_subscriptions', 'failure_count', 'update')
           and not has_column_privilege('authenticated', 'public.push_subscriptions', 'disabled_at', 'update')
           and not has_column_privilege('authenticated', 'public.push_subscriptions', 'last_success_at', 'insert'),
-  'push_subscriptions: own inserts, label / keys / last_seen_at updates and deletes; the result columns are the dispatcher''s');
+  'push_subscriptions: the API reads and deletes its own rows; every insert and update goes through push_subscription_upsert (5A review M2)');
 select ok(not has_function_privilege('authenticated', 'app.notify(uuid[], text, text, text, text, text, uuid, jsonb, uuid, integer)', 'execute')
           and not has_function_privilege('anon', 'app.notify(uuid[], text, text, text, text, text, uuid, jsonb, uuid, integer)', 'execute')
           and has_function_privilege('service_role', 'app.notify(uuid[], text, text, text, text, text, uuid, jsonb, uuid, integer)', 'execute'),
@@ -315,11 +321,13 @@ select throws_ok(format($$ update public.notifications set recipient_id = %L $$,
 
 -- 4. push_subscriptions: own rows ---------------------------------------------------------------------
 select pg_temp.as_member('staff1');
-select lives_ok($$ insert into public.push_subscriptions (endpoint, p256dh, auth, platform, is_standalone, label)
-    values ('https://push.example/s1', 'k', 'a', 'android', true, 'Phone') $$, 'staff1 subscribes their own device');
+-- 5A review M2 (20261001053934): INSERT and UPDATE are revoked from the API role; a member
+-- writes their rows only through push_subscription_upsert (pgTAP 47 has the per-role proof).
+select lives_ok($$ select public.push_subscription_upsert('https://push.example/s1', pg_temp.p256('k'), pg_temp.auth16('a'), 'android', true, 'Phone') $$,
+  'staff1 subscribes their own device (through the RPC)');
 select throws_ok(format($$ insert into public.push_subscriptions (member_id, endpoint, p256dh, auth)
     values (%L, 'https://push.example/x', 'k', 'a') $$, pg_temp.fx('staff2')),
-  'P0001', 'FORBIDDEN', 'never for someone else (the guard, which runs before RLS; 5.1 review S4)');
+  '42501', null, 'never for someone else: a direct insert is refused outright (5A review M2)');
 select throws_ok($$ insert into public.push_subscriptions (endpoint, p256dh, auth, failure_count)
     values ('https://push.example/s2', 'k', 'a', 3) $$, '42501', null, 'the result columns are not the member''s to write');
 select is((select count(*) from public.push_subscriptions), 1::bigint, 'staff1 sees their row');
@@ -327,11 +335,11 @@ select pg_temp.as_member('owner');
 select is((select count(*) from public.push_subscriptions), 0::bigint, 'the Owner never sees another member''s endpoint');
 select pg_temp.as_member('admin1');
 select is((select count(*) from public.push_subscriptions), 0::bigint, 'nor an Admin');
-select lives_ok($$ insert into public.push_subscriptions (endpoint, p256dh, auth, platform)
-    values ('https://push.example/a1', 'k', 'a', 'desktop') $$, 'an Admin subscribes too');
+select lives_ok($$ select public.push_subscription_upsert('https://push.example/a1', pg_temp.p256('k'), pg_temp.auth16('a'), 'desktop') $$,
+  'an Admin subscribes too');
 select pg_temp.as_member('staff1');
-select is(pg_temp.rows($$ update public.push_subscriptions set label = 'My phone', last_seen_at = now() $$), 1::bigint,
-  'staff1 renames their device');
+select throws_ok($$ update public.push_subscriptions set label = 'My phone', last_seen_at = now() $$, '42501', null,
+  'a direct update is refused too: the upsert is the only write (5A review M2)');
 select throws_ok($$ update public.push_subscriptions set failure_count = 1 $$, '42501', null, 'never the failure count');
 select is(pg_temp.rows($$ delete from public.push_subscriptions $$), 1::bigint,
   '"Sign out of this device" deletes the row (and only theirs)');
@@ -757,7 +765,7 @@ select is(pg_temp.total(), 2::bigint, 'two rows; the actor none');
 -- A deactivated coordinator (5A decision 17): Bina is deactivated first (an active freelancer blocks).
 select pg_temp.clear();
 select pg_temp.as_member('admin1');
-insert into public.push_subscriptions (endpoint, p256dh, auth) values ('https://push.example/adm1', 'k', 'a');
+select public.push_subscription_upsert('https://push.example/adm1', pg_temp.p256('k'), pg_temp.auth16('a'));
 select pg_temp.as_member('owner');
 select public.member_deactivate(pg_temp.fx('bina'), 'Contract ended');
 select pg_temp.as_system();

@@ -63,6 +63,13 @@ insert into fx values
 insert into fx select 'org', id from public.organizations limit 1;
 grant all on fx to authenticated, anon, service_role;
 
+-- Web Push keys in the shape the browser hands over (5A review M1: the upsert checks them strictly):
+-- p256dh 65 bytes starting 0x04, auth 16 bytes, base64url without padding; one per tag.
+create function pg_temp.p256(tag text) returns text language sql immutable as $k$
+  select rtrim(translate(replace(encode('\x04'::bytea || sha256(convert_to(tag, 'utf8'))
+    || sha256(convert_to(tag || '.', 'utf8')), 'base64'), E'\n', ''), '+/', '-_'), '=') $k$;
+create function pg_temp.auth16(tag text) returns text language sql immutable as $k$
+  select rtrim(translate(encode(substring(sha256(convert_to(tag, 'utf8')) from 1 for 16), 'base64'), '+/', '-_'), '=') $k$;
 create function pg_temp.fx(k text) returns uuid language sql stable as $$
   select id from fx where key = k;
 $$;
@@ -197,25 +204,25 @@ $$;
 
 -- 1. Endpoint take-over --------------------------------------------------------------------------------
 select pg_temp.as_member('staff1');
-insert into fx values ('t1', public.push_subscription_upsert('https://push.example/t1', 'kA', 'aA', 'android'));
+insert into fx values ('t1', public.push_subscription_upsert('https://push.example/t1', pg_temp.p256('kA'), pg_temp.auth16('aA'), 'android'));
 select pg_temp.as_member('staff2');
-select throws_ok($$ select public.push_subscription_upsert('https://push.example/t1', 'kX', 'aX', 'android') $$,
+select throws_ok($$ select public.push_subscription_upsert('https://push.example/t1', pg_temp.p256('kX'), pg_temp.auth16('aX'), 'android') $$,
   'P0001', 'FORBIDDEN', 'another member''s active endpoint with other keys: refused');
-select throws_ok($$ select public.push_subscription_upsert('https://push.example/t1', 'kA', 'aX', 'android') $$,
+select throws_ok($$ select public.push_subscription_upsert('https://push.example/t1', pg_temp.p256('kA'), pg_temp.auth16('aX'), 'android') $$,
   'P0001', 'FORBIDDEN', '(the auth secret must match too)');
 select pg_temp.as_system();
 select is((select (member_id, p256dh, auth)::text from public.push_subscriptions where id = pg_temp.fx('t1')),
-  (pg_temp.fx('staff1'), 'kA', 'aA')::text, 'and the row is untouched');
+  (pg_temp.fx('staff1'), pg_temp.p256('kA'), pg_temp.auth16('aA'))::text, 'and the row is untouched');
 select pg_temp.as_member('staff2');
-select is(public.push_subscription_upsert('https://push.example/t1', 'kA', 'aA', 'android', false, 'Shared'), pg_temp.fx('t1'),
+select is(public.push_subscription_upsert('https://push.example/t1', pg_temp.p256('kA'), pg_temp.auth16('aA'), 'android', false, 'Shared'), pg_temp.fx('t1'),
   'with the same keys (the same browser) it is taken over');
 select pg_temp.as_member('staff2');
-select is(public.push_subscription_upsert('https://push.example/t1', 'kB', 'aB', 'android'), pg_temp.fx('t1'),
+select is(public.push_subscription_upsert('https://push.example/t1', pg_temp.p256('kB'), pg_temp.auth16('aB'), 'android'), pg_temp.fx('t1'),
   'one''s own row takes new keys');
 select pg_temp.as_system();
 update public.push_subscriptions set disabled_at = now(), disabled_reason = 'gone' where id = pg_temp.fx('t1');
 select pg_temp.as_member('staff1');
-select is(public.push_subscription_upsert('https://push.example/t1', 'kC', 'aC', 'android'), pg_temp.fx('t1'),
+select is(public.push_subscription_upsert('https://push.example/t1', pg_temp.p256('kC'), pg_temp.auth16('aC'), 'android'), pg_temp.fx('t1'),
   'a disabled row is reused by anyone, with their keys');
 select pg_temp.as_system();
 delete from public.push_subscriptions;

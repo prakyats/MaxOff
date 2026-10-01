@@ -238,3 +238,8 @@ from (values
 where not exists (
   select 1 from public.member_coordinators mc where mc.member_id = c.member_id and mc.to_at is null
 );
+
+-- 5A review fixes (M2): the local and CI database lets push_subscription_upsert take http
+-- endpoints on the loopback host, where the e2e fake push service runs. Only the seed writes
+-- this, and no hosted project runs the seed: staging and production take https only.
+insert into app.local_flags (flag) values ('push_loopback_endpoints') on conflict do nothing;

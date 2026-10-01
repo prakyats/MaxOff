@@ -3462,6 +3462,7 @@ export type Database = {
           p256dh: string;
         }[];
       };
+      push_test_claim: { Args: never; Returns: number };
       session_login: {
         Args: { ip_hash?: string; user_agent?: string };
         Returns: string;

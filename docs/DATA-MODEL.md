@@ -351,11 +351,32 @@ push_subscriptions   id, member_id (default auth.uid(), cascade), endpoint uniqu
                      -- gone | error) (service_role): sent = last_success_at + failure_count 0; gone =
                      -- disabled 'gone'; error = failure_count + 1, disabled 'expired' at the fifth in a
                      -- row; a disabled row stays disabled.
+                     -- 5A review fixes (20261001053934_review_5a_fixes): INSERT and UPDATE are revoked
+                     -- from authenticated (a direct insert skipped every check of the upsert: any
+                     -- http URL, any number of rows); the API writes only through the RPCs (DELETE
+                     -- stays granted on own rows; the app uses push_subscription_remove). The upsert
+                     -- checks the keys strictly (base64url; p256dh 65 bytes starting 0x04, auth 16
+                     -- bytes), takes only https endpoints on a DNS host (no IP literal, no localhost /
+                     -- .local / .internal / .localhost), allows http on the loopback host only while
+                     -- app.local_flags holds 'push_loopback_endpoints' (the local seed writes it; never
+                     -- staging or production), and caps a member at 10 ACTIVE rows: the 11th disables
+                     -- the least recently seen other row as 'expired' (never refused: a new phone must
+                     -- always work). push_test_claim() ("Send a test notification") refuses
+                     -- RATE_LIMITED while any active row of the caller was tested under 30 s ago,
+                     -- else stamps last_test_at on them, under a row lock, before anything is sent.
                      -- Not audited (5.1 review S5): the member's own device state, as task_reads; its
                      -- writes are the member's subscribe / sign-out on their own device and the
                      -- dispatcher's result of every send (an audit row per send would flood
                      -- activity_log with nothing anyone reviews); deactivation, the one business event
                      -- that touches it, is audited by member_deactivate itself.
+app.local_flags      flag text pk check (flag in ('push_loopback_endpoints')), set_at
+                     -- 5A review fixes (20261001053934): switches that exist ONLY on a local or CI
+                     -- database. Written by supabase/seed.sql, which no hosted project runs (deploy
+                     -- runs `db push` only), so staging and production never hold a row. In schema
+                     -- app (not exposed by the API); RLS on, no policy, every privilege revoked from
+                     -- anon and authenticated: read only inside SECURITY DEFINER functions.
+                     -- 'push_loopback_endpoints': push_subscription_upsert also takes
+                     -- http://127.0.0.1|localhost[:port]/ endpoints (the e2e fake push service).
 ```
 
 ## 2. Configuration (customization as data)

@@ -309,13 +309,14 @@ select ok(not (select p.prosecdef from pg_proc p where p.oid = 'app.push_subscri
   'push_subscriptions_guard runs as the caller (security invoker), so in_transition() means what it says');
 select pg_temp.as_member('asha');
 select throws_ok($$ insert into public.push_subscriptions (endpoint, p256dh, auth) values ('https://push.example/asha', 'k', 'a') $$,
-  'P0001', 'FORBIDDEN', 'a non-permanent member cannot subscribe (push_subscriptions_guard)');
+  '42501', null, 'a non-permanent member cannot insert (INSERT is revoked since 5A review M2; the upsert refuses them, pgTAP 42)');
 select pg_temp.as_member('staff1');
 select throws_ok(format($$ insert into public.push_subscriptions (member_id, endpoint, p256dh, auth) values (%L, 'https://push.example/x', 'k', 'a') $$, pg_temp.fx('staff2')),
-  'P0001', 'FORBIDDEN', 'someone else''s row is refused by the guard (it runs before RLS)');
+  '42501', null, 'nor anyone a row for someone else (INSERT revoked, 5A review M2)');
 select pg_temp.as_member('staff1');
-select lives_ok($$ insert into public.push_subscriptions (endpoint, p256dh, auth) values ('https://push.example/s1', 'k', 'a') $$,
-  'a permanent member can');
+select lives_ok($$ select public.push_subscription_upsert('https://push.example/s1',
+    'B' || repeat('A', 86), repeat('A', 22)) $$,
+  'a permanent member can, through the RPC');
 select pg_temp.as_system();
 select is((select count(*) from public.push_subscriptions), 1::bigint, 'one row');
 select ok((select obj_description('public.push_subscriptions'::regclass) like '%Not audited%'),

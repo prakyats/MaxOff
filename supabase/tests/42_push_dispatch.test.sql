@@ -55,6 +55,13 @@ insert into fx values
 insert into fx select 'org', id from public.organizations limit 1;
 grant all on fx to authenticated, anon, service_role;
 
+-- Web Push keys in the shape the browser hands over (5A review M1: the upsert checks them strictly):
+-- p256dh 65 bytes starting 0x04, auth 16 bytes, base64url without padding; one per tag.
+create function pg_temp.p256(tag text) returns text language sql immutable as $k$
+  select rtrim(translate(replace(encode('\x04'::bytea || sha256(convert_to(tag, 'utf8'))
+    || sha256(convert_to(tag || '.', 'utf8')), 'base64'), E'\n', ''), '+/', '-_'), '=') $k$;
+create function pg_temp.auth16(tag text) returns text language sql immutable as $k$
+  select rtrim(translate(encode(substring(sha256(convert_to(tag, 'utf8')) from 1 for 16), 'base64'), '+/', '-_'), '=') $k$;
 create function pg_temp.fx(k text) returns uuid language sql stable as $$
   select id from fx where key = k;
 $$;
@@ -190,48 +197,48 @@ select ok(not has_function_privilege('authenticated', 'public.push_claim(timesta
 
 -- 2. push_subscription_upsert: per role, take-over, validation ---------------------------------------
 select pg_temp.as_member('staff1');
-insert into fx values ('s1', public.push_subscription_upsert('https://push.example/one', 'k1', 'a1', 'android', true, 'Phone', 'Chrome/1'));
+insert into fx values ('s1', public.push_subscription_upsert('https://push.example/one', pg_temp.p256('k1'), pg_temp.auth16('a1'), 'android', true, 'Phone', 'Chrome/1'));
 select is((select (member_id, platform, is_standalone, label, user_agent)::text from public.push_subscriptions where id = pg_temp.fx('s1')),
   (pg_temp.fx('staff1'), 'android', true, 'Phone', 'Chrome/1')::text, 'Staff subscribe: the device is recorded');
-select is(public.push_subscription_upsert('https://push.example/one', 'k1b', 'a1b', 'android', true, 'Phone', 'Chrome/2'), pg_temp.fx('s1'),
+select is(public.push_subscription_upsert('https://push.example/one', pg_temp.p256('k1b'), pg_temp.auth16('a1b'), 'android', true, 'Phone', 'Chrome/2'), pg_temp.fx('s1'),
   'the same endpoint again updates the row (same id)');
-select is((select (p256dh, auth, user_agent)::text from public.push_subscriptions where id = pg_temp.fx('s1')), ('k1b', 'a1b', 'Chrome/2')::text,
+select is((select (p256dh, auth, user_agent)::text from public.push_subscriptions where id = pg_temp.fx('s1')), (pg_temp.p256('k1b'), pg_temp.auth16('a1b'), 'Chrome/2')::text,
   'with the new keys');
 select pg_temp.as_member('admin1');
-select lives_ok($$ select public.push_subscription_upsert('https://push.example/admin', 'k', 'a', 'desktop') $$, 'an Admin subscribes');
+select lives_ok($$ select public.push_subscription_upsert('https://push.example/admin', pg_temp.p256('k'), pg_temp.auth16('a'), 'desktop') $$, 'an Admin subscribes');
 select pg_temp.as_member('owner');
-select lives_ok($$ select public.push_subscription_upsert('https://push.example/owner', 'k', 'a', 'ios', true, 'iPhone') $$, 'the Owner too (decision 9)');
+select lives_ok($$ select public.push_subscription_upsert('https://push.example/owner', pg_temp.p256('k'), pg_temp.auth16('a'), 'ios', true, 'iPhone') $$, 'the Owner too (decision 9)');
 select pg_temp.as_member('asha');
 -- UNAUTHENTICATED, not FORBIDDEN: since the phase 4 review (20260930070616, S-S3 c)
 -- app.current_member() resolves a permanent member only, so a sign-in on a freelancer's id is nobody.
-select throws_ok($$ select public.push_subscription_upsert('https://push.example/asha', 'k', 'a') $$, 'P0001', 'UNAUTHENTICATED',
+select throws_ok($$ select public.push_subscription_upsert('https://push.example/asha', pg_temp.p256('k'), pg_temp.auth16('a')) $$, 'P0001', 'UNAUTHENTICATED',
   'a freelancer (no login) cannot');
 select pg_temp.as_member('gone');
-select throws_ok($$ select public.push_subscription_upsert('https://push.example/gone', 'k', 'a') $$, 'P0001', 'UNAUTHENTICATED',
+select throws_ok($$ select public.push_subscription_upsert('https://push.example/gone', pg_temp.p256('k'), pg_temp.auth16('a')) $$, 'P0001', 'UNAUTHENTICATED',
   'a deactivated person cannot');
 select pg_temp.as_nobody();
-select throws_ok($$ select public.push_subscription_upsert('https://push.example/nobody', 'k', 'a') $$, 'P0001', 'UNAUTHENTICATED', 'nor a stranger');
+select throws_ok($$ select public.push_subscription_upsert('https://push.example/nobody', pg_temp.p256('k'), pg_temp.auth16('a')) $$, 'P0001', 'UNAUTHENTICATED', 'nor a stranger');
 select pg_temp.as_member('staff1');
-select throws_ok($$ select public.push_subscription_upsert('http://push.example/plain', 'k', 'a') $$, 'P0001', 'VALIDATION', 'https only');
-select lives_ok($$ select public.push_subscription_upsert('http://127.0.0.1:3111/push/e2e', 'k', 'a') $$, 'except plain http on the loopback host (the local e2e fake push service)');
+select throws_ok($$ select public.push_subscription_upsert('http://push.example/plain', pg_temp.p256('k'), pg_temp.auth16('a')) $$, 'P0001', 'VALIDATION', 'https only');
+select lives_ok($$ select public.push_subscription_upsert('http://127.0.0.1:3111/push/e2e', pg_temp.p256('k'), pg_temp.auth16('a')) $$, 'except plain http on the loopback host (the local e2e fake push service)');
 select is(public.push_subscription_remove('http://127.0.0.1:3111/push/e2e'), true, '(and removed again)');
-select throws_ok($$ select public.push_subscription_upsert('https://push.example/nokeys', '', 'a') $$, 'P0001', 'VALIDATION', 'keys required');
-select throws_ok($$ select public.push_subscription_upsert('https://push.example/p', 'k', 'a', 'tv') $$, 'P0001', 'VALIDATION', 'a known platform');
+select throws_ok($$ select public.push_subscription_upsert('https://push.example/nokeys', '', pg_temp.auth16('a')) $$, 'P0001', 'VALIDATION', 'keys required');
+select throws_ok($$ select public.push_subscription_upsert('https://push.example/p', pg_temp.p256('k'), pg_temp.auth16('a'), 'tv') $$, 'P0001', 'VALIDATION', 'a known platform');
 -- Take-over: staff2 subscribes on staff1's browser (the same endpoint, so the same keys: the
 -- browser's one subscription; 20261001003242 refuses other keys, pgTAP 45).
 select pg_temp.as_member('staff2');
-select is(public.push_subscription_upsert('https://push.example/one', 'k1b', 'a1b', 'android', true, 'Shared phone'), pg_temp.fx('s1'),
+select is(public.push_subscription_upsert('https://push.example/one', pg_temp.p256('k1b'), pg_temp.auth16('a1b'), 'android', true, 'Shared phone'), pg_temp.fx('s1'),
   'a second person on the same browser takes the endpoint over (review S3)');
 select pg_temp.as_system();
 select is((select (member_id, p256dh, label)::text from public.push_subscriptions where id = pg_temp.fx('s1')),
-  (pg_temp.fx('staff2'), 'k1b', 'Shared phone')::text, 'the row is theirs now');
+  (pg_temp.fx('staff2'), pg_temp.p256('k1b'), 'Shared phone')::text, 'the row is theirs now');
 select pg_temp.as_member('staff1');
 select is((select count(*) from public.push_subscriptions), 0::bigint, 'and staff1 no longer sees it');
 -- A disabled row comes back to life for whoever subscribes.
 select pg_temp.as_system();
 update public.push_subscriptions set disabled_at = now(), disabled_reason = 'gone', failure_count = 3 where id = pg_temp.fx('s1');
 select pg_temp.as_member('staff1');
-select is(public.push_subscription_upsert('https://push.example/one', 'k3', 'a3', 'android', true), pg_temp.fx('s1'), 'a gone row is reused');
+select is(public.push_subscription_upsert('https://push.example/one', pg_temp.p256('k3'), pg_temp.auth16('a3'), 'android', true), pg_temp.fx('s1'), 'a gone row is reused');
 select pg_temp.as_system();
 select is((select (member_id, disabled_at, disabled_reason, failure_count)::text from public.push_subscriptions where id = pg_temp.fx('s1')),
   (pg_temp.fx('staff1'), null, null, 0)::text, 'active again, the failures cleared');
@@ -272,8 +279,8 @@ update public.org_settings set quiet_hours_start = '22:00', quiet_hours_end = '0
 -- 5. push_claim, push_targets, push_record, push_subscription_result ---------------------------------------
 select pg_temp.clear();
 select pg_temp.as_member('staff1');
-insert into fx values ('s2', public.push_subscription_upsert('https://push.example/s1-phone', 'k', 'a', 'android', true, 'Phone'));
-insert into fx values ('s3', public.push_subscription_upsert('https://push.example/s1-laptop', 'k', 'a', 'desktop'));
+insert into fx values ('s2', public.push_subscription_upsert('https://push.example/s1-phone', pg_temp.p256('k'), pg_temp.auth16('a'), 'android', true, 'Phone'));
+insert into fx values ('s3', public.push_subscription_upsert('https://push.example/s1-laptop', pg_temp.p256('k'), pg_temp.auth16('a'), 'desktop'));
 select pg_temp.as_system();
 select app.notify(array[pg_temp.fx('staff1')], 'task_changed', 'Daytime one', 'b', '/tasks', null, null, '{}', null);
 select pg_temp.backdate();
@@ -351,7 +358,7 @@ select throws_ok($$ select public.push_record('{}', 'lost') $$, 'P0001', 'VALIDA
 -- 6. Quiet hours: held, then one summary per person at the window's end ------------------------------------
 select pg_temp.clear();
 select pg_temp.as_member('staff1');
-select public.push_subscription_upsert('https://push.example/s1-new', 'k', 'a', 'android', true);
+select public.push_subscription_upsert('https://push.example/s1-new', pg_temp.p256('k'), pg_temp.auth16('a'), 'android', true);
 select pg_temp.as_system();
 select app.notify(array[pg_temp.fx('staff1'), pg_temp.fx('staff2')], 'task_changed', 'Night one', null, '/tasks', null, null, '{}', null);
 select pg_temp.backdate();
