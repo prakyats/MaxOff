@@ -6,7 +6,7 @@ import type { ComponentProps, MouseEvent } from "react";
 
 import { cn } from "@/core/lib/utils";
 import { NAV_BACK } from "@/core/ui/motion/nav-types";
-import { slideBack } from "@/core/ui/motion/slide";
+import { nameSlide, slideBack } from "@/core/ui/motion/slide";
 import { markLive } from "@/core/ui/navigation/attributes";
 import { backMove } from "@/core/ui/navigation/moves";
 
@@ -43,9 +43,14 @@ export function BackLink({
         if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey) return;
         event.preventDefault();
         // Both moves slide back out in the installed app (§14.2 j): the replace through its
-        // transition type, the back through `slideBack`, since a history move carries no type.
+        // transition type and the slide's name (`nameSlide`: the type alone is lost when the tap
+        // lands while the screen is still hydrating), the back through `slideBack`, since a
+        // history move carries no type.
         if (backMove(currentIndex()) === "back") slideBack(() => router.back());
-        else router.replace(href, { transitionTypes: [NAV_BACK] });
+        else {
+          nameSlide("back");
+          router.replace(href, { transitionTypes: [NAV_BACK] });
+        }
       }}
     />
   );
