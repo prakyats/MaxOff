@@ -268,7 +268,12 @@ email through `core/notifications` (Resend), so GoTrue never mails an invite (ta
 2. `pnpm build:worker`, with the `NEXT_PUBLIC_*` variables inlined (a malformed value fails
    the build) and source maps uploaded to Sentry when the token is present. The build comes
    first so a failed build never leaves the database ahead of the Worker.
-3. `supabase link` + `supabase db push`: applies any new append-only migrations.
+3. Applies the new append-only migrations. Staging: `scripts/staging-migrations.sh` (below). Production:
+   `scripts/production-migrations.sh`, which lists production's migrations, **fails** when the list is
+   unreadable or production holds a version the tag lacks, skips when nothing is pending, and otherwise
+   runs `supabase migration up --linked --include-all` (only the missing files, in version order, each
+   in its own transaction) and lists again. Not a plain `db push`: v1.3.0's notification migrations
+   sort before v1.2.0's newest, which `db push` refuses. It never repairs, reverts or edits history.
 4. `wrangler deploy --env <name> --secrets-file …`: the code and the Worker secrets (`SUPABASE_SECRET_KEY`,
    plus `SESSION_IP_HASH_SALT`, the `S3_*` set and `CRON_SECRET` when set) land in **one** deployment. They used
    to be uploaded first with `wrangler secret`, which Cloudflare refuses (error 10215) while the Worker's
