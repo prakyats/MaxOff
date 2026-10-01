@@ -2,6 +2,8 @@
 description: Settle every business question a phase raises, all at once, before any of it is built
 argument-hint: "[phase number]"
 ---
+
+> **Production is live** (`https://app.maxoff.in`, in daily use since 2026-10-01). Read `CLAUDE.md` → "Production is live" before any change: expand-only migrations, no merge/tag/approve by a session, nothing run against production.
 Kick off phase $ARGUMENTS of MaxOff. (Run this on the highest-capability model: it reads the whole phase.)
 
 The point: `/run-phase` builds a phase unit by unit without stopping for approval, so every business question the phase raises has to be settled **before** it starts. Ask them all here, once.

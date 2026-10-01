@@ -1,5 +1,7 @@
 # MaxOff Architecture (v2)
 
+> **PRODUCTION IS LIVE (since 2026-10-01): `https://app.maxoff.in` is in daily use by the Pixora Clips team with real data.** Expand-only migrations, releases only by an Owner-approved `v*` tag on a green `main` commit, never a seed, reset or hand-written SQL on production. The rules are in `CLAUDE.md` → "Production is live".
+
 > **How** MaxOff is built. What it does: `PRODUCT.md`. Tables: `DATA-MODEL.md`. States: `WORKFLOWS.md`. Access: `PERMISSIONS.md`.
 > Changing any pattern here needs an ADR in `docs/decisions/`.
 

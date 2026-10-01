@@ -2,6 +2,8 @@
 description: End-of-phase review, fixes, merge and tag
 argument-hint: "[phase number]"
 ---
+
+> **Production is live** (`https://app.maxoff.in`, in daily use since 2026-10-01). Read `CLAUDE.md` → "Production is live" before any change: expand-only migrations, no merge/tag/approve by a session, nothing run against production.
 Review phase $ARGUMENTS of MaxOff before merging it. (Use the highest-capability model for this.)
 
 1. Confirm that every task for this phase in `docs/ROADMAP.md` is ticked, and that the phase's exit criteria are actually met. Check by running the app or the e2e tests where you can.

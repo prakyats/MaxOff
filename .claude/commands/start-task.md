@@ -2,6 +2,8 @@
 description: Start the next roadmap unit (or the unit or task given) with a plan; wait only when the kickoff left a question open
 argument-hint: "[unit or task id, e.g. 4B or 4.2]"
 ---
+
+> **Production is live** (`https://app.maxoff.in`, in daily use since 2026-10-01). Read `CLAUDE.md` → "Production is live" before any change: expand-only migrations, no merge/tag/approve by a session, nothing run against production.
 Start a MaxOff build unit. Requested: "$ARGUMENTS" (a unit like `4B` or a single task like `4.2`; if empty, use the "Next task" in docs/PROGRESS.md).
 
 1. Read `docs/PROGRESS.md` in full. If there's an **In-progress handoff**, resume from it instead of starting fresh.

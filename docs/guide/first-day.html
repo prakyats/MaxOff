@@ -7,7 +7,7 @@
 <style>
   /* One long, narrow page: it is read on a phone (sent with the invite on WhatsApp), so the PDF is
      phone-width and one page tall. The same conventions as MaxOff-App-Guide.html. */
-  @page { size: 110mm 720mm; margin: 7mm 7mm 7mm 7mm; }
+  @page { size: 110mm 1080mm; margin: 7mm 7mm 7mm 7mm; }
   :root { --red: #C42126; --ink: #16161a; --muted: #5b5b66; --line: #e3e3e8; --soft: #f6f6f8; --ok: #1f7a4d; }
   * { box-sizing: border-box; }
   body { font-family: "Segoe UI", system-ui, sans-serif; color: var(--ink); font-size: 9.5pt; line-height: 1.45; margin: 0 auto; max-width: 30rem; background: #fff; }
@@ -42,20 +42,35 @@
   <div class="mark">M</div>
   <div>
     <h1>Your first day with MaxOff</h1>
-    <p class="sub">Pixora Clips' app for your working day, leave and expenses. Keep this on your phone.</p>
+    <p class="sub">Pixora Clips' app for your working day, your tasks, leave and expenses. Keep this on your phone.</p>
   </div>
 </div>
-<p>MaxOff records when your day starts and ends, your leave and your expense claims. <b>Prishit</b> (the Owner) approves them. Working hours are flexible: MaxOff records what really happens and never guesses. All times are Indian time.</p>
+<p>MaxOff records when your day starts and ends, the tasks you are given, your leave and your expense claims. <b>Prishit</b> (the Owner) approves them. Working hours are flexible: MaxOff records what really happens and never guesses. All times are Indian time.</p>
 
 <h2><span class="num">1</span>Get the app</h2>
 <ol class="steps">
-  <li>Open the <b>invite link</b> Prishit sent you and tap <span class="path">Continue to MaxOff</span>. It works once, within 24 hours. Choose a password (at least 12 characters) → <span class="path">Save password and sign in</span>.</li>
+  <li>Open your <b>invite link</b>: it comes by email (from notifications@mail.maxoff.in; check spam), and Prishit may send it to you as well. Tap <span class="path">Continue to MaxOff</span>. It works once, within 24 hours, whichever you open first. Choose a password (at least 12 characters) → <span class="path">Save password and sign in</span>.</li>
   <li><b>Android:</b> open <b>https://app.maxoff.in</b> in Chrome → <span class="path">⋮ → Install app</span>.<br><b>iPhone:</b> open it in Safari → <span class="path">Share → Add to Home Screen</span>, then open MaxOff from the home screen and sign in once more.</li>
   <li>From now on, open MaxOff from its icon. You stay signed in.</li>
 </ol>
-<div class="box"><b>Your attendance starts tomorrow:</b> the day you join is never counted. Tasks, Calendar and Alerts say "coming soon" for now; your tasks still reach you the usual way.</div>
+<div class="box"><b>Your attendance starts tomorrow:</b> the day you join is never counted. Calendar says "coming soon" for now.</div>
 
-<h2><span class="num">2</span>Every working day</h2>
+<h2><span class="num">2</span>Turn on notifications</h2>
+<p>This is how a new task, a decision on your leave or a change request reaches you. Do it once, on your phone.</p>
+<ol class="steps">
+  <li><b>iPhone:</b> do <span class="path">Add to Home Screen</span> first (step 1) and open MaxOff from its icon. An iPhone notifies only the installed app; until then the band says "Install MaxOff to get notifications · How".</li>
+  <li>Just above the bottom bar is a slim band: <b>"Notifications are off · Turn on"</b>. Tap it.</li>
+  <li>A sheet opens. Tap <span class="path">Turn on</span>, then <b>Allow</b> when your phone asks. The band goes away.</li>
+  <li>Check it: <span class="path">Me → Send a test notification → Send test</span>.</li>
+</ol>
+<ul>
+  <li><b>Quiet hours:</b> between 10:00 PM and 7:00 AM nothing is sent to your phone. At 7:00 AM you get one notification with what happened overnight ("3 updates while you were away").</li>
+  <li>A new task is also emailed to you.</li>
+  <li>Tapping a notification opens what it is about.</li>
+  <li><span class="path">Alerts</span> in the bottom bar keeps them all, newest first. The number on it is how many you haven't read; tap one to open it.</li>
+</ul>
+
+<h2><span class="num">3</span>Every working day</h2>
 <p><b>Start.</b> Open MaxOff when you start work. It asks:</p>
 <div class="screen">Started working?
 Start your day to record it.
@@ -70,24 +85,32 @@ Just looking</div>
 <p><b>End.</b> When you finish: <span class="path">My Day → End day</span>.</p>
 <ul>
   <li>Worked late? <span class="kbd">Add an overtime note</span>: how long, and what you worked on.</li>
-  <li>"Any expenses to claim today?" <b>No</b>, or <b>Yes</b> to claim them straight away (section 3).</li>
+  <li>"Any expenses to claim today?" <b>No</b>, or <b>Yes</b> to claim them straight away (section 6).</li>
   <li>Confirm. <b>End day is final</b> for that day. You can still use the app afterwards.</li>
 </ul>
 <ul>
-  <li><b>Forgot to end it?</b> Until 5:00 AM the next morning (and before you start the new day), My Day offers <span class="path">Yesterday not ended · End day</span>. After that the day stays "End of day not recorded". No time is ever made up: if you worked late, add an overtime note.</li>
+  <li><b>Forgot to end it?</b> MaxOff reminds you in the evening. Until 5:00 AM the next morning (and before you start the new day), My Day offers <span class="path">Yesterday not ended · End day</span>. After that the day stays "End of day not recorded". No time is ever made up: if you worked late, add an overtime note.</li>
   <li><b>Your days off (Sundays to start with) and holidays:</b> no question at all. Worked anyway? <span class="path">My Day → I worked today</span>.</li>
 </ul>
 <p class="small">Admins: the same, on Today.</p>
 
-<h2><span class="num">3</span>Expenses</h2>
+<h2><span class="num">4</span>Your tasks</h2>
+<p>Work is given to you as tasks, on the <span class="path">Tasks</span> tab. <b>My tasks</b> is always in this order: Not noted · Changes requested · Overdue · Due today · Upcoming. Open a task and it shows <b>one button: your next step</b>.</p>
+<ol class="steps">
+  <li><b>Noted.</b> A new task is under <b>Not noted</b>. Open it and tap <span class="path">Task Noted</span>: it says you have seen it. Everyone on the task does this.</li>
+  <li><b>Start.</b> Tap <span class="path">Start work</span> when you begin.</li>
+  <li><b>Done.</b> When it is finished, tap <span class="path">Mark done</span>. In the note, <b>paste the Google Drive link</b> to your work (share the file or folder first, so the reviewer can open it). Files can't be uploaded in MaxOff yet. Past the deadline, it asks why it's late.</li>
+</ol>
 <ul>
-  <li>At End day: "Any expenses to claim today?" → <b>Yes</b> → <span class="path">End day, add expenses</span>. Or any time: <span class="path">Me → Attendance &amp; leave → Expenses → Add expense</span>.</li>
-  <li>Enter the <b>amount (₹)</b>, a <b>category</b>, what it was for and the date. <span class="kbd">Add another</span> for more.</li>
-  <li>A <b>receipt photo</b> is needed above ₹500 (Prishit sets the amount). Claims are for this month, or last month during the first 5 days of a new one.</li>
-  <li>You can withdraw a claim until Prishit decides. You'll see Approved, Rejected (with his reason) or Paid.</li>
+  <li>Only the task's <b>primary owner</b> marks it done. <span class="path">Details</span> on the task shows who that is.</li>
+  <li><b>After Mark done</b> the task is locked while it is checked. Prishit gives the final approval; an Admin may check it first.</li>
+  <li><b>Changes requested?</b> The task comes back with the reason at the top. Fix it, then <span class="path">Mark done again</span> with the new link.</li>
+  <li><b>Chat</b> on the task is for questions and updates. "Chat · 2 new", or a small speech bubble on a task in the list, means comments you haven't read.</li>
+  <li><b>Work</b> has the brief and the stages to tick; <b>Activity</b> has everything that happened.</li>
+  <li>See something that needs doing? <span class="path">Tasks → Suggest a task</span>. Prishit or an Admin makes it a task, or tells you why not.</li>
 </ul>
 
-<h2><span class="num">4</span>Leave</h2>
+<h2><span class="num">5</span>Leave</h2>
 <ul>
   <li><span class="path">Me → Attendance &amp; leave → Request leave</span> → <b>Leave</b> (a day or a range) or <b>Half day</b> (one date) → a reason if you like → <span class="path">Request leave</span>.</li>
   <li>On leave today? Answer the morning question with <span class="path">On leave today? Choose leave</span>.</li>
@@ -96,14 +119,31 @@ Just looking</div>
   <li><b>Comp leave</b> shows in the form only when Prishit has given you comp leave, usually for extra work.</li>
 </ul>
 
-<h2><span class="num">5</span>What Prishit sees</h2>
-<p>Your start and end times, your leave, your notes and your expense claims, and he decides each one. When he changes something, you see his reason in <span class="path">Attendance &amp; leave</span>. Only Prishit sees your times, notes, reasons and claims; Admins see only whether you're in or on leave, to plan work. MaxOff collects facts; it never rates you, and nothing is overwritten.</p>
+<h2><span class="num">6</span>Expenses</h2>
+<ul>
+  <li>At End day: "Any expenses to claim today?" → <b>Yes</b> → <span class="path">End day, add expenses</span>. Or any time: <span class="path">Me → Attendance &amp; leave → Expenses → Add expense</span>.</li>
+  <li>Enter the <b>amount (₹)</b>, a <b>category</b>, what it was for and the date. <span class="kbd">Add another</span> for more.</li>
+  <li>A <b>receipt photo</b> is needed above ₹500 (Prishit sets the amount). Claims are for this month, or last month during the first 5 days of a new one.</li>
+  <li>You can withdraw a claim until Prishit decides. You'll see Approved, Rejected (with his reason) or Paid.</li>
+</ul>
 
-<h2><span class="num">6</span>When something goes wrong</h2>
+<h2><span class="num">7</span>Who sees what</h2>
+<table>
+  <tr><th style="width:34%">Who</th><th>What they see of you</th></tr>
+  <tr><td><b>Prishit</b> (Owner)</td><td>Everything: your start and end times, leave, notes, expense claims and tasks. He decides each one, and when he changes something you see his reason in <span class="path">Attendance &amp; leave</span>.</td></tr>
+  <tr><td><b>Admins</b></td><td>The tasks they give you or check, and those for their clients. Never your times, notes, reasons or claims: when an Admin gives you a task, MaxOff only warns them if you are on leave or already busy that day.</td></tr>
+  <tr><td><b>Other Crew</b></td><td>Only the tasks you share with them.</td></tr>
+  <tr><td><b>You</b></td><td>Your own tasks, attendance, leave and claims. On a task, the client's name; never a client's page, money or other people's tasks.</td></tr>
+</table>
+<p>MaxOff collects facts; it never rates you, and nothing is overwritten.</p>
+
+<h2><span class="num">8</span>When something goes wrong</h2>
 <table>
   <tr><th style="width:42%">If…</th><th>Then</th></tr>
   <tr><td>You forgot your password</td><td>Sign-in screen → <span class="path">Forgot your password?</span> → your email → open "Set your MaxOff password" (from noreply@mail.maxoff.in; check spam) → <span class="path">Continue to MaxOff</span> → set a new one.</td></tr>
   <tr><td>The invite link says "expired or already used"</td><td>Ask Prishit for a new one.</td></tr>
+  <tr><td>No notifications arrive</td><td><span class="path">Me → Notifications</span> says what is wrong on this phone. On iPhone, open MaxOff from its home-screen icon. Then <span class="path">Send test</span>.</td></tr>
+  <tr><td>The band's sheet says "Notifications are blocked on this device"</td><td>Allow notifications for MaxOff in the browser's site settings (or the app's info screen), then open MaxOff again.</td></tr>
   <tr><td>A day says "End of day not recorded"</td><td>You didn't end it in time. Worked late? Add an overtime note. Anything wrong? Tell Prishit: he can correct any day, with a reason you'll see.</td></tr>
   <tr><td>A day looks wrong</td><td><span class="path">Attendance &amp; leave → Attendance</span> shows each day's story. Tell Prishit.</td></tr>
   <tr><td>Your phone is lost or shared</td><td><span class="path">Me → Sign out of this device</span>, and tell Prishit.</td></tr>
