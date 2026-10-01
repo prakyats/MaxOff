@@ -105,6 +105,10 @@ if [ -n "${DRY_RUN_LIST:-}" ]; then
   exit 0
 fi
 
+# No --password here on purpose: in Supabase CLI 2.117 `migration up` has no such flag (only
+# --linked, --include-all, --db-url); it reads SUPABASE_DB_PASSWORD from the environment, exactly
+# like the old `db push` and scripts/staging-migrations.sh (proven on the linked staging project in
+# Preview run 36741998058). Owner-checked 2026-10-01.
 supabase migration up "${target_flags[@]}" --include-all
 
 list_migrations "$list.after"
