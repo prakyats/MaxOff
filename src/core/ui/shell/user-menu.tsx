@@ -4,6 +4,7 @@ import { UserIcon } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { ROLE_LABELS } from "@/core/lib/role-labels";
 import { fileUrl } from "@/core/storage";
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/ui/primitives/avatar";
 import { Button } from "@/core/ui/primitives/button";
@@ -16,7 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/core/ui/primitives/dropdown-menu";
 
-import { initialsOf, ROLE_LABELS, type ShellViewer } from "./viewer";
+import { initialsOf, type ShellViewer } from "./viewer";
 
 /**
  * Avatar button with the viewer's name, role and job title and a Profile link. An optional

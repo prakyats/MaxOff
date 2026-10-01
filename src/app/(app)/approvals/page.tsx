@@ -2,6 +2,7 @@ import { CheckCheckIcon } from "lucide-react";
 import type { Metadata } from "next";
 
 import { withSessionUserId } from "@/core/auth/server";
+import { ROLE_LABELS } from "@/core/lib/role-labels";
 import { startEarly } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
 import { requirePermission } from "@/core/permissions/server";
@@ -113,7 +114,7 @@ export default async function ApprovalsPage() {
           {decidesExpenses ? <PendingClaimsGroup claims={claims} /> : null}
           <TaskApprovalGroup
             tasks={tasks}
-            heading={viewer.role === "owner" ? "Staff tasks" : "Tasks to check"}
+            heading={viewer.role === "owner" ? `${ROLE_LABELS.staff} tasks` : "Tasks to check"}
           />
         </div>
       )}

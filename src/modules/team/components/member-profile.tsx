@@ -2,18 +2,13 @@
 
 import { useState } from "react";
 
+import { ROLE_LABELS } from "@/core/lib/role-labels";
 import { EditableRecord, type EditableField } from "@/core/ui/composites/editable-record";
 
 import { updateMember } from "../actions/members";
 import { offerableJobTitles, type JobTitleOption } from "../domain/job-titles";
 import { INVITABLE_ROLES, NAME_MAX_LENGTH } from "../domain/limits";
-import {
-  memberActions,
-  memberEditKey,
-  ROLE_LABELS,
-  roleLabel,
-  type TeamMember,
-} from "../domain/members";
+import { memberActions, memberEditKey, roleLabel, type TeamMember } from "../domain/members";
 import { ClientHandover, type HandoverMove } from "./client-handover";
 
 type Field = "fullName" | "role" | "jobTitleId";

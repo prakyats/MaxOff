@@ -221,9 +221,9 @@ test.describe("A person's page: the Owner's edit of a member names the change (3
     await openPerson(page, isMobile, name);
     // Read-only first: the values, no inputs.
     await expect(record(page).getByRole("textbox")).toHaveCount(0);
-    await changeRole(page, name, "Staff", "Admin");
+    await changeRole(page, name, "Crew", "Admin");
     // Put it back, through the same confirmation.
-    await changeRole(page, name, "Admin", "Staff");
+    await changeRole(page, name, "Admin", "Crew");
   });
 
   test("back leaves edit mode, then the page; with a change it asks first", async ({

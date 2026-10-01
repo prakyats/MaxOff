@@ -1,6 +1,7 @@
 import { ChevronRightIcon, ClockIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { ROLE_LABELS } from "@/core/lib/role-labels";
 import { cn } from "@/core/lib/utils";
 import { DrillLink } from "@/core/ui/composites/drill-link";
 import { EmptyState } from "@/core/ui/composites/empty-state";
@@ -117,7 +118,7 @@ export function TeamMonthList({
       <EmptyState
         icon={ClockIcon}
         title="Nobody to show for this month"
-        description="Admins and Staff who had joined by then appear here."
+        description={`Admins and ${ROLE_LABELS.staff} who had joined by then appear here.`}
       />
     );
   }
