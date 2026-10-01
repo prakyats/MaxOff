@@ -231,14 +231,18 @@ jobs:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: pnpm build:worker
 
+      # Not a plain `db push`: v1.3.0's notification migrations sort before v1.2.0's newest, which
+      # `db push` refuses. The script lists production's migrations first and FAILS when the list
+      # is unreadable or production holds a version this tag lacks; it skips when nothing is
+      # pending, otherwise applies only the missing files in version order
+      # (`migration up --include-all`) and lists again. Never repairs, reverts or edits history
+      # (scripts/production-migrations.sh has the decision table).
       - name: Apply migrations to the production database
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
           SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
-        run: |
-          pnpm supabase link --project-ref "$SUPABASE_PROJECT_REF"
-          pnpm supabase db push
+        run: bash scripts/production-migrations.sh
 
       # The Worker secrets travel with the code, in the same version (`wrangler deploy
       # --secrets-file`, additive: a secret left out of the file keeps its current value).
