@@ -223,6 +223,7 @@ describe("a freelancer's actions and words (ADR-0013, 4C)", () => {
   it("names the role Freelancer, and the coordinator beside it", () => {
     expect(roleLabel(freelancer)).toBe("Freelancer");
     expect(roleLabel(member({ role: "admin" }))).toBe("Admin");
+    expect(roleLabel(member({ role: "staff" }))).toBe("Crew");
     expect(freelancerLine("Ravi")).toBe("Freelancer · with Ravi");
     expect(freelancerLine(null)).toBe("Freelancer");
   });

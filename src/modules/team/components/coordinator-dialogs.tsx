@@ -4,6 +4,7 @@ import { Loader2Icon } from "lucide-react";
 import { useEffect, useId, useMemo, useState } from "react";
 
 import type { ResultError } from "@/core/errors";
+import { ROLE_LABELS } from "@/core/lib/role-labels";
 import { ActionStatus } from "@/core/ui/action/action-status";
 import { useAction } from "@/core/ui/action/use-action";
 import { ErrorText } from "@/core/ui/composites/error-text";
@@ -364,8 +365,8 @@ export function InviteEmployeeDialog({
             <DialogHeader>
               <DialogTitle>Invite {member.fullName} as an employee?</DialogTitle>
               <DialogDescription>
-                They get a login on the same record, so their task history stays theirs. They become
-                Staff with attendance and leave from the day after they join.
+                They get a login on the same record, so their task history stays theirs. They become{" "}
+                {ROLE_LABELS.staff} with attendance and leave from the day after they join.
               </DialogDescription>
             </DialogHeader>
             <p

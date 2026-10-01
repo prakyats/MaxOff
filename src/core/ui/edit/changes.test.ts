@@ -36,8 +36,8 @@ describe("describeChange: the confirmation names the change (ARCHITECTURE §14.1
   });
 
   it("names the person when the record is someone else's", () => {
-    expect(describeChange({ name: "role", from: "Staff", to: "Admin" }, "role", "Ravi")).toBe(
-      "Ravi's role will change from Staff to Admin.",
+    expect(describeChange({ name: "role", from: "Crew", to: "Admin" }, "role", "Ravi")).toBe(
+      "Ravi's role will change from Crew to Admin.",
     );
   });
 

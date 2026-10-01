@@ -50,6 +50,8 @@ There are exactly three system roles. **Job titles** (e.g. Video Editor) are sep
 | **Admin** | Any number | Runs their assigned clients and the staff work they create or approve. Also an employee: marks attendance, takes leave, and can be assigned tasks. |
 | **Staff** | Any number | Does the tasks allotted to them. Marks attendance and takes leave. |
 
+**The Staff role is shown to people as "Crew"** (owner decision 2026-09-30): the app, the app guide and the first-day page say Crew ("Owner · Admin · Crew"). Only the name on screen changed. The role, its value `staff`, its permissions and every rule here are the same, and these documents keep saying Staff.
+
 The full permission and visibility matrix is in `PERMISSIONS.md`. The key rules:
 - **Each client has exactly one Admin**, assigned by the Owner. There's no fixed Staff-to-Admin hierarchy.
 - **An Admin sees only their own**: assigned clients, plus tasks they created, approve or are assigned to. For everyone else they see **availability only** (task count, busy calendar blocks, approved leave), which is enough for workload and conflict warnings.

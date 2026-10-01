@@ -131,7 +131,7 @@ and sign in once more inside the app (an iPhone keeps the installed app's sign-i
 smoke step already proved the **308**; this is the same check by eye.
 
 **4.5 Invite the test member.** More → People → **Invite** (at the bottom on a phone) → the test email
-(see "Before you start"), full name (for example "Test Member"), role **Staff**, any job title → **Send
+(see "Before you start"), full name (for example "Test Member"), role **Crew**, any job title → **Send
 invite**. *Expected:* "Test Member is invited", "Email is not set up yet, so share this link yourself.",
 and the invite link with **Copy**. Tap **Copy**, then send the link on **WhatsApp** to the test phone,
 exactly the way the staff invites will go (read "WhatsApp and one-time links" in step 7 first). On People
@@ -241,7 +241,7 @@ lists come only from the defaults above.
 
 **Only after the smoke test (step 4) and the first backup (step 5) passed.**
 
-The **invite list is yours**: each person's name, email, role (Staff; Admin for someone who runs clients)
+The **invite list is yours**: each person's name, email, role (Crew; Admin for someone who runs clients)
 and job title. It stays with you, never in the repository or a chat.
 
 For each person:

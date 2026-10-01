@@ -1,4 +1,5 @@
 import type { Enums } from "@/core/db";
+import { ROLE_LABELS } from "@/core/lib/role-labels";
 
 export type MemberRole = Enums<"member_role">;
 export type MemberStatus = Enums<"member_status">;
@@ -28,12 +29,6 @@ export const STATUS_LABELS: Record<MemberStatus, string> = {
   invited: "Invited",
   active: "Active",
   deactivated: "Deactivated",
-};
-
-export const ROLE_LABELS: Record<MemberRole, string> = {
-  owner: "Owner",
-  admin: "Admin",
-  staff: "Staff",
 };
 
 /**

@@ -2,6 +2,7 @@
 
 > This is the source of truth for **who can see and do what**. It's enforced in Postgres (RLS + transition functions) and checked again in server actions. The UI only hides controls.
 > Roles are fixed: `owner`, `admin`, `staff`. Permission keys are stored as data (`role_permissions`) and seeded by migration, so custom roles can be added later without code changes (not in the prototype).
+> The `staff` role is **displayed as "Crew"** (owner decision 2026-09-30, PRODUCT §3): a label only. The value, the keys and every grant and rule below are unchanged, and this document keeps saying Staff.
 
 ## 1. Permission keys and default grants
 
