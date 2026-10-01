@@ -172,3 +172,21 @@ export async function setHomeHint(userId: string, role: MemberRole): Promise<voi
 }
 
 export type { CurrentMember } from "./types";
+
+/** What the browser's Realtime client needs (5.1): the member's access token and its expiry. */
+export type RealtimeAuth = { token: string; expiresAt: number | null };
+
+/**
+ * The session's access token for the browser's Realtime client (`createRealtimeSupabase`,
+ * ARCHITECTURE §10): handed over as a prop because the cookies are `httpOnly` and stay so. Read
+ * after `requireMember()` has verified the session (`getClaims()`), so this is the same session,
+ * refreshed by the proxy when it was due. `expiresAt` is in seconds (the JWT's `exp`): the page
+ * asks for a new one when it lapses. `null` when there is none.
+ */
+export async function getRealtimeAuth(): Promise<RealtimeAuth | null> {
+  const supabase = await createServerSupabase();
+  const { data } = await supabase.auth.getSession();
+  const session = data.session;
+  if (!session) return null;
+  return { token: session.access_token, expiresAt: session.expires_at ?? null };
+}

@@ -168,7 +168,9 @@ jobs:
       # waits until 00:01 IST first, before the database exists, so the server, Postgres and the
       # attendance jobs all agree on "today" from the first spec to the last.
       - run: node scripts/wait-for-ist-day.mjs
-      - run: pnpm supabase start -x realtime,storage-api,imgproxy,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+      # Realtime runs too (5A build decision 23): the live bell, proved through the hold proxy by
+      # e2e/notifications.spec.ts; global setup waits for a channel to join.
+      - run: pnpm supabase start -x storage-api,imgproxy,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
       # File storage (3.3): the same MinIO the developer runs, so uploads and the cleanup route
       # are exercised end to end offline. Its throwaway values are playwright.config.ts's defaults.
       - run: pnpm storage:start

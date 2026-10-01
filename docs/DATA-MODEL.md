@@ -1258,6 +1258,16 @@ notifications        id, org_id, recipient_id → members (cascade), actor_id nu
                      -- The cascade exists for the local stack's fixture deletes; production deactivates.
                      -- Indexes: (recipient_id, read_at, created_at desc), (recipient_id, created_at desc),
                      -- (entity, entity_id), actor_id, org_id.
+                     -- Realtime (5.1 the bell, migration 20261001003253_notifications_realtime): the
+                     -- ONLY table in the supabase_realtime publication (pgTAP 46; money tables in none).
+                     -- Realtime checks each INSERT / UPDATE against the subscriber's RLS, so a member
+                     -- receives their own rows, the rows the API already lets them read; the browser
+                     -- uses an event only as a signal to re-read the screen. Default replica identity:
+                     -- an UPDATE sends the new row; a DELETE (local fixtures only) is not RLS-checked
+                     -- by Realtime and carries the id alone. A connection with no member token (the
+                     -- publishable key) hears at most that a change happened, never a row (e2e).
+                     -- The API's read receipt: a tap on a history row (`/open?n=<id>` updates read_at
+                     -- of the caller's own row; RLS + the column grant).
 notification_deliveries  id, notification_id → notifications (cascade), channel ('push'|'email'),
                      state ('queued'|'held'|'sent'|'failed'|'skipped_cap') default 'queued',
                      -- kickoff 5 (2026-09-29): 'held' = push waiting out quiet hours (one summary push per person at

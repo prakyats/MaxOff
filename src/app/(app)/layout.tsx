@@ -2,12 +2,14 @@ import { unstable_rethrow } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { LogoutProvider } from "@/core/auth/components/logout-confirm";
-import { requireMember } from "@/core/auth/server";
+import { getRealtimeAuth, requireMember } from "@/core/auth/server";
 import { startEarly } from "@/core/lib/start-early";
 import { captureException } from "@/core/observability/capture";
 import { SentryUser } from "@/core/observability/sentry-user";
+import { LiveUpdatesLazy } from "@/core/notifications/components/live-lazy";
 import { PushBanner, PushSync } from "@/core/notifications/components/push-lazy";
 import { readPushEnv } from "@/core/notifications/env";
+import { countUnread } from "@/core/notifications/inbox";
 import { listOwnActiveEndpoints } from "@/core/notifications/push/subscriptions";
 import { can } from "@/core/permissions";
 import { RouteTransition } from "@/core/ui/motion/route-transition";
@@ -29,16 +31,20 @@ import { countTasks } from "@/modules/tasks";
  * noted, plus those with changes requested (`task_counts()`). **Approvals** (2.4): the attendance
  * days, leave requests, extra work notes (3b.2) and expense claims (3b.3, `expenses.decide`)
  * waiting for whoever decides them (the Owner), plus the tasks at the step the viewer decides
- * (4.5: the Owner's final approvals, an Admin's checks); client items join in 7.4.
+ * (4.5: the Owner's final approvals, an Admin's checks); client items join in 7.4. **Alerts**
+ * (5.1, kickoff 5 decision 4): the viewer's unread notifications, on Staff's Alerts tab and every
+ * role's bell (`countUnread()`, which the title bar's bell shares in the same request).
  */
 async function navBadges(role: Parameters<typeof can>[0]): Promise<NavBadges> {
   const tasks = can(role, "tasks.work") ? countTasks() : Promise.resolve(null);
+  const alerts = countUnread();
   if (!can(role, "attendance.decide")) {
-    const counts = await tasks;
-    return { tasks: counts?.badge ?? 0, approvals: counts?.toDecide ?? 0 };
+    const [counts, unread] = await Promise.all([tasks, alerts]);
+    return { tasks: counts?.badge ?? 0, approvals: counts?.toDecide ?? 0, alerts: unread };
   }
-  const [counts, days, requests, notes, claims] = await Promise.all([
+  const [counts, unread, days, requests, notes, claims] = await Promise.all([
     tasks,
+    alerts,
     countPendingDays(),
     countPendingRequests(),
     countPendingNotes(),
@@ -47,6 +53,7 @@ async function navBadges(role: Parameters<typeof can>[0]): Promise<NavBadges> {
   return {
     tasks: counts?.badge ?? 0,
     approvals: days + requests + notes + claims + (counts?.toDecide ?? 0),
+    alerts: unread,
   };
 }
 
@@ -88,7 +95,8 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   // own active endpoints decide it, and tell this device whether it is one of them (PushSync).
   // The public key is read at runtime and handed to the browser (decision 26); null = push off.
   const push = readPushEnv();
-  const endpoints = await listOwnActiveEndpoints();
+  // The live bell's token (5.1) is read with them: the session is the one just verified.
+  const [endpoints, live] = await Promise.all([listOwnActiveEndpoints(), getRealtimeAuth()]);
   const publicKey = push.mode === "on" ? push.publicKey : null;
 
   return (
@@ -103,6 +111,9 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           <RefreshOnReturn />
           {prompt}
           <PushSync publicKey={publicKey} endpoints={endpoints} />
+          {live ? (
+            <LiveUpdatesLazy memberId={viewer.id} token={live.token} expiresAt={live.expiresAt} />
+          ) : null}
           <RouteTransition>
             {endpoints.length === 0 ? <PushBanner publicKey={publicKey} /> : null}
             {children}

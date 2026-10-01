@@ -33,3 +33,19 @@ export function parentOf(path: string, home: string): string {
 export function openUrl(path: string): string {
   return `${OPEN_PATH}?to=${encodeURIComponent(path)}`;
 }
+
+/**
+ * The URL a notification opens through when tapped in the bell's history: `/open?n=<id>`. The
+ * entry marks that notification read and opens its own link (the row's, never the address's),
+ * so one tap is one request, and the link works before the page has hydrated.
+ */
+export function openNotificationUrl(id: string): string {
+  return `${OPEN_PATH}?n=${encodeURIComponent(id)}`;
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** A notification id the entry may mark read: a uuid, nothing else. */
+export function isNotificationId(value: unknown): value is string {
+  return typeof value === "string" && UUID.test(value);
+}

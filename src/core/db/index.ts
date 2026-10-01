@@ -4,7 +4,7 @@
  * Import the client you need from its own file, because the server and service
  * clients are `server-only` and must never reach a browser bundle:
  *   - `@/core/db/server`  → `createServerSupabase()` (RLS as the signed-in member)
- *   - `@/core/db/browser` → `createBrowserSupabase()` (RLS, Client Components)
+ *   - `@/core/db/browser` → `createRealtimeSupabase()` (RLS, Realtime in the browser)
  *   - `@/core/db/service` → `createServiceSupabase()` (bypasses RLS; jobs only)
  *
  * This entry point only exposes the generated types and the public env reader.

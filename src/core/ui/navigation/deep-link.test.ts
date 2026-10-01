@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isInAppPath, openUrl, parentOf } from "./deep-link";
+import { isInAppPath, isNotificationId, openNotificationUrl, openUrl, parentOf } from "./deep-link";
 
 describe("deep-link entry", () => {
   it("accepts only in-app paths", () => {
@@ -29,5 +29,15 @@ describe("deep-link entry", () => {
 
   it("builds the entry URL", () => {
     expect(openUrl("/tasks/abc?view=chat")).toBe("/open?to=%2Ftasks%2Fabc%3Fview%3Dchat");
+  });
+
+  it("opens a notification by its id, and accepts only a uuid as one", () => {
+    const id = "6f1c2a4e-1b2c-4d3e-8f90-0a1b2c3d4e5f";
+    expect(openNotificationUrl(id)).toBe(`/open?n=${id}`);
+    expect(isNotificationId(id)).toBe(true);
+    expect(isNotificationId("6f1c2a4e")).toBe(false);
+    expect(isNotificationId(`${id}x`)).toBe(false);
+    expect(isNotificationId(["a"])).toBe(false);
+    expect(isNotificationId(undefined)).toBe(false);
   });
 });

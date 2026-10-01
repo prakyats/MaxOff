@@ -470,6 +470,8 @@ notification created
    └─ email  when the kind is in the email set, or no subscription is healthy
 ```
 
+**In-app (5.1 as built, the bell; owner cut (b)):** the row shows in the member's Alerts at once (`/notifications`: newest first, 20 a page, nothing purged) and the bell counts it (Staff's Alerts tab, the Owner's and Admins' bell; desktop's top bar), live through Realtime and otherwise on the next navigation or return to the app. **Read** when: the member taps it (a row with a link opens it with its parent list underneath, ARCHITECTURE §14.2 h; a row with nothing to open is read by the tap), **Mark all read**, or opening the record it is about (a task, a client, a person: `notifications_mark_read`). A read is the member's own view state: not audited, never another person's.
+
 **Subscription lifecycle**
 | Event | What happens to the subscription |
 |---|---|

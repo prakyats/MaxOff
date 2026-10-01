@@ -145,6 +145,10 @@ const SCREENS = [
   { path: "/settings/task-types", role: "owner" },
   { path: "/settings/templates", role: "owner" },
   { path: "/settings/templates", role: "admin" },
+  // 5.1: Alerts, every role.
+  { path: "/notifications", role: "owner" },
+  { path: "/notifications", role: "admin" },
+  { path: "/notifications", role: "staff" },
 ] as const;
 
 for (const role of ["owner", "admin", "staff"] as const) {
@@ -193,6 +197,8 @@ const LARGE_TEXT_SCREENS = {
     "/tasks/requests",
     "/settings/task-types",
     "/settings/templates",
+    // 5.1: Alerts.
+    "/notifications",
   ],
   admin: [
     "/today",
@@ -206,6 +212,7 @@ const LARGE_TEXT_SCREENS = {
     "/tasks/requests",
     "/approvals",
     "/settings/templates",
+    "/notifications",
   ],
   staff: [
     "/my-day",
@@ -216,6 +223,7 @@ const LARGE_TEXT_SCREENS = {
     "/tasks",
     "/tasks/all",
     "/tasks/requests",
+    "/notifications",
   ],
 } as const;
 
@@ -272,18 +280,15 @@ const STAND_IN_SCREENS: Record<"owner" | "admin" | "staff", { path: string; copy
   owner: [
     { path: "/today", copy: STAND_INS.todayOwner },
     { path: "/calendar", copy: STAND_INS.calendar },
-    { path: "/notifications", copy: STAND_INS.alertsOwner },
   ],
   admin: [
     { path: "/today", copy: STAND_INS.todayAdmin },
     { path: "/calendar", copy: STAND_INS.calendar },
-    { path: "/notifications", copy: STAND_INS.alertsMember },
     { path: "/reports", copy: STAND_INS.reportsAdmin },
   ],
   staff: [
     { path: "/my-day", copy: STAND_INS.myDay },
     { path: "/calendar", copy: STAND_INS.calendar },
-    { path: "/notifications", copy: STAND_INS.alertsMember },
   ],
 };
 

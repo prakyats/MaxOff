@@ -45,6 +45,7 @@ the local stack (the deploy workflow never seeds), and the passwords are fixture
 | `reset@maxoff.local` | `reset-local-password` | Staff, used only by the Playwright recovery-link test (which changes its password) |
 | `leaver@maxoff.local` | `leaver-local-password` | Staff, used only by the Playwright team test (which deactivates and reactivates them) |
 | `gate-<kind>-<project>@maxoff.local` | `gate-local-password` | 12 Admin/Staff accounts used only by `e2e/working-day.spec.ts` (the Start/End day flow, 3b.1; the name dates from the 2.2 day gate) (kind: staff, admin, leave, half; project: desktop, mobile, mobile-lg), because a person has one attendance day per date |
+| `alerts-<role>-<project>@maxoff.local` | `alerts-local-password` | 6 Staff/Admin accounts used only by `e2e/notifications.spec.ts` (the bell and Alerts, 5.1) (role: staff, admin; project: desktop, mobile, mobile-lg), because unread counts and Mark all read are per person |
 
 Password-reset emails from the local stack land in Mailpit: http://127.0.0.1:54324.
 

@@ -168,7 +168,15 @@ insert into seed_users values
   -- so the projects running side by side must never share a person's subscriptions.
   ('20000000-0000-4000-8000-000000000097', 'push-desktop@maxoff.local', 'push-local-password', 'Test Push (desktop)', null, 'staff', 'active'),
   ('20000000-0000-4000-8000-000000000098', 'push-mobile@maxoff.local', 'push-local-password', 'Test Push (mobile)', null, 'staff', 'active'),
-  ('20000000-0000-4000-8000-000000000099', 'push-mobile-lg@maxoff.local', 'push-local-password', 'Test Push (mobile-lg)', null, 'staff', 'active');
+  ('20000000-0000-4000-8000-000000000099', 'push-mobile-lg@maxoff.local', 'push-local-password', 'Test Push (mobile-lg)', null, 'staff', 'active'),
+  -- 5.1: the bell and Alerts (e2e/notifications.spec.ts), a Staff member and an Admin per
+  -- project: the counts and Mark all read are per person, so the projects never share one.
+  ('20000000-0000-4000-8000-000000000100', 'alerts-staff-desktop@maxoff.local', 'alerts-local-password', 'Test Alerts Staff (desktop)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000101', 'alerts-admin-desktop@maxoff.local', 'alerts-local-password', 'Test Alerts Admin (desktop)', null, 'admin', 'active'),
+  ('20000000-0000-4000-8000-000000000102', 'alerts-staff-mobile@maxoff.local', 'alerts-local-password', 'Test Alerts Staff (mobile)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000103', 'alerts-admin-mobile@maxoff.local', 'alerts-local-password', 'Test Alerts Admin (mobile)', null, 'admin', 'active'),
+  ('20000000-0000-4000-8000-000000000104', 'alerts-staff-mobile-lg@maxoff.local', 'alerts-local-password', 'Test Alerts Staff (mobile-lg)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000105', 'alerts-admin-mobile-lg@maxoff.local', 'alerts-local-password', 'Test Alerts Admin (mobile-lg)', null, 'admin', 'active');
 
 -- What GoTrue writes for a confirmed email + password user (`auth.users` + one identity).
 insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,

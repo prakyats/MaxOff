@@ -47,6 +47,7 @@ const TASK_REQUESTS_SPECS = /task-requests\.spec\.ts$/;
 const LOADING_SCREENS_SPECS = /loading-screens\.spec\.ts$/;
 const TASK_PAGE_SPECS = /task-page\.spec\.ts$/;
 const PUSH_SPECS = /push\.spec\.ts$/;
+const NOTIFICATIONS_SPECS = /notifications\.spec\.ts$/;
 
 /**
  * Web Push (5.2): the e2e server sends real, encrypted pushes to a fake push service the spec
@@ -165,6 +166,7 @@ export default defineConfig({
       // trace their screen at every width. And the reworked task page (Kickoff 4 decisions
       // 26–32): its views, the Chat sheet and every layer on back, and large text, at both widths.
       // And Web Push (5.2): the banner, Me's rows and the deep-link entry's back at both widths.
+      // And the bell and Alerts (5.1): the history, its back order and large text at both widths.
       name: "mobile-lg",
       dependencies: ["setup"],
       testMatch: [
@@ -196,6 +198,7 @@ export default defineConfig({
         LOADING_SCREENS_SPECS,
         TASK_PAGE_SPECS,
         PUSH_SPECS,
+        NOTIFICATIONS_SPECS,
       ],
       use: { ...devices["Pixel 5"], viewport: { width: 430, height: 932 } },
     },
