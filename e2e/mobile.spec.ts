@@ -424,6 +424,12 @@ test.describe("More, for Owner and Admin", () => {
 
       test("only Approvals can carry a count today (2.4; Alerts join in 5.1)", async ({ page }) => {
         await page.goto("/today");
+        // The counts stream after the page (4C): wait until every cell's count has landed (a
+        // zero draws no badge, so the settled marker says it arrived) before reading any of them.
+        const bar = page.locator('[data-slot="bottom-nav"]');
+        await expect(bar.locator('[data-slot="nav-count-settled"]')).toHaveCount(
+          await bar.locator("[data-nav]").count(),
+        );
         // Whether a count shows depends on what other specs left waiting; where it shows does not.
         const badges = page.locator('[data-slot="bottom-nav"] [data-slot="nav-badge"]');
         const onApprovals = page.locator(

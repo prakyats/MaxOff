@@ -37,12 +37,28 @@ export async function NavCount({
       all,
       keys.filter((key) => key !== ALERTS),
     );
-    return <UnreadNavCount others={others} unread={server} place={place} part={part} />;
+    return (
+      <>
+        <UnreadNavCount others={others} unread={server} place={place} part={part} />
+        {part === "mark" ? <Settled /> : null}
+      </>
+    );
   }
   const count = badgeTotal(all, keys);
   return part === "words" ? (
     <NavBadgeWords count={count} />
   ) : (
-    <NavBadgeMark count={count} place={place} />
+    <>
+      <NavBadgeMark count={count} place={place} />
+      <Settled />
+    </>
   );
+}
+
+/**
+ * Marks a spot whose count has arrived, zero included (a zero draws no badge, so nothing else
+ * says the stream landed). Hidden, no text: what a test waits for before it compares counts.
+ */
+function Settled() {
+  return <span data-slot="nav-count-settled" hidden />;
 }
