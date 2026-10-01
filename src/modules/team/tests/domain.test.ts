@@ -13,6 +13,7 @@ import {
   roleLabel,
   sortMembers,
   type TeamMember,
+  withJobTitle,
 } from "../domain/members";
 import { offerableJobTitles } from "../domain/job-titles";
 import { emailChangedNewAddressEmail, emailChangedOldAddressEmail } from "../domain/email-change";
@@ -226,6 +227,18 @@ describe("a freelancer's actions and words (ADR-0013, 4C)", () => {
     expect(roleLabel(member({ role: "staff" }))).toBe("Crew");
     expect(freelancerLine("Ravi")).toBe("Freelancer · with Ravi");
     expect(freelancerLine(null)).toBe("Freelancer");
+  });
+
+  it("puts the job title beside the role, and the role alone without one (owner 2026-10-01)", () => {
+    expect(withJobTitle("Crew", "Photographer")).toBe("Crew · Photographer");
+    expect(withJobTitle("Freelancer · with Ravi", "Editor")).toBe(
+      "Freelancer · with Ravi · Editor",
+    );
+    for (const lead of ["Owner", "Admin", "Crew", "Freelancer", "Freelancer · with Ravi"]) {
+      expect(withJobTitle(lead, null)).toBe(lead);
+      expect(withJobTitle(lead, "")).toBe(lead);
+    }
+    expect(withJobTitle("Crew", null)).not.toMatch(/·\s*$|No job title/);
   });
 
   it("lets only an active employee, Admin or Staff, coordinate (Kickoff 4 decision 8)", () => {
