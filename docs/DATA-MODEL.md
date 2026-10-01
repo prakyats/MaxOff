@@ -1214,7 +1214,7 @@ eod_reports          id, org_id, report_date, data jsonb, generated_at, unique(o
                      -- kickoff 6 (owner decision 2026-10-01, built in 6.5): written only by the eod_report
                      -- job (one row per IST date, every date, never updated: no API INSERT/UPDATE/DELETE
                      -- grant); data holds no money, ever (WORKFLOWS §8a). Owner-only (reports.all) all the
-                     -- same; ADR-0007's "contain revenue" wording awaits the owner's amendment
+                     -- same (ADR-0007 amendment 2026-10-01)
 month_snapshots      id, org_id, month date (1st), version int, data jsonb, closed_by, closed_at,
                      corrects_id null, correction_note, unique(org_id, month, version)
                      -- month_snapshots contain revenue; both are Owner-only tables
