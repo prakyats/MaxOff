@@ -85,7 +85,10 @@ describe("loading.tsx coverage", () => {
     // A task's page (4.4) traces its first card and sections, not a generic detail.
     expect(sourceOf("tasks/[id]")).toContain("loading-task");
     expect(sourceOf("calendar")).toContain(standIn);
-    expect(sourceOf("notifications")).toContain(standIn);
+    // Alerts (5.1): the "N unread" line and the history rows, traced.
+    expect(sourceOf("notifications")).toContain("NotificationListSkeleton");
+    expect(sourceOf("notifications")).not.toContain(standIn);
+    expect(shapeOf("notifications"), "its own skeleton, not a generic shape").toBeUndefined();
     // Reports (3b.4): the Owner's list of reports first; the Admin's branch is the stand-in.
     expect(shapeOf("reports")).toBe("list");
     expect(sourceOf("reports")).toContain(standIn);
@@ -93,7 +96,7 @@ describe("loading.tsx coverage", () => {
     // an Admin's is too (the tasks they check), so no branch shows the stand-in.
     expect(sourceOf("approvals")).toContain("ApprovalGroupSkeleton");
     expect(sourceOf("approvals")).not.toContain(standIn);
-    for (const route of ["today", "my-day", "calendar", "notifications"]) {
+    for (const route of ["today", "my-day", "calendar"]) {
       expect(shapeOf(route), `${route} traces the stand-in, not a shape`).toBeUndefined();
     }
     // The team's month traces its own rows (3b review), under the month switcher.

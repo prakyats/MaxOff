@@ -19,8 +19,6 @@ type StandInLines = {
 };
 
 const STAND_IN_LINES: Record<keyof typeof STAND_INS, StandInLines> = {
-  alertsMember: { phone: 4, phoneLg: 4, wide: 3 },
-  alertsOwner: { phone: 3, phoneLg: 2, wide: 2 },
   calendar: { phone: 3, phoneLg: 2, wide: 2 },
   reportsAdmin: { phone: 3, phoneLg: 2, wide: 2 },
   todayOwner: { phone: 2, phoneLg: 2, wide: 2 },

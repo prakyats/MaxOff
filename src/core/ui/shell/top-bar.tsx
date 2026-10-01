@@ -28,10 +28,13 @@ export function TopBar({
   viewer,
   home,
   logoutItem,
+  bellCount,
 }: {
   viewer: ShellViewer;
   home: string;
   logoutItem?: ReactNode;
+  /** The unread count on the bell (5.1), streamed by the shell like the nav counts. */
+  bellCount?: ReactNode;
 }) {
   return (
     <header
@@ -41,8 +44,10 @@ export function TopBar({
       <Brand href={home} className="md:hidden" />
       <div className="ml-auto flex items-center gap-1">
         <Button variant="ghost" size="icon" asChild className="hidden md:inline-flex">
-          <Link href="/notifications" aria-label="Notifications">
+          <Link href="/notifications" data-slot="top-bar-bell" className="relative">
             <BellIcon aria-hidden />
+            <span className="sr-only">Notifications</span>
+            {bellCount}
           </Link>
         </Button>
         <div className="hidden md:block">

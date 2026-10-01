@@ -324,6 +324,7 @@ describe("invite link and email", () => {
       inviteeName: "<New>",
       inviterName: "Prishit",
       link: "https://maxoff.app/auth/confirm?token_hash=x&type=invite",
+      passwordMinLength: 12,
     });
     expect(mail.subject).toBe("Prishit invited you to MaxOff");
     expect(mail.text).toContain("https://maxoff.app/auth/confirm?token_hash=x&type=invite");
@@ -331,6 +332,55 @@ describe("invite link and email", () => {
     expect(mail.html).toContain(
       'href="https://maxoff.app/auth/confirm?token_hash=x&amp;type=invite"',
     );
+  });
+
+  it("is branded like the password email, with a plain-text part saying the same", () => {
+    const mail = inviteEmail({
+      to: "new@example.com",
+      inviteeName: "Asha",
+      inviterName: "Prishit",
+      link: "https://app.maxoff.in/auth/confirm?token_hash=x&type=invite",
+      passwordMinLength: 12,
+    });
+    // The logo from the app the link opens, the name, the red button.
+    expect(mail.html).toContain('src="https://app.maxoff.in/icons/icon-192.png"');
+    expect(mail.html).toContain(">MaxOff</div>");
+    expect(mail.html).toMatch(/bgcolor="#C42126"[\s\S]*>Set my password<\/a>/);
+    // The "Good to know" box: once, 24 hours, 12 characters, the installed app.
+    expect(mail.html).toContain("Good to know");
+    expect(mail.html).toContain("works <strong>once</strong>");
+    expect(mail.html).toContain("<strong>24 hours</strong>");
+    expect(mail.html).toContain("<strong>12 characters</strong>");
+    expect(mail.html).toContain("installed MaxOff app");
+    // The fallback link, and what to do when it was not expected.
+    expect(mail.html).toContain("Button not working?");
+    expect(mail.html).toContain("Didn't ask for this?");
+    for (const line of [
+      "https://app.maxoff.in/auth/confirm?token_hash=x&type=invite",
+      "works once and expires in 24 hours",
+      "at least 12 characters",
+      "installed MaxOff app",
+      "Didn't ask for this?",
+    ]) {
+      expect(mail.text).toContain(line);
+    }
+    // No amount, ever.
+    expect(mail.html).not.toMatch(/₹|\bINR\b/);
+    expect(mail.text).not.toMatch(/₹|\bINR\b/);
+  });
+
+  it("escapes every name it carries, so no one's name can add markup or break an attribute", () => {
+    const mail = inviteEmail({
+      to: "new@example.com",
+      inviteeName: `Asha"><img src=x onerror=alert(1)>`,
+      inviterName: "<script>alert('x')</script>",
+      link: "https://app.maxoff.in/auth/confirm?token_hash=x&type=invite",
+      passwordMinLength: 12,
+    });
+    expect(mail.html).not.toContain("<script>");
+    expect(mail.html).not.toContain("<img src=x");
+    expect(mail.html).toContain("&lt;script&gt;alert(&#39;x&#39;)&lt;/script&gt;");
+    expect(mail.html).toContain("Asha&quot;&gt;&lt;img src=x onerror=alert(1)&gt;");
   });
 });
 

@@ -98,7 +98,11 @@ jobs:
           # went with the 2.x day gate: the 3c.1 contract migration.) The R2 set (task 3.3: S3_*
           # from the environment's R2 token, bucket and account) and CRON_SECRET are optional the
           # same way: without them a deployed app refuses uploads with "File storage is not
-          # configured" and the cron route answers 401 (reported once to Sentry).
+          # configured" and the cron route answers 401 (reported once to Sentry). Email (5.2:
+          # RESEND_API_KEY + EMAIL_FROM, both or neither) and Web Push (5.2: VAPID_PUBLIC_KEY,
+          # VAPID_PRIVATE_KEY, VAPID_SUBJECT, all three or none) are optional the same way: without
+          # them nothing is emailed or pushed, and the in-app notifications still work. They are read
+          # at runtime, never inlined by the build; the server hands the public key to the browser.
           umask 077
           jq -n \
             --arg supabase "$SUPABASE_SECRET_KEY" \
@@ -108,12 +112,22 @@ jobs:
             --arg s3_key "$R2_ACCESS_KEY_ID" \
             --arg s3_secret "$R2_SECRET_ACCESS_KEY" \
             --arg cron "$CRON_SECRET" \
+            --arg resend "$RESEND_API_KEY" \
+            --arg email_from "$EMAIL_FROM" \
+            --arg vapid_public "$VAPID_PUBLIC_KEY" \
+            --arg vapid_private "$VAPID_PRIVATE_KEY" \
+            --arg vapid_subject "$VAPID_SUBJECT" \
             '{SUPABASE_SECRET_KEY: $supabase}
              + (if $salt == "" then {} else {SESSION_IP_HASH_SALT: $salt} end)
              + (if $s3_key == "" or $s3_secret == "" or $s3_bucket == "" then {}
                 else {S3_ENDPOINT: $s3_endpoint, S3_BUCKET: $s3_bucket, S3_ACCESS_KEY_ID: $s3_key,
                       S3_SECRET_ACCESS_KEY: $s3_secret, S3_REGION: "auto"} end)
-             + (if $cron == "" then {} else {CRON_SECRET: $cron} end)' \
+             + (if $cron == "" then {} else {CRON_SECRET: $cron} end)
+             + (if $resend == "" or $email_from == "" then {}
+                else {RESEND_API_KEY: $resend, EMAIL_FROM: $email_from} end)
+             + (if $vapid_public == "" or $vapid_private == "" or $vapid_subject == "" then {}
+                else {VAPID_PUBLIC_KEY: $vapid_public, VAPID_PRIVATE_KEY: $vapid_private,
+                      VAPID_SUBJECT: $vapid_subject} end)' \
             >.wrangler-secrets.json
           jq -r 'keys | "Secrets in this deployment: " + join(", ")' .wrangler-secrets.json
         env:
@@ -124,6 +138,11 @@ jobs:
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          EMAIL_FROM: ${{ vars.EMAIL_FROM }}
+          VAPID_PUBLIC_KEY: ${{ vars.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          VAPID_SUBJECT: ${{ vars.VAPID_SUBJECT }}
 
       - name: Deploy to Cloudflare Workers
         id: deploy
@@ -212,14 +231,18 @@ jobs:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: pnpm build:worker
 
+      # Not a plain `db push`: v1.3.0's notification migrations sort before v1.2.0's newest, which
+      # `db push` refuses. The script lists production's migrations first and FAILS when the list
+      # is unreadable or production holds a version this tag lacks; it skips when nothing is
+      # pending, otherwise applies only the missing files in version order
+      # (`migration up --include-all`) and lists again. Never repairs, reverts or edits history
+      # (scripts/production-migrations.sh has the decision table).
       - name: Apply migrations to the production database
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
           SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
-        run: |
-          pnpm supabase link --project-ref "$SUPABASE_PROJECT_REF"
-          pnpm supabase db push
+        run: bash scripts/production-migrations.sh
 
       # The Worker secrets travel with the code, in the same version (`wrangler deploy
       # --secrets-file`, additive: a secret left out of the file keeps its current value).
@@ -240,7 +263,11 @@ jobs:
           # went with the 2.x day gate: the 3c.1 contract migration.) The R2 set (task 3.3: S3_*
           # from the environment's R2 token, bucket and account) and CRON_SECRET are optional the
           # same way: without them a deployed app refuses uploads with "File storage is not
-          # configured" and the cron route answers 401 (reported once to Sentry).
+          # configured" and the cron route answers 401 (reported once to Sentry). Email (5.2:
+          # RESEND_API_KEY + EMAIL_FROM, both or neither) and Web Push (5.2: VAPID_PUBLIC_KEY,
+          # VAPID_PRIVATE_KEY, VAPID_SUBJECT, all three or none) are optional the same way: without
+          # them nothing is emailed or pushed, and the in-app notifications still work. They are read
+          # at runtime, never inlined by the build; the server hands the public key to the browser.
           umask 077
           jq -n \
             --arg supabase "$SUPABASE_SECRET_KEY" \
@@ -250,12 +277,22 @@ jobs:
             --arg s3_key "$R2_ACCESS_KEY_ID" \
             --arg s3_secret "$R2_SECRET_ACCESS_KEY" \
             --arg cron "$CRON_SECRET" \
+            --arg resend "$RESEND_API_KEY" \
+            --arg email_from "$EMAIL_FROM" \
+            --arg vapid_public "$VAPID_PUBLIC_KEY" \
+            --arg vapid_private "$VAPID_PRIVATE_KEY" \
+            --arg vapid_subject "$VAPID_SUBJECT" \
             '{SUPABASE_SECRET_KEY: $supabase}
              + (if $salt == "" then {} else {SESSION_IP_HASH_SALT: $salt} end)
              + (if $s3_key == "" or $s3_secret == "" or $s3_bucket == "" then {}
                 else {S3_ENDPOINT: $s3_endpoint, S3_BUCKET: $s3_bucket, S3_ACCESS_KEY_ID: $s3_key,
                       S3_SECRET_ACCESS_KEY: $s3_secret, S3_REGION: "auto"} end)
-             + (if $cron == "" then {} else {CRON_SECRET: $cron} end)' \
+             + (if $cron == "" then {} else {CRON_SECRET: $cron} end)
+             + (if $resend == "" or $email_from == "" then {}
+                else {RESEND_API_KEY: $resend, EMAIL_FROM: $email_from} end)
+             + (if $vapid_public == "" or $vapid_private == "" or $vapid_subject == "" then {}
+                else {VAPID_PUBLIC_KEY: $vapid_public, VAPID_PRIVATE_KEY: $vapid_private,
+                      VAPID_SUBJECT: $vapid_subject} end)' \
             >.wrangler-secrets.json
           jq -r 'keys | "Secrets in this deployment: " + join(", ")' .wrangler-secrets.json
         env:
@@ -266,6 +303,11 @@ jobs:
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          EMAIL_FROM: ${{ vars.EMAIL_FROM }}
+          VAPID_PUBLIC_KEY: ${{ vars.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          VAPID_SUBJECT: ${{ vars.VAPID_SUBJECT }}
 
       - name: Deploy to Cloudflare Workers
         id: deploy

@@ -5,6 +5,7 @@ import { expect, test } from "./fixtures";
 import { addISTDays, istInstant, istWeekday, systemClock, todayIST } from "../src/core/time";
 
 import {
+  animationsSettled,
   expectBackStack,
   expectNoHorizontalScroll,
   memberIdOf,
@@ -1129,6 +1130,9 @@ test.describe("staff tasks, installed: back closes each layer", () => {
       await fromMenu(page, "Mark done");
       const done = page.locator('[data-slot="task-done-dialog"]');
       await expect(done).toBeVisible();
+      // The sheet scales in (Close grows to 44px as it lands): measure the opened sheet, not a
+      // frame of its entrance (CI 36854683107 measured it mid-animation).
+      await animationsSettled(page);
       await expectTargets(page);
       await expect(done).toBeVisible();
       await expectBackStack(page, [{ closes: done, url: new RegExp(`/tasks/${taskId}$`) }]);

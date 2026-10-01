@@ -14,7 +14,7 @@
 | `settings.manage` | Company settings, days off, holidays, thresholds | ✅ | | |
 | `drive.manage` | Connect or reconnect the company Google account, set the archive root, retry failed archives | ✅ | | |
 | `drive.view_status` | See archive status on a submission ("Archived ✓", "Link is private") | ✅ | ✅ | ✅ (own tasks) |
-| `notifications.reachability` | See who isn't reachable by push and why | ✅ (everyone) | ✅ (people on their tasks) | own devices only |
+| `notifications.reachability` | See who isn't reachable by push and why | ✅ (everyone) | ✅ (members currently assigned to open tasks they created or approve, and a freelancer's coordinator; status and reason only) | own devices only |
 | `lists.manage` | Task types, stage presets, job titles, other lists, custom field definitions ² | ✅ | ✅ ¹ | |
 | `templates.manage` | Project and task templates | ✅ | ✅ | |
 | `clients.manage` | Create clients, assign the Admin, activate / pause / close | ✅ | | |
@@ -83,7 +83,7 @@
 | A project's billing **category** (Retainer / Project / Additional Work) | ✅ set and see | See only (it's operational context, not an amount) | ❌ |
 | Reports / snapshots | All | Scoped operational reports, **computed live**. `eod_reports` and `month_snapshots` hold revenue and are Owner-only tables | ❌ |
 | Activity log | All | Entries about records they can see | Entries about their own tasks, attendance and leave |
-| Notifications | Own | Own | Own |
+| Notifications | Own | Own | Own (5.1: RLS `recipient_id = auth.uid()`; the API updates `read_at` only; `notifications_mark_read` / `notifications_mark_all_read` act on the caller's rows; nobody reads another member's rows, the Owner included; `notification_deliveries` has no API access; `push_subscriptions` are own rows and nobody else ever reads an endpoint) |
 
 **Names on a task (Kickoff 4 decision 21, owner 2026-09-29, built in 4C):** ADR-0013 says every screen that names "who" shows both, so a Staff member reads the **names** of everyone on or acting on a task they can see (the Members row above), never a stranger's, and never a phone (the phone stays `team.view`'s, the person's own and a freelancer's current coordinator's). `app.directory_visible_ids()` computes the set once per read; `member_directory` keeps its columns.
 

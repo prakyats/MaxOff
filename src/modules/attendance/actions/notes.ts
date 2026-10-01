@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { action, ok, type Result } from "@/core/errors";
+import { dispatchPushSoon } from "@/core/notifications/push/dispatch";
 import { assertPermission } from "@/core/permissions/server";
 
 import * as repo from "../data/notes";
@@ -27,6 +28,7 @@ export const submitExtraWorkNote = action(
     const noteId = await repo.rpcSubmitNote(data);
     revalidatePath("/leave/extra-work");
     revalidatePath("/approvals");
+    dispatchPushSoon();
     return ok({ noteId });
   },
 );
@@ -39,6 +41,7 @@ export const decideExtraWorkNote = action(
     const creditId = await repo.rpcDecideNote(data);
     // The layout carries the Approvals badge, so the whole signed-in tree refreshes.
     revalidatePath("/", "layout");
+    dispatchPushSoon();
     return ok({ creditId });
   },
 );

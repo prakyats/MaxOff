@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createEmailSender, logSender, resendSender } from "./email";
+import { isRetryable } from "./email-dispatcher";
 import { emailStartupWarning, readEmailEnv } from "./env";
 
 const message = { to: "person@example.com", subject: "Hello", text: "Body" };
@@ -90,5 +91,18 @@ describe("createEmailSender", () => {
     expect(result).toEqual({ ok: false, reason: "not_configured" });
     expect(warn).toHaveBeenCalledOnce();
     warn.mockRestore();
+  });
+});
+
+describe("resendSender timeout (5A review S1)", () => {
+  it("a Resend that never answers is a provider error without a status: retried", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const hanging = (async (_url: string | URL | Request, init?: RequestInit) =>
+      new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(init.signal?.reason));
+      })) as unknown as typeof fetch;
+    const result = await resendSender("re_123", "x@y", hanging, 20).send(message);
+    expect(result).toEqual({ ok: false, reason: "provider_error" });
+    expect(isRetryable(undefined)).toBe(true);
   });
 });

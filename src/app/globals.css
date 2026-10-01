@@ -239,6 +239,16 @@
   html[data-offline] {
     --app-offline-h: 2rem;
   }
+  /* The push band (`PushBanner`, 5A decision 30): one 44px line above the bottom bar while the
+   * member has no working device, reserved before hydration; once on screen its measured height
+   * replaces this (two lines at large text). */
+  html:has([data-slot="push-banner"]) {
+    --app-push-h: 2.75rem;
+  }
+  /* Both bands together: the page's padding, the FAB and the sticky bars sit above them. */
+  :root {
+    --app-bands-h: calc(var(--app-offline-h, 0px) + var(--app-push-h, 0px));
+  }
 
   html {
     /* iOS inflates text in landscape unless this is pinned. */
@@ -669,19 +679,19 @@ html[data-nav-slide="back"] [data-slot="route"] {
   @media (max-width: 767px) {
     main:has([data-slot="page-actions"]) {
       padding-bottom: calc(
-        var(--app-bottom-nav-h) + 5rem + var(--app-safe-bottom) + var(--app-offline-h, 0px)
+        var(--app-bottom-nav-h) + 5rem + var(--app-safe-bottom) + var(--app-bands-h, 0px)
       );
     }
     main:has([data-slot="sticky-actions"]) {
       padding-bottom: calc(
         var(--app-bottom-nav-h) + var(--app-sticky-actions-h, 5rem) + 1rem +
-          var(--app-safe-bottom) + var(--app-offline-h, 0px)
+          var(--app-safe-bottom) + var(--app-bands-h, 0px)
       );
     }
     main:has([data-slot="sticky-actions"]) :is(input, textarea, select, [role="combobox"]) {
       scroll-margin-bottom: calc(
         var(--app-bottom-nav-h) + var(--app-sticky-actions-h, 5rem) + 1rem +
-          var(--app-safe-bottom) + var(--app-offline-h, 0px)
+          var(--app-safe-bottom) + var(--app-bands-h, 0px)
       );
     }
   }

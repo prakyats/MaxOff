@@ -5,6 +5,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 
+import { PASSWORD_MIN_LENGTH } from "@/core/auth";
 import { getCurrentMember } from "@/core/auth/server";
 import { action, AppError, ok, type Result } from "@/core/errors";
 import { resolveAppOrigin } from "@/core/lib/app-url";
@@ -123,7 +124,13 @@ export const inviteMember = action(
 
     const link = inviteLinkFor(await appOrigin(), tokenHash, type);
     const sent = await sendEmail(
-      inviteEmail({ to: data.email, inviteeName: data.fullName, inviterName: viewer.name, link }),
+      inviteEmail({
+        to: data.email,
+        inviteeName: data.fullName,
+        inviterName: viewer.name,
+        link,
+        passwordMinLength: PASSWORD_MIN_LENGTH,
+      }),
     );
     revalidatePath(PEOPLE_PATH, "layout");
     return ok({ memberId: userId, link, email: outcomeOf(sent) });
@@ -425,7 +432,13 @@ export const inviteAsEmployee = action(
     const { tokenHash, type } = await repo.issueInviteToken(data.email);
     const link = inviteLinkFor(await appOrigin(), tokenHash, type);
     const sent = await sendEmail(
-      inviteEmail({ to: data.email, inviteeName: member.fullName, inviterName: viewer.name, link }),
+      inviteEmail({
+        to: data.email,
+        inviteeName: member.fullName,
+        inviterName: viewer.name,
+        link,
+        passwordMinLength: PASSWORD_MIN_LENGTH,
+      }),
     );
     revalidatePath(PEOPLE_PATH, "layout");
     revalidatePath("/tasks", "layout");
