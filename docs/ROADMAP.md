@@ -1,5 +1,7 @@
 # MaxOff Roadmap (v2)
 
+> **PRODUCTION IS LIVE (since 2026-10-01): `https://app.maxoff.in` is in daily use by the Pixora Clips team with real data.** Expand-only migrations, releases only by an Owner-approved `v*` tag on a green `main` commit, never a seed, reset or hand-written SQL on production. The rules are in `CLAUDE.md` → "Production is live".
+
 > **One unit = one Claude Code session** (or one step of `/run-phase`). From phase 3 each phase lists its **units** (process change 2026-09-26, owner decision): a unit groups the tasks one session builds together, its tier is the highest of its tasks, and 3A and 6A are the heavy ones (`/save-progress` at ~50% context is the release valve). Tick a task (`[x]`) only when the Definition of Done (CLAUDE.md) is met and it's committed; a unit is done when every task in it is.
 > Before a phase: `/kickoff-phase N` settles every business question it raises, at once. Then `/run-phase N` (one subagent per unit, in order) or `/start-task <unit>` one unit at a time.
 > Each phase ends with `/review-phase N` (review → fixes → merge to `main` → tag `phase-N-done`; the branch stays `phase-N`).

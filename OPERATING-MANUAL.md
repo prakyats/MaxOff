@@ -1,5 +1,7 @@
 # MaxOff: Operating Manual (for Prishit)
 
+> **PRODUCTION IS LIVE (since 2026-10-01): `https://app.maxoff.in` is in daily use by the Pixora Clips team with real data.** Expand-only migrations, releases only by an Owner-approved `v*` tag on a green `main` commit, never a seed, reset or hand-written SQL on production. The rules are in `CLAUDE.md` → "Production is live".
+
 Everything you need to run the build, without asking anyone what to do next.
 **BUILD-GUIDE.md** = setup and models. **This file** = the daily loop, what each task should deliver, and how to check it.
 

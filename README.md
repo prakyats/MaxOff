@@ -1,5 +1,7 @@
 # MaxOff
 
+> **PRODUCTION IS LIVE (since 2026-10-01): `https://app.maxoff.in` is in daily use by the Pixora Clips team with real data.** Expand-only migrations, releases only by an Owner-approved `v*` tag on a green `main` commit, never a seed, reset or hand-written SQL on production. The rules are in `CLAUDE.md` → "Production is live".
+
 The internal operations and control system for **Pixora Clips**: attendance, leave, staff
 tasks with acknowledgement and approvals, clients, client work (projects → cycles → items),
 notifications, dashboards, and Owner-only revenue and reports.
