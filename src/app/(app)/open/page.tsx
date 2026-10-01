@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 
 import { requireMember } from "@/core/auth/server";
-import { checkThenRead } from "@/core/lib/start-early";
 import { markOneRead } from "@/core/notifications/inbox";
 import { LoadingState } from "@/core/ui/composites/loading-state";
 import { PageHeader } from "@/core/ui/composites/page-header";
@@ -26,11 +25,9 @@ export default async function OpenPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { to, n } = await searchParams;
-  // The mark starts with the session read; the member check is awaited first (§19).
-  const [viewer, opened] = await checkThenRead(
-    requireMember(),
-    isNotificationId(n) ? markOneRead(n) : Promise.resolve(null),
-  );
+  // perf: sequential (a write, not a read: only an active member's tap marks a row read)
+  const viewer = await requireMember();
+  const opened = isNotificationId(n) ? await markOneRead(n) : null;
   const home = homeFor(viewer.role);
   const requested = opened ? opened.link : to;
   const target = typeof requested === "string" && isInAppPath(requested) ? requested : home;

@@ -112,7 +112,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           {prompt}
           <PushSync publicKey={publicKey} endpoints={endpoints} />
           {live ? (
-            <LiveUpdatesLazy memberId={viewer.id} token={live.token} expiresAt={live.expiresAt} />
+            <LiveUpdatesLazy memberId={viewer.id} token={live.token} expiresIn={live.expiresIn} />
           ) : null}
           <RouteTransition>
             {endpoints.length === 0 ? <PushBanner publicKey={publicKey} /> : null}

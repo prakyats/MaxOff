@@ -8,6 +8,7 @@
  */
 let version = 0;
 const seen = new Map<string, number>();
+let ownReadAt = Number.NEGATIVE_INFINITY;
 
 /** Something about the member's notifications changed (a read, a new row). */
 export function noteNotificationsChanged(): void {
@@ -27,4 +28,18 @@ export function staleSinceDrawn(renderId: string): boolean {
   if (first === version) return false;
   seen.set(renderId, version);
   return true;
+}
+
+/**
+ * The member's own read action has just answered and re-read the screen itself (it revalidated):
+ * the live bell need not refresh again for the UPDATE events it caused (`OWN_READ_QUIET_MS`).
+ */
+export function noteOwnReadRevalidated(nowMs: number): void {
+  noteNotificationsChanged();
+  ownReadAt = nowMs;
+}
+
+/** Whether an own read re-read the screen within the last `windowMs`. */
+export function ownReadWithin(nowMs: number, windowMs: number): boolean {
+  return nowMs - ownReadAt < windowMs;
 }

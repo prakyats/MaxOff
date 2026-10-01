@@ -1,6 +1,7 @@
 "use client";
 
-import { noteNotificationsChanged } from "@/core/notifications/live-state";
+import { noteOwnReadRevalidated } from "@/core/notifications/live-state";
+import { systemClock } from "@/core/time/clock";
 import { ActionStatus } from "@/core/ui/action/action-status";
 import { useAction } from "@/core/ui/action/use-action";
 import { Button } from "@/core/ui/primitives/button";
@@ -15,7 +16,11 @@ import { markAllNotificationsRead } from "../actions/inbox";
  */
 export function MarkAllRead() {
   const action = useAction(async () => {
-    if (toastResult(await markAllNotificationsRead())) noteNotificationsChanged();
+    const result = await markAllNotificationsRead();
+    toastResult(result);
+    if (result.ok && result.data.marked > 0) {
+      noteOwnReadRevalidated(systemClock().getTime());
+    }
   });
   return (
     <span className="flex flex-col items-end gap-1">

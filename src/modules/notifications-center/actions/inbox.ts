@@ -28,12 +28,12 @@ const idSchema = z.object({ id: z.uuid() });
 
 /** A row with nothing to open, tapped: it is read (a row with a link is read by `/open`). */
 export const markNotificationRead = action(
-  async (input: z.input<typeof idSchema>): Promise<Result<null>> => {
+  async (input: z.input<typeof idSchema>): Promise<Result<{ marked: number }>> => {
     const { id } = idSchema.parse(input);
     await requireCurrentMember();
-    await markOneRead(id);
-    revalidateBell();
-    return ok(null);
+    const marked = (await markOneRead(id))?.marked ? 1 : 0;
+    if (marked > 0) revalidateBell();
+    return ok({ marked });
   },
 );
 

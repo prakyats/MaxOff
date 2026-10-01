@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { liveRefreshWaits, TOKEN_GRACE_MS, tokenRefreshIn } from "./live-rules";
+import { liveRefreshWaits, TOKEN_GRACE_MS, TOKEN_RETRY_MS, tokenRefreshIn } from "./live-rules";
 
 describe("liveRefreshWaits", () => {
   it("refreshes only when nothing is in the way", () => {
@@ -12,14 +12,14 @@ describe("liveRefreshWaits", () => {
 });
 
 describe("tokenRefreshIn", () => {
-  it("asks just after the token expires", () => {
-    const now = 1_000_000_000_000;
-    expect(tokenRefreshIn(now / 1000 + 3600, now)).toBe(3600_000 + TOKEN_GRACE_MS);
+  it("asks just after the token expires, by its remaining lifetime", () => {
+    expect(tokenRefreshIn(3600)).toBe(3600_000 + TOKEN_GRACE_MS);
   });
 
-  it("never sooner than the grace, and not at all without an expiry", () => {
-    const now = 1_000_000_000_000;
-    expect(tokenRefreshIn(now / 1000 - 600, now)).toBe(TOKEN_GRACE_MS);
-    expect(tokenRefreshIn(null, now)).toBeNull();
+  it("a spent token waits the retry, never a tight loop; no expiry, no timer", () => {
+    expect(tokenRefreshIn(0)).toBe(TOKEN_RETRY_MS);
+    expect(tokenRefreshIn(-600)).toBe(TOKEN_RETRY_MS);
+    expect(tokenRefreshIn(1)).toBe(1_000 + TOKEN_GRACE_MS);
+    expect(tokenRefreshIn(null)).toBeNull();
   });
 });

@@ -14,6 +14,16 @@ export const LIVE_REFRESH_RETRY_MS = 2_000;
 /** How long after the access token expires the page asks the server for a new one. */
 export const TOKEN_GRACE_MS = 5_000;
 
+/** While the token in hand has expired, the page asks again this often until a new one comes. */
+export const TOKEN_RETRY_MS = 30_000;
+
+/**
+ * After the member's own read that already re-read the screen (the action revalidated it), the
+ * read receipts it causes come back as UPDATE events: they are not refreshed again for this long.
+ * A new notification (an INSERT) always is.
+ */
+export const OWN_READ_QUIET_MS = 3_000;
+
 /**
  * Whether a refresh waits for now, as refresh on return does: never while an approval is inside
  * its Undo window or an editor holds unsaved changes, and not in the middle of a navigation (the
@@ -29,11 +39,15 @@ export function liveRefreshWaits(state: {
 }
 
 /**
- * When to ask for a fresh token (ms from now): just after the current one expires, when the
- * proxy refreshes the session on the request, so the layout hands over the new one. Never
- * sooner than the grace, so a clock that runs ahead cannot make it spin. Null: no expiry known.
+ * When to ask for a fresh token (ms after the token arrived): just after it expires, when the
+ * proxy refreshes the session on the request, so the layout hands over the new one. Measured
+ * from the token's remaining lifetime **by the server's clock** (`expiresIn`), so a phone whose
+ * clock runs fast or slow asks at the right moment. A token that arrived already spent (the
+ * proxy could not renew it just then) is asked about again after `TOKEN_RETRY_MS`, never in a
+ * tight loop. Null: no expiry known.
  */
-export function tokenRefreshIn(expiresAtSeconds: number | null, nowMs: number): number | null {
-  if (expiresAtSeconds === null) return null;
-  return Math.max(expiresAtSeconds * 1000 - nowMs + TOKEN_GRACE_MS, TOKEN_GRACE_MS);
+export function tokenRefreshIn(expiresInSeconds: number | null): number | null {
+  if (expiresInSeconds === null) return null;
+  if (expiresInSeconds <= 0) return TOKEN_RETRY_MS;
+  return expiresInSeconds * 1000 + TOKEN_GRACE_MS;
 }

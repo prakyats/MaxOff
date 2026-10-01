@@ -2,6 +2,9 @@
 
 import { useEffect } from "react";
 
+import { noteOwnReadRevalidated } from "@/core/notifications/live-state";
+import { systemClock } from "@/core/time/clock";
+
 import { markRecordRead } from "../actions/inbox";
 
 /**
@@ -17,7 +20,11 @@ export function MarkRecordRead({
   id: string;
 }): null {
   useEffect(() => {
-    markRecordRead({ entity, id }).catch(() => undefined);
+    markRecordRead({ entity, id })
+      .then((result) => {
+        if (result.ok && result.data.marked > 0) noteOwnReadRevalidated(systemClock().getTime());
+      })
+      .catch(() => undefined);
   }, [entity, id]);
   return null;
 }

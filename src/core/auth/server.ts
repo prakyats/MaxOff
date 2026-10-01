@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { cache } from "react";
 
 import { createServerSupabase } from "@/core/db/server";
+import { systemClock } from "@/core/time";
 import { setSentryUser } from "@/core/observability/user";
 import type { MemberRole } from "@/core/permissions";
 import { displayName } from "@/core/lib/display-name";
@@ -173,14 +174,17 @@ export async function setHomeHint(userId: string, role: MemberRole): Promise<voi
 
 export type { CurrentMember } from "./types";
 
-/** What the browser's Realtime client needs (5.1): the member's access token and its expiry. */
-export type RealtimeAuth = { token: string; expiresAt: number | null };
+/**
+ * What the browser's Realtime client needs (5.1): the member's access token and the seconds it
+ * has left by the server's clock (a phone's clock may be off).
+ */
+export type RealtimeAuth = { token: string; expiresIn: number | null };
 
 /**
  * The session's access token for the browser's Realtime client (`createRealtimeSupabase`,
  * ARCHITECTURE §10): handed over as a prop because the cookies are `httpOnly` and stay so. Read
  * after `requireMember()` has verified the session (`getClaims()`), so this is the same session,
- * refreshed by the proxy when it was due. `expiresAt` is in seconds (the JWT's `exp`): the page
+ * refreshed by the proxy when it was due. `expiresIn` counts from now (the JWT's `exp`): the page
  * asks for a new one when it lapses. `null` when there is none.
  */
 export async function getRealtimeAuth(): Promise<RealtimeAuth | null> {
@@ -188,5 +192,9 @@ export async function getRealtimeAuth(): Promise<RealtimeAuth | null> {
   const { data } = await supabase.auth.getSession();
   const session = data.session;
   if (!session) return null;
-  return { token: session.access_token, expiresAt: session.expires_at ?? null };
+  const expiresAt = session.expires_at ?? null;
+  return {
+    token: session.access_token,
+    expiresIn: expiresAt === null ? null : expiresAt - Math.floor(systemClock().getTime() / 1000),
+  };
 }

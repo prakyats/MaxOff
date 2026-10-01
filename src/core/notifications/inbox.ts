@@ -70,7 +70,9 @@ export async function listInbox(page: number): Promise<{ rows: InboxRow[]; total
  * One of the member's own notifications, marked read (a tap on it) and its link, for the
  * deep-link entry. Null when it is not theirs or does not exist (RLS): nothing is marked.
  */
-export async function markOneRead(id: string): Promise<{ link: string | null } | null> {
+export async function markOneRead(
+  id: string,
+): Promise<{ link: string | null; marked: boolean } | null> {
   const supabase = await createServerSupabase();
   const { data, error } = await supabase
     .from("notifications")
@@ -80,7 +82,7 @@ export async function markOneRead(id: string): Promise<{ link: string | null } |
     .select("link")
     .maybeSingle();
   if (error) throw error;
-  if (data) return { link: data.link };
+  if (data) return { link: data.link, marked: true };
   // Already read: still theirs to open.
   const { data: row, error: readError } = await supabase
     .from("notifications")
@@ -88,7 +90,7 @@ export async function markOneRead(id: string): Promise<{ link: string | null } |
     .eq("id", id)
     .maybeSingle();
   if (readError) throw readError;
-  return row ? { link: row.link } : null;
+  return row ? { link: row.link, marked: false } : null;
 }
 
 /** Opening a record marks the member's unread rows about it read (`notifications_mark_read`). */
