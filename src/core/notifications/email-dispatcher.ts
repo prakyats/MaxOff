@@ -64,6 +64,8 @@ export async function runEmailDispatch(input: {
   origin: string;
   now?: Date;
   limit?: number;
+  /** Told about an item that threw; the run goes on with the next one. */
+  onItemError?: (error: unknown) => void;
 }): Promise<EmailDispatchReport> {
   const now = input.now ?? systemClock();
   const report: EmailDispatchReport = {
@@ -76,38 +78,61 @@ export async function runEmailDispatch(input: {
   const items = await input.store.claim(now, input.limit ?? EMAIL_DISPATCH_LIMIT);
   report.claimed = items.length;
   for (const item of items) {
-    if (!input.sender) {
-      await input.store.record(item.deliveryId, "failed", "not_configured", now);
-      report.notConfigured += 1;
-      report.failed += 1;
-      continue;
-    }
-    const content = renderNotificationEmail({
-      title: item.title,
-      body: item.body,
-      link: item.link,
-      origin: input.origin,
-    });
-    const result = await input.sender.send({ to: item.email, ...content });
-    if (result.ok) {
-      await input.store.record(item.deliveryId, "sent", null, now);
-      report.sent += 1;
-    } else if (result.reason === "not_configured") {
-      await input.store.record(item.deliveryId, "failed", "not_configured", now);
-      report.notConfigured += 1;
-      report.failed += 1;
-    } else if (isRetryable(result.status)) {
-      await input.store.record(
-        item.deliveryId,
-        "retry",
-        result.status === undefined ? "resend_unreachable" : `resend_${result.status}`,
-        now,
-      );
-      report.retried += 1;
-    } else {
-      await input.store.record(item.deliveryId, "failed", `resend_${result.status}`, now);
-      report.failed += 1;
+    // One item that throws (rendering, the sender, a store call) never stops the run for the
+    // others (the email twin of 5A review M1): it is recorded as a retry, so email_record's
+    // backoff fails it after the last attempt like any other error.
+    try {
+      await dispatchEmailItem(item, input, now, report);
+    } catch (error) {
+      input.onItemError?.(error);
+      try {
+        await input.store.record(item.deliveryId, "retry", "dispatch_error", now);
+        report.retried += 1;
+      } catch (recordError) {
+        // The lease expires and the next run claims it again (attempts counted by the claim).
+        input.onItemError?.(recordError);
+      }
     }
   }
   return report;
+}
+
+async function dispatchEmailItem(
+  item: ClaimedEmail,
+  input: { store: EmailStore; sender: EmailSender | null; origin: string },
+  now: Date,
+  report: EmailDispatchReport,
+): Promise<void> {
+  if (!input.sender) {
+    await input.store.record(item.deliveryId, "failed", "not_configured", now);
+    report.notConfigured += 1;
+    report.failed += 1;
+    return;
+  }
+  const content = renderNotificationEmail({
+    title: item.title,
+    body: item.body,
+    link: item.link,
+    origin: input.origin,
+  });
+  const result = await input.sender.send({ to: item.email, ...content });
+  if (result.ok) {
+    await input.store.record(item.deliveryId, "sent", null, now);
+    report.sent += 1;
+  } else if (result.reason === "not_configured") {
+    await input.store.record(item.deliveryId, "failed", "not_configured", now);
+    report.notConfigured += 1;
+    report.failed += 1;
+  } else if (isRetryable(result.status)) {
+    await input.store.record(
+      item.deliveryId,
+      "retry",
+      result.status === undefined ? "resend_unreachable" : `resend_${result.status}`,
+      now,
+    );
+    report.retried += 1;
+  } else {
+    await input.store.record(item.deliveryId, "failed", `resend_${result.status}`, now);
+    report.failed += 1;
+  }
 }

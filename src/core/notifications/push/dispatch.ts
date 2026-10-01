@@ -51,6 +51,9 @@ export async function dispatchEmail(limit?: number): Promise<EmailDispatchReport
       null,
       process.env.NEXT_PUBLIC_APP_ENV,
     ),
+    onItemError: (error) => {
+      captureException(error);
+    },
     ...(limit === undefined ? {} : { limit }),
   });
 }

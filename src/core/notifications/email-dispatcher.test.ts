@@ -127,6 +127,82 @@ describe("runEmailDispatch", () => {
     ]);
   });
 
+  it("one item that throws is recorded as a retry and the run goes on with the others", async () => {
+    const records: { id: string; outcome: string; error: string | null }[] = [];
+    const store: EmailStore = {
+      async claim() {
+        return [claimed("d1"), claimed("bad"), claimed("d3")];
+      },
+      async record(id, outcome, error) {
+        if (id === "bad" && outcome === "sent") throw new Error("connection reset");
+        records.push({ id, outcome, error });
+      },
+    };
+    const errors: unknown[] = [];
+    const resend = fakeResend([200, 200, 200]);
+    const report = await runEmailDispatch({
+      store,
+      sender: resendSender("re_test_key", "MaxOff <n@x>", resend.fetchImpl),
+      origin: "https://app.example",
+      now: NOW,
+      onItemError: (error) => errors.push(error),
+    });
+    expect(resend.calls).toHaveLength(3);
+    expect(records).toEqual([
+      { id: "d1", outcome: "sent", error: null },
+      { id: "bad", outcome: "retry", error: "dispatch_error" },
+      { id: "d3", outcome: "sent", error: null },
+    ]);
+    expect(report).toEqual({ claimed: 3, sent: 2, retried: 1, failed: 0, notConfigured: 0 });
+    expect(errors).toHaveLength(1);
+  });
+
+  it("a sender that throws is a retry for that item only", async () => {
+    const { store, records } = fakeStore([claimed("d1"), claimed("d2")]);
+    let calls = 0;
+    const report = await runEmailDispatch({
+      store,
+      sender: {
+        async send() {
+          calls += 1;
+          if (calls === 1) throw new Error("boom");
+          return { ok: true, provider: "resend", id: null };
+        },
+      },
+      origin: "https://app.example",
+      now: NOW,
+    });
+    expect(records).toEqual([
+      { id: "d1", outcome: "retry", error: "dispatch_error" },
+      { id: "d2", outcome: "sent", error: null },
+    ]);
+    expect(report).toEqual({ claimed: 2, sent: 1, retried: 1, failed: 0, notConfigured: 0 });
+  });
+
+  it("when recording the retry also throws, the run still goes on (the lease expires)", async () => {
+    const records: string[] = [];
+    const store: EmailStore = {
+      async claim() {
+        return [claimed("bad"), claimed("d2")];
+      },
+      async record(id) {
+        if (id === "bad") throw new Error("database down");
+        records.push(id);
+      },
+    };
+    const errors: unknown[] = [];
+    const report = await runEmailDispatch({
+      store,
+      sender: null,
+      origin: "https://app.example",
+      now: NOW,
+      onItemError: (error) => errors.push(error),
+    });
+    expect(records).toEqual(["d2"]);
+    expect(errors).toHaveLength(2);
+    expect(report).toEqual({ claimed: 2, sent: 0, retried: 0, failed: 1, notConfigured: 1 });
+  });
+
   it("isRetryable: Resend's answers", () => {
     expect([undefined, 429, 500, 503].map(isRetryable)).toEqual([true, true, true, true]);
     expect([400, 401, 403, 404, 422].map(isRetryable)).toEqual([false, false, false, false, false]);
