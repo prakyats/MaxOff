@@ -133,12 +133,13 @@ Exit: a real client's monthly and weekly projects run in MaxOff. The Admin ticks
 - [ ] **7.4** [C] Owner item approvals in the inbox, carry-forward decision screen, stage presets in Settings, project templates
 
 ## Phase 8: Work submissions, files and the Drive archive
+> **Kickoff 8 decisions (owner, 2026-10-01) in PROGRESS** settle the next hand-in (items added before Done, sealed by Mark done), types and limits, previews, the viewer, versions, comments on a version, stale reviews, links, Settings → Storage and the copy. **Open before 8B:** decision 13 (any https link is a link item) needs the owner's ADR-0010 amendment.
 > **Launch order:** built **before phase 7**: handing in work hangs off tasks (phase 4), not projects.
 Exit: Staff submit photos and short videos from any device (iPhone included) and large videos as Drive links; the Owner and Admins review every version. (The company Drive archive and its cleanup, 8.3 and 8.4b, are **deferred past the launch**, owner 2026-09-27.)
 **Units:** **8A** [H] 8.1 + 8.2 · **8B** [C] 8.4a
 - [ ] **8.1** [H] Submissions: `submission_items`, resumable uploader (images ≤ 25 MB, video ≤ 100 MB), browser-side JPEG preview generation including **HEIC**, originals stored untouched, `task_submit_version`, reviews tied to a version, RLS + pgTAP
-- [ ] **8.2** [C] Review UI: previews (image, video, PDF), versions timeline, download the original, comment and request changes per version, archive status badges
-- [ ] **8.4a** [C] Link submissions, the pilot half of 8.4 (owner, 2026-09-27): paste a Drive link as a version, basic `https://` validation, stored with the version, the Owner and Admins open it to review. No Drive API access check and no retention job (8.4b, deferred past the launch)
+- [ ] **8.2** [C] Review UI: previews (image, video, PDF), versions timeline, download the original, comment and request changes per version ~~archive status badges~~ (moved to 8.3 / 8.4b: nothing is archived before 8.3; kickoff 8 decision 10); **Settings → Storage** for the Owner and the 8 GB notification (kickoff 8 decision 11)
+- [ ] **8.4a** [C] Link submissions, the pilot half of 8.4 (owner, 2026-09-27): paste a link as an item of the next hand-in (**any `https` link**, labelled by site; kickoff 8 decision 13, pending the ADR-0010 amendment), basic `https://` validation, stored with the version, the Owner and Admins open it to review. No Drive API access check and no retention job (8.4b, deferred past the launch)
 
 ## Phase 9: Revenue, reports and month close (Owner)
 Exit: the Owner sees Potential / Achieved / Remaining by client, category and month, and closes a month. (Exports and the activity-history search, 9.5 and 9.6, are **deferred past the launch**, owner 2026-09-27.)
