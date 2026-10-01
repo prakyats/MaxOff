@@ -1,3 +1,4 @@
+import { headerSafe } from "./email-content";
 import { type EmailEnv, readEmailEnv } from "./env";
 
 /**
@@ -38,7 +39,8 @@ export function resendSender(
           body: JSON.stringify({
             from,
             to: [message.to],
-            subject: message.subject,
+            // One line whatever the caller passed: a name or a task title cannot add a header.
+            subject: headerSafe(message.subject),
             text: message.text,
             ...(message.html ? { html: message.html } : {}),
           }),

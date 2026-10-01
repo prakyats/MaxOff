@@ -12,10 +12,12 @@ import { expect, test } from "./fixtures";
 import {
   expectBackStack,
   hydrated,
+  insertAs,
   memberIdOf,
   rpcAs,
   runInstalled,
   serviceDelete,
+  serviceInsert,
   serviceSelect,
   serviceUpdate,
   signIn,
@@ -160,6 +162,58 @@ async function drainDispatch(page: Page): Promise<void> {
     if (report.claimed < DISPATCH_LIMIT) return;
   }
   throw new Error("the dispatch backlog did not drain");
+}
+
+async function runDispatch(page: Page): Promise<void> {
+  const response = await page.request.post("/api/cron/push-dispatch", {
+    headers: { authorization: `Bearer ${CRON_SECRET}` },
+  });
+  expect(response.ok()).toBe(true);
+}
+
+/** A task the Owner assigns to this person (task_assigned), through the API. */
+async function assignTask(staffId: string, title: string): Promise<string> {
+  return rpcAs<string>(USERS.owner.email, USERS.owner.password, "task_create", {
+    title,
+    description: null,
+    task_type_id: await taskTypeId("Normal"),
+    client_id: null,
+    priority: "medium",
+    due_at: new Date(systemClock().getTime() + 3 * 24 * 3600 * 1000).toISOString(),
+    assignee_ids: [staffId],
+    primary_owner_id: staffId,
+    approving_admin_id: null,
+    stages: [],
+  });
+}
+
+type PushDelivery = {
+  id: string;
+  state: string;
+  attempts: number;
+  last_error: string | null;
+  next_attempt_at: string;
+};
+
+/** The push delivery of this person's row about a task. */
+async function pushDeliveryOf(staffId: string, taskId: string): Promise<PushDelivery> {
+  const rows = await serviceSelect<PushDelivery>(
+    `notification_deliveries?channel=eq.push&select=id,state,attempts,last_error,next_attempt_at,notifications!inner(recipient_id,entity_id)&notifications.recipient_id=eq.${staffId}&notifications.entity_id=eq.${taskId}`,
+  );
+  expect(rows).toHaveLength(1);
+  return rows[0]!;
+}
+
+/** A device of this person at the fake push service, stored as the API would. */
+async function addDevice(staffId: string, endpoint: string, receiver: Receiver): Promise<string> {
+  const row = await serviceInsert<{ id: string }>("push_subscriptions", {
+    member_id: staffId,
+    endpoint,
+    p256dh: receiver.publicKey,
+    auth: receiver.auth,
+    platform: "android",
+  });
+  return row.id;
 }
 
 test.describe("Web Push", () => {
@@ -312,7 +366,7 @@ test.describe("Web Push", () => {
   }) => {
     const staffId = await memberIdOf(pushPerson(test.info()));
     // The dispatcher sends the oldest due rows first, up to its batch: rows the earlier specs
-    // queued for people with no device are worked off first, so this row is the next run's.
+    // queued for people with no device are worked off first.
     await drainDispatch(page);
     const before = service.received.length;
     const now = systemClock();
@@ -337,6 +391,12 @@ test.describe("Web Push", () => {
     expect(run.ok()).toBe(true);
     const report = (await run.json()) as { job: string; sent: number };
     expect(report.job).toBe("push_dispatch");
+    // A run sends the oldest due rows first, up to its batch; while other specs keep queueing
+    // rows for people with no device, the next minute's runs catch up (the cron's contract).
+    for (let run = 0; run < 20; run += 1) {
+      if ((await pushDeliveryOf(staffId, taskId)).state !== "queued") break;
+      await runDispatch(page);
+    }
     const pushes = service.received.slice(before);
     const mine = [];
     for (const push of pushes) {
@@ -353,7 +413,7 @@ test.describe("Web Push", () => {
     expect(mine[0]).toMatchObject({ url: `/tasks/${taskId}` });
     expect(mine[0]!.notificationId).toBeTruthy();
     const deliveries = await serviceSelect<{ state: string; sent_at: string | null }>(
-      `notification_deliveries?select=state,sent_at,notifications!inner(recipient_id,entity_id)&notifications.recipient_id=eq.${staffId}&notifications.entity_id=eq.${taskId}`,
+      `notification_deliveries?channel=eq.push&select=state,sent_at,notifications!inner(recipient_id,entity_id)&notifications.recipient_id=eq.${staffId}&notifications.entity_id=eq.${taskId}`,
     );
     expect(deliveries.map((row) => row.state)).toEqual(["sent"]);
     // A second run sends nothing again (idempotent).
@@ -391,6 +451,246 @@ test.describe("Web Push", () => {
     await expect(page.locator('[data-slot="push-test-outcome"]')).toHaveText(
       "No device accepted it. Check the device's notification settings, then try again.",
     );
+  });
+
+  test("the cron dispatch: a device answering 410 is disabled; one failing is retried with backoff", async ({
+    page,
+  }) => {
+    const staffId = await memberIdOf(pushPerson(test.info()));
+    await serviceDelete(`push_subscriptions?member_id=eq.${staffId}`);
+    await drainDispatch(page);
+
+    // 410: the device is gone, and with no other device the row fails `no_subscription`.
+    const goneId = await addDevice(staffId, `${service.url}/gone/dispatch`, receiver);
+    const goneTask = await assignTask(staffId, `Push gone ${systemClock().getTime()}`);
+    await runDispatch(page);
+    expect(service.received.some((push) => push.path === "/gone/dispatch")).toBe(true);
+    const [gone] = await serviceSelect<{ disabled_reason: string | null }>(
+      `push_subscriptions?id=eq.${goneId}&select=disabled_reason`,
+    );
+    expect(gone?.disabled_reason).toBe("gone");
+    expect(await pushDeliveryOf(staffId, goneTask)).toMatchObject({
+      state: "failed",
+      last_error: "no_subscription",
+    });
+
+    // 500: retried after 1 minute, then 5; nothing is sent before it is due.
+    const downId = await addDevice(staffId, `${service.url}/down/dispatch`, receiver);
+    const downTask = await assignTask(staffId, `Push down ${systemClock().getTime()}`);
+    const sentAt = systemClock().getTime();
+    await runDispatch(page);
+    const first = await pushDeliveryOf(staffId, downTask);
+    expect(first).toMatchObject({ state: "queued", attempts: 1 });
+    expect(first.last_error).toBeTruthy();
+    const wait = Date.parse(first.next_attempt_at) - sentAt;
+    expect(wait).toBeGreaterThan(30_000);
+    expect(wait).toBeLessThan(120_000);
+
+    const tries = () => service.received.filter((push) => push.path === "/down/dispatch").length;
+    const triedOnce = tries();
+    await runDispatch(page);
+    expect(tries(), "not retried before it is due").toBe(triedOnce);
+
+    // Due now (the minute is moved back, not waited out): retried, then 5 minutes.
+    await serviceUpdate(`notification_deliveries?id=eq.${first.id}`, {
+      next_attempt_at: new Date(sentAt - 1000).toISOString(),
+    });
+    const retriedAt = systemClock().getTime();
+    await runDispatch(page);
+    expect(tries()).toBe(triedOnce + 1);
+    const second = await pushDeliveryOf(staffId, downTask);
+    expect(second).toMatchObject({ state: "queued", attempts: 2 });
+    const wait2 = Date.parse(second.next_attempt_at) - retriedAt;
+    expect(wait2).toBeGreaterThan(4 * 60_000);
+    expect(wait2).toBeLessThan(6 * 60_000);
+    const [down] = await serviceSelect<{ failure_count: number; disabled_at: string | null }>(
+      `push_subscriptions?id=eq.${downId}&select=failure_count,disabled_at`,
+    );
+    expect(down).toEqual({ failure_count: 2, disabled_at: null });
+    await serviceDelete(`push_subscriptions?member_id=eq.${staffId}`);
+  });
+
+  test("a transition's push goes out right after the action, without waiting for the cron", async ({
+    page,
+    isMobile,
+  }) => {
+    test.skip(isMobile, "the desktop composer; the dispatch itself is the server's");
+    const staffId = await memberIdOf(pushPerson(test.info()));
+    await serviceDelete(`push_subscriptions?member_id=eq.${staffId}`);
+    await addDevice(staffId, `${service.url}/ok/after`, receiver);
+    const title = `Push after ${systemClock().getTime()}`;
+    const taskId = await assignTask(staffId, title);
+    // The assignment came through the API (no action, so no after()): the cron sends it.
+    await drainDispatch(page);
+
+    // The Owner comments through the app: the action's after() sends the comment's push. No
+    // cron runs in this e2e server, so a push arriving now can only be that dispatch.
+    const owner = await page
+      .context()
+      .browser()!
+      .newContext({ storageState: storageStateFor("owner"), viewport: page.viewportSize() });
+    const ownerPage = await owner.newPage();
+    await ownerPage.goto(`/tasks/${taskId}`);
+    await ownerPage.locator('[data-slot="task-tab"][data-view-tab="chat"]').click();
+    const composer = ownerPage.locator('[data-slot="task-panel-chat"]');
+    await composer.getByRole("textbox", { name: "Comment" }).fill("Straight to the phone");
+    await composer.getByRole("button", { name: "Send" }).click();
+    await expect(composer.locator('[data-slot="task-comment"][data-own="true"]')).toContainText(
+      "Straight to the phone",
+    );
+    await owner.close();
+
+    const commentPushes = async () => {
+      const found = [];
+      for (const push of service.received.filter((each) => each.path === "/ok/after")) {
+        const opened = JSON.parse(
+          Buffer.from(await decryptPayload(new Uint8Array(push.body), receiver)).toString(),
+        ) as { title: string; body: string | null; url: string };
+        if (opened.title === `Comment on ${title}`) found.push(opened);
+      }
+      return found;
+    };
+    await expect.poll(async () => (await commentPushes()).length).toBe(1);
+    expect((await commentPushes())[0]).toMatchObject({
+      body: expect.stringContaining("Straight to the phone"),
+      url: `/tasks/${taskId}`,
+    });
+    await serviceDelete(`push_subscriptions?member_id=eq.${staffId}`);
+  });
+
+  test("Sign out of this device deletes this device's subscription", async ({ page }) => {
+    const staffId = await memberIdOf(pushPerson(test.info()));
+    await serviceDelete(`push_subscriptions?member_id=eq.${staffId}`);
+    // Another device of theirs stays: only this one goes.
+    await addDevice(staffId, `${service.url}/ok/other-device`, receiver);
+    await stubPush(page, {
+      permission: "granted",
+      endpoint: `${service.url}/ok/signing-out`,
+      receiver,
+    });
+    await page.goto("/me");
+    // Permission granted and no row for this browser: PushSync stores it on load.
+    await expect(page.locator('[data-slot="push-device-row"]')).toHaveAttribute(
+      "data-state",
+      "here",
+    );
+    await expect
+      .poll(async () =>
+        (
+          await serviceSelect<{ endpoint: string }>(
+            `push_subscriptions?member_id=eq.${staffId}&select=endpoint&order=endpoint`,
+          )
+        ).map((row) => row.endpoint),
+      )
+      .toEqual([`${service.url}/ok/other-device`, `${service.url}/ok/signing-out`]);
+
+    await page.getByRole("button", { name: "Sign out" }).click();
+    await page
+      .getByRole("alertdialog", { name: "Sign out of this device?" })
+      .getByRole("button", { name: "Sign out" })
+      .click();
+    await expect(page).toHaveURL(/\/login/);
+    const left = await serviceSelect<{ endpoint: string }>(
+      `push_subscriptions?member_id=eq.${staffId}&select=endpoint`,
+    );
+    expect(left.map((row) => row.endpoint)).toEqual([`${service.url}/ok/other-device`]);
+    await serviceDelete(`push_subscriptions?member_id=eq.${staffId}`);
+  });
+
+  test("installed: the banner's Turn on adds no history; back from home leaves", async ({
+    page,
+    isMobile,
+  }) => {
+    test.skip(!isMobile, "installed-mode back is a phone rule (375 and 430)");
+    const staffId = await memberIdOf(pushPerson(test.info()));
+    await serviceDelete(`push_subscriptions?member_id=eq.${staffId}`);
+    await runInstalled(page);
+    await stubPush(page, {
+      permission: "default",
+      endpoint: `${service.url}/ok/installed-banner`,
+      receiver,
+    });
+    await page.goto("/my-day");
+    await hydrated(page);
+    await page.locator('[data-slot="push-enable"]').click();
+    await expect(page.locator('[data-slot="push-banner"]')).toBeHidden();
+    await expect(page).toHaveURL(/\/my-day$/);
+    // The banner is no layer and its tap no drill-down: one back leaves the app.
+    await expectBackStack(page, [{ url: /^about:blank$/ }]);
+    await serviceDelete(`push_subscriptions?member_id=eq.${staffId}`);
+  });
+
+  test('installed: Me\'s "Turn them on here too" and Send test add no history; back returns home', async ({
+    page,
+    isMobile,
+  }) => {
+    test.skip(!isMobile, "installed-mode back is a phone rule (375 and 430)");
+    const staffId = await memberIdOf(pushPerson(test.info()));
+    await serviceDelete(`push_subscriptions?member_id=eq.${staffId}`);
+    // On for another device of theirs: this one shows the quiet row (decision 9).
+    await addDevice(staffId, `${service.url}/ok/installed-other`, receiver);
+    await runInstalled(page);
+    await stubPush(page, {
+      permission: "default",
+      endpoint: `${service.url}/ok/installed-me`,
+      receiver,
+    });
+    await page.goto("/my-day");
+    await hydrated(page);
+    await page.locator("[data-slot='bottom-nav']").getByRole("link", { name: "Me" }).click();
+    await expect(page).toHaveURL(/\/me$/);
+    const row = page.locator('[data-slot="push-device-row"]');
+    await expect(row).toHaveAttribute("data-state", "elsewhere");
+    await row.locator('[data-slot="push-enable"]').click();
+    await expect(row).toHaveAttribute("data-state", "here");
+    await page.locator('[data-slot="push-test"]').click();
+    await expect(page.locator('[data-slot="push-test-outcome"]')).toHaveText("Sent to 2 devices");
+    await expect(page).toHaveURL(/\/me$/);
+    // Me is a tab above home: back returns to My Day, the next back leaves.
+    await expectBackStack(page, [{ url: /\/my-day$/ }, { url: /^about:blank$/ }]);
+    await serviceDelete(`push_subscriptions?member_id=eq.${staffId}`);
+  });
+
+  test("email: a person with no push gets one email per actionable row; a comment none", async ({
+    page,
+  }) => {
+    const email = pushPerson(test.info());
+    const staffId = await memberIdOf(email);
+    await serviceDelete(`push_subscriptions?member_id=eq.${staffId}`);
+    const taskId = await assignTask(staffId, `Email proof ${systemClock().getTime()}`);
+    await rpcAs(email, PUSH_PASSWORD, "task_submit_done", { task_id: taskId });
+    await rpcAs(USERS.owner.email, USERS.owner.password, "task_review", {
+      task_id: taskId,
+      decision: "rejected",
+      reason: "Brighter colours",
+    });
+    await insertAs(USERS.owner.email, USERS.owner.password, "task_comments", {
+      task_id: taskId,
+      body: "The music is in the folder.",
+    });
+    await drainDispatch(page);
+    const mails = async () =>
+      (
+        await serviceSelect<{
+          state: string;
+          last_error: string | null;
+          notifications: { kind: string };
+        }>(
+          `notification_deliveries?channel=eq.email&select=state,last_error,notifications!inner(kind,recipient_id,entity_id)&notifications.recipient_id=eq.${staffId}&notifications.entity_id=eq.${taskId}`,
+        )
+      )
+        .map((row) => `${row.notifications.kind}:${row.state}:${row.last_error ?? "-"}`)
+        .sort();
+    // Task assigned is always emailed; changes requested is actionable and they have no push;
+    // the comment never. The e2e server has no RESEND_API_KEY (as team.spec's invites rely on),
+    // so each is recorded not_configured: nothing is sent, nothing crashed.
+    expect(await mails()).toEqual([
+      "task_assigned:failed:not_configured",
+      "task_changes_requested:failed:not_configured",
+    ]);
+    // Another run adds nothing: one email row per notification.
+    await runDispatch(page);
+    expect(await mails()).toHaveLength(2);
   });
 
   test("denied: the banner says how to re-enable and never asks again", async ({ page }) => {

@@ -23,7 +23,8 @@ const WORKING_DAY_SPECS = /working-day\.spec\.ts$/;
 const LEAVE_SPECS = /leave\.spec\.ts$/;
 const BACK_GESTURE_SPECS = /back-gesture\.spec\.ts$/;
 const OWNER_REVIEW_SPECS = /owner-review\.spec\.ts$/;
-const OWNER_BULK_SPECS = /owner-bulk\.spec\.ts$/;
+// push-quiet moves the organisation's quiet hours, so it runs alone with "Approve all" (5.2).
+const OWNER_BULK_SPECS = /(owner-bulk|push-quiet)\.spec\.ts$/;
 const LAUNCH_SPECS = /launch\.spec\.ts$/;
 const MOTION_SPECS = /motion\.spec\.ts$/;
 const REFRESH_SPECS = /refresh\.spec\.ts$/;

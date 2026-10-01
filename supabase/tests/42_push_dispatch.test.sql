@@ -217,13 +217,14 @@ select lives_ok($$ select public.push_subscription_upsert('http://127.0.0.1:3111
 select is(public.push_subscription_remove('http://127.0.0.1:3111/push/e2e'), true, '(and removed again)');
 select throws_ok($$ select public.push_subscription_upsert('https://push.example/nokeys', '', 'a') $$, 'P0001', 'VALIDATION', 'keys required');
 select throws_ok($$ select public.push_subscription_upsert('https://push.example/p', 'k', 'a', 'tv') $$, 'P0001', 'VALIDATION', 'a known platform');
--- Take-over: staff2 subscribes on staff1's browser (the same endpoint).
+-- Take-over: staff2 subscribes on staff1's browser (the same endpoint, so the same keys: the
+-- browser's one subscription; 20261001003242 refuses other keys, pgTAP 45).
 select pg_temp.as_member('staff2');
-select is(public.push_subscription_upsert('https://push.example/one', 'k2', 'a2', 'android', true, 'Shared phone'), pg_temp.fx('s1'),
+select is(public.push_subscription_upsert('https://push.example/one', 'k1b', 'a1b', 'android', true, 'Shared phone'), pg_temp.fx('s1'),
   'a second person on the same browser takes the endpoint over (review S3)');
 select pg_temp.as_system();
 select is((select (member_id, p256dh, label)::text from public.push_subscriptions where id = pg_temp.fx('s1')),
-  (pg_temp.fx('staff2'), 'k2', 'Shared phone')::text, 'the row is theirs now');
+  (pg_temp.fx('staff2'), 'k1b', 'Shared phone')::text, 'the row is theirs now');
 select pg_temp.as_member('staff1');
 select is((select count(*) from public.push_subscriptions), 0::bigint, 'and staff1 no longer sees it');
 -- A disabled row comes back to life for whoever subscribes.

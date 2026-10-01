@@ -3138,6 +3138,29 @@ export type Database = {
         Args: { credit_id: string; reason?: string };
         Returns: undefined;
       };
+      email_claim: {
+        Args: { p_limit?: number; p_now?: string };
+        Returns: {
+          attempts: number;
+          body: string;
+          delivery_id: string;
+          email: string;
+          kind: string;
+          link: string;
+          notification_id: string;
+          recipient_id: string;
+          title: string;
+        }[];
+      };
+      email_record: {
+        Args: {
+          p_error?: string;
+          p_id: string;
+          p_now?: string;
+          p_outcome: string;
+        };
+        Returns: number;
+      };
       expense_claim_decide: {
         Args: { claim_id: string; decision: string; reason?: string };
         Returns: string;

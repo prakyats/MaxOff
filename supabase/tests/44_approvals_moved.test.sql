@@ -114,6 +114,11 @@ create function pg_temp.moved() returns setof public.notifications language sql 
   select n.* from public.notifications n where n.kind = 'approvals_moved' order by n.created_at, n.id;
 $$;
 
+-- The row about one Admin (payload.admin_id): rows of one transaction share created_at.
+create function pg_temp.moved_for(k text) returns setof public.notifications language sql stable security definer as $$
+  select n.* from public.notifications n where n.kind = 'approvals_moved' and n.payload ->> 'admin_id' = pg_temp.fx(k)::text;
+$$;
+
 select ok(exists (select 1 from public.notification_kinds k
                   where k.kind = 'approvals_moved' and not k.actionable and not k.always_email),
   'approvals_moved is an info kind: not actionable, never email');
@@ -160,10 +165,10 @@ select pg_temp.as_member('owner');
 update public.members set role = 'staff' where id = pg_temp.fx('admin2');
 select pg_temp.as_system();
 select is((select count(*) from pg_temp.moved()), 2::bigint, 'the role change writes one more row');
-select is((select title from pg_temp.moved() offset 1), '1 submitted task moved to you: admin2 is no longer an Admin',
+select is((select title from pg_temp.moved_for('admin2')), '1 submitted task moved to you: admin2 is no longer an Admin',
   'singular, with the made-Staff wording');
-select is((select body from pg_temp.moved() offset 1), 'It waits for your approval.', '(the singular body)');
-select is((select payload ->> 'reason' from pg_temp.moved() offset 1), 'approver_role_changed', 'payload.reason approver_role_changed');
+select is((select body from pg_temp.moved_for('admin2')), 'It waits for your approval.', '(the singular body)');
+select is((select payload ->> 'reason' from pg_temp.moved_for('admin2')), 'approver_role_changed', 'payload.reason approver_role_changed');
 
 -- Open tasks only: no row -------------------------------------------------------------------------------
 select pg_temp.as_member('owner');

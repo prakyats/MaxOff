@@ -218,6 +218,13 @@ the deploy workflow's secrets file (5.2), each set only when complete (email: bo
 Without them the app sends no email or no push and in-app notifications still work; the app logs a
 start-up warning. They stay out of CI on purpose.
 
+**Where to see the emails sent (5.2):** the Resend dashboard (resend.com → Emails) lists every
+email with its delivery status (delivered, bounced, complained). Inside MaxOff each notification
+email is a `notification_deliveries` row with `channel = 'email'`: `sent`, `failed` (`last_error`
+`not_configured` when `RESEND_API_KEY` is unset, or `resend_<status>`), or `skipped_cap` over the
+daily ceilings (`org_settings`: 20 per person, 90 for the organisation; Resend's free plan
+allows 100 a day, and invites are never counted). The Supabase table editor (service role) shows them.
+
 ### Inviting people (task 1.3)
 
 People → **Invite** (Owner only): email, name, role (Admin or Staff) and job title. The app
