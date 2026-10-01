@@ -334,14 +334,15 @@ active ──archive──► archived (values kept in every record, hidden from
 
 ### 5.2 Cycles
 - Every project has cycles. A **one-time** project gets exactly one cycle (no period) when it's created, enforced by a partial unique index on `project_cycles(project_id) where period_start is null`. **Recurring** projects get one cycle per period, and `project_create` immediately creates the **current** period's cycle (a monthly project started on the 15th gets that month at once, then the next on the 1st).
-- **00:00 IST job:** on the **1st** (monthly projects) and **Monday** (weekly projects), for projects whose client is **active** and whose status is open or in_progress, `cycle_generate(project, period)` copies `project_item_blueprints` into new items. It's **idempotent**: unique `(project_id, period_start)`.
+- **00:00 IST job:** on the **1st** (monthly projects) and **Monday** (weekly projects), and on **every other night as a catch-up** (kickoff 7 decision 2, §5.4), for projects whose client is **active** and whose status is open or in_progress, `cycle_generate(project, period)` copies `project_item_blueprints` into new items. It's **idempotent**: unique `(project_id, period_start)`.
 - A cycle is `open` until the next cycle exists **and** every unfinished item in it has been carried forward, closed or approved. Then it's `settled`. **`leave_pending` keeps the cycle open**, because those items are still workable, and the Owner is reminded about them until they're decided.
 
 ### 5.3 Items
 ```
 open ──Admin tick done──► done ──Owner approve──► approved (final, revenue achieved)
   ▲                         │
-  └────Owner reject(reason)───┘
+  ├────Owner reject(reason)───┤
+  └──"Not done" (Admin or Owner, until approved; kickoff 7)──┘
 open/done ──cancel(reason, Admin or Owner)──► cancelled
 ```
 - **Stage ticks** (`project_item_stages`) are independent of item state. Ticking all stages doesn't mark the item done.
@@ -350,6 +351,29 @@ open/done ──cancel(reason, Admin or Owner)──► cancelled
   - `close` → `cancelled` with a reason (`cancelled_by`, `cancelled_at`). Its value **stays in Potential** and reports show it as *closed, not achieved* (§6).
   - `leave_pending` → stays in its original cycle, still workable. Can be decided again later.
 - **Bulk approve** = the same function called for each item, so each gets its own approval record.
+
+### 5.4 Settled at kickoff 7 (owner decisions 2026-10-01, all answered as recommended; built in phase 7)
+**Projects (7.1, 7.2)**
+1. **Which clients:** `project_create` accepts a **Draft, Active or Paused** client and refuses an **Inactive** one (§4). A **recurring** project gets cycles only while its client is **Active** (its current period's cycle at creation if the client is Active, otherwise from the first night the client is Active, decision 2); a **one-time** project gets its single cycle at creation, whatever the client's state. `projects.manage` is scoped to the caller's clients, so on a Draft client with no Admin only the Owner creates projects.
+2. **No period is skipped silently:** `cycle_generate` runs **every night at 00:00 IST** and creates the **current** period's cycle (`generated_by = 'schedule'`) for every recurring project in `open` or `in_progress` whose client is Active and that has no cycle for that period. Idempotent (`unique(project_id, period_start)`). This covers a missed run (an outage, the free-plan pause; the 7-day catch-up rule of 2026-09-25) and a client resumed mid-period. A period of an Active client is never skipped: skipping one means pausing the client, or cancelling the items with a reason.
+3. **Manual start** (`cycle_start_next`, the Owner or the client's Admin, `projects.manage`): creates the **next** period's cycle (`generated_by = 'manual'`) at most **7 days** before that period begins, so the next month's items can be named ahead. Never a later period; never a one-time project. The nightly job later finds it there.
+4. **Recurrence and client are fixed** once the project exists: phase 7 builds no function that changes them (the guard trigger stays). To change either, complete or cancel the project and create a new one.
+5. **Name unique per client**, case-insensitive (`lower(btrim(name))`), among the client's projects in `open` or `in_progress`.
+
+**Items, stages and the item list (7.2)**
+6. **"Not done":** `item_unmark_done(item_id)` moves `done → open` for the client's Admin or the Owner (`items.tick`) until the Owner approves. Audited, no reason; `done_at` / `done_by` are cleared (the history keeps them); the item leaves the Owner's queue. No notification.
+7. **Stage ticks and unticks** (`item_tick_stage`) are allowed on `open` and `done` items, never on `approved`, `cancelled` or `carried` ones (approval locks them). A rejection keeps the ticks.
+8. **A project's stages change freely** (`projects.manage`, while the project is open or in progress): add, rename and reorder at any time; **removing a stage archives it** (`project_stages.archived_at`): hidden from every item, its ticks kept and shown in the history. The stages apply to all the project's items.
+9. **The item list** (`project_item_blueprints`) feeds **later cycles only**; editing it never touches an existing cycle. The **current cycle's items** are edited on the cycle: add, rename, reorder, notes, planned date, or cancel with a reason. New items go into the current cycle or a future one (manual or carry-created), **never a past one** (`period_end < today IST`); a one-time project's single cycle always takes them. **At most 100 items per cycle.**
+10. **Planned date** is optional and may be any date (no check against the period). **Overdue** = a planned date before today (IST) on an item in `open`. Items without a planned date are never overdue or "due this week".
+11. **Done but not approved at the period's end:** not in the carry decision. The item waits in the Owner's approval queue in its own cycle (its value stays with that period). Rejected after the period ended, it is `open` again and joins the carry list.
+12. **A carried item takes along** its title, notes, custom fields and stage ticks (each with its original `done_at` and `done_by`); its **planned date is cleared**. It is marked "Carried from ‹origin cycle label›".
+13. **Carry forward on an Inactive client is refused** (`INVALID_STATE`): only Close or Leave pending. On a Paused client it is allowed and creates the next cycle (§5.3).
+14. **Project lifecycle** (`projects.complete`, the Owner): **`project_complete`** is refused while any item in any of its cycles is `open` or `done` (the dialog lists what is unfinished; approve, carry, close or cancel them first). **`project_cancel(reason)`** (reason required) cancels every `open` and `done` item of the project with that reason in the same transaction (`cancelled_at` after the cycle started, so they stay in Potential as *closed, not achieved*, §6; approved items stay approved). Both stop new cycles; a completed or cancelled project is **read-only** (no edits, ticks, items or cycles). **`project_reopen(reason)`** (reason required, in `activity_log` meta) returns it to `in_progress` if any item was ever ticked or done, otherwise `open`; items cancelled by the cancel stay cancelled; recurring cycles resume from the current period (decision 2).
+15. **Closing a client cascades nothing:** its projects keep their state; their items can still be ticked, marked done, approved, closed or left pending; no new projects, items or cycles (§4); the Owner completes or cancels them.
+16. **Bulk:** `item_approve(item_ids[])` in bulk; **`item_reject` one item at a time with a reason** (as tasks, kickoff 4 decision 5). Carry decisions: **carry forward and leave pending in bulk** per cycle; **close one item at a time with a reason**. On the project page the Admin's bulk is **"Mark N done"** (`item_mark_done` per id) and **"Tick ‹stage› on N"** (`item_tick_stage` per id); per-id results, as every bulk action.
+17. **Notifications:** §9 (kickoff 7 rows).
+18. **The progress line "9/12 done · 8/12 approved"** (per cycle; a one-time project over its single cycle): the total is the cycle's items **not `cancelled` and not `carried`** (carried-in items count, marked as carried); **done** = `done` + `approved`; **approved** = `approved`; cancelled items show beside it as "1 closed". This is the operational line; Potential (§6) is the Owner's separate figure.
 
 ## 5A. Work submissions and the Google Drive archive
 
@@ -406,8 +430,8 @@ month M (IST) open ──Owner close──► closed (snapshot v1, immutable)
 | `absent_check` | pg_cron | 23:59 (18:29 UTC) | Creates leave-derived days for anyone who never logged in, then proposed-absent days for working days, and notifies the Owner (5.1). Built in 2.5 |
 | `end_not_recorded` | pg_cron | 00:00 (18:30 UTC, the minute after absent_check) | Flags days with a Start day and no End day ("End of day not recorded"). Built in 3b.1 |
 | `eod_report` | pg_cron | 00:01 (after the above) | Builds the Owner end-of-day report and notifies the Owner |
-| `cycle_generate` | pg_cron | 00:00 on the 1st and every Monday | Creates recurring cycles (skips any already created by a carry decision) |
-| `cycle_close_prompt` | pg_cron | 00:05 on the same days | Notifies the Owner about unfinished items in the cycles that just ended |
+| `cycle_generate` | pg_cron | 00:00 every night (kickoff 7 decision 2) | Creates the current period's cycle for every recurring open or in-progress project of an Active client that lacks one: the new cycles on the 1st and on Mondays, and a catch-up on any other night (skips any already created by a carry decision or a manual start); one combined notification per Admin (§9) |
+| `cycle_close_prompt` | pg_cron | 00:05 every night | Notifies the Owner once per run about unfinished items in cycles whose period has ended and that were not yet prompted, listing again any items left pending (kickoff 7 decision 17) |
 | `push_dispatch` | worker | every minute | Sends queued push and email deliveries, retrying with backoff; applies the email cap |
 | `drive_archive_tick` | worker | every 2 min | Runs queued `drive_jobs` (copy link, upload file, recheck link) with backoff |
 | `storage_cleanup` | worker | 03:00 | `delete_local` jobs: photo originals > 90 days, video originals > 30 days, archived only. Also clears from R2: rows archived 30 days ago, `pending`/`failed` uploads after 24 h, and `ready` originals nothing references after 7 days (previews follow their original) |
@@ -444,9 +468,15 @@ month M (IST) open ──Owner close──► closed (snapshot v1, immutable)
 | Forgot to end the day (20:30, started and not ended) | That member (3b.1; replaces "forgot to log out") |
 | Expense claim submitted | Owner (3b.3; **no amount in the text**: "Ravi added an expense claim") |
 | Expense claim approved, rejected (with the reason) or marked paid | That member (3b.3; no amount in the text) |
-| Item done (Admin tick) | **Nobody.** It shows in the Owner's pending-approval count |
-| Item rejected | The client's Admin |
-| Cycle generated / unfinished items to decide | Client's Admin / Owner |
+| Item done (Admin tick), item "Not done", item approved, stage ticked | **Nobody.** Done shows in the Owner's pending-approval count; approval in the progress line (kickoff 7 decision 17) |
+| Item rejected | The client's Admin, with the reason (actionable: email fallback) |
+| Cycle generated (`cycle_generate`, a manual start) | The client's Admin: **one combined notification per Admin per run** ("November is ready for 4 projects: rename this month's items"; actionable: email fallback). A manual start notifies nobody (the starter is the actor) unless the Owner starts it: then that Admin (kickoff 7 decision 17) |
+| Unfinished items to decide (`cycle_close_prompt`) | Owner: **one per run**, listing the projects; items left pending are listed again in each later prompt (actionable: email fallback). The Owner's Today keeps a standing count until zero (kickoff 7 decision 17) |
+| Item cancelled by an Admin | Owner (info, never email; kickoff 7) |
+| Project created by an Admin | Owner (info: "check the billing category"; kickoff 7) |
+| Project completed, cancelled or reopened (Owner) | The client's Admin (info; kickoff 7) |
+| Carry decisions made (Owner) | The client's Admin: **one combined notification per batch** ("2 carried into November, 1 closed"; info; kickoff 7) |
+| Reminders or escalations on an item's planned date | **None in phase 7** (Today's Client work and Overdue counts carry them; kickoff 7 decision 17) |
 | Submitted link is private or unreachable | The submitter (with instructions), and the approving Admin on the task card |
 | Google Drive needs reconnecting, or is low on space | Owner only |
 | Anything financial | Owner only |

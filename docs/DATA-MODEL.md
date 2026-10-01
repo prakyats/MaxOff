@@ -345,6 +345,16 @@ task_types           id, org_id, name, kind task_type_kind, shows_on_calendar bo
                      -- update, move and archive without settings.manage (Admins hold lists.manage but only
                      -- pick types; PERMISSIONS ³). Tasks have no stage presets: stage_presets are projects' (7.4)
 stage_presets        id, org_id, name, stages text[] (ordered), archived_at
+                     -- kickoff 7 (owner decision 2026-10-01, decision 22; built in 7.4): + created_by → members,
+                     -- created_at, updated_at. RLS: active members with lists.manage read; insert by
+                     -- lists.manage (Owner, Admins); an Admin updates and archives only their own
+                     -- (created_by = caller), the Owner any (the task_templates rule). 1–12 stages, each
+                     -- name non-empty; unique (org_id, lower(btrim(name))) where archived_at is null.
+                     -- No DELETE (archive). Audited. Copied into project_stages when chosen, so an edit
+                     -- never touches a project. Seeded once per organisation (AFTER INSERT on
+                     -- organizations, and backfilled) with "Video: Script → Shoot → Edit → Posted":
+                     -- data only (owner note): created_by null, editable and archivable like any other;
+                     -- no code, test or migration logic may depend on its name or stage names
 field_definitions    id, org_id, entity ('client'|'contact'|'project'|'item'|'task'),
                      client_id null (a field that exists for one client only),
                      task_type_id null (a field that exists for one task type only; FK → task_types since 4A),
@@ -871,8 +881,15 @@ projects             id, client_id (required), name, description, recurrence, st
                      custom_fields, created_by, completed_at, completed_by, archived_at
                      -- guard trigger: state, billing_category, client_id and recurrence change only
                      -- through transition functions (billing_category/client_id/recurrence: Owner only)
-project_stages       id, project_id, name, position                  -- copied from a preset; may be empty
+                     -- kickoff 7 (owner decisions 2026-10-01; WORKFLOWS §5.4): client_id and recurrence
+                     -- are fixed after creation (no function changes them in phase 7); unique
+                     -- (client_id, lower(btrim(name))) where state in ('open','in_progress'); created on a
+                     -- draft, active or paused client, never inactive; completed / cancelled = read-only
+project_stages       id, project_id, name, position, archived_at null -- copied from a preset; may be empty
+                     -- kickoff 7 decision 8: added, renamed and reordered freely; a removed stage is
+                     -- archived (hidden from items, its ticks kept), never deleted
 project_item_blueprints  id, project_id, title, position            -- item list copied into each new cycle
+                     -- kickoff 7 decision 9: feeds later cycles only; never rewrites an existing cycle
 project_cycles       id, project_id, period_start date null, period_end date null, label,
                      state cycle_state, generated_by ('schedule'|'manual'|'create'|'carry'), created_at,
                      unique(project_id, period_start),
@@ -882,10 +899,20 @@ project_items        id, cycle_id, title, position, planned_date null, notes, cu
                      cancelled_reason, cancelled_by, cancelled_at,
                      carry_decision null, carry_decided_by, carry_decided_at,
                      carried_from_item_id null, origin_cycle_id (self cycle unless carried in)
+                     -- kickoff 7 (WORKFLOWS §5.4): at most 100 items per cycle; new items only in a cycle
+                     -- whose period has not ended (or a one-time project's); planned_date any date
+                     -- (overdue = planned_date < today IST and state open); item_unmark_done clears
+                     -- done_at / done_by (done → open, until approved); a carried item copies title,
+                     -- notes, custom_fields and its stage ticks (original done_at / done_by), never
+                     -- planned_date. No amounts here, ever (ADR-0007): values live in item_billing (§7)
 project_item_stages  item_id, stage_id, done_at, done_by, pk(item_id, stage_id)
 item_reviews         id, item_id, decision review_decision, reason, reviewer_id, at   -- append-only
 project_templates    id, org_id, name, description, recurrence, default_billing_category (applied only
                      when the Owner creates the project), stages text[], items text[], field_defaults jsonb, archived_at
+                     -- kickoff 7 decision 23 (built in 7.4): + created_by, created_at, updated_at; the
+                     -- task_templates rule (templates.manage; shared; an Admin edits and archives their
+                     -- own, the Owner any); default_billing_category set only by the Owner (null on an
+                     -- Admin's template); stages ≤ 12 (from a preset or typed); items ≤ 100. Audited
 ```
 
 ## 6. Staff tasks
