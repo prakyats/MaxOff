@@ -24,6 +24,7 @@ import { isKeyboardOpen } from "@/core/ui/viewport/keyboard";
 import { useKeyboard } from "@/core/ui/viewport/use-keyboard";
 
 import { markTaskRead } from "../actions/tasks";
+import { taskReads } from "./task-reads";
 import { WRITING_AS_SELF } from "../domain/page";
 
 import { ChatComposerSkeleton } from "./task-chat-skeleton";
@@ -83,7 +84,9 @@ export function TaskChat({
     if (!chatVisible || unread === 0 || newestAt === null || marked.current === newestAt) return;
     marked.current = newestAt;
     markSeen(newestAt);
-    // In the background: a failed mark leaves the count for the next visit, nothing to retry.
+    // In the background, re-reading nothing (owner decision 2026-10-01): the lists drawn before it
+    // re-read themselves when shown again. A failed mark leaves the count for the next visit.
+    taskReads.changed();
     void markTaskRead({ taskId, upTo: newestAt });
   }, [chatVisible, unread, newestAt, taskId, markSeen]);
 

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { action, ok, type Result } from "@/core/errors";
+import { dispatchPushSoon } from "@/core/notifications/push/dispatch";
 import { assertPermission } from "@/core/permissions/server";
 import { todayIST } from "@/core/time";
 
@@ -41,6 +42,7 @@ export const requestLeave = action(async (input: RequestLeaveInput): Promise<Res
   await assertPermission("attendance.self");
   await repo.rpcSubmit(data);
   revalidateLeave();
+  dispatchPushSoon();
   return ok(null);
 });
 
@@ -58,6 +60,7 @@ export const requestCompLeave = action(
     const data = requestCompLeaveSchema(todayIST(), balance.useBy).parse(input);
     await repo.rpcSubmitComp(data);
     revalidateLeave();
+    dispatchPushSoon();
     return ok(null);
   },
 );
@@ -68,6 +71,7 @@ export const requestLeaveChange = action(async (input: ChangeLeaveInput): Promis
   await assertPermission("attendance.self");
   await repo.rpcRequestChange(requestId, { cancel: false, ...data });
   revalidateLeave();
+  dispatchPushSoon();
   return ok(null);
 });
 
@@ -77,6 +81,7 @@ export const requestLeaveCancellation = action(
     await assertPermission("attendance.self");
     await repo.rpcRequestChange(data.requestId, { cancel: true, reason: data.reason });
     revalidateLeave();
+    dispatchPushSoon();
     return ok(null);
   },
 );

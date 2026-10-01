@@ -5,6 +5,7 @@ import { expect, test } from "./fixtures";
 import { STAND_INS, type StandIn } from "../src/app/(app)/_placeholder/stand-ins";
 
 import {
+  dockTop,
   expectNoHorizontalScroll,
   expectSettled,
   memberIdOf,
@@ -145,6 +146,10 @@ const SCREENS = [
   { path: "/settings/task-types", role: "owner" },
   { path: "/settings/templates", role: "owner" },
   { path: "/settings/templates", role: "admin" },
+  // 5.1: Alerts, every role.
+  { path: "/notifications", role: "owner" },
+  { path: "/notifications", role: "admin" },
+  { path: "/notifications", role: "staff" },
 ] as const;
 
 for (const role of ["owner", "admin", "staff"] as const) {
@@ -193,6 +198,8 @@ const LARGE_TEXT_SCREENS = {
     "/tasks/requests",
     "/settings/task-types",
     "/settings/templates",
+    // 5.1: Alerts.
+    "/notifications",
   ],
   admin: [
     "/today",
@@ -206,6 +213,7 @@ const LARGE_TEXT_SCREENS = {
     "/tasks/requests",
     "/approvals",
     "/settings/templates",
+    "/notifications",
   ],
   staff: [
     "/my-day",
@@ -216,6 +224,7 @@ const LARGE_TEXT_SCREENS = {
     "/tasks",
     "/tasks/all",
     "/tasks/requests",
+    "/notifications",
   ],
 } as const;
 
@@ -272,18 +281,15 @@ const STAND_IN_SCREENS: Record<"owner" | "admin" | "staff", { path: string; copy
   owner: [
     { path: "/today", copy: STAND_INS.todayOwner },
     { path: "/calendar", copy: STAND_INS.calendar },
-    { path: "/notifications", copy: STAND_INS.alertsOwner },
   ],
   admin: [
     { path: "/today", copy: STAND_INS.todayAdmin },
     { path: "/calendar", copy: STAND_INS.calendar },
-    { path: "/notifications", copy: STAND_INS.alertsMember },
     { path: "/reports", copy: STAND_INS.reportsAdmin },
   ],
   staff: [
     { path: "/my-day", copy: STAND_INS.myDay },
     { path: "/calendar", copy: STAND_INS.calendar },
-    { path: "/notifications", copy: STAND_INS.alertsMember },
   ],
 };
 
@@ -418,6 +424,12 @@ test.describe("More, for Owner and Admin", () => {
 
       test("only Approvals can carry a count today (2.4; Alerts join in 5.1)", async ({ page }) => {
         await page.goto("/today");
+        // The counts stream after the page (4C): wait until every cell's count has landed (a
+        // zero draws no badge, so the settled marker says it arrived) before reading any of them.
+        const bar = page.locator('[data-slot="bottom-nav"]');
+        await expect(bar.locator('[data-slot="nav-count-settled"]')).toHaveCount(
+          await bar.locator("[data-nav]").count(),
+        );
         // Whether a count shows depends on what other specs left waiting; where it shows does not.
         const badges = page.locator('[data-slot="bottom-nav"] [data-slot="nav-badge"]');
         const onApprovals = page.locator(
@@ -703,10 +715,12 @@ test.describe("forms", () => {
     const bar = page.locator('[data-slot="sticky-actions"]');
     await expect(bar).toBeVisible();
 
-    const nav = await page.locator('[data-slot="bottom-nav"]').boundingBox();
     const box = await bar.boundingBox();
-    // Sitting directly on the bar, within a pixel of sub-pixel layout rounding.
-    expect(Math.abs((box?.y ?? 0) + (box?.height ?? 0) - (nav?.y ?? 0))).toBeLessThanOrEqual(1);
+    // Sitting directly on what is docked below it (the bottom bar, or the push band while it
+    // shows), within a pixel of sub-pixel layout rounding.
+    expect(
+      Math.abs((box?.y ?? 0) + (box?.height ?? 0) - (await dockTop(page))),
+    ).toBeLessThanOrEqual(1);
 
     // Still there after scrolling to the end of the form.
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));

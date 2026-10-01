@@ -18,23 +18,7 @@ export type StandIn = {
   message: string;
 };
 
-const ALERTS_DESCRIPTION = "Your notifications, each one a tap away from what it's about.";
-
 export const STAND_INS = {
-  /** Alerts for Admins and Staff (task 5.1). */
-  alertsMember: {
-    description: ALERTS_DESCRIPTION,
-    title: "Alerts are coming soon",
-    message:
-      "You'll get a note here when something needs you or one of your requests is decided. Until then, Attendance & leave shows where your requests stand.",
-  },
-  /** Alerts for the Owner (task 5.1), whose waiting work is already on Approvals. */
-  alertsOwner: {
-    description: ALERTS_DESCRIPTION,
-    title: "Alerts are coming soon",
-    message:
-      "You'll get a note here when something needs you. Until then, everything waiting for you is on Approvals.",
-  },
   /** The calendar, every role (task 6.4). */
   calendar: {
     description: "Shoots, meetings, leave and holidays, by day, week and month.",

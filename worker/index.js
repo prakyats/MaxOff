@@ -24,6 +24,8 @@ const REDIRECT_HEADERS = {
 const CRON_ROUTES = {
   // 03:00 IST = 21:30 UTC, daily.
   "30 21 * * *": "/api/cron/storage-cleanup",
+  // Every minute (5.2): queued push and email deliveries, retries, the 07:00 IST quiet-hours summary.
+  "* * * * *": "/api/cron/push-dispatch",
 };
 
 const worker = {

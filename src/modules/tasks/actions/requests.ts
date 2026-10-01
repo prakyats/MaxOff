@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { validateCustomFieldsFor } from "@/core/custom-fields/server";
 import { action, ok, type Result } from "@/core/errors";
+import { dispatchPushSoon } from "@/core/notifications/push/dispatch";
 import { assertPermission } from "@/core/permissions/server";
 
 import * as repo from "../data/requests";
@@ -39,6 +40,7 @@ export const createRequest = action(
     const id = await repo.rpcCreateRequest(data);
     revalidatePath(REQUESTS_PATH);
     revalidatePath("/tasks");
+    dispatchPushSoon();
     return ok({ id });
   },
 );
@@ -56,6 +58,7 @@ export const declineRequest = action(async (input: DeclineRequestInput): Promise
   await assertPermission("task_requests.decide");
   await repo.rpcDeclineRequest(data.requestId, data.reason);
   refresh();
+  dispatchPushSoon();
   return ok(null);
 });
 
@@ -83,6 +86,7 @@ export const convertRequest = action(
       },
     );
     refresh();
+    dispatchPushSoon();
     return ok({ id });
   },
 );

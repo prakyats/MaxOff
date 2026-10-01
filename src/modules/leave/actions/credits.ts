@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { action, ok, type Result } from "@/core/errors";
+import { dispatchPushSoon } from "@/core/notifications/push/dispatch";
 import { assertPermission } from "@/core/permissions/server";
 
 import * as repo from "../data/credits";
@@ -31,6 +32,7 @@ export const grantCompLeave = action(
     await assertPermission("attendance.decide");
     const creditId = await repo.rpcGrant(data.memberId, data.days, data.note, data.requestKey);
     revalidateCredits();
+    dispatchPushSoon();
     return ok({ creditId });
   },
 );
@@ -42,6 +44,7 @@ export const revokeCompLeave = action(
     await assertPermission("attendance.decide");
     await repo.rpcRevoke(data.creditId, data.reason);
     revalidateCredits();
+    dispatchPushSoon();
     return ok(null);
   },
 );
