@@ -27,6 +27,9 @@ export function supabaseEmailStore(client: ServiceSupabase = createServiceSupaba
         body: row.body,
         link: row.link,
         attempts: row.attempts ?? 0,
+        // A function's columns are typed not-null; a lone email's batch is null.
+        batchId: (row.batch_id as string | null) ?? null,
+        escalationLevel: row.escalation_level ?? 0,
       }));
     },
     async record(deliveryId, outcome, errorText, now) {

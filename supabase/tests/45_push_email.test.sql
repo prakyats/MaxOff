@@ -7,7 +7,7 @@
 -- 4. email_record: sent, retry with the push backoff, failed; service_role only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(51);
+select plan(55);
 
 
 delete from public.task_requests;
@@ -304,27 +304,32 @@ select is(pg_temp.mail(pg_temp.fx('q_leave_gone')), 'failed,3,resend_422', 'is f
 select throws_ok($$ select public.email_record(gen_random_uuid(), 'bounced') $$, 'P0001', 'VALIDATION', 'an unknown outcome is refused');
 
 -- 5. The ceilings -----------------------------------------------------------------------------------------
--- Start clean: per person 2, org-wide 3, for this section.
+-- Start clean: per person 2, org-wide 13 (since 5.3: ordinary emails stop 10 short of it, at 3; the
+-- last 10 are kept for escalations), for this section. One claim per row here, so each is its own
+-- email (a person's always-emailed rows of one run are one batch: pgTAP 52).
 delete from public.notifications;
 delete from public.push_subscriptions;
-update public.org_settings set email_daily_cap_per_member = 2, email_daily_cap_org = 3;
+update public.org_settings set email_daily_cap_per_member = 2, email_daily_cap_org = 13;
 insert into fx values ('c1', pg_temp.note('staff2', 'test_always', 'C1'));
+select is(pg_temp.claim(), 1::bigint, 'the first of staff2''s goes out');
 insert into fx values ('c2', pg_temp.note('staff2', 'test_always', 'C2'));
+select is(pg_temp.claim(), 1::bigint, 'the second too');
 insert into fx values ('c3', pg_temp.note('staff2', 'test_always', 'C3'));
+select is(pg_temp.claim(), 0::bigint, 'the third does not');
 insert into fx values ('c4', pg_temp.note('staff2', 'test_always', 'C4 escalation', 1));
-select is(pg_temp.claim(), 3::bigint, 'three of staff2''s four go out');
+select is(pg_temp.claim(), 1::bigint, 'an escalation does');
 select is(pg_temp.mail(pg_temp.fx('c1')) || ' ' || pg_temp.mail(pg_temp.fx('c2')), 'queued,1,- queued,1,-', 'the first two');
 select is(pg_temp.mail(pg_temp.fx('c3')), 'skipped_cap,0,member_cap', 'the third is over the per-person cap: skipped_cap');
 select is(pg_temp.mail(pg_temp.fx('c4')), 'queued,1,-', 'an escalation bypasses the per-person cap');
 select is((select count(*) from public.notifications where id = pg_temp.fx('c3')), 1::bigint, 'the skipped row itself stays');
 select is((select state from public.notification_deliveries where notification_id = pg_temp.fx('c3') and channel = 'push'),
   'queued', 'and its push is untouched');
--- The org has used its 3 today.
+-- The org has used 3 today: ordinary emails stop, an escalation still goes (5.3's reserve).
 insert into fx values ('c5', pg_temp.note('staff1', 'test_always', 'C5'));
+select is(pg_temp.claim(), 0::bigint, 'at the ordinary ceiling nothing ordinary goes out');
 insert into fx values ('c6', pg_temp.note('admin1', 'test_always', 'C6 escalation', 2));
-select is(pg_temp.claim(), 0::bigint, 'over the org-wide ceiling nothing goes out');
 select is(pg_temp.mail(pg_temp.fx('c5')), 'skipped_cap,0,org_cap', 'another person''s row: skipped_cap (org_cap)');
-select is(pg_temp.mail(pg_temp.fx('c6')), 'skipped_cap,0,org_cap', 'an escalation does not bypass the org-wide ceiling');
+select is(pg_temp.claim(), 1::bigint, 'an escalation uses the reserve kept for it');
 -- A retry is never re-counted or re-capped.
 select is(public.email_record(pg_temp.did('c1'), 'retry', 'resend 429', now() - interval '2 minutes'), 1, '(c1 is retried)');
 select is((select count(*) from public.email_claim(now(), 50) c where c.notification_id = pg_temp.fx('c1')), 1::bigint,
@@ -342,14 +347,17 @@ where channel = 'email';
 insert into fx values ('c8', pg_temp.note('staff2', 'test_always', 'C8'));
 insert into fx values ('c9', pg_temp.note('staff2', 'test_always', 'C9'));
 select is(pg_temp.claim(), 2::bigint, 'the ceilings count by IST day: yesterday''s do not count');
-select is(pg_temp.mail(pg_temp.fx('c8')) || ' ' || pg_temp.mail(pg_temp.fx('c9')), 'queued,1,- queued,1,-', '(both of staff2''s go out)');
--- A per-person cap of 0 means none for that person, escalations still go.
+select is(pg_temp.mail(pg_temp.fx('c8')) || ' ' || pg_temp.mail(pg_temp.fx('c9')), 'queued,1,- queued,1,-', '(both of staff2''s go out, as one email)');
+-- A per-person cap of 0 means none for that person; an escalation still goes, and a batch that
+-- holds one is treated as one.
 update public.org_settings set email_daily_cap_per_member = 0, email_daily_cap_org = 90;
 insert into fx values ('d1', pg_temp.note('admin2', 'test_always', 'D1'));
+select is(pg_temp.claim(), 0::bigint, 'a per-person cap of 0');
 insert into fx values ('d2', pg_temp.note('admin2', 'test_always', 'D2 escalation', 1));
-select is(pg_temp.claim(), 1::bigint, 'a per-person cap of 0');
-select is(pg_temp.mail(pg_temp.fx('d1')) || ' ' || pg_temp.mail(pg_temp.fx('d2')), 'skipped_cap,0,member_cap queued,1,-',
-  'skips the person''s mail but not an escalation');
+insert into fx values ('d3', pg_temp.note('admin2', 'test_always', 'D3'));
+select is(pg_temp.claim(), 2::bigint, 'skips the person''s mail but not an escalation, nor what is batched with it');
+select is(pg_temp.mail(pg_temp.fx('d1')) || ' ' || pg_temp.mail(pg_temp.fx('d2')) || ' ' || pg_temp.mail(pg_temp.fx('d3')),
+  'skipped_cap,0,member_cap queued,1,- queued,1,-', 'D1 skipped; D2 and D3 one email');
 
 select * from finish();
 rollback;

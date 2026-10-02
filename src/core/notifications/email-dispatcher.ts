@@ -1,7 +1,7 @@
 import { systemClock } from "@/core/time";
 
 import type { EmailSender } from "./email";
-import { renderNotificationEmail } from "./email-content";
+import { renderCombinedEmail } from "./email-content";
 
 /**
  * The email half of the dispatcher (task 5.2; WORKFLOWS §9a, kickoff 5 decisions 6, 7 and 10;
@@ -15,6 +15,10 @@ import { renderNotificationEmail } from "./email-content";
  *   send   → Resend through `EmailSender` (plain fetch)
  *   record → email_record(id, sent | retry | failed, error): 429, 5xx and network failures
  *            retry with the push backoff; any other 4xx fails at once
+ *
+ * **One email per person per run (5.3):** the claim gives a person's always-emailed rows of the run
+ * one `batchId`; they go as one email (`renderCombinedEmail`: the most urgent item names the
+ * subject) and each row records the same outcome. A row without a batch is an email of its own.
  *
  * No `RESEND_API_KEY` (`sender` null): every claimed row is recorded failed `not_configured`
  * (visible in the deliveries, never counted against the ceilings), nothing is sent and nothing
@@ -30,6 +34,10 @@ export interface ClaimedEmail {
   body: string | null;
   link: string | null;
   attempts: number;
+  /** The rows sent as one email (5.3); null: an email of its own. */
+  batchId: string | null;
+  /** `notifications.escalation_level` (0 for anything but an escalation). */
+  escalationLevel: number;
 }
 
 export interface EmailStore {
@@ -77,62 +85,82 @@ export async function runEmailDispatch(input: {
   };
   const items = await input.store.claim(now, input.limit ?? EMAIL_DISPATCH_LIMIT);
   report.claimed = items.length;
-  for (const item of items) {
-    // One item that throws (rendering, the sender, a store call) never stops the run for the
-    // others (the email twin of 5A review M1): it is recorded as a retry, so email_record's
-    // backoff fails it after the last attempt like any other error.
+  for (const group of emailGroups(items)) {
+    // One email that throws (rendering, the sender, a store call) never stops the run for the
+    // others (the email twin of 5A review M1): its rows are recorded as a retry, so email_record's
+    // backoff fails them after the last attempt like any other error.
     try {
-      await dispatchEmailItem(item, input, now, report);
+      await dispatchEmailGroup(group, input, now, report);
     } catch (error) {
       input.onItemError?.(error);
-      try {
-        await input.store.record(item.deliveryId, "retry", "dispatch_error", now);
-        report.retried += 1;
-      } catch (recordError) {
-        // The lease expires and the next run claims it again (attempts counted by the claim).
-        input.onItemError?.(recordError);
+      for (const item of group) {
+        try {
+          await input.store.record(item.deliveryId, "retry", "dispatch_error", now);
+          report.retried += 1;
+        } catch (recordError) {
+          // The lease expires and the next run claims it again (attempts counted by the claim).
+          input.onItemError?.(recordError);
+        }
       }
     }
   }
   return report;
 }
 
-async function dispatchEmailItem(
-  item: ClaimedEmail,
+/** The claimed rows as emails: a batch's rows together, every other row alone; claim order kept. */
+export function emailGroups(items: readonly ClaimedEmail[]): ClaimedEmail[][] {
+  const groups: ClaimedEmail[][] = [];
+  const byBatch = new Map<string, ClaimedEmail[]>();
+  for (const item of items) {
+    if (!item.batchId) {
+      groups.push([item]);
+      continue;
+    }
+    const group = byBatch.get(item.batchId);
+    if (group) group.push(item);
+    else {
+      const fresh = [item];
+      byBatch.set(item.batchId, fresh);
+      groups.push(fresh);
+    }
+  }
+  return groups;
+}
+
+async function dispatchEmailGroup(
+  group: readonly ClaimedEmail[],
   input: { store: EmailStore; sender: EmailSender | null; origin: string },
   now: Date,
   report: EmailDispatchReport,
 ): Promise<void> {
+  const [first] = group;
+  if (!first) return;
+  const recordAll = async (outcome: "sent" | "retry" | "failed", error: string | null) => {
+    for (const item of group) await input.store.record(item.deliveryId, outcome, error, now);
+  };
   if (!input.sender) {
-    await input.store.record(item.deliveryId, "failed", "not_configured", now);
-    report.notConfigured += 1;
-    report.failed += 1;
+    await recordAll("failed", "not_configured");
+    report.notConfigured += group.length;
+    report.failed += group.length;
     return;
   }
-  const content = renderNotificationEmail({
-    title: item.title,
-    body: item.body,
-    link: item.link,
-    origin: input.origin,
-  });
-  const result = await input.sender.send({ to: item.email, ...content });
+  const content = renderCombinedEmail({ items: group, origin: input.origin });
+  const result = await input.sender.send({ to: first.email, ...content });
   if (result.ok) {
-    await input.store.record(item.deliveryId, "sent", null, now);
-    report.sent += 1;
+    await recordAll("sent", null);
+    report.sent += group.length;
   } else if (result.reason === "not_configured") {
-    await input.store.record(item.deliveryId, "failed", "not_configured", now);
-    report.notConfigured += 1;
-    report.failed += 1;
+    await recordAll("failed", "not_configured");
+    report.notConfigured += group.length;
+    report.failed += group.length;
   } else if (isRetryable(result.status)) {
-    await input.store.record(
-      item.deliveryId,
+    await recordAll(
       "retry",
       result.status === undefined ? "resend_unreachable" : `resend_${result.status}`,
-      now,
     );
-    report.retried += 1;
+    report.retried += group.length;
   } else {
-    await input.store.record(item.deliveryId, "failed", `resend_${result.status}`, now);
-    report.failed += 1;
+    await recordAll("failed", `resend_${result.status}`);
+    report.failed += group.length;
   }
 }

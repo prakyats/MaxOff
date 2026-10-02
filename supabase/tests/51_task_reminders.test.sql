@@ -257,8 +257,10 @@ select pg_temp.mk('x1', now() + interval '6 days', array['staff1', 'staff2'], 'a
 select pg_temp.tick(now() + interval '4 hours 1 minute');
 select is((select count(*) from public.notifications where recipient_id = pg_temp.fx('admin1') and kind = 'escalation_not_noted'
            and entity_id = pg_temp.fx('x1') and escalation_level = 1), 1::bigint, '4 h: one escalation to the approving Admin (level 1)');
-select is((select body from public.notifications where recipient_id = pg_temp.fx('admin1') and kind = 'escalation_not_noted'
-           and entity_id = pg_temp.fx('x1')) like 'Staff1, Staff2 have not tapped Task Noted since %', true, 'naming everyone not noted');
+-- Both were assigned in the same moment, so either may be named first.
+select ok((select body similar to '(Staff1, Staff2|Staff2, Staff1) have not tapped Task Noted since %'
+           from public.notifications where recipient_id = pg_temp.fx('admin1') and kind = 'escalation_not_noted'
+             and entity_id = pg_temp.fx('x1')), 'naming everyone not noted');
 select is(pg_temp.n('owner', 'escalation_not_noted', 'x1'), 0::bigint, 'the Owner not yet');
 select pg_temp.tick(now() + interval '8 hours 1 minute');
 select is((select count(*) from public.notifications where recipient_id = pg_temp.fx('owner') and kind = 'escalation_not_noted'

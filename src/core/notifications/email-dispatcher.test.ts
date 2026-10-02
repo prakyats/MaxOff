@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { resendSender } from "./email";
 import {
   type ClaimedEmail,
+  emailGroups,
   type EmailStore,
   isRetryable,
   runEmailDispatch,
@@ -21,6 +22,8 @@ function claimed(id: string, extra: Partial<ClaimedEmail> = {}): ClaimedEmail {
     body: "Due tomorrow",
     link: "/tasks/1",
     attempts: 1,
+    batchId: null,
+    escalationLevel: 0,
     ...extra,
   };
 }
@@ -206,5 +209,73 @@ describe("runEmailDispatch", () => {
   it("isRetryable: Resend's answers", () => {
     expect([undefined, 429, 500, 503].map(isRetryable)).toEqual([true, true, true, true]);
     expect([400, 401, 403, 404, 422].map(isRetryable)).toEqual([false, false, false, false, false]);
+  });
+});
+
+describe("one email per person per run (5.3, owner 2026-10-02)", () => {
+  it("groups a batch's rows, keeps every other row alone, in claim order", () => {
+    const groups = emailGroups([
+      claimed("a", { batchId: "b1" }),
+      claimed("f"),
+      claimed("b", { batchId: "b1" }),
+      claimed("c", { batchId: "b2", recipientId: "r2" }),
+    ]);
+    expect(groups.map((group) => group.map((item) => item.deliveryId))).toEqual([
+      ["a", "b"],
+      ["f"],
+      ["c"],
+    ]);
+  });
+
+  it("sends a batch as one email named by its most urgent item, and records every row", async () => {
+    const { store, records } = fakeStore([
+      claimed("d1", {
+        batchId: "b1",
+        kind: "reminder_before_due_last",
+        title: "Due in 1 day: Reel",
+      }),
+      claimed("d2", { batchId: "b1", kind: "reminder_overdue", title: "Overdue: Edit" }),
+      claimed("d3", {
+        batchId: "b1",
+        kind: "escalation_not_noted",
+        title: "Not noted yet: Shoot",
+        escalationLevel: 1,
+      }),
+    ]);
+    const resend = fakeResend([200]);
+    const report = await runEmailDispatch({
+      store,
+      sender: resendSender("re_test_key", "MaxOff <n@mail.maxoff.in>", resend.fetchImpl),
+      origin: "https://app.example",
+      now: NOW,
+    });
+    expect(resend.calls).toHaveLength(1);
+    expect(resend.calls[0]!.body.subject).toBe("Not noted yet: Shoot · +2 more");
+    expect(String(resend.calls[0]!.body.text)).toContain("Overdue: Edit");
+    expect(String(resend.calls[0]!.body.text)).toContain("Due in 1 day: Reel");
+    expect(report).toEqual({ claimed: 3, sent: 3, retried: 0, failed: 0, notConfigured: 0 });
+    expect(records.map((record) => `${record.id}:${record.outcome}`)).toEqual([
+      "d1:sent",
+      "d2:sent",
+      "d3:sent",
+    ]);
+  });
+
+  it("retries the whole batch together when Resend is busy", async () => {
+    const { store, records } = fakeStore([
+      claimed("d1", { batchId: "b1", kind: "reminder_overdue" }),
+      claimed("d2", { batchId: "b1", kind: "reminder_event" }),
+    ]);
+    const resend = fakeResend([429]);
+    await runEmailDispatch({
+      store,
+      sender: resendSender("re_test_key", "MaxOff <n@mail.maxoff.in>", resend.fetchImpl),
+      origin: "https://app.example",
+      now: NOW,
+    });
+    expect(records).toEqual([
+      { id: "d1", outcome: "retry", error: "resend_429" },
+      { id: "d2", outcome: "retry", error: "resend_429" },
+    ]);
   });
 });

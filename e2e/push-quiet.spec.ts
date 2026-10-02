@@ -95,14 +95,41 @@ test.describe("quiet hours hold push and release one summary", () => {
       );
       expect(rows).toHaveLength(2);
       // No email: the person has a working push device, and since 5B decision 12 a task
-      // assignment is emailed only as the fallback for someone with none. (That email is never
-      // held by quiet hours either: 5.3's always-emailed reminders bring that proof back here.)
+      // assignment is emailed only as the fallback for someone with none.
       const mails = await serviceSelect<{ state: string }>(
         `notification_deliveries?channel=eq.email&select=state,notifications!inner(recipient_id,entity_id)&notifications.recipient_id=eq.${staffId}&notifications.entity_id=in.(${taskIds.join(",")})`,
       );
       expect(mails).toEqual([]);
 
-      // The window is over (it ended an hour ago): the next run sends ONE summary push.
+      // An always-emailed reminder (5.3's overdue reminder, as reminders_tick writes it through
+      // app.notify: the row and a queued push) inside the window: its push is held with the
+      // others, its email is never held (owed by 5.3, kickoff 5 decision 5: only push waits).
+      const overdue = await serviceInsert<{ id: string }>("notifications", {
+        org_id: settings!.org_id,
+        recipient_id: staffId,
+        kind: "reminder_overdue",
+        title: `Overdue: Quiet one ${stamp}`,
+        body: "It was due an hour ago.",
+        link: `/tasks/${taskIds[0]}`,
+      });
+      await serviceInsert("notification_deliveries", {
+        notification_id: overdue.id,
+        channel: "push",
+        state: "queued",
+      });
+      await dispatch();
+      const overdueMail = await serviceSelect<{ channel: string; state: string; attempts: number }>(
+        `notification_deliveries?notification_id=eq.${overdue.id}&select=channel,state,attempts&order=channel`,
+      );
+      expect(overdueMail.find((row) => row.channel === "push")?.state).toBe("held");
+      const email = overdueMail.find((row) => row.channel === "email");
+      // Claimed in the same run as the held push: sent, or failed `not_configured` where the
+      // e2e server has no Resend key; never held, never waiting for the window to end.
+      expect(email?.attempts).toBe(1);
+      expect(["sent", "failed"]).toContain(email?.state);
+
+      // The window is over (it ended an hour ago): the next run sends ONE summary push, for the
+      // two assignments and the reminder.
       await serviceUpdate(`org_settings?org_id=eq.${settings!.org_id}`, {
         quiet_hours_start: istIn(-180),
         quiet_hours_end: istIn(-60),
@@ -115,7 +142,7 @@ test.describe("quiet hours hold push and release one summary", () => {
         Buffer.from(await decryptPayload(new Uint8Array(mine[0]!.body), receiver)).toString(),
       ) as { title: string; url: string; tag: string };
       expect(opened).toMatchObject({
-        title: "2 updates while you were away",
+        title: "3 updates while you were away",
         url: "/notifications",
         tag: `summary:${staffId}`,
       });

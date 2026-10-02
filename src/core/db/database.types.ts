@@ -1484,6 +1484,7 @@ export type Database = {
       notification_deliveries: {
         Row: {
           attempts: number;
+          batch_id: string | null;
           channel: string;
           created_at: string;
           id: string;
@@ -1495,6 +1496,7 @@ export type Database = {
         };
         Insert: {
           attempts?: number;
+          batch_id?: string | null;
           channel: string;
           created_at?: string;
           id?: string;
@@ -1506,6 +1508,7 @@ export type Database = {
         };
         Update: {
           attempts?: number;
+          batch_id?: string | null;
           channel?: string;
           created_at?: string;
           id?: string;
@@ -3245,9 +3248,11 @@ export type Database = {
         Args: { p_limit?: number; p_now?: string };
         Returns: {
           attempts: number;
+          batch_id: string;
           body: string;
           delivery_id: string;
           email: string;
+          escalation_level: number;
           kind: string;
           link: string;
           notification_id: string;
