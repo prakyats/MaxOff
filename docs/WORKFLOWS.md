@@ -477,7 +477,7 @@ month M (IST) open ──Owner close──► closed (snapshot v1, immutable)
 | Cycle generated (`cycle_generate`, a manual start) | The client's Admin: **one combined notification per Admin per run** ("November is ready for 4 projects: rename this month's items"; actionable: email fallback). A manual start notifies nobody (the starter is the actor) unless the Owner starts it: then that Admin (kickoff 7 decision 17) |
 | Unfinished items to decide (`cycle_close_prompt`) | Owner: **one per run**, listing the projects; items left pending are listed again in each later prompt (actionable: email fallback). The Owner's Today keeps a standing count until zero (kickoff 7 decision 17) |
 | Item cancelled by an Admin | Owner (info, never email; kickoff 7) |
-| Project created by an Admin | Owner (info: "check the billing category"; kickoff 7) |
+| Project created by an Admin | Owner (info: "set the amount and billing category"; kickoff 7, wording amended 2026-10-02 by kickoff 9 decision 5). The text names the project and client only and **never carries an amount** (ADR-0007) |
 | Project completed, cancelled or reopened (Owner) | The client's Admin (info; kickoff 7) |
 | Carry decisions made (Owner) | The client's Admin: **one combined notification per batch** ("2 carried into November, 1 closed"; info; kickoff 7) |
 | Reminders or escalations on an item's planned date | **None in phase 7** (Today's Client work and Overdue counts carry them; kickoff 7 decision 17) |
