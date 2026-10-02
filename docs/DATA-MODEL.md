@@ -1127,12 +1127,43 @@ task_reads           task_id → tasks (on delete cascade), member_id → member
 ## 7. Money (all Owner-only tables)
 ## 7. Money (all Owner-only tables)
 ```
-project_billing      project_id pk, cycle_amount numeric null (recurring), fixed_amount numeric null (one-time)
+project_billing      project_id pk, cycle_amount numeric null (recurring: the default for new cycles),
+                     fixed_amount numeric null (one-time: the lump sum)
+                     -- kickoff 9 (owner decisions 2026-10-02, WORKFLOWS §6): null = "No amount set" (flagged);
+                     -- 0 = "Not billable" (never flagged); entered in whole rupees (a check: amount = trunc(amount));
+                     -- fixed_amount can't go below the advances not returned. A cycle_amount change applies to the
+                     -- current cycle and later ones already created (their cycle_billing.cycle_amount), never earlier
 item_billing         item_id pk, value numeric                       -- explicit per-item value
-cycle_billing        cycle_id pk, billing_status, billed_on date, note
+                     -- kickoff 9: retainer items only (refused on a one-time project's items); whole rupees;
+                     -- Σ explicit values of a cycle's planned items <= that cycle's amount (refused otherwise)
+cycle_billing        cycle_id pk, cycle_amount numeric null, billing_status, billed_on date, note
+                     -- kickoff 9 decision 3: cycle_amount copied from project_billing when the cycle is created
+                     -- (schedule, manual start, carry) and editable for one cycle alone. Billing status per
+                     -- retainer cycle, or on a one-time project's single cycle = the project as a whole
+                     -- (decision 7): independent of approval; billed_on defaults to today IST; back to
+                     -- not_billed allowed (audited)
 revenue_overrides    id, scope ('cycle'|'project'), ref_id, calculated_value, adjusted_value,
-                     note, by_id, at, superseded_at null
+                     note, by_id, at, superseded_at null, superseded_note null
+                     -- kickoff 9 decision 6: scope 'cycle' = a retainer cycle, 'project' = a one-time project;
+                     -- adjusts Achieved only; the headline Achieved is the adjusted value. "Back to calculated"
+                     -- sets superseded_at + superseded_note (required); a new override supersedes the old one;
+                     -- never deleted
+project_advances     id, project_id (one-time projects only), amount numeric (whole rupees, > 0),
+                     received_on date (IST, default today), note null, recorded_by, recorded_at,
+                     returned_on date null, return_note null, returned_by null
+                     -- kickoff 9 decision 23 (ADR-0007 amendment 2026-10-02): Owner-only like the tables above
+                     -- (finance.view / finance.edit, through modules/revenue), audited, no delete, never in
+                     -- Realtime. Σ amount of rows not returned <= project_billing.fixed_amount. Never Achieved:
+                     -- reported as "Advances received" in the IST month of received_on; a return in the month of
+                     -- returned_on
 views (security invoker, Owner only): item_values_v, revenue_by_cycle_v, revenue_by_client_month_v
+                     -- kickoff 9: retainer items and cycles by the cycle's start month (decision 1); one-time
+                     -- projects as one line each (decision 2, WORKFLOWS §6.2): Potential in the IST month of
+                     -- projects.delivery_date (the current month while overdue and unfinished, the completion
+                     -- month once completed, the cancellation month once cancelled); Achieved = the full amount
+                     -- (or the override) only when state = completed, in the IST month of completed_at.
+                     -- projects.delivery_date is added by phase 7 (kickoff 7 amendment 2026-10-02); phase 9 only
+                     -- reads it. Every view is in the money-relation lint list (item_values_v included)
 ```
 All amounts are `numeric(12,2)` in INR.
 
@@ -1353,6 +1384,12 @@ month_snapshots      id, org_id, month date (1st), version int, data jsonb, clos
                      corrects_id null, correction_note, unique(org_id, month, version)
                      -- eod_reports and month_snapshots contain revenue: Owner-only tables
                      -- (single policy has_permission('reports.all')). Admin scoped reports are computed live.
+                     -- kickoff 9 (owner decisions 2026-10-02, WORKFLOWS §7): month = an ended IST month, never the
+                     -- current one; month_close(month) writes version 1, month_correct(month, note) version N+1
+                     -- (note required, corrects_id = the previous version); append-only (UPDATE/DELETE revoked);
+                     -- no reopen. data holds every figure of the Owner's month reports with stable ids: revenue
+                     -- lines and totals, advances received and returned, billing status at close, client work
+                     -- progress, the people report, month_summary() per person and expense totals per person
 feature_flags        key pk, enabled, description
 ```
 

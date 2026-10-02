@@ -1,6 +1,6 @@
 # ADR-0007: Money is isolated and recognised only on Owner approval
 
-- **Status:** accepted, amended 2026-09-21 (Potential keeps closed items; template categories are Owner-only; column guard); amended 2026-09-27 (a member's own expense claims, see the amendment at the end)
+- **Status:** accepted, amended 2026-09-21 (Potential keeps closed items; template categories are Owner-only; column guard); amended 2026-09-27 (a member's own expense claims, see the amendment at the end); amended 2026-10-02 (owner decision, kickoff 9: one-time projects are a lump sum earned on completion; advances; the retainer split takes the rest)
 - **Date:** 2026-09-20
 
 ## Context
@@ -24,3 +24,19 @@ Staff and Admins now enter money themselves: **expense claims** (reimbursements,
 - The 0.4 money-import lint rule keeps `modules/revenue` sealed; `modules/expenses` gets the same treatment (only its own `index.ts`, no import from revenue and vice versa).
 - **No salary is stored.** The month summary (PRODUCT §4.18) gives the Owner days and claim totals; pay is calculated outside MaxOff.
 - Freelancers have no claims in the pilot.
+
+## Amendment 2026-10-02: one-time projects, advances and the retainer split (owner decision, kickoff 9 decisions 2, 4 and 23)
+**Retainers (weekly and monthly projects) keep the rule above**: an item's value is its explicit value or its share of an even split, Achieved = approved items attributed to their origin cycle's period (the IST month the cycle's period starts), and a closed item stays in Potential. One refinement (decision 4): explicit values come off the top and **the rest** of the cycle's amount is split evenly across the other planned items, so a cycle always adds up to its amount; each cycle keeps its own amount (`cycle_billing`), the project's being the default (decision 3).
+
+**One-time projects no longer follow the item rule.** A one-time project is **one lump sum, earned on delivery**:
+- Its items carry no value (no `item_billing` rows); an override and the billing status apply to the project as a whole.
+- **Potential** sits in the IST month of the project's **delivery date** (`projects.delivery_date`, required on one-time projects; added in phase 7 by the kickoff 7 amendment of 2026-10-02); while it is overdue and unfinished, in the current month ("Was due 15 Nov").
+- **Achieved is all or nothing**: nothing until the **Owner completes the project** (`project_complete`), then the full amount in the IST month of the completion, early or late, with its Potential in that month too. Reopening takes it back to not achieved.
+- **Cancelled**: "Closed, not achieved" in the month it was cancelled, its Potential with it.
+- A closed month's snapshot is never rewritten by these moves; corrections stay explicit.
+
+"Revenue counts only for Owner-approved project items" (CLAUDE.md invariant 3) still holds: a one-time project can be completed only once every item is approved, carried or cancelled, and completion is the Owner's.
+
+**Advances (decision 23):** one-time projects only. An advance received (and its return) is an amount, so it lives in a new Owner-only table, **`project_advances`**, beside the four above, with the same single policy (`finance.view` to read, `finance.edit` to write through `modules/revenue`), audited, never in Realtime, notifications, search or exports for anyone but the Owner. **An advance is never Achieved**: it is reported as its own figure, "Advances received", in the month received; the lump sum is still Achieved only on completion. The money-relation lint list (ARCHITECTURE §3.1) and the "no money table in the publication" pgTAP include `project_advances`.
+
+Nothing else in this ADR changes: money stays in Owner-only tables read only through `modules/revenue`, and Admins and Crew never see an amount.

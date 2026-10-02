@@ -286,11 +286,11 @@ transition fn / job ─► notifications row ─► notification_deliveries (que
 - **Deferred past the launch (owner, 2026-09-27):** `core/drive` (8.3) and submission retention (8.4b). Until they land, uploaded submission originals stay in R2 with no retention cleanup (nothing is deleted before a Drive copy exists, ADR-0010) and a pasted link points at the person's own file. Logo and avatar cleanup (3.3) runs as described above.
 
 ## 12. Revenue (ADR-0007)
-All calculation is in SQL views (WORKFLOWS §6) over Owner-only tables, so reports and exports share one definition. Overrides never replace the calculated value, they sit next to it. Money never leaves the app through error reporting either: §18 scrubs every financial field before an event reaches Sentry.
+All calculation is in SQL views (WORKFLOWS §6) over Owner-only tables, so reports and exports share one definition. **Two rules (kickoff 9, owner 2026-10-02, ADR-0007 amendment):** retainers earn item by item in the origin cycle's month (the month the cycle's period starts); a one-time project is one lump sum, Achieved only on the Owner's completion, its Potential following the delivery date (WORKFLOWS §6.2). Advances live in `project_advances`, Owner-only like the other money tables, and are never Achieved. **The money-relation lint list** (§3.1) gains `project_advances` and `item_values_v` (missing today) in 9.1, and the 5A publication pgTAP's "no money table" list names the real tables (it names `revenue_entries`, which does not exist). Overrides never replace the calculated value, they sit next to it. Money never leaves the app through error reporting either: §18 scrubs every financial field before an event reaches Sentry.
 
 ## 13. Reports and exports
 - **EOD report:** built by a job into `eod_reports.data`. The page can also render a live version.
-- **Month close:** `month_close(month)` builds the snapshot JSON in SQL and stores version 1. `month_correct(month, note)` stores version N+1.
+- **Month close:** `month_close(month)` builds the snapshot JSON in SQL and stores version 1. `month_correct(month, note)` stores version N+1. A closed month's report compares the live figures with its latest version ("Changed since close"); a correction rebuilds the whole snapshot and shows the differences before it is stored (kickoff 9, WORKFLOWS §7).
 - **Exports:** Markdown (AI-oriented: summary + dense tables with stable IDs and ISO timestamps), CSV (one file per dataset, zipped), PDF (summary). Generated on demand from the snapshot (closed months) or live views (open months). Owner only.
 
 ## 14. PWA and responsive design
