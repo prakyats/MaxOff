@@ -14,6 +14,7 @@ import {
 
 import { cn } from "@/core/lib/utils";
 import { markLive } from "@/core/ui/navigation/attributes";
+import { replaceViewAddress } from "@/core/ui/navigation/view-address";
 import { closeOverlaysThen } from "@/core/ui/overlay/overlay-history";
 import { useIsDesktop } from "@/core/ui/viewport/use-desktop";
 
@@ -89,13 +90,10 @@ export function TaskViewProvider({
     const choose = (next: TaskView) => {
       setView(next);
       // The page's own entry keeps the view: an overlay's spent entry is backed out first
-      // (§14.1, as the list filters do), then the address is replaced.
+      // (§14.1, as the list filters do), then the address is replaced (held while the router is
+      // fetching: `view-address.ts`).
       closeOverlaysThen(() => {
-        window.history.replaceState(
-          null,
-          "",
-          `${pathname}${viewQuery(window.location.search, next)}`,
-        );
+        replaceViewAddress(`${pathname}${viewQuery(window.location.search, next)}`);
       });
     };
     const seen =
