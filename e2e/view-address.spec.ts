@@ -175,3 +175,71 @@ test("a list's filter chosen during a refresh changes the list at once; the addr
   await expect(page).toHaveURL(/\/tasks\/all\?state=all$/);
   await expect(filter).toHaveText(/Any state/);
 });
+
+test.describe("as the Crew member", () => {
+  test.use({ storageState: storageStateFor("staff") });
+
+  /**
+   * Also the check on Next's private marker: an action's answer that revalidates ends its hold
+   * only when the router has committed it, which `NavProgress` reads from Next writing its own
+   * history entry (`__NA`, `history-writes.ts`). Were Next to rename that marker, the hold would
+   * never end and the address would never be written: this test turns red on its `toHaveURL`.
+   */
+  test("the task page: a view switched while an action's answer is being applied is written once committed; one back leaves", async ({
+    page,
+  }, info) => {
+    const title = `View address ${info.project.name} action`;
+    await removeTasksTitled(title);
+    const staffId = await memberIdOf(USERS.staff.email);
+    const taskId = await rpcAs<string>(USERS.owner.email, USERS.owner.password, "task_create", {
+      title,
+      description: null,
+      task_type_id: await taskTypeId("Normal"),
+      client_id: null,
+      priority: "medium",
+      due_at: istInstant(workingDay(46), "18:00"),
+      assignee_ids: [staffId],
+      primary_owner_id: staffId,
+      approving_admin_id: null,
+      stages: [],
+    });
+    await page.goto("/tasks");
+    await hydrated(page);
+    await page.goto(`/tasks/${taskId}`);
+    await hydrated(page);
+    await expect(page.locator('[data-slot="task-tabs"]')).toHaveAttribute("data-live", "");
+
+    // Task Noted's answer (it revalidates the page) is held at the network.
+    let reached: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
+    let letGo: () => void = () => undefined;
+    const released = new Promise<void>((resolve) => {
+      letGo = resolve;
+    });
+    await page.route(`**/tasks/${taskId}*`, async (route) => {
+      const request = route.request();
+      if (request.method() !== "POST" || !request.headers()["next-action"]) {
+        return route.fallback();
+      }
+      reached();
+      await released;
+      await route.fallback();
+    });
+    const step = page.locator('[data-slot="task-next-step"]');
+    await step.getByRole("button", { name: "Task Noted" }).click();
+    await held;
+
+    await tab(page, "activity").click();
+    await expect(tab(page, "activity")).toHaveAttribute("aria-current", "true");
+    await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}$`));
+    letGo();
+    await expect(step.getByRole("button", { name: "Start work" })).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}\\?tab=activity$`));
+    await expect(tab(page, "activity")).toHaveAttribute("aria-current", "true");
+    // No second entry was pushed under the view: one back leaves the task.
+    await page.goBack();
+    await expect(page).toHaveURL(/\/tasks$/);
+  });
+});
