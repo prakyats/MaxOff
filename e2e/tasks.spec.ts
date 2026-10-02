@@ -940,7 +940,23 @@ test.describe("staff tasks, installed: back closes each layer", () => {
       await expectTargets(page);
       await dialog.getByRole("button", { name: "Create task" }).click();
       await expect(page).toHaveURL(TASK_URL);
-      await expectBackStack(page, [{ closes: dialog, url: /\/tasks$/ }, { url: /\/today$/ }]);
+      await expectBackStack(page, [{ closes: dialog, url: /\/tasks$/ }]);
+      // The form's entry is still under the task page, spent (the select sheet's entry was
+      // backed out by Create, the form's was not: `overlay-history.ts` `reconcile`), so back #1
+      // lands on it and the app goes back once more by itself, to Tasks. Both say /tasks; the
+      // next back must wait for that second move, or the browser takes it as the same step (a
+      // back pressed while the app's own back is still in flight is absorbed: back #2 then
+      // stayed on /tasks, twice in whole-project 3-worker sweeps, 2026-10-01).
+      await expect
+        .poll(
+          () =>
+            page.evaluate(
+              () => (history.state as Record<string, unknown> | null)?.maxoffOverlay ?? null,
+            ),
+          { message: "back #1 ends on Tasks itself, past the form's spent entry" },
+        )
+        .toBeNull();
+      await expectBackStack(page, [{ url: /\/today$/ }]);
     });
 
     test("the task page's menu and dialogs close on back; its back control goes to Tasks", async ({

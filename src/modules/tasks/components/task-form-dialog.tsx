@@ -15,6 +15,7 @@ import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { FormField } from "@/core/ui/composites/form-field";
 import { NAV_FORWARD } from "@/core/ui/motion/nav-types";
+import { nameSlide } from "@/core/ui/motion/slide";
 import { closeOverlaysThen } from "@/core/ui/overlay/overlay-history";
 import { Button } from "@/core/ui/primitives/button";
 import {
@@ -497,7 +498,10 @@ function TaskForm({
         toast.success("Task created");
         onLeave();
         const href = `/tasks/${result.data.id}`;
-        closeOverlaysThen(() => router.push(href, { transitionTypes: [NAV_FORWARD] }));
+        closeOverlaysThen(() => {
+          nameSlide("forward");
+          router.push(href, { transitionTypes: [NAV_FORWARD] });
+        });
         return;
       }
       const before = fieldsFromTask(mode.task, mode.assignees);

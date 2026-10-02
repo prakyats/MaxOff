@@ -11,11 +11,11 @@ import { hydrated, pageHeader, runInstalled, storageStateFor } from "./helpers";
  * never slide.
  *
  * `document.startViewTransition` is wrapped before the page loads, so each transition the page
- * starts is recorded with its types (React passes `{ update, types }`; `slideBack` passes a
- * callback and names its slide on `<html>`) and the names of the animations that actually ran.
+ * starts is recorded with its direction (the slide's name on `<html>`, `data-nav-slide`, set at
+ * the tap; else React's `{ update, types }`) and the names of the animations that actually ran.
  * Motion itself is judged on a real phone; what can be wrong here is which navigation slides.
  */
-type Recorded = { types: string[]; animations: string[] };
+type Recorded = { types: string[]; animations: string[]; skipped?: string };
 
 async function spyViewTransitions(page: Page) {
   await page.addInitScript(() => {
@@ -24,14 +24,19 @@ async function spyViewTransitions(page: Page) {
     const real = document.startViewTransition?.bind(document);
     if (!real) return;
     document.startViewTransition = ((arg: unknown) => {
-      const manual = document.documentElement.getAttribute("data-nav-slide");
-      const types =
-        typeof arg === "function"
-          ? manual
-            ? [`nav-${manual}`]
-            : []
+      // The slide's name on `<html>` (`slideBack`, `nameSlide`) is the direction the app meant;
+      // React's own types (`{ update, types }`) are lost when a tap lands mid-hydration.
+      const named = document.documentElement.getAttribute("data-nav-slide");
+      const types = named
+        ? [`nav-${named}`]
+        : typeof arg === "function"
+          ? []
           : ((arg as { types?: string[] } | undefined)?.types ?? []);
-      const entry = { types: [...types], animations: [] as string[] };
+      const entry = {
+        types: [...types],
+        animations: [] as string[],
+        skipped: undefined as string | undefined,
+      };
       recorded.push(entry);
       const transition = real(arg as never);
       transition.ready
@@ -43,7 +48,12 @@ async function spyViewTransitions(page: Page) {
             )
             .map((a) => (a as CSSAnimation).animationName ?? "");
         })
-        .catch(() => {});
+        // A transition the browser skipped (another one started over it, the document was
+        // hidden, the capture failed) is recorded with its reason, so a missing slide reads as
+        // what it was instead of an empty list (CI, 2026-10-01).
+        .catch((error: unknown) => {
+          entry.skipped = String(error);
+        });
       return transition;
     }) as typeof document.startViewTransition;
   });
@@ -52,14 +62,19 @@ async function spyViewTransitions(page: Page) {
 const recorded = (page: Page) =>
   page.evaluate(() => (window as unknown as { __vt: Recorded[] }).__vt);
 
-/** Every slide that ran, as `type:animation` pairs, e.g. `nav-forward:nav-slide-from-end`. */
+/**
+ * Every slide that ran, as `type:animation` pairs, e.g. `nav-forward:nav-slide-from-end`; a
+ * transition the browser skipped appears as `type:skipped:<reason>`.
+ */
 async function slides(page: Page): Promise<string[]> {
   return (await recorded(page)).flatMap((entry) =>
-    entry.animations
-      .filter((name) => name.startsWith("nav-slide"))
-      .map((name) => `${entry.types.join(",")}:${name}`)
-      // The old and new animations of one transition start together, in no set order.
-      .sort(),
+    entry.skipped !== undefined
+      ? [`${entry.types.join(",")}:skipped:${entry.skipped}`]
+      : entry.animations
+          .filter((name) => name.startsWith("nav-slide"))
+          .map((name) => `${entry.types.join(",")}:${name}`)
+          // The old and new animations of one transition start together, in no set order.
+          .sort(),
   );
 }
 

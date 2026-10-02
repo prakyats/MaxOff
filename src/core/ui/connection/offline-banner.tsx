@@ -3,6 +3,8 @@
 import { WifiOffIcon } from "lucide-react";
 import { useEffect, useRef } from "react";
 
+import { changeBottomReserve } from "@/core/ui/viewport/bottom-reserve";
+
 import { OFFLINE_BANNER_ID, OFFLINE_MESSAGE, useOnline } from "./online";
 
 /**
@@ -20,10 +22,15 @@ export function OfflineBanner() {
   const band = useRef<HTMLParagraphElement>(null);
   useEffect(() => {
     const html = document.documentElement;
-    html.toggleAttribute("data-offline", !online);
+    // The band appears while a person may be at the page's end: they stay there, so the sticky
+    // bar, moving up above the band, never covers the last field (`changeBottomReserve`).
+    changeBottomReserve(() => html.toggleAttribute("data-offline", !online));
     const element = band.current;
     if (online || !element) return;
-    const measure = () => html.style.setProperty("--app-offline-h", `${element.offsetHeight}px`);
+    const measure = () =>
+      changeBottomReserve(() =>
+        html.style.setProperty("--app-offline-h", `${element.offsetHeight}px`),
+      );
     const observer = new ResizeObserver(measure);
     observer.observe(element);
     measure();

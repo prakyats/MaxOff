@@ -152,7 +152,10 @@ test.describe("production build", () => {
   test("back online, the offline page reloads its address by itself, adding no history", async ({
     page,
     context,
+    reloadGuard,
   }) => {
+    // The offline page's own reload of the address that failed is what this test proves.
+    reloadGuard.allow(/\/login$/);
     await underWorker(page);
     await context.setOffline(true);
     await page.goto("/login");
@@ -167,7 +170,10 @@ test.describe("production build", () => {
   test("Try again reloads the address that failed, adding no history", async ({
     page,
     context,
+    reloadGuard,
   }) => {
+    // Try again reloads the address that failed: the document load this test proves.
+    reloadGuard.allow(/\/login$/);
     await underWorker(page);
     // The device still says it is online (a network switch, a dead Wi-Fi): only the server
     // cannot be reached, so no `online` event comes and the button is the way back.

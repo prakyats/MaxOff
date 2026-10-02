@@ -14,7 +14,10 @@ export type { JobTitleOption } from "../domain/job-titles";
 
 const NONE = "__none__";
 
-/** The job-title picker (a `list_items` list, PRODUCT §3). "" means none. */
+/**
+ * The job-title picker (a `list_items` list, PRODUCT §3). "" means none, offered as "None" (never
+ * "No job title", owner 2026-10-01).
+ */
 export function JobTitleSelect({
   id,
   value,
@@ -38,10 +41,10 @@ export function JobTitleSelect({
         aria-describedby={describedBy}
         aria-invalid={invalid}
       >
-        <SelectValue placeholder="No job title" />
+        <SelectValue placeholder="Choose" />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value={NONE}>No job title</SelectItem>
+        <SelectItem value={NONE}>None</SelectItem>
         {options.map((option) => (
           <SelectItem key={option.id} value={option.id}>
             {option.archived ? `${option.name} (archived)` : option.name}

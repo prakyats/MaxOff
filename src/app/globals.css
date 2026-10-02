@@ -611,10 +611,17 @@ html[data-launch] [data-slot="launch-intro"] svg {
 ::view-transition-new(app-bottom-nav) {
   animation: none;
 }
-/* `slideBack`: the one slide React does not start, named by hand with React's own class. */
+/* A slide named on `<html>` at the tap (`slide.ts`: `slideBack`, the one slide React does not
+   start, and `nameSlide` beside a router call's transition type, which is lost when the tap lands
+   mid-hydration): the route is named and classed from the attribute for whichever view transition
+   runs, with React's own class names. */
 html[data-nav-slide="back"] [data-slot="route"] {
   view-transition-name: route;
   view-transition-class: nav-back;
+}
+html[data-nav-slide="forward"] [data-slot="route"] {
+  view-transition-name: route;
+  view-transition-class: nav-forward;
 }
 ::view-transition-old(.nav-forward),
 ::view-transition-new(.nav-forward),

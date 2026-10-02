@@ -1,5 +1,7 @@
 import { test as base, expect } from "@playwright/test";
 
+import { DocumentLoadWatcher, type DocumentLoadsPolicy } from "./document-loads";
+
 /**
  * The action colour rule's e2e half (ARCHITECTURE §14.1): **at most one visible solid red commit
  * action (`[data-variant="primary"]`) per layer, and never beside a neutral solid one
@@ -79,7 +81,27 @@ function watchPrimaries() {
   });
 }
 
-export const test = base.extend<{ onePrimaryPerLayer: void }>({
+export const test = base.extend<{
+  onePrimaryPerLayer: void;
+  documentLoads: DocumentLoadsPolicy;
+  /** The reload guard (`document-loads.ts`); a test that knows a load is coming calls `allow`. */
+  reloadGuard: DocumentLoadWatcher;
+  noSurpriseDocumentLoads: void;
+}>({
+  /** "none" (the default): a document load the test did not ask for fails it (`document-loads.ts`). */
+  documentLoads: ["none", { option: true }],
+  reloadGuard: async ({ context }, provide) => {
+    await provide(await DocumentLoadWatcher.install(context));
+  },
+  noSurpriseDocumentLoads: [
+    async ({ reloadGuard, documentLoads }, use) => {
+      await use();
+      const reports = await reloadGuard.report();
+      if (documentLoads === "allowed") return;
+      expect(reports, "no document load the test did not ask for").toEqual([]);
+    },
+    { auto: true },
+  ],
   onePrimaryPerLayer: [
     async ({ page }, use) => {
       await page.addInitScript(watchPrimaries);

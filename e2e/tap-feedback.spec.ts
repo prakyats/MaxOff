@@ -227,8 +227,11 @@ test.describe("navigation shows it is on its way", () => {
     await expect(html(page)).not.toHaveAttribute("data-nav-pending");
   });
 
-  test("before hydration, a tap still starts the bar", async ({ page, isMobile }) => {
+  test("before hydration, a tap still starts the bar", async ({ page, isMobile, reloadGuard }) => {
     test.skip(!isMobile, "measured where hydration takes longest: the installed phone");
+    // With the scripts held the app never takes the tap over: the head script loads the
+    // destination itself after its wait (§14.2 l), a document load this test is about.
+    reloadGuard.allow(/.*/);
     await runInstalled(page);
     // The page's scripts never arrive, so only the head script can answer the tap.
     await page.route(/\/_next\/static\/chunks\/.+\.js/, () => undefined);
@@ -299,8 +302,14 @@ test.describe("navigation shows it is on its way", () => {
     await expect(page).toHaveURL(/\/today$/);
   });
 
-  test("after 25 s Retry loads the destination in full", async ({ page, isMobile }) => {
+  test("after 25 s Retry loads the destination in full", async ({
+    page,
+    isMobile,
+    reloadGuard,
+  }) => {
     test.skip(!isMobile, "measured on the installed phone");
+    // The full load is the point of this test (§14.2 i).
+    reloadGuard.allow(/.*/);
     await runInstalled(page);
     await page.clock.install();
     await holdScreen(page, "/tasks");
