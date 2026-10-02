@@ -8,6 +8,7 @@ import {
   serviceInsert,
   serviceSelect,
   serviceUpdate,
+  storageStateFor,
   taskTypeId,
   USERS,
 } from "./helpers";
@@ -127,6 +128,62 @@ test.describe("quiet hours hold push and release one summary", () => {
       });
       await serviceDelete(`push_subscriptions?member_id=eq.${staffId}`);
       await new Promise<void>((resolve) => service.server.close(() => resolve()));
+    }
+  });
+});
+
+/**
+ * The Owner's quiet-hours editor (5B decision 6) on Settings → Thresholds. It saves the
+ * organisation's window, so it lives here, in the serial push-cron project, alone after every
+ * other project: no other spec's push can be held while it is moved. It puts the window back.
+ */
+test.describe("the Owner edits the quiet hours (Settings → Thresholds)", () => {
+  test.use({ storageState: storageStateFor("owner") });
+
+  test("saves the two IST times; the same start and end is refused", async ({ page }) => {
+    const [before] = await serviceSelect<{
+      org_id: string;
+      quiet_hours_start: string;
+      quiet_hours_end: string;
+    }>("org_settings?select=org_id,quiet_hours_start,quiet_hours_end");
+    const stored = async () => {
+      const [row] = await serviceSelect<{ quiet_hours_start: string; quiet_hours_end: string }>(
+        "org_settings?select=quiet_hours_start,quiet_hours_end",
+      );
+      return `${row!.quiet_hours_start.slice(0, 5)}-${row!.quiet_hours_end.slice(0, 5)}`;
+    };
+    try {
+      await page.goto("/settings/thresholds");
+      await expect(page.getByRole("heading", { name: "Quiet hours" })).toBeVisible();
+      const from = page.getByLabel("Quiet from");
+      const until = page.getByLabel("Quiet until");
+      await expect(from).toHaveValue(before!.quiet_hours_start.slice(0, 5));
+      await expect(until).toHaveValue(before!.quiet_hours_end.slice(0, 5));
+
+      // The same start and end would switch quiet hours off: refused, nothing written.
+      await from.fill("23:00");
+      await until.fill("23:00");
+      await page.getByRole("button", { name: "Save thresholds" }).click();
+      await expect(page.locator('[data-slot="field-error"]')).toContainText(
+        "Quiet hours need an end time different from the start.",
+      );
+      expect(await stored()).toBe(
+        `${before!.quiet_hours_start.slice(0, 5)}-${before!.quiet_hours_end.slice(0, 5)}`,
+      );
+
+      // A window past midnight is saved, and is what the page shows after a reload.
+      await until.fill("06:30");
+      await page.getByRole("button", { name: "Save thresholds" }).click();
+      await expect(page.getByText("Thresholds saved")).toBeVisible();
+      expect(await stored()).toBe("23:00-06:30");
+      await page.reload();
+      await expect(page.getByLabel("Quiet from")).toHaveValue("23:00");
+      await expect(page.getByLabel("Quiet until")).toHaveValue("06:30");
+    } finally {
+      await serviceUpdate(`org_settings?org_id=eq.${before!.org_id}`, {
+        quiet_hours_start: before!.quiet_hours_start,
+        quiet_hours_end: before!.quiet_hours_end,
+      });
     }
   });
 });

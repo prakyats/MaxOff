@@ -87,6 +87,8 @@ export async function updateThresholds(
     overdueEscalateHours: number;
     emailDailyCapPerMember: number;
     workloadWarningThreshold: number;
+    quietHoursStart: string;
+    quietHoursEnd: string;
   },
 ): Promise<void> {
   await updateSettings(orgId, {
@@ -98,6 +100,8 @@ export async function updateThresholds(
     overdue_escalate_hours: patch.overdueEscalateHours,
     email_daily_cap_per_member: patch.emailDailyCapPerMember,
     workload_warning_threshold: patch.workloadWarningThreshold,
+    quiet_hours_start: patch.quietHoursStart,
+    quiet_hours_end: patch.quietHoursEnd,
   });
 }
 

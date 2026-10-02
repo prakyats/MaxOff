@@ -174,6 +174,26 @@ test.describe("installed: overlays and view controls", () => {
       ]);
     });
 
+    test("/settings/thresholds: editing the quiet hours adds no history; back returns to Settings", async ({
+      page,
+    }) => {
+      // 5B decision 6. Typed here, never saved: the window is the organisation's, and only the
+      // serial push-cron project may move it (push-quiet.spec), so no push elsewhere is held.
+      await runInstalled(page);
+      await page.goto("/settings");
+      await page.getByRole("link", { name: "Thresholds", exact: true }).click();
+      await expect(page).toHaveURL(/\/settings\/thresholds$/);
+      const from = page.getByLabel("Quiet from");
+      const until = page.getByLabel("Quiet until");
+      await expect(from).toHaveValue("22:00");
+      await expect(until).toHaveValue("07:00");
+      await from.fill("23:00");
+      await until.fill("06:30");
+      await expect(page).toHaveURL(/\/settings\/thresholds$/);
+
+      await expectBackStack(page, [{ url: /\/settings$/ }]);
+    });
+
     test("a confirm handed off from the sheet: back closes it, the URL stays", async ({ page }) => {
       await runInstalled(page);
       await page.goto("/people");

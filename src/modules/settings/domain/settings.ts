@@ -28,6 +28,13 @@ export type Thresholds = {
    * has this many open tasks due that IST day warns (never blocks). Default 4.
    */
   workloadWarningThreshold: number;
+  /**
+   * Quiet hours (kickoff 5 decision 5; 5B decision 6, the Owner's editor): IST, for everyone.
+   * Push deliveries in the window wait and go out as one summary when it ends; rows and email
+   * are not held; "Send a test notification" ignores them. Default 22:00-07:00.
+   */
+  quietHoursStart: string;
+  quietHoursEnd: string;
 };
 
 /** Kickoff 4 decision 11: four open tasks due the same IST day. */
@@ -56,6 +63,8 @@ export function toOrgSettings(row: Tables<"org_settings">): OrgSettings {
     emailDailyCapPerMember: row.email_daily_cap_per_member,
     // Set to 4 on every row by 4A (default 4); a null would only come from an older row.
     workloadWarningThreshold: row.workload_warning_threshold ?? DEFAULT_WORKLOAD_WARNING_THRESHOLD,
+    quietHoursStart: row.quiet_hours_start.slice(0, 5),
+    quietHoursEnd: row.quiet_hours_end.slice(0, 5),
   };
 }
 

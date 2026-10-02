@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { type FormEvent, startTransition, useActionState } from "react";
 import { toast } from "sonner";
 
 import type { Result } from "@/core/errors";
@@ -15,7 +15,8 @@ import { FormError } from "./form-error";
 
 /**
  * The timings that drive reminders and escalations (PRODUCT §7, WORKFLOWS §9), and the workload
- * warning the task dialog shows (4.3, kickoff 4 decision 11). The reminder jobs arrive with 5.3.
+ * warning the task dialog shows (4.3, kickoff 4 decision 11), and the Owner's quiet hours (5B
+ * decision 6). The reminder jobs arrive with 5.3.
  * Changing one never rewrites what already happened — each job reads the value when it runs.
  */
 export function ThresholdsForm({ thresholds }: { thresholds: Thresholds }) {
@@ -31,6 +32,8 @@ export function ThresholdsForm({ thresholds }: { thresholds: Thresholds }) {
         overdueEscalateHours: value("overdueEscalateHours"),
         emailDailyCapPerMember: value("emailDailyCapPerMember"),
         workloadWarningThreshold: value("workloadWarningThreshold"),
+        quietHoursStart: value("quietHoursStart"),
+        quietHoursEnd: value("quietHoursEnd"),
       });
       if (result.ok) toast.success("Thresholds saved");
       return result;
@@ -38,10 +41,18 @@ export function ThresholdsForm({ thresholds }: { thresholds: Thresholds }) {
     null,
   );
   const error = state && !state.ok ? state.error : null;
+  // Submitted through onSubmit, not the form's `action`: React resets a form's uncontrolled
+  // fields after an `action` runs, failures included, so a refused save (a field error) used to
+  // put every other edit back to the saved value, and the next Save stored what nobody typed.
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    startTransition(() => formAction(data));
+  }
   const fieldErrors = error?.fieldErrors ?? {};
 
   return (
-    <form action={formAction} noValidate className="flex max-w-xl flex-col gap-4">
+    <form onSubmit={submit} noValidate className="flex max-w-xl flex-col gap-4">
       <FormError error={error} />
       <FormField
         label="End-of-day reminder"
@@ -186,6 +197,49 @@ export function ThresholdsForm({ thresholds }: { thresholds: Thresholds }) {
           )}
         </FormField>
       </div>
+
+      <section aria-labelledby="quiet-hours" className="flex flex-col gap-3">
+        <div>
+          <h2 id="quiet-hours" className="text-sm font-medium">
+            Quiet hours
+          </h2>
+          <p className="text-muted-foreground text-sm">
+            IST, for everyone. Notifications that arrive in these hours wait and come as one summary
+            when they end. Emails and the in-app list aren&apos;t held, and a test notification
+            ignores them.
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField label="Quiet from" error={fieldErrors.quietHoursStart}>
+            {(control) => (
+              <Input
+                {...control}
+                name="quietHoursStart"
+                type="time"
+                defaultValue={thresholds.quietHoursStart}
+                className="max-w-40"
+                required
+              />
+            )}
+          </FormField>
+          <FormField
+            label="Quiet until"
+            hint="The next morning when it is earlier than the start."
+            error={fieldErrors.quietHoursEnd}
+          >
+            {(control) => (
+              <Input
+                {...control}
+                name="quietHoursEnd"
+                type="time"
+                defaultValue={thresholds.quietHoursEnd}
+                className="max-w-40"
+                required
+              />
+            )}
+          </FormField>
+        </div>
+      </section>
 
       <StickyActions>
         <Button variant="primary" type="submit" pending={pending} pendingLabel="Saving…">

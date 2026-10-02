@@ -67,6 +67,8 @@ describe("updateThresholdsSchema", () => {
     overdueEscalateHours: "24",
     emailDailyCapPerMember: "20",
     workloadWarningThreshold: "4",
+    quietHoursStart: "22:00",
+    quietHoursEnd: "07:00",
   };
 
   it("takes the launch settings (PRODUCT §7) as numbers", () => {
@@ -79,6 +81,43 @@ describe("updateThresholdsSchema", () => {
       overdueEscalateHours: 24,
       emailDailyCapPerMember: 20,
       workloadWarningThreshold: 4,
+      quietHoursStart: "22:00",
+      quietHoursEnd: "07:00",
+    });
+  });
+
+  it("takes quiet hours as IST clock times, past midnight or within one day (5B decision 6)", () => {
+    for (const [start, end] of [
+      ["22:00", "07:00"],
+      ["23:30", "06:15"],
+      ["13:00", "14:00"],
+      ["00:00", "23:59"],
+    ]) {
+      expect(
+        updateThresholdsSchema.safeParse({ ...valid, quietHoursStart: start, quietHoursEnd: end })
+          .success,
+      ).toBe(true);
+    }
+  });
+
+  it("refuses a quiet-hours time that is not HH:MM, or the same start and end", () => {
+    for (const bad of ["10pm", "24:00", "7:00", ""]) {
+      expect(updateThresholdsSchema.safeParse({ ...valid, quietHoursStart: bad }).success).toBe(
+        false,
+      );
+      expect(updateThresholdsSchema.safeParse({ ...valid, quietHoursEnd: bad }).success).toBe(
+        false,
+      );
+    }
+    const same = updateThresholdsSchema.safeParse({
+      ...valid,
+      quietHoursStart: "22:00",
+      quietHoursEnd: "22:00",
+    });
+    expect(same.success).toBe(false);
+    expect(same.error?.issues[0]).toMatchObject({
+      path: ["quietHoursEnd"],
+      message: "Quiet hours need an end time different from the start.",
     });
   });
 
