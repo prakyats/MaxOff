@@ -31,7 +31,7 @@ review_decision    approved | rejected
 request_state      pending | converted | declined | withdrawn
 billing_status     not_billed | billed
 notification_kind  a lookup table, not an enum (5.1, expand-only across releases): notification_kinds
-                   (kind pk, actionable, always_email, description). The 5.1 set: task_assigned*†,
+                   (kind pk, actionable, always_email, description). The 5.1 set: task_assigned*
                    task_unassigned, task_changed, task_submitted, task_admin_approved,
                    task_changes_requested*, task_completed, task_cancelled, task_reopened,
                    task_comment (never email, 5A decision 15), task_request_created,
@@ -43,8 +43,10 @@ notification_kind  a lookup table, not an enum (5.1, expand-only across releases
                    approvals_moved (5A decision 27, 20261001001614: the Owner's one row when an
                    approving Admin's submitted tasks moved to them).
                    * actionable = email fallback when the person has no working push (kickoff 5
-                   decision 6); † always_email (ADR-0009). 5B adds the reminder, escalation, digest
-                   and reachability kinds by inserting rows.
+                   decision 6); always_email (ADR-0009): none of the 5.1 set since 5B (5B decision
+                   12, migration task_assigned_fallback_only: task_assigned was always_email until
+                   then, now fallback only). 5B adds the reminder, escalation, digest and
+                   reachability kinds by inserting rows; its always-emailed ones carry always_email.
 field_type         text | long_text | number | date | datetime | checkbox | select |
                    multi_select | url | email | phone | color | member | rating
                    -- deliberately NO currency type: money lives only in the Owner-only tables (§7)

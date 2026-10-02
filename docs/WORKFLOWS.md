@@ -459,7 +459,7 @@ month M (IST) open ──Owner close──► closed (snapshot v1, immutable)
 
 **Phase 4 ships before phase 5 (owner decision 2026-09-28, kickoff 4):** the task transition functions name their recipients from this table in their comments, and the rows and delivery arrive with 5.1, as in phase 3b. Until then, the **Tasks tab badge** counts tasks the member (or a freelancer they coordinate) has not noted, plus those in `changes_requested`, and the **Approvals badge** includes the tasks the viewer may decide. Nothing in phase 4 waits for notifications.
 
-Every notification is stored in `notifications` (in-app history + deep link) and then delivered by push. **Email** is sent for **invites, an email change (to both addresses, §1a), escalations, task assigned, an event tomorrow, the Owner digest**, and to anyone with no working push subscription, within the per-person daily cap (invites, email changes and escalations bypass it).
+Every notification is stored in `notifications` (in-app history + deep link) and then delivered by push. **Email** is sent for **invites, an email change (to both addresses, §1a), escalations, an event tomorrow, the Owner digest**, and to anyone with no working push subscription (since 5B decision 12 **task assigned** is emailed only as that fallback: migration `task_assigned_fallback_only`; whether "an event tomorrow" stays always-emailed is the owner's open question, kickoff 5 decision 11), within the per-person daily cap (invites, email changes and escalations bypass it).
 
 ## 9a. Delivery, sessions and reachability
 

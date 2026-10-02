@@ -94,15 +94,13 @@ test.describe("quiet hours hold push and release one summary", () => {
         `notifications?recipient_id=eq.${staffId}&entity_id=in.(${taskIds.join(",")})&select=id`,
       );
       expect(rows).toHaveLength(2);
-      // Email is never held: task assigned is always emailed, in the window too (recorded
-      // not_configured here: the e2e server has no RESEND_API_KEY).
-      const mails = await serviceSelect<{ state: string; last_error: string | null }>(
-        `notification_deliveries?channel=eq.email&select=state,last_error,notifications!inner(recipient_id,entity_id)&notifications.recipient_id=eq.${staffId}&notifications.entity_id=in.(${taskIds.join(",")})`,
+      // No email: the person has a working push device, and since 5B decision 12 a task
+      // assignment is emailed only as the fallback for someone with none. (That email is never
+      // held by quiet hours either: 5.3's always-emailed reminders bring that proof back here.)
+      const mails = await serviceSelect<{ state: string }>(
+        `notification_deliveries?channel=eq.email&select=state,notifications!inner(recipient_id,entity_id)&notifications.recipient_id=eq.${staffId}&notifications.entity_id=in.(${taskIds.join(",")})`,
       );
-      expect(mails).toEqual([
-        { state: "failed", last_error: "not_configured", notifications: expect.anything() },
-        { state: "failed", last_error: "not_configured", notifications: expect.anything() },
-      ]);
+      expect(mails).toEqual([]);
 
       // The window is over (it ended an hour ago): the next run sends ONE summary push.
       await serviceUpdate(`org_settings?org_id=eq.${settings!.org_id}`, {

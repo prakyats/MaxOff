@@ -220,8 +220,8 @@ select is((select array_agg(kind order by kind) from public.notification_kinds w
   array['attendance_decided', 'comp_leave_granted', 'comp_leave_revoked', 'expense_decided', 'extra_work_decided',
         'leave_decided', 'task_assigned', 'task_changes_requested'],
   'the actionable kinds (email fallback, kickoff 5 decision 6): assigned, changes requested and the decisions');
-select is((select array_agg(kind order by kind) from public.notification_kinds where always_email),
-  array['task_assigned'], 'the always-email set among the 5.1 kinds: task assigned');
+select is((select count(*) from public.notification_kinds where always_email), 0::bigint,
+  'no 5.1 kind is always emailed since 5B decision 12 (task assigned is fallback only; 5.3 / 5.4 add the always-emailed reminders and alerts)');
 select ok(not (select actionable or always_email from public.notification_kinds where kind = 'task_comment'),
   'a comment is never email (5A decision 15)');
 select is((select schedule from cron.job where jobname = 'end_day_reminder'), '*/5 * * * *',

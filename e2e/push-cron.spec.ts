@@ -212,8 +212,9 @@ test.describe("push and email dispatch (cron)", () => {
       )
         .map((row) => `${row.notifications.kind}:${row.state}:${row.last_error ?? "-"}`)
         .sort();
-    // Task assigned is always emailed; changes requested is actionable and they have no push;
-    // the comment never. The e2e server has no RESEND_API_KEY (as team.spec's invites rely on),
+    // They have no push device, so the two actionable kinds are emailed as the fallback (task
+    // assigned is fallback only since 5B decision 12; changes requested always was); the comment
+    // never. The e2e server has no RESEND_API_KEY (as team.spec's invites rely on),
     // so each is recorded not_configured: nothing is sent, nothing crashed.
     expect(await mails()).toEqual([
       "task_assigned:failed:not_configured",
