@@ -64,3 +64,22 @@ export function isNavigationFetch(method: string, headers: Headers): boolean {
     !headers.has("next-action")
   );
 }
+
+/**
+ * Whether a fetch is a server action's call (a POST with `Next-Action`): its answer can carry a
+ * new screen for the router, like a refresh.
+ */
+export function isRouterActionFetch(method: string, headers: Headers): boolean {
+  return method.toUpperCase() === "POST" && headers.has("next-action");
+}
+
+/**
+ * Whether a server action's answer leaves the screen as it is: no redirect (`X-Action-Redirect`)
+ * and no revalidation (`X-Action-Revalidated` absent or 0). Next then changes nothing in the
+ * router; any other answer re-renders the screen like a refresh does.
+ */
+export function actionLeavesScreen(headers: Headers): boolean {
+  if (headers.has("x-action-redirect")) return false;
+  const revalidated = headers.get("x-action-revalidated");
+  return revalidated === null || revalidated.trim() === "0";
+}

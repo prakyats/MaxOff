@@ -8,7 +8,9 @@ import { systemClock } from "@/core/time/clock";
 import { Button } from "@/core/ui/primitives/button";
 
 import {
+  actionLeavesScreen,
   isNavigationFetch,
+  isRouterActionFetch,
   NAV_DONE_ATTRIBUTE,
   NAV_PENDING_ATTRIBUTE,
   NAV_SETTLE_MS,
@@ -22,8 +24,14 @@ import {
   TAB_TOP_ATTRIBUTE,
   VIEW_LINK_ATTRIBUTE,
 } from "./attributes";
+import { writingOwnHistory } from "./history-writes";
 import { backMove, tabMove } from "./moves";
-import { noteScreenFetchSettled } from "./screen-fetches";
+import {
+  endOnCompletion,
+  noteRouterCommitted,
+  noteRouterFetchStarted,
+  noteScreenFetchSettled,
+} from "./screen-fetches";
 
 /** How long a tap may go without the router starting anything before the bar stands down. */
 const IDLE_CANCEL_MS = 600;
@@ -251,6 +259,15 @@ export function NavProgress() {
       const request = input instanceof Request ? input : null;
       const method = init?.method ?? request?.method ?? "GET";
       const headers = new Headers(init?.headers ?? request?.headers);
+      // Every router fetch, an action's answer too, holds a view's address until it completes
+      // (`view-address.ts`).
+      if (isRouterActionFetch(method, headers)) {
+        const answer = realFetch(input, init);
+        endOnCompletion(answer, noteRouterFetchStarted(), "action", (response) =>
+          actionLeavesScreen(response.headers),
+        );
+        return answer;
+      }
       if (!isNavigationFetch(method, headers)) return realFetch(input, init);
       const url = new URL(request?.url ?? String(input), location.href);
       url.searchParams.delete("_rsc");
@@ -261,9 +278,14 @@ export function NavProgress() {
         response.then(report, report);
         return response;
       };
+      const send = () => {
+        const answer = realFetch(input, init);
+        endOnCompletion(answer, noteRouterFetchStarted());
+        return answer;
+      };
       // A refresh of the screen you are on (refresh on return, pull-to-refresh with its own
       // spinner) is not a navigation: no bar for it unless a tap already started one.
-      if (!pending() && to === here()) return reported(realFetch(input, init));
+      if (!pending() && to === here()) return reported(send());
       if (!pending()) begin(to, "router");
       else if (!destination.current) destination.current = to;
       if (to !== from) elsewhere = true;
@@ -274,7 +296,7 @@ export function NavProgress() {
         settledAt = now();
       };
       return reported(
-        realFetch(input, init).then(
+        send().then(
           (response) => {
             settle();
             return response;
@@ -288,11 +310,31 @@ export function NavProgress() {
     };
     window.fetch = patched;
 
+    // The router's commits: Next writes its own entry (`__NA`) on each one; the app's own writes
+    // say so (`history-writes.ts`). An action's answer is only done once committed
+    // (`endOnCompletion`).
+    const realPush = window.history.pushState;
+    const realReplace = window.history.replaceState;
+    const committing = (data: unknown) =>
+      !writingOwnHistory() && typeof data === "object" && data !== null && "__NA" in data;
+    const pushState: History["pushState"] = function (this: History, data, unused, url) {
+      realPush.call(this, data, unused, url);
+      if (committing(data)) noteRouterCommitted();
+    };
+    const replaceState: History["replaceState"] = function (this: History, data, unused, url) {
+      realReplace.call(this, data, unused, url);
+      if (committing(data)) noteRouterCommitted();
+    };
+    window.history.pushState = pushState;
+    window.history.replaceState = replaceState;
+
     window.addEventListener("click", onClick);
     window.addEventListener("popstate", onPopState);
     window.addEventListener("beforeunload", onUnload);
     return () => {
       if (window.fetch === patched) window.fetch = realFetch;
+      if (window.history.pushState === pushState) window.history.pushState = realPush;
+      if (window.history.replaceState === replaceState) window.history.replaceState = realReplace;
       window.removeEventListener("click", onClick);
       window.removeEventListener("popstate", onPopState);
       window.removeEventListener("beforeunload", onUnload);
