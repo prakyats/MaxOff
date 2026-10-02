@@ -822,6 +822,12 @@ clients              id, org_id, name, legal_name, state client_state, admin_id 
                      -- kickoff 3 (2026-09-27): unique (org_id, lower(name)) where state <> 'inactive';
                      -- gstin check (15-char format) when not null; website / drive_url https only;
                      -- archived_at reserved (no archive action in phase 3: inactive is the end state)
+                     -- kickoff 7 amendment B (owner decision 2026-10-02): created under clients.create
+                     -- (Owner and Admins; key seeded for both). An Admin's insert is always state draft
+                     -- with admin_id = the caller (a guard refuses any other admin_id), so the
+                     -- assignment row opens with them; the Owner is notified (WORKFLOWS §9). The Owner
+                     -- may still give any active Admin or none. Lifecycle and assignment stay
+                     -- clients.manage. RLS insert policy and pgTAP per role when built (7.1)
                      -- 3.1: created by a plain INSERT under clients.manage (state draft; admin_id may be
                      -- given at creation and opens the first assignment row by trigger). state,
                      -- activated_at, admin_id and archived_at are protected columns (transition
@@ -875,12 +881,18 @@ view client_labels   (id, name, state, logo_file_id, colors, fonts, tone_of_voic
 
 ## 5. Client work: projects, cycles, items
 ```
-projects             id, client_id (required), name, description, recurrence, state project_state,
+projects             id, client_id (required), name, description, recurrence, delivery_date null, state project_state,
                      billing_category (Owner-set; default from recurrence; a template's default applies
                      only when the Owner creates the project), template_id null,
                      custom_fields, created_by, completed_at, completed_by, archived_at
                      -- guard trigger: state, billing_category, client_id and recurrence change only
                      -- through transition functions (billing_category/client_id/recurrence: Owner only)
+                     -- kickoff 7 amendment A (owner decision 2026-10-02): + delivery_date date null;
+                     -- check (recurrence <> 'one_time' or delivery_date is not null): required for a
+                     -- one-time project, none needed for weekly / monthly. Set or moved by projects.manage
+                     -- (Owner, the client's Admin) while open or in progress; audited. An operational
+                     -- deadline, not money; phase 9 reads it (Owner-only) to place a one-time project's
+                     -- revenue in a month (kickoff 9 decision 2)
                      -- kickoff 7 (owner decisions 2026-10-01; WORKFLOWS §5.4): client_id and recurrence
                      -- are fixed after creation (no function changes them in phase 7); unique
                      -- (client_id, lower(btrim(name))) where state in ('open','in_progress'); created on a
