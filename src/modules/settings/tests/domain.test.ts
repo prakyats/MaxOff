@@ -69,6 +69,7 @@ describe("updateThresholdsSchema", () => {
     workloadWarningThreshold: "4",
     quietHoursStart: "22:00",
     quietHoursEnd: "07:00",
+    defaultTaskReminders: [],
   };
 
   it("takes the launch settings (PRODUCT §7) as numbers", () => {
@@ -83,7 +84,40 @@ describe("updateThresholdsSchema", () => {
       workloadWarningThreshold: 4,
       quietHoursStart: "22:00",
       quietHoursEnd: "07:00",
+      defaultTaskReminders: [],
     });
+  });
+
+  it("takes the organisation's default reminders as a checked list (5.3)", () => {
+    const rules = [
+      { before: 3, unit: "days" },
+      { before: 2, unit: "hours" },
+      { before: 0, unit: "minutes" },
+    ];
+    expect(
+      updateThresholdsSchema.parse({ ...valid, defaultTaskReminders: rules }).defaultTaskReminders,
+    ).toEqual(rules);
+    const same = updateThresholdsSchema.safeParse({
+      ...valid,
+      defaultTaskReminders: [
+        { before: 1, unit: "days" },
+        { before: 24, unit: "hours" },
+      ],
+    });
+    expect(same.success).toBe(false);
+    expect(same.error?.issues[0]).toMatchObject({
+      path: ["defaultTaskReminders", 1, "before"],
+      message: "Another reminder is already at this time.",
+    });
+    expect(
+      updateThresholdsSchema.safeParse({
+        ...valid,
+        defaultTaskReminders: [{ before: 61, unit: "days" }],
+      }).success,
+    ).toBe(false);
+    expect(
+      updateThresholdsSchema.safeParse({ ...valid, defaultTaskReminders: undefined }).success,
+    ).toBe(false);
   });
 
   it("takes quiet hours as IST clock times, past midnight or within one day (5B decision 6)", () => {

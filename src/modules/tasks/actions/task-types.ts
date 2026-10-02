@@ -20,7 +20,8 @@ import { isLastActiveType } from "../domain/task-types";
 
 /**
  * Settings → Task types (4C; PRODUCT §4.6, Kickoff 4 decisions 14, 15): the Owner's list,
- * `settings.manage`. zod → permission → repository → revalidate. No reminder editor (5.3's).
+ * `settings.manage`. zod → permission → repository → revalidate. A type's default reminders
+ * (5.3) are saved with it; the CHECK constraint `task_types_default_reminders_valid` agrees.
  */
 
 function revalidateTypes(): void {

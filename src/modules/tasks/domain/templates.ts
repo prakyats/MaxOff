@@ -1,3 +1,5 @@
+import type { ReminderRule } from "@/core/lib/reminder-rules";
+
 import type { TaskDraft } from "./form";
 import type { MemberRole, Priority } from "./types";
 
@@ -17,6 +19,11 @@ export type TaskTemplate = {
   fieldDefaults: Record<string, unknown>;
   archived: boolean;
   createdBy: string;
+  /**
+   * Its reminders (5.3); `[]` = its type's. A task started from it follows them through
+   * `tasks.template_id` while the task has none of its own: "Start from" copies nothing.
+   */
+  reminderRules: ReminderRule[];
 };
 
 export type TemplateActions = { edit: boolean; archive: boolean; restore: boolean };

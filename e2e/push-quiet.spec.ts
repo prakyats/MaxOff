@@ -212,3 +212,73 @@ test.describe("the Owner edits the quiet hours (Settings → Thresholds)", () =>
     }
   });
 });
+
+/**
+ * The organisation's default task reminders (5.3) on Settings → Thresholds, the Owner's. Every
+ * task with no list of its own (nor its template, nor its type) follows it when it is armed, so
+ * it is saved only here, in the serial push-cron project after every other project: no task any
+ * other spec creates can be armed while it is moved. It is put back to what it was.
+ */
+test.describe("the Owner edits the default reminders (Settings → Thresholds)", () => {
+  test.use({ storageState: storageStateFor("owner") });
+
+  test("saves the organisation's list from the collapsed line; Use the default saves []", async ({
+    page,
+  }) => {
+    const [before] = await serviceSelect<{ org_id: string; default_task_reminders: unknown }>(
+      "org_settings?select=org_id,default_task_reminders",
+    );
+    const stored = async () => {
+      const [row] = await serviceSelect<{ default_task_reminders: unknown }>(
+        "org_settings?select=default_task_reminders",
+      );
+      return row?.default_task_reminders;
+    };
+    try {
+      await serviceUpdate(`org_settings?org_id=eq.${before!.org_id}`, {
+        default_task_reminders: [],
+      });
+      await page.goto("/settings/thresholds");
+      await expect(page.getByRole("heading", { name: "Default reminders" })).toBeVisible();
+      const summary = page.locator('[data-slot="reminder-summary"]');
+      await expect(summary).toHaveText(
+        "Reminders: 2 days before, 1 day before, when due · Using the default",
+      );
+      await expect(page.locator('[data-slot="reminder-row"]')).toHaveCount(0);
+
+      // "When due" becomes 2 hours before; first 1440 minutes, the same time as 1 day, is refused.
+      await summary.click();
+      const third = page.getByLabel("Reminder 3: how many");
+      await third.fill("1440");
+      await page.getByRole("button", { name: "Save thresholds" }).click();
+      await expect(page.locator('[data-slot="reminder-row"]').nth(2)).toContainText(
+        "Another reminder is already at this time.",
+      );
+      expect(await stored()).toEqual([]);
+      await third.fill("2");
+      const unit = page.getByLabel("Reminder 3: unit");
+      await unit.click();
+      await page.getByRole("option", { name: "hours" }).first().click();
+      await expect(summary).toHaveText("Reminders: 2 days before, 1 day before, 2 hours before");
+      await page.getByRole("button", { name: "Save thresholds" }).click();
+      await expect(page.getByText("Thresholds saved")).toBeVisible();
+      expect(await stored()).toEqual([
+        { before: 2, unit: "days" },
+        { before: 1, unit: "days" },
+        { before: 2, unit: "hours" },
+      ]);
+      await page.reload();
+      await expect(summary).toHaveText("Reminders: 2 days before, 1 day before, 2 hours before");
+
+      await summary.click();
+      await page.getByRole("button", { name: "Use the default" }).click();
+      await page.getByRole("button", { name: "Save thresholds" }).click();
+      await expect(page.getByText("Thresholds saved").first()).toBeVisible();
+      await expect.poll(stored).toEqual([]);
+    } finally {
+      await serviceUpdate(`org_settings?org_id=eq.${before!.org_id}`, {
+        default_task_reminders: before!.default_task_reminders,
+      });
+    }
+  });
+});

@@ -1048,6 +1048,10 @@ task_reminder_arms   task_id pk (cascade), armed_at      -- 5.3: the tasks that 
                      -- {"before": N, "unit": "minutes"|"hours"|"days"}, N >= 0 (0 = Due now), at most 60 days, no two
                      -- the same; '[]' = the next level. Resolution: task → template → type → organisation → the
                      -- launch schedule (2 days, 1 day, Due now; app.task_reminder_rules).
+                     -- Editor (5.3, slice 6c): the task dialog, Settings → Task types (Owner), Templates
+                     -- (templates.manage: an Admin their own, the Owner any) and Thresholds (Owner, the
+                     -- organisation's); the dialog sends '[]' while "Using the default", so a task resolves
+                     -- its list when armed. Writers per level: pgTAP 53.
 task_warnings        id, task_id, kind ('overlap'|'workload'|'on_leave'), member_id (the person the
                      warning is about; 4A), details jsonb, overridden_by, at
                      -- 4A: the dialog computes the warnings (4.3, member_availability()); a person kept
@@ -1085,8 +1089,11 @@ task_templates       id, org_id, name, task_type_id, description, default_priori
                      created_by                                     -- kickoff 4: shared company-wide; an Admin
                      -- edits and archives only rows they created, the Owner any (PERMISSIONS ³).
                      -- 4.6 as built: name 1..120 (unique among active per organization), description
-                     -- <= 10000, stages <= 30 of 1..120 characters (trimmed), reminder_rules '[]' (the
-                     -- editor is 5.3's; no API insert or update grant until then, 4C review S1),
+                     -- <= 10000, stages <= 30 of 1..120 characters (trimmed), reminder_rules (a reminder
+                     -- rule list, '[]' = its type's; no API write from 4C review S1 until 5.3's editor,
+                     -- migration reminder_editor_grants: insert/update (reminder_rules) granted back,
+                     -- written by whoever may write the template, checked by the CHECK constraint; a task
+                     -- started from it follows it through tasks.template_id, nothing is copied),
                      -- field_defaults an object of task custom field values (validated by
                      -- core/custom-fields in the action and, since the 4C review (S1), by the guard:
                      -- at most 32 KB, every key the write adds or changes an active task field of the

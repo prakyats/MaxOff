@@ -4,7 +4,9 @@ import { expect, test } from "./fixtures";
 
 import {
   CONTINUE_BUTTON,
+  animationsSettled,
   expectBackStack,
+  expectNoHorizontalScroll,
   followAuthLink,
   recoveryLinkFor,
   resetAttendanceAndLeave,
@@ -192,6 +194,61 @@ test.describe("installed: overlays and view controls", () => {
       await expect(page).toHaveURL(/\/settings\/thresholds$/);
 
       await expectBackStack(page, [{ url: /\/settings$/ }]);
+    });
+
+    test("/settings/thresholds: back closes the open Default reminders, then returns to Settings", async ({
+      page,
+    }) => {
+      // 5.3. Opened and looked at, never saved: the default is the organisation's.
+      await runInstalled(page);
+      await page.goto("/settings");
+      await page.getByRole("link", { name: "Thresholds", exact: true }).click();
+      await expect(page).toHaveURL(/\/settings\/thresholds$/);
+      const summary = page.locator('[data-slot="reminder-summary"]');
+      const rows = page.locator('[data-slot="reminder-row"]');
+      expect((await summary.boundingBox())?.height).toBe(44);
+      await summary.click();
+      await expect(rows).not.toHaveCount(0);
+      await expectNoHorizontalScroll(page);
+      await page.goBack();
+      await expect(rows).toHaveCount(0);
+      await expect(page).toHaveURL(/\/settings\/thresholds$/);
+      await expectBackStack(page, [{ url: /\/settings$/ }]);
+    });
+
+    test("/settings/task-types: in the Add dialog, back closes the open reminders, then the dialog", async ({
+      page,
+    }) => {
+      await runInstalled(page);
+      await page.goto("/settings");
+      await page.getByRole("link", { name: "Task types", exact: true }).click();
+      await expect(page).toHaveURL(/\/settings\/task-types$/);
+      await page.getByRole("button", { name: "Add task type" }).click();
+      const add = page.getByRole("dialog", { name: "Add a task type" });
+      const summary = add.locator('[data-slot="reminder-summary"]');
+      const rows = add.locator('[data-slot="reminder-row"]');
+      expect((await summary.boundingBox())?.height).toBe(44);
+      await summary.click();
+      await expect(rows).toHaveCount(3);
+      for (const scale of [130, 200]) {
+        await page.evaluate((percent) => {
+          document.documentElement.style.fontSize = `${percent}%`;
+        }, scale);
+        // A sheet's padding eases to the new text size (its footer's margin does not): measure
+        // the settled layout, as every large-text check of a sheet does.
+        await animationsSettled(page);
+        await expectNoHorizontalScroll(page);
+      }
+      await page.evaluate(() => {
+        document.documentElement.style.fontSize = "";
+      });
+      await page.goBack();
+      await expect(rows).toHaveCount(0);
+      await expect(add).toBeVisible();
+      await expectBackStack(page, [
+        { closes: add, url: /\/settings\/task-types$/ },
+        { url: /\/settings$/ },
+      ]);
     });
 
     test("a confirm handed off from the sheet: back closes it, the URL stays", async ({ page }) => {

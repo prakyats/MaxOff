@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { reminderRulesSchema } from "@/core/lib/reminder-rules-schema";
 import { isISODate } from "@/core/time";
 
 export const COMPANY_NAME_MAX = 120;
@@ -93,6 +94,8 @@ export const updateThresholdsSchema = z
     // Quiet hours, IST (5B decision 6). The window may run past midnight (22:00-07:00).
     quietHoursStart: clockTime,
     quietHoursEnd: clockTime,
+    // The organisation's default reminders (5.3): `[]` = the launch schedule.
+    defaultTaskReminders: reminderRulesSchema,
   })
   // An escalation that reaches the Owner before the Admin would skip the first level entirely
   // (WORKFLOWS §9: level 1 is the approving Admin, level 2 the Owner).

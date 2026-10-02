@@ -25,13 +25,14 @@ const input = {
   workloadWarningThreshold: "4",
   quietHoursStart: "23:00",
   quietHoursEnd: "06:30",
+  defaultTaskReminders: [],
 };
 
 /**
  * The quiet-hours editor (5B decision 6): Settings → Thresholds, the Owner only
  * (`settings.manage`); the two IST times reach the repository with the rest of the form.
  */
-describe("updateThresholds: quiet hours", () => {
+describe("updateThresholds: quiet hours and default reminders", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getSettings.mockResolvedValue({ orgId: "org-1" });
@@ -47,6 +48,36 @@ describe("updateThresholds: quiet hours", () => {
       expect.objectContaining({ quietHoursStart: "23:00", quietHoursEnd: "06:30" }),
     );
     expect(revalidatePath).toHaveBeenCalledWith("/settings/thresholds");
+  });
+
+  it("saves the Owner's default reminders with the other thresholds (5.3)", async () => {
+    getCurrentMember.mockResolvedValue({ id: "o1", role: "owner" });
+    const rules = [
+      { before: 1, unit: "days" },
+      { before: 0, unit: "minutes" },
+    ] as const;
+    const result = await saveThresholds({ ...input, defaultTaskReminders: [...rules] });
+    expect(result).toEqual({ ok: true, data: null });
+    expect(updateThresholds).toHaveBeenCalledWith(
+      "org-1",
+      expect.objectContaining({ defaultTaskReminders: rules }),
+    );
+  });
+
+  it("refuses an invalid reminder list with a field error, writing nothing (5.3)", async () => {
+    getCurrentMember.mockResolvedValue({ id: "o1", role: "owner" });
+    const result = await saveThresholds({
+      ...input,
+      defaultTaskReminders: [{ before: 1.5, unit: "hours" }],
+    });
+    expect(result).toMatchObject({
+      ok: false,
+      error: {
+        code: "VALIDATION",
+        fieldErrors: { "defaultTaskReminders.0.before": ["Use a whole number, like 2."] },
+      },
+    });
+    expect(updateThresholds).not.toHaveBeenCalled();
   });
 
   it("refuses an Admin and a Crew member before anything is written", async () => {

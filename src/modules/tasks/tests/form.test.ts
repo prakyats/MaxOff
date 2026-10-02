@@ -23,6 +23,7 @@ const NORMAL: TaskType = {
   kind: "normal",
   hasLocation: false,
   archived: false,
+  defaultReminders: [],
 };
 const SHOOT: TaskType = {
   id: "shoot",
@@ -30,6 +31,7 @@ const SHOOT: TaskType = {
   kind: "event",
   hasLocation: true,
   archived: false,
+  defaultReminders: [],
 };
 const POSTING: TaskType = {
   id: "posting",
@@ -37,6 +39,7 @@ const POSTING: TaskType = {
   kind: "event",
   hasLocation: false,
   archived: false,
+  defaultReminders: [],
 };
 const NOW = new Date("2026-10-01T06:00:00.000Z"); // 11:30 IST, 1 Oct
 
@@ -165,6 +168,8 @@ describe("an edit sends only what changed (4A mechanics 4)", () => {
     completedAt: null,
     cancelledAt: null,
     createdAt: "2026-10-01T00:00:00Z",
+    reminderRules: [],
+    templateId: null,
   };
   const assignees = [
     {

@@ -1,4 +1,5 @@
 import type { Tables } from "@/core/db";
+import { parseReminderRules, type ReminderRule } from "@/core/lib/reminder-rules";
 import { type ISODate, istWeekday, WEEK_START_MONDAY, WEEKDAY_NAMES } from "@/core/time";
 
 /**
@@ -35,6 +36,11 @@ export type Thresholds = {
    */
   quietHoursStart: string;
   quietHoursEnd: string;
+  /**
+   * The organisation's default task reminders (5.3), under every type's and template's. `[]` =
+   * "Using the default": the launch schedule (2 days before, 1 day before, when due).
+   */
+  defaultTaskReminders: ReminderRule[];
 };
 
 /** Kickoff 4 decision 11: four open tasks due the same IST day. */
@@ -65,6 +71,7 @@ export function toOrgSettings(row: Tables<"org_settings">): OrgSettings {
     workloadWarningThreshold: row.workload_warning_threshold ?? DEFAULT_WORKLOAD_WARNING_THRESHOLD,
     quietHoursStart: row.quiet_hours_start.slice(0, 5),
     quietHoursEnd: row.quiet_hours_end.slice(0, 5),
+    defaultTaskReminders: parseReminderRules(row.default_task_reminders),
   };
 }
 

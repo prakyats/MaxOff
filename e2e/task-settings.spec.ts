@@ -199,6 +199,71 @@ test.describe("task types and per-type fields, the flows", () => {
       await removeFieldDefinitions([key]);
     }
   });
+
+  test("a type's default reminders: set in its dialog, offered as a task's default, cleared to []", async ({
+    page,
+  }, info) => {
+    await fresh(info);
+    const name = `${prefixOf(info)}Reminded`;
+    const stored = async () => {
+      const [row] = await serviceSelect<{ default_reminders: unknown }>(
+        `task_types?name=eq.${encodeURIComponent(name)}&select=default_reminders`,
+      );
+      return row?.default_reminders;
+    };
+    try {
+      await page.goto("/settings/task-types");
+      await page.getByRole("button", { name: "Add task type" }).click();
+      const add = page.getByRole("dialog", { name: "Add a task type" });
+      await add.getByLabel("Name").fill(name);
+      // The same collapsed line as a task's; a type's default is the organisation's list.
+      const summary = add.locator('[data-slot="reminder-summary"]');
+      await expect(summary).toHaveText(
+        "Reminders: 2 days before, 1 day before, when due · Using the default",
+      );
+      await expect(add.locator('[data-slot="reminder-row"]')).toHaveCount(0);
+      await summary.click();
+      await add.getByLabel("Reminder 1: how many").fill("5");
+      await add.getByRole("button", { name: "Remove reminder 2" }).click();
+      await expect(summary).toHaveText("Reminders: 5 days before, when due");
+      await add.getByRole("button", { name: "Add task type" }).click();
+      await expect(page.getByText("Task type added")).toBeVisible();
+      expect(await stored()).toEqual([
+        { before: 5, unit: "days" },
+        { before: 0, unit: "minutes" },
+      ]);
+
+      // A task of that type with no list of its own follows it ("Using the default").
+      await page.goto("/tasks");
+      await page.getByRole("button", { name: "New task" }).click();
+      const dialog = page.locator('[data-slot="task-form-dialog"]');
+      await pick(page, dialog.getByLabel("Type"), name);
+      await expect(dialog.locator('[data-slot="reminder-summary"]')).toHaveText(
+        "Reminders: 5 days before, when due · Using the default",
+      );
+      await page.keyboard.press("Escape");
+      await page
+        .getByRole("alertdialog", { name: "Discard this task?" })
+        .getByRole("button", { name: "Discard task" })
+        .click();
+      await expect(dialog).toBeHidden();
+
+      // Use the default clears the type's own list.
+      await page.goto("/settings/task-types");
+      await page.getByRole("button", { name: `Edit ${name}` }).click();
+      const edit = page.getByRole("dialog", { name: `Edit ${name}` });
+      await expect(edit.locator('[data-slot="reminder-summary"]')).toHaveText(
+        "Reminders: 5 days before, when due",
+      );
+      await edit.locator('[data-slot="reminder-summary"]').click();
+      await edit.getByRole("button", { name: "Use the default" }).click();
+      await edit.getByRole("button", { name: "Save" }).click();
+      await expect(page.getByText("Task type saved")).toBeVisible();
+      expect(await stored()).toEqual([]);
+    } finally {
+      await fresh(info);
+    }
+  });
 });
 
 test.describe("task types, the Owner's only", () => {

@@ -7,6 +7,7 @@ import { Suspense, use, useEffect, useMemo, useRef, useState } from "react";
 import type { FieldDefinition } from "@/core/custom-fields";
 import { CustomFieldsForm } from "@/core/custom-fields/components/custom-fields-form";
 import type { ResultError } from "@/core/errors/result";
+import type { ReminderRule } from "@/core/lib/reminder-rules";
 import { ROLE_LABELS } from "@/core/lib/role-labels";
 import { type ISODate, isISODate, systemClock, toISTDate } from "@/core/time";
 import { ActionStatus } from "@/core/ui/action/action-status";
@@ -14,6 +15,7 @@ import { useAction } from "@/core/ui/action/use-action";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { FormField } from "@/core/ui/composites/form-field";
+import { ReminderRulesEditor } from "@/core/ui/composites/reminder-rules-editor";
 import { NAV_FORWARD } from "@/core/ui/motion/nav-types";
 import { nameSlide } from "@/core/ui/motion/slide";
 import { closeOverlaysThen } from "@/core/ui/overlay/overlay-history";
@@ -66,6 +68,7 @@ import {
   STAGES_MAX,
   TITLE_MAX,
 } from "../domain/limits";
+import { taskDefaultReminders } from "../domain/reminders";
 import { isFinal } from "../domain/task";
 import { applyTemplate, type TaskTemplate } from "../domain/templates";
 import {
@@ -106,6 +109,13 @@ export type TaskFormSetup = {
   definitions: FieldDefinition[];
   /** The active task templates, for "Start from" (4.6; shared company-wide, decision 19). */
   templates: TaskTemplate[];
+  /**
+   * Every template's own reminders, archived ones included, by id (5.3): a task follows its
+   * template's while it has none of its own, so the dialog names them as "the default".
+   */
+  templateReminders: Record<string, ReminderRule[]>;
+  /** The organisation's default reminders (Settings → Thresholds; `[]` = the launch schedule). */
+  orgReminders: ReminderRule[];
 };
 
 export type TaskFormMode =
@@ -279,6 +289,7 @@ const SERVER_FIELDS: Record<string, keyof DraftErrors> = {
   location: "location",
   purpose: "purpose",
   stages: "stages",
+  reminderRules: "reminders",
 };
 
 function personMeta(person: AssignablePerson): string {
@@ -552,6 +563,14 @@ function TaskForm({
     ]);
   }
   const approverName = loaded.admins.find((admin) => admin.id === approverId)?.name;
+  // "Using the default" (5.3): the template the task started from, else its type, else the
+  // organisation, else the launch schedule, as `app.task_reminder_rules` resolves it when armed.
+  const reminderTemplateId = mode.kind === "edit" ? mode.task.templateId : draft.templateId;
+  const defaultReminders = taskDefaultReminders({
+    template: reminderTemplateId ? (loaded.templateReminders[reminderTemplateId] ?? null) : null,
+    type: type?.defaultReminders ?? null,
+    organisation: loaded.orgReminders,
+  });
 
   return (
     <form
@@ -814,6 +833,14 @@ function TaskForm({
           )}
         </FormField>
       </div>
+
+      <ReminderRulesEditor
+        draft={draft.reminders}
+        onChange={(reminders) => update({ reminders }, ["reminders"])}
+        fallback={defaultReminders}
+        disabled={pending}
+        error={errors.reminders}
+      />
 
       {isEvent ? (
         <div className="flex flex-col gap-4" data-slot="task-event-fields">
