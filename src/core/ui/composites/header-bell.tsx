@@ -8,11 +8,12 @@ import { BellCountMark } from "@/core/ui/shell/bell-count";
  * The notification bell inside the mobile page title bar (task 1.5), with the unread count
  * (task 5.1, `BellCountMark`: the layout's count, streamed).
  *
- * Owner and Admin have no Alerts destination in their bottom bar, and the brand bar that used
- * to carry the bell slides away as you scroll — so notifications would have ended up behind a
- * scroll position. The bell lives in the title bar instead, which is always on screen.
+ * No role has an Alerts destination in its bottom bar (the Crew's moved here in 5B decision 1),
+ * and the brand bar that used to carry the bell slides away as you scroll — so notifications
+ * would have ended up behind a scroll position. The bell lives in the title bar instead, which
+ * is always on screen.
  *
- * `AppShell` sets `data-alerts` on the shell: when the bottom bar already has Alerts (Staff),
+ * `AppShell` sets `data-alerts` on the shell: were a bottom bar to carry Alerts again,
  * `globals.css` hides this, because a second bell two inches above the first is noise.
  */
 export function HeaderBell() {

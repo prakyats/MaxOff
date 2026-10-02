@@ -3,9 +3,11 @@
  * screen (5A step 4) opens a record **with its parent list underneath**, so back goes to the
  * list, never out of the app. `/open?to=<path>` lays the parent entry down, then the detail.
  *
- * The parent of a path is the path one segment up (`/tasks/<id>` → `/tasks`, `/leave/expenses`
+ * The parent of a path is the path one segment up (`/tasks/<id>` → `/tasks`, `/leave/attendance`
  * → `/leave`, `/settings/templates` → `/settings`); a top-level screen (`/approvals`,
- * `/notifications`) sits on the role's home. Query strings and hashes stay with the target.
+ * `/notifications`) sits on the role's home. Extra work & expenses (`/leave/extra-work`,
+ * `/leave/expenses`) sits on Me, where its row is (5B decision 3), not on Attendance & leave.
+ * Query strings and hashes stay with the target.
  */
 export const OPEN_PATH = "/open";
 
@@ -22,8 +24,16 @@ export function isInAppPath(value: string): boolean {
   );
 }
 
+/** Pages whose parent is not one segment up (5B decision 3). */
+const PARENTS: Readonly<Record<string, string>> = {
+  "/leave/extra-work": "/me",
+  "/leave/expenses": "/me",
+};
+
 export function parentOf(path: string, home: string): string {
   const pathname = path.split(/[?#]/)[0] ?? "/";
+  const fixed = PARENTS[pathname.replace(/\/$/, "")];
+  if (fixed) return fixed;
   const segments = pathname.split("/").filter(Boolean);
   if (segments.length <= 1) return home;
   return `/${segments.slice(0, -1).join("/")}`;

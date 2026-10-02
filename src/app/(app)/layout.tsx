@@ -33,8 +33,7 @@ import { countTasks } from "@/modules/tasks";
  * days, leave requests, extra work notes (3b.2) and expense claims (3b.3, `expenses.decide`)
  * waiting for whoever decides them (the Owner), plus the tasks at the step the viewer decides
  * (4.5: the Owner's final approvals, an Admin's checks); client items join in 7.4. **Alerts**
- * (5.1, kickoff 5 decision 4): the viewer's unread notifications, on Staff's Alerts tab and every
- * role's bell (`readUnread()`, which the title bar's bell shares in the same request; `unread`,
+ * (5.1, kickoff 5 decision 4): the viewer's unread notifications, on every role's bell (`readUnread()`, which the title bar's bell shares in the same request; `unread`,
  * that count with the server's clock, or null when it could not be read).
  */
 async function navBadges(

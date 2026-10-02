@@ -172,6 +172,19 @@ const ME: Record<string, Point> = {
   },
 };
 
+/**
+ * Whoever marks attendance: the rows of their own pages under the profile (5B decision 3). Help &
+ * troubleshooting (decision 4) is not traced: the device card above it says what this device's
+ * notifications are once it has looked, one line or three, which no skeleton can know.
+ */
+const ME_WITH_PAGES: Record<string, Point> = {
+  ...ME,
+  "own pages": {
+    held: '[data-slot="loading-me-pages"]',
+    settled: '[data-slot="me-pages"]',
+  },
+};
+
 const LOADING_SCREENS: readonly LoadingScreen[] = [
   // Today: the Owner's attendance card and people board (2.4) over the stand-in; an Admin's
   // strip (its End day reads the day's overtime note, only the page does) over theirs.
@@ -224,14 +237,14 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
     path: "/me",
     marker: 'aria-label="Loading Me"',
     hold: "/rest/v1/coordinated_freelancers",
-    trace: ME,
+    trace: ME_WITH_PAGES,
   },
   {
     role: "staff",
     path: "/me",
     marker: 'aria-label="Loading Me"',
     hold: "/rest/v1/coordinated_freelancers",
-    trace: ME,
+    trace: ME_WITH_PAGES,
   },
   // A task's page (4.4): its skeleton streams before the page decides; an unknown id ends on the
   // not-found screen, so there is nothing to trace, only the fit (the Owner's ⋯ placeholder, and

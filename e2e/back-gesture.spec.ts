@@ -254,6 +254,35 @@ test.describe("installed: overlays and view controls", () => {
 
       await expectBackStack(page, [{ url: /\/my-day$/ }]);
     });
+
+    test("the Leave tab (5B): its tabs never add history; back returns to My Day, then leaves", async ({
+      page,
+    }) => {
+      await runInstalled(page);
+      await page.goto("/my-day");
+      await page.locator('[data-slot="bottom-nav"] [data-nav="leave"]').click();
+      await expect(page).toHaveURL(/\/leave$/);
+      await view(page, "Attendance", /\/leave\/attendance$/);
+      await view(page, "Leave requests", /\/leave$/);
+      await view(page, "Attendance", /\/leave\/attendance$/);
+      await expectBackStack(page, [{ url: /\/my-day$/ }, { url: /^about:blank$/ }]);
+    });
+
+    test("Me → Extra work & expenses (5B): its tabs never add history; back returns to Me, then My Day", async ({
+      page,
+    }) => {
+      await runInstalled(page);
+      await page.goto("/my-day");
+      await page.locator('[data-slot="bottom-nav"] [data-nav="me"]').click();
+      await expect(page).toHaveURL(/\/me$/);
+      // A row of Me is a real drill-down: it pushes.
+      await page.locator('[data-slot="me-work-link"]').click();
+      await expect(page).toHaveURL(/\/leave\/extra-work$/);
+      await view(page, "Expenses", /\/leave\/expenses$/);
+      await view(page, "Extra work", /\/leave\/extra-work$/);
+      await view(page, "Expenses", /\/leave\/expenses$/);
+      await expectBackStack(page, [{ url: /\/me$/ }, { url: /\/my-day$/ }]);
+    });
   });
 });
 

@@ -8,11 +8,11 @@ import { getClaimSetup, listOwnClaims } from "@/modules/expenses";
 import { AddExpenseButton } from "@/modules/expenses/components/add-expense-button";
 import { OwnClaimsList } from "@/modules/expenses/components/own-claims-list";
 
-export const metadata: Metadata = { title: "Attendance & leave" };
+export const metadata: Metadata = { title: "Extra work & expenses" };
 
 /**
- * The member's own expense claims (PRODUCT §4.18, WORKFLOWS §2a, 3b.3), a fourth view of
- * Attendance & leave (the layout holds the header and the tabs): **Add expense** and the claims,
+ * The member's own expense claims (PRODUCT §4.18, WORKFLOWS §2a, 3b.3), the second view of
+ * Extra work & expenses (5B; the layout holds the header and the tabs): **Add expense** and the claims,
  * newest expense first, each with where it stands. Claims are also added from End day. Only
  * whoever marks attendance opens it: the Owner has no claims, and an Admin sees only their own.
  */

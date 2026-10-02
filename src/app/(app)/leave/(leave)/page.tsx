@@ -5,17 +5,19 @@ import { checkThenRead } from "@/core/lib/start-early";
 import { withSessionUserId } from "@/core/auth/server";
 import { requirePermission } from "@/core/permissions/server";
 import { todayIST } from "@/core/time";
-import { LEAVE_PAGE_SIZE, listRequests } from "@/modules/leave";
+import { compLeaveLine, getCompBalance, LEAVE_PAGE_SIZE, listRequests } from "@/modules/leave";
 import { LeaveRequestList } from "@/modules/leave/components/leave-request-list";
 
-import { LeavePager } from "./leave-nav";
+import { LeavePager } from "../leave-nav";
 
 export const metadata: Metadata = { title: "Attendance & leave" };
 
 /**
  * The member's own leave requests, newest first, 20 at a time (the layout holds the header and
  * the tabs). Only whoever marks attendance (`attendance.self`, Admins and Staff) opens it; the
- * Owner's view of people is 2.4. The pager appears only when there is more than one page.
+ * Owner's view of people is 2.4. The pager appears only when there is more than one page. Under
+ * the list, the comp leave the member can still take (5B decision 2), only when there is some:
+ * below, so nothing the loading screen traced moves when it is there.
  */
 export default async function LeaveRequestsPage({
   searchParams,
@@ -26,10 +28,14 @@ export default async function LeaveRequestsPage({
   const page =
     typeof requested === "string" && /^[1-9]\d{0,4}$/.test(requested) ? Number(requested) : 1;
   // The list is keyed by the session's id, so it starts with the session read (§19).
-  const [, listing] = await checkThenRead(
+  const [, [listing, balance]] = await checkThenRead(
     requirePermission("attendance.self"),
-    withSessionUserId((id) => listRequests(id, page)),
+    Promise.all([
+      withSessionUserId((id) => listRequests(id, page)),
+      withSessionUserId(getCompBalance),
+    ]),
   );
+  const comp = compLeaveLine(balance);
   const { requests, total } = listing;
   const pages = Math.max(1, Math.ceil(total / LEAVE_PAGE_SIZE));
   // A page that no longer exists (the list got shorter): the first one.
@@ -47,6 +53,11 @@ export default async function LeaveRequestsPage({
         />
       ) : null}
       <LeaveRequestList requests={requests} today={todayIST()} />
+      {comp ? (
+        <p data-slot="comp-leave-line" className="mt-3 text-sm">
+          {comp}
+        </p>
+      ) : null}
     </>
   );
 }

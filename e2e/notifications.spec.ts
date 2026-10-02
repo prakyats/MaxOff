@@ -24,8 +24,8 @@ import {
 
 /**
  * The bell and Alerts (task 5.1, kickoff 5 decision 4; owner cut (b), the simplest form): the
- * unread count on the bell (Staff's Alerts tab, the Owner's and Admins' title bar on a phone, the
- * top bar on desktop), the history newest first, a tap that reads the row and opens its link with
+ * unread count on the bell (every role's title bar on a phone, the Crew's since 5B decision 1;
+ * the top bar on desktop), the history newest first, a tap that reads the row and opens its link with
  * the parent list underneath, "Mark all read", opening a record reads its rows, and **Realtime**
  * (5A build decision 23): a new row reaches an open screen without a reload, through the e2e
  * server's hold proxy, and reaches its recipient only (RLS on Realtime, owner 2026-10-01).
@@ -95,9 +95,7 @@ async function bellCount(page: Page): Promise<number> {
   // One look at the page, never a wait: a count-then-read could see the badge, then wait for it
   // forever once it went (CI 2026-10-01: a bell hydrating late dropped to 0 between the two).
   const shown = await page
-    .locator(
-      '[data-slot="header-bell"], [data-slot="top-bar-bell"], [data-slot="bottom-nav"] [data-nav="alerts"]',
-    )
+    .locator('[data-slot="header-bell"], [data-slot="top-bar-bell"]')
     .locator('[data-slot="nav-badge"]:visible')
     .evaluateAll((badges) => badges.map((badge) => badge.textContent?.trim() ?? ""));
   return Number(shown[0] ?? "0");
@@ -146,7 +144,8 @@ test.describe("the bell and Alerts", () => {
     await rowOf(page, "Expense claim approved").getByRole("link").click();
     await expect(page).toHaveURL(/\/leave\/expenses$/);
     await expect.poll(() => unreadOf(staff)).toBe(1);
-    await expectBackStack(page, [{ url: /\/leave$/ }, { url: /\/notifications$/ }]);
+    // Extra work & expenses sits on Me, where its row is (5B decision 3).
+    await expectBackStack(page, [{ url: /\/me$/ }, { url: /\/notifications$/ }]);
     await expect(rowOf(page, "Expense claim approved")).not.toHaveAttribute("data-unread");
     await expect(page.locator('[data-slot="notification-bar"]')).toContainText("1 unread");
     await expect.poll(() => bellCount(page)).toBe(1);
@@ -622,7 +621,7 @@ test.describe("the bell and Alerts", () => {
     }
   });
 
-  test("installed, Staff: back from a record goes to its list, then Alerts, then My Day", async ({
+  test("installed, Staff: the title bar's bell, a row, back to its page's parent, then Alerts, then My Day", async ({
     page,
     isMobile,
   }, info) => {
@@ -634,13 +633,14 @@ test.describe("the bell and Alerts", () => {
     await signIn(page, staff, PASSWORD);
     await page.goto("/my-day");
     await hydrated(page);
-    await page.locator('[data-slot="bottom-nav"] [data-nav="alerts"]').click();
+    // The Crew's Alerts is the title bar's bell since 5B decision 1.
+    await page.locator('[data-slot="header-bell"]:visible').click();
     await expect(page).toHaveURL(/\/notifications$/);
     await hydrated(page);
     await rowOf(page, "Claim paid").getByRole("link").click();
     await expect(page).toHaveURL(/\/leave\/expenses$/);
     await expectBackStack(page, [
-      { url: /\/leave$/ },
+      { url: /\/me$/ },
       { url: /\/notifications$/ },
       { url: /\/my-day$/ },
     ]);
@@ -658,7 +658,8 @@ test.describe("the bell and Alerts", () => {
     await signIn(page, staff, PASSWORD);
     await page.goto("/my-day");
     await hydrated(page);
-    await page.locator('[data-slot="bottom-nav"] [data-nav="alerts"]').click();
+    // The Crew's Alerts is the title bar's bell since 5B decision 1.
+    await page.locator('[data-slot="header-bell"]:visible').click();
     await expect(page).toHaveURL(/\/notifications$/);
     await hydrated(page);
     const filter = page.locator('[data-slot="alerts-filter"]');

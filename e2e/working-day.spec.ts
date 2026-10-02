@@ -162,9 +162,9 @@ test("Staff: the prompt asks and snoozes, Start day is the tap, End day is final
   await page.keyboard.press("Escape");
   await expect(timeline).toBeHidden();
 
-  // The overtime note written with the end waits for the Owner on the Extra work tab (3b.2).
-  await page.getByRole("link", { name: "Extra work", exact: true }).click();
-  await expect(page).toHaveURL(/\/leave\/extra-work$/);
+  // The overtime note written with the end waits for the Owner on Extra work (3b.2), a page of
+  // its own since 5B decision 3.
+  await page.goto("/leave/extra-work");
   const noteRow = page.locator('[data-slot="extra-work-note"]').first();
   await expect(noteRow).toContainText("The shoot ran late");
   await expect(noteRow).toContainText("Waiting for the Owner");

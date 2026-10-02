@@ -318,12 +318,12 @@ test.describe("installed: the back order of the claim form and the Owner's revie
     ]);
   });
 
-  test("the tabs replace: one back from Expenses leaves Attendance & leave", async ({
+  test("the tabs replace: one back from Expenses leaves Extra work & expenses", async ({
     page,
   }, info) => {
     await runInstalled(page);
     await signIn(page, person(info), PASSWORD);
-    await page.goto("/leave");
+    await page.goto("/leave/extra-work");
     await page.getByRole("link", { name: "Expenses", exact: true }).click();
     await expect(page).toHaveURL(/\/leave\/expenses$/);
     await page.getByRole("link", { name: "Extra work", exact: true }).click();

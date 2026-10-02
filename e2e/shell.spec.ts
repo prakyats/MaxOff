@@ -121,7 +121,7 @@ test.describe("Staff on a phone", () => {
     await expect(page.locator("[data-slot='sidebar']")).toBeHidden();
     const nav = page.locator("[data-slot='bottom-nav']");
     await expect(nav).toBeVisible();
-    for (const label of ["My Day", "Tasks", "Calendar", "Alerts", "Me"]) {
+    for (const label of ["My Day", "Tasks", "Calendar", "Leave", "Me"]) {
       await expect(nav.getByRole("link", { name: label })).toBeVisible();
     }
 
@@ -129,5 +129,96 @@ test.describe("Staff on a phone", () => {
     await expect(page).toHaveURL(/\/me$/);
     await expect(nav.getByRole("link", { name: "Me" })).toHaveAttribute("aria-current", "page");
     await expect(page.getByText("staff@maxoff.local")).toBeVisible();
+  });
+
+  test("5B: Leave is a tab, Alerts the title bar's bell, Extra work & expenses a row on Me", async ({
+    page,
+  }) => {
+    await page.goto("/my-day");
+    const nav = page.locator("[data-slot='bottom-nav']");
+    await nav.getByRole("link", { name: "Leave" }).click();
+    await expect(page).toHaveURL(/\/leave$/);
+    await expect(nav.getByRole("link", { name: "Leave" })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("heading", { name: "Attendance & leave", level: 1 })).toBeVisible();
+    const leaveTabs = page.locator('[data-slot="leave-tabs"] a');
+    await expect(leaveTabs).toHaveText(["Leave requests", "Attendance"]);
+    await expect(page.getByRole("button", { name: "Request leave" })).toBeVisible();
+
+    // Me: Extra work & expenses, its two tabs, and Me stays the current tab.
+    await nav.getByRole("link", { name: "Me" }).click();
+    await expect(page.locator('[data-slot="me-leave-link"]')).toHaveCount(0);
+    await page.locator('[data-slot="me-work-link"]').click();
+    await expect(page).toHaveURL(/\/leave\/extra-work$/);
+    await expect(
+      page.getByRole("heading", { name: "Extra work & expenses", level: 1 }),
+    ).toBeVisible();
+    await expect(leaveTabs).toHaveText(["Extra work", "Expenses"]);
+    await expect(nav.getByRole("link", { name: "Me" })).toHaveAttribute("aria-current", "page");
+    await expect(nav.getByRole("link", { name: "Leave" })).not.toHaveAttribute("aria-current");
+    await expect(page.getByRole("button", { name: "Request leave" })).toHaveCount(0);
+    await page.locator('[data-slot="leave-tabs"]').getByRole("link", { name: "Expenses" }).click();
+    await expect(page).toHaveURL(/\/leave\/expenses$/);
+    await expect(nav.getByRole("link", { name: "Me" })).toHaveAttribute("aria-current", "page");
+
+    // The bell in the title bar opens Alerts.
+    await page.locator('[data-slot="header-bell"]:visible').click();
+    await expect(page).toHaveURL(/\/notifications$/);
+  });
+
+  test("5B: Me ends with Help & troubleshooting: the test push, Reload app and the version", async ({
+    page,
+  }) => {
+    await page.goto("/me");
+    const help = page.locator('[data-slot="me-help"]');
+    await expect(help).toContainText("Help & troubleshooting");
+    await expect(help.locator('[data-slot="push-test"]')).toBeVisible();
+    await expect(help.locator('[data-slot="reload-app"]')).toBeVisible();
+    await expect(help.locator('[data-slot="app-version"]')).toHaveText(/^Version \S/);
+    // Nothing of it stays in the device card above.
+    await expect(page.locator('[data-slot="push-test"]')).toHaveCount(1);
+  });
+});
+
+test.describe("Staff on desktop (5B decision 5)", () => {
+  test.skip(({ isMobile }) => isMobile, "the sidebar is desktop-only");
+  test.use({ storageState: storageStateFor("staff") });
+
+  test("the sidebar: My Day, Tasks, Calendar, Attendance & leave, Extra work & expenses, Me; the bell at the top", async ({
+    page,
+  }) => {
+    await page.goto("/leave/expenses");
+    const sidebar = page.locator("[data-slot='sidebar']");
+    await expect(sidebar.locator("[data-nav] > span.truncate")).toHaveText([
+      "My Day",
+      "Tasks",
+      "Calendar",
+      "Attendance & leave",
+      "Extra work & expenses",
+      "Me",
+    ]);
+    // One current destination: the closest route, not Attendance & leave above it.
+    await expect(sidebar.locator('[aria-current="page"]')).toHaveCount(1);
+    await expect(sidebar.locator('[data-nav="work"]')).toHaveAttribute("aria-current", "page");
+    await expect(page.locator('[data-slot="top-bar-bell"]')).toBeVisible();
+    await sidebar.locator('[data-nav="leave"]').click();
+    await expect(page).toHaveURL(/\/leave$/);
+    await expect(sidebar.locator('[data-nav="leave"]')).toHaveAttribute("aria-current", "page");
+  });
+});
+
+test.describe("an Admin's Me (5B decision 7: their navigation is unchanged)", () => {
+  test.use({ storageState: storageStateFor("admin") });
+
+  test("keeps Attendance & leave and gains Extra work & expenses", async ({ page }) => {
+    await page.goto("/me");
+    await page.locator('[data-slot="me-leave-link"]').click();
+    await expect(page).toHaveURL(/\/leave$/);
+    await expect(page.locator('[data-slot="leave-tabs"] a')).toHaveText([
+      "Leave requests",
+      "Attendance",
+    ]);
+    await page.goto("/me");
+    await page.locator('[data-slot="me-work-link"]').click();
+    await expect(page).toHaveURL(/\/leave\/extra-work$/);
   });
 });

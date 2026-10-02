@@ -7,19 +7,18 @@ import { PageHeader } from "@/core/ui/composites/page-header";
 import { type CompBalance, getCompBalance, listCompDates } from "@/modules/leave";
 import { RequestLeaveButton } from "@/modules/leave/components/request-leave-button";
 
-import { LeaveTabs } from "./leave-tabs";
+import { LEAVE_TABS, LeaveTabs } from "../leave-tabs";
 
 const NO_COMP_BALANCE: CompBalance = { availableDays: 0, useBy: null };
 
-const DESCRIPTION =
-  "Request leave, change or cancel it, note extra work, claim expenses, and see how each day was recorded.";
+const DESCRIPTION = "Request leave, change or cancel it, and see how each day was recorded.";
 
 /**
- * The member's own attendance and leave (task 2.3, WORKFLOWS §1/§2): four views, `/leave`
- * (requests), `/leave/attendance` (the month's days), `/leave/extra-work` (notes and comp
- * leave, 3b.2) and `/leave/expenses` (expense claims, 3b.3), under one header and tab bar. Personal,
- * not operations, so it has no tab or sidebar entry (owner decision 2026-09-24): the attendance
- * strip on My Day and /today, and a row on Me, lead here.
+ * The member's own attendance and leave (task 2.3, WORKFLOWS §1/§2): two views since 5B
+ * (decision 2), `/leave` (requests) and `/leave/attendance` (the month's days), under one header
+ * and tab bar; extra work and expenses are their own page (`(work)`, decision 3). The Crew's
+ * "Leave" tab and sidebar entry (decisions 1 and 5); for an Admin, a row on Me and the attendance
+ * strip lead here (decision 7: their navigation is unchanged).
  *
  * Two routes rather than one with `?tab=`, so each view has its own `loading.tsx` that traces
  * it (ARCHITECTURE §14.1); the tabs still switch with `replace` (§14.2 d). This layout awaits
@@ -54,7 +53,7 @@ export default async function LeaveLayout({ children }: { children: ReactNode })
         help={DESCRIPTION}
         actions={<RequestLeaveButton today={todayIST()} balance={balance} />}
       />
-      <LeaveTabs />
+      <LeaveTabs tabs={LEAVE_TABS} label="Attendance and leave" />
       {children}
     </>
   );

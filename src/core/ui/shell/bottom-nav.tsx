@@ -13,7 +13,7 @@ import {
 } from "@/core/ui/navigation/attributes";
 
 import { MoreSheet } from "./more-sheet";
-import { isActivePath, type NavItem, PROFILE_NAV_ITEM } from "./nav";
+import { activeNavKey, isActivePath, type NavItem, PROFILE_NAV_ITEM } from "./nav";
 import { NAV_ICONS } from "./nav-icons";
 import { usePrefetchTabs, useTabNavigation } from "./tab-history";
 
@@ -78,8 +78,8 @@ export type NavItemBadge = { mark: ReactNode; words: ReactNode };
 
 /**
  * Bottom navigation, **for every role** (ARCHITECTURE §14.1, task 1.5 — before it, only Staff
- * had one and Owner and Admin opened a drawer). Four primary destinations plus More; Staff get
- * their five from PRODUCT §4.7 and no More. Hidden from `md` up, where the sidebar takes over.
+ * had one and Owner and Admin opened a drawer). Four primary destinations plus More; the Crew
+ * get their five (5B decision 1: My Day · Tasks · Calendar · Leave · Me) and no More. Hidden from `md` up, where the sidebar takes over.
  *
  * The split itself lives in `nav.ts` (`MOBILE_PRIMARY`), not here.
  */
@@ -122,6 +122,8 @@ export function BottomNav({
   const moreActive =
     hasMore && [...more, PROFILE_NAV_ITEM].some((item) => isActivePath(pathname, item.href));
   const columns = primary.length + (hasMore ? 1 : 0);
+  // The closest route wins: on `/leave/expenses` (reached from Me) Me is current, not Leave.
+  const current = activeNavKey(pathname, primary);
 
   return (
     <nav
@@ -133,7 +135,7 @@ export function BottomNav({
     >
       <ul className="grid" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
         {primary.map((item) => {
-          const active = isActivePath(pathname, item.href);
+          const active = item.key === current;
           return (
             <li key={item.key} className="flex">
               <Link

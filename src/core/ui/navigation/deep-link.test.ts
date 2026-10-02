@@ -20,7 +20,11 @@ describe("deep-link entry", () => {
     expect(parentOf("/tasks/abc", "/my-day")).toBe("/tasks");
     expect(parentOf("/tasks/abc?view=chat", "/my-day")).toBe("/tasks");
     expect(parentOf("/people/p1", "/today")).toBe("/people");
-    expect(parentOf("/leave/expenses", "/my-day")).toBe("/leave");
+    expect(parentOf("/leave/attendance", "/my-day")).toBe("/leave");
+    // Extra work & expenses opens from Me (5B decision 3), whatever the view.
+    expect(parentOf("/leave/expenses", "/my-day")).toBe("/me");
+    expect(parentOf("/leave/extra-work", "/today")).toBe("/me");
+    expect(parentOf("/leave/expenses?x=1", "/my-day")).toBe("/me");
     expect(parentOf("/settings/templates/t1", "/today")).toBe("/settings/templates");
     expect(parentOf("/approvals", "/today")).toBe("/today");
     expect(parentOf("/notifications", "/my-day")).toBe("/my-day");

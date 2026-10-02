@@ -8,7 +8,7 @@ import { getNoteDays, historyMonth, listDays, monthLabel, monthOf } from "@/modu
 import { AttendanceHistory } from "@/modules/attendance/components/attendance-history";
 import { getOwnMember } from "@/modules/team";
 
-import { LeavePager } from "../leave-nav";
+import { LeavePager } from "../../leave-nav";
 
 export const metadata: Metadata = { title: "Attendance & leave" };
 

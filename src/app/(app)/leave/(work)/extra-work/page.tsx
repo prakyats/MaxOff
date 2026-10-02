@@ -8,10 +8,10 @@ import { ExtraWorkNotesList, getNoteDays, listOwnNotes } from "@/modules/attenda
 import { AddNoteButton } from "@/modules/attendance/components/add-note-button";
 import { CompLeaveCard, getCompBalance, listCredits } from "@/modules/leave";
 
-export const metadata: Metadata = { title: "Attendance & leave" };
+export const metadata: Metadata = { title: "Extra work & expenses" };
 
 /**
- * The member's extra work (PRODUCT §4.3a, 3b.2), a third view of Attendance & leave (the layout
+ * The member's extra work (PRODUCT §4.3a, 3b.2), the first view of Extra work & expenses (5B; the layout
  * holds the header and the tabs): the comp leave balance and credits first (the one figure that
  * matters), then the notes, newest first, each with the Owner's outcome, and **Add note** for
  * overtime or a day off worked in the last 7 days. Only whoever marks attendance opens it.
