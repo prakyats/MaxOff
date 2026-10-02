@@ -822,12 +822,14 @@ clients              id, org_id, name, legal_name, state client_state, admin_id 
                      -- kickoff 3 (2026-09-27): unique (org_id, lower(name)) where state <> 'inactive';
                      -- gstin check (15-char format) when not null; website / drive_url https only;
                      -- archived_at reserved (no archive action in phase 3: inactive is the end state)
-                     -- kickoff 7 amendment B (owner decision 2026-10-02): created under clients.create
-                     -- (Owner and Admins; key seeded for both). An Admin's insert is always state draft
-                     -- with admin_id = the caller (a guard refuses any other admin_id), so the
-                     -- assignment row opens with them; the Owner is notified (WORKFLOWS §9). The Owner
-                     -- may still give any active Admin or none. Lifecycle and assignment stay
-                     -- clients.manage. RLS insert policy and pgTAP per role when built (7.1)
+                     -- kickoff 7 amendment B (owner decisions 2026-10-02, revised the same day): key
+                     -- clients.create (Owner and Admins; seeded for both). The Owner's client: the plain
+                     -- INSERT below, a draft with any active Admin or none. An Admin's client: created
+                     -- ACTIVE through a transition function (it sets state, ADR-0006) with admin_id = the
+                     -- caller (no other Admin), activated_at = now(), the first assignment row, the
+                     -- activity entry and the Owner's notification in one transaction; an Admin's API
+                     -- INSERT is refused. Pause / close / reactivate / assignment stay clients.manage.
+                     -- RLS and pgTAP per role when built (7.1)
                      -- 3.1: created by a plain INSERT under clients.manage (state draft; admin_id may be
                      -- given at creation and opens the first assignment row by trigger). state,
                      -- activated_at, admin_id and archived_at are protected columns (transition
