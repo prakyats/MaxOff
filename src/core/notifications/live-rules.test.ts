@@ -1,6 +1,31 @@
 import { describe, expect, it } from "vitest";
 
-import { liveRefreshWaits, TOKEN_GRACE_MS, TOKEN_RETRY_MS, tokenRefreshIn } from "./live-rules";
+import {
+  catchUpRefreshes,
+  liveRefreshWaits,
+  TOKEN_GRACE_MS,
+  TOKEN_RETRY_MS,
+  tokenRefreshIn,
+} from "./live-rules";
+
+describe("catchUpRefreshes (the first join's catch-up)", () => {
+  it("re-reads the screen when the count changed before the channel joined", () => {
+    expect(catchUpRefreshes({ count: 0 }, { count: 1 }, false)).toBe(true);
+    expect(catchUpRefreshes({ count: 3 }, { count: 2 }, false)).toBe(true);
+  });
+
+  it("leaves the screen when nothing changed", () => {
+    expect(catchUpRefreshes({ count: 2 }, { count: 2 }, false)).toBe(false);
+  });
+
+  it("leaves it while one of this device's reads waits for its count (a read never re-reads)", () => {
+    expect(catchUpRefreshes({ count: 2 }, { count: 1 }, true)).toBe(false);
+  });
+
+  it("leaves it when the device had no count to compare with", () => {
+    expect(catchUpRefreshes(null, { count: 4 }, false)).toBe(false);
+  });
+});
 
 describe("liveRefreshWaits", () => {
   it("refreshes only when nothing is in the way", () => {

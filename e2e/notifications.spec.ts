@@ -391,6 +391,71 @@ test.describe("the bell and Alerts", () => {
     await expect(page.locator('[data-slot="alerts-filter"]')).toBeVisible();
   });
 
+  test("Realtime: a row written before the live channel first joins still reaches the bell and the list", async ({
+    page,
+  }, info) => {
+    // Found 2026-10-02 (5B): a notification Realtime had already passed on before the page's
+    // channel first joined sent that page no event, so the bell kept the old count until the next
+    // navigation. Here the page's join is held until a listener of the test's own has heard the
+    // row (Realtime has dealt with it), which makes that gap certain.
+    const staff = person(info, "staff");
+    await clearAlerts(staff);
+    const { apikey } = supabaseAuth();
+    const signedIn = await fetch(`${supabaseAuth().url}/token?grant_type=password`, {
+      method: "POST",
+      headers: { apikey, "content-type": "application/json" },
+      body: JSON.stringify({ email: staff, password: PASSWORD }),
+    });
+    expect(signedIn.ok).toBe(true);
+    const token = ((await signedIn.json()) as { access_token: string }).access_token;
+    const listener = createClient(HOLD_PROXY_URL, apikey, { accessToken: async () => token });
+    await listener.realtime.setAuth();
+    const heard: string[] = [];
+    await new Promise<void>((resolve, reject) => {
+      listener
+        .channel(`join-gap-${info.project.name}`)
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "notifications" },
+          (change) => heard.push((change.new as { title?: string }).title ?? ""),
+        )
+        .subscribe((status) => {
+          if (status === "SUBSCRIBED") resolve();
+          if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") reject(new Error(status));
+        });
+    });
+
+    let release = () => {};
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.routeWebSocket(/\/realtime\/v1\/websocket/, (socket) => {
+      const server = socket.connectToServer();
+      socket.onMessage(async (message) => {
+        if (typeof message === "string" && message.includes('"phx_join"')) await released;
+        server.send(message);
+      });
+    });
+    try {
+      await signIn(page, staff, PASSWORD);
+      await page.goto("/notifications");
+      await hydrated(page);
+      await expect(page.locator('[data-slot="empty-state"]')).toContainText("Nothing yet");
+      expect(await bellCount(page)).toBe(0);
+
+      await notify(staff, { title: "Written before the join", link: "/leave" });
+      await expect.poll(() => heard.includes("Written before the join")).toBe(true);
+      release();
+      await expect(page.locator("html")).toHaveAttribute("data-live", "on");
+      await expect.poll(() => bellCount(page)).toBe(1);
+      await expect(rowOf(page, "Written before the join")).toBeVisible();
+    } finally {
+      release();
+      await listener.removeAllChannels();
+      listener.realtime.disconnect();
+    }
+  });
+
   test("Realtime through the hold proxy: a new row and a read on another device reach the open screen, no reload", async ({
     page,
   }, info) => {

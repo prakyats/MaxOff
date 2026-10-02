@@ -9,6 +9,7 @@ import { anySendWaiting } from "@/core/ui/delayed-sends";
 import { anyEditDirty } from "@/core/ui/edit/edit-guard";
 
 import {
+  catchUpRefreshes,
   LIVE_REFRESH_DELAY_MS,
   LIVE_REFRESH_RETRY_MS,
   liveRefreshWaits,
@@ -17,7 +18,12 @@ import {
   tokenRefreshIn,
 } from "../live-rules";
 import { noteNotificationsChanged, ownReadWithin } from "../live-state";
-import { readInFlight, readsUnconfirmed, serverUnreadSeen } from "../read-receipts";
+import {
+  newestServerUnread,
+  readInFlight,
+  readsUnconfirmed,
+  serverUnreadSeen,
+} from "../read-receipts";
 import { readUnreadCount } from "../unread-actions";
 
 export type LiveUpdatesProps = {
@@ -34,7 +40,9 @@ export type LiveUpdatesProps = {
  * any insert or read receipt re-reads the screen in place, so the bell, the Alerts badge and the
  * history list follow without a reload: a new notification, a row read on another device, Mark
  * all read. The event's row is never shown. A rejoin after a dropped connection re-reads too (what
- * came meanwhile). Refresh on return (2.7b) stays the fallback when Realtime is unreachable.
+ * came meanwhile). The **first** join asks for the count once (`catchUpRefreshes`): a row written
+ * between the page's render and the join sent no event. Refresh on return (2.7b) stays the
+ * fallback when Realtime is unreachable.
  * The member's **own** reads on this device never re-read the screen (owner decision 2026-10-01):
  * their receipts only ask the server for the bell's count (`readUnreadCount`, nothing
  * revalidated), which confirms the drop the device already shows (`read-receipts.ts`).
@@ -88,6 +96,20 @@ export function LiveUpdates({ memberId, token, expiresIn }: LiveUpdatesProps): n
     [router],
   );
 
+  // The first join: what came between the server's count and the join (see `catchUpRefreshes`).
+  const catchUp = useCallback(() => {
+    const before = newestServerUnread();
+    readUnreadCount()
+      .then((result) => {
+        if (!result.ok) return;
+        serverUnreadSeen(result.data);
+        if (catchUpRefreshes(before, result.data, readsUnconfirmed())) {
+          refreshSoon(LIVE_REFRESH_DELAY_MS);
+        }
+      })
+      .catch(() => undefined);
+  }, [refreshSoon]);
+
   useEffect(() => {
     const supabase = createRealtimeSupabase(async () => tokenRef.current);
     client.current = supabase;
@@ -126,8 +148,10 @@ export function LiveUpdates({ memberId, token, expiresIn }: LiveUpdatesProps): n
         .subscribe((status) => {
           const joined = status === "SUBSCRIBED";
           root.dataset.live = joined ? "on" : "off";
-          // Joined again after a drop: what arrived meanwhile sent no event here.
+          // Joined again after a drop: what arrived meanwhile sent no event here. Joined for the
+          // first time: what arrived since the page's count, the count alone unless it changed.
           if (joined && joinedOnce) refreshSoon(LIVE_REFRESH_DELAY_MS);
+          else if (joined) catchUp();
           if (joined) joinedOnce = true;
         });
     });
@@ -142,7 +166,7 @@ export function LiveUpdates({ memberId, token, expiresIn }: LiveUpdatesProps): n
         supabase.realtime.disconnect(),
       );
     };
-  }, [memberId, refreshSoon, confirmSoon]);
+  }, [memberId, refreshSoon, confirmSoon, catchUp]);
 
   // A new token from the server: Realtime reads it through the callback.
   useEffect(() => {
