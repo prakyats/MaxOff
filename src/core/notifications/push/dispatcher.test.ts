@@ -98,6 +98,7 @@ describe("messageFor", () => {
       url: "/tasks/t1",
       tag: "n:n1",
       notificationId: "n1",
+      group: "tasks",
     });
     expect(
       messageFor(
@@ -112,7 +113,12 @@ describe("messageFor", () => {
           heldCount: 3,
         }),
       ),
-    ).toMatchObject({ url: "/notifications", tag: "summary:m1", notificationId: null });
+    ).toMatchObject({
+      url: "/notifications",
+      tag: "summary:m1",
+      notificationId: null,
+      group: "other",
+    });
     expect(messageFor(item({ link: null })).url).toBe("/notifications");
   });
 });

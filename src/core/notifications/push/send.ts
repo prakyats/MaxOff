@@ -1,6 +1,7 @@
 import { buffer, utf8 } from "./base64url";
 import { encryptPayload, MAX_PLAINTEXT_BYTES, type SubscriptionKeys } from "./encrypt";
 import { vapidAuthorization, type VapidKeys } from "./vapid";
+import type { NotifyGroup } from "./groups";
 
 /**
  * One Web Push request (RFC 8030 §5, RFC 8291, RFC 8292): the payload encrypted for the
@@ -32,6 +33,11 @@ export interface PushMessage {
   /** Collapses repeats of the same notification on the device. */
   tag: string;
   notificationId: string | null;
+  /**
+   * The kind's group (`notifyGroupFor`): the service worker shows that group's fixed image as the
+   * large picture. A name, never a URL (owner decision 2026-10-02).
+   */
+  group: NotifyGroup;
 }
 
 export type PushFetch = (url: string, init: RequestInit) => Promise<Response>;

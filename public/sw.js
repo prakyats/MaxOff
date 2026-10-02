@@ -23,7 +23,7 @@
  *
  * Bump VERSION when the caching rules or the handlers change; the old cache is deleted on activate.
  */
-const VERSION = "v6";
+const VERSION = "v7";
 const CACHE = `maxoff-${VERSION}`;
 const OFFLINE_URL = "/offline";
 /** A failed navigation waits this long, then is tried once more before the offline page. */
@@ -151,10 +151,29 @@ const NOTIFICATIONS_URL = "/notifications";
 /**
  * The status-bar badge: the M alone, white on transparent (public/icons/badge.svg). Android draws a
  * notification's small icon from its alpha, so the full-colour app icon showed as a white square.
- * No `icon` (large picture) is sent: the installed app already shows its own icon beside every
- * notification, so an `icon` drew a second M (owner's phone test, 2026-10-01).
  */
 const BADGE_URL = "/icons/badge-96.png";
+/**
+ * The large picture (owner decision 2026-10-02): Chrome on Android cannot leave it empty (with no
+ * `icon` it drew a grey disc with the origin's first letter), and the app icon there doubled the
+ * M. So it is one of a few fixed images by the notification's group: the payload names the group
+ * (`notifyGroupFor`, core/notifications/push/groups.ts), never a URL, and this maps it to a
+ * same-origin path; an unknown or missing group shows "other". Nothing personal, nothing behind
+ * auth (public/icons/notify/, scripts/generate-notify-icons.mjs).
+ */
+const NOTIFY_ICONS = {
+  tasks: "/icons/notify/tasks.png",
+  approvals: "/icons/notify/approvals.png",
+  leave: "/icons/notify/leave.png",
+  reminders: "/icons/notify/reminders.png",
+  other: "/icons/notify/other.png",
+};
+
+function iconFor(group) {
+  return typeof group === "string" && Object.prototype.hasOwnProperty.call(NOTIFY_ICONS, group)
+    ? NOTIFY_ICONS[group]
+    : NOTIFY_ICONS.other;
+}
 
 /** The dispatcher's JSON, or a bare-text fallback: a push with no payload still shows something. */
 function readPushMessage(event) {
@@ -171,6 +190,7 @@ function readPushMessage(event) {
     url: NOTIFICATIONS_URL,
     tag: null,
     notificationId: null,
+    group: "other",
   };
 }
 
@@ -178,6 +198,7 @@ self.addEventListener("push", (event) => {
   const message = readPushMessage(event);
   const options = {
     body: message.body || undefined,
+    icon: iconFor(message.group),
     badge: BADGE_URL,
     tag: message.tag || undefined,
     // A newer push with the same tag replaces the older quietly: no second buzz for the same

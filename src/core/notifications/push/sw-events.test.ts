@@ -92,13 +92,47 @@ describe("sw.js push events (5.2)", () => {
     });
   });
 
-  it("draws one M: the white badge for the status bar and no large icon (owner's phone test)", async () => {
+  it("keeps the white M badge for the status bar (owner's phone test, 2026-10-01)", async () => {
     const worker = loadWorker();
     await worker.fire("push", { data: pushData({ title: "Test", body: "b", url: "/me" }) });
-    const options = worker.shown[0]!.options;
-    expect(options.badge).toBe("/icons/badge-96.png");
-    expect(options).not.toHaveProperty("icon");
+    expect(worker.shown[0]!.options.badge).toBe("/icons/badge-96.png");
     expect(existsSync(path.join(process.cwd(), "public", "icons", "badge-96.png"))).toBe(true);
+  });
+
+  it("shows the group's fixed image as the large picture, never a URL from the payload (owner 2026-10-02)", async () => {
+    const worker = loadWorker();
+    for (const group of ["tasks", "approvals", "leave", "reminders", "other"]) {
+      await worker.fire("push", { data: pushData({ title: "T", body: null, url: "/", group }) });
+    }
+    expect(worker.shown.map((shown) => shown.options.icon)).toEqual([
+      "/icons/notify/tasks.png",
+      "/icons/notify/approvals.png",
+      "/icons/notify/leave.png",
+      "/icons/notify/reminders.png",
+      "/icons/notify/other.png",
+    ]);
+    for (const shown of worker.shown) {
+      const file = String(shown.options.icon).replace(/^\//, "");
+      expect(existsSync(path.join(process.cwd(), "public", file)), file).toBe(true);
+    }
+  });
+
+  it("an unknown, missing or URL-shaped group falls back to the everything-else image", async () => {
+    const worker = loadWorker();
+    for (const group of [
+      "secret",
+      undefined,
+      "https://evil.example/x.png",
+      "../badge-96",
+      "__proto__",
+      "constructor",
+    ]) {
+      await worker.fire("push", { data: pushData({ title: "T", body: null, url: "/", group }) });
+    }
+    await worker.fire("push", { data: { json: () => null, text: () => "plain" } });
+    expect(new Set(worker.shown.map((shown) => shown.options.icon))).toEqual(
+      new Set(["/icons/notify/other.png"]),
+    );
   });
 
   it("a tap opens the deep-link entry; an outside link falls back to the history", async () => {

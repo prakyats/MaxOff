@@ -91,6 +91,7 @@ export const sendTestPush = action(async (): Promise<Result<TestPushResult>> => 
         url: "/me",
         tag: "test",
         notificationId: null,
+        group: "other",
       },
       vapid: { publicKey: push.publicKey, privateKey: push.privateKey, subject: push.subject },
       fetch: (url, init) => fetch(url, init),
