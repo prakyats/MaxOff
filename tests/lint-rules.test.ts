@@ -65,6 +65,8 @@ const EXPECTED: Record<string, readonly string[]> = {
   // the action colour rule: buttons get colour from a variant, not classes (outside primitives)
   "modules/tasks/components/denied-button-colour.tsx": [SYNTAX],
   "modules/tasks/components/denied-button-hex.tsx": [SYNTAX],
+  // a view's address is written only through replaceViewAddress (ARCHITECTURE §14.2 d)
+  "modules/tasks/components/denied-view-address.ts": [SYNTAX],
 };
 
 function walk(dir: string): string[] {

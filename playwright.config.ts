@@ -53,6 +53,7 @@ const TASK_PAGE_SPECS = /task-page\.spec\.ts$/;
 const PUSH_SPECS = /push\.spec\.ts$/;
 const NOTIFICATIONS_SPECS = /notifications\.spec\.ts$/;
 const STICKY_ACTIONS_SPECS = /sticky-actions\.spec\.ts$/;
+const VIEW_ADDRESS_SPECS = /view-address\.spec\.ts$/;
 
 /**
  * Web Push (5.2): the e2e server sends real, encrypted pushes to a fake push service the spec
@@ -173,7 +174,8 @@ export default defineConfig({
       // And Web Push (5.2): the banner, Me's rows and the deep-link entry's back at both widths.
       // And the bell and Alerts (5.1): the history, its back order and large text at both widths.
       // And the sticky save bar against the last field (v1.3.1): a band that grows under a person
-      // at the page's end wraps differently at 430px, so both widths.
+      // at the page's end wraps differently at 430px, so both widths. And a view's address held
+      // through a refresh (2026-10-02): the task page's views and a list's filter, at both widths.
       name: "mobile-lg",
       dependencies: ["setup"],
       testMatch: [
@@ -207,6 +209,7 @@ export default defineConfig({
         PUSH_SPECS,
         NOTIFICATIONS_SPECS,
         STICKY_ACTIONS_SPECS,
+        VIEW_ADDRESS_SPECS,
       ],
       use: { ...devices["Pixel 5"], viewport: { width: 430, height: 932 } },
     },

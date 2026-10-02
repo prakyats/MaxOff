@@ -42,6 +42,21 @@ const WALL_CLOCK_SELECTORS = [
   },
 ];
 
+/**
+ * ARCHITECTURE §14.2 d: a view control writes its view to the address only through
+ * `replaceViewAddress` (`core/ui/navigation/view-address.ts`), which holds the write while the
+ * router is fetching; a hand-written address there makes Next load the page in full (2026-10-02).
+ * Any `history.replaceState`/`pushState` given an address (a third argument) is caught.
+ */
+const VIEW_ADDRESS_SELECTORS = [
+  {
+    selector:
+      "CallExpression[callee.property.name=/^(replaceState|pushState)$/][arguments.length>=3]",
+    message:
+      "Write a view's address with replaceViewAddress() from @/core/ui/navigation/view-address (ARCHITECTURE §14.2 d).",
+  },
+];
+
 const MONEY_MESSAGE =
   "Money tables and views are read only through modules/revenue (CLAUDE.md invariant 2, ADR-0007).";
 // Word-bounded, so `.from("project_billing")`, `Tables<"item_billing">` and an embedded
@@ -161,7 +176,12 @@ const eslintConfig = defineConfig([
         { prefer: "type-imports", fixStyle: "inline-type-imports" },
       ],
       // ADR-0008: business dates come from core/time, never from the wall clock.
-      "no-restricted-syntax": ["error", ...WALL_CLOCK_SELECTORS, ...BUTTON_COLOUR_SELECTORS],
+      "no-restricted-syntax": [
+        "error",
+        ...WALL_CLOCK_SELECTORS,
+        ...BUTTON_COLOUR_SELECTORS,
+        ...VIEW_ADDRESS_SELECTORS,
+      ],
     },
   },
 
@@ -341,6 +361,7 @@ const eslintConfig = defineConfig([
       "no-restricted-syntax": [
         "error",
         ...WALL_CLOCK_SELECTORS,
+        ...VIEW_ADDRESS_SELECTORS,
         ...MONEY_SELECTORS,
         ...EXPENSE_SELECTORS,
         ...BUTTON_COLOUR_SELECTORS,
@@ -354,6 +375,7 @@ const eslintConfig = defineConfig([
       "no-restricted-syntax": [
         "error",
         ...WALL_CLOCK_SELECTORS,
+        ...VIEW_ADDRESS_SELECTORS,
         ...MONEY_SELECTORS,
         ...BUTTON_COLOUR_SELECTORS,
       ],
@@ -366,6 +388,7 @@ const eslintConfig = defineConfig([
       "no-restricted-syntax": [
         "error",
         ...WALL_CLOCK_SELECTORS,
+        ...VIEW_ADDRESS_SELECTORS,
         ...MONEY_SELECTORS,
         ...EXPENSE_SELECTORS,
       ],

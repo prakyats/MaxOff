@@ -346,8 +346,10 @@ test.describe("the views are a view control (decisions 27, 32)", () => {
       await expect(tab(page, "details")).toBeHidden();
       await expect(panel(page, "details")).toBeVisible();
     }
-    // A refresh (or a shared link) keeps the view.
+    // A refresh (or a shared link) keeps the view: the address holds it (written once the
+    // router has nothing in flight, `view-address.ts`), and a reload lands on it.
     await tab(page, "activity").click();
+    await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}\\?tab=activity$`));
     await page.reload();
     await expect(tab(page, "activity")).toHaveAttribute("aria-current", "true");
     await expect(panel(page, "activity")).toBeVisible();
