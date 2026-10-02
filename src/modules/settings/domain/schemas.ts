@@ -104,6 +104,6 @@ export const updateThresholdsSchema = z
   // quiet hours hold for everyone (kickoff 5 decision 5): an equal pair is refused, not "off".
   .refine((values) => values.quietHoursEnd !== values.quietHoursStart, {
     path: ["quietHoursEnd"],
-    message: "Quiet hours need an end time different from the start.",
+    message: "Quiet hours can’t start and end at the same time. Choose a different end time.",
   });
 export type UpdateThresholdsInput = z.input<typeof updateThresholdsSchema>;

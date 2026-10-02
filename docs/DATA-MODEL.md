@@ -1279,7 +1279,13 @@ notifications        id, org_id, recipient_id → members (cascade), actor_id nu
                      -- and payload.for_member_id (ADR-0013 §4; nobody when they have none or the
                      -- coordinator is the actor). RLS: the recipient only; the API updates read_at alone
                      -- (column grant + protect_columns), no insert or delete; notifications_mark_read(entity,
-                     -- entity_id) and notifications_mark_all_read() for the caller's own rows. Not audited
+                     -- entity_id) and notifications_mark_all_read() for the caller's own rows.
+                     -- notifications_inbox(p_unread_only, p_offset, p_limit) (5B decision 10, migration
+                     -- notifications_inbox): the Alerts list, newest first, the caller's own rows (security
+                     -- invoker + recipient_id = auth.uid()); consecutive rows about the same record (entity +
+                     -- entity_id, both with a link) on the same IST day are one entry: the newest row's fields,
+                     -- run_size, run_kinds, run_unread (the run's unread ids) and the total of entries for the
+                     -- pager; paged over entries, so a run never splits across pages. Not audited
                      -- (the event is audited by its transition; a read is view state, as task_reads).
                      -- Never purged in 5A (kickoff 5 decision 4); from 5B a daily job removes READ rows older than 90 days
                      -- (owner decision 2026-10-01, PROGRESS "5B decisions" (11)); unread rows stay. Money never in title, body, link or payload.

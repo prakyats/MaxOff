@@ -50,6 +50,9 @@ async function clearAlerts(email: string): Promise<void> {
 
 type Row = {
   title: string;
+  kind?: string;
+  /** When it came (ISO); else `minutesAgo` before now. */
+  at?: string;
   body?: string;
   link?: string | null;
   entity?: string;
@@ -64,13 +67,12 @@ async function notify(email: string, row: Row): Promise<string> {
     `members?email=eq.${encodeURIComponent(email)}&select=id,org_id`,
   );
   if (!member) throw new Error(`no member ${email}`);
-  const createdAt = new Date(
-    systemClock().getTime() - (row.minutesAgo ?? 0) * 60_000,
-  ).toISOString();
+  const createdAt =
+    row.at ?? new Date(systemClock().getTime() - (row.minutesAgo ?? 0) * 60_000).toISOString();
   const inserted = await serviceInsert<{ id: string }>("notifications", {
     org_id: member.org_id,
     recipient_id: member.id,
-    kind: "leave_decided",
+    kind: row.kind ?? "leave_decided",
     title: row.title,
     body: row.body ?? null,
     link: row.link ?? null,
@@ -317,6 +319,78 @@ test.describe("the bell and Alerts", () => {
     await expect(page.locator('[data-slot="notification-bar"]')).toHaveCount(0);
   });
 
+  test("5B: day groups, All | Unread, and a run about one record is one row that reads them all", async ({
+    page,
+  }, info) => {
+    const staff = person(info, "staff");
+    await clearAlerts(staff);
+    const today = todayIST();
+    const record = crypto.randomUUID();
+    // Three comments about one record, early today (consecutive, one IST day): one row.
+    for (const time of ["00:01", "00:02", "00:03"] as const) {
+      await notify(staff, {
+        kind: "task_comment",
+        title: "Comment on Reel 9",
+        link: "/leave/expenses",
+        entity: "tasks",
+        entityId: record,
+        at: istInstant(today, time),
+      });
+    }
+    await notify(staff, {
+      title: "Leave approved",
+      link: "/leave",
+      read: true,
+      at: istInstant(addISTDays(today, -1), "12:00"),
+    });
+    await notify(staff, { title: "An old one", at: istInstant(addISTDays(today, -10), "12:00") });
+    await signIn(page, staff, PASSWORD);
+    await page.goto("/notifications");
+    await hydrated(page);
+
+    await expect(page.locator('[data-slot="notification-group"] > h2')).toHaveText([
+      "Today",
+      "Yesterday",
+      "Older",
+    ]);
+    const rows = page.locator('[data-slot="notification-row"]');
+    await expect(rows).toHaveCount(3);
+    await expect(rows.nth(0)).toContainText("3 comments on Reel 9");
+    await expect(rows.nth(0)).toHaveAttribute("data-run", "3");
+    await expect(rows.nth(0)).toHaveAttribute("data-unread", "true");
+    await expect(page.locator('[data-slot="notification-bar"]')).toContainText("4 unread");
+    await expect.poll(() => bellCount(page)).toBe(4);
+
+    // The filter is view state: the address follows (replace), the read rows go.
+    const filter = page.locator('[data-slot="alerts-filter"]');
+    await filter.getByRole("link", { name: "Unread", exact: true }).click();
+    await expect(page).toHaveURL(/\/notifications\?show=unread$/);
+    await expect(filter.getByRole("link", { name: "Unread", exact: true })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    await expect(rows).toHaveCount(2);
+    await expect(rowOf(page, "Leave approved")).toHaveCount(0);
+    await filter.getByRole("link", { name: "All", exact: true }).click();
+    await expect(page).toHaveURL(/\/notifications$/);
+    await expect(rows).toHaveCount(3);
+
+    // Opening the run reads all three, not only the newest.
+    await rowOf(page, "3 comments on Reel 9").getByRole("link").click();
+    await expect(page).toHaveURL(/\/leave\/expenses$/);
+    await expect.poll(() => unreadOf(staff)).toBe(1);
+    await expect.poll(() => bellCount(page)).toBe(1);
+    await page.goto("/notifications");
+    await expect(rowOf(page, "3 comments on Reel 9")).not.toHaveAttribute("data-unread");
+
+    // Nothing unread: Unread says so, with the filter still there to go back.
+    await page.locator('[data-slot="mark-all-read"]').click();
+    await expect.poll(() => unreadOf(staff)).toBe(0);
+    await page.goto("/notifications?show=unread");
+    await expect(page.locator('[data-slot="empty-state"]')).toContainText("You're all caught up");
+    await expect(page.locator('[data-slot="alerts-filter"]')).toBeVisible();
+  });
+
   test("Realtime through the hold proxy: a new row and a read on another device reach the open screen, no reload", async ({
     page,
   }, info) => {
@@ -505,6 +579,33 @@ test.describe("the bell and Alerts", () => {
       { url: /\/notifications$/ },
       { url: /\/my-day$/ },
     ]);
+  });
+
+  test("installed, Staff: All | Unread never adds history; one back leaves Alerts", async ({
+    page,
+    isMobile,
+  }, info) => {
+    test.skip(!isMobile, "installed-mode back is a phone rule");
+    const staff = person(info, "staff");
+    await clearAlerts(staff);
+    await notify(staff, { title: "Claim paid", link: "/leave/expenses" });
+    await runInstalled(page);
+    await signIn(page, staff, PASSWORD);
+    await page.goto("/my-day");
+    await hydrated(page);
+    await page.locator('[data-slot="bottom-nav"] [data-nav="alerts"]').click();
+    await expect(page).toHaveURL(/\/notifications$/);
+    await hydrated(page);
+    const filter = page.locator('[data-slot="alerts-filter"]');
+    for (const [name, url] of [
+      ["Unread", /\/notifications\?show=unread$/],
+      ["All", /\/notifications$/],
+      ["Unread", /\/notifications\?show=unread$/],
+    ] as const) {
+      await filter.getByRole("link", { name, exact: true }).click();
+      await expect(page).toHaveURL(url);
+    }
+    await expectBackStack(page, [{ url: /\/my-day$/ }]);
   });
 
   test("installed, Admin: the title bar's bell, a row, and back the same way", async ({

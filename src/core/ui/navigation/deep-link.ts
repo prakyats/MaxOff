@@ -37,10 +37,12 @@ export function openUrl(path: string): string {
 /**
  * The URL a notification opens through when tapped in the bell's history: `/open?n=<id>`. The
  * entry marks that notification read and opens its own link (the row's, never the address's),
- * so one tap is one request, and the link works before the page has hydrated.
+ * so one tap is one request, and the link works before the page has hydrated. A row holding a
+ * run of notifications about one record (5B decision 10) adds `run=1`: the entry reads every
+ * unread one about that record, as opening the record does.
  */
-export function openNotificationUrl(id: string): string {
-  return `${OPEN_PATH}?n=${encodeURIComponent(id)}`;
+export function openNotificationUrl(id: string, run = false): string {
+  return `${OPEN_PATH}?n=${encodeURIComponent(id)}${run ? "&run=1" : ""}`;
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

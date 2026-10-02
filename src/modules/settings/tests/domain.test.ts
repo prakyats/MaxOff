@@ -117,7 +117,7 @@ describe("updateThresholdsSchema", () => {
     expect(same.success).toBe(false);
     expect(same.error?.issues[0]).toMatchObject({
       path: ["quietHoursEnd"],
-      message: "Quiet hours need an end time different from the start.",
+      message: "Quiet hours can’t start and end at the same time. Choose a different end time.",
     });
   });
 

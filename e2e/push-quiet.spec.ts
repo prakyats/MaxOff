@@ -163,7 +163,7 @@ test.describe("the Owner edits the quiet hours (Settings → Thresholds)", () =>
       await until.fill("23:00");
       await page.getByRole("button", { name: "Save thresholds" }).click();
       await expect(page.locator('[data-slot="field-error"]')).toContainText(
-        "Quiet hours need an end time different from the start.",
+        "Quiet hours can’t start and end at the same time. Choose a different end time.",
       );
       expect(await stored()).toBe(
         `${before!.quiet_hours_start.slice(0, 5)}-${before!.quiet_hours_end.slice(0, 5)}`,

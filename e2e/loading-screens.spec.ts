@@ -80,9 +80,18 @@ type LoadingScreen = {
 };
 
 const ALERTS: Record<string, Point> = {
+  // 5B decision 10: the "All | Unread" filter, then the first day heading.
+  filter: {
+    held: '[data-slot="alerts-filter"]',
+    settled: '[data-slot="alerts-filter"]',
+  },
   "unread line": {
     held: '[data-slot="loading-notifications"] > :first-child',
     settled: '[data-slot="notification-bar"]',
+  },
+  "first heading": {
+    held: '[data-slot="loading-notifications"] > :nth-child(2)',
+    settled: '[data-slot="notification-group"] > h2',
   },
   "first row": {
     held: '[data-slot="loading-notifications"] li',
@@ -424,12 +433,12 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
       },
     },
   },
-  // 5.1: Alerts, every role: the "N unread" line, then the rows.
+  // 5.1: Alerts, every role: the filter (5B), the "N unread" line, the day heading, the rows.
   ...(["owner", "admin", "staff"] as const).map((role): LoadingScreen => ({
     role,
     path: "/notifications",
     marker: 'data-slot="loading-notifications"',
-    hold: "/rest/v1/notifications",
+    hold: "/rest/v1/rpc/notifications_inbox",
     fixture: "notification",
     trace: ALERTS,
   })),

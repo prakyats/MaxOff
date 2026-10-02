@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 import { requireMember } from "@/core/auth/server";
 import { ReadRecorded } from "@/core/notifications/components/read-recorded";
-import { markOneRead } from "@/core/notifications/inbox";
+import { markOneRead, markRunRead } from "@/core/notifications/inbox";
 import { systemClock } from "@/core/time";
 import { LoadingState } from "@/core/ui/composites/loading-state";
 import { PageHeader } from "@/core/ui/composites/page-header";
@@ -27,10 +27,15 @@ export default async function OpenPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { to, n } = await searchParams;
+  const { to, n, run } = await searchParams;
   // perf: sequential (a write, not a read: only an active member's tap marks a row read)
   const viewer = await requireMember();
-  const opened = isNotificationId(n) ? await markOneRead(n) : null;
+  // A row holding a run about one record (`run=1`, 5B decision 10) reads every unread one about it.
+  const opened = !isNotificationId(n)
+    ? null
+    : run === "1"
+      ? await markRunRead(n)
+      : await markOneRead(n).then((one) => one && { link: one.link, marked: one.marked ? 1 : 0 });
   const writtenAt = systemClock().getTime();
   const home = homeFor(viewer.role);
   const requested = opened ? opened.link : to;
@@ -40,7 +45,9 @@ export default async function OpenPage({
     <>
       <PageHeader title="Opening…" />
       <LoadingState shape="detail" label="Opening" />
-      {opened?.marked && isNotificationId(n) ? <ReadRecorded id={n} writtenAt={writtenAt} /> : null}
+      {opened?.marked && isNotificationId(n) ? (
+        <ReadRecorded id={n} marked={opened.marked} writtenAt={writtenAt} />
+      ) : null}
       <DeepLinkEntry to={target} parent={parent} />
     </>
   );

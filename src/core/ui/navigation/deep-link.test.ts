@@ -34,6 +34,8 @@ describe("deep-link entry", () => {
   it("opens a notification by its id, and accepts only a uuid as one", () => {
     const id = "6f1c2a4e-1b2c-4d3e-8f90-0a1b2c3d4e5f";
     expect(openNotificationUrl(id)).toBe(`/open?n=${id}`);
+    expect(openNotificationUrl(id, false)).toBe(`/open?n=${id}`);
+    expect(openNotificationUrl(id, true)).toBe(`/open?n=${id}&run=1`);
     expect(isNotificationId(id)).toBe(true);
     expect(isNotificationId("6f1c2a4e")).toBe(false);
     expect(isNotificationId(`${id}x`)).toBe(false);

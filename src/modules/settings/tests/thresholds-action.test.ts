@@ -66,7 +66,9 @@ describe("updateThresholds: quiet hours", () => {
       error: {
         code: "VALIDATION",
         fieldErrors: {
-          quietHoursEnd: ["Quiet hours need an end time different from the start."],
+          quietHoursEnd: [
+            "Quiet hours can’t start and end at the same time. Choose a different end time.",
+          ],
         },
       },
     });

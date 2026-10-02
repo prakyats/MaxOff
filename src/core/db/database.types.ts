@@ -3404,6 +3404,21 @@ export type Database = {
           working_days: number;
         }[];
       };
+      notifications_inbox: {
+        Args: { p_limit: number; p_offset: number; p_unread_only: boolean };
+        Returns: {
+          body: string;
+          created_at: string;
+          id: string;
+          kind: string;
+          link: string;
+          run_kinds: string[];
+          run_size: number;
+          run_unread: string[];
+          title: string;
+          total: number;
+        }[];
+      };
       notifications_mark_all_read: { Args: never; Returns: number };
       notifications_mark_read: {
         Args: { entity: string; entity_id: string };
