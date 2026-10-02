@@ -66,6 +66,8 @@ async function typeNames(page: Page): Promise<string[]> {
 async function pick(page: Page, trigger: Locator, option: string | RegExp): Promise<void> {
   await trigger.click();
   await page.getByRole("option", { name: option }).first().click();
+  // The list animates closed; until it has, it is the top layer and takes the next Escape.
+  await expect(page.getByRole("listbox")).toHaveCount(0);
 }
 
 test.describe("task types and per-type fields, the flows", () => {
