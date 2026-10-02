@@ -1032,9 +1032,22 @@ submission_items     id, submission_id, kind ('upload'|'drive_link'),
                      archive_state ('queued'|'archived'|'failed'|'blocked'),
                      drive_file_id null, drive_web_link null, archived_at,
                      archive_error, archive_attempts, local_deleted_at, created_at
-task_reminders       id, task_id, member_id null, kind ('before_due'|'due'|'overdue'|'ack'|
+task_reminders       id, org_id, task_id (cascade), member_id null (cascade), kind ('before_due'|'due'|'overdue'|'ack'|
                      'ack_escalation'|'overdue_escalation'|'event'), escalation_level int null (1 = Admin, 2 = Owner),
-                     fire_at, sent_at null, cancelled_at null       -- materialized from reminder_rules + org_settings
+                     offset_minutes int null, last_before_due bool, deadline timestamptz null, held bool,
+                     fire_at, sent_at null, cancelled_at null, created_at       -- materialized from reminder_rules + org_settings
+                     -- 5.3 as built (migration 20261002103357_task_reminders): deadline rows (member_id null) armed by
+                     -- app.task_arm_reminders (trigger tasks_reminders: insert, and a change of due_at, reminder_rules,
+                     -- event_date or into / out of completed / cancelled); held rows (held, member_id) bring a paused
+                     -- person's before-due / Due now back; ack / ack_escalation rows record each repeat and escalation
+                     -- sent (member_id = the assignee). RLS on, no API grant (the job's). Not audited.
+task_reminder_arms   task_id pk (cascade), armed_at      -- 5.3: the tasks that get reminders: created after the
+                     -- migration (no backfill without the owner's OK). Written by the trigger only; RLS on, no API grant.
+                     -- Reminder rule lists (tasks.reminder_rules, task_templates.reminder_rules, task_types.default_reminders,
+                     -- org_settings.default_task_reminders; CHECK app.reminder_rules_valid, NOT VALID): up to 5
+                     -- {"before": N, "unit": "minutes"|"hours"|"days"}, N >= 0 (0 = Due now), at most 60 days, no two
+                     -- the same; '[]' = the next level. Resolution: task → template → type → organisation → the
+                     -- launch schedule (2 days, 1 day, Due now; app.task_reminder_rules).
 task_warnings        id, task_id, kind ('overlap'|'workload'|'on_leave'), member_id (the person the
                      warning is about; 4A), details jsonb, overridden_by, at
                      -- 4A: the dialog computes the warnings (4.3, member_availability()); a person kept

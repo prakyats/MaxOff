@@ -87,15 +87,16 @@ select is((select array_agg(kind order by kind) from public.notification_kinds w
   array['attendance_decided', 'comp_leave_granted', 'comp_leave_revoked', 'expense_decided', 'extra_work_decided',
         'leave_decided', 'task_assigned', 'task_changes_requested'],
   'fallback only: assigned, changes requested, the leave / attendance / extra-work decisions, comp leave, an expense decided');
-select is((select count(*) from public.notification_kinds where always_email), 0::bigint,
-  'no 5.1 kind is always emailed');
+select is((select count(*) from public.notification_kinds where always_email and kind not like 'reminder\_%' and kind not like 'escalation\_%'), 0::bigint,
+  'no 5.1 kind is always emailed (5.3''s reminders and escalations are 51''s)');
 select is((select array_agg(kind order by kind) from public.notification_kinds
            where kind in ('task_comment', 'task_changed', 'task_request_created', 'task_submitted',
-                          'leave_requested', 'end_day_reminder', 'task_completed')
+                          'leave_requested', 'end_day_reminder', 'task_completed',
+                          'reminder_before_due', 'reminder_due_now', 'reminder_not_noted')
              and not actionable and not always_email),
-  array['end_day_reminder', 'leave_requested', 'task_changed', 'task_comment', 'task_completed',
-        'task_request_created', 'task_submitted'],
-  'push and in-app only: comments, task changed, suggestions, approvals, the end-day reminder, information rows');
+  array['end_day_reminder', 'leave_requested', 'reminder_before_due', 'reminder_due_now', 'reminder_not_noted',
+        'task_changed', 'task_comment', 'task_completed', 'task_request_created', 'task_submitted'],
+  'push and in-app only: comments, task changed, suggestions, approvals, the end-day reminder, the earlier reminders (2 days before, Due now), the not-noted repeats, information rows');
 
 -- 2. What email_claim queues ------------------------------------------------------------------------------
 -- staff1 has a working push device; staff2 has none.

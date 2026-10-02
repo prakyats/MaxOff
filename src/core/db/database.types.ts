@@ -2061,6 +2061,109 @@ export type Database = {
           },
         ];
       };
+      task_reminder_arms: {
+        Row: {
+          armed_at: string;
+          task_id: string;
+        };
+        Insert: {
+          armed_at?: string;
+          task_id: string;
+        };
+        Update: {
+          armed_at?: string;
+          task_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "task_reminder_arms_task_id_fkey";
+            columns: ["task_id"];
+            isOneToOne: true;
+            referencedRelation: "tasks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      task_reminders: {
+        Row: {
+          cancelled_at: string | null;
+          created_at: string;
+          deadline: string | null;
+          escalation_level: number | null;
+          fire_at: string;
+          held: boolean;
+          id: string;
+          kind: string;
+          last_before_due: boolean;
+          member_id: string | null;
+          offset_minutes: number | null;
+          org_id: string;
+          sent_at: string | null;
+          task_id: string;
+        };
+        Insert: {
+          cancelled_at?: string | null;
+          created_at?: string;
+          deadline?: string | null;
+          escalation_level?: number | null;
+          fire_at: string;
+          held?: boolean;
+          id?: string;
+          kind: string;
+          last_before_due?: boolean;
+          member_id?: string | null;
+          offset_minutes?: number | null;
+          org_id: string;
+          sent_at?: string | null;
+          task_id: string;
+        };
+        Update: {
+          cancelled_at?: string | null;
+          created_at?: string;
+          deadline?: string | null;
+          escalation_level?: number | null;
+          fire_at?: string;
+          held?: boolean;
+          id?: string;
+          kind?: string;
+          last_before_due?: boolean;
+          member_id?: string | null;
+          offset_minutes?: number | null;
+          org_id?: string;
+          sent_at?: string | null;
+          task_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "task_reminders_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_reminders_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_reminders_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_reminders_task_id_fkey";
+            columns: ["task_id"];
+            isOneToOne: false;
+            referencedRelation: "tasks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       task_requests: {
         Row: {
           client_id: string | null;

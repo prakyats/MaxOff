@@ -13,7 +13,7 @@ export type NotifyGroup = (typeof NOTIFY_GROUPS)[number];
 /**
  * Each notification kind's group (`notification_kinds`). What waits for the reader's decision is
  * `approvals`; the answer to their own request about time off is `leave`; work on a task is
- * `tasks`; nudges and escalations are `reminders` (5.3 adds its kinds here); the rest `other`.
+ * `tasks`; nudges and escalations are `reminders` (5.3's included); the rest `other`.
  */
 const GROUP_OF_KIND: Readonly<Record<string, NotifyGroup>> = {
   // A task's own life, for the people on it.
@@ -42,8 +42,16 @@ const GROUP_OF_KIND: Readonly<Record<string, NotifyGroup>> = {
   comp_leave_granted: "leave",
   comp_leave_revoked: "leave",
   extra_work_decided: "leave",
-  // Nudges and escalations.
+  // Nudges and escalations (the end-day reminder; 5.3's reminders and escalations).
   end_day_reminder: "reminders",
+  reminder_before_due: "reminders",
+  reminder_before_due_last: "reminders",
+  reminder_due_now: "reminders",
+  reminder_overdue: "reminders",
+  reminder_event: "reminders",
+  reminder_not_noted: "reminders",
+  escalation_not_noted: "reminders",
+  escalation_overdue: "reminders",
   // Everything else: client Admins, coordinators, an expense's outcome.
   client_admin_assigned: "other",
   client_admin_removed: "other",
