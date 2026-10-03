@@ -103,7 +103,9 @@ function named(total: number, first: readonly string[], more: number): string {
 /**
  * The digest's sections and lines, in order. The screens each line opens (all the Owner's):
  * attendance → the team's month for yesterday's month (`/reports/month`: everyone's days worked,
- * leave and absences; a person's row opens their days); approved yesterday → all tasks, Completed;
+ * leave and absences; a person's row opens their days), except absent → Approvals, where the
+ * proposed absences wait for the Owner (owner, 2026-10-03; Approvals has no attendance view: its
+ * Attendance group comes first); approved yesterday → all tasks, Completed;
  * overdue → all tasks, Overdue; waiting for approval, leave and expense claims → Approvals. The
  * held-back emails show on no screen, so their lines open nothing.
  */
@@ -121,7 +123,7 @@ export function digestSections(payload: DigestPayload): DigestSection[] {
         ...line(
           "Absent",
           attendance.absent,
-          month,
+          "/approvals",
           named(attendance.absent, attendance.absent_names, attendance.absent_more),
         ),
         ...line(

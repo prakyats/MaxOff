@@ -64,7 +64,7 @@ describe("digestSections", () => {
           { text: "On leave: 3", link: "/reports/month?month=2026-10" },
           {
             text: "Absent: 7 (Asha, Bala, Chitra, Dev, Esha +2 more)",
-            link: "/reports/month?month=2026-10",
+            link: "/approvals",
           },
           { text: "Day not ended: 1 (Kiran)", link: "/reports/month?month=2026-10" },
         ],

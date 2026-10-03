@@ -320,7 +320,7 @@ describe("the Owner's morning summary (5B slice 7)", () => {
     expect(resend.calls).toHaveLength(2);
     expect(resend.calls[0]?.body.subject).toBe("Your morning summary · Sat 3 Oct");
     expect(String(resend.calls[0]?.body.text)).toContain(
-      `Absent: 1 (Asha): https://app.example/open?to=${encodeURIComponent("/reports/month?month=2026-10")}`,
+      `Absent: 1 (Asha): https://app.example/open?to=${encodeURIComponent("/approvals")}`,
     );
     expect(String(resend.calls[0]?.body.html)).toContain(">Attendance yesterday</h2>");
     expect(resend.calls[1]?.body.subject).toBe("New task: Reel cut");
