@@ -18,9 +18,10 @@ import { ME_DESCRIPTION } from "./copy";
  * the sign-in line, the read-only Profile record (its heading row with Edit, two label and value
  * rows, task 2.9) under the photo button row (3.3), then for whoever marks attendance the rows of
  * their own pages (5B decision 3: Extra work & expenses; Attendance & leave above it for an
- * Admin), then Appearance, Notifications and Sign out, then "Help & troubleshooting" (5B
- * decision 4: the test push, Reload app, the version). Same member check as
- * `my-day/loading.tsx`.
+ * Admin), then Appearance, Notifications and Sign out, then "Your devices" (5.5: drawn with one
+ * device, the usual case: its name, platform and last-notification lines and the trailing "This
+ * device" or Remove), then "Help & troubleshooting" (5B decision 4: the test push, Reload app, the
+ * version). Same member check as `my-day/loading.tsx`.
  *
  * Every column beside something else is `min-w-0`, as the page's is (3c review, CI red on /me at
  * 200%): a bar's `w-40` is 320px at 200% system text, and a flex or grid column with no minimum
@@ -171,6 +172,29 @@ export default async function Loading() {
         <Card aria-hidden>
           <CardContent className="flex flex-col gap-4">
             <Rows rows={DEVICE_ROWS} />
+          </CardContent>
+        </Card>
+        <Card aria-hidden data-slot="loading-me-devices">
+          {/* The header's grid cells take their widest bar as a minimum without `min-w-0`. */}
+          <CardHeader>
+            <CardTitle className="min-w-0">
+              <span className="flex h-[1lh] min-w-0 items-center">
+                <Skeleton className="h-4 w-28 max-w-full" />
+              </span>
+            </CardTitle>
+            <CardDescription className="min-w-0">
+              <Line width="w-44" />
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+              <div className="flex min-w-0 flex-[1_1_10rem] flex-col">
+                <Line width="w-36" />
+                <Line width="w-40" />
+                <Line width="w-48" />
+              </div>
+              <Line width="w-20" />
+            </div>
           </CardContent>
         </Card>
         <Card aria-hidden data-slot="loading-me-help">

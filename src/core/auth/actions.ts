@@ -5,6 +5,7 @@ import { redirect, RedirectType } from "next/navigation";
 
 import { createServerSupabase, type ServerSupabase } from "@/core/db/server";
 import { AppError, action, ok, type Result } from "@/core/errors";
+import { readOwnOnboarding } from "@/core/notifications/onboarding";
 import { setSentryUser } from "@/core/observability/user";
 import type { MemberRole } from "@/core/permissions";
 import { homeFor } from "@/core/ui/shell/nav";
@@ -70,8 +71,20 @@ async function recordLoginOrSignOut(supabase: ServerSupabase, userId: string): P
   return role;
 }
 
+/**
+ * Where a sign-in with no `next` lands: the role's home, except the first sign-in in MaxOff
+ * installed on an iPhone of a new joiner whose walkthrough is unfinished (5.5, owner decision
+ * 2026-10-03, 4): the installed app keeps its own sign-in, so this is where they come back after
+ * installing, and the welcome screen resumes the walkthrough at "Turn on notifications".
+ */
+async function landingFor(role: MemberRole, installedIphone: boolean): Promise<string> {
+  if (!installedIphone) return homeFor(role);
+  const onboarding = await readOwnOnboarding();
+  return onboarding && !onboarding.finished ? WELCOME_PATH : homeFor(role);
+}
+
 export const login = action(async (input: LoginInput): Promise<Result<never>> => {
-  const { email, password, next } = loginSchema.parse(input);
+  const { email, password, next, installedIphone } = loginSchema.parse(input);
   const supabase = await createServerSupabase();
 
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -81,7 +94,10 @@ export const login = action(async (input: LoginInput): Promise<Result<never>> =>
   // Straight to the role's home (not through `/`, one hop fewer, 2.7); the optional `next`
   // wins when it is a safe path. Replace, never push: a server action's redirect adds history
   // by default, and sign-in is a one-time screen that must not sit under home (§14.2 e).
-  redirect(safeNextPath(next) ?? homeFor(role), RedirectType.replace);
+  redirect(
+    safeNextPath(next) ?? (await landingFor(role, installedIphone === true)),
+    RedirectType.replace,
+  );
 });
 
 /**

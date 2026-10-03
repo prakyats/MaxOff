@@ -1,5 +1,6 @@
 import { ChevronRightIcon, PartyPopperIcon } from "lucide-react";
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import Link from "next/link";
 
 import { checkThenRead } from "@/core/lib/start-early";
@@ -8,10 +9,14 @@ import { requireMember, withSessionUserId } from "@/core/auth/server";
 import { can } from "@/core/permissions";
 import { EditableRecord } from "@/core/ui/composites/editable-record";
 import { PageHeader } from "@/core/ui/composites/page-header";
+import { DeviceList, OnboardingSteps } from "@/core/notifications/components/me-lazy";
 import { PushDeviceRow } from "@/core/notifications/components/push-device-row";
 import { PushTestRow } from "@/core/notifications/components/push-test-row";
 import { readPushEnv } from "@/core/notifications/env";
-import { listOwnActiveEndpoints } from "@/core/notifications/push/subscriptions";
+import { readOwnOnboarding } from "@/core/notifications/onboarding";
+import { isIOS } from "@/core/notifications/push/browser";
+import { deviceRowsOf } from "@/core/notifications/push/device-list";
+import { listOwnPushSubscriptions } from "@/core/notifications/push/subscriptions";
 import { fileUrl } from "@/core/storage";
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/ui/primitives/avatar";
 import {
@@ -25,7 +30,7 @@ import { Separator } from "@/core/ui/primitives/separator";
 import { ReloadAppButton } from "@/core/ui/shell/reload-app-button";
 import { initialsOf } from "@/core/ui/shell/viewer";
 import { ThemeToggle } from "@/core/ui/theme/theme-toggle";
-import { formatIST } from "@/core/time";
+import { formatIST, systemClock } from "@/core/time";
 import { displayName } from "@/core/lib/display-name";
 import { ROLE_LABELS } from "@/core/lib/role-labels";
 import {
@@ -51,7 +56,9 @@ export const metadata: Metadata = { title: "Me" };
  * decision 1: the sign-out lives here only), and at the bottom one quiet "Help &
  * troubleshooting" section (5B decision 4): Send a test notification (5.2), Reload app and the
  * app's version. An accepted invite lands here with `?welcome=1` (WORKFLOWS §1a) to check the name
- * and add a phone. The photo is chosen through `AvatarEditor` (3.3): the original is kept and
+ * and add a phone, and, for a member who joined after 5.5 shipped, the walkthrough that gets
+ * notifications working (owner decisions 2026-10-03, 3 and 4). **Your devices** (5.5, decision 5)
+ * lists every device of theirs, each other one with Remove. The photo is chosen through `AvatarEditor` (3.3): the original is kept and
  * a browser-made preview is what the app shows.
  *
  * The profile is read-only first and edited through the edit pattern (`EditableRecord`, task
@@ -66,22 +73,33 @@ export default async function MePage({
 }) {
   // The profile row and the freelancers the member looks after (ADR-0013, 4C) start with the
   // session read, not after it (ARCHITECTURE §19).
-  const [viewer, [{ welcome }, own, spells, endpoints]] = await checkThenRead(
+  const [viewer, [{ welcome }, own, spells, subscriptions]] = await checkThenRead(
     requireMember(),
     Promise.all([
       searchParams,
       withSessionUserId(getOwnMember),
       listOwnFreelancers(),
-      listOwnActiveEndpoints(),
+      listOwnPushSubscriptions(),
     ]),
   );
   const push = readPushEnv();
+  const endpoints = subscriptions
+    .filter((row) => row.disabledReason === null)
+    .map((row) => row.endpoint);
+  const devices = deviceRowsOf(subscriptions, systemClock());
   const freelancers = spells.filter((spell) => spell.toAt === null);
   // perf: sequential. Their names need their ids; most people coordinate nobody, and then
   // nothing more is read.
   const people =
     freelancers.length > 0 ? await listDirectoryOf(freelancers.map((row) => row.memberId)) : [];
   const isWelcome = welcome === "1";
+  // perf: sequential, and only on the welcome screen: whether this new joiner has a walkthrough
+  // (members who joined before 5.5 never do), and whether the request came from an iPhone.
+  const onboarding = isWelcome ? await readOwnOnboarding() : null;
+  const walkthrough =
+    onboarding !== null && (!onboarding.finished || onboarding.finishedVia === "test")
+      ? { finished: onboarding.finished, ios: isIOS((await headers()).get("user-agent") ?? "", 0) }
+      : null;
 
   const subtitle = viewer.jobTitle
     ? `${ROLE_LABELS[viewer.role]} · ${viewer.jobTitle}`
@@ -114,6 +132,15 @@ export default async function MePage({
               </p>
             </CardContent>
           </Card>
+        ) : null}
+
+        {walkthrough ? (
+          <OnboardingSteps
+            publicKey={push.mode === "on" ? push.publicKey : null}
+            endpoints={endpoints}
+            ios={walkthrough.ios}
+            finished={walkthrough.finished}
+          />
         ) : null}
 
         <Card>
@@ -216,6 +243,16 @@ export default async function MePage({
               </div>
               <LogoutButton />
             </div>
+          </CardContent>
+        </Card>
+
+        <Card data-slot="me-devices">
+          <CardHeader>
+            <CardTitle>Your devices</CardTitle>
+            <CardDescription>Where your notifications go.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <DeviceList rows={devices} />
           </CardContent>
         </Card>
 

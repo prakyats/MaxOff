@@ -11,7 +11,7 @@ import { PushBanner, PushSync } from "@/core/notifications/components/push-lazy"
 import { readPushEnv } from "@/core/notifications/env";
 import { readUnread } from "@/core/notifications/inbox";
 import type { ServerUnread } from "@/core/notifications/read-receipts";
-import { listOwnActiveEndpoints } from "@/core/notifications/push/subscriptions";
+import { readOwnPushStatus } from "@/core/notifications/push/subscriptions";
 import { can } from "@/core/permissions";
 import { RouteTransition } from "@/core/ui/motion/route-transition";
 import { Toaster } from "@/core/ui/primitives/sonner";
@@ -100,12 +100,14 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   });
   const badges = countsOrNone(navBadges(viewer.role, unread), report);
   const prompt = await startDayPrompt(viewer);
-  // The enable-notifications banner is judged per member (kickoff 5 decision 9): the member's
-  // own active endpoints decide it, and tell this device whether it is one of them (PushSync).
-  // The public key is read at runtime and handed to the browser (decision 26); null = push off.
+  // The notifications band is judged per member (kickoff 5 decision 9; since 5.5 until a device
+  // of theirs has received a push, and whenever they are not reachable): one call gives its
+  // reason with the member's own active endpoints, which tell this device whether it is one of
+  // them (PushSync). The public key is read at runtime and handed to the browser (decision 26);
+  // null = push off.
   const push = readPushEnv();
   // The live bell's token (5.1) is read with them: the session is the one just verified.
-  const [endpoints, live] = await Promise.all([listOwnActiveEndpoints(), getRealtimeAuth()]);
+  const [{ endpoints, band }, live] = await Promise.all([readOwnPushStatus(), getRealtimeAuth()]);
   const publicKey = push.mode === "on" ? push.publicKey : null;
 
   return (
@@ -124,7 +126,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             <LiveUpdatesLazy memberId={viewer.id} token={live.token} expiresIn={live.expiresIn} />
           ) : null}
           {/* A band above the bottom bar (5A decision 30), never at the top of a screen. */}
-          {endpoints.length === 0 ? <PushBanner publicKey={publicKey} /> : null}
+          {band ? <PushBanner publicKey={publicKey} reason={band} /> : null}
           <RouteTransition>{children}</RouteTransition>
         </AppShell>
       </TooltipProvider>

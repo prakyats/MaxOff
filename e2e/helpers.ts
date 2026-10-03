@@ -267,6 +267,57 @@ export async function recoveryLinkFor(email: string): Promise<string> {
   return `/auth/confirm?token_hash=${token as string}&type=recovery`;
 }
 
+/**
+ * A fresh invite for a fixture person (5.5), as the invite action makes it: the sign-in and its
+ * one-time token (`generate_link`, type invite), then `member_invite()` as the Owner. Anyone
+ * earlier under the address is removed first, so a spec re-runs on a used database. Returns the
+ * person's id and the `/auth/confirm` link (path + query) to open with `followAuthLink()`.
+ */
+export async function inviteFixturePerson(
+  email: string,
+  fullName: string,
+  role: "admin" | "staff" = "staff",
+): Promise<{ id: string; link: string }> {
+  await removeFixturePerson(email);
+  const body = (await serviceAuth("generate_link", {
+    method: "POST",
+    body: JSON.stringify({ type: "invite", email }),
+  })) as {
+    id?: string;
+    user?: { id?: string };
+    hashed_token?: string;
+    properties?: { hashed_token?: string };
+  };
+  const id = body.id ?? body.user?.id;
+  const token = body.hashed_token ?? body.properties?.hashed_token;
+  expect(id, "generate_link returned the new sign-in").toBeTruthy();
+  expect(token, "generate_link returned a hashed token").toBeTruthy();
+  await rpcAs(USERS.owner.email, USERS.owner.password, "member_invite", {
+    user_id: id,
+    email,
+    full_name: fullName,
+    role,
+  });
+  return { id: id as string, link: `/auth/confirm?token_hash=${token as string}&type=invite` };
+}
+
+/**
+ * Accepts a fixture person's invite without the link (5.5), for a spec about what comes after
+ * the first login: their password is set and the sign-in confirmed by the service role, then
+ * `member_accept_invite()` runs as them, exactly the call `setPassword()` makes.
+ */
+export async function acceptFixtureInvite(
+  id: string,
+  email: string,
+  password: string,
+): Promise<void> {
+  await serviceAuth(`users/${id}`, {
+    method: "PUT",
+    body: JSON.stringify({ password, email_confirm: true }),
+  });
+  await rpcAs(email, password, "member_accept_invite", {});
+}
+
 /** Puts a fixture person's password back after a spec changed it. */
 export async function setPasswordFor(userId: string, password: string): Promise<void> {
   await serviceAuth(`users/${userId}`, { method: "PUT", body: JSON.stringify({ password }) });

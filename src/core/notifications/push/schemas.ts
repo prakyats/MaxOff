@@ -37,3 +37,11 @@ export type SubscriptionPayload = z.infer<typeof subscriptionSchema>;
 
 export const endpointSchema = z.object({ endpoint: z.url().max(2048) });
 export type EndpointInput = z.infer<typeof endpointSchema>;
+
+/** "Remove" on Me's device list (5.5): one of the member's own subscriptions, by its id. */
+export const deviceIdSchema = z.object({ id: z.uuid() });
+export type DeviceIdInput = z.infer<typeof deviceIdSchema>;
+
+/** How a new joiner's walkthrough ends (5.5): the test was delivered, or "Later". */
+export const finishOnboardingSchema = z.object({ via: z.enum(["test", "later"]) });
+export type FinishOnboardingInput = z.infer<typeof finishOnboardingSchema>;

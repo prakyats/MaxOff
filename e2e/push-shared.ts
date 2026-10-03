@@ -1,7 +1,7 @@
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 
-import type { APIRequestContext } from "@playwright/test";
+import type { APIRequestContext, Page } from "@playwright/test";
 
 import { systemClock } from "../src/core/time";
 import { expect } from "./fixtures";
@@ -174,4 +174,73 @@ export async function addDevice(
     platform: "android",
   });
   return row.id;
+}
+
+/**
+ * Fakes the platform before the page's scripts: `Notification.permission` and
+ * `requestPermission` answer as told, `PushManager.subscribe` / `getSubscription` hand back a
+ * subscription at the fake service with the receiver's real keys (so the server's encryption
+ * can be opened here). The service worker itself is real (a production build).
+ */
+export async function stubPush(
+  page: Page,
+  options: {
+    permission: "default" | "granted" | "denied";
+    endpoint: string;
+    receiver: Receiver;
+    /**
+     * `pushManager.subscribe` rejects after Allow, as on Brave with Google's push service off
+     * (an AbortError "push service error"); `brave` also stands in Brave's `navigator.brave`.
+     * `window.__subscribeFails = false` lets the next try through.
+     */
+    rejectSubscribe?: "brave" | "other";
+  },
+) {
+  await page.addInitScript(({ permission, endpoint, receiver, rejectSubscribe }) => {
+    const w = window as unknown as { __subscribeFails?: boolean };
+    w.__subscribeFails = rejectSubscribe !== undefined;
+    if (rejectSubscribe === "brave") {
+      Object.defineProperty(navigator, "brave", {
+        value: { isBrave: async () => true },
+        configurable: true,
+      });
+    }
+    const decode = (text: string) => {
+      const normalised = text.replace(/-/g, "+").replace(/_/g, "/");
+      const binary = atob(normalised + "=".repeat((4 - (normalised.length % 4)) % 4));
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+      return bytes.buffer;
+    };
+    let current: PushSubscription | null = null;
+    const fake = {
+      endpoint,
+      expirationTime: null,
+      options: { userVisibleOnly: true, applicationServerKey: null },
+      getKey: (name: string) =>
+        name === "p256dh" ? decode(receiver.publicKey) : decode(receiver.auth),
+      toJSON: () => ({ endpoint }),
+      unsubscribe: async () => {
+        current = null;
+        return true;
+      },
+    } as unknown as PushSubscription;
+    let state: NotificationPermission = permission;
+    Object.defineProperty(Notification, "permission", { get: () => state, configurable: true });
+    Notification.requestPermission = async () => {
+      state = state === "default" ? "granted" : state;
+      (window as unknown as { __permissionAsked: boolean }).__permissionAsked = true;
+      return state;
+    };
+    PushManager.prototype.subscribe = async function subscribe() {
+      if (w.__subscribeFails) {
+        throw new DOMException("Registration failed - push service error", "AbortError");
+      }
+      current = fake;
+      return fake;
+    };
+    PushManager.prototype.getSubscription = async function getSubscription() {
+      return current;
+    };
+  }, options);
 }

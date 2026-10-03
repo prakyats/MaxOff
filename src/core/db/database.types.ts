@@ -1451,6 +1451,52 @@ export type Database = {
           },
         ];
       };
+      member_onboarding: {
+        Row: {
+          finished_at: string | null;
+          finished_via: string | null;
+          member_id: string;
+          org_id: string;
+          started_at: string;
+        };
+        Insert: {
+          finished_at?: string | null;
+          finished_via?: string | null;
+          member_id: string;
+          org_id: string;
+          started_at?: string;
+        };
+        Update: {
+          finished_at?: string | null;
+          finished_via?: string | null;
+          member_id?: string;
+          org_id?: string;
+          started_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "member_onboarding_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: true;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "member_onboarding_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: true;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "member_onboarding_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       member_reachability: {
         Row: {
           alerted_at: string | null;
@@ -3649,6 +3695,7 @@ export type Database = {
           notifications: number;
         }[];
       };
+      onboarding_finish: { Args: { p_via: string }; Returns: boolean };
       owner_digest_preview: { Args: never; Returns: Json };
       push_claim: {
         Args: { p_limit?: number; p_now?: string };
@@ -3676,7 +3723,15 @@ export type Database = {
         };
         Returns: number;
       };
+      push_status_own: {
+        Args: never;
+        Returns: {
+          band: string;
+          endpoints: string[];
+        }[];
+      };
       push_subscription_remove: { Args: { endpoint: string }; Returns: boolean };
+      push_subscription_remove_own: { Args: { p_id: string }; Returns: boolean };
       push_subscription_result: {
         Args: { p_id: string; p_now?: string; p_outcome: string };
         Returns: string;

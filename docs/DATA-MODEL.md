@@ -143,7 +143,9 @@ public.member_self_status()     the caller's own status whatever it is (null wit
                                 steps read the status through this instead
 public.member_accept_invite()   the caller's own row, invited → active with joined_at. Called by
                                 setPassword() once the invited person's password is stored. Audit
-                                action 'accepted'
+                                action 'accepted'. Since 5.5 (migration onboarding_reachability, same
+                                signature, same behaviour) it also inserts the new joiner's
+                                member_onboarding row (§9): their first-login walkthrough starts here
 public.member_deactivate(member_id, reason)
                                 team.manage. active | invited → deactivated (deactivated_at). Never the
                                 caller, never the Owner. Deletes the person's auth.refresh_tokens and
@@ -381,6 +383,21 @@ push_subscriptions   id, member_id (default auth.uid(), cascade), endpoint uniqu
                      -- dispatcher's result of every send (an audit row per send would flood
                      -- activity_log with nothing anyone reviews); deactivation, the one business event
                      -- that touches it, is audited by member_deactivate itself.
+                     -- 5B 5.5 (migration onboarding_reachability, owner decisions 2026-10-03):
+                     -- push_subscription_remove_own(p_id) ("Remove" on Me's device list: one of the
+                     -- caller's own OTHER devices stops getting notifications; the row is deleted, that
+                     -- device is not signed out; anyone else's row, the Owner's included, NOT_FOUND;
+                     -- not audited, as push_subscription_remove). push_status_own() (the layout's one
+                     -- read, replacing the endpoints select): the caller's active endpoints and
+                     -- app.push_band(caller). app.push_band(member) (service_role only): null while an
+                     -- active subscription has last_success_at set and failure_count < 2; else the
+                     -- member's app.reachability_state when it is not 'ok'; else 'unconfirmed' (on,
+                     -- nothing received yet). "Send a test notification" now records each device whose
+                     -- push service accepted the test with the dispatcher's own
+                     -- push_subscription_result(id, 'sent') (last_success_at, failure_count 0), called by
+                     -- the server with the service role for the caller's own devices it just pushed to.
+                     -- Me reads user_agent (own rows) to name each device in plain words; it is never
+                     -- shown.
 app.local_flags      flag text pk check (flag in ('push_loopback_endpoints')), set_at
                      -- 5A review fixes (20261001053934): switches that exist ONLY on a local or CI
                      -- database. Written by supabase/seed.sql, which no hosted project runs (deploy
@@ -1417,6 +1434,18 @@ member_app_reports   member_id pk → members (cascade), org_id, platform ('andr
                      -- privilege revoked from anon and authenticated (read only by the reachability
                      -- functions). Audited (audit_row_change on insert and update; entity_id = member_id);
                      -- never deleted but by the members cascade on a local fixture.
+member_onboarding    member_id pk → members (cascade), org_id, started_at, finished_at null,
+                     finished_via null ('test'|'later'), check (finished_at is null) = (finished_via is null)
+                     -- 5B 5.5 (owner decisions 2026-10-03; WORKFLOWS §9a "Onboarding"): a new joiner's
+                     -- first-login walkthrough (iPhone install, turn on notifications, send a test).
+                     -- Inserted only by member_accept_invite() (the first login), so members who joined
+                     -- before 5.5 shipped have no row and never see it (no backfill). Finished once by
+                     -- onboarding_finish(p_via) (security definer, the caller's own row): 'test' only
+                     -- while an active subscription of theirs has last_success_at (INVALID_STATE
+                     -- otherwise), 'later' always; returns whether it finished now (false with no row or
+                     -- already finished). RLS on: SELECT own row (member_id = auth.uid()); no INSERT,
+                     -- UPDATE or DELETE for the API role. Audited (audit_row_change on insert and update,
+                     -- entity_id = member_id).
 member_reachability  member_id pk → members (cascade), org_id, state ('ok'|'no_subscription'|
                      'permission_revoked'|'ios_not_installed'|'failing'), since timestamptz,
                      alerted_at timestamptz null, created_at, updated_at

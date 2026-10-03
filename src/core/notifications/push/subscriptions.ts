@@ -1,6 +1,10 @@
 import "server-only";
 
 import { createServerSupabase } from "@/core/db/server";
+import { createServiceSupabase } from "@/core/db/service";
+import { systemClock } from "@/core/time";
+
+import { type BandReason, toBandReason } from "./band";
 
 /**
  * A member's own push subscriptions (DATA-MODEL §9 `push_subscriptions`, WORKFLOWS §9a), read
@@ -17,6 +21,8 @@ export interface OwnPushSubscription {
   platform: "android" | "ios" | "desktop" | "other";
   isStandalone: boolean;
   label: string | null;
+  /** The browser's user agent when it subscribed: Me names the device from it (5.5), never shows it. */
+  userAgent: string | null;
   createdAt: string;
   lastSuccessAt: string | null;
   lastTestAt: string | null;
@@ -47,7 +53,7 @@ export async function listOwnPushSubscriptions(): Promise<OwnPushSubscription[]>
   const { data, error } = await supabase
     .from("push_subscriptions")
     .select(
-      "id, endpoint, p256dh, auth, platform, is_standalone, label, created_at, last_success_at, last_test_at, failure_count, disabled_reason",
+      "id, endpoint, p256dh, auth, platform, is_standalone, label, user_agent, created_at, last_success_at, last_test_at, failure_count, disabled_reason",
     )
     .order("created_at", { ascending: true });
   if (error) throw error;
@@ -59,6 +65,7 @@ export async function listOwnPushSubscriptions(): Promise<OwnPushSubscription[]>
     platform: toPlatform(row.platform),
     isStandalone: row.is_standalone,
     label: row.label,
+    userAgent: row.user_agent,
     createdAt: row.created_at,
     lastSuccessAt: row.last_success_at,
     lastTestAt: row.last_test_at,
@@ -67,10 +74,19 @@ export async function listOwnPushSubscriptions(): Promise<OwnPushSubscription[]>
   }));
 }
 
-/** What the banner and Me need: the caller's active endpoints (their own devices). */
-export async function listOwnActiveEndpoints(): Promise<string[]> {
-  const rows = await listOwnPushSubscriptions();
-  return rows.filter((row) => row.disabledReason === null).map((row) => row.endpoint);
+/**
+ * The layout's one read for the band (5.5, `push_status_own()`): the caller's active endpoints
+ * (this device's check, `PushSync`) and why the band shows (`app.push_band`), or null for none.
+ * One call, as the endpoints alone were before.
+ */
+export async function readOwnPushStatus(): Promise<{
+  endpoints: string[];
+  band: BandReason | null;
+}> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("push_status_own").maybeSingle();
+  if (error) throw error;
+  return { endpoints: data?.endpoints ?? [], band: toBandReason(data?.band ?? null) };
 }
 
 export async function rpcPushSubscriptionUpsert(input: SubscriptionInput): Promise<string> {
@@ -93,6 +109,36 @@ export async function rpcPushSubscriptionRemove(endpoint: string): Promise<boole
   const { data, error } = await supabase.rpc("push_subscription_remove", { endpoint });
   if (error) throw error;
   return data;
+}
+
+/**
+ * "Remove" on Me's device list (5.5): one of the caller's own other devices stops getting
+ * notifications (its row is deleted; it is not signed out). Anyone else's is NOT_FOUND.
+ */
+export async function rpcPushSubscriptionRemoveOwn(id: string): Promise<void> {
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.rpc("push_subscription_remove_own", { p_id: id });
+  if (error) throw error;
+}
+
+/**
+ * A test the push service accepted counts as a delivery (5.5, owner decision 2026-10-03: "the push
+ * service accepting it counts as working"): the dispatcher's own `push_subscription_result(sent)`
+ * (service_role) stamps `last_success_at` and clears the error count, which ends the band. Only
+ * the ids of the caller's own devices the server just pushed to reach here.
+ */
+export async function recordTestDelivered(ids: readonly string[]): Promise<void> {
+  if (ids.length === 0) return;
+  const service = createServiceSupabase();
+  const now = systemClock().toISOString();
+  for (const id of ids) {
+    const { error } = await service.rpc("push_subscription_result", {
+      p_id: id,
+      p_outcome: "sent",
+      p_now: now,
+    });
+    if (error) throw error;
+  }
 }
 
 /**

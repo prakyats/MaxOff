@@ -1,4 +1,5 @@
 import { fromBase64Url, toBase64Url } from "./base64url";
+import { isIOS } from "./ios";
 import type { SubscriptionPayload } from "./schemas";
 
 /**
@@ -27,10 +28,7 @@ export function pushSupport(input: {
   return { kind: "ready" };
 }
 
-export function isIOS(userAgent: string, maxTouchPoints: number): boolean {
-  // iPadOS 13+ presents itself as a Mac; the touch points give it away.
-  return /iPhone|iPad|iPod/.test(userAgent) || (/Macintosh/.test(userAgent) && maxTouchPoints > 1);
-}
+export { isIOS };
 
 export function platformOf(
   userAgent: string,

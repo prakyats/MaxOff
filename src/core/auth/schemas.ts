@@ -29,6 +29,11 @@ export const loginSchema = z.object({
     .string()
     .optional()
     .transform((value) => (value && value.length <= 2048 ? value : undefined)),
+  /**
+   * The sign-in comes from MaxOff installed on an iPhone (5.5, owner decision 2026-10-03, 4): a
+   * new joiner whose walkthrough is unfinished lands back on it, at "Turn on notifications".
+   */
+  installedIphone: z.boolean().optional(),
 });
 export type LoginInput = z.input<typeof loginSchema>;
 
