@@ -219,6 +219,9 @@ org_settings         org_id pk, weekly_off_days smallint[] (0=Sun..6=Sat), logou
                      end_day_cutoff_time time ('05:00'; 3b review, expand-only: yesterday's open day
                      can be ended until this IST time, never once today started; Settings ->
                      Thresholds, which offers 00:00-11:59)
+                     -- 5B 5.4 follow-up (owner 2026-10-03, expand-only): reachability_clock_from timestamptz null,
+                     -- set once to the release moment by migration reachability_clock_from_release: no one's
+                     -- 48 h "can't be reached" clock starts before it (null: no floor).
                      -- kickoff 5 (2026-09-29, expand-only): quiet_hours_start time ('22:00'),
                      -- quiet_hours_end time ('07:00'), email_daily_cap_org int (90; check > 0) **added in
                      -- 5.1 step 1 (20260930050132), in the API UPDATE grant, no UI yet** (Settings ->

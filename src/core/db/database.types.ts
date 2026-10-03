@@ -1760,6 +1760,7 @@ export type Database = {
           overdue_escalate_hours: number;
           quiet_hours_end: string;
           quiet_hours_start: string;
+          reachability_clock_from: string | null;
           updated_at: string;
           weekly_off_days: number[];
           workload_warning_threshold: number | null;
@@ -1779,6 +1780,7 @@ export type Database = {
           overdue_escalate_hours?: number;
           quiet_hours_end?: string;
           quiet_hours_start?: string;
+          reachability_clock_from?: string | null;
           updated_at?: string;
           weekly_off_days?: number[];
           workload_warning_threshold?: number | null;
@@ -1798,6 +1800,7 @@ export type Database = {
           overdue_escalate_hours?: number;
           quiet_hours_end?: string;
           quiet_hours_start?: string;
+          reachability_clock_from?: string | null;
           updated_at?: string;
           weekly_off_days?: number[];
           workload_warning_threshold?: number | null;
@@ -3638,6 +3641,13 @@ export type Database = {
       notifications_mark_read: {
         Args: { entity: string; entity_id: string };
         Returns: number;
+      };
+      notifications_remove_read: {
+        Args: { p_dry_run?: boolean; p_now?: string };
+        Returns: {
+          deliveries: number;
+          notifications: number;
+        }[];
       };
       owner_digest_preview: { Args: never; Returns: Json };
       push_claim: {

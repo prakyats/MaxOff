@@ -52,7 +52,9 @@ delete from auth.identities;
 delete from auth.users;
 delete from public.activity_log;
 delete from public.holidays;
-update public.org_settings set weekly_off_days = '{}', email_daily_cap_org = 90, email_daily_cap_per_member = 20;
+-- The base rules, with no release floor (pgTAP 58 tests the floor: migration reachability_clock_from_release).
+update public.org_settings set weekly_off_days = '{}', email_daily_cap_org = 90, email_daily_cap_per_member = 20,
+  reachability_clock_from = null;
 
 create temporary table fx (key text primary key, id uuid not null);
 insert into fx values
