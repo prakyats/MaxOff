@@ -1,9 +1,9 @@
 {
-  "$comment": "First-load JS per route, decompressed bytes (task 2.8, `pnpm budget`). Set from the 2.8 result plus ~5%: /login 559 KB, /today and /my-day 746 KB, /approvals 842 KB. /tasks and /tasks/[id] added at the 4B review (S12) the same way, from 774.5 KB and 790.9 KB plus ~5%. Raising a number is a decision: say why in the commit. /tasks/all added in 4C (4.5) the same way, from 892.2 KB plus ~5%. /settings/task-types added in 4C (4.6 settings) the same way, from 801.9 KB plus ~5%. /tasks/requests and /settings/templates added in 4C (4.6) the same way, from 785.9 KB and 791.7 KB plus ~5%. /today and /my-day raised 785 → 790 KB on 2026-10-01 (owner decision): the reload fix's held tap and slide naming added ~1 KB (786.0 KB measured); the spare ~4 KB is not headroom for features (PROGRESS, Things the next session must know).",
+  "$comment": "First-load JS per route, decompressed bytes (task 2.8, `pnpm budget`). Set from the 2.8 result plus ~5%: /login 559 KB, /today and /my-day 746 KB, /approvals 842 KB. /tasks and /tasks/[id] added at the 4B review (S12) the same way, from 774.5 KB and 790.9 KB plus ~5%. Raising a number is a decision: say why in the commit. /tasks/all added in 4C (4.5) the same way, from 892.2 KB plus ~5%. /settings/task-types added in 4C (4.6 settings) the same way, from 801.9 KB plus ~5%. /tasks/requests and /settings/templates added in 4C (4.6) the same way, from 785.9 KB and 791.7 KB plus ~5%. /today and /my-day raised 785 → 790 KB on 2026-10-01 (owner decision): the reload fix's held tap and slide naming added ~1 KB (786.0 KB measured); the spare ~4 KB is not headroom for features (PROGRESS, Things the next session must know). /today and /my-day raised 790 → 792 KB on 2026-10-03 (owner decision): bundler regrouping only, proven: no reminder code in either first-load set (5.3's editor re-split shared chunks, 790.0 KB on CI, 24 files). The last raise without ROADMAP 6.0, the first-load diet that lowers it again.",
   "routes": {
     "/login": 604160,
-    "/today": 808960,
-    "/my-day": 808960,
+    "/today": 811008,
+    "/my-day": 811008,
     "/approvals": 905216,
     "/tasks": 834560,
     "/tasks/[id]": 855040,
