@@ -1,7 +1,8 @@
 import { systemClock } from "@/core/time";
 
+import { DIGEST_KIND, parseDigestPayload, renderDigestEmail } from "./digest-content";
 import type { EmailSender } from "./email";
-import { renderCombinedEmail } from "./email-content";
+import { type NotificationEmail, renderCombinedEmail } from "./email-content";
 
 /**
  * The email half of the dispatcher (task 5.2; WORKFLOWS §9a, kickoff 5 decisions 6, 7 and 10;
@@ -19,6 +20,10 @@ import { renderCombinedEmail } from "./email-content";
  * **One email per person per run (5.3):** the claim gives a person's always-emailed rows of the run
  * one `batchId`; they go as one email (`renderCombinedEmail`: the most urgent item names the
  * subject) and each row records the same outcome. A row without a batch is an email of its own.
+ *
+ * **The Owner's morning summary (5B slice 7)** is always an email of its own, rendered from its
+ * payload (`renderDigestEmail`); a payload that is not a digest's is recorded failed
+ * `invalid_payload` at once (and reported), never retried, never sent half-rendered.
  *
  * No `RESEND_API_KEY` (`sender` null): every claimed row is recorded failed `not_configured`
  * (visible in the deliveries, never counted against the ceilings), nothing is sent and nothing
@@ -38,6 +43,8 @@ export interface ClaimedEmail {
   batchId: string | null;
   /** `notifications.escalation_level` (0 for anything but an escalation). */
   escalationLevel: number;
+  /** `notifications.payload`: read only for the Owner's digest (5B), whose email is built from it. */
+  payload?: unknown;
 }
 
 export interface EmailStore {
@@ -129,7 +136,12 @@ export function emailGroups(items: readonly ClaimedEmail[]): ClaimedEmail[][] {
 
 async function dispatchEmailGroup(
   group: readonly ClaimedEmail[],
-  input: { store: EmailStore; sender: EmailSender | null; origin: string },
+  input: {
+    store: EmailStore;
+    sender: EmailSender | null;
+    origin: string;
+    onItemError?: (error: unknown) => void;
+  },
   now: Date,
   report: EmailDispatchReport,
 ): Promise<void> {
@@ -144,7 +156,19 @@ async function dispatchEmailGroup(
     report.failed += group.length;
     return;
   }
-  const content = renderCombinedEmail({ items: group, origin: input.origin });
+  let content: NotificationEmail;
+  if (first.kind === DIGEST_KIND) {
+    const payload = parseDigestPayload(first.payload);
+    if (!payload) {
+      input.onItemError?.(new Error("owner_digest: the payload is not a digest"));
+      await recordAll("failed", "invalid_payload");
+      report.failed += group.length;
+      return;
+    }
+    content = renderDigestEmail(payload, input.origin);
+  } else {
+    content = renderCombinedEmail({ items: group, origin: input.origin });
+  }
   const result = await input.sender.send({ to: first.email, ...content });
   if (result.ok) {
     await recordAll("sent", null);

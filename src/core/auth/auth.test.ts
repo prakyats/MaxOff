@@ -21,6 +21,7 @@ describe("isPublicPath", () => {
       "/auth/confirm",
       "/auth/signout",
       "/diagnostics/sentry",
+      "/diagnostics/digest",
       "/api/cron/anything",
     ]) {
       expect(isPublicPath(path), path).toBe(true);

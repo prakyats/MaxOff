@@ -9,7 +9,7 @@
  * control character can start a header). The rows never carry an amount (invariant 2, decision
  * 24) or a record the person lost access to (decision 25), so neither can an email.
  */
-const BRAND_RED = "#c42126";
+export const BRAND_RED = "#c42126";
 const NOTIFICATIONS_PATH = "/notifications";
 const SUBJECT_MAX = 150;
 
@@ -44,6 +44,24 @@ export function headerSafe(value: string, max = SUBJECT_MAX): string {
   return cut || "MaxOff";
 }
 
+/**
+ * The branded page every notification email shares: the grey background, the white card and the
+ * MAXOFF mark (`brandGap` px under it), then the card's own rows (`<tr>…</tr>`, already escaped).
+ */
+export function emailDocument(subject: string, brandGap: number, rows: readonly string[]): string {
+  return [
+    "<!doctype html>",
+    '<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">',
+    `<title>${escapeHtml(subject)}</title></head>`,
+    "<body style=\"margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif\">",
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:24px 12px"><tr><td align="center">',
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:12px;padding:24px">',
+    `<tr><td style="padding-bottom:${brandGap}px;font-size:13px;font-weight:700;letter-spacing:0.04em;color:${BRAND_RED}">MAXOFF</td></tr>`,
+    ...rows,
+    "</table></td></tr></table></body></html>",
+  ].join("");
+}
+
 /** The deep-link entry for a row's link; a missing or outside link opens the history. */
 export function openUrl(origin: string, link: string | null): string {
   const safe = link && link.startsWith("/") && !link.startsWith("//") ? link : NOTIFICATIONS_PATH;
@@ -73,14 +91,7 @@ export function renderNotificationEmail(input: NotificationEmailInput): Notifica
         )
         .join("")
     : "";
-  const html = [
-    "<!doctype html>",
-    '<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">',
-    `<title>${escapeHtml(subject)}</title></head>`,
-    "<body style=\"margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif\">",
-    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:24px 12px"><tr><td align="center">',
-    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:12px;padding:24px">',
-    `<tr><td style="padding-bottom:16px;font-size:13px;font-weight:700;letter-spacing:0.04em;color:${BRAND_RED}">MAXOFF</td></tr>`,
+  const html = emailDocument(subject, 16, [
     '<tr><td style="padding-bottom:12px">',
     `<h1 style="margin:0;font-size:18px;line-height:26px;color:#18181b">${escapeHtml(input.title.trim())}</h1>`,
     "</td></tr>",
@@ -89,8 +100,7 @@ export function renderNotificationEmail(input: NotificationEmailInput): Notifica
     `<a href="${escapeHtml(url)}" style="display:inline-block;background:${BRAND_RED};color:#ffffff;text-decoration:none;font-size:15px;font-weight:600;padding:12px 20px;border-radius:8px">Open in MaxOff</a>`,
     "</td></tr>",
     '<tr><td style="padding-top:24px;font-size:12px;line-height:18px;color:#71717a">You get this email because you have no working MaxOff notifications on a device, or because it is one MaxOff always emails.</td></tr>',
-    "</table></td></tr></table></body></html>",
-  ].join("");
+  ]);
 
   return { subject, text, html };
 }
@@ -169,18 +179,10 @@ export function renderCombinedEmail(input: {
       ].join("");
     })
     .join("");
-  const html = [
-    "<!doctype html>",
-    '<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">',
-    `<title>${escapeHtml(subject)}</title></head>`,
-    "<body style=\"margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif\">",
-    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:24px 12px"><tr><td align="center">',
-    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:12px;padding:24px">',
-    `<tr><td style="padding-bottom:12px;font-size:13px;font-weight:700;letter-spacing:0.04em;color:${BRAND_RED}">MAXOFF</td></tr>`,
+  const html = emailDocument(subject, 12, [
     `<tr><td style="padding-bottom:4px"><h1 style="margin:0;font-size:18px;line-height:26px;color:#18181b">${all.length} updates</h1></td></tr>`,
     sections,
     `<tr><td style="padding-top:16px;font-size:12px;line-height:18px;color:#71717a">${escapeHtml(footer)}</td></tr>`,
-    "</table></td></tr></table></body></html>",
-  ].join("");
+  ]);
   return { subject, text, html };
 }

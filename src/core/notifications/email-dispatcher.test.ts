@@ -279,3 +279,75 @@ describe("one email per person per run (5.3, owner 2026-10-02)", () => {
     ]);
   });
 });
+
+describe("the Owner's morning summary (5B slice 7)", () => {
+  const digestPayload = {
+    date: "2026-10-03",
+    yesterday: "2026-10-02",
+    attendance: {
+      present: 0,
+      on_leave: 0,
+      absent: 1,
+      absent_names: ["Asha"],
+      absent_more: 0,
+      day_not_ended: 0,
+      day_not_ended_names: [],
+      day_not_ended_more: 0,
+    },
+    tasks: { approved_yesterday: 0, overdue: 0, waiting_for_owner: 0 },
+    requests: { leave: 0, expense_claims: 0 },
+    held_back: [],
+  };
+  const digest = (id: string, payload: unknown) =>
+    claimed(id, {
+      kind: "owner_digest",
+      title: "Your morning summary · Sat 3 Oct",
+      body: "Attendance yesterday\nAbsent: 1 (Asha)",
+      link: "/today",
+      payload,
+    });
+
+  it("renders the digest from its payload, as one email of its own", async () => {
+    const { store, records } = fakeStore([digest("d1", digestPayload), claimed("d2")]);
+    const resend = fakeResend([200, 200]);
+    const report = await runEmailDispatch({
+      store,
+      sender: resendSender("re_test_key", "MaxOff <n@mail.maxoff.in>", resend.fetchImpl),
+      origin: "https://app.example",
+      now: NOW,
+    });
+    expect(report).toMatchObject({ claimed: 2, sent: 2, failed: 0 });
+    expect(resend.calls).toHaveLength(2);
+    expect(resend.calls[0]?.body.subject).toBe("Your morning summary · Sat 3 Oct");
+    expect(String(resend.calls[0]?.body.text)).toContain(
+      `Absent: 1 (Asha): https://app.example/open?to=${encodeURIComponent("/reports/month?month=2026-10")}`,
+    );
+    expect(String(resend.calls[0]?.body.html)).toContain(">Attendance yesterday</h2>");
+    expect(resend.calls[1]?.body.subject).toBe("New task: Reel cut");
+    expect(records).toEqual([
+      { id: "d1", outcome: "sent", error: null },
+      { id: "d2", outcome: "sent", error: null },
+    ]);
+  });
+
+  it("records a digest whose payload is not one failed at once, sends nothing, and goes on", async () => {
+    const { store, records } = fakeStore([digest("d1", { date: "nope" }), claimed("d2")]);
+    const resend = fakeResend([200]);
+    const errors: unknown[] = [];
+    const report = await runEmailDispatch({
+      store,
+      sender: resendSender("re_test_key", "MaxOff <n@mail.maxoff.in>", resend.fetchImpl),
+      origin: "https://app.example",
+      now: NOW,
+      onItemError: (error) => errors.push(error),
+    });
+    expect(report).toMatchObject({ claimed: 2, sent: 1, failed: 1, retried: 0 });
+    expect(resend.calls).toHaveLength(1);
+    expect(resend.calls[0]?.body.subject).toBe("New task: Reel cut");
+    expect(records).toEqual([
+      { id: "d1", outcome: "failed", error: "invalid_payload" },
+      { id: "d2", outcome: "sent", error: null },
+    ]);
+    expect(errors).toHaveLength(1);
+  });
+});

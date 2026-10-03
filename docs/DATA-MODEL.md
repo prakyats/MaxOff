@@ -47,6 +47,8 @@ notification_kind  a lookup table, not an enum (5.1, expand-only across releases
                    12, migration task_assigned_fallback_only: task_assigned was always_email until
                    then, now fallback only). 5B adds the reminder, escalation, digest and
                    reachability kinds by inserting rows; its always-emailed ones carry always_email.
+                   in_app (5B, migration owner_digest): false for an email-only kind (owner_digest,
+                   the Owner's morning summary), hidden in-app and never pushed (§9).
 field_type         text | long_text | number | date | datetime | checkbox | select |
                    multi_select | url | email | phone | color | member | rating
                    -- deliberately NO currency type: money lives only in the Owner-only tables (§7)
@@ -1291,6 +1293,12 @@ files                id, org_id, storage_key, name, mime, size_bytes, sha256 nul
                      -- (20260927134340). A new column referencing files needs its FK **and an index**:
                      -- the cleanup runs one not-exists per FK column on every batch.
 notification_kinds   kind pk, actionable bool, always_email bool, description   -- §0 (5.1); API select only
+                     in_app bool not null default true (5B, migration owner_digest, expand-only): false =
+                     -- an email-only kind, never in the bell, its unread count, the Alerts list or
+                     -- Realtime (the notifications SELECT policy hides it) and never pushed. The one
+                     -- such kind is owner_digest (actionable false, always_email true): the Owner's 08:00
+                     -- IST morning summary, written by public.digest_daily() (pg_cron) directly, not
+                     -- through app.notify(), with read_at set at insert and no push delivery.
 notifications        id, org_id, recipient_id → members (cascade), actor_id null → members (set null),
                      kind → notification_kinds, title (≤ 200), body null (≤ 2000), link null (an app route,
                      '/…', ≤ 500), entity null, entity_id null (together or neither), payload jsonb
@@ -1300,7 +1308,10 @@ notifications        id, org_id, recipient_id → members (cascade), actor_id nu
                      -- dedupe, the actor dropped, deactivated / invited / unknown ids dropped, a
                      -- freelancer's row to their current coordinator with " · for <name>" on the title
                      -- and payload.for_member_id (ADR-0013 §4; nobody when they have none or the
-                     -- coordinator is the actor). RLS: the recipient only; the API updates read_at alone
+                     -- coordinator is the actor). RLS: the recipient only, and only a kind with in_app
+                     -- (5B, migration owner_digest: an email-only row such as the digest is never visible
+                     -- to the API role, so the bell, its count, notifications_inbox and Realtime never see
+                     -- it; service_role reads it); the API updates read_at alone
                      -- (column grant + protect_columns), no insert or delete; notifications_mark_read(entity,
                      -- entity_id) and notifications_mark_all_read() for the caller's own rows.
                      -- notifications_inbox(p_unread_only, p_offset, p_limit) (5B decision 10, migration
@@ -1367,6 +1378,17 @@ notification_deliveries  id, notification_id → notifications (cascade), channe
                      -- 60 min, failed after the fifth); 'not_configured' when RESEND_API_KEY is unset,
                      -- 'resend_<status>' otherwise. Invites, password and email-change mails never use
                      -- deliveries, so they are never counted or skipped. Index notifications(created_at).
+                     -- 5B (migration owner_digest): email_claim re-created, same signature, one more
+                     -- result column (payload, the notification's): the Owner's digest (kind owner_digest)
+                     -- is always an email of its own (never in a batch, batch_id null), taken into a run
+                     -- before other ordinary rows and ordered after escalations and before every other
+                     -- ordinary group; it is capped as an ordinary email (email_daily_cap_org - 10 and
+                     -- the per-person cap). public.digest_daily(p_now) (service_role only; pg_cron
+                     -- 'digest_daily' at 02:30 UTC = 08:00 IST) writes one owner_digest row a day for each
+                     -- organisation's active Owner (advisory lock; none when one exists for that IST day),
+                     -- payload = app.owner_digest_payload(org, now): counts only, never an amount;
+                     -- owner_digest_preview() (authenticated, the org's Owner only, writes nothing) reads
+                     -- the same payload for the staging/preview sample at /diagnostics/digest.
 activity_log         id bigint identity, org_id, actor_id null (system), on_behalf_of_id null (4A,
                      ADR-0013: the freelancer a coordinator acted for; actor_id stays the coordinator;
                      written by app.audit_row_change() from the override's on_behalf_of key, else
