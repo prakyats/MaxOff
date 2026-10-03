@@ -30,6 +30,7 @@ export function supabaseEmailStore(client: ServiceSupabase = createServiceSupaba
         // A function's columns are typed not-null; a lone email's batch is null.
         batchId: (row.batch_id as string | null) ?? null,
         escalationLevel: row.escalation_level ?? 0,
+        payload: row.payload,
       }));
     },
     async record(deliveryId, outcome, errorText, now) {

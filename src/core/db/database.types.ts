@@ -1533,18 +1533,21 @@ export type Database = {
           actionable: boolean;
           always_email: boolean;
           description: string;
+          in_app: boolean;
           kind: string;
         };
         Insert: {
           actionable?: boolean;
           always_email?: boolean;
           description: string;
+          in_app?: boolean;
           kind: string;
         };
         Update: {
           actionable?: boolean;
           always_email?: boolean;
           description?: string;
+          in_app?: boolean;
           kind?: string;
         };
         Relationships: [];
@@ -3244,6 +3247,7 @@ export type Database = {
         Args: { credit_id: string; reason?: string };
         Returns: undefined;
       };
+      digest_daily: { Args: { p_now?: string }; Returns: number };
       email_claim: {
         Args: { p_limit?: number; p_now?: string };
         Returns: {
@@ -3256,6 +3260,7 @@ export type Database = {
           kind: string;
           link: string;
           notification_id: string;
+          payload: Json;
           recipient_id: string;
           title: string;
         }[];
@@ -3532,6 +3537,7 @@ export type Database = {
         Args: { entity: string; entity_id: string };
         Returns: number;
       };
+      owner_digest_preview: { Args: never; Returns: Json };
       push_claim: {
         Args: { p_limit?: number; p_now?: string };
         Returns: {

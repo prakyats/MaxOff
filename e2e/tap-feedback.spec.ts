@@ -57,8 +57,15 @@ const isScreenFetch = (request: Request, path: string) =>
   request.headers()["rsc"] === "1" &&
   !request.headers()["next-router-prefetch"] &&
   new URL(request.url()).pathname === path;
+/**
+ * A server action a tap sent. The bell's own count read (`readUnreadCount`, no arguments: its
+ * body is `[]`) runs when Realtime first joins, at a moment no test controls; failing or holding
+ * "the next action" must never catch it instead of the tap's.
+ */
 const isAction = (request: Request) =>
-  request.method() === "POST" && Boolean(request.headers()["next-action"]);
+  request.method() === "POST" &&
+  Boolean(request.headers()["next-action"]) &&
+  request.postData() !== "[]";
 
 /** The screen's prefetches: refused where a test needs the tap itself to wait on the server. */
 const isPrefetchOf = (request: Request, path: string) =>
