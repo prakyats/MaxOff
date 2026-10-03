@@ -110,7 +110,9 @@ insert into app_internal values
   -- 5.3: the reminders (service_role only; reminder_rules_valid is the CHECK constraints', so it
   -- keeps the API grant)
   ('reminder_offset'), ('task_reminder_rules'), ('task_arm_reminders'), ('tasks_reminders_trigger'),
-  ('reminder_paused'), ('reminder_resume_at'), ('reminder_in'), ('reminders_tick'), ('reminders_backfill');
+  ('reminder_paused'), ('reminder_resume_at'), ('reminder_in'), ('reminders_tick'), ('reminders_backfill'),
+  -- 5.3 (owner 2026-10-03): the staging dry run's acknowledgement counts
+  ('reminders_backfill_ack_preview');
   -- 3c.1 (contract migration): attendance_logout and logout_not_recorded are gone with the 2.x gate.
 select is(
   (select count(*) from pg_proc p
@@ -131,7 +133,7 @@ select is(
   0::bigint,
   'the internal helpers: service_role only, never the API role');
 select is((select count(*) from pg_proc p where p.pronamespace = 'app'::regnamespace
-             and p.proname in (select name from app_internal)), 52::bigint,
+             and p.proname in (select name from app_internal)), 53::bigint,
   'the internal helper list matches what exists');
 select cmp_ok((select count(*) from pg_proc where pronamespace = 'app'::regnamespace), '>=', 4::bigint,
   'the grant check saw the app functions');

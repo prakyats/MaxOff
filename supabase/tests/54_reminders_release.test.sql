@@ -5,10 +5,11 @@
 -- and has not ended their day, and a reminder the old job already sent that day is never sent
 -- again by the tick (release day). (2) The release backfill: only open, unarmed tasks; only
 -- reminders still ahead; an already overdue task's escalation and every acknowledgement clock count
--- from the backfill; a dry run writes nothing; a second run arms nothing.
+-- from the backfill; a dry run writes nothing; a second run arms nothing. (3) The staging dry run's
+-- acknowledgement preview (owner 2026-10-03) counts what the tick then really sends.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(24);
+select plan(29);
 
 delete from public.task_requests;
 delete from public.task_warnings;
@@ -190,6 +191,37 @@ select is(pg_temp.n('staff1', 'reminder_not_noted', 'open_todo'), 1::bigint, 'th
 select app.reminders_tick(now() + interval '4 hours 1 minute');
 select is(pg_temp.n('admin1', 'escalation_not_noted', 'open_todo'), 1::bigint, 'the 4 h escalation 4 h after it');
 select is(pg_temp.n('owner', 'escalation_not_noted', 'open_todo'), 0::bigint, 'the Owner''s not before 8 h after it');
+
+-- 3. The acknowledgement preview (owner, 2026-10-03) -------------------------------------------------------
+select results_eq($$ select * from app.reminders_backfill_ack_preview() $$, $$ values (0, 0, 0, 0, 0) $$,
+  'after the backfill: no task left to arm, nothing to start');
+-- Four old tasks nobody armed: an Admin approves one; the Owner leads one alone; one has two people,
+-- one of whom has noted; one an Admin created for themselves and has not noted (no escalation to
+-- themselves; the Owner's still goes).
+select pg_temp.mk('p_admin', now() + interval '3 days', array['staff1'], 'admin1');
+select pg_temp.mk('p_owner', now() + interval '3 days', array['staff2']);
+select pg_temp.mk('p_mixed', now() + interval '3 days', array['staff1', 'staff2'], 'admin1');
+select pg_temp.mk('p_self', now() + interval '3 days', array['admin1']);
+update public.tasks set created_by = pg_temp.fx('admin1') where id = pg_temp.fx('p_self');
+select pg_temp.as_member('staff2');
+select public.task_acknowledge(pg_temp.fx('p_mixed'));
+select pg_temp.as_system();
+select pg_temp.legacy(k, interval '10 hours') from unnest(array['p_admin', 'p_owner', 'p_mixed', 'p_self']) k;
+select results_eq($$ select * from app.reminders_backfill_ack_preview() $$, $$ values (4, 3, 3, 3, 3) $$,
+  'the preview: 4 not noted, 3 lead escalations naming 3, 3 Owner escalations naming 3');
+-- The same tasks through the real backfill and tick: what the preview said is what is sent.
+select app.reminders_backfill(now(), false);
+create function pg_temp.sent(kind text, level integer) returns bigint language sql stable as $$
+  select count(*) from public.notifications x
+  where x.kind = $1 and x.escalation_level = $2
+    and x.entity_id in (pg_temp.fx('p_admin'), pg_temp.fx('p_owner'), pg_temp.fx('p_mixed'), pg_temp.fx('p_self'));
+$$;
+select app.reminders_tick(now() + interval '2 hours 1 minute');
+select is(pg_temp.sent('reminder_not_noted', 0), 4::bigint, 'the tick: 4 repeats at 2 h');
+select app.reminders_tick(now() + interval '4 hours 1 minute');
+select is(pg_temp.sent('escalation_not_noted', 1), 3::bigint, '3 lead escalations at 4 h');
+select app.reminders_tick(now() + interval '8 hours 1 minute');
+select is(pg_temp.sent('escalation_not_noted', 2), 3::bigint, '3 Owner escalations at 8 h');
 
 select * from finish();
 rollback;

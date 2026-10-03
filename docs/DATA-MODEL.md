@@ -1042,7 +1042,10 @@ task_reminders       id, org_id, task_id (cascade), member_id null (cascade), ki
                      -- person's before-due / Due now back; ack / ack_escalation rows record each repeat and escalation
                      -- sent (member_id = the assignee). RLS on, no API grant (the job's). Not audited.
 task_reminder_arms   task_id pk (cascade), armed_at      -- 5.3: the tasks that get reminders: created after the
-                     -- migration (no backfill without the owner's OK). Written by the trigger only; RLS on, no API grant.
+                     -- migration (no backfill without the owner's OK). Written by the trigger and by
+                     -- app.reminders_backfill(p_now, p_dry_run) (open tasks, armed_at = the backfill; run on
+                     -- production only by a release migration the owner approves); app.reminders_backfill_ack_preview()
+                     -- counts the acknowledgement repeats and escalations it would start (read only). RLS on, no API grant.
                      -- Reminder rule lists (tasks.reminder_rules, task_templates.reminder_rules, task_types.default_reminders,
                      -- org_settings.default_task_reminders; CHECK app.reminder_rules_valid, NOT VALID): up to 5
                      -- {"before": N, "unit": "minutes"|"hours"|"days"}, N >= 0 (0 = Due now), at most 60 days, no two
