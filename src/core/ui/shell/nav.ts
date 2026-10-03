@@ -300,8 +300,9 @@ export type SettingsSection = {
 
 /**
  * Settings is the Owner's control centre (PRODUCT §4.16). Admins get only the data lists they
- * may edit (PERMISSIONS §1: `lists.manage` with footnote ¹, `templates.manage`) and nothing
- * about the company, days off, thresholds, Drive or the team.
+ * may edit (PERMISSIONS §1: `lists.manage` with footnote ¹, `templates.manage`), and who on their
+ * open tasks can't be reached (`notifications.reachability`, 5.4), and nothing about the company,
+ * days off, thresholds, Drive or the team.
  */
 export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   {
@@ -329,6 +330,16 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     description: "Reminders, escalations, the logout nudge and the email cap.",
     permission: "settings.manage",
     arrivesIn: "1.4",
+    ready: true,
+  },
+  {
+    key: "notifications",
+    label: "Notifications",
+    href: "/settings/notifications",
+    description: "Who can't be reached by push, and why.",
+    // The Owner sees everyone; an Admin the people on their open tasks (PERMISSIONS §1).
+    permission: "notifications.reachability",
+    arrivesIn: "5.4",
     ready: true,
   },
   {

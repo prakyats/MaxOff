@@ -42,6 +42,24 @@ export function platformOf(
   return "other";
 }
 
+/**
+ * What the app says about itself when it opens (task 5.4, owner decision 2026-10-03): its platform,
+ * by the same rule as a push subscription's, and whether it runs as the installed app
+ * (`display-mode: standalone`, or `navigator.standalone` on iOS). The server keeps the latest, which
+ * tells "an iPhone without MaxOff installed" apart from the device someone last signed in on.
+ */
+export function appReportOf(input: {
+  userAgent: string;
+  maxTouchPoints: number;
+  displayStandalone: boolean;
+  navigatorStandalone: boolean | undefined;
+}): { platform: SubscriptionPayload["platform"]; isStandalone: boolean } {
+  return {
+    platform: platformOf(input.userAgent, input.maxTouchPoints),
+    isStandalone: input.displayStandalone || input.navigatorStandalone === true,
+  };
+}
+
 /** A short device name for Me ("Android phone", "iPhone", "Windows"); never the raw agent. */
 export function deviceLabel(userAgent: string, maxTouchPoints: number): string {
   if (/iPad/.test(userAgent) || (/Macintosh/.test(userAgent) && maxTouchPoints > 1)) return "iPad";

@@ -52,13 +52,15 @@ const GROUP_OF_KIND: Readonly<Record<string, NotifyGroup>> = {
   reminder_not_noted: "reminders",
   escalation_not_noted: "reminders",
   escalation_overdue: "reminders",
-  // Everything else: client Admins, coordinators, an expense's outcome.
+  // Everything else: client Admins, coordinators, an expense's outcome, an unreachable person.
   client_admin_assigned: "other",
   client_admin_removed: "other",
   coordinator_assigned: "other",
   coordinator_removed: "other",
   coordinator_missing: "other",
   expense_decided: "other",
+  // 5.4: someone the Owner cannot reach (about a person, like coordinator_missing).
+  member_unreachable: "other",
 };
 
 /** The group a push for this kind carries; the quiet-hours summary and an unknown kind are `other`. */

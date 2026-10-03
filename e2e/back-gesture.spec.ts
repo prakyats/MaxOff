@@ -196,6 +196,21 @@ test.describe("installed: overlays and view controls", () => {
       await expectBackStack(page, [{ url: /\/settings$/ }]);
     });
 
+    test("/settings/notifications: back returns to Settings", async ({ page }) => {
+      // 5.4: a Settings screen with no overlay or view control of its own.
+      await runInstalled(page);
+      await page.goto("/settings");
+      // The section's row, not the bell (whose name is "Notifications" too).
+      await page
+        .locator('[data-slot="settings-section"]')
+        .filter({ hasText: "Notifications" })
+        .click();
+      await expect(page).toHaveURL(/\/settings\/notifications$/);
+      await expect(page.getByRole("heading", { name: "Can’t be reached" })).toBeVisible();
+
+      await expectBackStack(page, [{ url: /\/settings$/ }]);
+    });
+
     test("/settings/thresholds: back closes the open Default reminders, then returns to Settings", async ({
       page,
     }) => {

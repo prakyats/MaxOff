@@ -1329,6 +1329,52 @@ export type Database = {
           },
         ];
       };
+      member_app_reports: {
+        Row: {
+          is_standalone: boolean;
+          member_id: string;
+          org_id: string;
+          platform: string;
+          reported_at: string;
+        };
+        Insert: {
+          is_standalone: boolean;
+          member_id: string;
+          org_id: string;
+          platform: string;
+          reported_at?: string;
+        };
+        Update: {
+          is_standalone?: boolean;
+          member_id?: string;
+          org_id?: string;
+          platform?: string;
+          reported_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "member_app_reports_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: true;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "member_app_reports_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: true;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "member_app_reports_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       member_coordinators: {
         Row: {
           coordinator_id: string;
@@ -1401,6 +1447,58 @@ export type Database = {
             columns: ["set_by"];
             isOneToOne: false;
             referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      member_reachability: {
+        Row: {
+          alerted_at: string | null;
+          created_at: string;
+          member_id: string;
+          org_id: string;
+          since: string;
+          state: string;
+          updated_at: string;
+        };
+        Insert: {
+          alerted_at?: string | null;
+          created_at?: string;
+          member_id: string;
+          org_id: string;
+          since: string;
+          state: string;
+          updated_at?: string;
+        };
+        Update: {
+          alerted_at?: string | null;
+          created_at?: string;
+          member_id?: string;
+          org_id?: string;
+          since?: string;
+          state?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "member_reachability_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: true;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "member_reachability_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: true;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "member_reachability_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
             referencedColumns: ["id"];
           },
         ];
@@ -3087,6 +3185,10 @@ export type Database = {
       };
     };
     Functions: {
+      app_open_report: {
+        Args: { is_standalone: boolean; platform: string };
+        Returns: boolean;
+      };
       attendance_choose_leave_today: {
         Args: {
           choice: Database["public"]["Enums"]["attendance_choice"];
@@ -3592,6 +3694,19 @@ export type Database = {
         }[];
       };
       push_test_claim: { Args: never; Returns: number };
+      reachability_check: { Args: { p_now?: string }; Returns: number };
+      reachability_overview: {
+        Args: never;
+        Returns: {
+          full_name: string;
+          last_success_at: string;
+          member_id: string;
+          platform: string;
+          role: Database["public"]["Enums"]["member_role"];
+          since: string;
+          state: string;
+        }[];
+      };
       session_login: {
         Args: { ip_hash?: string; user_agent?: string };
         Returns: string;

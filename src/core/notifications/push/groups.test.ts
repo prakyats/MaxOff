@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { GROUPED_KINDS, NOTIFY_GROUPS, notifyGroupFor } from "./groups";
 
-/** The kinds `notification_kinds` holds today (5A, 5.3); a new kind falls back to `other` until mapped. */
+/** The kinds `notification_kinds` holds today (5A, 5.3, 5.4; the email-only digest is never pushed); a new kind falls back to `other` until mapped. */
 const KINDS = [
   "absent_proposed",
   "approvals_moved",
@@ -23,6 +23,7 @@ const KINDS = [
   "extra_work_submitted",
   "leave_decided",
   "leave_requested",
+  "member_unreachable",
   "reminder_before_due",
   "reminder_before_due_last",
   "reminder_due_now",
@@ -64,6 +65,7 @@ describe("notifyGroupFor (the push's large picture, owner 2026-10-02)", () => {
       expect(notifyGroupFor(kind)).toBe("reminders");
     }
     expect(notifyGroupFor("coordinator_missing")).toBe("other");
+    expect(notifyGroupFor("member_unreachable")).toBe("other");
   });
 
   it("the quiet-hours summary and an unknown or inherited name are other", () => {

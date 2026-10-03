@@ -23,6 +23,7 @@ const PAYLOAD: DigestPayload = {
   tasks: { approved_yesterday: 0, overdue: 2, waiting_for_owner: 0 },
   requests: { leave: 0, expense_claims: 0 },
   held_back: [],
+  unreachable: { count: 0, names: [], more: 0 },
 };
 
 const request = () => new Request("http://localhost:3000/diagnostics/digest");

@@ -130,3 +130,36 @@ export function pushLoopbackAllowed(env: EnvSource = process.env): boolean {
   if (appEnv === "staging" || appEnv === "production") return false;
   return env[PUSH_ALLOW_LOOPBACK_ENDPOINTS] === "1";
 }
+
+/** The bearer the Worker's crons present (`core/http/cron-auth.ts`); named here for the check below. */
+export const CRON_SECRET = "CRON_SECRET";
+
+/** The server settings notifications need, in the order Settings → Notifications names them. */
+export const NOTIFICATION_SETTINGS = [
+  RESEND_API_KEY,
+  VAPID_PUBLIC_KEY,
+  VAPID_PRIVATE_KEY,
+  VAPID_SUBJECT,
+  CRON_SECRET,
+] as const;
+
+export type OperationalWarning = {
+  /** Settings that are not set at all. */
+  missing: string[];
+  /** The `VAPID_*` settings when all three are set but push is still off (malformed). */
+  invalid: string[];
+};
+
+/**
+ * The Owner's operational warning on Settings → Notifications (5.4, kickoff 5 decision 14): which
+ * of the settings push and email need are missing, by **name only**, read at runtime on the
+ * server. Never a value, and never a hint of one (the VAPID rule that failed is not repeated).
+ * Null when everything is in place.
+ */
+export function operationalWarning(env: EnvSource = process.env): OperationalWarning | null {
+  const missing: string[] = NOTIFICATION_SETTINGS.filter((name) => !env[name]?.trim());
+  const vapid = [VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT];
+  const invalid =
+    vapid.every((name) => !missing.includes(name)) && readPushEnv(env).mode === "off" ? vapid : [];
+  return missing.length === 0 && invalid.length === 0 ? null : { missing, invalid };
+}

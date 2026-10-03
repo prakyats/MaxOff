@@ -30,6 +30,7 @@ function payload(extra: Partial<DigestPayload> = {}): DigestPayload {
     tasks: { approved_yesterday: 1, overdue: 4, waiting_for_owner: 2 },
     requests: { leave: 1, expense_claims: 2 },
     held_back: [{ kind: "reminder_overdue", description: "Overdue (1 h)", count: 3 }],
+    unreachable: { count: 2, names: ["Ravi", "Sana"], more: 0 },
     ...extra,
   };
 }
@@ -49,6 +50,7 @@ function zero(): DigestPayload {
     tasks: { approved_yesterday: 0, overdue: 0, waiting_for_owner: 0 },
     requests: { leave: 0, expense_claims: 0 },
     held_back: [],
+    unreachable: { count: 0, names: [], more: 0 },
   });
 }
 
@@ -85,8 +87,30 @@ describe("digestSections", () => {
         ],
       },
       {
+        heading: "People",
+        lines: [{ text: "Can't be reached: 2 (Ravi, Sana)", link: "/settings/notifications" }],
+      },
+      {
         heading: "Emails held back yesterday by the daily limit",
         lines: [{ text: "Overdue reminders: 3", link: null }],
+      },
+    ]);
+  });
+
+  it("5.4: names up to 5 people who can't be reached, then counts the rest", () => {
+    const sections = digestSections({
+      ...zero(),
+      unreachable: { count: 8, names: ["Asha", "Bala", "Chitra", "Dev", "Esha"], more: 3 },
+    });
+    expect(sections).toEqual([
+      {
+        heading: "People",
+        lines: [
+          {
+            text: "Can't be reached: 8 (Asha, Bala, Chitra, Dev, Esha +3 more)",
+            link: "/settings/notifications",
+          },
+        ],
       },
     ]);
   });
@@ -142,6 +166,9 @@ describe("renderDigestEmail", () => {
     const email = renderDigestEmail(payload(), ORIGIN);
     expect(email.text).toContain(`Overdue now: 4: ${open("/tasks/all?overdue=overdue")}`);
     expect(email.text).toContain(`Leave requests: 1: ${open("/approvals")}`);
+    expect(email.text).toContain(
+      `Can't be reached: 2 (Ravi, Sana): ${open("/settings/notifications")}`,
+    );
     expect(email.text).toContain("\nOverdue reminders: 3\n");
     expect(email.html).toContain(
       `href="${open("/tasks/all?state=completed")}" style="color:#c42126;text-decoration:underline">Approved yesterday: 1</a>`,
@@ -152,6 +179,7 @@ describe("renderDigestEmail", () => {
       "Attendance yesterday",
       "Tasks",
       "Requests waiting for you",
+      "People",
       "Emails held back yesterday by the daily limit",
     ]) {
       expect(email.html).toContain(`>${heading}</h2>`);
@@ -201,6 +229,14 @@ describe("parseDigestPayload", () => {
     expect(parseDigestPayload(payload())).toEqual(payload());
   });
 
+  it("5.4: reads a payload written before the unreachable line as 0, so a queued digest renders", () => {
+    const old: Record<string, unknown> = { ...payload() };
+    delete old.unreachable;
+    const parsed = parseDigestPayload(old);
+    expect(parsed?.unreachable).toEqual({ count: 0, names: [], more: 0 });
+    expect(digestSections(parsed!).map((section) => section.heading)).not.toContain("People");
+  });
+
   it("refuses anything else rather than throwing", () => {
     expect(parseDigestPayload(null)).toBeNull();
     expect(parseDigestPayload({})).toBeNull();
@@ -212,6 +248,9 @@ describe("parseDigestPayload", () => {
         ...base,
         attendance: { ...base.attendance, absent_names: ["a", "b", "c", "d", "e", "f"] },
       }),
+    ).toBeNull();
+    expect(
+      parseDigestPayload({ ...base, unreachable: { count: -1, names: [], more: 0 } }),
     ).toBeNull();
   });
 });

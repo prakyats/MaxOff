@@ -115,7 +115,10 @@ insert into app_internal values
   ('reminders_backfill_ack_preview'),
   -- 5B slice 7: the Owner digest's payload and its plain-text lines (digest_daily and
   -- owner_digest_preview are public: the job's and the Owner's)
-  ('owner_digest_payload'), ('owner_digest_text');
+  ('owner_digest_payload'), ('owner_digest_text'),
+  -- 5B 5.4: reachability's classification, its live list and the alert's words (reachability_check
+  -- and reachability_overview are public: the job's and the Settings screen's)
+  ('reachability_state'), ('reachability_live'), ('reachability_reason');
   -- 3c.1 (contract migration): attendance_logout and logout_not_recorded are gone with the 2.x gate.
 select is(
   (select count(*) from pg_proc p
@@ -136,7 +139,7 @@ select is(
   0::bigint,
   'the internal helpers: service_role only, never the API role');
 select is((select count(*) from pg_proc p where p.pronamespace = 'app'::regnamespace
-             and p.proname in (select name from app_internal)), 55::bigint,
+             and p.proname in (select name from app_internal)), 58::bigint,
   'the internal helper list matches what exists');
 select cmp_ok((select count(*) from pg_proc where pronamespace = 'app'::regnamespace), '>=', 4::bigint,
   'the grant check saw the app functions');

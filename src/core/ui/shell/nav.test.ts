@@ -234,6 +234,7 @@ describe("settingsSectionsFor", () => {
       "company",
       "days-off",
       "thresholds",
+      "notifications",
       "expenses",
       "job-titles",
       "task-types",
@@ -247,6 +248,7 @@ describe("settingsSectionsFor", () => {
   it("gives Admins only lists, templates and custom fields", () => {
     const admin = settingsSectionsFor("admin");
     expect(admin.map((s) => s.key)).toEqual([
+      "notifications",
       "job-titles",
       "stage-presets",
       "custom-fields",

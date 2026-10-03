@@ -87,8 +87,8 @@ select is((select array_agg(kind order by kind) from public.notification_kinds w
   array['attendance_decided', 'comp_leave_granted', 'comp_leave_revoked', 'expense_decided', 'extra_work_decided',
         'leave_decided', 'task_assigned', 'task_changes_requested'],
   'fallback only: assigned, changes requested, the leave / attendance / extra-work decisions, comp leave, an expense decided');
-select is((select count(*) from public.notification_kinds where always_email and kind not like 'reminder\_%' and kind not like 'escalation\_%' and kind <> 'owner_digest'), 0::bigint,
-  'no 5.1 kind is always emailed (5.3''s reminders and escalations are 51''s, the Owner digest 55''s)');
+select is((select count(*) from public.notification_kinds where always_email and kind not like 'reminder\_%' and kind not like 'escalation\_%' and kind not in ('owner_digest', 'member_unreachable')), 0::bigint,
+  'no 5.1 kind is always emailed (5.3''s reminders and escalations are 51''s, the Owner digest 55''s, the unreachable alert 56''s)');
 select is((select array_agg(kind order by kind) from public.notification_kinds
            where kind in ('task_comment', 'task_changed', 'task_request_created', 'task_submitted',
                           'leave_requested', 'end_day_reminder', 'task_completed',

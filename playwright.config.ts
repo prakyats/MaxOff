@@ -54,6 +54,7 @@ const PUSH_SPECS = /push\.spec\.ts$/;
 const NOTIFICATIONS_SPECS = /notifications\.spec\.ts$/;
 const STICKY_ACTIONS_SPECS = /sticky-actions\.spec\.ts$/;
 const VIEW_ADDRESS_SPECS = /view-address\.spec\.ts$/;
+const REACHABILITY_SPECS = /reachability\.spec\.ts$/;
 
 /**
  * Web Push (5.2): the e2e server sends real, encrypted pushes to a fake push service the spec
@@ -210,6 +211,7 @@ export default defineConfig({
         NOTIFICATIONS_SPECS,
         STICKY_ACTIONS_SPECS,
         VIEW_ADDRESS_SPECS,
+        REACHABILITY_SPECS,
       ],
       use: { ...devices["Pixel 5"], viewport: { width: 430, height: 932 } },
     },

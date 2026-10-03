@@ -446,6 +446,36 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
       },
     },
   },
+  // 5.4: Settings → Notifications. The Owner always has someone the seed cannot reach; an
+  // Admin's list depends on other specs' tasks, so theirs is traced to the heading.
+  {
+    role: "owner",
+    path: "/settings/notifications",
+    marker: 'data-slot="loading-reachability"',
+    hold: "/rest/v1/rpc/reachability_overview",
+    trace: {
+      "first heading": {
+        held: '[data-slot="loading-reachability"] > div > :first-child',
+        settled: '[data-slot="reachability"] > section:first-child > h2',
+      },
+      "first row": {
+        held: '[data-slot="loading-reachability"] [data-slot="loading-row"]',
+        settled: '[data-slot="reachability-row"]',
+      },
+    },
+  },
+  {
+    role: "admin",
+    path: "/settings/notifications",
+    marker: 'data-slot="loading-reachability"',
+    hold: "/rest/v1/rpc/reachability_overview",
+    trace: {
+      "first heading": {
+        held: '[data-slot="loading-reachability"] > div > :first-child',
+        settled: '[data-slot="reachability"] > section:first-child > h2',
+      },
+    },
+  },
   // 5.1: Alerts, every role: the filter (5B), the "N unread" line, the day heading, the rows.
   ...(["owner", "admin", "staff"] as const).map((role): LoadingScreen => ({
     role,

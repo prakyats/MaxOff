@@ -49,6 +49,9 @@ notification_kind  a lookup table, not an enum (5.1, expand-only across releases
                    reachability kinds by inserting rows; its always-emailed ones carry always_email.
                    in_app (5B, migration owner_digest): false for an email-only kind (owner_digest,
                    the Owner's morning summary), hidden in-app and never pushed (§9).
+                   member_unreachable (5B 5.4, migration reachability: actionable false,
+                   always_email true, in_app true): the Owner's alert that someone has not been
+                   reachable by push for 48 h, at most weekly per person (§9 member_reachability).
 field_type         text | long_text | number | date | datetime | checkbox | select |
                    multi_select | url | email | phone | color | member | rating
                    -- deliberately NO currency type: money lives only in the Owner-only tables (§7)
@@ -1389,6 +1392,69 @@ notification_deliveries  id, notification_id → notifications (cascade), channe
                      -- payload = app.owner_digest_payload(org, now): counts only, never an amount;
                      -- owner_digest_preview() (authenticated, the org's Owner only, writes nothing) reads
                      -- the same payload for the staging/preview sample at /diagnostics/digest.
+                     -- 5B 5.4 (migration reachability): owner_digest_payload re-created, same signature,
+                     -- one key added: unreachable {count, names (≤ 5, by name), more}, the tracked people
+                     -- (not the Owner) whose member_reachability row is not 'ok' and whose since is 48 h or
+                     -- more before p_now; owner_digest_text adds the section "People" with the line
+                     -- "Can't be reached: N (names +N more)" (left out at 0). An old payload without the key
+                     -- reads as 0 (the renderer's parser).
+member_app_reports   member_id pk → members (cascade), org_id, platform ('android'|'ios'|'desktop'|'other'),
+                     is_standalone bool (the installed app), reported_at
+                     -- 5B 5.4 (owner decision 2026-10-03): what the app said about itself the last time
+                     -- it opened on one of the member's devices: its platform (the push setup's own
+                     -- platformOf) and whether it runs installed (display-mode standalone, or
+                     -- navigator.standalone on iOS). Sent once per app open, lazily, after the first
+                     -- load. No user agent, no IP. Written only by app_open_report(platform,
+                     -- is_standalone) (security definer, the caller's own row, an active permanent
+                     -- member): a report that says what the row already says writes nothing, so
+                     -- reported_at is when the device last reported a change. RLS on, no policy, every
+                     -- privilege revoked from anon and authenticated (read only by the reachability
+                     -- functions). Audited (audit_row_change on insert and update; entity_id = member_id);
+                     -- never deleted but by the members cascade on a local fixture.
+member_reachability  member_id pk → members (cascade), org_id, state ('ok'|'no_subscription'|
+                     'permission_revoked'|'ios_not_installed'|'failing'), since timestamptz,
+                     alerted_at timestamptz null, created_at, updated_at
+                     -- 5B 5.4 (WORKFLOWS §9a "Reachability"). A table kept by the hourly pg_cron job
+                     -- public.reachability_check(now) (not a view: the 48 h clock needs to remember when the
+                     -- state changed). Tracked: active, permanent, joined members (the Owner included; not
+                     -- invited people, not freelancers). The job classifies each tracked member with
+                     -- app.reachability_state(member) and writes only a change: a new member's row starts
+                     -- with since = joined_at (their first login); a changed state sets since = the run's
+                     -- time; the same state leaves the row alone. Then, for each tracked member who is not
+                     -- the organisation's Owner, not 'ok', with since 48 h or more ago and alerted_at null or
+                     -- 7 days or more ago: one member_unreachable notification to the Owner through
+                     -- app.notify() (link /settings/notifications, no entity, payload {member_id, state},
+                     -- no actor) and alerted_at = the run's time (kept across state changes: at most one a
+                     -- week per person). A row of someone no longer tracked stays as it was.
+                     -- RLS on, no policy, every privilege revoked from anon and authenticated: read only
+                     -- through reachability_overview() and the digest. Audited (audit_row_change on insert
+                     -- and update, entity_id = member_id; the job writes only changes, so an entry is a
+                     -- state change or an alert).
+                     -- app.reachability_state(member) (service_role only, stable): the first that holds:
+                     --   ok              an active subscription (disabled_at null) with failure_count < 2
+                     --                   (it succeeded since its last error, was never tried, or failed once)
+                     --   failing         active subscriptions, each with failure_count ≥ 2 (repeated errors,
+                     --                   not yet disabled at the fifth)
+                     --   ios_not_installed  the member's member_app_reports row says ios and not installed
+                     --   permission_revoked the most recently disabled subscription ('gone' or 'expired') is 'gone'
+                     --   failing         … is 'expired'
+                     --   ios_not_installed  no member_app_reports row, and the latest session_events(login)
+                     --                   user_agent names an iPhone, iPad or iPod (the fallback until the
+                     --                   member opens the app once after 5.4 ships; an iPad that presents
+                     --                   itself as a Mac is not seen here)
+                     --   no_subscription everything else (never turned on, or every device signed out)
+                     -- app.reachability_live(org, now) (service_role only): every tracked member of the
+                     -- organisation with the state now and its since (the row's since when the state is
+                     -- the row's, joined_at when there is no row, else now).
+                     -- public.reachability_overview() (authenticated; security definer): the Settings →
+                     -- Notifications rows, live: member_id, full_name, role, state, since, platform,
+                     -- last_success_at. The organisation's Owner: every tracked member with since, platform
+                     -- (the app report's, else the most recently seen subscription's) and last_success_at
+                     -- (the latest of any subscription). An Admin with notifications.reachability: only the
+                     -- members currently assigned to open tasks (not completed or cancelled, not archived)
+                     -- they created or approve, and the current coordinator of a freelancer assignee of
+                     -- such a task, with state alone (since, platform and last_success_at null). Anyone
+                     -- else FORBIDDEN. Never an endpoint, a key or a user agent.
 activity_log         id bigint identity, org_id, actor_id null (system), on_behalf_of_id null (4A,
                      ADR-0013: the freelancer a coordinator acted for; actor_id stays the coordinator;
                      written by app.audit_row_change() from the override's on_behalf_of key, else

@@ -215,14 +215,14 @@ select ok(has_function_privilege('authenticated', 'public.notifications_mark_rea
           and has_function_privilege('authenticated', 'public.notifications_mark_all_read()', 'execute')
           and not has_function_privilege('anon', 'public.notifications_mark_all_read()', 'execute'),
   'the mark-read helpers are the API''s');
-select is((select count(*) from public.notification_kinds), 39::bigint, '29 kinds are seeded, plus approvals_moved (5A decision 27), 5.3''s eight reminders and escalations and 5B''s owner_digest');
+select is((select count(*) from public.notification_kinds), 40::bigint, '29 kinds are seeded, plus approvals_moved (5A decision 27), 5.3''s eight reminders and escalations, 5B''s owner_digest and 5.4''s member_unreachable');
 select is((select array_agg(kind order by kind) from public.notification_kinds where actionable),
   array['attendance_decided', 'comp_leave_granted', 'comp_leave_revoked', 'expense_decided', 'extra_work_decided',
         'leave_decided', 'task_assigned', 'task_changes_requested'],
   'the actionable kinds (email fallback, kickoff 5 decision 6): assigned, changes requested and the decisions');
 select is((select array_agg(kind order by kind) from public.notification_kinds where always_email),
-  array['escalation_not_noted', 'escalation_overdue', 'owner_digest', 'reminder_before_due_last', 'reminder_event', 'reminder_overdue'],
-  'always emailed (5B decision 12): only 5.3''s last before-due, overdue and event reminders, the escalations and the Owner digest; no 5.1 kind (task assigned is fallback only)');
+  array['escalation_not_noted', 'escalation_overdue', 'member_unreachable', 'owner_digest', 'reminder_before_due_last', 'reminder_event', 'reminder_overdue'],
+  'always emailed (5B decision 12): only 5.3''s last before-due, overdue and event reminders, the escalations, the Owner digest and the unreachable alert; no 5.1 kind (task assigned is fallback only)');
 select ok(not (select actionable or always_email from public.notification_kinds where kind = 'task_comment'),
   'a comment is never email (5A decision 15)');
 select is((select schedule from cron.job where jobname = 'reminders_tick'), '*/5 * * * *',
@@ -283,7 +283,7 @@ select app.notify(array[pg_temp.fx('staff1'), pg_temp.fx('owner')], 'task_change
 select app.notify(array[pg_temp.fx('staff1')], 'task_changed', 'Only staff1', null, '/tasks', 'tasks', pg_temp.fx('client_b'), '{}', null);
 select pg_temp.as_member('staff1');
 select is((select count(*) from public.notifications), 2::bigint, 'staff1 reads their own two rows');
-select is((select count(*) from public.notification_kinds), 39::bigint, 'and the kinds (29 + approvals_moved + 5.3''s eight + owner_digest)');
+select is((select count(*) from public.notification_kinds), 40::bigint, 'and the kinds (29 + approvals_moved + 5.3''s eight + owner_digest + member_unreachable)');
 select pg_temp.as_member('owner');
 select is((select count(*) from public.notifications), 1::bigint, 'the Owner reads their own row only, never another member''s');
 select pg_temp.as_member('admin1');

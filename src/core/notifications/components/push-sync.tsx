@@ -18,6 +18,9 @@ import {
  * is missing (the browser dropped it) or whose endpoint the server does not hold for this member
  * (it changed, or the row went 'gone') is made again and stored. Never asks for permission: that
  * is the banner's tap. Renders nothing.
+ *
+ * It also sends the app's report about itself once per open (5.4, owner decision 2026-10-03: its
+ * platform and whether it runs installed), from a chunk of its own loaded here, push or no push.
  */
 export function PushSync({
   publicKey,
@@ -27,6 +30,11 @@ export function PushSync({
   endpoints: readonly string[];
 }) {
   const router = useRouter();
+  useEffect(() => {
+    import("../push/app-report")
+      .then((module) => module.sendAppReportOnce())
+      .catch(() => undefined);
+  }, []);
   useEffect(() => {
     if (!publicKey || currentSupport().kind !== "ready" || currentPermission() !== "granted")
       return;

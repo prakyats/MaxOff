@@ -49,6 +49,9 @@ const digestPayloadSchema = z.object({
       }),
     )
     .max(100),
+  // 5.4: the people not reachable for 48 h or more. A payload written before 5.4 has no such key
+  // and reads as 0, so a digest already queued at the release still renders.
+  unreachable: z.object({ count, names, more: count }).default({ count: 0, names: [], more: 0 }),
 });
 
 export type DigestPayload = z.infer<typeof digestPayloadSchema>;
@@ -106,8 +109,9 @@ function named(total: number, first: readonly string[], more: number): string {
  * leave and absences; a person's row opens their days), except absent → Approvals, where the
  * proposed absences wait for the Owner (owner, 2026-10-03; Approvals has no attendance view: its
  * Attendance group comes first); approved yesterday → all tasks, Completed;
- * overdue → all tasks, Overdue; waiting for approval, leave and expense claims → Approvals. The
- * held-back emails show on no screen, so their lines open nothing.
+ * overdue → all tasks, Overdue; waiting for approval, leave and expense claims → Approvals;
+ * (5.4) the people who can't be reached → Settings → Notifications. The held-back emails show on
+ * no screen, so their lines open nothing.
  */
 export function digestSections(payload: DigestPayload): DigestSection[] {
   const { attendance, tasks, requests } = payload;
@@ -152,6 +156,15 @@ export function digestSections(payload: DigestPayload): DigestSection[] {
         ...line("Leave requests", requests.leave, "/approvals"),
         ...line("Expense claims", requests.expense_claims, "/approvals"),
       ],
+    },
+    {
+      heading: "People",
+      lines: line(
+        "Can't be reached",
+        payload.unreachable.count,
+        "/settings/notifications",
+        named(payload.unreachable.count, payload.unreachable.names, payload.unreachable.more),
+      ),
     },
     {
       heading: "Emails held back yesterday by the daily limit",
