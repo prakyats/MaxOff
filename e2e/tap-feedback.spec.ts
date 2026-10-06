@@ -1,11 +1,9 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-
 import { type Locator, type Page, type Request, type Route, type TestInfo } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 
 import {
+  actionId,
   animationsSettled,
   hydrated,
   pageHeader,
@@ -60,22 +58,6 @@ const isScreenFetch = (request: Request, path: string) =>
   request.headers()["rsc"] === "1" &&
   !request.headers()["next-router-prefetch"] &&
   new URL(request.url()).pathname === path;
-/**
- * The id Next gives a server action in the build under test (its `next-action` header), from the
- * build's own manifest, so a trap catches that action and nothing else: the bell's count read when
- * Realtime first joins, or any background call added later, is never caught by mistake.
- */
-function actionId(filename: string, exportedName: string): string {
-  const manifest = JSON.parse(
-    readFileSync(join(process.cwd(), ".next/server/server-reference-manifest.json"), "utf8"),
-  ) as { node: Record<string, { filename: string; exportedName: string }> };
-  const ids = Object.entries(manifest.node)
-    .filter(([, entry]) => entry.filename === filename && entry.exportedName === exportedName)
-    .map(([id]) => id);
-  if (ids.length !== 1) throw new Error(`${filename} ${exportedName}: ${ids.length} action ids`);
-  return ids[0]!;
-}
-
 /** A call to that one server action. */
 const callTo = (filename: string, exportedName: string) => {
   const id = actionId(filename, exportedName);

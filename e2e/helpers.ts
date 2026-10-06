@@ -1,4 +1,6 @@
+import { readFileSync } from "node:fs";
 import { request as httpRequest } from "node:http";
+import { join } from "node:path";
 
 import { expect, type Locator, type Page } from "@playwright/test";
 
@@ -912,4 +914,20 @@ export async function removeFreelancersNamed(prefix: string): Promise<void> {
     await serviceRest(`member_coordinators?member_id=eq.${id}`, { method: "DELETE" });
     await serviceRest(`members?id=eq.${id}`, { method: "DELETE" });
   }
+}
+
+/**
+ * The id Next gives a server action in the build under test (its `next-action` header), from the
+ * build's own manifest, so a trap catches that action and nothing else: the bell's count read when
+ * Realtime first joins, or any background call added later, is never caught by mistake.
+ */
+export function actionId(filename: string, exportedName: string): string {
+  const manifest = JSON.parse(
+    readFileSync(join(process.cwd(), ".next/server/server-reference-manifest.json"), "utf8"),
+  ) as { node: Record<string, { filename: string; exportedName: string }> };
+  const ids = Object.entries(manifest.node)
+    .filter(([, entry]) => entry.filename === filename && entry.exportedName === exportedName)
+    .map(([id]) => id);
+  if (ids.length !== 1) throw new Error(`${filename} ${exportedName}: ${ids.length} action ids`);
+  return ids[0]!;
 }

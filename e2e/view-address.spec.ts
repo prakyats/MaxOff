@@ -5,6 +5,7 @@ import { expect, test } from "./fixtures";
 import { addISTDays, istInstant, istWeekday, todayIST } from "../src/core/time";
 
 import {
+  actionId,
   hydrated,
   memberIdOf,
   removeTasksTitled,
@@ -150,6 +151,48 @@ test("the task page: a view switched before a refresh is written at once and sta
 
   // With nothing in flight, a switch writes its address at once.
   await tab(page, "details").click();
+  await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}\\?tab=details$`));
+});
+
+test("the app's report on opening never holds a view's address: after it, and while it is out", async ({
+  page,
+}, info) => {
+  // 5.4 (owner, 2026-10-03): the app reports its platform and whether it runs installed once per
+  // open, as a server action in the background. A view's address waits for the router's own
+  // fetches only: once the report has answered, a switch is written at once; one made while the
+  // report is still out is written when it answers.
+  const report = actionId("src/core/notifications/app-report-actions.ts", "reportAppOpen");
+  const answered = page.waitForResponse(
+    (response) => response.request().headers()["next-action"] === report,
+  );
+  const taskId = await taskOpened(page, `View address ${info.project.name} report`);
+  await answered;
+  await tab(page, "activity").click();
+  await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}\\?tab=activity$`));
+
+  // A new open, its report held until the switch has been made.
+  let letGo: () => void = () => undefined;
+  const released = new Promise<void>((resolve) => {
+    letGo = resolve;
+  });
+  let caught: () => void = () => undefined;
+  const held = new Promise<void>((resolve) => {
+    caught = resolve;
+  });
+  await page.route("**/*", async (route) => {
+    if (route.request().headers()["next-action"] !== report) return route.fallback();
+    caught();
+    await released;
+    await route.fallback();
+  });
+  await page.goto(`/tasks/${taskId}`);
+  await hydrated(page);
+  await held;
+  // Work is the default view (no query): Details carries one.
+  await tab(page, "details").click();
+  await expect(tab(page, "details")).toHaveAttribute("aria-current", "true");
+  await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}$`));
+  letGo();
   await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}\\?tab=details$`));
 });
 
