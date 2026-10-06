@@ -318,9 +318,11 @@ select ok((select count(distinct batch_id) = 1 and bool_and(batch_id is not null
 -- Escalations before the digest: one left before the reserve, the escalation takes it.
 select pg_temp.reset_mail();
 select pg_temp.used(79);
-select public.digest_daily(now());
-select pg_temp.note('admin1', 'escalation_not_noted', 'Newer escalation', 1, now() + interval '1 second');
-select count(*) from public.email_claim(now() + interval '1 second', 20);
+-- The digest a second older than the escalation, both at or before now(): a claim a second ahead of
+-- now() falls on tomorrow's cap day in the last second before midnight IST.
+select public.digest_daily(now() - interval '1 second');
+select pg_temp.note('admin1', 'escalation_not_noted', 'Newer escalation', 1, now());
+select count(*) from public.email_claim(now(), 20);
 select is(pg_temp.mail('Newer escalation') || ' / ' || pg_temp.digest_mail(), 'queued / skipped_cap:org_cap',
   'an escalation goes before the digest; the digest is then over the ordinary limit (80 of 90)');
 
