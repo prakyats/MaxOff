@@ -5,7 +5,6 @@ import { expect, test } from "./fixtures";
 import { addISTDays, istInstant, istWeekday, todayIST } from "../src/core/time";
 
 import {
-  actionId,
   hydrated,
   memberIdOf,
   removeTasksTitled,
@@ -158,13 +157,13 @@ test("the app's report on opening never holds a view's address: after it, and wh
   page,
 }, info) => {
   // 5.4 (owner, 2026-10-03): the app reports its platform and whether it runs installed once per
-  // open, as a server action in the background. A view's address waits for the router's own
-  // fetches only: once the report has answered, a switch is written at once; one made while the
-  // report is still out is written when it answers.
-  const report = actionId("src/core/notifications/app-report-actions.ts", "reportAppOpen");
-  const answered = page.waitForResponse(
-    (response) => response.request().headers()["next-action"] === report,
-  );
+  // open, in the background. A view's address waits for the router's own fetches only, and the
+  // report is not one: a plain request to a route handler (ARCHITECTURE §4.4), never a server
+  // action. So a switch is written at once after the report has answered, and also while it is
+  // still out (as a server action, it held the address until it answered).
+  const isReport = (request: { method(): string; url(): string }) =>
+    request.method() === "POST" && new URL(request.url()).pathname === "/api/app-report";
+  const answered = page.waitForResponse((response) => isReport(response.request()));
   const taskId = await taskOpened(page, `View address ${info.project.name} report`);
   await answered;
   await tab(page, "activity").click();
@@ -179,8 +178,12 @@ test("the app's report on opening never holds a view's address: after it, and wh
   const held = new Promise<void>((resolve) => {
     caught = resolve;
   });
-  await page.route("**/*", async (route) => {
-    if (route.request().headers()["next-action"] !== report) return route.fallback();
+  let reportEnded = false;
+  page.on("requestfinished", (request) => {
+    if (isReport(request)) reportEnded = true;
+  });
+  await page.route("**/api/app-report", async (route) => {
+    if (!isReport(route.request())) return route.fallback();
     caught();
     await released;
     await route.fallback();
@@ -188,10 +191,11 @@ test("the app's report on opening never holds a view's address: after it, and wh
   await page.goto(`/tasks/${taskId}`);
   await hydrated(page);
   await held;
-  // Work is the default view (no query): Details carries one.
+  // Work is the default view (no query): Details carries one, written while the report is out.
   await tab(page, "details").click();
   await expect(tab(page, "details")).toHaveAttribute("aria-current", "true");
-  await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}$`));
+  await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}\\?tab=details$`));
+  expect(reportEnded, "the report is still out").toBe(false);
   letGo();
   await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}\\?tab=details$`));
 });

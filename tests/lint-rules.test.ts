@@ -18,6 +18,7 @@ const BOUNDARIES = "boundaries/dependencies";
 const IMPORTS = "@typescript-eslint/no-restricted-imports";
 const GLOBALS = "no-restricted-globals";
 const SYNTAX = "no-restricted-syntax";
+const BACKGROUND_ACTION = "maxoff/no-background-action";
 
 const EXPECTED: Record<string, readonly string[]> = {
   // app (and files directly under src/) → core and module index.ts only
@@ -67,6 +68,8 @@ const EXPECTED: Record<string, readonly string[]> = {
   "modules/tasks/components/denied-button-hex.tsx": [SYNTAX],
   // a view's address is written only through replaceViewAddress (ARCHITECTURE §14.2 d)
   "modules/tasks/components/denied-view-address.ts": [SYNTAX],
+  // a server action only from a tap: never from an effect or a timer (ARCHITECTURE §4.4)
+  "modules/tasks/components/denied-background-action.tsx": [BACKGROUND_ACTION],
 };
 
 function walk(dir: string): string[] {

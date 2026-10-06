@@ -24,13 +24,13 @@ import {
   rpcPushSubscriptionRemove,
   rpcPushSubscriptionRemoveOwn,
   rpcPushSubscriptionTurnOn,
-  rpcPushSubscriptionUpsert,
   rpcPushTestClaim,
 } from "./push/subscriptions";
 
 /**
  * The member's own push subscriptions (task 5.2, WORKFLOWS §9a): zod → the member → the RPC →
- * revalidate → `Result`. `subscribePush` for the automatic re-subscribe on load and
+ * revalidate → `Result`, each sent by a person's tap (ARCHITECTURE §4.4: the automatic
+ * re-subscribe on load is a background call, `POST /api/push/subscription`, never an action).
  * `turnOnPush` for the member's own "Turn on" tap (the band, Me, the walkthrough), which alone
  * brings back a device removed from Me's list (owner 2026-10-06); `unsubscribePush` when this
  * device is signed out; `sendTestPush` for "Send a test notification"; `removeDevice` and
@@ -46,17 +46,6 @@ async function requireCurrentMember() {
 function revalidateBanner(): void {
   revalidatePath("/", "layout");
 }
-
-/** The automatic re-subscribe (`PushSync`): INVALID_STATE for a device removed from Me's list. */
-export const subscribePush = action(
-  async (input: SubscriptionPayload): Promise<Result<{ id: string }>> => {
-    const data = subscriptionSchema.parse(input);
-    await requireCurrentMember();
-    const id = await rpcPushSubscriptionUpsert(data);
-    revalidateBanner();
-    return ok({ id });
-  },
-);
 
 /** The member's tap on "Turn on" on this device: also the way back after Remove. */
 export const turnOnPush = action(

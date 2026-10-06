@@ -83,15 +83,16 @@ const tab = (page: Page, view: string) =>
   page.locator(`[data-slot="task-tab"][data-view-tab="${view}"]`);
 
 /**
- * The task page sends read receipts in the background: the bell's `markRecordRead` as it opens
- * (kickoff 5 decision 4) and `markTaskRead` as Chat opens (decision 28). They used to revalidate
+ * The task page sends read receipts in the background: the bell's (`/api/notifications/read-record`)
+ * as it opens (kickoff 5 decision 4) and Chat's (`/api/tasks/read`) as Chat opens (decision 28),
+ * plain requests since ARCHITECTURE §4.4, no longer server actions. They used to revalidate
  * the screen, and one answering while the view was being switched (`history.replaceState`) made
  * Next reload the page under the spec (5A review S4); since the owner's decision of 2026-10-01 no
  * read revalidates anything (`notifications.spec` proves the page is never reloaded). An action
  * still running at a test's end also raced the next repetition's cleanup (a `task_reads` row for
  * a task being deleted: 23503 → 409). So a spec lets the screen settle as a person would: every
- * server action this page sent has answered and the answer is painted. Nothing is sent again;
- * this only waits.
+ * server action and background call (`/api/`) this page sent has answered and the answer is
+ * painted. Nothing is sent again; this only waits.
  */
 const actionsInFlight = new WeakMap<Page, Set<Request>>();
 
@@ -99,7 +100,12 @@ function trackActions(page: Page): void {
   const pending = new Set<Request>();
   actionsInFlight.set(page, pending);
   page.on("request", (request) => {
-    if (request.method() === "POST" && request.headers()["next-action"]) pending.add(request);
+    if (
+      (request.method() === "POST" && request.headers()["next-action"]) ||
+      new URL(request.url()).pathname.startsWith("/api/")
+    ) {
+      pending.add(request);
+    }
   });
   // A new document (a reload, a back across a full load) ends the old one's requests: one still
   // out then never answers, and Chromium reports no failure for it. The new document's own
@@ -112,7 +118,9 @@ function trackActions(page: Page): void {
 async function receiptsSettled(page: Page): Promise<void> {
   const pending = actionsInFlight.get(page);
   expect(pending, "the page's server actions are tracked (beforeEach)").toBeTruthy();
-  await expect.poll(() => pending!.size, { message: "every server action answered" }).toBe(0);
+  await expect
+    .poll(() => pending!.size, { message: "every server action and background call answered" })
+    .toBe(0);
   // The answer's re-render committed and painted.
   await page.evaluate(
     () =>

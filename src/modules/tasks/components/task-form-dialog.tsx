@@ -7,6 +7,7 @@ import { Suspense, use, useEffect, useMemo, useRef, useState } from "react";
 import type { FieldDefinition } from "@/core/custom-fields";
 import { CustomFieldsForm } from "@/core/custom-fields/components/custom-fields-form";
 import type { ResultError } from "@/core/errors/result";
+import { getInBackground } from "@/core/http/background";
 import type { ReminderRule } from "@/core/lib/reminder-rules";
 import { ROLE_LABELS } from "@/core/lib/role-labels";
 import { type ISODate, isISODate, systemClock, toISTDate } from "@/core/time";
@@ -42,7 +43,7 @@ import { describeError } from "@/core/ui/toast";
 import { toast } from "sonner";
 
 import { convertRequest } from "../actions/requests";
-import { createTask, loadAvailability, updateTask } from "../actions/tasks";
+import { createTask, updateTask } from "../actions/tasks";
 import {
   addAssignee,
   assignmentChange,
@@ -347,15 +348,15 @@ function TaskForm({
   useEffect(() => {
     if (!needsCheck) return;
     let live = true;
+    // A plain request, never a server action (ARCHITECTURE §4.4): it goes out on a timer.
     const timer = setTimeout(() => {
-      void loadAvailability({ memberIds: peopleKey.split(","), days: daysKey.split(",") })
-        .then((result) => {
-          if (!live) return;
-          setChecked({ key: checkKey, rows: result.ok ? result.data : [], failed: !result.ok });
-        })
-        .catch(() => {
-          if (live) setChecked({ key: checkKey, rows: [], failed: true });
-        });
+      void getInBackground<AvailabilityDay[]>("/api/tasks/availability", {
+        member: peopleKey.split(","),
+        day: daysKey.split(","),
+      }).then((result) => {
+        if (!live) return;
+        setChecked({ key: checkKey, rows: result.ok ? result.data : [], failed: !result.ok });
+      });
     }, 250);
     return () => {
       live = false;

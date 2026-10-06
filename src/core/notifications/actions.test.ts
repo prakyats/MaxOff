@@ -36,7 +36,7 @@ vi.mock("./push/subscriptions", () => ({
 }));
 vi.mock("./onboarding", () => ({ rpcOnboardingFinish: finish }));
 
-import { finishOnboarding, removeDevice, sendTestPush, subscribePush, turnOnPush } from "./actions";
+import { finishOnboarding, removeDevice, sendTestPush, turnOnPush } from "./actions";
 
 const device = {
   id: "s1",
@@ -145,7 +145,7 @@ describe("a test a device received finishes the walkthrough, wherever it was sen
   });
 });
 
-describe("subscribePush is automatic, turnOnPush is the tap (Remove sticks, owner 2026-10-06, 1)", () => {
+describe("turnOnPush is the tap (Remove sticks, owner 2026-10-06, 1)", () => {
   const payload = {
     endpoint: "https://push.example/phone",
     p256dh: `B${"A".repeat(86)}`,
@@ -161,26 +161,11 @@ describe("subscribePush is automatic, turnOnPush is the tap (Remove sticks, owne
     turnOn.mockReset().mockResolvedValue("s1");
   });
 
-  it("the automatic subscribe uses the upsert; the tap uses the turn-on that brings a removed device back", async () => {
+  // The automatic re-subscribe is `POST /api/push/subscription` (its own route test).
+  it("uses the turn-on that brings a removed device back, never the automatic upsert", async () => {
     expect(await turnOnPush(payload)).toEqual({ ok: true, data: { id: "s1" } });
     expect(turnOn).toHaveBeenCalledTimes(1);
     expect(upsert).not.toHaveBeenCalled();
-    expect(await subscribePush(payload)).toEqual({ ok: true, data: { id: "s1" } });
-    expect(upsert).toHaveBeenCalledTimes(1);
-    expect(turnOn).toHaveBeenCalledTimes(1);
-  });
-
-  it("the database's refusal of a removed device reaches the re-subscribe as INVALID_STATE", async () => {
-    upsert.mockRejectedValue({
-      code: "P0001",
-      message: "INVALID_STATE",
-      details:
-        "This device was removed from your devices. Turn notifications on here to get them again.",
-    });
-    expect(await subscribePush(payload)).toMatchObject({
-      ok: false,
-      error: { code: "INVALID_STATE" },
-    });
   });
 });
 

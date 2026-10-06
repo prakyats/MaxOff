@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 
-import { subscribePush } from "../actions";
+import { postInBackground } from "@/core/http/background";
+
 import {
   browserSubscription,
   currentPermission,
@@ -26,6 +27,11 @@ import {
  *
  * It also sends the app's report about itself once per open (5.4, owner decision 2026-10-03: its
  * platform and whether it runs installed), from a chunk of its own loaded here, push or no push.
+ *
+ * Both are **background calls** (ARCHITECTURE §4.4): plain requests to route handlers
+ * (`/api/push/subscription`, `/api/app-report`), never server actions, which would hold a
+ * navigation they went out during. A stored subscription re-reads the screen (`router.refresh()`)
+ * so the band and Me follow.
  */
 export function PushSync({
   publicKey,
@@ -52,7 +58,10 @@ export function PushSync({
       if (existing && existing.endpoint === refused.current) return;
       const subscription = existing ?? (await subscribeBrowser(publicKey));
       if (cancelled || subscription.endpoint === refused.current) return;
-      const result = await subscribePush(toPayload(subscription));
+      const result = await postInBackground<{ id: string }>(
+        "/api/push/subscription",
+        toPayload(subscription),
+      );
       if (!result.ok && result.error.code === "INVALID_STATE") {
         refused.current = subscription.endpoint;
       }

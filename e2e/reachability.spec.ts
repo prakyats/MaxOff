@@ -1,6 +1,3 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-
 import { type Page, type Request, type TestInfo } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
@@ -47,24 +44,13 @@ function name(info: TestInfo, role: "admin" | "staff"): string {
   return `Test Reach ${role === "admin" ? "Admin" : "Staff"} (${info.project.name})`;
 }
 
-/** The build's id for one server action, so only that action's calls are counted. */
-function actionId(filename: string, exportedName: string): string {
-  const manifest = JSON.parse(
-    readFileSync(join(process.cwd(), ".next/server/server-reference-manifest.json"), "utf8"),
-  ) as { node: Record<string, { filename: string; exportedName: string }> };
-  const ids = Object.entries(manifest.node)
-    .filter(([, entry]) => entry.filename === filename && entry.exportedName === exportedName)
-    .map(([id]) => id);
-  if (ids.length !== 1) throw new Error(`${filename} ${exportedName}: ${ids.length} action ids`);
-  return ids[0]!;
-}
-
-/** Counts this page's calls to `reportAppOpen`. */
+/** Counts this page's app reports (`POST /api/app-report`, a background call, ARCHITECTURE §4.4). */
 function countReports(page: Page): () => number {
-  const id = actionId("src/core/notifications/app-report-actions.ts", "reportAppOpen");
   let count = 0;
   page.on("request", (request: Request) => {
-    if (request.method() === "POST" && request.headers()["next-action"] === id) count += 1;
+    if (request.method() === "POST" && new URL(request.url()).pathname === "/api/app-report") {
+      count += 1;
+    }
   });
   return () => count;
 }

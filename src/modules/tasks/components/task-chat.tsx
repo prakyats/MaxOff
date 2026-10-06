@@ -11,6 +11,7 @@ import {
   useState,
 } from "react";
 
+import { postInBackground } from "@/core/http/background";
 import { Button } from "@/core/ui/primitives/button";
 import {
   Sheet,
@@ -23,7 +24,6 @@ import {
 import { isKeyboardOpen } from "@/core/ui/viewport/keyboard";
 import { useKeyboard } from "@/core/ui/viewport/use-keyboard";
 
-import { markTaskRead } from "../actions/tasks";
 import { taskReads } from "./task-reads";
 import { WRITING_AS_SELF } from "../domain/page";
 
@@ -85,9 +85,11 @@ export function TaskChat({
     marked.current = newestAt;
     markSeen(newestAt);
     // In the background, re-reading nothing (owner decision 2026-10-01): the lists drawn before it
-    // re-read themselves when shown again. A failed mark leaves the count for the next visit.
+    // re-read themselves when shown again. A failed mark leaves the count for the next visit. A
+    // plain request, never a server action (ARCHITECTURE §4.4): this effect can run while a
+    // navigation is in flight, and an action sent then would hold the new page.
     taskReads.changed();
-    void markTaskRead({ taskId, upTo: newestAt });
+    void postInBackground<null>("/api/tasks/read", { taskId, upTo: newestAt });
   }, [chatVisible, unread, newestAt, taskId, markSeen]);
 
   // The thread opens on its newest comment, and follows a new one.

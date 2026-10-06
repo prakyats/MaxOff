@@ -57,6 +57,98 @@ const VIEW_ADDRESS_SELECTORS = [
   },
 ];
 
+/**
+ * ARCHITECTURE §4.4: a server action is only ever sent from a person's tap or submit. Next queues
+ * an action sent while a navigation is in flight behind that navigation and holds the new page
+ * until the action answers (CI run 37118131079), so a call the app makes on its own goes to a
+ * route handler with `fetch` (`core/http/background.ts`). This catches the usual shapes: a value
+ * imported from a server action file (`actions/…`, `…-actions`) called, or handed on, anywhere
+ * inside a callback given to an effect or a timer (which covers the listeners, Realtime callbacks
+ * and promise chains set up there). A callback defined elsewhere and only *called* from such a
+ * place is out of its sight: the rule in ARCHITECTURE §4.4 still applies there.
+ */
+const ACTION_MODULE = /(^|\/)actions(\/|$)|-actions$/;
+const BACKGROUND_CALLERS = new Set([
+  "useEffect",
+  "useLayoutEffect",
+  "useInsertionEffect",
+  "setTimeout",
+  "setInterval",
+  "requestAnimationFrame",
+  "requestIdleCallback",
+  "queueMicrotask",
+]);
+const BACKGROUND_ACTION_MESSAGE =
+  "A server action is sent only from a tap or submit: call a route handler with getInBackground()/postInBackground() from @/core/http/background here (ARCHITECTURE §4.4).";
+
+function calleeName(callee) {
+  if (callee.type === "Identifier") return callee.name;
+  if (callee.type === "MemberExpression" && callee.property.type === "Identifier") {
+    return callee.property.name;
+  }
+  return null;
+}
+
+/** Is `node` a function handed to an effect or a timer? */
+function isBackgroundCallback(node) {
+  const parent = node.parent;
+  return (
+    (node.type === "ArrowFunctionExpression" || node.type === "FunctionExpression") &&
+    parent?.type === "CallExpression" &&
+    parent.arguments.includes(node) &&
+    BACKGROUND_CALLERS.has(calleeName(parent.callee))
+  );
+}
+
+const maxoffPlugin = {
+  rules: {
+    "no-background-action": {
+      meta: {
+        type: "problem",
+        docs: { description: BACKGROUND_ACTION_MESSAGE },
+        messages: { background: BACKGROUND_ACTION_MESSAGE },
+        schema: [],
+      },
+      create(context) {
+        const actions = new Set();
+        const namespaces = new Set();
+        const isAction = (node) =>
+          (node.type === "Identifier" && actions.has(node.name)) ||
+          (node.type === "MemberExpression" &&
+            node.object.type === "Identifier" &&
+            namespaces.has(node.object.name));
+        const inBackground = (node) =>
+          context.sourceCode.getAncestors(node).some(isBackgroundCallback);
+        return {
+          ImportDeclaration(node) {
+            if (node.importKind === "type" || !ACTION_MODULE.test(String(node.source.value))) {
+              return;
+            }
+            for (const specifier of node.specifiers) {
+              if (specifier.importKind === "type") continue;
+              if (specifier.type === "ImportNamespaceSpecifier") {
+                namespaces.add(specifier.local.name);
+              } else actions.add(specifier.local.name);
+            }
+          },
+          CallExpression(node) {
+            // An action called inside an effect's or a timer's callback...
+            if (isAction(node.callee) && inBackground(node)) {
+              context.report({ node, messageId: "background" });
+              return;
+            }
+            // ...or handed to one (`setTimeout(markRead, 100)`, `.then(markRead)` inside one).
+            const handed = node.arguments.find(isAction);
+            if (handed && (BACKGROUND_CALLERS.has(calleeName(node.callee)) || inBackground(node))) {
+              context.report({ node: handed, messageId: "background" });
+            }
+          },
+        };
+      },
+    },
+  },
+};
+
 const MONEY_MESSAGE =
   "Money tables and views are read only through modules/revenue (CLAUDE.md invariant 2, ADR-0007).";
 // Word-bounded, so `.from("project_billing")`, `Tables<"item_billing">` and an embedded
@@ -183,6 +275,13 @@ const eslintConfig = defineConfig([
         ...VIEW_ADDRESS_SELECTORS,
       ],
     },
+  },
+
+  // ARCHITECTURE §4.4: no server action from an effect or a timer (see BACKGROUND_CALLERS).
+  {
+    files: ["**/src/**/*.{ts,tsx}"],
+    plugins: { maxoff: maxoffPlugin },
+    rules: { "maxoff/no-background-action": "error" },
   },
 
   // ARCHITECTURE §3.1: app → modules (index.ts only) → core. Core never imports modules.

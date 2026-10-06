@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef } from "react";
 
 import { createRealtimeSupabase, type RealtimeSupabase } from "@/core/db/browser";
+import { getInBackground } from "@/core/http/background";
 import { systemClock } from "@/core/time/clock";
 import { anySendWaiting } from "@/core/ui/delayed-sends";
 import { anyEditDirty } from "@/core/ui/edit/edit-guard";
@@ -22,9 +23,19 @@ import {
   newestServerUnread,
   readInFlight,
   readsUnconfirmed,
+  type ServerUnread,
   serverUnreadSeen,
 } from "../read-receipts";
-import { readUnreadCount } from "../unread-actions";
+
+/**
+ * The bell's count alone, nothing revalidated. A **background call** (ARCHITECTURE §4.4): a
+ * Realtime callback or a timer asks for it, so it is a plain request to a route handler, never a
+ * server action, which Next would hold a navigation for when it went out during one (the first
+ * join's count did, CI run 37118131079).
+ */
+function readUnreadCount() {
+  return getInBackground<ServerUnread>("/api/notifications/unread");
+}
 
 export type LiveUpdatesProps = {
   memberId: string;
@@ -44,8 +55,8 @@ export type LiveUpdatesProps = {
  * between the page's render and the join sent no event. Refresh on return (2.7b) stays the
  * fallback when Realtime is unreachable.
  * The member's **own** reads on this device never re-read the screen (owner decision 2026-10-01):
- * their receipts only ask the server for the bell's count (`readUnreadCount`, nothing
- * revalidated), which confirms the drop the device already shows (`read-receipts.ts`).
+ * their receipts only ask the server for the bell's count (`GET /api/notifications/unread`,
+ * nothing revalidated), which confirms the drop the device already shows (`read-receipts.ts`).
  * `html[data-live]` says whether the channel is joined (`on`) or not (`off`), for the e2e checks.
  *
  * Every refresh, the token's included, goes through one guard (`liveRefreshWaits`: never inside
@@ -65,11 +76,9 @@ export function LiveUpdates({ memberId, token, expiresIn }: LiveUpdatesProps): n
   const confirmSoon = useCallback(() => {
     window.clearTimeout(confirmTimer.current);
     confirmTimer.current = window.setTimeout(() => {
-      readUnreadCount()
-        .then((result) => {
-          if (result.ok) serverUnreadSeen(result.data);
-        })
-        .catch(() => undefined);
+      void readUnreadCount().then((result) => {
+        if (result.ok) serverUnreadSeen(result.data);
+      });
     }, LIVE_REFRESH_DELAY_MS);
   }, []);
 
@@ -99,15 +108,13 @@ export function LiveUpdates({ memberId, token, expiresIn }: LiveUpdatesProps): n
   // The first join: what came between the server's count and the join (see `catchUpRefreshes`).
   const catchUp = useCallback(() => {
     const before = newestServerUnread();
-    readUnreadCount()
-      .then((result) => {
-        if (!result.ok) return;
-        serverUnreadSeen(result.data);
-        if (catchUpRefreshes(before, result.data, readsUnconfirmed())) {
-          refreshSoon(LIVE_REFRESH_DELAY_MS);
-        }
-      })
-      .catch(() => undefined);
+    void readUnreadCount().then((result) => {
+      if (!result.ok) return;
+      serverUnreadSeen(result.data);
+      if (catchUpRefreshes(before, result.data, readsUnconfirmed())) {
+        refreshSoon(LIVE_REFRESH_DELAY_MS);
+      }
+    });
   }, [refreshSoon]);
 
   useEffect(() => {

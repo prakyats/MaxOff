@@ -1,11 +1,13 @@
-import { reportAppOpen } from "../app-report-actions";
+import { postInBackground } from "@/core/http/background";
+
 import { appReportOf } from "./browser";
 
 /**
  * The app's report about itself, sent once per open (task 5.4, owner decision 2026-10-03; the
  * values come from `appReportOf`). Loaded by `PushSync` with `import()`, after the first load, so
  * no screen's first load carries it. One report per app open: a navigation keeps this module, a
- * new document (a new open) starts again.
+ * new document (a new open) starts again. A background call (ARCHITECTURE §4.4): a plain request
+ * to `/api/app-report`, never a server action, which would hold a navigation it went out during.
  */
 let sent = false;
 
@@ -20,5 +22,5 @@ export function sendAppReportOnce(): void {
     displayStandalone: window.matchMedia?.("(display-mode: standalone)").matches ?? false,
     navigatorStandalone: nav.standalone,
   });
-  reportAppOpen(report).catch(() => undefined);
+  void postInBackground<null>("/api/app-report", report);
 }

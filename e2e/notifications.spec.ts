@@ -226,7 +226,12 @@ test.describe("the bell and Alerts", () => {
     await hydrated(page);
     await expect.poll(() => bellCount(page)).toBe(total);
 
-    // Every server action this page sends waits until the views were switched.
+    // Everything this page sends by itself waits until the views were switched: any server
+    // action, and the background calls (ARCHITECTURE §4.4: the read receipt, the live bell's
+    // count, the app's report), which are plain requests to /api/.
+    const background = (request: Request) =>
+      (request.method() === "POST" && Boolean(request.headers()["next-action"])) ||
+      new URL(request.url()).pathname.startsWith("/api/");
     let release: () => void = () => undefined;
     const released = new Promise<void>((resolve) => {
       release = resolve;
@@ -234,7 +239,7 @@ test.describe("the bell and Alerts", () => {
     const held: Request[] = [];
     const inFlight = new Set<Request>();
     page.on("request", (request) => {
-      if (request.method() === "POST" && request.headers()["next-action"]) inFlight.add(request);
+      if (background(request)) inFlight.add(request);
     });
     page.on("requestfinished", (request) => inFlight.delete(request));
     page.on("requestfailed", (request) => inFlight.delete(request));
@@ -249,7 +254,7 @@ test.describe("the bell and Alerts", () => {
     });
     await page.route("**/*", async (route: Route) => {
       const request = route.request();
-      if (request.method() === "POST" && request.headers()["next-action"]) {
+      if (background(request)) {
         held.push(request);
         await released;
       }
@@ -268,7 +273,13 @@ test.describe("the bell and Alerts", () => {
     await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}(\\?tab=\\w+)?$`));
     await expect(page.locator('[data-slot="task-tabs"]')).toHaveAttribute("data-live", "");
     // The read is sent, held, and the bell has already dropped on the device.
-    await expect.poll(() => held.length).toBeGreaterThan(0);
+    await expect
+      .poll(() =>
+        held.some(
+          (request) => new URL(request.url()).pathname === "/api/notifications/read-record",
+        ),
+      )
+      .toBe(true);
     await expect.poll(() => bellCount(page)).toBe(total - about);
     // Views tapped at once, while the receipt is still out.
     for (const view of ["work", "activity"]) {
@@ -307,6 +318,125 @@ test.describe("the bell and Alerts", () => {
     await hydrated(page);
     await expect.poll(() => bellCount(page)).toBe(total - about);
     await removeTasksTitled(prefix);
+  });
+
+  test("a background call sent while a page opens never holds it: the bell's count stays unanswered, the task opens (CI run 37118131079)", async ({
+    page,
+  }, info) => {
+    // ARCHITECTURE §4.4. Next queues a server action sent during a navigation behind it and does
+    // not commit the new page until the action answers: the bell's count, asked on the live
+    // channel's first join, went out just after a tapped task's data arrived, and the task never
+    // opened (CI run 37118131079). Here the channel's join waits for the tap and the task's data
+    // waits until the count is out; the count is then never answered, nor is anything else the
+    // app sends on its own (a server action, an /api/ call), and the task must still open.
+    const staff = person(info, "staff");
+    const prefix = `Background call ${info.project.name} `;
+    await removeTasksTitled(prefix);
+    await clearAlerts(staff);
+    const staffId = await memberIdOf(staff);
+    const taskId = await rpcAs<string>(USERS.owner.email, USERS.owner.password, "task_create", {
+      title: `${prefix}reel`,
+      description: null,
+      task_type_id: await taskTypeId("Normal"),
+      client_id: null,
+      priority: "medium",
+      due_at: istInstant(addISTDays(todayIST(), 45), "18:00"),
+      assignee_ids: [staffId],
+      primary_owner_id: staffId,
+      approving_admin_id: null,
+      stages: [],
+    });
+
+    let tapped = false;
+    let joinLetGo = () => {};
+    const joinReleased = new Promise<void>((resolve) => {
+      joinLetGo = resolve;
+    });
+    await page.routeWebSocket(/\/realtime\/v1\/websocket/, (socket) => {
+      const server = socket.connectToServer();
+      socket.onMessage(async (message) => {
+        if (
+          typeof message === "string" &&
+          message.includes('"phx_join"') &&
+          message.includes("realtime:notifications:")
+        ) {
+          await joinReleased;
+        }
+        server.send(message);
+      });
+    });
+    // After the tap, whatever the app sends by itself is held, unanswered, to the end.
+    const held: Request[] = [];
+    const ended = new Set<Request>();
+    page.on("requestfinished", (request) => ended.add(request));
+    page.on("requestfailed", (request) => ended.add(request));
+    let pageLetGo = () => {};
+    const pageReleased = new Promise<void>((resolve) => {
+      pageLetGo = resolve;
+    });
+    const countOut = page.waitForRequest(
+      (request) =>
+        tapped &&
+        request.method() === "GET" &&
+        new URL(request.url()).pathname === "/api/notifications/unread",
+    );
+    await page.route("**/*", async (route: Route) => {
+      const request = route.request();
+      const url = new URL(request.url());
+      const headers = request.headers();
+      if (
+        tapped &&
+        ((request.method() === "POST" && headers["next-action"]) ||
+          url.pathname.startsWith("/api/"))
+      ) {
+        held.push(request);
+        return; // never answered
+      }
+      if (
+        tapped &&
+        headers["rsc"] === "1" &&
+        !headers["next-router-prefetch"] &&
+        url.pathname === `/tasks/${taskId}`
+      ) {
+        await pageReleased;
+      }
+      await route.fallback();
+    });
+
+    try {
+      await signIn(page, staff, PASSWORD);
+      await page.goto("/tasks");
+      await hydrated(page);
+      await expect(page.locator("html")).not.toHaveAttribute("data-live", "on");
+
+      tapped = true;
+      await page.locator(`[data-slot="task-row"][data-task="${taskId}"] a`).click();
+      // The channel joins while the task's data is held: its count goes out mid-navigation.
+      joinLetGo();
+      const count = await countOut;
+      pageLetGo();
+      await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}(\\?tab=\\w+)?$`));
+      await expect(page.locator('[data-slot="task-tabs"]')).toBeVisible();
+      expect(held, "the count was held").toContain(count);
+      expect(ended.has(count), "the count is still unanswered").toBe(false);
+      // Opening the task sends its read receipt the same way: out, held, and the page is open.
+      await expect
+        .poll(() =>
+          held.some(
+            (request) => new URL(request.url()).pathname === "/api/notifications/read-record",
+          ),
+        )
+        .toBe(true);
+      expect(
+        held.filter((request) => request.headers()["next-action"]),
+        "no server action was sent without a tap",
+      ).toEqual([]);
+    } finally {
+      joinLetGo();
+      pageLetGo();
+      if (!page.isClosed()) await page.unrouteAll({ behavior: "ignoreErrors" });
+      await removeTasksTitled(prefix);
+    }
   });
 
   test("an empty history says so", async ({ page }, info) => {
