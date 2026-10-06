@@ -265,4 +265,15 @@ describe("digestSamplePage", () => {
     expect(page.indexOf("Subject:")).toBeLessThan(page.indexOf("<h1"));
     expect(page).toContain(email.html.slice(email.html.indexOf("<table")));
   });
+
+  it("keeps a `$` in a name as text (never a replacement pattern)", () => {
+    const base = payload();
+    const email = renderDigestEmail(
+      payload({ attendance: { ...base.attendance, absent_names: ["$& $` $' $1"] } }),
+      ORIGIN,
+    );
+    const page = digestSamplePage(email);
+    expect(page).toContain("$&amp; $` $&#39; $1");
+    expect(page.split("<body").length).toBe(2);
+  });
 });

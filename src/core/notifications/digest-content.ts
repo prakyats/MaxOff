@@ -236,5 +236,6 @@ export function digestSamplePage(email: NotificationEmail): string {
     `<pre style="margin:0;white-space:pre-wrap;word-break:break-word">${escapeHtml(email.text)}</pre>`,
     "</div>",
   ].join("");
-  return email.html.replace(/(<body[^>]*>)/, `$1${preface}`);
+  // A function replacer: a `$` in a name or a kind's description is text, never a pattern (phase 5 review).
+  return email.html.replace(/<body[^>]*>/, (body) => `${body}${preface}`);
 }
