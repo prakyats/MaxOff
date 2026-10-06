@@ -46,7 +46,8 @@ delete from public.activity_log;
 delete from public.holidays;
 update public.org_settings set weekly_off_days = '{}',
   -- The late End day paths below run at any wall-clock time; the 05:00 cutoff itself is 28's.
-  end_day_cutoff_time = '23:59:59';
+  -- 24:00, not 23:59:59: in the last second before midnight IST "now < 23:59:59" is false.
+  end_day_cutoff_time = '24:00';
 
 create temporary table fx (key text primary key, id uuid not null);
 insert into fx values
@@ -445,7 +446,8 @@ select is(pg_temp.audit_actions((pg_temp.day_on('quit', pg_temp.today() - 1)).id
 select is((pg_temp.day_on('late', pg_temp.today() - 1)).end_not_recorded, false, 'a day that was ended late is left alone');
 select is((pg_temp.day_on('halfer', pg_temp.today() - 1)).end_not_recorded, false, 'a day with no start is left alone');
 select is((select count(*) from app.end_not_recorded(pg_temp.today() - 1)), 0::bigint, 'running twice writes nothing');
-select is((select count(*) from app.end_not_recorded()), 0::bigint,
+-- Dates before today only: from 23:59 IST the job day is today, and today's open days are its to flag.
+select is((select count(*) from app.end_not_recorded() where work_date < pg_temp.today()), 0::bigint,
   'the default run (the last 7 dates up to the job day) finds nothing more');
 -- A late End day after the job ran clears the flag (the 2.5 rule carried over).
 select pg_temp.as_member('quit');

@@ -67,8 +67,11 @@ begin
   perform set_config('request.jwt.claims', '', true);
 end;
 $$;
+-- Section 1's day is tomorrow (IST): its tasks are due at 20:30 that day, which task_create refuses once
+-- it has passed, so a run after 20:30 IST today failed (PR #45's CI at 20:47 IST). Tomorrow is always ahead.
+create function pg_temp.day() returns date language sql stable as $$ select app.today_ist() + 1; $$;
 create function pg_temp.at(t interval) returns timestamptz language sql stable as $$
-  select app.ist_day_start(app.today_ist()) + t;
+  select app.ist_day_start(pg_temp.day()) + t;
 $$;
 create function pg_temp.mk(k text, due timestamptz, assignees text[], approver text default null) returns uuid language plpgsql as $$
 declare
@@ -120,7 +123,7 @@ $$;
 create trigger boom before insert on public.notifications for each row execute function pg_temp.boom();
 update public.org_settings set default_task_reminders = '[{"before": 0, "unit": "minutes"}]' where org_id = pg_temp.fx('org');
 insert into public.attendance_days (member_id, work_date, started_at, is_day_off) values
-  (pg_temp.fx('staff1'), app.today_ist(), pg_temp.at('9 hours 30 minutes'), false);
+  (pg_temp.fx('staff1'), pg_temp.day(), pg_temp.at('9 hours 30 minutes'), false);
 select pg_temp.mk('BOOM task', pg_temp.at('20 hours 30 minutes'), array['staff2']);
 select pg_temp.mk('fine task', pg_temp.at('20 hours 30 minutes'), array['staff2']);
 select lives_ok($$ select app.reminders_tick(pg_temp.at('20 hours 31 minutes')) $$,

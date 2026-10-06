@@ -850,6 +850,9 @@ select is((select count(*) from app.absent_check()), 0::bigint, 'a second run wr
 select is(pg_temp.n('owner', 'absent_proposed'), 1::bigint, 'and tells nothing');
 -- The 20:30 reminder: once per person and day, from the org''s time on.
 select pg_temp.clear();
+-- From 23:59 IST the catch-up run above covers today too and proposed staff1 absent for it.
+delete from public.attendance_events;
+delete from public.attendance_days;
 insert into public.attendance_days (member_id, work_date, started_at, is_day_off)
 values (pg_temp.fx('staff1'), pg_temp.today(), app.ist_day_start(pg_temp.today()) + interval '9 hours 30 minutes', false);
 select is(app.end_day_reminder(app.ist_day_start(pg_temp.today()) + interval '19 hours'), 0, 'before logout_reminder_time nothing is sent');
