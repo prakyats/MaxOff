@@ -370,7 +370,8 @@ jobs:
   # on STAGING. A dry run: app.reminders_backfill(now(), true) counts and rolls everything back, so
   # nothing is written. By hand only, never on a push; production is never in scope. Also (owner,
   # 2026-10-03) the acknowledgement messages it would start: app.reminders_backfill_ack_preview()
-  # (read only; the +2 h repeats, the +4 h lead's and the +8 h Owner's escalations).
+  # (read only; the +2 h repeats, the +4 h lead's and the +8 h Owner's escalations). From v1.4.0 the
+  # release migration reminders_backfill_release has armed every open task, so this counts 0 there.
   reminders-backfill-dry-run:
     name: reminders backfill (dry run, staging)
     if: github.event_name == 'workflow_dispatch' && inputs.job == 'reminders-backfill-dry-run'
@@ -416,7 +417,8 @@ jobs:
 
   # 5B decision 11 (owner, 2026-10-01): how many read notifications older than 90 days (and their
   # deliveries) the removal would take from STAGING. A dry run: notifications_remove_read(now(),
-  # true) only counts. The removal itself is not scheduled anywhere until the owner's explicit OK.
+  # true) only counts. The removal itself runs daily at 03:30 IST from v1.4.0 (pg_cron
+  # notifications_remove_read, owner decision 2026-10-06).
   # By hand only, never on a push; production is never in scope.
   notifications-removal-dry-run:
     name: notifications removal (dry run, staging)

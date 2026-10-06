@@ -1370,9 +1370,9 @@ notifications        id, org_id, recipient_id → members (cascade), actor_id nu
                      -- (the event is audited by its transition; a read is view state, as task_reads).
                      -- Never purged in 5A (kickoff 5 decision 4); from 5B a daily job removes READ rows older than 90 days
                      -- (owner decision 2026-10-01, PROGRESS "5B decisions" (11)); unread rows stay. Money never in title, body, link or payload.
-                     -- Built in 5B, NOT scheduled until the owner's explicit OK: public.notifications_remove_read(p_now,
-                     -- p_dry_run default true) (service_role; read rows created > 90 days before p_now, deliveries by
-                     -- cascade; returns (notifications, deliveries)); no cron job calls it yet (pgTAP 57).
+                     -- public.notifications_remove_read(p_now, p_dry_run default true) (service_role; read rows created
+                     -- > 90 days before p_now, deliveries by cascade; returns (notifications, deliveries)), run daily at
+                     -- 03:30 IST by pg_cron notifications_remove_read from v1.4.0 (owner decision 2026-10-06; pgTAP 57).
                      -- The cascade exists for the local stack's fixture deletes; production deactivates.
                      -- Indexes: (recipient_id, read_at, created_at desc), (recipient_id, created_at desc),
                      -- (entity, entity_id), actor_id, org_id.

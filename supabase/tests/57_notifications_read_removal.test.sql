@@ -1,7 +1,8 @@
 -- 5B decision 11 (migration notifications_read_removal; owner 2026-10-01): read notifications older
 -- than 90 days are removed with their deliveries; unread ones stay, however old; a read one newer
--- than 90 days stays. A dry run (the default) only counts. Service_role only. **Not scheduled**
--- until the owner's explicit OK: no cron job calls it.
+-- than 90 days stays. A dry run (the default) only counts. Service_role only. **Scheduled** (owner
+-- 2026-10-06, v1.4.0, migration notifications_read_removal_schedule): pg_cron runs it daily at 03:30
+-- IST (22:00 UTC), after the 03:00 storage_cleanup, for real (p_dry_run false).
 begin;
 create extension if not exists pgtap with schema extensions;
 select plan(14);
@@ -61,9 +62,11 @@ select ok(not has_function_privilege('anon', 'public.notifications_remove_read(t
 select ok(has_function_privilege('service_role', 'public.notifications_remove_read(timestamptz, boolean)', 'execute'),
   'service_role can');
 
--- Not scheduled.
-select is((select count(*) from cron.job where command ilike '%notifications_remove_read%'), 0::bigint,
-  'no cron job calls it: scheduling waits for the owner''s explicit OK');
+-- Scheduled: one job, daily at 03:30 IST, removing for real.
+select results_eq(
+  $$ select jobname::text, schedule, command, active from cron.job where command ilike '%notifications_remove_read%' $$,
+  $$ values ('notifications_remove_read', '0 22 * * *', 'select public.notifications_remove_read(now(), false)', true) $$,
+  'pg_cron runs it once a day at 03:30 IST (22:00 UTC), p_dry_run false, and no other job calls it');
 
 -- The dry run (the default) counts and removes nothing.
 select results_eq($$ select notifications, deliveries from public.notifications_remove_read(now()) $$,
