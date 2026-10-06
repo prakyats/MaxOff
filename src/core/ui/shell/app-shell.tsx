@@ -29,7 +29,7 @@ const NO_UNREAD: Promise<ServerUnread | null> = Promise.resolve(null);
  * The signed-in app chrome.
  *
  * **Phone** (below `md`): a bottom bar for **every role** — four primary destinations plus More,
- * or Staff's five (ARCHITECTURE §14.1, task 1.5). The brand bar above it slides away as you
+ * or the Crew's five (ARCHITECTURE §14.1, task 1.5; 5B decision 1). The brand bar above it slides away as you
  * scroll. Nobody opens a drawer to reach a screen they use every day.
  *
  * **Tablet and desktop** (`md` up): the sidebar, unchanged.
@@ -99,7 +99,8 @@ export function AppShell({
       <div
         className="bg-background text-foreground flex min-h-dvh"
         // The page title bar reads this to decide whether to carry the bell: when the bottom bar
-        // already has an Alerts destination (Staff), a second bell is noise.
+        // already has an Alerts destination, a second bell is noise. Since 5B decision 1 no
+        // role's bar has one, so every title bar carries the bell.
         data-alerts={alertsInBottomNav(viewer.role) ? "nav" : "bar"}
       >
         {/* pressable: none (a skip link: it takes keyboard focus, nobody taps it) */}

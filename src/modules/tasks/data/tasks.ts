@@ -8,6 +8,7 @@ import type { Database, Json, Tables } from "@/core/db";
 import { createServerSupabase } from "@/core/db/server";
 import { AppError } from "@/core/errors";
 import { nextPosition } from "@/core/lists";
+import { parseReminderRules } from "@/core/lib/reminder-rules";
 import { systemClock } from "@/core/time";
 
 import type { TaskChanges, TaskFields } from "../domain/form";
@@ -71,6 +72,8 @@ function toTask(row: Tables<"tasks">): Task {
     completedAt: row.completed_at,
     cancelledAt: row.cancelled_at,
     createdAt: row.created_at,
+    reminderRules: parseReminderRules(row.reminder_rules),
+    templateId: row.template_id,
   };
 }
 
@@ -79,7 +82,7 @@ export async function listTaskTypes(): Promise<TaskType[]> {
   const supabase = await createServerSupabase();
   const { data, error } = await supabase
     .from("task_types")
-    .select("id, name, kind, has_location, archived_at, position")
+    .select("id, name, kind, has_location, archived_at, position, default_reminders")
     .order("position", { ascending: true });
   if (error) throw error;
   return data.map((row) => ({
@@ -88,6 +91,7 @@ export async function listTaskTypes(): Promise<TaskType[]> {
     kind: row.kind,
     hasLocation: row.has_location,
     archived: row.archived_at !== null,
+    defaultReminders: parseReminderRules(row.default_reminders),
   }));
 }
 
@@ -532,6 +536,8 @@ export async function rpcCreateTask(
     custom_fields: fields.customFields as Json,
     warnings: options.warnings as unknown as Json,
     template_id: options.templateId,
+    // Always sent, `[]` included: a missing list would take the type's default (5.3).
+    reminder_rules: fields.reminderRules as unknown as Json,
   };
   // The function takes null for each of these (the generated types cannot say so).
   const { data, error } = await supabase.rpc(
@@ -558,6 +564,7 @@ const CHANGE_KEYS: Record<keyof TaskChanges, string> = {
   customFields: "custom_fields",
   assigneeIds: "assignee_ids",
   primaryOwnerId: "primary_owner_id",
+  reminderRules: "reminder_rules",
 };
 
 export async function rpcUpdateTask(

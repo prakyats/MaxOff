@@ -1329,6 +1329,52 @@ export type Database = {
           },
         ];
       };
+      member_app_reports: {
+        Row: {
+          is_standalone: boolean;
+          member_id: string;
+          org_id: string;
+          platform: string;
+          reported_at: string;
+        };
+        Insert: {
+          is_standalone: boolean;
+          member_id: string;
+          org_id: string;
+          platform: string;
+          reported_at?: string;
+        };
+        Update: {
+          is_standalone?: boolean;
+          member_id?: string;
+          org_id?: string;
+          platform?: string;
+          reported_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "member_app_reports_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: true;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "member_app_reports_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: true;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "member_app_reports_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       member_coordinators: {
         Row: {
           coordinator_id: string;
@@ -1401,6 +1447,104 @@ export type Database = {
             columns: ["set_by"];
             isOneToOne: false;
             referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      member_onboarding: {
+        Row: {
+          finished_at: string | null;
+          finished_via: string | null;
+          member_id: string;
+          org_id: string;
+          started_at: string;
+        };
+        Insert: {
+          finished_at?: string | null;
+          finished_via?: string | null;
+          member_id: string;
+          org_id: string;
+          started_at?: string;
+        };
+        Update: {
+          finished_at?: string | null;
+          finished_via?: string | null;
+          member_id?: string;
+          org_id?: string;
+          started_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "member_onboarding_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: true;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "member_onboarding_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: true;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "member_onboarding_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      member_reachability: {
+        Row: {
+          alerted_at: string | null;
+          created_at: string;
+          member_id: string;
+          org_id: string;
+          since: string;
+          state: string;
+          updated_at: string;
+        };
+        Insert: {
+          alerted_at?: string | null;
+          created_at?: string;
+          member_id: string;
+          org_id: string;
+          since: string;
+          state: string;
+          updated_at?: string;
+        };
+        Update: {
+          alerted_at?: string | null;
+          created_at?: string;
+          member_id?: string;
+          org_id?: string;
+          since?: string;
+          state?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "member_reachability_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: true;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "member_reachability_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: true;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "member_reachability_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
             referencedColumns: ["id"];
           },
         ];
@@ -1484,6 +1628,7 @@ export type Database = {
       notification_deliveries: {
         Row: {
           attempts: number;
+          batch_id: string | null;
           channel: string;
           created_at: string;
           id: string;
@@ -1495,6 +1640,7 @@ export type Database = {
         };
         Insert: {
           attempts?: number;
+          batch_id?: string | null;
           channel: string;
           created_at?: string;
           id?: string;
@@ -1506,6 +1652,7 @@ export type Database = {
         };
         Update: {
           attempts?: number;
+          batch_id?: string | null;
           channel?: string;
           created_at?: string;
           id?: string;
@@ -1530,18 +1677,21 @@ export type Database = {
           actionable: boolean;
           always_email: boolean;
           description: string;
+          in_app: boolean;
           kind: string;
         };
         Insert: {
           actionable?: boolean;
           always_email?: boolean;
           description: string;
+          in_app?: boolean;
           kind: string;
         };
         Update: {
           actionable?: boolean;
           always_email?: boolean;
           description?: string;
+          in_app?: boolean;
           kind?: string;
         };
         Relationships: [];
@@ -1656,6 +1806,7 @@ export type Database = {
           overdue_escalate_hours: number;
           quiet_hours_end: string;
           quiet_hours_start: string;
+          reachability_clock_from: string | null;
           updated_at: string;
           weekly_off_days: number[];
           workload_warning_threshold: number | null;
@@ -1675,6 +1826,7 @@ export type Database = {
           overdue_escalate_hours?: number;
           quiet_hours_end?: string;
           quiet_hours_start?: string;
+          reachability_clock_from?: string | null;
           updated_at?: string;
           weekly_off_days?: number[];
           workload_warning_threshold?: number | null;
@@ -1694,6 +1846,7 @@ export type Database = {
           overdue_escalate_hours?: number;
           quiet_hours_end?: string;
           quiet_hours_start?: string;
+          reachability_clock_from?: string | null;
           updated_at?: string;
           weekly_off_days?: number[];
           workload_warning_threshold?: number | null;
@@ -2054,6 +2207,109 @@ export type Database = {
           },
           {
             foreignKeyName: "task_reads_task_id_fkey";
+            columns: ["task_id"];
+            isOneToOne: false;
+            referencedRelation: "tasks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      task_reminder_arms: {
+        Row: {
+          armed_at: string;
+          task_id: string;
+        };
+        Insert: {
+          armed_at?: string;
+          task_id: string;
+        };
+        Update: {
+          armed_at?: string;
+          task_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "task_reminder_arms_task_id_fkey";
+            columns: ["task_id"];
+            isOneToOne: true;
+            referencedRelation: "tasks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      task_reminders: {
+        Row: {
+          cancelled_at: string | null;
+          created_at: string;
+          deadline: string | null;
+          escalation_level: number | null;
+          fire_at: string;
+          held: boolean;
+          id: string;
+          kind: string;
+          last_before_due: boolean;
+          member_id: string | null;
+          offset_minutes: number | null;
+          org_id: string;
+          sent_at: string | null;
+          task_id: string;
+        };
+        Insert: {
+          cancelled_at?: string | null;
+          created_at?: string;
+          deadline?: string | null;
+          escalation_level?: number | null;
+          fire_at: string;
+          held?: boolean;
+          id?: string;
+          kind: string;
+          last_before_due?: boolean;
+          member_id?: string | null;
+          offset_minutes?: number | null;
+          org_id: string;
+          sent_at?: string | null;
+          task_id: string;
+        };
+        Update: {
+          cancelled_at?: string | null;
+          created_at?: string;
+          deadline?: string | null;
+          escalation_level?: number | null;
+          fire_at?: string;
+          held?: boolean;
+          id?: string;
+          kind?: string;
+          last_before_due?: boolean;
+          member_id?: string | null;
+          offset_minutes?: number | null;
+          org_id?: string;
+          sent_at?: string | null;
+          task_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "task_reminders_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_reminders_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_reminders_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_reminders_task_id_fkey";
             columns: ["task_id"];
             isOneToOne: false;
             referencedRelation: "tasks";
@@ -2978,6 +3234,10 @@ export type Database = {
       };
     };
     Functions: {
+      app_open_report: {
+        Args: { is_standalone: boolean; platform: string };
+        Returns: boolean;
+      };
       attendance_choose_leave_today: {
         Args: {
           choice: Database["public"]["Enums"]["attendance_choice"];
@@ -3138,16 +3398,20 @@ export type Database = {
         Args: { credit_id: string; reason?: string };
         Returns: undefined;
       };
+      digest_daily: { Args: { p_now?: string }; Returns: number };
       email_claim: {
         Args: { p_limit?: number; p_now?: string };
         Returns: {
           attempts: number;
+          batch_id: string;
           body: string;
           delivery_id: string;
           email: string;
+          escalation_level: number;
           kind: string;
           link: string;
           notification_id: string;
+          payload: Json;
           recipient_id: string;
           title: string;
         }[];
@@ -3404,10 +3668,41 @@ export type Database = {
           working_days: number;
         }[];
       };
+      notifications_inbox: {
+        Args: { p_limit: number; p_offset: number; p_unread_only: boolean };
+        Returns: {
+          body: string;
+          created_at: string;
+          id: string;
+          kind: string;
+          link: string;
+          run_kinds: string[];
+          run_size: number;
+          run_unread: string[];
+          title: string;
+          total: number;
+        }[];
+      };
       notifications_mark_all_read: { Args: never; Returns: number };
       notifications_mark_read: {
         Args: { entity: string; entity_id: string };
         Returns: number;
+      };
+      notifications_remove_read: {
+        Args: { p_dry_run?: boolean; p_now?: string };
+        Returns: {
+          deliveries: number;
+          notifications: number;
+        }[];
+      };
+      onboarding_finish: { Args: { p_via: string }; Returns: boolean };
+      owner_digest_preview: { Args: never; Returns: Json };
+      push_band_census: {
+        Args: never;
+        Returns: {
+          devices: number;
+          people: number;
+        }[];
       };
       push_claim: {
         Args: { p_limit?: number; p_now?: string };
@@ -3435,9 +3730,29 @@ export type Database = {
         };
         Returns: number;
       };
+      push_status_own: {
+        Args: never;
+        Returns: {
+          band: string;
+          endpoints: string[];
+        }[];
+      };
       push_subscription_remove: { Args: { endpoint: string }; Returns: boolean };
+      push_subscription_remove_own: { Args: { p_id: string }; Returns: boolean };
       push_subscription_result: {
         Args: { p_id: string; p_now?: string; p_outcome: string };
+        Returns: string;
+      };
+      push_subscription_turn_on: {
+        Args: {
+          auth: string;
+          endpoint: string;
+          is_standalone?: boolean;
+          label?: string;
+          p256dh: string;
+          platform?: string;
+          user_agent?: string;
+        };
         Returns: string;
       };
       push_subscription_upsert: {
@@ -3463,6 +3778,19 @@ export type Database = {
         }[];
       };
       push_test_claim: { Args: never; Returns: number };
+      reachability_check: { Args: { p_now?: string }; Returns: number };
+      reachability_overview: {
+        Args: never;
+        Returns: {
+          full_name: string;
+          last_success_at: string;
+          member_id: string;
+          platform: string;
+          role: Database["public"]["Enums"]["member_role"];
+          since: string;
+          state: string;
+        }[];
+      };
       session_login: {
         Args: { ip_hash?: string; user_agent?: string };
         Returns: string;

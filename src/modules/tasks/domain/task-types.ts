@@ -1,3 +1,5 @@
+import type { ReminderRule } from "@/core/lib/reminder-rules";
+
 import type { TaskTypeKind } from "./types";
 
 /**
@@ -16,6 +18,8 @@ export type TaskTypeSetting = {
   hasLocation: boolean;
   archivedAt: string | null;
   position: string;
+  /** Its tasks' default reminders (5.3); `[]` = the organisation's. */
+  defaultReminders: ReminderRule[];
 };
 
 export const TASK_TYPE_NAME_MAX = 80;

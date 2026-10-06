@@ -7,7 +7,7 @@
 -- 4. email_record: sent, retry with the push backoff, failed; service_role only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(51);
+select plan(55);
 
 
 delete from public.task_requests;
@@ -46,6 +46,12 @@ delete from auth.users;
 delete from public.activity_log;
 delete from public.holidays;
 update public.org_settings set weekly_off_days = '{}';
+
+-- The always-emailed kind this file exercises the mechanism with. task_assigned played that part
+-- until 5B decision 12 made it fallback only (pgTAP 49 tests the policy itself); a kind of its own,
+-- rolled back with the rest, keeps these tests about the queueing rule and the ceilings.
+insert into public.notification_kinds (kind, actionable, always_email, description)
+values ('test_always', true, true, 'pgTAP 45: an always-emailed kind');
 
 create temporary table fx (key text primary key, id uuid not null);
 insert into fx values
@@ -244,7 +250,7 @@ select pg_temp.as_system();
 select pg_temp.sub('staff1', 'https://push.example/s1');
 select pg_temp.sub('admin1', 'https://push.example/a1');
 update public.push_subscriptions set disabled_at = now(), disabled_reason = 'gone' where endpoint = 'https://push.example/a1';
-insert into fx values ('q_assigned_push', pg_temp.note('staff1', 'task_assigned', 'Assigned, has push'));
+insert into fx values ('q_assigned_push', pg_temp.note('staff1', 'test_always', 'Assigned, has push'));
 insert into fx values ('q_changes_push', pg_temp.note('staff1', 'task_changes_requested', 'Changes, has push'));
 insert into fx values ('q_changes_none', pg_temp.note('staff2', 'task_changes_requested', 'Changes, no push'));
 insert into fx values ('q_leave_gone', pg_temp.note('admin1', 'leave_decided', 'Leave, device gone'));
@@ -256,13 +262,13 @@ insert into fx values ('q_pushed', pg_temp.note('staff2', 'attendance_decided', 
 update public.notification_deliveries set state = 'sent', sent_at = now()
 where notification_id = pg_temp.fx('q_pushed') and channel = 'push';
 -- An old row (a cron down for over a day) and a deactivated person's row.
-insert into fx values ('q_old', pg_temp.note('staff2', 'task_assigned', 'Old'));
+insert into fx values ('q_old', pg_temp.note('staff2', 'test_always', 'Old'));
 update public.notifications set created_at = now() - interval '25 hours' where id = pg_temp.fx('q_old');
-insert into fx values ('q_gone', pg_temp.note('old', 'task_assigned', 'Deactivated later'));
+insert into fx values ('q_gone', pg_temp.note('old', 'test_always', 'Deactivated later'));
 update public.members set status = 'deactivated', deactivated_at = now() where id = pg_temp.fx('old');
 
 select is(pg_temp.claim(), 3::bigint, 'one claim hands out three emails');
-select is(pg_temp.mail(pg_temp.fx('q_assigned_push')), 'queued,1,-', 'task assigned (always_email): emailed even with push');
+select is(pg_temp.mail(pg_temp.fx('q_assigned_push')), 'queued,1,-', 'an always_email kind: emailed even with push');
 select is(pg_temp.mail(pg_temp.fx('q_changes_none')), 'queued,1,-', 'an actionable kind with no push device: emailed');
 select is(pg_temp.mail(pg_temp.fx('q_leave_gone')), 'queued,1,-', 'an actionable kind whose only device is gone: emailed');
 select is(pg_temp.mail(pg_temp.fx('q_changes_push')), 'none', 'an actionable kind with a working device: no email');
@@ -298,27 +304,32 @@ select is(pg_temp.mail(pg_temp.fx('q_leave_gone')), 'failed,3,resend_422', 'is f
 select throws_ok($$ select public.email_record(gen_random_uuid(), 'bounced') $$, 'P0001', 'VALIDATION', 'an unknown outcome is refused');
 
 -- 5. The ceilings -----------------------------------------------------------------------------------------
--- Start clean: per person 2, org-wide 3, for this section.
+-- Start clean: per person 2, org-wide 13 (since 5.3: ordinary emails stop 10 short of it, at 3; the
+-- last 10 are kept for escalations), for this section. One claim per row here, so each is its own
+-- email (a person's always-emailed rows of one run are one batch: pgTAP 52).
 delete from public.notifications;
 delete from public.push_subscriptions;
-update public.org_settings set email_daily_cap_per_member = 2, email_daily_cap_org = 3;
-insert into fx values ('c1', pg_temp.note('staff2', 'task_assigned', 'C1'));
-insert into fx values ('c2', pg_temp.note('staff2', 'task_assigned', 'C2'));
-insert into fx values ('c3', pg_temp.note('staff2', 'task_assigned', 'C3'));
-insert into fx values ('c4', pg_temp.note('staff2', 'task_assigned', 'C4 escalation', 1));
-select is(pg_temp.claim(), 3::bigint, 'three of staff2''s four go out');
+update public.org_settings set email_daily_cap_per_member = 2, email_daily_cap_org = 13;
+insert into fx values ('c1', pg_temp.note('staff2', 'test_always', 'C1'));
+select is(pg_temp.claim(), 1::bigint, 'the first of staff2''s goes out');
+insert into fx values ('c2', pg_temp.note('staff2', 'test_always', 'C2'));
+select is(pg_temp.claim(), 1::bigint, 'the second too');
+insert into fx values ('c3', pg_temp.note('staff2', 'test_always', 'C3'));
+select is(pg_temp.claim(), 0::bigint, 'the third does not');
+insert into fx values ('c4', pg_temp.note('staff2', 'test_always', 'C4 escalation', 1));
+select is(pg_temp.claim(), 1::bigint, 'an escalation does');
 select is(pg_temp.mail(pg_temp.fx('c1')) || ' ' || pg_temp.mail(pg_temp.fx('c2')), 'queued,1,- queued,1,-', 'the first two');
 select is(pg_temp.mail(pg_temp.fx('c3')), 'skipped_cap,0,member_cap', 'the third is over the per-person cap: skipped_cap');
 select is(pg_temp.mail(pg_temp.fx('c4')), 'queued,1,-', 'an escalation bypasses the per-person cap');
 select is((select count(*) from public.notifications where id = pg_temp.fx('c3')), 1::bigint, 'the skipped row itself stays');
 select is((select state from public.notification_deliveries where notification_id = pg_temp.fx('c3') and channel = 'push'),
   'queued', 'and its push is untouched');
--- The org has used its 3 today.
-insert into fx values ('c5', pg_temp.note('staff1', 'task_assigned', 'C5'));
-insert into fx values ('c6', pg_temp.note('admin1', 'task_assigned', 'C6 escalation', 2));
-select is(pg_temp.claim(), 0::bigint, 'over the org-wide ceiling nothing goes out');
+-- The org has used 3 today: ordinary emails stop, an escalation still goes (5.3's reserve).
+insert into fx values ('c5', pg_temp.note('staff1', 'test_always', 'C5'));
+select is(pg_temp.claim(), 0::bigint, 'at the ordinary ceiling nothing ordinary goes out');
+insert into fx values ('c6', pg_temp.note('admin1', 'test_always', 'C6 escalation', 2));
 select is(pg_temp.mail(pg_temp.fx('c5')), 'skipped_cap,0,org_cap', 'another person''s row: skipped_cap (org_cap)');
-select is(pg_temp.mail(pg_temp.fx('c6')), 'skipped_cap,0,org_cap', 'an escalation does not bypass the org-wide ceiling');
+select is(pg_temp.claim(), 1::bigint, 'an escalation uses the reserve kept for it');
 -- A retry is never re-counted or re-capped.
 select is(public.email_record(pg_temp.did('c1'), 'retry', 'resend 429', now() - interval '2 minutes'), 1, '(c1 is retried)');
 select is((select count(*) from public.email_claim(now(), 50) c where c.notification_id = pg_temp.fx('c1')), 1::bigint,
@@ -327,23 +338,26 @@ select is(pg_temp.mail(pg_temp.fx('c1')), 'queued,2,resend 429', '(its second at
 -- not_configured rows never count: with the key missing nothing was sent.
 update public.notification_deliveries set state = 'failed', last_error = 'not_configured'
 where channel = 'email' and notification_id in (pg_temp.fx('c1'), pg_temp.fx('c2'), pg_temp.fx('c4'));
-insert into fx values ('c7', pg_temp.note('staff1', 'task_assigned', 'C7'));
+insert into fx values ('c7', pg_temp.note('staff1', 'test_always', 'C7'));
 select is(pg_temp.claim(), 1::bigint, 'rows that failed not_configured do not use the ceilings');
 select is(pg_temp.mail(pg_temp.fx('c7')), 'queued,1,-', '(C7 goes out)');
 -- Yesterday's emails (IST) do not count today.
 update public.notification_deliveries set created_at = app.ist_day_start(app.today_ist()) - interval '1 minute'
 where channel = 'email';
-insert into fx values ('c8', pg_temp.note('staff2', 'task_assigned', 'C8'));
-insert into fx values ('c9', pg_temp.note('staff2', 'task_assigned', 'C9'));
+insert into fx values ('c8', pg_temp.note('staff2', 'test_always', 'C8'));
+insert into fx values ('c9', pg_temp.note('staff2', 'test_always', 'C9'));
 select is(pg_temp.claim(), 2::bigint, 'the ceilings count by IST day: yesterday''s do not count');
-select is(pg_temp.mail(pg_temp.fx('c8')) || ' ' || pg_temp.mail(pg_temp.fx('c9')), 'queued,1,- queued,1,-', '(both of staff2''s go out)');
--- A per-person cap of 0 means none for that person, escalations still go.
+select is(pg_temp.mail(pg_temp.fx('c8')) || ' ' || pg_temp.mail(pg_temp.fx('c9')), 'queued,1,- queued,1,-', '(both of staff2''s go out, as one email)');
+-- A per-person cap of 0 means none for that person; an escalation still goes, and a batch that
+-- holds one is treated as one.
 update public.org_settings set email_daily_cap_per_member = 0, email_daily_cap_org = 90;
-insert into fx values ('d1', pg_temp.note('admin2', 'task_assigned', 'D1'));
-insert into fx values ('d2', pg_temp.note('admin2', 'task_assigned', 'D2 escalation', 1));
-select is(pg_temp.claim(), 1::bigint, 'a per-person cap of 0');
-select is(pg_temp.mail(pg_temp.fx('d1')) || ' ' || pg_temp.mail(pg_temp.fx('d2')), 'skipped_cap,0,member_cap queued,1,-',
-  'skips the person''s mail but not an escalation');
+insert into fx values ('d1', pg_temp.note('admin2', 'test_always', 'D1'));
+select is(pg_temp.claim(), 0::bigint, 'a per-person cap of 0');
+insert into fx values ('d2', pg_temp.note('admin2', 'test_always', 'D2 escalation', 1));
+insert into fx values ('d3', pg_temp.note('admin2', 'test_always', 'D3'));
+select is(pg_temp.claim(), 2::bigint, 'skips the person''s mail but not an escalation, nor what is batched with it');
+select is(pg_temp.mail(pg_temp.fx('d1')) || ' ' || pg_temp.mail(pg_temp.fx('d2')) || ' ' || pg_temp.mail(pg_temp.fx('d3')),
+  'skipped_cap,0,member_cap queued,1,- queued,1,-', 'D1 skipped; D2 and D3 one email');
 
 select * from finish();
 rollback;

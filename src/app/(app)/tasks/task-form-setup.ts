@@ -20,7 +20,8 @@ import {
  * the task types (tasks), the people and their coordinators (team, ADR-0013), the client labels
  * the viewer may set (clients: RLS gives an Admin their own, kickoff 4 decision 2), the workload
  * threshold (settings, decision 11), the task custom fields (`core/custom-fields`) and the active
- * templates for "Start from" (tasks, 4.6). Started by the page and handed to the dialog as a
+ * templates for "Start from" (tasks, 4.6) and the default reminders each level gives (5.3: the
+ * templates', the types' and the organisation's, from the same reads). Started by the page and handed to the dialog as a
  * promise, so the screen never waits for it.
  */
 export async function loadTaskFormSetup(viewer: CurrentMember): Promise<TaskFormSetup> {
@@ -79,5 +80,12 @@ export async function loadTaskFormSetup(viewer: CurrentMember): Promise<TaskForm
     templates: activeTemplates(templates).filter((template) =>
       types.some((type) => type.id === template.taskTypeId && !type.archived),
     ),
+    // 5.3: the reminders a task follows while it has none of its own (the same reads as above).
+    templateReminders: Object.fromEntries(
+      templates
+        .filter((template) => template.reminderRules.length > 0)
+        .map((template) => [template.id, template.reminderRules]),
+    ),
+    orgReminders: settings.defaultTaskReminders,
   };
 }

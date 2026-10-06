@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { resendSender } from "./email";
 import {
   type ClaimedEmail,
+  emailGroups,
   type EmailStore,
   isRetryable,
   runEmailDispatch,
@@ -21,6 +22,8 @@ function claimed(id: string, extra: Partial<ClaimedEmail> = {}): ClaimedEmail {
     body: "Due tomorrow",
     link: "/tasks/1",
     attempts: 1,
+    batchId: null,
+    escalationLevel: 0,
     ...extra,
   };
 }
@@ -206,5 +209,145 @@ describe("runEmailDispatch", () => {
   it("isRetryable: Resend's answers", () => {
     expect([undefined, 429, 500, 503].map(isRetryable)).toEqual([true, true, true, true]);
     expect([400, 401, 403, 404, 422].map(isRetryable)).toEqual([false, false, false, false, false]);
+  });
+});
+
+describe("one email per person per run (5.3, owner 2026-10-02)", () => {
+  it("groups a batch's rows, keeps every other row alone, in claim order", () => {
+    const groups = emailGroups([
+      claimed("a", { batchId: "b1" }),
+      claimed("f"),
+      claimed("b", { batchId: "b1" }),
+      claimed("c", { batchId: "b2", recipientId: "r2" }),
+    ]);
+    expect(groups.map((group) => group.map((item) => item.deliveryId))).toEqual([
+      ["a", "b"],
+      ["f"],
+      ["c"],
+    ]);
+  });
+
+  it("sends a batch as one email named by its most urgent item, and records every row", async () => {
+    const { store, records } = fakeStore([
+      claimed("d1", {
+        batchId: "b1",
+        kind: "reminder_before_due_last",
+        title: "Due in 1 day: Reel",
+      }),
+      claimed("d2", { batchId: "b1", kind: "reminder_overdue", title: "Overdue: Edit" }),
+      claimed("d3", {
+        batchId: "b1",
+        kind: "escalation_not_noted",
+        title: "Not noted yet: Shoot",
+        escalationLevel: 1,
+      }),
+    ]);
+    const resend = fakeResend([200]);
+    const report = await runEmailDispatch({
+      store,
+      sender: resendSender("re_test_key", "MaxOff <n@mail.maxoff.in>", resend.fetchImpl),
+      origin: "https://app.example",
+      now: NOW,
+    });
+    expect(resend.calls).toHaveLength(1);
+    expect(resend.calls[0]!.body.subject).toBe("Not noted yet: Shoot · +2 more");
+    expect(String(resend.calls[0]!.body.text)).toContain("Overdue: Edit");
+    expect(String(resend.calls[0]!.body.text)).toContain("Due in 1 day: Reel");
+    expect(report).toEqual({ claimed: 3, sent: 3, retried: 0, failed: 0, notConfigured: 0 });
+    expect(records.map((record) => `${record.id}:${record.outcome}`)).toEqual([
+      "d1:sent",
+      "d2:sent",
+      "d3:sent",
+    ]);
+  });
+
+  it("retries the whole batch together when Resend is busy", async () => {
+    const { store, records } = fakeStore([
+      claimed("d1", { batchId: "b1", kind: "reminder_overdue" }),
+      claimed("d2", { batchId: "b1", kind: "reminder_event" }),
+    ]);
+    const resend = fakeResend([429]);
+    await runEmailDispatch({
+      store,
+      sender: resendSender("re_test_key", "MaxOff <n@mail.maxoff.in>", resend.fetchImpl),
+      origin: "https://app.example",
+      now: NOW,
+    });
+    expect(records).toEqual([
+      { id: "d1", outcome: "retry", error: "resend_429" },
+      { id: "d2", outcome: "retry", error: "resend_429" },
+    ]);
+  });
+});
+
+describe("the Owner's morning summary (5B slice 7)", () => {
+  const digestPayload = {
+    date: "2026-10-03",
+    yesterday: "2026-10-02",
+    attendance: {
+      present: 0,
+      on_leave: 0,
+      absent: 1,
+      absent_names: ["Asha"],
+      absent_more: 0,
+      day_not_ended: 0,
+      day_not_ended_names: [],
+      day_not_ended_more: 0,
+    },
+    tasks: { approved_yesterday: 0, overdue: 0, waiting_for_owner: 0 },
+    requests: { leave: 0, expense_claims: 0 },
+    held_back: [],
+  };
+  const digest = (id: string, payload: unknown) =>
+    claimed(id, {
+      kind: "owner_digest",
+      title: "Your morning summary · Sat 3 Oct",
+      body: "Attendance yesterday\nAbsent: 1 (Asha)",
+      link: "/today",
+      payload,
+    });
+
+  it("renders the digest from its payload, as one email of its own", async () => {
+    const { store, records } = fakeStore([digest("d1", digestPayload), claimed("d2")]);
+    const resend = fakeResend([200, 200]);
+    const report = await runEmailDispatch({
+      store,
+      sender: resendSender("re_test_key", "MaxOff <n@mail.maxoff.in>", resend.fetchImpl),
+      origin: "https://app.example",
+      now: NOW,
+    });
+    expect(report).toMatchObject({ claimed: 2, sent: 2, failed: 0 });
+    expect(resend.calls).toHaveLength(2);
+    expect(resend.calls[0]?.body.subject).toBe("Your morning summary · Sat 3 Oct");
+    expect(String(resend.calls[0]?.body.text)).toContain(
+      `Absent: 1 (Asha): https://app.example/open?to=${encodeURIComponent("/approvals")}`,
+    );
+    expect(String(resend.calls[0]?.body.html)).toContain(">Attendance yesterday</h2>");
+    expect(resend.calls[1]?.body.subject).toBe("New task: Reel cut");
+    expect(records).toEqual([
+      { id: "d1", outcome: "sent", error: null },
+      { id: "d2", outcome: "sent", error: null },
+    ]);
+  });
+
+  it("records a digest whose payload is not one failed at once, sends nothing, and goes on", async () => {
+    const { store, records } = fakeStore([digest("d1", { date: "nope" }), claimed("d2")]);
+    const resend = fakeResend([200]);
+    const errors: unknown[] = [];
+    const report = await runEmailDispatch({
+      store,
+      sender: resendSender("re_test_key", "MaxOff <n@mail.maxoff.in>", resend.fetchImpl),
+      origin: "https://app.example",
+      now: NOW,
+      onItemError: (error) => errors.push(error),
+    });
+    expect(report).toMatchObject({ claimed: 2, sent: 1, failed: 1, retried: 0 });
+    expect(resend.calls).toHaveLength(1);
+    expect(resend.calls[0]?.body.subject).toBe("New task: Reel cut");
+    expect(records).toEqual([
+      { id: "d1", outcome: "failed", error: "invalid_payload" },
+      { id: "d2", outcome: "sent", error: null },
+    ]);
+    expect(errors).toHaveLength(1);
   });
 });

@@ -278,7 +278,7 @@
       transform: translateY(-100%);
     }
 
-    /* Staff already have Alerts in the bottom bar, so the title bar doesn't repeat the bell. */
+    /* A bottom bar with Alerts (none since 5B decision 1): the title bar doesn't repeat the bell. */
     [data-alerts="nav"] [data-slot="header-bell"] {
       display: none;
     }

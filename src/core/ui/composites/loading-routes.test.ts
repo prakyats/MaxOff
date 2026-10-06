@@ -110,9 +110,9 @@ describe("loading.tsx coverage", () => {
     expect(shapeOf("me")).toBe("detail");
     // /leave's layout keeps the header and tabs painted; each view traces its own list (2.3),
     // and only the attendance view has the month switcher row.
-    expect(shapeOf("leave")).toBe("cards");
-    expect(shapeOf("leave/attendance")).toBe("cards");
-    expect(sourceOf("leave/attendance")).toContain("loading-leave-pager");
+    expect(shapeOf("leave/(leave)")).toBe("cards");
+    expect(shapeOf("leave/(leave)/attendance")).toBe("cards");
+    expect(sourceOf("leave/(leave)/attendance")).toContain("loading-leave-pager");
     // A person's page (3.4): the Profile traces its card; the history (2.4) mirrors /leave,
     // requests and the month, under a painted header and tabs.
     expect(sourceOf("people/[id]")).toContain("loading-profile");

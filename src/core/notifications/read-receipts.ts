@@ -102,6 +102,11 @@ export function serverUnreadSeen(server: ServerUnread): void {
   changed();
 }
 
+/** The newest count from the server this device has seen (null before any). */
+export function newestServerUnread(): ServerUnread | null {
+  return latest;
+}
+
 /** The count to show, given the one the server drew: its newest truth less what is in flight. */
 export function unreadShown(server: ServerUnread): number {
   const base = freshest(server);

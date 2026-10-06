@@ -80,9 +80,18 @@ type LoadingScreen = {
 };
 
 const ALERTS: Record<string, Point> = {
+  // 5B decision 10: the "All | Unread" filter, then the first day heading.
+  filter: {
+    held: '[data-slot="alerts-filter"]',
+    settled: '[data-slot="alerts-filter"]',
+  },
   "unread line": {
     held: '[data-slot="loading-notifications"] > :first-child',
     settled: '[data-slot="notification-bar"]',
+  },
+  "first heading": {
+    held: '[data-slot="loading-notifications"] > :nth-child(2)',
+    settled: '[data-slot="notification-group"] > h2',
   },
   "first row": {
     held: '[data-slot="loading-notifications"] li',
@@ -163,6 +172,19 @@ const ME: Record<string, Point> = {
   },
 };
 
+/**
+ * Whoever marks attendance: the rows of their own pages under the profile (5B decision 3). Help &
+ * troubleshooting (decision 4) is not traced: the device card above it says what this device's
+ * notifications are once it has looked, one line or three, which no skeleton can know.
+ */
+const ME_WITH_PAGES: Record<string, Point> = {
+  ...ME,
+  "own pages": {
+    held: '[data-slot="loading-me-pages"]',
+    settled: '[data-slot="me-pages"]',
+  },
+};
+
 const LOADING_SCREENS: readonly LoadingScreen[] = [
   // Today: the Owner's attendance card and people board (2.4) over the stand-in; an Admin's
   // strip (its End day reads the day's overtime note, only the page does) over theirs.
@@ -215,14 +237,14 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
     path: "/me",
     marker: 'aria-label="Loading Me"',
     hold: "/rest/v1/coordinated_freelancers",
-    trace: ME,
+    trace: ME_WITH_PAGES,
   },
   {
     role: "staff",
     path: "/me",
     marker: 'aria-label="Loading Me"',
     hold: "/rest/v1/coordinated_freelancers",
-    trace: ME,
+    trace: ME_WITH_PAGES,
   },
   // A task's page (4.4): its skeleton streams before the page decides; an unknown id ends on the
   // not-found screen, so there is nothing to trace, only the fit (the Owner's ⋯ placeholder, and
@@ -424,12 +446,42 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
       },
     },
   },
-  // 5.1: Alerts, every role: the "N unread" line, then the rows.
+  // 5.4: Settings → Notifications. The Owner always has someone the seed cannot reach; an
+  // Admin's list depends on other specs' tasks, so theirs is traced to the heading.
+  {
+    role: "owner",
+    path: "/settings/notifications",
+    marker: 'data-slot="loading-reachability"',
+    hold: "/rest/v1/rpc/reachability_overview",
+    trace: {
+      "first heading": {
+        held: '[data-slot="loading-reachability"] > div > :first-child',
+        settled: '[data-slot="reachability"] > section:first-child > h2',
+      },
+      "first row": {
+        held: '[data-slot="loading-reachability"] [data-slot="loading-row"]',
+        settled: '[data-slot="reachability-row"]',
+      },
+    },
+  },
+  {
+    role: "admin",
+    path: "/settings/notifications",
+    marker: 'data-slot="loading-reachability"',
+    hold: "/rest/v1/rpc/reachability_overview",
+    trace: {
+      "first heading": {
+        held: '[data-slot="loading-reachability"] > div > :first-child',
+        settled: '[data-slot="reachability"] > section:first-child > h2',
+      },
+    },
+  },
+  // 5.1: Alerts, every role: the filter (5B), the "N unread" line, the day heading, the rows.
   ...(["owner", "admin", "staff"] as const).map((role): LoadingScreen => ({
     role,
     path: "/notifications",
     marker: 'data-slot="loading-notifications"',
-    hold: "/rest/v1/notifications",
+    hold: "/rest/v1/rpc/notifications_inbox",
     fixture: "notification",
     trace: ALERTS,
   })),

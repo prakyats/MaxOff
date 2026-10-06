@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  appReportOf,
   deviceLabel,
   isBrave,
   isIOS,
@@ -51,6 +52,41 @@ describe("platform and label", () => {
     expect(deviceLabel(WINDOWS, 0)).toBe("Windows");
     expect(deviceLabel(IPAD_AS_MAC, 0)).toBe("Mac");
     expect(deviceLabel("?", 0)).toBe("This device");
+  });
+});
+
+describe("appReportOf (5.4, owner decision 2026-10-03)", () => {
+  const base = { maxTouchPoints: 5, displayStandalone: false, navigatorStandalone: undefined };
+  it("reports an iPhone in Safari as iOS, not installed", () => {
+    expect(appReportOf({ ...base, userAgent: IPHONE })).toEqual({
+      platform: "ios",
+      isStandalone: false,
+    });
+  });
+
+  it("reports the installed app by display mode, or by iOS's navigator.standalone", () => {
+    expect(appReportOf({ ...base, userAgent: IPHONE, navigatorStandalone: true })).toEqual({
+      platform: "ios",
+      isStandalone: true,
+    });
+    expect(appReportOf({ ...base, userAgent: ANDROID, displayStandalone: true })).toEqual({
+      platform: "android",
+      isStandalone: true,
+    });
+    expect(appReportOf({ ...base, userAgent: ANDROID, navigatorStandalone: false })).toEqual({
+      platform: "android",
+      isStandalone: false,
+    });
+  });
+
+  it("uses the subscription's platform rule: an iPad presenting as a Mac is iOS", () => {
+    expect(appReportOf({ ...base, userAgent: IPAD_AS_MAC }).platform).toBe("ios");
+    expect(appReportOf({ ...base, userAgent: IPAD_AS_MAC, maxTouchPoints: 0 }).platform).toBe(
+      "desktop",
+    );
+    expect(appReportOf({ ...base, userAgent: WINDOWS, maxTouchPoints: 0 }).platform).toBe(
+      "desktop",
+    );
   });
 });
 

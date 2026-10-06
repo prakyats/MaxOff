@@ -1,5 +1,6 @@
 import { systemClock } from "@/core/time";
 
+import { notifyGroupFor } from "./groups";
 import { type PushFetch, type PushMessage, type PushOutcome, sendWebPush } from "./send";
 import type { VapidKeys } from "./vapid";
 
@@ -74,6 +75,7 @@ export function messageFor(item: ClaimedItem): PushMessage {
       ? `summary:${item.recipientId}`
       : `n:${item.notificationId ?? item.deliveryIds[0]}`,
     notificationId: item.notificationId,
+    group: notifyGroupFor(item.kind, item.isSummary),
   };
 }
 

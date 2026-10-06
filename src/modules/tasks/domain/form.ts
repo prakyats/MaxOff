@@ -1,3 +1,10 @@
+import {
+  draftFromRules,
+  type ReminderDraft,
+  type ReminderRule,
+  rulesFromDraft,
+  sameReminders,
+} from "@/core/lib/reminder-rules";
 import { type ISODate, istInstant, isISODate, isISTTime, toISTDate, toISTTime } from "@/core/time";
 
 import {
@@ -45,6 +52,11 @@ export type TaskDraft = {
    * nothing. In the draft, so it survives "Discard?" → Keep editing with the values it gave.
    */
   templateId: string;
+  /**
+   * The task's own reminders as edited (5.3): `null` while it uses the default (saved as `[]`,
+   * so the template's, the type's or the organisation's list applies when the task is armed).
+   */
+  reminders: ReminderDraft;
 };
 
 export function emptyDraft(): TaskDraft {
@@ -68,6 +80,7 @@ export function emptyDraft(): TaskDraft {
     stages: [],
     customFields: {},
     templateId: "",
+    reminders: null,
   };
 }
 
@@ -92,6 +105,7 @@ export function draftFromTask(task: Task, assignees: readonly TaskAssignee[]): T
     stages: [],
     customFields: { ...task.customFields },
     templateId: "",
+    reminders: draftFromRules(task.reminderRules),
   };
 }
 
@@ -135,7 +149,8 @@ export type DraftErrors = Partial<
     | "location"
     | "purpose"
     | "description"
-    | "stages",
+    | "stages"
+    | "reminders",
     string
   >
 >;
@@ -197,6 +212,8 @@ export function validateDraft(
   } else if (stages.length > STAGES_MAX) {
     errors.stages = `Up to ${STAGES_MAX} stages.`;
   }
+  if (rulesFromDraft(draft.reminders) === null)
+    errors.reminders = "Fix the reminders, or use the default.";
   return errors;
 }
 
@@ -216,6 +233,8 @@ export type TaskFields = {
   assigneeIds: string[];
   primaryOwnerId: string;
   customFields: Record<string, unknown>;
+  /** The task's own reminders; `[]` = the default (5.3). */
+  reminderRules: ReminderRule[];
 };
 
 function textOrNull(value: string): string | null {
@@ -242,6 +261,7 @@ export function taskFromDraft(draft: TaskDraft, type: TaskType): TaskFields {
     assigneeIds: [...draft.assigneeIds],
     primaryOwnerId: draft.primaryOwnerId,
     customFields: draft.customFields,
+    reminderRules: rulesFromDraft(draft.reminders) ?? [],
   };
 }
 
@@ -262,6 +282,7 @@ export function fieldsFromTask(task: Task, assignees: readonly TaskAssignee[]): 
     assigneeIds: activeAssignees(assignees).map((a) => a.memberId),
     primaryOwnerId: task.primaryOwnerId,
     customFields: task.customFields,
+    reminderRules: task.reminderRules,
   };
 }
 
@@ -325,6 +346,10 @@ export function draftChanges(before: TaskFields, after: TaskFields): TaskChanges
   if (!sameSet(before.assigneeIds, after.assigneeIds)) changes.assigneeIds = [...after.assigneeIds];
   if (!sameValues(before.customFields, after.customFields))
     changes.customFields = after.customFields;
+  // Sent only when they changed (5.3): "Using the default" stays `[]`.
+  if (!sameReminders(before.reminderRules, after.reminderRules)) {
+    changes.reminderRules = after.reminderRules;
+  }
   return changes;
 }
 

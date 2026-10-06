@@ -47,6 +47,9 @@ on:
         options:
           - preview
           - staging-migrations
+          - reminders-backfill-dry-run
+          - notifications-removal-dry-run
+          - push-band-count
 
 permissions:
   contents: read
@@ -362,3 +365,130 @@ jobs:
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
           SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
         run: bash scripts/staging-migrations.sh
+
+  # 5.3 (owner, 2026-10-02): how many open tasks and reminders the release backfill would create
+  # on STAGING. A dry run: app.reminders_backfill(now(), true) counts and rolls everything back, so
+  # nothing is written. By hand only, never on a push; production is never in scope. Also (owner,
+  # 2026-10-03) the acknowledgement messages it would start: app.reminders_backfill_ack_preview()
+  # (read only; the +2 h repeats, the +4 h lead's and the +8 h Owner's escalations).
+  reminders-backfill-dry-run:
+    name: reminders backfill (dry run, staging)
+    if: github.event_name == 'workflow_dispatch' && inputs.job == 'reminders-backfill-dry-run'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: deploy-staging
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    environment:
+      name: staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Count what the backfill would create (rolled back)
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+        run: |
+          set -euo pipefail
+          # Staging only, whatever the environment's variable says: the access token may reach
+          # every project of the account, so the one project this job may touch is named here.
+          if [ "$SUPABASE_PROJECT_REF" != "jcejebyjaqwcumyzrhge" ]; then
+            echo "::error::This dry run only ever runs on staging (jcejebyjaqwcumyzrhge); got another project." >&2
+            exit 1
+          fi
+          pnpm supabase --agent no link --project-ref "$SUPABASE_PROJECT_REF"
+          # The preview first: it counts the tasks the backfill would arm, so it reads them unarmed.
+          pnpm supabase --agent no db query --linked "select * from app.reminders_backfill_ack_preview()" | tee "$RUNNER_TEMP/ack.txt"
+          pnpm supabase --agent no db query --linked "select * from app.reminders_backfill(now(), true)" | tee "$RUNNER_TEMP/backfill.txt"
+          {
+            echo "### Reminders backfill on staging (dry run, nothing written)"; echo
+            echo "Tasks armed and reminders created:"; echo '```'; cat "$RUNNER_TEMP/backfill.txt"; echo '```'
+            echo "Acknowledgements it starts: not_noted = assignments repeated at +2 h; lead_escalations / lead_named = messages at +4 h to the approving Admin (else the creator) and the people they name; owner_escalations / owner_named = the Owner's at +8 h:"
+            echo '```'; cat "$RUNNER_TEMP/ack.txt"; echo '```'
+          } >>"$GITHUB_STEP_SUMMARY"
+
+  # 5B decision 11 (owner, 2026-10-01): how many read notifications older than 90 days (and their
+  # deliveries) the removal would take from STAGING. A dry run: notifications_remove_read(now(),
+  # true) only counts. The removal itself is not scheduled anywhere until the owner's explicit OK.
+  # By hand only, never on a push; production is never in scope.
+  notifications-removal-dry-run:
+    name: notifications removal (dry run, staging)
+    if: github.event_name == 'workflow_dispatch' && inputs.job == 'notifications-removal-dry-run'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: deploy-staging
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    environment:
+      name: staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Count what the removal would take (nothing removed)
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+        run: |
+          set -euo pipefail
+          # Staging only, whatever the environment's variable says (as the backfill dry run).
+          if [ "$SUPABASE_PROJECT_REF" != "jcejebyjaqwcumyzrhge" ]; then
+            echo "::error::This dry run only ever runs on staging (jcejebyjaqwcumyzrhge); got another project." >&2
+            exit 1
+          fi
+          pnpm supabase --agent no link --project-ref "$SUPABASE_PROJECT_REF"
+          pnpm supabase --agent no db query --linked "select * from public.notifications_remove_read(now(), true)" | tee "$RUNNER_TEMP/removal.txt"
+          { echo "### Read notifications older than 90 days on staging (dry run, nothing removed)"; echo; echo '```'; cat "$RUNNER_TEMP/removal.txt"; echo '```'; } >>"$GITHUB_STEP_SUMMARY"
+
+  # 5.5 owner answers (2026-10-06, 4): how many people (and their devices) on STAGING the band would
+  # ask to "Check notifications reach you · Send a test" at the release: devices turned on with no
+  # delivery on record, a real notification or a test (public.push_band_census(), read-only, the
+  # band's own rule). Needs migration 20261006094727_reachability_owner_answers on staging first
+  # (the staging-migrations job). By hand only, never on a push; production is never in scope.
+  push-band-count:
+    name: push band count (staging)
+    if: github.event_name == 'workflow_dispatch' && inputs.job == 'push-band-count'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: deploy-staging
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    environment:
+      name: staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Count who the band would ask for a test (nothing written)
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+        run: |
+          set -euo pipefail
+          # Staging only, whatever the environment's variable says (as the dry runs above).
+          if [ "$SUPABASE_PROJECT_REF" != "jcejebyjaqwcumyzrhge" ]; then
+            echo "::error::This count only ever runs on staging (jcejebyjaqwcumyzrhge); got another project." >&2
+            exit 1
+          fi
+          pnpm supabase --agent no link --project-ref "$SUPABASE_PROJECT_REF"
+          pnpm supabase --agent no db query --linked "select * from public.push_band_census()" | tee "$RUNNER_TEMP/band.txt"
+          { echo "### People and devices the band would ask to \"Check notifications reach you\" on staging (read-only)"; echo; echo '```'; cat "$RUNNER_TEMP/band.txt"; echo '```'; } >>"$GITHUB_STEP_SUMMARY"

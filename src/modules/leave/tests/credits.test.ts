@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   balanceLine,
+  compLeaveLine,
   type CompCredit,
   compDateLabel,
   compDatesFor,
@@ -135,5 +136,18 @@ describe("comp leave credits (PRODUCT §4.3a, kickoff 3b decisions 14-17)", () =
     ]);
     expect(compDatesFor([], "comp_full")).toEqual([]);
     expect(compDateLabel("2026-09-28")).toBe("Mon 28 Sep");
+  });
+});
+
+describe("compLeaveLine (5B decision 2)", () => {
+  it("says the balance and when to use it, only when there is some", () => {
+    expect(compLeaveLine({ availableDays: 1.5, useBy: "2026-09-30" })).toBe(
+      "Comp leave: 1½ days · use by 30 Sep",
+    );
+    expect(compLeaveLine({ availableDays: 0.5, useBy: "2026-10-12" })).toBe(
+      "Comp leave: ½ day · use by 12 Oct",
+    );
+    expect(compLeaveLine({ availableDays: 0, useBy: null })).toBeNull();
+    expect(compLeaveLine({ availableDays: 1, useBy: null })).toBeNull();
   });
 });

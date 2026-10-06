@@ -40,6 +40,22 @@ export function liveRefreshWaits(state: {
 }
 
 /**
+ * The first join's catch-up (found 2026-10-02, 5B): a notification written between the server's
+ * count (the page's render) and the channel's first join sends no event, so the bell would keep
+ * the old count until the next navigation. On the first join the page asks for the count once
+ * (nothing revalidated); when it differs from the newest count the device had, the screen is
+ * re-read too (a list may hold the new row), unless one of this device's own reads still waits
+ * for its count (that difference is the read, which never re-reads the screen).
+ */
+export function catchUpRefreshes(
+  before: { count: number } | null,
+  after: { count: number },
+  ownReadsWaiting: boolean,
+): boolean {
+  return before !== null && before.count !== after.count && !ownReadsWaiting;
+}
+
+/**
  * When to ask for a fresh token (ms after the token arrived): just after it expires, when the
  * proxy refreshes the session on the request, so the layout hands over the new one. Measured
  * from the token's remaining lifetime **by the server's clock** (`expiresIn`), so a phone whose

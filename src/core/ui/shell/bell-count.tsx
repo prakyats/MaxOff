@@ -46,8 +46,8 @@ function BellCountValue({ promise }: { promise: Promise<ServerUnread> }) {
 }
 
 /**
- * A nav count that holds the unread notifications (Staff's Alerts tab, the desktop bell, a More
- * cell with Alerts behind it): the server's other counts plus the bell's, less this device's own
+ * A nav count that holds the unread notifications (the desktop bell, a More cell with Alerts
+ * behind it): the server's other counts plus the bell's, less this device's own
  * reads not yet counted (owner decision 2026-10-01: a read never re-reads the page).
  */
 export function UnreadNavCount({

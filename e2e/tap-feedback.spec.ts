@@ -3,6 +3,7 @@ import { type Locator, type Page, type Request, type Route, type TestInfo } from
 import { expect, test } from "./fixtures";
 
 import {
+  actionId,
   animationsSettled,
   hydrated,
   pageHeader,
@@ -57,8 +58,15 @@ const isScreenFetch = (request: Request, path: string) =>
   request.headers()["rsc"] === "1" &&
   !request.headers()["next-router-prefetch"] &&
   new URL(request.url()).pathname === path;
-const isAction = (request: Request) =>
-  request.method() === "POST" && Boolean(request.headers()["next-action"]);
+/** A call to that one server action. */
+const callTo = (filename: string, exportedName: string) => {
+  const id = actionId(filename, exportedName);
+  return (request: Request) =>
+    request.method() === "POST" && request.headers()["next-action"] === id;
+};
+const TEAM = "src/modules/team/actions/members.ts";
+const CLAIMS = "src/modules/expenses/actions/claims.ts";
+const NOTES = "src/modules/attendance/actions/notes.ts";
 
 /** The screen's prefetches: refused where a test needs the tap itself to wait on the server. */
 const isPrefetchOf = (request: Request, path: string) =>
@@ -404,7 +412,7 @@ test.describe("a commit button shows it is working", () => {
     await record(page).locator('[data-slot="save-record"]').click();
     await expect(confirmation(page)).toBeVisible();
 
-    const slow = await hold(page, isAction);
+    const slow = await hold(page, callTo(TEAM, "updateOwnProfile"));
     const commit = confirmation(page).locator('[data-slot="button"][data-variant="primary"]');
     await commit.dblclick();
     await expect(commit).toHaveAttribute("data-pending", "", { timeout: 100 });
@@ -433,8 +441,9 @@ test.describe("a commit button shows it is working", () => {
     await record(page).locator('[data-slot="save-record"]').click();
 
     let attempts = 0;
+    const save = callTo(TEAM, "updateOwnProfile");
     await page.route("**/*", async (route) => {
-      if (!isAction(route.request())) return route.fallback();
+      if (!save(route.request())) return route.fallback();
       attempts++;
       // The first try dies on the network, as a dropped phone connection does.
       if (attempts === 1) return route.abort("internetdisconnected");
@@ -521,9 +530,10 @@ test.describe("a failed action never retries onto another item", () => {
     page.locator('[data-slot="approval-group"][data-group="expenses"] li', { hasText: name });
 
   test("Approve fails on one claim; the next claim's sheet offers no Retry", async ({ page }) => {
+    const trap = callTo(CLAIMS, "approveExpenseClaim");
     let failNext = true;
     await page.route("**/*", (route) => {
-      if (!isAction(route.request()) || !failNext) return route.fallback();
+      if (!trap(route.request()) || !failNext) return route.fallback();
       failNext = false;
       return route.abort("internetdisconnected");
     });
@@ -545,9 +555,10 @@ test.describe("a failed action never retries onto another item", () => {
   test("Reject fails on one claim; the next claim's reason dialog offers no Retry", async ({
     page,
   }) => {
+    const trap = callTo(CLAIMS, "rejectExpenseClaim");
     let failNext = true;
     await page.route("**/*", (route) => {
-      if (!isAction(route.request()) || !failNext) return route.fallback();
+      if (!trap(route.request()) || !failNext) return route.fallback();
       failNext = false;
       return route.abort("internetdisconnected");
     });
@@ -596,9 +607,10 @@ test.describe("a failed action never retries onto another item", () => {
       });
     }
     try {
+      const trap = callTo(NOTES, "decideExtraWorkNote");
       let failNext = true;
       await page.route("**/*", (route) => {
-        if (!isAction(route.request()) || !failNext) return route.fallback();
+        if (!trap(route.request()) || !failNext) return route.fallback();
         failNext = false;
         return route.abort("internetdisconnected");
       });

@@ -7,6 +7,7 @@ import { CARD_ROW_TITLE, CARD_ROW_TRAILING } from "@/core/ui/composites/row-metr
 import { openNotificationUrl } from "@/core/ui/navigation/deep-link";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 
+import { entryTitle, groupByDay } from "../domain/alerts";
 import { notificationWhen } from "../domain/when";
 import { NotificationLink } from "./notification-link";
 import { NotificationReadButton } from "./notification-read-button";
@@ -14,8 +15,9 @@ import { NotificationRow } from "./notification-row";
 import { UnreadSummary } from "./unread-summary";
 
 /**
- * The bell's history (task 5.1, kickoff 5 decision 4; owner cut (b), the simplest form): a plain
- * list, newest first. An unread row is marked by a dot and a bold title. A row with a link opens
+ * The bell's history (task 5.1, kickoff 5 decision 4; 5B decision 10): newest first, under day
+ * headings (Today, Yesterday, Earlier this week, Older; IST), consecutive notifications about the
+ * same record one row with a count ("3 comments on Edit"; `notifications_inbox`). An unread row is marked by a dot and a bold title. A row with a link opens
  * it through the deep-link entry (`/open?n=<id>`: marked read, the record with its parent list
  * underneath, ARCHITECTURE §14.2 h); a row with nothing to open is read by a tap. Server
  * components: the rows are plain links and work before hydration. A read shows at once on the
@@ -25,6 +27,11 @@ import { UnreadSummary } from "./unread-summary";
 
 const ROW = "flex min-h-16 w-full min-w-0 flex-col gap-1 px-4 py-3 text-left";
 const LIST = "border-border divide-border bg-card divide-y overflow-hidden rounded-lg border";
+/** A day group's heading: one fixed line above its card. */
+const HEADING =
+  "text-muted-foreground mb-2 h-5 text-xs leading-5 font-semibold tracking-wide uppercase";
+/** The space between two day groups. */
+const GROUP = "not-first:mt-5";
 /** The line above the list: how many are unread, and "Mark all read". */
 const BAR = "mb-3 flex min-h-11 flex-wrap items-center justify-between gap-x-3 gap-y-1";
 
@@ -46,32 +53,48 @@ export function NotificationList({
   countedAt: number;
 }) {
   return (
-    <ul aria-label="Your alerts" data-slot="notification-rows" className={LIST}>
-      {rows.map((row) => (
-        <NotificationRow
-          key={row.id}
-          id={row.id}
-          unread={row.readAt === null}
-          countedAt={countedAt}
+    <div data-slot="notification-rows">
+      {groupByDay(rows, today).map(({ group, label, rows: groupRows }) => (
+        <section
+          key={group}
+          aria-labelledby={`alerts-${group}`}
+          data-slot="notification-group"
+          data-group={group}
+          className={GROUP}
         >
-          <NotificationTarget row={row}>
-            <RowContent row={row} today={today} />
-          </NotificationTarget>
-        </NotificationRow>
+          <h2 id={`alerts-${group}`} className={HEADING}>
+            {label}
+          </h2>
+          <ul aria-label={`Alerts: ${label}`} className={LIST}>
+            {groupRows.map((row) => (
+              <NotificationRow
+                key={row.id}
+                id={row.id}
+                unread={row.runUnread.length > 0}
+                countedAt={countedAt}
+                runSize={row.runSize}
+              >
+                <NotificationTarget row={row}>
+                  <RowContent row={row} today={today} />
+                </NotificationTarget>
+              </NotificationRow>
+            ))}
+          </ul>
+        </section>
       ))}
-    </ul>
+    </div>
   );
 }
 
 function NotificationTarget({ row, children }: { row: InboxRow; children: ReactNode }) {
   if (row.link) {
     return (
-      <NotificationLink href={openNotificationUrl(row.id)} className={ROW}>
+      <NotificationLink href={openNotificationUrl(row.id, row.runSize > 1)} className={ROW}>
         {children}
       </NotificationLink>
     );
   }
-  if (row.readAt === null) {
+  if (row.runUnread.length > 0) {
     // Once read on the device it stays a button for the moment the page holds it: a second tap
     // writes nothing (the server marks only an unread row).
     return (
@@ -86,7 +109,8 @@ function NotificationTarget({ row, children }: { row: InboxRow; children: ReactN
 function RowContent({ row, today }: { row: InboxRow; today: string }) {
   // Unread is the row's `data-unread` (`NotificationRow`): the dot and the bold title follow a
   // read made on the device without the page being drawn again.
-  const unread = row.readAt === null;
+  const unread = row.runUnread.length > 0;
+  const { title, count } = entryTitle(row);
   return (
     <>
       <span className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
@@ -100,16 +124,26 @@ function RowContent({ row, today }: { row: InboxRow; today: string }) {
               <span className="sr-only">Unread: </span>
             </span>
           ) : null}
-          <span className="min-w-0 font-medium group-data-[unread]/row:font-semibold">
-            {row.title}
-          </span>
+          <span className="min-w-0 font-medium group-data-[unread]/row:font-semibold">{title}</span>
         </span>
-        <time
-          dateTime={row.createdAt}
-          className={cn("text-muted-foreground text-xs leading-5 tabular-nums", CARD_ROW_TRAILING)}
-        >
-          {notificationWhen(row.createdAt, today)}
-        </time>
+        <span className={cn("flex items-center gap-2", CARD_ROW_TRAILING)}>
+          {count ? (
+            // The run's size: the row opens the record, where every one of them is.
+            <span
+              data-slot="notification-count"
+              className="bg-muted text-foreground inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs leading-5 font-medium tabular-nums"
+            >
+              {count}
+              <span className="sr-only"> alerts about this</span>
+            </span>
+          ) : null}
+          <time
+            dateTime={row.createdAt}
+            className="text-muted-foreground text-xs leading-5 tabular-nums"
+          >
+            {notificationWhen(row.createdAt, today)}
+          </time>
+        </span>
       </span>
       {row.body ? (
         <span
@@ -124,8 +158,8 @@ function RowContent({ row, today }: { row: InboxRow; today: string }) {
 }
 
 /**
- * The screen's loading state, a tracing of it (ARCHITECTURE §14.1): the bar's line, then rows of
- * the rows' own height with a title, the time and a line of body.
+ * The list's loading state, a tracing of it (ARCHITECTURE §14.1): the bar's line, the first day
+ * heading, then rows of the rows' own height with a title, the time and a line of body.
  */
 export function NotificationListSkeleton({ rows = 5 }: { rows?: number }) {
   return (
@@ -138,6 +172,11 @@ export function NotificationListSkeleton({ rows = 5 }: { rows?: number }) {
       <div className={BAR}>
         <span className="flex h-5 min-w-0 items-center">
           <Skeleton className="h-4 w-20" />
+        </span>
+      </div>
+      <div aria-hidden className={HEADING}>
+        <span className="flex h-5 items-center">
+          <Skeleton className="h-3 w-12" />
         </span>
       </div>
       <ul aria-hidden className={LIST}>

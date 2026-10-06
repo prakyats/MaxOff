@@ -197,7 +197,7 @@ select throws_ok($$ select public.task_create('Too many stages', null, pg_temp.t
 select throws_ok($$ select public.task_create('Bad reminders', null, pg_temp.type_id('Normal'), null, 'medium', pg_temp.due(),
     array[pg_temp.fx('staff1')], pg_temp.fx('staff1'), null, null, null, null, null, null, '{}', '{}',
     (select jsonb_agg(jsonb_build_object('n', g)) from generate_series(1, 11) g)) $$,
-  'P0001', 'VALIDATION', 'task_create: more than 10 reminder rules is refused (phase 4 L2)');
+  'P0001', 'VALIDATION', 'task_create: more than 5 reminder rules (or a malformed one) is refused (phase 4 L2, 5.3)');
 select pg_temp.as_system();
 select is(pg_temp.total(), 0::bigint, 'a refused create writes no notification');
 select pg_temp.as_member('owner');
@@ -213,7 +213,7 @@ select pg_temp.clear();
 select pg_temp.as_member('owner');
 select throws_ok($$ select public.task_update_assignment(pg_temp.fx('c1'), jsonb_build_object('reminder_rules',
     (select jsonb_agg(jsonb_build_object('n', g)) from generate_series(1, 11) g))) $$,
-  'P0001', 'VALIDATION', 'task_update_assignment: more than 10 reminder rules is refused (phase 4 L2)');
+  'P0001', 'VALIDATION', 'task_update_assignment: more than 5 reminder rules (or a malformed one) is refused (phase 4 L2, 5.3)');
 select public.task_update_assignment(pg_temp.fx('c1'), jsonb_build_object(
   'assignee_ids', jsonb_build_array(pg_temp.fx('staff2'), pg_temp.fx('asha')), 'primary_owner_id', pg_temp.fx('staff2'),
   'priority', 'high'));

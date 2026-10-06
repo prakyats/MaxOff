@@ -153,6 +153,53 @@ test("the task page: a view switched before a refresh is written at once and sta
   await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}\\?tab=details$`));
 });
 
+test("the app's report on opening never holds a view's address: after it, and while it is out", async ({
+  page,
+}, info) => {
+  // 5.4 (owner, 2026-10-03): the app reports its platform and whether it runs installed once per
+  // open, in the background. A view's address waits for the router's own fetches only, and the
+  // report is not one: a plain request to a route handler (ARCHITECTURE §4.4), never a server
+  // action. So a switch is written at once after the report has answered, and also while it is
+  // still out (as a server action, it held the address until it answered).
+  const isReport = (request: { method(): string; url(): string }) =>
+    request.method() === "POST" && new URL(request.url()).pathname === "/api/app-report";
+  const answered = page.waitForResponse((response) => isReport(response.request()));
+  const taskId = await taskOpened(page, `View address ${info.project.name} report`);
+  await answered;
+  await tab(page, "activity").click();
+  await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}\\?tab=activity$`));
+
+  // A new open, its report held until the switch has been made.
+  let letGo: () => void = () => undefined;
+  const released = new Promise<void>((resolve) => {
+    letGo = resolve;
+  });
+  let caught: () => void = () => undefined;
+  const held = new Promise<void>((resolve) => {
+    caught = resolve;
+  });
+  let reportEnded = false;
+  page.on("requestfinished", (request) => {
+    if (isReport(request)) reportEnded = true;
+  });
+  await page.route("**/api/app-report", async (route) => {
+    if (!isReport(route.request())) return route.fallback();
+    caught();
+    await released;
+    await route.fallback();
+  });
+  await page.goto(`/tasks/${taskId}`);
+  await hydrated(page);
+  await held;
+  // Work is the default view (no query): Details carries one, written while the report is out.
+  await tab(page, "details").click();
+  await expect(tab(page, "details")).toHaveAttribute("aria-current", "true");
+  await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}\\?tab=details$`));
+  expect(reportEnded, "the report is still out").toBe(false);
+  letGo();
+  await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}\\?tab=details$`));
+});
+
 test("a list's filter chosen during a refresh changes the list at once; the address follows when it ends", async ({
   page,
 }) => {

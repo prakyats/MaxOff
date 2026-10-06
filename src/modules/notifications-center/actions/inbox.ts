@@ -4,12 +4,13 @@ import { z } from "zod";
 
 import { getCurrentMember } from "@/core/auth/server";
 import { action, AppError, ok, type Result } from "@/core/errors";
-import { markOneRead, rpcMarkAllRead, rpcMarkRecordRead } from "@/core/notifications/inbox";
+import { markOneRead, rpcMarkAllRead } from "@/core/notifications/inbox";
 import { systemClock } from "@/core/time";
 
 /**
- * The member's read receipts (task 5.1, kickoff 5 decision 4): zod → the member → the write →
- * `Result`. Every member has notifications of their own, so no permission key beyond being an
+ * The member's read receipts by a tap (task 5.1, kickoff 5 decision 4): zod → the member → the
+ * write → `Result`. Opening a record reads its rows in the background, which is not an action
+ * (`POST /api/notifications/read-record`, ARCHITECTURE §4.4). Every member has notifications of their own, so no permission key beyond being an
  * active member; RLS keeps each to their own rows. A read is view state, not audited
  * (DATA-MODEL §9). **Nothing is revalidated** (owner decision 2026-10-01): an answer that
  * re-renders the page reloads it when it lands after a view switch, so the device takes the rows
@@ -48,19 +49,3 @@ export const markAllNotificationsRead = action(async (): Promise<Result<ReadAnsw
   await requireCurrentMember();
   return answer(await rpcMarkAllRead());
 });
-
-/** The records a notification can be about, as `notifications.entity` names them. */
-const RECORD_ENTITIES = ["tasks", "clients", "members"] as const;
-const recordSchema = z.object({ entity: z.enum(RECORD_ENTITIES), id: z.uuid() });
-
-/**
- * Opening a record marks the member's unread notifications about it read (kickoff 5 decision 4;
- * `notifications_mark_read`). Sent in the background by `MarkRecordRead` on the record's page.
- */
-export const markRecordRead = action(
-  async (input: z.input<typeof recordSchema>): Promise<Result<ReadAnswer>> => {
-    const { entity, id } = recordSchema.parse(input);
-    await requireCurrentMember();
-    return answer(await rpcMarkRecordRead(entity, id));
-  },
-);

@@ -5,12 +5,13 @@ import { redirect, RedirectType } from "next/navigation";
 
 import { createServerSupabase, type ServerSupabase } from "@/core/db/server";
 import { AppError, action, ok, type Result } from "@/core/errors";
+import { readOwnOnboarding } from "@/core/notifications/onboarding";
 import { setSentryUser } from "@/core/observability/user";
 import type { MemberRole } from "@/core/permissions";
 import { homeFor } from "@/core/ui/shell/nav";
 
 import { verifyAuthLink } from "./links";
-import { LOGIN_PATH, safeNextPath, WELCOME_PATH } from "./paths";
+import { LOGIN_PATH, safeNextPath, signInLanding, WELCOME_PATH } from "./paths";
 import {
   type ConfirmLinkInput,
   confirmLinkSchema,
@@ -70,6 +71,12 @@ async function recordLoginOrSignOut(supabase: ServerSupabase, userId: string): P
   return role;
 }
 
+/** Whether the caller is a new joiner whose walkthrough is still open (5.5, owner 2026-10-06, 2). */
+async function walkthroughUnfinished(): Promise<boolean> {
+  const onboarding = await readOwnOnboarding();
+  return onboarding !== null && !onboarding.finished;
+}
+
 export const login = action(async (input: LoginInput): Promise<Result<never>> => {
   const { email, password, next } = loginSchema.parse(input);
   const supabase = await createServerSupabase();
@@ -79,9 +86,16 @@ export const login = action(async (input: LoginInput): Promise<Result<never>> =>
 
   const role = await recordLoginOrSignOut(supabase, data.user.id);
   // Straight to the role's home (not through `/`, one hop fewer, 2.7); the optional `next`
-  // wins when it is a safe path. Replace, never push: a server action's redirect adds history
-  // by default, and sign-in is a one-time screen that must not sit under home (§14.2 e).
-  redirect(safeNextPath(next) ?? homeFor(role), RedirectType.replace);
+  // wins when it is a safe path; a new joiner with an unfinished walkthrough lands on the
+  // welcome screen, on any device (owner 2026-10-06; before, only in the installed iPhone app).
+  // Replace, never push: a server action's redirect adds history by default, and sign-in is a
+  // one-time screen that must not sit under home (§14.2 e).
+  const target = signInLanding({
+    next,
+    home: homeFor(role),
+    walkthroughUnfinished: safeNextPath(next) === null && (await walkthroughUnfinished()),
+  });
+  redirect(target, RedirectType.replace);
 });
 
 /**
@@ -159,8 +173,17 @@ export const setPassword = action(async (input: SetPasswordInput): Promise<Resul
 
   const role = await ownRole(supabase, userId);
   await setHomeHint(userId, role);
-  // Replace: the set-password screen is one-time and never stays in the back stack (§14.2 e).
-  redirect(homeFor(role), RedirectType.replace);
+  // A reset password signs in too: a new joiner with an unfinished walkthrough lands on the
+  // welcome screen (owner 2026-10-06), everyone else home. Replace: the set-password screen is
+  // one-time and never stays in the back stack (§14.2 e).
+  redirect(
+    signInLanding({
+      next: null,
+      home: homeFor(role),
+      walkthroughUnfinished: await walkthroughUnfinished(),
+    }),
+    RedirectType.replace,
+  );
 });
 
 /**

@@ -97,6 +97,15 @@ export function balanceLine(balance: CompBalance): string {
   return `${daysLabel(balance.availableDays)} of comp leave · ${expiryLabel(balance.useBy)}`;
 }
 
+/**
+ * "Comp leave: 1½ days · use by 30 Sep": the line above the Leave requests tab (5B decision 2),
+ * only when the member has a credit to use; null otherwise.
+ */
+export function compLeaveLine(balance: CompBalance): string | null {
+  if (balance.availableDays <= 0 || !balance.useBy) return null;
+  return `Comp leave: ${daysLabel(balance.availableDays)} · ${expiryLabel(balance.useBy)}`;
+}
+
 /** One credit as a row: "1 day · granted 12 Sep · Available (use by 30 Sep)". */
 export function describeCredit(
   credit: CompCredit,

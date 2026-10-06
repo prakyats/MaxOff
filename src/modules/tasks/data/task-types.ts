@@ -1,7 +1,9 @@
 import "server-only";
 
+import type { Json } from "@/core/db";
 import { createServerSupabase } from "@/core/db/server";
 import { AppError, isPostgresError } from "@/core/errors";
+import { parseReminderRules, type ReminderRule } from "@/core/lib/reminder-rules";
 import { nextPosition } from "@/core/lists";
 import { systemClock } from "@/core/time";
 
@@ -19,7 +21,9 @@ export async function listTaskTypeSettings(): Promise<TaskTypeSetting[]> {
   const supabase = await createServerSupabase();
   const { data, error } = await supabase
     .from("task_types")
-    .select("id, name, kind, shows_on_calendar, has_location, archived_at, position")
+    .select(
+      "id, name, kind, shows_on_calendar, has_location, archived_at, position, default_reminders",
+    )
     .order("position", { ascending: true });
   if (error) throw error;
   return data.map((row) => ({
@@ -30,6 +34,7 @@ export async function listTaskTypeSettings(): Promise<TaskTypeSetting[]> {
     hasLocation: row.has_location,
     archivedAt: row.archived_at,
     position: row.position,
+    defaultReminders: parseReminderRules(row.default_reminders),
   }));
 }
 
@@ -48,6 +53,7 @@ export async function insertTaskType(values: {
   kind: TaskTypeKind;
   showsOnCalendar: boolean;
   hasLocation: boolean;
+  defaultReminders: ReminderRule[];
 }): Promise<string> {
   const supabase = await createServerSupabase();
   const { data: last, error: lastError } = await supabase
@@ -64,6 +70,7 @@ export async function insertTaskType(values: {
       kind: values.kind,
       shows_on_calendar: values.showsOnCalendar,
       has_location: values.hasLocation,
+      default_reminders: values.defaultReminders as unknown as Json,
       position: nextPosition(last?.position ?? null),
     })
     .select("id")
@@ -74,7 +81,12 @@ export async function insertTaskType(values: {
 
 export async function updateTaskType(
   id: string,
-  values: { name: string; showsOnCalendar: boolean; hasLocation: boolean },
+  values: {
+    name: string;
+    showsOnCalendar: boolean;
+    hasLocation: boolean;
+    defaultReminders: ReminderRule[];
+  },
 ): Promise<void> {
   const supabase = await createServerSupabase();
   const { error, count } = await supabase
@@ -84,6 +96,7 @@ export async function updateTaskType(
         name: values.name,
         shows_on_calendar: values.showsOnCalendar,
         has_location: values.hasLocation,
+        default_reminders: values.defaultReminders as unknown as Json,
       },
       { count: "exact" },
     )

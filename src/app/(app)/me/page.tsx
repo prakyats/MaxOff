@@ -1,5 +1,6 @@
 import { ChevronRightIcon, PartyPopperIcon } from "lucide-react";
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import Link from "next/link";
 
 import { checkThenRead } from "@/core/lib/start-early";
@@ -8,9 +9,14 @@ import { requireMember, withSessionUserId } from "@/core/auth/server";
 import { can } from "@/core/permissions";
 import { EditableRecord } from "@/core/ui/composites/editable-record";
 import { PageHeader } from "@/core/ui/composites/page-header";
-import { PushDeviceRows } from "@/core/notifications/components/push-device-rows";
+import { DeviceList, OnboardingSteps } from "@/core/notifications/components/me-lazy";
+import { PushDeviceRow } from "@/core/notifications/components/push-device-row";
+import { PushTestRow } from "@/core/notifications/components/push-test-row";
 import { readPushEnv } from "@/core/notifications/env";
-import { listOwnActiveEndpoints } from "@/core/notifications/push/subscriptions";
+import { readOwnOnboarding } from "@/core/notifications/onboarding";
+import { isIOS } from "@/core/notifications/push/browser";
+import { deviceRowsOf } from "@/core/notifications/push/device-list";
+import { listOwnPushSubscriptions } from "@/core/notifications/push/subscriptions";
 import { fileUrl } from "@/core/storage";
 import { Avatar, AvatarFallback, AvatarImage } from "@/core/ui/primitives/avatar";
 import {
@@ -24,7 +30,7 @@ import { Separator } from "@/core/ui/primitives/separator";
 import { ReloadAppButton } from "@/core/ui/shell/reload-app-button";
 import { initialsOf } from "@/core/ui/shell/viewer";
 import { ThemeToggle } from "@/core/ui/theme/theme-toggle";
-import { formatIST } from "@/core/time";
+import { formatIST, systemClock } from "@/core/time";
 import { displayName } from "@/core/lib/display-name";
 import { ROLE_LABELS } from "@/core/lib/role-labels";
 import {
@@ -44,10 +50,16 @@ import { ME_DESCRIPTION } from "./copy";
 export const metadata: Metadata = { title: "Me" };
 
 /**
- * Profile, own attendance and leave (2.3), appearance, notifications on this device and the test
- * push (5.2), and "Sign out of this device" (PRODUCT
- * §4.7: the Staff "Me" tab; kickoff 3b decision 1: the sign-out lives here only). An accepted invite lands here with `?welcome=1` (WORKFLOWS §1a) to check the name
- * and add a phone. The photo is chosen through `AvatarEditor` (3.3): the original is kept and
+ * Profile, the member's own pages (Extra work & expenses since 5B decision 3; Attendance & leave
+ * too for an Admin, whose navigation has no Leave tab, decision 7), appearance, notifications on
+ * this device and "Sign out of this device" (PRODUCT §4.7: the Staff "Me" tab; kickoff 3b
+ * decision 1: the sign-out lives here only), and at the bottom one quiet "Help &
+ * troubleshooting" section (5B decision 4): Send a test notification (5.2), Reload app and the
+ * app's version. An accepted invite lands here with `?welcome=1` (WORKFLOWS §1a) to check the name
+ * and add a phone, and, for a member who joined after 5.5 shipped, the walkthrough that gets
+ * notifications working (owner decisions 2026-10-03, 3 and 4); their every sign-in lands here
+ * again until they finish it or tap Later (owner 2026-10-06). **Your devices** (5.5, decision 5)
+ * lists every device of theirs, each other one with Remove. The photo is chosen through `AvatarEditor` (3.3): the original is kept and
  * a browser-made preview is what the app shows.
  *
  * The profile is read-only first and edited through the edit pattern (`EditableRecord`, task
@@ -62,22 +74,33 @@ export default async function MePage({
 }) {
   // The profile row and the freelancers the member looks after (ADR-0013, 4C) start with the
   // session read, not after it (ARCHITECTURE §19).
-  const [viewer, [{ welcome }, own, spells, endpoints]] = await checkThenRead(
+  const [viewer, [{ welcome }, own, spells, subscriptions]] = await checkThenRead(
     requireMember(),
     Promise.all([
       searchParams,
       withSessionUserId(getOwnMember),
       listOwnFreelancers(),
-      listOwnActiveEndpoints(),
+      listOwnPushSubscriptions(),
     ]),
   );
   const push = readPushEnv();
+  const endpoints = subscriptions
+    .filter((row) => row.disabledReason === null)
+    .map((row) => row.endpoint);
+  const devices = deviceRowsOf(subscriptions, systemClock());
   const freelancers = spells.filter((spell) => spell.toAt === null);
   // perf: sequential. Their names need their ids; most people coordinate nobody, and then
   // nothing more is read.
   const people =
     freelancers.length > 0 ? await listDirectoryOf(freelancers.map((row) => row.memberId)) : [];
   const isWelcome = welcome === "1";
+  // perf: sequential, and only on the welcome screen: whether this new joiner has a walkthrough
+  // (members who joined before 5.5 never do), and whether the request came from an iPhone.
+  const onboarding = isWelcome ? await readOwnOnboarding() : null;
+  const walkthrough =
+    onboarding !== null && (!onboarding.finished || onboarding.finishedVia === "test")
+      ? { finished: onboarding.finished, ios: isIOS((await headers()).get("user-agent") ?? "", 0) }
+      : null;
 
   const subtitle = viewer.jobTitle
     ? `${ROLE_LABELS[viewer.role]} · ${viewer.jobTitle}`
@@ -110,6 +133,15 @@ export default async function MePage({
               </p>
             </CardContent>
           </Card>
+        ) : null}
+
+        {walkthrough ? (
+          <OnboardingSteps
+            publicKey={push.mode === "on" ? push.publicKey : null}
+            endpoints={endpoints}
+            ios={walkthrough.ios}
+            finished={walkthrough.finished}
+          />
         ) : null}
 
         <Card>
@@ -166,21 +198,24 @@ export default async function MePage({
         </Card>
 
         {can(viewer.role, "attendance.self") ? (
-          <Card className="py-0">
-            {/* Own leave and history (2.3): personal, so it lives here, not in the nav. */}
-            <Link
-              href="/leave"
-              data-slot="me-leave-link"
-              className="pressable-row focus-visible:ring-ring flex min-h-14 items-center justify-between gap-4 rounded-xl px-4 py-3 outline-none focus-visible:ring-2"
-            >
-              <div>
-                <p className="text-sm font-medium">Attendance &amp; leave</p>
-                <p className="text-muted-foreground text-sm">
-                  Request leave and see how each day was recorded.
-                </p>
-              </div>
-              <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
-            </Link>
+          <Card className="gap-0 py-0" data-slot="me-pages">
+            {viewer.role === "staff" ? null : (
+              <>
+                <MeRow
+                  href="/leave"
+                  slot="me-leave-link"
+                  title="Attendance & leave"
+                  body="Request leave and see how each day was recorded."
+                />
+                <Separator />
+              </>
+            )}
+            <MeRow
+              href="/leave/extra-work"
+              slot="me-work-link"
+              title="Extra work & expenses"
+              body="Note extra work and claim what you spent."
+            />
           </Card>
         ) : null}
 
@@ -194,8 +229,8 @@ export default async function MePage({
               <ThemeToggle />
             </div>
             <Separator />
-            {/* Notifications on this device and the test push (5.2, kickoff 5 decision 9). */}
-            <PushDeviceRows
+            {/* Notifications on this device (5.2, kickoff 5 decision 9). */}
+            <PushDeviceRow
               publicKey={push.mode === "on" ? push.publicKey : null}
               endpoints={endpoints}
             />
@@ -209,26 +244,92 @@ export default async function MePage({
               </div>
               <LogoutButton />
             </div>
-            <Separator />
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="min-w-0 flex-[1_1_10rem]">
-                <p className="text-sm font-medium">Reload app</p>
-                <p className="text-muted-foreground text-sm">
-                  If a screen looks stuck, this starts MaxOff again from the beginning.
-                </p>
-              </div>
-              <ReloadAppButton />
-            </div>
+          </CardContent>
+        </Card>
+
+        <Card data-slot="me-devices">
+          <CardHeader>
+            <CardTitle>Your devices</CardTitle>
+            <CardDescription>Where your notifications go.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <DeviceList rows={devices} />
           </CardContent>
         </Card>
 
         {freelancers.length > 0 ? (
           <YourFreelancers freelancers={freelancers} people={people} />
         ) : null}
+
+        <HelpAndTroubleshooting endpoints={endpoints} />
       </div>
     </>
   );
 }
+
+/** One row of Me that opens a page of the member's own (a drill-down: it pushes). */
+function MeRow({
+  href,
+  slot,
+  title,
+  body,
+}: {
+  href: string;
+  slot: string;
+  title: string;
+  body: string;
+}) {
+  return (
+    <Link
+      href={href}
+      data-slot={slot}
+      className="pressable-row focus-visible:ring-ring flex min-h-14 items-center justify-between gap-4 rounded-xl px-4 py-3 outline-none focus-visible:ring-2"
+    >
+      <div className="min-w-0">
+        <p className="text-sm font-medium">{title}</p>
+        <p className="text-muted-foreground text-sm">{body}</p>
+      </div>
+      <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
+    </Link>
+  );
+}
+
+/**
+ * "Help & troubleshooting" (5B decision 4): quiet, last on Me. The test push and Reload app moved
+ * here from the device card, and the app's version (`NEXT_PUBLIC_APP_VERSION`, the release tag or
+ * the branch and commit: `core/lib/app-version.ts`) is what to read out when asking for help.
+ */
+function HelpAndTroubleshooting({ endpoints }: { endpoints: readonly string[] }) {
+  return (
+    <Card data-slot="me-help">
+      <CardHeader>
+        <CardTitle className="text-muted-foreground text-sm font-medium">
+          Help &amp; troubleshooting
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <PushTestRow endpoints={endpoints} />
+        <Separator />
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="min-w-0 flex-[1_1_10rem]">
+            <p className="text-sm font-medium">Reload app</p>
+            <p className="text-muted-foreground text-sm">
+              If a screen looks stuck, this starts MaxOff again from the beginning.
+            </p>
+          </div>
+          <ReloadAppButton />
+        </div>
+        <Separator />
+        <p className="text-muted-foreground text-sm" data-slot="app-version">
+          Version <span className="text-foreground font-medium tabular-nums">{APP_VERSION}</span>
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+/** Inlined at build time (`next.config.ts`). */
+const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "local";
 
 /**
  * "Your freelancers" (ADR-0013, 4C): the people the member coordinates now, whose tasks they

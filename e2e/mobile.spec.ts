@@ -327,7 +327,8 @@ test.describe("the bottom bar, for every role", () => {
   const EXPECTED = {
     owner: ["Today", "Approvals", "Tasks", "Calendar", "More"],
     admin: ["Today", "Approvals", "Tasks", "Calendar", "More"],
-    staff: ["My Day", "Tasks", "Calendar", "Alerts", "Me"],
+    // 5B decision 1: Leave replaces Alerts, which is the title bar's bell.
+    staff: ["My Day", "Tasks", "Calendar", "Leave", "Me"],
   } as const;
 
   for (const role of ["owner", "admin", "staff"] as const) {
@@ -452,10 +453,15 @@ test.describe("More, for Owner and Admin", () => {
   test.describe("as staff", () => {
     test.use({ storageState: storageStateFor("staff") });
 
-    test("Staff have no More: their five destinations are the whole app", async ({ page }) => {
+    test("Staff have no More: their five tabs, and Extra work & expenses on Me", async ({
+      page,
+    }) => {
       await page.goto("/my-day");
       await expect(page.locator('[data-slot="bottom-nav"] [data-nav="more"]')).toHaveCount(0);
       await expect(page.locator('[data-slot="bottom-nav"] [data-nav="me"]')).toBeVisible();
+      await expect(page.locator('[data-slot="bottom-nav"] [data-nav="alerts"]')).toHaveCount(0);
+      // Alerts is the title bar's bell (5B decision 1).
+      await expect(page.locator('[data-slot="header-bell"]:visible')).toHaveCount(1);
     });
   });
 });

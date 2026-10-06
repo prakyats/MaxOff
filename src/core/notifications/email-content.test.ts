@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { escapeHtml, headerSafe, openUrl, renderNotificationEmail } from "./email-content";
+import {
+  byUrgency,
+  escapeHtml,
+  headerSafe,
+  openUrl,
+  renderCombinedEmail,
+  renderNotificationEmail,
+} from "./email-content";
 
 const ORIGIN = "https://app.example";
 
@@ -84,5 +91,61 @@ describe("renderNotificationEmail", () => {
       "Open in MaxOff: https://app.example/open?to=%2Fleave",
     ]);
     expect(email.html).toContain(">Leave approved</h1>");
+  });
+});
+
+describe("renderCombinedEmail (5.3)", () => {
+  const item = (kind: string, title: string, escalationLevel = 0) => ({
+    kind,
+    title,
+    body: `${title} body`,
+    link: "/tasks/1",
+    escalationLevel,
+  });
+
+  it("orders an escalation first, then overdue, then before-due, then the rest", () => {
+    const ordered = byUrgency([
+      item("reminder_event", "Event"),
+      item("reminder_before_due_last", "Soon"),
+      item("reminder_overdue", "Late"),
+      item("escalation_overdue", "Escalated", 2),
+    ]);
+    expect(ordered.map((entry) => entry.title)).toEqual(["Escalated", "Late", "Soon", "Event"]);
+  });
+
+  it("names the most urgent in the subject with how many more, and lists every item", () => {
+    const email = renderCombinedEmail({
+      items: [item("reminder_before_due_last", "Soon"), item("reminder_overdue", "Late")],
+      origin: ORIGIN,
+    });
+    expect(email.subject).toBe("Late · +1 more");
+    expect(email.text).toContain("Soon body");
+    expect(email.text).toContain("Late body");
+    expect(email.html.match(/Open in MaxOff/g)).toHaveLength(2);
+  });
+
+  it("escapes every item and keeps the subject header-safe", () => {
+    const email = renderCombinedEmail({
+      items: [
+        item("reminder_overdue", "<b>Late</b>\r\nBcc: x@example.com"),
+        item("reminder_event", "Ok"),
+      ],
+      origin: ORIGIN,
+    });
+    expect(email.subject).not.toMatch(/[\r\n]/);
+    expect(email.html).not.toContain("<b>Late</b>");
+    expect(email.html).toContain("&lt;b&gt;Late&lt;/b&gt;");
+  });
+
+  it("a single item is the ordinary email", () => {
+    const one = renderCombinedEmail({ items: [item("reminder_overdue", "Late")], origin: ORIGIN });
+    expect(one).toEqual(
+      renderNotificationEmail({
+        title: "Late",
+        body: "Late body",
+        link: "/tasks/1",
+        origin: ORIGIN,
+      }),
+    );
   });
 });

@@ -24,8 +24,8 @@ import {
 
 /**
  * The bell and Alerts (task 5.1, kickoff 5 decision 4; owner cut (b), the simplest form): the
- * unread count on the bell (Staff's Alerts tab, the Owner's and Admins' title bar on a phone, the
- * top bar on desktop), the history newest first, a tap that reads the row and opens its link with
+ * unread count on the bell (every role's title bar on a phone, the Crew's since 5B decision 1;
+ * the top bar on desktop), the history newest first, a tap that reads the row and opens its link with
  * the parent list underneath, "Mark all read", opening a record reads its rows, and **Realtime**
  * (5A build decision 23): a new row reaches an open screen without a reload, through the e2e
  * server's hold proxy, and reaches its recipient only (RLS on Realtime, owner 2026-10-01).
@@ -50,6 +50,9 @@ async function clearAlerts(email: string): Promise<void> {
 
 type Row = {
   title: string;
+  kind?: string;
+  /** When it came (ISO); else `minutesAgo` before now. */
+  at?: string;
   body?: string;
   link?: string | null;
   entity?: string;
@@ -64,13 +67,12 @@ async function notify(email: string, row: Row): Promise<string> {
     `members?email=eq.${encodeURIComponent(email)}&select=id,org_id`,
   );
   if (!member) throw new Error(`no member ${email}`);
-  const createdAt = new Date(
-    systemClock().getTime() - (row.minutesAgo ?? 0) * 60_000,
-  ).toISOString();
+  const createdAt =
+    row.at ?? new Date(systemClock().getTime() - (row.minutesAgo ?? 0) * 60_000).toISOString();
   const inserted = await serviceInsert<{ id: string }>("notifications", {
     org_id: member.org_id,
     recipient_id: member.id,
-    kind: "leave_decided",
+    kind: row.kind ?? "leave_decided",
     title: row.title,
     body: row.body ?? null,
     link: row.link ?? null,
@@ -93,9 +95,7 @@ async function bellCount(page: Page): Promise<number> {
   // One look at the page, never a wait: a count-then-read could see the badge, then wait for it
   // forever once it went (CI 2026-10-01: a bell hydrating late dropped to 0 between the two).
   const shown = await page
-    .locator(
-      '[data-slot="header-bell"], [data-slot="top-bar-bell"], [data-slot="bottom-nav"] [data-nav="alerts"]',
-    )
+    .locator('[data-slot="header-bell"], [data-slot="top-bar-bell"]')
     .locator('[data-slot="nav-badge"]:visible')
     .evaluateAll((badges) => badges.map((badge) => badge.textContent?.trim() ?? ""));
   return Number(shown[0] ?? "0");
@@ -144,7 +144,8 @@ test.describe("the bell and Alerts", () => {
     await rowOf(page, "Expense claim approved").getByRole("link").click();
     await expect(page).toHaveURL(/\/leave\/expenses$/);
     await expect.poll(() => unreadOf(staff)).toBe(1);
-    await expectBackStack(page, [{ url: /\/leave$/ }, { url: /\/notifications$/ }]);
+    // Extra work & expenses sits on Me, where its row is (5B decision 3).
+    await expectBackStack(page, [{ url: /\/me$/ }, { url: /\/notifications$/ }]);
     await expect(rowOf(page, "Expense claim approved")).not.toHaveAttribute("data-unread");
     await expect(page.locator('[data-slot="notification-bar"]')).toContainText("1 unread");
     await expect.poll(() => bellCount(page)).toBe(1);
@@ -225,7 +226,12 @@ test.describe("the bell and Alerts", () => {
     await hydrated(page);
     await expect.poll(() => bellCount(page)).toBe(total);
 
-    // Every server action this page sends waits until the views were switched.
+    // Everything this page sends by itself waits until the views were switched: any server
+    // action, and the background calls (ARCHITECTURE §4.4: the read receipt, the live bell's
+    // count, the app's report), which are plain requests to /api/.
+    const background = (request: Request) =>
+      (request.method() === "POST" && Boolean(request.headers()["next-action"])) ||
+      new URL(request.url()).pathname.startsWith("/api/");
     let release: () => void = () => undefined;
     const released = new Promise<void>((resolve) => {
       release = resolve;
@@ -233,7 +239,7 @@ test.describe("the bell and Alerts", () => {
     const held: Request[] = [];
     const inFlight = new Set<Request>();
     page.on("request", (request) => {
-      if (request.method() === "POST" && request.headers()["next-action"]) inFlight.add(request);
+      if (background(request)) inFlight.add(request);
     });
     page.on("requestfinished", (request) => inFlight.delete(request));
     page.on("requestfailed", (request) => inFlight.delete(request));
@@ -248,7 +254,7 @@ test.describe("the bell and Alerts", () => {
     });
     await page.route("**/*", async (route: Route) => {
       const request = route.request();
-      if (request.method() === "POST" && request.headers()["next-action"]) {
+      if (background(request)) {
         held.push(request);
         await released;
       }
@@ -267,7 +273,13 @@ test.describe("the bell and Alerts", () => {
     await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}(\\?tab=\\w+)?$`));
     await expect(page.locator('[data-slot="task-tabs"]')).toHaveAttribute("data-live", "");
     // The read is sent, held, and the bell has already dropped on the device.
-    await expect.poll(() => held.length).toBeGreaterThan(0);
+    await expect
+      .poll(() =>
+        held.some(
+          (request) => new URL(request.url()).pathname === "/api/notifications/read-record",
+        ),
+      )
+      .toBe(true);
     await expect.poll(() => bellCount(page)).toBe(total - about);
     // Views tapped at once, while the receipt is still out.
     for (const view of ["work", "activity"]) {
@@ -308,6 +320,125 @@ test.describe("the bell and Alerts", () => {
     await removeTasksTitled(prefix);
   });
 
+  test("a background call sent while a page opens never holds it: the bell's count stays unanswered, the task opens (CI run 37118131079)", async ({
+    page,
+  }, info) => {
+    // ARCHITECTURE §4.4. Next queues a server action sent during a navigation behind it and does
+    // not commit the new page until the action answers: the bell's count, asked on the live
+    // channel's first join, went out just after a tapped task's data arrived, and the task never
+    // opened (CI run 37118131079). Here the channel's join waits for the tap and the task's data
+    // waits until the count is out; the count is then never answered, nor is anything else the
+    // app sends on its own (a server action, an /api/ call), and the task must still open.
+    const staff = person(info, "staff");
+    const prefix = `Background call ${info.project.name} `;
+    await removeTasksTitled(prefix);
+    await clearAlerts(staff);
+    const staffId = await memberIdOf(staff);
+    const taskId = await rpcAs<string>(USERS.owner.email, USERS.owner.password, "task_create", {
+      title: `${prefix}reel`,
+      description: null,
+      task_type_id: await taskTypeId("Normal"),
+      client_id: null,
+      priority: "medium",
+      due_at: istInstant(addISTDays(todayIST(), 45), "18:00"),
+      assignee_ids: [staffId],
+      primary_owner_id: staffId,
+      approving_admin_id: null,
+      stages: [],
+    });
+
+    let tapped = false;
+    let joinLetGo = () => {};
+    const joinReleased = new Promise<void>((resolve) => {
+      joinLetGo = resolve;
+    });
+    await page.routeWebSocket(/\/realtime\/v1\/websocket/, (socket) => {
+      const server = socket.connectToServer();
+      socket.onMessage(async (message) => {
+        if (
+          typeof message === "string" &&
+          message.includes('"phx_join"') &&
+          message.includes("realtime:notifications:")
+        ) {
+          await joinReleased;
+        }
+        server.send(message);
+      });
+    });
+    // After the tap, whatever the app sends by itself is held, unanswered, to the end.
+    const held: Request[] = [];
+    const ended = new Set<Request>();
+    page.on("requestfinished", (request) => ended.add(request));
+    page.on("requestfailed", (request) => ended.add(request));
+    let pageLetGo = () => {};
+    const pageReleased = new Promise<void>((resolve) => {
+      pageLetGo = resolve;
+    });
+    const countOut = page.waitForRequest(
+      (request) =>
+        tapped &&
+        request.method() === "GET" &&
+        new URL(request.url()).pathname === "/api/notifications/unread",
+    );
+    await page.route("**/*", async (route: Route) => {
+      const request = route.request();
+      const url = new URL(request.url());
+      const headers = request.headers();
+      if (
+        tapped &&
+        ((request.method() === "POST" && headers["next-action"]) ||
+          url.pathname.startsWith("/api/"))
+      ) {
+        held.push(request);
+        return; // never answered
+      }
+      if (
+        tapped &&
+        headers["rsc"] === "1" &&
+        !headers["next-router-prefetch"] &&
+        url.pathname === `/tasks/${taskId}`
+      ) {
+        await pageReleased;
+      }
+      await route.fallback();
+    });
+
+    try {
+      await signIn(page, staff, PASSWORD);
+      await page.goto("/tasks");
+      await hydrated(page);
+      await expect(page.locator("html")).not.toHaveAttribute("data-live", "on");
+
+      tapped = true;
+      await page.locator(`[data-slot="task-row"][data-task="${taskId}"] a`).click();
+      // The channel joins while the task's data is held: its count goes out mid-navigation.
+      joinLetGo();
+      const count = await countOut;
+      pageLetGo();
+      await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}(\\?tab=\\w+)?$`));
+      await expect(page.locator('[data-slot="task-tabs"]')).toBeVisible();
+      expect(held, "the count was held").toContain(count);
+      expect(ended.has(count), "the count is still unanswered").toBe(false);
+      // Opening the task sends its read receipt the same way: out, held, and the page is open.
+      await expect
+        .poll(() =>
+          held.some(
+            (request) => new URL(request.url()).pathname === "/api/notifications/read-record",
+          ),
+        )
+        .toBe(true);
+      expect(
+        held.filter((request) => request.headers()["next-action"]),
+        "no server action was sent without a tap",
+      ).toEqual([]);
+    } finally {
+      joinLetGo();
+      pageLetGo();
+      if (!page.isClosed()) await page.unrouteAll({ behavior: "ignoreErrors" });
+      await removeTasksTitled(prefix);
+    }
+  });
+
   test("an empty history says so", async ({ page }, info) => {
     const staff = person(info, "staff");
     await clearAlerts(staff);
@@ -315,6 +446,143 @@ test.describe("the bell and Alerts", () => {
     await page.goto("/notifications");
     await expect(page.locator('[data-slot="empty-state"]')).toContainText("Nothing yet");
     await expect(page.locator('[data-slot="notification-bar"]')).toHaveCount(0);
+  });
+
+  test("5B: day groups, All | Unread, and a run about one record is one row that reads them all", async ({
+    page,
+  }, info) => {
+    const staff = person(info, "staff");
+    await clearAlerts(staff);
+    const today = todayIST();
+    const record = crypto.randomUUID();
+    // Three comments about one record, early today (consecutive, one IST day): one row.
+    for (const time of ["00:01", "00:02", "00:03"] as const) {
+      await notify(staff, {
+        kind: "task_comment",
+        title: "Comment on Reel 9",
+        link: "/leave/expenses",
+        entity: "tasks",
+        entityId: record,
+        at: istInstant(today, time),
+      });
+    }
+    await notify(staff, {
+      title: "Leave approved",
+      link: "/leave",
+      read: true,
+      at: istInstant(addISTDays(today, -1), "12:00"),
+    });
+    await notify(staff, { title: "An old one", at: istInstant(addISTDays(today, -10), "12:00") });
+    await signIn(page, staff, PASSWORD);
+    await page.goto("/notifications");
+    await hydrated(page);
+
+    await expect(page.locator('[data-slot="notification-group"] > h2')).toHaveText([
+      "Today",
+      "Yesterday",
+      "Older",
+    ]);
+    const rows = page.locator('[data-slot="notification-row"]');
+    await expect(rows).toHaveCount(3);
+    await expect(rows.nth(0)).toContainText("3 comments on Reel 9");
+    await expect(rows.nth(0)).toHaveAttribute("data-run", "3");
+    await expect(rows.nth(0)).toHaveAttribute("data-unread", "true");
+    await expect(page.locator('[data-slot="notification-bar"]')).toContainText("4 unread");
+    await expect.poll(() => bellCount(page)).toBe(4);
+
+    // The filter is view state: the address follows (replace), the read rows go.
+    const filter = page.locator('[data-slot="alerts-filter"]');
+    await filter.getByRole("link", { name: "Unread", exact: true }).click();
+    await expect(page).toHaveURL(/\/notifications\?show=unread$/);
+    await expect(filter.getByRole("link", { name: "Unread", exact: true })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    await expect(rows).toHaveCount(2);
+    await expect(rowOf(page, "Leave approved")).toHaveCount(0);
+    await filter.getByRole("link", { name: "All", exact: true }).click();
+    await expect(page).toHaveURL(/\/notifications$/);
+    await expect(rows).toHaveCount(3);
+
+    // Opening the run reads all three, not only the newest.
+    await rowOf(page, "3 comments on Reel 9").getByRole("link").click();
+    await expect(page).toHaveURL(/\/leave\/expenses$/);
+    await expect.poll(() => unreadOf(staff)).toBe(1);
+    await expect.poll(() => bellCount(page)).toBe(1);
+    await page.goto("/notifications");
+    await expect(rowOf(page, "3 comments on Reel 9")).not.toHaveAttribute("data-unread");
+
+    // Nothing unread: Unread says so, with the filter still there to go back.
+    await page.locator('[data-slot="mark-all-read"]').click();
+    await expect.poll(() => unreadOf(staff)).toBe(0);
+    await page.goto("/notifications?show=unread");
+    await expect(page.locator('[data-slot="empty-state"]')).toContainText("You're all caught up");
+    await expect(page.locator('[data-slot="alerts-filter"]')).toBeVisible();
+  });
+
+  test("Realtime: a row written before the live channel first joins still reaches the bell and the list", async ({
+    page,
+  }, info) => {
+    // Found 2026-10-02 (5B): a notification Realtime had already passed on before the page's
+    // channel first joined sent that page no event, so the bell kept the old count until the next
+    // navigation. Here the page's join is held until a listener of the test's own has heard the
+    // row (Realtime has dealt with it), which makes that gap certain.
+    const staff = person(info, "staff");
+    await clearAlerts(staff);
+    const { apikey } = supabaseAuth();
+    const signedIn = await fetch(`${supabaseAuth().url}/token?grant_type=password`, {
+      method: "POST",
+      headers: { apikey, "content-type": "application/json" },
+      body: JSON.stringify({ email: staff, password: PASSWORD }),
+    });
+    expect(signedIn.ok).toBe(true);
+    const token = ((await signedIn.json()) as { access_token: string }).access_token;
+    const listener = createClient(HOLD_PROXY_URL, apikey, { accessToken: async () => token });
+    await listener.realtime.setAuth();
+    const heard: string[] = [];
+    await new Promise<void>((resolve, reject) => {
+      listener
+        .channel(`join-gap-${info.project.name}`)
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "notifications" },
+          (change) => heard.push((change.new as { title?: string }).title ?? ""),
+        )
+        .subscribe((status) => {
+          if (status === "SUBSCRIBED") resolve();
+          if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") reject(new Error(status));
+        });
+    });
+
+    let release = () => {};
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.routeWebSocket(/\/realtime\/v1\/websocket/, (socket) => {
+      const server = socket.connectToServer();
+      socket.onMessage(async (message) => {
+        if (typeof message === "string" && message.includes('"phx_join"')) await released;
+        server.send(message);
+      });
+    });
+    try {
+      await signIn(page, staff, PASSWORD);
+      await page.goto("/notifications");
+      await hydrated(page);
+      await expect(page.locator('[data-slot="empty-state"]')).toContainText("Nothing yet");
+      expect(await bellCount(page)).toBe(0);
+
+      await notify(staff, { title: "Written before the join", link: "/leave" });
+      await expect.poll(() => heard.includes("Written before the join")).toBe(true);
+      release();
+      await expect(page.locator("html")).toHaveAttribute("data-live", "on");
+      await expect.poll(() => bellCount(page)).toBe(1);
+      await expect(rowOf(page, "Written before the join")).toBeVisible();
+    } finally {
+      release();
+      await listener.removeAllChannels();
+      listener.realtime.disconnect();
+    }
   });
 
   test("Realtime through the hold proxy: a new row and a read on another device reach the open screen, no reload", async ({
@@ -483,7 +751,7 @@ test.describe("the bell and Alerts", () => {
     }
   });
 
-  test("installed, Staff: back from a record goes to its list, then Alerts, then My Day", async ({
+  test("installed, Staff: the title bar's bell, a row, back to its page's parent, then Alerts, then My Day", async ({
     page,
     isMobile,
   }, info) => {
@@ -495,16 +763,45 @@ test.describe("the bell and Alerts", () => {
     await signIn(page, staff, PASSWORD);
     await page.goto("/my-day");
     await hydrated(page);
-    await page.locator('[data-slot="bottom-nav"] [data-nav="alerts"]').click();
+    // The Crew's Alerts is the title bar's bell since 5B decision 1.
+    await page.locator('[data-slot="header-bell"]:visible').click();
     await expect(page).toHaveURL(/\/notifications$/);
     await hydrated(page);
     await rowOf(page, "Claim paid").getByRole("link").click();
     await expect(page).toHaveURL(/\/leave\/expenses$/);
     await expectBackStack(page, [
-      { url: /\/leave$/ },
+      { url: /\/me$/ },
       { url: /\/notifications$/ },
       { url: /\/my-day$/ },
     ]);
+  });
+
+  test("installed, Staff: All | Unread never adds history; one back leaves Alerts", async ({
+    page,
+    isMobile,
+  }, info) => {
+    test.skip(!isMobile, "installed-mode back is a phone rule");
+    const staff = person(info, "staff");
+    await clearAlerts(staff);
+    await notify(staff, { title: "Claim paid", link: "/leave/expenses" });
+    await runInstalled(page);
+    await signIn(page, staff, PASSWORD);
+    await page.goto("/my-day");
+    await hydrated(page);
+    // The Crew's Alerts is the title bar's bell since 5B decision 1.
+    await page.locator('[data-slot="header-bell"]:visible').click();
+    await expect(page).toHaveURL(/\/notifications$/);
+    await hydrated(page);
+    const filter = page.locator('[data-slot="alerts-filter"]');
+    for (const [name, url] of [
+      ["Unread", /\/notifications\?show=unread$/],
+      ["All", /\/notifications$/],
+      ["Unread", /\/notifications\?show=unread$/],
+    ] as const) {
+      await filter.getByRole("link", { name, exact: true }).click();
+      await expect(page).toHaveURL(url);
+    }
+    await expectBackStack(page, [{ url: /\/my-day$/ }]);
   });
 
   test("installed, Admin: the title bar's bell, a row, and back the same way", async ({

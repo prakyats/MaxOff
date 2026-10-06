@@ -152,3 +152,5 @@ export {
 } from "./domain/types";
 /** The Approvals screen's single approve, behind the delayed send's route (4.5). */
 export { approveTask } from "./actions/approvals";
+/** Background calls behind `/api/tasks/*` (ARCHITECTURE §4.4): plain server functions, not actions. */
+export { markTaskRead, readAvailability } from "./actions/background";

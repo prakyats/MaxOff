@@ -35,3 +35,10 @@ export { NAME_MAX_LENGTH, PHONE_MAX_LENGTH } from "./domain/limits";
 export { updateOwnProfile } from "./actions/members";
 /** The member's own photo (3.3). */
 export { removeOwnAvatar, setOwnAvatar } from "./actions/members";
+/** Background reads behind `/api/team/*` (ARCHITECTURE §4.4): plain server functions, not actions. */
+export {
+  readClientHandover,
+  readCoordinatorChoices,
+  readFreelancerHandover,
+  readOpenTaskCount,
+} from "./actions/background";

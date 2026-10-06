@@ -11,8 +11,10 @@ describe("routeKey (ARCHITECTURE §14.2 j)", () => {
   it("gives the tabs of one screen one key", () => {
     expect(routeKey("/leave")).toBe("/leave");
     expect(routeKey("/leave/attendance")).toBe("/leave");
-    expect(routeKey("/leave/extra-work")).toBe("/leave");
-    expect(routeKey("/leave/expenses")).toBe("/leave");
+    // Extra work & expenses is a screen of its own since 5B decision 3.
+    expect(routeKey("/leave/extra-work")).toBe("/leave/extra-work");
+    expect(routeKey("/leave/expenses")).toBe("/leave/extra-work");
+    expect(routeKey("/leave/expenses")).not.toBe(routeKey("/leave"));
     expect(routeKey(PERSON)).toBe(PERSON);
     expect(routeKey(`${PERSON}/attendance`)).toBe(PERSON);
     expect(routeKey(`${PERSON}/leave`)).toBe(PERSON);
@@ -42,6 +44,7 @@ describe("routeKey (ARCHITECTURE §14.2 j)", () => {
     const clientNav = readFileSync("src/app/(app)/clients/[id]/client-nav.tsx", "utf8");
     expect(leaveTabs).toContain('"/leave/attendance"');
     expect(leaveTabs).toContain('"/leave/extra-work"');
+    expect(leaveTabs).toContain('"/leave/expenses"');
     expect(personNav).toContain("/attendance`");
     expect(personNav).toContain("/leave`");
     expect(clientNav).toContain("/brand`");

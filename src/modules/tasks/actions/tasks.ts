@@ -11,12 +11,8 @@ import * as repo from "../data/tasks";
 import {
   type ActingInput,
   actingSchema,
-  type MarkReadInput,
-  markReadSchema,
   type AddStageInput,
   addStageSchema,
-  type AvailabilityInput,
-  availabilitySchema,
   type CommentInput,
   commentSchema,
   type CreateTaskInput,
@@ -37,7 +33,6 @@ import {
   updateTaskSchema,
   type WarningsInput,
 } from "../domain/schemas";
-import type { AvailabilityDay } from "../domain/warnings";
 
 /**
  * Staff tasks (4.3, 4.4; ARCHITECTURE §4): zod → `assertPermission()` → the repository (a
@@ -66,16 +61,6 @@ function warningRows(warnings: WarningsInput) {
     details: warning.details,
   }));
 }
-
-/** The warning check (4.3): availability of the people picked on the deadline's and event's days. */
-export const loadAvailability = action(
-  async (input: AvailabilityInput): Promise<Result<AvailabilityDay[]>> => {
-    const data = availabilitySchema.parse(input);
-    // The permission `member_availability()` itself checks (PERMISSIONS §1; 4B review S4).
-    await assertPermission("availability.view");
-    return ok(await repo.availability(data.days, data.memberIds));
-  },
-);
 
 /** The create dialog (4.3). Returns the new task's id; the dialog opens its page. */
 export const createTask = action(
@@ -223,20 +208,5 @@ export const addTaskComment = action(async (input: CommentInput): Promise<Result
   await repo.addComment(data);
   revalidatePath(taskPath(data.taskId));
   dispatchPushSoon();
-  return ok(null);
-});
-
-/**
- * Opening Chat marks its comments read for the viewer (Kickoff 4 decision 28; `task_mark_read`,
- * their own row). **Nothing is revalidated** (owner decision 2026-10-01): an answer that
- * re-renders the page reloads it when it lands after a view switch. The task page already shows
- * the count gone; the lists' unread markers (the Tasks tab, all tasks, Approvals) follow on their
- * next render, and a list shown again from the router's cache re-reads itself
- * (`TasksFreshOnReturn`).
- */
-export const markTaskRead = action(async (input: MarkReadInput): Promise<Result<null>> => {
-  const data = markReadSchema.parse(input);
-  await assertPermission("tasks.work");
-  await repo.rpcMarkRead(data.taskId, data.upTo);
   return ok(null);
 });

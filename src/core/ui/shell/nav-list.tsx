@@ -7,7 +7,7 @@ import { cn } from "@/core/lib/utils";
 
 import type { ReactNode } from "react";
 
-import { isActivePath, type NavItem } from "./nav";
+import { activeNavKey, type NavItem } from "./nav";
 import { NAV_ICONS } from "./nav-icons";
 
 /** Vertical navigation list with the active route highlighted. Used by the sidebar and the mobile sheet. */
@@ -24,12 +24,14 @@ export function NavList({
   className?: string;
 }) {
   const pathname = usePathname();
+  // One current item: the closest route wins (`/leave/expenses` is Extra work & expenses).
+  const current = activeNavKey(pathname, items);
 
   return (
     <nav aria-label="Main" className={className}>
       <ul className="flex flex-col gap-0.5">
         {items.map((item) => {
-          const active = isActivePath(pathname, item.href);
+          const active = item.key === current;
           const Icon = NAV_ICONS[item.icon];
           return (
             <li key={item.key}>

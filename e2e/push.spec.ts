@@ -1,4 +1,4 @@
-import { type Page, type TestInfo } from "@playwright/test";
+import { type TestInfo } from "@playwright/test";
 
 import { fromBase64Url } from "../src/core/notifications/push/base64url";
 import { decryptPayload, generateReceiverKeys } from "../src/core/notifications/push/encrypt";
@@ -15,7 +15,7 @@ import {
   storageStateFor,
   USERS,
 } from "./helpers";
-import { addDevice, fakePushService, PUSH_PASSWORD, type Receiver } from "./push-shared";
+import { addDevice, fakePushService, PUSH_PASSWORD, type Receiver, stubPush } from "./push-shared";
 
 /**
  * Web Push (task 5.2, WORKFLOWS §9a, kickoff 5 decisions 1, 5 and 9). Headless Chromium has no
@@ -31,75 +31,6 @@ import { addDevice, fakePushService, PUSH_PASSWORD, type Receiver } from "./push
  * judged per member, so the projects running side by side never share one person's
  * subscriptions. Their subscriptions are removed at the start and the end.
  */
-
-/**
- * Fakes the platform before the page's scripts: `Notification.permission` and
- * `requestPermission` answer as told, `PushManager.subscribe` / `getSubscription` hand back a
- * subscription at the fake service with the receiver's real keys (so the server's encryption
- * can be opened here). The service worker itself is real (a production build).
- */
-async function stubPush(
-  page: Page,
-  options: {
-    permission: "default" | "granted" | "denied";
-    endpoint: string;
-    receiver: Receiver;
-    /**
-     * `pushManager.subscribe` rejects after Allow, as on Brave with Google's push service off
-     * (an AbortError "push service error"); `brave` also stands in Brave's `navigator.brave`.
-     * `window.__subscribeFails = false` lets the next try through.
-     */
-    rejectSubscribe?: "brave" | "other";
-  },
-) {
-  await page.addInitScript(({ permission, endpoint, receiver, rejectSubscribe }) => {
-    const w = window as unknown as { __subscribeFails?: boolean };
-    w.__subscribeFails = rejectSubscribe !== undefined;
-    if (rejectSubscribe === "brave") {
-      Object.defineProperty(navigator, "brave", {
-        value: { isBrave: async () => true },
-        configurable: true,
-      });
-    }
-    const decode = (text: string) => {
-      const normalised = text.replace(/-/g, "+").replace(/_/g, "/");
-      const binary = atob(normalised + "=".repeat((4 - (normalised.length % 4)) % 4));
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-      return bytes.buffer;
-    };
-    let current: PushSubscription | null = null;
-    const fake = {
-      endpoint,
-      expirationTime: null,
-      options: { userVisibleOnly: true, applicationServerKey: null },
-      getKey: (name: string) =>
-        name === "p256dh" ? decode(receiver.publicKey) : decode(receiver.auth),
-      toJSON: () => ({ endpoint }),
-      unsubscribe: async () => {
-        current = null;
-        return true;
-      },
-    } as unknown as PushSubscription;
-    let state: NotificationPermission = permission;
-    Object.defineProperty(Notification, "permission", { get: () => state, configurable: true });
-    Notification.requestPermission = async () => {
-      state = state === "default" ? "granted" : state;
-      (window as unknown as { __permissionAsked: boolean }).__permissionAsked = true;
-      return state;
-    };
-    PushManager.prototype.subscribe = async function subscribe() {
-      if (w.__subscribeFails) {
-        throw new DOMException("Registration failed - push service error", "AbortError");
-      }
-      current = fake;
-      return fake;
-    };
-    PushManager.prototype.getSubscription = async function getSubscription() {
-      return current;
-    };
-  }, options);
-}
 
 /** This project's own Staff member. */
 function pushPerson(info: TestInfo): string {
@@ -134,7 +65,7 @@ test.describe("Web Push", () => {
     await new Promise<void>((resolve) => service.server.close(() => resolve()));
   });
 
-  test("the banner asks on every screen, permission only on the tap; one device stops it everywhere", async ({
+  test("the banner asks on every screen, permission only on the tap; one device that received a push stops it everywhere", async ({
     page,
     isMobile,
   }) => {
@@ -177,6 +108,19 @@ test.describe("Web Push", () => {
         () => (window as unknown as { __permissionAsked?: boolean }).__permissionAsked,
       ),
     ).toBe(true);
+    // 5.5 (owner decision 2026-10-03): turned on is not yet working. The band stays until a push
+    // has reached a device of theirs, and now asks for a test.
+    await expect(sheet).toHaveCount(0);
+    await expect(banner).toHaveAttribute("data-reason", "unconfirmed");
+    await expect(
+      banner.getByText("Check notifications reach you").filter({ visible: true }),
+    ).toBeVisible();
+    await banner.click();
+    await expect(
+      sheet.getByRole("heading", { name: "Check notifications reach you" }),
+    ).toBeVisible();
+    await sheet.locator('[data-slot="push-band-test"]').click();
+    // The push service accepted the test: a delivery, so the band goes.
     await expect(page.locator('[data-slot="push-banner"]')).toBeHidden();
     await expect(sheet).toHaveCount(0);
     const staffId = await memberIdOf(pushPerson(test.info()));
@@ -184,13 +128,17 @@ test.describe("Web Push", () => {
       endpoint: string;
       platform: string;
       disabled_at: string | null;
-    }>(`push_subscriptions?member_id=eq.${staffId}&select=endpoint,platform,disabled_at`);
-    expect(rows).toEqual([
+      delivered: boolean;
+    }>(
+      `push_subscriptions?member_id=eq.${staffId}&select=endpoint,platform,disabled_at,delivered:last_success_at`,
+    );
+    expect(rows.map((row) => ({ ...row, delivered: row.delivered !== null }))).toEqual([
       // The phone projects emulate an Android phone, so the platform follows the device.
       {
         endpoint: `${service.url}/ok/staff-phone`,
         platform: isMobile ? "android" : "desktop",
         disabled_at: null,
+        delivered: true,
       },
     ]);
 
@@ -217,6 +165,9 @@ test.describe("Web Push", () => {
       row.getByText("Notifications are on for your phone. Turn them on here too."),
     ).toBeVisible();
     await other.close();
+    // The band's test stamped last_test_at: the next test's own test would be refused for 30 s
+    // (5A review S2), so this device goes; the next test stores it again on load.
+    await serviceDelete(`push_subscriptions?member_id=eq.${staffId}`);
   });
 
   test("Me: this device is on; Send a test reaches the device, encrypted and signed", async ({
@@ -323,7 +274,7 @@ test.describe("Web Push", () => {
     await serviceDelete(`push_subscriptions?member_id=eq.${staffId}`);
   });
 
-  test("installed: the band's sheet closes on back; its Turn on adds no history; back from home leaves", async ({
+  test("installed: the band's sheet closes on back; its Turn on and Send a test add no history; back from home leaves", async ({
     page,
     isMobile,
   }) => {
@@ -347,9 +298,14 @@ test.describe("Web Push", () => {
     await expect(sheet).toHaveCount(0);
     await expect(page).toHaveURL(/\/my-day$/);
     await expect(band).toBeVisible();
-    // Turned on from the sheet: the sheet's entry goes, the band goes, nothing is added.
+    // Turned on from the sheet: the sheet's entry goes, the band asks for a test (5.5), and the
+    // test from its sheet ends it; nothing is added.
     await band.click();
     await sheet.locator('[data-slot="push-enable"]').click();
+    await expect(sheet).toHaveCount(0);
+    await expect(band).toHaveAttribute("data-reason", "unconfirmed");
+    await band.click();
+    await sheet.locator('[data-slot="push-band-test"]').click();
     await expect(band).toBeHidden();
     await expect(sheet).toHaveCount(0);
     await expect(page).toHaveURL(/\/my-day$/);
@@ -463,8 +419,9 @@ test.describe("Web Push", () => {
         (window as unknown as { __subscribeFails: boolean }).__subscribeFails = false;
       });
       await enable.click();
-      await expect(band).toBeHidden();
       await expect(sheet).toHaveCount(0);
+      // On now, nothing received yet: the band asks for a test (5.5).
+      await expect(band).toHaveAttribute("data-reason", "unconfirmed");
       await serviceDelete(`push_subscriptions?member_id=eq.${staffId}`);
     });
   }

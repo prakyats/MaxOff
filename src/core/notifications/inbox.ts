@@ -17,7 +17,12 @@ import type { ServerUnread } from "./read-receipts";
 /** History rows per page. */
 export const INBOX_PAGE_SIZE = 20;
 
+/**
+ * One entry of the Alerts list (5B decision 10, `notifications_inbox`): a notification, or a run
+ * of consecutive ones about the same record on the same IST day, drawn as its newest row.
+ */
 export interface InboxRow {
+  /** The newest row's id: what the entry opens (`/open?n=`) or reads. */
   id: string;
   kind: string;
   title: string;
@@ -25,7 +30,12 @@ export interface InboxRow {
   /** An app route the row opens (through `/open`); null when there is nothing to open. */
   link: string | null;
   createdAt: string;
-  readAt: string | null;
+  /** How many notifications the entry holds (1 for most). */
+  runSize: number;
+  /** Their kinds, sorted. */
+  runKinds: string[];
+  /** The ids still unread, newest first: the entry is unread while any is. */
+  runUnread: string[];
 }
 
 /**
@@ -52,28 +62,37 @@ export async function countUnread(): Promise<number> {
   return (await readUnread()).count;
 }
 
-/** One page of the member's history, newest first, with the total for the pager. */
-export async function listInbox(page: number): Promise<{ rows: InboxRow[]; total: number }> {
+/**
+ * One page of the member's Alerts, newest first, with the number of entries for the pager. Same-
+ * record runs are made by the database (`notifications_inbox`), so a page of 20 is 20 entries and
+ * a run never splits across pages. `unreadOnly`: the "Unread" filter.
+ */
+export async function listInbox(
+  page: number,
+  unreadOnly = false,
+): Promise<{ rows: InboxRow[]; total: number }> {
   const supabase = await createServerSupabase();
-  const from = (page - 1) * INBOX_PAGE_SIZE;
-  const { data, count, error } = await supabase
-    .from("notifications")
-    .select("id, kind, title, body, link, created_at, read_at", { count: "exact" })
-    .order("created_at", { ascending: false })
-    .order("id", { ascending: false })
-    .range(from, from + INBOX_PAGE_SIZE - 1);
+  const { data, error } = await supabase.rpc("notifications_inbox", {
+    p_unread_only: unreadOnly,
+    p_offset: (page - 1) * INBOX_PAGE_SIZE,
+    p_limit: INBOX_PAGE_SIZE,
+  });
   if (error) throw error;
   return {
     rows: data.map((row) => ({
       id: row.id,
       kind: row.kind,
       title: row.title,
-      body: row.body,
-      link: row.link,
+      // A function's columns are typed not-null; these two may be null.
+      body: (row.body as string | null) ?? null,
+      link: (row.link as string | null) ?? null,
       createdAt: row.created_at,
-      readAt: row.read_at,
+      runSize: row.run_size,
+      runKinds: row.run_kinds,
+      runUnread: row.run_unread,
     })),
-    total: count ?? 0,
+    // Every row carries the total; a page past the end has none.
+    total: data[0]?.total ?? 0,
   };
 }
 
@@ -102,6 +121,29 @@ export async function markOneRead(
     .maybeSingle();
   if (readError) throw readError;
   return row ? { link: row.link, marked: false } : null;
+}
+
+/**
+ * A row holding a run about one record, opened (5B decision 10): that notification and every
+ * unread one about the same record are read, as opening the record does (kickoff 5 decision 4),
+ * so the row is not left unread behind a page that marks nothing. How many were marked, and the
+ * link. Null when it is not theirs.
+ */
+export async function markRunRead(
+  id: string,
+): Promise<{ link: string | null; marked: number } | null> {
+  const opened = await markOneRead(id);
+  if (!opened) return null;
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase
+    .from("notifications")
+    .select("entity, entity_id")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  const rest =
+    data?.entity && data.entity_id ? await rpcMarkRecordRead(data.entity, data.entity_id) : 0;
+  return { link: opened.link, marked: (opened.marked ? 1 : 0) + rest };
 }
 
 /**

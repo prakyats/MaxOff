@@ -178,7 +178,16 @@ insert into seed_users values
   ('20000000-0000-4000-8000-000000000102', 'alerts-staff-mobile@maxoff.local', 'alerts-local-password', 'Test Alerts Staff (mobile)', null, 'staff', 'active'),
   ('20000000-0000-4000-8000-000000000103', 'alerts-admin-mobile@maxoff.local', 'alerts-local-password', 'Test Alerts Admin (mobile)', null, 'admin', 'active'),
   ('20000000-0000-4000-8000-000000000104', 'alerts-staff-mobile-lg@maxoff.local', 'alerts-local-password', 'Test Alerts Staff (mobile-lg)', null, 'staff', 'active'),
-  ('20000000-0000-4000-8000-000000000105', 'alerts-admin-mobile-lg@maxoff.local', 'alerts-local-password', 'Test Alerts Admin (mobile-lg)', null, 'admin', 'active');
+  ('20000000-0000-4000-8000-000000000105', 'alerts-admin-mobile-lg@maxoff.local', 'alerts-local-password', 'Test Alerts Admin (mobile-lg)', null, 'admin', 'active'),
+  -- 5.4: Settings → Notifications and the app's report (e2e/reachability.spec.ts), an Admin and a
+  -- Staff member per project: the Admin's list is the people on their own open tasks, so the
+  -- projects never share one.
+  ('20000000-0000-4000-8000-000000000106', 'reach-admin-desktop@maxoff.local', 'reach-local-password', 'Test Reach Admin (desktop)', null, 'admin', 'active'),
+  ('20000000-0000-4000-8000-000000000107', 'reach-staff-desktop@maxoff.local', 'reach-local-password', 'Test Reach Staff (desktop)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000108', 'reach-admin-mobile@maxoff.local', 'reach-local-password', 'Test Reach Admin (mobile)', null, 'admin', 'active'),
+  ('20000000-0000-4000-8000-000000000109', 'reach-staff-mobile@maxoff.local', 'reach-local-password', 'Test Reach Staff (mobile)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000110', 'reach-admin-mobile-lg@maxoff.local', 'reach-local-password', 'Test Reach Admin (mobile-lg)', null, 'admin', 'active'),
+  ('20000000-0000-4000-8000-000000000111', 'reach-staff-mobile-lg@maxoff.local', 'reach-local-password', 'Test Reach Staff (mobile-lg)', null, 'staff', 'active');
 
 -- What GoTrue writes for a confirmed email + password user (`auth.users` + one identity).
 insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -245,3 +254,14 @@ where not exists (
 -- endpoints on the loopback host, where the e2e fake push service runs. Only the seed writes
 -- this, and no hosted project runs the seed: staging and production take https only.
 insert into app.local_flags (flag) values ('push_loopback_endpoints') on conflict do nothing;
+
+-- 5.4: every seeded person joined 40 days ago with no push device, so the hourly
+-- reachability_check would alert the local Owner (one always-emailed notification each) the first
+-- time it runs, in the middle of an e2e run. The seed records each of them as already alerted
+-- now: nothing is alerted for 7 days after a reset. Settings → Notifications reads the state
+-- live, so it is unaffected. No hosted project runs the seed.
+insert into public.member_reachability (member_id, org_id, state, since, alerted_at)
+select m.id, m.org_id, app.reachability_state(m.id), now(), now()
+from public.members m
+where m.status = 'active' and m.engagement = 'permanent' and m.joined_at is not null
+on conflict (member_id) do nothing;

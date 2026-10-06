@@ -20,7 +20,11 @@ describe("deep-link entry", () => {
     expect(parentOf("/tasks/abc", "/my-day")).toBe("/tasks");
     expect(parentOf("/tasks/abc?view=chat", "/my-day")).toBe("/tasks");
     expect(parentOf("/people/p1", "/today")).toBe("/people");
-    expect(parentOf("/leave/expenses", "/my-day")).toBe("/leave");
+    expect(parentOf("/leave/attendance", "/my-day")).toBe("/leave");
+    // Extra work & expenses opens from Me (5B decision 3), whatever the view.
+    expect(parentOf("/leave/expenses", "/my-day")).toBe("/me");
+    expect(parentOf("/leave/extra-work", "/today")).toBe("/me");
+    expect(parentOf("/leave/expenses?x=1", "/my-day")).toBe("/me");
     expect(parentOf("/settings/templates/t1", "/today")).toBe("/settings/templates");
     expect(parentOf("/approvals", "/today")).toBe("/today");
     expect(parentOf("/notifications", "/my-day")).toBe("/my-day");
@@ -34,6 +38,8 @@ describe("deep-link entry", () => {
   it("opens a notification by its id, and accepts only a uuid as one", () => {
     const id = "6f1c2a4e-1b2c-4d3e-8f90-0a1b2c3d4e5f";
     expect(openNotificationUrl(id)).toBe(`/open?n=${id}`);
+    expect(openNotificationUrl(id, false)).toBe(`/open?n=${id}`);
+    expect(openNotificationUrl(id, true)).toBe(`/open?n=${id}&run=1`);
     expect(isNotificationId(id)).toBe(true);
     expect(isNotificationId("6f1c2a4e")).toBe(false);
     expect(isNotificationId(`${id}x`)).toBe(false);

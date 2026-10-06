@@ -1,4 +1,5 @@
 import { fromBase64Url, toBase64Url } from "./base64url";
+import { isIOS } from "./ios";
 import type { SubscriptionPayload } from "./schemas";
 
 /**
@@ -27,10 +28,7 @@ export function pushSupport(input: {
   return { kind: "ready" };
 }
 
-export function isIOS(userAgent: string, maxTouchPoints: number): boolean {
-  // iPadOS 13+ presents itself as a Mac; the touch points give it away.
-  return /iPhone|iPad|iPod/.test(userAgent) || (/Macintosh/.test(userAgent) && maxTouchPoints > 1);
-}
+export { isIOS };
 
 export function platformOf(
   userAgent: string,
@@ -40,6 +38,24 @@ export function platformOf(
   if (/Android/.test(userAgent)) return "android";
   if (/Windows|Macintosh|Linux|CrOS/.test(userAgent)) return "desktop";
   return "other";
+}
+
+/**
+ * What the app says about itself when it opens (task 5.4, owner decision 2026-10-03): its platform,
+ * by the same rule as a push subscription's, and whether it runs as the installed app
+ * (`display-mode: standalone`, or `navigator.standalone` on iOS). The server keeps the latest, which
+ * tells "an iPhone without MaxOff installed" apart from the device someone last signed in on.
+ */
+export function appReportOf(input: {
+  userAgent: string;
+  maxTouchPoints: number;
+  displayStandalone: boolean;
+  navigatorStandalone: boolean | undefined;
+}): { platform: SubscriptionPayload["platform"]; isStandalone: boolean } {
+  return {
+    platform: platformOf(input.userAgent, input.maxTouchPoints),
+    isStandalone: input.displayStandalone || input.navigatorStandalone === true,
+  };
 }
 
 /** A short device name for Me ("Android phone", "iPhone", "Windows"); never the raw agent. */

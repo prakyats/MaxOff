@@ -8,6 +8,7 @@ import {
   serviceInsert,
   serviceSelect,
   serviceUpdate,
+  storageStateFor,
   taskTypeId,
   USERS,
 } from "./helpers";
@@ -93,17 +94,42 @@ test.describe("quiet hours hold push and release one summary", () => {
         `notifications?recipient_id=eq.${staffId}&entity_id=in.(${taskIds.join(",")})&select=id`,
       );
       expect(rows).toHaveLength(2);
-      // Email is never held: task assigned is always emailed, in the window too (recorded
-      // not_configured here: the e2e server has no RESEND_API_KEY).
-      const mails = await serviceSelect<{ state: string; last_error: string | null }>(
-        `notification_deliveries?channel=eq.email&select=state,last_error,notifications!inner(recipient_id,entity_id)&notifications.recipient_id=eq.${staffId}&notifications.entity_id=in.(${taskIds.join(",")})`,
+      // No email: the person has a working push device, and since 5B decision 12 a task
+      // assignment is emailed only as the fallback for someone with none.
+      const mails = await serviceSelect<{ state: string }>(
+        `notification_deliveries?channel=eq.email&select=state,notifications!inner(recipient_id,entity_id)&notifications.recipient_id=eq.${staffId}&notifications.entity_id=in.(${taskIds.join(",")})`,
       );
-      expect(mails).toEqual([
-        { state: "failed", last_error: "not_configured", notifications: expect.anything() },
-        { state: "failed", last_error: "not_configured", notifications: expect.anything() },
-      ]);
+      expect(mails).toEqual([]);
 
-      // The window is over (it ended an hour ago): the next run sends ONE summary push.
+      // An always-emailed reminder (5.3's overdue reminder, as reminders_tick writes it through
+      // app.notify: the row and a queued push) inside the window: its push is held with the
+      // others, its email is never held (owed by 5.3, kickoff 5 decision 5: only push waits).
+      const overdue = await serviceInsert<{ id: string }>("notifications", {
+        org_id: settings!.org_id,
+        recipient_id: staffId,
+        kind: "reminder_overdue",
+        title: `Overdue: Quiet one ${stamp}`,
+        body: "It was due an hour ago.",
+        link: `/tasks/${taskIds[0]}`,
+      });
+      await serviceInsert("notification_deliveries", {
+        notification_id: overdue.id,
+        channel: "push",
+        state: "queued",
+      });
+      await dispatch();
+      const overdueMail = await serviceSelect<{ channel: string; state: string; attempts: number }>(
+        `notification_deliveries?notification_id=eq.${overdue.id}&select=channel,state,attempts&order=channel`,
+      );
+      expect(overdueMail.find((row) => row.channel === "push")?.state).toBe("held");
+      const email = overdueMail.find((row) => row.channel === "email");
+      // Claimed in the same run as the held push: sent, or failed `not_configured` where the
+      // e2e server has no Resend key; never held, never waiting for the window to end.
+      expect(email?.attempts).toBe(1);
+      expect(["sent", "failed"]).toContain(email?.state);
+
+      // The window is over (it ended an hour ago): the next run sends ONE summary push, for the
+      // two assignments and the reminder.
       await serviceUpdate(`org_settings?org_id=eq.${settings!.org_id}`, {
         quiet_hours_start: istIn(-180),
         quiet_hours_end: istIn(-60),
@@ -116,7 +142,7 @@ test.describe("quiet hours hold push and release one summary", () => {
         Buffer.from(await decryptPayload(new Uint8Array(mine[0]!.body), receiver)).toString(),
       ) as { title: string; url: string; tag: string };
       expect(opened).toMatchObject({
-        title: "2 updates while you were away",
+        title: "3 updates while you were away",
         url: "/notifications",
         tag: `summary:${staffId}`,
       });
@@ -127,6 +153,132 @@ test.describe("quiet hours hold push and release one summary", () => {
       });
       await serviceDelete(`push_subscriptions?member_id=eq.${staffId}`);
       await new Promise<void>((resolve) => service.server.close(() => resolve()));
+    }
+  });
+});
+
+/**
+ * The Owner's quiet-hours editor (5B decision 6) on Settings → Thresholds. It saves the
+ * organisation's window, so it lives here, in the serial push-cron project, alone after every
+ * other project: no other spec's push can be held while it is moved. It puts the window back.
+ */
+test.describe("the Owner edits the quiet hours (Settings → Thresholds)", () => {
+  test.use({ storageState: storageStateFor("owner") });
+
+  test("saves the two IST times; the same start and end is refused", async ({ page }) => {
+    const [before] = await serviceSelect<{
+      org_id: string;
+      quiet_hours_start: string;
+      quiet_hours_end: string;
+    }>("org_settings?select=org_id,quiet_hours_start,quiet_hours_end");
+    const stored = async () => {
+      const [row] = await serviceSelect<{ quiet_hours_start: string; quiet_hours_end: string }>(
+        "org_settings?select=quiet_hours_start,quiet_hours_end",
+      );
+      return `${row!.quiet_hours_start.slice(0, 5)}-${row!.quiet_hours_end.slice(0, 5)}`;
+    };
+    try {
+      await page.goto("/settings/thresholds");
+      await expect(page.getByRole("heading", { name: "Quiet hours" })).toBeVisible();
+      const from = page.getByLabel("Quiet from");
+      const until = page.getByLabel("Quiet until");
+      await expect(from).toHaveValue(before!.quiet_hours_start.slice(0, 5));
+      await expect(until).toHaveValue(before!.quiet_hours_end.slice(0, 5));
+
+      // The same start and end would switch quiet hours off: refused, nothing written.
+      await from.fill("23:00");
+      await until.fill("23:00");
+      await page.getByRole("button", { name: "Save thresholds" }).click();
+      await expect(page.locator('[data-slot="field-error"]')).toContainText(
+        "Quiet hours can’t start and end at the same time. Choose a different end time.",
+      );
+      expect(await stored()).toBe(
+        `${before!.quiet_hours_start.slice(0, 5)}-${before!.quiet_hours_end.slice(0, 5)}`,
+      );
+
+      // A window past midnight is saved, and is what the page shows after a reload.
+      await until.fill("06:30");
+      await page.getByRole("button", { name: "Save thresholds" }).click();
+      await expect(page.getByText("Thresholds saved")).toBeVisible();
+      expect(await stored()).toBe("23:00-06:30");
+      await page.reload();
+      await expect(page.getByLabel("Quiet from")).toHaveValue("23:00");
+      await expect(page.getByLabel("Quiet until")).toHaveValue("06:30");
+    } finally {
+      await serviceUpdate(`org_settings?org_id=eq.${before!.org_id}`, {
+        quiet_hours_start: before!.quiet_hours_start,
+        quiet_hours_end: before!.quiet_hours_end,
+      });
+    }
+  });
+});
+
+/**
+ * The organisation's default task reminders (5.3) on Settings → Thresholds, the Owner's. Every
+ * task with no list of its own (nor its template, nor its type) follows it when it is armed, so
+ * it is saved only here, in the serial push-cron project after every other project: no task any
+ * other spec creates can be armed while it is moved. It is put back to what it was.
+ */
+test.describe("the Owner edits the default reminders (Settings → Thresholds)", () => {
+  test.use({ storageState: storageStateFor("owner") });
+
+  test("saves the organisation's list from the collapsed line; Use the default saves []", async ({
+    page,
+  }) => {
+    const [before] = await serviceSelect<{ org_id: string; default_task_reminders: unknown }>(
+      "org_settings?select=org_id,default_task_reminders",
+    );
+    const stored = async () => {
+      const [row] = await serviceSelect<{ default_task_reminders: unknown }>(
+        "org_settings?select=default_task_reminders",
+      );
+      return row?.default_task_reminders;
+    };
+    try {
+      await serviceUpdate(`org_settings?org_id=eq.${before!.org_id}`, {
+        default_task_reminders: [],
+      });
+      await page.goto("/settings/thresholds");
+      await expect(page.getByRole("heading", { name: "Default reminders" })).toBeVisible();
+      const summary = page.locator('[data-slot="reminder-summary"]');
+      await expect(summary).toHaveText(
+        "Reminders: 2 days before, 1 day before, when due · Using the default",
+      );
+      await expect(page.locator('[data-slot="reminder-row"]')).toHaveCount(0);
+
+      // "When due" becomes 2 hours before; first 1440 minutes, the same time as 1 day, is refused.
+      await summary.click();
+      const third = page.getByLabel("Reminder 3: how many");
+      await third.fill("1440");
+      await page.getByRole("button", { name: "Save thresholds" }).click();
+      await expect(page.locator('[data-slot="reminder-row"]').nth(2)).toContainText(
+        "Another reminder is already at this time.",
+      );
+      expect(await stored()).toEqual([]);
+      await third.fill("2");
+      const unit = page.getByLabel("Reminder 3: unit");
+      await unit.click();
+      await page.getByRole("option", { name: "hours" }).first().click();
+      await expect(summary).toHaveText("Reminders: 2 days before, 1 day before, 2 hours before");
+      await page.getByRole("button", { name: "Save thresholds" }).click();
+      await expect(page.getByText("Thresholds saved")).toBeVisible();
+      expect(await stored()).toEqual([
+        { before: 2, unit: "days" },
+        { before: 1, unit: "days" },
+        { before: 2, unit: "hours" },
+      ]);
+      await page.reload();
+      await expect(summary).toHaveText("Reminders: 2 days before, 1 day before, 2 hours before");
+
+      await summary.click();
+      await page.getByRole("button", { name: "Use the default" }).click();
+      await page.getByRole("button", { name: "Save thresholds" }).click();
+      await expect(page.getByText("Thresholds saved").first()).toBeVisible();
+      await expect.poll(stored).toEqual([]);
+    } finally {
+      await serviceUpdate(`org_settings?org_id=eq.${before!.org_id}`, {
+        default_task_reminders: before!.default_task_reminders,
+      });
     }
   });
 });

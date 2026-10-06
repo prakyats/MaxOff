@@ -13,6 +13,12 @@ import {
 import { type FormEvent, useId, useState } from "react";
 
 import type { Result, ResultError } from "@/core/errors";
+import {
+  draftFromRules,
+  type ReminderDraft,
+  type ReminderRule,
+  rulesFromDraft,
+} from "@/core/lib/reminder-rules";
 import { cn } from "@/core/lib/utils";
 import { ActionStatus } from "@/core/ui/action/action-status";
 import { useAction } from "@/core/ui/action/use-action";
@@ -20,6 +26,7 @@ import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { FormField } from "@/core/ui/composites/form-field";
+import { ReminderRulesEditor } from "@/core/ui/composites/reminder-rules-editor";
 import { CARD_ROW_TITLE, CARD_ROW_TRAILING } from "@/core/ui/composites/row-metrics";
 import { Button } from "@/core/ui/primitives/button";
 import { Checkbox } from "@/core/ui/primitives/checkbox";
@@ -49,6 +56,7 @@ import {
   moveTaskType,
   setTaskTypeArchived,
 } from "../actions/task-types";
+import { typeDefaultReminders } from "../domain/reminders";
 import {
   splitTaskTypes,
   TASK_TYPE_KIND_LABELS,
@@ -65,9 +73,17 @@ import type { TaskTypeKind } from "../domain/types";
  * (name and kind, and for an event whether it shows on the calendar and asks for a location),
  * edit, reorder one step at a time, archive and restore, in the list-manager shape (1.4): on a
  * phone the row keeps the order buttons and a ⋯ sheet with Edit and Archive. The kind is fixed
- * once the type exists. No reminder editor (5.3's).
+ * once the type exists. Each type carries its tasks' default reminders (5.3), edited in its dialog
+ * with the same editor as a task's; "Using the default" there is the organisation's list.
  */
-export function TaskTypesManager({ types }: { types: readonly TaskTypeSetting[] }) {
+export function TaskTypesManager({
+  types,
+  orgReminders,
+}: {
+  types: readonly TaskTypeSetting[];
+  /** The organisation's default reminders (Settings → Thresholds), under each type's. */
+  orgReminders: readonly ReminderRule[];
+}) {
   const [editing, setEditing] = useState<TaskTypeSetting | null>(null);
   const [archiving, setArchiving] = useState<TaskTypeSetting | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -203,7 +219,12 @@ export function TaskTypesManager({ types }: { types: readonly TaskTypeSetting[] 
       ) : null}
 
       {editing ? (
-        <TaskTypeDialog key={editing.id} type={editing} onClose={() => setEditing(null)} />
+        <TaskTypeDialog
+          key={editing.id}
+          type={editing}
+          orgReminders={orgReminders}
+          onClose={() => setEditing(null)}
+        />
       ) : null}
       {archiving ? (
         <ConfirmDialog
@@ -292,7 +313,7 @@ function TypeActionsSheet({
 }
 
 /** The screen's one primary action, for `PageHeader` (a FAB on a phone). */
-export function AddTaskTypeButton() {
+export function AddTaskTypeButton({ orgReminders }: { orgReminders: readonly ReminderRule[] }) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -300,7 +321,7 @@ export function AddTaskTypeButton() {
         <PlusIcon aria-hidden />
         Add task type
       </Button>
-      {open ? <TaskTypeDialog onClose={() => setOpen(false)} /> : null}
+      {open ? <TaskTypeDialog orgReminders={orgReminders} onClose={() => setOpen(false)} /> : null}
     </>
   );
 }
@@ -309,23 +330,41 @@ export function AddTaskTypeButton() {
  * Add or edit one task type. The kind is chosen once (it shapes the task form); an event's two
  * switches stay editable. Mounted fresh per type (`key=` at the call site).
  */
-function TaskTypeDialog({ type, onClose }: { type?: TaskTypeSetting; onClose: () => void }) {
+function TaskTypeDialog({
+  type,
+  orgReminders,
+  onClose,
+}: {
+  type?: TaskTypeSetting;
+  orgReminders: readonly ReminderRule[];
+  onClose: () => void;
+}) {
   const editing = type !== undefined;
   const [name, setName] = useState(type?.name ?? "");
   const [kind, setKind] = useState<TaskTypeKind>(type?.kind ?? "normal");
   const [showsOnCalendar, setShowsOnCalendar] = useState(type?.showsOnCalendar ?? true);
   const [hasLocation, setHasLocation] = useState(type?.hasLocation ?? false);
+  const [reminders, setReminders] = useState<ReminderDraft>(() =>
+    draftFromRules(type?.defaultReminders ?? []),
+  );
+  const [remindersBlocked, setRemindersBlocked] = useState(false);
   const [error, setError] = useState<ResultError | null>(null);
   const kindName = useId();
   const action = useAction(
     async () => {
-      const switches = {
+      const defaultReminders = rulesFromDraft(reminders);
+      if (defaultReminders === null) {
+        setRemindersBlocked(true);
+        return;
+      }
+      const values = {
         showsOnCalendar: kind === "event" && showsOnCalendar,
         hasLocation: kind === "event" && hasLocation,
+        defaultReminders,
       };
       const result: Result<unknown> = editing
-        ? await editTaskType({ taskTypeId: type.id, name, ...switches })
-        : await addTaskType({ name, kind, ...switches });
+        ? await editTaskType({ taskTypeId: type.id, name, ...values })
+        : await addTaskType({ name, kind, ...values });
       if (result.ok) {
         toastResult(result, { success: editing ? "Task type saved" : "Task type added" });
         onClose();
@@ -337,6 +376,13 @@ function TaskTypeDialog({ type, onClose }: { type?: TaskTypeSetting; onClose: ()
   );
   const { pending } = action;
   const summary = error && !error.fieldErrors ? describeError(error) : null;
+  const remindersError =
+    Object.entries(error?.fieldErrors ?? {}).find(([key]) =>
+      key.startsWith("defaultReminders"),
+    )?.[1]?.[0] ??
+    (remindersBlocked && rulesFromDraft(reminders) === null
+      ? "Fix the reminders, or use the default."
+      : undefined);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -416,6 +462,16 @@ function TaskTypeDialog({ type, onClose }: { type?: TaskTypeSetting; onClose: ()
               </Label>
             </div>
           ) : null}
+          <ReminderRulesEditor
+            draft={reminders}
+            onChange={(next) => {
+              setReminders(next);
+              setRemindersBlocked(false);
+            }}
+            fallback={typeDefaultReminders(orgReminders)}
+            disabled={pending}
+            error={remindersError}
+          />
           <ActionStatus action={action} />
           <DialogFooter>
             <Button type="button" variant="secondary" onClick={onClose} disabled={pending}>

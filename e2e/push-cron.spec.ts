@@ -4,8 +4,10 @@ import { expect, test } from "./fixtures";
 import {
   insertAs,
   memberIdOf,
+  pageHeader,
   rpcAs,
   serviceDelete,
+  serviceRest,
   serviceSelect,
   serviceUpdate,
   storageStateFor,
@@ -212,8 +214,9 @@ test.describe("push and email dispatch (cron)", () => {
       )
         .map((row) => `${row.notifications.kind}:${row.state}:${row.last_error ?? "-"}`)
         .sort();
-    // Task assigned is always emailed; changes requested is actionable and they have no push;
-    // the comment never. The e2e server has no RESEND_API_KEY (as team.spec's invites rely on),
+    // They have no push device, so the two actionable kinds are emailed as the fallback (task
+    // assigned is fallback only since 5B decision 12; changes requested always was); the comment
+    // never. The e2e server has no RESEND_API_KEY (as team.spec's invites rely on),
     // so each is recorded not_configured: nothing is sent, nothing crashed.
     expect(await mails()).toEqual([
       "task_assigned:failed:not_configured",
@@ -222,5 +225,84 @@ test.describe("push and email dispatch (cron)", () => {
     // Another run adds nothing: one email row per notification.
     await runDispatch(request);
     expect(await mails()).toHaveLength(2);
+  });
+});
+
+/**
+ * The Owner's morning summary (5B slice 7, owner decisions 2026-10-03): pg_cron calls
+ * `digest_daily` at 08:00 IST; here the same function is called through the service role, then
+ * one dispatch run emails it. One email to the Owner, nothing in their bell or Alerts, and a
+ * second call the same day writes and sends nothing. The e2e server has no RESEND_API_KEY, so the
+ * one email is recorded `not_configured` after being claimed and rendered (attempts 1): nothing
+ * leaves the machine, and the claim is the proof it went out once.
+ */
+test.describe("the Owner's morning summary (digest_daily)", () => {
+  test.describe.configure({ mode: "serial" });
+  test.use({ storageState: storageStateFor("owner") });
+
+  type DigestDelivery = {
+    channel: string;
+    state: string;
+    attempts: number;
+    last_error: string | null;
+  };
+  const deliveries = () =>
+    serviceSelect<DigestDelivery>(
+      `notification_deliveries?select=channel,state,attempts,last_error,notifications!inner(kind)&notifications.kind=eq.owner_digest`,
+    );
+  const runDigest = async () =>
+    (await (
+      await serviceRest("rpc/digest_daily", { method: "POST", body: JSON.stringify({}) })
+    ).json()) as number;
+
+  test.beforeAll(async () => {
+    // The local stack keeps rows between runs: an earlier run's digest of today would make this
+    // one write nothing. Only this spec writes owner_digest rows.
+    await serviceDelete("notifications?kind=eq.owner_digest");
+    await ownTheDispatchQueue();
+  });
+
+  test("one email to the Owner, never in the bell or Alerts, and once a day", async ({
+    page,
+    request,
+  }) => {
+    const ownerId = await memberIdOf(USERS.owner.email);
+    expect(await runDigest()).toBe(1);
+    const [row] = await serviceSelect<{
+      recipient_id: string;
+      title: string;
+      read_at: string | null;
+    }>("notifications?kind=eq.owner_digest&select=recipient_id,title,read_at");
+    expect(row?.recipient_id).toBe(ownerId);
+    expect(row?.title).toMatch(/^Your morning summary · \w{3} \d{1,2} \w{3}$/);
+    expect(row?.read_at).toBeTruthy();
+    // No push row: the digest is email only.
+    expect(await deliveries()).toEqual([]);
+
+    await runDispatch(request);
+    const sent = await deliveries();
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toMatchObject({ channel: "email", attempts: 1 });
+    expect(["sent", "failed"]).toContain(sent[0]!.state);
+    if (sent[0]!.state === "failed") expect(sent[0]!.last_error).toBe("not_configured");
+
+    // Never in the Owner's Alerts, read or unread, and never counted.
+    for (const unreadOnly of [false, true]) {
+      const entries = await rpcAs<{ kind: string }[]>(
+        USERS.owner.email,
+        USERS.owner.password,
+        "notifications_inbox",
+        { p_unread_only: unreadOnly, p_offset: 0, p_limit: 50 },
+      );
+      expect(entries.map((entry) => entry.kind)).not.toContain("owner_digest");
+    }
+    await page.goto("/notifications");
+    await expect(pageHeader(page)).toBeVisible();
+    await expect(page.locator("main")).not.toContainText("morning summary");
+
+    // A second call the same IST day writes nothing, and the next run sends nothing more.
+    expect(await runDigest()).toBe(0);
+    await runDispatch(request);
+    expect(await deliveries()).toHaveLength(1);
   });
 });
