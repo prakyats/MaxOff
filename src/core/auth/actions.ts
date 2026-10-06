@@ -11,7 +11,7 @@ import type { MemberRole } from "@/core/permissions";
 import { homeFor } from "@/core/ui/shell/nav";
 
 import { verifyAuthLink } from "./links";
-import { LOGIN_PATH, safeNextPath, WELCOME_PATH } from "./paths";
+import { LOGIN_PATH, safeNextPath, signInLanding, WELCOME_PATH } from "./paths";
 import {
   type ConfirmLinkInput,
   confirmLinkSchema,
@@ -71,20 +71,14 @@ async function recordLoginOrSignOut(supabase: ServerSupabase, userId: string): P
   return role;
 }
 
-/**
- * Where a sign-in with no `next` lands: the role's home, except the first sign-in in MaxOff
- * installed on an iPhone of a new joiner whose walkthrough is unfinished (5.5, owner decision
- * 2026-10-03, 4): the installed app keeps its own sign-in, so this is where they come back after
- * installing, and the welcome screen resumes the walkthrough at "Turn on notifications".
- */
-async function landingFor(role: MemberRole, installedIphone: boolean): Promise<string> {
-  if (!installedIphone) return homeFor(role);
+/** Whether the caller is a new joiner whose walkthrough is still open (5.5, owner 2026-10-06, 2). */
+async function walkthroughUnfinished(): Promise<boolean> {
   const onboarding = await readOwnOnboarding();
-  return onboarding && !onboarding.finished ? WELCOME_PATH : homeFor(role);
+  return onboarding !== null && !onboarding.finished;
 }
 
 export const login = action(async (input: LoginInput): Promise<Result<never>> => {
-  const { email, password, next, installedIphone } = loginSchema.parse(input);
+  const { email, password, next } = loginSchema.parse(input);
   const supabase = await createServerSupabase();
 
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -92,12 +86,16 @@ export const login = action(async (input: LoginInput): Promise<Result<never>> =>
 
   const role = await recordLoginOrSignOut(supabase, data.user.id);
   // Straight to the role's home (not through `/`, one hop fewer, 2.7); the optional `next`
-  // wins when it is a safe path. Replace, never push: a server action's redirect adds history
-  // by default, and sign-in is a one-time screen that must not sit under home (§14.2 e).
-  redirect(
-    safeNextPath(next) ?? (await landingFor(role, installedIphone === true)),
-    RedirectType.replace,
-  );
+  // wins when it is a safe path; a new joiner with an unfinished walkthrough lands on the
+  // welcome screen, on any device (owner 2026-10-06; before, only in the installed iPhone app).
+  // Replace, never push: a server action's redirect adds history by default, and sign-in is a
+  // one-time screen that must not sit under home (§14.2 e).
+  const target = signInLanding({
+    next,
+    home: homeFor(role),
+    walkthroughUnfinished: safeNextPath(next) === null && (await walkthroughUnfinished()),
+  });
+  redirect(target, RedirectType.replace);
 });
 
 /**
@@ -175,8 +173,17 @@ export const setPassword = action(async (input: SetPasswordInput): Promise<Resul
 
   const role = await ownRole(supabase, userId);
   await setHomeHint(userId, role);
-  // Replace: the set-password screen is one-time and never stays in the back stack (§14.2 e).
-  redirect(homeFor(role), RedirectType.replace);
+  // A reset password signs in too: a new joiner with an unfinished walkthrough lands on the
+  // welcome screen (owner 2026-10-06), everyone else home. Replace: the set-password screen is
+  // one-time and never stays in the back stack (§14.2 e).
+  redirect(
+    signInLanding({
+      next: null,
+      home: homeFor(role),
+      walkthroughUnfinished: await walkthroughUnfinished(),
+    }),
+    RedirectType.replace,
+  );
 });
 
 /**

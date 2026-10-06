@@ -23,16 +23,18 @@ import {
   recordTestDelivered,
   rpcPushSubscriptionRemove,
   rpcPushSubscriptionRemoveOwn,
+  rpcPushSubscriptionTurnOn,
   rpcPushSubscriptionUpsert,
   rpcPushTestClaim,
 } from "./push/subscriptions";
 
 /**
  * The member's own push subscriptions (task 5.2, WORKFLOWS §9a): zod → the member → the RPC →
- * revalidate → `Result`. `subscribePush` after the browser subscribed (the banner, Me, the
- * re-subscribe on load); `unsubscribePush` when this device is signed out; `sendTestPush`
- * for "Send a test notification" on Me; `removeDevice` and `finishOnboarding` (5.5) for Me's
- * device list and a new joiner's walkthrough.
+ * revalidate → `Result`. `subscribePush` for the automatic re-subscribe on load and
+ * `turnOnPush` for the member's own "Turn on" tap (the band, Me, the walkthrough), which alone
+ * brings back a device removed from Me's list (owner 2026-10-06); `unsubscribePush` when this
+ * device is signed out; `sendTestPush` for "Send a test notification"; `removeDevice` and
+ * `finishOnboarding` (5.5) for Me's device list and a new joiner's walkthrough.
  */
 async function requireCurrentMember() {
   const member = await getCurrentMember();
@@ -45,11 +47,23 @@ function revalidateBanner(): void {
   revalidatePath("/", "layout");
 }
 
+/** The automatic re-subscribe (`PushSync`): INVALID_STATE for a device removed from Me's list. */
 export const subscribePush = action(
   async (input: SubscriptionPayload): Promise<Result<{ id: string }>> => {
     const data = subscriptionSchema.parse(input);
     await requireCurrentMember();
     const id = await rpcPushSubscriptionUpsert(data);
+    revalidateBanner();
+    return ok({ id });
+  },
+);
+
+/** The member's tap on "Turn on" on this device: also the way back after Remove. */
+export const turnOnPush = action(
+  async (input: SubscriptionPayload): Promise<Result<{ id: string }>> => {
+    const data = subscriptionSchema.parse(input);
+    await requireCurrentMember();
+    const id = await rpcPushSubscriptionTurnOn(data);
     revalidateBanner();
     return ok({ id });
   },
@@ -82,7 +96,9 @@ export type TestPushResult = {
  *
  * **Since 5.5** a device whose push service accepted the test is recorded as delivered to (the
  * dispatcher's own "sent": `last_success_at`, owner decision 2026-10-03: accepted counts as
- * working), which ends the band, so the layout is revalidated then.
+ * working), which ends the band, so the layout is revalidated then. **And** a test a device
+ * received finishes a new joiner's walkthrough, wherever it was sent from (the walkthrough, the
+ * band, Me → Help; owner 2026-10-06, 3); one no device accepted finishes nothing.
  */
 export const sendTestPush = action(async (): Promise<Result<TestPushResult>> => {
   const member = await requireCurrentMember();
@@ -113,13 +129,17 @@ export const sendTestPush = action(async (): Promise<Result<TestPushResult>> => 
     if (result.outcome === "sent") delivered.push(device.id);
   }
   await recordTestDelivered(delivered);
-  if (delivered.length > 0) revalidateBanner();
+  if (delivered.length > 0) {
+    await rpcOnboardingFinish("test");
+    revalidateBanner();
+  }
   return ok({ accepted: delivered.length, devices: devices.length, pushOff: false });
 });
 
 /**
  * "Remove" on Me's device list (5.5, owner decision 2026-10-03): notifications stop on one of the
- * member's own other devices. That device is not signed out. The database refuses anyone else's.
+ * member's own other devices, and stay off when it is opened again until "Turn on" is tapped there
+ * (owner 2026-10-06). That device is not signed out. The database refuses anyone else's.
  */
 export const removeDevice = action(async (input: DeviceIdInput): Promise<Result<null>> => {
   const data = deviceIdSchema.parse(input);
@@ -130,9 +150,10 @@ export const removeDevice = action(async (input: DeviceIdInput): Promise<Result<
 });
 
 /**
- * A new joiner's walkthrough ends (5.5): "Later", or its test was delivered (the database checks
- * a device of theirs received a push). Once; the band keeps nudging until push works. No
- * revalidation: the walkthrough stays on the screen until the member leaves it.
+ * A new joiner's walkthrough ends (5.5): "Later" (a delivered test finishes it inside
+ * `sendTestPush`; 'test' here is still accepted, the database checking a device of theirs received
+ * a push). Once; the band keeps nudging until push works. No revalidation: the walkthrough stays
+ * on the screen until the member leaves it.
  */
 export const finishOnboarding = action(
   async (input: FinishOnboardingInput): Promise<Result<{ finished: boolean }>> => {

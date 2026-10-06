@@ -225,9 +225,10 @@ select throws_ok(format('select public.push_subscription_remove_own(%L)', pg_tem
   'anon cannot remove anything');
 select pg_temp.as_system();
 select is((select array_agg(endpoint order by endpoint) from public.push_subscriptions
-           where member_id in (pg_temp.fx('owner'), pg_temp.fx('admin'), pg_temp.fx('staff'))),
+           where member_id in (pg_temp.fx('owner'), pg_temp.fx('admin'), pg_temp.fx('staff'))
+             and disabled_at is null),
   array['https://push.example/admin-a', 'https://push.example/owner-a', 'https://push.example/staff-a'],
-  'only the three removed devices are gone; every refused one stays');
+  'only the three removed devices stop (kept, marked removed since 2026-10-06); every refused one stays');
 select is((select count(*) from public.activity_log where entity = 'push_subscriptions'), 0::bigint,
   'not audited, as "Sign out of this device" (a member''s own device state)');
 

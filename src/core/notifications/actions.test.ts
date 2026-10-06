@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { claim, list, send, record, removeOwn, finish } = vi.hoisted(() => ({
+const { claim, list, send, record, removeOwn, finish, upsert, turnOn } = vi.hoisted(() => ({
+  upsert: vi.fn(),
+  turnOn: vi.fn(),
   claim: vi.fn(),
   list: vi.fn(),
   send: vi.fn(),
@@ -28,12 +30,13 @@ vi.mock("./push/subscriptions", () => ({
   rpcPushTestClaim: claim,
   rpcPushSubscriptionRemove: vi.fn(),
   rpcPushSubscriptionRemoveOwn: removeOwn,
-  rpcPushSubscriptionUpsert: vi.fn(),
+  rpcPushSubscriptionUpsert: upsert,
+  rpcPushSubscriptionTurnOn: turnOn,
   recordTestDelivered: record,
 }));
 vi.mock("./onboarding", () => ({ rpcOnboardingFinish: finish }));
 
-import { finishOnboarding, removeDevice, sendTestPush } from "./actions";
+import { finishOnboarding, removeDevice, sendTestPush, subscribePush, turnOnPush } from "./actions";
 
 const device = {
   id: "s1",
@@ -107,6 +110,77 @@ describe("sendTestPush records what the push service accepted (5.5)", () => {
     send.mockReset().mockResolvedValue({ outcome: "gone", status: 410, detail: null });
     await sendTestPush();
     expect(record).toHaveBeenCalledWith([]);
+  });
+});
+
+describe("a test a device received finishes the walkthrough, wherever it was sent from (owner 2026-10-06, 3)", () => {
+  beforeEach(() => {
+    claim.mockReset().mockResolvedValue(1);
+    record.mockReset();
+    finish.mockReset().mockResolvedValue(true);
+    list.mockReset().mockResolvedValue([device]);
+  });
+
+  it("accepted by a device: recorded first, then the walkthrough finishes by test", async () => {
+    const order: string[] = [];
+    record.mockImplementation(async () => {
+      order.push("record");
+    });
+    finish.mockImplementation(async () => {
+      order.push("finish");
+      return true;
+    });
+    send.mockReset().mockResolvedValue({ outcome: "sent", status: 201, detail: null });
+    const result = await sendTestPush();
+    expect(result).toEqual({ ok: true, data: { accepted: 1, devices: 1, pushOff: false } });
+    expect(finish).toHaveBeenCalledWith("test");
+    expect(order).toEqual(["record", "finish"]);
+  });
+
+  it("no device accepted it: the walkthrough is not finished", async () => {
+    send.mockReset().mockResolvedValue({ outcome: "error", status: 500, detail: "http_500" });
+    const result = await sendTestPush();
+    expect(result).toMatchObject({ ok: true, data: { accepted: 0 } });
+    expect(finish).not.toHaveBeenCalled();
+  });
+});
+
+describe("subscribePush is automatic, turnOnPush is the tap (Remove sticks, owner 2026-10-06, 1)", () => {
+  const payload = {
+    endpoint: "https://push.example/phone",
+    p256dh: `B${"A".repeat(86)}`,
+    auth: "A".repeat(22),
+    platform: "android" as const,
+    isStandalone: false,
+    label: null,
+    userAgent: null,
+  };
+
+  beforeEach(() => {
+    upsert.mockReset().mockResolvedValue("s1");
+    turnOn.mockReset().mockResolvedValue("s1");
+  });
+
+  it("the automatic subscribe uses the upsert; the tap uses the turn-on that brings a removed device back", async () => {
+    expect(await turnOnPush(payload)).toEqual({ ok: true, data: { id: "s1" } });
+    expect(turnOn).toHaveBeenCalledTimes(1);
+    expect(upsert).not.toHaveBeenCalled();
+    expect(await subscribePush(payload)).toEqual({ ok: true, data: { id: "s1" } });
+    expect(upsert).toHaveBeenCalledTimes(1);
+    expect(turnOn).toHaveBeenCalledTimes(1);
+  });
+
+  it("the database's refusal of a removed device reaches the re-subscribe as INVALID_STATE", async () => {
+    upsert.mockRejectedValue({
+      code: "P0001",
+      message: "INVALID_STATE",
+      details:
+        "This device was removed from your devices. Turn notifications on here to get them again.",
+    });
+    expect(await subscribePush(payload)).toMatchObject({
+      ok: false,
+      error: { code: "INVALID_STATE" },
+    });
   });
 });
 

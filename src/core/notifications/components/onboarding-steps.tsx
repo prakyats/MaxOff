@@ -31,11 +31,13 @@ const DidItArrive = dynamic(() => import("./did-it-arrive").then((module) => mod
  * A new joiner's first-login walkthrough on the welcome screen (task 5.5, owner decisions
  * 2026-10-03, 3 and 4): **(a)** on an iPhone in Safari, install MaxOff (numbered steps with
  * pictures); **(b)** turn on notifications; **(c)** send a test, then "Did it arrive?". **Later**
- * ends it for good; skipped or not, the band keeps nudging until push works. Finished by the
- * test once a device of theirs received it (`onboarding_finish('test')`) or by Later.
+ * ends it for good; skipped or not, the band keeps nudging until push works. Finished by any test
+ * a device of theirs received (here, the band or Me → Help: `sendTestPush`, owner 2026-10-06) or
+ * by Later.
  *
  * **The iPhone split** (decision 4): the installed app keeps its own sign-in, so the joiner signs
- * in again there, lands back here, and the walkthrough resumes at "Turn on notifications".
+ * in again there, lands back here (every sign-in does while it is unfinished, owner 2026-10-06),
+ * and the walkthrough resumes at "Turn on notifications".
  *
  * The step comes from the device: an iPhone outside the installed app installs; a device with no
  * notifications here turns them on; one that has them sends the test. The server knows only
@@ -138,9 +140,9 @@ export function OnboardingSteps({
     const outcome = testOutcome(result.data);
     setTested(outcome.text);
     if (!outcome.delivered) return;
+    // The delivered test finished the walkthrough on the server (`sendTestPush`).
     setDelivered(true);
-    const finish = await finishOnboarding({ via: "test" });
-    if (toastResult(finish)) setStep("done");
+    setStep("done");
   });
 
   const skip = useAction(async () => {

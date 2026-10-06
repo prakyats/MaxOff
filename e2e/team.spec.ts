@@ -121,8 +121,10 @@ test.describe("Owner", () => {
       await followAuthLink(tab, secondLink);
       await expect(tab).toHaveURL(/\/login\?reason=link$/);
 
+      // A new joiner's walkthrough is still open: every sign-in lands on the welcome screen until
+      // it is finished or skipped (owner 2026-10-06; onboarding.spec.ts proves both ends).
       await signIn(tab, INVITEE.email, INVITEE_PASSWORD);
-      await expect(tab).toHaveURL(/\/my-day$/);
+      await expect(tab).toHaveURL(/\/me\?welcome=1$/);
     } finally {
       await invitee.close();
     }
@@ -195,9 +197,10 @@ test.describe("Owner", () => {
       await expect(tab.locator('[data-slot="form-alert"]')).toBeVisible();
       await expect(tab).toHaveURL(/\/login/);
 
-      // The password and the session rules are untouched: same password, new address.
+      // The password and the session rules are untouched: same password, new address. Their
+      // walkthrough is still open, so the sign-in lands on the welcome screen (owner 2026-10-06).
       await signIn(tab, MOVED_EMAIL, INVITEE_PASSWORD);
-      await expect(tab).toHaveURL(/\/today$/);
+      await expect(tab).toHaveURL(/\/me\?welcome=1$/);
     } finally {
       await moved.close();
     }

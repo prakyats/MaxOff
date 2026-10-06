@@ -1,4 +1,4 @@
-import { subscribePush } from "../actions";
+import { turnOnPush } from "../actions";
 import { toPayload, trySubscribeBrowser } from "./browser";
 
 /**
@@ -12,7 +12,7 @@ export type TurnOnOutcome =
   | { kind: "blocked" }
   | { kind: "brave" }
   | { kind: "failed" }
-  | { kind: "error"; result: Awaited<ReturnType<typeof subscribePush>> };
+  | { kind: "error"; result: Awaited<ReturnType<typeof turnOnPush>> };
 
 export async function turnOnHere(publicKey: string): Promise<TurnOnOutcome> {
   const permission = await Notification.requestPermission();
@@ -22,6 +22,7 @@ export async function turnOnHere(publicKey: string): Promise<TurnOnOutcome> {
     if (attempt.failure === "denied") return { kind: "blocked" };
     return { kind: attempt.failure === "brave" ? "brave" : "failed" };
   }
-  const result = await subscribePush(toPayload(attempt.subscription));
+  // The member's own tap: also brings back a device removed from Me's list (owner 2026-10-06).
+  const result = await turnOnPush(toPayload(attempt.subscription));
   return result.ok ? { kind: "on" } : { kind: "error", result };
 }

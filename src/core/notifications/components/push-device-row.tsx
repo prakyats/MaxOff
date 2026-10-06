@@ -8,7 +8,7 @@ import { useAction } from "@/core/ui/action/use-action";
 import { Button } from "@/core/ui/primitives/button";
 import { toastResult } from "@/core/ui/toast";
 
-import { subscribePush } from "../actions";
+import { turnOnPush } from "../actions";
 import {
   browserSubscription,
   currentPermission,
@@ -81,7 +81,8 @@ export function PushDeviceRow({
       );
       return;
     }
-    const result = await subscribePush(toPayload(attempt.subscription));
+    // The member's own tap: also brings back a device removed from Me's list (owner 2026-10-06).
+    const result = await turnOnPush(toPayload(attempt.subscription));
     if (toastResult(result, { success: "Notifications are on for this device" })) router.refresh();
   });
 

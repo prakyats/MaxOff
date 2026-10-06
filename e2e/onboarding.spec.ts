@@ -32,6 +32,11 @@ import { fakePushService, type Receiver, stubPush } from "./push-shared";
  *   Remove on another device behind a red button naming it.
  * - Installed, at 375 and 430: the Remove confirmation and the troubleshooting sheet close on
  *   back, and the walkthrough's steps add no history.
+ * - **The owner's answers of 2026-10-06:** a removed device stays off when opened again, and
+ *   "Turn on" tapped there (the band's, Me's) brings it back; any sign-in of a new joiner with an
+ *   unfinished walkthrough lands on the welcome screen (a deep link still wins), until Later or
+ *   a delivered test; a test from Me → Help that a device received finishes the walkthrough, one
+ *   no device accepted does not.
  *
  * Every test makes its own people (`onboard-<what>-<project>`), so the projects and workers never
  * share one person's devices; the pushes go to a fake push service this file runs (push.spec.ts).
@@ -41,6 +46,8 @@ const PASSWORD = "onboard-local-password";
 const IPHONE_UA =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1";
 const FIREFOX_ANDROID_UA = "Mozilla/5.0 (Android 14; Mobile; rv:131.0) Gecko/131.0 Firefox/131.0";
+const CHROME_ANDROID_UA =
+  "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36";
 const EDGE_WINDOWS_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0";
 
@@ -381,12 +388,20 @@ test.describe("onboarding for reachability", () => {
     await expect(dialog).toHaveCount(0);
     await expect(list.locator('[data-slot="device-row"]')).toHaveCount(2);
     await expect(firefox).toHaveCount(0);
-    const left = await serviceSelect<{ endpoint: string }>(
-      `push_subscriptions?member_id=eq.${id}&select=endpoint&order=endpoint`,
+    // Remove sticks (owner 2026-10-06): the row is kept, marked, so it stays off when opened again.
+    const left = await serviceSelect<{ endpoint: string; disabled_reason: string | null }>(
+      `push_subscriptions?member_id=eq.${id}&select=endpoint,disabled_reason&order=endpoint`,
     );
-    expect(left.map((row) => row.endpoint)).toEqual([
-      `${service.url}/gone/devices-edge-${info.project.name}`,
-      here,
+    expect(left).toEqual([
+      {
+        endpoint: `${service.url}/gone/devices-edge-${info.project.name}`,
+        disabled_reason: "gone",
+      },
+      {
+        endpoint: `${service.url}/ok/devices-firefox-${info.project.name}`,
+        disabled_reason: "removed",
+      },
+      { endpoint: here, disabled_reason: null },
     ]);
 
     // Help → Send a test → "Did it arrive?": nothing stored either way.
@@ -399,6 +414,172 @@ test.describe("onboarding for reachability", () => {
     await arrived.locator('[data-slot="arrived-yes"]').click();
     await expect(arrived).toHaveText("Good: notifications reach you.");
     await removeFixturePerson(email);
+  });
+
+  test("any sign-in of an unfinished new joiner lands on the welcome screen; after Later, home", async ({
+    page,
+  }, info) => {
+    const email = emailFor(info, "landing");
+    const existing = emailFor(info, "landing-existing");
+    const { id } = await inviteFixturePerson(email, "Onboard Landing");
+    await acceptFixtureInvite(id, email, PASSWORD);
+    try {
+      // On a computer (or a phone's browser): not only the installed iPhone app.
+      await signIn(page, email, PASSWORD);
+      await expect(page).toHaveURL(/\/me\?welcome=1$/);
+      await expect(page.locator('[data-slot="onboarding"]')).toHaveAttribute("data-ready", "true");
+
+      // A sign-in that asked to go somewhere specific (a deep link) still goes there.
+      await page.context().clearCookies();
+      await page.goto("/notifications");
+      await expect(page).toHaveURL(/\/login\?next=%2Fnotifications$/);
+      await page.getByLabel("Email").fill(email);
+      await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
+      await page.getByRole("button", { name: "Sign in" }).click();
+      await expect(page).toHaveURL(/\/notifications$/);
+
+      // Later: from now on a sign-in lands as normal.
+      await page.goto("/me?welcome=1");
+      const card = page.locator('[data-slot="onboarding"]');
+      await expect(card).toHaveAttribute("data-ready", "true");
+      await card.getByRole("button", { name: "Later" }).click();
+      await expect(card).toHaveCount(0);
+      await page.context().clearCookies();
+      await signIn(page, email, PASSWORD);
+      await expect(page).toHaveURL(/\/my-day$/);
+
+      // Someone who joined before (no walkthrough) is never sent there.
+      await existingMember(existing, "Onboard Landing Existing");
+      await page.context().clearCookies();
+      await signIn(page, existing, PASSWORD);
+      await expect(page).toHaveURL(/\/my-day$/);
+    } finally {
+      await removeFixturePerson(email);
+      await removeFixturePerson(existing);
+    }
+  });
+
+  test("a test from Me → Help that a device received finishes the walkthrough; one nobody accepted does not", async ({
+    page,
+  }, info) => {
+    const email = emailFor(info, "help-test");
+    const { id } = await inviteFixturePerson(email, "Onboard Help Test");
+    await acceptFixtureInvite(id, email, PASSWORD);
+    try {
+      // Their only device answers 500: the push service refuses the test.
+      await device(id, `${service.url}/down/help-test-${info.project.name}`, receiver);
+      await signIn(page, email, PASSWORD);
+      await page.goto("/me");
+      const outcome = page.locator('[data-slot="push-test-outcome"]');
+      await page.locator('[data-slot="push-test"]').click();
+      await expect(outcome).toHaveText(
+        "No device accepted it. Check the device's notification settings, then try again.",
+      );
+      expect(await onboardingOf(id)).toEqual([{ finished_via: null }]);
+
+      // A device that works, and the half-minute between tests spent.
+      await device(id, `${service.url}/ok/help-test-${info.project.name}`, receiver);
+      await serviceUpdate(`push_subscriptions?member_id=eq.${id}`, { last_test_at: null });
+      await page.reload();
+      await page.locator('[data-slot="push-test"]').click();
+      await expect(outcome).toHaveText("Sent to 1 device");
+      await expect.poll(() => onboardingOf(id)).toEqual([{ finished_via: "test" }]);
+
+      // Finished: the next sign-in lands as normal.
+      await page.context().clearCookies();
+      await signIn(page, email, PASSWORD);
+      await expect(page).toHaveURL(/\/my-day$/);
+    } finally {
+      await removeFixturePerson(email);
+    }
+  });
+
+  test("Remove sticks: a removed device stays off when opened again; Turn on there brings it back", async ({
+    browser,
+    page,
+  }, info) => {
+    const email = emailFor(info, "sticks");
+    const id = await existingMember(email, "Onboard Sticks");
+    const endpoint = `${service.url}/ok/sticks-phone-${info.project.name}`;
+    const rowsOf = () =>
+      serviceSelect<{ id: string; disabled_reason: string | null }>(
+        `push_subscriptions?member_id=eq.${id}&select=id,disabled_reason`,
+      );
+    // The phone: notifications allowed, so every open re-subscribes it automatically (PushSync).
+    const phone = await browser.newContext({
+      storageState: { cookies: [], origins: [] },
+      userAgent: CHROME_ANDROID_UA,
+      viewport: page.viewportSize() ?? { width: 390, height: 844 },
+    });
+    try {
+      const tab = await phone.newPage();
+      await stubPush(tab, { permission: "granted", endpoint, receiver });
+      await signIn(tab, email, PASSWORD);
+      await expect.poll(rowsOf).toEqual([{ id: expect.any(String), disabled_reason: null }]);
+      const phoneId = (await rowsOf())[0]!.id;
+      // The automatic subscribe of this phone, seen by its payload (the endpoint).
+      const automaticAttempt = () =>
+        tab.waitForResponse(
+          (response) =>
+            response.request().method() === "POST" &&
+            (response.request().postData() ?? "").includes(`sticks-phone-${info.project.name}`),
+        );
+
+      // The laptop (no notifications of its own) removes the phone.
+      await signIn(page, email, PASSWORD);
+      await page.goto("/me");
+      const list = page.locator('[data-slot="device-list"]');
+      await list.getByRole("button", { name: "Remove Chrome on Android" }).click();
+      await page
+        .getByRole("alertdialog", { name: "Remove Chrome on Android?" })
+        .getByRole("button", { name: "Remove Chrome on Android" })
+        .click();
+      await expect(page.locator('[data-slot="device-list-empty"]')).toBeVisible();
+      expect(await rowsOf()).toEqual([{ id: phoneId, disabled_reason: "removed" }]);
+
+      // Opened again: the automatic re-subscribe is refused; it stays off.
+      const refused = automaticAttempt();
+      await tab.reload();
+      await refused;
+      expect(await rowsOf()).toEqual([{ id: phoneId, disabled_reason: "removed" }]);
+      const band = tab.locator('[data-slot="push-banner"]');
+      await expect(band).toHaveAttribute("data-reason", "off");
+      const refusedOnMe = automaticAttempt();
+      await tab.goto("/me");
+      await refusedOnMe;
+      await expect(tab.locator('[data-slot="push-device-row"]')).toHaveAttribute(
+        "data-state",
+        "none",
+      );
+      await expect(tab.locator('[data-slot="device-list-empty"]')).toBeVisible();
+      expect(await rowsOf()).toEqual([{ id: phoneId, disabled_reason: "removed" }]);
+
+      // The way back: "Turn on" tapped on the phone, in the band's sheet. The same row.
+      await band.click();
+      await tab.locator('[data-slot="push-sheet"] [data-slot="push-enable"]').click();
+      await expect(band).toHaveAttribute("data-reason", "unconfirmed");
+      expect(await rowsOf()).toEqual([{ id: phoneId, disabled_reason: null }]);
+
+      // Removed again; Me's own "Turn on" brings it back too.
+      await page.reload();
+      await list.getByRole("button", { name: "Remove Chrome on Android" }).click();
+      await page
+        .getByRole("alertdialog", { name: "Remove Chrome on Android?" })
+        .getByRole("button", { name: "Remove Chrome on Android" })
+        .click();
+      await expect(page.locator('[data-slot="device-list-empty"]')).toBeVisible();
+      const refusedAgain = automaticAttempt();
+      await tab.reload();
+      await refusedAgain;
+      const row = tab.locator('[data-slot="push-device-row"]');
+      await expect(row).toHaveAttribute("data-state", "none");
+      await row.locator('[data-slot="push-enable"]').click();
+      await expect(row).toHaveAttribute("data-state", "here");
+      expect(await rowsOf()).toEqual([{ id: phoneId, disabled_reason: null }]);
+    } finally {
+      await phone.close();
+      await removeFixturePerson(email);
+    }
   });
 });
 

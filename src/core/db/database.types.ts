@@ -3697,6 +3697,13 @@ export type Database = {
       };
       onboarding_finish: { Args: { p_via: string }; Returns: boolean };
       owner_digest_preview: { Args: never; Returns: Json };
+      push_band_census: {
+        Args: never;
+        Returns: {
+          devices: number;
+          people: number;
+        }[];
+      };
       push_claim: {
         Args: { p_limit?: number; p_now?: string };
         Returns: {
@@ -3734,6 +3741,18 @@ export type Database = {
       push_subscription_remove_own: { Args: { p_id: string }; Returns: boolean };
       push_subscription_result: {
         Args: { p_id: string; p_now?: string; p_outcome: string };
+        Returns: string;
+      };
+      push_subscription_turn_on: {
+        Args: {
+          auth: string;
+          endpoint: string;
+          is_standalone?: boolean;
+          label?: string;
+          p256dh: string;
+          platform?: string;
+          user_agent?: string;
+        };
         Returns: string;
       };
       push_subscription_upsert: {

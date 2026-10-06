@@ -105,4 +105,16 @@ describe("deviceRowsOf", () => {
       }
     }
   });
+
+  it("a device removed from the list is not listed again (its row is kept, owner 2026-10-06)", () => {
+    const rows = deviceRowsOf(
+      [
+        source({ id: "here", lastSuccessAt: ago(HOUR) }),
+        source({ id: "removed", disabledReason: "removed", lastSuccessAt: ago(2 * HOUR) }),
+      ],
+      NOW,
+    );
+    expect(rows.map((row) => row.id)).toEqual(["here"]);
+    expect(deviceRowsOf([source({ id: "removed", disabledReason: "removed" })], NOW)).toEqual([]);
+  });
 });

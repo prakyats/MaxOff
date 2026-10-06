@@ -57,7 +57,8 @@ export const metadata: Metadata = { title: "Me" };
  * troubleshooting" section (5B decision 4): Send a test notification (5.2), Reload app and the
  * app's version. An accepted invite lands here with `?welcome=1` (WORKFLOWS §1a) to check the name
  * and add a phone, and, for a member who joined after 5.5 shipped, the walkthrough that gets
- * notifications working (owner decisions 2026-10-03, 3 and 4). **Your devices** (5.5, decision 5)
+ * notifications working (owner decisions 2026-10-03, 3 and 4); their every sign-in lands here
+ * again until they finish it or tap Later (owner 2026-10-06). **Your devices** (5.5, decision 5)
  * lists every device of theirs, each other one with Remove. The photo is chosen through `AvatarEditor` (3.3): the original is kept and
  * a browser-made preview is what the app shows.
  *

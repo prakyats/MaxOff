@@ -340,7 +340,7 @@ push_subscriptions   id, member_id (default auth.uid(), cascade), endpoint uniqu
                      platform ('android'|'ios'|'desktop'|'other'), is_standalone bool (PWA installed),
                      label (device name shown to the member), last_success_at, last_failure_at,
                      failure_count, disabled_at, disabled_reason ('gone'|'expired'|'signed_out'|
-                     'deactivated'), last_test_at
+                     'deactivated'|'removed'), last_test_at
                      -- kept across closing the app (full payloads, ADR-0009 amendment); removed on
                      -- "sign out of this device"; deactivation disables every row ('deactivated',
                      -- member_deactivate, 5.1). See PRODUCT §4.11 and WORKFLOWS §9a.
@@ -385,19 +385,43 @@ push_subscriptions   id, member_id (default auth.uid(), cascade), endpoint uniqu
                      -- that touches it, is audited by member_deactivate itself.
                      -- 5B 5.5 (migration onboarding_reachability, owner decisions 2026-10-03):
                      -- push_subscription_remove_own(p_id) ("Remove" on Me's device list: one of the
-                     -- caller's own OTHER devices stops getting notifications; the row is deleted, that
-                     -- device is not signed out; anyone else's row, the Owner's included, NOT_FOUND;
-                     -- not audited, as push_subscription_remove). push_status_own() (the layout's one
+                     -- caller's own OTHER devices stops getting notifications; the row was deleted
+                     -- (kept as 'removed' since 2026-10-06, below), that device is not signed out;
+                     -- anyone else's row, the Owner's included, NOT_FOUND; not audited, as
+                     -- push_subscription_remove). push_status_own() (the layout's one
                      -- read, replacing the endpoints select): the caller's active endpoints and
                      -- app.push_band(caller). app.push_band(member) (service_role only): null while an
                      -- active subscription has last_success_at set and failure_count < 2; else the
                      -- member's app.reachability_state when it is not 'ok'; else 'unconfirmed' (on,
-                     -- nothing received yet). "Send a test notification" now records each device whose
+                     -- nothing received yet). last_success_at is any delivery on record: a real
+                     -- notification the dispatcher sent (since v1.3.0) counts exactly like a test
+                     -- (owner 2026-10-06; pgTAP 60). "Send a test notification" now records each device whose
                      -- push service accepted the test with the dispatcher's own
                      -- push_subscription_result(id, 'sent') (last_success_at, failure_count 0), called by
                      -- the server with the service role for the caller's own devices it just pushed to.
                      -- Me reads user_agent (own rows) to name each device in plain words; it is never
                      -- shown.
+                     -- 5.5 owner answers 2026-10-06 (migration reachability_owner_answers): **Remove
+                     -- sticks.** push_subscription_remove_own(p_id) no longer deletes: it keeps the row,
+                     -- disabled 'removed' (the CHECK widened; a row already removed is NOT_FOUND; the
+                     -- rule is unchanged: own rows only, anyone else's NOT_FOUND, the Owner included).
+                     -- push_subscription_upsert() is now the AUTOMATIC subscribe (the re-subscribe on
+                     -- load, the service worker's pushsubscriptionchange) and refuses the caller's own
+                     -- 'removed' row for that endpoint with INVALID_STATE, so the device stays off when
+                     -- opened again; push_subscription_turn_on() (same arguments, a new RPC) is the
+                     -- member's own "Turn on" tap on that device (the band's sheet, Me, the walkthrough)
+                     -- and clears the marker (the same row comes back active). Both run
+                     -- app.push_subscription_save(…, p_explicit) (service_role only), the upsert's
+                     -- latest body plus that one check. push_subscription_remove(endpoint) ("Sign out
+                     -- of this device") leaves a 'removed' row alone, so signing in there again does
+                     -- not turn it back on. Another member's automatic subscribe on a shared browser
+                     -- still takes a removed row over (the mark is the remover's). Me's device list
+                     -- leaves 'removed' rows out. Every reader of active devices (push_targets, the
+                     -- test, the cap of 10, push_status_own, app.reachability_state, app.push_band)
+                     -- already skips disabled rows; reachability counts 'removed' as no device.
+                     -- public.push_band_census() (service_role only, stable, read-only): the active
+                     -- members whose app.push_band is 'unconfirmed' and their active devices (people,
+                     -- devices), for the staging-only dispatch job push-band-count.
 app.local_flags      flag text pk check (flag in ('push_loopback_endpoints')), set_at
                      -- 5A review fixes (20261001053934): switches that exist ONLY on a local or CI
                      -- database. Written by supabase/seed.sql, which no hosted project runs (deploy
@@ -1445,7 +1469,12 @@ member_onboarding    member_id pk → members (cascade), org_id, started_at, fin
                      -- otherwise), 'later' always; returns whether it finished now (false with no row or
                      -- already finished). RLS on: SELECT own row (member_id = auth.uid()); no INSERT,
                      -- UPDATE or DELETE for the API role. Audited (audit_row_change on insert and update,
-                     -- entity_id = member_id).
+                     -- entity_id = member_id). Owner answers 2026-10-06: "Send a test notification"
+                     -- calls onboarding_finish('test') itself once a device's push service accepted the
+                     -- test (from the walkthrough, the band or Me → Help); a test no device accepted
+                     -- finishes nothing. A real notification delivered does not finish it. While the
+                     -- row is unfinished, every sign-in (and a reset password) lands on the welcome
+                     -- screen unless a safe `next` was asked for (the app's rule, no schema change).
 member_reachability  member_id pk → members (cascade), org_id, state ('ok'|'no_subscription'|
                      'permission_revoked'|'ios_not_installed'|'failing'), since timestamptz,
                      alerted_at timestamptz null, created_at, updated_at

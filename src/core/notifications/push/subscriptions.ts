@@ -27,7 +27,10 @@ export interface OwnPushSubscription {
   lastSuccessAt: string | null;
   lastTestAt: string | null;
   failureCount: number;
-  /** Null while active; 'gone' | 'expired' | 'signed_out' | 'deactivated' once disabled. */
+  /**
+   * Null while active; 'gone' | 'expired' | 'signed_out' | 'deactivated' | 'removed' once
+   * disabled ('removed': Remove on Me's list, kept so the automatic re-subscribe leaves it off).
+   */
   disabledReason: string | null;
 }
 
@@ -89,9 +92,8 @@ export async function readOwnPushStatus(): Promise<{
   return { endpoints: data?.endpoints ?? [], band: toBandReason(data?.band ?? null) };
 }
 
-export async function rpcPushSubscriptionUpsert(input: SubscriptionInput): Promise<string> {
-  const supabase = await createServerSupabase();
-  const { data, error } = await supabase.rpc("push_subscription_upsert", {
+function subscriptionArgs(input: SubscriptionInput) {
+  return {
     endpoint: input.endpoint,
     p256dh: input.p256dh,
     auth: input.auth,
@@ -99,7 +101,27 @@ export async function rpcPushSubscriptionUpsert(input: SubscriptionInput): Promi
     is_standalone: input.isStandalone,
     ...(input.label === null ? {} : { label: input.label }),
     ...(input.userAgent === null ? {} : { user_agent: input.userAgent }),
-  });
+  };
+}
+
+/**
+ * The automatic subscribe (the re-subscribe on load, the service worker's subscription change):
+ * refused with INVALID_STATE for a device the member removed from Me's list (owner 2026-10-06).
+ */
+export async function rpcPushSubscriptionUpsert(input: SubscriptionInput): Promise<string> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("push_subscription_upsert", subscriptionArgs(input));
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * The member's own tap on "Turn on" on this device (the band, Me, the walkthrough): the same rules,
+ * and a device removed from Me's list comes back (owner 2026-10-06).
+ */
+export async function rpcPushSubscriptionTurnOn(input: SubscriptionInput): Promise<string> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("push_subscription_turn_on", subscriptionArgs(input));
   if (error) throw error;
   return data;
 }
@@ -113,7 +135,8 @@ export async function rpcPushSubscriptionRemove(endpoint: string): Promise<boole
 
 /**
  * "Remove" on Me's device list (5.5): one of the caller's own other devices stops getting
- * notifications (its row is deleted; it is not signed out). Anyone else's is NOT_FOUND.
+ * notifications (its row is kept, disabled 'removed', so it stays off when opened again; it is
+ * not signed out). Anyone else's is NOT_FOUND.
  */
 export async function rpcPushSubscriptionRemoveOwn(id: string): Promise<void> {
   const supabase = await createServerSupabase();

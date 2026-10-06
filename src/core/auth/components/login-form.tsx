@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useActionState } from "react";
 
 import type { Result } from "@/core/errors";
-import { isIOS } from "@/core/notifications/push/ios";
 import { FormField } from "@/core/ui/composites/form-field";
 import { PasswordInput } from "@/core/ui/composites/password-input";
 import { Button } from "@/core/ui/primitives/button";
@@ -15,17 +14,10 @@ import { FORGOT_PASSWORD_PATH } from "../paths";
 
 import { FormAlert } from "./form-alert";
 
-/** MaxOff installed on an iPhone (5.5): its first sign-in resumes a new joiner's walkthrough. */
-function installedIphone(): boolean {
-  const nav = window.navigator as Navigator & { standalone?: boolean };
-  const standalone =
-    (window.matchMedia?.("(display-mode: standalone)").matches ?? false) || nav.standalone === true;
-  return standalone && isIOS(nav.userAgent, nav.maxTouchPoints ?? 0);
-}
-
 /**
- * Email + password. On success the action redirects (to `next` when it is a safe path, else
- * home), so the form only ever renders a failure. Works at 375px: one column, large targets.
+ * Email + password. On success the action redirects (to `next` when it is a safe path, else the
+ * welcome screen while a new joiner's walkthrough is unfinished, else home), so the form only
+ * ever renders a failure. Works at 375px: one column, large targets.
  */
 export function LoginForm({ next }: { next?: string | undefined }) {
   const [state, formAction, pending] = useActionState(
@@ -34,7 +26,6 @@ export function LoginForm({ next }: { next?: string | undefined }) {
         email: String(formData.get("email") ?? ""),
         password: String(formData.get("password") ?? ""),
         ...(next ? { next } : {}),
-        installedIphone: installedIphone(),
       }),
     null,
   );

@@ -74,14 +74,20 @@ export function problemLine(device: {
   }
 }
 
-/** Working devices first (most recent delivery first), then the stopped ones. */
+/**
+ * Working devices first (most recent delivery first), then the stopped ones. A device removed from
+ * this list (`'removed'`, owner 2026-10-06) is not listed again: its row is kept only so it stays
+ * off when opened again; "Turn on" on that device brings it back.
+ */
 export function deviceRowsOf(devices: readonly DeviceSource[], now: Date): DeviceRow[] {
-  const sorted = [...devices].sort((a, b) => {
-    const activeOrder = Number(b.disabledReason === null) - Number(a.disabledReason === null);
-    if (activeOrder !== 0) return activeOrder;
-    const delivered = (b.lastSuccessAt ?? "").localeCompare(a.lastSuccessAt ?? "");
-    return delivered !== 0 ? delivered : b.createdAt.localeCompare(a.createdAt);
-  });
+  const sorted = devices
+    .filter((device) => device.disabledReason !== "removed")
+    .sort((a, b) => {
+      const activeOrder = Number(b.disabledReason === null) - Number(a.disabledReason === null);
+      if (activeOrder !== 0) return activeOrder;
+      const delivered = (b.lastSuccessAt ?? "").localeCompare(a.lastSuccessAt ?? "");
+      return delivered !== 0 ? delivered : b.createdAt.localeCompare(a.createdAt);
+    });
   return sorted.map((device) => ({
     id: device.id,
     endpoint: device.endpoint,

@@ -120,7 +120,10 @@ insert into app_internal values
   -- and reachability_overview are public: the job's and the Settings screen's)
   ('reachability_state'), ('reachability_live'), ('reachability_reason'),
   -- 5B 5.5: why a member's notifications band shows (push_status_own is public: the layout's read)
-  ('push_band');
+  ('push_band'),
+  -- 5.5 owner answers (2026-10-06): the subscribe behind push_subscription_upsert (automatic) and
+  -- push_subscription_turn_on (a tap), which differ only in whether a removed device comes back
+  ('push_subscription_save');
   -- 3c.1 (contract migration): attendance_logout and logout_not_recorded are gone with the 2.x gate.
 select is(
   (select count(*) from pg_proc p
@@ -141,7 +144,7 @@ select is(
   0::bigint,
   'the internal helpers: service_role only, never the API role');
 select is((select count(*) from pg_proc p where p.pronamespace = 'app'::regnamespace
-             and p.proname in (select name from app_internal)), 59::bigint,
+             and p.proname in (select name from app_internal)), 60::bigint,
   'the internal helper list matches what exists');
 select cmp_ok((select count(*) from pg_proc where pronamespace = 'app'::regnamespace), '>=', 4::bigint,
   'the grant check saw the app functions');
