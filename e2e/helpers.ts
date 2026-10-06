@@ -393,10 +393,26 @@ export async function resetAttendanceAndLeave(memberId: string): Promise<void> {
 }
 
 /**
+ * Stops a person's requests at the e2e server's Supabase proxy (`e2e/hold-proxy.ts`) and waits
+ * until none of theirs is still in flight: from then on nothing they do writes. Their open page
+ * writes in the background (the app-open report, audited with them as the actor), and a write
+ * landing in the middle of `removeFixturePerson` failed its member delete (main CI, 2026-10-06).
+ */
+export async function fencePerson(memberId: string): Promise<void> {
+  const response = await fetch(`${HOLD_PROXY_URL}/__fence`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ member: memberId }),
+  });
+  expect(response.ok, `hold-proxy fence of ${memberId}: ${response.status}`).toBe(true);
+}
+
+/**
  * Removes a person a spec creates (an invitee), member row and GoTrue sign-in included, so the
  * spec can invite them again on a database that is not fresh (2.6: five runs after one
- * `db:reset`). Every row that points at the member goes first; the audit rows *about* them
- * (`entity_id`, no foreign key) stay, as history should. A sign-in left behind by an invite
+ * `db:reset`). Their requests are fenced first (`fencePerson`), so no write of theirs lands
+ * between the deletes. Every row that points at the member goes first; the audit rows *about*
+ * them (`entity_id`, no foreign key) stay, as history should. A sign-in left behind by an invite
  * that never became a member is removed too. Nothing to remove is fine.
  */
 export async function removeFixturePerson(email: string): Promise<void> {
@@ -404,6 +420,7 @@ export async function removeFixturePerson(email: string): Promise<void> {
     `members?email=eq.${encodeURIComponent(email.toLowerCase())}&select=id`,
   );
   for (const { id } of members) {
+    await fencePerson(id);
     await resetAttendanceAndLeave(id);
     await resetExpenseClaims(id);
     await serviceRest(`session_events?member_id=eq.${id}`, { method: "DELETE" });
