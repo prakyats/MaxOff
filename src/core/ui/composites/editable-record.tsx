@@ -47,7 +47,7 @@ export interface EditableField<K extends string> {
    */
   kind?: "text" | "textarea" | "select";
   options?: readonly EditableOption[];
-  /** A select that may be left empty offers this choice (value ""), e.g. "No job title". */
+  /** A select that may be left empty offers this choice (value ""), e.g. "None". */
   noneLabel?: string;
   /** Lines a textarea opens with. */
   rows?: number;

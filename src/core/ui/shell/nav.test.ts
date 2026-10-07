@@ -4,9 +4,11 @@ import {
   badgeTotal,
   alertsInBottomNav,
   homeFor,
+  activeNavKey,
   isActivePath,
   MOBILE_MORE,
   MOBILE_PRIMARY,
+  MOBILE_VIA_ME,
   mobileNavFor,
   NAV_BY_ROLE,
   navFor,
@@ -40,15 +42,18 @@ describe("navFor", () => {
     expect(permissions("admin")).toContain("lists.manage");
   });
 
-  it("gives Staff exactly My Day, Tasks, Calendar, Alerts and Me (PRODUCT §4.7)", () => {
-    expect(keys("staff")).toEqual(["my-day", "tasks", "calendar", "alerts", "me"]);
+  it("gives Staff (Crew) the desktop sidebar of 5B decision 5", () => {
+    expect(keys("staff")).toEqual(["my-day", "tasks", "calendar", "leave", "work", "me"]);
     expect(navFor("staff").map((item) => item.label)).toEqual([
       "My Day",
       "Tasks",
       "Calendar",
-      "Alerts",
+      "Attendance & leave",
+      "Extra work & expenses",
       "Me",
     ]);
+    // Alerts is the bell at the top for every role since 5B decision 1.
+    expect(navFor("staff").map((item) => item.href)).not.toContain("/notifications");
   });
 
   it("never shows Staff clients, people, approvals, reports or settings", () => {
@@ -106,11 +111,12 @@ describe("mobileNavFor", () => {
         "Calendar",
       ]);
     }
+    // 5B decision 1: Leave replaces Alerts, which is the title bar's bell.
     expect(mobileNavFor("staff").primary.map((i) => i.label)).toEqual([
       "My Day",
       "Tasks",
       "Calendar",
-      "Alerts",
+      "Leave",
       "Me",
     ]);
   });
@@ -133,10 +139,10 @@ describe("mobileNavFor", () => {
     expect(MOBILE_MORE.owner).not.toBe(MOBILE_MORE.admin);
   });
 
-  it("never drops or duplicates a destination: primary + More is the whole navigation", () => {
+  it("never drops or duplicates a destination: the bar, More and Me's rows are the whole navigation", () => {
     for (const role of SHELL_ROLES) {
       const { primary, more } = mobileNavFor(role);
-      const keys = [...primary, ...more].map((item) => item.key);
+      const keys = [...primary, ...more].map((item) => item.key).concat(MOBILE_VIA_ME[role]);
       expect(new Set(keys).size).toBe(keys.length);
       expect([...keys].sort()).toEqual([...navFor(role).map((i) => i.key)].sort());
     }
@@ -152,7 +158,7 @@ describe("mobileNavFor", () => {
   it("names only keys the role actually has", () => {
     for (const role of SHELL_ROLES) {
       const available = navFor(role).map((item) => item.key);
-      for (const key of [...MOBILE_PRIMARY[role], ...MOBILE_MORE[role]]) {
+      for (const key of [...MOBILE_PRIMARY[role], ...MOBILE_MORE[role], ...MOBILE_VIA_ME[role]]) {
         expect(available).toContain(key);
       }
     }
@@ -160,7 +166,7 @@ describe("mobileNavFor", () => {
 
   it("the two arrays together are exactly the role's navigation, so nothing is lost", () => {
     for (const role of SHELL_ROLES) {
-      const split = [...MOBILE_PRIMARY[role], ...MOBILE_MORE[role]];
+      const split = [...MOBILE_PRIMARY[role], ...MOBILE_MORE[role], ...MOBILE_VIA_ME[role]];
       expect(new Set(split).size).toBe(split.length);
       expect([...split].sort()).toEqual([...navFor(role).map((i) => i.key)].sort());
     }
@@ -188,10 +194,27 @@ describe("mobileNavFor", () => {
     expect(mobileNavFor("staff").primary.map((item) => item.key)).toContain("tasks");
   });
 
-  it("puts the bell in the title bar for exactly the roles whose bar has no Alerts", () => {
-    expect(alertsInBottomNav("staff")).toBe(true);
-    expect(alertsInBottomNav("owner")).toBe(false);
-    expect(alertsInBottomNav("admin")).toBe(false);
+  it("puts the bell in the title bar for every role: no bar has Alerts (5B decision 1)", () => {
+    for (const role of SHELL_ROLES) expect(alertsInBottomNav(role)).toBe(false);
+  });
+
+  it("marks one current destination: the closest route wins (5B decision 3)", () => {
+    const sidebar = navFor("staff");
+    expect(activeNavKey("/leave", sidebar)).toBe("leave");
+    expect(activeNavKey("/leave/attendance", sidebar)).toBe("leave");
+    expect(activeNavKey("/leave/extra-work", sidebar)).toBe("work");
+    expect(activeNavKey("/leave/expenses", sidebar)).toBe("work");
+    expect(activeNavKey("/tasks/abc", sidebar)).toBe("tasks");
+    expect(activeNavKey("/notifications", sidebar)).toBeNull();
+    // On a phone, Extra work & expenses is a row on Me, so Me is the current tab there.
+    const bar = mobileNavFor("staff").primary;
+    expect(activeNavKey("/leave", bar)).toBe("leave");
+    expect(activeNavKey("/leave/attendance", bar)).toBe("leave");
+    expect(activeNavKey("/leave/extra-work", bar)).toBe("me");
+    expect(activeNavKey("/leave/expenses", bar)).toBe("me");
+    expect(activeNavKey("/me", bar)).toBe("me");
+    // Owner and Admin are unchanged (decision 7).
+    expect(activeNavKey("/clients/x", navFor("owner"))).toBe("clients");
   });
 
   it("never reaches money on a phone either (ADR-0007)", () => {
@@ -211,6 +234,7 @@ describe("settingsSectionsFor", () => {
       "company",
       "days-off",
       "thresholds",
+      "notifications",
       "expenses",
       "job-titles",
       "task-types",
@@ -224,6 +248,7 @@ describe("settingsSectionsFor", () => {
   it("gives Admins only lists, templates and custom fields", () => {
     const admin = settingsSectionsFor("admin");
     expect(admin.map((s) => s.key)).toEqual([
+      "notifications",
       "job-titles",
       "stage-presets",
       "custom-fields",

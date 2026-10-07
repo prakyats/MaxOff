@@ -1,5 +1,7 @@
 # How to build MaxOff with Claude Code
 
+> **PRODUCTION IS LIVE (since 2026-10-01): `https://app.maxoff.in` is in daily use by the Pixora Clips team with real data.** Expand-only migrations, releases only by an Owner-approved `v*` tag on a green `main` commit, never a seed, reset or hand-written SQL on production. The rules are in `CLAUDE.md` → "Production is live".
+
 This guide is for **you**: setup, models and the basics. For the day-to-day loop and **what to check after every task**, use **[OPERATING-MANUAL.md](OPERATING-MANUAL.md)**.
 `CLAUDE.md` and `docs/` are for Claude.
 **This folder is the project.** Claude Code works directly in it. GitHub (`origin`) is only a backup copy that `/finish-task` pushes to.

@@ -17,6 +17,7 @@ function type(overrides: Partial<TaskTypeSetting>): TaskTypeSetting {
     hasLocation: false,
     archivedAt: null,
     position: "a0",
+    defaultReminders: [],
     ...overrides,
   };
 }
@@ -57,10 +58,22 @@ describe("Settings → Task types (4C)", () => {
         showsOnCalendar: true,
         hasLocation: true,
       }),
-    ).toEqual({ name: "Podcast", kind: "normal", showsOnCalendar: false, hasLocation: false });
+    ).toEqual({
+      name: "Podcast",
+      kind: "normal",
+      showsOnCalendar: false,
+      hasLocation: false,
+      defaultReminders: [],
+    });
     expect(
       addTaskTypeSchema.parse({ name: "Recce", kind: "event", showsOnCalendar: true }),
-    ).toEqual({ name: "Recce", kind: "event", showsOnCalendar: true, hasLocation: false });
+    ).toEqual({
+      name: "Recce",
+      kind: "event",
+      showsOnCalendar: true,
+      hasLocation: false,
+      defaultReminders: [],
+    });
     expect(addTaskTypeSchema.safeParse({ name: "", kind: "normal" }).success).toBe(false);
     expect(addTaskTypeSchema.safeParse({ name: "x", kind: "project" }).success).toBe(false);
   });
@@ -70,7 +83,29 @@ describe("Settings → Task types (4C)", () => {
       taskTypeId: "00000000-0000-4000-8000-000000000001",
       name: "Shoot",
       kind: "normal",
+      defaultReminders: [{ before: 6, unit: "hours" }],
     });
     expect(parsed).not.toHaveProperty("kind");
+    expect(parsed.defaultReminders).toEqual([{ before: 6, unit: "hours" }]);
+  });
+
+  it("checks a type's default reminders as every level's (5.3)", () => {
+    const edit = { taskTypeId: "00000000-0000-4000-8000-000000000001", name: "Shoot" };
+    expect(editTaskTypeSchema.safeParse({ ...edit, defaultReminders: [] }).success).toBe(true);
+    expect(
+      editTaskTypeSchema.safeParse({
+        ...edit,
+        defaultReminders: [{ before: 61, unit: "days" }],
+      }).error?.issues[0],
+    ).toMatchObject({
+      path: ["defaultReminders", 0, "before"],
+      message: "Up to 60 days before the deadline.",
+    });
+    expect(
+      editTaskTypeSchema.safeParse({
+        ...edit,
+        defaultReminders: [1, 2, 3, 4, 5, 6].map((before) => ({ before, unit: "days" })),
+      }).error?.issues[0]?.message,
+    ).toBe("Up to 5 reminders.");
   });
 });

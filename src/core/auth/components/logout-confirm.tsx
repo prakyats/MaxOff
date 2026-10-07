@@ -61,8 +61,15 @@ export function LogoutProvider({
           // redirect's replace leaves /login alone on the stack (§14.2 c, e; 3b.1 moved the
           // sign-out off the home screen).
           await new Promise<void>((resolve) => backToHomeThen(resolve));
+          // This device's push subscription goes with the sign-out (5.2): the browser's copy is
+          // dropped and its endpoint handed to the action, which deletes the row.
+          // Loaded on the tap, so the push code stays out of every screen's first load (A-L6); a
+          // chunk that fails to load (offline) never stops the sign-out.
+          const pushEndpoint = await import("@/core/notifications/push/release")
+            .then((module) => module.releaseThisDevice())
+            .catch(() => null);
           // On success the action redirects; only a failure comes back as a Result.
-          toastResult(await logout());
+          toastResult(await logout(pushEndpoint ? { pushEndpoint } : {}));
           return true;
         }}
       >

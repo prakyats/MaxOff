@@ -53,3 +53,17 @@ export function safeNextPath(value: string | null | undefined): string | null {
   if (isSignedOutOnlyPath(url.pathname) || url.pathname.startsWith("/auth/")) return null;
   return `${url.pathname}${url.search}${url.hash}`;
 }
+
+/**
+ * Where a sign-in lands (5.5; owner answers 2026-10-06, 2): a `next` the sign-in asked for wins
+ * when it is safe (a deep link, as before); otherwise a new joiner whose walkthrough is unfinished
+ * goes to the welcome screen, on any device, until they finish it or tap Later; everyone else, and
+ * every member who joined before 5.5 (no walkthrough), goes to their home.
+ */
+export function signInLanding(input: {
+  next: string | null | undefined;
+  home: string;
+  walkthroughUnfinished: boolean;
+}): string {
+  return safeNextPath(input.next) ?? (input.walkthroughUnfinished ? WELCOME_PATH : input.home);
+}

@@ -2,6 +2,7 @@ import { expect, test } from "./fixtures";
 
 import {
   followAuthLink,
+  memberIdOf,
   onBaseURL,
   refreshTokenFrom,
   removeFixturePerson,
@@ -120,8 +121,10 @@ test.describe("Owner", () => {
       await followAuthLink(tab, secondLink);
       await expect(tab).toHaveURL(/\/login\?reason=link$/);
 
+      // A new joiner's walkthrough is still open: every sign-in lands on the welcome screen until
+      // it is finished or skipped (owner 2026-10-06; onboarding.spec.ts proves both ends).
       await signIn(tab, INVITEE.email, INVITEE_PASSWORD);
-      await expect(tab).toHaveURL(/\/my-day$/);
+      await expect(tab).toHaveURL(/\/me\?welcome=1$/);
     } finally {
       await invitee.close();
     }
@@ -194,9 +197,10 @@ test.describe("Owner", () => {
       await expect(tab.locator('[data-slot="form-alert"]')).toBeVisible();
       await expect(tab).toHaveURL(/\/login/);
 
-      // The password and the session rules are untouched: same password, new address.
+      // The password and the session rules are untouched: same password, new address. Their
+      // walkthrough is still open, so the sign-in lands on the welcome screen (owner 2026-10-06).
       await signIn(tab, MOVED_EMAIL, INVITEE_PASSWORD);
-      await expect(tab).toHaveURL(/\/today$/);
+      await expect(tab).toHaveURL(/\/me\?welcome=1$/);
     } finally {
       await moved.close();
     }
@@ -361,6 +365,50 @@ test.describe("Owner", () => {
     } finally {
       await leaver.close();
     }
+  });
+});
+
+/**
+ * A person without a job title shows their role alone (owner 2026-10-01): never "No job title"
+ * and never a dangling " · ", in the People list (the desktop rows' second line, the phone's
+ * cards), on their Profile (the record's own "Not added") and in the edit select ("None").
+ * Read-only: nothing is saved. Many seeded people have no title ("Test Review Bulk A" among them).
+ */
+test.describe("no job title", () => {
+  test.use({ storageState: storageStateFor("owner") });
+
+  test("the role stands alone in the list, the Profile says Not added, the select offers None", async ({
+    page,
+    isMobile,
+  }) => {
+    await page.goto("/people");
+    await expect(page.getByRole("heading", { name: "People", exact: true })).toBeVisible();
+    // The phone's card subtitle, or the desktop Name cell's second line.
+    const lines = isMobile
+      ? page.locator('[data-slot="data-cards"] li span.text-xs')
+      : page.locator("table tbody tr td:first-child p.text-xs");
+    await expect(lines.first()).toBeVisible();
+    const texts = (await lines.allInnerTexts()).map((text) => text.trim());
+    expect(texts.length).toBeGreaterThan(0);
+    for (const text of texts) {
+      expect(text, "no stray separator").not.toMatch(/(^·|·$|·\s*·)/);
+      expect(text).not.toContain("No job title");
+    }
+    // At least one person without a title, shown by their role alone.
+    expect(texts).toContain("Crew");
+    await expect(page.getByText("No job title")).toHaveCount(0);
+
+    const id = await memberIdOf("review-bulk-a@maxoff.local");
+    await page.goto(`/people/${id}`);
+    const profile = page.locator('[data-slot="editable-record"]', {
+      has: page.getByRole("heading", { name: "Profile", exact: true }),
+    });
+    const jobTitle = profile.locator('[data-slot="record-value"]', { hasText: "Job title" });
+    await expect(jobTitle.locator("dd")).toHaveText("Not added");
+    await profile.locator('[data-slot="edit-record"]').click();
+    await profile.getByLabel("Job title").click();
+    await expect(page.getByRole("option", { name: "None", exact: true })).toBeVisible();
+    await expect(page.getByText("No job title")).toHaveCount(0);
   });
 });
 

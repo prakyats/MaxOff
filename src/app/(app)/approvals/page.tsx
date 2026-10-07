@@ -28,6 +28,7 @@ import {
   type TaskApprovalItem,
   TaskApprovalGroup,
 } from "@/modules/tasks/components/task-approval-group";
+import { TasksFreshOnReturn } from "@/modules/tasks/components/tasks-fresh-on-return";
 import { listDirectory } from "@/modules/team";
 
 export const metadata: Metadata = { title: "Approvals" };
@@ -91,6 +92,7 @@ export default async function ApprovalsPage() {
 
   return (
     <>
+      <TasksFreshOnReturn renderId={crypto.randomUUID()} />
       <PageHeader title="Approvals" description={DESCRIPTION} help={DESCRIPTION} />
       {nothing ? (
         <EmptyState

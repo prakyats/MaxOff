@@ -15,6 +15,7 @@ import { useAction } from "@/core/ui/action/use-action";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { FormField } from "@/core/ui/composites/form-field";
 import { NAV_FORWARD } from "@/core/ui/motion/nav-types";
+import { nameSlide } from "@/core/ui/motion/slide";
 import { closeOverlaysThen } from "@/core/ui/overlay/overlay-history";
 import { Button } from "@/core/ui/primitives/button";
 import {
@@ -71,7 +72,10 @@ export function NewClientDialog({
         return;
       }
       const href = `/clients/${result.data.id}`;
-      closeOverlaysThen(() => router.push(href, { transitionTypes: [NAV_FORWARD] }));
+      closeOverlaysThen(() => {
+        nameSlide("forward");
+        router.push(href, { transitionTypes: [NAV_FORWARD] });
+      });
     },
     { resetKey: open, creates: true },
   );

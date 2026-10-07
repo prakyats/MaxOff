@@ -3,6 +3,7 @@
 import { Loader2Icon } from "lucide-react";
 import { useEffect, useId, useMemo, useState } from "react";
 
+import { getInBackground } from "@/core/http/background";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { Button } from "@/core/ui/primitives/button";
 import { Label } from "@/core/ui/primitives/label";
@@ -14,7 +15,7 @@ import {
   SelectValue,
 } from "@/core/ui/primitives/select";
 
-import { type ClientHandoverData, getClientHandover } from "../actions/members";
+import type { ClientHandoverData } from "../actions/background";
 
 export type HandoverMove = { clientId: string; adminId: string };
 
@@ -44,7 +45,10 @@ export function ClientHandover({
 
   useEffect(() => {
     let live = true;
-    void getClientHandover({ memberId: member.id }).then((result) => {
+    // A plain request, never a server action (ARCHITECTURE §4.4): an effect sends it.
+    void getInBackground<ClientHandoverData>("/api/team/client-handover", {
+      member: member.id,
+    }).then((result) => {
       if (!live) return;
       if (result.ok) setData(result.data);
       else setFailed(true);

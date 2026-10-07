@@ -15,7 +15,8 @@
   // to its `/api/cron/<job>` route in `worker/index.js`; the route checks CRON_SECRET (a
   // Worker secret). Inheritable, and repeated in each environment on purpose so the schedule
   // is read where the environment is read. storage_cleanup: 03:00 IST = 21:30 UTC, daily.
-  "triggers": { "crons": ["30 21 * * *"] },
+  // push_dispatch (5.2): every minute; it also sends the 07:00 IST quiet-hours summary.
+  "triggers": { "crons": ["30 21 * * *", "* * * * *"] },
   // 2025-08-16 or later: introduces `https.request`, which the Sentry SDK needs.
   "compatibility_date": "2026-09-01",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
@@ -24,7 +25,8 @@
   // Workers Logs (free): request logs and console output in the Cloudflare dashboard.
   "observability": { "enabled": true },
   "env": {
-    // Staging: deployed from `main` by .github/workflows/deploy.yml. Free plan, no real data.
+    // Staging: deployed from `main` by .github/workflows/deploy.yml. No real data. The account is on
+    // Workers Paid (since 2026-09-23, confirmed by the owner 2026-09-30), which covers both Workers.
     // `preview_urls` is on so branch previews work (task 2.0): every version uploaded by
     // .github/workflows/preview.yml is reachable at <version>-maxoff-staging.<subdomain>
     // .workers.dev and at <branch>-maxoff-staging.<subdomain>.workers.dev. Stated here rather
@@ -36,9 +38,9 @@
       "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "maxoff-staging" }],
       "observability": { "enabled": true },
       "preview_urls": true,
-      "triggers": { "crons": ["30 21 * * *"] },
+      "triggers": { "crons": ["30 21 * * *", "* * * * *"] },
     },
-    // Production: deployed from a `v*` tag. Workers Paid from the pilot (task 6.6).
+    // Production: deployed from a `v*` tag. Workers Paid (the account's plan, see staging).
     // `preview_urls` is off ON PURPOSE (task 2.0). Left at the account default, every
     // production version would also be served at <version>-maxoff.<subdomain>.workers.dev:
     // a public, unlisted address serving real data outside the custom domain and outside
@@ -62,7 +64,7 @@
       "workers_dev": true,
       "routes": [{ "pattern": "app.maxoff.in", "custom_domain": true }],
       "vars": { "CANONICAL_HOST": "app.maxoff.in" },
-      "triggers": { "crons": ["30 21 * * *"] },
+      "triggers": { "crons": ["30 21 * * *", "* * * * *"] },
     },
   },
 }

@@ -32,6 +32,7 @@ import {
 } from "@/core/ui/primitives/sheet";
 
 import { cn } from "@/core/lib/utils";
+import { replaceViewAddress } from "@/core/ui/navigation/view-address";
 import { closeOverlaysThen } from "@/core/ui/overlay/overlay-history";
 import { Button } from "@/core/ui/primitives/button";
 import { Checkbox } from "@/core/ui/primitives/checkbox";
@@ -203,14 +204,15 @@ export function DataTable<TData>({
     latestView.current = next;
     // Typing a search writes nothing: only a filter's id belongs in the URL (§18.2).
     if (!filtersChanged && !carriesOldSearch(window.location.search)) return;
-    // A replace, never a push (§14.2 d); Next keeps `useSearchParams` in step with it. A filter
+    // A replace, never a push (§14.2 d), held while the router is fetching (`view-address.ts`);
+    // Next keeps `useSearchParams` in step with it. A filter
     // is chosen inside its open select, whose layer owns the current history entry: that entry
     // is backed out first, so the page's own entry is the one that keeps the view.
     // A call made while a back is in flight is dropped, and the write already queued reads
     // `latestView`, so the URL still ends on the newest view.
     closeOverlaysThen(() => {
       const query = paramsForView(window.location.search, latestView.current, filters);
-      window.history.replaceState(null, "", `${window.location.pathname}${query}`);
+      replaceViewAddress(`${window.location.pathname}${query}`);
     });
   }
 

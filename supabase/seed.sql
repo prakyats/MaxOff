@@ -1,3 +1,5 @@
+-- LOCAL ONLY. PRODUCTION IS LIVE (https://app.maxoff.in, in daily use since 2026-10-01): never run
+-- this seed, `db:reset` or any hand-written SQL against production or staging (CLAUDE.md).
 -- Dev seed, loaded by `pnpm db:reset` after the migrations (config.toml [db.seed]).
 -- Real data never goes into local or staging (ARCHITECTURE §2). The deploy workflow runs
 -- `db push` only, so nothing here reaches a hosted project.
@@ -163,7 +165,29 @@ insert into seed_users values
   ('20000000-0000-4000-8000-000000000093', 'req-staff-mobile@maxoff.local', 'req-local-password', 'Test Request Staff (mobile)', null, 'staff', 'active'),
   ('20000000-0000-4000-8000-000000000094', 'people-coord-mobile-lg@maxoff.local', 'people-local-password', 'Test People Coordinator (mobile-lg)', null, 'staff', 'active'),
   ('20000000-0000-4000-8000-000000000095', 'people-coord2-mobile-lg@maxoff.local', 'people-local-password', 'Test People Coordinator B (mobile-lg)', null, 'staff', 'active'),
-  ('20000000-0000-4000-8000-000000000096', 'req-staff-mobile-lg@maxoff.local', 'req-local-password', 'Test Request Staff (mobile-lg)', null, 'staff', 'active');
+  ('20000000-0000-4000-8000-000000000096', 'req-staff-mobile-lg@maxoff.local', 'req-local-password', 'Test Request Staff (mobile-lg)', null, 'staff', 'active'),
+  -- 5.2: Web Push (e2e/push.spec.ts), one person per project: the banner is judged per member,
+  -- so the projects running side by side must never share a person's subscriptions.
+  ('20000000-0000-4000-8000-000000000097', 'push-desktop@maxoff.local', 'push-local-password', 'Test Push (desktop)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000098', 'push-mobile@maxoff.local', 'push-local-password', 'Test Push (mobile)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000099', 'push-mobile-lg@maxoff.local', 'push-local-password', 'Test Push (mobile-lg)', null, 'staff', 'active'),
+  -- 5.1: the bell and Alerts (e2e/notifications.spec.ts), a Staff member and an Admin per
+  -- project: the counts and Mark all read are per person, so the projects never share one.
+  ('20000000-0000-4000-8000-000000000100', 'alerts-staff-desktop@maxoff.local', 'alerts-local-password', 'Test Alerts Staff (desktop)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000101', 'alerts-admin-desktop@maxoff.local', 'alerts-local-password', 'Test Alerts Admin (desktop)', null, 'admin', 'active'),
+  ('20000000-0000-4000-8000-000000000102', 'alerts-staff-mobile@maxoff.local', 'alerts-local-password', 'Test Alerts Staff (mobile)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000103', 'alerts-admin-mobile@maxoff.local', 'alerts-local-password', 'Test Alerts Admin (mobile)', null, 'admin', 'active'),
+  ('20000000-0000-4000-8000-000000000104', 'alerts-staff-mobile-lg@maxoff.local', 'alerts-local-password', 'Test Alerts Staff (mobile-lg)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000105', 'alerts-admin-mobile-lg@maxoff.local', 'alerts-local-password', 'Test Alerts Admin (mobile-lg)', null, 'admin', 'active'),
+  -- 5.4: Settings → Notifications and the app's report (e2e/reachability.spec.ts), an Admin and a
+  -- Staff member per project: the Admin's list is the people on their own open tasks, so the
+  -- projects never share one.
+  ('20000000-0000-4000-8000-000000000106', 'reach-admin-desktop@maxoff.local', 'reach-local-password', 'Test Reach Admin (desktop)', null, 'admin', 'active'),
+  ('20000000-0000-4000-8000-000000000107', 'reach-staff-desktop@maxoff.local', 'reach-local-password', 'Test Reach Staff (desktop)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000108', 'reach-admin-mobile@maxoff.local', 'reach-local-password', 'Test Reach Admin (mobile)', null, 'admin', 'active'),
+  ('20000000-0000-4000-8000-000000000109', 'reach-staff-mobile@maxoff.local', 'reach-local-password', 'Test Reach Staff (mobile)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000110', 'reach-admin-mobile-lg@maxoff.local', 'reach-local-password', 'Test Reach Admin (mobile-lg)', null, 'admin', 'active'),
+  ('20000000-0000-4000-8000-000000000111', 'reach-staff-mobile-lg@maxoff.local', 'reach-local-password', 'Test Reach Staff (mobile-lg)', null, 'staff', 'active');
 
 -- What GoTrue writes for a confirmed email + password user (`auth.users` + one identity).
 insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -225,3 +249,19 @@ from (values
 where not exists (
   select 1 from public.member_coordinators mc where mc.member_id = c.member_id and mc.to_at is null
 );
+
+-- 5A review fixes (M2): the local and CI database lets push_subscription_upsert take http
+-- endpoints on the loopback host, where the e2e fake push service runs. Only the seed writes
+-- this, and no hosted project runs the seed: staging and production take https only.
+insert into app.local_flags (flag) values ('push_loopback_endpoints') on conflict do nothing;
+
+-- 5.4: every seeded person joined 40 days ago with no push device, so the hourly
+-- reachability_check would alert the local Owner (one always-emailed notification each) the first
+-- time it runs, in the middle of an e2e run. The seed records each of them as already alerted
+-- now: nothing is alerted for 7 days after a reset. Settings → Notifications reads the state
+-- live, so it is unaffected. No hosted project runs the seed.
+insert into public.member_reachability (member_id, org_id, state, since, alerted_at)
+select m.id, m.org_id, app.reachability_state(m.id), now(), now()
+from public.members m
+where m.status = 'active' and m.engagement = 'permanent' and m.joined_at is not null
+on conflict (member_id) do nothing;

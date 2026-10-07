@@ -1,24 +1,39 @@
 "use client";
 
-import { useActionState } from "react";
+import { type FormEvent, startTransition, useActionState, useState } from "react";
 import { toast } from "sonner";
 
 import type { Result } from "@/core/errors";
+import {
+  draftFromRules,
+  LAUNCH_REMINDERS,
+  type ReminderDraft,
+  rulesFromDraft,
+} from "@/core/lib/reminder-rules";
 import { FormField } from "@/core/ui/composites/form-field";
+import { ReminderRulesEditor } from "@/core/ui/composites/reminder-rules-editor";
 import { StickyActions } from "@/core/ui/composites/sticky-actions";
 import { Button } from "@/core/ui/primitives/button";
 import { Input } from "@/core/ui/primitives/input";
 
 import { updateThresholds } from "../actions/settings";
+import type { UpdateThresholdsInput } from "../domain/schemas";
 import type { Thresholds } from "../domain/settings";
 import { FormError } from "./form-error";
 
 /**
  * The timings that drive reminders and escalations (PRODUCT §7, WORKFLOWS §9), and the workload
- * warning the task dialog shows (4.3, kickoff 4 decision 11). The reminder jobs arrive with 5.3.
- * Changing one never rewrites what already happened — each job reads the value when it runs.
+ * warning the task dialog shows (4.3, kickoff 4 decision 11), and the Owner's quiet hours (5B
+ * decision 6), and the organisation's default task reminders (5.3: the level under every type and
+ * template; "Using the default" while empty, which is the launch schedule).
+ * Changing one never rewrites what already happened — each job reads the value when it runs; a
+ * task's reminders are worked out when it is created or its deadline moves.
  */
 export function ThresholdsForm({ thresholds }: { thresholds: Thresholds }) {
+  const [reminders, setReminders] = useState<ReminderDraft>(() =>
+    draftFromRules(thresholds.defaultTaskReminders),
+  );
+  const [remindersBlocked, setRemindersBlocked] = useState(false);
   const [state, formAction, pending] = useActionState(
     async (_previous: Result<null> | null, formData: FormData) => {
       const value = (name: string) => String(formData.get(name) ?? "");
@@ -31,6 +46,9 @@ export function ThresholdsForm({ thresholds }: { thresholds: Thresholds }) {
         overdueEscalateHours: value("overdueEscalateHours"),
         emailDailyCapPerMember: value("emailDailyCapPerMember"),
         workloadWarningThreshold: value("workloadWarningThreshold"),
+        quietHoursStart: value("quietHoursStart"),
+        quietHoursEnd: value("quietHoursEnd"),
+        defaultTaskReminders: readList(value("defaultTaskReminders")),
       });
       if (result.ok) toast.success("Thresholds saved");
       return result;
@@ -38,10 +56,28 @@ export function ThresholdsForm({ thresholds }: { thresholds: Thresholds }) {
     null,
   );
   const error = state && !state.ok ? state.error : null;
+  // Submitted through onSubmit, not the form's `action`: React resets a form's uncontrolled
+  // fields after an `action` runs, failures included, so a refused save (a field error) used to
+  // put every other edit back to the saved value, and the next Save stored what nobody typed.
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    // A reminder row that needs fixing says so under itself; nothing is sent until it is fixed.
+    if (rulesFromDraft(reminders) === null) {
+      setRemindersBlocked(true);
+      return;
+    }
+    const data = new FormData(event.currentTarget);
+    startTransition(() => formAction(data));
+  }
   const fieldErrors = error?.fieldErrors ?? {};
+  const remindersError =
+    Object.entries(fieldErrors).find(([key]) => key.startsWith("defaultTaskReminders"))?.[1]?.[0] ??
+    (remindersBlocked && rulesFromDraft(reminders) === null
+      ? "Fix the reminders, or use the default."
+      : undefined);
 
   return (
-    <form action={formAction} noValidate className="flex max-w-xl flex-col gap-4">
+    <form onSubmit={submit} noValidate className="flex max-w-xl flex-col gap-4">
       <FormError error={error} />
       <FormField
         label="End-of-day reminder"
@@ -187,6 +223,76 @@ export function ThresholdsForm({ thresholds }: { thresholds: Thresholds }) {
         </FormField>
       </div>
 
+      <section aria-labelledby="quiet-hours" className="flex flex-col gap-3">
+        <div>
+          <h2 id="quiet-hours" className="text-sm font-medium">
+            Quiet hours
+          </h2>
+          <p className="text-muted-foreground text-sm">
+            IST, for everyone. Notifications that arrive in these hours wait and come as one summary
+            when they end. Emails and the in-app list aren&apos;t held, and a test notification
+            ignores them.
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField label="Quiet from" error={fieldErrors.quietHoursStart}>
+            {(control) => (
+              <Input
+                {...control}
+                name="quietHoursStart"
+                type="time"
+                defaultValue={thresholds.quietHoursStart}
+                className="max-w-40"
+                required
+              />
+            )}
+          </FormField>
+          <FormField
+            label="Quiet until"
+            hint="The next morning when it is earlier than the start."
+            error={fieldErrors.quietHoursEnd}
+          >
+            {(control) => (
+              <Input
+                {...control}
+                name="quietHoursEnd"
+                type="time"
+                defaultValue={thresholds.quietHoursEnd}
+                className="max-w-40"
+                required
+              />
+            )}
+          </FormField>
+        </div>
+      </section>
+
+      <section aria-labelledby="default-reminders" className="flex flex-col gap-3">
+        <div>
+          <h2 id="default-reminders" className="text-sm font-medium">
+            Default reminders
+          </h2>
+          <p className="text-muted-foreground text-sm">
+            Before a task&apos;s deadline, for every task whose type and template have none of their
+            own. The overdue reminder and the escalations are fixed.
+          </p>
+        </div>
+        <ReminderRulesEditor
+          draft={reminders}
+          onChange={(next) => {
+            setReminders(next);
+            setRemindersBlocked(false);
+          }}
+          fallback={LAUNCH_REMINDERS}
+          disabled={pending}
+          error={remindersError}
+        />
+        <input
+          type="hidden"
+          name="defaultTaskReminders"
+          value={JSON.stringify(rulesFromDraft(reminders) ?? [])}
+        />
+      </section>
+
       <StickyActions>
         <Button variant="primary" type="submit" pending={pending} pendingLabel="Saving…">
           Save thresholds
@@ -194,4 +300,9 @@ export function ThresholdsForm({ thresholds }: { thresholds: Thresholds }) {
       </StickyActions>
     </form>
   );
+}
+
+/** The hidden field's list: written by this form from a checked draft; the action checks again. */
+function readList(text: string): UpdateThresholdsInput["defaultTaskReminders"] {
+  return JSON.parse(text) as UpdateThresholdsInput["defaultTaskReminders"];
 }

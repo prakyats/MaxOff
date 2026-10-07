@@ -1,4 +1,6 @@
+import { readFileSync } from "node:fs";
 import { request as httpRequest } from "node:http";
+import { join } from "node:path";
 
 import { expect, type Locator, type Page } from "@playwright/test";
 
@@ -211,7 +213,7 @@ export async function insertAs<T>(
  * transition functions, so it refuses any URL that is not this machine's stack. For clearing a
  * spec's own fixture person and for reading ids a spec needs, never for the flow under test.
  */
-async function serviceRest(path: string, init: RequestInit = {}): Promise<Response> {
+export async function serviceRest(path: string, init: RequestInit = {}): Promise<Response> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
   const key = process.env.SUPABASE_SECRET_KEY ?? "";
   expect(new URL(url).hostname, "service-role cleanup runs on the local stack only").toMatch(
@@ -265,6 +267,57 @@ export async function recoveryLinkFor(email: string): Promise<string> {
   const token = body.hashed_token ?? body.properties?.hashed_token;
   expect(token, "generate_link returned a hashed token").toBeTruthy();
   return `/auth/confirm?token_hash=${token as string}&type=recovery`;
+}
+
+/**
+ * A fresh invite for a fixture person (5.5), as the invite action makes it: the sign-in and its
+ * one-time token (`generate_link`, type invite), then `member_invite()` as the Owner. Anyone
+ * earlier under the address is removed first, so a spec re-runs on a used database. Returns the
+ * person's id and the `/auth/confirm` link (path + query) to open with `followAuthLink()`.
+ */
+export async function inviteFixturePerson(
+  email: string,
+  fullName: string,
+  role: "admin" | "staff" = "staff",
+): Promise<{ id: string; link: string }> {
+  await removeFixturePerson(email);
+  const body = (await serviceAuth("generate_link", {
+    method: "POST",
+    body: JSON.stringify({ type: "invite", email }),
+  })) as {
+    id?: string;
+    user?: { id?: string };
+    hashed_token?: string;
+    properties?: { hashed_token?: string };
+  };
+  const id = body.id ?? body.user?.id;
+  const token = body.hashed_token ?? body.properties?.hashed_token;
+  expect(id, "generate_link returned the new sign-in").toBeTruthy();
+  expect(token, "generate_link returned a hashed token").toBeTruthy();
+  await rpcAs(USERS.owner.email, USERS.owner.password, "member_invite", {
+    user_id: id,
+    email,
+    full_name: fullName,
+    role,
+  });
+  return { id: id as string, link: `/auth/confirm?token_hash=${token as string}&type=invite` };
+}
+
+/**
+ * Accepts a fixture person's invite without the link (5.5), for a spec about what comes after
+ * the first login: their password is set and the sign-in confirmed by the service role, then
+ * `member_accept_invite()` runs as them, exactly the call `setPassword()` makes.
+ */
+export async function acceptFixtureInvite(
+  id: string,
+  email: string,
+  password: string,
+): Promise<void> {
+  await serviceAuth(`users/${id}`, {
+    method: "PUT",
+    body: JSON.stringify({ password, email_confirm: true }),
+  });
+  await rpcAs(email, password, "member_accept_invite", {});
 }
 
 /** Puts a fixture person's password back after a spec changed it. */
@@ -340,10 +393,26 @@ export async function resetAttendanceAndLeave(memberId: string): Promise<void> {
 }
 
 /**
+ * Stops a person's requests at the e2e server's Supabase proxy (`e2e/hold-proxy.ts`) and waits
+ * until none of theirs is still in flight: from then on nothing they do writes. Their open page
+ * writes in the background (the app-open report, audited with them as the actor), and a write
+ * landing in the middle of `removeFixturePerson` failed its member delete (main CI, 2026-10-06).
+ */
+export async function fencePerson(memberId: string): Promise<void> {
+  const response = await fetch(`${HOLD_PROXY_URL}/__fence`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ member: memberId }),
+  });
+  expect(response.ok, `hold-proxy fence of ${memberId}: ${response.status}`).toBe(true);
+}
+
+/**
  * Removes a person a spec creates (an invitee), member row and GoTrue sign-in included, so the
  * spec can invite them again on a database that is not fresh (2.6: five runs after one
- * `db:reset`). Every row that points at the member goes first; the audit rows *about* them
- * (`entity_id`, no foreign key) stay, as history should. A sign-in left behind by an invite
+ * `db:reset`). Their requests are fenced first (`fencePerson`), so no write of theirs lands
+ * between the deletes. Every row that points at the member goes first; the audit rows *about*
+ * them (`entity_id`, no foreign key) stay, as history should. A sign-in left behind by an invite
  * that never became a member is removed too. Nothing to remove is fine.
  */
 export async function removeFixturePerson(email: string): Promise<void> {
@@ -351,6 +420,7 @@ export async function removeFixturePerson(email: string): Promise<void> {
     `members?email=eq.${encodeURIComponent(email.toLowerCase())}&select=id`,
   );
   for (const { id } of members) {
+    await fencePerson(id);
     await resetAttendanceAndLeave(id);
     await resetExpenseClaims(id);
     await serviceRest(`session_events?member_id=eq.${id}`, { method: "DELETE" });
@@ -602,6 +672,19 @@ export async function memberIdOf(email: string): Promise<string> {
  * tapped eases back from its pressed scale (`pressable`, 120 ms), and a sheet slides in, so a box
  * read during either is a few pixels off what the person sees a moment later.
  */
+/**
+ * The top edge of what a phone's docked bars (the sticky action bar, the task's next step) sit
+ * on: the push band while it shows (5A decision 30: the bands sit between the bottom bar and
+ * everything docked above it), else the bottom bar itself.
+ */
+export async function dockTop(page: Page): Promise<number> {
+  const band = page.locator('[data-slot="push-banner"]');
+  const below = (await band.count())
+    ? await band.boundingBox()
+    : await page.locator('[data-slot="bottom-nav"]').boundingBox();
+  return below?.y ?? 0;
+}
+
 export async function animationsSettled(page: Page): Promise<void> {
   await page.waitForFunction(() =>
     document.getAnimations().every((animation) => {
@@ -848,4 +931,20 @@ export async function removeFreelancersNamed(prefix: string): Promise<void> {
     await serviceRest(`member_coordinators?member_id=eq.${id}`, { method: "DELETE" });
     await serviceRest(`members?id=eq.${id}`, { method: "DELETE" });
   }
+}
+
+/**
+ * The id Next gives a server action in the build under test (its `next-action` header), from the
+ * build's own manifest, so a trap catches that action and nothing else: the bell's count read when
+ * Realtime first joins, or any background call added later, is never caught by mistake.
+ */
+export function actionId(filename: string, exportedName: string): string {
+  const manifest = JSON.parse(
+    readFileSync(join(process.cwd(), ".next/server/server-reference-manifest.json"), "utf8"),
+  ) as { node: Record<string, { filename: string; exportedName: string }> };
+  const ids = Object.entries(manifest.node)
+    .filter(([, entry]) => entry.filename === filename && entry.exportedName === exportedName)
+    .map(([id]) => id);
+  if (ids.length !== 1) throw new Error(`${filename} ${exportedName}: ${ids.length} action ids`);
+  return ids[0]!;
 }

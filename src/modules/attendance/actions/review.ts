@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { action, type BulkOutcome, eachId, ok, type Result } from "@/core/errors";
+import { dispatchPushSoon } from "@/core/notifications/push/dispatch";
 import { assertPermission } from "@/core/permissions/server";
 
 import * as repo from "../data/review";
@@ -30,6 +31,7 @@ export const approveDay = action(async (input: ApproveDayInput): Promise<Result<
   await assertPermission("attendance.decide");
   await repo.rpcApproveDay(data.dayId);
   revalidateReview();
+  dispatchPushSoon();
   return ok(null);
 });
 
@@ -39,6 +41,7 @@ export const approveDays = action(async (input: ApproveDaysInput): Promise<Resul
   await assertPermission("attendance.decide");
   const outcome = await eachId(data.dayIds, repo.rpcApproveDay);
   revalidateReview();
+  dispatchPushSoon();
   return ok(outcome);
 });
 
@@ -47,5 +50,6 @@ export const correctDay = action(async (input: CorrectDayInput): Promise<Result<
   await assertPermission("attendance.decide");
   await repo.rpcCorrectDay(data.dayId, data.status, data.reason);
   revalidateReview();
+  dispatchPushSoon();
   return ok(null);
 });

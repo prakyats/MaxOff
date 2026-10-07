@@ -5,19 +5,18 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 
+import { PASSWORD_MIN_LENGTH } from "@/core/auth";
 import { getCurrentMember } from "@/core/auth/server";
 import { action, AppError, ok, type Result } from "@/core/errors";
 import { resolveAppOrigin } from "@/core/lib/app-url";
 import type { EmailSendResult } from "@/core/notifications/email";
 import { sendEmail } from "@/core/notifications/email";
 import { assertPermission } from "@/core/permissions/server";
-import { handOverClients, listClientsRunBy } from "@/modules/clients";
-import { countOpenAssignments } from "@/modules/tasks";
+import { handOverClients } from "@/modules/clients";
 
 import { emailChangedNewAddressEmail, emailChangedOldAddressEmail } from "../domain/email-change";
 import { inviteEmail, inviteLinkFor } from "../domain/invite";
 import {
-  coordinatorOptions,
   inviteAsEmployeeRefusal,
   LEFTOVER_SIGN_IN_MESSAGE,
   type MemberStatus,
@@ -123,7 +122,13 @@ export const inviteMember = action(
 
     const link = inviteLinkFor(await appOrigin(), tokenHash, type);
     const sent = await sendEmail(
-      inviteEmail({ to: data.email, inviteeName: data.fullName, inviterName: viewer.name, link }),
+      inviteEmail({
+        to: data.email,
+        inviteeName: data.fullName,
+        inviterName: viewer.name,
+        link,
+        passwordMinLength: PASSWORD_MIN_LENGTH,
+      }),
     );
     revalidatePath(PEOPLE_PATH, "layout");
     return ok({ memberId: userId, link, email: outcomeOf(sent) });
@@ -142,30 +147,6 @@ export const issueInviteLink = action(
     const { tokenHash, type } = await repo.issueInviteToken(member.email);
     revalidatePath(PEOPLE_PATH, "layout");
     return ok({ link: inviteLinkFor(await appOrigin(), tokenHash, type) });
-  },
-);
-
-export type ClientHandoverData = {
-  clients: { id: string; name: string }[];
-  /** Every other active Admin, by name: who may take the clients. */
-  admins: { id: string; name: string }[];
-};
-
-/**
- * What an Admin runs and who may take it, read when the Owner opens a demotion or a deactivation
- * (phase 3 review, owner: no client is ever left without an Admin).
- */
-export const getClientHandover = action(
-  async (input: MemberIdInput): Promise<Result<ClientHandoverData>> => {
-    const { memberId } = memberIdSchema.parse(input);
-    await assertPermission("team.manage");
-    const [clients, members] = await Promise.all([listClientsRunBy(memberId), repo.listMembers()]);
-    const admins = members
-      .filter((member) => member.role === "admin" && member.status === "active")
-      .filter((member) => member.id !== memberId)
-      .map((member) => ({ id: member.id, name: member.fullName }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-    return ok({ clients, admins });
   },
 );
 
@@ -326,70 +307,6 @@ export const changeCoordinator = action(
   },
 );
 
-export type CoordinatorChoices = {
-  /** The freelancer's current coordinator, if any (none once deactivated). */
-  current: { id: string; name: string } | null;
-  /** Who may coordinate: every active permanent Admin or Staff member but the current one. */
-  options: { id: string; name: string }[];
-};
-
-/** Read when the Owner opens "Change coordinator" or a freelancer's reactivation (ADR-0013). */
-export const getCoordinatorChoices = action(
-  async (input: MemberIdInput): Promise<Result<CoordinatorChoices>> => {
-    const { memberId } = memberIdSchema.parse(input);
-    await assertPermission("team.manage");
-    const [coordinators, members] = await Promise.all([
-      repo.listCurrentCoordinators(),
-      repo.listMembers(),
-    ]);
-    const currentId = coordinators[memberId] ?? null;
-    const current = currentId ? members.find((member) => member.id === currentId) : undefined;
-    return ok({
-      current: current ? { id: current.id, name: current.fullName } : null,
-      options: coordinatorOptions(members, [memberId, ...(currentId ? [currentId] : [])]),
-    });
-  },
-);
-
-export type FreelancerHandoverData = {
-  freelancers: { id: string; name: string }[];
-  /** Who may take them: every other active permanent Admin or Staff member (decision 8). */
-  coordinators: { id: string; name: string }[];
-};
-
-/**
- * The freelancers a person looks after now, and who may take them, read when the Owner opens a
- * deactivation (ADR-0013 §2: deactivating a coordinator first asks where their freelancers go).
- */
-export const getFreelancerHandover = action(
-  async (input: MemberIdInput): Promise<Result<FreelancerHandoverData>> => {
-    const { memberId } = memberIdSchema.parse(input);
-    await assertPermission("team.manage");
-    const [coordinators, members] = await Promise.all([
-      repo.listCurrentCoordinators(),
-      repo.listMembers(),
-    ]);
-    const names = new Map(members.map((member) => [member.id, member]));
-    const freelancers = Object.entries(coordinators)
-      .filter(
-        ([freelancer, coordinator]) =>
-          coordinator === memberId && names.get(freelancer)?.status === "active",
-      )
-      .map(([freelancer]) => ({ id: freelancer, name: names.get(freelancer)?.fullName ?? "" }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-    return ok({ freelancers, coordinators: coordinatorOptions(members, [memberId]) });
-  },
-);
-
-/** The freelancer's open tasks, for the warning in "Invite as employee" (4A later item L5). */
-export const getOpenTaskCount = action(
-  async (input: MemberIdInput): Promise<Result<{ openTasks: number }>> => {
-    const { memberId } = memberIdSchema.parse(input);
-    await assertPermission("team.manage");
-    return ok({ openTasks: await countOpenAssignments(memberId) });
-  },
-);
-
 /**
  * "Invite as employee" (Kickoff 4 decision 7, WORKFLOWS §1b): the sign-in is created **under the
  * freelancer's own id** (4A mechanics (10)), then `member_invite_employee()` makes the record an
@@ -425,7 +342,13 @@ export const inviteAsEmployee = action(
     const { tokenHash, type } = await repo.issueInviteToken(data.email);
     const link = inviteLinkFor(await appOrigin(), tokenHash, type);
     const sent = await sendEmail(
-      inviteEmail({ to: data.email, inviteeName: member.fullName, inviterName: viewer.name, link }),
+      inviteEmail({
+        to: data.email,
+        inviteeName: member.fullName,
+        inviterName: viewer.name,
+        link,
+        passwordMinLength: PASSWORD_MIN_LENGTH,
+      }),
     );
     revalidatePath(PEOPLE_PATH, "layout");
     revalidatePath("/tasks", "layout");

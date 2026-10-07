@@ -1,5 +1,7 @@
 # MaxOff: Data Model
 
+> **PRODUCTION IS LIVE (since 2026-10-01): `https://app.maxoff.in` is in daily use by the Pixora Clips team with real data.** Expand-only migrations, releases only by an Owner-approved `v*` tag on a green `main` commit, never a seed, reset or hand-written SQL on production. The rules are in `CLAUDE.md` → "Production is live".
+
 > The authoritative list of tables. Migrations must match it. Change it here (and in an ADR for anything structural) **before** writing a migration.
 > Conventions (ARCHITECTURE §6): `id uuid pk`, `created_at`, `updated_at` (trigger) and `created_by` on business tables. `archived_at` instead of delete. RLS on every table. Workflow `state` columns change **only** through transition functions.
 > **Org seam:** root tables have `org_id uuid not null default current_org_id()`. Child tables inherit scope from their parent. There's one organization row in the prototype.
@@ -28,6 +30,28 @@ task_type_kind     normal | event | custom          -- behaviour category; names
 review_decision    approved | rejected
 request_state      pending | converted | declined | withdrawn
 billing_status     not_billed | billed
+notification_kind  a lookup table, not an enum (5.1, expand-only across releases): notification_kinds
+                   (kind pk, actionable, always_email, description). The 5.1 set: task_assigned*
+                   task_unassigned, task_changed, task_submitted, task_admin_approved,
+                   task_changes_requested*, task_completed, task_cancelled, task_reopened,
+                   task_comment (never email, 5A decision 15), task_request_created,
+                   task_request_converted, task_request_declined, coordinator_assigned,
+                   coordinator_removed, coordinator_missing, client_admin_assigned,
+                   client_admin_removed, attendance_decided*, absent_proposed, leave_requested,
+                   leave_decided*, extra_work_submitted, extra_work_decided*, comp_leave_granted*,
+                   comp_leave_revoked*, expense_submitted, expense_decided*, end_day_reminder;
+                   approvals_moved (5A decision 27, 20261001001614: the Owner's one row when an
+                   approving Admin's submitted tasks moved to them).
+                   * actionable = email fallback when the person has no working push (kickoff 5
+                   decision 6); always_email (ADR-0009): none of the 5.1 set since 5B (5B decision
+                   12, migration task_assigned_fallback_only: task_assigned was always_email until
+                   then, now fallback only). 5B adds the reminder, escalation, digest and
+                   reachability kinds by inserting rows; its always-emailed ones carry always_email.
+                   in_app (5B, migration owner_digest): false for an email-only kind (owner_digest,
+                   the Owner's morning summary), hidden in-app and never pushed (§9).
+                   member_unreachable (5B 5.4, migration reachability: actionable false,
+                   always_email true, in_app true): the Owner's alert that someone has not been
+                   reachable by push for 48 h, at most weekly per person (§9 member_reachability).
 field_type         text | long_text | number | date | datetime | checkbox | select |
                    multi_select | url | email | phone | color | member | rating
                    -- deliberately NO currency type: money lives only in the Owner-only tables (§7)
@@ -119,7 +143,9 @@ public.member_self_status()     the caller's own status whatever it is (null wit
                                 steps read the status through this instead
 public.member_accept_invite()   the caller's own row, invited → active with joined_at. Called by
                                 setPassword() once the invited person's password is stored. Audit
-                                action 'accepted'
+                                action 'accepted'. Since 5.5 (migration onboarding_reachability, same
+                                signature, same behaviour) it also inserts the new joiner's
+                                member_onboarding row (§9): their first-login walkthrough starts here
 public.member_deactivate(member_id, reason)
                                 team.manage. active | invited → deactivated (deactivated_at). Never the
                                 caller, never the Owner. Deletes the person's auth.refresh_tokens and
@@ -195,6 +221,14 @@ org_settings         org_id pk, weekly_off_days smallint[] (0=Sun..6=Sat), logou
                      end_day_cutoff_time time ('05:00'; 3b review, expand-only: yesterday's open day
                      can be ended until this IST time, never once today started; Settings ->
                      Thresholds, which offers 00:00-11:59)
+                     -- 5B 5.4 follow-up (owner 2026-10-03, expand-only): reachability_clock_from timestamptz null,
+                     -- set once to the release moment by migration reachability_clock_from_release: no one's
+                     -- 48 h "can't be reached" clock starts before it (null: no floor).
+                     -- kickoff 5 (2026-09-29, expand-only): quiet_hours_start time ('22:00'),
+                     -- quiet_hours_end time ('07:00'), email_daily_cap_org int (90; check > 0) **added in
+                     -- 5.1 step 1 (20260930050132), in the API UPDATE grant, no UI yet** (Settings ->
+                     -- Thresholds edits them in a later 5A step); default_task_reminders becomes the launch
+                     -- schedule in 5B (WORKFLOWS "Settled at kickoff 5")
                      -- API UPDATE grant: the eleven settings columns above, never org_id or the timestamps
                      -- defaults in brackets = launch settings (PRODUCT §7); default_task_reminders '[]' until
                      -- 5.3, workload_warning_threshold null until 4.3. Created by trigger with the organization
@@ -301,13 +335,101 @@ session_events       id, member_id, kind ('login'|'logout'), at, user_agent (≤
                      -- session_sign_out() (3b.1). ip_hash = salted SHA-256 of the client IP
                      -- (SESSION_IP_HASH_SALT) or null; never the IP, never an unsalted hash.
                      -- RLS: own rows; all for attendance.view_all
-push_subscriptions   id, member_id, endpoint unique, p256dh, auth, user_agent, created_at,
+push_subscriptions   id, member_id (default auth.uid(), cascade), endpoint unique, p256dh, auth, user_agent,
+                     created_at, last_seen_at,
                      platform ('android'|'ios'|'desktop'|'other'), is_standalone bool (PWA installed),
                      label (device name shown to the member), last_success_at, last_failure_at,
                      failure_count, disabled_at, disabled_reason ('gone'|'expired'|'signed_out'|
-                     'deactivated'), last_test_at
-                     -- kept across logout (title-only payloads); removed on "sign out of this
-                     -- device" or deactivation. See PRODUCT §4.11 and WORKFLOWS §9a.
+                     'deactivated'|'removed'), last_test_at
+                     -- kept across closing the app (full payloads, ADR-0009 amendment); removed on
+                     -- "sign out of this device"; deactivation disables every row ('deactivated',
+                     -- member_deactivate, 5.1). See PRODUCT §4.11 and WORKFLOWS §9a.
+                     -- 5.1 as built: RLS own rows only (nobody else ever reads an endpoint). The API
+                     -- inserts (member_id = self, endpoint, p256dh, auth, user_agent, platform,
+                     -- is_standalone, label; app.push_subscriptions_guard, SECURITY INVOKER since the 5.1
+                     -- review (S4; as its owner in_transition() was always true and it never ran): an
+                     -- active permanent member, for themselves),
+                     -- updates (p256dh, auth, user_agent, platform, is_standalone, label, last_seen_at)
+                     -- and deletes its own rows; the result columns (last_success_at, last_failure_at,
+                     -- failure_count, disabled_*, last_test_at) are the dispatcher's (service_role,
+                     -- protect_columns). 5.2 as built (step 2): the API writes through three RPCs:
+                     -- push_subscription_upsert(endpoint, p256dh, auth, platform, is_standalone, label,
+                     -- user_agent) (an active permanent member; takes the endpoint over from a disabled
+                     -- row, or from another member's ACTIVE row only with that row's own p256dh and auth,
+                     -- else FORBIDDEN (20261001003242: a shared browser hands everyone the same keys;
+                     -- knowing an endpoint is not enough); clears the result columns; https, or http on the
+                     -- loopback host for the local e2e fake push service), push_subscription_remove(
+                     -- endpoint) ("Sign out of this device": the row is deleted, own rows only) and
+                     -- push_subscriptions_tested() ("Send a test notification" stamps last_test_at; no
+                     -- notifications row). The dispatcher's writes: push_subscription_result(id, sent |
+                     -- gone | error) (service_role): sent = last_success_at + failure_count 0; gone =
+                     -- disabled 'gone'; error = failure_count + 1, disabled 'expired' at the fifth in a
+                     -- row; a disabled row stays disabled.
+                     -- 5A review fixes (20261001053934_review_5a_fixes): INSERT and UPDATE are revoked
+                     -- from authenticated (a direct insert skipped every check of the upsert: any
+                     -- http URL, any number of rows); the API writes only through the RPCs (DELETE
+                     -- stays granted on own rows; the app uses push_subscription_remove). The upsert
+                     -- checks the keys strictly (base64url; p256dh 65 bytes starting 0x04, auth 16
+                     -- bytes), takes only https endpoints on a DNS host (no IP literal, no localhost /
+                     -- .local / .internal / .localhost), allows http on the loopback host only while
+                     -- app.local_flags holds 'push_loopback_endpoints' (the local seed writes it; never
+                     -- staging or production), and caps a member at 10 ACTIVE rows: the 11th disables
+                     -- the least recently seen other row as 'expired' (never refused: a new phone must
+                     -- always work). push_test_claim() ("Send a test notification") refuses
+                     -- RATE_LIMITED while any active row of the caller was tested under 30 s ago,
+                     -- else stamps last_test_at on them, under a row lock, before anything is sent.
+                     -- Not audited (5.1 review S5): the member's own device state, as task_reads; its
+                     -- writes are the member's subscribe / sign-out on their own device and the
+                     -- dispatcher's result of every send (an audit row per send would flood
+                     -- activity_log with nothing anyone reviews); deactivation, the one business event
+                     -- that touches it, is audited by member_deactivate itself.
+                     -- 5B 5.5 (migration onboarding_reachability, owner decisions 2026-10-03):
+                     -- push_subscription_remove_own(p_id) ("Remove" on Me's device list: one of the
+                     -- caller's own OTHER devices stops getting notifications; the row was deleted
+                     -- (kept as 'removed' since 2026-10-06, below), that device is not signed out;
+                     -- anyone else's row, the Owner's included, NOT_FOUND; not audited, as
+                     -- push_subscription_remove). push_status_own() (the layout's one
+                     -- read, replacing the endpoints select): the caller's active endpoints and
+                     -- app.push_band(caller). app.push_band(member) (service_role only): null while an
+                     -- active subscription has last_success_at set and failure_count < 2; else the
+                     -- member's app.reachability_state when it is not 'ok'; else 'unconfirmed' (on,
+                     -- nothing received yet). last_success_at is any delivery on record: a real
+                     -- notification the dispatcher sent (since v1.3.0) counts exactly like a test
+                     -- (owner 2026-10-06; pgTAP 60). "Send a test notification" now records each device whose
+                     -- push service accepted the test with the dispatcher's own
+                     -- push_subscription_result(id, 'sent') (last_success_at, failure_count 0), called by
+                     -- the server with the service role for the caller's own devices it just pushed to.
+                     -- Me reads user_agent (own rows) to name each device in plain words; it is never
+                     -- shown.
+                     -- 5.5 owner answers 2026-10-06 (migration reachability_owner_answers): **Remove
+                     -- sticks.** push_subscription_remove_own(p_id) no longer deletes: it keeps the row,
+                     -- disabled 'removed' (the CHECK widened; a row already removed is NOT_FOUND; the
+                     -- rule is unchanged: own rows only, anyone else's NOT_FOUND, the Owner included).
+                     -- push_subscription_upsert() is now the AUTOMATIC subscribe (the re-subscribe on
+                     -- load, the service worker's pushsubscriptionchange) and refuses the caller's own
+                     -- 'removed' row for that endpoint with INVALID_STATE, so the device stays off when
+                     -- opened again; push_subscription_turn_on() (same arguments, a new RPC) is the
+                     -- member's own "Turn on" tap on that device (the band's sheet, Me, the walkthrough)
+                     -- and clears the marker (the same row comes back active). Both run
+                     -- app.push_subscription_save(…, p_explicit) (service_role only), the upsert's
+                     -- latest body plus that one check. push_subscription_remove(endpoint) ("Sign out
+                     -- of this device") leaves a 'removed' row alone, so signing in there again does
+                     -- not turn it back on. Another member's automatic subscribe on a shared browser
+                     -- still takes a removed row over (the mark is the remover's). Me's device list
+                     -- leaves 'removed' rows out. Every reader of active devices (push_targets, the
+                     -- test, the cap of 10, push_status_own, app.reachability_state, app.push_band)
+                     -- already skips disabled rows; reachability counts 'removed' as no device.
+                     -- public.push_band_census() (service_role only, stable, read-only): the active
+                     -- members whose app.push_band is 'unconfirmed' and their active devices (people,
+                     -- devices), for the staging-only dispatch job push-band-count.
+app.local_flags      flag text pk check (flag in ('push_loopback_endpoints')), set_at
+                     -- 5A review fixes (20261001053934): switches that exist ONLY on a local or CI
+                     -- database. Written by supabase/seed.sql, which no hosted project runs (deploy
+                     -- runs `db push` only), so staging and production never hold a row. In schema
+                     -- app (not exposed by the API); RLS on, no policy, every privilege revoked from
+                     -- anon and authenticated: read only inside SECURITY DEFINER functions.
+                     -- 'push_loopback_endpoints': push_subscription_upsert also takes
+                     -- http://127.0.0.1|localhost[:port]/ endpoints (the e2e fake push service).
 ```
 
 ## 2. Configuration (customization as data)
@@ -959,9 +1081,29 @@ submission_items     id, submission_id, kind ('upload'|'drive_link'),
                      archive_state ('queued'|'archived'|'failed'|'blocked'),
                      drive_file_id null, drive_web_link null, archived_at,
                      archive_error, archive_attempts, local_deleted_at, created_at
-task_reminders       id, task_id, member_id null, kind ('before_due'|'due'|'overdue'|'ack'|
+task_reminders       id, org_id, task_id (cascade), member_id null (cascade), kind ('before_due'|'due'|'overdue'|'ack'|
                      'ack_escalation'|'overdue_escalation'|'event'), escalation_level int null (1 = Admin, 2 = Owner),
-                     fire_at, sent_at null, cancelled_at null       -- materialized from reminder_rules + org_settings
+                     offset_minutes int null, last_before_due bool, deadline timestamptz null, held bool,
+                     fire_at, sent_at null, cancelled_at null, created_at       -- materialized from reminder_rules + org_settings
+                     -- 5.3 as built (migration 20261002103357_task_reminders): deadline rows (member_id null) armed by
+                     -- app.task_arm_reminders (trigger tasks_reminders: insert, and a change of due_at, reminder_rules,
+                     -- event_date or into / out of completed / cancelled); held rows (held, member_id) bring a paused
+                     -- person's before-due / Due now back; ack / ack_escalation rows record each repeat and escalation
+                     -- sent (member_id = the assignee). RLS on, no API grant (the job's). Not audited.
+task_reminder_arms   task_id pk (cascade), armed_at      -- 5.3: the tasks that get reminders: created after the
+                     -- migration (no backfill without the owner's OK). Written by the trigger and by
+                     -- app.reminders_backfill(p_now, p_dry_run) (open tasks, armed_at = the backfill; run on
+                     -- production only by a release migration the owner approves); app.reminders_backfill_ack_preview()
+                     -- counts the acknowledgement repeats and escalations it would start (read only). RLS on, no API grant.
+                     -- Reminder rule lists (tasks.reminder_rules, task_templates.reminder_rules, task_types.default_reminders,
+                     -- org_settings.default_task_reminders; CHECK app.reminder_rules_valid, NOT VALID): up to 5
+                     -- {"before": N, "unit": "minutes"|"hours"|"days"}, N >= 0 (0 = Due now), at most 60 days, no two
+                     -- the same; '[]' = the next level. Resolution: task → template → type → organisation → the
+                     -- launch schedule (2 days, 1 day, Due now; app.task_reminder_rules).
+                     -- Editor (5.3, slice 6c): the task dialog, Settings → Task types (Owner), Templates
+                     -- (templates.manage: an Admin their own, the Owner any) and Thresholds (Owner, the
+                     -- organisation's); the dialog sends '[]' while "Using the default", so a task resolves
+                     -- its list when armed. Writers per level: pgTAP 53.
 task_warnings        id, task_id, kind ('overlap'|'workload'|'on_leave'), member_id (the person the
                      warning is about; 4A), details jsonb, overridden_by, at
                      -- 4A: the dialog computes the warnings (4.3, member_availability()); a person kept
@@ -999,8 +1141,11 @@ task_templates       id, org_id, name, task_type_id, description, default_priori
                      created_by                                     -- kickoff 4: shared company-wide; an Admin
                      -- edits and archives only rows they created, the Owner any (PERMISSIONS ³).
                      -- 4.6 as built: name 1..120 (unique among active per organization), description
-                     -- <= 10000, stages <= 30 of 1..120 characters (trimmed), reminder_rules '[]' (the
-                     -- editor is 5.3's; no API insert or update grant until then, 4C review S1),
+                     -- <= 10000, stages <= 30 of 1..120 characters (trimmed), reminder_rules (a reminder
+                     -- rule list, '[]' = its type's; no API write from 4C review S1 until 5.3's editor,
+                     -- migration reminder_editor_grants: insert/update (reminder_rules) granted back,
+                     -- written by whoever may write the template, checked by the CHECK constraint; a task
+                     -- started from it follows it through tasks.template_id, nothing is copied),
                      -- field_defaults an object of task custom field values (validated by
                      -- core/custom-fields in the action and, since the 4C review (S1), by the guard:
                      -- at most 32 KB, every key the write adds or changes an active task field of the
@@ -1027,7 +1172,7 @@ task_reads           task_id → tasks (on delete cascade), member_id → member
                      -- foreign keys cascade: a read marker means nothing without its task or member
                      -- and is never history (so no pgTAP teardown block needs it). Index member_id.
 ```
-**Helpers (4A, ARCHITECTURE §5), `app` schema, security definer, stable:** `app.task_visible(task_id)` (the RLS gate of every task table: the Owner sees every task of the organization; otherwise the caller created it, is its approving Admin, is an active assignee, holds `clients.edit_assigned` and the label is one of `app.admin_client_ids()`, or is the current coordinator of an active freelancer assignee), `app.is_task_assignee(task_id, member_id)` (active row, `removed_at` null), `app.is_approving_admin(task_id)`, `app.task_manager(task_id)` (creator, approving Admin or the Owner: who may edit, reassign, cancel, reopen), `app.task_on_behalf_ok(task_id, freelancer_id)` (the freelancer is an active freelance assignee and `app.coordinator_of()` is the caller; a coordinator's on-behalf right on comments and stage ticks). Internal (service_role only, called inside the functions): `app.task_lock(task_id, org_id)` (the row `for update`, NOT_FOUND outside the organization), `app.task_actor(task_id, on_behalf_of)` (who acts and for whom: the caller must hold `tasks.work`, be `permanent` (a freelancer's own id is never an actor: FORBIDDEN) and be an active assignee, or `on_behalf_of` names a freelance assignee whose current coordinator is the caller; a former coordinator, another member or anyone naming a non-freelancer is FORBIDDEN), `app.task_check_fields(..., p_client_changed)` (the field rules shared by `task_create` and `task_update_assignment`; since the 4A review (S1) the own-clients rule runs only when `p_client_changed`: always on create, on an edit only when `client_id` is sent and differs, so the approving Admin edits the other fields of an Owner task labelled with another Admin's client). **4C (Kickoff 4 decision 22):** a label set or changed to a **Draft** client is VALIDATION too, the Owner's included (a label is an Active or Paused client; a task labelled before keeps it). **4B review (S6, S7):** a label set or changed to an **Inactive** client is VALIDATION, the Owner's too (WORKFLOWS §4: no new client-labelled tasks for an Inactive client; a task labelled before the client closed keeps its label); an archived task type is refused only when the type is set or changed (`p_type_changed`, default true for `task_create`; `task_update_assignment` passes whether `task_type_id` is sent and differs), so a task keeps an archived type and stays editable.
+**Helpers (4A, ARCHITECTURE §5), `app` schema, security definer, stable:** `app.task_visible(task_id)` (the RLS gate of every task table: the Owner sees every task of the organization; otherwise the caller created it, is its approving Admin, is an active assignee, holds `clients.edit_assigned` and the label is one of `app.admin_client_ids()`, or is the current coordinator of an active freelancer assignee), `app.task_visible_to(task_id, member_id)` (5.1 review M1, service_role only: the same rules judged for a named active member; keeps a comment's recipients to the people who can still open the task; since `20260930180227` it follows the phase 4 review's rules too: a creator or approver counts only while their role holds `tasks.create` / `tasks.approve_admin`, a coordinator only for an active freelancer), `app.is_task_assignee(task_id, member_id)` (active row, `removed_at` null), `app.is_approving_admin(task_id)`, `app.task_manager(task_id)` (creator, approving Admin or the Owner: who may edit, reassign, cancel, reopen), `app.task_on_behalf_ok(task_id, freelancer_id)` (the freelancer is an active freelance assignee and `app.coordinator_of()` is the caller; a coordinator's on-behalf right on comments and stage ticks). Internal (service_role only, called inside the functions): `app.task_lock(task_id, org_id)` (the row `for update`, NOT_FOUND outside the organization), `app.task_actor(task_id, on_behalf_of)` (who acts and for whom: the caller must hold `tasks.work`, be `permanent` (a freelancer's own id is never an actor: FORBIDDEN) and be an active assignee, or `on_behalf_of` names a freelance assignee whose current coordinator is the caller; a former coordinator, another member or anyone naming a non-freelancer is FORBIDDEN), `app.task_check_fields(..., p_client_changed)` (the field rules shared by `task_create` and `task_update_assignment`; since the 4A review (S1) the own-clients rule runs only when `p_client_changed`: always on create, on an edit only when `client_id` is sent and differs, so the approving Admin edits the other fields of an Owner task labelled with another Admin's client). **4C (Kickoff 4 decision 22):** a label set or changed to a **Draft** client is VALIDATION too, the Owner's included (a label is an Active or Paused client; a task labelled before keeps it). **4B review (S6, S7):** a label set or changed to an **Inactive** client is VALIDATION, the Owner's too (WORKFLOWS §4: no new client-labelled tasks for an Inactive client; a task labelled before the client closed keeps its label); an archived task type is refused only when the type is set or changed (`p_type_changed`, default true for `task_create`; `task_update_assignment` passes whether `task_type_id` is sent and differs), so a task keeps an archived type and stays editable.
 
 **Transition functions (4.2, ADR-0006, WORKFLOWS §3), `public` schema, the usual grants; each names its WORKFLOWS §9 recipients in its comment (delivery 5.1):**
 `task_create(title, description, task_type_id, client_id, priority, due_at, assignee_ids, primary_owner_id, approving_admin_id, event_date, event_start_at, event_end_at, location, purpose, stages, custom_fields, reminder_rules, template_id, warnings)` → task id (`tasks.create`; the approval route: the Owner names any active Admin or none, an Admin's task routes to the Admin and its label must be one of their clients; assignees are active Admins, Staff or freelancers, never the Owner, the primary among them; `due_at` required and not in the past; the type's field rules; `reminder_rules` default to the type's; `warnings` = `[{kind, member_id, details}]` recorded as overridden; audit `created`, `assigned` per assignee, `warning_overridden`);
@@ -1194,10 +1339,186 @@ files                id, org_id, storage_key, name, mime, size_bytes, sha256 nul
                      -- file again"), so nothing the 7-day rule takes can be referenced mid-cleanup
                      -- (20260927134340). A new column referencing files needs its FK **and an index**:
                      -- the cleanup runs one not-exists per FK column on every batch.
-notifications        id, recipient_id, kind, title, body, link, entity, entity_id, payload jsonb,
-                     created_at, read_at null, escalation_level int
-notification_deliveries  id, notification_id, channel ('push'|'email'), state ('queued'|'sent'|'failed'),
-                     attempts, last_error, sent_at
+notification_kinds   kind pk, actionable bool, always_email bool, description   -- §0 (5.1); API select only
+                     in_app bool not null default true (5B, migration owner_digest, expand-only): false =
+                     -- an email-only kind, never in the bell, its unread count, the Alerts list or
+                     -- Realtime (the notifications SELECT policy hides it) and never pushed. The one
+                     -- such kind is owner_digest (actionable false, always_email true): the Owner's 08:00
+                     -- IST morning summary, written by public.digest_daily() (pg_cron) directly, not
+                     -- through app.notify(), with read_at set at insert and no push delivery.
+notifications        id, org_id, recipient_id → members (cascade), actor_id null → members (set null),
+                     kind → notification_kinds, title (≤ 200), body null (≤ 2000), link null (an app route,
+                     '/…', ≤ 500), entity null, entity_id null (together or neither), payload jsonb
+                     (object), escalation_level int (0-2), created_at, read_at null
+                     -- 5.1 as built: written only by app.notify() (service_role only, called inside the
+                     -- transition or job that caused it, ADR-0006): one row per remaining recipient after
+                     -- dedupe, the actor dropped, deactivated / invited / unknown ids dropped, a
+                     -- freelancer's row to their current coordinator with " · for <name>" on the title
+                     -- and payload.for_member_id (ADR-0013 §4; nobody when they have none or the
+                     -- coordinator is the actor). RLS: the recipient only, and only a kind with in_app
+                     -- (5B, migration owner_digest: an email-only row such as the digest is never visible
+                     -- to the API role, so the bell, its count, notifications_inbox and Realtime never see
+                     -- it; service_role reads it); the API updates read_at alone
+                     -- (column grant + protect_columns), no insert or delete; notifications_mark_read(entity,
+                     -- entity_id) and notifications_mark_all_read() for the caller's own rows.
+                     -- notifications_inbox(p_unread_only, p_offset, p_limit) (5B decision 10, migration
+                     -- notifications_inbox): the Alerts list, newest first, the caller's own rows (security
+                     -- invoker + recipient_id = auth.uid()); consecutive rows about the same record (entity +
+                     -- entity_id, both with a link) on the same IST day are one entry: the newest row's fields,
+                     -- run_size, run_kinds, run_unread (the run's unread ids) and the total of entries for the
+                     -- pager; paged over entries, so a run never splits across pages. Not audited
+                     -- (the event is audited by its transition; a read is view state, as task_reads).
+                     -- Never purged in 5A (kickoff 5 decision 4); from 5B a daily job removes READ rows older than 90 days
+                     -- (owner decision 2026-10-01, PROGRESS "5B decisions" (11)); unread rows stay. Money never in title, body, link or payload.
+                     -- public.notifications_remove_read(p_now, p_dry_run default true) (service_role; read rows created
+                     -- > 90 days before p_now, deliveries by cascade; returns (notifications, deliveries)), run daily at
+                     -- 03:30 IST by pg_cron notifications_remove_read from v1.4.0 (owner decision 2026-10-06; pgTAP 57).
+                     -- The cascade exists for the local stack's fixture deletes; production deactivates.
+                     -- Indexes: (recipient_id, read_at, created_at desc), (recipient_id, created_at desc),
+                     -- (entity, entity_id), actor_id, org_id.
+                     -- Realtime (5.1 the bell, migration 20261001003253_notifications_realtime): the
+                     -- ONLY table in the supabase_realtime publication (pgTAP 46; money tables in none).
+                     -- Realtime checks each INSERT / UPDATE against the subscriber's RLS, so a member
+                     -- receives their own rows, the rows the API already lets them read; the browser
+                     -- uses an event only as a signal to re-read the screen (for the member's own
+                     -- reads on that device, the bell's count alone: owner 2026-10-01). Default replica identity:
+                     -- an UPDATE sends the new row; a DELETE (local fixtures only) is not RLS-checked
+                     -- by Realtime and carries the id alone. A connection with no member token (the
+                     -- publishable key) hears at most that a change happened, never a row (e2e).
+                     -- The API's read receipt: a tap on a history row (`/open?n=<id>` updates read_at
+                     -- of the caller's own row; RLS + the column grant).
+notification_deliveries  id, notification_id → notifications (cascade), channel ('push'|'email'),
+                     state ('queued'|'held'|'sent'|'failed'|'skipped_cap') default 'queued',
+                     -- kickoff 5 (2026-09-29): 'held' = push waiting out quiet hours (one summary push per person at
+                     -- the window's end); 'skipped_cap' = over the per-person or org-wide email ceiling
+                     attempts, last_error, sent_at, next_attempt_at (default now()), created_at,
+                     unique (notification_id, channel)
+                     -- 5.1 as built: app.notify() queues the push row; the email row is the dispatcher's
+                     -- (step 4: queued for an always_email kind, or an actionable kind when the person has
+                     -- no working push; skipped_cap over a ceiling); the hold and the summary push are the
+                     -- dispatcher's too (step 3). No API access at all (service_role only, RLS with no
+                     -- policy). Index (next_attempt_at) where state in ('queued', 'held').
+                     -- 5.2 as built (step 2, migration push_dispatch; the dispatcher is
+                     -- /api/cron/push-dispatch every minute and after() a transition): push_claim(now,
+                     -- limit) (service_role, public for PostgREST) holds due queued push rows whose
+                     -- org is in quiet hours (push_quiet(at, org): [start, end) IST, crossing midnight
+                     -- when start > end, none when equal); leases the due queued rows and the held rows
+                     -- whose window is over (attempts + 1, next_attempt_at + 5 min, FOR UPDATE SKIP
+                     -- LOCKED) and returns them as work items: a held person's rows as one summary item
+                     -- ("N updates while you were away", link /notifications) or, for one row, as
+                     -- itself. push_targets(recipient) lists the active devices. push_record(ids,
+                     -- sent | retry | failed, error): sent + sent_at; retry after 1, 5, 15, 60 min by
+                     -- the attempt (app.push_backoff), failed after the fifth; failed with last_error
+                     -- 'no_subscription' when the person has no active device (or every device answered
+                     -- gone): the seam step 3's email fallback reads. A lease that expires (a crashed
+                     -- run) is claimed again. Rows and email are never held.
+                     -- 5.2 as built (step 3, migration 20261001003353_email_dispatch): the email row is
+                     -- created by the DISPATCHER at claim time, never by app.notify(): email_claim(now,
+                     -- limit) (service_role) queues one for a row of the last 24 hours of an active
+                     -- member with an address when its kind is always_email, or actionable while the
+                     -- person has no active push subscription and the row's push was not sent;
+                     -- comments, task changed and information rows never. Under a transaction advisory
+                     -- lock it then counts, per IST day of the email row's created_at, the rows already
+                     -- leased (attempts > 0, last_error not 'not_configured') against
+                     -- org_settings.email_daily_cap_org (org-wide) and email_daily_cap_per_member (that
+                     -- person; bypassed when notifications.escalation_level > 0): over either the row is
+                     -- 'skipped_cap' with last_error 'org_cap' | 'member_cap' (the notification and its
+                     -- push untouched); else leased. Due retries are leased too, never re-counted.
+                     -- email_record(id, sent | retry | failed, error) uses app.push_backoff (1, 5, 15,
+                     -- 60 min, failed after the fifth); 'not_configured' when RESEND_API_KEY is unset,
+                     -- 'resend_<status>' otherwise. Invites, password and email-change mails never use
+                     -- deliveries, so they are never counted or skipped. Index notifications(created_at).
+                     -- 5B (migration owner_digest): email_claim re-created, same signature, one more
+                     -- result column (payload, the notification's): the Owner's digest (kind owner_digest)
+                     -- is always an email of its own (never in a batch, batch_id null), taken into a run
+                     -- before other ordinary rows and ordered after escalations and before every other
+                     -- ordinary group; it is capped as an ordinary email (email_daily_cap_org - 10 and
+                     -- the per-person cap). public.digest_daily(p_now) (service_role only; pg_cron
+                     -- 'digest_daily' at 02:30 UTC = 08:00 IST) writes one owner_digest row a day for each
+                     -- organisation's active Owner (advisory lock; none when one exists for that IST day),
+                     -- payload = app.owner_digest_payload(org, now): counts only, never an amount;
+                     -- owner_digest_preview() (authenticated, the org's Owner only, writes nothing) reads
+                     -- the same payload for the staging/preview sample at /diagnostics/digest.
+                     -- 5B 5.4 (migration reachability): owner_digest_payload re-created, same signature,
+                     -- one key added: unreachable {count, names (≤ 5, by name), more}, the tracked people
+                     -- (not the Owner) whose member_reachability row is not 'ok' and whose since is 48 h or
+                     -- more before p_now; owner_digest_text adds the section "People" with the line
+                     -- "Can't be reached: N (names +N more)" (left out at 0). An old payload without the key
+                     -- reads as 0 (the renderer's parser).
+member_app_reports   member_id pk → members (cascade), org_id, platform ('android'|'ios'|'desktop'|'other'),
+                     is_standalone bool (the installed app), reported_at
+                     -- 5B 5.4 (owner decision 2026-10-03): what the app said about itself the last time
+                     -- it opened on one of the member's devices: its platform (the push setup's own
+                     -- platformOf) and whether it runs installed (display-mode standalone, or
+                     -- navigator.standalone on iOS). Sent once per app open, lazily, after the first
+                     -- load. No user agent, no IP. Written only by app_open_report(platform,
+                     -- is_standalone) (security definer, the caller's own row, an active permanent
+                     -- member): a report that says what the row already says writes nothing, so
+                     -- reported_at is when the device last reported a change. RLS on, no policy, every
+                     -- privilege revoked from anon and authenticated (read only by the reachability
+                     -- functions). Audited (audit_row_change on insert and update; entity_id = member_id);
+                     -- never deleted but by the members cascade on a local fixture.
+member_onboarding    member_id pk → members (cascade), org_id, started_at, finished_at null,
+                     finished_via null ('test'|'later'), check (finished_at is null) = (finished_via is null)
+                     -- 5B 5.5 (owner decisions 2026-10-03; WORKFLOWS §9a "Onboarding"): a new joiner's
+                     -- first-login walkthrough (iPhone install, turn on notifications, send a test).
+                     -- Inserted only by member_accept_invite() (the first login), so members who joined
+                     -- before 5.5 shipped have no row and never see it (no backfill). Finished once by
+                     -- onboarding_finish(p_via) (security definer, the caller's own row): 'test' only
+                     -- while an active subscription of theirs has last_success_at (INVALID_STATE
+                     -- otherwise), 'later' always; returns whether it finished now (false with no row or
+                     -- already finished). RLS on: SELECT own row (member_id = auth.uid()); no INSERT,
+                     -- UPDATE or DELETE for the API role. Audited (audit_row_change on insert and update,
+                     -- entity_id = member_id). Owner answers 2026-10-06: "Send a test notification"
+                     -- calls onboarding_finish('test') itself once a device's push service accepted the
+                     -- test (from the walkthrough, the band or Me → Help); a test no device accepted
+                     -- finishes nothing. A real notification delivered does not finish it. While the
+                     -- row is unfinished, every sign-in (and a reset password) lands on the welcome
+                     -- screen unless a safe `next` was asked for (the app's rule, no schema change).
+member_reachability  member_id pk → members (cascade), org_id, state ('ok'|'no_subscription'|
+                     'permission_revoked'|'ios_not_installed'|'failing'), since timestamptz,
+                     alerted_at timestamptz null, created_at, updated_at
+                     -- 5B 5.4 (WORKFLOWS §9a "Reachability"). A table kept by the hourly pg_cron job
+                     -- public.reachability_check(now) (not a view: the 48 h clock needs to remember when the
+                     -- state changed). Tracked: active, permanent, joined members (the Owner included; not
+                     -- invited people, not freelancers). The job classifies each tracked member with
+                     -- app.reachability_state(member) and writes only a change: a new member's row starts
+                     -- with since = joined_at (their first login); a changed state sets since = the run's
+                     -- time; the same state leaves the row alone. Then, for each tracked member who is not
+                     -- the organisation's Owner, not 'ok', with since 48 h or more ago and alerted_at null or
+                     -- 7 days or more ago: one member_unreachable notification to the Owner through
+                     -- app.notify() (link /settings/notifications, no entity, payload {member_id, state},
+                     -- no actor) and alerted_at = the run's time (kept across state changes: at most one a
+                     -- week per person). A row of someone no longer tracked stays as it was.
+                     -- RLS on, no policy, every privilege revoked from anon and authenticated: read only
+                     -- through reachability_overview() and the digest. Audited (audit_row_change on insert
+                     -- and update, entity_id = member_id; the job writes only changes, so an entry is a
+                     -- state change or an alert).
+                     -- app.reachability_state(member) (service_role only, stable): the first that holds:
+                     --   ok              an active subscription (disabled_at null) with failure_count < 2
+                     --                   (it succeeded since its last error, was never tried, or failed once)
+                     --   failing         active subscriptions, each with failure_count ≥ 2 (repeated errors,
+                     --                   not yet disabled at the fifth)
+                     --   ios_not_installed  the member's member_app_reports row says ios and not installed
+                     --   permission_revoked the most recently disabled subscription ('gone' or 'expired') is 'gone'
+                     --   failing         … is 'expired'
+                     --   ios_not_installed  no member_app_reports row, and the latest session_events(login)
+                     --                   user_agent names an iPhone, iPad or iPod (the fallback until the
+                     --                   member opens the app once after 5.4 ships; an iPad that presents
+                     --                   itself as a Mac is not seen here)
+                     --   no_subscription everything else (never turned on, or every device signed out)
+                     -- app.reachability_live(org, now) (service_role only): every tracked member of the
+                     -- organisation with the state now and its since (the row's since when the state is
+                     -- the row's, joined_at when there is no row, else now).
+                     -- public.reachability_overview() (authenticated; security definer): the Settings →
+                     -- Notifications rows, live: member_id, full_name, role, state, since, platform,
+                     -- last_success_at. The organisation's Owner: every tracked member with since, platform
+                     -- (the app report's, else the most recently seen subscription's) and last_success_at
+                     -- (the latest of any subscription). An Admin with notifications.reachability: only the
+                     -- members currently assigned to open tasks (not completed or cancelled, not archived)
+                     -- they created or approve, and the current coordinator of a freelancer assignee of
+                     -- such a task, with state alone (since, platform and last_success_at null). Anyone
+                     -- else FORBIDDEN. Never an endpoint, a key or a user agent.
 activity_log         id bigint identity, org_id, actor_id null (system), on_behalf_of_id null (4A,
                      ADR-0013: the freelancer a coordinator acted for; actor_id stays the coordinator;
                      written by app.audit_row_change() from the override's on_behalf_of key, else

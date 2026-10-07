@@ -340,12 +340,12 @@ select throws_ok(format($$ select public.task_create('Rules', null, %L::uuid, nu
     reminder_rules => '[2]') $$, pg_temp.type_id('Normal'), pg_temp.fx('staff1'), pg_temp.fx('staff1')),
   'P0001', 'VALIDATION', 'of objects');
 select throws_ok(format($$ select public.task_create('Rules', null, %L::uuid, null, 'medium', pg_temp.due(), array[%L::uuid], %L::uuid,
-    reminder_rules => (select jsonb_agg(jsonb_build_object('hours', n)) from generate_series(1, 11) n)) $$,
+    reminder_rules => (select jsonb_agg(jsonb_build_object('before', n, 'unit', 'hours')) from generate_series(1, 6) n)) $$,
     pg_temp.type_id('Normal'), pg_temp.fx('staff1'), pg_temp.fx('staff1')),
-  'P0001', 'VALIDATION', 'at most 10');
+  'P0001', 'VALIDATION', 'at most 5 (5.3; 10 objects before the rules had fields)');
 insert into fx values ('rules', public.task_create('Rules', null, pg_temp.type_id('Normal'), null, 'medium',
-  pg_temp.due(), array[pg_temp.fx('staff1')], pg_temp.fx('staff1'), reminder_rules => '[{"kind": "due", "hours": 2}]'));
-select is((pg_temp.task('rules')).reminder_rules, '[{"kind": "due", "hours": 2}]'::jsonb, 'a list of objects is kept');
+  pg_temp.due(), array[pg_temp.fx('staff1')], pg_temp.fx('staff1'), reminder_rules => '[{"before": 2, "unit": "hours"}]'));
+select is((pg_temp.task('rules')).reminder_rules, '[{"before": 2, "unit": "hours"}]'::jsonb, 'a valid list is kept (5.3''s rule shape)');
 select throws_ok(format($$ select public.task_update_assignment(%L, '{"reminder_rules": ["soon"]}') $$, pg_temp.fx('rules')),
   'P0001', 'VALIDATION', 'task_update_assignment checks the rules it is given');
 select throws_ok(format($$ select public.task_create('Warned', null, %L::uuid, null, 'medium', pg_temp.due(), array[%L::uuid], %L::uuid,

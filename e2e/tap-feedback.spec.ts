@@ -3,6 +3,7 @@ import { type Locator, type Page, type Request, type Route, type TestInfo } from
 import { expect, test } from "./fixtures";
 
 import {
+  actionId,
   animationsSettled,
   hydrated,
   pageHeader,
@@ -57,8 +58,15 @@ const isScreenFetch = (request: Request, path: string) =>
   request.headers()["rsc"] === "1" &&
   !request.headers()["next-router-prefetch"] &&
   new URL(request.url()).pathname === path;
-const isAction = (request: Request) =>
-  request.method() === "POST" && Boolean(request.headers()["next-action"]);
+/** A call to that one server action. */
+const callTo = (filename: string, exportedName: string) => {
+  const id = actionId(filename, exportedName);
+  return (request: Request) =>
+    request.method() === "POST" && request.headers()["next-action"] === id;
+};
+const TEAM = "src/modules/team/actions/members.ts";
+const CLAIMS = "src/modules/expenses/actions/claims.ts";
+const NOTES = "src/modules/attendance/actions/notes.ts";
 
 /** The screen's prefetches: refused where a test needs the tap itself to wait on the server. */
 const isPrefetchOf = (request: Request, path: string) =>
@@ -227,8 +235,11 @@ test.describe("navigation shows it is on its way", () => {
     await expect(html(page)).not.toHaveAttribute("data-nav-pending");
   });
 
-  test("before hydration, a tap still starts the bar", async ({ page, isMobile }) => {
+  test("before hydration, a tap still starts the bar", async ({ page, isMobile, reloadGuard }) => {
     test.skip(!isMobile, "measured where hydration takes longest: the installed phone");
+    // With the scripts held the app never takes the tap over: the head script loads the
+    // destination itself after its wait (§14.2 l), a document load this test is about.
+    reloadGuard.allow(/.*/);
     await runInstalled(page);
     // The page's scripts never arrive, so only the head script can answer the tap.
     await page.route(/\/_next\/static\/chunks\/.+\.js/, () => undefined);
@@ -299,8 +310,14 @@ test.describe("navigation shows it is on its way", () => {
     await expect(page).toHaveURL(/\/today$/);
   });
 
-  test("after 25 s Retry loads the destination in full", async ({ page, isMobile }) => {
+  test("after 25 s Retry loads the destination in full", async ({
+    page,
+    isMobile,
+    reloadGuard,
+  }) => {
     test.skip(!isMobile, "measured on the installed phone");
+    // The full load is the point of this test (§14.2 i).
+    reloadGuard.allow(/.*/);
     await runInstalled(page);
     await page.clock.install();
     await holdScreen(page, "/tasks");
@@ -395,7 +412,7 @@ test.describe("a commit button shows it is working", () => {
     await record(page).locator('[data-slot="save-record"]').click();
     await expect(confirmation(page)).toBeVisible();
 
-    const slow = await hold(page, isAction);
+    const slow = await hold(page, callTo(TEAM, "updateOwnProfile"));
     const commit = confirmation(page).locator('[data-slot="button"][data-variant="primary"]');
     await commit.dblclick();
     await expect(commit).toHaveAttribute("data-pending", "", { timeout: 100 });
@@ -424,8 +441,9 @@ test.describe("a commit button shows it is working", () => {
     await record(page).locator('[data-slot="save-record"]').click();
 
     let attempts = 0;
+    const save = callTo(TEAM, "updateOwnProfile");
     await page.route("**/*", async (route) => {
-      if (!isAction(route.request())) return route.fallback();
+      if (!save(route.request())) return route.fallback();
       attempts++;
       // The first try dies on the network, as a dropped phone connection does.
       if (attempts === 1) return route.abort("internetdisconnected");
@@ -512,9 +530,10 @@ test.describe("a failed action never retries onto another item", () => {
     page.locator('[data-slot="approval-group"][data-group="expenses"] li', { hasText: name });
 
   test("Approve fails on one claim; the next claim's sheet offers no Retry", async ({ page }) => {
+    const trap = callTo(CLAIMS, "approveExpenseClaim");
     let failNext = true;
     await page.route("**/*", (route) => {
-      if (!isAction(route.request()) || !failNext) return route.fallback();
+      if (!trap(route.request()) || !failNext) return route.fallback();
       failNext = false;
       return route.abort("internetdisconnected");
     });
@@ -536,9 +555,10 @@ test.describe("a failed action never retries onto another item", () => {
   test("Reject fails on one claim; the next claim's reason dialog offers no Retry", async ({
     page,
   }) => {
+    const trap = callTo(CLAIMS, "rejectExpenseClaim");
     let failNext = true;
     await page.route("**/*", (route) => {
-      if (!isAction(route.request()) || !failNext) return route.fallback();
+      if (!trap(route.request()) || !failNext) return route.fallback();
       failNext = false;
       return route.abort("internetdisconnected");
     });
@@ -587,9 +607,10 @@ test.describe("a failed action never retries onto another item", () => {
       });
     }
     try {
+      const trap = callTo(NOTES, "decideExtraWorkNote");
       let failNext = true;
       await page.route("**/*", (route) => {
-        if (!isAction(route.request()) || !failNext) return route.fallback();
+        if (!trap(route.request()) || !failNext) return route.fallback();
         failNext = false;
         return route.abort("internetdisconnected");
       });

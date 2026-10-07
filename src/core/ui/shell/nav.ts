@@ -18,6 +18,8 @@ export type NavIconName =
   | "sunrise"
   | "bell"
   | "circle-user"
+  | "calendar-check"
+  | "receipt"
   | "more";
 
 export type NavItem = {
@@ -28,6 +30,10 @@ export type NavItem = {
   icon: NavIconName;
   /** The permission the destination will check. `null` = every signed-in member. */
   permission: PermissionKey | null;
+  /** The bottom bar's shorter label, when the sidebar's would not fit a fifth of a phone. */
+  barLabel?: string;
+  /** Other routes this destination owns besides `href` and what is under it (its other tabs). */
+  paths?: readonly string[];
 };
 
 /**
@@ -110,9 +116,35 @@ const settings = (permission: PermissionKey): NavItem => ({
 });
 
 /**
- * Primary navigation per role. Owner and Admin see it in the sidebar; Staff see it in the
- * bottom bar on mobile (PRODUCT §4.7: My Day · Tasks · Calendar · Alerts · Me).
- * Money never appears here: revenue and billing are panels inside Owner screens (ADR-0007).
+ * The member's own Attendance & leave (2.3; 5B decisions 1-2): two tabs, Leave requests (`/leave`)
+ * and Attendance. The Crew's phone bar calls it "Leave".
+ */
+const leave: NavItem = {
+  key: "leave",
+  label: "Attendance & leave",
+  barLabel: "Leave",
+  href: "/leave",
+  icon: "calendar-check",
+  permission: "attendance.self",
+};
+/** Extra work & expenses (5B decision 3): two tabs, Extra work and Expenses; on a phone, from Me. */
+const work: NavItem = {
+  key: "work",
+  label: "Extra work & expenses",
+  href: "/leave/extra-work",
+  icon: "receipt",
+  permission: "attendance.self",
+  paths: ["/leave/expenses"],
+};
+
+/**
+ * Primary navigation per role. Owner and Admin see it in the sidebar; Staff (shown as Crew) see
+ * it in the sidebar on desktop (5B decision 5: My Day · Tasks · Calendar · Attendance & leave ·
+ * Extra work & expenses · Me, the bell at the top) and in the bottom bar on a phone (5B decision
+ * 1: My Day · Tasks · Calendar · Leave · Me; Alerts is the title bar's bell, as for the Owner and
+ * Admins; Extra work & expenses is a row on Me). Owner and Admin navigation is unchanged
+ * (decision 7). Money never appears here: revenue and billing are panels inside Owner screens
+ * (ADR-0007).
  */
 export const NAV_BY_ROLE: Record<ShellRole, readonly NavItem[]> = {
   owner: [
@@ -139,7 +171,8 @@ export const NAV_BY_ROLE: Record<ShellRole, readonly NavItem[]> = {
     { key: "my-day", label: "My Day", href: "/my-day", icon: "sunrise", permission: null },
     tasks("tasks.work"),
     calendar,
-    { key: "alerts", label: "Alerts", href: "/notifications", icon: "bell", permission: null },
+    leave,
+    work,
     { key: "me", label: "Me", href: "/me", icon: "circle-user", permission: null },
   ],
 };
@@ -155,13 +188,13 @@ export function navFor(role: ShellRole): readonly NavItem[] {
  * `MOBILE_PRIMARY` is the bar; `MOBILE_MORE` is the sheet behind it. Both are in the **owner's
  * stated priority order** (2026-09-23): today, approvals, tasks, calendar, reports, clients,
  * people, settings. Clients is deliberately not in the bar for either role — a client is set up
- * once and visited occasionally, not daily. Staff keep PRODUCT §4.7 unchanged and need no More:
- * those five are all the screens they have.
+ * once and visited occasionally, not daily. Staff need no More: their five tabs, and Extra work &
+ * expenses as a row on Me (`MOBILE_VIA_ME`, 5B decision 3).
  *
  * Owner and Admin hold the same four today and stay **separate entries on purpose**: Approvals
  * and Reports will weigh differently for each once they carry real numbers.
  *
- * These two arrays are the only place the split lives — changing what a phone shows is one edit
+ * These arrays are the only place the split lives — changing what a phone shows is one edit
  * here, not three components — and `nav.test.ts` proves together they are exactly the role's
  * navigation, so nothing can be dropped or listed twice.
  *
@@ -170,7 +203,17 @@ export function navFor(role: ShellRole): readonly NavItem[] {
 export const MOBILE_PRIMARY: Record<ShellRole, readonly string[]> = {
   owner: ["today", "approvals", "tasks", "calendar"],
   admin: ["today", "approvals", "tasks", "calendar"],
-  staff: ["my-day", "tasks", "calendar", "alerts", "me"],
+  staff: ["my-day", "tasks", "calendar", "leave", "me"],
+};
+
+/**
+ * Destinations a phone reaches through a row on Me rather than the bar or More (5B decision 3):
+ * while one is open, Me is the bar's current tab.
+ */
+export const MOBILE_VIA_ME: Record<ShellRole, readonly string[]> = {
+  owner: [],
+  admin: [],
+  staff: ["work"],
 };
 
 /** Everything the bar didn't take, in the same priority order. */
@@ -181,7 +224,7 @@ export const MOBILE_MORE: Record<ShellRole, readonly string[]> = {
 };
 
 /**
- * The viewer's own profile. Staff have it in their bar (PRODUCT §4.7); for Owner and Admin it
+ * The viewer's own profile. Staff (Crew) have it in their bar (PRODUCT §4.7); for Owner and Admin it
  * is a row of the More sheet rather than one of `NAV_BY_ROLE`, which lists screens, not
  * self-service. It is a real item so that More can read as current while /me is open.
  */
@@ -200,18 +243,44 @@ export type MobileNav = {
   more: readonly NavItem[];
 };
 
-/** Splits a role's navigation into the bottom bar and the More sheet, both in priority order. */
+/**
+ * Splits a role's navigation into the bottom bar and the More sheet, both in priority order, with
+ * the bar's shorter labels. Me owns the routes of what a phone reaches from it (`MOBILE_VIA_ME`).
+ */
 export function mobileNavFor(role: ShellRole): MobileNav {
   const items = navFor(role);
   const pick = (keys: readonly string[]) =>
     keys.flatMap((key) => items.filter((item) => item.key === key));
-  return { primary: pick(MOBILE_PRIMARY[role]), more: pick(MOBILE_MORE[role]) };
+  const viaMe = pick(MOBILE_VIA_ME[role]).flatMap((item) => [item.href, ...(item.paths ?? [])]);
+  const primary = pick(MOBILE_PRIMARY[role]).map((item) => ({
+    ...item,
+    label: item.barLabel ?? item.label,
+    ...(item.key === "me" && viaMe.length > 0 ? { paths: [...(item.paths ?? []), ...viaMe] } : {}),
+  }));
+  return { primary, more: pick(MOBILE_MORE[role]) };
+}
+
+/**
+ * The current destination of a list (the sidebar, the bar, the More sheet): the item whose route,
+ * or one of its `paths`, holds `pathname` most closely. `/leave/expenses` is Extra work &
+ * expenses, not Attendance & leave, although both live under `/leave` (5B decision 3).
+ */
+export function activeNavKey(pathname: string, items: readonly NavItem[]): string | null {
+  let best: { key: string; length: number } | null = null;
+  for (const item of items) {
+    for (const href of [item.href, ...(item.paths ?? [])]) {
+      if (isActivePath(pathname, href) && (!best || href.length > best.length)) {
+        best = { key: item.key, length: href.length };
+      }
+    }
+  }
+  return best?.key ?? null;
 }
 
 /**
  * True when the role's bottom bar already carries a notifications destination. When it doesn't
- * (Owner and Admin), the mobile page title bar carries the bell instead, so the alerts are
- * never behind a scroll position or a sheet.
+ * (every role since 5B decision 1), the mobile page title bar carries the bell instead, so the
+ * alerts are never behind a scroll position or a sheet.
  */
 export function alertsInBottomNav(role: ShellRole): boolean {
   return mobileNavFor(role).primary.some((item) => item.href === "/notifications");
@@ -231,8 +300,9 @@ export type SettingsSection = {
 
 /**
  * Settings is the Owner's control centre (PRODUCT §4.16). Admins get only the data lists they
- * may edit (PERMISSIONS §1: `lists.manage` with footnote ¹, `templates.manage`) and nothing
- * about the company, days off, thresholds, Drive or the team.
+ * may edit (PERMISSIONS §1: `lists.manage` with footnote ¹, `templates.manage`), and who on their
+ * open tasks can't be reached (`notifications.reachability`, 5.4), and nothing about the company,
+ * days off, thresholds, Drive or the team.
  */
 export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   {
@@ -260,6 +330,16 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     description: "Reminders, escalations, the logout nudge and the email cap.",
     permission: "settings.manage",
     arrivesIn: "1.4",
+    ready: true,
+  },
+  {
+    key: "notifications",
+    label: "Notifications",
+    href: "/settings/notifications",
+    description: "Who can't be reached by push, and why.",
+    // The Owner sees everyone; an Admin the people on their open tasks (PERMISSIONS §1).
+    permission: "notifications.reachability",
+    arrivesIn: "5.4",
     ready: true,
   },
   {

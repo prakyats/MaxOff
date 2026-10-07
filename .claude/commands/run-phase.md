@@ -2,6 +2,8 @@
 description: Build a whole phase unit by unit with one subagent per unit, stopping only on a real decision
 argument-hint: "[phase number]"
 ---
+
+> **Production is live** (`https://app.maxoff.in`, in daily use since 2026-10-01). Read `CLAUDE.md` → "Production is live" before any change: expand-only migrations, no merge/tag/approve by a session, nothing run against production.
 Run phase $ARGUMENTS of MaxOff: every unit in `docs/ROADMAP.md` for this phase, in order, each built by its own subagent. You are the orchestrator: you hold summaries, verify results and decide when to stop. You do not build units yourself. (Run this on the highest-capability model; the subagents get the unit's tier.)
 
 ## Before the first unit

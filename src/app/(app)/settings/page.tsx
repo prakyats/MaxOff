@@ -26,13 +26,14 @@ export default async function SettingsPage() {
     "lists.manage",
     "templates.manage",
     "drive.manage",
+    "notifications.reachability",
   ]);
   const sections = settingsSectionsFor(viewer.role);
 
   const description =
     viewer.role === "owner"
-      ? "Everything configurable lives here: company, days off, thresholds, lists, fields, templates and integrations."
-      : "The lists and templates you may edit. Company settings, days off, thresholds and the team are the Owner's.";
+      ? "Everything configurable lives here: company, days off, thresholds, notifications, lists, fields, templates and integrations."
+      : "The lists and templates you may edit, and who on your tasks can't be reached. Company settings, days off, thresholds and the team are the Owner's.";
 
   return (
     <>

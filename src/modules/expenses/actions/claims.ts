@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { action, type BulkOutcome, eachId, ok, type Result } from "@/core/errors";
+import { dispatchPushSoon } from "@/core/notifications/push/dispatch";
 import { assertPermission } from "@/core/permissions/server";
 
 import * as repo from "../data/claims";
@@ -33,6 +34,7 @@ export const submitExpenseClaim = action(
     const claimId = await repo.rpcSubmitClaim(data);
     revalidatePath("/leave/expenses");
     revalidatePath("/approvals");
+    dispatchPushSoon();
     return ok({ claimId });
   },
 );
@@ -57,6 +59,7 @@ export const approveExpenseClaim = action(async (input: ClaimIdInput): Promise<R
   await assertPermission("expenses.decide");
   await repo.rpcDecideClaim({ claimId: data.claimId, decision: "approve", reason: null });
   revalidateDecisions();
+  dispatchPushSoon();
   return ok(null);
 });
 
@@ -65,6 +68,7 @@ export const rejectExpenseClaim = action(async (input: RejectClaimInput): Promis
   await assertPermission("expenses.decide");
   await repo.rpcDecideClaim({ claimId: data.claimId, decision: "reject", reason: data.reason });
   revalidateDecisions();
+  dispatchPushSoon();
   return ok(null);
 });
 
@@ -77,6 +81,7 @@ export const markExpenseClaimsPaid = action(
       repo.rpcMarkPaid(claimId, data.paidOn),
     );
     revalidateDecisions();
+    dispatchPushSoon();
     return ok(outcome);
   },
 );

@@ -89,6 +89,94 @@ test.describe("the sticky save bar never covers the last field (§14.1)", () => 
     await check(page, `/people/${id}`, "Profile");
   });
 
+  /**
+   * v1.3.1 (CI 36879970598, "Job title" 20 px behind the bar at 200%, once): the bar and the
+   * bands publish their measured heights, so a reserve can grow while a person rests at the
+   * page's end. The padding grew with it but the page kept its scroll position, so the bar
+   * moved up over the last field until the person scrolled again. Now a person at the end stays
+   * at the end, in the same frame (`changeBottomReserve`).
+   */
+  test.describe("a reserve that grows at the page's end keeps the last field clear", () => {
+    const lastField = (page: Page) =>
+      record(page, "Profile")
+        .locator("input:not([type=hidden]), textarea, button[role=combobox]")
+        .last();
+    const bar = (page: Page) => page.locator('[data-slot="sticky-actions"]');
+    /** Two painted frames: whatever the reserves publish has been laid out. */
+    const frames = (page: Page) =>
+      page.evaluate(
+        () =>
+          new Promise<void>((done) =>
+            requestAnimationFrame(() => requestAnimationFrame(() => done())),
+          ),
+      );
+    /** The last field's bottom minus the bar's top, read in the page (> 0: covered). */
+    const overlap = (page: Page) =>
+      Promise.all([lastField(page).boundingBox(), bar(page).boundingBox()]).then(
+        ([field, barBox]) => field!.y + field!.height - barBox!.y,
+      );
+    async function editProfile(page: Page, project: string) {
+      const id = await memberIdOf(`profile-${project}@maxoff.local`);
+      await page.goto(`/people/${id}`);
+      await expect(pageHeader(page)).toBeVisible();
+      await hydrated(page);
+      await record(page, "Profile").locator('[data-slot="edit-record"]').click();
+      await expect(bar(page)).toBeVisible();
+    }
+    /** A person's scroll to the very end (wheel input, over real frames). */
+    async function scrollToEnd(page: Page) {
+      const atEnd = () =>
+        page.evaluate(
+          () => document.documentElement.scrollHeight - window.innerHeight - window.scrollY <= 1,
+        );
+      for (let turn = 0; turn < 12 && !(await atEnd()); turn++) {
+        await page.mouse.move(8, 300);
+        await page.mouse.wheel(0, 400);
+        await frames(page);
+      }
+      expect(await atEnd(), "the page is at its end").toBe(true);
+    }
+
+    test("the connection drops: the offline band appears under a person at the end", async ({
+      page,
+      context,
+    }, info) => {
+      await editProfile(page, info.project.name);
+      for (const scale of ["100%", "200%"]) {
+        await page.evaluate((size) => {
+          document.documentElement.style.fontSize = size;
+        }, scale);
+        await frames(page);
+        await scrollToEnd(page);
+        expect(await overlap(page), `${scale}: clear at the end`).toBeLessThanOrEqual(0);
+        await context.setOffline(true);
+        await expect(page.locator('[data-slot="offline-banner"]')).toBeVisible();
+        await frames(page);
+        // Measured once, never scrolled again: what the person sees without touching the page.
+        expect(await overlap(page), `${scale}: offline, still clear`).toBeLessThanOrEqual(0);
+        await context.setOffline(false);
+        await expect(page.locator('[data-slot="offline-banner"]')).toHaveCount(0);
+      }
+    });
+
+    test("the text grows in the frame the page is scrolled to its end", async ({ page }, info) => {
+      await editProfile(page, info.project.name);
+      await page.evaluate(() => {
+        document.documentElement.style.fontSize = "130%";
+      });
+      await frames(page);
+      await scrollToEnd(page);
+      // The CI run's order, made certain: 200% and the scroll in one task, so the scroll's end is
+      // computed before the bar and the band have measured themselves at 200%.
+      await page.evaluate(() => {
+        document.documentElement.style.fontSize = "200%";
+        window.scrollTo(0, document.documentElement.scrollHeight);
+      });
+      await frames(page);
+      expect(await overlap(page), "200%: clear without another scroll").toBeLessThanOrEqual(0);
+    });
+  });
+
   test("on a client's Details", async ({ page }, info) => {
     const name = `Test Client Sticky (${info.project.name})`;
     await removeClientFixture(name);

@@ -13,11 +13,17 @@
  * - The manifest is never cached here. It drives an installed app's name, icons and status-bar
  *   band, and a stale copy is invisible until someone reinstalls and finds the change missing.
  * - Never touches /api, non-GET requests or other origins, so Supabase and server actions are
- *   always live. Push handlers arrive with core/notifications (task 5.1).
+ *   always live.
+ * - Web Push (task 5.2, ADR-0009, WORKFLOWS §9a): `push` shows the notification with the full
+ *   text the dispatcher sent (`core/notifications/push/send.ts` PushMessage: title, body, url,
+ *   tag, notificationId); `notificationclick` opens its link through the deep-link entry
+ *   (`/open?to=…`, ARCHITECTURE §14.2 h), focusing an open MaxOff window when there is one,
+ *   so the record lands with its list underneath; `pushsubscriptionchange` re-subscribes and
+ *   stores the new subscription through /api/push/subscription (no page may be open then).
  *
- * Bump VERSION when the caching rules change; the old cache is deleted on activate.
+ * Bump VERSION when the caching rules or the handlers change; the old cache is deleted on activate.
  */
-const VERSION = "v4";
+const VERSION = "v7";
 const CACHE = `maxoff-${VERSION}`;
 const OFFLINE_URL = "/offline";
 /** A failed navigation waits this long, then is tried once more before the offline page. */
@@ -137,4 +143,145 @@ self.addEventListener("fetch", (event) => {
       }),
     );
   }
+});
+
+// Web Push (5.2) ---------------------------------------------------------------------------------
+
+const NOTIFICATIONS_URL = "/notifications";
+/**
+ * The status-bar badge: the M alone, white on transparent (public/icons/badge.svg). Android draws a
+ * notification's small icon from its alpha, so the full-colour app icon showed as a white square.
+ */
+const BADGE_URL = "/icons/badge-96.png";
+/**
+ * The large picture (owner decision 2026-10-02): Chrome on Android cannot leave it empty (with no
+ * `icon` it drew a grey disc with the origin's first letter), and the app icon there doubled the
+ * M. So it is one of a few fixed images by the notification's group: the payload names the group
+ * (`notifyGroupFor`, core/notifications/push/groups.ts), never a URL, and this maps it to a
+ * same-origin path; an unknown or missing group shows "other". Nothing personal, nothing behind
+ * auth (public/icons/notify/, scripts/generate-notify-icons.mjs).
+ */
+const NOTIFY_ICONS = {
+  tasks: "/icons/notify/tasks.png",
+  approvals: "/icons/notify/approvals.png",
+  leave: "/icons/notify/leave.png",
+  reminders: "/icons/notify/reminders.png",
+  other: "/icons/notify/other.png",
+};
+
+function iconFor(group) {
+  return typeof group === "string" && Object.prototype.hasOwnProperty.call(NOTIFY_ICONS, group)
+    ? NOTIFY_ICONS[group]
+    : NOTIFY_ICONS.other;
+}
+
+/** The dispatcher's JSON, or a bare-text fallback: a push with no payload still shows something. */
+function readPushMessage(event) {
+  try {
+    const data = event.data ? event.data.json() : null;
+    if (data && typeof data.title === "string") return data;
+  } catch {
+    // Not JSON: fall through.
+  }
+  const text = event.data ? event.data.text() : "";
+  return {
+    title: "MaxOff",
+    body: text || null,
+    url: NOTIFICATIONS_URL,
+    tag: null,
+    notificationId: null,
+    group: "other",
+  };
+}
+
+self.addEventListener("push", (event) => {
+  const message = readPushMessage(event);
+  const options = {
+    body: message.body || undefined,
+    icon: iconFor(message.group),
+    badge: BADGE_URL,
+    tag: message.tag || undefined,
+    // A newer push with the same tag replaces the older quietly: no second buzz for the same
+    // notification, one buzz for a fresh one.
+    renotify: false,
+    data: { url: typeof message.url === "string" ? message.url : NOTIFICATIONS_URL },
+  };
+  event.waitUntil(self.registration.showNotification(message.title, options));
+});
+
+/** The deep-link entry for a link (`core/ui/navigation/deep-link.ts` openUrl). */
+function openUrlFor(path) {
+  const safe =
+    typeof path === "string" && path.startsWith("/") && !path.startsWith("//")
+      ? path
+      : NOTIFICATIONS_URL;
+  return `${self.location.origin}/open?to=${encodeURIComponent(safe)}`;
+}
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = openUrlFor(event.notification.data && event.notification.data.url);
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windows) => {
+      // An open MaxOff window is brought forward and sent to the entry, so the app keeps its
+      // state; otherwise a window is opened on it.
+      const open = windows.find((client) => new URL(client.url).origin === self.location.origin);
+      if (open) {
+        return open.focus().then((focused) => {
+          const client = focused || open;
+          return "navigate" in client ? client.navigate(target) : null;
+        });
+      }
+      return self.clients.openWindow(target);
+    }),
+  );
+});
+
+/** The subscription the push service replaced, stored for the signed-in member of this browser. */
+async function storeSubscription(subscription) {
+  const p256dh = subscription.getKey("p256dh");
+  const auth = subscription.getKey("auth");
+  if (!p256dh || !auth) return;
+  const encode = (bytes) =>
+    btoa(String.fromCharCode(...new Uint8Array(bytes)))
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+  const ua = self.navigator.userAgent || "";
+  const platform = /iPhone|iPad|iPod/.test(ua)
+    ? "ios"
+    : /Android/.test(ua)
+      ? "android"
+      : /Windows|Macintosh|Linux|CrOS/.test(ua)
+        ? "desktop"
+        : "other";
+  await fetch("/api/push/subscription", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      endpoint: subscription.endpoint,
+      p256dh: encode(p256dh),
+      auth: encode(auth),
+      platform,
+      // The worker cannot tell an installed window from a tab; the next page load corrects it.
+      isStandalone: false,
+      label: null,
+      userAgent: ua.slice(0, 512),
+    }),
+  });
+}
+
+self.addEventListener("pushsubscriptionchange", (event) => {
+  const old = event.oldSubscription;
+  const key = old && old.options ? old.options.applicationServerKey : null;
+  if (!key) return;
+  event.waitUntil(
+    self.registration.pushManager
+      .subscribe({ userVisibleOnly: true, applicationServerKey: key })
+      .then(storeSubscription)
+      .catch(() => {
+        // The next signed-in page load re-subscribes (PushSync).
+      }),
+  );
 });

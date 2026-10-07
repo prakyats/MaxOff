@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { reminderRulesSchema } from "@/core/lib/reminder-rules-schema";
 import { isISODate } from "@/core/time";
 
 export const COMPANY_NAME_MAX = 120;
@@ -50,6 +51,11 @@ export type CreateHolidayInput = z.input<typeof createHolidaySchema>;
 export const holidayIdSchema = z.object({ holidayId: z.uuid() });
 export type HolidayIdInput = z.input<typeof holidayIdSchema>;
 
+const clockTime = z
+  .string()
+  .trim()
+  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use a time like 22:00.");
+
 const hours = (label: string) =>
   z.coerce
     .number({ error: `${label} is a number of hours.` })
@@ -85,11 +91,22 @@ export const updateThresholdsSchema = z
         MAX_WORKLOAD_THRESHOLD,
         `Keep the workload warning at ${MAX_WORKLOAD_THRESHOLD} or less.`,
       ),
+    // Quiet hours, IST (5B decision 6). The window may run past midnight (22:00-07:00).
+    quietHoursStart: clockTime,
+    quietHoursEnd: clockTime,
+    // The organisation's default reminders (5.3): `[]` = the launch schedule.
+    defaultTaskReminders: reminderRulesSchema,
   })
   // An escalation that reaches the Owner before the Admin would skip the first level entirely
   // (WORKFLOWS §9: level 1 is the approving Admin, level 2 the Owner).
   .refine((values) => values.ackEscalateOwnerHours >= values.ackEscalateHours, {
     path: ["ackEscalateOwnerHours"],
     message: "The Owner is the second level, so this cannot be sooner than the Admin escalation.",
+  })
+  // The same start and end would mean no quiet hours at all (`public.push_quiet`), and
+  // quiet hours hold for everyone (kickoff 5 decision 5): an equal pair is refused, not "off".
+  .refine((values) => values.quietHoursEnd !== values.quietHoursStart, {
+    path: ["quietHoursEnd"],
+    message: "Quiet hours can’t start and end at the same time. Choose a different end time.",
   });
 export type UpdateThresholdsInput = z.input<typeof updateThresholdsSchema>;

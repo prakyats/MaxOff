@@ -33,6 +33,9 @@ export const SETTINGS_HEADERS = {
   templates: same(
     "Task templates for work that repeats: a type, a priority, stages and field defaults. New task offers them under Start from.",
   ),
+  notifications: same(
+    "Who MaxOff can't reach with a push notification, and why. Anyone not reachable for 48 hours is emailed to the Owner, at most once a week each.",
+  ),
   thresholds: same(
     "How long MaxOff waits before it reminds someone, escalates to the Admin and then to you, and how much email one person can get in a day.",
   ),

@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { ownHistoryWrite } from "@/core/ui/navigation/history-writes";
+
 /**
  * Back closes the overlay, not the page (task 1.5, ARCHITECTURE §14.1).
  *
@@ -111,7 +113,8 @@ function reconcile(): void {
   // pushes nothing, so repeated open/close cannot pile up entries.
   if (pushedCount < open.length) {
     pushedCount += 1;
-    window.history.pushState({ ...historyState(), [MARKER]: ++nextId }, "");
+    const entry = { ...historyState(), [MARKER]: ++nextId };
+    ownHistoryWrite(() => window.history.pushState(entry, ""));
     schedule();
   }
 }
@@ -268,7 +271,7 @@ export function useOverlayHistory(isOpen: boolean, onClose: () => void): void {
       // The one replace that means to drop the marker: the guard must let it through.
       stripping = true;
       try {
-        window.history.replaceState(cleaned, "");
+        ownHistoryWrite(() => window.history.replaceState(cleaned, ""));
       } finally {
         stripping = false;
       }

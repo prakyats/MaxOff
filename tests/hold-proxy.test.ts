@@ -21,6 +21,9 @@ let proxy: Server;
 let proxyPort: number;
 /** Sends the streamed answer's second chunk and ends it (the test decides when). */
 let finishStream: () => void = () => undefined;
+/** Answers the upstream's `/slow` write (the test decides when); set once it has arrived. */
+let finishSlow: (() => void) | null = null;
+let onSlow: () => void = () => undefined;
 /** The upstream's side of the latest tunnelled socket. */
 let upstreamSocket: Promise<Duplex>;
 let onUpstreamSocket: (socket: Duplex) => void = () => undefined;
@@ -37,6 +40,48 @@ async function listen(server: Server): Promise<void> {
 function tokenFor(session: string): string {
   const payload = Buffer.from(JSON.stringify({ session_id: session })).toString("base64url");
   return `header.${payload}.signature`;
+}
+
+/** A bearer token of a person (the JWT's `sub`). */
+function tokenOf(member: string): string {
+  const payload = Buffer.from(JSON.stringify({ sub: member })).toString("base64url");
+  return `header.${payload}.signature`;
+}
+
+/** One POST through the proxy as a person; resolves with its status once it ends. */
+function postAs(path: string, member: string): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const outgoing = request(
+      {
+        host: "127.0.0.1",
+        port: proxyPort,
+        path,
+        method: "POST",
+        headers: { authorization: `Bearer ${tokenOf(member)}` },
+      },
+      (answer) => {
+        answer.resume();
+        answer.on("end", () => resolve(answer.statusCode ?? 0));
+      },
+    );
+    outgoing.on("error", reject);
+    outgoing.end();
+  });
+}
+
+/** Fences a person; resolves with the fence's status once the proxy answers it. */
+function fence(member: string): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const outgoing = request(
+      { host: "127.0.0.1", port: proxyPort, path: "/__fence", method: "POST" },
+      (answer) => {
+        answer.resume();
+        answer.on("end", () => resolve(answer.statusCode ?? 0));
+      },
+    );
+    outgoing.on("error", reject);
+    outgoing.end(JSON.stringify({ member }));
+  });
 }
 
 function nextUpstreamSocket(): void {
@@ -73,6 +118,12 @@ beforeAll(async () => {
       answer.writeHead(200, { "content-type": "text/plain" });
       answer.write("first;");
       finishStream = () => answer.end("second");
+      return;
+    }
+    if (incoming.url === "/slow") {
+      incoming.resume();
+      finishSlow = () => answer.writeHead(201).end();
+      onSlow();
       return;
     }
     answer.writeHead(200, { "content-type": "text/plain" });
@@ -253,6 +304,32 @@ describe("the hold proxy holds what a test registers, and only that", () => {
 
     hold.destroy();
     expect(await held).toEqual({ status: 200, body: "read /rest/v1/task_types?select=id" });
+  });
+
+  it("fences a person: answers once their write in flight ends, then refuses theirs only", async () => {
+    const arrived = new Promise<void>((resolve) => {
+      onSlow = resolve;
+    });
+    const write = postAs("/slow", "person-being-removed");
+    await arrived;
+
+    let fenceAnswered = false;
+    const fenced = fence("person-being-removed").then((status) => {
+      fenceAnswered = true;
+      return status;
+    });
+    // While their write is still at the upstream, the fence waits; their next request is refused
+    // and someone else's passes.
+    expect(await postAs("/rest/v1/rpc/app_open_report", "person-being-removed")).toBe(403);
+    expect(await postAs("/rest/v1/rpc/app_open_report", "someone-else")).toBe(200);
+    expect(fenceAnswered).toBe(false);
+
+    finishSlow?.();
+    expect(await write).toBe(201);
+    expect(await fenced).toBe(200);
+    expect(await postAs("/rest/v1/rpc/app_open_report", "person-being-removed")).toBe(403);
+    // A person with nothing in flight is fenced at once.
+    expect(await fence("idle-person")).toBe(200);
   });
 
   it("answers its health check", async () => {

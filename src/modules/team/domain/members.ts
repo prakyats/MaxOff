@@ -147,6 +147,15 @@ export function freelancerLine(coordinatorName: string | null): string {
   return coordinatorName ? `Freelancer · with ${coordinatorName}` : "Freelancer";
 }
 
+/**
+ * Who someone is, in one line: their role (or their freelancer line) and, when they have one,
+ * their job title: "Crew · Photographer", "Freelancer · with Ravi · Editor". Without a title the
+ * role stands alone, never "No job title" and never a dangling " · " (owner 2026-10-01).
+ */
+export function withJobTitle(lead: string, jobTitle: string | null): string {
+  return jobTitle ? `${lead} · ${jobTitle}` : lead;
+}
+
 /** The `EditableRecord` key a ⋯ menu or a list's Edit reaches a person's profile by (3.4). */
 export function memberEditKey(memberId: string): string {
   return `member:${memberId}`;

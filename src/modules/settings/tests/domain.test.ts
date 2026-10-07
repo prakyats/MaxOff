@@ -67,6 +67,9 @@ describe("updateThresholdsSchema", () => {
     overdueEscalateHours: "24",
     emailDailyCapPerMember: "20",
     workloadWarningThreshold: "4",
+    quietHoursStart: "22:00",
+    quietHoursEnd: "07:00",
+    defaultTaskReminders: [],
   };
 
   it("takes the launch settings (PRODUCT §7) as numbers", () => {
@@ -79,6 +82,76 @@ describe("updateThresholdsSchema", () => {
       overdueEscalateHours: 24,
       emailDailyCapPerMember: 20,
       workloadWarningThreshold: 4,
+      quietHoursStart: "22:00",
+      quietHoursEnd: "07:00",
+      defaultTaskReminders: [],
+    });
+  });
+
+  it("takes the organisation's default reminders as a checked list (5.3)", () => {
+    const rules = [
+      { before: 3, unit: "days" },
+      { before: 2, unit: "hours" },
+      { before: 0, unit: "minutes" },
+    ];
+    expect(
+      updateThresholdsSchema.parse({ ...valid, defaultTaskReminders: rules }).defaultTaskReminders,
+    ).toEqual(rules);
+    const same = updateThresholdsSchema.safeParse({
+      ...valid,
+      defaultTaskReminders: [
+        { before: 1, unit: "days" },
+        { before: 24, unit: "hours" },
+      ],
+    });
+    expect(same.success).toBe(false);
+    expect(same.error?.issues[0]).toMatchObject({
+      path: ["defaultTaskReminders", 1, "before"],
+      message: "Another reminder is already at this time.",
+    });
+    expect(
+      updateThresholdsSchema.safeParse({
+        ...valid,
+        defaultTaskReminders: [{ before: 61, unit: "days" }],
+      }).success,
+    ).toBe(false);
+    expect(
+      updateThresholdsSchema.safeParse({ ...valid, defaultTaskReminders: undefined }).success,
+    ).toBe(false);
+  });
+
+  it("takes quiet hours as IST clock times, past midnight or within one day (5B decision 6)", () => {
+    for (const [start, end] of [
+      ["22:00", "07:00"],
+      ["23:30", "06:15"],
+      ["13:00", "14:00"],
+      ["00:00", "23:59"],
+    ]) {
+      expect(
+        updateThresholdsSchema.safeParse({ ...valid, quietHoursStart: start, quietHoursEnd: end })
+          .success,
+      ).toBe(true);
+    }
+  });
+
+  it("refuses a quiet-hours time that is not HH:MM, or the same start and end", () => {
+    for (const bad of ["10pm", "24:00", "7:00", ""]) {
+      expect(updateThresholdsSchema.safeParse({ ...valid, quietHoursStart: bad }).success).toBe(
+        false,
+      );
+      expect(updateThresholdsSchema.safeParse({ ...valid, quietHoursEnd: bad }).success).toBe(
+        false,
+      );
+    }
+    const same = updateThresholdsSchema.safeParse({
+      ...valid,
+      quietHoursStart: "22:00",
+      quietHoursEnd: "22:00",
+    });
+    expect(same.success).toBe(false);
+    expect(same.error?.issues[0]).toMatchObject({
+      path: ["quietHoursEnd"],
+      message: "Quiet hours can’t start and end at the same time. Choose a different end time.",
     });
   });
 

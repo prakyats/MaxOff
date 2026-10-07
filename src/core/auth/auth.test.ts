@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { LINK_TYPES, parseAuthLinkParams } from "./link-params";
-import { isPublicPath, isSignedOutOnlyPath, safeNextPath } from "./paths";
+import { isPublicPath, isSignedOutOnlyPath, safeNextPath, signInLanding } from "./paths";
 import { clientIpFrom, hashIp, sessionMetaFrom } from "./request-meta";
 import {
   confirmLinkSchema,
@@ -21,6 +21,7 @@ describe("isPublicPath", () => {
       "/auth/confirm",
       "/auth/signout",
       "/diagnostics/sentry",
+      "/diagnostics/digest",
       "/api/cron/anything",
     ]) {
       expect(isPublicPath(path), path).toBe(true);
@@ -73,6 +74,33 @@ describe("safeNextPath", () => {
     expect(safeNextPath("/login?next=/today")).toBeNull();
     expect(safeNextPath("/forgot-password")).toBeNull();
     expect(safeNextPath("/auth/confirm?token_hash=x")).toBeNull();
+  });
+});
+
+describe("signInLanding (5.5; owner answers 2026-10-06, 2)", () => {
+  it("a new joiner with an unfinished walkthrough lands on the welcome screen, on any device", () => {
+    expect(signInLanding({ next: undefined, home: "/my-day", walkthroughUnfinished: true })).toBe(
+      "/me?welcome=1",
+    );
+  });
+  it("finished or skipped (Later), and anyone who joined before (no walkthrough): home", () => {
+    expect(signInLanding({ next: undefined, home: "/my-day", walkthroughUnfinished: false })).toBe(
+      "/my-day",
+    );
+    expect(signInLanding({ next: null, home: "/today", walkthroughUnfinished: false })).toBe(
+      "/today",
+    );
+  });
+  it("a sign-in that asked for somewhere specific still goes there; an unsafe one does not", () => {
+    expect(
+      signInLanding({ next: "/tasks/abc?x=1", home: "/my-day", walkthroughUnfinished: true }),
+    ).toBe("/tasks/abc?x=1");
+    expect(
+      signInLanding({ next: "//evil.example/", home: "/my-day", walkthroughUnfinished: true }),
+    ).toBe("/me?welcome=1");
+    expect(
+      signInLanding({ next: "//evil.example/", home: "/my-day", walkthroughUnfinished: false }),
+    ).toBe("/my-day");
   });
 });
 

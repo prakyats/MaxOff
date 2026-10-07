@@ -137,6 +137,23 @@ describe("sw.js", () => {
     expect(headers).not.toMatch(/\/manifest\.webmanifest\n\s+Cache-Control:[^\n]*max-age=[1-9]/);
   });
 
+  it("shows a push, opens its link through the deep-link entry and re-subscribes on change (5.2)", () => {
+    // v7: the push handler shows the group's large picture (owner decision 2026-10-02).
+    expect(sw).toMatch(/VERSION = "v7"/);
+    expect(sw).toContain('addEventListener("push"');
+    expect(sw).toContain("self.registration.showNotification(message.title");
+    // The tap lands on the record with its list underneath (ARCHITECTURE §14.2 h).
+    expect(sw).toContain("/open?to=");
+    expect(sw).toContain('addEventListener("notificationclick"');
+    expect(sw).toContain("self.clients.openWindow(target)");
+    expect(sw).toContain('addEventListener("pushsubscriptionchange"');
+    expect(sw).toContain('fetch("/api/push/subscription"');
+    // The caching rules are untouched: the fetch handler still ignores /api and other origins.
+    expect(sw.indexOf('addEventListener("push"')).toBeGreaterThan(
+      sw.indexOf('addEventListener("fetch"'),
+    );
+  });
+
   it("treats only content-hashed files as immutable", () => {
     // /icons names are stable (icon-192.png), so cache-first would pin a changed icon for ever.
     const immutable = sw.match(/function isImmutableAsset\([\s\S]*?\n}/)?.[0] ?? "";

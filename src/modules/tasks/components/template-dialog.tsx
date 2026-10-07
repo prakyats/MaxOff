@@ -6,11 +6,18 @@ import { type FormEvent, useState } from "react";
 import type { FieldDefinition } from "@/core/custom-fields";
 import { CustomFieldsForm } from "@/core/custom-fields/components/custom-fields-form";
 import type { ResultError } from "@/core/errors";
+import {
+  draftFromRules,
+  type ReminderDraft,
+  type ReminderRule,
+  rulesFromDraft,
+} from "@/core/lib/reminder-rules";
 import { ActionStatus } from "@/core/ui/action/action-status";
 import { useAction } from "@/core/ui/action/use-action";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { FormField } from "@/core/ui/composites/form-field";
+import { ReminderRulesEditor } from "@/core/ui/composites/reminder-rules-editor";
 import { Button } from "@/core/ui/primitives/button";
 import {
   Dialog,
@@ -33,6 +40,7 @@ import { describeError, toastResult } from "@/core/ui/toast";
 
 import { saveTemplate } from "../actions/templates";
 import { DESCRIPTION_MAX, STAGE_NAME_MAX, STAGES_MAX, TEMPLATE_NAME_MAX } from "../domain/limits";
+import { templateDefaultReminders } from "../domain/reminders";
 import type { TaskTemplate } from "../domain/templates";
 import {
   type MemberRole,
@@ -52,6 +60,8 @@ export type TemplateContext = {
   members: readonly { id: string; name: string }[];
   /** The authors' names, by id. */
   names: Readonly<Record<string, string>>;
+  /** The organisation's default reminders (5.3), under the type's: a template's "default". */
+  orgReminders: readonly ReminderRule[];
 };
 
 /**
@@ -65,6 +75,7 @@ export function TemplateDialog({
   types,
   definitions,
   members,
+  orgReminders,
   onClose,
 }: TemplateContext & { template?: TaskTemplate; onClose: () => void }) {
   const editing = template !== undefined;
@@ -77,16 +88,25 @@ export function TemplateDialog({
   const [fieldDefaults, setFieldDefaults] = useState<Record<string, unknown>>(
     template?.fieldDefaults ?? {},
   );
-  const [initial] = useState(() =>
-    JSON.stringify([name, taskTypeId, priority, description, stages, fieldDefaults]),
+  const [reminders, setReminders] = useState<ReminderDraft>(() =>
+    draftFromRules(template?.reminderRules ?? []),
   );
+  const [initial] = useState(() =>
+    JSON.stringify([name, taskTypeId, priority, description, stages, fieldDefaults, reminders]),
+  );
+  const [remindersBlocked, setRemindersBlocked] = useState(false);
   const [phase, setPhase] = useState<"form" | "discard">("form");
   const [error, setError] = useState<ResultError | null>(null);
   const fields = definitions
     .filter((definition) => definition.taskTypeId === null || definition.taskTypeId === taskTypeId)
     .map((definition) => ({ ...definition, required: false }));
+  const reminderRules = rulesFromDraft(reminders);
   const action = useAction(
     async () => {
+      if (reminderRules === null) {
+        setRemindersBlocked(true);
+        return;
+      }
       const keys = new Set(fields.map((definition) => definition.key));
       const result = await saveTemplate({
         templateId: template?.id ?? null,
@@ -99,6 +119,7 @@ export function TemplateDialog({
           fieldDefaults: Object.fromEntries(
             Object.entries(fieldDefaults).filter(([key]) => keys.has(key)),
           ),
+          reminderRules,
         },
       });
       if (result.ok) {
@@ -112,7 +133,15 @@ export function TemplateDialog({
   );
   const { pending } = action;
   const dirty =
-    JSON.stringify([name, taskTypeId, priority, description, stages, fieldDefaults]) !== initial;
+    JSON.stringify([name, taskTypeId, priority, description, stages, fieldDefaults, reminders]) !==
+    initial;
+  const remindersError =
+    Object.entries(error?.fieldErrors ?? {}).find(([key]) =>
+      key.startsWith("template.reminderRules"),
+    )?.[1]?.[0] ??
+    (remindersBlocked && reminderRules === null
+      ? "Fix the reminders, or use the default."
+      : undefined);
   const fieldErrors = error?.fieldErrors ?? {};
   const summary = error && !error.fieldErrors ? describeError(error) : null;
   const customErrors = Object.fromEntries(
@@ -235,6 +264,19 @@ export function TemplateDialog({
                 />
               )}
             </FormField>
+            <ReminderRulesEditor
+              draft={reminders}
+              onChange={(next) => {
+                setReminders(next);
+                setRemindersBlocked(false);
+              }}
+              fallback={templateDefaultReminders({
+                type: types.find((type) => type.id === taskTypeId)?.defaultReminders ?? null,
+                organisation: orgReminders,
+              })}
+              disabled={pending}
+              error={remindersError}
+            />
             <fieldset className="flex min-w-0 flex-col gap-2" data-slot="template-stages">
               <legend className="mb-1.5 text-sm font-medium">
                 Stages <span className="text-muted-foreground font-normal">(optional)</span>

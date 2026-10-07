@@ -5,6 +5,7 @@ import { expect, test } from "./fixtures";
 import { addISTDays, istInstant, istWeekday, systemClock, todayIST } from "../src/core/time";
 
 import {
+  animationsSettled,
   expectBackStack,
   expectNoHorizontalScroll,
   memberIdOf,
@@ -582,6 +583,108 @@ test.describe("staff tasks, the flows", () => {
         (await historyRows(page)).filter({ hasText: "despite a heavy day" }),
       ).toHaveCount(1);
     });
+
+    test("sets the task's own reminders from the collapsed line; Use the default saves []", async ({
+      page,
+    }, info) => {
+      const prefix = `Remind ${info.project.name} `;
+      await removeTasksTitled(prefix);
+      const stored = async (taskId: string) => {
+        const [row] = await serviceSelect<{ reminder_rules: unknown }>(
+          `tasks?id=eq.${taskId}&select=reminder_rules`,
+        );
+        return row?.reminder_rules;
+      };
+
+      await page.goto("/tasks");
+      await page.getByRole("button", { name: "New task" }).click();
+      const dialog = formDialog(page);
+      const summary = dialog.locator('[data-slot="reminder-summary"]');
+      const rows = dialog.locator('[data-slot="reminder-row"]');
+      // One collapsed line, the launch schedule as the default (5.3); no rows until it is tapped.
+      await expect(summary).toHaveText(
+        "Reminders: 2 days before, 1 day before, when due · Using the default",
+      );
+      await expect(summary).toHaveAttribute("aria-expanded", "false");
+      await expect(dialog.locator('[data-slot="reminder-rows"]')).toHaveCount(0);
+      await expect(rows).toHaveCount(0);
+
+      await dialog.getByLabel("Title").fill(`${prefix}own`);
+      await pick(
+        page,
+        dialog.getByLabel("Add a person"),
+        new RegExp(`^${escape(person("staff", info).name)}`),
+      );
+      await dialog.getByLabel("Deadline").fill(workingDay(22));
+
+      // Opened, the default's rows; changing one gives the task its own list.
+      await summary.click();
+      await expect(summary).toHaveAttribute("aria-expanded", "true");
+      await expect(rows).toHaveCount(3);
+      await dialog.getByLabel("Reminder 1: how many").fill("3");
+      await pick(page, dialog.getByLabel("Reminder 1: unit"), "hours");
+      await expect(summary).toHaveText("Reminders: 1 day before, 3 hours before, when due");
+
+      // Each row says what is wrong with it, and nothing is sent until it is fixed.
+      const second = dialog.getByLabel("Reminder 2: how many");
+      await second.fill("1.5");
+      await expect(rows.nth(1).locator('[data-slot="field-error"]')).toHaveText(
+        "Use a whole number, like 2.",
+      );
+      await dialog.getByRole("button", { name: "Create task" }).click();
+      await expect(dialog).toContainText("Fix the reminders, or use the default.");
+      await expect(page).toHaveURL(/\/tasks$/);
+      await second.fill("61");
+      await expect(rows.nth(1).locator('[data-slot="field-error"]')).toHaveText(
+        "Up to 60 days before the deadline.",
+      );
+      // "0 days" is when due, as the third row already is: the later of the two says so.
+      await second.fill("0");
+      await expect(rows.nth(1).locator('[data-slot="field-error"]')).toHaveCount(0);
+      await expect(rows.nth(1)).toContainText("when due");
+      await expect(rows.nth(2).locator('[data-slot="field-error"]')).toHaveText(
+        "Another reminder is already at this time.",
+      );
+      await dialog.getByRole("button", { name: "Remove reminder 2" }).click();
+      await expect(rows).toHaveCount(2);
+
+      // Up to five rows: Add a reminder offers a time no row has yet, then stops.
+      const add = dialog.getByRole("button", { name: "Add a reminder" });
+      for (const count of [3, 4, 5]) {
+        await add.click();
+        await expect(rows).toHaveCount(count);
+      }
+      await expect(add).toBeDisabled();
+      await dialog.getByRole("button", { name: "Remove reminder 5" }).click();
+      await expect(add).toBeEnabled();
+      await expect(summary).toHaveText(
+        "Reminders: 2 days before, 1 day before, 3 hours before, when due",
+      );
+
+      await dialog.getByRole("button", { name: "Create task" }).click();
+      await expect(page).toHaveURL(TASK_URL);
+      const taskId = new URL(page.url()).pathname.split("/").at(-1) as string;
+      expect(await stored(taskId)).toEqual([
+        { before: 3, unit: "hours" },
+        { before: 0, unit: "minutes" },
+        { before: 1, unit: "days" },
+        { before: 2, unit: "days" },
+      ]);
+
+      // The edit opens on the task's own list; Use the default clears it to [].
+      await fromMenu(page, "Edit task");
+      await expect(summary).toHaveText(
+        "Reminders: 2 days before, 1 day before, 3 hours before, when due",
+      );
+      await summary.click();
+      await dialog.getByRole("button", { name: "Use the default" }).click();
+      await expect(summary).toHaveText(
+        "Reminders: 2 days before, 1 day before, when due · Using the default",
+      );
+      await dialog.getByRole("button", { name: "Save changes" }).click();
+      await expect(dialog).toBeHidden();
+      await expect.poll(() => stored(taskId)).toEqual([]);
+    });
   });
 
   test.describe("signed in as each person", () => {
@@ -939,6 +1042,91 @@ test.describe("staff tasks, installed: back closes each layer", () => {
       await expectTargets(page);
       await dialog.getByRole("button", { name: "Create task" }).click();
       await expect(page).toHaveURL(TASK_URL);
+      await expectBackStack(page, [{ closes: dialog, url: /\/tasks$/ }]);
+      // The form's entry is still under the task page, spent (the select sheet's entry was
+      // backed out by Create, the form's was not: `overlay-history.ts` `reconcile`), so back #1
+      // lands on it and the app goes back once more by itself, to Tasks. Both say /tasks; the
+      // next back must wait for that second move, or the browser takes it as the same step (a
+      // back pressed while the app's own back is still in flight is absorbed: back #2 then
+      // stayed on /tasks, twice in whole-project 3-worker sweeps, 2026-10-01).
+      await expect
+        .poll(
+          () =>
+            page.evaluate(
+              () => (history.state as Record<string, unknown> | null)?.maxoffOverlay ?? null,
+            ),
+          { message: "back #1 ends on Tasks itself, past the form's spent entry" },
+        )
+        .toBeNull();
+      await expectBackStack(page, [{ url: /\/today$/ }]);
+    });
+
+    test("the reminders line: one row by default; back closes the open section, then the dialog; fits at 200%", async ({
+      page,
+    }) => {
+      await runInstalled(page);
+      await page.goto("/today");
+      await page.locator('[data-slot="bottom-nav"] [data-nav="tasks"]').click();
+      await expect(page).toHaveURL(/\/tasks$/);
+      const dialog = formDialog(page);
+      await page.getByRole("button", { name: "New task" }).click();
+      await expect(dialog).toBeVisible();
+      const summary = dialog.locator('[data-slot="reminder-summary"]');
+      const rows = dialog.locator('[data-slot="reminder-row"]');
+      await expect(summary).toBeVisible();
+      await expect(rows).toHaveCount(0);
+      // Collapsed, it is one control row (44px), never more: the dialog is no taller for it.
+      expect((await summary.boundingBox())?.height).toBe(44);
+      const closedHeight = await dialog.evaluate((element) => element.scrollHeight);
+
+      // Open: a layer. Closed again by a tap, it leaves no entry behind and the dialog is as tall
+      // as it was.
+      const entries = await page.evaluate(() => history.length);
+      await summary.click();
+      await expect(rows).toHaveCount(3);
+      await summary.click();
+      await expect(rows).toHaveCount(0);
+      expect(await dialog.evaluate((element) => element.scrollHeight)).toBe(closedHeight);
+      await summary.click();
+      await expect(rows).toHaveCount(3);
+      for (const target of [
+        dialog.getByLabel("Reminder 1: how many"),
+        dialog.getByRole("button", { name: "Remove reminder 1" }),
+        dialog.getByRole("button", { name: "Add a reminder" }),
+      ]) {
+        expect((await target.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+      }
+      // Large system text (§14.2 i): open and closed, nothing runs past the screen, and the line
+      // stays one row.
+      for (const scale of [130, 200]) {
+        await page.evaluate((percent) => {
+          document.documentElement.style.fontSize = `${percent}%`;
+        }, scale);
+        // A sheet's padding eases to the new text size (its footer's margin does not): measure
+        // the settled layout, as every large-text check of a sheet does.
+        await animationsSettled(page);
+        await expectNoHorizontalScroll(page);
+      }
+      await summary.click();
+      await expect(rows).toHaveCount(0);
+      await animationsSettled(page);
+      await expectNoHorizontalScroll(page);
+      const rowHeight = await summary.evaluate((element) =>
+        Number.parseFloat(getComputedStyle(element).minHeight),
+      );
+      expect((await summary.boundingBox())?.height).toBe(rowHeight);
+      await page.evaluate(() => {
+        document.documentElement.style.fontSize = "";
+      });
+      await summary.click();
+      await expect(rows).toHaveCount(3);
+      expect(await page.evaluate(() => history.length)).toBe(entries + 1);
+
+      // Back closes the open section first (nothing changed, so no question), then the dialog.
+      await page.goBack();
+      await expect(rows).toHaveCount(0);
+      await expect(dialog).toBeVisible();
+      await expect(page).toHaveURL(/\/tasks$/);
       await expectBackStack(page, [{ closes: dialog, url: /\/tasks$/ }, { url: /\/today$/ }]);
     });
 
@@ -1129,6 +1317,9 @@ test.describe("staff tasks, installed: back closes each layer", () => {
       await fromMenu(page, "Mark done");
       const done = page.locator('[data-slot="task-done-dialog"]');
       await expect(done).toBeVisible();
+      // The sheet scales in (Close grows to 44px as it lands): measure the opened sheet, not a
+      // frame of its entrance (CI 36854683107 measured it mid-animation).
+      await animationsSettled(page);
       await expectTargets(page);
       await expect(done).toBeVisible();
       await expectBackStack(page, [{ closes: done, url: new RegExp(`/tasks/${taskId}$`) }]);

@@ -1,8 +1,9 @@
 import "server-only";
 
-import type { TablesUpdate } from "@/core/db";
+import type { Json, TablesUpdate } from "@/core/db";
 import { createServerSupabase } from "@/core/db/server";
 import { AppError } from "@/core/errors";
+import type { ReminderRule } from "@/core/lib/reminder-rules";
 import type { ISODate } from "@/core/time";
 
 import { type Company, type Holiday, type OrgSettings, toOrgSettings } from "../domain/settings";
@@ -87,6 +88,9 @@ export async function updateThresholds(
     overdueEscalateHours: number;
     emailDailyCapPerMember: number;
     workloadWarningThreshold: number;
+    quietHoursStart: string;
+    quietHoursEnd: string;
+    defaultTaskReminders: ReminderRule[];
   },
 ): Promise<void> {
   await updateSettings(orgId, {
@@ -98,6 +102,9 @@ export async function updateThresholds(
     overdue_escalate_hours: patch.overdueEscalateHours,
     email_daily_cap_per_member: patch.emailDailyCapPerMember,
     workload_warning_threshold: patch.workloadWarningThreshold,
+    quiet_hours_start: patch.quietHoursStart,
+    quiet_hours_end: patch.quietHoursEnd,
+    default_task_reminders: patch.defaultTaskReminders as unknown as Json,
   });
 }
 

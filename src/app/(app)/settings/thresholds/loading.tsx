@@ -3,7 +3,8 @@ import { PageLoading } from "@/core/ui/composites/loading-state";
 import { SETTINGS_HEADERS } from "../headers";
 
 /**
- * The thresholds form: labelled number fields.
+ * The thresholds form: labelled time and number fields (ten, with 5B's quiet hours), then 5.3's
+ * Default reminders line: eleven.
  */
 export default function Loading() {
   return (
@@ -11,7 +12,7 @@ export default function Loading() {
       title="Thresholds"
       {...SETTINGS_HEADERS.thresholds}
       shape="detail"
-      count={6}
+      count={11}
       back={{ href: "/settings", label: "Settings" }}
     />
   );

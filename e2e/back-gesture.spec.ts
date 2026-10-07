@@ -4,7 +4,9 @@ import { expect, test } from "./fixtures";
 
 import {
   CONTINUE_BUTTON,
+  animationsSettled,
   expectBackStack,
+  expectNoHorizontalScroll,
   followAuthLink,
   recoveryLinkFor,
   resetAttendanceAndLeave,
@@ -174,6 +176,96 @@ test.describe("installed: overlays and view controls", () => {
       ]);
     });
 
+    test("/settings/thresholds: editing the quiet hours adds no history; back returns to Settings", async ({
+      page,
+    }) => {
+      // 5B decision 6. Typed here, never saved: the window is the organisation's, and only the
+      // serial push-cron project may move it (push-quiet.spec), so no push elsewhere is held.
+      await runInstalled(page);
+      await page.goto("/settings");
+      await page.getByRole("link", { name: "Thresholds", exact: true }).click();
+      await expect(page).toHaveURL(/\/settings\/thresholds$/);
+      const from = page.getByLabel("Quiet from");
+      const until = page.getByLabel("Quiet until");
+      await expect(from).toHaveValue("22:00");
+      await expect(until).toHaveValue("07:00");
+      await from.fill("23:00");
+      await until.fill("06:30");
+      await expect(page).toHaveURL(/\/settings\/thresholds$/);
+
+      await expectBackStack(page, [{ url: /\/settings$/ }]);
+    });
+
+    test("/settings/notifications: back returns to Settings", async ({ page }) => {
+      // 5.4: a Settings screen with no overlay or view control of its own.
+      await runInstalled(page);
+      await page.goto("/settings");
+      // The section's row, not the bell (whose name is "Notifications" too).
+      await page
+        .locator('[data-slot="settings-section"]')
+        .filter({ hasText: "Notifications" })
+        .click();
+      await expect(page).toHaveURL(/\/settings\/notifications$/);
+      await expect(page.getByRole("heading", { name: "Can’t be reached" })).toBeVisible();
+
+      await expectBackStack(page, [{ url: /\/settings$/ }]);
+    });
+
+    test("/settings/thresholds: back closes the open Default reminders, then returns to Settings", async ({
+      page,
+    }) => {
+      // 5.3. Opened and looked at, never saved: the default is the organisation's.
+      await runInstalled(page);
+      await page.goto("/settings");
+      await page.getByRole("link", { name: "Thresholds", exact: true }).click();
+      await expect(page).toHaveURL(/\/settings\/thresholds$/);
+      const summary = page.locator('[data-slot="reminder-summary"]');
+      const rows = page.locator('[data-slot="reminder-row"]');
+      expect((await summary.boundingBox())?.height).toBe(44);
+      await summary.click();
+      await expect(rows).not.toHaveCount(0);
+      await expectNoHorizontalScroll(page);
+      await page.goBack();
+      await expect(rows).toHaveCount(0);
+      await expect(page).toHaveURL(/\/settings\/thresholds$/);
+      await expectBackStack(page, [{ url: /\/settings$/ }]);
+    });
+
+    test("/settings/task-types: in the Add dialog, back closes the open reminders, then the dialog", async ({
+      page,
+    }) => {
+      await runInstalled(page);
+      await page.goto("/settings");
+      await page.getByRole("link", { name: "Task types", exact: true }).click();
+      await expect(page).toHaveURL(/\/settings\/task-types$/);
+      await page.getByRole("button", { name: "Add task type" }).click();
+      const add = page.getByRole("dialog", { name: "Add a task type" });
+      const summary = add.locator('[data-slot="reminder-summary"]');
+      const rows = add.locator('[data-slot="reminder-row"]');
+      expect((await summary.boundingBox())?.height).toBe(44);
+      await summary.click();
+      await expect(rows).toHaveCount(3);
+      for (const scale of [130, 200]) {
+        await page.evaluate((percent) => {
+          document.documentElement.style.fontSize = `${percent}%`;
+        }, scale);
+        // A sheet's padding eases to the new text size (its footer's margin does not): measure
+        // the settled layout, as every large-text check of a sheet does.
+        await animationsSettled(page);
+        await expectNoHorizontalScroll(page);
+      }
+      await page.evaluate(() => {
+        document.documentElement.style.fontSize = "";
+      });
+      await page.goBack();
+      await expect(rows).toHaveCount(0);
+      await expect(add).toBeVisible();
+      await expectBackStack(page, [
+        { closes: add, url: /\/settings\/task-types$/ },
+        { url: /\/settings$/ },
+      ]);
+    });
+
     test("a confirm handed off from the sheet: back closes it, the URL stays", async ({ page }) => {
       await runInstalled(page);
       await page.goto("/people");
@@ -233,6 +325,35 @@ test.describe("installed: overlays and view controls", () => {
       await expect(page.getByRole("link", { name: "Next month" })).toHaveCount(0);
 
       await expectBackStack(page, [{ url: /\/my-day$/ }]);
+    });
+
+    test("the Leave tab (5B): its tabs never add history; back returns to My Day, then leaves", async ({
+      page,
+    }) => {
+      await runInstalled(page);
+      await page.goto("/my-day");
+      await page.locator('[data-slot="bottom-nav"] [data-nav="leave"]').click();
+      await expect(page).toHaveURL(/\/leave$/);
+      await view(page, "Attendance", /\/leave\/attendance$/);
+      await view(page, "Leave requests", /\/leave$/);
+      await view(page, "Attendance", /\/leave\/attendance$/);
+      await expectBackStack(page, [{ url: /\/my-day$/ }, { url: /^about:blank$/ }]);
+    });
+
+    test("Me → Extra work & expenses (5B): its tabs never add history; back returns to Me, then My Day", async ({
+      page,
+    }) => {
+      await runInstalled(page);
+      await page.goto("/my-day");
+      await page.locator('[data-slot="bottom-nav"] [data-nav="me"]').click();
+      await expect(page).toHaveURL(/\/me$/);
+      // A row of Me is a real drill-down: it pushes.
+      await page.locator('[data-slot="me-work-link"]').click();
+      await expect(page).toHaveURL(/\/leave\/extra-work$/);
+      await view(page, "Expenses", /\/leave\/expenses$/);
+      await view(page, "Extra work", /\/leave\/extra-work$/);
+      await view(page, "Expenses", /\/leave\/expenses$/);
+      await expectBackStack(page, [{ url: /\/me$/ }, { url: /\/my-day$/ }]);
     });
   });
 });

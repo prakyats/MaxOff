@@ -5,29 +5,36 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/core/lib/utils";
 import { ViewLink } from "@/core/ui/composites/view-link";
 
-const TABS = [
+export type LeaveTab = { label: string; href: string };
+
+/** Attendance & leave's two views (5B decision 2). */
+export const LEAVE_TABS: readonly LeaveTab[] = [
   { label: "Leave requests", href: "/leave" },
   { label: "Attendance", href: "/leave/attendance" },
+];
+
+/** Extra work & expenses' two views (5B decision 3; Extra work since 3b.2, Expenses since 3b.3). */
+export const WORK_TABS: readonly LeaveTab[] = [
   { label: "Extra work", href: "/leave/extra-work" },
   { label: "Expenses", href: "/leave/expenses" },
-] as const;
+];
 
 /**
- * The four views of the screen (Extra work since 3b.2, Expenses since 3b.3). `ViewLink`s:
- * switching replaces the entry instead of adding one, so one back leaves the page (ARCHITECTURE
- * §14.2 d), and the page does not jump to the top. Four in a row at the default text size; the
- * cells are rem-wide at least, so under large system text they wrap to two rows instead of
- * running past the screen (§14.2 i).
+ * A page's two views, each its own route (owner decision 2026-10-02: "keep the tabs under a page
+ * as it is now"). `ViewLink`s: switching replaces the entry instead of adding one, so one back
+ * leaves the page (ARCHITECTURE §14.2 d), and the page does not jump to the top. The cells are
+ * rem-wide at least, so under large system text they wrap instead of running past the screen
+ * (§14.2 i).
  */
-export function LeaveTabs() {
+export function LeaveTabs({ tabs, label }: { tabs: readonly LeaveTab[]; label: string }) {
   const pathname = usePathname();
   return (
     <nav
-      aria-label="Attendance and leave"
+      aria-label={label}
       data-slot="leave-tabs"
-      className="bg-muted mb-4 grid grid-cols-[repeat(auto-fit,minmax(min(100%,4.5rem),1fr))] gap-1 rounded-lg p-1 md:inline-grid md:w-[36rem]"
+      className="bg-muted mb-4 grid grid-cols-[repeat(auto-fit,minmax(min(100%,4.5rem),1fr))] gap-1 rounded-lg p-1 md:inline-grid md:w-[24rem]"
     >
-      {TABS.map(({ label, href }) => (
+      {tabs.map(({ label: name, href }) => (
         <ViewLink
           key={href}
           href={href}
@@ -40,7 +47,7 @@ export function LeaveTabs() {
               : "text-muted-foreground hover:text-foreground active:bg-background/60",
           )}
         >
-          {label}
+          {name}
         </ViewLink>
       ))}
     </nav>

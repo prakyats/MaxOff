@@ -110,10 +110,14 @@ end;
 $$;
 
 -- The IST time of day now, moved by some minutes and kept inside the day: "a minute before the
--- cutoff" and "a minute after it" without waiting for 05:00.
+-- cutoff" and "a minute after it" without waiting for 05:00. Moved as an interval, so it never wraps
+-- past midnight (a time does: 23:59:30 + 1 minute is 00:00:30); held at 24:00 / 00:00 at the ends, so
+-- "before" is always before and "after" always after, at any hour.
 create function pg_temp.cutoff_from_now(minutes integer) returns time language sql stable as $$
-  select greatest(least(((now() at time zone 'Asia/Kolkata') + make_interval(mins => minutes))::time,
-                        time '23:59:59'), time '00:00');
+  select case when v.moved >= interval '24 hours' then time '24:00'
+              when v.moved < interval '0' then time '00:00'
+              else v.moved::time end
+  from (select (now() at time zone 'Asia/Kolkata')::time::interval + make_interval(mins => minutes) as moved) v;
 $$;
 
 create function pg_temp.balance(k text) returns numeric language plpgsql as $$
@@ -197,7 +201,7 @@ select is((select count(*) from public.activity_log where entity = 'attendance_d
   0::bigint, 'a refused End day writes no history');
 
 -- After today's Start day: never yesterday, whatever the time -----------------------------------
-update public.org_settings set end_day_cutoff_time = '23:59:59';
+update public.org_settings set end_day_cutoff_time = '24:00';
 select pg_temp.as_member('started');
 select is((select yesterday_open_day_id from public.attendance_own_today()), (pg_temp.day_on('started', pg_temp.today() - 1)).id,
   'the read still reports the open yesterday before the cutoff ...');

@@ -4,7 +4,7 @@ import { Brand } from "./brand";
 import { type NavItem } from "./nav";
 import { NavList } from "./nav-list";
 
-/** Desktop sidebar for Owner and Admin (hidden below `md`; the top bar opens a sheet instead). */
+/** Desktop sidebar for every role (hidden below `md`; the Crew's is 5B decision 5). */
 export function Sidebar({
   home,
   items,
