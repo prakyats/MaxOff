@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { request as httpRequest } from "node:http";
 import { join } from "node:path";
 
-import { expect, type Locator, type Page, type Route } from "@playwright/test";
+import { expect, type Locator, type Page, type Request, type Route } from "@playwright/test";
 
 import { HOLD_PROXY_URL } from "./hold-proxy-config";
 
@@ -979,12 +979,20 @@ export async function holdNextRefresh(page: Page, path: string) {
   };
   await page.route(`**${path}?*`, handler);
   await page.route(`**${path}`, handler);
-  const answered = page.waitForEvent("requestfinished", {
-    predicate: (request) =>
-      request.headers()["rsc"] === "1" &&
-      !request.headers()["next-router-prefetch"] &&
-      new URL(request.url()).pathname === path,
-    timeout: 0,
+  // A listener, not `waitForEvent`: a spec that never awaits `answered` (the re-read may be
+  // dropped by a navigation and never finish) must not fail with "Test ended" at its end.
+  const answered = new Promise<void>((resolve) => {
+    const onFinished = (request: Request) => {
+      if (
+        request.headers()["rsc"] === "1" &&
+        !request.headers()["next-router-prefetch"] &&
+        new URL(request.url()).pathname === path
+      ) {
+        page.off("requestfinished", onFinished);
+        resolve();
+      }
+    };
+    page.on("requestfinished", onFinished);
   });
   return { held, release: () => let_go(), answered };
 }
