@@ -1,30 +1,23 @@
-import { CheckCheckIcon, ListChecksIcon, UsersIcon } from "lucide-react";
+import { ListChecksIcon } from "lucide-react";
 
 import type { CurrentMember } from "@/core/auth/server";
 import { can } from "@/core/permissions";
 import { ROLE_LABELS } from "@/core/lib/role-labels";
 import { addISTDays, systemClock, todayIST } from "@/core/time";
 import { PageHeader } from "@/core/ui/composites/page-header";
+import { getTodayPeople, summariseToday, TodayAttendanceCard } from "@/modules/attendance";
 import {
-  getTodayPeople,
-  PeopleNeedingYou,
-  summariseToday,
-  TodayAttendanceCard,
-} from "@/modules/attendance";
-import {
-  boardSize,
   DashSection,
   EventsStrip,
   eventsStrip,
+  heldEmailsLine,
   LinkRow,
   leaveRisks,
-  NEEDS_YOU_PEOPLE_EMPTY,
   notNotedRisks,
   overdueRisks,
-  peopleNeedingYou,
+  OWNER_TODAY_EMPTY,
   QuietText,
   RiskRows,
-  RISKS_EMPTY,
   RowList,
   sortRisks,
   STRIP_DAYS,
@@ -61,13 +54,16 @@ const APPROVALS_SHOWN = 5;
 
 /**
  * The Owner's Today (6.2; PRODUCT §2 principle 11, its first application; Kickoff 6 decisions 4–8,
- * 12, 22, 23): **counts → approvals → Needs you → the rest.** The attendance counts (each tappable:
- * Waiting opens Approvals, the others the full board on that group); the approvals preview (the
- * oldest five in the Approvals group order, Approve with Undo and Review, "See all N", no bulk);
- * "Needs you", the people who need attention today ("Everyone's in." when nobody does) with "See
- * all N people" one tap deeper; today's tasks as one line; Overdue and risks (five rows, then "See
- * all"; the emails the daily limit held back today); the next seven days' events. Not shown until
- * their data exists (decision 4): item approvals, client work progress, the revenue snapshot.
+ * 12, 22, 23 and **24**): **the attendance card, then exceptions only.** The card's counts (the
+ * four groups, plus Absent and "End of day not recorded" above zero, coloured by urgency; each
+ * tappable: Waiting opens Approvals, the others the full board on that group, the title the whole
+ * board); then, each only when it has something: the approvals preview (the oldest five in the
+ * Approvals group order, Approve with Undo and Review, "See all N", no bulk), today's tasks as one
+ * line, Overdue and risks (five rows, then "See all"; the emails the daily limit held back today),
+ * the next seven days' events. When every section after the card is hidden, one muted line:
+ * "Nothing else needs you today." Not shown until their data exists (decision 4): item approvals,
+ * client work progress, the revenue snapshot. The rule for every later addition (decision 24):
+ * exceptions only, a count rather than a list where possible, one tap to the list, hidden when empty.
  */
 export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
   const today = todayIST();
@@ -117,8 +113,6 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
     unread: unread[item.row.id] ?? 0,
   }));
 
-  const needing = peopleNeedingYou(summary.board);
-  const everyone = boardSize(summary.board);
   const dueToday = todaysTasks(open, today);
 
   const riskTasks = open.map(toRiskTask);
@@ -139,19 +133,24 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
     })),
   ]);
   const strip = eventsStrip({ events, holidays, leave: leaveDays, today });
+  // Exceptions only (decision 24): a section with nothing in it is not drawn.
+  const sections = {
+    approvals: total > 0,
+    tasks: dueToday.due > 0,
+    risks: risks.length > 0 || (held !== null && heldEmailsLine(held) !== null),
+    week: strip.days.length > 0,
+  };
+  const nothing = !Object.values(sections).some(Boolean);
 
   return (
     <>
       <PageHeader title="Today" description={ownerGreeting(viewer.name)} />
       <TodayAttendanceCard summary={summary} />
       <div className="flex max-w-3xl min-w-0 flex-col gap-6" data-slot="owner-today">
-        <DashSection title="Approvals" slot="today-approvals" count={total}>
-          {total === 0 ? (
-            <QuietText slot="today-approvals-empty">
-              <CheckCheckIcon className="mr-1.5 inline size-4 align-[-3px]" aria-hidden />
-              Nothing waiting. You&apos;re clear.
-            </QuietText>
-          ) : (
+        {nothing ? <QuietText slot="today-nothing-else">{OWNER_TODAY_EMPTY}</QuietText> : null}
+
+        {sections.approvals ? (
+          <DashSection title="Approvals" slot="today-approvals" count={total}>
             <div className="flex min-w-0 flex-col gap-4" data-slot="today-approvals-preview">
               {shown.days.length > 0 ? (
                 <PreviewDays days={shown.days} today={today} preview />
@@ -173,54 +172,43 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
                 />
               </RowList>
             </div>
-          )}
-        </DashSection>
+          </DashSection>
+        ) : null}
 
-        <DashSection title="Needs you" slot="today-needs-you" count={needing.length}>
-          <PeopleNeedingYou
-            rows={needing}
-            empty={<QuietText slot="today-needs-you-empty">{NEEDS_YOU_PEOPLE_EMPTY}</QuietText>}
-          />
-          {everyone > 0 ? (
-            <RowList label="Everyone today" slot="today-people-all">
+        {sections.tasks ? (
+          <DashSection title="Today's tasks" slot="today-tasks">
+            <RowList label="Today's tasks" slot="today-tasks-line">
               <LinkRow
-                href="/today/people"
-                slot="today-see-all-people"
-                icon={<UsersIcon className="size-4" aria-hidden />}
-                title={everyone === 1 ? "See all 1 person" : `See all ${everyone} people`}
+                href="/tasks/all?overdue=today"
+                slot="today-tasks-due"
+                icon={<ListChecksIcon className="size-4" aria-hidden />}
+                title={todaysTasksLine(dueToday)}
+                tab
               />
             </RowList>
-          ) : null}
-        </DashSection>
+          </DashSection>
+        ) : null}
 
-        <DashSection title="Today's tasks" slot="today-tasks">
-          <RowList label="Today's tasks" slot="today-tasks-line">
-            <LinkRow
-              href="/tasks/all?overdue=today"
-              slot="today-tasks-due"
-              icon={<ListChecksIcon className="size-4" aria-hidden />}
-              title={todaysTasksLine(dueToday)}
-              tab
+        {sections.risks ? (
+          <DashSection title="Overdue and risks" slot="today-risks" count={risks.length}>
+            <RiskRows
+              risks={risks}
+              held={held}
+              empty={null}
+              label="Overdue and risks"
+              slot="today-risk-rows"
+              nameOf={nameOf}
+              today={today}
+              now={now}
             />
-          </RowList>
-        </DashSection>
+          </DashSection>
+        ) : null}
 
-        <DashSection title="Overdue and risks" slot="today-risks" count={risks.length}>
-          <RiskRows
-            risks={risks}
-            held={held}
-            empty={<QuietText slot="today-risks-empty">{RISKS_EMPTY}</QuietText>}
-            label="Overdue and risks"
-            slot="today-risk-rows"
-            nameOf={nameOf}
-            today={today}
-            now={now}
-          />
-        </DashSection>
-
-        <DashSection title="This week" slot="today-events">
-          <EventsStrip days={strip.days} hidden={strip.hidden} today={today} />
-        </DashSection>
+        {sections.week ? (
+          <DashSection title="This week" slot="today-events">
+            <EventsStrip days={strip.days} hidden={strip.hidden} today={today} />
+          </DashSection>
+        ) : null}
       </div>
     </>
   );

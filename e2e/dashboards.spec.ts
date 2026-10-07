@@ -313,7 +313,7 @@ test.describe("Crew: My Day (6.1)", () => {
 test.describe("the Owner's Today (6.2)", () => {
   test.use({ storageState: storageStateFor("owner") });
 
-  test("counts, approvals, Needs you, today's tasks, risks and the week, in that order", async ({
+  test("the card, then exceptions only: approvals, today's tasks, risks and the week, in that order (decision 24)", async ({
     page,
   }, info) => {
     test.skip(info.project.name === "mobile-lg", "the flow runs at 1280 and 375px");
@@ -327,28 +327,46 @@ test.describe("the Owner's Today (6.2)", () => {
     });
     await rpcAs(crew(info), PASSWORD, "task_acknowledge", { task_id: late });
     await moveDue(info, late, istInstant(addISTDays(todayIST(), -1), "18:00"));
+    // A task due today, so "Today's tasks" has something to show (hidden when empty, decision 24).
+    const dueToday = await adminCreates(info, {
+      title: `${prefix}due today`,
+      assignees: [crewId],
+      due: istInstant(workingDay(5), "18:00"),
+    });
+    await moveDue(info, dueToday, istInstant(todayIST(), "23:00"));
 
     await page.goto("/today");
     await hydrated(page);
+    // The card and the risks (the overdue task) are always there; the other sections only when
+    // they have something (decision 24), so the order is checked over whichever are drawn.
     const order = [
       '[data-slot="today-attendance-card"]',
       '[data-slot="today-approvals"]',
-      '[data-slot="today-needs-you"]',
       '[data-slot="today-tasks"]',
       '[data-slot="today-risks"]',
       '[data-slot="today-events"]',
     ];
+    const always = ['[data-slot="today-attendance-card"]', '[data-slot="today-risks"]'];
+    await expect(page.locator('[data-slot="today-risks"]:visible').first()).toBeVisible();
     let previous = -1;
     for (const selector of order) {
       // The shown copy: React reveals a streamed section in batches, and until then the only
       // copy is the hidden one it streamed in (see `pageHeader`).
       const shown = page.locator(`${selector}:visible`).first();
+      if (!always.includes(selector) && (await shown.count()) === 0) continue;
       await expect(shown, selector).toBeVisible();
       const box = await shown.boundingBox();
       expect(box, selector).not.toBeNull();
       expect(box!.y, `${selector} comes after the one before`).toBeGreaterThan(previous);
       previous = box!.y;
     }
+    // No "Needs you" list of people: the card's counts carry them (decision 24).
+    await expect(page.locator('[data-slot="today-needs-you"]')).toHaveCount(0);
+    await expect(page.locator("main")).not.toContainText("Everyone's in.");
+    // A risk's "overdue by …" reads red, with its red dot and "Overdue" label beside it.
+    await expect(page.locator('[data-slot="risk-row"] [data-tone="danger"]').first()).toContainText(
+      "overdue by",
+    );
     // Nothing that has no data yet (decision 4): no item approvals, client progress or revenue.
     await expect(page.locator("main")).not.toContainText(/revenue|client progress|coming soon/i);
 
@@ -380,7 +398,7 @@ test.describe("the Owner's Today (6.2)", () => {
     await expect(page).toHaveURL(/\/today\/people\?group=not_chosen$/);
     await expect(pageHeader(page)).toContainText("Everyone today");
     await expect(page.locator('[data-slot="people-filter"] [aria-current="page"]')).toHaveText(
-      "Not chosen yet",
+      "Not started",
     );
     await expect(
       page.locator('[data-slot="people-board"] h2, [data-slot="people-board-empty"]').first(),

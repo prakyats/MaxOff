@@ -3,18 +3,17 @@ import { describe, expect, it } from "vitest";
 import {
   ADMIN_NEEDS_YOU_EMPTY,
   adminScope,
-  boardSize,
+  boardForGroup,
   clientCounts,
   clientCountsLine,
   eventsStrip,
   heldEmailsLine,
   leaveRisks,
   leaveWindow,
-  NEEDS_YOU_PEOPLE_EMPTY,
   notNotedRisks,
   overdueRisks,
+  OWNER_TODAY_EMPTY,
   parsePeopleGroup,
-  peopleNeedingYou,
   RISKS_EMPTY,
   riskWords,
   sortRisks,
@@ -52,32 +51,36 @@ const person = (
   ...over,
 });
 
-describe("the Owner's Needs you (people, 6.2)", () => {
-  it("lists waiting, not chosen, absent, then anyone flagged, in that order", () => {
-    const board = [
-      { bucket: "waiting" as const, people: [person("w")] },
-      { bucket: "not_chosen" as const, people: [person("n")] },
-      {
-        bucket: "present" as const,
-        people: [
-          person("fine"),
-          person("late", { overtimeFlag: true }),
-          person("open", { endNotRecorded: true }),
-        ],
-      },
-      { bucket: "on_leave" as const, people: [person("away")] },
-      { bucket: "absent" as const, people: [person("a")] },
-    ];
-    const rows = peopleNeedingYou(board);
-    expect(rows.map((r) => [r.person.memberId, r.reason])).toEqual([
-      ["w", "waiting"],
-      ["n", "not_chosen"],
-      ["a", "absent"],
-      ["late", "overtime"],
-      ["open", "end_not_recorded"],
+describe("the Owner's Today: the people on the card, the board by group (6.2; decision 24)", () => {
+  const board = [
+    { bucket: "waiting" as const, people: [person("w")] },
+    { bucket: "not_chosen" as const, people: [person("n")] },
+    {
+      bucket: "present" as const,
+      people: [
+        person("fine"),
+        person("late", { overtimeFlag: true }),
+        person("open", { endNotRecorded: true }),
+      ],
+    },
+    { bucket: "on_leave" as const, people: [person("away")] },
+    { bucket: "absent" as const, people: [person("a")] },
+  ];
+
+  it("narrows the board to a group, or to the people whose end of day was not recorded", () => {
+    expect(boardForGroup(board, "all").map((g) => [g.bucket, g.people.length])).toEqual([
+      ["waiting", 1],
+      ["not_chosen", 1],
+      ["present", 3],
+      ["on_leave", 1],
+      ["absent", 1],
     ]);
-    expect(boardSize(board)).toBe(7);
-    expect(NEEDS_YOU_PEOPLE_EMPTY).toBe("Everyone's in.");
+    expect(boardForGroup(board, "present").map((g) => g.bucket)).toEqual(["present"]);
+    expect(boardForGroup(board, "end_not_recorded")).toEqual([
+      { bucket: "present", people: [person("open", { endNotRecorded: true })] },
+    ]);
+    expect(boardForGroup(board, "waiting")[0]?.people.map((p) => p.memberId)).toEqual(["w"]);
+    expect(OWNER_TODAY_EMPTY).toBe("Nothing else needs you today.");
   });
 
   it("reads the board's group from the address, else everyone", () => {

@@ -10,8 +10,10 @@ import { adminGreeting, ownerGreeting } from "./words";
 
 /**
  * Today as it renders (6.2, 6.3), traced per role (ARCHITECTURE §14.1). **The Owner's:** the
- * attendance card's four counts, then the Approvals section: its heading and a preview group's
- * heading and rows (no "Approve all" on Today). **An Admin's:** the one-line attendance strip,
+ * attendance card (its title and four counts; the two problem counts join above zero), then the
+ * first screen's typical section, Approvals: its heading and a preview group's heading and rows
+ * (no "Approve all" on Today). Sections are hidden when empty (decision 24), so the skeleton
+ * traces the full layout's first screen and nothing jumps when data arrives. **An Admin's:** the one-line attendance strip,
  * then "Needs you": its heading and two `TaskRow`s. A Crew member who types the address is taken
  * to My Day, whose shape this is too (the strip and a section). The `(app)` layout already read
  * the member for this request (`cache()`), so asking costs no query.

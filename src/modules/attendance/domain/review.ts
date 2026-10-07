@@ -109,11 +109,45 @@ export type BoardBucket = (typeof BOARD_BUCKETS)[number];
 
 export const TODAY_BUCKET_LABELS: Record<BoardBucket, string> = {
   waiting: "Waiting for a decision",
-  not_chosen: "Not chosen yet",
+  // "Not started" everywhere the Owner sees it (kickoff 6 decision 24, owner 2026-10-07).
+  not_chosen: "Not started",
   present: "Present",
   on_leave: "On leave",
   absent: "Absent",
 };
+
+/**
+ * The card's counts (kickoff 6 decision 24, owner 2026-10-07): the four groups, then Absent and
+ * "End of day not recorded", shown only above zero. Each is a tap target: Waiting opens Approvals,
+ * the others the full board on that group.
+ */
+export const TODAY_CARD_COUNTS = [...TODAY_BUCKETS, "absent", "end_not_recorded"] as const;
+export type TodayCardCount = (typeof TODAY_CARD_COUNTS)[number];
+
+export const TODAY_CARD_LABELS: Record<TodayCardCount, string> = {
+  ...TODAY_BUCKET_LABELS,
+  end_not_recorded: "End of day not recorded",
+};
+
+/**
+ * Colour by urgency (decision 24): amber for "have a look" (Not started, Waiting), red for a
+ * problem (Absent, End of day not recorded), both only above zero; Present and On leave neutral.
+ * Never colour alone: the dot and the label always go with the number.
+ */
+export type CountTone = "attention" | "danger" | "neutral";
+export const TODAY_CARD_TONES: Record<TodayCardCount, CountTone> = {
+  waiting: "attention",
+  not_chosen: "attention",
+  present: "neutral",
+  on_leave: "neutral",
+  absent: "danger",
+  end_not_recorded: "danger",
+};
+
+/** Whether a count is on the card at all: the four always, the two problems only above zero. */
+export function countShown(count: TodayCardCount, value: number): boolean {
+  return (TODAY_BUCKETS as readonly string[]).includes(count) || value > 0;
+}
 
 const LEAVE_STATUSES: readonly DayStatus[] = ["leave", "half_day", "comp_leave"];
 
@@ -146,8 +180,11 @@ export function todayBucket(person: TodayPerson): BoardBucket | null {
 
 export type TodaySummary = {
   isDayOff: boolean;
-  /** The card's four counts; the Absent group is the board's only. */
-  counts: Record<TodayBucket, number>;
+  /**
+   * The card's counts: the four groups, the decided absences, and everyone expected today whose
+   * end of day was not recorded (decision 24; they sit in their own group on the board).
+   */
+  counts: Record<TodayCardCount, number>;
   /** Everyone expected today, grouped in `BOARD_BUCKETS` order, by name within each. */
   board: { bucket: BoardBucket; people: TodayPerson[] }[];
 };
@@ -157,17 +194,20 @@ export type TodaySummary = {
  * those who came in: `todayBucket` already leaves out whoever did not.
  */
 export function summariseToday(people: readonly TodayPerson[], isDayOff: boolean): TodaySummary {
-  const counts: Record<TodayBucket, number> = {
+  const counts: Record<TodayCardCount, number> = {
     waiting: 0,
     not_chosen: 0,
     present: 0,
     on_leave: 0,
+    absent: 0,
+    end_not_recorded: 0,
   };
   const grouped = new Map<BoardBucket, TodayPerson[]>(BOARD_BUCKETS.map((b) => [b, []]));
   for (const person of people) {
     const bucket = todayBucket(person);
     if (bucket === null) continue;
-    if (bucket !== "absent") counts[bucket] += 1;
+    counts[bucket] += 1;
+    if (person.endNotRecorded) counts.end_not_recorded += 1;
     grouped.get(bucket)?.push(person);
   }
   const board = BOARD_BUCKETS.flatMap((bucket) => {

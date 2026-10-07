@@ -10,6 +10,10 @@ import {
   pendingOutcome,
   sortPending,
   summariseToday,
+  TODAY_CARD_COUNTS,
+  TODAY_CARD_LABELS,
+  TODAY_CARD_TONES,
+  countShown,
   todayBucket,
   type TodayPerson,
 } from "../domain/review";
@@ -80,7 +84,14 @@ describe("todayBucket: the four counts of today's card (WORKFLOWS §1 'Settled i
       [person({ dayId: "d", state: "approved", finalStatus: "absent" })],
       false,
     );
-    expect(summary.counts).toEqual({ waiting: 0, not_chosen: 0, present: 0, on_leave: 0 });
+    expect(summary.counts).toEqual({
+      waiting: 0,
+      not_chosen: 0,
+      present: 0,
+      on_leave: 0,
+      absent: 1,
+      end_not_recorded: 0,
+    });
     expect(summary.board.map((group) => group.bucket)).toEqual(["absent"]);
   });
 
@@ -131,6 +142,54 @@ describe("summariseToday: the card and the board from one read", () => {
       not_chosen: 1,
       present: 2,
       on_leave: 1,
+      absent: 0,
+      end_not_recorded: 0,
+    });
+  });
+
+  it("counts the decided absences and the days whose end was not recorded (decision 24)", () => {
+    const summary = summariseToday(
+      [
+        ...people,
+        person({
+          memberId: "8",
+          name: "Gone",
+          dayId: "d8",
+          state: "approved",
+          finalStatus: "absent",
+        }),
+        person({
+          memberId: "9",
+          name: "Open",
+          dayId: "d9",
+          state: "approved",
+          finalStatus: "present",
+          endNotRecorded: true,
+        }),
+      ],
+      false,
+    );
+    expect(summary.counts).toMatchObject({ present: 3, absent: 1, end_not_recorded: 1 });
+    // The problem counts show only above zero; the four groups always.
+    expect(TODAY_CARD_COUNTS.filter((count) => countShown(count, summary.counts[count]))).toEqual([
+      "waiting",
+      "not_chosen",
+      "present",
+      "on_leave",
+      "absent",
+      "end_not_recorded",
+    ]);
+    expect(countShown("absent", 0)).toBe(false);
+    expect(countShown("present", 0)).toBe(true);
+    expect(TODAY_CARD_LABELS.not_chosen).toBe("Not started");
+    expect(TODAY_CARD_LABELS.end_not_recorded).toBe("End of day not recorded");
+    expect(TODAY_CARD_TONES).toEqual({
+      waiting: "attention",
+      not_chosen: "attention",
+      present: "neutral",
+      on_leave: "neutral",
+      absent: "danger",
+      end_not_recorded: "danger",
     });
   });
 
@@ -154,7 +213,14 @@ describe("summariseToday: the card and the board from one read", () => {
     const summary = summariseToday([person({ isDayOff: true })], true);
     expect(summary.isDayOff).toBe(true);
     expect(summary.board).toEqual([]);
-    expect(summary.counts).toEqual({ waiting: 0, not_chosen: 0, present: 0, on_leave: 0 });
+    expect(summary.counts).toEqual({
+      waiting: 0,
+      not_chosen: 0,
+      present: 0,
+      on_leave: 0,
+      absent: 0,
+      end_not_recorded: 0,
+    });
   });
 
   it("names each row's status in words", () => {
@@ -368,11 +434,17 @@ describe("the board never drops anyone expected today", () => {
     );
   });
 
-  it("counts on the card everyone on the board except the Absent group", () => {
+  it("counts on the card everyone on the board, the Absent group as its own count (decision 24)", () => {
     const { board, counts } = summariseToday(everyone, false);
+    const size = (bucket: string) =>
+      board.find((group) => group.bucket === bucket)?.people.length ?? 0;
     const onCard = board
       .filter((group) => group.bucket !== "absent")
       .reduce((total, group) => total + group.people.length, 0);
-    expect(Object.values(counts).reduce((a, b) => a + b, 0)).toBe(onCard);
+    expect(counts.waiting + counts.not_chosen + counts.present + counts.on_leave).toBe(onCard);
+    expect(counts.absent).toBe(size("absent"));
+    expect(counts.end_not_recorded).toBe(
+      board.flatMap((group) => group.people).filter((p) => p.endNotRecorded).length,
+    );
   });
 });

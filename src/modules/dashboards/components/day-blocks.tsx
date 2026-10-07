@@ -150,7 +150,16 @@ function riskRow(
       slot="risk-row"
       icon={<Icon className="size-4" aria-hidden />}
       title={words.title}
-      detail={words.detail}
+      detail={
+        words.detailTone === "danger" ? (
+          // Red with its red dot and "Overdue" label beside it (decision 24): semantic, never alone.
+          <span className="text-danger" data-tone="danger">
+            {words.detail}
+          </span>
+        ) : (
+          words.detail
+        )
+      }
       trailing={<Marker label={words.marker.label} tone={words.marker.tone} />}
     />
   );

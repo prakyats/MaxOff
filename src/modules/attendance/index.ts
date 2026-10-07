@@ -16,7 +16,6 @@ export { getOwnToday, listDays } from "./data/attendance";
 export { addMonths, historyMonth, monthLabel, monthOf, monthRange } from "./domain/months";
 export {
   PeopleBoard,
-  PeopleNeedingYou,
   PersonRowsSkeleton,
   PersonTodayLine,
   PersonTodayLineSkeleton,

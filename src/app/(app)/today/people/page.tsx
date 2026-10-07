@@ -4,7 +4,7 @@ import { checkThenRead } from "@/core/lib/start-early";
 import { requirePermission } from "@/core/permissions/server";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { getTodayPeople, PeopleBoard, summariseToday } from "@/modules/attendance";
-import { parsePeopleGroup } from "@/modules/dashboards";
+import { boardForGroup, parsePeopleGroup } from "@/modules/dashboards";
 
 import { PEOPLE_DESCRIPTION, PeopleFilter } from "./people-filter";
 
@@ -28,10 +28,7 @@ export default async function TodayPeoplePage({
   );
   const group = parsePeopleGroup(params.group);
   const summary = summariseToday(today.people, today.isDayOff);
-  const shown =
-    group === "all"
-      ? summary
-      : { ...summary, board: summary.board.filter((entry) => entry.bucket === group) };
+  const shown = { ...summary, board: boardForGroup(summary.board, group) };
   return (
     <>
       <PageHeader

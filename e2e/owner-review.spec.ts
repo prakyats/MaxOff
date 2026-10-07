@@ -314,7 +314,8 @@ test("Today: the card and the board, and a person's history with Edit and Cancel
   await page.goto("/today");
   const card = page.locator('[data-slot="today-attendance-card"]');
   await expect(card).toBeVisible();
-  await expect(card.locator('[data-slot="today-count"]')).toHaveCount(4);
+  // The four groups always; Absent and "End of day not recorded" join them above zero (decision 24).
+  expect(await card.locator('[data-slot="today-count"]').count()).toBeGreaterThanOrEqual(4);
   // Every count is tappable (6.2): Waiting opens Approvals, the others the board on that group.
   await expect(card.locator('[data-bucket="waiting"]')).toHaveAttribute("href", "/approvals");
   await expect(card.locator('[data-bucket="present"]')).toHaveAttribute(

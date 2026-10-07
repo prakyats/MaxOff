@@ -5,10 +5,12 @@ import type { PeopleGroup } from "@/modules/dashboards";
 const OPTIONS: readonly { value: PeopleGroup; label: string }[] = [
   { value: "all", label: "Everyone" },
   { value: "waiting", label: "Waiting" },
-  { value: "not_chosen", label: "Not chosen yet" },
+  { value: "not_chosen", label: "Not started" },
   { value: "present", label: "Present" },
   { value: "on_leave", label: "On leave" },
   { value: "absent", label: "Absent" },
+  // Decision 24: the card's "End of day not recorded" count opens the board on this one.
+  { value: "end_not_recorded", label: "End not recorded" },
 ];
 
 /** The board's header line, shared with its loading screen (nothing moves when it arrives). */

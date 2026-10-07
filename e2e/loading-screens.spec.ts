@@ -198,9 +198,11 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
         held: '[data-slot="loading-today-card"]',
         settled: '[data-slot="today-attendance-card"]',
       },
-      "approvals heading": {
+      // The first thing after the card: a section's heading, or, with nothing else to show
+      // (decision 24), the one muted line; either starts where the skeleton's heading does.
+      "first section": {
         held: '[data-slot="loading-today"] > section > :first-child',
-        settled: '[data-slot="today-approvals"] > :first-child',
+        settled: '[data-slot="owner-today"] > :first-child',
       },
     },
   },

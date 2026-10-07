@@ -19,42 +19,20 @@ export type BoardPerson = {
   overtimeFlag: boolean;
 };
 
-/** Why a person is under "Needs you" today (ROADMAP 6.2, PRODUCT §4.7 "first glance"). */
-export type PeopleReason = "waiting" | "not_chosen" | "absent" | "end_not_recorded" | "overtime";
-
-/** "Needs you" is empty: everyone expected is in and nothing is flagged (decision 22, ROADMAP). */
-export const NEEDS_YOU_PEOPLE_EMPTY = "Everyone's in.";
+/**
+ * The Owner's Today shows exceptions only (kickoff 6 decision 24, owner 2026-10-07): what is
+ * overdue, waiting or wrong; a count rather than a list where possible, one tap to the list;
+ * hidden when empty. The attendance card carries the people (its counts, coloured by urgency),
+ * so there is no "Needs you" list of people any more; when every section after the card is
+ * hidden, this one line stands.
+ */
+export const OWNER_TODAY_EMPTY = "Nothing else needs you today.";
 
 /**
- * The people who need the Owner today, in the board's order: waiting for a decision, not chosen
- * yet, absent, and anyone whose end of day was not recorded or whose overtime is flagged. Everyone
- * else (present, on leave, nothing flagged) stays on the full board one tap deeper.
+ * The full board's filters (a count on Today opens the board on its group). `end_not_recorded`
+ * (decision 24) is not a group of the board but a flag on a person: the board keeps its groups
+ * and shows only the people whose end of day was not recorded.
  */
-export function peopleNeedingYou<T extends BoardPerson>(
-  board: readonly { bucket: PeopleBucket; people: readonly T[] }[],
-): { person: T; bucket: PeopleBucket; reason: PeopleReason }[] {
-  const order: PeopleBucket[] = ["waiting", "not_chosen", "absent", "present", "on_leave"];
-  const rows: { person: T; bucket: PeopleBucket; reason: PeopleReason }[] = [];
-  for (const bucket of order) {
-    for (const person of board.find((group) => group.bucket === bucket)?.people ?? []) {
-      if (bucket === "waiting" || bucket === "not_chosen" || bucket === "absent") {
-        rows.push({ person, bucket, reason: bucket });
-      } else if (person.endNotRecorded) {
-        rows.push({ person, bucket, reason: "end_not_recorded" });
-      } else if (person.overtimeFlag) {
-        rows.push({ person, bucket, reason: "overtime" });
-      }
-    }
-  }
-  return rows;
-}
-
-/** Everyone on the board: "See all N people". */
-export function boardSize(board: readonly { people: readonly unknown[] }[]): number {
-  return board.reduce((sum, group) => sum + group.people.length, 0);
-}
-
-/** The full board's filters (a count on Today opens the board on its group). */
 export const PEOPLE_GROUPS = [
   "all",
   "not_chosen",
@@ -62,6 +40,7 @@ export const PEOPLE_GROUPS = [
   "on_leave",
   "absent",
   "waiting",
+  "end_not_recorded",
 ] as const;
 export type PeopleGroup = (typeof PEOPLE_GROUPS)[number];
 
@@ -70,6 +49,23 @@ export function parsePeopleGroup(value: string | string[] | undefined): PeopleGr
   return (PEOPLE_GROUPS as readonly string[]).includes(first ?? "")
     ? (first as PeopleGroup)
     : "all";
+}
+
+/** The board narrowed to a group: by its bucket, or by the "end not recorded" flag (decision 24). */
+export function boardForGroup<T extends BoardPerson>(
+  board: readonly { bucket: PeopleBucket; people: readonly T[] }[],
+  group: PeopleGroup,
+): { bucket: PeopleBucket; people: T[] }[] {
+  if (group === "all") return board.map((entry) => ({ ...entry, people: [...entry.people] }));
+  if (group === "end_not_recorded") {
+    return board.flatMap((entry) => {
+      const people = entry.people.filter((person) => person.endNotRecorded);
+      return people.length > 0 ? [{ bucket: entry.bucket, people }] : [];
+    });
+  }
+  return board.flatMap((entry) =>
+    entry.bucket === group ? [{ bucket: entry.bucket, people: [...entry.people] }] : [],
+  );
 }
 
 // Today's tasks ---------------------------------------------------------------------------------------
@@ -425,6 +421,8 @@ export function clientCountsLine({ open, overdue }: { open: number; overdue: num
 export type RiskWords = {
   title: string;
   detail: string;
+  /** The detail's colour: red for "overdue by …" (decision 24), with the red dot beside it. */
+  detailTone?: "danger";
   marker: { label: string; tone: "danger" | "attention" };
   href: string;
   icon: "overdue" | "not_noted" | "on_leave" | "unreachable";
@@ -454,6 +452,7 @@ export function riskWords(
       return {
         title: risk.title,
         detail: `${context.nameOf(risk.ownerId)} · overdue by ${spanWords(hoursSince(risk.dueAt))}`,
+        detailTone: "danger",
         marker: { label: "Overdue", tone: "danger" },
         href: `/tasks/${risk.taskId}`,
         icon: "overdue",
