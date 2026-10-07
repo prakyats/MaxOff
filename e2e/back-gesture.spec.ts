@@ -8,6 +8,7 @@ import {
   expectBackStack,
   expectNoHorizontalScroll,
   followAuthLink,
+  hydrated,
   recoveryLinkFor,
   resetAttendanceAndLeave,
   runInstalled,
@@ -480,11 +481,33 @@ test.describe("installed: menus and selects close on back", () => {
     await runInstalled(page);
     await page.goto("/my-day");
     await page.goto("/me");
+    // A tap before React has hydrated the page reaches no handler, on any build (reproduced
+    // with the CPU slowed 4-16x on main before 6A and on 6A alike; CI runs 37575602126 and
+    // 37587912609): the menu is tapped once the app is running, as the other specs do.
+    await hydrated(page);
     await page.getByRole("button", { name: "Change theme" }).click();
     const menu = page.getByRole("menu");
     await expect(menu).toBeVisible();
 
     await expectBackStack(page, [{ closes: menu, url: /\/me$/ }, { url: /\/my-day$/ }]);
+  });
+
+  test("a menu tapped while its screen is still hydrating opens on that tap", async ({
+    page,
+  }, info) => {
+    test.skip(info.project.name !== "mobile", "one phone width shows it; the CPU is slowed 8x");
+    // A slow phone: the shell is live but the screen's own part hydrates on the tap. The theme
+    // menu loads after the page (6.0, `AfterPage`): it must never swap its stand-in away inside
+    // that tap (CI runs 37575602126 and 37587912609; 4 of 16 opened before the fix).
+    await runInstalled(page);
+    await page.goto("/my-day");
+    const cpu = await page.context().newCDPSession(page);
+    await cpu.send("Emulation.setCPUThrottlingRate", { rate: 8 });
+    await page.goto("/me");
+    await hydrated(page);
+    await page.getByRole("button", { name: "Change theme" }).click();
+    await expect(page.getByRole("menu")).toBeVisible();
+    await cpu.send("Emulation.setCPUThrottlingRate", { rate: 1 });
   });
 });
 

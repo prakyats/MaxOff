@@ -340,7 +340,11 @@ test.describe("the Owner's Today (6.2)", () => {
     ];
     let previous = -1;
     for (const selector of order) {
-      const box = await page.locator(selector).first().boundingBox();
+      // The shown copy: React reveals a streamed section in batches, and until then the only
+      // copy is the hidden one it streamed in (see `pageHeader`).
+      const shown = page.locator(`${selector}:visible`).first();
+      await expect(shown, selector).toBeVisible();
+      const box = await shown.boundingBox();
       expect(box, selector).not.toBeNull();
       expect(box!.y, `${selector} comes after the one before`).toBeGreaterThan(previous);
       previous = box!.y;
@@ -513,8 +517,10 @@ test.describe("the Owner's Today (6.2)", () => {
     await expect(line).toBeVisible();
     await expect(line).toContainText(/Today|Not expected today/);
     // Above the tabs.
+    const tabs = page.locator('[data-slot="person-tabs"]:visible');
+    await expect(tabs).toBeVisible();
     const lineBox = await line.boundingBox();
-    const tabsBox = await page.locator('[data-slot="person-tabs"]').boundingBox();
+    const tabsBox = await tabs.boundingBox();
     expect(lineBox!.y).toBeLessThan(tabsBox!.y);
   });
 });
