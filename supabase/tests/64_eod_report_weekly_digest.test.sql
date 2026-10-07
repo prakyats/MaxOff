@@ -399,8 +399,8 @@ select is((select d - 'report_id' - 'date' from jsonb_array_elements(pg_temp.wee
   '{"saved": true, "present": 2, "on_leave": 1, "absent": 1, "end_not_recorded": 1, "overtime": 1, "completed": 2, "cancelled": 2, "created": 1, "decisions": 9, "holiday": null, "weekly_off": false}'::jsonb,
   'a day''s numbers are its saved report''s, not a fresh read (the overtime flag was cleared after the save)');
 select is(pg_temp.weekly() -> 'totals',
-  '{"present": 3, "on_leave": 1, "absent": 1, "end_not_recorded": 1, "overtime": 1, "completed": 3, "cancelled": 2, "created": 1, "decisions": 9, "missing": 0}'::jsonb,
-  'the week''s totals (D - 1 had one present day and one task completed; the rest were empty when saved)');
+  '{"present": 3, "on_leave": 1, "absent": 1, "end_not_recorded": 1, "overtime": 1, "completed": 3, "cancelled": 2, "created": 1, "decisions": 10, "missing": 0}'::jsonb,
+  'the week''s totals (D - 1 had one present day and one task completed, D - 2 a comp leave granted; the rest were empty when saved)');
 select is((select d ->> 'holiday' from jsonb_array_elements(pg_temp.weekly() -> 'days') d where d ->> 'date' = (pg_temp.d() - 3)::text),
   'Dussehra', 'a day''s holiday comes from its saved report');
 select is(pg_temp.weekly() -> 'now',
