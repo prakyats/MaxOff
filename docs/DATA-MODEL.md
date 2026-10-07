@@ -221,6 +221,11 @@ org_settings         org_id pk, weekly_off_days smallint[] (0=Sun..6=Sat), logou
                      end_day_cutoff_time time ('05:00'; 3b review, expand-only: yesterday's open day
                      can be ended until this IST time, never once today started; Settings ->
                      Thresholds, which offers 00:00-11:59)
+                     -- kickoff 6 (owner decision 2026-10-07, built in 6.5, expand-only): weekly_digest_day
+                     -- smallint (0=Sun..6=Sat, default 1 = Monday; check 0..6), in the API UPDATE grant
+                     -- (settings.manage), edited in Settings -> Thresholds next to quiet hours: the day the
+                     -- weekly Owner digest goes at 08:00 IST (WORKFLOWS §8 digest_weekly). end_day_cutoff_time
+                     -- also sets when eod_reports saves a day (kickoff 6 decision 17)
                      -- 5B 5.4 follow-up (owner 2026-10-03, expand-only): reachability_clock_from timestamptz null,
                      -- set once to the release moment by migration reachability_clock_from_release: no one's
                      -- 48 h "can't be reached" clock starts before it (null: no floor).
@@ -1532,9 +1537,14 @@ activity_log         id bigint identity, org_id, actor_id null (system), on_beha
                      -- actor: a row an Admin's action produced may describe an Owner-only table.
                      -- Each module adds a policy for the entities it owns (PERMISSIONS §2)
 eod_reports          id, org_id, report_date, data jsonb, generated_at, unique(org_id, report_date)
+                     -- kickoff 6 (owner decision 2026-10-01, built in 6.5): written only by the eod_report
+                     -- job (one row per IST date, every date, saved once the next day's end_day_cutoff_time
+                     -- has passed (owner 2026-10-07), never updated: no API INSERT/UPDATE/DELETE
+                     -- grant); data holds no money, ever (WORKFLOWS §8a). Owner-only (reports.all) all the
+                     -- same (ADR-0007 amendment 2026-10-01)
 month_snapshots      id, org_id, month date (1st), version int, data jsonb, closed_by, closed_at,
                      corrects_id null, correction_note, unique(org_id, month, version)
-                     -- eod_reports and month_snapshots contain revenue: Owner-only tables
+                     -- month_snapshots contain revenue; both are Owner-only tables
                      -- (single policy has_permission('reports.all')). Admin scoped reports are computed live.
 feature_flags        key pk, enabled, description
 ```
