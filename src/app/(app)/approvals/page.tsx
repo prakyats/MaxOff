@@ -6,7 +6,7 @@ import { ROLE_LABELS } from "@/core/lib/role-labels";
 import { startEarly } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
 import { requirePermission } from "@/core/permissions/server";
-import { formatIST, todayIST } from "@/core/time";
+import { todayIST } from "@/core/time";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { listPendingDays, listPendingNotes } from "@/modules/attendance";
@@ -16,20 +16,12 @@ import { listPendingRequests } from "@/modules/leave";
 import { PendingLeaveGroup } from "@/modules/leave/components/pending-leave-group";
 import { listPendingClaims } from "@/modules/expenses";
 import { PendingClaimsGroup } from "@/modules/expenses/components/pending-claims-group";
-import {
-  deadlineLabel,
-  listTasksToDecide,
-  listUnreadCounts,
-  pairName,
-  stateLabel,
-  type TaskToDecide,
-} from "@/modules/tasks";
-import {
-  type TaskApprovalItem,
-  TaskApprovalGroup,
-} from "@/modules/tasks/components/task-approval-group";
+import { listTasksToDecide, listUnreadCounts } from "@/modules/tasks";
+import { TaskApprovalGroup } from "@/modules/tasks/components/task-approval-group";
 import { TasksFreshOnReturn } from "@/modules/tasks/components/tasks-fresh-on-return";
 import { listDirectory } from "@/modules/team";
+
+import { taskItem } from "./items";
 
 export const metadata: Metadata = { title: "Approvals" };
 
@@ -122,37 +114,4 @@ export default async function ApprovalsPage() {
       )}
     </>
   );
-}
-
-const WHEN = "d MMM, h:mm a";
-
-/** A task as the group shows it: who handed it in and when, and the words for its step. */
-function taskItem(
-  item: TaskToDecide,
-  names: Readonly<Record<string, string>>,
-  owner: boolean,
-): Omit<TaskApprovalItem, "unread"> {
-  const { row, submission, lateReason } = item;
-  const by = submission ? pairName(names, submission.submittedBy, submission.onBehalfOf) : null;
-  const at = submission?.at ?? row.submittedAt;
-  const handedIn = [
-    by ? `Done by ${by}` : "Done",
-    at ? formatIST(at, WHEN) : null,
-    submission && submission.version > 1 ? `version ${submission.version}` : null,
-  ]
-    .filter(Boolean)
-    .join(", ");
-  return {
-    id: row.id,
-    title: row.title,
-    subtitle: lateReason ? `${handedIn} · late` : handedIn,
-    status: row.state,
-    statusLabel: owner ? stateLabel(row) : "Waiting for your check",
-    primaryName: names[row.primaryOwnerId] ?? "The people on it",
-    deadline: deadlineLabel(row.dueAt).replace(/^Due /, ""),
-    handedIn,
-    note: submission?.note ?? null,
-    lateReason,
-    approvedLabel: owner ? `Approved ${row.title}` : `Checked ${row.title}: on to the Owner`,
-  };
 }

@@ -1,9 +1,11 @@
 import { type ReactNode, Suspense } from "react";
 
+import { startEarly } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
 import { requirePermission } from "@/core/permissions/server";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
+import { getTodayPeople, PersonTodayLine, PersonTodayLineSkeleton } from "@/modules/attendance";
 import { PersonMenu } from "@/modules/team/components/person-menu";
 import { RecordReadReceipt } from "@/modules/notifications-center";
 
@@ -18,7 +20,8 @@ const BACK = { href: "/people", label: "People" };
  * not the Owner. One
  * header and tab bar over the views; **they live here, not in the pages** (2.7b), so a tab
  * switch swaps only the view below them. The header carries the Owner's ⋯ menu (Edit,
- * Deactivate and the rest, owner decision 2026-09-25).
+ * Deactivate and the rest, owner decision 2026-09-25). For the Owner, the person's today sits in
+ * one line above the tabs (6.2: state, start and end, overtime; Kickoff 6 decision 7).
  *
  * It awaits only the route's id and the viewer (already read for the shell): the header and
  * tabs stream in behind a skeleton of themselves (the tab bar's for the Owner, who nearly always
@@ -33,6 +36,8 @@ export default async function PersonLayout({
   params: Promise<{ id: string }>;
 }) {
   const [{ id }, viewer] = await Promise.all([params, requirePermission("team.view")]);
+  // The Owner's today line reads the board (`cache()`d): started with the header's reads.
+  if (can(viewer.role, "attendance.view_all")) startEarly(getTodayPeople());
   return (
     <>
       <Suspense fallback={null}>
@@ -42,7 +47,12 @@ export default async function PersonLayout({
         fallback={
           <>
             <PageHeader title={<Skeleton className="h-5 w-40" />} back={BACK} />
-            {can(viewer.role, "attendance.view_all") ? <TabsSkeleton /> : null}
+            {can(viewer.role, "attendance.view_all") ? (
+              <>
+                <PersonTodayLineSkeleton />
+                <TabsSkeleton />
+              </>
+            ) : null}
           </>
         }
       >
@@ -67,9 +77,21 @@ async function PersonHeader({ id }: { id: string }) {
           ) : undefined
         }
       />
-      {showsHistory(viewer, person) ? <PersonTabs memberId={person.id} /> : null}
+      {showsHistory(viewer, person) ? (
+        <>
+          {/* Their today in one line above the tabs (6.2, Kickoff 6 decision 7): the Owner's only. */}
+          {can(viewer.role, "attendance.view_all") ? <PersonToday id={person.id} /> : null}
+          <PersonTabs memberId={person.id} />
+        </>
+      ) : null}
     </>
   );
+}
+
+/** The person's today, from the board's read (`getTodayPeople()`, `cache()`d per request). */
+async function PersonToday({ id }: { id: string }) {
+  const today = await getTodayPeople();
+  return <PersonTodayLine person={today.people.find((person) => person.memberId === id) ?? null} />;
 }
 
 /** The tab bar's shape while the person loads: four 44px cells, as `PersonTabs` draws them. */

@@ -206,9 +206,11 @@ test("Admin: leave chosen from the prompt, then the strip and Start day on a hal
   await hydrated(page);
   await expect(prompt).toBeHidden();
 
-  // The Owner's Today reads the started day (the people board, 2.4 + 3b.1).
+  // The Owner's Today reads the started day (the people board, 2.4 + 3b.1; one tap under Today
+  // since 6.2).
   await page.context().clearCookies();
   await signIn(page, USERS.owner.email, USERS.owner.password);
+  await page.goto("/today/people");
   const row = page
     .locator('[data-slot="board-row"]')
     .filter({ hasText: `Test Gate Admin (${info.project.name})` });
@@ -279,7 +281,7 @@ test("approved half day: no prompt, Start day and End day stay available", async
 test("the Owner is never prompted and has no attendance strip", async ({ page }) => {
   await signIn(page, USERS.owner.email, USERS.owner.password, { day: "stop" });
   await expect(page).toHaveURL(/\/today$/);
-  await expect(page.getByRole("heading", { name: "Today" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Today", exact: true })).toBeVisible();
   await hydrated(page);
   await expect(startPrompt(page)).toHaveCount(0);
   await expect(strip(page)).toHaveCount(0);

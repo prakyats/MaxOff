@@ -20,10 +20,6 @@ type StandInLines = {
 
 const STAND_IN_LINES: Record<keyof typeof STAND_INS, StandInLines> = {
   calendar: { phone: 3, phoneLg: 2, wide: 2 },
-  reportsAdmin: { phone: 3, phoneLg: 2, wide: 2 },
-  todayOwner: { phone: 2, phoneLg: 2, wide: 2 },
-  todayAdmin: { phone: 3, phoneLg: 3, wide: 3 },
-  myDay: { phone: 3, phoneLg: 3, wide: 3 },
 };
 
 const LINES_BY_COPY = new Map<StandIn, StandInLines>(

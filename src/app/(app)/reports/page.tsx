@@ -1,4 +1,4 @@
-import { ArrowRightIcon, FileBarChart2Icon } from "lucide-react";
+import { ArrowRightIcon } from "lucide-react";
 import type { Metadata } from "next";
 
 import { can } from "@/core/permissions";
@@ -6,9 +6,10 @@ import { requirePermission } from "@/core/permissions/server";
 import { DrillLink } from "@/core/ui/composites/drill-link";
 import { PageHeader } from "@/core/ui/composites/page-header";
 
-import { PlaceholderPage } from "../_placeholder/placeholder-page";
-import { STAND_INS } from "../_placeholder/stand-ins";
+import { parsePeriod } from "@/modules/reports";
+import { todayIST } from "@/core/time";
 
+import { AdminReport } from "./admin-report";
 import { REPORTS_DESCRIPTION } from "./copy";
 
 export const metadata: Metadata = { title: "Reports" };
@@ -25,17 +26,22 @@ const OWNER_REPORTS = [
 ] as const;
 
 /**
- * Owner reports (task 9.3) and the Admin's scoped operational reports (6.x) share this route.
- * Since 3b.4 the Owner's first real report is here: **Month** (the team's month summary,
- * `attendance.view_all`), a row that drills into it, in the shape of the Settings list. An Admin
- * keeps the stand-in until their reports arrive.
+ * Owner reports (task 9.3) and the Admin's scoped operational reports share this route. Since
+ * 3b.4 the Owner's first real report is here: **Month** (the team's month summary,
+ * `attendance.view_all`), a row that drills into it, in the shape of the Settings list. Since 6.3
+ * an Admin reads their **work report** (`reports.scoped`, `AdminReport`).
  */
-export default async function ReportsPage() {
-  const viewer = await requirePermission(["reports.all", "reports.scoped"]);
+export default async function ReportsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const [viewer, params] = await Promise.all([
+    requirePermission(["reports.all", "reports.scoped"]),
+    searchParams,
+  ]);
   if (!can(viewer.role, "attendance.view_all")) {
-    return (
-      <PlaceholderPage title="Reports" copy={STAND_INS.reportsAdmin} icon={FileBarChart2Icon} />
-    );
+    return <AdminReport viewer={viewer} period={parsePeriod(params, todayIST())} />;
   }
   return (
     <>

@@ -21,14 +21,20 @@ const SuggestTaskDialog = dynamic(
  */
 export function SuggestTaskButton({
   clients,
+  variant = "strong",
 }: {
   /** The client labels the suggester may name. */
   clients: readonly { id: string; name: string }[];
+  /**
+   * `secondary` (a neutral outline) where the screen's one solid button is another (My Day, under
+   * the strip's Start day: Kickoff 6 decision 3, "a neutral Suggest a task").
+   */
+  variant?: "strong" | "secondary";
 }) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button variant="strong" onClick={() => setOpen(true)} data-slot="suggest-task">
+      <Button variant={variant} onClick={() => setOpen(true)} data-slot="suggest-task">
         <LightbulbIcon aria-hidden />
         Suggest a task
       </Button>

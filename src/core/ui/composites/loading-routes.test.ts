@@ -64,18 +64,19 @@ describe("loading.tsx coverage", () => {
     // The stand-in routes (3c review, owner decision): while a route shows the stand-in copy of
     // `_placeholder/stand-ins.ts`, its skeleton traces that stand-in (`StandInSkeleton`: the
     // dashed box, the circle, one title line, the measured message lines), never the future
-    // screen. The shapes the owner specified come back when each phase builds the real screen:
-    // 4.5 Tasks → cards and the Admin's Approvals → list with actions={2}; 5.1 Alerts → list;
-    // 6.1 My Day → cards under the strip; 6.2 / 6.3 Today → tiles under the card and the board;
-    // 6.4 Calendar → its own day strip (`loading-day-strip`); 6.5 / 9.3 the Admin's Reports →
-    // tiles.
+    // screen. Since 6A only the Calendar is one (6.4 builds it with its own day strip).
     const standIn = "StandInSkeleton";
-    expect(sourceOf("today")).toContain(standIn);
-    // The Owner's Today keeps the attendance card and the people board in front of the stand-in.
-    expect(sourceOf("today")).toContain("TodayBoardSkeleton");
-    expect(sourceOf("today")).toContain("TodayAttendanceStripSkeleton");
-    expect(sourceOf("my-day")).toContain(standIn);
+    // 6.1 My Day: the strip first (ROADMAP 6.1), then a section of `TaskRow`s.
     expect(sourceOf("my-day")).toContain("TodayAttendanceStripSkeleton");
+    expect(sourceOf("my-day")).toContain("TaskRowsSkeleton");
+    expect(sourceOf("my-day")).not.toContain(standIn);
+    // 6.2 / 6.3 Today: the Owner's attendance card and the approvals preview; an Admin's strip and
+    // Needs you. The full board moved to its own drill-down (`today/people`), traced there.
+    expect(sourceOf("today")).toContain("TodayCardSkeleton");
+    expect(sourceOf("today")).toContain("ApprovalGroupSkeleton");
+    expect(sourceOf("today")).toContain("TodayAttendanceStripSkeleton");
+    expect(sourceOf("today")).not.toContain(standIn);
+    expect(sourceOf("today/people")).toContain("loading-today-people");
     // Tasks sits in a `(list)` group since 4B, so its skeleton never wraps a task's page; since
     // 4.5 it traces the real lists: `TaskRow`s under their section headings, per role.
     expect(sourceOf("tasks/(list)")).toContain("TaskRowsSkeleton");
@@ -89,15 +90,17 @@ describe("loading.tsx coverage", () => {
     expect(sourceOf("notifications")).toContain("NotificationListSkeleton");
     expect(sourceOf("notifications")).not.toContain(standIn);
     expect(shapeOf("notifications"), "its own skeleton, not a generic shape").toBeUndefined();
-    // Reports (3b.4): the Owner's list of reports first; the Admin's branch is the stand-in.
+    // Reports (3b.4): the Owner's list of reports first; the Admin's work report (6.3): the period
+    // control and the KPI cards.
     expect(shapeOf("reports")).toBe("list");
-    expect(sourceOf("reports")).toContain(standIn);
+    expect(sourceOf("reports")).toContain("KpiCardSkeleton");
+    expect(sourceOf("reports")).not.toContain(standIn);
     // Approvals is a grouped list (2.4: the groups are traced by ApprovalGroupSkeleton); since 4.5
     // an Admin's is too (the tasks they check), so no branch shows the stand-in.
     expect(sourceOf("approvals")).toContain("ApprovalGroupSkeleton");
     expect(sourceOf("approvals")).not.toContain(standIn);
     for (const route of ["today", "my-day", "calendar"]) {
-      expect(shapeOf(route), `${route} traces the stand-in, not a shape`).toBeUndefined();
+      expect(shapeOf(route), `${route} traces its own screen, not a shape`).toBeUndefined();
     }
     // The team's month traces its own rows (3b review), under the month switcher.
     const teamMonth = sourceOf("reports/month");

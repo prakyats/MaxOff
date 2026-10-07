@@ -150,6 +150,10 @@ const SCREENS = [
   { path: "/notifications", role: "owner" },
   { path: "/notifications", role: "admin" },
   { path: "/notifications", role: "staff" },
+  // 6A: the Owner's Today and its full board, the Admin's work report.
+  { path: "/today", role: "owner" },
+  { path: "/today/people", role: "owner" },
+  { path: "/reports", role: "admin" },
 ] as const;
 
 for (const role of ["owner", "admin", "staff"] as const) {
@@ -200,9 +204,13 @@ const LARGE_TEXT_SCREENS = {
     "/settings/templates",
     // 5.1: Alerts.
     "/notifications",
+    // 6.2: the full board one tap under Today.
+    "/today/people",
   ],
   admin: [
     "/today",
+    // 6.3: the work report.
+    "/reports",
     "/leave",
     "/leave/attendance",
     "/leave/expenses",
@@ -278,19 +286,10 @@ for (const [role, paths] of Object.entries(LARGE_TEXT_SCREENS)) {
  * both phone widths and at large system text.
  */
 const STAND_IN_SCREENS: Record<"owner" | "admin" | "staff", { path: string; copy: StandIn }[]> = {
-  owner: [
-    { path: "/today", copy: STAND_INS.todayOwner },
-    { path: "/calendar", copy: STAND_INS.calendar },
-  ],
-  admin: [
-    { path: "/today", copy: STAND_INS.todayAdmin },
-    { path: "/calendar", copy: STAND_INS.calendar },
-    { path: "/reports", copy: STAND_INS.reportsAdmin },
-  ],
-  staff: [
-    { path: "/my-day", copy: STAND_INS.myDay },
-    { path: "/calendar", copy: STAND_INS.calendar },
-  ],
+  // Since 6A only the Calendar (6.4) is a stand-in; Today, My Day and the Admin's Reports are real.
+  owner: [{ path: "/calendar", copy: STAND_INS.calendar }],
+  admin: [{ path: "/calendar", copy: STAND_INS.calendar }],
+  staff: [{ path: "/calendar", copy: STAND_INS.calendar }],
 };
 
 /** What a stand-in used to say, and anything like it. */

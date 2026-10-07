@@ -186,41 +186,97 @@ const ME_WITH_PAGES: Record<string, Point> = {
 };
 
 const LOADING_SCREENS: readonly LoadingScreen[] = [
-  // Today: the Owner's attendance card and people board (2.4) over the stand-in; an Admin's
-  // strip (its End day reads the day's overtime note, only the page does) over theirs.
+  // Today (6.2, 6.3): the Owner's attendance card, then the Approvals section; an Admin's strip
+  // (2.3), then Needs you. Each held by a read only its page makes (a dashboard read).
   {
     role: "owner",
     path: "/today",
-    marker: 'data-slot="loading-stand-in"',
-    hold: "/rest/v1/rpc/attendance_today_detail",
+    marker: 'data-slot="loading-today"',
+    hold: "/rest/v1/rpc/emails_held_today",
     trace: {
       "attendance card": {
-        held: '[data-slot="loading-today-board"] > :first-child',
+        held: '[data-slot="loading-today-card"]',
         settled: '[data-slot="today-attendance-card"]',
       },
-      "board heading": {
-        held: '[data-slot="loading-today-board"] > :nth-child(2)',
-        settled: '[data-slot="people-board"] h2',
-      },
-      "first person": {
-        held: '[data-slot="loading-today-board"] li',
-        settled: '[data-slot="board-row"]',
+      "approvals heading": {
+        held: '[data-slot="loading-today"] > section > :first-child',
+        settled: '[data-slot="today-approvals"] > :first-child',
       },
     },
   },
   {
     role: "admin",
     path: "/today",
-    marker: 'data-slot="loading-stand-in"',
-    hold: "/rest/v1/extra_work_notes",
+    marker: 'data-slot="loading-today"',
+    hold: "/rest/v1/rpc/dashboard_unreachable",
     trace: {
       "attendance strip": {
         held: '[data-slot="attendance-strip-skeleton"]',
         settled: '[data-slot="attendance-strip"]',
       },
-      "stand-in": {
-        held: '[data-slot="loading-stand-in"]',
-        settled: 'main [data-slot="empty-state"]',
+      "needs you heading": {
+        held: '[data-slot="loading-today"] > section > :first-child',
+        settled: '[data-slot="today-needs-you"] > :first-child',
+      },
+    },
+  },
+  // The full board under Today (6.2): the filter, a group's heading, its first person.
+  {
+    role: "owner",
+    path: "/today/people",
+    marker: 'data-slot="loading-today-people"',
+    hold: "/rest/v1/rpc/attendance_today_detail",
+    trace: {
+      filter: {
+        held: '[data-slot="people-filter"]',
+        settled: '[data-slot="people-filter"]',
+      },
+      "first heading": {
+        held: '[data-slot="loading-today-people"] > div > :first-child',
+        settled: '[data-slot="people-board"] h2',
+      },
+      "first person": {
+        held: '[data-slot="loading-today-people"] li',
+        settled: '[data-slot="board-row"]',
+      },
+    },
+  },
+  // My Day (6.1): the strip, then the first section (the fixture's task is not noted yet).
+  {
+    role: "staff",
+    path: "/my-day",
+    marker: 'data-slot="loading-my-day"',
+    hold: "/rest/v1/holidays",
+    fixture: "staff task",
+    trace: {
+      "attendance strip": {
+        held: '[data-slot="attendance-strip-skeleton"]',
+        settled: '[data-slot="attendance-strip"]',
+      },
+      "first heading": {
+        held: '[data-slot="loading-my-day"] > section > :first-child',
+        settled: '[data-slot="my-day"] > section:first-child > :first-child',
+      },
+      "first row": {
+        held: '[data-slot="loading-my-day"] li',
+        settled: '[data-slot="my-day"] [data-slot="task-row"]',
+      },
+    },
+  },
+  // The Admin's work report (6.3): the period control, the first KPI card.
+  {
+    role: "admin",
+    path: "/reports",
+    marker: 'data-slot="loading-work-report"',
+    hold: "/rest/v1/task_submissions",
+    trace: {
+      "period control": {
+        held: '[data-slot="report-period"]',
+        settled: '[data-slot="report-period"]',
+      },
+      "first card": {
+        held: '[data-slot="loading-work-report"] > div > :first-child',
+        settled: '[data-slot="kpi-rework"]',
       },
     },
   },

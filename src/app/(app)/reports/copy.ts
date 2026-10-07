@@ -4,3 +4,6 @@
  */
 export const REPORTS_DESCRIPTION =
   "Reports on the team and the work. More arrive with the end-of-day reports.";
+
+/** The Admin's Reports header line (6.3), shared with its loading screen. */
+export const ADMIN_REPORT_DESCRIPTION = "How the work you run is going.";

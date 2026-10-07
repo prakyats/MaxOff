@@ -149,3 +149,25 @@ export async function rpcRequestChange(
   );
   if (error) throw error;
 }
+
+/**
+ * A member's **approved** leave touching the IST days `from` to `to` (My Day's quiet line, 6.1,
+ * Kickoff 6 decision 2): the type and the dates, nothing else. RLS: their own rows.
+ */
+export async function listApprovedLeaveBetween(
+  memberId: string,
+  from: string,
+  to: string,
+): Promise<{ type: LeaveType; startDate: string; endDate: string }[]> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase
+    .from("leave_requests")
+    .select("type, start_date, end_date")
+    .eq("member_id", memberId)
+    .eq("state", "approved")
+    .lte("start_date", to)
+    .gte("end_date", from)
+    .order("start_date", { ascending: true });
+  if (error) throw error;
+  return data.map((row) => ({ type: row.type, startDate: row.start_date, endDate: row.end_date }));
+}

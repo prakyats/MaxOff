@@ -81,9 +81,12 @@ async function slides(page: Page): Promise<string[]> {
 const FORWARD = ["nav-forward:nav-slide-from-end", "nav-forward:nav-slide-to-start"];
 const BACK = ["nav-back:nav-slide-from-start", "nav-back:nav-slide-to-end"];
 
-/** From /today, one person on the board: a drill-down to their leave, `/people/<id>/leave`. */
+/**
+ * From the full board under Today (`/today/people`, 6.2), one person: a drill-down to their leave,
+ * `/people/<id>/leave`.
+ */
 async function openPersonFromToday(page: Page) {
-  await page.goto("/today");
+  await page.goto("/today/people");
   await hydrated(page);
   await page.locator('[data-slot="board-row"]').first().click();
   await expect(page).toHaveURL(/\/people\/[^/]+\/leave$/);
@@ -105,7 +108,7 @@ test.describe("installed at phone width: drill-down slides", () => {
     await expect.poll(() => slides(page)).toEqual(FORWARD);
 
     await backControl(page).click();
-    await expect(page).toHaveURL(/\/today$/);
+    await expect(page).toHaveURL(/\/today\/people$/);
     await expect.poll(() => slides(page)).toEqual([...FORWARD, ...BACK]);
   });
 
@@ -148,7 +151,7 @@ test.describe("installed at phone width: drill-down slides", () => {
     // The system back gesture (Android's own predictive back covers it). The view control
     // replaced the detail's entry, so one back leaves the person.
     await page.goBack();
-    await expect(page).toHaveURL(/\/today$/);
+    await expect(page).toHaveURL(/\/today\/people$/);
     // A tab.
     await page.locator('[data-slot="bottom-nav"] a[href="/approvals"]').click();
     await expect(page).toHaveURL(/\/approvals$/);
@@ -162,7 +165,7 @@ test.describe("installed at phone width: drill-down slides", () => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await openPersonFromToday(page);
     await backControl(page).click();
-    await expect(page).toHaveURL(/\/today$/);
+    await expect(page).toHaveURL(/\/today\/people$/);
     await page.waitForLoadState("networkidle");
     expect(await slides(page)).toEqual([]);
   });
@@ -177,7 +180,7 @@ test.describe("a browser tab and the desktop behave like a website", () => {
     await spyViewTransitions(page);
     await openPersonFromToday(page);
     await page.locator('[data-slot="page-back"]:visible').click();
-    await expect(page).toHaveURL(/\/(today|people)$/);
+    await expect(page).toHaveURL(/\/(today\/people|people)$/);
     await page.waitForLoadState("networkidle");
     expect(await slides(page)).toEqual([]);
   });
@@ -229,7 +232,7 @@ test.describe("installed: scroll is kept", () => {
 
   test("back from a drill-down returns to the list's place", async ({ page }) => {
     await runInstalled(page);
-    await page.goto("/today");
+    await page.goto("/today/people");
     await hydrated(page);
     await padShell(page, "top");
     const row = page.locator('[data-slot="board-row"]').first();
@@ -240,7 +243,7 @@ test.describe("installed: scroll is kept", () => {
     await row.click();
     await expect(page).toHaveURL(/\/people\/[^/]+\/leave$/);
     await page.getByRole("link", { name: "Back to People" }).click();
-    await expect(page).toHaveURL(/\/today$/);
+    await expect(page).toHaveURL(/\/today\/people$/);
     await near(page, y);
   });
 });
@@ -325,7 +328,7 @@ test.describe("switching a screen's tabs keeps its header and tabs", () => {
     });
 
     test("a drill-down to a person never shows the People list's skeleton", async ({ page }) => {
-      await page.goto("/today");
+      await page.goto("/today/people");
       await hydrated(page);
       await page.evaluate(() => {
         const w = window as unknown as { __titles: string[] };

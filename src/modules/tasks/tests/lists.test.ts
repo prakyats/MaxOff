@@ -280,9 +280,12 @@ describe("the full list's filters (decisions 17, 18)", () => {
     expect(matchesClient({ clientId: null }, "none")).toBe(true);
     expect(matchesType(task, "shoot")).toBe(true);
     expect(matchesType(task, "normal")).toBe(false);
-    expect(matchesOverdue(task, "overdue")).toBe(true);
-    expect(matchesOverdue({ overdue: false }, "overdue")).toBe(false);
-    expect(matchesOverdue({ overdue: false }, "all")).toBe(true);
+    expect(matchesOverdue({ ...task, dueToday: false }, "overdue")).toBe(true);
+    expect(matchesOverdue({ overdue: false, dueToday: false }, "overdue")).toBe(false);
+    expect(matchesOverdue({ overdue: false, dueToday: false }, "all")).toBe(true);
+    // Due today (6.2: the Owner's "N due today" opens the list there).
+    expect(matchesOverdue({ overdue: false, dueToday: true }, "today")).toBe(true);
+    expect(matchesOverdue({ overdue: true, dueToday: false }, "today")).toBe(false);
   });
 
   it("filters by engagement: a task with a freelancer, or with an employee, on it", () => {

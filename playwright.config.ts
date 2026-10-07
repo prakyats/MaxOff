@@ -56,6 +56,7 @@ const STICKY_ACTIONS_SPECS = /sticky-actions\.spec\.ts$/;
 const VIEW_ADDRESS_SPECS = /view-address\.spec\.ts$/;
 const REACHABILITY_SPECS = /reachability\.spec\.ts$/;
 const ONBOARDING_SPECS = /onboarding\.spec\.ts$/;
+const DASHBOARDS_SPECS = /dashboards\.spec\.ts$/;
 
 /**
  * Web Push (5.2): the e2e server sends real, encrypted pushes to a fake push service the spec
@@ -179,7 +180,8 @@ export default defineConfig({
       // at the page's end wraps differently at 430px, so both widths. And a view's address held
       // through a refresh (2026-10-02): the task page's views and a list's filter, at both widths.
       // And onboarding for reachability (5.5): the iPhone's install steps, Me's device list and
-      // their layers on back, at both widths.
+      // their layers on back, at both widths. And the day screens (6A): My Day, Today's full board
+      // and its filter, and the work report's period, each installed back order at both widths.
       name: "mobile-lg",
       dependencies: ["setup"],
       testMatch: [
@@ -216,6 +218,7 @@ export default defineConfig({
         VIEW_ADDRESS_SPECS,
         REACHABILITY_SPECS,
         ONBOARDING_SPECS,
+        DASHBOARDS_SPECS,
       ],
       use: { ...devices["Pixel 5"], viewport: { width: 430, height: 932 } },
     },

@@ -1,0 +1,36 @@
+/**
+ * modules/reports: the public API (ARCHITECTURE §3.1). The Admin's work report (6.3, PRODUCT §4.13;
+ * Kickoff 6 decision 11): the task KPIs over a period, split by engagement, computed live from the
+ * tasks the Admin sees (RLS). Never money, attendance or leave (PERMISSIONS `reports.scoped`). The
+ * Owner's reports (9.3) and the end-of-day report (6.5) join here later.
+ */
+export {
+  acknowledgementLag,
+  countWords,
+  CUSTOM_MAX_DAYS,
+  ENGAGEMENT_LABELS,
+  ENGAGEMENTS,
+  hoursWords,
+  loadThisWeek,
+  loadWords,
+  median,
+  monthOf,
+  nextPeriod,
+  overdueNow,
+  parsePeriod,
+  periodHref,
+  periodLabel,
+  previousPeriod,
+  rework,
+  reworkWords,
+  turnaround,
+  weekOf,
+  type Engagement,
+  type LoadRow,
+  type OpenTask,
+  type Period,
+  type ReportFacts,
+  type ReworkValue,
+  type Split,
+} from "./domain/work-report";
+export { KpiCard, KpiCardSkeleton, LoadList } from "./components/work-report";

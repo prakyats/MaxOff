@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { checkThenRead } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
 import { requirePermission } from "@/core/permissions/server";
-import { systemClock } from "@/core/time";
+import { systemClock, toISTDate, todayIST } from "@/core/time";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import {
   activeAssignees,
@@ -54,6 +54,7 @@ export default async function AllTasksPage() {
   const clients = new Map(labels.map((label) => [label.id, label.name]));
   const typeNames = new Map(types.map((type) => [type.id, type.name]));
   const now = systemClock();
+  const today = todayIST();
 
   const item = (row: TaskListRow): TaskListItem => {
     const active = activeAssignees(row.assignees).map((a) => a.memberId);
@@ -66,6 +67,7 @@ export default async function AllTasksPage() {
       dueAt: row.dueAt,
       dueLabel: deadlineLabel(row.dueAt),
       overdue: isOverdue(row, now),
+      dueToday: toISTDate(row.dueAt) === today,
       owner:
         row.primaryOwnerId === viewer.id
           ? "You"

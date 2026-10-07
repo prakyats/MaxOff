@@ -52,22 +52,23 @@ test.describe("before hydration, installed at phone width", () => {
   });
 
   test("the back control goes back instead of forward to the parent", async ({ page }) => {
-    await open(page, "/today");
+    // The full board under Today (6.2), where every person is a row.
+    await open(page, "/today/people");
     await page.locator('[data-slot="board-row"]').first().click();
     await expect(page).toHaveURL(/\/people\/[^/]+\/leave$/);
     await expect(pageHeader(page)).toBeVisible();
     const length = await historyLength(page);
 
     await backControl(page).click();
-    await expect(page).toHaveURL(/\/today$/);
+    await expect(page).toHaveURL(/\/today\/people$/);
     expect(await historyLength(page)).toBe(length);
-    // Back from home leaves the app's entries: the detail is ahead, not beneath.
+    // Back went back: the detail is ahead, not beneath.
     await page.goForward({ waitUntil: "commit" });
     await expect(page).toHaveURL(/\/people\/[^/]+\/leave$/);
   });
 
   test("opened directly, the back control replaces itself with the parent", async ({ page }) => {
-    await open(page, "/today");
+    await open(page, "/today/people");
     await page.locator('[data-slot="board-row"]').first().click();
     await expect(page).toHaveURL(/\/people\/[^/]+\/leave$/);
     const detail = page.url();
@@ -85,7 +86,7 @@ test.describe("before hydration, installed at phone width", () => {
   });
 
   test("a view control replaces its entry", async ({ page }) => {
-    await open(page, "/today");
+    await open(page, "/today/people");
     await page.locator('[data-slot="board-row"]').first().click();
     await expect(page).toHaveURL(/\/people\/[^/]+\/leave$/);
     await expect(pageHeader(page)).toBeVisible();
@@ -99,7 +100,7 @@ test.describe("before hydration, installed at phone width", () => {
     expect(await historyLength(page)).toBe(length);
     // One back leaves the person, as after hydration.
     await page.goBack({ waitUntil: "commit" });
-    await expect(page).toHaveURL(/\/today$/);
+    await expect(page).toHaveURL(/\/today\/people$/);
   });
 
   test("tabs keep the stack at [home, tab]", async ({ page }) => {
@@ -132,7 +133,7 @@ test.describe("after hydration, installed at phone width", () => {
     page,
   }) => {
     await runInstalled(page);
-    await page.goto("/today");
+    await page.goto("/today/people");
     await page.locator('[data-slot="board-row"]').first().click();
     await expect(page).toHaveURL(/\/people\/[^/]+\/leave$/);
     await expect(backControl(page)).toHaveAttribute("data-live", "");
@@ -266,7 +267,7 @@ test.describe("a tap before hydration is held for the app, installed at phone wi
   /** A person's leave page, found through the hydrated app (a detail with a back control). */
   async function detailUrl(page: Page) {
     await runInstalled(page);
-    await page.goto("/today");
+    await page.goto("/today/people");
     await hydrated(page);
     await page.locator('[data-slot="board-row"]').first().click();
     await expect(page).toHaveURL(/\/people\/[^/]+\/leave$/);

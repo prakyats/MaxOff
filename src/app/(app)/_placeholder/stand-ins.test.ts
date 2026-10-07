@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-import { dayStandIn, STAND_INS } from "./stand-ins";
+import { STAND_INS } from "./stand-ins";
 
 /**
  * The stand-in screens speak to the people using the app, not to the people building it
@@ -44,20 +44,5 @@ describe("the stand-in copy", () => {
     );
     expect(source).not.toMatch(/is filled in|arrives with its module/);
     expect(source).not.toMatch(/\btask\??:/);
-  });
-});
-
-describe("dayStandIn (the copy /today and /my-day show, by role; 3cB review)", () => {
-  it("picks the day screens' copy by who is looking, whichever route they opened", () => {
-    expect(dayStandIn("owner")).toBe(STAND_INS.todayOwner);
-    expect(dayStandIn("admin")).toBe(STAND_INS.todayAdmin);
-    expect(dayStandIn("staff")).toBe(STAND_INS.myDay);
-  });
-
-  it("never tells Staff about clients, nor the Owner about a working day of their own", () => {
-    const staff = dayStandIn("staff");
-    expect(`${staff.description} ${staff.message}`).not.toMatch(/client/i);
-    const owner = dayStandIn("owner");
-    expect(`${owner.description} ${owner.message}`).not.toMatch(/your (working )?day\b/i);
   });
 });
