@@ -7,7 +7,7 @@ import { useId, useState } from "react";
 import { cn } from "@/core/lib/utils";
 import { ActionStatus } from "@/core/ui/action/action-status";
 import { useAction } from "@/core/ui/action/use-action";
-import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
+import { ConfirmDialogLazy } from "@/core/ui/composites/confirm-dialog-lazy";
 import { useFollowUpTrigger } from "@/core/ui/composites/follow-up";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { Button } from "@/core/ui/primitives/button";
@@ -130,7 +130,7 @@ export function EndDayButton({
       <Button variant="strong" size={size} onClick={() => setOpen(true)} data-slot="end-day">
         End day
       </Button>
-      <ConfirmDialog
+      <ConfirmDialogLazy
         open={open}
         onOpenChange={(next) => {
           if (!next) reset();
@@ -198,7 +198,7 @@ export function EndDayButton({
             </Button>
           </div>
         )}
-      </ConfirmDialog>
+      </ConfirmDialogLazy>
     </>
   );
 }

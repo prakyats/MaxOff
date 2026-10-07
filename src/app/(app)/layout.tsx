@@ -15,13 +15,12 @@ import { readOwnPushStatus } from "@/core/notifications/push/subscriptions";
 import { can } from "@/core/permissions";
 import { RouteTransition } from "@/core/ui/motion/route-transition";
 import { Toaster } from "@/core/ui/primitives/sonner";
-import { TooltipProvider } from "@/core/ui/primitives/tooltip";
 import { AppShell } from "@/core/ui/shell/app-shell";
 import { RefreshOnReturn } from "@/core/ui/shell/refresh-on-return";
 import type { NavBadges } from "@/core/ui/shell/nav";
 import { countsOrNone } from "@/core/ui/shell/nav-counts";
 import { countPendingDays, countPendingNotes, getOwnToday, promptDue } from "@/modules/attendance";
-import { StartDayPrompt } from "@/modules/attendance/components/start-day-prompt";
+import { StartDayPromptLazy } from "@/modules/attendance/components/start-day-prompt-lazy";
 import { countPendingRequests } from "@/modules/leave";
 import { countPendingClaims } from "@/modules/expenses";
 import { countTasks } from "@/modules/tasks";
@@ -71,7 +70,7 @@ async function startDayPrompt(viewer: Awaited<ReturnType<typeof requireMember>>)
   if (!can(viewer.role, "attendance.self")) return null;
   const today = await getOwnToday();
   return promptDue(today) ? (
-    <StartDayPrompt memberId={viewer.id} workDate={today.workDate} />
+    <StartDayPromptLazy memberId={viewer.id} workDate={today.workDate} />
   ) : null;
 }
 
@@ -114,22 +113,21 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     // The sign-out confirmation lives above the shell, so the edit pattern's unsaved-changes
     // warning (2.9) reaches it from any screen.
     <LogoutProvider hasWorkingDay={can(viewer.role, "attendance.self")}>
-      {/* Here rather than in the root layout: sonner and radix-tooltip are only ever used by
-          signed-in screens, and mounting them globally shipped both to /login (task 1.5). */}
-      <TooltipProvider>
-        <AppShell viewer={viewer} badges={badges} unread={unread}>
-          <SentryUser id={viewer.id} />
-          <RefreshOnReturn />
-          {prompt}
-          <PushSync publicKey={publicKey} endpoints={endpoints} />
-          {live ? (
-            <LiveUpdatesLazy memberId={viewer.id} token={live.token} expiresIn={live.expiresIn} />
-          ) : null}
-          {/* A band above the bottom bar (5A decision 30), never at the top of a screen. */}
-          {band ? <PushBanner publicKey={publicKey} reason={band} /> : null}
-          <RouteTransition>{children}</RouteTransition>
-        </AppShell>
-      </TooltipProvider>
+      <AppShell viewer={viewer} badges={badges} unread={unread}>
+        <SentryUser id={viewer.id} />
+        <RefreshOnReturn />
+        {prompt}
+        <PushSync publicKey={publicKey} endpoints={endpoints} />
+        {live ? (
+          <LiveUpdatesLazy memberId={viewer.id} token={live.token} expiresIn={live.expiresIn} />
+        ) : null}
+        {/* A band above the bottom bar (5A decision 30), never at the top of a screen. */}
+        {band ? <PushBanner publicKey={publicKey} reason={band} /> : null}
+        <RouteTransition>{children}</RouteTransition>
+      </AppShell>
+      {/* Here rather than in the root layout: sonner is only ever used by signed-in screens, and
+          mounting it globally shipped it to /login (task 1.5). No tooltip provider: no screen
+          draws a tooltip, and the unused provider cost every screen ~10 KB (6.0). */}
       <Toaster position="top-center" closeButton />
     </LogoutProvider>
   );
