@@ -79,7 +79,9 @@ function traceTaps() {
         sib = sib.previousSibling;
       }
       if (found !== null)
-        chain.push(`${node.tagName.toLowerCase()}[${node.getAttribute("data-slot") ?? ""}]:${found}`);
+        chain.push(
+          `${node.tagName.toLowerCase()}[${node.getAttribute("data-slot") ?? ""}]:${found}`,
+        );
       node = node.parentElement;
     }
     return chain;
@@ -91,23 +93,32 @@ function traceTaps() {
       .map((s) => s.src.replace(/^.*\/_next\//, ""))
       .slice(0, 20);
   };
-  const html = document.documentElement;
+  // Read when used: an init script runs before the document has an element.
+  const html = () => document.documentElement;
   const bell = () => document.querySelector('[data-slot="header-bell"]');
+  const recentScripts = (withinMs: number) => {
+    const now = performance.now();
+    return (performance.getEntriesByType("resource") as PerformanceResourceTiming[])
+      .filter((e) => e.name.endsWith(".js") && now - e.responseEnd <= withinMs)
+      .map((e) => `${e.name.replace(/^.*\/_next\//, "")}@${Math.round(now - e.responseEnd)}ms`)
+      .slice(0, 20);
+  };
   const snapshot = (anchor: Element) => ({
     at: Math.round(performance.now()),
     href: anchor.getAttribute("href"),
     slot: anchor.getAttribute("data-slot"),
     live: anchor.hasAttribute("data-live"),
-    hydrated: html.hasAttribute("data-chrome"),
+    hydrated: html().hasAttribute("data-chrome"),
     anchorReact: reactKeys(anchor),
-    htmlReact: reactKeys(html),
-    navPending: html.getAttribute("data-nav-pending"),
+    htmlReact: reactKeys(html()),
+    navPending: html().getAttribute("data-nav-pending"),
     navTarget: anchor.getAttribute("data-nav-target"),
     fallback: Boolean(document.querySelector('[data-slot="loading-my-day"]')),
     page: Boolean(document.querySelector('[data-slot="my-day"]')),
     pageReact: reactKeys(document.querySelector('[data-slot="my-day"]')),
     boundaries: boundaries(anchor),
     pendingScripts: pendingScripts(),
+    recentScripts: recentScripts(150),
     readyState: document.readyState,
     text: (anchor.textContent ?? "").trim().slice(0, 40),
   });
@@ -158,8 +169,8 @@ function traceTaps() {
   const timer = setInterval(() => {
     try {
       first(`readyState=${document.readyState}`, () => true);
-      first("data-chrome", () => html.hasAttribute("data-chrome"));
-      first("html hydrated", () => (reactKeys(html)?.length ?? 0) > 0);
+      first("data-chrome", () => Boolean(html()?.hasAttribute("data-chrome")));
+      first("html hydrated", () => (reactKeys(html())?.length ?? 0) > 0);
       first("fallback shown", () =>
         Boolean(document.querySelector('[data-slot="loading-my-day"]')),
       );
