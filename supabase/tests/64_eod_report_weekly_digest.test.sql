@@ -189,7 +189,7 @@ select is((select p - 'member_id' from jsonb_array_elements(pg_temp.payload() #>
     'end_not_recorded', false, 'overtime', true, 'overtime_reason', 'Late shoot'),
   'a person''s row: the status, the Start day and End day instants, the flags and the overtime reason');
 select is((select (p ->> 'waiting', p ->> 'proposed', p ->> 'status') from jsonb_array_elements(pg_temp.payload() #> '{attendance,people}') p where p ->> 'name' = 'Lata'),
-  ('true', 'true', 'absent'), 'a proposed absence still waiting is marked waiting and proposed');
+  ('true'::text, 'true'::text, 'absent'::text), 'a proposed absence still waiting is marked waiting and proposed');
 select is(pg_temp.payload() -> 'day_off', '{"holiday": null, "weekly_off": false}'::jsonb, 'D is a working day');
 update public.org_settings set weekly_off_days = array[extract(dow from pg_temp.d() - 3)::smallint];
 select is(app.eod_report_payload(pg_temp.fx('org'), pg_temp.d() - 3, now()) -> 'day_off',
@@ -273,17 +273,17 @@ update public.tasks set event_date = app.today_ist(), event_start_at = pg_temp.t
 update public.tasks set event_date = app.today_ist() + 4, event_start_at = pg_temp.t_start() + interval '4 days 10 hours' where id = pg_temp.fx('event_later');
 
 select is((select (value ->> 'count', value ->> 'freelance') from jsonb_each(pg_temp.payload() -> 'tasks') where key = 'completed'),
-  ('2', '1'), 'completed on D: Owner-approved that IST day (23:59 counts, the day before and an archived one do not), freelancers apart');
+  ('2'::text, '1'::text), 'completed on D: Owner-approved that IST day (23:59 counts, the day before and an archived one do not), freelancers apart');
 select is((select jsonb_agg(i ->> 'title' order by i ->> 'title') from jsonb_array_elements(pg_temp.payload() #> '{tasks,completed,items}') i),
   '["done_on_d", "done_on_d_asha"]'::jsonb, 'with their titles');
 select is((select i -> 'freelance' from jsonb_array_elements(pg_temp.payload() #> '{tasks,completed,items}') i where i ->> 'title' = 'done_on_d_asha'),
   'true'::jsonb, 'a freelancer''s task is flagged on its item');
 select is((select (value ->> 'count', value ->> 'freelance') from jsonb_each(pg_temp.payload() -> 'tasks') where key = 'handed_in'),
-  ('1', '0'), 'handed in and waiting now: submitted');
+  ('1'::text, '0'::text), 'handed in and waiting now: submitted');
 select is((select i ->> 'since' from jsonb_array_elements(pg_temp.payload() #> '{tasks,handed_in,items}') i),
   to_jsonb(pg_temp.d_start() + interval '17 hours') #>> '{}', 'with when it was handed in');
 select is((select (value ->> 'count', value ->> 'freelance') from jsonb_each(pg_temp.payload() -> 'tasks') where key = 'overdue'),
-  ('2', '1'), 'overdue now: open past the deadline (a cancelled one is not), freelancers apart');
+  ('2'::text, '1'::text), 'overdue now: open past the deadline (a cancelled one is not), freelancers apart');
 select is((select i ->> 'late_reason' from jsonb_array_elements(pg_temp.payload() #> '{tasks,overdue,items}') i where i ->> 'title' = 'late'),
   'Client moved the shoot', 'with the primary owner''s late reason');
 select is((select (value ->> 'count') from jsonb_each(pg_temp.payload() -> 'tasks') where key = 'cancelled'),
