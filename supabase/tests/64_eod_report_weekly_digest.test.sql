@@ -94,6 +94,16 @@ create function pg_temp.d_start() returns timestamptz language sql stable as $$ 
 create function pg_temp.t_start() returns timestamptz language sql stable as $$ select app.ist_day_start(app.today_ist()); $$;
 -- An instant of day D + 1 (today) at an IST time, as a job's p_now.
 create function pg_temp.today_at(t time) returns timestamptz language sql stable as $$ select pg_temp.t_start() + t; $$;
+-- An UPDATE as the current role, answering how many rows RLS let it touch (a data-modifying CTE
+-- cannot sit inside a subquery).
+create function pg_temp.set_digest_day(d integer) returns bigint language plpgsql as $$
+declare n bigint;
+begin
+  update public.org_settings set weekly_digest_day = d where org_id = pg_temp.fx('org');
+  get diagnostics n = row_count;
+  return n;
+end;
+$$;
 create function pg_temp.payload() returns jsonb language sql stable as $$
   select app.eod_report_payload(pg_temp.fx('org'), pg_temp.d(), pg_temp.today_at('05:00'));
 $$;
@@ -113,14 +123,14 @@ select is((select weekly_digest_day from public.org_settings where org_id = pg_t
   'weekly_digest_day defaults to Monday (1)');
 select throws_ok($$update public.org_settings set weekly_digest_day = 7$$, '23514', null, 'a weekday is 0..6');
 select pg_temp.as_member('owner');
-select is((with u as (update public.org_settings set weekly_digest_day = 3 where org_id = pg_temp.fx('org') returning 1) select count(*) from u), 1::bigint,
+select is(pg_temp.set_digest_day(3), 1::bigint,
   'the Owner (settings.manage) sets the digest day');
 select is((select weekly_digest_day from public.org_settings), 3::smallint, 'and reads it back');
 select pg_temp.as_member('admin1');
-select is((with u as (update public.org_settings set weekly_digest_day = 5 where org_id = pg_temp.fx('org') returning 1) select count(*) from u), 0::bigint,
+select is(pg_temp.set_digest_day(5), 0::bigint,
   'an Admin''s update matches no row (RLS)');
 select pg_temp.as_member('kiran');
-select is((with u as (update public.org_settings set weekly_digest_day = 5 where org_id = pg_temp.fx('org') returning 1) select count(*) from u), 0::bigint,
+select is(pg_temp.set_digest_day(5), 0::bigint,
   'a Crew member''s update matches no row (RLS)');
 select pg_temp.as_anon();
 select throws_ok($$update public.org_settings set weekly_digest_day = 5$$, '42501', null, 'a signed-out caller is refused');
