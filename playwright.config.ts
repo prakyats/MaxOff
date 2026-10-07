@@ -58,6 +58,7 @@ const REACHABILITY_SPECS = /reachability\.spec\.ts$/;
 const ONBOARDING_SPECS = /onboarding\.spec\.ts$/;
 const DASHBOARDS_SPECS = /dashboards\.spec\.ts$/;
 const CALENDAR_SPECS = /calendar\.spec\.ts$/;
+const EOD_REPORT_SPECS = /eod-report\.spec\.ts$/;
 
 /**
  * Web Push (5.2): the e2e server sends real, encrypted pushes to a fake push service the spec
@@ -221,6 +222,7 @@ export default defineConfig({
         ONBOARDING_SPECS,
         DASHBOARDS_SPECS,
         CALENDAR_SPECS,
+        EOD_REPORT_SPECS,
       ],
       use: { ...devices["Pixel 5"], viewport: { width: 430, height: 932 } },
     },

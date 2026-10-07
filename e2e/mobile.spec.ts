@@ -2,6 +2,8 @@ import { type Locator, type Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 
+import { todayIST } from "../src/core/time";
+
 import {
   dockTop,
   expectNoHorizontalScroll,
@@ -123,6 +125,13 @@ const SCREENS = [
   { path: "/settings/expenses", role: "owner" },
   { path: "/reports", role: "owner" },
   { path: "/reports/month", role: "owner" },
+  // 6.5: the end-of-day reports, the list and today's live report.
+  { path: "/reports/end-of-day", role: "owner" },
+  { path: `/reports/end-of-day/${todayIST()}`, role: "owner" },
+  // 6.4: the calendar, every role.
+  { path: "/calendar", role: "owner" },
+  { path: "/calendar", role: "admin" },
+  { path: "/calendar", role: "staff" },
   { path: "/me", role: "staff" },
   { path: "/leave/expenses", role: "staff" },
   { path: "/leave/expenses", role: "admin" },
@@ -204,6 +213,10 @@ const LARGE_TEXT_SCREENS = {
     "/notifications",
     // 6.2: the full board one tap under Today.
     "/today/people",
+    // 6.4 the calendar; 6.5 the end-of-day reports.
+    "/calendar",
+    "/reports/end-of-day",
+    `/reports/end-of-day/${todayIST()}`,
   ],
   admin: [
     "/today",

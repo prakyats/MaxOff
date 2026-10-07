@@ -221,11 +221,13 @@ org_settings         org_id pk, weekly_off_days smallint[] (0=Sun..6=Sat), logou
                      end_day_cutoff_time time ('05:00'; 3b review, expand-only: yesterday's open day
                      can be ended until this IST time, never once today started; Settings ->
                      Thresholds, which offers 00:00-11:59)
-                     -- kickoff 6 (owner decision 2026-10-07, built in 6.5, expand-only): weekly_digest_day
-                     -- smallint (0=Sun..6=Sat, default 1 = Monday; check 0..6), in the API UPDATE grant
-                     -- (settings.manage), edited in Settings -> Thresholds next to quiet hours: the day the
-                     -- weekly Owner digest goes at 08:00 IST (WORKFLOWS §8 digest_weekly). end_day_cutoff_time
-                     -- also sets when eod_reports saves a day (kickoff 6 decision 17)
+                     -- kickoff 6 (owner decision 2026-10-07, built in 6.5, migration eod_report_weekly_digest,
+                     -- expand-only): weekly_digest_day smallint not null default 1 (0=Sun..6=Sat, Monday;
+                     -- check 0..6), in the API UPDATE grant (settings.manage through the existing UPDATE
+                     -- policy; pgTAP 64 per role), edited in Settings -> Thresholds ("Weekly summary · Sent
+                     -- on"): the day the weekly Owner digest goes at 08:00 IST, or straight after the End-day
+                     -- cutoff saves the last day's report if later (WORKFLOWS §8 digest_weekly).
+                     -- end_day_cutoff_time also sets when eod_reports saves a day (kickoff 6 decision 17)
                      -- 5B 5.4 follow-up (owner 2026-10-03, expand-only): reachability_clock_from timestamptz null,
                      -- set once to the release moment by migration reachability_clock_from_release: no one's
                      -- 48 h "can't be reached" clock starts before it (null: no floor).
@@ -1544,12 +1546,28 @@ activity_log         id bigint identity, org_id, actor_id null (system), on_beha
                      -- deactivated entry (the reason is the Owner's note). Scope is per entity, never per
                      -- actor: a row an Admin's action produced may describe an Owner-only table.
                      -- Each module adds a policy for the entities it owns (PERMISSIONS §2)
-eod_reports          id, org_id, report_date, data jsonb, generated_at, unique(org_id, report_date)
-                     -- kickoff 6 (owner decision 2026-10-01, built in 6.5): written only by the eod_report
-                     -- job (one row per IST date, every date, saved once the next day's end_day_cutoff_time
-                     -- has passed (owner 2026-10-07), never updated: no API INSERT/UPDATE/DELETE
-                     -- grant); data holds no money, ever (WORKFLOWS §8a). Owner-only (reports.all) all the
-                     -- same (ADR-0007 amendment 2026-10-01)
+eod_reports          id, org_id, report_date, data jsonb (check: an object), generated_at, created_at,
+                     unique(org_id, report_date)
+                     -- kickoff 6 (owner decision 2026-10-01, built in 6.5, migration
+                     -- eod_report_weekly_digest): written only by app.eod_report() (pg_cron every 5 min:
+                     -- one row per IST date, every date, saved once the next day's end_day_cutoff_time
+                     -- has passed (owner 2026-10-07), the 7-day catch-up, never updated: no API
+                     -- INSERT/UPDATE/DELETE grant, audited 'generated'); data holds no money, ever
+                     -- (WORKFLOWS §8a; pgTAP 64 checks no amount-like key). RLS: one SELECT policy,
+                     -- reports.all (the Owner), org match (ADR-0007 amendment 2026-10-01).
+                     -- data (app.eod_report_payload(org, date, now), the same builder the live view
+                     -- uses through eod_report_preview(date), the Owner only): date, day_off {holiday,
+                     -- weekly_off}, attendance {counts {present, on_leave, absent, proposed_absent,
+                     -- waiting, end_not_recorded, overtime}, people [{member_id, name, status, waiting,
+                     -- proposed, started_at, ended_at, end_not_recorded, overtime, overtime_reason}]
+                     -- (active employees with a day on the date; never the Owner or a freelancer)},
+                     -- decisions {attendance (the Owner's events), leave {approved, rejected}, comp_leave
+                     -- {granted, revoked, reviewed}, expense_claims (a count)}, tasks {completed,
+                     -- handed_in, overdue, cancelled, created: each {count, freelance, more, items[≤50:
+                     -- id, title, owner, freelance, due_at + late_reason (overdue), since (handed in),
+                     -- reason (cancelled)]}}, approvals [{reviewer_id, name, step, approved,
+                     -- changes_requested}], tomorrow {date, events [{id, title, start_at, end_at,
+                     -- location, people}]}. Read in the app through modules/reports (zod-checked).
 month_snapshots      id, org_id, month date (1st), version int, data jsonb, closed_by, closed_at,
                      corrects_id null, correction_note, unique(org_id, month, version)
                      -- month_snapshots contain revenue; both are Owner-only tables

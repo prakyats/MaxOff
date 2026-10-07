@@ -791,6 +791,41 @@ export type Database = {
           },
         ];
       };
+      eod_reports: {
+        Row: {
+          created_at: string;
+          data: Json;
+          generated_at: string;
+          id: string;
+          org_id: string;
+          report_date: string;
+        };
+        Insert: {
+          created_at?: string;
+          data: Json;
+          generated_at?: string;
+          id?: string;
+          org_id: string;
+          report_date: string;
+        };
+        Update: {
+          created_at?: string;
+          data?: Json;
+          generated_at?: string;
+          id?: string;
+          org_id?: string;
+          report_date?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "eod_reports_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       expense_claims: {
         Row: {
           amount: number;
@@ -1808,6 +1843,7 @@ export type Database = {
           quiet_hours_start: string;
           reachability_clock_from: string | null;
           updated_at: string;
+          weekly_digest_day: number;
           weekly_off_days: number[];
           workload_warning_threshold: number | null;
         };
@@ -1828,6 +1864,7 @@ export type Database = {
           quiet_hours_start?: string;
           reachability_clock_from?: string | null;
           updated_at?: string;
+          weekly_digest_day?: number;
           weekly_off_days?: number[];
           workload_warning_threshold?: number | null;
         };
@@ -1848,6 +1885,7 @@ export type Database = {
           quiet_hours_start?: string;
           reachability_clock_from?: string | null;
           updated_at?: string;
+          weekly_digest_day?: number;
           weekly_off_days?: number[];
           workload_warning_threshold?: number | null;
         };
@@ -3417,6 +3455,7 @@ export type Database = {
         }[];
       };
       digest_daily: { Args: { p_now?: string }; Returns: number };
+      digest_weekly: { Args: { p_now?: string }; Returns: number };
       email_claim: {
         Args: { p_limit?: number; p_now?: string };
         Returns: {
@@ -3450,6 +3489,7 @@ export type Database = {
           held: number;
         }[];
       };
+      eod_report_preview: { Args: { p_date: string }; Returns: Json };
       expense_claim_decide: {
         Args: { claim_id: string; decision: string; reason?: string };
         Returns: string;
@@ -3722,6 +3762,7 @@ export type Database = {
       };
       onboarding_finish: { Args: { p_via: string }; Returns: boolean };
       owner_digest_preview: { Args: never; Returns: Json };
+      owner_digest_weekly_preview: { Args: never; Returns: Json };
       push_band_census: {
         Args: never;
         Returns: {

@@ -14,7 +14,7 @@ import { REPORTS_DESCRIPTION } from "./copy";
 
 export const metadata: Metadata = { title: "Reports" };
 
-/** The reports the Owner can open today (kickoff 3b decision 30: Month is the first). */
+/** The reports the Owner can open today (kickoff 3b decision 30: Month is the first; 6.5: End of day). */
 const OWNER_REPORTS = [
   {
     key: "month",
@@ -22,6 +22,13 @@ const OWNER_REPORTS = [
     href: "/reports/month",
     description:
       "Everyone's month: days worked, additional leave, comp leave, overtime and expenses to pay.",
+  },
+  {
+    key: "end-of-day",
+    label: "End of day",
+    href: "/reports/end-of-day",
+    description:
+      "Each day's attendance, decisions, tasks, approvals and tomorrow's events: today live, every day before saved.",
   },
 ] as const;
 

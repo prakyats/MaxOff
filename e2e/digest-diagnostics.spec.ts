@@ -8,7 +8,8 @@ import { serviceSelect, storageStateFor } from "./helpers";
  * the HTML, nothing is written or sent; an Admin, a Crew member and a signed-out visitor get 404.
  */
 const digestRows = async () =>
-  (await serviceSelect<{ id: string }>("notifications?kind=eq.owner_digest&select=id")).length;
+  (await serviceSelect<{ id: string }>("notifications?kind=eq.owner_digest_weekly&select=id"))
+    .length;
 
 test.describe("the digest sample, as the Owner", () => {
   test.use({ storageState: storageStateFor("owner") });
@@ -19,11 +20,12 @@ test.describe("the digest sample, as the Owner", () => {
     expect(response?.status()).toBe(200);
     expect(response?.headers()["cache-control"]).toBe("private, no-store");
     await expect(page.getByText("Sample only: nothing was sent or saved.")).toBeVisible();
+    // The weekly summary since 6.5 (Kickoff 6 decision 23): "Your week · 5 – 11 Oct".
     await expect(
-      page.getByText(/^Subject: Your morning summary · \w{3} \d{1,2} \w{3}$/),
+      page.getByText(/^Subject: Your week · \d{1,2}( \w{3})? – \d{1,2} \w{3}$/),
     ).toBeVisible();
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-      /^Your morning summary · \w{3} \d{1,2} \w{3}$/,
+      /^Your week · \d{1,2}( \w{3})? – \d{1,2} \w{3}$/,
     );
     expect(await page.content()).not.toMatch(/₹|\d+\.\d{2}\b/);
     expect(await digestRows()).toBe(before);
@@ -37,7 +39,7 @@ for (const role of ["admin", "staff"] as const) {
     test("is refused (404)", async ({ request }) => {
       const response = await request.get("/diagnostics/digest", { maxRedirects: 0 });
       expect(response.status()).toBe(404);
-      expect(await response.text()).not.toContain("morning summary");
+      expect(await response.text()).not.toContain("Your week");
     });
   });
 }
@@ -48,6 +50,6 @@ test.describe("the digest sample, signed out", () => {
   test("is refused (404)", async ({ request }) => {
     const response = await request.get("/diagnostics/digest", { maxRedirects: 0 });
     expect(response.status()).toBe(404);
-    expect(await response.text()).not.toContain("morning summary");
+    expect(await response.text()).not.toContain("Your week");
   });
 });

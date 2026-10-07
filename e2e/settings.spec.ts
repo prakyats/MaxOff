@@ -153,7 +153,20 @@ test.describe("Owner", () => {
     await expect(page.locator('[data-slot="field-error"]')).toContainText("at least 1 task");
     await workload.fill("4");
 
+    // The weekly summary's day (6.5, kickoff 6 decision 23): Monday by default, the Owner's to set.
+    const digestDay = page.locator('[data-slot="weekly-digest-day"]');
+    await expect(digestDay).toContainText("Monday");
+    await digestDay.click();
+    await page.getByRole("option", { name: "Friday" }).click();
+    await expect(digestDay).toContainText("Friday");
+
     await page.getByLabel("End-of-day reminder").fill("20:30");
+    await page.getByRole("button", { name: "Save thresholds" }).click();
+    await expect(page.getByText("Thresholds saved")).toBeVisible();
+    await page.reload();
+    await expect(page.locator('[data-slot="weekly-digest-day"]')).toContainText("Friday");
+    await page.locator('[data-slot="weekly-digest-day"]').click();
+    await page.getByRole("option", { name: "Monday" }).click();
     await page.getByRole("button", { name: "Save thresholds" }).click();
     await expect(page.getByText("Thresholds saved")).toBeVisible();
   });

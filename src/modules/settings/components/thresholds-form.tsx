@@ -15,10 +15,18 @@ import { ReminderRulesEditor } from "@/core/ui/composites/reminder-rules-editor"
 import { StickyActions } from "@/core/ui/composites/sticky-actions";
 import { Button } from "@/core/ui/primitives/button";
 import { Input } from "@/core/ui/primitives/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/core/ui/primitives/select";
+import { isWeekdayIndex, type WeekdayIndex } from "@/core/time";
 
 import { updateThresholds } from "../actions/settings";
 import type { UpdateThresholdsInput } from "../domain/schemas";
-import type { Thresholds } from "../domain/settings";
+import { type Thresholds, weeklyDigestChoices } from "../domain/settings";
 import { FormError } from "./form-error";
 
 /**
@@ -34,6 +42,7 @@ export function ThresholdsForm({ thresholds }: { thresholds: Thresholds }) {
     draftFromRules(thresholds.defaultTaskReminders),
   );
   const [remindersBlocked, setRemindersBlocked] = useState(false);
+  const [digestDay, setDigestDay] = useState<WeekdayIndex>(thresholds.weeklyDigestDay);
   const [state, formAction, pending] = useActionState(
     async (_previous: Result<null> | null, formData: FormData) => {
       const value = (name: string) => String(formData.get(name) ?? "");
@@ -49,6 +58,7 @@ export function ThresholdsForm({ thresholds }: { thresholds: Thresholds }) {
         quietHoursStart: value("quietHoursStart"),
         quietHoursEnd: value("quietHoursEnd"),
         defaultTaskReminders: readList(value("defaultTaskReminders")),
+        weeklyDigestDay: value("weeklyDigestDay"),
       });
       if (result.ok) toast.success("Thresholds saved");
       return result;
@@ -264,6 +274,47 @@ export function ThresholdsForm({ thresholds }: { thresholds: Thresholds }) {
             )}
           </FormField>
         </div>
+      </section>
+
+      <section aria-labelledby="weekly-summary" className="flex flex-col gap-3">
+        <div>
+          <h2 id="weekly-summary" className="text-sm font-medium">
+            Weekly summary
+          </h2>
+          <p className="text-muted-foreground text-sm">
+            Your week by email, built from the saved end-of-day reports: at 8:00 AM on this day, or
+            as soon as the last day&apos;s report is saved if that is later.
+          </p>
+        </div>
+        <FormField label="Sent on" error={fieldErrors.weeklyDigestDay}>
+          {(control) => (
+            <Select
+              value={String(digestDay)}
+              onValueChange={(next) => {
+                const day = Number(next);
+                if (isWeekdayIndex(day)) setDigestDay(day);
+              }}
+            >
+              <SelectTrigger
+                id={control.id}
+                className="max-w-60"
+                aria-describedby={control["aria-describedby"]}
+                aria-invalid={control["aria-invalid"]}
+                data-slot="weekly-digest-day"
+              >
+                <SelectValue placeholder="Choose a day" />
+              </SelectTrigger>
+              <SelectContent>
+                {weeklyDigestChoices(digestDay).map((choice) => (
+                  <SelectItem key={choice.value} value={String(choice.value)}>
+                    {choice.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </FormField>
+        <input type="hidden" name="weeklyDigestDay" value={digestDay} />
       </section>
 
       <section aria-labelledby="default-reminders" className="flex flex-col gap-3">

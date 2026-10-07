@@ -304,6 +304,37 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
       },
     },
   })),
+  // Reports → End of day (6.5): the list's first row (today, live), held by the saved rows' read;
+  // a day's report: the date line, then the first section's heading (Attendance, or the quiet
+  // line on a day with nothing), held by the live builder's call.
+  {
+    role: "owner",
+    path: "/reports/end-of-day",
+    marker: 'data-slot="loading-state"',
+    hold: "/rest/v1/eod_reports",
+    trace: {
+      "first row": {
+        held: '[data-slot="loading-state"] [data-slot="loading-row"]',
+        settled: '[data-slot="eod-list-row"]',
+      },
+    },
+  },
+  {
+    role: "owner",
+    path: `/reports/end-of-day/${todayIST()}`,
+    marker: 'data-slot="loading-eod"',
+    hold: "/rest/v1/rpc/eod_report_preview",
+    trace: {
+      "date line": {
+        held: '[data-slot="loading-eod"] [data-slot="eod-date"]',
+        settled: '[data-slot="eod-date"]',
+      },
+      "first section": {
+        held: '[data-slot="loading-eod-report"] > section:first-child > :first-child',
+        settled: '[data-slot="eod-attendance"] > :first-child, [data-slot="eod-quiet"]',
+      },
+    },
+  },
   // Me: the freelancers the member coordinates are read only here (4C).
   {
     role: "owner",

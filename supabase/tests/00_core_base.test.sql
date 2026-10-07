@@ -123,7 +123,12 @@ insert into app_internal values
   ('push_band'),
   -- 5.5 owner answers (2026-10-06): the subscribe behind push_subscription_upsert (automatic) and
   -- push_subscription_turn_on (a tap), which differ only in whether a removed device comes back
-  ('push_subscription_save');
+  ('push_subscription_save'),
+  -- 6.5: the end-of-day report's builder, its zero check, its notification line and its job, and
+  -- the weekly digest's builder, zero check and lines (eod_report_preview, digest_weekly and
+  -- owner_digest_weekly_preview are public: the Owner's reads and the job's)
+  ('eod_report_payload'), ('eod_report_zero'), ('eod_report_text'), ('eod_report'),
+  ('digest_weekly_payload'), ('digest_weekly_zero'), ('digest_weekly_text');
   -- 3c.1 (contract migration): attendance_logout and logout_not_recorded are gone with the 2.x gate.
 select is(
   (select count(*) from pg_proc p

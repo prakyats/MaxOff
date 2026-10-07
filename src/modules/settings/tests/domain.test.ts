@@ -70,6 +70,7 @@ describe("updateThresholdsSchema", () => {
     quietHoursStart: "22:00",
     quietHoursEnd: "07:00",
     defaultTaskReminders: [],
+    weeklyDigestDay: "1",
   };
 
   it("takes the launch settings (PRODUCT §7) as numbers", () => {
@@ -85,7 +86,18 @@ describe("updateThresholdsSchema", () => {
       quietHoursStart: "22:00",
       quietHoursEnd: "07:00",
       defaultTaskReminders: [],
+      weeklyDigestDay: 1,
     });
+  });
+
+  it("takes the weekly summary's day as a weekday, 0 to 6 (6.5, kickoff 6 decision 23)", () => {
+    expect(updateThresholdsSchema.parse({ ...valid, weeklyDigestDay: "5" }).weeklyDigestDay).toBe(
+      5,
+    );
+    for (const bad of ["7", "-1", "x", "1.5"]) {
+      const result = updateThresholdsSchema.safeParse({ ...valid, weeklyDigestDay: bad });
+      expect(result.success, bad).toBe(false);
+    }
   });
 
   it("takes the organisation's default reminders as a checked list (5.3)", () => {

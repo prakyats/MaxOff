@@ -166,6 +166,7 @@ const NOTIFY_ICONS = {
   approvals: "/icons/notify/approvals.png",
   leave: "/icons/notify/leave.png",
   reminders: "/icons/notify/reminders.png",
+  reports: "/icons/notify/reports.png",
   other: "/icons/notify/other.png",
 };
 

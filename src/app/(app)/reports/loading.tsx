@@ -22,7 +22,7 @@ export default async function Loading() {
     return (
       <>
         <PageHeader title="Reports" description={REPORTS_DESCRIPTION} help={REPORTS_DESCRIPTION} />
-        <LoadingState shape="list" count={1} label="Loading reports" className="md:max-w-2xl" />
+        <LoadingState shape="list" count={2} label="Loading reports" className="md:max-w-2xl" />
       </>
     );
   }

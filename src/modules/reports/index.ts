@@ -34,3 +34,21 @@ export {
   type Split,
 } from "./domain/work-report";
 export { KpiCard, KpiCardSkeleton, LoadList } from "./components/work-report";
+/** The end-of-day report (6.5; PRODUCT §4.7, WORKFLOWS §8a): the Owner's, live and saved. */
+export { getEodReport, listEodReports, previewEodReport, type SavedEodReport } from "./data/eod";
+export {
+  cutoffWords,
+  EOD_PAGE_SIZE,
+  eodDateHeading,
+  eodDayState,
+  eodHref,
+  eodListEntries,
+  isQuietDay,
+  liveNote,
+  parseEodDate,
+  parseEodReport,
+  type EodDayState,
+  type EodListEntry,
+  type EodReport,
+} from "./domain/eod";
+export { EodReportSkeleton, EodReportView } from "./components/eod-report";

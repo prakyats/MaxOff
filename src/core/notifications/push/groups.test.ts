@@ -15,6 +15,7 @@ const KINDS = [
   "coordinator_missing",
   "coordinator_removed",
   "end_day_reminder",
+  "eod_report_ready",
   "escalation_not_noted",
   "escalation_overdue",
   "expense_decided",
@@ -24,6 +25,7 @@ const KINDS = [
   "leave_decided",
   "leave_requested",
   "member_unreachable",
+  "owner_digest_weekly",
   "reminder_before_due",
   "reminder_before_due_last",
   "reminder_due_now",
@@ -66,6 +68,9 @@ describe("notifyGroupFor (the push's large picture, owner 2026-10-02)", () => {
     }
     expect(notifyGroupFor("coordinator_missing")).toBe("other");
     expect(notifyGroupFor("member_unreachable")).toBe("other");
+    // 6.5: the report is its own group; the weekly digest is never pushed (email only).
+    expect(notifyGroupFor("eod_report_ready")).toBe("reports");
+    expect(notifyGroupFor("owner_digest_weekly")).toBe("other");
   });
 
   it("the quiet-hours summary and an unknown or inherited name are other", () => {

@@ -28,6 +28,8 @@ const GROUPS = [
   { group: "approvals", icon: "badge-check" },
   { group: "leave", icon: "calendar-days" },
   { group: "reminders", icon: "alarm-clock" },
+  // 6.5: the Owner's end-of-day report is ready.
+  { group: "reports", icon: "file-text" },
   { group: "other", icon: "inbox" },
 ];
 
