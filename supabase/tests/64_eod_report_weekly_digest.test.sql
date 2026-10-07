@@ -224,9 +224,9 @@ insert into public.extra_work_notes (member_id, work_date, kind, duration_minute
 values (pg_temp.fx('filler'), pg_temp.d() - 1, 'overtime', 90, 'Late edit', 'reviewed', 'no_comp_leave', pg_temp.fx('owner'), pg_temp.d_start() + interval '13 hours');
 insert into public.extra_work_notes (member_id, work_date, kind, duration_minutes, note, state)
 values (pg_temp.fx('kiran'), pg_temp.d(), 'overtime', 60, 'Late shoot', 'submitted');
-insert into public.expense_claims (member_id, expense_date, amount, category_id, note, state, decided_by, decided_at)
-values (pg_temp.fx('kiran'), pg_temp.d() - 1, 1234.56, (select id from public.list_items where list_key = 'expense_category' limit 1), 'Taxi', 'approved', pg_temp.fx('owner'), pg_temp.d_start() + interval '12 hours'),
-       (pg_temp.fx('lata'),  pg_temp.d() - 1, 777.77,  (select id from public.list_items where list_key = 'expense_category' limit 1), 'Lunch', 'rejected', pg_temp.fx('owner'), pg_temp.d_start() + interval '12 hours');
+insert into public.expense_claims (member_id, expense_date, amount, category_id, note, state, decided_by, decided_at, decision_reason)
+values (pg_temp.fx('kiran'), pg_temp.d() - 1, 1234.56, (select id from public.list_items where list_key = 'expense_category' limit 1), 'Taxi', 'approved', pg_temp.fx('owner'), pg_temp.d_start() + interval '12 hours', null),
+       (pg_temp.fx('lata'),  pg_temp.d() - 1, 777.77,  (select id from public.list_items where list_key = 'expense_category' limit 1), 'Lunch', 'rejected', pg_temp.fx('owner'), pg_temp.d_start() + interval '12 hours', 'No receipt');
 insert into public.expense_claims (member_id, expense_date, amount, category_id, note, state)
 values (pg_temp.fx('mohan'), pg_temp.d() - 1, 999.99, (select id from public.list_items where list_key = 'expense_category' limit 1), 'Cab', 'submitted');
 
@@ -363,8 +363,11 @@ select is((select count(*) from public.eod_reports), 8::bigint, 'one row per IST
 -- 6. The live preview ----------------------------------------------------------------------------------------------
 create temporary table before_preview as
   select (select count(*) from public.notifications) as n, (select count(*) from public.eod_reports) as r;
+-- The expected report, built as the system (the builder is service_role only), for the Owner's read.
+create temporary table expected_eod as select pg_temp.payload() - 'tasks' as p;
+grant all on expected_eod to authenticated;
 select pg_temp.as_member('owner');
-select is(public.eod_report_preview(pg_temp.d()) - 'tasks', pg_temp.payload() - 'tasks',
+select is(public.eod_report_preview(pg_temp.d()) - 'tasks', (select p from expected_eod),
   'the Owner reads a day''s report computed now (reports.all)');
 select is((public.eod_report_preview(app.today_ist()) ->> 'date'), app.today_ist()::text, 'today so far, live');
 select throws_ok(format($$select public.eod_report_preview(%L::date)$$, app.today_ist() + 1), 'P0001', 'VALIDATION', 'a future day is refused');
@@ -435,7 +438,8 @@ select is(public.digest_weekly(pg_temp.today_at('08:00') + interval '1 day'), 0,
 update public.org_settings set weekly_digest_day = extract(dow from app.today_ist())::int;
 select pg_temp.as_member('owner');
 select is((select count(*) from public.notifications where kind = 'owner_digest_weekly'), 0::bigint, 'the Owner never reads it in-app (email only)');
-select is(public.owner_digest_weekly_preview() -> 'week', pg_temp.weekly() -> 'week', 'the Owner reads the preview');
+select is(public.owner_digest_weekly_preview() -> 'week', jsonb_build_object('from', pg_temp.d() - 6, 'to', pg_temp.d()),
+  'the Owner reads the preview');
 select pg_temp.as_member('admin1');
 select throws_ok($$select public.owner_digest_weekly_preview()$$, 'P0001', 'FORBIDDEN', 'an Admin is refused the preview');
 select pg_temp.as_anon();
