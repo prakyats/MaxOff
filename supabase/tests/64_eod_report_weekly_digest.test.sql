@@ -98,12 +98,15 @@ create function pg_temp.payload() returns jsonb language sql stable as $$
   select app.eod_report_payload(pg_temp.fx('org'), pg_temp.d(), pg_temp.today_at('05:00'));
 $$;
 
-insert into auth.users (id, email) select id, key || '@example.com' from fx where key <> 'org';
+-- Asha is a freelancer: no login and no email (ADR-0013; members_email_matches_engagement).
+insert into auth.users (id, email) select id, key || '@example.com' from fx where key not in ('org', 'asha');
 insert into public.members (id, org_id, full_name, email, role, status, joined_at, engagement)
-select pg_temp.fx(k), pg_temp.fx('org'), initcap(k), k || '@example.com', r::public.member_role, 'active', now() - interval '60 days', e::public.engagement
+select pg_temp.fx(k), pg_temp.fx('org'), initcap(k), case when e = 'freelance' then null else k || '@example.com' end,
+       r::public.member_role, 'active', now() - interval '60 days', e::public.engagement
 from (values ('owner', 'owner', 'permanent'), ('admin1', 'admin', 'permanent'), ('kiran', 'staff', 'permanent'),
              ('lata', 'staff', 'permanent'), ('mohan', 'staff', 'permanent'), ('asha', 'staff', 'freelance'),
              ('filler', 'staff', 'permanent')) as v(k, r, e);
+insert into public.member_coordinators (member_id, coordinator_id) values (pg_temp.fx('asha'), pg_temp.fx('admin1'));
 
 -- 1. The setting ----------------------------------------------------------------------------------------------
 select is((select weekly_digest_day from public.org_settings where org_id = pg_temp.fx('org')), 1::smallint,
@@ -281,12 +284,12 @@ select is((select (value ->> 'count') from jsonb_each(pg_temp.payload() -> 'task
   '1', 'created on D');
 
 -- Approvals on D: a count per approver at each step.
-insert into public.task_reviews (task_id, step, decision, reviewer_id, at)
-values (pg_temp.fx('done_on_d'), 'owner', 'approved', pg_temp.fx('owner'), pg_temp.d_start() + interval '18 hours'),
-       (pg_temp.fx('done_on_d_asha'), 'owner', 'approved', pg_temp.fx('owner'), pg_temp.d_start() + interval '18 hours'),
-       (pg_temp.fx('waiting_now'), 'admin', 'rejected', pg_temp.fx('admin1'), pg_temp.d_start() + interval '12 hours'),
-       (pg_temp.fx('waiting_now'), 'admin', 'approved', pg_temp.fx('admin1'), pg_temp.d_start() + interval '16 hours'),
-       (pg_temp.fx('done_before'), 'owner', 'approved', pg_temp.fx('owner'), pg_temp.d_start() - interval '1 hour');
+insert into public.task_reviews (task_id, step, decision, reason, reviewer_id, at)
+values (pg_temp.fx('done_on_d'), 'owner', 'approved', null, pg_temp.fx('owner'), pg_temp.d_start() + interval '18 hours'),
+       (pg_temp.fx('done_on_d_asha'), 'owner', 'approved', null, pg_temp.fx('owner'), pg_temp.d_start() + interval '18 hours'),
+       (pg_temp.fx('waiting_now'), 'admin', 'rejected', 'Fix the colour', pg_temp.fx('admin1'), pg_temp.d_start() + interval '12 hours'),
+       (pg_temp.fx('waiting_now'), 'admin', 'approved', null, pg_temp.fx('admin1'), pg_temp.d_start() + interval '16 hours'),
+       (pg_temp.fx('done_before'), 'owner', 'approved', null, pg_temp.fx('owner'), pg_temp.d_start() - interval '1 hour');
 select is((select jsonb_agg(a - 'reviewer_id') from jsonb_array_elements(pg_temp.payload() -> 'approvals') a),
   '[{"name": "Owner", "step": "owner", "approved": 2, "changes_requested": 0}, {"name": "Admin1", "step": "admin", "approved": 1, "changes_requested": 1}]'::jsonb,
   'approvals: per approver and step, approvals and changes requested, on D only');

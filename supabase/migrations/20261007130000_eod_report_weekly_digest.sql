@@ -57,8 +57,10 @@ alter table public.eod_reports enable row level security;
 create policy eod_reports_select on public.eod_reports for select to authenticated
   using (org_id = (select c.org_id from app.current_member() c)
          and (select app.has_permission('reports.all')));
+-- The API roles get the schema's default grants on a new table; only SELECT stays, for
+-- authenticated: the job writes, nothing changes a row (no INSERT, UPDATE or DELETE grant).
+revoke all on public.eod_reports from anon, authenticated;
 grant select on public.eod_reports to authenticated;
--- No INSERT, UPDATE or DELETE grant for the API role: the job writes, nothing changes a row.
 create trigger audit_row_change after insert or update or delete on public.eod_reports
   for each row execute function app.audit_row_change();
 
