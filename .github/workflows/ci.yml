@@ -151,7 +151,7 @@ jobs:
       # Both shards always finish, so one red run shows every failure.
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        shard: [1]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -189,9 +189,11 @@ jobs:
       - run: NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54331 pnpm build
       # A blob report per shard (the `playwright` job merges them into one HTML report); the
       # github reporter keeps failures annotated on the run.
+      # DIAG (diag/6a-bell-reload): one spec, one project, 30 repeats, stdout kept.
       - run: >-
-          pnpm test:e2e --shard=${{ matrix.shard }}/2 --reporter=github,blob
-          --project=setup --project=desktop --project=mobile --project=mobile-lg --project=production
+          pnpm test:e2e e2e/notifications.spec.ts --repeat-each=30 --reporter=list,blob
+          --project=setup --project=mobile-lg
+          -g "the title bar's bell, a row, back to its page's parent"
       - name: Approve all (owner-bulk), alone, after the rest of shard 2
         if: matrix.shard == 2
         env:

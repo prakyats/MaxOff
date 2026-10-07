@@ -754,6 +754,7 @@ test.describe("the bell and Alerts", () => {
   test("installed, Staff: the title bar's bell, a row, back to its page's parent, then Alerts, then My Day", async ({
     page,
     isMobile,
+    reloadGuard,
   }, info) => {
     test.skip(!isMobile, "installed-mode back is a phone rule");
     const staff = person(info, "staff");
@@ -766,6 +767,20 @@ test.describe("the bell and Alerts", () => {
     // The Crew's Alerts is the title bar's bell since 5B decision 1.
     await page.locator('[data-slot="header-bell"]:visible').click();
     await expect(page).toHaveURL(/\/notifications$/);
+    // DIAG (diag/6a-bell-reload): what the tap met, printed for every repeat.
+    const probe = await page.evaluate(() => ({
+      tap: sessionStorage.getItem("__e2eLastTap"),
+      timeline: JSON.parse(sessionStorage.getItem("__e2eTimeline") ?? "[]") as string[],
+    }));
+    // eslint-disable-next-line no-console
+    console.log(
+      [
+        `[diag] repeat=${info.repeatEachIndex} project=${info.project.name}`,
+        `[diag] tap=${probe.tap}`,
+        ...probe.timeline.map((line) => `[diag] timeline ${line}`),
+        ...reloadGuard.dump().map((line) => `[diag] event ${line}`),
+      ].join("\n"),
+    );
     await hydrated(page);
     await rowOf(page, "Claim paid").getByRole("link").click();
     await expect(page).toHaveURL(/\/leave\/expenses$/);

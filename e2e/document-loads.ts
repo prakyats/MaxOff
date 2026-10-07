@@ -35,33 +35,151 @@ const TAP_TRACE_KEY = "__e2eLastTap";
 /** The permission bounce: the server's answer to a request for a screen the role may not see. */
 const BOUNCE = /\/forbidden(\?|$)/;
 
-/** Runs before the app's scripts: the last link tap, where a document load cannot erase it. */
+/** DIAG (diag/6a-bell-reload): the last link tap with React's state at it, and a timeline. */
 function traceTaps() {
   const key = "__e2eLastTap";
+  const timelineKey = "__e2eTimeline";
+  const path = location.pathname;
+  const mark = (line: string) => {
+    try {
+      const list = JSON.parse(sessionStorage.getItem(timelineKey) ?? "[]") as string[];
+      list.push(`${path} +${Math.round(performance.now())}ms ${line}`);
+      sessionStorage.setItem(timelineKey, JSON.stringify(list.slice(-80)));
+    } catch {
+      // Storage blocked: the trace is only a diagnostic.
+    }
+  };
+  const reactKeys = (el: Element | null) =>
+    el
+      ? Object.keys(el)
+          .filter((k) => k.startsWith("__reactFiber$") || k.startsWith("__reactProps$"))
+          .map((k) => k.slice(0, 13))
+      : null;
+  // The Suspense boundaries the element sits in, innermost first: React's comment markers
+  // ($? pending, $ resolved, $! client-rendered), found walking back over closed siblings.
+  const boundaries = (el: Element | null) => {
+    const chain: string[] = [];
+    let node: Element | null = el;
+    while (node && node !== document.body) {
+      let sib = node.previousSibling;
+      let depth = 0;
+      let found: string | null = null;
+      while (sib) {
+        if (sib.nodeType === 8) {
+          const text = sib.nodeValue ?? "";
+          if (text === "/$") depth += 1;
+          else if (text.startsWith("$")) {
+            if (depth === 0) {
+              found = text;
+              break;
+            }
+            depth -= 1;
+          }
+        }
+        sib = sib.previousSibling;
+      }
+      if (found !== null)
+        chain.push(`${node.tagName.toLowerCase()}[${node.getAttribute("data-slot") ?? ""}]:${found}`);
+      node = node.parentElement;
+    }
+    return chain;
+  };
+  const pendingScripts = () => {
+    const done = new Set(performance.getEntriesByType("resource").map((e) => e.name));
+    return [...document.scripts]
+      .filter((s) => s.src && !done.has(s.src))
+      .map((s) => s.src.replace(/^.*\/_next\//, ""))
+      .slice(0, 20);
+  };
+  const html = document.documentElement;
+  const bell = () => document.querySelector('[data-slot="header-bell"]');
+  const snapshot = (anchor: Element) => ({
+    at: Math.round(performance.now()),
+    href: anchor.getAttribute("href"),
+    slot: anchor.getAttribute("data-slot"),
+    live: anchor.hasAttribute("data-live"),
+    hydrated: html.hasAttribute("data-chrome"),
+    anchorReact: reactKeys(anchor),
+    htmlReact: reactKeys(html),
+    navPending: html.getAttribute("data-nav-pending"),
+    navTarget: anchor.getAttribute("data-nav-target"),
+    fallback: Boolean(document.querySelector('[data-slot="loading-my-day"]')),
+    page: Boolean(document.querySelector('[data-slot="my-day"]')),
+    pageReact: reactKeys(document.querySelector('[data-slot="my-day"]')),
+    boundaries: boundaries(anchor),
+    pendingScripts: pendingScripts(),
+    readyState: document.readyState,
+    text: (anchor.textContent ?? "").trim().slice(0, 40),
+  });
+  let last: (ReturnType<typeof snapshot> & { after?: unknown }) | null = null;
+  let lastAnchor: Element | null = null;
+  const save = () => {
+    try {
+      sessionStorage.setItem(key, JSON.stringify(last));
+    } catch {
+      // Storage blocked: the trace is only a diagnostic.
+    }
+  };
   window.addEventListener(
     "click",
     (event) => {
       const anchor = (event.target as Element | null)?.closest?.("a[href]");
       if (!anchor) return;
-      try {
-        sessionStorage.setItem(
-          key,
-          JSON.stringify({
-            // Monotonic, for ordering against the watcher's log only.
-            at: Math.round(performance.now()),
-            href: anchor.getAttribute("href"),
-            slot: anchor.getAttribute("data-slot"),
-            live: anchor.hasAttribute("data-live"),
-            hydrated: document.documentElement.hasAttribute("data-chrome"),
-            text: (anchor.textContent ?? "").trim().slice(0, 40),
-          }),
-        );
-      } catch {
-        // Storage blocked: the trace is only a diagnostic.
-      }
+      lastAnchor = anchor;
+      last = snapshot(anchor);
+      save();
+      mark(`tap ${last.slot ?? last.href} anchorReact=${JSON.stringify(last.anchorReact)}`);
     },
     true,
   );
+  window.addEventListener(
+    "click",
+    (event) => {
+      if (!last || !lastAnchor) return;
+      last.after = {
+        defaultPrevented: event.defaultPrevented,
+        anchorReact: reactKeys(lastAnchor),
+        fallback: Boolean(document.querySelector('[data-slot="loading-my-day"]')),
+        page: Boolean(document.querySelector('[data-slot="my-day"]')),
+        pageReact: reactKeys(document.querySelector('[data-slot="my-day"]')),
+      };
+      save();
+      mark(`tap dispatched defaultPrevented=${event.defaultPrevented}`);
+    },
+    false,
+  );
+  const seen = new Set<string>();
+  const first = (name: string, is: () => boolean) => {
+    if (seen.has(name) || !is()) return;
+    seen.add(name);
+    mark(name);
+  };
+  const started = performance.now();
+  const timer = setInterval(() => {
+    try {
+      first(`readyState=${document.readyState}`, () => true);
+      first("data-chrome", () => html.hasAttribute("data-chrome"));
+      first("html hydrated", () => (reactKeys(html)?.length ?? 0) > 0);
+      first("fallback shown", () =>
+        Boolean(document.querySelector('[data-slot="loading-my-day"]')),
+      );
+      first("page streamed", () => Boolean(document.querySelector('[data-slot="my-day"]')));
+      first(
+        "fallback gone",
+        () => seen.has("fallback shown") && !document.querySelector('[data-slot="loading-my-day"]'),
+      );
+      first("bell present", () => Boolean(bell()));
+      first("bell hydrated", () => (reactKeys(bell())?.length ?? 0) > 0);
+      first(
+        "page hydrated",
+        () => (reactKeys(document.querySelector('[data-slot="my-day"]'))?.length ?? 0) > 0,
+      );
+      first("bell data-live", () => Boolean(bell()?.hasAttribute("data-live")));
+      if (performance.now() - started > 8000) clearInterval(timer);
+    } catch {
+      clearInterval(timer);
+    }
+  }, 10);
 }
 
 export class DocumentLoadWatcher {
@@ -129,7 +247,12 @@ export class DocumentLoadWatcher {
           this.surprises.push({ at: systemClock().getTime(), url: request.url(), page });
         return;
       }
-      if (isRouterFetch(request)) this.note(`rsc  ${short(request.url())}`);
+      if (isRouterFetch(request)) {
+        const h = request.headers();
+        this.note(
+          `rsc  ${short(request.url())} prefetch=${h["next-router-prefetch"] ?? "-"} seg=${h["next-router-segment-prefetch"] ?? "-"} next-url=${h["next-url"] ?? "-"} tree=${(h["next-router-state-tree"] ?? "-").slice(0, 240)}`,
+        );
+      } else if (request.resourceType() === "script") this.note(`script ${short(request.url())}`);
       else if (request.method() === "POST" && request.headers()["next-action"]) {
         this.note(`action ${short(request.url())}`);
       }
@@ -137,6 +260,7 @@ export class DocumentLoadWatcher {
     page.on("requestfinished", (request) => {
       if (
         !isRouterFetch(request) &&
+        request.resourceType() !== "script" &&
         !(request.method() === "POST" && request.headers()["next-action"])
       )
         return;
@@ -159,6 +283,11 @@ export class DocumentLoadWatcher {
       }
     });
     page.on("pageerror", (error) => this.note(`pageerror ${error.message.slice(0, 300)}`));
+  }
+
+  /** DIAG: every event noted so far. */
+  dump(): string[] {
+    return this.events.map((event) => event.line);
   }
 
   /** Nothing to report, or one line per surprise load with the events that led up to it. */
