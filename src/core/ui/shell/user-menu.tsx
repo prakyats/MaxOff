@@ -27,6 +27,10 @@ export function UserMenu(props: Omit<AccountMenuProps, "defaultOpen">) {
           aria-haspopup="menu"
           aria-expanded={false}
           data-state="closed"
+          // Radix opens a menu on pointerdown: the stand-in hears the same, so a press that
+          // lands just as the menu's code arrives (the button swapped between the press and
+          // its click) still opens it. The click covers the keyboard (Enter, Space).
+          onPointerDown={() => setWanted(true)}
           onClick={() => setWanted(true)}
         />
       }
