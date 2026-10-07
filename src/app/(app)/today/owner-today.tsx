@@ -1,6 +1,7 @@
 import { CheckCheckIcon, ListChecksIcon, UsersIcon } from "lucide-react";
 
 import type { CurrentMember } from "@/core/auth/server";
+import { can } from "@/core/permissions";
 import { ROLE_LABELS } from "@/core/lib/role-labels";
 import { addISTDays, systemClock, todayIST } from "@/core/time";
 import { PageHeader } from "@/core/ui/composites/page-header";
@@ -87,9 +88,11 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
     readOpenTasks(),
     readDirectory(),
     readApprovals(),
+    // Each risk read only for whoever holds its key (PERMISSIONS "Screens (phase 6)"), so a
+    // changed role setting hides a row instead of breaking the screen.
     readNotNoted(),
-    readUnreachable(),
-    readHeldEmails(),
+    can(viewer.role, "notifications.reachability") ? readUnreachable() : Promise.resolve([]),
+    can(viewer.role, "settings.manage") ? readHeldEmails() : Promise.resolve(null),
     readDirectory().then((members) => readLeaveDays(today, last, teamIds(members))),
     readEventTasks(today, eventsHorizon(today)),
     readHolidays(),

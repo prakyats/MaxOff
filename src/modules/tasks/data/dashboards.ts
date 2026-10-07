@@ -47,53 +47,83 @@ export async function listEventTasks(from: ISODate, to: ISODate): Promise<EventT
   );
 }
 
+/** PostgREST answers at most 1000 rows a call (`max_rows`): longer reads go page by page. */
+const PAGE = 1000;
+
+async function allPages<T>(
+  page: (first: number, last: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
+): Promise<T[]> {
+  const rows: T[] = [];
+  for (let first = 0; ; first += PAGE) {
+    const { data, error } = await page(first, first + PAGE - 1);
+    if (error) throw error;
+    rows.push(...(data ?? []));
+    if (!data || data.length < PAGE) return rows;
+  }
+}
+
 /**
  * The facts the Admin's work report counts (6.3, PRODUCT §4.13), for the IST days `from` to `to`
  * inclusive: every hand-in (a submission version), every review, and every "Task Noted" in the
- * range, on the tasks the viewer sees. Small: a team's month of work.
+ * range, on the tasks the viewer sees, read page by page (a quarter and the one before it can
+ * pass PostgREST's row limit).
  */
 export async function listKpiFacts(from: ISODate, to: ISODate): Promise<KpiFacts> {
   const supabase = await createServerSupabase();
   const start = istDayStart(from).toISOString();
   const end = istDayStart(addISTDays(to, 1)).toISOString();
   const [submissions, reviews, notes] = await Promise.all([
-    supabase
-      .from("task_submissions")
-      .select("id, task_id, at, tasks!inner(primary_owner_id)")
-      .gte("at", start)
-      .lt("at", end),
-    supabase
-      .from("task_reviews")
-      .select(
-        "id, task_id, step, decision, reviewer_id, submission_id, at, tasks!inner(primary_owner_id)",
-      )
-      .gte("at", start)
-      .lt("at", end),
-    supabase
-      .from("task_assignees")
-      .select("task_id, member_id, assigned_at, acknowledged_at")
-      .gte("acknowledged_at", start)
-      .lt("acknowledged_at", end),
+    allPages((first, last) =>
+      supabase
+        .from("task_submissions")
+        .select("id, task_id, at, tasks!inner(primary_owner_id)")
+        .gte("at", start)
+        .lt("at", end)
+        .order("id")
+        .range(first, last),
+    ),
+    allPages((first, last) =>
+      supabase
+        .from("task_reviews")
+        .select(
+          "id, task_id, step, decision, reviewer_id, submission_id, at, tasks!inner(primary_owner_id)",
+        )
+        .gte("at", start)
+        .lt("at", end)
+        .order("id")
+        .range(first, last),
+    ),
+    allPages((first, last) =>
+      supabase
+        .from("task_assignees")
+        .select("task_id, member_id, assigned_at, acknowledged_at")
+        .gte("acknowledged_at", start)
+        .lt("acknowledged_at", end)
+        .order("task_id")
+        .order("member_id")
+        .range(first, last),
+    ),
   ]);
-  if (submissions.error) throw submissions.error;
-  if (reviews.error) throw reviews.error;
-  if (notes.error) throw notes.error;
   // A submission's or review's own submission, for the turnaround (Done → this approval).
-  const submissionIds = reviews.data.flatMap((r) => (r.submission_id ? [r.submission_id] : []));
-  const handIns = new Map(submissions.data.map((s) => [s.id, s.at]));
+  const submissionIds = reviews.flatMap((r) => (r.submission_id ? [r.submission_id] : []));
+  const handIns = new Map(submissions.map((s) => [s.id, s.at]));
   const missing = submissionIds.filter((id) => !handIns.has(id));
-  if (missing.length > 0) {
-    const earlier = await supabase.from("task_submissions").select("id, at").in("id", missing);
+  // In slices: a list of ids is part of the address.
+  for (let first = 0; first < missing.length; first += 200) {
+    const earlier = await supabase
+      .from("task_submissions")
+      .select("id, at")
+      .in("id", missing.slice(first, first + 200));
     if (earlier.error) throw earlier.error;
     for (const row of earlier.data) handIns.set(row.id, row.at);
   }
   return {
-    submissions: submissions.data.map((s) => ({
+    submissions: submissions.map((s) => ({
       taskId: s.task_id,
       at: s.at,
       primaryOwnerId: s.tasks.primary_owner_id,
     })),
-    reviews: reviews.data.map((r) => ({
+    reviews: reviews.map((r) => ({
       taskId: r.task_id,
       step: r.step as "admin" | "owner",
       decision: r.decision,
@@ -102,7 +132,7 @@ export async function listKpiFacts(from: ISODate, to: ISODate): Promise<KpiFacts
       handedInAt: r.submission_id ? (handIns.get(r.submission_id) ?? null) : null,
       primaryOwnerId: r.tasks.primary_owner_id,
     })),
-    notes: notes.data.flatMap((n) =>
+    notes: notes.flatMap((n) =>
       n.acknowledged_at
         ? [
             {

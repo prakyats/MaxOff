@@ -1,6 +1,7 @@
 import { BriefcaseIcon, ClipboardCheckIcon, InboxIcon } from "lucide-react";
 
 import type { CurrentMember } from "@/core/auth/server";
+import { can } from "@/core/permissions";
 import { systemClock, todayIST } from "@/core/time";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { TodayAttendanceStrip } from "@/modules/attendance";
@@ -90,7 +91,8 @@ export async function AdminToday({ viewer }: { viewer: CurrentMember }) {
     readRequestsToDecide(),
     readSettings(),
     readClients(),
-    readUnreachable(),
+    // Each risk read only for whoever holds its key (PERMISSIONS "Screens (phase 6)").
+    can(viewer.role, "notifications.reachability") ? readUnreachable() : Promise.resolve([]),
     readEventTasks(today, eventsHorizon(today)),
     readHolidays(),
   ]);
@@ -114,10 +116,6 @@ export async function AdminToday({ viewer }: { viewer: CurrentMember }) {
   const mine = OWN_GROUPS.flatMap((group) =>
     groups[group].filter((item) => !inNeeds.has(item.row.id)).map((item) => ({ ...item, group })),
   );
-  const unread = await listUnreadCounts([
-    ...needs.map((i) => i.row.id),
-    ...mine.map((i) => i.row.id),
-  ]);
   const nothingNeeded = needs.length === 0 && counts.toDecide === 0 && requests === 0;
 
   // My clients: the clients they run (not closed), each with its labelled tasks' counts.
@@ -135,7 +133,13 @@ export async function AdminToday({ viewer }: { viewer: CurrentMember }) {
   }));
   const window = leaveWindow(scopedEvents, today);
   const assignees = [...new Set(scoped.flatMap((task) => task.assigneeIds))];
-  const leave = await readLeaveDays(window.from, window.to, assignees);
+  // The rows' unread comments (for the rows shown only, A-S4) and the leave check, in one wave.
+  const [unread, leave] = await Promise.all([
+    listUnreadCounts([...needs.map((i) => i.row.id), ...mine.map((i) => i.row.id)]),
+    can(viewer.role, "availability.view")
+      ? readLeaveDays(window.from, window.to, assignees)
+      : Promise.resolve([]),
+  ]);
   const issues: Risk[] = sortRisks([
     ...leaveRisks(scopedEvents, leave, { ...window, eventDays: true }),
     ...unreachable.map((person): Risk => ({
