@@ -3398,6 +3398,24 @@ export type Database = {
         Args: { credit_id: string; reason?: string };
         Returns: undefined;
       };
+      dashboard_not_noted: {
+        Args: never;
+        Returns: {
+          member_id: string;
+          task_id: string;
+          waiting_since: string;
+        }[];
+      };
+      dashboard_unreachable: {
+        Args: never;
+        Returns: {
+          full_name: string;
+          member_id: string;
+          open_tasks: number;
+          since: string;
+          state: string;
+        }[];
+      };
       digest_daily: { Args: { p_now?: string }; Returns: number };
       email_claim: {
         Args: { p_limit?: number; p_now?: string };
@@ -3424,6 +3442,13 @@ export type Database = {
           p_outcome: string;
         };
         Returns: number;
+      };
+      emails_held_today: {
+        Args: never;
+        Returns: {
+          cap: string;
+          held: number;
+        }[];
       };
       expense_claim_decide: {
         Args: { claim_id: string; decision: string; reason?: string };

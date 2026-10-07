@@ -1,5 +1,7 @@
--- 5.1 (migration notifications_realtime): `notifications` is in the supabase_realtime publication
--- and is the only table there (no money table, ADR-0007); its replica identity is the default, so
+-- 5.1 (migration notifications_realtime): `notifications` is in the supabase_realtime publication;
+-- since 6A (migration dashboards_today, Kickoff 6 decision 8) so are `tasks`, `task_assignees`,
+-- `attendance_days` and `leave_requests`, and those five are the only tables there (no money or
+-- Owner-only table, ADR-0007); their replica identity is the default, so
 -- an UPDATE event sends the new row only; Realtime authorises each change with the subscriber's
 -- RLS, which hands a member only their own rows (the e2e `notifications.spec` proves the delivery
 -- itself: another member subscribed never receives the row).
@@ -12,14 +14,22 @@ select ok(exists (select 1 from pg_publication where pubname = 'supabase_realtim
 select is(
   (select array_agg((schemaname || '.' || tablename)::text order by tablename)
      from pg_publication_tables where pubname = 'supabase_realtime'),
-  array['public.notifications']::text[],
-  'notifications is the only table Realtime publishes');
+  array['public.attendance_days', 'public.leave_requests', 'public.notifications',
+        'public.task_assignees', 'public.tasks']::text[],
+  'Realtime publishes only these tables: notifications (5.1) and the four Today and My Day re-read on (6A)');
+-- The real money tables (ADR-0007, PERMISSIONS §2; those of phases 7 and 9 named before they exist,
+-- so they can never join) and the Owner-only settings row.
 select ok(not exists (
     select 1 from pg_publication_tables
-    where tablename in ('expense_claims', 'revenue_entries', 'client_private', 'org_settings')),
+    where tablename in ('project_billing', 'item_billing', 'cycle_billing', 'revenue_overrides',
+                        'expense_claims', 'eod_reports', 'month_snapshots', 'org_settings')),
   'no money or Owner-only table is in any publication');
-select is((select relreplident::text from pg_class where oid = 'public.notifications'::regclass),
-  'd', 'notifications keeps the default replica identity (an UPDATE sends the new row only)');
+select is(
+  (select array_agg(relreplident::text order by relname) from pg_class
+   where oid in ('public.notifications'::regclass, 'public.tasks'::regclass, 'public.task_assignees'::regclass,
+                 'public.attendance_days'::regclass, 'public.leave_requests'::regclass)),
+  array['d', 'd', 'd', 'd', 'd']::text[],
+  'every published table keeps the default replica identity (an UPDATE sends the new row only)');
 
 -- RLS as Realtime applies it: the subscriber's claims, role authenticated.
 insert into public.notifications (org_id, recipient_id, kind, title)
