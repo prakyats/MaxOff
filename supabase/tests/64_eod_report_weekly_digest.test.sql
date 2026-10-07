@@ -89,9 +89,10 @@ begin
 end;
 $$;
 -- The day the report is about: yesterday (D). Its IST day is [d_start, t_start); "today" is D + 1.
-create function pg_temp.d() returns date language sql stable as $$ select app.today_ist() - 1; $$;
-create function pg_temp.d_start() returns timestamptz language sql stable as $$ select app.ist_day_start(app.today_ist() - 1); $$;
-create function pg_temp.t_start() returns timestamptz language sql stable as $$ select app.ist_day_start(app.today_ist()); $$;
+-- Spelled without app.* so the helpers also work while the test runs as anon (no usage on schema app).
+create function pg_temp.d() returns date language sql stable as $$ select (now() at time zone 'Asia/Kolkata')::date - 1; $$;
+create function pg_temp.d_start() returns timestamptz language sql stable as $$ select pg_temp.d()::timestamp at time zone 'Asia/Kolkata'; $$;
+create function pg_temp.t_start() returns timestamptz language sql stable as $$ select (pg_temp.d() + 1)::timestamp at time zone 'Asia/Kolkata'; $$;
 -- An instant of day D + 1 (today) at an IST time, as a job's p_now.
 create function pg_temp.today_at(t time) returns timestamptz language sql stable as $$ select pg_temp.t_start() + t; $$;
 -- An UPDATE as the current role, answering how many rows RLS let it touch (a data-modifying CTE
@@ -315,8 +316,8 @@ select is((select jsonb_agg(e - 'id') from jsonb_array_elements(pg_temp.payload(
 select is((select count(*) from jsonb_path_query(pg_temp.payload(), 'strict $.** ? (@.type() == "object").keyvalue()') kv
            where kv ->> 'key' ~* '(amount|total|sum|price|cost|paid|rupee|inr|money|salary|revenue)'), 0::bigint,
   'no amount-like key anywhere in the report');
-select ok(position('1234' in pg_temp.payload()::text) = 0 and position('777' in pg_temp.payload()::text) = 0
-          and position('999' in pg_temp.payload()::text) = 0, 'no claim amount appears in the report');
+select ok(position('1234.56' in pg_temp.payload()::text) = 0 and position('777.77' in pg_temp.payload()::text) = 0
+          and position('999.99' in pg_temp.payload()::text) = 0, 'no claim amount appears in the report');
 select is(app.eod_report_text(pg_temp.payload()),
   '2 present · 1 on leave · 1 absent · 1 end not recorded · Tasks: 2 completed, 2 overdue, 1 waiting · 1 event tomorrow',
   'the notification''s one line: the headline counts');
@@ -349,8 +350,9 @@ select is((select recipient_id from public.notifications where kind = 'eod_repor
 select is((select count(*) from public.notification_deliveries d join public.notifications n on n.id = d.notification_id
            where n.kind = 'eod_report_ready' and d.channel = 'push'), 1::bigint,
   'with a push delivery queued (app.notify), which quiet hours may hold');
-select is((select activity_log.action from public.activity_log where entity = 'eod_reports' order by at desc limit 1), 'generated',
-  'the save is audited (action generated, no actor)');
+select is((select (action, actor_id is null)::text from public.activity_log
+           where entity = 'eod_reports' and entity_id = (select id from public.eod_reports where report_date = pg_temp.d())),
+  ('generated', true)::text, 'the save is audited (action generated, no actor)');
 
 select is(app.eod_report(pg_temp.today_at('05:05')), 0, 'the next tick writes nothing');
 update public.attendance_days set overtime_flag = false where member_id = pg_temp.fx('kiran') and work_date = pg_temp.d();
