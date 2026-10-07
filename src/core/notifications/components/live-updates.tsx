@@ -190,7 +190,10 @@ export function LiveUpdates({ memberId, token, expiresIn }: LiveUpdatesProps): n
     };
   }, [memberId, refreshSoon, confirmSoon, catchUp]);
 
-  // The day screens' channel (6A): joined on /today and /my-day only, on the same client.
+  // The day screens' channel (6A): joined on /today and /my-day only, on the same client. Its
+  // re-reads have their own timer, dropped when the screen is left, and re-check the screen when
+  // they fire: a refresh that lands on another screen, during a back press, can make Next load
+  // the page in full (CI run 37578637275; PROGRESS "The view's address").
   useEffect(() => {
     const supabase = client.current;
     const ready = authorised.current;
@@ -198,7 +201,25 @@ export function LiveUpdates({ memberId, token, expiresIn }: LiveUpdatesProps): n
     const root = document.documentElement;
     let cancelled = false;
     let joinedOnce = false;
+    let timer: number | undefined;
     let channel: ReturnType<RealtimeSupabase["channel"]> | null = null;
+    const reread = (wait: number) => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        if (cancelled || !liveDashboard(window.location.pathname)) return;
+        if (
+          liveRefreshWaits({
+            sendWaiting: anySendWaiting(),
+            editing: anyEditDirty(),
+            navigating: root.hasAttribute("data-nav-pending"),
+          })
+        ) {
+          reread(LIVE_REFRESH_RETRY_MS);
+          return;
+        }
+        router.refresh();
+      }, wait);
+    };
     void ready.then(() => {
       if (cancelled) return;
       let next = supabase.channel(`dashboard:${memberId}`);
@@ -207,7 +228,7 @@ export function LiveUpdates({ memberId, token, expiresIn }: LiveUpdatesProps): n
       for (const table of LIVE_DASHBOARD_TABLES) {
         for (const event of ["INSERT", "UPDATE"] as const) {
           next = next.on("postgres_changes", { event, schema: "public", table }, () =>
-            refreshSoon(LIVE_REFRESH_DELAY_MS),
+            reread(LIVE_REFRESH_DELAY_MS),
           );
         }
       }
@@ -215,16 +236,17 @@ export function LiveUpdates({ memberId, token, expiresIn }: LiveUpdatesProps): n
         const joined = status === "SUBSCRIBED";
         root.dataset.liveDashboard = joined ? "on" : "off";
         // Joined again after a drop: what changed meanwhile sent no event here.
-        if (joined && joinedOnce) refreshSoon(LIVE_REFRESH_DELAY_MS);
+        if (joined && joinedOnce) reread(LIVE_REFRESH_DELAY_MS);
         if (joined) joinedOnce = true;
       });
     });
     return () => {
       cancelled = true;
+      window.clearTimeout(timer);
       delete root.dataset.liveDashboard;
       if (channel) void supabase.removeChannel(channel);
     };
-  }, [pathname, memberId, refreshSoon]);
+  }, [pathname, memberId, router]);
 
   // A new token from the server: Realtime reads it through the callback.
   useEffect(() => {

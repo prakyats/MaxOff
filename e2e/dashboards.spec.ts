@@ -5,6 +5,7 @@ import { expect, test } from "./fixtures";
 import { HOLD_PROXY_URL } from "./hold-proxy-config";
 import {
   expectBackStack,
+  holdNextRefresh,
   hydrated,
   memberIdOf,
   pageHeader,
@@ -212,6 +213,81 @@ test.describe("Crew: My Day (6.1)", () => {
     await signIn(page, USERS.owner.email, USERS.owner.password);
     await page.goto("/my-day");
     await expect(page).toHaveURL(/\/forbidden$/);
+  });
+
+  test("a tap while My Day re-reads moves to its screen without loading the page in full", async ({
+    page,
+  }, info) => {
+    test.skip(!isPhone(info), "the title bar's bell is the phone's");
+    const prefix = prefixOf(info);
+    const crewId = await memberIdOf(crew(info));
+    const id = await adminCreates(info, {
+      title: `${prefix}heard`,
+      assignees: [crewId],
+      due: istInstant(workingDay(6), "18:00"),
+    });
+    await signIn(page, crew(info), PASSWORD);
+    await expect(page).toHaveURL(/\/my-day$/);
+    await hydrated(page);
+    await expect(page.locator("html")).toHaveAttribute("data-live-dashboard", "on");
+    const refresh = await holdNextRefresh(page, "/my-day");
+    // A change to their own task lands: the screen re-reads, and that re-read is held.
+    await rpcAs(crew(info), PASSWORD, "task_acknowledge", { task_id: id });
+    await refresh.held;
+    await page.locator('[data-slot="header-bell"]:visible').click();
+    refresh.release();
+    await expect(page).toHaveURL(/\/notifications$/);
+    await expect(pageHeader(page)).toContainText(/alerts|notifications/i);
+    await hydrated(page);
+  });
+
+  test("a change heard just before leaving My Day never re-reads the screen it moved to", async ({
+    page,
+  }, info) => {
+    test.skip(info.project.name === "mobile-lg", "the flow runs at 1280 and 375px");
+    const prefix = prefixOf(info);
+    const crewId = await memberIdOf(crew(info));
+    const id = await adminCreates(info, {
+      title: `${prefix}left`,
+      assignees: [crewId],
+      due: istInstant(workingDay(6), "18:00"),
+    });
+    // The moment the page hears the change: Realtime's frame carrying it.
+    let markHeard: () => void = () => undefined;
+    const heard = new Promise<void>((resolve) => {
+      markHeard = resolve;
+    });
+    page.on("websocket", (socket) => {
+      socket.on("framereceived", ({ payload }) => {
+        if (String(payload).includes("postgres_changes") && String(payload).includes(id)) {
+          markHeard();
+        }
+      });
+    });
+    await signIn(page, crew(info), PASSWORD);
+    await expect(page).toHaveURL(/\/my-day$/);
+    await hydrated(page);
+    await expect(page.locator("html")).toHaveAttribute("data-live-dashboard", "on");
+    // Every screen fetch of /leave from the tap on: the move's own, and any re-read after it.
+    const fetches: string[] = [];
+    page.on("request", (request) => {
+      const headers = request.headers();
+      if (
+        headers["rsc"] === "1" &&
+        !headers["next-router-prefetch"] &&
+        new URL(request.url()).pathname === "/leave"
+      )
+        fetches.push(request.url());
+    });
+    // A change to their own task is heard, and the screen is left before its re-read is due.
+    await rpcAs(crew(info), PASSWORD, "task_acknowledge", { task_id: id });
+    await heard;
+    await page.locator('a[href="/leave"]:visible').first().click();
+    await expect(page).toHaveURL(/\/leave$/);
+    await expect(pageHeader(page)).toContainText(/leave/i);
+    // Past the re-read's moment (400 ms after the event) and its answer.
+    await page.waitForTimeout(1_500);
+    expect(fetches, "the move's own fetch, and no re-read after it").toHaveLength(1);
   });
 
   test("installed: My Day → a task → one back lands on My Day", async ({ page }, info) => {
