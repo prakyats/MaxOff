@@ -12,14 +12,15 @@ import type { EventTask, KpiFacts } from "../domain/dashboards";
 
 /**
  * The event tasks (an event date, kickoff 4) on the IST days `from` to `to`, cancelled ones left
- * out, with their people: My Day's events and Today's events strip (Kickoff 6 decisions 2, 12).
+ * out, with their people: My Day's events and Today's events strip (Kickoff 6 decisions 2, 12), and
+ * the calendar's events (6.4, decision 14: the end time, the client label and the type).
  */
 export async function listEventTasks(from: ISODate, to: ISODate): Promise<EventTask[]> {
   const supabase = await createServerSupabase();
   const { data, error } = await supabase
     .from("tasks")
     .select(
-      "id, title, state, event_date, event_start_at, location, primary_owner_id, task_assignees(member_id, removed_at)",
+      "id, title, state, event_date, event_start_at, event_end_at, location, client_id, task_type_id, primary_owner_id, task_assignees(member_id, removed_at)",
     )
     .gte("event_date", from)
     .lte("event_date", to)
@@ -36,7 +37,10 @@ export async function listEventTasks(from: ISODate, to: ISODate): Promise<EventT
             state: row.state,
             eventDate: row.event_date as ISODate,
             eventStartAt: row.event_start_at,
+            eventEndAt: row.event_end_at,
             location: row.location,
+            clientId: row.client_id,
+            taskTypeId: row.task_type_id,
             primaryOwnerId: row.primary_owner_id,
             assigneeIds: row.task_assignees
               .filter((a) => a.removed_at === null)

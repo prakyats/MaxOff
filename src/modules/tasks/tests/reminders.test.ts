@@ -55,6 +55,7 @@ const NORMAL: TaskType = {
   name: "Normal",
   kind: "normal",
   hasLocation: false,
+  showsOnCalendar: false,
   archived: false,
   defaultReminders: TYPE,
 };

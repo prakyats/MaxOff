@@ -22,6 +22,7 @@ const NORMAL: TaskType = {
   name: "Normal",
   kind: "normal",
   hasLocation: false,
+  showsOnCalendar: false,
   archived: false,
   defaultReminders: [],
 };
@@ -30,6 +31,7 @@ const SHOOT: TaskType = {
   name: "Shoot / Site Visit",
   kind: "event",
   hasLocation: true,
+  showsOnCalendar: true,
   archived: false,
   defaultReminders: [],
 };
@@ -38,6 +40,7 @@ const POSTING: TaskType = {
   name: "Posting",
   kind: "event",
   hasLocation: false,
+  showsOnCalendar: true,
   archived: false,
   defaultReminders: [],
 };

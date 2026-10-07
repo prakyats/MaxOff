@@ -1209,6 +1209,8 @@ task_reads           task_id → tasks (on delete cascade), member_id → member
 - `emails_held_today()` → `(cap, held)` (`settings.manage`: the Owner): today's (IST) email deliveries the dispatcher recorded `skipped_cap`, by `last_error` (`org_cap` = `email_daily_cap_org`, the email plan's daily limit; `member_cap` = `email_daily_cap_per_member`). Counts only.
 - **Realtime:** the `supabase_realtime` publication holds exactly `notifications`, `tasks`, `task_assignees`, `attendance_days` and `leave_requests` (default replica identity); no money or Owner-only table (pgTAP 46). Realtime authorises each change with the subscriber's own RLS; the app re-reads the screen on an event and never shows its row (ARCHITECTURE §10).
 
+**The calendar's reads (6.4, 2026-10-07; Kickoff 6 decisions 13–15):** no new table, column, function or policy. The page reads, as the signed-in member: `tasks` with an event date in the range (`listEventTasks`, now with `event_end_at`, `client_id` and `task_type_id`) and every open task (`listOpenTaskRows`, the Due list), `task_types` (now with `shows_on_calendar`), `holidays`, `org_settings.weekly_off_days`, `member_directory`, `client_labels`, and `leave_requests` in `approved` or `submitted` (a pending cancellation left out): their own for an Admin or Crew, everyone's for the Owner (`listLeaveBetween`, RLS). An Admin adds `member_availability()` over the range (`listAvailability`, in slices under the 1000-row limit): the `leave` fact and the `event_blocks` of everyone else. The rules are pure (`modules/calendar/domain`).
+
 ## 7. Money (all Owner-only tables)
 ## 7. Money (all Owner-only tables)
 ```

@@ -57,6 +57,7 @@ const VIEW_ADDRESS_SPECS = /view-address\.spec\.ts$/;
 const REACHABILITY_SPECS = /reachability\.spec\.ts$/;
 const ONBOARDING_SPECS = /onboarding\.spec\.ts$/;
 const DASHBOARDS_SPECS = /dashboards\.spec\.ts$/;
+const CALENDAR_SPECS = /calendar\.spec\.ts$/;
 
 /**
  * Web Push (5.2): the e2e server sends real, encrypted pushes to a fake push service the spec
@@ -219,6 +220,7 @@ export default defineConfig({
         REACHABILITY_SPECS,
         ONBOARDING_SPECS,
         DASHBOARDS_SPECS,
+        CALENDAR_SPECS,
       ],
       use: { ...devices["Pixel 5"], viewport: { width: 430, height: 932 } },
     },

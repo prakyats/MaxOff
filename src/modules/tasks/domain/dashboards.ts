@@ -15,7 +15,12 @@ export type EventTask = {
   eventDate: ISODate;
   /** The event's start, an instant; null when the event has no time. */
   eventStartAt: string | null;
+  /** The event's end; null when it has none (an hour, for a busy block) or no time at all. */
+  eventEndAt: string | null;
   location: string | null;
+  /** The task's optional client label (ADR-0005) and its type (6.4: the calendar's filters). */
+  clientId: string | null;
+  taskTypeId: string;
   primaryOwnerId: string;
   /** The active assignees (removed ones left out). */
   assigneeIds: string[];

@@ -2,8 +2,6 @@ import { type Locator, type Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 
-import { STAND_INS, type StandIn } from "../src/app/(app)/_placeholder/stand-ins";
-
 import {
   dockTop,
   expectNoHorizontalScroll,
@@ -279,33 +277,22 @@ for (const [role, paths] of Object.entries(LARGE_TEXT_SCREENS)) {
   });
 }
 
-/**
- * The stand-in screens (3c.3, kickoff 3c amendment (3e)): every screen a member can reach before
- * its real version arrives says, in plain words, what it will be for and that it is coming, for
- * every role that can open it. Nothing on it names a task number or a build step, and it fits at
- * both phone widths and at large system text.
- */
-const STAND_IN_SCREENS: Record<"owner" | "admin" | "staff", { path: string; copy: StandIn }[]> = {
-  // Since 6A only the Calendar (6.4) is a stand-in; Today, My Day and the Admin's Reports are real.
-  owner: [{ path: "/calendar", copy: STAND_INS.calendar }],
-  admin: [{ path: "/calendar", copy: STAND_INS.calendar }],
-  staff: [{ path: "/calendar", copy: STAND_INS.calendar }],
-};
-
-/** What a stand-in used to say, and anything like it. */
+/** What a stand-in used to say (3c.3; the last one, the Calendar, went with 6.4), and anything like it. */
 const BUILD_WORDS = /is filled in|\b(task|phase) \d|arrives with its module|shared components/i;
 
-for (const [role, screens] of Object.entries(STAND_IN_SCREENS)) {
-  test.describe(`${role}: the stand-in screens speak plainly`, () => {
-    test.use({ storageState: storageStateFor(role as keyof typeof STAND_IN_SCREENS) });
+/**
+ * The calendar's three views (6.4), for every role: each fits both phone widths (no sideways
+ * scroll, 44px targets) and large system text, the month grid included (seven columns at 375px).
+ */
+for (const role of ["owner", "admin", "staff"] as const) {
+  test.describe(`${role}: the calendar's views fit`, () => {
+    test.use({ storageState: storageStateFor(role) });
 
-    for (const { path, copy } of screens) {
-      test(`${path}: says what is coming, and fits`, async ({ page }) => {
+    for (const path of ["/calendar", "/calendar?view=week", "/calendar?view=month"]) {
+      test(`${path}: fits at both widths and at large text`, async ({ page }) => {
         await page.goto(path);
         await expect(pageHeader(page)).toBeVisible();
-        const stand = page.locator('[data-slot="empty-state"]').filter({ hasText: copy.title });
-        await expect(stand).toBeVisible();
-        await expect(stand).toContainText(copy.message);
+        await expect(page.locator('[data-slot="calendar"]')).toBeVisible();
         await expect(page.locator("main")).not.toContainText(BUILD_WORDS);
         await expectNoHorizontalScroll(page);
         await expectTouchTargets(page);

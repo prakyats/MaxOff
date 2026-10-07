@@ -82,7 +82,9 @@ export async function listTaskTypes(): Promise<TaskType[]> {
   const supabase = await createServerSupabase();
   const { data, error } = await supabase
     .from("task_types")
-    .select("id, name, kind, has_location, archived_at, position, default_reminders")
+    .select(
+      "id, name, kind, has_location, shows_on_calendar, archived_at, position, default_reminders",
+    )
     .order("position", { ascending: true });
   if (error) throw error;
   return data.map((row) => ({
@@ -90,6 +92,7 @@ export async function listTaskTypes(): Promise<TaskType[]> {
     name: row.name,
     kind: row.kind,
     hasLocation: row.has_location,
+    showsOnCalendar: row.shows_on_calendar,
     archived: row.archived_at !== null,
     defaultReminders: parseReminderRules(row.default_reminders),
   }));

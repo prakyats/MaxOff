@@ -280,6 +280,28 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
       },
     },
   },
+  // The calendar (6.4): the pager row, the week strip's chips and the filters, for a Crew member
+  // (one filter) and the Owner (four); held by the holidays read only this page makes.
+  ...(["staff", "owner"] as const).map((role): LoadingScreen => ({
+    role,
+    path: "/calendar",
+    marker: 'data-slot="loading-day-strip"',
+    hold: "/rest/v1/holidays",
+    trace: {
+      pager: {
+        held: '[data-slot="calendar-pager"]',
+        settled: '[data-slot="calendar-pager"]',
+      },
+      strip: {
+        held: '[data-slot="calendar-strip"]',
+        settled: '[data-slot="calendar-strip"]',
+      },
+      filters: {
+        held: '[data-slot="calendar-filters"]',
+        settled: '[data-slot="calendar-filters"]',
+      },
+    },
+  })),
   // Me: the freelancers the member coordinates are read only here (4C).
   {
     role: "owner",

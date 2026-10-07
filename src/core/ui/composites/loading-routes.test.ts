@@ -61,10 +61,8 @@ describe("loading.tsx coverage", () => {
     const sourceOf = (route: string) =>
       readFileSync(path.join(appDir, route, "loading.tsx"), "utf8");
     const shapeOf = (route: string) => sourceOf(route).match(/shape="(\w+)"/)?.[1];
-    // The stand-in routes (3c review, owner decision): while a route shows the stand-in copy of
-    // `_placeholder/stand-ins.ts`, its skeleton traces that stand-in (`StandInSkeleton`: the
-    // dashed box, the circle, one title line, the measured message lines), never the future
-    // screen. Since 6A only the Calendar is one (6.4 builds it with its own day strip).
+    // The stand-in routes (3c review, owner decision) are gone since 6.4 built the Calendar, the
+    // last one: no route shows the stand-in copy or its skeleton (`StandInSkeleton`) any more.
     const standIn = "StandInSkeleton";
     // 6.1 My Day: the strip first (ROADMAP 6.1), then a section of `TaskRow`s.
     expect(sourceOf("my-day")).toContain("TodayAttendanceStripSkeleton");
@@ -85,7 +83,15 @@ describe("loading.tsx coverage", () => {
     expect(sourceOf("tasks/all")).toContain("loading-toolbar");
     // A task's page (4.4) traces its first card and sections, not a generic detail.
     expect(sourceOf("tasks/[id]")).toContain("loading-task");
-    expect(sourceOf("calendar")).toContain(standIn);
+    // The calendar (6.4): the owner-specified shape, a week strip of days above a column of
+    // blocks (`loading-day-strip`), with the view switcher and the filters that sit around it.
+    expect(sourceOf("calendar")).toContain("loading-day-strip");
+    expect(sourceOf("calendar")).toContain("CalendarControlsSkeleton");
+    expect(sourceOf("calendar")).toContain("CalendarRowsSkeleton");
+    expect(sourceOf("calendar")).not.toContain(standIn);
+    for (const route of routes) {
+      expect(sourceOf(route), `${route}: no stand-in skeleton is left`).not.toContain(standIn);
+    }
     // Alerts (5.1): the "N unread" line and the history rows, traced.
     expect(sourceOf("notifications")).toContain("NotificationListSkeleton");
     expect(sourceOf("notifications")).not.toContain(standIn);
