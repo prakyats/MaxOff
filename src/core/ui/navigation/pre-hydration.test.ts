@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BACK_CASES, TAB_CASES, TAB_HOME, TAB_TOP_LEVEL, VIEW_CASES } from "./move-cases";
 import { markLive } from "./attributes";
 import {
+  HEADER_BELL_SLOT,
   LIVE_ATTRIBUTE,
   PRE_HYDRATION_SCRIPT,
   PRE_HYDRATION_WAIT_MS,
@@ -181,6 +182,7 @@ function tapAndWait(
 }
 
 const BACK: FakeLink = { href: "/people", attributes: { "data-slot": "page-back" } };
+const BELL: FakeLink = { href: "/notifications", attributes: { "data-slot": HEADER_BELL_SLOT } };
 const VIEW: FakeLink = { href: "/leave/attendance", attributes: { [VIEW_LINK_ATTRIBUTE]: "" } };
 const BAR = { [TAB_HOME_ATTRIBUTE]: TAB_HOME, [TAB_TOP_ATTRIBUTE]: TAB_TOP_LEVEL.join(" ") };
 const tab = (href: string): FakeLink => ({ href, attributes: { [TAB_ATTRIBUTE]: "" }, bar: BAR });
@@ -279,6 +281,29 @@ describe("a tap before hydration is held for the app (owner 2026-10-01)", () => 
     expect(doc.move()).toBe("back");
   });
 
+  it("holds the title bar's bell the same way, and its fallback is a push (issue #49)", () => {
+    const held = page({ pathname: "/my-day", index: 0 });
+    const bell = held.anchorFor(BELL, false);
+    held.tap(bell);
+    expect(held.prevented).toEqual([true]);
+    expect(held.progress()).toBe(true);
+    vi.advanceTimersByTime(PRE_HYDRATION_WAIT_MS - 300);
+    expect(held.move()).toBe("none");
+    markLive(bell as unknown as HTMLElement);
+    vi.advanceTimersByTime(100);
+    expect(bell.click).toHaveBeenCalledTimes(1);
+    expect(held.prevented).toEqual([true, false]);
+    vi.advanceTimersByTime(PRE_HYDRATION_WAIT_MS);
+    expect(held.move()).toBe("none");
+
+    // Without hydration: the browser's own push, as the tap would have been, once the wait is over.
+    const alone = page({ pathname: "/my-day", index: 0 });
+    alone.tap(alone.anchorFor(BELL, false));
+    vi.advanceTimersByTime(PRE_HYDRATION_WAIT_MS + 100);
+    expect(alone.move()).toBe("push");
+    expect(alone.assignedTo()).toBe(`${ORIGIN}/notifications`);
+  });
+
   it("holds a view control and a tab the same way", () => {
     const view = page({ pathname: "/leave", index: 2, below: "/today" });
     const viewLink = view.anchorFor(VIEW, false);
@@ -344,6 +369,10 @@ describe("pre-hydration taps: when the script stays out of the way", () => {
     });
     expect(tapAndWait(VIEW, { live: true })).toMatchObject({ move: "none", prevented: false });
     expect(tapAndWait(tab("/tasks"), { pathname: "/today", index: 0, live: true })).toMatchObject({
+      move: "none",
+      prevented: false,
+    });
+    expect(tapAndWait(BELL, { pathname: "/my-day", index: 0, live: true })).toMatchObject({
       move: "none",
       prevented: false,
     });

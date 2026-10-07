@@ -38,6 +38,7 @@ const historyLength = (page: Page) => page.evaluate(() => history.length);
 const backControl = (page: Page) => page.locator('[data-slot="page-back"]:visible');
 const tab = (page: Page, href: string) =>
   page.locator(`[data-slot="bottom-nav"] a[href="${href}"]`);
+const bell = (page: Page) => page.locator('[data-slot="header-bell"]:visible');
 
 test.describe("before hydration, installed at phone width", () => {
   test.use({ storageState: storageStateFor("owner") });
@@ -141,6 +142,7 @@ test.describe("after hydration, installed at phone width", () => {
       page.locator('[data-slot="person-tabs"]').getByRole("link", { name: "Attendance" }),
     ).toHaveAttribute("data-live", "");
     await expect(tab(page, "/approvals")).toHaveAttribute("data-live", "");
+    await expect(bell(page)).toHaveAttribute("data-live", "");
   });
 });
 
@@ -310,6 +312,18 @@ test.describe("a tap before hydration is held for the app, installed at phone wi
     await heldTap(page, "/today", (fresh) => tab(fresh, "/approvals"), {
       url: /\/approvals$/,
       screen: (fresh) => pageHeader(fresh).getByRole("heading", { name: "Approvals", exact: true }),
+      historyGrowth: 1,
+    });
+  });
+
+  test("the title bar's bell: pressed and the bar within 100 ms, then the app's push, no reload", async ({
+    page,
+  }) => {
+    // The bell hydrates with its streamed page, after the shell (issue #49: a tap in that gap
+    // loaded /notifications as a new document on CI).
+    await heldTap(page, "/today", bell, {
+      url: /\/notifications$/,
+      screen: (fresh) => pageHeader(fresh).getByRole("heading", { name: "Alerts", exact: true }),
       historyGrowth: 1,
     });
   });
