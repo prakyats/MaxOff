@@ -191,8 +191,8 @@ jobs:
       # github reporter keeps failures annotated on the run.
       - run: >-
           pnpm test:e2e --shard=${{ matrix.shard }}/2 --reporter=github,blob
-          e2e/session-expiry.spec.ts
-          --project=setup --project=desktop --project=mobile
+          e2e/session-expiry.spec.ts e2e/launch.spec.ts
+          --project=setup --project=desktop --project=mobile --project=mobile-lg
       - name: Approve all (owner-bulk), alone, after the rest of shard 2
         if: false
         env:
