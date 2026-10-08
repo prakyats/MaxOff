@@ -3300,6 +3300,27 @@ export type Database = {
           work_date: string;
         }[];
       };
+      attendance_end_not_recorded_yesterday: {
+        Args: never;
+        Returns: {
+          day_id: string;
+          end_not_recorded: boolean;
+          ended_at: string;
+          final_status: Database["public"]["Enums"]["day_status"];
+          full_name: string;
+          is_day_off: boolean;
+          job_title: string;
+          leave_type: Database["public"]["Enums"]["leave_type"];
+          member_id: string;
+          on_leave: boolean;
+          overtime_flag: boolean;
+          proposed_by_system: boolean;
+          started: boolean;
+          started_at: string;
+          state: Database["public"]["Enums"]["attendance_state"];
+          submitted_choice: Database["public"]["Enums"]["attendance_choice"];
+        }[];
+      };
       attendance_flag_overtime: {
         Args: { day_id: string; reason?: string };
         Returns: boolean;

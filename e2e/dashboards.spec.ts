@@ -405,6 +405,77 @@ test.describe("the Owner's Today (6.2)", () => {
     ).toBeVisible();
   });
 
+  test("yesterday's End day not recorded: the red count from the cutoff, the board with yesterday's state (decision 24, amended)", async ({
+    page,
+  }, info) => {
+    test.skip(info.project.name === "mobile-lg", "the flow runs at 1280 and 375px");
+    const crewId = await memberIdOf(crew(info));
+    const yesterday = addISTDays(todayIST(), -1);
+    await resetAttendanceAndLeave(crewId);
+    // Yesterday this project's Crew member started and never ended; the Owner has not decided it.
+    await serviceInsert("attendance_days", {
+      member_id: crewId,
+      work_date: yesterday,
+      state: "pending_review",
+      submitted_choice: "present",
+      submitted_at: istInstant(yesterday, "09:00"),
+      started_at: istInstant(yesterday, "09:00"),
+      end_not_recorded: true,
+    });
+    // The count shows from the End-day cutoff (the Owner's setting) through the rest of today;
+    // before it yesterday can still be ended. Both sides are the rule, so the check follows the
+    // clock it runs at.
+    const [settings] = await serviceSelect<{ end_day_cutoff_time: string }>(
+      "org_settings?select=end_day_cutoff_time",
+    );
+    const nowIST = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Kolkata",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+    }).format(systemClock());
+    const afterCutoff = nowIST >= (settings?.end_day_cutoff_time ?? "05:00:00");
+    const row = page.locator('[data-slot="board-row"]').filter({ hasText: crewName(info) });
+
+    await page.goto("/today");
+    await hydrated(page);
+    const count = page.locator(
+      '[data-slot="today-attendance-card"] [data-slot="today-count"][data-bucket="end_not_recorded"]',
+    );
+    if (afterCutoff) {
+      await expect(count).toBeVisible();
+      await expect(count.locator('[data-tone="danger"]')).toHaveText(/^[1-9]\d*$/);
+      await expect(count).toContainText("End of day not recorded");
+      await count.click();
+      await expect(page).toHaveURL(/\/today\/people\?group=end_not_recorded$/);
+      await expect(page.locator('[data-slot="people-yesterday"]')).toContainText("Yesterday");
+      // Yesterday's state: waiting for the Owner, Present, started and no end.
+      await expect(row).toContainText("Started 9:00 am");
+      await expect(row).toContainText("End not recorded");
+      await expect(row).toContainText("Present");
+      await expect(
+        page.locator('[data-slot="people-board"] section').filter({ has: row }).locator("h2"),
+      ).toContainText("Waiting for a decision");
+      // Once the Owner decides the day it drops off.
+      const [day] = await serviceSelect<{ id: string }>(
+        `attendance_days?member_id=eq.${crewId}&work_date=eq.${yesterday}&select=id`,
+      );
+      await rpcAs(USERS.owner.email, USERS.owner.password, "attendance_decide", {
+        day_id: day?.id,
+        decision: "approve",
+      });
+      await page.reload();
+      await expect(page.locator('[data-slot="people-filter"]')).toBeVisible();
+      await expect(row).toHaveCount(0);
+    } else {
+      await page.goto("/today/people?group=end_not_recorded");
+      await expect(page.locator('[data-slot="people-yesterday"]')).toContainText("Yesterday");
+      await expect(row).toHaveCount(0);
+    }
+    await resetAttendanceAndLeave(crewId);
+  });
+
   test("emails held back today name their limit and open Thresholds (decision 23)", async ({
     page,
   }, info) => {

@@ -2,8 +2,14 @@ import type { Metadata } from "next";
 
 import { checkThenRead } from "@/core/lib/start-early";
 import { requirePermission } from "@/core/permissions/server";
+import { addISTDays, formatIST, istDayStart, todayIST } from "@/core/time";
 import { PageHeader } from "@/core/ui/composites/page-header";
-import { getTodayPeople, PeopleBoard, summariseToday } from "@/modules/attendance";
+import {
+  getTodayPeople,
+  getUnendedYesterday,
+  PeopleBoard,
+  summariseToday,
+} from "@/modules/attendance";
 import { boardForGroup, parsePeopleGroup } from "@/modules/dashboards";
 
 import { PEOPLE_DESCRIPTION, PeopleFilter } from "./people-filter";
@@ -16,19 +22,27 @@ export const metadata: Metadata = { title: "Everyone today" };
  * in the order the Owner acts on them, filtered by group (a count on Today opens it on that
  * group). A drill-down with the §14.2 k back control; tapping a person opens their history.
  * `attendance.view_all` (the Owner).
+ *
+ * "End not recorded" (kickoff 6 decision 24, amended by the owner 2026-10-08) is about
+ * **yesterday**: the people whose End day was not recorded yesterday and whose day the Owner has
+ * not decided, each with yesterday's state, from the End-day cutoff on, as the card counts them.
  */
 export default async function TodayPeoplePage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const [, [today, params]] = await checkThenRead(
+  const [, [today, unended, params]] = await checkThenRead(
     requirePermission("attendance.view_all"),
-    Promise.all([getTodayPeople(), searchParams]),
+    Promise.all([getTodayPeople(), getUnendedYesterday(), searchParams]),
   );
   const group = parsePeopleGroup(params.group);
-  const summary = summariseToday(today.people, today.isDayOff);
-  const shown = { ...summary, board: boardForGroup(summary.board, group) };
+  const summary = summariseToday(today.people, today.isDayOff, unended);
+  const yesterday = group === "end_not_recorded";
+  const board = yesterday
+    ? boardForGroup(summariseToday(unended, false).board, group)
+    : boardForGroup(summary.board, group);
+  const shown = { ...summary, board };
   return (
     <>
       <PageHeader
@@ -37,7 +51,16 @@ export default async function TodayPeoplePage({
         description={PEOPLE_DESCRIPTION}
       />
       <PeopleFilter current={group} />
-      <PeopleBoard summary={shown} />
+      {yesterday ? (
+        <p data-slot="people-yesterday" className="text-muted-foreground mb-4 text-sm">
+          Yesterday, {formatIST(istDayStart(addISTDays(todayIST(), -1)), "EEE d MMM")}: started, End
+          day not recorded, not decided yet.
+        </p>
+      ) : null}
+      <PeopleBoard
+        summary={shown}
+        empty={yesterday ? "Every day yesterday was ended or decided." : undefined}
+      />
     </>
   );
 }

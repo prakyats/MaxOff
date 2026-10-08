@@ -227,6 +227,10 @@ org_settings         org_id pk, weekly_off_days smallint[] (0=Sun..6=Sat), logou
                      -- policy; pgTAP 64 per role), edited in Settings -> Thresholds ("Weekly summary · Sent
                      -- on"): the day the weekly Owner digest goes at 08:00 IST, or straight after the End-day
                      -- cutoff saves the last day's report if later (WORKFLOWS §8 digest_weekly).
+                     -- Amended 2026-10-08 (owner, unit 6B2; migration digest_since_last): a digest covers
+                     -- the days since the last one sent, at most seven, so moving the day never skips one.
+                     -- end_day_cutoff_time also starts the Owner's "End of day not recorded" count of
+                     -- yesterday's unended days (attendance_end_not_recorded_yesterday(), decision 24 amended)
                      -- end_day_cutoff_time also sets when eod_reports saves a day (kickoff 6 decision 17)
                      -- 5B 5.4 follow-up (owner 2026-10-03, expand-only): reachability_clock_from timestamptz null,
                      -- set once to the release moment by migration reachability_clock_from_release: no one's
@@ -811,6 +815,18 @@ public.attendance_today_detail()
                                 3c.1): the Owner's Today card and people board (3b: "Not started",
                                 "Started 9:12", "End not recorded"). attendance.view_all. The old
                                 function keeps its shape for main
+public.attendance_end_not_recorded_yesterday()
+                                (kickoff 6 decision 24 amended, owner 2026-10-08, unit 6B2;
+                                migration end_not_recorded_yesterday, pgTAP 65) attendance.view_all
+                                (FORBIDDEN otherwise), read only: from the End-day cutoff
+                                (org_settings.end_day_cutoff_time) through the rest of today, the
+                                active permanent members who mark attendance whose day for
+                                yesterday (IST) has a Start day and no End day and is not decided
+                                (state not approved / corrected), in attendance_today_detail()'s
+                                columns with yesterday's day (started, end_not_recorded true).
+                                The Owner's card counts them as "End of day not recorded"; the
+                                board's end_not_recorded group lists them. The rule at a moment is
+                                app.attendance_unended_yesterday(org, p_now) (internal, service_role)
 app.end_not_recorded(for_date default null)
                                 the 00:00 IST job (WORKFLOWS §8), the same date rule as
                                 app.absent_check: every day on the date with started_at set,

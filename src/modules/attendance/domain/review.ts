@@ -96,6 +96,51 @@ export type TodayPerson = {
   leaveType: LeaveType | null;
 };
 
+/**
+ * One row of `attendance_today_detail()` or `attendance_end_not_recorded_yesterday()` exactly as
+ * PostgREST answers it (the same columns). A person with no day yet has nulls in the day's columns,
+ * which the generated types do not say, so every column is read as possibly null.
+ */
+export type TodayDetailRow = {
+  member_id: string | null;
+  full_name: string | null;
+  job_title: string | null;
+  started: boolean | null;
+  day_id: string | null;
+  state: AttendanceState | null;
+  final_status: DayStatus | null;
+  submitted_choice: AttendanceChoice | null;
+  proposed_by_system?: boolean | null;
+  overtime_flag: boolean | null;
+  is_day_off: boolean | null;
+  on_leave: boolean | null;
+  leave_type: LeaveType | null;
+  started_at: string | null;
+  ended_at: string | null;
+  end_not_recorded: boolean | null;
+};
+
+/** A row of the day reads as the card and the board use it. */
+export function todayPersonFromRow(row: TodayDetailRow): TodayPerson {
+  return {
+    memberId: row.member_id ?? "",
+    name: displayName(row.full_name, ""),
+    jobTitle: row.job_title,
+    started: row.started ?? false,
+    dayId: row.day_id,
+    state: row.state,
+    finalStatus: row.final_status,
+    submittedChoice: row.submitted_choice,
+    startedAt: row.started_at,
+    endedAt: row.ended_at,
+    endNotRecorded: row.end_not_recorded ?? false,
+    overtimeFlag: row.overtime_flag ?? false,
+    isDayOff: row.is_day_off ?? false,
+    onLeave: row.on_leave ?? false,
+    leaveType: row.leave_type,
+  };
+}
+
 /** The card's four counts, in the order the Owner acts on them (owner decision 2026-09-24). */
 export const TODAY_BUCKETS = ["waiting", "not_chosen", "present", "on_leave"] as const;
 export type TodayBucket = (typeof TODAY_BUCKETS)[number];
@@ -181,8 +226,9 @@ export function todayBucket(person: TodayPerson): BoardBucket | null {
 export type TodaySummary = {
   isDayOff: boolean;
   /**
-   * The card's counts: the four groups, the decided absences, and everyone expected today whose
-   * end of day was not recorded (decision 24; they sit in their own group on the board).
+   * The card's counts: the four groups, the decided absences, and the people whose End day was not
+   * recorded **yesterday** and whose day the Owner has not decided yet (decision 24, amended by the
+   * owner 2026-10-08: `attendance_end_not_recorded_yesterday()`, from the End-day cutoff on).
    */
   counts: Record<TodayCardCount, number>;
   /** Everyone expected today, grouped in `BOARD_BUCKETS` order, by name within each. */
@@ -191,23 +237,29 @@ export type TodaySummary = {
 
 /**
  * The card and the board from one read. On a day off the card says "Day off" and counts only
- * those who came in: `todayBucket` already leaves out whoever did not.
+ * those who came in: `todayBucket` already leaves out whoever did not. "End of day not recorded"
+ * counts `unendedYesterday` (decision 24 amended, 2026-10-08): yesterday's started days with no End
+ * day the Owner has not decided, read from the cutoff on; today's own days never carry the flag
+ * (the 00:00 job sets it on the day that ended).
  */
-export function summariseToday(people: readonly TodayPerson[], isDayOff: boolean): TodaySummary {
+export function summariseToday(
+  people: readonly TodayPerson[],
+  isDayOff: boolean,
+  unendedYesterday: readonly TodayPerson[] = [],
+): TodaySummary {
   const counts: Record<TodayCardCount, number> = {
     waiting: 0,
     not_chosen: 0,
     present: 0,
     on_leave: 0,
     absent: 0,
-    end_not_recorded: 0,
+    end_not_recorded: unendedYesterday.length,
   };
   const grouped = new Map<BoardBucket, TodayPerson[]>(BOARD_BUCKETS.map((b) => [b, []]));
   for (const person of people) {
     const bucket = todayBucket(person);
     if (bucket === null) continue;
     counts[bucket] += 1;
-    if (person.endNotRecorded) counts.end_not_recorded += 1;
     grouped.get(bucket)?.push(person);
   }
   const board = BOARD_BUCKETS.flatMap((bucket) => {

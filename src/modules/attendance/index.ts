@@ -23,12 +23,23 @@ export {
   TodayBoardSkeleton,
   TodayCardSkeleton,
 } from "./components/today-board";
-export { countPendingDays, getTodayPeople, listPendingDays } from "./data/review";
+export {
+  countPendingDays,
+  getTodayPeople,
+  getUnendedYesterday,
+  listPendingDays,
+} from "./data/review";
 /** Extra work notes (3b.2): the member's list and note days, the Owner's group and its count. */
 export { countPendingNotes, getNoteDays, listOwnNotes, listPendingNotes } from "./data/notes";
 export { ExtraWorkNotesList } from "./components/extra-work-notes-list";
 export type { NoteDay } from "./domain/notes";
-export { summariseToday, type TodayPerson, type TodaySummary } from "./domain/review";
+export {
+  summariseToday,
+  type TodayDetailRow,
+  todayPersonFromRow,
+  type TodayPerson,
+  type TodaySummary,
+} from "./domain/review";
 /** The single approval, for the Approvals delayed send (`app/api/approvals/approve`). */
 export { approveDay } from "./actions/review";
 /** The month summary (3b.4): one person's IST month or the team's, for the Owner. */

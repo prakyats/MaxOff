@@ -7,7 +7,7 @@
 -- row per date never rewritten, "Yesterday's report is ready" through app.notify() for yesterday
 -- only, the zero skip, an Owner-set cutoff. (6) eod_report_preview per role. (7) digest_weekly: the
 -- digest day at 08:00 IST, not before yesterday's report is saved, the seven-day window from the
--- saved reports only, one per week, the zero skip, the preview per role, email_claim takes it first.
+-- saved reports only, one a day at most (65: the window since the last digest), the zero skip, the preview per role, email_claim takes it first.
 -- (8) The schedule: digest_daily unscheduled, eod_report and digest_weekly every 5 minutes.
 begin;
 create extension if not exists pgtap with schema extensions;
@@ -440,7 +440,7 @@ select is((select count(*) from public.notification_deliveries d join public.not
            where n.kind = 'owner_digest_weekly'), 0::bigint, 'no push delivery');
 select is(public.digest_weekly(pg_temp.today_at('08:05')), 0, 'the next tick writes nothing');
 update public.org_settings set weekly_digest_day = extract(dow from app.today_ist() + 1)::int;
-select is(public.digest_weekly(pg_temp.today_at('08:00') + interval '1 day'), 0, 'one per Owner per week, even when the day moves');
+select is(public.digest_weekly(pg_temp.today_at('08:00') + interval '1 day'), 0, 'moved to tomorrow: nothing until tomorrow''s yesterday (today) is saved (pgTAP 65: a moved day sends on its first occurrence)');
 update public.org_settings set weekly_digest_day = extract(dow from app.today_ist())::int;
 select pg_temp.as_member('owner');
 select is((select count(*) from public.notifications where kind = 'owner_digest_weekly'), 0::bigint, 'the Owner never reads it in-app (email only)');

@@ -139,11 +139,18 @@ export function TodayAttendanceCard({ summary }: { summary: TodaySummary }) {
  * leave requests (`/people/[id]/leave`, with Attendance a tab away, 3.4), a real drill-down
  * (ARCHITECTURE §14.2 b).
  */
-export function PeopleBoard({ summary }: { summary: TodaySummary }) {
+export function PeopleBoard({
+  summary,
+  empty,
+}: {
+  summary: TodaySummary;
+  empty?: string | undefined;
+}) {
   if (summary.board.length === 0) {
     return (
       <p data-slot="people-board-empty" className="text-muted-foreground mb-4 text-sm">
-        {summary.isDayOff ? "Nobody has come in on this day off." : "Nobody to show yet."}
+        {empty ??
+          (summary.isDayOff ? "Nobody has come in on this day off." : "Nobody to show yet.")}
       </p>
     );
   }

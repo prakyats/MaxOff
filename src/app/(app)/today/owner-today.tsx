@@ -5,7 +5,12 @@ import { can } from "@/core/permissions";
 import { ROLE_LABELS } from "@/core/lib/role-labels";
 import { addISTDays, systemClock, todayIST } from "@/core/time";
 import { PageHeader } from "@/core/ui/composites/page-header";
-import { getTodayPeople, summariseToday, TodayAttendanceCard } from "@/modules/attendance";
+import {
+  getTodayPeople,
+  getUnendedYesterday,
+  summariseToday,
+  TodayAttendanceCard,
+} from "@/modules/attendance";
 import {
   DashSection,
   EventsStrip,
@@ -79,6 +84,7 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
     leaveDays,
     events,
     holidays,
+    unended,
   ] = await Promise.all([
     getTodayPeople(),
     readOpenTasks(),
@@ -92,10 +98,12 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
     readDirectory().then((members) => readLeaveDays(today, last, teamIds(members))),
     readEventTasks(today, eventsHorizon(today)),
     readHolidays(),
+    // Yesterday's End day not recorded, from the cutoff on (decision 24, amended 2026-10-08).
+    getUnendedYesterday(),
   ]);
   const [days, requests, notes, claims, toDecide] = approvals;
   const now = systemClock();
-  const summary = summariseToday(people.people, people.isDayOff);
+  const summary = summariseToday(people.people, people.isDayOff, unended);
   const names = new Map(directory.map((member) => [member.id, member]));
   const nameOf = (id: string) => names.get(id)?.fullName ?? "Someone";
   const nameRecord = Object.fromEntries(directory.map((member) => [member.id, member.fullName]));
