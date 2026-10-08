@@ -18,6 +18,17 @@ delete from public.extra_work_notes;
 delete from public.leave_requests;
 delete from public.session_events;
 delete from public.activity_log;
+-- 7A: client work rows reference clients and members, and the presets the organization (a
+-- Playwright run leaves some behind).
+delete from public.item_reviews;
+delete from public.project_item_stages;
+delete from public.project_items;
+delete from public.project_cycles;
+delete from public.project_item_blueprints;
+delete from public.project_stages;
+delete from public.projects;
+delete from public.project_templates;
+delete from public.stage_presets;
 -- 4A: task rows and coordinator rows reference members (a Playwright run leaves some behind).
 delete from public.task_requests;
 delete from public.task_warnings;
@@ -138,9 +149,9 @@ select results_eq(
 rollback to savepoint fresh_org;
 
 -- Seed (PERMISSIONS §1) -------------------------------------------------------------------
-select is((select count(*) from public.role_permissions), 50::bigint, '50 grants are seeded (expenses.decide since 3b.3)');
-select is((select count(*) from public.role_permissions where role = 'owner'), 30::bigint, 'the Owner holds 30 keys');
-select is((select count(*) from public.role_permissions where role = 'admin'), 16::bigint, 'Admins hold 16 keys');
+select is((select count(*) from public.role_permissions), 55::bigint, '55 grants are seeded (expenses.decide since 3b.3; clients.create and amendment C''s three Admin keys since 7A)');
+select is((select count(*) from public.role_permissions where role = 'owner'), 31::bigint, 'the Owner holds 31 keys');
+select is((select count(*) from public.role_permissions where role = 'admin'), 20::bigint, 'Admins hold 20 keys');
 select results_eq(
   $$ select permission from public.role_permissions where role = 'staff' order by 1 $$,
   $$ values ('attendance.self'), ('drive.view_status'), ('task_requests.create'), ('tasks.work') $$,
@@ -405,7 +416,7 @@ select throws_ok(
 
 -- role_permissions ------------------------------------------------------------------------
 select pg_temp.as_member('staff');
-select is((select count(*) from public.role_permissions), 50::bigint, 'any active member reads the grants');
+select is((select count(*) from public.role_permissions), 55::bigint, 'any active member reads the grants');
 select pg_temp.as_member('deactivated');
 select is((select count(*) from public.role_permissions), 0::bigint, 'a deactivated member reads no grants');
 select pg_temp.as_member('owner');

@@ -8,6 +8,17 @@ begin;
 create extension if not exists pgtap with schema extensions;
 select plan(9);
 
+-- 7A: client work rows reference clients and members, and the presets the organization (a
+-- Playwright run leaves some behind).
+delete from public.item_reviews;
+delete from public.project_item_stages;
+delete from public.project_items;
+delete from public.project_cycles;
+delete from public.project_item_blueprints;
+delete from public.project_stages;
+delete from public.projects;
+delete from public.project_templates;
+delete from public.stage_presets;
 delete from public.task_requests;
 delete from public.task_warnings;
 delete from public.task_reviews;
@@ -84,9 +95,9 @@ select is((select always_email from public.notification_kinds where kind = 'task
 select is((select actionable from public.notification_kinds where kind = 'task_assigned'), true,
   'task assigned stays an email fallback for a member with no working push');
 select is((select array_agg(kind order by kind) from public.notification_kinds where actionable),
-  array['attendance_decided', 'comp_leave_granted', 'comp_leave_revoked', 'expense_decided', 'extra_work_decided',
-        'leave_decided', 'task_assigned', 'task_changes_requested'],
-  'fallback only: assigned, changes requested, the leave / attendance / extra-work decisions, comp leave, an expense decided');
+  array['attendance_decided', 'comp_leave_granted', 'comp_leave_revoked', 'cycle_generated', 'expense_decided',
+        'extra_work_decided', 'item_rejected', 'items_to_decide', 'leave_decided', 'task_assigned', 'task_changes_requested'],
+  'fallback only: assigned, changes requested, the leave / attendance / extra-work decisions, comp leave, an expense decided; 7A''s cycle generated, item sent back and items to decide');
 select is((select count(*) from public.notification_kinds where always_email and kind not like 'reminder\_%' and kind not like 'escalation\_%' and kind not in ('owner_digest', 'owner_digest_weekly', 'member_unreachable')), 0::bigint,
   'no 5.1 kind is always emailed (5.3''s reminders and escalations are 51''s, the Owner digest 55''s, the unreachable alert 56''s)');
 select is((select array_agg(kind order by kind) from public.notification_kinds

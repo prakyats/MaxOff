@@ -31,18 +31,24 @@ describe("ROLE_GRANTS", () => {
   });
 
   it("keeps the business invariants of CLAUDE.md", () => {
-    // Money and final approvals are the Owner's alone.
+    // Money and final task approvals are the Owner's alone.
     for (const key of [
       "finance.view",
       "finance.edit",
       "tasks.approve_final",
-      "items.approve",
       "attendance.decide",
       "months.close",
       "records.hard_delete",
     ] as const) {
       expect(can("owner", key)).toBe(true);
       expect(can("admin", key)).toBe(false);
+      expect(can("staff", key)).toBe(false);
+    }
+    // Kickoff 7 amendment C (invariant 3): the client's Admin approves items, decides carry-forward
+    // and completes projects on their clients, like the Owner; Crew never.
+    for (const key of ["items.approve", "cycles.carry_decide", "projects.complete"] as const) {
+      expect(can("owner", key)).toBe(true);
+      expect(can("admin", key)).toBe(true);
       expect(can("staff", key)).toBe(false);
     }
     // The Admin step belongs to Admins only; the Owner does not mark attendance.

@@ -72,6 +72,19 @@ const GROUP_OF_KIND: Readonly<Record<string, NotifyGroup>> = {
   eod_report_ready: "reports",
   // 6.5: the weekly digest is email only and never pushed; named so the map stays complete.
   owner_digest_weekly: "other",
+  // 7A, client work (kickoff 7 decision 17, amendments B and C). Work handed back or ready to name
+  // is the reader's work, like a task's; the rest is information.
+  item_rejected: "tasks",
+  cycle_generated: "tasks",
+  client_created: "other",
+  project_created: "other",
+  project_completed: "other",
+  project_cancelled: "other",
+  project_reopened: "other",
+  item_cancelled: "other",
+  carry_decided: "other",
+  // 7A: the client's Admin decides unfinished items (issue #56 Q2): waiting for their decision.
+  items_to_decide: "approvals",
 };
 
 /** The group a push for this kind carries; the quiet-hours summary and an unknown kind are `other`. */

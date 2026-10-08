@@ -131,7 +131,16 @@ insert into app_internal values
   ('digest_weekly_payload'), ('digest_weekly_zero'), ('digest_weekly_text'),
   -- 6B2 (decision 24 amended): yesterday's unended days at a moment (attendance_end_not_recorded_yesterday
   -- is public: the Owner's read)
-  ('attendance_unended_yesterday');
+  ('attendance_unended_yesterday'),
+  -- 7A: client work's internal helpers (the custom-field check, the caller and the locks, the text and
+  -- position checks, the project link, the start, the cycle's creation and settling, the live count,
+  -- the lifecycle notification) and the nightly cycle job; the client-work functions are public
+  ('custom_fields_check'), ('client_work_caller'), ('project_lock'), ('item_lock'),
+  ('project_check_writable'), ('client_work_text'), ('client_work_position'), ('project_link'),
+  ('project_mark_started'), ('cycle_refresh'), ('cycle_create'), ('project_client'),
+  ('cycle_live_items'), ('client_work_next_position'), ('project_lifecycle_notify'), ('cycle_generate'),
+  -- 7A: the unfinished-items prompt's job and its one recipient rule (issue #56 Q2)
+  ('cycle_close_prompt'), ('cycle_close_prompt_recipient');
   -- 3c.1 (contract migration): attendance_logout and logout_not_recorded are gone with the 2.x gate.
 select is(
   (select count(*) from pg_proc p
@@ -152,7 +161,7 @@ select is(
   0::bigint,
   'the internal helpers: service_role only, never the API role');
 select is((select count(*) from pg_proc p where p.pronamespace = 'app'::regnamespace
-             and p.proname in (select name from app_internal)), 68::bigint,
+             and p.proname in (select name from app_internal)), 86::bigint,
   'the internal helper list matches what exists');
 select cmp_ok((select count(*) from pg_proc where pronamespace = 'app'::regnamespace), '>=', 4::bigint,
   'the grant check saw the app functions');
