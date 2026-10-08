@@ -6,7 +6,6 @@ import { redirect, RedirectType } from "next/navigation";
 import { createServerSupabase, type ServerSupabase } from "@/core/db/server";
 import { AppError, action, ok, type Result } from "@/core/errors";
 import { readOwnOnboarding } from "@/core/notifications/onboarding";
-import { setSentryUser } from "@/core/observability/user";
 import type { MemberRole } from "@/core/permissions";
 import { homeFor } from "@/core/ui/shell/nav";
 
@@ -65,7 +64,6 @@ async function recordLoginOrSignOut(supabase: ServerSupabase, userId: string): P
     await supabase.auth.signOut({ scope: "local" });
     throw error;
   }
-  setSentryUser(userId);
   const role = await ownRole(supabase, userId);
   await setHomeHint(userId, role);
   return role;
@@ -122,7 +120,6 @@ export const logout = action(async (input?: LogoutInput): Promise<Result<never>>
   }
 
   await supabase.auth.signOut({ scope: "local" });
-  setSentryUser(null);
   // Replace: the page you signed out from is not something back should return to (§14.2 e).
   redirect(`${LOGIN_PATH}?reason=signed_out`, RedirectType.replace);
 });
