@@ -268,6 +268,10 @@ test.describe("Crew: My Day (6.1)", () => {
     await expect(page).toHaveURL(/\/my-day$/);
     await hydrated(page);
     await expect(page.locator("html")).toHaveAttribute("data-live-dashboard", "on");
+    // Diag: a slower CPU stretches the router's render between its answered fetch and the commit.
+    const rate = [1, 4, 8, 12][info.repeatEachIndex % 4] ?? 1;
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate });
     // Every screen fetch of /leave from the tap on: the move's own, and any re-read after it.
     const fetches: string[] = [];
     page.on("request", (request) => {
@@ -287,12 +291,12 @@ test.describe("Crew: My Day (6.1)", () => {
     await expect(pageHeader(page)).toContainText(/leave/i);
     // Past the re-read's moment (400 ms after the event) and its answer.
     await page.waitForTimeout(1_500);
-    if (fetches.length !== 1 || info.repeatEachIndex === 0) {
+    if (fetches.length !== 1 || info.repeatEachIndex < 4) {
       const timeline = await page.evaluate(
         () => (window as unknown as { __diag?: unknown[] }).__diag ?? [],
       );
       console.log(
-        `DIAG ${info.project.name} #${info.repeatEachIndex} fetches=${fetches.length} ${JSON.stringify(timeline)}`,
+        `DIAG ${info.project.name} #${info.repeatEachIndex} rate=${rate} fetches=${fetches.length} ${JSON.stringify(timeline)}`,
       );
     }
     expect(fetches, "the move's own fetch, and no re-read after it").toHaveLength(1);
