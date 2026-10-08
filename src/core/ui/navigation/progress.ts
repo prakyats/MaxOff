@@ -53,57 +53,6 @@ export function navStage(elapsed: number): NavStage {
 }
 
 /**
- * Whether a navigation that begins now is already heading for another address: a router screen
- * fetch for one is in flight (`inFlight`, the addresses of the counted fetches not yet answered).
- * Next sends a link's screen fetch from inside its own click handler, before `NavProgress` hears
- * the tap (its listener is the last to run), so that fetch is counted before the navigation
- * begins and must not be forgotten when it does (CI run 37781084919: forgotten, the answered
- * fetch read as a refresh of the screen being left, the bar finished before the move was on
- * screen and `data-nav-pending` was gone while the router already stood on the destination).
- */
-export function headingElsewhere(inFlight: readonly string[], origin: string): boolean {
-  return inFlight.some((to) => to !== origin);
-}
-
-/** What `NavProgress` knows about the navigation under way, each frame. */
-export type NavMoment = {
-  /** The address shown differs from the one the navigation started from. */
-  moved: boolean;
-  /** A route skeleton (`loading-state`) is still in `main`. */
-  skeleton: boolean;
-  /** A counted fetch was answered and none is in flight. */
-  answered: boolean;
-  /** A counted fetch was for another address. */
-  elsewhere: boolean;
-  /** No counted fetch is in flight. */
-  idle: boolean;
-  /** Ms since the last counted fetch was answered (0 when none was). */
-  sinceAnswered: number;
-  /** Ms since the address changed (0 when it has not). */
-  sinceMoved: number;
-};
-
-/**
- * Whether the navigation is over and the bar finishes (§14.2 i): the address has changed and the
- * new screen is drawn (no skeleton left, or at most `NAV_SETTLE_MS` after its fetch answered or
- * the address moved), or a fetch for the address it started from (a refresh) has answered. A
- * fetch for **another** address that has answered is not the end: the router may still be
- * rendering that screen, and until it commits the address stays where it was, so the bar (and
- * `data-nav-pending`, which every background re-read waits for) stays on.
- */
-export function navigationDone(moment: NavMoment): boolean {
-  const { moved, skeleton, answered, elsewhere, idle, sinceAnswered, sinceMoved } = moment;
-  if (moved) {
-    return (
-      !skeleton ||
-      (answered && sinceAnswered > NAV_SETTLE_MS) ||
-      (idle && sinceMoved > NAV_SETTLE_MS)
-    );
-  }
-  return answered && !elsewhere;
-}
-
-/**
  * Whether a fetch is the router asking for a screen (a navigation or a refresh), not a prefetch
  * and not a server action: a GET with `RSC: 1` and no `Next-Router-Prefetch`.
  */

@@ -9,13 +9,12 @@ import { Button } from "@/core/ui/primitives/button";
 
 import {
   actionLeavesScreen,
-  headingElsewhere,
   isNavigationFetch,
   isRouterActionFetch,
   NAV_DONE_ATTRIBUTE,
   NAV_PENDING_ATTRIBUTE,
+  NAV_SETTLE_MS,
   NAV_TARGET_ATTRIBUTE,
-  navigationDone,
   navStage,
   type NavStage,
 } from "./progress";
@@ -144,8 +143,6 @@ export function NavProgress() {
     let movedAt = 0;
     let settledAt = 0;
     let fetches = 0;
-    // The addresses of the counted fetches still in flight (one entry per fetch).
-    const inFlight: string[] = [];
     let fetched = false;
     // A counted fetch for another address: then only the address changing ends the bar. A fetch
     // for the address it started from is a refresh, which ends it when it answers.
@@ -187,16 +184,14 @@ export function NavProgress() {
         const t = now();
         const moved = here() !== from;
         if (moved && !movedAt) movedAt = t;
-        const done = navigationDone({
-          moved,
-          skeleton: document.querySelector('main [data-slot="loading-state"]') !== null,
-          answered: fetched && fetches === 0,
-          elsewhere,
-          idle: fetches === 0,
-          sinceAnswered: settledAt ? t - settledAt : 0,
-          sinceMoved: movedAt ? t - movedAt : 0,
-        });
-        if (done) {
+        const skeleton = document.querySelector('main [data-slot="loading-state"]');
+        const answered = fetched && fetches === 0;
+        const arrived =
+          moved &&
+          (!skeleton ||
+            (answered && t - settledAt > NAV_SETTLE_MS) ||
+            (fetches === 0 && t - movedAt > NAV_SETTLE_MS));
+        if (arrived || (!moved && answered && !elsewhere)) {
           finish();
           return;
         }
@@ -223,8 +218,7 @@ export function NavProgress() {
       // A back or forward has already changed the address: it is measured from where it left.
       from = origin;
       kind.current = how;
-      // A tap's own router fetch went out before this (`headingElsewhere`): it still counts.
-      elsewhere = headingElsewhere(inFlight, origin);
+      elsewhere = false;
       movedAt = 0;
       settledAt = 0;
       fetched = false;
@@ -296,10 +290,8 @@ export function NavProgress() {
       else if (!destination.current) destination.current = to;
       if (to !== from) elsewhere = true;
       fetches++;
-      inFlight.push(to);
       const settle = () => {
         fetches--;
-        inFlight.splice(inFlight.indexOf(to), 1);
         fetched = true;
         settledAt = now();
       };
