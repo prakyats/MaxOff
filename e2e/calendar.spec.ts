@@ -300,29 +300,32 @@ test.describe("the calendar, as Crew", () => {
     page,
   }, info) => {
     test.skip(!isPhone(info), "the phone's header");
-    await page.goto("/calendar");
-    await hydrated(page);
-    const label = page.locator('[data-slot="calendar-month-label"]');
-    const thisMonth = formatIST(istDayStart(todayIST()), "MMM yyyy");
     // The next month's screen is held until Today has been tapped (main CI run 37792867778: it
-    // arrived after Today and took the calendar back to the next month).
+    // arrived after Today and took the calendar back to the next month). Every router request for
+    // another month is held from before the page loads, its prefetch included: a prefetch that had
+    // already answered let the router move with no request at all (PR #57 run 37804856535).
     let release = () => {};
     const released = new Promise<void>((resolve) => {
       release = resolve;
     });
     let held = 0;
     await page.route(/\/calendar\?date=/, async (route) => {
-      const headers = route.request().headers();
-      if (headers["rsc"] === "1" && !headers["next-router-prefetch"]) {
+      if (route.request().headers()["rsc"] === "1") {
         held += 1;
         await released;
       }
       // The router may have given the held request up meanwhile.
       await route.continue().catch(() => undefined);
     });
+    await page.goto("/calendar");
+    await hydrated(page);
+    const label = page.locator('[data-slot="calendar-month-label"]');
+    const thisMonth = formatIST(istDayStart(todayIST()), "MMM yyyy");
     await page.locator('[data-slot="calendar-next"]').click();
     await expect(label).not.toHaveText(thisMonth);
-    await expect.poll(() => held).toBe(1);
+    // The move is still on its way: a request for it is held and the address hasn't changed.
+    await expect.poll(() => held).toBeGreaterThan(0);
+    await expect(page).toHaveURL(/\/calendar$/);
     await page.locator('[data-slot="calendar-today"]').click();
     await expect(label).toHaveText(thisMonth);
     release();
