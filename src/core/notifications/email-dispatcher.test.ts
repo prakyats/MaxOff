@@ -280,6 +280,81 @@ describe("one email per person per run (5.3, owner 2026-10-02)", () => {
   });
 });
 
+describe("the Owner's weekly summary (6.5)", () => {
+  const weeklyPayload = {
+    date: "2026-10-12",
+    week: { from: "2026-10-05", to: "2026-10-11" },
+    days: [],
+    totals: {
+      present: 0,
+      on_leave: 0,
+      absent: 0,
+      end_not_recorded: 0,
+      overtime: 0,
+      completed: 0,
+      cancelled: 0,
+      created: 0,
+      decisions: 0,
+      missing: 7,
+    },
+    now: {
+      waiting: { tasks: 0, leave: 1, expense_claims: 0, attendance: 0, extra_work: 0 },
+      overdue: 0,
+      unreachable: { count: 0, names: [], more: 0 },
+    },
+    ahead: { from: "2026-10-12", to: "2026-10-18", leave: [], events: [], holidays: [] },
+  };
+  const weekly = (id: string, payload: unknown) =>
+    claimed(id, {
+      kind: "owner_digest_weekly",
+      title: "Your week · 5 – 11 Oct",
+      body: "Now\nLeave requests: 1",
+      link: "/reports/end-of-day",
+      payload,
+    });
+
+  it("renders the weekly digest from its payload, as one email of its own", async () => {
+    const { store, records } = fakeStore([weekly("w1", weeklyPayload), claimed("d2")]);
+    const resend = fakeResend([200, 200]);
+    const report = await runEmailDispatch({
+      store,
+      sender: resendSender("re_test_key", "MaxOff <n@mail.maxoff.in>", resend.fetchImpl),
+      origin: "https://app.example",
+      now: NOW,
+    });
+    expect(report).toMatchObject({ claimed: 2, sent: 2, failed: 0 });
+    expect(resend.calls[0]?.body.subject).toBe("Your week · 5 – 11 Oct");
+    expect(String(resend.calls[0]?.body.text)).toContain(
+      `Leave requests: 1: https://app.example/open?to=${encodeURIComponent("/approvals")}`,
+    );
+    expect(resend.calls[1]?.body.subject).toBe("New task: Reel cut");
+    expect(records).toEqual([
+      { id: "w1", outcome: "sent", error: null },
+      { id: "d2", outcome: "sent", error: null },
+    ]);
+  });
+
+  it("records a weekly digest whose payload is not one failed at once, and goes on", async () => {
+    const { store, records } = fakeStore([weekly("w1", { week: "nope" }), claimed("d2")]);
+    const resend = fakeResend([200]);
+    const errors: unknown[] = [];
+    const report = await runEmailDispatch({
+      store,
+      sender: resendSender("re_test_key", "MaxOff <n@mail.maxoff.in>", resend.fetchImpl),
+      origin: "https://app.example",
+      now: NOW,
+      onItemError: (error) => errors.push(error),
+    });
+    expect(report).toMatchObject({ claimed: 2, sent: 1, failed: 1, retried: 0 });
+    expect(resend.calls).toHaveLength(1);
+    expect(records).toEqual([
+      { id: "w1", outcome: "failed", error: "invalid_payload" },
+      { id: "d2", outcome: "sent", error: null },
+    ]);
+    expect(String(errors[0])).toContain("owner_digest_weekly");
+  });
+});
+
 describe("the Owner's morning summary (5B slice 7)", () => {
   const digestPayload = {
     date: "2026-10-03",

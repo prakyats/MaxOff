@@ -7,7 +7,8 @@
  * Set on an enhanced link in the commit that hydrates it (`markLive`, a callback ref): from then
  * on the app's own handler answers its taps and the script leaves it alone. Per link, not per
  * document: the root layout hydrates before the streamed shell and page, so a document-wide mark
- * would hand over too early (found by CI in 2.8).
+ * would hand over too early (found by CI in 2.8). `BackLink`, `ViewLink`, the bar's tabs and,
+ * since 2026-10-07, the title bar's bell (`HeaderBell`) mark themselves.
  */
 export const LIVE_ATTRIBUTE = "data-live";
 
@@ -16,6 +17,8 @@ export function markLive(element: HTMLElement | null): void {
   element?.setAttribute(LIVE_ATTRIBUTE, "");
 }
 export const VIEW_LINK_ATTRIBUTE = "data-view-link";
+/** The title bar's bell (`HeaderBell`), the fourth link the script holds (2026-10-07). */
+export const HEADER_BELL_SLOT = "header-bell";
 export const TAB_ATTRIBUTE = "data-tab";
 export const TAB_HOME_ATTRIBUTE = "data-tab-home";
 export const TAB_TOP_ATTRIBUTE = "data-tab-top";

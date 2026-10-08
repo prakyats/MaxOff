@@ -1,29 +1,51 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { DigestPayload } from "@/core/notifications/digest-content";
+import type { WeeklyDigestPayload } from "@/core/notifications/weekly-digest-content";
 
-const { readDigestPreview } = vi.hoisted(() => ({ readDigestPreview: vi.fn() }));
-vi.mock("@/core/notifications/digest-preview", () => ({ readDigestPreview }));
+const { readWeeklyDigestPreview } = vi.hoisted(() => ({ readWeeklyDigestPreview: vi.fn() }));
+vi.mock("@/core/notifications/digest-preview", () => ({ readWeeklyDigestPreview }));
 
 import { GET } from "./route";
 
-const PAYLOAD: DigestPayload = {
-  date: "2026-10-03",
-  yesterday: "2026-10-02",
-  attendance: {
-    present: 1,
+const PAYLOAD: WeeklyDigestPayload = {
+  date: "2026-10-12",
+  week: { from: "2026-10-05", to: "2026-10-11" },
+  days: [
+    {
+      date: "2026-10-05",
+      report_id: "11111111-1111-4111-8111-111111111111",
+      saved: true,
+      present: 4,
+      on_leave: 0,
+      absent: 0,
+      end_not_recorded: 0,
+      overtime: 0,
+      completed: 1,
+      cancelled: 0,
+      created: 0,
+      decisions: 0,
+      holiday: null,
+      weekly_off: false,
+    },
+  ],
+  totals: {
+    present: 4,
     on_leave: 0,
     absent: 0,
-    absent_names: [],
-    absent_more: 0,
-    day_not_ended: 0,
-    day_not_ended_names: [],
-    day_not_ended_more: 0,
+    end_not_recorded: 0,
+    overtime: 0,
+    completed: 1,
+    cancelled: 0,
+    created: 0,
+    decisions: 0,
+    missing: 0,
   },
-  tasks: { approved_yesterday: 0, overdue: 2, waiting_for_owner: 0 },
-  requests: { leave: 0, expense_claims: 0 },
-  held_back: [],
-  unreachable: { count: 0, names: [], more: 0 },
+  now: {
+    waiting: { tasks: 0, leave: 0, expense_claims: 0, attendance: 0, extra_work: 0 },
+    overdue: 2,
+    unreachable: { count: 0, names: [], more: 0 },
+  },
+  ahead: { from: "2026-10-12", to: "2026-10-18", leave: [], events: [], holidays: [] },
 };
 
 const request = () => new Request("http://localhost:3000/diagnostics/digest");
@@ -35,10 +57,10 @@ async function expectNotFound(response: Promise<Response>) {
   });
 }
 
-describe("GET /diagnostics/digest", () => {
+describe("GET /diagnostics/digest (the weekly digest since 6.5)", () => {
   beforeEach(() => {
-    readDigestPreview.mockReset();
-    readDigestPreview.mockResolvedValue(PAYLOAD);
+    readWeeklyDigestPreview.mockReset();
+    readWeeklyDigestPreview.mockResolvedValue(PAYLOAD);
     vi.stubEnv("NEXT_PUBLIC_APP_URL", "");
   });
   afterEach(() => {
@@ -52,16 +74,16 @@ describe("GET /diagnostics/digest", () => {
     expect(response.headers.get("content-type")).toBe("text/html; charset=utf-8");
     expect(response.headers.get("cache-control")).toBe("private, no-store");
     const html = await response.text();
-    expect(html).toContain("Subject: Your morning summary · Sat 3 Oct");
+    expect(html).toContain("Subject: Your week · 5 – 11 Oct");
     expect(html).toContain("Overdue now: 2");
     expect(html).toContain("http://localhost:3000/open?to=");
-    expect(readDigestPreview).toHaveBeenCalledTimes(1);
+    expect(readWeeklyDigestPreview).toHaveBeenCalledTimes(1);
   });
 
   it("404s on production, before reading anything", async () => {
     vi.stubEnv("NEXT_PUBLIC_APP_ENV", "production");
     await expectNotFound(GET(request()));
-    expect(readDigestPreview).not.toHaveBeenCalled();
+    expect(readWeeklyDigestPreview).not.toHaveBeenCalled();
   });
 
   it("404s on the production Worker (CANONICAL_HOST at runtime) even from a staging build", async () => {
@@ -69,13 +91,13 @@ describe("GET /diagnostics/digest", () => {
     vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://staging.example");
     vi.stubEnv("CANONICAL_HOST", "app.maxoff.in");
     await expectNotFound(GET(request()));
-    expect(readDigestPreview).not.toHaveBeenCalled();
+    expect(readWeeklyDigestPreview).not.toHaveBeenCalled();
   });
 
   it("404s for anyone the database refuses (an Admin, Crew, signed out)", async () => {
     vi.stubEnv("NEXT_PUBLIC_APP_ENV", "staging");
     vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://staging.example");
-    readDigestPreview.mockResolvedValue(null);
+    readWeeklyDigestPreview.mockResolvedValue(null);
     await expectNotFound(GET(request()));
   });
 });

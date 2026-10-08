@@ -1,6 +1,11 @@
 import { systemClock } from "@/core/time";
 
 import { DIGEST_KIND, parseDigestPayload, renderDigestEmail } from "./digest-content";
+import {
+  parseWeeklyDigestPayload,
+  renderWeeklyDigestEmail,
+  WEEKLY_DIGEST_KIND,
+} from "./weekly-digest-content";
 import type { EmailSender } from "./email";
 import { type NotificationEmail, renderCombinedEmail } from "./email-content";
 
@@ -166,6 +171,16 @@ async function dispatchEmailGroup(
       return;
     }
     content = renderDigestEmail(payload, input.origin);
+  } else if (first.kind === WEEKLY_DIGEST_KIND) {
+    // 6.5: the weekly summary, rendered from its payload like the daily one (its own email).
+    const payload = parseWeeklyDigestPayload(first.payload);
+    if (!payload) {
+      input.onItemError?.(new Error("owner_digest_weekly: the payload is not a weekly digest"));
+      await recordAll("failed", "invalid_payload");
+      report.failed += group.length;
+      return;
+    }
+    content = renderWeeklyDigestEmail(payload, input.origin);
   } else {
     content = renderCombinedEmail({ items: group, origin: input.origin });
   }

@@ -9,9 +9,10 @@
  * app (`moves.ts`, one shared table of cases) and leaves each link alone once React has hydrated
  * it (`data-live`, `attributes.ts`). There is no slide before hydration; everything else matches.
  *
- * Which links it reads: `data-slot="page-back"` (`BackLink`), `data-view-link` (`ViewLink`) and
- * `data-tab` inside the bar that carries `data-tab-home` / `data-tab-top` (`BottomNav`). Any
- * other link, a modified click, another origin or a new-tab target keeps the browser's default.
+ * Which links it reads: `data-slot="page-back"` (`BackLink`), `data-view-link` (`ViewLink`),
+ * `data-tab` inside the bar that carries `data-tab-home` / `data-tab-top` (`BottomNav`) and
+ * `data-slot="header-bell"` (`HeaderBell`, a push; since 2026-10-07, see below). Any other link, a
+ * modified click, another origin or a new-tab target keeps the browser's default.
  *
  * Every in-app link tap, before and after hydration, also starts the navigation progress bar
  * (`progress.ts`): `data-nav-pending` on `<html>` and `data-nav-target` on the tapped link, which
@@ -23,6 +24,7 @@
  */
 
 import {
+  HEADER_BELL_SLOT,
   LIVE_ATTRIBUTE,
   TAB_ATTRIBUTE,
   TAB_HOME_ATTRIBUTE,
@@ -37,6 +39,7 @@ import {
 } from "./progress";
 
 export {
+  HEADER_BELL_SLOT,
   LIVE_ATTRIBUTE,
   TAB_ATTRIBUTE,
   TAB_HOME_ATTRIBUTE,
@@ -70,6 +73,14 @@ const HELD_TAP_POLL_MS = 50;
  * make the move itself, in full, as before. A link React swaps while streaming (a Suspense
  * fallback's back control replaced by the streamed header's) is found again by kind and address.
  * A second tap while one is held is ignored.
+ *
+ * **The title bar's bell is held too (2026-10-07, issue #49).** The bell sits in every page's
+ * title bar, which a streamed page renders inside its own Suspense boundary (`loading.tsx` draws
+ * the fallback's, the page the real one), so it hydrates with the page, after the shell. A tap in
+ * that gap reaches a link React does not own yet: React 19 tries once to hydrate the boundary
+ * inside the click and, when that attempt suspends (a chunk still loading), drops the event
+ * without `preventDefault`, so the browser loaded `/notifications` as a new document (CI, 1 of
+ * 30 on `/my-day` at mobile-lg). Held like the others, with the app's own move, a push.
  */
 export const PRE_HYDRATION_SCRIPT = `(function(){try{
 var d=document,held=false;
@@ -92,6 +103,7 @@ var nav=window.navigation,entry=nav&&nav.currentEntry,i=entry?entry.index:undefi
 if(a.getAttribute("data-slot")==="page-back"){kind='[data-slot="page-back"]';move=backMove(i)==="back"?"back":"replace"}
 else if(a.hasAttribute("${VIEW_LINK_ATTRIBUTE}")){kind="[${VIEW_LINK_ATTRIBUTE}]";move="replace"}
 else if(a.hasAttribute("${TAB_ATTRIBUTE}")){var bar=a.closest("[${TAB_HOME_ATTRIBUTE}]");if(bar){kind="[${TAB_ATTRIBUTE}]";var home=bar.getAttribute("${TAB_HOME_ATTRIBUTE}");var below=nav&&i>0?nav.entries()[i-1]:null;var standalone=window.matchMedia("(display-mode: standalone)").matches||window.navigator.standalone===true;move=tabMove(u.pathname,location.pathname,home,(bar.getAttribute("${TAB_TOP_ATTRIBUTE}")||"").split(" "),standalone,!!(below&&below.url&&new URL(below.url).pathname===home))}}
+else if(a.getAttribute("data-slot")==="${HEADER_BELL_SLOT}"){kind='[data-slot="${HEADER_BELL_SLOT}"]';move="push"}
 if(!kind)return;
 e.preventDefault();
 hold(a,kind,move||"push",u.href);

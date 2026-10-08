@@ -47,10 +47,12 @@ import { createTask, updateTask } from "../actions/tasks";
 import {
   addAssignee,
   assignmentChange,
+  deadlineError,
   type DraftErrors,
   draftChanges,
   draftEventWindow,
   draftFromTask,
+  draftOnDate,
   draftType,
   emptyDraft,
   fieldsFromTask,
@@ -120,7 +122,8 @@ export type TaskFormSetup = {
 };
 
 export type TaskFormMode =
-  | { kind: "create" }
+  /** `date`: started on a calendar day, the deadline (or the event) on it (6.4b). */
+  | { kind: "create"; date?: ISODate | undefined }
   /** A suggested task made into one (4.6, WORKFLOWS §3.4): the form starts from the request. */
   | { kind: "convert"; request: ConvertedRequest }
   | {
@@ -181,6 +184,7 @@ export function TaskFormDialog({
         approverId: mode.request.approverId ?? "",
       };
     }
+    if (mode.kind === "create" && mode.date) return draftOnDate(mode.date, systemClock());
     return emptyDraft();
   });
   const [draft, setDraft] = useState<TaskDraft>(initial);
@@ -442,6 +446,17 @@ function TaskForm({
       });
     }
     setFormError(null);
+  }
+
+  // The create function refuses a deadline not later than now (kickoff 4 decision 4): say so as
+  // it is picked, not after the whole form is filled in.
+  function pickDeadline(patch: Pick<Partial<TaskDraft>, "dueDate" | "dueTime">) {
+    update(patch, ["dueDate", "dueTime"]);
+    const deadline = deadlineError(
+      { dueDate: draft.dueDate, dueTime: draft.dueTime, ...patch },
+      { creating, now: systemClock() },
+    );
+    if (deadline) setErrors((currentErrors) => ({ ...currentErrors, dueDate: deadline }));
   }
 
   function pickClient(value: string) {
@@ -816,7 +831,7 @@ function TaskForm({
               type="date"
               {...(creating ? { min: loaded.today } : {})}
               value={draft.dueDate}
-              onChange={(event) => update({ dueDate: event.target.value }, ["dueDate", "dueTime"])}
+              onChange={(event) => pickDeadline({ dueDate: event.target.value })}
               required
             />
           )}
@@ -828,7 +843,7 @@ function TaskForm({
               name="dueTime"
               type="time"
               value={draft.dueTime}
-              onChange={(event) => update({ dueTime: event.target.value }, ["dueTime", "dueDate"])}
+              onChange={(event) => pickDeadline({ dueTime: event.target.value })}
               required
             />
           )}

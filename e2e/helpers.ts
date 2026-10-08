@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { request as httpRequest } from "node:http";
 import { join } from "node:path";
 
-import { expect, type Locator, type Page } from "@playwright/test";
+import { expect, type Locator, type Page, type Request, type Route } from "@playwright/test";
 
 import { HOLD_PROXY_URL } from "./hold-proxy-config";
 
@@ -800,13 +800,15 @@ export async function ownSession(page: Page, email: string, password: string): P
  * races the page. Hold a read only the **page** makes (never one the `(app)` layout awaits, or no
  * shell streams), for a session of the test's own (`ownSession`), so no other test is held.
  * `caught()` says whether the proxy has held one of those requests yet (the page's read reached
- * it). Release it in `finally`: a hold is the open connection, so a test that dies releases it
+ * it). With `answer: "jwt-expired"` nothing waits: each of those reads is answered at once with
+ * PostgREST's "JWT expired" (`PGRST303`, 6.6) until `release()`. Release it in `finally`: a hold is the open connection, so a test that dies releases it
  * too.
  */
 export async function holdReads(
   path: string,
   session: string,
-): Promise<{ caught: () => boolean; release: () => void }> {
+  answer: "wait" | "jwt-expired" = "wait",
+): Promise<{ caught: () => boolean; release: () => void; active: () => Promise<number> }> {
   let caught = false;
   const request = httpRequest(`${HOLD_PROXY_URL}/__hold`, {
     method: "POST",
@@ -832,12 +834,18 @@ export async function holdReads(
         }
       });
     });
-    request.end(JSON.stringify({ path, session }));
+    request.end(JSON.stringify({ path, session, answer }));
   });
   return {
     caught: () => caught,
     release: () => {
       request.destroy();
+    },
+    /** How many holds the proxy still has on this path and session (0 once a release reached it). */
+    active: async () => {
+      const query = new URLSearchParams({ path, session });
+      const answer = await fetch(`${HOLD_PROXY_URL}/__hold/active?${query.toString()}`);
+      return (await answer.json()) as number;
     },
   };
 }
@@ -947,4 +955,52 @@ export function actionId(filename: string, exportedName: string): string {
     .map(([id]) => id);
   if (ids.length !== 1) throw new Error(`${filename} ${exportedName}: ${ids.length} action ids`);
   return ids[0]!;
+}
+
+/**
+ * Holds the next refresh of `path` (an RSC request for it that is not a prefetch) until the test
+ * lets it go. `held` resolves once the refresh has reached the network and is waiting;
+ * `answered` once the released answer has been read by the page.
+ */
+export async function holdNextRefresh(page: Page, path: string) {
+  let reached: () => void = () => undefined;
+  const held = new Promise<void>((resolve) => {
+    reached = resolve;
+  });
+  let let_go: () => void = () => undefined;
+  const released = new Promise<void>((resolve) => {
+    let_go = resolve;
+  });
+  let caught = false;
+  const handler = async (route: Route) => {
+    const request = route.request();
+    const headers = request.headers();
+    const refresh =
+      headers["rsc"] === "1" &&
+      !headers["next-router-prefetch"] &&
+      new URL(request.url()).pathname === path;
+    if (!refresh || caught) return route.fallback();
+    caught = true;
+    reached();
+    await released;
+    await route.continue();
+  };
+  await page.route(`**${path}?*`, handler);
+  await page.route(`**${path}`, handler);
+  // A listener, not `waitForEvent`: a spec that never awaits `answered` (the re-read may be
+  // dropped by a navigation and never finish) must not fail with "Test ended" at its end.
+  const answered = new Promise<void>((resolve) => {
+    const onFinished = (request: Request) => {
+      if (
+        request.headers()["rsc"] === "1" &&
+        !request.headers()["next-router-prefetch"] &&
+        new URL(request.url()).pathname === path
+      ) {
+        page.off("requestfinished", onFinished);
+        resolve();
+      }
+    };
+    page.on("requestfinished", onFinished);
+  });
+  return { held, release: () => let_go(), answered };
 }

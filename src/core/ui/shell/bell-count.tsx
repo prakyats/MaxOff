@@ -39,7 +39,7 @@ function BellCountValue({ promise }: { promise: Promise<ServerUnread> }) {
   const count = useUnreadShown(use(promise));
   return (
     <>
-      <NavBadgeMark count={count} place="bar" />
+      <NavBadgeMark count={count} place="bell" />
       <NavBadgeWords count={count} />
     </>
   );

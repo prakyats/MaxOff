@@ -1,6 +1,13 @@
 import type { Tables } from "@/core/db";
 import { parseReminderRules, type ReminderRule } from "@/core/lib/reminder-rules";
-import { type ISODate, istWeekday, WEEK_START_MONDAY, WEEKDAY_NAMES } from "@/core/time";
+import {
+  type ISODate,
+  isWeekdayIndex,
+  istWeekday,
+  WEEK_START_MONDAY,
+  type WeekdayIndex,
+  WEEKDAY_NAMES,
+} from "@/core/time";
 
 /**
  * What the Settings screens work with (PRODUCT §4.16). The rows come from `organizations`,
@@ -41,6 +48,12 @@ export type Thresholds = {
    * "Using the default": the launch schedule (2 days before, 1 day before, when due).
    */
   defaultTaskReminders: ReminderRule[];
+  /**
+   * The weekday the weekly Owner digest goes (6.5, Kickoff 6 decision 23): 0 = Sunday .. 6 =
+   * Saturday, default Monday; at 08:00 IST, or straight after the End-day cutoff saves the last
+   * day's report if that is later.
+   */
+  weeklyDigestDay: WeekdayIndex;
 };
 
 /** Kickoff 4 decision 11: four open tasks due the same IST day. */
@@ -72,7 +85,20 @@ export function toOrgSettings(row: Tables<"org_settings">): OrgSettings {
     quietHoursStart: row.quiet_hours_start.slice(0, 5),
     quietHoursEnd: row.quiet_hours_end.slice(0, 5),
     defaultTaskReminders: parseReminderRules(row.default_task_reminders),
+    // The column's check keeps it 0..6; a value outside reads as the default, Monday.
+    weeklyDigestDay: isWeekdayIndex(row.weekly_digest_day) ? row.weekly_digest_day : 1,
   };
+}
+
+/** The weekday choices for the weekly digest, Monday first, with today's setting marked. */
+export function weeklyDigestChoices(
+  weeklyDigestDay: WeekdayIndex,
+): { value: WeekdayIndex; label: string; checked: boolean }[] {
+  return WEEK_START_MONDAY.map((day) => ({
+    value: day,
+    label: WEEKDAY_NAMES[day].long,
+    checked: day === weeklyDigestDay,
+  }));
 }
 
 /** The weekly-off checkboxes, Monday first, with today's setting applied. */

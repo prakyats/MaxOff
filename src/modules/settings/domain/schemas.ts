@@ -96,6 +96,12 @@ export const updateThresholdsSchema = z
     quietHoursEnd: clockTime,
     // The organisation's default reminders (5.3): `[]` = the launch schedule.
     defaultTaskReminders: reminderRulesSchema,
+    // The weekly digest's day (6.5, kickoff 6 decision 23): 0 = Sunday .. 6 = Saturday.
+    weeklyDigestDay: z.coerce
+      .number({ error: "Pick a weekday for the weekly summary." })
+      .int("Pick a weekday for the weekly summary.")
+      .min(0, "Pick a weekday for the weekly summary.")
+      .max(6, "Pick a weekday for the weekly summary."),
   })
   // An escalation that reaches the Owner before the Admin would skip the first level entirely
   // (WORKFLOWS §9: level 1 is the approving Admin, level 2 the Owner).

@@ -36,6 +36,8 @@
   --color-danger-soft: var(--danger-soft);
   --color-neutral: var(--neutral);
   --color-neutral-soft: var(--neutral-soft);
+  /* The calendar's weekly-off date number (decision 25 C): distinct, never red. */
+  --color-off-day: var(--off-day);
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
@@ -128,6 +130,7 @@
   --danger-soft: #f8e4e5;
   --neutral: #52525b;
   --neutral-soft: #eaeaeb;
+  --off-day: #0369a1;
   --brand: #c42126;
   --brand-soft: #f8e4e5;
 }
@@ -180,6 +183,7 @@
   --danger-soft: #3c2326;
   --neutral: #a1a1aa;
   --neutral-soft: #2d2d31;
+  --off-day: #7dd3fc;
   --brand: #f2686d;
   --brand-soft: #3c2326;
 }
@@ -700,6 +704,30 @@ html[data-nav-slide="forward"] [data-slot="route"] {
         var(--app-bottom-nav-h) + var(--app-sticky-actions-h, 5rem) + 1rem +
           var(--app-safe-bottom) + var(--app-bands-h, 0px)
       );
+    }
+  }
+}
+
+/* A screen that fits the viewport from `md` up (the calendar's Week and Day, the owner's laptop
+ * changes of 2026-10-08): the shell is exactly the viewport's height and `main` a column whose
+ * route fills what the page's header leaves; the screen's part marked `data-fit-viewport` grows
+ * into it (`flex-1 min-h-0`) and scrolls inside itself. The page never scrolls; the sidebar is the
+ * viewport's height already. Phones keep the page's own scroll. */
+@layer utilities {
+  @media (min-width: 768px) {
+    [data-slot="app-shell"]:has(main [data-fit-viewport]) {
+      height: 100dvh;
+    }
+    main:has([data-fit-viewport]) {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+    main:has([data-fit-viewport]) > [data-slot="route"] {
+      display: flex;
+      flex: 1 1 0%;
+      flex-direction: column;
+      min-height: 0;
     }
   }
 }

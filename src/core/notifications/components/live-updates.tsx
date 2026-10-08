@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef } from "react";
 
 import { createRealtimeSupabase, type RealtimeSupabase } from "@/core/db/browser";
@@ -11,8 +11,10 @@ import { anyEditDirty } from "@/core/ui/edit/edit-guard";
 
 import {
   catchUpRefreshes,
+  LIVE_DASHBOARD_TABLES,
   LIVE_REFRESH_DELAY_MS,
   LIVE_REFRESH_RETRY_MS,
+  liveDashboard,
   liveRefreshWaits,
   OWN_READ_QUIET_MS,
   TOKEN_RETRY_MS,
@@ -59,6 +61,13 @@ export type LiveUpdatesProps = {
  * nothing revalidated), which confirms the drop the device already shows (`read-receipts.ts`).
  * `html[data-live]` says whether the channel is joined (`on`) or not (`off`), for the e2e checks.
  *
+ * **The day screens (6A, Kickoff 6 decision 8):** on `/today` and `/my-day` the same client joins
+ * a second channel (`dashboard:<id>`) listening to `tasks`, `task_assignees`, `attendance_days`
+ * and `leave_requests` with no filter of its own: Realtime sends only the rows the member's RLS
+ * lets them select, and any of them re-reads the screen the same way (throttled, through the same
+ * guard). It leaves when the screen does; a rejoin after a drop re-reads. `html[data-live-dashboard]`
+ * says whether it is joined. Never a second client, never the row's content on screen.
+ *
  * Every refresh, the token's included, goes through one guard (`liveRefreshWaits`: never inside
  * an approval's Undo window, over unsaved edits or mid-navigation). The token comes from the
  * server on every render of the layout; just after it expires the page asks for a new one, and
@@ -66,8 +75,11 @@ export type LiveUpdatesProps = {
  */
 export function LiveUpdates({ memberId, token, expiresIn }: LiveUpdatesProps): null {
   const router = useRouter();
+  const pathname = usePathname();
   const tokenRef = useRef(token);
   const client = useRef<RealtimeSupabase | null>(null);
+  // Resolves once the client has the member's token (a channel joined before it joins as anon).
+  const authorised = useRef<Promise<void> | null>(null);
   const timer = useRef<number | undefined>(undefined);
   const confirmTimer = useRef<number | undefined>(undefined);
 
@@ -126,7 +138,9 @@ export function LiveUpdates({ memberId, token, expiresIn }: LiveUpdatesProps): n
     let cancelled = false;
     let joinedOnce = false;
     let channel: ReturnType<RealtimeSupabase["channel"]> | null = null;
-    void supabase.realtime.setAuth().then(() => {
+    const ready = supabase.realtime.setAuth();
+    authorised.current = ready;
+    void ready.then(() => {
       if (cancelled) return;
       channel = supabase
         .channel(`notifications:${memberId}`)
@@ -167,6 +181,7 @@ export function LiveUpdates({ memberId, token, expiresIn }: LiveUpdatesProps): n
       window.clearTimeout(timer.current);
       window.clearTimeout(confirmTimer.current);
       client.current = null;
+      authorised.current = null;
       delete root.dataset.live;
       const joined = channel;
       void (joined ? supabase.removeChannel(joined) : Promise.resolve()).finally(() =>
@@ -174,6 +189,64 @@ export function LiveUpdates({ memberId, token, expiresIn }: LiveUpdatesProps): n
       );
     };
   }, [memberId, refreshSoon, confirmSoon, catchUp]);
+
+  // The day screens' channel (6A): joined on /today and /my-day only, on the same client. Its
+  // re-reads have their own timer, dropped when the screen is left, and re-check the screen when
+  // they fire: a refresh that lands on another screen, during a back press, can make Next load
+  // the page in full (CI run 37578637275; PROGRESS "The view's address").
+  useEffect(() => {
+    const supabase = client.current;
+    const ready = authorised.current;
+    if (!liveDashboard(pathname) || !supabase || !ready) return;
+    const root = document.documentElement;
+    let cancelled = false;
+    let joinedOnce = false;
+    let timer: number | undefined;
+    let channel: ReturnType<RealtimeSupabase["channel"]> | null = null;
+    const reread = (wait: number) => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        if (cancelled || !liveDashboard(window.location.pathname)) return;
+        if (
+          liveRefreshWaits({
+            sendWaiting: anySendWaiting(),
+            editing: anyEditDirty(),
+            navigating: root.hasAttribute("data-nav-pending"),
+          })
+        ) {
+          reread(LIVE_REFRESH_RETRY_MS);
+          return;
+        }
+        router.refresh();
+      }, wait);
+    };
+    void ready.then(() => {
+      if (cancelled) return;
+      let next = supabase.channel(`dashboard:${memberId}`);
+      // Inserts and updates: nothing in these tables is ever deleted (invariant 9), and Realtime
+      // checks no DELETE against RLS (it carries the id alone), so a delete is not listened to.
+      for (const table of LIVE_DASHBOARD_TABLES) {
+        for (const event of ["INSERT", "UPDATE"] as const) {
+          next = next.on("postgres_changes", { event, schema: "public", table }, () =>
+            reread(LIVE_REFRESH_DELAY_MS),
+          );
+        }
+      }
+      channel = next.subscribe((status) => {
+        const joined = status === "SUBSCRIBED";
+        root.dataset.liveDashboard = joined ? "on" : "off";
+        // Joined again after a drop: what changed meanwhile sent no event here.
+        if (joined && joinedOnce) reread(LIVE_REFRESH_DELAY_MS);
+        if (joined) joinedOnce = true;
+      });
+    });
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+      delete root.dataset.liveDashboard;
+      if (channel) void supabase.removeChannel(channel);
+    };
+  }, [pathname, memberId, router]);
 
   // A new token from the server: Realtime reads it through the callback.
   useEffect(() => {

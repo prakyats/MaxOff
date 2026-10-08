@@ -50,9 +50,12 @@ export type TaskApprovalItem = {
 export function TaskApprovalGroup({
   tasks,
   heading,
+  preview = false,
 }: {
   tasks: TaskApprovalItem[];
   heading: string;
+  /** The Owner's Today shows a few rows with their two actions and no Approve all (6.2). */
+  preview?: boolean;
 }) {
   const [reviewId, setReviewId] = useState<string | null>(null);
   const [rejectId, setRejectId] = useState<string | null>(null);
@@ -75,7 +78,7 @@ export function TaskApprovalGroup({
           marker: <UnreadMarker count={task.unread} />,
         }))}
         approve={(taskId) => postKeepalive<null>(APPROVE_URL, { kind: "task", id: taskId })}
-        approveAll={(taskIds) => approveTasks({ taskIds })}
+        approveAll={preview ? undefined : (taskIds) => approveTasks({ taskIds })}
         onReview={setReviewId}
       />
       <ReviewSheet

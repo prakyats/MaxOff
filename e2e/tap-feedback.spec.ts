@@ -255,7 +255,7 @@ test.describe("navigation shows it is on its way", () => {
         true,
       );
     });
-    await page.goto("/today", { waitUntil: "commit" });
+    await page.goto("/today/people", { waitUntil: "commit" });
     await expect(pageHeader(page)).toBeVisible();
     // No Content: the browser stays on this document, so what the tap did can be read.
     await page.route(/\/people\/[^/]+\/leave(\?|$)/, (route) =>

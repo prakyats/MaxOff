@@ -82,7 +82,9 @@ export async function listTaskTypes(): Promise<TaskType[]> {
   const supabase = await createServerSupabase();
   const { data, error } = await supabase
     .from("task_types")
-    .select("id, name, kind, has_location, archived_at, position, default_reminders")
+    .select(
+      "id, name, kind, has_location, shows_on_calendar, archived_at, position, default_reminders, color",
+    )
     .order("position", { ascending: true });
   if (error) throw error;
   return data.map((row) => ({
@@ -90,8 +92,10 @@ export async function listTaskTypes(): Promise<TaskType[]> {
     name: row.name,
     kind: row.kind,
     hasLocation: row.has_location,
+    showsOnCalendar: row.shows_on_calendar,
     archived: row.archived_at !== null,
     defaultReminders: parseReminderRules(row.default_reminders),
+    color: row.color,
   }));
 }
 
@@ -323,6 +327,31 @@ export async function listOpenTaskRows(): Promise<TaskListRow[]> {
     .order("due_at", { ascending: true });
   if (error) throw error;
   return (data as ListRowData[]).map(toListRow);
+}
+
+/**
+ * The open tasks due in `[from, to)` (instants), the calendar's Due lists and counts for the range
+ * it draws (6.4b; 6B review later item (f): the calendar no longer reads every open task). Page by
+ * page under PostgREST's 1000-row answer (6A mechanics (1)). RLS decides which tasks.
+ */
+export async function listOpenTaskRowsDueBetween(from: string, to: string): Promise<TaskListRow[]> {
+  const supabase = await createServerSupabase();
+  const rows: TaskListRow[] = [];
+  const page = 1000;
+  for (let first = 0; ; first += page) {
+    const { data, error } = await supabase
+      .from("tasks")
+      .select(LIST_COLUMNS)
+      .not("state", "in", "(completed,cancelled)")
+      .gte("due_at", from)
+      .lt("due_at", to)
+      .order("due_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(first, first + page - 1);
+    if (error) throw error;
+    rows.push(...(data as ListRowData[]).map(toListRow));
+    if (data.length < page) return rows;
+  }
 }
 
 /**

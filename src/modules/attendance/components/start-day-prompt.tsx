@@ -39,7 +39,8 @@ import { StartDayButton } from "./day-actions";
  * to the foreground, **at most once every 30 minutes** (`domain/prompt.ts`; the timestamp lives in
  * `localStorage`, a per-device convenience). A bottom sheet on a phone (`Dialog`), one layer:
  * back, the backdrop and Just looking all close it and count as "not now" (ARCHITECTURE §14.2 a).
- * The leave choice is a second view of the same layer, never a second entry.
+ * The leave choice is a second view of the same layer, never a second entry. Loaded after the
+ * page by `StartDayPromptLazy` (6.0), which also draws the mount marker.
  */
 export function StartDayPrompt({ memberId, workDate }: { memberId: string; workDate: string }) {
   const router = useRouter();
@@ -92,41 +93,36 @@ export function StartDayPrompt({ memberId, workDate }: { memberId: string; workD
   }
 
   return (
-    // The marker says the prompt is mounted (the layout found the day unstarted) before the
-    // effect opens it, so a test can tell "not due" from "not open yet" without a timer.
-    <>
-      <span hidden data-slot="start-day-prompt-mount" />
-      <Dialog open={open} onOpenChange={(next) => (next ? setOpen(true) : dismiss())}>
-        <DialogContent data-slot="start-day-prompt">
-          {view === "ask" ? (
-            <>
-              <DialogHeader>
-                <DialogTitle>Started working?</DialogTitle>
-                <DialogDescription>
-                  {dayLabel(workDate)}. Start your day to record it: the start time is the moment
-                  you tap.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="flex flex-col gap-2">
-                <StartDayButton onStarted={() => close(() => router.refresh())} />
-                <Button variant="secondary" onClick={() => setView("leave")}>
-                  On leave today? Choose leave
-                </Button>
-                <Button variant="ghost" onClick={() => close()} data-slot="just-looking">
-                  Just looking
-                </Button>
-              </div>
-            </>
-          ) : (
-            <LeaveChoice
-              workDate={workDate}
-              onBack={() => setView("ask")}
-              onDone={() => close(() => router.refresh())}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
-    </>
+    <Dialog open={open} onOpenChange={(next) => (next ? setOpen(true) : dismiss())}>
+      <DialogContent data-slot="start-day-prompt">
+        {view === "ask" ? (
+          <>
+            <DialogHeader>
+              <DialogTitle>Started working?</DialogTitle>
+              <DialogDescription>
+                {dayLabel(workDate)}. Start your day to record it: the start time is the moment you
+                tap.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col gap-2">
+              <StartDayButton onStarted={() => close(() => router.refresh())} />
+              <Button variant="secondary" onClick={() => setView("leave")}>
+                On leave today? Choose leave
+              </Button>
+              <Button variant="ghost" onClick={() => close()} data-slot="just-looking">
+                Just looking
+              </Button>
+            </div>
+          </>
+        ) : (
+          <LeaveChoice
+            workDate={workDate}
+            onBack={() => setView("ask")}
+            onDone={() => close(() => router.refresh())}
+          />
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 

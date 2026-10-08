@@ -19,6 +19,7 @@ the result of each step into "Go-live record" at the end.
 | 5 | The first backup and the production restore drill | After day A, any time before the staff invites |
 | 6 | Go-live data: the Owner only, seeded defaults kept | Read before the invites |
 | 7 | The staff invites | **Only after steps 1–5 passed** |
+| 8 | Push onboarding: every person, every phone | At each invite, and whenever someone gets a new phone |
 
 ## Before you start
 
@@ -274,6 +275,57 @@ WhatsApp (in recent versions: Settings → Privacy → Advanced → **Disable li
 braces, not a must. If someone sees "This link has expired or was already used. Ask for a new one."
 (Continue was tapped twice, or the 24 hours passed), issue a fresh link with Copy invite link and send it
 again.
+
+## 8. Push onboarding: every person, every phone (6.6, kickoff 6 decision 19)
+
+Notifications are how a new task, a decision on leave or a change request reaches someone, so a
+person is not onboarded until **one test notification has arrived on their phone**. The app walks
+each person through it (5.5: the Welcome card's "Get notifications" steps, the band above the bottom
+bar, Me → Your devices, "Did it arrive?"); this checklist is for the Owner, sitting with the person
+(or on a call) at their invite, and again whenever someone gets a new phone. There is no screen for
+it: the checks below use what the app already shows.
+
+**Before you start:** the person has joined (step 7) and has their phone in hand. iPhones need iOS
+16.4 or later (Settings → General → About → iOS Version); older iPhones cannot receive web app
+notifications at all.
+
+**iPhone (Safari):**
+1. Open **https://app.maxoff.in** in **Safari** and sign in.
+2. Tap **Share** (the square with an arrow, at the bottom) → scroll → **Add to Home Screen** → **Add**.
+   The Welcome card shows the same steps with pictures.
+3. Close Safari. Open **MaxOff from its new Home Screen icon** and sign in once more. **An iPhone
+   notifies only the installed app**: notifications turned on in a Safari tab never arrive.
+4. On the Welcome card (or the band above the bottom bar, "Notifications are off · Turn on"): **Turn
+   on notifications** → **Allow** when the iPhone asks.
+5. **Send a test.** When MaxOff asks **"Did it arrive?"**, the person taps Yes or No. On No the app
+   lists what to check: the Home Screen icon, Settings → Notifications → MaxOff → **Allow
+   Notifications**, and a **Focus** or Do Not Disturb that silences it. Fix, then **Send another
+   test** until one arrives.
+6. **Text size:** the installed app now follows the iPhone's own text size (Settings → Display &
+   Brightness → Text Size, or Accessibility → Display & Text Size → Larger Text), up to twice the
+   normal size, and no longer pinch-zooms. At the largest accessibility sizes (beyond twice the
+   normal size) the app stops at twice and pinch-zoom stays on, for anyone who needs more. Nothing
+   to set up; mention it to someone who reads with larger text.
+
+**Android (Chrome):**
+1. Open **https://app.maxoff.in** in **Chrome** and sign in.
+2. **⋮ → Install app** (or "Add to Home screen" → Install). Open MaxOff from its icon from now on.
+3. **Turn on notifications** on the Welcome card or the band → **Allow**.
+4. **Send a test** → "Did it arrive?". On No: allow notifications for MaxOff (hold the icon → App
+   info → Notifications), Settings → Apps → Chrome → Notifications on, **Settings → Battery: no
+   restrictions for Chrome**, Do Not Disturb off. Then send another test.
+
+**What you (the Owner) check afterwards:**
+- **Me → Your devices** on their phone lists the phone with "This device" and when it last got a
+  notification. A phone they no longer use: **Remove** beside it.
+- **Settings → Notifications** lists everyone MaxOff can't reach by push and why (off, blocked, not
+  installed, not reaching them). The person should not be on it the next time you look.
+- Anyone who has open tasks and can't be reached also shows on your **Today → Overdue and risks**
+  ("<name> can't be reached"). That row is the reminder to sit with them again.
+- Later, anyone can re-check at **Me → Help & troubleshooting → Send a test notification**.
+
+**The staff guide:** "Your first day with MaxOff" (`docs/guide/first-day.html`, section 2 "Turn on
+notifications") carries the same steps for the person; send its PDF with the invite (step 7).
 
 ## Go-live record
 

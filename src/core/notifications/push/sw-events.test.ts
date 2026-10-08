@@ -101,7 +101,7 @@ describe("sw.js push events (5.2)", () => {
 
   it("shows the group's fixed image as the large picture, never a URL from the payload (owner 2026-10-02)", async () => {
     const worker = loadWorker();
-    for (const group of ["tasks", "approvals", "leave", "reminders", "other"]) {
+    for (const group of ["tasks", "approvals", "leave", "reminders", "reports", "other"]) {
       await worker.fire("push", { data: pushData({ title: "T", body: null, url: "/", group }) });
     }
     expect(worker.shown.map((shown) => shown.options.icon)).toEqual([
@@ -109,6 +109,7 @@ describe("sw.js push events (5.2)", () => {
       "/icons/notify/approvals.png",
       "/icons/notify/leave.png",
       "/icons/notify/reminders.png",
+      "/icons/notify/reports.png",
       "/icons/notify/other.png",
     ]);
     for (const shown of worker.shown) {

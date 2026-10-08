@@ -149,3 +149,75 @@ export async function rpcRequestChange(
   );
   if (error) throw error;
 }
+
+/**
+ * A member's **approved** leave touching the IST days `from` to `to` (My Day's quiet line, 6.1,
+ * Kickoff 6 decision 2): the type and the dates, nothing else. RLS: their own rows.
+ */
+export async function listApprovedLeaveBetween(
+  memberId: string,
+  from: string,
+  to: string,
+): Promise<{ type: LeaveType; startDate: string; endDate: string }[]> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase
+    .from("leave_requests")
+    .select("type, start_date, end_date")
+    .eq("member_id", memberId)
+    .eq("state", "approved")
+    .lte("start_date", to)
+    .gte("end_date", from)
+    .order("start_date", { ascending: true });
+  if (error) throw error;
+  return data.map((row) => ({ type: row.type, startDate: row.start_date, endDate: row.end_date }));
+}
+
+/** A leave request on the calendar (6.4): approved, or still waiting ("requested"). */
+export type LeaveSpan = {
+  id: string;
+  memberId: string;
+  type: LeaveType;
+  startDate: string;
+  endDate: string;
+  /** `submitted`: a pending request, marked as requested on the calendar. */
+  state: "approved" | "submitted";
+};
+
+/**
+ * The approved and pending leave touching the IST days `from` to `to` (the calendar, 6.4,
+ * Kickoff 6 decision 13): a member's own (`memberId`), or everyone's for the Owner (`null`; RLS
+ * returns own rows to anyone else, so an Admin never reads another person's request here: their
+ * view of others comes from `member_availability()`). A pending cancellation of approved leave is
+ * not a request for leave, so it is left out; the approved row it would cancel still shows.
+ */
+export async function listLeaveBetween(
+  from: string,
+  to: string,
+  memberId: string | null,
+): Promise<LeaveSpan[]> {
+  const supabase = await createServerSupabase();
+  let query = supabase
+    .from("leave_requests")
+    .select("id, member_id, type, start_date, end_date, state, requests_cancellation")
+    .in("state", ["approved", "submitted"])
+    .lte("start_date", to)
+    .gte("end_date", from)
+    .order("start_date", { ascending: true });
+  if (memberId) query = query.eq("member_id", memberId);
+  const { data, error } = await query;
+  if (error) throw error;
+  return data.flatMap((row) =>
+    row.state === "submitted" && row.requests_cancellation
+      ? []
+      : [
+          {
+            id: row.id,
+            memberId: row.member_id,
+            type: row.type,
+            startDate: row.start_date,
+            endDate: row.end_date,
+            state: row.state === "approved" ? ("approved" as const) : ("submitted" as const),
+          },
+        ],
+  );
+}

@@ -16,7 +16,12 @@ import {
   TEMPLATE_NAME_MAX,
   TITLE_MAX,
 } from "./limits";
-import { TASK_TYPE_KINDS, TASK_TYPE_NAME_MAX } from "./task-types";
+import {
+  DEFAULT_TASK_TYPE_COLOR,
+  TASK_TYPE_COLORS,
+  TASK_TYPE_KINDS,
+  TASK_TYPE_NAME_MAX,
+} from "./task-types";
 import { PRIORITIES, type TaskTypeKind } from "./types";
 
 /**
@@ -310,6 +315,15 @@ const taskTypeSwitches = {
   hasLocation: z.boolean().default(false),
 };
 
+/** The type's calendar colour (Kickoff 6 decision 25): one of the palette, never red. */
+const taskTypeColorSchema = z
+  .string()
+  .transform((value) => value.toLowerCase())
+  .refine((value) => TASK_TYPE_COLORS.some((option) => option.value === value), {
+    message: "Choose one of the colours.",
+  })
+  .default(DEFAULT_TASK_TYPE_COLOR);
+
 export const addTaskTypeSchema = z
   .object({
     name: taskTypeName,
@@ -317,6 +331,7 @@ export const addTaskTypeSchema = z
       error: "Choose what kind of task it is.",
     }),
     ...taskTypeSwitches,
+    color: taskTypeColorSchema,
     /** Its tasks' default reminders (5.3); `[]` = the organisation's. */
     defaultReminders: reminderRulesSchema.default([]),
   })
@@ -330,6 +345,7 @@ export const editTaskTypeSchema = z.object({
   taskTypeId: z.uuid(),
   name: taskTypeName,
   ...taskTypeSwitches,
+  color: taskTypeColorSchema,
   defaultReminders: reminderRulesSchema,
 });
 export type EditTaskTypeInput = z.input<typeof editTaskTypeSchema>;

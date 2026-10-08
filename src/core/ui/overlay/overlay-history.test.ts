@@ -4,7 +4,13 @@ import path from "node:path";
 
 import { describe, expect, it, vi } from "vitest";
 
-import { type CloseThenEnv, createCloseOverlaysThen, keepMarker } from "./overlay-history";
+import {
+  type CloseThenEnv,
+  createCloseOverlaysThen,
+  createWhenOnPageEntry,
+  keepMarker,
+  type PageEntryEnv,
+} from "./overlay-history";
 
 /**
  * `useOverlayHistory` rests on undocumented behaviour of the Next App Router, and on two race
@@ -203,5 +209,99 @@ describe("closeOverlaysThen (§14.2 c, e: a tab root or a redirect lands with ho
     expect(second).not.toHaveBeenCalled();
     // Once finished, the next tap is served again.
     expect(closeThen(second)).toBe(true);
+  });
+});
+
+describe("whenOnPageEntry (§14.2 d: an address rewritten after the overlays closed sticks)", () => {
+  /**
+   * A fake history: `entries` marked or not, `at` the current one. A back moves one entry down
+   * and lands on the next `land()`, as a real traversal lands on a later popstate.
+   */
+  function setup(marks: boolean[], paths: string[] = marks.map(() => "/calendar")) {
+    let at = marks.length - 1;
+    let pending = false;
+    const listeners = new Set<() => void>();
+    const env: PageEntryEnv = {
+      onPageEntry: () => !marks[at],
+      backPending: () => pending,
+      back: vi.fn(() => {
+        pending = true;
+      }),
+      onPopState: (callback) => {
+        listeners.add(callback);
+        return () => listeners.delete(callback);
+      },
+      pathname: () => paths[at] ?? "",
+    };
+    /** The traversal lands: one entry down, then every listener, as the browser fires them. */
+    const land = () => {
+      at -= 1;
+      pending = false;
+      for (const listener of [...listeners]) listener();
+    };
+    /** Someone else (the controller stepping over a spent entry) starts a traversal. */
+    const othersBack = () => {
+      pending = true;
+    };
+    return { env, land, othersBack, run: createWhenOnPageEntry(env), listeners };
+  }
+
+  it("runs at once on the page's own entry", () => {
+    const { env, run } = setup([false]);
+    const fn = vi.fn();
+    run(fn);
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(env.back).not.toHaveBeenCalled();
+  });
+
+  it("steps over every spent entry before it runs, never before (the filters' lost type=)", () => {
+    // The page, the filters sheet's spent entry, the select sheet's spent entry on top.
+    const { env, run, land, listeners } = setup([false, true, true]);
+    const fn = vi.fn();
+    run(fn);
+    expect(env.back).toHaveBeenCalledTimes(1);
+    land();
+    expect(fn).not.toHaveBeenCalled();
+    expect(env.back).toHaveBeenCalledTimes(2);
+    land();
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(listeners.size).toBe(0);
+    // Runs once: a later popstate changes nothing.
+    land();
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  it("never starts a second traversal while one is in flight", () => {
+    const { env, run, land, othersBack } = setup([false, true, true]);
+    othersBack();
+    const fn = vi.fn();
+    run(fn);
+    expect(env.back).not.toHaveBeenCalled();
+    // The controller's own step lands on a spent entry and starts the next one itself.
+    land();
+    expect(env.back).toHaveBeenCalledTimes(1);
+    land();
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  it("lets go when the person went elsewhere meanwhile: never rewrites another screen's address", () => {
+    // A spent entry on the calendar; the traversal in flight is the person's own, and it lands on
+    // another screen's entries (they navigated away meanwhile).
+    const { env, run, land, othersBack, listeners } = setup(
+      [false, false, true],
+      ["/tasks/1", "/tasks", "/calendar"],
+    );
+    othersBack();
+    const fn = vi.fn();
+    run(fn);
+    expect(listeners.size).toBe(1);
+    land();
+    // On /tasks's own (unmarked) entry: let go, not run, and no step back from there.
+    expect(fn).not.toHaveBeenCalled();
+    expect(env.back).not.toHaveBeenCalled();
+    expect(listeners.size).toBe(0);
+    // A later back on that screen changes nothing.
+    land();
+    expect(fn).not.toHaveBeenCalled();
   });
 });

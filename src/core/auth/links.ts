@@ -1,7 +1,6 @@
 import "server-only";
 
 import { createServerSupabase } from "@/core/db/server";
-import { setSentryUser } from "@/core/observability/user";
 
 import { sessionIpHashSalt } from "./env";
 import { parseAuthLinkParams } from "./link-params";
@@ -69,7 +68,6 @@ export async function verifyAuthLink(params: {
     await supabase.auth.signOut({ scope: "local" });
     throw loginError;
   }
-  setSentryUser(userId);
 
   return SET_PASSWORD_PATH;
 }

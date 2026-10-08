@@ -36,7 +36,14 @@ const APPROVE_URL = "/api/approvals/approve";
  * (ARCHITECTURE §14.2 a). A clash with leave already approved comes back on the row with the
  * message naming it; the sheet links to the person's leave, where the Owner cancels or edits it.
  */
-export function PendingLeaveGroup({ requests }: { requests: PendingLeave[] }) {
+export function PendingLeaveGroup({
+  requests,
+  preview = false,
+}: {
+  requests: PendingLeave[];
+  /** The Owner's Today shows a few rows with their two actions and no Approve all (6.2). */
+  preview?: boolean;
+}) {
   const [reviewId, setReviewId] = useState<string | null>(null);
   const [rejectId, setRejectId] = useState<string | null>(null);
   const review = requests.find((request) => request.id === reviewId) ?? null;
@@ -59,7 +66,7 @@ export function PendingLeaveGroup({ requests }: { requests: PendingLeave[] }) {
         approve={(requestId) =>
           postKeepalive<{ keptDates: string[] }>(APPROVE_URL, { kind: "leave", id: requestId })
         }
-        approveAll={(requestIds) => approveLeaves({ requestIds })}
+        approveAll={preview ? undefined : (requestIds) => approveLeaves({ requestIds })}
         onApproved={(_, data) => {
           const note = keptDatesNote(data.keptDates);
           if (note) toast.info(note);

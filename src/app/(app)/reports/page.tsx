@@ -1,57 +1,59 @@
-import { ArrowRightIcon, FileBarChart2Icon } from "lucide-react";
+import { ArrowRightIcon } from "lucide-react";
 import type { Metadata } from "next";
 
+import { cn } from "@/core/lib/utils";
 import { can } from "@/core/permissions";
 import { requirePermission } from "@/core/permissions/server";
 import { DrillLink } from "@/core/ui/composites/drill-link";
 import { PageHeader } from "@/core/ui/composites/page-header";
 
-import { PlaceholderPage } from "../_placeholder/placeholder-page";
-import { STAND_INS } from "../_placeholder/stand-ins";
+import { parsePeriod } from "@/modules/reports";
+import { todayIST } from "@/core/time";
 
+import { AdminReport } from "./admin-report";
 import { REPORTS_DESCRIPTION } from "./copy";
+import {
+  OWNER_REPORTS,
+  REPORT_LINES_CLASS,
+  REPORT_ROW_CLASS,
+  REPORTS_LIST_CLASS,
+} from "./list-row";
 
 export const metadata: Metadata = { title: "Reports" };
 
-/** The reports the Owner can open today (kickoff 3b decision 30: Month is the first). */
-const OWNER_REPORTS = [
-  {
-    key: "month",
-    label: "Month",
-    href: "/reports/month",
-    description:
-      "Everyone's month: days worked, additional leave, comp leave, overtime and expenses to pay.",
-  },
-] as const;
-
 /**
- * Owner reports (task 9.3) and the Admin's scoped operational reports (6.x) share this route.
- * Since 3b.4 the Owner's first real report is here: **Month** (the team's month summary,
- * `attendance.view_all`), a row that drills into it, in the shape of the Settings list. An Admin
- * keeps the stand-in until their reports arrive.
+ * Owner reports (task 9.3) and the Admin's scoped operational reports share this route. Since
+ * 3b.4 the Owner's first real report is here: **Month** (the team's month summary,
+ * `attendance.view_all`), a row that drills into it, in the shape of the Settings list. Since 6.3
+ * an Admin reads their **work report** (`reports.scoped`, `AdminReport`).
  */
-export default async function ReportsPage() {
-  const viewer = await requirePermission(["reports.all", "reports.scoped"]);
+export default async function ReportsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const [viewer, params] = await Promise.all([
+    requirePermission(["reports.all", "reports.scoped"]),
+    searchParams,
+  ]);
   if (!can(viewer.role, "attendance.view_all")) {
-    return (
-      <PlaceholderPage title="Reports" copy={STAND_INS.reportsAdmin} icon={FileBarChart2Icon} />
-    );
+    return <AdminReport viewer={viewer} period={parsePeriod(params, todayIST())} />;
   }
   return (
     <>
       <PageHeader title="Reports" description={REPORTS_DESCRIPTION} help={REPORTS_DESCRIPTION} />
-      <ul
-        data-slot="reports-list"
-        className="border-border divide-border divide-y overflow-hidden rounded-lg border md:max-w-2xl"
-      >
+      <ul data-slot="reports-list" className={REPORTS_LIST_CLASS}>
         {OWNER_REPORTS.map((report) => (
           <li key={report.key}>
             <DrillLink
               href={report.href}
               data-slot="report-link"
-              className="active:bg-muted/60 focus-visible:ring-ring flex min-h-14 items-center gap-3 px-4 py-3 outline-none focus-visible:ring-2 focus-visible:ring-inset"
+              className={cn(
+                REPORT_ROW_CLASS,
+                "active:bg-muted/60 focus-visible:ring-ring outline-none focus-visible:ring-2 focus-visible:ring-inset",
+              )}
             >
-              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className={REPORT_LINES_CLASS}>
                 <span className="text-sm font-medium">{report.label}</span>
                 <span className="text-muted-foreground text-sm">{report.description}</span>
               </span>

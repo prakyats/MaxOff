@@ -7,7 +7,7 @@ import { parseReminderRules, type ReminderRule } from "@/core/lib/reminder-rules
 import { nextPosition } from "@/core/lists";
 import { systemClock } from "@/core/time";
 
-import type { TaskTypeSetting } from "../domain/task-types";
+import { taskTypeColor, type TaskTypeSetting } from "../domain/task-types";
 import type { TaskTypeKind } from "../domain/types";
 
 /**
@@ -22,7 +22,7 @@ export async function listTaskTypeSettings(): Promise<TaskTypeSetting[]> {
   const { data, error } = await supabase
     .from("task_types")
     .select(
-      "id, name, kind, shows_on_calendar, has_location, archived_at, position, default_reminders",
+      "id, name, kind, shows_on_calendar, has_location, archived_at, position, default_reminders, color",
     )
     .order("position", { ascending: true });
   if (error) throw error;
@@ -35,6 +35,7 @@ export async function listTaskTypeSettings(): Promise<TaskTypeSetting[]> {
     archivedAt: row.archived_at,
     position: row.position,
     defaultReminders: parseReminderRules(row.default_reminders),
+    color: taskTypeColor(row.color),
   }));
 }
 
@@ -53,6 +54,7 @@ export async function insertTaskType(values: {
   kind: TaskTypeKind;
   showsOnCalendar: boolean;
   hasLocation: boolean;
+  color: string;
   defaultReminders: ReminderRule[];
 }): Promise<string> {
   const supabase = await createServerSupabase();
@@ -70,6 +72,7 @@ export async function insertTaskType(values: {
       kind: values.kind,
       shows_on_calendar: values.showsOnCalendar,
       has_location: values.hasLocation,
+      color: values.color,
       default_reminders: values.defaultReminders as unknown as Json,
       position: nextPosition(last?.position ?? null),
     })
@@ -85,6 +88,7 @@ export async function updateTaskType(
     name: string;
     showsOnCalendar: boolean;
     hasLocation: boolean;
+    color: string;
     defaultReminders: ReminderRule[];
   },
 ): Promise<void> {
@@ -96,6 +100,7 @@ export async function updateTaskType(
         name: values.name,
         shows_on_calendar: values.showsOnCalendar,
         has_location: values.hasLocation,
+        color: values.color,
         default_reminders: values.defaultReminders as unknown as Json,
       },
       { count: "exact" },

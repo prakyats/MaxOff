@@ -22,8 +22,15 @@ export function pullDistance(dy: number): number {
 }
 
 /**
+ * Tab roots where the pull is off: the calendar's own vertical swipe grows and shrinks it
+ * (Kickoff 6 decision 25 A, 6.4b), so a downward drag there is the calendar's. The screen keeps
+ * refresh on return and Realtime.
+ */
+export const NO_PULL_ROOTS: readonly string[] = ["/calendar"];
+
+/**
  * Whether a pull may start here and now. Only on a tab's first screen (a top-level destination:
- * the same list the bar and `tab-history` use), scrolled to the very top, with no overlay open
+ * the same list the bar and `tab-history` use; never the calendar's, `NO_PULL_ROOTS`), scrolled to the very top, with no overlay open
  * (a sheet or dialog owns the gesture), no record in edit mode (typed text is never re-read
  * under the person), no approval inside its Undo window (the refresh-on-return guard: the list
  * would come back before the send has left), and not again within the throttle.
@@ -49,6 +56,7 @@ export function canPull({
 }): boolean {
   return (
     tabRoots.includes(pathname) &&
+    !NO_PULL_ROOTS.includes(pathname) &&
     scrollY <= 0 &&
     !overlayOpen &&
     !editing &&

@@ -7,7 +7,14 @@
  * falls back to `other` for a group it does not know. No personal data, no avatar, nothing behind
  * auth. The status-bar `badge` (the white M) is unchanged.
  */
-export const NOTIFY_GROUPS = ["tasks", "approvals", "leave", "reminders", "other"] as const;
+export const NOTIFY_GROUPS = [
+  "tasks",
+  "approvals",
+  "leave",
+  "reminders",
+  "reports",
+  "other",
+] as const;
 export type NotifyGroup = (typeof NOTIFY_GROUPS)[number];
 
 /**
@@ -61,6 +68,10 @@ const GROUP_OF_KIND: Readonly<Record<string, NotifyGroup>> = {
   expense_decided: "other",
   // 5.4: someone the Owner cannot reach (about a person, like coordinator_missing).
   member_unreachable: "other",
+  // 6.5: the Owner's end-of-day report is ready (its own group: a report, not a nudge).
+  eod_report_ready: "reports",
+  // 6.5: the weekly digest is email only and never pushed; named so the map stays complete.
+  owner_digest_weekly: "other",
 };
 
 /** The group a push for this kind carries; the quiet-hours summary and an unknown kind are `other`. */

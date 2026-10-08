@@ -1,0 +1,100 @@
+diff --git a/dist/cli/build/bundle-server.js b/dist/cli/build/bundle-server.js
+index f59e677181f1d0007993e36e05901f1f012689f9..dc85b699f22dc847133560a40a1130aadff22956 100644
+--- a/dist/cli/build/bundle-server.js
++++ b/dist/cli/build/bundle-server.js
+@@ -25,6 +25,7 @@ import { patchRouteModules } from "./patches/plugins/route-module.js";
+ import { shimReact } from "./patches/plugins/shim-react.js";
+ import { setWranglerExternal } from "./patches/plugins/wrangler-external.js";
+ import { copyPackageCliFiles } from "./utils/copy-package-cli-files.js";
++import { copyServerSourceMaps } from "./utils/copy-server-source-maps.js";
+ import { needsExperimentalReact } from "./utils/needs-experimental-react.js";
+ /** The dist directory of the Cloudflare adapter package */
+ const packageDistDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "../..");
+@@ -59,6 +60,8 @@ export async function bundleServer(buildOpts, projectOpts) {
+     const openNextServer = path.join(outputPath, packagePath, `index.mjs`);
+     const openNextServerBundle = path.join(outputPath, packagePath, `handler.mjs`);
+     const updater = new ContentUpdater(buildOpts);
++    // MaxOff patch: Next's server source maps beside the copied chunks (chained by esbuild).
++    copyServerSourceMaps(path.join(buildOpts.appBuildOutputPath, ".next", "server"), path.join(dotNextPath, "server"));
+     const result = await build({
+         entryPoints: [openNextServer],
+         bundle: true,
+@@ -70,6 +73,9 @@ export async function bundleServer(buildOpts, projectOpts) {
+         minifyIdentifiers: false,
+         minifySyntax: projectOpts.minify && !debug,
+         legalComments: "none",
++        // MaxOff patch: a linked source map, so `wrangler deploy` chains it into the Worker's map
++        // and Sentry can read server stack traces (ARCHITECTURE §18.2).
++        sourcemap: "linked",
+         metafile: true,
+         // Next traces files using the default conditions from `nft` (`node`, `require`, `import` and `default`)
+         //
+@@ -164,7 +170,9 @@ export async function bundleServer(buildOpts, projectOpts) {
+  */
+ export async function updateWorkerBundledCode(workerOutputFile) {
+     const code = await readFile(workerOutputFile, "utf8");
+-    const patchedCode = code.replace(/__require\d?\(/g, "require(").replace(/__require\d?\./g, "require.");
++    // MaxOff patch: the replacement keeps every column (spaces before the `(` or `.`), so the
++    // source map written above still lines up with the code.
++    const patchedCode = code.replace(/__require(\d?)([(.])/g, (_match, digit, tail) => `require${" ".repeat(2 + digit.length)}${tail}`);
+     await writeFile(workerOutputFile, patchedCode);
+ }
+ /**
+diff --git a/dist/cli/build/open-next/bundle-node-middleware.js b/dist/cli/build/open-next/bundle-node-middleware.js
+index 6cc1cb15b8b5cf8aaa8ef2c922bff499b35f9704..c038812e584f233d21a7a50ec054adc67ab8c1db 100644
+--- a/dist/cli/build/open-next/bundle-node-middleware.js
++++ b/dist/cli/build/open-next/bundle-node-middleware.js
+@@ -31,6 +31,7 @@ import { getCrossPlatformPathRegex } from "@opennextjs/aws/utils/regex.js";
+ import { build } from "esbuild";
+ import { glob } from "glob";
+ import { normalizePath } from "../../utils/normalize-path.js";
++import { copyServerSourceMaps } from "../utils/copy-server-source-maps.js";
+ import { patchWebpackRuntime } from "../patches/ast/webpack-runtime.js";
+ import { patchInstrumentation } from "../patches/plugins/instrumentation.js";
+ import { patchTurbopackRuntimeCode, patchTurbopackWasmChunkCode } from "../patches/plugins/turbopack.js";
+@@ -147,6 +148,8 @@ export async function bundleNodeMiddleware(options) {
+     // The bundler runtime resolves the chunks of the middleware at runtime, which workerd does
+     // not support. Inline the chunks so that they are statically bundled.
+     await inlineMiddlewareChunks(options, dotNextServerDir);
++    // MaxOff patch: Next's server source maps beside the copied chunks (chained by esbuild).
++    copyServerSourceMaps(path.join(options.appBuildOutputPath, ".next", "server"), dotNextServerDir);
+     logger.info("Bundling Node.js middleware...");
+     const middlewareConfig = config.middleware?.external ? config.middleware : undefined;
+     const overrides = {
+@@ -175,7 +178,9 @@ export async function bundleNodeMiddleware(options) {
+         target: "es2022",
+         platform: "neutral",
+         minify: options.minify,
+-        sourcemap: options.debug ? "inline" : false,
++        // MaxOff patch: a linked source map (inline in debug, as before), so `wrangler deploy`
++        // chains it into the Worker's map (ARCHITECTURE §18.2).
++        sourcemap: options.debug ? "inline" : "linked",
+         sourcesContent: false,
+         treeShaking: true,
+         conditions: ["module"],
+diff --git a/dist/cli/build/utils/copy-server-source-maps.js b/dist/cli/build/utils/copy-server-source-maps.js
+new file mode 100644
+index 0000000000000000000000000000000000000000..2ec6be9382edd3214f61e3e57b3cb5be432004e3
+--- /dev/null
++++ b/dist/cli/build/utils/copy-server-source-maps.js
+@@ -0,0 +1,20 @@
++// MaxOff patch (ARCHITECTURE §18.2): readable Sentry stack traces on the Worker.
++import { copyFileSync, existsSync, readdirSync } from "node:fs";
++import path from "node:path";
++/**
++ * OpenNext copies Next's traced server files but not their source maps. Copying each `.js.map`
++ * next to its copied `.js` lets esbuild chain the map of every chunk into the bundle's own map,
++ * so the Worker's map leads back to the app's source files.
++ *
++ * @param {string} fromServerDir Next's own `.next/server`
++ * @param {string} toServerDir the copy OpenNext bundles from
++ */
++export function copyServerSourceMaps(fromServerDir, toServerDir) {
++    if (!existsSync(toServerDir)) return;
++    for (const entry of readdirSync(toServerDir, { withFileTypes: true, recursive: true })) {
++        if (!entry.isFile() || !entry.name.endsWith(".js")) continue;
++        const target = path.join(entry.parentPath, `${entry.name}.map`);
++        const source = path.join(fromServerDir, path.relative(toServerDir, target));
++        if (existsSync(source) && !existsSync(target)) copyFileSync(source, target);
++    }
++}

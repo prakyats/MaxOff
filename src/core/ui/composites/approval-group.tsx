@@ -10,7 +10,6 @@ import { cn } from "@/core/lib/utils";
 import { DelayedSends, UNDO_MS } from "@/core/ui/delayed-sends";
 import { NETWORK_ERROR_MESSAGE } from "@/core/ui/action/network-error";
 import { Button } from "@/core/ui/primitives/button";
-import { Skeleton } from "@/core/ui/primitives/skeleton";
 import { describeError } from "@/core/ui/toast";
 
 import { ConfirmDialog } from "./confirm-dialog";
@@ -69,7 +68,8 @@ export function ApprovalGroup<T>({
    * Absent: the group is review-only (no Approve, no Approve all).
    */
   approve?: (id: string) => Promise<Result<T>>;
-  approveAll?: (ids: string[]) => Promise<Result<BulkOutcome>>;
+  /** Absent (or undefined: the Owner's Today preview, 6.2): no Approve all. */
+  approveAll?: ((ids: string[]) => Promise<Result<BulkOutcome>>) | undefined;
   /** Runs when a single approval has been recorded (e.g. to show kept dates). */
   onApproved?: (id: string, data: T) => void;
   onReview: (id: string) => void;
@@ -281,40 +281,4 @@ function omit(record: Readonly<Record<string, string>>, id: string): Record<stri
   const next = { ...record };
   delete next[id];
   return next;
-}
-
-/**
- * `ApprovalGroup` while the screen loads (ARCHITECTURE §14.1): the same header row, the same
- * two-line rows and the same two buttons, stacked under the text on a phone and beside it from
- * `md` up, so nothing moves when the data arrives.
- */
-export function ApprovalGroupSkeleton({ rows = 2 }: { rows?: number }) {
-  return (
-    <div aria-hidden data-slot="loading-approval-group">
-      <div className="mb-2 flex min-h-11 items-center justify-between gap-3">
-        <Skeleton className="h-3.5 w-24" />
-        <Skeleton className="h-11 w-28 rounded-md md:h-7" />
-      </div>
-      <ul className="border-border divide-border bg-card divide-y rounded-lg border">
-        {Array.from({ length: rows }, (_, i) => (
-          <li
-            key={i}
-            className={cn(
-              "flex flex-col gap-2 px-4 py-3 md:flex-row md:items-center md:gap-4",
-              LIST_ROW_MIN_H,
-            )}
-          >
-            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-              <Skeleton className="h-4 w-1/2" />
-              <Skeleton className="h-3.5 w-1/3" />
-            </div>
-            <div className="flex shrink-0 gap-2 *:flex-1 md:*:flex-none">
-              <Skeleton className="h-11 rounded-md md:h-8 md:w-20" />
-              <Skeleton className="h-11 rounded-md md:h-8 md:w-20" />
-            </div>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
 }
