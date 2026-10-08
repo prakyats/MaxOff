@@ -333,7 +333,7 @@ for (const role of ["owner", "admin", "staff"] as const) {
       const phone = page.locator('[data-slot="calendar-phone"]');
       await expect(phone).toBeVisible();
       await expect(page.locator("main")).not.toContainText(BUILD_WORDS);
-      const handle = page.locator('[data-slot="calendar-handle"]');
+      const handle = page.locator('button[data-slot="calendar-handle"]');
       const fits = async () => {
         // A tap's press feedback eases out over 120ms: measure the settled controls.
         await animationsSettled(page);
@@ -365,7 +365,7 @@ for (const role of ["owner", "admin", "staff"] as const) {
       // The filters: every trigger keeps the phone's 44px and 16px (6B review later item (k)).
       await page.keyboard.press("Escape");
       await expect(page.locator('[data-calendar="day-sheet"]')).toHaveCount(0);
-      await page.locator('[data-slot="calendar-filters-button"]').click();
+      await page.locator('[data-slot="calendar-filters-button"]:visible').click();
       await expect(page.locator('[data-calendar="filters-sheet"]')).toBeVisible();
       await fits();
       await expectNoZoomOnFocus(page);
