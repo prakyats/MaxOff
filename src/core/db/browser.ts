@@ -1,21 +1,21 @@
-import { createBrowserClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 
 import type { Database } from "./database.types";
 import { publicSupabaseEnv } from "./env";
 
 /**
- * The Supabase client for Client Components (Realtime subscriptions, TanStack
- * Query fetches). `createBrowserClient` keeps one instance per page, so calling
- * this repeatedly is cheap. RLS applies to every query.
+ * The Supabase client for the browser: Realtime only (task 5.1, ARCHITECTURE §10). RLS applies
+ * to everything it receives.
  *
- * Unused so far, and it carries **no session on its own**: the `sb-*` cookies are
- * `httpOnly` (`cookies.ts`), so it cannot read them. When 5.1 needs Realtime, pass
- * the access token from a server prop into `realtime.setAuth()` here rather than
- * loosening the cookies.
+ * It carries **no session of its own**: the `sb-*` cookies are `httpOnly` (`cookies.ts`), and
+ * they stay that way. The server hands the member's access token to the page (a prop, read from
+ * the session by `getRealtimeAuth()`), and this client reads it through `accessToken` each time
+ * Realtime connects or `realtime.setAuth()` is called; supabase-js then runs no auth of its own
+ * (no storage, no refresh timer, nothing read from `document.cookie`).
  */
-export function createBrowserSupabase() {
+export function createRealtimeSupabase(accessToken: () => Promise<string>) {
   const env = publicSupabaseEnv();
-  return createBrowserClient<Database>(env.url, env.publishableKey);
+  return createClient<Database>(env.url, env.publishableKey, { accessToken });
 }
 
-export type BrowserSupabase = ReturnType<typeof createBrowserSupabase>;
+export type RealtimeSupabase = ReturnType<typeof createRealtimeSupabase>;

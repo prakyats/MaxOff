@@ -2,10 +2,16 @@ import { unstable_rethrow } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { LogoutProvider } from "@/core/auth/components/logout-confirm";
-import { requireMember } from "@/core/auth/server";
+import { getRealtimeAuth, requireMember } from "@/core/auth/server";
 import { startEarly } from "@/core/lib/start-early";
 import { captureException } from "@/core/observability/capture";
 import { SentryUser } from "@/core/observability/sentry-user";
+import { LiveUpdatesLazy } from "@/core/notifications/components/live-lazy";
+import { PushBanner, PushSync } from "@/core/notifications/components/push-lazy";
+import { readPushEnv } from "@/core/notifications/env";
+import { readUnread } from "@/core/notifications/inbox";
+import type { ServerUnread } from "@/core/notifications/read-receipts";
+import { readOwnPushStatus } from "@/core/notifications/push/subscriptions";
 import { can } from "@/core/permissions";
 import { RouteTransition } from "@/core/ui/motion/route-transition";
 import { Toaster } from "@/core/ui/primitives/sonner";
@@ -26,16 +32,23 @@ import { countTasks } from "@/modules/tasks";
  * noted, plus those with changes requested (`task_counts()`). **Approvals** (2.4): the attendance
  * days, leave requests, extra work notes (3b.2) and expense claims (3b.3, `expenses.decide`)
  * waiting for whoever decides them (the Owner), plus the tasks at the step the viewer decides
- * (4.5: the Owner's final approvals, an Admin's checks); client items join in 7.4.
+ * (4.5: the Owner's final approvals, an Admin's checks); client items join in 7.4. **Alerts**
+ * (5.1, kickoff 5 decision 4): the viewer's unread notifications, on every role's bell (`readUnread()`, which the title bar's bell shares in the same request; `unread`,
+ * that count with the server's clock, or null when it could not be read).
  */
-async function navBadges(role: Parameters<typeof can>[0]): Promise<NavBadges> {
+async function navBadges(
+  role: Parameters<typeof can>[0],
+  unread: Promise<ServerUnread | null>,
+): Promise<NavBadges> {
   const tasks = can(role, "tasks.work") ? countTasks() : Promise.resolve(null);
+  const alerts = unread.then((server) => server?.count ?? 0);
   if (!can(role, "attendance.decide")) {
-    const counts = await tasks;
-    return { tasks: counts?.badge ?? 0, approvals: counts?.toDecide ?? 0 };
+    const [counts, unreadCount] = await Promise.all([tasks, alerts]);
+    return { tasks: counts?.badge ?? 0, approvals: counts?.toDecide ?? 0, alerts: unreadCount };
   }
-  const [counts, days, requests, notes, claims] = await Promise.all([
+  const [counts, unreadCount, days, requests, notes, claims] = await Promise.all([
     tasks,
+    alerts,
     countPendingDays(),
     countPendingRequests(),
     countPendingNotes(),
@@ -44,6 +57,7 @@ async function navBadges(role: Parameters<typeof can>[0]): Promise<NavBadges> {
   return {
     tasks: counts?.badge ?? 0,
     approvals: days + requests + notes + claims + (counts?.toDecide ?? 0),
+    alerts: unreadCount,
   };
 }
 
@@ -76,11 +90,25 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   // so a screen's loading state paints as soon as the member is known. A count that cannot be
   // read is reported and shows as none, never the error screen (4C review S3); Next's own
   // signals still go through.
-  const badges = countsOrNone(navBadges(viewer.role), (error) => {
+  const report = (error: unknown) => {
     unstable_rethrow(error);
     captureException(error);
+  };
+  const unread = readUnread().catch((error: unknown) => {
+    report(error);
+    return null;
   });
+  const badges = countsOrNone(navBadges(viewer.role, unread), report);
   const prompt = await startDayPrompt(viewer);
+  // The notifications band is judged per member (kickoff 5 decision 9; since 5.5 until a device
+  // of theirs has received a push, and whenever they are not reachable): one call gives its
+  // reason with the member's own active endpoints, which tell this device whether it is one of
+  // them (PushSync). The public key is read at runtime and handed to the browser (decision 26);
+  // null = push off.
+  const push = readPushEnv();
+  // The live bell's token (5.1) is read with them: the session is the one just verified.
+  const [{ endpoints, band }, live] = await Promise.all([readOwnPushStatus(), getRealtimeAuth()]);
+  const publicKey = push.mode === "on" ? push.publicKey : null;
 
   return (
     // The sign-out confirmation lives above the shell, so the edit pattern's unsaved-changes
@@ -89,10 +117,16 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       {/* Here rather than in the root layout: sonner and radix-tooltip are only ever used by
           signed-in screens, and mounting them globally shipped both to /login (task 1.5). */}
       <TooltipProvider>
-        <AppShell viewer={viewer} badges={badges}>
+        <AppShell viewer={viewer} badges={badges} unread={unread}>
           <SentryUser id={viewer.id} />
           <RefreshOnReturn />
           {prompt}
+          <PushSync publicKey={publicKey} endpoints={endpoints} />
+          {live ? (
+            <LiveUpdatesLazy memberId={viewer.id} token={live.token} expiresIn={live.expiresIn} />
+          ) : null}
+          {/* A band above the bottom bar (5A decision 30), never at the top of a screen. */}
+          {band ? <PushBanner publicKey={publicKey} reason={band} /> : null}
           <RouteTransition>{children}</RouteTransition>
         </AppShell>
       </TooltipProvider>

@@ -15,8 +15,9 @@ import { FORGOT_PASSWORD_PATH } from "../paths";
 import { FormAlert } from "./form-alert";
 
 /**
- * Email + password. On success the action redirects (to `next` when it is a safe path, else
- * home), so the form only ever renders a failure. Works at 375px: one column, large targets.
+ * Email + password. On success the action redirects (to `next` when it is a safe path, else the
+ * welcome screen while a new joiner's walkthrough is unfinished, else home), so the form only
+ * ever renders a failure. Works at 375px: one column, large targets.
  */
 export function LoginForm({ next }: { next?: string | undefined }) {
   const [state, formAction, pending] = useActionState(

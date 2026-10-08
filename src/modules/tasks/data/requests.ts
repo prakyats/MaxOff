@@ -136,6 +136,8 @@ export async function rpcConvertRequest(
     custom_fields: fields.customFields as Json,
     template_id: options.templateId,
     warnings: options.warnings as unknown as Json,
+    // Always sent, `[]` included: a missing list would take the type's default (5.3).
+    reminder_rules: fields.reminderRules as unknown as Json,
   };
   // The function takes null for the optional ones (the generated types cannot say so).
   const { data, error } = await supabase.rpc(

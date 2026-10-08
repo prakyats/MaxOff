@@ -1,3 +1,5 @@
+import { generateKeyPairSync } from "node:crypto";
+
 import { defineConfig, devices } from "@playwright/test";
 
 import { HOLD_PROXY_PORT, HOLD_PROXY_URL } from "./e2e/hold-proxy-config";
@@ -22,6 +24,10 @@ const LEAVE_SPECS = /leave\.spec\.ts$/;
 const BACK_GESTURE_SPECS = /back-gesture\.spec\.ts$/;
 const OWNER_REVIEW_SPECS = /owner-review\.spec\.ts$/;
 const OWNER_BULK_SPECS = /owner-bulk\.spec\.ts$/;
+// The push and email dispatch through the cron route (owner decision 29): the dispatcher is
+// organisation-wide and push-quiet moves the organisation's quiet hours, so these run serially,
+// one worker, after everything else, owning the queue (push-shared.ts `ownTheDispatchQueue`).
+const PUSH_CRON_SPECS = /push-(cron|quiet)\.spec\.ts$/;
 const LAUNCH_SPECS = /launch\.spec\.ts$/;
 const MOTION_SPECS = /motion\.spec\.ts$/;
 const REFRESH_SPECS = /refresh\.spec\.ts$/;
@@ -44,6 +50,37 @@ const TASK_SETTINGS_SPECS = /task-settings\.spec\.ts$/;
 const TASK_REQUESTS_SPECS = /task-requests\.spec\.ts$/;
 const LOADING_SCREENS_SPECS = /loading-screens\.spec\.ts$/;
 const TASK_PAGE_SPECS = /task-page\.spec\.ts$/;
+const PUSH_SPECS = /push\.spec\.ts$/;
+const NOTIFICATIONS_SPECS = /notifications\.spec\.ts$/;
+const STICKY_ACTIONS_SPECS = /sticky-actions\.spec\.ts$/;
+const VIEW_ADDRESS_SPECS = /view-address\.spec\.ts$/;
+const REACHABILITY_SPECS = /reachability\.spec\.ts$/;
+const ONBOARDING_SPECS = /onboarding\.spec\.ts$/;
+
+/**
+ * Web Push (5.2): the e2e server sends real, encrypted pushes to a fake push service the spec
+ * runs on the loopback host, so it needs a VAPID key pair. A throwaway pair is made here, in
+ * memory, for this run alone: never printed, never written, never the owner's (kickoff 5
+ * decision 10). The spec reads the public half from `process.env` to verify the signatures.
+ */
+function throwawayVapid(): { publicKey: string; privateKey: string } {
+  const { privateKey } = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
+  const jwk = privateKey.export({ format: "jwk" }) as { d: string; x: string; y: string };
+  const point = Buffer.concat([
+    Buffer.from([4]),
+    Buffer.from(jwk.x, "base64url"),
+    Buffer.from(jwk.y, "base64url"),
+  ]);
+  return { publicKey: point.toString("base64url"), privateKey: jwk.d };
+}
+// The config is loaded again in every worker process: the runner's pair is handed to the workers
+// through the environment they inherit, so the spec verifies with the key the server signs with.
+const VAPID =
+  process.env.E2E_VAPID_PUBLIC_KEY && process.env.E2E_VAPID_PRIVATE_KEY
+    ? { publicKey: process.env.E2E_VAPID_PUBLIC_KEY, privateKey: process.env.E2E_VAPID_PRIVATE_KEY }
+    : throwawayVapid();
+process.env.E2E_VAPID_PUBLIC_KEY = VAPID.publicKey;
+process.env.E2E_VAPID_PRIVATE_KEY = VAPID.privateKey;
 
 /**
  * Flow tests (ARCHITECTURE §15). `pnpm test:e2e` runs them; CI runs them as their own job.
@@ -100,7 +137,7 @@ export default defineConfig({
       name: "desktop",
       dependencies: ["setup"],
       // The mobile standard is about phone widths; running it at 1280px proves nothing.
-      testIgnore: [PRODUCTION_SPECS, SETUP_SPECS, MOBILE_SPECS, OWNER_BULK_SPECS],
+      testIgnore: [PRODUCTION_SPECS, SETUP_SPECS, MOBILE_SPECS, OWNER_BULK_SPECS, PUSH_CRON_SPECS],
       use: { ...devices["Desktop Chrome"] },
     },
     {
@@ -108,7 +145,7 @@ export default defineConfig({
       // phone of the two widths the standard is checked at.
       name: "mobile",
       dependencies: ["setup"],
-      testIgnore: [PRODUCTION_SPECS, SETUP_SPECS, OWNER_BULK_SPECS],
+      testIgnore: [PRODUCTION_SPECS, SETUP_SPECS, OWNER_BULK_SPECS, PUSH_CRON_SPECS],
       use: { ...devices["Pixel 5"], viewport: { width: 375, height: 812 } },
     },
     {
@@ -136,6 +173,13 @@ export default defineConfig({
       // templates (4C). And the held loading screens (4C review M1): they fit at large text and
       // trace their screen at every width. And the reworked task page (Kickoff 4 decisions
       // 26–32): its views, the Chat sheet and every layer on back, and large text, at both widths.
+      // And Web Push (5.2): the banner, Me's rows and the deep-link entry's back at both widths.
+      // And the bell and Alerts (5.1): the history, its back order and large text at both widths.
+      // And the sticky save bar against the last field (v1.3.1): a band that grows under a person
+      // at the page's end wraps differently at 430px, so both widths. And a view's address held
+      // through a refresh (2026-10-02): the task page's views and a list's filter, at both widths.
+      // And onboarding for reachability (5.5): the iPhone's install steps, Me's device list and
+      // their layers on back, at both widths.
       name: "mobile-lg",
       dependencies: ["setup"],
       testMatch: [
@@ -166,6 +210,12 @@ export default defineConfig({
         TASK_REQUESTS_SPECS,
         LOADING_SCREENS_SPECS,
         TASK_PAGE_SPECS,
+        PUSH_SPECS,
+        NOTIFICATIONS_SPECS,
+        STICKY_ACTIONS_SPECS,
+        VIEW_ADDRESS_SPECS,
+        REACHABILITY_SPECS,
+        ONBOARDING_SPECS,
       ],
       use: { ...devices["Pixel 5"], viewport: { width: 430, height: 932 } },
     },
@@ -175,6 +225,17 @@ export default defineConfig({
       name: "owner-bulk",
       dependencies: ["desktop", "mobile", "mobile-lg"],
       testMatch: OWNER_BULK_SPECS,
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
+      // The cron dispatch (owner decision 29): after owner-bulk, so after every project that
+      // creates rows; one worker, one file at a time, each test one dispatch on a queue it owns.
+      // CI runs it alone after owner-bulk with `--no-deps` (ci.yml), like owner-bulk.
+      name: "push-cron",
+      dependencies: ["owner-bulk"],
+      testMatch: PUSH_CRON_SPECS,
+      fullyParallel: false,
+      workers: 1,
       use: { ...devices["Desktop Chrome"] },
     },
     {
@@ -213,8 +274,15 @@ export default defineConfig({
         S3_ACCESS_KEY_ID: process.env.S3_ACCESS_KEY_ID ?? "maxoff",
         S3_SECRET_ACCESS_KEY: process.env.S3_SECRET_ACCESS_KEY ?? "maxoff-local-secret",
         S3_REGION: process.env.S3_REGION ?? "auto",
-        // The cron route is exercised with a fixed test secret (storage.spec.ts).
+        // The cron routes are exercised with a fixed test secret (storage.spec.ts, push.spec.ts).
         CRON_SECRET: process.env.CRON_SECRET ?? "e2e-only-cron-secret-not-used-anywhere-else",
+        // Web Push (5.2): this run's throwaway key pair (above).
+        VAPID_PUBLIC_KEY: VAPID.publicKey,
+        VAPID_PRIVATE_KEY: VAPID.privateKey,
+        VAPID_SUBJECT: "mailto:e2e@maxoff.local",
+        // The fake push services the specs run are plain http on the loopback host: the sender
+        // refuses those everywhere but here (5A review M2; never honoured in staging/production).
+        PUSH_ALLOW_LOOPBACK_ENDPOINTS: "1",
       },
     },
   ],

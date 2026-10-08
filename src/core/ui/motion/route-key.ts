@@ -5,24 +5,27 @@
  * header and tab bar, rebuilding both on every switch (the `/leave` layout promises they stay
  * put while a view loads).
  *
- * Each entry matches every tab route of one screen; group 1 is the shared key. A new screen
- * with tab routes adds its entry here (`route-key.test.ts` lists the current ones).
+ * Each entry matches every tab route of one screen; the shared key is the entry's `key`, or else
+ * group 1. A new screen with tab routes adds its entry here (`route-key.test.ts` lists the
+ * current ones).
  */
-const TAB_ROUTES: readonly RegExp[] = [
-  // `/leave`, `/leave/attendance` (2.3), `/leave/extra-work` (3b.2) and `/leave/expenses` (3b.3),
-  // under `leave/layout.tsx`.
-  /^(\/leave)(?:\/(?:attendance|extra-work|expenses))?$/,
+const TAB_ROUTES: readonly { match: RegExp; key?: string }[] = [
+  // Attendance & leave: `/leave` and `/leave/attendance` (2.3), under `leave/(leave)/layout.tsx`.
+  { match: /^(\/leave)(?:\/attendance)?$/ },
+  // Extra work & expenses (5B decision 3): `/leave/extra-work` (3b.2) and `/leave/expenses`
+  // (3b.3), under `leave/(work)/layout.tsx`: another screen, so a key of its own.
+  { match: /^\/leave\/(?:extra-work|expenses)$/, key: "/leave/extra-work" },
   // A person's page (3.4, `person-nav.tsx`): Profile, and for the Owner Leave, Attendance and
   // Month (3b.4).
-  /^(\/people\/[^/]+)(?:\/(?:leave|attendance|month))?$/,
+  { match: /^(\/people\/[^/]+)(?:\/(?:leave|attendance|month))?$/ },
   // A client's page (3.4, `client-nav.tsx`): Overview, Brand, Activity.
-  /^(\/clients\/[^/]+)(?:\/(?:brand|activity))?$/,
+  { match: /^(\/clients\/[^/]+)(?:\/(?:brand|activity))?$/ },
 ];
 
 export function routeKey(pathname: string): string {
   for (const route of TAB_ROUTES) {
-    const key = route.exec(pathname)?.[1];
-    if (key) return key;
+    const found = route.match.exec(pathname);
+    if (found) return route.key ?? found[1] ?? pathname;
   }
   return pathname;
 }

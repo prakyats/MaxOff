@@ -1,7 +1,8 @@
 -- 4C review fixes (migration phase4c_review_fixes) and Kickoff 4 decisions (23) and (24):
 -- (S1)  a template's field defaults are checked in the database (32 KB, a real task field of the
 --       organization, company-wide or the template's type, a value of its type; an unchanged key
---       passes) and its reminders take no API write before 5.3;
+--       passes); its reminders took no API write before 5.3, whose editor granted them back
+--       (a valid list written, an invalid one refused);
 -- (S2)  the gaps of 37: who reads a request's history (denied: another Staff member, an Admin
 --       outside the label), convert NOT_FOUND on another Admin's client, the UNAUTHENTICATED paths
 --       of every request function, task_type_move refused for Staff;
@@ -171,11 +172,13 @@ select lives_ok(format($$ update public.task_templates set name = 'Reel (short)'
   'a default the write leaves as it was passes (its field was archived since)');
 select throws_ok(format($$ update public.task_templates set field_defaults = '{"format": "9:16", "old_code": "R2"}' where id = %L $$, pg_temp.fx('tpl')),
   'P0001', 'VALIDATION', 'but a changed value for an archived field is refused');
-select throws_ok($$ insert into public.task_templates (name, task_type_id, reminder_rules)
-    values ('Reminders', pg_temp.type_id('Normal'), '[{"offset": 60}]') $$,
-  '42501', null, 'reminders take no API insert before 5.3');
+-- 5.3's editor granted the column back (migration reminder_editor_grants): a valid list is
+-- written, an invalid one refused by task_templates_reminder_rules_valid.
+select lives_ok($$ insert into public.task_templates (name, task_type_id, reminder_rules)
+    values ('Reminders', pg_temp.type_id('Normal'), '[{"before": 1, "unit": "days"}]') $$,
+  'since 5.3 a template takes a valid reminder list on insert');
 select throws_ok(format($$ update public.task_templates set reminder_rules = '[{"offset": 60}]' where id = %L $$, pg_temp.fx('tpl')),
-  '42501', null, 'nor an API update');
+  '23514', null, 'and refuses an invalid one on update');
 select pg_temp.as_member('owner');
 select throws_ok(format($$ update public.task_templates set field_defaults = '{"format": 9}' where id = %L $$, pg_temp.fx('tpl')),
   'P0001', 'VALIDATION', 'the Owner''s edits are checked too');

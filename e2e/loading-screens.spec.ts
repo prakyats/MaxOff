@@ -17,6 +17,9 @@ import {
   removeTasksTitled,
   removeTemplatesNamed,
   rpcAs,
+  serviceDelete,
+  serviceInsert,
+  serviceSelect,
   type SessionRole,
   storageStateFor,
   taskTypeId,
@@ -58,7 +61,8 @@ const TRACE_TOLERANCE = 1;
 /** A point the skeleton must meet: its selector while held, and the page's once settled. */
 type Point = { held: string; settled: string };
 
-type Fixture = "staff task" | "suggestion" | "template" | "task to check" | "task page";
+type Fixture =
+  "staff task" | "suggestion" | "template" | "task to check" | "task page" | "notification";
 
 type LoadingScreen = {
   role: SessionRole;
@@ -73,6 +77,26 @@ type LoadingScreen = {
   fixture?: Fixture;
   /** What the settled page waits for before it is measured (a sheet that slides in). */
   settle?: (page: Page) => Promise<void>;
+};
+
+const ALERTS: Record<string, Point> = {
+  // 5B decision 10: the "All | Unread" filter, then the first day heading.
+  filter: {
+    held: '[data-slot="alerts-filter"]',
+    settled: '[data-slot="alerts-filter"]',
+  },
+  "unread line": {
+    held: '[data-slot="loading-notifications"] > :first-child',
+    settled: '[data-slot="notification-bar"]',
+  },
+  "first heading": {
+    held: '[data-slot="loading-notifications"] > :nth-child(2)',
+    settled: '[data-slot="notification-group"] > h2',
+  },
+  "first row": {
+    held: '[data-slot="loading-notifications"] li',
+    settled: '[data-slot="notification-row"]',
+  },
 };
 
 const TASKS_TEAM: Record<string, Point> = {
@@ -148,6 +172,19 @@ const ME: Record<string, Point> = {
   },
 };
 
+/**
+ * Whoever marks attendance: the rows of their own pages under the profile (5B decision 3). Help &
+ * troubleshooting (decision 4) is not traced: the device card above it says what this device's
+ * notifications are once it has looked, one line or three, which no skeleton can know.
+ */
+const ME_WITH_PAGES: Record<string, Point> = {
+  ...ME,
+  "own pages": {
+    held: '[data-slot="loading-me-pages"]',
+    settled: '[data-slot="me-pages"]',
+  },
+};
+
 const LOADING_SCREENS: readonly LoadingScreen[] = [
   // Today: the Owner's attendance card and people board (2.4) over the stand-in; an Admin's
   // strip (its End day reads the day's overtime note, only the page does) over theirs.
@@ -200,14 +237,14 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
     path: "/me",
     marker: 'aria-label="Loading Me"',
     hold: "/rest/v1/coordinated_freelancers",
-    trace: ME,
+    trace: ME_WITH_PAGES,
   },
   {
     role: "staff",
     path: "/me",
     marker: 'aria-label="Loading Me"',
     hold: "/rest/v1/coordinated_freelancers",
-    trace: ME,
+    trace: ME_WITH_PAGES,
   },
   // A task's page (4.4): its skeleton streams before the page decides; an unknown id ends on the
   // not-found screen, so there is nothing to trace, only the fit (the Owner's ⋯ placeholder, and
@@ -409,6 +446,45 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
       },
     },
   },
+  // 5.4: Settings → Notifications. The Owner always has someone the seed cannot reach; an
+  // Admin's list depends on other specs' tasks, so theirs is traced to the heading.
+  {
+    role: "owner",
+    path: "/settings/notifications",
+    marker: 'data-slot="loading-reachability"',
+    hold: "/rest/v1/rpc/reachability_overview",
+    trace: {
+      "first heading": {
+        held: '[data-slot="loading-reachability"] > div > :first-child',
+        settled: '[data-slot="reachability"] > section:first-child > h2',
+      },
+      "first row": {
+        held: '[data-slot="loading-reachability"] [data-slot="loading-row"]',
+        settled: '[data-slot="reachability-row"]',
+      },
+    },
+  },
+  {
+    role: "admin",
+    path: "/settings/notifications",
+    marker: 'data-slot="loading-reachability"',
+    hold: "/rest/v1/rpc/reachability_overview",
+    trace: {
+      "first heading": {
+        held: '[data-slot="loading-reachability"] > div > :first-child',
+        settled: '[data-slot="reachability"] > section:first-child > h2',
+      },
+    },
+  },
+  // 5.1: Alerts, every role: the filter (5B), the "N unread" line, the day heading, the rows.
+  ...(["owner", "admin", "staff"] as const).map((role): LoadingScreen => ({
+    role,
+    path: "/notifications",
+    marker: 'data-slot="loading-notifications"',
+    hold: "/rest/v1/rpc/notifications_inbox",
+    fixture: "notification",
+    trace: ALERTS,
+  })),
   // An Admin's Approvals: the one group, the tasks they check (4.5).
   {
     role: "admin",
@@ -447,8 +523,23 @@ function shortTag(prefix: string): string {
 async function makeFixture(
   prefix: string,
   fixture: Fixture,
+  role: SessionRole,
 ): Promise<{ remove: () => Promise<void>; task?: string }> {
   const { owner, admin, staff } = USERS;
+  if (fixture === "notification") {
+    const [member] = await serviceSelect<{ id: string; org_id: string }>(
+      `members?email=eq.${encodeURIComponent(USERS[role].email)}&select=id,org_id`,
+    );
+    const row = await serviceInsert<{ id: string }>("notifications", {
+      org_id: member?.org_id,
+      recipient_id: member?.id,
+      kind: "leave_decided",
+      title: `${prefix}alert`,
+      body: "Open your requests.",
+      link: "/leave",
+    });
+    return { remove: () => serviceDelete(`notifications?id=eq.${row.id}`) };
+  }
   if (fixture === "suggestion") {
     await rpcAs(staff.email, staff.password, "task_request_create", { title: `${prefix}reel` });
     return { remove: () => removeRequestsTitled(prefix) };
@@ -538,7 +629,7 @@ for (const role of ["owner", "admin", "staff"] as const) {
           expect(day?.started_at, "the seeded Admin's day is started (auth.setup)").toBeTruthy();
           expect(day?.ended_at, "and not ended").toBeNull();
         }
-        const made = screen.fixture ? await makeFixture(prefix, screen.fixture) : null;
+        const made = screen.fixture ? await makeFixture(prefix, screen.fixture, role) : null;
         const remove = made?.remove;
         const path = screen.path.replace(":task", made?.task ?? ":task");
         const session = await ownSession(page, user.email, user.password);

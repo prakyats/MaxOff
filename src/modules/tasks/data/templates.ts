@@ -3,6 +3,7 @@ import "server-only";
 import type { Json } from "@/core/db";
 import { createServerSupabase } from "@/core/db/server";
 import { AppError, isPostgresError } from "@/core/errors";
+import { parseReminderRules, type ReminderRule } from "@/core/lib/reminder-rules";
 import { systemClock } from "@/core/time";
 
 import type { Priority } from "../domain/types";
@@ -15,7 +16,7 @@ import type { TaskTemplate } from "../domain/templates";
  */
 
 const COLUMNS =
-  "id, name, task_type_id, description, default_priority, stages, field_defaults, archived_at, created_by";
+  "id, name, task_type_id, description, default_priority, stages, field_defaults, archived_at, created_by, reminder_rules";
 
 function asObject(value: Json): Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value)
@@ -38,6 +39,7 @@ export async function listTaskTemplates(): Promise<TaskTemplate[]> {
     fieldDefaults: asObject(row.field_defaults),
     archived: row.archived_at !== null,
     createdBy: row.created_by,
+    reminderRules: parseReminderRules(row.reminder_rules),
   }));
 }
 
@@ -48,6 +50,7 @@ export type TemplateValues = {
   defaultPriority: Priority;
   stages: string[];
   fieldDefaults: Record<string, unknown>;
+  reminderRules: ReminderRule[];
 };
 
 function row(values: TemplateValues) {
@@ -58,6 +61,7 @@ function row(values: TemplateValues) {
     default_priority: values.defaultPriority,
     stages: values.stages,
     field_defaults: values.fieldDefaults as Json,
+    reminder_rules: values.reminderRules as unknown as Json,
   };
 }
 

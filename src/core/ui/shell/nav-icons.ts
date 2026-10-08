@@ -1,6 +1,7 @@
 import {
   BellIcon,
   BriefcaseIcon,
+  CalendarCheckIcon,
   CalendarDaysIcon,
   CheckSquareIcon,
   CircleUserIcon,
@@ -9,6 +10,7 @@ import {
   LayoutDashboardIcon,
   type LucideIcon,
   MoreHorizontalIcon,
+  ReceiptIcon,
   SettingsIcon,
   SunriseIcon,
   UsersIcon,
@@ -29,5 +31,7 @@ export const NAV_ICONS: Record<NavIconName, LucideIcon> = {
   sunrise: SunriseIcon,
   bell: BellIcon,
   "circle-user": CircleUserIcon,
+  "calendar-check": CalendarCheckIcon,
+  receipt: ReceiptIcon,
   more: MoreHorizontalIcon,
 };

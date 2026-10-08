@@ -94,9 +94,36 @@ insert into app_internal values
   ('task_actor'), ('task_assignee_check'), ('task_check_fields'), ('task_record_warnings'),
   -- 4C: a task request row locked inside the request functions
   ('task_request_lock'),
+  -- 5.1: app.notify() and the helpers the retrofitted transition functions and jobs call
+  ('notify'), ('org_owner_id'), ('member_name'), ('notify_date'), ('notify_when'), ('notify_span'),
+  ('task_people'), ('notify_leave_owner'), ('notify_leave_member'), ('coordinator_link'),
+  ('end_day_reminder'),
+  -- 5.1 review (M1): a comment's recipients kept to the people who can still see the task
+  ('task_visible_to'),
   -- Phase 4 review: the reminder rules' bounds task_create and task_update_assignment share, and the
   -- route's rule and move (Kickoff 4 decision 34)
-  ('task_check_reminders'), ('task_approver_on_task'), ('task_skip_admin_step');
+  ('task_check_reminders'), ('task_approver_on_task'), ('task_skip_admin_step'),
+  -- 5.2: the dispatcher's backoff (its functions are public, service_role only, for PostgREST)
+  ('push_backoff'),
+  -- 5A review fixes: the local-only switches (app.local_flags), read inside definer functions
+  ('local_flag'),
+  -- 5.3: the reminders (service_role only; reminder_rules_valid is the CHECK constraints', so it
+  -- keeps the API grant)
+  ('reminder_offset'), ('task_reminder_rules'), ('task_arm_reminders'), ('tasks_reminders_trigger'),
+  ('reminder_paused'), ('reminder_resume_at'), ('reminder_in'), ('reminders_tick'), ('reminders_backfill'),
+  -- 5.3 (owner 2026-10-03): the staging dry run's acknowledgement counts
+  ('reminders_backfill_ack_preview'),
+  -- 5B slice 7: the Owner digest's payload and its plain-text lines (digest_daily and
+  -- owner_digest_preview are public: the job's and the Owner's)
+  ('owner_digest_payload'), ('owner_digest_text'),
+  -- 5B 5.4: reachability's classification, its live list and the alert's words (reachability_check
+  -- and reachability_overview are public: the job's and the Settings screen's)
+  ('reachability_state'), ('reachability_live'), ('reachability_reason'),
+  -- 5B 5.5: why a member's notifications band shows (push_status_own is public: the layout's read)
+  ('push_band'),
+  -- 5.5 owner answers (2026-10-06): the subscribe behind push_subscription_upsert (automatic) and
+  -- push_subscription_turn_on (a tap), which differ only in whether a removed device comes back
+  ('push_subscription_save');
   -- 3c.1 (contract migration): attendance_logout and logout_not_recorded are gone with the 2.x gate.
 select is(
   (select count(*) from pg_proc p
@@ -117,7 +144,7 @@ select is(
   0::bigint,
   'the internal helpers: service_role only, never the API role');
 select is((select count(*) from pg_proc p where p.pronamespace = 'app'::regnamespace
-             and p.proname in (select name from app_internal)), 29::bigint,
+             and p.proname in (select name from app_internal)), 60::bigint,
   'the internal helper list matches what exists');
 select cmp_ok((select count(*) from pg_proc where pronamespace = 'app'::regnamespace), '>=', 4::bigint,
   'the grant check saw the app functions');

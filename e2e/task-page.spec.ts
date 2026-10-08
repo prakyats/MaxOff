@@ -1,10 +1,11 @@
-import { type Page, type TestInfo } from "@playwright/test";
+import { type Page, type Request, type TestInfo } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 
-import { addISTDays, istInstant, istWeekday, todayIST } from "../src/core/time";
+import { addISTDays, istInstant, istWeekday, systemClock, todayIST } from "../src/core/time";
 
 import {
+  dockTop,
   animationsSettled,
   expectBackStack,
   expectNoHorizontalScroll,
@@ -14,6 +15,7 @@ import {
   removeTasksTitled,
   rpcAs,
   runInstalled,
+  serviceUpdate,
   signIn,
   storageStateFor,
   taskTypeId,
@@ -80,9 +82,82 @@ const step = (page: Page) => page.locator('[data-slot="task-next-step"]');
 const tab = (page: Page, view: string) =>
   page.locator(`[data-slot="task-tab"][data-view-tab="${view}"]`);
 
-/** The views' bar has hydrated: a tap on it is the app's from then on. */
+/**
+ * The task page sends read receipts in the background: the bell's (`/api/notifications/read-record`)
+ * as it opens (kickoff 5 decision 4) and Chat's (`/api/tasks/read`) as Chat opens (decision 28),
+ * plain requests since ARCHITECTURE §4.4, no longer server actions. They used to revalidate
+ * the screen, and one answering while the view was being switched (`history.replaceState`) made
+ * Next reload the page under the spec (5A review S4); since the owner's decision of 2026-10-01 no
+ * read revalidates anything (`notifications.spec` proves the page is never reloaded). An action
+ * still running at a test's end also raced the next repetition's cleanup (a `task_reads` row for
+ * a task being deleted: 23503 → 409). So a spec lets the screen settle as a person would: every
+ * server action and background call (`/api/`) this page sent has answered and the answer is
+ * painted. Nothing is sent again; this only waits.
+ */
+const actionsInFlight = new WeakMap<Page, Set<Request>>();
+
+function trackActions(page: Page): void {
+  const pending = new Set<Request>();
+  actionsInFlight.set(page, pending);
+  page.on("request", (request) => {
+    if (
+      (request.method() === "POST" && request.headers()["next-action"]) ||
+      new URL(request.url()).pathname.startsWith("/api/")
+    ) {
+      pending.add(request);
+    }
+  });
+  // A new document (a reload, a back across a full load) ends the old one's requests: one still
+  // out then never answers, and Chromium reports no failure for it. The new document's own
+  // actions start after it has loaded (they are sent from effects).
+  page.on("domcontentloaded", () => pending.clear());
+  page.on("requestfinished", (request) => pending.delete(request));
+  page.on("requestfailed", (request) => pending.delete(request));
+}
+
+async function receiptsSettled(page: Page): Promise<void> {
+  const pending = actionsInFlight.get(page);
+  expect(pending, "the page's server actions are tracked (beforeEach)").toBeTruthy();
+  await expect
+    .poll(() => pending!.size, { message: "every server action and background call answered" })
+    .toBe(0);
+  // The answer's re-render committed and painted.
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      ),
+  );
+}
+
+/**
+ * The fixture's notifications about this task, read before the page opens: they are not what a
+ * layout spec is about, and an unread one makes the page send the bell's receipt, whose read then
+ * comes back as a Realtime event seconds later (it asks the server for the bell's count), in the
+ * middle of a measurement (5A review S4).
+ */
+async function fixtureNotificationsRead(taskId: string): Promise<void> {
+  await serviceUpdate(`notifications?entity_id=eq.${taskId}&read_at=is.null`, {
+    read_at: systemClock().toISOString(),
+  });
+}
+
+test.beforeEach(({ page }) => {
+  trackActions(page);
+});
+
+test.afterEach(async ({ page }) => {
+  // No read receipt outlives its test (the next repetition deletes the task it is about).
+  if (!page.isClosed()) await receiptsSettled(page);
+});
+
+/**
+ * The views' bar has hydrated: a tap on it is the app's from then on. And the read receipt the
+ * page sent on opening has answered (see `receiptsSettled`).
+ */
 async function live(page: Page): Promise<void> {
   await expect(page.locator('[data-slot="task-tabs"]')).toHaveAttribute("data-live", "");
+  await receiptsSettled(page);
 }
 const panel = (page: Page, view: string) => page.locator(`[data-slot="task-panel-${view}"]`);
 const chatSheet = (page: Page) => page.locator('[data-slot="task-chat-sheet"]');
@@ -149,8 +224,10 @@ test.describe("the task page, one step at a time (decision 26)", () => {
       // A sticky bar above the bottom bar (decision 32)…
       await expect(bar).toHaveCSS("position", "fixed");
       const box = await bar.boundingBox();
-      const nav = await page.locator('[data-slot="bottom-nav"]').boundingBox();
-      expect(Math.abs((box?.y ?? 0) + (box?.height ?? 0) - (nav?.y ?? 0))).toBeLessThanOrEqual(1);
+      // Directly on what is docked below it: the bottom bar, or the push band while it shows.
+      expect(
+        Math.abs((box?.y ?? 0) + (box?.height ?? 0) - (await dockTop(page))),
+      ).toBeLessThanOrEqual(1);
       // …that steps aside while the keyboard is open, and comes back after.
       await openKeyboard(page, 320);
       await expect(bar).toBeHidden();
@@ -277,8 +354,10 @@ test.describe("the views are a view control (decisions 27, 32)", () => {
       await expect(tab(page, "details")).toBeHidden();
       await expect(panel(page, "details")).toBeVisible();
     }
-    // A refresh (or a shared link) keeps the view.
+    // A refresh (or a shared link) keeps the view: the address holds it (written once the
+    // router has nothing in flight, `view-address.ts`), and a reload lands on it.
     await tab(page, "activity").click();
+    await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}\\?tab=activity$`));
     await page.reload();
     await expect(tab(page, "activity")).toHaveAttribute("aria-current", "true");
     await expect(panel(page, "activity")).toBeVisible();
@@ -526,6 +605,7 @@ test.describe("the task page on a phone, installed: back closes each layer, one 
       task_id: taskId,
       body: "Starting on the b-roll.",
     });
+    await fixtureNotificationsRead(taskId);
     await runInstalled(page);
     await as(page, "staff", info);
     await page.goto("/my-day");
@@ -543,7 +623,14 @@ test.describe("the task page on a phone, installed: back closes each layer, one 
       await expect(tab(page, view)).toHaveAttribute("aria-current", "true");
     }
     await tab(page, "activity").click();
-    await page.locator('[data-slot="task-history-show-all"]').click();
+    const showAll = page.locator('[data-slot="task-history-show-all"]');
+    const lines = Number((await showAll.textContent())?.match(/\d+/)?.[0]);
+    await showAll.click();
+    // The whole history is on screen before it is scrolled, as a person sees it open first. A
+    // Show all tapped while the view switch's own page request is still out (Next re-requests
+    // the page for the new `?tab=`) can paint a few hundred ms later, and a scroll made before
+    // that moved a page that was still short (PROGRESS Ideas (h): the gap of 101–104 px).
+    await expect(historyRows(page)).toHaveCount(lines);
     // Scrolled down the whole history, the views' bar sticks right under the title bar.
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
     await expect
@@ -559,6 +646,8 @@ test.describe("the task page on a phone, installed: back closes each layer, one 
     await tab(page, "chat").click();
     const sheet = chatSheet(page);
     await expect(sheet).toBeVisible();
+    // Chat's read receipt (the helper's comment) has answered before anything is measured.
+    await receiptsSettled(page);
     // Measured once it has slid in.
     await animationsSettled(page);
     const viewport = page.viewportSize() as { width: number; height: number };
@@ -644,6 +733,7 @@ test.describe("the task page at large system text (decision 31)", () => {
       task_id: taskId,
       body: "A comment long enough to wrap onto a second line on a small phone, surely.",
     });
+    await fixtureNotificationsRead(taskId);
     await page.goto(`/tasks/${taskId}`);
     await hydrated(page);
     await live(page);
@@ -665,13 +755,16 @@ test.describe("the task page at large system text (decision 31)", () => {
     const bar = page.locator('[data-slot="task-tabs"]');
     await expect.poll(() => bar.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
     for (const cell of await page.locator('[data-slot="task-tab"]:visible').all()) {
-      const rect = await cell.boundingBox();
-      expect(rect?.height ?? 0).toBeGreaterThanOrEqual(44);
+      await expect
+        .poll(async () => (await cell.boundingBox())?.height ?? 0)
+        .toBeGreaterThanOrEqual(44);
     }
     await scale(0);
 
     await tab(page, "chat").click();
     await expect(chatSheet(page)).toBeVisible();
+    // Chat's read receipt (the Crew member's comment) has answered before anything is measured.
+    await receiptsSettled(page);
     for (const percent of [130, 200]) {
       await scale(percent);
       await expectNoHorizontalScroll(page);

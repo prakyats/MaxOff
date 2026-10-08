@@ -269,7 +269,12 @@ test.describe("Staff", () => {
   test.use({ storageState: storageStateFor("staff") });
 
   test("cannot open Settings or any of its sections", async ({ page }) => {
-    for (const path of ["/settings", "/settings/company", "/settings/job-titles"]) {
+    for (const path of [
+      "/settings",
+      "/settings/company",
+      "/settings/job-titles",
+      "/settings/thresholds",
+    ]) {
       await page.goto(path);
       await expect(page, `${path} for Staff`).toHaveURL(/\/forbidden$/);
     }

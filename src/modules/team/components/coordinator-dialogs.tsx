@@ -4,6 +4,7 @@ import { Loader2Icon } from "lucide-react";
 import { useEffect, useId, useMemo, useState } from "react";
 
 import type { ResultError } from "@/core/errors";
+import { getInBackground } from "@/core/http/background";
 import { ROLE_LABELS } from "@/core/lib/role-labels";
 import { ActionStatus } from "@/core/ui/action/action-status";
 import { useAction } from "@/core/ui/action/use-action";
@@ -30,13 +31,9 @@ import {
 import { Textarea } from "@/core/ui/primitives/textarea";
 import { describeError, toastResult } from "@/core/ui/toast";
 
+import type { CoordinatorChoices, FreelancerHandoverData } from "../actions/background";
 import {
   changeCoordinator,
-  type CoordinatorChoices,
-  type FreelancerHandoverData,
-  getCoordinatorChoices,
-  getFreelancerHandover,
-  getOpenTaskCount,
   type InviteOutcome,
   inviteAsEmployee,
   reactivateMember,
@@ -46,13 +43,18 @@ import type { TeamMember } from "../domain/members";
 
 import { InviteLinkPanel } from "./invite-link-panel";
 
-/** Who may coordinate, read when the dialog opens (`getCoordinatorChoices`). */
+/**
+ * Who may coordinate, read when the dialog opens. The dialogs' reads are plain requests, never
+ * server actions (ARCHITECTURE §4.4): an effect sends them.
+ */
 function useCoordinatorChoices(memberId: string) {
   const [choices, setChoices] = useState<CoordinatorChoices | null>(null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
     let live = true;
-    void getCoordinatorChoices({ memberId }).then((result) => {
+    void getInBackground<CoordinatorChoices>("/api/team/coordinator-choices", {
+      member: memberId,
+    }).then((result) => {
       if (!live) return;
       if (result.ok) setChoices(result.data);
       else setFailed(true);
@@ -308,7 +310,9 @@ export function InviteEmployeeDialog({
   const [openTasks, setOpenTasks] = useState<number | null>(null);
   useEffect(() => {
     let live = true;
-    void getOpenTaskCount({ memberId: member.id }).then((result) => {
+    void getInBackground<{ openTasks: number }>("/api/team/open-task-count", {
+      member: member.id,
+    }).then((result) => {
       if (live && result.ok) setOpenTasks(result.data.openTasks);
     });
     return () => {
@@ -437,7 +441,9 @@ export function FreelancerHandover({
 
   useEffect(() => {
     let live = true;
-    void getFreelancerHandover({ memberId: member.id }).then((result) => {
+    void getInBackground<FreelancerHandoverData>("/api/team/freelancer-handover", {
+      member: member.id,
+    }).then((result) => {
       if (!live) return;
       if (result.ok) setData(result.data);
       else setFailed(true);

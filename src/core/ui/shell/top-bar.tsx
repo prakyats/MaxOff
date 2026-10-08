@@ -19,8 +19,8 @@ import type { ShellViewer } from "./viewer";
  * (ARCHITECTURE §14.1, task 1.5). The page title bar (`PageHeader`) sticks directly beneath it
  * and takes the top edge when it goes, so scrolling a list gives its 48px back to content.
  * `MobileChrome` sets `data-chrome` on `<html>`; `globals.css` moves `--app-chrome-h`. The bell
- * is not repeated here on a phone: it is either in the bottom bar (Staff) or in the title bar
- * (Owner and Admin), where it can't scroll out of reach.
+ * is not repeated here on a phone: it is in the title bar for every role (the Crew's since 5B
+ * decision 1), where it can't scroll out of reach.
  *
  * The hamburger and its drawer are gone. Every role now has a bottom bar instead.
  */
@@ -28,10 +28,13 @@ export function TopBar({
   viewer,
   home,
   logoutItem,
+  bellCount,
 }: {
   viewer: ShellViewer;
   home: string;
   logoutItem?: ReactNode;
+  /** The unread count on the bell (5.1), streamed by the shell like the nav counts. */
+  bellCount?: ReactNode;
 }) {
   return (
     <header
@@ -41,8 +44,10 @@ export function TopBar({
       <Brand href={home} className="md:hidden" />
       <div className="ml-auto flex items-center gap-1">
         <Button variant="ghost" size="icon" asChild className="hidden md:inline-flex">
-          <Link href="/notifications" aria-label="Notifications">
+          <Link href="/notifications" data-slot="top-bar-bell" className="relative">
             <BellIcon aria-hidden />
+            <span className="sr-only">Notifications</span>
+            {bellCount}
           </Link>
         </Button>
         <div className="hidden md:block">

@@ -61,8 +61,9 @@ export function MemberProfile({
       noun: "job title",
       value: member.jobTitleId,
       kind: "select",
-      noneLabel: "No job title",
-      emptyLabel: "No job title",
+      // The empty choice reads "None"; with no title the read view shows the record's own
+      // empty word ("Not added"), never "No job title" (owner 2026-10-01).
+      noneLabel: "None",
       options: offerableJobTitles(jobTitles, member.jobTitleId).map((title) => ({
         value: title.id,
         label: title.name,

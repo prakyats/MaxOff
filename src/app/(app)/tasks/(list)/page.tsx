@@ -35,6 +35,7 @@ import {
 } from "@/modules/tasks";
 import { NewTaskButton } from "@/modules/tasks/components/new-task-button";
 import { SuggestTaskButton } from "@/modules/tasks/components/suggest-task-button";
+import { TasksFreshOnReturn } from "@/modules/tasks/components/tasks-fresh-on-return";
 
 import { loadTaskFormSetup } from "../task-form-setup";
 import { readClientLabels, readDirectory, readOpenTasks, readOwnFreelancers } from "../reads";
@@ -91,14 +92,17 @@ export default async function TasksPage() {
       .filter((label) => label.state === "active" || label.state === "paused")
       .map((label) => ({ id: label.id, name: label.name }));
     return (
-      <MyTasks
-        rows={rows}
-        viewer={listViewer}
-        context={context}
-        now={now}
-        clients={choices}
-        unread={unread}
-      />
+      <>
+        <TasksFreshOnReturn renderId={crypto.randomUUID()} />
+        <MyTasks
+          rows={rows}
+          viewer={listViewer}
+          context={context}
+          now={now}
+          clients={choices}
+          unread={unread}
+        />
+      </>
     );
   }
 
@@ -109,6 +113,7 @@ export default async function TasksPage() {
 
   return (
     <>
+      <TasksFreshOnReturn renderId={crypto.randomUUID()} />
       <PageHeader
         title="Tasks"
         description="What needs you, then every open task by deadline."

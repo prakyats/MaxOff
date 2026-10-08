@@ -1,5 +1,7 @@
 import { writeFileSync } from "node:fs";
 
+import { createClient } from "@supabase/supabase-js";
+
 import { describeOffDays, pinWorkingDay } from "./calendar";
 import { istDate, RUN_STATE_FILE, wallClock } from "./run-state";
 
@@ -44,6 +46,9 @@ export default async function globalSetup(): Promise<void> {
     return response.status < 500;
   });
   await waitFor("Mailpit", async () => (await fetch(`${mailpit}/api/v1/info`)).status === 200);
+  // 5.1: the live bell. CI starts Realtime too (5A build decision 23); a channel that joins is
+  // the readiness the specs need.
+  await waitFor("Realtime (a channel joins)", () => realtimeJoins(url, key));
 
   const now = wallClock();
   const serviceKey = process.env.SUPABASE_SECRET_KEY;
@@ -56,6 +61,24 @@ export default async function globalSetup(): Promise<void> {
   }
 
   writeFileSync(RUN_STATE_FILE, JSON.stringify({ startedOnIST: istDate(now) }));
+}
+
+/** Joins a throwaway channel; true once Realtime has answered the join, false after 5 s. */
+async function realtimeJoins(url: string, key: string): Promise<boolean> {
+  const client = createClient(url, key);
+  try {
+    return await new Promise<boolean>((resolve) => {
+      const timer = setTimeout(() => resolve(false), 5_000);
+      client.channel("e2e-readiness").subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          clearTimeout(timer);
+          resolve(true);
+        }
+      });
+    });
+  } finally {
+    await client.removeAllChannels();
+  }
 }
 
 async function waitFor(what: string, ready: () => Promise<boolean>): Promise<void> {

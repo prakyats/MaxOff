@@ -2,7 +2,7 @@ import { type Locator, type Page, type TestInfo } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 
-import { addISTDays, todayIST } from "../src/core/time";
+import { addISTDays, formatIST, istDayStart, todayIST } from "../src/core/time";
 import { compDateLabel } from "../src/modules/leave/domain/credits";
 
 import {
@@ -115,6 +115,11 @@ test("a note, a grant, a comp leave request, a rejection and a revoke", async ({
   await expect(creditRow).toContainText("Available");
   await expect(creditRow).toContainText("The Owner's note: Thanks for the late night");
 
+  // Comp leave is taken from Leave requests, which says what there is to take (5B decision 2).
+  await page.goto("/leave");
+  await expect(page.locator('[data-slot="comp-leave-line"]')).toHaveText(
+    `Comp leave: 1 day · use by ${formatIST(istDayStart(useBy), "d MMM")}`,
+  );
   await page.getByRole("button", { name: "Request leave" }).click();
   const form = page.getByRole("dialog", { name: "Request leave" });
   await form.getByLabel("Kind of leave").click();
@@ -131,16 +136,15 @@ test("a note, a grant, a comp leave request, a rejection and a revoke", async ({
   await page.getByRole("option", { name: compDateLabel(date) }).click();
   await form.getByRole("button", { name: "Request leave" }).click();
   await expect(form).toBeHidden();
-  await expect(page).toHaveURL(/\/leave\/extra-work$/);
-  // Requested: the credit waits on it and the balance is spent.
-  await page.reload();
-  await expect(page.locator('[data-slot="comp-balance"]')).toHaveText("No comp leave available");
-  await expect(creditRow).toContainText("Waiting on a request");
-  await page.getByRole("link", { name: "Leave requests", exact: true }).click();
+  await expect(page).toHaveURL(/\/leave$/);
   const requestRow = isPhone(info)
     ? page.locator('[data-slot="data-card"]').filter({ hasText: "Comp leave · 1 day" })
     : page.locator("tbody tr").filter({ hasText: "Comp leave · 1 day" });
   await expect(requestRow).toContainText("Waiting");
+  // Requested: the balance is spent and the credit waits on the request.
+  await page.goto("/leave/extra-work");
+  await expect(page.locator('[data-slot="comp-balance"]')).toHaveText("No comp leave available");
+  await expect(creditRow).toContainText("Waiting on a request");
 
   // The Owner rejects: the credit comes back. Then revokes it with a reason.
   await signInOwner(page);
@@ -184,6 +188,7 @@ test("a note, a grant, a comp leave request, a rejection and a revoke", async ({
   await expect(page.locator('[data-slot="comp-credit"][data-status="revoked"]')).toContainText(
     "The Owner's reason: Granted by mistake",
   );
+  await page.goto("/leave");
   await page.getByRole("button", { name: "Request leave" }).click();
   await form.getByLabel("Kind of leave").click();
   await expect(page.getByRole("option", { name: "Comp leave (1 day)" })).toHaveCount(0);
@@ -408,7 +413,7 @@ test.describe("installed: the back order of the note dialog and the Owner's deci
     await expectBackStack(page, [{ closes: prompt, url: /\/my-day$/ }, LEFT]);
   });
 
-  test("the tabs replace, and back closes the comp leave select, then the form, then leaves", async ({
+  test("Leave's tabs replace, and back closes the comp leave select, then the form, then leaves", async ({
     page,
   }, info) => {
     const memberId = await memberIdOf(person(info));
@@ -420,20 +425,21 @@ test.describe("installed: the back order of the note dialog and the Owner's deci
     await runInstalled(page);
     await signIn(page, person(info), PASSWORD);
     await page.goto("/my-day");
-    await page.goto("/leave/extra-work");
+    await page.goto("/leave");
     // View controls never add history (§14.2 d).
     await page.getByRole("link", { name: "Attendance", exact: true }).click();
     await expect(page).toHaveURL(/\/leave\/attendance$/);
-    await page.getByRole("link", { name: "Extra work", exact: true }).click();
-    await expect(page).toHaveURL(/\/leave\/extra-work$/);
+    await page.getByRole("link", { name: "Leave requests", exact: true }).click();
+    await expect(page).toHaveURL(/\/leave$/);
+    await expect(page.locator('[data-slot="comp-leave-line"]')).toContainText("Comp leave: 1 day");
     await page.getByRole("button", { name: "Request leave" }).click();
     const form = page.getByRole("dialog", { name: "Request leave" });
     await form.getByLabel("Kind of leave").click();
     const select = page.locator('[data-slot="select-sheet"]');
     await expect(select.getByRole("option", { name: "Comp leave (1 day)" })).toBeVisible();
     await expectBackStack(page, [
-      { closes: select, url: /\/leave\/extra-work$/ },
-      { closes: form, url: /\/leave\/extra-work$/ },
+      { closes: select, url: /\/leave$/ },
+      { closes: form, url: /\/leave$/ },
       { url: /\/my-day$/ },
     ]);
   });

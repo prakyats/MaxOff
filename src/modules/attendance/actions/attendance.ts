@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { setHomeHint } from "@/core/auth/server";
 import { action, ok, type Result } from "@/core/errors";
+import { dispatchPushSoon } from "@/core/notifications/push/dispatch";
 import { assertPermission } from "@/core/permissions/server";
 
 import {
@@ -61,6 +62,7 @@ export const chooseLeaveToday = action(
     await assertPermission("attendance.self");
     await repo.rpcChooseLeaveToday(data.choice, data.reason);
     revalidateDay();
+    dispatchPushSoon();
     return ok(null);
   },
 );

@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { reminderRulesSchema } from "@/core/lib/reminder-rules-schema";
+
 import {
   ASSIGNEES_MAX,
   COMMENT_MAX,
@@ -93,6 +95,12 @@ export const createTaskSchema = z.object({
   warnings: warningsSchema,
   /** "Start from" a template (4.6): recorded on the task; it fixes nothing (PRODUCT §4.6). */
   templateId: z.uuid().nullable().default(null),
+  /**
+   * The task's own reminders (5.3). `[]` = "Using the default", resolved when the task is armed
+   * (its template's, its type's, the organisation's): sent as `[]`, never left out, because
+   * `task_create` takes a missing list as the type's default.
+   */
+  reminderRules: reminderRulesSchema.default([]),
 });
 export type CreateTaskInput = z.input<typeof createTaskSchema>;
 
@@ -119,6 +127,7 @@ export const updateTaskSchema = z.object({
       assigneeIds,
       primaryOwnerId: z.uuid(),
       customFields,
+      reminderRules: reminderRulesSchema,
     })
     .partial()
     .strict()
@@ -273,6 +282,8 @@ export const templateSchema = z.object({
     )
     .max(STAGES_MAX, `Up to ${STAGES_MAX} stages.`),
   fieldDefaults: customFields,
+  /** The template's reminders (5.3); `[]` = its type's. */
+  reminderRules: reminderRulesSchema,
 });
 export type TemplateInput = z.input<typeof templateSchema>;
 
@@ -306,6 +317,8 @@ export const addTaskTypeSchema = z
       error: "Choose what kind of task it is.",
     }),
     ...taskTypeSwitches,
+    /** Its tasks' default reminders (5.3); `[]` = the organisation's. */
+    defaultReminders: reminderRulesSchema.default([]),
   })
   .transform((data) =>
     data.kind === "event" ? data : { ...data, showsOnCalendar: false, hasLocation: false },
@@ -317,6 +330,7 @@ export const editTaskTypeSchema = z.object({
   taskTypeId: z.uuid(),
   name: taskTypeName,
   ...taskTypeSwitches,
+  defaultReminders: reminderRulesSchema,
 });
 export type EditTaskTypeInput = z.input<typeof editTaskTypeSchema>;
 

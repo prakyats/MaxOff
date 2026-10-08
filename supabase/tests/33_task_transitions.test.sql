@@ -45,7 +45,7 @@ delete from auth.users;
 delete from public.activity_log;
 delete from public.holidays;
 update public.org_settings set weekly_off_days = '{}';
-update public.task_types set default_reminders = '[{"kind": "before_due", "hours": 24}]'::jsonb where name = 'Normal';
+update public.task_types set default_reminders = '[{"before": 24, "unit": "hours"}]'::jsonb where name = 'Normal';
 
 create temporary table fx (key text primary key, id uuid not null);
 insert into fx values
@@ -151,7 +151,7 @@ insert into fx values ('direct', pg_temp.mk('Owner direct', array['staff1', 'ash
 select results_eq(
   $$ select t.state::text, t.admin_step::text, t.approving_admin_id, t.created_by, t.primary_owner_id, t.priority::text, t.reminder_rules
      from public.tasks t where t.id = pg_temp.fx('direct') $$,
-  $$ values ('todo', 'none', null::uuid, pg_temp.fx('owner'), pg_temp.fx('staff1'), 'medium', '[{"kind": "before_due", "hours": 24}]'::jsonb) $$,
+  $$ values ('todo', 'none', null::uuid, pg_temp.fx('owner'), pg_temp.fx('staff1'), 'medium', '[{"before": 24, "unit": "hours"}]'::jsonb) $$,
   'the Owner assigned directly: todo, no Admin step, the type''s default reminders (kickoff 4 decision 14)');
 select is((select (pg_temp.last_audit('direct')).action), 'assigned', 'audit: the assignee rows follow the task row');
 select is((select a.meta ->> 'route' from public.activity_log a where a.entity_id = pg_temp.fx('direct') and a.action = 'created'),
@@ -217,11 +217,11 @@ select throws_ok(format($$ select public.task_create('Post', null, %L::uuid, nul
 insert into fx values ('meet', public.task_create('Client meeting', null, pg_temp.type_id('Meeting'), pg_temp.fx('client_a'), 'high', pg_temp.due(),
   array[pg_temp.fx('staff2')], pg_temp.fx('staff2'), event_date => app.today_ist() + 1,
   event_start_at => app.ist_day_start(app.today_ist() + 1) + interval '10 hours', location => ' Client office ', purpose => 'Kick-off',
-  stages => array[' Agenda ', 'Minutes'], reminder_rules => '[{"kind": "event", "hours": 2}]', warnings => jsonb_build_array(
+  stages => array[' Agenda ', 'Minutes'], reminder_rules => '[{"before": 2, "unit": "hours"}]', warnings => jsonb_build_array(
     jsonb_build_object('kind', 'workload', 'member_id', pg_temp.fx('staff2'), 'details', jsonb_build_object('open_tasks', 5)))));
 select results_eq(
   $$ select t.event_date, t.location, t.purpose, t.reminder_rules from public.tasks t where t.id = pg_temp.fx('meet') $$,
-  $$ values (app.today_ist() + 1, 'Client office', 'Kick-off', '[{"kind": "event", "hours": 2}]'::jsonb) $$,
+  $$ values (app.today_ist() + 1, 'Client office', 'Kick-off', '[{"before": 2, "unit": "hours"}]'::jsonb) $$,
   'an event task: date, time, trimmed location, purpose; explicit reminders kept');
 select results_eq(
   $$ select s.name, s.position, s.done_at from public.task_stages s where s.task_id = pg_temp.fx('meet') order by s.position $$,

@@ -1,5 +1,7 @@
 # MaxOff
 
+> **PRODUCTION IS LIVE (since 2026-10-01): `https://app.maxoff.in` is in daily use by the Pixora Clips team with real data.** Expand-only migrations, releases only by an Owner-approved `v*` tag on a green `main` commit, never a seed, reset or hand-written SQL on production. The rules are in `CLAUDE.md` → "Production is live".
+
 The internal operations and control system for **Pixora Clips**: attendance, leave, staff
 tasks with acknowledgement and approvals, clients, client work (projects → cycles → items),
 notifications, dashboards, and Owner-only revenue and reports.
@@ -45,6 +47,7 @@ the local stack (the deploy workflow never seeds), and the passwords are fixture
 | `reset@maxoff.local` | `reset-local-password` | Staff, used only by the Playwright recovery-link test (which changes its password) |
 | `leaver@maxoff.local` | `leaver-local-password` | Staff, used only by the Playwright team test (which deactivates and reactivates them) |
 | `gate-<kind>-<project>@maxoff.local` | `gate-local-password` | 12 Admin/Staff accounts used only by `e2e/working-day.spec.ts` (the Start/End day flow, 3b.1; the name dates from the 2.2 day gate) (kind: staff, admin, leave, half; project: desktop, mobile, mobile-lg), because a person has one attendance day per date |
+| `alerts-<role>-<project>@maxoff.local` | `alerts-local-password` | 6 Staff/Admin accounts used only by `e2e/notifications.spec.ts` (the bell and Alerts, 5.1) (role: staff, admin; project: desktop, mobile, mobile-lg), because unread counts and Mark all read are per person |
 
 Password-reset emails from the local stack land in Mailpit: http://127.0.0.1:54324.
 
@@ -189,6 +192,8 @@ Secrets (**Environment secrets**):
 | `SESSION_IP_HASH_SALT` | Any long random string (`openssl rand -hex 32`), different per environment. Salts the IP hash in `session_events`; uploaded as a Worker secret. Unset = the hash is stored as null |
 | `R2_ACCESS_KEY_ID` · `R2_SECRET_ACCESS_KEY` | The R2 API token scoped to that environment's files bucket (task 3.3, README → "Storage"); uploaded as `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` |
 | `CRON_SECRET` | Any long random string; the Worker's cron trigger presents it to `/api/cron/*` |
+| `RESEND_API_KEY` | Resend → API Keys, a key allowed to send from `mail.maxoff.in` (5.2: invites and notification email). Unset = no app email is sent |
+| `VAPID_PRIVATE_KEY` | The private half of the Web Push key pair the owner generates on their own laptop (5.2; no session generates or sees it). Unset = no push is sent |
 | `SENTRY_AUTH_TOKEN` | Sentry → Settings → Auth Tokens. Optional: without it no source maps are uploaded |
 
 Variables (**Environment variables**):
@@ -203,13 +208,24 @@ Variables (**Environment variables**):
 | `NEXT_PUBLIC_SENTRY_DSN` | Sentry → Settings → Projects → maxoff → Client Keys (DSN). Optional: empty keeps Sentry off |
 | `SENTRY_ORG` | Sentry organisation slug (Settings → General Settings). Optional |
 | `SENTRY_PROJECT` | Sentry project slug, e.g. `maxoff`. Optional |
+| `EMAIL_FROM` | `MaxOff <notifications@mail.maxoff.in>` (kickoff 5, no reply-to). Sent with `RESEND_API_KEY`: both or neither |
+| `VAPID_PUBLIC_KEY` | The public half of the same Web Push key pair (not secret; the server hands it to the browser at runtime) |
+| `VAPID_SUBJECT` | `mailto:` the owner's own address (the push services' contact) |
 
 `NEXT_PUBLIC_APP_ENV` is set by the workflow itself (`staging` or `production`). `DAY_GATE_COOKIE_SECRET`
 (2.2) is no longer read anywhere since the 3c.1 contract migration; delete it from both environments.
 
-`RESEND_API_KEY` and `EMAIL_FROM` (app email: invites from 1.3, notification email from 5.2)
-are **not** wired yet: they need a verified sending domain (`mail.maxoff.app`, see PROGRESS.md).
-Until then the app logs a start-up warning and sends nothing. They stay out of CI on purpose.
+`RESEND_API_KEY` + `EMAIL_FROM` and the three `VAPID_*` values reach the Worker at runtime through
+the deploy workflow's secrets file (5.2), each set only when complete (email: both; push: all three).
+Without them the app sends no email or no push and in-app notifications still work; the app logs a
+start-up warning. They stay out of CI on purpose.
+
+**Where to see the emails sent (5.2):** the Resend dashboard (resend.com → Emails) lists every
+email with its delivery status (delivered, bounced, complained). Inside MaxOff each notification
+email is a `notification_deliveries` row with `channel = 'email'`: `sent`, `failed` (`last_error`
+`not_configured` when `RESEND_API_KEY` is unset, or `resend_<status>`), or `skipped_cap` over the
+daily ceilings (`org_settings`: 20 per person, 90 for the organisation; Resend's free plan
+allows 100 a day, and invites are never counted). The Supabase table editor (service role) shows them.
 
 ### Inviting people (task 1.3)
 
@@ -239,7 +255,7 @@ in the Supabase dashboard (**Authentication**), once per project:
 | Sign In / Providers → Email | **Minimum password length: 12**, no character requirements. Leaked password protection is **Pro-only, so it stays off** on the free plan (ADR-0003); invite-only access and the 12-character minimum cover it for now |
 | URL Configuration | **Site URL** = the app URL (`NEXT_PUBLIC_APP_URL`). **Redirect URLs**: add `<app URL>/**` |
 | Emails → Templates → **Reset password** | Subject "Set your MaxOff password"; body = `supabase/templates/recovery.html`. The link **must** be `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery` (the app verifies the token hash server-side; the default `{{ .ConfirmationURL }}` will not work) |
-| Emails → SMTP settings | **Until a sending domain exists, leave Supabase's built-in mailer**: it delivers only to the email addresses of the Supabase project's own team members, a few per hour, which is enough for the Owner on staging. With `mail.maxoff.app` verified in Resend: host `smtp.resend.com`, port `465`, user `resend`, password = a Resend API key, sender `MaxOff <noreply@mail.maxoff.app>` |
+| Emails → SMTP settings | **Until a sending domain exists, leave Supabase's built-in mailer**: it delivers only to the email addresses of the Supabase project's own team members, a few per hour, which is enough for the Owner on staging. With `mail.maxoff.in` verified in Resend: host `smtp.resend.com`, port `465`, user `resend`, password = a Resend API key, sender `MaxOff <noreply@mail.maxoff.in>` |
 | Rate Limits | Keep the defaults (30 sign-in attempts per 5 min per IP, 30 token verifications, 150 refreshes). Raise **emails sent per hour** only after custom SMTP is on |
 | Sign In / Providers → Email | **Email OTP expiration: 86400 s (24 h)**, the same as `config.toml` `otp_expiry` (decided 2026-09-22): invite links get shared and opened hours later. It also governs recovery links; every link is still one-time |
 | Sign In / Providers → Email | **Secure password change: on** ("Require current password when updating" / reauthentication), the same as `config.toml` `secure_password_change` (phase 1 review, 2026-09-23). GoTrue asks for a nonce only when the session is older than 24 h, so link-opened sessions (invite, recovery) are unaffected; the real fix for a stolen session is 10.3 |
@@ -254,7 +270,12 @@ email through `core/notifications` (Resend), so GoTrue never mails an invite (ta
 2. `pnpm build:worker`, with the `NEXT_PUBLIC_*` variables inlined (a malformed value fails
    the build) and source maps uploaded to Sentry when the token is present. The build comes
    first so a failed build never leaves the database ahead of the Worker.
-3. `supabase link` + `supabase db push`: applies any new append-only migrations.
+3. Applies the new append-only migrations. Staging: `scripts/staging-migrations.sh` (below). Production:
+   `scripts/production-migrations.sh`, which lists production's migrations, **fails** when the list is
+   unreadable or production holds a version the tag lacks, skips when nothing is pending, and otherwise
+   runs `supabase migration up --linked --include-all` (only the missing files, in version order, each
+   in its own transaction) and lists again. Not a plain `db push`: v1.3.0's notification migrations
+   sort before v1.2.0's newest, which `db push` refuses. It never repairs, reverts or edits history.
 4. `wrangler deploy --env <name> --secrets-file …`: the code and the Worker secrets (`SUPABASE_SECRET_KEY`,
    plus `SESSION_IP_HASH_SALT`, the `S3_*` set and `CRON_SECRET` when set) land in **one** deployment. They used
    to be uploaded first with `wrangler secret`, which Cloudflare refuses (error 10215) while the Worker's

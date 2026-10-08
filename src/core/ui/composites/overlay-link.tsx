@@ -6,6 +6,7 @@ import type { ComponentProps, MouseEvent } from "react";
 
 import { cn } from "@/core/lib/utils";
 import { NAV_FORWARD } from "@/core/ui/motion/nav-types";
+import { nameSlide } from "@/core/ui/motion/slide";
 import { closeOverlaysThen } from "@/core/ui/overlay/overlay-history";
 
 /**
@@ -31,7 +32,10 @@ export function OverlayLink({
         onClick?.(event);
         if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey) return;
         event.preventDefault();
-        closeOverlaysThen(() => router.push(href, { transitionTypes: [NAV_FORWARD] }));
+        closeOverlaysThen(() => {
+          nameSlide("forward");
+          router.push(href, { transitionTypes: [NAV_FORWARD] });
+        });
       }}
     />
   );

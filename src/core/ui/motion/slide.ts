@@ -20,8 +20,87 @@ export function subscribeSlide(onChange: () => void): () => void {
   };
 }
 
-/** Set on `<html>` while a slide React does not start itself runs (`slideBack`). */
+/**
+ * Set on `<html>` while a slide runs: `back` or `forward`. `globals.css` reads it to name the
+ * route for the view transition and give it the slide's class, whoever started the transition.
+ */
 export const SLIDE_ATTRIBUTE = "data-nav-slide";
+
+export type SlideDirection = "back" | "forward";
+
+/** How long a named slide waits for its view transition before the name is dropped (nothing came). */
+export const SLIDE_ABANDON_MS = 3_000;
+
+let clearTimer: number | undefined;
+/** A slide is named and no view transition has taken it yet. */
+let named = false;
+/** Tags the wrapped `startViewTransition`, so one document is watched once. */
+const WATCHED = Symbol.for("maxoff.slide.watch");
+type StartViewTransition = typeof document.startViewTransition & { [WATCHED]?: true };
+
+function dropName(): void {
+  // Never under a manual slide: `slideBack` owns the attribute until its transition finishes.
+  if (sliding) return;
+  document.documentElement.removeAttribute(SLIDE_ATTRIBUTE);
+}
+
+/**
+ * The first view transition started after `nameSlide` is the named slide: its old and new
+ * snapshots carry the route's name and class from the attribute, so the name is dropped as soon
+ * as both are captured (`ready`), never before (the new state would lose the route) and never
+ * later (a view switch or tab change right after would slide too, found by `motion.spec`).
+ */
+function watchTransitions(): void {
+  const current = document.startViewTransition as StartViewTransition | undefined;
+  if (typeof current !== "function" || current[WATCHED]) return;
+  const real = current.bind(document);
+  const watched: StartViewTransition = (arg: never) => {
+    const transition = real(arg);
+    if (named && !sliding) {
+      named = false;
+      window.clearTimeout(clearTimer);
+      void transition.ready.then(dropName, dropName);
+    }
+    return transition;
+  };
+  watched[WATCHED] = true;
+  document.startViewTransition = watched;
+}
+
+/**
+ * Names the slide a drill-down move is about to make (`BackLink`'s replace, `DrillLink`,
+ * `OverlayLink`, a dialog's push), beside the transition type the router call carries.
+ *
+ * React's transition types are kept on the root and **claimed by the next eligible commit**, so a
+ * navigation dispatched while React is still hydrating the screen's other Suspense boundaries
+ * (a tap in the first moments after the control became live, measured 12 of 12 at 1× and 4× CPU
+ * on 2026-10-01; CI's `motion.spec` "opened directly") commits with no type at all: the page
+ * changed, the view transition ran, and nothing slid. The attribute does not depend on React's
+ * bookkeeping: the CSS names the route and classes it from the attribute for the view transition
+ * the commit starts (`watchTransitions` drops the name once that transition has captured both
+ * states). A screen that commits without a view transition drops it at the commit
+ * (`slideCommitted`); if nothing comes, it goes after `SLIDE_ABANDON_MS`.
+ */
+export function nameSlide(direction: SlideDirection): void {
+  if (!canSlide() || typeof document.startViewTransition !== "function") return;
+  if (sliding) return;
+  watchTransitions();
+  named = true;
+  document.documentElement.setAttribute(SLIDE_ATTRIBUTE, direction);
+  window.clearTimeout(clearTimer);
+  clearTimer = window.setTimeout(() => {
+    named = false;
+    dropName();
+  }, SLIDE_ABANDON_MS);
+}
+
+/** The route committed (`RouteTransition`): a slide still named started no view transition. */
+export function slideCommitted(): void {
+  if (!named) return;
+  named = false;
+  window.clearTimeout(clearTimer);
+  dropName();
+}
 
 /** How long the swap waits for the `popstate` before the slide gives up and just shows it. */
 export const SLIDE_BACK_WAIT_MS = 500;
@@ -51,6 +130,7 @@ export function slideBack(back: () => void): void {
   // its back control is still there: a second tap must not go back a second level.
   if (sliding) return;
   sliding = true;
+  window.clearTimeout(clearTimer);
   root.setAttribute(SLIDE_ATTRIBUTE, "back");
   const transition = document.startViewTransition(
     () =>

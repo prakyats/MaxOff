@@ -9,6 +9,7 @@ import {
   FILE_ROUTE_SOURCE,
   responseHeaders,
 } from "./src/core/http/response-headers";
+import { appVersionFrom } from "./src/core/lib/app-version";
 import { assertObservabilityEnv } from "./src/core/observability/env";
 
 // Lets `next dev` reach Cloudflare bindings through `getCloudflareContext()` (none are used
@@ -27,6 +28,9 @@ const RESPONSE_HEADERS = responseHeaders(appEnv);
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // The version Me's "Help & troubleshooting" shows (5B decision 4): the release tag, or the
+  // branch and commit, from the build's own GitHub Actions environment ("local" elsewhere).
+  env: { NEXT_PUBLIC_APP_VERSION: appVersionFrom(process.env) },
   // The file route's stricter CSP and the auth link page's headers come after the global rule
   // on purpose: the last rule to set a header wins.
   headers: async () => [

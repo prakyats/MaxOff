@@ -28,6 +28,7 @@ import {
   roleLabel,
   STATUS_LABELS,
   type TeamMember,
+  withJobTitle,
 } from "../domain/members";
 
 import { useMemberDialogs } from "./use-member-dialogs";
@@ -45,6 +46,19 @@ function sinceWord(member: TeamMember): string {
 function editOnArrival(event: MouseEvent, memberId: string): void {
   if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
   requestEdit(memberEditKey(memberId));
+}
+
+/**
+ * The desktop Name cell's second line: the job title and a freelancer's coordinator. A person
+ * with neither shows their role (the Role column's word), never "No job title" (owner 2026-10-01),
+ * so every row keeps its two lines.
+ */
+function nameLine(member: TeamRow): string {
+  const parts = [
+    member.jobTitle,
+    member.coordinatorName ? `with ${member.coordinatorName}` : null,
+  ].filter((part): part is string => Boolean(part));
+  return parts.length > 0 ? parts.join(" · ") : roleLabel(member);
 }
 
 /**
@@ -102,10 +116,7 @@ export function TeamTable({
             ) : (
               <p className="truncate font-medium">{row.original.fullName}</p>
             )}
-            <p className="text-muted-foreground truncate text-xs">
-              {row.original.jobTitle ?? "No job title"}
-              {row.original.coordinatorName ? ` · with ${row.original.coordinatorName}` : null}
-            </p>
+            <p className="text-muted-foreground truncate text-xs">{nameLine(row.original)}</p>
           </div>
         ),
       },
@@ -238,7 +249,12 @@ export function TeamTable({
     href: (member) => (opensPersonPage(viewer, member) ? `/people/${member.id}` : null),
     moreLabel: (member) => `More for ${member.fullName}`,
     subtitle: (member) =>
-      `${member.engagement === "freelance" ? freelancerLine(member.coordinatorName) : roleLabel(member)} · ${member.jobTitle ?? "No job title"}`,
+      withJobTitle(
+        member.engagement === "freelance"
+          ? freelancerLine(member.coordinatorName)
+          : roleLabel(member),
+        member.jobTitle,
+      ),
     trailing: (member) => <StatusDot status={member.status} label={STATUS_LABELS[member.status]} />,
     detail: (member) => {
       const at = member.joinedAt ?? member.invitedAt ?? member.createdAt;

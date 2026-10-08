@@ -46,6 +46,7 @@ function template(overrides: Partial<TaskTemplate>): TaskTemplate {
     fieldDefaults: { reel_length: 60 },
     archived: false,
     createdBy: "admin",
+    reminderRules: [],
     ...overrides,
   };
 }
@@ -238,6 +239,7 @@ describe("task templates (4.6)", () => {
         defaultPriority: "low",
         stages: [" Cut "],
         fieldDefaults: {},
+        reminderRules: [{ before: 1, unit: "days" }],
         clientId: "00000000-0000-4000-8000-000000000002",
       },
     });
@@ -248,6 +250,39 @@ describe("task templates (4.6)", () => {
       defaultPriority: "low",
       stages: ["Cut"],
       fieldDefaults: {},
+      reminderRules: [{ before: 1, unit: "days" }],
     });
+  });
+
+  it("checks a template's reminders as every level's (5.3)", () => {
+    const template = {
+      name: "Reel",
+      taskTypeId: "00000000-0000-4000-8000-000000000001",
+      description: null,
+      defaultPriority: "low",
+      stages: [],
+      fieldDefaults: {},
+    };
+    expect(
+      saveTemplateSchema.safeParse({
+        templateId: null,
+        template: { ...template, reminderRules: [] },
+      }).success,
+    ).toBe(true);
+    const twice = saveTemplateSchema.safeParse({
+      templateId: null,
+      template: {
+        ...template,
+        reminderRules: [
+          { before: 2, unit: "hours" },
+          { before: 120, unit: "minutes" },
+        ],
+      },
+    });
+    expect(twice.error?.issues[0]).toMatchObject({
+      path: ["template", "reminderRules", 1, "before"],
+      message: "Another reminder is already at this time.",
+    });
+    expect(saveTemplateSchema.safeParse({ templateId: null, template }).success).toBe(false);
   });
 });

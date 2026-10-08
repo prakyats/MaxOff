@@ -1,4 +1,5 @@
 import type { Enums } from "@/core/db";
+import type { ReminderRule } from "@/core/lib/reminder-rules";
 
 /**
  * Staff tasks as the screens read them (PRODUCT §4.6, WORKFLOWS §3, DATA-MODEL §6; 4B). The
@@ -35,6 +36,8 @@ export type TaskType = {
   kind: TaskTypeKind;
   hasLocation: boolean;
   archived: boolean;
+  /** The type's default reminders (5.3); `[]` = the organisation's. */
+  defaultReminders: ReminderRule[];
 };
 
 /**
@@ -86,6 +89,10 @@ export type Task = {
   completedAt: string | null;
   cancelledAt: string | null;
   createdAt: string;
+  /** The task's own reminders (5.3); `[]` = the default (its template's, type's, the org's). */
+  reminderRules: ReminderRule[];
+  /** The template it started from (4.6), whose reminders it follows while it has none. */
+  templateId: string | null;
 };
 
 /** One person on a task (WORKFLOWS §3.2). `acknowledgedBy` is the coordinator when on behalf. */

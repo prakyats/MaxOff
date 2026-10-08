@@ -2,6 +2,15 @@
 
 MaxOff is the **internal operations and control system for Pixora Clips**. It covers attendance, leave, staff tasks with acknowledgement and approvals, clients, client work (projects → cycles → items), notifications, dashboards, Owner-only revenue and reports. It's internal and invite-only. **Clients never log in.** The business timezone is **IST**.
 
+## Production is live (since 2026-10-01)
+**`https://app.maxoff.in` is in daily use by the Pixora Clips team** (the Owner, Admins and Crew): real attendance, leave, comp leave, expense claims, tasks and client records. Every change is a change to a running business.
+- **Migrations are expand-only, across releases too.** Never drop, rename or rewrite data in place; never edit an applied migration.
+- **Nothing reaches production except a `v*` tag on a `main` commit with green CI, approved by the Owner** (the `production` environment's required reviewer). **Merges to `main`** are done by the advisor session (owner decision 2026-10-07), only once a PR meets its bar: docs, green CI; code and phases, a full run with both Playwright shards run and green, the review's must-fix items fixed and, for a phase, the Owner's phone walk passed. Never with a bypass. **No session tags `v*` or approves a production deploy: those are the Owner's alone.**
+- **Never run a seed, reset, `migration repair` or hand-written SQL against production**, and never test with production accounts or data. Local, the phase preview and staging come first.
+- **Nothing is deleted.** Records are archived or cancelled with a reason (invariant 9).
+- **User-visible changes get the Owner's phone check** before a release, and the Owner is told what the Crew will notice.
+- **A bad release is fixed the same day**: roll back the Worker in Cloudflare or fix forward with a new tag; say so in PROGRESS.
+
 ## Read before any work
 1. `docs/PROGRESS.md`: current state and next task. **Always read this first.**
 2. `docs/ROADMAP.md`: work on one task at a time.

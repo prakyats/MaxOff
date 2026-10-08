@@ -7,6 +7,7 @@ import { PageHeader } from "@/core/ui/composites/page-header";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 import { CLIENT_STATE_LABELS, CLIENT_STATE_NOTES } from "@/modules/clients";
 import { ClientMenu } from "@/modules/clients/components/client-menu";
+import { RecordReadReceipt } from "@/modules/notifications-center";
 
 import { ClientTabs } from "../client-nav";
 import { loadClient, loadPeople } from "../client";
@@ -31,6 +32,9 @@ export default async function ClientLayout({
   const { id } = await params;
   return (
     <>
+      <Suspense fallback={null}>
+        <RecordReadReceipt entity="clients" id={id} />
+      </Suspense>
       <Suspense fallback={<PageHeader title={<Skeleton className="h-5 w-40" />} back={BACK} />}>
         <ClientHeader id={id} />
       </Suspense>

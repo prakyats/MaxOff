@@ -28,10 +28,20 @@
  * pass, so the shell always streams and no other test ever waits. `GET /__hold/health` answers
  * once it listens.
  *
+ * **What can be fenced** (phase 5 main CI, 2026-10-06): a person a spec is about to remove. A
+ * spec's own person's open page still writes in the background (the app-open report, 5.4, audited
+ * with them as the actor), and a write that lands between the cleanup's `activity_log` delete and
+ * its `members` delete made that delete fail (409, `activity_log_actor_id_fkey`).
+ * `POST /__fence` `{ member }` (`fencePerson()` in `e2e/helpers.ts`, run by
+ * `removeFixturePerson`) refuses every later request whose bearer token is theirs (the JWT's
+ * `sub`) with a 403, and answers once none of theirs is still at the upstream, so the cleanup
+ * starts after their last write and no write follows it. Nothing here waits on a clock.
+ *
  * **Proved** by `tests/hold-proxy.test.ts` (Vitest, in `pnpm check`, against a tiny local
  * upstream): an upgrade's 101 and its bytes both ways and the close of either side, a chunked
  * answer's first chunk before the upstream sends its second, a held path held and released, an
- * unheld one answered at once.
+ * unheld one answered at once, a fence answered only after the person's request in flight ends and
+ * their next one refused.
  *
  * **Phase 5 (5A) must**, once the bell lands on Realtime: add an e2e check that a Realtime
  * subscription connects through this proxy, and start Realtime in CI's e2e job (remove `realtime`
@@ -67,16 +77,18 @@ function passable(headers: IncomingHttpHeaders): IncomingHttpHeaders {
   return copy;
 }
 
-/** The session of a bearer JWT (unverified: the proxy only sorts requests, it decides nothing). */
-function sessionOf(authorization: string | undefined): string | null {
+/** A claim of a bearer JWT (unverified: the proxy only sorts requests, it decides nothing). */
+function claimOf(authorization: string | undefined, claim: "session_id" | "sub"): string | null {
   const token = authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
   const payload = token?.split(".")[1];
   if (!payload) return null;
   try {
-    const claims = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as {
-      session_id?: unknown;
-    };
-    return typeof claims.session_id === "string" ? claims.session_id : null;
+    const claims = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as Record<
+      string,
+      unknown
+    >;
+    const value = claims[claim];
+    return typeof value === "string" ? value : null;
   } catch {
     return null;
   }
@@ -87,11 +99,34 @@ export function createHoldProxy(upstream: URL): Server {
   const agent = new Agent({ keepAlive: true, maxSockets: 256 });
   const holds = new Set<Hold>();
   let waiting: Waiting[] = [];
+  /** People being removed: their requests are refused. */
+  const fenced = new Set<string>();
+  /** Each person's requests at the upstream, and the fences waiting for them to end. */
+  const atUpstream = new Map<string, number>();
+  const drained = new Map<string, Array<() => void>>();
+
+  function upstreamEnded(member: string): void {
+    const left = (atUpstream.get(member) ?? 1) - 1;
+    if (left > 0) {
+      atUpstream.set(member, left);
+      return;
+    }
+    atUpstream.delete(member);
+    for (const answer of drained.get(member) ?? []) answer();
+    drained.delete(member);
+  }
 
   const holdsFor = (path: string, session: string | null): Hold[] =>
     [...holds].filter((hold) => hold.path === path && hold.session === session);
 
   function forward(request: IncomingMessage, response: ServerResponse): void {
+    const member = claimOf(request.headers.authorization, "sub");
+    if (member && fenced.has(member)) {
+      response
+        .writeHead(403, { "content-type": "application/json" })
+        .end('{"message":"hold-proxy: this person is being removed"}');
+      return;
+    }
     const outgoing = httpRequest(
       {
         host: upstream.hostname,
@@ -107,6 +142,12 @@ export function createHoldProxy(upstream: URL): Server {
         answer.pipe(response);
       },
     );
+    // Counted until the upstream exchange is over (its answer read, or the connection gone),
+    // not until the caller goes: a fence answers only after the person's writes have ended.
+    if (member) {
+      atUpstream.set(member, (atUpstream.get(member) ?? 0) + 1);
+      outgoing.on("close", () => upstreamEnded(member));
+    }
     outgoing.on("error", () => {
       if (!response.headersSent) response.writeHead(502);
       response.end();
@@ -162,6 +203,34 @@ export function createHoldProxy(upstream: URL): Server {
     });
   }
 
+  function fence(request: IncomingMessage, response: ServerResponse): void {
+    const chunks: Buffer[] = [];
+    request.on("data", (chunk: Buffer) => chunks.push(chunk));
+    request.on("end", () => {
+      let body: { member?: unknown } = {};
+      try {
+        body = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}") as typeof body;
+      } catch {
+        // Answered below as a refusal.
+      }
+      const member = body.member;
+      if (typeof member !== "string" || member === "") {
+        response.writeHead(400).end("member is needed");
+        return;
+      }
+      fenced.add(member);
+      const answer = () =>
+        response
+          .writeHead(200, { "content-type": "application/json", "cache-control": "no-store" })
+          .end(JSON.stringify({ fenced: member }));
+      if (!atUpstream.has(member)) {
+        answer();
+        return;
+      }
+      drained.set(member, [...(drained.get(member) ?? []), answer]);
+    });
+  }
+
   const server = createServer((request, response) => {
     const url = new URL(request.url ?? "/", "http://hold-proxy");
     if (url.pathname === "/__hold/health") {
@@ -172,7 +241,11 @@ export function createHoldProxy(upstream: URL): Server {
       register(request, response);
       return;
     }
-    const session = sessionOf(request.headers.authorization);
+    if (url.pathname === "/__fence" && request.method === "POST") {
+      fence(request, response);
+      return;
+    }
+    const session = claimOf(request.headers.authorization, "session_id");
     const holding = holdsFor(url.pathname, session);
     if (holding.length === 0) {
       forward(request, response);
