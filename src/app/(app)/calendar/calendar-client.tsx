@@ -12,7 +12,7 @@ import type { TaskFormSetup } from "@/modules/tasks/components/task-form-dialog"
  * The calendar with its day action (6.4b; Kickoff 6 decision 25 D), composed by the route from the
  * modules that own each part: the calendar draws the day; the task form and the suggestion are the
  * tasks module's. Whoever may create a task (`tasks.create`: the Owner and Admins) gets
- * "+ New task on 8 Oct" (the deadline, or an event's date, on that day); Crew
+ * "+ New task on 8 Oct" (the deadline, or an event's date, on that day; today and later only); Crew
  * (`task_requests.create`) get "Suggest a task" with the day in its details. The form's setup is a
  * promise the page starts, read only when the form opens.
  */
@@ -24,14 +24,17 @@ export function CalendarClient({
   create: Promise<TaskFormSetup | null> | null;
   suggest: readonly { id: string; name: string }[] | null;
 }) {
+  // A new task's deadline must be later than now (kickoff 4 decision 4): no "+ New task" on a day
+  // before today (IST), where the form could only be refused.
   const dayAction = create
-    ? (date: ISODate) => (
-        <NewTaskOnDayButton
-          setup={create}
-          date={date}
-          label={`New task on ${formatIST(istDayStart(date), "d MMM")}`}
-        />
-      )
+    ? (date: ISODate) =>
+        date < screen.today ? null : (
+          <NewTaskOnDayButton
+            setup={create}
+            date={date}
+            label={`New task on ${formatIST(istDayStart(date), "d MMM")}`}
+          />
+        )
     : suggest
       ? (date: ISODate) => (
           <SuggestTaskButton

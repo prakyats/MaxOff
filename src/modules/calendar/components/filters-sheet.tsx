@@ -118,7 +118,7 @@ export function FiltersSheet({
         <DialogHeader>
           <DialogTitle>Filters</DialogTitle>
           <DialogDescription>
-            {count > 0 ? `${count} on. ` : ""}What the calendar shows; changes apply at once.
+            {count > 0 ? `${count} on. ` : ""}What the calendar shows. Applied when you close this.
           </DialogDescription>
         </DialogHeader>
         <div className="flex min-w-0 flex-col gap-4">

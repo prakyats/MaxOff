@@ -3,11 +3,13 @@ import { Skeleton } from "@/core/ui/primitives/skeleton";
 import { PersonRowsSkeleton } from "@/modules/attendance";
 
 import { PEOPLE_DESCRIPTION, PeopleFilter } from "./people-filter";
+import { YesterdayLineSkeleton } from "./yesterday-line-skeleton";
 
 /**
  * The full board as it renders (6.2), traced (ARCHITECTURE §14.1): the header with its back
- * control, the group filter (the same control, nothing chosen yet), then a group's heading and
- * its person rows, as `PeopleBoard` draws them.
+ * control, the group filter (the same control, nothing chosen yet), on "End not recorded" the
+ * line about yesterday (its own words, unseen), then a group's heading and its person rows, as
+ * `PeopleBoard` draws them.
  */
 export default function Loading() {
   return (
@@ -18,6 +20,7 @@ export default function Loading() {
         description={PEOPLE_DESCRIPTION}
       />
       <PeopleFilter current={null} />
+      <YesterdayLineSkeleton />
       <div
         role="status"
         aria-busy="true"

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   addAssignee,
   assignmentChange,
+  deadlineError,
   draftChanges,
   draftEventWindow,
   draftFromTask,
@@ -88,8 +89,8 @@ describe("the task dialog's draft (4.3)", () => {
       dueDate: "Pick the deadline's date.",
     });
     const past = { ...filled(), dueDate: "2026-10-01", dueTime: "09:00" };
-    expect(validateDraft(past, NORMAL, { creating: true, now: NOW }).dueDate).toMatch(
-      /already passed/,
+    expect(validateDraft(past, NORMAL, { creating: true, now: NOW }).dueDate).toBe(
+      "Pick a time later than now.",
     );
     // An edit may move the deadline anywhere (kickoff 4 decision 4).
     expect(validateDraft(past, NORMAL, { creating: false, now: NOW }).dueDate).toBeUndefined();
@@ -248,7 +249,8 @@ describe("an edit sends only what changed (4A mechanics 4)", () => {
 
 describe("a new task started on a calendar day (6.4b, Kickoff 6 decision 25 D)", () => {
   it("puts the deadline on that day at 6:00 PM IST, and an event on that day", () => {
-    const draft = draftOnDate("2026-10-08");
+    // 11:30 IST on 8 Oct: today's 6:00 PM is still ahead.
+    const draft = draftOnDate("2026-10-08", new Date("2026-10-08T06:00:00.000Z"));
     expect(draft).toEqual({ ...emptyDraft(), dueDate: "2026-10-08", eventDate: "2026-10-08" });
     expect(draft.dueTime).toBe("18:00");
     // A normal type sends the deadline only; an event type the event's date as well.
@@ -261,5 +263,38 @@ describe("a new task started on a calendar day (6.4b, Kickoff 6 decision 25 D)",
       dueAt: "2026-10-08T12:30:00.000Z",
       eventDate: "2026-10-08",
     });
+  });
+
+  it("today after 6:00 PM IST, puts the deadline at the next whole hour instead", () => {
+    // 18:00 IST exactly: 6:00 PM is not later than now, so 7:00 PM.
+    expect(draftOnDate("2026-10-08", new Date("2026-10-08T12:30:00.000Z")).dueTime).toBe("19:00");
+    // 20:40 IST → 9:00 PM.
+    expect(draftOnDate("2026-10-08", new Date("2026-10-08T15:10:00.000Z")).dueTime).toBe("21:00");
+    // 23:15 IST: the next hour is tomorrow, so the day's last minute.
+    expect(draftOnDate("2026-10-08", new Date("2026-10-08T17:45:00.000Z")).dueTime).toBe("23:59");
+    // A later day keeps 6:00 PM whatever the time now.
+    expect(draftOnDate("2026-10-09", new Date("2026-10-08T15:10:00.000Z")).dueTime).toBe("18:00");
+    // Whatever it prefills is later than now.
+    for (const now of ["2026-10-08T12:30:00.000Z", "2026-10-08T17:45:00.000Z"]) {
+      const draft = draftOnDate("2026-10-08", new Date(now));
+      expect(deadlineError(draft, { creating: true, now: new Date(now) })).toBeNull();
+    }
+  });
+});
+
+describe("the deadline's own check while it is picked (kickoff 4 decision 4)", () => {
+  it("asks a new task for a time later than now, and lets an edit move it anywhere", () => {
+    // NOW is 11:30 IST on 1 Oct.
+    const pick = (dueDate: string, dueTime: string, creating = true) =>
+      deadlineError({ dueDate, dueTime }, { creating, now: NOW });
+    expect(pick("2026-10-01", "11:30")).toBe("Pick a time later than now.");
+    expect(pick("2026-10-01", "09:00")).toBe("Pick a time later than now.");
+    expect(pick("2026-09-30", "18:00")).toBe("Pick a time later than now.");
+    expect(pick("2026-10-01", "11:31")).toBeNull();
+    expect(pick("2026-10-02", "09:00")).toBeNull();
+    expect(pick("2026-09-30", "18:00", false)).toBeNull();
+    // Nothing to say until both a date and a time are picked.
+    expect(pick("", "09:00")).toBeNull();
+    expect(pick("2026-09-30", "")).toBeNull();
   });
 });

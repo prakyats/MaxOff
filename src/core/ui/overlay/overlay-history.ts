@@ -279,6 +279,8 @@ export interface PageEntryEnv {
   back: () => void;
   /** Calls `callback` on every popstate until the returned unsubscribe is called. */
   onPopState: (callback: () => void) => () => void;
+  /** The current address's path (`location.pathname`). */
+  pathname: () => string;
 }
 
 /**
@@ -293,6 +295,10 @@ export interface PageEntryEnv {
  * So this waits, popstate by popstate, until the current entry is unmarked; it steps back itself
  * only when no traversal is in flight (never two at once, never on a timer). `fn` runs once.
  * Use it with every overlay closed: a marked entry here is spent, never a live layer.
+ *
+ * The overlays' entries share the page's path, so a popstate on another path means the person
+ * went elsewhere meanwhile: it stops listening there and `fn` never runs (it must not rewrite the
+ * page's address from another screen).
  */
 export function createWhenOnPageEntry(env: PageEntryEnv): (fn: () => void) => void {
   return (fn) => {
@@ -300,10 +306,15 @@ export function createWhenOnPageEntry(env: PageEntryEnv): (fn: () => void) => vo
       fn();
       return;
     }
+    const path = env.pathname();
     const step = () => {
       if (!env.backPending()) env.back();
     };
     const unsubscribe = env.onPopState(() => {
+      if (env.pathname() !== path) {
+        unsubscribe();
+        return;
+      }
       if (!env.onPageEntry()) {
         step();
         return;
@@ -328,6 +339,7 @@ export const whenOnPageEntry = createWhenOnPageEntry({
     window.addEventListener("popstate", listener);
     return () => window.removeEventListener("popstate", listener);
   },
+  pathname: () => (typeof window === "undefined" ? "" : window.location.pathname),
 });
 
 /**

@@ -88,9 +88,39 @@ export function emptyDraft(): TaskDraft {
  * A new task started on a calendar day (6.4b; Kickoff 6 decision 25 D): the day is the deadline's
  * date (at the default 6:00 PM IST) and, should the type be an event, the event's date. The type
  * is picked in the form, so both carry the day and the form shows the one the type asks for.
+ * A new deadline must be in the future (kickoff 4 decision 4), so today after 6:00 PM IST the time
+ * is the next whole hour instead, or 11:59 PM when that hour is already the next day. (The calendar
+ * offers no "+ New task" on a day before today.)
  */
-export function draftOnDate(date: ISODate): TaskDraft {
-  return { ...emptyDraft(), dueDate: date, eventDate: date };
+export function draftOnDate(date: ISODate, now: Date): TaskDraft {
+  return { ...emptyDraft(), dueDate: date, dueTime: dueTimeOnDate(date, now), eventDate: date };
+}
+
+const LAST_TIME_OF_DAY = "23:59";
+
+function dueTimeOnDate(date: ISODate, now: Date): string {
+  if (toISTDate(now) !== date) return DEFAULT_DUE_TIME;
+  if (Date.parse(istInstant(date, DEFAULT_DUE_TIME)) > now.getTime()) return DEFAULT_DUE_TIME;
+  const nextHour = Number(toISTTime(now).slice(0, 2)) + 1;
+  return nextHour > 23 ? LAST_TIME_OF_DAY : `${String(nextHour).padStart(2, "0")}:00`;
+}
+
+/** What the create function answers for a deadline not in the future (kickoff 4 decision 4). */
+export const DEADLINE_NOT_LATER = "Pick a time later than now.";
+
+/**
+ * The deadline's own check, shown while it is picked so nobody fills in a whole new task to be
+ * refused: creating, a picked date and time must be later than now. An edit may move the deadline
+ * anywhere. `null` when nothing is wrong (or the date or time is not picked yet).
+ */
+export function deadlineError(
+  draft: Pick<TaskDraft, "dueDate" | "dueTime">,
+  options: { creating: boolean; now: Date },
+): string | null {
+  if (!options.creating || !isISODate(draft.dueDate) || !isISTTime(draft.dueTime)) return null;
+  return Date.parse(istInstant(draft.dueDate, draft.dueTime)) <= options.now.getTime()
+    ? DEADLINE_NOT_LATER
+    : null;
 }
 
 /** The edit dialog starts from the task as it stands (its active assignees, its primary owner). */
@@ -186,11 +216,9 @@ export function validateDraft(
 
   if (!isISODate(draft.dueDate)) errors.dueDate = "Pick the deadline's date.";
   else if (!isISTTime(draft.dueTime)) errors.dueTime = "Pick the deadline's time.";
-  else if (
-    options.creating &&
-    Date.parse(istInstant(draft.dueDate, draft.dueTime)) <= options.now.getTime()
-  ) {
-    errors.dueDate = "The deadline has already passed. Pick a later time.";
+  else {
+    const deadline = deadlineError(draft, options);
+    if (deadline) errors.dueDate = deadline;
   }
 
   if (type?.kind === "event") {

@@ -75,6 +75,9 @@ describe("loading.tsx coverage", () => {
     expect(sourceOf("today")).toContain("TodayAttendanceStripSkeleton");
     expect(sourceOf("today")).not.toContain(standIn);
     expect(sourceOf("today/people")).toContain("loading-today-people");
+    // On "End not recorded" the board has a line about yesterday above it; the skeleton draws it
+    // (the same words, unseen) so the rows do not move a line on arrival (6B2 review).
+    expect(sourceOf("today/people")).toContain("YesterdayLineSkeleton");
     // Tasks sits in a `(list)` group since 4B, so its skeleton never wraps a task's page; since
     // 4.5 it traces the real lists: `TaskRow`s under their section headings, per role.
     expect(sourceOf("tasks/(list)")).toContain("TaskRowsSkeleton");

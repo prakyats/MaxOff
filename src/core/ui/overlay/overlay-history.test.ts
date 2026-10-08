@@ -217,7 +217,7 @@ describe("whenOnPageEntry (§14.2 d: an address rewritten after the overlays clo
    * A fake history: `entries` marked or not, `at` the current one. A back moves one entry down
    * and lands on the next `land()`, as a real traversal lands on a later popstate.
    */
-  function setup(marks: boolean[]) {
+  function setup(marks: boolean[], paths: string[] = marks.map(() => "/calendar")) {
     let at = marks.length - 1;
     let pending = false;
     const listeners = new Set<() => void>();
@@ -231,6 +231,7 @@ describe("whenOnPageEntry (§14.2 d: an address rewritten after the overlays clo
         listeners.add(callback);
         return () => listeners.delete(callback);
       },
+      pathname: () => paths[at] ?? "",
     };
     /** The traversal lands: one entry down, then every listener, as the browser fires them. */
     const land = () => {
@@ -281,5 +282,26 @@ describe("whenOnPageEntry (§14.2 d: an address rewritten after the overlays clo
     expect(env.back).toHaveBeenCalledTimes(1);
     land();
     expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  it("lets go when the person went elsewhere meanwhile: never rewrites another screen's address", () => {
+    // A spent entry on the calendar; the traversal in flight is the person's own, and it lands on
+    // another screen's entries (they navigated away meanwhile).
+    const { env, run, land, othersBack, listeners } = setup(
+      [false, false, true],
+      ["/tasks/1", "/tasks", "/calendar"],
+    );
+    othersBack();
+    const fn = vi.fn();
+    run(fn);
+    expect(listeners.size).toBe(1);
+    land();
+    // On /tasks's own (unmarked) entry: let go, not run, and no step back from there.
+    expect(fn).not.toHaveBeenCalled();
+    expect(env.back).not.toHaveBeenCalled();
+    expect(listeners.size).toBe(0);
+    // A later back on that screen changes nothing.
+    land();
+    expect(fn).not.toHaveBeenCalled();
   });
 });

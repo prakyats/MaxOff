@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 import { checkThenRead } from "@/core/lib/start-early";
 import { requirePermission } from "@/core/permissions/server";
-import { addISTDays, formatIST, istDayStart, todayIST } from "@/core/time";
+import { todayIST } from "@/core/time";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import {
   getTodayPeople,
@@ -13,6 +13,7 @@ import {
 import { boardForGroup, parsePeopleGroup } from "@/modules/dashboards";
 
 import { PEOPLE_DESCRIPTION, PeopleFilter } from "./people-filter";
+import { showsYesterday, YESTERDAY_LINE_CLASS, yesterdayLine } from "./yesterday";
 
 export const metadata: Metadata = { title: "Everyone today" };
 
@@ -38,7 +39,7 @@ export default async function TodayPeoplePage({
   );
   const group = parsePeopleGroup(params.group);
   const summary = summariseToday(today.people, today.isDayOff, unended);
-  const yesterday = group === "end_not_recorded";
+  const yesterday = showsYesterday(params.group);
   const board = yesterday
     ? boardForGroup(summariseToday(unended, false).board, group)
     : boardForGroup(summary.board, group);
@@ -52,9 +53,8 @@ export default async function TodayPeoplePage({
       />
       <PeopleFilter current={group} />
       {yesterday ? (
-        <p data-slot="people-yesterday" className="text-muted-foreground mb-4 text-sm">
-          Yesterday, {formatIST(istDayStart(addISTDays(todayIST(), -1)), "EEE d MMM")}: started, End
-          day not recorded, not decided yet.
+        <p data-slot="people-yesterday" className={YESTERDAY_LINE_CLASS}>
+          {yesterdayLine(todayIST())}
         </p>
       ) : null}
       <PeopleBoard

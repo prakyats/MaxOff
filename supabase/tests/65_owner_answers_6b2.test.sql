@@ -9,7 +9,7 @@
 --     week sends on the first occurrence of the new day, never skipping a week.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(35);
+select plan(37);
 
 delete from public.task_requests;
 delete from public.task_warnings;
@@ -59,7 +59,9 @@ insert into fx values
   ('staff1', '00000000-0000-4000-8000-000000006503'),
   ('staff2', '00000000-0000-4000-8000-000000006504'),
   ('staff3', '00000000-0000-4000-8000-000000006505'),
-  ('staff4', '00000000-0000-4000-8000-000000006506');
+  ('staff4', '00000000-0000-4000-8000-000000006506'),
+  ('free1',  '00000000-0000-4000-8000-000000006507'),
+  ('gone1',  '00000000-0000-4000-8000-000000006508');
 insert into fx select 'org', id from public.organizations limit 1;
 grant all on fx to authenticated, anon, service_role;
 create function pg_temp.fx(k text) returns uuid language sql stable as $$ select id from fx where key = k; $$;
@@ -98,16 +100,26 @@ create function pg_temp.day_of(k text, d date) returns uuid language sql stable 
   select id from public.attendance_days where member_id = pg_temp.fx(k) and work_date = d;
 $$;
 
-insert into auth.users (id, email) select id, key || '@example.com' from fx where key <> 'org';
+-- Free1 is a freelancer: no login and no email (ADR-0013; members_email_matches_engagement).
+insert into auth.users (id, email) select id, key || '@example.com' from fx where key not in ('org', 'free1');
 insert into public.members (id, org_id, full_name, email, role, status, joined_at)
 select pg_temp.fx(k), pg_temp.fx('org'), initcap(k), k || '@example.com', r::public.member_role, 'active', now() - interval '90 days'
 from (values ('owner', 'owner'), ('admin1', 'admin'), ('staff1', 'staff'), ('staff2', 'staff'), ('staff3', 'staff'),
              ('staff4', 'staff')) as v(k, r);
+insert into public.members (id, org_id, full_name, email, role, status, joined_at, engagement)
+values (pg_temp.fx('free1'), pg_temp.fx('org'), 'Free1', null, 'staff', 'active', now() - interval '90 days', 'freelance');
+insert into public.member_coordinators (member_id, coordinator_id) values (pg_temp.fx('free1'), pg_temp.fx('staff2'));
+-- Gone1 was deactivated this morning, after yesterday's day.
+insert into public.members (id, org_id, full_name, email, role, status, joined_at, deactivated_at)
+values (pg_temp.fx('gone1'), pg_temp.fx('org'), 'Gone1', 'gone1@example.com', 'staff', 'deactivated',
+        now() - interval '90 days', now() - interval '1 hour');
 
 -- 1. Yesterday's End day not recorded ---------------------------------------------------------------
 -- Yesterday: Staff1 and Admin1 started and never ended (waiting for the Owner); Staff2 started and
 -- ended; Staff3 started, never ended, and the Owner approved the day; Staff4 started, never ended,
 -- and the Owner corrected it. The day before: Staff2 started and never ended (not yesterday).
+-- Left out whatever their day: the Owner, a freelancer and a deactivated member, each of whom has a
+-- started day yesterday with no End day that nobody decided.
 insert into public.attendance_days (member_id, work_date, state, submitted_choice, submitted_at, final_status,
                                     decided_at, decision_reason, started_at, ended_at, end_not_recorded)
 values
@@ -122,7 +134,13 @@ values
   (pg_temp.fx('staff4'), pg_temp.y(), 'corrected', 'present', pg_temp.at(pg_temp.y(), '09:00'), 'half_day',
    pg_temp.at(pg_temp.y(), '12:00'), 'Left at noon', pg_temp.at(pg_temp.y(), '09:00'), null, true),
   (pg_temp.fx('staff2'), pg_temp.y() - 1, 'pending_review', 'present', pg_temp.at(pg_temp.y() - 1, '09:00'), null,
-   null, null, pg_temp.at(pg_temp.y() - 1, '09:00'), null, true);
+   null, null, pg_temp.at(pg_temp.y() - 1, '09:00'), null, true),
+  (pg_temp.fx('owner'), pg_temp.y(), 'pending_review', 'present', pg_temp.at(pg_temp.y(), '09:00'), null,
+   null, null, pg_temp.at(pg_temp.y(), '09:00'), null, true),
+  (pg_temp.fx('free1'), pg_temp.y(), 'pending_review', 'present', pg_temp.at(pg_temp.y(), '09:00'), null,
+   null, null, pg_temp.at(pg_temp.y(), '09:00'), null, true),
+  (pg_temp.fx('gone1'), pg_temp.y(), 'pending_review', 'present', pg_temp.at(pg_temp.y(), '09:00'), null,
+   null, null, pg_temp.at(pg_temp.y(), '09:00'), null, true);
 
 select is(pg_temp.unended(pg_temp.at(pg_temp.today(), '04:59')), '',
   'before the 05:00 cutoff nobody is counted: yesterday can still be ended');
@@ -139,7 +157,12 @@ select is((select (u.state, u.submitted_choice, u.started, u.end_not_recorded, u
   ('pending_review', 'present', true, true, true, true, true)::text,
   'each row carries yesterday''s day as it stands (its state, start, no end)');
 select is((select count(*) from app.attendance_unended_yesterday(pg_temp.fx('org'), pg_temp.at(pg_temp.today(), '05:00'))
-           where member_id = pg_temp.fx('owner')), 0::bigint, 'never the Owner (no attendance of their own)');
+           where member_id = pg_temp.fx('owner')), 0::bigint,
+  'never the Owner (no attendance of their own), though the fixture gives them a started day yesterday');
+select is((select count(*) from app.attendance_unended_yesterday(pg_temp.fx('org'), pg_temp.at(pg_temp.today(), '05:00'))
+           where member_id = pg_temp.fx('free1')), 0::bigint, 'never a freelancer (no attendance)');
+select is((select count(*) from app.attendance_unended_yesterday(pg_temp.fx('org'), pg_temp.at(pg_temp.today(), '05:00'))
+           where member_id = pg_temp.fx('gone1')), 0::bigint, 'never a deactivated member');
 
 update public.org_settings set end_day_cutoff_time = '03:00' where org_id = pg_temp.fx('org');
 select is(pg_temp.unended(pg_temp.at(pg_temp.today(), '02:59')), '', 'an Owner-set cutoff: not before 03:00');

@@ -243,6 +243,24 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
       },
     },
   },
+  // The board on "End not recorded" (decision 24 as amended): the line about yesterday, then the
+  // board (or its empty line) under it, where the skeleton's rows start.
+  {
+    role: "owner",
+    path: "/today/people?group=end_not_recorded",
+    marker: 'data-slot="loading-today-people"',
+    hold: "/rest/v1/rpc/attendance_today_detail",
+    trace: {
+      "yesterday line": {
+        held: '[data-slot="loading-people-yesterday"]',
+        settled: '[data-slot="people-yesterday"]',
+      },
+      board: {
+        held: '[data-slot="loading-today-people"]',
+        settled: '[data-slot="people-board"], [data-slot="people-board-empty"]',
+      },
+    },
+  },
   // My Day (6.1): the strip, then the first section (the fixture's task is not noted yet).
   {
     role: "staff",

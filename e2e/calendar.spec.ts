@@ -467,6 +467,20 @@ test.describe("the calendar, as the Owner", () => {
     const week = page.locator('[data-slot="calendar-timeline"][data-days="7"]');
     await expect(week).toBeVisible();
     await expect(eventOf(week, shoot)).toBeVisible();
+
+    // A day before today offers no "+ New task" (a new deadline is later than now, kickoff 4
+    // decision 4): neither the month's day dialog nor the Day's side column.
+    const past = addISTDays(todayIST(), -1);
+    await page.goto(`/calendar?date=${past}`);
+    await hydrated(page);
+    await dayBox(page, past).click();
+    await expect(daySheet(page)).toHaveAttribute("data-date", past);
+    await expect(daySheet(page).locator('[data-slot="calendar-open-day"]')).toBeVisible();
+    await expect(daySheet(page).locator('[data-slot="new-task-on-day"]')).toHaveCount(0);
+    await page.goto(`/calendar?view=day&date=${past}`);
+    await hydrated(page);
+    await expect(detail(page)).toHaveAttribute("data-date", past);
+    await expect(page.locator('[data-slot="new-task-on-day"]')).toHaveCount(0);
     await removeTasksTitled(prefixOf(info));
   });
 
