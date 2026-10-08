@@ -87,11 +87,19 @@ test.describe("/me: the profile is read-only first and edited deliberately", () 
     await confirmation(page).getByRole("button", { name: "Save" }).click();
     await expect(page.getByText("Profile saved")).toBeVisible();
     await expect(phoneValue(page)).toHaveText("98450 12345");
+    const diagCdp = await page.context().newCDPSession(page);
+    await diagCdp.send("Emulation.setCPUThrottlingRate", { rate: 12 });
     await page.reload();
     await expect(phoneValue(page)).toHaveText("98450 12345");
 
     // Put it back: a removal is named as one.
-    await savePhone(page, "", "Your phone number will be removed.");
+    await editButton(page).click();
+    await diagCdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });
+    await page.getByLabel("Phone").fill("");
+    await saveButton(page).click();
+    await expect(confirmation(page)).toContainText("Your phone number will be removed.");
+    await confirmation(page).getByRole("button", { name: "Save" }).click();
+    await expect(page.getByText("Profile saved")).toBeVisible();
     await expect(phoneValue(page)).toHaveText("Not added");
   });
 

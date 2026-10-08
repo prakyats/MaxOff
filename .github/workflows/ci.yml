@@ -192,8 +192,8 @@ jobs:
       - run: >-
           pnpm test:e2e --shard=${{ matrix.shard }}/2 --reporter=list,blob
           e2e/onboarding.spec.ts e2e/calendar.spec.ts e2e/edit-pattern.spec.ts e2e/dashboards.spec.ts
-          --grep "the band returns for a failing device|phone. the three sizes by drag|Today while the next month|Save waits for a real change|never re-reads the screen it moved to"
-          --repeat-each=4
+          --grep "the band returns for a failing device|Save waits for a real change"
+          --repeat-each=6
           --project=setup --project=desktop --project=mobile --project=mobile-lg
       - name: Approve all (owner-bulk), alone, after the rest of shard 2
         if: false
