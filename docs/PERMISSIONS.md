@@ -43,6 +43,7 @@
 | `activity.view_all` | The full activity log | ✅ | | |
 | `records.hard_delete` | Permanent deletion (exceptional) | ✅ | | |
 
+
 ¹ Admins can edit lists and field definitions except company-level settings, and except **custom field definitions on `project` and `item`**, which are Owner-only (this closes the "amount in a number field" loophole, since there's no currency type). *Adjustable: it's just a row in `role_permissions`.*
 
 ² **Custom field definitions (owner decision 2026-09-27, kickoff 3):** global `client` and `contact` fields are **Owner-only**; an Admin may add or archive a field **scoped to one of their assigned clients** only; `project` and `item` fields stay Owner-only (¹); `task` fields arrive with 4.1.
