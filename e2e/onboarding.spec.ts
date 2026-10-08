@@ -226,6 +226,7 @@ test.describe("onboarding for reachability", () => {
         band.getByText("Install MaxOff to get notifications").filter({ visible: true }),
       ).toBeVisible();
       await band.click();
+    await diagCdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });
       await expect(
         tab.locator('[data-slot="push-sheet"] [data-slot="install-steps"]'),
       ).toBeVisible();
@@ -321,6 +322,8 @@ test.describe("onboarding for reachability", () => {
     await expect(band).toHaveCount(0);
     // Two failed deliveries in a row: failing (5.4), still an active device.
     await serviceUpdate(`push_subscriptions?id=eq.${deviceId}`, { failure_count: 2 });
+    const diagCdp = await page.context().newCDPSession(page);
+    await diagCdp.send("Emulation.setCPUThrottlingRate", { rate: 12 });
     await page.reload();
     // The reloaded page answers a tap only once hydrated (main CI run 37792867778: the band's tap
     // before hydration opened nothing).
