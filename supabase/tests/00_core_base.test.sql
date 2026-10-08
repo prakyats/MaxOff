@@ -128,7 +128,10 @@ insert into app_internal values
   -- the weekly digest's builder, zero check and lines (eod_report_preview, digest_weekly and
   -- owner_digest_weekly_preview are public: the Owner's reads and the job's)
   ('eod_report_payload'), ('eod_report_zero'), ('eod_report_text'), ('eod_report'),
-  ('digest_weekly_payload'), ('digest_weekly_zero'), ('digest_weekly_text');
+  ('digest_weekly_payload'), ('digest_weekly_zero'), ('digest_weekly_text'),
+  -- 6B2 (decision 24 amended): yesterday's unended days at a moment (attendance_end_not_recorded_yesterday
+  -- is public: the Owner's read)
+  ('attendance_unended_yesterday');
   -- 3c.1 (contract migration): attendance_logout and logout_not_recorded are gone with the 2.x gate.
 select is(
   (select count(*) from pg_proc p
@@ -149,7 +152,7 @@ select is(
   0::bigint,
   'the internal helpers: service_role only, never the API role');
 select is((select count(*) from pg_proc p where p.pronamespace = 'app'::regnamespace
-             and p.proname in (select name from app_internal)), 67::bigint,
+             and p.proname in (select name from app_internal)), 68::bigint,
   'the internal helper list matches what exists');
 select cmp_ok((select count(*) from pg_proc where pronamespace = 'app'::regnamespace), '>=', 4::bigint,
   'the grant check saw the app functions');
