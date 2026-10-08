@@ -186,7 +186,7 @@ select pg_temp.clear();
 
 -- The schedule ----------------------------------------------------------------------------------------
 select is((select schedule || ' ' || command from cron.job where jobname = 'cycle_generate'),
-  '30 18 * * * select app.cycle_generate()', 'cycle_generate runs at 00:00 IST (18:30 UTC) every night');
+  '30 2 * * * select app.cycle_generate()', 'cycle_generate runs at 08:00 IST (02:30 UTC) every day: no client-work notice at midnight (owner 2026-10-08)');
 select ok(not has_function_privilege('authenticated', 'app.cycle_generate(timestamptz)', 'execute')
           and has_function_privilege('service_role', 'app.cycle_generate(timestamptz)', 'execute'),
   'the job is service_role only');

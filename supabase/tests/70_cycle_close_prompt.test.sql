@@ -186,7 +186,7 @@ delete from public.activity_log;
 
 -- The schedule and the rule -------------------------------------------------------------------------
 select is((select schedule || ' ' || command from cron.job where jobname = 'cycle_close_prompt'),
-  '35 18 * * * select app.cycle_close_prompt()', 'cycle_close_prompt runs at 00:05 IST (18:35 UTC), after cycle_generate');
+  '35 2 * * * select app.cycle_close_prompt()', 'cycle_close_prompt runs at 08:05 IST (02:35 UTC), after cycle_generate: no client-work notice at midnight (owner 2026-10-08)');
 select ok(not has_function_privilege('authenticated', 'app.cycle_close_prompt(timestamptz)', 'execute')
           and not has_function_privilege('authenticated', 'app.cycle_close_prompt_recipient(public.clients)', 'execute'),
   'the job and its recipient rule are service_role only');

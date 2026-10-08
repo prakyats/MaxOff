@@ -1,15 +1,21 @@
--- Kickoff 7 amendment C, escalations E1-E5 (owner 2026-10-08): app.client_work_alerts() every 5
--- minutes. E1 an overdue client item tells its client's Admin first (one row per Admin per run), then,
--- item_overdue_escalate_hours after that, the Owner (one escalation per Admin, naming them); once per
--- item and planned date, re-armed when the date moves; done items and clients with no Admin never.
--- E2 an ended cycle still undecided cycle_decide_escalate_days after its end and its prompt -> the
--- Owner, once per cycle. E3 a one-time project open after its delivery date -> the Owner at 08:00 IST
--- the morning after, once per date, re-armed when it moves. E5 the two thresholds: defaults, checks,
--- the Owner only. The schedule; the record table has no API access; one Admin's failure costs the
--- others nothing. Times are computed from now() and app.today_ist().
+-- Kickoff 7 amendment C, escalations E1-E5 (owner 2026-10-08), with the escalation answers Q8-Q11
+-- (owner 2026-10-08): app.client_work_alerts() every 5 minutes. E1 an overdue client item tells its
+-- client's Admin first at 08:00 IST the day after its planned date (one row per Admin per run), then the
+-- Owner (one escalation per Admin, naming them) at the first 08:00 IST at least item_overdue_escalate_hours
+-- after that notice (Q10); an item back to open (sent back, or Not done) tells the Admin again with the
+-- full threshold (Q8); a client with no Admin gives the Owner a reminder at the Admin's time and no
+-- escalation (Q9); a new Admin is told first and gets their own threshold, and the escalation names
+-- them (Q11); re-armed when the date moves. E2 an ended cycle still undecided cycle_decide_escalate_days
+-- after its end and its prompt -> the Owner, once per notice; an item back to open or a new Admin gives
+-- the Admin a fresh notice first (Q8, Q11). E3 a one-time project open after its delivery date -> the
+-- Owner at 08:00 IST the morning after, once per date, re-armed when it moves; the Owner's reminder for a
+-- client with no Admin (Q9). E5 the two thresholds: defaults, checks, the Owner only. The schedule; the
+-- record table has no API access for any role; E2's partial index; one Admin's failure costs the others
+-- nothing. Simulated runs before the real-time steps (a rejection, Not done, a new Admin, all at now())
+-- use the 08:00 IST of past days; the steps after them use the first 08:00 IST after now().
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(59);
+select plan(119);
 
 -- 7A: client work rows reference clients and members, and the presets the organization (a
 -- Playwright run leaves some behind).
@@ -152,6 +158,7 @@ begin
 end;
 $$;
 
+
 delete from public.client_work_alerts;
 update public.org_settings set item_overdue_escalate_hours = 24, cycle_decide_escalate_days = 2;
 
@@ -167,16 +174,29 @@ insert into public.clients (id, org_id, name, state, admin_id, activated_at) val
   (pg_temp.fx('client_a'), pg_temp.fx('org'), 'Sharma Weddings', 'active', pg_temp.fx('admin'),  now()),
   (pg_temp.fx('client_b'), pg_temp.fx('org'), 'Blue Bakery',     'active', pg_temp.fx('admin2'), now()),
   (pg_temp.fx('client_d'), pg_temp.fx('org'), 'Draft Diner',     'draft',  null,                 null);
+-- The Admins have run their clients for months (Q11 counts a notice only after the Admin's assignment).
+update public.client_admin_assignments set from_at = now() - interval '90 days';
 delete from public.activity_log;
 
 create temporary table t as
 select now() as t1,
        (((app.today_ist() + 1)::timestamp + time '08:00') at time zone 'Asia/Kolkata') as morning,
-       (app.period_start('monthly', app.today_ist()) - interval '1 month')::date as last_month;
+       app.client_work_morning(now()) as r,
+       (app.period_start('monthly', app.today_ist()) - interval '1 month')::date as last_month,
+       (app.period_start('monthly', app.today_ist()) - interval '3 month')::date as old_month;
 grant select on t to authenticated;
+-- 08:00 IST on today + k.
+create function pg_temp.s(k integer) returns timestamptz language sql stable as $$
+  select ((app.today_ist() + k)::timestamp + time '08:00') at time zone 'Asia/Kolkata';
+$$;
 -- An overdue line as the notices write it.
 create function pg_temp.line(i text, p text, c text, d date) returns text language sql immutable as $$
   select format('%s (%s · %s, %s)', i, p, c, app.notify_date(d));
+$$;
+-- The item of that title in a project's cycle starting on that date.
+create function pg_temp.item_in(p text, d date, i text) returns uuid language sql stable security definer as $$
+  select x.id from public.project_items x
+  where x.cycle_id = (pg_temp.cycle_of(p, d)).id and x.title = i;
 $$;
 
 select pg_temp.as_member('owner');
@@ -189,32 +209,51 @@ insert into fx values
 select public.project_complete(pg_temp.fx('pdone'));
 select pg_temp.as_member('admin');
 insert into fx values
-  ('late1', public.item_add((pg_temp.cycle_of('pm', app.period_start('monthly', app.today_ist()))).id, 'Late 1', app.today_ist() - 1)),
-  ('late2', public.item_add((pg_temp.cycle_of('pm', app.period_start('monthly', app.today_ist()))).id, 'Late 2', app.today_ist() - 3)),
+  ('late1', public.item_add((pg_temp.cycle_of('pm', app.period_start('monthly', app.today_ist()))).id, 'Late 1', app.today_ist() - 11)),
+  ('late1b', public.item_add((pg_temp.cycle_of('pm', app.period_start('monthly', app.today_ist()))).id, 'Late 1b', app.today_ist() - 11)),
+  ('late2', public.item_add((pg_temp.cycle_of('pm', app.period_start('monthly', app.today_ist()))).id, 'Late 2', app.today_ist() - 13)),
   ('future', public.item_add((pg_temp.cycle_of('pm', app.period_start('monthly', app.today_ist()))).id, 'Future', app.today_ist() + 3)),
-  ('donelate', public.item_add((pg_temp.cycle_of('pm', app.period_start('monthly', app.today_ist()))).id, 'Done late', app.today_ist() - 2));
+  ('donelate', public.item_add((pg_temp.cycle_of('pm', app.period_start('monthly', app.today_ist()))).id, 'Done late', app.today_ist() - 12));
 select public.item_mark_done(pg_temp.fx('donelate'));
 select pg_temp.as_member('admin2');
 insert into fx values
-  ('blate', public.item_add((pg_temp.cycle_of('pb', app.period_start('monthly', app.today_ist()))).id, 'B late', app.today_ist() - 1));
+  ('blate', public.item_add((pg_temp.cycle_of('pb', app.period_start('monthly', app.today_ist()))).id, 'B late', app.today_ist() - 11));
 select pg_temp.as_member('owner');
 insert into fx values
-  ('dlate', public.item_add((pg_temp.cycle_of('pd', null)).id, 'D late', app.today_ist() - 1));
+  ('dlate', public.item_add((pg_temp.cycle_of('pd', null)).id, 'D late', app.today_ist() - 11));
 select pg_temp.as_system();
 select pg_temp.clear();
 
--- The schedule and the kinds ----------------------------------------------------------------------------
+-- The schedule, the kinds, the helpers and E2's index ------------------------------------------------------
 select is((select schedule || ' ' || command from cron.job where jobname = 'client_work_alerts'),
   '*/5 * * * * select app.client_work_alerts()', 'client_work_alerts runs every 5 minutes (as reminders_tick)');
+select is((select string_agg(jobname || ' ' || schedule, ', ' order by jobname) from cron.job
+           where jobname in ('cycle_generate', 'cycle_close_prompt')),
+  'cycle_close_prompt 35 2 * * *, cycle_generate 30 2 * * *',
+  'no client-work notice at midnight: the jobs that notify run at 08:00 IST (02:30 UTC) and 08:05 IST, the prompt after the cycles');
 select ok(not has_function_privilege('authenticated', 'app.client_work_alerts(timestamptz)', 'execute')
           and has_function_privilege('service_role', 'app.client_work_alerts(timestamptz)', 'execute'),
   'the job is service_role only');
+select ok(not has_function_privilege('authenticated', 'app.client_work_morning(timestamptz)', 'execute')
+          and not has_function_privilege('authenticated', 'app.client_items_overdue(uuid, date)', 'execute')
+          and not has_function_privilege('anon', 'app.client_items_overdue(uuid, date)', 'execute'),
+  'and so are its helpers');
 select is((select string_agg(kind || '=' || actionable || '/' || always_email || '/' || in_app, ', ' order by kind)
            from public.notification_kinds
-           where kind in ('reminder_item_overdue', 'escalation_item_overdue', 'escalation_cycle_undecided', 'escalation_delivery_missed')),
+           where kind in ('reminder_item_overdue', 'escalation_item_overdue', 'escalation_cycle_undecided',
+                          'escalation_delivery_missed', 'reminder_delivery_missed')),
   'escalation_cycle_undecided=false/true/true, escalation_delivery_missed=false/true/true, '
-  || 'escalation_item_overdue=false/true/true, reminder_item_overdue=false/true/true',
-  'the Admin''s overdue notice and the three escalations are always emailed, as a task''s overdue reminder and escalations');
+  || 'escalation_item_overdue=false/true/true, reminder_delivery_missed=false/true/true, reminder_item_overdue=false/true/true',
+  'the overdue notice, the three escalations and the Owner''s missed-delivery reminder (Q9) are always emailed');
+select is((select indexdef from pg_indexes where indexname = 'project_items_cycle_undecided_idx'),
+  'CREATE INDEX project_items_cycle_undecided_idx ON public.project_items USING btree (cycle_id) INCLUDE (reopened_at) '
+  || 'WHERE ((state = ''open''::item_state) AND (carry_decision IS NULL))',
+  'E2''s count of a cycle''s undecided items has its partial index (the re-review''s cost item)');
+
+-- Q10. 08:00 IST --------------------------------------------------------------------------------------------
+select is(app.client_work_morning(pg_temp.s(0) - interval '1 minute'), pg_temp.s(0), '07:59 IST: 08:00 the same day');
+select is(app.client_work_morning(pg_temp.s(0)), pg_temp.s(0), '08:00 IST: that moment');
+select is(app.client_work_morning(pg_temp.s(0) + interval '1 minute'), pg_temp.s(1), '08:01 IST: 08:00 the next day');
 
 -- E5. The thresholds -------------------------------------------------------------------------------------
 select is((select item_overdue_escalate_hours || '/' || cycle_decide_escalate_days from public.org_settings where org_id = pg_temp.fx('org')),
@@ -240,92 +279,223 @@ select throws_ok($$ update public.org_settings set item_overdue_escalate_hours =
 select pg_temp.as_system();
 update public.org_settings set item_overdue_escalate_hours = 24, cycle_decide_escalate_days = 2;
 
--- The record table: no API access -----------------------------------------------------------------------------
+-- The record table: no API access for any role ------------------------------------------------------------------
+insert into public.client_work_alerts (org_id, kind, entity_id, armed_for, sent_at, recipient_id)
+values (pg_temp.fx('org'), 'item_overdue', pg_temp.fx('future'), app.today_ist() - 40, now() - interval '40 days', pg_temp.fx('admin'));
 select pg_temp.as_member('owner');
-select throws_ok($$ select count(*) from public.client_work_alerts $$, '42501', null, 'the Owner has no API read of the record');
-select pg_temp.as_member('admin');
-select throws_ok($$ select count(*) from public.client_work_alerts $$, '42501', null, 'nor an Admin');
-select pg_temp.as_member('staff');
+select throws_ok($$ select count(*) from public.client_work_alerts $$, '42501', null, 'the Owner: no select');
 select throws_ok($$ insert into public.client_work_alerts (org_id, kind, entity_id, armed_for, sent_at)
                     values (pg_temp.fx('org'), 'item_overdue', pg_temp.fx('late1'), app.today_ist(), now()) $$, '42501', null,
-  'nor Crew (no write either)');
+  'the Owner: no insert');
+select throws_ok($$ update public.client_work_alerts set sent_at = now() $$, '42501', null, 'the Owner: no update');
+select throws_ok($$ delete from public.client_work_alerts $$, '42501', null, 'the Owner: no delete');
+select pg_temp.as_member('admin');
+select throws_ok($$ select count(*) from public.client_work_alerts $$, '42501', null, 'an Admin: no select');
+select throws_ok($$ insert into public.client_work_alerts (org_id, kind, entity_id, armed_for, sent_at)
+                    values (pg_temp.fx('org'), 'item_overdue', pg_temp.fx('late1'), app.today_ist(), now()) $$, '42501', null,
+  'an Admin: no insert');
+select throws_ok($$ update public.client_work_alerts set sent_at = now() $$, '42501', null, 'an Admin: no update');
+select throws_ok($$ delete from public.client_work_alerts $$, '42501', null, 'an Admin: no delete');
+select pg_temp.as_member('staff');
+select throws_ok($$ select count(*) from public.client_work_alerts $$, '42501', null, 'Crew: no select');
+select throws_ok($$ insert into public.client_work_alerts (org_id, kind, entity_id, armed_for, sent_at)
+                    values (pg_temp.fx('org'), 'item_overdue', pg_temp.fx('late1'), app.today_ist(), now()) $$, '42501', null,
+  'Crew: no insert');
+select throws_ok($$ update public.client_work_alerts set sent_at = now() $$, '42501', null, 'Crew: no update');
+select throws_ok($$ delete from public.client_work_alerts $$, '42501', null, 'Crew: no delete');
+select pg_temp.as_anon();
+select throws_ok($$ select count(*) from public.client_work_alerts $$, '42501', null, 'anon: no select');
+select throws_ok($$ insert into public.client_work_alerts (org_id, kind, entity_id, armed_for, sent_at)
+                    values (pg_temp.fx('org'), 'item_overdue', pg_temp.fx('late1'), app.today_ist(), now()) $$, '42501', null,
+  'anon: no insert');
+select throws_ok($$ update public.client_work_alerts set sent_at = now() $$, '42501', null, 'anon: no update');
+select throws_ok($$ delete from public.client_work_alerts $$, '42501', null, 'anon: no delete');
 select pg_temp.as_system();
+select is((select count(*)::integer from public.client_work_alerts), 1, 'the row is untouched by every refused write');
 select ok((select relrowsecurity from pg_class where oid = 'public.client_work_alerts'::regclass), 'RLS is on');
+delete from public.client_work_alerts;
 
--- E1. The Admin first ---------------------------------------------------------------------------------------
-select is(app.client_work_alerts((select t1 from t)), 2, 'the first run: one overdue notice per Admin with overdue items');
-select is(pg_temp.n('admin', 'reminder_item_overdue'), 1::bigint, 'one row for two overdue items (never one per item)');
-select is((pg_temp.last('admin', 'reminder_item_overdue')).title, '2 client items overdue', 'naming the count');
+-- E1. The Admin first, at 08:00 IST (Q10) ----------------------------------------------------------------------
+select is(app.client_work_alerts(pg_temp.s(-12) - interval '1 minute'), 0,
+  'Late 2 is overdue from 00:00 IST the day after its planned date, but at 07:59 IST nobody is told yet');
+select is(app.client_work_alerts(pg_temp.s(-12)), 1, 'at 08:00 IST: its Admin');
+select is((pg_temp.last('admin', 'reminder_item_overdue')).title, 'Overdue: Late 2', 'one item: its title');
 select is((pg_temp.last('admin', 'reminder_item_overdue')).body,
-  pg_temp.line('Late 2', 'Monthly reels', 'Sharma Weddings', app.today_ist() - 3) || '; '
-  || pg_temp.line('Late 1', 'Monthly reels', 'Sharma Weddings', app.today_ist() - 1) || '.',
-  'listing the open items with a planned date before today, oldest first: never a done item or a future one');
+  'Monthly reels · Sharma Weddings. Planned for ' || app.notify_date(app.today_ist() - 13) || '.', 'its project, client and date');
 select is((pg_temp.last('admin', 'reminder_item_overdue')).link,
   '/clients/' || pg_temp.fx('client_a') || '/projects/' || pg_temp.fx('pm'), 'one project: its page');
-select is((pg_temp.last('admin2', 'reminder_item_overdue')).title, 'Overdue: B late', 'one item: its title');
-select is((pg_temp.last('admin2', 'reminder_item_overdue')).body,
-  'Bakery menu · Blue Bakery. Planned for ' || app.notify_date(app.today_ist() - 1) || '.', 'its project, client and date');
-select ok((select bool_and(actor_id is null and escalation_level = 0) from public.notifications where kind = 'reminder_item_overdue'),
-  'no actor (the job), not an escalation');
 select is(pg_temp.n('owner'), 0::bigint, 'the Owner is not told yet: the Admin first');
-select is((select count(*)::integer from public.client_work_alerts where entity_id = pg_temp.fx('dlate')), 0,
-  'an item of a client with no Admin (a draft the Owner runs) gives no notice');
-select is(app.client_work_alerts((select t1 from t) + interval '5 minutes'), 0, 'the next run sends nothing again (once per item)');
 
--- E1. Then the Owner ----------------------------------------------------------------------------------------
-select pg_temp.clear();
-select is(app.client_work_alerts((select t1 from t) + interval '24 hours' - interval '1 minute'), 0,
-  'nothing before item_overdue_escalate_hours (24) after the notice');
-select pg_temp.as_member('admin');
-select public.item_mark_done(pg_temp.fx('late1'));
-select pg_temp.as_system();
-select is(app.client_work_alerts((select t1 from t) + interval '24 hours'), 2, 'at 24 h: one escalation per Admin');
-select is(pg_temp.n('owner', 'escalation_item_overdue'), 2::bigint, 'two rows to the Owner, one per Admin, never one per item');
-select is((select string_agg(title, ' | ' order by title) from public.notifications where kind = 'escalation_item_overdue'),
-  'Other Admin has a client item overdue | Ravi Admin has a client item overdue',
-  'each naming the Admin; Late 1, done in time, is left out');
-select is((select body from public.notifications where kind = 'escalation_item_overdue' and title like 'Ravi%'),
-  pg_temp.line('Late 2', 'Monthly reels', 'Sharma Weddings', app.today_ist() - 3) || '. Still not done 24 h after Ravi Admin was told.',
-  'listing the items still open');
+-- E1. Then the Owner, at the first 08:00 IST 24 h after the notice ---------------------------------------------------
+select is(app.client_work_alerts(pg_temp.s(-11) - interval '1 minute'), 0, 'nothing at 07:59 IST the next day');
+select is(app.client_work_alerts(pg_temp.s(-11)), 1, 'at 08:00 IST, 24 h after the notice: the Owner');
+select is((pg_temp.last('owner', 'escalation_item_overdue')).title, 'Ravi Admin has a client item overdue', 'naming the Admin');
+select is((pg_temp.last('owner', 'escalation_item_overdue')).body,
+  pg_temp.line('Late 2', 'Monthly reels', 'Sharma Weddings', app.today_ist() - 13) || '. Still not done 24 h after Ravi Admin was told.',
+  'listing the item');
 select ok((select bool_and(escalation_level = 1 and actor_id is null and link = '/clients/items?filter=overdue')
            from public.notifications where kind = 'escalation_item_overdue'),
   'an escalation (level 1: the per-person email cap is bypassed), no actor, linking the cross-client overdue list');
-select is(pg_temp.n('admin') + pg_temp.n('admin2'), 0::bigint, 'the Admins get nothing more');
-select is(app.client_work_alerts((select t1 from t) + interval '30 hours'), 0, 'each item escalates once');
-select is((select count(*)::integer from public.client_work_alerts where entity_id = pg_temp.fx('dlate')), 0,
-  'and a client with no Admin never escalates');
 
--- E1. A moved planned date re-arms; the threshold is the setting ------------------------------------------------
+-- E1. One row per recipient; Q9: the Owner's own client, at the Admin's time ------------------------------------------
+select pg_temp.clear();
+select is(app.client_work_alerts(pg_temp.s(-10)), 3, 'at 08:00 IST: one overdue notice per recipient');
+select is(pg_temp.n('admin', 'reminder_item_overdue'), 1::bigint, 'one row for two overdue items (never one per item)');
+select is((pg_temp.last('admin', 'reminder_item_overdue')).title, '2 client items overdue', 'naming the count');
+select is((pg_temp.last('admin', 'reminder_item_overdue')).body,
+  pg_temp.line('Late 1', 'Monthly reels', 'Sharma Weddings', app.today_ist() - 11) || '; '
+  || pg_temp.line('Late 1b', 'Monthly reels', 'Sharma Weddings', app.today_ist() - 11) || '.',
+  'listing the newly overdue open items: never Late 2 again, a done item or a future one');
+select is((pg_temp.last('admin2', 'reminder_item_overdue')).title, 'Overdue: B late', 'the other Admin, their own');
+select is((pg_temp.last('owner', 'reminder_item_overdue')).title, 'Overdue: D late',
+  'Q9: a client with no Admin (a draft the Owner runs): the Owner gets the reminder, at the Admin''s time');
+select is((pg_temp.last('owner', 'reminder_item_overdue')).body,
+  'Diner film · Draft Diner. Planned for ' || app.notify_date(app.today_ist() - 11) || '.', 'no Admin named');
+select ok((select bool_and(actor_id is null and escalation_level = 0) from public.notifications where kind = 'reminder_item_overdue'),
+  'no actor (the job), not an escalation');
+select is((select recipient_id from public.client_work_alerts where entity_id = pg_temp.fx('dlate')), pg_temp.fx('owner'),
+  'the record names who was told');
+select is(app.client_work_alerts(pg_temp.s(-10) + interval '5 minutes'), 0, 'the next run sends nothing again (once per item)');
+
+select pg_temp.as_member('admin');
+select public.item_mark_done(pg_temp.fx('late1'));
+select pg_temp.as_system();
+select pg_temp.clear();
+select is(app.client_work_alerts(pg_temp.s(-9) - interval '1 minute'), 0, 'no escalation before 08:00 IST');
+select is(app.client_work_alerts(pg_temp.s(-9)), 2, 'then one escalation per Admin');
+select is((select string_agg(title, ' | ' order by title) from public.notifications where kind = 'escalation_item_overdue'),
+  'Other Admin has a client item overdue | Ravi Admin has a client item overdue',
+  'each naming the Admin, never one per item; Late 1, done in time, is left out');
+select is((select body from public.notifications where kind = 'escalation_item_overdue' and title like 'Ravi%'),
+  pg_temp.line('Late 1b', 'Monthly reels', 'Sharma Weddings', app.today_ist() - 11) || '. Still not done 24 h after Ravi Admin was told.',
+  'listing the items still open');
+select is(pg_temp.n('admin') + pg_temp.n('admin2'), 0::bigint, 'the Admins get nothing more');
+select is(app.client_work_alerts(pg_temp.s(-8)), 0, 'each notice escalates once');
+select is((select count(*)::integer from public.client_work_alerts where entity_id = pg_temp.fx('dlate')), 1,
+  'Q9: the Owner''s own client never escalates (his reminder is the only row)');
+
+-- E1. A moved planned date re-arms; the threshold is the setting, the escalation still at 08:00 IST --------------------
 select pg_temp.clear();
 update public.org_settings set item_overdue_escalate_hours = 2;
 select pg_temp.as_member('admin');
-select public.item_update(pg_temp.fx('late2'), jsonb_build_object('planned_date', app.today_ist() - 1));
+select public.item_update(pg_temp.fx('late2'), jsonb_build_object('planned_date', app.today_ist() - 8));
 select pg_temp.as_system();
-select is(app.client_work_alerts((select t1 from t) + interval '31 hours'), 1, 'a new planned date, still past: the Admin is told again');
+select is(app.client_work_alerts(pg_temp.s(-7) + interval '1 hour'), 1, 'a new planned date, still past: the Admin is told again');
 select is((pg_temp.last('admin', 'reminder_item_overdue')).title, 'Overdue: Late 2', 'about that item');
-select is(app.client_work_alerts((select t1 from t) + interval '32 hours' + interval '59 minutes'), 0,
-  'the escalation waits for the setting''s 2 hours');
-select is(app.client_work_alerts((select t1 from t) + interval '33 hours'), 1, 'and comes at 2 hours');
+select is(app.client_work_alerts(pg_temp.s(-7) + interval '3 hours'), 0,
+  'the setting''s 2 hours have passed, but the escalation waits for 08:00 IST (Q10)');
+select is(app.client_work_alerts(pg_temp.s(-6) - interval '1 minute'), 0, 'not at 07:59');
+select is(app.client_work_alerts(pg_temp.s(-6)), 1, 'at 08:00 IST');
 select is((pg_temp.last('owner', 'escalation_item_overdue')).body,
-  pg_temp.line('Late 2', 'Monthly reels', 'Sharma Weddings', app.today_ist() - 1) || '. Still not done 2 h after Ravi Admin was told.',
+  pg_temp.line('Late 2', 'Monthly reels', 'Sharma Weddings', app.today_ist() - 8) || '. Still not done 2 h after Ravi Admin was told.',
   'once more for the new date');
 update public.org_settings set item_overdue_escalate_hours = 24;
+
+-- Before the real-time steps: items noticed and escalated, ended cycles prompted and escalated ------------------------
+select pg_temp.as_member('admin');
+insert into fx values
+  ('backr', public.item_add((pg_temp.cycle_of('pm', app.period_start('monthly', app.today_ist()))).id, 'Back R', app.today_ist() - 6)),
+  ('backn', public.item_add((pg_temp.cycle_of('pm', app.period_start('monthly', app.today_ist()))).id, 'Back N', app.today_ist() - 6));
+select pg_temp.as_member('admin2');
+insert into fx values
+  ('swap', public.item_add((pg_temp.cycle_of('pb', app.period_start('monthly', app.today_ist()))).id, 'Swap', app.today_ist() - 4));
+select pg_temp.as_system();
+select pg_temp.clear();
+select is(app.client_work_alerts(pg_temp.s(-5)), 1, 'Back R and Back N: their Admin is told');
+select is(app.client_work_alerts(pg_temp.s(-4)), 1, 'and the Owner a day later');
+select is(app.client_work_alerts(pg_temp.s(-3)), 1, 'Swap: its Admin (Other Admin) is told, not escalated yet');
+select is((pg_temp.last('admin2', 'reminder_item_overdue')).title, 'Overdue: Swap', 'about Swap');
+select app.cycle_create(pg_temp.project('pm'), (select old_month from t), 'schedule', null);
+select app.cycle_create(pg_temp.project('pb'), (select old_month from t), 'schedule', null);
+select app.cycle_close_prompt(pg_temp.s(-20));
+select pg_temp.clear();
+select is(app.client_work_alerts(pg_temp.s(-18)), 2,
+  'E2: two ended cycles left undecided 2 days after the prompt: one escalation per Admin');
+
+-- The real-time steps (now()): sent back, Not done, a new Admin -------------------------------------------------------
+select pg_temp.as_member('admin');
+select public.item_mark_done(pg_temp.fx('backr'));
+select public.item_mark_done(pg_temp.fx('backn'));
+select public.item_mark_done(pg_temp.item_in('pm', (select old_month from t), 'Reel 1'));
+select pg_temp.as_member('owner');
+select public.item_reject(pg_temp.fx('backr'), 'Wrong cut');
+select public.item_reject(pg_temp.item_in('pm', (select old_month from t), 'Reel 1'), 'Redo the colour');
+select pg_temp.as_member('admin');
+select public.item_unmark_done(pg_temp.fx('backn'));
+select pg_temp.as_member('owner');
+select public.client_assign_admin(pg_temp.fx('client_b'), pg_temp.fx('admin'));
+select pg_temp.as_system();
+select is((select reopened_at from public.project_items where id = pg_temp.fx('backr')), now(), 'Q8: a rejection stamps reopened_at');
+select is((select reopened_at from public.project_items where id = pg_temp.fx('backn')), now(), 'and so does Not done');
+select is((select reopened_at from public.project_items where id = pg_temp.fx('late1b')), null::timestamptz,
+  'an item never back to open has none');
+
+-- Q8 and Q11. The Admin is told again, at 08:00 IST ----------------------------------------------------------------
+select pg_temp.clear();
+select is(app.client_work_alerts((select r from t) - interval '1 minute'), 0,
+  'before 08:00 IST nobody is told: the notices after the rejection, the Not done and the new Admin wait for the morning');
+select is(app.client_work_alerts((select r from t)), 2, 'at 08:00 IST: the Admin''s overdue notice and their fresh E2 notice');
+select is(pg_temp.n('owner') + pg_temp.n('admin2'), 0::bigint,
+  'no escalation: the Owner''s earlier one does not stand for the new round, and the old Admin''s notice does not count');
+select is((pg_temp.last('admin', 'items_to_decide')).title, '2 unfinished items to decide',
+  'Q8 / Q11: the Admin is told again about the ended cycles: one sent back to open, one of the client they now run');
+select is((pg_temp.last('admin', 'items_to_decide')).body,
+  'Bakery menu (Blue Bakery) · ' || app.cycle_label('monthly', (select old_month from t)) || ': 1; '
+  || 'Monthly reels (Sharma Weddings) · ' || app.cycle_label('monthly', (select old_month from t)) || ': 1.',
+  'each cycle with its undecided count');
+select is((pg_temp.last('admin', 'items_to_decide')).link, '/today', 'two projects: Today');
+select is((pg_temp.last('admin', 'reminder_item_overdue')).title, '4 client items overdue', 'and one overdue notice');
+select is((pg_temp.last('admin', 'reminder_item_overdue')).body,
+  pg_temp.line('B late', 'Bakery menu', 'Blue Bakery', app.today_ist() - 11) || '; '
+  || pg_temp.line('Back N', 'Monthly reels', 'Sharma Weddings', app.today_ist() - 6) || '; '
+  || pg_temp.line('Back R', 'Monthly reels', 'Sharma Weddings', app.today_ist() - 6) || '; '
+  || pg_temp.line('Swap', 'Bakery menu', 'Blue Bakery', app.today_ist() - 4) || '.',
+  'Q8: Back R (sent back) and Back N (Not done) again; Q11: B late and Swap, told to their old Admin, now to the new one');
+select is((pg_temp.last('admin', 'reminder_item_overdue')).link, '/clients/items?filter=overdue', 'two projects: the overdue list');
+select is(app.client_work_alerts((select r from t) + interval '1 day' - interval '1 minute'), 0,
+  'the Admin gets the full 24 h from this notice');
+select is(app.client_work_alerts((select r from t) + interval '1 day'), 1, 'then the Owner, at 08:00 IST');
+select is((pg_temp.last('owner', 'escalation_item_overdue')).title, 'Ravi Admin has 4 client items overdue',
+  'naming the Admin who was told (Q11)');
+select is((pg_temp.last('owner', 'escalation_item_overdue')).body,
+  pg_temp.line('B late', 'Bakery menu', 'Blue Bakery', app.today_ist() - 11) || '; '
+  || pg_temp.line('Back N', 'Monthly reels', 'Sharma Weddings', app.today_ist() - 6) || '; '
+  || pg_temp.line('Back R', 'Monthly reels', 'Sharma Weddings', app.today_ist() - 6) || '; '
+  || pg_temp.line('Swap', 'Bakery menu', 'Blue Bakery', app.today_ist() - 4) || '. Still not done 24 h after Ravi Admin was told.',
+  'the four items');
+select is((select array_agg(recipient_id order by sent_at) from public.client_work_alerts
+           where kind = 'item_overdue' and entity_id = pg_temp.fx('swap')),
+  array[pg_temp.fx('admin2'), pg_temp.fx('admin')], 'Swap''s record: told to Other Admin, then to Ravi Admin');
+select pg_temp.clear();
+select app.client_work_alerts((select r from t) + interval '2 days' - interval '1 minute');
+select is(pg_temp.n('owner', 'escalation_cycle_undecided'), 0::bigint, 'E2: the Admin gets the full 2 days from the fresh notice');
+select app.client_work_alerts((select r from t) + interval '2 days');
+select is(pg_temp.n('owner', 'escalation_cycle_undecided'), 1::bigint, 'then the Owner at 08:00 IST, once for both');
+select is((pg_temp.last('owner', 'escalation_cycle_undecided')).title, 'Ravi Admin has not decided 2 ended cycles',
+  'naming the Admin who was told');
+select is((pg_temp.last('owner', 'escalation_cycle_undecided')).body,
+  'Bakery menu (Blue Bakery) · ' || app.cycle_label('monthly', (select old_month from t)) || ': 1 undecided; '
+  || 'Monthly reels (Sharma Weddings) · ' || app.cycle_label('monthly', (select old_month from t))
+  || ': 1 undecided. Unfinished items still undecided 2 days after the period ended.', 'each cycle with its count');
+select pg_temp.as_member('owner');
+select public.client_assign_admin(pg_temp.fx('client_b'), pg_temp.fx('admin2'));
+select pg_temp.as_system();
 
 -- E2. An ended cycle left undecided ------------------------------------------------------------------------------
 select pg_temp.clear();
 select app.cycle_create(pg_temp.project('pm'), (select last_month from t), 'schedule', null);
 select app.cycle_create(pg_temp.project('pb'), (select last_month from t), 'schedule', null);
-select app.cycle_close_prompt((select t1 from t));
+select app.cycle_close_prompt(pg_temp.s(1) + interval '5 minutes');
 select pg_temp.as_member('admin2');
 select public.cycle_carry_decide(array(select id from public.project_items
   where cycle_id = (pg_temp.cycle_of('pb', (select last_month from t))).id), 'leave_pending');
 select pg_temp.as_system();
 select pg_temp.clear();
-select app.client_work_alerts((select t1 from t) + interval '2 days' - interval '1 minute');
+select app.client_work_alerts(pg_temp.s(3) - interval '1 minute');
 select is(pg_temp.n('owner', 'escalation_cycle_undecided'), 0::bigint,
-  'nothing before cycle_decide_escalate_days (2) after the period ended and the Admin was prompted');
-select app.client_work_alerts((select t1 from t) + interval '2 days');
-select is(pg_temp.n('owner', 'escalation_cycle_undecided'), 1::bigint, 'at 2 days: the Owner, once');
+  'nothing before cycle_decide_escalate_days (2) after the Admin''s 08:05 prompt: not at 07:59 IST');
+select app.client_work_alerts(pg_temp.s(3));
+select is(pg_temp.n('owner', 'escalation_cycle_undecided'), 1::bigint, 'at 08:00 IST two days later: the Owner, once (never at midnight)');
 select is((pg_temp.last('owner', 'escalation_cycle_undecided')).title,
   'Ravi Admin has not decided ' || app.cycle_label('monthly', (select last_month from t)) || ' · Monthly reels',
   'naming the Admin, the cycle and the project');
@@ -338,7 +508,7 @@ select ok((pg_temp.last('owner', 'escalation_cycle_undecided')).escalation_level
 select is((select count(*)::integer from public.client_work_alerts
            where entity_id = (pg_temp.cycle_of('pb', (select last_month from t))).id), 0,
   'a cycle whose items were all decided (left pending) never escalates');
-select app.client_work_alerts((select t1 from t) + interval '5 days');
+select app.client_work_alerts(pg_temp.s(6));
 select is(pg_temp.n('owner', 'escalation_cycle_undecided'), 1::bigint, 'once per cycle');
 select app.cycle_create(pg_temp.project('pm'), (app.period_start('monthly', app.today_ist()) - interval '2 month')::date, 'schedule', null);
 select app.client_work_alerts((select t1 from t) + interval '40 days');
@@ -348,9 +518,12 @@ select is(pg_temp.n('owner', 'escalation_cycle_undecided'), 1::bigint, 'a cycle 
 select pg_temp.clear();
 select pg_temp.as_member('admin');
 select public.project_update(pg_temp.fx('po'), jsonb_build_object('delivery_date', app.today_ist()));
+select pg_temp.as_member('owner');
+select public.project_update(pg_temp.fx('pd'), jsonb_build_object('delivery_date', app.today_ist()));
 select pg_temp.as_system();
 select app.client_work_alerts((select morning from t) - interval '1 minute');
-select is(pg_temp.n('owner', 'escalation_delivery_missed'), 0::bigint, 'nothing before 08:00 IST the morning after the delivery date');
+select is(pg_temp.n('owner', 'escalation_delivery_missed') + pg_temp.n('owner', 'reminder_delivery_missed'), 0::bigint,
+  'nothing before 08:00 IST the morning after the delivery date');
 select app.client_work_alerts((select morning from t));
 select is(pg_temp.n('owner', 'escalation_delivery_missed'), 1::bigint, 'at 08:00 the morning after: the Owner, once');
 select is((pg_temp.last('owner', 'escalation_delivery_missed')).title, 'Past delivery: Launch film · Ravi Admin', 'naming the Admin');
@@ -359,8 +532,17 @@ select is((pg_temp.last('owner', 'escalation_delivery_missed')).body,
 select ok((pg_temp.last('owner', 'escalation_delivery_missed')).escalation_level = 1
           and (pg_temp.last('owner', 'escalation_delivery_missed')).link = '/clients/' || pg_temp.fx('client_a') || '/projects/' || pg_temp.fx('po'),
   'an escalation, linking the project (a completed one with the same date gives none)');
+select is(pg_temp.n('owner', 'reminder_delivery_missed'), 1::bigint, 'Q9: the Owner''s own client: a reminder, at the same time');
+select is((pg_temp.last('owner', 'reminder_delivery_missed')).title, 'Past delivery: Diner film', 'no Admin named');
+select is((pg_temp.last('owner', 'reminder_delivery_missed')).body,
+  'Draft Diner. Due ' || app.notify_date(app.today_ist()) || ', not completed.', 'the client and the date');
+select ok((pg_temp.last('owner', 'reminder_delivery_missed')).escalation_level = 0
+          and (pg_temp.last('owner', 'reminder_delivery_missed')).actor_id is null
+          and (pg_temp.last('owner', 'reminder_delivery_missed')).link = '/clients/' || pg_temp.fx('client_d') || '/projects/' || pg_temp.fx('pd'),
+  'a reminder, not an escalation, no actor, linking the project');
 select app.client_work_alerts((select morning from t) + interval '1 day');
-select is(pg_temp.n('owner', 'escalation_delivery_missed'), 1::bigint, 'once per delivery date');
+select is(pg_temp.n('owner', 'escalation_delivery_missed') + pg_temp.n('owner', 'reminder_delivery_missed'), 2::bigint,
+  'once per delivery date');
 select pg_temp.as_member('admin');
 select public.project_update(pg_temp.fx('po'), jsonb_build_object('delivery_date', app.today_ist() + 2));
 select pg_temp.as_system();
@@ -386,9 +568,11 @@ end;
 $f$;
 create trigger test_fail_notify before insert on public.notifications
   for each row execute function public.test_fail_notify();
-select is(app.client_work_alerts((select t1 from t) + interval '50 days'), 1, 'one Admin''s notice failing does not stop the run');
+select is(app.client_work_alerts((select t1 from t) + interval '50 days'), 1,
+  'one Admin''s notice failing does not stop the run');
+select is((pg_temp.last('admin', 'reminder_item_overdue')).title, 'Overdue: Late 3', 'the other Admin is told');
 select is((select count(*)::integer from public.client_work_alerts a join public.project_items i on i.id = a.entity_id
-           where i.title = 'B late 2'), 0, 'their items stay unrecorded, so the next run tells them');
+           where i.title = 'B late 2'), 0, 'the failing Admin''s items stay unrecorded, so the next run tells them');
 drop trigger test_fail_notify on public.notifications;
 drop function public.test_fail_notify();
 select is(app.client_work_alerts((select t1 from t) + interval '50 days'), 1, 'as it does');

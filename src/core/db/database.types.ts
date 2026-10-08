@@ -532,6 +532,7 @@ export type Database = {
           id: string;
           kind: string;
           org_id: string;
+          recipient_id: string | null;
           sent_at: string;
         };
         Insert: {
@@ -540,6 +541,7 @@ export type Database = {
           id?: string;
           kind: string;
           org_id: string;
+          recipient_id?: string | null;
           sent_at: string;
         };
         Update: {
@@ -548,6 +550,7 @@ export type Database = {
           id?: string;
           kind?: string;
           org_id?: string;
+          recipient_id?: string | null;
           sent_at?: string;
         };
         Relationships: [
@@ -556,6 +559,20 @@ export type Database = {
             columns: ["org_id"];
             isOneToOne: false;
             referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "client_work_alerts_recipient_id_fkey";
+            columns: ["recipient_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "client_work_alerts_recipient_id_fkey";
+            columns: ["recipient_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
             referencedColumns: ["id"];
           },
         ];
@@ -2249,6 +2266,7 @@ export type Database = {
           planned_date: string | null;
           position: string;
           project_id: string;
+          reopened_at: string | null;
           search: unknown;
           state: Database["public"]["Enums"]["item_state"];
           title: string;
@@ -2277,6 +2295,7 @@ export type Database = {
           planned_date?: string | null;
           position: string;
           project_id: string;
+          reopened_at?: string | null;
           search?: unknown;
           state?: Database["public"]["Enums"]["item_state"];
           title: string;
@@ -2305,6 +2324,7 @@ export type Database = {
           planned_date?: string | null;
           position?: string;
           project_id?: string;
+          reopened_at?: string | null;
           search?: unknown;
           state?: Database["public"]["Enums"]["item_state"];
           title?: string;

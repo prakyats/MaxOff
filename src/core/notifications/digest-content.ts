@@ -84,6 +84,7 @@ const HELD_BACK_LABELS: Readonly<Record<string, string>> = {
   escalation_item_overdue: "Client item escalations",
   escalation_cycle_undecided: "Undecided cycle escalations",
   escalation_delivery_missed: "Missed delivery escalations",
+  reminder_delivery_missed: "Missed client deliveries",
   task_assigned: "Task assigned",
   task_changes_requested: "Changes requested",
   attendance_decided: "Attendance decisions",

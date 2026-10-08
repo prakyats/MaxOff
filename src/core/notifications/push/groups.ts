@@ -89,6 +89,8 @@ const GROUP_OF_KIND: Readonly<Record<string, NotifyGroup>> = {
   escalation_item_overdue: "reminders",
   escalation_cycle_undecided: "reminders",
   escalation_delivery_missed: "reminders",
+  // Amendment C Q9: the Owner's own client (no Admin) past its delivery date.
+  reminder_delivery_missed: "reminders",
 };
 
 /** The group a push for this kind carries; the quiet-hours summary and an unknown kind are `other`. */

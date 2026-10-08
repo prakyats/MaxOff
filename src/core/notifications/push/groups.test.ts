@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { GROUPED_KINDS, NOTIFY_GROUPS, notifyGroupFor } from "./groups";
 
-/** The kinds `notification_kinds` holds today (5A, 5.3, 5.4, 6.5, 7A, amendment C's escalations; the email-only digest is never pushed); a new kind falls back to `other` until mapped. */
+/** The kinds `notification_kinds` holds today (5A, 5.3, 5.4, 6.5, 7A, amendment C's escalations and Q9's reminder; the email-only digest is never pushed); a new kind falls back to `other` until mapped. */
 const KINDS = [
   "absent_proposed",
   "approvals_moved",
@@ -41,6 +41,7 @@ const KINDS = [
   "project_reopened",
   "reminder_before_due",
   "reminder_before_due_last",
+  "reminder_delivery_missed",
   "reminder_due_now",
   "reminder_event",
   "reminder_item_overdue",
