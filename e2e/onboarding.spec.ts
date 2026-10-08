@@ -322,6 +322,9 @@ test.describe("onboarding for reachability", () => {
     // Two failed deliveries in a row: failing (5.4), still an active device.
     await serviceUpdate(`push_subscriptions?id=eq.${deviceId}`, { failure_count: 2 });
     await page.reload();
+    // The reloaded page answers a tap only once hydrated (main CI run 37792867778: the band's tap
+    // before hydration opened nothing).
+    await hydrated(page);
     await expect(band).toHaveAttribute("data-reason", "failing");
     await expect(
       band.getByText("Notifications aren't reaching you").filter({ visible: true }),
@@ -481,6 +484,7 @@ test.describe("onboarding for reachability", () => {
       await device(id, `${service.url}/ok/help-test-${info.project.name}`, receiver);
       await serviceUpdate(`push_subscriptions?member_id=eq.${id}`, { last_test_at: null });
       await page.reload();
+      await hydrated(page);
       await page.locator('[data-slot="push-test"]').click();
       await expect(outcome).toHaveText("Sent to 1 device");
       await expect.poll(() => onboardingOf(id)).toEqual([{ finished_via: "test" }]);
@@ -562,6 +566,7 @@ test.describe("onboarding for reachability", () => {
 
       // Removed again; Me's own "Turn on" brings it back too.
       await page.reload();
+      await hydrated(page);
       await list.getByRole("button", { name: "Remove Chrome on Android" }).click();
       await page
         .getByRole("alertdialog", { name: "Remove Chrome on Android?" })
