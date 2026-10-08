@@ -281,7 +281,6 @@ export function DayDetail({
           <Timeline
             days={[day]}
             today={today}
-            allDay={() => null}
             eventLink={eventLink}
             className="border-border overflow-hidden rounded-lg border"
           />

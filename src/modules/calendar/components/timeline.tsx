@@ -63,8 +63,11 @@ export function Timeline({
 }: {
   days: readonly CalendarDay[];
   today: ISODate;
-  /** Each day's all-day row content (holiday, leave, all-day events, "Due · N"). */
-  allDay: (day: CalendarDay) => ReactNode;
+  /**
+   * Each day's all-day row content (holiday, leave, all-day events, "Due · N"); none where the
+   * day's detail shows them above the timeline (the phone, the sheet).
+   */
+  allDay?: (day: CalendarDay) => ReactNode;
   /** The Week's day headings, one per column; none for a single day. */
   header?: (day: CalendarDay) => ReactNode;
   /** How an event block opens its task (a drill-down, or out of a sheet first). */
@@ -106,19 +109,21 @@ export function Timeline({
           ))}
         </div>
       ) : null}
-      <div data-slot="calendar-all-day-row" className="border-border grid border-b" style={grid}>
-        <span className="text-muted-foreground py-1 pr-1 text-right text-[0.6875rem] leading-4">
-          All day
-        </span>
-        {days.map((day) => (
-          <div
-            key={day.date}
-            className="border-border flex min-w-0 flex-col gap-0.5 border-l p-0.5"
-          >
-            {allDay(day)}
-          </div>
-        ))}
-      </div>
+      {allDay ? (
+        <div data-slot="calendar-all-day-row" className="border-border grid border-b" style={grid}>
+          <span className="text-muted-foreground py-1 pr-1 text-right text-[0.6875rem] leading-4">
+            All day
+          </span>
+          {days.map((day) => (
+            <div
+              key={day.date}
+              className="border-border flex min-w-0 flex-col gap-0.5 border-l p-0.5"
+            >
+              {allDay(day)}
+            </div>
+          ))}
+        </div>
+      ) : null}
       <div
         ref={scroller}
         data-slot="calendar-hours"
