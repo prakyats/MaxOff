@@ -525,6 +525,41 @@ export type Database = {
           },
         ];
       };
+      client_work_alerts: {
+        Row: {
+          armed_for: string;
+          entity_id: string;
+          id: string;
+          kind: string;
+          org_id: string;
+          sent_at: string;
+        };
+        Insert: {
+          armed_for: string;
+          entity_id: string;
+          id?: string;
+          kind: string;
+          org_id: string;
+          sent_at: string;
+        };
+        Update: {
+          armed_for?: string;
+          entity_id?: string;
+          id?: string;
+          kind?: string;
+          org_id?: string;
+          sent_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "client_work_alerts_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       clients: {
         Row: {
           activated_at: string | null;
@@ -1890,11 +1925,13 @@ export type Database = {
           ack_escalate_owner_hours: number;
           ack_repeat_hours: number;
           created_at: string;
+          cycle_decide_escalate_days: number;
           default_task_reminders: Json;
           email_daily_cap_org: number;
           email_daily_cap_per_member: number;
           end_day_cutoff_time: string;
           expense_receipt_above: number;
+          item_overdue_escalate_hours: number;
           logout_reminder_time: string;
           org_id: string;
           overdue_escalate_hours: number;
@@ -1911,11 +1948,13 @@ export type Database = {
           ack_escalate_owner_hours?: number;
           ack_repeat_hours?: number;
           created_at?: string;
+          cycle_decide_escalate_days?: number;
           default_task_reminders?: Json;
           email_daily_cap_org?: number;
           email_daily_cap_per_member?: number;
           end_day_cutoff_time?: string;
           expense_receipt_above?: number;
+          item_overdue_escalate_hours?: number;
           logout_reminder_time?: string;
           org_id: string;
           overdue_escalate_hours?: number;
@@ -1932,11 +1971,13 @@ export type Database = {
           ack_escalate_owner_hours?: number;
           ack_repeat_hours?: number;
           created_at?: string;
+          cycle_decide_escalate_days?: number;
           default_task_reminders?: Json;
           email_daily_cap_org?: number;
           email_daily_cap_per_member?: number;
           end_day_cutoff_time?: string;
           expense_receipt_above?: number;
+          item_overdue_escalate_hours?: number;
           logout_reminder_time?: string;
           org_id?: string;
           overdue_escalate_hours?: number;
@@ -1999,6 +2040,7 @@ export type Database = {
           created_by: string | null;
           generated_by: string;
           id: string;
+          item_list_copied: boolean;
           label: string | null;
           org_id: string;
           period_end: string | null;
@@ -2013,6 +2055,7 @@ export type Database = {
           created_by?: string | null;
           generated_by: string;
           id?: string;
+          item_list_copied?: boolean;
           label?: string | null;
           org_id: string;
           period_end?: string | null;
@@ -2027,6 +2070,7 @@ export type Database = {
           created_by?: string | null;
           generated_by?: string;
           id?: string;
+          item_list_copied?: boolean;
           label?: string | null;
           org_id?: string;
           period_end?: string | null;

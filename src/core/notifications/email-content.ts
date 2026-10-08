@@ -120,7 +120,7 @@ export type CombinedEmailItem = {
  */
 export function urgencyOf(item: Pick<CombinedEmailItem, "kind" | "escalationLevel">): number {
   if (item.escalationLevel > 0 || item.kind.startsWith("escalation_")) return 0;
-  if (item.kind === "reminder_overdue") return 1;
+  if (item.kind === "reminder_overdue" || item.kind === "reminder_item_overdue") return 1;
   if (item.kind.startsWith("reminder_before_due") || item.kind === "reminder_due_now") return 2;
   return 3;
 }

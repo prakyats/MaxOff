@@ -140,7 +140,12 @@ insert into app_internal values
   ('project_mark_started'), ('cycle_refresh'), ('cycle_create'), ('project_client'),
   ('cycle_live_items'), ('client_work_next_position'), ('project_lifecycle_notify'), ('cycle_generate'),
   -- 7A: the unfinished-items prompt's job and its one recipient rule (issue #56 Q2)
-  ('cycle_close_prompt'), ('cycle_close_prompt_recipient');
+  ('cycle_close_prompt'), ('cycle_close_prompt_recipient'),
+  -- Kickoff 7 amendment C E1-E3: the client-work notices and escalations job, its overdue-list link
+  -- and its body list
+  ('client_work_alerts'), ('client_items_overdue_link'), ('client_work_alert_lines'),
+  -- Q4 (a): the item list into a cycle a carry made while its client was not Active
+  ('cycle_copy_item_list');
   -- 3c.1 (contract migration): attendance_logout and logout_not_recorded are gone with the 2.x gate.
 select is(
   (select count(*) from pg_proc p
@@ -161,7 +166,7 @@ select is(
   0::bigint,
   'the internal helpers: service_role only, never the API role');
 select is((select count(*) from pg_proc p where p.pronamespace = 'app'::regnamespace
-             and p.proname in (select name from app_internal)), 86::bigint,
+             and p.proname in (select name from app_internal)), 91::bigint,
   'the internal helper list matches what exists');
 select cmp_ok((select count(*) from pg_proc where pronamespace = 'app'::regnamespace), '>=', 4::bigint,
   'the grant check saw the app functions');

@@ -113,6 +113,15 @@ describe("renderCombinedEmail (5.3)", () => {
     expect(ordered.map((entry) => entry.title)).toEqual(["Escalated", "Late", "Soon", "Event"]);
   });
 
+  it("ranks the client-item overdue notice with overdue and its escalations first (amendment C)", () => {
+    const ordered = byUrgency([
+      item("reminder_event", "Event"),
+      item("reminder_item_overdue", "Item late"),
+      item("escalation_delivery_missed", "Past delivery", 1),
+    ]);
+    expect(ordered.map((entry) => entry.title)).toEqual(["Past delivery", "Item late", "Event"]);
+  });
+
   it("names the most urgent in the subject with how many more, and lists every item", () => {
     const email = renderCombinedEmail({
       items: [item("reminder_before_due_last", "Soon"), item("reminder_overdue", "Late")],

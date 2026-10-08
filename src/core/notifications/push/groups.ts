@@ -85,6 +85,10 @@ const GROUP_OF_KIND: Readonly<Record<string, NotifyGroup>> = {
   carry_decided: "other",
   // 7A: the client's Admin decides unfinished items (issue #56 Q2): waiting for their decision.
   items_to_decide: "approvals",
+  reminder_item_overdue: "reminders",
+  escalation_item_overdue: "reminders",
+  escalation_cycle_undecided: "reminders",
+  escalation_delivery_missed: "reminders",
 };
 
 /** The group a push for this kind carries; the quiet-hours summary and an unknown kind are `other`. */

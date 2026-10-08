@@ -76,8 +76,8 @@ unset PGPASSWORD
 --    means the next `db push` re-runs nothing, so the migrations' calls are re-run here by hand.
 --    (The three extension lines are the ones of supabase/migrations/20260921151323_core_base.sql;
 --    the schedules are those of 20260925010221_attendance_jobs.sql and 20260927184255_start_end_day.sql;
---    7A's two client-work jobs are those of 20261008143534_client_work_transitions.sql and
---    20261008145504_client_work_close_prompt.sql.)
+--    7A's three client-work jobs are those of 20261008143534_client_work_transitions.sql,
+--    20261008145504_client_work_close_prompt.sql and 20261008153613_client_work_escalations.sql.)
 create extension if not exists pg_cron with schema pg_catalog;
 grant usage on schema cron to postgres;
 create extension if not exists pg_net with schema extensions;
@@ -85,6 +85,7 @@ select cron.schedule('absent_check', '29 18 * * *', $$select app.absent_check()$
 select cron.schedule('end_not_recorded', '30 18 * * *', $$select app.end_not_recorded()$$);
 select cron.schedule('cycle_generate', '30 18 * * *', $$select app.cycle_generate()$$);
 select cron.schedule('cycle_close_prompt', '35 18 * * *', $$select app.cycle_close_prompt()$$);
+select cron.schedule('client_work_alerts', '*/5 * * * *', $$select app.client_work_alerts()$$);
 select jobname, schedule, command from cron.job order by jobname;   -- every row, active
 ```
 

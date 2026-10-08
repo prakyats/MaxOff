@@ -7,7 +7,7 @@
 -- Dates are computed from app.today_ist(), so the file holds on any day.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(274);
+select plan(290);
 
 -- 7A: client work rows reference clients and members, and the presets the organization (a
 -- Playwright run leaves some behind).
@@ -448,8 +448,24 @@ select is((select count(*)::integer from public.item_reviews
 select is(pg_temp.total(), 0::bigint, 'an approval notifies nobody (amendment C6)');
 select throws_ok($$ select public.item_tick_stage((pg_temp.item('p_m', 'Reel 1')).id, pg_temp.stage('p_m', 'Script')) $$, 'P0001', 'INVALID_STATE',
   'approval locks the ticks (decision 7)');
-select throws_ok($$ select public.item_update((pg_temp.item('p_m', 'Reel 1')).id, '{"title": "Changed"}') $$, 'P0001', 'INVALID_STATE',
-  'and the item');
+select is(public.item_update((pg_temp.item('p_m', 'Reel 1')).id, '{"notes": "Final cut sent", "title": "Reel 1"}'), array['notes'],
+  'an approved item''s title and notes may still be corrected (Q5 (b))');
+select is((select diff -> 'new' ->> 'notes' from public.activity_log
+           where entity = 'project_items' and entity_id = (pg_temp.item('p_m', 'Reel 1')).id and action = 'update'
+           order by id desc limit 1), 'Final cut sent', 'audited');
+select throws_ok($$ select public.item_update((pg_temp.item('p_m', 'Reel 1')).id, jsonb_build_object('planned_date', app.today_ist())) $$,
+  'P0001', 'INVALID_STATE', 'never its planned date');
+select throws_ok($$ select public.item_update((pg_temp.item('p_m', 'Reel 1')).id, '{"notes": "x", "custom_fields": {"views": 1}}') $$,
+  'P0001', 'INVALID_STATE', 'nor anything else, not even beside a note');
+select throws_ok($$ select public.item_update((pg_temp.item('p_m', 'Reel 1')).id, '{"position": "0"}') $$,
+  'P0001', 'INVALID_STATE', 'nor its place in the list');
+select pg_temp.as_member('admin2');
+select throws_ok($$ select public.item_update((pg_temp.item('p_m', 'Reel 1')).id, '{"notes": "x"}') $$,
+  'P0001', 'NOT_FOUND', 'another Admin cannot correct it');
+select pg_temp.as_member('staff');
+select throws_ok($$ select public.item_update((pg_temp.item('p_m', 'Reel 1')).id, '{"notes": "x"}') $$,
+  'P0001', 'FORBIDDEN', 'nor Crew');
+select pg_temp.as_member('admin');
 select throws_ok($$ select public.item_unmark_done((pg_temp.item('p_m', 'Reel 1')).id) $$, 'P0001', 'INVALID_STATE',
   'Not done ends at approval');
 select throws_ok($$ select public.item_approve('{}') $$, 'P0001', 'VALIDATION', 'an empty bulk is refused');
@@ -485,6 +501,9 @@ select is((select cancelled_reason || ':' || (cancelled_by = pg_temp.fx('admin')
 select is((pg_temp.last('owner', 'item_cancelled')).title, 'Ravi Admin cancelled Bonus', 'the Owner is told (info)');
 select throws_ok($$ select public.item_cancel((pg_temp.item('p_m', 'Reel 1')).id, 'Too late') $$, 'P0001', 'INVALID_STATE',
   'an approved item is not cancelled');
+select is(public.item_update((pg_temp.item('p_m', 'Bonus')).id, '{"title": "Bonus reel"}'), array['title'],
+  'a cancelled item''s title may be corrected (Q5 (b))');
+select is(public.item_update((pg_temp.item('p_m', 'Bonus reel')).id, '{"title": "Bonus"}'), array['title'], 'and back');
 select pg_temp.clear();
 select pg_temp.as_member('owner');
 select lives_ok($$ select public.item_cancel((pg_temp.item('p_o', 'Teaser')).id, 'Not needed') $$, 'the Owner cancels an item');
@@ -559,6 +578,10 @@ select is((pg_temp.res((select v from r where k = 'carry'), pg_temp.fx('pi9'))) 
 select is((select state::text || ':' || carry_decision::text || ':' || (carry_decided_by = pg_temp.fx('owner'))::text
            from public.project_items where id = pg_temp.fx('pi1')), 'carried:carry_forward:true',
   'the Owner carries an open item forward: the original is carried');
+select is(public.item_update(pg_temp.fx('pi1'), '{"notes": "Use the drone shot, take two"}'), array['notes'],
+  'a carried item''s notes may be corrected (Q5 (b))');
+select throws_ok($$ select public.item_tick_stage(pg_temp.fx('pi1'), pg_temp.stage('p_m', 'Shoot')) $$, 'P0001', 'INVALID_STATE',
+  'its ticks stay locked');
 insert into fx select 'pi1_new', ((pg_temp.res((select v from r where k = 'carry'), pg_temp.fx('pi1'))) ->> 'new_item_id')::uuid;
 select is((select (cycle_id = (pg_temp.cycle_of('p_m', app.period_start('monthly', app.today_ist()))).id)::text
                   || ':' || title || ':' || notes || ':' || (custom_fields ->> 'views') || ':' || coalesce(planned_date::text, 'none')
@@ -602,7 +625,8 @@ select is((select state::text from public.project_cycles where id = pg_temp.fx('
   'once nothing is open or done and a later cycle exists, the cycle is settled');
 select is((select count(*)::integer from public.activity_log where entity = 'project_cycles' and action = 'settled'), 1, 'audited ''settled''');
 
--- Carry forward on a Paused client creates the next cycle (decision 13); refused on an Inactive one.
+-- Carry forward on a Paused client creates the next cycle with only the carried item (decision 13;
+-- Q4 (a)); refused on an Inactive one.
 select pg_temp.as_system();
 select app.cycle_create(pg_temp.project('p_p'), app.period_start('weekly', app.today_ist()) - 14, 'schedule', null);
 insert into fx select 'pp1', id from public.project_items
@@ -610,31 +634,49 @@ where cycle_id = (pg_temp.cycle_of('p_p', app.period_start('weekly', app.today_i
 select app.cycle_create(pg_temp.project('p_x'), (app.period_start('monthly', app.today_ist()) - interval '1 month')::date, 'schedule', null);
 insert into fx select 'px1', id from public.project_items
 where cycle_id = (pg_temp.cycle_of('p_x', (app.period_start('monthly', app.today_ist()) - interval '1 month')::date)).id;
--- An item list of 100, so the cycle a carry would make is full the moment it is made (7A review L7).
-insert into public.project_item_blueprints (org_id, project_id, title, position)
-select pg_temp.fx('org'), pg_temp.fx('p_p'), 'Extra ' || g, 'x' || lpad(g::text, 3, '0') from generate_series(1, 99) g;
-select pg_temp.as_member('admin');
-select is((pg_temp.res(public.cycle_carry_decide(array[pg_temp.fx('pp1')], 'carry_forward'), pg_temp.fx('pp1'))) ->> 'code', 'VALIDATION',
-  'a carry into a cycle that would already hold 100 items fails on its line');
-select is((select count(*)::integer from public.project_cycles
-           where project_id = pg_temp.fx('p_p') and period_start > app.period_start('weekly', app.today_ist()) - 14), 0,
-  'and the target cycle it made is not left behind (7A review L7)');
+-- A second weekly project of the Paused client with an item list of 100, for L7 below.
+select pg_temp.as_member('owner');
+insert into fx values ('p_l', public.project_create(pg_temp.fx('client_p'), 'Late retainer', 'weekly', null, null, '{}',
+  array(select 'L' || g from generate_series(1, 100) g)));
 select pg_temp.as_system();
-update public.project_item_blueprints set archived_at = now() where project_id = pg_temp.fx('p_p') and title like 'Extra %';
+select app.cycle_create(pg_temp.project('p_l'), app.period_start('weekly', app.today_ist()) - 14, 'schedule', null);
+insert into fx select 'pl1', id from public.project_items
+where cycle_id = (pg_temp.cycle_of('p_l', app.period_start('weekly', app.today_ist()) - 14)).id and title = 'L1';
 select pg_temp.as_member('admin');
 select is((pg_temp.res(public.cycle_carry_decide(array[pg_temp.fx('pp1')], 'carry_forward'), pg_temp.fx('pp1'))) ->> 'ok', 'true',
   'carry forward on a Paused client is allowed');
-select is((select generated_by || ':' || period_start::text from public.project_cycles
+select is((select generated_by || ':' || period_start::text || ':' || item_list_copied::text from public.project_cycles
            where project_id = pg_temp.fx('p_p') and period_start > app.period_start('weekly', app.today_ist()) - 14),
-  'carry:' || app.period_start('weekly', app.today_ist())::text,
-  'it creates the cycle (the next period has ended, so the current one; generated_by carry)');
-select is((select count(*)::integer from public.project_items i join public.project_cycles c on c.id = i.cycle_id
-           where c.project_id = pg_temp.fx('p_p') and c.generated_by = 'carry'), 2,
-  'with the item list copied in beside the carried item');
+  'carry:' || app.period_start('weekly', app.today_ist())::text || ':false',
+  'it creates the cycle (the next period has ended, so the current one; generated_by carry), without the item list');
+select is((select array_agg(i.title) from public.project_items i join public.project_cycles c on c.id = i.cycle_id
+           where c.project_id = pg_temp.fx('p_p') and c.generated_by = 'carry'), array['Story'],
+  'it holds only the carried item while the client is not Active (Q4 (a))');
 select throws_ok($$ select public.cycle_carry_decide(array[pg_temp.fx('px1')], 'carry_forward') $$, 'P0001', 'INVALID_STATE',
   'carry forward on an Inactive client is refused (decision 13)');
 select is((pg_temp.res(public.cycle_carry_decide(array[pg_temp.fx('px1')], 'leave_pending'), pg_temp.fx('px1'))) ->> 'ok', 'true',
   'leave pending is allowed there');
+-- The client is Active again.
+select pg_temp.as_member('owner');
+select public.client_activate(pg_temp.fx('client_p'));
+select pg_temp.as_member('admin');
+select is((pg_temp.res(public.cycle_carry_decide(array[pg_temp.fx('pl1')], 'carry_forward'), pg_temp.fx('pl1'))) ->> 'code', 'VALIDATION',
+  'on an Active client the new cycle takes the item list, so a list of 100 leaves no room: the item fails on its line');
+select is((select count(*)::integer from public.project_cycles
+           where project_id = pg_temp.fx('p_l') and period_start > app.period_start('weekly', app.today_ist()) - 14), 0,
+  'and the target cycle it made is not left behind (7A review L7)');
+select pg_temp.as_system();
+select app.cycle_generate(now());
+select is((select array_agg(i.title order by i.position collate "C") from public.project_items i join public.project_cycles c on c.id = i.cycle_id
+           where c.project_id = pg_temp.fx('p_p') and c.generated_by = 'carry'), array['Story', 'Story'],
+  'the next nightly run adds the item list after the carried item (Q4 (a))');
+select is((select item_list_copied from public.project_cycles where project_id = pg_temp.fx('p_p') and generated_by = 'carry'), true,
+  'and records it (audited item_list_added)');
+select app.cycle_generate(now());
+select is((select count(*)::integer from public.project_items i join public.project_cycles c on c.id = i.cycle_id
+           where c.project_id = pg_temp.fx('p_p') and c.generated_by = 'carry'), 2,
+  'a second run adds nothing');
+select pg_temp.as_member('admin');
 
 -- K. Project lifecycle (decision 14; amendment C) -------------------------------------------------------
 select pg_temp.clear();
@@ -705,6 +747,11 @@ select is((select case when exists (select 1 from public.project_item_stages s j
   'nothing of it was ticked or done');
 select is(public.project_reopen(pg_temp.fx('p_p'), 'Restart'), 'open'::public.project_state,
   'so a reopen returns it to open (decision 14)');
+select lives_ok($$ select public.project_cancel(pg_temp.fx('p_x'), 'Client left') $$, 'a closed client''s project is cancelled');
+select throws_ok($$ select public.project_reopen(pg_temp.fx('p_x'), 'Back') $$, 'P0001', 'INVALID_STATE',
+  'and never reopened while the client is Inactive (Q6 (a))');
+select is(pg_temp.code($$ select public.project_reopen(pg_temp.fx('p_x'), 'Back') $$) || ':'
+          || (select state::text from public.projects where id = pg_temp.fx('p_x')), 'INVALID_STATE:cancelled', 'it stays cancelled');
 select pg_temp.as_member('gone_admin');
 select throws_ok($$ select public.project_cancel(pg_temp.fx('p_p'), 'x') $$, 'P0001', 'UNAUTHENTICATED', 'a deactivated Admin cannot');
 select pg_temp.as_anon();
