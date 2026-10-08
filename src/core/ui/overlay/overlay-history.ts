@@ -61,6 +61,21 @@ import { ownHistoryWrite } from "@/core/ui/navigation/history-writes";
  * navigating, so the first back press after such a refresh is absorbed doing nothing visible.
  * That costs one extra press in a case nobody hits on purpose; the alternative is calling
  * `history.back()` during hydration, which can throw the user off the page entirely.
+ *
+ * ## Escape backs its entry out (owner's keyboard note, 2026-10-08, ARCHITECTURE §14.3)
+ *
+ * Escape on a laptop is the back gesture's twin, so it must leave history as back does: no spent
+ * entry, and the next back leaves the page. Escape never starts a navigation, so the race above
+ * cannot happen, and its entry *is* popped: the primitives note the Escape (`noteEscape`, from a
+ * dialog's or a sheet's `onEscapeKeyDown`); the overlay's close runs inside that same key event
+ * (Radix closes on the keydown, React flushes a discrete update before the event ends, and
+ * `window.event` is still that keydown then), so its unregistering counts one entry to back out
+ * (`escapePops`). `reconcile` backs them out one traversal at a time (`backOutEscaped`): never two
+ * in flight (a second back while one is under way is absorbed by the browser), nothing pushed
+ * until its popstate has landed, and that popstate closes nothing (`escapeBackInFlight`). A close
+ * whose Escape kept something else open in its place (a dirty form's "Discard?") leaves nothing to
+ * back out. A close that is not inside the Escape's own event (a consumer that closes later) keeps
+ * the old behaviour: a spent entry.
  */
 
 const MARKER = "maxoffOverlay";
@@ -84,6 +99,12 @@ let listening = false;
  */
 let backPending = false;
 let nextId = 0;
+/** The Escape a dialog or sheet is closing on (`noteEscape`); compared with `window.event`. */
+let escapeEvent: Event | null = null;
+/** Overlays closed by Escape whose entries are still to be backed out. */
+let escapePops = 0;
+/** A `history.back()` started by `backOutEscaped` has not landed: its popstate closes nothing. */
+let escapeBackInFlight = false;
 
 function historyState(): Record<string, unknown> {
   return (window.history.state ?? {}) as Record<string, unknown>;
@@ -101,6 +122,8 @@ function schedule(): void {
  */
 function reconcile(): void {
   reconcileQueued = false;
+  // An Escape's back-out is landing: nothing moves until its popstate reconciles again.
+  if (escapeBackInFlight) return;
 
   // `pushedCount` means "entries above the page we are on". A navigation buries ours: leaving a
   // page from inside an overlay (tapping People in the More sheet) puts a fresh entry on top of
@@ -117,11 +140,78 @@ function reconcile(): void {
   // A spent entry is reused: reopening an overlay finds `pushedCount` already high enough and
   // pushes nothing, so repeated open/close cannot pile up entries.
   if (pushedCount < open.length) {
+    // Something opened in the closed one's place: its entry is reused, nothing to back out.
+    escapePops = 0;
     pushedCount += 1;
     const entry = { ...historyState(), [MARKER]: ++nextId };
     ownHistoryWrite(() => window.history.pushState(entry, ""));
     schedule();
+    return;
   }
+  backOutEscaped();
+}
+
+/**
+ * The one exception to "never pop": an overlay closed by Escape (see the header). One traversal
+ * at a time, only over an entry of ours with an overlay-less count beneath it.
+ */
+function backOutEscaped(): void {
+  if (escapePops === 0) return;
+  if (
+    shouldBackOutEscape({
+      escapePops,
+      pushedCount,
+      openCount: open.length,
+      onOwnEntry: historyState()[MARKER] !== undefined,
+      backPending,
+    })
+  ) {
+    escapePops -= 1;
+    escapeBackInFlight = true;
+    backPending = true;
+    window.history.back();
+    return;
+  }
+  // Nothing of ours to back out (a handoff kept the count, or a traversal is under way).
+  escapePops = 0;
+}
+
+/**
+ * Whether an Escape's entry is backed out now: one is owed, there is a spent entry of ours on
+ * top (more entries than open overlays, and the current one is marked), and no traversal is in
+ * flight. Pure, so the rule is unit-tested on its own.
+ */
+export function shouldBackOutEscape(state: {
+  escapePops: number;
+  pushedCount: number;
+  openCount: number;
+  onOwnEntry: boolean;
+  backPending: boolean;
+}): boolean {
+  return (
+    state.escapePops > 0 &&
+    state.pushedCount > state.openCount &&
+    state.onOwnEntry &&
+    !state.backPending
+  );
+}
+
+/**
+ * Called by `Dialog`, `AlertDialog` and `Sheet` when Escape is about to close them (their
+ * `onEscapeKeyDown`, after the caller's own handler let it through): the overlay that closes
+ * during this key event backs its entry out, as the back gesture would have (§14.2 a, §14.3).
+ */
+export function noteEscape(event: Event): void {
+  escapeEvent = event;
+}
+
+/** The overlay closing now is closing on a noted Escape (still inside that key event). */
+function closingOnEscape(): boolean {
+  return (
+    escapeEvent !== null &&
+    typeof window !== "undefined" &&
+    (window as Window & { event?: Event }).event === escapeEvent
+  );
 }
 
 /**
@@ -130,6 +220,13 @@ function reconcile(): void {
  */
 function onPopState(): void {
   backPending = false;
+  if (escapeBackInFlight) {
+    // Our own back-out of an Escape's entry landed: it closes nothing (that overlay is closed).
+    escapeBackInFlight = false;
+    pushedCount = historyState()[MARKER] === undefined ? 0 : Math.max(0, pushedCount - 1);
+    schedule();
+    return;
+  }
   if (open.length > 0) {
     // Backing out of a live overlay: close the topmost one and leave the rest alone.
     const top = open.pop();
@@ -346,8 +443,9 @@ export const whenOnPageEntry = createWhenOnPageEntry({
  * Makes one overlay dismissible with the back gesture. `onClose` must close it; it is read
  * through a ref, so an inline arrow function will not re-run the effect.
  */
-export function useOverlayHistory(isOpen: boolean, onClose: () => void): void {
+export function useOverlayHistory(isOpen: boolean, onClose: () => void): { isTop: () => boolean } {
   const onCloseRef = useRef(onClose);
+  const entryRef = useRef<OpenOverlay | null>(null);
   // Assigned in an effect, not during render: the controller only ever calls it from popstate.
   useEffect(() => {
     onCloseRef.current = onClose;
@@ -374,15 +472,29 @@ export function useOverlayHistory(isOpen: boolean, onClose: () => void): void {
 
     const entry: OpenOverlay = { id: ++nextId, close: () => onCloseRef.current() };
     open.push(entry);
+    entryRef.current = entry;
     schedule();
 
     return () => {
       // `onPopState` may already have removed it; removing by identity keeps that idempotent.
       const at = open.indexOf(entry);
-      if (at !== -1) open.splice(at, 1);
+      if (at !== -1) {
+        open.splice(at, 1);
+        // Closed by Escape: its entry is backed out once the commit settles (`reconcile`).
+        if (closingOnEscape()) escapePops += 1;
+      }
+      if (entryRef.current === entry) entryRef.current = null;
       schedule();
     };
   }, [isOpen]);
+
+  // Whether this overlay is the top layer now (it owns the next back press and the next Escape).
+  return {
+    isTop: useCallback(() => {
+      const entry = entryRef.current;
+      return entry !== null && open[open.length - 1] === entry;
+    }, []),
+  };
 }
 
 /**

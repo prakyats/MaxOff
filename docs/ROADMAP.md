@@ -170,6 +170,7 @@ Exit: the Owner sees Potential / Achieved / Remaining by client, category and mo
 Exit: everything in PRODUCT §4 **except the items deferred past the launch** is live in production, secured and backed up.
 **Units:** **10A** [Q] 10.2 · **10B** [H] 10.3 + 10.4 · **10C** [C] 10.5
 - [ ] **10.2** [Q] UX polish: keyboard shortcuts, empty and loading states, mobile pass, accessibility fixes
+  - *Done early in phase 6 (owner's walk fix 2, 2026-10-08), not the audit:* the laptop keyboard rules in the shared controls (ARCHITECTURE §14.3): the chat composer's Enter / Shift+Enter, Enter submits a one-line field's form (a destructive submit only takes focus), Ctrl/⌘+Enter in a textarea, Escape closes the top sheet or dialog as back would and is Cancel in an EditableRecord, the first field focused on open on a laptop only, the table search's Enter and Escape, and the quiet hints. **Still for 10.2:** the full audit of every screen's keyboard use (tab order, shortcuts per screen, focus after each action, the calendar's keys included).
 - [ ] **10.3** [H] Security review: RLS audit, money isolation, storage, auth, headers/CSP, rate limits, dependency audit
 - [ ] **10.4** [C] Performance: slow query review, indexes, bundle size, pagination
 - [ ] **10.5** [C] Full launch: import existing clients and projects, finish the user guide, second restore drill

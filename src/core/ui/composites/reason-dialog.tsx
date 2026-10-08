@@ -46,6 +46,7 @@ export function ReasonDialog({
   submitLabel,
   pendingLabel,
   cancelLabel = "Cancel",
+  destructive = false,
   onSubmit,
 }: {
   open: boolean;
@@ -62,6 +63,11 @@ export function ReasonDialog({
   /** The button while it runs; defaults to the label's verb in -ing ("Rejecting leave…"). */
   pendingLabel?: string;
   cancelLabel?: string;
+  /**
+   * The act is destructive (cancel, reject, decline, revoke): Ctrl+Enter in the reason moves to
+   * the named button instead of committing (ARCHITECTURE §14.3 rule 2), and no hint offers it.
+   */
+  destructive?: boolean;
   /** Resolve `false` to keep the dialog open with the reason (the save failed). */
   onSubmit: (reason: string) => void | boolean | Promise<void | boolean>;
 }) {
@@ -151,6 +157,7 @@ export function ReasonDialog({
             <Button
               type="submit"
               variant="primary"
+              destructive={destructive}
               pending={pending}
               pendingLabel={pendingLabel ?? workingLabel(submitLabel)}
             >

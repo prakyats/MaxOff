@@ -13,6 +13,8 @@ import { type ChangeSubject, describeChange, diffFields } from "@/core/ui/edit/c
 import { claimEditor, releaseEditor, useActiveEditor } from "@/core/ui/edit/active-editor";
 import { useEditRequest } from "@/core/ui/edit/edit-requests";
 import { useLeaveGuard } from "@/core/ui/edit/use-leave-guard";
+import { isComposing } from "@/core/ui/keyboard/keys";
+import { useFinePointer } from "@/core/ui/keyboard/pointer";
 import { closeOverlaysThen, useOverlayHistory } from "@/core/ui/overlay/overlay-history";
 import { Button } from "@/core/ui/primitives/button";
 import { Input } from "@/core/ui/primitives/input";
@@ -166,6 +168,9 @@ export function EditableRecord<K extends string, V = undefined>({
   // Another record on the page is in edit mode: this one waits (3.4 review).
   const activeEditor = useActiveEditor();
   const blocked = activeEditor !== null && activeEditor !== formId;
+  // The first field takes focus on Edit on a laptop only: a phone's keyboard never opens by
+  // itself (ARCHITECTURE §14.3 rule 5).
+  const laptop = useFinePointer();
   useEffect(() => {
     if (!editing) releaseEditor(formId);
   }, [editing, formId]);
@@ -194,7 +199,7 @@ export function EditableRecord<K extends string, V = undefined>({
   }
 
   // Back in edit mode: nothing changed → leave edit mode; changes → ask first.
-  useOverlayHistory(mode === "edit", () => {
+  const { isTop: isTopLayer } = useOverlayHistory(mode === "edit", () => {
     if (leaving.current) return;
     if (dirty) {
       askDiscard(null);
@@ -221,6 +226,25 @@ export function EditableRecord<K extends string, V = undefined>({
     if (dirty) askDiscard(null);
     else toRead();
   }
+
+  // Escape on a laptop is Cancel (ARCHITECTURE §14.3 rule 4): with changes it asks "Discard
+  // changes?", without it leaves edit mode and backs its history entry out. Only while edit mode
+  // is the top layer and nothing else took the key (a select's open list closes first).
+  const cancelOnEscape = useRef(cancel);
+  useEffect(() => {
+    cancelOnEscape.current = cancel;
+  });
+  useEffect(() => {
+    if (mode !== "edit") return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented || isComposing(event)) return;
+      if (!isTopLayer()) return;
+      event.preventDefault();
+      cancelOnEscape.current();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [mode, isTopLayer]);
 
   async function save(): Promise<boolean> {
     const result = await onSave(draft, extraDraft as V);
@@ -315,7 +339,7 @@ export function EditableRecord<K extends string, V = undefined>({
                   field={field}
                   control={control}
                   value={draft[field.name]}
-                  autoFocus={index === 0 && !extra?.first}
+                  autoFocus={laptop && index === 0 && !extra?.first}
                   onChange={(next) => setDraft({ ...draft, [field.name]: next })}
                 />
               )}

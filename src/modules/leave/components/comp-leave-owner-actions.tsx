@@ -190,6 +190,7 @@ export function RevokeCreditButton({ creditId, name }: { creditId: string; name:
         label="Reason"
         placeholder={`${name} will see this reason.`}
         submitLabel="Revoke comp leave"
+        destructive
         onSubmit={async (reason) => {
           const done = toastResult(await revokeCompLeave({ creditId, reason }), {
             success: "Comp leave revoked",

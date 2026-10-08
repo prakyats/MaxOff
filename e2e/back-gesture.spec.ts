@@ -91,7 +91,7 @@ test.describe("overlays close on back", () => {
     const sheet = page.locator('[data-slot="more-sheet"]');
     await expect(sheet).toBeVisible();
 
-    await page.keyboard.press("Escape");
+    await sheet.getByRole("button", { name: "Close" }).click();
     await expect(sheet).toBeHidden();
 
     // The entry the sheet opened over is left behind spent — it cannot be popped on close
@@ -109,11 +109,11 @@ test.describe("overlays close on back", () => {
     for (let i = 0; i < 3; i++) {
       await more.click();
       await expect(sheet).toBeVisible();
-      await page.keyboard.press("Escape");
+      await sheet.getByRole("button", { name: "Close" }).click();
       await expect(sheet).toBeHidden();
     }
 
-    // Dismissing by hand leaves one spent entry, and it carries the same URL as the page, so
+    // Dismissing by its ✕ leaves one spent entry, and it carries the same URL as the page, so
     // the first back press is absorbed: it lands on /today again. The point of this test is
     // that three open/dismiss cycles still cost exactly one absorbed press, not three — the
     // spent entry is reused rather than a new one pushed each time.
@@ -121,7 +121,60 @@ test.describe("overlays close on back", () => {
     await page.goBack();
     await expect(page).not.toHaveURL(/\/today$/);
   });
+
+  test("Escape closes the sheet as back would: no entry left behind (§14.3 rule 4)", async ({
+    page,
+  }) => {
+    await page.goto("/today");
+    const more = page.locator('[data-slot="bottom-nav"] [data-nav="more"]');
+    const sheet = page.locator('[data-slot="more-sheet"]');
+
+    for (let i = 0; i < 2; i++) {
+      await more.click();
+      await expect(sheet).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(sheet).toBeHidden();
+      // Its entry was backed out: the page's own entry is the current one again.
+      await expect.poll(() => overlayMarker(page), { message: "no spent entry" }).toBeNull();
+    }
+
+    // So the very next back leaves /today, as after the back gesture.
+    await page.goBack();
+    await expect(page).not.toHaveURL(/\/today$/);
+  });
+
+  test("on touch, opening a form dialog focuses no field: the keyboard stays down (§14.3 rule 5)", async ({
+    page,
+  }) => {
+    // The Add holiday dialog's date field asks for `autoFocus`: a laptop's only.
+    await page.goto("/settings/days-off");
+    await hydrated(page);
+    await page.getByRole("button", { name: "Add holiday" }).click();
+    const dialog = page.getByRole("dialog", { name: "Add a holiday" });
+    await expect(dialog).toBeVisible();
+    await animationsSettled(page);
+    expect(await page.evaluate(() => matchMedia("(any-pointer: coarse)").matches)).toBe(true);
+    expect(await focusedField(page), "no field takes focus by itself on touch").toBeNull();
+    // Focus stays inside the sheet (the trap holds), on the surface itself.
+    expect(await page.evaluate(() => document.activeElement?.getAttribute("role"))).toBe("dialog");
+  });
 });
+
+/** The overlay marker on the current history entry, or null on a page's own entry. */
+function overlayMarker(page: Page): Promise<unknown> {
+  return page.evaluate(
+    () => (history.state as Record<string, unknown> | null)?.maxoffOverlay ?? null,
+  );
+}
+
+/** The focused element when it is a field a person types in or picks from, else null. */
+function focusedField(page: Page): Promise<string | null> {
+  return page.evaluate(() => {
+    const active = document.activeElement;
+    if (!active?.matches('input, textarea, select, [role="combobox"]')) return null;
+    return active.outerHTML.slice(0, 120);
+  });
+}
 
 /**
  * The same rules in the installed app (the 2.3 fix, device-checked on a Galaxy S23 with gesture
@@ -641,5 +694,41 @@ test.describe("on desktop too", () => {
     await expect(dialog).toBeVisible();
 
     await expectBackStack(page, [{ closes: dialog, url: /\/people$/ }]);
+  });
+
+  test("keys on a laptop: the first field takes focus; Escape closes as back would (§14.3 rules 4, 5)", async ({
+    page,
+  }) => {
+    await page.goto("/settings");
+    await page.goto("/settings/days-off");
+    await hydrated(page);
+    expect(
+      await page.evaluate(
+        () =>
+          matchMedia("(pointer: fine) and (hover: hover)").matches &&
+          !matchMedia("(any-pointer: coarse)").matches,
+      ),
+    ).toBe(true);
+
+    await page.getByRole("button", { name: "Add holiday" }).click();
+    const dialog = page.getByRole("dialog", { name: "Add a holiday" });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByLabel("Date")).toBeFocused();
+
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+    await expect.poll(() => overlayMarker(page), { message: "no spent entry" }).toBeNull();
+    // One back leaves the page, as after the back gesture: nothing was left behind.
+    await expectBackStack(page, [{ url: /\/settings$/ }]);
+
+    // A dialog with no `autoFocus` of its own: its first field (Add person: the kind).
+    await page.goto("/people");
+    await hydrated(page);
+    await page.getByRole("button", { name: "Add person", exact: true }).click();
+    const add = page.locator('[data-slot="dialog-content"]');
+    await expect(add).toBeVisible();
+    await expect(add.getByRole("radio").first()).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(add).toBeHidden();
   });
 });

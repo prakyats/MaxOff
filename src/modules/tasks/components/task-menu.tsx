@@ -138,6 +138,7 @@ export function TaskMenu({
         title="Cancel this task?"
         description="It stops here and stays in the history and the reports. Everyone on it sees the reason."
         submitLabel="Cancel task"
+        destructive
         cancelLabel="Keep it"
         onSubmit={async (reason) =>
           toastResult(await cancelTask({ taskId: task.id, reason }), { success: "Task cancelled" })

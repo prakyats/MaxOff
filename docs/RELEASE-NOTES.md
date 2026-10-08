@@ -50,6 +50,12 @@ its preview, then the merge to `main`, then the Owner's `v1.5.0` tag. Six expand
   "This page couldn't load".
 - **Push onboarding steps:** the go-live runbook's "every person, every phone" checklist and the first-day
   guide (install on iPhone or Android, allow notifications, Send a test, "Did it arrive?").
+- **Keys on a laptop:** in a task's chat Enter sends and Shift+Enter makes a new line (on a phone Enter
+  stays a new line and Send sends); Enter in a form's one-line field submits it, Ctrl+Enter (⌘+Enter on a
+  Mac) in a note or a reason (never on a cancel or a reject, where the key only moves to the named
+  button); Escape closes the top sheet or dialog, and cancels an edit (asking "Discard changes?" when
+  something changed); a dialog opens with its first field ready; Escape clears a search box. Quiet hints
+  show on a laptop only. On a phone nothing opens the keyboard by itself any more (a dialog, Edit).
 - **Behind the scenes:** readable stack traces in Sentry for server errors (staging first; production once
   its Sentry token is set); a phone's own network drops are no longer reported as errors.
 
@@ -80,9 +86,16 @@ its preview, then the merge to `main`, then the Owner's `v1.5.0` tag. Six expand
 - The calendar shows their own shoots, meetings, leave and the holidays; "Suggest a task" on a day.
 - On an iPhone the app follows the phone's text size.
 - "Can't reach the server. You're still signed in." recovers with Try again.
+- On a laptop, Enter sends a chat comment (Shift+Enter for a new line); on the phone, tapping Edit or
+  opening a form no longer brings the keyboard up until they tap a field.
 
 ### Before the tag (the Owner's checks)
 - **The phone walk** on the phase-6 preview (375 and 430, installed, gesture back) and the laptop calendar.
+  **Keys (walk fix 2):** on the laptop, Enter sends a task chat comment and Shift+Enter makes a new line
+  (the hint under the box says so); Escape closes a sheet or dialog, and back afterwards leaves the page;
+  Escape while editing your profile with a change asks "Discard changes?"; a dialog opens with its first
+  field ready to type in. On the phone, Enter in the chat makes a new line (Send sends), and no dialog or
+  Edit opens the keyboard by itself.
 - **Task type colours on staging:** after the merge, the seven launch task types have their colours, and
   `activity_log` has seven rows with action `backfilled` for them (the backfill has never met real rows
   before).
