@@ -4,9 +4,12 @@
 -- pending again; done, carried and closed items never counted; current cycles never; idempotent; the
 -- schedule; the count covers every undecided item, not only the new cycle's (7A review S1); one
 -- Admin's failure costs the others nothing (L1). Dates are computed from app.today_ist().
+-- Amendment C timing answer Q13 (a) (advisor 2026-10-08, owner to confirm): the prompt goes only in the
+-- morning window (08:00 to before 08:30 IST); a run after an outage at 15:00 IST, or one at midnight,
+-- prompts and marks nothing, and the next 08:05 run prompts what is still undecided. Runs are at 08:05 IST.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(35);
+select plan(39);
 
 -- 7A: client work rows reference clients and members, and the presets the organization (a
 -- Playwright run leaves some behind).
@@ -142,6 +145,10 @@ exception when sqlstate 'P0001' then
   return sqlerrm;
 end;
 $$;
+-- The job's time: 08:05 IST today (Q13: it prompts only in the morning window).
+create function pg_temp.p() returns timestamptz language sql stable as $$
+  select (app.today_ist()::timestamp + time '08:05') at time zone 'Asia/Kolkata';
+$$;
 create function pg_temp.clear() returns void language plpgsql security definer as $$
 begin
   delete from public.notification_deliveries;
@@ -195,8 +202,16 @@ select is(app.cycle_close_prompt_recipient((select c from public.clients c where
 select ok((select actionable and not always_email and in_app from public.notification_kinds where kind = 'items_to_decide'),
   'items_to_decide is actionable: the email fallback, never always');
 
--- The first run ------------------------------------------------------------------------------------------
-select is(app.cycle_close_prompt(now()), 2, 'one prompt per Admin with ended cycles to decide');
+-- Q13 (a). After an outage: no prompt outside the morning window ---------------------------------------
+select is(app.cycle_close_prompt(pg_temp.p() + interval '6 hours 55 minutes'), 0,
+  'Q13: the first run after an outage, at 15:00 IST, prompts nobody');
+select is(app.cycle_close_prompt(pg_temp.p() - interval '8 hours 5 minutes'), 0, 'nor a run at midnight');
+select is(app.cycle_close_prompt(pg_temp.p() + interval '25 minutes'), 0, 'nor one at 08:30 IST, the window''s end');
+select is((select count(*)::integer from public.project_cycles where prompted_at is not null)
+          + pg_temp.total()::integer, 0, 'and none marks a cycle prompted: the next morning''s run prompts them (no lost send)');
+
+-- The first run (08:05 IST) -----------------------------------------------------------------------------
+select is(app.cycle_close_prompt(pg_temp.p()), 2, 'one prompt per Admin with ended cycles to decide');
 select is(pg_temp.n('owner'), 0::bigint, 'the Owner gets no prompt (issue #56 Q2)');
 select is(pg_temp.n('admin', 'items_to_decide'), 1::bigint, 'one row for the Admin of two projects');
 select is((pg_temp.last('admin', 'items_to_decide')).title, '2 unfinished items to decide',
@@ -219,24 +234,24 @@ select is((select count(*)::integer from public.activity_log where entity = 'pro
   'audited ''prompted''');
 
 -- Idempotent; pending items listed again; decided items gone ---------------------------------------------
-select is(app.cycle_close_prompt(now()), 0, 'a re-run announces nothing new');
+select is(app.cycle_close_prompt(pg_temp.p()), 0, 'a re-run announces nothing new');
 select pg_temp.as_member('admin');
 select public.cycle_carry_decide(array(select id from public.project_items where cycle_id = pg_temp.fx('pw_old')), 'leave_pending');
 select public.cycle_carry_decide(array(select id from public.project_items where cycle_id = pg_temp.fx('pm_old') and state = 'open'), 'carry_forward');
 select pg_temp.as_system();
-select is(app.cycle_close_prompt(now()), 0, 'decisions alone prompt nobody');
+select is(app.cycle_close_prompt(pg_temp.p()), 0, 'decisions alone prompt nobody');
 select pg_temp.clear();
 -- A further cycle ends (made here two months back, as if a missed one): the next prompt lists it and,
 -- again, the pending item.
 select app.cycle_create(pg_temp.project('pm'), (select two_months from d), 'schedule', null);
-select is(app.cycle_close_prompt(now()), 1, 'a newly ended cycle prompts its Admin');
+select is(app.cycle_close_prompt(pg_temp.p()), 1, 'a newly ended cycle prompts its Admin');
 select is((pg_temp.last('admin', 'items_to_decide')).title, '3 unfinished items to decide',
   'its two items and the one left pending; the carried item no longer counts');
 select ok((pg_temp.last('admin', 'items_to_decide')).body like '%Weekly stories (Sharma Weddings)%: 1%'
           and (pg_temp.last('admin', 'items_to_decide')).body like '%. 1 left pending, listed again.',
   'the pending item is listed again');
 select is(pg_temp.n('admin2'), 0::bigint, 'the other Admin, with nothing new, is not prompted again');
-select is(app.cycle_close_prompt(now()), 0, 'and the run after that is quiet');
+select is(app.cycle_close_prompt(pg_temp.p()), 0, 'and the run after that is quiet');
 
 -- One Admin's prompt failing costs the others nothing (7A review L1) ----------------------------------
 select pg_temp.clear();
@@ -252,7 +267,7 @@ end;
 $f$;
 create trigger test_fail_notify before insert on public.notifications
   for each row execute function public.test_fail_notify();
-select is(app.cycle_close_prompt(now()), 1, 'an Admin whose prompt fails does not stop the run (logged as a warning)');
+select is(app.cycle_close_prompt(pg_temp.p()), 1, 'an Admin whose prompt fails does not stop the run (logged as a warning)');
 select is((pg_temp.last('admin', 'items_to_decide')).title, '5 unfinished items to decide',
   'the other Admin is prompted: the new cycle''s 2, the 2 announced before and still undecided, the 1 pending (7A review S1)');
 select is((select prompted_at is null from public.project_cycles
@@ -260,7 +275,7 @@ select is((select prompted_at is null from public.project_cycles
   'the failed Admin''s new cycle stays unprompted, rolled back with their prompt');
 drop trigger test_fail_notify on public.notifications;
 drop function public.test_fail_notify();
-select is(app.cycle_close_prompt(now()), 1, 'so the next run prompts them');
+select is(app.cycle_close_prompt(pg_temp.p()), 1, 'so the next run prompts them');
 select is((pg_temp.last('admin2', 'items_to_decide')).title, '2 unfinished items to decide',
   'with both of their ended cycles'' items');
 select pg_temp.as_member('owner');
@@ -284,7 +299,7 @@ insert into fx values ('pf', public.project_create(pg_temp.fx('client_f'), 'Fern
   array['R1', 'R2', 'R3', 'R4', 'R5']));
 select pg_temp.as_system();
 select app.cycle_create(pg_temp.project('pf'), (select two_months from d), 'schedule', null);
-select is(app.cycle_close_prompt(now()), 1, 'a cycle ends with 5 undecided items: its Admin is prompted');
+select is(app.cycle_close_prompt(pg_temp.p()), 1, 'a cycle ends with 5 undecided items: its Admin is prompted');
 select is((pg_temp.last('admin3', 'items_to_decide')).title, '5 unfinished items to decide', 'naming the 5');
 select pg_temp.as_member('owner');
 select public.project_blueprint_archive(b.id) from public.project_item_blueprints b
@@ -292,13 +307,13 @@ where b.project_id = pg_temp.fx('pf') and b.title in ('R3', 'R4', 'R5');
 select pg_temp.as_system();
 select app.cycle_create(pg_temp.project('pf'), (select last_month from d), 'schedule', null);
 select pg_temp.clear();
-select is(app.cycle_close_prompt(now()), 1, 'the next cycle ends with 2 more: prompted again');
+select is(app.cycle_close_prompt(pg_temp.p()), 1, 'the next cycle ends with 2 more: prompted again');
 select is((pg_temp.last('admin3', 'items_to_decide')).title, '7 unfinished items to decide',
   'the 5 still undecided and the 2 new, never only the 2');
 select ok((pg_temp.last('admin3', 'items_to_decide')).body like '%Fern reels (Fern Films) · ' || app.cycle_label('monthly', (select two_months from d)) || ': 5%'
           and (pg_temp.last('admin3', 'items_to_decide')).body like '%Fern reels (Fern Films) · ' || app.cycle_label('monthly', (select last_month from d)) || ': 2%',
   'each cycle with its count');
-select is(app.cycle_close_prompt(now()), 0, 'and the run after is quiet: nothing newly ended');
+select is(app.cycle_close_prompt(pg_temp.p()), 0, 'and the run after is quiet: nothing newly ended');
 
 select * from finish();
 rollback;

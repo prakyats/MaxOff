@@ -21,9 +21,13 @@
 -- check misses (a WARNING), every new row says what it answers, and the job refuses repeatable read;
 -- (L1) one items_to_decide per Admin per morning; (L2) no escalation is used up without an active
 -- Owner; (L3) E2's partial index; (L4) a tick, an edit and leave pending stamp nothing.
+-- Amendment C timing answers (advisor 2026-10-08, owner to confirm): (Q12 (b)) cycle_generate at 00:00
+-- IST, the prompt at 08:05 (pgTAP 69 has "cycle ready"); (Q13 (a)) a send only in the morning window,
+-- 08:00 to before 08:30 IST: a first run after an outage at 15:00 IST sends nothing, the next 08:00 sends
+-- what still holds. Simulated runs are at 08:00 IST or inside the window.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(168);
+select plan(182);
 
 -- 7A: client work rows reference clients and members, and the presets the organization (a
 -- Playwright run leaves some behind).
@@ -242,8 +246,8 @@ select is((select schedule || ' ' || command from cron.job where jobname = 'clie
   '*/5 * * * * select app.client_work_alerts()', 'client_work_alerts runs every 5 minutes (as reminders_tick)');
 select is((select string_agg(jobname || ' ' || schedule, ', ' order by jobname) from cron.job
            where jobname in ('cycle_generate', 'cycle_close_prompt')),
-  'cycle_close_prompt 35 2 * * *, cycle_generate 30 2 * * *',
-  'no client-work notice at midnight: the jobs that notify run at 08:00 IST (02:30 UTC) and 08:05 IST, the prompt after the cycles');
+  'cycle_close_prompt 35 2 * * *, cycle_generate 30 18 * * *',
+  'Q12 (b): cycles are made at 00:00 IST (18:30 UTC) and the prompt goes at 08:05 IST; no client-work notice at midnight');
 select ok(not has_function_privilege('authenticated', 'app.client_work_alerts(timestamptz)', 'execute')
           and has_function_privilege('service_role', 'app.client_work_alerts(timestamptz)', 'execute'),
   'the job is service_role only');
@@ -255,6 +259,10 @@ select ok(not has_function_privilege('authenticated', 'app.client_items_overdue_
           and not has_function_privilege('anon', 'app.client_items_overdue_due(uuid, date)', 'execute')
           and has_function_privilege('service_role', 'app.client_items_overdue_due(uuid, date)', 'execute'),
   'E1''s items with their basis and due_from: service_role only');
+select ok(not has_function_privilege('authenticated', 'app.client_work_send_window(timestamptz)', 'execute')
+          and not has_function_privilege('anon', 'app.client_work_send_window(timestamptz)', 'execute')
+          and has_function_privilege('service_role', 'app.client_work_send_window(timestamptz)', 'execute'),
+  'Q13''s morning window: service_role only');
 select is((select string_agg(kind || '=' || actionable || '/' || always_email || '/' || in_app, ', ' order by kind)
            from public.notification_kinds
            where kind in ('reminder_item_overdue', 'escalation_item_overdue', 'escalation_cycle_undecided',
@@ -271,6 +279,14 @@ select is((select indexdef from pg_indexes where indexname = 'project_items_cycl
 select is(app.client_work_morning(pg_temp.s(0) - interval '1 minute'), pg_temp.s(0), '07:59 IST: 08:00 the same day');
 select is(app.client_work_morning(pg_temp.s(0)), pg_temp.s(0), '08:00 IST: that moment');
 select is(app.client_work_morning(pg_temp.s(0) + interval '1 minute'), pg_temp.s(1), '08:01 IST: 08:00 the next day');
+
+-- Q13 (a). The morning window: 08:00 to before 08:30 IST ----------------------------------------------------
+select is(app.client_work_send_window(pg_temp.s(0) - interval '1 second'), false, '07:59:59 IST: closed');
+select is(app.client_work_send_window(pg_temp.s(0)), true, '08:00 IST: open');
+select is(app.client_work_send_window(pg_temp.s(0) + interval '29 minutes 59 seconds'), true, '08:29:59 IST: open');
+select is(app.client_work_send_window(pg_temp.s(0) + interval '30 minutes'), false, '08:30 IST: closed');
+select is(app.client_work_send_window(pg_temp.s(0) + interval '7 hours'), false, '15:00 IST: closed');
+select is(app.client_work_send_window(pg_temp.s(0) - interval '8 hours'), false, 'midnight IST: closed');
 
 -- E5. The thresholds -------------------------------------------------------------------------------------
 select is((select item_overdue_escalate_hours || '/' || cycle_decide_escalate_days from public.org_settings where org_id = pg_temp.fx('org')),
@@ -583,7 +599,7 @@ select is((select count(*)::integer from public.client_work_alerts
 select app.client_work_alerts(pg_temp.s(6));
 select is(pg_temp.n('owner', 'escalation_cycle_undecided'), 1::bigint, 'once per cycle');
 select app.cycle_create(pg_temp.project('pm'), (app.period_start('monthly', app.today_ist()) - interval '2 month')::date, 'schedule', null);
-select app.client_work_alerts((select t1 from t) + interval '40 days');
+select app.client_work_alerts(pg_temp.s(40));
 select is(pg_temp.n('owner', 'escalation_cycle_undecided'), 1::bigint, 'a cycle its Admin was never prompted about waits for the prompt');
 
 -- E3. A one-time project past its delivery date -----------------------------------------------------------------
@@ -640,14 +656,14 @@ end;
 $f$;
 create trigger test_fail_notify before insert on public.notifications
   for each row execute function public.test_fail_notify();
-select is(app.client_work_alerts((select t1 from t) + interval '50 days'), 1,
+select is(app.client_work_alerts(pg_temp.s(50)), 1,
   'one Admin''s notice failing does not stop the run');
 select is((pg_temp.last('admin', 'reminder_item_overdue')).title, 'Overdue: Late 3', 'the other Admin is told');
 select is((select count(*)::integer from public.client_work_alerts a join public.project_items i on i.id = a.entity_id
            where i.title = 'B late 2'), 0, 'the failing Admin''s items stay unrecorded, so the next run tells them');
 drop trigger test_fail_notify on public.notifications;
 drop function public.test_fail_notify();
-select is(app.client_work_alerts((select t1 from t) + interval '50 days'), 1, 'as it does');
+select is(app.client_work_alerts(pg_temp.s(50)), 1, 'as it does');
 
 -- The 7A review of d9caeab: the real-time cases (now(), then the first 08:00 IST after it, r) ----------------------
 select is((select indexdef from pg_indexes where indexname = 'client_work_alerts_once_per_answer'),
@@ -830,6 +846,41 @@ select public.project_update(pg_temp.fx('plate'), jsonb_build_object('name', 'La
 select pg_temp.as_system();
 select is((select delivery_armed_at from public.projects where id = pg_temp.fx('plate')), now() - interval '7 days',
   'a project edit that keeps the delivery date does not re-arm it');
+
+-- Q13 (a). An outage: a late send waits for the next 08:00 IST and goes only if its reason still holds -----------
+-- Two items whose notice was due at 08:00 IST yesterday, while the database was down until 15:00.
+select pg_temp.clear();
+select pg_temp.as_member('admin');
+insert into fx values
+  ('out_open', public.item_add((pg_temp.cycle_of('pm', app.period_start('monthly', app.today_ist()))).id, 'Outage open', app.today_ist() - 2)),
+  ('out_done', public.item_add((pg_temp.cycle_of('pm', app.period_start('monthly', app.today_ist()))).id, 'Outage done', app.today_ist() - 2));
+select pg_temp.as_system();
+-- Added long ago (M1 arms them at now(); these runs are on yesterday's and today's mornings).
+update public.project_items set overdue_armed_at = now() - interval '30 days'
+where id in (pg_temp.fx('out_open'), pg_temp.fx('out_done'));
+select is(app.client_work_alerts(pg_temp.s(-1) + interval '7 hours'), 0,
+  'Q13: the first run after the outage, at 15:00 IST, sends nothing');
+select is(app.client_work_alerts(pg_temp.s(-1) + interval '16 hours'), 0, 'nor one at midnight');
+select is((select count(*)::integer from public.client_work_alerts
+           where entity_id in (pg_temp.fx('out_open'), pg_temp.fx('out_done'))), 0, 'and nothing is marked sent');
+select pg_temp.as_member('admin');
+select public.item_mark_done(pg_temp.fx('out_done'));
+select pg_temp.as_system();
+select app.client_work_alerts(pg_temp.s(0));
+select is((select count(*)::integer from public.notifications
+           where recipient_id = pg_temp.fx('admin') and kind = 'reminder_item_overdue'
+             and (title || ' ' || body) like '%Outage open%' and (title || ' ' || body) not like '%Outage done%'), 1,
+  'the next 08:00 IST run tells the Admin about the item still overdue, not the one done since (its reason no longer holds)');
+select is((select string_agg(kind || '/' || (sent_at = pg_temp.s(0))::text, ',') from public.client_work_alerts
+           where entity_id in (pg_temp.fx('out_open'), pg_temp.fx('out_done'))),
+  'item_overdue/true', 'one record, at that run');
+select pg_temp.clear();
+select is(app.client_work_alerts(pg_temp.s(1) + interval '7 hours'), 0,
+  'the escalation due at 08:00 IST the next day, missed by an outage: nothing at 15:00');
+select app.client_work_alerts(pg_temp.s(2));
+select is((select count(*)::integer from public.notifications
+           where recipient_id = pg_temp.fx('owner') and kind = 'escalation_item_overdue' and body like '%Outage open%'), 1,
+  'it goes at the next 08:00 IST, the item still open');
 
 -- S2. The job refuses any isolation but read committed (its checks must see the last run's rows) ---------------------
 create extension if not exists dblink with schema extensions;

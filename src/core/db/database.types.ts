@@ -2067,6 +2067,7 @@ export type Database = {
           period_start: string | null;
           project_id: string;
           prompted_at: string | null;
+          ready_armed_at: string | null;
           state: Database["public"]["Enums"]["cycle_state"];
           updated_at: string;
         };
@@ -2082,6 +2083,7 @@ export type Database = {
           period_start?: string | null;
           project_id: string;
           prompted_at?: string | null;
+          ready_armed_at?: string | null;
           state?: Database["public"]["Enums"]["cycle_state"];
           updated_at?: string;
         };
@@ -2097,6 +2099,7 @@ export type Database = {
           period_start?: string | null;
           project_id?: string;
           prompted_at?: string | null;
+          ready_armed_at?: string | null;
           state?: Database["public"]["Enums"]["cycle_state"];
           updated_at?: string;
         };

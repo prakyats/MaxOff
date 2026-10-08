@@ -6,9 +6,14 @@
 -- run, with no actor; the schedule; the missed periods of the last 7 days, oldest first, never one
 -- before the project, its client's last activation or its last reopen (7A review S2). Dates are
 -- computed from app.today_ist() and the run's instant.
+-- Amendment C timing answer Q12 (b) (advisor 2026-10-08, owner to confirm): cycles are made at 00:00 IST
+-- and the run writes no notification; "cycle ready" goes from client_work_alerts' 08:00 IST run, one
+-- combined notice per Admin, never twice; the 7-day catch-up at 00:00; a cycle the Owner's carry makes in
+-- the night is announced at 08:00, an Admin's own carry and a manual start arm nothing; a cycle armed after
+-- 08:00 waits for the next morning.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(38);
+select plan(61);
 
 -- 7A: client work rows reference clients and members, and the presets the organization (a
 -- Playwright run leaves some behind).
@@ -144,6 +149,10 @@ exception when sqlstate 'P0001' then
   return sqlerrm;
 end;
 $$;
+-- That IST time on today + d.
+create function pg_temp.at(d integer, t time) returns timestamptz language sql stable as $$
+  select ((app.today_ist() + d)::timestamp + t) at time zone 'Asia/Kolkata';
+$$;
 create function pg_temp.clear() returns void language plpgsql security definer as $$
 begin
   delete from public.notification_deliveries;
@@ -186,7 +195,8 @@ select pg_temp.clear();
 
 -- The schedule ----------------------------------------------------------------------------------------
 select is((select schedule || ' ' || command from cron.job where jobname = 'cycle_generate'),
-  '30 2 * * * select app.cycle_generate()', 'cycle_generate runs at 08:00 IST (02:30 UTC) every day: no client-work notice at midnight (owner 2026-10-08)');
+  '30 18 * * * select app.cycle_generate()',
+  'Q12 (b): cycle_generate runs at 00:00 IST (18:30 UTC) every night; only its notices wait for 08:00');
 select ok(not has_function_privilege('authenticated', 'app.cycle_generate(timestamptz)', 'execute')
           and has_function_privilege('service_role', 'app.cycle_generate(timestamptz)', 'execute'),
   'the job is service_role only');
@@ -194,8 +204,18 @@ select is((select count(*)::integer from public.project_cycles where project_id 
             (pg_temp.fx('pm1'), pg_temp.fx('pm2'), pg_temp.fx('pw'), pg_temp.fx('pb'))), 0,
   'the recurring projects of the resumed clients have no cycle yet');
 
--- The first run: the current periods ---------------------------------------------------------------
-select is(app.cycle_generate(now()), 4, 'the run creates the four missing current cycles (catch-up and resumed clients)');
+-- The first run: the current periods, at 00:00 IST ---------------------------------------------------
+select is(app.cycle_generate(pg_temp.at(0, '00:00')), 4,
+  'the 00:00 IST run creates the four missing current cycles (catch-up and resumed clients)');
+select is(pg_temp.total(), 0::bigint, 'Q12 (b): and writes no notification (nothing around midnight)');
+select is((select count(*)::integer from public.project_cycles where generated_by = 'schedule' and ready_armed_at = now()), 4,
+  'each new cycle arms its "cycle ready" notice (ready_armed_at, by trigger)');
+select is((select count(*)::integer from public.project_cycles where generated_by = 'create' and ready_armed_at is not null), 0,
+  'a project''s first cycle arms nothing (its creator made it)');
+-- Made at 00:00 IST (the trigger stamps now(); this run is today's midnight).
+update public.project_cycles set ready_armed_at = pg_temp.at(0, '00:00') where generated_by = 'schedule';
+select is(app.client_work_alerts(pg_temp.at(0, '07:59')), 0, 'nothing before 08:00 IST');
+select is(app.client_work_alerts(pg_temp.at(0, '08:00')), 2, 'at 08:00 IST: one combined notice per Admin');
 select is((select string_agg(p.name || '=' || c.generated_by || '/' || c.period_start::text || '/' || (c.created_by is null)::text, ', ' order by p.name)
            from public.project_cycles c join public.projects p on p.id = c.project_id
            where p.id in (pg_temp.fx('pm1'), pg_temp.fx('pm2'), pg_temp.fx('pw'), pg_temp.fx('pb'))),
@@ -227,6 +247,11 @@ select is((pg_temp.last('admin2', 'cycle_generated')).title,
 select is((pg_temp.last('admin2', 'cycle_generated')).link,
   '/clients/' || pg_temp.fx('client_b') || '/projects/' || pg_temp.fx('pb'), 'opening it');
 select is(pg_temp.n('owner') + pg_temp.n('admin2') + pg_temp.n('admin'), 2::bigint, 'the Owner is not told');
+select is((select string_agg(kind || '/' || (answers_at = pg_temp.at(0, '00:00'))::text, ',') from public.client_work_alerts
+           where entity_id in (select id from public.project_cycles where project_id = pg_temp.fx('pb'))),
+  'cycle_generated/true', 'the send is recorded, answering the cycle''s arming');
+select is(app.client_work_alerts(pg_temp.at(0, '08:05')), 0, 'the next run sends nothing twice');
+select is(app.client_work_alerts(pg_temp.at(1, '08:00')), 0, 'nor the next morning');
 
 -- Idempotent --------------------------------------------------------------------------------------------
 select is(app.cycle_generate(now()), 0, 'a second run creates nothing');
@@ -237,6 +262,9 @@ select is(app.cycle_generate(now() - interval '1 minute'), 0, 'an early re-run n
 select pg_temp.as_member('admin');
 select public.cycle_start_next(pg_temp.fx('pw'));
 select pg_temp.as_system();
+select is((select generated_by || '/' || (ready_armed_at is null)::text from public.project_cycles
+           where project_id = pg_temp.fx('pw') and period_start > app.today_ist()), 'manual/true',
+  'a manual start arms nothing (an Admin''s own start tells nobody; the Owner''s tells the Admin at once, Q14)');
 select pg_temp.clear();
 create temporary table nxt as
 select app.period_next('weekly', app.period_start('weekly', app.today_ist())) as monday,
@@ -283,9 +311,14 @@ drop trigger test_fail_cycle on public.project_cycles;
 select is(app.cycle_generate(now()), 1, 'the night after a client is resumed, its current period''s cycle is made');
 select is((select count(*)::integer from public.project_cycles where project_id = pg_temp.fx('pp')
            and period_start = app.period_start('monthly', app.today_ist())), 1, 'for the current period only');
+-- Made at 00:00 IST.
+update public.project_cycles set ready_armed_at = pg_temp.at(0, '00:00') where project_id = pg_temp.fx('pp');
+select app.client_work_alerts(pg_temp.at(0, '08:00'));
 select is((pg_temp.last('admin', 'cycle_generated')).title,
   app.cycle_label('monthly', app.period_start('monthly', app.today_ist())) || ' is ready: Paused retainer (Paused Studio)',
-  'and its Admin is told');
+  'and its Admin is told at 08:00 IST');
+select is(pg_temp.n('admin', 'cycle_generated'), 1::bigint,
+  'about that cycle only: the running cycles already told and next periods'' cycles made ahead are not in it');
 
 -- Missed periods: the last 7 days (7A review S2) -------------------------------------------------------
 -- Never a period before the client last became Active (a paused period is skipped on purpose) or
@@ -324,6 +357,7 @@ select app.period_next('weekly', app.period_start('weekly', app.today_ist())) as
        (((app.period_next('weekly', app.period_start('weekly', app.today_ist())) + 8)::timestamp + time '00:00')
          at time zone 'Asia/Kolkata') as run_at;
 select app.cycle_generate((select run_at from outage));
+select is(pg_temp.n('admin2'), 0::bigint, 'the 00:00 catch-up run tells nobody');
 select is((select string_agg(c.period_start::text || '=' || c.generated_by || '/' || n.items, ', ' order by c.period_start)
            from public.project_cycles c
            cross join lateral (select count(*) as items from public.project_items i where i.cycle_id = c.id) n
@@ -334,18 +368,90 @@ select is((select array_agg((diff -> 'new' ->> 'period_start')::date order by id
            where entity = 'project_cycles' and entity_id = pg_temp.fx('pg') and action = 'generated'
              and meta ->> 'generated_by' = 'schedule'),
   array[(select monday1 from outage), (select monday2 from outage)], 'oldest first');
-select ok((select string_agg(title || ' ' || coalesce(body, ''), ' ') from public.notifications
-           where recipient_id = pg_temp.fx('admin2') and kind = 'cycle_generated')
-            like '%' || app.cycle_label('weekly', (select monday2 from outage)) || '%'
-          and (select string_agg(title || ' ' || coalesce(body, ''), ' ') from public.notifications
-               where recipient_id = pg_temp.fx('admin2') and kind = 'cycle_generated')
-            not like '%' || app.cycle_label('weekly', (select monday1 from outage)) || '%',
-  'the Admin is told of the running week only; the ended one is a cycle to decide');
-select app.cycle_close_prompt((select run_at from outage) + interval '5 minutes');
+select app.client_work_alerts((select run_at from outage) + interval '8 hours');
+select is((select string_agg(c.period_start::text || '=' || coalesce(a.kind, 'none'), ', ' order by c.period_start)
+           from public.project_cycles c
+           left join public.client_work_alerts a on a.entity_id = c.id and a.kind = 'cycle_generated'
+           where c.project_id = pg_temp.fx('pg') and c.period_start > app.period_start('weekly', app.today_ist())),
+  (select monday1 from outage)::text || '=none, ' || (select monday2 from outage)::text || '=cycle_generated',
+  'at 08:00 IST the Admin is told of the running week only; the ended one is a cycle to decide');
+select ok((select bool_or(title || ' ' || coalesce(body, '') like '%Bakery stories (Blue Bakery)%') from public.notifications
+           where recipient_id = pg_temp.fx('admin2') and kind = 'cycle_generated'),
+  'naming the project');
+select app.cycle_close_prompt((select run_at from outage) + interval '8 hours 5 minutes');
 select ok((pg_temp.last('admin2', 'items_to_decide')).body
             like '%Bakery stories (Blue Bakery) · ' || app.cycle_label('weekly', (select monday1 from outage)) || ': 1%',
-  'which the 00:05 prompt lists, like any ended cycle');
+  'which the 08:05 prompt lists, like any ended cycle');
 select is(app.cycle_generate((select run_at from outage)), 0, 'a second run creates nothing');
+
+-- Q12 (b). A cycle a carry makes in the night -----------------------------------------------------------
+-- A client resumed today whose current cycles the 00:00 run has not made yet (the cycle job did not run
+-- since); last month's cycles ended with their items open.
+select pg_temp.clear();
+insert into fx values
+  ('admin3',   '00000000-0000-4000-8000-000000006906'),
+  ('client_c', '00000000-0000-4000-8000-0000000069c2');
+insert into auth.users (id, email) values (pg_temp.fx('admin3'), 'admin3@example.com');
+insert into public.members (id, org_id, full_name, email, role, status, joined_at) values
+  (pg_temp.fx('admin3'), pg_temp.fx('org'), 'Third Admin', 'admin3@example.com', 'admin', 'active', now());
+insert into public.clients (id, org_id, name, state, admin_id, activated_at) values
+  (pg_temp.fx('client_c'), pg_temp.fx('org'), 'Carry Cafe', 'paused', pg_temp.fx('admin3'), now());
+select pg_temp.as_member('owner');
+insert into fx values
+  ('pk',  public.project_create(pg_temp.fx('client_c'), 'Cafe reels', 'monthly', null, null, '{}', array['Reel'])),
+  ('pk2', public.project_create(pg_temp.fx('client_c'), 'Cafe posts', 'monthly', null, null, '{}', array['Post'])),
+  ('pk3', public.project_create(pg_temp.fx('client_c'), 'Cafe menu', 'monthly', null, null, '{}', array['Menu']));
+select public.client_activate(pg_temp.fx('client_c'));
+select pg_temp.as_system();
+create temporary table cm as
+select (app.period_start('monthly', app.today_ist()) - interval '1 month')::date as last_month,
+       app.period_start('monthly', app.today_ist()) as this_month;
+grant select on cm to authenticated;
+select app.cycle_create(pg_temp.project('pk'), (select last_month from cm), 'schedule', null);
+select app.cycle_create(pg_temp.project('pk2'), (select last_month from cm), 'schedule', null);
+select app.cycle_create(pg_temp.project('pk3'), (select last_month from cm), 'schedule', null);
+select pg_temp.clear();
+select pg_temp.as_member('owner');
+select public.cycle_carry_decide(array(select id from public.project_items
+  where cycle_id = (pg_temp.cycle_of('pk', (select last_month from cm))).id), 'carry_forward');
+select public.cycle_carry_decide(array(select id from public.project_items
+  where cycle_id = (pg_temp.cycle_of('pk3', (select last_month from cm))).id), 'carry_forward');
+select pg_temp.as_member('admin3');
+select public.cycle_carry_decide(array(select id from public.project_items
+  where cycle_id = (pg_temp.cycle_of('pk2', (select last_month from cm))).id), 'carry_forward');
+select pg_temp.as_system();
+select is((select generated_by || '/' || (ready_armed_at = now())::text
+           from public.project_cycles where id = (pg_temp.cycle_of('pk', (select this_month from cm))).id),
+  'carry/true', 'the Owner''s carry makes the current cycle and arms its "cycle ready" notice');
+select is((select generated_by || '/' || (ready_armed_at is null)::text
+           from public.project_cycles where id = (pg_temp.cycle_of('pk2', (select this_month from cm))).id),
+  'carry/true', 'an Admin''s own carry arms nothing (the actor)');
+select is(pg_temp.n('admin3', 'carry_decided'), 2::bigint, 'Q14: the Owner''s carry decisions tell the Admin at once');
+select is(pg_temp.n('admin3', 'cycle_generated'), 0::bigint, 'but "cycle ready" waits for the morning');
+-- The Owner's carries as made at 02:00 IST (Cafe reels) and at 08:10 IST (Cafe menu).
+update public.project_cycles set ready_armed_at = pg_temp.at(0, '02:00')
+where id = (pg_temp.cycle_of('pk', (select this_month from cm))).id;
+update public.project_cycles set ready_armed_at = pg_temp.at(0, '08:10')
+where id = (pg_temp.cycle_of('pk3', (select this_month from cm))).id;
+select app.client_work_alerts(pg_temp.at(0, '07:59'));
+select is(pg_temp.n('admin3', 'cycle_generated'), 0::bigint, 'nothing before 08:00 IST');
+select app.client_work_alerts(pg_temp.at(0, '08:00'));
+select is(pg_temp.n('admin3', 'cycle_generated'), 1::bigint, 'at 08:00 IST the Admin is told, once');
+select is((pg_temp.last('admin3', 'cycle_generated')).title,
+  app.cycle_label('monthly', (select this_month from cm)) || ' is ready: Cafe reels (Carry Cafe)',
+  'about the cycle the 02:00 carry made, never the one the Admin made');
+select is((pg_temp.last('admin3', 'cycle_generated')).link,
+  '/clients/' || pg_temp.fx('client_c') || '/projects/' || pg_temp.fx('pk'), 'opening its project');
+select app.client_work_alerts(pg_temp.at(0, '08:15'));
+select is(pg_temp.n('admin3', 'cycle_generated'), 1::bigint,
+  'a cycle armed at 08:10 is not told at 08:15: one notice per Admin per morning');
+select app.client_work_alerts(pg_temp.at(1, '08:00'));
+select is(pg_temp.n('admin3', 'cycle_generated'),
+  case when app.period_end('monthly', (select this_month from cm)) > app.today_ist() then 2 else 1 end::bigint,
+  'it goes the next morning while its period is running (Cafe reels never again)');
+select is((select count(*)::integer from public.client_work_alerts
+           where kind = 'cycle_generated' and entity_id = (pg_temp.cycle_of('pk', (select this_month from cm))).id), 1,
+  'each cycle once');
 
 select * from finish();
 rollback;

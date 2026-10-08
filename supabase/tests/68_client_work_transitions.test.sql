@@ -7,7 +7,7 @@
 -- Dates are computed from app.today_ist(), so the file holds on any day.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(290);
+select plan(292);
 
 -- 7A: client work rows reference clients and members, and the presets the organization (a
 -- Playwright run leaves some behind).
@@ -652,6 +652,8 @@ select is((select generated_by || ':' || period_start::text || ':' || item_list_
 select is((select array_agg(i.title) from public.project_items i join public.project_cycles c on c.id = i.cycle_id
            where c.project_id = pg_temp.fx('p_p') and c.generated_by = 'carry'), array['Story'],
   'it holds only the carried item while the client is not Active (Q4 (a))');
+select is((select ready_armed_at from public.project_cycles where project_id = pg_temp.fx('p_p') and generated_by = 'carry'),
+  null::timestamptz, 'and arms no "cycle ready" notice while it lacks its list (Q12 (b))');
 select throws_ok($$ select public.cycle_carry_decide(array[pg_temp.fx('px1')], 'carry_forward') $$, 'P0001', 'INVALID_STATE',
   'carry forward on an Inactive client is refused (decision 13)');
 select is((pg_temp.res(public.cycle_carry_decide(array[pg_temp.fx('px1')], 'leave_pending'), pg_temp.fx('px1'))) ->> 'ok', 'true',
@@ -672,6 +674,8 @@ select is((select array_agg(i.title order by i.position collate "C") from public
   'the next nightly run adds the item list after the carried item (Q4 (a))');
 select is((select item_list_copied from public.project_cycles where project_id = pg_temp.fx('p_p') and generated_by = 'carry'), true,
   'and records it (audited item_list_added)');
+select is((select ready_armed_at from public.project_cycles where project_id = pg_temp.fx('p_p') and generated_by = 'carry'), now(),
+  'the list joining arms the cycle''s "cycle ready" notice, told at 08:00 IST (Q12 (b))');
 select app.cycle_generate(now());
 select is((select count(*)::integer from public.project_items i join public.project_cycles c on c.id = i.cycle_id
            where c.project_id = pg_temp.fx('p_p') and c.generated_by = 'carry'), 2,
