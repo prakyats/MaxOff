@@ -5,6 +5,7 @@ import { expect, test } from "./fixtures";
 import { HOLD_PROXY_URL } from "./hold-proxy-config";
 import {
   expectBackStack,
+  expectNoHorizontalScroll,
   hydrated,
   memberIdOf,
   removeClientFixture,
@@ -202,7 +203,7 @@ test("Approvals → Client items: the client's Admin approves with Undo; the Own
     item_id: await itemId(second, nameOf(info, "second")),
   });
   await ownerPage.goto("/approvals");
-  await expect(ownerPage.locator('[data-slot="page-header"]')).toBeVisible();
+  await expect(ownerPage.locator('[data-slot="page-header"]').first()).toBeVisible();
   await expect(ownerPage.getByText(nameOf(info, "second"))).toHaveCount(0);
   await context.close();
   await removeClientFixture(client);
@@ -231,7 +232,10 @@ test("the Owner's Today: N client items overdue, the list grouped by Admin", asy
   const group = page.locator('[data-slot="item-group"]', {
     has: page.locator('[data-slot="item-list-row"]', { hasText: nameOf(info, "late") }),
   });
-  await expect(group.locator("h2")).toContainText("Ravi");
+  const [named] = await serviceSelect<{ full_name: string }>(
+    `members?email=eq.${encodeURIComponent(admin.email)}&select=full_name`,
+  );
+  await expect(group.locator("h2")).toContainText(named?.full_name ?? "admin");
   await context.close();
   await removeClientFixture(client);
 });
@@ -389,7 +393,7 @@ test("the calendar lists client items for their Admin, never for Crew", async ({
   const context = await browser.newContext({ storageState: storageStateFor("staff") });
   const crew = await context.newPage();
   await crew.goto(`/calendar?view=day&date=${day}`);
-  await expect(crew.locator('[data-slot="page-header"]')).toBeVisible();
+  await expect(crew.locator('[data-slot="page-header"]').first()).toBeVisible();
   await expect(crew.locator('[data-slot="calendar-item"]')).toHaveCount(0);
   await context.close();
   await removeClientFixture(client);
@@ -489,6 +493,42 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
       { url: new RegExp(`/clients/${clientId}/projects$`) },
       { url: /\/today$/ },
     ]);
+    await removeClientFixture(client);
+  });
+
+  test("the Projects tab, a project and its item sheet fit at 130% and 200% text", async ({
+    page,
+  }, info) => {
+    const client = nameOf(info, "large text");
+    const clientId = await workClient(client);
+    const projectId = await makeProject(clientId, "A long project name for large text", {
+      items: ["An item with a rather long title to wrap"],
+      stages: ["Script", "Shoot", "Edit", "Posted"],
+    });
+    for (const path of [
+      `/clients/${clientId}/projects`,
+      `/clients/${clientId}/projects/${projectId}`,
+    ]) {
+      await page.goto(path);
+      await hydrated(page);
+      for (const scale of [130, 200]) {
+        await page.evaluate((percent) => {
+          document.documentElement.style.fontSize = `${percent}%`;
+        }, scale);
+        await expectNoHorizontalScroll(page);
+      }
+      await page.evaluate(() => {
+        document.documentElement.style.fontSize = "";
+      });
+    }
+    await itemRow(page, "An item with a rather long title")
+      .locator('[data-slot="item-open"]')
+      .click();
+    await expect(page.locator('[data-slot="review-sheet"]')).toBeVisible();
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = "200%";
+    });
+    await expectNoHorizontalScroll(page);
     await removeClientFixture(client);
   });
 

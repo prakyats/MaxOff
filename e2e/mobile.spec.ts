@@ -218,9 +218,17 @@ const LARGE_TEXT_SCREENS = {
     "/calendar",
     "/reports/end-of-day",
     `/reports/end-of-day/${todayIST()}`,
+    // 7B: client work.
+    "/clients/items",
+    "/clients/items/decide",
+    "/settings/stage-presets",
   ],
   admin: [
     "/today",
+    // 7B: client work.
+    "/clients/items",
+    "/clients/items/decide",
+    "/settings/stage-presets",
     // 6.3: the work report.
     "/reports",
     "/leave",

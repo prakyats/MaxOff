@@ -1,13 +1,14 @@
 "use client";
 
 import { ChevronRightIcon, ListChecksIcon } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { cn } from "@/core/lib/utils";
 import { DrillLink } from "@/core/ui/composites/drill-link";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { StatusDot } from "@/core/ui/composites/status-badge";
 import { replaceViewAddress } from "@/core/ui/navigation/view-address";
+import { closeOverlaysThen } from "@/core/ui/overlay/overlay-history";
 import { Button } from "@/core/ui/primitives/button";
 import {
   Select,
@@ -77,6 +78,7 @@ export function ItemList({
   initial: View;
 }) {
   const [view, setView] = useState<View>(initial);
+  const latest = useRef<View>(initial);
   const clients = useMemo(
     () =>
       [...new Map(rows.map((row) => [row.clientId, row.clientName])).entries()].sort((a, b) =>
@@ -110,7 +112,10 @@ export function ItemList({
       if (!still) merged.project = ALL;
     }
     setView(merged);
-    replaceViewAddress(addressOf(merged));
+    latest.current = merged;
+    // A filter is chosen inside its open select, whose layer owns the current history entry:
+    // that entry is backed out first, so the page's own entry keeps the view (as `DataTable`).
+    closeOverlaysThen(() => replaceViewAddress(addressOf(latest.current)));
   }
 
   const groups: { key: string; name: string | null; rows: ItemRowView[] }[] = grouped

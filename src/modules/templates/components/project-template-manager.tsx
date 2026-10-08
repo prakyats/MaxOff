@@ -91,9 +91,10 @@ export function ProjectTemplateManager({
           variant="secondary"
           onClick={() => setAdding(true)}
           data-slot="add-project-template"
+          aria-label="Add a project template"
         >
           <PlusIcon aria-hidden />
-          Add project template
+          Add
         </Button>
       </div>
       {active.length === 0 ? (
