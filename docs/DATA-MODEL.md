@@ -53,6 +53,10 @@ notification_kind  a lookup table, not an enum (5.1, expand-only across releases
                    member_unreachable (5B 5.4, migration reachability: actionable false,
                    always_email true, in_app true): the Owner's alert that someone has not been
                    reachable by push for 48 h, at most weekly per person (§9 member_reachability).
+                   7A (kickoff 7 decision 17, amendments B and C; migrations client_work_schema and
+                   client_work_transitions): client_created, project_created, project_completed,
+                   project_cancelled, project_reopened, item_cancelled, carry_decided (info: in-app and
+                   push, never email); item_rejected*, cycle_generated* (actionable).
 field_type         text | long_text | number | date | datetime | checkbox | select |
                    multi_select | url | email | phone | color | member | rating
                    -- deliberately NO currency type: money lives only in the Owner-only tables (§7)
@@ -489,6 +493,12 @@ task_types           id, org_id, name, kind task_type_kind, shows_on_calendar bo
                      -- update, move and archive without settings.manage (Admins hold lists.manage but only
                      -- pick types; PERMISSIONS ³). Tasks have no stage presets: stage_presets are projects' (7.4)
 stage_presets        id, org_id, name, stages text[] (ordered), archived_at
+                     -- as built (7.1, migration client_work_schema, pgTAP 67): name 1..80, stages 1..12 each
+                     -- 1..120 (trimmed by app.stage_presets_guard, security invoker, which also keeps the
+                     -- author: created_by = the caller on an API insert, never changed). API: SELECT, INSERT
+                     -- (name, stages), UPDATE (name, stages, archived_at). The seeded row is named "Video"
+                     -- with the stages Script, Shoot, Edit, Posted (app.seed_org_stage_presets, AFTER INSERT
+                     -- on organizations; backfilled once). Screens: 7.4
                      -- kickoff 7 (owner decision 2026-10-01, decision 22; built in 7.4): + created_by → members,
                      -- created_at, updated_at. RLS: active members with lists.manage read; insert by
                      -- lists.manage (Owner, Admins); an Admin updates and archives only their own
@@ -520,7 +530,8 @@ field_definitions    id, org_id, entity ('client'|'contact'|'project'|'item'|'ta
                      -- current Admin; task rows: lists.manage). Reads: task rows for every active
                      -- member (4.1 forms); the rest for lists.manage on a visible scope. Audited.
                      -- app.field_definitions_guard() refuses a type change once any clients.custom_fields
-                     -- or client_contacts.custom_fields holds the key (4.1 / 7.x extend it to their tables).
+                     -- or client_contacts.custom_fields holds the key (4.1 / 7.x extend it to their tables;
+                     -- 7.1: projects, project templates' field_defaults and project_items).
 ```
 Entities with custom fields have `custom_fields jsonb not null default '{}'`, validated against active definitions on every write (`core/custom-fields`).
 
@@ -986,6 +997,16 @@ clients              id, org_id, name, legal_name, state client_state, admin_id 
                      -- activity entry and the Owner's notification in one transaction; an Admin's API
                      -- INSERT is refused. Pause / close / reactivate / assignment stay clients.manage.
                      -- RLS and pgTAP per role when built (7.1)
+                     -- as built (7.1, migration client_work_schema, pgTAP 67): public.client_create(details
+                     -- jsonb) for a caller with clients.create and without clients.manage (an Admin; the
+                     -- Owner gets FORBIDDEN and keeps the plain insert). details: name (required),
+                     -- legal_name, gstin, address, city, phone, email, website, drive_url, requirements,
+                     -- notes, custom_fields (company-wide client fields, app.custom_fields_check); any other
+                     -- key (admin_id, state…) is VALIDATION. Inserts state active, admin_id = activated by =
+                     -- created_by = the caller; the insert trigger opens the assignment row (assigned_by the
+                     -- caller) and the notes and brand rows; audited as the insert; a taken name is CONFLICT,
+                     -- a detail out of its format VALIDATION. Notification kind client_created (info) to
+                     -- the Owner. clients' RLS is unchanged: the API insert stays clients.manage
                      -- 3.1: created by a plain INSERT under clients.manage (state draft; admin_id may be
                      -- given at creation and opens the first assignment row by trigger). state,
                      -- activated_at, admin_id and archived_at are protected columns (transition
@@ -1039,14 +1060,15 @@ view client_labels   (id, name, state, logo_file_id, colors, fonts, tone_of_voic
 
 ## 5. Client work: projects, cycles, items
 ```
-projects             id, client_id (required), name, description, recurrence, delivery_date null, state project_state,
+projects             id, org_id, client_id (required), name, description, recurrence, delivery_date null,
+                     state project_state, template_id null → project_templates, custom_fields, created_by,
+                     completed_at, completed_by, cancelled_at, cancelled_by, cancelled_reason, archived_at,
+                     search tsvector (generated: name, description), created_at, updated_at
                      -- billing_category: NOT on projects since kickoff 7 amendment C (2026-10-08): it is
                      -- money, in phase 9's Owner-only billing tables (ADR-0007 amendment 2026-10-08)
-                     template_id null,
-                     custom_fields, created_by, completed_at, completed_by, archived_at
-                     -- guard trigger: state changes only through transition functions; client_id and
-                     -- recurrence are set at creation (the Owner, or the client's Admin: amendment C) and
-                     -- never change (kickoff 7 decision 4)
+                     -- app.projects_fixed_columns (BEFORE UPDATE, for every caller, functions included):
+                     -- client_id, recurrence and org_id never change (kickoff 7 decision 4); protect_columns
+                     -- on state and its timestamps; no API write at all (every write a project_* function)
                      -- kickoff 7 amendment A (owner decision 2026-10-02): + delivery_date date null;
                      -- check (recurrence <> 'one_time' or delivery_date is not null): required for a
                      -- one-time project, none needed for weekly / monthly. Set or moved by projects.manage
@@ -1057,35 +1079,67 @@ projects             id, client_id (required), name, description, recurrence, de
                      -- are fixed after creation (no function changes them in phase 7); unique
                      -- (client_id, lower(btrim(name))) where state in ('open','in_progress'); created on a
                      -- draft, active or paused client, never inactive; completed / cancelled = read-only
-project_stages       id, project_id, name, position, archived_at null -- copied from a preset; may be empty
+                     -- as built (7.1/7.2, migrations client_work_schema + client_work_transitions, pgTAP
+                     -- 67-69): name 1..120, description ≤ 5000; checks: completed ⇔ completed_at and _by;
+                     -- cancelled ⇔ cancelled_at, _by and _reason (≤ 1000; a reopen clears them, the
+                     -- history keeps them). org_id on every client-work table (the audit's organization
+                     -- inside the nightly job, which has no caller)
+project_stages       id, org_id, project_id, name, position, archived_at null, created_at, updated_at
+                     -- copied from a preset or typed; may be empty; at most 12 active (as presets and
+                     -- templates, decision 22 / 23)
                      -- kickoff 7 decision 8: added, renamed and reordered freely; a removed stage is
                      -- archived (hidden from items, its ticks kept), never deleted
-project_item_blueprints  id, project_id, title, position            -- item list copied into each new cycle
+project_item_blueprints  id, org_id, project_id, title, position, archived_at null, created_at, updated_at
+                     -- a recurring project's item list, copied into each new cycle; at most 100 active; a
+                     -- removed entry is archived. A one-time project has none (its items go into its cycle)
                      -- kickoff 7 decision 9: feeds later cycles only; never rewrites an existing cycle
-project_cycles       id, project_id, period_start date null, period_end date null, label,
-                     state cycle_state, generated_by ('schedule'|'manual'|'create'|'carry'), created_at,
+project_cycles       id, org_id, project_id, period_start date null, period_end date null, label,
+                     state cycle_state, generated_by ('schedule'|'manual'|'create'|'carry'), created_by null,
+                     created_at, updated_at,
                      unique(project_id, period_start),
                      unique partial index (project_id) where period_start is null  -- one cycle per one-time project
-project_items        id, cycle_id, title, position, planned_date null, notes, custom_fields,
+                     -- as built: weekly = Monday..Sunday, monthly = the calendar month (IST;
+                     -- app.period_start / period_end / period_next); label "October 2026", "5–11 Oct 2026"
+                     -- (across months "29 Sep–5 Oct 2026"; app.cycle_label), null for one-time. Every
+                     -- creation (create, schedule, manual, carry) copies the active item list in as open
+                     -- items (app.cycle_create). settled ⇔ a later cycle of the project exists and none of
+                     -- its items is open or done (app.cycle_refresh, recomputed both ways after every
+                     -- change); a one-time project's cycle never has a later one, so it stays open
+project_items        id, org_id, project_id, cycle_id, title, position, planned_date null, notes, custom_fields,
                      state item_state, done_at, done_by, approved_at, approved_by,
                      cancelled_reason, cancelled_by, cancelled_at,
                      carry_decision null, carry_decided_by, carry_decided_at,
-                     carried_from_item_id null, origin_cycle_id (self cycle unless carried in)
+                     carried_from_item_id null, origin_cycle_id (self cycle unless carried in), created_by,
+                     search tsvector (generated: title, notes), created_at, updated_at
                      -- kickoff 7 (WORKFLOWS §5.4): at most 100 items per cycle; new items only in a cycle
                      -- whose period has not ended (or a one-time project's); planned_date any date
                      -- (overdue = planned_date < today IST and state open); item_unmark_done clears
                      -- done_at / done_by (done → open, until approved); a carried item copies title,
                      -- notes, custom_fields and its stage ticks (original done_at / done_by), never
                      -- planned_date. No amounts here, ever (ADR-0007): values live in item_billing (§7)
-project_item_stages  item_id, stage_id, done_at, done_by, pk(item_id, stage_id)
-item_reviews         id, item_id, decision review_decision, reason, reviewer_id, at   -- append-only
+                     -- as built: the 100 counts the live items (not cancelled, not carried); title 1..200,
+                     -- notes ≤ 5000; checks: done ⇒ done_at, open ⇒ no done_at, approved ⇔ approved_at and
+                     -- _by (and done_at), cancelled ⇔ cancelled_at, _by, _reason, carried ⇔ carry_decision
+                     -- carry_forward; origin_cycle_id of a carried item is its original's origin (the
+                     -- first cycle of the chain)
+project_item_stages  item_id, stage_id, org_id, done_at, done_by, created_at, updated_at, pk(item_id, stage_id)
+                     -- the first tick creates the row; an untick clears done_at / done_by (row kept)
+item_reviews         id, org_id, item_id, decision review_decision, reason, reviewer_id, at   -- append-only
 project_templates    id, org_id, name, description, recurrence, stages text[], items text[], field_defaults jsonb, archived_at
                      -- no default_billing_category since kickoff 7 amendment C (money: the Owner's template
                      -- default lives in an Owner-only table with phase 9)
                      -- kickoff 7 decision 23 (built in 7.4): + created_by, created_at, updated_at; the
                      -- task_templates rule (templates.manage; shared; an Admin edits and archives their
                      -- own, the Owner any); no billing category (amendment C); stages ≤ 12 (from a preset or typed); items ≤ 100. Audited
+                     -- as built (7.1: the table, its RLS and app.project_templates_guard; screens 7.4):
+                     -- recurrence required; field_defaults checked like a project's values (32 KB, active
+                     -- project fields, a value of the type); API INSERT (name, description, recurrence,
+                     -- stages, items, field_defaults), UPDATE (the same + archived_at)
 ```
+**As built (7.1, 7.2; migrations `client_work_schema`, `client_work_transitions`; pgTAP 67, 68, 69).**
+- **RLS:** every table above but the two lists is **SELECT only** for the API role (no INSERT, UPDATE or DELETE grant): `projects` for `projects.manage` on a client `app.client_visible()` answers (the Owner every client, the current Admin their own, live); the rest through `app.project_visible(project_id)` (the same rule) or their item's visibility. Crew hold no `projects.manage`, so they read nothing. `stage_presets` (`lists.manage`) and `project_templates` (`templates.manage`) are plain edits: an Admin writes only the rows they created, the Owner any. The `activity_log` policy `activity_log_select_client_work` gives the same people the history: `entity_id` is the project for `projects`, `project_stages`, `project_item_blueprints` and `project_cycles`, the item for `project_items`, `project_item_stages` and `item_reviews`.
+- **Custom fields:** `projects.custom_fields` and `project_items.custom_fields` are checked on every write (the functions' too) by `app.client_work_custom_fields_guard` → `app.custom_fields_check(entity, org, new, old)` against the company-wide `project` / `item` definitions; `app.field_definition_has_values` covers projects, project templates' defaults and items, so a field's type locks once one holds a value.
+- **Functions (ADR-0006; WORKFLOWS §5.4 "As built"):** `project_create`, `project_update`, `project_complete`, `project_cancel`, `project_reopen`, `project_stage_add` / `_update` / `_archive`, `project_blueprint_add` / `_update` / `_archive`, `item_add`, `item_update`, `item_cancel`, `item_mark_done`, `item_unmark_done`, `item_tick_stage`, `item_approve(item_ids[])`, `item_reject`, `cycle_start_next`, `cycle_carry_decide(item_ids[], decision, reason)`; the job `app.cycle_generate()`. Internal helpers (service_role only): `app.client_work_caller`, `app.project_lock`, `app.item_lock` (lock order: the project, then its cycles and items), `app.project_check_writable`, `app.cycle_create`, `app.cycle_refresh`, `app.cycle_live_items`, `app.project_mark_started`, `app.project_lifecycle_notify`, `app.project_link`, `app.project_client`, `app.client_work_text`, `app.client_work_position`, `app.client_work_next_position`, `app.custom_fields_check`.
 
 ## 6. Staff tasks
 ```
