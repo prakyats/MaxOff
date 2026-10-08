@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import type { Page, TestInfo } from "@playwright/test";
+import type { Locator, Page, TestInfo } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 import { HOLD_PROXY_URL } from "./hold-proxy-config";
@@ -94,6 +94,62 @@ async function itemState(id: string): Promise<string | undefined> {
 const progress = (page: Page) => page.locator('[data-slot="cycle-progress"]');
 const itemRow = (page: Page, title: string) =>
   page.locator('[data-slot="item-row"]', { hasText: title });
+
+/** Sends what waits for its Undo now: the app going to the background flushes it (as Approvals). */
+async function flushSends(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+}
+
+/**
+ * §14.2 f on a form layer with a change typed: back asks first (the layer gives way to the
+ * confirmation, the address stays), back on the confirmation keeps editing with the draft intact,
+ * and the confirmation's named red button discards it.
+ */
+async function expectDiscardOnBack(
+  page: Page,
+  layer: Locator,
+  confirmTitle: string,
+  discardLabel: string,
+  field: Locator,
+  value: string,
+  url: RegExp,
+): Promise<void> {
+  const confirm = page.getByRole("alertdialog", { name: confirmTitle });
+  await page.goBack();
+  await expect(confirm, "back asks before losing typed work").toBeVisible();
+  await expect(layer).toBeHidden();
+  await expect(page).toHaveURL(url);
+  await page.goBack();
+  await expect(confirm, "back on the confirmation keeps editing").toBeHidden();
+  await expect(layer).toBeVisible();
+  await expect(field, "the draft is kept").toHaveValue(value);
+  await expect(page).toHaveURL(url);
+  await page.goBack();
+  await confirm.getByRole("button", { name: discardLabel }).click();
+  await expect(confirm).toBeHidden();
+  await expect(layer).toBeHidden();
+  await expect(page).toHaveURL(url);
+}
+
+/** A cycle of last month for a project: the pager's previous one, or an ended cycle to decide. */
+async function lastMonthCycle(projectId: string): Promise<string> {
+  const [project] = await serviceSelect<{ org_id: string }>(
+    `projects?id=eq.${projectId}&select=org_id`,
+  );
+  const end = addDays(`${today().slice(0, 8)}01`, -1);
+  const cycle = await serviceInsert<{ id: string }>("project_cycles", {
+    org_id: project?.org_id,
+    project_id: projectId,
+    period_start: `${end.slice(0, 8)}01`,
+    period_end: end,
+    label: "Last month",
+    generated_by: "schedule",
+  });
+  return cycle.id;
+}
 
 test.use({ storageState: storageStateFor("admin") });
 
@@ -471,13 +527,11 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
     const client = nameOf(info, "back");
     const clientId = await workClient(client);
     const projectId = await makeProject(clientId, "Back reels", { items: ["Reel A"] });
-    // A second cycle (next period) for the pager.
-    await rpcAs(admin.email, admin.password, "item_add", {
-      cycle_id: (
-        await serviceSelect<{ id: string }>(`project_cycles?project_id=eq.${projectId}&select=id`)
-      )[0]!.id,
-      title: "Reel B",
-    });
+    const [current] = await serviceSelect<{ id: string; label: string }>(
+      `project_cycles?project_id=eq.${projectId}&select=id,label`,
+    );
+    // Last month's cycle: the pager's previous one.
+    const previous = await lastMonthCycle(projectId);
     await runInstalled(page);
     await page.goto("/today");
     await page.goto(`/clients/${clientId}`);
@@ -490,9 +544,18 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
     await itemRow(page, "Reel A").locator('[data-slot="item-open"]').click();
     const sheet = page.locator('[data-slot="review-sheet"]');
     await expect(sheet).toBeVisible();
-    // The ⋯ menu's Stages sheet is a layer too.
+    await page.goBack();
+    await expect(sheet).toBeHidden();
+    await expect(page).toHaveURL(new RegExp(`/projects/${projectId}$`));
+
+    // The pager is a view control: Previous, then Next, change `?cycle=` and add no history.
+    await page.getByRole("link", { name: "Previous: Last month" }).click();
+    await expect(page).toHaveURL(new RegExp(`/projects/${projectId}\\?cycle=${previous}$`));
+    await expect(page.locator('[data-slot="cycle-label"]')).toHaveText("Last month");
+    await page.getByRole("link", { name: `Next: ${current!.label}` }).click();
+    await expect(page).toHaveURL(new RegExp(`/projects/${projectId}\\?cycle=${current!.id}$`));
+    await expect(page.locator('[data-slot="cycle-label"]')).toHaveText(current!.label);
     await expectBackStack(page, [
-      { closes: sheet, url: new RegExp(`/projects/${projectId}$`) },
       { url: new RegExp(`/clients/${clientId}/projects$`) },
       { url: /\/today$/ },
     ]);
@@ -535,29 +598,256 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
     await removeClientFixture(client);
   });
 
-  test("the New project dialog and the ⋯ sheets close on back", async ({ page }, info) => {
+  test("New project, ⋯ Edit details, Item list, Add item and the item's Edit: back asks before losing typed work", async ({
+    page,
+  }, info) => {
     const client = nameOf(info, "dialogs");
     const clientId = await workClient(client);
-    const projectId = await makeProject(clientId, "Dialog reels", { items: ["Reel"] });
+    const projectId = await makeProject(clientId, "Dialog reels", {
+      items: ["Reel"],
+      stages: ["Script"],
+    });
+    const tab = new RegExp(`/clients/${clientId}/projects$`);
+    const here = new RegExp(`/projects/${projectId}$`);
     await runInstalled(page);
     await page.goto(`/clients/${clientId}/projects`);
     await hydrated(page);
+
+    // New project: nothing typed, one back closes it; typed, back asks "Discard this project?".
     await page.getByRole("button", { name: "New project" }).click();
     const create = page.getByRole("dialog", { name: "New project" });
-    await expectBackStack(page, [
-      { closes: create, url: new RegExp(`/clients/${clientId}/projects$`) },
-    ]);
+    await expect(create).toBeVisible();
+    await expectBackStack(page, [{ closes: create, url: tab }]);
+    await page.getByRole("button", { name: "New project" }).click();
+    await create.getByLabel("Project name").fill("Half-typed");
+    await expectDiscardOnBack(
+      page,
+      create,
+      "Discard this project?",
+      "Discard project",
+      create.getByLabel("Project name"),
+      "Half-typed",
+      tab,
+    );
+
     await page.goto(`/clients/${clientId}/projects/${projectId}`);
     await hydrated(page);
-    await page.getByRole("button", { name: "Actions for Dialog reels" }).click();
+    const menu = page.getByRole("button", { name: "Actions for Dialog reels" });
+
+    // ⋯ Edit details.
+    await menu.click();
+    await page.getByRole("menuitem", { name: "Edit details" }).click();
+    const edit = page.getByRole("dialog", { name: "Edit details" });
+    await expect(edit).toBeVisible();
+    await expectBackStack(page, [{ closes: edit, url: here }]);
+    await menu.click();
+    await page.getByRole("menuitem", { name: "Edit details" }).click();
+    await edit.getByLabel("Project name").fill("Dialog reels, renamed");
+    await expectDiscardOnBack(
+      page,
+      edit,
+      "Discard your changes?",
+      "Discard changes",
+      edit.getByLabel("Project name"),
+      "Dialog reels, renamed",
+      here,
+    );
+
+    // ⋯ Stages and Item list: sheets; a name typed and not added asks first.
+    await menu.click();
     await page.getByRole("menuitem", { name: "Stages" }).click();
     const stages = page.locator('[data-slot="review-sheet"]', { hasText: "Stages" });
     await expect(stages).toBeVisible();
-    await expectBackStack(page, [{ closes: stages, url: new RegExp(`/projects/${projectId}$`) }]);
+    await expectBackStack(page, [{ closes: stages, url: here }]);
+    await menu.click();
+    await page.getByRole("menuitem", { name: "Item list" }).click();
+    const list = page.locator('[data-slot="review-sheet"]', { hasText: "Item list" });
+    await expect(list).toBeVisible();
+    await expectBackStack(page, [{ closes: list, url: here }]);
+    await menu.click();
+    await page.getByRole("menuitem", { name: "Item list" }).click();
+    await list.getByLabel("New item").fill("Reel 2");
+    await expectDiscardOnBack(
+      page,
+      list,
+      "Discard what you typed?",
+      "Discard changes",
+      list.getByLabel("New item"),
+      "Reel 2",
+      here,
+    );
+
+    // Add item.
     await page.getByRole("button", { name: "Add item" }).click();
     const add = page.getByRole("dialog", { name: "Add an item" });
-    await expectBackStack(page, [{ closes: add, url: new RegExp(`/projects/${projectId}$`) }]);
+    await expect(add).toBeVisible();
+    await expectBackStack(page, [{ closes: add, url: here }]);
+    await page.getByRole("button", { name: "Add item" }).click();
+    await add.getByLabel("Title").fill("Extra reel");
+    await expectDiscardOnBack(
+      page,
+      add,
+      "Discard this item?",
+      "Discard item",
+      add.getByLabel("Title"),
+      "Extra reel",
+      here,
+    );
+
+    // The item sheet's Edit: back asks, then keeps editing; Discard closes the sheet.
+    await itemRow(page, "Reel").locator('[data-slot="item-open"]').click();
+    const sheet = page.locator('[data-slot="review-sheet"]');
+    await sheet.getByRole("button", { name: "Edit" }).click();
+    await sheet.getByLabel("Title").fill("Reel, retitled");
+    await expectDiscardOnBack(
+      page,
+      sheet,
+      "Discard your changes?",
+      "Discard changes",
+      sheet.getByLabel("Title"),
+      "Reel, retitled",
+      here,
+    );
+    expect(
+      (
+        await serviceSelect<{ title: string }>(
+          `project_items?project_id=eq.${projectId}&select=title`,
+        )
+      ).map((row) => row.title),
+    ).toEqual(["Reel"]);
     await removeClientFixture(client);
+  });
+
+  test("⋯ Complete, Cancel, Reopen and the bulk Tick a stage menu close on back", async ({
+    page,
+  }, info) => {
+    const client = nameOf(info, "lifecycle back");
+    const clientId = await workClient(client);
+    const projectId = await makeProject(clientId, "Layer reels", {
+      items: ["Reel 1", "Reel 2"],
+      stages: ["Script", "Edit"],
+    });
+    const here = new RegExp(`/projects/${projectId}$`);
+    await runInstalled(page);
+    await page.goto(`/clients/${clientId}/projects/${projectId}`);
+    await hydrated(page);
+    const menu = page.getByRole("button", { name: "Actions for Layer reels" });
+    for (const [entry, layer] of [
+      ["Complete project", page.getByRole("alertdialog", { name: "Complete Layer reels?" })],
+      ["Cancel project…", page.getByRole("dialog", { name: "Cancel Layer reels?" })],
+    ] as const) {
+      await menu.click();
+      await page.getByRole("menuitem", { name: entry }).click();
+      await expect(layer).toBeVisible();
+      await expectBackStack(page, [{ closes: layer, url: here }]);
+    }
+    // The bulk Tick a stage menu is a layer too.
+    await itemRow(page, "Reel 1").getByRole("checkbox").click();
+    await page.getByRole("button", { name: "Tick a stage on 1" }).click();
+    const tickMenu = page.getByRole("menu");
+    await expect(tickMenu).toBeVisible();
+    await expectBackStack(page, [{ closes: tickMenu, url: here }]);
+
+    // Reopen, on a cancelled project.
+    await rpcAs(admin.email, admin.password, "project_cancel", {
+      project_id: projectId,
+      reason: "Fixture",
+    });
+    await page.reload();
+    await hydrated(page);
+    await menu.click();
+    await page.getByRole("menuitem", { name: "Reopen project…" }).click();
+    const reopen = page.getByRole("dialog", { name: "Reopen Layer reels?" });
+    await expect(reopen).toBeVisible();
+    await expectBackStack(page, [{ closes: reopen, url: here }]);
+    await removeClientFixture(client);
+  });
+
+  test("Approvals' Client items Review sheet and its Send back, Today's item sheet, the carry screen's Close…", async ({
+    page,
+  }, info) => {
+    const client = nameOf(info, "approval back");
+    const clientId = await workClient(client);
+    const projectId = await makeProject(clientId, "Sheet film", {
+      recurrence: "one_time",
+      delivery: addDays(today(), 10),
+      items: [nameOf(info, "to approve"), nameOf(info, "due")],
+    });
+    await rpcAs(admin.email, admin.password, "item_mark_done", {
+      item_id: await itemId(projectId, nameOf(info, "to approve")),
+    });
+    await rpcAs(admin.email, admin.password, "item_update", {
+      item_id: await itemId(projectId, nameOf(info, "due")),
+      changes: { planned_date: today() },
+    });
+    await runInstalled(page);
+    await page.goto("/today");
+    await hydrated(page);
+
+    // Today's Client work: a row opens the item sheet; back closes it.
+    await page
+      .locator('[data-slot="today-client-item"]', { hasText: nameOf(info, "due") })
+      .getByRole("button")
+      .first()
+      .click();
+    const sheet = page.locator('[data-slot="review-sheet"]');
+    await expect(sheet).toBeVisible();
+    await expectBackStack(page, [{ closes: sheet, url: /\/today$/ }]);
+
+    // Approvals → Client items → Review → Send back…: one layer per back.
+    await page.goto("/approvals");
+    await hydrated(page);
+    await page
+      .locator('[data-slot="approval-row"]', { hasText: nameOf(info, "to approve") })
+      .getByRole("button", { name: "Review" })
+      .click();
+    await expect(sheet).toBeVisible();
+    await sheet.getByRole("button", { name: "Send back…" }).click();
+    const sendBack = page.getByRole("dialog", {
+      name: `Send back ${nameOf(info, "to approve")}?`,
+    });
+    await expect(sendBack).toBeVisible();
+    await expectBackStack(page, [
+      { closes: sendBack, url: /\/approvals$/ },
+      { closes: sheet, url: /\/approvals$/ },
+    ]);
+
+    // The carry screen's Close… dialog: last month's cycle of a monthly project, one item left.
+    const monthly = await makeProject(clientId, "Carry posts", { items: ["Post"] });
+    const ended = await lastMonthCycle(monthly);
+    const [project] = await serviceSelect<{ org_id: string }>(
+      `projects?id=eq.${monthly}&select=org_id`,
+    );
+    await serviceInsert("project_items", {
+      org_id: project?.org_id,
+      project_id: monthly,
+      cycle_id: ended,
+      origin_cycle_id: ended,
+      title: nameOf(info, "left"),
+      position: "a0",
+    });
+    await page.goto(`/clients/items/decide?project=${monthly}`);
+    await hydrated(page);
+    await page
+      .locator('[data-slot="carry-row"]', { hasText: nameOf(info, "left") })
+      .getByRole("button", { name: "Close…" })
+      .click();
+    const close = page.getByRole("dialog", { name: `Close ${nameOf(info, "left")}?` });
+    await expect(close).toBeVisible();
+    await expectBackStack(page, [
+      { closes: close, url: new RegExp(`/clients/items/decide\\?project=${monthly}$`) },
+    ]);
+    await removeClientFixture(client);
+  });
+
+  test("the Admin's New client dialog closes on back", async ({ page }) => {
+    await runInstalled(page);
+    await page.goto("/clients");
+    await hydrated(page);
+    await page.getByRole("button", { name: "New client" }).click();
+    const dialog = page.getByRole("dialog", { name: "New client" });
+    await expect(dialog).toBeVisible();
+    await expectBackStack(page, [{ closes: dialog, url: /\/clients$/ }]);
   });
 
   test("the cross-client list: filters are view controls; one back leaves it", async ({
@@ -581,5 +871,246 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
     await expect(page).toHaveURL(/\/clients\/items\?filter=open$/);
     await expectBackStack(page, [{ url: /\/clients$/ }, { url: /\/today$/ }]);
     await removeClientFixture(client);
+  });
+});
+
+test.describe("approving on the project page, as the Owner (the 7B review's S1)", () => {
+  test.use({ storageState: storageStateFor("owner") });
+
+  test("a row's Approve and the sheet's have the 6-second Undo; Approve N asks first", async ({
+    page,
+  }, info) => {
+    test.skip(info.project.name === "mobile-lg", "the 375 and desktop runs cover the flow");
+    const client = nameOf(info, "owner approves");
+    const clientId = await workClient(client);
+    const titles = ["Reel 1", "Reel 2", "Reel 3", "Reel 4"];
+    const projectId = await makeProject(clientId, "Approve reels", { items: titles });
+    for (const title of titles) {
+      await rpcAs(admin.email, admin.password, "item_mark_done", {
+        item_id: await itemId(projectId, title),
+      });
+    }
+    await page.goto(`/clients/${clientId}/projects/${projectId}`);
+    await hydrated(page);
+    await expect(progress(page)).toHaveText("4/4 done · 0/4 approved");
+
+    // The row's Approve: held with an Undo; Undo sends nothing.
+    const first = await itemId(projectId, "Reel 1");
+    await itemRow(page, "Reel 1").getByRole("button", { name: "Approve", exact: true }).click();
+    await expect(itemRow(page, "Reel 1")).toHaveAttribute("data-held", "");
+    await expect(page.getByText("Approved Reel 1")).toBeVisible();
+    await page.getByRole("button", { name: "Undo" }).click();
+    await expect(itemRow(page, "Reel 1")).not.toHaveAttribute("data-held", "");
+    expect(await itemState(first)).toBe("done");
+    // Kept: sent when the Undo window ends, or at once when the app goes to the background.
+    await itemRow(page, "Reel 1").getByRole("button", { name: "Approve", exact: true }).click();
+    await flushSends(page);
+    await expect.poll(() => itemState(first)).toBe("approved");
+    await expect(progress(page)).toHaveText("4/4 done · 1/4 approved");
+
+    // The sheet's Approve: the sheet closes, the Undo is offered, then it is sent.
+    await itemRow(page, "Reel 2").locator('[data-slot="item-open"]').click();
+    const sheet = page.locator('[data-slot="review-sheet"]');
+    await sheet.getByRole("button", { name: "Approve", exact: true }).click();
+    await expect(sheet).toBeHidden();
+    await expect(page.getByText("Approved Reel 2")).toBeVisible();
+    await flushSends(page);
+    const second = await itemId(projectId, "Reel 2");
+    await expect.poll(() => itemState(second)).toBe("approved");
+
+    // Approve N: a trigger; the confirmation's red button names it.
+    await itemRow(page, "Reel 3").getByRole("checkbox").click();
+    await itemRow(page, "Reel 4").getByRole("checkbox").click();
+    await page.getByRole("button", { name: "Approve 2", exact: true }).click();
+    const confirm = page.getByRole("alertdialog", { name: "Approve 2 items?" });
+    await expect(confirm).toBeVisible();
+    await confirm.getByRole("button", { name: "Approve 2 items" }).click();
+    await expect(confirm).toBeHidden();
+    await expect(progress(page)).toHaveText("4/4 done · 4/4 approved");
+    await removeClientFixture(client);
+  });
+});
+
+test("⋯ Complete (refused while items are left), Reopen, Cancel, and Reopen refused on a closed client", async ({
+  page,
+}, info) => {
+  test.skip(info.project.name === "mobile-lg", "the 375 and desktop runs cover the flow");
+  const client = nameOf(info, "lifecycle");
+  const clientId = await workClient(client);
+  const projectId = await makeProject(clientId, "Brand film", {
+    recurrence: "one_time",
+    delivery: addDays(today(), 10),
+    items: ["Final cut"],
+  });
+  await page.goto(`/clients/${clientId}/projects/${projectId}`);
+  await hydrated(page);
+  const menu = page.getByRole("button", { name: "Actions for Brand film" });
+
+  // Complete is refused while an item is open or done: the dialog says what is left.
+  await menu.click();
+  await page.getByRole("menuitem", { name: "Complete project" }).click();
+  const complete = page.getByRole("alertdialog", { name: "Complete Brand film?" });
+  await expect(complete).toContainText("1 item is still open or done");
+  await expect(complete.getByRole("button", { name: "Complete project" })).toBeDisabled();
+  await complete.getByRole("button", { name: "Cancel" }).click();
+
+  const item = await itemId(projectId, "Final cut");
+  await rpcAs(admin.email, admin.password, "item_mark_done", { item_id: item });
+  await rpcAs(owner.email, owner.password, "item_approve", { item_ids: [item] });
+  await page.reload();
+  await hydrated(page);
+  await menu.click();
+  await page.getByRole("menuitem", { name: "Complete project" }).click();
+  await complete.getByRole("button", { name: "Complete project" }).click();
+  await expect(page.locator('[data-slot="project-read-only"]')).toContainText("Completed");
+
+  // Reopen with a reason.
+  await menu.click();
+  await page.getByRole("menuitem", { name: "Reopen project…" }).click();
+  const reopen = page.getByRole("dialog", { name: "Reopen Brand film?" });
+  await reopen.getByLabel("Why reopen it").fill("One more version");
+  await reopen.getByRole("button", { name: "Reopen project" }).click();
+  await expect(page.locator('[data-slot="project-read-only"]')).toHaveCount(0);
+
+  // Cancel with a reason.
+  await menu.click();
+  await page.getByRole("menuitem", { name: "Cancel project…" }).click();
+  const cancel = page.getByRole("dialog", { name: "Cancel Brand film?" });
+  await cancel.getByLabel("Why cancel it").fill("The client stopped the film");
+  await cancel.getByRole("button", { name: "Cancel project" }).click();
+  await expect(page.locator('[data-slot="project-read-only"]')).toContainText("Cancelled");
+
+  // Q6: a closed client's project is not reopened; the refusal says why.
+  await rpcAs(owner.email, owner.password, "client_close", { client_id: clientId });
+  await page.reload();
+  await hydrated(page);
+  await menu.click();
+  await page.getByRole("menuitem", { name: "Reopen project…" }).click();
+  await reopen.getByLabel("Why reopen it").fill("Back on");
+  await reopen.getByRole("button", { name: "Reopen project" }).click();
+  await expect(page.getByText(`${client} is closed. Reactivate the client first.`)).toBeVisible();
+  await removeClientFixture(client);
+});
+
+test("⋯ Start ‹next week› starts the next cycle early", async ({ page }, info) => {
+  test.skip(info.project.name === "mobile-lg", "the 375 and desktop runs cover the flow");
+  const client = nameOf(info, "next cycle");
+  const clientId = await workClient(client);
+  const projectId = await makeProject(clientId, "Weekly posts", {
+    recurrence: "weekly",
+    items: ["Post"],
+  });
+  await page.goto(`/clients/${clientId}/projects/${projectId}`);
+  await hydrated(page);
+  await page.getByRole("button", { name: "Actions for Weekly posts" }).click();
+  const start = page.getByRole("menuitem", { name: /^Start / });
+  const label = ((await start.textContent()) ?? "").replace(/^Start /, "");
+  await start.click();
+  const confirm = page.getByRole("alertdialog", { name: `Start ${label} now?` });
+  await confirm.getByRole("button", { name: `Start ${label}` }).click();
+  await expect(page.getByText(`${label} started`)).toBeVisible();
+  await expect(page.getByRole("link", { name: `Next: ${label}` })).toBeVisible();
+  const cycles = await serviceSelect<{ id: string }>(
+    `project_cycles?project_id=eq.${projectId}&select=id`,
+  );
+  expect(cycles).toHaveLength(2);
+  await removeClientFixture(client);
+});
+
+test("a project template from Settings → Templates starts a New project", async ({
+  page,
+}, info) => {
+  test.skip(info.project.name === "mobile-lg", "the 375 and desktop runs cover the flow");
+  const name = nameOf(info, "template");
+  await serviceRest(`project_templates?name=eq.${encodeURIComponent(name)}`, {
+    method: "DELETE",
+  });
+  const client = nameOf(info, "from template");
+  const clientId = await workClient(client);
+  await page.goto("/settings/templates");
+  await hydrated(page);
+  await page.getByRole("button", { name: "Add a project template" }).click();
+  const dialog = page.getByRole("dialog", { name: "Add a project template" });
+  await dialog.getByLabel("Name").fill(name);
+  await dialog.getByLabel("Stages", { exact: true }).fill("Script\nEdit");
+  await dialog.getByLabel("Item list").fill("Reel 1\nReel 2");
+  await dialog.getByRole("button", { name: "Add template" }).click();
+  await expect(page.locator('[data-slot="project-template"]', { hasText: name })).toBeVisible();
+
+  await page.goto(`/clients/${clientId}/projects`);
+  await hydrated(page);
+  await page.getByRole("button", { name: "New project" }).click();
+  const create = page.getByRole("dialog", { name: "New project" });
+  await create.getByRole("combobox", { name: "Start from" }).click();
+  await page.getByRole("option", { name }).click();
+  await expect(create.getByLabel("Item list")).toHaveValue("Reel 1\nReel 2");
+  await expect(create.getByLabel("Stages, one per line")).toHaveValue("Script\nEdit");
+  await create.getByLabel("Project name").fill("From the template");
+  await create.getByRole("button", { name: "Create project" }).click();
+  await expect(page).toHaveURL(new RegExp(`/clients/${clientId}/projects/[0-9a-f-]{36}$`));
+  await expect(progress(page)).toHaveText("0/2 done · 0/2 approved");
+  await removeClientFixture(client);
+  await serviceRest(`project_templates?name=eq.${encodeURIComponent(name)}`, {
+    method: "DELETE",
+  });
+});
+
+test.describe("Settings layers, installed (ARCHITECTURE §14.2)", () => {
+  test.beforeEach(({}, info) => {
+    test.skip(info.project.name === "desktop", "the phone widths, 375 and 430");
+  });
+
+  test("stage presets: add, edit and the archive confirm close on back", async ({ page }, info) => {
+    const name = nameOf(info, "back preset");
+    await serviceRest(`stage_presets?name=eq.${encodeURIComponent(name)}`, { method: "DELETE" });
+    const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+    await serviceInsert("stage_presets", {
+      org_id: org?.id,
+      name,
+      stages: ["Brief", "Shoot"],
+      created_by: await memberIdOf(admin.email),
+    });
+    await runInstalled(page);
+    await page.goto("/settings/stage-presets");
+    await hydrated(page);
+    const here = /\/settings\/stage-presets$/;
+    await page.getByRole("button", { name: "Add preset" }).click();
+    const add = page.getByRole("dialog", { name: "Add a stage preset" });
+    await expect(add).toBeVisible();
+    await expectBackStack(page, [{ closes: add, url: here }]);
+    const row = page.locator('[data-slot="stage-preset"]', { hasText: name });
+    await row.getByRole("button", { name: `Edit ${name}` }).click();
+    const edit = page.getByRole("dialog", { name: `Edit ${name}` });
+    await expect(edit).toBeVisible();
+    await expectBackStack(page, [{ closes: edit, url: here }]);
+    await row.getByRole("button", { name: `Archive ${name}` }).click();
+    const archive = page.getByRole("alertdialog");
+    await expect(archive).toBeVisible();
+    await expectBackStack(page, [{ closes: archive, url: here }]);
+    await serviceRest(`stage_presets?name=eq.${encodeURIComponent(name)}`, { method: "DELETE" });
+  });
+
+  test("the project template dialog closes on back, and asks before losing typed work", async ({
+    page,
+  }) => {
+    await runInstalled(page);
+    await page.goto("/settings/templates");
+    await hydrated(page);
+    const here = /\/settings\/templates$/;
+    await page.getByRole("button", { name: "Add a project template" }).click();
+    const dialog = page.getByRole("dialog", { name: "Add a project template" });
+    await expect(dialog).toBeVisible();
+    await expectBackStack(page, [{ closes: dialog, url: here }]);
+    await page.getByRole("button", { name: "Add a project template" }).click();
+    await dialog.getByLabel("Name").fill("Half a template");
+    await expectDiscardOnBack(
+      page,
+      dialog,
+      "Discard this template?",
+      "Discard template",
+      dialog.getByLabel("Name"),
+      "Half a template",
+      here,
+    );
   });
 });

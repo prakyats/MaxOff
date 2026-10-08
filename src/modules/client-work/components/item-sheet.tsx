@@ -220,7 +220,8 @@ export function ItemSheet({
         onOpenChange={requestClose}
         title={current.title}
         description={<StatusBadge status={ITEM_STATUS[current.state]} label={current.stateLabel} />}
-        actions={actions}
+        // While editing, Save is the layer's one commit (§14.1): the item's actions wait.
+        actions={editing ? undefined : actions}
       >
         <div className="flex flex-col gap-4" data-slot="item-sheet">
           {editing ? (

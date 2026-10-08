@@ -171,6 +171,26 @@ test.describe("Owner", () => {
     await page.getByRole("option", { name: "Monday" }).click();
     await page.getByRole("button", { name: "Save thresholds" }).click();
     await expect(page.getByText("Thresholds saved")).toBeVisible();
+
+    // Client work escalations (amendment C E1, E2; 7B): the Owner's two fields, range-checked.
+    const overdue = page.getByLabel("Client item overdue → you after (hours)");
+    const undecided = page.getByLabel("Undecided cycle → you after (days)");
+    await expect(overdue).toHaveValue("24");
+    await expect(undecided).toHaveValue("2");
+    await overdue.fill("200");
+    await page.getByRole("button", { name: "Save thresholds" }).click();
+    await expect(page.locator('[data-slot="field-error"]').first()).toBeVisible();
+    await overdue.fill("36");
+    await undecided.fill("3");
+    await page.getByRole("button", { name: "Save thresholds" }).click();
+    await expect(page.getByText("Thresholds saved")).toBeVisible();
+    await page.reload();
+    await expect(overdue).toHaveValue("36");
+    await expect(undecided).toHaveValue("3");
+    await overdue.fill("24");
+    await undecided.fill("2");
+    await page.getByRole("button", { name: "Save thresholds" }).click();
+    await expect(page.getByText("Thresholds saved")).toBeVisible();
   });
 
   test("adds, renames, reorders and archives a job title", async ({ page }) => {
