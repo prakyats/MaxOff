@@ -377,5 +377,9 @@ describe("the hour timelines (decision 25 E)", () => {
     expect(openingMinute(TODAY, TODAY, 15 * 60)).toBe(14 * 60);
     expect(openingMinute("2026-10-09", TODAY, 15 * 60)).toBe(8 * 60);
     expect(openingMinute(TODAY, TODAY, 30)).toBe(0);
+    // Always a whole hour (its label shows whole): the nearest to an hour above now.
+    expect(openingMinute(TODAY, TODAY, 15 * 60 + 20)).toBe(14 * 60);
+    expect(openingMinute(TODAY, TODAY, 15 * 60 + 40)).toBe(15 * 60);
+    expect(openingMinute(TODAY, TODAY, 23 * 60 + 50)).toBe(21 * 60);
   });
 });
