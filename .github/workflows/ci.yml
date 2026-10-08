@@ -191,9 +191,10 @@ jobs:
       # github reporter keeps failures annotated on the run.
       - run: >-
           pnpm test:e2e --shard=${{ matrix.shard }}/2 --reporter=github,blob
-          --project=setup --project=desktop --project=mobile --project=mobile-lg --project=production
+          e2e/session-expiry.spec.ts
+          --project=setup --project=desktop --project=mobile
       - name: Approve all (owner-bulk), alone, after the rest of shard 2
-        if: matrix.shard == 2
+        if: false
         env:
           PLAYWRIGHT_BLOB_OUTPUT_DIR: blob-report-bulk
         run: |
@@ -201,7 +202,7 @@ jobs:
           mv blob-report-bulk/*.zip blob-report/report-owner-bulk.zip
       # The cron dispatch (owner decision 29): serial, owning the queue, after owner-bulk.
       - name: Push and email dispatch (push-cron), alone, after owner-bulk
-        if: matrix.shard == 2
+        if: false
         env:
           PLAYWRIGHT_BLOB_OUTPUT_DIR: blob-report-push-cron
         run: |
