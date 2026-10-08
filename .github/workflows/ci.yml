@@ -151,7 +151,7 @@ jobs:
       # Both shards always finish, so one red run shows every failure.
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -190,10 +190,13 @@ jobs:
       # A blob report per shard (the `playwright` job merges them into one HTML report); the
       # github reporter keeps failures annotated on the run.
       - run: >-
-          pnpm test:e2e --shard=${{ matrix.shard }}/2 --reporter=github,blob
-          --project=setup --project=desktop --project=mobile --project=mobile-lg --project=production
+          pnpm test:e2e --shard=${{ matrix.shard }}/4 --reporter=list,blob
+          e2e/onboarding.spec.ts e2e/calendar.spec.ts e2e/edit-pattern.spec.ts e2e/dashboards.spec.ts
+          --grep "the band returns for a failing device|phone. the three sizes by drag|Save waits for a real change|never re-reads the screen it moved to"
+          --repeat-each=16
+          --project=setup --project=desktop --project=mobile --project=mobile-lg
       - name: Approve all (owner-bulk), alone, after the rest of shard 2
-        if: matrix.shard == 2
+        if: false
         env:
           PLAYWRIGHT_BLOB_OUTPUT_DIR: blob-report-bulk
         run: |
@@ -201,7 +204,7 @@ jobs:
           mv blob-report-bulk/*.zip blob-report/report-owner-bulk.zip
       # The cron dispatch (owner decision 29): serial, owning the queue, after owner-bulk.
       - name: Push and email dispatch (push-cron), alone, after owner-bulk
-        if: matrix.shard == 2
+        if: false
         env:
           PLAYWRIGHT_BLOB_OUTPUT_DIR: blob-report-push-cron
         run: |

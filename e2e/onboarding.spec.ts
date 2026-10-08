@@ -52,7 +52,7 @@ const EDGE_WINDOWS_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0";
 
 function emailFor(info: TestInfo, what: string): string {
-  return `onboard-${what}-${info.project.name}@maxoff.local`;
+  return `onboard-${what}-${info.project.name}-r${info.repeatEachIndex}@maxoff.local`;
 }
 
 /** A new joiner who signed in through their invite link: on the welcome screen. */
