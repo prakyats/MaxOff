@@ -654,10 +654,8 @@ test.describe("the calendar, as the Owner", () => {
     // 5. Hovering a block shows its details; the client sits under a long block's title.
     const long = eventOf(week, { id: longShoot });
     await expect(long.locator('[data-slot="calendar-event-client"]')).toHaveText(clientName);
-    await long.scrollIntoViewIfNeeded();
-    await page.evaluate(
-      () => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))),
-    );
+    // The mouse comes from outside the timeline, as a person's does.
+    await page.mouse.move(2, 2);
     await long.hover();
     const details = page.locator(`[data-slot="calendar-event-details"][data-task="${longShoot}"]`);
     await expect(details).toBeVisible();

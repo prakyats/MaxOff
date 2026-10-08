@@ -173,11 +173,15 @@ export function Timeline({
 
   // The laptop's look before the click: a mouse over a block (a touch never hovers), or the
   // keyboard's focus on it.
+  // A move counts as well as an entry: a view switched under a resting mouse puts a block under
+  // it without any entry, and the first move then shows the details.
+  const show = (pointer: PointerEvent<HTMLDivElement>, event: EventItem) => {
+    if (pointer.pointerType !== "mouse" || hovered?.event.id === event.id) return;
+    setHovered({ event, rect: pointer.currentTarget.getBoundingClientRect() });
+  };
   const look = (event: EventItem) => ({
-    onPointerEnter: (pointer: PointerEvent<HTMLDivElement>) => {
-      if (pointer.pointerType !== "mouse") return;
-      setHovered({ event, rect: pointer.currentTarget.getBoundingClientRect() });
-    },
+    onPointerEnter: (pointer: PointerEvent<HTMLDivElement>) => show(pointer, event),
+    onPointerMove: (pointer: PointerEvent<HTMLDivElement>) => show(pointer, event),
     onPointerLeave: () => setHovered(null),
     onFocus: (focus: FocusEvent<HTMLDivElement>) => {
       if (!focus.currentTarget.querySelector(":focus-visible")) return;
@@ -185,7 +189,8 @@ export function Timeline({
     },
     onBlur: () => setHovered(null),
   });
-  // A scroll moves the blocks: the details close rather than float away from theirs.
+  // A wheel scrolls the blocks away: the details close rather than float off theirs. Only the
+  // wheel: a scroll the page makes itself (a block brought into view) must not close them.
   const closeLook = hovered ? () => setHovered(null) : undefined;
 
   const columns = days.length;
@@ -240,7 +245,7 @@ export function Timeline({
       <div
         ref={scroller}
         data-slot="calendar-hours"
-        onScroll={closeLook}
+        onWheel={closeLook}
         className={cn(
           "relative overflow-y-auto overscroll-contain",
           laptop && "min-h-0 flex-1 [scrollbar-gutter:stable]",
