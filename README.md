@@ -491,7 +491,12 @@ into one file. The deploy's step "Upload the Worker source map to Sentry"
 step will (`wrangler deploy --dry-run --outdir`), uploads the bundle and its map with
 `sentry-cli`, and removes every source map before the deploy. Without `SENTRY_AUTH_TOKEN` it
 only removes the maps ("SENTRY_AUTH_TOKEN is not set" in the log); an upload problem is a
-warning, never a failed deploy.
+warning, never a failed deploy. **If a release's upload failed** (the step printed a
+`::warning::`), that release's Worker still carries the debug id the step registered, which Sentry
+never received: its frames stay unreadable (`index.js:<line>`) until the next deploy registers and
+uploads a new one. Only the token reaches `sentry-cli`; the dry-run bundle runs without it. The
+preview workflow runs the same script with the token set empty, so a preview only has its maps
+removed.
 
 **The first check on staging** (after `phase-6` merges to `main`, before any `v*` tag):
 

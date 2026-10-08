@@ -4,6 +4,94 @@ Newest first. Each entry says what ships, what the Crew will notice, and what ha
 release. A release is a `v*` tag on a `main` commit with green CI, approved by the Owner (CLAUDE.md). Earlier
 releases (v1.0.0 to v1.3.0) are recorded in their tag messages and in `PROGRESS.md`.
 
+## v1.5.0: My Day, Today, the calendar and the end-of-day report (phase 6)
+
+**Draft, not released.** Not merged and not tagged: the branch `phase-6` waits for the Owner's phone walk on
+its preview, then the merge to `main`, then the Owner's `v1.5.0` tag. Six expand-only migrations
+(`dashboards_today`, `eod_report_weekly_digest`, `eod_reports_grants`, `digest_since_last`,
+`end_not_recorded_yesterday`, `task_type_colors`); nothing is removed or rewritten.
+
+### What ships
+- **My Day (Crew):** under the attendance strip, only what needs you: Not noted, Changes requested, Overdue,
+  Due today, then one line for the next seven days; today's and tomorrow's shoots and meetings; a quiet
+  line for a holiday or your own leave this week; "Suggest a task". Empty: "Nothing needs you today."
+- **The Owner's Today:** exceptions only. The attendance card's counts (Not started, Waiting for a
+  decision, Present, On leave, and Absent or End of day not recorded when above zero) each open the board
+  on that group; amber means "have a look", red a problem. Then the oldest approvals (Approve with Undo,
+  or Review), one line for today's tasks, Overdue and risks (overdue, not noted, an assignee on leave or
+  can't be reached, emails held back by the daily limit) and the week's events. Empty sections are
+  hidden: "Nothing else needs you today."
+- **End of day not recorded (yesterday):** the red count on the Owner's Today lists the people who started
+  yesterday and never ended it, from the End-day cutoff (05:00 by default) until the Owner decides the day.
+- **The Admin's Today:** Needs you, My tasks, My clients (open and overdue task counts per client), the
+  week's events and Issues (an assignee on leave or can't be reached on the Admin's tasks); the Admin's
+  work report under Reports (rework, turnaround, overdue now, how long people take to tap Task Noted, who
+  is loaded this week).
+- **The calendar:** on a phone one calendar that grows from a week to a compact month to the full month
+  by a swipe or the handle; on a computer Month, Week and Day. Shoots, site visits and meetings in their
+  task type's colour, leave, holidays, due and overdue counts; filters (client, person, type, status; type
+  only for the Crew). A day shows its events, Due, and for the Owner and Admins "Who's free"; the Owner
+  and Admins get "+ New task on <day>" with the date filled in (today and later only), the Crew
+  "Suggest a task". Admins see others' work as "Busy" only; the Crew see only their own.
+- **Task type colours:** Settings → Task types (Owner) gives each type a colour from a palette with no
+  red; the seven launch types get theirs at the release.
+- **The end-of-day report:** Reports → End of day (Owner): attendance, decisions, tasks, approvals and
+  tomorrow's events for each day, live for today and for yesterday until the cutoff, then saved and never
+  rewritten. "Yesterday's report is ready" arrives after the cutoff (held by quiet hours; skipped on an
+  empty day). No money, ever.
+- **The daily digest becomes a weekly digest:** one email at 08:00 on the Owner's chosen day (Settings →
+  Thresholds → the weekly summary's day, Monday by default), built from the saved end-of-day reports, then
+  what's waiting now and the week ahead. Changing the day never skips a week.
+- **The bell:** its unread count sits on the bell itself, inside the tap area.
+- **The iPhone app follows the phone's text size** (up to twice the normal size); above that, pinch-zoom
+  stays on.
+- **"Can't reach the server. You're still signed in.":** Try again now really asks the server again (it
+  only redrew the page before), and an expired sign-in token on a page now lands on this screen instead of
+  "This page couldn't load".
+- **Push onboarding steps:** the go-live runbook's "every person, every phone" checklist and the first-day
+  guide (install on iPhone or Android, allow notifications, Send a test, "Did it arrive?").
+- **Behind the scenes:** readable stack traces in Sentry for server errors (staging first; production once
+  its Sentry token is set); a phone's own network drops are no longer reported as errors.
+
+### What happens on its own after the release
+- **The 08:00 daily digest stops;** the first weekly digest goes on the next digest day (Monday unless the
+  Owner changes it).
+- **The end-of-day job catches up the last seven days** on its first run after the cutoff and saves one
+  report a day from then on. In those first catch-up reports "handed in" and "overdue" are counted as of
+  the save, not as of each day.
+
+### What the Owner will notice
+- Today shows only what needs a look; the counts open the board, and an empty Today says "Nothing else
+  needs you today."
+- A red "End of day not recorded" count about yesterday, from 05:00 until the day is decided.
+- The calendar, with "+ New task" on a day and "Who's free".
+- Reports → End of day, and each morning "Yesterday's report is ready" instead of the 08:00 email; the
+  weekly digest instead, on the day set in Settings → Thresholds.
+- Settings → Task types has a colour for each type.
+
+### What Admins will notice
+- Their Today: Needs you, My tasks, My clients, the week's events and Issues.
+- Their work report under Reports.
+- The calendar: full detail on the tasks they can see, others' work as "Busy", others' leave as "On
+  leave" or "Half day", "Who's free" and "+ New task" on a day.
+
+### What the Crew will notice
+- My Day lists only what needs them, with their next shoots and meetings and "Suggest a task".
+- The calendar shows their own shoots, meetings, leave and the holidays; "Suggest a task" on a day.
+- On an iPhone the app follows the phone's text size.
+- "Can't reach the server. You're still signed in." recovers with Try again.
+
+### Before the tag (the Owner's checks)
+- **The phone walk** on the phase-6 preview (375 and 430, installed, gesture back) and the laptop calendar.
+- **Task type colours on staging:** after the merge, the seven launch task types have their colours, and
+  `activity_log` has seven rows with action `backfilled` for them (the backfill has never met real rows
+  before).
+- **The staging Sentry source-map check after the merge** (README → "Confirming the Sentry pipeline" →
+  "The first check on staging"): the deploy log's debug id, the artifact bundle in Sentry,
+  `/diagnostics/sentry` reading `src/core/observability/diagnostic.ts`.
+- **The guide PDFs rebuilt on the laptop** (`docs/guide/build-pdf.ps1`, Edge), and `first-day.pdf` still
+  one page.
+
 ## v1.4.0: reminders, the Owner's digest, reachability and the Crew navigation (phase 5B)
 
 Not yet tagged. Everything merged to `main` since v1.3.0: PRs #41 and #43 (no surprise reloads, the view's
