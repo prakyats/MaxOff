@@ -4,6 +4,7 @@ import { ChevronLeftIcon, ChevronRightIcon, SlidersHorizontalIcon } from "lucide
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import {
+  type MouseEvent,
   type PointerEvent,
   type ReactNode,
   useEffect,
@@ -78,13 +79,17 @@ const ICON_BUTTON =
  * **Phone** (below 768px): one calendar, no Day/Week/Month control. Three snap sizes (the week
  * strip with the day's detail; the compact month with thin bars and the detail, the opening size,
  * today selected; the full month with labelled strips), changed by a vertical swipe on the
- * calendar or by the 44px handle under it. Left and right swipes (and the header's arrows) move a
- * week or a month; a tap selects a day, or in the full month opens the day sheet. The header: the
- * month's name, Today (a calendar icon with today's number) and Filters.
+ * calendar or on the 44px handle under it, or by tapping the handle. Left and right swipes (and
+ * the header's arrows) move a week or a month; a tap selects a day, or in the full month opens the
+ * day sheet. The header: the month's name, Today (a calendar icon with today's number) and
+ * Filters. Every size fits the screen above the bottom bar and the page never scrolls (the owner's
+ * phone walk, 2026-10-08; `data-fit-viewport="phone"`, globals.css): in the week and the compact
+ * month the day's timeline fills what is left as the one scroll, a swipe that starts on it scrolls
+ * it; the full month fills the screen.
  *
  * **Laptop** (768px and up): Day · Week · Month, opening on Month; Week and Day are hour
  * timelines that fill the viewport below the page's header (no page scroll, one scroll inside:
- * `data-fit-viewport`, globals.css), opening at 08:00 or now; a month day, a week's heading or a
+ * `data-fit-viewport="laptop"`, globals.css), opening at 08:00 or now; a month day, a week's heading or a
  * "Due · N" opens the day's popup (a compact agenda, "Open day"). The keyboard: ← and → move, T
  * goes to today, D, W and M switch the view (never in a field, with a modifier key or while an
  * overlay is open). The owner's laptop changes of 2026-10-08.
@@ -133,7 +138,8 @@ export function CalendarScreen({
   const dayOf = (date: ISODate) => byDate.get(date) ?? emptyDay(date);
   const view: CalendarView = query.view ?? "month";
   const count = filterCount(query);
-  // Week and Day fit the viewport on a laptop (one scroll, inside the timeline).
+  // Week and Day fit the viewport on a laptop (one scroll, inside the timeline). The phone's sizes
+  // always fit it (`data-fit-viewport="phone"` below).
   const fit = view !== "month";
   const desktop = useIsDesktop() === true;
 
@@ -228,15 +234,25 @@ export function CalendarScreen({
   const action = (date: ISODate) => (dayAction ? dayAction(date) : null);
   const freeOf = (date: ISODate) => (free ? (free[date] ?? null) : null);
 
-  // The phone's swipes: vertical grows or shrinks, sideways moves a week or a month. A swipe is
-  // not a tap: the click it would end in is dropped.
+  // The phone's swipes, on the calendar (the grid or the strip) and on the handle under it:
+  // vertical grows or shrinks, sideways moves a week or a month. A swipe that starts on the day's
+  // timeline is the timeline's own scroll and never resizes. A swipe is not a tap: the click it
+  // would end in is dropped. Once the finger has travelled a swipe's length the gesture is held
+  // (pointer capture), so it ends here even when the finger lifts over the detail below; a shorter
+  // wobble stays a tap on the day under it.
   const start = useRef<{ x: number; y: number } | null>(null);
   const swiped = useRef(false);
-  function onPointerDown(event: PointerEvent<HTMLDivElement>) {
+  function onPointerDown(event: PointerEvent<HTMLElement>) {
     start.current = { x: event.clientX, y: event.clientY };
     swiped.current = false;
   }
-  function onPointerUp(event: PointerEvent<HTMLDivElement>) {
+  function onPointerMove(event: PointerEvent<HTMLElement>) {
+    const from = start.current;
+    if (!from || event.currentTarget.hasPointerCapture(event.pointerId)) return;
+    if (swipeOf(event.clientX - from.x, event.clientY - from.y) === null) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+  function onPointerUp(event: PointerEvent<HTMLElement>) {
     const from = start.current;
     start.current = null;
     if (!from) return;
@@ -247,6 +263,20 @@ export function CalendarScreen({
     if (direction === null) setSize((current) => sizeAfter(current, swipe));
     else go(stepDate(selected, size, direction, today));
   }
+  const swipes = {
+    onPointerDown,
+    onPointerMove,
+    onPointerUp,
+    onPointerCancel: () => {
+      start.current = null;
+    },
+    onClickCapture: (event: MouseEvent<HTMLElement>) => {
+      if (!swiped.current) return;
+      swiped.current = false;
+      event.preventDefault();
+      event.stopPropagation();
+    },
+  };
 
   function tapDay(date: ISODate) {
     if (size === 3) {
@@ -312,7 +342,8 @@ export function CalendarScreen({
       data-pending={pending ? "" : undefined}
       aria-busy={pending || undefined}
       className={cn(
-        "flex min-w-0 flex-col gap-3 transition-opacity",
+        // Phone: grows into the route's column (`data-fit-viewport="phone"`, globals.css).
+        "flex min-w-0 flex-col gap-3 transition-opacity max-md:grow max-md:basis-0",
         fit && "md:min-h-0 md:flex-1",
         pending && "opacity-70",
       )}
@@ -321,7 +352,12 @@ export function CalendarScreen({
       <div
         data-slot="calendar-phone"
         data-size={size}
-        className="flex min-w-0 flex-col gap-1 md:hidden"
+        // Every size fits the screen above the bottom bar (the owner's phone walk, 2026-10-08):
+        // in the week and the compact month the header, the calendar, the handle, the day's title
+        // and its all-day line stay put and the day's timeline fills the rest as the one scroll;
+        // the full month fills it with no timeline.
+        data-fit-viewport="phone"
+        className="flex min-w-0 grow basis-0 flex-col gap-1 md:hidden"
       >
         <div data-slot="calendar-header" className="flex min-w-0 flex-wrap items-center gap-1">
           <button
@@ -356,20 +392,10 @@ export function CalendarScreen({
         </div>
         <div
           data-slot="calendar-area"
-          onPointerDown={onPointerDown}
-          onPointerUp={onPointerUp}
-          onPointerCancel={() => {
-            start.current = null;
-          }}
-          onClickCapture={(event) => {
-            if (!swiped.current) return;
-            swiped.current = false;
-            event.preventDefault();
-            event.stopPropagation();
-          }}
+          {...swipes}
           className={cn(
-            "flex min-w-0 touch-none flex-col select-none motion-safe:transition-[height]",
-            size === 3 && "h-[calc(100dvh-17rem)] min-h-80",
+            "flex min-w-0 touch-none flex-col select-none",
+            size === 3 && "min-h-80 grow basis-0",
           )}
         >
           {size === 1 ? (
@@ -444,9 +470,10 @@ export function CalendarScreen({
         <button
           type="button"
           onClick={() => setSize((current) => handleNext(current))}
+          {...swipes}
           data-slot="calendar-handle"
           aria-label={handleLabel(size)}
-          className="pressable-row focus-visible:ring-ring text-muted-foreground flex min-h-11 w-full shrink-0 items-center justify-center gap-2 rounded-lg text-xs outline-none focus-visible:ring-2"
+          className="pressable-row focus-visible:ring-ring text-muted-foreground flex min-h-11 w-full shrink-0 touch-none items-center justify-center gap-2 rounded-lg text-xs outline-none focus-visible:ring-2"
         >
           <span aria-hidden className="bg-muted-foreground/50 h-1 w-10 rounded-full" />
           <span>{handleLabel(size)}</span>
@@ -459,6 +486,7 @@ export function CalendarScreen({
             free={freeOf(selected)}
             action={action(selected)}
             timeline
+            fill
             headingId="calendar-phone-day"
           />
         ) : null}
@@ -468,7 +496,7 @@ export function CalendarScreen({
       <div
         data-slot="calendar-laptop"
         data-view={view}
-        data-fit-viewport={fit ? "" : undefined}
+        data-fit-viewport={fit ? "laptop" : undefined}
         className={cn("hidden min-w-0 flex-col gap-3 md:flex", fit && "md:min-h-0 md:flex-1")}
       >
         <div

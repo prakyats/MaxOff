@@ -28,7 +28,9 @@ its preview, then the merge to `main`, then the Owner's `v1.5.0` tag. Six expand
   work report under Reports (rework, turnaround, overdue now, how long people take to tap Task Noted, who
   is loaded this week).
 - **The calendar:** on a phone one calendar that grows from a week to a compact month to the full month
-  by a swipe or the handle; on a computer Month, Week and Day. Shoots, site visits and meetings in their
+  by a swipe or the handle; it always fits the screen: in the week and the compact month the page stays
+  still and only the day's timeline scrolls, its first hour's label whole; on a computer Month, Week
+  and Day. Shoots, site visits and meetings in their
   task type's colour, leave, holidays, due and overdue counts; filters (client, person, type, status; type
   only for the Crew). A day shows its events, Due, and for the Owner and Admins "Who's free"; the Owner
   and Admins get "+ New task on <day>" with the date filled in (today and later only), the Crew
@@ -83,6 +85,9 @@ its preview, then the merge to `main`, then the Owner's `v1.5.0` tag. Six expand
 
 ### Before the tag (the Owner's checks)
 - **The phone walk** on the phase-6 preview (375 and 430, installed, gesture back) and the laptop calendar.
+  - Calendar on the phone: only the timeline scrolls; 10:00 label whole (the week and the compact month:
+    the header, the calendar, the handle, the day's title and its all-day chips stay put; a swipe on the
+    timeline scrolls it, one on the calendar or the handle resizes; the full month fits with no timeline).
 - **Task type colours on staging:** after the merge, the seven launch task types have their colours, and
   `activity_log` has seven rows with action `backfilled` for them (the backfill has never met real rows
   before).
