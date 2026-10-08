@@ -11,12 +11,11 @@ import { CARD_ROW_TITLE, CARD_ROW_TRAILING } from "@/core/ui/composites/row-metr
 import { StatusBadge } from "@/core/ui/composites/status-badge";
 import {
   listClientProjects,
-  listCycles,
-  listCycleStates,
+  listCurrentCycles,
   projectSummaries,
   type ProjectSummary,
 } from "@/modules/client-work";
-import { NewProjectDialog } from "@/modules/client-work/components/new-project-dialog";
+import { NewProjectButton } from "@/modules/client-work/components/new-project-button";
 import { listStagePresets } from "@/modules/settings";
 import { listProjectTemplates } from "@/modules/templates";
 
@@ -35,19 +34,19 @@ export const metadata: Metadata = { title: "Projects" };
 export default async function ClientProjectsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   assertClientId(id);
-  const [{ client }, [projects, presets, templates, definitions]] = await checkThenRead(
+  const today = todayIST();
+  // One wave (ARCHITECTURE §19): the projects and their current cycles' progress read together.
+  const [{ client }, [projects, current, presets, templates, definitions]] = await checkThenRead(
     loadClientWork(id),
     Promise.all([
       listClientProjects(id),
+      listCurrentCycles(today, id),
       listStagePresets(),
       listProjectTemplates(),
       listDefinitions("project"),
     ]),
   );
-  const today = todayIST();
-  const cycles = await listCycles(projects.map((project) => project.id));
-  const states = await listCycleStates(cycles.map((cycle) => cycle.id));
-  const summaries = projectSummaries(projects, cycles, states, today);
+  const summaries = projectSummaries(projects, current);
   const working = summaries.filter((summary) => !summary.finished);
   const finished = summaries.filter((summary) => summary.finished);
   const canCreate = client.state !== "inactive";
@@ -57,7 +56,7 @@ export default async function ClientProjectsPage({ params }: { params: Promise<{
       <div className="flex min-h-11 flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-medium">Projects</h2>
         {canCreate ? (
-          <NewProjectDialog
+          <NewProjectButton
             clientId={client.id}
             today={today}
             presets={presets
@@ -129,9 +128,11 @@ function ProjectList({
             <span className={cn("flex flex-col gap-0.5", CARD_ROW_TITLE)}>
               <span className="text-sm font-medium break-words">{project.name}</span>
               <span className="text-muted-foreground text-xs break-words">{project.meta}</span>
-              <span className="text-xs break-words" data-slot="project-progress">
-                {project.progress}
-              </span>
+              {project.progress ? (
+                <span className="text-xs break-words" data-slot="project-progress">
+                  {project.progress}
+                </span>
+              ) : null}
             </span>
             <span className={cn("flex items-center gap-2", CARD_ROW_TRAILING)}>
               <StatusBadge status={project.state} label={project.stateLabel} />

@@ -76,7 +76,8 @@ export function KpiCard({ slot, title, definition, now, before, href }: KpiCardP
 /**
  * One client-work number (7.4, kickoff 7 decision 25): items have no engagement, so one value with
  * the last period beside it (null: "now" only, as Cycle progress), or a short list (where items sit
- * longest). The KPI card's shell, so the two kinds line up in the grid.
+ * longest). The KPI card's shell, so the two kinds line up in the grid; with `href` the whole card
+ * is the tap target to its list (Overdue now's items), as the task card.
  */
 export function ItemKpiCard({
   slot,
@@ -86,6 +87,7 @@ export function ItemKpiCard({
   before,
   lines,
   empty,
+  href,
 }: {
   slot: string;
   title: string;
@@ -94,14 +96,16 @@ export function ItemKpiCard({
   before?: string | null;
   lines?: readonly string[];
   empty?: string;
+  href?: string;
 }) {
-  return (
-    <section
-      data-slot={slot}
-      aria-label={title}
-      className="border-border bg-card flex min-w-0 flex-col gap-2 rounded-lg border p-4"
-    >
-      <span className="text-sm font-semibold">{title}</span>
+  const body = (
+    <>
+      <span className="flex items-center justify-between gap-2">
+        <span className="text-sm font-semibold">{title}</span>
+        {href ? (
+          <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
+        ) : null}
+      </span>
       <span className="text-muted-foreground text-xs">{definition}</span>
       {now !== undefined ? (
         <dl className="flex min-w-0 flex-col">
@@ -129,6 +133,23 @@ export function ItemKpiCard({
           <p className="text-muted-foreground text-sm">{empty}</p>
         )
       ) : null}
+    </>
+  );
+  const className = "border-border bg-card flex min-w-0 flex-col gap-2 rounded-lg border p-4";
+  return href ? (
+    <Link
+      href={href}
+      data-slot={slot}
+      className={cn(
+        "pressable-row focus-visible:ring-ring outline-none focus-visible:ring-2",
+        className,
+      )}
+    >
+      {body}
+    </Link>
+  ) : (
+    <section data-slot={slot} aria-label={title} className={className}>
+      {body}
     </section>
   );
 }

@@ -16,7 +16,7 @@ import {
 import { describeProjectActivity } from "../domain/activity";
 import { cycleProgressWords, onTime, onTimeWords, sitLongest, sitWords } from "../domain/kpis";
 import { cycleLabel, nextStartable, periodNext, periodStart } from "../domain/periods";
-import { projectSummaries } from "../domain/projects";
+import { progressByClient, projectSummaries } from "../domain/projects";
 import type { Item, ItemState, Project } from "../domain/types";
 import { itemView } from "../domain/views";
 
@@ -196,7 +196,7 @@ describe("the Projects tab", () => {
     ...over,
   });
 
-  it("shows each project's current cycle and progress, working ones first", () => {
+  it("shows each working project's current cycle and progress, working ones first", () => {
     const summaries = projectSummaries(
       [
         project({
@@ -207,36 +207,40 @@ describe("the Projects tab", () => {
           deliveryDate: "2026-10-20",
         }),
         project({ id: "p" }),
+        project({ id: "q", name: "Weekly reels", recurrence: "weekly" }),
       ],
       [
         {
           id: "c1",
           projectId: "p",
-          periodStart: "2026-10-01",
-          periodEnd: "2026-10-31",
+          clientId: "client",
           label: "October 2026",
-          state: "open",
-        },
-        {
-          id: "c2",
-          projectId: "done",
-          periodStart: null,
-          periodEnd: null,
-          label: null,
-          state: "open",
+          states: ["done", "open"],
         },
       ],
-      [
-        { cycleId: "c1", state: "done" },
-        { cycleId: "c1", state: "open" },
-        { cycleId: "c2", state: "approved" },
-      ],
-      TODAY,
     );
     expect(summaries.map((summary) => [summary.id, summary.meta, summary.progress])).toEqual([
       ["p", "Monthly · October 2026", "1/2 done · 0/2 approved"],
-      ["done", "One-time · delivery 20 Oct", "1/1 done · 1/1 approved"],
+      ["q", "Weekly · no current cycle", "No items in this cycle."],
+      // A finished project has no current cycle: no progress line.
+      ["done", "One-time · delivery 20 Oct", null],
     ]);
+  });
+
+  it("adds up each client's current cycles (Today's My clients)", () => {
+    const sums = progressByClient([
+      {
+        id: "c1",
+        projectId: "p",
+        clientId: "k",
+        label: null,
+        states: ["done", "open", "cancelled"],
+      },
+      { id: "c2", projectId: "q", clientId: "k", label: null, states: ["approved", "carried"] },
+      { id: "c3", projectId: "r", clientId: "m", label: null, states: [] },
+    ]);
+    expect(sums.get("k")).toEqual({ total: 3, done: 2, approved: 1, closed: 1 });
+    expect(sums.get("m")).toEqual({ total: 0, done: 0, approved: 0, closed: 0 });
   });
 });
 

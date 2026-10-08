@@ -9,14 +9,12 @@ import {
   countItemsToApprove,
   countItemsToDecide,
   countOverdueItems,
-  listCycles,
-  listCycleStates,
+  listCurrentCycles,
   listItemRows,
   listReviews,
   listSentBack,
   listStagesOf,
   listTicks,
-  listWorkingProjects,
   weekEnd,
 } from "@/modules/client-work";
 import { listClients } from "@/modules/clients";
@@ -91,10 +89,8 @@ export async function readItemDetails(projectIds: string[], itemIds: string[]) {
   return { stages, ticks, reviews };
 }
 
-/** Each client's current cycles (the Admin's "My clients" progress, kickoff 7). */
-export const readClientProgress = cache(async () => {
-  const projects = await listWorkingProjects();
-  const cycles = await listCycles(projects.map((project) => project.id));
-  const states = await listCycleStates(cycles.map((cycle) => cycle.id));
-  return { projects, cycles, states };
-});
+/**
+ * The working projects' current cycles with their items' states, in one request (the Admin's "My
+ * clients" progress, kickoff 7; the Admin report's Cycle progress): never every cycle ever made.
+ */
+export const readClientProgress = cache((today: ISODate) => listCurrentCycles(today));

@@ -1,6 +1,4 @@
-import type { ISODate } from "@/core/time";
-
-import { currentCycle, progressLine, progressOf, shortDate } from "./items";
+import { progressLine, progressOf, shortDate } from "./items";
 import {
   PROJECT_STATE_LABELS,
   RECURRENCE_LABELS,
@@ -22,31 +20,38 @@ export type ProjectSummary = {
   stateLabel: string;
   /** "Monthly · October 2026", "One-time · delivery 20 Oct". */
   meta: string;
-  /** "9/12 done · 8/12 approved · 1 closed", or "No items in this cycle.". */
-  progress: string;
+  /**
+   * "9/12 done · 8/12 approved · 1 closed", or "No items in this cycle."; null for a finished
+   * project (only working projects have a current cycle).
+   */
+  progress: string | null;
   finished: boolean;
+};
+
+/**
+ * A working project's current cycle with its items' states (the data layer's `listCurrentCycles`:
+ * open or in-progress projects, the period covering today, or a one-time cycle).
+ */
+export type CurrentCycleStates = Pick<Cycle, "id" | "projectId" | "label"> & {
+  clientId: string;
+  states: readonly ItemState[];
 };
 
 export function projectSummaries(
   projects: readonly Project[],
-  cycles: readonly Cycle[],
-  items: readonly { cycleId: string; state: ItemState }[],
-  today: ISODate,
+  current: readonly CurrentCycleStates[],
 ): ProjectSummary[] {
-  const byProject = new Map<string, Cycle[]>();
-  for (const cycle of cycles) {
-    byProject.set(cycle.projectId, [...(byProject.get(cycle.projectId) ?? []), cycle]);
-  }
+  const cycleOf = new Map(current.map((cycle) => [cycle.projectId, cycle]));
   const summaries = projects.map((project) => {
-    const cycle = currentCycle(byProject.get(project.id) ?? [], today);
-    const states = cycle ? items.filter((item) => item.cycleId === cycle.id) : [];
+    const finished = project.state === "completed" || project.state === "cancelled";
+    const cycle = finished ? undefined : cycleOf.get(project.id);
     const parts = [RECURRENCE_LABELS[project.recurrence]];
     if (project.recurrence === "one_time" && project.deliveryDate) {
       parts.push(`delivery ${shortDate(project.deliveryDate)}`);
     } else if (cycle?.label) {
       parts.push(cycle.label);
-    } else if (project.recurrence !== "one_time") {
-      parts.push("no cycle yet");
+    } else if (project.recurrence !== "one_time" && !finished) {
+      parts.push("no current cycle");
     }
     return {
       id: project.id,
@@ -54,8 +59,10 @@ export function projectSummaries(
       state: project.state,
       stateLabel: PROJECT_STATE_LABELS[project.state],
       meta: parts.join(" · "),
-      progress: progressLine(progressOf(states)),
-      finished: project.state === "completed" || project.state === "cancelled",
+      progress: finished
+        ? null
+        : progressLine(progressOf((cycle?.states ?? []).map((state) => ({ state })))),
+      finished,
     };
   });
   return summaries.sort(
@@ -68,23 +75,13 @@ export function projectSummaries(
  * kickoff 7: "cycle progress joins its counts"): the working projects' running cycles.
  */
 export function progressByClient(
-  projects: readonly Project[],
-  cycles: readonly Cycle[],
-  items: readonly { cycleId: string; state: ItemState }[],
-  today: ISODate,
+  current: readonly CurrentCycleStates[],
 ): Map<string, ReturnType<typeof progressOf>> {
-  const byProject = new Map<string, Cycle[]>();
-  for (const cycle of cycles) {
-    byProject.set(cycle.projectId, [...(byProject.get(cycle.projectId) ?? []), cycle]);
-  }
   const result = new Map<string, ReturnType<typeof progressOf>>();
-  for (const project of projects) {
-    if (project.state !== "open" && project.state !== "in_progress") continue;
-    const cycle = currentCycle(byProject.get(project.id) ?? [], today);
-    if (!cycle) continue;
-    const progress = progressOf(items.filter((item) => item.cycleId === cycle.id));
-    const sum = result.get(project.clientId) ?? { total: 0, done: 0, approved: 0, closed: 0 };
-    result.set(project.clientId, {
+  for (const cycle of current) {
+    const progress = progressOf(cycle.states.map((state) => ({ state })));
+    const sum = result.get(cycle.clientId) ?? { total: 0, done: 0, approved: 0, closed: 0 };
+    result.set(cycle.clientId, {
       total: sum.total + progress.total,
       done: sum.done + progress.done,
       approved: sum.approved + progress.approved,

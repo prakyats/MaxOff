@@ -440,16 +440,22 @@ export function buildCalendar(input: CalendarInput): CalendarDay[] {
     }
   }
 
-  // Client items (kickoff 7 decision 21 in decision 25's priority): never Crew's; the client and
-  // status filters apply ("open" = open, "done" = done), a type or person filter hides them (an
-  // item has neither); approved, closed and carried ones are not read at all.
-  if (input.scope !== "staff" && query.type === null && query.person === null) {
+  // Client items (kickoff 7 decision 21 in decision 25's priority): never Crew's; the client
+  // filter applies, a type or person filter hides them (an item has neither); approved, closed
+  // and carried ones are not read at all. **Q15 (advisor 2026-10-08, owner to confirm):**
+  // "Completed" shows no client items (an approved one is hidden by decision 21, and a done one
+  // waiting for approval is not completed); "Open" keeps the open ones and the done ones, muted,
+  // exactly as with no filter.
+  if (
+    input.scope !== "staff" &&
+    query.type === null &&
+    query.person === null &&
+    query.status !== "done"
+  ) {
     for (const item of input.clientItems ?? []) {
       const day = dayOf(item.plannedDate);
       if (!day) continue;
       if (query.client !== null && item.clientId !== query.client) continue;
-      if (query.status === "open" && item.state !== "open") continue;
-      if (query.status === "done" && item.state !== "done") continue;
       day.items.push({
         kind: "item",
         id: item.id,

@@ -1,6 +1,5 @@
 "use client";
 
-import { PlusIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -11,6 +10,7 @@ import {
 import type { FieldDefinition } from "@/core/custom-fields";
 import type { ResultError } from "@/core/errors";
 import { ActionStatus } from "@/core/ui/action/action-status";
+import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { useAction } from "@/core/ui/action/use-action";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { FormField } from "@/core/ui/composites/form-field";
@@ -25,7 +25,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/core/ui/primitives/dialog";
 import { Input } from "@/core/ui/primitives/input";
 import {
@@ -80,23 +79,29 @@ function lines(text: string): string[] {
  * preset or typed (one per line, at most 12), the items (one per line: a recurring project's item
  * list, copied into each new cycle; a one-time project's items) and the project fields. **No
  * billing category** (amendment C: money is the Owner's, phase 9). On success the new project's
- * page is pushed and the dialog's entry backed out (§14.2 b, e).
+ * page is pushed and the dialog's entry backed out (§14.2 b, e). Mounted while open by
+ * `NewProjectButton` (its code loads after the page, ARCHITECTURE §19). A layer (§14.2 a): back
+ * closes it, and asks "Discard this project?" first when something was typed or picked
+ * (§14.2 f); back on that keeps editing. The draft lives here, outside the `Dialog`.
  */
+export type NewProjectProps = {
+  clientId: string;
+  presets: readonly PresetOption[];
+  templates: readonly TemplateOption[];
+  definitions: readonly FieldDefinition[];
+  today: string;
+};
+
 export function NewProjectDialog({
   clientId,
   presets,
   templates,
   definitions,
   today,
-}: {
-  clientId: string;
-  presets: readonly PresetOption[];
-  templates: readonly TemplateOption[];
-  definitions: readonly FieldDefinition[];
-  today: string;
-}) {
+  onClose,
+}: NewProjectProps & { onClose: () => void }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [phase, setPhase] = useState<"form" | "discard">("form");
   const [templateId, setTemplateId] = useState("");
   const [name, setName] = useState("");
   const [recurrence, setRecurrence] = useState<Recurrence>("monthly");
@@ -131,27 +136,26 @@ export function NewProjectDialog({
         router.push(href, { transitionTypes: [NAV_FORWARD] });
       });
     },
-    { resetKey: open, creates: true },
+    { creates: true },
   );
   const { pending } = action;
+  const dirty =
+    templateId !== "" ||
+    name !== "" ||
+    recurrence !== "monthly" ||
+    deliveryDate !== "" ||
+    presetId !== "" ||
+    stagesText !== "" ||
+    itemsText !== "" ||
+    description !== "" ||
+    Object.values(customFields).some(
+      (value) => value !== undefined && value !== null && value !== "",
+    );
 
-  function reset() {
-    setTemplateId("");
-    setName("");
-    setRecurrence("monthly");
-    setDeliveryDate("");
-    setPresetId("");
-    setStagesText("");
-    setItemsText("");
-    setDescription("");
-    setCustomFields({});
-    setError(null);
-  }
-
-  function onOpenChange(next: boolean) {
+  function requestClose() {
     if (pending) return;
-    setOpen(next);
-    if (!next) reset();
+    if (dirty) setPhase("discard");
+    else onClose();
   }
 
   function startFrom(id: string) {
@@ -194,206 +198,218 @@ export function NewProjectDialog({
   const oneTime = recurrence === "one_time";
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogTrigger asChild>
-        <Button variant="strong" data-slot="new-project">
-          <PlusIcon aria-hidden />
-          New project
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <form onSubmit={submit} noValidate className="flex flex-col gap-4">
-          <DialogHeader>
-            <DialogTitle>New project</DialogTitle>
-            <DialogDescription>
-              How often it repeats can&apos;t change later. Everything else stays editable.
-            </DialogDescription>
-          </DialogHeader>
-          {summary ? (
-            <ErrorText slot="form-alert">{summary.description ?? summary.title}</ErrorText>
-          ) : null}
-          {templates.length > 0 ? (
-            <FormField label="Start from" hint="A template fills the rest; change anything after.">
+    <>
+      <Dialog
+        open={phase === "form"}
+        onOpenChange={(next) => {
+          if (!next) requestClose();
+        }}
+      >
+        <DialogContent data-slot="new-project-dialog">
+          <form onSubmit={submit} noValidate className="flex flex-col gap-4">
+            <DialogHeader>
+              <DialogTitle>New project</DialogTitle>
+              <DialogDescription>
+                How often it repeats can&apos;t change later. Everything else stays editable.
+              </DialogDescription>
+            </DialogHeader>
+            {summary ? (
+              <ErrorText slot="form-alert">{summary.description ?? summary.title}</ErrorText>
+            ) : null}
+            {templates.length > 0 ? (
+              <FormField
+                label="Start from"
+                hint="A template fills the rest; change anything after."
+              >
+                {(control) => (
+                  <Select value={templateId || NONE} onValueChange={startFrom}>
+                    <SelectTrigger
+                      id={control.id}
+                      className="w-full"
+                      aria-describedby={control["aria-describedby"]}
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NONE}>No template</SelectItem>
+                      {templates.map((template) => (
+                        <SelectItem key={template.id} value={template.id}>
+                          {template.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </FormField>
+            ) : null}
+            <FormField label="Project name" error={fieldErrors.name}>
               {(control) => (
-                <Select value={templateId || NONE} onValueChange={startFrom}>
+                <Input
+                  {...control}
+                  name="name"
+                  value={name}
+                  maxLength={PROJECT_NAME_MAX}
+                  autoComplete="off"
+                  onChange={(event) => setName(event.target.value)}
+                  required
+                />
+              )}
+            </FormField>
+            <FormField label="Repeats" error={fieldErrors.recurrence}>
+              {(control) => (
+                <Select
+                  value={recurrence}
+                  onValueChange={(next) => setRecurrence(next as Recurrence)}
+                >
                   <SelectTrigger
                     id={control.id}
                     className="w-full"
                     aria-describedby={control["aria-describedby"]}
+                    aria-invalid={control["aria-invalid"]}
                   >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={NONE}>No template</SelectItem>
-                    {templates.map((template) => (
-                      <SelectItem key={template.id} value={template.id}>
-                        {template.name}
+                    {RECURRENCES.map((value) => (
+                      <SelectItem key={value} value={value}>
+                        {RECURRENCE_LABELS[value]}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               )}
             </FormField>
-          ) : null}
-          <FormField label="Project name" error={fieldErrors.name}>
-            {(control) => (
-              <Input
-                {...control}
-                name="name"
-                value={name}
-                maxLength={PROJECT_NAME_MAX}
-                autoComplete="off"
-                onChange={(event) => setName(event.target.value)}
-                required
-              />
-            )}
-          </FormField>
-          <FormField label="Repeats" error={fieldErrors.recurrence}>
-            {(control) => (
-              <Select
-                value={recurrence}
-                onValueChange={(next) => setRecurrence(next as Recurrence)}
+            {oneTime ? (
+              <FormField
+                label="Delivery date"
+                hint="When it is due to the client. You can move it later."
+                error={fieldErrors.deliveryDate}
               >
-                <SelectTrigger
-                  id={control.id}
-                  className="w-full"
-                  aria-describedby={control["aria-describedby"]}
-                  aria-invalid={control["aria-invalid"]}
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {RECURRENCES.map((value) => (
-                    <SelectItem key={value} value={value}>
-                      {RECURRENCE_LABELS[value]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </FormField>
-          {oneTime ? (
+                {(control) => (
+                  <Input
+                    {...control}
+                    name="deliveryDate"
+                    type="date"
+                    min={today}
+                    value={deliveryDate}
+                    onChange={(event) => setDeliveryDate(event.target.value)}
+                    required
+                  />
+                )}
+              </FormField>
+            ) : null}
             <FormField
-              label="Delivery date"
-              hint="When it is due to the client. You can move it later."
-              error={fieldErrors.deliveryDate}
+              label="Stages"
+              hint={`Every item gets these. One per line, at most ${STAGES_MAX}.`}
+              error={fieldErrors.stages}
             >
               {(control) => (
-                <Input
+                <div className="flex flex-col gap-2">
+                  {presets.length > 0 ? (
+                    <Select value={presetId || NONE} onValueChange={pickPreset}>
+                      <SelectTrigger
+                        id={control.id}
+                        className="w-full"
+                        aria-label="Stage preset"
+                        aria-describedby={control["aria-describedby"]}
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={NONE}>No stages</SelectItem>
+                        {presets.map((preset) => (
+                          <SelectItem key={preset.id} value={preset.id}>
+                            {preset.name}
+                          </SelectItem>
+                        ))}
+                        <SelectItem value={TYPED}>Type them</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : null}
+                  <Textarea
+                    {...(presets.length > 0 ? {} : control)}
+                    name="stages"
+                    aria-label="Stages, one per line"
+                    rows={3}
+                    value={stagesText}
+                    onChange={(event) => {
+                      setStagesText(event.target.value);
+                      if (presetId && presetId !== TYPED) setPresetId(TYPED);
+                    }}
+                    aria-invalid={stageCount > STAGES_MAX ? true : control["aria-invalid"]}
+                  />
+                </div>
+              )}
+            </FormField>
+            <FormField
+              label={oneTime ? "Items" : "Item list"}
+              hint={
+                oneTime
+                  ? `The pieces of work to deliver. One per line, at most ${ITEMS_MAX}.`
+                  : `Each new cycle starts with these; rename them for the period. One per line, at most ${ITEMS_MAX}.`
+              }
+              error={fieldErrors.items}
+            >
+              {(control) => (
+                <Textarea
                   {...control}
-                  name="deliveryDate"
-                  type="date"
-                  min={today}
-                  value={deliveryDate}
-                  onChange={(event) => setDeliveryDate(event.target.value)}
-                  required
+                  name="items"
+                  rows={4}
+                  value={itemsText}
+                  onChange={(event) => setItemsText(event.target.value)}
+                  aria-invalid={itemCount > ITEMS_MAX ? true : control["aria-invalid"]}
                 />
               )}
             </FormField>
-          ) : null}
-          <FormField
-            label="Stages"
-            hint={`Every item gets these. One per line, at most ${STAGES_MAX}.`}
-            error={fieldErrors.stages}
-          >
-            {(control) => (
-              <div className="flex flex-col gap-2">
-                {presets.length > 0 ? (
-                  <Select value={presetId || NONE} onValueChange={pickPreset}>
-                    <SelectTrigger
-                      id={control.id}
-                      className="w-full"
-                      aria-label="Stage preset"
-                      aria-describedby={control["aria-describedby"]}
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={NONE}>No stages</SelectItem>
-                      {presets.map((preset) => (
-                        <SelectItem key={preset.id} value={preset.id}>
-                          {preset.name}
-                        </SelectItem>
-                      ))}
-                      <SelectItem value={TYPED}>Type them</SelectItem>
-                    </SelectContent>
-                  </Select>
-                ) : null}
+            <FormField label="Description" error={fieldErrors.description}>
+              {(control) => (
                 <Textarea
-                  {...(presets.length > 0 ? {} : control)}
-                  name="stages"
-                  aria-label="Stages, one per line"
-                  rows={3}
-                  value={stagesText}
-                  onChange={(event) => {
-                    setStagesText(event.target.value);
-                    if (presetId && presetId !== TYPED) setPresetId(TYPED);
-                  }}
-                  aria-invalid={stageCount > STAGES_MAX ? true : control["aria-invalid"]}
+                  {...control}
+                  name="description"
+                  rows={2}
+                  maxLength={PROJECT_DESCRIPTION_MAX}
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
                 />
-              </div>
-            )}
-          </FormField>
-          <FormField
-            label={oneTime ? "Items" : "Item list"}
-            hint={
-              oneTime
-                ? `The pieces of work to deliver. One per line, at most ${ITEMS_MAX}.`
-                : `Each new cycle starts with these; rename them for the period. One per line, at most ${ITEMS_MAX}.`
-            }
-            error={fieldErrors.items}
-          >
-            {(control) => (
-              <Textarea
-                {...control}
-                name="items"
-                rows={4}
-                value={itemsText}
-                onChange={(event) => setItemsText(event.target.value)}
-                aria-invalid={itemCount > ITEMS_MAX ? true : control["aria-invalid"]}
-              />
-            )}
-          </FormField>
-          <FormField label="Description" error={fieldErrors.description}>
-            {(control) => (
-              <Textarea
-                {...control}
-                name="description"
-                rows={2}
-                maxLength={PROJECT_DESCRIPTION_MAX}
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-              />
-            )}
-          </FormField>
-          <CustomFieldsForm
-            definitions={definitions}
-            values={customFields}
-            onChange={setCustomFields}
-            errors={fieldErrors}
-            disabled={pending}
-          />
-          <ActionStatus action={action} />
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => onOpenChange(false)}
+              )}
+            </FormField>
+            <CustomFieldsForm
+              definitions={definitions}
+              values={customFields}
+              onChange={setCustomFields}
+              errors={fieldErrors}
               disabled={pending}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              type="submit"
-              pending={pending}
-              pendingLabel="Creating project…"
-            >
-              Create project
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+            />
+            <ActionStatus action={action} />
+            <DialogFooter>
+              <Button type="button" variant="secondary" onClick={requestClose} disabled={pending}>
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                type="submit"
+                pending={pending}
+                pendingLabel="Creating project…"
+              >
+                Create project
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+      <ConfirmDialog
+        open={phase === "discard"}
+        onOpenChange={(next) => {
+          if (!next) setPhase("form");
+        }}
+        title="Discard this project?"
+        description="What you typed has not been saved."
+        confirmLabel="Discard project"
+        cancelLabel="Keep editing"
+        onConfirm={() => {
+          onClose();
+        }}
+      />
+    </>
   );
 }

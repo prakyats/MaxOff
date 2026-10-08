@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { fail, type Result } from "@/core/errors/result";
 import { cn } from "@/core/lib/utils";
+import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { FormField } from "@/core/ui/composites/form-field";
 import { OverlayLink } from "@/core/ui/composites/overlay-link";
@@ -45,7 +46,10 @@ export type ItemPermissions = {
  * may take: Mark done / Not done (`items.tick`), Approve and Send back with a reason
  * (`items.approve`), Edit, Move and Close with a reason (`projects.manage`; once approved, closed or
  * carried only the title and notes change). A bottom sheet on a phone (`ReviewSheet`): back closes
- * it, and a reason dialog opened from it closes first (§14.2 a).
+ * it, and a reason dialog opened from it closes first (§14.2 a); with an edit typed and not saved,
+ * back asks "Discard your changes?" first, and back on that keeps editing (§14.2 f). **Approve**
+ * goes through `onApprove` where the screen gives it (the project page: instant, with the
+ * 6-second Undo, as Approvals) and the sheet closes.
  */
 export function ItemSheet({
   item,
@@ -55,6 +59,7 @@ export function ItemSheet({
   onOpenChange,
   projectHref,
   onMove,
+  onApprove,
 }: {
   item: ItemView | null;
   stages: readonly { id: string; name: string }[];
@@ -65,6 +70,8 @@ export function ItemSheet({
   projectHref?: string;
   /** Opened on the project page: move the item up or down its list. */
   onMove?: ((itemId: string, direction: "up" | "down") => void) | undefined;
+  /** The screen's Approve with Undo (the project page); without it the sheet approves at once. */
+  onApprove?: ((item: ItemView) => void) | undefined;
 }) {
   // Editing belongs to the item it started on: another item, or a reopened sheet, shows its facts.
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -75,6 +82,8 @@ export function ItemSheet({
   const [saving, setSaving] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [reason, setReason] = useState<"reject" | "close" | null>(null);
+  // "Discard your changes?" stands in for the sheet while it asks (§14.2 f).
+  const [asking, setAsking] = useState(false);
 
   if (!item) {
     return (
@@ -86,6 +95,19 @@ export function ItemSheet({
   const current = item;
   const editing = open && editingId === current.id;
   const setEditing = (next: boolean) => setEditingId(next ? current.id : null);
+  const dirty =
+    editing &&
+    (title !== current.title ||
+      notes !== (current.notes ?? "") ||
+      (current.rules.editAll && planned !== (current.plannedDate ?? "")));
+
+  function requestClose(next: boolean) {
+    if (!next && dirty && !saving) {
+      setAsking(true);
+      return;
+    }
+    onOpenChange(next);
+  }
 
   function startEdit() {
     setTitle(current.title);
@@ -156,8 +178,13 @@ export function ItemSheet({
           pending={busy === "approve"}
           pendingLabel="Approving…"
           data-slot="item-approve"
-          onClick={() =>
-            run(
+          onClick={() => {
+            if (onApprove) {
+              onApprove(current);
+              onOpenChange(false);
+              return;
+            }
+            void run(
               "approve",
               async () => {
                 const result = await approveItems({ itemIds: [current.id] });
@@ -166,8 +193,8 @@ export function ItemSheet({
                 return failed ? fail(failed.code, failed.message) : result;
               },
               "Approved",
-            )
-          }
+            );
+          }}
         >
           Approve
         </Button>
@@ -189,8 +216,8 @@ export function ItemSheet({
   return (
     <>
       <ReviewSheet
-        open={open}
-        onOpenChange={onOpenChange}
+        open={open && !asking}
+        onOpenChange={requestClose}
         title={current.title}
         description={<StatusBadge status={ITEM_STATUS[current.state]} label={current.stateLabel} />}
         actions={actions}
@@ -356,6 +383,18 @@ export function ItemSheet({
           ) : null}
         </div>
       </ReviewSheet>
+      <ConfirmDialog
+        open={asking}
+        onOpenChange={(next) => (next ? null : setAsking(false))}
+        title="Discard your changes?"
+        description="The item stays as it was."
+        confirmLabel="Discard changes"
+        cancelLabel="Keep editing"
+        onConfirm={() => {
+          setEditing(false);
+          onOpenChange(false);
+        }}
+      />
       <ReasonDialog
         open={reason !== null}
         onOpenChange={(next) => (next ? null : setReason(null))}

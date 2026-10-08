@@ -116,7 +116,7 @@ export async function AdminToday({ viewer }: { viewer: CurrentMember }) {
     readHolidays(),
     // Client work (kickoff 7 decision 19, amendment C): only for whoever ticks items.
     can(viewer.role, "items.tick") ? readAdminClientWork(today, viewer.id) : Promise.resolve(null),
-    can(viewer.role, "items.tick") ? readClientProgress() : Promise.resolve(null),
+    can(viewer.role, "items.tick") ? readClientProgress(today) : Promise.resolve(null),
   ]);
   const now = systemClock();
   const names = new Map(directory.map((member) => [member.id, member]));
@@ -158,9 +158,7 @@ export async function AdminToday({ viewer }: { viewer: CurrentMember }) {
     (client) => client.adminId === viewer.id && client.state !== "inactive",
   );
   const perClient = clientCounts(runs, rows, now);
-  const clientProgress = progress
-    ? progressByClient(progress.projects, progress.cycles, progress.states, today)
-    : new Map();
+  const clientProgress = progress ? progressByClient(progress) : new Map();
 
   // Issues: on the open tasks they created or approve (5.4's Admin scope).
   const scoped = adminScope(rows.map(toRiskTask), viewer.id);

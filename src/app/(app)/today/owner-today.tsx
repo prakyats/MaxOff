@@ -231,7 +231,7 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
                     ? "1 client item overdue"
                     : `${overdueItems} client items overdue`
                 }
-                detail="By Admin"
+                detail="Grouped by Admin"
               />
             </RowList>
           </DashSection>

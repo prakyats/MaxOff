@@ -16,6 +16,9 @@ const DESCRIPTION = "Everything waiting for your decision, oldest first.";
 export default async function Loading() {
   const member = await getCurrentMember();
   const decides = member !== null && can(member.role, "attendance.decide");
+  // The page's own test for the Client items group (Q1: the client's Admin, never the Owner).
+  const decidesItems =
+    member !== null && member.role !== "owner" && can(member.role, "items.approve");
   return (
     <>
       <PageHeader title="Approvals" description={DESCRIPTION} help={DESCRIPTION} />
@@ -31,8 +34,8 @@ export default async function Loading() {
         ) : (
           <>
             <ApprovalGroupSkeleton rows={3} />
-            {/* An Admin's Client items (7.4), last. */}
-            <ApprovalGroupSkeleton rows={2} />
+            {/* An Admin's Client items (7.4), last, for whoever the page draws them for. */}
+            {decidesItems ? <ApprovalGroupSkeleton rows={2} /> : null}
           </>
         )}
         <span className="sr-only">Loading approvals</span>

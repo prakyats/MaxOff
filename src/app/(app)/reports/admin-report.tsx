@@ -20,8 +20,9 @@ import {
   turnaround,
 } from "@/modules/reports";
 import {
-  currentCycle,
   cycleProgressWords,
+  isOverdue,
+  itemCount,
   listItemRows,
   listPlannedItems,
   listStagesOf,
@@ -58,42 +59,36 @@ function words<T>(split: Split<T>, say: (value: T) => string): Split<string> {
  */
 export async function AdminReport({ viewer, period }: { viewer: CurrentMember; period: Period }) {
   const before = previousPeriod(period);
-  const [facts, open, directory, planned, progress, openItems] = await Promise.all([
+  const today = todayIST();
+  const [facts, open, directory, planned, current, openItems] = await Promise.all([
     listKpiFacts(before.from, period.to),
     readOpenTasks(),
     readDirectory(),
     listPlannedItems(before.from, period.to),
-    readClientProgress(),
+    readClientProgress(today),
     listItemRows({ states: ["open"] }),
   ]);
   const now = systemClock();
-  const today = todayIST();
   const people = new Map(directory.map((member) => [member.id, member]));
   const engagementOf = (id: string): Engagement => people.get(id)?.engagement ?? "permanent";
   const nameOf = (id: string) => people.get(id)?.fullName ?? "Someone";
   // Cycle progress and where items sit: the current cycles of the working projects.
-  const cyclesOf = new Map<string, typeof progress.cycles>();
-  for (const cycle of progress.cycles) {
-    cyclesOf.set(cycle.projectId, [...(cyclesOf.get(cycle.projectId) ?? []), cycle]);
-  }
-  const current = progress.projects.flatMap((project) => {
-    const cycle = currentCycle(cyclesOf.get(project.id) ?? [], today);
-    return cycle ? [cycle] : [];
-  });
   const currentIds = new Set(current.map((cycle) => cycle.id));
-  const totals = progress.states
-    .filter((row) => currentIds.has(row.cycleId))
+  const totals = current
+    .flatMap((cycle) => cycle.states)
     .reduce(
-      (sum, row) => {
-        if (row.state === "cancelled" || row.state === "carried") return sum;
+      (sum, state) => {
+        if (state === "cancelled" || state === "carried") return sum;
         return {
           total: sum.total + 1,
-          done: sum.done + (row.state === "done" || row.state === "approved" ? 1 : 0),
-          approved: sum.approved + (row.state === "approved" ? 1 : 0),
+          done: sum.done + (state === "done" || state === "approved" ? 1 : 0),
+          approved: sum.approved + (state === "approved" ? 1 : 0),
         };
       },
       { total: 0, done: 0, approved: 0 },
     );
+  // Overdue now (PRODUCT §4.13): the open items past their planned date, beside the tasks.
+  const overdueItems = openItems.filter((item) => isOverdue(item, today)).length;
   const waiting = openItems.filter((item) => currentIds.has(item.cycleId));
   const [stages, ticks] = await Promise.all([
     listStagesOf([...new Set(waiting.map((item) => item.projectId))]),
@@ -171,6 +166,14 @@ export async function AdminReport({ viewer, period }: { viewer: CurrentMember; p
               definition="The current cycles: done of planned, and approved of done."
               now={cycleProgressWords(totals)}
               before={null}
+            />
+            <ItemKpiCard
+              slot="kpi-items-overdue"
+              title="Overdue now"
+              definition="Open items past their planned date."
+              now={itemCount(overdueItems)}
+              before={null}
+              href="/clients/items?filter=overdue"
             />
             <ItemKpiCard
               slot="kpi-sit-longest"

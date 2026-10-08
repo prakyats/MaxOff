@@ -5,7 +5,7 @@ import { addISTDays, type ISODate } from "@/core/time";
 
 import type { ClientState, ItemRow, ItemState } from "../domain/types";
 
-import { allPages, ITEM_COLUMNS, toItem } from "./projects";
+import { allPages, byChunks, ITEM_COLUMNS, toItem } from "./projects";
 
 /**
  * The reads that cross projects and clients (7.3 / 7.4): the cross-client item list, Today's
@@ -110,7 +110,8 @@ export function countItemsToDecide(today: ISODate): Promise<number> {
 /**
  * Open items whose latest review is a rejection by someone else: "sent back" on the Admin's Needs
  * you (decision 19), with the reason. The viewer's own rejections are not news to them (the
- * rejection notifies nobody who made it, amendment C6).
+ * rejection notifies nobody who made it, amendment C6). Only rejections are read (an approval
+ * locks its item, so an open item's reviews are all rejections); the rows by chunks of ids.
  */
 export async function listSentBack(
   viewerId: string,
@@ -119,31 +120,28 @@ export async function listSentBack(
   const reviews = await allPages((first, last) =>
     supabase
       .from("item_reviews")
-      .select("item_id, decision, reason, reviewer_id, at, item:project_items!inner(state)")
+      .select("item_id, reason, reviewer_id, at, item:project_items!inner(state)")
+      .eq("decision", "rejected")
       .eq("item.state", "open")
       .order("at", { ascending: false })
+      .order("item_id")
       .range(first, last),
   );
   const latest = new Map<string, (typeof reviews)[number]>();
   for (const review of reviews) if (!latest.has(review.item_id)) latest.set(review.item_id, review);
-  const sentBack = [...latest.values()].filter(
-    (review) => review.decision === "rejected" && review.reviewer_id !== viewerId,
+  const sentBack = [...latest.values()].filter((review) => review.reviewer_id !== viewerId);
+  const data = await byChunks(
+    sentBack.map((review) => review.item_id),
+    async (ids) => {
+      const { data: part, error } = await supabase
+        .from("project_items")
+        .select(ROW_SELECT)
+        .in("id", ids);
+      if (error) throw error;
+      return part as unknown as (Parameters<typeof toItem>[0] & Embedded)[];
+    },
   );
-  if (sentBack.length === 0) return [];
-  const { data, error } = await supabase
-    .from("project_items")
-    .select(ROW_SELECT)
-    .in(
-      "id",
-      sentBack.map((review) => review.item_id),
-    );
-  if (error) throw error;
-  const rows = new Map(
-    (data as unknown as (Parameters<typeof toItem>[0] & Embedded)[]).map((row) => [
-      row.id,
-      toRow(row),
-    ]),
-  );
+  const rows = new Map(data.map((row) => [row.id, toRow(row)]));
   return sentBack.flatMap((review) => {
     const row = rows.get(review.item_id);
     return row

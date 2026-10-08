@@ -4,6 +4,7 @@ import type { ActivityEntry } from "@/core/activity";
 import { listActivity } from "@/core/activity/server";
 import type { Json, Tables } from "@/core/db";
 import { createServerSupabase } from "@/core/db/server";
+import type { ISODate } from "@/core/time";
 
 import type {
   Blueprint,
@@ -40,6 +41,30 @@ export async function allPages<T>(
     rows.push(...(data ?? []));
     if (!data || data.length < PAGE) return rows;
   }
+}
+
+/** Ids per `in.(…)` filter: the address stays far below the proxy's limit (150 uuids ≈ 5.6 KB). */
+export const IDS_PER_READ = 150;
+
+export function chunks<T>(values: readonly T[]): T[][] {
+  const out: T[][] = [];
+  for (let start = 0; start < values.length; start += IDS_PER_READ) {
+    out.push(values.slice(start, start + IDS_PER_READ));
+  }
+  return out;
+}
+
+/**
+ * One read per chunk of ids, in parallel, the answers joined: every read keyed by a list of ids
+ * goes through it, so no address outgrows the proxy however many ids a screen holds.
+ */
+export async function byChunks<T>(
+  ids: readonly string[],
+  read: (chunk: string[]) => Promise<T[]>,
+): Promise<T[]> {
+  if (ids.length === 0) return [];
+  const parts = await Promise.all(chunks([...new Set(ids)]).map(read));
+  return parts.flat();
 }
 
 export function asObject(value: Json | null | undefined): Record<string, unknown> {
@@ -166,60 +191,35 @@ export async function listClientProjects(clientId: string): Promise<Project[]> {
 
 /** The cycles of some projects (a project has one per period; a one-time project one). */
 export async function listCycles(projectIds: readonly string[]): Promise<Cycle[]> {
-  if (projectIds.length === 0) return [];
   const supabase = await createServerSupabase();
-  const rows = await allPages((first, last) =>
-    supabase
-      .from("project_cycles")
-      .select(CYCLE_COLUMNS)
-      .in("project_id", [...projectIds])
-      .order("period_start", { ascending: true, nullsFirst: true })
-      .range(first, last),
+  const rows = await byChunks(projectIds, (ids) =>
+    allPages((first, last) =>
+      supabase
+        .from("project_cycles")
+        .select(CYCLE_COLUMNS)
+        .in("project_id", ids)
+        .order("period_start", { ascending: true, nullsFirst: true })
+        .order("id")
+        .range(first, last),
+    ),
   );
   return rows.map(toCycle);
 }
 
-/** The states of the items in some cycles (each cycle's progress line). */
-export async function listCycleStates(
-  cycleIds: readonly string[],
-): Promise<{ cycleId: string; state: ItemState }[]> {
-  if (cycleIds.length === 0) return [];
-  const supabase = await createServerSupabase();
-  const rows = await allPages((first, last) =>
-    supabase
-      .from("project_items")
-      .select("id, cycle_id, state")
-      .in("cycle_id", [...cycleIds])
-      .order("id")
-      .range(first, last),
-  );
-  return rows.map((row) => ({ cycleId: row.cycle_id, state: row.state as ItemState }));
-}
-
-/** The working (open or in progress) projects the viewer may see, every client. */
-export async function listWorkingProjects(): Promise<Project[]> {
-  const supabase = await createServerSupabase();
-  const rows = await allPages((first, last) =>
-    supabase
-      .from("projects")
-      .select(PROJECT_COLUMNS)
-      .in("state", ["open", "in_progress"])
-      .order("id")
-      .range(first, last),
-  );
-  return rows.map(toProject);
-}
-
 /** The stages of some projects (every one: the screen keeps the active ones). */
 export async function listStagesOf(projectIds: readonly string[]): Promise<Stage[]> {
-  if (projectIds.length === 0) return [];
   const supabase = await createServerSupabase();
-  const { data, error } = await supabase
-    .from("project_stages")
-    .select("id, project_id, name, position, archived_at")
-    .in("project_id", [...projectIds]);
-  if (error) throw error;
-  return data.map((row) => ({
+  const rows = await byChunks(projectIds, (ids) =>
+    allPages((first, last) =>
+      supabase
+        .from("project_stages")
+        .select("id, project_id, name, position, archived_at")
+        .in("project_id", ids)
+        .order("id")
+        .range(first, last),
+    ),
+  );
+  return rows.map((row) => ({
     id: row.id,
     projectId: row.project_id,
     name: row.name,
@@ -275,56 +275,75 @@ export async function listItems(cycleId: string): Promise<Item[]> {
 }
 
 /** Items by id (a carried item's origin, an item sheet opened from elsewhere). */
-export async function listItemsById(ids: readonly string[]): Promise<Item[]> {
-  if (ids.length === 0) return [];
+export async function listItemsById(itemIds: readonly string[]): Promise<Item[]> {
   const supabase = await createServerSupabase();
-  const { data, error } = await supabase
-    .from("project_items")
-    .select(ITEM_COLUMNS)
-    .in("id", [...ids]);
-  if (error) throw error;
-  return data.map(toItem);
+  const rows = await byChunks(itemIds, async (ids) => {
+    const { data, error } = await supabase.from("project_items").select(ITEM_COLUMNS).in("id", ids);
+    if (error) throw error;
+    return data;
+  });
+  return rows.map(toItem);
 }
 
-export async function listCyclesById(ids: readonly string[]): Promise<Cycle[]> {
-  if (ids.length === 0) return [];
+export async function listCyclesById(cycleIds: readonly string[]): Promise<Cycle[]> {
   const supabase = await createServerSupabase();
-  const { data, error } = await supabase
-    .from("project_cycles")
-    .select(CYCLE_COLUMNS)
-    .in("id", [...ids]);
-  if (error) throw error;
-  return data.map(toCycle);
+  const rows = await byChunks(cycleIds, async (ids) => {
+    const { data, error } = await supabase
+      .from("project_cycles")
+      .select(CYCLE_COLUMNS)
+      .in("id", ids);
+    if (error) throw error;
+    return data;
+  });
+  return rows.map(toCycle);
 }
 
-/** Ids per `in.(…)` filter: the address stays far below the proxy's limit (150 uuids ≈ 5.6 KB). */
-const IDS_PER_READ = 150;
+/** A working project's current cycle: its client and its items' states (each progress line). */
+export type CurrentCycle = Cycle & { clientId: string; states: ItemState[] };
 
-function chunks<T>(values: readonly T[]): T[][] {
-  const out: T[][] = [];
-  for (let start = 0; start < values.length; start += IDS_PER_READ) {
-    out.push(values.slice(start, start + IDS_PER_READ));
-  }
-  return out;
+/**
+ * **The current cycles, in one request** (ARCHITECTURE §19, "one wave per screen"): the cycle of
+ * each open or in-progress project whose period covers today (IST), or a one-time project's
+ * cycle (no period), with its items' states embedded. Only what the progress lines use: never
+ * every cycle a project ever had. `clientId` narrows it to one client (the Projects tab).
+ */
+export async function listCurrentCycles(
+  today: ISODate,
+  clientId?: string,
+): Promise<CurrentCycle[]> {
+  const supabase = await createServerSupabase();
+  const rows = await allPages((first, last) => {
+    let request = supabase
+      .from("project_cycles")
+      .select(
+        `${CYCLE_COLUMNS}, project:projects!project_cycles_project_id_fkey!inner(client_id, state), items:project_items!project_items_cycle_id_fkey(state)`,
+      )
+      .in("project.state", ["open", "in_progress"])
+      .or(`period_start.is.null,and(period_start.lte.${today},period_end.gte.${today})`);
+    if (clientId) request = request.eq("project.client_id", clientId);
+    return request.order("id").range(first, last);
+  });
+  return rows.map((row) => ({
+    ...toCycle(row),
+    clientId: row.project.client_id,
+    states: row.items.map((item) => item.state as ItemState),
+  }));
 }
 
 export async function listTicks(itemIds: readonly string[]): Promise<Tick[]> {
-  if (itemIds.length === 0) return [];
   const supabase = await createServerSupabase();
-  const parts = await Promise.all(
-    chunks(itemIds).map((ids) =>
-      allPages((first, last) =>
-        supabase
-          .from("project_item_stages")
-          .select("item_id, stage_id, done_at, done_by")
-          .in("item_id", ids)
-          .order("item_id")
-          .order("stage_id")
-          .range(first, last),
-      ),
+  const rows = await byChunks(itemIds, (ids) =>
+    allPages((first, last) =>
+      supabase
+        .from("project_item_stages")
+        .select("item_id, stage_id, done_at, done_by")
+        .in("item_id", ids)
+        .order("item_id")
+        .order("stage_id")
+        .range(first, last),
     ),
   );
-  return parts.flat().map((row) => ({
+  return rows.map((row) => ({
     itemId: row.item_id,
     stageId: row.stage_id,
     doneAt: row.done_at,
@@ -334,16 +353,20 @@ export async function listTicks(itemIds: readonly string[]): Promise<Tick[]> {
 
 /** The approvals and rejections of some items, newest first. */
 export async function listReviews(itemIds: readonly string[]): Promise<Review[]> {
-  if (itemIds.length === 0) return [];
   const supabase = await createServerSupabase();
-  const rows = await allPages((first, last) =>
-    supabase
-      .from("item_reviews")
-      .select("item_id, decision, reason, reviewer_id, at")
-      .in("item_id", [...itemIds])
-      .order("at", { ascending: false })
-      .range(first, last),
+  const parts = await byChunks(itemIds, (ids) =>
+    allPages((first, last) =>
+      supabase
+        .from("item_reviews")
+        .select("item_id, decision, reason, reviewer_id, at")
+        .in("item_id", ids)
+        .order("at", { ascending: false })
+        .order("item_id")
+        .range(first, last),
+    ),
   );
+  // Newest first across the chunks too.
+  const rows = parts.sort((a, b) => b.at.localeCompare(a.at));
   return rows.map((row) => ({
     itemId: row.item_id,
     decision: row.decision === "approved" ? "approved" : "rejected",

@@ -38,6 +38,7 @@ export {
   clientProgressLine,
   progressByClient,
   projectSummaries,
+  type CurrentCycleStates,
   type ProjectSummary,
 } from "./domain/projects";
 export { cycleLabel, nextStartable, periodNext, periodStart } from "./domain/periods";
@@ -84,7 +85,7 @@ export {
   getProject,
   listBlueprints,
   listClientProjects,
-  listCycleStates,
+  listCurrentCycles,
   listCycles,
   listCyclesById,
   listItems,
@@ -95,7 +96,7 @@ export {
   listStages,
   listStagesOf,
   listTicks,
-  listWorkingProjects,
+  type CurrentCycle,
 } from "./data/projects";
 export {
   countItemsToApprove,

@@ -1,23 +1,15 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
+import { useState } from "react";
 
 import { cn } from "@/core/lib/utils";
-import { NETWORK_ERROR_MESSAGE } from "@/core/ui/action/network-error";
 import { ErrorText } from "@/core/ui/composites/error-text";
-import { DelayedSends, UNDO_MS } from "@/core/ui/delayed-sends";
-import { postKeepalive } from "@/core/ui/keepalive";
 import { Button } from "@/core/ui/primitives/button";
-import { describeError } from "@/core/ui/toast";
 
 import type { ItemView } from "../domain/views";
 
 import { ItemSheet, type ItemPermissions } from "./item-sheet";
-
-/** The route behind the delayed send: it outlives the page. */
-const MARK_DONE_URL = "/api/client-work/mark-done";
+import { MARK_DONE_URL, useUndoSends } from "./use-undo-sends";
 
 export type TodayItem = {
   view: ItemView;
@@ -26,8 +18,6 @@ export type TodayItem = {
   href: string;
   stages: { id: string; name: string }[];
 };
-
-const toastId = (id: string) => `item-done-${id}`;
 
 /**
  * The Admin's **Client work** on Today (7.3; PRODUCT §4.7, kickoff 7 decision 19): the items
@@ -44,82 +34,15 @@ export function TodayClientWork({
   items: readonly TodayItem[];
   permissions: ItemPermissions;
 }) {
-  const router = useRouter();
-  const [held, setHeld] = useState<ReadonlySet<string>>(() => new Set());
-  const [errors, setErrors] = useState<Readonly<Record<string, string>>>({});
   const [openId, setOpenId] = useState<string | null>(null);
-  const latest = useRef({ router });
-  useEffect(() => {
-    latest.current = { router };
+  const { held, errors, start } = useUndoSends({
+    url: MARK_DONE_URL,
+    body: (id) => ({ id }),
+    said: (title) => `Marked ${title} done`,
+    notDone: "It was not marked done.",
+    tooLate: "Undo came too late: it was marked done.",
+    toastKey: "item-done",
   });
-
-  const sends = useRef<DelayedSends | null>(null);
-  useEffect(() => {
-    const current = new DelayedSends((itemId) => {
-      toast.dismiss(toastId(itemId));
-      const failed = (message: string) => {
-        setErrors((errors) => ({ ...errors, [itemId]: message }));
-        setHeld((held) => {
-          const next = new Set(held);
-          next.delete(itemId);
-          return next;
-        });
-      };
-      postKeepalive<null>(MARK_DONE_URL, { id: itemId }).then(
-        (result) => {
-          if (!result.ok) {
-            const { title, description } = describeError(result.error);
-            failed(description ?? title);
-            return;
-          }
-          latest.current.router.refresh();
-        },
-        () => failed(`${NETWORK_ERROR_MESSAGE} It was not marked done.`),
-      );
-    }, UNDO_MS);
-    sends.current = current;
-    const onHidden = () => {
-      if (document.visibilityState === "hidden") current.flush();
-    };
-    const onPageHide = () => current.flush();
-    document.addEventListener("visibilitychange", onHidden);
-    window.addEventListener("pagehide", onPageHide);
-    return () => {
-      document.removeEventListener("visibilitychange", onHidden);
-      window.removeEventListener("pagehide", onPageHide);
-      current.flush();
-      sends.current = null;
-    };
-  }, []);
-
-  function markDone(item: TodayItem) {
-    const id = item.view.id;
-    setErrors((current) => {
-      const next = { ...current };
-      delete next[id];
-      return next;
-    });
-    setHeld((current) => new Set(current).add(id));
-    sends.current?.schedule(id);
-    toast(`Marked ${item.view.title} done`, {
-      id: toastId(id),
-      duration: UNDO_MS,
-      action: {
-        label: "Undo",
-        onClick: () => {
-          if (sends.current?.undo(id)) {
-            setHeld((current) => {
-              const next = new Set(current);
-              next.delete(id);
-              return next;
-            });
-          } else {
-            toast("Already sent", { description: "Undo came too late: it was marked done." });
-          }
-        },
-      },
-    });
-  }
 
   const open = items.find((item) => item.view.id === openId) ?? null;
   return (
@@ -166,7 +89,7 @@ export function TodayClientWork({
                   className="ml-auto shrink-0"
                   disabled={waiting}
                   data-slot="today-item-done"
-                  onClick={() => markDone(item)}
+                  onClick={() => start(item.view.id, item.view.title)}
                 >
                   Mark done
                 </Button>

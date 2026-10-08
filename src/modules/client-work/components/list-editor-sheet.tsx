@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowDownIcon, ArrowUpIcon, PlusIcon, Trash2Icon } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import type { Result } from "@/core/errors/result";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
@@ -20,7 +20,8 @@ export type ListRow = { id: string; name: string; position: string };
  * move up or down, remove (a removed stage is archived, its ticks kept in the history; a removed
  * line of the item list never touches an existing cycle). Each change is one transition function,
  * applied at once; the server's list comes back after it. Back closes the sheet (§14.2 a); the
- * removal's confirmation closes first.
+ * removal's confirmation closes first. A name typed and not yet added or renamed is not lost
+ * silently: back asks "Discard what you typed?", and back on that keeps editing (§14.2 f).
  */
 export function ListEditorSheet({
   open,
@@ -55,6 +56,27 @@ export function ListEditorSheet({
   const [names, setNames] = useState<Readonly<Record<string, string>>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [removing, setRemoving] = useState<ListRow | null>(null);
+  const [asking, setAsking] = useState(false);
+  // Set while the sheet hands over to "Discard?": the rename a closing field's blur would send
+  // waits for the answer instead.
+  const holding = useRef(false);
+  const dirty =
+    adding.trim() !== "" ||
+    rows.some((row) => names[row.id] !== undefined && names[row.id]?.trim() !== row.name);
+
+  function requestClose(next: boolean) {
+    if (!next && dirty && busy === null) {
+      holding.current = true;
+      setAsking(true);
+      return;
+    }
+    onOpenChange(next);
+  }
+
+  function keepEditing() {
+    holding.current = false;
+    setAsking(false);
+  }
 
   async function add(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -71,6 +93,7 @@ export function ListEditorSheet({
   }
 
   async function rename(row: ListRow) {
+    if (holding.current) return;
     const name = names[row.id];
     if (name === undefined || name.trim() === row.name) return;
     setBusy(row.id);
@@ -94,7 +117,12 @@ export function ListEditorSheet({
 
   return (
     <>
-      <ReviewSheet open={open} onOpenChange={onOpenChange} title={title} description={description}>
+      <ReviewSheet
+        open={open && !asking}
+        onOpenChange={requestClose}
+        title={title}
+        description={description}
+      >
         <div className="flex flex-col gap-3" data-slot="list-editor">
           {rows.length === 0 ? (
             <p className="text-muted-foreground">None yet.</p>
@@ -183,6 +211,20 @@ export function ListEditorSheet({
           )}
         </div>
       </ReviewSheet>
+      <ConfirmDialog
+        open={asking}
+        onOpenChange={(next) => (next ? null : keepEditing())}
+        title="Discard what you typed?"
+        description={`The ${noun}s stay as they are.`}
+        confirmLabel="Discard changes"
+        cancelLabel="Keep editing"
+        onConfirm={() => {
+          setAdding("");
+          setAddError(null);
+          setNames({});
+          onOpenChange(false);
+        }}
+      />
       <ConfirmDialog
         open={removing !== null}
         onOpenChange={(next) => (next ? null : setRemoving(null))}

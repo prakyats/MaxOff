@@ -9,6 +9,8 @@ import { ItemList, type ItemListFilter } from "@/modules/client-work/components/
 
 import { loadPeople } from "../[id]/client";
 
+import { itemsDescription } from "./copy";
+
 export const metadata: Metadata = { title: "Client items" };
 
 const FILTERS: readonly ItemListFilter[] = ["live", "overdue", "open", "done"];
@@ -37,9 +39,7 @@ export default async function ClientItemsPage({
   const today = todayIST();
   const filter = first(params.filter);
   const owner = viewer.role === "owner";
-  const description = owner
-    ? "Every client's open and done items, by Admin."
-    : "The open and done items of the clients you run.";
+  const description = itemsDescription(owner);
 
   return (
     <>
