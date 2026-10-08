@@ -9,7 +9,7 @@ import { cn } from "@/core/lib/utils";
 import { addISTDays, formatIST, istDayStart, type ISODate } from "@/core/time";
 import { ViewLink } from "@/core/ui/composites/view-link";
 import { replaceViewAddress } from "@/core/ui/navigation/view-address";
-import { closeOverlaysThen } from "@/core/ui/overlay/overlay-history";
+import { closeOverlaysThen, whenOnPageEntry } from "@/core/ui/overlay/overlay-history";
 
 import {
   CALENDAR_VIEWS,
@@ -129,25 +129,32 @@ export function CalendarScreen({
   }
 
   /**
-   * The filters as the sheet closed with them: when they changed, the address is replaced once
-   * the sheet's history entry is backed out (`closeOverlaysThen`), so the page's own entry keeps
-   * them and one back still leaves the calendar.
+   * Replaces the address once every overlay entry is backed out: the sheet's own
+   * (`closeOverlaysThen`), then any spent one under it, such as a select's sheet inside the
+   * filters (`whenOnPageEntry`). A replace that ran earlier was undone by the last step back
+   * (Next restored the page entry's old address); now the page's own entry keeps it and one
+   * back still leaves the calendar.
    */
+  function replaceOnPageEntry(href: string) {
+    closeOverlaysThen(() =>
+      whenOnPageEntry(() => {
+        // Out of the popstate's own dispatch, so Next's restore of the entry comes first.
+        window.setTimeout(() => startTransition(() => router.replace(href, { scroll: false })), 0);
+      }),
+    );
+  }
+
+  /** The filters as the sheet closed with them, applied when they changed. */
   function closeFilters(next: CalendarQuery) {
     setFiltersOpen(false);
     const href = calendarHref({ ...next, date: selected }, today);
     if (href === calendarHref({ ...query, date: selected }, today)) return;
-    closeOverlaysThen(() => {
-      window.setTimeout(() => startTransition(() => router.replace(href, { scroll: false })), 0);
-    });
+    replaceOnPageEntry(href);
   }
 
   /** "Open day" (the laptop's day dialog): the dialog backs out, then the Day view replaces. */
   function openDay(date: ISODate) {
-    const href = calendarHref({ ...query, view: "day", date }, today);
-    closeOverlaysThen(() => {
-      window.setTimeout(() => startTransition(() => router.replace(href, { scroll: false })), 0);
-    });
+    replaceOnPageEntry(calendarHref({ ...query, view: "day", date }, today));
   }
 
   const action = (date: ISODate) => (dayAction ? dayAction(date) : null);

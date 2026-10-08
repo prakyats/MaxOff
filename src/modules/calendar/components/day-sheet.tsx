@@ -46,7 +46,13 @@ export function DaySheet({
         if (!open) onClose();
       }}
     >
-      <DialogContent className="md:max-w-lg" data-calendar="day-sheet" data-date={day.date}>
+      {/* One column no wider than the sheet (the surface is a grid; a one-line row's
+          min-content must not widen it past the screen at large text). */}
+      <DialogContent
+        className="grid-cols-[minmax(0,1fr)] md:max-w-lg"
+        data-calendar="day-sheet"
+        data-date={day.date}
+      >
         <DialogHeader>
           <DialogTitle>{dayHeading(day.date, today)}</DialogTitle>
           <DialogDescription className="sr-only">
