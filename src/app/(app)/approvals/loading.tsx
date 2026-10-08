@@ -8,7 +8,8 @@ const DESCRIPTION = "Everything waiting for your decision, oldest first.";
 /**
  * One Approvals screen, grouped, no tabs (2.4), traced row for row by `ApprovalGroupSkeleton`
  * (a heading, rows with two actions): the Owner's Attendance, Leave, Extra work (3b.2), Expenses
- * (3b.3) and Staff tasks (4.5) groups; an Admin's one group, the tasks they check (4.5). The
+ * (3b.3) and Staff tasks (4.5) groups; an Admin's two, the tasks they check (4.5) and their
+ * clients' items (7.4). The
  * `(app)` layout already resolved the member for this request (`cache()`), so asking costs no
  * query.
  */
@@ -28,7 +29,11 @@ export default async function Loading() {
             <ApprovalGroupSkeleton rows={2} />
           </>
         ) : (
-          <ApprovalGroupSkeleton rows={3} />
+          <>
+            <ApprovalGroupSkeleton rows={3} />
+            {/* An Admin's Client items (7.4), last. */}
+            <ApprovalGroupSkeleton rows={2} />
+          </>
         )}
         <span className="sr-only">Loading approvals</span>
       </div>

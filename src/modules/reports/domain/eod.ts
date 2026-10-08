@@ -39,6 +39,40 @@ const taskGroup = z.object({
   items: z.array(taskItem).max(50).default([]),
 });
 
+const clientItem = z.object({
+  id: z.uuid(),
+  title: z.string().max(500),
+  project: z.string().max(500).optional(),
+  client: z.string().max(500),
+  reason: z.string().max(2000).nullable().optional(),
+});
+
+const clientGroup = z.object({
+  count,
+  more: count.default(0),
+  items: z.array(clientItem).max(50).default([]),
+});
+
+const EMPTY_CLIENT_GROUP = { count: 0, more: 0, items: [] };
+
+/** 7.4 (kickoff 7 decision 25): per client Admin; a report saved before it has none. */
+const clientWork = z
+  .object({
+    admins: z.array(
+      z.object({
+        admin_id: z.uuid().nullable(),
+        name: z.string().max(200).nullable(),
+        done: clientGroup.default(EMPTY_CLIENT_GROUP),
+        approved: clientGroup.default(EMPTY_CLIENT_GROUP),
+        sent_back: clientGroup.default(EMPTY_CLIENT_GROUP),
+        closed: clientGroup.default(EMPTY_CLIENT_GROUP),
+        carried: clientGroup.default(EMPTY_CLIENT_GROUP),
+        projects_completed: clientGroup.default(EMPTY_CLIENT_GROUP),
+      }),
+    ),
+  })
+  .default({ admins: [] });
+
 export const eodReportSchema = z.object({
   date: isoDate,
   day_off: z
@@ -104,11 +138,48 @@ export const eodReportSchema = z.object({
       }),
     ),
   }),
+  client_work: clientWork,
 });
 
 export type EodReport = z.infer<typeof eodReportSchema>;
 export type EodTaskGroup = EodReport["tasks"]["completed"];
 export type EodPerson = EodReport["attendance"]["people"][number];
+export type EodClientAdmin = EodReport["client_work"]["admins"][number];
+
+/** The Client work section's groups, in order (kickoff 7 decision 25). */
+export const CLIENT_WORK_GROUPS = [
+  { key: "done", title: "Done" },
+  { key: "approved", title: "Approved" },
+  { key: "sent_back", title: "Sent back" },
+  { key: "closed", title: "Closed" },
+  { key: "carried", title: "Carried forward" },
+  { key: "projects_completed", title: "Projects completed" },
+] as const;
+
+/** "Ravi Admin", or "No Admin (yours)" for the Owner's own clients. */
+export function clientAdminName(admin: EodClientAdmin): string {
+  return admin.admin_id === null ? "No Admin (yours)" : (admin.name ?? "An Admin");
+}
+
+/** One Admin's counts as a line: "3 done · 2 approved · 1 sent back". */
+export function clientWorkLine(admin: EodClientAdmin): string {
+  const words: Record<(typeof CLIENT_WORK_GROUPS)[number]["key"], string> = {
+    done: "done",
+    approved: "approved",
+    sent_back: "sent back",
+    closed: "closed",
+    carried: "carried",
+    projects_completed: "projects completed",
+  };
+  return CLIENT_WORK_GROUPS.flatMap((group) =>
+    admin[group.key].count > 0 ? [`${admin[group.key].count} ${words[group.key]}`] : [],
+  ).join(" · ");
+}
+
+/** A client item's second line: "Brand film · Sharma Weddings · The logo is wrong". */
+export function clientItemDetail(item: EodClientAdmin["done"]["items"][number]): string {
+  return [item.project, item.client, item.reason].filter(Boolean).join(" · ");
+}
 
 /** The payload, checked; null when it is not a report (the page shows an error, never a crash). */
 export function parseEodReport(value: unknown): EodReport | null {
@@ -369,6 +440,7 @@ export function isQuietDay(report: EodReport): boolean {
     decisionLines(report.decisions).length === 0 &&
     Object.values(report.tasks).every((group) => group.count === 0) &&
     report.approvals.length === 0 &&
-    report.tomorrow.events.length === 0
+    report.tomorrow.events.length === 0 &&
+    report.client_work.admins.length === 0
   );
 }

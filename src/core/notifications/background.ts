@@ -49,7 +49,7 @@ export async function readUnreadCount(): Promise<ServerUnread> {
 }
 
 /** The records a notification can be about, as `notifications.entity` names them. */
-const RECORD_ENTITIES = ["tasks", "clients", "members"] as const;
+const RECORD_ENTITIES = ["tasks", "clients", "members", "projects"] as const;
 const recordSchema = z.object({ entity: z.enum(RECORD_ENTITIES), id: z.uuid() });
 
 /**

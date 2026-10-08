@@ -71,17 +71,22 @@ export function tokenRefreshIn(expiresInSeconds: number | null): number | null {
 
 /**
  * The screens that re-read when work or attendance changes (6A, Kickoff 6 decision 8; ARCHITECTURE
- * §10): the Owner's and the Admin's Today and Crew's My Day. Every other screen keeps refresh on
- * return. Exact paths: the full board under Today (`/today/people`) is not one of them.
+ * §10): the Owner's and the Admin's Today and Crew's My Day, and since kickoff 7 decision 24
+ * Approvals (its Client items group, 7.4). Every other screen keeps refresh on return. Exact
+ * paths: the full board under Today (`/today/people`) is not one of them.
  */
-export const LIVE_DASHBOARD_ROUTES: readonly string[] = ["/today", "/my-day"];
+export const LIVE_DASHBOARD_ROUTES: readonly string[] = ["/today", "/my-day", "/approvals"];
 
-/** The tables those screens listen to: exactly what the publication added for them (pgTAP 46). */
+/**
+ * The tables those screens listen to: exactly what the publication added for them (pgTAP 46),
+ * `project_items` since 7B (kickoff 7 decision 24: RLS hands Crew none, an Admin their clients').
+ */
 export const LIVE_DASHBOARD_TABLES = [
   "tasks",
   "task_assignees",
   "attendance_days",
   "leave_requests",
+  "project_items",
 ] as const;
 
 /** Whether the screen at `pathname` listens to the dashboard tables. */

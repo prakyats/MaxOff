@@ -5,7 +5,8 @@ import { Skeleton } from "@/core/ui/primitives/skeleton";
 
 /**
  * A client's Overview (3.4) under the layout's header and tabs (which stay painted), traced:
- * the glance card (Admin with the Drive button, the primary contact with Call), the Contacts
+ * the glance card (Admin with the Drive button, the primary contact with Call), the line to the
+ * client's open tasks (7.3), the Contacts
  * heading with its button and three contact rows, then the Details record (heading with Edit
  * and its nine label-over-value rows), Requirements and notes (two rows) and, for the Owner, the
  * Owner's notes (one row; the same permission check as the page).
@@ -34,6 +35,8 @@ export default async function Loading() {
           ))}
         </CardContent>
       </Card>
+      {/* "N open tasks labelled ‹client›" (kickoff 7 decision 20). */}
+      <Skeleton aria-hidden className="h-11 w-full rounded-lg" />
       <div aria-hidden className="flex flex-col gap-2">
         <div className="flex min-h-11 items-center justify-between">
           <Skeleton className="h-4 w-20" />

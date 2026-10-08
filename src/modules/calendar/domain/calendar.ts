@@ -182,6 +182,22 @@ export type DueSource = {
   assigneeIds: readonly string[];
 };
 
+/**
+ * A client item with a planned date (kickoff 7 decision 21, refreshed under decision 25): the
+ * Owner's and the client's Admin's only, never Crew (the page reads none for them).
+ */
+export type ClientItemSource = {
+  id: string;
+  title: string;
+  state: "open" | "done";
+  plannedDate: ISODate;
+  projectName: string;
+  clientId: string;
+  clientName: string;
+  /** The project on the item's cycle, with the item's sheet open. */
+  href: string;
+};
+
 export type LeaveSource = {
   memberId: string;
   type: "leave" | "half_day" | "comp_leave";
@@ -224,6 +240,8 @@ export type CalendarInput = {
   leave: readonly LeaveSource[];
   /** An Admin's `member_availability()` rows; null for the Owner and Crew. */
   availability: readonly AvailabilitySource[] | null;
+  /** Client items planned in the range (7.3): the Owner's and the client's Admin's; [] for Crew. */
+  clientItems?: readonly ClientItemSource[];
 };
 
 export type EventItem = {
@@ -270,6 +288,17 @@ export type LeaveItem = {
 
 export type DueItem = { kind: "due"; id: string; title: string; dueAt: string; owner: string };
 
+/** A client item on its planned day: "Client items · N" (7.3); done ones are muted. */
+export type ClientItemEntry = {
+  kind: "item";
+  id: string;
+  title: string;
+  project: string;
+  client: string;
+  href: string;
+  done: boolean;
+};
+
 export type CalendarDay = {
   date: ISODate;
   holiday: string | null;
@@ -278,6 +307,7 @@ export type CalendarDay = {
   events: EventItem[];
   busy: BusyItem[];
   due: DueItem[];
+  items: ClientItemEntry[];
 };
 
 const LEAVE_LABELS: Record<LeaveSource["type"], string> = {
@@ -360,6 +390,7 @@ export function buildCalendar(input: CalendarInput): CalendarDay[] {
       events: [],
       busy: [],
       due: [],
+      items: [],
     });
   }
   const dayOf = (date: ISODate) => days.get(date);
@@ -405,6 +436,28 @@ export function buildCalendar(input: CalendarInput): CalendarDay[] {
         title: task.title,
         dueAt: task.dueAt,
         owner: nameOf(task.primaryOwnerId),
+      });
+    }
+  }
+
+  // Client items (kickoff 7 decision 21 in decision 25's priority): never Crew's; the client and
+  // status filters apply ("open" = open, "done" = done), a type or person filter hides them (an
+  // item has neither); approved, closed and carried ones are not read at all.
+  if (input.scope !== "staff" && query.type === null && query.person === null) {
+    for (const item of input.clientItems ?? []) {
+      const day = dayOf(item.plannedDate);
+      if (!day) continue;
+      if (query.client !== null && item.clientId !== query.client) continue;
+      if (query.status === "open" && item.state !== "open") continue;
+      if (query.status === "done" && item.state !== "done") continue;
+      day.items.push({
+        kind: "item",
+        id: item.id,
+        title: item.title,
+        project: item.projectName,
+        client: item.clientName,
+        href: item.href,
+        done: item.state === "done",
       });
     }
   }
@@ -545,7 +598,25 @@ export function leaveWords(count: number): string {
 
 /** A day with nothing on it (the page's fallback for a day outside what it read). */
 export function emptyDay(date: ISODate): CalendarDay {
-  return { date, holiday: null, weeklyOff: false, leave: [], events: [], busy: [], due: [] };
+  return {
+    date,
+    holiday: null,
+    weeklyOff: false,
+    leave: [],
+    events: [],
+    busy: [],
+    due: [],
+    items: [],
+  };
+}
+
+/**
+ * The day's "due" count (decision 25 priority 2, with kickoff 7 decision 21): the open tasks due
+ * that day and the open client items planned for it, together; a done item is listed, muted, but
+ * not counted.
+ */
+export function dueCount(day: Pick<CalendarDay, "due" | "items">): number {
+  return day.due.length + day.items.filter((item) => !item.done).length;
 }
 
 /** Whether a day has nothing to show at all (holiday and weekly off count as something). */
@@ -556,7 +627,8 @@ export function isEmptyDay(day: CalendarDay): boolean {
     day.leave.length === 0 &&
     day.events.length === 0 &&
     day.busy.length === 0 &&
-    day.due.length === 0
+    day.due.length === 0 &&
+    day.items.length === 0
   );
 }
 

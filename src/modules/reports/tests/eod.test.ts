@@ -14,6 +14,9 @@ import {
   eodListEntries,
   eventDetail,
   groupCount,
+  clientAdminName,
+  clientItemDetail,
+  clientWorkLine,
   isQuietDay,
   liveNote,
   parseEodDate,
@@ -102,6 +105,7 @@ function report(patch: Partial<EodReport> = {}): EodReport {
         },
       ],
     },
+    client_work: { admins: [] },
     ...patch,
   };
 }
@@ -111,6 +115,46 @@ describe("the report's payload", () => {
     expect(parseEodReport(report())).toEqual(report());
     expect(parseEodReport({ date: "nope" })).toBeNull();
     expect(parseEodReport(null)).toBeNull();
+  });
+
+  it("reads a report saved before 7.4 with no Client work section (kickoff 7 decision 25)", () => {
+    const older: Partial<EodReport> = report();
+    delete older.client_work;
+    expect(parseEodReport(older)?.client_work).toEqual({ admins: [] });
+  });
+
+  it("reads the Client work section per Admin, each group defaulted", () => {
+    const parsed = parseEodReport(
+      report({
+        client_work: {
+          admins: [
+            {
+              admin_id: KIRAN,
+              name: "Kiran",
+              done: {
+                count: 2,
+                more: 0,
+                items: [{ id: TASK, title: "Reel", project: "Monthly", client: "Sharma" }],
+              },
+            },
+          ],
+        } as unknown as EodReport["client_work"],
+      }),
+    );
+    const admin = parsed?.client_work.admins[0];
+    expect(admin && clientWorkLine(admin)).toBe("2 done");
+    expect(admin?.sent_back).toEqual({ count: 0, more: 0, items: [] });
+    expect(admin && clientAdminName(admin)).toBe("Kiran");
+    expect(clientAdminName({ ...admin!, admin_id: null })).toBe("No Admin (yours)");
+    expect(
+      clientItemDetail({
+        id: TASK,
+        title: "Reel",
+        project: "Monthly",
+        client: "Sharma",
+        reason: "Wrong logo",
+      }),
+    ).toBe("Monthly · Sharma · Wrong logo");
   });
 
   it("has no amount anywhere in its shape", () => {

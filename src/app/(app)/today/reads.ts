@@ -5,6 +5,20 @@ import { cache } from "react";
 import { withSessionUserId } from "@/core/auth/server";
 import { addISTDays, type ISODate } from "@/core/time";
 import { listPendingDays, listPendingNotes } from "@/modules/attendance";
+import {
+  countItemsToApprove,
+  countItemsToDecide,
+  countOverdueItems,
+  listCycles,
+  listCycleStates,
+  listItemRows,
+  listReviews,
+  listSentBack,
+  listStagesOf,
+  listTicks,
+  listWorkingProjects,
+  weekEnd,
+} from "@/modules/client-work";
 import { listClients } from "@/modules/clients";
 import {
   countHeldEmails,
@@ -48,3 +62,39 @@ export const readApprovals = cache(() =>
     listTasksToDecide({ final: true }),
   ]),
 );
+
+/** The Owner's one client-work line: "N client items overdue" (amendment C E1, decision 24). */
+export const readOverdueItems = cache((today: ISODate) => countOverdueItems(today));
+
+/**
+ * The Admin's client work (kickoff 7 decision 19, amendment C): open items planned up to Sunday,
+ * the items sent back to them, the counts behind Needs you, and the ticks, stages and reviews of
+ * the rows Today shows. RLS gives an Admin only the clients they run.
+ */
+export const readAdminClientWork = cache(async (today: ISODate, viewerId: string) => {
+  const [due, sentBack, toApprove, toDecide] = await Promise.all([
+    listItemRows({ states: ["open"], plannedTo: weekEnd(today) }),
+    listSentBack(viewerId),
+    countItemsToApprove(),
+    countItemsToDecide(today),
+  ]);
+  return { due, sentBack, toApprove, toDecide };
+});
+
+/** The stages, ticks and reviews of the items Today shows (at most a handful). */
+export async function readItemDetails(projectIds: string[], itemIds: string[]) {
+  const [stages, ticks, reviews] = await Promise.all([
+    listStagesOf([...new Set(projectIds)]),
+    listTicks(itemIds),
+    listReviews(itemIds),
+  ]);
+  return { stages, ticks, reviews };
+}
+
+/** Each client's current cycles (the Admin's "My clients" progress, kickoff 7). */
+export const readClientProgress = cache(async () => {
+  const projects = await listWorkingProjects();
+  const cycles = await listCycles(projects.map((project) => project.id));
+  const states = await listCycleStates(cycles.map((cycle) => cycle.id));
+  return { projects, cycles, states };
+});

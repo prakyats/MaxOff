@@ -29,6 +29,7 @@ export {
   listTaskActivity,
   listTaskTypes,
   countOpenAssignments,
+  countOpenTasksForClient,
   countTasks,
   listFinishedTaskRows,
   listOpenTaskRows,

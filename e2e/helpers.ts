@@ -639,14 +639,40 @@ export async function removeFieldDefinitions(keys: string[]): Promise<void> {
 }
 
 /**
- * Removes a client a spec creates (3.1), with the rows the triggers made for it and every
- * definition scoped to it. Nothing to remove is fine.
+ * Removes a client a spec creates (3.1), with the rows the triggers made for it, every
+ * definition scoped to it and, since phase 7, its client work (projects, stages, the item list,
+ * cycles, items, their ticks and reviews; fixtures only: production deletes nothing, invariant 9).
+ * Nothing to remove is fine.
  */
 export async function removeClientFixture(name: string): Promise<void> {
   const clients = await serviceSelect<{ id: string }>(
     `clients?name=eq.${encodeURIComponent(name)}&select=id`,
   );
   for (const { id } of clients) {
+    const projects = await serviceSelect<{ id: string }>(`projects?client_id=eq.${id}&select=id`);
+    for (const { id: projectId } of projects) {
+      let items = await serviceSelect<{ id: string; carried_from_item_id: string | null }>(
+        `project_items?project_id=eq.${projectId}&select=id,carried_from_item_id`,
+      );
+      if (items.length > 0) {
+        const ids = items.map((item) => item.id).join(",");
+        await serviceRest(`item_reviews?item_id=in.(${ids})`, { method: "DELETE" });
+        await serviceRest(`project_item_stages?item_id=in.(${ids})`, { method: "DELETE" });
+      }
+      // A carried item points at the one it came from: the newest go first.
+      while (items.length > 0) {
+        const pointedAt = new Set(items.map((item) => item.carried_from_item_id));
+        const leaves = items.filter((item) => !pointedAt.has(item.id));
+        await serviceRest(`project_items?id=in.(${leaves.map((item) => item.id).join(",")})`, {
+          method: "DELETE",
+        });
+        items = items.filter((item) => pointedAt.has(item.id));
+      }
+      for (const table of ["project_cycles", "project_item_blueprints", "project_stages"]) {
+        await serviceRest(`${table}?project_id=eq.${projectId}`, { method: "DELETE" });
+      }
+      await serviceRest(`projects?id=eq.${projectId}`, { method: "DELETE" });
+    }
     await serviceRest(`field_definitions?client_id=eq.${id}`, { method: "DELETE" });
     await serviceRest(`client_contacts?client_id=eq.${id}`, { method: "DELETE" });
     await serviceRest(`client_admin_assignments?client_id=eq.${id}`, { method: "DELETE" });

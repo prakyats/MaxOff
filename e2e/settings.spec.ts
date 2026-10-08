@@ -26,7 +26,8 @@ test.describe("Owner", () => {
     await page.goto("/settings");
     await expect(page.getByRole("heading", { name: "Settings", exact: true })).toBeVisible();
     // Sections that are not built yet are cards, not links (they name the task instead).
-    await expect(page.getByRole("link", { name: "Stage presets" })).toHaveCount(0);
+    // Stage presets were built in 7.4; Google Drive (8.3) is the one still to come.
+    await expect(page.getByRole("link", { name: "Google Drive" })).toHaveCount(0);
 
     for (const [name, heading] of [
       ["Company", "Company"],
@@ -34,6 +35,7 @@ test.describe("Owner", () => {
       ["Thresholds", "Thresholds"],
       ["Job titles", "Job titles"],
       ["Task types", "Task types"],
+      ["Stage presets", "Stage presets"],
     ] as const) {
       await page.goto("/settings");
       await page.getByRole("link", { name, exact: true }).click();

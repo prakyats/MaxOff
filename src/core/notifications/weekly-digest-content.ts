@@ -99,6 +99,19 @@ const weeklyDigestSchema = z.object({
       .max(500),
     holidays: z.array(z.object({ date: isoDate, name: z.string().max(200) })).max(50),
   }),
+  // Kickoff 7 amendment C E4 (7.4): client work per Admin, counts only; absent before 7.4.
+  client_work: z
+    .array(
+      z.object({
+        admin_id: z.uuid().nullable(),
+        name: z.string().max(200).nullable(),
+        done: count,
+        overdue: count,
+        projects_completed: count,
+      }),
+    )
+    .max(200)
+    .default([]),
 });
 
 export type WeeklyDigestPayload = z.infer<typeof weeklyDigestSchema>;
@@ -194,6 +207,29 @@ export function weeklyDigestSections(payload: WeeklyDigestPayload): DigestSectio
             : `${payload.now.unreachable.count}`,
         ),
       ],
+    },
+    {
+      // Kickoff 7 amendment C E4: per Admin, items done and projects completed that week (from
+      // the saved reports) and items overdue now; counts only.
+      heading: "Client work",
+      lines: payload.client_work.flatMap((admin) => {
+        const parts: string[] = [];
+        if (admin.done > 0) parts.push(`${admin.done} ${admin.done === 1 ? "item" : "items"} done`);
+        if (admin.overdue > 0) parts.push(`${admin.overdue} overdue now`);
+        if (admin.projects_completed > 0) {
+          parts.push(
+            `${admin.projects_completed} ${admin.projects_completed === 1 ? "project" : "projects"} completed`,
+          );
+        }
+        if (parts.length === 0) return [];
+        const who = admin.admin_id === null ? "No Admin (yours)" : (admin.name ?? "An Admin");
+        return [
+          {
+            text: `${who}: ${parts.join(", ")}`,
+            link: admin.overdue > 0 ? "/clients/items?filter=overdue" : null,
+          },
+        ];
+      }),
     },
     {
       heading: `The week ahead: ${span(payload.ahead.from, payload.ahead.to)}`,

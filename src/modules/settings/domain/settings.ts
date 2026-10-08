@@ -54,6 +54,10 @@ export type Thresholds = {
    * day's report if that is later.
    */
   weeklyDigestDay: WeekdayIndex;
+  /** Kickoff 7 amendment C E5: an overdue client item reaches the Owner after this (hours). */
+  itemOverdueEscalateHours: number;
+  /** Kickoff 7 amendment C E5: an undecided ended cycle reaches the Owner after this (days). */
+  cycleDecideEscalateDays: number;
 };
 
 /** Kickoff 4 decision 11: four open tasks due the same IST day. */
@@ -87,6 +91,8 @@ export function toOrgSettings(row: Tables<"org_settings">): OrgSettings {
     defaultTaskReminders: parseReminderRules(row.default_task_reminders),
     // The column's check keeps it 0..6; a value outside reads as the default, Monday.
     weeklyDigestDay: isWeekdayIndex(row.weekly_digest_day) ? row.weekly_digest_day : 1,
+    itemOverdueEscalateHours: row.item_overdue_escalate_hours,
+    cycleDecideEscalateDays: row.cycle_decide_escalate_days,
   };
 }
 

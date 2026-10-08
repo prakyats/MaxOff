@@ -1,6 +1,13 @@
 "use client";
 
-import { ChevronRightIcon, ClockIcon, MapPinIcon, PalmtreeIcon, UsersIcon } from "lucide-react";
+import {
+  ChevronRightIcon,
+  ClockIcon,
+  ListChecksIcon,
+  MapPinIcon,
+  PalmtreeIcon,
+  UsersIcon,
+} from "lucide-react";
 import type { ReactNode } from "react";
 
 import { cn } from "@/core/lib/utils";
@@ -10,7 +17,9 @@ import { formatIST, type ISODate } from "@/core/time";
 import {
   type CalendarDay,
   type CalendarScope,
+  type ClientItemEntry,
   dayHeading,
+  dueCount,
   EMPTY_DAY,
   type EventItem,
   isEmptyDay,
@@ -143,7 +152,7 @@ export function AllDayChips({
           { backgroundColor: `${event.color}26`, borderLeftColor: event.color },
         ),
       )}
-      {dueAsChip && day.due.length > 0 ? (
+      {dueAsChip && dueCount(day) > 0 ? (
         onDue ? (
           <button
             type="button"
@@ -155,7 +164,7 @@ export function AllDayChips({
             )}
           >
             <ClockIcon className="size-3" aria-hidden />
-            Due · {day.due.length}
+            Due · {dueCount(day)}
           </button>
         ) : (
           <Chip
@@ -163,7 +172,7 @@ export function AllDayChips({
             className={cn("font-medium", overdue ? "text-danger" : "text-attention")}
           >
             <ClockIcon className="size-3" aria-hidden />
-            Due · {day.due.length}
+            Due · {dueCount(day)}
           </Chip>
         )
       ) : null}
@@ -352,6 +361,9 @@ export function DayDetail({
           </ul>
         </section>
       ) : null}
+      {day.items.length > 0 ? (
+        <ClientItemsList items={day.items} headingId={`${headingId}-items`} />
+      ) : null}
       {free !== null && scope !== "staff" ? (
         <p data-slot="calendar-who-free" className="text-muted-foreground text-sm break-words">
           {free}
@@ -363,6 +375,85 @@ export function DayDetail({
           {footer}
         </div>
       ) : null}
+    </section>
+  );
+}
+
+/**
+ * "Client items · N" after "Due · N" (7.3; kickoff 7 decision 21 in decision 25's priority): each
+ * row the item's title · project · client, done ones muted; a tap opens the project on the item's
+ * cycle with its sheet open. The Owner's and the client's Admin's only (the page reads none for
+ * Crew).
+ */
+export function ClientItemsList({
+  items,
+  headingId,
+  compact = false,
+}: {
+  items: readonly ClientItemEntry[];
+  headingId: string;
+  /** The laptop's agenda: one line a row. */
+  compact?: boolean;
+}) {
+  return (
+    <section
+      aria-labelledby={headingId}
+      data-slot="calendar-items-list"
+      className={cn("flex flex-col", compact ? "gap-1" : "gap-2")}
+    >
+      <h3 id={headingId} className="flex items-center gap-1.5 text-sm font-semibold">
+        <ListChecksIcon className="text-muted-foreground size-4" aria-hidden />
+        Client items · {items.length}
+      </h3>
+      <ul
+        className={cn(
+          compact
+            ? "flex flex-col"
+            : "border-border divide-border bg-card divide-y overflow-hidden rounded-lg border",
+        )}
+      >
+        {items.map((item) => (
+          <li key={item.id} className="min-w-0">
+            <OverlayLink
+              href={item.href}
+              data-slot="calendar-item"
+              data-item={item.id}
+              className={cn(
+                "focus-visible:ring-ring outline-none focus-visible:ring-2",
+                compact
+                  ? "hover:bg-muted -mx-2 flex min-h-9 items-center gap-2 rounded-md px-2 text-sm"
+                  : "flex min-h-14 items-center gap-3 px-4 py-2.5 text-sm focus-visible:ring-inset",
+                item.done && "text-muted-foreground",
+              )}
+            >
+              {compact ? (
+                <span className="min-w-0 truncate">
+                  <span className={cn("font-medium", item.done && "line-through")}>
+                    {item.title}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {" · "}
+                    {item.project} · {item.client}
+                  </span>
+                </span>
+              ) : (
+                <>
+                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <span className={cn("font-medium break-words", item.done && "line-through")}>
+                      {item.title}
+                    </span>
+                    <span className="text-muted-foreground text-xs break-words">
+                      {item.project} · {item.client}
+                      {item.done ? " · done" : ""}
+                    </span>
+                  </span>
+                  <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
+                </>
+              )}
+            </OverlayLink>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }

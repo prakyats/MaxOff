@@ -16,12 +16,14 @@ import { listPendingRequests } from "@/modules/leave";
 import { PendingLeaveGroup } from "@/modules/leave/components/pending-leave-group";
 import { listPendingClaims } from "@/modules/expenses";
 import { PendingClaimsGroup } from "@/modules/expenses/components/pending-claims-group";
+import { listItemRows } from "@/modules/client-work";
+import { ItemApprovalGroup } from "@/modules/client-work/components/item-approval-group";
 import { listTasksToDecide, listUnreadCounts } from "@/modules/tasks";
 import { TaskApprovalGroup } from "@/modules/tasks/components/task-approval-group";
 import { TasksFreshOnReturn } from "@/modules/tasks/components/tasks-fresh-on-return";
 import { listDirectory } from "@/modules/team";
 
-import { taskItem } from "./items";
+import { clientItem, taskItem } from "./items";
 
 export const metadata: Metadata = { title: "Approvals" };
 
@@ -32,7 +34,9 @@ const DESCRIPTION = "Everything waiting for your decision, oldest first.";
  * decides it (PERMISSIONS "Screens (2.4)"): Attendance, Leave and Extra work (3b.2) for
  * `attendance.decide`, Expenses (3b.3) for `expenses.decide` (both the Owner's), then **Staff
  * tasks** (4.5) at the step the viewer decides: the Owner's final approvals, an Admin's checks
- * (kickoff 3b decision 29's order). Client items join in 7.4.
+ * (kickoff 3b decision 29's order). **Client items** (7.4) come last, for the client's Admin
+ * (`items.approve` without `attendance.decide`): the done items of the clients they run (issue #56
+ * Q1: never in the Owner's Approvals; he approves from a project's page).
  */
 export default async function ApprovalsPage() {
   // The lists start with the session read (§19); RLS decides what each returns, and the ones an
@@ -47,11 +51,13 @@ export default async function ApprovalsPage() {
   ]);
   const finalTasks = listTasksToDecide({ final: true });
   const checkTasks = withSessionUserId((id) => listTasksToDecide({ final: false, id }));
-  startEarly(lists, finalTasks, checkTasks);
+  const doneItems = listItemRows({ states: ["done"] });
+  startEarly(lists, finalTasks, checkTasks, doneItems);
   const viewer = await requirePermission([
     "attendance.decide",
     "tasks.approve_final",
     "tasks.approve_admin",
+    "items.approve",
   ]);
   const [[days, requests, notes, pendingClaims, directory], [toDecide, unread]] = await Promise.all(
     [
@@ -63,8 +69,15 @@ export default async function ApprovalsPage() {
     ],
   );
   const decidesAttendance = can(viewer.role, "attendance.decide");
+  // Q1: the client's Admin approves their clients' items here; the Owner never (his project pages).
+  const decidesItems = viewer.role !== "owner" && can(viewer.role, "items.approve");
   const decidesExpenses = can(viewer.role, "expenses.decide");
   const names = Object.fromEntries(directory.map((member) => [member.id, member.fullName]));
+  const items = decidesItems
+    ? (await doneItems)
+        .sort((a, b) => (a.doneAt ?? "").localeCompare(b.doneAt ?? "") || a.id.localeCompare(b.id))
+        .map((row) => clientItem(row, names))
+    : [];
   const tasks = toDecide.map((item) => ({
     ...taskItem(item, names, viewer.role === "owner"),
     unread: unread[item.row.id] ?? 0,
@@ -80,7 +93,8 @@ export default async function ApprovalsPage() {
     own.requests.length === 0 &&
     own.notes.length === 0 &&
     claims.length === 0 &&
-    tasks.length === 0;
+    tasks.length === 0 &&
+    items.length === 0;
 
   return (
     <>
@@ -93,7 +107,7 @@ export default async function ApprovalsPage() {
           description={
             decidesAttendance
               ? "Attendance, leave, extra work, expense claims and tasks that need you appear here."
-              : "The tasks you check before they go to the Owner appear here. Attendance, leave and expenses are the Owner's to decide."
+              : "The tasks you check and your clients' finished items appear here. Attendance, leave and expenses are the Owner's to decide."
           }
         />
       ) : (
@@ -110,6 +124,7 @@ export default async function ApprovalsPage() {
             tasks={tasks}
             heading={viewer.role === "owner" ? `${ROLE_LABELS.staff} tasks` : "Tasks to check"}
           />
+          {items.length > 0 ? <ItemApprovalGroup items={items} /> : null}
         </div>
       )}
     </>

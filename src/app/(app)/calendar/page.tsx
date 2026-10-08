@@ -14,6 +14,7 @@ import {
   whoFreeLine,
   whoIsFree,
 } from "@/modules/calendar";
+import { listItemRows } from "@/modules/client-work";
 import { listClientLabels } from "@/modules/clients";
 import { listLeaveBetween } from "@/modules/leave";
 import { getSettings, listHolidays } from "@/modules/settings";
@@ -40,7 +41,9 @@ export const metadata: Metadata = { title: "Calendar" };
  * everyone else as Busy and "On leave", the Owner everything. One read serves every view: the
  * month grid of the address's day (the phone's month and week, the laptop's Day, Week and Month);
  * the Due list reads only the open tasks due in it (6B review later item (f)). The Owner and Admins
- * get each day's "Who's free" and "+ New task on <day>"; Crew "Suggest a task".
+ * get each day's "Who's free" and "+ New task on <day>"; Crew "Suggest a task". Since 7.3 the
+ * Owner and the client's Admin also see client items on their planned day (kickoff 7 decision 21:
+ * in the due counts and a "Client items · N" list, never a strip; never Crew).
  */
 export default async function CalendarPage({
   searchParams,
@@ -57,7 +60,10 @@ export default async function CalendarPage({
   });
   const creates = can(viewer.role, "tasks.create");
   const suggests = !creates && can(viewer.role, "task_requests.create");
-  const [events, open, holidays, settings, directory, types, labels, leave, availability] =
+  // Client items' planned dates (kickoff 7 decision 21): the Owner's and the client's Admin's (RLS:
+  // an Admin their clients'), never Crew's; open and done ones only.
+  const readsItems = scope !== "staff" && can(viewer.role, "items.tick");
+  const [events, open, holidays, settings, directory, types, labels, leave, availability, items] =
     await Promise.all([
       listEventTasks(range.from, range.to),
       listOpenTaskRowsDueBetween(
@@ -74,6 +80,9 @@ export default async function CalendarPage({
       // An Admin's view of everyone else; the person filter keeps it to one person, but "Who's
       // free" is over everyone they can see, so it reads everyone.
       scope === "admin" ? listAvailability(range.from, range.to, null) : Promise.resolve(null),
+      readsItems
+        ? listItemRows({ states: ["open", "done"], plannedFrom: range.from, plannedTo: range.to })
+        : Promise.resolve([]),
     ]);
   const people = directory.map((member) => ({
     id: member.id,
@@ -117,6 +126,22 @@ export default async function CalendarPage({
     availability: availability
       ? availability.filter((row) => query.person === null || row.memberId === query.person)
       : null,
+    clientItems: items.flatMap((item) =>
+      item.plannedDate && (item.state === "open" || item.state === "done")
+        ? [
+            {
+              id: item.id,
+              title: item.title,
+              state: item.state,
+              plannedDate: item.plannedDate,
+              projectName: item.projectName,
+              clientId: item.clientId,
+              clientName: item.clientName,
+              href: `/clients/${item.clientId}/projects/${item.projectId}?cycle=${item.cycleId}&item=${item.id}`,
+            },
+          ]
+        : [],
+    ),
   });
 
   // "Who's free" (decision 25 D): the Owner and Admins, over the active people they can see (never
