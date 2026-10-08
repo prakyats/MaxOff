@@ -3,13 +3,21 @@ import { formatIST, istDayStart, type ISODate } from "@/core/time";
 import type { CalendarDay, EventItem } from "./calendar";
 
 /**
- * What a day's box in the month shows (6.4b; Kickoff 6 decision 25 C): Samsung-style strips, at
- * most `MAX_STRIPS` then "+N", in this priority: the holiday (green, its name) › the events (the
- * task type's colour, the title; shoots and site visits before meetings, as the Owner orders the
- * types) › others' events for an Admin (grey, dotted, "Ravi busy") › leave (grey, "Asha off",
- * "Asha ½", or "2 off"). Due tasks get no strip: a small amber "3 due" in the corner, or a red
- * "1 overdue" on a past day. Strips are never red. On a phone's compact month each kind present
- * is one thin bar with no text (`compactBars`). Pure (ADR-0011): the views draw what this says.
+ * What a day's box in the month shows (6.4b; Kickoff 6 decision 25 C, **amended by the owner
+ * 2026-10-08**: the box's limited space goes first to what the Owner and Admins act on). At most
+ * `MAX_STRIPS` lines, then "+N" for the rest, in this priority:
+ * 1. the events: shoots, site visits and meetings (the task type's colour, the title), in the
+ *    Owner's order of the types;
+ * 2. the tasks: one compact count, red for a past day's open tasks (overdue), else amber "3 due";
+ * 3. the holiday: a thin green strip with its name (cut for space, the date number turns green);
+ * 4. others' events, an Admin's view (grey, dotted, "Ravi busy", decision 13);
+ * 5. leave, last and at most one line a day: a thin low-contrast bar along the bottom of the box,
+ *    continuous across consecutive leave days of a week row, with the first name ("Asha") for one
+ *    person and "2 off" for several. It is the first thing cut when the box is full, and "+N"
+ *    counts it. Who, which type and a half day are in the day's detail only.
+ * Strips are never red (the overdue count is a count, not a strip). On a phone's compact month
+ * each kind present is one thin bar with no text (`compactBars`). Every label is one line,
+ * ellipsised by the view. Pure (ADR-0011): the views draw what this says.
  */
 
 export const MAX_STRIPS = 3;
@@ -18,7 +26,6 @@ export const MAX_STRIPS = 3;
 export const HOLIDAY_COLOR = "#16a34a";
 
 export type Strip =
-  | { kind: "holiday"; key: string; label: string }
   | {
       kind: "event";
       key: string;
@@ -30,10 +37,27 @@ export type Strip =
       completed: boolean;
       taskId: string;
     }
+  | { kind: "tasks"; key: string; tone: "due" | "overdue"; count: number; label: string }
+  | { kind: "holiday"; key: string; label: string }
   | { kind: "busy"; key: string; label: string }
-  | { kind: "leave"; key: string; label: string; pending: boolean };
+  | {
+      kind: "leave";
+      key: string;
+      /** "Asha" or "2 off": the bar's text. */
+      label: string;
+      /** "Asha off", "Asha off, half day", "2 off": what a screen reader hears. */
+      spoken: string;
+      pending: boolean;
+    };
 
-export type DayStrips = { strips: Strip[]; more: number };
+export type DayStrips = {
+  /** The lines the box shows, in priority order (the leave bar, when shown, is the last). */
+  strips: Strip[];
+  /** How many were cut for space ("+N"), leave included. */
+  more: number;
+  /** The day has a holiday its box had no room for: the date number turns green. */
+  holidayHidden: boolean;
+};
 
 /** An event's place among the strips: its type's rank, then its start (all-day first), then title. */
 function eventOrder(a: EventItem, b: EventItem): number {
@@ -58,13 +82,49 @@ function firstName(name: string): string {
   return name.split(/\s+/)[0] ?? name;
 }
 
+export type DueBadge = { tone: "due" | "overdue"; count: number; label: string };
+
 /**
- * Every strip a day could show, in priority order (before the cut): the holiday, the events, one
- * "busy" per other person (an Admin's view, decision 13), then one leave strip.
+ * The tasks' count: the open tasks due that day, "3 due" in amber; on a past day they are overdue,
+ * "1 overdue" in red. Nothing when none is due.
  */
-export function allStrips(day: CalendarDay): Strip[] {
+export function dueBadge(day: CalendarDay, today: ISODate): DueBadge | null {
+  const count = day.due.length;
+  if (count === 0) return null;
+  return day.date < today
+    ? { tone: "overdue", count, label: `${count} overdue` }
+    : { tone: "due", count, label: `${count} due` };
+}
+
+/** The day's leave as one line: the first name for one person, "N off" for several. */
+export function leaveLine(day: CalendarDay): Extract<Strip, { kind: "leave" }> | null {
+  const off = new Map<string, (typeof day.leave)[number]>();
+  for (const item of day.leave) if (!off.has(item.memberId)) off.set(item.memberId, item);
+  const people = [...off.values()];
+  const [only] = people;
+  if (!only) return null;
+  if (people.length === 1) {
+    const who = only.own ? "You" : firstName(only.name);
+    return {
+      kind: "leave",
+      key: "leave",
+      label: who,
+      spoken: only.half ? `${who} off, half day` : `${who} off`,
+      pending: only.pending,
+    };
+  }
+  return {
+    kind: "leave",
+    key: "leave",
+    label: `${people.length} off`,
+    spoken: `${people.length} off`,
+    pending: people.every((item) => item.pending),
+  };
+}
+
+/** Every line a day could show, in priority order (before the cut). */
+export function allStrips(day: CalendarDay, today: ISODate): Strip[] {
   const strips: Strip[] = [];
-  if (day.holiday) strips.push({ kind: "holiday", key: "holiday", label: day.holiday });
   for (const event of [...day.events].sort(eventOrder)) {
     strips.push({
       kind: "event",
@@ -76,86 +136,56 @@ export function allStrips(day: CalendarDay): Strip[] {
       taskId: event.id,
     });
   }
+  const badge = dueBadge(day, today);
+  if (badge) strips.push({ kind: "tasks", key: "tasks", ...badge });
+  if (day.holiday) strips.push({ kind: "holiday", key: "holiday", label: day.holiday });
   const busy = new Map<string, string>();
   for (const block of day.busy) busy.set(block.memberId, block.name);
   for (const [memberId, name] of busy) {
     strips.push({ kind: "busy", key: `busy-${memberId}`, label: `${firstName(name)} busy` });
   }
-  const off = new Map<string, (typeof day.leave)[number]>();
-  for (const item of day.leave) if (!off.has(item.memberId)) off.set(item.memberId, item);
-  const people = [...off.values()];
-  if (people.length === 1) {
-    const [only] = people;
-    if (only) {
-      const who = only.own ? "You" : firstName(only.name);
-      strips.push({
-        kind: "leave",
-        key: "leave",
-        label: only.half ? `${who} ½` : `${who} off`,
-        pending: only.pending,
-      });
-    }
-  } else if (people.length > 1) {
-    strips.push({
-      kind: "leave",
-      key: "leave",
-      label: `${people.length} off`,
-      pending: people.every((item) => item.pending),
-    });
-  }
+  const leave = leaveLine(day);
+  if (leave) strips.push(leave);
   return strips;
 }
 
-/** The strips a day's box shows: at most `max`, then "+N" for the rest. */
-export function dayStrips(day: CalendarDay, max = MAX_STRIPS): DayStrips {
-  const strips = allStrips(day);
-  if (strips.length <= max) return { strips, more: 0 };
-  return { strips: strips.slice(0, max), more: strips.length - max };
+/** The lines a day's box shows: at most `max`, then "+N" for the rest (leave cut first). */
+export function dayStrips(day: CalendarDay, today: ISODate, max = MAX_STRIPS): DayStrips {
+  const strips = allStrips(day, today);
+  const shown = strips.length <= max ? strips : strips.slice(0, max);
+  return {
+    strips: shown,
+    more: strips.length - shown.length,
+    holidayHidden: day.holiday !== null && !shown.some((strip) => strip.kind === "holiday"),
+  };
 }
 
-export type DueBadge = { tone: "due" | "overdue"; count: number; label: string };
-
-/**
- * The corner count (decision 25 C): the open tasks due that day, "3 due" in amber; on a past day
- * they are overdue, "1 overdue" in red. Nothing when none is due.
- */
-export function dueBadge(day: CalendarDay, today: ISODate): DueBadge | null {
-  const count = day.due.length;
-  if (count === 0) return null;
-  return day.date < today
-    ? { tone: "overdue", count, label: `${count} overdue` }
-    : { tone: "due", count, label: `${count} due` };
-}
-
-export type Bar = { kind: Strip["kind"]; color: string | null };
+export type Bar = { kind: "event" | "holiday" | "busy" | "leave"; color: string | null };
 
 /**
  * The compact month's bars (decision 25 A 2): one thin bar per kind present, no text, in the
- * strips' priority; an event bar takes the first event's colour. Grey kinds carry no colour.
+ * strips' priority (the tasks are the box's dot); an event bar takes the first event's colour.
+ * Grey kinds carry no colour.
  */
 export function compactBars(day: CalendarDay): Bar[] {
   const bars: Bar[] = [];
-  const strips = allStrips(day);
-  for (const kind of ["holiday", "event", "busy", "leave"] as const) {
-    const first = strips.find((strip) => strip.kind === kind);
-    if (!first) continue;
-    bars.push({
-      kind,
-      color: first.kind === "holiday" ? HOLIDAY_COLOR : first.kind === "event" ? first.color : null,
-    });
-  }
+  const events = [...day.events].sort(eventOrder);
+  if (events[0]) bars.push({ kind: "event", color: events[0].color });
+  if (day.holiday) bars.push({ kind: "holiday", color: HOLIDAY_COLOR });
+  if (day.busy.length > 0) bars.push({ kind: "busy", color: null });
+  if (day.leave.length > 0) bars.push({ kind: "leave", color: null });
   return bars;
 }
 
-/** What a day's box says to a screen reader: the date, then each thing on it, then the count. */
+/** What a day's box says to a screen reader: the date, then each thing on it. */
 export function dayLabel(day: CalendarDay, today: ISODate): string {
   const parts = [formatIST(istDayStart(day.date), "EEEE d MMMM")];
   if (day.date === today) parts.push("today");
   if (day.weeklyOff) parts.push("weekly off");
-  for (const strip of allStrips(day)) {
-    parts.push(strip.kind === "leave" && strip.pending ? `${strip.label}, requested` : strip.label);
+  for (const strip of allStrips(day, today)) {
+    if (strip.kind === "leave")
+      parts.push(strip.pending ? `${strip.spoken}, requested` : strip.spoken);
+    else parts.push(strip.label);
   }
-  const badge = dueBadge(day, today);
-  if (badge) parts.push(badge.label);
   return parts.join(", ");
 }

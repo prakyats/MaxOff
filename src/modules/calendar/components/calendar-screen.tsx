@@ -249,7 +249,7 @@ export function CalendarScreen({
       <div
         data-slot="calendar-phone"
         data-size={size}
-        className="flex min-w-0 flex-col gap-2 md:hidden"
+        className="flex min-w-0 flex-col gap-1 md:hidden"
       >
         <div data-slot="calendar-header" className="flex min-w-0 flex-wrap items-center gap-1">
           <button
@@ -264,9 +264,11 @@ export function CalendarScreen({
           <h2
             data-slot="calendar-month-label"
             aria-live="polite"
-            className="min-w-0 flex-1 text-base font-semibold"
+            aria-label={monthLabel(monthOf(selected))}
+            // One line, the short month ("Oct 2026"), so the header stays one compact row.
+            className="flex-1 text-base font-semibold whitespace-nowrap"
           >
-            {monthLabel(monthOf(selected))}
+            {formatIST(istDayStart(monthOf(selected)), "MMM yyyy")}
           </h2>
           <button
             type="button"
@@ -440,7 +442,7 @@ export function CalendarScreen({
             <h2
               data-slot="calendar-pager-label"
               aria-live="polite"
-              className="ml-1 text-base font-semibold"
+              className="ml-1 text-base font-semibold whitespace-nowrap"
             >
               {laptopLabel}
             </h2>

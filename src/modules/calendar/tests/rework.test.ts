@@ -91,40 +91,65 @@ const busy = (memberId: string, name: string, from: string, to: string) => ({
   endAt: istInstant(TODAY, to),
 });
 
-describe("the month's strips (decision 25 C)", () => {
-  it("orders holiday › events (shoots before meetings) › others busy › leave, at most three then +N", () => {
+describe("the month's strips (decision 25 C, amended by the owner 2026-10-08)", () => {
+  const dueOn = (date: string) => [
+    {
+      kind: "due" as const,
+      id: `t-${date}`,
+      title: "Edit",
+      dueAt: istInstant(date, "18:00"),
+      owner: "Ravi",
+    },
+  ];
+
+  it("orders events › the tasks' count › holiday › others busy › one leave line, at most three then +N", () => {
     const full = day({
       holiday: "Dussehra",
       events: [
         event("meet", { title: "Client call", rank: 2, color: VIOLET }),
         event("shoot", { title: "Brand reel", rank: 1 }),
       ],
+      due: dueOn(TODAY),
       busy: [busy("r", "Ravi Kumar", "09:00", "10:00"), busy("r", "Ravi Kumar", "14:00", "15:00")],
-      leave: [off("a", "Asha Rao")],
+      leave: [off("a", "Asha Rao"), off("b", "Meera N")],
     });
-    expect(allStrips(full).map((strip) => `${strip.kind}:${strip.label}`)).toEqual([
-      "holiday:Dussehra",
+    expect(allStrips(full, TODAY).map((strip) => `${strip.kind}:${strip.label}`)).toEqual([
       "event:Brand reel",
       "event:Client call",
+      "tasks:1 due",
+      "holiday:Dussehra",
       "busy:Ravi busy",
-      "leave:Asha off",
+      "leave:2 off",
     ]);
-    const shown = dayStrips(full);
-    expect(shown.strips.map((strip) => strip.kind)).toEqual(["holiday", "event", "event"]);
-    expect(shown.more).toBe(2);
-    expect(dayStrips(day({ events: [event("x")] }))).toMatchObject({ more: 0 });
+    // The box keeps what the Owner acts on: leave is cut first and "+N" counts it; a holiday cut
+    // for space turns the date number green.
+    const shown = dayStrips(full, TODAY);
+    expect(shown.strips.map((strip) => strip.kind)).toEqual(["event", "event", "tasks"]);
+    expect(shown.more).toBe(3);
+    expect(shown.holidayHidden).toBe(true);
+    expect(dayStrips(day({ holiday: "Diwali", leave: [off("a", "Asha")] }), TODAY)).toEqual({
+      strips: [
+        { kind: "holiday", key: "holiday", label: "Diwali" },
+        { kind: "leave", key: "leave", label: "Asha", spoken: "Asha off", pending: false },
+      ],
+      more: 0,
+      holidayHidden: false,
+    });
   });
 
-  it("names leave: one person off or ½, several as a count, the viewer as You, a request marked", () => {
-    expect(allStrips(day({ leave: [off("a", "Asha Rao", { half: true })] }))).toEqual([
-      { kind: "leave", key: "leave", label: "Asha ½", pending: false },
+  it("gives leave one line a day: the first name for one person, a count for several", () => {
+    expect(allStrips(day({ leave: [off("a", "Asha Rao", { half: true })] }), TODAY)).toEqual([
+      { kind: "leave", key: "leave", label: "Asha", spoken: "Asha off, half day", pending: false },
     ]);
-    expect(allStrips(day({ leave: [off("a", "Asha"), off("b", "Ravi")] }))).toEqual([
-      { kind: "leave", key: "leave", label: "2 off", pending: false },
-    ]);
-    expect(allStrips(day({ leave: [off("m", "Me", { own: true, pending: true })] }))).toEqual([
-      { kind: "leave", key: "leave", label: "You off", pending: true },
-    ]);
+    expect(
+      allStrips(
+        day({ leave: [off("a", "Asha"), off("b", "Ravi"), off("a", "Asha", { half: true })] }),
+        TODAY,
+      ),
+    ).toEqual([{ kind: "leave", key: "leave", label: "2 off", spoken: "2 off", pending: false }]);
+    expect(
+      allStrips(day({ leave: [off("m", "Me", { own: true, pending: true })] }), TODAY),
+    ).toEqual([{ kind: "leave", key: "leave", label: "You", spoken: "You off", pending: true }]);
   });
 
   it("puts the time and the client on a laptop's strip; never a red colour of its own", () => {
@@ -132,32 +157,27 @@ describe("the month's strips (decision 25 C)", () => {
       "10:00 Brand reel · Acme",
     );
     expect(eventStripText(event("e", { title: "Posting", startAt: null }))).toBe("Posting");
-    for (const strip of allStrips(day({ holiday: "Diwali", events: [event("e")] }))) {
+    for (const strip of allStrips(day({ holiday: "Diwali", events: [event("e")] }), TODAY)) {
       if (strip.kind === "event") expect(strip.color).toBe(BLUE);
     }
     expect(HOLIDAY_COLOR).toBe("#16a34a");
   });
 
-  it("counts due tasks in the corner: amber due, red overdue on a past day, nothing when none", () => {
-    const due = [
-      {
-        kind: "due" as const,
-        id: "t",
-        title: "Edit",
-        dueAt: istInstant(TODAY, "18:00"),
-        owner: "Ravi",
-      },
-    ];
-    expect(dueBadge(day({ due }), TODAY)).toEqual({ tone: "due", count: 1, label: "1 due" });
-    expect(dueBadge(day({ date: "2026-10-07", due }), TODAY)).toEqual({
-      tone: "overdue",
+  it("counts the tasks: amber due, red overdue on a past day, nothing when none", () => {
+    expect(dueBadge(day({ due: dueOn(TODAY) }), TODAY)).toEqual({
+      tone: "due",
       count: 1,
-      label: "1 overdue",
+      label: "1 due",
     });
+    const past = day({ date: "2026-10-07", due: dueOn("2026-10-07") });
+    expect(dueBadge(past, TODAY)).toEqual({ tone: "overdue", count: 1, label: "1 overdue" });
+    expect(allStrips(past, TODAY)).toEqual([
+      { kind: "tasks", key: "tasks", tone: "overdue", count: 1, label: "1 overdue" },
+    ]);
     expect(dueBadge(day(), TODAY)).toBeNull();
   });
 
-  it("draws the compact month as one bar per kind present, no text", () => {
+  it("draws the compact month as one bar per kind present, no text, in the strips' order", () => {
     expect(
       compactBars(
         day({
@@ -167,8 +187,8 @@ describe("the month's strips (decision 25 C)", () => {
         }),
       ),
     ).toEqual([
-      { kind: "holiday", color: HOLIDAY_COLOR },
       { kind: "event", color: BLUE },
+      { kind: "holiday", color: HOLIDAY_COLOR },
       { kind: "leave", color: null },
     ]);
     expect(compactBars(day())).toEqual([]);
@@ -225,7 +245,7 @@ describe("who's free (decision 25 D)", () => {
       onLeave: ["Meera (½)"],
     });
     expect(whoFreeLine(who!)).toBe(
-      "Free: Asha · Busy 10–1: Kiran, Zoya (freelancer) · Busy 2:30–3:30: Ravi · On leave: Meera (½)",
+      "Who's free: Asha · Busy 10–1: Kiran, Zoya (freelancer) · Busy 2:30–3:30: Ravi · On leave: Meera (½)",
     );
   });
 
@@ -272,7 +292,12 @@ describe("who's free (decision 25 D)", () => {
         availability: null,
       }),
     ).toBeNull();
-    expect(whoFreeLine({ free: [], busy: [], onLeave: [] })).toBe("Nobody to show.");
+    expect(whoFreeLine({ free: ["Asha", "Ravi"], busy: [], onLeave: [] })).toBe(
+      "Who's free: Asha, Ravi",
+    );
+    expect(
+      whoFreeLine({ free: [], busy: [{ when: "all day", names: ["Kiran"] }], onLeave: [] }),
+    ).toBe("Who's free: nobody · Busy all day: Kiran");
     expect(busyWindow({ startAt: istInstant(TODAY, "09:15"), endAt: null })).toBe("9:15–10:15");
   });
 });

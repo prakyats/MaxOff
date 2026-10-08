@@ -116,11 +116,14 @@ export function whoIsFree(input: {
   };
 }
 
-/** "Free: Asha, Ravi · Busy 10–1: Kiran · On leave: Meera (½)", leaving out what is empty. */
+/**
+ * "Who's free: Asha, Ravi · Busy 10–1: Kiran · On leave: Meera (½)" (the owner's preview review,
+ * 2026-10-08: no repeated "Free"); "Busy …" and "On leave …" only when there are any; "nobody"
+ * when everyone is busy or away.
+ */
 export function whoFreeLine(who: WhoFree): string {
-  const parts: string[] = [];
-  if (who.free.length > 0) parts.push(`Free: ${who.free.join(", ")}`);
+  const parts = [`Who's free: ${who.free.length > 0 ? who.free.join(", ") : "nobody"}`];
   for (const group of who.busy) parts.push(`Busy ${group.when}: ${group.names.join(", ")}`);
   if (who.onLeave.length > 0) parts.push(`On leave: ${who.onLeave.join(", ")}`);
-  return parts.length > 0 ? parts.join(" · ") : "Nobody to show.";
+  return parts.join(" · ");
 }

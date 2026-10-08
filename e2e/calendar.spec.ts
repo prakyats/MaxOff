@@ -144,9 +144,25 @@ test.describe("the calendar, as Crew", () => {
         "compact",
       );
       await expect(dayBox(page, todayIST())).toHaveAttribute("data-selected", "");
-      await expect(page.locator('[data-slot="calendar-month-label"]')).toHaveText(
+      // The header is one compact row: the short month on one line ("Oct 2026", the owner's
+      // review), the full name for a screen reader.
+      const label = page.locator('[data-slot="calendar-month-label"]');
+      await expect(label).toHaveText(formatIST(istDayStart(todayIST()), "MMM yyyy"));
+      await expect(label).toHaveAttribute(
+        "aria-label",
         formatIST(istDayStart(todayIST()), "MMMM yyyy"),
       );
+      // Every item's middle on the same line: the header did not wrap.
+      const spread = await page
+        .locator('[data-slot="calendar-header"] > *')
+        .evaluateAll((items) => {
+          const middles = items.map((item) => {
+            const box = item.getBoundingClientRect();
+            return box.top + box.height / 2;
+          });
+          return Math.max(...middles) - Math.min(...middles);
+        });
+      expect(spread, "the header is one row").toBeLessThan(4);
     } else {
       // The laptop opens on Month; a day opens in the dialog.
       await expect(page.locator('[data-slot="calendar-laptop"]')).toHaveAttribute(
@@ -254,7 +270,7 @@ test.describe("the calendar, as Crew", () => {
 
     // A sideways drag moves a month; Today comes back.
     const label = page.locator('[data-slot="calendar-month-label"]');
-    const thisMonth = formatIST(istDayStart(todayIST()), "MMMM yyyy");
+    const thisMonth = formatIST(istDayStart(todayIST()), "MMM yyyy");
     await page.locator('[data-slot="calendar-next"]').click();
     await expect(label).not.toHaveText(thisMonth);
     await page.locator('[data-slot="calendar-today"]').click();
@@ -338,7 +354,9 @@ test.describe("the calendar, as an Admin", () => {
     await expect(calendar(page)).not.toContainText("Studio B");
     // "Who's free" over the people the Admin can see (decision 25 D).
     const free = detail(page).locator('[data-slot="calendar-who-free"]');
-    await expect(free).toContainText("Who's free");
+    // "Who's free: …" once, then "Busy …" only when someone is (the owner's review).
+    await expect(free).toContainText(/^Who's free: /);
+    await expect(free).not.toContainText("Free:");
     await expect(free).toContainText(/Busy [^:]*10[^:]*: [^·]*Local Staff/);
     // An Admin creates tasks: the pill, not "Suggest a task".
     await expect(detail(page).locator('[data-slot="new-task-on-day"]')).toBeVisible();

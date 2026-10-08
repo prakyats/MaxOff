@@ -11,17 +11,17 @@ import { Skeleton } from "@/core/ui/primitives/skeleton";
  */
 export function CalendarSkeleton({ weeks }: { weeks: number }) {
   const grid = (density: "compact" | "laptop") => (
-    <div data-slot="calendar-month" className="flex min-h-0 min-w-0 flex-col gap-1">
-      <ol className="grid grid-cols-7 gap-1">
+    <div data-slot="calendar-month" className="flex min-h-0 min-w-0 flex-col gap-0.5">
+      <ol className="grid grid-cols-7 gap-0.5">
         {Array.from({ length: 7 }, (_, index) => (
           <li key={index} className="flex h-4 items-center justify-center">
             <Skeleton className="h-2.5 w-2.5" />
           </li>
         ))}
       </ol>
-      <div className="grid min-h-0 flex-1 gap-1">
+      <div className="grid min-h-0 flex-1 gap-0.5">
         {Array.from({ length: weeks }, (_, row) => (
-          <ol key={row} className="grid min-h-0 grid-cols-7 gap-1">
+          <ol key={row} className="grid min-h-0 grid-cols-7 gap-0.5">
             {Array.from({ length: 7 }, (_, day) => (
               <li key={day} className="flex min-h-0 min-w-0">
                 <span
@@ -30,7 +30,12 @@ export function CalendarSkeleton({ weeks }: { weeks: number }) {
                     density === "compact" ? "min-h-11" : "min-h-28 p-1",
                   )}
                 >
-                  <span className="flex size-6 items-center justify-center">
+                  <span
+                    className={cn(
+                      "flex items-center justify-center",
+                      density === "compact" ? "size-5" : "size-6",
+                    )}
+                  >
                     <Skeleton className="h-3 w-3" />
                   </span>
                 </span>
@@ -43,7 +48,7 @@ export function CalendarSkeleton({ weeks }: { weeks: number }) {
   );
   return (
     <div className="flex min-w-0 flex-col gap-3">
-      <div className="flex min-w-0 flex-col gap-2 md:hidden">
+      <div className="flex min-w-0 flex-col gap-1 md:hidden">
         <div data-slot="calendar-header" className="flex min-w-0 flex-wrap items-center gap-1">
           <span className="flex size-11 shrink-0 items-center justify-center">
             <Skeleton className="size-4 rounded-sm" />

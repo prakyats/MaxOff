@@ -250,18 +250,38 @@ const LARGE_TEXT_SCREENS = {
 /** The narrowest an ellipsis may cut a line to and still say what it is. */
 const MIN_TRUNCATED_WIDTH = 64;
 
+/**
+ * A cut-short line keeps `MIN_TRUNCATED_WIDTH`. **Except inside a calendar day's box** (6.4b; the
+ * owner's preview review, 2026-10-08): a box is a seventh of the phone's width, and every strip,
+ * count and leave bar in it is one line ellipsised by design; there a cut-short line must still
+ * show a character beside its ellipsis (at least its own font size wide) and never reach past the
+ * box it sits in.
+ */
 async function expectReadableTruncation(page: Page): Promise<void> {
   const squeezed = await page.evaluate(
     (min) =>
       [...document.querySelectorAll<HTMLElement>("body *")]
         .filter((el) => {
           const style = getComputedStyle(el);
-          return (
-            style.textOverflow === "ellipsis" &&
-            el.scrollWidth > el.clientWidth + 1 &&
-            el.clientWidth > 1 &&
-            el.clientWidth < min
-          );
+          if (
+            style.textOverflow !== "ellipsis" ||
+            el.scrollWidth <= el.clientWidth + 1 ||
+            el.clientWidth <= 1
+          ) {
+            return false;
+          }
+          const box = el.closest<HTMLElement>('[data-slot="calendar-day"]');
+          if (box) {
+            const inside = el.getBoundingClientRect();
+            const outer = box.getBoundingClientRect();
+            const sideways = el.dataset.slot === "calendar-leave-bar" ? 8 : 1;
+            return (
+              el.clientWidth < parseFloat(style.fontSize) ||
+              inside.left < outer.left - sideways ||
+              inside.right > outer.right + sideways
+            );
+          }
+          return el.clientWidth < min;
         })
         .slice(0, 5)
         .map((el) => `"${el.textContent?.trim().slice(0, 24)}" ${el.clientWidth}px`),

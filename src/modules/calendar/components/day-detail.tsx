@@ -45,6 +45,11 @@ export const eventLink: TimelineEventLink = (event, children, className, style) 
   </OverlayLink>
 );
 
+/** "Asha" for "Asha Rao (freelancer)": a chip is one short line. */
+function firstName(name: string): string {
+  return name.split(/\s+/)[0] ?? name;
+}
+
 function Chip({
   slot,
   children,
@@ -60,7 +65,8 @@ function Chip({
     <span
       data-slot={slot}
       className={cn(
-        "inline-flex max-w-full min-w-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-xs leading-4 break-words",
+        // One line, ellipsised when it does not fit (the owner's review, 2026-10-08).
+        "inline-flex max-w-full min-w-0 items-center gap-1 overflow-hidden rounded-md px-1.5 py-0.5 text-xs leading-4 whitespace-nowrap",
         className,
       )}
       style={style}
@@ -94,7 +100,7 @@ export function AllDayChips({
           className="border-l-2"
           style={{ backgroundColor: `${HOLIDAY_COLOR}26`, borderLeftColor: HOLIDAY_COLOR }}
         >
-          {day.holiday}
+          <span className="min-w-0 truncate">{day.holiday}</span>
         </Chip>
       ) : null}
       {day.weeklyOff ? (
@@ -112,8 +118,8 @@ export function AllDayChips({
           )}
         >
           <PalmtreeIcon className="size-3 shrink-0" aria-hidden />
-          <span data-member={item.memberId}>
-            {item.own ? "You" : item.name} · {item.label}
+          <span data-member={item.memberId} className="min-w-0 truncate">
+            {item.own ? "You" : firstName(item.name)} · {item.label}
             {item.pending ? " · requested" : ""}
           </span>
         </Chip>
@@ -128,7 +134,7 @@ export function AllDayChips({
             ) : null}
           </>,
           cn(
-            "block rounded-md border-l-4 px-1.5 py-0.5 text-xs leading-4",
+            "block max-w-full truncate rounded-md border-l-4 px-1.5 py-0.5 text-xs leading-4",
             event.completed && "opacity-60",
           ),
           { backgroundColor: `${event.color}26`, borderLeftColor: event.color },
@@ -344,9 +350,8 @@ export function DayDetail({
         </section>
       ) : null}
       {free !== null && scope !== "staff" ? (
-        <p data-slot="calendar-who-free" className="text-sm break-words">
-          <span className="font-medium">Who&apos;s free</span>
-          <span className="text-muted-foreground"> · {free}</span>
+        <p data-slot="calendar-who-free" className="text-muted-foreground text-sm break-words">
+          {free}
         </p>
       ) : null}
       {action || footer ? (
