@@ -78,6 +78,11 @@ const open: OpenOverlay[] = [];
 let pushedCount = 0;
 let reconcileQueued = false;
 let listening = false;
+/**
+ * True from a `history.back()` this module started until the next popstate: a traversal is in
+ * flight, so `whenOnPageEntry` must not start a second one.
+ */
+let backPending = false;
 let nextId = 0;
 
 function historyState(): Record<string, unknown> {
@@ -124,6 +129,7 @@ function reconcile(): void {
  * after anything unexpected — a reload, a navigation, a back press we did not cause.
  */
 function onPopState(): void {
+  backPending = false;
   if (open.length > 0) {
     // Backing out of a live overlay: close the topmost one and leave the rest alone.
     const top = open.pop();
@@ -135,6 +141,7 @@ function onPopState(): void {
   if (historyState()[MARKER] !== undefined) {
     // A spent entry from an overlay that was dismissed some other way. Nothing to show here, so
     // keep going rather than making the press look ignored.
+    backPending = true;
     window.history.back();
     return;
   }
@@ -244,10 +251,81 @@ export function createCloseOverlaysThen(env: CloseThenEnv): (fn: () => void) => 
 export const closeOverlaysThen = createCloseOverlaysThen({
   ownsTopEntry: () =>
     typeof window !== "undefined" && pushedCount > 0 && historyState()[MARKER] !== undefined,
-  back: () => window.history.back(),
+  back: () => {
+    backPending = true;
+    window.history.back();
+  },
   onNextPopState: (callback) => {
     const listener = () => callback();
     window.addEventListener("popstate", listener, { once: true });
+    return () => window.removeEventListener("popstate", listener);
+  },
+});
+
+/**
+ * Whether any overlay (a dialog, a sheet, a menu, a select's list) is open: a page's keyboard
+ * shortcuts stay quiet while one is (the laptop calendar's).
+ */
+export function hasOpenOverlay(): boolean {
+  return open.length > 0;
+}
+
+/** The browser side of `whenOnPageEntry`, injectable so the logic is unit-tested. */
+export interface PageEntryEnv {
+  /** True when the current history entry is the page's own: it carries no overlay marker. */
+  onPageEntry: () => boolean;
+  /** True while a `history.back()` started here has not yet landed. */
+  backPending: () => boolean;
+  back: () => void;
+  /** Calls `callback` on every popstate until the returned unsubscribe is called. */
+  onPopState: (callback: () => void) => () => void;
+}
+
+/**
+ * Runs `fn` once history has landed on the **page's own entry** (no overlay marker), for a
+ * caller that rewrites the page's address after its overlays closed (the calendar's filters
+ * and "Open day", ARCHITECTURE §14.2 d).
+ *
+ * `closeOverlaysThen` backs out the top entry only. An overlay that opened another one over it
+ * (a select's sheet inside the filters sheet) leaves spent entries below, and `onPopState`
+ * steps over them one popstate at a time. A `router.replace` that ran before the last step
+ * landed was undone by it: Next restored the page entry's old address (the filters were lost).
+ * So this waits, popstate by popstate, until the current entry is unmarked; it steps back itself
+ * only when no traversal is in flight (never two at once, never on a timer). `fn` runs once.
+ * Use it with every overlay closed: a marked entry here is spent, never a live layer.
+ */
+export function createWhenOnPageEntry(env: PageEntryEnv): (fn: () => void) => void {
+  return (fn) => {
+    if (env.onPageEntry()) {
+      fn();
+      return;
+    }
+    const step = () => {
+      if (!env.backPending()) env.back();
+    };
+    const unsubscribe = env.onPopState(() => {
+      if (!env.onPageEntry()) {
+        step();
+        return;
+      }
+      unsubscribe();
+      fn();
+    });
+    step();
+  };
+}
+
+/** The app's instance; its listener runs after the controller's own `onPopState`. */
+export const whenOnPageEntry = createWhenOnPageEntry({
+  onPageEntry: () => typeof window === "undefined" || historyState()[MARKER] === undefined,
+  backPending: () => backPending,
+  back: () => {
+    backPending = true;
+    window.history.back();
+  },
+  onPopState: (callback) => {
+    const listener = () => callback();
+    window.addEventListener("popstate", listener);
     return () => window.removeEventListener("popstate", listener);
   },
 });

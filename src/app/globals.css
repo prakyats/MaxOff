@@ -707,3 +707,27 @@ html[data-nav-slide="forward"] [data-slot="route"] {
     }
   }
 }
+
+/* A screen that fits the viewport from `md` up (the calendar's Week and Day, the owner's laptop
+ * changes of 2026-10-08): the shell is exactly the viewport's height and `main` a column whose
+ * route fills what the page's header leaves; the screen's part marked `data-fit-viewport` grows
+ * into it (`flex-1 min-h-0`) and scrolls inside itself. The page never scrolls; the sidebar is the
+ * viewport's height already. Phones keep the page's own scroll. */
+@layer utilities {
+  @media (min-width: 768px) {
+    [data-slot="app-shell"]:has(main [data-fit-viewport]) {
+      height: 100dvh;
+    }
+    main:has([data-fit-viewport]) {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+    main:has([data-fit-viewport]) > [data-slot="route"] {
+      display: flex;
+      flex: 1 1 0%;
+      flex-direction: column;
+      min-height: 0;
+    }
+  }
+}

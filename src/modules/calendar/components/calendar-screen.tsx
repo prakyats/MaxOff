@@ -3,13 +3,26 @@
 import { ChevronLeftIcon, ChevronRightIcon, SlidersHorizontalIcon } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { type PointerEvent, type ReactNode, useMemo, useRef, useState, useTransition } from "react";
+import {
+  type PointerEvent,
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 
 import { cn } from "@/core/lib/utils";
 import { addISTDays, formatIST, istDayStart, type ISODate } from "@/core/time";
 import { ViewLink } from "@/core/ui/composites/view-link";
 import { replaceViewAddress } from "@/core/ui/navigation/view-address";
-import { closeOverlaysThen } from "@/core/ui/overlay/overlay-history";
+import {
+  closeOverlaysThen,
+  hasOpenOverlay,
+  whenOnPageEntry,
+} from "@/core/ui/overlay/overlay-history";
+import { useIsDesktop } from "@/core/ui/viewport/use-desktop";
 
 import {
   CALENDAR_VIEWS,
@@ -27,6 +40,7 @@ import {
   weekLabel,
   weekOf,
 } from "../domain/calendar";
+import { shortcutFor } from "../domain/laptop";
 import {
   type CalendarSize,
   directionOf,
@@ -69,8 +83,11 @@ const ICON_BUTTON =
  * month's name, Today (a calendar icon with today's number) and Filters.
  *
  * **Laptop** (768px and up): Day · Week · Month, opening on Month; Week and Day are hour
- * timelines; a month day, a week's heading or its "Due · N" opens the day in a dialog with "Open
- * day".
+ * timelines that fill the viewport below the page's header (no page scroll, one scroll inside:
+ * `data-fit-viewport`, globals.css), opening at 08:00 or now; a month day, a week's heading or a
+ * "Due · N" opens the day's popup (a compact agenda, "Open day"). The keyboard: ← and → move, T
+ * goes to today, D, W and M switch the view (never in a field, with a modifier key or while an
+ * overlay is open). The owner's laptop changes of 2026-10-08.
  *
  * The size, the selected day and the filters are **view state** (ARCHITECTURE §14.2 d): a day in
  * the month already read changes on the tap and writes the address by replace
@@ -116,6 +133,9 @@ export function CalendarScreen({
   const dayOf = (date: ISODate) => byDate.get(date) ?? emptyDay(date);
   const view: CalendarView = query.view ?? "month";
   const count = filterCount(query);
+  // Week and Day fit the viewport on a laptop (one scroll, inside the timeline).
+  const fit = view !== "month";
+  const desktop = useIsDesktop() === true;
 
   /** Moves the selected day: in the month read, at once; another month through the router. */
   function go(date: ISODate) {
@@ -129,26 +149,81 @@ export function CalendarScreen({
   }
 
   /**
-   * The filters as the sheet closed with them: when they changed, the address is replaced once
-   * the sheet's history entry is backed out (`closeOverlaysThen`), so the page's own entry keeps
-   * them and one back still leaves the calendar.
+   * Replaces the address once every overlay entry is backed out: the sheet's own
+   * (`closeOverlaysThen`), then any spent one under it, such as a select's sheet inside the
+   * filters (`whenOnPageEntry`). A replace that ran earlier was undone by the last step back
+   * (Next restored the page entry's old address); now the page's own entry keeps it and one
+   * back still leaves the calendar.
    */
+  function replaceOnPageEntry(href: string) {
+    closeOverlaysThen(() =>
+      whenOnPageEntry(() => {
+        // Out of the popstate's own dispatch, so Next's restore of the entry comes first.
+        window.setTimeout(() => startTransition(() => router.replace(href, { scroll: false })), 0);
+      }),
+    );
+  }
+
+  /** The filters as the sheet closed with them, applied when they changed. */
   function closeFilters(next: CalendarQuery) {
     setFiltersOpen(false);
     const href = calendarHref({ ...next, date: selected }, today);
     if (href === calendarHref({ ...query, date: selected }, today)) return;
-    closeOverlaysThen(() => {
-      window.setTimeout(() => startTransition(() => router.replace(href, { scroll: false })), 0);
-    });
+    replaceOnPageEntry(href);
   }
 
   /** "Open day" (the laptop's day dialog): the dialog backs out, then the Day view replaces. */
   function openDay(date: ISODate) {
-    const href = calendarHref({ ...query, view: "day", date }, today);
-    closeOverlaysThen(() => {
-      window.setTimeout(() => startTransition(() => router.replace(href, { scroll: false })), 0);
-    });
+    replaceOnPageEntry(calendarHref({ ...query, view: "day", date }, today));
   }
+
+  // The laptop's step follows its view: a day, a week or a month.
+  const laptopStep = (direction: -1 | 1) =>
+    view === "day"
+      ? addISTDays(selected, direction)
+      : view === "week"
+        ? addISTDays(selected, 7 * direction)
+        : stepDate(selected, 2, direction, today);
+
+  /** A view of the laptop's, as view state (replace, never history; §14.2 d). */
+  function switchView(next: CalendarView) {
+    if (next === view) return;
+    const href = calendarHref({ ...query, view: next, date: selected }, today);
+    startTransition(() => router.replace(href, { scroll: false }));
+  }
+
+  // The laptop's keyboard (the owner's 2026-10-08 changes). Read through a ref, so the listener
+  // is added once per layout and always acts on the screen as it is now.
+  const keys = useRef<(event: KeyboardEvent) => void>(() => undefined);
+  useEffect(() => {
+    keys.current = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
+      const target = event.target instanceof Element ? event.target : null;
+      const shortcut = shortcutFor({
+        key: event.key,
+        ctrlKey: event.ctrlKey,
+        metaKey: event.metaKey,
+        altKey: event.altKey,
+        shiftKey: event.shiftKey,
+        inField:
+          target?.closest(
+            'input, textarea, select, [contenteditable=""], [contenteditable="true"], [role="combobox"], [role="listbox"], [role="menu"]',
+          ) != null,
+        overlayOpen: hasOpenOverlay() || sheetDate !== null || filtersOpen,
+      });
+      if (!shortcut) return;
+      event.preventDefault();
+      if (shortcut.kind === "move") go(laptopStep(shortcut.direction));
+      else if (shortcut.kind === "today") go(today);
+      else switchView(shortcut.view);
+    };
+  });
+  useEffect(() => {
+    if (!desktop) return;
+    const listener = (event: KeyboardEvent) => keys.current(event);
+    window.addEventListener("keydown", listener);
+    return () => window.removeEventListener("keydown", listener);
+  }, [desktop]);
 
   const action = (date: ISODate) => (dayAction ? dayAction(date) : null);
   const freeOf = (date: ISODate) => (free ? (free[date] ?? null) : null);
@@ -223,13 +298,6 @@ export function CalendarScreen({
     </button>
   );
 
-  // The laptop's step follows its view: a day, a week or a month.
-  const laptopStep = (direction: -1 | 1) =>
-    view === "day"
-      ? addISTDays(selected, direction)
-      : view === "week"
-        ? addISTDays(selected, 7 * direction)
-        : stepDate(selected, 2, direction, today);
   const laptopLabel =
     view === "day"
       ? dayHeading(selected, today)
@@ -243,7 +311,11 @@ export function CalendarScreen({
       data-slot="calendar"
       data-pending={pending ? "" : undefined}
       aria-busy={pending || undefined}
-      className={cn("flex min-w-0 flex-col gap-3 transition-opacity", pending && "opacity-70")}
+      className={cn(
+        "flex min-w-0 flex-col gap-3 transition-opacity",
+        fit && "md:min-h-0 md:flex-1",
+        pending && "opacity-70",
+      )}
     >
       {/* Phone ------------------------------------------------------------------------------ */}
       <div
@@ -396,9 +468,13 @@ export function CalendarScreen({
       <div
         data-slot="calendar-laptop"
         data-view={view}
-        className="hidden min-w-0 flex-col gap-3 md:flex"
+        data-fit-viewport={fit ? "" : undefined}
+        className={cn("hidden min-w-0 flex-col gap-3 md:flex", fit && "md:min-h-0 md:flex-1")}
       >
-        <div data-slot="calendar-controls" className="flex min-w-0 flex-wrap items-center gap-3">
+        <div
+          data-slot="calendar-controls"
+          className="flex min-w-0 shrink-0 flex-wrap items-center gap-3"
+        >
           <nav
             aria-label="Calendar view"
             data-slot="calendar-view"
@@ -485,7 +561,7 @@ export function CalendarScreen({
                   data-date={day.date}
                   aria-label={dayLabel(day, today)}
                   className={cn(
-                    "pressable focus-visible:ring-ring hover:bg-muted flex w-full flex-col items-center rounded-md py-1 outline-none focus-visible:ring-2",
+                    "pressable focus-visible:ring-ring hover:bg-muted flex w-full flex-col items-center rounded-md py-1 outline-none focus-visible:ring-2 focus-visible:ring-inset",
                     day.date === today && "font-semibold",
                   )}
                 >
@@ -506,29 +582,41 @@ export function CalendarScreen({
               <AllDayChips day={day} today={today} dueAsChip onDue={() => setSheetDate(day.date)} />
             )}
             eventLink={eventLink}
+            laptop
             className="border-border rounded-lg border"
           />
         ) : (
           <div
             data-slot="calendar-day-view"
-            className="grid min-w-0 grid-cols-[minmax(0,1fr)_20rem] gap-4"
+            className="grid min-h-0 min-w-0 flex-1 grid-cols-[minmax(0,1fr)_20rem] grid-rows-[minmax(0,1fr)] gap-4"
           >
             <Timeline
               days={[dayOf(selected)]}
               today={today}
-              allDay={(day) => <AllDayChips day={day} today={today} dueAsChip />}
+              allDay={(day) => (
+                <AllDayChips
+                  day={day}
+                  today={today}
+                  dueAsChip
+                  onDue={() => setSheetDate(day.date)}
+                />
+              )}
               eventLink={eventLink}
+              laptop
               className="border-border rounded-lg border"
             />
-            <DayDetail
-              day={dayOf(selected)}
-              today={today}
-              scope={scope}
-              free={freeOf(selected)}
-              action={action(selected)}
-              timeline={false}
-              headingId="calendar-laptop-day"
-            />
+            {/* The day's side panel: the timeline's height, its own scroll when the day is full. */}
+            <div data-slot="calendar-day-side" className="min-h-0 min-w-0 overflow-y-auto">
+              <DayDetail
+                day={dayOf(selected)}
+                today={today}
+                scope={scope}
+                free={freeOf(selected)}
+                action={action(selected)}
+                timeline={false}
+                headingId="calendar-laptop-day"
+              />
+            </div>
           </div>
         )}
       </div>

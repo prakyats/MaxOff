@@ -297,14 +297,18 @@ export function ThresholdsForm({ thresholds }: { thresholds: Thresholds }) {
             >
               <SelectTrigger
                 id={control.id}
-                className="max-w-60"
+                className="w-full max-w-60"
                 aria-describedby={control["aria-describedby"]}
                 aria-invalid={control["aria-invalid"]}
                 // Not `data-slot`: the trigger's own `data-slot="select-trigger"` carries the
                 // phone's 44px height and 16px text (globals.css), and a prop would replace it.
                 data-field="weekly-digest-day"
               >
-                <SelectValue placeholder="Choose a day" />
+                {/* The chosen day's name from the server render on, not only once the list has
+                    hydrated: an empty trigger was a 42px, nameless target until then. */}
+                <SelectValue placeholder="Choose a day">
+                  {weeklyDigestChoices(digestDay).find((choice) => choice.checked)?.label}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {weeklyDigestChoices(digestDay).map((choice) => (

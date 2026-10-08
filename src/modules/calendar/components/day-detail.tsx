@@ -82,14 +82,17 @@ export function AllDayChips({
   today,
   dueAsChip,
   onDue,
+  events = true,
 }: {
   day: CalendarDay;
   /** A past day's open tasks are overdue: their "Due · N" reads red (decision 25 C). */
   today: ISODate;
   /** "Due · N" in the line (the timelines); the detail lists the tasks under it instead. */
   dueAsChip: boolean;
-  /** The Week's "Due · N" opens the day. */
+  /** The laptop's "Due · N" opens the day's popup. */
   onDue?: () => void;
+  /** The all-day events in the line; the laptop's agenda lists them with the others instead. */
+  events?: boolean;
 }) {
   const overdue = day.date < today;
   return (
@@ -124,7 +127,7 @@ export function AllDayChips({
           </span>
         </Chip>
       ))}
-      {allDayEvents(day).map((event) =>
+      {(events ? allDayEvents(day) : []).map((event) =>
         eventLink(
           event,
           <>
@@ -147,7 +150,7 @@ export function AllDayChips({
             onClick={onDue}
             data-slot="calendar-due-chip"
             className={cn(
-              "pressable focus-visible:ring-ring inline-flex min-h-6 items-center gap-1 rounded-md px-1.5 text-xs font-medium outline-none focus-visible:ring-2",
+              "pressable focus-visible:ring-ring inline-flex min-h-6 items-center gap-1 rounded-md px-1.5 text-xs font-medium outline-none focus-visible:ring-2 focus-visible:ring-inset",
               overdue ? "text-danger" : "text-attention",
             )}
           >

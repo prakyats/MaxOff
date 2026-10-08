@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { Button } from "@/core/ui/primitives/button";
 import {
@@ -63,6 +63,14 @@ export function FiltersSheet({
 }) {
   const [query, setQuery] = useState(initial);
   const onChange = setQuery;
+  // Closed once: Done unmounts the sheet, and a back that lands while it is still mounted
+  // closes it through the dialog as well; the caller applies the filters one time.
+  const closed = useRef(false);
+  const close = () => {
+    if (closed.current) return;
+    closed.current = true;
+    onClose(query);
+  };
   const kinds = filterKinds(scope);
   const count = filterCount(query);
   const pick = (
@@ -100,10 +108,13 @@ export function FiltersSheet({
     <Dialog
       open
       onOpenChange={(open) => {
-        if (!open) onClose(query);
+        if (!open) close();
       }}
     >
-      <DialogContent data-calendar="filters-sheet">
+      {/* One column no wider than the sheet: the surface is a grid, and a select's one-line
+          trigger would otherwise widen its column at large text, pushing the footer past the
+          screen's edge. */}
+      <DialogContent data-calendar="filters-sheet" className="grid-cols-[minmax(0,1fr)]">
         <DialogHeader>
           <DialogTitle>Filters</DialogTitle>
           <DialogDescription>
@@ -164,7 +175,7 @@ export function FiltersSheet({
             type="button"
             variant="secondary"
             data-slot="calendar-filters-done"
-            onClick={() => onClose(query)}
+            onClick={close}
           >
             Done
           </Button>

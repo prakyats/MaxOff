@@ -9,6 +9,8 @@ import {
   removeTasksTitled,
   rpcAs,
   runInstalled,
+  serviceInsert,
+  serviceSelect,
   storageStateFor,
   taskTypeId,
   USERS,
@@ -19,7 +21,9 @@ import {
   istDayStart,
   istInstant,
   istWeekday,
+  systemClock,
   todayIST,
+  toISTTime,
 } from "../src/core/time";
 
 /**
@@ -178,8 +182,14 @@ test.describe("the calendar, as Crew", () => {
     const today = isPhone(info) ? detail(page) : daySheet(page);
     const row = eventOf(today, shoot);
     await expect(row).toBeVisible();
-    await expect(row).toContainText("10:00 am – 11:00 am");
-    await expect(row).toContainText("Studio B");
+    if (isPhone(info)) {
+      await expect(row).toContainText("10:00 am – 11:00 am");
+      await expect(row).toContainText("Studio B");
+    } else {
+      // The laptop's popup is a compact agenda (the owner, 2026-10-08): "10:00–11:00 · title ·
+      // people".
+      await expect(row).toContainText(`10:00–11:00 · ${shoot.title} · Local Staff`);
+    }
     await expect(page.locator('[data-slot="calendar-busy"]')).toHaveCount(0);
     // Crew: no "Who's free"; "Suggest a task" with the day in its details (decision 25 D, G).
     await expect(page.locator('[data-slot="calendar-who-free"]')).toHaveCount(0);
@@ -458,5 +468,242 @@ test.describe("the calendar, as the Owner", () => {
     await expect(week).toBeVisible();
     await expect(eventOf(week, shoot)).toBeVisible();
     await removeTasksTitled(prefixOf(info));
+  });
+
+  test("laptop (the owner's 2026-10-08 changes): the day popup's agenda, Week and Day fit the screen, the keyboard, hover", async ({
+    page,
+  }, info) => {
+    test.skip(isPhone(info), "the laptop's views");
+    const prefix = prefixOf(info);
+    await removeTasksTitled(prefix);
+    const shoot = await ownerCreatesShoot(info);
+    await ownerCreatesDue(info, todayIST());
+    // A long shoot with a client: room for the client under its title. The client is this
+    // project's own, made once and kept (tasks once labelled with it keep their history).
+    const clientName = `${prefix}client`;
+    let [client] = await serviceSelect<{ id: string }>(
+      `clients?name=eq.${encodeURIComponent(clientName)}&select=id`,
+    );
+    if (!client) {
+      const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+      client = await serviceInsert<{ id: string }>("clients", {
+        org_id: org?.id,
+        name: clientName,
+        admin_id: await memberIdOf(USERS.admin.email),
+      });
+      await rpcAs(USERS.owner.email, USERS.owner.password, "client_activate", {
+        client_id: client.id,
+      });
+    }
+    const staffId = await memberIdOf(USERS.staff.email);
+    const longShoot = await rpcAs<string>(USERS.owner.email, USERS.owner.password, "task_create", {
+      title: `${prefix}long shoot`,
+      description: null,
+      task_type_id: await taskTypeId("Shoot / Site Visit"),
+      client_id: client.id,
+      priority: "medium",
+      due_at: istInstant(workingDay(3), "18:00"),
+      assignee_ids: [staffId],
+      primary_owner_id: staffId,
+      approving_admin_id: null,
+      stages: [],
+      event_date: todayIST(),
+      event_start_at: istInstant(todayIST(), "13:00"),
+      event_end_at: istInstant(todayIST(), "15:30"),
+      location: "Studio C",
+    });
+
+    await page.goto("/calendar");
+    await hydrated(page);
+    const laptop = page.locator('[data-slot="calendar-laptop"]');
+    await expect(laptop).toHaveAttribute("data-view", "month");
+    const historyLength = () => page.evaluate(() => window.history.length);
+
+    // 1. A Month day's popup: no timeline, the agenda in time order, the buttons pinned below.
+    await dayBox(page, todayIST()).click();
+    const popup = daySheet(page);
+    await expect(popup).toHaveAttribute("data-layout", "laptop");
+    await expect(popup.locator('[data-slot="calendar-timeline"]')).toHaveCount(0);
+    const agenda = popup.locator('[data-slot="calendar-agenda-events"]');
+    await expect(eventOf(agenda, shoot)).toContainText(
+      `10:00–11:00 · ${shoot.title} · Local Staff`,
+    );
+    await expect(eventOf(agenda, { id: longShoot })).toContainText(
+      `1:00–3:30 · ${prefix}long shoot · Local Staff · ${clientName}`,
+    );
+    const order = await agenda
+      .locator('[data-slot="calendar-event"]')
+      .evaluateAll((rows) => rows.map((row) => row.getAttribute("data-task")));
+    expect(order.indexOf(shoot.id), "time order").toBeLessThan(order.indexOf(longShoot));
+    await expect(popup.locator('[data-slot="calendar-due-list"] h3')).toContainText("Due · ");
+    await expect(popup.locator('[data-slot="calendar-who-free"]')).toBeVisible();
+    const footer = popup.locator('[data-slot="calendar-day-footer"]');
+    await expect(footer.locator('[data-slot="new-task-on-day"]')).toHaveText(
+      `New task on ${shortDay(todayIST())}`,
+    );
+    await expect(footer.locator('[data-slot="calendar-open-day"]')).toBeVisible();
+    // One scroll at most, the body's; the dialog itself never scrolls and the footer is its last
+    // row, flush with its bottom.
+    const box = await popup.evaluate((dialog) => {
+      const body = dialog.querySelector<HTMLElement>('[data-slot="calendar-day-body"]');
+      const foot = dialog.querySelector<HTMLElement>('[data-slot="calendar-day-footer"]');
+      return {
+        dialogScrolls: dialog.scrollHeight > dialog.clientHeight + 1,
+        bodyOverflow: body ? getComputedStyle(body).overflowY : "",
+        footBottom: foot?.getBoundingClientRect().bottom ?? 0,
+        dialogBottom: dialog.getBoundingClientRect().bottom,
+      };
+    });
+    expect(box.dialogScrolls, "the dialog never scrolls itself").toBe(false);
+    expect(box.bodyOverflow).toBe("auto");
+    expect(Math.abs(box.dialogBottom - box.footBottom), "the footer is pinned").toBeLessThan(2);
+    // The keyboard is quiet while the popup is open.
+    await page.keyboard.press("w");
+    await expect(laptop).toHaveAttribute("data-view", "month");
+    await page.keyboard.press("Escape");
+    await expect(popup).toHaveCount(0);
+
+    // 2. The keyboard: W to Week (view state: the address replaced, no history).
+    const beforeKeys = await historyLength();
+    await page.keyboard.press("w");
+    await expect(laptop).toHaveAttribute("data-view", "week");
+    await expect(page).toHaveURL(/view=week/);
+    // Never with a modifier key.
+    await page.keyboard.press("Shift+D");
+    await expect(laptop).toHaveAttribute("data-view", "week");
+    expect(await historyLength(), "a view switch adds no history").toBe(beforeKeys);
+
+    // 3. Week fits the screen: no page scroll, the timeline down to the bottom, one scroll inside.
+    const week = page.locator('[data-slot="calendar-timeline"][data-days="7"]');
+    await expect(week).toBeVisible();
+    const fit = await week.evaluate((timeline) => {
+      const hours = timeline.querySelector<HTMLElement>('[data-slot="calendar-hours"]');
+      return {
+        pageScroll: document.documentElement.scrollHeight - window.innerHeight,
+        bottom: timeline.getBoundingClientRect().bottom,
+        viewport: window.innerHeight,
+        hoursScroll: hours ? hours.scrollHeight - hours.clientHeight : 0,
+      };
+    });
+    expect(fit.pageScroll, "the page does not scroll").toBeLessThanOrEqual(0);
+    expect(fit.bottom).toBeLessThanOrEqual(fit.viewport);
+    expect(fit.viewport - fit.bottom, "the timeline reaches the bottom").toBeLessThan(40);
+    expect(fit.hoursScroll, "the hours scroll inside").toBeGreaterThan(0);
+    // The day headings and the all-day row line up with the hours' columns exactly.
+    const columns = await week.evaluate((timeline) => {
+      const edges = (selector: string) =>
+        [...timeline.querySelectorAll<HTMLElement>(selector)].map((cell) => {
+          const rect = cell.getBoundingClientRect();
+          return [Math.round(rect.left), Math.round(rect.right)];
+        });
+      return {
+        header: edges('[data-slot="calendar-timeline-header"] > div'),
+        allDay: edges('[data-slot="calendar-all-day-row"] > div'),
+        hours: edges('[data-slot="calendar-hours-day"]'),
+      };
+    });
+    expect(columns.hours).toHaveLength(7);
+    for (const [index, [left, right]] of columns.hours.entries()) {
+      for (const row of [columns.header, columns.allDay]) {
+        expect(Math.abs((row[index]?.[0] ?? -99) - (left ?? 0))).toBeLessThanOrEqual(1);
+        expect(Math.abs((row[index]?.[1] ?? -99) - (right ?? 0))).toBeLessThanOrEqual(1);
+      }
+    }
+    // 4. It opened at now on today's week (an hour above it), never at midnight.
+    const nowMinute = (() => {
+      const [hours, minutes] = toISTTime(systemClock().toISOString()).split(":").map(Number);
+      return (hours ?? 0) * 60 + (minutes ?? 0);
+    })();
+    const opened = await week.locator('[data-slot="calendar-hours"]').evaluate((hours) => ({
+      top: hours.scrollTop,
+      max: hours.scrollHeight - hours.clientHeight,
+      hour: hours.scrollHeight / 24,
+    }));
+    const expectedNow = Math.min(
+      opened.max,
+      (Math.max(0, Math.min(nowMinute - 60, 21 * 60)) / 60) * opened.hour,
+    );
+    expect(Math.abs(opened.top - expectedNow), "scrolled to now").toBeLessThan(opened.hour);
+
+    // 5. Hovering a block shows its details; the client sits under a long block's title.
+    const long = eventOf(week, { id: longShoot });
+    await expect(long.locator('[data-slot="calendar-event-client"]')).toHaveText(clientName);
+    await long.scrollIntoViewIfNeeded();
+    await page.evaluate(
+      () => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))),
+    );
+    await long.hover();
+    const details = page.locator(`[data-slot="calendar-event-details"][data-task="${longShoot}"]`);
+    await expect(details).toBeVisible();
+    await expect(details).toContainText("Studio C");
+    await expect(details).toContainText(clientName);
+    await page.mouse.move(2, 2);
+    await expect(details).toHaveCount(0);
+
+    // 6. "Due · N" in the all-day row opens that day's popup.
+    await week
+      .locator(
+        `[data-slot="calendar-all-day-row"] > [data-date="${todayIST()}"] [data-slot="calendar-due-chip"]`,
+      )
+      .click();
+    await expect(popup).toBeVisible();
+    await expect(
+      popup.locator('[data-slot="calendar-due"]').filter({ hasText: `${prefix}edit` }),
+    ).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(popup).toHaveCount(0);
+
+    // 7. → moves a week: a week without today opens at 08:00.
+    const beforeMoves = await historyLength();
+    await page.keyboard.press("ArrowRight");
+    await expect(page).toHaveURL(new RegExp(`date=${addISTDays(todayIST(), 7)}`));
+    await expect
+      .poll(() =>
+        week.locator('[data-slot="calendar-hours"]').evaluate((hours) => {
+          const hour = hours.scrollHeight / 24;
+          return Math.round(hours.scrollTop / hour);
+        }),
+      )
+      .toBe(8);
+    // T comes back to today; D is the Day view, which fits too, its side panel beside it.
+    await page.keyboard.press("t");
+    await expect(page).not.toHaveURL(/date=/);
+    await page.keyboard.press("d");
+    await expect(laptop).toHaveAttribute("data-view", "day");
+    expect(await historyLength(), "moves and views add no history").toBe(beforeMoves);
+    const day = page.locator('[data-slot="calendar-day-view"]');
+    await expect(day).toBeVisible();
+    const dayFit = await day.evaluate((view) => {
+      const side = view.querySelector<HTMLElement>('[data-slot="calendar-day-side"]');
+      const timeline = view.querySelector<HTMLElement>('[data-slot="calendar-timeline"]');
+      return {
+        pageScroll: document.documentElement.scrollHeight - window.innerHeight,
+        timeline: timeline?.getBoundingClientRect().height ?? 0,
+        side: side?.getBoundingClientRect().height ?? 0,
+        bottom: view.getBoundingClientRect().bottom,
+        viewport: window.innerHeight,
+      };
+    });
+    expect(dayFit.pageScroll, "the page does not scroll").toBeLessThanOrEqual(0);
+    expect(Math.abs(dayFit.timeline - dayFit.side), "the side panel is as tall").toBeLessThan(2);
+    expect(dayFit.viewport - dayFit.bottom).toBeLessThan(40);
+    // "Due · N" in the Day's all-day row opens the popup too.
+    await page.locator('[data-slot="calendar-day-view"] [data-slot="calendar-due-chip"]').click();
+    await expect(popup).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(popup).toHaveCount(0);
+    // M back to Month, as view state too (§14.2 d).
+    const beforeMonth = await historyLength();
+    await page.keyboard.press("m");
+    await expect(laptop).toHaveAttribute("data-view", "month");
+    await expect(page).toHaveURL(/view=month/);
+    expect(await historyLength()).toBe(beforeMonth);
+    // Clicking a block opens its task.
+    await page.keyboard.press("w");
+    await expect(laptop).toHaveAttribute("data-view", "week");
+    await eventOf(week, shoot).click();
+    await expect(page).toHaveURL(new RegExp(`/tasks/${shoot.id}`));
+
+    await removeTasksTitled(prefix);
   });
 });
