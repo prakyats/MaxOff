@@ -6,7 +6,7 @@
 -- run, with no actor; the schedule. Dates are computed from app.today_ist() and the run's instant.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(28);
+select plan(30);
 
 -- 7A: client work rows reference clients and members, and the presets the organization (a
 -- Playwright run leaves some behind).
@@ -258,6 +258,21 @@ select pg_temp.clear();
 select pg_temp.as_member('owner');
 select public.client_activate(pg_temp.fx('client_p'));
 select pg_temp.as_system();
+-- A project that fails is skipped in its own savepoint and made the next night.
+create function public.test_fail_cycle() returns trigger language plpgsql as $f$
+begin
+  if new.project_id = (select id from fx where key = 'pp') then
+    raise exception 'test failure';
+  end if;
+  return new;
+end;
+$f$;
+create trigger test_fail_cycle before insert on public.project_cycles
+  for each row execute function public.test_fail_cycle();
+select lives_ok($$ select app.cycle_generate(now()) $$, 'a project whose cycle fails does not stop the run');
+select is((select count(*)::integer from public.project_cycles where project_id = pg_temp.fx('pp')), 0,
+  'it is skipped (logged as a warning)');
+drop trigger test_fail_cycle on public.project_cycles;
 select is(app.cycle_generate(now()), 1, 'the night after a client is resumed, its current period''s cycle is made');
 select is((select count(*)::integer from public.project_cycles where project_id = pg_temp.fx('pp')
            and period_start = app.period_start('monthly', app.today_ist())), 1, 'for the current period only');

@@ -146,12 +146,13 @@ as $$
 declare
   v_project public.projects;
 begin
+  -- Visible first, then locked: a project of someone else's client is never locked by this caller.
   select p.* into v_project from public.projects p
-  where p.id = p_project_id and p.org_id = (select m.org_id from app.current_member() m)
-  for update;
+  where p.id = p_project_id and p.org_id = (select m.org_id from app.current_member() m);
   if v_project.id is null or not app.client_visible(v_project.client_id) then
     perform app.fail('NOT_FOUND', 'This project is not one of yours.');
   end if;
+  select p.* into v_project from public.projects p where p.id = v_project.id for update;
   return v_project;
 end;
 $$;
@@ -1789,18 +1790,24 @@ begin
       v_start := app.period_start(v_project.recurrence, v_today);
       continue when exists (
         select 1 from public.project_cycles c where c.project_id = v_project.id and c.period_start = v_start);
-      -- The project first (the lock order of every client-work function), then re-checked under it.
-      select p.* into v_project from public.projects p where p.id = v_project.id for update;
-      continue when v_project.state not in ('open', 'in_progress');
-      select c.* into v_client from public.clients c where c.id = v_project.client_id;
-      continue when v_client.state <> 'active';
-      continue when exists (
-        select 1 from public.project_cycles c where c.project_id = v_project.id and c.period_start = v_start);
-      v_cycle := app.cycle_create(v_project, v_start, 'schedule', null);
-      v_count := v_count + 1;
-      v_made := v_made || jsonb_build_object(
-        'admin_id', v_client.admin_id, 'label', v_cycle.label, 'project', v_project.name,
-        'client', v_client.name, 'link', app.project_link(v_project), 'project_id', v_project.id);
+      -- Each project in a savepoint of its own: one that fails is logged and retried the next night,
+      -- never costing the others their cycle (as reminders_tick, phase 5 review).
+      begin
+        -- The project first (the lock order of every client-work function), then re-checked under it.
+        select p.* into v_project from public.projects p where p.id = v_project.id for update;
+        continue when v_project.state not in ('open', 'in_progress');
+        select c.* into v_client from public.clients c where c.id = v_project.client_id;
+        continue when v_client.state <> 'active';
+        continue when exists (
+          select 1 from public.project_cycles c where c.project_id = v_project.id and c.period_start = v_start);
+        v_cycle := app.cycle_create(v_project, v_start, 'schedule', null);
+        v_count := v_count + 1;
+        v_made := v_made || jsonb_build_object(
+          'admin_id', v_client.admin_id, 'label', v_cycle.label, 'project', v_project.name,
+          'client', v_client.name, 'link', app.project_link(v_project), 'project_id', v_project.id);
+      exception when others then
+        raise warning 'cycle_generate: project % skipped: %', v_project.id, sqlerrm;
+      end;
     end loop;
 
     -- WORKFLOWS §9 "Cycle generated": one combined row per Admin per run (actionable), no actor.
