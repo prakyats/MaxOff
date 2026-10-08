@@ -6,3 +6,9 @@ allowBuilds:
   sharp: false
   unrs-resolver: false
   workerd: true
+# OpenNext writes linked source maps for its two bundles and copies Next's server maps next to the
+# chunks it bundles, so the Worker's map leads back to src/ (ROADMAP 6.6, ARCHITECTURE §18.2).
+# Re-make the patch (`pnpm patch @opennextjs/cloudflare`) when OpenNext is upgraded: pnpm refuses
+# to install while a patch names a version that is not installed.
+patchedDependencies:
+  "@opennextjs/cloudflare@1.20.6": patches/@opennextjs__cloudflare@1.20.6.patch
