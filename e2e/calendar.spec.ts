@@ -99,6 +99,9 @@ const detail = (page: Page) => page.locator('[data-slot="calendar-detail"]:visib
 const daySheet = (page: Page) => page.locator('[data-calendar="day-sheet"]');
 const eventIn = (scope: Locator, title: string) =>
   scope.locator('[data-slot="calendar-event"]').filter({ hasText: title });
+/** One task's event by its id: the spec's own shoot, never an earlier test's of the same title. */
+const eventOf = (scope: Locator, task: { id: string }) =>
+  scope.locator(`[data-slot="calendar-event"][data-task="${task.id}"]`);
 /** A day's box in the month on screen (the phone's or the laptop's). */
 const dayBox = (page: Page, date: string) =>
   page.locator(`[data-slot="calendar-day"][data-date="${date}"]:visible`);
@@ -174,7 +177,7 @@ test.describe("the calendar, as Crew", () => {
       await expect(daySheet(page)).toBeVisible();
     }
     const today = isPhone(info) ? detail(page) : daySheet(page);
-    const row = eventIn(today, shoot.title);
+    const row = eventOf(today, shoot);
     await expect(row).toBeVisible();
     await expect(row).toContainText("10:00 am – 11:00 am");
     await expect(row).toContainText("Studio B");
@@ -252,7 +255,7 @@ test.describe("the calendar, as Crew", () => {
     await expect(
       page.locator(`[data-slot="calendar-strip-day"][data-date="${todayIST()}"]`),
     ).toHaveAttribute("aria-pressed", "true");
-    await expect(eventIn(detail(page), shoot.title)).toBeVisible();
+    await expect(eventOf(detail(page), shoot)).toBeVisible();
 
     // By the handle: a 44px button that grows it, and at the full month shows less.
     const box = await handle.boundingBox();
@@ -281,7 +284,7 @@ test.describe("the calendar, as Crew", () => {
     await expect(phone(page)).toHaveAttribute("data-size", "3");
     await dayBox(page, todayIST()).click();
     await expect(daySheet(page)).toBeVisible();
-    await expect(eventIn(daySheet(page), shoot.title)).toBeVisible();
+    await expect(eventOf(daySheet(page), shoot)).toBeVisible();
   });
 
   test("installed: sizes, days, a month and a filter add no history; the day sheet closes on back; a task is a drill-down", async ({
@@ -330,7 +333,7 @@ test.describe("the calendar, as Crew", () => {
     // An event is a real drill-down: back returns to the calendar, the day kept.
     await page.goto(`/calendar?date=${todayIST()}`);
     await hydrated(page);
-    await eventIn(detail(page), shoot.title).click();
+    await eventOf(detail(page), shoot).click();
     await expect(page).toHaveURL(new RegExp(`/tasks/${shoot.id}$`));
     await expectBackStack(page, [{ url: new RegExp(`/calendar\\?date=${todayIST()}$`) }]);
   });
@@ -392,9 +395,7 @@ test.describe("the calendar, as the Owner", () => {
 
     await page.goto(`/calendar?view=day&date=${todayIST()}`);
     await hydrated(page);
-    const row = page
-      .locator('[data-slot="calendar-event"]:visible')
-      .filter({ hasText: shoot.title });
+    const row = page.locator(`[data-slot="calendar-event"][data-task="${shoot.id}"]:visible`);
     await expect(row.first()).toBeVisible();
     await expect(row.first()).toContainText("Local Staff");
     await expect(page.locator('[data-slot="calendar-busy"]')).toHaveCount(0);
@@ -427,7 +428,7 @@ test.describe("the calendar, as the Owner", () => {
     await expect(page.locator('[data-slot="calendar-filters-button"]:visible')).toHaveText(
       /Filters · 1/,
     );
-    await expect(eventIn(page.locator('[data-slot="calendar"]'), shoot.title)).toHaveCount(0);
+    await expect(eventOf(page.locator('[data-slot="calendar"]'), shoot)).toHaveCount(0);
   });
 
   test("laptop: Month → a day's dialog → Open day; Week is a 7-column timeline", async ({
@@ -451,7 +452,7 @@ test.describe("the calendar, as the Owner", () => {
     );
     const week = page.locator('[data-slot="calendar-timeline"][data-days="7"]');
     await expect(week).toBeVisible();
-    await expect(eventIn(week, shoot.title)).toBeVisible();
+    await expect(eventOf(week, shoot)).toBeVisible();
     await removeTasksTitled(prefixOf(info));
   });
 });

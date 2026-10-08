@@ -38,7 +38,7 @@ import { LinkRow, Marker, QuietText, RowList, ShowFirst } from "./blocks";
  */
 
 const EVENT_ROW =
-  "focus-visible:ring-ring flex min-h-14 items-start gap-3 px-4 py-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset";
+  "focus-visible:ring-ring flex min-h-14 flex-wrap items-start gap-3 px-4 py-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset";
 
 /** "10:00 am" or "All day", and the day word when the list spans days. */
 function eventWhen(event: DayEvent, today: ISODate, withDay: boolean): string {

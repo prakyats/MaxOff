@@ -374,7 +374,7 @@ export function CalendarScreen({
           onClick={() => setSize((current) => handleNext(current))}
           data-slot="calendar-handle"
           aria-label={handleLabel(size)}
-          className="pressable focus-visible:ring-ring text-muted-foreground flex min-h-11 w-full items-center justify-center gap-2 rounded-lg text-xs outline-none focus-visible:ring-2"
+          className="pressable-row focus-visible:ring-ring text-muted-foreground flex min-h-11 w-full shrink-0 items-center justify-center gap-2 rounded-lg text-xs outline-none focus-visible:ring-2"
         >
           <span aria-hidden className="bg-muted-foreground/50 h-1 w-10 rounded-full" />
           <span>{handleLabel(size)}</span>

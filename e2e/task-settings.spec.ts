@@ -116,8 +116,9 @@ test.describe("task types and per-type fields, the flows", () => {
     await expect(edit.getByRole("radio", { name: "Violet" })).toBeChecked();
     await edit.getByRole("button", { name: "Save" }).click();
     await expect(page.getByText("Task type saved")).toBeVisible();
+    // The switches and the colour: still asks for a location, now off the calendar, violet.
     await expect(rowOf(page, `${name} visit`)).toContainText(
-      "Event · not on the calendar · Violet",
+      "Event · not on the calendar · asks for a location · Violet",
     );
 
     const before = await typeNames(page);
