@@ -17,7 +17,8 @@
 //    so no source map is ever deployed or served (wrangler would not upload them anyway: maps are
 //    never in `.open-next/assets`, and `upload_source_maps` is off).
 //
-// Without SENTRY_AUTH_TOKEN (production until it is added, every local run) steps 1–3 are skipped.
+// Without SENTRY_AUTH_TOKEN (production until it is added, every local run, every preview) steps
+// 1–3 are skipped. With it, only `sentry-cli` receives the token, never the wrangler dry run.
 // Like the build's own upload, a failed upload never fails the deploy: it warns, and only the
 // stack traces of this release stay unreadable.
 
@@ -28,7 +29,12 @@ import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { debugIdRegistration, prepareWorkerMap, stampDebugId } from "./lib/worker-sourcemaps.mjs";
+import {
+  debugIdRegistration,
+  prepareWorkerMap,
+  stampDebugId,
+  withoutSentryToken,
+} from "./lib/worker-sourcemaps.mjs";
 
 const ENVIRONMENTS = ["staging", "production"];
 const root = process.cwd();
@@ -69,8 +75,9 @@ function sentryCliPath() {
   return fromNext("@sentry/cli").getPath();
 }
 
-function run(command, args) {
-  const result = spawnSync(command, args, { cwd: root, stdio: "inherit", env: process.env });
+/** Runs a step with `env` (the token goes only to `sentry-cli`: `withoutSentryToken`). */
+function run(command, args, env) {
+  const result = spawnSync(command, args, { cwd: root, stdio: "inherit", env });
   return result.status === 0;
 }
 
@@ -92,14 +99,11 @@ function upload(environment) {
   const outDir = mkdtempSync(path.join(process.env.RUNNER_TEMP || tmpdir(), "worker-map-"));
   try {
     const wrangler = path.join(root, "node_modules", ".bin", "wrangler");
-    const bundled = run(wrangler, [
-      "deploy",
-      "--dry-run",
-      "--env",
-      environment,
-      "--outdir",
-      outDir,
-    ]);
+    const bundled = run(
+      wrangler,
+      ["deploy", "--dry-run", "--env", environment, "--outdir", outDir],
+      withoutSentryToken(process.env),
+    );
     if (!bundled) return warn("the dry-run bundle failed; nothing uploaded.");
 
     const bundlePath = path.join(outDir, "index.js");
@@ -119,7 +123,7 @@ function upload(environment) {
 
     const args = ["sourcemaps", "upload", "--org", org, "--project", project];
     if (release) args.push("--release", release);
-    const uploaded = run(sentryCliPath(), [...args, outDir]);
+    const uploaded = run(sentryCliPath(), [...args, outDir], process.env);
     if (!uploaded) return warn("sentry-cli could not upload it.");
     say(`Worker source map uploaded: debug id ${debugId}, release ${release ?? "(none)"}.`);
   } finally {

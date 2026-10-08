@@ -1,5 +1,12 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { runInNewContext } from "node:vm";
@@ -11,6 +18,7 @@ import {
   normalizeSource,
   prepareWorkerMap,
   stampDebugId,
+  withoutSentryToken,
 } from "../scripts/lib/worker-sourcemaps.mjs";
 
 /**
@@ -115,6 +123,14 @@ describe("stampDebugId", () => {
   });
 });
 
+describe("withoutSentryToken", () => {
+  it("drops the Sentry token and keeps everything else, leaving the original as it was", () => {
+    const env = { SENTRY_AUTH_TOKEN: "secret", SENTRY_ORG: "pixora", PATH: "/bin" };
+    expect(withoutSentryToken(env)).toEqual({ SENTRY_ORG: "pixora", PATH: "/bin" });
+    expect(env.SENTRY_AUTH_TOKEN).toBe("secret");
+  });
+});
+
 describe("scripts/worker-sourcemaps.mjs", () => {
   const script = resolve("scripts/worker-sourcemaps.mjs");
 
@@ -143,6 +159,35 @@ describe("scripts/worker-sourcemaps.mjs", () => {
     expect(run.stdout).toContain("Source maps removed from .open-next/: 3.");
     for (const file of files) expect(existsSync(join(cwd, file))).toBe(false);
     expect(existsSync(join(cwd, ".open-next/worker.js"))).toBe(true);
+  });
+
+  it("never hands the Sentry token to the wrangler dry run (least privilege)", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "worker-sourcemaps-"));
+    mkdirSync(join(cwd, ".open-next"), { recursive: true });
+    writeFileSync(join(cwd, ".open-next/worker.js"), "export default {};\n");
+    // A stand-in wrangler that records the environment it was given, then fails, so the script
+    // stops before sentry-cli (nothing leaves this machine).
+    const bin = join(cwd, "node_modules/.bin");
+    mkdirSync(bin, { recursive: true });
+    writeFileSync(join(bin, "wrangler"), '#!/bin/sh\nenv > "$PWD/wrangler-env.txt"\nexit 1\n');
+    chmodSync(join(bin, "wrangler"), 0o755);
+
+    const run = spawnSync(process.execPath, [script, "staging"], {
+      cwd,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        SENTRY_AUTH_TOKEN: "sntrys_fake_token",
+        SENTRY_ORG: "pixora",
+        SENTRY_PROJECT: "maxoff",
+      },
+    });
+    expect(run.status).toBe(0);
+    expect(run.stdout).toContain("the dry-run bundle failed");
+    const seen = readFileSync(join(cwd, "wrangler-env.txt"), "utf8");
+    expect(seen).toContain("SENTRY_ORG=pixora");
+    expect(seen).not.toContain("SENTRY_AUTH_TOKEN");
+    expect(seen).not.toContain("sntrys_fake_token");
   });
 
   it("refuses an unknown environment", () => {

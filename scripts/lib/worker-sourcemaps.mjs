@@ -75,3 +75,16 @@ export function prepareWorkerMap(map, { debugId, mapDir, root }) {
 export function stampDebugId(code, debugId) {
   return `${code.endsWith("\n") ? code : `${code}\n`}//# debugId=${debugId}\n`;
 }
+
+/**
+ * The environment for a step that needs no Sentry credentials (the `wrangler deploy --dry-run`
+ * bundle): a copy of `env` without `SENTRY_AUTH_TOKEN`, so only `sentry-cli` ever receives it
+ * (least privilege). Does not change `env`.
+ * @param {Record<string, string | undefined>} env
+ * @returns {Record<string, string | undefined>}
+ */
+export function withoutSentryToken(env) {
+  const copy = { ...env };
+  delete copy.SENTRY_AUTH_TOKEN;
+  return copy;
+}
