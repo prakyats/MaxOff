@@ -226,7 +226,6 @@ test.describe("onboarding for reachability", () => {
         band.getByText("Install MaxOff to get notifications").filter({ visible: true }),
       ).toBeVisible();
       await band.click();
-    await diagCdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });
       await expect(
         tab.locator('[data-slot="push-sheet"] [data-slot="install-steps"]'),
       ).toBeVisible();
@@ -333,6 +332,7 @@ test.describe("onboarding for reachability", () => {
       band.getByText("Notifications aren't reaching you").filter({ visible: true }),
     ).toBeVisible();
     await band.click();
+    await diagCdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });
     const sheet = page.locator('[data-slot="push-sheet"]');
     await expect(
       sheet.getByRole("heading", { name: "Notifications aren't reaching you" }),
