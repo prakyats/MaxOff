@@ -73,15 +73,19 @@ function Chip({
 /** The all-day line's chips: the holiday, the weekly off, leave, all-day events, "Due · N". */
 export function AllDayChips({
   day,
+  today,
   dueAsChip,
   onDue,
 }: {
   day: CalendarDay;
+  /** A past day's open tasks are overdue: their "Due · N" reads red (decision 25 C). */
+  today: ISODate;
   /** "Due · N" in the line (the timelines); the detail lists the tasks under it instead. */
   dueAsChip: boolean;
-  /** The Week's "Due · N" opens the day (a 44px target from the phone up). */
+  /** The Week's "Due · N" opens the day. */
   onDue?: () => void;
 }) {
+  const overdue = day.date < today;
   return (
     <>
       {day.holiday ? (
@@ -136,13 +140,19 @@ export function AllDayChips({
             type="button"
             onClick={onDue}
             data-slot="calendar-due-chip"
-            className="pressable text-attention focus-visible:ring-ring inline-flex min-h-6 items-center gap-1 rounded-md px-1.5 text-xs font-medium outline-none focus-visible:ring-2"
+            className={cn(
+              "pressable focus-visible:ring-ring inline-flex min-h-6 items-center gap-1 rounded-md px-1.5 text-xs font-medium outline-none focus-visible:ring-2",
+              overdue ? "text-danger" : "text-attention",
+            )}
           >
             <ClockIcon className="size-3" aria-hidden />
             Due · {day.due.length}
           </button>
         ) : (
-          <Chip slot="calendar-due-chip" className="text-attention font-medium">
+          <Chip
+            slot="calendar-due-chip"
+            className={cn("font-medium", overdue ? "text-danger" : "text-attention")}
+          >
             <ClockIcon className="size-3" aria-hidden />
             Due · {day.due.length}
           </Chip>
@@ -263,7 +273,7 @@ export function DayDetail({
       ) : null}
       {hasAllDay ? (
         <div data-slot="calendar-all-day" className="flex flex-wrap items-center gap-1.5">
-          <AllDayChips day={day} dueAsChip={false} />
+          <AllDayChips day={day} today={today} dueAsChip={false} />
         </div>
       ) : null}
       {timed.length > 0 ? (

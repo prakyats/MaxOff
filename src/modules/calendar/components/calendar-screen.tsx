@@ -501,7 +501,7 @@ export function CalendarScreen({
               );
             }}
             allDay={(day) => (
-              <AllDayChips day={day} dueAsChip onDue={() => setSheetDate(day.date)} />
+              <AllDayChips day={day} today={today} dueAsChip onDue={() => setSheetDate(day.date)} />
             )}
             eventLink={eventLink}
             className="border-border rounded-lg border"
@@ -514,7 +514,7 @@ export function CalendarScreen({
             <Timeline
               days={[dayOf(selected)]}
               today={today}
-              allDay={(day) => <AllDayChips day={day} dueAsChip />}
+              allDay={(day) => <AllDayChips day={day} today={today} dueAsChip />}
               eventLink={eventLink}
               className="border-border rounded-lg border"
             />
