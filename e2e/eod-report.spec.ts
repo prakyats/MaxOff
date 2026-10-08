@@ -129,6 +129,7 @@ test.describe("Reports → End of day, as the Owner", () => {
       // A saved day shows its row as written: never recomputed, never money.
       await page.goto(`/reports/end-of-day/${date}`);
       await expect(page.locator('[data-slot="eod-live-note"]')).toHaveCount(0);
+      await expect(page.locator('[data-slot="eod-saved-note"]')).toContainText("Saved");
       await expect(page.locator('[data-slot="eod-attendance-line"]')).toContainText(
         "1 present · 0 on leave · 0 absent · 1 end not recorded",
       );

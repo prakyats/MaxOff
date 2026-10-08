@@ -16,6 +16,7 @@ import {
   liveNote,
   parseEodDate,
   previewEodReport,
+  savedNote,
 } from "@/modules/reports";
 import { getSettings } from "@/modules/settings";
 
@@ -76,7 +77,8 @@ export default async function EndOfDayReportPage({
     );
   }
   const live = state === "today" || state === "yesterday_live";
-  const report = live ? await previewEodReport(date) : (await getEodReport(date))?.report;
+  const saved = live ? null : await getEodReport(date);
+  const report = live ? await previewEodReport(date) : saved?.report;
   const note = liveNote(state, settings.endDayCutoffTime);
   return (
     <>
@@ -84,6 +86,12 @@ export default async function EndOfDayReportPage({
       {note ? (
         <p data-slot="eod-live-note" className="text-muted-foreground mb-4 text-sm">
           {note}
+        </p>
+      ) : saved ? (
+        // A saved day keeps the live note's line (when it was saved), so nothing moves when the
+        // page arrives over its loading screen.
+        <p data-slot="eod-saved-note" className="text-muted-foreground mb-4 text-sm">
+          {savedNote(saved.generatedAt)}
         </p>
       ) : null}
       {report ? (

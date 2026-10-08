@@ -20,6 +20,7 @@ import {
   parseEodReport,
   personDetail,
   personStatus,
+  savedNote,
   taskDetail,
 } from "../domain/eod";
 
@@ -148,6 +149,8 @@ describe("live, saved or still to come (decision 17)", () => {
     expect(liveNote("yesterday_live", "05:00")).toBe("Live until it saves at 5:00 AM.");
     expect(liveNote("today", "05:00")).toBe("Live: today so far. It saves tomorrow morning.");
     expect(liveNote("saved", "05:00")).toBeNull();
+    // A saved day says when, in IST, on the live note's line.
+    expect(savedNote("2026-10-06T23:30:00.000Z")).toBe("Saved 7 Oct, 5:00 am.");
   });
 
   it("names the day and its address", () => {

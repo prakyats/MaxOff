@@ -1552,7 +1552,10 @@ eod_reports          id, org_id, report_date, data jsonb (check: an object), gen
                      -- eod_report_weekly_digest): written only by app.eod_report() (pg_cron every 5 min:
                      -- one row per IST date, every date, saved once the next day's end_day_cutoff_time
                      -- has passed (owner 2026-10-07), the 7-day catch-up, never updated: no API
-                     -- INSERT/UPDATE/DELETE grant, audited 'generated'); data holds no money, ever
+                     -- INSERT/UPDATE/DELETE grant, audited 'generated'; the grants are set by migration
+                     -- eod_reports_grants (20261008020456): revoke all from anon and authenticated,
+                     -- then SELECT to authenticated, kept apart from the applied 6.5 file, which
+                     -- staging had already run); data holds no money, ever
                      -- (WORKFLOWS §8a; pgTAP 64 checks no amount-like key). RLS: one SELECT policy,
                      -- reports.all (the Owner), org match (ADR-0007 amendment 2026-10-01).
                      -- data (app.eod_report_payload(org, date, now), the same builder the live view

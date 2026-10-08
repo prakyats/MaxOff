@@ -157,6 +157,14 @@ export function liveNote(state: EodDayState, cutoff: string): string | null {
   return null;
 }
 
+/**
+ * The note under a saved day, in the live note's place, so a day's page has the same lines live
+ * or saved and its loading screen traces both: "Saved 7 Oct, 5:00 am."
+ */
+export function savedNote(generatedAt: string): string {
+  return `Saved ${formatIST(generatedAt, "d MMM, h:mm aaa")}.`;
+}
+
 /** "Today · Tue 7 Oct 2026", "Yesterday · …", else "Mon 5 Oct 2026". */
 export function eodDateHeading(date: ISODate, today: ISODate): string {
   const full = formatIST(istDayStart(date), "EEE d MMM yyyy");

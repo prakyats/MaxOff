@@ -304,18 +304,24 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
       },
     },
   })),
-  // Reports → End of day (6.5): the list's first row (today, live), held by the saved rows' read;
+  // Reports → End of day (6.5): the list's first two rows (today, yesterday), held by the saved
+  // rows' read;
   // a day's report: the date line, then the first section's heading (Attendance, or the quiet
   // line on a day with nothing), held by the live builder's call.
   {
     role: "owner",
     path: "/reports/end-of-day",
-    marker: 'data-slot="loading-state"',
+    marker: 'data-slot="loading-eod-list"',
     hold: "/rest/v1/eod_reports",
     trace: {
       "first row": {
-        held: '[data-slot="loading-state"] [data-slot="loading-row"]',
-        settled: '[data-slot="eod-list-row"]',
+        held: '[data-slot="loading-eod-list"] > li:nth-child(1)',
+        settled: '[data-slot="eod-list"] > li:nth-child(1)',
+      },
+      // The second row's top is the first row's height: two lines, not one.
+      "second row": {
+        held: '[data-slot="loading-eod-list"] > li:nth-child(2)',
+        settled: '[data-slot="eod-list"] > li:nth-child(2)',
       },
     },
   },

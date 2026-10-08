@@ -105,7 +105,11 @@ describe("loading.tsx coverage", () => {
     // an Admin's is too (the tasks they check), so no branch shows the stand-in.
     expect(sourceOf("approvals")).toContain("ApprovalGroupSkeleton");
     expect(sourceOf("approvals")).not.toContain(standIn);
-    for (const route of ["today", "my-day", "calendar"]) {
+    // Reports → End of day (6.5): the list traces its own two-line rows in the page's geometry
+    // (`list-row.ts`), and a day's report its date, note and first section.
+    expect(sourceOf("reports/end-of-day")).toContain("EOD_ROW_CLASS");
+    expect(sourceOf("reports/end-of-day/[date]")).toContain("EodReportSkeleton");
+    for (const route of ["today", "my-day", "calendar", "reports/end-of-day"]) {
       expect(shapeOf(route), `${route} traces its own screen, not a shape`).toBeUndefined();
     }
     // The team's month traces its own rows (3b review), under the month switcher.

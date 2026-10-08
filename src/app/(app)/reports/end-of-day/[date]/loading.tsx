@@ -5,8 +5,8 @@ import { EodReportSkeleton } from "@/modules/reports";
 import { EOD_REPORT_DESCRIPTION } from "../copy";
 
 /**
- * One day's end-of-day report (6.5), traced: the header with its back, the day line, the live
- * note's line (today and yesterday carry one; a saved day's report starts there instead), then
+ * One day's end-of-day report (6.5), traced: the header with its back, the day line, the note's
+ * line (live for today and yesterday until the cutoff, "Saved …" for a saved day), then
  * the Attendance section: its heading, its counts line and two person rows (`EodReportSkeleton`).
  */
 export default function Loading() {

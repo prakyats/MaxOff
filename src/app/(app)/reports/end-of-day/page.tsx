@@ -2,6 +2,7 @@ import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import type { Metadata } from "next";
 
 import { checkThenRead } from "@/core/lib/start-early";
+import { cn } from "@/core/lib/utils";
 import { requirePermission } from "@/core/permissions/server";
 import { systemClock, todayIST } from "@/core/time";
 import { DrillLink } from "@/core/ui/composites/drill-link";
@@ -12,6 +13,7 @@ import { EOD_PAGE_SIZE, eodHref, eodListEntries, listEodReports } from "@/module
 import { getSettings } from "@/modules/settings";
 
 import { END_OF_DAY_DESCRIPTION } from "./copy";
+import { EOD_LIST_CLASS, EOD_ROW_CLASS } from "./list-row";
 
 export const metadata: Metadata = { title: "End of day" };
 
@@ -53,10 +55,7 @@ export default async function EndOfDayListPage({
         description={END_OF_DAY_DESCRIPTION}
         help={END_OF_DAY_DESCRIPTION}
       />
-      <ul
-        data-slot="eod-list"
-        className="border-border divide-border overflow-hidden rounded-lg border md:max-w-2xl"
-      >
+      <ul data-slot="eod-list" className={EOD_LIST_CLASS}>
         {shown.map((entry) => (
           <li key={entry.date}>
             <DrillLink
@@ -64,7 +63,10 @@ export default async function EndOfDayListPage({
               data-slot="eod-list-row"
               data-state={entry.state}
               data-date={entry.date}
-              className="active:bg-muted/60 focus-visible:ring-ring flex min-h-14 items-center gap-3 px-4 py-3 outline-none focus-visible:ring-2 focus-visible:ring-inset"
+              className={cn(
+                EOD_ROW_CLASS,
+                "active:bg-muted/60 focus-visible:ring-ring outline-none focus-visible:ring-2 focus-visible:ring-inset",
+              )}
             >
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <span className="text-sm font-medium">{entry.heading}</span>
