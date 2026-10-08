@@ -708,26 +708,46 @@ html[data-nav-slide="forward"] [data-slot="route"] {
   }
 }
 
-/* A screen that fits the viewport from `md` up (the calendar's Week and Day, the owner's laptop
- * changes of 2026-10-08): the shell is exactly the viewport's height and `main` a column whose
- * route fills what the page's header leaves; the screen's part marked `data-fit-viewport` grows
- * into it (`flex-1 min-h-0`) and scrolls inside itself. The page never scrolls; the sidebar is the
- * viewport's height already. Phones keep the page's own scroll. */
+/* A screen that fits the viewport (the calendar; the owner's laptop changes and phone walk of
+ * 2026-10-08). The screen marks the part that fits `data-fit-viewport="laptop"` (from `md` up: the
+ * Week and Day) or `"phone"` (below `md`: every size of the phone calendar). `main` is then a
+ * column whose route fills what the page's header leaves, and the marked part grows into it with
+ * one scroll inside itself (the hour timeline); the page never scrolls.
+ * - Laptop: the shell is exactly the viewport's height (the sidebar is already).
+ * - Phone: the shell keeps its `min-h-dvh` and `main` ends at the bottom bar (its padding is the
+ *   bar, the home indicator and the bands, no extra gap), so the timeline's bottom is the bar's
+ *   top. The parts in the column grow from a zero basis and never shrink below their content, so
+ *   when the fixed parts and the timeline's minimum do not fit (very large text) the page scrolls
+ *   just enough rather than squeezing the timeline. */
 @layer utilities {
   @media (min-width: 768px) {
-    [data-slot="app-shell"]:has(main [data-fit-viewport]) {
+    [data-slot="app-shell"]:has(main [data-fit-viewport="laptop"]) {
       height: 100dvh;
     }
-    main:has([data-fit-viewport]) {
+    main:has([data-fit-viewport="laptop"]) {
       display: flex;
       flex-direction: column;
       min-height: 0;
     }
-    main:has([data-fit-viewport]) > [data-slot="route"] {
+    main:has([data-fit-viewport="laptop"]) > [data-slot="route"] {
       display: flex;
       flex: 1 1 0%;
       flex-direction: column;
       min-height: 0;
+    }
+  }
+  @media (max-width: 767px) {
+    main:has([data-fit-viewport="phone"]) {
+      display: flex;
+      flex-direction: column;
+      padding-bottom: calc(
+        var(--app-bottom-nav-h) + var(--app-safe-bottom) + var(--app-bands-h, 0px)
+      );
+    }
+    main:has([data-fit-viewport="phone"]) > [data-slot="route"] {
+      display: flex;
+      flex: 1 1 0px;
+      flex-direction: column;
     }
   }
 }

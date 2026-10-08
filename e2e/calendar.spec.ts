@@ -2,7 +2,9 @@ import type { Locator, Page, TestInfo } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 import {
+  animationsSettled,
   expectBackStack,
+  expectNoHorizontalScroll,
   hydrated,
   memberIdOf,
   pageHeader,
@@ -123,6 +125,66 @@ async function dragCalendar(page: Page, dy: number): Promise<void> {
   await page.mouse.down();
   await page.mouse.move(x, y + dy, { steps: 6 });
   await page.mouse.up();
+}
+
+/** A real finger's drag (the phone projects have touch), `dy` px from the middle of `target`. */
+async function touchDrag(page: Page, target: Locator, dy: number): Promise<void> {
+  const box = await target.boundingBox();
+  if (!box) throw new Error("nothing to drag on screen");
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
+  for (let step = 1; step <= 8; step += 1) {
+    await cdp.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [{ x, y: y + (dy * step) / 8 }],
+    });
+  }
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await cdp.detach();
+}
+
+/**
+ * The phone's page, its timeline and what is docked at the bottom, as the screen draws them: the
+ * page's own scroll, the timeline's box and scroll, the hour labels' boxes, and the top of what
+ * the page sits on (the push band while it shows, else the bottom bar's content under its 1px
+ * top border).
+ */
+async function phoneLayout(page: Page) {
+  return page.evaluate(() => {
+    const root = document.scrollingElement as HTMLElement;
+    const hours = document.querySelector<HTMLElement>(
+      '[data-slot="calendar-phone"] [data-slot="calendar-hours"]',
+    );
+    const box = hours?.getBoundingClientRect();
+    const labels = hours
+      ? [...hours.querySelectorAll("span")]
+          .filter((span) => /^\d{2}:00$/.test(span.textContent ?? ""))
+          .map((span) => {
+            const rect = span.getBoundingClientRect();
+            return { text: span.textContent ?? "", top: rect.top, bottom: rect.bottom };
+          })
+      : [];
+    const band = document.querySelector<HTMLElement>('[data-slot="push-banner"]');
+    const nav = document.querySelector<HTMLElement>('[data-slot="bottom-nav"]');
+    const dock = band
+      ? band.getBoundingClientRect().top
+      : nav
+        ? nav.getBoundingClientRect().top + parseFloat(getComputedStyle(nav).borderTopWidth)
+        : window.innerHeight;
+    return {
+      pageOverflow: root.scrollHeight - root.clientHeight,
+      pageTop: root.scrollTop,
+      top: box?.top ?? 0,
+      bottom: box?.bottom ?? 0,
+      height: box?.height ?? 0,
+      scrollTop: hours?.scrollTop ?? 0,
+      scrolls: hours ? hours.scrollHeight - hours.clientHeight : 0,
+      labels,
+      dock,
+    };
+  });
 }
 
 test.describe.configure({ mode: "serial" });
@@ -752,6 +814,177 @@ test.describe("the calendar, as the Owner", () => {
     await expect(laptop).toHaveAttribute("data-view", "week");
     await eventOf(week, shoot).click();
     await expect(page).toHaveURL(new RegExp(`/tasks/${shoot.id}`));
+
+    await removeTasksTitled(prefix);
+  });
+});
+
+/**
+ * The owner's phone walk (2026-10-08, note 1): in the week and the compact month the page never
+ * scrolls; the header, the grid or strip, the handle, the day's title and its all-day chips stay
+ * put, and the timeline fills what is left down to the bottom bar as the one scroll, opening 8 px
+ * above its first hour so that label is whole. A finger on the timeline scrolls it; one on the
+ * grid or the handle resizes. The full month fits with no timeline.
+ */
+test.describe("the calendar on a phone, the owner's walk (2026-10-08)", () => {
+  test.use({ storageState: storageStateFor("owner") });
+
+  test("week and compact month: the page never scrolls, the timeline is the one scroll down to the bottom bar, its first hour is whole; the handle swipes", async ({
+    page,
+  }, info) => {
+    test.skip(!isPhone(info), "the phone's sizes");
+    const prefix = `${prefixOf(info)}walk `;
+    await removeTasksTitled(prefix);
+    // A day of its own, weeks from the days the other specs fill, never today: its timeline
+    // opens at 08:00. An all-day event (the owner's "Fire Chandan 2.0") and a timed shoot.
+    const day = workingDay(36);
+    const staffId = await memberIdOf(USERS.staff.email);
+    const create = async (title: string, from: string | null, to: string | null) =>
+      rpcAs<string>(USERS.owner.email, USERS.owner.password, "task_create", {
+        title,
+        description: null,
+        task_type_id: await taskTypeId("Shoot / Site Visit"),
+        client_id: null,
+        priority: "medium",
+        due_at: istInstant(day, "18:00"),
+        assignee_ids: [staffId],
+        primary_owner_id: staffId,
+        approving_admin_id: null,
+        stages: [],
+        event_date: day,
+        event_start_at: from ? istInstant(day, from as "10:00") : null,
+        event_end_at: to ? istInstant(day, to as "11:00") : null,
+        location: null,
+      });
+    const allDay = `${prefix}all day`;
+    await create(allDay, null, null);
+    await create(`${prefix}shoot`, "10:00", "11:00");
+
+    await page.goto(`/calendar?date=${day}`);
+    await hydrated(page);
+    await expect(phone(page)).toHaveAttribute("data-size", "2");
+    const hours = page.locator('[data-slot="calendar-phone"] [data-slot="calendar-hours"]');
+    await expect(hours).toBeVisible();
+    const handle = page.locator('button[data-slot="calendar-handle"]');
+    const chip = detail(page)
+      .locator('[data-slot="calendar-all-day"] [data-slot="calendar-event"]')
+      .filter({ hasText: allDay });
+    await expect(chip).toBeVisible();
+    // What stays put while the timeline scrolls (the owner's list).
+    const fixed = [
+      page.locator('[data-slot="calendar-phone"] [data-slot="calendar-header"]'),
+      page.locator('[data-slot="calendar-area"]'),
+      handle,
+      detail(page).locator('[data-slot="calendar-day-title"]'),
+      chip,
+    ];
+    const boxes = () => Promise.all(fixed.map((part) => part.boundingBox()));
+    // The first hour in sight is 08:00, its label whole (it opened 8 px above the hour).
+    const opensWhole = (layout: Awaited<ReturnType<typeof phoneLayout>>, where: string) => {
+      const inSight = layout.labels
+        .filter((label) => label.bottom > layout.top && label.top < layout.bottom)
+        .sort((a, b) => a.top - b.top);
+      expect.soft(inSight[0]?.text, `${where}: opens at 08:00`).toBe("08:00");
+      expect
+        .soft(inSight[0]?.top ?? 0, `${where}: the first hour's label is whole`)
+        .toBeGreaterThanOrEqual(layout.top - 1);
+    };
+    const hourOf = (layout: Awaited<ReturnType<typeof phoneLayout>>) => {
+      const at = (text: string) => layout.labels.find((label) => label.text === text)?.top ?? 0;
+      return at("09:00") - at("08:00");
+    };
+
+    for (const size of ["2", "1"] as const) {
+      if (size === "1") {
+        // A finger's swipe up on the handle shows less: the week.
+        await touchDrag(page, handle, -100);
+        await expect(phone(page)).toHaveAttribute("data-size", "1");
+      }
+      await animationsSettled(page);
+      await expect.poll(async () => (await phoneLayout(page)).scrollTop).toBeGreaterThan(0);
+      const fit = await phoneLayout(page);
+      expect
+        .soft(fit.pageOverflow, `size ${size}: the page does not scroll`)
+        .toBeLessThanOrEqual(1);
+      expect
+        .soft(Math.abs(fit.bottom - fit.dock), `size ${size}: the timeline ends at the bottom bar`)
+        .toBeLessThanOrEqual(1);
+      expect.soft(fit.scrolls, `size ${size}: the timeline scrolls inside`).toBeGreaterThan(0);
+      // It opened at 08:00 (the week keeps the scroll the person left in the compact month: a
+      // size is view state; a fresh week is checked at the end).
+      if (size === "2") opensWhole(fit, "the compact month");
+
+      // A finger on the timeline scrolls it: the calendar keeps its size and nothing else moves;
+      // a wheel over it scrolls it too, and the page stays at its top.
+      const before = await boxes();
+      await touchDrag(page, hours, -160);
+      await expect(phone(page)).toHaveAttribute("data-size", size);
+      const from = (await phoneLayout(page)).scrollTop;
+      await hours.hover();
+      await page.mouse.wheel(0, 300);
+      await expect.poll(async () => (await phoneLayout(page)).scrollTop).toBeGreaterThan(from);
+      const after = await phoneLayout(page);
+      expect.soft(after.pageTop, `size ${size}: the page stays at its top`).toBe(0);
+      expect.soft(await boxes(), `size ${size}: the fixed parts stay put`).toEqual(before);
+    }
+
+    // Large text: the fixed parts may take more of the screen and the timeline what is left, never
+    // less than two hours; the page scrolls only when even those two hours do not fit, and at its
+    // end the timeline still ends at the bottom bar. Nothing scrolls sideways.
+    for (const size of ["1", "2"] as const) {
+      if (size === "2") {
+        await touchDrag(page, handle, 100);
+        await expect(phone(page)).toHaveAttribute("data-size", "2");
+      }
+      for (const scale of [130, 200]) {
+        await page.evaluate((percent) => {
+          document.documentElement.style.fontSize = `${percent}%`;
+        }, scale);
+        await animationsSettled(page);
+        await expectNoHorizontalScroll(page);
+        const large = await phoneLayout(page);
+        const hour = hourOf(large);
+        expect
+          .soft(large.height, `size ${size} at ${scale}%: two hours at least`)
+          .toBeGreaterThanOrEqual(2 * hour - 1);
+        if (large.pageOverflow > 1) {
+          expect
+            .soft(
+              Math.abs(large.height - 2 * hour),
+              `size ${size} at ${scale}%: the page scrolls only for the timeline's two hours`,
+            )
+            .toBeLessThanOrEqual(1);
+        }
+        await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+        const end = await phoneLayout(page);
+        expect
+          .soft(Math.abs(end.bottom - end.dock), `size ${size} at ${scale}%: down to the bar`)
+          .toBeLessThanOrEqual(1);
+        await page.evaluate(() => window.scrollTo(0, 0));
+      }
+      await page.evaluate(() => {
+        document.documentElement.style.fontSize = "";
+      });
+    }
+
+    // The full month fits the screen with no timeline: the handle just above the bottom bar.
+    await handle.click();
+    await expect(phone(page)).toHaveAttribute("data-size", "3");
+    await expect(hours).toHaveCount(0);
+    await animationsSettled(page);
+    const full = await phoneLayout(page);
+    const handleBox = await handle.boundingBox();
+    expect.soft(full.pageOverflow, "size 3: the page does not scroll").toBeLessThanOrEqual(1);
+    expect
+      .soft((handleBox?.y ?? 0) + (handleBox?.height ?? 0), "size 3: above the bottom bar")
+      .toBeLessThanOrEqual(full.dock + 1);
+
+    // "Show less" goes back to a fresh week: its timeline opens at 08:00, the label whole.
+    await handle.click();
+    await expect(phone(page)).toHaveAttribute("data-size", "1");
+    await animationsSettled(page);
+    await expect.poll(async () => (await phoneLayout(page)).scrollTop).toBeGreaterThan(0);
+    opensWhole(await phoneLayout(page), "the week");
 
     await removeTasksTitled(prefix);
   });

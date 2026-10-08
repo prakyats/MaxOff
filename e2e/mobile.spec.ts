@@ -353,6 +353,12 @@ for (const role of ["owner", "admin", "staff"] as const) {
       for (const size of ["2", "3", "1"]) {
         await expect(phone).toHaveAttribute("data-size", size);
         await fits();
+        // Every size fits the screen (the owner's phone walk, 2026-10-08): the page never
+        // scrolls; in the week and the compact month the day's timeline is the one scroll.
+        const overflow = await page.evaluate(
+          () => document.documentElement.scrollHeight - document.documentElement.clientHeight,
+        );
+        expect(overflow, `size ${size}: the page does not scroll`).toBeLessThanOrEqual(1);
         await handle.click();
       }
       // A day of the full month opens its sheet, which fits too.

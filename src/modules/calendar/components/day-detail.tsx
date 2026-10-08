@@ -233,6 +233,7 @@ export function DayDetail({
   free,
   action,
   timeline,
+  fill = false,
   footer,
   heading = true,
   headingId,
@@ -249,6 +250,13 @@ export function DayDetail({
    * the timeline beside it and lists them instead.
    */
   timeline: boolean;
+  /**
+   * The phone's week and compact month (the owner's phone walk, 2026-10-08): the detail fills the
+   * height left above the bottom bar. Its heading and all-day line stay put; under them one scroll
+   * takes the rest: the hour timeline with the day's other rows ("Due · N", "Who's free", the
+   * day's action) after its hours, or those rows alone on a day with no timed event.
+   */
+  fill?: boolean;
   /** "Open day" in the laptop's dialog. */
   footer?: ReactNode;
   /** The day's heading; a sheet's title says it instead. */
@@ -262,41 +270,10 @@ export function DayDetail({
     day.weeklyOff ||
     day.leave.length > 0 ||
     day.events.some((event) => event.startAt === null);
-  return (
-    <section
-      aria-labelledby={heading ? headingId : undefined}
-      aria-label={heading ? undefined : dayHeading(day.date, today)}
-      data-slot="calendar-detail"
-      data-date={day.date}
-      className="flex min-w-0 flex-col gap-3"
-    >
-      {heading ? (
-        <h2 id={headingId} data-slot="calendar-day-title" className="text-sm font-semibold">
-          {dayHeading(day.date, today)}
-        </h2>
-      ) : null}
-      {empty ? (
-        <p data-slot="calendar-empty-day" className="text-muted-foreground text-sm">
-          {EMPTY_DAY}
-        </p>
-      ) : null}
-      {hasAllDay ? (
-        <div data-slot="calendar-all-day" className="flex flex-wrap items-center gap-1.5">
-          <AllDayChips day={day} today={today} dueAsChip={false} />
-        </div>
-      ) : null}
-      {timed.length > 0 ? (
-        timeline ? (
-          <Timeline
-            days={[day]}
-            today={today}
-            eventLink={eventLink}
-            className="border-border overflow-hidden rounded-lg border"
-          />
-        ) : (
-          <EventRows events={day.events.filter((event) => event.startAt !== null)} />
-        )
-      ) : null}
+  // What follows the events: an Admin's others' busy times (beside the laptop Day's timeline),
+  // "Due · N" and its tasks, "Who's free" and the day's buttons.
+  const rest = (
+    <>
       {!timeline && day.busy.length > 0 ? (
         <ul aria-label="Busy" className="text-muted-foreground flex flex-col gap-1 text-xs">
           {day.busy.map((block) => (
@@ -363,6 +340,57 @@ export function DayDetail({
           {footer}
         </div>
       ) : null}
+    </>
+  );
+  return (
+    <section
+      aria-labelledby={heading ? headingId : undefined}
+      aria-label={heading ? undefined : dayHeading(day.date, today)}
+      data-slot="calendar-detail"
+      data-date={day.date}
+      className={cn("flex min-w-0 flex-col gap-3", fill && "grow basis-0")}
+    >
+      {heading ? (
+        <h2 id={headingId} data-slot="calendar-day-title" className="text-sm font-semibold">
+          {dayHeading(day.date, today)}
+        </h2>
+      ) : null}
+      {empty ? (
+        <p data-slot="calendar-empty-day" className="text-muted-foreground text-sm">
+          {EMPTY_DAY}
+        </p>
+      ) : null}
+      {hasAllDay ? (
+        <div data-slot="calendar-all-day" className="flex flex-wrap items-center gap-1.5">
+          <AllDayChips day={day} today={today} dueAsChip={false} />
+        </div>
+      ) : null}
+      {timed.length > 0 ? (
+        timeline ? (
+          fill ? (
+            <Timeline days={[day]} today={today} eventLink={eventLink} fill after={rest} />
+          ) : (
+            <Timeline
+              days={[day]}
+              today={today}
+              eventLink={eventLink}
+              className="border-border overflow-hidden rounded-lg border"
+            />
+          )
+        ) : (
+          <EventRows events={day.events.filter((event) => event.startAt !== null)} />
+        )
+      ) : fill ? (
+        <div
+          data-slot="calendar-day-scroll"
+          // The one scroll on a day with no timed event; two of the phone's hours at least, as the
+          // timeline keeps.
+          className="flex min-h-[5.5rem] min-w-0 grow basis-0 flex-col gap-3 overflow-y-auto overscroll-contain"
+        >
+          {rest}
+        </div>
+      ) : null}
+      {fill ? null : rest}
     </section>
   );
 }
