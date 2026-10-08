@@ -9,7 +9,7 @@ export { eachId } from "./each-id";
 export {
   describeBoundaryError,
   isJwtExpiredError,
-  JWT_EXPIRED_CODE,
+  JWT_REJECTED_CODE,
   SESSION_UNAVAILABLE_DIGEST,
   type BoundaryCopy,
 } from "./boundary";

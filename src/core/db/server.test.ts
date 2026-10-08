@@ -123,7 +123,7 @@ describe("a server read that PostgREST refuses as JWT expired (PGRST303, Sentry 
     );
   });
 
-  it("refreshes nothing from a render: the proxy is the one place a session is renewed", async () => {
+  it("adds no refresh-and-retry of its own: the proxy is the one place meant to renew a session", async () => {
     signInWithExpiredToken();
     await readMembersAsDataLayer();
     expect(seen.filter((request) => request.url.includes("/auth/v1/token"))).toHaveLength(0);
@@ -151,6 +151,24 @@ describe("a server read that PostgREST refuses as JWT expired (PGRST303, Sentry 
       hint: null,
       message: "x",
     });
+
+    // PGRST303 is any refused claim; only "expired" is the retryable screen.
+    const notInAudience = {
+      code: "PGRST303",
+      details: null,
+      hint: null,
+      message: "JWT not in audience",
+    };
+    answer = () =>
+      new Response(JSON.stringify(notInAudience), {
+        status: 401,
+        headers: { "content-type": "application/json" },
+      });
+    const refused = await readMembersAsDataLayer();
+    expect(refused).toEqual(notInAudience);
+    expect((getProperError(refused) as Error & { digest?: string }).digest).not.toBe(
+      SESSION_UNAVAILABLE_DIGEST,
+    );
 
     answer = () =>
       new Response(JSON.stringify({ id: "member-1" }), {

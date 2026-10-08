@@ -9,9 +9,14 @@ import { isJwtExpiredError, SESSION_UNAVAILABLE_DIGEST } from "@/core/errors/bou
  * during a render rotates the refresh token at GoTrue, but the browser never receives the new
  * one, so its next request presents the spent token outside GoTrue's reuse interval, and GoTrue
  * revokes the whole session: the person would be signed out by the very retry meant to spare
- * them. The proxy (`core/auth/session.ts`) is the one place that renews a session, because it can
- * hand the new cookies to the browser; the error screen's **Try again** re-requests the page
- * (`retry()`), which passes through the proxy and reads with a renewed token.
+ * them. The proxy (`core/auth/session.ts`) is meant to be the one place that renews a session,
+ * because it can hand the new cookies to the browser; the error screen's **Try again** re-requests
+ * the page (`retry()`), which passes through the proxy and reads with a renewed token. (auth-js
+ * itself still refreshes a token within 90 s of expiry on a server client's first read: a known
+ * gap, ARCHITECTURE §7a.)
+ *
+ * Only `PGRST303` whose message says expired is that case (`isJwtExpiredError`); PostgREST uses
+ * the same code for any other refused claim, and those answers pass through unchanged.
  *
  * **How the screen is reached:** every data layer throws PostgREST's error object as it is
  * (`if (error) throw error`), and in production Next forwards only a thrown error's `digest` to

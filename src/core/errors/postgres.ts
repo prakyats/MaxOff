@@ -1,6 +1,7 @@
 import { AppError } from "./app-error";
 import {
-  JWT_EXPIRED_CODE,
+  isJwtExpiredError,
+  JWT_REJECTED_CODE,
   SESSION_UNAVAILABLE_DESCRIPTION,
   SESSION_UNAVAILABLE_TITLE,
 } from "./boundary";
@@ -29,7 +30,7 @@ const CODE_MAP: Readonly<Record<string, ErrorCode>> = {
   PGRST116: "NOT_FOUND", // `.single()` matched no rows (or more than one)
   PGRST301: "UNAUTHENTICATED", // JWT expired / invalid
   PGRST302: "UNAUTHENTICATED",
-  [JWT_EXPIRED_CODE]: "UNAUTHENTICATED", // JWT expired: the proxy renews it on the next request
+  [JWT_REJECTED_CODE]: "UNAUTHENTICATED", // a refused JWT claim (an expired one: see below)
   // Postgres SQLSTATE
   "42501": "FORBIDDEN", // insufficient_privilege (RLS or grant)
   "23505": "CONFLICT", // unique_violation
@@ -49,9 +50,10 @@ const CODE_MESSAGES: Readonly<Partial<Record<string, string>>> = {
   "23505": "This already exists.",
   "23503": "This is linked to another record, so the change isn't possible.",
   "22P02": "One of the values has the wrong format.",
-  // Not "sign in": the session is fine and the next request renews the token (2.6, 6.6).
-  [JWT_EXPIRED_CODE]: `${SESSION_UNAVAILABLE_TITLE} ${SESSION_UNAVAILABLE_DESCRIPTION}`,
 };
+
+/** An expired access token is not "sign in": the session is fine and the proxy renews it (6.6). */
+const JWT_EXPIRED_MESSAGE = `${SESSION_UNAVAILABLE_TITLE} ${SESSION_UNAVAILABLE_DESCRIPTION}`;
 
 /**
  * Maps a Postgres or PostgREST error to an `AppError`.
@@ -68,6 +70,10 @@ export function mapPostgresError(error: PostgresLikeError): AppError {
       return new AppError(error.message, detail ? detail : undefined, { cause: error });
     }
     return new AppError("INTERNAL", undefined, { cause: error });
+  }
+
+  if (isJwtExpiredError(error)) {
+    return new AppError("UNAUTHENTICATED", JWT_EXPIRED_MESSAGE, { cause: error });
   }
 
   const code = CODE_MAP[error.code] ?? "INTERNAL";

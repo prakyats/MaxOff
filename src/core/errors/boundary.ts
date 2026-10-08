@@ -15,19 +15,22 @@ export const SESSION_UNAVAILABLE_TITLE = "Can't reach the server.";
 export const SESSION_UNAVAILABLE_DESCRIPTION = "You're still signed in. Try again in a moment.";
 
 /**
- * PostgREST's code for a JWT whose claims it refused: in practice an access token that expired
- * (`"JWT expired"`). Nothing is wrong with the person's session: the proxy renews it on the next
- * request, so it is the same retryable failure as an unreachable GoTrue, never "signed out".
+ * PostgREST's code for a JWT whose claims it refused: any of them (`exp`, `nbf`, `iat`, `aud`).
+ * Only the expired one is the transient case below; the others pass through as they are.
  */
-export const JWT_EXPIRED_CODE = "PGRST303";
+export const JWT_REJECTED_CODE = "PGRST303";
 
-/** A PostgREST error (or anything shaped like one) refusing the access token as expired. */
+/**
+ * A PostgREST error (or anything shaped like one) refusing the access token **as expired**:
+ * `PGRST303` with a message that says so (`"JWT expired"`). Nothing is wrong with the person's
+ * session then: the proxy renews it on the next request, so it is the same retryable failure as an
+ * unreachable GoTrue, never "signed out". A `PGRST303` for another claim (not yet valid, issued in
+ * the future, the wrong audience) is not that, and is left alone.
+ */
 export function isJwtExpiredError(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    (error as { code?: unknown }).code === JWT_EXPIRED_CODE
-  );
+  if (typeof error !== "object" || error === null) return false;
+  const { code, message } = error as { code?: unknown; message?: unknown };
+  return code === JWT_REJECTED_CODE && typeof message === "string" && /expired/i.test(message);
 }
 
 export interface BoundaryCopy {
@@ -45,6 +48,7 @@ export interface BoundaryCopy {
 export function describeBoundaryError(error: {
   digest?: string | undefined;
   code?: unknown;
+  message?: unknown;
 }): BoundaryCopy {
   if (error.digest === SESSION_UNAVAILABLE_DIGEST || isJwtExpiredError(error)) {
     return {
