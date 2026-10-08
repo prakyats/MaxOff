@@ -158,7 +158,9 @@ export function Timeline({
     const apply = (): boolean => {
       if (element.clientHeight === 0 || element.scrollHeight <= element.clientHeight) return false;
       scrolledFor.current = key;
-      element.scrollTop = (element.scrollHeight / DAY_MINUTES) * minute;
+      // On the laptop half a label's height more, so the opening hour's own label shows.
+      const lift = laptop ? 8 : 0;
+      element.scrollTop = Math.max(0, (element.scrollHeight / DAY_MINUTES) * minute - lift);
       return true;
     };
     if (apply()) return;
@@ -167,7 +169,7 @@ export function Timeline({
     });
     observer.observe(element);
     return () => observer.disconnect();
-  }, [key, showsToday, now, today, first]);
+  }, [key, showsToday, now, today, first, laptop]);
 
   // The laptop's look before the click: a mouse over a block (a touch never hovers), or the
   // keyboard's focus on it.
