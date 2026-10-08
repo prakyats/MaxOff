@@ -303,9 +303,20 @@ test.describe("the launch screen (walk note 3)", () => {
     const answer = await context.request.get(LAUNCH, { maxRedirects: 0 });
     expect(answer.status()).toBe(307);
     await context.route(isLaunchDocument, (route) => route.fulfill({ response: answer }));
+    // Every address the window showed (Next's own same-document `replaceState` included) and
+    // every document it asked for.
     const committed: string[] = [];
     page.on("framenavigated", (frame) => {
-      if (frame === page.mainFrame()) committed.push(new URL(frame.url()).pathname);
+      if (frame !== page.mainFrame()) return;
+      const url = new URL(frame.url());
+      committed.push(url.pathname + url.search);
+    });
+    const documents: string[] = [];
+    page.on("request", (request) => {
+      if (request.isNavigationRequest() && request.frame() === page.mainFrame()) {
+        const url = new URL(request.url());
+        documents.push(url.pathname + url.search);
+      }
     });
     const screens: string[] = [];
     page.on("response", (response) => {
@@ -316,7 +327,10 @@ test.describe("the launch screen (walk note 3)", () => {
     await page.goto(LAUNCH);
     await expect(page).toHaveURL(/\/today$/);
     expect(screens).toEqual([]);
-    expect(committed).toEqual(["/today"]);
+    // The launch address never showed and no hand-off was asked for: straight home.
+    expect(committed.filter((address) => /[?&](source|launch)=/.test(address))).toEqual([]);
+    expect(committed[0]).toBe("/today");
+    expect(documents.filter((address) => address.includes("launch="))).toEqual([]);
     expect((await paints(page)).filter((paint) => paint.launchScreen)).toEqual([]);
   });
 
