@@ -11,10 +11,11 @@ import { Button } from "@/core/ui/primitives/button";
 /** Error boundary inside the shell: the sidebar and top bar stay, only the page is replaced. */
 export default function AppError({
   error,
-  reset,
+  retry,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
+  /** Re-requests the page from the server (Next 16.3): `reset()` only re-renders what failed. */
+  retry: () => void;
 }) {
   useEffect(() => {
     // Next does not forward errors caught by an explicit boundary to Sentry's global handlers,
@@ -31,7 +32,7 @@ export default function AppError({
       description={copy.description}
       action={
         <>
-          <Button variant="secondary" onClick={reset}>
+          <Button variant="secondary" onClick={retry}>
             Try again
           </Button>
           <Button variant="secondary" asChild>
