@@ -12,7 +12,12 @@ export const MODAL_SURFACE = [
   // Phone: docked to the bottom edge, full width, rounded at the top, scrolling inside itself
   // and clearing the home indicator.
   "fixed inset-x-0 bottom-0 z-50 grid max-h-[85dvh] w-full gap-4 overflow-y-auto rounded-t-2xl p-4 pt-5 pb-[calc(1rem+var(--app-safe-bottom))] outline-none",
-  "duration-200 data-open:animate-in data-open:fade-in-0 data-open:slide-in-from-bottom-8 data-closed:animate-out data-closed:fade-out-0 data-closed:slide-out-to-bottom-8",
+  // `duration-*` times the enter and exit animations; it also sets `transition-duration`, and
+  // with the initial `transition-property: all` every style change then eased over 200ms: a
+  // larger system text grew the footer's negative margins at once and the padding only later,
+  // so the footer stuck out past the screen meanwhile (6B2, mobile.spec "the calendar's sizes
+  // fit"). The surface animates, it never transitions.
+  "transition-none duration-200 data-open:animate-in data-open:fade-in-0 data-open:slide-in-from-bottom-8 data-closed:animate-out data-closed:fade-out-0 data-closed:slide-out-to-bottom-8",
   // Tablet and desktop: the centred dialog, as it was before 1.5.
   "md:inset-x-auto md:top-1/2 md:bottom-auto md:left-1/2 md:max-h-[calc(100dvh-4rem)] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:p-4 md:pb-4 md:duration-100",
   "md:data-open:zoom-in-95 md:data-open:slide-in-from-bottom-0 md:data-closed:zoom-out-95 md:data-closed:slide-out-to-bottom-0",
