@@ -1,14 +1,13 @@
-import { createTransport, type init } from "@sentry/nextjs";
+import {
+  createTransport,
+  type BaseTransportOptions,
+  type Envelope,
+  type Transport,
+  type TransportMakeRequestResponse,
+  type TransportRequest,
+} from "@sentry/core";
 
-// `@sentry/nextjs` does not re-export the transport types and `@sentry/core` is not a direct
-// dependency, so they are derived from the `transport` option of `Sentry.init`.
-type TransportFactory = NonNullable<NonNullable<Parameters<typeof init>[0]>["transport"]>;
-type BaseTransportOptions = Parameters<TransportFactory>[0];
-type Transport = ReturnType<TransportFactory>;
-type MakeRequest = Parameters<typeof createTransport>[1];
-type TransportRequest = Parameters<MakeRequest>[0];
-type TransportMakeRequestResponse = Awaited<ReturnType<MakeRequest>>;
-export type SentryEnvelope = Parameters<Transport["send"]>[0];
+export type SentryEnvelope = Envelope;
 
 /**
  * Sends envelopes with the platform `fetch` instead of the Node SDK's default `node:https`
@@ -17,6 +16,9 @@ export type SentryEnvelope = Parameters<Transport["send"]>[0];
  * events" exactly at the 2 s flush timeout and Sentry received nothing. `fetch` is native on the
  * Worker and is what `@sentry/cloudflare` itself uses. Shape follows `@sentry/browser`'s
  * `makeFetchTransport`, minus the browser-only `keepalive` handling.
+ *
+ * Kept with the switch to `@sentry/cloudflare` (ADR-0014): it sends at once, where that SDK's own
+ * transport holds every envelope until a flush, and it is the transport proven on staging.
  */
 export function makeFetchTransport(
   options: BaseTransportOptions,

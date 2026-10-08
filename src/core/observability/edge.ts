@@ -1,9 +1,9 @@
-import * as Sentry from "@sentry/nextjs";
+import { initServerSentry } from "./server";
 
-import { sentryOptions } from "./options";
-import { makeFetchTransport } from "./transport";
-
-/** Called once from `src/instrumentation.ts` on the edge runtime (proxy, edge routes). */
+/**
+ * Called once from `src/instrumentation.ts` on the edge runtime (no route uses it today: the
+ * proxy runs on Node). The same Worker SDK and options as the server runtime (ADR-0014).
+ */
 export function initEdgeSentry(): void {
-  Sentry.init({ ...sentryOptions("edge"), transport: makeFetchTransport });
+  initServerSentry("edge");
 }

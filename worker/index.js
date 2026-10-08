@@ -4,6 +4,8 @@
 // calls the app's own `/api/cron/<job>` route through the self-reference binding, with the
 // shared secret the route checks. `wrangler deploy` bundles this file; `.open-next/worker.js`
 // is what `pnpm build:worker` produced.
+// First: installs Sentry's per-request scopes before any other module runs (ADR-0014).
+import { runInRequestScope } from "../src/core/observability/request-scope.ts";
 import openNext from "../.open-next/worker.js";
 import { canonicalRedirectUrl } from "../src/core/http/canonical-host.ts";
 
@@ -48,7 +50,9 @@ const worker = {
         headers: { ...REDIRECT_HEADERS, Location: target },
       });
     }
-    return openNext.fetch(request, env, ctx);
+    // Its own Sentry isolation scope, so a member id set by one request never tags another
+    // request's report (`core/observability/request-scope.ts`, ADR-0014).
+    return runInRequestScope(() => openNext.fetch(request, env, ctx));
   },
 
   /**

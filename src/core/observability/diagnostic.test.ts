@@ -9,7 +9,7 @@ import {
 } from "./diagnostic";
 import { SCRUBBED, scrubEvent, scrubString, scrubValue } from "./scrub";
 
-vi.mock("@sentry/nextjs", () => ({
+vi.mock("@sentry/core", () => ({
   setContext: vi.fn(),
   setExtra: vi.fn(),
   setTag: vi.fn(),

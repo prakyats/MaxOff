@@ -1,4 +1,4 @@
-import * as Sentry from "@sentry/nextjs";
+import { setContext, setExtra, setTag } from "@sentry/core";
 
 import type { AppEnv } from "./env";
 
@@ -28,8 +28,8 @@ export const SENTRY_DIAGNOSTIC_MESSAGE = `Sentry diagnostic: ${SENTRY_DIAGNOSTIC
 
 /** Attaches the payload to the current scope (context, extra, tag) and throws. Never returns. */
 export function throwSentryDiagnostic(): never {
-  Sentry.setContext("diagnostic", { ...SENTRY_DIAGNOSTIC_PAYLOAD });
-  Sentry.setExtra("diagnostic_note", SENTRY_DIAGNOSTIC_MESSAGE);
-  Sentry.setTag("diagnostic_contact", SENTRY_DIAGNOSTIC_PAYLOAD.email);
+  setContext("diagnostic", { ...SENTRY_DIAGNOSTIC_PAYLOAD });
+  setExtra("diagnostic_note", SENTRY_DIAGNOSTIC_MESSAGE);
+  setTag("diagnostic_contact", SENTRY_DIAGNOSTIC_PAYLOAD.email);
   throw new Error(SENTRY_DIAGNOSTIC_MESSAGE);
 }

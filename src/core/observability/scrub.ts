@@ -1,4 +1,4 @@
-import type { Breadcrumb, ErrorEvent } from "@sentry/nextjs";
+import type { Breadcrumb, ErrorEvent } from "@sentry/core";
 
 /**
  * ARCHITECTURE §18: error reports never carry money or personal data. Everything below runs

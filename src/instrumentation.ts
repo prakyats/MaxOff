@@ -1,9 +1,10 @@
-import * as Sentry from "@sentry/nextjs";
+import { captureRequestError } from "@/core/observability/request-error";
 
 /**
- * Next.js instrumentation hook: initialises Sentry once per runtime (ARCHITECTURE §18) and
- * says once, at start-up, when email is not configured (task 1.2). That line is a warning
- * everywhere and an error-level line in production; it never throws (decided 2026-09-22).
+ * Next.js instrumentation hook: initialises Sentry once per runtime (ARCHITECTURE §18; on the
+ * Worker with `@sentry/cloudflare`, ADR-0014) and says once, at start-up, when email is not
+ * configured (task 1.2). That line is a warning everywhere and an error-level line in
+ * production; it never throws (decided 2026-09-22).
  */
 export async function register(): Promise<void> {
   if (process.env.NEXT_RUNTIME === "nodejs") {
@@ -24,4 +25,4 @@ export async function register(): Promise<void> {
 }
 
 /** Server-side rendering and route-handler errors, reported through the same scrubber. */
-export const onRequestError = Sentry.captureRequestError;
+export const onRequestError = captureRequestError;
