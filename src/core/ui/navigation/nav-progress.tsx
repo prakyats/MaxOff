@@ -9,15 +9,20 @@ import { Button } from "@/core/ui/primitives/button";
 
 import {
   actionLeavesScreen,
-  headingElsewhere,
   isNavigationFetch,
   isRouterActionFetch,
   NAV_DONE_ATTRIBUTE,
   NAV_PENDING_ATTRIBUTE,
   NAV_TARGET_ATTRIBUTE,
+  NAV_TRACK_START,
   navigationDone,
   navStage,
   type NavStage,
+  type NavTrack,
+  trackBegin,
+  trackCommit,
+  trackFetch,
+  trackSettle,
 } from "./progress";
 import {
   TAB_ATTRIBUTE,
@@ -112,8 +117,9 @@ export function NavProgressBar() {
  *   so it never starts the bar;
  * - **finishes** it once the address has changed and no route skeleton (`loading-state`) is left
  *   in `main`, or at most `NAV_SETTLE_MS` after the destination's fetch has answered (a section
- *   that loads on its own may keep a skeleton); a fetch that ends without an address change (a
- *   refresh) finishes it too;
+ *   that loads on its own may keep a skeleton); a fetch that ends without an address change
+ *   finishes it too when it was a refresh, or once the router has committed after it or it
+ *   failed (`navigationDone`: the router acted on the answer and stayed, so the bar always ends);
  * - **stands down** quietly when a tap turns out not to navigate (the unsaved-changes guard held
  *   it): nothing started within `IDLE_CANCEL_MS`. A page that is really unloading is left alone,
  *   and a `beforeunload` that did not unload is forgotten after `UNLOAD_GRACE_MS`;
@@ -143,13 +149,9 @@ export function NavProgress() {
     let from = "";
     let movedAt = 0;
     let settledAt = 0;
-    let fetches = 0;
-    // The addresses of the counted fetches still in flight (one entry per fetch).
-    const inFlight: string[] = [];
-    let fetched = false;
-    // A counted fetch for another address: then only the address changing ends the bar. A fetch
-    // for the address it started from is a refresh, which ends it when it answers.
-    let elsewhere = false;
+    // The router's counted fetches and commits for the navigation under way (`NavTrack`): when
+    // they end it is `navigationDone`'s rule.
+    let track: NavTrack = NAV_TRACK_START;
     let unloading = false;
     let unloadTimer = 0;
     let doneTimer = 0;
@@ -190,9 +192,8 @@ export function NavProgress() {
         const done = navigationDone({
           moved,
           skeleton: document.querySelector('main [data-slot="loading-state"]') !== null,
-          answered: fetched && fetches === 0,
-          elsewhere,
-          idle: fetches === 0,
+          track,
+          unloading,
           sinceAnswered: settledAt ? t - settledAt : 0,
           sinceMoved: movedAt ? t - movedAt : 0,
         });
@@ -200,7 +201,8 @@ export function NavProgress() {
           finish();
           return;
         }
-        if (!moved && fetches === 0 && !fetched && !unloading && t - startedAt > IDLE_CANCEL_MS) {
+        const quiet = track.inFlight.length === 0 && !track.fetched;
+        if (!moved && quiet && !unloading && t - startedAt > IDLE_CANCEL_MS) {
           clear();
           return;
         }
@@ -224,10 +226,9 @@ export function NavProgress() {
       from = origin;
       kind.current = how;
       // A tap's own router fetch went out before this (`headingElsewhere`): it still counts.
-      elsewhere = headingElsewhere(inFlight, origin);
+      track = trackBegin(track, origin);
       movedAt = 0;
       settledAt = 0;
-      fetched = false;
       if (to) destination.current = to;
       watch();
     };
@@ -294,23 +295,19 @@ export function NavProgress() {
       if (!pending() && to === here()) return reported(send());
       if (!pending()) begin(to, "router");
       else if (!destination.current) destination.current = to;
-      if (to !== from) elsewhere = true;
-      fetches++;
-      inFlight.push(to);
-      const settle = () => {
-        fetches--;
-        inFlight.splice(inFlight.indexOf(to), 1);
-        fetched = true;
+      track = trackFetch(track, to, from);
+      const settle = (failed: boolean) => {
+        track = trackSettle(track, to, failed);
         settledAt = now();
       };
       return reported(
         send().then(
           (response) => {
-            settle();
+            settle(false);
             return response;
           },
           (error: unknown) => {
-            settle();
+            settle(true);
             throw error;
           },
         ),
@@ -325,13 +322,17 @@ export function NavProgress() {
     const realReplace = window.history.replaceState;
     const committing = (data: unknown) =>
       !writingOwnHistory() && typeof data === "object" && data !== null && "__NA" in data;
+    const committed = () => {
+      track = trackCommit(track);
+      noteRouterCommitted();
+    };
     const pushState: History["pushState"] = function (this: History, data, unused, url) {
       realPush.call(this, data, unused, url);
-      if (committing(data)) noteRouterCommitted();
+      if (committing(data)) committed();
     };
     const replaceState: History["replaceState"] = function (this: History, data, unused, url) {
       realReplace.call(this, data, unused, url);
-      if (committing(data)) noteRouterCommitted();
+      if (committing(data)) committed();
     };
     window.history.pushState = pushState;
     window.history.replaceState = replaceState;

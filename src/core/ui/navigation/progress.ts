@@ -65,34 +65,114 @@ export function headingElsewhere(inFlight: readonly string[], origin: string): b
   return inFlight.some((to) => to !== origin);
 }
 
+/**
+ * What `NavProgress` has seen of the router's screen fetches and commits for the navigation under
+ * way. Changed only through the `track*` functions below, so every path is unit-tested.
+ */
+export type NavTrack = {
+  /** The addresses of the counted fetches still in flight (one entry per fetch). */
+  inFlight: readonly string[];
+  /** A counted fetch has settled since the navigation began. */
+  fetched: boolean;
+  /** A counted fetch was for another address than the one the navigation started from. */
+  elsewhere: boolean;
+  /**
+   * The router committed a state (Next's own `__NA` history write) after the latest counted fetch
+   * went out. A move commits only once its fetch has answered and changes the address as it
+   * does; a commit that leaves the address where it was means the router stayed (a redirect
+   * back, the view's own address restored) or dropped the move for another one.
+   */
+  committed: boolean;
+  /** The last counted fetch to settle failed (an error or an abort): no commit follows it. */
+  failed: boolean;
+};
+
+/** Nothing seen yet. */
+export const NAV_TRACK_START: NavTrack = {
+  inFlight: [],
+  fetched: false,
+  elsewhere: false,
+  committed: false,
+  failed: false,
+};
+
+/**
+ * A navigation begins from `origin`: what it has seen starts again, except the counted fetches
+ * still in flight, and a tap's own fetch among them still heads elsewhere (`headingElsewhere`).
+ */
+export function trackBegin(track: NavTrack, origin: string): NavTrack {
+  return {
+    inFlight: track.inFlight,
+    fetched: false,
+    elsewhere: headingElsewhere(track.inFlight, origin),
+    committed: false,
+    failed: false,
+  };
+}
+
+/**
+ * A counted screen fetch for `to` goes out during a navigation that started from `from`: a move
+ * is pending again, so an earlier commit no longer counts.
+ */
+export function trackFetch(track: NavTrack, to: string, from: string): NavTrack {
+  return {
+    ...track,
+    inFlight: [...track.inFlight, to],
+    elsewhere: track.elsewhere || to !== from,
+    committed: false,
+  };
+}
+
+/**
+ * A counted fetch for `to` has settled (answered, or `failed`). A commit already seen stays
+ * counted: a move the router dropped for another one may still answer after that one committed.
+ */
+export function trackSettle(track: NavTrack, to: string, failed: boolean): NavTrack {
+  const at = track.inFlight.indexOf(to);
+  const inFlight = at === -1 ? track.inFlight : track.inFlight.filter((_, index) => index !== at);
+  return { ...track, inFlight, fetched: true, failed };
+}
+
+/** The router committed a state (Next wrote its own history entry). */
+export function trackCommit(track: NavTrack): NavTrack {
+  return { ...track, committed: true };
+}
+
 /** What `NavProgress` knows about the navigation under way, each frame. */
 export type NavMoment = {
   /** The address shown differs from the one the navigation started from. */
   moved: boolean;
   /** A route skeleton (`loading-state`) is still in `main`. */
   skeleton: boolean;
-  /** A counted fetch was answered and none is in flight. */
-  answered: boolean;
-  /** A counted fetch was for another address. */
-  elsewhere: boolean;
-  /** No counted fetch is in flight. */
-  idle: boolean;
-  /** Ms since the last counted fetch was answered (0 when none was). */
+  /** What the router's fetches and commits have shown (`NavTrack`). */
+  track: NavTrack;
+  /** A page load in full is under way (`beforeunload`): the old page stays until it goes. */
+  unloading: boolean;
+  /** Ms since the last counted fetch settled (0 when none did). */
   sinceAnswered: number;
   /** Ms since the address changed (0 when it has not). */
   sinceMoved: number;
 };
 
 /**
- * Whether the navigation is over and the bar finishes (§14.2 i): the address has changed and the
- * new screen is drawn (no skeleton left, or at most `NAV_SETTLE_MS` after its fetch answered or
- * the address moved), or a fetch for the address it started from (a refresh) has answered. A
- * fetch for **another** address that has answered is not the end: the router may still be
+ * Whether the navigation is over and the bar finishes (§14.2 i), whichever comes first:
+ *
+ * - **the move is on screen:** the address has changed and the new screen is drawn (no skeleton
+ *   left, or at most `NAV_SETTLE_MS` after its fetch answered or the address moved);
+ * - **a refresh answered:** every counted fetch was for the address it started from;
+ * - **the router acted without a move:** every fetch for another address has settled and the
+ *   router committed after the latest went out with the address unchanged (a redirect back to
+ *   it, the view's own address restored, the move dropped for one back to it), or the last one
+ *   failed (an error, an abort) and no page load in full follows it.
+ *
+ * An answered fetch for another address alone is never the end: the router may still be
  * rendering that screen, and until it commits the address stays where it was, so the bar (and
- * `data-nav-pending`, which every background re-read waits for) stays on.
+ * `data-nav-pending`, which every background re-read waits for) stays on (CI run 37781084919).
  */
 export function navigationDone(moment: NavMoment): boolean {
-  const { moved, skeleton, answered, elsewhere, idle, sinceAnswered, sinceMoved } = moment;
+  const { moved, skeleton, track, unloading, sinceAnswered, sinceMoved } = moment;
+  const idle = track.inFlight.length === 0;
+  const answered = track.fetched && idle;
   if (moved) {
     return (
       !skeleton ||
@@ -100,7 +180,8 @@ export function navigationDone(moment: NavMoment): boolean {
       (idle && sinceMoved > NAV_SETTLE_MS)
     );
   }
-  return answered && !elsewhere;
+  if (!answered) return false;
+  return !track.elsewhere || track.committed || (track.failed && !unloading);
 }
 
 /**
