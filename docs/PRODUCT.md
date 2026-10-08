@@ -238,6 +238,38 @@ Daily work allotted to people. **Only the Owner and Admins create tasks.**
   - **The weekly digest's "week ahead"** (6.5) lists the same calendar data for the Owner: approved and pending leave, event tasks and holidays of the next seven days.
 - **As built (6B, 2026-10-07; the details the kickoff left to the build).** The address carries the view, the day and the filters (`/calendar?view=day|week|month&date=…&client=…&person=…&type=…&status=…`); with no view in it a phone draws the Day and a desktop the Week from the same week's data (the width decides, nothing sniffs the device). **Day** = the chosen day's heading, then its rows: a holiday or weekly off, leave ("You · Half day", "Ravi · Leave", "· requested" while pending; an Admin's others "On leave" / "Half day"), the events in time order (the time or "All day", the title, the location, the client label, the people; a completed one muted and struck through), an Admin's **Busy** rows (the time and the name), then **Due** (every other open task due that day: the time, the title, its primary owner). **Week** = the seven days as sections, each with the same rows and its Due as a count ("3 due", opening the day). **Month** = a Monday-to-Sunday grid; a cell holds the date, the holiday's name and counts ("2 events", "1 on leave", "3 due") and opens its day. The **week strip** (Mon–Sun chips, today ringed, the chosen day filled, a dot under a day with something on it) sits above Day and Week; the pager steps a day, a week or a month by the view, with a "Today" link when away from it. **Which tasks are events:** a task with an event date whose type has `shows_on_calendar`; a date-only event reads "All day". **Status** filter: open and completed (default), open, completed (the Due list hides on "Completed"). An Admin's Busy blocks are `member_availability()`'s timed events (a date-only event of someone else has no block, as the 4.3 warnings) less any that match a task the Admin can see, so nothing shows twice; the Owner reads `leave_requests` in full and needs no blocks. Empty day: "Nothing on this day." A holiday or weekly off is never "nothing".
 
+- **Settled at kickoff 6, decision 25 (owner-approved 2026-10-08, relayed by the advisor; supersedes decision 15's defaults and the parts of 14 it changes; built in 6.4b "Calendar rework", unit 6B2, after 6B and before 6C; reference: the owner's Samsung Calendar).**
+  - A. PHONE (below 768 px): one swipeable calendar, no Day/Week/Month control.
+    - Three snap sizes, changed by a vertical swipe on the calendar area or by tapping a visible handle bar under it:
+    (1) Week: the week strip on top; the selected day's detail fills the rest.
+    (2) Compact month: the month grid about half the screen, each day box showing only thin coloured bars (one per kind present), no text; the selected day's detail below.
+    (3) Full month: the month grid fills the screen, with labelled strips (section C).
+    Swipe down grows 1→2→3, swipe up shrinks. It opens in size (2), with today selected.
+    - Tapping a day in (1) or (2) selects it, and the detail below changes. Tapping a day in (3) opens the day sheet (section D). Swiping left or right on the grid or strip moves a week or month.
+    - Pull-to-refresh is disabled on /calendar (it keeps refresh on return and Realtime). Size changes and day selection are view state and never add history (§14.2). Back leaves the screen, or closes the day sheet. Reduced motion means instant size changes. The handle is a 44 px button with a label ("Show more of the month" / "Show less"), keyboard reachable.
+    - Header row: the month name (e.g. "October 2026"), a Today button (a small calendar icon showing today's date number, which jumps to today) and a Filters button.
+  - B. LAPTOP (768 px and up): keep the Day / Week / Month control; it opens on Month. Week becomes a 7-column hour timeline. Day is a one-column hour timeline. No subtitle under the title.
+  - C. Inside each day box (month), Samsung-style strips, at most 3 then "+N", in this priority:
+  - 1. Holiday: a green strip with its name.
+  - 2. Shoots and site visits, then meetings (event-type tasks): a strip in the task type's colour, text = the task title. Laptop: "10:00 Brand reel · Client".
+  - 3. Others' events, for Admins: a grey dotted strip "Ravi busy" (decision 13).
+  - 4. Leave: a neutral grey strip "Asha off" ("½" for a half day), or "2 off" when several.
+  - Tasks due get no strips: a small amber "3 due" in the corner, or a red "1 overdue" for a past day with open tasks. No shading for weekly offs or holidays; the weekly off's date number gets a distinct, non-red colour. Today has an outlined box. Strips never use red (red stays for overdue and commit actions, §14.1). Text never overflows its box.
+    - Task type colours are DATA: a new task_types.color (expand-only migration, a curated palette with no red, defaults for the seeded types), edited in Settings → Task types (Owner), with pgTAP and RLS as usual. [Orchestrator note: DATA-MODEL already lists a `color` column on task_types — the builder checks whether it exists in the migrations and what it holds before adding anything.]
+  - D. The day detail (phone sizes 1–2) and the day sheet (phone size 3; a popover or dialog on the laptop) show:
+    - the holiday and leave line;
+    - events with time, place and people (a row opens the task);
+    - "Due · N" with the task list;
+    - "Who's free" for the Owner and Admins: "Free: … · Busy 10–1: … · On leave: …", over the people they can see (team.view scope; freelancers through their coordinator, as in 4.x);
+    - a "+ New task on 8 Oct" pill (Owner and Admins, tasks.create) that opens the task form with the date prefilled (an event type's event date, otherwise due on that date at 18:00 IST);
+    - for Crew, "Suggest a task" (4.6) with the date prefilled instead.
+  - The sheet has "Open day" on the laptop. Back closes the sheet.
+  - E. Timelines (phone day detail, laptop Week and Day): hours 08:00–22:00 visible, the rest one scroll away, scrolled to now on today; a "now" line; event blocks at their times (no end time = a one-hour block; no start time = in the all-day row). The all-day row above the hours holds the holiday, leave and "Due · N".
+  - F. Filters: one "Filters" button opens a sheet (client, person, type, status) and shows "Filters · N" when any are on. They're view state, never history.
+  - G. Crew: the same calendar with only their own items (decision 13). No Busy strips, no "Who's free", "Suggest a task" instead of the pill.
+  - H. Still fix the earlier bugs if they survive the rework: the phone Day header showing the week range, overflowing cells, "1 due" with "Nothing on this day.", the truncated Status filter.
+  - Budget: /calendar's first load must stay within budget. Load the gesture and sheet code after the page if needed. Tests: unit tests for the strip priority and the "who's free" logic; e2e for the three sizes by drag and by handle, the day sheet's back gesture (installed mode, 375 and 430), the New-task prefill, Crew visibility and the filters sheet. No loosened tests.
+
 ### 4.9 Work submissions: files and Drive links
 Submitting work on a task is **optional** and never required before Done. **Submissions are versioned** (v1, v2, …), nothing is replaced, and each version keeps its uploader, time, reviewer, comments and decision.
 
