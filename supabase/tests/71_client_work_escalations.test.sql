@@ -5,7 +5,8 @@
 -- after that notice (Q10); an item back to open (sent back, or Not done) tells the Admin again with the
 -- full threshold (Q8); a client with no Admin gives the Owner a reminder at the Admin's time and no
 -- escalation (Q9); a new Admin is told first and gets their own threshold, and the escalation names
--- them (Q11); re-armed when the date moves. E2 an ended cycle still undecided cycle_decide_escalate_days
+-- them (Q11); once per item and planned date: a new date re-arms, a date moved back to one already
+-- noticed does not (the owner's E1 rule). E2 an ended cycle still undecided cycle_decide_escalate_days
 -- after its end and its prompt -> the Owner, once per notice; an item back to open or a new Admin gives
 -- the Admin a fresh notice first (Q8, Q11). E3 a one-time project open after its delivery date -> the
 -- Owner at 08:00 IST the morning after, once per date, re-armed when it moves; the Owner's reminder for a
@@ -22,7 +23,7 @@
 -- Owner; (L3) E2's partial index; (L4) a tick, an edit and leave pending stamp nothing.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(155);
+select plan(168);
 
 -- 7A: client work rows reference clients and members, and the presets the organization (a
 -- Playwright run leaves some behind).
@@ -250,6 +251,10 @@ select ok(not has_function_privilege('authenticated', 'app.client_work_morning(t
           and not has_function_privilege('authenticated', 'app.client_items_overdue(uuid, date)', 'execute')
           and not has_function_privilege('anon', 'app.client_items_overdue(uuid, date)', 'execute'),
   'and so are its helpers');
+select ok(not has_function_privilege('authenticated', 'app.client_items_overdue_due(uuid, date)', 'execute')
+          and not has_function_privilege('anon', 'app.client_items_overdue_due(uuid, date)', 'execute')
+          and has_function_privilege('service_role', 'app.client_items_overdue_due(uuid, date)', 'execute'),
+  'E1''s items with their basis and due_from: service_role only');
 select is((select string_agg(kind || '=' || actionable || '/' || always_email || '/' || in_app, ', ' order by kind)
            from public.notification_kinds
            where kind in ('reminder_item_overdue', 'escalation_item_overdue', 'escalation_cycle_undecided',
@@ -409,6 +414,51 @@ select is((pg_temp.last('owner', 'escalation_item_overdue')).body,
   pg_temp.line('Late 2', 'Monthly reels', 'Sharma Weddings', app.today_ist() - 8) || '. Still not done 2 h after Ravi Admin was told.',
   'once more for the new date');
 update public.org_settings set item_overdue_escalate_hours = 24;
+
+-- E1. Once per item and planned date (the owner's rule): a date moved away and back is not told again ------------
+select pg_temp.clear();
+select pg_temp.as_member('admin');
+insert into fx values
+  ('moved', public.item_add((pg_temp.cycle_of('pm', app.period_start('monthly', app.today_ist()))).id, 'Moved', app.today_ist() - 16));
+select pg_temp.as_system();
+-- Added a month ago (M1 arms it at now(); these runs are on past mornings).
+update public.project_items set overdue_armed_at = now() - interval '30 days' where id = pg_temp.fx('moved');
+select is(app.client_work_alerts(pg_temp.s(-15)), 1, 'Moved, planned for a date: its Admin is told at 08:00 IST the day after');
+select is((pg_temp.last('admin', 'reminder_item_overdue')).title, 'Overdue: Moved', 'about Moved');
+select is(app.client_work_alerts(pg_temp.s(-14)), 1, 'and the Owner the next morning');
+select is((pg_temp.last('owner', 'escalation_item_overdue')).body,
+  pg_temp.line('Moved', 'Monthly reels', 'Sharma Weddings', app.today_ist() - 16) || '. Still not done 24 h after Ravi Admin was told.',
+  'escalated for that date');
+select pg_temp.as_member('admin');
+select public.item_update(pg_temp.fx('moved'), jsonb_build_object('planned_date', app.today_ist() - 15));
+select public.item_update(pg_temp.fx('moved'), jsonb_build_object('planned_date', app.today_ist() - 16));
+select pg_temp.as_system();
+select is((select overdue_armed_at from public.project_items where id = pg_temp.fx('moved')), now(),
+  'moved to the next day and back: each change arms the item');
+-- The moves as made at 08:30 IST that morning (the trigger stamps now(); these runs are on past mornings).
+update public.project_items set overdue_armed_at = pg_temp.s(-14) + interval '30 minutes' where id = pg_temp.fx('moved');
+select pg_temp.clear();
+select is(app.client_work_alerts(pg_temp.s(-13)), 0,
+  'back on the date already noticed: the Admin is not told about it again the next morning');
+select is(app.client_work_alerts(pg_temp.s(-12)), 0, 'nor is the Owner escalated about it again a day later');
+select is(pg_temp.n('admin') + pg_temp.n('owner'), 0::bigint, 'nothing at all for that date');
+select is((select string_agg(kind::text || '/' || armed_for::text, ',' order by sent_at) from public.client_work_alerts
+           where entity_id = pg_temp.fx('moved')),
+  'item_overdue/' || (app.today_ist() - 16)::text || ',item_overdue_escalation/' || (app.today_ist() - 16)::text,
+  'its record: one notice and one escalation, for that date');
+select pg_temp.as_member('admin');
+select public.item_update(pg_temp.fx('moved'), jsonb_build_object('planned_date', app.today_ist() - 14));
+select pg_temp.as_system();
+-- Moved at 08:30 IST that morning.
+update public.project_items set overdue_armed_at = pg_temp.s(-12) + interval '30 minutes' where id = pg_temp.fx('moved');
+select is(app.client_work_alerts(pg_temp.s(-12) + interval '1 hour'), 0,
+  'moved to a new date, already past, at 08:30 IST: nothing at 09:00 (M1)');
+select is(app.client_work_alerts(pg_temp.s(-11)), 1, 'at the next 08:00 IST its Admin is told about the new date (re-armed)');
+select is((pg_temp.last('admin', 'reminder_item_overdue')).body,
+  'Monthly reels · Sharma Weddings. Planned for ' || app.notify_date(app.today_ist() - 14) || '.', 'naming the new date');
+select pg_temp.as_member('admin');
+select public.item_mark_done(pg_temp.fx('moved'));
+select pg_temp.as_system();
 
 -- Before the real-time steps: items noticed and escalated, ended cycles prompted and escalated ------------------------
 select pg_temp.as_member('admin');
@@ -633,17 +683,20 @@ select app.client_work_alerts((select r from t) - interval '1 minute');
 select is(pg_temp.n('admin', 'reminder_item_overdue'), 0::bigint,
   'M1: nothing within minutes of the past dates, between the edits or before 08:00 IST (the 08:00 rule)');
 
--- S2. A row the "already sent?" check does not count still stops the same answer: the group is a WARNING.
+-- S2. A row the "already sent?" check does not count (sent before the basis) still stops the same answer
+-- (the item's basis, its overdue moment): the group is a WARNING.
 insert into public.client_work_alerts (org_id, kind, entity_id, armed_for, sent_at, recipient_id, answers_at)
-values (pg_temp.fx('org'), 'item_overdue', pg_temp.fx('pastnew'), app.today_ist() - 2, now() - interval '1 day',
-        pg_temp.fx('admin'), now());
+values (pg_temp.fx('org'), 'item_overdue', pg_temp.fx('pastnew'), app.today_ist() - 2,
+        ((app.today_ist() - 1)::timestamp at time zone 'Asia/Kolkata') - interval '1 hour',
+        pg_temp.fx('admin'), (app.today_ist() - 1)::timestamp at time zone 'Asia/Kolkata');
 select app.client_work_alerts((select r from t));
 select is(pg_temp.n('admin', 'reminder_item_overdue'), 0::bigint,
   'S2: the unique answer refuses a second send even when the check misses the first (the group is skipped, a WARNING)');
 select is((select count(*)::integer from public.client_work_alerts
            where entity_id = pg_temp.fx('future') and kind = 'item_overdue' and armed_for < app.today_ist()), 0,
   'and nothing of that group is recorded (the 50-day runs above noticed its first date, now in the past)');
-delete from public.client_work_alerts where entity_id = pg_temp.fx('pastnew') and sent_at = now() - interval '1 day';
+delete from public.client_work_alerts where entity_id = pg_temp.fx('pastnew')
+  and sent_at = ((app.today_ist() - 1)::timestamp at time zone 'Asia/Kolkata') - interval '1 hour';
 
 select is(app.client_work_alerts((select r from t)) >= 1, true, 'at 08:00 IST the notices go');
 select is(pg_temp.n('admin', 'reminder_item_overdue'), 1::bigint, 'M1: one notice for the three edits and the new item');
@@ -651,9 +704,11 @@ select is((pg_temp.last('admin', 'reminder_item_overdue')).body,
   pg_temp.line('Future', 'Monthly reels', 'Sharma Weddings', app.today_ist() - 2) || '; '
   || pg_temp.line('Past new', 'Monthly reels', 'Sharma Weddings', app.today_ist() - 2) || '.',
   'naming the date the item holds at the run, never the dates it passed through');
-select is((select array_agg(armed_for::text || '/' || (answers_at = now())::text) from public.client_work_alerts
+select is((select array_agg(armed_for::text || '/' || (answers_at = ((app.today_ist() - 1)::timestamp at time zone 'Asia/Kolkata'))::text)
+           from public.client_work_alerts
            where entity_id = pg_temp.fx('future') and kind = 'item_overdue' and armed_for < app.today_ist()),
-  array[(app.today_ist() - 2)::text || '/true'], 'one row, for that date, answering the last edit');
+  array[(app.today_ist() - 2)::text || '/true'],
+  'one row, for that date, answering its basis (the overdue moment: the edits decide only when it goes)');
 select is(app.client_work_alerts((select r from t) + interval '10 minutes'), 0, 'S2: a replayed run with a later p_now sends nothing');
 select is(app.client_work_alerts((select r from t)), 0, 'nor one with the same p_now');
 select is(pg_temp.n('admin', 'reminder_item_overdue'), 1::bigint, 'still one notice');

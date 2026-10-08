@@ -151,7 +151,10 @@ insert into app_internal values
   ('client_work_morning'), ('client_items_overdue'), ('project_items_reopened_at'),
   -- The 7A review of d9caeab: the triggers that arm an item's overdue notice and a project's missed
   -- delivery (M1), and E2's cycles with their last notice, shared by the job and the prompt (L1)
-  ('project_items_overdue_armed_at'), ('projects_delivery_armed_at'), ('cycle_undecided_due');
+  ('project_items_overdue_armed_at'), ('projects_delivery_armed_at'), ('cycle_undecided_due'),
+  -- The owner's E1 rule (once per item and planned date): E1's overdue items with their basis and the
+  -- moment a notice may go (app.client_items_overdue stays, read by nothing, expand-only)
+  ('client_items_overdue_due');
   -- 3c.1 (contract migration): attendance_logout and logout_not_recorded are gone with the 2.x gate.
 select is(
   (select count(*) from pg_proc p
@@ -172,7 +175,7 @@ select is(
   0::bigint,
   'the internal helpers: service_role only, never the API role');
 select is((select count(*) from pg_proc p where p.pronamespace = 'app'::regnamespace
-             and p.proname in (select name from app_internal)), 97::bigint,
+             and p.proname in (select name from app_internal)), 98::bigint,
   'the internal helper list matches what exists');
 select cmp_ok((select count(*) from pg_proc where pronamespace = 'app'::regnamespace), '>=', 4::bigint,
   'the grant check saw the app functions');
