@@ -419,7 +419,9 @@ test.describe("the calendar, as the Owner", () => {
     await form.getByLabel("Type").click();
     await page.getByRole("option", { name: "Shoot / Site Visit" }).first().click();
     await expect(form.locator('input[name="eventDate"]')).toHaveValue(day);
-    await page.keyboard.press("Escape");
+    // Picking a type changed the form, so leaving it asks first (§14.2 f); discard it.
+    await form.getByRole("button", { name: "Cancel" }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Discard task" }).click();
     await expect(form).toHaveCount(0);
 
     // The status filter (in the sheet) hides an open event.

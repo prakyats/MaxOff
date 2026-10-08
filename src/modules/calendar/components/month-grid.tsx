@@ -181,7 +181,8 @@ export function MonthGrid({
                         : density === "full"
                           ? "min-h-0"
                           : "min-h-28 p-1",
-                      isToday ? "border-foreground" : "border-transparent",
+                      // Each day its own faint tile (the owner's review): a hairline at low contrast, today strong.
+                      isToday ? "border-foreground" : "border-border/60 bg-card/40",
                       !inMonth(date) && "opacity-45",
                       "active:bg-muted/60",
                     )}

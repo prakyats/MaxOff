@@ -325,7 +325,7 @@ export function CalendarScreen({
                         "pressable focus-visible:ring-ring flex min-h-14 w-full flex-col items-center justify-center gap-0.5 rounded-lg border px-1 py-1.5 outline-none focus-visible:ring-2",
                         chosen
                           ? "border-foreground bg-foreground text-background"
-                          : "border-border bg-card active:bg-muted/60",
+                          : "border-border/60 bg-card active:bg-muted/60",
                         day.date === today && !chosen && "border-foreground",
                       )}
                     >

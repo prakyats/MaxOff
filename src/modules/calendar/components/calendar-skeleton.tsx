@@ -26,7 +26,7 @@ export function CalendarSkeleton({ weeks }: { weeks: number }) {
               <li key={day} className="flex min-h-0 min-w-0">
                 <span
                   className={cn(
-                    "flex w-full min-w-0 flex-col gap-0.5 rounded-md border border-transparent p-0.5",
+                    "border-border/60 flex w-full min-w-0 flex-col gap-0.5 rounded-md border p-0.5",
                     density === "compact" ? "min-h-11" : "min-h-28 p-1",
                   )}
                 >
