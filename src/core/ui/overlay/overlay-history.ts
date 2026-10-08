@@ -262,6 +262,14 @@ export const closeOverlaysThen = createCloseOverlaysThen({
   },
 });
 
+/**
+ * Whether any overlay (a dialog, a sheet, a menu, a select's list) is open: a page's keyboard
+ * shortcuts stay quiet while one is (the laptop calendar's).
+ */
+export function hasOpenOverlay(): boolean {
+  return open.length > 0;
+}
+
 /** The browser side of `whenOnPageEntry`, injectable so the logic is unit-tested. */
 export interface PageEntryEnv {
   /** True when the current history entry is the page's own: it carries no overlay marker. */
