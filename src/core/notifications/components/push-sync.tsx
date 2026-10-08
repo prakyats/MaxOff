@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 
 import { postInBackground } from "@/core/http/background";
+import { diag } from "@/core/ui/navigation/diag";
 
 import {
   browserSubscription,
@@ -65,7 +66,10 @@ export function PushSync({
       if (!result.ok && result.error.code === "INVALID_STATE") {
         refused.current = subscription.endpoint;
       }
-      if (result.ok && !cancelled) router.refresh();
+      if (result.ok && !cancelled) {
+        diag("push-refresh");
+        router.refresh();
+      }
     })().catch((error: unknown) => {
       console.warn("Push re-subscribe failed", error);
     });
