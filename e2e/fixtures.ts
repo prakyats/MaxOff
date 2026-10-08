@@ -81,13 +81,124 @@ function watchPrimaries() {
   });
 }
 
+
+/** Throwaway probe (diag/hotfix-nav-bar-red*, never merged): a timeline printed per test. */
+function diagProbe() {
+  const w = window as unknown as { __diag?: unknown[] };
+  const log: unknown[] = (w.__diag = []);
+  const t = () => Math.round(performance.now());
+  const html = () => document.documentElement;
+  const where = () => location.pathname + location.search;
+  const react = (el: Element | null) => {
+    for (let n = el; n; n = n.parentElement) {
+      if (Object.keys(n).some((k) => k.startsWith("__reactProps$"))) return true;
+    }
+    return false;
+  };
+  window.addEventListener(
+    "click",
+    (event) => {
+      const target = event.target instanceof Element ? event.target : null;
+      log.push({
+        t: t(),
+        what: "click",
+        slot: target?.closest("[data-slot]")?.getAttribute("data-slot") ?? null,
+        text: (target?.textContent ?? "").trim().slice(0, 30),
+        react: react(target),
+        chrome: html()?.getAttribute("data-chrome") ?? null,
+        pending: html()?.hasAttribute("data-nav-pending") ?? null,
+        url: where(),
+        label: document.querySelector('[data-slot="calendar-month-label"]')?.textContent ?? null,
+      });
+    },
+    true,
+  );
+  for (const name of ["DOMContentLoaded", "load"]) {
+    window.addEventListener(name, () => log.push({ t: t(), what: name }));
+  }
+  window.addEventListener("popstate", () => log.push({ t: t(), what: "popstate", url: where() }));
+  new MutationObserver((changes) => {
+    for (const change of changes) {
+      const el = change.target as Element;
+      if (el !== document.documentElement) continue;
+      log.push({
+        t: t(),
+        what: change.attributeName,
+        value: el.getAttribute(change.attributeName ?? ""),
+        url: where(),
+      });
+    }
+  }).observe(document, {
+    subtree: true,
+    attributes: true,
+    attributeFilter: ["data-nav-pending", "data-chrome"],
+  });
+  const push = history.pushState;
+  const replace = history.replaceState;
+  history.pushState = function (data, unused, url) {
+    log.push({ t: t(), what: "push", url: url ? String(url) : null, na: !!(data && (data as Record<string, unknown>).__NA) });
+    return push.call(this, data, unused, url);
+  };
+  history.replaceState = function (data, unused, url) {
+    log.push({ t: t(), what: "replace", url: url ? String(url) : null, na: !!(data && (data as Record<string, unknown>).__NA) });
+    return replace.call(this, data, unused, url);
+  };
+  const realFetch = window.fetch;
+  window.fetch = function (input, init) {
+    const request = input instanceof Request ? input : null;
+    const headers = new Headers(init?.headers ?? request?.headers);
+    const method = init?.method ?? request?.method ?? "GET";
+    const kind = headers.has("next-action")
+      ? "action"
+      : headers.get("rsc") === "1"
+        ? headers.has("next-router-prefetch")
+          ? "prefetch"
+          : "rsc"
+        : null;
+    const answer = realFetch.call(this, input, init);
+    if (kind && kind !== "prefetch") {
+      const u = new URL(request?.url ?? String(input), location.href);
+      u.searchParams.delete("_rsc");
+      const to = u.pathname + u.search;
+      log.push({ t: t(), what: kind, method, to });
+      answer.then(
+        () => log.push({ t: t(), what: `${kind}-answer`, to }),
+        () => log.push({ t: t(), what: `${kind}-failed`, to }),
+      );
+    }
+    return answer;
+  };
+}
+
 export const test = base.extend<{
   onePrimaryPerLayer: void;
   documentLoads: DocumentLoadsPolicy;
   /** The reload guard (`document-loads.ts`); a test that knows a load is coming calls `allow`. */
   reloadGuard: DocumentLoadWatcher;
   noSurpriseDocumentLoads: void;
+  diagTimeline: void;
 }>({
+  diagTimeline: [
+    async ({ page }, use, info) => {
+      await page.addInitScript(diagProbe);
+      // Diag: a slower CPU stretches hydration and the router's work.
+      const rate = [1, 2, 4, 6][info.repeatEachIndex % 4] ?? 1;
+      if (rate > 1) {
+        const cdp = await page.context().newCDPSession(page);
+        await cdp.send("Emulation.setCPUThrottlingRate", { rate });
+      }
+      await use();
+      if (info.status !== info.expectedStatus || info.repeatEachIndex < 2) {
+        const timeline = await page
+          .evaluate(() => (window as unknown as { __diag?: unknown[] }).__diag ?? [])
+          .catch(() => ["(page gone)"]);
+        console.log(
+          `DIAG ${info.status} ${info.project.name} ${info.title.slice(0, 40)} #${info.repeatEachIndex} rate=${rate} ${JSON.stringify(timeline.slice(-90))}`,
+        );
+      }
+    },
+    { auto: true },
+  ],
   /** "none" (the default): a document load the test did not ask for fails it (`document-loads.ts`). */
   documentLoads: ["none", { option: true }],
   reloadGuard: async ({ context }, provide) => {
