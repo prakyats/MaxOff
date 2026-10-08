@@ -208,8 +208,9 @@ test.describe("touch feel (§14.2 i)", () => {
 /**
  * No zoom in the installed app where the system text size reaches it (§14.2 i, 2.7b; iOS 6.6):
  * Android, installed; an installed iPhone once it follows iOS's text size (the root font size is
- * the system body size over iOS's default 17px, kept within 100–200%). An iPhone whose text size
- * cannot be read keeps pinch-zoom, and a browser tab is a website that always zooms. Playwright
+ * the system body size over iOS's default 17px, kept within 100–200%). An iPhone above 200% (its
+ * largest accessibility sizes) gets 200% and keeps pinch-zoom, as does one whose text size
+ * cannot be read, and a browser tab is a website that always zooms. Playwright
  * cannot pinch, and Chromium has no `-apple-system-body`: what it proves is the setting, with
  * WebKit's answer for the probe stood in (`iosTextSize`); the owner's phone check proves the
  * effect. The layout at every root size up to 200% is the large-text sweep's (`mobile.spec.ts`).
@@ -299,14 +300,29 @@ test.describe("zoom (§14.2 i)", () => {
     expect((await rootSize(page)).inline).toBe("123.5%");
   });
 
-  test("installed on an iPhone at an accessibility size: 200% at most", async ({ page }) => {
+  test("installed on an iPhone at exactly 200%: the tested maximum, locked", async ({ page }) => {
     await installedIphone(page);
-    // iOS's largest accessibility size: 53px body text, over three times the default.
-    await iosTextSize(page, 53);
+    // 34px body text is twice iOS's default: the large-text sweep's top.
+    await iosTextSize(page, 34);
     await page.goto("/today");
     expect(await zoom(page)).toEqual(LOCKED);
     expect(await rootSize(page)).toEqual({ inline: "200%", computed: "32px", attribute: "200" });
     await expectNoHorizontalScroll(page);
+  });
+
+  test("installed on an iPhone above 200%: 200% at most, and pinch-zoom stays", async ({
+    page,
+  }) => {
+    await installedIphone(page);
+    // iOS's largest accessibility size: 53px body text, over three times the default. The app
+    // stops at its tested 200%; the person can still pinch for the rest (decision 20).
+    await iosTextSize(page, 53);
+    await page.goto("/today");
+    expect(await zoom(page)).toEqual(OPEN);
+    expect(await rootSize(page)).toEqual({ inline: "200%", computed: "32px", attribute: "200" });
+    await expectNoHorizontalScroll(page);
+    await page.reload();
+    expect(await zoom(page)).toEqual(OPEN);
   });
 
   test("installed on an iPhone at the default text size: the design's size, locked", async ({

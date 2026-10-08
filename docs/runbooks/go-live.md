@@ -303,8 +303,9 @@ notifications at all.
    test** until one arrives.
 6. **Text size:** the installed app now follows the iPhone's own text size (Settings → Display &
    Brightness → Text Size, or Accessibility → Display & Text Size → Larger Text), up to twice the
-   normal size, and no longer pinch-zooms. Nothing to set up; mention it to someone who reads with
-   larger text.
+   normal size, and no longer pinch-zooms. At the largest accessibility sizes (beyond twice the
+   normal size) the app stops at twice and pinch-zoom stays on, for anyone who needs more. Nothing
+   to set up; mention it to someone who reads with larger text.
 
 **Android (Chrome):**
 1. Open **https://app.maxoff.in** in **Chrome** and sign in.

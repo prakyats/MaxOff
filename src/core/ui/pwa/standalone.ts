@@ -13,8 +13,10 @@
  *   exactly as the large-text sweep scales the root (`e2e/mobile.spec.ts`). It is kept between
  *   100% (never smaller than designed: 16px inputs, 44px targets) and 200% (the sweep's largest,
  *   and Android's), and read again whenever the app comes back to the foreground, where a changed
- *   setting shows. Only then is the iPhone app locked; where the size cannot be read, it keeps
- *   pinch-zoom as the accessibility safety valve.
+ *   setting shows. The iPhone app is locked only while iOS's size is within those bounds: above
+ *   200% (iOS's largest accessibility sizes) the root stops at 200% and pinch-zoom stays, for
+ *   whoever needs more than the app's tested maximum (advisor, 2026-10-08, decision 20); where
+ *   the size cannot be read it keeps pinch-zoom too, as the accessibility safety valve.
  * - A browser tab is a website and always zooms, at the browser's own text size.
  *
  * `navigator.standalone` exists only on iOS (true when installed), so it is the iOS check.
@@ -41,6 +43,7 @@ export const SYSTEM_TEXT_MAX_PERCENT = 200;
  * the last viewport meta wins, and Next's own element (owned by React) is never touched.
  * `html[data-zoom-lock]` turns off pinch in CSS as well (`globals.css`). On an installed iPhone the
  * system body size is read from a hidden probe (`font: -apple-system-body`, on `<html>` since
- * `<body>` does not exist yet) and set as the root's font size, as a percentage.
+ * `<body>` does not exist yet) and set as the root's font size, as a percentage; each read locks
+ * or unlocks (removing the appended copy) by whether iOS's size is within the bounds.
  */
-export const STANDALONE_SCRIPT = `(function(){try{var w=window,n=w.navigator,d=document,h=d.documentElement;if("standalone" in n){if(n.standalone!==true||!w.CSS||!w.CSS.supports("font","-apple-system-body"))return;var read=function(){var p=d.createElement("div");p.setAttribute("data-system-text-probe","");p.style.cssText="font:-apple-system-body;position:absolute;visibility:hidden";h.appendChild(p);var px=parseFloat(w.getComputedStyle(p).fontSize);h.removeChild(p);if(!(px>0))return 0;return Math.min(${SYSTEM_TEXT_MAX_PERCENT},Math.max(${SYSTEM_TEXT_MIN_PERCENT},Math.round(px/${IOS_DEFAULT_BODY_PX}*1000)/10))};var apply=function(){var pct=read();if(!pct)return false;h.style.fontSize=pct===100?"":pct+"%";h.setAttribute("${SYSTEM_TEXT_ATTRIBUTE}",String(pct));return true};if(!apply())return;d.addEventListener("visibilitychange",function(){if(d.visibilityState==="visible")apply()})}else if(!w.matchMedia("(display-mode: standalone)").matches)return;h.setAttribute("${ZOOM_LOCK_ATTRIBUTE}","");var v=d.querySelector('meta[name="viewport"]');var m=d.createElement("meta");m.name="viewport";m.content=(v?v.content+", ":"width=device-width, initial-scale=1, ")+"${ZOOM_LOCK_VIEWPORT}";m.setAttribute("${ZOOM_LOCK_ATTRIBUTE}","");d.head.appendChild(m)}catch(e){}})();`;
+export const STANDALONE_SCRIPT = `(function(){try{var w=window,n=w.navigator,d=document,h=d.documentElement,m=null;var lock=function(on){if(on){if(m)return;h.setAttribute("${ZOOM_LOCK_ATTRIBUTE}","");var v=d.querySelector('meta[name="viewport"]');m=d.createElement("meta");m.name="viewport";m.content=(v?v.content+", ":"width=device-width, initial-scale=1, ")+"${ZOOM_LOCK_VIEWPORT}";m.setAttribute("${ZOOM_LOCK_ATTRIBUTE}","");d.head.appendChild(m)}else if(m){h.removeAttribute("${ZOOM_LOCK_ATTRIBUTE}");d.head.removeChild(m);m=null}};if("standalone" in n){if(n.standalone!==true||!w.CSS||!w.CSS.supports("font","-apple-system-body"))return;var read=function(){var p=d.createElement("div");p.setAttribute("data-system-text-probe","");p.style.cssText="font:-apple-system-body;position:absolute;visibility:hidden";h.appendChild(p);var px=parseFloat(w.getComputedStyle(p).fontSize);h.removeChild(p);if(!(px>0))return 0;return Math.max(${SYSTEM_TEXT_MIN_PERCENT},Math.round(px/${IOS_DEFAULT_BODY_PX}*1000)/10)};var apply=function(){var size=read();if(!size)return false;var pct=Math.min(${SYSTEM_TEXT_MAX_PERCENT},size);h.style.fontSize=pct===100?"":pct+"%";h.setAttribute("${SYSTEM_TEXT_ATTRIBUTE}",String(pct));lock(size<=${SYSTEM_TEXT_MAX_PERCENT});return true};if(!apply())return;d.addEventListener("visibilitychange",function(){if(d.visibilityState==="visible")apply()})}else if(w.matchMedia("(display-mode: standalone)").matches)lock(true)}catch(e){}})();`;
