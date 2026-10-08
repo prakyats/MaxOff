@@ -163,11 +163,19 @@ test.describe("Reports → End of day, as the Owner", () => {
     await expect(page).toHaveURL(new RegExp(`/reports/end-of-day/${todayIST()}$`));
     await hydrated(page);
     await expectBackStack(page, [{ url: /\/reports\/end-of-day$/ }, { url: /\/reports$/ }]);
-    // The on-screen back control (§14.2 k) goes back too, adding nothing.
-    await page.goto(`/reports/end-of-day/${todayIST()}`);
+    // The on-screen back control (§14.2 k) goes back too, adding nothing: reached the same way
+    // (a `goto` here would open the day with /reports beneath it, and the control rightly goes
+    // back to the entry beneath, /reports, as a full document load).
+    await hydrated(page);
+    await page.locator('[data-slot="report-link"]').filter({ hasText: "End of day" }).click();
+    await expect(page).toHaveURL(/\/reports\/end-of-day$/);
+    await hydrated(page);
+    await page.locator(`[data-slot="eod-list-row"][data-date="${todayIST()}"]`).click();
+    await expect(page).toHaveURL(new RegExp(`/reports/end-of-day/${todayIST()}$`));
     await hydrated(page);
     await page.locator('[data-slot="page-back"]:visible').click();
     await expect(page).toHaveURL(/\/reports\/end-of-day$/);
+    await expectBackStack(page, [{ url: /\/reports$/ }]);
   });
 });
 

@@ -300,7 +300,9 @@ export function ThresholdsForm({ thresholds }: { thresholds: Thresholds }) {
                 className="max-w-60"
                 aria-describedby={control["aria-describedby"]}
                 aria-invalid={control["aria-invalid"]}
-                data-slot="weekly-digest-day"
+                // Not `data-slot`: the trigger's own `data-slot="select-trigger"` carries the
+                // phone's 44px height and 16px text (globals.css), and a prop would replace it.
+                data-field="weekly-digest-day"
               >
                 <SelectValue placeholder="Choose a day" />
               </SelectTrigger>

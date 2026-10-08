@@ -269,7 +269,9 @@ export function EventsStrip<T extends DayEvent>({
                 <li key={event.id} data-slot="strip-event">
                   <DrillLink
                     href={`/tasks/${event.id}`}
-                    className="focus-visible:ring-ring flex min-h-11 items-center gap-3 px-4 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset"
+                    // `flex-wrap`, as every row with `CARD_ROW_TITLE`: at large system text the
+                    // time, the title's 6rem and the chevron no longer fit one line at 375px.
+                    className="focus-visible:ring-ring flex min-h-11 flex-wrap items-center gap-3 px-4 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset"
                   >
                     <span className="text-muted-foreground w-16 shrink-0 text-xs tabular-nums">
                       {event.eventStartAt ? clockWord(event.eventStartAt) : "All day"}
