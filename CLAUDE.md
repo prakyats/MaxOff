@@ -25,7 +25,7 @@ MaxOff is the **internal operations and control system for Pixora Clips**. It co
 ## Business invariants (never break these)
 1. Roles are exactly **Owner (one) / Admin / Staff**. Job titles are data, not permissions. The Staff role is **shown to people as "Crew"**: a label only, read from `ROLE_LABELS` (`src/core/lib/role-labels.ts`), never typed into a screen; the value, permission keys, RLS and these docs stay `staff` / Staff.
 2. **Money is Owner-only**, in Owner-only tables, readable only through `modules/revenue`. Never in Admin or Staff payloads, Realtime, search or exports. **One exception:** a member's **own** expense claims (`modules/expenses`), visible to that member and the Owner only, never to Admins (ADR-0007 amendment 2026-09-27).
-3. **Revenue counts only for Owner-approved project items.** Staff tasks carry no revenue.
+3. **Revenue counts only for approved project items (approved by the Owner, or by the client's Admin).** Staff tasks carry no revenue. (Kickoff 7 amendment C, owner 2026-10-08: "Admin can tick the projects as done and closed, and that will add to the revenue without owner's intervention"; the amounts themselves stay Owner-only, invariant 2.)
 4. **Client work and staff tasks are separate** (ADR-0005). The only link is a task's optional client *label*. Staff never see client records or progress.
 5. **Approval route:** Done → (approving Admin, if any and not an assignee) → **Owner**. Final completion is always the Owner's.
 6. **Every assignee acknowledges** ("Task Noted"). Only the **primary owner** marks Done.

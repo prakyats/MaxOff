@@ -89,6 +89,9 @@ test.describe("/me: the profile is read-only first and edited deliberately", () 
     await expect(phoneValue(page)).toHaveText("98450 12345");
     await page.reload();
     await expect(phoneValue(page)).toHaveText("98450 12345");
+    // The reloaded page answers a tap only once hydrated (main CI run 37792867778: Edit before
+    // hydration did nothing, and "Phone" was never a field).
+    await hydrated(page);
 
     // Put it back: a removal is named as one.
     await savePhone(page, "", "Your phone number will be removed.");
