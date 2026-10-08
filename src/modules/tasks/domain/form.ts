@@ -84,6 +84,15 @@ export function emptyDraft(): TaskDraft {
   };
 }
 
+/**
+ * A new task started on a calendar day (6.4b; Kickoff 6 decision 25 D): the day is the deadline's
+ * date (at the default 6:00 PM IST) and, should the type be an event, the event's date. The type
+ * is picked in the form, so both carry the day and the form shows the one the type asks for.
+ */
+export function draftOnDate(date: ISODate): TaskDraft {
+  return { ...emptyDraft(), dueDate: date, eventDate: date };
+}
+
 /** The edit dialog starts from the task as it stands (its active assignees, its primary owner). */
 export function draftFromTask(task: Task, assignees: readonly TaskAssignee[]): TaskDraft {
   return {

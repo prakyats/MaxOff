@@ -36,6 +36,8 @@
   --color-danger-soft: var(--danger-soft);
   --color-neutral: var(--neutral);
   --color-neutral-soft: var(--neutral-soft);
+  /* The calendar's weekly-off date number (decision 25 C): distinct, never red. */
+  --color-off-day: var(--off-day);
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
@@ -128,6 +130,7 @@
   --danger-soft: #f8e4e5;
   --neutral: #52525b;
   --neutral-soft: #eaeaeb;
+  --off-day: #0369a1;
   --brand: #c42126;
   --brand-soft: #f8e4e5;
 }
@@ -180,6 +183,7 @@
   --danger-soft: #3c2326;
   --neutral: #a1a1aa;
   --neutral-soft: #2d2d31;
+  --off-day: #7dd3fc;
   --brand: #f2686d;
   --brand-soft: #3c2326;
 }

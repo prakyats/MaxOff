@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import { addTaskTypeSchema, editTaskTypeSchema } from "../domain/schemas";
 import {
+  DEFAULT_TASK_TYPE_COLOR,
   isLastActiveType,
+  TASK_TYPE_COLORS,
+  taskTypeColor,
+  taskTypeColorLabel,
   splitTaskTypes,
   taskTypeLine,
   type TaskTypeSetting,
@@ -18,6 +22,7 @@ function type(overrides: Partial<TaskTypeSetting>): TaskTypeSetting {
     archivedAt: null,
     position: "a0",
     defaultReminders: [],
+    color: "#2563eb",
     ...overrides,
   };
 }
@@ -63,6 +68,7 @@ describe("Settings → Task types (4C)", () => {
       kind: "normal",
       showsOnCalendar: false,
       hasLocation: false,
+      color: "#2563eb",
       defaultReminders: [],
     });
     expect(
@@ -72,10 +78,38 @@ describe("Settings → Task types (4C)", () => {
       kind: "event",
       showsOnCalendar: true,
       hasLocation: false,
+      color: "#2563eb",
       defaultReminders: [],
     });
     expect(addTaskTypeSchema.safeParse({ name: "", kind: "normal" }).success).toBe(false);
     expect(addTaskTypeSchema.safeParse({ name: "x", kind: "project" }).success).toBe(false);
+  });
+
+  it("takes a colour from the palette only, never red (Kickoff 6 decision 25)", () => {
+    const edit = {
+      taskTypeId: "00000000-0000-4000-8000-000000000001",
+      name: "Shoot",
+      defaultReminders: [],
+    };
+    expect(editTaskTypeSchema.parse({ ...edit, color: "#7C3AED" }).color).toBe("#7c3aed");
+    expect(editTaskTypeSchema.parse(edit).color).toBe(DEFAULT_TASK_TYPE_COLOR);
+    for (const red of ["#dc2626", "#ef4444", "#ff0000"]) {
+      expect(editTaskTypeSchema.safeParse({ ...edit, color: red }).success).toBe(false);
+    }
+    // Nothing in the palette is red, green, amber or grey: each is blue to magenta or teal.
+    for (const { value } of TASK_TYPE_COLORS) {
+      const [r, g, b] = [1, 3, 5].map((i) => parseInt(value.slice(i, i + 2), 16)) as [
+        number,
+        number,
+        number,
+      ];
+      expect(b, value).toBeGreaterThan(r);
+      expect(b, value).toBeGreaterThan(g / 2);
+    }
+    expect(taskTypeColor("#ABCDEF")).toBe(DEFAULT_TASK_TYPE_COLOR);
+    expect(taskTypeColor(null)).toBe(DEFAULT_TASK_TYPE_COLOR);
+    expect(taskTypeColor("#0D9488")).toBe("#0d9488");
+    expect(taskTypeColorLabel("#0d9488")).toBe("Teal");
   });
 
   it("never changes the kind on an edit", () => {

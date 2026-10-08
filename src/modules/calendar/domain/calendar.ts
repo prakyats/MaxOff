@@ -29,8 +29,9 @@ export const STATUS_FILTER_LABELS: Record<StatusFilter, string> = {
 };
 
 /**
- * What the address says. `view` null is the width's default: a phone opens on Day, a desktop on
- * Week (decision 15), decided by CSS from one week's data, never by sniffing the device.
+ * What the address says. `view` is the laptop's (Day, Week or Month; null = Month, decision 25);
+ * a phone has one calendar whatever the view, and `date` is its selected day (an email's
+ * `?view=day&date=…` opens with that day selected). Never decided by sniffing the device.
  */
 export type CalendarQuery = {
   view: CalendarView | null;
@@ -135,13 +136,14 @@ export function monthGrid(date: ISODate): MonthGrid {
   return { month, from, to, weeks };
 }
 
-/** The days a query reads: the week (Day and Week share it) or the month's grid. */
+/**
+ * The days a query reads: the month grid of its date (decision 25), which holds the phone's month
+ * and its week strip and the laptop's Day, Week and Month alike (a week is always inside its
+ * month's grid), so changing the view or the selected day in that month reads nothing new.
+ */
 export function rangeFor(query: CalendarQuery): DateRange {
-  if (query.view === "month") {
-    const grid = monthGrid(query.date);
-    return { from: grid.from, to: grid.to };
-  }
-  return weekOf(query.date);
+  const grid = monthGrid(query.date);
+  return { from: grid.from, to: grid.to };
 }
 
 /** The query one step before or after: a day, a week or a month, by the view. */
@@ -209,7 +211,11 @@ export type CalendarInput = {
   query: CalendarQuery;
   events: readonly EventSource[];
   openTasks: readonly DueSource[];
-  types: readonly { id: string; name: string; showsOnCalendar: boolean }[];
+  /**
+   * The task types in the Owner's order, each with its calendar colour already resolved to the
+   * palette (decision 25): an event's strip and block take it, and the order ranks the strips.
+   */
+  types: readonly { id: string; name: string; showsOnCalendar: boolean; color: string }[];
   clients: readonly { id: string; name: string }[];
   people: readonly PersonSource[];
   holidays: readonly { date: ISODate; name: string }[];
@@ -230,6 +236,10 @@ export type EventItem = {
   location: string | null;
   clientName: string | null;
   typeName: string | null;
+  /** The type's colour (decision 25), for its strip and its block. */
+  color: string;
+  /** The type's place in the Owner's order: shoots and site visits before meetings (decision 25). */
+  rank: number;
   /** Owner-approved: shown muted (decision 14). */
   completed: boolean;
   /** The people on it, by name (a freelancer "(freelancer)"). */
@@ -252,6 +262,8 @@ export type LeaveItem = {
   date: ISODate;
   /** "Leave", "Half day", "Comp leave" in full detail; "On leave" / "Half day" for an Admin's others. */
   label: string;
+  /** A half day: "½" on its strip (decision 25). */
+  half: boolean;
   pending: boolean;
   own: boolean;
 };
@@ -282,6 +294,9 @@ function othersLeaveLabel(value: string | null): string | null {
 }
 
 const HOUR_MS = 60 * 60 * 1000;
+
+/** An event whose type is unknown to the viewer is drawn in the palette's default (blue). */
+export const DEFAULT_EVENT_COLOR = "#2563eb";
 
 /** A block's end: the event's, else an hour after its start (as `member_availability()` does). */
 function blockEnd(startAt: string, endAt: string | null): string {
@@ -316,6 +331,7 @@ function byStart<T extends { startAt: string | null; title?: string; name?: stri
 export function buildCalendar(input: CalendarInput): CalendarDay[] {
   const { query, range } = input;
   const typeOf = new Map(input.types.map((type) => [type.id, type]));
+  const rankOf = new Map(input.types.map((type, index) => [type.id, index]));
   const clientOf = new Map(input.clients.map((client) => [client.id, client.name]));
   const personOf = new Map(input.people.map((person) => [person.id, person]));
   const nameOf = (memberId: string) => {
@@ -370,6 +386,8 @@ export function buildCalendar(input: CalendarInput): CalendarDay[] {
       location: event.location,
       clientName: event.clientId ? (clientOf.get(event.clientId) ?? null) : null,
       typeName: type?.name ?? null,
+      color: type?.color ?? DEFAULT_EVENT_COLOR,
+      rank: rankOf.get(event.taskTypeId) ?? input.types.length,
       completed,
       people: event.assigneeIds.map(nameOf),
     });
@@ -403,6 +421,7 @@ export function buildCalendar(input: CalendarInput): CalendarDay[] {
         name: nameOf(span.memberId),
         date,
         label: LEAVE_LABELS[span.type],
+        half: span.type === "half_day",
         pending: span.pending,
         own: span.memberId === input.viewerId,
       });
@@ -423,6 +442,7 @@ export function buildCalendar(input: CalendarInput): CalendarDay[] {
           name: nameOf(row.memberId),
           date: row.day,
           label,
+          half: row.leave === "half_day",
           pending: false,
           own: false,
         });
@@ -537,6 +557,16 @@ export function isEmptyDay(day: CalendarDay): boolean {
     day.events.length === 0 &&
     day.busy.length === 0 &&
     day.due.length === 0
+  );
+}
+
+/** How many filters narrow the calendar: "Filters · N" (decision 25 F). */
+export function filterCount(query: CalendarQuery): number {
+  return (
+    (query.client ? 1 : 0) +
+    (query.person ? 1 : 0) +
+    (query.type ? 1 : 0) +
+    (query.status !== "all" ? 1 : 0)
   );
 }
 

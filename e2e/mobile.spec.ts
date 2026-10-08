@@ -294,19 +294,26 @@ for (const [role, paths] of Object.entries(LARGE_TEXT_SCREENS)) {
 const BUILD_WORDS = /is filled in|\b(task|phase) \d|arrives with its module|shared components/i;
 
 /**
- * The calendar's three views (6.4), for every role: each fits both phone widths (no sideways
- * scroll, 44px targets) and large system text, the month grid included (seven columns at 375px).
+ * The calendar's three sizes (6.4b, Kickoff 6 decision 25 A), for every role: the compact month it
+ * opens on, the full month with its labelled strips, the week strip, and a day's sheet, each at
+ * both phone widths (no sideways scroll, 44px targets) and at large system text (a strip is
+ * clipped inside its box, never past it; nothing ellipsised to a sliver). The 08 Oct bugs (b) and
+ * (d) were a month box spilling its text and the Status filter cut short: both are this check.
  */
 for (const role of ["owner", "admin", "staff"] as const) {
-  test.describe(`${role}: the calendar's views fit`, () => {
+  test.describe(`${role}: the calendar's sizes fit`, () => {
     test.use({ storageState: storageStateFor(role) });
 
-    for (const path of ["/calendar", "/calendar?view=week", "/calendar?view=month"]) {
-      test(`${path}: fits at both widths and at large text`, async ({ page }) => {
-        await page.goto(path);
-        await expect(pageHeader(page)).toBeVisible();
-        await expect(page.locator('[data-slot="calendar"]')).toBeVisible();
-        await expect(page.locator("main")).not.toContainText(BUILD_WORDS);
+    test("/calendar: the compact month, the full month, the week and a day's sheet fit", async ({
+      page,
+    }) => {
+      await page.goto("/calendar");
+      await expect(pageHeader(page)).toBeVisible();
+      const phone = page.locator('[data-slot="calendar-phone"]');
+      await expect(phone).toBeVisible();
+      await expect(page.locator("main")).not.toContainText(BUILD_WORDS);
+      const handle = page.locator('[data-slot="calendar-handle"]');
+      const fits = async () => {
         await expectNoHorizontalScroll(page);
         await expectTouchTargets(page);
         for (const scale of [130, 200]) {
@@ -316,8 +323,30 @@ for (const role of ["owner", "admin", "staff"] as const) {
           await expectNoHorizontalScroll(page);
           await expectReadableTruncation(page);
         }
-      });
-    }
+        await page.evaluate(() => {
+          document.documentElement.style.fontSize = "";
+        });
+      };
+      for (const size of ["2", "3", "1"]) {
+        await expect(phone).toHaveAttribute("data-size", size);
+        await fits();
+        await handle.click();
+      }
+      // A day of the full month opens its sheet, which fits too.
+      await expect(phone).toHaveAttribute("data-size", "2");
+      await handle.click();
+      await expect(phone).toHaveAttribute("data-size", "3");
+      await page.locator(`[data-slot="calendar-day"][data-date="${todayIST()}"]:visible`).click();
+      await expect(page.locator('[data-calendar="day-sheet"]')).toBeVisible();
+      await fits();
+      // The filters: every trigger keeps the phone's 44px and 16px (6B review later item (k)).
+      await page.keyboard.press("Escape");
+      await expect(page.locator('[data-calendar="day-sheet"]')).toHaveCount(0);
+      await page.locator('[data-slot="calendar-filters-button"]').click();
+      await expect(page.locator('[data-calendar="filters-sheet"]')).toBeVisible();
+      await fits();
+      await expectNoZoomOnFocus(page);
+    });
   });
 }
 

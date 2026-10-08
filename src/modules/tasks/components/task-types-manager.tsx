@@ -58,11 +58,15 @@ import {
 } from "../actions/task-types";
 import { typeDefaultReminders } from "../domain/reminders";
 import {
+  DEFAULT_TASK_TYPE_COLOR,
   splitTaskTypes,
+  TASK_TYPE_COLORS,
   TASK_TYPE_KIND_LABELS,
   TASK_TYPE_KIND_LINES,
   TASK_TYPE_KINDS,
   TASK_TYPE_NAME_MAX,
+  taskTypeColorLabel,
+  type TaskTypeColor,
   taskTypeLine,
   type TaskTypeSetting,
 } from "../domain/task-types";
@@ -115,8 +119,18 @@ export function TaskTypesManager({
               className="flex min-h-14 flex-wrap items-center justify-between gap-2 px-3 py-2.5 sm:px-4"
             >
               <div className={cn("flex min-w-0 flex-col gap-0.5", CARD_ROW_TITLE)}>
-                <span className="truncate text-sm font-medium">{type.name}</span>
-                <span className="text-muted-foreground text-xs">{taskTypeLine(type)}</span>
+                <span className="flex min-w-0 items-center gap-2">
+                  <span
+                    aria-hidden
+                    data-slot="task-type-color"
+                    className="size-3 shrink-0 rounded-full"
+                    style={{ backgroundColor: type.color }}
+                  />
+                  <span className="truncate text-sm font-medium">{type.name}</span>
+                </span>
+                <span className="text-muted-foreground text-xs">
+                  {taskTypeLine(type)} · {taskTypeColorLabel(type.color)}
+                </span>
               </div>
               <div className={cn("flex items-center", CARD_ROW_TRAILING)}>
                 <Button
@@ -344,6 +358,8 @@ function TaskTypeDialog({
   const [kind, setKind] = useState<TaskTypeKind>(type?.kind ?? "normal");
   const [showsOnCalendar, setShowsOnCalendar] = useState(type?.showsOnCalendar ?? true);
   const [hasLocation, setHasLocation] = useState(type?.hasLocation ?? false);
+  const [color, setColor] = useState<TaskTypeColor>(type?.color ?? DEFAULT_TASK_TYPE_COLOR);
+  const colorName = useId();
   const [reminders, setReminders] = useState<ReminderDraft>(() =>
     draftFromRules(type?.defaultReminders ?? []),
   );
@@ -360,6 +376,7 @@ function TaskTypeDialog({
       const values = {
         showsOnCalendar: kind === "event" && showsOnCalendar,
         hasLocation: kind === "event" && hasLocation,
+        color,
         defaultReminders,
       };
       const result: Result<unknown> = editing
@@ -462,6 +479,39 @@ function TaskTypeDialog({
               </Label>
             </div>
           ) : null}
+          <fieldset className="flex min-w-0 flex-col gap-2" data-slot="task-type-colors">
+            <legend className="mb-1.5 text-sm font-medium">Colour on the calendar</legend>
+            <div className="grid grid-cols-4 gap-2 sm:grid-cols-8">
+              {TASK_TYPE_COLORS.map((option) => (
+                <label
+                  key={option.value}
+                  data-color={option.value}
+                  className={cn(
+                    "flex min-h-11 cursor-pointer items-center justify-center rounded-lg border-2 border-transparent has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-offset-2",
+                    color === option.value && "border-foreground",
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name={colorName}
+                    value={option.value}
+                    checked={color === option.value}
+                    onChange={() => setColor(option.value)}
+                    className="sr-only"
+                    aria-label={option.label}
+                  />
+                  <span
+                    aria-hidden
+                    className="size-7 rounded-full"
+                    style={{ backgroundColor: option.value }}
+                  />
+                </label>
+              ))}
+            </div>
+            <span className="text-muted-foreground text-xs">
+              {taskTypeColorLabel(color)}: its tasks&apos; strips and blocks on the calendar.
+            </span>
+          </fieldset>
           <ReminderRulesEditor
             draft={reminders}
             onChange={(next) => {

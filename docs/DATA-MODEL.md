@@ -459,6 +459,16 @@ list_items           id, org_id, list_key ('job_title'|...), name, description, 
 task_types           id, org_id, name, kind task_type_kind, shows_on_calendar bool,
                      has_location bool, default_reminders jsonb, color, icon, position,
                      is_system, archived_at, created_at, updated_at
+                     -- color (6.4b, kickoff 6 decision 25; migration task_type_colors, pgTAP 66): the
+                     -- type's calendar colour, lower-case #rrggbb from the curated palette (blue #2563eb,
+                     -- indigo #4f46e5, violet #7c3aed, purple #9333ea, magenta #c026d3, teal #0d9488,
+                     -- cyan #0891b2, sky #0284c7; never red, green, amber or grey, which the calendar keeps
+                     -- for overdue, holidays, due counts and leave): check task_types_color_palette, NOT
+                     -- VALID (earlier values stay; the app draws them in the default, blue); null = blue.
+                     -- The launch types' defaults (Normal sky, Shoot / Site Visit blue, Meeting violet,
+                     -- Posting teal, Review / Approval indigo, Other cyan, Custom purple) backfilled where
+                     -- null (audit 'backfilled') and seeded by app.seed_org_task_types(). Edited in Settings
+                     -- -> Task types (settings.manage: the existing policy and owner guard).
                      -- seeds: Normal(normal), Shoot / Site Visit(event, calendar, location),
                      --        Meeting(event, calendar, location), Posting(event, calendar),
                      --        Review / Approval(normal), Other(normal), Custom(custom)
@@ -1226,6 +1236,8 @@ task_reads           task_id → tasks (on delete cascade), member_id → member
 - `dashboard_unreachable()` → `(member_id, full_name, state, since, open_tasks)` (`notifications.reachability`): the people on open work who can't be reached by **5.4's 48-hour status** (`member_reachability` not `ok` with `greatest(since, org_settings.reachability_clock_from)` 48 h or more ago; tracked members only, never the Owner), a freelancer assignee through their **current coordinator**, `open_tasks` = the open tasks in scope they answer for. The organisation's Owner: every open task, with `since`; an Admin: the open tasks they created or approve (`reachability_overview()`'s scope), `since` null.
 - `emails_held_today()` → `(cap, held)` (`settings.manage`: the Owner): today's (IST) email deliveries the dispatcher recorded `skipped_cap`, by `last_error` (`org_cap` = `email_daily_cap_org`, the email plan's daily limit; `member_cap` = `email_daily_cap_per_member`). Counts only.
 - **Realtime:** the `supabase_realtime` publication holds exactly `notifications`, `tasks`, `task_assignees`, `attendance_days` and `leave_requests` (default replica identity); no money or Owner-only table (pgTAP 46). Realtime authorises each change with the subscriber's own RLS; the app re-reads the screen on an event and never shows its row (ARCHITECTURE §10).
+
+**The calendar's reads, reworked (6.4b, 2026-10-08; Kickoff 6 decision 25):** one read serves every view: the month grid of the address's day (`rangeFor`). The Due list reads only the open tasks due in that range (`listOpenTaskRowsDueBetween(from, to)`, page by page under the 1000-row limit; 6B review later item (f)), not every open task. An Admin's `member_availability()` now reads everyone in the range ("Who's free" is over everyone they can see; a person filter narrows only what is drawn). `task_types.color` joins the type read. No new function or policy for the calendar itself.
 
 **The calendar's reads (6.4, 2026-10-07; Kickoff 6 decisions 13–15):** no new table, column, function or policy. The page reads, as the signed-in member: `tasks` with an event date in the range (`listEventTasks`, now with `event_end_at`, `client_id` and `task_type_id`) and every open task (`listOpenTaskRows`, the Due list), `task_types` (now with `shows_on_calendar`), `holidays`, `org_settings.weekly_off_days`, `member_directory`, `client_labels`, and `leave_requests` in `approved` or `submitted` (a pending cancellation left out): their own for an Admin or Crew, everyone's for the Owner (`listLeaveBetween`, RLS). An Admin adds `member_availability()` over the range (`listAvailability`, in slices under the 1000-row limit): the `leave` fact and the `event_blocks` of everyone else. The rules are pure (`modules/calendar/domain`).
 

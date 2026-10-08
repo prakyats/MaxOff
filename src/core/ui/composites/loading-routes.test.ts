@@ -83,11 +83,15 @@ describe("loading.tsx coverage", () => {
     expect(sourceOf("tasks/all")).toContain("loading-toolbar");
     // A task's page (4.4) traces its first card and sections, not a generic detail.
     expect(sourceOf("tasks/[id]")).toContain("loading-task");
-    // The calendar (6.4): the owner-specified shape, a week strip of days above a column of
-    // blocks (`loading-day-strip`), with the view switcher and the filters that sit around it.
-    expect(sourceOf("calendar")).toContain("loading-day-strip");
-    expect(sourceOf("calendar")).toContain("CalendarControlsSkeleton");
-    expect(sourceOf("calendar")).toContain("CalendarRowsSkeleton");
+    // The calendar (6.4b, Kickoff 6 decision 25): it opens on the month (the phone's compact
+    // month, the laptop's Month), so its loading screen traces the month grid with today's month's
+    // rows under the header row (the phone's arrows, month name, Today and Filters; the laptop's
+    // Day · Week · Month and pager), then the phone's handle (`CalendarSkeleton`). The week strip
+    // and the rows of 6.4 (`loading-day-strip`) are gone with the view they traced.
+    expect(sourceOf("calendar")).toContain("loading-calendar");
+    expect(sourceOf("calendar")).toContain("CalendarSkeleton");
+    expect(sourceOf("calendar")).toContain("monthGrid(todayIST())");
+    expect(sourceOf("calendar")).not.toContain("loading-day-strip");
     expect(sourceOf("calendar")).not.toContain(standIn);
     for (const route of routes) {
       expect(sourceOf(route), `${route}: no stand-in skeleton is left`).not.toContain(standIn);

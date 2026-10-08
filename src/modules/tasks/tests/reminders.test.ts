@@ -58,6 +58,7 @@ const NORMAL: TaskType = {
   showsOnCalendar: false,
   archived: false,
   defaultReminders: TYPE,
+  color: null,
 };
 const NOW = new Date("2026-10-01T06:00:00.000Z");
 

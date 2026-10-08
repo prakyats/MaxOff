@@ -40,6 +40,8 @@ export type TaskType = {
   archived: boolean;
   /** The type's default reminders (5.3); `[]` = the organisation's. */
   defaultReminders: ReminderRule[];
+  /** Its calendar colour as stored (Kickoff 6 decision 25; null = the default): `taskTypeColor`. */
+  color: string | null;
 };
 
 /**

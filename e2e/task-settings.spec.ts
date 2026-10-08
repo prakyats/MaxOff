@@ -96,18 +96,29 @@ test.describe("task types and per-type fields, the flows", () => {
     await add.getByRole("button", { name: "Add task type" }).click();
     await expect(page.getByText("Task type added")).toBeVisible();
     await expect(rowOf(page, name)).toContainText("Event · on the calendar · asks for a location");
+    // A new type takes the palette's default colour (Kickoff 6 decision 25).
+    await expect(rowOf(page, name)).toContainText("· Blue");
     // New types go last.
     expect((await typeNames(page)).at(-1)).toBe(name);
 
     // The kind stays; the name and the switches change.
     await page.getByRole("button", { name: `Edit ${name}` }).click();
     const edit = page.getByRole("dialog", { name: `Edit ${name}` });
-    await expect(edit.getByRole("radio")).toHaveCount(0);
+    // No kind to choose on an edit (the colours are the only choice left to pick from).
+    await expect(edit.locator('[data-slot="task-type-kind"]')).toHaveCount(0);
+    await expect(edit.getByRole("radio", { name: /^Event/ })).toHaveCount(0);
     await edit.getByLabel("Name").fill(`${name} visit`);
     await edit.getByLabel("Show these tasks on the calendar").uncheck();
+    // Its colour on the calendar: one of the palette, never red (Kickoff 6 decision 25).
+    await expect(edit.locator("[data-color]")).toHaveCount(8);
+    await expect(edit.locator('[data-color="#dc2626"]')).toHaveCount(0);
+    await edit.locator('[data-color="#7c3aed"]').click();
+    await expect(edit.getByRole("radio", { name: "Violet" })).toBeChecked();
     await edit.getByRole("button", { name: "Save" }).click();
     await expect(page.getByText("Task type saved")).toBeVisible();
-    await expect(rowOf(page, `${name} visit`)).toContainText("Event · not on the calendar");
+    await expect(rowOf(page, `${name} visit`)).toContainText(
+      "Event · not on the calendar · Violet",
+    );
 
     const before = await typeNames(page);
     await page.getByRole("button", { name: `Move ${name} visit up` }).click();

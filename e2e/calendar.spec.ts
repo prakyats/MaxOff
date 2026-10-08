@@ -1,4 +1,4 @@
-import type { Page, TestInfo } from "@playwright/test";
+import type { Locator, Page, TestInfo } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 import {
@@ -14,16 +14,28 @@ import {
   taskTypeId,
   USERS,
 } from "./helpers";
-import { addISTDays, istInstant, istWeekday, todayIST } from "../src/core/time";
+import {
+  addISTDays,
+  formatIST,
+  istDayStart,
+  istInstant,
+  istWeekday,
+  todayIST,
+} from "../src/core/time";
 
 /**
- * The calendar (6.4; Kickoff 6 decisions 13–15, 22; PERMISSIONS §2 "Calendar"): event tasks at
- * their date and time, other deadlines as a Due list, leave and holidays, by day, week and month.
- * Crew see their own; an Admin sees the tasks they can see in full and everyone else's events as
- * "Busy" blocks (a name and a time, nothing else); the Owner everything. The view, the day and the
- * filters are view state: on an installed phone none of them adds history (ARCHITECTURE §14.2 d),
- * checked at 375 and 430px. The fixture is one shoot today (the seed's Crew member, nobody else),
- * so the Admin, who is not on it and whose clients it does not carry, sees only a Busy block.
+ * The calendar rework (6.4b; Kickoff 6 decisions 13, 14, 22 and 25; PERMISSIONS §2 "Calendar").
+ *
+ * **Phone** (375 and 430): one calendar in three sizes (the week strip, the compact month it opens
+ * on with today selected, the full month), changed by a vertical drag on the calendar or by the
+ * handle; the day's detail under the first two (the all-day line, the hour timeline, "Due · N",
+ * "Who's free", the day's action); a day of the full month opens the day sheet, which back closes.
+ * **Laptop** (1280): Day · Week · Month, opening on Month; a day opens in a dialog with "Open day".
+ * Crew see their own (no Busy, no "Who's free", "Suggest a task" with the day); an Admin sees the
+ * tasks they can see and everyone else as Busy; the Owner everything and "+ New task on <day>",
+ * the form opening with the day as the deadline. The size, the day and the filters are view
+ * state: on an installed phone none adds history (ARCHITECTURE §14.2 d). The fixture is one shoot
+ * today on the seed's Crew member (10:00–11:00, Studio B) and an ordinary task due tomorrow.
  */
 
 function prefixOf(info: TestInfo): string {
@@ -81,15 +93,38 @@ async function ownerCreatesDue(info: TestInfo, date: string): Promise<string> {
 }
 
 const calendar = (page: Page) => page.locator('[data-slot="calendar"]');
-const eventRow = (page: Page, title: string) =>
-  page.locator('[data-slot="calendar-event"]:visible').filter({ hasText: title });
+const phone = (page: Page) => page.locator('[data-slot="calendar-phone"]');
+/** The day's detail on screen: the phone's panel or the laptop Day's side column. */
+const detail = (page: Page) => page.locator('[data-slot="calendar-detail"]:visible').first();
+const daySheet = (page: Page) => page.locator('[data-calendar="day-sheet"]');
+const eventIn = (scope: Locator, title: string) =>
+  scope.locator('[data-slot="calendar-event"]').filter({ hasText: title });
+/** A day's box in the month on screen (the phone's or the laptop's). */
+const dayBox = (page: Page, date: string) =>
+  page.locator(`[data-slot="calendar-day"][data-date="${date}"]:visible`);
+
+/** "8 Oct", as the New-task pill says it. */
+const shortDay = (date: string) => formatIST(istDayStart(date), "d MMM");
+
+/** A drag on the phone's calendar, `dy` px down (negative: up), as a finger would. */
+async function dragCalendar(page: Page, dy: number): Promise<void> {
+  const area = page.locator('[data-slot="calendar-area"]');
+  const box = await area.boundingBox();
+  if (!box) throw new Error("the calendar is not on screen");
+  const x = box.x + box.width / 2;
+  const y = dy > 0 ? box.y + 20 : box.y + box.height - 20;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x, y + dy, { steps: 6 });
+  await page.mouse.up();
+}
 
 test.describe.configure({ mode: "serial" });
 
 test.describe("the calendar, as Crew", () => {
   test.use({ storageState: storageStateFor("staff") });
 
-  test("today's shoot at its time, a deadline as Due on its day, the type filter only, an empty day", async ({
+  test("opens on today: the shoot at its time, a deadline as Due on its day, the type filter only, an empty day", async ({
     page,
   }, info) => {
     const prefix = prefixOf(info);
@@ -100,36 +135,140 @@ test.describe("the calendar, as Crew", () => {
 
     await page.goto("/calendar");
     await expect(pageHeader(page)).toContainText("Calendar");
-    // A phone opens on Day, a desktop on Week: the shoot is on today's rows either way.
-    const row = eventRow(page, shoot.title);
+    await hydrated(page);
+    if (isPhone(info)) {
+      // The compact month, today selected, its detail under it (decision 25 A).
+      await expect(phone(page)).toHaveAttribute("data-size", "2");
+      await expect(page.locator('[data-slot="calendar-month"]:visible')).toHaveAttribute(
+        "data-density",
+        "compact",
+      );
+      await expect(dayBox(page, todayIST())).toHaveAttribute("data-selected", "");
+      await expect(page.locator('[data-slot="calendar-month-label"]')).toHaveText(
+        formatIST(istDayStart(todayIST()), "MMMM yyyy"),
+      );
+    } else {
+      // The laptop opens on Month; a day opens in the dialog.
+      await expect(page.locator('[data-slot="calendar-laptop"]')).toHaveAttribute(
+        "data-view",
+        "month",
+      );
+      await expect(dayBox(page, todayIST())).toHaveAttribute("aria-label", new RegExp(shoot.title));
+      await dayBox(page, todayIST()).click();
+      await expect(daySheet(page)).toBeVisible();
+    }
+    const today = isPhone(info) ? detail(page) : daySheet(page);
+    const row = eventIn(today, shoot.title);
     await expect(row).toBeVisible();
     await expect(row).toContainText("10:00 am – 11:00 am");
     await expect(row).toContainText("Studio B");
     await expect(page.locator('[data-slot="calendar-busy"]')).toHaveCount(0);
-    // The strip marks today, and its chip carries the day's dot.
-    const todayChip = page.locator(`[data-slot="calendar-strip-day"][data-date="${todayIST()}"]`);
-    await expect(todayChip).toHaveAttribute("aria-current", "date");
-    // Crew filter by type only (decision 15).
-    await expect(page.locator('[data-slot="calendar-filter-type"]')).toBeVisible();
-    await expect(page.locator('[data-slot="calendar-filter-client"]')).toHaveCount(0);
-    await expect(page.locator('[data-slot="calendar-filter-person"]')).toHaveCount(0);
-    await expect(page.locator('[data-slot="calendar-filter-status"]')).toHaveCount(0);
+    // Crew: no "Who's free"; "Suggest a task" with the day in its details (decision 25 D, G).
+    await expect(page.locator('[data-slot="calendar-who-free"]')).toHaveCount(0);
+    await expect(page.locator('[data-slot="new-task-on-day"]')).toHaveCount(0);
+    await today.locator('[data-slot="suggest-task"]').click();
+    await expect(page.getByRole("textbox", { name: /Details/ })).toHaveValue(
+      `For ${formatIST(istDayStart(todayIST()), "EEE d MMM")}.`,
+    );
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("textbox", { name: /Details/ })).toHaveCount(0);
+    if (!isPhone(info)) {
+      await page.keyboard.press("Escape");
+      await expect(daySheet(page)).toHaveCount(0);
+    }
 
-    // The deadline is a Due row on its day, never a block (decision 14).
+    // Crew filter by type only (decision 15), in the one Filters sheet (decision 25 F).
+    await page.locator('[data-slot="calendar-filters-button"]:visible').click();
+    const sheet = page.locator('[data-calendar="filters-sheet"]');
+    await expect(sheet).toBeVisible();
+    await expect(sheet.locator('[data-field="calendar-filter-type"]')).toBeVisible();
+    await expect(sheet.locator('[data-field="calendar-filter-client"]')).toHaveCount(0);
+    await expect(sheet.locator('[data-field="calendar-filter-person"]')).toHaveCount(0);
+    await expect(sheet.locator('[data-field="calendar-filter-status"]')).toHaveCount(0);
+    await sheet.locator('[data-slot="calendar-filters-done"]').click();
+    await expect(sheet).toHaveCount(0);
+
+    // The deadline is Due on its day, never a block or a strip (decision 14), and a day with only
+    // a due task is not "Nothing on this day." (08 Oct bug (c)).
     await page.goto(`/calendar?view=day&date=${dueDay}`);
-    const due = page.locator('[data-slot="calendar-due"]').filter({ hasText: `${prefix}edit` });
+    await hydrated(page);
+    const due = detail(page)
+      .locator('[data-slot="calendar-due"]')
+      .filter({ hasText: `${prefix}edit` });
     await expect(due).toBeVisible();
-    await expect(page.locator('[data-slot="calendar-due-list"] h3')).toContainText("Due");
-    await expect(eventRow(page, `${prefix}edit`)).toHaveCount(0);
+    await expect(detail(page).locator('[data-slot="calendar-due-list"] h3')).toContainText(
+      "Due · ",
+    );
+    await expect(detail(page).locator('[data-slot="calendar-empty-day"]')).toHaveCount(0);
+    await expect(eventIn(detail(page), `${prefix}edit`)).toHaveCount(0);
 
     // A day with nothing on it says so (decision 22).
     await page.goto(`/calendar?view=day&date=${workingDay(400)}`);
-    await expect(page.locator('[data-slot="calendar-empty-day"]')).toHaveText(
+    await expect(detail(page).locator('[data-slot="calendar-empty-day"]')).toHaveText(
       "Nothing on this day.",
     );
   });
 
-  test("installed: Day · Week · Month, the strip, a month day and the filter add no history; a task is a drill-down", async ({
+  test("phone: the three sizes by drag and by the handle; the full month opens the day sheet", async ({
+    page,
+  }, info) => {
+    test.skip(!isPhone(info), "the sizes are the phone's");
+    const shoot = await ownerCreatesShoot(info);
+    await page.goto("/calendar");
+    await hydrated(page);
+    const handle = page.locator('[data-slot="calendar-handle"]');
+    await expect(phone(page)).toHaveAttribute("data-size", "2");
+    await expect(handle).toHaveAccessibleName("Show more of the month");
+
+    // By drag: down grows to the full month, up shrinks to the compact month and to the week.
+    await dragCalendar(page, 140);
+    await expect(phone(page)).toHaveAttribute("data-size", "3");
+    await expect(page.locator('[data-slot="calendar-month"]:visible')).toHaveAttribute(
+      "data-density",
+      "full",
+    );
+    await expect(detail(page)).toHaveCount(0);
+    await dragCalendar(page, -140);
+    await expect(phone(page)).toHaveAttribute("data-size", "2");
+    await dragCalendar(page, -100);
+    await expect(phone(page)).toHaveAttribute("data-size", "1");
+    await expect(page.locator('[data-slot="calendar-week-strip"]')).toBeVisible();
+    await expect(
+      page.locator(`[data-slot="calendar-strip-day"][data-date="${todayIST()}"]`),
+    ).toHaveAttribute("aria-pressed", "true");
+    await expect(eventIn(detail(page), shoot.title)).toBeVisible();
+
+    // By the handle: a 44px button that grows it, and at the full month shows less.
+    const box = await handle.boundingBox();
+    expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+    await handle.click();
+    await expect(phone(page)).toHaveAttribute("data-size", "2");
+    await handle.click();
+    await expect(phone(page)).toHaveAttribute("data-size", "3");
+    await expect(handle).toHaveAccessibleName("Show less");
+    await handle.focus();
+    await page.keyboard.press("Enter");
+    await expect(phone(page)).toHaveAttribute("data-size", "1");
+    await handle.click();
+    await expect(phone(page)).toHaveAttribute("data-size", "2");
+
+    // A sideways drag moves a month; Today comes back.
+    const label = page.locator('[data-slot="calendar-month-label"]');
+    const thisMonth = formatIST(istDayStart(todayIST()), "MMMM yyyy");
+    await page.locator('[data-slot="calendar-next"]').click();
+    await expect(label).not.toHaveText(thisMonth);
+    await page.locator('[data-slot="calendar-today"]').click();
+    await expect(label).toHaveText(thisMonth);
+
+    // The full month: a day opens the day sheet with its detail.
+    await handle.click();
+    await expect(phone(page)).toHaveAttribute("data-size", "3");
+    await dayBox(page, todayIST()).click();
+    await expect(daySheet(page)).toBeVisible();
+    await expect(eventIn(daySheet(page), shoot.title)).toBeVisible();
+  });
+
+  test("installed: sizes, days, a month and a filter add no history; the day sheet closes on back; a task is a drill-down", async ({
     page,
   }, info) => {
     test.skip(!isPhone(info), "the installed app is a phone");
@@ -142,56 +281,72 @@ test.describe("the calendar, as Crew", () => {
     await expect(page).toHaveURL(/\/calendar$/);
     await hydrated(page);
 
-    await page
-      .locator('[data-slot="calendar-view"]:visible')
-      .getByRole("link", { name: "Week" })
-      .click();
-    await expect(page).toHaveURL(/\/calendar\?view=week$/);
-    await page
-      .locator('[data-slot="calendar-view"]:visible')
-      .getByRole("link", { name: "Month" })
-      .click();
-    await expect(page).toHaveURL(/\/calendar\?view=month$/);
-    await page.locator(`[data-slot="calendar-month-day"][data-date="${todayIST()}"]`).click();
-    await expect(page).toHaveURL(/\/calendar\?view=day$/);
+    const handle = page.locator('[data-slot="calendar-handle"]');
+    await handle.click();
+    await expect(phone(page)).toHaveAttribute("data-size", "3");
+    // The day sheet is a layer: back closes it and stays on the calendar.
+    await dayBox(page, todayIST()).click();
+    await expect(daySheet(page)).toBeVisible();
+    await expectBackStack(page, [{ closes: daySheet(page), url: /\/calendar(\?.*)?$/ }]);
+    await expect(phone(page)).toHaveAttribute("data-size", "3");
+
+    await handle.click();
+    await expect(phone(page)).toHaveAttribute("data-size", "1");
+    await handle.click();
     const tomorrow = addISTDays(todayIST(), 1);
-    const chip = page.locator(`[data-slot="calendar-strip-day"][data-date="${tomorrow}"]`);
-    if (await chip.isVisible()) {
-      await chip.click();
-      await expect(page).toHaveURL(new RegExp(`/calendar\\?view=day&date=${tomorrow}$`));
+    if (await dayBox(page, tomorrow).isVisible()) {
+      await dayBox(page, tomorrow).click();
+      await expect(detail(page)).toHaveAttribute("data-date", tomorrow);
     }
-    await page.locator('[data-slot="calendar-pager"] a[aria-label="Previous day"]').click();
-    await page.locator('[data-slot="calendar-filter-type"]').click();
+    await page.locator('[data-slot="calendar-next"]').click();
+    await expect(page).toHaveURL(/date=/);
+    await page.locator('[data-slot="calendar-today"]').click();
+    await page.locator('[data-slot="calendar-filters-button"]').click();
+    const sheet = page.locator('[data-calendar="filters-sheet"]');
+    await sheet.locator('[data-field="calendar-filter-type"]').click();
     await page.getByRole("option", { name: "Shoot / Site Visit" }).click();
+    await sheet.locator('[data-slot="calendar-filters-done"]').click();
     await expect(page).toHaveURL(/type=/);
+    await expect(page.locator('[data-slot="calendar-filters-button"]')).toHaveText(/Filters · 1/);
     // Every move above was a view change: one back leaves the calendar for the home tab.
     await expectBackStack(page, [{ url: /\/my-day$/ }]);
 
-    // An event row is a real drill-down: back returns to the calendar, the view kept.
-    await page.goto(`/calendar?view=day&date=${todayIST()}`);
+    // An event is a real drill-down: back returns to the calendar, the day kept.
+    await page.goto(`/calendar?date=${todayIST()}`);
     await hydrated(page);
-    await eventRow(page, shoot.title).click();
+    await eventIn(detail(page), shoot.title).click();
     await expect(page).toHaveURL(new RegExp(`/tasks/${shoot.id}$`));
-    await expectBackStack(page, [{ url: new RegExp(`/calendar\\?view=day&date=${todayIST()}$`) }]);
+    await expectBackStack(page, [{ url: new RegExp(`/calendar\\?date=${todayIST()}$`) }]);
   });
 });
 
 test.describe("the calendar, as an Admin", () => {
   test.use({ storageState: storageStateFor("admin") });
 
-  test("someone else's shoot is a Busy block with the name and time only; every filter", async ({
+  test("someone else's shoot is Busy with the name and time only; who's free; every filter", async ({
     page,
   }, info) => {
     const shoot = await ownerCreatesShoot(info);
     await page.goto(`/calendar?view=day&date=${todayIST()}`);
-    const busy = page.locator('[data-slot="calendar-busy"]').filter({ hasText: "Local Staff" });
-    await expect(busy).toBeVisible();
-    await expect(busy).toContainText("Busy");
-    await expect(busy).toContainText("10:00 am – 11:00 am");
+    await hydrated(page);
+    const busy = page
+      .locator('[data-slot="calendar-busy"]:visible')
+      .filter({ hasText: "Local Staff" });
+    await expect(busy.first()).toBeVisible();
+    await expect(busy.first()).toContainText("busy");
     await expect(calendar(page)).not.toContainText(shoot.title);
     await expect(calendar(page)).not.toContainText("Studio B");
+    // "Who's free" over the people the Admin can see (decision 25 D).
+    const free = detail(page).locator('[data-slot="calendar-who-free"]');
+    await expect(free).toContainText("Who's free");
+    await expect(free).toContainText(/Busy [^:]*10[^:]*: [^·]*Local Staff/);
+    // An Admin creates tasks: the pill, not "Suggest a task".
+    await expect(detail(page).locator('[data-slot="new-task-on-day"]')).toBeVisible();
+    await expect(detail(page).locator('[data-slot="suggest-task"]')).toHaveCount(0);
+    await page.locator('[data-slot="calendar-filters-button"]:visible').click();
+    const sheet = page.locator('[data-calendar="filters-sheet"]');
     for (const kind of ["client", "person", "type", "status"]) {
-      await expect(page.locator(`[data-slot="calendar-filter-${kind}"]`)).toBeVisible();
+      await expect(sheet.locator(`[data-field="calendar-filter-${kind}"]`)).toBeVisible();
     }
   });
 });
@@ -199,22 +354,86 @@ test.describe("the calendar, as an Admin", () => {
 test.describe("the calendar, as the Owner", () => {
   test.use({ storageState: storageStateFor("owner") });
 
-  test("everything in full; the month counts it; the status filter hides an open task", async ({
+  test("everything in full; the month's strip; + New task on the day opens the form on that day", async ({
     page,
   }, info) => {
     const shoot = await ownerCreatesShoot(info);
+    const day = workingDay(2);
+    await page.goto("/calendar");
+    await hydrated(page);
+    // The box tells what it holds; the shoot's strip is in its type's colour, never red.
+    await expect(dayBox(page, todayIST())).toHaveAttribute("aria-label", new RegExp(shoot.title));
+    if (!isPhone(info)) {
+      const strip = dayBox(page, todayIST())
+        .locator('[data-slot="calendar-strip"][data-kind="event"]')
+        .first();
+      await expect(strip).toBeVisible();
+      const edge = await strip.evaluate((element) => getComputedStyle(element).borderLeftColor);
+      expect(edge).not.toMatch(/rgb\((19[0-9]|2\d\d), (\d|[1-5]\d), (\d|[1-5]\d)\)/);
+    }
+
     await page.goto(`/calendar?view=day&date=${todayIST()}`);
-    const row = eventRow(page, shoot.title);
-    await expect(row).toBeVisible();
-    await expect(row).toContainText("Local Staff");
+    await hydrated(page);
+    const row = page
+      .locator('[data-slot="calendar-event"]:visible')
+      .filter({ hasText: shoot.title });
+    await expect(row.first()).toBeVisible();
+    await expect(row.first()).toContainText("Local Staff");
     await expect(page.locator('[data-slot="calendar-busy"]')).toHaveCount(0);
 
-    await page.goto("/calendar?view=month");
-    const cell = page.locator(`[data-slot="calendar-month-day"][data-date="${todayIST()}"]`);
-    await expect(cell).toContainText(/\d+ events?/);
+    // The email's link (`?view=day&date=`) opens that day: the laptop's Day, the phone's detail.
+    await page.goto(`/calendar?view=day&date=${day}`);
+    await hydrated(page);
+    await expect(detail(page)).toHaveAttribute("data-date", day);
+    if (!isPhone(info)) {
+      await expect(page.locator('[data-slot="calendar-day-view"]')).toBeVisible();
+    }
+    // + New task on that day: the form opens with the deadline on it (decision 25 D).
+    const pill = detail(page).locator('[data-slot="new-task-on-day"]');
+    await expect(pill).toHaveText(`New task on ${shortDay(day)}`);
+    await pill.click();
+    const form = page.locator('[data-slot="task-form-dialog"]');
+    await expect(form).toBeVisible();
+    await expect(form.locator('input[name="dueDate"]')).toHaveValue(day);
+    await expect(form.locator('input[name="dueTime"]')).toHaveValue("18:00");
+    // An event type asks for its date, already the day.
+    await form.getByLabel("Type").click();
+    await page.getByRole("option", { name: "Shoot / Site Visit" }).first().click();
+    await expect(form.locator('input[name="eventDate"]')).toHaveValue(day);
+    await page.keyboard.press("Escape");
+    await expect(form).toHaveCount(0);
 
+    // The status filter (in the sheet) hides an open event.
     await page.goto(`/calendar?view=day&date=${todayIST()}&status=done`);
-    await expect(eventRow(page, shoot.title)).toHaveCount(0);
+    await hydrated(page);
+    await expect(page.locator('[data-slot="calendar-filters-button"]:visible')).toHaveText(
+      /Filters · 1/,
+    );
+    await expect(eventIn(page.locator('[data-slot="calendar"]'), shoot.title)).toHaveCount(0);
+  });
+
+  test("laptop: Month → a day's dialog → Open day; Week is a 7-column timeline", async ({
+    page,
+  }, info) => {
+    test.skip(isPhone(info), "the laptop's views");
+    const shoot = await ownerCreatesShoot(info);
+    await page.goto("/calendar");
+    await hydrated(page);
+    await dayBox(page, todayIST()).click();
+    await expect(daySheet(page)).toBeVisible();
+    await expect(daySheet(page).locator('[data-slot="calendar-who-free"]')).toBeVisible();
+    await daySheet(page).locator('[data-slot="calendar-open-day"]').click();
+    await expect(daySheet(page)).toHaveCount(0);
+    await expect(page.locator('[data-slot="calendar-laptop"]')).toHaveAttribute("data-view", "day");
+    await expect(page).toHaveURL(/view=day/);
+    await page.locator('[data-slot="calendar-view"]').getByRole("link", { name: "Week" }).click();
+    await expect(page.locator('[data-slot="calendar-laptop"]')).toHaveAttribute(
+      "data-view",
+      "week",
+    );
+    const week = page.locator('[data-slot="calendar-timeline"][data-days="7"]');
+    await expect(week).toBeVisible();
+    await expect(eventIn(week, shoot.title)).toBeVisible();
     await removeTasksTitled(prefixOf(info));
   });
 });

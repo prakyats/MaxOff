@@ -57,9 +57,9 @@ function input(patch: Partial<CalendarInput> = {}): CalendarInput {
     events: [],
     openTasks: [],
     types: [
-      { id: SHOOT, name: "Shoot", showsOnCalendar: true },
-      { id: NORMAL, name: "Normal", showsOnCalendar: false },
-      { id: HIDDEN, name: "Quiet event", showsOnCalendar: false },
+      { id: SHOOT, name: "Shoot", showsOnCalendar: true, color: "#2563eb" },
+      { id: NORMAL, name: "Normal", showsOnCalendar: false, color: "#0284c7" },
+      { id: HIDDEN, name: "Quiet event", showsOnCalendar: false, color: "#7c3aed" },
     ],
     clients: [{ id: CLIENT, name: "Acme" }],
     people: [
@@ -154,10 +154,17 @@ describe("ranges", () => {
     expect(addMonths("2026-01-01", -1)).toBe("2025-12-01");
   });
 
-  it("reads a week for Day and Week, the grid for Month, and steps by the view", () => {
-    expect(rangeFor(query())).toEqual(WEEK);
-    expect(rangeFor(query({ view: "day" }))).toEqual(WEEK);
-    expect(rangeFor(query({ view: "month" }))).toEqual({ from: "2026-09-28", to: "2026-11-01" });
+  it("reads the month's grid for every view (decision 25: one read serves them all), and steps by the view", () => {
+    const grid = { from: "2026-09-28", to: "2026-11-01" };
+    expect(rangeFor(query())).toEqual(grid);
+    expect(rangeFor(query({ view: "day" }))).toEqual(grid);
+    expect(rangeFor(query({ view: "week" }))).toEqual(grid);
+    expect(rangeFor(query({ view: "month" }))).toEqual(grid);
+    // A week is always inside its month's grid, at the month's edges too.
+    for (const date of ["2026-10-01", "2026-10-31", "2026-02-01", "2026-03-31"]) {
+      const range = rangeFor(query({ date }));
+      expect(weekOf(date).from >= range.from && weekOf(date).to <= range.to).toBe(true);
+    }
     expect(shifted(query({ view: "day" }), 1).date).toBe("2026-10-08");
     expect(shifted(query({ view: "week" }), -1).date).toBe("2026-09-30");
     expect(shifted(query(), 1).date).toBe("2026-10-14");
@@ -301,6 +308,7 @@ describe("what a day holds", () => {
         name: "Ravi",
         date: "2026-10-05",
         label: "Leave",
+        half: false,
         pending: false,
         own: false,
       },
@@ -312,6 +320,7 @@ describe("what a day holds", () => {
         name: "Me",
         date: TODAY,
         label: "Half day",
+        half: true,
         pending: true,
         own: true,
       },

@@ -51,6 +51,7 @@ import {
   draftChanges,
   draftEventWindow,
   draftFromTask,
+  draftOnDate,
   draftType,
   emptyDraft,
   fieldsFromTask,
@@ -120,7 +121,8 @@ export type TaskFormSetup = {
 };
 
 export type TaskFormMode =
-  | { kind: "create" }
+  /** `date`: started on a calendar day, the deadline (or the event) on it (6.4b). */
+  | { kind: "create"; date?: ISODate | undefined }
   /** A suggested task made into one (4.6, WORKFLOWS §3.4): the form starts from the request. */
   | { kind: "convert"; request: ConvertedRequest }
   | {
@@ -181,6 +183,7 @@ export function TaskFormDialog({
         approverId: mode.request.approverId ?? "",
       };
     }
+    if (mode.kind === "create" && mode.date) return draftOnDate(mode.date);
     return emptyDraft();
   });
   const [draft, setDraft] = useState<TaskDraft>(initial);

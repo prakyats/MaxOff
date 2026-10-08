@@ -7,6 +7,7 @@ import {
   draftEventWindow,
   draftFromTask,
   draftType,
+  draftOnDate,
   emptyDraft,
   fieldsFromTask,
   isDraftDirty,
@@ -25,6 +26,7 @@ const NORMAL: TaskType = {
   showsOnCalendar: false,
   archived: false,
   defaultReminders: [],
+  color: null,
 };
 const SHOOT: TaskType = {
   id: "shoot",
@@ -34,6 +36,7 @@ const SHOOT: TaskType = {
   showsOnCalendar: true,
   archived: false,
   defaultReminders: [],
+  color: null,
 };
 const POSTING: TaskType = {
   id: "posting",
@@ -43,6 +46,7 @@ const POSTING: TaskType = {
   showsOnCalendar: true,
   archived: false,
   defaultReminders: [],
+  color: null,
 };
 const NOW = new Date("2026-10-01T06:00:00.000Z"); // 11:30 IST, 1 Oct
 
@@ -239,5 +243,23 @@ describe("an edit sends only what changed (4A mechanics 4)", () => {
 
   it("drops custom-field values the new type does not carry", () => {
     expect(keepFieldKeys({ reel_length: 30, venue: "x" }, ["venue"])).toEqual({ venue: "x" });
+  });
+});
+
+describe("a new task started on a calendar day (6.4b, Kickoff 6 decision 25 D)", () => {
+  it("puts the deadline on that day at 6:00 PM IST, and an event on that day", () => {
+    const draft = draftOnDate("2026-10-08");
+    expect(draft).toEqual({ ...emptyDraft(), dueDate: "2026-10-08", eventDate: "2026-10-08" });
+    expect(draft.dueTime).toBe("18:00");
+    // A normal type sends the deadline only; an event type the event's date as well.
+    const fields = { ...draft, title: "Reel", assigneeIds: ["m"], primaryOwnerId: "m" };
+    expect(taskFromDraft(fields, NORMAL)).toMatchObject({
+      dueAt: "2026-10-08T12:30:00.000Z",
+      eventDate: null,
+    });
+    expect(taskFromDraft(fields, SHOOT)).toMatchObject({
+      dueAt: "2026-10-08T12:30:00.000Z",
+      eventDate: "2026-10-08",
+    });
   });
 });

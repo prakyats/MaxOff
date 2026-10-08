@@ -282,25 +282,29 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
       },
     },
   },
-  // The calendar (6.4): the pager row, the week strip's chips and the filters, for a Crew member
-  // (one filter) and the Owner (four); held by the holidays read only this page makes.
+  // The calendar (6.4b, decision 25): it opens on the month (the phone's compact month, the
+  // laptop's Month), so the skeleton traces the header row (the phone's arrows, month, Today and
+  // Filters; the laptop's view control and pager), the month's last row of day boxes (so every row
+  // above it has the page's height) and, on a phone, the handle under it; for a Crew member and
+  // the Owner, held by the holidays read only this page makes.
   ...(["staff", "owner"] as const).map((role): LoadingScreen => ({
     role,
     path: "/calendar",
-    marker: 'data-slot="loading-day-strip"',
+    marker: 'data-slot="loading-calendar"',
     hold: "/rest/v1/holidays",
     trace: {
-      pager: {
-        held: '[data-slot="calendar-pager"]',
-        settled: '[data-slot="calendar-pager"]',
+      header: {
+        held: '[data-slot="loading-calendar"] [data-slot="calendar-header"], [data-slot="loading-calendar"] [data-slot="calendar-controls"]',
+        settled: '[data-slot="calendar-header"], [data-slot="calendar-controls"]',
       },
-      strip: {
-        held: '[data-slot="calendar-strip"]',
-        settled: '[data-slot="calendar-strip"]',
+      "last week": {
+        held: '[data-slot="loading-calendar"] [data-slot="calendar-month"] > div > ol:last-child',
+        settled: '[data-slot="calendar-month"] > div > ol:last-child',
       },
-      filters: {
-        held: '[data-slot="calendar-filters"]',
-        settled: '[data-slot="calendar-filters"]',
+      // The handle on a phone; from `md` up (no handle) the controls again.
+      handle: {
+        held: '[data-slot="loading-calendar"] [data-slot="calendar-handle"], [data-slot="loading-calendar"] [data-slot="calendar-controls"]',
+        settled: '[data-slot="calendar-handle"], [data-slot="calendar-controls"]',
       },
     },
   })),

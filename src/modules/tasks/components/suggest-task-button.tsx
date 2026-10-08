@@ -22,6 +22,8 @@ const SuggestTaskDialog = dynamic(
 export function SuggestTaskButton({
   clients,
   variant = "strong",
+  details,
+  className,
 }: {
   /** The client labels the suggester may name. */
   clients: readonly { id: string; name: string }[];
@@ -30,15 +32,32 @@ export function SuggestTaskButton({
    * the strip's Start day: Kickoff 6 decision 3, "a neutral Suggest a task").
    */
   variant?: "strong" | "secondary";
+  /**
+   * What the details start with: a calendar day's "For Thu 8 Oct." (6.4b; Kickoff 6 decision 25
+   * D: Crew get "Suggest a task" with the day prefilled; a suggestion has no date of its own).
+   */
+  details?: string;
+  className?: string;
 }) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button variant={variant} onClick={() => setOpen(true)} data-slot="suggest-task">
+      <Button
+        variant={variant}
+        onClick={() => setOpen(true)}
+        data-slot="suggest-task"
+        className={className}
+      >
         <LightbulbIcon aria-hidden />
         Suggest a task
       </Button>
-      {open ? <SuggestTaskDialog clients={clients} onClose={() => setOpen(false)} /> : null}
+      {open ? (
+        <SuggestTaskDialog
+          clients={clients}
+          initialDetails={details ?? ""}
+          onClose={() => setOpen(false)}
+        />
+      ) : null}
     </>
   );
 }
