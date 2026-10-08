@@ -22,6 +22,16 @@ one green full run, then the Owner's `v1.5.1` tag. No migrations.
   button); Escape closes the top sheet or dialog, and cancels an edit (asking "Discard changes?" when
   something changed); a dialog opens with its first field ready; Escape clears a search box. Quiet hints
   show on a laptop only. On a phone nothing opens the keyboard by itself any more (a dialog, Edit).
+- **Never a blank window at launch:** when the installed app opens (on a computer or a phone) and the
+  server is slow to answer, the MaxOff launch screen shows at once, then home; a fast launch looks the
+  same as today. The installed app now starts at `/?source=pwa` (the service worker, v8, recognises the
+  launch by it); it never shows stale or anyone's data, adds nothing to the back history (one back from
+  home still exits), and signed-out and offline launches land on sign-in and the offline page as before.
+
+### What happens on its own after the release
+- Installed apps pick up the new start address when the browser refreshes the app's manifest (on use,
+  about once a day on a computer); until then a launch behaves as before. An iPhone install probably
+  keeps the old start address until it is added to the home screen again.
 
 ### What the Owner and Admins will notice
 - The phone calendar no longer scrolls away; only the day's hours scroll.
@@ -32,6 +42,7 @@ one green full run, then the Owner's `v1.5.1` tag. No migrations.
 - On a laptop, Enter sends a chat comment (Shift+Enter for a new line); on the phone, tapping Edit or
   opening a form no longer brings the keyboard up until they tap a field.
 - The phone calendar stays still; only the day's hours scroll.
+- Opening the installed app after a while shows the MaxOff mark straight away instead of an empty window.
 
 ### Before the tag (the Owner's checks)
 - **Calendar on the phone:** only the timeline scrolls; the first hour's label is whole; the week and the
@@ -42,6 +53,9 @@ one green full run, then the Owner's `v1.5.1` tag. No migrations.
   editing your profile with a change asks "Discard changes?"; a dialog opens with its first field ready to
   type in. On the phone, Enter in the chat makes a new line (Send sends), and no dialog or Edit opens the
   keyboard by itself.
+- **Installed launch on the MacBook and the phone:** the MaxOff launch screen, never a blank window, then
+  home; one back from home still exits. Check it after the app has been idle for a while (a cold start);
+  if a blank window still shows, reinstall the app once so it takes the new start address.
 
 ## v1.5.0: My Day, Today, the calendar and the end-of-day report (phase 6)
 
