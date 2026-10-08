@@ -9,7 +9,6 @@ import {
   removeTasksTitled,
   rpcAs,
   runInstalled,
-  signIn,
   storageStateFor,
   taskTypeId,
   USERS,
@@ -157,7 +156,7 @@ test.describe("the calendar, as Crew", () => {
       );
       // Every item's middle on the same line: the header did not wrap.
       const spread = await page
-        .locator('[data-slot="calendar-header"] > *')
+        .locator('[data-slot="calendar-phone"] [data-slot="calendar-header"] > *')
         .evaluateAll((items) => {
           const middles = items.map((item) => {
             const box = item.getBoundingClientRect();
@@ -235,7 +234,7 @@ test.describe("the calendar, as Crew", () => {
     const shoot = await ownerCreatesShoot(info);
     await page.goto("/calendar");
     await hydrated(page);
-    const handle = page.locator('[data-slot="calendar-handle"]');
+    const handle = page.locator('button[data-slot="calendar-handle"]');
     await expect(phone(page)).toHaveAttribute("data-size", "2");
     await expect(handle).toHaveAccessibleName("Show more of the month");
 
@@ -293,14 +292,15 @@ test.describe("the calendar, as Crew", () => {
     test.skip(!isPhone(info), "the installed app is a phone");
     const shoot = await ownerCreatesShoot(info);
     await runInstalled(page);
-    await signIn(page, USERS.staff.email, USERS.staff.password);
+    // Already signed in (the describe's storage state): the app opens on the home tab.
+    await page.goto("/my-day");
     await expect(page).toHaveURL(/\/my-day$/);
     await hydrated(page);
     await page.locator('[data-slot="bottom-nav"] [data-nav="calendar"]').click();
     await expect(page).toHaveURL(/\/calendar$/);
     await hydrated(page);
 
-    const handle = page.locator('[data-slot="calendar-handle"]');
+    const handle = page.locator('button[data-slot="calendar-handle"]');
     await handle.click();
     await expect(phone(page)).toHaveAttribute("data-size", "3");
     // The day sheet is a layer: back closes it and stays on the calendar.
@@ -320,13 +320,15 @@ test.describe("the calendar, as Crew", () => {
     await page.locator('[data-slot="calendar-next"]').click();
     await expect(page).toHaveURL(/date=/);
     await page.locator('[data-slot="calendar-today"]').click();
-    await page.locator('[data-slot="calendar-filters-button"]').click();
+    await page.locator('[data-slot="calendar-filters-button"]:visible').click();
     const sheet = page.locator('[data-calendar="filters-sheet"]');
     await sheet.locator('[data-field="calendar-filter-type"]').click();
     await page.getByRole("option", { name: "Shoot / Site Visit" }).click();
     await sheet.locator('[data-slot="calendar-filters-done"]').click();
     await expect(page).toHaveURL(/type=/);
-    await expect(page.locator('[data-slot="calendar-filters-button"]')).toHaveText(/Filters · 1/);
+    await expect(page.locator('[data-slot="calendar-filters-button"]:visible')).toHaveText(
+      /Filters · 1/,
+    );
     // Every move above was a view change: one back leaves the calendar for the home tab.
     await expectBackStack(page, [{ url: /\/my-day$/ }]);
 
