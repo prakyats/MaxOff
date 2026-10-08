@@ -7,7 +7,7 @@
 -- Dates are computed from app.today_ist(), so the file holds on any day.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(208);
+select plan(274);
 
 -- 7A: client work rows reference clients and members, and the presets the organization (a
 -- Playwright run leaves some behind).
@@ -577,8 +577,11 @@ select is((pg_temp.last('admin', 'carry_decided')).title,
 select is(pg_temp.n('admin', 'carry_decided'), 1::bigint, 'one row');
 select pg_temp.clear();
 select pg_temp.as_member('admin');
-select is((pg_temp.res(public.cycle_carry_decide(array[pg_temp.fx('pi2')], 'leave_pending'), pg_temp.fx('pi2'))) ->> 'state', 'open',
+insert into r values ('pending', public.cycle_carry_decide(array[pg_temp.fx('pi2'), (pg_temp.item('p_o', 'Film')).id], 'leave_pending'));
+select is((pg_temp.res((select v from r where k = 'pending'), pg_temp.fx('pi2'))) ->> 'state', 'open',
   'the Admin leaves an item pending on their client: still open');
+select is((pg_temp.res((select v from r where k = 'pending'), (pg_temp.item('p_o', 'Film')).id)) ->> 'code', 'NOT_FOUND',
+  'an item of a client that is not theirs is NOT_FOUND on its own line, never a VALIDATION for the batch (7A review L4)');
 select is((select carry_decision::text from public.project_items where id = pg_temp.fx('pi2')), 'leave_pending', 'marked leave_pending');
 select is(pg_temp.total(), 0::bigint, 'an Admin''s own decision tells nobody');
 select is((select state::text from public.project_cycles where id = pg_temp.fx('c_past')), 'open',
@@ -607,6 +610,17 @@ where cycle_id = (pg_temp.cycle_of('p_p', app.period_start('weekly', app.today_i
 select app.cycle_create(pg_temp.project('p_x'), (app.period_start('monthly', app.today_ist()) - interval '1 month')::date, 'schedule', null);
 insert into fx select 'px1', id from public.project_items
 where cycle_id = (pg_temp.cycle_of('p_x', (app.period_start('monthly', app.today_ist()) - interval '1 month')::date)).id;
+-- An item list of 100, so the cycle a carry would make is full the moment it is made (7A review L7).
+insert into public.project_item_blueprints (org_id, project_id, title, position)
+select pg_temp.fx('org'), pg_temp.fx('p_p'), 'Extra ' || g, 'x' || lpad(g::text, 3, '0') from generate_series(1, 99) g;
+select pg_temp.as_member('admin');
+select is((pg_temp.res(public.cycle_carry_decide(array[pg_temp.fx('pp1')], 'carry_forward'), pg_temp.fx('pp1'))) ->> 'code', 'VALIDATION',
+  'a carry into a cycle that would already hold 100 items fails on its line');
+select is((select count(*)::integer from public.project_cycles
+           where project_id = pg_temp.fx('p_p') and period_start > app.period_start('weekly', app.today_ist()) - 14), 0,
+  'and the target cycle it made is not left behind (7A review L7)');
+select pg_temp.as_system();
+update public.project_item_blueprints set archived_at = now() where project_id = pg_temp.fx('p_p') and title like 'Extra %';
 select pg_temp.as_member('admin');
 select is((pg_temp.res(public.cycle_carry_decide(array[pg_temp.fx('pp1')], 'carry_forward'), pg_temp.fx('pp1'))) ->> 'ok', 'true',
   'carry forward on a Paused client is allowed');
@@ -695,6 +709,58 @@ select pg_temp.as_member('gone_admin');
 select throws_ok($$ select public.project_cancel(pg_temp.fx('p_p'), 'x') $$, 'P0001', 'UNAUTHENTICATED', 'a deactivated Admin cannot');
 select pg_temp.as_anon();
 select throws_ok($$ select public.project_complete(pg_temp.fx('p_p')) $$, '42501', null, 'anon cannot');
+
+-- L. Every role on every function (7A review M1) -----------------------------------------------------
+-- Another Admin is NOT_FOUND (the scope never confirms a row exists), Crew FORBIDDEN (no key), a
+-- deactivated Admin UNAUTHENTICATED, whatever the row's state. The rows are client_a's (Ravi's),
+-- resolved as the system so no caller's RLS empties an id.
+select pg_temp.as_system();
+insert into fx
+select 'm_stage', pg_temp.stage('p_w', 'Draft')
+union all select 'm_blueprint', (select id from public.project_item_blueprints where project_id = pg_temp.fx('p_w') and title = 'Post 1')
+union all select 'm_cycle', (pg_temp.cycle_of('p_w', app.period_start('weekly', app.today_ist()))).id
+union all select 'm_item', (pg_temp.item('p_w', 'Post 1')).id;
+create temporary table calls (fn text primary key, sql text not null, other_admin text);
+grant select on calls to authenticated;
+insert into calls values
+  ('project_create',            $c$select public.project_create(pg_temp.fx('client_a'), 'Matrix', 'weekly')$c$,          'NOT_FOUND'),
+  ('project_update',            $c$select public.project_update(pg_temp.fx('p_w'), '{"name": "x"}')$c$,                   'NOT_FOUND'),
+  ('project_complete',          $c$select public.project_complete(pg_temp.fx('p_w'))$c$,                                  'NOT_FOUND'),
+  ('project_cancel',            $c$select public.project_cancel(pg_temp.fx('p_w'), 'x')$c$,                               'NOT_FOUND'),
+  ('project_reopen',            $c$select public.project_reopen(pg_temp.fx('p_m'), 'x')$c$,                               'NOT_FOUND'),
+  ('project_stage_add',         $c$select public.project_stage_add(pg_temp.fx('p_w'), 'x')$c$,                            'NOT_FOUND'),
+  ('project_stage_update',      $c$select public.project_stage_update(pg_temp.fx('m_stage'), '{"name": "x"}')$c$,         'NOT_FOUND'),
+  ('project_stage_archive',     $c$select public.project_stage_archive(pg_temp.fx('m_stage'))$c$,                         'NOT_FOUND'),
+  ('project_blueprint_add',     $c$select public.project_blueprint_add(pg_temp.fx('p_w'), 'x')$c$,                        'NOT_FOUND'),
+  ('project_blueprint_update',  $c$select public.project_blueprint_update(pg_temp.fx('m_blueprint'), '{"title": "x"}')$c$, 'NOT_FOUND'),
+  ('project_blueprint_archive', $c$select public.project_blueprint_archive(pg_temp.fx('m_blueprint'))$c$,                 'NOT_FOUND'),
+  ('item_add',                  $c$select public.item_add(pg_temp.fx('m_cycle'), 'x')$c$,                                 'NOT_FOUND'),
+  ('item_update',               $c$select public.item_update(pg_temp.fx('m_item'), '{"title": "x"}')$c$,                  'NOT_FOUND'),
+  ('item_cancel',               $c$select public.item_cancel(pg_temp.fx('m_item'), 'x')$c$,                               'NOT_FOUND'),
+  ('item_mark_done',            $c$select public.item_mark_done(pg_temp.fx('m_item'))$c$,                                 'NOT_FOUND'),
+  ('item_unmark_done',          $c$select public.item_unmark_done(pg_temp.fx('m_item'))$c$,                               'NOT_FOUND'),
+  ('item_tick_stage',           $c$select public.item_tick_stage(pg_temp.fx('m_item'), pg_temp.fx('m_stage'))$c$,         'NOT_FOUND'),
+  -- Another Admin's item_approve answers NOT_FOUND per id (section G), it raises nothing.
+  ('item_approve',              $c$select public.item_approve(array[pg_temp.fx('m_item')])$c$,                            null),
+  ('item_reject',               $c$select public.item_reject(pg_temp.fx('m_item'), 'x')$c$,                               'NOT_FOUND'),
+  ('cycle_start_next',          $c$select public.cycle_start_next(pg_temp.fx('p_w'))$c$,                                  'NOT_FOUND'),
+  ('cycle_carry_decide',        $c$select public.cycle_carry_decide(array[pg_temp.fx('pi1')], 'leave_pending')$c$,        'NOT_FOUND');
+select is((select array_agg(fn order by fn) from calls),
+  (select array_agg(p.proname::text order by p.proname::text) from pg_proc p
+   where p.pronamespace = 'public'::regnamespace
+     and p.proname in ('project_create', 'project_update', 'project_complete', 'project_cancel',
+       'project_reopen', 'project_stage_add', 'project_stage_update', 'project_stage_archive',
+       'project_blueprint_add', 'project_blueprint_update', 'project_blueprint_archive', 'item_add',
+       'item_update', 'item_cancel', 'item_mark_done', 'item_unmark_done', 'item_tick_stage',
+       'item_approve', 'item_reject', 'cycle_start_next', 'cycle_carry_decide')),
+  'the matrix covers each of the 21 client-work functions');
+select pg_temp.as_member('admin2');
+select is(pg_temp.code(c.sql), c.other_admin, c.fn || ': another Admin gets ' || c.other_admin)
+from calls c where c.other_admin is not null order by c.fn;
+select pg_temp.as_member('staff');
+select is(pg_temp.code(c.sql), 'FORBIDDEN', c.fn || ': Crew get FORBIDDEN') from calls c order by c.fn;
+select pg_temp.as_member('gone_admin');
+select is(pg_temp.code(c.sql), 'UNAUTHENTICATED', c.fn || ': a deactivated Admin gets UNAUTHENTICATED') from calls c order by c.fn;
 
 select * from finish();
 rollback;

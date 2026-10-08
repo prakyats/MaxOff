@@ -2,10 +2,11 @@
 -- owner 2026-10-08): the client's Admin only (never the Owner), one items_to_decide row per Admin per
 -- run, listing the ended cycles with undecided open items once (prompted_at) and the items left
 -- pending again; done, carried and closed items never counted; current cycles never; idempotent; the
--- schedule. Dates are computed from app.today_ist().
+-- schedule; the count covers every undecided item, not only the new cycle's (7A review S1); one
+-- Admin's failure costs the others nothing (L1). Dates are computed from app.today_ist().
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(24);
+select plan(35);
 
 -- 7A: client work rows reference clients and members, and the presets the organization (a
 -- Playwright run leaves some behind).
@@ -168,6 +169,7 @@ select pg_temp.as_system();
 create temporary table d as
 select (app.period_start('monthly', app.today_ist()) - interval '1 month')::date as last_month,
        (app.period_start('monthly', app.today_ist()) - interval '2 month')::date as two_months,
+       (app.period_start('monthly', app.today_ist()) - interval '3 month')::date as three_months,
        app.period_start('weekly', app.today_ist()) - 14 as two_weeks;
 grant select on d to authenticated;
 select app.cycle_create(pg_temp.project('pm'), (select last_month from d), 'schedule', null);
@@ -235,11 +237,68 @@ select ok((pg_temp.last('admin', 'items_to_decide')).body like '%Weekly stories 
   'the pending item is listed again');
 select is(pg_temp.n('admin2'), 0::bigint, 'the other Admin, with nothing new, is not prompted again');
 select is(app.cycle_close_prompt(now()), 0, 'and the run after that is quiet');
+
+-- One Admin's prompt failing costs the others nothing (7A review L1) ----------------------------------
+select pg_temp.clear();
+select app.cycle_create(pg_temp.project('pm'), (select three_months from d), 'schedule', null);
+select app.cycle_create(pg_temp.project('pb'), (select two_months from d), 'schedule', null);
+create function public.test_fail_notify() returns trigger language plpgsql as $f$
+begin
+  if new.recipient_id = (select id from fx where key = 'admin2') then
+    raise exception 'test failure';
+  end if;
+  return new;
+end;
+$f$;
+create trigger test_fail_notify before insert on public.notifications
+  for each row execute function public.test_fail_notify();
+select is(app.cycle_close_prompt(now()), 1, 'an Admin whose prompt fails does not stop the run (logged as a warning)');
+select is((pg_temp.last('admin', 'items_to_decide')).title, '5 unfinished items to decide',
+  'the other Admin is prompted: the new cycle''s 2, the 2 announced before and still undecided, the 1 pending (7A review S1)');
+select is((select prompted_at is null from public.project_cycles
+           where project_id = pg_temp.fx('pb') and period_start = (select two_months from d)), true,
+  'the failed Admin''s new cycle stays unprompted, rolled back with their prompt');
+drop trigger test_fail_notify on public.notifications;
+drop function public.test_fail_notify();
+select is(app.cycle_close_prompt(now()), 1, 'so the next run prompts them');
+select is((pg_temp.last('admin2', 'items_to_decide')).title, '2 unfinished items to decide',
+  'with both of their ended cycles'' items');
 select pg_temp.as_member('owner');
 select public.project_cancel(pg_temp.fx('pb'), 'Stopped');
 select pg_temp.as_system();
 select is((select count(*)::integer from public.project_items i join public.project_cycles c on c.id = i.cycle_id
            where c.project_id = pg_temp.fx('pb') and i.state = 'open'), 0, 'a cancelled project has nothing left to decide');
+
+-- The count covers every undecided item, not only the newly ended cycle's (7A review S1) -----------------
+-- A cycle ends with 5 undecided items and is announced; nobody decides them; the next cycle ends with 2
+-- more: the prompt says 7.
+select pg_temp.clear();
+insert into fx values ('admin3', '00000000-0000-4000-8000-000000007006'), ('client_f', '00000000-0000-4000-8000-0000000070f1');
+insert into auth.users (id, email) values (pg_temp.fx('admin3'), 'admin3@example.com');
+insert into public.members (id, org_id, full_name, email, role, status, joined_at) values
+  (pg_temp.fx('admin3'), pg_temp.fx('org'), 'Third Admin', 'admin3@example.com', 'admin', 'active', now());
+insert into public.clients (id, org_id, name, state, admin_id, activated_at) values
+  (pg_temp.fx('client_f'), pg_temp.fx('org'), 'Fern Films', 'active', pg_temp.fx('admin3'), now());
+select pg_temp.as_member('owner');
+insert into fx values ('pf', public.project_create(pg_temp.fx('client_f'), 'Fern reels', 'monthly', null, null, '{}',
+  array['R1', 'R2', 'R3', 'R4', 'R5']));
+select pg_temp.as_system();
+select app.cycle_create(pg_temp.project('pf'), (select two_months from d), 'schedule', null);
+select is(app.cycle_close_prompt(now()), 1, 'a cycle ends with 5 undecided items: its Admin is prompted');
+select is((pg_temp.last('admin3', 'items_to_decide')).title, '5 unfinished items to decide', 'naming the 5');
+select pg_temp.as_member('owner');
+select public.project_blueprint_archive(b.id) from public.project_item_blueprints b
+where b.project_id = pg_temp.fx('pf') and b.title in ('R3', 'R4', 'R5');
+select pg_temp.as_system();
+select app.cycle_create(pg_temp.project('pf'), (select last_month from d), 'schedule', null);
+select pg_temp.clear();
+select is(app.cycle_close_prompt(now()), 1, 'the next cycle ends with 2 more: prompted again');
+select is((pg_temp.last('admin3', 'items_to_decide')).title, '7 unfinished items to decide',
+  'the 5 still undecided and the 2 new, never only the 2');
+select ok((pg_temp.last('admin3', 'items_to_decide')).body like '%Fern reels (Fern Films) · ' || app.cycle_label('monthly', (select two_months from d)) || ': 5%'
+          and (pg_temp.last('admin3', 'items_to_decide')).body like '%Fern reels (Fern Films) · ' || app.cycle_label('monthly', (select last_month from d)) || ': 2%',
+  'each cycle with its count');
+select is(app.cycle_close_prompt(now()), 0, 'and the run after is quiet: nothing newly ended');
 
 select * from finish();
 rollback;

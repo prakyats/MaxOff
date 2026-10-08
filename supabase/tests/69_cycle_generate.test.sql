@@ -3,10 +3,12 @@
 -- that lacks one (generated_by schedule, the item list copied in), nothing for a Paused, Draft or
 -- Inactive client, a completed project or a one-time one; idempotent; a cycle a manual start made
 -- is kept; a client resumed mid-period is caught up; one combined cycle_generated row per Admin per
--- run, with no actor; the schedule. Dates are computed from app.today_ist() and the run's instant.
+-- run, with no actor; the schedule; the missed periods of the last 7 days, oldest first, never one
+-- before the project, its client's last activation or its last reopen (7A review S2). Dates are
+-- computed from app.today_ist() and the run's instant.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(30);
+select plan(38);
 
 -- 7A: client work rows reference clients and members, and the presets the organization (a
 -- Playwright run leaves some behind).
@@ -209,6 +211,8 @@ select is((select count(*)::integer from public.project_cycles where project_id 
 select is((select count(*)::integer from public.project_cycles where project_id = pg_temp.fx('pc')), 0, 'nor for a completed project');
 select is((select count(*)::integer from public.project_cycles where project_id = pg_temp.fx('po')), 1,
   'a one-time project keeps its single cycle');
+select is((select count(*)::integer from public.project_cycles where period_end < app.today_ist()), 0,
+  'never a period that ended before the project existed, though the last 7 days are covered (7A review S2)');
 select is(pg_temp.n('admin', 'cycle_generated'), 1::bigint, 'one combined row for the Admin of three projects');
 select is((pg_temp.last('admin', 'cycle_generated')).title, 'New cycles are ready for 3 projects',
   'naming the count (a month and a week: two labels)');
@@ -245,8 +249,11 @@ select is((select count(*)::integer || ':' || min(generated_by) from public.proj
   'the manual cycle is kept, never doubled');
 select is(app.cycle_generate(((select first from nxt)::timestamp + time '00:00') at time zone 'Asia/Kolkata'),
   case when (select monday from nxt) >= (select first from nxt) then 0 else 3 end
-  + case when app.period_start('weekly', (select first from nxt)) > (select monday from nxt) then 1 else 0 end,
-  'the 1st''s run makes the three new months (and the week, when the 1st starts a later one)');
+  + (select count(*)::integer
+     from generate_series(app.period_start('weekly', greatest(app.today_ist(), (select first from nxt) - 6))::timestamp,
+                          app.period_start('weekly', (select first from nxt))::timestamp, interval '7 days') w
+     where w::date > (select monday from nxt)),
+  'the 1st''s run makes the three new months (and each week of its last 7 days after the one started by hand)');
 select is((select count(*)::integer from public.project_cycles where period_start = (select first from nxt)), 3,
   'every Active monthly project has next month''s cycle');
 select is((select state::text from public.project_cycles where project_id = pg_temp.fx('pm2')
@@ -279,6 +286,66 @@ select is((select count(*)::integer from public.project_cycles where project_id 
 select is((pg_temp.last('admin', 'cycle_generated')).title,
   app.cycle_label('monthly', app.period_start('monthly', app.today_ist())) || ' is ready: Paused retainer (Paused Studio)',
   'and its Admin is told');
+
+-- Missed periods: the last 7 days (7A review S2) -------------------------------------------------------
+-- Never a period before the client last became Active (a paused period is skipped on purpose) or
+-- before the project was last reopened, however old the project.
+select pg_temp.clear();
+insert into public.clients (id, org_id, name, state, admin_id, activated_at) values
+  ('00000000-0000-4000-8000-0000000069f1', pg_temp.fx('org'), 'Old Active Co', 'active', pg_temp.fx('admin'), now() - interval '60 days'),
+  ('00000000-0000-4000-8000-0000000069f2', pg_temp.fx('org'), 'Old Paused Co', 'paused', pg_temp.fx('admin'), now() - interval '60 days');
+select pg_temp.as_member('owner');
+insert into fx values
+  ('pq', public.project_create('00000000-0000-4000-8000-0000000069f2', 'Resumed weekly', 'weekly', null, null, '{}', array['Story'])),
+  ('pr', public.project_create('00000000-0000-4000-8000-0000000069f1', 'Reopened weekly', 'weekly'));
+select pg_temp.as_system();
+update public.projects set created_at = now() - interval '30 days' where id in (pg_temp.fx('pq'), pg_temp.fx('pr'));
+select pg_temp.as_member('owner');
+select public.client_activate('00000000-0000-4000-8000-0000000069f2');
+select public.project_complete(pg_temp.fx('pr'));
+select public.project_reopen(pg_temp.fx('pr'), 'Back on');
+select pg_temp.as_system();
+select app.cycle_generate(now());
+select is((select array_agg(period_start) from public.project_cycles where project_id = pg_temp.fx('pq')),
+  array[app.period_start('weekly', app.today_ist())],
+  'a client resumed today: the current week only, never the paused one before it');
+select is((select array_agg(period_start) from public.project_cycles where project_id = pg_temp.fx('pr')),
+  array[app.period_start('weekly', app.today_ist())],
+  'a project reopened today: likewise (cycles resume from the current period, decision 14)');
+
+-- An outage over two Mondays: the run on the Tuesday after makes both weeks, oldest first.
+select pg_temp.clear();
+select pg_temp.as_member('owner');
+insert into fx values ('pg', public.project_create(pg_temp.fx('client_b'), 'Bakery stories', 'weekly', null, null, '{}', array['Story']));
+select pg_temp.as_system();
+create temporary table outage as
+select app.period_next('weekly', app.period_start('weekly', app.today_ist())) as monday1,
+       app.period_next('weekly', app.period_start('weekly', app.today_ist())) + 7 as monday2,
+       (((app.period_next('weekly', app.period_start('weekly', app.today_ist())) + 8)::timestamp + time '00:00')
+         at time zone 'Asia/Kolkata') as run_at;
+select app.cycle_generate((select run_at from outage));
+select is((select string_agg(c.period_start::text || '=' || c.generated_by || '/' || n.items, ', ' order by c.period_start)
+           from public.project_cycles c
+           cross join lateral (select count(*) as items from public.project_items i where i.cycle_id = c.id) n
+           where c.project_id = pg_temp.fx('pg') and c.period_start > app.period_start('weekly', app.today_ist())),
+  (select monday1 from outage)::text || '=schedule/1, ' || (select monday2 from outage)::text || '=schedule/1',
+  'both missed weeks are made by the schedule, the item list copied into each');
+select is((select array_agg((diff -> 'new' ->> 'period_start')::date order by id) from public.activity_log
+           where entity = 'project_cycles' and entity_id = pg_temp.fx('pg') and action = 'generated'
+             and meta ->> 'generated_by' = 'schedule'),
+  array[(select monday1 from outage), (select monday2 from outage)], 'oldest first');
+select ok((select string_agg(title || ' ' || coalesce(body, ''), ' ') from public.notifications
+           where recipient_id = pg_temp.fx('admin2') and kind = 'cycle_generated')
+            like '%' || app.cycle_label('weekly', (select monday2 from outage)) || '%'
+          and (select string_agg(title || ' ' || coalesce(body, ''), ' ') from public.notifications
+               where recipient_id = pg_temp.fx('admin2') and kind = 'cycle_generated')
+            not like '%' || app.cycle_label('weekly', (select monday1 from outage)) || '%',
+  'the Admin is told of the running week only; the ended one is a cycle to decide');
+select app.cycle_close_prompt((select run_at from outage) + interval '5 minutes');
+select ok((pg_temp.last('admin2', 'items_to_decide')).body
+            like '%Bakery stories (Blue Bakery) · ' || app.cycle_label('weekly', (select monday1 from outage)) || ': 1%',
+  'which the 00:05 prompt lists, like any ended cycle');
+select is(app.cycle_generate((select run_at from outage)), 0, 'a second run creates nothing');
 
 select * from finish();
 rollback;

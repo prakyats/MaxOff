@@ -88,6 +88,8 @@ function describeClient(entry: ActivityEntry, context: ActivityContext): string 
   switch (entry.action) {
     case "insert":
       return "created the client";
+    case "created_active":
+      return "created the client, Active from the start";
     case "activated":
       return "activated the client";
     case "paused":

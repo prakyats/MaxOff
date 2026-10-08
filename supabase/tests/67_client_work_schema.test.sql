@@ -5,7 +5,7 @@
 -- the definitions' type lock, and client_create (kickoff 7 amendment B) on every path.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(123);
+select plan(125);
 
 -- The local seed holds an organization and sign-ins. Keep the organization; replace the people
 -- with fixtures. Rolled back at the end. Order follows the foreign keys.
@@ -389,9 +389,18 @@ select is((select count(*)::integer from public.client_private where client_id =
           + (select count(*)::integer from public.client_brand where client_id = pg_temp.fx('client_n')), 2,
   'the Owner-only notes row and the brand row come with it');
 select is((select count(*)::integer from public.activity_log
-           where entity = 'clients' and entity_id = pg_temp.fx('client_n') and action = 'insert'
-             and actor_id = pg_temp.fx('admin') and diff -> 'new' ->> 'state' = 'active'), 1,
-  'audited: the insert, by the Admin, Active');
+           where entity = 'clients' and entity_id = pg_temp.fx('client_n') and action = 'created_active'
+             and actor_id = pg_temp.fx('admin') and diff -> 'new' ->> 'state' = 'active'
+             and meta ->> 'admin_id' = pg_temp.fx('admin')::text), 1,
+  'audited: created_active, by the Admin, the new row in its diff (7A review L6)');
+select is((select count(*)::integer from public.activity_log
+           where entity = 'clients' and entity_id = pg_temp.fx('client_n') and action = 'insert'), 0,
+  'one entry for the client, never a plain insert beside it');
+select is((select string_agg(action, ',' order by entity) from public.activity_log
+           where entity in ('client_private', 'client_brand', 'client_admin_assignments')
+             and (entity_id = pg_temp.fx('client_n')
+                  or entity_id in (select a.id from public.client_admin_assignments a where a.client_id = pg_temp.fx('client_n')))),
+  'insert,insert,insert', 'the rows created with it keep their plain insert entries');
 select is((select title from public.notifications where recipient_id = pg_temp.fx('owner') and kind = 'client_created'),
   'Ravi Admin added the client New Cafe', 'the Owner is told "‹Admin› added the client ‹name›"');
 select is((select link from public.notifications where recipient_id = pg_temp.fx('owner') and kind = 'client_created'),
@@ -435,8 +444,8 @@ select pg_temp.as_system();
 insert into public.organizations (id, name) values ('00000000-0000-4000-8000-0000000000ee', 'Second Org');
 select is((select count(*)::integer from public.stage_presets sp
            where sp.org_id = '00000000-0000-4000-8000-0000000000ee' and sp.created_by is null
-             and sp.archived_at is null and cardinality(sp.stages) = 4), 1,
-  'a new organisation is seeded with one preset by trigger: no author, four stages');
+             and sp.archived_at is null), 1,
+  'a new organisation is seeded with one active preset by trigger, with no author (data only: owner note 3)');
 
 select * from finish();
 rollback;
