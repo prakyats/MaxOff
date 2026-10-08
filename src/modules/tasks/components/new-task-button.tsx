@@ -50,10 +50,12 @@ export function NewTaskOnDayButton({
         onClick={() => setOpen(true)}
         data-slot="new-task-on-day"
         data-date={date}
-        className={cn("rounded-full", className)}
+        // Never wider than its row: at a very large text size the label ellipsises (the owner's
+        // phone walk found "New task on 13 Nov" past a 375 px screen's edge at 200 %).
+        className={cn("max-w-full rounded-full", className)}
       >
         <PlusIcon aria-hidden />
-        {label}
+        <span className="min-w-0 truncate">{label}</span>
       </Button>
       {open ? (
         <TaskFormDialog

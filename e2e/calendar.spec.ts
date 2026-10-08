@@ -879,6 +879,16 @@ test.describe("the calendar on a phone, the owner's walk (2026-10-08)", () => {
       chip,
     ];
     const boxes = () => Promise.all(fixed.map((part) => part.boundingBox()));
+    // The first hour in sight is 08:00, its label whole (it opened 8 px above the hour).
+    const opensWhole = (layout: Awaited<ReturnType<typeof phoneLayout>>, where: string) => {
+      const inSight = layout.labels
+        .filter((label) => label.bottom > layout.top && label.top < layout.bottom)
+        .sort((a, b) => a.top - b.top);
+      expect.soft(inSight[0]?.text, `${where}: opens at 08:00`).toBe("08:00");
+      expect
+        .soft(inSight[0]?.top ?? 0, `${where}: the first hour's label is whole`)
+        .toBeGreaterThanOrEqual(layout.top - 1);
+    };
     const hourOf = (layout: Awaited<ReturnType<typeof phoneLayout>>) => {
       const at = (text: string) => layout.labels.find((label) => label.text === text)?.top ?? 0;
       return at("09:00") - at("08:00");
@@ -900,14 +910,9 @@ test.describe("the calendar on a phone, the owner's walk (2026-10-08)", () => {
         .soft(Math.abs(fit.bottom - fit.dock), `size ${size}: the timeline ends at the bottom bar`)
         .toBeLessThanOrEqual(1);
       expect.soft(fit.scrolls, `size ${size}: the timeline scrolls inside`).toBeGreaterThan(0);
-      // The first hour in sight is 08:00, its label whole (it opened 8 px above the hour).
-      const inSight = fit.labels
-        .filter((label) => label.bottom > fit.top && label.top < fit.bottom)
-        .sort((a, b) => a.top - b.top);
-      expect.soft(inSight[0]?.text, `size ${size}: opens at 08:00`).toBe("08:00");
-      expect
-        .soft(inSight[0]?.top ?? 0, `size ${size}: the first hour's label is whole`)
-        .toBeGreaterThanOrEqual(fit.top - 1);
+      // It opened at 08:00 (the week keeps the scroll the person left in the compact month: a
+      // size is view state; a fresh week is checked at the end).
+      if (size === "2") opensWhole(fit, "the compact month");
 
       // A finger on the timeline scrolls it: the calendar keeps its size and nothing else moves;
       // a wheel over it scrolls it too, and the page stays at its top.
@@ -973,6 +978,13 @@ test.describe("the calendar on a phone, the owner's walk (2026-10-08)", () => {
     expect
       .soft((handleBox?.y ?? 0) + (handleBox?.height ?? 0), "size 3: above the bottom bar")
       .toBeLessThanOrEqual(full.dock + 1);
+
+    // "Show less" goes back to a fresh week: its timeline opens at 08:00, the label whole.
+    await handle.click();
+    await expect(phone(page)).toHaveAttribute("data-size", "1");
+    await animationsSettled(page);
+    await expect.poll(async () => (await phoneLayout(page)).scrollTop).toBeGreaterThan(0);
+    opensWhole(await phoneLayout(page), "the week");
 
     await removeTasksTitled(prefix);
   });
