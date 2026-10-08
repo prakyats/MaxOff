@@ -800,13 +800,15 @@ export async function ownSession(page: Page, email: string, password: string): P
  * races the page. Hold a read only the **page** makes (never one the `(app)` layout awaits, or no
  * shell streams), for a session of the test's own (`ownSession`), so no other test is held.
  * `caught()` says whether the proxy has held one of those requests yet (the page's read reached
- * it). Release it in `finally`: a hold is the open connection, so a test that dies releases it
+ * it). With `answer: "jwt-expired"` nothing waits: each of those reads is answered at once with
+ * PostgREST's "JWT expired" (`PGRST303`, 6.6) until `release()`. Release it in `finally`: a hold is the open connection, so a test that dies releases it
  * too.
  */
 export async function holdReads(
   path: string,
   session: string,
-): Promise<{ caught: () => boolean; release: () => void }> {
+  answer: "wait" | "jwt-expired" = "wait",
+): Promise<{ caught: () => boolean; release: () => void; active: () => Promise<number> }> {
   let caught = false;
   const request = httpRequest(`${HOLD_PROXY_URL}/__hold`, {
     method: "POST",
@@ -832,12 +834,18 @@ export async function holdReads(
         }
       });
     });
-    request.end(JSON.stringify({ path, session }));
+    request.end(JSON.stringify({ path, session, answer }));
   });
   return {
     caught: () => caught,
     release: () => {
       request.destroy();
+    },
+    /** How many holds the proxy still has on this path and session (0 once a release reached it). */
+    active: async () => {
+      const query = new URLSearchParams({ path, session });
+      const answer = await fetch(`${HOLD_PROXY_URL}/__hold/active?${query.toString()}`);
+      return (await answer.json()) as number;
     },
   };
 }

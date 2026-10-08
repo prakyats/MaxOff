@@ -332,6 +332,68 @@ describe("the hold proxy holds what a test registers, and only that", () => {
     expect(await fence("idle-person")).toBe(200);
   });
 
+  const ACTIVE =
+    "/__hold/active?path=%2Frest%2Fv1%2Frpc%2Femails_held_today&session=expired-session";
+
+  it('answers a registered path "JWT expired" at once, for its session only, until released', async () => {
+    const hold = request({
+      host: "127.0.0.1",
+      port: proxyPort,
+      path: "/__hold",
+      method: "POST",
+      headers: { "content-type": "application/json" },
+    });
+    const registered = new Promise<void>((resolve, reject) => {
+      hold.on("error", reject);
+      hold.on("response", (answer) => {
+        answer.setEncoding("utf8");
+        answer.once("data", () => resolve());
+      });
+    });
+    hold.on("error", () => undefined);
+    hold.end(
+      JSON.stringify({
+        path: "/rest/v1/rpc/emails_held_today",
+        session: "expired-session",
+        answer: "jwt-expired",
+      }),
+    );
+    await registered;
+    expect(await get(ACTIVE)).toEqual({ status: 200, body: "1" });
+
+    expect(await get("/rest/v1/rpc/emails_held_today", "expired-session")).toEqual({
+      status: 401,
+      body: '{"code":"PGRST303","details":null,"hint":null,"message":"JWT expired"}',
+    });
+    expect(await get("/rest/v1/rpc/emails_held_today", "other-session")).toEqual({
+      status: 200,
+      body: "read /rest/v1/rpc/emails_held_today",
+    });
+    expect((await get("/rest/v1/members", "expired-session")).status).toBe(200);
+
+    const released = new Promise<void>((resolve) => hold.once("close", () => resolve()));
+    hold.destroy();
+    await released;
+    // The proxy sees the hold's connection end on its own side: wait for that, not a clock.
+    while (JSON.parse((await get(ACTIVE)).body) !== 0) await released;
+    expect((await get("/rest/v1/rpc/emails_held_today", "expired-session")).status).toBe(200);
+  });
+
+  it("refuses a hold whose answer it does not know", async () => {
+    const status = await new Promise<number>((resolve, reject) => {
+      const outgoing = request(
+        { host: "127.0.0.1", port: proxyPort, path: "/__hold", method: "POST" },
+        (answer) => {
+          answer.resume();
+          answer.on("end", () => resolve(answer.statusCode ?? 0));
+        },
+      );
+      outgoing.on("error", reject);
+      outgoing.end(JSON.stringify({ path: "/x", session: "s", answer: "teapot" }));
+    });
+    expect(status).toBe(400);
+  });
+
   it("answers its health check", async () => {
     expect(await get("/__hold/health")).toEqual({ status: 200, body: "ok" });
   });

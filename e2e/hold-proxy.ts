@@ -28,6 +28,15 @@
  * pass, so the shell always streams and no other test ever waits. `GET /__hold/health` answers
  * once it listens.
  *
+ * **What can be answered "JWT expired"** (6.6, Sentry MAXOFF-3/-6): a hold registered with
+ * `{ answer: "jwt-expired" }` does not wait: each matching request is answered at once with
+ * PostgREST's own refusal of an expired access token (`401`, `PGRST303` "JWT expired", its
+ * `WWW-Authenticate` header), as long as the hold's connection is open. `GET /__hold/active`
+ * `?path=…&session=…` answers how many holds cover that path and session, so a test can wait for
+ * its release to have reached the proxy before the page asks again. The app never sends a
+ * token its own clock calls expired (the proxy renews it first), so a real expired JWT cannot be
+ * made to reach PostgREST on purpose; this is the answer PostgREST gives when one does.
+ *
  * **What can be fenced** (phase 5 main CI, 2026-10-06): a person a spec is about to remove. A
  * spec's own person's open page still writes in the background (the app-open report, 5.4, audited
  * with them as the actor), and a write that lands between the cleanup's `activity_log` delete and
@@ -65,7 +74,23 @@ import { connect } from "node:net";
 import type { Duplex } from "node:stream";
 import { pathToFileURL } from "node:url";
 
-type Hold = { path: string; session: string; report: (line: object) => void };
+type HoldAnswer = "wait" | "jwt-expired";
+type Hold = {
+  path: string;
+  session: string;
+  answer: HoldAnswer;
+  report: (line: object) => void;
+};
+
+/** PostgREST's answer to a request whose access token has expired. */
+const JWT_EXPIRED = {
+  status: 401,
+  headers: {
+    "content-type": "application/json; charset=utf-8",
+    "www-authenticate": 'Bearer error="invalid_token", error_description="JWT expired"',
+  },
+  body: JSON.stringify({ code: "PGRST303", details: null, hint: null, message: "JWT expired" }),
+};
 type Waiting = { path: string; session: string | null; forward: () => void };
 
 /** Headers that belong to one connection, never passed on over HTTP. */
@@ -173,7 +198,7 @@ export function createHoldProxy(upstream: URL): Server {
     const chunks: Buffer[] = [];
     request.on("data", (chunk: Buffer) => chunks.push(chunk));
     request.on("end", () => {
-      let body: { path?: unknown; session?: unknown } = {};
+      let body: { path?: unknown; session?: unknown; answer?: unknown } = {};
       try {
         body = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}") as typeof body;
       } catch {
@@ -183,6 +208,11 @@ export function createHoldProxy(upstream: URL): Server {
         response.writeHead(400).end("path and session are needed");
         return;
       }
+      const answer = body.answer ?? "wait";
+      if (answer !== "wait" && answer !== "jwt-expired") {
+        response.writeHead(400).end('answer is "wait" or "jwt-expired"');
+        return;
+      }
       response.writeHead(200, {
         "content-type": "application/x-ndjson",
         "cache-control": "no-store",
@@ -190,6 +220,7 @@ export function createHoldProxy(upstream: URL): Server {
       const hold: Hold = {
         path: body.path,
         session: body.session,
+        answer,
         report: (line) => response.write(`${JSON.stringify(line)}\n`),
       };
       response.on("error", () => undefined);
@@ -237,6 +268,14 @@ export function createHoldProxy(upstream: URL): Server {
       response.writeHead(200).end("ok");
       return;
     }
+    if (url.pathname === "/__hold/active") {
+      const count = holdsFor(
+        url.searchParams.get("path") ?? "",
+        url.searchParams.get("session"),
+      ).length;
+      response.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(count));
+      return;
+    }
     if (url.pathname === "/__hold" && request.method === "POST") {
       register(request, response);
       return;
@@ -252,6 +291,11 @@ export function createHoldProxy(upstream: URL): Server {
       return;
     }
     for (const hold of holding) hold.report({ caught: url.pathname });
+    if (holding.some((hold) => hold.answer === "jwt-expired")) {
+      request.resume();
+      response.writeHead(JWT_EXPIRED.status, JWT_EXPIRED.headers).end(JWT_EXPIRED.body);
+      return;
+    }
     const entry: Waiting = {
       path: url.pathname,
       session,
