@@ -13,9 +13,16 @@
 -- record table has no API access for any role; E2's partial index; one Admin's failure costs the others
 -- nothing. Simulated runs before the real-time steps (a rejection, Not done, a new Admin, all at now())
 -- use the 08:00 IST of past days; the steps after them use the first 08:00 IST after now().
+-- The 7A review of d9caeab: (M1) an item added with a past date, its planned date moved into the past
+-- (several times), a project created with a past delivery date, its date moved or the project reopened
+-- after it: nothing within minutes, one notice or escalation at the next 08:00 IST, naming only the
+-- date held at the run; (S2) a replayed run sends nothing twice, the unique answer stops a send the
+-- check misses (a WARNING), every new row says what it answers, and the job refuses repeatable read;
+-- (L1) one items_to_decide per Admin per morning; (L2) no escalation is used up without an active
+-- Owner; (L3) E2's partial index; (L4) a tick, an edit and leave pending stamp nothing.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(119);
+select plan(155);
 
 -- 7A: client work rows reference clients and members, and the presets the organization (a
 -- Playwright run leaves some behind).
@@ -223,6 +230,11 @@ insert into fx values
   ('dlate', public.item_add((pg_temp.cycle_of('pd', null)).id, 'D late', app.today_ist() - 11));
 select pg_temp.as_system();
 select pg_temp.clear();
+-- The fixture was made long ago: the 7A review's M1 arms an item's notice when it is added and a
+-- project's missed delivery when it is created (at now()), and the simulated runs below are on past
+-- mornings. The real-time cases (M1) are at the end.
+update public.project_items set overdue_armed_at = now() - interval '90 days';
+update public.projects set delivery_armed_at = now() - interval '90 days';
 
 -- The schedule, the kinds, the helpers and E2's index ------------------------------------------------------
 select is((select schedule || ' ' || command from cron.job where jobname = 'client_work_alerts'),
@@ -280,8 +292,9 @@ select pg_temp.as_system();
 update public.org_settings set item_overdue_escalate_hours = 24, cycle_decide_escalate_days = 2;
 
 -- The record table: no API access for any role ------------------------------------------------------------------
-insert into public.client_work_alerts (org_id, kind, entity_id, armed_for, sent_at, recipient_id)
-values (pg_temp.fx('org'), 'item_overdue', pg_temp.fx('future'), app.today_ist() - 40, now() - interval '40 days', pg_temp.fx('admin'));
+insert into public.client_work_alerts (org_id, kind, entity_id, armed_for, sent_at, recipient_id, answers_at)
+values (pg_temp.fx('org'), 'item_overdue', pg_temp.fx('future'), app.today_ist() - 40, now() - interval '40 days', pg_temp.fx('admin'),
+        now() - interval '41 days');
 select pg_temp.as_member('owner');
 select throws_ok($$ select count(*) from public.client_work_alerts $$, '42501', null, 'the Owner: no select');
 select throws_ok($$ insert into public.client_work_alerts (org_id, kind, entity_id, armed_for, sent_at)
@@ -380,12 +393,18 @@ update public.org_settings set item_overdue_escalate_hours = 2;
 select pg_temp.as_member('admin');
 select public.item_update(pg_temp.fx('late2'), jsonb_build_object('planned_date', app.today_ist() - 8));
 select pg_temp.as_system();
-select is(app.client_work_alerts(pg_temp.s(-7) + interval '1 hour'), 1, 'a new planned date, still past: the Admin is told again');
+select is((select overdue_armed_at from public.project_items where id = pg_temp.fx('late2')), now(),
+  'M1: a moved planned date arms the item at that moment');
+-- The move as made at 08:30 IST seven days ago (the trigger stamps now(); these runs are on past mornings).
+update public.project_items set overdue_armed_at = pg_temp.s(-7) + interval '30 minutes' where id = pg_temp.fx('late2');
+select is(app.client_work_alerts(pg_temp.s(-7) + interval '1 hour'), 0,
+  'M1: a new planned date, already past, set at 08:30 IST: nothing at 09:00 (never within minutes)');
+select is(app.client_work_alerts(pg_temp.s(-6)), 1, 'at the next 08:00 IST the Admin is told again (re-armed)');
 select is((pg_temp.last('admin', 'reminder_item_overdue')).title, 'Overdue: Late 2', 'about that item');
-select is(app.client_work_alerts(pg_temp.s(-7) + interval '3 hours'), 0,
+select is(app.client_work_alerts(pg_temp.s(-6) + interval '3 hours'), 0,
   'the setting''s 2 hours have passed, but the escalation waits for 08:00 IST (Q10)');
-select is(app.client_work_alerts(pg_temp.s(-6) - interval '1 minute'), 0, 'not at 07:59');
-select is(app.client_work_alerts(pg_temp.s(-6)), 1, 'at 08:00 IST');
+select is(app.client_work_alerts(pg_temp.s(-5) - interval '1 minute'), 0, 'not at 07:59');
+select is(app.client_work_alerts(pg_temp.s(-5)), 1, 'at 08:00 IST');
 select is((pg_temp.last('owner', 'escalation_item_overdue')).body,
   pg_temp.line('Late 2', 'Monthly reels', 'Sharma Weddings', app.today_ist() - 8) || '. Still not done 2 h after Ravi Admin was told.',
   'once more for the new date');
@@ -400,6 +419,9 @@ select pg_temp.as_member('admin2');
 insert into fx values
   ('swap', public.item_add((pg_temp.cycle_of('pb', app.period_start('monthly', app.today_ist()))).id, 'Swap', app.today_ist() - 4));
 select pg_temp.as_system();
+-- Added a month ago (M1 arms them at now(); these runs are on past mornings).
+update public.project_items set overdue_armed_at = now() - interval '30 days'
+where id in (pg_temp.fx('backr'), pg_temp.fx('backn'), pg_temp.fx('swap'));
 select pg_temp.clear();
 select is(app.client_work_alerts(pg_temp.s(-5)), 1, 'Back R and Back N: their Admin is told');
 select is(app.client_work_alerts(pg_temp.s(-4)), 1, 'and the Owner a day later');
@@ -576,6 +598,193 @@ select is((select count(*)::integer from public.client_work_alerts a join public
 drop trigger test_fail_notify on public.notifications;
 drop function public.test_fail_notify();
 select is(app.client_work_alerts((select t1 from t) + interval '50 days'), 1, 'as it does');
+
+-- The 7A review of d9caeab: the real-time cases (now(), then the first 08:00 IST after it, r) ----------------------
+select is((select indexdef from pg_indexes where indexname = 'client_work_alerts_once_per_answer'),
+  'CREATE UNIQUE INDEX client_work_alerts_once_per_answer ON public.client_work_alerts USING btree '
+  || '(kind, entity_id, armed_for, recipient_id, answers_at) NULLS NOT DISTINCT WHERE (answers_at IS NOT NULL)',
+  'S2: one row per answer (kind, entity, date, recipient, answers_at), whatever the run''s p_now');
+select is((select indexdef from pg_indexes where indexname = 'project_cycles_prompted_open_idx'),
+  'CREATE INDEX project_cycles_prompted_open_idx ON public.project_cycles USING btree (org_id) '
+  || 'WHERE ((prompted_at IS NOT NULL) AND (state = ''open''::cycle_state))',
+  'L3: E2 scans the open, prompted cycles through a partial index');
+
+-- M1. An item added with a past date, and several date edits at once: one notice, the next morning ------------------
+select pg_temp.clear();
+select pg_temp.as_member('admin');
+insert into fx values
+  ('pastnew', public.item_add((pg_temp.cycle_of('pm', app.period_start('monthly', app.today_ist()))).id, 'Past new', app.today_ist() - 2));
+select pg_temp.as_system();
+select is((select overdue_armed_at from public.project_items where id = pg_temp.fx('pastnew')), now(),
+  'M1: an item added with a past planned date is armed when it is added');
+select app.client_work_alerts(now());
+select pg_temp.as_member('admin');
+select public.item_update(pg_temp.fx('future'), jsonb_build_object('planned_date', app.today_ist() - 4));
+select pg_temp.as_system();
+select app.client_work_alerts(now());
+select pg_temp.as_member('admin');
+select public.item_update(pg_temp.fx('future'), jsonb_build_object('planned_date', app.today_ist() - 3));
+select pg_temp.as_system();
+select app.client_work_alerts(now());
+select pg_temp.as_member('admin');
+select public.item_update(pg_temp.fx('future'), jsonb_build_object('planned_date', app.today_ist() - 2));
+select pg_temp.as_system();
+select app.client_work_alerts((select r from t) - interval '1 minute');
+select is(pg_temp.n('admin', 'reminder_item_overdue'), 0::bigint,
+  'M1: nothing within minutes of the past dates, between the edits or before 08:00 IST (the 08:00 rule)');
+
+-- S2. A row the "already sent?" check does not count still stops the same answer: the group is a WARNING.
+insert into public.client_work_alerts (org_id, kind, entity_id, armed_for, sent_at, recipient_id, answers_at)
+values (pg_temp.fx('org'), 'item_overdue', pg_temp.fx('pastnew'), app.today_ist() - 2, now() - interval '1 day',
+        pg_temp.fx('admin'), now());
+select app.client_work_alerts((select r from t));
+select is(pg_temp.n('admin', 'reminder_item_overdue'), 0::bigint,
+  'S2: the unique answer refuses a second send even when the check misses the first (the group is skipped, a WARNING)');
+select is((select count(*)::integer from public.client_work_alerts
+           where entity_id = pg_temp.fx('future') and kind = 'item_overdue' and armed_for < app.today_ist()), 0,
+  'and nothing of that group is recorded (the 50-day runs above noticed its first date, now in the past)');
+delete from public.client_work_alerts where entity_id = pg_temp.fx('pastnew') and sent_at = now() - interval '1 day';
+
+select is(app.client_work_alerts((select r from t)) >= 1, true, 'at 08:00 IST the notices go');
+select is(pg_temp.n('admin', 'reminder_item_overdue'), 1::bigint, 'M1: one notice for the three edits and the new item');
+select is((pg_temp.last('admin', 'reminder_item_overdue')).body,
+  pg_temp.line('Future', 'Monthly reels', 'Sharma Weddings', app.today_ist() - 2) || '; '
+  || pg_temp.line('Past new', 'Monthly reels', 'Sharma Weddings', app.today_ist() - 2) || '.',
+  'naming the date the item holds at the run, never the dates it passed through');
+select is((select array_agg(armed_for::text || '/' || (answers_at = now())::text) from public.client_work_alerts
+           where entity_id = pg_temp.fx('future') and kind = 'item_overdue' and armed_for < app.today_ist()),
+  array[(app.today_ist() - 2)::text || '/true'], 'one row, for that date, answering the last edit');
+select is(app.client_work_alerts((select r from t) + interval '10 minutes'), 0, 'S2: a replayed run with a later p_now sends nothing');
+select is(app.client_work_alerts((select r from t)), 0, 'nor one with the same p_now');
+select is(pg_temp.n('admin', 'reminder_item_overdue'), 1::bigint, 'still one notice');
+select throws_ok($$ insert into public.client_work_alerts (org_id, kind, entity_id, armed_for, sent_at, recipient_id, answers_at)
+                    select org_id, kind, entity_id, armed_for, sent_at + interval '1 hour', recipient_id, answers_at
+                    from public.client_work_alerts
+                    where entity_id = pg_temp.fx('future') and kind = 'item_overdue' and armed_for < app.today_ist() $$,
+  '23505', null, 'S2: the same answer sent at another moment is refused by the database');
+select throws_ok($$ insert into public.client_work_alerts (org_id, kind, entity_id, armed_for, sent_at, recipient_id)
+                    values (pg_temp.fx('org'), 'item_overdue', pg_temp.fx('future'), app.today_ist(), now(), pg_temp.fx('admin')) $$,
+  '23514', null, 'S2: every new row says what it answers and who was told');
+
+-- M1. E3: a delivery date moved into the past, several times, and a project created with one ------------------------
+select pg_temp.clear();
+select pg_temp.as_member('admin');
+select public.project_update(pg_temp.fx('po'), jsonb_build_object('delivery_date', app.today_ist() - 4));
+select public.project_update(pg_temp.fx('po'), jsonb_build_object('delivery_date', app.today_ist() - 5));
+select public.project_update(pg_temp.fx('po'), jsonb_build_object('delivery_date', app.today_ist() - 3));
+insert into fx values
+  ('plate', public.project_create(pg_temp.fx('client_a'), 'Late launch', 'one_time', null, app.today_ist() - 1));
+select pg_temp.as_system();
+select is((select count(*)::integer from public.projects
+           where id in (pg_temp.fx('po'), pg_temp.fx('plate')) and delivery_armed_at = now()), 2,
+  'M1: a moved delivery date and a new project arm the missed-delivery escalation');
+select app.client_work_alerts(now());
+select app.client_work_alerts((select r from t) - interval '1 minute');
+select is(pg_temp.n('owner', 'escalation_delivery_missed'), 0::bigint,
+  'M1: E3 for a past delivery date waits for 08:00 IST, not the next run');
+select app.client_work_alerts((select r from t));
+select is(pg_temp.n('owner', 'escalation_delivery_missed'), 1::bigint, 'at 08:00 IST: one escalation');
+select is((pg_temp.last('owner', 'escalation_delivery_missed')).body,
+  'Launch film (Sharma Weddings, due ' || app.notify_date(app.today_ist() - 3) || '); '
+  || 'Late launch (Sharma Weddings, due ' || app.notify_date(app.today_ist() - 1) || '). Not completed. Ravi Admin runs them.',
+  'the new project and the date the moved one holds at the run (never the dates it passed through)');
+select is((select string_agg(armed_for::text, ',') from public.client_work_alerts
+           where entity_id = pg_temp.fx('po') and armed_for < app.today_ist()),
+  (app.today_ist() - 3)::text, 'one row for that date');
+select app.client_work_alerts((select r from t) + interval '5 minutes');
+select is(pg_temp.n('owner', 'escalation_delivery_missed'), 1::bigint, 'once per delivery date');
+
+-- M1. E3: a project reopened after its delivery date waits for the morning ----------------------------------------
+select pg_temp.as_member('owner');
+insert into fx values
+  ('preopen', public.project_create(pg_temp.fx('client_a'), 'Reopened film', 'one_time', null, app.today_ist() - 6));
+select public.project_complete(pg_temp.fx('preopen'));
+select pg_temp.as_system();
+update public.projects set delivery_armed_at = now() - interval '30 days' where id = pg_temp.fx('preopen');
+select pg_temp.as_member('owner');
+select public.project_reopen(pg_temp.fx('preopen'), 'The client wants a new cut');
+select pg_temp.as_system();
+select is((select delivery_armed_at from public.projects where id = pg_temp.fx('preopen')), now(), 'M1: a reopen arms it');
+select pg_temp.clear();
+select app.client_work_alerts(now());
+select is(pg_temp.n('owner', 'escalation_delivery_missed'), 0::bigint,
+  'M1: reopened past its delivery date, it is not escalated within minutes');
+select app.client_work_alerts((select r from t) + interval '5 minutes');
+select is((pg_temp.last('owner', 'escalation_delivery_missed')).title, 'Past delivery: Reopened film · Ravi Admin',
+  'but at the next 08:00 IST run');
+
+-- L2. No active Owner: an escalation is not used up -----------------------------------------------------------
+select pg_temp.clear();
+select pg_temp.as_member('admin');
+insert into fx values
+  ('porphan', public.project_create(pg_temp.fx('client_a'), 'Orphan film', 'one_time', null, app.today_ist() - 1));
+select pg_temp.as_system();
+update public.members set status = 'deactivated', deactivated_at = now() where id = pg_temp.fx('owner');
+select app.client_work_alerts((select r from t) + interval '10 minutes');
+select is((select count(*)::integer from public.client_work_alerts where entity_id = pg_temp.fx('porphan')), 0,
+  'L2: with no active Owner the escalation is not recorded as sent');
+update public.members set status = 'active', deactivated_at = null where id = pg_temp.fx('owner');
+select app.client_work_alerts((select r from t) + interval '15 minutes');
+select is((pg_temp.last('owner', 'escalation_delivery_missed')).title, 'Past delivery: Orphan film · Ravi Admin',
+  'so it goes once there is one');
+
+-- L1. One "unfinished items to decide" per Admin per morning ------------------------------------------------------
+select app.cycle_create(pg_temp.project('pb'), (app.period_start('monthly', app.today_ist()) - interval '4 month')::date, 'schedule', null);
+select app.cycle_close_prompt(pg_temp.s(-40));
+select pg_temp.as_member('admin2');
+select public.item_mark_done(pg_temp.item_in('pb', (app.period_start('monthly', app.today_ist()) - interval '4 month')::date, 'Menu'));
+select pg_temp.as_member('owner');
+select public.item_reject(pg_temp.item_in('pb', (app.period_start('monthly', app.today_ist()) - interval '4 month')::date, 'Menu'), 'Wrong font');
+select pg_temp.as_system();
+select app.cycle_create(pg_temp.project('pb'), (app.period_start('monthly', app.today_ist()) - interval '5 month')::date, 'schedule', null);
+select pg_temp.clear();
+select app.client_work_alerts((select r from t));
+select is(pg_temp.n('admin2', 'items_to_decide'), 0::bigint,
+  'L1: an item back to open in a prompted cycle, but a newly ended cycle is due its 08:05 prompt: no fresh notice at 08:00');
+select app.cycle_close_prompt((select r from t) + interval '5 minutes');
+select is(pg_temp.n('admin2', 'items_to_decide'), 1::bigint, 'the prompt at 08:05 lists everything');
+select is((select recipient_id || '/' || (sent_at = (select r from t) + interval '5 minutes') || '/' || (answers_at = now())
+           from public.client_work_alerts where kind = 'cycle_undecided_notice'
+             and entity_id = (pg_temp.cycle_of('pb', (app.period_start('monthly', app.today_ist()) - interval '4 month')::date)).id),
+  pg_temp.fx('admin2') || '/true/true', 'and is recorded as the fresh notice it stands for');
+select app.client_work_alerts((select r from t) + interval '10 minutes');
+select is(pg_temp.n('admin2', 'items_to_decide'), 1::bigint, 'so the 08:10 run sends no second one');
+
+-- L4. Only a return to open stamps reopened_at; only a date change or a return to open arms the notice ----------------
+select pg_temp.as_member('admin');
+insert into fx values ('stage', public.project_stage_add(pg_temp.fx('pm'), 'Edit'));
+select pg_temp.as_system();
+update public.project_items set overdue_armed_at = now() - interval '7 days' where id = pg_temp.fx('late1b');
+select pg_temp.as_member('admin');
+select public.item_tick_stage(pg_temp.fx('late1b'), pg_temp.fx('stage'), true);
+select public.item_update(pg_temp.fx('late1b'), jsonb_build_object('notes', 'Waiting for the music'));
+select public.item_update(pg_temp.fx('late1b'), jsonb_build_object('planned_date', app.today_ist() - 11));
+select pg_temp.as_system();
+select is((select reopened_at is null and overdue_armed_at = now() - interval '7 days'
+           from public.project_items where id = pg_temp.fx('late1b')), true,
+  'L4: a stage tick and an edit of an open item (its planned date kept) stamp neither');
+select is((select bool_and(reopened_at is null) from public.project_items
+           where cycle_id = (pg_temp.cycle_of('pb', (select last_month from t))).id and carry_decision = 'leave_pending'), true,
+  'L4: leave pending keeps reopened_at null');
+select pg_temp.as_member('admin');
+select public.project_update(pg_temp.fx('plate'), jsonb_build_object('name', 'Late launch film'));
+select pg_temp.as_system();
+update public.projects set delivery_armed_at = now() - interval '7 days' where id = pg_temp.fx('plate');
+select pg_temp.as_member('admin');
+select public.project_update(pg_temp.fx('plate'), jsonb_build_object('name', 'Late launch cut'));
+select pg_temp.as_system();
+select is((select delivery_armed_at from public.projects where id = pg_temp.fx('plate')), now() - interval '7 days',
+  'a project edit that keeps the delivery date does not re-arm it');
+
+-- S2. The job refuses any isolation but read committed (its checks must see the last run's rows) ---------------------
+create extension if not exists dblink with schema extensions;
+select extensions.dblink_connect('iso', format('hostaddr=%s port=%s dbname=%s user=postgres password=postgres',
+  host(inet_server_addr()), inet_server_port(), current_database()));
+select extensions.dblink_exec('iso', 'begin isolation level repeatable read');
+select throws_like($$ select * from extensions.dblink('iso', 'select app.client_work_alerts()') as x(n integer) $$,
+  '%runs only at read committed%', 'S2: at repeatable read the job fails fast');
+select extensions.dblink_exec('iso', 'rollback');
+select extensions.dblink_disconnect('iso');
 
 select * from finish();
 rollback;

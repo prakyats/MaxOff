@@ -527,6 +527,7 @@ export type Database = {
       };
       client_work_alerts: {
         Row: {
+          answers_at: string | null;
           armed_for: string;
           entity_id: string;
           id: string;
@@ -536,6 +537,7 @@ export type Database = {
           sent_at: string;
         };
         Insert: {
+          answers_at?: string | null;
           armed_for: string;
           entity_id: string;
           id?: string;
@@ -545,6 +547,7 @@ export type Database = {
           sent_at: string;
         };
         Update: {
+          answers_at?: string | null;
           armed_for?: string;
           entity_id?: string;
           id?: string;
@@ -2263,6 +2266,7 @@ export type Database = {
           notes: string | null;
           org_id: string;
           origin_cycle_id: string;
+          overdue_armed_at: string | null;
           planned_date: string | null;
           position: string;
           project_id: string;
@@ -2292,6 +2296,7 @@ export type Database = {
           notes?: string | null;
           org_id: string;
           origin_cycle_id: string;
+          overdue_armed_at?: string | null;
           planned_date?: string | null;
           position: string;
           project_id: string;
@@ -2321,6 +2326,7 @@ export type Database = {
           notes?: string | null;
           org_id?: string;
           origin_cycle_id?: string;
+          overdue_armed_at?: string | null;
           planned_date?: string | null;
           position?: string;
           project_id?: string;
@@ -2565,6 +2571,7 @@ export type Database = {
           created_at: string;
           created_by: string;
           custom_fields: Json;
+          delivery_armed_at: string | null;
           delivery_date: string | null;
           description: string | null;
           id: string;
@@ -2587,6 +2594,7 @@ export type Database = {
           created_at?: string;
           created_by: string;
           custom_fields?: Json;
+          delivery_armed_at?: string | null;
           delivery_date?: string | null;
           description?: string | null;
           id?: string;
@@ -2609,6 +2617,7 @@ export type Database = {
           created_at?: string;
           created_by?: string;
           custom_fields?: Json;
+          delivery_armed_at?: string | null;
           delivery_date?: string | null;
           description?: string | null;
           id?: string;
