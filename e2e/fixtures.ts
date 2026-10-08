@@ -181,13 +181,28 @@ export const test = base.extend<{
   diagTimeline: [
     async ({ page }, use, info) => {
       await page.addInitScript(diagProbe);
-      // Diag: a slower CPU stretches hydration and the router's work.
-      const rate = [1, 2, 4, 6][info.repeatEachIndex % 4] ?? 1;
-      if (rate > 1) {
-        const cdp = await page.context().newCDPSession(page);
-        await cdp.send("Emulation.setCPUThrottlingRate", { rate });
-      }
+      // Diag -3: no throttling; the scripts a page asks for after its load event are logged, and
+      // held 1.5 s in the two reload-then-tap tests (hydration comes after load).
+      const rate = 1;
+      const hold = /Save waits|the band returns/.test(info.title);
+      let loaded = false;
+      const afterLoad: string[] = [];
+      page.on("request", (request) => {
+        if (request.isNavigationRequest() && request.frame() === page.mainFrame()) loaded = false;
+      });
+      page.on("load", () => {
+        loaded = true;
+        afterLoad.push("--load--");
+      });
+      await page.route("**/_next/static/**", async (route) => {
+        if (loaded) {
+          afterLoad.push(route.request().url().split("/").pop() ?? "");
+          if (hold) await new Promise((resolve) => setTimeout(resolve, 1_500));
+        }
+        await route.continue().catch(() => undefined);
+      });
       await use();
+      console.log(`DIAG-AFTERLOAD ${info.project.name} ${info.title.slice(0, 40)} #${info.repeatEachIndex} hold=${hold} ${JSON.stringify(afterLoad)}`);
       if (info.status !== info.expectedStatus || info.repeatEachIndex < 2) {
         const timeline = await page
           .evaluate(() => (window as unknown as { __diag?: unknown[] }).__diag ?? [])

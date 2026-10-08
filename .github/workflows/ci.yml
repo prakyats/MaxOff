@@ -151,7 +151,7 @@ jobs:
       # Both shards always finish, so one red run shows every failure.
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -190,10 +190,10 @@ jobs:
       # A blob report per shard (the `playwright` job merges them into one HTML report); the
       # github reporter keeps failures annotated on the run.
       - run: >-
-          pnpm test:e2e --shard=${{ matrix.shard }}/4 --reporter=list,blob
+          pnpm test:e2e --shard=${{ matrix.shard }}/2 --reporter=list,blob
           e2e/onboarding.spec.ts e2e/calendar.spec.ts e2e/edit-pattern.spec.ts e2e/dashboards.spec.ts
-          --grep "the band returns for a failing device|phone. the three sizes by drag|Save waits for a real change|never re-reads the screen it moved to"
-          --repeat-each=16
+          --grep "the band returns for a failing device|phone. the three sizes by drag|Today while the next month|Save waits for a real change|never re-reads the screen it moved to"
+          --repeat-each=4
           --project=setup --project=desktop --project=mobile --project=mobile-lg
       - name: Approve all (owner-bulk), alone, after the rest of shard 2
         if: false
