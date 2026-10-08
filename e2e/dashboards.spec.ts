@@ -287,6 +287,14 @@ test.describe("Crew: My Day (6.1)", () => {
     await expect(pageHeader(page)).toContainText(/leave/i);
     // Past the re-read's moment (400 ms after the event) and its answer.
     await page.waitForTimeout(1_500);
+    if (fetches.length !== 1 || info.repeatEachIndex === 0) {
+      const timeline = await page.evaluate(
+        () => (window as unknown as { __diag?: unknown[] }).__diag ?? [],
+      );
+      console.log(
+        `DIAG ${info.project.name} #${info.repeatEachIndex} fetches=${fetches.length} ${JSON.stringify(timeline)}`,
+      );
+    }
     expect(fetches, "the move's own fetch, and no re-read after it").toHaveLength(1);
   });
 

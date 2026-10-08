@@ -25,6 +25,7 @@ import {
   TAB_TOP_ATTRIBUTE,
   VIEW_LINK_ATTRIBUTE,
 } from "./attributes";
+import { diag } from "./diag";
 import { writingOwnHistory } from "./history-writes";
 import { backMove, tabMove } from "./moves";
 import {
@@ -160,6 +161,7 @@ export function NavProgress() {
     const now = () => systemClock().getTime();
 
     const clear = () => {
+      diag("nav-clear", { fetches, fetched, elsewhere, from });
       window.cancelAnimationFrame(frame);
       window.clearInterval(ticker);
       for (const link of document.querySelectorAll(`[${NAV_TARGET_ATTRIBUTE}]`)) {
@@ -197,6 +199,7 @@ export function NavProgress() {
           sinceMoved: movedAt ? t - movedAt : 0,
         });
         if (done) {
+          diag("nav-finish", { moved, fetched, fetches, elsewhere, from });
           finish();
           return;
         }
@@ -216,6 +219,7 @@ export function NavProgress() {
 
     // A navigation begins (a tap marked the document already, or the router started one).
     const begin = (to: string | null, how: Kind, origin: string = here()) => {
+      diag("nav-begin", { to, how, origin, fetches, elsewhere });
       window.clearTimeout(doneTimer);
       html.removeAttribute(NAV_DONE_ATTRIBUTE);
       if (!pending()) html.setAttribute(NAV_PENDING_ATTRIBUTE, String(now()));
@@ -241,6 +245,7 @@ export function NavProgress() {
     // Taps: the head script marks the document in the capture phase; pick it up after the
     // app's own handlers have run (bubble phase on window, the last to hear the click).
     const onClick = () => {
+      diag("nav-click");
       if (!pending()) return;
       const target = document.querySelector(`[${NAV_TARGET_ATTRIBUTE}]`);
       begin(target?.getAttribute(NAV_TARGET_ATTRIBUTE) ?? null, "tap");
@@ -268,7 +273,16 @@ export function NavProgress() {
       // Every router fetch, an action's answer too, holds a view's address until it completes
       // (`view-address.ts`).
       if (isRouterActionFetch(method, headers)) {
+        diag("action-fetch", { id: headers.get("next-action") });
         const answer = realFetch(input, init);
+        answer.then(
+          (r) =>
+            diag("action-answer", {
+              revalidated: r.headers.get("x-action-revalidated"),
+              redirect: r.headers.get("x-action-redirect"),
+            }),
+          () => diag("action-failed"),
+        );
         endOnCompletion(answer, noteRouterFetchStarted(), "action", (response) =>
           actionLeavesScreen(response.headers),
         );
@@ -291,6 +305,7 @@ export function NavProgress() {
       };
       // A refresh of the screen you are on (refresh on return, pull-to-refresh with its own
       // spinner) is not a navigation: no bar for it unless a tap already started one.
+      diag("nav-fetch", { to, from, elsewhere, fetches, nextUrl: headers.get("next-url") });
       if (!pending() && to === here()) return reported(send());
       if (!pending()) begin(to, "router");
       else if (!destination.current) destination.current = to;
@@ -298,6 +313,7 @@ export function NavProgress() {
       fetches++;
       inFlight.push(to);
       const settle = () => {
+        diag("nav-settled", { to });
         fetches--;
         inFlight.splice(inFlight.indexOf(to), 1);
         fetched = true;
@@ -327,10 +343,12 @@ export function NavProgress() {
       !writingOwnHistory() && typeof data === "object" && data !== null && "__NA" in data;
     const pushState: History["pushState"] = function (this: History, data, unused, url) {
       realPush.call(this, data, unused, url);
+      diag("history-push", { url: String(url), na: committing(data) });
       if (committing(data)) noteRouterCommitted();
     };
     const replaceState: History["replaceState"] = function (this: History, data, unused, url) {
       realReplace.call(this, data, unused, url);
+      diag("history-replace", { url: String(url), na: committing(data) });
       if (committing(data)) noteRouterCommitted();
     };
     window.history.pushState = pushState;

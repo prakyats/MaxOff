@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { systemClock } from "@/core/time/clock";
 import { anySendWaiting } from "@/core/ui/delayed-sends";
 import { anyEditDirty } from "@/core/ui/edit/edit-guard";
+import { diag } from "@/core/ui/navigation/diag";
 
 /**
  * Refresh on return (ARCHITECTURE §14.2 i, task 2.7b). Pull-to-refresh is off on purpose (2.7:
@@ -60,6 +61,7 @@ export function RefreshOnReturn(): null {
       )
         return;
       lastRefresh = now;
+      diag("return-refresh");
       router.refresh();
     };
     document.addEventListener("visibilitychange", onReturn);

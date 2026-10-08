@@ -8,6 +8,7 @@ import { getInBackground } from "@/core/http/background";
 import { systemClock } from "@/core/time/clock";
 import { anySendWaiting } from "@/core/ui/delayed-sends";
 import { anyEditDirty } from "@/core/ui/edit/edit-guard";
+import { diag } from "@/core/ui/navigation/diag";
 
 import {
   catchUpRefreshes,
@@ -99,6 +100,7 @@ export function LiveUpdates({ memberId, token, expiresIn }: LiveUpdatesProps): n
       const schedule = (wait: number) => {
         window.clearTimeout(timer.current);
         timer.current = window.setTimeout(() => {
+          diag("bell-fire");
           if (
             liveRefreshWaits({
               sendWaiting: anySendWaiting(),
@@ -109,6 +111,7 @@ export function LiveUpdates({ memberId, token, expiresIn }: LiveUpdatesProps): n
             schedule(LIVE_REFRESH_RETRY_MS);
             return;
           }
+          diag("bell-refresh");
           router.refresh();
         }, wait);
       };
@@ -123,6 +126,7 @@ export function LiveUpdates({ memberId, token, expiresIn }: LiveUpdatesProps): n
     void readUnreadCount().then((result) => {
       if (!result.ok) return;
       serverUnreadSeen(result.data);
+      diag("catchup", { before: before?.count, after: result.data.count });
       if (catchUpRefreshes(before, result.data, readsUnconfirmed())) {
         refreshSoon(LIVE_REFRESH_DELAY_MS);
       }
@@ -153,6 +157,7 @@ export function LiveUpdates({ memberId, token, expiresIn }: LiveUpdatesProps): n
             filter: `recipient_id=eq.${memberId}`,
           },
           (change) => {
+            diag("bell-event", { type: change.eventType });
             noteNotificationsChanged();
             // The member's own read on this device never re-reads the screen: the count alone
             // confirms it, once, while a read still waits for it.
@@ -206,6 +211,7 @@ export function LiveUpdates({ memberId, token, expiresIn }: LiveUpdatesProps): n
     const reread = (wait: number) => {
       window.clearTimeout(timer);
       timer = window.setTimeout(() => {
+        diag("dash-fire", { cancelled });
         if (cancelled || !liveDashboard(window.location.pathname)) return;
         if (
           liveRefreshWaits({
@@ -217,6 +223,7 @@ export function LiveUpdates({ memberId, token, expiresIn }: LiveUpdatesProps): n
           reread(LIVE_REFRESH_RETRY_MS);
           return;
         }
+        diag("dash-refresh");
         router.refresh();
       }, wait);
     };
@@ -227,9 +234,10 @@ export function LiveUpdates({ memberId, token, expiresIn }: LiveUpdatesProps): n
       // checks no DELETE against RLS (it carries the id alone), so a delete is not listened to.
       for (const table of LIVE_DASHBOARD_TABLES) {
         for (const event of ["INSERT", "UPDATE"] as const) {
-          next = next.on("postgres_changes", { event, schema: "public", table }, () =>
-            reread(LIVE_REFRESH_DELAY_MS),
-          );
+          next = next.on("postgres_changes", { event, schema: "public", table }, () => {
+            diag("dash-event", { table, event });
+            reread(LIVE_REFRESH_DELAY_MS);
+          });
         }
       }
       channel = next.subscribe((status) => {
@@ -241,6 +249,7 @@ export function LiveUpdates({ memberId, token, expiresIn }: LiveUpdatesProps): n
       });
     });
     return () => {
+      diag("dash-cleanup", { pathname });
       cancelled = true;
       window.clearTimeout(timer);
       delete root.dataset.liveDashboard;
@@ -261,6 +270,7 @@ export function LiveUpdates({ memberId, token, expiresIn }: LiveUpdatesProps): n
     if (delay === null) return;
     let retry: number | undefined;
     const ask = () => {
+      diag("token-ask");
       refreshSoon(0);
       retry = window.setTimeout(ask, TOKEN_RETRY_MS);
     };
