@@ -4,7 +4,8 @@ import { homeFor } from "@/core/ui/shell/nav";
 import { LOGIN_PATH } from "./paths";
 
 /**
- * The home hint (task 2.7): lets the proxy answer `/`, the installed app's `start_url`, with one
+ * The home hint (task 2.7): lets the proxy answer `/` (the installed app's `start_url`,
+ * `/?source=pwa` since walk note 3; the query is dropped), with one
  * redirect read off a cookie instead of a full server render that reads the member row first
  * (829 ms to produce a 307 on staging, before the real page was even requested).
  *

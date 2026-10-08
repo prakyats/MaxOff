@@ -14,8 +14,9 @@ import { classifySessionError } from "./session-errors";
  * 1. refreshes the Supabase session cookies, which Server Components can't write themselves;
  * 2. an optimistic redirect from the JWT alone: no session on a members-only path → `/login`
  *    with `next=`; a session on `/login` or `/forgot-password` → `/`; `/` itself (the installed
- *    app's `start_url`) → `/login`, or the role's home when the home hint names it (2.7,
- *    `home-hint.ts`), else it renders and `src/app/page.tsx` reads the member;
+ *    app's `start_url`, `/?source=pwa`: the query is dropped) → `/login`, or the role's home
+ *    when the home hint names it (2.7, `home-hint.ts`), else it renders and `src/app/page.tsx`
+ *    reads the member;
  * 3. every redirect it answers carries the security headers itself (3c.1, ARCHITECTURE §18.3):
  *    on the Worker a proxy redirect never reaches `next.config.ts`'s `headers()` rule.
  * (3b.1 dropped the `x-maxoff-path` header the 2.2 day gate read: nothing reads it now.)
