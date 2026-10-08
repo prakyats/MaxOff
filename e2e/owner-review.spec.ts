@@ -7,6 +7,7 @@ import { addISTDays, todayIST } from "../src/core/time";
 
 import {
   expectBackStack,
+  hydrated,
   pageHeader,
   resetAttendanceAndLeave,
   rpcAs,
@@ -313,10 +314,18 @@ test("Today: the card and the board, and a person's history with Edit and Cancel
   await page.goto("/today");
   const card = page.locator('[data-slot="today-attendance-card"]');
   await expect(card).toBeVisible();
-  await expect(card.locator('[data-slot="today-count"]')).toHaveCount(4);
-  await expect(card).toHaveAttribute("href", "/approvals");
+  // The four groups always; Absent and "End of day not recorded" join them above zero (decision 24).
+  expect(await card.locator('[data-slot="today-count"]').count()).toBeGreaterThanOrEqual(4);
+  // Every count is tappable (6.2): Waiting opens Approvals, the others the board on that group.
+  await expect(card.locator('[data-bucket="waiting"]')).toHaveAttribute("href", "/approvals");
+  await expect(card.locator('[data-bucket="present"]')).toHaveAttribute(
+    "href",
+    "/today/people?group=present",
+  );
 
-  // Approved this morning, so on the board as present; the board opens the person.
+  // Approved this morning, so on the board as present (the full board, one tap under Today
+  // since 6.2); the board opens the person.
+  await page.goto("/today/people");
   const board = page.locator('[data-slot="people-board"]');
   await expect(
     board.locator('[data-slot="board-row"]').filter({ hasText: nameOf("day", info) }),
@@ -518,12 +527,16 @@ test("a corrected day reads in the Owner's words on the person's history, and co
   await expect(edit).toBeHidden();
 });
 
-test("installed: board → person → tabs and months → one back lands on Today", async ({
+test("installed: Today → the board → person → tabs and months → back to the board, then Today", async ({
   page,
 }, info) => {
   test.skip(!isPhone(info), "the installed app is a phone");
   await runInstalled(page);
   await page.goto("/today");
+  await hydrated(page);
+  // The full board is one tap under Today since 6.2 ("See all N people").
+  await page.locator('[data-slot="today-see-all-people"] a').click();
+  await expect(page).toHaveURL(/\/today\/people$/);
   await page
     .locator('[data-slot="board-row"]')
     .filter({ hasText: nameOf("fix", info) })
@@ -536,7 +549,7 @@ test("installed: board → person → tabs and months → one back lands on Toda
   await page.getByRole("link", { name: "Leave", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/people/${ids(info).fix}/leave$`));
 
-  await expectBackStack(page, [{ url: /\/today$/ }]);
+  await expectBackStack(page, [{ url: /\/today\/people$/ }, { url: /\/today$/ }]);
 });
 
 test("installed: the on-screen back goes back after a drill-down, adding nothing", async ({

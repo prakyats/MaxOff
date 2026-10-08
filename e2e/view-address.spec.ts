@@ -1,10 +1,11 @@
-import { type Page, type Route } from "@playwright/test";
+import { type Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 
 import { addISTDays, istInstant, istWeekday, todayIST } from "../src/core/time";
 
 import {
+  holdNextRefresh,
   hydrated,
   memberIdOf,
   removeTasksTitled,
@@ -36,46 +37,6 @@ function workingDay(offset: number): string {
   let day = addISTDays(todayIST(), offset);
   while (istWeekday(day) === 0 || istWeekday(day) === 6) day = addISTDays(day, 1);
   return day;
-}
-
-/**
- * Holds the next refresh of `path` (an RSC request for it that is not a prefetch) until the test
- * lets it go. `held` resolves once the refresh has reached the network and is waiting;
- * `answered` once the released answer has been read by the page.
- */
-async function holdNextRefresh(page: Page, path: string) {
-  let reached: () => void = () => undefined;
-  const held = new Promise<void>((resolve) => {
-    reached = resolve;
-  });
-  let let_go: () => void = () => undefined;
-  const released = new Promise<void>((resolve) => {
-    let_go = resolve;
-  });
-  let caught = false;
-  const handler = async (route: Route) => {
-    const request = route.request();
-    const headers = request.headers();
-    const refresh =
-      headers["rsc"] === "1" &&
-      !headers["next-router-prefetch"] &&
-      new URL(request.url()).pathname === path;
-    if (!refresh || caught) return route.fallback();
-    caught = true;
-    reached();
-    await released;
-    await route.continue();
-  };
-  await page.route(`**${path}?*`, handler);
-  await page.route(`**${path}`, handler);
-  const answered = page.waitForEvent("requestfinished", {
-    predicate: (request) =>
-      request.headers()["rsc"] === "1" &&
-      !request.headers()["next-router-prefetch"] &&
-      new URL(request.url()).pathname === path,
-    timeout: 0,
-  });
-  return { held, release: () => let_go(), answered };
 }
 
 /** The app coming back after more than refresh on return's throttle: one refresh in place. */

@@ -791,6 +791,41 @@ export type Database = {
           },
         ];
       };
+      eod_reports: {
+        Row: {
+          created_at: string;
+          data: Json;
+          generated_at: string;
+          id: string;
+          org_id: string;
+          report_date: string;
+        };
+        Insert: {
+          created_at?: string;
+          data: Json;
+          generated_at?: string;
+          id?: string;
+          org_id: string;
+          report_date: string;
+        };
+        Update: {
+          created_at?: string;
+          data?: Json;
+          generated_at?: string;
+          id?: string;
+          org_id?: string;
+          report_date?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "eod_reports_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       expense_claims: {
         Row: {
           amount: number;
@@ -1808,6 +1843,7 @@ export type Database = {
           quiet_hours_start: string;
           reachability_clock_from: string | null;
           updated_at: string;
+          weekly_digest_day: number;
           weekly_off_days: number[];
           workload_warning_threshold: number | null;
         };
@@ -1828,6 +1864,7 @@ export type Database = {
           quiet_hours_start?: string;
           reachability_clock_from?: string | null;
           updated_at?: string;
+          weekly_digest_day?: number;
           weekly_off_days?: number[];
           workload_warning_threshold?: number | null;
         };
@@ -1848,6 +1885,7 @@ export type Database = {
           quiet_hours_start?: string;
           reachability_clock_from?: string | null;
           updated_at?: string;
+          weekly_digest_day?: number;
           weekly_off_days?: number[];
           workload_warning_threshold?: number | null;
         };
@@ -3262,6 +3300,27 @@ export type Database = {
           work_date: string;
         }[];
       };
+      attendance_end_not_recorded_yesterday: {
+        Args: never;
+        Returns: {
+          day_id: string;
+          end_not_recorded: boolean;
+          ended_at: string;
+          final_status: Database["public"]["Enums"]["day_status"];
+          full_name: string;
+          is_day_off: boolean;
+          job_title: string;
+          leave_type: Database["public"]["Enums"]["leave_type"];
+          member_id: string;
+          on_leave: boolean;
+          overtime_flag: boolean;
+          proposed_by_system: boolean;
+          started: boolean;
+          started_at: string;
+          state: Database["public"]["Enums"]["attendance_state"];
+          submitted_choice: Database["public"]["Enums"]["attendance_choice"];
+        }[];
+      };
       attendance_flag_overtime: {
         Args: { day_id: string; reason?: string };
         Returns: boolean;
@@ -3398,7 +3457,26 @@ export type Database = {
         Args: { credit_id: string; reason?: string };
         Returns: undefined;
       };
+      dashboard_not_noted: {
+        Args: never;
+        Returns: {
+          member_id: string;
+          task_id: string;
+          waiting_since: string;
+        }[];
+      };
+      dashboard_unreachable: {
+        Args: never;
+        Returns: {
+          full_name: string;
+          member_id: string;
+          open_tasks: number;
+          since: string;
+          state: string;
+        }[];
+      };
       digest_daily: { Args: { p_now?: string }; Returns: number };
+      digest_weekly: { Args: { p_now?: string }; Returns: number };
       email_claim: {
         Args: { p_limit?: number; p_now?: string };
         Returns: {
@@ -3425,6 +3503,14 @@ export type Database = {
         };
         Returns: number;
       };
+      emails_held_today: {
+        Args: never;
+        Returns: {
+          cap: string;
+          held: number;
+        }[];
+      };
+      eod_report_preview: { Args: { p_date: string }; Returns: Json };
       expense_claim_decide: {
         Args: { claim_id: string; decision: string; reason?: string };
         Returns: string;
@@ -3697,6 +3783,7 @@ export type Database = {
       };
       onboarding_finish: { Args: { p_via: string }; Returns: boolean };
       owner_digest_preview: { Args: never; Returns: Json };
+      owner_digest_weekly_preview: { Args: never; Returns: Json };
       push_band_census: {
         Args: never;
         Returns: {

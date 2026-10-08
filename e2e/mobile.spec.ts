@@ -2,9 +2,10 @@ import { type Locator, type Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 
-import { STAND_INS, type StandIn } from "../src/app/(app)/_placeholder/stand-ins";
+import { todayIST } from "../src/core/time";
 
 import {
+  animationsSettled,
   dockTop,
   expectNoHorizontalScroll,
   expectSettled,
@@ -125,6 +126,13 @@ const SCREENS = [
   { path: "/settings/expenses", role: "owner" },
   { path: "/reports", role: "owner" },
   { path: "/reports/month", role: "owner" },
+  // 6.5: the end-of-day reports, the list and today's live report.
+  { path: "/reports/end-of-day", role: "owner" },
+  { path: `/reports/end-of-day/${todayIST()}`, role: "owner" },
+  // 6.4: the calendar, every role.
+  { path: "/calendar", role: "owner" },
+  { path: "/calendar", role: "admin" },
+  { path: "/calendar", role: "staff" },
   { path: "/me", role: "staff" },
   { path: "/leave/expenses", role: "staff" },
   { path: "/leave/expenses", role: "admin" },
@@ -150,6 +158,10 @@ const SCREENS = [
   { path: "/notifications", role: "owner" },
   { path: "/notifications", role: "admin" },
   { path: "/notifications", role: "staff" },
+  // 6A: the Owner's Today and its full board, the Admin's work report.
+  { path: "/today", role: "owner" },
+  { path: "/today/people", role: "owner" },
+  { path: "/reports", role: "admin" },
 ] as const;
 
 for (const role of ["owner", "admin", "staff"] as const) {
@@ -200,9 +212,17 @@ const LARGE_TEXT_SCREENS = {
     "/settings/templates",
     // 5.1: Alerts.
     "/notifications",
+    // 6.2: the full board one tap under Today.
+    "/today/people",
+    // 6.4 the calendar; 6.5 the end-of-day reports.
+    "/calendar",
+    "/reports/end-of-day",
+    `/reports/end-of-day/${todayIST()}`,
   ],
   admin: [
     "/today",
+    // 6.3: the work report.
+    "/reports",
     "/leave",
     "/leave/attendance",
     "/leave/expenses",
@@ -231,18 +251,38 @@ const LARGE_TEXT_SCREENS = {
 /** The narrowest an ellipsis may cut a line to and still say what it is. */
 const MIN_TRUNCATED_WIDTH = 64;
 
+/**
+ * A cut-short line keeps `MIN_TRUNCATED_WIDTH`. **Except inside a calendar day's box** (6.4b; the
+ * owner's preview review, 2026-10-08): a box is a seventh of the phone's width, and every strip,
+ * count and leave bar in it is one line ellipsised by design; there a cut-short line must still
+ * show a character beside its ellipsis (at least its own font size wide) and never reach past the
+ * box it sits in.
+ */
 async function expectReadableTruncation(page: Page): Promise<void> {
   const squeezed = await page.evaluate(
     (min) =>
       [...document.querySelectorAll<HTMLElement>("body *")]
         .filter((el) => {
           const style = getComputedStyle(el);
-          return (
-            style.textOverflow === "ellipsis" &&
-            el.scrollWidth > el.clientWidth + 1 &&
-            el.clientWidth > 1 &&
-            el.clientWidth < min
-          );
+          if (
+            style.textOverflow !== "ellipsis" ||
+            el.scrollWidth <= el.clientWidth + 1 ||
+            el.clientWidth <= 1
+          ) {
+            return false;
+          }
+          const box = el.closest<HTMLElement>('[data-slot="calendar-day"]');
+          if (box) {
+            const inside = el.getBoundingClientRect();
+            const outer = box.getBoundingClientRect();
+            const sideways = el.dataset.slot === "calendar-leave-bar" ? 8 : 1;
+            return (
+              el.clientWidth < parseFloat(style.fontSize) ||
+              inside.left < outer.left - sideways ||
+              inside.right > outer.right + sideways
+            );
+          }
+          return el.clientWidth < min;
         })
         .slice(0, 5)
         .map((el) => `"${el.textContent?.trim().slice(0, 24)}" ${el.clientWidth}px`),
@@ -271,43 +311,32 @@ for (const [role, paths] of Object.entries(LARGE_TEXT_SCREENS)) {
   });
 }
 
-/**
- * The stand-in screens (3c.3, kickoff 3c amendment (3e)): every screen a member can reach before
- * its real version arrives says, in plain words, what it will be for and that it is coming, for
- * every role that can open it. Nothing on it names a task number or a build step, and it fits at
- * both phone widths and at large system text.
- */
-const STAND_IN_SCREENS: Record<"owner" | "admin" | "staff", { path: string; copy: StandIn }[]> = {
-  owner: [
-    { path: "/today", copy: STAND_INS.todayOwner },
-    { path: "/calendar", copy: STAND_INS.calendar },
-  ],
-  admin: [
-    { path: "/today", copy: STAND_INS.todayAdmin },
-    { path: "/calendar", copy: STAND_INS.calendar },
-    { path: "/reports", copy: STAND_INS.reportsAdmin },
-  ],
-  staff: [
-    { path: "/my-day", copy: STAND_INS.myDay },
-    { path: "/calendar", copy: STAND_INS.calendar },
-  ],
-};
-
-/** What a stand-in used to say, and anything like it. */
+/** What a stand-in used to say (3c.3; the last one, the Calendar, went with 6.4), and anything like it. */
 const BUILD_WORDS = /is filled in|\b(task|phase) \d|arrives with its module|shared components/i;
 
-for (const [role, screens] of Object.entries(STAND_IN_SCREENS)) {
-  test.describe(`${role}: the stand-in screens speak plainly`, () => {
-    test.use({ storageState: storageStateFor(role as keyof typeof STAND_IN_SCREENS) });
+/**
+ * The calendar's three sizes (6.4b, Kickoff 6 decision 25 A), for every role: the compact month it
+ * opens on, the full month with its labelled strips, the week strip, and a day's sheet, each at
+ * both phone widths (no sideways scroll, 44px targets) and at large system text (a strip is
+ * clipped inside its box, never past it; nothing ellipsised to a sliver). The 08 Oct bugs (b) and
+ * (d) were a month box spilling its text and the Status filter cut short: both are this check.
+ */
+for (const role of ["owner", "admin", "staff"] as const) {
+  test.describe(`${role}: the calendar's sizes fit`, () => {
+    test.use({ storageState: storageStateFor(role) });
 
-    for (const { path, copy } of screens) {
-      test(`${path}: says what is coming, and fits`, async ({ page }) => {
-        await page.goto(path);
-        await expect(pageHeader(page)).toBeVisible();
-        const stand = page.locator('[data-slot="empty-state"]').filter({ hasText: copy.title });
-        await expect(stand).toBeVisible();
-        await expect(stand).toContainText(copy.message);
-        await expect(page.locator("main")).not.toContainText(BUILD_WORDS);
+    test("/calendar: the compact month, the full month, the week and a day's sheet fit", async ({
+      page,
+    }) => {
+      await page.goto("/calendar");
+      await expect(pageHeader(page)).toBeVisible();
+      const phone = page.locator('[data-slot="calendar-phone"]');
+      await expect(phone).toBeVisible();
+      await expect(page.locator("main")).not.toContainText(BUILD_WORDS);
+      const handle = page.locator('button[data-slot="calendar-handle"]');
+      const fits = async () => {
+        // A tap's press feedback eases out over 120ms: measure the settled controls.
+        await animationsSettled(page);
         await expectNoHorizontalScroll(page);
         await expectTouchTargets(page);
         for (const scale of [130, 200]) {
@@ -317,8 +346,30 @@ for (const [role, screens] of Object.entries(STAND_IN_SCREENS)) {
           await expectNoHorizontalScroll(page);
           await expectReadableTruncation(page);
         }
-      });
-    }
+        await page.evaluate(() => {
+          document.documentElement.style.fontSize = "";
+        });
+      };
+      for (const size of ["2", "3", "1"]) {
+        await expect(phone).toHaveAttribute("data-size", size);
+        await fits();
+        await handle.click();
+      }
+      // A day of the full month opens its sheet, which fits too.
+      await expect(phone).toHaveAttribute("data-size", "2");
+      await handle.click();
+      await expect(phone).toHaveAttribute("data-size", "3");
+      await page.locator(`[data-slot="calendar-day"][data-date="${todayIST()}"]:visible`).click();
+      await expect(page.locator('[data-calendar="day-sheet"]')).toBeVisible();
+      await fits();
+      // The filters: every trigger keeps the phone's 44px and 16px (6B review later item (k)).
+      await page.keyboard.press("Escape");
+      await expect(page.locator('[data-calendar="day-sheet"]')).toHaveCount(0);
+      await page.locator('[data-slot="calendar-filters-button"]:visible').click();
+      await expect(page.locator('[data-calendar="filters-sheet"]')).toBeVisible();
+      await fits();
+      await expectNoZoomOnFocus(page);
+    });
   });
 }
 

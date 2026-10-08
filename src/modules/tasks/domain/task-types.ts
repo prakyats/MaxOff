@@ -20,6 +20,8 @@ export type TaskTypeSetting = {
   position: string;
   /** Its tasks' default reminders (5.3); `[]` = the organisation's. */
   defaultReminders: ReminderRule[];
+  /** Its colour on the calendar (Kickoff 6 decision 25), always one of the palette. */
+  color: TaskTypeColor;
 };
 
 export const TASK_TYPE_NAME_MAX = 80;
@@ -78,4 +80,40 @@ export function splitTaskTypes<T extends Pick<TaskTypeSetting, "archivedAt" | "p
     .filter((type) => type.archivedAt !== null)
     .sort((a, b) => a.name.localeCompare(b.name));
   return { active, archived };
+}
+
+/**
+ * The curated colours a type takes on the calendar (Kickoff 6 decision 25): no red (overdue and
+ * commit actions keep it, ARCHITECTURE §14.1), no green (the holiday strip), no amber (the due
+ * count) and no grey (leave and others' busy time). The database refuses anything else
+ * (`task_types_color_palette`); stored lower-case.
+ */
+export const TASK_TYPE_COLORS = [
+  { value: "#2563eb", label: "Blue" },
+  { value: "#4f46e5", label: "Indigo" },
+  { value: "#7c3aed", label: "Violet" },
+  { value: "#9333ea", label: "Purple" },
+  { value: "#c026d3", label: "Magenta" },
+  { value: "#0d9488", label: "Teal" },
+  { value: "#0891b2", label: "Cyan" },
+  { value: "#0284c7", label: "Sky" },
+] as const;
+
+export type TaskTypeColor = (typeof TASK_TYPE_COLORS)[number]["value"];
+
+/** A type with no colour (or one from before the palette) is drawn in this one. */
+export const DEFAULT_TASK_TYPE_COLOR: TaskTypeColor = "#2563eb";
+
+/** The colour a type is drawn in: its own when it is in the palette, else the default. */
+export function taskTypeColor(color: string | null | undefined): TaskTypeColor {
+  const value = color?.toLowerCase();
+  return (
+    TASK_TYPE_COLORS.find((option) => option.value === value)?.value ?? DEFAULT_TASK_TYPE_COLOR
+  );
+}
+
+/** "Blue", for the Settings row and its picker. */
+export function taskTypeColorLabel(color: string | null | undefined): string {
+  const value = taskTypeColor(color);
+  return TASK_TYPE_COLORS.find((option) => option.value === value)?.label ?? "Blue";
 }

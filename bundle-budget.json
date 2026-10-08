@@ -1,15 +1,16 @@
 {
-  "$comment": "First-load JS per route, decompressed bytes (task 2.8, `pnpm budget`). Set from the 2.8 result plus ~5%: /login 559 KB, /today and /my-day 746 KB, /approvals 842 KB. /tasks and /tasks/[id] added at the 4B review (S12) the same way, from 774.5 KB and 790.9 KB plus ~5%. Raising a number is a decision: say why in the commit. /tasks/all added in 4C (4.5) the same way, from 892.2 KB plus ~5%. /settings/task-types added in 4C (4.6 settings) the same way, from 801.9 KB plus ~5%. /tasks/requests and /settings/templates added in 4C (4.6) the same way, from 785.9 KB and 791.7 KB plus ~5%. /today and /my-day raised 785 → 790 KB on 2026-10-01 (owner decision): the reload fix's held tap and slide naming added ~1 KB (786.0 KB measured); the spare ~4 KB is not headroom for features (PROGRESS, Things the next session must know). /today and /my-day raised 790 → 792 KB on 2026-10-03 (owner decision): bundler regrouping only, proven: no reminder code in either first-load set (5.3's editor re-split shared chunks, 790.0 KB on CI, 24 files). The last raise without ROADMAP 6.0, the first-load diet that lowers it again.",
+  "$comment": "First-load JS per route, decompressed bytes (task 2.8, `pnpm budget`). Set from the 2.8 result plus ~5%: /login 559 KB, /today and /my-day 746 KB, /approvals 842 KB. /tasks and /tasks/[id] added at the 4B review (S12) the same way, from 774.5 KB and 790.9 KB plus ~5%. Raising a number is a decision: say why in the commit. /tasks/all added in 4C (4.5) the same way, from 892.2 KB plus ~5%. /settings/task-types added in 4C (4.6 settings) the same way, from 801.9 KB plus ~5%. /tasks/requests and /settings/templates added in 4C (4.6) the same way, from 785.9 KB and 791.7 KB plus ~5%. /today and /my-day raised 785 → 790 KB on 2026-10-01 (owner decision): the reload fix's held tap and slide naming added ~1 KB (786.0 KB measured); the spare ~4 KB is not headroom for features (PROGRESS, Things the next session must know). /today and /my-day raised 790 → 792 KB on 2026-10-03 (owner decision): bundler regrouping only, proven: no reminder code in either first-load set (5.3's editor re-split shared chunks, 790.0 KB on CI, 24 files). The last raise without ROADMAP 6.0, the first-load diet that lowers it again. /today and /my-day lowered 792 → 670 KB on 2026-10-07 by ROADMAP 6.0, the first-load diet (both measured 790.0 KB before; 663.7 KB and 657.7 KB after): the unused TooltipProvider gone, the account and theme menus, the More sheet, the Start-day prompt, the sign-out confirmation and the strip's confirmations loaded after the page (`AfterPage`), and `sideEffects` in package.json so a module barrel no longer ships every client component its server components import (ARCHITECTURE §19). Never raised again: new code on these two routes loads after the page. /calendar added in 6.4b (the calendar rework, 2026-10-08) the same way, from 678.4 KB plus ~5% (it measured 718.7 KB as built in 6.4, unbudgeted; the rework loads the day sheet, the filters sheet and the task form after the page).",
   "routes": {
     "/login": 604160,
-    "/today": 811008,
-    "/my-day": 811008,
+    "/today": 686080,
+    "/my-day": 686080,
     "/approvals": 905216,
     "/tasks": 834560,
     "/tasks/[id]": 855040,
     "/tasks/all": 959488,
     "/settings/task-types": 862208,
     "/tasks/requests": 844800,
-    "/settings/templates": 850944
+    "/settings/templates": 850944,
+    "/calendar": 729088
   }
 }

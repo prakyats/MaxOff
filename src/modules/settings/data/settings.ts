@@ -91,9 +91,11 @@ export async function updateThresholds(
     quietHoursStart: string;
     quietHoursEnd: string;
     defaultTaskReminders: ReminderRule[];
+    weeklyDigestDay: number;
   },
 ): Promise<void> {
   await updateSettings(orgId, {
+    weekly_digest_day: patch.weeklyDigestDay,
     logout_reminder_time: patch.logoutReminderTime,
     end_day_cutoff_time: patch.endDayCutoffTime,
     ack_repeat_hours: patch.ackRepeatHours,

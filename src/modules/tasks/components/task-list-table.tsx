@@ -85,6 +85,7 @@ export function TaskListTable({
       options: [
         { value: ALL, label: FILTER_DEFAULT_LABELS.overdue },
         { value: "overdue", label: "Overdue" },
+        { value: "today", label: "Due today" },
       ],
       defaultValue: ALL,
       match: matchesOverdue,

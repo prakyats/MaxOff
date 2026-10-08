@@ -7,7 +7,13 @@ import { createServerSupabase } from "@/core/db/server";
 import { displayName } from "@/core/lib/display-name";
 
 import type { DayStatus } from "../domain/choices";
-import { type PendingDay, sortPending, type TodayPerson } from "../domain/review";
+import {
+  type PendingDay,
+  sortPending,
+  type TodayDetailRow,
+  todayPersonFromRow,
+  type TodayPerson,
+} from "../domain/review";
 
 /**
  * The Owner's attendance reads and decisions (task 2.4). Reads go through RLS
@@ -64,40 +70,35 @@ export async function countPendingDays(): Promise<number> {
   return count ?? 0;
 }
 
-type Loose<T> = { [K in keyof T]: T[K] | null };
-
 /**
  * Today for everyone who marks attendance (`attendance_today_detail()`, 3b.1, with the day's
- * start and end). The generated types read every column as non-null; a person with no day yet
- * has nulls, so the row is read loosely. Once per request (`cache()`): /today starts it
- * alongside the session read (`startEarly`) and reads it again once the role is known.
+ * start and end), read loosely (`TodayDetailRow`: a person with no day yet has nulls). Once per
+ * request (`cache()`): /today starts it alongside the session read (`startEarly`) and reads it
+ * again once the role is known.
  */
 export const getTodayPeople = cache(
   async (): Promise<{ people: TodayPerson[]; isDayOff: boolean }> => {
     const supabase = await createServerSupabase();
     const { data, error } = await supabase.rpc("attendance_today_detail");
     if (error) throw error;
-    const people = (data as Loose<(typeof data)[number]>[]).map((row): TodayPerson => ({
-      memberId: row.member_id ?? "",
-      name: displayName(row.full_name, ""),
-      jobTitle: row.job_title,
-      started: row.started ?? false,
-      dayId: row.day_id,
-      state: row.state,
-      finalStatus: row.final_status,
-      submittedChoice: row.submitted_choice,
-      startedAt: row.started_at,
-      endedAt: row.ended_at,
-      endNotRecorded: row.end_not_recorded ?? false,
-      overtimeFlag: row.overtime_flag ?? false,
-      isDayOff: row.is_day_off ?? false,
-      onLeave: row.on_leave ?? false,
-      leaveType: row.leave_type,
-    }));
+    const people = (data as TodayDetailRow[]).map(todayPersonFromRow);
     // A day row opened on a working day records false, so any true means today is a day off.
     return { people, isDayOff: people.some((person) => person.isDayOff) };
   },
 );
+
+/**
+ * Yesterday's days with a Start day and no End day the Owner has not decided, from the End-day
+ * cutoff on (`attendance_end_not_recorded_yesterday()`; kickoff 6 decision 24, amended by the owner
+ * 2026-10-08), each with yesterday's state: the card's "End of day not recorded" and the board on
+ * that group. Once per request.
+ */
+export const getUnendedYesterday = cache(async (): Promise<TodayPerson[]> => {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("attendance_end_not_recorded_yesterday");
+  if (error) throw error;
+  return (data as TodayDetailRow[]).map(todayPersonFromRow);
+});
 
 export async function rpcApproveDay(dayId: string): Promise<void> {
   const supabase = await createServerSupabase();

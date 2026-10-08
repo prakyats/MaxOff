@@ -1,6 +1,6 @@
 import { getCurrentMember } from "@/core/auth/server";
 import { can } from "@/core/permissions";
-import { ApprovalGroupSkeleton } from "@/core/ui/composites/approval-group";
+import { ApprovalGroupSkeleton } from "@/core/ui/composites/approval-group-skeleton";
 import { PageHeader } from "@/core/ui/composites/page-header";
 
 const DESCRIPTION = "Everything waiting for your decision, oldest first.";

@@ -27,7 +27,8 @@ const ROW =
 
 /**
  * The fifth slot of the bottom bar for Owner and Admin: the destinations that didn't make the
- * primary four, plus profile and appearance (ARCHITECTURE §14.1).
+ * primary four, plus profile and appearance (ARCHITECTURE §14.1). Loaded after the page by
+ * `MoreSheetLazy` (6.0, the first-load diet).
  *
  * `logoutItem` is an optional last row. Since 3b.1 the layout passes none: "Sign out of this
  * device" lives under Me only (kickoff 3b decision 1), because signing out is no longer
@@ -39,6 +40,7 @@ export function MoreSheet({
   tabs,
   logoutItem,
   trigger,
+  defaultOpen = false,
 }: {
   items: readonly NavItem[];
   /** Each row's count by key, streamed by the shell (`NavCount`, 4C). */
@@ -48,8 +50,10 @@ export function MoreSheet({
   /** `core/auth` owns the action; the app layout passes it in, so `core/ui` never imports auth. */
   logoutItem?: ReactNode;
   trigger: ReactNode;
+  /** Opened at once: More was tapped before this sheet's code had arrived (`MoreSheetLazy`). */
+  defaultOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const pathname = usePathname();
   const close = () => setOpen(false);
   // One destination per opening: a fast double tap must not navigate twice.

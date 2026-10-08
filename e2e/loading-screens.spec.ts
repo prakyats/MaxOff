@@ -186,41 +186,180 @@ const ME_WITH_PAGES: Record<string, Point> = {
 };
 
 const LOADING_SCREENS: readonly LoadingScreen[] = [
-  // Today: the Owner's attendance card and people board (2.4) over the stand-in; an Admin's
-  // strip (its End day reads the day's overtime note, only the page does) over theirs.
+  // Today (6.2, 6.3): the Owner's attendance card, then the Approvals section; an Admin's strip
+  // (2.3), then Needs you. Each held by a read only its page makes (a dashboard read).
   {
     role: "owner",
     path: "/today",
-    marker: 'data-slot="loading-stand-in"',
-    hold: "/rest/v1/rpc/attendance_today_detail",
+    marker: 'data-slot="loading-today"',
+    hold: "/rest/v1/rpc/emails_held_today",
     trace: {
       "attendance card": {
-        held: '[data-slot="loading-today-board"] > :first-child',
+        held: '[data-slot="loading-today-card"]',
         settled: '[data-slot="today-attendance-card"]',
       },
-      "board heading": {
-        held: '[data-slot="loading-today-board"] > :nth-child(2)',
-        settled: '[data-slot="people-board"] h2',
-      },
-      "first person": {
-        held: '[data-slot="loading-today-board"] li',
-        settled: '[data-slot="board-row"]',
+      // The first thing after the card: a section's heading, or, with nothing else to show
+      // (decision 24), the one muted line; either starts where the skeleton's heading does.
+      "first section": {
+        held: '[data-slot="loading-today"] > section > :first-child',
+        settled: '[data-slot="owner-today"] > :first-child',
       },
     },
   },
   {
     role: "admin",
     path: "/today",
-    marker: 'data-slot="loading-stand-in"',
-    hold: "/rest/v1/extra_work_notes",
+    marker: 'data-slot="loading-today"',
+    hold: "/rest/v1/rpc/dashboard_unreachable",
     trace: {
       "attendance strip": {
         held: '[data-slot="attendance-strip-skeleton"]',
         settled: '[data-slot="attendance-strip"]',
       },
-      "stand-in": {
-        held: '[data-slot="loading-stand-in"]',
-        settled: 'main [data-slot="empty-state"]',
+      "needs you heading": {
+        held: '[data-slot="loading-today"] > section > :first-child',
+        settled: '[data-slot="today-needs-you"] > :first-child',
+      },
+    },
+  },
+  // The full board under Today (6.2): the filter, a group's heading, its first person.
+  {
+    role: "owner",
+    path: "/today/people",
+    marker: 'data-slot="loading-today-people"',
+    hold: "/rest/v1/rpc/attendance_today_detail",
+    trace: {
+      filter: {
+        held: '[data-slot="people-filter"]',
+        settled: '[data-slot="people-filter"]',
+      },
+      "first heading": {
+        held: '[data-slot="loading-today-people"] > div > :first-child',
+        settled: '[data-slot="people-board"] h2',
+      },
+      "first person": {
+        held: '[data-slot="loading-today-people"] li',
+        settled: '[data-slot="board-row"]',
+      },
+    },
+  },
+  // The board on "End not recorded" (decision 24 as amended): the line about yesterday, then the
+  // board (or its empty line) under it, where the skeleton's rows start.
+  {
+    role: "owner",
+    path: "/today/people?group=end_not_recorded",
+    marker: 'data-slot="loading-today-people"',
+    hold: "/rest/v1/rpc/attendance_today_detail",
+    trace: {
+      "yesterday line": {
+        held: '[data-slot="loading-people-yesterday"]',
+        settled: '[data-slot="people-yesterday"]',
+      },
+      board: {
+        held: '[data-slot="loading-today-people"]',
+        settled: '[data-slot="people-board"], [data-slot="people-board-empty"]',
+      },
+    },
+  },
+  // My Day (6.1): the strip, then the first section (the fixture's task is not noted yet).
+  {
+    role: "staff",
+    path: "/my-day",
+    marker: 'data-slot="loading-my-day"',
+    hold: "/rest/v1/holidays",
+    fixture: "staff task",
+    trace: {
+      "attendance strip": {
+        held: '[data-slot="attendance-strip-skeleton"]',
+        settled: '[data-slot="attendance-strip"]',
+      },
+      "first heading": {
+        held: '[data-slot="loading-my-day"] > section > :first-child',
+        settled: '[data-slot="my-day"] > section:first-child > :first-child',
+      },
+      "first row": {
+        held: '[data-slot="loading-my-day"] li',
+        settled: '[data-slot="my-day"] [data-slot="task-row"]',
+      },
+    },
+  },
+  // The Admin's work report (6.3): the period control, the first KPI card.
+  {
+    role: "admin",
+    path: "/reports",
+    marker: 'data-slot="loading-work-report"',
+    hold: "/rest/v1/task_submissions",
+    trace: {
+      "period control": {
+        held: '[data-slot="report-period"]',
+        settled: '[data-slot="report-period"]',
+      },
+      "first card": {
+        held: '[data-slot="loading-work-report"] > div > :first-child',
+        settled: '[data-slot="kpi-rework"]',
+      },
+    },
+  },
+  // The calendar (6.4b, decision 25): it opens on the month (the phone's compact month, the
+  // laptop's Month), so the skeleton traces the header row (the phone's arrows, month, Today and
+  // Filters; the laptop's view control and pager), the month's last row of day boxes (so every row
+  // above it has the page's height) and, on a phone, the handle under it; for a Crew member and
+  // the Owner, held by the holidays read only this page makes.
+  ...(["staff", "owner"] as const).map((role): LoadingScreen => ({
+    role,
+    path: "/calendar",
+    marker: 'data-slot="loading-calendar"',
+    hold: "/rest/v1/holidays",
+    trace: {
+      header: {
+        held: '[data-slot="loading-calendar"] [data-slot="calendar-header"], [data-slot="loading-calendar"] [data-slot="calendar-controls"]',
+        settled: '[data-slot="calendar-header"], [data-slot="calendar-controls"]',
+      },
+      "last week": {
+        held: '[data-slot="loading-calendar"] [data-slot="calendar-month"] > div > ol:last-child',
+        settled: '[data-slot="calendar-month"] > div > ol:last-child',
+      },
+      // The handle on a phone; from `md` up (no handle) the controls again.
+      handle: {
+        held: '[data-slot="loading-calendar"] [data-slot="calendar-handle"], [data-slot="loading-calendar"] [data-slot="calendar-controls"]',
+        settled: '[data-slot="calendar-handle"], [data-slot="calendar-controls"]',
+      },
+    },
+  })),
+  // Reports → End of day (6.5): the list's first two rows (today, yesterday), held by the saved
+  // rows' read;
+  // a day's report: the date line, then the first section's heading (Attendance, or the quiet
+  // line on a day with nothing), held by the live builder's call.
+  {
+    role: "owner",
+    path: "/reports/end-of-day",
+    marker: 'data-slot="loading-eod-list"',
+    hold: "/rest/v1/eod_reports",
+    trace: {
+      "first row": {
+        held: '[data-slot="loading-eod-list"] > li:nth-child(1)',
+        settled: '[data-slot="eod-list"] > li:nth-child(1)',
+      },
+      // The second row's top is the first row's height: two lines, not one.
+      "second row": {
+        held: '[data-slot="loading-eod-list"] > li:nth-child(2)',
+        settled: '[data-slot="eod-list"] > li:nth-child(2)',
+      },
+    },
+  },
+  {
+    role: "owner",
+    path: `/reports/end-of-day/${todayIST()}`,
+    marker: 'data-slot="loading-eod"',
+    hold: "/rest/v1/rpc/eod_report_preview",
+    trace: {
+      "date line": {
+        held: '[data-slot="loading-eod"] [data-slot="eod-date"]',
+        settled: '[data-slot="eod-date"]',
+      },
+      "first section": {
+        held: '[data-slot="loading-eod-report"] > section:first-child > :first-child',
+        settled: '[data-slot="eod-attendance"] > :first-child, [data-slot="eod-quiet"]',
       },
     },
   },

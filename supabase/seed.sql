@@ -187,7 +187,16 @@ insert into seed_users values
   ('20000000-0000-4000-8000-000000000108', 'reach-admin-mobile@maxoff.local', 'reach-local-password', 'Test Reach Admin (mobile)', null, 'admin', 'active'),
   ('20000000-0000-4000-8000-000000000109', 'reach-staff-mobile@maxoff.local', 'reach-local-password', 'Test Reach Staff (mobile)', null, 'staff', 'active'),
   ('20000000-0000-4000-8000-000000000110', 'reach-admin-mobile-lg@maxoff.local', 'reach-local-password', 'Test Reach Admin (mobile-lg)', null, 'admin', 'active'),
-  ('20000000-0000-4000-8000-000000000111', 'reach-staff-mobile-lg@maxoff.local', 'reach-local-password', 'Test Reach Staff (mobile-lg)', null, 'staff', 'active');
+  ('20000000-0000-4000-8000-000000000111', 'reach-staff-mobile-lg@maxoff.local', 'reach-local-password', 'Test Reach Staff (mobile-lg)', null, 'staff', 'active'),
+  -- 6A: My Day, the Admin's Today and the work report (e2e/dashboards.spec.ts), a Crew member
+  -- and an Admin per project: My Day and the Admin's screens read their own tasks, so the
+  -- projects never share one.
+  ('20000000-0000-4000-8000-000000000112', 'day-staff-desktop@maxoff.local', 'day-local-password', 'Test Day Crew (desktop)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000113', 'day-admin-desktop@maxoff.local', 'day-local-password', 'Test Day Admin (desktop)', null, 'admin', 'active'),
+  ('20000000-0000-4000-8000-000000000114', 'day-staff-mobile@maxoff.local', 'day-local-password', 'Test Day Crew (mobile)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000115', 'day-admin-mobile@maxoff.local', 'day-local-password', 'Test Day Admin (mobile)', null, 'admin', 'active'),
+  ('20000000-0000-4000-8000-000000000116', 'day-staff-mobile-lg@maxoff.local', 'day-local-password', 'Test Day Crew (mobile-lg)', null, 'staff', 'active'),
+  ('20000000-0000-4000-8000-000000000117', 'day-admin-mobile-lg@maxoff.local', 'day-local-password', 'Test Day Admin (mobile-lg)', null, 'admin', 'active');
 
 -- What GoTrue writes for a confirmed email + password user (`auth.users` + one identity).
 insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,

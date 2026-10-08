@@ -31,7 +31,16 @@ const APPROVE_URL = "/api/approvals/approve";
  * (status + a reason the member will read). The dialog is held here, beside the sheet, so the
  * sheet stays open under it and back closes them one at a time (ARCHITECTURE §14.2 a).
  */
-export function PendingDaysGroup({ days, today }: { days: PendingDay[]; today: string }) {
+export function PendingDaysGroup({
+  days,
+  today,
+  preview = false,
+}: {
+  days: PendingDay[];
+  today: string;
+  /** The Owner's Today shows a few rows with their two actions and no Approve all (6.2). */
+  preview?: boolean;
+}) {
   const [reviewId, setReviewId] = useState<string | null>(null);
   const [correct, setCorrect] = useState<CorrectTarget | null>(null);
   const review = days.find((day) => day.id === reviewId) ?? null;
@@ -51,7 +60,7 @@ export function PendingDaysGroup({ days, today }: { days: PendingDay[]; today: s
           approvedLabel: approvedLabel(day),
         }))}
         approve={(dayId) => postKeepalive<null>(APPROVE_URL, { kind: "day", id: dayId })}
-        approveAll={(dayIds) => approveDays({ dayIds })}
+        approveAll={preview ? undefined : (dayIds) => approveDays({ dayIds })}
         onReview={setReviewId}
       />
       <ReviewSheet

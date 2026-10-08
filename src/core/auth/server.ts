@@ -6,7 +6,6 @@ import { cache } from "react";
 
 import { createServerSupabase } from "@/core/db/server";
 import { systemClock } from "@/core/time";
-import { setSentryUser } from "@/core/observability/user";
 import type { MemberRole } from "@/core/permissions";
 import { displayName } from "@/core/lib/display-name";
 
@@ -33,7 +32,7 @@ export type SessionState =
 /**
  * Resolves the session once per request (React `cache()`): the JWT is verified with
  * `getClaims()` (JWKS, no round trip once cached), then the member row is read under RLS
- * (own row only). Sets the Sentry user to the member id and nothing else (ARCHITECTURE §18.2).
+ * (own row only). Sets no Sentry user: the server never does (ARCHITECTURE §18.2).
  */
 export const getSessionState = cache(async (): Promise<SessionState> => {
   const userId = await getSessionUserId();
@@ -51,7 +50,6 @@ export const getSessionState = cache(async (): Promise<SessionState> => {
 
   if (!row || row.status !== "active") return { kind: "inactive", userId };
 
-  setSentryUser(row.id);
   return {
     kind: "member",
     member: {
@@ -143,7 +141,6 @@ export async function endInactiveSession(): Promise<string> {
     // `@supabase/ssr` clears the cookies only when GoTrue answered; on a 5xx they would keep
     // bouncing the visitor between /login and here, so clear them by hand.
     if (error) await clearAuthCookies();
-    setSentryUser(null);
     return `${LOGIN_PATH}?reason=inactive`;
   }
   return LOGIN_PATH;

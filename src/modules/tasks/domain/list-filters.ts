@@ -18,6 +18,8 @@ export type FilterableTask = {
   engagements: readonly Engagement[];
   /** Past its deadline and not completed or cancelled, at render. */
   overdue: boolean;
+  /** Its deadline falls on today's IST date, at render (Today's "N due today" opens this, 6.2). */
+  dueToday: boolean;
 };
 
 const FINAL: readonly TaskState[] = ["completed", "cancelled"];
@@ -100,8 +102,14 @@ export function matchesType(task: Pick<FilterableTask, "taskTypeId">, value: str
   return value === ALL || task.taskTypeId === value;
 }
 
-export function matchesOverdue(task: Pick<FilterableTask, "overdue">, value: string): boolean {
-  return value !== "overdue" || task.overdue;
+/** The deadline filter: any, overdue, or due today (the Owner's Today opens it there, 6.2). */
+export function matchesOverdue(
+  task: Pick<FilterableTask, "overdue" | "dueToday">,
+  value: string,
+): boolean {
+  if (value === "overdue") return task.overdue;
+  if (value === "today") return task.dueToday;
+  return true;
 }
 
 /** Decision 18: a task with a freelancer on it, or with an employee on it. */

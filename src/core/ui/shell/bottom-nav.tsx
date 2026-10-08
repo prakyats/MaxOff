@@ -12,7 +12,7 @@ import {
   TAB_TOP_ATTRIBUTE,
 } from "@/core/ui/navigation/attributes";
 
-import { MoreSheet } from "./more-sheet";
+import { MoreSheetLazy } from "./more-sheet-lazy";
 import { activeNavKey, isActivePath, type NavItem, PROFILE_NAV_ITEM } from "./nav";
 import { NAV_ICONS } from "./nav-icons";
 import { usePrefetchTabs, useTabNavigation } from "./tab-history";
@@ -165,7 +165,7 @@ export function BottomNav({
         })}
         {hasMore ? (
           <li className="flex">
-            <MoreSheet
+            <MoreSheetLazy
               items={more}
               badges={sheetBadges}
               tabs={tabs}

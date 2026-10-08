@@ -26,6 +26,7 @@ const input = {
   quietHoursStart: "23:00",
   quietHoursEnd: "06:30",
   defaultTaskReminders: [],
+  weeklyDigestDay: "1",
 };
 
 /**

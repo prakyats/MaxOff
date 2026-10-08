@@ -1,46 +1,37 @@
 "use client";
 
-import { MonitorIcon, MoonIcon, SunIcon } from "lucide-react";
-import { useTheme } from "next-themes";
+import { useState } from "react";
 
-import { Button } from "@/core/ui/primitives/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@/core/ui/primitives/dropdown-menu";
+import { AfterPage } from "@/core/ui/lazy/after-page";
+import { menuStandInPress } from "@/core/ui/lazy/menu-stand-in";
 
-const OPTIONS = [
-  { value: "light", label: "Light", Icon: SunIcon },
-  { value: "dark", label: "Dark", Icon: MoonIcon },
-  { value: "system", label: "System", Icon: MonitorIcon },
-] as const;
+import { ThemeMenuTrigger } from "./theme-menu-trigger";
 
-/** Icon button that opens a Light / Dark / System menu. Safe to render on the server. */
+const loadThemeMenu = () => import("./theme-menu").then((module) => module.ThemeMenu);
+
+/**
+ * Icon button that opens a Light / Dark / System menu. Safe to render on the server. The menu
+ * itself is **loaded after the page** (6.0, the first-load diet; ARCHITECTURE §19): the top bar,
+ * the More sheet and Me draw this, and the dropdown draws nothing until it is opened. Until it
+ * arrives the same button stands in; a tap on it opens the menu as soon as the code is there.
+ */
 export function ThemeToggle({ className }: { className?: string }) {
-  const { theme, setTheme } = useTheme();
-
+  const [wanted, setWanted] = useState(false);
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label="Change theme" className={className}>
-          {/* Both icons render; CSS shows one, so server and client markup match. */}
-          <SunIcon className="dark:hidden" aria-hidden />
-          <MoonIcon className="hidden dark:block" aria-hidden />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuRadioGroup value={theme ?? "system"} onValueChange={setTheme}>
-          {OPTIONS.map(({ value, label, Icon }) => (
-            <DropdownMenuRadioItem key={value} value={value}>
-              <Icon aria-hidden />
-              {label}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <AfterPage
+      load={loadThemeMenu}
+      props={{ ...(className ? { className } : {}), defaultOpen: wanted }}
+      fallback={
+        <ThemeMenuTrigger
+          className={className}
+          aria-haspopup="menu"
+          aria-expanded={false}
+          data-state="closed"
+          // The press as Radix's trigger takes it (opens on pointerdown, its default prevented;
+          // a click for the keyboard): `menuStandInPress`.
+          {...menuStandInPress(() => setWanted(true))}
+        />
+      }
+    />
   );
 }

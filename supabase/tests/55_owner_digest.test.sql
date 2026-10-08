@@ -111,8 +111,8 @@ update public.members set status = 'deactivated', deactivated_at = now() where i
 -- 1. The kind ----------------------------------------------------------------------------------------------
 select is((select (actionable, always_email, in_app)::text from public.notification_kinds where kind = 'owner_digest'),
   '(f,t,f)', 'owner_digest: not actionable, always emailed, not in-app');
-select is((select count(*) from public.notification_kinds where not in_app), 1::bigint,
-  'every other kind stays in-app (in_app defaults to true)');
+select is((select count(*) from public.notification_kinds where not in_app), 2::bigint,
+  'every other kind stays in-app (in_app defaults to true); 6.5 adds owner_digest_weekly, email-only too');
 
 -- 2. What it counts ---------------------------------------------------------------------------------------
 -- Attendance yesterday.
@@ -392,10 +392,10 @@ select ok(not has_function_privilege('authenticated', 'app.owner_digest_payload(
 select ok(has_function_privilege('authenticated', 'public.owner_digest_preview()', 'execute')
           and not has_function_privilege('anon', 'public.owner_digest_preview()', 'execute'),
   'the preview is callable by a signed-in member (and refuses all but the Owner)');
-select results_eq(
-  $$ select jobname::text, schedule, command, active from cron.job where jobname = 'digest_daily' $$,
-  $$ values ('digest_daily', '30 2 * * *', 'select public.digest_daily(now())', true) $$,
-  'pg_cron runs digest_daily at 02:30 UTC = 08:00 IST every day');
+-- 6.5 (kickoff 6 decision 23) swapped the daily cron row for digest_weekly; the function stays as
+-- history (everything above still holds), so no job calls it any more (pgTAP 64 has the schedule).
+select is((select count(*) from cron.job where jobname = 'digest_daily' or command like '%digest_daily%'), 0::bigint,
+  'the daily digest''s cron row is gone since 6.5 (digest_weekly took its place; the function is history)');
 
 -- The all-zero day: one line.
 delete from public.attendance_days;

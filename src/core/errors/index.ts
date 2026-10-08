@@ -6,4 +6,10 @@ export { isPostgresError, mapPostgresError, type PostgresLikeError } from "./pos
 export { fail, failFrom, ok, type Result, type ResultError } from "./result";
 export { bulkSummary, type BulkOutcome } from "./bulk";
 export { eachId } from "./each-id";
-export { describeBoundaryError, SESSION_UNAVAILABLE_DIGEST, type BoundaryCopy } from "./boundary";
+export {
+  describeBoundaryError,
+  isJwtExpiredError,
+  JWT_REJECTED_CODE,
+  SESSION_UNAVAILABLE_DIGEST,
+  type BoundaryCopy,
+} from "./boundary";

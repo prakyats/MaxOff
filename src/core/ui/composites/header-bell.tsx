@@ -1,7 +1,10 @@
+"use client";
+
 import { BellIcon } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react";
 
+import { HEADER_BELL_SLOT, markLive } from "@/core/ui/navigation/attributes";
 import { BellCountMark } from "@/core/ui/shell/bell-count";
 
 /**
@@ -15,12 +18,18 @@ import { BellCountMark } from "@/core/ui/shell/bell-count";
  *
  * `AppShell` sets `data-alerts` on the shell: were a bottom bar to carry Alerts again,
  * `globals.css` hides this, because a second bell two inches above the first is noise.
+ *
+ * A client component that marks itself live (`markLive`, ARCHITECTURE §14.2 l): the title bar
+ * hydrates with its streamed page, after the shell, and a tap in that gap used to fall through to
+ * the browser as a full load of `/notifications` (issue #49). The head script now holds such a tap
+ * until this link is live and replays it, as it does for the back control, view links and tabs.
  */
 export function HeaderBell() {
   return (
     <Link
       href="/notifications"
-      data-slot="header-bell"
+      data-slot={HEADER_BELL_SLOT}
+      ref={markLive}
       className="pressable text-muted-foreground relative flex size-11 shrink-0 items-center justify-center rounded-lg md:hidden"
     >
       <BellIcon className="size-5" aria-hidden />

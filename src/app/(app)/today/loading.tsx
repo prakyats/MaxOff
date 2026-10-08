@@ -1,32 +1,52 @@
 import { getCurrentMember } from "@/core/auth/server";
 import { can } from "@/core/permissions";
+import { ApprovalGroupSkeleton } from "@/core/ui/composites/approval-group-skeleton";
 import { PageHeader } from "@/core/ui/composites/page-header";
-import { TodayAttendanceStripSkeleton, TodayBoardSkeleton } from "@/modules/attendance";
+import { TodayAttendanceStripSkeleton, TodayCardSkeleton } from "@/modules/attendance";
+import { DashSectionHeadingSkeleton } from "@/modules/dashboards";
+import { TaskRowsSkeleton } from "@/modules/tasks";
 
-import { StandInSkeleton } from "../_placeholder/stand-in-skeleton";
-import { dayStandIn, standInDescription } from "../_placeholder/stand-ins";
+import { adminGreeting, ownerGreeting } from "./words";
 
 /**
- * Today, as it renders now (3c review, owner decision: a stand-in route's skeleton traces the
- * stand-in, not the future screen). The Owner's, whose home this is: today's attendance card and
- * the people board (2.4), then the stand-in below them (`todayOwner`). An Admin's starts with the
- * one-line attendance strip (2.3) and their own stand-in; a Staff member who types the URL gets
- * the strip and the My Day copy (`dayStandIn`, as the page picks it). The skeleton asks who is
- * looking: the `(app)` layout already resolved the member for this request (`cache()`), so this
- * costs no query. When 6.2 / 6.3 build the real screen, this goes back to the grid of stat tiles
- * the owner specified (`loading-routes.test.ts`).
+ * Today as it renders (6.2, 6.3), traced per role (ARCHITECTURE §14.1). **The Owner's:** the
+ * attendance card (its title and four counts; the two problem counts join above zero), then the
+ * first screen's typical section, Approvals: its heading and a preview group's heading and rows
+ * (no "Approve all" on Today). Sections are hidden when empty (decision 24), so the skeleton
+ * traces the full layout's first screen and nothing jumps when data arrives. **An Admin's:** the one-line attendance strip,
+ * then "Needs you": its heading and two `TaskRow`s. A Crew member who types the address is taken
+ * to My Day, whose shape this is too (the strip and a section). The `(app)` layout already read
+ * the member for this request (`cache()`), so asking costs no query.
  */
 export default async function Loading() {
   const member = await getCurrentMember();
+  const owner = member !== null && can(member.role, "attendance.view_all");
   const strip = member !== null && can(member.role, "attendance.self");
-  const board = member !== null && can(member.role, "attendance.view_all");
-  const copy = dayStandIn(member?.role ?? "owner");
   return (
     <>
-      <PageHeader title="Today" description={standInDescription(copy, member?.name)} />
+      <PageHeader
+        title="Today"
+        description={owner ? ownerGreeting(member?.name) : adminGreeting(member?.name)}
+      />
+      {owner ? <TodayCardSkeleton /> : null}
       {strip ? <TodayAttendanceStripSkeleton /> : null}
-      {board ? <TodayBoardSkeleton /> : null}
-      <StandInSkeleton copy={copy} label="Loading Today" />
+      <div
+        role="status"
+        aria-busy="true"
+        aria-label="Loading Today"
+        data-slot="loading-today"
+        className="flex max-w-3xl min-w-0 flex-col gap-6"
+      >
+        <section className="flex min-w-0 flex-col gap-2">
+          <DashSectionHeadingSkeleton />
+          {owner ? (
+            <ApprovalGroupSkeleton rows={2} bulk={false} />
+          ) : (
+            <TaskRowsSkeleton rows={2} notes={2} label="Needs you" />
+          )}
+        </section>
+        <span className="sr-only">Loading Today</span>
+      </div>
     </>
   );
 }

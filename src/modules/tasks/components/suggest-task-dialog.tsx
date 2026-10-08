@@ -41,13 +41,16 @@ const NO_CLIENT = "__none__";
  */
 export function SuggestTaskDialog({
   clients,
+  initialDetails = "",
   onClose,
 }: {
   clients: readonly { id: string; name: string }[];
+  /** A calendar day's "For Thu 8 Oct." (6.4b); not something typed, so closing asks nothing. */
+  initialDetails?: string;
   onClose: () => void;
 }) {
   const [title, setTitle] = useState("");
-  const [details, setDetails] = useState("");
+  const [details, setDetails] = useState(initialDetails);
   const [clientId, setClientId] = useState(NO_CLIENT);
   const [phase, setPhase] = useState<"form" | "discard">("form");
   const [error, setError] = useState<ResultError | null>(null);
@@ -68,7 +71,8 @@ export function SuggestTaskDialog({
     { creates: true },
   );
   const { pending } = action;
-  const dirty = title.trim() !== "" || details.trim() !== "" || clientId !== NO_CLIENT;
+  const dirty =
+    title.trim() !== "" || details.trim() !== initialDetails.trim() || clientId !== NO_CLIENT;
   const summary = error && !error.fieldErrors ? describeError(error) : null;
 
   function requestClose() {

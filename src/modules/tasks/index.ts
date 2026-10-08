@@ -32,13 +32,25 @@ export {
   countTasks,
   listFinishedTaskRows,
   listOpenTaskRows,
+  listOpenTaskRowsDueBetween,
   listTasksToDecide,
   type TaskToDecide,
 } from "./data/tasks";
+export { availability as listAvailability } from "./data/tasks";
+/** The dashboards' task reads (6A): event tasks for My Day and Today, the work report's facts. */
+export { listEventTasks, listKpiFacts } from "./data/dashboards";
+export { type EventTask, type KpiFacts } from "./domain/dashboards";
+export { type AvailabilityDay, type LeaveMark } from "./domain/warnings";
 export { countRequestsToDecide, listTaskRequests } from "./data/requests";
 export { listTaskTemplates } from "./data/templates";
 export { listTaskTypeSettings } from "./data/task-types";
-export { type TaskTypeSetting } from "./domain/task-types";
+export {
+  DEFAULT_TASK_TYPE_COLOR,
+  TASK_TYPE_COLORS,
+  taskTypeColor,
+  type TaskTypeColor,
+  type TaskTypeSetting,
+} from "./domain/task-types";
 export {
   badgeCount,
   byDeadline,

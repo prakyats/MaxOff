@@ -67,6 +67,17 @@ jobs:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: pnpm build:worker
 
+      # Readable Sentry stack traces (6.6, ARCHITECTURE §18.2): bundles the Worker exactly as the
+      # deploy step will, uploads that bundle's source map under the debug id the bundle registers,
+      # and removes every source map from .open-next/ (nothing is uploaded without
+      # SENTRY_AUTH_TOKEN; an upload problem warns and never fails the deploy).
+      - name: Upload the Worker source map to Sentry
+        env:
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: node scripts/worker-sourcemaps.mjs staging
+
       # Staging is shared with the phase branches (preview.yml applies a `phase-*` branch's
       # migrations to it on every push), so mid-phase staging is usually *ahead* of `main` and a
       # blind `db push` refuses. The script lists first and applies only what main adds, also
@@ -230,6 +241,17 @@ jobs:
           SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: pnpm build:worker
+
+      # Readable Sentry stack traces (6.6, ARCHITECTURE §18.2): bundles the Worker exactly as the
+      # deploy step will, uploads that bundle's source map under the debug id the bundle registers,
+      # and removes every source map from .open-next/ (nothing is uploaded without
+      # SENTRY_AUTH_TOKEN; an upload problem warns and never fails the deploy).
+      - name: Upload the Worker source map to Sentry
+        env:
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: node scripts/worker-sourcemaps.mjs production
 
       # Not a plain `db push`: v1.3.0's notification migrations sort before v1.2.0's newest, which
       # `db push` refuses. The script lists production's migrations first and FAILS when the list

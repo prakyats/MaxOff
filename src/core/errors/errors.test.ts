@@ -98,6 +98,16 @@ describe("mapPostgresError", () => {
     expect(mapPostgresError({ code: "PGRST301", message: "JWT expired" }).code).toBe(
       "UNAUTHENTICATED",
     );
+    // PGRST303 (an expired access token) is "still signed in, try again", not "sign in" (6.6).
+    const expired = mapPostgresError({ code: "PGRST303", message: "JWT expired" });
+    expect(expired.code).toBe("UNAUTHENTICATED");
+    expect(expired.message).toBe(
+      "Can't reach the server. You're still signed in. Try again in a moment.",
+    );
+    // Any other refused claim under PGRST303 keeps the plain "sign in" mapping it had before 6.6.
+    const notYetValid = mapPostgresError({ code: "PGRST303", message: "JWT not yet valid" });
+    expect(notYetValid.code).toBe("UNAUTHENTICATED");
+    expect(notYetValid.message).toBe("Please sign in to continue.");
     expect(mapPostgresError({ code: "23514", message: "violates check" }).code).toBe("VALIDATION");
     expect(mapPostgresError({ code: "40001", message: "could not serialize" }).code).toBe(
       "CONFLICT",

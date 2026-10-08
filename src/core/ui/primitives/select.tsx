@@ -173,7 +173,6 @@ function SelectTrigger({
   );
   return (
     <SelectPrimitive.Trigger
-      data-slot="select-trigger"
       data-size={size}
       ref={composedRef}
       aria-expanded={state?.expanded ?? false}
@@ -182,6 +181,9 @@ function SelectTrigger({
         className,
       )}
       {...props}
+      // Always its own slot, whatever a caller passes (6B review later item (k)): the phone's
+      // 44px height and 16px text hang on it (globals.css); a caller's hook is `data-field`.
+      data-slot="select-trigger"
     >
       {children}
       <SelectPrimitive.Icon asChild>

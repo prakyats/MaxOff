@@ -248,7 +248,7 @@ function LeaveForm({
                   className="w-full"
                   aria-describedby={control["aria-describedby"]}
                   aria-invalid={control["aria-invalid"]}
-                  data-slot="comp-date"
+                  data-field="comp-date"
                 >
                   <SelectValue placeholder="No working day left before the use-by date" />
                 </SelectTrigger>

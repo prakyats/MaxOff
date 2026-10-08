@@ -269,7 +269,10 @@ email through `core/notifications` (Resend), so GoTrue never mails an invite (ta
    and that its three CI checks are `success`), installs dependencies.
 2. `pnpm build:worker`, with the `NEXT_PUBLIC_*` variables inlined (a malformed value fails
    the build) and source maps uploaded to Sentry when the token is present. The build comes
-   first so a failed build never leaves the database ahead of the Worker.
+   first so a failed build never leaves the database ahead of the Worker. Then
+   `scripts/worker-sourcemaps.mjs` uploads the **Worker's own** source map to Sentry (when the
+   token is present) and removes every `.map` from `.open-next/` (always): see "Confirming the
+   Sentry pipeline".
 3. Applies the new append-only migrations. Staging: `scripts/staging-migrations.sh` (below). Production:
    `scripts/production-migrations.sh`, which lists production's migrations, **fails** when the list is
    unreadable or production holds a version the tag lacks, skips when nothing is pending, and otherwise
@@ -474,11 +477,41 @@ appears in Sentry (project `maxoff`, environment `staging`, tag `runtime: server
    (Sentry still infers a country from the Worker's egress IP, which is Cloudflare's, not a
    person's);
 3. the event carries `environment: staging`, `runtime: server`, `runtime.name: cloudflare` and
-   the release (the commit SHA).
+   the release (the commit SHA);
+4. **the stack trace is readable** (ROADMAP 6.6): the top in-app frame reads
+   `src/core/observability/diagnostic.ts` (the `throw new Error(...)` line, with its source shown;
+   Turbopack inlines it into the route's `GET`, so the route file may not have a frame of its
+   own), not `index.js:<line>`. The event's JSON
+   (**⋯ → JSON**) has a `debug_meta.images` entry whose `debug_id` is the one the deploy log
+   printed ("Worker source map uploaded: debug id …"), and that log line names the same release.
 
-Known gap: the stack trace shows `worker.js:<line>` frames, not `diagnostic.ts`. The uploaded
-source maps cover Next's own chunks, but OpenNext re-bundles them into `.open-next/worker.js`
-without a map, so Sentry cannot resolve the frames yet (tracked in PROGRESS.md).
+**How the Worker's frames get there** (ARCHITECTURE §18.2): `wrangler deploy` bundles the Worker
+into one file. The deploy's step "Upload the Worker source map to Sentry"
+(`scripts/worker-sourcemaps.mjs`) gives that file one debug id, bundles it exactly as the deploy
+step will (`wrangler deploy --dry-run --outdir`), uploads the bundle and its map with
+`sentry-cli`, and removes every source map before the deploy. Without `SENTRY_AUTH_TOKEN` it
+only removes the maps ("SENTRY_AUTH_TOKEN is not set" in the log); an upload problem is a
+warning, never a failed deploy. **If a release's upload failed** (the step printed a
+`::warning::`), that release's Worker still carries the debug id the step registered, which Sentry
+never received: its frames stay unreadable (`index.js:<line>`) until the next deploy registers and
+uploads a new one. Only the token reaches `sentry-cli`; the dry-run bundle runs without it. The
+preview workflow runs the same script with the token set empty, so a preview only has its maps
+removed.
+
+**The first check on staging** (after `phase-6` merges to `main`, before any `v*` tag):
+
+1. Wait for the Deploy run's `staging` job on the merge commit. In its step "Upload the Worker
+   source map to Sentry", read the line `Worker source map uploaded: debug id <id>, release <sha>`
+   (no `::warning::`).
+2. In Sentry → Settings → Projects → `maxoff` → Source Maps → **Artifact Bundles**, find a bundle
+   with that debug id holding `~/index.js` and `~/index.js.map`.
+3. Open `/diagnostics/sentry` on staging and run checks 1–4 above.
+4. If the frames still read `index.js:<line>`: the event's **Processing Errors** box says why
+   (most often "missing source map" with a debug id: compare it with the log's). Note it in
+   PROGRESS, and do not tag until it is understood.
+
+Production gets the same step; it uploads nothing until the `production` environment has
+`SENTRY_AUTH_TOKEN`, `SENTRY_ORG` and `SENTRY_PROJECT` ("Secrets and variables the workflow expects").
 
 The route exists only in builds with `NEXT_PUBLIC_APP_ENV=staging`; production and local
 builds answer 404 (`diagnostic.test.ts`, `e2e/production.spec.ts`).

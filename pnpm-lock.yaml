@@ -162,6 +162,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  '@opennextjs/cloudflare@1.20.6': 734a79a92c259cfac179dafd4a021ea686a17e8e3fc2fa1476f0b2fe41b10f11
+
 importers:
 
   .:
@@ -231,8 +234,8 @@ importers:
         version: 4.6.5
     devDependencies:
       '@opennextjs/cloudflare':
-        specifier: ^1.20.6
-        version: 1.20.6(next@16.3.5(@babel/core@7.29.7(supports-color@7.2.0))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@24.13.6)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(supports-color@7.2.0)(wrangler@4.135.0(@types/node@24.13.6))
+        specifier: 1.20.6
+        version: 1.20.6(patch_hash=734a79a92c259cfac179dafd4a021ea686a17e8e3fc2fa1476f0b2fe41b10f11)(next@16.3.5(@babel/core@7.29.7(supports-color@7.2.0))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@24.13.6)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(supports-color@7.2.0)(wrangler@4.135.0(@types/node@24.13.6))
       '@playwright/test':
         specifier: ^1.63.0
         version: 1.63.0
@@ -7638,7 +7641,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@opennextjs/cloudflare@1.20.6(next@16.3.5(@babel/core@7.29.7(supports-color@7.2.0))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@24.13.6)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(supports-color@7.2.0)(wrangler@4.135.0(@types/node@24.13.6))':
+  '@opennextjs/cloudflare@1.20.6(patch_hash=734a79a92c259cfac179dafd4a021ea686a17e8e3fc2fa1476f0b2fe41b10f11)(next@16.3.5(@babel/core@7.29.7(supports-color@7.2.0))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@24.13.6)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(supports-color@7.2.0)(wrangler@4.135.0(@types/node@24.13.6))':
     dependencies:
       '@ast-grep/napi': 0.40.5
       '@dotenvx/dotenvx': 1.31.0

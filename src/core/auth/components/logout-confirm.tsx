@@ -2,14 +2,10 @@
 
 import { createContext, type ReactNode, use, useState } from "react";
 
-import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { anyEditDirty } from "@/core/ui/edit/edit-guard";
-import { closeOverlaysThen } from "@/core/ui/overlay/overlay-history";
-import { backToHomeThen } from "@/core/ui/shell/tab-history";
-import { toastResult } from "@/core/ui/toast";
+import { AfterPage } from "@/core/ui/lazy/after-page";
 
-import { logout } from "../actions";
-import { ErrorText } from "@/core/ui/composites/error-text";
+const loadDialog = () => import("./logout-dialog").then((module) => module.LogoutDialog);
 
 /**
  * The one confirmation for "Sign out of this device" (task 1.5; reworded in 3b.1, ADR-0012
@@ -19,7 +15,8 @@ import { ErrorText } from "@/core/ui/composites/error-text";
  * worth a confirmation: notifications stop reaching this device until the person signs in again,
  * and a password is needed to get back in. The button lives under Me only (a lost or shared
  * device), so the dialog sits in a provider above the shell as before, and the edit pattern's
- * unsaved-changes warning still reaches it (2.9).
+ * unsaved-changes warning still reaches it (2.9). The dialog itself (`logout-dialog.tsx`) is
+ * loaded after the page (6.0, the first-load diet): it draws nothing until it is asked for.
  */
 const RequestLogout = createContext<() => void>(() => undefined);
 
@@ -43,40 +40,12 @@ export function LogoutProvider({
       }}
     >
       {children}
-      <ConfirmDialog
-        open={open}
-        onOpenChange={setOpen}
-        title="Sign out of this device?"
-        description={`Notifications stop reaching this device until you sign in again, and you'll need your password.${hasWorkingDay ? " Your working day is not affected: End day is on your home screen." : ""}`}
-        confirmLabel="Sign out"
-        onConfirm={async () => {
-          // The confirmation has its own history entry (it is a layer, §14.2 a). Back it out
-          // first, or the action's redirect to /login would replace that entry and leave the
-          // page underneath in the back stack (§14.2 e). The dialog stays up, pending, until
-          // the redirect lands.
-          await new Promise<void>((resolve) => {
-            if (!closeOverlaysThen(resolve)) resolve();
-          });
-          // Me is a tab the installed app pushed above home: step back to home as well, so the
-          // redirect's replace leaves /login alone on the stack (§14.2 c, e; 3b.1 moved the
-          // sign-out off the home screen).
-          await new Promise<void>((resolve) => backToHomeThen(resolve));
-          // This device's push subscription goes with the sign-out (5.2): the browser's copy is
-          // dropped and its endpoint handed to the action, which deletes the row.
-          // Loaded on the tap, so the push code stays out of every screen's first load (A-L6); a
-          // chunk that fails to load (offline) never stops the sign-out.
-          const pushEndpoint = await import("@/core/notifications/push/release")
-            .then((module) => module.releaseThisDevice())
-            .catch(() => null);
-          // On success the action redirects; only a failure comes back as a Result.
-          toastResult(await logout(pushEndpoint ? { pushEndpoint } : {}));
-          return true;
-        }}
-      >
-        {unsaved ? (
-          <ErrorText slot="logout-unsaved">Your unsaved changes will be lost.</ErrorText>
-        ) : null}
-      </ConfirmDialog>
+      {/* Drawn once its code has arrived (right after the page); a request before then opens
+          it as soon as it does. */}
+      <AfterPage
+        load={loadDialog}
+        props={{ open, onOpenChange: setOpen, hasWorkingDay, unsaved }}
+      />
     </RequestLogout.Provider>
   );
 }

@@ -222,11 +222,17 @@ org_settings         org_id pk, weekly_off_days smallint[] (0=Sun..6=Sat), logou
                      end_day_cutoff_time time ('05:00'; 3b review, expand-only: yesterday's open day
                      can be ended until this IST time, never once today started; Settings ->
                      Thresholds, which offers 00:00-11:59)
-                     -- kickoff 6 (owner decision 2026-10-07, built in 6.5, expand-only): weekly_digest_day
-                     -- smallint (0=Sun..6=Sat, default 1 = Monday; check 0..6), in the API UPDATE grant
-                     -- (settings.manage), edited in Settings -> Thresholds next to quiet hours: the day the
-                     -- weekly Owner digest goes at 08:00 IST (WORKFLOWS §8 digest_weekly). end_day_cutoff_time
-                     -- also sets when eod_reports saves a day (kickoff 6 decision 17)
+                     -- kickoff 6 (owner decision 2026-10-07, built in 6.5, migration eod_report_weekly_digest,
+                     -- expand-only): weekly_digest_day smallint not null default 1 (0=Sun..6=Sat, Monday;
+                     -- check 0..6), in the API UPDATE grant (settings.manage through the existing UPDATE
+                     -- policy; pgTAP 64 per role), edited in Settings -> Thresholds ("Weekly summary · Sent
+                     -- on"): the day the weekly Owner digest goes at 08:00 IST, or straight after the End-day
+                     -- cutoff saves the last day's report if later (WORKFLOWS §8 digest_weekly).
+                     -- Amended 2026-10-08 (owner, unit 6B2; migration digest_since_last): a digest covers
+                     -- the days since the last one sent, at most seven, so moving the day never skips one.
+                     -- end_day_cutoff_time also starts the Owner's "End of day not recorded" count of
+                     -- yesterday's unended days (attendance_end_not_recorded_yesterday(), decision 24 amended)
+                     -- end_day_cutoff_time also sets when eod_reports saves a day (kickoff 6 decision 17)
                      -- 5B 5.4 follow-up (owner 2026-10-03, expand-only): reachability_clock_from timestamptz null,
                      -- set once to the release moment by migration reachability_clock_from_release: no one's
                      -- 48 h "can't be reached" clock starts before it (null: no floor).
@@ -454,6 +460,16 @@ list_items           id, org_id, list_key ('job_title'|...), name, description, 
 task_types           id, org_id, name, kind task_type_kind, shows_on_calendar bool,
                      has_location bool, default_reminders jsonb, color, icon, position,
                      is_system, archived_at, created_at, updated_at
+                     -- color (6.4b, kickoff 6 decision 25; migration task_type_colors, pgTAP 66): the
+                     -- type's calendar colour, lower-case #rrggbb from the curated palette (blue #2563eb,
+                     -- indigo #4f46e5, violet #7c3aed, purple #9333ea, magenta #c026d3, teal #0d9488,
+                     -- cyan #0891b2, sky #0284c7; never red, green, amber or grey, which the calendar keeps
+                     -- for overdue, holidays, due counts and leave): check task_types_color_palette, NOT
+                     -- VALID (earlier values stay; the app draws them in the default, blue); null = blue.
+                     -- The launch types' defaults (Normal sky, Shoot / Site Visit blue, Meeting violet,
+                     -- Posting teal, Review / Approval indigo, Other cyan, Custom purple) backfilled where
+                     -- null (audit 'backfilled') and seeded by app.seed_org_task_types(). Edited in Settings
+                     -- -> Task types (settings.manage: the existing policy and owner guard).
                      -- seeds: Normal(normal), Shoot / Site Visit(event, calendar, location),
                      --        Meeting(event, calendar, location), Posting(event, calendar),
                      --        Review / Approval(normal), Other(normal), Custom(custom)
@@ -820,6 +836,18 @@ public.attendance_today_detail()
                                 3c.1): the Owner's Today card and people board (3b: "Not started",
                                 "Started 9:12", "End not recorded"). attendance.view_all. The old
                                 function keeps its shape for main
+public.attendance_end_not_recorded_yesterday()
+                                (kickoff 6 decision 24 amended, owner 2026-10-08, unit 6B2;
+                                migration end_not_recorded_yesterday, pgTAP 65) attendance.view_all
+                                (FORBIDDEN otherwise), read only: from the End-day cutoff
+                                (org_settings.end_day_cutoff_time) through the rest of today, the
+                                active permanent members who mark attendance whose day for
+                                yesterday (IST) has a Start day and no End day and is not decided
+                                (state not approved / corrected), in attendance_today_detail()'s
+                                columns with yesterday's day (started, end_not_recorded true).
+                                The Owner's card counts them as "End of day not recorded"; the
+                                board's end_not_recorded group lists them. The rule at a moment is
+                                app.attendance_unended_yesterday(org, p_now) (internal, service_role)
 app.end_not_recorded(for_date default null)
                                 the 00:00 IST job (WORKFLOWS §8), the same date rule as
                                 app.absent_check: every day on the date with started_at set,
@@ -1247,6 +1275,16 @@ task_reads           task_id → tasks (on delete cascade), member_id → member
 - **Suggestions (decision 35):** `app.task_request_visible` leaves an Admin's no-client suggestion out of every other Admin's view, so another Admin neither lists, counts, converts nor declines it (NOT_FOUND); the Owner decides it.
 `member_availability(from_date, to_date, member_ids)` (`availability.view`; read only; one row per active non-Owner member per IST day in the range (≤ 62 days): `open_tasks_due` (tasks not completed / cancelled whose `due_at` falls on that day), `event_blocks` (`[{start_at, end_at}]` of the person's event tasks that day, no end = one hour; no titles or ids), `leave` (`leave` / `half_day` / `comp_leave` for approved leave covering the day, `requested` for a pending request, null for a freelancer), `present` (today only: a Start day recorded). What 4.3's warnings and an Admin's view of others are computed from).
 
+**The dashboards' reads (6A, migration `dashboards_today`, 2026-10-07; Kickoff 6 decisions 6, 8, 10 and 23; pgTAP `63`, `46`):** expand-only, three read functions and a publication; no table, column or policy changes. Each is `security definer`, `stable`, refused to a non-member (UNAUTHENTICATED) and to a member without its key (FORBIDDEN); revoked from `anon`.
+- `dashboard_not_noted()` → `(task_id, member_id, waiting_since)` (`attendance.view_all`: the Owner's **Overdue and risks**): the active assignees of open (not completed / cancelled, not archived), **armed** tasks who have not tapped Task Noted for `ack_escalate_owner_hours`, on 5.3's escalation clock `greatest(assigned_at, task_reminder_arms.armed_at)` (`app.reminders_tick` section d's conditions), so the row and the Owner's escalation agree; `waiting_since` is the clock's start.
+- `dashboard_unreachable()` → `(member_id, full_name, state, since, open_tasks)` (`notifications.reachability`): the people on open work who can't be reached by **5.4's 48-hour status** (`member_reachability` not `ok` with `greatest(since, org_settings.reachability_clock_from)` 48 h or more ago; tracked members only, never the Owner), a freelancer assignee through their **current coordinator**, `open_tasks` = the open tasks in scope they answer for. The organisation's Owner: every open task, with `since`; an Admin: the open tasks they created or approve (`reachability_overview()`'s scope), `since` null.
+- `emails_held_today()` → `(cap, held)` (`settings.manage`: the Owner): today's (IST) email deliveries the dispatcher recorded `skipped_cap`, by `last_error` (`org_cap` = `email_daily_cap_org`, the email plan's daily limit; `member_cap` = `email_daily_cap_per_member`). Counts only.
+- **Realtime:** the `supabase_realtime` publication holds exactly `notifications`, `tasks`, `task_assignees`, `attendance_days` and `leave_requests` (default replica identity); no money or Owner-only table (pgTAP 46). Realtime authorises each change with the subscriber's own RLS; the app re-reads the screen on an event and never shows its row (ARCHITECTURE §10).
+
+**The calendar's reads, reworked (6.4b, 2026-10-08; Kickoff 6 decision 25):** one read serves every view: the month grid of the address's day (`rangeFor`). The Due list reads only the open tasks due in that range (`listOpenTaskRowsDueBetween(from, to)`, page by page under the 1000-row limit; 6B review later item (f)), not every open task. An Admin's `member_availability()` now reads everyone in the range ("Who's free" is over everyone they can see; a person filter narrows only what is drawn). `task_types.color` joins the type read. No new function or policy for the calendar itself.
+
+**The calendar's reads (6.4, 2026-10-07; Kickoff 6 decisions 13–15):** no new table, column, function or policy. The page reads, as the signed-in member: `tasks` with an event date in the range (`listEventTasks`, now with `event_end_at`, `client_id` and `task_type_id`) and every open task (`listOpenTaskRows`, the Due list), `task_types` (now with `shows_on_calendar`), `holidays`, `org_settings.weekly_off_days`, `member_directory`, `client_labels`, and `leave_requests` in `approved` or `submitted` (a pending cancellation left out): their own for an Admin or Crew, everyone's for the Owner (`listLeaveBetween`, RLS). An Admin adds `member_availability()` over the range (`listAvailability`, in slices under the 1000-row limit): the `leave` fact and the `event_blocks` of everyone else. The rules are pure (`modules/calendar/domain`).
+
 ## 7. Money (all Owner-only tables)
 ## 7. Money (all Owner-only tables)
 ```
@@ -1580,12 +1618,31 @@ activity_log         id bigint identity, org_id, actor_id null (system), on_beha
                      -- deactivated entry (the reason is the Owner's note). Scope is per entity, never per
                      -- actor: a row an Admin's action produced may describe an Owner-only table.
                      -- Each module adds a policy for the entities it owns (PERMISSIONS §2)
-eod_reports          id, org_id, report_date, data jsonb, generated_at, unique(org_id, report_date)
-                     -- kickoff 6 (owner decision 2026-10-01, built in 6.5): written only by the eod_report
-                     -- job (one row per IST date, every date, saved once the next day's end_day_cutoff_time
-                     -- has passed (owner 2026-10-07), never updated: no API INSERT/UPDATE/DELETE
-                     -- grant); data holds no money, ever (WORKFLOWS §8a). Owner-only (reports.all) all the
-                     -- same (ADR-0007 amendment 2026-10-01)
+eod_reports          id, org_id, report_date, data jsonb (check: an object), generated_at, created_at,
+                     unique(org_id, report_date)
+                     -- kickoff 6 (owner decision 2026-10-01, built in 6.5, migration
+                     -- eod_report_weekly_digest): written only by app.eod_report() (pg_cron every 5 min:
+                     -- one row per IST date, every date, saved once the next day's end_day_cutoff_time
+                     -- has passed (owner 2026-10-07), the 7-day catch-up, never updated: no API
+                     -- INSERT/UPDATE/DELETE grant, audited 'generated'; the grants are set by migration
+                     -- eod_reports_grants (20261008020456): revoke all from anon and authenticated,
+                     -- then SELECT to authenticated, kept apart from the applied 6.5 file, which
+                     -- staging had already run); data holds no money, ever
+                     -- (WORKFLOWS §8a; pgTAP 64 checks no amount-like key). RLS: one SELECT policy,
+                     -- reports.all (the Owner), org match (ADR-0007 amendment 2026-10-01).
+                     -- data (app.eod_report_payload(org, date, now), the same builder the live view
+                     -- uses through eod_report_preview(date), the Owner only): date, day_off {holiday,
+                     -- weekly_off}, attendance {counts {present, on_leave, absent, proposed_absent,
+                     -- waiting, end_not_recorded, overtime}, people [{member_id, name, status, waiting,
+                     -- proposed, started_at, ended_at, end_not_recorded, overtime, overtime_reason}]
+                     -- (active employees with a day on the date; never the Owner or a freelancer)},
+                     -- decisions {attendance (the Owner's events), leave {approved, rejected}, comp_leave
+                     -- {granted, revoked, reviewed}, expense_claims (a count)}, tasks {completed,
+                     -- handed_in, overdue, cancelled, created: each {count, freelance, more, items[≤50:
+                     -- id, title, owner, freelance, due_at + late_reason (overdue), since (handed in),
+                     -- reason (cancelled)]}}, approvals [{reviewer_id, name, step, approved,
+                     -- changes_requested}], tomorrow {date, events [{id, title, start_at, end_at,
+                     -- location, people}]}. Read in the app through modules/reports (zod-checked).
 month_snapshots      id, org_id, month date (1st), version int, data jsonb, closed_by, closed_at,
                      corrects_id null, correction_note, unique(org_id, month, version)
                      -- month_snapshots contain revenue; both are Owner-only tables

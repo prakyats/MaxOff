@@ -6,7 +6,13 @@
  * Client components are not exported here: a route imports them one file at a time from
  * `components/` (ADR-0011 amendment, task 2.8), because a barrel is not tree-shaken per route.
  */
-export { LEAVE_PAGE_SIZE, listRequests } from "./data/leave";
+export {
+  LEAVE_PAGE_SIZE,
+  listApprovedLeaveBetween,
+  listLeaveBetween,
+  listRequests,
+  type LeaveSpan,
+} from "./data/leave";
 export { countPendingRequests, listPendingRequests } from "./data/review";
 /** Comp leave credits (3b.2): the balance for the leave form and the cards, the credit history. */
 export { getCompBalance, listCompDates, listCredits } from "./data/credits";

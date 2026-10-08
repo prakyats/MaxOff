@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  LIVE_DASHBOARD_ROUTES,
+  LIVE_DASHBOARD_TABLES,
+  liveDashboard,
   catchUpRefreshes,
   liveRefreshWaits,
   TOKEN_GRACE_MS,
@@ -46,5 +49,22 @@ describe("tokenRefreshIn", () => {
     expect(tokenRefreshIn(-600)).toBe(TOKEN_RETRY_MS);
     expect(tokenRefreshIn(1)).toBe(1_000 + TOKEN_GRACE_MS);
     expect(tokenRefreshIn(null)).toBeNull();
+  });
+});
+
+describe("liveDashboard (the day screens, 6A decision 8)", () => {
+  it("listens on Today and My Day only, by exact path", () => {
+    expect(liveDashboard("/today")).toBe(true);
+    expect(liveDashboard("/my-day")).toBe(true);
+    expect(liveDashboard("/today/people")).toBe(false);
+    expect(liveDashboard("/tasks")).toBe(false);
+    expect(liveDashboard(null)).toBe(false);
+    expect(LIVE_DASHBOARD_ROUTES).toEqual(["/today", "/my-day"]);
+  });
+
+  it("listens to exactly the four tables the publication added for them", () => {
+    expect([...LIVE_DASHBOARD_TABLES].sort()).toEqual(
+      ["attendance_days", "leave_requests", "task_assignees", "tasks"].sort(),
+    );
   });
 });

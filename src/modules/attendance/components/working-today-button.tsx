@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
+import { ConfirmDialogLazy } from "@/core/ui/composites/confirm-dialog-lazy";
 import { toastResult } from "@/core/ui/toast";
 import { Button } from "@/core/ui/primitives/button";
 
@@ -29,7 +29,7 @@ export function WorkingTodayButton({ size = "default" }: { size?: "default" | "s
       >
         {label}
       </Button>
-      <ConfirmDialog
+      <ConfirmDialogLazy
         open={open}
         onOpenChange={setOpen}
         title={`${label}?`}

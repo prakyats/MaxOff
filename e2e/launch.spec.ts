@@ -2,7 +2,7 @@ import { type BrowserContext, type Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 
-import { runInstalled, signIn, storageStateFor, USERS } from "./helpers";
+import { expectNoHorizontalScroll, runInstalled, signIn, storageStateFor, USERS } from "./helpers";
 
 /**
  * The launch, splash to first paint (task 2.7).
@@ -206,10 +206,14 @@ test.describe("touch feel (§14.2 i)", () => {
 });
 
 /**
- * No zoom in the installed app where the system text size reaches it (§14.2 i, 2.7b): Android,
- * installed. An installed iPhone app keeps pinch-zoom (iOS text size does not reach a web app
- * yet), and a browser tab is a website that always zooms. Playwright cannot pinch; what it
- * proves is the setting, and the device check proves the effect.
+ * No zoom in the installed app where the system text size reaches it (§14.2 i, 2.7b; iOS 6.6):
+ * Android, installed; an installed iPhone once it follows iOS's text size (the root font size is
+ * the system body size over iOS's default 17px, kept within 100–200%). An iPhone above 200% (its
+ * largest accessibility sizes) gets 200% and keeps pinch-zoom, as does one whose text size
+ * cannot be read, and a browser tab is a website that always zooms. Playwright
+ * cannot pinch, and Chromium has no `-apple-system-body`: what it proves is the setting, with
+ * WebKit's answer for the probe stood in (`iosTextSize`); the owner's phone check proves the
+ * effect. The layout at every root size up to 200% is the large-text sweep's (`mobile.spec.ts`).
  */
 test.describe("zoom (§14.2 i)", () => {
   test.use({ storageState: storageStateFor("owner") });
@@ -243,13 +247,99 @@ test.describe("zoom (§14.2 i)", () => {
     expect(await zoom(page)).toEqual(LOCKED);
   });
 
-  test("installed on an iPhone: still zooms", async ({ page }) => {
+  const installedIphone = async (page: Page) => {
+    // An iPhone is a phone: the desktop project runs these at the small phone's width.
+    if ((page.viewportSize()?.width ?? 0) >= 768)
+      await page.setViewportSize({ width: 375, height: 812 });
     await runInstalled(page);
     await page.addInitScript(() => {
       Object.defineProperty(window.navigator, "standalone", { value: true, configurable: true });
     });
+  };
+  /** What WebKit computes for `font: -apple-system-body` at the iPhone's text size setting. */
+  const iosTextSize = (page: Page, bodyPx: number) =>
+    page.addInitScript((px) => {
+      const supports = CSS.supports.bind(CSS);
+      CSS.supports = ((property: string, value?: string) =>
+        property === "font" && value === "-apple-system-body"
+          ? true
+          : value === undefined
+            ? supports(property)
+            : supports(property, value)) as typeof CSS.supports;
+      const computed = window.getComputedStyle.bind(window);
+      window.getComputedStyle = ((element: Element, pseudo?: string | null) => {
+        const style = computed(element, pseudo);
+        if (!element.hasAttribute("data-system-text-probe")) return style;
+        return new Proxy(style, {
+          get: (target, key) =>
+            key === "fontSize" ? `${px}px` : (Reflect.get(target, key, target) as unknown),
+        });
+      }) as typeof window.getComputedStyle;
+    }, bodyPx);
+  const rootSize = (page: Page) =>
+    page.evaluate(() => ({
+      inline: document.documentElement.style.fontSize,
+      computed: getComputedStyle(document.documentElement).fontSize,
+      attribute: document.documentElement.getAttribute("data-system-text"),
+    }));
+
+  test("installed on an iPhone: follows its text size, then locked", async ({ page }) => {
+    await installedIphone(page);
+    // iOS's "xxL" text size: 21px body text.
+    await iosTextSize(page, 21);
+    await page.goto("/today");
+    expect(await zoom(page)).toEqual(LOCKED);
+    expect(await rootSize(page)).toEqual({
+      inline: "123.5%",
+      computed: "19.76px",
+      attribute: "123.5",
+    });
+    await expectNoHorizontalScroll(page);
+    await page.reload();
+    expect(await zoom(page)).toEqual(LOCKED);
+    expect((await rootSize(page)).inline).toBe("123.5%");
+  });
+
+  test("installed on an iPhone at exactly 200%: the tested maximum, locked", async ({ page }) => {
+    await installedIphone(page);
+    // 34px body text is twice iOS's default: the large-text sweep's top.
+    await iosTextSize(page, 34);
+    await page.goto("/today");
+    expect(await zoom(page)).toEqual(LOCKED);
+    expect(await rootSize(page)).toEqual({ inline: "200%", computed: "32px", attribute: "200" });
+    await expectNoHorizontalScroll(page);
+  });
+
+  test("installed on an iPhone above 200%: 200% at most, and pinch-zoom stays", async ({
+    page,
+  }) => {
+    await installedIphone(page);
+    // iOS's largest accessibility size: 53px body text, over three times the default. The app
+    // stops at its tested 200%; the person can still pinch for the rest (decision 20).
+    await iosTextSize(page, 53);
     await page.goto("/today");
     expect(await zoom(page)).toEqual(OPEN);
+    expect(await rootSize(page)).toEqual({ inline: "200%", computed: "32px", attribute: "200" });
+    await expectNoHorizontalScroll(page);
+    await page.reload();
+    expect(await zoom(page)).toEqual(OPEN);
+  });
+
+  test("installed on an iPhone at the default text size: the design's size, locked", async ({
+    page,
+  }) => {
+    await installedIphone(page);
+    await iosTextSize(page, 17);
+    await page.goto("/today");
+    expect(await zoom(page)).toEqual(LOCKED);
+    expect(await rootSize(page)).toEqual({ inline: "", computed: "16px", attribute: "100" });
+  });
+
+  test("installed on an iPhone whose text size can't be read: still zooms", async ({ page }) => {
+    await installedIphone(page);
+    await page.goto("/today");
+    expect(await zoom(page)).toEqual(OPEN);
+    expect(await rootSize(page)).toEqual({ inline: "", computed: "16px", attribute: null });
   });
 
   test("a browser tab: still zooms", async ({ page }) => {
