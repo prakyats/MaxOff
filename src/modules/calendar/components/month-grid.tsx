@@ -187,7 +187,10 @@ export function MonthGrid({
                       "active:bg-muted/60",
                     )}
                   >
-                    <span className="flex min-w-0 items-center gap-0.5">
+                    {/* A container: the "+N" shows only where the box has room for it beside the
+                        date (rem-sized, so a larger system text hides it on a narrow phone rather
+                        than squeezing it to an ellipsis; the day's sheet lists everything). */}
+                    <span className="@container flex min-w-0 items-center gap-0.5">
                       <span
                         data-slot="calendar-date"
                         data-weekly-off={day?.weeklyOff ? "" : undefined}
@@ -216,7 +219,7 @@ export function MonthGrid({
                       {lines && lines.more > 0 ? (
                         <span
                           data-slot="calendar-more"
-                          className="text-muted-foreground ml-auto min-w-0 truncate text-[0.625rem] leading-3 tabular-nums"
+                          className="text-muted-foreground ml-auto hidden min-w-0 truncate text-[0.625rem] leading-3 tabular-nums @min-[2.25rem]:block"
                         >
                           +{lines.more}
                         </span>
