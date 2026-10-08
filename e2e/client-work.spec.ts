@@ -179,7 +179,6 @@ test("Approvals → Client items: the client's Admin approves with Undo; the Own
 
   await page.goto("/approvals");
   await hydrated(page);
-  const group = page.locator('[data-slot="approval-group"][data-group="client-items"]');
   const row = page.locator('[data-slot="approval-row"]', { hasText: nameOf(info, "cut") });
   await expect(row).toBeVisible();
   await row.getByRole("button", { name: "Approve" }).click();
@@ -189,7 +188,6 @@ test("Approvals → Client items: the client's Admin approves with Undo; the Own
     document.dispatchEvent(new Event("visibilitychange"));
   });
   await expect.poll(() => itemState(id)).toBe("approved");
-  await expect(group).toHaveCount(await group.count());
 
   // The Owner's Approvals take no client items (issue #56 Q1).
   const context = await browser.newContext({ storageState: storageStateFor("owner") });
@@ -356,6 +354,11 @@ test("Settings → Stage presets: an Admin adds, edits and archives their own", 
   await add.getByRole("button", { name: "Add preset" }).click();
   const row = page.locator('[data-slot="stage-preset"]', { hasText: name });
   await expect(row).toContainText("Brief → Shoot → Deliver · by you");
+  await row.getByRole("button", { name: `Edit ${name}` }).click();
+  const edit = page.getByRole("dialog", { name: `Edit ${name}` });
+  await edit.getByLabel("Stages").fill("Brief\nShoot\nEdit\nDeliver");
+  await edit.getByRole("button", { name: "Save preset" }).click();
+  await expect(row).toContainText("Brief → Shoot → Edit → Deliver · by you");
   await row.getByRole("button", { name: `Archive ${name}` }).click();
   await page
     .getByRole("alertdialog")

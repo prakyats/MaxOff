@@ -1,4 +1,4 @@
-import { toISTDate, type ISODate } from "@/core/time";
+import { istDayStart, toISTDate, type ISODate } from "@/core/time";
 
 import { activeStages } from "./items";
 import type { Cycle, Item, Stage, Tick } from "./types";
@@ -109,7 +109,7 @@ export function sitLongest(input: {
     const since = previous
       ? Date.parse(previous)
       : periodStart
-        ? Date.parse(`${periodStart}T00:00:00+05:30`)
+        ? istDayStart(periodStart).getTime()
         : Date.parse(item.createdAt);
     const days = Math.max(0, (input.now.getTime() - since) / DAY_MS);
     groups.set(stage.name, [...(groups.get(stage.name) ?? []), days]);
