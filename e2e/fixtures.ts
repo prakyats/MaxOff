@@ -183,8 +183,12 @@ export const test = base.extend<{
       await page.addInitScript(diagProbe);
       // Diag -3: no throttling; the scripts a page asks for after its load event are logged, and
       // held 1.5 s in the two reload-then-tap tests (hydration comes after load).
-      const rate = 1;
-      const hold = /Save waits|the band returns/.test(info.title);
+      const rate = [1, 4, 8, 12][info.repeatEachIndex % 4] ?? 1;
+      if (rate > 1) {
+        const cdp = await page.context().newCDPSession(page);
+        await cdp.send("Emulation.setCPUThrottlingRate", { rate });
+      }
+      const hold = false;
       let loaded = false;
       const afterLoad: string[] = [];
       page.on("request", (request) => {
