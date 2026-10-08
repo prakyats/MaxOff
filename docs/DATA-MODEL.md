@@ -1111,8 +1111,8 @@ project_cycles       id, org_id, project_id, period_start date null, period_end 
                      item_list_copied boolean not null default true (Q4 (a), owner 2026-10-08: false for a
                      cycle a carry made while its client was not Active, holding only the carried items, until
                      the nightly cycle_generate copies the item list in; 00:00 IST, Q12 (b)),
-                     ready_armed_at timestamptz null (Amendment C timing answer Q12 (b), advisor 2026-10-08,
-                     owner to confirm; migration client_work_morning_window: when the cycle's "cycle ready"
+                     ready_armed_at timestamptz null (Amendment C timing answer Q12 (b), owner 2026-10-09;
+                     migration client_work_morning_window: when the cycle's "cycle ready"
                      notice to its client's Admin was armed, by the ready_armed_at trigger: on insert for a
                      schedule cycle or a carry made by anyone but the client's Admin, and when a carry-made
                      cycle's item list joins it; null = nothing to announce (create, manual, an Admin's own
