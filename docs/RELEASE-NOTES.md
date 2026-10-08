@@ -22,6 +22,9 @@ one green full run, then the Owner's `v1.5.1` tag. No migrations.
   button); Escape closes the top sheet or dialog, and cancels an edit (asking "Discard changes?" when
   something changed); a dialog opens with its first field ready; Escape clears a search box. Quiet hints
   show on a laptop only. On a phone nothing opens the keyboard by itself any more (a dialog, Edit).
+- **The first-day guide fits one page again:** `docs/guide/first-day.html` printed on two after v1.5.0's
+  additions; its lines are slightly tighter and three notification items are merged, with nothing a new
+  joiner needs dropped.
 - **Never a blank window at launch:** when the installed app opens (on a computer or a phone) and the
   server is slow to answer, the MaxOff launch screen shows at once, then home; a fast launch looks the
   same as today. The installed app now starts at `/?source=pwa` (the service worker, v8, recognises the
@@ -56,6 +59,7 @@ one green full run, then the Owner's `v1.5.1` tag. No migrations.
 - **Installed launch on the MacBook and the phone:** the MaxOff launch screen, never a blank window, then
   home; one back from home still exits. Check it after the app has been idle for a while (a cold start);
   if a blank window still shows, reinstall the app once so it takes the new start address.
+- **Guide PDFs rebuilt on the laptop** (`docs/guide/build-pdf.ps1`, Edge): `first-day.pdf` is one page.
 
 ## v1.5.0: My Day, Today, the calendar and the end-of-day report (phase 6)
 
