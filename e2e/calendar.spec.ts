@@ -296,6 +296,43 @@ test.describe("the calendar, as Crew", () => {
     await expect(eventOf(daySheet(page), shoot)).toBeVisible();
   });
 
+  test("phone: Today while the next month is still on its way stays on today's month, and the bar ends", async ({
+    page,
+  }, info) => {
+    test.skip(!isPhone(info), "the phone's header");
+    await page.goto("/calendar");
+    await hydrated(page);
+    const label = page.locator('[data-slot="calendar-month-label"]');
+    const thisMonth = formatIST(istDayStart(todayIST()), "MMM yyyy");
+    // The next month's screen is held until Today has been tapped (main CI run 37792867778: it
+    // arrived after Today and took the calendar back to the next month).
+    let release = () => {};
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let held = 0;
+    await page.route(/\/calendar\?date=/, async (route) => {
+      const headers = route.request().headers();
+      if (headers["rsc"] === "1" && !headers["next-router-prefetch"]) {
+        held += 1;
+        await released;
+      }
+      // The router may have given the held request up meanwhile.
+      await route.continue().catch(() => undefined);
+    });
+    await page.locator('[data-slot="calendar-next"]').click();
+    await expect(label).not.toHaveText(thisMonth);
+    await expect.poll(() => held).toBe(1);
+    await page.locator('[data-slot="calendar-today"]').click();
+    await expect(label).toHaveText(thisMonth);
+    release();
+    // The dropped month answers late: the navigation is over (the bar ends, §14.2 i) and today's
+    // month stays.
+    await expect(page.locator("html")).not.toHaveAttribute("data-nav-pending");
+    await expect(label).toHaveText(thisMonth);
+    await expect(page).toHaveURL(/\/calendar$/);
+  });
+
   test("installed: sizes, days, a month and a filter add no history; the day sheet closes on back; a task is a drill-down", async ({
     page,
   }, info) => {

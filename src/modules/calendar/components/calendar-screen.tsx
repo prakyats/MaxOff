@@ -137,11 +137,18 @@ export function CalendarScreen({
   const fit = view !== "month";
   const desktop = useIsDesktop() === true;
 
-  /** Moves the selected day: in the month read, at once; another month through the router. */
+  /**
+   * Moves the selected day: in the month read, at once; another month through the router. While
+   * a move is still under way (`pending`), the month on screen is not the one the calendar is
+   * heading to, so every day goes through the router: its move replaces the one under way.
+   * Written by hand instead, the address waited for that move, which then landed and took the
+   * selected day with it (Next, then Today before the next month had arrived, stayed on the next
+   * month: main CI run 37792867778, calendar.spec:240 [mobile]).
+   */
   function go(date: ISODate) {
     const href = calendarHref({ ...query, date }, today);
     setSelected(date);
-    if (monthOf(date) === grid.month) {
+    if (!pending && monthOf(date) === grid.month) {
       replaceViewAddress(href);
     } else {
       startTransition(() => router.replace(href, { scroll: false }));
