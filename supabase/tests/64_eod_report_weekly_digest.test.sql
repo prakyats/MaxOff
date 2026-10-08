@@ -11,7 +11,7 @@
 -- (8) The schedule: digest_daily unscheduled, eod_report and digest_weekly every 5 minutes.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(107);
+select plan(109);
 
 delete from public.task_requests;
 delete from public.task_warnings;
@@ -332,11 +332,15 @@ select is(app.eod_report(pg_temp.today_at('04:59')), 7, 'before the 05:00 cutoff
 select is((select count(*) from public.eod_reports where report_date = pg_temp.d()), 0::bigint, 'but not D: a late End day for D is still allowed');
 select is((select count(*) from public.notifications where kind = 'eod_report_ready'), 0::bigint,
   'a catch-up date is saved quietly: no notification for an older day');
+-- Decision 23: the digest goes at 08:00 on its day or straight after the cutoff saves the last day,
+-- whichever is later. Today is made the digest day, so this proves the wait on every weekday.
+select pg_temp.set_digest_day(extract(dow from app.today_ist())::int);
 select is(public.digest_weekly(pg_temp.today_at('08:00')), 0,
-  'the weekly digest waits until the last day''s report is saved (even past 08:00 on its day)')
-  where extract(dow from app.today_ist())::int = (select weekly_digest_day from public.org_settings);
-select is(public.digest_weekly(pg_temp.today_at('08:00')), 0, 'the weekly digest goes only on its day')
-  where extract(dow from app.today_ist())::int <> (select weekly_digest_day from public.org_settings);
+  'the weekly digest waits until the last day''s report is saved (even past 08:00 on its day)');
+-- And a day that is not today: nothing goes.
+select pg_temp.set_digest_day(extract(dow from app.today_ist() + 1)::int);
+select is(public.digest_weekly(pg_temp.today_at('08:00')), 0, 'the weekly digest goes only on its day');
+select pg_temp.set_digest_day(1);
 
 select is(app.eod_report(pg_temp.today_at('05:00')), 1, 'at the cutoff on D + 1: D is saved');
 select is((select data from public.eod_reports where report_date = pg_temp.d()), pg_temp.payload(),
@@ -444,6 +448,8 @@ select is(public.owner_digest_weekly_preview() -> 'week', jsonb_build_object('fr
   'the Owner reads the preview');
 select pg_temp.as_member('admin1');
 select throws_ok($$select public.owner_digest_weekly_preview()$$, 'P0001', 'FORBIDDEN', 'an Admin is refused the preview');
+select pg_temp.as_member('kiran');
+select throws_ok($$select public.owner_digest_weekly_preview()$$, 'P0001', 'FORBIDDEN', 'a Crew member is refused the preview');
 select pg_temp.as_anon();
 select throws_ok($$select public.owner_digest_weekly_preview()$$, '42501', null, 'a signed-out caller is refused the preview');
 select pg_temp.as_system();

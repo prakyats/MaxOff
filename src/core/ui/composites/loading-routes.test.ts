@@ -96,9 +96,12 @@ describe("loading.tsx coverage", () => {
     expect(sourceOf("notifications")).toContain("NotificationListSkeleton");
     expect(sourceOf("notifications")).not.toContain(standIn);
     expect(shapeOf("notifications"), "its own skeleton, not a generic shape").toBeUndefined();
-    // Reports (3b.4): the Owner's list of reports first; the Admin's work report (6.3): the period
-    // control and the KPI cards.
-    expect(shapeOf("reports")).toBe("list");
+    // Reports (3b.4): the Owner's list of reports, traced in the page's own row geometry
+    // (`list-row.ts`: a label over the description's wrapped lines), not a one-line shape; the
+    // Admin's work report (6.3): the period control and the KPI cards.
+    expect(shapeOf("reports"), "reports traces its own rows, not a shape").toBeUndefined();
+    expect(sourceOf("reports")).toContain("REPORT_ROW_CLASS");
+    expect(sourceOf("reports")).toContain("OWNER_REPORTS");
     expect(sourceOf("reports")).toContain("KpiCardSkeleton");
     expect(sourceOf("reports")).not.toContain(standIn);
     // Approvals is a grouped list (2.4: the groups are traced by ApprovalGroupSkeleton); since 4.5
