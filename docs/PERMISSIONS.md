@@ -17,15 +17,14 @@
 | `notifications.reachability` | See who isn't reachable by push and why | ✅ (everyone) | ✅ (members currently assigned to open tasks they created or approve, and a freelancer's coordinator; status and reason only) | own devices only |
 | `lists.manage` | Task types, stage presets, job titles, other lists, custom field definitions ² | ✅ | ✅ ¹ | |
 | `templates.manage` | Project and task templates | ✅ | ✅ | |
-| `clients.create` | Create a client. **An Admin's new client is created Active and assigned to that Admin**, and the Owner is notified; the Owner's is a Draft with any Admin or none, as before (owner decisions 2026-10-02, kickoff 7 amendment B, revised the same day; built in 7.1 and 7.3) | ✅ | ✅ | |
-| `clients.manage` | Assign or change the Admin, activate a Draft, pause / close / reactivate; create a client as a Draft with any active Admin or none | ✅ | | |
+| `clients.manage` | Create clients, assign the Admin, activate / pause / close | ✅ | | |
 | `clients.edit_assigned` | Edit details, contacts, brand and custom fields of **their** clients | ✅ | ✅ | |
 | `clients.private_notes` | Owner-only client notes | ✅ | | |
 | `projects.manage` | Create and edit projects and items on **their** clients with every non-money detail (recurrence and client at creation; kickoff 7 amendment C, owner 2026-10-08), start cycles manually, set or move a one-time project's **delivery date** (owner decision 2026-10-02, kickoff 7 amendment A) | ✅ | ✅ | |
 | `items.tick` | Tick stages and mark items done (operational) | ✅ | ✅ | |
-| `items.approve` | Final approval or rejection of items (counts for revenue, ADR-0007); an Admin on **their** clients only (kickoff 7 amendment C, owner 2026-10-08) | ✅ | ✅ | |
-| `cycles.carry_decide` | Carry forward / close / leave pending; an Admin on **their** clients only (kickoff 7 amendment C, owner 2026-10-08) | ✅ | ✅ | |
-| `projects.complete` | Complete, cancel or reopen projects; an Admin on **their** clients only (kickoff 7 amendment C, owner 2026-10-08) | ✅ | ✅ | |
+| `items.approve` | Final approval or rejection of items | ✅ | | |
+| `cycles.carry_decide` | Carry forward / close / leave pending | ✅ | | |
+| `projects.complete` | Complete, cancel or reopen projects | ✅ | | |
 | `tasks.create` | Create, assign, edit, reassign and cancel tasks within their scope | ✅ | ✅ | |
 | `tasks.approve_admin` | The Admin approval step (only as the task's approving Admin) | | ✅ | |
 | `tasks.approve_final` | The final approval step | ✅ | | |
@@ -42,6 +41,14 @@
 | `months.close` | Close a month, make corrections | ✅ | | |
 | `activity.view_all` | The full activity log | ✅ | | |
 | `records.hard_delete` | Permanent deletion (exceptional) | ✅ | | |
+
+
+**Planned for phase 7 (kickoff 7, owner decisions 2026-10-01/02 and amendment C 2026-10-08; not yet built).** These grants are decided but not in the registry, the seed or RLS yet, so they sit outside the table above (which `tests/permissions-drift.test.ts` checks against the code); phase 7 (7.1) moves them into it together with its migration and `ROLE_GRANTS`:
+- `clients.create`: Create a client. **An Admin's new client is created Active and assigned to that Admin**, and the Owner is notified; the Owner's is a Draft with any Admin or none, as before (owner decisions 2026-10-02, kickoff 7 amendment B, revised the same day; built in 7.1 and 7.3) (Owner, Admin).
+- `clients.manage`: Assign or change the Admin, activate a Draft, pause / close / reactivate; create a client as a Draft with any active Admin or none (Owner).
+- `items.approve`: Final approval or rejection of items (counts for revenue, ADR-0007); an Admin on **their** clients only (kickoff 7 amendment C, owner 2026-10-08) (Owner, Admin).
+- `cycles.carry_decide`: Carry forward / close / leave pending; an Admin on **their** clients only (kickoff 7 amendment C, owner 2026-10-08) (Owner, Admin).
+- `projects.complete`: Complete, cancel or reopen projects; an Admin on **their** clients only (kickoff 7 amendment C, owner 2026-10-08) (Owner, Admin).
 
 ¹ Admins can edit lists and field definitions except company-level settings, and except **custom field definitions on `project` and `item`**, which are Owner-only (this closes the "amount in a number field" loophole, since there's no currency type). *Adjustable: it's just a row in `role_permissions`.*
 
