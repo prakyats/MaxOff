@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   addAssignee,
   assignmentChange,
+  canStartTaskOnDate,
   deadlineError,
   draftChanges,
   draftEventWindow,
@@ -278,6 +279,50 @@ describe("a new task started on a calendar day (6.4b, Kickoff 6 decision 25 D)",
     for (const now of ["2026-10-08T12:30:00.000Z", "2026-10-08T17:45:00.000Z"]) {
       const draft = draftOnDate("2026-10-08", new Date(now));
       expect(deadlineError(draft, { creating: true, now: new Date(now) })).toBeNull();
+    }
+  });
+
+  it("at 23:58 IST still offers today, at 11:59 PM, later than now", () => {
+    // 23:58:59 IST on 8 Oct = 18:28:59 UTC.
+    const now = new Date("2026-10-08T18:28:59.000Z");
+    expect(canStartTaskOnDate("2026-10-08", now)).toBe(true);
+    const draft = draftOnDate("2026-10-08", now);
+    expect(draft.dueTime).toBe("23:59");
+    expect(deadlineError(draft, { creating: true, now })).toBeNull();
+  });
+
+  it("from 23:59 IST offers no new task today: the day has no valid deadline left", () => {
+    // 23:59:00 and 23:59:59 IST on 8 Oct: 11:59 PM is not later than now.
+    for (const now of ["2026-10-08T18:29:00.000Z", "2026-10-08T18:29:59.000Z"]) {
+      expect(canStartTaskOnDate("2026-10-08", new Date(now))).toBe(false);
+      // What the form would have prefilled is refused by its own check, which is why it is not
+      // offered at all.
+      const draft = draftOnDate("2026-10-08", new Date(now));
+      expect(deadlineError(draft, { creating: true, now: new Date(now) })).not.toBeNull();
+      // Tomorrow is offered, and its prefill is later than now.
+      expect(canStartTaskOnDate("2026-10-09", new Date(now))).toBe(true);
+      const tomorrow = draftOnDate("2026-10-09", new Date(now));
+      expect(tomorrow.dueTime).toBe("18:00");
+      expect(deadlineError(tomorrow, { creating: true, now: new Date(now) })).toBeNull();
+    }
+  });
+
+  it("offers no day before today (the same rule)", () => {
+    // 00:10 IST on 9 Oct: 8 Oct is gone.
+    const now = new Date("2026-10-08T18:40:00.000Z");
+    expect(canStartTaskOnDate("2026-10-08", now)).toBe(false);
+    expect(canStartTaskOnDate("2026-10-01", now)).toBe(false);
+    expect(canStartTaskOnDate("2026-10-09", now)).toBe(true);
+  });
+
+  it("whatever a day it offers prefills is later than now, minute by minute through the evening", () => {
+    // Every minute from 17:00 to 23:59 IST on 8 Oct.
+    const start = Date.parse("2026-10-08T11:30:00.000Z");
+    for (let minute = 0; minute < 7 * 60; minute += 1) {
+      const now = new Date(start + minute * 60_000);
+      if (!canStartTaskOnDate("2026-10-08", now)) continue;
+      const draft = draftOnDate("2026-10-08", now);
+      expect(deadlineError(draft, { creating: true, now })).toBeNull();
     }
   });
 });

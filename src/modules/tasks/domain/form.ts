@@ -89,14 +89,24 @@ export function emptyDraft(): TaskDraft {
  * date (at the default 6:00 PM IST) and, should the type be an event, the event's date. The type
  * is picked in the form, so both carry the day and the form shows the one the type asks for.
  * A new deadline must be in the future (kickoff 4 decision 4), so today after 6:00 PM IST the time
- * is the next whole hour instead, or 11:59 PM when that hour is already the next day. (The calendar
- * offers no "+ New task" on a day before today.)
+ * is the next whole hour instead, or 11:59 PM when that hour is already the next day (23:00–23:58).
+ * The calendar offers no "+ New task" on a day with no valid deadline left (`canStartTaskOnDate`):
+ * a day before today, or today from 11:59 PM IST.
  */
 export function draftOnDate(date: ISODate, now: Date): TaskDraft {
   return { ...emptyDraft(), dueDate: date, dueTime: dueTimeOnDate(date, now), eventDate: date };
 }
 
 const LAST_TIME_OF_DAY = "23:59";
+
+/**
+ * Whether a calendar day still has a valid deadline for a new task: its last minute (11:59 PM IST)
+ * is later than now. Never on a day before today; today only until 11:59 PM IST, after which the
+ * form would refuse its own prefill (the same rule as a past day).
+ */
+export function canStartTaskOnDate(date: ISODate, now: Date): boolean {
+  return Date.parse(istInstant(date, LAST_TIME_OF_DAY)) > now.getTime();
+}
 
 function dueTimeOnDate(date: ISODate, now: Date): string {
   if (toISTDate(now) !== date) return DEFAULT_DUE_TIME;
