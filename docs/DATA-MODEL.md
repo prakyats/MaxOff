@@ -19,7 +19,8 @@ leave_state        submitted | approved | rejected | withdrawn | superseded | ca
 client_state       draft | active | paused | inactive
 recurrence         one_time | weekly | monthly
 project_state      open | in_progress | completed | cancelled
-billing_category   retainer | project | additional
+billing_category   retainer | project | additional   -- money since kickoff 7 amendment C (2026-10-08):
+                   -- used only by phase 9's Owner-only billing tables, never on projects
 cycle_state        open | settled
 item_state         open | done | approved | cancelled | carried
 carry_decision     carry_forward | close | leave_pending
@@ -1011,11 +1012,13 @@ view client_labels   (id, name, state, logo_file_id, colors, fonts, tone_of_voic
 ## 5. Client work: projects, cycles, items
 ```
 projects             id, client_id (required), name, description, recurrence, delivery_date null, state project_state,
-                     billing_category (Owner-set; default from recurrence; a template's default applies
-                     only when the Owner creates the project), template_id null,
+                     -- billing_category: NOT on projects since kickoff 7 amendment C (2026-10-08): it is
+                     -- money, in phase 9's Owner-only billing tables (ADR-0007 amendment 2026-10-08)
+                     template_id null,
                      custom_fields, created_by, completed_at, completed_by, archived_at
-                     -- guard trigger: state, billing_category, client_id and recurrence change only
-                     -- through transition functions (billing_category/client_id/recurrence: Owner only)
+                     -- guard trigger: state changes only through transition functions; client_id and
+                     -- recurrence are set at creation (the Owner, or the client's Admin: amendment C) and
+                     -- never change (kickoff 7 decision 4)
                      -- kickoff 7 amendment A (owner decision 2026-10-02): + delivery_date date null;
                      -- check (recurrence <> 'one_time' or delivery_date is not null): required for a
                      -- one-time project, none needed for weekly / monthly. Set or moved by projects.manage
@@ -1048,12 +1051,12 @@ project_items        id, cycle_id, title, position, planned_date null, notes, cu
                      -- planned_date. No amounts here, ever (ADR-0007): values live in item_billing (§7)
 project_item_stages  item_id, stage_id, done_at, done_by, pk(item_id, stage_id)
 item_reviews         id, item_id, decision review_decision, reason, reviewer_id, at   -- append-only
-project_templates    id, org_id, name, description, recurrence, default_billing_category (applied only
-                     when the Owner creates the project), stages text[], items text[], field_defaults jsonb, archived_at
+project_templates    id, org_id, name, description, recurrence, stages text[], items text[], field_defaults jsonb, archived_at
+                     -- no default_billing_category since kickoff 7 amendment C (money: the Owner's template
+                     -- default lives in an Owner-only table with phase 9)
                      -- kickoff 7 decision 23 (built in 7.4): + created_by, created_at, updated_at; the
                      -- task_templates rule (templates.manage; shared; an Admin edits and archives their
-                     -- own, the Owner any); default_billing_category set only by the Owner (null on an
-                     -- Admin's template); stages ≤ 12 (from a preset or typed); items ≤ 100. Audited
+                     -- own, the Owner any); no billing category (amendment C); stages ≤ 12 (from a preset or typed); items ≤ 100. Audited
 ```
 
 ## 6. Staff tasks

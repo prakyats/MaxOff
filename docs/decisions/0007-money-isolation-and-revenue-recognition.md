@@ -1,6 +1,6 @@
 # ADR-0007: Money is isolated and recognised only on Owner approval
 
-- **Status:** accepted, amended 2026-09-21 (Potential keeps closed items; template categories are Owner-only; column guard); amended 2026-09-27 (a member's own expense claims, see the amendment at the end); amended 2026-10-01 (owner decision, kickoff 6 decision 16: `eod_reports` holds no money)
+- **Status:** accepted, amended 2026-09-21 (Potential keeps closed items; template categories are Owner-only; column guard); amended 2026-09-27 (a member's own expense claims, see the amendment at the end); amended 2026-10-01 (owner decision, kickoff 6 decision 16: `eod_reports` holds no money); amended 2026-10-08 (owner decision, kickoff 7 amendment C: an approval or completion by the client's Admin counts like the Owner's; the billing category is money)
 - **Date:** 2026-09-20
 
 ## Context
@@ -27,3 +27,10 @@ Staff and Admins now enter money themselves: **expense claims** (reimbursements,
 
 ## Amendment 2026-10-01: the end-of-day report holds no money (owner decision, kickoff 6 decision 16)
 `eod_reports` is the Owner's **operational** end-of-day summary (attendance, decisions, tasks, approvals, tomorrow's events; WORKFLOWS §8a) and **never carries an amount**, not even after phase 9: expense claims appear only as a count. It **stays an Owner-only table** (`reports.all`). `month_snapshots` may hold revenue from phase 9 and stays Owner-only. Nothing else in this ADR changes.
+
+## Amendment 2026-10-08: approval by the client's Admin counts (owner decision, kickoff 7 amendment C)
+The owner's words: "Admin can tick the projects as done and closed, and that will add to the revenue without owner's intervention".
+- **Who makes work revenue-eligible.** An item counts as **Achieved** once it is **approved, by the Owner or by the client's Admin** (`items.approve`, which Admins now hold on **their** clients; the Owner keeps it on every client). A one-time project's lump sum (the kickoff 9 rule, decision 2, on the `kickoff-9` branch) is Achieved **when the project is completed, by the Owner or its Admin** (`projects.complete`, the same split), and a reopen by either takes it back. Wherever this ADR or the kickoff 9 decisions say "Owner-approved" or "when the Owner completes", read "approved" and "when the project is completed, by the Owner or its Admin". CLAUDE.md invariant 3 is reworded to match. The Context's "only after the Owner approves the work item" is history.
+- **Money stays the Owner's alone**, entered by the Owner when he chooses (phase 9): amounts, item values, **the billing category**, advances, overrides, billing status, revenue and month close. An Admin never sees or sets any of it (invariant 2 unchanged), and approving or completing never shows an amount.
+- **The billing category is now money.** It no longer lives on `projects` (the Decision's second bullet is superseded): it moves to the Owner-only billing tables built in phase 9 (`project_billing`, and a project template's default in an Owner-only table beside it), read only through `modules/revenue`. Phase 7 builds no billing category and no `project_set_billing_category`; PERMISSIONS §2's "Admins see the category" is withdrawn. `projects.client_id` and `projects.recurrence` stay fixed after creation (kickoff 7 decision 4).
+- Nothing else changes: Potential, the even split, closed items in Potential, overrides beside the calculated value, and money read only through `modules/revenue`.
