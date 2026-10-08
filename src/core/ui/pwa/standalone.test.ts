@@ -63,6 +63,7 @@ function run({
     documentElement: {
       style,
       setAttribute: (name: string, value: string) => attributes.set(name, value),
+      removeAttribute: (name: string) => attributes.delete(name),
       appendChild: () => (probes += 1),
       removeChild: () => (probes -= 1),
     },
@@ -74,8 +75,9 @@ function run({
       setAttribute: () => {},
     }),
     head: {
-      appendChild: ({ name, content }: { name: string; content: string }) =>
-        appended.push({ name, content }),
+      appendChild: (meta: { name: string; content: string }) => appended.push(meta),
+      removeChild: (meta: { name: string; content: string }) =>
+        appended.splice(appended.indexOf(meta), 1),
     },
     addEventListener: (type: string, listener: () => void) => {
       if (type === "visibilitychange") listeners.push(listener);
@@ -83,8 +85,13 @@ function run({
   };
   new Function("window", "document", STANDALONE_SCRIPT)(window, document);
   return {
-    locked: attributes.has(ZOOM_LOCK_ATTRIBUTE),
-    appended,
+    // Read when asked: a later read of the text size can lock or unlock.
+    get locked() {
+      return attributes.has(ZOOM_LOCK_ATTRIBUTE);
+    },
+    get appended() {
+      return appended.map(({ name, content }) => ({ name, content }));
+    },
     fontSize: () => style.fontSize,
     systemText: () => attributes.get(SYSTEM_TEXT_ATTRIBUTE) ?? null,
     foreground: () => listeners.forEach((listener) => listener()),
@@ -148,6 +155,41 @@ describe("iOS system text size (6.6, Kickoff 6 decision 20)", () => {
     expect(run({ standalone: true, ios: true, iosBody: 15 }).systemText()).toBe("100");
     expect(run({ standalone: true, ios: true, iosBody: 33 }).fontSize()).toBe("194.1%");
     expect(run({ standalone: true, ios: true, iosBody: 53 }).fontSize()).toBe("200%");
+  });
+
+  it("locks only within 100–200%: above it the root stops at 200% and pinch-zoom stays", () => {
+    // 34px is exactly 200%: still the tested range, locked.
+    const top = run({ standalone: true, ios: true, iosBody: 34 });
+    expect(top.fontSize()).toBe("200%");
+    expect(top.locked).toBe(true);
+    expect(top.appended).toEqual(LOCKED_VIEWPORT);
+    // iOS's larger accessibility sizes: more than the app's tested maximum, so the person can
+    // still pinch for the rest (advisor, 2026-10-08, decision 20).
+    for (const px of [35, 44, 53]) {
+      const app = run({ standalone: true, ios: true, iosBody: px });
+      expect(app.fontSize(), `root at ${px}px body text`).toBe("200%");
+      expect(app.systemText()).toBe("200");
+      expect(app.locked, `not locked at ${px}px`).toBe(false);
+      expect(app.appended).toEqual([]);
+    }
+  });
+
+  it("unlocks and locks again as the setting crosses 200% between visits", () => {
+    const app = run({ standalone: true, ios: true, iosBody: 23 });
+    expect(app.locked).toBe(true);
+    app.setIosBody(53);
+    app.foreground();
+    expect(app.fontSize()).toBe("200%");
+    expect(app.locked).toBe(false);
+    expect(app.appended).toEqual([]);
+    app.setIosBody(21);
+    app.foreground();
+    expect(app.fontSize()).toBe("123.5%");
+    expect(app.locked).toBe(true);
+    // One locked copy, never a pile of them.
+    expect(app.appended).toEqual(LOCKED_VIEWPORT);
+    app.foreground();
+    expect(app.appended).toEqual(LOCKED_VIEWPORT);
   });
 
   it("reads the setting again when the app comes back to the foreground", () => {
