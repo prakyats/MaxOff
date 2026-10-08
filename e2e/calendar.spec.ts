@@ -476,8 +476,45 @@ test.describe("the calendar, as the Owner", () => {
     test.skip(isPhone(info), "the laptop's views");
     const prefix = prefixOf(info);
     await removeTasksTitled(prefix);
-    const shoot = await ownerCreatesShoot(info);
-    await ownerCreatesDue(info, todayIST());
+    // This test's day: in today's week and month, never today or a day the other specs fill
+    // (their shoots are today, their deadlines the next working days), so what it adds never
+    // crowds a box or a "Who's free" another project is reading.
+    const taken = new Set([todayIST(), workingDay(1), workingDay(2), workingDay(3)]);
+    const week0 = Array.from({ length: 7 }, (_, offset) =>
+      addISTDays(todayIST(), offset - ((istWeekday(todayIST()) + 6) % 7)),
+    );
+    const sameMonth = (date: string) => date.slice(0, 7) === todayIST().slice(0, 7);
+    const free = week0.filter(
+      (date) => !taken.has(date) && sameMonth(date) && !date.endsWith("-10-02"),
+    );
+    // A later day first: an earlier one would make its deadline overdue on everyone's Today.
+    const later = free.filter((date) => date > todayIST());
+    const day =
+      later.find((date) => istWeekday(date) !== 0 && istWeekday(date) !== 6) ??
+      later[0] ??
+      free[0] ??
+      todayIST();
+    const staffId = await memberIdOf(USERS.staff.email);
+    const event = async (title: string, from: string, to: string, clientId: string | null) =>
+      rpcAs<string>(USERS.owner.email, USERS.owner.password, "task_create", {
+        title,
+        description: null,
+        task_type_id: await taskTypeId("Shoot / Site Visit"),
+        client_id: clientId,
+        priority: "medium",
+        due_at: istInstant(workingDay(3), "18:00"),
+        assignee_ids: [staffId],
+        primary_owner_id: staffId,
+        approving_admin_id: null,
+        stages: [],
+        event_date: day,
+        event_start_at: istInstant(day, from as "10:00"),
+        event_end_at: istInstant(day, to as "11:00"),
+        location: "Studio C",
+      });
+    const shoot = { id: await event(`${prefix}agenda shoot`, "10:00", "11:00", null) };
+    const shootTitle = `${prefix}agenda shoot`;
+    await ownerCreatesDue(info, day);
     // A long shoot with a client: room for the client under its title. The client is this
     // project's own, made once and kept (tasks once labelled with it keep their history).
     const clientName = `${prefix}client`;
@@ -495,23 +532,7 @@ test.describe("the calendar, as the Owner", () => {
         client_id: client.id,
       });
     }
-    const staffId = await memberIdOf(USERS.staff.email);
-    const longShoot = await rpcAs<string>(USERS.owner.email, USERS.owner.password, "task_create", {
-      title: `${prefix}long shoot`,
-      description: null,
-      task_type_id: await taskTypeId("Shoot / Site Visit"),
-      client_id: client.id,
-      priority: "medium",
-      due_at: istInstant(workingDay(3), "18:00"),
-      assignee_ids: [staffId],
-      primary_owner_id: staffId,
-      approving_admin_id: null,
-      stages: [],
-      event_date: todayIST(),
-      event_start_at: istInstant(todayIST(), "13:00"),
-      event_end_at: istInstant(todayIST(), "15:30"),
-      location: "Studio C",
-    });
+    const longShoot = await event(`${prefix}long shoot`, "13:00", "15:30", client.id);
 
     await page.goto("/calendar");
     await hydrated(page);
@@ -520,14 +541,12 @@ test.describe("the calendar, as the Owner", () => {
     const historyLength = () => page.evaluate(() => window.history.length);
 
     // 1. A Month day's popup: no timeline, the agenda in time order, the buttons pinned below.
-    await dayBox(page, todayIST()).click();
+    await dayBox(page, day).click();
     const popup = daySheet(page);
     await expect(popup).toHaveAttribute("data-layout", "laptop");
     await expect(popup.locator('[data-slot="calendar-timeline"]')).toHaveCount(0);
     const agenda = popup.locator('[data-slot="calendar-agenda-events"]');
-    await expect(eventOf(agenda, shoot)).toContainText(
-      `10:00–11:00 · ${shoot.title} · Local Staff`,
-    );
+    await expect(eventOf(agenda, shoot)).toContainText(`10:00–11:00 · ${shootTitle} · Local Staff`);
     await expect(eventOf(agenda, { id: longShoot })).toContainText(
       `1:00–3:30 · ${prefix}long shoot · Local Staff · ${clientName}`,
     );
@@ -539,7 +558,7 @@ test.describe("the calendar, as the Owner", () => {
     await expect(popup.locator('[data-slot="calendar-who-free"]')).toBeVisible();
     const footer = popup.locator('[data-slot="calendar-day-footer"]');
     await expect(footer.locator('[data-slot="new-task-on-day"]')).toHaveText(
-      `New task on ${shortDay(todayIST())}`,
+      `New task on ${shortDay(day)}`,
     );
     await expect(footer.locator('[data-slot="calendar-open-day"]')).toBeVisible();
     // One scroll at most, the body's; the dialog itself never scrolls and the footer is its last
@@ -582,12 +601,19 @@ test.describe("the calendar, as the Owner", () => {
         pageScroll: document.documentElement.scrollHeight - window.innerHeight,
         bottom: timeline.getBoundingClientRect().bottom,
         viewport: window.innerHeight,
+        mainPadding: parseFloat(
+          getComputedStyle(document.querySelector("main") as Element).paddingBottom,
+        ),
         hoursScroll: hours ? hours.scrollHeight - hours.clientHeight : 0,
       };
     });
     expect(fit.pageScroll, "the page does not scroll").toBeLessThanOrEqual(0);
-    expect(fit.bottom).toBeLessThanOrEqual(fit.viewport);
-    expect(fit.viewport - fit.bottom, "the timeline reaches the bottom").toBeLessThan(40);
+    // Down to the bottom of the page's own area: the viewport less main's bottom padding (which
+    // clears a band such as the push banner when one shows).
+    expect(
+      Math.abs(fit.viewport - fit.mainPadding - fit.bottom),
+      "down to the bottom",
+    ).toBeLessThan(2);
     expect(fit.hoursScroll, "the hours scroll inside").toBeGreaterThan(0);
     // The day headings and the all-day row line up with the hours' columns exactly.
     const columns = await week.evaluate((timeline) => {
@@ -643,7 +669,7 @@ test.describe("the calendar, as the Owner", () => {
     // 6. "Due · N" in the all-day row opens that day's popup.
     await week
       .locator(
-        `[data-slot="calendar-all-day-row"] > [data-date="${todayIST()}"] [data-slot="calendar-due-chip"]`,
+        `[data-slot="calendar-all-day-row"] > [data-date="${day}"] [data-slot="calendar-due-chip"]`,
       )
       .click();
     await expect(popup).toBeVisible();
@@ -665,15 +691,23 @@ test.describe("the calendar, as the Owner", () => {
         }),
       )
       .toBe(8);
-    // T comes back to today; D is the Day view, which fits too, its side panel beside it.
+    // T comes back to today; D is the Day view, which fits too, its side panel beside it; ← and
+    // → step a day there, to this test's day.
     await page.keyboard.press("t");
     await expect(page).not.toHaveURL(/date=/);
     await page.keyboard.press("d");
     await expect(laptop).toHaveAttribute("data-view", "day");
+    const steps = Math.round(
+      (Date.parse(`${day}T00:00:00Z`) - Date.parse(`${todayIST()}T00:00:00Z`)) / 86_400_000,
+    );
+    for (let step = 0; step < Math.abs(steps); step += 1) {
+      await page.keyboard.press(steps > 0 ? "ArrowRight" : "ArrowLeft");
+    }
+    if (steps !== 0) await expect(page).toHaveURL(new RegExp(`date=${day}`));
     expect(await historyLength(), "moves and views add no history").toBe(beforeMoves);
-    const day = page.locator('[data-slot="calendar-day-view"]');
-    await expect(day).toBeVisible();
-    const dayFit = await day.evaluate((view) => {
+    const dayView = page.locator('[data-slot="calendar-day-view"]');
+    await expect(dayView).toBeVisible();
+    const dayFit = await dayView.evaluate((view) => {
       const side = view.querySelector<HTMLElement>('[data-slot="calendar-day-side"]');
       const timeline = view.querySelector<HTMLElement>('[data-slot="calendar-timeline"]');
       return {
@@ -682,11 +716,14 @@ test.describe("the calendar, as the Owner", () => {
         side: side?.getBoundingClientRect().height ?? 0,
         bottom: view.getBoundingClientRect().bottom,
         viewport: window.innerHeight,
+        mainPadding: parseFloat(
+          getComputedStyle(document.querySelector("main") as Element).paddingBottom,
+        ),
       };
     });
     expect(dayFit.pageScroll, "the page does not scroll").toBeLessThanOrEqual(0);
     expect(Math.abs(dayFit.timeline - dayFit.side), "the side panel is as tall").toBeLessThan(2);
-    expect(dayFit.viewport - dayFit.bottom).toBeLessThan(40);
+    expect(Math.abs(dayFit.viewport - dayFit.mainPadding - dayFit.bottom)).toBeLessThan(2);
     // "Due · N" in the Day's all-day row opens the popup too.
     await page.locator('[data-slot="calendar-day-view"] [data-slot="calendar-due-chip"]').click();
     await expect(popup).toBeVisible();
@@ -698,7 +735,7 @@ test.describe("the calendar, as the Owner", () => {
     await expect(laptop).toHaveAttribute("data-view", "month");
     await expect(page).toHaveURL(/view=month/);
     expect(await historyLength()).toBe(beforeMonth);
-    // Clicking a block opens its task.
+    // Clicking a block opens its task (the Week of this test's day).
     await page.keyboard.press("w");
     await expect(laptop).toHaveAttribute("data-view", "week");
     await eventOf(week, shoot).click();
