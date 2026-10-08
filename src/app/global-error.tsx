@@ -11,10 +11,11 @@ import { captureException } from "@/core/observability/client";
  */
 export default function GlobalError({
   error,
-  reset,
+  retry,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
+  /** Re-requests the page from the server (Next 16.3): `reset()` only re-renders what failed. */
+  retry: () => void;
 }) {
   useEffect(() => {
     captureException(error);
@@ -46,7 +47,7 @@ export default function GlobalError({
           {/* a last-resort page has. pressable: none */}
           <button
             type="button"
-            onClick={reset}
+            onClick={retry}
             style={{
               font: "inherit",
               fontSize: 14,

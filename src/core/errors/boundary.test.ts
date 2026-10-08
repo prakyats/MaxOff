@@ -11,6 +11,16 @@ describe("describeBoundaryError", () => {
     expect(copy.description).not.toContain("Reference");
   });
 
+  it("says the same for PostgREST's expired-JWT error seen before Next scrubs it (6.6)", () => {
+    const copy = describeBoundaryError(
+      Object.assign(new Error("JWT expired"), { code: "PGRST303" }),
+    );
+    expect(copy.kind).toBe("session-unavailable");
+    expect(describeBoundaryError(Object.assign(new Error("x"), { code: "PGRST301" })).kind).toBe(
+      "generic",
+    );
+  });
+
   it("keeps the generic copy, with the reference code when Next forwards one", () => {
     expect(describeBoundaryError({ digest: "1234567890" })).toEqual({
       kind: "generic",
