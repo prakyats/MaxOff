@@ -334,6 +334,17 @@ test.describe("the Owner's Today (6.2)", () => {
       due: istInstant(workingDay(5), "18:00"),
     });
     await moveDue(info, dueToday, istInstant(todayIST(), "23:00"));
+    // Approved leave on two working days this week: This week's one grouped leave row.
+    await resetAttendanceAndLeave(crewId);
+    const request = await rpcAs<string>(crew(info), PASSWORD, "leave_submit", {
+      type: "leave",
+      start_date: workingDay(1),
+      end_date: workingDay(2),
+    });
+    await rpcAs(USERS.owner.email, USERS.owner.password, "leave_decide", {
+      request_id: request,
+      decision: "approve",
+    });
 
     await page.goto("/today");
     await hydrated(page);
@@ -371,8 +382,8 @@ test.describe("the Owner's Today (6.2)", () => {
     // No "Needs you" list of people: the card's counts carry them (decision 24).
     await expect(page.locator('[data-slot="today-needs-you"]')).toHaveCount(0);
     await expect(page.locator("main")).not.toContainText("Everyone's in.");
-    // A risk's "overdue by …" reads red with its red dot: one status signal per row (the owner's
-    // preview review, 2026-10-09), no warning icon and no "Overdue" chip beside it.
+    // A risk's "overdue by …" reads red with its red warning icon: one status signal per row (the
+    // owner's preview review and final note, 2026-10-09), no "Overdue" chip beside it.
     await expect(
       page.locator('[data-slot="risk-row"] [data-slot="risk-signal"][data-tone="danger"]').first(),
     ).toContainText("overdue by");
@@ -386,41 +397,75 @@ test.describe("the Owner's Today (6.2)", () => {
     await expect(risk).toHaveCount(1);
     await expect(risk).toContainText(crewName(info));
     await expect(risk).toContainText("overdue by");
-    // One signal, for every risk row alike: the toned meta line and its dot; the only icon is the
-    // chevron, and no status chip.
+    // One signal, for every risk row alike: the kind's icon at the left and the meta line, both in
+    // the row's tone; no status chip, no dot, and no icon but it and the chevron.
     const riskRows = page.locator('[data-slot="risk-row"]:visible');
     for (let index = 0; index < (await riskRows.count()); index++) {
       const row = riskRows.nth(index);
       await expect(row.locator('[data-slot="status-dot"]')).toHaveCount(0);
-      await expect(row.locator("svg")).toHaveCount(1);
-      await expect(row.locator('[data-slot="risk-signal"]')).toHaveCount(1);
-      await expect(row.locator('[data-slot="risk-signal"]')).toHaveAttribute(
+      await expect(row.locator("svg")).toHaveCount(2);
+      const icon = row.locator('[data-slot="risk-icon"]');
+      const signal = row.locator('[data-slot="risk-signal"]');
+      await expect(icon).toHaveCount(1);
+      await expect(signal).toHaveCount(1);
+      const tone = await signal.getAttribute("data-tone");
+      expect(tone).toMatch(/^(danger|attention)$/);
+      await expect(icon, "the icon carries the meta line's tone").toHaveAttribute(
         "data-tone",
-        /^(danger|attention)$/,
+        tone ?? "",
       );
     }
     await expect(
       risk.locator('[data-slot="risk-signal"][data-tone="danger"]'),
       "an overdue row is red",
     ).toContainText(`${crewName(info)} · overdue by`);
+    await expect(risk.locator('[data-slot="risk-icon"][data-tone="danger"]')).toHaveCount(1);
 
-    // This week: every word labelled (owner 2026-10-09). The task due today makes today's line; a
-    // day's line is its day, then only counts ("3 due"), a holiday, events with their time
-    // ("Shoot 11:49") or "+N more", never a bare title.
-    const weekLines = page.locator('[data-slot="week-line"][data-kind="day"]:visible');
-    await expect(weekLines.first()).toBeVisible();
-    await expect(
-      page.locator('[data-slot="week-line"][data-kind="day"][data-date="' + todayIST() + '"]'),
-    ).toContainText(/^Today · \d+ due/);
-    for (let index = 0; index < (await weekLines.count()); index++) {
-      const words = (await weekLines.nth(index).innerText()).trim();
-      const [lead, ...parts] = words.split(" · ");
-      expect(lead, words).toMatch(/^(Today|Tomorrow|[A-Z][a-z]{2} \d{1,2})$/);
-      expect(parts.length, words).toBeGreaterThan(0);
-      for (const part of parts) {
-        expect(part, words).toMatch(/^\d+ due$|^Holiday: .+|^.+ \d{2}:\d{2}$|^\+\d+ more$/);
+    // This week in day blocks (the owner's final note, 2026-10-09): a block per day with something
+    // in it, its rows a time on the left and the words on the right; the task due today is today's
+    // deadline count; this project's Crew member's leave is one grouped row, never "1 on leave" a
+    // day; "Calendar ›" in the header and no separate calendar card.
+    const week = section(page, "today-events");
+    await expect(week.locator('[data-slot="week-day"]').first()).toBeVisible();
+    const labels = await week.locator('[data-slot="week-day-label"]').allInnerTexts();
+    for (const label of labels) {
+      expect(label).toMatch(/^(Today|Tomorrow|[A-Z][a-z]{2} \d{1,2} [A-Z][a-z]{2})$/);
+    }
+    const todayBlock = week.locator(`[data-slot="week-day"][data-date="${todayIST()}"]`);
+    await expect(todayBlock.locator('[data-slot="week-day-label"]')).toHaveText("Today");
+    const due = todayBlock.locator('[data-slot="week-row"][data-kind="due"]');
+    await expect(due.locator('[data-slot="week-row-when"]')).toHaveText("Due");
+    await expect(due.locator('[data-slot="week-row-title"]')).toHaveText(/^\d+ tasks? due$/);
+    const rows = week.locator('[data-slot="week-row"]');
+    for (let index = 0; index < (await rows.count()); index++) {
+      const row = rows.nth(index);
+      await expect(row.locator('[data-slot="week-row-when"]')).toHaveText(
+        /^(All day|\d{1,2}:\d{2} (am|pm)|Due)$/,
+      );
+      await expect(row.locator('[data-slot="week-row-title"]')).toHaveText(/\S/);
+      if ((await row.getAttribute("data-kind")) === "event") {
+        await expect(row.getByRole("link")).toHaveAttribute("href", /^\/tasks\//);
       }
     }
+    // The leave row sits in its first day's block, right after any holiday, so it shows unless
+    // the shared week is already past its cap (five days, eight rows), which says "See the week".
+    const leaveBlock = week.locator(`[data-slot="week-day"][data-date="${workingDay(1)}"]`);
+    if ((await leaveBlock.count()) === 0) {
+      await expect(week.locator('[data-slot="today-see-the-week"]')).toBeVisible();
+    }
+    const leaveRows = week
+      .locator('[data-slot="week-row"][data-kind="leave"]')
+      .filter({ hasText: crewName(info) });
+    const leaveShown = (await leaveBlock.count()) > 0;
+    await expect(leaveRows).toHaveCount(leaveShown ? 1 : 0);
+    if (leaveShown) {
+      await expect(leaveRows.locator('[data-slot="week-row-when"]')).toHaveText("All day");
+      await expect(leaveRows.locator('[data-slot="week-row-title"]')).toHaveText(
+        new RegExp(`^${crewName(info).replace(/[()]/g, "\\$&")} on leave · \\S`),
+      );
+    }
+    await expect(week).not.toContainText(/\d+ on leave/);
+    await expect(week.locator('[data-slot="open-calendar"]')).toHaveCount(1);
 
     // Today's tasks is one line opening All tasks on today.
     const tasksLine = section(page, "today-tasks-due").getByRole("link");
@@ -428,6 +473,7 @@ test.describe("the Owner's Today (6.2)", () => {
     await tasksLine.click();
     await expect(page).toHaveURL(/\/tasks\/all\?overdue=today$/);
     await expect(page.locator('[data-filter="overdue"]:visible')).toContainText("Due today");
+    await resetAttendanceAndLeave(crewId);
   });
 
   test("Needs you: one list of compact rows, how long each has waited, one button each; See all only when cut (the Today refresh)", async ({

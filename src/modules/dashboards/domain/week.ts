@@ -1,29 +1,31 @@
-import { addISTDays, formatIST, istDayStart, type ISODate } from "@/core/time";
+import { addISTDays, type ISODate } from "@/core/time";
 
+import { clockWord, dayWord } from "./days";
 import type { LeaveDay } from "./today";
 
 /**
- * "This week" on the Owner's Today (the Today refresh, owner 2026-10-09; ROADMAP 6b.7): the next
- * seven IST days as a few lines. A person's approved leave on consecutive days is one line, "Anna
- * on leave · Mon 12 – Wed 14" (the Owner sees names, as on the calendar); a day with deadlines,
- * events or a holiday is one line, "Thu 15 · 3 due · Shoot 11:00" (the caller hands over the
- * calendar's own days, `buildCalendar`). At most `WEEK_LINES` lines, then "See the week". Pure, so
- * it is unit-tested.
+ * "This week" on the Owner's Today (the Today refresh, owner 2026-10-09; ROADMAP 6b.7), in the
+ * **detailed layout** (the owner's final note, 2026-10-09): a block per day that has something
+ * ("Today", "Tomorrow", "Wed 14 Oct"), its rows listed under it, each a time on the left ("All
+ * day", "11:49 am") and words on the right:
  *
- * **Every word is labelled** (the owner's preview review, 2026-10-09: "Tomorrow · Edit" read as a
- * bare task title): deadlines are only ever a count, "3 due", and an event is named only with its
- * time, "Shoot 11:49". An event with no time (an all-day event task) is a deadline that day, so it
- * joins the count; a line never holds a title without "due" or a time.
+ * - a holiday ("All day" · "Holiday: Diwali");
+ * - a person's approved leave on consecutive days, **one row** in the block of its first day
+ *   ("All day" · "Prakyat on leave · Wed 14 – Thu 15"; the Owner sees names, as on the calendar);
+ * - each event task by its time and title, opening the task (the calendar's order: all-day first,
+ *   then by time);
+ * - the day's other deadlines as one count ("Due" · "3 tasks due"), opening the calendar's day.
+ *
+ * Days with nothing are left out. At most `WEEK_DAYS_SHOWN` days and `WEEK_ROWS_SHOWN` rows, then
+ * "See the week" (the calendar's week). Pure, so it is unit-tested; the caller hands over the
+ * calendar's own days (`buildCalendar`).
  */
 
-/** How many lines show before "See the week". */
-export const WEEK_LINES = 5;
+/** At most this many day blocks show before "See the week". */
+export const WEEK_DAYS_SHOWN = 5;
 
-/** How many timed events a day's line names before "+N more". */
-export const WEEK_EVENTS_NAMED = 2;
-
-/** The longest an event's title runs on a line before "…", so its time always shows. */
-export const WEEK_EVENT_TITLE_MAX = 24;
+/** At most this many rows show, across the blocks, before "See the week". */
+export const WEEK_ROWS_SHOWN = 8;
 
 /** One day as the calendar's month view has it. */
 export type WeekDay = {
@@ -31,19 +33,22 @@ export type WeekDay = {
   holiday: string | null;
   /** The open tasks due that day that are not events (the calendar's "3 due"). */
   due: number;
-  /** The day's events, in the calendar's order: timed ones are named, untimed ones join "due". */
-  events: readonly { title: string; startAt: string | null }[];
+  /** The day's event tasks, in the calendar's order (all-day first, then by time). */
+  events: readonly { id: string; title: string; startAt: string | null }[];
 };
 
-/** A line: its words (the first one is the lead, drawn stronger) and the day a tap opens. */
-export type WeekLine = {
-  kind: "day" | "leave";
-  /** The first day the line is about: the calendar opens on it. */
-  date: ISODate;
-  parts: string[];
-  /** A stable key: the day, or the person and their first day. */
+/** A row: the time column, the words, where a tap goes, and what it is. */
+export type WeekRow = {
+  kind: "holiday" | "leave" | "event" | "due";
+  /** "All day", "11:49 am", "Due". */
+  when: string;
+  title: string;
+  href: string;
   key: string;
 };
+
+/** A day's block: its word and its rows. */
+export type WeekBlock = { date: ISODate; label: string; rows: WeekRow[] };
 
 const LEAVE_PHRASE: Record<"leave" | "half_day" | "comp_leave", string> = {
   leave: "on leave",
@@ -57,11 +62,10 @@ function leaveKind(value: string | null): LeaveKind | null {
   return value === "leave" || value === "half_day" || value === "comp_leave" ? value : null;
 }
 
-/** "Today", "Tomorrow", else "Thu 15" (a week has no room for the month). */
+/** "Today", "Tomorrow", else "Thu 15" (a span's ends: the month is in the block's heading). */
 export function shortDay(date: ISODate, today: ISODate): string {
-  if (date === today) return "Today";
-  if (date === addISTDays(today, 1)) return "Tomorrow";
-  return formatIST(istDayStart(date), "EEE d");
+  const word = dayWord(date, today);
+  return word === "Today" || word === "Tomorrow" ? word : word.replace(/ [A-Z][a-z]{2}$/, "");
 }
 
 /** "Mon 12", or "Mon 12 – Wed 14" for a span. */
@@ -69,30 +73,9 @@ export function daySpan(from: ISODate, to: ISODate, today: ISODate): string {
   return from === to ? shortDay(from, today) : `${shortDay(from, today)} – ${shortDay(to, today)}`;
 }
 
-/** "Shoot 11:00": the title (cut to `WEEK_EVENT_TITLE_MAX`) and its IST 24-hour start. */
-function eventWords(event: { title: string; startAt: string }): string {
-  const title = event.title.trim();
-  const short =
-    title.length > WEEK_EVENT_TITLE_MAX
-      ? `${title.slice(0, WEEK_EVENT_TITLE_MAX - 1).trimEnd()}…`
-      : title;
-  return `${short} ${formatIST(event.startAt, "HH:mm")}`;
-}
-
-/** A day's line, or null when the day holds nothing to say. */
-function dayLine(day: WeekDay, today: ISODate): WeekLine | null {
-  const timed = day.events.flatMap((event) =>
-    event.startAt === null ? [] : [{ title: event.title, startAt: event.startAt }],
-  );
-  const due = day.due + (day.events.length - timed.length);
-  if (day.holiday === null && due === 0 && timed.length === 0) return null;
-  const parts = [shortDay(day.date, today)];
-  if (day.holiday !== null) parts.push(`Holiday: ${day.holiday}`);
-  if (due > 0) parts.push(`${due} due`);
-  parts.push(...timed.slice(0, WEEK_EVENTS_NAMED).map(eventWords));
-  const more = timed.length - WEEK_EVENTS_NAMED;
-  if (more > 0) parts.push(`+${more} more`);
-  return { kind: "day", date: day.date, parts, key: `day-${day.date}` };
+/** Where a day opens: the calendar on that day (today: the calendar as it opens). */
+export function dayHref(date: ISODate, today: ISODate): string {
+  return date === today ? "/calendar" : `/calendar?date=${date}`;
 }
 
 /**
@@ -128,47 +111,85 @@ export function leaveSpans(
   return spans;
 }
 
+/** A day's rows: the holiday, the leave starting that day (by name), the events, the deadlines. */
+function dayRows(day: WeekDay, leave: readonly WeekRow[], today: ISODate): WeekRow[] {
+  const rows: WeekRow[] = [];
+  if (day.holiday !== null) {
+    rows.push({
+      kind: "holiday",
+      when: "All day",
+      title: `Holiday: ${day.holiday}`,
+      href: dayHref(day.date, today),
+      key: `holiday-${day.date}`,
+    });
+  }
+  rows.push(...leave);
+  for (const event of day.events) {
+    rows.push({
+      kind: "event",
+      when: event.startAt ? clockWord(event.startAt) : "All day",
+      title: event.title,
+      href: `/tasks/${event.id}`,
+      key: `event-${event.id}`,
+    });
+  }
+  if (day.due > 0) {
+    rows.push({
+      kind: "due",
+      when: "Due",
+      title: day.due === 1 ? "1 task due" : `${day.due} tasks due`,
+      href: dayHref(day.date, today),
+      key: `due-${day.date}`,
+    });
+  }
+  return rows;
+}
+
 /**
- * The week's lines in date order (on the same day, the day's own line first, then leave by name),
- * the first `WEEK_LINES`, and how many more there are.
+ * The week's blocks in date order, cut to `WEEK_DAYS_SHOWN` days and `WEEK_ROWS_SHOWN` rows (a
+ * day's rows are cut too when the rows run out; the first day always shows), and how many rows
+ * were left out (then "See the week").
  */
-export function weekLines(input: {
+export function weekBlocks(input: {
   days: readonly WeekDay[];
   leave: readonly LeaveDay[];
   nameOf: (memberId: string) => string;
   today: ISODate;
-}): { lines: WeekLine[]; hidden: number } {
-  const dates = input.days.map((day) => day.date).sort();
-  const from = dates[0];
-  const to = dates.at(-1);
-  if (from === undefined || to === undefined) return { lines: [], hidden: 0 };
-  const dayLines = input.days.flatMap((day) => {
-    const line = dayLine(day, input.today);
-    return line ? [line] : [];
+}): { blocks: WeekBlock[]; hidden: number } {
+  const days = [...input.days].sort((a, b) => a.date.localeCompare(b.date));
+  const from = days[0]?.date;
+  const to = days.at(-1)?.date;
+  if (from === undefined || to === undefined) return { blocks: [], hidden: 0 };
+  const leaveByDay = new Map<ISODate, WeekRow[]>();
+  const spans = leaveSpans(input.leave, { from, to })
+    .map((span) => ({ ...span, name: input.nameOf(span.memberId) }))
+    .sort((a, b) => a.from.localeCompare(b.from) || a.name.localeCompare(b.name));
+  for (const span of spans) {
+    const rows = leaveByDay.get(span.from) ?? [];
+    rows.push({
+      kind: "leave",
+      when: "All day",
+      title: `${span.name} ${LEAVE_PHRASE[span.kind]} · ${daySpan(span.from, span.to, input.today)}`,
+      href: dayHref(span.from, input.today),
+      key: `leave-${span.memberId}-${span.from}`,
+    });
+    leaveByDay.set(span.from, rows);
+  }
+  const all = days.flatMap((day): WeekBlock[] => {
+    const rows = dayRows(day, leaveByDay.get(day.date) ?? [], input.today);
+    return rows.length > 0 ? [{ date: day.date, label: dayWord(day.date, input.today), rows }] : [];
   });
-  const leaveLines = leaveSpans(input.leave, { from, to }).map(
-    (span): WeekLine & { name: string } => {
-      const name = input.nameOf(span.memberId);
-      return {
-        kind: "leave",
-        date: span.from,
-        parts: [`${name} ${LEAVE_PHRASE[span.kind]}`, daySpan(span.from, span.to, input.today)],
-        key: `leave-${span.memberId}-${span.from}`,
-        name,
-      };
-    },
-  );
-  const order = (line: WeekLine & { name?: string }) =>
-    `${line.date}|${line.kind === "day" ? "0" : "1"}|${line.name ?? ""}|${line.key}`;
-  const all = [...dayLines, ...leaveLines]
-    .sort((a, b) => order(a).localeCompare(order(b)))
-    .map(({ kind, date, parts, key }): WeekLine => ({ kind, date, parts, key }));
-  return { lines: all.slice(0, WEEK_LINES), hidden: Math.max(0, all.length - WEEK_LINES) };
-}
-
-/** Where a line opens: the calendar on its first day (today: the calendar as it opens). */
-export function weekLineHref(line: Pick<WeekLine, "date">, today: ISODate): string {
-  return line.date === today ? "/calendar" : `/calendar?date=${line.date}`;
+  const total = all.reduce((sum, block) => sum + block.rows.length, 0);
+  const blocks: WeekBlock[] = [];
+  let left = WEEK_ROWS_SHOWN;
+  for (const block of all) {
+    if (blocks.length === WEEK_DAYS_SHOWN || left === 0) break;
+    const rows = block.rows.slice(0, left);
+    left -= rows.length;
+    blocks.push({ ...block, rows });
+  }
+  const shown = blocks.reduce((sum, block) => sum + block.rows.length, 0);
+  return { blocks, hidden: total - shown };
 }
 
 /** "See the week": the calendar's week (the laptop's Week view; a phone opens on today). */

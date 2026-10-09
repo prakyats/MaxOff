@@ -1,4 +1,13 @@
-import { CalendarDaysIcon, ChevronRightIcon, MailWarningIcon, MapPinIcon } from "lucide-react";
+import {
+  AlertTriangleIcon,
+  CalendarDaysIcon,
+  ChevronRightIcon,
+  ClockIcon,
+  MailWarningIcon,
+  MapPinIcon,
+  UserXIcon,
+  WifiOffIcon,
+} from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -20,7 +29,7 @@ import {
   STRIP_EMPTY,
   type StripDay,
 } from "../domain/today";
-import { SEE_THE_WEEK_HREF, type WeekLine, weekLineHref } from "../domain/week";
+import { SEE_THE_WEEK_HREF, type WeekBlock, type WeekRow } from "../domain/week";
 
 import { LinkRow, QuietText, RowList, ShowFirst } from "./blocks";
 
@@ -117,22 +126,28 @@ export function EventRowsSkeleton({ rows }: { rows: number }) {
   );
 }
 
-/** The one status signal's colours: the meta line and its dot (owner 2026-10-09). */
-const RISK_TONE = {
-  danger: { text: "text-danger", dot: "bg-danger" },
-  attention: { text: "text-attention", dot: "bg-attention" },
+const RISK_ICONS = {
+  overdue: AlertTriangleIcon,
+  not_noted: ClockIcon,
+  on_leave: UserXIcon,
+  unreachable: WifiOffIcon,
 } as const;
+
+/** The one status signal's colour: the icon and the meta line together (owner 2026-10-09). */
+const RISK_TONE = { danger: "text-danger", attention: "text-attention" } as const;
 
 /**
  * One risk as a row (decisions 6, 10): what it is, about whom, and where a tap goes. **One status
- * signal** (the owner's preview review, 2026-10-09): the meta line in red (overdue) or amber (the
- * rest) with a small dot of the same colour before it; no icon, no chip, the same for every kind.
+ * signal** (the owner's preview review and final note, 2026-10-09): the kind's icon at the left
+ * (a triangle for overdue, a clock for not noted, the leave and no-signal icons) and the meta line,
+ * both red (overdue) or amber (the rest); no chip and no dot, the same for every kind.
  */
 function riskRow(
   risk: Risk,
   context: { nameOf: (id: string) => string; today: ISODate; now: Date },
 ): ReactNode {
   const words = riskWords(risk, context);
+  const Icon = RISK_ICONS[words.icon];
   const tone = RISK_TONE[words.tone];
   const key =
     "taskId" in risk
@@ -143,18 +158,18 @@ function riskRow(
       key={key}
       href={words.href}
       slot="risk-row"
+      icon={
+        <Icon
+          data-slot="risk-icon"
+          data-tone={words.tone}
+          className={cn("size-4", tone)}
+          aria-hidden
+        />
+      }
       title={words.title}
       detail={
-        <span
-          data-slot="risk-signal"
-          data-tone={words.tone}
-          className={cn("inline-flex max-w-full items-baseline gap-1.5", tone.text)}
-        >
-          <span
-            aria-hidden
-            className={cn("size-1.5 shrink-0 self-center rounded-full", tone.dot)}
-          />
-          <span className="min-w-0 break-words">{words.detail}</span>
+        <span data-slot="risk-signal" data-tone={words.tone} className={tone}>
+          {words.detail}
         </span>
       }
     />
@@ -297,50 +312,76 @@ export function EventsStrip<T extends DayEvent>({
 }
 
 /**
- * The Owner's "This week" (the Today refresh, owner 2026-10-09): `weekLines`' lines, the day or
- * the person first, every other word labelled, opening the calendar on its first day; "See the
- * week" only when lines were cut. The section's header carries "Calendar ›"
- * (`CalendarHeaderLink`).
+ * The Owner's "This week" (the Today refresh, owner 2026-10-09, in the detailed layout of his
+ * final note): `weekBlocks`' day blocks, each a heading ("Today", "Wed 14 Oct") over its rows, a
+ * time on the left ("All day", "11:49 am", "Due") and the words on the right, each row opening
+ * its task (an event) or the calendar's day; "See the week" only when rows were left out. The
+ * section's header carries "Calendar ›" (`CalendarHeaderLink`); no separate calendar card.
  */
-export function WeekLines({
-  lines,
-  hidden,
-  today,
-}: {
-  lines: readonly WeekLine[];
-  hidden: number;
-  today: ISODate;
-}) {
+export function WeekBlocks({ blocks, hidden }: { blocks: readonly WeekBlock[]; hidden: number }) {
   return (
-    <div className="flex min-w-0 flex-col gap-2" data-slot="week-lines">
-      <RowList label="The next 7 days">
-        {lines.map((line) => {
-          const [lead, ...rest] = line.parts;
-          return (
-            <li key={line.key} data-slot="week-line" data-kind={line.kind} data-date={line.date}>
-              <Link
-                href={weekLineHref(line, today)}
-                className="pressable-row focus-visible:ring-ring flex min-h-11 min-w-0 items-center gap-3 px-4 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset"
-              >
-                {/* Never cut short (owner 2026-10-09): the words are short and labelled ("3 due",
-                    "Shoot 11:49"), an event's title is capped in the words themselves, and a
-                    long line wraps, at large system text too (§14.2 i). */}
-                <span data-slot="week-line-text" className="min-w-0 flex-1 break-words">
-                  <span className="font-medium">{lead}</span>
-                  {rest.length > 0 ? ` · ${rest.join(" · ")}` : null}
-                </span>
-                <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
-              </Link>
-            </li>
-          );
-        })}
-      </RowList>
+    <div className="flex min-w-0 flex-col gap-2" data-slot="week-blocks">
+      <ul
+        aria-label="The next 7 days"
+        className="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border"
+      >
+        {blocks.map((block) => (
+          <li
+            key={block.date}
+            data-slot="week-day"
+            data-date={block.date}
+            className="flex flex-col"
+          >
+            <div className="flex min-h-9 items-center px-4 pt-2 text-xs font-semibold">
+              <span data-slot="week-day-label">{block.label}</span>
+            </div>
+            <ul className="flex flex-col pb-1">
+              {block.rows.map((row) => (
+                <li key={row.key} data-slot="week-row" data-kind={row.kind}>
+                  <WeekRowLink row={row} />
+                </li>
+              ))}
+            </ul>
+          </li>
+        ))}
+      </ul>
       {hidden > 0 ? (
         <RowList label="The rest of the week">
           <LinkRow href={SEE_THE_WEEK_HREF} slot="today-see-the-week" title="See the week" tab />
         </RowList>
       ) : null}
     </div>
+  );
+}
+
+/** One row of a day: an event drills into its task; the rest open the calendar (another tab). */
+function WeekRowLink({ row }: { row: WeekRow }) {
+  const content = (
+    <>
+      <span
+        data-slot="week-row-when"
+        className="text-muted-foreground w-16 shrink-0 text-xs tabular-nums"
+      >
+        {row.when}
+      </span>
+      <span data-slot="week-row-title" className={cn("font-medium break-words", CARD_ROW_TITLE)}>
+        {row.title}
+      </span>
+      <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
+    </>
+  );
+  // `flex-wrap`, as every row with `CARD_ROW_TITLE`: at large system text the time, the title's
+  // 6rem and the chevron no longer fit one line at 375px.
+  const className =
+    "focus-visible:ring-ring flex min-h-11 flex-wrap items-center gap-3 px-4 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset";
+  return row.kind === "event" ? (
+    <DrillLink href={row.href} className={className}>
+      {content}
+    </DrillLink>
+  ) : (
+    <Link href={row.href} className={cn("pressable-row", className)}>
+      {content}
+    </Link>
   );
 }
 

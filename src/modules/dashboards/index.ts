@@ -63,11 +63,12 @@ export {
 } from "./domain/waiting";
 export {
   SEE_THE_WEEK_HREF,
-  WEEK_LINES,
-  weekLineHref,
-  weekLines,
+  WEEK_DAYS_SHOWN,
+  WEEK_ROWS_SHOWN,
+  weekBlocks,
+  type WeekBlock,
   type WeekDay,
-  type WeekLine,
+  type WeekRow,
 } from "./domain/week";
 export {
   DashSection,
@@ -85,5 +86,5 @@ export {
   EventsStrip,
   EventsStripSkeleton,
   RiskRows,
-  WeekLines,
+  WeekBlocks,
 } from "./components/day-blocks";

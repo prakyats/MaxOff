@@ -1,4 +1,4 @@
-import { ListChecksIcon } from "lucide-react";
+import { FolderClockIcon, ListChecksIcon } from "lucide-react";
 
 import type { CurrentMember } from "@/core/auth/server";
 import { can } from "@/core/permissions";
@@ -31,8 +31,8 @@ import {
   todaysTasks,
   todaysTasksLine,
   waitingFor,
-  WeekLines,
-  weekLines,
+  WeekBlocks,
+  weekBlocks,
   type Risk,
   type Waiting,
 } from "@/modules/dashboards";
@@ -81,14 +81,15 @@ import { ownerGreeting } from "./words";
  * 2. **Attendance**: the four counts in one row; Absent and yesterday's unended days as red lines
  *    under it, only above zero (decision 24's counts, links and colours; owner 2026-10-09).
  * 3. **Today's tasks**: one line, "N due today · M handed in".
- * 4. **Client work** (7.4; kickoff 7 amendment C, E1): one line, "N client items overdue" in red
- *    with its dot, hidden at zero, opening the cross-client list grouped by Admin; no item
+ * 4. **Client work** (7.4; kickoff 7 amendment C, E1): one line, "N client items overdue", its
+ *    icon and words in red, hidden at zero, opening the cross-client list grouped by Admin; no item
  *    approvals (issue #56 Q1: the client's Admin's) and no progress line (not an exception).
- * 5. **Overdue and risks** (decisions 6, 23): one status signal per row, the meta line in red or
- *    amber with its dot.
- * 6. **This week**: a person's consecutive leave as one line, each day's deadlines as a count ("3
- *    due") and its timed events by title and time, at most five lines then "See the week";
- *    "Calendar ›" in the header.
+ * 5. **Overdue and risks** (decisions 6, 23): one status signal per row, the kind's icon and the
+ *    meta line in red (overdue) or amber.
+ * 6. **This week** (the detailed layout, the owner's final note 2026-10-09): a block per day with
+ *    something in it, its rows a time on the left and the words on the right (a holiday, a
+ *    person's consecutive leave as one row, each event opening its task, the deadlines as a
+ *    count), at most five days and eight rows, then "See the week"; "Calendar ›" in the header.
  *
  * Sections 3–6 are drawn only with something in them (decision 24: exceptions only); when none
  * is, one muted line: "Nothing else needs you today." Not shown until their data exists
@@ -193,7 +194,7 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
     })),
   ]);
 
-  const week = weekLines({
+  const week = weekBlocks({
     days: calendarWeek({ today, last, viewerId: viewer.id, events, open, types, holidays }),
     leave: leaveDays,
     nameOf,
@@ -204,7 +205,7 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
     tasks: dueToday.due > 0,
     risks: risks.length > 0 || (held !== null && heldEmailsLine(held) !== null),
     clientWork: overdueItems > 0,
-    week: week.lines.length > 0,
+    week: week.blocks.length > 0,
   };
   const nothing = !Object.values(sections).some(Boolean);
 
@@ -269,29 +270,30 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
           </DashSection>
         ) : null}
 
-        {/* Client work (7.4), after Today's tasks (owner 2026-10-09): one line, red for overdue
-            with its dot (the row's one status signal, as the risk rows). */}
+        {/* Client work (7.4), after Today's tasks (owner 2026-10-09): one line, red for overdue,
+            its icon and words in the one tone (the row's one status signal, as the risk rows). */}
         {sections.clientWork ? (
           <DashSection title="Client work" slot="today-client-work">
             <RowList label="Client work" slot="today-client-work-line">
               <LinkRow
                 href="/clients/items?filter=overdue"
                 slot="today-items-overdue"
+                icon={
+                  <FolderClockIcon
+                    data-slot="today-items-overdue-icon"
+                    className="text-danger size-4"
+                    aria-hidden
+                  />
+                }
                 title={
                   <span
                     data-slot="today-items-overdue-signal"
                     data-tone="danger"
-                    className="text-danger inline-flex max-w-full items-baseline gap-1.5"
+                    className="text-danger"
                   >
-                    <span
-                      aria-hidden
-                      className="bg-danger size-1.5 shrink-0 self-center rounded-full"
-                    />
-                    <span className="min-w-0 break-words">
-                      {overdueItems === 1
-                        ? "1 client item overdue"
-                        : `${overdueItems} client items overdue`}
-                    </span>
+                    {overdueItems === 1
+                      ? "1 client item overdue"
+                      : `${overdueItems} client items overdue`}
                   </span>
                 }
                 detail="Grouped by Admin"
@@ -317,7 +319,7 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
 
         {sections.week ? (
           <DashSection title="This week" slot="today-events" action={<CalendarHeaderLink />}>
-            <WeekLines lines={week.lines} hidden={week.hidden} today={today} />
+            <WeekBlocks blocks={week.blocks} hidden={week.hidden} />
           </DashSection>
         ) : null}
 
@@ -387,7 +389,11 @@ function calendarWeek(input: {
     date: day.date,
     holiday: day.holiday,
     due: day.due.length,
-    events: day.events.map((event) => ({ title: event.title, startAt: event.startAt })),
+    events: day.events.map((event) => ({
+      id: event.id,
+      title: event.title,
+      startAt: event.startAt,
+    })),
   }));
 }
 

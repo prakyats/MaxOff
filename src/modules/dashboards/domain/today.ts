@@ -428,16 +428,17 @@ export function clientCountsLine({ open, overdue }: { open: number; overdue: num
 // A risk's words -----------------------------------------------------------------------------------
 
 /**
- * A risk row's words. **One status signal per row** (the owner's preview review, 2026-10-09): the
- * meta line in its tone, with a small dot of that tone before it: red for overdue, amber for the
- * rest. No icon and no chip beside it, for every kind alike; the words carry the meaning.
+ * A risk row's words. **One status signal per row** (the owner's preview review and final note,
+ * 2026-10-09): the kind's icon and the meta line in its tone, red for overdue, amber for the rest.
+ * No chip and no dot, for every kind alike; the words carry the meaning.
  */
 export type RiskWords = {
   title: string;
   detail: string;
-  /** The meta line's colour and its dot: red for "overdue by …" (decision 24), else amber. */
+  /** The icon's and the meta line's colour: red for "overdue by …" (decision 24), else amber. */
   tone: "danger" | "attention";
   href: string;
+  icon: "overdue" | "not_noted" | "on_leave" | "unreachable";
 };
 
 const LEAVE_PHRASE: Record<"leave" | "half_day" | "comp_leave", string> = {
@@ -466,6 +467,7 @@ export function riskWords(
         detail: `${context.nameOf(risk.ownerId)} · overdue by ${spanWords(hoursSince(risk.dueAt))}`,
         tone: "danger",
         href: `/tasks/${risk.taskId}`,
+        icon: "overdue",
       };
     case "not_noted": {
       const first = risk.waiting[0];
@@ -477,6 +479,7 @@ export function riskWords(
           `${who}${more} hasn't noted it · ${first ? spanWords(hoursSince(first.since)) : ""}`.trim(),
         tone: "attention",
         href: `/tasks/${risk.taskId}`,
+        icon: "not_noted",
       };
     }
     case "on_leave": {
@@ -488,6 +491,7 @@ export function riskWords(
         detail: `${context.nameOf(risk.memberId)} is ${LEAVE_PHRASE[risk.leave]} ${when}, ${what}`,
         tone: "attention",
         href: `/tasks/${risk.taskId}`,
+        icon: "on_leave",
       };
     }
     case "unreachable":
@@ -498,6 +502,7 @@ export function riskWords(
         }`,
         tone: "attention",
         href: "/settings/notifications",
+        icon: "unreachable",
       };
   }
 }
