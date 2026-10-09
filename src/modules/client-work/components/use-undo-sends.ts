@@ -9,21 +9,20 @@ import { DelayedSends, UNDO_MS } from "@/core/ui/delayed-sends";
 import { postKeepalive } from "@/core/ui/keepalive";
 import { describeError } from "@/core/ui/toast";
 
-/** The routes behind the delayed sends: they outlive the page (a keepalive request). */
+/** The route behind the delayed send: it outlives the page (a keepalive request). */
 export const MARK_DONE_URL = "/api/client-work/mark-done";
-export const APPROVE_URL = "/api/approvals/approve";
 
 export type UndoSendConfig = {
   url: string;
   /** The request body for one item. */
   body: (itemId: string) => unknown;
-  /** The toast while Undo is offered: "Marked Reel 1 done", "Approved Reel 1". */
+  /** The toast while Undo is offered: "Marked Reel 1 done". */
   said: (title: string) => string;
-  /** What did not happen when the send failed on the network: "It was not approved." */
+  /** What did not happen when the send failed on the network: "It was not marked done." */
   notDone: string;
-  /** Undo after the send left: "Undo came too late: it was approved." */
+  /** Undo after the send left: "Undo came too late: it was marked done." */
   tooLate: string;
-  /** Keeps each item's toast apart: "item-done", "item-approve". */
+  /** Keeps each item's toast apart: "item-done". */
   toastKey: string;
 };
 
@@ -37,7 +36,7 @@ export type UndoSends = {
 
 /**
  * **Instant, with the 6-second Undo** (WORKFLOWS §1 "Settled in 2.4"; the client-work rows'
- * Mark done and Approve, as Approvals' Approve): nothing is sent until the Undo toast has gone
+ * Mark done, which approves since amendment D3, as Approvals' Approve): nothing is sent until the Undo toast has gone
  * (`DelayedSends`), Undo drops it, and every send still waiting leaves at once when the app is
  * hidden, left or the list unmounts, so nothing is ever lost. A held row stays, faded, until the
  * server's refreshed list arrives; a failed send puts the row back with its message.

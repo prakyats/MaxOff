@@ -182,6 +182,9 @@ test.describe("Owner", () => {
     await expect(page.locator('[data-slot="field-error"]').first()).toBeVisible();
     await overdue.fill("36");
     await undecided.fill("3");
+    // The digest day's "Thresholds saved" can still be on screen: it must not stand for this
+    // save, or the reload below races the save (7B rework: red on every local run).
+    await expect(page.getByText("Thresholds saved")).toBeHidden();
     await page.getByRole("button", { name: "Save thresholds" }).click();
     await expect(page.getByText("Thresholds saved")).toBeVisible();
     await page.reload();

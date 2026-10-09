@@ -5,9 +5,9 @@ import { sameOrigin } from "@/core/http/origin";
 import { markItemDone } from "@/modules/client-work";
 
 /**
- * One "Mark done" from Today's Client work (7.3; kickoff 7 decision 19): the delayed send behind its
- * 6-second Undo. A route handler rather than a server action only so the browser can send it with
- * `keepalive`: the send that fires when the app is hidden, closed or left must outlive the page
+ * One "Mark done" (approved in the same step, amendment D3) from Today's Client work or a project
+ * page (7.3; kickoff 7 decision 19): the delayed send behind its 6-second Undo. A route handler
+ * rather than a server action only so the browser can send it with `keepalive`: the send that fires when the app is hidden, closed or left must outlive the page
  * (as Approvals', `app/api/approvals/approve`). The work is the server action itself (zod →
  * `assertPermission("items.tick")` → `item_mark_done`), answering with its `Result`.
  *

@@ -728,6 +728,28 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
       here,
     );
 
+    // A line's own stages (amendment D2): a sheet over the item list; one back each.
+    await menu.click();
+    await page.getByRole("menuitem", { name: "Item list" }).click();
+    await list.getByRole("button", { name: "Stages of Reel" }).click();
+    const lineStages = page.getByRole("dialog", { name: "Stages of Reel" });
+    await expect(lineStages.getByLabel("Name of Script")).toBeVisible();
+    await lineStages.getByLabel("New stage").fill("Post");
+    await lineStages.getByRole("button", { name: "Add", exact: true }).click();
+    await expect(lineStages.getByLabel("Name of Post")).toBeVisible();
+    await expect
+      .poll(async () => {
+        const [line] = await serviceSelect<{ stages: string[] }>(
+          `project_item_blueprints?project_id=eq.${projectId}&title=eq.Reel&select=stages`,
+        );
+        return line?.stages;
+      })
+      .toEqual(["Script", "Post"]);
+    await expectBackStack(page, [
+      { closes: lineStages, url: here },
+      { closes: list, url: here },
+    ]);
+
     // Add item.
     await page.getByRole("button", { name: "Add item" }).click();
     const add = page.getByRole("dialog", { name: "Add an item" });

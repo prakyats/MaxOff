@@ -176,7 +176,8 @@ export const updateBlueprint = action(
     await assertPermission("projects.manage");
     await repo.updateBlueprint(
       data.blueprintId,
-      changesOf({ title: data.title, position: data.position }),
+      // Amendment D2: a line's own stages (a list of names) change here too.
+      changesOf({ title: data.title, position: data.position, stages: data.stages }),
     );
     revalidate();
     return ok(null);
