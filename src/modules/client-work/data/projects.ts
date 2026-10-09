@@ -110,12 +110,13 @@ export function toProject(
   };
 }
 
-export const CYCLE_COLUMNS = "id, project_id, period_start, period_end, label, state";
+export const CYCLE_COLUMNS =
+  "id, project_id, period_start, period_end, label, state, item_list_copied";
 
 export function toCycle(
   row: Pick<
     Tables<"project_cycles">,
-    "id" | "project_id" | "period_start" | "period_end" | "label" | "state"
+    "id" | "project_id" | "period_start" | "period_end" | "label" | "state" | "item_list_copied"
   >,
 ): Cycle {
   return {
@@ -125,6 +126,7 @@ export function toCycle(
     periodEnd: row.period_end,
     label: row.label,
     state: row.state,
+    itemListCopied: row.item_list_copied,
   };
 }
 

@@ -73,6 +73,8 @@ export type Cycle = {
   /** "October 2026", "5–11 Oct 2026"; null for a one-time project (decision 26). */
   label: string | null;
   state: CycleState;
+  /** False while a cycle a carry made for a non-Active client waits for the item list (Q4 (a)). */
+  itemListCopied: boolean;
 };
 
 export type Stage = {

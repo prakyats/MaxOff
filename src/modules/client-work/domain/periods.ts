@@ -53,40 +53,52 @@ export function nextStartable(
 export type ItemListPeriods = {
   /** "month" / "week": what each new cycle is. */
   unit: "month" | "week";
-  /** The first period whose cycle is not made yet: where a new line starts ("November 2026"). */
+  /** The first period whose cycle will still take the item list: where a new line starts. */
   from: string;
   /** The running cycle that takes new items through + Add item ("October 2026"), or null. */
   running: string | null;
 };
 
+/** The cycle facts the Item list's words read (`project_cycles`). */
+export type ItemListCycle = {
+  periodStart: string | null;
+  periodEnd: string | null;
+  label: string | null;
+  /** False: a carry made the cycle while the client was not Active; the list joins it later. */
+  itemListCopied: boolean;
+};
+
 /**
- * What the Item list says (amendment D4, owner 2026-10-09: wording only): a line added or removed
- * changes the cycles not made yet, from the first period without one (the next period, or the one
- * after when ⋯ Start began it early); the running cycle's items never change, and something for
- * it goes in through + Add item on the project page. `running` is the cycle whose period holds
- * today, when it can take items (`canAddNow`: the project open or in progress, the client not
- * Inactive, as `item_add`). Null for a one-time project (no item list).
+ * What the Item list says (amendment D4, owner 2026-10-09: wording only). A line added or removed
+ * changes every cycle still to be built from the list, as the nightly `app.cycle_generate` builds
+ * them (WORKFLOWS §5.4 item 9): the scan starts at the period holding today and skips only a period
+ * whose cycle exists with the list already copied in (`item_list_copied`). So the current period is
+ * named when it has no cycle yet (a Draft or Paused client, from its first Active night; a project
+ * reopened, from the night after) or when its cycle was made by a carry while the client was not
+ * Active (the list joins it once the client is Active); otherwise the next period, or the one after
+ * when ⋯ Start began it early with the list. `running` is the cycle whose period holds today, only
+ * when its list is already in (so its items no longer follow the list) and it can take items
+ * (`canAddNow`: the project open or in progress, the client not Inactive, as `item_add`). Null for a
+ * one-time project (no item list).
  */
 export function itemListPeriods(
   recurrence: Recurrence,
   today: ISODate,
-  cycles: readonly { periodStart: string | null; periodEnd: string | null; label: string | null }[],
+  cycles: readonly ItemListCycle[],
   canAddNow: boolean,
 ): ItemListPeriods | null {
   if (recurrence === "one_time") return null;
-  const starts = new Set(cycles.map((cycle) => cycle.periodStart));
-  let from = periodNext(recurrence, periodStart(recurrence, today));
-  while (starts.has(from)) from = periodNext(recurrence, from);
-  const running = cycles.find(
-    (cycle) =>
-      cycle.periodStart !== null &&
-      cycle.periodStart <= today &&
-      (cycle.periodEnd === null || cycle.periodEnd >= today),
+  const listed = new Set(
+    cycles.filter((cycle) => cycle.itemListCopied).map((cycle) => cycle.periodStart),
   );
+  const current = periodStart(recurrence, today);
+  let from = current;
+  while (listed.has(from)) from = periodNext(recurrence, from);
+  const running = cycles.find((cycle) => cycle.itemListCopied && cycle.periodStart === current);
   return {
     unit: recurrence === "monthly" ? "month" : "week",
     from: cycleLabel(recurrence, from),
-    running: canAddNow && running ? (running.label ?? cycleLabel(recurrence, today)) : null,
+    running: canAddNow && running ? (running.label ?? cycleLabel(recurrence, current)) : null,
   };
 }
 

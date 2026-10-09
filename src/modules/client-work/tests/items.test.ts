@@ -165,7 +165,14 @@ describe("cycles", () => {
 });
 
 describe("the Item list's words (amendment D4)", () => {
-  const october = { periodStart: "2026-10-01", periodEnd: "2026-10-31", label: "October 2026" };
+  const cycle = (periodStart: string, periodEnd: string, label: string, itemListCopied = true) => ({
+    periodStart,
+    periodEnd,
+    label,
+    itemListCopied,
+  });
+  const october = cycle("2026-10-01", "2026-10-31", "October 2026");
+  const november = cycle("2026-11-01", "2026-11-30", "November 2026");
 
   it("names the running cycle and the period a new line starts from", () => {
     const periods = itemListPeriods("monthly", TODAY, [october], true);
@@ -181,31 +188,59 @@ describe("the Item list's words (amendment D4)", () => {
   });
 
   it("starts from the period after one begun early with ⋯ Start", () => {
-    const november = { periodStart: "2026-11-01", periodEnd: "2026-11-30", label: "November 2026" };
     expect(itemListPeriods("monthly", "2026-10-28", [october, november], true)?.from).toBe(
       "December 2026",
     );
   });
 
-  it("says only what every period starts with when no cycle can take items", () => {
-    // An Inactive client, a closed project, or no cycle holding today.
-    for (const periods of [
-      itemListPeriods("monthly", TODAY, [october], false),
-      itemListPeriods("monthly", TODAY, [], true),
-    ]) {
-      expect(periods?.running).toBeNull();
+  it("names this period while its cycle is still to be built from the list (WORKFLOWS §5.4 item 9)", () => {
+    // A Draft or Paused client's project (its first Active night builds this period), or a project
+    // reopened (the night after): no cycle holds today yet.
+    for (const canAddNow of [true, false]) {
+      const periods = itemListPeriods("monthly", TODAY, [], canAddNow);
+      expect(periods).toEqual({ unit: "month", from: "October 2026", running: null });
       expect(itemListCopy(periods!).description).toBe("Every month starts with these.");
-      expect(itemListCopy(periods!).removeDescription).toBe("November 2026 starts without it.");
+      expect(itemListCopy(periods!).added("Reel 4")).toBe("Reel 4 added from October 2026");
+      expect(itemListCopy(periods!).removeDescription).toBe("October 2026 starts without it.");
     }
+    // An earlier period's cycle does not count: only this period onwards is built from the list.
+    const september = cycle("2026-09-01", "2026-09-30", "September 2026");
+    expect(itemListPeriods("monthly", TODAY, [september], true)?.from).toBe("October 2026");
+  });
+
+  it("names this period when a carry made its cycle without the list (Q4 (a))", () => {
+    const carried = cycle("2026-10-01", "2026-10-31", "October 2026", false);
+    const periods = itemListPeriods("monthly", TODAY, [carried], true);
+    expect(periods).toEqual({ unit: "month", from: "October 2026", running: null });
+    expect(itemListCopy(periods!).removeDescription).toBe("October 2026 starts without it.");
+    // A next period begun by a carry is likewise still to take the list.
+    const carriedNext = cycle("2026-11-01", "2026-11-30", "November 2026", false);
+    expect(itemListPeriods("monthly", "2026-10-28", [october, carriedNext], true)?.from).toBe(
+      "November 2026",
+    );
+  });
+
+  it("says only what every period starts with when the running cycle cannot take items", () => {
+    // An Inactive client or a closed project: October has its list, nothing can be added to it.
+    const periods = itemListPeriods("monthly", TODAY, [october], false);
+    expect(periods?.running).toBeNull();
+    expect(itemListCopy(periods!).description).toBe("Every month starts with these.");
+    expect(itemListCopy(periods!).removeDescription).toBe("November 2026 starts without it.");
+  });
+
+  it("names a running cycle without a label by its own period, not today's", () => {
+    const unlabelled = { ...cycle("2026-10-05", "2026-10-11", ""), label: null };
+    expect(itemListPeriods("weekly", TODAY, [unlabelled], true)?.running).toBe("5–11 Oct 2026");
   });
 
   it("speaks of weeks on a weekly project, and has no item list on a one-time one", () => {
-    const week = { periodStart: "2026-10-05", periodEnd: "2026-10-11", label: "5–11 Oct 2026" };
+    const week = cycle("2026-10-05", "2026-10-11", "5–11 Oct 2026");
     const periods = itemListPeriods("weekly", TODAY, [week], true);
     expect(periods).toEqual({ unit: "week", from: "12–18 Oct 2026", running: "5–11 Oct 2026" });
     expect(itemListCopy(periods!).description).toBe(
       "Every week starts with these, from 12–18 Oct 2026. To add something to 5–11 Oct 2026, use + Add item on the project page.",
     );
+    expect(itemListPeriods("weekly", TODAY, [], true)?.from).toBe("5–11 Oct 2026");
     expect(itemListPeriods("one_time", TODAY, [], true)).toBeNull();
   });
 });
