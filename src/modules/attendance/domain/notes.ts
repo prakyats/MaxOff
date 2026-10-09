@@ -78,6 +78,20 @@ export function noteTitle(
 }
 
 /**
+ * The Owner's Today compact row's first meta line (owner 2026-10-09): "Overtime 2 h · Wed 7 Oct",
+ * "Day off worked · Sun 4 Oct". Short, so it is never cut short beside the row's button.
+ */
+export function noteDetail(
+  note: Pick<ExtraWorkNote, "kind" | "workDate" | "durationMinutes">,
+): string {
+  const what =
+    note.kind === "overtime" && note.durationMinutes
+      ? `${KIND_LABELS[note.kind]} ${durationLabel(note.durationMinutes)}`
+      : KIND_LABELS[note.kind];
+  return `${what} · ${formatIST(istDayStart(note.workDate), "EEE d MMM")}`;
+}
+
+/**
  * The outcome in the member's words (kickoff 3b decision 13): "Waiting for the Owner", "1 comp
  * leave granted · use by 31 Oct" or the neutral "Reviewed by the Owner", plus "Counted as a day
  * worked" when the Owner said so.

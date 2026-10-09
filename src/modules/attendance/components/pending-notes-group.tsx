@@ -34,6 +34,7 @@ import {
   KIND_LABELS,
   NOTE_DECISION_LABELS,
   NOTE_DECISIONS,
+  noteDetail,
   type NoteDecision,
   noteTitle,
 } from "../domain/notes";
@@ -75,7 +76,8 @@ export function PendingNotesGroup({
         rows={notes.map((note) => ({
           id: note.id,
           title: note.memberName,
-          subtitle: noteTitle(note),
+          // A compact row's first meta line is the short form, never cut short.
+          subtitle: preview ? noteDetail(note) : noteTitle(note),
           status: "submitted",
           statusLabel: note.kind === "day_off" ? "Day off worked" : "Overtime",
           approvedLabel: "",

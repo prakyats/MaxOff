@@ -6,7 +6,8 @@ import { APPROVAL_ROW_MIN_H, LIST_ROW_MIN_H } from "./row-metrics";
 /**
  * Compact approval rows (`ApprovalGroup` with `layout="rows"`, the Owner's Today) while the screen
  * loads: the same list box, the same row height, the kind label and title on the first line, the
- * detail on the second, and the one button beside them (44px on a phone, 32px from `md`).
+ * two meta lines (what and when; how long it has waited) under it, and the one outlined button
+ * beside them (44px on a phone, 32px from `md`).
  */
 export function ApprovalRowsSkeleton({ rows = 2 }: { rows?: number }) {
   return (
@@ -23,7 +24,10 @@ export function ApprovalRowsSkeleton({ rows = 2 }: { rows?: number }) {
               <Skeleton className="h-3.5 w-32 max-w-full" />
             </div>
             <div className="flex h-4 min-w-0 items-center">
-              <Skeleton className="h-3 w-44 max-w-full" />
+              <Skeleton className="h-3 w-40 max-w-full" />
+            </div>
+            <div className="flex h-4 min-w-0 items-center">
+              <Skeleton className="h-3 w-20 max-w-full" />
             </div>
           </div>
           <Skeleton className="h-11 w-20 shrink-0 rounded-lg md:h-8" />

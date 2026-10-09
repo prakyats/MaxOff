@@ -6,16 +6,24 @@ import type { LeaveDay } from "./today";
  * "This week" on the Owner's Today (the Today refresh, owner 2026-10-09; ROADMAP 6b.7): the next
  * seven IST days as a few lines. A person's approved leave on consecutive days is one line, "Anna
  * on leave · Mon 12 – Wed 14" (the Owner sees names, as on the calendar); a day with deadlines,
- * events or a holiday is one line, "Thu 15 · 3 due · Shoot 11:00", counted the way the calendar's
- * month view counts them (the caller hands over the calendar's own days, `buildCalendar`). At most
- * `WEEK_LINES` lines, then "See the week". Pure, so it is unit-tested.
+ * events or a holiday is one line, "Thu 15 · 3 due · Shoot 11:00" (the caller hands over the
+ * calendar's own days, `buildCalendar`). At most `WEEK_LINES` lines, then "See the week". Pure, so
+ * it is unit-tested.
+ *
+ * **Every word is labelled** (the owner's preview review, 2026-10-09: "Tomorrow · Edit" read as a
+ * bare task title): deadlines are only ever a count, "3 due", and an event is named only with its
+ * time, "Shoot 11:49". An event with no time (an all-day event task) is a deadline that day, so it
+ * joins the count; a line never holds a title without "due" or a time.
  */
 
 /** How many lines show before "See the week". */
 export const WEEK_LINES = 5;
 
-/** How many events a day's line names before "+N more" (the line stays one line). */
+/** How many timed events a day's line names before "+N more". */
 export const WEEK_EVENTS_NAMED = 2;
+
+/** The longest an event's title runs on a line before "…", so its time always shows. */
+export const WEEK_EVENT_TITLE_MAX = 24;
 
 /** One day as the calendar's month view has it. */
 export type WeekDay = {
@@ -23,7 +31,7 @@ export type WeekDay = {
   holiday: string | null;
   /** The open tasks due that day that are not events (the calendar's "3 due"). */
   due: number;
-  /** The day's events, in the calendar's order. */
+  /** The day's events, in the calendar's order: timed ones are named, untimed ones join "due". */
   events: readonly { title: string; startAt: string | null }[];
 };
 
@@ -61,19 +69,28 @@ export function daySpan(from: ISODate, to: ISODate, today: ISODate): string {
   return from === to ? shortDay(from, today) : `${shortDay(from, today)} – ${shortDay(to, today)}`;
 }
 
-/** "Shoot 11:00", or "Shoot" for an all-day event (the calendar's 24-hour strip time). */
-function eventWords(event: { title: string; startAt: string | null }): string {
-  return event.startAt ? `${event.title} ${formatIST(event.startAt, "HH:mm")}` : event.title;
+/** "Shoot 11:00": the title (cut to `WEEK_EVENT_TITLE_MAX`) and its IST 24-hour start. */
+function eventWords(event: { title: string; startAt: string }): string {
+  const title = event.title.trim();
+  const short =
+    title.length > WEEK_EVENT_TITLE_MAX
+      ? `${title.slice(0, WEEK_EVENT_TITLE_MAX - 1).trimEnd()}…`
+      : title;
+  return `${short} ${formatIST(event.startAt, "HH:mm")}`;
 }
 
 /** A day's line, or null when the day holds nothing to say. */
 function dayLine(day: WeekDay, today: ISODate): WeekLine | null {
-  if (day.holiday === null && day.due === 0 && day.events.length === 0) return null;
+  const timed = day.events.flatMap((event) =>
+    event.startAt === null ? [] : [{ title: event.title, startAt: event.startAt }],
+  );
+  const due = day.due + (day.events.length - timed.length);
+  if (day.holiday === null && due === 0 && timed.length === 0) return null;
   const parts = [shortDay(day.date, today)];
   if (day.holiday !== null) parts.push(`Holiday: ${day.holiday}`);
-  if (day.due > 0) parts.push(`${day.due} due`);
-  parts.push(...day.events.slice(0, WEEK_EVENTS_NAMED).map(eventWords));
-  const more = day.events.length - WEEK_EVENTS_NAMED;
+  if (due > 0) parts.push(`${due} due`);
+  parts.push(...timed.slice(0, WEEK_EVENTS_NAMED).map(eventWords));
+  const more = timed.length - WEEK_EVENTS_NAMED;
   if (more > 0) parts.push(`+${more} more`);
   return { kind: "day", date: day.date, parts, key: `day-${day.date}` };
 }

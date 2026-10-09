@@ -19,6 +19,7 @@ import {
   approvedLeaveLabel,
   changeOfGoneLeave,
   keptDatesNote,
+  pendingLeaveDetail,
   type PendingLeave,
   pendingLeaveStatus,
   pendingLeaveSubtitle,
@@ -67,7 +68,7 @@ export function PendingLeaveGroup({
                 // A compact row leads with the person: what they ask for and when is the detail.
                 id: request.id,
                 title: request.memberName,
-                subtitle: `${pendingLeaveTitle(request)} · ${leaveDates(request.startDate, request.endDate)}`,
+                subtitle: pendingLeaveDetail(request),
                 status: "submitted",
                 statusLabel: pendingLeaveStatus(request),
                 approvedLabel: approvedLeaveLabel(request, displayName(request.memberName)),

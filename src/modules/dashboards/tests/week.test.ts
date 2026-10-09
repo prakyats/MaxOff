@@ -6,6 +6,7 @@ import {
   leaveSpans,
   SEE_THE_WEEK_HREF,
   shortDay,
+  WEEK_EVENT_TITLE_MAX,
   WEEK_LINES,
   weekLineHref,
   weekLines,
@@ -123,7 +124,7 @@ describe("weekLines: the Owner's This week", () => {
     ]);
   });
 
-  it("names a holiday, an all-day event, and at most two events before +N more", () => {
+  it("names a holiday, counts an all-day event as due, and names two timed events before +N more", () => {
     const { lines } = weekLines({
       days: week({
         "2026-10-09": {
@@ -142,9 +143,59 @@ describe("weekLines: the Owner's This week", () => {
       today: TODAY,
     });
     expect(text(lines)).toEqual([
-      "Today · 2 due · Site visit · Shoot 11:00 · +2 more",
+      "Today · 3 due · Shoot 11:00 · Client call 15:00 · +1 more",
       "Tomorrow · Holiday: Dussehra",
     ]);
+  });
+
+  it("never shows a bare title: the owner's two lines, labelled (owner 2026-10-09)", () => {
+    // Was "Today · Fire Chandan 2.0 · cal test 11:49" and "Tomorrow · Edit".
+    const { lines } = weekLines({
+      days: week({
+        "2026-10-09": {
+          due: 2,
+          events: [
+            { title: "Fire Chandan 2.0", startAt: null },
+            { title: "cal test", startAt: "2026-10-09T06:19:00.000Z" },
+          ],
+        },
+        "2026-10-10": { events: [{ title: "Edit", startAt: null }] },
+      }),
+      leave: [off("ravi", "2026-10-14"), off("ravi", "2026-10-15")],
+      nameOf,
+      today: TODAY,
+    });
+    expect(text(lines)).toEqual([
+      "Today · 3 due · cal test 11:49",
+      "Tomorrow · 1 due",
+      "Ravi Kumar on leave · Wed 14 – Thu 15",
+    ]);
+    // Every part after the day is a count, a holiday, an event with its time, or "+N more".
+    for (const line of lines.filter((l) => l.kind === "day")) {
+      for (const part of line.parts.slice(1)) {
+        expect(part).toMatch(/^\d+ due$|^Holiday: |^.+ \d{2}:\d{2}$|^\+\d+ more$/);
+      }
+    }
+  });
+
+  it("cuts a long event title, never its time", () => {
+    const { lines } = weekLines({
+      days: week({
+        "2026-10-12": {
+          events: [
+            {
+              title: "Brand film shoot for Coastal Kitchen, day two",
+              startAt: "2026-10-12T03:30:00.000Z",
+            },
+          ],
+        },
+      }),
+      leave: [],
+      nameOf,
+      today: TODAY,
+    });
+    expect(text(lines)).toEqual(["Mon 12 · Brand film shoot for Co… 09:00"]);
+    expect(lines[0]?.parts[1]?.length).toBeLessThanOrEqual(WEEK_EVENT_TITLE_MAX + 6);
   });
 
   it("shows the first five lines and counts the rest", () => {

@@ -20,6 +20,10 @@ import { StatusDot } from "./status-badge";
 export type ApprovalRow = {
   id: string;
   title: string;
+  /**
+   * The second line. In `layout="rows"` the first meta line, what and when ("Absent (proposed) ·
+   * Thu 8 Oct"): short by design and never cut short (it wraps at large system text).
+   */
   subtitle: string;
   /** The dot's status key and the word beside it (a dot plus a word, never colour alone). */
   status: string;
@@ -29,13 +33,13 @@ export type ApprovalRow = {
   /** A marker beside the status, e.g. a task's unread comments (Kickoff 4 decision 28). */
   marker?: ReactNode;
   /**
-   * How long it has waited for the decision ("waiting 4 days") and its colour: muted, amber from a
+   * How long it has waited for the decision ("Waiting 4 days") and its colour: muted, amber from a
    * day, red from three (the Owner's Today rows, `layout="rows"`; the words carry the meaning).
    */
   waiting?: ApprovalWaiting | undefined;
 };
 
-/** "waiting 4 days" and its colour (the dashboards' `waitingFor`, structurally). */
+/** "Waiting 4 days" and its colour (the dashboards' `waitingFor`, structurally). */
 export type ApprovalWaiting = { label: string; tone: "muted" | "attention" | "danger" };
 
 /** The waiting words' colours (§14.1: amber and red only where they mean something). */
@@ -63,10 +67,10 @@ const WAITING_TONE = {
  *
  * **`layout="rows"`** (the Owner's Today, owner 2026-10-09): the same rows and the same Approve
  * (the 6-second Undo, the delayed send) as compact list items for a list the caller draws, so
- * every group's rows share one list with no headings: a small kind label, the name or title on
- * one line, one muted detail line ending in how long it has waited, and **one** button: Approve,
- * or Review when the group has no Approve (its decision needs the review). A tap on the row
- * opens the review. No Approve all.
+ * every group's rows share one list with no headings: a small kind label and the name or title,
+ * then two short meta lines (what and when; how long it has waited), and **one** outlined
+ * button: Approve, or Review when the group has no Approve (its decision needs the review). A tap
+ * on the row opens the review. No Approve all.
  */
 export function ApprovalGroup<T>({
   id,
@@ -266,10 +270,12 @@ export function ApprovalGroup<T>({
                     squeezed to nothing (large system text, §14.2 i). */}
                 <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
                   <span className="max-w-full min-w-0 truncate font-medium">{row.title}</span>
+                  {/* `max-w-full`: a long word ("Admin approved · needs you") wraps inside its
+                      own line at large text instead of reaching past the edge. */}
                   <StatusDot
                     status={isHeld ? "approved" : row.status}
                     label={isHeld ? "Approved" : row.statusLabel}
-                    className="shrink-0"
+                    className="max-w-full shrink-0"
                   />
                   {row.marker}
                 </div>
@@ -317,9 +323,13 @@ export function ApprovalGroup<T>({
 
 /**
  * One waiting item as a compact row (`layout="rows"`): the row itself opens the review; the one
- * button beside it approves (with Undo), or is Review when the decision needs it. At the default
- * text size the row is the button's 44px plus its padding (`APPROVAL_ROW_MIN_H`), so the loading
- * screen traces it (`ApprovalRowsSkeleton`).
+ * button beside it approves (with Undo), or is Review when the decision needs it. Three lines (the
+ * owner's preview review, 2026-10-09): the kind label and the name or title (the only text that
+ * may be cut short), then two short meta lines: what and when ("Absent (proposed) · Thu 8 Oct"),
+ * never cut (it wraps at large system text), and how long it has waited, alone ("Waiting 11 h",
+ * amber from a day, red from three). The button is the neutral outline in every row, Approve and
+ * Review alike (§14.1: no solid button repeated down a list). At the default text size the row is
+ * `APPROVAL_ROW_MIN_H` tall, so the loading screen traces it (`ApprovalRowsSkeleton`).
  */
 function CompactRow({
   row,
@@ -344,8 +354,11 @@ function CompactRow({
       data-slot="approval-row"
       data-group={group}
       data-state={held ? "approved" : "waiting"}
+      // Large system text (§14.2 i): the title keeps 6rem and drops under the kind label, the
+      // meta lines wrap, and the button drops under the text. At the default size the three lines
+      // sit beside the button.
       className={cn(
-        "flex min-w-0 items-center gap-3 pr-4 transition-opacity duration-300",
+        "flex min-w-0 flex-wrap items-center gap-x-3 pr-4 transition-opacity duration-300",
         APPROVAL_ROW_MIN_H,
         held && "opacity-50",
       )}
@@ -355,39 +368,55 @@ function CompactRow({
         onClick={onReview}
         disabled={held}
         data-slot="approval-row-open"
-        className="pressable-row focus-visible:ring-ring flex min-w-0 flex-1 flex-col justify-center gap-0.5 self-stretch py-2 pl-4 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset"
+        className="pressable-row focus-visible:ring-ring flex min-w-0 flex-[1_1_10rem] flex-col justify-center gap-0.5 self-stretch py-2 pl-4 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset"
       >
-        <span className="flex min-h-5 min-w-0 items-center gap-2">
+        <span className="flex min-h-5 min-w-0 flex-wrap items-center gap-x-2">
           <span data-slot="approval-kind" className="text-muted-foreground shrink-0 text-xs">
             {kind}
           </span>
-          <span className="min-w-0 truncate text-sm font-medium">{row.title}</span>
+          <span
+            data-slot="approval-title"
+            className="min-w-0 flex-[1_1_6rem] truncate text-sm font-medium"
+          >
+            {row.title}
+          </span>
           {row.marker}
         </span>
-        <span className="text-muted-foreground flex min-w-0 gap-1 text-xs">
-          <span className="min-w-0 truncate">{row.subtitle}</span>
-          {waiting ? (
-            <span
-              data-slot="approval-waiting"
-              data-tone={waiting.tone}
-              className={cn("shrink-0", WAITING_TONE[waiting.tone])}
-            >
-              · {waiting.label}
-            </span>
-          ) : null}
+        <span
+          data-slot="approval-detail"
+          className="text-muted-foreground min-h-4 text-xs break-words"
+        >
+          {row.subtitle}
         </span>
+        {waiting ? (
+          <span
+            data-slot="approval-waiting"
+            data-tone={waiting.tone}
+            className={cn("min-h-4 text-xs break-words", WAITING_TONE[waiting.tone])}
+          >
+            {waiting.label}
+          </span>
+        ) : null}
         {error ? (
           <span data-slot="approval-error" role="status" className="text-destructive text-xs">
             {error}
           </span>
         ) : null}
       </button>
+      {/* `my-1`: room around it once it drops under. Approve keeps `commits` (it waits for a
+          connection) but looks like Review: one outlined neutral button per row. */}
       {onApprove ? (
-        <Button variant="strong" commits onClick={onApprove} disabled={held}>
+        <Button
+          variant="secondary"
+          commits
+          onClick={onApprove}
+          disabled={held}
+          className="my-1 ml-auto"
+        >
           Approve
         </Button>
       ) : (
-        <Button variant="secondary" onClick={onReview} disabled={held}>
+        <Button variant="secondary" onClick={onReview} disabled={held} className="my-1 ml-auto">
           Review
         </Button>
       )}

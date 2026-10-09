@@ -571,8 +571,12 @@ function MobileCards<TData>({
                   </span>
                 ) : null}
               </span>
+              {/* `max-w-full`: a long status word ("Admin approved · needs you") wraps on its
+                  own line at large system text instead of reaching past the edge (§14.2 i). */}
               {card.trailing ? (
-                <span className={CARD_ROW_TRAILING}>{card.trailing(row.original)}</span>
+                <span className={cn(CARD_ROW_TRAILING, "max-w-full")}>
+                  {card.trailing(row.original)}
+                </span>
               ) : null}
             </>
           );

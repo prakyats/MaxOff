@@ -70,19 +70,22 @@ import { ownerGreeting } from "./words";
  * 12, 22, 23 and 24; **the Today refresh, owner 2026-10-09, ROADMAP 6b.7**). In order:
  *
  * 1. **Needs you**: the approvals, first. One list of compact rows, no heading per kind: the
- *    oldest five in the Approvals group order (decision 5's cut), each a kind label, the name or
- *    title, one detail line ending in how long it has waited (from when it reached the Owner;
- *    amber from a day, red from three), and one button: Approve with the 6-second Undo, or
- *    Review where the decision needs the review (extra work and expenses, as on Approvals). A tap
- *    on the row opens the review. "See all N" only when the list is cut; "Nothing needs you."
- *    when nothing waits (the section always stands, so the screen keeps its shape).
- * 2. **Attendance**: the counts in one compact row (decision 24's counts, links and colours).
+ *    oldest five in the Approvals group order (decision 5's cut), each a kind label and the name
+ *    or title, then two short meta lines: what and when ("Absent (proposed) · Thu 8 Oct"), and
+ *    how long it has waited alone ("Waiting 11 h", from when it reached the Owner; amber from a
+ *    day, red from three), and one outlined button: Approve with the 6-second Undo, or Review
+ *    where the decision needs the review (extra work and expenses, as on Approvals). A tap on the
+ *    row opens the review. "See all N" only when the list is cut; "Nothing needs you." when
+ *    nothing waits (the section always stands, so the screen keeps its shape).
+ * 2. **Attendance**: the four counts in one row; Absent and yesterday's unended days as red lines
+ *    under it, only above zero (decision 24's counts, links and colours; owner 2026-10-09).
  * 3. **Today's tasks**: one line, "N due today · M handed in".
  *    (Phase 7's client work line goes here, after Today's tasks, when it is built.)
- * 4. **Overdue and risks** (decisions 6, 23).
- * 5. **This week**: a person's consecutive leave as one line, each day's deadlines and events as
- *    the calendar's month view counts them, at most five lines then "See the week"; "Calendar ›"
- *    in the header.
+ * 4. **Overdue and risks** (decisions 6, 23): one status signal per row, the meta line in red or
+ *    amber with its dot.
+ * 5. **This week**: a person's consecutive leave as one line, each day's deadlines as a count ("3
+ *    due") and its timed events by title and time, at most five lines then "See the week";
+ *    "Calendar ›" in the header.
  *
  * Sections 3–5 are drawn only with something in them (decision 24: exceptions only); when none
  * is, one muted line: "Nothing else needs you today." Not shown until their data exists

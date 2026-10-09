@@ -8,19 +8,26 @@ releases (v1.0.0 to v1.3.0) are recorded in their tag messages and in `PROGRESS.
 
 ### The Owner's Today refresh (ROADMAP 6b.7, branch `today-refresh`; no migrations)
 - **What ships:** the Owner's Today opens on **Needs you**: every waiting approval as one compact row
-  (Attendance, Leave, Extra work, Expense or Task; the name or title; one detail line ending in how long it
-  has waited: "waiting 3 h", "waiting 4 days", amber from a day and red from three), with one button,
-  Approve (the same 6-second Undo) or Review where the decision needs the review (extra work and expense
-  claims, as on Approvals). A tap on a row opens its review. "See all N" shows only when more than five
-  wait; "Nothing needs you." when none do. Then **Attendance** as one row of four numbers (Not started ·
-  Waiting · Present · On leave, same taps and colours), Today's tasks, Overdue and risks, and **This week**
-  as at most five lines ("Anna on leave · Mon 12 – Wed 14", "Thu 15 · 3 due · Shoot 11:00", then "See the
-  week"; "Calendar ›" in the header). A task waiting for the Owner after an Admin's check reads
+  (Attendance, Leave, Extra work, Expense or Task, then the name or title) with two short lines under it:
+  what and when ("Absent (proposed) · Thu 8 Oct", "Present · today, started 10:12", "₹385 · Food · Thu 8
+  Oct · No receipt"), never cut short, and how long it has waited ("Waiting 11 h", amber from a day, red
+  from three). One outlined button per row, the same in every row: Approve (the same 6-second Undo) or
+  Review where the decision needs the review (extra work and expense claims, as on Approvals). A tap on a
+  row opens its review. "See all N" shows only when more than five wait; "Nothing needs you." when none do.
+  Then **Attendance** as one row of four numbers (Not started · Waiting · Present · On leave, same taps and
+  colours); yesterday's unended days are one red line under it ("1 didn't end their day yesterday ›"), and
+  decided absences the same ("2 are absent today ›"), each only above zero. Then Today's tasks, **Overdue
+  and risks** (each row one signal: the red or amber line with its dot, "PShetty · overdue by 7 days"; no
+  icon, no chip) and **This week** as at most five labelled lines ("Today · 3 due · Shoot 11:49",
+  "Tomorrow · 1 due", "Prakyat on leave · Wed 14 – Thu 15", then "See the week"; "Calendar ›" in the
+  header; an event with no time counts as due). A task waiting for the Owner after an Admin's check reads
   **"Admin approved · needs you"** (no Admin step: "Needs you") on Today, Approvals, the Tasks lists and the
   task's page, instead of "Checked".
-- **What the Owner will notice:** approvals first and shorter; the wait shown on each; the attendance card
-  a single line; the week grouped by person and day.
-- **What Admins will notice:** nothing (their Today is unchanged; they still read "Checked").
+- **What the Owner will notice:** approvals first and shorter, each with its date and its wait in full; no
+  solid white buttons down the list; the attendance card a single line; risks with one red or amber line
+  each; the week as counts and timed events, never a bare title.
+- **What Admins will notice:** their Today's Issues rows lose the icon and the chip and keep one red or
+  amber line with its dot, as the Owner's; nothing else (they still read "Checked").
 - **What the Crew will notice:** nothing.
 - **Before the tag:** the Owner's phone check of the new Today at 375 and 430 px (installed, gesture back
   from a row's review).

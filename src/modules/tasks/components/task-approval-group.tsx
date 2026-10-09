@@ -78,9 +78,11 @@ export function TaskApprovalGroup({
         rows={tasks.map((task) => ({
           id: task.id,
           title: task.title,
-          // A compact row has one detail line: the step's words ("Admin approved · needs you"),
-          // then who handed it in and when.
-          subtitle: preview ? `${task.statusLabel} · ${task.subtitle}` : task.subtitle,
+          // A compact row's first meta line: the step's words ("Admin approved · needs you"),
+          // and "late" when it was handed in late; who and when are in the review.
+          subtitle: preview
+            ? `${task.statusLabel}${task.lateReason ? " · late" : ""}`
+            : task.subtitle,
           status: task.status,
           statusLabel: task.statusLabel,
           approvedLabel: task.approvedLabel,

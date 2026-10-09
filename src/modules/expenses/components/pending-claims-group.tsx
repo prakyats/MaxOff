@@ -15,7 +15,7 @@ import { toastResult } from "@/core/ui/toast";
 import { displayName } from "@/core/lib/display-name";
 
 import { approveExpenseClaim, rejectExpenseClaim } from "../actions/claims";
-import { claimDate, type ExpenseClaim, formatRupees } from "../domain/claims";
+import { claimDate, claimDetail, type ExpenseClaim, formatRupees } from "../domain/claims";
 
 export type PendingClaim = ExpenseClaim & { memberName: string };
 
@@ -64,19 +64,19 @@ export function PendingClaimsGroup({
         id="expenses"
         heading="Expenses"
         noun={{ one: "claim", other: "claims" }}
-        rows={claims.map((claim) => {
-          const detail = `${formatRupees(claim.amount)} · ${claim.categoryName} · ${claimDate(claim.expenseDate)}`;
-          return {
-            id: claim.id,
-            title: claim.memberName,
-            // A compact row has no status word of its own: a missing receipt joins the detail.
-            subtitle: preview && !claim.receiptFileId ? `${detail} · No receipt` : detail,
-            status: "submitted",
-            statusLabel: claim.receiptFileId ? "Receipt" : "No receipt",
-            approvedLabel: "",
-            waiting: waiting?.[claim.id],
-          };
-        })}
+        rows={claims.map((claim) => ({
+          id: claim.id,
+          title: claim.memberName,
+          // A compact row has no status word of its own: a missing receipt joins its first meta
+          // line ("₹385 · Food · Thu 8 Oct · No receipt").
+          subtitle: preview
+            ? claimDetail(claim)
+            : `${formatRupees(claim.amount)} · ${claim.categoryName} · ${claimDate(claim.expenseDate)}`,
+          status: "submitted",
+          statusLabel: claim.receiptFileId ? "Receipt" : "No receipt",
+          approvedLabel: "",
+          waiting: waiting?.[claim.id],
+        }))}
         onReview={setReviewId}
         layout={preview ? "rows" : "group"}
         kind="Expense"

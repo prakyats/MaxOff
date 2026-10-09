@@ -46,6 +46,33 @@ export function pendingLeaveSubtitle(request: PendingLeave): string {
   return `${request.memberName} · ${leaveDates(request.startDate, request.endDate)}`;
 }
 
+/**
+ * The Owner's Today compact row's first meta line, what and when (owner 2026-10-09): "Leave · Mon
+ * 19 – Tue 20 Oct", "Half day · Fri 23 Oct", "Cancel leave · Mon 12 Oct", "Change to half day ·
+ * Mon 12 Oct". The dates say how many days, so no count; short enough never to be cut short.
+ */
+export function pendingLeaveDetail(request: PendingLeave): string {
+  const kind =
+    request.type === "half_day" && request.creditDays
+      ? `${LEAVE_TYPE_LABELS.half_day} · comp`
+      : LEAVE_TYPE_LABELS[request.type];
+  const what = request.requestsCancellation
+    ? `Cancel ${kind.toLowerCase()}`
+    : request.original
+      ? `Change to ${kind.toLowerCase()}`
+      : kind;
+  return `${what} · ${shortDates(request.startDate, request.endDate)}`;
+}
+
+/** "Mon 12 Oct", "Mon 12 – Wed 14 Oct", or "Fri 30 Oct – Mon 2 Nov" across a month. */
+export function shortDates(startDate: string, endDate: string): string {
+  const start = istDayStart(startDate);
+  if (startDate === endDate) return formatIST(start, "EEE d MMM");
+  const end = formatIST(istDayStart(endDate), "EEE d MMM");
+  const sameMonth = startDate.slice(0, 7) === endDate.slice(0, 7);
+  return `${formatIST(start, sameMonth ? "EEE d" : "EEE d MMM")} – ${end}`;
+}
+
 /** The dot's word: what kind of decision this is. */
 export function pendingLeaveStatus(request: PendingLeave): string {
   if (request.requestsCancellation) return "Cancellation";

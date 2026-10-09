@@ -2,6 +2,7 @@ import type { AttendanceChoice, AttendanceState, DayStatus, LeaveType } from "./
 import { STATUS_LABELS } from "./choices";
 import { clockTime, historyDate } from "./history";
 import { displayName } from "@/core/lib/display-name";
+import { formatIST, istDayStart } from "@/core/time";
 
 /**
  * The Owner's side of attendance (task 2.4, WORKFLOWS §1 "Settled in 2.4"): the days waiting in
@@ -61,6 +62,17 @@ export function pendingLabel(day: PendingDay): string {
 export function pendingSubtitle(day: PendingDay, today: string): string {
   const date = day.workDate === today ? "Today" : historyDate(day.workDate);
   return day.startedAt ? `${date} · started ${clockTime(day.startedAt)}` : date;
+}
+
+/**
+ * The Owner's Today compact row's first meta line, what and when (owner 2026-10-09): "Present ·
+ * today, started 10:12", "Absent (proposed) · Thu 8 Oct". Short enough for a 375px row beside its
+ * button, so nothing in it is ever cut short; the clock is IST, 24-hour, as This week's events.
+ */
+export function pendingDetail(day: PendingDay, today: string): string {
+  const date = day.workDate === today ? "today" : formatIST(istDayStart(day.workDate), "EEE d MMM");
+  const started = day.startedAt ? `, started ${formatIST(day.startedAt, "HH:mm")}` : "";
+  return `${pendingLabel(day)} · ${date}${started}`;
 }
 
 /** "Approved Asha's present", for the Undo toast. */
@@ -169,8 +181,7 @@ export const TODAY_BUCKET_LABELS: Record<BoardBucket, string> = {
 /**
  * The card's counts (kickoff 6 decision 24, owner 2026-10-07): the four groups, then Absent and
  * "End of day not recorded", shown only above zero. Each is a tap target: Waiting opens Approvals,
- * the others the full board on that group. **One compact row since the Today refresh (owner
- * 2026-10-09):** Not started · Waiting · Present · On leave, the problem counts after them.
+ * the others the full board on that group.
  */
 export const TODAY_CARD_COUNTS = [
   "not_chosen",
@@ -181,6 +192,37 @@ export const TODAY_CARD_COUNTS = [
   "end_not_recorded",
 ] as const;
 export type TodayCardCount = (typeof TODAY_CARD_COUNTS)[number];
+
+/**
+ * The strip: the four groups in one row, always (the owner's preview review, 2026-10-09: "Keep the
+ * four counts in one row"): Not started · Waiting · Present · On leave.
+ */
+export const TODAY_STRIP_COUNTS = [
+  "not_chosen",
+  "waiting",
+  "present",
+  "on_leave",
+] as const satisfies readonly TodayCardCount[];
+
+/**
+ * The problem counts, each one red line under the strip, only above zero (owner 2026-10-09: a
+ * fifth count wrapped the strip and its label ran over three lines).
+ */
+export const TODAY_CARD_LINES = [
+  "absent",
+  "end_not_recorded",
+] as const satisfies readonly TodayCardCount[];
+export type TodayCardLine = (typeof TODAY_CARD_LINES)[number];
+
+/**
+ * A problem count's red line: "1 didn't end their day yesterday", "2 are absent today". Null at
+ * zero (the line is hidden).
+ */
+export function cardLineWords(line: TodayCardLine, value: number): string | null {
+  if (value <= 0) return null;
+  if (line === "end_not_recorded") return `${value} didn't end their day yesterday`;
+  return `${value} ${value === 1 ? "is" : "are"} absent today`;
+}
 
 /** The card's words: the board's, with "Waiting" short enough for a quarter of a phone's row. */
 export const TODAY_CARD_LABELS: Record<TodayCardCount, string> = {
@@ -203,11 +245,6 @@ export const TODAY_CARD_TONES: Record<TodayCardCount, CountTone> = {
   absent: "danger",
   end_not_recorded: "danger",
 };
-
-/** Whether a count is on the card at all: the four always, the two problems only above zero. */
-export function countShown(count: TodayCardCount, value: number): boolean {
-  return (TODAY_BUCKETS as readonly string[]).includes(count) || value > 0;
-}
 
 const LEAVE_STATUSES: readonly DayStatus[] = ["leave", "half_day", "comp_leave"];
 

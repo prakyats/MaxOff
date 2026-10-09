@@ -13,6 +13,7 @@ import { approveDays } from "../actions/review";
 import { historyDate } from "../domain/history";
 import {
   approvedLabel,
+  pendingDetail,
   pendingLabel,
   pendingOutcome,
   pendingStart,
@@ -60,10 +61,8 @@ export function PendingDaysGroup({
         rows={days.map((day) => ({
           id: day.id,
           title: day.memberName,
-          // A compact row has one detail line: what was chosen, then the day.
-          subtitle: preview
-            ? `${pendingLabel(day)} · ${pendingSubtitle(day, today)}`
-            : pendingSubtitle(day, today),
+          // A compact row's first meta line: what was chosen and when, never cut short.
+          subtitle: preview ? pendingDetail(day, today) : pendingSubtitle(day, today),
           status: "pending_review",
           statusLabel: pendingLabel(day),
           approvedLabel: approvedLabel(day),

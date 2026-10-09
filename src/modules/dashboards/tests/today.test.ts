@@ -252,10 +252,11 @@ describe("Overdue and risks (decision 6) and Issues (decision 10)", () => {
         },
         context,
       ),
-    ).toMatchObject({
+    ).toEqual({
+      title: "Reel",
       detail: "Asha · overdue by 3 h",
+      tone: "danger",
       href: "/tasks/o",
-      marker: { label: "Overdue" },
     });
     expect(
       riskWords(
@@ -269,8 +270,8 @@ describe("Overdue and risks (decision 6) and Issues (decision 10)", () => {
           ],
         },
         context,
-      ).detail,
-    ).toBe("Asha and 1 more hasn't noted it · 24 h");
+      ),
+    ).toMatchObject({ detail: "Asha and 1 more hasn't noted it · 24 h", tone: "attention" });
     expect(
       riskWords(
         {
@@ -303,6 +304,7 @@ describe("Overdue and risks (decision 6) and Issues (decision 10)", () => {
       riskWords({ kind: "unreachable", memberId: "a", name: "Asha", openTasks: 3 }, context),
     ).toMatchObject({
       title: "Asha can't be reached",
+      tone: "attention",
       href: "/settings/notifications",
     });
     expect(spanWords(47.9)).toBe("47 h");

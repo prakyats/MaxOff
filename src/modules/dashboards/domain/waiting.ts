@@ -1,9 +1,10 @@
 /**
  * How long a decision has waited for the Owner (the Owner's Today refresh, owner 2026-10-09; ROADMAP
- * 6b.7): each approval row on Today says "waiting 3 h" or "waiting 4 days", counted from when the
- * item reached the Owner. Muted under a day, amber from one day, red from three: the words always
- * carry the meaning, the colour only adds to it (ARCHITECTURE §14.1). Pure, so it is unit-tested;
- * the clock is the caller's (`core/time`'s `systemClock`), never read here.
+ * 6b.7): each approval row on Today says "Waiting 3 h" or "Waiting 4 days" on its own line (the
+ * owner's preview review, 2026-10-09), counted from when the item reached the Owner. Muted under a
+ * day, amber from one day, red from three: the words always carry the meaning, the colour only
+ * adds to it (ARCHITECTURE §14.1). Pure, so it is unit-tested; the clock is the caller's
+ * (`core/time`'s `systemClock`), never read here.
  */
 
 export type WaitingTone = "muted" | "attention" | "danger";
@@ -19,8 +20,9 @@ export const WAITING_ATTENTION_HOURS = 24;
 export const WAITING_DANGER_HOURS = 72;
 
 /**
- * "waiting under 1 h", "waiting 3 h" (under a day), "waiting 1 day", "waiting 4 days" (whole days,
- * rounded down), with its tone. An instant in the future (a clock a little ahead) counts as now.
+ * "Waiting under 1 h", "Waiting 3 h" (under a day), "Waiting 1 day", "Waiting 4 days" (whole days,
+ * rounded down), with its tone: the row's second meta line, alone. An instant in the future (a
+ * clock a little ahead) counts as now.
  */
 export function waitingFor(since: string, now: Date): Waiting {
   const hours = Math.max(0, (now.getTime() - Date.parse(since)) / HOUR_MS);
@@ -30,10 +32,10 @@ export function waitingFor(since: string, now: Date): Waiting {
       : hours >= WAITING_ATTENTION_HOURS
         ? "attention"
         : "muted";
-  if (hours < 1) return { label: "waiting under 1 h", tone };
-  if (hours < 24) return { label: `waiting ${Math.floor(hours)} h`, tone };
+  if (hours < 1) return { label: "Waiting under 1 h", tone };
+  if (hours < 24) return { label: `Waiting ${Math.floor(hours)} h`, tone };
   const days = Math.floor(hours / 24);
-  return { label: days === 1 ? "waiting 1 day" : `waiting ${days} days`, tone };
+  return { label: days === 1 ? "Waiting 1 day" : `Waiting ${days} days`, tone };
 }
 
 /**
