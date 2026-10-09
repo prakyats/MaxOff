@@ -4,7 +4,9 @@ import { ArrowDownIcon, ArrowUpIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { ERROR_MESSAGES } from "@/core/errors/codes";
 import type { Result, ResultError } from "@/core/errors/result";
+import { isNetworkError, NETWORK_ERROR_CREATE_MESSAGE } from "@/core/ui/action/network-error";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { ReviewSheet } from "@/core/ui/composites/review-sheet";
@@ -41,8 +43,8 @@ function refusalText(error: ResultError): { title: string; description?: string 
  * stage list is `unique`: a name the list already has (ignoring case) is refused before it is
  * sent, as the database refuses it (the 7B rework's review, S3). **An add shows at once:** the
  * name joins the list, faded and inert, the moment it is sent, and gives way to the server's row
- * when the refreshed list carries it (a refused add takes it back and returns the name to the
- * field). The server's list follows the action's whole re-render, which on a busy server or a
+ * when the refreshed list carries it (a refused add, or one that never got an answer, takes it
+ * back and returns the name to the field with the reason under it). The server's list follows the action's whole re-render, which on a busy server or a
  * slow phone took seconds (and longer when a live refresh of the same screen ran first).
  */
 export function ListEditorSheet({
@@ -140,16 +142,27 @@ export function ListEditorSheet({
     setPending((current) => [...current, add]);
     setAdding("");
     setAddError(null);
-    const result = await onAdd(name);
-    setBusy(null);
-    if (!result.ok) {
+    // A refused or failed add takes its faded row back and returns the name to the field.
+    const takeBack = (message: string) => {
       setPending((current) => current.filter((other) => other.key !== add.key));
-      const { title: heading, description: detail } = refusalText(result.error);
       setAdding((typed) => (typed === "" ? name : typed));
-      setAddError(detail ?? heading);
-      return;
+      setAddError(message);
+    };
+    try {
+      const result = await onAdd(name);
+      if (!result.ok) {
+        const { title: heading, description: detail } = refusalText(result.error);
+        takeBack(detail ?? heading);
+        return;
+      }
+      if (addedMessage) toast.success(addedMessage(name));
+    } catch (error) {
+      // No answer (the phone lost its connection): the add may or may not have landed, and the
+      // refreshed list shows it if it did. Anything else is a failure on the server's side.
+      takeBack(isNetworkError(error) ? NETWORK_ERROR_CREATE_MESSAGE : ERROR_MESSAGES.INTERNAL);
+    } finally {
+      setBusy(null);
     }
-    if (addedMessage) toast.success(addedMessage(name));
   }
 
   async function rename(row: ListRow) {

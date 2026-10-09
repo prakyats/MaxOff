@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import type { Locator, Page, TestInfo } from "@playwright/test";
+import type { Locator, Page, Route, TestInfo } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 import { HOLD_PROXY_URL } from "./hold-proxy-config";
@@ -21,6 +21,7 @@ import {
   USERS,
 } from "./helpers";
 import { istDate, wallClock } from "./run-state";
+import { NETWORK_ERROR_CREATE_MESSAGE } from "../src/core/ui/action/network-error";
 
 /**
  * Client work (phase 7, unit 7B: tasks 7.3 and 7.4; PRODUCT §4.5, §4.7, §4.8, §4.16; WORKFLOWS §5;
@@ -364,6 +365,22 @@ test("⋯ Item list: a new line starts next month; this month's items don't chan
   await expect(page.getByText(`Story 2 added from ${next}`)).toBeVisible();
   await expect(list.getByLabel("Name of Story 2")).toBeVisible();
   await expect(list.locator('[data-slot="list-editor-row"][data-pending]')).toHaveCount(0);
+
+  // An add that never gets an answer (the connection dropped) takes its faded row back, returns
+  // the name to the field with the reason, and leaves Add usable (the phase 7 review).
+  const dropAdd = (route: Route) =>
+    route.request().method() === "POST" && route.request().headers()["next-action"]
+      ? route.abort("internetdisconnected")
+      : route.fallback();
+  await page.route("**/*", dropAdd);
+  await list.getByLabel("New item").fill("Story 3");
+  await list.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(list.getByText(NETWORK_ERROR_CREATE_MESSAGE)).toBeVisible();
+  await expect(list.getByLabel("New item")).toHaveValue("Story 3");
+  await expect(list.locator('[data-slot="list-editor-row"][data-pending]')).toHaveCount(0);
+  await expect(list.getByRole("button", { name: "Add", exact: true })).toBeEnabled();
+  await page.unroute("**/*", dropAdd);
+  await list.getByLabel("New item").fill("");
 
   // Removing a line asks in the same words, and leaves this month's item in place.
   await list.getByRole("button", { name: "Remove Story 1" }).click();
