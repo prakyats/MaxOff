@@ -113,6 +113,8 @@ export const updateBlueprintSchema = z.object({
   blueprintId: id,
   title: itemTitle.optional(),
   position: position.optional(),
+  /** The line's own stages (amendment D2): every item made from it starts with them. */
+  stages: z.array(stageName).max(STAGES_MAX, `At most ${STAGES_MAX} stages.`).optional(),
 });
 export type UpdateBlueprintInput = z.input<typeof updateBlueprintSchema>;
 
@@ -147,11 +149,39 @@ export type ItemReasonInput = z.input<typeof itemReasonSchema>;
 export const itemIdsSchema = z.object({ itemIds: ids });
 export type ItemIdsInput = z.input<typeof itemIdsSchema>;
 
-export const tickStageSchema = z.object({ itemId: id, stageId: id, done: z.boolean() });
-export type TickStageInput = z.input<typeof tickStageSchema>;
+// An item's own stages (amendment D2).
+export const addItemStageSchema = z.object({ itemId: id, name: stageName });
+export type AddItemStageInput = z.input<typeof addItemStageSchema>;
 
-export const tickStageOnSchema = z.object({ itemIds: ids, stageId: id });
-export type TickStageOnInput = z.input<typeof tickStageOnSchema>;
+export const updateItemStageSchema = z.object({
+  stageId: id,
+  name: stageName.optional(),
+  position: position.optional(),
+});
+export type UpdateItemStageInput = z.input<typeof updateItemStageSchema>;
+
+export const tickItemStageSchema = z.object({ stageId: id, done: z.boolean() });
+export type TickItemStageInput = z.input<typeof tickItemStageSchema>;
+
+/** "Tick ‹stage› on N": each chosen item's stage of that name. */
+export const tickStagesSchema = z.object({
+  stageIds: z.array(id).min(1, "Pick at least one item.").max(BULK_MAX),
+});
+export type TickStagesInput = z.input<typeof tickStagesSchema>;
+
+/** A page of the activity panel (`GET /api/client-work/activity`). */
+export const activityPageSchema = z
+  .object({
+    projectId: id,
+    kind: z.enum(["all", "items", "stages", "project"]).default("all"),
+    itemId: id.nullable().default(null),
+    beforeAt: z.iso.datetime({ offset: true }).nullable().default(null),
+    beforeId: z.coerce.number().int().positive().nullable().default(null),
+  })
+  .refine((value) => (value.beforeAt === null) === (value.beforeId === null), {
+    message: "A page starts after an entry: give its time and its id.",
+  });
+export type ActivityPageInput = z.input<typeof activityPageSchema>;
 
 export const carryDecideSchema = z
   .object({

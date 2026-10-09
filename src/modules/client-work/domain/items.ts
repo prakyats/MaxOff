@@ -1,6 +1,6 @@
 import { addISTDays, formatIST, istDayStart, istWeekday, type ISODate } from "@/core/time";
 
-import type { Cycle, Item, ItemRow, ItemState, Stage, Tick } from "./types";
+import type { Cycle, Item, ItemRow, ItemStage, ItemState, Stage } from "./types";
 
 /**
  * The pure rules of client items (WORKFLOWS §5.3, §5.4 items 10, 16, 18; kickoff 7 decisions 18,
@@ -59,18 +59,16 @@ export function plannedLine(
 export type Progress = {
   /** The cycle's items not cancelled and not carried out (carried-in ones count). */
   total: number;
-  /** Done + approved. */
+  /** Done (approved in the same step since amendment D3; a done item from before it too). */
   done: number;
-  approved: number;
   /** Cancelled ("closed") items, shown beside the line. */
   closed: number;
 };
 
-/** Decision 18's numbers for one cycle's items. */
+/** Decision 18's numbers for one cycle's items (amendment D3: one "done" figure). */
 export function progressOf(items: readonly Pick<Item, "state">[]): Progress {
   let total = 0;
   let done = 0;
-  let approved = 0;
   let closed = 0;
   for (const item of items) {
     if (item.state === "cancelled") {
@@ -80,18 +78,14 @@ export function progressOf(items: readonly Pick<Item, "state">[]): Progress {
     if (item.state === "carried") continue;
     total += 1;
     if (item.state === "done" || item.state === "approved") done += 1;
-    if (item.state === "approved") approved += 1;
   }
-  return { total, done, approved, closed };
+  return { total, done, closed };
 }
 
-/** "9/12 done · 8/12 approved · 1 closed" (decision 18); "No items in this cycle." when empty. */
+/** "9/12 done · 1 closed" (decision 18, amendment D3); "No items in this cycle." when empty. */
 export function progressLine(progress: Progress): string {
   if (progress.total === 0 && progress.closed === 0) return "No items in this cycle.";
-  const parts = [
-    `${progress.done}/${progress.total} done`,
-    `${progress.approved}/${progress.total} approved`,
-  ];
+  const parts = [`${progress.done}/${progress.total} done`];
   if (progress.closed > 0) parts.push(`${progress.closed} closed`);
   return parts.join(" · ");
 }
@@ -144,43 +138,71 @@ export function sortItems<T extends Pick<Item, "position" | "id">>(items: readon
   );
 }
 
-/** A project's stages that still apply (removed ones are archived, decision 8), in order. */
+/**
+ * Stages that still apply (removed ones are archived, decision 8, amendment D2), in order: a
+ * project's default stages or an item's own.
+ */
 export function activeStages<T extends Pick<Stage, "archived" | "position" | "id">>(
   stages: readonly T[],
 ): T[] {
   return sortItems(stages.filter((stage) => !stage.archived));
 }
 
-/** The item's ticked stage ids. */
-export function tickedStages(itemId: string, ticks: readonly Tick[]): Set<string> {
-  return new Set(
-    ticks.filter((tick) => tick.itemId === itemId && tick.doneAt !== null).map((t) => t.stageId),
-  );
+/** Each item's own active stages, in order (amendment D2). */
+export function stagesByItem<T extends Pick<ItemStage, "itemId" | "archived" | "position" | "id">>(
+  stages: readonly T[],
+): Map<string, T[]> {
+  const byItem = new Map<string, T[]>();
+  for (const stage of activeStages(stages)) {
+    byItem.set(stage.itemId, [...(byItem.get(stage.itemId) ?? []), stage]);
+  }
+  return byItem;
 }
 
-/** Which item states take ticks, Done, Not done, approval and edits (decisions 6, 7; Q5 (b)). */
+/**
+ * "Tick ‹stage› on N" (decision 16, amendment D2): the stage names the chosen items carry, in the
+ * order they first appear, each with the stages of that name to tick (one per item that has it,
+ * matched case-insensitively). An item without the name is left out of that choice.
+ */
+export function stageChoices(
+  items: readonly { stages: readonly { id: string; name: string; done: boolean }[] }[],
+): { name: string; stageIds: string[] }[] {
+  const choices = new Map<string, { name: string; stageIds: string[] }>();
+  for (const item of items) {
+    for (const stage of item.stages) {
+      const key = stage.name.trim().toLowerCase();
+      const choice = choices.get(key) ?? { name: stage.name, stageIds: [] };
+      if (!stage.done) choice.stageIds.push(stage.id);
+      choices.set(key, choice);
+    }
+  }
+  return [...choices.values()].filter((choice) => choice.stageIds.length > 0);
+}
+
+/**
+ * Which item states take ticks, Done, a reopen and edits (decisions 7, 9; Q5 (b); amendment D3:
+ * done is approved in the same step, and a done item is reopened with a reason). `done` is only an
+ * item from before amendment D: it behaves as it did, and can be reopened.
+ */
 export const ITEM_RULES = {
   ticks: (state: ItemState) => state === "open" || state === "done",
   markDone: (state: ItemState) => state === "open",
-  notDone: (state: ItemState) => state === "done",
-  decide: (state: ItemState) => state === "done",
+  reopen: (state: ItemState) => state === "approved" || state === "done",
   cancel: (state: ItemState) => state === "open" || state === "done",
-  /** Every detail while open or done; only title and notes once approved, closed or carried. */
+  /** Every detail and the item's stages while open; only title and notes once done, closed or carried. */
   editAll: (state: ItemState) => state === "open" || state === "done",
 } as const;
 
-/** The cross-client list's state view (`?filter=`): live = open and done items. */
-export type ItemFilter = "live" | "open" | "done" | "overdue";
-export const ITEM_FILTERS: readonly ItemFilter[] = ["live", "overdue", "open", "done"];
+/** The cross-client list's state view (`?filter=`): live = the open items (and pre-D done ones). */
+export type ItemFilter = "live" | "overdue";
+export const ITEM_FILTERS: readonly ItemFilter[] = ["live", "overdue"];
 export const ITEM_FILTER_LABELS: Record<ItemFilter, string> = {
-  live: "Open and done",
+  live: "Open",
   overdue: "Overdue",
-  open: "Open",
-  done: "Done, to approve",
 };
 
 export function parseItemFilter(value: string | undefined): ItemFilter {
-  return value === "overdue" || value === "open" || value === "done" ? value : "live";
+  return value === "overdue" ? value : "live";
 }
 
 export function matchesFilter(
@@ -188,16 +210,9 @@ export function matchesFilter(
   filter: ItemFilter,
   today: ISODate,
 ): boolean {
-  switch (filter) {
-    case "overdue":
-      return isOverdue(item, today);
-    case "open":
-      return item.state === "open";
-    case "done":
-      return item.state === "done";
-    default:
-      return item.state === "open" || item.state === "done";
-  }
+  return filter === "overdue"
+    ? isOverdue(item, today)
+    : item.state === "open" || item.state === "done";
 }
 
 /** The cross-client list's order: overdue first, then by planned date (none last), then title. */

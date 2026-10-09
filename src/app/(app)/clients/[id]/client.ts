@@ -68,5 +68,7 @@ export const loadPeople = cache(async () => {
   const options = members
     .filter((member) => member.status === "active")
     .map((member) => ({ id: member.id, name: member.fullName }));
-  return { names, admins, options };
+  // The Owner's id: his send-back of a done item reads "Sent back", an Admin's "Reopened" (D3).
+  const ownerId = members.find((member) => member.role === "owner")?.id ?? null;
+  return { names, admins, options, ownerId };
 });

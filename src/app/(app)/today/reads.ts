@@ -6,15 +6,14 @@ import { withSessionUserId } from "@/core/auth/server";
 import { addISTDays, type ISODate } from "@/core/time";
 import { listPendingDays, listPendingNotes } from "@/modules/attendance";
 import {
-  countItemsToApprove,
   countItemsToDecide,
   countOverdueItems,
   listCurrentCycles,
   listItemRows,
+  listItemStages,
+  listLastChanges,
   listReviews,
   listSentBack,
-  listStagesOf,
-  listTicks,
   weekEnd,
 } from "@/modules/client-work";
 import { listClients } from "@/modules/clients";
@@ -65,28 +64,27 @@ export const readApprovals = cache(() =>
 export const readOverdueItems = cache((today: ISODate) => countOverdueItems(today));
 
 /**
- * The Admin's client work (kickoff 7 decision 19, amendment C): open items planned up to Sunday,
- * the items sent back to them, the counts behind Needs you, and the ticks, stages and reviews of
- * the rows Today shows. RLS gives an Admin only the clients they run.
+ * The Admin's client work (kickoff 7 decision 19, amendments C and D): open items planned up to
+ * Sunday, the items sent back to them and the count behind Needs you (no approval count since D3:
+ * done is the approval). RLS gives an Admin only the clients they run.
  */
 export const readAdminClientWork = cache(async (today: ISODate, viewerId: string) => {
-  const [due, sentBack, toApprove, toDecide] = await Promise.all([
+  const [due, sentBack, toDecide] = await Promise.all([
     listItemRows({ states: ["open"], plannedTo: weekEnd(today) }),
     listSentBack(viewerId),
-    countItemsToApprove(),
     countItemsToDecide(today),
   ]);
-  return { due, sentBack, toApprove, toDecide };
+  return { due, sentBack, toDecide };
 });
 
-/** The stages, ticks and reviews of the items Today shows (at most a handful). */
-export async function readItemDetails(projectIds: string[], itemIds: string[]) {
-  const [stages, ticks, reviews] = await Promise.all([
-    listStagesOf([...new Set(projectIds)]),
-    listTicks(itemIds),
+/** The own stages, reviews and last changes of the items Today shows (at most a handful). */
+export async function readItemDetails(itemIds: string[]) {
+  const [stages, reviews, lastChanges] = await Promise.all([
+    listItemStages(itemIds),
     listReviews(itemIds),
+    listLastChanges(itemIds),
   ]);
-  return { stages, ticks, reviews };
+  return { stages, reviews, lastChanges };
 }
 
 /**

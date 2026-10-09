@@ -5,7 +5,7 @@
 -- (UNAUTHENTICATED), anon (no privilege).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(132);
+select plan(133);
 
 delete from public.item_reviews;
 delete from public.project_item_stage_list;
@@ -251,6 +251,9 @@ select is(pg_temp.stages('Film'), 'Grade,Script✓,Shoot,Edit', 'the ticks are o
 select is((select array_agg(action order by id) from public.activity_log
            where entity = 'project_item_stage_list' and entity_id = pg_temp.item('Film') and action in ('ticked', 'unticked')),
   array['ticked', 'ticked', 'unticked'], 'audited ticked / unticked');
+select is((select string_agg(meta ->> 'name', ',' order by id) from public.activity_log
+           where entity = 'project_item_stage_list' and entity_id = pg_temp.item('Film') and action in ('ticked', 'unticked', 'update')),
+  'Colour,Grade,Script,Shoot,Shoot', 'each entry names its stage in meta (rename, move, ticks; client_work_item_stage_meta)');
 select is(public.item_stage_tick(pg_temp.stage('Film', 'Grade')), true, 'a stage about to be removed, ticked');
 insert into fx select 'grade', pg_temp.stage('Film', 'Grade');
 select lives_ok($$ select public.item_stage_archive(pg_temp.fx('grade')) $$, 'removed from the item');

@@ -3,11 +3,11 @@ import { Skeleton } from "@/core/ui/primitives/skeleton";
 
 /**
  * A project's page (7.3) traced: the title bar with its back control (to the client's Projects;
- * the client's name is not read yet, so its label is a bar) and ⋯, the description line (client ·
- * repeat, desktop), the state line, the
- * cycle pager (two arrows around the cycle's name and its progress line), the Items heading with
- * Add item, item rows (the select box, the title over its state and date line, the one action)
- * and the Activity heading with its rows.
+ * the client's name is not read yet, so its label is a bar), the Activity button and ⋯ (both
+ * 44 px), the description line (client · repeat, desktop), the state line, the cycle pager (two
+ * arrows around the cycle's name and its progress line), the Items heading with Add item and item
+ * rows (the select box, the title over its state and date line, the one action). No activity on
+ * the page itself since the owner's preview feedback (2026-10-09): it is the header's panel.
  */
 export default function Loading() {
   return (
@@ -28,7 +28,15 @@ export default function Loading() {
           <span className="bg-muted inline-block h-3.5 w-56 max-w-full rounded-md align-middle motion-safe:animate-pulse" />
         }
         back={{ href: "/clients", label: "the client", labelWidth: "w-24" }}
-        menu={<Skeleton aria-hidden className="size-11 rounded-lg md:size-8" />}
+        // Two header buttons (Activity and ⋯) beside the bell: at very large text (200%) the bell
+        // wraps to a second row rather than pushing the bar past the screen's edge.
+        className="flex-wrap"
+        menu={
+          <>
+            <Skeleton aria-hidden className="size-11 rounded-lg" />
+            <Skeleton aria-hidden className="size-11 rounded-lg md:size-8" />
+          </>
+        }
       />
       <div aria-hidden className="flex max-w-3xl min-w-0 flex-col gap-4">
         <div className="flex flex-col gap-2">
@@ -62,17 +70,6 @@ export default function Loading() {
                   <Skeleton className="h-3 w-1/3" />
                 </span>
                 <Skeleton className="h-11 w-24 shrink-0 rounded-lg md:h-7" />
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div className="flex flex-col gap-2">
-          <Skeleton className="h-4 w-16" />
-          <ul className="border-border divide-border bg-card divide-y rounded-lg border">
-            {[0, 1, 2].map((row) => (
-              <li key={row} className="flex flex-col gap-1.5 px-4 py-3">
-                <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-3 w-28" />
               </li>
             ))}
           </ul>

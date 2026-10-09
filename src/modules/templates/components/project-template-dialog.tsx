@@ -166,8 +166,8 @@ export function ProjectTemplateDialog({
               )}
             </FormField>
             <FormField
-              label="Stages"
-              hint={`One per line, at most ${TEMPLATE_STAGES_MAX}.`}
+              label="Default stages"
+              hint={`Optional. A new project's items start with these. One per line, at most ${TEMPLATE_STAGES_MAX}.`}
               error={errors.stages}
             >
               {(control) => (

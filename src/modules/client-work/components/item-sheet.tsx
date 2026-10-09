@@ -1,10 +1,12 @@
 "use client";
 
 import { ArrowDownIcon, ArrowUpIcon, CheckIcon } from "lucide-react";
+import dynamic from "next/dynamic";
 import { useState } from "react";
 
-import { fail, type Result } from "@/core/errors/result";
+import type { Result } from "@/core/errors/result";
 import { cn } from "@/core/lib/utils";
+import { formatIST } from "@/core/time";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { FormField } from "@/core/ui/composites/form-field";
@@ -18,51 +20,65 @@ import { Textarea } from "@/core/ui/primitives/textarea";
 import { describeError, toastResult } from "@/core/ui/toast";
 
 import {
-  approveItems,
+  addItemStage,
+  archiveItemStage,
   cancelItem,
   markItemDone,
-  rejectItem,
-  tickStage,
-  unmarkItemDone,
+  reopenItem,
+  tickItemStage,
   updateItem,
+  updateItemStage,
 } from "../actions/items";
-import { ITEM_NOTES_MAX, ITEM_TITLE_MAX } from "../domain/schemas";
+import { ITEM_NOTES_MAX, ITEM_TITLE_MAX, STAGE_NAME_MAX, STAGES_MAX } from "../domain/schemas";
 import { ITEM_STATUS } from "../domain/types";
 import type { ItemView } from "../domain/views";
 
+import { ListEditorSheet } from "./list-editor-sheet";
+
+/** One item's history, on the first tap of "History" (ARCHITECTURE §19). */
+const ActivityPanel = dynamic(
+  () => import("./activity-panel").then((module) => module.ActivityPanel),
+  { ssr: false },
+);
+
 /** What the viewer may do on the screen that opened the sheet (their keys, the project's state). */
 export type ItemPermissions = {
-  /** `projects.manage` on a project that is open or in progress. */
+  /** `projects.manage` on a project that is open or in progress: details and the item's stages. */
   manage: boolean;
-  /** `items.tick` on a project that is open or in progress. */
+  /** `items.tick` on a project that is open or in progress: ticks and Mark done (= approved). */
   tick: boolean;
-  /** `items.approve` on a project that is open or in progress. */
-  approve: boolean;
+  /**
+   * `items.approve` on a project that is open or in progress: since amendment D3, send back (the
+   * Owner) or reopen (the client's Admin) a done item with a reason.
+   */
+  reopen: boolean;
+  /** The viewer is the Owner: his reopen is a "Send back". */
+  owner: boolean;
 };
 
 /**
- * An item's sheet (7.3; PRODUCT §4.5, WORKFLOWS §5.3, kickoff 7 decisions 6, 7, 12; Q5 (b)): its
- * state, planned date, notes and history, the stage ticks (44 px rows), and the actions the viewer
- * may take: Mark done / Not done (`items.tick`), Approve and Send back with a reason
- * (`items.approve`), Edit, Move and Close with a reason (`projects.manage`; once approved, closed or
+ * An item's sheet (7.3; PRODUCT §4.5, WORKFLOWS §5.3, kickoff 7 decisions 7, 12; Q5 (b); amendment
+ * D): its state, planned date, notes, "Last change … · History" and its **own stages** (44 px
+ * ticks; "Edit stages" adds, renames, moves and removes them on this item only), and the actions
+ * the viewer may take: **Mark done** (`items.tick`; it is approved in the same step, D3), **Send
+ * back…** (the Owner) or **Reopen…** (the client's Admin) a done item with a reason
+ * (`items.approve`), Edit, Move and Close with a reason (`projects.manage`; once done, closed or
  * carried only the title and notes change). A bottom sheet on a phone (`ReviewSheet`): back closes
- * it, and a reason dialog opened from it closes first (§14.2 a); with an edit typed and not saved,
- * back asks "Discard your changes?" first, and back on that keeps editing (§14.2 f). **Approve**
- * goes through `onApprove` where the screen gives it (the project page: instant, with the
- * 6-second Undo, as Approvals) and the sheet closes.
+ * it, and a layer opened from it (the reason, the stage editor, the history) closes first (§14.2
+ * a); with an edit typed and not saved, back asks "Discard your changes?" first, and back on that
+ * keeps editing (§14.2 f). **Mark done** goes through `onMarkDone` where the screen gives it (the
+ * 6-second Undo) and the sheet closes.
  */
 export function ItemSheet({
   item,
-  stages,
   permissions,
   open,
   onOpenChange,
   projectHref,
   onMove,
-  onApprove,
+  onMarkDone,
 }: {
   item: ItemView | null;
-  stages: readonly { id: string; name: string }[];
   permissions: ItemPermissions;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -70,8 +86,8 @@ export function ItemSheet({
   projectHref?: string;
   /** Opened on the project page: move the item up or down its list. */
   onMove?: ((itemId: string, direction: "up" | "down") => void) | undefined;
-  /** The screen's Approve with Undo (the project page); without it the sheet approves at once. */
-  onApprove?: ((item: ItemView) => void) | undefined;
+  /** The screen's Mark done with Undo; without it the sheet marks it done at once. */
+  onMarkDone?: ((item: ItemView) => void) | undefined;
 }) {
   // Editing belongs to the item it started on: another item, or a reopened sheet, shows its facts.
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -81,9 +97,13 @@ export function ItemSheet({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
-  const [reason, setReason] = useState<"reject" | "close" | null>(null);
+  const [reason, setReason] = useState<"reopen" | "close" | null>(null);
   // "Discard your changes?" stands in for the sheet while it asks (§14.2 f).
   const [asking, setAsking] = useState(false);
+  const [editingStages, setEditingStages] = useState(false);
+  // The item's history: mounted afresh on each opening (its key), kept for its closing animation.
+  const [history, setHistory] = useState(0);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   if (!item) {
     return (
@@ -143,7 +163,8 @@ export function ItemSheet({
   }
 
   const canTick = permissions.tick && current.rules.ticks;
-  const ticked = new Set(current.ticked);
+  const canEditStages = permissions.manage && current.rules.editAll;
+  const reopenWord = permissions.owner ? "Send back" : "Reopen";
   const actions = (
     <>
       {projectHref ? (
@@ -156,47 +177,9 @@ export function ItemSheet({
           Close item…
         </Button>
       ) : null}
-      {permissions.approve && current.rules.decide ? (
-        <Button variant="secondary" onClick={() => setReason("reject")} data-slot="item-send-back">
-          Send back…
-        </Button>
-      ) : null}
-      {permissions.tick && current.rules.notDone ? (
-        <Button
-          variant="secondary"
-          pending={busy === "not-done"}
-          onClick={() =>
-            run("not-done", () => unmarkItemDone({ itemId: current.id }), "Marked not done")
-          }
-        >
-          Not done
-        </Button>
-      ) : null}
-      {permissions.approve && current.rules.decide ? (
-        <Button
-          variant="primary"
-          pending={busy === "approve"}
-          pendingLabel="Approving…"
-          data-slot="item-approve"
-          onClick={() => {
-            if (onApprove) {
-              onApprove(current);
-              onOpenChange(false);
-              return;
-            }
-            void run(
-              "approve",
-              async () => {
-                const result = await approveItems({ itemIds: [current.id] });
-                if (!result.ok) return result;
-                const failed = result.data.failed[0];
-                return failed ? fail(failed.code, failed.message) : result;
-              },
-              "Approved",
-            );
-          }}
-        >
-          Approve
+      {permissions.reopen && current.rules.reopen ? (
+        <Button variant="secondary" onClick={() => setReason("reopen")} data-slot="item-reopen">
+          {reopenWord}…
         </Button>
       ) : null}
       {permissions.tick && current.rules.markDone ? (
@@ -205,7 +188,14 @@ export function ItemSheet({
           pending={busy === "done"}
           pendingLabel="Marking done…"
           data-slot="item-mark-done"
-          onClick={() => run("done", () => markItemDone({ itemId: current.id }), "Marked done")}
+          onClick={() => {
+            if (onMarkDone) {
+              onMarkDone(current);
+              onOpenChange(false);
+              return;
+            }
+            void run("done", () => markItemDone({ itemId: current.id }), "Marked done");
+          }}
         >
           Mark done
         </Button>
@@ -297,12 +287,34 @@ export function ItemSheet({
                   })),
                 ]}
               />
+              <p
+                data-slot="item-last-change"
+                className="text-muted-foreground flex flex-wrap items-center gap-x-1"
+              >
+                <span className="break-words">
+                  {current.lastChange
+                    ? `Last change: ${current.lastChange.text} by ${current.lastChange.by}, ${formatIST(current.lastChange.at, "d MMM, h:mm a")}`
+                    : "No changes recorded yet."}
+                </span>
+                <span aria-hidden>·</span>
+                <Button
+                  variant="ghost"
+                  className="h-11 px-2 underline underline-offset-4"
+                  data-slot="item-history"
+                  onClick={() => {
+                    setHistory((count) => count + 1);
+                    setHistoryOpen(true);
+                  }}
+                >
+                  History
+                </Button>
+              </p>
               {current.sentBack ? (
                 <p
                   data-slot="item-sent-back"
                   className="border-border bg-muted/50 rounded-lg border px-3 py-2"
                 >
-                  Sent back by {current.sentBack.by}: {current.sentBack.reason}
+                  {current.sentBack.verb} by {current.sentBack.by}: {current.sentBack.reason}
                 </p>
               ) : null}
               {current.closedReason ? (
@@ -341,25 +353,39 @@ export function ItemSheet({
               ) : null}
             </>
           )}
-          {stages.length > 0 ? (
-            <section aria-label="Stages" className="flex flex-col gap-1">
-              <p className="text-muted-foreground text-xs">Stages</p>
-              <ul className="border-border divide-border divide-y rounded-lg border">
-                {stages.map((stage) => {
-                  const done = ticked.has(stage.id);
-                  return (
+          {current.stages.length > 0 || canEditStages ? (
+            <section aria-label="Stages" className="flex flex-col gap-1" data-slot="item-stages">
+              <div className="flex min-h-11 items-center justify-between gap-2">
+                <p className="text-muted-foreground text-xs">Stages</p>
+                {canEditStages && !editing ? (
+                  <Button
+                    variant="ghost"
+                    data-slot="item-stages-edit"
+                    onClick={() => setEditingStages(true)}
+                  >
+                    Edit stages
+                  </Button>
+                ) : null}
+              </div>
+              {current.stages.length === 0 ? (
+                <p className="text-muted-foreground">
+                  No stages: this item is simply open or done.
+                </p>
+              ) : (
+                <ul className="border-border divide-border divide-y rounded-lg border">
+                  {current.stages.map((stage) => (
                     <li key={stage.id}>
                       <button
                         type="button"
                         role="checkbox"
-                        aria-checked={done}
+                        aria-checked={stage.done}
                         disabled={!canTick || busy === stage.id}
                         data-slot="item-stage-tick"
                         onClick={() =>
                           run(
                             stage.id,
-                            () => tickStage({ itemId: current.id, stageId: stage.id, done: !done }),
-                            done ? `${stage.name} unticked` : `${stage.name} ticked`,
+                            () => tickItemStage({ stageId: stage.id, done: !stage.done }),
+                            stage.done ? `${stage.name} unticked` : `${stage.name} ticked`,
                           )
                         }
                         className="pressable-row flex min-h-11 w-full items-center gap-3 px-3 text-left disabled:opacity-70"
@@ -367,19 +393,19 @@ export function ItemSheet({
                         <span
                           className={cn(
                             "flex size-5 shrink-0 items-center justify-center rounded border",
-                            done
+                            stage.done
                               ? "border-primary bg-primary text-primary-foreground"
                               : "border-input",
                           )}
                         >
-                          {done ? <CheckIcon className="size-3.5" aria-hidden /> : null}
+                          {stage.done ? <CheckIcon className="size-3.5" aria-hidden /> : null}
                         </span>
                         <span className="min-w-0 flex-1 break-words">{stage.name}</span>
                       </button>
                     </li>
-                  );
-                })}
-              </ul>
+                  ))}
+                </ul>
+              )}
             </section>
           ) : null}
         </div>
@@ -399,26 +425,53 @@ export function ItemSheet({
       <ReasonDialog
         open={reason !== null}
         onOpenChange={(next) => (next ? null : setReason(null))}
-        title={reason === "close" ? `Close ${current.title}?` : `Send back ${current.title}?`}
+        title={reason === "close" ? `Close ${current.title}?` : `${reopenWord} ${current.title}?`}
         description={
           reason === "close"
             ? "It stays in the cycle as closed, not done. This can't be undone."
-            : "It goes back to open to fix, with your reason."
+            : "It goes back to open and stops counting as done until it is done again."
         }
         label={reason === "close" ? "Why close it" : "What needs to change"}
-        submitLabel={reason === "close" ? "Close item" : "Send back"}
+        submitLabel={reason === "close" ? "Close item" : reopenWord}
         onSubmit={async (text) => {
           const result =
             reason === "close"
               ? await cancelItem({ itemId: current.id, reason: text })
-              : await rejectItem({ itemId: current.id, reason: text });
+              : await reopenItem({ itemId: current.id, reason: text });
           const done = toastResult(result, {
-            success: reason === "close" ? "Item closed" : "Sent back",
+            success:
+              reason === "close" ? "Item closed" : permissions.owner ? "Sent back" : "Reopened",
           });
           if (done) onOpenChange(false);
           return done;
         }}
       />
+      {canEditStages ? (
+        <ListEditorSheet
+          open={editingStages}
+          onOpenChange={setEditingStages}
+          title={`Stages of ${current.title}`}
+          description="This item only. The project's default stages and its other items stay as they are."
+          noun="stage"
+          removeDescription="It leaves this item; its tick stays in the history."
+          rows={current.stages}
+          max={STAGES_MAX}
+          maxLength={STAGE_NAME_MAX}
+          onAdd={(name) => addItemStage({ itemId: current.id, name })}
+          onRename={(stageId, name) => updateItemStage({ stageId, name })}
+          onMove={(stageId, position) => updateItemStage({ stageId, position })}
+          onRemove={(stageId) => archiveItemStage({ stageId })}
+        />
+      ) : null}
+      {history > 0 ? (
+        <ActivityPanel
+          key={history}
+          open={historyOpen}
+          onOpenChange={setHistoryOpen}
+          projectId={current.projectId}
+          item={{ id: current.id, title: current.title }}
+        />
+      ) : null}
     </>
   );
 }

@@ -21,7 +21,6 @@ import type { NavBadges } from "@/core/ui/shell/nav";
 import { countsOrNone } from "@/core/ui/shell/nav-counts";
 import { countPendingDays, countPendingNotes, getOwnToday, promptDue } from "@/modules/attendance";
 import { StartDayPromptLazy } from "@/modules/attendance/components/start-day-prompt-lazy";
-import { countItemsToApprove } from "@/modules/client-work";
 import { countPendingRequests } from "@/modules/leave";
 import { countPendingClaims } from "@/modules/expenses";
 import { countTasks } from "@/modules/tasks";
@@ -32,8 +31,8 @@ import { countTasks } from "@/modules/tasks";
  * noted, plus those with changes requested (`task_counts()`). **Approvals** (2.4): the attendance
  * days, leave requests, extra work notes (3b.2) and expense claims (3b.3, `expenses.decide`)
  * waiting for whoever decides them (the Owner), plus the tasks at the step the viewer decides
- * (4.5: the Owner's final approvals, an Admin's checks), and for the client's Admin the done items
- * of the clients they run (7.4; never the Owner's, issue #56 Q1). **Alerts**
+ * (4.5: the Owner's final approvals, an Admin's checks); client items take no approval step
+ * since amendment D3 (done is the approval). **Alerts**
  * (5.1, kickoff 5 decision 4): the viewer's unread notifications, on every role's bell (`readUnread()`, which the title bar's bell shares in the same request; `unread`,
  * that count with the server's clock, or null when it could not be read).
  */
@@ -44,14 +43,10 @@ async function navBadges(
   const tasks = can(role, "tasks.work") ? countTasks() : Promise.resolve(null);
   const alerts = unread.then((server) => server?.count ?? 0);
   if (!can(role, "attendance.decide")) {
-    const [counts, unreadCount, items] = await Promise.all([
-      tasks,
-      alerts,
-      can(role, "items.approve") ? countItemsToApprove() : Promise.resolve(0),
-    ]);
+    const [counts, unreadCount] = await Promise.all([tasks, alerts]);
     return {
       tasks: counts?.badge ?? 0,
-      approvals: (counts?.toDecide ?? 0) + items,
+      approvals: counts?.toDecide ?? 0,
       alerts: unreadCount,
     };
   }

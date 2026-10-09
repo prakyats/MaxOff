@@ -22,24 +22,18 @@ import {
 } from "@/core/ui/primitives/dropdown-menu";
 import { toastResult } from "@/core/ui/toast";
 
-import {
-  approveItems,
-  markItemDone,
-  markItemsDone,
-  tickStageOn,
-  updateItem,
-} from "../actions/items";
-import { itemCount } from "../domain/items";
+import { markItemsDone, tickStages, updateItem } from "../actions/items";
+import { itemCount, stageChoices } from "../domain/items";
 import { movedPosition } from "../domain/positions";
 import { ITEM_STATUS } from "../domain/types";
 import type { ItemView } from "../domain/views";
 
 import type { ItemPermissions } from "./item-sheet";
-import { APPROVE_URL, useUndoSends } from "./use-undo-sends";
+import { MARK_DONE_URL, useUndoSends } from "./use-undo-sends";
 
 /**
  * What draws nothing until it is used loads after the page (ARCHITECTURE §19, the 7B review's
- * S2): the item sheet and the bulk Approve's confirmation are mounted on their first open and
+ * S2): the item sheet and the bulk Mark done's confirmation are mounted on their first open and
  * kept (their closing stays animated); Add item is mounted while open.
  */
 const ItemSheet = dynamic(() => import("./item-sheet").then((module) => module.ItemSheet), {
@@ -55,21 +49,21 @@ const ConfirmDialog = dynamic(
 );
 
 /**
- * A cycle's items on the project page (7.3; PRODUCT §4.5, WORKFLOWS §5.4 items 6, 7, 9, 16, 18;
- * kickoff 7 decisions 16, 26). **First glance:** each item with its planned date (red once
- * overdue), "Carried from …", a "sent back" note, its stages ticked (from `md` up; the sheet holds
- * them on a phone) and one action: **Mark done** while open, **Approve** while done (for whoever
- * approves: instant with the 6-second Undo, as Approvals, because approving locks the item and
- * counts it for revenue; the sheet's Approve too). A tap on the title opens the item sheet.
- * Selecting rows offers the bulk "Mark N done", "Tick ‹stage› on N" and "Approve N" (decision 16:
- * per-id results, a failed row keeps its message); "Approve N" asks first, its red button naming
- * it ("Approve 5 items"). "Add item" adds to this cycle (never a past one, decision 9). Nothing is reordered
- * under the thumb: the server's list arrives after each change.
+ * A cycle's items on the project page (7.3; PRODUCT §4.5, WORKFLOWS §5.4 items 7, 9, 16, 18;
+ * kickoff 7 decisions 16, 26; amendment D). **First glance:** each item with its planned date (red
+ * once overdue), "Carried from …", a "sent back" note, its own stages ticked (from `md` up; the
+ * sheet holds them on a phone) and one action: **Mark done** while open, for whoever ticks. Done
+ * is the approval (D3): it locks the item and counts it at once, so it is instant with the
+ * 6-second Undo (Today's own delayed send); the sheet's Mark done too. A tap on the title opens the
+ * item sheet. Selecting rows offers the bulk "Mark N done" (it asks first, its red button naming
+ * it, "Mark 5 items done") and "Tick ‹stage› on N" for the selected items that have a stage of
+ * that name (decision 16: per-id results, a failed row keeps its message). "Add item" adds to this
+ * cycle (never a past one, decision 9). Nothing is reordered under the thumb: the server's list
+ * arrives after each change.
  */
 export function CycleItems({
   cycleId,
   items,
-  stages,
   permissions,
   canAdd,
   openItemId = null,
@@ -78,7 +72,6 @@ export function CycleItems({
   openItemId?: string | null;
   cycleId: string;
   items: readonly ItemView[];
-  stages: readonly { id: string; name: string }[];
   permissions: ItemPermissions;
   /** The cycle takes new items: not ended (or one-time), the project workable. */
   canAdd: boolean;
@@ -88,25 +81,24 @@ export function CycleItems({
   // The sheet's code arrives on its first open and stays (`ItemSheet` above).
   const [sheetUsed, setSheetUsed] = useState(openItemId !== null);
   const [adding, setAdding] = useState(false);
-  const [confirming, setConfirming] = useState<"approve" | null>(null);
+  const [confirming, setConfirming] = useState(false);
   const [confirmUsed, setConfirmUsed] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [failures, setErrors] = useState<Readonly<Record<string, string>>>({});
-  const approvals = useUndoSends({
-    url: APPROVE_URL,
-    body: (id) => ({ kind: "item", id }),
-    said: (title) => `Approved ${title}`,
-    notDone: "It was not approved.",
-    tooLate: "Undo came too late: it was approved.",
-    toastKey: "item-approve",
+  const marks = useUndoSends({
+    url: MARK_DONE_URL,
+    body: (id) => ({ id }),
+    said: (title) => `Marked ${title} done`,
+    notDone: "It was not marked done.",
+    tooLate: "Undo came too late: it was marked done.",
+    toastKey: "item-done",
   });
-  const errors = { ...failures, ...approvals.errors };
-  // Approved and waiting for the server's list: faded, its action gone (while still done).
-  const waiting = (item: ItemView) => approvals.held.has(item.id) && item.rules.decide;
+  const errors = { ...failures, ...marks.errors };
+  // Marked done and waiting for the server's list: faded, its action gone (while still open).
+  const waiting = (item: ItemView) => marks.held.has(item.id) && item.rules.markDone;
   const open = items.find((item) => item.id === openId) ?? null;
   const selectable = (item: ItemView) =>
-    (permissions.tick && (item.rules.markDone || item.rules.ticks)) ||
-    (permissions.approve && item.rules.decide);
+    permissions.tick && (item.rules.markDone || item.rules.ticks);
   const chosen = items.filter((item) => selected.has(item.id) && !waiting(item));
 
   function openSheet(id: string) {
@@ -114,14 +106,14 @@ export function CycleItems({
     setOpenId(id);
   }
 
-  function approve(item: ItemView) {
+  function markDone(item: ItemView) {
     setSelected((current) => {
       if (!current.has(item.id)) return current;
       const next = new Set(current);
       next.delete(item.id);
       return next;
     });
-    approvals.start(item.id, item.title);
+    marks.start(item.id, item.title);
   }
 
   function toggle(id: string) {
@@ -150,16 +142,6 @@ export function CycleItems({
     setSelected(new Set(result.data.failed.map((row) => row.id)));
   }
 
-  async function single(item: ItemView) {
-    if (!item.rules.markDone) {
-      approve(item);
-      return;
-    }
-    setBusy(item.id);
-    toastResult(await markItemDone({ itemId: item.id }), { success: "Marked done" });
-    setBusy(null);
-  }
-
   async function move(itemId: string, direction: "up" | "down") {
     const index = items.findIndex((item) => item.id === itemId);
     const position = movedPosition(items, index, direction);
@@ -167,9 +149,10 @@ export function CycleItems({
     toastResult(await updateItem({ itemId, position }));
   }
 
-  const doneSelected = chosen.filter((item) => item.rules.decide);
   const openSelected = chosen.filter((item) => item.rules.markDone);
   const tickable = chosen.filter((item) => item.rules.ticks);
+  // "Tick ‹stage› on N": the names the selected items carry (amendment D2).
+  const choices = stageChoices(tickable);
 
   return (
     <section aria-labelledby="cycle-items-title" className="flex flex-col gap-2">
@@ -200,13 +183,8 @@ export function CycleItems({
           className="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border"
         >
           {items.map((item) => {
-            const ticked = new Set(item.ticked);
-            const action =
-              permissions.tick && item.rules.markDone
-                ? "Mark done"
-                : permissions.approve && item.rules.decide
-                  ? "Approve"
-                  : null;
+            const ticked = item.stages.filter((stage) => stage.done).length;
+            const action = permissions.tick && item.rules.markDone;
             return (
               <li
                 key={item.id}
@@ -257,32 +235,31 @@ export function CycleItems({
                       </span>
                     ) : null}
                     {item.carriedFrom ? <span>{item.carriedFrom}</span> : null}
-                    {stages.length > 0 ? (
+                    {item.stages.length > 0 ? (
                       <span className="md:hidden">
-                        Stages {stages.filter((stage) => ticked.has(stage.id)).length}/
-                        {stages.length}
+                        Stages {ticked}/{item.stages.length}
                       </span>
                     ) : null}
                   </span>
                   {item.sentBack ? (
                     <span className="text-xs break-words" data-slot="item-row-sent-back">
-                      Sent back: {item.sentBack.reason}
+                      {item.sentBack.verb}: {item.sentBack.reason}
                     </span>
                   ) : null}
                 </button>
-                {stages.length > 0 ? (
+                {item.stages.length > 0 ? (
                   <span className="hidden flex-wrap gap-1 md:flex" aria-label="Stages">
-                    {stages.map((stage) => (
+                    {item.stages.map((stage) => (
                       <span
                         key={stage.id}
                         className={cn(
                           "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs",
-                          ticked.has(stage.id)
+                          stage.done
                             ? "border-primary/40 bg-primary/10"
                             : "border-border text-muted-foreground",
                         )}
                       >
-                        {ticked.has(stage.id) ? <CheckIcon className="size-3" aria-hidden /> : null}
+                        {stage.done ? <CheckIcon className="size-3" aria-hidden /> : null}
                         {stage.name}
                       </span>
                     ))}
@@ -293,12 +270,11 @@ export function CycleItems({
                     variant="secondary"
                     size="sm"
                     className="ml-auto shrink-0"
-                    pending={busy === item.id}
                     disabled={waiting(item)}
-                    data-slot={action === "Mark done" ? "item-row-done" : "item-row-approve"}
-                    onClick={() => void single(item)}
+                    data-slot="item-row-done"
+                    onClick={() => markDone(item)}
                   >
-                    {action}
+                    Mark done
                   </Button>
                 ) : null}
                 {errors[item.id] ? (
@@ -311,81 +287,60 @@ export function CycleItems({
       )}
       <BulkBar count={chosen.length} onClear={() => setSelected(new Set())} noun="selected">
         {permissions.tick && openSelected.length > 0 ? (
+          // A trigger that opens a confirmation: neutral solid; the red commit names it (§14.1).
           <Button
-            variant="secondary"
+            variant="strong"
             size="sm"
             pending={busy === "bulk-done"}
+            pendingLabel="Marking done…"
             data-slot="bulk-mark-done"
-            onClick={() =>
-              void bulk(
-                "bulk-done",
-                () => markItemsDone({ itemIds: openSelected.map((item) => item.id) }),
-                "marked done",
-              )
-            }
+            onClick={() => {
+              setConfirmUsed(true);
+              setConfirming(true);
+            }}
           >
             Mark {openSelected.length} done
           </Button>
         ) : null}
-        {permissions.tick && stages.length > 0 && tickable.length > 0 ? (
+        {permissions.tick && choices.length > 0 ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="secondary" size="sm" data-slot="bulk-tick">
-                Tick a stage on {tickable.length}
+                Tick a stage
                 <ChevronDownIcon aria-hidden />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-              {stages.map((stage) => (
+              {choices.map((choice) => (
                 <DropdownMenuItem
-                  key={stage.id}
+                  key={choice.name}
                   onSelect={() =>
                     void bulk(
                       "bulk-tick",
-                      () =>
-                        tickStageOn({
-                          stageId: stage.id,
-                          itemIds: tickable.map((item) => item.id),
-                        }),
-                      `ticked ${stage.name}`,
+                      () => tickStages({ stageIds: choice.stageIds }),
+                      `ticked ${choice.name}`,
                     )
                   }
                 >
-                  Tick {stage.name} on {tickable.length}
+                  Tick {choice.name} on {choice.stageIds.length}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
         ) : null}
-        {permissions.approve && doneSelected.length > 0 ? (
-          // A trigger that opens a confirmation: neutral solid; the red commit names it (§14.1).
-          <Button
-            variant="strong"
-            size="sm"
-            pending={busy === "bulk-approve"}
-            pendingLabel="Approving…"
-            data-slot="bulk-approve"
-            onClick={() => {
-              setConfirmUsed(true);
-              setConfirming("approve");
-            }}
-          >
-            Approve {doneSelected.length}
-          </Button>
-        ) : null}
       </BulkBar>
       {confirmUsed ? (
         <ConfirmDialog
-          open={confirming === "approve"}
-          onOpenChange={(next) => (next ? null : setConfirming(null))}
-          title={`Approve ${itemCount(doneSelected.length)}?`}
-          description="Each is locked once approved and counts as delivered. Each is its own approval: one that fails keeps its message."
-          confirmLabel={`Approve ${itemCount(doneSelected.length)}`}
+          open={confirming}
+          onOpenChange={(next) => (next ? null : setConfirming(false))}
+          title={`Mark ${itemCount(openSelected.length)} done?`}
+          description="Each counts as done at once and its stages lock; a done item is sent back or reopened with a reason. Each is its own change: one that fails keeps its message."
+          confirmLabel={`Mark ${itemCount(openSelected.length)} done`}
           onConfirm={() =>
             bulk(
-              "bulk-approve",
-              () => approveItems({ itemIds: doneSelected.map((item) => item.id) }),
-              "approved",
+              "bulk-done",
+              () => markItemsDone({ itemIds: openSelected.map((item) => item.id) }),
+              "marked done",
             )
           }
         />
@@ -394,7 +349,6 @@ export function CycleItems({
       {sheetUsed ? (
         <ItemSheet
           item={open}
-          stages={stages}
           permissions={permissions}
           open={open !== null}
           onOpenChange={(next) => {
@@ -409,7 +363,7 @@ export function CycleItems({
             }
           }}
           onMove={permissions.manage ? (id, direction) => void move(id, direction) : undefined}
-          onApprove={approve}
+          onMarkDone={markDone}
         />
       ) : null}
     </section>

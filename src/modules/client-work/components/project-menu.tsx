@@ -17,7 +17,7 @@ import {
 import type { ProjectState, Recurrence } from "../domain/types";
 
 import type { ListRow } from "./list-editor-sheet";
-import type { MenuLayer, MenuProject } from "./project-menu-layers";
+import type { MenuBlueprint, MenuLayer, MenuProject } from "./project-menu-layers";
 
 /**
  * The menu's dialogs and sheets (the forms, the custom fields, the list editors) load after the
@@ -51,7 +51,7 @@ export function ProjectMenu({
 }: {
   project: MenuProject & { state: ProjectState; recurrence: Recurrence };
   stages: readonly ListRow[];
-  blueprints: readonly ListRow[];
+  blueprints: readonly MenuBlueprint[];
   definitions: readonly FieldDefinition[];
   canManage: boolean;
   canComplete: boolean;
@@ -71,7 +71,7 @@ export function ProjectMenu({
 
   const entries = [
     canManage && working ? { key: "edit", label: "Edit details" } : null,
-    canManage && working ? { key: "stages", label: "Stages" } : null,
+    canManage && working ? { key: "stages", label: "Default stages" } : null,
     canManage && working && recurring ? { key: "items", label: "Item list" } : null,
     canManage && working && recurring && nextCycleLabel
       ? { key: "next", label: `Start ${nextCycleLabel}` }

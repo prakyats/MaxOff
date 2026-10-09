@@ -11,14 +11,15 @@ import type {
   CarryDecision,
   Cycle,
   Item,
+  ItemStage,
   ItemState,
   Project,
   ProjectState,
   Recurrence,
   Review,
   Stage,
-  Tick,
 } from "../domain/types";
+import type { ActivityKind } from "../domain/activity";
 
 /**
  * The client-work repository (CLAUDE.md rule 3): every database call of the module. Reads run
@@ -248,7 +249,7 @@ export async function listBlueprints(projectId: string): Promise<Blueprint[]> {
   const supabase = await createServerSupabase();
   const { data, error } = await supabase
     .from("project_item_blueprints")
-    .select("id, project_id, title, position, archived_at")
+    .select("id, project_id, title, position, archived_at, stages")
     .eq("project_id", projectId);
   if (error) throw error;
   return data.map((row) => ({
@@ -257,6 +258,7 @@ export async function listBlueprints(projectId: string): Promise<Blueprint[]> {
     title: row.title,
     position: row.position,
     archived: row.archived_at !== null,
+    stages: row.stages,
   }));
 }
 
@@ -330,22 +332,27 @@ export async function listCurrentCycles(
   }));
 }
 
-export async function listTicks(itemIds: readonly string[]): Promise<Tick[]> {
+/** Some items' own stages (amendment D2), removed ones included (the screens keep the active). */
+export async function listItemStages(itemIds: readonly string[]): Promise<ItemStage[]> {
   const supabase = await createServerSupabase();
   const rows = await byChunks(itemIds, (ids) =>
     allPages((first, last) =>
       supabase
-        .from("project_item_stages")
-        .select("item_id, stage_id, done_at, done_by")
+        .from("project_item_stage_list")
+        .select("id, item_id, project_id, name, position, archived_at, done_at, done_by")
         .in("item_id", ids)
         .order("item_id")
-        .order("stage_id")
+        .order("id")
         .range(first, last),
     ),
   );
   return rows.map((row) => ({
+    id: row.id,
     itemId: row.item_id,
-    stageId: row.stage_id,
+    projectId: row.project_id,
+    name: row.name,
+    position: row.position,
+    archived: row.archived_at !== null,
     doneAt: row.done_at,
     doneBy: row.done_by,
   }));
@@ -376,22 +383,66 @@ export async function listReviews(itemIds: readonly string[]): Promise<Review[]>
   }));
 }
 
+type ActivityRow = {
+  id: number;
+  actor_id: string | null;
+  entity: string;
+  entity_id: string;
+  action: string;
+  diff: Json;
+  meta: Json;
+  at: string;
+};
+
+function toEntry(row: ActivityRow): ActivityEntry {
+  const diff = asObject(row.diff);
+  return {
+    id: row.id,
+    actorId: row.actor_id,
+    onBehalfOfId: null,
+    entity: row.entity,
+    entityId: row.entity_id,
+    action: row.action,
+    old: asObject(diff.old as Json),
+    new: asObject(diff.new as Json),
+    meta: asObject(row.meta),
+    at: row.at,
+  };
+}
+
 /**
- * A project's history (newest first, `ACTIVITY_LIMIT` entries): the project, its stages, item list
- * and cycles (audited with the project's id) and the given items with their ticks, under RLS.
+ * One page of a project's history, or one item's (`project_activity`, the owner's preview
+ * feedback): newest first, `limit` entries before the cursor, under RLS. Entries the history
+ * never shows are skipped by the function.
  */
-export async function listProjectActivity(
-  projectId: string,
-  itemIds: readonly string[],
-): Promise<ActivityEntry[]> {
-  return listActivity([
-    { entity: "projects", ids: [projectId] },
-    { entity: "project_stages", ids: [projectId] },
-    { entity: "project_item_blueprints", ids: [projectId] },
-    { entity: "project_cycles", ids: [projectId] },
-    { entity: "project_items", ids: [...itemIds] },
-    { entity: "project_item_stages", ids: [...itemIds] },
-  ]);
+export async function pageProjectActivity(args: {
+  projectId: string;
+  kind: ActivityKind;
+  itemId: string | null;
+  before: { at: string; id: number } | null;
+  limit: number;
+}): Promise<ActivityEntry[]> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("project_activity", {
+    project_id: args.projectId,
+    kind: args.kind,
+    ...(args.itemId ? { item_id: args.itemId } : {}),
+    ...(args.before ? { before_at: args.before.at, before_id: args.before.id } : {}),
+    max_rows: args.limit,
+  });
+  if (error) throw error;
+  return (data as ActivityRow[]).map(toEntry);
+}
+
+/** Each item's latest shown history entry (`item_last_changes`), for the sheet's "Last change". */
+export async function listLastChanges(itemIds: readonly string[]): Promise<ActivityEntry[]> {
+  const supabase = await createServerSupabase();
+  const rows = await byChunks(itemIds, async (ids) => {
+    const { data, error } = await supabase.rpc("item_last_changes", { item_ids: ids });
+    if (error) throw error;
+    return data as ActivityRow[];
+  });
+  return rows.map(toEntry);
 }
 
 /** Several projects' own entries (created, started, completed, cancelled, reopened, details). */
@@ -556,19 +607,38 @@ export async function markItemDone(itemId: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function unmarkItemDone(itemId: string): Promise<void> {
+/** Send back (the Owner) or reopen (the client's Admin) a done item, with a reason (D3). */
+export async function reopenItem(itemId: string, reason: string): Promise<void> {
   const supabase = await createServerSupabase();
-  const { error } = await supabase.rpc("item_unmark_done", { item_id: itemId });
+  const { error } = await supabase.rpc("item_reopen", { item_id: itemId, reason });
   if (error) throw error;
 }
 
-export async function tickStage(itemId: string, stageId: string, done: boolean): Promise<void> {
+export async function addItemStage(itemId: string, name: string): Promise<string> {
   const supabase = await createServerSupabase();
-  const { error } = await supabase.rpc("item_tick_stage", {
-    item_id: itemId,
+  const { data, error } = await supabase.rpc("item_stage_add", { item_id: itemId, name });
+  if (error) throw error;
+  return data;
+}
+
+export async function updateItemStage(stageId: string, changes: Record<string, unknown>) {
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.rpc("item_stage_update", {
     stage_id: stageId,
-    done,
+    changes: changes as Json,
   });
+  if (error) throw error;
+}
+
+export async function archiveItemStage(stageId: string): Promise<void> {
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.rpc("item_stage_archive", { stage_id: stageId });
+  if (error) throw error;
+}
+
+export async function tickItemStage(stageId: string, done: boolean): Promise<void> {
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.rpc("item_stage_tick", { stage_id: stageId, done });
   if (error) throw error;
 }
 
@@ -593,19 +663,6 @@ function bulkRows(data: Json): BulkRow[] {
           },
         ];
   });
-}
-
-export async function approveItems(itemIds: readonly string[]): Promise<BulkRow[]> {
-  const supabase = await createServerSupabase();
-  const { data, error } = await supabase.rpc("item_approve", { item_ids: [...itemIds] });
-  if (error) throw error;
-  return bulkRows(data);
-}
-
-export async function rejectItem(itemId: string, reason: string): Promise<void> {
-  const supabase = await createServerSupabase();
-  const { error } = await supabase.rpc("item_reject", { item_id: itemId, reason });
-  if (error) throw error;
 }
 
 export async function carryDecide(

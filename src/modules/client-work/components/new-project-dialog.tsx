@@ -299,8 +299,8 @@ export function NewProjectDialog({
               </FormField>
             ) : null}
             <FormField
-              label="Stages"
-              hint={`Every item gets these. One per line, at most ${STAGES_MAX}.`}
+              label="Default stages"
+              hint={`Optional. Each new item starts with these; an item's own can change later. One per line, at most ${STAGES_MAX}.`}
               error={fieldErrors.stages}
             >
               {(control) => (

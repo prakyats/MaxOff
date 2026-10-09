@@ -26,11 +26,15 @@ export const PROJECT_STATE_LABELS: Record<ProjectState, string> = {
   cancelled: "Cancelled",
 };
 
-/** An item's word (kickoff 7 decision 18: a cancelled item reads "closed"). */
+/**
+ * An item's word (kickoff 7 decision 18: a cancelled item reads "closed"). Since amendment D3 a done
+ * item is approved in the same step, so `approved` reads "Done"; `done` is only an item from before
+ * it.
+ */
 export const ITEM_STATE_LABELS: Record<ItemState, string> = {
   open: "Open",
   done: "Done",
-  approved: "Approved",
+  approved: "Done",
   cancelled: "Closed",
   carried: "Carried",
 };
@@ -86,6 +90,8 @@ export type Blueprint = {
   title: string;
   position: string;
   archived: boolean;
+  /** The stages each item made from it starts with (amendment D2). */
+  stages: string[];
 };
 
 export type Item = {
@@ -109,10 +115,17 @@ export type Item = {
   createdAt: string;
 };
 
-/** A stage ticked on an item (`done` false: unticked again). */
-export type Tick = {
+/**
+ * One of an item's own stages (amendment D2): its name, place, whether it was removed (archived,
+ * its tick kept) and its tick (`doneAt` null: not ticked, or unticked again).
+ */
+export type ItemStage = {
+  id: string;
   itemId: string;
-  stageId: string;
+  projectId: string;
+  name: string;
+  position: string;
+  archived: boolean;
   doneAt: string | null;
   doneBy: string | null;
 };

@@ -22,13 +22,14 @@ import { istDate, wallClock } from "./run-state";
 
 /**
  * Client work (phase 7, unit 7B: tasks 7.3 and 7.4; PRODUCT §4.5, §4.7, §4.8, §4.16; WORKFLOWS §5;
- * kickoff 7 decisions 16–26, amendments A–C, issue #56 Q1): an Admin's own new client (amendment
- * B), the Projects tab and New project, the project page (Mark done, a stage tick in the item
- * sheet, the bulk "Mark N done", Not done, the progress line), Approvals' Client items for the
- * client's Admin (Approve is a delayed send) and none for the Owner, the cross-client list and the
- * Owner's Today count grouped by Admin, the carry screen, Settings → Stage presets, the calendar's
- * client items (never Crew's), Realtime holding RLS for items, and the back order of every new
- * screen and overlay installed at 375 and 430 px (ARCHITECTURE §14.2).
+ * kickoff 7 decisions 16–26, amendments A–D, issue #56 Q1): an Admin's own new client (amendment
+ * B), the Projects tab and New project, the project page (Mark done with its Undo, which approves
+ * at once (D3), an item's own stages and its "Edit stages" (D2), the bulk "Mark N done" and "Tick
+ * ‹stage› on N", the Admin's Reopen and the Owner's Send back, the progress line), no client items
+ * in anyone's Approvals, the Activity panel (pages, chips) and an item's History, the cross-client
+ * list and the Owner's Today count grouped by Admin, the carry screen, Settings → Stage presets,
+ * the calendar's client items (never Crew's), Realtime holding RLS for items, and the back order of
+ * every new screen and overlay installed at 375 and 430 px (ARCHITECTURE §14.2).
  *
  * Every client is named for its test and project and removed first (`removeClientFixture`, which
  * removes its client work too), so projects never race and the spec re-runs on a used database.
@@ -84,6 +85,14 @@ async function itemId(projectId: string, title: string): Promise<string> {
   );
   expect(rows[0], `the item ${title}`).toBeTruthy();
   return rows[0]!.id;
+}
+
+/** The client's newest project (a test's own). */
+async function projectOf(clientId: string): Promise<string> {
+  const [row] = await serviceSelect<{ id: string }>(
+    `projects?client_id=eq.${clientId}&select=id&order=created_at.desc&limit=1`,
+  );
+  return row?.id ?? "";
 }
 
 async function itemState(id: string): Promise<string | undefined> {
@@ -174,7 +183,7 @@ test("an Admin adds their own client: Active and theirs (amendment B)", async ({
   await removeClientFixture(name);
 });
 
-test("a project from the Projects tab: Mark done, a stage tick, Mark N done, Not done", async ({
+test("a project from the Projects tab: per-item stages, Mark done with Undo, Mark N done, Reopen", async ({
   page,
 }, info) => {
   const client = nameOf(info, "projects");
@@ -190,40 +199,80 @@ test("a project from the Projects tab: Mark done, a stage tick, Mark N done, Not
   await dialog.getByRole("button", { name: "Create project" }).click();
   await expect(page).toHaveURL(new RegExp(`/clients/${clientId}/projects/[0-9a-f-]{36}$`));
   await hydrated(page);
-  await expect(progress(page)).toHaveText("0/3 done · 0/3 approved");
+  // Amendment D3: one figure, done (= approved).
+  await expect(progress(page)).toHaveText("0/3 done");
 
-  // One row's Mark done.
+  // One row's Mark done: instant with the 6-second Undo, then it counts.
   await itemRow(page, "Reel 1").getByRole("button", { name: "Mark done" }).click();
-  await expect(progress(page)).toHaveText("1/3 done · 0/3 approved");
+  await expect(page.getByText("Marked Reel 1 done")).toBeVisible();
+  await expect(itemRow(page, "Reel 1")).toHaveAttribute("data-held", "");
+  await flushSends(page);
+  await expect(progress(page)).toHaveText("1/3 done");
 
-  // A stage ticked in the item sheet; back closes the sheet.
+  // The item sheet: its own stages (the defaults to start), a tick, and a stage of its own (D2).
+  const sheet = page.locator('[data-slot="review-sheet"]').filter({ hasText: "Reel 2" });
   await itemRow(page, "Reel 2").locator('[data-slot="item-open"]').click();
-  const sheet = page.locator('[data-slot="review-sheet"]');
   const script = sheet.getByRole("checkbox", { name: "Script" });
   await expect(script).toHaveAttribute("aria-checked", "false");
   await script.click();
   await expect(script).toHaveAttribute("aria-checked", "true");
+  await expect(sheet.locator('[data-slot="item-last-change"]')).toContainText(
+    "Last change: ticked Script on Reel 2 by",
+  );
+  await sheet.getByRole("button", { name: "Edit stages" }).click();
+  const stages = page.getByRole("dialog", { name: "Stages of Reel 2" });
+  await stages.getByLabel("New stage").fill("Colour");
+  await stages.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(stages.getByLabel("Name of Colour")).toBeVisible();
+  await page.goBack();
+  await expect(stages).toBeHidden();
+  await expect(sheet.getByRole("checkbox", { name: "Colour" })).toBeVisible();
   await page.goBack();
   await expect(sheet).toBeHidden();
+  // Only that item has it.
+  await itemRow(page, "Reel 3").locator('[data-slot="item-open"]').click();
+  const third = page.locator('[data-slot="review-sheet"]').filter({ hasText: "Reel 3" });
+  await expect(third.getByRole("checkbox", { name: "Edit" })).toBeVisible();
+  await expect(third.getByRole("checkbox", { name: "Colour" })).toHaveCount(0);
+  await page.goBack();
+  await expect(third).toBeHidden();
 
-  // Bulk: select two, "Mark 2 done".
+  // Bulk: select two; "Tick Edit on 2" ticks each one's own Edit; "Mark 2 done" asks first.
+  await itemRow(page, "Reel 2").getByRole("checkbox").click();
+  await itemRow(page, "Reel 3").getByRole("checkbox").click();
+  await page.getByRole("button", { name: "Tick a stage" }).click();
+  await page.getByRole("menuitem", { name: "Tick Colour on 1" }).waitFor();
+  await page.getByRole("menuitem", { name: "Tick Edit on 2" }).click();
+  await expect(page.getByText("2 ticked Edit")).toBeVisible();
+  const ticked = await serviceSelect<{ done_at: string | null }>(
+    `project_item_stage_list?name=eq.Edit&item_id=in.(${await itemId(await projectOf(clientId), "Reel 2")},${await itemId(await projectOf(clientId), "Reel 3")})&select=done_at`,
+  );
+  expect(ticked.every((row) => row.done_at !== null)).toBe(true);
+  // A bulk change clears the selection it succeeded on: choose the two again.
   await itemRow(page, "Reel 2").getByRole("checkbox").click();
   await itemRow(page, "Reel 3").getByRole("checkbox").click();
   await page.getByRole("button", { name: "Mark 2 done" }).click();
-  await expect(progress(page)).toHaveText("3/3 done · 0/3 approved");
+  const confirm = page.getByRole("alertdialog", { name: "Mark 2 items done?" });
+  await confirm.getByRole("button", { name: "Mark 2 items done" }).click();
+  await expect(progress(page)).toHaveText("3/3 done");
 
-  // Not done (decision 6), from the sheet.
+  // The client's Admin reopens a done item with a reason: it no longer counts.
   await itemRow(page, "Reel 3").locator('[data-slot="item-open"]').click();
-  await sheet.getByRole("button", { name: "Not done" }).click();
-  await expect(progress(page)).toHaveText("2/3 done · 0/3 approved");
+  await expect(third.getByRole("checkbox", { name: "Edit" })).toBeDisabled();
+  await third.getByRole("button", { name: "Reopen…" }).click();
+  const reopen = page.getByRole("dialog", { name: "Reopen Reel 3?" });
+  await reopen.getByLabel("What needs to change").fill("The client asked for a new cut");
+  await reopen.getByRole("button", { name: "Reopen", exact: true }).click();
+  await expect(progress(page)).toHaveText("2/3 done");
+  await expect(itemRow(page, "Reel 3")).toContainText("Reopened: The client asked for a new cut");
   await removeClientFixture(client);
 });
 
-test("Approvals → Client items: the client's Admin approves with Undo; the Owner gets none", async ({
+test("done is approved: no Client items in Approvals; the Owner sends back from the project page", async ({
   page,
   browser,
 }, info) => {
-  const client = nameOf(info, "approvals");
+  const client = nameOf(info, "sendback");
   const clientId = await workClient(client);
   const projectId = await makeProject(clientId, "Brand film", {
     recurrence: "one_time",
@@ -232,33 +281,34 @@ test("Approvals → Client items: the client's Admin approves with Undo; the Own
   });
   const id = await itemId(projectId, nameOf(info, "cut"));
   await rpcAs(admin.email, admin.password, "item_mark_done", { item_id: id });
+  expect(await itemState(id)).toBe("approved");
 
+  // The Admin's Approvals hold no client items any more (D3).
   await page.goto("/approvals");
   await hydrated(page);
-  const row = page.locator('[data-slot="approval-row"]', { hasText: nameOf(info, "cut") });
-  await expect(row).toBeVisible();
-  await row.getByRole("button", { name: "Approve" }).click();
-  await expect(page.getByText(`Approved ${nameOf(info, "cut")}`)).toBeVisible();
-  await page.evaluate(() => {
-    Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
-    document.dispatchEvent(new Event("visibilitychange"));
-  });
-  await expect.poll(() => itemState(id)).toBe("approved");
+  await expect(page.getByText(nameOf(info, "cut"))).toHaveCount(0);
 
-  // The Owner's Approvals take no client items (issue #56 Q1).
   const context = await browser.newContext({ storageState: storageStateFor("owner") });
   const ownerPage = await context.newPage();
-  const second = await makeProject(clientId, "Second film", {
-    recurrence: "one_time",
-    delivery: addDays(today(), 10),
-    items: [nameOf(info, "second")],
-  });
-  await rpcAs(admin.email, admin.password, "item_mark_done", {
-    item_id: await itemId(second, nameOf(info, "second")),
-  });
   await ownerPage.goto("/approvals");
   await expect(ownerPage.locator('[data-slot="page-header"]').first()).toBeVisible();
-  await expect(ownerPage.getByText(nameOf(info, "second"))).toHaveCount(0);
+  await expect(ownerPage.getByText(nameOf(info, "cut"))).toHaveCount(0);
+  await ownerPage.goto(`/clients/${clientId}/projects/${projectId}`);
+  await hydrated(ownerPage);
+  await expect(progress(ownerPage)).toHaveText("1/1 done");
+  await itemRow(ownerPage, nameOf(info, "cut")).locator('[data-slot="item-open"]').click();
+  const sheet = ownerPage.locator('[data-slot="review-sheet"]');
+  await sheet.getByRole("button", { name: "Send back…" }).click();
+  const dialog = ownerPage.getByRole("dialog", { name: `Send back ${nameOf(info, "cut")}?` });
+  await dialog.getByLabel("What needs to change").fill("The logo is wrong");
+  await dialog.getByRole("button", { name: "Send back", exact: true }).click();
+  await expect(progress(ownerPage)).toHaveText("0/1 done");
+  await expect.poll(() => itemState(id)).toBe("open");
+  const adminId = await memberIdOf(admin.email);
+  const told = await serviceSelect<{ title: string }>(
+    `notifications?recipient_id=eq.${adminId}&kind=eq.item_rejected&entity_id=eq.${id}&select=title`,
+  );
+  expect(told.map((row) => row.title)).toEqual([`Sent back: ${nameOf(info, "cut")}`]);
   await context.close();
   await removeClientFixture(client);
 });
@@ -312,7 +362,7 @@ test("the Admin's Today: Client work with Mark done and its Undo, a sent-back it
   // Sent back by the Owner, with the reason (decision 19).
   const back = await itemId(projectId, nameOf(info, "back"));
   await rpcAs(admin.email, admin.password, "item_mark_done", { item_id: back });
-  await rpcAs(owner.email, owner.password, "item_reject", {
+  await rpcAs(owner.email, owner.password, "item_reopen", {
     item_id: back,
     reason: "The logo is wrong",
   });
@@ -334,7 +384,8 @@ test("the Admin's Today: Client work with Mark done and its Undo, a sent-back it
     Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
     document.dispatchEvent(new Event("visibilitychange"));
   });
-  await expect.poll(() => itemState(due)).toBe("done");
+  // Done is approved in the same step (amendment D3).
+  await expect.poll(() => itemState(due)).toBe("approved");
   await removeClientFixture(client);
 });
 
@@ -697,7 +748,7 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
     // The item sheet's Edit: back asks, then keeps editing; Discard closes the sheet.
     await itemRow(page, "Reel").locator('[data-slot="item-open"]').click();
     const sheet = page.locator('[data-slot="review-sheet"]');
-    await sheet.getByRole("button", { name: "Edit" }).click();
+    await sheet.getByRole("button", { name: "Edit", exact: true }).click();
     await sheet.getByLabel("Title").fill("Reel, retitled");
     await expectDiscardOnBack(
       page,
@@ -743,7 +794,7 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
     }
     // The bulk Tick a stage menu is a layer too.
     await itemRow(page, "Reel 1").getByRole("checkbox").click();
-    await page.getByRole("button", { name: "Tick a stage on 1" }).click();
+    await page.getByRole("button", { name: "Tick a stage" }).click();
     const tickMenu = page.getByRole("menu");
     await expect(tickMenu).toBeVisible();
     await expectBackStack(page, [{ closes: tickMenu, url: here }]);
@@ -763,21 +814,22 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
     await removeClientFixture(client);
   });
 
-  test("Approvals' Client items Review sheet and its Send back, Today's item sheet, the carry screen's Close…", async ({
+  test("the Activity panel and its chips, the item sheet's Reopen…, Edit stages and History, Today's item sheet, the carry screen's Close…", async ({
     page,
   }, info) => {
-    const client = nameOf(info, "approval back");
+    const client = nameOf(info, "sheet back");
     const clientId = await workClient(client);
     const projectId = await makeProject(clientId, "Sheet film", {
       recurrence: "one_time",
       delivery: addDays(today(), 10),
-      items: [nameOf(info, "to approve"), nameOf(info, "due")],
+      items: [nameOf(info, "sheet done"), nameOf(info, "sheet due")],
+      stages: ["Script"],
     });
     await rpcAs(admin.email, admin.password, "item_mark_done", {
-      item_id: await itemId(projectId, nameOf(info, "to approve")),
+      item_id: await itemId(projectId, nameOf(info, "sheet done")),
     });
     await rpcAs(admin.email, admin.password, "item_update", {
-      item_id: await itemId(projectId, nameOf(info, "due")),
+      item_id: await itemId(projectId, nameOf(info, "sheet due")),
       changes: { planned_date: today() },
     });
     await runInstalled(page);
@@ -786,30 +838,66 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
 
     // Today's Client work: a row opens the item sheet; back closes it.
     await page
-      .locator('[data-slot="today-client-item"]', { hasText: nameOf(info, "due") })
+      .locator('[data-slot="today-client-item"]', { hasText: nameOf(info, "sheet due") })
       .getByRole("button")
       .first()
       .click();
-    const sheet = page.locator('[data-slot="review-sheet"]');
+    const sheet = page.locator('[data-slot="review-sheet"]').first();
     await expect(sheet).toBeVisible();
     await expectBackStack(page, [{ closes: sheet, url: /\/today$/ }]);
 
-    // Approvals → Client items → Review → Send back…: one layer per back.
-    await page.goto("/approvals");
+    // The project page's Activity: an overlay layer; its chips are view state (no history).
+    const here = new RegExp(`/projects/${projectId}$`);
+    await page.goto(`/clients/${clientId}/projects/${projectId}`);
     await hydrated(page);
-    await page
-      .locator('[data-slot="approval-row"]', { hasText: nameOf(info, "to approve") })
-      .getByRole("button", { name: "Review" })
-      .click();
-    await expect(sheet).toBeVisible();
-    await sheet.getByRole("button", { name: "Send back…" }).click();
-    const sendBack = page.getByRole("dialog", {
-      name: `Send back ${nameOf(info, "to approve")}?`,
+    await page.getByRole("button", { name: "Activity" }).click();
+    const panel = page.locator('[data-slot="review-sheet"]', {
+      has: page.locator('[data-slot="activity-panel"]'),
     });
-    await expect(sendBack).toBeVisible();
+    await expect(panel.locator('[data-slot="activity-line"]').first()).toBeVisible();
+    await panel.getByRole("button", { name: "Items", exact: true }).click();
+    await expect(panel.getByRole("button", { name: "Items", exact: true })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await panel.getByRole("button", { name: "Project", exact: true }).click();
+    await expect(
+      panel.locator('[data-slot="activity-line"]', { hasText: "created the project" }),
+    ).toBeVisible();
+    await expect(panel.locator('[data-slot="activity-line"]', { hasText: /marked/ })).toHaveCount(
+      0,
+    );
+    await expectBackStack(page, [{ closes: panel, url: here }]);
+
+    // A done item's Reopen…: the dialog, then the sheet, one back each.
+    const doneSheet = page.locator('[data-slot="review-sheet"]', {
+      hasText: nameOf(info, "sheet done"),
+    });
+    await itemRow(page, nameOf(info, "sheet done")).locator('[data-slot="item-open"]').click();
+    await doneSheet.getByRole("button", { name: "Reopen…" }).click();
+    const reopen = page.getByRole("dialog", { name: `Reopen ${nameOf(info, "sheet done")}?` });
+    await expect(reopen).toBeVisible();
     await expectBackStack(page, [
-      { closes: sendBack, url: /\/approvals$/ },
-      { closes: sheet, url: /\/approvals$/ },
+      { closes: reopen, url: here },
+      { closes: doneSheet, url: here },
+    ]);
+
+    // An open item's Edit stages and History: each a layer over the sheet.
+    const dueSheet = page.locator('[data-slot="review-sheet"]', {
+      has: page.locator('[data-slot="item-sheet"]'),
+      hasText: nameOf(info, "sheet due"),
+    });
+    await itemRow(page, nameOf(info, "sheet due")).locator('[data-slot="item-open"]').click();
+    await dueSheet.getByRole("button", { name: "Edit stages" }).click();
+    const editor = page.getByRole("dialog", { name: `Stages of ${nameOf(info, "sheet due")}` });
+    await expect(editor).toBeVisible();
+    await expectBackStack(page, [{ closes: editor, url: here }]);
+    await dueSheet.getByRole("button", { name: "History" }).click();
+    const history = page.getByRole("dialog", { name: `History of ${nameOf(info, "sheet due")}` });
+    await expect(history.locator('[data-slot="activity-line"]').first()).toBeVisible();
+    await expectBackStack(page, [
+      { closes: history, url: here },
+      { closes: dueSheet, url: here },
     ]);
 
     // The carry screen's Close… dialog: last month's cycle of a monthly project, one item left.
@@ -867,66 +955,109 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
       page.locator('[data-slot="item-list-row"]', { hasText: nameOf(info, "listed") }),
     ).toBeVisible();
     await page.getByRole("combobox", { name: "State" }).click();
-    await page.getByRole("option", { name: "Open", exact: true }).click();
-    await expect(page).toHaveURL(/\/clients\/items\?filter=open$/);
+    await page.getByRole("option", { name: "Overdue", exact: true }).click();
+    await expect(page).toHaveURL(/\/clients\/items\?filter=overdue$/);
     await expectBackStack(page, [{ url: /\/clients$/ }, { url: /\/today$/ }]);
     await removeClientFixture(client);
   });
 });
 
-test.describe("approving on the project page, as the Owner (the 7B review's S1)", () => {
+test.describe("marking done on the project page, as the Owner (amendment D3; the 7B review's S1)", () => {
   test.use({ storageState: storageStateFor("owner") });
 
-  test("a row's Approve and the sheet's have the 6-second Undo; Approve N asks first", async ({
+  test("a row's Mark done and the sheet's have the 6-second Undo; Mark N done asks first", async ({
     page,
   }, info) => {
     test.skip(info.project.name === "mobile-lg", "the 375 and desktop runs cover the flow");
-    const client = nameOf(info, "owner approves");
+    const client = nameOf(info, "owner marks");
     const clientId = await workClient(client);
     const titles = ["Reel 1", "Reel 2", "Reel 3", "Reel 4"];
-    const projectId = await makeProject(clientId, "Approve reels", { items: titles });
-    for (const title of titles) {
-      await rpcAs(admin.email, admin.password, "item_mark_done", {
-        item_id: await itemId(projectId, title),
-      });
-    }
+    const projectId = await makeProject(clientId, "Done reels", { items: titles });
     await page.goto(`/clients/${clientId}/projects/${projectId}`);
     await hydrated(page);
-    await expect(progress(page)).toHaveText("4/4 done · 0/4 approved");
+    await expect(progress(page)).toHaveText("0/4 done");
 
-    // The row's Approve: held with an Undo; Undo sends nothing.
+    // The row's Mark done: held with an Undo; Undo sends nothing.
     const first = await itemId(projectId, "Reel 1");
-    await itemRow(page, "Reel 1").getByRole("button", { name: "Approve", exact: true }).click();
+    await itemRow(page, "Reel 1").getByRole("button", { name: "Mark done", exact: true }).click();
     await expect(itemRow(page, "Reel 1")).toHaveAttribute("data-held", "");
-    await expect(page.getByText("Approved Reel 1")).toBeVisible();
+    await expect(page.getByText("Marked Reel 1 done")).toBeVisible();
     await page.getByRole("button", { name: "Undo" }).click();
     await expect(itemRow(page, "Reel 1")).not.toHaveAttribute("data-held", "");
-    expect(await itemState(first)).toBe("done");
-    // Kept: sent when the Undo window ends, or at once when the app goes to the background.
-    await itemRow(page, "Reel 1").getByRole("button", { name: "Approve", exact: true }).click();
+    expect(await itemState(first)).toBe("open");
+    // Kept: sent when the Undo window ends, or at once when the app goes to the background; it
+    // is approved in the same step.
+    await itemRow(page, "Reel 1").getByRole("button", { name: "Mark done", exact: true }).click();
     await flushSends(page);
     await expect.poll(() => itemState(first)).toBe("approved");
-    await expect(progress(page)).toHaveText("4/4 done · 1/4 approved");
+    await expect(progress(page)).toHaveText("1/4 done");
 
-    // The sheet's Approve: the sheet closes, the Undo is offered, then it is sent.
+    // The sheet's Mark done: the sheet closes, the Undo is offered, then it is sent.
     await itemRow(page, "Reel 2").locator('[data-slot="item-open"]').click();
     const sheet = page.locator('[data-slot="review-sheet"]');
-    await sheet.getByRole("button", { name: "Approve", exact: true }).click();
+    await sheet.getByRole("button", { name: "Mark done", exact: true }).click();
     await expect(sheet).toBeHidden();
-    await expect(page.getByText("Approved Reel 2")).toBeVisible();
+    await expect(page.getByText("Marked Reel 2 done")).toBeVisible();
     await flushSends(page);
     const second = await itemId(projectId, "Reel 2");
     await expect.poll(() => itemState(second)).toBe("approved");
 
-    // Approve N: a trigger; the confirmation's red button names it.
+    // Mark N done: a trigger; the confirmation's red button names it.
     await itemRow(page, "Reel 3").getByRole("checkbox").click();
     await itemRow(page, "Reel 4").getByRole("checkbox").click();
-    await page.getByRole("button", { name: "Approve 2", exact: true }).click();
-    const confirm = page.getByRole("alertdialog", { name: "Approve 2 items?" });
+    await page.getByRole("button", { name: "Mark 2 done", exact: true }).click();
+    const confirm = page.getByRole("alertdialog", { name: "Mark 2 items done?" });
     await expect(confirm).toBeVisible();
-    await confirm.getByRole("button", { name: "Approve 2 items" }).click();
+    await confirm.getByRole("button", { name: "Mark 2 items done" }).click();
     await expect(confirm).toBeHidden();
-    await expect(progress(page)).toHaveText("4/4 done · 4/4 approved");
+    await expect(progress(page)).toHaveText("4/4 done");
+    await removeClientFixture(client);
+  });
+
+  test("the Activity panel pages: the latest 20, then Show older; the chips narrow it", async ({
+    page,
+  }, info) => {
+    test.skip(info.project.name === "mobile-lg", "the 375 and desktop runs cover the flow");
+    const client = nameOf(info, "activity");
+    const clientId = await workClient(client);
+    const projectId = await makeProject(clientId, "Busy reels", {
+      items: ["Reel 1"],
+      stages: ["Script"],
+    });
+    const reel = await itemId(projectId, "Reel 1");
+    const [script] = await serviceSelect<{ id: string }>(
+      `project_item_stage_list?item_id=eq.${reel}&name=eq.Script&select=id`,
+    );
+    // 24 ticks and unticks: more than one page of the item's history.
+    for (let n = 0; n < 12; n += 1) {
+      await rpcAs(admin.email, admin.password, "item_stage_tick", {
+        stage_id: script!.id,
+        done: true,
+      });
+      await rpcAs(admin.email, admin.password, "item_stage_tick", {
+        stage_id: script!.id,
+        done: false,
+      });
+    }
+    await page.goto(`/clients/${clientId}/projects/${projectId}`);
+    await hydrated(page);
+    await page.getByRole("button", { name: "Activity" }).click();
+    const panel = page.locator('[data-slot="activity-panel"]');
+    const lines = panel.locator('[data-slot="activity-line"]');
+    await expect(lines).toHaveCount(20);
+    await expect(lines.first()).toContainText("unticked Script on Reel 1");
+    await panel.getByRole("button", { name: "Show older" }).click();
+    await expect(lines.last()).toContainText("created the project");
+    await expect(panel.getByRole("button", { name: "Show older" })).toHaveCount(0);
+    const count = await lines.count();
+    expect(count).toBeGreaterThan(24);
+    // Stages: ticks only; Project: the project's own entries.
+    await panel.getByRole("button", { name: "Stages", exact: true }).click();
+    await expect(lines.first()).toContainText("Script");
+    await expect(panel.getByText("created the project")).toHaveCount(0);
+    await panel.getByRole("button", { name: "Project", exact: true }).click();
+    await expect(lines.last()).toContainText("created the project");
+    await expect(panel.getByText(/ticked/)).toHaveCount(0);
     await removeClientFixture(client);
   });
 });
@@ -946,17 +1077,16 @@ test("⋯ Complete (refused while items are left), Reopen, Cancel, and Reopen re
   await hydrated(page);
   const menu = page.getByRole("button", { name: "Actions for Brand film" });
 
-  // Complete is refused while an item is open or done: the dialog says what is left.
+  // Complete is refused while an item is open: the dialog says what is left.
   await menu.click();
   await page.getByRole("menuitem", { name: "Complete project" }).click();
   const complete = page.getByRole("alertdialog", { name: "Complete Brand film?" });
-  await expect(complete).toContainText("1 item is still open or done");
+  await expect(complete).toContainText("1 item is still open");
   await expect(complete.getByRole("button", { name: "Complete project" })).toBeDisabled();
   await complete.getByRole("button", { name: "Cancel" }).click();
 
   const item = await itemId(projectId, "Final cut");
   await rpcAs(admin.email, admin.password, "item_mark_done", { item_id: item });
-  await rpcAs(owner.email, owner.password, "item_approve", { item_ids: [item] });
   await page.reload();
   await hydrated(page);
   await menu.click();
@@ -1032,7 +1162,7 @@ test("a project template from Settings → Templates starts a New project", asyn
   await page.getByRole("button", { name: "Add a project template" }).click();
   const dialog = page.getByRole("dialog", { name: "Add a project template" });
   await dialog.getByLabel("Name").fill(name);
-  await dialog.getByLabel("Stages", { exact: true }).fill("Script\nEdit");
+  await dialog.getByLabel("Default stages", { exact: true }).fill("Script\nEdit");
   await dialog.getByLabel("Item list").fill("Reel 1\nReel 2");
   await dialog.getByRole("button", { name: "Add template" }).click();
   await expect(page.locator('[data-slot="project-template"]', { hasText: name })).toBeVisible();
@@ -1048,7 +1178,7 @@ test("a project template from Settings → Templates starts a New project", asyn
   await create.getByLabel("Project name").fill("From the template");
   await create.getByRole("button", { name: "Create project" }).click();
   await expect(page).toHaveURL(new RegExp(`/clients/${clientId}/projects/[0-9a-f-]{36}$`));
-  await expect(progress(page)).toHaveText("0/2 done · 0/2 approved");
+  await expect(progress(page)).toHaveText("0/2 done");
   await removeClientFixture(client);
   await serviceRest(`project_templates?name=eq.${encodeURIComponent(name)}`, {
     method: "DELETE",

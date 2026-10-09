@@ -11,7 +11,13 @@ import { can } from "@/core/permissions";
 import { systemClock, todayIST } from "@/core/time";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { TodayAttendanceStrip } from "@/modules/attendance";
-import { clientProgressLine, dueThisWeek, itemView, progressByClient } from "@/modules/client-work";
+import {
+  clientProgressLine,
+  dueThisWeek,
+  itemView,
+  lastChangeOf,
+  progressByClient,
+} from "@/modules/client-work";
 import {
   ADMIN_NEEDS_YOU_EMPTY,
   adminScope,
@@ -75,8 +81,8 @@ const OWN_GROUPS = ["not_noted", "changes_requested", "overdue", "due_today"] as
 /**
  * The Admin's Today (6.3; Kickoff 6 decisions 9, 10, 12, 22): **the attendance strip → Needs you
  * (the Tasks tab's definition: tasks to approve, suggestions to decide, overdue and not noted past
- * the escalation on the tasks they manage; since kickoff 7 the client items sent back to them, "N
- * client items to approve" and "N unfinished items to decide") → **Client work** (7.3: items
+ * the escalation on the tasks they manage; since kickoff 7 the client items sent back to them and
+ * "N unfinished items to decide"; amendment D3 took "to approve" away) → **Client work** (7.3: items
  * overdue or due this week, oldest first, five then "See all N", each with Mark done and its Undo;
  * loaded after the page) → My tasks (their own assigned work, exception rows only) → My clients
  * (each assigned client's open and overdue labelled tasks and its current cycles' progress) → the
@@ -138,16 +144,14 @@ export async function AdminToday({ viewer }: { viewer: CurrentMember }) {
   const mine = OWN_GROUPS.flatMap((group) =>
     groups[group].filter((item) => !inNeeds.has(item.row.id)).map((item) => ({ ...item, group })),
   );
-  // Client work in Needs you (decision 19, amendment C): sent back, to approve, to decide.
+  // Client work in Needs you (decision 19, amendments C and D): sent back, to decide.
   const sentBack = work?.sentBack ?? [];
-  const itemsToApprove = can(viewer.role, "items.approve") ? (work?.toApprove ?? 0) : 0;
   const itemsToDecide = can(viewer.role, "cycles.carry_decide") ? (work?.toDecide ?? 0) : 0;
   const nothingNeeded =
     needs.length === 0 &&
     counts.toDecide === 0 &&
     requests === 0 &&
     sentBack.length === 0 &&
-    itemsToApprove === 0 &&
     itemsToDecide === 0;
   // The Client work section: overdue or due this week, oldest first, five then "See all N".
   const due = work ? dueThisWeek(work.due, today) : [];
@@ -175,26 +179,29 @@ export async function AdminToday({ viewer }: { viewer: CurrentMember }) {
     can(viewer.role, "availability.view")
       ? readLeaveDays(window.from, window.to, assignees)
       : Promise.resolve([]),
-    readItemDetails(
-      shownItems.map((row) => row.projectId),
-      shownItems.map((row) => row.id),
-    ),
+    readItemDetails(shownItems.map((row) => row.id)),
   ]);
+  const fullNames = Object.fromEntries(directory.map((member) => [member.id, member.fullName]));
+  const titles = Object.fromEntries(shownItems.map((row) => [row.id, row.title]));
+  const lastChanges = Object.fromEntries(
+    details.lastChanges.flatMap((entry) => {
+      const change = lastChangeOf(entry, { names: fullNames, items: titles, stages: {} });
+      return change ? [[entry.entityId, change] as const] : [];
+    }),
+  );
   const clientWork = shownItems.map((row) => ({
     view: itemView(row, {
       today,
-      names: Object.fromEntries(directory.map((member) => [member.id, member.fullName])),
-      ticks: details.ticks,
+      names: fullNames,
+      ownerId: directory.find((member) => member.role === "owner")?.id ?? null,
+      stages: details.stages,
+      lastChanges,
       reviews: details.reviews,
       cycleLabels: {},
       cycleLabel: row.cycleLabel,
     }),
     where: `${row.projectName} · ${row.clientName}`,
     href: `/clients/${row.clientId}/projects/${row.projectId}?cycle=${row.cycleId}`,
-    stages: details.stages
-      .filter((stage) => stage.projectId === row.projectId && !stage.archived)
-      .sort((a, b) => (a.position < b.position ? -1 : 1))
-      .map((stage) => ({ id: stage.id, name: stage.name })),
   }));
   const issues: Risk[] = sortRisks([
     ...leaveRisks(scopedEvents, leave, { ...window, eventDays: true }),
@@ -219,7 +226,7 @@ export async function AdminToday({ viewer }: { viewer: CurrentMember }) {
             <QuietText slot="today-needs-you-empty">{ADMIN_NEEDS_YOU_EMPTY}</QuietText>
           ) : (
             <div className="flex min-w-0 flex-col gap-2">
-              {counts.toDecide > 0 || requests > 0 || itemsToApprove > 0 || itemsToDecide > 0 ? (
+              {counts.toDecide > 0 || requests > 0 || itemsToDecide > 0 ? (
                 <RowList label="Waiting for you" slot="today-waiting">
                   {counts.toDecide > 0 ? (
                     <LinkRow
@@ -230,19 +237,6 @@ export async function AdminToday({ viewer }: { viewer: CurrentMember }) {
                         counts.toDecide === 1
                           ? "1 task waiting for your check"
                           : `${counts.toDecide} tasks waiting for your check`
-                      }
-                      tab
-                    />
-                  ) : null}
-                  {itemsToApprove > 0 ? (
-                    <LinkRow
-                      href="/approvals"
-                      slot="today-items-to-approve"
-                      icon={<ClipboardCheckIcon className="size-4" aria-hidden />}
-                      title={
-                        itemsToApprove === 1
-                          ? "1 client item to approve"
-                          : `${itemsToApprove} client items to approve`
                       }
                       tab
                     />
@@ -323,7 +317,8 @@ export async function AdminToday({ viewer }: { viewer: CurrentMember }) {
                   permissions={{
                     manage: can(viewer.role, "projects.manage"),
                     tick: can(viewer.role, "items.tick"),
-                    approve: can(viewer.role, "items.approve"),
+                    reopen: can(viewer.role, "items.approve"),
+                    owner: false,
                   }}
                 />
                 {due.length > CLIENT_WORK_SHOWN ? (

@@ -42,3 +42,29 @@ export function movedPosition(
   if (index >= rows.length - 1) return null;
   return positionBetween(rows[index + 1]?.position ?? null, rows[index + 2]?.position ?? null);
 }
+
+/**
+ * A plain list of names (an item-list line's stages, amendment D2) as rows a list editor moves:
+ * ids are the indexes, positions ascending keys.
+ */
+export function nameRows(
+  names: readonly string[],
+): { id: string; name: string; position: string }[] {
+  let previous: string | null = null;
+  return names.map((name, index) => {
+    previous = positionBetween(previous, null);
+    return { id: String(index), name, position: previous };
+  });
+}
+
+/** The names after the row `id` moved to `position` (what the list editor's move sends). */
+export function movedNames(
+  rows: readonly { id: string; name: string; position: string }[],
+  id: string,
+  position: string,
+): string[] {
+  return rows
+    .map((row) => (row.id === id ? { ...row, position } : row))
+    .sort((a, b) => (a.position < b.position ? -1 : a.position > b.position ? 1 : 0))
+    .map((row) => row.name);
+}

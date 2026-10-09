@@ -1,6 +1,4 @@
 import { formatIST } from "@/core/time";
-import { type ItemRow, shortDate } from "@/modules/client-work";
-import type { ItemApprovalRow } from "@/modules/client-work/components/item-approval-group";
 import { deadlineLabel, pairName, stateLabel, type TaskToDecide } from "@/modules/tasks";
 import type { TaskApprovalItem } from "@/modules/tasks/components/task-approval-group";
 
@@ -59,27 +57,4 @@ export function firstInGroupOrder<G extends Record<string, readonly unknown[]>>(
     taken[key] = slice as unknown as G[typeof key];
   }
   return taken;
-}
-
-/**
- * A done client item as the Approvals' Client items group shows it (7.4; the client's Admin's,
- * issue #56 Q1): its project and client, who marked it done and when. Shared by /approvals and the
- * Admin's Today count.
- */
-export function clientItem(row: ItemRow, names: Readonly<Record<string, string>>): ItemApprovalRow {
-  const doneBy = row.doneAt
-    ? `${row.doneBy ? (names[row.doneBy] ?? "Someone") : "Someone"}, ${formatIST(row.doneAt, WHEN)}`
-    : "—";
-  return {
-    id: row.id,
-    title: row.title,
-    subtitle: `${row.projectName} · ${row.clientName} · Done by ${doneBy}`,
-    project: row.projectName,
-    client: row.clientName,
-    cycle: row.cycleLabel ?? "The project's items",
-    doneBy,
-    planned: row.plannedDate ? shortDate(row.plannedDate) : "No date",
-    notes: row.notes,
-    href: `/clients/${row.clientId}/projects/${row.projectId}?cycle=${row.cycleId}`,
-  };
 }

@@ -1,9 +1,9 @@
 import { formatIST, istDayStart } from "@/core/time";
 
 /**
- * A project's history (7.3; PRODUCT §4.14, WORKFLOWS §5): each audit entry about the project, its
- * stages, its item list, its cycles and the cycle's items as one sentence, "Ravi marked Reel 2
- * done". Pure, unit-tested. **Internal keys never show** (7A notes for 7B (a)): `overdue_armed_at`,
+ * A project's history (7.3; PRODUCT §4.14, WORKFLOWS §5; amendment D): each audit entry about the
+ * project, its default stages, its item list, its cycles, its items and their own stages as one
+ * sentence, "Ravi marked Reel 2 done", "Prishit sent back Reel 2", "Ravi ticked Shoot on Reel 1". Pure, unit-tested. **Internal keys never show** (7A notes for 7B (a)): `overdue_armed_at`,
  * `delivery_armed_at`, `reopened_at`, `ready_armed_at` (and the bookkeeping `updated_at`,
  * `prompted_at`, `search`); an entry that changed only those says nothing. Entries that echo
  * another (an item's review row beside its "approved") are left out. Never an amount.
@@ -143,6 +143,47 @@ function describeListRow(
   }
 }
 
+/** The item list's line: added, removed, renamed, moved, or its own stages set (amendment D2). */
+function describeBlueprint(entry: ActivityEntry): string | null {
+  if (entry.action === "update" && visibleChanges(entry).includes("stages")) {
+    const title = text(entry.new.title) ?? text(entry.old.title);
+    const names = Array.isArray(entry.new.stages)
+      ? entry.new.stages.filter((name): name is string => typeof name === "string")
+      : [];
+    const what = title ? `the item list line ${title}` : "an item list line";
+    return names.length > 0
+      ? `set the stages of ${what}: ${names.join(", ")}`
+      : `removed every stage of ${what}`;
+  }
+  return describeListRow(entry, "item list line", "title");
+}
+
+/** One of an item's own stages (amendment D2): added, renamed, moved, removed, ticked. */
+function describeItemStage(entry: ActivityEntry, context: ProjectActivityContext): string | null {
+  const title = context.items[entry.entityId] ?? "an item";
+  const stage = text(entry.meta.name) ?? text(entry.new.name) ?? text(entry.old.name) ?? "a stage";
+  switch (entry.action) {
+    case "insert":
+      return `added the stage ${text(entry.new.name) ?? stage} to ${title}`;
+    case "archived":
+      return `removed the stage ${stage} from ${title}`;
+    case "ticked":
+      return `ticked ${stage} on ${title}`;
+    case "unticked":
+      return `unticked ${stage} on ${title}`;
+    case "update": {
+      const keys = visibleChanges(entry);
+      if (keys.includes("name")) {
+        return `renamed the stage ${text(entry.old.name) ?? stage} to ${text(entry.new.name) ?? "a new name"} on ${title}`;
+      }
+      if (keys.includes("position")) return `moved the stage ${stage} on ${title}`;
+      return null;
+    }
+    default:
+      return null;
+  }
+}
+
 function describeCycle(entry: ActivityEntry): string | null {
   const label = text(entry.new.label) ?? text(entry.old.label);
   switch (entry.action) {
@@ -173,7 +214,10 @@ function describeItem(
     case "approved":
       return { text: `approved ${title}` };
     case "rejected":
+    case "sent_back":
       return { text: `sent back ${title}`, ...(reason ? { note: reason } : {}) };
+    case "reopened":
+      return { text: `reopened ${title}`, ...(reason ? { note: reason } : {}) };
     case "cancelled":
     case "closed":
       return { text: `closed ${title}`, ...(reason ? { note: reason } : {}) };
@@ -218,12 +262,18 @@ export function describeProjectActivity(
       line = describeProject(entry, context);
       break;
     case "project_stages": {
-      const sentence = describeListRow(entry, "stage", "name");
+      // Amendment D2: the project's stages are the defaults new items start with.
+      const sentence = describeListRow(entry, "default stage", "name");
       line = sentence ? { text: sentence } : null;
       break;
     }
     case "project_item_blueprints": {
-      const sentence = describeListRow(entry, "item list line", "title");
+      const sentence = describeBlueprint(entry);
+      line = sentence ? { text: sentence } : null;
+      break;
+    }
+    case "project_item_stage_list": {
+      const sentence = describeItemStage(entry, context);
       line = sentence ? { text: sentence } : null;
       break;
     }
@@ -253,3 +303,27 @@ export function describeProjectActivity(
     ...(line.note ? { note: line.note } : {}),
   };
 }
+
+/** "Last change: ‹what› by ‹who›, ‹when›" in the item sheet (the owner's preview feedback). */
+export function lastChangeOf(
+  entry: ActivityEntry,
+  context: ProjectActivityContext,
+): { text: string; by: string; at: string } | null {
+  const line = describeProjectActivity(entry, context);
+  return line ? { text: line.text, by: line.actor, at: line.at } : null;
+}
+
+/** The activity panel's filter chips (view state, never history). */
+export type ActivityKind = "all" | "items" | "stages" | "project";
+export const ACTIVITY_KINDS: readonly { value: ActivityKind; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "items", label: "Items" },
+  { value: "stages", label: "Stages" },
+  { value: "project", label: "Project" },
+];
+
+/** A page of the panel: its lines and where the next page starts (null: the end). */
+export type ActivityPage = {
+  lines: ActivityLine[];
+  next: { at: string; id: number } | null;
+};

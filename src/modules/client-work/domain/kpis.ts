@@ -1,7 +1,7 @@
 import { istDayStart, toISTDate, type ISODate } from "@/core/time";
 
-import { activeStages } from "./items";
-import type { Cycle, Item, Stage, Tick } from "./types";
+import { stagesByItem } from "./items";
+import type { Cycle, Item, ItemStage } from "./types";
 
 /**
  * The Admin's work report's item KPIs (7.4; PRODUCT §4.13, kickoff 7 decision 25), from the items
@@ -50,16 +50,12 @@ export function onTimeWords({
 }
 
 /**
- * **Cycle progress**: done ÷ planned and approved ÷ done, over the current cycles' items (closed
- * and carried-out ones left out, as the progress line).
+ * **Cycle progress**: done ÷ planned over the current cycles' items (closed and carried-out ones
+ * left out, as the progress line; amendment D3: done is approved, one figure).
  */
-export function cycleProgressWords(progress: {
-  total: number;
-  done: number;
-  approved: number;
-}): string {
+export function cycleProgressWords(progress: { total: number; done: number }): string {
   if (progress.total === 0) return "No current items";
-  return `${progress.done} of ${progress.total} done · ${progress.approved} of ${progress.done} approved`;
+  return `${progress.done} of ${progress.total} done`;
 }
 
 export type SitRow = { stage: string; count: number; medianDays: number };
@@ -73,38 +69,30 @@ function median(values: readonly number[]): number {
 }
 
 /**
- * **Where items sit longest**: the open items grouped by their first unticked stage (the project's
- * active stages in order), each with its count and the median days waiting there (since the
- * previous stage's tick, or the cycle's start; a one-time cycle's start is its creation). Items of
- * projects with no stages, or with every stage ticked, are left out. Longest wait first.
+ * **Where items sit longest**: the open items grouped by their first unticked stage (the item's
+ * own active stages in order, amendment D2), each with its count and the median days waiting
+ * there (since the previous stage's tick, or the cycle's start; a one-time cycle's start is its
+ * creation). Items with no stages, or with every stage ticked, are left out. Grouped by the
+ * stage's name. Longest wait first.
  */
 export function sitLongest(input: {
-  items: readonly Pick<Item, "id" | "projectId" | "cycleId" | "state" | "createdAt">[];
-  stages: readonly Stage[];
-  ticks: readonly Tick[];
+  items: readonly Pick<Item, "id" | "cycleId" | "state" | "createdAt">[];
+  stages: readonly ItemStage[];
   cycles: readonly Pick<Cycle, "id" | "periodStart">[];
   now: Date;
 }): SitRow[] {
-  const stagesOf = new Map<string, Stage[]>();
-  for (const stage of activeStages(input.stages)) {
-    stagesOf.set(stage.projectId, [...(stagesOf.get(stage.projectId) ?? []), stage]);
-  }
+  const stagesOf = stagesByItem(input.stages);
   const startOf = new Map(input.cycles.map((cycle) => [cycle.id, cycle.periodStart]));
   const groups = new Map<string, number[]>();
   for (const item of input.items) {
     if (item.state !== "open") continue;
-    const stages = stagesOf.get(item.projectId) ?? [];
+    const stages = stagesOf.get(item.id) ?? [];
     if (stages.length === 0) continue;
-    const ticked = new Map(
-      input.ticks
-        .filter((tick) => tick.itemId === item.id && tick.doneAt !== null)
-        .map((tick) => [tick.stageId, tick.doneAt as string]),
-    );
-    const index = stages.findIndex((stage) => !ticked.has(stage.id));
+    const index = stages.findIndex((stage) => stage.doneAt === null);
     if (index < 0) continue;
     const stage = stages[index];
     if (!stage) continue;
-    const previous = index > 0 ? ticked.get(stages[index - 1]?.id ?? "") : undefined;
+    const previous = index > 0 ? (stages[index - 1]?.doneAt ?? undefined) : undefined;
     const periodStart = startOf.get(item.cycleId);
     const since = previous
       ? Date.parse(previous)

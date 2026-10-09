@@ -16,15 +16,15 @@ export type TodayItem = {
   /** "Monthly reels · Sharma Weddings". */
   where: string;
   href: string;
-  stages: { id: string; name: string }[];
 };
 
 /**
  * The Admin's **Client work** on Today (7.3; PRODUCT §4.7, kickoff 7 decision 19): the items
  * overdue or due this week, oldest first (the server sends at most five). Each row has one neutral
  * **Mark done**, instant with the 6-second Undo (a delayed send, flushed when the app is hidden or
- * left, as Approvals' Approve), and a tap on the row opens the item sheet (stages, notes) with a
- * way to the project. A row stays, faded, until the server's refreshed list arrives. Loaded after
+ * left, as Approvals' Approve; done is the approval since amendment D3), and a tap on the row
+ * opens the item sheet (its own stages, notes, last change) with a way to the project; the sheet's
+ * Mark done takes the same Undo. A row stays, faded, until the server's refreshed list arrives. Loaded after
  * the page (`today/client-work-lazy.tsx`): Today's first load never grows (ARCHITECTURE §19).
  */
 export function TodayClientWork({
@@ -103,10 +103,10 @@ export function TodayClientWork({
       </ul>
       <ItemSheet
         item={open?.view ?? null}
-        stages={open?.stages ?? []}
         permissions={permissions}
         open={open !== null}
         onOpenChange={(next) => (next ? null : setOpenId(null))}
+        onMarkDone={(item) => start(item.id, item.title)}
         {...(open ? { projectHref: open.href } : {})}
       />
     </>

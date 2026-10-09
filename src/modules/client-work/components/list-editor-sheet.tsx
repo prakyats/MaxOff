@@ -16,8 +16,9 @@ import { movedPosition } from "../domain/positions";
 export type ListRow = { id: string; name: string; position: string };
 
 /**
- * A project's stages or item list, edited in a sheet (7.3; WORKFLOWS §5.4 items 8, 9): add, rename,
- * move up or down, remove (a removed stage is archived, its ticks kept in the history; a removed
+ * A list of names edited in a sheet (7.3; WORKFLOWS §5.4 items 8, 9; amendment D2): a project's
+ * default stages, its item list, one item's own stages or one list line's stages. Add, rename,
+ * move up or down, remove (a removed stage is archived, its tick kept in the history; a removed
  * line of the item list never touches an existing cycle). Each change is one transition function,
  * applied at once; the server's list comes back after it. Back closes the sheet (§14.2 a); the
  * removal's confirmation closes first. A name typed and not yet added or renamed is not lost
@@ -29,7 +30,9 @@ export function ListEditorSheet({
   title,
   description,
   noun,
+  removeDescription,
   rows,
+  rowAction,
   max,
   maxLength,
   onAdd,
@@ -43,7 +46,11 @@ export function ListEditorSheet({
   description: string;
   /** "stage" / "item": "Remove the stage Edit?". */
   noun: string;
+  /** What a removal does, in the confirmation ("It leaves this item; …"). */
+  removeDescription: string;
   rows: readonly ListRow[];
+  /** One more control per row, after Remove (the item list's "Stages" for a line, amendment D2). */
+  rowAction?: ((row: ListRow) => React.ReactNode) | undefined;
   max: number;
   maxLength: number;
   onAdd: (name: string) => Promise<Result<unknown>>;
@@ -178,6 +185,7 @@ export function ListEditorSheet({
                   >
                     <Trash2Icon aria-hidden />
                   </Button>
+                  {rowAction ? rowAction(row) : null}
                 </li>
               ))}
             </ol>
@@ -229,11 +237,7 @@ export function ListEditorSheet({
         open={removing !== null}
         onOpenChange={(next) => (next ? null : setRemoving(null))}
         title={removing ? `Remove the ${noun} ${removing.name}?` : ""}
-        description={
-          noun === "stage"
-            ? "It leaves every item; its ticks stay in the history."
-            : "Later cycles start without it. The current cycle keeps its items."
-        }
+        description={removeDescription}
         confirmLabel={`Remove ${noun}`}
         onConfirm={async () => {
           if (!removing) return;

@@ -11,13 +11,16 @@ import {
   plannedLine,
   progressLine,
   progressOf,
+  stageChoices,
   weekEnd,
 } from "../domain/items";
 import { describeProjectActivity } from "../domain/activity";
 import { cycleProgressWords, onTime, onTimeWords, sitLongest, sitWords } from "../domain/kpis";
 import { cycleLabel, nextStartable, periodNext, periodStart } from "../domain/periods";
 import { progressByClient, projectSummaries } from "../domain/projects";
-import type { Item, ItemState, Project } from "../domain/types";
+import { movedNames, nameRows } from "../domain/positions";
+import { activityPageSchema } from "../domain/schemas";
+import type { Item, ItemStage, ItemState, Project } from "../domain/types";
 import { itemView } from "../domain/views";
 
 const TODAY = "2026-10-08"; // a Thursday
@@ -87,20 +90,20 @@ describe("overdue and due this week (decision 10, 19)", () => {
   });
 });
 
-describe("the progress line (decision 18)", () => {
+describe("the progress line (decision 18, amendment D3)", () => {
   const states = (list: ItemState[]) => list.map((state) => ({ state }));
 
-  it("counts done and approved out of the items not closed and not carried out", () => {
+  it("counts done (approved in the same step) out of the items not closed and not carried out", () => {
     const progress = progressOf(
       states(["open", "done", "approved", "approved", "cancelled", "carried"]),
     );
-    expect(progress).toEqual({ total: 4, done: 3, approved: 2, closed: 1 });
-    expect(progressLine(progress)).toBe("3/4 done · 2/4 approved · 1 closed");
+    expect(progress).toEqual({ total: 4, done: 3, closed: 1 });
+    expect(progressLine(progress)).toBe("3/4 done · 1 closed");
   });
 
   it("reads 'No items in this cycle.' when empty", () => {
     expect(progressLine(progressOf([]))).toBe("No items in this cycle.");
-    expect(progressLine(progressOf(states(["open"])))).toBe("0/1 done · 0/1 approved");
+    expect(progressLine(progressOf(states(["open"])))).toBe("0/1 done");
   });
 });
 
@@ -159,6 +162,9 @@ describe("the cross-client list", () => {
     expect(parseItemFilter("overdue")).toBe("overdue");
     expect(parseItemFilter(undefined)).toBe("live");
     expect(parseItemFilter("bogus")).toBe("live");
+    // The filters of before amendment D3 read as the open list.
+    expect(parseItemFilter("done")).toBe("live");
+    expect(matchesFilter({ state: "open", plannedDate: null }, "live", TODAY)).toBe(true);
     expect(matchesFilter({ state: "done", plannedDate: null }, "live", TODAY)).toBe(true);
     expect(matchesFilter({ state: "approved", plannedDate: null }, "live", TODAY)).toBe(false);
     expect(matchesFilter({ state: "open", plannedDate: "2026-10-01" }, "overdue", TODAY)).toBe(
@@ -220,7 +226,7 @@ describe("the Projects tab", () => {
       ],
     );
     expect(summaries.map((summary) => [summary.id, summary.meta, summary.progress])).toEqual([
-      ["p", "Monthly · October 2026", "1/2 done · 0/2 approved"],
+      ["p", "Monthly · October 2026", "1/2 done"],
       ["q", "Weekly · no current cycle", "No items in this cycle."],
       // A finished project has no current cycle: no progress line.
       ["done", "One-time · delivery 20 Oct", null],
@@ -239,16 +245,39 @@ describe("the Projects tab", () => {
       { id: "c2", projectId: "q", clientId: "k", label: null, states: ["approved", "carried"] },
       { id: "c3", projectId: "r", clientId: "m", label: null, states: [] },
     ]);
-    expect(sums.get("k")).toEqual({ total: 3, done: 2, approved: 1, closed: 1 });
-    expect(sums.get("m")).toEqual({ total: 0, done: 0, approved: 0, closed: 0 });
+    expect(sums.get("k")).toEqual({ total: 3, done: 2, closed: 1 });
+    expect(sums.get("m")).toEqual({ total: 0, done: 0, closed: 0 });
   });
 });
 
-describe("an item's view (Q5 (b), decisions 6, 7, 12)", () => {
+function stage(over: Partial<ItemStage> = {}): ItemStage {
+  return {
+    id: "s1",
+    itemId: "i1",
+    projectId: "p1",
+    name: "Script",
+    position: "a0",
+    archived: false,
+    doneAt: null,
+    doneBy: null,
+    ...over,
+  };
+}
+
+describe("an item's view (Q5 (b), decisions 7, 12, amendment D)", () => {
   const context = {
     today: TODAY,
     names: { r: "Ravi", o: "Prishit" },
-    ticks: [{ itemId: "i1", stageId: "s1", doneAt: "2026-10-02T00:00:00Z", doneBy: "r" }],
+    ownerId: "o",
+    stages: [
+      stage({ id: "s2", name: "Edit", position: "a1" }),
+      stage({ doneAt: "2026-10-02T00:00:00Z", doneBy: "r" }),
+      stage({ id: "sx", name: "Old", position: "a2", archived: true }),
+      stage({ id: "so", itemId: "other", name: "Other's" }),
+    ],
+    lastChanges: {
+      i1: { text: "ticked Script on Reel 1", by: "Ravi", at: "2026-10-02T00:00:00Z" },
+    },
     reviews: [
       {
         itemId: "i1",
@@ -262,19 +291,54 @@ describe("an item's view (Q5 (b), decisions 6, 7, 12)", () => {
     cycleLabel: "October 2026",
   };
 
-  it("shows a sent-back reason, the ticks and a carried-in mark", () => {
+  it("shows a send-back, its own active stages in order with ticks, a carried-in mark", () => {
     const view = itemView(
       item({ carriedFromItemId: "x", originCycleId: "old", plannedDate: "2026-10-01" }),
       context,
     );
-    expect(view.sentBack).toEqual({ by: "Prishit", reason: "Wrong logo" });
-    expect(view.ticked).toEqual(["s1"]);
+    expect(view.sentBack).toEqual({ verb: "Sent back", by: "Prishit", reason: "Wrong logo" });
+    expect(view.stages).toEqual([
+      { id: "s1", name: "Script", position: "a0", done: true },
+      { id: "s2", name: "Edit", position: "a1", done: false },
+    ]);
+    expect(view.lastChange?.text).toBe("ticked Script on Reel 1");
     expect(view.carriedFrom).toBe("Carried from September");
     expect(view.planned?.overdue).toBe(true);
-    expect(view.rules).toMatchObject({ ticks: true, markDone: true, decide: false, editAll: true });
+    expect(view.rules).toMatchObject({ ticks: true, markDone: true, reopen: false, editAll: true });
   });
 
-  it("locks an approved item to its title and notes", () => {
+  it("reads an Admin's reopen as Reopened", () => {
+    const view = itemView(item(), {
+      ...context,
+      reviews: [{ ...context.reviews[0]!, reviewerId: "r", reason: "Not finished" }],
+    });
+    expect(view.sentBack).toEqual({ verb: "Reopened", by: "Ravi", reason: "Not finished" });
+  });
+
+  it("locks a done item to its title and notes; it is reopened, never ticked (D3)", () => {
+    const view = itemView(
+      item({
+        state: "approved",
+        doneAt: "2026-10-04T04:00:00Z",
+        doneBy: "r",
+        approvedAt: "2026-10-04T04:00:00Z",
+        approvedBy: "r",
+      }),
+      context,
+    );
+    expect(view.rules).toEqual({
+      ticks: false,
+      markDone: false,
+      reopen: true,
+      cancel: false,
+      editAll: false,
+    });
+    expect(view.stateLabel).toBe("Done");
+    expect(view.sentBack).toBeNull();
+    expect(view.history).toEqual(["Done by Ravi, 4 Oct"]);
+  });
+
+  it("keeps an approval made apart before amendment D3 in the history", () => {
     const view = itemView(
       item({
         state: "approved",
@@ -285,16 +349,32 @@ describe("an item's view (Q5 (b), decisions 6, 7, 12)", () => {
       }),
       context,
     );
-    expect(view.rules).toEqual({
-      ticks: false,
-      markDone: false,
-      notDone: false,
-      decide: false,
-      cancel: false,
-      editAll: false,
-    });
-    expect(view.sentBack).toBeNull();
     expect(view.history).toEqual(["Done by Ravi, 4 Oct", "Approved by Prishit, 5 Oct"]);
+  });
+});
+
+describe("Tick ‹stage› on N and the line stages (amendment D2)", () => {
+  it("offers the names the chosen items carry, each with the unticked stages of that name", () => {
+    const choices = stageChoices([
+      {
+        stages: [
+          { id: "a1", name: "Script", done: true },
+          { id: "a2", name: "Edit", done: false },
+        ],
+      },
+      { stages: [{ id: "b1", name: "edit", done: false }] },
+      { stages: [] },
+    ]);
+    expect(choices).toEqual([{ name: "Edit", stageIds: ["a2", "b1"] }]);
+  });
+
+  it("edits a line's names as rows: keys ascend, a move reorders", () => {
+    const rows = nameRows(["Script", "Shoot", "Edit"]);
+    expect(rows.map((row) => row.id)).toEqual(["0", "1", "2"]);
+    expect(rows[0]!.position < rows[1]!.position && rows[1]!.position < rows[2]!.position).toBe(
+      true,
+    );
+    expect(movedNames(rows, "2", "0")).toEqual(["Edit", "Script", "Shoot"]);
   });
 });
 
@@ -318,28 +398,25 @@ describe("the item KPIs (7.4, PRODUCT §4.13)", () => {
   });
 
   it("Cycle progress in words", () => {
-    expect(cycleProgressWords({ total: 12, done: 9, approved: 8 })).toBe(
-      "9 of 12 done · 8 of 9 approved",
-    );
-    expect(cycleProgressWords({ total: 0, done: 0, approved: 0 })).toBe("No current items");
+    expect(cycleProgressWords({ total: 12, done: 9 })).toBe("9 of 12 done");
+    expect(cycleProgressWords({ total: 0, done: 0 })).toBe("No current items");
   });
 
-  it("where items sit longest: by the first unticked stage, the longest wait first", () => {
-    const stages = [
-      { id: "s1", projectId: "p", name: "Script", position: "a0", archived: false },
-      { id: "s2", projectId: "p", name: "Edit", position: "a1", archived: false },
-      { id: "sx", projectId: "p", name: "Old", position: "a2", archived: true },
+  it("where items sit longest: by each item's first unticked stage, the longest wait first", () => {
+    const own = (itemId: string, ticked: string | null) => [
+      stage({ id: `${itemId}1`, itemId, name: "Script", position: "a0", doneAt: ticked }),
+      stage({ id: `${itemId}2`, itemId, name: "Edit", position: "a1" }),
+      stage({ id: `${itemId}x`, itemId, name: "Old", position: "a2", archived: true }),
     ];
     const now = new Date("2026-10-08T06:30:00Z");
     const rows = sitLongest({
       items: [
-        { id: "a", projectId: "p", cycleId: "c", state: "open", createdAt: "2026-10-01T00:00:00Z" },
-        { id: "b", projectId: "p", cycleId: "c", state: "open", createdAt: "2026-10-01T00:00:00Z" },
-        { id: "c", projectId: "p", cycleId: "c", state: "done", createdAt: "2026-10-01T00:00:00Z" },
-        { id: "d", projectId: "q", cycleId: "c", state: "open", createdAt: "2026-10-01T00:00:00Z" },
+        { id: "a", cycleId: "c", state: "open", createdAt: "2026-10-01T00:00:00Z" },
+        { id: "b", cycleId: "c", state: "open", createdAt: "2026-10-01T00:00:00Z" },
+        { id: "c", cycleId: "c", state: "approved", createdAt: "2026-10-01T00:00:00Z" },
+        { id: "d", cycleId: "c", state: "open", createdAt: "2026-10-01T00:00:00Z" },
       ],
-      stages,
-      ticks: [{ itemId: "b", stageId: "s1", doneAt: "2026-10-06T06:30:00Z", doneBy: null }],
+      stages: [...own("a", null), ...own("b", "2026-10-06T06:30:00Z"), ...own("c", null)],
       cycles: [{ id: "c", periodStart: "2026-10-01" }],
       now,
     });
@@ -407,6 +484,54 @@ describe("the project's history (7A notes for 7B (a))", () => {
     ).toBe("started October 2026");
   });
 
+  it("says amendment D's entries: a send-back, a reopen, an item's own stages, a line's stages", () => {
+    expect(
+      describeProjectActivity(entry({ action: "sent_back", meta: { reason: "Redo" } }), context),
+    ).toMatchObject({ text: "sent back Reel 1", note: "Redo" });
+    expect(
+      describeProjectActivity(entry({ action: "reopened", meta: { reason: "Late fix" } }), context),
+    ).toMatchObject({ text: "reopened Reel 1", note: "Late fix" });
+    const own = (patch: Partial<Parameters<typeof describeProjectActivity>[0]>) =>
+      describeProjectActivity(entry({ entity: "project_item_stage_list", ...patch }), context)
+        ?.text;
+    expect(own({ action: "insert", new: { name: "Colour" } })).toBe(
+      "added the stage Colour to Reel 1",
+    );
+    expect(own({ action: "ticked", meta: { name: "Shoot" } })).toBe("ticked Shoot on Reel 1");
+    expect(own({ action: "unticked", meta: { name: "Shoot" } })).toBe("unticked Shoot on Reel 1");
+    expect(own({ action: "archived", meta: { name: "Shoot" } })).toBe(
+      "removed the stage Shoot from Reel 1",
+    );
+    expect(
+      own({ action: "update", meta: { name: "Cut" }, old: { name: "Cut" }, new: { name: "Edit" } }),
+    ).toBe("renamed the stage Cut to Edit on Reel 1");
+    expect(own({ action: "update", meta: { name: "Edit" }, new: { position: "b" } })).toBe(
+      "moved the stage Edit on Reel 1",
+    );
+    expect(
+      describeProjectActivity(
+        entry({
+          entity: "project_item_blueprints",
+          entityId: "p",
+          old: { stages: [] },
+          new: { stages: ["Shoot", "Post"] },
+        }),
+        context,
+      )?.text,
+    ).toBe("set the stages of an item list line: Shoot, Post");
+    expect(
+      describeProjectActivity(
+        entry({
+          entity: "project_stages",
+          entityId: "p",
+          action: "insert",
+          new: { name: "Caption" },
+        }),
+        context,
+      )?.text,
+    ).toBe("added the default stage Caption");
+  });
+
   it("skips the internal keys, and an entry that changed only those says nothing", () => {
     expect(
       describeProjectActivity(
@@ -432,5 +557,35 @@ describe("the project's history (7A notes for 7B (a))", () => {
         context,
       ),
     ).toBeNull();
+  });
+});
+
+describe("the activity panel's page query", () => {
+  const project = "00000000-0000-4000-8000-000000000001";
+
+  it("defaults to the newest page of everything, and takes a whole cursor", () => {
+    expect(activityPageSchema.parse({ projectId: project, itemId: null })).toEqual({
+      projectId: project,
+      kind: "all",
+      itemId: null,
+      beforeAt: null,
+      beforeId: null,
+    });
+    expect(
+      activityPageSchema.parse({
+        projectId: project,
+        kind: "stages",
+        beforeAt: "2026-10-09T05:00:00+00:00",
+        beforeId: "42",
+      }).beforeId,
+    ).toBe(42);
+  });
+
+  it("refuses an unknown chip and half a cursor", () => {
+    expect(activityPageSchema.safeParse({ projectId: project, kind: "tasks" }).success).toBe(false);
+    expect(
+      activityPageSchema.safeParse({ projectId: project, beforeAt: "2026-10-09T05:00:00Z" })
+        .success,
+    ).toBe(false);
   });
 });

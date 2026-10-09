@@ -21,13 +21,12 @@ import {
 import { ITEM_STATUS } from "../domain/types";
 import type { ItemRowView } from "../domain/views";
 
-export type ItemListFilter = "live" | "overdue" | "open" | "done";
+/** Amendment D3: done is approved at once, so the list holds open items (overdue or not). */
+export type ItemListFilter = "live" | "overdue";
 
 const FILTERS: readonly { value: ItemListFilter; label: string }[] = [
-  { value: "live", label: "Open and done" },
+  { value: "live", label: "Open" },
   { value: "overdue", label: "Overdue" },
-  { value: "open", label: "Open" },
-  { value: "done", label: "Done, to approve" },
 ];
 const ALL = "all";
 
@@ -36,16 +35,7 @@ type View = { filter: ItemListFilter; client: string; project: string };
 function matches(row: ItemRowView, view: View): boolean {
   if (view.client !== ALL && row.clientId !== view.client) return false;
   if (view.project !== ALL && row.projectId !== view.project) return false;
-  switch (view.filter) {
-    case "overdue":
-      return row.planned?.overdue === true;
-    case "open":
-      return row.state === "open";
-    case "done":
-      return row.state === "done";
-    default:
-      return true;
-  }
+  return view.filter === "overdue" ? row.planned?.overdue === true : true;
 }
 
 function addressOf(view: View): string {
@@ -59,7 +49,7 @@ function addressOf(view: View): string {
 
 /**
  * The cross-client item list (7.3 / 7.4; PRODUCT §4.7 "Client work on Today", kickoff 7 decision
- * 19, amendment C E1): every open and done item the viewer may see, with the state (`?filter=`:
+ * 19, amendment C E1, amendment D3): every open item the viewer may see, with the state (`?filter=`:
  * overdue is where the E1 escalation lands), client and project filters as **view controls** (the
  * address is replaced, never pushed: one back leaves the list, §14.2 d). **For the Owner it is
  * grouped by the client's Admin**, his own clients last. A row opens the project on the item's

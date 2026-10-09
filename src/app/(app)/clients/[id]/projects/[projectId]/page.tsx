@@ -1,4 +1,4 @@
-import { ChevronLeftIcon, ChevronRightIcon, HistoryIcon } from "lucide-react";
+import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
@@ -6,9 +6,8 @@ import { Suspense } from "react";
 import { CustomFieldsView } from "@/core/custom-fields/components/custom-fields-view";
 import { listDefinitions } from "@/core/custom-fields/server";
 import { checkThenRead } from "@/core/lib/start-early";
-import { cn } from "@/core/lib/utils";
 import { can } from "@/core/permissions";
-import { formatIST, todayIST } from "@/core/time";
+import { todayIST } from "@/core/time";
 import { DrillLink } from "@/core/ui/composites/drill-link";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { StatusBadge } from "@/core/ui/composites/status-badge";
@@ -17,18 +16,18 @@ import {
   activeStages,
   currentCycle,
   cycleEnded,
-  describeProjectActivity,
   getProject,
   itemView,
+  lastChangeOf,
   listBlueprints,
   listCycles,
   listCyclesById,
   listItemRows,
   listItems,
-  listProjectActivity,
+  listItemStages,
+  listLastChanges,
   listReviews,
   listStages,
-  listTicks,
   nextStartable,
   PROJECT_STATE_LABELS,
   progressLine,
@@ -39,6 +38,7 @@ import {
   sortItems,
 } from "@/modules/client-work";
 import { CycleItems } from "@/modules/client-work/components/cycle-items";
+import { ProjectActivityButton } from "@/modules/client-work/components/project-activity";
 import { ProjectMenu } from "@/modules/client-work/components/project-menu";
 import { RecordReadReceipt } from "@/modules/notifications-center";
 
@@ -49,16 +49,18 @@ export const metadata: Metadata = { title: "Project" };
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
- * A project's page (7.3; PRODUCT §4.5, WORKFLOWS §5, kickoff 7 decisions 3, 6–9, 12, 14, 16, 18,
- * 26; amendments A and C; Q5–Q7), a drill-down from the client's Projects tab, and where every
+ * A project's page (7.3; PRODUCT §4.5, WORKFLOWS §5, kickoff 7 decisions 3, 7–9, 12, 14, 16, 18,
+ * 26; amendments A, C and D; Q5–Q7), a drill-down from the client's Projects tab, and where every
  * client-work notification lands (`/clients/<client>/projects/<project>`, 7A mechanics (4)).
  * `projects.manage` on a visible client: the Owner, the client's Admin (another Admin's client is
  * a 404, Crew are sent to /forbidden). **First glance** answers "where is this cycle?": the repeat
  * and state, the cycle with its pager (a view control: `?cycle=` replaces, never history), the
- * progress line "9/12 done · 8/12 approved · 1 closed", an ended cycle's "decide N unfinished
- * items", then the items with their one action. Everything else is under ⋯ (details, stages,
- * item list, next cycle, complete / cancel / reopen) or one tap deeper (the item sheet). The
- * Owner approves items here (his Approvals take none: issue #56 Q1). No money (amendment C).
+ * progress line "9/12 done · 1 closed", an ended cycle's "decide N unfinished items", then the
+ * items with their one action (Mark done, which is the approval since D3). Everything else is
+ * under ⋯ (details, default stages, item list, next cycle, complete / cancel / reopen), the
+ * header's **Activity** (the project's history in a panel, paged; never inline) or one tap deeper
+ * (the item sheet: its own stages, send back / reopen, its last change and history). No money
+ * (amendment C).
  */
 export default async function ProjectPage({
   params,
@@ -100,13 +102,13 @@ export default async function ProjectPage({
       items.flatMap((item) => (item.originCycleId !== item.cycleId ? [item.originCycleId] : [])),
     ),
   ];
-  const [ticks, reviews, origins, unfinished, projectFields, entries] = await Promise.all([
-    listTicks(itemIds),
+  const [itemStages, reviews, origins, unfinished, projectFields, changes] = await Promise.all([
+    listItemStages(itemIds),
     listReviews(itemIds),
     listCyclesById(originIds),
     listItemRows({ states: ["open", "done"], projectId }),
     listDefinitions("project"),
-    listProjectActivity(projectId, itemIds),
+    listLastChanges(itemIds),
   ]);
 
   const working = project.state === "open" || project.state === "in_progress";
@@ -114,14 +116,29 @@ export default async function ProjectPage({
   const permissions = {
     manage: canManage && working,
     tick: can(viewer.role, "items.tick") && working,
-    approve: can(viewer.role, "items.approve") && working,
+    // Amendment D3: items.approve is the send-back (the Owner) or reopen (the client's Admin).
+    reopen: can(viewer.role, "items.approve") && working,
+    owner: viewer.role === "owner",
   };
   const active = activeStages(stages);
+  const activityContext = {
+    names: people.names,
+    items: Object.fromEntries(items.map((item) => [item.id, item.title])),
+    stages: Object.fromEntries(stages.map((stage) => [stage.id, stage.name])),
+  };
+  const lastChanges = Object.fromEntries(
+    changes.flatMap((entry) => {
+      const change = lastChangeOf(entry, activityContext);
+      return change ? [[entry.entityId, change] as const] : [];
+    }),
+  );
   const views = items.map((item) =>
     itemView(item, {
       today,
       names: people.names,
-      ticks,
+      ownerId: people.ownerId,
+      stages: itemStages,
+      lastChanges,
       reviews,
       cycleLabels: Object.fromEntries(origins.map((cycle) => [cycle.id, cycle.label])),
       cycleLabel: chosen?.label ?? null,
@@ -134,14 +151,6 @@ export default async function ProjectPage({
     today,
     cycles.map((cycle) => cycle.periodStart),
   );
-  const lines = entries.flatMap((entry) => {
-    const line = describeProjectActivity(entry, {
-      names: people.names,
-      items: Object.fromEntries(items.map((item) => [item.id, item.title])),
-      stages: Object.fromEntries(stages.map((stage) => [stage.id, stage.name])),
-    });
-    return line ? [line] : [];
-  });
   const definitions = projectFields.filter((definition) => definition.archivedAt === null);
   const base = `/clients/${client.id}/projects/${project.id}`;
   const cycleHref = (cycleId: string) => `${base}?cycle=${cycleId}`;
@@ -160,33 +169,40 @@ export default async function ProjectPage({
         title={project.name}
         description={meta.join(" · ")}
         back={{ href: `/clients/${client.id}/projects`, label: client.name }}
+        // Two header buttons (Activity and ⋯) beside the bell: at very large text (200%) the bell
+        // wraps to a second row rather than pushing the bar past the screen's edge.
+        className="flex-wrap"
         menu={
-          <ProjectMenu
-            project={{
-              id: project.id,
-              name: project.name,
-              description: project.description,
-              recurrence: project.recurrence,
-              state: project.state,
-              deliveryDate: project.deliveryDate,
-              customFields: project.customFields,
-            }}
-            stages={active.map((stage) => ({
-              id: stage.id,
-              name: stage.name,
-              position: stage.position,
-            }))}
-            blueprints={sortItems(blueprints.filter((row) => !row.archived)).map((row) => ({
-              id: row.id,
-              name: row.title,
-              position: row.position,
-            }))}
-            definitions={definitions}
-            canManage={canManage}
-            canComplete={can(viewer.role, "projects.complete")}
-            unfinished={unfinished.length}
-            nextCycleLabel={nextCycle?.label ?? null}
-          />
+          <>
+            <ProjectActivityButton projectId={project.id} />
+            <ProjectMenu
+              project={{
+                id: project.id,
+                name: project.name,
+                description: project.description,
+                recurrence: project.recurrence,
+                state: project.state,
+                deliveryDate: project.deliveryDate,
+                customFields: project.customFields,
+              }}
+              stages={active.map((stage) => ({
+                id: stage.id,
+                name: stage.name,
+                position: stage.position,
+              }))}
+              blueprints={sortItems(blueprints.filter((row) => !row.archived)).map((row) => ({
+                id: row.id,
+                name: row.title,
+                position: row.position,
+                stages: row.stages,
+              }))}
+              definitions={definitions}
+              canManage={canManage}
+              canComplete={can(viewer.role, "projects.complete")}
+              unfinished={unfinished.length}
+              nextCycleLabel={nextCycle?.label ?? null}
+            />
+          </>
         }
       />
       <div className="flex max-w-3xl min-w-0 flex-col gap-4" data-slot="project-page">
@@ -274,7 +290,6 @@ export default async function ProjectPage({
           <CycleItems
             cycleId={chosen.id}
             items={views}
-            stages={active.map((stage) => ({ id: stage.id, name: stage.name }))}
             permissions={permissions}
             canAdd={working && !ended && client.state !== "inactive"}
             openItemId={items.some((item) => item.id === itemParam) ? (itemParam ?? null) : null}
@@ -294,38 +309,6 @@ export default async function ProjectPage({
             </div>
           </section>
         ) : null}
-
-        <section aria-labelledby="project-activity" className="flex flex-col gap-2">
-          <h2 id="project-activity" className="text-sm font-medium">
-            Activity
-          </h2>
-          {lines.length === 0 ? (
-            <p className="text-muted-foreground flex items-center gap-2 text-sm">
-              <HistoryIcon className="size-4" aria-hidden />
-              Nothing recorded yet.
-            </p>
-          ) : (
-            <ol
-              aria-label="Activity"
-              data-slot="project-activity"
-              className="border-border divide-border bg-card divide-y rounded-lg border"
-            >
-              {lines.map((line) => (
-                <li key={line.id} className="flex flex-col gap-0.5 px-4 py-3 text-sm">
-                  <span className="break-words">
-                    <span className="font-medium">{line.actor}</span> {line.text}
-                  </span>
-                  {line.note ? (
-                    <span className="text-muted-foreground break-words">{line.note}</span>
-                  ) : null}
-                  <span className={cn("text-muted-foreground text-xs")}>
-                    {formatIST(line.at, "d MMM yyyy, h:mm a")}
-                  </span>
-                </li>
-              ))}
-            </ol>
-          )}
-        </section>
       </div>
     </>
   );

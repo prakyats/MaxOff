@@ -25,8 +25,7 @@ import {
   itemCount,
   listItemRows,
   listPlannedItems,
-  listStagesOf,
-  listTicks,
+  listItemStages,
   onTime,
   onTimeWords,
   sitLongest,
@@ -82,19 +81,16 @@ export async function AdminReport({ viewer, period }: { viewer: CurrentMember; p
         return {
           total: sum.total + 1,
           done: sum.done + (state === "done" || state === "approved" ? 1 : 0),
-          approved: sum.approved + (state === "approved" ? 1 : 0),
         };
       },
-      { total: 0, done: 0, approved: 0 },
+      { total: 0, done: 0 },
     );
   // Overdue now (PRODUCT §4.13): the open items past their planned date, beside the tasks.
   const overdueItems = openItems.filter((item) => isOverdue(item, today)).length;
   const waiting = openItems.filter((item) => currentIds.has(item.cycleId));
-  const [stages, ticks] = await Promise.all([
-    listStagesOf([...new Set(waiting.map((item) => item.projectId))]),
-    listTicks(waiting.map((item) => item.id)),
-  ]);
-  const sits = sitLongest({ items: waiting, stages, ticks, cycles: current, now });
+  // Amendment D2: each open item's own stages and ticks.
+  const stages = await listItemStages(waiting.map((item) => item.id));
+  const sits = sitLongest({ items: waiting, stages, cycles: current, now });
   const openTasks = open.map((row) => ({
     id: row.id,
     state: row.state,
@@ -156,14 +152,14 @@ export async function AdminReport({ viewer, period }: { viewer: CurrentMember; p
             <ItemKpiCard
               slot="kpi-on-time"
               title="On time"
-              definition="Items approved on or before their planned date, of the items planned."
+              definition="Items done on or before their planned date, of the items planned."
               now={onTimeWords(onTime(planned, period))}
               before={onTimeWords(onTime(planned, before))}
             />
             <ItemKpiCard
               slot="kpi-cycle-progress"
               title="Cycle progress"
-              definition="The current cycles: done of planned, and approved of done."
+              definition="The current cycles: done of planned."
               now={cycleProgressWords(totals)}
               before={null}
             />

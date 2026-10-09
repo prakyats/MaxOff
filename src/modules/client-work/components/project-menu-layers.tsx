@@ -8,6 +8,7 @@ import {
 } from "@/core/custom-fields/components/custom-fields-form";
 import type { FieldDefinition } from "@/core/custom-fields";
 import type { ResultError } from "@/core/errors";
+import { fail } from "@/core/errors/result";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { FormField } from "@/core/ui/composites/form-field";
@@ -48,7 +49,12 @@ import {
 } from "../domain/schemas";
 import type { Recurrence } from "../domain/types";
 
+import { movedNames, nameRows } from "../domain/positions";
+
 import { ListEditorSheet, type ListRow } from "./list-editor-sheet";
+
+/** An item-list line with its own stages (amendment D2). */
+export type MenuBlueprint = ListRow & { stages: readonly string[] };
 
 export type MenuLayer = "edit" | "stages" | "items" | "next" | "complete" | "cancel" | "reopen";
 
@@ -81,12 +87,20 @@ export function ProjectMenuLayers({
   onClose: () => void;
   project: MenuProject;
   stages: readonly ListRow[];
-  blueprints: readonly ListRow[];
+  blueprints: readonly MenuBlueprint[];
   definitions: readonly FieldDefinition[];
   unfinished: number;
   nextCycleLabel: string | null;
 }) {
   const close = (next: boolean) => (next ? null : onClose());
+  // The item-list line whose own stages are open over the item list (amendment D2).
+  const [lineId, setLineId] = useState<string | null>(null);
+  const line = blueprints.find((row) => row.id === lineId) ?? null;
+  const lineRows = nameRows(line?.stages ?? []);
+  const setLineStages = (stages: string[]) =>
+    line
+      ? updateBlueprint({ blueprintId: line.id, stages })
+      : Promise.resolve(fail("NOT_FOUND", "This line is gone from the list."));
   return (
     <>
       {layer === "edit" ? (
@@ -95,9 +109,10 @@ export function ProjectMenuLayers({
       <ListEditorSheet
         open={layer === "stages"}
         onOpenChange={close}
-        title="Stages"
-        description="Every item of the project gets these. A change applies to every cycle."
+        title="Default stages"
+        description="New items start with these. Existing items keep their own stages; change those on the item."
         noun="stage"
+        removeDescription="New items start without it. Existing items keep their stages."
         rows={stages}
         max={STAGES_MAX}
         maxLength={STAGE_NAME_MAX}
@@ -110,15 +125,47 @@ export function ProjectMenuLayers({
         open={layer === "items"}
         onOpenChange={close}
         title="Item list"
-        description="Each new cycle starts with these. The current cycle's items are edited on the cycle."
+        description="Each new cycle starts with these, each with its own stages. The current cycle's items are edited on the cycle."
         noun="item"
+        removeDescription="Later cycles start without it. The current cycle keeps its items."
         rows={blueprints}
+        rowAction={(row) => (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="min-h-11"
+            aria-label={`Stages of ${row.name}`}
+            data-slot="line-stages"
+            onClick={() => setLineId(row.id)}
+          >
+            Stages
+          </Button>
+        )}
         max={ITEMS_MAX}
         maxLength={ITEM_TITLE_MAX}
         onAdd={(title) => addBlueprint({ projectId: project.id, title })}
         onRename={(blueprintId, title) => updateBlueprint({ blueprintId, title })}
         onMove={(blueprintId, position) => updateBlueprint({ blueprintId, position })}
         onRemove={(blueprintId) => archiveBlueprint({ blueprintId })}
+      />
+      <ListEditorSheet
+        open={layer === "items" && line !== null}
+        onOpenChange={(next) => (next ? null : setLineId(null))}
+        title={line ? `Stages of ${line.name}` : "Stages"}
+        description="Each new cycle's item made from this line starts with these. Items already made keep theirs."
+        noun="stage"
+        removeDescription="Later cycles' items start without it."
+        rows={lineRows}
+        max={STAGES_MAX}
+        maxLength={STAGE_NAME_MAX}
+        onAdd={(name) => setLineStages([...lineRows.map((row) => row.name), name])}
+        onRename={(id, name) =>
+          setLineStages(lineRows.map((row) => (row.id === id ? name : row.name)))
+        }
+        onMove={(id, position) => setLineStages(movedNames(lineRows, id, position))}
+        onRemove={(id) =>
+          setLineStages(lineRows.filter((row) => row.id !== id).map((row) => row.name))
+        }
       />
       <ConfirmDialog
         open={layer === "next"}
@@ -138,7 +185,7 @@ export function ProjectMenuLayers({
         title={`Complete ${project.name}?`}
         description={
           unfinished > 0
-            ? `${unfinished} ${unfinished === 1 ? "item is" : "items are"} still open or done. Approve, carry, close or cancel ${unfinished === 1 ? "it" : "them"} first.`
+            ? `${unfinished} ${unfinished === 1 ? "item is" : "items are"} still open. Mark ${unfinished === 1 ? "it" : "them"} done, carry or close ${unfinished === 1 ? "it" : "them"} first.`
             : "It becomes read-only. You can reopen it later."
         }
         confirmLabel="Complete project"

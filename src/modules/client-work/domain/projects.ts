@@ -21,7 +21,7 @@ export type ProjectSummary = {
   /** "Monthly · October 2026", "One-time · delivery 20 Oct". */
   meta: string;
   /**
-   * "9/12 done · 8/12 approved · 1 closed", or "No items in this cycle."; null for a finished
+   * "9/12 done · 1 closed", or "No items in this cycle."; null for a finished
    * project (only working projects have a current cycle).
    */
   progress: string | null;
@@ -80,21 +80,20 @@ export function progressByClient(
   const result = new Map<string, ReturnType<typeof progressOf>>();
   for (const cycle of current) {
     const progress = progressOf(cycle.states.map((state) => ({ state })));
-    const sum = result.get(cycle.clientId) ?? { total: 0, done: 0, approved: 0, closed: 0 };
+    const sum = result.get(cycle.clientId) ?? { total: 0, done: 0, closed: 0 };
     result.set(cycle.clientId, {
       total: sum.total + progress.total,
       done: sum.done + progress.done,
-      approved: sum.approved + progress.approved,
       closed: sum.closed + progress.closed,
     });
   }
   return result;
 }
 
-/** "Items 9/12 done · 8/12 approved", or null when the client has no current items. */
+/** "Items 9/12 done" (amendment D3), or null when the client has no current items. */
 export function clientProgressLine(
   progress: ReturnType<typeof progressOf> | undefined,
 ): string | null {
   if (!progress || progress.total === 0) return null;
-  return `Items ${progress.done}/${progress.total} done · ${progress.approved}/${progress.total} approved`;
+  return `Items ${progress.done}/${progress.total} done`;
 }

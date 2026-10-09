@@ -9,7 +9,7 @@ import { allPages, byChunks, ITEM_COLUMNS, toItem } from "./projects";
 
 /**
  * The reads that cross projects and clients (7.3 / 7.4): the cross-client item list, Today's
- * Client work and Needs you counts, Approvals' Client items, the carry screen, the calendar's
+ * Client work and Needs you counts, the carry screen, the calendar's
  * planned dates and the work report's item facts. All under RLS: the Owner reads every client's
  * items, an Admin only their clients', Crew none. Each list is read page by page (PostgREST's
  * 1000-row limit, 6A mechanics (1)); a count is a head request.
@@ -94,24 +94,17 @@ export function countOverdueItems(today: ISODate): Promise<number> {
   return countItems({ states: ["open"], plannedTo: addISTDays(today, -1) });
 }
 
-/**
- * Done items waiting for approval. Only ever read for an Admin (their clients, through RLS): the
- * Owner's Approvals, badge and Today take no client items (issue #56 Q1, 7A mechanics (8)).
- */
-export function countItemsToApprove(): Promise<number> {
-  return countItems({ states: ["done"] });
-}
-
 /** Open items of ended cycles (undecided or left pending): the carry decision (decision 11). */
 export function countItemsToDecide(today: ISODate): Promise<number> {
   return countItems({ states: ["open"], cycleEndedBefore: today });
 }
 
 /**
- * Open items whose latest review is a rejection by someone else: "sent back" on the Admin's Needs
- * you (decision 19), with the reason. The viewer's own rejections are not news to them (the
- * rejection notifies nobody who made it, amendment C6). Only rejections are read (an approval
- * locks its item, so an open item's reviews are all rejections); the rows by chunks of ids.
+ * Open items whose latest send-back is someone else's: "sent back" on the Admin's Needs you
+ * (decision 19, amendment D3: the Owner's send-back of a done item), with the reason. The viewer's
+ * own reopens are not news to them (never the actor). Only rejections are read (a done item is
+ * locked, so an open item's latest review is always its send-back or reopen); the rows by chunks
+ * of ids.
  */
 export async function listSentBack(
   viewerId: string,

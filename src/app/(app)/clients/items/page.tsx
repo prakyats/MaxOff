@@ -13,7 +13,7 @@ import { itemsDescription } from "./copy";
 
 export const metadata: Metadata = { title: "Client items" };
 
-const FILTERS: readonly ItemListFilter[] = ["live", "overdue", "open", "done"];
+const FILTERS: readonly ItemListFilter[] = ["live", "overdue"];
 
 function first(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
@@ -21,7 +21,7 @@ function first(value: string | string[] | undefined): string | undefined {
 
 /**
  * The cross-client item list (7.3 / 7.4; PRODUCT §4.7, kickoff 7 decision 19, amendment C E1;
- * PERMISSIONS "Screens (phase 7)": `items.tick`, RLS decides the rows): every open and done item of
+ * PERMISSIONS "Screens (phase 7)": `items.tick`, RLS decides the rows): every open item (amendment D3) of
  * the clients the viewer runs (an Admin) or of every client (the Owner, **grouped by Admin**),
  * overdue first. `?filter=overdue` is where the Owner's Today count and his E1 escalation land
  * (`app.client_items_overdue_link()`); `?client=` and `?project=` narrow it. A drill-down from

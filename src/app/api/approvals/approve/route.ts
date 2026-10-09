@@ -3,7 +3,6 @@ import { z } from "zod";
 import { fail } from "@/core/errors";
 import { sameOrigin } from "@/core/http/origin";
 import { approveDay } from "@/modules/attendance";
-import { approveItem } from "@/modules/client-work";
 import { approveLeave } from "@/modules/leave";
 import { approveTask } from "@/modules/tasks";
 
@@ -17,7 +16,7 @@ import { approveTask } from "@/modules/tasks";
  * `/api/*` is public in the proxy, so this authenticates itself: the action's permission check
  * reads the session cookie, and a request from another origin is refused before anything runs.
  */
-const bodySchema = z.object({ kind: z.enum(["day", "leave", "task", "item"]), id: z.uuid() });
+const bodySchema = z.object({ kind: z.enum(["day", "leave", "task"]), id: z.uuid() });
 
 export async function POST(request: Request): Promise<Response> {
   if (!sameOrigin(request.headers.get("origin"), request.url)) {
@@ -32,8 +31,6 @@ export async function POST(request: Request): Promise<Response> {
       ? await approveDay({ dayId: id })
       : kind === "leave"
         ? await approveLeave({ requestId: id })
-        : kind === "task"
-          ? await approveTask({ taskId: id })
-          : await approveItem({ itemId: id });
+        : await approveTask({ taskId: id });
   return Response.json(result);
 }

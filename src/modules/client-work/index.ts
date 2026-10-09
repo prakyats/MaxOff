@@ -28,7 +28,8 @@ export {
   sortCycles,
   sortItemRows,
   sortItems,
-  tickedStages,
+  stageChoices,
+  stagesByItem,
   weekEnd,
   type AdminGroup,
   type ItemFilter,
@@ -54,12 +55,18 @@ export {
   itemRowView,
   itemView,
   type ItemRowView,
+  type ItemStageView,
   type ItemView,
   type ItemViewContext,
+  type LastChange,
 } from "./domain/views";
 export {
+  ACTIVITY_KINDS,
   describeProjectActivity,
   INTERNAL_KEYS,
+  lastChangeOf,
+  type ActivityKind,
+  type ActivityPage,
   type ActivityLine as ProjectActivityLine,
 } from "./domain/activity";
 export {
@@ -73,13 +80,13 @@ export {
   type Cycle,
   type Item,
   type ItemRow,
+  type ItemStage,
   type ItemState,
   type Project,
   type ProjectState,
   type Recurrence,
   type Review,
   type Stage,
-  type Tick,
 } from "./domain/types";
 export {
   getProject,
@@ -90,16 +97,15 @@ export {
   listCyclesById,
   listItems,
   listItemsById,
-  listProjectActivity,
+  listItemStages,
+  listLastChanges,
   listProjectsActivity,
   listReviews,
   listStages,
   listStagesOf,
-  listTicks,
   type CurrentCycle,
 } from "./data/projects";
 export {
-  countItemsToApprove,
   countItemsToDecide,
   countOverdueItems,
   listItemRows,
@@ -123,15 +129,16 @@ export {
 } from "./actions/projects";
 export {
   addItem,
-  approveItem,
-  approveItems,
+  addItemStage,
+  archiveItemStage,
   cancelItem,
   carryDecide,
   markItemDone,
   markItemsDone,
-  rejectItem,
-  tickStage,
-  tickStageOn,
-  unmarkItemDone,
+  reopenItem,
+  tickItemStage,
+  tickStages,
   updateItem,
+  updateItemStage,
 } from "./actions/items";
+export { ACTIVITY_PAGE, readProjectActivity } from "./actions/background";
