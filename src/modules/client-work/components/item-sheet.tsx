@@ -2,7 +2,7 @@
 
 import { ArrowDownIcon, ArrowUpIcon, CheckIcon } from "lucide-react";
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import type { Result } from "@/core/errors/result";
 import { cn } from "@/core/lib/utils";
@@ -17,6 +17,7 @@ import { StatusBadge } from "@/core/ui/composites/status-badge";
 import { Button } from "@/core/ui/primitives/button";
 import { Input } from "@/core/ui/primitives/input";
 import { Textarea } from "@/core/ui/primitives/textarea";
+import { closeOverlaysThen, useOverlayHistory } from "@/core/ui/overlay/overlay-history";
 import { describeError, toastResult } from "@/core/ui/toast";
 
 import {
@@ -65,9 +66,13 @@ export type ItemPermissions = {
  * (`items.approve`), Edit, Move and Close with a reason (`projects.manage`; once done, closed or
  * carried only the title and notes change). A bottom sheet on a phone (`ReviewSheet`): back closes
  * it, and a layer opened from it (the reason, the stage editor, the history) closes first (§14.2
- * a); with an edit typed and not saved, back asks "Discard your changes?" first, and back on that
- * keeps editing (§14.2 f). **Mark done** goes through `onMarkDone` where the screen gives it (the
- * 6-second Undo) and the sheet closes.
+ * a). **Edit is a layer of its own** (§14.2 f, as `EditableRecord`; owner's walk 2026-10-09):
+ * back or Cancel returns to the item's facts, and a second back closes the sheet; with an edit
+ * typed and not saved, either asks "Discard your changes?" first over the sheet, and back on that
+ * keeps editing. Closing the sheet itself (✕, the backdrop) with an edit typed asks the same and
+ * then closes it. **The sheet always opens on the facts**: an edit left open ends with the sheet.
+ * **Mark done** goes through `onMarkDone` where the screen gives it (the 6-second Undo) and the
+ * sheet closes.
  */
 export function ItemSheet({
   item,
@@ -98,12 +103,57 @@ export function ItemSheet({
   const [saving, setSaving] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [reason, setReason] = useState<"reopen" | "close" | null>(null);
-  // "Discard your changes?" stands in for the sheet while it asks (§14.2 f).
-  const [asking, setAsking] = useState(false);
+  // "Discard your changes?" (§14.2 f): over the sheet when leaving the edit ("edit": back or
+  // Cancel, then the facts), or standing in for the sheet when it is being closed ("close").
+  const [discard, setDiscard] = useState<"edit" | "close" | null>(null);
+  // Set while a way out of the edit backs its history entry out, so the layers closing on the
+  // way (the edit's own, the confirmation's) do not act on it.
+  const leaving = useRef(false);
+  // The sheet always opens on the item's facts: an edit left open ends with the sheet.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setEditingId(null);
+      setDiscard(null);
+    }
+  }
   const [editingStages, setEditingStages] = useState(false);
   // The item's history: mounted afresh on each opening (its key), kept for its closing animation.
   const [history, setHistory] = useState(0);
   const [historyOpen, setHistoryOpen] = useState(false);
+
+  const editing = open && item !== null && editingId === item.id;
+  const dirty =
+    editing &&
+    item !== null &&
+    (title !== item.title ||
+      notes !== (item.notes ?? "") ||
+      (item.rules.editAll && planned !== (item.plannedDate ?? "")));
+
+  // The edit is a history layer over the sheet (§14.2 f): back leaves it for the facts, or asks
+  // first when something was typed.
+  useOverlayHistory(editing && discard === null, () => {
+    if (leaving.current) return;
+    if (dirty) {
+      setDiscard("edit");
+    } else {
+      setEditingId(null);
+      setSaveError(null);
+    }
+  });
+
+  /** Back to the facts, backing the edit's (or the confirmation's) history entry out. */
+  function leaveEdit() {
+    leaving.current = true;
+    const done = () => {
+      leaving.current = false;
+      setEditingId(null);
+      setDiscard(null);
+      setSaveError(null);
+    };
+    if (!closeOverlaysThen(done)) done();
+  }
 
   if (!item) {
     return (
@@ -113,20 +163,18 @@ export function ItemSheet({
     );
   }
   const current = item;
-  const editing = open && editingId === current.id;
-  const setEditing = (next: boolean) => setEditingId(next ? current.id : null);
-  const dirty =
-    editing &&
-    (title !== current.title ||
-      notes !== (current.notes ?? "") ||
-      (current.rules.editAll && planned !== (current.plannedDate ?? "")));
 
   function requestClose(next: boolean) {
     if (!next && dirty && !saving) {
-      setAsking(true);
+      setDiscard("close");
       return;
     }
     onOpenChange(next);
+  }
+
+  function cancelEdit() {
+    if (dirty) setDiscard("edit");
+    else leaveEdit();
   }
 
   function startEdit() {
@@ -134,7 +182,7 @@ export function ItemSheet({
     setNotes(current.notes ?? "");
     setPlanned(current.plannedDate ?? "");
     setSaveError(null);
-    setEditing(true);
+    setEditingId(current.id);
   }
 
   async function save() {
@@ -153,7 +201,7 @@ export function ItemSheet({
       setSaveError(description ?? heading);
       return;
     }
-    setEditing(false);
+    leaveEdit();
   }
 
   async function run(key: string, send: () => Promise<Result<unknown>>, success: string) {
@@ -206,7 +254,7 @@ export function ItemSheet({
   return (
     <>
       <ReviewSheet
-        open={open && !asking}
+        open={open && discard !== "close"}
         onOpenChange={requestClose}
         title={current.title}
         description={<StatusBadge status={ITEM_STATUS[current.state]} label={current.stateLabel} />}
@@ -258,7 +306,7 @@ export function ItemSheet({
                 )}
               </FormField>
               <div className="flex justify-end gap-2">
-                <Button type="button" variant="secondary" onClick={() => setEditing(false)}>
+                <Button type="button" variant="secondary" onClick={cancelEdit}>
                   Cancel
                 </Button>
                 <Button type="submit" variant="primary" pending={saving} pendingLabel="Saving…">
@@ -287,19 +335,19 @@ export function ItemSheet({
                   })),
                 ]}
               />
-              <p
+              {/* One row: the text wraps on its own, History stays at its end (owner's walk). */}
+              <div
                 data-slot="item-last-change"
-                className="text-muted-foreground flex flex-wrap items-center gap-x-1"
+                className="text-muted-foreground flex items-center justify-between gap-2"
               >
-                <span className="break-words">
+                <p className="min-w-0 flex-1 break-words">
                   {current.lastChange
                     ? `Last change: ${current.lastChange.text} by ${current.lastChange.by}, ${formatIST(current.lastChange.at, "d MMM, h:mm a")}`
                     : "No changes recorded yet."}
-                </span>
-                <span aria-hidden>·</span>
+                </p>
                 <Button
                   variant="ghost"
-                  className="h-11 px-2 underline underline-offset-4"
+                  className="h-11 min-w-11 shrink-0 px-2 whitespace-nowrap underline underline-offset-4"
                   data-slot="item-history"
                   onClick={() => {
                     setHistory((count) => count + 1);
@@ -308,7 +356,7 @@ export function ItemSheet({
                 >
                   History
                 </Button>
-              </p>
+              </div>
               {current.sentBack ? (
                 <p
                   data-slot="item-sent-back"
@@ -411,15 +459,23 @@ export function ItemSheet({
         </div>
       </ReviewSheet>
       <ConfirmDialog
-        open={asking}
-        onOpenChange={(next) => (next ? null : setAsking(false))}
+        open={discard !== null}
+        onOpenChange={(next) => {
+          // Keep editing (its button or back): the edit, and the sheet, as they were.
+          if (!next && !leaving.current) setDiscard(null);
+        }}
         title="Discard your changes?"
         description="The item stays as it was."
         confirmLabel="Discard changes"
         cancelLabel="Keep editing"
         onConfirm={() => {
-          setEditing(false);
-          onOpenChange(false);
+          if (discard === "close") {
+            setEditingId(null);
+            setDiscard(null);
+            onOpenChange(false);
+            return;
+          }
+          leaveEdit();
         }}
       />
       <ReasonDialog

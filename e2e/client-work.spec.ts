@@ -6,6 +6,7 @@ import { HOLD_PROXY_URL } from "./hold-proxy-config";
 import {
   expectBackStack,
   expectNoHorizontalScroll,
+  expectSheetAboveKeyboard,
   hydrated,
   memberIdOf,
   removeClientFixture,
@@ -767,20 +768,26 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
       here,
     );
 
-    // The item sheet's Edit: back asks, then keeps editing; Discard closes the sheet.
+    // The item sheet's Edit is a layer of its own (§14.2 f, owner's walk 2026-10-09): back asks
+    // over the sheet, back on the confirmation keeps editing, Discard returns to the item's facts,
+    // and one more back closes the sheet.
     await itemRow(page, "Reel").locator('[data-slot="item-open"]').click();
     const sheet = page.locator('[data-slot="review-sheet"]');
     await sheet.getByRole("button", { name: "Edit", exact: true }).click();
     await sheet.getByLabel("Title").fill("Reel, retitled");
-    await expectDiscardOnBack(
-      page,
-      sheet,
-      "Discard your changes?",
-      "Discard changes",
-      sheet.getByLabel("Title"),
-      "Reel, retitled",
-      here,
-    );
+    const discard = page.getByRole("alertdialog", { name: "Discard your changes?" });
+    await page.goBack();
+    await expect(discard, "back asks before losing typed work").toBeVisible();
+    await expect(page).toHaveURL(here);
+    await page.goBack();
+    await expect(discard, "back on the confirmation keeps editing").toBeHidden();
+    await expect(sheet.getByLabel("Title"), "the draft is kept").toHaveValue("Reel, retitled");
+    await page.goBack();
+    await discard.getByRole("button", { name: "Discard changes" }).click();
+    await expect(discard).toBeHidden();
+    await expect(sheet.getByLabel("Title"), "Discard returns to the facts").toHaveCount(0);
+    await expect(sheet.getByRole("button", { name: "Edit", exact: true })).toBeVisible();
+    await expectBackStack(page, [{ closes: sheet, url: here }]);
     expect(
       (
         await serviceSelect<{ title: string }>(
@@ -788,6 +795,157 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
         )
       ).map((row) => row.title),
     ).toEqual(["Reel"]);
+    await removeClientFixture(client);
+  });
+
+  test("the item sheet's Edit is a layer: back and Cancel return to the facts, the sheet always opens on them, History stays on its row", async ({
+    page,
+  }, info) => {
+    const client = nameOf(info, "item edit");
+    const clientId = await workClient(client);
+    const projectId = await makeProject(clientId, "Edit reels", {
+      items: ["Reel 1"],
+      stages: ["Script"],
+    });
+    const here = new RegExp(`/projects/${projectId}$`);
+    await runInstalled(page);
+    await page.goto(`/clients/${clientId}/projects`);
+    await page.goto(`/clients/${clientId}/projects/${projectId}`);
+    await hydrated(page);
+    const sheet = page.locator('[data-slot="review-sheet"]');
+    const open = async () => {
+      await itemRow(page, "Reel 1").locator('[data-slot="item-open"]').click();
+      await expect(sheet).toBeVisible();
+    };
+    const edit = sheet.getByRole("button", { name: "Edit", exact: true });
+    const title = sheet.getByLabel("Title");
+    const discard = page.getByRole("alertdialog", { name: "Discard your changes?" });
+    const onFacts = async (why: string) => {
+      await expect(title, why).toHaveCount(0);
+      await expect(edit, why).toBeVisible();
+    };
+
+    // "Last change: … History" is one row: the text wraps on its own, History (44 px, no "·")
+    // sits at the row's end on the text's line.
+    await open();
+    const row = sheet.locator('[data-slot="item-last-change"]');
+    const history = row.getByRole("button", { name: "History" });
+    await expect(row).not.toContainText("·");
+    const rowBox = (await row.boundingBox())!;
+    const historyBox = (await history.boundingBox())!;
+    const textBox = (await row.locator("p").boundingBox())!;
+    expect(historyBox.height).toBeGreaterThanOrEqual(44);
+    expect(historyBox.width).toBeGreaterThanOrEqual(44);
+    expect(
+      Math.abs(historyBox.x + historyBox.width - (rowBox.x + rowBox.width)),
+    ).toBeLessThanOrEqual(1);
+    expect(historyBox.x).toBeGreaterThanOrEqual(textBox.x + textBox.width);
+    expect(historyBox.y, "History on the text's line").toBeLessThan(textBox.y + textBox.height);
+    expect(textBox.y).toBeLessThan(historyBox.y + historyBox.height);
+
+    // Back from Edit returns to the facts; a second back closes the sheet.
+    await edit.click();
+    await expect(title).toBeVisible();
+    await page.goBack();
+    await onFacts("back from Edit returns to the facts");
+    await expect(sheet).toBeVisible();
+    await expect(page).toHaveURL(here);
+    await expectBackStack(page, [{ closes: sheet, url: here }]);
+
+    // Cancel does the same as back, and leaves no extra back press behind.
+    await open();
+    await edit.click();
+    await sheet.getByRole("button", { name: "Cancel" }).click();
+    await onFacts("Cancel returns to the facts");
+    await expectBackStack(page, [{ closes: sheet, url: here }]);
+
+    // Cancel with a change typed asks first: Keep editing keeps the draft; Discard returns to the
+    // facts, the sheet still open.
+    await open();
+    await edit.click();
+    await title.fill("Reel 1, retitled");
+    await sheet.getByRole("button", { name: "Cancel" }).click();
+    await expect(discard).toBeVisible();
+    await discard.getByRole("button", { name: "Keep editing" }).click();
+    await expect(discard).toBeHidden();
+    await expect(title).toHaveValue("Reel 1, retitled");
+    await sheet.getByRole("button", { name: "Cancel" }).click();
+    await discard.getByRole("button", { name: "Discard changes" }).click();
+    await onFacts("Discard returns to the facts");
+    await expect(sheet).toContainText("Reel 1");
+    await expectBackStack(page, [{ closes: sheet, url: here }]);
+
+    // Closed while editing (its ✕), the sheet reopens on the facts, never on the editor.
+    await open();
+    await edit.click();
+    await expect(title).toBeVisible();
+    await sheet.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(sheet).toBeHidden();
+    await open();
+    await onFacts("the sheet reopens on the facts");
+    // With a change typed, ✕ asks first; Discard closes the sheet, and it reopens on the facts.
+    await edit.click();
+    await title.fill("Reel 1, half-typed");
+    await sheet.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(discard).toBeVisible();
+    await discard.getByRole("button", { name: "Discard changes" }).click();
+    await expect(sheet).toBeHidden();
+    await open();
+    await onFacts("the sheet reopens on the facts after a discard");
+    await page.goBack();
+    await expect(sheet).toBeHidden();
+    expect(
+      (
+        await serviceSelect<{ title: string }>(
+          `project_items?project_id=eq.${projectId}&select=title`,
+        )
+      ).map((item) => item.title),
+    ).toEqual(["Reel 1"]);
+    await removeClientFixture(client);
+  });
+
+  test("the keyboard never covers a sheet's field: Item list, Default stages, the item's Edit and Close…", async ({
+    page,
+  }, info) => {
+    const client = nameOf(info, "keyboard");
+    const clientId = await workClient(client);
+    const projectId = await makeProject(clientId, "Keyboard reels", {
+      items: ["Reel 1"],
+      stages: ["Script"],
+    });
+    const here = new RegExp(`/projects/${projectId}$`);
+    await runInstalled(page);
+    await page.goto(`/clients/${clientId}/projects/${projectId}`);
+    await hydrated(page);
+    const menu = page.getByRole("button", { name: "Actions for Keyboard reels" });
+
+    await menu.click();
+    await page.getByRole("menuitem", { name: "Item list" }).click();
+    const list = page.locator('[data-slot="review-sheet"]', { hasText: "Item list" });
+    await expectSheetAboveKeyboard(page, list, list.getByLabel("New item"));
+    await expectBackStack(page, [{ closes: list, url: here }]);
+
+    await menu.click();
+    await page.getByRole("menuitem", { name: "Default stages" }).click();
+    const stages = page.locator('[data-slot="review-sheet"]', { hasText: "Default stages" });
+    await expectSheetAboveKeyboard(page, stages, stages.getByLabel("New stage"));
+    await expectBackStack(page, [{ closes: stages, url: here }]);
+
+    await itemRow(page, "Reel 1").locator('[data-slot="item-open"]').click();
+    const sheet = page.locator('[data-slot="review-sheet"]');
+    await sheet.getByRole("button", { name: "Edit", exact: true }).click();
+    await expectSheetAboveKeyboard(page, sheet, sheet.getByLabel("Notes"));
+    await expectSheetAboveKeyboard(page, sheet, sheet.getByLabel("Title"));
+    await page.goBack();
+    await expect(sheet.getByLabel("Title")).toHaveCount(0);
+
+    await sheet.getByRole("button", { name: "Close item…" }).click();
+    const close = page.getByRole("dialog", { name: "Close Reel 1?" });
+    await expectSheetAboveKeyboard(page, close, close.getByLabel("Why close it"));
+    await expectBackStack(page, [
+      { closes: close, url: here },
+      { closes: sheet, url: here },
+    ]);
     await removeClientFixture(client);
   });
 
