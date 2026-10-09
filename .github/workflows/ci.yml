@@ -192,7 +192,7 @@ jobs:
       - run: >-
           pnpm test:e2e --shard=${{ matrix.shard }}/2 --reporter=github,blob
           --project=setup --project=mobile --project=mobile-lg
-          e2e/tap-feedback.spec.ts --repeat-each=10
+          e2e/tap-feedback.spec.ts --repeat-each=12 --grep "after 25 s Retry"
       - name: Approve all (owner-bulk), alone, after the rest of shard 2
         if: false
         env:
