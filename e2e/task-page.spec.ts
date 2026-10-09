@@ -480,6 +480,88 @@ test.describe("Chat and the unread comments (decision 28)", () => {
     await expect(row.locator('[data-slot="task-unread"]')).toHaveCount(0);
   });
 
+  test("keys: a laptop sends on Enter and Shift+Enter adds a line; a phone's Enter is a new line (§14.3 rule 1)", async ({
+    page,
+  }, info) => {
+    const prefix = `Keys ${info.project.name} `;
+    await removeTasksTitled(prefix);
+    const staff = person("staff", info);
+    const helper = person("helper", info);
+    const [staffId, helperId] = await Promise.all([
+      memberIdOf(staff.email),
+      memberIdOf(helper.email),
+    ]);
+    const taskId = await ownerCreates({
+      title: `${prefix}chat`,
+      assignees: [staffId, helperId],
+      primary: staffId,
+      day: 41,
+    });
+    await fixtureNotificationsRead(taskId);
+
+    await as(page, "staff", info);
+    await page.goto(`/tasks/${taskId}`);
+    await live(page);
+    await tab(page, "chat").click();
+    const chat = phone(page) ? chatSheet(page) : panel(page, "chat");
+    const box = chat.getByRole("textbox", { name: "Comment" });
+    const own = chat.locator('[data-slot="task-comment"][data-own="true"]');
+    const hint = chat.locator('[data-slot="composer-hint"]');
+    await expect(box).toBeVisible();
+
+    if (phone(page)) {
+      // Touch: Enter is a new line and never sends; Send sends. No hint.
+      expect(await page.evaluate(() => matchMedia("(any-pointer: coarse)").matches)).toBe(true);
+      await box.click();
+      await page.keyboard.type("First line");
+      await page.keyboard.press("Enter");
+      await page.keyboard.type("second line");
+      await expect(box).toHaveValue("First line\nsecond line");
+      await expect(own).toHaveCount(0);
+      await expect(hint).toHaveCount(0);
+      await chat.getByRole("button", { name: "Send" }).click();
+      await expect(own).toHaveCount(1);
+      await expect(own).toContainText("second line");
+      await expect(box).toHaveValue("");
+      await page.goBack();
+      await expect(chatSheet(page)).toBeHidden();
+      return;
+    }
+
+    // A laptop: the hint, quietly; Enter sends, Shift+Enter is a new line.
+    expect(
+      await page.evaluate(
+        () =>
+          matchMedia("(pointer: fine) and (hover: hover)").matches &&
+          !matchMedia("(any-pointer: coarse)").matches,
+      ),
+    ).toBe(true);
+    await expect(hint).toHaveText("Enter to send · Shift+Enter for a new line");
+    await box.click();
+    // Nothing to send: Enter neither sends nor makes a line (and says nothing).
+    await page.keyboard.press("Enter");
+    await expect(box).toHaveValue("");
+    await page.keyboard.type("   ");
+    await page.keyboard.press("Enter");
+    await expect(box).toHaveValue("   ");
+    await expect(chat.getByText("Write something first.")).toHaveCount(0);
+    await box.fill("");
+    await page.keyboard.type("First line");
+    await page.keyboard.press("Shift+Enter");
+    await page.keyboard.type("second line");
+    await expect(box).toHaveValue("First line\nsecond line");
+    await expect(own).toHaveCount(0);
+    await page.keyboard.press("Enter");
+    await expect(own).toHaveCount(1);
+    await expect(own).toContainText("First line");
+    await expect(own).toContainText("second line");
+    // Sent once, emptied, and the focus stays in the composer for the next message.
+    await expect(box).toHaveValue("");
+    await expect(box).toBeFocused();
+    await receiptsSettled(page);
+    await expect(own).toHaveCount(1);
+  });
+
   test("the marker is on All tasks and on Approvals' task rows too", async ({ page }, info) => {
     const prefix = `Markers ${info.project.name} `;
     await removeTasksTitled(prefix);

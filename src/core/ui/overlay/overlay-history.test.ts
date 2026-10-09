@@ -127,6 +127,17 @@ describe("overlay-history wiring", () => {
     expect(body("reconcile")).toContain("pushState");
   });
 
+  it("pops only an Escape's own entry, one traversal at a time (§14.3 rule 4)", () => {
+    // Escape never starts a navigation, so backing its entry out cannot race one. It is counted
+    // only for an overlay that closes inside that same key event, and nothing is pushed or popped
+    // again until its popstate has landed (a second back in flight is absorbed by the browser).
+    expect(body("backOutEscaped")).toContain("shouldBackOutEscape({");
+    expect(body("backOutEscaped")).toContain("window.history.back()");
+    expect(body("closingOnEscape")).toContain(".event === escapeEvent");
+    expect(body("reconcile")).toContain("if (escapeBackInFlight) return;");
+    expect(body("onPopState")).toContain("if (escapeBackInFlight) {");
+  });
+
   it("skips a spent entry instead of making a back press look ignored", () => {
     expect(body("onPopState")).toContain("historyState()[MARKER] !== undefined");
     expect(body("onPopState")).toContain("window.history.back()");

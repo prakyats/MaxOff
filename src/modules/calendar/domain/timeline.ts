@@ -78,10 +78,15 @@ export function allDayEvents(day: Pick<CalendarDay, "events">): EventItem[] {
   return day.events.filter((event) => event.startAt === null);
 }
 
-/** Where the timeline scrolls when it opens: now (an hour above it) on today, else 08:00. */
+/**
+ * Where the timeline scrolls when it opens: 08:00, or on today the hour nearest to an hour above
+ * now. Always a whole hour, so the timeline can open just above that hour's label and show it
+ * whole (the owner's phone walk, 2026-10-08: "10:00" was cut in half at the top).
+ */
 export function openingMinute(date: ISODate, today: ISODate, nowMinute: number): number {
   if (date !== today) return VISIBLE_FROM_HOUR * HOUR;
-  return Math.max(0, Math.min(nowMinute - HOUR, (VISIBLE_TO_HOUR - 1) * HOUR));
+  const hour = Math.round((nowMinute - HOUR) / HOUR);
+  return Math.max(0, Math.min(hour, VISIBLE_TO_HOUR - 1)) * HOUR;
 }
 
 /** "08:00", for the hour rail. */

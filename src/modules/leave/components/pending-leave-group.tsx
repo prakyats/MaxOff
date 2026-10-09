@@ -129,6 +129,7 @@ export function PendingLeaveGroup({
         label="Reason"
         placeholder={`${rejecting?.memberName ?? "They"} will see this reason.`}
         submitLabel="Reject request"
+        destructive
         onSubmit={async (reason) => {
           if (!rejecting) return;
           const done = toastResult(await rejectLeave({ requestId: rejecting.id, reason }), {

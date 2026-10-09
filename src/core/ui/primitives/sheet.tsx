@@ -4,6 +4,7 @@ import * as React from "react";
 import { cn } from "cn";
 import { Dialog as SheetPrimitive } from "radix-ui";
 
+import { onLayerEscape, onLayerOpenFocus } from "@/core/ui/keyboard/layer";
 import { useOverlayOpenState } from "@/core/ui/overlay/overlay-history";
 import { Button } from "@/core/ui/primitives/button";
 import { ModalOpening, useModalOpening } from "@/core/ui/primitives/modal-opening";
@@ -66,6 +67,8 @@ function SheetContent({
   overlayClassName,
   followKeyboard = true,
   ref,
+  onEscapeKeyDown,
+  onOpenAutoFocus,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: "top" | "right" | "bottom" | "left";
@@ -92,6 +95,10 @@ function SheetContent({
           className,
         )}
         {...props}
+        // Escape closes it as back would; a laptop focuses the first field on open, touch never
+        // does (ARCHITECTURE §14.3 rules 4 and 5).
+        onEscapeKeyDown={(event) => onLayerEscape(event, onEscapeKeyDown)}
+        onOpenAutoFocus={(event) => onLayerOpenFocus(event, onOpenAutoFocus)}
       >
         {children}
         {showCloseButton && (

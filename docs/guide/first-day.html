@@ -7,7 +7,7 @@
 <style>
   /* One long, narrow page: it is read on a phone (sent with the invite on WhatsApp), so the PDF is
      phone-width and one page tall. The same conventions as MaxOff-App-Guide.html. */
-  @page { size: 110mm 1080mm; margin: 7mm 7mm 7mm 7mm; }
+  @page { size: 110mm 1200mm; margin: 7mm 7mm 7mm 7mm; }
   :root { --red: #C42126; --ink: #16161a; --muted: #5b5b66; --line: #e3e3e8; --soft: #f6f6f8; --ok: #1f7a4d; }
   * { box-sizing: border-box; }
   body { font-family: "Segoe UI", system-ui, sans-serif; color: var(--ink); font-size: 9.5pt; line-height: 1.45; margin: 0 auto; max-width: 30rem; background: #fff; }
@@ -22,7 +22,7 @@
   .mark { width: 30pt; height: 30pt; flex: none; border-radius: 7pt; background: var(--red); color: #fff; font-size: 16pt; font-weight: 800; display: flex; align-items: center; justify-content: center; }
   .sub { color: var(--muted); margin: 0 0 4pt; }
   .path { display: inline; font-weight: 600; font-size: 0.92em; background: var(--soft); border: 1px solid var(--line); border-radius: 4pt; padding: 0 4pt; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
-  li, p, td { line-height: 1.6; }
+  li, p, td { line-height: 1.5; }
   .kbd { font-weight: 700; }
   .box { border: 1px solid var(--line); border-left: 3px solid var(--ink); background: var(--soft); padding: 6pt 8pt; margin: 6pt 0 8pt; page-break-inside: avoid; }
   .box.red { border-left-color: var(--red); }
@@ -53,7 +53,7 @@
   <li>You land on <b>Welcome</b>, with a short card <b>"Get notifications"</b>. Follow its steps (below), or tap <span class="path">Later</span>. Until you do one or the other, MaxOff opens on this card each time you sign in.</li>
   <li><b>Android:</b> open <b>https://app.maxoff.in</b> in Chrome → <span class="path">⋮ → Install app</span>.<br><b>iPhone:</b> the card shows how, with pictures: in Safari <span class="path">Share → Add to Home Screen → Add</span>, then open MaxOff from the home screen and sign in once more. The card carries on there.</li>
   <li>From now on, open MaxOff from its icon. You stay signed in.</li>
-  <li>The app follows your phone's own text size. Need bigger text? Make it larger in your phone's settings (iPhone: <span class="path">Settings → Display &amp; Brightness → Text Size</span>; Android: <span class="path">Settings → Display → Font size</span>) and MaxOff grows with it.</li>
+  <li>Need bigger text? Make it larger in your phone's settings (iPhone: <span class="path">Display &amp; Brightness → Text Size</span>; Android: <span class="path">Display → Font size</span>) and MaxOff grows with it.</li>
 </ol>
 <div class="box"><b>Your attendance starts tomorrow:</b> the day you join is never counted. <b>Calendar</b> shows your shoots and meetings, your leave and the holidays: tap a day to see it.</div>
 
@@ -63,8 +63,7 @@
   <li><b>iPhone:</b> do <span class="path">Add to Home Screen</span> first (step 1) and open MaxOff from its icon. An iPhone notifies only the installed app; until then the band says "Install MaxOff to get notifications · How".</li>
   <li>On the welcome card: <span class="path">Turn on notifications</span>, then <b>Allow</b> when your phone asks. Or use the slim band just above the bottom bar: <b>"Notifications are off · Turn on"</b>.</li>
   <li>Then <span class="path">Send a test</span>. When MaxOff asks <b>"Did it arrive?"</b>, tap <span class="path">Yes</span> or <span class="path">No</span>: No shows what to check on your phone.</li>
-  <li>The band stays until a notification has really reached your phone, and comes back if they stop (it says why: off, blocked, not installed, or not reaching you). Tap it to fix.</li>
-  <li>Later, check it any time: <span class="path">Me → Help &amp; troubleshooting → Send a test notification → Send test</span>.</li>
+  <li>The band stays until a notification has really reached your phone, and comes back if they stop, saying why. Tap it to fix. Check any time: <span class="path">Me → Help &amp; troubleshooting → Send a test notification</span>.</li>
 </ol>
 <ul>
   <li><b>Quiet hours:</b> between 10:00 PM and 7:00 AM nothing is sent to your phone. At 7:00 AM you get one notification with what happened overnight ("3 updates while you were away").</li>
@@ -145,8 +144,7 @@ Just looking</div>
   <tr><th style="width:42%">If…</th><th>Then</th></tr>
   <tr><td>You forgot your password</td><td>Sign-in screen → <span class="path">Forgot your password?</span> → your email → open "Set your MaxOff password" (from noreply@mail.maxoff.in; check spam) → <span class="path">Continue to MaxOff</span> → set a new one.</td></tr>
   <tr><td>The invite link says "expired or already used"</td><td>Ask Prishit for a new one.</td></tr>
-  <tr><td>No notifications arrive</td><td><span class="path">Me → Notifications</span> says what is wrong on this phone, and <span class="path">Me → Your devices</span> when each one last got one. On iPhone, open MaxOff from its home-screen icon. Then <span class="path">Send test</span>, and answer <span class="path">No</span> to "Did it arrive?" for what to check.</td></tr>
-  <tr><td>The band says "Notifications aren't reaching you"</td><td>Tap it → <span class="path">Send a test</span>. If it doesn't arrive, follow the steps it shows.</td></tr>
+  <tr><td>No notifications arrive, or the band says "Notifications aren't reaching you"</td><td>Tap the band (or <span class="path">Me → Notifications</span>) → <span class="path">Send a test</span>, and answer <span class="path">No</span> to "Did it arrive?" for what to check. On iPhone, open MaxOff from its home-screen icon. <span class="path">Me → Your devices</span> shows when each one last got one.</td></tr>
   <tr><td>An old phone still gets your notifications</td><td><span class="path">Me → Your devices</span> → <span class="path">Remove</span> beside it → confirm. It stays signed in, but stays off even if opened again; sign it out on that phone if you still have it. Removed one by mistake? On that phone, tap <span class="path">Turn on</span> (the band, or Me).</td></tr>
   <tr><td>The band's sheet says "Notifications are blocked on this device"</td><td>Allow notifications for MaxOff in the browser's site settings (or the app's info screen), then open MaxOff again.</td></tr>
   <tr><td>A day says "End of day not recorded"</td><td>You didn't end it in time. Worked late? Add an overtime note. Anything wrong? Tell Prishit: he can correct any day, with a reason you'll see.</td></tr>

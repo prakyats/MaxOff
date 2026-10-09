@@ -346,6 +346,67 @@ async function expectPlainRow(row: ReturnType<Page["locator"]>, cancel: string, 
   expect(Math.abs(look.buttons[1]!.right - look.rowRight)).toBeLessThanOrEqual(1);
 }
 
+test.describe("keys (owner's note 2026-10-08, ARCHITECTURE §14.3)", () => {
+  test("a laptop: Edit focuses the first field; Enter opens the confirmation; Escape is Cancel, asking first when changed", async ({
+    page,
+    isMobile,
+  }, info) => {
+    test.skip(isMobile, "a laptop's keys; the phone case is next");
+    await openMe(page, isMobile, info);
+    const name = profilePerson(info).name;
+
+    // Nothing changed: Escape leaves edit mode and backs its entry out.
+    await editButton(page).click();
+    await expect(page.getByLabel("Full name")).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(editButton(page)).toBeVisible();
+    await expect(page).toHaveURL(/\/me$/);
+
+    // Changed: Escape asks "Discard changes?"; Escape there keeps editing, as typed.
+    await editButton(page).click();
+    await page.getByLabel("Full name").fill(`${name} typo`);
+    await page.keyboard.press("Escape");
+    await expect(discardDialog(page)).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(discardDialog(page)).toBeHidden();
+    await expect(page.getByLabel("Full name")).toHaveValue(`${name} typo`);
+
+    // Enter in a one-line field submits the form: the named confirmation, never a direct save.
+    await page.getByLabel("Full name").press("Enter");
+    await expect(confirmation(page)).toContainText(`${name} typo`);
+    await page.keyboard.press("Escape");
+    await expect(confirmation(page)).toBeHidden();
+    await expect(page.getByLabel("Full name")).toHaveValue(`${name} typo`);
+
+    await page.keyboard.press("Escape");
+    await discardDialog(page).getByRole("button", { name: "Discard changes" }).click();
+    await expect(editButton(page)).toBeVisible();
+    await expect(record(page)).toContainText(name);
+    await expect(record(page)).not.toContainText(`${name} typo`);
+
+    // Every way out backed its entry out: one back leaves /me for the page beneath.
+    await page.goBack();
+    await expect(page).toHaveURL(/\/my-day$/);
+  });
+
+  test("touch: Edit opens no keyboard (no field takes focus by itself)", async ({
+    page,
+    isMobile,
+  }, info) => {
+    test.skip(!isMobile, "the touch case");
+    await openMe(page, isMobile, info);
+    await editButton(page).click();
+    await expect(page.getByLabel("Full name")).toBeVisible();
+    expect(await page.evaluate(() => matchMedia("(any-pointer: coarse)").matches)).toBe(true);
+    const focused = await page.evaluate(
+      () => document.activeElement?.matches('input, textarea, select, [role="combobox"]') ?? false,
+    );
+    expect(focused, "no field is focused on touch").toBe(false);
+    await page.getByRole("button", { name: "Cancel" }).click();
+    await expect(editButton(page)).toBeVisible();
+  });
+});
+
 test.describe("desktop: action rows have no band", () => {
   test.skip(({ isMobile }) => isMobile, "the phone keeps its sticky bar");
 

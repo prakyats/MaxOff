@@ -4,6 +4,7 @@ import * as React from "react";
 import { cn } from "cn";
 import { AlertDialog as AlertDialogPrimitive } from "radix-ui";
 
+import { onLayerEscape } from "@/core/ui/keyboard/layer";
 import { useOverlayOpenState } from "@/core/ui/overlay/overlay-history";
 import { Button } from "@/core/ui/primitives/button";
 import { ModalOpening, useModalOpening } from "@/core/ui/primitives/modal-opening";
@@ -66,6 +67,7 @@ function AlertDialogContent({
   size = "default",
   children,
   ref,
+  onEscapeKeyDown,
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Content> & {
   size?: "default" | "sm";
@@ -88,6 +90,9 @@ function AlertDialogContent({
           className,
         )}
         {...props}
+        // Escape closes it as back would (ARCHITECTURE §14.3 rule 4). Focus on open is Radix's
+        // own for an alert: Cancel, never the commit.
+        onEscapeKeyDown={(event) => onLayerEscape(event, onEscapeKeyDown)}
       >
         <div data-slot="alert-dialog-handle" aria-hidden className={MODAL_HANDLE} />
         {children}

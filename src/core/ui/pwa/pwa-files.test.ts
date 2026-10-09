@@ -14,6 +14,7 @@ import launch from "./launch-screens.json";
 const root = fileURLToPath(new URL("../../../../", import.meta.url));
 const publicDir = path.join(root, "public");
 const manifest = JSON.parse(readFileSync(path.join(publicDir, "manifest.webmanifest"), "utf8")) as {
+  id: string;
   start_url: string;
   scope: string;
   display: string;
@@ -40,7 +41,12 @@ function token(selector: string, name: string): string | undefined {
 
 describe("manifest.webmanifest", () => {
   it("installs at the root in standalone mode", () => {
-    expect(manifest.start_url).toBe("/");
+    // `/` with the launch marker (walk note 3, 2026-10-08): the service worker tells the
+    // installed app's launch from a browser tab's `/` by it, for the launch screen. The proxy
+    // answers `/` whatever its query (one redirect home, 2.7). `id` keeps the app the same app.
+    expect(manifest.start_url).toBe("/?source=pwa");
+    expect(manifest.id).toBe("/");
+    expect(sw).toContain('const LAUNCH_SOURCE = "pwa";');
     expect(manifest.scope).toBe("/");
     expect(manifest.display).toBe("standalone");
   });
@@ -116,7 +122,9 @@ describe("sw.js", () => {
   it("tries a failed navigation once more before the offline page", () => {
     // A phone switching networks drops a few seconds; the page is for a real outage.
     expect(sw).toMatch(/NAVIGATION_RETRY_MS = 1500/);
-    expect(sw).toMatch(/respondWith\(\s*fetchNavigation\(request\)/);
+    // Every navigation goes through it, the launch's own included (`sw-launch.test.ts`).
+    expect(sw).toContain("answerLaunch(event, fetchNavigation(request))");
+    expect(sw).toContain("(held ?? fetchNavigation(request))");
   });
 
   it("never intercepts API calls, other origins or non-GET requests", () => {
@@ -139,7 +147,8 @@ describe("sw.js", () => {
 
   it("shows a push, opens its link through the deep-link entry and re-subscribes on change (5.2)", () => {
     // v7: the push handler shows the group's large picture (owner decision 2026-10-02).
-    expect(sw).toMatch(/VERSION = "v7"/);
+    // v8: the launch screen (walk note 3, 2026-10-08).
+    expect(sw).toMatch(/VERSION = "v8"/);
     expect(sw).toContain('addEventListener("push"');
     expect(sw).toContain("self.registration.showNotification(message.title");
     // The tap lands on the record with its list underneath (ARCHITECTURE §14.2 h).

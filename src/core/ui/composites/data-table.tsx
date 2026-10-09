@@ -32,6 +32,8 @@ import {
 } from "@/core/ui/primitives/sheet";
 
 import { cn } from "@/core/lib/utils";
+import { keyIntent } from "@/core/ui/keyboard/keys";
+import { finePointer } from "@/core/ui/keyboard/pointer";
 import { replaceViewAddress } from "@/core/ui/navigation/view-address";
 import { closeOverlaysThen } from "@/core/ui/overlay/overlay-history";
 import { Button } from "@/core/ui/primitives/button";
@@ -458,6 +460,17 @@ function ViewToolbar<TData>({
             placeholder={search.placeholder ?? search.label}
             value={view.query}
             onChange={(event) => onChange({ ...view, query: event.target.value })}
+            onKeyDown={(event) => {
+              // Enter applies (the rows already follow the text: the key only stays here), Escape
+              // clears; an empty box lets Escape through (ARCHITECTURE §14.3 rule 6).
+              const intent = keyIntent(event, {
+                field: "search",
+                finePointer: finePointer(),
+                value: view.query,
+              });
+              if (intent === "apply" || intent === "clear") event.preventDefault();
+              if (intent === "clear") onChange({ ...view, query: "" });
+            }}
             className="h-11 pl-8 md:h-8"
           />
         </div>

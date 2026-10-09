@@ -4,6 +4,63 @@ Newest first. Each entry says what ships, what the Crew will notice, and what ha
 release. A release is a `v*` tag on a `main` commit with green CI, approved by the Owner (CLAUDE.md). Earlier
 releases (v1.0.0 to v1.3.0) are recorded in their tag messages and in `PROGRESS.md`.
 
+## v1.5.1: the owner's phone-walk fixes (phase 6)
+
+**Draft, not released.** On `phase-6` after v1.5.0; the advisor opens its PR once the walk fixes have
+one green full run, then the Owner's `v1.5.1` tag. No migrations.
+
+### What ships
+- **The calendar on a phone fits the screen:** in the week and the compact month the page stays still and
+  only the day's timeline scrolls, down to the bottom bar; the header, the calendar, the handle, the day's
+  title and its all-day chips stay put. The timeline opens on a whole hour with its label whole. A swipe on
+  the timeline scrolls it; one on the calendar or the handle resizes. The full month fits with no timeline.
+  "Due", "Who's free" and "+ New task on <day>" now follow the timeline's hours; the New-task pill never
+  runs past the screen's edge.
+- **Keys on a laptop:** in a task's chat Enter sends and Shift+Enter makes a new line (on a phone Enter
+  stays a new line and Send sends); Enter in a form's one-line field submits it, Ctrl+Enter (⌘+Enter on a
+  Mac) in a note or a reason (never on a cancel or a reject, where the key only moves to the named
+  button); Escape closes the top sheet or dialog, and cancels an edit (asking "Discard changes?" when
+  something changed); a dialog opens with its first field ready; Escape clears a search box. Quiet hints
+  show on a laptop only. On a phone nothing opens the keyboard by itself any more (a dialog, Edit).
+- **The first-day guide fits one page again:** `docs/guide/first-day.html` printed on two after v1.5.0's
+  additions; its lines are slightly tighter and three notification items are merged, with nothing a new
+  joiner needs dropped.
+- **Never a blank window at launch:** when the installed app opens (on a computer or a phone) and the
+  server is slow to answer, the MaxOff launch screen shows at once, then home; a fast launch looks the
+  same as today. The installed app now starts at `/?source=pwa` (the service worker, v8, recognises the
+  launch by it); it never shows stale or anyone's data, adds nothing to the back history (one back from
+  home still exits), and signed-out and offline launches land on sign-in and the offline page as before.
+
+### What happens on its own after the release
+- Installed apps pick up the new start address when the browser refreshes the app's manifest (on use,
+  about once a day on a computer); until then a launch behaves as before. An iPhone install probably
+  keeps the old start address until it is added to the home screen again.
+
+### What the Owner and Admins will notice
+- The phone calendar no longer scrolls away; only the day's hours scroll.
+- On the laptop: Enter sends a chat comment, Escape closes sheets and dialogs (back afterwards leaves the
+  page), and dialogs open ready to type.
+
+### What the Crew will notice
+- On a laptop, Enter sends a chat comment (Shift+Enter for a new line); on the phone, tapping Edit or
+  opening a form no longer brings the keyboard up until they tap a field.
+- The phone calendar stays still; only the day's hours scroll.
+- Opening the installed app after a while shows the MaxOff mark straight away instead of an empty window.
+
+### Before the tag (the Owner's checks)
+- **Calendar on the phone:** only the timeline scrolls; the first hour's label is whole; the week and the
+  compact month keep the header, the calendar, the handle, the day's title and its all-day chips in place;
+  a swipe on the timeline scrolls it, one on the calendar or the handle resizes; the full month fits.
+- **Keys:** on the laptop, Enter sends a task chat comment and Shift+Enter makes a new line (the hint under
+  the box says so); Escape closes a sheet or dialog, and back afterwards leaves the page; Escape while
+  editing your profile with a change asks "Discard changes?"; a dialog opens with its first field ready to
+  type in. On the phone, Enter in the chat makes a new line (Send sends), and no dialog or Edit opens the
+  keyboard by itself.
+- **Installed launch on the MacBook and the phone:** the MaxOff launch screen, never a blank window, then
+  home; one back from home still exits. Check it after the app has been idle for a while (a cold start);
+  if a blank window still shows, reinstall the app once so it takes the new start address.
+- **Guide PDFs rebuilt on the laptop** (`docs/guide/build-pdf.ps1`, Edge): `first-day.pdf` is one page.
+
 ## v1.5.0: My Day, Today, the calendar and the end-of-day report (phase 6)
 
 **Draft, not released.** Not merged and not tagged: the branch `phase-6` waits for the Owner's phone walk on

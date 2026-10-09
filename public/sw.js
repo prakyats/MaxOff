@@ -20,10 +20,17 @@
  *   (`/open?to=…`, ARCHITECTURE §14.2 h), focusing an open MaxOff window when there is one,
  *   so the record lands with its list underneath; `pushsubscriptionchange` re-subscribes and
  *   stores the new subscription through /api/push/subscription (no page may be open then).
+ * - The launch screen (owner's walk note 3, 2026-10-08, ARCHITECTURE §14): an installed app's
+ *   launch (`start_url` `/?source=pwa`, the manifest) whose document has not arrived within
+ *   LAUNCH_SCREEN_AFTER_MS is answered with a static brand screen, built here (never a cached
+ *   response of the app's), while the real request goes on. The screen hands over with
+ *   `location.replace` to `/?launch=<id>`, which is answered with that same held response, so the
+ *   server is asked once, nothing is added to history and nothing is cached. A launch whose
+ *   document comes in time is answered exactly as before: no screen, no extra hop.
  *
  * Bump VERSION when the caching rules or the handlers change; the old cache is deleted on activate.
  */
-const VERSION = "v7";
+const VERSION = "v8";
 const CACHE = `maxoff-${VERSION}`;
 const OFFLINE_URL = "/offline";
 /** A failed navigation waits this long, then is tried once more before the offline page. */
@@ -97,6 +104,113 @@ async function offlineFallback() {
   });
 }
 
+// The launch screen (walk note 3) -----------------------------------------------------------------
+
+/** The installed app's `start_url` is `/?source=pwa` (manifest.webmanifest): only a launch has it. */
+const LAUNCH_SOURCE = "pwa";
+/** The launch screen's hand-off: `/?launch=<id>` takes the response held under that id. */
+const HANDOFF_PARAM = "launch";
+/**
+ * A launch whose document has not arrived by then gets the launch screen. A warm Worker answers
+ * `/` (a redirect from the cookie alone, 2.7) well inside it, so a warm launch never sees it; a
+ * cold start (1.5–2 s, 2026-10-08) shows the screen instead of an empty window.
+ */
+const LAUNCH_SCREEN_AFTER_MS = 100;
+/** A held response no hand-off came for (the window was closed) is let go after this long. */
+const HANDOFF_WAIT_MS = 10000;
+/** id → the launch's own response, still on its way; each is taken once, by its own hand-off. */
+const heldLaunches = new Map();
+/** Marks the launch screen's own response (it is not the network's: no offline-page refresh). */
+const LAUNCH_SCREEN_HEADER = "X-MaxOff-Launch-Screen";
+
+/**
+ * What a request is to the launch: `"launch"` (the installed app opening, at its `start_url`),
+ * `"handoff"` (the launch screen asking for the response held for it) or `null` (everything else:
+ * in-app navigations, reloads, deep links, browser tabs; they are never touched).
+ */
+function launchStep(request) {
+  if (request.method !== "GET" || request.mode !== "navigate") return null;
+  // A top-level document only: never a frame.
+  if (request.destination && request.destination !== "document") return null;
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin || url.pathname !== "/") return null;
+  if (url.searchParams.get("source") === LAUNCH_SOURCE) return "launch";
+  if (url.searchParams.has(HANDOFF_PARAM)) return "handoff";
+  return null;
+}
+
+function newLaunchId() {
+  const crypto = self.crypto;
+  if (crypto && typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  return `${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`;
+}
+
+/**
+ * The launch screen: static and data-free (no request, no storage, nothing of a member's), drawn
+ * like the launch intro's first frame (`core/ui/pwa/launch-intro.tsx`: the icon's mark, 144 CSS
+ * px, centred, on the launch background) so the intro takes over from it unseen, plus a quiet
+ * indicator that fades in only if the wait goes on. It hands over after its first frame.
+ */
+function launchScreen(id) {
+  const target = `/?${HANDOFF_PARAM}=${encodeURIComponent(id)}`;
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="color-scheme" content="dark"><meta name="theme-color" media="(prefers-color-scheme: light)" content="#fafaf9"><meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b0b0c"><title>MaxOff</title><style>html,body{margin:0;height:100%;background:#0b0b0c;overflow:hidden}[data-slot="launch-screen"]{position:fixed;inset:0;display:grid;place-items:center}[data-slot="launch-indicator"]{position:fixed;left:50%;top:calc(50% + 72px + 40px);display:flex;gap:8px;transform:translateX(-50%);opacity:0;animation:launch-indicator-in 300ms ease-out 400ms forwards}[data-slot="launch-indicator"] span{width:6px;height:6px;border-radius:50%;background:#ffffff;opacity:.35;animation:launch-indicator-pulse 1200ms ease-in-out infinite}[data-slot="launch-indicator"] span:nth-child(2){animation-delay:200ms}[data-slot="launch-indicator"] span:nth-child(3){animation-delay:400ms}@keyframes launch-indicator-in{to{opacity:1}}@keyframes launch-indicator-pulse{50%{opacity:.8}}@media (prefers-reduced-motion: reduce){[data-slot="launch-indicator"] span{animation:none}}</style></head><body><div data-slot="launch-screen" role="progressbar" aria-busy="true" aria-label="Opening MaxOff"><svg viewBox="0 0 512 512" width="144" height="144" aria-hidden="true"><rect width="512" height="512" rx="112" fill="#c42126"/><path d="M132 372V152l124 128 124-128v220" fill="none" stroke="#ffffff" stroke-width="52" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div data-slot="launch-indicator" aria-hidden="true"><span></span><span></span><span></span></div><script>(function(){var done=false;function go(){if(done)return;done=true;location.replace(${JSON.stringify(target)})}requestAnimationFrame(function(){setTimeout(go,0)});setTimeout(go,50)})();</script></body></html>`;
+  return new Response(html, {
+    status: 200,
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "no-store",
+      "X-Frame-Options": "DENY",
+      "Content-Security-Policy": "frame-ancestors 'none'",
+      "X-Content-Type-Options": "nosniff",
+      "Referrer-Policy": "strict-origin-when-cross-origin",
+      [LAUNCH_SCREEN_HEADER]: "1",
+    },
+  });
+}
+
+/**
+ * The launch: the network and a short timer race. The network first → its answer, as for any
+ * navigation. The timer first → the launch screen, and the network's answer is held for the
+ * screen's hand-off (the worker is kept alive until it settles).
+ */
+function answerLaunch(event, network) {
+  event.waitUntil(
+    network.then(
+      () => undefined,
+      () => undefined,
+    ),
+  );
+  let timer;
+  const late = new Promise((resolve) => {
+    timer = setTimeout(() => resolve(null), LAUNCH_SCREEN_AFTER_MS);
+  });
+  const settled = network.then(
+    (response) => ({ response }),
+    (error) => ({ error }),
+  );
+  return Promise.race([settled, late]).then((first) => {
+    if (first) {
+      clearTimeout(timer);
+      if ("error" in first) throw first.error;
+      return first.response;
+    }
+    const id = newLaunchId();
+    const expiry = setTimeout(() => heldLaunches.delete(id), HANDOFF_WAIT_MS);
+    heldLaunches.set(id, { network, expiry });
+    return launchScreen(id);
+  });
+}
+
+/** The hand-off: its own launch's response, once; anything else is an ordinary navigation. */
+function takeHeldLaunch(url) {
+  const id = url.searchParams.get(HANDOFF_PARAM);
+  const held = id === null ? undefined : heldLaunches.get(id);
+  if (!held) return null;
+  heldLaunches.delete(id);
+  clearTimeout(held.expiry);
+  return held.network;
+}
+
 self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (request.method !== "GET") return;
@@ -104,11 +218,20 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin || url.pathname.startsWith("/api/")) return;
 
   if (request.mode === "navigate") {
+    const step = launchStep(request);
+    const held = step === "handoff" ? takeHeldLaunch(url) : null;
+    const answer =
+      step === "launch"
+        ? answerLaunch(event, fetchNavigation(request))
+        : (held ?? fetchNavigation(request));
     event.respondWith(
-      fetchNavigation(request)
+      answer
         .then((response) => {
           // A deploy changes the asset hashes inside /offline; keep the cached copy current.
-          if (response.ok && url.pathname !== OFFLINE_URL) event.waitUntil(refreshOfflinePage());
+          const fromNetwork = !response.headers.has(LAUNCH_SCREEN_HEADER);
+          if (response.ok && fromNetwork && url.pathname !== OFFLINE_URL) {
+            event.waitUntil(refreshOfflinePage());
+          }
           return response;
         })
         .catch(offlineFallback),
