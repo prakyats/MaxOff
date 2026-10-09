@@ -1,6 +1,6 @@
 # ADR-0007: Money is isolated and recognised only on Owner approval
 
-- **Status:** accepted, amended 2026-09-21 (Potential keeps closed items; template categories are Owner-only; column guard); amended 2026-09-27 (a member's own expense claims, see the amendment at the end); amended 2026-10-02 (owner decision, kickoff 9: one-time projects are a lump sum earned on completion; advances; the retainer split takes the rest)
+- **Status:** accepted, amended 2026-09-21 (Potential keeps closed items; template categories are Owner-only; column guard); amended 2026-09-27 (a member's own expense claims, see the amendment at the end); amended 2026-10-02 (owner decision, kickoff 9: one-time projects are a lump sum earned on completion; advances; the retainer split takes the rest); amended 2026-10-09 (owner decision, kickoff 9 decision 24: a "Not needed" close is left out of Potential)
 - **Date:** 2026-09-20
 
 ## Context
@@ -40,3 +40,7 @@ Staff and Admins now enter money themselves: **expense claims** (reimbursements,
 **Advances (decision 23):** one-time projects only. An advance received (and its return) is an amount, so it lives in a new Owner-only table, **`project_advances`**, beside the four above, with the same single policy (`finance.view` to read, `finance.edit` to write through `modules/revenue`), audited, never in Realtime, notifications, search or exports for anyone but the Owner. **An advance is never Achieved**: it is reported as its own figure, "Advances received", in the month received; the lump sum is still Achieved only on completion. The money-relation lint list (ARCHITECTURE §3.1) and the "no money table in the publication" pgTAP include `project_advances`.
 
 Nothing else in this ADR changes: money stays in Owner-only tables read only through `modules/revenue`, and Admins and Crew never see an amount.
+
+## Amendment 2026-10-09: two kinds of Close (owner decision, kickoff 9 decision 24)
+- Phase 7 stores a close kind on an item closed from the item sheet or the carry screen: **"Not needed"** (scope the client didn't want that period) or **"Not delivered"**. The kind is not money and Admins set it.
+- **A "Not needed" close is excluded from Potential exactly like an item cancelled before its cycle started**, whenever it was closed. "Not delivered", and any close without a kind (older rows, a cancelled project's items), keeps the rule above: in Potential, reported as *closed, not achieved*.
