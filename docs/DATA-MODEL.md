@@ -1068,6 +1068,15 @@ view client_labels   (id, name, state, logo_file_id, colors, fonts, tone_of_voic
 **Functions (3.1, ADR-0006):** `app.admin_client_ids()` (the caller's assigned clients), `app.client_visible(client_id)`, `app.is_owner()`, `app.labelled_client_ids()` (since 4A: the client labels of the tasks the caller can see, `app.task_visible()`; empty before that), `client_activate(client_id)` (draft | paused → active; needs an active Admin), `client_pause(client_id)` (active → paused), `client_close(client_id, reason)` (active | paused → inactive), `client_reactivate(client_id)` (inactive → active; the name must be free again), `client_assign_admin(client_id, admin_id)` (any state; closes the open assignment and opens the next; notifies the new and previous Admin, WORKFLOWS §9, delivered by 5.1), `client_contact_set_primary(contact_id)`, `client_contact_archive(contact_id, next_primary_id)`, `client_contact_restore(contact_id)`. Every lifecycle function is `clients.manage`; the contact functions are `clients.edit_assigned` on a visible client.
 
 ## 5. Client work: projects, cycles, items
+> **Money never goes in these tables or their history (phase 7 review, 2026-10-09).** Client-work history is
+> shown by entity name: `activity_log_select_client_work`, `project_activity` and `item_last_changes` return
+> the raw `diff` / `meta` of the `projects`, `project_stages`, `project_item_blueprints`, `project_cycles`,
+> `project_items`, `project_item_stages`, `item_reviews` and `project_item_stage_list` entities to whoever
+> sees the project: the Owner **and the client's Admin**. So phase 9's billing lives in its own Owner-only, audited entity (e.g.
+> `item_billing`): never an amount column on these tables, and never Owner-only `meta` on their audit rows.
+> The same holds for Owner-defined custom fields on a project or an item (visible to the Admin, in Realtime
+> and in the history): a "Fee" number field there would put money in an Admin payload (PROGRESS, Ideas).
+
 ```
 projects             id, org_id, client_id (required), name, description, recurrence, delivery_date null,
                      state project_state, template_id null → project_templates, custom_fields, created_by,

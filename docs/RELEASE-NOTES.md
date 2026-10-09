@@ -4,10 +4,83 @@ Newest first. Each entry says what ships, what the Crew will notice, and what ha
 release. A release is a `v*` tag on a `main` commit with green CI, approved by the Owner (CLAUDE.md). Earlier
 releases (v1.0.0 to v1.3.0) are recorded in their tag messages and in `PROGRESS.md`.
 
+## v1.6.0: client work (phase 7), with v1.5.1's walk fixes
+
+**Draft, not released.** On `phase-7` (`main` merged in); the Owner's phone walk on the phase-7 preview
+first, then the advisor's merge to `main`, then the Owner tags `v1.6.0`. Fourteen expand-only migrations
+(`client_work_schema` to `client_work_rework_fixes`); nothing is removed or rewritten. Money stays
+Owner-only and is not part of this release: amounts and billing come in phase 9.
+
+### What ships
+- **Everything in v1.5.1 below** (never released on its own, owner 2026-10-09): the phone calendar's
+  single scroll, the laptop keyboard rules, the installed launch screen and the first-day guide on one
+  page.
+- **Client work (Owner and Admins only; the Crew never see it):** a client's page has Overview, Projects,
+  Brand and Activity. A project is one-time, weekly or monthly; a weekly or monthly project starts a new
+  cycle each period (Monday to Sunday, or the calendar month, IST) from its item list, and ⋯ Start begins
+  the next one up to 7 days early. Each item can carry its own optional stages (Script, Shoot, Edit,
+  Posted…), ticked one by one; a project's stages are only the defaults new items start with.
+- **Mark done = approved:** the client's Admin (or the Owner) marks an item done and it counts at once;
+  there are no client items in Approvals. The Owner can **Send back…** and the client's Admin can
+  **Reopen…** a done item, each with a reason.
+- **Ended cycles:** unfinished items are carried forward, closed with a reason, or left pending.
+- **The project's Activity panel** (from the header): every change, 20 at a time, filtered by Items,
+  Stages or Project; an item shows its last change with a link to its history.
+- **Admins run their own clients:** an Admin can add a client (Active and theirs at once; the Owner is
+  told) and create, run, complete, cancel and reopen projects on the clients they run. The Owner sees and
+  can do everything.
+- **The 08:00 client-work alerts:** "cycle ready" and "unfinished items to decide" to the client's Admin;
+  overdue items to the Admin, then to the Owner if still open; a cycle left undecided and a one-time
+  project past its delivery date to the Owner. Every scheduled client-work notice goes between 08:00 and
+  08:30 IST, never around midnight.
+- **Also on the screens:** the cross-client item list (Clients → Client items, and Overdue), client items on the
+  calendar, Today's Client work (the Owner's overdue count; the Admin's Needs you and My clients' cycle
+  progress), the end-of-day report's and the weekly digest's client work, the Admin report's item
+  figures, Settings → Stage presets and project templates.
+- **Bottom sheets and phone dialogs sit above the on-screen keyboard** (app-wide): the field being
+  typed in is no longer hidden behind the keyboard. Production (v1.5.0) has this bug in every sheet with
+  a field.
+
+### What happens on its own after the release
+- From the first night (00:00 IST), every weekly or monthly project of an Active client gets its cycle for
+  the current period; the first "cycle ready" notices go at 08:00.
+- Nothing changes for existing tasks, attendance, leave or expense claims.
+- Installed apps pick up v1.5.1's new start address as described under v1.5.1.
+
+### What the Owner will notice
+- Clients → a client → Projects: projects, cycles and items for every client; Send back… on a done item.
+- "‹Admin› added the client ‹name›" when an Admin adds a client.
+- Today's "N client items overdue", and 08:00 escalations about overdue items, undecided cycles and
+  missed delivery dates.
+- A notice when an Admin creates a project. It says "Set the amount and billing category."; there is
+  nowhere to set either until phase 9, which brings the billing screen (the Owner keeps the wording).
+- Settings → Stage presets, and project templates beside task templates; Thresholds has the two
+  escalation settings.
+
+### What Admins will notice
+- New client, and projects on the clients they run: Mark done, Reopen…, stage ticks, the item list, the
+  carry screen for ended cycles, and the Activity panel.
+- Today's Client work (Needs you, My clients' progress) and the 08:00 "cycle ready" and "items to decide"
+  notices.
+- Bottom sheets and dialogs stay above the keyboard while typing.
+
+### What the Crew will notice
+- Bottom sheets and phone dialogs with a field (Request leave, Add expense, the reason dialogs, and the
+  rest) now sit above the on-screen keyboard instead of behind it.
+- Nothing else: client work is for the Owner and Admins only. v1.5.1's changes below reach them too.
+
+### Before the tag (the Owner's checks)
+- **The phone walk on the phase-7 preview** (375 and 430, installed, gesture back): a client's Projects,
+  a project page, an item's sheet (Edit, stages, History), the Item list, the Activity panel and the carry
+  screen, as the Owner and as an Admin.
+- **The keyboard:** on the phone, Request leave and Add expense, a reason dialog and the Item list: the
+  sheet sits above the keyboard and the field stays visible.
+- **v1.5.1's checks** below (the calendar, the laptop keys, the installed launch).
+
 ## v1.5.1: the owner's phone-walk fixes (phase 6)
 
-**Draft, not released.** On `phase-6` after v1.5.0; the advisor opens its PR once the walk fixes have
-one green full run, then the Owner's `v1.5.1` tag. No migrations.
+**Not released (owner 2026-10-09).** Merged to `main` (PR #59) but never tagged: its fixes ship in
+**v1.6.0** with phase 7. No migrations.
 
 ### What ships
 - **The calendar on a phone fits the screen:** in the week and the compact month the page stays still and
