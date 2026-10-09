@@ -4,7 +4,7 @@ Newest first. Each entry says what ships, what the Crew will notice, and what ha
 release. A release is a `v*` tag on a `main` commit with green CI, approved by the Owner (CLAUDE.md). Earlier
 releases (v1.0.0 to v1.3.0) are recorded in their tag messages and in `PROGRESS.md`.
 
-## v1.6.0: client work (phase 7), with v1.5.1's walk fixes
+## v1.6.0: client work (phase 7) and the Owner's Today refresh, with v1.5.1's walk fixes
 
 **Draft, not released.** On `phase-7` (`main` merged in); the Owner's phone walk on the phase-7 preview
 first, then the advisor's merge to `main`, then the Owner tags `v1.6.0`. Fourteen expand-only migrations
@@ -37,6 +37,22 @@ Owner-only and is not part of this release: amounts and billing come in phase 9.
   calendar, Today's Client work (the Owner's overdue count; the Admin's Needs you and My clients' cycle
   progress), the end-of-day report's and the weekly digest's client work, the Admin report's item
   figures, Settings → Stage presets and project templates.
+- **The Owner's Today, refreshed** (ROADMAP 6b.7, owner 2026-10-09; no migrations): the Owner's Today opens on **Needs you**: every waiting approval as one compact row
+  (Attendance, Leave, Extra work, Expense or Task, then the name or title) with two short lines under it:
+  what and when ("Absent (proposed) · Thu 8 Oct", "Present · today, started 10:12", "₹385 · Food · Thu 8
+  Oct · No receipt"), never cut short, and how long it has waited ("Waiting 11 h", amber from a day, red
+  from three). One outlined button per row, the same in every row: Approve (the same 6-second Undo) or
+  Review where the decision needs the review (extra work and expense claims, as on Approvals). A tap on a
+  row opens its review. "See all N" shows only when more than five wait; "Nothing needs you." when none do.
+  Then **Attendance** as one row of four numbers (Not started · Waiting · Present · On leave, same taps and
+  colours); yesterday's unended days are one red line under it ("1 didn't end their day yesterday ›"), and
+  decided absences the same ("2 are absent today ›"), each only above zero. Then Today's tasks, **Client work** (the overdue client items line, red), **Overdue
+  and risks** (each row one signal: the red or amber line with its dot, "PShetty · overdue by 7 days"; no
+  icon, no chip) and **This week** as at most five labelled lines ("Today · 3 due · Shoot 11:49",
+  "Tomorrow · 1 due", "Prakyat on leave · Wed 14 – Thu 15", then "See the week"; "Calendar ›" in the
+  header; an event with no time counts as due). A task waiting for the Owner after an Admin's check reads
+  **"Admin approved · needs you"** (no Admin step: "Needs you") on Today, Approvals, the Tasks lists and the
+  task's page, instead of "Checked".
 - **Bottom sheets and phone dialogs sit above the on-screen keyboard** (app-wide): the field being
   typed in is no longer hidden behind the keyboard. Production (v1.5.0) has this bug in every sheet with
   a field.
@@ -52,6 +68,13 @@ Owner-only and is not part of this release: amounts and billing come in phase 9.
 - "‹Admin› added the client ‹name›" when an Admin adds a client.
 - Today's "N client items overdue", and 08:00 escalations about overdue items, undecided cycles and
   missed delivery dates.
+- The refreshed Today: approvals first and shorter, each with its date and its wait in full; no solid
+  white buttons down the list; the attendance card a single line, unended days as one red line; risks with
+  their icon and one red or amber line each; the week as a block per day, each row a time and its words
+  (a holiday, a person's leave as one row, an event opening its task, "N tasks due").
+- Tapping a tab the moment Today appears, on a slow phone or connection, now always keeps the bar on
+  until the screen is there, with "Still loading" and Retry after 8 s (before, the bar could vanish after
+  0.6 s with the screen still on its way).
 - A notice when an Admin creates a project. It says "Set the amount and billing category."; there is
   nowhere to set either until phase 9, which brings the billing screen (the Owner keeps the wording).
 - Settings → Stage presets, and project templates beside task templates; Thresholds has the two
@@ -63,6 +86,8 @@ Owner-only and is not part of this release: amounts and billing come in phase 9.
 - Today's Client work (Needs you, My clients' progress) and the 08:00 "cycle ready" and "items to decide"
   notices.
 - Bottom sheets and dialogs stay above the keyboard while typing.
+- Today's Issues rows lose the icon and the chip and keep one red or amber line with its dot, as the
+  Owner's; a task waiting for the Owner still reads "Checked" to them.
 
 ### What the Crew will notice
 - Bottom sheets and phone dialogs with a field (Request leave, Add expense, the reason dialogs, and the
@@ -75,6 +100,8 @@ Owner-only and is not part of this release: amounts and billing come in phase 9.
   screen, as the Owner and as an Admin.
 - **The keyboard:** on the phone, Request leave and Add expense, a reason dialog and the Item list: the
   sheet sits above the keyboard and the field stays visible.
+- **The new Today** at 375 and 430 px (installed, gesture back from a row's review; approved on the
+  `today-refresh` preview 2026-10-09).
 - **v1.5.1's checks** below (the calendar, the laptop keys, the installed launch).
 
 ## v1.5.1: the owner's phone-walk fixes (phase 6)

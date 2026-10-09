@@ -193,16 +193,20 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
     path: "/today",
     marker: 'data-slot="loading-today"',
     hold: "/rest/v1/rpc/emails_held_today",
+    // Since the Today refresh (owner 2026-10-09) "Needs you" comes first and always stands, then
+    // the card: the heading, then the first compact approval row or, with nothing waiting, the
+    // "Nothing needs you." line, which starts where the first row does. The card follows however
+    // many rows wait (up to five, from every spec's Owner approvals), so its place is traced by
+    // the static render at two rows (PROGRESS "Today refresh"), not here.
     trace: {
-      "attendance card": {
-        held: '[data-slot="loading-today-card"]',
-        settled: '[data-slot="today-attendance-card"]',
-      },
-      // The first thing after the card: a section's heading, or, with nothing else to show
-      // (decision 24), the one muted line; either starts where the skeleton's heading does.
-      "first section": {
+      "needs you heading": {
         held: '[data-slot="loading-today"] > section > :first-child',
-        settled: '[data-slot="owner-today"] > :first-child',
+        settled: '[data-slot="owner-today"] > :first-child > :first-child',
+      },
+      "first approval row": {
+        held: '[data-slot="loading-approval-rows"] li',
+        settled:
+          '[data-slot="today-approval-rows"] [data-slot="approval-row"], [data-slot="today-approvals-empty"]',
       },
     },
   },

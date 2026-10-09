@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { ApprovalGroup } from "@/core/ui/composites/approval-group";
+import { ApprovalGroup, type ApprovalWaiting } from "@/core/ui/composites/approval-group";
 import { OverlayLink } from "@/core/ui/composites/overlay-link";
 import { ReasonDialog } from "@/core/ui/composites/reason-dialog";
 import { ReviewFacts, ReviewSheet } from "@/core/ui/composites/review-sheet";
@@ -51,11 +51,18 @@ export function TaskApprovalGroup({
   tasks,
   heading,
   preview = false,
+  waiting,
 }: {
   tasks: TaskApprovalItem[];
   heading: string;
-  /** The Owner's Today shows a few rows with their two actions and no Approve all (6.2). */
+  /**
+   * The Owner's Today: compact rows for its one list (kind, title, the step's words and the
+   * hand-in, how long it waited, Approve with Undo; a tap opens Review), no heading and no
+   * Approve all (owner 2026-10-09).
+   */
   preview?: boolean;
+  /** Each task's waiting words on the Owner's Today, worked out on the server. */
+  waiting?: Readonly<Record<string, ApprovalWaiting>>;
 }) {
   const [reviewId, setReviewId] = useState<string | null>(null);
   const [rejectId, setRejectId] = useState<string | null>(null);
@@ -71,15 +78,22 @@ export function TaskApprovalGroup({
         rows={tasks.map((task) => ({
           id: task.id,
           title: task.title,
-          subtitle: task.subtitle,
+          // A compact row's first meta line: the step's words ("Admin approved · needs you"),
+          // and "late" when it was handed in late; who and when are in the review.
+          subtitle: preview
+            ? `${task.statusLabel}${task.lateReason ? " · late" : ""}`
+            : task.subtitle,
           status: task.status,
           statusLabel: task.statusLabel,
           approvedLabel: task.approvedLabel,
           marker: <UnreadMarker count={task.unread} />,
+          waiting: waiting?.[task.id],
         }))}
         approve={(taskId) => postKeepalive<null>(APPROVE_URL, { kind: "task", id: taskId })}
         approveAll={preview ? undefined : (taskIds) => approveTasks({ taskIds })}
         onReview={setReviewId}
+        layout={preview ? "rows" : "group"}
+        kind="Task"
       />
       <ReviewSheet
         open={review !== null}

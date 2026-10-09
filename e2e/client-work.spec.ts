@@ -415,6 +415,11 @@ test("the Owner's Today: N client items overdue, the list grouped by Admin", asy
   await page.goto("/today");
   const line = page.locator('[data-slot="today-items-overdue"]');
   await expect(line).toContainText(/client items? overdue/);
+  // Red for overdue with its dot, the line's one status signal (the Today refresh, 2026-10-09).
+  await expect(line.locator('[data-slot="today-items-overdue-signal"]')).toHaveAttribute(
+    "data-tone",
+    "danger",
+  );
   await line.click();
   await expect(page).toHaveURL(/\/clients\/items\?filter=overdue$/);
   const group = page.locator('[data-slot="item-group"]', {

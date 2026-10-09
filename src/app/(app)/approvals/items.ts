@@ -28,7 +28,7 @@ export function taskItem(
     title: row.title,
     subtitle: lateReason ? `${handedIn} · late` : handedIn,
     status: row.state,
-    statusLabel: owner ? stateLabel(row) : "Waiting for your check",
+    statusLabel: owner ? stateLabel(row, { finalApprover: true }) : "Waiting for your check",
     primaryName: names[row.primaryOwnerId] ?? "The people on it",
     deadline: deadlineLabel(row.dueAt).replace(/^Due /, ""),
     handedIn,

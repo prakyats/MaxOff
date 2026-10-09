@@ -5,7 +5,6 @@ import type { ReactNode } from "react";
 import { cn } from "@/core/lib/utils";
 import { DrillLink } from "@/core/ui/composites/drill-link";
 import { CARD_ROW_TITLE, CARD_ROW_TRAILING } from "@/core/ui/composites/row-metrics";
-import { type StatusTone, StatusDot } from "@/core/ui/composites/status-badge";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 
 /**
@@ -185,11 +184,6 @@ export function QuietTextSkeleton({ width = "w-48" }: { width?: string }) {
       <Skeleton className={cn("h-3.5 max-w-full", width)} />
     </div>
   );
-}
-
-/** A row's status marker: a dot and a word, never colour alone (§14.1). */
-export function Marker({ label, tone }: { label: string; tone: StatusTone }) {
-  return <StatusDot status={label} tone={tone} label={label} />;
 }
 
 /**

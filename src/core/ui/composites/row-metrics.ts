@@ -24,3 +24,10 @@ export const CARD_ROW_TRAILING = "ml-auto shrink-0";
 
 /** Height of one settings / grouped-list row. */
 export const LIST_ROW_MIN_H = "min-h-11";
+
+/**
+ * Height of one compact approval row (`ApprovalGroup` with `layout="rows"`, the Owner's Today):
+ * three lines of text (the 20px kind-and-title line, then two 16px meta lines, 2px apart, 8px
+ * above and below: 72px) beside a 44px button (owner 2026-10-09).
+ */
+export const APPROVAL_ROW_MIN_H = "min-h-18";

@@ -33,6 +33,8 @@ export {
   leaveRisks,
   leaveWindow,
   notNotedRisks,
+  OWNER_APPROVALS_SHOWN,
+  OWNER_NEEDS_YOU_EMPTY,
   OWNER_TODAY_EMPTY,
   overdueRisks,
   parsePeopleGroup,
@@ -52,6 +54,23 @@ export {
   type RiskTask,
 } from "./domain/today";
 export {
+  reachedAt,
+  waitingFor,
+  WAITING_ATTENTION_HOURS,
+  WAITING_DANGER_HOURS,
+  type Waiting,
+  type WaitingTone,
+} from "./domain/waiting";
+export {
+  SEE_THE_WEEK_HREF,
+  WEEK_DAYS_SHOWN,
+  WEEK_ROWS_SHOWN,
+  weekBlocks,
+  type WeekBlock,
+  type WeekDay,
+  type WeekRow,
+} from "./domain/week";
+export {
   DashSection,
   DashSectionHeadingSkeleton,
   LinkRow,
@@ -61,9 +80,11 @@ export {
   RowList,
 } from "./components/blocks";
 export {
+  CalendarHeaderLink,
   EventRows,
   EventRowsSkeleton,
   EventsStrip,
   EventsStripSkeleton,
   RiskRows,
+  WeekBlocks,
 } from "./components/day-blocks";

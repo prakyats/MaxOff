@@ -15,6 +15,13 @@
 export const NAV_PENDING_ATTRIBUTE = "data-nav-pending";
 export const NAV_DONE_ATTRIBUTE = "data-nav-done";
 export const NAV_TARGET_ATTRIBUTE = "data-nav-target";
+/**
+ * On `<html>` once `NavProgress` is listening (the router's fetches and commits are counted and
+ * the bar is driven); gone again if it unmounts. It must be there before the shell takes taps
+ * (`data-chrome`, which `e2e/helpers.ts`'s `hydrated` waits for): a router fetch sent before it
+ * is never counted, and the bar then stands down as if the tap went nowhere (CI run 37904970460).
+ */
+export const NAV_READY_ATTRIBUTE = "data-nav-ready";
 
 /**
  * After this long, a quiet line under the bar says "Still loading" with Retry (§14.2 i, owner

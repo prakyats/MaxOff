@@ -6,6 +6,7 @@ import {
   expectedToday,
   boardStatus,
   type PendingDay,
+  pendingDetail,
   pendingLabel,
   pendingOutcome,
   sortPending,
@@ -13,7 +14,9 @@ import {
   TODAY_CARD_COUNTS,
   TODAY_CARD_LABELS,
   TODAY_CARD_TONES,
-  countShown,
+  TODAY_CARD_LINES,
+  TODAY_STRIP_COUNTS,
+  cardLineWords,
   todayBucket,
   type TodayDetailRow,
   todayPersonFromRow,
@@ -183,18 +186,17 @@ describe("summariseToday: the card and the board from one read", () => {
       yesterday,
     );
     expect(summary.counts).toMatchObject({ present: 3, absent: 1, end_not_recorded: 1 });
-    // The problem counts show only above zero; the four groups always.
-    expect(TODAY_CARD_COUNTS.filter((count) => countShown(count, summary.counts[count]))).toEqual([
-      "waiting",
-      "not_chosen",
-      "present",
-      "on_leave",
-      "absent",
-      "end_not_recorded",
-    ]);
-    expect(countShown("absent", 0)).toBe(false);
-    expect(countShown("present", 0)).toBe(true);
+    // The strip is the four groups, always, in one row (owner 2026-10-09): Not started · Waiting ·
+    // Present · On leave. The problem counts are red lines under it, only above zero.
+    expect(TODAY_STRIP_COUNTS).toEqual(["not_chosen", "waiting", "present", "on_leave"]);
+    expect(TODAY_CARD_LINES).toEqual(["absent", "end_not_recorded"]);
+    expect([...TODAY_STRIP_COUNTS, ...TODAY_CARD_LINES]).toEqual([...TODAY_CARD_COUNTS]);
+    expect(cardLineWords("absent", summary.counts.absent)).toBe("1 is absent today");
+    expect(cardLineWords("end_not_recorded", summary.counts.end_not_recorded)).toBe(
+      "1 didn't end their day yesterday",
+    );
     expect(TODAY_CARD_LABELS.not_chosen).toBe("Not started");
+    expect(TODAY_CARD_LABELS.waiting).toBe("Waiting");
     expect(TODAY_CARD_LABELS.end_not_recorded).toBe("End of day not recorded");
     expect(TODAY_CARD_TONES).toEqual({
       waiting: "attention",
@@ -204,6 +206,15 @@ describe("summariseToday: the card and the board from one read", () => {
       absent: "danger",
       end_not_recorded: "danger",
     });
+  });
+
+  it("says each problem count as one red line, hidden at zero, plural right (owner 2026-10-09)", () => {
+    expect(cardLineWords("absent", 0)).toBeNull();
+    expect(cardLineWords("end_not_recorded", 0)).toBeNull();
+    expect(cardLineWords("absent", 1)).toBe("1 is absent today");
+    expect(cardLineWords("absent", 3)).toBe("3 are absent today");
+    expect(cardLineWords("end_not_recorded", 1)).toBe("1 didn't end their day yesterday");
+    expect(cardLineWords("end_not_recorded", 4)).toBe("4 didn't end their day yesterday");
   });
 
   it("orders the board by what needs the Owner, then by name", () => {
@@ -258,6 +269,7 @@ const PENDING: PendingDay = {
   startedAt: null,
   note: null,
   submittedAt: "2026-09-24T03:40:00Z",
+  updatedAt: "2026-09-24T03:40:00Z",
 };
 const pending = (patch: Partial<PendingDay>): PendingDay => ({ ...PENDING, ...patch });
 
@@ -275,6 +287,34 @@ describe("the Attendance group's rows", () => {
     expect(approvedLabel(pending({ submittedChoice: "half_day" }))).toBe(
       "Approved Asha Rao's half day",
     );
+  });
+
+  it("writes the Owner's Today row's first meta line, what and when, short (owner 2026-10-09)", () => {
+    // A proposed absence from the 23:59 job: no start.
+    expect(
+      pendingDetail(
+        pending({ submittedChoice: null, finalStatus: "absent", workDate: "2026-10-08" }),
+        "2026-10-09",
+      ),
+    ).toBe("Absent (proposed) · Thu 8 Oct");
+    // Today's day, started at 10:12 IST (04:42Z).
+    expect(
+      pendingDetail(
+        pending({ workDate: "2026-10-09", startedAt: "2026-10-09T04:42:00Z" }),
+        "2026-10-09",
+      ),
+    ).toBe("Present · today, started 10:12");
+    // An afternoon start reads on the 24-hour clock, as This week's events.
+    expect(
+      pendingDetail(
+        pending({ workDate: "2026-10-07", startedAt: "2026-10-07T08:35:00Z" }),
+        "2026-10-09",
+      ),
+    ).toBe("Present · Wed 7 Oct, started 14:05");
+    // Short enough for a 375px row beside its button (about 36 characters at 12px).
+    expect(
+      pendingDetail(pending({ submittedChoice: null, finalStatus: "absent" }), "2026-10-09").length,
+    ).toBeLessThanOrEqual(36);
   });
 
   it("orders oldest first: by date, then by when it was sent", () => {
@@ -531,7 +571,9 @@ describe("the day reads' rows, exactly as the RPCs answer them (decision 24, ame
     const yesterday = [todayPersonFromRow(yesterdayRow)];
     const summary = summariseToday(today, false, yesterday);
     expect(summary.counts).toMatchObject({ not_chosen: 1, end_not_recorded: 1 });
-    expect(countShown("end_not_recorded", summary.counts.end_not_recorded)).toBe(true);
+    expect(cardLineWords("end_not_recorded", summary.counts.end_not_recorded)).toBe(
+      "1 didn't end their day yesterday",
+    );
     // The board on that group: yesterday's day, waiting for the Owner.
     const board = summariseToday(yesterday, false).board;
     expect(board).toEqual([{ bucket: "waiting", people: yesterday }]);

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   claimActions,
+  claimDetail,
   claimOutcome,
   claimWindow,
   formatRupees,
@@ -11,6 +12,19 @@ import {
   unpaidTotal,
 } from "../domain/claims";
 import { markPaidSchema, receiptAboveSchema, submitClaimSchema } from "../domain/schemas";
+
+describe("claimDetail: the Owner's Today row's first meta line (owner 2026-10-09)", () => {
+  const claim = {
+    amount: 385,
+    categoryName: "Food",
+    expenseDate: "2026-10-08",
+    receiptFileId: null as string | null,
+  };
+  it("says the amount, the category, the day, and a missing receipt", () => {
+    expect(claimDetail(claim)).toBe("₹385 · Food · Thu 8 Oct · No receipt");
+    expect(claimDetail({ ...claim, receiptFileId: "f" })).toBe("₹385 · Food · Thu 8 Oct");
+  });
+});
 
 describe("claimWindow (decision 24, the mirror of app.expense_window_start)", () => {
   it("is this month up to today after the 5th", () => {

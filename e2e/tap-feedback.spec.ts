@@ -235,6 +235,40 @@ test.describe("navigation shows it is on its way", () => {
     await expect(html(page)).not.toHaveAttribute("data-nav-pending");
   });
 
+  test("the bar's driver is listening before the shell takes taps", async ({ page }) => {
+    // `NavProgress` counts the router's fetches once its effect has run (`data-nav-ready`); the
+    // shell's tabs and links take taps once hydrated (`data-chrome`, which `hydrated` waits for).
+    // The first must come before the second, always: inside a `<Suspense>` it hydrated after the
+    // shell, so a tap in between sent a router fetch nobody counted and the bar stood down with
+    // the screen still on its way, no "Still loading" and no Retry (CI run 37904970460,
+    // intermittent: the gap widened with the page's work). Measured as the order in which
+    // `<html>` gets the two marks, which never varies with speed: both are set from effects of
+    // the one hydration commit, in tree order, or (the fault) from two different passes.
+    await page.addInitScript(() => {
+      const marks: string[] = [];
+      (window as unknown as { __marks: string[] }).__marks = marks;
+      new MutationObserver((changes) => {
+        for (const change of changes) {
+          const name = change.attributeName ?? "";
+          const target = change.target as Element;
+          if (target !== document.documentElement || change.oldValue !== null) continue;
+          if (target.hasAttribute(name)) marks.push(name);
+        }
+      }).observe(document, {
+        attributes: true,
+        attributeOldValue: true,
+        subtree: true,
+        attributeFilter: ["data-nav-ready", "data-chrome"],
+      });
+    });
+    await page.goto("/today");
+    await hydrated(page);
+    await expect(html(page)).toHaveAttribute("data-nav-ready", "");
+    expect(await page.evaluate(() => (window as unknown as { __marks: string[] }).__marks)).toEqual(
+      ["data-nav-ready", "data-chrome"],
+    );
+  });
+
   test("before hydration, a tap still starts the bar", async ({ page, isMobile, reloadGuard }) => {
     test.skip(!isMobile, "measured where hydration takes longest: the installed phone");
     // With the scripts held the app never takes the tap over: the head script loads the

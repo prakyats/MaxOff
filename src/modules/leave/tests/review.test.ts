@@ -8,8 +8,10 @@ import {
   ownerCompLeaveOption,
   ownerLeaveActions,
   type PendingLeave,
+  pendingLeaveDetail,
   pendingLeaveStatus,
   pendingLeaveTitle,
+  shortDates,
   sortPendingLeave,
 } from "../domain/review";
 import { ownerEditLeaveSchema, rejectLeaveSchema } from "../domain/schemas";
@@ -84,6 +86,40 @@ describe("the Leave group's rows", () => {
     expect(approvedLeaveLabel(request({ original, requestsCancellation: true }), "Asha")).toBe(
       "Cancelled Asha's leave",
     );
+  });
+
+  it("writes the Owner's Today row's first meta line, the dates short (owner 2026-10-09)", () => {
+    expect(pendingLeaveDetail(request({}))).toBe("Leave · Mon 12 – Wed 14 Oct");
+    expect(
+      pendingLeaveDetail(
+        request({ type: "half_day", startDate: "2026-10-23", endDate: "2026-10-23" }),
+      ),
+    ).toBe("Half day · Fri 23 Oct");
+    expect(
+      pendingLeaveDetail(
+        request({
+          type: "half_day",
+          creditDays: 0.5,
+          startDate: "2026-10-23",
+          endDate: "2026-10-23",
+        }),
+      ),
+    ).toBe("Half day · comp · Fri 23 Oct");
+    const original = {
+      type: "leave" as const,
+      startDate: "2026-10-12",
+      endDate: "2026-10-14",
+      state: "approved" as const,
+    };
+    expect(pendingLeaveDetail(request({ original, requestsCancellation: true }))).toBe(
+      "Cancel leave · Mon 12 – Wed 14 Oct",
+    );
+    expect(
+      pendingLeaveDetail(
+        request({ original, type: "half_day", startDate: "2026-10-12", endDate: "2026-10-12" }),
+      ),
+    ).toBe("Change to half day · Mon 12 Oct");
+    expect(shortDates("2026-10-30", "2026-11-02")).toBe("Fri 30 Oct – Mon 2 Nov");
   });
 
   it("warns when a change's original is gone (2.1 follow-up c)", () => {

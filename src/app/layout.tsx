@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import { Suspense } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 
 import "./globals.css";
@@ -88,11 +87,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="bg-background text-foreground min-h-dvh">
         <LaunchIntro />
         {/* The navigation progress bar (server HTML, so a tap draws it before hydration) and what
-            drives it, which reads the address through Next's hooks (§14.2 i). */}
+            drives it (§14.2 i). Never inside a `<Suspense>`, and before the shell: it must hydrate
+            with the shell, not after it, or a tap in between sends a router fetch it never sees
+            (the bar then stands down while the screen is still on its way). */}
         <NavProgressBar />
-        <Suspense fallback={null}>
-          <NavProgress />
-        </Suspense>
+        <NavProgress />
         {/* "You're offline…" above the bottom bar; commit buttons wait for the connection. */}
         <OfflineBanner />
         {/*

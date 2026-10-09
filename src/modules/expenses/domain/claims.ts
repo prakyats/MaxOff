@@ -99,6 +99,22 @@ export function claimDate(date: string): string {
   return formatIST(istDayStart(date), "EEE, d MMM");
 }
 
+/**
+ * The Owner's Today compact row's first meta line (owner 2026-10-09): "₹385 · Food · Thu 8 Oct",
+ * then "No receipt" when there is none. The category is the claim's own words; the rest is short.
+ */
+export function claimDetail(
+  claim: Pick<ExpenseClaim, "amount" | "categoryName" | "expenseDate" | "receiptFileId">,
+): string {
+  const parts = [
+    formatRupees(claim.amount),
+    claim.categoryName,
+    formatIST(istDayStart(claim.expenseDate), "EEE d MMM"),
+  ];
+  if (!claim.receiptFileId) parts.push("No receipt");
+  return parts.join(" · ");
+}
+
 /** "3 Oct 2026". */
 function longDate(date: string): string {
   return formatIST(istDayStart(date), "d MMM yyyy");

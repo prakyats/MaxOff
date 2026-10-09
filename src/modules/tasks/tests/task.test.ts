@@ -183,6 +183,25 @@ describe("the task at a glance", () => {
     expect(stateLabel(task({ state: "admin_approved", adminStep: "none" }))).toBe(
       "Waiting for approval",
     );
+    // The final approver (the Owner) reads what it asks of them (owner 2026-10-09).
+    const owner = { finalApprover: true };
+    expect(stateLabel(task({ state: "admin_approved", adminStep: "required" }), owner)).toBe(
+      "Admin approved · needs you",
+    );
+    expect(stateLabel(task({ state: "admin_approved", adminStep: "none" }), owner)).toBe(
+      "Needs you",
+    );
+    expect(stateLabel(task({ state: "admin_approved", adminStep: "skipped" }), owner)).toBe(
+      "Needs you",
+    );
+    // Every other state reads the same for everyone.
+    expect(stateLabel(task({ state: "submitted" }), owner)).toBe("Waiting for check");
+    expect(stateLabel(task({ state: "completed" }), owner)).toBe("Completed");
+    expect(
+      stateLabel(task({ state: "admin_approved", adminStep: "required" }), {
+        finalApprover: false,
+      }),
+    ).toBe("Checked");
     const after = new Date("2026-10-03T12:31:00.000Z");
     expect(isOverdue(task(), after)).toBe(true);
     expect(isOverdue(task({ state: "completed" }), after)).toBe(false);

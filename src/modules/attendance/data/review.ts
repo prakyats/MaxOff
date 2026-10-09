@@ -25,7 +25,7 @@ import {
 const PENDING_LIMIT = 200;
 
 const PENDING_COLUMNS =
-  "id, member_id, work_date, submitted_choice, submitted_at, final_status, proposed_by_system, is_day_off, started_at, member:members!member_id(full_name), leave_request:leave_requests!leave_request_id(state), events:attendance_events(id, action, reason)";
+  "id, member_id, work_date, submitted_choice, submitted_at, updated_at, final_status, proposed_by_system, is_day_off, started_at, member:members!member_id(full_name), leave_request:leave_requests!leave_request_id(state), events:attendance_events(id, action, reason)";
 
 /** Every day waiting for the Owner, oldest first (PRODUCT "Approvals"). */
 export async function listPendingDays(): Promise<PendingDay[]> {
@@ -54,6 +54,7 @@ export async function listPendingDays(): Promise<PendingDay[]> {
         startedAt: row.started_at,
         note: submitted?.reason ?? null,
         submittedAt: row.submitted_at,
+        updatedAt: row.updated_at,
       };
     }),
   );

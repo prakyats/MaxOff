@@ -364,7 +364,10 @@ test.describe("staff tasks, the flows", () => {
         .getByRole("alertdialog")
         .getByRole("button", { name: `Remove ${admin.name} as approver` })
         .click();
-      await expect(summary(page)).toContainText("Waiting for approval");
+      // The Owner reads a task waiting for them as what it asks of them, "Needs you" with no
+      // Admin step (the Today refresh, owner 2026-10-09); everyone else reads "Waiting for
+      // approval".
+      await expect(summary(page)).toContainText("Needs you");
       await step(page).getByRole("button", { name: "Approve" }).click();
       await page.getByRole("alertdialog").getByRole("button", { name: "Approve task" }).click();
       await expect(summary(page)).toContainText("Completed");
@@ -1218,7 +1221,8 @@ test.describe("staff tasks, installed: back closes each layer", () => {
       const remove = page.getByRole("alertdialog", { name: "Remove this stage?" });
       await expect(remove).toBeVisible();
       await expectBackStack(page, [{ closes: remove, url }]);
-      await expect(summary(page)).toContainText("Waiting for approval");
+      // The Owner's word for a task waiting for them (owner 2026-10-09).
+      await expect(summary(page)).toContainText("Needs you");
     });
 
     test("Reopen's reason, Decide it yourself and the edit's Discard question close on back", async ({

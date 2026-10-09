@@ -313,7 +313,7 @@ test.describe("Crew: My Day (6.1)", () => {
 test.describe("the Owner's Today (6.2)", () => {
   test.use({ storageState: storageStateFor("owner") });
 
-  test("the card, then exceptions only: approvals, today's tasks, risks and the week, in that order (decision 24)", async ({
+  test("Needs you first, then the card, then exceptions only: today's tasks, risks and the week, in that order (decision 24, the Today refresh)", async ({
     page,
   }, info) => {
     test.skip(info.project.name === "mobile-lg", "the flow runs at 1280 and 375px");
@@ -334,19 +334,38 @@ test.describe("the Owner's Today (6.2)", () => {
       due: istInstant(workingDay(5), "18:00"),
     });
     await moveDue(info, dueToday, istInstant(todayIST(), "23:00"));
+    // Approved leave on two working days this week: This week's one grouped leave row.
+    await resetAttendanceAndLeave(crewId);
+    const request = await rpcAs<string>(crew(info), PASSWORD, "leave_submit", {
+      type: "leave",
+      start_date: workingDay(1),
+      end_date: workingDay(2),
+    });
+    await rpcAs(USERS.owner.email, USERS.owner.password, "leave_decide", {
+      request_id: request,
+      decision: "approve",
+    });
 
     await page.goto("/today");
     await hydrated(page);
-    // The card and the risks (the overdue task) are always there; the other sections only when
-    // they have something (decision 24), so the order is checked over whichever are drawn.
+    // Needs you (the approvals, "Nothing needs you." when none wait), the card and the risks (the
+    // overdue task) are always there; the other sections only when they have something
+    // (decision 24), so the order is checked over whichever are drawn. Since the Today refresh
+    // (owner 2026-10-09) Needs you comes first, then the card.
     const order = [
-      '[data-slot="today-attendance-card"]',
       '[data-slot="today-approvals"]',
+      '[data-slot="today-attendance-card"]',
       '[data-slot="today-tasks"]',
+      // Phase 7's Client work line, after Today's tasks (owner 2026-10-09), when anything is overdue.
+      '[data-slot="today-client-work"]',
       '[data-slot="today-risks"]',
       '[data-slot="today-events"]',
     ];
-    const always = ['[data-slot="today-attendance-card"]', '[data-slot="today-risks"]'];
+    const always = [
+      '[data-slot="today-approvals"]',
+      '[data-slot="today-attendance-card"]',
+      '[data-slot="today-risks"]',
+    ];
     await expect(page.locator('[data-slot="today-risks"]:visible').first()).toBeVisible();
     let previous = -1;
     for (const selector of order) {
@@ -363,10 +382,11 @@ test.describe("the Owner's Today (6.2)", () => {
     // No "Needs you" list of people: the card's counts carry them (decision 24).
     await expect(page.locator('[data-slot="today-needs-you"]')).toHaveCount(0);
     await expect(page.locator("main")).not.toContainText("Everyone's in.");
-    // A risk's "overdue by …" reads red, with its red dot and "Overdue" label beside it.
-    await expect(page.locator('[data-slot="risk-row"] [data-tone="danger"]').first()).toContainText(
-      "overdue by",
-    );
+    // A risk's "overdue by …" reads red with its red warning icon: one status signal per row (the
+    // owner's preview review and final note, 2026-10-09), no "Overdue" chip beside it.
+    await expect(
+      page.locator('[data-slot="risk-row"] [data-slot="risk-signal"][data-tone="danger"]').first(),
+    ).toContainText("overdue by");
     // Nothing that has no data yet (decision 4): no item approvals, client progress or revenue.
     await expect(page.locator("main")).not.toContainText(/revenue|client progress|coming soon/i);
 
@@ -377,6 +397,75 @@ test.describe("the Owner's Today (6.2)", () => {
     await expect(risk).toHaveCount(1);
     await expect(risk).toContainText(crewName(info));
     await expect(risk).toContainText("overdue by");
+    // One signal, for every risk row alike: the kind's icon at the left and the meta line, both in
+    // the row's tone; no status chip, no dot, and no icon but it and the chevron.
+    const riskRows = page.locator('[data-slot="risk-row"]:visible');
+    for (let index = 0; index < (await riskRows.count()); index++) {
+      const row = riskRows.nth(index);
+      await expect(row.locator('[data-slot="status-dot"]')).toHaveCount(0);
+      await expect(row.locator("svg")).toHaveCount(2);
+      const icon = row.locator('[data-slot="risk-icon"]');
+      const signal = row.locator('[data-slot="risk-signal"]');
+      await expect(icon).toHaveCount(1);
+      await expect(signal).toHaveCount(1);
+      const tone = await signal.getAttribute("data-tone");
+      expect(tone).toMatch(/^(danger|attention)$/);
+      await expect(icon, "the icon carries the meta line's tone").toHaveAttribute(
+        "data-tone",
+        tone ?? "",
+      );
+    }
+    await expect(
+      risk.locator('[data-slot="risk-signal"][data-tone="danger"]'),
+      "an overdue row is red",
+    ).toContainText(`${crewName(info)} · overdue by`);
+    await expect(risk.locator('[data-slot="risk-icon"][data-tone="danger"]')).toHaveCount(1);
+
+    // This week in day blocks (the owner's final note, 2026-10-09): a block per day with something
+    // in it, its rows a time on the left and the words on the right; the task due today is today's
+    // deadline count; this project's Crew member's leave is one grouped row, never "1 on leave" a
+    // day; "Calendar ›" in the header and no separate calendar card.
+    const week = section(page, "today-events");
+    await expect(week.locator('[data-slot="week-day"]').first()).toBeVisible();
+    const labels = await week.locator('[data-slot="week-day-label"]').allInnerTexts();
+    for (const label of labels) {
+      expect(label).toMatch(/^(Today|Tomorrow|[A-Z][a-z]{2} \d{1,2} [A-Z][a-z]{2})$/);
+    }
+    const todayBlock = week.locator(`[data-slot="week-day"][data-date="${todayIST()}"]`);
+    await expect(todayBlock.locator('[data-slot="week-day-label"]')).toHaveText("Today");
+    const due = todayBlock.locator('[data-slot="week-row"][data-kind="due"]');
+    await expect(due.locator('[data-slot="week-row-when"]')).toHaveText("Due");
+    await expect(due.locator('[data-slot="week-row-title"]')).toHaveText(/^\d+ tasks? due$/);
+    const rows = week.locator('[data-slot="week-row"]');
+    for (let index = 0; index < (await rows.count()); index++) {
+      const row = rows.nth(index);
+      await expect(row.locator('[data-slot="week-row-when"]')).toHaveText(
+        /^(All day|\d{1,2}:\d{2} (am|pm)|Due)$/,
+      );
+      await expect(row.locator('[data-slot="week-row-title"]')).toHaveText(/\S/);
+      if ((await row.getAttribute("data-kind")) === "event") {
+        await expect(row.getByRole("link")).toHaveAttribute("href", /^\/tasks\//);
+      }
+    }
+    // The leave row sits in its first day's block, right after any holiday, so it shows unless
+    // the shared week is already past its cap (five days, eight rows), which says "See the week".
+    const leaveBlock = week.locator(`[data-slot="week-day"][data-date="${workingDay(1)}"]`);
+    if ((await leaveBlock.count()) === 0) {
+      await expect(week.locator('[data-slot="today-see-the-week"]')).toBeVisible();
+    }
+    const leaveRows = week
+      .locator('[data-slot="week-row"][data-kind="leave"]')
+      .filter({ hasText: crewName(info) });
+    const leaveShown = (await leaveBlock.count()) > 0;
+    await expect(leaveRows).toHaveCount(leaveShown ? 1 : 0);
+    if (leaveShown) {
+      await expect(leaveRows.locator('[data-slot="week-row-when"]')).toHaveText("All day");
+      await expect(leaveRows.locator('[data-slot="week-row-title"]')).toHaveText(
+        new RegExp(`^${crewName(info).replace(/[()]/g, "\\$&")} on leave · \\S`),
+      );
+    }
+    await expect(week).not.toContainText(/\d+ on leave/);
+    await expect(week.locator('[data-slot="open-calendar"]')).toHaveCount(1);
 
     // Today's tasks is one line opening All tasks on today.
     const tasksLine = section(page, "today-tasks-due").getByRole("link");
@@ -384,6 +473,227 @@ test.describe("the Owner's Today (6.2)", () => {
     await tasksLine.click();
     await expect(page).toHaveURL(/\/tasks\/all\?overdue=today$/);
     await expect(page.locator('[data-filter="overdue"]:visible')).toContainText("Due today");
+    await resetAttendanceAndLeave(crewId);
+  });
+
+  test("Needs you: one list of compact rows, how long each has waited, one button each; See all only when cut (the Today refresh)", async ({
+    page,
+  }, info) => {
+    const crewId = await memberIdOf(crew(info));
+    await resetAttendanceAndLeave(crewId);
+    // Something waits for the Owner: this project's own leave request, far off the week.
+    await rpcAs(crew(info), PASSWORD, "leave_submit", {
+      type: "leave",
+      start_date: workingDay(40),
+      end_date: workingDay(40),
+    });
+    try {
+      if (isPhone(info)) await runInstalled(page);
+      await page.goto("/today");
+      await hydrated(page);
+      const needs = section(page, "today-approvals");
+      await expect(needs).toBeVisible();
+      // No heading per kind: the groups' rows share one list.
+      await expect(needs.locator('[data-slot="approval-group"]')).toHaveCount(0);
+      const rows = needs.locator('[data-slot="today-approval-rows"] [data-slot="approval-row"]');
+      await expect(rows.first()).toBeVisible();
+      const shown = await rows.count();
+      expect(shown).toBeGreaterThan(0);
+      expect(shown).toBeLessThanOrEqual(5);
+      for (let index = 0; index < shown; index++) {
+        const row = rows.nth(index);
+        const kind = (await row.locator('[data-slot="approval-kind"]').innerText()).trim();
+        expect(["Attendance", "Leave", "Extra work", "Expense", "Task"]).toContain(kind);
+        // One button: Approve, or Review where the decision needs the review (as on Approvals).
+        // Outlined and neutral in every row, Approve and Review alike: no solid button repeated
+        // down the list (owner 2026-10-09, ARCHITECTURE §14.1), and a 44px target on a phone.
+        const buttons = row.locator("[data-variant]");
+        await expect(buttons).toHaveCount(1);
+        const label = (await buttons.innerText()).trim();
+        expect(label).toBe(kind === "Extra work" || kind === "Expense" ? "Review" : "Approve");
+        await expect(buttons).toHaveAttribute("data-variant", "secondary");
+        if (isPhone(info)) {
+          const box = await buttons.boundingBox();
+          expect(box?.height ?? 0, `${label} is a 44px target`).toBeGreaterThanOrEqual(44);
+        }
+        // Two short meta lines: what and when, never cut short; then how long it has waited,
+        // alone, on its own line under it.
+        const detail = row.locator('[data-slot="approval-detail"]');
+        await expect(detail).toHaveText(/\S/);
+        const cut = await detail.evaluate(
+          (el) =>
+            getComputedStyle(el).textOverflow === "ellipsis" || el.scrollWidth > el.clientWidth + 1,
+        );
+        expect(cut, `"${await detail.innerText()}" is never cut short`).toBe(false);
+        const waited = row.locator('[data-slot="approval-waiting"]');
+        const detailBox = await detail.boundingBox();
+        const waitedBox = await waited.boundingBox();
+        expect(waitedBox!.y, "the waiting line sits under the detail line").toBeGreaterThanOrEqual(
+          detailBox!.y + detailBox!.height - 1,
+        );
+        // How long it has waited: muted under a day, amber from one, red from three.
+        const words = (await waited.innerText()).trim();
+        const match = words.match(/^Waiting (?:under 1 h|(\d+) h|(\d+) days?)$/);
+        expect(match, words).not.toBeNull();
+        const days = match?.[2] ? Number(match[2]) : 0;
+        await expect(waited).toHaveAttribute(
+          "data-tone",
+          days >= 3 ? "danger" : days >= 1 ? "attention" : "muted",
+        );
+      }
+      // One solid button per layer (§14.1): none in the list.
+      await expect(needs.locator('[data-variant="strong"], [data-variant="primary"]')).toHaveCount(
+        0,
+      );
+      // "See all N" only when the list is cut.
+      const total = Number(
+        (await page.locator("#today-approvals-title").innerText()).match(/· (\d+)/)?.[1],
+      );
+      expect(total).toBeGreaterThanOrEqual(shown);
+      await expect(page.locator('[data-slot="today-see-all-approvals"]')).toHaveCount(
+        total > shown ? 1 : 0,
+      );
+
+      if (isPhone(info)) {
+        // A tap on the row opens its review; back closes it and stays on Today (§14.2 a).
+        await rows.first().locator('[data-slot="approval-row-open"]').click();
+        const sheet = page.locator('[data-slot="review-sheet"]');
+        await expect(sheet).toBeVisible();
+        await expectBackStack(page, [{ closes: sheet, url: /\/today$/ }]);
+      }
+    } finally {
+      await resetAttendanceAndLeave(crewId);
+    }
+  });
+
+  test("Attendance: four counts in one row, no label wrapped; yesterday's unended days as one red line (owner 2026-10-09)", async ({
+    page,
+  }, info) => {
+    const crewId = await memberIdOf(crew(info));
+    const yesterday = addISTDays(todayIST(), -1);
+    await resetAttendanceAndLeave(crewId);
+    // Yesterday this project's Crew member started and never ended (the red line's count, from
+    // the End-day cutoff on).
+    await serviceInsert("attendance_days", {
+      member_id: crewId,
+      work_date: yesterday,
+      state: "pending_review",
+      submitted_choice: "present",
+      submitted_at: istInstant(yesterday, "09:00"),
+      started_at: istInstant(yesterday, "09:00"),
+      end_not_recorded: true,
+    });
+    try {
+      await page.goto("/today");
+      await hydrated(page);
+      // The shown copy: React reveals a streamed section in batches, and until then the only copy
+      // is the hidden one it streamed in (see `pageHeader`), with no boxes to measure.
+      const card = page.locator('[data-slot="today-attendance-card"]:visible');
+      await expect(card).toBeVisible();
+      const counts = card.locator('[data-slot="today-count"]');
+      // Exactly four, in this order, always: never a fifth cell.
+      await expect(counts).toHaveCount(4);
+      await expect(counts.last()).toBeVisible();
+      expect(
+        await counts.evaluateAll((els) => els.map((el) => el.getAttribute("data-bucket"))),
+      ).toEqual(["not_chosen", "waiting", "present", "on_leave"]);
+      // One row: every count's top the same, each a 44px target, every label on one line, at 375
+      // and 430 (the two phone projects) and 1280.
+      const geometry = await counts.evaluateAll((els) =>
+        els.map((el) => {
+          const box = el.getBoundingClientRect();
+          const label = el.querySelector<HTMLElement>('[data-slot="today-count-label"]');
+          const lineHeight = label ? parseFloat(getComputedStyle(label).lineHeight) : 0;
+          return {
+            top: Math.round(box.top),
+            height: box.height,
+            width: box.width,
+            labelLines: label ? Math.round(label.getBoundingClientRect().height / lineHeight) : 0,
+            labelFits: label ? label.scrollWidth <= label.clientWidth + 1 : false,
+          };
+        }),
+      );
+      expect(new Set(geometry.map((cell) => cell.top)).size, "the four counts share one row").toBe(
+        1,
+      );
+      for (const cell of geometry) {
+        expect(cell.height).toBeGreaterThanOrEqual(44);
+        expect(cell.width).toBeGreaterThanOrEqual(44);
+        expect(cell.labelLines, "a count's label is one line").toBe(1);
+        expect(cell.labelFits, "a count's label is not cut").toBe(true);
+      }
+      // The unended days: one red line under the strip, hidden at zero, opening the board on
+      // that group. It shows from the End-day cutoff on (the Owner's setting).
+      const [settings] = await serviceSelect<{ end_day_cutoff_time: string }>(
+        "org_settings?select=end_day_cutoff_time",
+      );
+      const nowIST = new Intl.DateTimeFormat("en-GB", {
+        timeZone: "Asia/Kolkata",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hourCycle: "h23",
+      }).format(systemClock());
+      const line = card.locator(
+        '[data-slot="today-attendance-line"][data-bucket="end_not_recorded"]',
+      );
+      if (nowIST >= (settings?.end_day_cutoff_time ?? "05:00:00")) {
+        await expect(line).toHaveCount(1);
+        await expect(line).toHaveAttribute("data-tone", "danger");
+        await expect(line).toHaveText(/^[1-9]\d* didn't end their day yesterday$/);
+        const stripBox = await card.locator('[data-slot="today-strip"]').boundingBox();
+        const lineBox = await line.boundingBox();
+        expect(lineBox!.y, "the line sits under the strip").toBeGreaterThanOrEqual(
+          stripBox!.y + stripBox!.height - 1,
+        );
+        expect(lineBox!.height).toBeGreaterThanOrEqual(44);
+        await expect(line).toHaveAttribute("href", "/today/people?group=end_not_recorded");
+      } else {
+        await expect(line).toHaveCount(0);
+      }
+    } finally {
+      await resetAttendanceAndLeave(crewId);
+    }
+  });
+
+  test('a task waiting for the Owner after the Admin\'s check reads "Admin approved · needs you", never "Checked"', async ({
+    page,
+  }, info) => {
+    test.skip(info.project.name !== "desktop", "one check is enough: the Owner is shared");
+    const prefix = prefixOf(info);
+    await removeTasksTitled(`${prefix}checked`);
+    const crewId = await memberIdOf(crew(info));
+    const id = await adminCreates(info, {
+      title: `${prefix}checked`,
+      assignees: [crewId],
+      due: istInstant(workingDay(5), "18:00"),
+    });
+    await rpcAs(crew(info), PASSWORD, "task_acknowledge", { task_id: id });
+    await rpcAs(crew(info), PASSWORD, "task_submit_done", { task_id: id });
+    await rpcAs(admin(info), PASSWORD, "task_review", { task_id: id, decision: "approved" });
+    try {
+      // The task's page and the Approvals row say what it asks of the Owner.
+      await page.goto(`/tasks/${id}`);
+      const glance = page.locator('[data-slot="task-glance"]');
+      await expect(glance).toContainText("Admin approved · needs you");
+      await expect(glance).not.toContainText("Checked");
+      await page.goto("/approvals");
+      const row = page
+        .locator('[data-slot="approval-group"][data-group="tasks"] [data-slot="approval-row"]')
+        .filter({ hasText: `${prefix}checked` });
+      await expect(row).toContainText("Admin approved · needs you");
+      // The full list says the same.
+      await page.goto("/tasks/all?state=review");
+      const listed = page
+        .locator('[data-slot="data-card"]:visible, [data-slot="table-row"]:visible')
+        .filter({ hasText: `${prefix}checked` });
+      await expect(listed).toContainText("Admin approved · needs you");
+    } finally {
+      await rpcAs(USERS.owner.email, USERS.owner.password, "task_review", {
+        task_id: id,
+        decision: "approved",
+      });
+    }
   });
 
   test("a count opens the full board on its group; Waiting opens Approvals", async ({
@@ -440,13 +750,19 @@ test.describe("the Owner's Today (6.2)", () => {
 
     await page.goto("/today");
     await hydrated(page);
-    const count = page.locator(
-      '[data-slot="today-attendance-card"] [data-slot="today-count"][data-bucket="end_not_recorded"]',
+    // Never a fifth count in the strip (owner 2026-10-09): one red line under it.
+    const card = page.locator('[data-slot="today-attendance-card"]');
+    await expect(card.locator('[data-slot="today-count"]')).toHaveCount(4);
+    await expect(
+      card.locator('[data-bucket="end_not_recorded"][data-slot="today-count"]'),
+    ).toHaveCount(0);
+    const count = card.locator(
+      '[data-slot="today-attendance-line"][data-bucket="end_not_recorded"]',
     );
     if (afterCutoff) {
       await expect(count).toBeVisible();
-      await expect(count.locator('[data-tone="danger"]')).toHaveText(/^[1-9]\d*$/);
-      await expect(count).toContainText("End of day not recorded");
+      await expect(count).toHaveAttribute("data-tone", "danger");
+      await expect(count).toHaveText(/^[1-9]\d* didn't end their day yesterday$/);
       await count.click();
       await expect(page).toHaveURL(/\/today\/people\?group=end_not_recorded$/);
       await expect(page.locator('[data-slot="people-yesterday"]')).toContainText("Yesterday");

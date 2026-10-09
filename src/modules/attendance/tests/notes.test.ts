@@ -6,6 +6,7 @@ import {
   durationLabel,
   type ExtraWorkNote,
   noteDays,
+  noteDetail,
   noteOutcome,
   noteTitle,
 } from "../domain/notes";
@@ -58,6 +59,15 @@ describe("extra work notes (PRODUCT §4.3a, kickoff 3b decisions 10-13)", () => 
     expect(
       noteTitle(note({ kind: "day_off", workDate: "2026-09-27", durationMinutes: null })),
     ).toBe("Worked on a day off · Sun, 27 Sep");
+  });
+
+  it("writes the Owner's Today row's short meta line (owner 2026-10-09)", () => {
+    expect(noteDetail(note({}))).toBe("Overtime 2 h · Wed 23 Sep");
+    expect(noteDetail(note({ durationMinutes: 90 }))).toBe("Overtime 1½ h · Wed 23 Sep");
+    expect(noteDetail(note({ durationMinutes: null }))).toBe("Overtime · Wed 23 Sep");
+    expect(
+      noteDetail(note({ kind: "day_off", workDate: "2026-09-27", durationMinutes: null })),
+    ).toBe("Worked on a day off · Sun 27 Sep");
   });
 
   it("gives the outcome in the member's words (decision 13)", () => {

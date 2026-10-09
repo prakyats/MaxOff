@@ -29,6 +29,15 @@ export type BoardPerson = {
 export const OWNER_TODAY_EMPTY = "Nothing else needs you today.";
 
 /**
+ * The Owner's "Needs you" (their approvals, first on Today since the refresh, owner 2026-10-09)
+ * with nothing waiting: the section stays, with this line, so the screen keeps its shape.
+ */
+export const OWNER_NEEDS_YOU_EMPTY = "Nothing needs you.";
+
+/** How many waiting items the Owner's "Needs you" shows before "See all N" (decision 5). */
+export const OWNER_APPROVALS_SHOWN = 5;
+
+/**
  * The full board's filters (a count on Today opens the board on its group). `end_not_recorded`
  * (decision 24) is not a group of the board but a flag on a person: the board keeps its groups
  * and shows only the people whose end of day was not recorded.
@@ -418,12 +427,16 @@ export function clientCountsLine({ open, overdue }: { open: number; overdue: num
 
 // A risk's words -----------------------------------------------------------------------------------
 
+/**
+ * A risk row's words. **One status signal per row** (the owner's preview review and final note,
+ * 2026-10-09): the kind's icon and the meta line in its tone, red for overdue, amber for the rest.
+ * No chip and no dot, for every kind alike; the words carry the meaning.
+ */
 export type RiskWords = {
   title: string;
   detail: string;
-  /** The detail's colour: red for "overdue by …" (decision 24), with the red dot beside it. */
-  detailTone?: "danger";
-  marker: { label: string; tone: "danger" | "attention" };
+  /** The icon's and the meta line's colour: red for "overdue by …" (decision 24), else amber. */
+  tone: "danger" | "attention";
   href: string;
   icon: "overdue" | "not_noted" | "on_leave" | "unreachable";
 };
@@ -452,8 +465,7 @@ export function riskWords(
       return {
         title: risk.title,
         detail: `${context.nameOf(risk.ownerId)} · overdue by ${spanWords(hoursSince(risk.dueAt))}`,
-        detailTone: "danger",
-        marker: { label: "Overdue", tone: "danger" },
+        tone: "danger",
         href: `/tasks/${risk.taskId}`,
         icon: "overdue",
       };
@@ -465,7 +477,7 @@ export function riskWords(
         title: risk.title,
         detail:
           `${who}${more} hasn't noted it · ${first ? spanWords(hoursSince(first.since)) : ""}`.trim(),
-        marker: { label: "Not noted", tone: "attention" },
+        tone: "attention",
         href: `/tasks/${risk.taskId}`,
         icon: "not_noted",
       };
@@ -477,7 +489,7 @@ export function riskWords(
       return {
         title: risk.title,
         detail: `${context.nameOf(risk.memberId)} is ${LEAVE_PHRASE[risk.leave]} ${when}, ${what}`,
-        marker: { label: "On leave", tone: "attention" },
+        tone: "attention",
         href: `/tasks/${risk.taskId}`,
         icon: "on_leave",
       };
@@ -488,7 +500,7 @@ export function riskWords(
         detail: `No notification has reached them for 2 days · ${
           risk.openTasks === 1 ? "1 open task" : `${risk.openTasks} open tasks`
         }`,
-        marker: { label: "Can't be reached", tone: "attention" },
+        tone: "attention",
         href: "/settings/notifications",
         icon: "unreachable",
       };
