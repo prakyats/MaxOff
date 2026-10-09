@@ -19,6 +19,7 @@ import {
   storageStateFor,
   supabaseAuth,
   USERS,
+  pageHeader,
 } from "./helpers";
 import { istDate, wallClock } from "./run-state";
 import { NETWORK_ERROR_CREATE_MESSAGE } from "../src/core/ui/action/network-error";
@@ -308,7 +309,7 @@ test("done is approved: no Client items in Approvals; the Owner sends back from 
   const context = await browser.newContext({ storageState: storageStateFor("owner") });
   const ownerPage = await context.newPage();
   await ownerPage.goto("/approvals");
-  await expect(ownerPage.locator('[data-slot="page-header"]').first()).toBeVisible();
+  await expect(pageHeader(ownerPage)).toBeVisible();
   await expect(ownerPage.getByText(nameOf(info, "cut"))).toHaveCount(0);
   await ownerPage.goto(`/clients/${clientId}/projects/${projectId}`);
   await hydrated(ownerPage);
@@ -591,7 +592,7 @@ test("the calendar lists client items for their Admin, never for Crew", async ({
   const context = await browser.newContext({ storageState: storageStateFor("staff") });
   const crew = await context.newPage();
   await crew.goto(`/calendar?view=day&date=${day}`);
-  await expect(crew.locator('[data-slot="page-header"]').first()).toBeVisible();
+  await expect(pageHeader(crew)).toBeVisible();
   await expect(crew.locator('[data-slot="calendar-item"]')).toHaveCount(0);
   await context.close();
   await removeClientFixture(client);
