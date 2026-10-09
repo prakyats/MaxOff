@@ -377,7 +377,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     description: "Reusable stage checklists.",
     permission: "lists.manage",
     arrivesIn: "7.4",
-    ready: false,
+    ready: true,
   },
   {
     key: "custom-fields",
@@ -392,7 +392,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     key: "templates",
     label: "Templates",
     href: "/settings/templates",
-    description: "Task templates: a type, a priority, stages and field defaults.",
+    description: "Project and task templates for work that repeats.",
     permission: "templates.manage",
     arrivesIn: "4.6",
     ready: true,

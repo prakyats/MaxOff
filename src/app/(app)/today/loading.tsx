@@ -3,7 +3,7 @@ import { can } from "@/core/permissions";
 import { ApprovalGroupSkeleton } from "@/core/ui/composites/approval-group-skeleton";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { TodayAttendanceStripSkeleton, TodayCardSkeleton } from "@/modules/attendance";
-import { DashSectionHeadingSkeleton } from "@/modules/dashboards";
+import { DashSectionHeadingSkeleton, LinkRowsSkeleton } from "@/modules/dashboards";
 import { TaskRowsSkeleton } from "@/modules/tasks";
 
 import { adminGreeting, ownerGreeting } from "./words";
@@ -14,7 +14,7 @@ import { adminGreeting, ownerGreeting } from "./words";
  * first screen's typical section, Approvals: its heading and a preview group's heading and rows
  * (no "Approve all" on Today). Sections are hidden when empty (decision 24), so the skeleton
  * traces the full layout's first screen and nothing jumps when data arrives. **An Admin's:** the one-line attendance strip,
- * then "Needs you": its heading and two `TaskRow`s. A Crew member who types the address is taken
+ * then "Needs you": its heading and two `TaskRow`s, then Client work (7.3): its heading and two rows. A Crew member who types the address is taken
  * to My Day, whose shape this is too (the strip and a section). The `(app)` layout already read
  * the member for this request (`cache()`), so asking costs no query.
  */
@@ -45,6 +45,14 @@ export default async function Loading() {
             <TaskRowsSkeleton rows={2} notes={2} label="Needs you" />
           )}
         </section>
+        {owner ? null : (
+          // The Admin's Client work (7.3): its heading and two item rows (title over the project ·
+          // client · date line); the Mark done button sits where the chevron is.
+          <section className="flex min-w-0 flex-col gap-2" data-slot="loading-today-client-work">
+            <DashSectionHeadingSkeleton width="w-24" />
+            <LinkRowsSkeleton rows={2} detail />
+          </section>
+        )}
         <span className="sr-only">Loading Today</span>
       </div>
     </>

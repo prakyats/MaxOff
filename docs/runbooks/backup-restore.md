@@ -75,13 +75,20 @@ unset PGPASSWORD
 --    cron.schedule calls: the cron schema is never dumped, and the restored migration history
 --    means the next `db push` re-runs nothing, so the migrations' calls are re-run here by hand.
 --    (The three extension lines are the ones of supabase/migrations/20260921151323_core_base.sql;
---    the schedules are those of 20260925010221_attendance_jobs.sql and 20260927184255_start_end_day.sql.)
+--    the schedules are those of 20260925010221_attendance_jobs.sql and 20260927184255_start_end_day.sql;
+--    7A's three client-work jobs are those of 20261008143534_client_work_transitions.sql,
+--    20261008145504_client_work_close_prompt.sql and 20261008153613_client_work_escalations.sql; the
+--    prompt moved to 08:05 IST in 20261008155951_client_work_alerts_answers.sql, and cycle_generate is at
+--    00:00 IST again since 20261008182234_client_work_morning_window.sql, Q12 (b).)
 create extension if not exists pg_cron with schema pg_catalog;
 grant usage on schema cron to postgres;
 create extension if not exists pg_net with schema extensions;
 select cron.schedule('absent_check', '29 18 * * *', $$select app.absent_check()$$);
 select cron.schedule('end_not_recorded', '30 18 * * *', $$select app.end_not_recorded()$$);
-select jobname, schedule, command from cron.job order by jobname;   -- both rows, active
+select cron.schedule('cycle_generate', '30 18 * * *', $$select app.cycle_generate()$$);
+select cron.schedule('cycle_close_prompt', '35 2 * * *', $$select app.cycle_close_prompt()$$);
+select cron.schedule('client_work_alerts', '*/5 * * * *', $$select app.client_work_alerts()$$);
+select jobname, schedule, command from cron.job order by jobname;   -- every row, active
 ```
 
 `restore.sh` loads in three sections so no trigger fires during the load (and no superuser
@@ -147,7 +154,8 @@ into the table below.
 |---|---|---|---|
 | 2026-09-28 | Local stack → MinIO → fresh `supabase/postgres:17.6.1.167` container (`scripts/backup/drill.sh`, unit 3cA) | `drill/…/20260928T133637Z.tar.age` (727 KB) | Verified: 46 tables' row counts equal, 34 migrations equal (last `20260928131234`), RLS refuses (anon on members; authenticated without a JWT: 0 claims) |
 | 2026-09-28 | Local stack → MinIO → two fresh `supabase/postgres:17.6.1.167` containers (`scripts/backup/drill.sh both`, the 3cA review fixes) | `drill/…/20260928T163849Z.tar.age` (840 KB) | **schema** as `supabase_admin`: 46 tables equal, 34 migrations, RLS refuses. **data** (23 auth tables, 77 GoTrue migrations, pg_cron) as `postgres`: 45 tables equal (`auth.schema_migrations` is GoTrue's), 34 migrations, RLS refuses, WARNING naming the two `cron.schedule` calls. The first data-mode run failed on `identities_user_id_fkey` (rows loaded by name, identities before users); fixed by loading auth's rows parents-first. |
-| 2026-09-30 | Production bucket → fresh local `supabase/postgres:17.6.1.166` container on the Owner's Windows laptop (Git Bash: `MSYS2_ARG_CONV_EXCL="/drill;--use-list="`, the dump folder mounted as `C:/…`, and `python3` output stripped of ``) | `postgres/peshoflxypujbzecgwqq/20260929T234838Z.tar.age` (the first scheduled nightly) | **schema** as `supabase_admin`: 50 tables' row counts equal, 35 migrations equal (last `20260929020230`), RLS refuses (anon 0; authenticated without a JWT: 0 claims), the expected pg_cron WARNING naming the two `cron.schedule` calls; "restore verified, with 1 warning(s)". Next drill: by the end of December 2026. |
+| 2026-09-30 | Production bucket → fresh local `supabase/postgres:17.6.1.166` container on the Owner's Windows laptop (Git Bash: `MSYS2_ARG_CONV_EXCL="/drill;--use-list="`, the dump folder mounted as `C:/…`, and `python3` output stripped of `
+`) | `postgres/peshoflxypujbzecgwqq/20260929T234838Z.tar.age` (the first scheduled nightly) | **schema** as `supabase_admin`: 50 tables' row counts equal, 35 migrations equal (last `20260929020230`), RLS refuses (anon 0; authenticated without a JWT: 0 claims), the expected pg_cron WARNING naming the two `cron.schedule` calls; "restore verified, with 1 warning(s)". Next drill: by the end of December 2026. |
 
 ## Monthly usage check
 

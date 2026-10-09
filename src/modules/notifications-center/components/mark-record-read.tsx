@@ -19,7 +19,7 @@ export function MarkRecordRead({
   id,
   unread,
 }: {
-  entity: "tasks" | "clients" | "members";
+  entity: "tasks" | "clients" | "members" | "projects";
   id: string;
   unread: number;
 }): null {

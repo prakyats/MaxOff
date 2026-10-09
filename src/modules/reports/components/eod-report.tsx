@@ -20,6 +20,10 @@ import {
   decisionLines,
   type EodReport,
   type EodTaskGroup,
+  CLIENT_WORK_GROUPS,
+  clientAdminName,
+  clientItemDetail,
+  clientWorkLine,
   eventDetail,
   groupCount,
   isQuietDay,
@@ -199,6 +203,57 @@ export function EodReportView({ report }: { report: EodReport }) {
               </ul>
             ) : (
               <QuietText slot="eod-approvals-empty">No approvals that day.</QuietText>
+            )}
+          </DashSection>
+
+          <DashSection title="Client work" slot="eod-client-work">
+            {report.client_work.admins.length > 0 ? (
+              report.client_work.admins.map((admin) => (
+                <section
+                  key={admin.admin_id ?? "none"}
+                  aria-label={clientAdminName(admin)}
+                  data-slot="eod-client-admin"
+                  className="flex min-w-0 flex-col gap-2"
+                >
+                  <p className="text-sm">
+                    <span className="font-medium">{clientAdminName(admin)}</span>
+                    <span className="text-muted-foreground"> · {clientWorkLine(admin)}</span>
+                  </p>
+                  {CLIENT_WORK_GROUPS.map((group) =>
+                    admin[group.key].count > 0 ? (
+                      <div key={group.key} className="flex min-w-0 flex-col gap-1">
+                        <p className="text-muted-foreground text-xs">
+                          {group.title} · {admin[group.key].count}
+                        </p>
+                        <ul
+                          aria-label={`${clientAdminName(admin)}: ${group.title}`}
+                          className="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border"
+                        >
+                          {admin[group.key].items.map((item) => (
+                            <li
+                              key={item.id}
+                              data-slot="eod-client-item"
+                              className="flex min-h-12 flex-col justify-center gap-0.5 px-4 py-2.5 text-sm"
+                            >
+                              <span className="font-medium break-words">{item.title}</span>
+                              <span className="text-muted-foreground text-xs break-words">
+                                {clientItemDetail(item)}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                        {admin[group.key].more > 0 ? (
+                          <QuietText slot="eod-client-more">
+                            and {admin[group.key].more} more
+                          </QuietText>
+                        ) : null}
+                      </div>
+                    ) : null,
+                  )}
+                </section>
+              ))
+            ) : (
+              <QuietText slot="eod-client-work-empty">No client work that day.</QuietText>
             )}
           </DashSection>
 

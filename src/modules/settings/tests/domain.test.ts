@@ -71,6 +71,8 @@ describe("updateThresholdsSchema", () => {
     quietHoursEnd: "07:00",
     defaultTaskReminders: [],
     weeklyDigestDay: "1",
+    itemOverdueEscalateHours: "24",
+    cycleDecideEscalateDays: "2",
   };
 
   it("takes the launch settings (PRODUCT §7) as numbers", () => {
@@ -87,7 +89,28 @@ describe("updateThresholdsSchema", () => {
       quietHoursEnd: "07:00",
       defaultTaskReminders: [],
       weeklyDigestDay: 1,
+      itemOverdueEscalateHours: 24,
+      cycleDecideEscalateDays: 2,
     });
+  });
+
+  it("takes the client-work escalations in their bounds (kickoff 7 amendment C E5)", () => {
+    for (const [field, bad] of [
+      ["itemOverdueEscalateHours", "0"],
+      ["itemOverdueEscalateHours", "169"],
+      ["cycleDecideEscalateDays", "0"],
+      ["cycleDecideEscalateDays", "31"],
+    ] as const) {
+      const result = updateThresholdsSchema.safeParse({ ...valid, [field]: bad });
+      expect(result.success, `${field} ${bad}`).toBe(false);
+    }
+    expect(
+      updateThresholdsSchema.parse({
+        ...valid,
+        itemOverdueEscalateHours: "168",
+        cycleDecideEscalateDays: "30",
+      }),
+    ).toMatchObject({ itemOverdueEscalateHours: 168, cycleDecideEscalateDays: 30 });
   });
 
   it("takes the weekly summary's day as a weekday, 0 to 6 (6.5, kickoff 6 decision 23)", () => {

@@ -31,7 +31,10 @@ export const SETTINGS_HEADERS = {
     "The kinds of task offered when one is created. An archived type stays on the tasks that have it.",
   ),
   templates: same(
-    "Task templates for work that repeats: a type, a priority, stages and field defaults. New task offers them under Start from.",
+    "Templates for work that repeats. A project template holds a repeat, stages, an item list and field defaults; a task template a type, a priority, stages and field defaults.",
+  ),
+  stagePresets: same(
+    "Stage lists New project offers, like Script, Shoot, Edit, Posted. A project copies its preset: changing one never touches a project.",
   ),
   notifications: same(
     "Who MaxOff can't reach with a push notification, and why. Anyone not reachable for 48 hours is emailed to the Owner, at most once a week each.",

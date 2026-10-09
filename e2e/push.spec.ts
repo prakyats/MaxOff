@@ -1,4 +1,4 @@
-import { type TestInfo } from "@playwright/test";
+import { type Locator, type TestInfo } from "@playwright/test";
 
 import { fromBase64Url } from "../src/core/notifications/push/base64url";
 import { decryptPayload, generateReceiverKeys } from "../src/core/notifications/push/encrypt";
@@ -8,6 +8,7 @@ import {
   expectBackStack,
   hydrated,
   memberIdOf,
+  pageHeader,
   runInstalled,
   serviceDelete,
   serviceSelect,
@@ -437,27 +438,27 @@ test.describe("Web Push", () => {
     await page.goto("/my-day");
     await hydrated(page);
     const band = page.locator('[data-slot="push-banner"]');
-    const bandBox = await band.boundingBox();
-    expect(bandBox?.height ?? 0).toBeGreaterThanOrEqual(44);
-    expect(bandBox?.width ?? 0).toBeLessThanOrEqual(page.viewportSize()!.width);
+    const bandBox = await shownBox(band);
+    expect(bandBox.height).toBeGreaterThanOrEqual(44);
+    expect(bandBox.width).toBeLessThanOrEqual(page.viewportSize()!.width);
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true);
-    // Never at the top (decision 30): the title bar sits right under the brand bar…
-    const title = await page.locator('[data-slot="page-header"]').first().boundingBox();
-    const brand = await page.locator('[data-slot="top-bar"]').first().boundingBox();
-    expect(
-      Math.abs((title?.y ?? 0) - ((brand?.y ?? 0) + (brand?.height ?? 0))),
-    ).toBeLessThanOrEqual(1);
+    // Never at the top (decision 30): the title bar sits right under the brand bar… Both are
+    // measured as shown: React keeps a streamed section's copy hidden until it reveals it, and a
+    // hidden copy has no box.
+    const title = await shownBox(pageHeader(page));
+    const brand = await shownBox(page.locator('[data-slot="top-bar"]:visible'));
+    expect(Math.abs(title.y - (brand.y + brand.height))).toBeLessThanOrEqual(1);
     // …and its height is reserved: scrolled to the end, the last content ends above it.
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-    const last = await page.locator("main > *").last().boundingBox();
-    const bandNow = await band.boundingBox();
-    expect((last?.y ?? 0) + (last?.height ?? 0)).toBeLessThanOrEqual((bandNow?.y ?? 0) + 1);
+    const last = await shownBox(page.locator("main > *:visible").last());
+    const bandNow = await shownBox(band);
+    expect(last.y + last.height).toBeLessThanOrEqual(bandNow.y + 1);
     // The sheet's button is a 44px target too.
     await band.click();
-    const button = await page.locator('[data-slot="push-enable"]').boundingBox();
-    expect(button?.height ?? 0).toBeGreaterThanOrEqual(44);
+    const button = await shownBox(page.locator('[data-slot="push-enable"]'));
+    expect(button.height).toBeGreaterThanOrEqual(44);
   });
 });
 
@@ -493,3 +494,13 @@ test.describe("the deep-link entry (ARCHITECTURE §14.2 h)", () => {
     await expectBackStack(page, [{ url: /\/people$/ }]);
   });
 });
+
+/** The box of what the user sees: waits for it to be shown, and fails loudly if it has none. */
+async function shownBox(
+  locator: Locator,
+): Promise<{ x: number; y: number; width: number; height: number }> {
+  await expect(locator).toBeVisible();
+  const box = await locator.boundingBox();
+  expect(box, "a shown element has a box").not.toBeNull();
+  return box!;
+}

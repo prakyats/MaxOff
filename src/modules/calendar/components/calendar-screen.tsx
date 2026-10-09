@@ -415,7 +415,12 @@ export function CalendarScreen({
                 const chosen = day.date === selected;
                 const busy =
                   day.holiday !== null ||
-                  day.events.length + day.busy.length + day.leave.length + day.due.length > 0;
+                  day.events.length +
+                    day.busy.length +
+                    day.leave.length +
+                    day.due.length +
+                    day.items.length >
+                    0;
                 return (
                   <li key={day.date} className="min-w-0">
                     <button

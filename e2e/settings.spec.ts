@@ -26,7 +26,8 @@ test.describe("Owner", () => {
     await page.goto("/settings");
     await expect(page.getByRole("heading", { name: "Settings", exact: true })).toBeVisible();
     // Sections that are not built yet are cards, not links (they name the task instead).
-    await expect(page.getByRole("link", { name: "Stage presets" })).toHaveCount(0);
+    // Stage presets were built in 7.4; Google Drive (8.3) is the one still to come.
+    await expect(page.getByRole("link", { name: "Google Drive" })).toHaveCount(0);
 
     for (const [name, heading] of [
       ["Company", "Company"],
@@ -34,6 +35,7 @@ test.describe("Owner", () => {
       ["Thresholds", "Thresholds"],
       ["Job titles", "Job titles"],
       ["Task types", "Task types"],
+      ["Stage presets", "Stage presets"],
     ] as const) {
       await page.goto("/settings");
       await page.getByRole("link", { name, exact: true }).click();
@@ -167,6 +169,29 @@ test.describe("Owner", () => {
     await expect(page.locator('[data-field="weekly-digest-day"]')).toContainText("Friday");
     await page.locator('[data-field="weekly-digest-day"]').click();
     await page.getByRole("option", { name: "Monday" }).click();
+    await page.getByRole("button", { name: "Save thresholds" }).click();
+    await expect(page.getByText("Thresholds saved")).toBeVisible();
+
+    // Client work escalations (amendment C E1, E2; 7B): the Owner's two fields, range-checked.
+    const overdue = page.getByLabel("Client item overdue → you after (hours)");
+    const undecided = page.getByLabel("Undecided cycle → you after (days)");
+    await expect(overdue).toHaveValue("24");
+    await expect(undecided).toHaveValue("2");
+    await overdue.fill("200");
+    await page.getByRole("button", { name: "Save thresholds" }).click();
+    await expect(page.locator('[data-slot="field-error"]').first()).toBeVisible();
+    await overdue.fill("36");
+    await undecided.fill("3");
+    // The digest day's "Thresholds saved" can still be on screen: it must not stand for this
+    // save, or the reload below races the save (7B rework: red on every local run).
+    await expect(page.getByText("Thresholds saved")).toBeHidden();
+    await page.getByRole("button", { name: "Save thresholds" }).click();
+    await expect(page.getByText("Thresholds saved")).toBeVisible();
+    await page.reload();
+    await expect(overdue).toHaveValue("36");
+    await expect(undecided).toHaveValue("3");
+    await overdue.fill("24");
+    await undecided.fill("2");
     await page.getByRole("button", { name: "Save thresholds" }).click();
     await expect(page.getByText("Thresholds saved")).toBeVisible();
   });

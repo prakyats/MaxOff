@@ -362,7 +362,9 @@ test.describe("an Admin", () => {
 
     await page.goto("/clients");
     await hydrated(page);
-    await expect(page.getByRole("button", { name: "New client" })).toHaveCount(0);
+    // Kickoff 7 amendment B (7.3): an Admin adds a client too, theirs and Active, with no Admin
+    // picker (`client-work.spec.ts`).
+    await expect(page.getByRole("button", { name: "New client" })).toHaveCount(1);
     await page.locator('[data-slot="data-search"] input').fill(`(${info.project.name})`);
     const list = page.locator(
       info.project.name === "desktop" ? "table" : '[data-slot="data-cards"]',

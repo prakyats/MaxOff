@@ -37,7 +37,7 @@ import {
 } from "@/core/ui/primitives/select";
 import { describeError } from "@/core/ui/toast";
 
-import { createClient } from "../actions/clients";
+import { createClient, createOwnClient } from "../actions/clients";
 import { CLIENT_NAME_MAX } from "../domain/limits";
 
 import type { AdminOption } from "./use-client-actions";
@@ -50,13 +50,19 @@ const NONE = "__none__";
  * form that saves it, WORKFLOWS §4a). The client starts as a Draft; the rest is filled in on its
  * page with the edit pattern. On success the sheet's entry is backed out and the new client's page
  * is pushed (§14.2 b, e: back returns to the list, never to the form).
+ *
+ * **An Admin's** (`own`, `clients.create` without `clients.manage`; kickoff 7 amendment B): no
+ * Admin picker, the client is theirs and starts Active (`client_create`), so they can onboard it
+ * end to end; the Owner is told.
  */
 export function NewClientDialog({
   admins,
   definitions,
+  own = false,
 }: {
   admins: readonly AdminOption[];
   definitions: readonly FieldDefinition[];
+  own?: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -66,7 +72,9 @@ export function NewClientDialog({
   const [error, setError] = useState<ResultError | null>(null);
   const action = useAction(
     async () => {
-      const result = await createClient({ name, adminId, customFields });
+      const result = own
+        ? await createOwnClient({ name, customFields })
+        : await createClient({ name, adminId, customFields });
       if (!result.ok) {
         setError(result.error);
         return;
@@ -113,7 +121,9 @@ export function NewClientDialog({
           <DialogHeader>
             <DialogTitle>New client</DialogTitle>
             <DialogDescription>
-              It starts as a draft. Add the rest on its page, then activate it once it has an Admin.
+              {own
+                ? "It starts Active, and you run it. Add the rest on its page."
+                : "It starts as a draft. Add the rest on its page, then activate it once it has an Admin."}
             </DialogDescription>
           </DialogHeader>
           {summary ? (
@@ -133,35 +143,37 @@ export function NewClientDialog({
               />
             )}
           </FormField>
-          <FormField
-            label="Admin"
-            hint="Optional now; a client is activated once it has one."
-            error={fieldErrors.adminId}
-          >
-            {(control) => (
-              <Select
-                value={adminId || NONE}
-                onValueChange={(next) => setAdminId(next === NONE ? "" : next)}
-              >
-                <SelectTrigger
-                  id={control.id}
-                  className="w-full"
-                  aria-describedby={control["aria-describedby"]}
-                  aria-invalid={control["aria-invalid"]}
+          {own ? null : (
+            <FormField
+              label="Admin"
+              hint="Optional now; a client is activated once it has one."
+              error={fieldErrors.adminId}
+            >
+              {(control) => (
+                <Select
+                  value={adminId || NONE}
+                  onValueChange={(next) => setAdminId(next === NONE ? "" : next)}
                 >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE}>No Admin yet</SelectItem>
-                  {admins.map((admin) => (
-                    <SelectItem key={admin.id} value={admin.id}>
-                      {admin.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </FormField>
+                  <SelectTrigger
+                    id={control.id}
+                    className="w-full"
+                    aria-describedby={control["aria-describedby"]}
+                    aria-invalid={control["aria-invalid"]}
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NONE}>No Admin yet</SelectItem>
+                    {admins.map((admin) => (
+                      <SelectItem key={admin.id} value={admin.id}>
+                        {admin.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </FormField>
+          )}
           <CustomFieldsForm
             definitions={definitions}
             values={customFields}

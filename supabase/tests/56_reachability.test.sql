@@ -14,6 +14,18 @@ begin;
 create extension if not exists pgtap with schema extensions;
 select plan(69);
 
+-- 7A: client work rows reference clients and members, and the presets the organization (a
+-- Playwright run leaves some behind).
+delete from public.item_reviews;
+delete from public.project_item_stage_list;
+delete from public.project_item_stages;
+delete from public.project_items;
+delete from public.project_cycles;
+delete from public.project_item_blueprints;
+delete from public.project_stages;
+delete from public.projects;
+delete from public.project_templates;
+delete from public.stage_presets;
 delete from public.task_requests;
 delete from public.task_warnings;
 delete from public.task_reviews;

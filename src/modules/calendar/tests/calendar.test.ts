@@ -407,6 +407,47 @@ describe("what a day holds", () => {
   });
 });
 
+describe("client items under the status filter (Q15, advisor 2026-10-08, owner to confirm)", () => {
+  const items = [
+    {
+      id: "open-item",
+      title: "Reel 1",
+      state: "open" as const,
+      plannedDate: TODAY,
+      projectName: "Monthly reels",
+      clientId: CLIENT,
+      clientName: "Acme",
+      href: "/clients/x/projects/y?item=open-item",
+    },
+    {
+      id: "done-item",
+      title: "Reel 2",
+      state: "done" as const,
+      plannedDate: TODAY,
+      projectName: "Monthly reels",
+      clientId: CLIENT,
+      clientName: "Acme",
+      href: "/clients/x/projects/y?item=done-item",
+    },
+  ];
+  const shown = (status: CalendarQuery["status"]) =>
+    buildCalendar(input({ query: query({ status }), clientItems: items }))
+      .find((day) => day.date === TODAY)
+      ?.items.map((item) => [item.id, item.done]);
+
+  it("Open keeps the open items and the done ones, muted, exactly as with no filter", () => {
+    expect(shown("all")).toEqual([
+      ["open-item", false],
+      ["done-item", true],
+    ]);
+    expect(shown("open")).toEqual(shown("all"));
+  });
+
+  it("Completed shows no client items: a done item waiting for approval is not completed", () => {
+    expect(shown("done")).toEqual([]);
+  });
+});
+
 describe("words and scopes", () => {
   it("names days, times, weeks and months in IST", () => {
     expect(dayWord(TODAY, TODAY)).toBe("Today");

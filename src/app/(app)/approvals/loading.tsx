@@ -8,9 +8,10 @@ const DESCRIPTION = "Everything waiting for your decision, oldest first.";
 /**
  * One Approvals screen, grouped, no tabs (2.4), traced row for row by `ApprovalGroupSkeleton`
  * (a heading, rows with two actions): the Owner's Attendance, Leave, Extra work (3b.2), Expenses
- * (3b.3) and Staff tasks (4.5) groups; an Admin's one group, the tasks they check (4.5). The
- * `(app)` layout already resolved the member for this request (`cache()`), so asking costs no
- * query.
+ * (3b.3) and Staff tasks (4.5) groups; an Admin's one, the tasks they check (4.5). No client
+ * items: since amendment D3 (owner 2026-10-09) an item marked done is approved in the same step,
+ * so the page draws no group for them. The `(app)` layout already resolved the member for this
+ * request (`cache()`), so asking costs no query.
  */
 export default async function Loading() {
   const member = await getCurrentMember();

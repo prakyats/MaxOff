@@ -33,7 +33,7 @@ export {
   type ReworkValue,
   type Split,
 } from "./domain/work-report";
-export { KpiCard, KpiCardSkeleton, LoadList } from "./components/work-report";
+export { ItemKpiCard, KpiCard, KpiCardSkeleton, LoadList } from "./components/work-report";
 /** The end-of-day report (6.5; PRODUCT §4.7, WORKFLOWS §8a): the Owner's, live and saved. */
 export { getEodReport, listEodReports, previewEodReport, type SavedEodReport } from "./data/eod";
 export {

@@ -46,6 +46,7 @@ const PAYLOAD: WeeklyDigestPayload = {
     unreachable: { count: 0, names: [], more: 0 },
   },
   ahead: { from: "2026-10-12", to: "2026-10-18", leave: [], events: [], holidays: [] },
+  client_work: [],
 };
 
 const request = () => new Request("http://localhost:3000/diagnostics/digest");

@@ -7,6 +7,7 @@ import {
   ENGAGEMENTS,
   type Engagement,
   hoursWords,
+  ItemKpiCard,
   KpiCard,
   LoadList,
   loadThisWeek,
@@ -18,9 +19,22 @@ import {
   type Split,
   turnaround,
 } from "@/modules/reports";
+import {
+  cycleProgressWords,
+  isOverdue,
+  itemCount,
+  listItemRows,
+  listPlannedItems,
+  listItemStages,
+  onTime,
+  onTimeWords,
+  sitLongest,
+  sitWords,
+} from "@/modules/client-work";
 import { activeAssignees, listKpiFacts } from "@/modules/tasks";
 
 import { readDirectory, readOpenTasks } from "../tasks/reads";
+import { readClientProgress } from "../today/reads";
 
 import { ADMIN_REPORT_DESCRIPTION } from "./copy";
 import { CustomRange } from "./custom-range";
@@ -36,22 +50,47 @@ function words<T>(split: Split<T>, say: (value: T) => string): Split<string> {
  * The Admin's work report (6.3; PRODUCT §4.13: "is the work getting done?"; Kickoff 6 decision 11):
  * the task KPIs for the period with the last period beside each (Rework, My turnaround,
  * Acknowledgement lag), Overdue now (tapping through to the list), and who is loaded this week,
- * each split by engagement (Kickoff 4 decision 18). On time, Cycle progress and "where items sit
- * longest" join in phase 7 with the items. Computed live from the tasks the Admin sees (RLS):
- * never money, attendance or leave (`reports.scoped`).
+ * each split by engagement (Kickoff 4 decision 18). **The item KPIs** (7.4, kickoff 7 decision 25):
+ * On time (with the last period), Cycle progress (the current cycles, now) and where items sit
+ * longest (the open items by their first unticked stage), over the items of the clients the Admin
+ * runs. Computed live from what the Admin sees (RLS): never money, attendance or leave
+ * (`reports.scoped`).
  */
 export async function AdminReport({ viewer, period }: { viewer: CurrentMember; period: Period }) {
   const before = previousPeriod(period);
-  const [facts, open, directory] = await Promise.all([
+  const today = todayIST();
+  const [facts, open, directory, planned, current, openItems] = await Promise.all([
     listKpiFacts(before.from, period.to),
     readOpenTasks(),
     readDirectory(),
+    listPlannedItems(before.from, period.to),
+    readClientProgress(today),
+    listItemRows({ states: ["open"] }),
   ]);
   const now = systemClock();
-  const today = todayIST();
   const people = new Map(directory.map((member) => [member.id, member]));
   const engagementOf = (id: string): Engagement => people.get(id)?.engagement ?? "permanent";
   const nameOf = (id: string) => people.get(id)?.fullName ?? "Someone";
+  // Cycle progress and where items sit: the current cycles of the working projects.
+  const currentIds = new Set(current.map((cycle) => cycle.id));
+  const totals = current
+    .flatMap((cycle) => cycle.states)
+    .reduce(
+      (sum, state) => {
+        if (state === "cancelled" || state === "carried") return sum;
+        return {
+          total: sum.total + 1,
+          done: sum.done + (state === "done" || state === "approved" ? 1 : 0),
+        };
+      },
+      { total: 0, done: 0 },
+    );
+  // Overdue now (PRODUCT §4.13): the open items past their planned date, beside the tasks.
+  const overdueItems = openItems.filter((item) => isOverdue(item, today)).length;
+  const waiting = openItems.filter((item) => currentIds.has(item.cycleId));
+  // Amendment D2: each open item's own stages and ticks.
+  const stages = await listItemStages(waiting.map((item) => item.id));
+  const sits = sitLongest({ items: waiting, stages, cycles: current, now });
   const openTasks = open.map((row) => ({
     id: row.id,
     state: row.state,
@@ -101,6 +140,46 @@ export async function AdminReport({ viewer, period }: { viewer: CurrentMember; p
             before={words(acknowledgementLag(facts, before, engagementOf), hoursWords)}
           />
         </div>
+        <section
+          aria-labelledby="items-title"
+          className="flex min-w-0 flex-col gap-2"
+          data-slot="report-items"
+        >
+          <h2 id="items-title" className="text-sm font-semibold">
+            Client items
+          </h2>
+          <div className="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2">
+            <ItemKpiCard
+              slot="kpi-on-time"
+              title="On time"
+              definition="Items done on or before their planned date, of the items planned."
+              now={onTimeWords(onTime(planned, period))}
+              before={onTimeWords(onTime(planned, before))}
+            />
+            <ItemKpiCard
+              slot="kpi-cycle-progress"
+              title="Cycle progress"
+              definition="The current cycles: done of planned."
+              now={cycleProgressWords(totals)}
+              before={null}
+            />
+            <ItemKpiCard
+              slot="kpi-items-overdue"
+              title="Overdue now"
+              definition="Open items past their planned date."
+              now={itemCount(overdueItems)}
+              before={null}
+              href="/clients/items?filter=overdue"
+            />
+            <ItemKpiCard
+              slot="kpi-sit-longest"
+              title="Where items sit longest"
+              definition="Open items by their first unticked stage, with the median days waiting."
+              lines={sits.slice(0, 5).map(sitWords)}
+              empty="No open items waiting at a stage."
+            />
+          </div>
+        </section>
         <section
           aria-labelledby="load-title"
           className="flex min-w-0 flex-col gap-2"

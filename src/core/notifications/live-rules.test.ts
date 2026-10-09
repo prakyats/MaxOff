@@ -52,19 +52,20 @@ describe("tokenRefreshIn", () => {
   });
 });
 
-describe("liveDashboard (the day screens, 6A decision 8)", () => {
-  it("listens on Today and My Day only, by exact path", () => {
+describe("liveDashboard (the day screens, 6A decision 8; Approvals, kickoff 7 decision 24)", () => {
+  it("listens on Today, My Day and Approvals only, by exact path", () => {
     expect(liveDashboard("/today")).toBe(true);
     expect(liveDashboard("/my-day")).toBe(true);
+    expect(liveDashboard("/approvals")).toBe(true);
     expect(liveDashboard("/today/people")).toBe(false);
     expect(liveDashboard("/tasks")).toBe(false);
     expect(liveDashboard(null)).toBe(false);
-    expect(LIVE_DASHBOARD_ROUTES).toEqual(["/today", "/my-day"]);
+    expect(LIVE_DASHBOARD_ROUTES).toEqual(["/today", "/my-day", "/approvals"]);
   });
 
-  it("listens to exactly the four tables the publication added for them", () => {
+  it("listens to exactly the five tables the publication added for them", () => {
     expect([...LIVE_DASHBOARD_TABLES].sort()).toEqual(
-      ["attendance_days", "leave_requests", "task_assignees", "tasks"].sort(),
+      ["attendance_days", "leave_requests", "project_items", "task_assignees", "tasks"].sort(),
     );
   });
 });

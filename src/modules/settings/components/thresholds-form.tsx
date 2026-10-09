@@ -59,6 +59,8 @@ export function ThresholdsForm({ thresholds }: { thresholds: Thresholds }) {
         quietHoursEnd: value("quietHoursEnd"),
         defaultTaskReminders: readList(value("defaultTaskReminders")),
         weeklyDigestDay: value("weeklyDigestDay"),
+        itemOverdueEscalateHours: value("itemOverdueEscalateHours"),
+        cycleDecideEscalateDays: value("cycleDecideEscalateDays"),
       });
       if (result.ok) toast.success("Thresholds saved");
       return result;
@@ -232,6 +234,56 @@ export function ThresholdsForm({ thresholds }: { thresholds: Thresholds }) {
           )}
         </FormField>
       </div>
+
+      <section aria-labelledby="client-work-escalations" className="flex flex-col gap-3">
+        <div>
+          <h2 id="client-work-escalations" className="text-sm font-medium">
+            Client work escalations
+          </h2>
+          <p className="text-muted-foreground text-sm">
+            The client&apos;s Admin is told first, at 8:00 AM. If it still isn&apos;t done, you are
+            told, naming the Admin.
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField
+            label="Client item overdue → you after (hours)"
+            hint="From the Admin's 8:00 AM notice. 1 to 168."
+            error={fieldErrors.itemOverdueEscalateHours}
+          >
+            {(control) => (
+              <Input
+                {...control}
+                name="itemOverdueEscalateHours"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={168}
+                defaultValue={thresholds.itemOverdueEscalateHours}
+                required
+              />
+            )}
+          </FormField>
+          <FormField
+            label="Undecided cycle → you after (days)"
+            hint="After the cycle ended with unfinished items left undecided. 1 to 30."
+            error={fieldErrors.cycleDecideEscalateDays}
+          >
+            {(control) => (
+              <Input
+                {...control}
+                name="cycleDecideEscalateDays"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={30}
+                defaultValue={thresholds.cycleDecideEscalateDays}
+                required
+              />
+            )}
+          </FormField>
+        </div>
+      </section>
 
       <section aria-labelledby="quiet-hours" className="flex flex-col gap-3">
         <div>

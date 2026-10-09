@@ -60,6 +60,10 @@ function workingDay(offset: number): string {
 
 async function ownerCreatesShoot(info: TestInfo): Promise<{ id: string; title: string }> {
   const title = `${prefixOf(info)}shoot`;
+  // The project's earlier shoot goes first (PROGRESS 7B later item (g)): each test makes its own,
+  // and five of them side by side at 10:00 today squeezed the timeline's blocks to 33 px for
+  // mobile.spec's 44 px sweep when both specs ran. One shoot per project is all a test reads.
+  await removeTasksTitled(title);
   const staffId = await memberIdOf(USERS.staff.email);
   const today = todayIST();
   const id = await rpcAs<string>(USERS.owner.email, USERS.owner.password, "task_create", {

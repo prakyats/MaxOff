@@ -96,6 +96,19 @@ export const updateThresholdsSchema = z
     quietHoursEnd: clockTime,
     // The organisation's default reminders (5.3): `[]` = the launch schedule.
     defaultTaskReminders: reminderRulesSchema,
+    // Client-work escalations (kickoff 7 amendment C E5): an overdue item reaches the Owner this
+    // many hours after its Admin's notice (1..168, default 24); an undecided ended cycle this many
+    // days after its period ended (1..30, default 2). The columns' checks hold the same bounds.
+    itemOverdueEscalateHours: z.coerce
+      .number({ error: "The client item escalation is a number of hours." })
+      .int("The client item escalation is a whole number of hours.")
+      .min(1, "The client item escalation has to be at least 1 hour.")
+      .max(168, "The client item escalation has to be 168 hours (a week) or less."),
+    cycleDecideEscalateDays: z.coerce
+      .number({ error: "The undecided cycle escalation is a number of days." })
+      .int("The undecided cycle escalation is a whole number of days.")
+      .min(1, "The undecided cycle escalation has to be at least 1 day.")
+      .max(30, "The undecided cycle escalation has to be 30 days or less."),
     // The weekly digest's day (6.5, kickoff 6 decision 23): 0 = Sunday .. 6 = Saturday.
     weeklyDigestDay: z.coerce
       .number({ error: "Pick a weekday for the weekly summary." })

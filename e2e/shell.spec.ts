@@ -79,7 +79,21 @@ test.describe("permission guards", () => {
     test.use({ storageState: storageStateFor("staff") });
 
     test("Staff are sent to No access from management routes", async ({ page }) => {
-      for (const path of ["/clients", "/people", "/approvals", "/reports", "/settings"]) {
+      // Phase 7's client-work routes too (the 7B review's S3): each checks the key before any
+      // read, so Crew get No access (403), never a 404 that would say whether the record exists.
+      const project =
+        "/clients/00000000-0000-4000-8000-000000000001/projects/00000000-0000-4000-8000-000000000002";
+      for (const path of [
+        "/clients",
+        "/people",
+        "/approvals",
+        "/reports",
+        "/settings",
+        "/clients/items",
+        "/clients/items/decide",
+        "/settings/stage-presets",
+        project,
+      ]) {
         await page.goto(path);
         await expect(page, `${path} for Staff`).toHaveURL(/\/forbidden$/);
         await expect(page.locator('[data-slot="error-state"]')).toContainText(

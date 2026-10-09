@@ -160,6 +160,22 @@ export async function createClient(
   return toClient(data);
 }
 
+/**
+ * An Admin's new client (kickoff 7 amendment B): `client_create`, a transition function, creates
+ * it Active and theirs, with its history entry and the Owner's notification, in one transaction.
+ */
+export async function createOwnClient(values: ClientDetailsPatch): Promise<string> {
+  const supabase = await createServerSupabase();
+  const details = Object.fromEntries(
+    Object.entries({ ...values, custom_fields: toJson(values.custom_fields) }).filter(
+      ([, value]) => value !== null && value !== undefined && value !== "",
+    ),
+  );
+  const { data, error } = await supabase.rpc("client_create", { details: details as Json });
+  if (error) throw error;
+  return data;
+}
+
 export async function updateClient(
   clientId: string,
   patch: Partial<ClientDetailsPatch>,

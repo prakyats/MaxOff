@@ -45,6 +45,7 @@ function day(patch: Partial<CalendarDay> = {}): CalendarDay {
     events: [],
     busy: [],
     due: [],
+    items: [],
     ...patch,
   };
 }

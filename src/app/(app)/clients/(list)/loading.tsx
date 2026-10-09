@@ -4,7 +4,7 @@ import { LoadingState, PageLoading } from "@/core/ui/composites/loading-state";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 
 /**
- * The client list (3.4) traced: the search box and the filters (two for the Owner, state and
+ * The client list (3.4) traced: the "Client items" row (7.3), the search box and the filters (two for the Owner, state and
  * Admin; one for an Admin), then cards on a phone and the table from `md` up (logo and name,
  * state, Admin). In the `(list)` group so it never wraps a client's page (the 2.9 rule).
  */
@@ -13,6 +13,8 @@ export default async function Loading() {
   const filters = member !== null && can(member.role, "clients.manage") ? 2 : 1;
   return (
     <PageLoading title="Clients" shape="cards">
+      {/* The "Client items" row (7.3) above the list. */}
+      <Skeleton aria-hidden className="mb-3 h-11 w-full rounded-lg" />
       <div className="flex flex-col gap-3">
         <div
           data-slot="loading-toolbar"

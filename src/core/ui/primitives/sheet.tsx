@@ -8,6 +8,7 @@ import { onLayerEscape, onLayerOpenFocus } from "@/core/ui/keyboard/layer";
 import { useOverlayOpenState } from "@/core/ui/overlay/overlay-history";
 import { Button } from "@/core/ui/primitives/button";
 import { ModalOpening, useModalOpening } from "@/core/ui/primitives/modal-opening";
+import { useKeyboardLift } from "@/core/ui/viewport/keyboard-lift";
 import { XIcon } from "lucide-react";
 
 /**
@@ -64,6 +65,8 @@ function SheetContent({
   side = "right",
   showCloseButton = true,
   overlayClassName,
+  followKeyboard = true,
+  ref,
   onEscapeKeyDown,
   onOpenAutoFocus,
   ...props
@@ -71,13 +74,20 @@ function SheetContent({
   side?: "top" | "right" | "bottom" | "left";
   showCloseButton?: boolean;
   overlayClassName?: string;
+  /**
+   * A bottom sheet ends where the on-screen keyboard begins (`core/ui/viewport/keyboard-lift`,
+   * ARCHITECTURE §14.1). Off only for a sheet that places itself (the task's Chat sheet).
+   */
+  followKeyboard?: boolean;
 }) {
   // A fresh overlay and content per opening, overlay first (`modal-opening.ts`).
   const opening = React.useContext(ModalOpening);
+  const contentRef = useKeyboardLift(followKeyboard && side === "bottom", false, ref);
   return (
     <SheetPortal key={opening}>
       <SheetOverlay className={overlayClassName} />
       <SheetPrimitive.Content
+        ref={contentRef}
         data-slot="sheet-content"
         data-side={side}
         className={cn(

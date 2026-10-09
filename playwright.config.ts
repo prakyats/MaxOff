@@ -19,6 +19,8 @@ try {
 const PRODUCTION_SPECS = /production\.spec\.ts$/;
 const SETUP_SPECS = /\.setup\.ts$/;
 const MOBILE_SPECS = /mobile\.spec\.ts$/;
+// Bottom sheets follow the on-screen keyboard (phase 7 owner's walk): both phone widths.
+const SHEET_KEYBOARD_SPECS = /sheet-keyboard\.spec\.ts$/;
 const WORKING_DAY_SPECS = /working-day\.spec\.ts$/;
 const LEAVE_SPECS = /leave\.spec\.ts$/;
 const BACK_GESTURE_SPECS = /back-gesture\.spec\.ts$/;
@@ -59,6 +61,7 @@ const ONBOARDING_SPECS = /onboarding\.spec\.ts$/;
 const DASHBOARDS_SPECS = /dashboards\.spec\.ts$/;
 const CALENDAR_SPECS = /calendar\.spec\.ts$/;
 const EOD_REPORT_SPECS = /eod-report\.spec\.ts$/;
+const CLIENT_WORK_SPECS = /client-work\.spec\.ts$/;
 
 /**
  * Web Push (5.2): the e2e server sends real, encrypted pushes to a fake push service the spec
@@ -223,6 +226,8 @@ export default defineConfig({
         DASHBOARDS_SPECS,
         CALENDAR_SPECS,
         EOD_REPORT_SPECS,
+        CLIENT_WORK_SPECS,
+        SHEET_KEYBOARD_SPECS,
       ],
       use: { ...devices["Pixel 5"], viewport: { width: 430, height: 932 } },
     },

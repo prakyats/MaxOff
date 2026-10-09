@@ -218,9 +218,17 @@ const LARGE_TEXT_SCREENS = {
     "/calendar",
     "/reports/end-of-day",
     `/reports/end-of-day/${todayIST()}`,
+    // 7B: client work.
+    "/clients/items",
+    "/clients/items/decide",
+    "/settings/stage-presets",
   ],
   admin: [
     "/today",
+    // 7B: client work.
+    "/clients/items",
+    "/clients/items/decide",
+    "/settings/stage-presets",
     // 6.3: the work report.
     "/reports",
     "/leave",
@@ -715,7 +723,8 @@ test.describe("Settings is a list of rows", () => {
   test("a section still to come says so plainly and links nowhere (3c.3)", async ({ page }) => {
     await page.goto("/settings");
     const list = page.locator('[data-slot="settings-list"]');
-    const later = list.locator("li").filter({ hasText: "Stage presets" });
+    // Stage presets were built in 7.4; Google Drive (8.3) is the one still to come.
+    const later = list.locator("li").filter({ hasText: "Google Drive" });
     await expect(later).toContainText("Coming soon");
     await expect(later.getByRole("link")).toHaveCount(0);
     await expect(list).not.toContainText(BUILD_WORDS);

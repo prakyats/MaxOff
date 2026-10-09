@@ -14,3 +14,10 @@ export {
   type OrgSettings,
   type Thresholds,
 } from "./domain/settings";
+export { listStagePresets } from "./data/stage-presets";
+export {
+  PRESET_STAGES_MAX,
+  presetActions,
+  stagesLine,
+  type StagePreset,
+} from "./domain/stage-presets";

@@ -1,4 +1,4 @@
-import { ListChecksIcon } from "lucide-react";
+import { FolderClockIcon, ListChecksIcon } from "lucide-react";
 
 import type { CurrentMember } from "@/core/auth/server";
 import { can } from "@/core/permissions";
@@ -49,6 +49,7 @@ import {
   readHolidays,
   readLeaveDays,
   readNotNoted,
+  readOverdueItems,
   readUnreachable,
   eventsHorizon,
 } from "./reads";
@@ -66,8 +67,10 @@ const APPROVALS_SHOWN = 5;
  * Approvals group order, Approve with Undo and Review, "See all N", no bulk), today's tasks as one
  * line, Overdue and risks (five rows, then "See all"; the emails the daily limit held back today),
  * the next seven days' events. When every section after the card is hidden, one muted line:
- * "Nothing else needs you today." Not shown until their data exists (decision 4): item approvals,
- * client work progress, the revenue snapshot. The rule for every later addition (decision 24):
+ * "Nothing else needs you today." **Client work** (7.4; kickoff 7 amendment C, E1): one line, "N
+ * client items overdue", hidden at zero, opening the cross-client list grouped by Admin; no item
+ * approvals (issue #56 Q1: the client's Admin's) and no progress line (not an exception). Not
+ * shown until its data exists (decision 4): the revenue snapshot. The rule for every later addition (decision 24):
  * exceptions only, a count rather than a list where possible, one tap to the list, hidden when empty.
  */
 export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
@@ -85,6 +88,7 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
     events,
     holidays,
     unended,
+    overdueItems,
   ] = await Promise.all([
     getTodayPeople(),
     readOpenTasks(),
@@ -100,6 +104,8 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
     readHolidays(),
     // Yesterday's End day not recorded, from the cutoff on (decision 24, amended 2026-10-08).
     getUnendedYesterday(),
+    // Client work (kickoff 7 amendment C E1, decision 24): one count line, hidden at zero.
+    can(viewer.role, "items.tick") ? readOverdueItems(today) : Promise.resolve(0),
   ]);
   const [days, requests, notes, claims, toDecide] = approvals;
   const now = systemClock();
@@ -146,6 +152,7 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
     approvals: total > 0,
     tasks: dueToday.due > 0,
     risks: risks.length > 0 || (held !== null && heldEmailsLine(held) !== null),
+    clientWork: overdueItems > 0,
     week: strip.days.length > 0,
   };
   const nothing = !Object.values(sections).some(Boolean);
@@ -209,6 +216,24 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
               today={today}
               now={now}
             />
+          </DashSection>
+        ) : null}
+
+        {sections.clientWork ? (
+          <DashSection title="Client work" slot="today-client-work">
+            <RowList label="Client work" slot="today-client-work-line">
+              <LinkRow
+                href="/clients/items?filter=overdue"
+                slot="today-items-overdue"
+                icon={<FolderClockIcon className="size-4" aria-hidden />}
+                title={
+                  overdueItems === 1
+                    ? "1 client item overdue"
+                    : `${overdueItems} client items overdue`
+                }
+                detail="Grouped by Admin"
+              />
+            </RowList>
           </DashSection>
         ) : null}
 

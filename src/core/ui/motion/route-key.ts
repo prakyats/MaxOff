@@ -18,8 +18,8 @@ const TAB_ROUTES: readonly { match: RegExp; key?: string }[] = [
   // A person's page (3.4, `person-nav.tsx`): Profile, and for the Owner Leave, Attendance and
   // Month (3b.4).
   { match: /^(\/people\/[^/]+)(?:\/(?:leave|attendance|month))?$/ },
-  // A client's page (3.4, `client-nav.tsx`): Overview, Brand, Activity.
-  { match: /^(\/clients\/[^/]+)(?:\/(?:brand|activity))?$/ },
+  // A client's page (3.4, `client-nav.tsx`): Overview, Projects (7.3), Brand, Activity.
+  { match: /^(\/clients\/[^/]+)(?:\/(?:projects|brand|activity))?$/ },
 ];
 
 export function routeKey(pathname: string): string {

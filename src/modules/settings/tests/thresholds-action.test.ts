@@ -27,6 +27,8 @@ const input = {
   quietHoursEnd: "06:30",
   defaultTaskReminders: [],
   weeklyDigestDay: "1",
+  itemOverdueEscalateHours: "24",
+  cycleDecideEscalateDays: "2",
 };
 
 /**
