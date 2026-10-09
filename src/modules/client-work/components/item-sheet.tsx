@@ -453,6 +453,7 @@ export function ItemSheet({
           title={`Stages of ${current.title}`}
           description="This item only. The project's default stages and its other items stay as they are."
           noun="stage"
+          unique
           removeDescription="It leaves this item; its tick stays in the history."
           rows={current.stages}
           max={STAGES_MAX}

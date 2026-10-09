@@ -2,8 +2,9 @@
 
 import { ArrowDownIcon, ArrowUpIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { useRef, useState } from "react";
+import { toast } from "sonner";
 
-import type { Result } from "@/core/errors/result";
+import type { Result, ResultError } from "@/core/errors/result";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { ReviewSheet } from "@/core/ui/composites/review-sheet";
@@ -15,6 +16,12 @@ import { movedPosition } from "../domain/positions";
 
 export type ListRow = { id: string; name: string; position: string };
 
+/** What a refusal says under the field or in the toast: a field's own message first (zod's). */
+function refusalText(error: ResultError): { title: string; description?: string } {
+  const field = Object.values(error.fieldErrors ?? {}).flat()[0];
+  return field ? { title: describeError(error).title, description: field } : describeError(error);
+}
+
 /**
  * A list of names edited in a sheet (7.3; WORKFLOWS §5.4 items 8, 9; amendment D2): a project's
  * default stages, its item list, one item's own stages or one list line's stages. Add, rename,
@@ -22,7 +29,9 @@ export type ListRow = { id: string; name: string; position: string };
  * line of the item list never touches an existing cycle). Each change is one transition function,
  * applied at once; the server's list comes back after it. Back closes the sheet (§14.2 a); the
  * removal's confirmation closes first. A name typed and not yet added or renamed is not lost
- * silently: back asks "Discard what you typed?", and back on that keeps editing (§14.2 f).
+ * silently: back asks "Discard what you typed?", and back on that keeps editing (§14.2 f). A
+ * stage list is `unique`: a name the list already has (ignoring case) is refused before it is
+ * sent, as the database refuses it (the 7B rework's review, S3).
  */
 export function ListEditorSheet({
   open,
@@ -33,6 +42,7 @@ export function ListEditorSheet({
   removeDescription,
   rows,
   rowAction,
+  unique = false,
   max,
   maxLength,
   onAdd,
@@ -51,6 +61,8 @@ export function ListEditorSheet({
   rows: readonly ListRow[];
   /** One more control per row, after Remove (the item list's "Stages" for a line, amendment D2). */
   rowAction?: ((row: ListRow) => React.ReactNode) | undefined;
+  /** Each name once, ignoring case (a stage list). */
+  unique?: boolean;
   max: number;
   maxLength: number;
   onAdd: (name: string) => Promise<Result<unknown>>;
@@ -71,6 +83,14 @@ export function ListEditorSheet({
     adding.trim() !== "" ||
     rows.some((row) => names[row.id] !== undefined && names[row.id]?.trim() !== row.name);
 
+  /** The refusal for a name another row has, when the list is `unique`. */
+  function taken(name: string, except: string | null): string | null {
+    if (!unique) return null;
+    const key = name.trim().toLowerCase();
+    const other = rows.find((row) => row.id !== except && row.name.trim().toLowerCase() === key);
+    return other ? `This list already has a ${noun} called ${other.name}.` : null;
+  }
+
   function requestClose(next: boolean) {
     if (!next && dirty && busy === null) {
       holding.current = true;
@@ -87,11 +107,16 @@ export function ListEditorSheet({
 
   async function add(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const clash = taken(adding, null);
+    if (clash) {
+      setAddError(clash);
+      return;
+    }
     setBusy("add");
     const result = await onAdd(adding);
     setBusy(null);
     if (!result.ok) {
-      const { title: heading, description: detail } = describeError(result.error);
+      const { title: heading, description: detail } = refusalText(result.error);
       setAddError(detail ?? heading);
       return;
     }
@@ -103,8 +128,19 @@ export function ListEditorSheet({
     if (holding.current) return;
     const name = names[row.id];
     if (name === undefined || name.trim() === row.name) return;
+    const clash = taken(name, row.id);
+    if (clash) {
+      toast.error("That name is taken", { description: clash });
+      return;
+    }
     setBusy(row.id);
-    toastResult(await onRename(row.id, name), { success: "Renamed" });
+    const result = await onRename(row.id, name);
+    if (result.ok) {
+      toast.success("Renamed");
+    } else {
+      const { title: heading, description: detail } = refusalText(result.error);
+      toast.error(heading, detail ? { description: detail } : undefined);
+    }
     setNames((current) => {
       const next = { ...current };
       delete next[row.id];

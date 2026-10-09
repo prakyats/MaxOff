@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { validateCustomFieldsFor } from "@/core/custom-fields/server";
 import { action, ok, type Result } from "@/core/errors";
+import { repeatedName, repeatedStageMessage } from "@/core/lib/repeated-name";
 import { assertPermission } from "@/core/permissions/server";
 
 import * as repo from "../data/project-templates";
@@ -42,7 +43,13 @@ const values = z.object({
   recurrence: z.enum(["one_time", "weekly", "monthly"], { error: "Pick how often it repeats." }),
   stages: z
     .array(line(120, "stage"))
-    .max(TEMPLATE_STAGES_MAX, `At most ${TEMPLATE_STAGES_MAX} stages.`),
+    .max(TEMPLATE_STAGES_MAX, `At most ${TEMPLATE_STAGES_MAX} stages.`)
+    .superRefine((names, context) => {
+      // A project made from it takes them as its default stages, each once (the 7B rework's review).
+      const repeated = repeatedName(names);
+      if (repeated !== null)
+        context.addIssue({ code: "custom", message: repeatedStageMessage(repeated) });
+    }),
   items: z.array(line(200, "item")).max(TEMPLATE_ITEMS_MAX, `At most ${TEMPLATE_ITEMS_MAX} items.`),
   fieldDefaults: z.record(z.string(), z.unknown()).default({}),
 });

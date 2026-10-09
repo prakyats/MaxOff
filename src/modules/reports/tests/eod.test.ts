@@ -14,6 +14,7 @@ import {
   eodListEntries,
   eventDetail,
   groupCount,
+  CLIENT_WORK_GROUPS,
   clientAdminName,
   clientItemDetail,
   clientWorkLine,
@@ -144,6 +145,7 @@ describe("the report's payload", () => {
     const admin = parsed?.client_work.admins[0];
     expect(admin && clientWorkLine(admin)).toBe("2 done");
     expect(admin?.sent_back).toEqual({ count: 0, more: 0, items: [] });
+    expect(admin?.reopened).toEqual({ count: 0, more: 0, items: [] });
     expect(admin && clientAdminName(admin)).toBe("Kiran");
     expect(clientAdminName({ ...admin!, admin_id: null })).toBe("No Admin (yours)");
     expect(
@@ -155,6 +157,36 @@ describe("the report's payload", () => {
         reason: "Wrong logo",
       }),
     ).toBe("Monthly · Sharma · Wrong logo");
+  });
+
+  it("words the Owner's send-backs and an Admin's own reopens apart, Approved only when any", () => {
+    const group = (count: number) => ({ count, more: 0, items: [] });
+    const parsed = parseEodReport(
+      report({
+        client_work: {
+          admins: [
+            {
+              admin_id: KIRAN,
+              name: "Kiran",
+              done: group(3),
+              sent_back: group(1),
+              reopened: group(2),
+            },
+          ],
+        } as unknown as EodReport["client_work"],
+      }),
+    );
+    const admin = parsed?.client_work.admins[0];
+    expect(admin && clientWorkLine(admin)).toBe("3 done · 1 sent back · 2 reopened");
+    expect(CLIENT_WORK_GROUPS.map((g) => g.title)).toEqual([
+      "Done",
+      "Approved",
+      "Sent back",
+      "Reopened",
+      "Closed",
+      "Carried forward",
+      "Projects completed",
+    ]);
   });
 
   it("has no amount anywhere in its shape", () => {

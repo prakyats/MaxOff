@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { action, ok, type Result } from "@/core/errors";
+import { repeatedName, repeatedStageMessage } from "@/core/lib/repeated-name";
 import { assertPermission } from "@/core/permissions/server";
 
 import * as repo from "../data/stage-presets";
@@ -33,7 +34,14 @@ const values = z.object({
       z
         .array(z.string())
         .min(1, "Add at least one stage.")
-        .max(PRESET_STAGES_MAX, `At most ${PRESET_STAGES_MAX} stages.`),
+        .max(PRESET_STAGES_MAX, `At most ${PRESET_STAGES_MAX} stages.`)
+        .superRefine((names, context) => {
+          // A project's stages from it are each once (the 7B rework's review).
+          const repeated = repeatedName(names);
+          if (repeated !== null) {
+            context.addIssue({ code: "custom", message: repeatedStageMessage(repeated) });
+          }
+        }),
     ),
 });
 const createSchema = values;

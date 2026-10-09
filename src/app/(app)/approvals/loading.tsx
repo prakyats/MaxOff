@@ -8,17 +8,14 @@ const DESCRIPTION = "Everything waiting for your decision, oldest first.";
 /**
  * One Approvals screen, grouped, no tabs (2.4), traced row for row by `ApprovalGroupSkeleton`
  * (a heading, rows with two actions): the Owner's Attendance, Leave, Extra work (3b.2), Expenses
- * (3b.3) and Staff tasks (4.5) groups; an Admin's two, the tasks they check (4.5) and their
- * clients' items (7.4). The
- * `(app)` layout already resolved the member for this request (`cache()`), so asking costs no
- * query.
+ * (3b.3) and Staff tasks (4.5) groups; an Admin's one, the tasks they check (4.5). No client
+ * items: since amendment D3 (owner 2026-10-09) an item marked done is approved in the same step,
+ * so the page draws no group for them. The `(app)` layout already resolved the member for this
+ * request (`cache()`), so asking costs no query.
  */
 export default async function Loading() {
   const member = await getCurrentMember();
   const decides = member !== null && can(member.role, "attendance.decide");
-  // The page's own test for the Client items group (Q1: the client's Admin, never the Owner).
-  const decidesItems =
-    member !== null && member.role !== "owner" && can(member.role, "items.approve");
   return (
     <>
       <PageHeader title="Approvals" description={DESCRIPTION} help={DESCRIPTION} />
@@ -32,11 +29,7 @@ export default async function Loading() {
             <ApprovalGroupSkeleton rows={2} />
           </>
         ) : (
-          <>
-            <ApprovalGroupSkeleton rows={3} />
-            {/* An Admin's Client items (7.4), last, for whoever the page draws them for. */}
-            {decidesItems ? <ApprovalGroupSkeleton rows={2} /> : null}
-          </>
+          <ApprovalGroupSkeleton rows={3} />
         )}
         <span className="sr-only">Loading approvals</span>
       </div>

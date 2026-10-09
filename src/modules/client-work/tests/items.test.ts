@@ -19,7 +19,7 @@ import { cycleProgressWords, onTime, onTimeWords, sitLongest, sitWords } from ".
 import { cycleLabel, nextStartable, periodNext, periodStart } from "../domain/periods";
 import { progressByClient, projectSummaries } from "../domain/projects";
 import { movedNames, nameRows } from "../domain/positions";
-import { activityPageSchema } from "../domain/schemas";
+import { activityPageSchema, createProjectSchema, updateBlueprintSchema } from "../domain/schemas";
 import type { Item, ItemStage, ItemState, Project } from "../domain/types";
 import { itemView } from "../domain/views";
 
@@ -587,5 +587,111 @@ describe("the activity panel's page query", () => {
       activityPageSchema.safeParse({ projectId: project, beforeAt: "2026-10-09T05:00:00Z" })
         .success,
     ).toBe(false);
+  });
+});
+
+describe("every entry the activity reads return is a line (the 7B rework's review, S7)", () => {
+  // The SQL's list (`app.client_work_activity_shown`, migration `client_work_rework_fixes`): each
+  // entry `project_activity` and `item_last_changes` may return has a sentence, so a page of 20 is
+  // 20 lines and "Last change" is never empty while changes exist. Change both together.
+  const SHOWN: readonly (readonly [string, string, Record<string, unknown>])[] = [
+    ["projects", "insert", {}],
+    ["projects", "started", {}],
+    ["projects", "completed", {}],
+    ["projects", "cancelled", {}],
+    ["projects", "reopened", {}],
+    ["projects", "update", { delivery_date: "2026-11-01" }],
+    ["projects", "update", { name: "Reels" }],
+    ["projects", "update", { description: "Five" }],
+    ["projects", "update", { custom_fields: {} }],
+    ["project_stages", "insert", { name: "Edit" }],
+    ["project_stages", "archived", {}],
+    ["project_stages", "update", { name: "Grade" }],
+    ["project_stages", "update", { position: "a0" }],
+    ["project_item_blueprints", "insert", { title: "Reel 3" }],
+    ["project_item_blueprints", "archived", {}],
+    ["project_item_blueprints", "update", { title: "Reel 4" }],
+    ["project_item_blueprints", "update", { position: "a0" }],
+    ["project_item_blueprints", "update", { stages: [] }],
+    ["project_item_stage_list", "insert", { name: "Edit" }],
+    ["project_item_stage_list", "archived", {}],
+    ["project_item_stage_list", "ticked", {}],
+    ["project_item_stage_list", "unticked", {}],
+    ["project_item_stage_list", "update", { name: "Grade" }],
+    ["project_item_stage_list", "update", { position: "a0" }],
+    ["project_cycles", "generated", {}],
+    ["project_cycles", "insert", {}],
+    ["project_cycles", "item_list_added", {}],
+    ...[
+      "insert",
+      "done",
+      "not_done",
+      "approved",
+      "rejected",
+      "sent_back",
+      "reopened",
+      "cancelled",
+      "closed",
+      "carried",
+      "carried_in",
+      "left_pending",
+    ].map((action) => ["project_items", action, {}] as const),
+    ["project_items", "update", { title: "Reel 9" }],
+    ["project_items", "update", { notes: "x" }],
+    ["project_items", "update", { planned_date: "2026-10-10" }],
+    ["project_items", "update", { custom_fields: {} }],
+    ["project_items", "update", { position: "a0" }],
+    ["project_item_stages", "ticked", {}],
+    ["project_item_stages", "unticked", {}],
+  ];
+  const context = { names: {}, items: {}, stages: {} };
+
+  it.each(SHOWN)("%s %s %o has a sentence", (entity, action, changed) => {
+    expect(
+      describeProjectActivity(
+        {
+          id: 1,
+          actorId: null,
+          entity,
+          entityId: "x",
+          action,
+          old: {},
+          new: changed,
+          meta: {},
+          at: "2026-10-09T05:00:00Z",
+        },
+        context,
+      ),
+    ).not.toBeNull();
+  });
+});
+
+describe("stage lists name each stage once (the 7B rework's review, S3)", () => {
+  const client = "00000000-0000-4000-8000-000000000001";
+
+  it("refuses a default stage named twice on a new project, under its field", () => {
+    const result = createProjectSchema.safeParse({
+      clientId: client,
+      name: "Reels",
+      recurrence: "monthly",
+      stages: ["Edit", "Shoot", " edit "],
+      items: [],
+    });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues).toEqual([
+      expect.objectContaining({
+        path: ["stages"],
+        message: "The stage edit is listed twice: each stage needs its own name.",
+      }),
+    ]);
+  });
+
+  it("refuses a line's stages named twice, and takes distinct ones", () => {
+    expect(
+      updateBlueprintSchema.safeParse({ blueprintId: client, stages: ["Shoot", "SHOOT"] }).success,
+    ).toBe(false);
+    expect(
+      updateBlueprintSchema.safeParse({ blueprintId: client, stages: ["Shoot", "Edit"] }).success,
+    ).toBe(true);
   });
 });

@@ -112,6 +112,7 @@ export function ProjectMenuLayers({
         title="Default stages"
         description="New items start with these. Existing items keep their own stages; change those on the item."
         noun="stage"
+        unique
         removeDescription="New items start without it. Existing items keep their stages."
         rows={stages}
         max={STAGES_MAX}
@@ -154,6 +155,7 @@ export function ProjectMenuLayers({
         title={line ? `Stages of ${line.name}` : "Stages"}
         description="Each new cycle's item made from this line starts with these. Items already made keep theirs."
         noun="stage"
+        unique
         removeDescription="Later cycles' items start without it."
         rows={lineRows}
         max={STAGES_MAX}

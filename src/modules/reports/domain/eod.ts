@@ -65,6 +65,8 @@ const clientWork = z
         done: clientGroup.default(EMPTY_CLIENT_GROUP),
         approved: clientGroup.default(EMPTY_CLIENT_GROUP),
         sent_back: clientGroup.default(EMPTY_CLIENT_GROUP),
+        /** The client's Admin reopened a done item (amendment D3; a report saved before has none). */
+        reopened: clientGroup.default(EMPTY_CLIENT_GROUP),
         closed: clientGroup.default(EMPTY_CLIENT_GROUP),
         carried: clientGroup.default(EMPTY_CLIENT_GROUP),
         projects_completed: clientGroup.default(EMPTY_CLIENT_GROUP),
@@ -146,11 +148,17 @@ export type EodTaskGroup = EodReport["tasks"]["completed"];
 export type EodPerson = EodReport["attendance"]["people"][number];
 export type EodClientAdmin = EodReport["client_work"]["admins"][number];
 
-/** The Client work section's groups, in order (kickoff 7 decision 25). */
+/**
+ * The Client work section's groups, in order (kickoff 7 decision 25). A group shows only when it
+ * holds something. Since amendment D3 "Approved" holds only approvals made apart before it (Mark
+ * done is the approval), so it stays hidden at zero; "Sent back" is the Owner's, "Reopened" the
+ * client's Admin's own (the 7B rework's review, S5).
+ */
 export const CLIENT_WORK_GROUPS = [
   { key: "done", title: "Done" },
   { key: "approved", title: "Approved" },
   { key: "sent_back", title: "Sent back" },
+  { key: "reopened", title: "Reopened" },
   { key: "closed", title: "Closed" },
   { key: "carried", title: "Carried forward" },
   { key: "projects_completed", title: "Projects completed" },
@@ -167,6 +175,7 @@ export function clientWorkLine(admin: EodClientAdmin): string {
     done: "done",
     approved: "approved",
     sent_back: "sent back",
+    reopened: "reopened",
     closed: "closed",
     carried: "carried",
     projects_completed: "projects completed",

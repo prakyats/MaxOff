@@ -7,6 +7,11 @@ import { formatIST, istDayStart } from "@/core/time";
  * `delivery_armed_at`, `reopened_at`, `ready_armed_at` (and the bookkeeping `updated_at`,
  * `prompted_at`, `search`); an entry that changed only those says nothing. Entries that echo
  * another (an item's review row beside its "approved") are left out. Never an amount.
+ *
+ * **The database reads only what this describes** (the 7B rework's review, S7): the SQL
+ * `app.client_work_activity_shown` (migration `client_work_rework_fixes`) lists the same entities,
+ * actions and changed keys, so `project_activity`'s page of 20 is 20 lines and `item_last_changes`
+ * is always a sentence. Change both together (the unit test lists them).
  */
 
 /** An audit entry as `core/activity` reads it (structurally its `ActivityEntry`; ADR-0011). */

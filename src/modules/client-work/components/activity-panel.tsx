@@ -22,16 +22,25 @@ import {
 
 const ACTIVITY_URL = "/api/client-work/activity";
 
-/** The skeleton's rows: the same row height and three lines as an entry (§14.1). */
+/**
+ * The skeleton's rows trace an entry exactly (§14.1): the same `py-3` row and `gap-0.5`, the
+ * sentence as one line of the sheet's body text and the time as one `text-xs` line, each bar
+ * centred in a box of that line's own height (`h-[1lh]`, so it holds at 200% text). An entry's
+ * optional note is not drawn: most entries have none.
+ */
 const SKELETON_ROWS = 6;
 
 export function ActivityRowsSkeleton({ rows = SKELETON_ROWS }: { rows?: number }) {
   return (
     <ol aria-hidden data-slot="activity-skeleton" className="divide-border divide-y">
       {Array.from({ length: rows }, (_, index) => (
-        <li key={index} className="flex flex-col gap-1.5 py-3">
-          <Skeleton className="h-4 w-4/5" />
-          <Skeleton className="h-3 w-24" />
+        <li key={index} className="flex flex-col gap-0.5 py-3">
+          <span className="flex h-[1lh] items-center">
+            <Skeleton className="h-4 w-4/5" />
+          </span>
+          <span className="flex h-[1lh] items-center text-xs">
+            <Skeleton className="h-3 w-24" />
+          </span>
         </li>
       ))}
     </ol>

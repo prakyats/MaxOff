@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { repeatedName, repeatedStageMessage } from "@/core/lib/repeated-name";
+
 /**
  * What the client-work actions accept (ARCHITECTURE §4.2: zod first). The transition functions
  * (7A, ADR-0006) check every rule again in the database; these keep a malformed request away and
@@ -14,7 +16,7 @@ export const ITEM_TITLE_MAX = 200;
 export const ITEMS_MAX = 100;
 export const ITEM_NOTES_MAX = 5000;
 export const REASON_MAX = 1000;
-/** `item_approve` takes at most 500 ids; a page never shows more than that. */
+/** At most 500 ids in one bulk call ("Mark N done", "Tick ‹stage› on N"); a page never shows more. */
 const BULK_MAX = 500;
 
 const id = z.uuid();
@@ -41,6 +43,15 @@ const stageName = z
   .trim()
   .min(1, "Name the stage.")
   .max(STAGE_NAME_MAX, `Keep a stage name under ${STAGE_NAME_MAX} characters.`);
+/** A list of stage names: at most 12, each once (ignoring case; `app.client_work_stage_names`). */
+const stageNames = z
+  .array(stageName)
+  .max(STAGES_MAX, `At most ${STAGES_MAX} stages.`)
+  .superRefine((names, context) => {
+    const repeated = repeatedName(names);
+    if (repeated !== null)
+      context.addIssue({ code: "custom", message: repeatedStageMessage(repeated) });
+  });
 const itemTitle = z
   .string()
   .trim()
@@ -61,7 +72,7 @@ export const createProjectSchema = z
     recurrence: z.enum(["one_time", "weekly", "monthly"], { error: "Pick how often it repeats." }),
     description: description.optional(),
     deliveryDate: isoDate.optional(),
-    stages: z.array(stageName).max(STAGES_MAX, `At most ${STAGES_MAX} stages.`),
+    stages: stageNames,
     items: z.array(itemTitle).max(ITEMS_MAX, `At most ${ITEMS_MAX} items.`),
     templateId: id.optional(),
     customFields: customFields.default({}),
@@ -114,7 +125,7 @@ export const updateBlueprintSchema = z.object({
   title: itemTitle.optional(),
   position: position.optional(),
   /** The line's own stages (amendment D2): every item made from it starts with them. */
-  stages: z.array(stageName).max(STAGES_MAX, `At most ${STAGES_MAX} stages.`).optional(),
+  stages: stageNames.optional(),
 });
 export type UpdateBlueprintInput = z.input<typeof updateBlueprintSchema>;
 
