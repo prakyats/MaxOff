@@ -161,7 +161,9 @@ insert into app_internal values
   -- Amendment D2 (owner 2026-10-09): stages per item: the project's defaults, checked names, a new
   -- item's stages and a carried item's, and the item stage functions' lock, find and name check
   ('project_default_stages'), ('client_work_stage_names'), ('item_stage_list_init'), ('item_stage_list_copy'),
-  ('item_stage_item'), ('item_stage_find'), ('item_stage_name_free');
+  ('item_stage_item'), ('item_stage_find'), ('item_stage_name_free'),
+  -- The 7B rework's review fixes (2026-10-09): a project's default stage names, once each
+  ('project_stage_name_free');
   -- 3c.1 (contract migration): attendance_logout and logout_not_recorded are gone with the 2.x gate.
 select is(
   (select count(*) from pg_proc p
@@ -182,7 +184,7 @@ select is(
   0::bigint,
   'the internal helpers: service_role only, never the API role');
 select is((select count(*) from pg_proc p where p.pronamespace = 'app'::regnamespace
-             and p.proname in (select name from app_internal)), 107::bigint,
+             and p.proname in (select name from app_internal)), 108::bigint,
   'the internal helper list matches what exists');
 select cmp_ok((select count(*) from pg_proc where pronamespace = 'app'::regnamespace), '>=', 4::bigint,
   'the grant check saw the app functions');

@@ -6,7 +6,7 @@
 -- any day. Realtime's publication is 46's.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(28);
+select plan(32);
 
 delete from public.item_reviews;
 delete from public.project_item_stage_list;
@@ -117,7 +117,7 @@ update public.client_admin_assignments set from_at = app.ist_day_start(app.today
 
 select pg_temp.as_member('admin');
 select public.project_create(pg_temp.fx('client_a'), 'Brand film', 'one_time', null, app.today_ist() + 10,
-  '{}'::text[], array['A done', 'A approved', 'A sent back', 'A closed', 'A twice', 'A overdue']);
+  '{}'::text[], array['A done', 'A approved', 'A reopened', 'A closed', 'A twice', 'A overdue']);
 select pg_temp.as_member('admin2');
 select public.project_create(pg_temp.fx('client_b'), 'Menu reel', 'one_time', null, app.today_ist() + 10,
   '{}'::text[], array['B done']);
@@ -137,9 +137,10 @@ select pg_temp.as_system();
 update public.project_items set state = 'done', approved_at = null, approved_by = null where id = pg_temp.item('A approved');
 select pg_temp.as_member('admin');
 select public.item_approve(array[pg_temp.item('A approved')]);
--- Amendment D3: done is approved at once; a reopen with a reason is the send-back.
-select public.item_mark_done(pg_temp.item('A sent back'));
-select public.item_reopen(pg_temp.item('A sent back'), 'The logo is wrong');
+-- Amendment D3: done is approved at once; the client's Admin reopens with a reason, the Owner sends
+-- back with one (review fix 2026-10-09: two groups, by who did it).
+select public.item_mark_done(pg_temp.item('A reopened'));
+select public.item_reopen(pg_temp.item('A reopened'), 'The logo is wrong');
 select public.item_cancel(pg_temp.item('A closed'), 'The client dropped it');
 select public.item_mark_done(pg_temp.item('A twice'));
 select pg_temp.as_system();
@@ -148,6 +149,8 @@ select pg_temp.as_member('admin');
 select public.item_unmark_done(pg_temp.item('A twice'));
 select public.item_mark_done(pg_temp.item('A twice'));
 select public.item_update(pg_temp.item('A overdue'), jsonb_build_object('planned_date', app.today_ist() - 2));
+select pg_temp.as_member('owner');
+select public.item_reopen(pg_temp.item('A done'), 'Wrong colours');
 select pg_temp.as_member('admin2');
 select public.item_mark_done(pg_temp.item('B done'));
 select pg_temp.as_member('owner');
@@ -159,12 +162,18 @@ select pg_temp.as_system();
 select is(jsonb_array_length(pg_temp.cw() -> 'admins'), 3, 'one entry per client Admin, and one for the Owner''s own client');
 select is((pg_temp.admin_of('admin') ->> 'name'), 'Ravi Admin', 'an Admin is named');
 select is((pg_temp.admin_of('admin') #>> '{done,count}')::int, 4,
-  'done: every item marked done that day (A done, A approved, A sent back, A twice), each once');
+  'done: every item marked done that day (A done, A approved, A reopened, A twice), each once');
 select ok((pg_temp.admin_of('admin') #> '{done,items}') @> '[{"title": "A twice", "project": "Brand film", "client": "Sharma Weddings"}]'::jsonb,
   'a done item names its project and client, once though it was marked done twice');
 select is((pg_temp.admin_of('admin') #>> '{approved,count}')::int, 1, 'approved that day');
-select is((pg_temp.admin_of('admin') #>> '{sent_back,count}')::int, 1, 'sent back that day');
-select is((pg_temp.admin_of('admin') #>> '{sent_back,items,0,reason}'), 'The logo is wrong', 'with the reason');
+select is((pg_temp.admin_of('admin') #>> '{sent_back,count}')::int, 1, 'sent back by the Owner that day');
+select is((pg_temp.admin_of('admin') #>> '{sent_back,items,0,title}') || ': ' || (pg_temp.admin_of('admin') #>> '{sent_back,items,0,reason}'),
+  'A done: Wrong colours', 'the Owner''s send-back, with the reason');
+select is((pg_temp.admin_of('admin') #>> '{reopened,count}')::int, 1, 'reopened by the Admin that day (amendment D3)');
+select is((pg_temp.admin_of('admin') #>> '{reopened,items,0,title}') || ': ' || (pg_temp.admin_of('admin') #>> '{reopened,items,0,reason}'),
+  'A reopened: The logo is wrong', 'the Admin''s own reopen, with the reason');
+select is((pg_temp.cw() #>> '{counts,reopened}')::int || ':' || (pg_temp.cw() #>> '{counts,sent_back}')::int, '1:1',
+  'both counted apart');
 select is((pg_temp.admin_of('admin') #>> '{closed,count}')::int, 1, 'closed that day');
 select is((pg_temp.admin_of('admin') #>> '{closed,items,0,reason}'), 'The client dropped it', 'with the reason');
 select is((pg_temp.admin_of('admin') #>> '{carried,count}')::int, 0, 'nothing carried yet');
@@ -205,9 +214,11 @@ select is((pg_temp.admin_of('admin') #>> '{carried,items,0,project}'), 'Monthly 
 select ok(not app.eod_report_zero(jsonb_build_object('client_work', jsonb_build_object('counts', jsonb_build_object('done', 1)))),
   'a day with only client work is not a quiet day');
 select ok(app.eod_report_zero('{}'::jsonb), 'a report saved before 7.4 (no section) still reads as zero');
+select ok(not app.eod_report_zero(jsonb_build_object('client_work', jsonb_build_object('counts', jsonb_build_object('reopened', 1)))),
+  'a day with only a reopen is not a quiet day');
 select is(app.eod_report_text(jsonb_build_object('client_work', jsonb_build_object('counts',
-  jsonb_build_object('done', 3, 'approved', 2, 'sent_back', 1)))),
-  'Client items: 3 done, 2 approved, 1 sent back', 'the notification line counts the client items');
+  jsonb_build_object('done', 3, 'approved', 2, 'sent_back', 1, 'reopened', 2)))),
+  'Client items: 3 done, 2 approved, 1 sent back, 2 reopened', 'the notification line counts the client items');
 
 -- 4. The weekly digest per Admin (amendment C E4) ---------------------------------------------------------
 insert into public.eod_reports (org_id, report_date, data, generated_at)

@@ -824,11 +824,11 @@ select is(pg_temp.n('admin2', 'items_to_decide'), 1::bigint, 'so the 08:10 run s
 
 -- L4. Only a return to open stamps reopened_at; only a date change or a return to open arms the notice ----------------
 select pg_temp.as_member('admin');
-insert into fx values ('stage', public.project_stage_add(pg_temp.fx('pm'), 'Edit'));
+insert into fx values ('stage', public.item_stage_add(pg_temp.fx('late1b'), 'Colour'));
 select pg_temp.as_system();
 update public.project_items set overdue_armed_at = now() - interval '7 days' where id = pg_temp.fx('late1b');
 select pg_temp.as_member('admin');
-select public.item_tick_stage(pg_temp.fx('late1b'), pg_temp.fx('stage'), true);
+select public.item_stage_tick(pg_temp.fx('stage'), true);
 select public.item_update(pg_temp.fx('late1b'), jsonb_build_object('notes', 'Waiting for the music'));
 select public.item_update(pg_temp.fx('late1b'), jsonb_build_object('planned_date', app.today_ist() - 11));
 select pg_temp.as_system();

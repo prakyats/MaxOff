@@ -128,6 +128,11 @@ $$;
 create function pg_temp.stage(p text, s text) returns uuid language sql stable security definer as $$
   select x.id from public.project_stages x where x.project_id = pg_temp.fx($1) and x.name = $2;
 $$;
+-- An item's own active stage of that name (amendment D2).
+create function pg_temp.istage(p text, t text, s text) returns uuid language sql stable security definer as $$
+  select x.id from public.project_item_stage_list x
+  where x.item_id = (pg_temp.item($1, $2)).id and x.name = $3 and x.archived_at is null;
+$$;
 create function pg_temp.cycle_of(p text, d date) returns public.project_cycles language sql stable security definer as $$
   select c.* from public.project_cycles c where c.project_id = pg_temp.fx($1) and c.period_start is not distinct from $2;
 $$;
@@ -381,23 +386,23 @@ select throws_ok($$ select public.item_add((pg_temp.cycle_of('p_w', app.period_s
 -- F. Done, Not done, ticks (decisions 6, 7) ----------------------------------------------------------------
 select pg_temp.clear();
 select pg_temp.as_member('admin');
-select is(public.item_tick_stage((pg_temp.item('p_m', 'Reel 1')).id, pg_temp.stage('p_m', 'Script')), true,
-  'the Admin ticks a stage on an open item');
+select is(public.item_stage_tick(pg_temp.istage('p_m', 'Reel 1', 'Script')), true,
+  'the Admin ticks one of an open item''s own stages (amendment D2)');
 select is((select state::text from public.projects where id = pg_temp.fx('p_m')), 'in_progress',
   'the project moves open -> in progress on the first tick (WORKFLOWS §5.1)');
 select is((select count(*)::integer from public.activity_log where entity = 'projects' and entity_id = pg_temp.fx('p_m') and action = 'started'), 1,
   'audited ''started''');
-select is(public.item_tick_stage((pg_temp.item('p_m', 'Reel 1')).id, pg_temp.stage('p_m', 'Script')), false, 'ticking twice changes nothing');
-select is(public.item_tick_stage((pg_temp.item('p_m', 'Reel 1')).id, pg_temp.stage('p_m', 'Script'), false), true, 'unticked');
-select is((select done_at is null and done_by is null from public.project_item_stages
-           where item_id = (pg_temp.item('p_m', 'Reel 1')).id), true, 'the row stays, its tick cleared (the history keeps it)');
-select is(public.item_tick_stage((pg_temp.item('p_m', 'Reel 1')).id, pg_temp.stage('p_m', 'Script'), false), false, 'unticking twice changes nothing');
-select is(public.item_tick_stage((pg_temp.item('p_m', 'Reel 1')).id, pg_temp.stage('p_m', 'Shoot')), true, 'another stage ticked');
-select throws_ok($$ select public.item_tick_stage((pg_temp.item('p_m', 'Reel 1')).id, pg_temp.stage('p_w', 'Draft')) $$, 'P0001', 'NOT_FOUND',
-  'a stage of another project is refused');
-select throws_ok($$ select public.item_tick_stage((pg_temp.item('p_m', 'Reel 1')).id,
-  (select id from public.project_stages where project_id = pg_temp.fx('p_m') and archived_at is not null limit 1)) $$,
-  'P0001', 'INVALID_STATE', 'a removed stage is refused');
+select is(public.item_stage_tick(pg_temp.istage('p_m', 'Reel 1', 'Script')), false, 'ticking twice changes nothing');
+select is(public.item_stage_tick(pg_temp.istage('p_m', 'Reel 1', 'Script'), false), true, 'unticked');
+select is((select done_at is null and done_by is null from public.project_item_stage_list
+           where id = pg_temp.istage('p_m', 'Reel 1', 'Script')), true, 'the row stays, its tick cleared (the history keeps it)');
+select is(public.item_stage_tick(pg_temp.istage('p_m', 'Reel 1', 'Script'), false), false, 'unticking twice changes nothing');
+select is(public.item_stage_tick(pg_temp.istage('p_m', 'Reel 1', 'Shoot')), true, 'another stage ticked');
+-- The 7A item_tick_stage (unused since amendment D) refuses after its checks (review fix 2026-10-09).
+select throws_ok($$ select public.item_tick_stage((pg_temp.item('p_m', 'Reel 1')).id, pg_temp.stage('p_m', 'Script')) $$,
+  'P0001', 'INVALID_STATE', 'the 7A item_tick_stage refuses: ticks are on the item''s own stages');
+select is((select count(*)::integer from public.project_item_stages where item_id = (pg_temp.item('p_m', 'Reel 1')).id), 0,
+  'and writes no row in the old tick table');
 select is(public.item_mark_done((pg_temp.item('p_m', 'Reel 1')).id), 'approved'::public.item_state,
   'Mark done: open -> approved in one step (amendment D3)');
 select is((select (done_by = pg_temp.fx('admin'))::text || ':' || (done_at is not null)::text || ':'
@@ -405,7 +410,7 @@ select is((select (done_by = pg_temp.fx('admin'))::text || ':' || (done_at is no
            from public.project_items where id = (pg_temp.item('p_m', 'Reel 1')).id),
   'true:true:true:true', 'done_* and approved_* stamped at the same moment');
 select throws_ok($$ select public.item_mark_done((pg_temp.item('p_m', 'Reel 1')).id) $$, 'P0001', 'INVALID_STATE', 'not twice');
-select throws_ok($$ select public.item_tick_stage((pg_temp.item('p_m', 'Reel 1')).id, pg_temp.stage('p_m', 'Edit')) $$, 'P0001', 'INVALID_STATE',
+select throws_ok($$ select public.item_stage_tick(pg_temp.istage('p_m', 'Reel 1', 'Edit')) $$, 'P0001', 'INVALID_STATE',
   'a done item''s ticks are locked (decision 7: done is the approval)');
 select throws_ok($$ select public.item_unmark_done((pg_temp.item('p_m', 'Reel 1')).id) $$, 'P0001', 'INVALID_STATE',
   'Not done is refused on a done item (amendment D3: reopen it instead)');
@@ -460,7 +465,7 @@ select is((select count(*)::integer from public.item_reviews
            where item_id = (pg_temp.item('p_m', 'Reel 1')).id and decision = 'approved' and reviewer_id = pg_temp.fx('admin')), 1,
   'an item_reviews row');
 select is(pg_temp.total(), 0::bigint, 'an approval notifies nobody (amendment C6)');
-select throws_ok($$ select public.item_tick_stage((pg_temp.item('p_m', 'Reel 1')).id, pg_temp.stage('p_m', 'Script')) $$, 'P0001', 'INVALID_STATE',
+select throws_ok($$ select public.item_stage_tick(pg_temp.istage('p_m', 'Reel 1', 'Script')) $$, 'P0001', 'INVALID_STATE',
   'approval locks the ticks (decision 7)');
 select is(public.item_update((pg_temp.item('p_m', 'Reel 1')).id, '{"notes": "Final cut sent", "title": "Reel 1"}'), array['notes'],
   'an approved item''s title and notes may still be corrected (Q5 (b))');
@@ -602,7 +607,8 @@ select is((select state::text || ':' || carry_decision::text || ':' || (carry_de
   'the Owner carries an open item forward: the original is carried');
 select is(public.item_update(pg_temp.fx('pi1'), '{"notes": "Use the drone shot, take two"}'), array['notes'],
   'a carried item''s notes may be corrected (Q5 (b))');
-select throws_ok($$ select public.item_tick_stage(pg_temp.fx('pi1'), pg_temp.stage('p_m', 'Shoot')) $$, 'P0001', 'INVALID_STATE',
+select throws_ok($$ select public.item_stage_tick((select s.id from public.project_item_stage_list s
+  where s.item_id = pg_temp.fx('pi1') and s.name = 'Shoot' and s.archived_at is null)) $$, 'P0001', 'INVALID_STATE',
   'its ticks stay locked');
 insert into fx select 'pi1_new', ((pg_temp.res((select v from r where k = 'carry'), pg_temp.fx('pi1'))) ->> 'new_item_id')::uuid;
 select is((select (cycle_id = (pg_temp.cycle_of('p_m', app.period_start('monthly', app.today_ist()))).id)::text
