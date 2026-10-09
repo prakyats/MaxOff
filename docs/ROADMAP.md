@@ -14,7 +14,7 @@
 > 3. **4** Staff tasks, with freelancers → released.
 > 4. **5** Notifications and reminders → released.
 > 5. **6** My Day, the Owner's Today, the Admin dashboard, the calendar, the end-of-day report, production hardening → released.
-> 5a. **7** Client projects (Owner and Admin; Crew never use it) → released **right after v1.5.x (phase 6), before 6b and 8** (kickoff 7 amendment C, owner 2026-10-08: phase 7 starts from `main` once phase 6 is merged, not after 8; the launch order is now 6 (v1.5.0, v1.5.1) → 7 → 6b → 8 → 9 → 10).
+> 5a. **7** Client projects (Owner and Admin; Crew never use it) → released **right after v1.5.x (phase 6), before 6b and 8** (kickoff 7 amendment C, owner 2026-10-08: phase 7 starts from `main` once phase 6 is merged, not after 8; the launch order is now 6 (v1.5.0) → 7 → 6b → 8 → 9 → 10). **v1.5.1 was not released (owner 2026-10-09): its walk fixes ship with phase 7 as v1.6.0.**
 > 5b. **6b** Working hours, late starts, leaving early, tasks for the Owner (owner and Anna, 2026-10-07) and profile photos (owner, 2026-10-08) → released.
 > 6. **8** Work submissions (handing in work hangs off tasks, not projects) → released.
 > 7. ~~**7** Client projects~~ moved up to 5a (kickoff 7 amendment C, owner 2026-10-08).
