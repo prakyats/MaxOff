@@ -29,6 +29,11 @@ import { Timeline, type TimelineEventLink } from "./timeline";
  * the Owner and Admins; then the day's action, the route's ("+ New task on 8 Oct" for whoever may
  * create a task, "Suggest a task" for Crew). An empty day says "Nothing on this day." and nothing
  * else (a day with only a due task is not empty, 08 Oct bug (c)).
+ *
+ * In the phone's week and compact month (`fill`) the day's action is **pinned** under the day's
+ * scroll (the owner's decision of 2026-10-09): a footer row of its own, always in view above the
+ * bottom bar, never scrolled to; the scroll ends at its top. No action (a day before today, today
+ * from 11:59 PM IST): no footer, and the scroll goes down to the bar.
  */
 
 /** An event or a due task as a link to its task, backing out of a sheet first (`OverlayLink`). */
@@ -253,8 +258,9 @@ export function DayDetail({
   /**
    * The phone's week and compact month (the owner's phone walk, 2026-10-08): the detail fills the
    * height left above the bottom bar. Its heading and all-day line stay put; under them one scroll
-   * takes the rest: the hour timeline with the day's other rows ("Due · N", "Who's free", the
-   * day's action) after its hours, or those rows alone on a day with no timed event.
+   * takes the rest: the hour timeline with the day's other rows ("Due · N", "Who's free") after
+   * its hours, or those rows alone on a day with no timed event; the day's action is pinned under
+   * that scroll (2026-10-09), so it is never a scroll away.
    */
   fill?: boolean;
   /** "Open day" in the laptop's dialog. */
@@ -334,7 +340,7 @@ export function DayDetail({
           {free}
         </p>
       ) : null}
-      {action || footer ? (
+      {!fill && (action || footer) ? (
         <div className="flex flex-wrap items-center gap-2">
           {action}
           {footer}
@@ -342,6 +348,16 @@ export function DayDetail({
       ) : null}
     </>
   );
+  // The phone's pinned action (`fill`): its own row under the scroll, which ends at its top.
+  const pinned =
+    fill && action ? (
+      <div
+        data-slot="calendar-day-action"
+        className="border-border flex min-w-0 shrink-0 items-center gap-2 border-t py-2"
+      >
+        {action}
+      </div>
+    ) : null;
   return (
     <section
       aria-labelledby={heading ? headingId : undefined}
@@ -365,30 +381,34 @@ export function DayDetail({
           <AllDayChips day={day} today={today} dueAsChip={false} />
         </div>
       ) : null}
-      {timed.length > 0 ? (
-        timeline ? (
-          fill ? (
+      {fill ? (
+        // The scroll and the pinned action as one column with no gap between them.
+        <div data-slot="calendar-day-fill" className="flex min-w-0 grow basis-0 flex-col">
+          {timed.length > 0 ? (
             <Timeline days={[day]} today={today} eventLink={eventLink} fill after={rest} />
           ) : (
-            <Timeline
-              days={[day]}
-              today={today}
-              eventLink={eventLink}
-              className="border-border overflow-hidden rounded-lg border"
-            />
-          )
+            <div
+              data-slot="calendar-day-scroll"
+              // The one scroll on a day with no timed event; two of the phone's hours at least, as
+              // the timeline keeps.
+              className="flex min-h-[5.5rem] min-w-0 grow basis-0 flex-col gap-3 overflow-y-auto overscroll-contain"
+            >
+              {rest}
+            </div>
+          )}
+          {pinned}
+        </div>
+      ) : timed.length > 0 ? (
+        timeline ? (
+          <Timeline
+            days={[day]}
+            today={today}
+            eventLink={eventLink}
+            className="border-border overflow-hidden rounded-lg border"
+          />
         ) : (
           <EventRows events={day.events.filter((event) => event.startAt !== null)} />
         )
-      ) : fill ? (
-        <div
-          data-slot="calendar-day-scroll"
-          // The one scroll on a day with no timed event; two of the phone's hours at least, as the
-          // timeline keeps.
-          className="flex min-h-[5.5rem] min-w-0 grow basis-0 flex-col gap-3 overflow-y-auto overscroll-contain"
-        >
-          {rest}
-        </div>
       ) : null}
       {fill ? null : rest}
     </section>

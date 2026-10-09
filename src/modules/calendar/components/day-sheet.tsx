@@ -23,7 +23,9 @@ import { DayDetail } from "./day-detail";
  * backed out first (`OverlayLink`), so back from the task lands on the calendar. Loaded after the
  * page, on its first opening (§19).
  *
- * **The phone's sheet** is the day's detail with its timeline. **The laptop's dialog** (the
+ * **The phone's sheet** is the day's detail with its timeline, its body the sheet's scroll and the
+ * day's action pinned in a row under it (the owner's decision of 2026-10-09, as under the week and
+ * the compact month), never a scroll away; no action, no row. **The laptop's dialog** (the
  * owner's 2026-10-08 changes) has no timeline: a compact agenda (`DayAgenda`) whose body is the
  * dialog's one scroll, used only when the day is very full, and a footer pinned under it with the
  * day's buttons ("+ New task on 8 Oct" or "Suggest a task", and "Open day").
@@ -82,32 +84,40 @@ export function DaySheet({
           ) : null}
         </DialogContent>
       ) : (
-        // One column no wider than the sheet (the surface is a grid; a one-line row's min-content
-        // must not widen it past the screen at large text).
+        // A column no wider than the sheet (a one-line row's min-content must not widen it past
+        // the screen at large text): the title, the body as the sheet's one scroll, and the day's
+        // action pinned under it. "Open day" (`footer`) is the laptop's only.
         <DialogContent
-          className="grid-cols-[minmax(0,1fr)] md:max-w-lg"
+          className="flex flex-col overflow-hidden md:max-w-lg"
           data-calendar="day-sheet"
           data-date={day.date}
         >
-          <DialogHeader>
+          <DialogHeader className="shrink-0">
             <DialogTitle>{dayHeading(day.date, today)}</DialogTitle>
             <DialogDescription className="sr-only">
               What is on this day, and what you can do on it.
             </DialogDescription>
           </DialogHeader>
-          <div className="max-h-[70svh] min-w-0 overflow-y-auto">
+          <div data-slot="calendar-day-body" className="min-h-0 min-w-0 flex-1 overflow-y-auto">
             <DayDetail
               day={day}
               today={today}
               scope={scope}
               free={free}
-              action={action}
-              footer={footer}
+              action={null}
               timeline
               heading={false}
               headingId={`sheet-${day.date}`}
             />
           </div>
+          {action ? (
+            <div
+              data-slot="calendar-day-action"
+              className="border-border -mx-4 flex min-w-0 shrink-0 items-center gap-2 border-t px-4 pt-3"
+            >
+              {action}
+            </div>
+          ) : null}
         </DialogContent>
       )}
     </Dialog>

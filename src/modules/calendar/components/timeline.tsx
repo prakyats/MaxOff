@@ -43,7 +43,7 @@ import {
  * **On the phone's week and compact month** (`fill`, the owner's phone walk of 2026-10-08) the
  * timeline fills what the day's detail leaves above the bottom bar, never less than two hours, as
  * the screen's one scroll (`overscroll-behavior: contain`, so it never chains to the page): the
- * hours, then the day's other rows (`after`).
+ * hours, then the day's other rows (`after`). The day's action sits under it, pinned (2026-10-09).
  *
  * Every timeline opens 8 px above its opening hour (a whole hour), so that hour's label shows
  * whole at the top.
@@ -147,7 +147,10 @@ export function Timeline({
   laptop?: boolean;
   /** The phone's week and compact month: fills the height it is given, its one scroll. */
   fill?: boolean;
-  /** What scrolls in after the hours (`fill`): the day's Due list, "Who's free" and buttons. */
+  /**
+   * What scrolls in after the hours (`fill`): the day's Due list and "Who's free" (the day's
+   * action is pinned under the timeline instead, `DayDetail`).
+   */
   after?: ReactNode;
   className?: string;
 }) {
