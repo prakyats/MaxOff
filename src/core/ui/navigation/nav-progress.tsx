@@ -1,7 +1,7 @@
 "use client";
 
 import { Loader2Icon } from "lucide-react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { systemClock } from "@/core/time/clock";
@@ -13,6 +13,7 @@ import {
   isRouterActionFetch,
   NAV_DONE_ATTRIBUTE,
   NAV_PENDING_ATTRIBUTE,
+  NAV_READY_ATTRIBUTE,
   NAV_TARGET_ATTRIBUTE,
   NAV_TRACK_START,
   navigationDone,
@@ -109,7 +110,14 @@ export function NavProgressBar() {
 
 /**
  * What drives the bar (ARCHITECTURE §14.2 i, owner 2026-09-28 and 2026-09-29), mounted once in the
- * root layout inside `<Suspense>` (it reads the address through Next's hooks):
+ * root layout, **outside any `<Suspense>`** and before the app's shell in the tree: it hydrates
+ * with the shell, so it is listening (`data-nav-ready`) before a tab or link can take a tap. Inside
+ * a boundary it hydrated after the shell (React hydrates a boundary the server already filled at
+ * its lowest priority), and a tap on an already hydrated tab in that window sent a router fetch
+ * nobody counted: the bar stood down after `IDLE_CANCEL_MS` with the fetch still on its way, so
+ * neither "Still loading" nor Retry ever came (CI run 37904970460, `tap-feedback.spec:313`). It
+ * reads no address through Next's hooks (`useSearchParams` would need the boundary): the address
+ * shown is the last one written or restored in history, which the wrappers below see.
  *
  * - **starts** it for navigations no tap started: any router fetch for another screen
  *   (`router.push`/`replace`, a redirect), by watching `fetch`, and back or forward to **another
@@ -130,21 +138,17 @@ export function NavProgressBar() {
  */
 export function NavProgress() {
   const router = useRouter();
-  const pathname = usePathname();
-  const search = useSearchParams();
   const [stage, setStage] = useState<NavStage | null>(null);
   const destination = useRef<string | null>(null);
   const kind = useRef<Kind>("tap");
-  // The address the app is showing, as React last rendered it: at a `popstate` it is still the
-  // address before the move, so a move to the same address (an overlay closing) is told apart.
-  const shown = useRef("");
-  useEffect(() => {
-    const query = search.toString();
-    shown.current = pathname + (query ? `?${query}` : "");
-  }, [pathname, search]);
 
   useEffect(() => {
     const html = document.documentElement;
+    // The address the app is showing: the last one written to history (the router's commits and
+    // the app's own view addresses both go through the wrappers below) or restored by a back or
+    // forward. At a `popstate` it is still the address before the move, so a move to the same
+    // address (an overlay closing) is told apart.
+    let shown = here();
     let startedAt = 0;
     let from = "";
     let movedAt = 0;
@@ -249,8 +253,10 @@ export function NavProgress() {
     // Back or forward: only a move to another address is a navigation. Closing a sheet or a
     // dialog goes back to the entry beneath at the same address (§14.2 a).
     const onPopState = () => {
-      if (here() === shown.current) return;
-      begin(here(), "history", shown.current);
+      const from = shown;
+      shown = here();
+      if (shown === from) return;
+      begin(shown, "history", from);
     };
     const onUnload = () => {
       unloading = true;
@@ -328,10 +334,12 @@ export function NavProgress() {
     };
     const pushState: History["pushState"] = function (this: History, data, unused, url) {
       realPush.call(this, data, unused, url);
+      shown = here();
       if (committing(data)) committed();
     };
     const replaceState: History["replaceState"] = function (this: History, data, unused, url) {
       realReplace.call(this, data, unused, url);
+      shown = here();
       if (committing(data)) committed();
     };
     window.history.pushState = pushState;
@@ -340,7 +348,9 @@ export function NavProgress() {
     window.addEventListener("click", onClick);
     window.addEventListener("popstate", onPopState);
     window.addEventListener("beforeunload", onUnload);
+    html.setAttribute(NAV_READY_ATTRIBUTE, "");
     return () => {
+      html.removeAttribute(NAV_READY_ATTRIBUTE);
       if (window.fetch === patched) window.fetch = realFetch;
       if (window.history.pushState === pushState) window.history.pushState = realPush;
       if (window.history.replaceState === replaceState) window.history.replaceState = realReplace;
