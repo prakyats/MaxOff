@@ -538,10 +538,14 @@ test.describe("the Owner's Today (6.2)", () => {
     try {
       await page.goto("/today");
       await hydrated(page);
-      const card = page.locator('[data-slot="today-attendance-card"]');
+      // The shown copy: React reveals a streamed section in batches, and until then the only copy
+      // is the hidden one it streamed in (see `pageHeader`), with no boxes to measure.
+      const card = page.locator('[data-slot="today-attendance-card"]:visible');
+      await expect(card).toBeVisible();
       const counts = card.locator('[data-slot="today-count"]');
       // Exactly four, in this order, always: never a fifth cell.
       await expect(counts).toHaveCount(4);
+      await expect(counts.last()).toBeVisible();
       expect(
         await counts.evaluateAll((els) => els.map((el) => el.getAttribute("data-bucket"))),
       ).toEqual(["not_chosen", "waiting", "present", "on_leave"]);
