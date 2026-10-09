@@ -319,14 +319,18 @@ test.describe("navigation shows it is on its way", () => {
     // The full load is the point of this test (§14.2 i).
     reloadGuard.allow(/.*/);
     await runInstalled(page);
+    // PROBE: a busy phone (CPU 12x), so the router may start the tap's fetch late.
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 12 });
     await page.clock.install();
-    await holdScreen(page, "/tasks");
+    const slow = await holdScreen(page, "/tasks");
     await page.goto("/today");
     await hydrated(page);
     await page.evaluate(() => {
       (window as unknown as { __sameDocument: boolean }).__sameDocument = true;
     });
     await bottomTab(page, "/tasks").click();
+    void slow;
     await page.clock.fastForward(26_000);
     const status = page.locator('[data-slot="nav-progress-status"]');
     await status.getByRole("button", { name: "Retry" }).click();
