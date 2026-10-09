@@ -15,6 +15,7 @@ import {
   serviceInsert,
   serviceRest,
   serviceSelect,
+  signIn,
   storageStateFor,
   supabaseAuth,
   USERS,
@@ -51,14 +52,24 @@ function addDays(date: string, days: number): string {
   return at.toISOString().slice(0, 10);
 }
 
-/** An Active client run by the seeded Admin. */
-async function workClient(name: string): Promise<string> {
+/**
+ * This project's own Admin (`supabase/seed.sql`), for a flow that must not be re-read under its
+ * hands: the seeded Admin is told of every parallel test's sent-back items, and each notification
+ * re-reads whatever screen that Admin has open (the live bell, 5.1).
+ */
+const ownAdmin = (info: TestInfo) => ({
+  email: `cw-admin-${info.project.name}@maxoff.local`,
+  password: "cw-local-password",
+});
+
+/** An Active client run by the seeded Admin (or by `adminEmail`). */
+async function workClient(name: string, adminEmail: string = admin.email): Promise<string> {
   await removeClientFixture(name);
   const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
   const row = await serviceInsert<{ id: string }>("clients", {
     org_id: org?.id,
     name,
-    admin_id: await memberIdOf(admin.email),
+    admin_id: await memberIdOf(adminEmail),
   });
   await rpcAs(owner.email, owner.password, "client_activate", { client_id: row.id });
   return row.id;
@@ -188,7 +199,11 @@ test("a project from the Projects tab: per-item stages, Mark done with Undo, Mar
   page,
 }, info) => {
   const client = nameOf(info, "projects");
-  const clientId = await workClient(client);
+  const own = ownAdmin(info);
+  const clientId = await workClient(client, own.email);
+  // This project's own Admin: no other test's notification re-reads the page mid-flow.
+  await page.context().clearCookies();
+  await signIn(page, own.email, own.password);
   await page.goto(`/clients/${clientId}/projects`);
   await hydrated(page);
   await expect(page.getByText("No projects yet.")).toBeVisible();
@@ -373,6 +388,11 @@ test("the Admin's Today: Client work with Mark done and its Undo, a sent-back it
   await expect(
     page.locator('[data-slot="today-sent-back-row"]', { hasText: nameOf(info, "back") }),
   ).toContainText("The logo is wrong");
+  // The rows come in their own chunk after the page: a tap before it hydrates reaches nothing.
+  await expect(page.locator('[data-slot="today-client-work-rows"]')).toHaveAttribute(
+    "data-ready",
+    "",
+  );
   const row = page.locator('[data-slot="today-client-item"]', { hasText: nameOf(info, "due") });
   await expect(row).toContainText("Due today");
   await row.getByRole("button", { name: "Mark done" }).click();
@@ -1016,7 +1036,12 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
     await page.goto("/today");
     await hydrated(page);
 
-    // Today's Client work: a row opens the item sheet; back closes it.
+    // Today's Client work: a row opens the item sheet; back closes it. The rows come in their
+    // own chunk after the page: a tap before it hydrates reaches nothing.
+    await expect(page.locator('[data-slot="today-client-work-rows"]')).toHaveAttribute(
+      "data-ready",
+      "",
+    );
     await page
       .locator('[data-slot="today-client-item"]', { hasText: nameOf(info, "sheet due") })
       .getByRole("button")

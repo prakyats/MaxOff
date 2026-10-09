@@ -16,6 +16,14 @@ import { movedPosition } from "../domain/positions";
 
 export type ListRow = { id: string; name: string; position: string };
 
+/** A name sent and not yet in the server's list: drawn at once, faded (the 7B rework's flake). */
+type PendingAdd = { key: number; name: string; before: number };
+
+/** How many rows carry `name` (an item list may hold the same title twice). */
+function countNamed(rows: readonly ListRow[], name: string): number {
+  return rows.filter((row) => row.name === name).length;
+}
+
 /** What a refusal says under the field or in the toast: a field's own message first (zod's). */
 function refusalText(error: ResultError): { title: string; description?: string } {
   const field = Object.values(error.fieldErrors ?? {}).flat()[0];
@@ -31,7 +39,11 @@ function refusalText(error: ResultError): { title: string; description?: string 
  * removal's confirmation closes first. A name typed and not yet added or renamed is not lost
  * silently: back asks "Discard what you typed?", and back on that keeps editing (§14.2 f). A
  * stage list is `unique`: a name the list already has (ignoring case) is refused before it is
- * sent, as the database refuses it (the 7B rework's review, S3).
+ * sent, as the database refuses it (the 7B rework's review, S3). **An add shows at once:** the
+ * name joins the list, faded and inert, the moment it is sent, and gives way to the server's row
+ * when the refreshed list carries it (a refused add takes it back and returns the name to the
+ * field). The server's list follows the action's whole re-render, which on a busy server or a
+ * slow phone took seconds (and longer when a live refresh of the same screen ran first).
  */
 export function ListEditorSheet({
   open,
@@ -75,6 +87,11 @@ export function ListEditorSheet({
   const [names, setNames] = useState<Readonly<Record<string, string>>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [removing, setRemoving] = useState<ListRow | null>(null);
+  const [pending, setPending] = useState<readonly PendingAdd[]>([]);
+  const nextKey = useRef(0);
+  // Sent names the server's list does not carry yet; one it carries gives way to its row.
+  const shown = pending.filter((add) => countNamed(rows, add.name) <= add.before);
+  if (shown.length !== pending.length) setPending(shown);
   const [asking, setAsking] = useState(false);
   // Set while the sheet hands over to "Discard?": the rename a closing field's blur would send
   // waits for the answer instead.
@@ -87,8 +104,10 @@ export function ListEditorSheet({
   function taken(name: string, except: string | null): string | null {
     if (!unique) return null;
     const key = name.trim().toLowerCase();
-    const other = rows.find((row) => row.id !== except && row.name.trim().toLowerCase() === key);
-    return other ? `This list already has a ${noun} called ${other.name}.` : null;
+    const other =
+      rows.find((row) => row.id !== except && row.name.trim().toLowerCase() === key)?.name ??
+      pending.find((add) => add.name.toLowerCase() === key)?.name;
+    return other ? `This list already has a ${noun} called ${other}.` : null;
   }
 
   function requestClose(next: boolean) {
@@ -112,16 +131,21 @@ export function ListEditorSheet({
       setAddError(clash);
       return;
     }
+    const name = adding.trim();
+    const add: PendingAdd = { key: nextKey.current++, name, before: countNamed(rows, name) };
     setBusy("add");
-    const result = await onAdd(adding);
+    setPending((current) => [...current, add]);
+    setAdding("");
+    setAddError(null);
+    const result = await onAdd(name);
     setBusy(null);
     if (!result.ok) {
+      setPending((current) => current.filter((other) => other.key !== add.key));
       const { title: heading, description: detail } = refusalText(result.error);
+      setAdding((typed) => (typed === "" ? name : typed));
       setAddError(detail ?? heading);
       return;
     }
-    setAdding("");
-    setAddError(null);
   }
 
   async function rename(row: ListRow) {
@@ -167,7 +191,7 @@ export function ListEditorSheet({
         description={description}
       >
         <div className="flex flex-col gap-3" data-slot="list-editor">
-          {rows.length === 0 ? (
+          {rows.length + shown.length === 0 ? (
             <p className="text-muted-foreground">None yet.</p>
           ) : (
             <ol className="border-border divide-border divide-y rounded-lg border">
@@ -224,9 +248,25 @@ export function ListEditorSheet({
                   {rowAction ? rowAction(row) : null}
                 </li>
               ))}
+              {shown.map((add) => (
+                <li
+                  key={`pending-${add.key}`}
+                  data-slot="list-editor-row"
+                  data-pending=""
+                  className="flex items-center gap-1 p-1 opacity-60"
+                >
+                  <Input
+                    aria-label={`Name of ${add.name}`}
+                    value={add.name}
+                    disabled
+                    readOnly
+                    className="min-w-0 flex-1"
+                  />
+                </li>
+              ))}
             </ol>
           )}
-          {rows.length < max ? (
+          {rows.length + shown.length < max ? (
             <form onSubmit={add} className="flex flex-col gap-1">
               <div className="flex items-center gap-2">
                 <Input

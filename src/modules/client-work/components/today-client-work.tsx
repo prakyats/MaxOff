@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 
 import { cn } from "@/core/lib/utils";
 import { ErrorText } from "@/core/ui/composites/error-text";
@@ -10,6 +10,9 @@ import type { ItemView } from "../domain/views";
 
 import { ItemSheet, type ItemPermissions } from "./item-sheet";
 import { MARK_DONE_URL, useUndoSends } from "./use-undo-sends";
+
+/** Nothing to subscribe to: the value only changes from the server's HTML to the client's. */
+const noChanges = () => () => {};
 
 export type TodayItem = {
   view: ItemView;
@@ -45,11 +48,19 @@ export function TodayClientWork({
   });
 
   const open = items.find((item) => item.view.id === openId) ?? null;
+  // False in the server's HTML, true once this chunk has hydrated: its rows answer taps from then
+  // (`data-ready`; a tap on the server's rows before it reaches no handler, PROGRESS 6A (7)).
+  const ready = useSyncExternalStore(
+    noChanges,
+    () => true,
+    () => false,
+  );
   return (
     <>
       <ul
         aria-label="Client work"
         data-slot="today-client-work-rows"
+        data-ready={ready ? "" : undefined}
         className="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border"
       >
         {items.map((item) => {
