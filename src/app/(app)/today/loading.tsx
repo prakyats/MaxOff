@@ -1,6 +1,6 @@
 import { getCurrentMember } from "@/core/auth/server";
 import { can } from "@/core/permissions";
-import { ApprovalGroupSkeleton } from "@/core/ui/composites/approval-group-skeleton";
+import { ApprovalRowsSkeleton } from "@/core/ui/composites/approval-group-skeleton";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { TodayAttendanceStripSkeleton, TodayCardSkeleton } from "@/modules/attendance";
 import { DashSectionHeadingSkeleton } from "@/modules/dashboards";
@@ -9,14 +9,15 @@ import { TaskRowsSkeleton } from "@/modules/tasks";
 import { adminGreeting, ownerGreeting } from "./words";
 
 /**
- * Today as it renders (6.2, 6.3), traced per role (ARCHITECTURE §14.1). **The Owner's:** the
- * attendance card (its title and four counts; the two problem counts join above zero), then the
- * first screen's typical section, Approvals: its heading and a preview group's heading and rows
- * (no "Approve all" on Today). Sections are hidden when empty (decision 24), so the skeleton
- * traces the full layout's first screen and nothing jumps when data arrives. **An Admin's:** the one-line attendance strip,
- * then "Needs you": its heading and two `TaskRow`s. A Crew member who types the address is taken
- * to My Day, whose shape this is too (the strip and a section). The `(app)` layout already read
- * the member for this request (`cache()`), so asking costs no query.
+ * Today as it renders (6.2, 6.3), traced per role (ARCHITECTURE §14.1). **The Owner's** (the Today
+ * refresh, owner 2026-10-09): "Needs you", its heading and two compact approval rows (the same
+ * row height, the kind label and title, the detail line, the one button), then the attendance
+ * section, its heading and the one compact row of four counts. Needs you always stands ("Nothing
+ * needs you." when empty) and the card always follows it, so the first screen keeps this shape;
+ * the sections after the card are hidden when empty (decision 24). **An Admin's:** the one-line
+ * attendance strip, then "Needs you": its heading and two `TaskRow`s. A Crew member who types the
+ * address is taken to My Day, whose shape this is too (the strip and a section). The `(app)`
+ * layout already read the member for this request (`cache()`), so asking costs no query.
  */
 export default async function Loading() {
   const member = await getCurrentMember();
@@ -28,7 +29,6 @@ export default async function Loading() {
         title="Today"
         description={owner ? ownerGreeting(member?.name) : adminGreeting(member?.name)}
       />
-      {owner ? <TodayCardSkeleton /> : null}
       {strip ? <TodayAttendanceStripSkeleton /> : null}
       <div
         role="status"
@@ -40,11 +40,12 @@ export default async function Loading() {
         <section className="flex min-w-0 flex-col gap-2">
           <DashSectionHeadingSkeleton />
           {owner ? (
-            <ApprovalGroupSkeleton rows={2} bulk={false} />
+            <ApprovalRowsSkeleton rows={2} />
           ) : (
             <TaskRowsSkeleton rows={2} notes={2} label="Needs you" />
           )}
         </section>
+        {owner ? <TodayCardSkeleton /> : null}
         <span className="sr-only">Loading Today</span>
       </div>
     </>

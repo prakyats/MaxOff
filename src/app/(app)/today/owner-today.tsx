@@ -2,8 +2,7 @@ import { ListChecksIcon } from "lucide-react";
 
 import type { CurrentMember } from "@/core/auth/server";
 import { can } from "@/core/permissions";
-import { ROLE_LABELS } from "@/core/lib/role-labels";
-import { addISTDays, systemClock, todayIST } from "@/core/time";
+import { addISTDays, systemClock, todayIST, type ISODate } from "@/core/time";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import {
   getTodayPeople,
@@ -11,29 +10,41 @@ import {
   summariseToday,
   TodayAttendanceCard,
 } from "@/modules/attendance";
+import { buildCalendar, parseCalendarQuery } from "@/modules/calendar";
 import {
+  CalendarHeaderLink,
   DashSection,
-  EventsStrip,
-  eventsStrip,
   heldEmailsLine,
   LinkRow,
   leaveRisks,
   notNotedRisks,
   overdueRisks,
+  OWNER_APPROVALS_SHOWN,
+  OWNER_NEEDS_YOU_EMPTY,
   OWNER_TODAY_EMPTY,
   QuietText,
+  reachedAt,
   RiskRows,
   RowList,
   sortRisks,
   STRIP_DAYS,
   todaysTasks,
   todaysTasksLine,
+  waitingFor,
+  WeekLines,
+  weekLines,
   type Risk,
+  type Waiting,
 } from "@/modules/dashboards";
-import { activeAssignees, listUnreadCounts, type TaskListRow } from "@/modules/tasks";
+import {
+  activeAssignees,
+  listUnreadCounts,
+  taskTypeColor,
+  type TaskListRow,
+} from "@/modules/tasks";
 
 import { firstInGroupOrder, taskItem } from "../approvals/items";
-import { readDirectory, readOpenTasks } from "../tasks/reads";
+import { readDirectory, readOpenTasks, readTaskTypes } from "../tasks/reads";
 
 import {
   PreviewClaims,
@@ -54,21 +65,28 @@ import {
 } from "./reads";
 import { ownerGreeting } from "./words";
 
-/** How many waiting items the preview shows (Kickoff 6 decision 5). */
-const APPROVALS_SHOWN = 5;
-
 /**
  * The Owner's Today (6.2; PRODUCT §2 principle 11, its first application; Kickoff 6 decisions 4–8,
- * 12, 22, 23 and **24**): **the attendance card, then exceptions only.** The card's counts (the
- * four groups, plus Absent and "End of day not recorded" above zero, coloured by urgency; each
- * tappable: Waiting opens Approvals, the others the full board on that group, the title the whole
- * board); then, each only when it has something: the approvals preview (the oldest five in the
- * Approvals group order, Approve with Undo and Review, "See all N", no bulk), today's tasks as one
- * line, Overdue and risks (five rows, then "See all"; the emails the daily limit held back today),
- * the next seven days' events. When every section after the card is hidden, one muted line:
- * "Nothing else needs you today." Not shown until their data exists (decision 4): item approvals,
- * client work progress, the revenue snapshot. The rule for every later addition (decision 24):
- * exceptions only, a count rather than a list where possible, one tap to the list, hidden when empty.
+ * 12, 22, 23 and 24; **the Today refresh, owner 2026-10-09, ROADMAP 6b.7**). In order:
+ *
+ * 1. **Needs you**: the approvals, first. One list of compact rows, no heading per kind: the
+ *    oldest five in the Approvals group order (decision 5's cut), each a kind label, the name or
+ *    title, one detail line ending in how long it has waited (from when it reached the Owner;
+ *    amber from a day, red from three), and one button: Approve with the 6-second Undo, or
+ *    Review where the decision needs the review (extra work and expenses, as on Approvals). A tap
+ *    on the row opens the review. "See all N" only when the list is cut; "Nothing needs you."
+ *    when nothing waits (the section always stands, so the screen keeps its shape).
+ * 2. **Attendance**: the counts in one compact row (decision 24's counts, links and colours).
+ * 3. **Today's tasks**: one line, "N due today · M handed in".
+ *    (Phase 7's client work line goes here, after Today's tasks, when it is built.)
+ * 4. **Overdue and risks** (decisions 6, 23).
+ * 5. **This week**: a person's consecutive leave as one line, each day's deadlines and events as
+ *    the calendar's month view counts them, at most five lines then "See the week"; "Calendar ›"
+ *    in the header.
+ *
+ * Sections 3–5 are drawn only with something in them (decision 24: exceptions only); when none
+ * is, one muted line: "Nothing else needs you today." Not shown until their data exists
+ * (decision 4): item approvals, client work progress, the revenue snapshot.
  */
 export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
   const today = todayIST();
@@ -85,6 +103,7 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
     events,
     holidays,
     unended,
+    types,
   ] = await Promise.all([
     getTodayPeople(),
     readOpenTasks(),
@@ -100,6 +119,8 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
     readHolidays(),
     // Yesterday's End day not recorded, from the cutoff on (decision 24, amended 2026-10-08).
     getUnendedYesterday(),
+    // Which task types show on the calendar: This week counts as the calendar's month view does.
+    readTaskTypes(),
   ]);
   const [days, requests, notes, claims, toDecide] = approvals;
   const now = systemClock();
@@ -112,14 +133,35 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
   const shown = firstInGroupOrder(
     { days, requests, notes, claims, toDecide },
     ["days", "requests", "notes", "claims", "toDecide"],
-    APPROVALS_SHOWN,
+    OWNER_APPROVALS_SHOWN,
   );
+  const shownCount =
+    shown.days.length +
+    shown.requests.length +
+    shown.notes.length +
+    shown.claims.length +
+    shown.toDecide.length;
   // The task rows' unread comments (Kickoff 4 decision 28), for the rows shown only (A-S4).
   const unread = await listUnreadCounts(shown.toDecide.map((item) => item.row.id));
   const tasks = shown.toDecide.map((item) => ({
     ...taskItem(item, nameRecord, true),
     unread: unread[item.row.id] ?? 0,
   }));
+  // How long each has waited for the Owner: from the hand-in, or the approving Admin's approval
+  // when that came later (a task); a day's submission, or the 23:59 job's proposal; a request's,
+  // note's or claim's sending.
+  const waited = (since: string | null): Waiting | null => (since ? waitingFor(since, now) : null);
+  const waiting = {
+    days: waitingMap(shown.days, (day) => waited(day.submittedAt ?? day.updatedAt)),
+    requests: waitingMap(shown.requests, (request) => waited(request.createdAt)),
+    notes: waitingMap(shown.notes, (note) => waited(note.createdAt)),
+    claims: waitingMap(shown.claims, (claim) => waited(claim.createdAt)),
+    tasks: waitingMap(
+      shown.toDecide.map((item) => ({ ...item, id: item.row.id })),
+      (item) =>
+        waited(reachedAt(item.submission?.at ?? item.row.submittedAt, item.adminApprovedAt)),
+    ),
+  };
 
   const dueToday = todaysTasks(open, today);
 
@@ -140,48 +182,67 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
       openTasks: person.openTasks,
     })),
   ]);
-  const strip = eventsStrip({ events, holidays, leave: leaveDays, today });
-  // Exceptions only (decision 24): a section with nothing in it is not drawn.
+
+  const week = weekLines({
+    days: calendarWeek({ today, last, viewerId: viewer.id, events, open, types, holidays }),
+    leave: leaveDays,
+    nameOf,
+    today,
+  });
+  // Exceptions only (decision 24): a section after the card with nothing in it is not drawn.
   const sections = {
-    approvals: total > 0,
     tasks: dueToday.due > 0,
     risks: risks.length > 0 || (held !== null && heldEmailsLine(held) !== null),
-    week: strip.days.length > 0,
+    week: week.lines.length > 0,
   };
   const nothing = !Object.values(sections).some(Boolean);
 
   return (
     <>
       <PageHeader title="Today" description={ownerGreeting(viewer.name)} />
-      <TodayAttendanceCard summary={summary} />
       <div className="flex max-w-3xl min-w-0 flex-col gap-6" data-slot="owner-today">
-        {nothing ? <QuietText slot="today-nothing-else">{OWNER_TODAY_EMPTY}</QuietText> : null}
-
-        {sections.approvals ? (
-          <DashSection title="Approvals" slot="today-approvals" count={total}>
-            <div className="flex min-w-0 flex-col gap-4" data-slot="today-approvals-preview">
-              {shown.days.length > 0 ? (
-                <PreviewDays days={shown.days} today={today} preview />
+        <DashSection title="Needs you" slot="today-approvals" count={total}>
+          {total === 0 ? (
+            <QuietText slot="today-approvals-empty">{OWNER_NEEDS_YOU_EMPTY}</QuietText>
+          ) : (
+            <div className="flex min-w-0 flex-col gap-2" data-slot="today-approvals-preview">
+              <ul
+                aria-label="Waiting for you"
+                data-slot="today-approval-rows"
+                className="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border"
+              >
+                {shown.days.length > 0 ? (
+                  <PreviewDays days={shown.days} today={today} waiting={waiting.days} preview />
+                ) : null}
+                {shown.requests.length > 0 ? (
+                  <PreviewLeave requests={shown.requests} waiting={waiting.requests} preview />
+                ) : null}
+                {shown.notes.length > 0 ? (
+                  <PreviewNotes notes={shown.notes} waiting={waiting.notes} preview />
+                ) : null}
+                {shown.claims.length > 0 ? (
+                  <PreviewClaims claims={shown.claims} waiting={waiting.claims} preview />
+                ) : null}
+                {tasks.length > 0 ? (
+                  <PreviewTasks tasks={tasks} heading="Tasks" waiting={waiting.tasks} preview />
+                ) : null}
+              </ul>
+              {/* "See all N" only when the list is cut (owner 2026-10-09). */}
+              {total > shownCount ? (
+                <RowList label="All approvals" slot="today-approvals-all">
+                  <LinkRow
+                    href="/approvals"
+                    slot="today-see-all-approvals"
+                    title={`See all ${total}`}
+                    tab
+                  />
+                </RowList>
               ) : null}
-              {shown.requests.length > 0 ? (
-                <PreviewLeave requests={shown.requests} preview />
-              ) : null}
-              {shown.notes.length > 0 ? <PreviewNotes notes={shown.notes} /> : null}
-              {shown.claims.length > 0 ? <PreviewClaims claims={shown.claims} /> : null}
-              {tasks.length > 0 ? (
-                <PreviewTasks tasks={tasks} heading={`${ROLE_LABELS.staff} tasks`} preview />
-              ) : null}
-              <RowList label="All approvals" slot="today-approvals-all">
-                <LinkRow
-                  href="/approvals"
-                  slot="today-see-all-approvals"
-                  title={`See all ${total}`}
-                  tab
-                />
-              </RowList>
             </div>
-          </DashSection>
-        ) : null}
+          )}
+        </DashSection>
+
+        <TodayAttendanceCard summary={summary} />
 
         {sections.tasks ? (
           <DashSection title="Today's tasks" slot="today-tasks">
@@ -196,6 +257,9 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
             </RowList>
           </DashSection>
         ) : null}
+
+        {/* Phase 7's client work line takes its place here, after Today's tasks (owner
+            2026-10-09): one line, hidden when empty, so no empty band until then. */}
 
         {sections.risks ? (
           <DashSection title="Overdue and risks" slot="today-risks" count={risks.length}>
@@ -213,13 +277,79 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
         ) : null}
 
         {sections.week ? (
-          <DashSection title="This week" slot="today-events">
-            <EventsStrip days={strip.days} hidden={strip.hidden} today={today} />
+          <DashSection title="This week" slot="today-events" action={<CalendarHeaderLink />}>
+            <WeekLines lines={week.lines} hidden={week.hidden} today={today} />
           </DashSection>
         ) : null}
+
+        {nothing ? <QuietText slot="today-nothing-else">{OWNER_TODAY_EMPTY}</QuietText> : null}
       </div>
     </>
   );
+}
+
+/** Each shown item's waiting words, by its id (the rows read them on the client). */
+function waitingMap<T extends { id: string }>(
+  items: readonly T[],
+  words: (item: T) => Waiting | null,
+): Record<string, Waiting> {
+  const map: Record<string, Waiting> = {};
+  for (const item of items) {
+    const value = words(item);
+    if (value) map[item.id] = value;
+  }
+  return map;
+}
+
+/**
+ * The week's days as the calendar's month view has them (`buildCalendar`, the Owner's scope, no
+ * filter): a holiday, the events (the task types shown on the calendar), and "N due" (every other
+ * open task due that day), from the reads Today already makes. Leave is This week's own (approved,
+ * by name), so none goes in here.
+ */
+function calendarWeek(input: {
+  today: ISODate;
+  last: ISODate;
+  viewerId: string;
+  events: Parameters<typeof buildCalendar>[0]["events"];
+  open: readonly TaskListRow[];
+  types: readonly { id: string; name: string; showsOnCalendar: boolean; color: string | null }[];
+  holidays: readonly { date: ISODate; name: string }[];
+}) {
+  const days = buildCalendar({
+    range: { from: input.today, to: input.last },
+    scope: "owner",
+    viewerId: input.viewerId,
+    query: parseCalendarQuery({}, input.today),
+    events: input.events,
+    openTasks: input.open.map((task) => ({
+      id: task.id,
+      title: task.title,
+      dueAt: task.dueAt,
+      clientId: task.clientId,
+      taskTypeId: task.taskTypeId,
+      primaryOwnerId: task.primaryOwnerId,
+      assigneeIds: activeAssignees(task.assignees).map((a) => a.memberId),
+    })),
+    types: input.types.map((type) => ({
+      id: type.id,
+      name: type.name,
+      showsOnCalendar: type.showsOnCalendar,
+      color: taskTypeColor(type.color),
+    })),
+    clients: [],
+    people: [],
+    holidays: input.holidays,
+    weeklyOffDays: [],
+    leave: [],
+    availability: null,
+  });
+  return days.map((day) => ({
+    date: day.date,
+    holiday: day.holiday,
+    due: day.due.length,
+    events: day.events.map((event) => ({ title: event.title, startAt: event.startAt })),
+  }));
 }
 
 /** Everyone whose leave the Owner's Today reads: active employees, never the Owner. */

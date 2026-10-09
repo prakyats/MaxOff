@@ -313,7 +313,7 @@ test.describe("Crew: My Day (6.1)", () => {
 test.describe("the Owner's Today (6.2)", () => {
   test.use({ storageState: storageStateFor("owner") });
 
-  test("the card, then exceptions only: approvals, today's tasks, risks and the week, in that order (decision 24)", async ({
+  test("Needs you first, then the card, then exceptions only: today's tasks, risks and the week, in that order (decision 24, the Today refresh)", async ({
     page,
   }, info) => {
     test.skip(info.project.name === "mobile-lg", "the flow runs at 1280 and 375px");
@@ -337,16 +337,22 @@ test.describe("the Owner's Today (6.2)", () => {
 
     await page.goto("/today");
     await hydrated(page);
-    // The card and the risks (the overdue task) are always there; the other sections only when
-    // they have something (decision 24), so the order is checked over whichever are drawn.
+    // Needs you (the approvals, "Nothing needs you." when none wait), the card and the risks (the
+    // overdue task) are always there; the other sections only when they have something
+    // (decision 24), so the order is checked over whichever are drawn. Since the Today refresh
+    // (owner 2026-10-09) Needs you comes first, then the card.
     const order = [
-      '[data-slot="today-attendance-card"]',
       '[data-slot="today-approvals"]',
+      '[data-slot="today-attendance-card"]',
       '[data-slot="today-tasks"]',
       '[data-slot="today-risks"]',
       '[data-slot="today-events"]',
     ];
-    const always = ['[data-slot="today-attendance-card"]', '[data-slot="today-risks"]'];
+    const always = [
+      '[data-slot="today-approvals"]',
+      '[data-slot="today-attendance-card"]',
+      '[data-slot="today-risks"]',
+    ];
     await expect(page.locator('[data-slot="today-risks"]:visible').first()).toBeVisible();
     let previous = -1;
     for (const selector of order) {
@@ -384,6 +390,115 @@ test.describe("the Owner's Today (6.2)", () => {
     await tasksLine.click();
     await expect(page).toHaveURL(/\/tasks\/all\?overdue=today$/);
     await expect(page.locator('[data-filter="overdue"]:visible')).toContainText("Due today");
+  });
+
+  test("Needs you: one list of compact rows, how long each has waited, one button each; See all only when cut (the Today refresh)", async ({
+    page,
+  }, info) => {
+    const crewId = await memberIdOf(crew(info));
+    await resetAttendanceAndLeave(crewId);
+    // Something waits for the Owner: this project's own leave request, far off the week.
+    await rpcAs(crew(info), PASSWORD, "leave_submit", {
+      type: "leave",
+      start_date: workingDay(40),
+      end_date: workingDay(40),
+    });
+    try {
+      if (isPhone(info)) await runInstalled(page);
+      await page.goto("/today");
+      await hydrated(page);
+      const needs = section(page, "today-approvals");
+      await expect(needs).toBeVisible();
+      // No heading per kind: the groups' rows share one list.
+      await expect(needs.locator('[data-slot="approval-group"]')).toHaveCount(0);
+      const rows = needs.locator('[data-slot="today-approval-rows"] [data-slot="approval-row"]');
+      await expect(rows.first()).toBeVisible();
+      const shown = await rows.count();
+      expect(shown).toBeGreaterThan(0);
+      expect(shown).toBeLessThanOrEqual(5);
+      for (let index = 0; index < shown; index++) {
+        const row = rows.nth(index);
+        const kind = (await row.locator('[data-slot="approval-kind"]').innerText()).trim();
+        expect(["Attendance", "Leave", "Extra work", "Expense", "Task"]).toContain(kind);
+        // One button: Approve, or Review where the decision needs the review (as on Approvals).
+        const buttons = row.locator("[data-variant]");
+        await expect(buttons).toHaveCount(1);
+        const label = (await buttons.innerText()).trim();
+        expect(label).toBe(kind === "Extra work" || kind === "Expense" ? "Review" : "Approve");
+        await expect(buttons).toHaveAttribute(
+          "data-variant",
+          label === "Approve" ? "strong" : "secondary",
+        );
+        // How long it has waited: muted under a day, amber from one, red from three.
+        const waited = row.locator('[data-slot="approval-waiting"]');
+        const words = (await waited.innerText()).trim();
+        const match = words.match(/^· waiting (?:under 1 h|(\d+) h|(\d+) days?)$/);
+        expect(match, words).not.toBeNull();
+        const days = match?.[2] ? Number(match[2]) : 0;
+        await expect(waited).toHaveAttribute(
+          "data-tone",
+          days >= 3 ? "danger" : days >= 1 ? "attention" : "muted",
+        );
+      }
+      // "See all N" only when the list is cut.
+      const total = Number(
+        (await page.locator("#today-approvals-title").innerText()).match(/· (\d+)/)?.[1],
+      );
+      expect(total).toBeGreaterThanOrEqual(shown);
+      await expect(page.locator('[data-slot="today-see-all-approvals"]')).toHaveCount(
+        total > shown ? 1 : 0,
+      );
+
+      if (isPhone(info)) {
+        // A tap on the row opens its review; back closes it and stays on Today (§14.2 a).
+        await rows.first().locator('[data-slot="approval-row-open"]').click();
+        const sheet = page.locator('[data-slot="review-sheet"]');
+        await expect(sheet).toBeVisible();
+        await expectBackStack(page, [{ closes: sheet, url: /\/today$/ }]);
+      }
+    } finally {
+      await resetAttendanceAndLeave(crewId);
+    }
+  });
+
+  test('a task waiting for the Owner after the Admin\'s check reads "Admin approved · needs you", never "Checked"', async ({
+    page,
+  }, info) => {
+    test.skip(info.project.name !== "desktop", "one check is enough: the Owner is shared");
+    const prefix = prefixOf(info);
+    await removeTasksTitled(`${prefix}checked`);
+    const crewId = await memberIdOf(crew(info));
+    const id = await adminCreates(info, {
+      title: `${prefix}checked`,
+      assignees: [crewId],
+      due: istInstant(workingDay(5), "18:00"),
+    });
+    await rpcAs(crew(info), PASSWORD, "task_acknowledge", { task_id: id });
+    await rpcAs(crew(info), PASSWORD, "task_submit_done", { task_id: id });
+    await rpcAs(admin(info), PASSWORD, "task_review", { task_id: id, decision: "approved" });
+    try {
+      // The task's page and the Approvals row say what it asks of the Owner.
+      await page.goto(`/tasks/${id}`);
+      const glance = page.locator('[data-slot="task-glance"]');
+      await expect(glance).toContainText("Admin approved · needs you");
+      await expect(glance).not.toContainText("Checked");
+      await page.goto("/approvals");
+      const row = page
+        .locator('[data-slot="approval-group"][data-group="tasks"] [data-slot="approval-row"]')
+        .filter({ hasText: `${prefix}checked` });
+      await expect(row).toContainText("Admin approved · needs you");
+      // The full list says the same.
+      await page.goto("/tasks/all?state=review");
+      const listed = page
+        .locator('[data-slot="data-card"]:visible, [data-slot="table-row"]:visible')
+        .filter({ hasText: `${prefix}checked` });
+      await expect(listed).toContainText("Admin approved · needs you");
+    } finally {
+      await rpcAs(USERS.owner.email, USERS.owner.password, "task_review", {
+        task_id: id,
+        decision: "approved",
+      });
+    }
   });
 
   test("a count opens the full board on its group; Waiting opens Approvals", async ({

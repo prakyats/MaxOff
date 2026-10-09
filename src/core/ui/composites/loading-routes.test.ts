@@ -68,10 +68,11 @@ describe("loading.tsx coverage", () => {
     expect(sourceOf("my-day")).toContain("TodayAttendanceStripSkeleton");
     expect(sourceOf("my-day")).toContain("TaskRowsSkeleton");
     expect(sourceOf("my-day")).not.toContain(standIn);
-    // 6.2 / 6.3 Today: the Owner's attendance card and the approvals preview; an Admin's strip and
-    // Needs you. The full board moved to its own drill-down (`today/people`), traced there.
+    // 6.2 / 6.3 Today: the Owner's approvals as compact rows, then the attendance card (the Today
+    // refresh, owner 2026-10-09); an Admin's strip and Needs you. The full board moved to its own
+    // drill-down (`today/people`), traced there.
     expect(sourceOf("today")).toContain("TodayCardSkeleton");
-    expect(sourceOf("today")).toContain("ApprovalGroupSkeleton");
+    expect(sourceOf("today")).toContain("ApprovalRowsSkeleton");
     expect(sourceOf("today")).toContain("TodayAttendanceStripSkeleton");
     expect(sourceOf("today")).not.toContain(standIn);
     expect(sourceOf("today/people")).toContain("loading-today-people");

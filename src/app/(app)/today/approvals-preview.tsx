@@ -5,7 +5,8 @@ import { type ComponentProps, Suspense } from "react";
 
 /**
  * The Owner's approvals preview on Today (6.2, Kickoff 6 decision 5): the Approvals groups' own
- * components (Approve with the 6-second Undo, Review and its sheet), each **in its own chunk**
+ * components (Approve with the 6-second Undo, Review and its sheet), drawn since the Today refresh
+ * (owner 2026-10-09) as compact rows in Today's one list (`preview`), each **in its own chunk**
  * (the first-load budget, 6.0: nothing new on Today's first load). They still render on the
  * server, so the rows are in the first paint and nothing moves; each sits in its own Suspense
  * boundary, so its chunk holds only its own hydration (ARCHITECTURE §19, `me-lazy.tsx`).

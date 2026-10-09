@@ -29,6 +29,15 @@ export type BoardPerson = {
 export const OWNER_TODAY_EMPTY = "Nothing else needs you today.";
 
 /**
+ * The Owner's "Needs you" (their approvals, first on Today since the refresh, owner 2026-10-09)
+ * with nothing waiting: the section stays, with this line, so the screen keeps its shape.
+ */
+export const OWNER_NEEDS_YOU_EMPTY = "Nothing needs you.";
+
+/** How many waiting items the Owner's "Needs you" shows before "See all N" (decision 5). */
+export const OWNER_APPROVALS_SHOWN = 5;
+
+/**
  * The full board's filters (a count on Today opens the board on its group). `end_not_recorded`
  * (decision 24) is not a group of the board but a flag on a person: the board keeps its groups
  * and shows only the people whose end of day was not recorded.

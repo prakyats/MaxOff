@@ -32,8 +32,30 @@ export function isOverdue(task: Pick<Task, "dueAt" | "state">, now: Date): boole
   return !isFinal(task.state) && now.getTime() > Date.parse(task.dueAt);
 }
 
-/** The state as a short word for the badge. `admin_approved` reads by its Admin step. */
-export function stateLabel(task: Pick<Task, "state" | "adminStep">): string {
+/**
+ * A task waiting for the final approval, in the words of the one who gives it (the Owner's Today
+ * refresh, owner 2026-10-09): after the approving Admin's approval, "Admin approved · needs you";
+ * with no Admin step (none, or skipped), "Needs you". Everyone else still reads "Checked" /
+ * "Waiting for approval".
+ */
+export const FINAL_APPROVER_LABELS = {
+  afterAdmin: "Admin approved · needs you",
+  direct: "Needs you",
+} as const;
+
+/**
+ * The state as a short word for the badge. `admin_approved` reads by its Admin step, and, for the
+ * viewer who gives the final approval (`tasks.approve_final`, the Owner), as what it asks of them.
+ */
+export function stateLabel(
+  task: Pick<Task, "state" | "adminStep">,
+  viewer: { finalApprover: boolean } = { finalApprover: false },
+): string {
+  if (task.state === "admin_approved" && viewer.finalApprover) {
+    return task.adminStep === "required"
+      ? FINAL_APPROVER_LABELS.afterAdmin
+      : FINAL_APPROVER_LABELS.direct;
+  }
   switch (task.state) {
     case "todo":
       return "To do";

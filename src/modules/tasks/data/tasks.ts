@@ -412,6 +412,11 @@ export type TaskToDecide = {
   row: TaskListRow;
   lateReason: string | null;
   submission: TaskSubmission | null;
+  /**
+   * The approving Admin's latest approval of it (`task_reviews`, step admin), or null: with the
+   * hand-in, when a task waiting for the Owner reached them (the Owner's Today, owner 2026-10-09).
+   */
+  adminApprovedAt: string | null;
 };
 
 /**
@@ -426,11 +431,16 @@ export async function listTasksToDecide(
   const query = supabase
     .from("tasks")
     .select(
-      `${LIST_COLUMNS}, late_reason, task_submissions(id, version, note, submitted_by, on_behalf_of, at)`,
+      `${LIST_COLUMNS}, late_reason, task_submissions(id, version, note, submitted_by, on_behalf_of, at), task_reviews(at)`,
     )
     .order("submitted_at", { ascending: true })
     .order("version", { referencedTable: "task_submissions", ascending: false })
-    .limit(1, { referencedTable: "task_submissions" });
+    .limit(1, { referencedTable: "task_submissions" })
+    // The approving Admin's latest approval: when a task waiting for the Owner reached them.
+    .eq("task_reviews.step", "admin")
+    .eq("task_reviews.decision", "approved")
+    .order("at", { referencedTable: "task_reviews", ascending: false })
+    .limit(1, { referencedTable: "task_reviews" });
   const { data, error } = viewer.final
     ? await query.eq("state", "admin_approved")
     : await query.eq("state", "submitted").eq("approving_admin_id", viewer.id);
@@ -446,6 +456,7 @@ export async function listTasksToDecide(
       on_behalf_of: string | null;
       at: string;
     }[];
+    task_reviews: { at: string }[];
   };
   return (data as unknown as Row[])
     .map((row) => {
@@ -453,6 +464,7 @@ export async function listTasksToDecide(
       return {
         row: toListRow(row),
         lateReason: row.late_reason,
+        adminApprovedAt: row.task_reviews[0]?.at ?? null,
         submission: latest
           ? {
               id: latest.id,

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { ApprovalGroup } from "@/core/ui/composites/approval-group";
+import { ApprovalGroup, type ApprovalWaiting } from "@/core/ui/composites/approval-group";
 import { OverlayLink } from "@/core/ui/composites/overlay-link";
 import { ReasonDialog } from "@/core/ui/composites/reason-dialog";
 import { ReviewFacts, ReviewSheet } from "@/core/ui/composites/review-sheet";
@@ -39,10 +39,16 @@ const APPROVE_URL = "/api/approvals/approve";
 export function PendingLeaveGroup({
   requests,
   preview = false,
+  waiting,
 }: {
   requests: PendingLeave[];
-  /** The Owner's Today shows a few rows with their two actions and no Approve all (6.2). */
+  /**
+   * The Owner's Today: compact rows for its one list (kind, name, detail, how long it waited,
+   * Approve with Undo; a tap opens Review), no heading and no Approve all (owner 2026-10-09).
+   */
   preview?: boolean;
+  /** Each request's waiting words on the Owner's Today, worked out on the server. */
+  waiting?: Readonly<Record<string, ApprovalWaiting>>;
 }) {
   const [reviewId, setReviewId] = useState<string | null>(null);
   const [rejectId, setRejectId] = useState<string | null>(null);
@@ -55,14 +61,27 @@ export function PendingLeaveGroup({
         id="leave"
         heading="Leave"
         noun={{ one: "request", other: "requests" }}
-        rows={requests.map((request) => ({
-          id: request.id,
-          title: pendingLeaveTitle(request),
-          subtitle: pendingLeaveSubtitle(request),
-          status: "submitted",
-          statusLabel: pendingLeaveStatus(request),
-          approvedLabel: approvedLeaveLabel(request, displayName(request.memberName)),
-        }))}
+        rows={requests.map((request) =>
+          preview
+            ? {
+                // A compact row leads with the person: what they ask for and when is the detail.
+                id: request.id,
+                title: request.memberName,
+                subtitle: `${pendingLeaveTitle(request)} · ${leaveDates(request.startDate, request.endDate)}`,
+                status: "submitted",
+                statusLabel: pendingLeaveStatus(request),
+                approvedLabel: approvedLeaveLabel(request, displayName(request.memberName)),
+                waiting: waiting?.[request.id],
+              }
+            : {
+                id: request.id,
+                title: pendingLeaveTitle(request),
+                subtitle: pendingLeaveSubtitle(request),
+                status: "submitted",
+                statusLabel: pendingLeaveStatus(request),
+                approvedLabel: approvedLeaveLabel(request, displayName(request.memberName)),
+              },
+        )}
         approve={(requestId) =>
           postKeepalive<{ keptDates: string[] }>(APPROVE_URL, { kind: "leave", id: requestId })
         }
@@ -72,6 +91,8 @@ export function PendingLeaveGroup({
           if (note) toast.info(note);
         }}
         onReview={setReviewId}
+        layout={preview ? "rows" : "group"}
+        kind="Leave"
       />
       <ReviewSheet
         open={review !== null}

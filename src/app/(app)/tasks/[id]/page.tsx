@@ -195,7 +195,12 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
               data-slot="task-glance"
               className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm"
             >
-              <StatusDot status={task.state} label={stateLabel(task)} />
+              <StatusDot
+                status={task.state}
+                label={stateLabel(task, {
+                  finalApprover: can(viewer.role, "tasks.approve_final"),
+                })}
+              />
               <span aria-hidden className="text-muted-foreground">
                 ·
               </span>

@@ -13,7 +13,7 @@ import { Button } from "@/core/ui/primitives/button";
 import { describeError } from "@/core/ui/toast";
 
 import { ConfirmDialog } from "./confirm-dialog";
-import { CARD_ROW_TRAILING, LIST_ROW_MIN_H } from "./row-metrics";
+import { APPROVAL_ROW_MIN_H, CARD_ROW_TRAILING, LIST_ROW_MIN_H } from "./row-metrics";
 import { StatusDot } from "./status-badge";
 
 /** One row waiting for a decision: what it is, whose, and where it stands. */
@@ -28,7 +28,22 @@ export type ApprovalRow = {
   approvedLabel: string;
   /** A marker beside the status, e.g. a task's unread comments (Kickoff 4 decision 28). */
   marker?: ReactNode;
+  /**
+   * How long it has waited for the decision ("waiting 4 days") and its colour: muted, amber from a
+   * day, red from three (the Owner's Today rows, `layout="rows"`; the words carry the meaning).
+   */
+  waiting?: ApprovalWaiting | undefined;
 };
+
+/** "waiting 4 days" and its colour (the dashboards' `waitingFor`, structurally). */
+export type ApprovalWaiting = { label: string; tone: "muted" | "attention" | "danger" };
+
+/** The waiting words' colours (§14.1: amber and red only where they mean something). */
+const WAITING_TONE = {
+  muted: "text-muted-foreground",
+  attention: "text-attention",
+  danger: "text-danger",
+} as const;
 
 /**
  * One group of the Approvals screen (PRODUCT "Approvals", WORKFLOWS §1 "Settled in 2.4"). Two
@@ -45,6 +60,13 @@ export type ApprovalRow = {
  *
  * Rows stay where they are until the server's refreshed list arrives, so nothing reshuffles
  * under the thumb; the waiting count is announced politely.
+ *
+ * **`layout="rows"`** (the Owner's Today, owner 2026-10-09): the same rows and the same Approve
+ * (the 6-second Undo, the delayed send) as compact list items for a list the caller draws, so
+ * every group's rows share one list with no headings: a small kind label, the name or title on
+ * one line, one muted detail line ending in how long it has waited, and **one** button: Approve,
+ * or Review when the group has no Approve (its decision needs the review). A tap on the row
+ * opens the review. No Approve all.
  */
 export function ApprovalGroup<T>({
   id,
@@ -55,6 +77,8 @@ export function ApprovalGroup<T>({
   approveAll,
   onApproved,
   onReview,
+  layout = "group",
+  kind,
 }: {
   /** Stable id for tests and the heading's `aria-labelledby`. */
   id: string;
@@ -73,6 +97,10 @@ export function ApprovalGroup<T>({
   /** Runs when a single approval has been recorded (e.g. to show kept dates). */
   onApproved?: (id: string, data: T) => void;
   onReview: (id: string) => void;
+  /** `rows`: only the rows, as `<li>`s for the caller's list (the Owner's Today). */
+  layout?: "group" | "rows";
+  /** The rows' kind label in `layout="rows"`: "Leave", "Task", "Expense". */
+  kind?: string;
 }) {
   // Faded rows: waiting to be sent, or sent and waiting for the refreshed list.
   const [held, setHeld] = useState<ReadonlySet<string>>(() => new Set());
@@ -174,6 +202,24 @@ export function ApprovalGroup<T>({
   }
 
   if (rows.length === 0) return null;
+  if (layout === "rows") {
+    return (
+      <>
+        {rows.map((row) => (
+          <CompactRow
+            key={row.id}
+            row={row}
+            group={id}
+            kind={kind ?? heading}
+            held={held.has(row.id)}
+            error={errors[row.id]}
+            onReview={() => onReview(row.id)}
+            onApprove={approve ? () => approveOne(row) : null}
+          />
+        ))}
+      </>
+    );
+  }
   const headingId = `approvals-${id}-heading`;
   const count = waiting.length;
 
@@ -266,6 +312,86 @@ export function ApprovalGroup<T>({
         onConfirm={approveEveryone}
       />
     </section>
+  );
+}
+
+/**
+ * One waiting item as a compact row (`layout="rows"`): the row itself opens the review; the one
+ * button beside it approves (with Undo), or is Review when the decision needs it. At the default
+ * text size the row is the button's 44px plus its padding (`APPROVAL_ROW_MIN_H`), so the loading
+ * screen traces it (`ApprovalRowsSkeleton`).
+ */
+function CompactRow({
+  row,
+  group,
+  kind,
+  held,
+  error,
+  onReview,
+  onApprove,
+}: {
+  row: ApprovalRow;
+  group: string;
+  kind: string;
+  held: boolean;
+  error: string | undefined;
+  onReview: () => void;
+  onApprove: (() => void) | null;
+}) {
+  const waiting = held ? { label: "Approved", tone: "muted" as const } : row.waiting;
+  return (
+    <li
+      data-slot="approval-row"
+      data-group={group}
+      data-state={held ? "approved" : "waiting"}
+      className={cn(
+        "flex min-w-0 items-center gap-3 pr-4 transition-opacity duration-300",
+        APPROVAL_ROW_MIN_H,
+        held && "opacity-50",
+      )}
+    >
+      <button
+        type="button"
+        onClick={onReview}
+        disabled={held}
+        data-slot="approval-row-open"
+        className="pressable-row focus-visible:ring-ring flex min-w-0 flex-1 flex-col justify-center gap-0.5 self-stretch py-2 pl-4 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset"
+      >
+        <span className="flex min-h-5 min-w-0 items-center gap-2">
+          <span data-slot="approval-kind" className="text-muted-foreground shrink-0 text-xs">
+            {kind}
+          </span>
+          <span className="min-w-0 truncate text-sm font-medium">{row.title}</span>
+          {row.marker}
+        </span>
+        <span className="text-muted-foreground flex min-w-0 gap-1 text-xs">
+          <span className="min-w-0 truncate">{row.subtitle}</span>
+          {waiting ? (
+            <span
+              data-slot="approval-waiting"
+              data-tone={waiting.tone}
+              className={cn("shrink-0", WAITING_TONE[waiting.tone])}
+            >
+              · {waiting.label}
+            </span>
+          ) : null}
+        </span>
+        {error ? (
+          <span data-slot="approval-error" role="status" className="text-destructive text-xs">
+            {error}
+          </span>
+        ) : null}
+      </button>
+      {onApprove ? (
+        <Button variant="strong" commits onClick={onApprove} disabled={held}>
+          Approve
+        </Button>
+      ) : (
+        <Button variant="secondary" onClick={onReview} disabled={held}>
+          Review
+        </Button>
+      )}
+    </li>
   );
 }
 

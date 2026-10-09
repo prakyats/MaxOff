@@ -85,6 +85,8 @@ export default async function TasksPage() {
   };
   const listViewer = { id: viewer.id, role: viewer.role, coordinates: own };
   const now = systemClock();
+  // The Owner reads a task waiting for them as what it asks of them (owner 2026-10-09).
+  const labelViewer = { finalApprover: can(viewer.role, "tasks.approve_final") };
 
   if (!can(viewer.role, "tasks.create")) {
     // "Suggest a task" (4.6): a client label the suggester sees, Active or Paused (decision 22).
@@ -165,7 +167,7 @@ export default async function TasksPage() {
                       title={item.row.title}
                       meta={rowMeta(item.row, context)}
                       status={item.row.state}
-                      statusLabel={stateLabel(item.row)}
+                      statusLabel={stateLabel(item.row, labelViewer)}
                       flag={reasonFlag(item)}
                       note={needsNote(item, viewer.id, context.nameOf)}
                       unread={unread[item.row.id] ?? 0}
@@ -195,7 +197,7 @@ export default async function TasksPage() {
                   title={row.title}
                   meta={rowMeta(row, context)}
                   status={row.state}
-                  statusLabel={stateLabel(row)}
+                  statusLabel={stateLabel(row, labelViewer)}
                   flag={rowFlag(row, now)}
                   unread={unread[row.id] ?? 0}
                 />

@@ -7,7 +7,7 @@ import type { ResultError } from "@/core/errors";
 import { cn } from "@/core/lib/utils";
 import { ActionStatus } from "@/core/ui/action/action-status";
 import { useAction } from "@/core/ui/action/use-action";
-import { ApprovalGroup } from "@/core/ui/composites/approval-group";
+import { ApprovalGroup, type ApprovalWaiting } from "@/core/ui/composites/approval-group";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { ReviewFacts, ReviewSheet } from "@/core/ui/composites/review-sheet";
 import { Button } from "@/core/ui/primitives/button";
@@ -47,7 +47,20 @@ export type PendingNote = ExtraWorkNote & { memberName: string };
  * of comp leave, or no comp leave; for a day off, whether the day counts as worked). The dialog is
  * held here, beside the sheet, so back closes it first (ARCHITECTURE §14.2 a).
  */
-export function PendingNotesGroup({ notes }: { notes: PendingNote[] }) {
+export function PendingNotesGroup({
+  notes,
+  preview = false,
+  waiting,
+}: {
+  notes: PendingNote[];
+  /**
+   * The Owner's Today: compact rows for its one list (kind, name, detail, how long it waited),
+   * each with Review alone, as here: every decision needs the review (owner 2026-10-09).
+   */
+  preview?: boolean;
+  /** Each note's waiting words on the Owner's Today, worked out on the server. */
+  waiting?: Readonly<Record<string, ApprovalWaiting>>;
+}) {
   const [reviewId, setReviewId] = useState<string | null>(null);
   const [decideId, setDecideId] = useState<string | null>(null);
   const review = notes.find((note) => note.id === reviewId) ?? null;
@@ -66,8 +79,11 @@ export function PendingNotesGroup({ notes }: { notes: PendingNote[] }) {
           status: "submitted",
           statusLabel: note.kind === "day_off" ? "Day off worked" : "Overtime",
           approvedLabel: "",
+          waiting: waiting?.[note.id],
         }))}
         onReview={setReviewId}
+        layout={preview ? "rows" : "group"}
+        kind="Extra work"
       />
       <ReviewSheet
         open={review !== null}

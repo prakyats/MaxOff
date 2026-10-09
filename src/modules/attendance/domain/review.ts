@@ -25,6 +25,11 @@ export type PendingDay = {
   startedAt: string | null;
   note: string | null;
   submittedAt: string | null;
+  /**
+   * The row's last change: for the 23:59 job's proposed absence (no `submittedAt`), when the job
+   * put it in front of the Owner (the Owner's Today's "waiting …", owner 2026-10-09).
+   */
+  updatedAt: string;
 };
 
 /** "Started 9:12 am" (3b.1), or nothing recorded. */
@@ -164,13 +169,23 @@ export const TODAY_BUCKET_LABELS: Record<BoardBucket, string> = {
 /**
  * The card's counts (kickoff 6 decision 24, owner 2026-10-07): the four groups, then Absent and
  * "End of day not recorded", shown only above zero. Each is a tap target: Waiting opens Approvals,
- * the others the full board on that group.
+ * the others the full board on that group. **One compact row since the Today refresh (owner
+ * 2026-10-09):** Not started · Waiting · Present · On leave, the problem counts after them.
  */
-export const TODAY_CARD_COUNTS = [...TODAY_BUCKETS, "absent", "end_not_recorded"] as const;
+export const TODAY_CARD_COUNTS = [
+  "not_chosen",
+  "waiting",
+  "present",
+  "on_leave",
+  "absent",
+  "end_not_recorded",
+] as const;
 export type TodayCardCount = (typeof TODAY_CARD_COUNTS)[number];
 
+/** The card's words: the board's, with "Waiting" short enough for a quarter of a phone's row. */
 export const TODAY_CARD_LABELS: Record<TodayCardCount, string> = {
   ...TODAY_BUCKET_LABELS,
+  waiting: "Waiting",
   end_not_recorded: "End of day not recorded",
 };
 

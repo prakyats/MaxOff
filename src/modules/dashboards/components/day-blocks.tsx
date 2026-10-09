@@ -29,6 +29,7 @@ import {
   STRIP_EMPTY,
   type StripDay,
 } from "../domain/today";
+import { SEE_THE_WEEK_HREF, type WeekLine, weekLineHref } from "../domain/week";
 
 import { LinkRow, Marker, QuietText, RowList, ShowFirst } from "./blocks";
 
@@ -297,6 +298,71 @@ export function EventsStrip<T extends DayEvent>({
       </ul>
       <CalendarLink label={hidden > 0 ? `Open calendar · ${hidden} more` : "Open calendar"} />
     </div>
+  );
+}
+
+/**
+ * The Owner's "This week" (the Today refresh, owner 2026-10-09): `weekLines`' lines, each one
+ * line (ellipsis), opening the calendar on its first day; "See the week" only when lines were cut.
+ * The section's header carries "Calendar ›" (`CalendarHeaderLink`).
+ */
+export function WeekLines({
+  lines,
+  hidden,
+  today,
+}: {
+  lines: readonly WeekLine[];
+  hidden: number;
+  today: ISODate;
+}) {
+  return (
+    <div className="flex min-w-0 flex-col gap-2" data-slot="week-lines">
+      <RowList label="The next 7 days">
+        {lines.map((line) => {
+          const [lead, ...rest] = line.parts;
+          return (
+            <li key={line.key} data-slot="week-line" data-kind={line.kind} data-date={line.date}>
+              <Link
+                href={weekLineHref(line, today)}
+                className="pressable-row focus-visible:ring-ring flex min-h-11 min-w-0 items-center gap-3 px-4 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset"
+              >
+                <span className="min-w-0 flex-1 truncate">
+                  <span className="font-medium">{lead}</span>
+                  {rest.map((part, index) => (
+                    <span key={index}>
+                      <span aria-hidden className="text-muted-foreground">
+                        {" · "}
+                      </span>
+                      {part}
+                    </span>
+                  ))}
+                </span>
+                <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
+              </Link>
+            </li>
+          );
+        })}
+      </RowList>
+      {hidden > 0 ? (
+        <RowList label="The rest of the week">
+          <LinkRow href={SEE_THE_WEEK_HREF} slot="today-see-the-week" title="See the week" tab />
+        </RowList>
+      ) : null}
+    </div>
+  );
+}
+
+/** "Calendar ›" beside a section's heading: another tab, a 44px target on a 20px line. */
+export function CalendarHeaderLink() {
+  return (
+    <Link
+      href="/calendar"
+      data-slot="open-calendar"
+      className="pressable focus-visible:ring-ring text-muted-foreground hover:text-foreground -my-3 inline-flex min-h-11 items-center gap-1 rounded-md px-1 text-sm font-medium outline-none focus-visible:ring-2"
+    >
+      Calendar
+      <ChevronRightIcon className="size-4 shrink-0" aria-hidden />
+    </Link>
   );
 }
 

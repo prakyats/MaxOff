@@ -4,6 +4,27 @@ Newest first. Each entry says what ships, what the Crew will notice, and what ha
 release. A release is a `v*` tag on a `main` commit with green CI, approved by the Owner (CLAUDE.md). Earlier
 releases (v1.0.0 to v1.3.0) are recorded in their tag messages and in `PROGRESS.md`.
 
+## Unreleased
+
+### The Owner's Today refresh (ROADMAP 6b.7, branch `today-refresh`; no migrations)
+- **What ships:** the Owner's Today opens on **Needs you**: every waiting approval as one compact row
+  (Attendance, Leave, Extra work, Expense or Task; the name or title; one detail line ending in how long it
+  has waited: "waiting 3 h", "waiting 4 days", amber from a day and red from three), with one button,
+  Approve (the same 6-second Undo) or Review where the decision needs the review (extra work and expense
+  claims, as on Approvals). A tap on a row opens its review. "See all N" shows only when more than five
+  wait; "Nothing needs you." when none do. Then **Attendance** as one row of four numbers (Not started ·
+  Waiting · Present · On leave, same taps and colours), Today's tasks, Overdue and risks, and **This week**
+  as at most five lines ("Anna on leave · Mon 12 – Wed 14", "Thu 15 · 3 due · Shoot 11:00", then "See the
+  week"; "Calendar ›" in the header). A task waiting for the Owner after an Admin's check reads
+  **"Admin approved · needs you"** (no Admin step: "Needs you") on Today, Approvals, the Tasks lists and the
+  task's page, instead of "Checked".
+- **What the Owner will notice:** approvals first and shorter; the wait shown on each; the attendance card
+  a single line; the week grouped by person and day.
+- **What Admins will notice:** nothing (their Today is unchanged; they still read "Checked").
+- **What the Crew will notice:** nothing.
+- **Before the tag:** the Owner's phone check of the new Today at 375 and 430 px (installed, gesture back
+  from a row's review).
+
 ## v1.5.1: the owner's phone-walk fixes (phase 6)
 
 **Draft, not released.** On `phase-6` after v1.5.0; the advisor opens its PR once the walk fixes have

@@ -51,6 +51,12 @@ const COUNT_DOT: Record<CountTone | "zero", string> = {
   zero: "bg-muted-foreground/40",
 };
 
+/** The card's one row of counts (a second row only for the problem counts above zero). */
+const COUNT_GRID = "border-border bg-card grid grid-cols-4 gap-1 rounded-lg border p-1";
+/** One count: the dot and the number on a 24px line, the label under it; 44px tall at least. */
+const COUNT_CELL =
+  "focus-visible:ring-ring flex min-h-11 min-w-0 flex-col justify-center rounded-md px-1.5 py-1 outline-none focus-visible:ring-2";
+
 /**
  * "Today's attendance" on the Owner's /today (task 2.4; 6.2, PRODUCT §2 principle 11; kickoff 6
  * decision 24, owner 2026-10-07): the counts for the IST day, the four groups always and Absent
@@ -58,52 +64,59 @@ const COUNT_DOT: Record<CountTone | "zero", string> = {
  * **Every count is tappable** (ROADMAP 6.2): "Waiting" opens Approvals (another tab), the others
  * open the full people board filtered to that group (a drill-down, `/today/people?group=…`); the
  * card's title opens the whole board. On a day off it says so and counts only who came in.
+ *
+ * **One compact row since the Today refresh (owner 2026-10-09):** the section's heading
+ * ("Attendance ›", the whole board) above a card no taller than a line of numbers and their
+ * labels: Not started · Waiting · Present · On leave, each a 44px tap target, the dot beside the
+ * number so a quarter of a 375px row holds the label; Absent and "End of day not recorded" wrap to
+ * a second row only above zero. Same counts, links and colours as before.
  */
 export function TodayAttendanceCard({ summary }: { summary: TodaySummary }) {
   return (
     <section
       aria-labelledby="today-attendance-title"
       data-slot="today-attendance-card"
-      className="border-border bg-card mb-4 flex flex-col gap-3 rounded-lg border p-4"
+      className="flex min-w-0 flex-col gap-2"
     >
       <h2
         id="today-attendance-title"
         data-slot="today-see-all-people"
-        className="flex h-5 items-center text-sm font-medium"
+        className="flex min-h-5 items-center text-sm font-semibold"
       >
         <DrillLink
           href="/today/people"
           aria-label="Today's attendance: everyone today"
           className="focus-visible:ring-ring -my-3 -ml-1 inline-flex min-h-11 items-center gap-1 rounded-md px-1 outline-none focus-visible:ring-2"
         >
-          Today&apos;s attendance{summary.isDayOff ? " · Day off" : ""}
+          Attendance{summary.isDayOff ? " · Day off" : ""}
           <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
         </DrillLink>
       </h2>
-      <span className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <span className={COUNT_GRID}>
         {TODAY_CARD_COUNTS.filter((count) => countShown(count, summary.counts[count])).map(
           (count) => {
             const value = summary.counts[count];
             const tone = value > 0 ? TODAY_CARD_TONES[count] : "zero";
             const content = (
               <>
-                <span
-                  className={cn("text-2xl font-semibold tabular-nums", COUNT_NUMBER[tone])}
-                  data-tone={tone}
-                >
-                  {value}
-                </span>
-                <span className="text-muted-foreground flex items-center gap-1.5 text-xs">
+                <span className="flex h-6 items-center gap-1.5">
                   <span
                     aria-hidden
                     className={cn("size-2 shrink-0 rounded-full", COUNT_DOT[tone])}
                   />
+                  <span
+                    className={cn("text-lg font-semibold tabular-nums", COUNT_NUMBER[tone])}
+                    data-tone={tone}
+                  >
+                    {value}
+                  </span>
+                </span>
+                <span className="text-muted-foreground text-xs break-words">
                   {TODAY_CARD_LABELS[count]}
                 </span>
               </>
             );
-            const className =
-              "focus-visible:ring-ring -m-1 flex flex-col rounded-md p-1 outline-none focus-visible:ring-2";
+            const className = COUNT_CELL;
             return count === "waiting" ? (
               <Link
                 key={count}
@@ -305,22 +318,19 @@ export function PersonTodayLineSkeleton() {
 /** The card's tracing alone (Today's first block), the same boxes as `TodayBoardSkeleton`'s first. */
 export function TodayCardSkeleton() {
   return (
-    <div
-      aria-hidden
-      data-slot="loading-today-card"
-      className="border-border bg-card mb-4 flex flex-col gap-3 rounded-lg border p-4"
-    >
+    <div aria-hidden data-slot="loading-today-card" className="flex min-w-0 flex-col gap-2">
       <div className="flex h-5 items-center">
-        <Skeleton className="h-4 w-36" />
+        <Skeleton className="h-4 w-24" />
       </div>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className={COUNT_GRID}>
         {TODAY_BUCKETS.map((bucket) => (
-          <div key={bucket} className="flex flex-col">
-            <div className="flex h-8 items-center">
-              <Skeleton className="h-7 w-8" />
+          <div key={bucket} className={COUNT_CELL}>
+            <div className="flex h-6 items-center gap-1.5">
+              <Skeleton className="size-2 rounded-full" />
+              <Skeleton className="h-5 w-5" />
             </div>
             <div className="flex h-4 items-center">
-              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-3 w-12 max-w-full" />
             </div>
           </div>
         ))}

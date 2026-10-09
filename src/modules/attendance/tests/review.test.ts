@@ -184,9 +184,10 @@ describe("summariseToday: the card and the board from one read", () => {
     );
     expect(summary.counts).toMatchObject({ present: 3, absent: 1, end_not_recorded: 1 });
     // The problem counts show only above zero; the four groups always.
+    // One row since the Today refresh (owner 2026-10-09): Not started · Waiting · Present · On leave.
     expect(TODAY_CARD_COUNTS.filter((count) => countShown(count, summary.counts[count]))).toEqual([
-      "waiting",
       "not_chosen",
+      "waiting",
       "present",
       "on_leave",
       "absent",
@@ -195,6 +196,7 @@ describe("summariseToday: the card and the board from one read", () => {
     expect(countShown("absent", 0)).toBe(false);
     expect(countShown("present", 0)).toBe(true);
     expect(TODAY_CARD_LABELS.not_chosen).toBe("Not started");
+    expect(TODAY_CARD_LABELS.waiting).toBe("Waiting");
     expect(TODAY_CARD_LABELS.end_not_recorded).toBe("End of day not recorded");
     expect(TODAY_CARD_TONES).toEqual({
       waiting: "attention",
@@ -258,6 +260,7 @@ const PENDING: PendingDay = {
   startedAt: null,
   note: null,
   submittedAt: "2026-09-24T03:40:00Z",
+  updatedAt: "2026-09-24T03:40:00Z",
 };
 const pending = (patch: Partial<PendingDay>): PendingDay => ({ ...PENDING, ...patch });
 

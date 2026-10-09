@@ -63,7 +63,8 @@ export default async function AllTasksPage() {
       id: row.id,
       title: row.title,
       state: row.state,
-      stateLabel: stateLabel(row),
+      // The Owner reads a task waiting for them as what it asks of them (owner 2026-10-09).
+      stateLabel: stateLabel(row, { finalApprover: can(viewer.role, "tasks.approve_final") }),
       dueAt: row.dueAt,
       dueLabel: deadlineLabel(row.dueAt),
       overdue: isOverdue(row, now),

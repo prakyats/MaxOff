@@ -7,7 +7,7 @@ import { fileUrl } from "@/core/storage";
 import { ActionStatus } from "@/core/ui/action/action-status";
 import { useAction } from "@/core/ui/action/use-action";
 import { FileImage } from "@/core/storage/components/file-image";
-import { ApprovalGroup } from "@/core/ui/composites/approval-group";
+import { ApprovalGroup, type ApprovalWaiting } from "@/core/ui/composites/approval-group";
 import { ReasonDialog } from "@/core/ui/composites/reason-dialog";
 import { ReviewFacts, ReviewSheet } from "@/core/ui/composites/review-sheet";
 import { Button } from "@/core/ui/primitives/button";
@@ -26,7 +26,20 @@ export type PendingClaim = ExpenseClaim & { memberName: string };
  * **Reject…** (a reason the person reads). The reject dialog is held here, beside the sheet, so
  * back closes it first (ARCHITECTURE §14.2 a). Only `expenses.decide` ever gets this list.
  */
-export function PendingClaimsGroup({ claims }: { claims: PendingClaim[] }) {
+export function PendingClaimsGroup({
+  claims,
+  preview = false,
+  waiting,
+}: {
+  claims: PendingClaim[];
+  /**
+   * The Owner's Today: compact rows for its one list (kind, name, detail, how long it waited),
+   * each with Review alone, as here: a claim is approved in its review (owner 2026-10-09).
+   */
+  preview?: boolean;
+  /** Each claim's waiting words on the Owner's Today, worked out on the server. */
+  waiting?: Readonly<Record<string, ApprovalWaiting>>;
+}) {
   const router = useRouter();
   const [reviewId, setReviewId] = useState<string | null>(null);
   const [rejectId, setRejectId] = useState<string | null>(null);
@@ -51,15 +64,22 @@ export function PendingClaimsGroup({ claims }: { claims: PendingClaim[] }) {
         id="expenses"
         heading="Expenses"
         noun={{ one: "claim", other: "claims" }}
-        rows={claims.map((claim) => ({
-          id: claim.id,
-          title: claim.memberName,
-          subtitle: `${formatRupees(claim.amount)} · ${claim.categoryName} · ${claimDate(claim.expenseDate)}`,
-          status: "submitted",
-          statusLabel: claim.receiptFileId ? "Receipt" : "No receipt",
-          approvedLabel: "",
-        }))}
+        rows={claims.map((claim) => {
+          const detail = `${formatRupees(claim.amount)} · ${claim.categoryName} · ${claimDate(claim.expenseDate)}`;
+          return {
+            id: claim.id,
+            title: claim.memberName,
+            // A compact row has no status word of its own: a missing receipt joins the detail.
+            subtitle: preview && !claim.receiptFileId ? `${detail} · No receipt` : detail,
+            status: "submitted",
+            statusLabel: claim.receiptFileId ? "Receipt" : "No receipt",
+            approvedLabel: "",
+            waiting: waiting?.[claim.id],
+          };
+        })}
         onReview={setReviewId}
+        layout={preview ? "rows" : "group"}
+        kind="Expense"
       />
       <ReviewSheet
         open={review !== null}

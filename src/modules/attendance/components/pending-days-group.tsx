@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { ApprovalGroup } from "@/core/ui/composites/approval-group";
+import { ApprovalGroup, type ApprovalWaiting } from "@/core/ui/composites/approval-group";
 import { ReviewFacts, ReviewSheet } from "@/core/ui/composites/review-sheet";
 import { Button } from "@/core/ui/primitives/button";
 
@@ -35,11 +35,17 @@ export function PendingDaysGroup({
   days,
   today,
   preview = false,
+  waiting,
 }: {
   days: PendingDay[];
   today: string;
-  /** The Owner's Today shows a few rows with their two actions and no Approve all (6.2). */
+  /**
+   * The Owner's Today: compact rows for its one list (kind, name, detail, how long it waited,
+   * Approve with Undo; a tap opens Review), no heading and no Approve all (owner 2026-10-09).
+   */
   preview?: boolean;
+  /** Each day's waiting words on the Owner's Today, worked out on the server. */
+  waiting?: Readonly<Record<string, ApprovalWaiting>>;
 }) {
   const [reviewId, setReviewId] = useState<string | null>(null);
   const [correct, setCorrect] = useState<CorrectTarget | null>(null);
@@ -54,14 +60,20 @@ export function PendingDaysGroup({
         rows={days.map((day) => ({
           id: day.id,
           title: day.memberName,
-          subtitle: pendingSubtitle(day, today),
+          // A compact row has one detail line: what was chosen, then the day.
+          subtitle: preview
+            ? `${pendingLabel(day)} · ${pendingSubtitle(day, today)}`
+            : pendingSubtitle(day, today),
           status: "pending_review",
           statusLabel: pendingLabel(day),
           approvedLabel: approvedLabel(day),
+          waiting: waiting?.[day.id],
         }))}
         approve={(dayId) => postKeepalive<null>(APPROVE_URL, { kind: "day", id: dayId })}
         approveAll={preview ? undefined : (dayIds) => approveDays({ dayIds })}
         onReview={setReviewId}
+        layout={preview ? "rows" : "group"}
+        kind="Attendance"
       />
       <ReviewSheet
         open={review !== null}
