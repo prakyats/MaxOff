@@ -48,3 +48,64 @@ export function nextStartable(
   if (daysAway > 7 || existingStarts.includes(next)) return null;
   return { start: next, label: cycleLabel(recurrence, next) };
 }
+
+/** The periods the Item list's words name (amendment D4): a project's repeat, now. */
+export type ItemListPeriods = {
+  /** "month" / "week": what each new cycle is. */
+  unit: "month" | "week";
+  /** The first period whose cycle is not made yet: where a new line starts ("November 2026"). */
+  from: string;
+  /** The running cycle that takes new items through + Add item ("October 2026"), or null. */
+  running: string | null;
+};
+
+/**
+ * What the Item list says (amendment D4, owner 2026-10-09: wording only): a line added or removed
+ * changes the cycles not made yet, from the first period without one (the next period, or the one
+ * after when ⋯ Start began it early); the running cycle's items never change, and something for
+ * it goes in through + Add item on the project page. `running` is the cycle whose period holds
+ * today, when it can take items (`canAddNow`: the project open or in progress, the client not
+ * Inactive, as `item_add`). Null for a one-time project (no item list).
+ */
+export function itemListPeriods(
+  recurrence: Recurrence,
+  today: ISODate,
+  cycles: readonly { periodStart: string | null; periodEnd: string | null; label: string | null }[],
+  canAddNow: boolean,
+): ItemListPeriods | null {
+  if (recurrence === "one_time") return null;
+  const starts = new Set(cycles.map((cycle) => cycle.periodStart));
+  let from = periodNext(recurrence, periodStart(recurrence, today));
+  while (starts.has(from)) from = periodNext(recurrence, from);
+  const running = cycles.find(
+    (cycle) =>
+      cycle.periodStart !== null &&
+      cycle.periodStart <= today &&
+      (cycle.periodEnd === null || cycle.periodEnd >= today),
+  );
+  return {
+    unit: recurrence === "monthly" ? "month" : "week",
+    from: cycleLabel(recurrence, from),
+    running: canAddNow && running ? (running.label ?? cycleLabel(recurrence, today)) : null,
+  };
+}
+
+/** The Item list sheet's words for those periods (amendment D4). */
+export function itemListCopy(periods: ItemListPeriods): {
+  description: string;
+  added: (title: string) => string;
+  removeDescription: string;
+} {
+  const every = `Every ${periods.unit} starts with these`;
+  return periods.running
+    ? {
+        description: `${every}, from ${periods.from}. To add something to ${periods.running}, use + Add item on the project page.`,
+        added: (title) => `${title} added from ${periods.from}`,
+        removeDescription: `${periods.from} starts without it. ${periods.running}'s items don't change.`,
+      }
+    : {
+        description: `${every}.`,
+        added: (title) => `${title} added from ${periods.from}`,
+        removeDescription: `${periods.from} starts without it.`,
+      };
+}

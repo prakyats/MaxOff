@@ -42,7 +42,14 @@ export {
   type CurrentCycleStates,
   type ProjectSummary,
 } from "./domain/projects";
-export { cycleLabel, nextStartable, periodNext, periodStart } from "./domain/periods";
+export {
+  cycleLabel,
+  itemListPeriods,
+  type ItemListPeriods,
+  nextStartable,
+  periodNext,
+  periodStart,
+} from "./domain/periods";
 export {
   cycleProgressWords,
   onTime,

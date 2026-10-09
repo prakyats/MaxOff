@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/core/ui/primitives/dropdown-menu";
 
+import type { ItemListPeriods } from "../domain/periods";
 import type { ProjectState, Recurrence } from "../domain/types";
 
 import type { ListRow } from "./list-editor-sheet";
@@ -48,6 +49,7 @@ export function ProjectMenu({
   canComplete,
   unfinished,
   nextCycleLabel,
+  itemList,
 }: {
   project: MenuProject & { state: ProjectState; recurrence: Recurrence };
   stages: readonly ListRow[];
@@ -59,6 +61,8 @@ export function ProjectMenu({
   unfinished: number;
   /** "November 2026": the period "Start next cycle" would begin, when it may start now. */
   nextCycleLabel: string | null;
+  /** The Item list's periods (amendment D4); null on a one-time project. */
+  itemList: ItemListPeriods | null;
 }) {
   const [layer, setLayer] = useState<Layer>(null);
   const [used, setUsed] = useState(false);
@@ -123,6 +127,7 @@ export function ProjectMenu({
           definitions={definitions}
           unfinished={unfinished}
           nextCycleLabel={nextCycleLabel}
+          itemList={itemList}
         />
       ) : null}
     </>

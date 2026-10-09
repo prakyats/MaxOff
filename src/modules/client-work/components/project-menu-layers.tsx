@@ -49,6 +49,7 @@ import {
 } from "../domain/schemas";
 import type { Recurrence } from "../domain/types";
 
+import { itemListCopy, type ItemListPeriods } from "../domain/periods";
 import { movedNames, nameRows } from "../domain/positions";
 
 import { ListEditorSheet, type ListRow } from "./list-editor-sheet";
@@ -82,6 +83,7 @@ export function ProjectMenuLayers({
   definitions,
   unfinished,
   nextCycleLabel,
+  itemList,
 }: {
   layer: MenuLayer | null;
   onClose: () => void;
@@ -91,12 +93,14 @@ export function ProjectMenuLayers({
   definitions: readonly FieldDefinition[];
   unfinished: number;
   nextCycleLabel: string | null;
+  itemList: ItemListPeriods | null;
 }) {
   const close = (next: boolean) => (next ? null : onClose());
   // The item-list line whose own stages are open over the item list (amendment D2).
   const [lineId, setLineId] = useState<string | null>(null);
   const line = blueprints.find((row) => row.id === lineId) ?? null;
   const lineRows = nameRows(line?.stages ?? []);
+  const itemWords = itemList ? itemListCopy(itemList) : null;
   const setLineStages = (stages: string[]) =>
     line
       ? updateBlueprint({ blueprintId: line.id, stages })
@@ -126,9 +130,12 @@ export function ProjectMenuLayers({
         open={layer === "items"}
         onOpenChange={close}
         title="Item list"
-        description="Each new cycle starts with these, each with its own stages. The current cycle's items are edited on the cycle."
+        description={itemWords?.description ?? "Each new cycle starts with these."}
         noun="item"
-        removeDescription="Later cycles start without it. The current cycle keeps its items."
+        removeDescription={
+          itemWords?.removeDescription ??
+          "Later cycles start without it. Existing items don't change."
+        }
         rows={blueprints}
         rowAction={(row) => (
           <Button
@@ -145,6 +152,7 @@ export function ProjectMenuLayers({
         max={ITEMS_MAX}
         maxLength={ITEM_TITLE_MAX}
         onAdd={(title) => addBlueprint({ projectId: project.id, title })}
+        addedMessage={itemWords?.added}
         onRename={(blueprintId, title) => updateBlueprint({ blueprintId, title })}
         onMove={(blueprintId, position) => updateBlueprint({ blueprintId, position })}
         onRemove={(blueprintId) => archiveBlueprint({ blueprintId })}

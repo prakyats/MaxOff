@@ -16,7 +16,14 @@ import {
 } from "../domain/items";
 import { describeProjectActivity } from "../domain/activity";
 import { cycleProgressWords, onTime, onTimeWords, sitLongest, sitWords } from "../domain/kpis";
-import { cycleLabel, nextStartable, periodNext, periodStart } from "../domain/periods";
+import {
+  cycleLabel,
+  itemListCopy,
+  itemListPeriods,
+  nextStartable,
+  periodNext,
+  periodStart,
+} from "../domain/periods";
 import { progressByClient, projectSummaries } from "../domain/projects";
 import { movedNames, nameRows } from "../domain/positions";
 import { activityPageSchema, createProjectSchema, updateBlueprintSchema } from "../domain/schemas";
@@ -154,6 +161,52 @@ describe("cycles", () => {
       label: "November 2026",
     });
     expect(nextStartable("one_time", TODAY, [])).toBeNull();
+  });
+});
+
+describe("the Item list's words (amendment D4)", () => {
+  const october = { periodStart: "2026-10-01", periodEnd: "2026-10-31", label: "October 2026" };
+
+  it("names the running cycle and the period a new line starts from", () => {
+    const periods = itemListPeriods("monthly", TODAY, [october], true);
+    expect(periods).toEqual({ unit: "month", from: "November 2026", running: "October 2026" });
+    const words = itemListCopy(periods!);
+    expect(words.description).toBe(
+      "Every month starts with these, from November 2026. To add something to October 2026, use + Add item on the project page.",
+    );
+    expect(words.added("Reel 4")).toBe("Reel 4 added from November 2026");
+    expect(words.removeDescription).toBe(
+      "November 2026 starts without it. October 2026's items don't change.",
+    );
+  });
+
+  it("starts from the period after one begun early with ⋯ Start", () => {
+    const november = { periodStart: "2026-11-01", periodEnd: "2026-11-30", label: "November 2026" };
+    expect(itemListPeriods("monthly", "2026-10-28", [october, november], true)?.from).toBe(
+      "December 2026",
+    );
+  });
+
+  it("says only what every period starts with when no cycle can take items", () => {
+    // An Inactive client, a closed project, or no cycle holding today.
+    for (const periods of [
+      itemListPeriods("monthly", TODAY, [october], false),
+      itemListPeriods("monthly", TODAY, [], true),
+    ]) {
+      expect(periods?.running).toBeNull();
+      expect(itemListCopy(periods!).description).toBe("Every month starts with these.");
+      expect(itemListCopy(periods!).removeDescription).toBe("November 2026 starts without it.");
+    }
+  });
+
+  it("speaks of weeks on a weekly project, and has no item list on a one-time one", () => {
+    const week = { periodStart: "2026-10-05", periodEnd: "2026-10-11", label: "5–11 Oct 2026" };
+    const periods = itemListPeriods("weekly", TODAY, [week], true);
+    expect(periods).toEqual({ unit: "week", from: "12–18 Oct 2026", running: "5–11 Oct 2026" });
+    expect(itemListCopy(periods!).description).toBe(
+      "Every week starts with these, from 12–18 Oct 2026. To add something to 5–11 Oct 2026, use + Add item on the project page.",
+    );
+    expect(itemListPeriods("one_time", TODAY, [], true)).toBeNull();
   });
 });
 

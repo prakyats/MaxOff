@@ -329,6 +329,56 @@ test("done is approved: no Client items in Approvals; the Owner sends back from 
   await removeClientFixture(client);
 });
 
+/** "October 2026": a monthly cycle's label (`cycleLabel`), `months` after this IST month. */
+function monthLabel(months: number): string {
+  const [year, month] = today().split("-").map(Number);
+  return new Date(Date.UTC(year!, month! - 1 + months, 1)).toLocaleString("en-GB", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+test("⋯ Item list: a new line starts next month; this month's items don't change (amendment D4)", async ({
+  page,
+}, info) => {
+  const client = nameOf(info, "item list");
+  const clientId = await workClient(client);
+  const projectId = await makeProject(clientId, "Monthly stories", { items: ["Story 1"] });
+  const [current, next] = [monthLabel(0), monthLabel(1)];
+  await page.goto(`/clients/${clientId}/projects/${projectId}`);
+  await hydrated(page);
+  await expect(page.locator('[data-slot="cycle-label"]')).toHaveText(current);
+
+  // The sheet says where a line goes, and where something for this month goes instead.
+  await page.getByRole("button", { name: "Actions for Monthly stories" }).click();
+  await page.getByRole("menuitem", { name: "Item list" }).click();
+  const list = page.locator('[data-slot="review-sheet"]', { hasText: "Item list" });
+  await expect(list).toContainText(
+    `Every month starts with these, from ${next}. To add something to ${current}, use + Add item on the project page.`,
+  );
+
+  // A line added: the toast names the month it starts from; this month's list is unchanged.
+  await list.getByLabel("New item").fill("Story 2");
+  await list.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(page.getByText(`Story 2 added from ${next}`)).toBeVisible();
+  await expect(list.getByLabel("Name of Story 2")).toBeVisible();
+  await expect(list.locator('[data-slot="list-editor-row"][data-pending]')).toHaveCount(0);
+
+  // Removing a line asks in the same words, and leaves this month's item in place.
+  await list.getByRole("button", { name: "Remove Story 1" }).click();
+  const remove = page.getByRole("alertdialog", { name: "Remove the item Story 1?" });
+  await expect(remove).toContainText(`${next} starts without it. ${current}'s items don't change.`);
+  await remove.getByRole("button", { name: "Remove item" }).click();
+  await expect(remove).toBeHidden();
+  await expect(list.getByLabel("Name of Story 1")).toHaveCount(0);
+  await page.goBack();
+  await expect(list).toBeHidden();
+  await expect(itemRow(page, "Story 1")).toBeVisible();
+  await expect(itemRow(page, "Story 2")).toHaveCount(0);
+  await removeClientFixture(client);
+});
+
 test("the Owner's Today: N client items overdue, the list grouped by Admin", async ({
   browser,
 }, info) => {

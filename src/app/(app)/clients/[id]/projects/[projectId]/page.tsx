@@ -17,6 +17,7 @@ import {
   currentCycle,
   cycleEnded,
   getProject,
+  itemListPeriods,
   itemView,
   lastChangeOf,
   listBlueprints,
@@ -151,6 +152,13 @@ export default async function ProjectPage({
     today,
     cycles.map((cycle) => cycle.periodStart),
   );
+  // Amendment D4: the Item list names the period a new line starts from and the running cycle.
+  const itemList = itemListPeriods(
+    project.recurrence,
+    today,
+    cycles,
+    working && client.state !== "inactive",
+  );
   const definitions = projectFields.filter((definition) => definition.archivedAt === null);
   const base = `/clients/${client.id}/projects/${project.id}`;
   const cycleHref = (cycleId: string) => `${base}?cycle=${cycleId}`;
@@ -201,6 +209,7 @@ export default async function ProjectPage({
               canComplete={can(viewer.role, "projects.complete")}
               unfinished={unfinished.length}
               nextCycleLabel={nextCycle?.label ?? null}
+              itemList={itemList}
             />
           </>
         }

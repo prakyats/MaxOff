@@ -58,6 +58,7 @@ export function ListEditorSheet({
   max,
   maxLength,
   onAdd,
+  addedMessage,
   onRename,
   onMove,
   onRemove,
@@ -78,6 +79,8 @@ export function ListEditorSheet({
   max: number;
   maxLength: number;
   onAdd: (name: string) => Promise<Result<unknown>>;
+  /** The toast once an add is saved ("Reel 4 added from November 2026"); none without it. */
+  addedMessage?: ((name: string) => string) | undefined;
   onRename: (id: string, name: string) => Promise<Result<unknown>>;
   onMove: (id: string, position: string) => Promise<Result<unknown>>;
   onRemove: (id: string) => Promise<Result<unknown>>;
@@ -146,6 +149,7 @@ export function ListEditorSheet({
       setAddError(detail ?? heading);
       return;
     }
+    if (addedMessage) toast.success(addedMessage(name));
   }
 
   async function rename(row: ListRow) {
