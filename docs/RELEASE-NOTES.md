@@ -70,7 +70,11 @@ Owner-only and is not part of this release: amounts and billing come in phase 9.
   missed delivery dates.
 - The refreshed Today: approvals first and shorter, each with its date and its wait in full; no solid
   white buttons down the list; the attendance card a single line, unended days as one red line; risks with
-  one red or amber line each; the week as counts and timed events, never a bare title.
+  their icon and one red or amber line each; the week as a block per day, each row a time and its words
+  (a holiday, a person's leave as one row, an event opening its task, "N tasks due").
+- Tapping a tab the moment Today appears, on a slow phone or connection, now always keeps the bar on
+  until the screen is there, with "Still loading" and Retry after 8 s (before, the bar could vanish after
+  0.6 s with the screen still on its way).
 - A notice when an Admin creates a project. It says "Set the amount and billing category."; there is
   nowhere to set either until phase 9, which brings the billing screen (the Owner keeps the wording).
 - Settings → Stage presets, and project templates beside task templates; Thresholds has the two
