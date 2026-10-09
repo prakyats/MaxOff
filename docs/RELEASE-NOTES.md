@@ -6,8 +6,8 @@ releases (v1.0.0 to v1.3.0) are recorded in their tag messages and in `PROGRESS.
 
 ## v1.6.0: client work (phase 7) and the Owner's Today refresh, with v1.5.1's walk fixes
 
-**Draft, not released.** On `phase-7` (`main` merged in); the Owner's phone walk on the phase-7 preview
-first, then the advisor's merge to `main`, then the Owner tags `v1.6.0`. Fourteen expand-only migrations
+**Released 2026-10-09** (tag `v1.6.0` on `a3f7932`; Deploy 37923367516 applied the migrations in order
+and every smoke check passed; the Owner's phone walk passed first). Fourteen expand-only migrations
 (`client_work_schema` to `client_work_rework_fixes`); nothing is removed or rewritten. Money stays
 Owner-only and is not part of this release: amounts and billing come in phase 9.
 
