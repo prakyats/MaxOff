@@ -8,6 +8,7 @@ import { useOverlayOpenState } from "@/core/ui/overlay/overlay-history";
 import { Button } from "@/core/ui/primitives/button";
 import { ModalOpening, useModalOpening } from "@/core/ui/primitives/modal-opening";
 import { MODAL_FOOTER, MODAL_HANDLE, MODAL_SURFACE } from "@/core/ui/primitives/modal-surface";
+import { useKeyboardLift } from "@/core/ui/viewport/keyboard-lift";
 import { XIcon } from "lucide-react";
 
 /**
@@ -62,16 +63,20 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  ref,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean;
 }) {
   // A fresh overlay and content per opening, overlay first (`modal-opening.ts`).
   const opening = React.useContext(ModalOpening);
+  // Below `md` it is a bottom sheet: it ends where the on-screen keyboard begins (§14.1).
+  const contentRef = useKeyboardLift(true, true, ref);
   return (
     <DialogPortal key={opening}>
       <DialogOverlay />
       <DialogPrimitive.Content
+        ref={contentRef}
         data-slot="dialog-content"
         className={cn(
           "bg-popover text-popover-foreground ring-foreground/10 text-sm ring-1",

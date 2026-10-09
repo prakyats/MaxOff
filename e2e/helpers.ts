@@ -613,6 +613,64 @@ export async function hydrated(page: Page): Promise<void> {
 /** One back press: what it must close (if anything), and where the page must be afterwards. */
 export type BackStep = { closes?: Locator; url: RegExp };
 
+/** Stands in for the on-screen keyboard: the visual viewport loses `cover` px at the bottom. */
+export async function openKeyboard(page: Page, cover: number): Promise<void> {
+  await page.evaluate((px) => {
+    const viewport = window.visualViewport as VisualViewport;
+    const height = window.innerHeight - px;
+    Object.defineProperty(viewport, "height", { configurable: true, get: () => height });
+    viewport.dispatchEvent(new Event("resize"));
+  }, cover);
+}
+
+export async function closeKeyboard(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const viewport = window.visualViewport as VisualViewport;
+    // The stand-in is an own property; removing it uncovers the real one again.
+    Reflect.deleteProperty(viewport, "height");
+    viewport.dispatchEvent(new Event("resize"));
+  });
+}
+
+/**
+ * A bottom sheet follows the on-screen keyboard (ARCHITECTURE §14.1; owner's phone walk of phase
+ * 7): with `field` focused and the keyboard covering `cover` px, the sheet ends at or above the
+ * keyboard's top and the field is inside what is still visible; with the keyboard gone, the
+ * sheet is back at the bottom edge. Phone widths only (a dialog is centred from `md` up).
+ */
+export async function expectSheetAboveKeyboard(
+  page: Page,
+  sheet: Locator,
+  field: Locator,
+  cover = 320,
+): Promise<void> {
+  const height = page.viewportSize()?.height ?? 0;
+  const visible = height - cover;
+  await field.focus();
+  await openKeyboard(page, cover);
+  const bottomOf = async (locator: Locator) => {
+    const box = await locator.boundingBox();
+    return box ? Math.round(box.y + box.height) : Number.POSITIVE_INFINITY;
+  };
+  await expect
+    .poll(() => bottomOf(sheet), { message: "the sheet ends where the keyboard begins" })
+    .toBeLessThanOrEqual(visible);
+  await expect
+    .poll(
+      async () => {
+        const box = await field.boundingBox();
+        return box !== null && box.y >= 0 && Math.round(box.y + box.height) <= visible;
+      },
+      { message: "the focused field is above the keyboard" },
+    )
+    .toBe(true);
+  await expect(field).toBeFocused();
+  await closeKeyboard(page);
+  await expect
+    .poll(() => bottomOf(sheet), { message: "the sheet is back at the bottom edge" })
+    .toBe(height);
+}
+
 /**
  * A screen's back order as one readable assertion (ARCHITECTURE §14.2): presses back once per
  * step, and after each checks that the named layer closed and the URL is where it should be. A

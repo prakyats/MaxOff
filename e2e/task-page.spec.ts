@@ -7,11 +7,13 @@ import { addISTDays, istInstant, istWeekday, systemClock, todayIST } from "../sr
 import {
   dockTop,
   animationsSettled,
+  closeKeyboard,
   expectBackStack,
   expectNoHorizontalScroll,
   hydrated,
   insertAs,
   memberIdOf,
+  openKeyboard,
   removeTasksTitled,
   rpcAs,
   runInstalled,
@@ -163,25 +165,6 @@ const panel = (page: Page, view: string) => page.locator(`[data-slot="task-panel
 const chatSheet = (page: Page) => page.locator('[data-slot="task-chat-sheet"]');
 const historyRows = (page: Page) => page.locator('[data-slot="task-history-row"]:visible');
 const phone = (page: Page) => (page.viewportSize()?.width ?? 1280) < 768;
-
-/** Stands in for the on-screen keyboard: the visual viewport loses `cover` px at the bottom. */
-async function openKeyboard(page: Page, cover: number): Promise<void> {
-  await page.evaluate((px) => {
-    const viewport = window.visualViewport as VisualViewport;
-    const height = window.innerHeight - px;
-    Object.defineProperty(viewport, "height", { configurable: true, get: () => height });
-    viewport.dispatchEvent(new Event("resize"));
-  }, cover);
-}
-
-async function closeKeyboard(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    const viewport = window.visualViewport as VisualViewport;
-    // The stand-in is an own property; removing it uncovers the real one again.
-    Reflect.deleteProperty(viewport, "height");
-    viewport.dispatchEvent(new Event("resize"));
-  });
-}
 
 /** Signs in as one of the task people, on a clean cookie jar. */
 async function as(page: Page, kind: Kind, info: TestInfo): Promise<void> {
