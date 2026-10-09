@@ -20,7 +20,10 @@ import { buttonVariants, type ButtonVariantProps } from "./button-variants";
  *   a second tap does nothing. Both labels share one grid cell, so the button never changes
  *   width. A submit button inside a `<form action>` goes pending on its own (`useFormStatus`);
  * - **offline**: a button that commits a change (`primary` by default, or `commits`) is disabled
- *   while the device is offline, pointing at the offline banner for the reason.
+ *   while the device is offline, pointing at the offline banner for the reason;
+ * - **destructive** (a submit that commits a destructive change: a reason dialog's "Cancel task",
+ *   "Reject claim"): marked `data-destructive`, so a key in its form (Enter in a one-line input,
+ *   Ctrl+Enter in a textarea) moves focus to it instead of committing (ARCHITECTURE §14.3 rule 2).
  *
  * `pending-buttons.test.ts` sweeps for a commit button without `pending`.
  */
@@ -32,6 +35,7 @@ function Button({
   pending: pendingProp,
   pendingLabel,
   commits,
+  destructive,
   children,
   disabled,
   ...props
@@ -44,6 +48,8 @@ function Button({
     pendingLabel?: string;
     /** It commits a change, so it waits for a connection. `primary` buttons do by default. */
     commits?: boolean;
+    /** Its submit is destructive: a key in its form focuses it, never commits (§14.3 rule 2). */
+    destructive?: boolean;
   }) {
   const form = useFormStatus();
   const online = useOnline();
@@ -77,6 +83,7 @@ function Button({
         )}
       >
         <span
+          data-slot="button-label"
           className={cn("inline-flex items-center gap-1.5", pending && "invisible")}
           aria-hidden={pending || undefined}
         >
@@ -99,6 +106,7 @@ function Button({
       data-size={size}
       data-pending={pending ? "" : undefined}
       data-offline={offline ? "" : undefined}
+      data-destructive={destructive ? "" : undefined}
       aria-busy={pending || undefined}
       disabled={asChild ? disabled : disabled || pending || offline}
       className={cn(buttonVariants({ variant, size, className }))}

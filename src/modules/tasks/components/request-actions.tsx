@@ -69,6 +69,7 @@ export function RequestActions({
         label="Why not"
         placeholder="Explain briefly. The suggester sees this."
         submitLabel="Decline suggestion"
+        destructive
         pendingLabel="Declining…"
         onSubmit={async (reason) => {
           // false keeps the dialog open with the reason; otherwise it closes itself.

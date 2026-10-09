@@ -136,6 +136,7 @@ export function PendingClaimsGroup({ claims }: { claims: PendingClaim[] }) {
         label="Reason"
         placeholder="Not a work expense."
         submitLabel="Reject claim"
+        destructive
         onSubmit={async (reason) => {
           if (!rejecting) return;
           const result = await rejectExpenseClaim({ claimId: rejecting.id, reason });

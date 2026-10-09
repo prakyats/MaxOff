@@ -1,5 +1,7 @@
 import { type BrowserContext, type Page } from "@playwright/test";
 
+import { systemClock } from "../src/core/time";
+
 import { expect, test } from "./fixtures";
 
 import { expectNoHorizontalScroll, runInstalled, signIn, storageStateFor, USERS } from "./helpers";
@@ -7,14 +9,19 @@ import { expectNoHorizontalScroll, runInstalled, signIn, storageStateFor, USERS 
 /**
  * The launch, splash to first paint (task 2.7).
  *
- * - `/` (the installed app's `start_url`) is answered by the proxy from the home hint: one
- *   redirect to the role's home, no render first. A missing or stale hint falls through to
+ * - `/` (the installed app's `start_url` is `/?source=pwa`, the same to the proxy) is answered
+ *   by the proxy from the home hint: one redirect to the role's home, no render first. A missing or stale hint falls through to
  *   `src/app/page.tsx`, which still lands home; the decision itself is unit-tested
  *   (`core/auth/home-hint.test.ts`).
  * - Sign-in goes straight home, never through `/`.
  * - The intro plays on an installed cold start only, is gone within a second, never shows on a
  *   client-side navigation, a reload or in a browser tab, and reduced motion drops the settle.
  * - The cold start adds nothing to the back stack.
+ * - The launch screen (the owner's walk note 3, 2026-10-08): an installed launch
+ *   (`start_url` `/?source=pwa`) whose document is slow is answered by the service worker with
+ *   the brand screen, painted before the document's first byte, which hands over to home with no
+ *   history entry; a document in time never shows it; signed out it lands on /login, offline on
+ *   the offline page. The worker's decisions are unit-tested (`core/ui/pwa/sw-launch.test.ts`).
  */
 
 const HOME_HINT = "maxoff_home";
@@ -170,6 +177,201 @@ test.describe("the launch intro", () => {
       await page.goto("/", { waitUntil: "commit" });
       await expect(intro(page)).toBeHidden({ timeout: 1_000 });
       await expect(page).toHaveURL(/\/login$/);
+      await expect(page.locator("html")).toHaveAttribute("data-launch", "");
+    });
+  });
+});
+
+/** The installed app's `start_url` (manifest.webmanifest). */
+const LAUNCH = "/?source=pwa";
+/** The launch's own document request, made by the service worker. */
+const isLaunchDocument = (url: URL) =>
+  url.pathname === "/" && url.searchParams.get("source") === "pwa";
+/** A cold Worker: the measured 1.5–2 s before the first byte (2026-10-08, staging). */
+const COLD_DOCUMENT_MS = 2_000;
+const launchScreen = (page: Page) => page.locator('[data-slot="launch-screen"]');
+const PAINTS_KEY = "__e2eLaunchPaints";
+type Paint = { address: string; launchScreen: boolean; fcp: number; at: number };
+
+/** The service worker is active, so it answers this context's next navigations. */
+async function workerActive(context: BrowserContext) {
+  const prep = await context.newPage();
+  await prep.goto("/offline");
+  await prep.evaluate(() => navigator.serviceWorker.ready.then(() => undefined));
+  await prep.close();
+}
+
+/** `history.length` in a fresh page after a plain load of `path`: what a launch must equal. */
+async function freshHistoryLength(context: BrowserContext, path: string): Promise<number> {
+  const fresh = await context.newPage();
+  await fresh.goto(path);
+  const length = await fresh.evaluate(() => history.length);
+  await fresh.close();
+  return length;
+}
+
+/**
+ * Every document of the page notes its first contentful paint (wall-clock time too) in
+ * `sessionStorage`, which survives the launch screen's hand-off. Playwright cannot read a page
+ * while its next document is pending, which is exactly when the launch screen is on show.
+ */
+async function recordPaints(page: Page) {
+  await page.addInitScript((key) => {
+    try {
+      new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) {
+          if (entry.name !== "first-contentful-paint") continue;
+          const paints = JSON.parse(sessionStorage.getItem(key) ?? "[]") as unknown[];
+          paints.push({
+            address: location.pathname + location.search,
+            launchScreen: document.querySelector('[data-slot="launch-screen"]') !== null,
+            fcp: entry.startTime,
+            at: performance.timeOrigin + entry.startTime,
+          });
+          sessionStorage.setItem(key, JSON.stringify(paints));
+        }
+      }).observe({ type: "paint", buffered: true });
+    } catch {
+      // No storage: the assertions below find no paint and say so.
+    }
+  }, PAINTS_KEY);
+}
+
+const paints = (page: Page) =>
+  page.evaluate((key) => JSON.parse(sessionStorage.getItem(key) ?? "[]") as Paint[], PAINTS_KEY);
+
+/** Holds the launch's document like a cold Worker; returns when it was let through. */
+async function coldDocument(context: BrowserContext): Promise<() => number> {
+  let releasedAt = Number.POSITIVE_INFINITY;
+  await context.route(isLaunchDocument, async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, COLD_DOCUMENT_MS));
+    releasedAt = systemClock().getTime();
+    await route.continue();
+  });
+  return () => releasedAt;
+}
+
+/** The launch screen was painted, at the launch address, before the document was let through. */
+async function expectLaunchScreenFirst(page: Page, releasedAt: number) {
+  const screen = (await paints(page)).find((paint) => paint.launchScreen);
+  expect(screen, "the launch screen was painted").toBeTruthy();
+  expect(screen!.address).toBe(LAUNCH);
+  expect(screen!.at, "painted before the document's first byte").toBeLessThan(releasedAt);
+  // ~100 ms by design (the worker's race) plus the worker's start; the document is held 2 s.
+  expect(screen!.fcp).toBeLessThan(COLD_DOCUMENT_MS / 2);
+  test.info().annotations.push({
+    type: "launch screen first paint",
+    description: `${Math.round(screen!.fcp)} ms after the launch started`,
+  });
+}
+
+test.describe("the launch screen (walk note 3)", () => {
+  test.use({ storageState: storageStateFor("owner") });
+
+  test("a cold document: the launch screen first, then home, adding no history", async ({
+    page,
+    context,
+    reloadGuard,
+  }) => {
+    // The hand-off and the home it lands on are the loads this test proves.
+    reloadGuard.allow(/\/\?launch=/);
+    reloadGuard.allow(/\/today$/);
+    await workerActive(context);
+    const plain = await freshHistoryLength(context, "/today");
+    await runInstalled(page);
+    await recordPaints(page);
+    const releasedAt = await coldDocument(context);
+
+    await page.goto(LAUNCH, { waitUntil: "commit" });
+    await expect(page).toHaveURL(/\/today$/);
+    await expectLaunchScreenFirst(page, releasedAt());
+    await expect(launchScreen(page)).toHaveCount(0);
+    // The intro takes over from the screen: the same mark, then the fade (2.7).
+    await expect(page.locator("html")).toHaveAttribute("data-launch", "");
+    // The hand-off replaced the launch's entry: one back exits, as from any home (§14.2 c).
+    expect(await page.evaluate(() => history.length)).toBe(plain);
+    await page.goBack().catch(() => {});
+    await expect(page).not.toHaveURL(/[?&](source|launch)=/);
+  });
+
+  test("a document in time: no launch screen, the launch exactly as before", async ({
+    page,
+    context,
+  }) => {
+    await workerActive(context);
+    // A warm Worker: the server's own answer to the launch, given at once.
+    const answer = await context.request.get(LAUNCH, { maxRedirects: 0 });
+    expect(answer.status()).toBe(307);
+    await context.route(isLaunchDocument, (route) => route.fulfill({ response: answer }));
+    // Every address the window showed (Next's own same-document `replaceState` included) and
+    // every document it asked for.
+    const committed: string[] = [];
+    page.on("framenavigated", (frame) => {
+      if (frame !== page.mainFrame()) return;
+      const url = new URL(frame.url());
+      committed.push(url.pathname + url.search);
+    });
+    const documents: string[] = [];
+    page.on("request", (request) => {
+      if (request.isNavigationRequest() && request.frame() === page.mainFrame()) {
+        const url = new URL(request.url());
+        documents.push(url.pathname + url.search);
+      }
+    });
+    const screens: string[] = [];
+    page.on("response", (response) => {
+      if (response.headers()["x-maxoff-launch-screen"]) screens.push(response.url());
+    });
+    await recordPaints(page);
+
+    await page.goto(LAUNCH);
+    await expect(page).toHaveURL(/\/today$/);
+    expect(screens).toEqual([]);
+    // The launch address never showed and no hand-off was asked for: straight home.
+    expect(committed.filter((address) => /[?&](source|launch)=/.test(address))).toEqual([]);
+    expect(committed[0]).toBe("/today");
+    expect(documents.filter((address) => address.includes("launch="))).toEqual([]);
+    expect((await paints(page)).filter((paint) => paint.launchScreen)).toEqual([]);
+  });
+
+  test("offline: the launch screen while the worker retries, then the offline page", async ({
+    page,
+    context,
+    reloadGuard,
+  }) => {
+    // The hand-off is the load this test proves.
+    reloadGuard.allow(/\/\?launch=/);
+    await workerActive(context);
+    await recordPaints(page);
+    await context.setOffline(true);
+
+    await page.goto(LAUNCH, { waitUntil: "commit" });
+    await expect(page).toHaveTitle(/Offline/);
+    // Next's route announcer is a second role=alert, so target the composite itself.
+    await expect(page.locator('[data-slot="error-state"]')).toContainText("offline");
+    const screen = (await paints(page)).find((paint) => paint.launchScreen);
+    expect(screen?.address).toBe(LAUNCH);
+  });
+
+  test.describe("signed out", () => {
+    test.use({ storageState: { cookies: [], origins: [] } });
+
+    test("a cold document: the launch screen first, then sign-in", async ({
+      page,
+      context,
+      reloadGuard,
+    }) => {
+      // The hand-off and the sign-in it lands on are the loads this test proves.
+      reloadGuard.allow(/\/\?launch=/);
+      reloadGuard.allow(/\/login$/);
+      await workerActive(context);
+      await runInstalled(page);
+      await recordPaints(page);
+      const releasedAt = await coldDocument(context);
+
+      await page.goto(LAUNCH, { waitUntil: "commit" });
+      await expect(page).toHaveURL(/\/login$/);
+      await expectLaunchScreenFirst(page, releasedAt());
       await expect(page.locator("html")).toHaveAttribute("data-launch", "");
     });
   });

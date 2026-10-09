@@ -15,7 +15,8 @@ test.describe("PWA shell", () => {
       display: string;
       icons: Array<{ src: string }>;
     };
-    expect(manifest.start_url).toBe("/");
+    // The launch marker the service worker reads (walk note 3; `launch.spec.ts`).
+    expect(manifest.start_url).toBe("/?source=pwa");
     expect(manifest.display).toBe("standalone");
     for (const icon of manifest.icons) {
       const iconResponse = await request.get(icon.src);

@@ -1,11 +1,13 @@
 "use client";
 
 import { SendIcon } from "lucide-react";
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 
 import { ActionStatus } from "@/core/ui/action/action-status";
 import { useAction } from "@/core/ui/action/use-action";
 import { ErrorText } from "@/core/ui/composites/error-text";
+import { keyIntent } from "@/core/ui/keyboard/keys";
+import { finePointer, useFinePointer } from "@/core/ui/keyboard/pointer";
 import { Button } from "@/core/ui/primitives/button";
 import {
   Select,
@@ -29,6 +31,11 @@ import { WRITING_AS_SELF } from "../domain/page";
  * **Send's colour (colour rule, Kickoff 4 decision 26):** solid red only inside the phone's Chat
  * sheet, its own layer. Inline on desktop the composer shares the screen with the next step's
  * solid action, so Send is the neutral outline there (still a commit: offline-aware, pending).
+ *
+ * **Keys (owner's note 2026-10-08, ARCHITECTURE §14.3 rule 1):** on a laptop Enter sends and
+ * Shift+Enter makes a new line, with a quiet hint under the field; on a phone (touch) Enter makes
+ * a new line and Send sends, so nothing goes by accident (`keyIntent`). Never while an IME is
+ * composing, never a blank message, never while a send is pending; focus stays in the field.
  */
 export function ChatComposer({
   taskId,
@@ -49,6 +56,8 @@ export function ChatComposer({
   inSheet: boolean;
 }) {
   const id = useId();
+  const field = useRef<HTMLTextAreaElement>(null);
+  const laptop = useFinePointer();
   const [error, setError] = useState<string | null>(null);
   const action = useAction(
     async () => {
@@ -62,6 +71,9 @@ export function ChatComposer({
         return;
       }
       onBodyChange("");
+      // Ready for the next message on a laptop (a clicked Send took the focus); on a phone the
+      // keyboard is never opened again by itself.
+      if (finePointer()) field.current?.focus();
     },
     { creates: true },
   );
@@ -106,6 +118,7 @@ export function ChatComposer({
       ) : null}
       <div className="flex min-w-0 items-end gap-2">
         <Textarea
+          ref={field}
           aria-label="Comment"
           name="comment"
           rows={1}
@@ -114,10 +127,22 @@ export function ChatComposer({
           value={body}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? `${id}-error` : undefined}
+          aria-keyshortcuts={laptop ? "Enter" : undefined}
           className="field-sizing-content max-h-40 min-h-11 min-w-0 flex-1 resize-none"
+          keyHint={false}
           onChange={(event) => {
             onBodyChange(event.target.value);
             setError(null);
+          }}
+          onKeyDown={(event) => {
+            const intent = keyIntent(event, {
+              field: "composer",
+              finePointer: finePointer(),
+              value: body,
+              pending,
+            });
+            if (intent === "send" || intent === "ignore") event.preventDefault();
+            if (intent === "send") event.currentTarget.form?.requestSubmit();
           }}
         />
         <Button
@@ -132,6 +157,11 @@ export function ChatComposer({
           Send
         </Button>
       </div>
+      {laptop ? (
+        <p data-slot="composer-hint" className="text-muted-foreground text-xs">
+          Enter to send · Shift+Enter for a new line
+        </p>
+      ) : null}
       {error ? <ErrorText id={`${id}-error`}>{error}</ErrorText> : null}
       <ActionStatus action={action} />
     </form>

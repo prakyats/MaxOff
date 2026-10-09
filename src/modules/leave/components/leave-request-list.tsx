@@ -314,6 +314,7 @@ export function LeaveRequestList({
           label="Reason"
           placeholder={`${owner.name} will see this reason.`}
           submitLabel="Cancel leave"
+          destructive
           cancelLabel="Keep it"
           onSubmit={async (reason) => {
             if (dialog.kind !== "owner-cancel") return;
