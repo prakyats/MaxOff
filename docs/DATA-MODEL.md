@@ -53,6 +53,10 @@ notification_kind  a lookup table, not an enum (5.1, expand-only across releases
                    member_unreachable (5B 5.4, migration reachability: actionable false,
                    always_email true, in_app true): the Owner's alert that someone has not been
                    reachable by push for 48 h, at most weekly per person (§9 member_reachability).
+                   7A (kickoff 7 decision 17, amendments B and C; migrations client_work_schema and
+                   client_work_transitions): client_created, project_created, project_completed,
+                   project_cancelled, project_reopened, item_cancelled, carry_decided (info: in-app and
+                   push, never email); item_rejected*, cycle_generated* (actionable).
 field_type         text | long_text | number | date | datetime | checkbox | select |
                    multi_select | url | email | phone | color | member | rating
                    -- deliberately NO currency type: money lives only in the Owner-only tables (§7)
@@ -233,6 +237,13 @@ org_settings         org_id pk, weekly_off_days smallint[] (0=Sun..6=Sat), logou
                      -- end_day_cutoff_time also starts the Owner's "End of day not recorded" count of
                      -- yesterday's unended days (attendance_end_not_recorded_yesterday(), decision 24 amended)
                      -- end_day_cutoff_time also sets when eod_reports saves a day (kickoff 6 decision 17)
+                     -- Kickoff 7 amendment C E5 (owner 2026-10-08, migration client_work_escalations, expand-only):
+                     -- item_overdue_escalate_hours int not null default 24 (check 1..168: hours an overdue client
+                     -- item may stay open after its Admin's notice before the Owner's escalation) and
+                     -- cycle_decide_escalate_days int not null default 2 (check 1..30: days after a cycle's
+                     -- period end and the Admin's prompt before undecided items escalate to the Owner); both in
+                     -- the API UPDATE grant, settings.manage through the existing UPDATE policy (the Owner; pgTAP
+                     -- 71 per role), Settings -> Thresholds (7B). WORKFLOWS §5.4 item 21, §8 client_work_alerts.
                      -- 5B 5.4 follow-up (owner 2026-10-03, expand-only): reachability_clock_from timestamptz null,
                      -- set once to the release moment by migration reachability_clock_from_release: no one's
                      -- 48 h "can't be reached" clock starts before it (null: no floor).
@@ -489,6 +500,12 @@ task_types           id, org_id, name, kind task_type_kind, shows_on_calendar bo
                      -- update, move and archive without settings.manage (Admins hold lists.manage but only
                      -- pick types; PERMISSIONS ³). Tasks have no stage presets: stage_presets are projects' (7.4)
 stage_presets        id, org_id, name, stages text[] (ordered), archived_at
+                     -- as built (7.1, migration client_work_schema, pgTAP 67): name 1..80, stages 1..12 each
+                     -- 1..120 (trimmed by app.stage_presets_guard, security invoker, which also keeps the
+                     -- author: created_by = the caller on an API insert, never changed). API: SELECT, INSERT
+                     -- (name, stages), UPDATE (name, stages, archived_at). The seeded row is named "Video"
+                     -- with the stages Script, Shoot, Edit, Posted (app.seed_org_stage_presets, AFTER INSERT
+                     -- on organizations; backfilled once). Screens: 7.4
                      -- kickoff 7 (owner decision 2026-10-01, decision 22; built in 7.4): + created_by → members,
                      -- created_at, updated_at. RLS: active members with lists.manage read; insert by
                      -- lists.manage (Owner, Admins); an Admin updates and archives only their own
@@ -520,7 +537,8 @@ field_definitions    id, org_id, entity ('client'|'contact'|'project'|'item'|'ta
                      -- current Admin; task rows: lists.manage). Reads: task rows for every active
                      -- member (4.1 forms); the rest for lists.manage on a visible scope. Audited.
                      -- app.field_definitions_guard() refuses a type change once any clients.custom_fields
-                     -- or client_contacts.custom_fields holds the key (4.1 / 7.x extend it to their tables).
+                     -- or client_contacts.custom_fields holds the key (4.1 / 7.x extend it to their tables;
+                     -- 7.1: projects, project templates' field_defaults and project_items).
 ```
 Entities with custom fields have `custom_fields jsonb not null default '{}'`, validated against active definitions on every write (`core/custom-fields`).
 
@@ -986,6 +1004,18 @@ clients              id, org_id, name, legal_name, state client_state, admin_id 
                      -- activity entry and the Owner's notification in one transaction; an Admin's API
                      -- INSERT is refused. Pause / close / reactivate / assignment stay clients.manage.
                      -- RLS and pgTAP per role when built (7.1)
+                     -- as built (7.1, migration client_work_schema, pgTAP 67): public.client_create(details
+                     -- jsonb) for a caller with clients.create and without clients.manage (an Admin; the
+                     -- Owner gets FORBIDDEN and keeps the plain insert). details: name (required),
+                     -- legal_name, gstin, address, city, phone, email, website, drive_url, requirements,
+                     -- notes, custom_fields (company-wide client fields, app.custom_fields_check); any other
+                     -- key (admin_id, state…) is VALIDATION. Inserts state active, admin_id = activated by =
+                     -- created_by = the caller; the insert trigger opens the assignment row (assigned_by the
+                     -- caller) and the notes and brand rows; audited as action created_active (meta
+                     -- admin_id; 7A review L6: app.clients_after_insert keeps the override for the
+                     -- client's own entry, the rows it adds stay plain inserts); a taken name is CONFLICT,
+                     -- a detail out of its format VALIDATION. Notification kind client_created (info) to
+                     -- the Owner. clients' RLS is unchanged: the API insert stays clients.manage
                      -- 3.1: created by a plain INSERT under clients.manage (state draft; admin_id may be
                      -- given at creation and opens the first assignment row by trigger). state,
                      -- activated_at, admin_id and archived_at are protected columns (transition
@@ -1038,15 +1068,25 @@ view client_labels   (id, name, state, logo_file_id, colors, fonts, tone_of_voic
 **Functions (3.1, ADR-0006):** `app.admin_client_ids()` (the caller's assigned clients), `app.client_visible(client_id)`, `app.is_owner()`, `app.labelled_client_ids()` (since 4A: the client labels of the tasks the caller can see, `app.task_visible()`; empty before that), `client_activate(client_id)` (draft | paused → active; needs an active Admin), `client_pause(client_id)` (active → paused), `client_close(client_id, reason)` (active | paused → inactive), `client_reactivate(client_id)` (inactive → active; the name must be free again), `client_assign_admin(client_id, admin_id)` (any state; closes the open assignment and opens the next; notifies the new and previous Admin, WORKFLOWS §9, delivered by 5.1), `client_contact_set_primary(contact_id)`, `client_contact_archive(contact_id, next_primary_id)`, `client_contact_restore(contact_id)`. Every lifecycle function is `clients.manage`; the contact functions are `clients.edit_assigned` on a visible client.
 
 ## 5. Client work: projects, cycles, items
+> **Money never goes in these tables or their history (phase 7 review, 2026-10-09).** Client-work history is
+> shown by entity name: `activity_log_select_client_work`, `project_activity` and `item_last_changes` return
+> the raw `diff` / `meta` of the `projects`, `project_stages`, `project_item_blueprints`, `project_cycles`,
+> `project_items`, `project_item_stages`, `item_reviews` and `project_item_stage_list` entities to whoever
+> sees the project: the Owner **and the client's Admin**. So phase 9's billing lives in its own Owner-only, audited entity (e.g.
+> `item_billing`): never an amount column on these tables, and never Owner-only `meta` on their audit rows.
+> The same holds for Owner-defined custom fields on a project or an item (visible to the Admin, in Realtime
+> and in the history): a "Fee" number field there would put money in an Admin payload (PROGRESS, Ideas).
+
 ```
-projects             id, client_id (required), name, description, recurrence, delivery_date null, state project_state,
+projects             id, org_id, client_id (required), name, description, recurrence, delivery_date null,
+                     state project_state, template_id null → project_templates, custom_fields, created_by,
+                     completed_at, completed_by, cancelled_at, cancelled_by, cancelled_reason, archived_at,
+                     search tsvector (generated: name, description), created_at, updated_at
                      -- billing_category: NOT on projects since kickoff 7 amendment C (2026-10-08): it is
                      -- money, in phase 9's Owner-only billing tables (ADR-0007 amendment 2026-10-08)
-                     template_id null,
-                     custom_fields, created_by, completed_at, completed_by, archived_at
-                     -- guard trigger: state changes only through transition functions; client_id and
-                     -- recurrence are set at creation (the Owner, or the client's Admin: amendment C) and
-                     -- never change (kickoff 7 decision 4)
+                     -- app.projects_fixed_columns (BEFORE UPDATE, for every caller, functions included):
+                     -- client_id, recurrence and org_id never change (kickoff 7 decision 4); protect_columns
+                     -- on state and its timestamps; no API write at all (every write a project_* function)
                      -- kickoff 7 amendment A (owner decision 2026-10-02): + delivery_date date null;
                      -- check (recurrence <> 'one_time' or delivery_date is not null): required for a
                      -- one-time project, none needed for weekly / monthly. Set or moved by projects.manage
@@ -1057,35 +1097,110 @@ projects             id, client_id (required), name, description, recurrence, de
                      -- are fixed after creation (no function changes them in phase 7); unique
                      -- (client_id, lower(btrim(name))) where state in ('open','in_progress'); created on a
                      -- draft, active or paused client, never inactive; completed / cancelled = read-only
-project_stages       id, project_id, name, position, archived_at null -- copied from a preset; may be empty
+                     -- as built (7.1/7.2, migrations client_work_schema + client_work_transitions, pgTAP
+                     -- 67-69): name 1..120, description ≤ 5000; checks: completed ⇔ completed_at and _by;
+                     -- cancelled ⇔ cancelled_at, _by and _reason (≤ 1000; a reopen clears them, the
+                     -- history keeps them). org_id on every client-work table (the audit's organization
+                     -- inside the daily job, which has no caller)
+                     -- + delivery_armed_at timestamptz null (the 7A review of d9caeab, M1, migration
+                     -- client_work_alerts_armed): stamped by the delivery_armed_at trigger on creation, a
+                     -- changed delivery date or a reopen; E3 waits for the first 08:00 IST after it
+project_stages       id, org_id, project_id, name, position, archived_at null, created_at, updated_at
+                     -- copied from a preset or typed; may be empty; at most 12 active (as presets and
+                     -- templates, decision 22 / 23)
                      -- kickoff 7 decision 8: added, renamed and reordered freely; a removed stage is
                      -- archived (hidden from items, its ticks kept), never deleted
-project_item_blueprints  id, project_id, title, position            -- item list copied into each new cycle
+                     -- amendment D2 (owner 2026-10-09): these are the project's DEFAULT stages, what a new
+                     -- item (and a new item-list line) starts with; a change never touches an existing item
+project_item_blueprints  id, org_id, project_id, title, position, archived_at null,
+                     stages text[] not null default '{}' (amendment D2, migration client_work_item_stages:
+                     the line's own stages, ≤ 12, copied into each new cycle's item made from it; a new line
+                     starts with the project's defaults; set through project_blueprint_update's "stages"),
+                     created_at, updated_at
+                     -- a recurring project's item list, copied into each new cycle; at most 100 active; a
+                     -- removed entry is archived. A one-time project has none (its items go into its cycle)
                      -- kickoff 7 decision 9: feeds later cycles only; never rewrites an existing cycle
-project_cycles       id, project_id, period_start date null, period_end date null, label,
-                     state cycle_state, generated_by ('schedule'|'manual'|'create'|'carry'), created_at,
+project_cycles       id, org_id, project_id, period_start date null, period_end date null, label,
+                     state cycle_state, generated_by ('schedule'|'manual'|'create'|'carry'), created_by null,
+                     prompted_at timestamptz null (7.2: the Admin's unfinished-items prompt),
+                     item_list_copied boolean not null default true (Q4 (a), owner 2026-10-08: false for a
+                     cycle a carry made while its client was not Active, holding only the carried items, until
+                     the nightly cycle_generate copies the item list in; 00:00 IST, Q12 (b)),
+                     ready_armed_at timestamptz null (Amendment C timing answer Q12 (b), owner 2026-10-09;
+                     migration client_work_morning_window: when the cycle's "cycle ready"
+                     notice to its client's Admin was armed, by the ready_armed_at trigger: on insert for a
+                     schedule cycle or a carry made by anyone but the client's Admin, and when a carry-made
+                     cycle's item list joins it; null = nothing to announce (create, manual, an Admin's own
+                     carry, one-time, every cycle made before the column); app.client_work_alerts() tells
+                     the Admin at the first 08:00 IST run after it, once per arming),
+                     created_at, updated_at,
                      unique(project_id, period_start),
                      unique partial index (project_id) where period_start is null  -- one cycle per one-time project
-project_items        id, cycle_id, title, position, planned_date null, notes, custom_fields,
+                     -- as built: weekly = Monday..Sunday, monthly = the calendar month (IST;
+                     -- app.period_start / period_end / period_next); label "October 2026", "5–11 Oct 2026"
+                     -- (across months "29 Sep–5 Oct 2026"; app.cycle_label), null for one-time. Every
+                     -- creation (create, schedule, manual, carry) copies the active item list in as open
+                     -- items (app.cycle_create). settled ⇔ a later cycle of the project exists and none of
+                     -- its items is open or done (app.cycle_refresh, recomputed both ways after every
+                     -- change); a one-time project's cycle never has a later one, so it stays open
+project_items        id, org_id, project_id, cycle_id, title, position, planned_date null, notes, custom_fields,
                      state item_state, done_at, done_by, approved_at, approved_by,
                      cancelled_reason, cancelled_by, cancelled_at,
                      carry_decision null, carry_decided_by, carry_decided_at,
-                     carried_from_item_id null, origin_cycle_id (self cycle unless carried in)
+                     carried_from_item_id null, origin_cycle_id (self cycle unless carried in), created_by,
+                     search tsvector (generated: title, notes), created_at, updated_at,
+                     reopened_at null (Q8, migration client_work_alerts_answers: the last return to open, by trigger),
+                     overdue_armed_at null (M1, migration client_work_alerts_armed: the insert, the last planned-date
+                     change or return to open, by trigger; E1 waits for the first 08:00 IST after it)
                      -- kickoff 7 (WORKFLOWS §5.4): at most 100 items per cycle; new items only in a cycle
                      -- whose period has not ended (or a one-time project's); planned_date any date
                      -- (overdue = planned_date < today IST and state open); item_unmark_done clears
                      -- done_at / done_by (done → open, until approved); a carried item copies title,
                      -- notes, custom_fields and its stage ticks (original done_at / done_by), never
-                     -- planned_date. No amounts here, ever (ADR-0007): values live in item_billing (§7)
-project_item_stages  item_id, stage_id, done_at, done_by, pk(item_id, stage_id)
-item_reviews         id, item_id, decision review_decision, reason, reviewer_id, at   -- append-only
+                     -- planned_date. Amendment D3 (owner 2026-10-09): item_mark_done goes open → approved,
+                     -- done_* and approved_* stamped together (the done state is no longer entered);
+                     -- item_reopen clears both and writes a rejected item_reviews row with the reason. No amounts here, ever (ADR-0007): values live in item_billing (§7)
+                     -- as built: the 100 counts the live items (not cancelled, not carried); title 1..200,
+                     -- notes ≤ 5000; checks: done ⇒ done_at, open ⇒ no done_at, approved ⇔ approved_at and
+                     -- _by (and done_at), cancelled ⇔ cancelled_at, _by, _reason, carried ⇔ carry_decision
+                     -- carry_forward; origin_cycle_id of a carried item is its original's origin (the
+                     -- first cycle of the chain)
+project_item_stages  item_id, stage_id, org_id, done_at, done_by, created_at, updated_at, pk(item_id, stage_id)
+                     -- the first tick creates the row; an untick clears done_at / done_by (row kept)
+                     -- amendment D2: kept in place, unused by the app (expand-only); its rows were copied into
+                     -- project_item_stage_list by the migration (staging only; production had none)
+project_item_stage_list  id, org_id, project_id, item_id, name, position, archived_at null,
+                     done_at null, done_by null, created_at, updated_at
+                     -- amendment D1/D2 (owner 2026-10-09; migration client_work_item_stages): each item's own
+                     -- stages with the tick on the row (an untick clears done_at / done_by); ≤ 12 active per
+                     -- item, a name once per item (case-insensitive, checked by the functions); none at all
+                     -- is fine (the item is simply open or done). A removed stage is archived, its tick kept.
+                     -- Written only by item_stage_add / _update / _archive / _tick and the functions that
+                     -- create items (project_create, item_add, cycle_create, cycle_copy_item_list, a carry);
+                     -- no API write. RLS: project_id in (select id from projects), as the item. Audited
+                     -- (entity_id = the item; a new item's starting stages as 'initial'; a tick, move or
+                     -- removal names the stage in meta, migration client_work_item_stage_meta). Never affects
+                     -- revenue
+item_reviews         id, org_id, item_id, decision review_decision, reason, reviewer_id, at   -- append-only
+                     -- since amendment D3: a send-back (the Owner) or a reopen (the client's Admin) writes
+                     -- 'rejected' with the reason; Mark done writes none (the done is the approval)
 project_templates    id, org_id, name, description, recurrence, stages text[], items text[], field_defaults jsonb, archived_at
                      -- no default_billing_category since kickoff 7 amendment C (money: the Owner's template
                      -- default lives in an Owner-only table with phase 9)
                      -- kickoff 7 decision 23 (built in 7.4): + created_by, created_at, updated_at; the
                      -- task_templates rule (templates.manage; shared; an Admin edits and archives their
                      -- own, the Owner any); no billing category (amendment C); stages ≤ 12 (from a preset or typed); items ≤ 100. Audited
+                     -- as built (7.1: the table, its RLS and app.project_templates_guard; screens 7.4):
+                     -- recurrence required; field_defaults checked like a project's values (32 KB, active
+                     -- project fields, a value of the type); API INSERT (name, description, recurrence,
+                     -- stages, items, field_defaults), UPDATE (the same + archived_at)
 ```
+**As built (7.1, 7.2; migrations `client_work_schema`, `client_work_transitions`, `client_work_close_prompt`, `client_work_review_fixes`; pgTAP 67, 68, 69, 70).**
+- **RLS:** every table above but the two lists is **SELECT only** for the API role (`project_item_stage_list` too, since amendment D2, by its `project_id` as the items) (no INSERT, UPDATE or DELETE grant): `projects` for `projects.manage` on a client `app.client_visible()` answers (the Owner every client, the current Admin their own, live); the rest lean on that policy: `project_id in (select id from projects)` for stages, the item list, cycles and items, `item_id in (select id from project_items)` for ticks and reviews (7A review S3: no per-row helper call; `app.project_visible(project_id)` stays, the same rule, for the functions). Crew hold no `projects.manage`, so they read nothing. `stage_presets` (`lists.manage`) and `project_templates` (`templates.manage`) are plain edits: an Admin writes only the rows they created, the Owner any. The `activity_log` policy `activity_log_select_client_work` gives the same people the history: `entity_id` is the project for `projects`, `project_stages`, `project_item_blueprints` and `project_cycles`, the item for `project_items`, `project_item_stages`, `item_reviews` and (amendment D2) `project_item_stage_list`. **The activity panel's reads (owner 2026-10-09):** `project_activity(project_id, kind, item_id, before_at, before_id, max_rows)` and `item_last_changes(item_ids)`, security invoker over that policy (migration `client_work_item_stages`).
+- **Custom fields:** `projects.custom_fields` and `project_items.custom_fields` are checked on every write (the functions' too) by `app.client_work_custom_fields_guard` → `app.custom_fields_check(entity, org, new, old)` against the company-wide `project` / `item` definitions; `app.field_definition_has_values` covers projects, project templates' defaults and items, so a field's type locks once one holds a value.
+- **`client_work_alerts`** (Kickoff 7 amendment C E1–E3, migration `client_work_escalations`; Q8–Q11, migration `client_work_alerts_answers`): `id, org_id, kind ('item_overdue'|'item_overdue_escalation'|'cycle_undecided_notice'|'cycle_undecided_escalation'|'delivery_escalation'|'cycle_generated'), entity_id (the item, cycle or project), armed_for date (the planned date, period end, delivery date or, for `cycle_generated`, the period start), sent_at, recipient_id null → members` (who was told: a notice's recipient, the client's Admin or, for a client with no Admin, the Owner; an escalation's named Admin; null on rows sent before the Q8–Q11 answers, read as the current recipient), unique `(kind, entity_id, armed_for, sent_at)` (was `(kind, entity_id, armed_for)`: since Q8 / Q11 a notice may go again for the same date): **one row per send**. **`answers_at` timestamptz null** (the 7A review of d9caeab, S2, migration `client_work_alerts_armed`): what the send answers (an E1 notice the item's basis; an escalation the notice it follows, "told"; E2's fresh notice the reopening or Admin change it reports; E3 08:00 IST the morning after the delivery date, so once per date); the unique index `client_work_alerts_once_per_answer (kind, entity_id, armed_for, recipient_id, answers_at) nulls not distinct where answers_at is not null` refuses a second send of the same answer whatever `p_now` a replayed or overlapping run passes (a conflict is a WARNING in the group's savepoint); the check `client_work_alerts_answers_at_set` (`answers_at` and `recipient_id` not null, **NOT VALID**: every row written from this migration on; the rows before keep a null `answers_at`, outside the index, expand-only). A notice counts while it went to the client's current recipient at or after the item's basis (its overdue moment, last return to open and the recipient's assignment; never its last arming, which only delays the next notice to 08:00 IST); an escalation goes once per such notice; `cycle_undecided_notice` is E2's fresh notice (Q8 / Q11), written by the job or by the 08:05 prompt that stands for it (L1). **Once per item and planned date: moving to a new date re-arms; moving back to a date already noticed does not** (migration `client_work_alerts_once_per_date`, the owner's E1 rule; `client_work_alerts_armed` had re-armed it). **`cycle_generated`** (Amendment C timing answer Q12 (b), owner 2026-10-09; migration `client_work_morning_window`, the kind CHECK widened): the "cycle ready" notice to the client's Admin, once per arming of the cycle (`answers_at` = `project_cycles.ready_armed_at`, `recipient_id` = the Admin told). **Every row is written in the morning window, 08:00 to before 08:30 IST** (Q13 (a), `app.client_work_send_window`): a run outside it writes nothing. Written by `app.client_work_alerts()` and `app.cycle_close_prompt()` only; RLS on with no policy and no API grant (the notifications are the visible record; pgTAP 71 refuses select, insert, update and delete to the Owner, an Admin, Crew and anon); never deleted. **`project_items.reopened_at`** (timestamptz null, Q8): when the item last went back to open (`item_reject`, `item_unmark_done`), stamped by the `reopened_at` trigger. **`project_items.overdue_armed_at`** and **`projects.delivery_armed_at`** (timestamptz null, M1): when the item was inserted, its planned date changed or it went back to open, and when the project was created, its delivery date changed or it was reopened, stamped by the `overdue_armed_at` and `delivery_armed_at` triggers; they decide only **when** a send may go (E1: `app.client_items_overdue_due`'s `due_from` = the later of the basis and `overdue_armed_at`, since `client_work_alerts_once_per_date`; E3's moment), never what counts as already sent, so a date set in the past is told at the next 08:00 IST, never within minutes (the owner's 08:00 rule). E2 reads the open, prompted cycles through `project_cycles_prompted_open_idx (org_id) where prompted_at is not null and state = 'open'` (L3; an index scan on 10,000 cycles, local `EXPLAIN ANALYZE` 2026-10-08) and `app.cycle_undecided_due(org)`. E2's per-cycle count of undecided items reads the partial index `project_items_cycle_undecided_idx (cycle_id) include (reopened_at) where state = 'open' and carry_decision is null` (the re-review's cost item: an index-only scan; 10,000 prompted cycles and 400,000 items in 13 ms against 9.9 s without it, local `EXPLAIN ANALYZE` 2026-10-08). **E4 (the end-of-day report's per-Admin client work, 7.4):** `project_items.done_at` / `approved_at` and `projects.completed_at` per IST day (partial indexes `project_items_org_done_at_idx`, `project_items_org_approved_at_idx`, `projects_org_completed_at_idx`), the history's `done` / `approved` / `completed` entries, and `client_admin_assignments` (`from_at`, `to_at`) for who ran the client that day.
+- **Functions (ADR-0006; WORKFLOWS §5.4 "As built"):** `project_create`, `project_update`, `project_complete`, `project_cancel`, `project_reopen`, `project_stage_add` / `_update` / `_archive`, `project_blueprint_add` / `_update` / `_archive`, `item_add`, `item_update`, `item_cancel`, `item_mark_done` (open → approved since amendment D3), ~~`item_unmark_done`, `item_tick_stage`, `item_approve(item_ids[])`, `item_reject`~~ *(the four 7A functions are unused since amendment D (2026-10-09), kept for expand-only, to drop in a contract migration; `item_tick_stage` refuses with `INVALID_STATE` since migration `client_work_rework_fixes`)*, **amendment D (migration `client_work_item_stages`):** `item_reopen(item_id, reason)` (the Owner's Send back, the client's Admin's Reopen), `item_stage_add` / `_update` / `_archive` (`projects.manage`) and `item_stage_tick` (`items.tick`) on an item's own stages, the reads `project_activity(project_id, kind, item_id, before_at, before_id, max_rows)` and `item_last_changes(item_ids)` (security invoker); `cycle_start_next`, `cycle_carry_decide(item_ids[], decision, reason)`; the jobs `app.cycle_generate()`, `app.cycle_close_prompt()` (with `project_cycles.prompted_at`) and `app.client_work_alerts()` (E1–E3; read committed only); `app.cycle_copy_item_list` (Q4 (a)), `app.cycle_undecided_due` (E2's cycles, shared by the job and the prompt), `app.client_items_overdue_link`, `app.client_work_alert_lines`. Internal helpers (service_role only): `app.client_work_caller`, `app.project_lock`, `app.item_lock` (lock order: the project, then its cycles and items), `app.project_check_writable`, `app.cycle_create`, `app.cycle_refresh`, `app.cycle_live_items`, `app.project_mark_started`, `app.project_lifecycle_notify`, `app.project_link`, `app.project_client`, `app.client_work_text`, `app.client_work_position`, `app.client_work_next_position`, `app.custom_fields_check`; since amendment D `app.project_default_stages`, `app.client_work_stage_names` (≤ 12, each name once ignoring case since `client_work_rework_fixes`, `VALIDATION`), `app.item_stage_list_init`, `app.item_stage_list_copy`, `app.item_stage_item`, `app.item_stage_find`, `app.item_stage_name_free`, and since `client_work_rework_fixes` `app.project_stage_name_free` (a project's active default stage names once each, `CONFLICT`) and `app.client_work_activity_shown(entity, action, diff)` (what the history describes; read by the two activity functions, executable by `authenticated`, the one helper here that is not service_role only).
+- **As built (7B = 7.3 + 7.4, migration `client_work_screens`; pgTAP 46, 72):** no table, column or grant changed. `project_items` joins the `supabase_realtime` publication (Today, My Day and Approvals re-read on it; RLS hands Crew no row). `app.eod_report_payload` gains `client_work` (§9 `eod_reports`) and `app.digest_weekly_payload` gains `client_work` per Admin: `[{admin_id, name, done, overdue, projects_completed}]` (done and completed summed from the window's saved reports, overdue = open items planned before today under the client's current Admin; an Admin with nothing to count is left out); `app.eod_report_zero`, `app.eod_report_text` ("Client items: 3 done, 2 approved, 1 sent back") and `app.digest_weekly_zero` read them. The screens read the tables under RLS (`modules/client-work/data`) and write only through the 7A functions; `stage_presets` and `project_templates` are the plain edits their grants allow (`modules/settings`, `modules/templates`).
 
 ## 6. Staff tasks
 ```
@@ -1279,7 +1394,7 @@ task_reads           task_id → tasks (on delete cascade), member_id → member
 - `dashboard_not_noted()` → `(task_id, member_id, waiting_since)` (`attendance.view_all`: the Owner's **Overdue and risks**): the active assignees of open (not completed / cancelled, not archived), **armed** tasks who have not tapped Task Noted for `ack_escalate_owner_hours`, on 5.3's escalation clock `greatest(assigned_at, task_reminder_arms.armed_at)` (`app.reminders_tick` section d's conditions), so the row and the Owner's escalation agree; `waiting_since` is the clock's start.
 - `dashboard_unreachable()` → `(member_id, full_name, state, since, open_tasks)` (`notifications.reachability`): the people on open work who can't be reached by **5.4's 48-hour status** (`member_reachability` not `ok` with `greatest(since, org_settings.reachability_clock_from)` 48 h or more ago; tracked members only, never the Owner), a freelancer assignee through their **current coordinator**, `open_tasks` = the open tasks in scope they answer for. The organisation's Owner: every open task, with `since`; an Admin: the open tasks they created or approve (`reachability_overview()`'s scope), `since` null.
 - `emails_held_today()` → `(cap, held)` (`settings.manage`: the Owner): today's (IST) email deliveries the dispatcher recorded `skipped_cap`, by `last_error` (`org_cap` = `email_daily_cap_org`, the email plan's daily limit; `member_cap` = `email_daily_cap_per_member`). Counts only.
-- **Realtime:** the `supabase_realtime` publication holds exactly `notifications`, `tasks`, `task_assignees`, `attendance_days` and `leave_requests` (default replica identity); no money or Owner-only table (pgTAP 46). Realtime authorises each change with the subscriber's own RLS; the app re-reads the screen on an event and never shows its row (ARCHITECTURE §10).
+- **Realtime:** the `supabase_realtime` publication holds exactly `notifications`, `tasks`, `task_assignees`, `attendance_days` and `leave_requests` (default replica identity), and since 7B (migration `client_work_screens`, kickoff 7 decision 24) `project_items`; no money or Owner-only table (pgTAP 46). Realtime authorises each change with the subscriber's own RLS; the app re-reads the screen on an event and never shows its row (ARCHITECTURE §10).
 
 **The calendar's reads, reworked (6.4b, 2026-10-08; Kickoff 6 decision 25):** one read serves every view: the month grid of the address's day (`rangeFor`). The Due list reads only the open tasks due in that range (`listOpenTaskRowsDueBetween(from, to)`, page by page under the 1000-row limit; 6B review later item (f)), not every open task. An Admin's `member_availability()` now reads everyone in the range ("Who's free" is over everyone they can see; a person filter narrows only what is drawn). `task_types.color` joins the type read. No new function or policy for the calendar itself.
 
@@ -1642,7 +1757,19 @@ eod_reports          id, org_id, report_date, data jsonb (check: an object), gen
                      -- id, title, owner, freelance, due_at + late_reason (overdue), since (handed in),
                      -- reason (cancelled)]}}, approvals [{reviewer_id, name, step, approved,
                      -- changes_requested}], tomorrow {date, events [{id, title, start_at, end_at,
-                     -- location, people}]}. Read in the app through modules/reports (zod-checked).
+                     -- location, people}]}, and since 7.4 (migration client_work_screens, kickoff 7
+                     -- decision 25) client_work {admins [{admin_id (the client's Admin at the event's
+                     -- moment, client_admin_assignments; null = a client with no Admin, the Owner's
+                     -- own), name, done, approved, sent_back, closed, carried, projects_completed:
+                     -- each {count, more, items[≤50: id, title, project, client, reason (sent back,
+                     -- closed)]}}], counts {done, approved, sent_back, closed, carried,
+                     -- projects_completed}} (done = the history's `done` entries, each item once a
+                     -- day; a report saved before 7.4 has no client_work and reads as none). Since the
+                     -- 7B rework's review (2026-10-09, migration client_work_rework_fixes): sent_back =
+                     -- the Owner's send-backs, reopened (new group and count) = the client's Admin's
+                     -- own reopens, each with the reason; approved holds only approvals made apart
+                     -- before amendment D3 (a report saved before has no reopened: zero). Read in
+                     -- the app through modules/reports (zod-checked).
 month_snapshots      id, org_id, month date (1st), version int, data jsonb, closed_by, closed_at,
                      corrects_id null, correction_note, unique(org_id, month, version)
                      -- month_snapshots contain revenue; both are Owner-only tables
@@ -1658,5 +1785,5 @@ feature_flags        key pk, enabled, description
 - `task_reminders(fire_at) where sent_at is null and cancelled_at is null`.
 - `notifications(recipient_id, read_at, created_at desc)`.
 - `drive_jobs(state, next_attempt_at)`, `submission_items(archive_state)`, `submission_items(link_state) where kind = 'drive_link'`.
-- `activity_log(entity, entity_id, at desc)`, `activity_log(actor_id, at desc)`.
+- `activity_log(entity, entity_id, at desc)`, `activity_log(actor_id, at desc)`; since 7B `activity_log_client_work_day_idx (org_id, at)` where the entry is an item's `done` or a project's `completed` (the end-of-day report's Client work reads a day's entries by time).
 - Full-text search: `tsvector` generated columns on clients, tasks, projects, items and contacts, with GIN indexes.

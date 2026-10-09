@@ -370,6 +370,23 @@ export async function countOpenAssignments(memberId: string): Promise<number> {
   return count ?? 0;
 }
 
+/**
+ * How many open tasks carry a client's label (kickoff 7 decision 20: the client Overview's "N open
+ * tasks labelled ‹client›", which opens All tasks filtered to it). RLS decides which tasks count,
+ * as All tasks does; a label is all that links tasks to a client (ADR-0005).
+ */
+export async function countOpenTasksForClient(clientId: string): Promise<number> {
+  const supabase = await createServerSupabase();
+  const { count, error } = await supabase
+    .from("tasks")
+    .select("id", { count: "exact", head: true })
+    .eq("client_id", clientId)
+    .is("archived_at", null)
+    .not("state", "in", "(completed,cancelled)");
+  if (error) throw error;
+  return count ?? 0;
+}
+
 /** The finished tasks, the latest first, at most `limit` (the full list's window). */
 export async function listFinishedTaskRows(limit: number): Promise<TaskListRow[]> {
   const supabase = await createServerSupabase();

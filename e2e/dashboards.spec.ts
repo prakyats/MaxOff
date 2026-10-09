@@ -345,6 +345,8 @@ test.describe("the Owner's Today (6.2)", () => {
       '[data-slot="today-approvals"]',
       '[data-slot="today-attendance-card"]',
       '[data-slot="today-tasks"]',
+      // Phase 7's Client work line, after Today's tasks (owner 2026-10-09), when anything is overdue.
+      '[data-slot="today-client-work"]',
       '[data-slot="today-risks"]',
       '[data-slot="today-events"]',
     ];

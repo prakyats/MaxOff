@@ -94,6 +94,7 @@ function payload(extra: Partial<WeeklyDigestPayload> = {}): WeeklyDigestPayload 
       ],
       holidays: [{ date: "2026-10-16", name: "Founders' day" }],
     },
+    client_work: [],
     ...extra,
   };
 }
@@ -194,6 +195,29 @@ describe("the sections (decision 23: the week from the saved reports, now, the w
       },
       { text: "Wed 14 Oct, 10:00 am: Shoot · Studio B", link: `/tasks/${TASK}` },
     ]);
+  });
+
+  it("lists client work per Admin, counts only (kickoff 7 amendment C E4)", () => {
+    const sections = weeklyDigestSections(
+      payload({
+        client_work: [
+          { admin_id: RAVI, name: "Ravi", done: 5, overdue: 2, projects_completed: 1 },
+          { admin_id: null, name: null, done: 1, overdue: 0, projects_completed: 0 },
+          { admin_id: TASK, name: "Asha", done: 0, overdue: 0, projects_completed: 0 },
+        ],
+      }),
+    );
+    expect(sections.find((section) => section.heading === "Client work")?.lines).toEqual([
+      {
+        text: "Ravi: 5 items done, 2 overdue now, 1 project completed",
+        link: "/clients/items?filter=overdue",
+      },
+      { text: "No Admin (yours): 1 item done", link: null },
+    ]);
+    // A digest saved before 7.4 has no client work and no section.
+    const older: Partial<WeeklyDigestPayload> = payload();
+    delete older.client_work;
+    expect(parseWeeklyDigestPayload(older)?.client_work).toEqual([]);
   });
 
   it("has no section when everything is zero", () => {

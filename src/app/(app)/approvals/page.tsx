@@ -32,7 +32,8 @@ const DESCRIPTION = "Everything waiting for your decision, oldest first.";
  * decides it (PERMISSIONS "Screens (2.4)"): Attendance, Leave and Extra work (3b.2) for
  * `attendance.decide`, Expenses (3b.3) for `expenses.decide` (both the Owner's), then **Staff
  * tasks** (4.5) at the step the viewer decides: the Owner's final approvals, an Admin's checks
- * (kickoff 3b decision 29's order). Client items join in 7.4.
+ * (kickoff 3b decision 29's order). No client items: since amendment D3 (owner 2026-10-09) an item
+ * marked done is approved in the same step, so nothing of client work waits here.
  */
 export default async function ApprovalsPage() {
   // The lists start with the session read (§19); RLS decides what each returns, and the ones an
@@ -93,7 +94,7 @@ export default async function ApprovalsPage() {
           description={
             decidesAttendance
               ? "Attendance, leave, extra work, expense claims and tasks that need you appear here."
-              : "The tasks you check before they go to the Owner appear here. Attendance, leave and expenses are the Owner's to decide."
+              : "The tasks you check appear here. Attendance, leave and expenses are the Owner's to decide."
           }
         />
       ) : (

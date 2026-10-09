@@ -1,6 +1,6 @@
 import { formatIST, istDayStart, type ISODate } from "@/core/time";
 
-import type { CalendarDay, EventItem } from "./calendar";
+import { dueCount, type CalendarDay, type EventItem } from "./calendar";
 
 /**
  * What a day's box in the month shows (6.4b; Kickoff 6 decision 25 C, **amended by the owner
@@ -89,7 +89,8 @@ export type DueBadge = { tone: "due" | "overdue"; count: number; label: string }
  * "1 overdue" in red. Nothing when none is due.
  */
 export function dueBadge(day: CalendarDay, today: ISODate): DueBadge | null {
-  const count = day.due.length;
+  // Client items join the count (kickoff 7 decision 21: no strip of their own).
+  const count = dueCount(day);
   if (count === 0) return null;
   return day.date < today
     ? { tone: "overdue", count, label: `${count} overdue` }

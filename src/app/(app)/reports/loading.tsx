@@ -72,6 +72,17 @@ export default async function Loading() {
             <KpiCardSkeleton key={card} />
           ))}
         </div>
+        {/* The item KPIs (7.4): the heading and the first two cards. */}
+        <div className="flex flex-col gap-2">
+          <div className="flex h-5 items-center">
+            <Skeleton className="h-4 w-24" />
+          </div>
+          <div className="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2">
+            {[0, 1].map((card) => (
+              <KpiCardSkeleton key={card} />
+            ))}
+          </div>
+        </div>
         <div className="flex h-5 items-center">
           <Skeleton className="h-4 w-44" />
         </div>

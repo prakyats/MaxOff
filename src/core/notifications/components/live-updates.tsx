@@ -61,9 +61,10 @@ export type LiveUpdatesProps = {
  * nothing revalidated), which confirms the drop the device already shows (`read-receipts.ts`).
  * `html[data-live]` says whether the channel is joined (`on`) or not (`off`), for the e2e checks.
  *
- * **The day screens (6A, Kickoff 6 decision 8):** on `/today` and `/my-day` the same client joins
- * a second channel (`dashboard:<id>`) listening to `tasks`, `task_assignees`, `attendance_days`
- * and `leave_requests` with no filter of its own: Realtime sends only the rows the member's RLS
+ * **The day screens (6A, Kickoff 6 decision 8):** on `/today` and `/my-day` (and since kickoff 7
+ * decision 24 `/approvals`) the same client joins a second channel (`dashboard:<id>`) listening to
+ * `tasks`, `task_assignees`, `attendance_days`, `leave_requests` and `project_items` (7B) with no
+ * filter of its own: Realtime sends only the rows the member's RLS
  * lets them select, and any of them re-reads the screen the same way (throttled, through the same
  * guard). It leaves when the screen does; a rejoin after a drop re-reads. `html[data-live-dashboard]`
  * says whether it is joined. Never a second client, never the row's content on screen.

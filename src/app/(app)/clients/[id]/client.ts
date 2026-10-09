@@ -41,6 +41,17 @@ export const loadClient = cache(async (id: string) => {
 });
 
 /**
+ * A client's work screens (7.3: the Projects tab and a project's page): the client as
+ * `loadClient` reads it, and `projects.manage` (the Owner, the client's Admin; PERMISSIONS
+ * "Screens (phase 7)"). Cached per request.
+ */
+export const loadClientWork = cache(async (id: string) => {
+  const loaded = await loadClient(id);
+  const viewer = await requirePermission("projects.manage");
+  return { ...loaded, viewer };
+});
+
+/**
  * The people a client screen names: every member's name (an actor in the history, a client's
  * Admin, a `member` custom field), and the active Admins the Owner may assign. Names, roles and
  * statuses only, so everyone reads the directory (PERMISSIONS §2: no email is needed here), and
@@ -57,5 +68,7 @@ export const loadPeople = cache(async () => {
   const options = members
     .filter((member) => member.status === "active")
     .map((member) => ({ id: member.id, name: member.fullName }));
-  return { names, admins, options };
+  // The Owner's id: his send-back of a done item reads "Sent back", an Admin's "Reopened" (D3).
+  const ownerId = members.find((member) => member.role === "owner")?.id ?? null;
+  return { names, admins, options, ownerId };
 });

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { validateCustomFieldsFor } from "@/core/custom-fields/server";
 import { action, AppError, isPostgresError, ok, type Result } from "@/core/errors";
+import { dispatchPushSoon } from "@/core/notifications/push/dispatch";
 import { assertPermission } from "@/core/permissions/server";
 
 import type { Client, ClientContact, ClientState } from "../domain/clients";
@@ -126,6 +127,23 @@ export const createClient = action(async (input: CreateClientInput): Promise<Res
     nameTaken(error);
   }
 });
+
+/**
+ * "New client" for an Admin (`clients.create` without `clients.manage`; kickoff 7 amendment B): no
+ * Admin to pick, the client is theirs and starts Active (`client_create`). The Owner's stays a
+ * Draft (`createClient`).
+ */
+export const createOwnClient = action(
+  async (input: CreateClientInput): Promise<Result<{ id: string }>> => {
+    const data = createClientSchema.parse(input);
+    await assertPermission("clients.create");
+    const customFields = await validateCustomFieldsFor("client", data.customFields);
+    const id = await repo.createOwnClient(detailsOf({ ...data, customFields }));
+    revalidateClients();
+    dispatchPushSoon();
+    return ok({ id });
+  },
+);
 
 export const updateClient = action(async (input: UpdateClientInput): Promise<Result<null>> => {
   const data = updateClientSchema.parse(input);

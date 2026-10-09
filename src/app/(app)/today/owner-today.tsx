@@ -60,6 +60,7 @@ import {
   readHolidays,
   readLeaveDays,
   readNotNoted,
+  readOverdueItems,
   readUnreachable,
   eventsHorizon,
 } from "./reads";
@@ -80,16 +81,19 @@ import { ownerGreeting } from "./words";
  * 2. **Attendance**: the four counts in one row; Absent and yesterday's unended days as red lines
  *    under it, only above zero (decision 24's counts, links and colours; owner 2026-10-09).
  * 3. **Today's tasks**: one line, "N due today · M handed in".
- *    (Phase 7's client work line goes here, after Today's tasks, when it is built.)
- * 4. **Overdue and risks** (decisions 6, 23): one status signal per row, the meta line in red or
+ * 4. **Client work** (7.4; kickoff 7 amendment C, E1): one line, "N client items overdue" in red
+ *    with its dot, hidden at zero, opening the cross-client list grouped by Admin; no item
+ *    approvals (issue #56 Q1: the client's Admin's) and no progress line (not an exception).
+ * 5. **Overdue and risks** (decisions 6, 23): one status signal per row, the meta line in red or
  *    amber with its dot.
- * 5. **This week**: a person's consecutive leave as one line, each day's deadlines as a count ("3
+ * 6. **This week**: a person's consecutive leave as one line, each day's deadlines as a count ("3
  *    due") and its timed events by title and time, at most five lines then "See the week";
  *    "Calendar ›" in the header.
  *
- * Sections 3–5 are drawn only with something in them (decision 24: exceptions only); when none
+ * Sections 3–6 are drawn only with something in them (decision 24: exceptions only); when none
  * is, one muted line: "Nothing else needs you today." Not shown until their data exists
- * (decision 4): item approvals, client work progress, the revenue snapshot.
+ * (decision 4): the revenue snapshot. The rule for every later addition (decision 24): exceptions
+ * only, a count rather than a list where possible, one tap to the list, hidden when empty.
  */
 export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
   const today = todayIST();
@@ -107,6 +111,7 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
     holidays,
     unended,
     types,
+    overdueItems,
   ] = await Promise.all([
     getTodayPeople(),
     readOpenTasks(),
@@ -124,6 +129,8 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
     getUnendedYesterday(),
     // Which task types show on the calendar: This week counts as the calendar's month view does.
     readTaskTypes(),
+    // Client work (kickoff 7 amendment C E1, decision 24): one count line, hidden at zero.
+    can(viewer.role, "items.tick") ? readOverdueItems(today) : Promise.resolve(0),
   ]);
   const [days, requests, notes, claims, toDecide] = approvals;
   const now = systemClock();
@@ -196,6 +203,7 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
   const sections = {
     tasks: dueToday.due > 0,
     risks: risks.length > 0 || (held !== null && heldEmailsLine(held) !== null),
+    clientWork: overdueItems > 0,
     week: week.lines.length > 0,
   };
   const nothing = !Object.values(sections).some(Boolean);
@@ -261,8 +269,36 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
           </DashSection>
         ) : null}
 
-        {/* Phase 7's client work line takes its place here, after Today's tasks (owner
-            2026-10-09): one line, hidden when empty, so no empty band until then. */}
+        {/* Client work (7.4), after Today's tasks (owner 2026-10-09): one line, red for overdue
+            with its dot (the row's one status signal, as the risk rows). */}
+        {sections.clientWork ? (
+          <DashSection title="Client work" slot="today-client-work">
+            <RowList label="Client work" slot="today-client-work-line">
+              <LinkRow
+                href="/clients/items?filter=overdue"
+                slot="today-items-overdue"
+                title={
+                  <span
+                    data-slot="today-items-overdue-signal"
+                    data-tone="danger"
+                    className="text-danger inline-flex max-w-full items-baseline gap-1.5"
+                  >
+                    <span
+                      aria-hidden
+                      className="bg-danger size-1.5 shrink-0 self-center rounded-full"
+                    />
+                    <span className="min-w-0 break-words">
+                      {overdueItems === 1
+                        ? "1 client item overdue"
+                        : `${overdueItems} client items overdue`}
+                    </span>
+                  </span>
+                }
+                detail="Grouped by Admin"
+              />
+            </RowList>
+          </DashSection>
+        ) : null}
 
         {sections.risks ? (
           <DashSection title="Overdue and risks" slot="today-risks" count={risks.length}>

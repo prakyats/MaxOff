@@ -56,6 +56,7 @@ export {
   closeClient,
   createClient,
   createContact,
+  createOwnClient,
   pauseClient,
   reactivateClient,
   removeClientLogo,

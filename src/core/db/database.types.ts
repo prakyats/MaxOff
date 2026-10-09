@@ -525,6 +525,61 @@ export type Database = {
           },
         ];
       };
+      client_work_alerts: {
+        Row: {
+          answers_at: string | null;
+          armed_for: string;
+          entity_id: string;
+          id: string;
+          kind: string;
+          org_id: string;
+          recipient_id: string | null;
+          sent_at: string;
+        };
+        Insert: {
+          answers_at?: string | null;
+          armed_for: string;
+          entity_id: string;
+          id?: string;
+          kind: string;
+          org_id: string;
+          recipient_id?: string | null;
+          sent_at: string;
+        };
+        Update: {
+          answers_at?: string | null;
+          armed_for?: string;
+          entity_id?: string;
+          id?: string;
+          kind?: string;
+          org_id?: string;
+          recipient_id?: string | null;
+          sent_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "client_work_alerts_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "client_work_alerts_recipient_id_fkey";
+            columns: ["recipient_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "client_work_alerts_recipient_id_fkey";
+            columns: ["recipient_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       clients: {
         Row: {
           activated_at: string | null;
@@ -1215,6 +1270,65 @@ export type Database = {
           },
         ];
       };
+      item_reviews: {
+        Row: {
+          at: string;
+          decision: Database["public"]["Enums"]["review_decision"];
+          id: string;
+          item_id: string;
+          org_id: string;
+          reason: string | null;
+          reviewer_id: string;
+        };
+        Insert: {
+          at?: string;
+          decision: Database["public"]["Enums"]["review_decision"];
+          id?: string;
+          item_id: string;
+          org_id: string;
+          reason?: string | null;
+          reviewer_id: string;
+        };
+        Update: {
+          at?: string;
+          decision?: Database["public"]["Enums"]["review_decision"];
+          id?: string;
+          item_id?: string;
+          org_id?: string;
+          reason?: string | null;
+          reviewer_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "item_reviews_item_id_fkey";
+            columns: ["item_id"];
+            isOneToOne: false;
+            referencedRelation: "project_items";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "item_reviews_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "item_reviews_reviewer_id_fkey";
+            columns: ["reviewer_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "item_reviews_reviewer_id_fkey";
+            columns: ["reviewer_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       leave_requests: {
         Row: {
           created_at: string;
@@ -1831,11 +1945,13 @@ export type Database = {
           ack_escalate_owner_hours: number;
           ack_repeat_hours: number;
           created_at: string;
+          cycle_decide_escalate_days: number;
           default_task_reminders: Json;
           email_daily_cap_org: number;
           email_daily_cap_per_member: number;
           end_day_cutoff_time: string;
           expense_receipt_above: number;
+          item_overdue_escalate_hours: number;
           logout_reminder_time: string;
           org_id: string;
           overdue_escalate_hours: number;
@@ -1852,11 +1968,13 @@ export type Database = {
           ack_escalate_owner_hours?: number;
           ack_repeat_hours?: number;
           created_at?: string;
+          cycle_decide_escalate_days?: number;
           default_task_reminders?: Json;
           email_daily_cap_org?: number;
           email_daily_cap_per_member?: number;
           end_day_cutoff_time?: string;
           expense_receipt_above?: number;
+          item_overdue_escalate_hours?: number;
           logout_reminder_time?: string;
           org_id: string;
           overdue_escalate_hours?: number;
@@ -1873,11 +1991,13 @@ export type Database = {
           ack_escalate_owner_hours?: number;
           ack_repeat_hours?: number;
           created_at?: string;
+          cycle_decide_escalate_days?: number;
           default_task_reminders?: Json;
           email_daily_cap_org?: number;
           email_daily_cap_per_member?: number;
           end_day_cutoff_time?: string;
           expense_receipt_above?: number;
+          item_overdue_escalate_hours?: number;
           logout_reminder_time?: string;
           org_id?: string;
           overdue_escalate_hours?: number;
@@ -1930,6 +2050,738 @@ export type Database = {
             columns: ["logo_file_id"];
             isOneToOne: false;
             referencedRelation: "files";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      project_cycles: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          generated_by: string;
+          id: string;
+          item_list_copied: boolean;
+          label: string | null;
+          org_id: string;
+          period_end: string | null;
+          period_start: string | null;
+          project_id: string;
+          prompted_at: string | null;
+          ready_armed_at: string | null;
+          state: Database["public"]["Enums"]["cycle_state"];
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          generated_by: string;
+          id?: string;
+          item_list_copied?: boolean;
+          label?: string | null;
+          org_id: string;
+          period_end?: string | null;
+          period_start?: string | null;
+          project_id: string;
+          prompted_at?: string | null;
+          ready_armed_at?: string | null;
+          state?: Database["public"]["Enums"]["cycle_state"];
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          generated_by?: string;
+          id?: string;
+          item_list_copied?: boolean;
+          label?: string | null;
+          org_id?: string;
+          period_end?: string | null;
+          period_start?: string | null;
+          project_id?: string;
+          prompted_at?: string | null;
+          ready_armed_at?: string | null;
+          state?: Database["public"]["Enums"]["cycle_state"];
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "project_cycles_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_cycles_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_cycles_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_cycles_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "projects";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      project_item_blueprints: {
+        Row: {
+          archived_at: string | null;
+          created_at: string;
+          id: string;
+          org_id: string;
+          position: string;
+          project_id: string;
+          stages: string[];
+          title: string;
+          updated_at: string;
+        };
+        Insert: {
+          archived_at?: string | null;
+          created_at?: string;
+          id?: string;
+          org_id: string;
+          position: string;
+          project_id: string;
+          stages?: string[];
+          title: string;
+          updated_at?: string;
+        };
+        Update: {
+          archived_at?: string | null;
+          created_at?: string;
+          id?: string;
+          org_id?: string;
+          position?: string;
+          project_id?: string;
+          stages?: string[];
+          title?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "project_item_blueprints_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_item_blueprints_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "projects";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      project_item_stage_list: {
+        Row: {
+          archived_at: string | null;
+          created_at: string;
+          done_at: string | null;
+          done_by: string | null;
+          id: string;
+          item_id: string;
+          name: string;
+          org_id: string;
+          position: string;
+          project_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          archived_at?: string | null;
+          created_at?: string;
+          done_at?: string | null;
+          done_by?: string | null;
+          id?: string;
+          item_id: string;
+          name: string;
+          org_id: string;
+          position: string;
+          project_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          archived_at?: string | null;
+          created_at?: string;
+          done_at?: string | null;
+          done_by?: string | null;
+          id?: string;
+          item_id?: string;
+          name?: string;
+          org_id?: string;
+          position?: string;
+          project_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "project_item_stage_list_done_by_fkey";
+            columns: ["done_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_item_stage_list_done_by_fkey";
+            columns: ["done_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_item_stage_list_item_id_fkey";
+            columns: ["item_id"];
+            isOneToOne: false;
+            referencedRelation: "project_items";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_item_stage_list_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_item_stage_list_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "projects";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      project_item_stages: {
+        Row: {
+          created_at: string;
+          done_at: string | null;
+          done_by: string | null;
+          item_id: string;
+          org_id: string;
+          stage_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          done_at?: string | null;
+          done_by?: string | null;
+          item_id: string;
+          org_id: string;
+          stage_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          done_at?: string | null;
+          done_by?: string | null;
+          item_id?: string;
+          org_id?: string;
+          stage_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "project_item_stages_done_by_fkey";
+            columns: ["done_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_item_stages_done_by_fkey";
+            columns: ["done_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_item_stages_item_id_fkey";
+            columns: ["item_id"];
+            isOneToOne: false;
+            referencedRelation: "project_items";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_item_stages_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_item_stages_stage_id_fkey";
+            columns: ["stage_id"];
+            isOneToOne: false;
+            referencedRelation: "project_stages";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      project_items: {
+        Row: {
+          approved_at: string | null;
+          approved_by: string | null;
+          cancelled_at: string | null;
+          cancelled_by: string | null;
+          cancelled_reason: string | null;
+          carried_from_item_id: string | null;
+          carry_decided_at: string | null;
+          carry_decided_by: string | null;
+          carry_decision: Database["public"]["Enums"]["carry_decision"] | null;
+          created_at: string;
+          created_by: string | null;
+          custom_fields: Json;
+          cycle_id: string;
+          done_at: string | null;
+          done_by: string | null;
+          id: string;
+          notes: string | null;
+          org_id: string;
+          origin_cycle_id: string;
+          overdue_armed_at: string | null;
+          planned_date: string | null;
+          position: string;
+          project_id: string;
+          reopened_at: string | null;
+          search: unknown;
+          state: Database["public"]["Enums"]["item_state"];
+          title: string;
+          updated_at: string;
+        };
+        Insert: {
+          approved_at?: string | null;
+          approved_by?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
+          cancelled_reason?: string | null;
+          carried_from_item_id?: string | null;
+          carry_decided_at?: string | null;
+          carry_decided_by?: string | null;
+          carry_decision?: Database["public"]["Enums"]["carry_decision"] | null;
+          created_at?: string;
+          created_by?: string | null;
+          custom_fields?: Json;
+          cycle_id: string;
+          done_at?: string | null;
+          done_by?: string | null;
+          id?: string;
+          notes?: string | null;
+          org_id: string;
+          origin_cycle_id: string;
+          overdue_armed_at?: string | null;
+          planned_date?: string | null;
+          position: string;
+          project_id: string;
+          reopened_at?: string | null;
+          search?: unknown;
+          state?: Database["public"]["Enums"]["item_state"];
+          title: string;
+          updated_at?: string;
+        };
+        Update: {
+          approved_at?: string | null;
+          approved_by?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
+          cancelled_reason?: string | null;
+          carried_from_item_id?: string | null;
+          carry_decided_at?: string | null;
+          carry_decided_by?: string | null;
+          carry_decision?: Database["public"]["Enums"]["carry_decision"] | null;
+          created_at?: string;
+          created_by?: string | null;
+          custom_fields?: Json;
+          cycle_id?: string;
+          done_at?: string | null;
+          done_by?: string | null;
+          id?: string;
+          notes?: string | null;
+          org_id?: string;
+          origin_cycle_id?: string;
+          overdue_armed_at?: string | null;
+          planned_date?: string | null;
+          position?: string;
+          project_id?: string;
+          reopened_at?: string | null;
+          search?: unknown;
+          state?: Database["public"]["Enums"]["item_state"];
+          title?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "project_items_approved_by_fkey";
+            columns: ["approved_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_items_approved_by_fkey";
+            columns: ["approved_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_items_cancelled_by_fkey";
+            columns: ["cancelled_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_items_cancelled_by_fkey";
+            columns: ["cancelled_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_items_carried_from_item_id_fkey";
+            columns: ["carried_from_item_id"];
+            isOneToOne: false;
+            referencedRelation: "project_items";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_items_carry_decided_by_fkey";
+            columns: ["carry_decided_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_items_carry_decided_by_fkey";
+            columns: ["carry_decided_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_items_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_items_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_items_cycle_id_fkey";
+            columns: ["cycle_id"];
+            isOneToOne: false;
+            referencedRelation: "project_cycles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_items_done_by_fkey";
+            columns: ["done_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_items_done_by_fkey";
+            columns: ["done_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_items_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_items_origin_cycle_id_fkey";
+            columns: ["origin_cycle_id"];
+            isOneToOne: false;
+            referencedRelation: "project_cycles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_items_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "projects";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      project_stages: {
+        Row: {
+          archived_at: string | null;
+          created_at: string;
+          id: string;
+          name: string;
+          org_id: string;
+          position: string;
+          project_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          archived_at?: string | null;
+          created_at?: string;
+          id?: string;
+          name: string;
+          org_id: string;
+          position: string;
+          project_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          archived_at?: string | null;
+          created_at?: string;
+          id?: string;
+          name?: string;
+          org_id?: string;
+          position?: string;
+          project_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "project_stages_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_stages_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "projects";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      project_templates: {
+        Row: {
+          archived_at: string | null;
+          created_at: string;
+          created_by: string;
+          description: string | null;
+          field_defaults: Json;
+          id: string;
+          items: string[];
+          name: string;
+          org_id: string;
+          recurrence: Database["public"]["Enums"]["recurrence"];
+          stages: string[];
+          updated_at: string;
+        };
+        Insert: {
+          archived_at?: string | null;
+          created_at?: string;
+          created_by?: string;
+          description?: string | null;
+          field_defaults?: Json;
+          id?: string;
+          items?: string[];
+          name: string;
+          org_id?: string;
+          recurrence: Database["public"]["Enums"]["recurrence"];
+          stages?: string[];
+          updated_at?: string;
+        };
+        Update: {
+          archived_at?: string | null;
+          created_at?: string;
+          created_by?: string;
+          description?: string | null;
+          field_defaults?: Json;
+          id?: string;
+          items?: string[];
+          name?: string;
+          org_id?: string;
+          recurrence?: Database["public"]["Enums"]["recurrence"];
+          stages?: string[];
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "project_templates_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_templates_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_templates_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      projects: {
+        Row: {
+          archived_at: string | null;
+          cancelled_at: string | null;
+          cancelled_by: string | null;
+          cancelled_reason: string | null;
+          client_id: string;
+          completed_at: string | null;
+          completed_by: string | null;
+          created_at: string;
+          created_by: string;
+          custom_fields: Json;
+          delivery_armed_at: string | null;
+          delivery_date: string | null;
+          description: string | null;
+          id: string;
+          name: string;
+          org_id: string;
+          recurrence: Database["public"]["Enums"]["recurrence"];
+          search: unknown;
+          state: Database["public"]["Enums"]["project_state"];
+          template_id: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          archived_at?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
+          cancelled_reason?: string | null;
+          client_id: string;
+          completed_at?: string | null;
+          completed_by?: string | null;
+          created_at?: string;
+          created_by: string;
+          custom_fields?: Json;
+          delivery_armed_at?: string | null;
+          delivery_date?: string | null;
+          description?: string | null;
+          id?: string;
+          name: string;
+          org_id: string;
+          recurrence: Database["public"]["Enums"]["recurrence"];
+          search?: unknown;
+          state?: Database["public"]["Enums"]["project_state"];
+          template_id?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          archived_at?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
+          cancelled_reason?: string | null;
+          client_id?: string;
+          completed_at?: string | null;
+          completed_by?: string | null;
+          created_at?: string;
+          created_by?: string;
+          custom_fields?: Json;
+          delivery_armed_at?: string | null;
+          delivery_date?: string | null;
+          description?: string | null;
+          id?: string;
+          name?: string;
+          org_id?: string;
+          recurrence?: Database["public"]["Enums"]["recurrence"];
+          search?: unknown;
+          state?: Database["public"]["Enums"]["project_state"];
+          template_id?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "projects_cancelled_by_fkey";
+            columns: ["cancelled_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "projects_cancelled_by_fkey";
+            columns: ["cancelled_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "projects_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: false;
+            referencedRelation: "client_labels";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "projects_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: false;
+            referencedRelation: "clients";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "projects_completed_by_fkey";
+            columns: ["completed_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "projects_completed_by_fkey";
+            columns: ["completed_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "projects_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "projects_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "projects_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "projects_template_id_fkey";
+            columns: ["template_id"];
+            isOneToOne: false;
+            referencedRelation: "project_templates";
             referencedColumns: ["id"];
           },
         ];
@@ -2062,6 +2914,61 @@ export type Database = {
             columns: ["member_id"];
             isOneToOne: false;
             referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      stage_presets: {
+        Row: {
+          archived_at: string | null;
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          name: string;
+          org_id: string;
+          stages: string[];
+          updated_at: string;
+        };
+        Insert: {
+          archived_at?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          name: string;
+          org_id?: string;
+          stages: string[];
+          updated_at?: string;
+        };
+        Update: {
+          archived_at?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          name?: string;
+          org_id?: string;
+          stages?: string[];
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "stage_presets_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stage_presets_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stage_presets_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
             referencedColumns: ["id"];
           },
         ];
@@ -3418,6 +4325,7 @@ export type Database = {
         Args: { contact_id: string };
         Returns: undefined;
       };
+      client_create: { Args: { details: Json }; Returns: string };
       client_hand_over: {
         Args: { from_admin: string; moves: Json };
         Returns: number;
@@ -3457,6 +4365,15 @@ export type Database = {
         Args: { credit_id: string; reason?: string };
         Returns: undefined;
       };
+      cycle_carry_decide: {
+        Args: {
+          decision: Database["public"]["Enums"]["carry_decision"];
+          item_ids: string[];
+          reason?: string;
+        };
+        Returns: Json;
+      };
+      cycle_start_next: { Args: { project_id: string }; Returns: string };
       dashboard_not_noted: {
         Args: never;
         Returns: {
@@ -3620,6 +4537,71 @@ export type Database = {
       };
       file_fail: { Args: { file_id: string }; Returns: string };
       file_mark_deleted: { Args: { file_id: string }; Returns: string };
+      item_add: {
+        Args: {
+          custom_fields?: Json;
+          cycle_id: string;
+          notes?: string;
+          planned_date?: string;
+          title: string;
+        };
+        Returns: string;
+      };
+      item_approve: { Args: { item_ids: string[] }; Returns: Json };
+      item_cancel: {
+        Args: { item_id: string; reason: string };
+        Returns: Database["public"]["Enums"]["item_state"];
+      };
+      item_last_changes: {
+        Args: { item_ids: string[] };
+        Returns: {
+          action: string;
+          actor_id: string;
+          at: string;
+          diff: Json;
+          entity: string;
+          entity_id: string;
+          id: number;
+          meta: Json;
+        }[];
+      };
+      item_mark_done: {
+        Args: { item_id: string };
+        Returns: Database["public"]["Enums"]["item_state"];
+      };
+      item_reject: {
+        Args: { item_id: string; reason: string };
+        Returns: Database["public"]["Enums"]["item_state"];
+      };
+      item_reopen: {
+        Args: { item_id: string; reason: string };
+        Returns: Database["public"]["Enums"]["item_state"];
+      };
+      item_stage_add: {
+        Args: { item_id: string; name: string };
+        Returns: string;
+      };
+      item_stage_archive: { Args: { stage_id: string }; Returns: undefined };
+      item_stage_tick: {
+        Args: { done?: boolean; stage_id: string };
+        Returns: boolean;
+      };
+      item_stage_update: {
+        Args: { changes: Json; stage_id: string };
+        Returns: string[];
+      };
+      item_tick_stage: {
+        Args: { done?: boolean; item_id: string; stage_id: string };
+        Returns: boolean;
+      };
+      item_unmark_done: {
+        Args: { item_id: string };
+        Returns: Database["public"]["Enums"]["item_state"];
+      };
+      item_update: {
+        Args: { changes: Json; item_id: string };
+        Returns: string[];
+      };
       leave_decide: {
         Args: { decision: string; reason?: string; request_id: string };
         Returns: {
@@ -3784,6 +4766,77 @@ export type Database = {
       onboarding_finish: { Args: { p_via: string }; Returns: boolean };
       owner_digest_preview: { Args: never; Returns: Json };
       owner_digest_weekly_preview: { Args: never; Returns: Json };
+      project_activity: {
+        Args: {
+          before_at?: string;
+          before_id?: number;
+          item_id?: string;
+          kind?: string;
+          max_rows?: number;
+          project_id: string;
+        };
+        Returns: {
+          action: string;
+          actor_id: string;
+          at: string;
+          diff: Json;
+          entity: string;
+          entity_id: string;
+          id: number;
+          meta: Json;
+        }[];
+      };
+      project_blueprint_add: {
+        Args: { project_id: string; title: string };
+        Returns: string;
+      };
+      project_blueprint_archive: {
+        Args: { blueprint_id: string };
+        Returns: undefined;
+      };
+      project_blueprint_update: {
+        Args: { blueprint_id: string; changes: Json };
+        Returns: string[];
+      };
+      project_cancel: {
+        Args: { project_id: string; reason: string };
+        Returns: Database["public"]["Enums"]["project_state"];
+      };
+      project_complete: {
+        Args: { project_id: string };
+        Returns: Database["public"]["Enums"]["project_state"];
+      };
+      project_create: {
+        Args: {
+          client_id: string;
+          custom_fields?: Json;
+          delivery_date?: string;
+          description?: string;
+          items?: string[];
+          name: string;
+          recurrence: Database["public"]["Enums"]["recurrence"];
+          stages?: string[];
+          template_id?: string;
+        };
+        Returns: string;
+      };
+      project_reopen: {
+        Args: { project_id: string; reason: string };
+        Returns: Database["public"]["Enums"]["project_state"];
+      };
+      project_stage_add: {
+        Args: { name: string; project_id: string };
+        Returns: string;
+      };
+      project_stage_archive: { Args: { stage_id: string }; Returns: undefined };
+      project_stage_update: {
+        Args: { changes: Json; stage_id: string };
+        Returns: string[];
+      };
+      project_update: {
+        Args: { changes: Json; project_id: string };
+        Returns: string[];
+      };
       push_band_census: {
         Args: never;
         Returns: {
@@ -4017,7 +5070,9 @@ export type Database = {
       admin_step: "required" | "none" | "skipped";
       attendance_choice: "present" | "leave" | "half_day" | "comp_leave";
       attendance_state: "awaiting_choice" | "pending_review" | "approved" | "corrected";
+      carry_decision: "carry_forward" | "close" | "leave_pending";
       client_state: "draft" | "active" | "paused" | "inactive";
+      cycle_state: "open" | "settled";
       day_status: "present" | "leave" | "half_day" | "comp_leave" | "absent";
       engagement: "permanent" | "freelance";
       field_type:
@@ -4035,11 +5090,14 @@ export type Database = {
         | "color"
         | "member"
         | "rating";
+      item_state: "open" | "done" | "approved" | "cancelled" | "carried";
       leave_state: "submitted" | "approved" | "rejected" | "withdrawn" | "superseded" | "cancelled";
       leave_type: "leave" | "half_day" | "comp_leave";
       member_role: "owner" | "admin" | "staff";
       member_status: "invited" | "active" | "deactivated";
       priority: "low" | "medium" | "high" | "urgent";
+      project_state: "open" | "in_progress" | "completed" | "cancelled";
+      recurrence: "one_time" | "weekly" | "monthly";
       request_state: "pending" | "converted" | "declined" | "withdrawn";
       review_decision: "approved" | "rejected";
       task_state:
@@ -4175,7 +5233,9 @@ export const Constants = {
       admin_step: ["required", "none", "skipped"],
       attendance_choice: ["present", "leave", "half_day", "comp_leave"],
       attendance_state: ["awaiting_choice", "pending_review", "approved", "corrected"],
+      carry_decision: ["carry_forward", "close", "leave_pending"],
       client_state: ["draft", "active", "paused", "inactive"],
+      cycle_state: ["open", "settled"],
       day_status: ["present", "leave", "half_day", "comp_leave", "absent"],
       engagement: ["permanent", "freelance"],
       field_type: [
@@ -4194,11 +5254,14 @@ export const Constants = {
         "member",
         "rating",
       ],
+      item_state: ["open", "done", "approved", "cancelled", "carried"],
       leave_state: ["submitted", "approved", "rejected", "withdrawn", "superseded", "cancelled"],
       leave_type: ["leave", "half_day", "comp_leave"],
       member_role: ["owner", "admin", "staff"],
       member_status: ["invited", "active", "deactivated"],
       priority: ["low", "medium", "high", "urgent"],
+      project_state: ["open", "in_progress", "completed", "cancelled"],
+      recurrence: ["one_time", "weekly", "monthly"],
       request_state: ["pending", "converted", "declined", "withdrawn"],
       review_decision: ["approved", "rejected"],
       task_state: [

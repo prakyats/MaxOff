@@ -31,7 +31,8 @@ import { countTasks } from "@/modules/tasks";
  * noted, plus those with changes requested (`task_counts()`). **Approvals** (2.4): the attendance
  * days, leave requests, extra work notes (3b.2) and expense claims (3b.3, `expenses.decide`)
  * waiting for whoever decides them (the Owner), plus the tasks at the step the viewer decides
- * (4.5: the Owner's final approvals, an Admin's checks); client items join in 7.4. **Alerts**
+ * (4.5: the Owner's final approvals, an Admin's checks); client items take no approval step
+ * since amendment D3 (done is the approval). **Alerts**
  * (5.1, kickoff 5 decision 4): the viewer's unread notifications, on every role's bell (`readUnread()`, which the title bar's bell shares in the same request; `unread`,
  * that count with the server's clock, or null when it could not be read).
  */
@@ -43,7 +44,11 @@ async function navBadges(
   const alerts = unread.then((server) => server?.count ?? 0);
   if (!can(role, "attendance.decide")) {
     const [counts, unreadCount] = await Promise.all([tasks, alerts]);
-    return { tasks: counts?.badge ?? 0, approvals: counts?.toDecide ?? 0, alerts: unreadCount };
+    return {
+      tasks: counts?.badge ?? 0,
+      approvals: counts?.toDecide ?? 0,
+      alerts: unreadCount,
+    };
   }
   const [counts, unreadCount, days, requests, notes, claims] = await Promise.all([
     tasks,

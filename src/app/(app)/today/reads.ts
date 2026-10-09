@@ -5,6 +5,17 @@ import { cache } from "react";
 import { withSessionUserId } from "@/core/auth/server";
 import { addISTDays, type ISODate } from "@/core/time";
 import { listPendingDays, listPendingNotes } from "@/modules/attendance";
+import {
+  countItemsToDecide,
+  countOverdueItems,
+  listCurrentCycles,
+  listItemRows,
+  listItemStages,
+  listLastChanges,
+  listReviews,
+  listSentBack,
+  weekEnd,
+} from "@/modules/client-work";
 import { listClients } from "@/modules/clients";
 import {
   countHeldEmails,
@@ -48,3 +59,36 @@ export const readApprovals = cache(() =>
     listTasksToDecide({ final: true }),
   ]),
 );
+
+/** The Owner's one client-work line: "N client items overdue" (amendment C E1, decision 24). */
+export const readOverdueItems = cache((today: ISODate) => countOverdueItems(today));
+
+/**
+ * The Admin's client work (kickoff 7 decision 19, amendments C and D): open items planned up to
+ * Sunday, the items sent back to them and the count behind Needs you (no approval count since D3:
+ * done is the approval). RLS gives an Admin only the clients they run.
+ */
+export const readAdminClientWork = cache(async (today: ISODate, viewerId: string) => {
+  const [due, sentBack, toDecide] = await Promise.all([
+    listItemRows({ states: ["open"], plannedTo: weekEnd(today) }),
+    listSentBack(viewerId),
+    countItemsToDecide(today),
+  ]);
+  return { due, sentBack, toDecide };
+});
+
+/** The own stages, reviews and last changes of the items Today shows (at most a handful). */
+export async function readItemDetails(itemIds: string[]) {
+  const [stages, reviews, lastChanges] = await Promise.all([
+    listItemStages(itemIds),
+    listReviews(itemIds),
+    listLastChanges(itemIds),
+  ]);
+  return { stages, reviews, lastChanges };
+}
+
+/**
+ * The working projects' current cycles with their items' states, in one request (the Admin's "My
+ * clients" progress, kickoff 7; the Admin report's Cycle progress): never every cycle ever made.
+ */
+export const readClientProgress = cache((today: ISODate) => listCurrentCycles(today));

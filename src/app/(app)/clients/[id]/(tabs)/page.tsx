@@ -1,4 +1,4 @@
-import { ChevronRightIcon, ExternalLinkIcon, PhoneIcon } from "lucide-react";
+import { ChevronRightIcon, ExternalLinkIcon, ListTodoIcon, PhoneIcon } from "lucide-react";
 import type { Metadata } from "next";
 
 import { listDefinitions } from "@/core/custom-fields/server";
@@ -16,6 +16,7 @@ import { StatusDot } from "@/core/ui/composites/status-badge";
 import { Button } from "@/core/ui/primitives/button";
 import { Card, CardContent } from "@/core/ui/primitives/card";
 import { getOwnerNotes, listContacts } from "@/modules/clients";
+import { countOpenTasksForClient } from "@/modules/tasks";
 import { AddContactDialog } from "@/modules/clients/components/add-contact-dialog";
 import {
   ClientDetails,
@@ -32,7 +33,9 @@ export const metadata: Metadata = { title: "Client" };
  * A client's Overview (3.4, PRODUCT §4.4). **First glance** (PRODUCT §2): who runs it, whom to
  * call (the primary contact, one tap to phone) and the Drive folder, then the contacts, then the
  * details, requirements and notes through the edit pattern, and the Owner's private notes for
- * the Owner only (never read for an Admin, PERMISSIONS §2). A contact opens one tap deeper.
+ * the Owner only (never read for an Admin, PERMISSIONS §2). A contact opens one tap deeper. The
+ * client's tasks are one line, "N open tasks labelled ‹client›", opening All tasks filtered to it
+ * (kickoff 7 decision 20: no tasks tab; copy says "tasks").
  */
 export default async function ClientOverviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -42,7 +45,7 @@ export default async function ClientOverviewPage({ params }: { params: Promise<{
   assertClientId(id);
   const notes = getOwnerNotes(id);
   startEarly(notes);
-  const [{ viewer, client, canEdit }, [people, contacts, clientFields, contactFields]] =
+  const [{ viewer, client, canEdit }, [people, contacts, clientFields, contactFields, openTasks]] =
     await checkThenRead(
       loadClient(id),
       Promise.all([
@@ -50,6 +53,7 @@ export default async function ClientOverviewPage({ params }: { params: Promise<{
         listContacts(id),
         listDefinitions("client", { clientId: id }),
         listDefinitions("contact", { clientId: id }),
+        countOpenTasksForClient(id),
       ]),
     );
   const ownerNotes = can(viewer.role, "clients.private_notes") ? await notes : null;
@@ -109,6 +113,8 @@ export default async function ClientOverviewPage({ params }: { params: Promise<{
           </div>
         </CardContent>
       </Card>
+
+      <ClientTasksLine clientId={client.id} clientName={client.name} count={openTasks} />
 
       <section aria-labelledby="contacts-title" className="flex flex-col gap-2">
         <div className="flex min-h-11 flex-wrap items-center justify-between gap-2">
@@ -205,5 +211,46 @@ export default async function ClientOverviewPage({ params }: { params: Promise<{
         </Card>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * "3 open tasks labelled Sharma Weddings" → All tasks filtered to the client (kickoff 7 decision
+ * 20). With none it stays a quiet line of the same height, so the page never moves.
+ */
+function ClientTasksLine({
+  clientId,
+  clientName,
+  count,
+}: {
+  clientId: string;
+  clientName: string;
+  count: number;
+}) {
+  const text =
+    count === 0
+      ? `No open tasks labelled ${clientName}`
+      : `${count} open ${count === 1 ? "task" : "tasks"} labelled ${clientName}`;
+  const inner = (
+    <>
+      <ListTodoIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
+      <span className="min-w-0 flex-1 break-words">{text}</span>
+    </>
+  );
+  const box =
+    "border-border bg-card flex min-h-11 items-center gap-3 rounded-lg border px-4 py-2 text-sm";
+  return count === 0 ? (
+    <p data-slot="client-tasks-line" className={cn(box, "text-muted-foreground")}>
+      {inner}
+    </p>
+  ) : (
+    <DrillLink
+      href={`/tasks/all?client=${clientId}`}
+      data-slot="client-tasks-line"
+      className={cn(box, "font-medium")}
+    >
+      {inner}
+      <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
+    </DrillLink>
   );
 }

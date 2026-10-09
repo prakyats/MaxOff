@@ -21,6 +21,18 @@ delete from public.extra_work_notes;
 delete from public.leave_requests;
 delete from public.session_events;
 delete from public.activity_log; -- first: actor_id references members
+-- 7A: client work rows reference clients and members, and the presets the organization (a
+-- Playwright run leaves some behind).
+delete from public.item_reviews;
+delete from public.project_item_stage_list;
+delete from public.project_item_stages;
+delete from public.project_items;
+delete from public.project_cycles;
+delete from public.project_item_blueprints;
+delete from public.project_stages;
+delete from public.projects;
+delete from public.project_templates;
+delete from public.stage_presets;
 -- 4A: task rows and coordinator rows reference members (a Playwright run leaves some behind).
 delete from public.task_requests;
 delete from public.task_warnings;
@@ -44,6 +56,7 @@ update public.organizations set logo_file_id = null;
 delete from public.files;
 delete from public.members;
 delete from public.task_types; -- 4A: the seeded task types reference the organization
+delete from public.eod_reports; -- 6.5: a stack up past a cutoff has saved reports, which name the organization
 delete from auth.identities;
 delete from auth.users;
 delete from public.activity_log; -- again: the member deletes were audited, and rows name the organization

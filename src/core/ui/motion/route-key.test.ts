@@ -21,6 +21,7 @@ describe("routeKey (ARCHITECTURE §14.2 j)", () => {
     expect(routeKey(`${PERSON}/month`)).toBe(PERSON);
     expect(routeKey(`${CLIENT}/brand`)).toBe(CLIENT);
     expect(routeKey(`${CLIENT}/activity`)).toBe(CLIENT);
+    expect(routeKey(`${CLIENT}/projects`)).toBe(CLIENT);
   });
 
   it("gives a drill-down its own key, so it can slide", () => {
@@ -29,6 +30,8 @@ describe("routeKey (ARCHITECTURE §14.2 j)", () => {
     expect(routeKey("/settings")).not.toBe(routeKey("/settings/company"));
     expect(routeKey("/clients")).not.toBe(routeKey(CLIENT));
     expect(routeKey(`${CLIENT}/contacts/abc`)).not.toBe(routeKey(CLIENT));
+    // A project's page (7.3) is a drill-down from the Projects tab.
+    expect(routeKey(`${CLIENT}/projects/abc`)).not.toBe(routeKey(CLIENT));
   });
 
   it("leaves every other path as it is", () => {
@@ -49,5 +52,6 @@ describe("routeKey (ARCHITECTURE §14.2 j)", () => {
     expect(personNav).toContain("/leave`");
     expect(clientNav).toContain("/brand`");
     expect(clientNav).toContain("/activity`");
+    expect(clientNav).toContain("/projects`");
   });
 });

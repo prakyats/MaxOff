@@ -9,6 +9,7 @@ import { useOverlayOpenState } from "@/core/ui/overlay/overlay-history";
 import { Button } from "@/core/ui/primitives/button";
 import { ModalOpening, useModalOpening } from "@/core/ui/primitives/modal-opening";
 import { MODAL_FOOTER, MODAL_HANDLE, MODAL_SURFACE } from "@/core/ui/primitives/modal-surface";
+import { useKeyboardLift } from "@/core/ui/viewport/keyboard-lift";
 
 /**
  * Back (or the phone's back gesture) closes this instead of navigating the page
@@ -65,6 +66,7 @@ function AlertDialogContent({
   className,
   size = "default",
   children,
+  ref,
   onEscapeKeyDown,
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Content> & {
@@ -72,10 +74,13 @@ function AlertDialogContent({
 }) {
   // A fresh overlay and content per opening, overlay first (`modal-opening.ts`).
   const opening = React.useContext(ModalOpening);
+  // Below `md` it is a bottom sheet: it ends where the on-screen keyboard begins (§14.1).
+  const contentRef = useKeyboardLift(true, true, ref);
   return (
     <AlertDialogPortal key={opening}>
       <AlertDialogOverlay />
       <AlertDialogPrimitive.Content
+        ref={contentRef}
         data-slot="alert-dialog-content"
         data-size={size}
         className={cn(

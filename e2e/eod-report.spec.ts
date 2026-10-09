@@ -4,12 +4,16 @@ import { expect, test } from "./fixtures";
 import {
   expectBackStack,
   hydrated,
+  memberIdOf,
   pageHeader,
+  removeClientFixture,
+  rpcAs,
   runInstalled,
   serviceDelete,
   serviceInsert,
   serviceSelect,
   storageStateFor,
+  USERS,
 } from "./helpers";
 import { addISTDays, istInstant, todayIST } from "../src/core/time";
 
@@ -146,6 +150,50 @@ test.describe("Reports → End of day, as the Owner", () => {
       await expect(page.getByText("That day hasn't come yet")).toBeVisible();
     } finally {
       await serviceDelete(`eod_reports?report_date=eq.${date}`);
+    }
+  });
+
+  test("today's report has the Client work section: an item done today under its Admin", async ({
+    page,
+  }, info) => {
+    test.skip(info.project.name === "mobile-lg", "the 375 and desktop runs cover it");
+    const client = `EOD client work (${info.project.name})`;
+    const title = `EOD reel (${info.project.name})`;
+    await removeClientFixture(client);
+    const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+    const row = await serviceInsert<{ id: string }>("clients", {
+      org_id: org?.id,
+      name: client,
+      admin_id: await memberIdOf(USERS.admin.email),
+    });
+    await rpcAs(USERS.owner.email, USERS.owner.password, "client_activate", { client_id: row.id });
+    const projectId = await rpcAs<string>(
+      USERS.admin.email,
+      USERS.admin.password,
+      "project_create",
+      {
+        client_id: row.id,
+        name: "EOD reels",
+        recurrence: "monthly",
+        stages: [],
+        items: [title],
+      },
+    );
+    const [item] = await serviceSelect<{ id: string }>(
+      `project_items?project_id=eq.${projectId}&select=id`,
+    );
+    await rpcAs(USERS.admin.email, USERS.admin.password, "item_mark_done", { item_id: item!.id });
+    try {
+      await page.goto(`/reports/end-of-day/${todayIST()}`);
+      await hydrated(page);
+      const section = page.locator('[data-slot="eod-client-work"]');
+      await expect(section).toBeVisible();
+      await expect(
+        section.locator('[data-slot="eod-client-item"]').filter({ hasText: title }),
+      ).toBeVisible();
+      expect(await section.textContent()).not.toMatch(/₹|\d+\.\d{2}\b/);
+    } finally {
+      await removeClientFixture(client);
     }
   });
 

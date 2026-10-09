@@ -51,6 +51,15 @@ describe("describeClientActivity (3.4)", () => {
     ).toBe("moved the client from Ravi to Asha");
   });
 
+  it("says an Admin's new client was created Active (kickoff 7 amendment B)", () => {
+    expect(
+      describeClientActivity(
+        entry({ actorId: "ravi", action: "created_active", meta: { admin_id: "ravi" } }),
+        context,
+      ),
+    ).toMatchObject({ actor: "Ravi", text: "created the client, Active from the start" });
+  });
+
   it("keeps the close reason for the Owner only", () => {
     const closed = entry({ action: "closed", meta: { reason: "Moved to another studio" } });
     expect(describeClientActivity(closed, context)).toMatchObject({

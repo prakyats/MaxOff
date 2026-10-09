@@ -73,6 +73,87 @@ export function KpiCard({ slot, title, definition, now, before, href }: KpiCardP
   );
 }
 
+/**
+ * One client-work number (7.4, kickoff 7 decision 25): items have no engagement, so one value with
+ * the last period beside it (null: "now" only, as Cycle progress), or a short list (where items sit
+ * longest). The KPI card's shell, so the two kinds line up in the grid; with `href` the whole card
+ * is the tap target to its list (Overdue now's items), as the task card.
+ */
+export function ItemKpiCard({
+  slot,
+  title,
+  definition,
+  now,
+  before,
+  lines,
+  empty,
+  href,
+}: {
+  slot: string;
+  title: string;
+  definition: string;
+  now?: string;
+  before?: string | null;
+  lines?: readonly string[];
+  empty?: string;
+  href?: string;
+}) {
+  const body = (
+    <>
+      <span className="flex items-center justify-between gap-2">
+        <span className="text-sm font-semibold">{title}</span>
+        {href ? (
+          <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
+        ) : null}
+      </span>
+      <span className="text-muted-foreground text-xs">{definition}</span>
+      {now !== undefined ? (
+        <dl className="flex min-w-0 flex-col">
+          <dt className="text-muted-foreground text-xs">Client items</dt>
+          <dd className="text-base font-semibold break-words tabular-nums" data-slot="kpi-now">
+            {now}
+          </dd>
+          {before ? (
+            <dd className="text-muted-foreground text-xs" data-slot="kpi-before">
+              Last period: {before}
+            </dd>
+          ) : null}
+        </dl>
+      ) : null}
+      {lines ? (
+        lines.length > 0 ? (
+          <ul className="flex flex-col gap-1 text-sm" data-slot="kpi-lines">
+            {lines.map((line) => (
+              <li key={line} className="break-words">
+                {line}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-muted-foreground text-sm">{empty}</p>
+        )
+      ) : null}
+    </>
+  );
+  const className = "border-border bg-card flex min-w-0 flex-col gap-2 rounded-lg border p-4";
+  return href ? (
+    <Link
+      href={href}
+      data-slot={slot}
+      className={cn(
+        "pressable-row focus-visible:ring-ring outline-none focus-visible:ring-2",
+        className,
+      )}
+    >
+      {body}
+    </Link>
+  ) : (
+    <section data-slot={slot} aria-label={title} className={className}>
+      {body}
+    </section>
+  );
+}
+
 export function KpiCardSkeleton() {
   return (
     <div

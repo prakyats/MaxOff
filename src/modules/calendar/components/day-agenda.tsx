@@ -8,7 +8,7 @@ import { formatIST, type ISODate } from "@/core/time";
 
 import { type CalendarDay, type CalendarScope, EMPTY_DAY, isEmptyDay } from "../domain/calendar";
 import { agendaEvents, agendaTime } from "../domain/laptop";
-import { AllDayChips, eventLink } from "./day-detail";
+import { AllDayChips, ClientItemsList, eventLink } from "./day-detail";
 
 /**
  * The laptop's day popup body (a Month day, a Week heading or a "Due · N"; the owner's
@@ -126,6 +126,9 @@ export function DayAgenda({
             ))}
           </ul>
         </section>
+      ) : null}
+      {day.items.length > 0 ? (
+        <ClientItemsList items={day.items} headingId={`agenda-${day.date}-items`} compact />
       ) : null}
       {free !== null && scope !== "staff" ? (
         <p data-slot="calendar-who-free" className="text-muted-foreground text-sm break-words">

@@ -17,7 +17,7 @@ export async function RecordReadReceipt({
   entity,
   id,
 }: {
-  entity: "tasks" | "clients" | "members";
+  entity: "tasks" | "clients" | "members" | "projects";
   id: string;
 }) {
   // A mistyped address has nothing to mark (the page says it was not found).

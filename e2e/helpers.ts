@@ -613,6 +613,64 @@ export async function hydrated(page: Page): Promise<void> {
 /** One back press: what it must close (if anything), and where the page must be afterwards. */
 export type BackStep = { closes?: Locator; url: RegExp };
 
+/** Stands in for the on-screen keyboard: the visual viewport loses `cover` px at the bottom. */
+export async function openKeyboard(page: Page, cover: number): Promise<void> {
+  await page.evaluate((px) => {
+    const viewport = window.visualViewport as VisualViewport;
+    const height = window.innerHeight - px;
+    Object.defineProperty(viewport, "height", { configurable: true, get: () => height });
+    viewport.dispatchEvent(new Event("resize"));
+  }, cover);
+}
+
+export async function closeKeyboard(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const viewport = window.visualViewport as VisualViewport;
+    // The stand-in is an own property; removing it uncovers the real one again.
+    Reflect.deleteProperty(viewport, "height");
+    viewport.dispatchEvent(new Event("resize"));
+  });
+}
+
+/**
+ * A bottom sheet follows the on-screen keyboard (ARCHITECTURE §14.1; owner's phone walk of phase
+ * 7): with `field` focused and the keyboard covering `cover` px, the sheet ends at or above the
+ * keyboard's top and the field is inside what is still visible; with the keyboard gone, the
+ * sheet is back at the bottom edge. Phone widths only (a dialog is centred from `md` up).
+ */
+export async function expectSheetAboveKeyboard(
+  page: Page,
+  sheet: Locator,
+  field: Locator,
+  cover = 320,
+): Promise<void> {
+  const height = page.viewportSize()?.height ?? 0;
+  const visible = height - cover;
+  await field.focus();
+  await openKeyboard(page, cover);
+  const bottomOf = async (locator: Locator) => {
+    const box = await locator.boundingBox();
+    return box ? Math.round(box.y + box.height) : Number.POSITIVE_INFINITY;
+  };
+  await expect
+    .poll(() => bottomOf(sheet), { message: "the sheet ends where the keyboard begins" })
+    .toBeLessThanOrEqual(visible);
+  await expect
+    .poll(
+      async () => {
+        const box = await field.boundingBox();
+        return box !== null && box.y >= 0 && Math.round(box.y + box.height) <= visible;
+      },
+      { message: "the focused field is above the keyboard" },
+    )
+    .toBe(true);
+  await expect(field).toBeFocused();
+  await closeKeyboard(page);
+  await expect
+    .poll(() => bottomOf(sheet), { message: "the sheet is back at the bottom edge" })
+    .toBe(height);
+}
+
 /**
  * A screen's back order as one readable assertion (ARCHITECTURE §14.2): presses back once per
  * step, and after each checks that the named layer closed and the URL is where it should be. A
@@ -639,14 +697,42 @@ export async function removeFieldDefinitions(keys: string[]): Promise<void> {
 }
 
 /**
- * Removes a client a spec creates (3.1), with the rows the triggers made for it and every
- * definition scoped to it. Nothing to remove is fine.
+ * Removes a client a spec creates (3.1), with the rows the triggers made for it, every
+ * definition scoped to it and, since phase 7, its client work (projects, stages, the item list,
+ * cycles, items, their own stages, ticks and reviews; fixtures only: production deletes nothing, invariant 9).
+ * Nothing to remove is fine.
  */
 export async function removeClientFixture(name: string): Promise<void> {
   const clients = await serviceSelect<{ id: string }>(
     `clients?name=eq.${encodeURIComponent(name)}&select=id`,
   );
   for (const { id } of clients) {
+    const projects = await serviceSelect<{ id: string }>(`projects?client_id=eq.${id}&select=id`);
+    for (const { id: projectId } of projects) {
+      let items = await serviceSelect<{ id: string; carried_from_item_id: string | null }>(
+        `project_items?project_id=eq.${projectId}&select=id,carried_from_item_id`,
+      );
+      if (items.length > 0) {
+        const ids = items.map((item) => item.id).join(",");
+        await serviceRest(`item_reviews?item_id=in.(${ids})`, { method: "DELETE" });
+        await serviceRest(`project_item_stages?item_id=in.(${ids})`, { method: "DELETE" });
+      }
+      // Amendment D2: each item's own stages.
+      await serviceRest(`project_item_stage_list?project_id=eq.${projectId}`, { method: "DELETE" });
+      // A carried item points at the one it came from: the newest go first.
+      while (items.length > 0) {
+        const pointedAt = new Set(items.map((item) => item.carried_from_item_id));
+        const leaves = items.filter((item) => !pointedAt.has(item.id));
+        await serviceRest(`project_items?id=in.(${leaves.map((item) => item.id).join(",")})`, {
+          method: "DELETE",
+        });
+        items = items.filter((item) => pointedAt.has(item.id));
+      }
+      for (const table of ["project_cycles", "project_item_blueprints", "project_stages"]) {
+        await serviceRest(`${table}?project_id=eq.${projectId}`, { method: "DELETE" });
+      }
+      await serviceRest(`projects?id=eq.${projectId}`, { method: "DELETE" });
+    }
     await serviceRest(`field_definitions?client_id=eq.${id}`, { method: "DELETE" });
     await serviceRest(`client_contacts?client_id=eq.${id}`, { method: "DELETE" });
     await serviceRest(`client_admin_assignments?client_id=eq.${id}`, { method: "DELETE" });

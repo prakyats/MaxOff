@@ -132,6 +132,8 @@ export function TaskChat({
         <SheetContent
           side="bottom"
           showCloseButton={false}
+          // It places itself over the keyboard, full height (`keyboardPlacement`).
+          followKeyboard={false}
           data-slot="task-chat-sheet"
           aria-describedby="task-chat-sheet-description"
           className="gap-0 rounded-t-2xl p-0 data-[side=bottom]:h-[calc(100dvh-var(--app-safe-top)-0.75rem)]"

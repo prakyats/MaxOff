@@ -131,7 +131,39 @@ insert into app_internal values
   ('digest_weekly_payload'), ('digest_weekly_zero'), ('digest_weekly_text'),
   -- 6B2 (decision 24 amended): yesterday's unended days at a moment (attendance_end_not_recorded_yesterday
   -- is public: the Owner's read)
-  ('attendance_unended_yesterday');
+  ('attendance_unended_yesterday'),
+  -- 7A: client work's internal helpers (the custom-field check, the caller and the locks, the text and
+  -- position checks, the project link, the start, the cycle's creation and settling, the live count,
+  -- the lifecycle notification) and the nightly cycle job; the client-work functions are public
+  ('custom_fields_check'), ('client_work_caller'), ('project_lock'), ('item_lock'),
+  ('project_check_writable'), ('client_work_text'), ('client_work_position'), ('project_link'),
+  ('project_mark_started'), ('cycle_refresh'), ('cycle_create'), ('project_client'),
+  ('cycle_live_items'), ('client_work_next_position'), ('project_lifecycle_notify'), ('cycle_generate'),
+  -- 7A: the unfinished-items prompt's job and its one recipient rule (issue #56 Q2)
+  ('cycle_close_prompt'), ('cycle_close_prompt_recipient'),
+  -- Kickoff 7 amendment C E1-E3: the client-work notices and escalations job, its overdue-list link
+  -- and its body list
+  ('client_work_alerts'), ('client_items_overdue_link'), ('client_work_alert_lines'),
+  -- Q4 (a): the item list into a cycle a carry made while its client was not Active
+  ('cycle_copy_item_list'),
+  -- Amendment C Q8-Q11: the 08:00 IST of a moment, E1's overdue items with their basis, and the
+  -- trigger that stamps an item's return to open
+  ('client_work_morning'), ('client_items_overdue'), ('project_items_reopened_at'),
+  -- The 7A review of d9caeab: the triggers that arm an item's overdue notice and a project's missed
+  -- delivery (M1), and E2's cycles with their last notice, shared by the job and the prompt (L1)
+  ('project_items_overdue_armed_at'), ('projects_delivery_armed_at'), ('cycle_undecided_due'),
+  -- The owner's E1 rule (once per item and planned date): E1's overdue items with their basis and the
+  -- moment a notice may go (app.client_items_overdue stays, read by nothing, expand-only)
+  ('client_items_overdue_due'),
+  -- Amendment C timing answers Q12-Q13 (advisor 2026-10-08): the trigger that arms a cycle's "cycle
+  -- ready" notice and the morning window every scheduled client-work send waits for
+  ('project_cycles_ready_armed_at'), ('client_work_send_window'),
+  -- Amendment D2 (owner 2026-10-09): stages per item: the project's defaults, checked names, a new
+  -- item's stages and a carried item's, and the item stage functions' lock, find and name check
+  ('project_default_stages'), ('client_work_stage_names'), ('item_stage_list_init'), ('item_stage_list_copy'),
+  ('item_stage_item'), ('item_stage_find'), ('item_stage_name_free'),
+  -- The 7B rework's review fixes (2026-10-09): a project's default stage names, once each
+  ('project_stage_name_free');
   -- 3c.1 (contract migration): attendance_logout and logout_not_recorded are gone with the 2.x gate.
 select is(
   (select count(*) from pg_proc p
@@ -152,7 +184,7 @@ select is(
   0::bigint,
   'the internal helpers: service_role only, never the API role');
 select is((select count(*) from pg_proc p where p.pronamespace = 'app'::regnamespace
-             and p.proname in (select name from app_internal)), 68::bigint,
+             and p.proname in (select name from app_internal)), 108::bigint,
   'the internal helper list matches what exists');
 select cmp_ok((select count(*) from pg_proc where pronamespace = 'app'::regnamespace), '>=', 4::bigint,
   'the grant check saw the app functions');

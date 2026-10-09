@@ -92,10 +92,14 @@ export async function updateThresholds(
     quietHoursEnd: string;
     defaultTaskReminders: ReminderRule[];
     weeklyDigestDay: number;
+    itemOverdueEscalateHours: number;
+    cycleDecideEscalateDays: number;
   },
 ): Promise<void> {
   await updateSettings(orgId, {
     weekly_digest_day: patch.weeklyDigestDay,
+    item_overdue_escalate_hours: patch.itemOverdueEscalateHours,
+    cycle_decide_escalate_days: patch.cycleDecideEscalateDays,
     logout_reminder_time: patch.logoutReminderTime,
     end_day_cutoff_time: patch.endDayCutoffTime,
     ack_repeat_hours: patch.ackRepeatHours,

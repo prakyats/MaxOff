@@ -29,6 +29,8 @@ export function PageHeader({
    * The parent of a drill-down screen (Settings → a section, People → a person). Every
    * drill-down screen has one (ARCHITECTURE §14.2 k): `BackLink` goes back when an entry of the
    * app is beneath, and to this parent with replace when the page was opened directly.
+   * `labelWidth` is for a loading screen whose parent's name is not read yet (a project's
+   * client): the desktop label is traced as a bar of that width instead of words.
    */
   back,
   actions,
@@ -38,7 +40,7 @@ export function PageHeader({
   title: ReactNode;
   description?: ReactNode;
   help?: ReactNode;
-  back?: { href: string; label: string };
+  back?: { href: string; label: string; labelWidth?: string };
   actions?: ReactNode;
   /**
    * A record's ⋯ menu (3.4: a person, a client). Unlike `actions` it stays in the title bar on
@@ -57,7 +59,17 @@ export function PageHeader({
           className="text-muted-foreground hover:text-foreground mb-4 hidden items-center gap-1 text-sm md:inline-flex"
         >
           <ChevronLeftIcon className="size-4" aria-hidden />
-          {back.label}
+          {back.labelWidth ? (
+            <span
+              aria-hidden
+              className={cn(
+                "bg-muted inline-block h-3.5 rounded-md motion-safe:animate-pulse",
+                back.labelWidth,
+              )}
+            />
+          ) : (
+            back.label
+          )}
         </BackLink>
       ) : null}
 

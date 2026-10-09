@@ -66,7 +66,11 @@ function expenseRows(page: Page, info: TestInfo): Locator {
 test.describe.configure({ mode: "serial" });
 test.use({ storageState: { cookies: [], origins: [] } });
 
-test("claims from the Expenses tab and End day, the Owner's decisions, and a withdrawal", async ({
+// One flow in three serial steps, each well inside the 30 s test limit. As one test it took
+// ~18 s alone and 33–37 s with the three projects running it side by side on a 4-core machine
+// (every step uniformly slower: the CPU is shared by three browsers, the server and the stack),
+// on `main` (v1.5.1) as on phase 7. The steps share the person's rows, never a page.
+test("claims from the Expenses tab: validation, a small one, a receipt above the amount", async ({
   page,
 }, info) => {
   const email = person(info);
@@ -117,6 +121,15 @@ test("claims from the Expenses tab and End day, the Owner's decisions, and a wit
   await expect(dialog).toBeHidden();
   await expect(claimRows(page)).toHaveCount(2);
   await expect(page.getByText("₹1,200.50")).toBeVisible();
+});
+
+test('End day\'s "Any expenses to claim today?", and an Admin never sees a claim', async ({
+  page,
+}, info) => {
+  const email = person(info);
+  const dialog = claimDialog(page);
+  // The day started in the step before (signIn answers a prompt only if one is up).
+  await signIn(page, email, PASSWORD);
 
   // End day → "Any expenses to claim today?" → Yes: the form opens for today, takes one, Done.
   await page.goto("/my-day");
@@ -152,6 +165,12 @@ test("claims from the Expenses tab and End day, the Owner's decisions, and a wit
   await expect(page.locator('[data-slot="approval-group"][data-group="expenses"]')).toHaveCount(0);
   await page.goto("/settings/expenses");
   await expect(page).toHaveURL(/\/forbidden$/);
+});
+
+test("the Owner approves one and rejects one; the member reads them and withdraws the third", async ({
+  page,
+}, info) => {
+  const email = person(info);
 
   // The Owner: three claims waiting in Approvals → Expenses (review-only).
   await signInOwner(page);
