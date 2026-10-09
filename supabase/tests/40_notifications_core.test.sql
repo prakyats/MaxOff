@@ -16,6 +16,7 @@ select plan(217);
 -- 7A: client work rows reference clients and members, and the presets the organization (a
 -- Playwright run leaves some behind).
 delete from public.item_reviews;
+delete from public.project_item_stage_list;
 delete from public.project_item_stages;
 delete from public.project_items;
 delete from public.project_cycles;
@@ -226,7 +227,7 @@ select ok(has_function_privilege('authenticated', 'public.notifications_mark_rea
           and has_function_privilege('authenticated', 'public.notifications_mark_all_read()', 'execute')
           and not has_function_privilege('anon', 'public.notifications_mark_all_read()', 'execute'),
   'the mark-read helpers are the API''s');
-select is((select count(*) from public.notification_kinds), 57::bigint, '29 kinds are seeded, plus approvals_moved (5A decision 27), 5.3''s eight reminders and escalations, 5B''s owner_digest, 5.4''s member_unreachable, 6.5''s eod_report_ready and owner_digest_weekly, 7A''s ten client-work kinds, amendment C''s overdue notice and three escalations, and Q9''s missed-delivery reminder');
+select is((select count(*) from public.notification_kinds), 58::bigint, '29 kinds are seeded, plus approvals_moved (5A decision 27), 5.3''s eight reminders and escalations, 5B''s owner_digest, 5.4''s member_unreachable, 6.5''s eod_report_ready and owner_digest_weekly, 7A''s ten client-work kinds, amendment C''s overdue notice and three escalations, and Q9''s missed-delivery reminder, and amendment D3''s item_reopened');
 select is((select array_agg(kind order by kind) from public.notification_kinds where actionable),
   array['attendance_decided', 'comp_leave_granted', 'comp_leave_revoked', 'cycle_generated', 'expense_decided',
         'extra_work_decided', 'item_rejected', 'items_to_decide', 'leave_decided', 'task_assigned', 'task_changes_requested'],
@@ -296,7 +297,7 @@ select app.notify(array[pg_temp.fx('staff1'), pg_temp.fx('owner')], 'task_change
 select app.notify(array[pg_temp.fx('staff1')], 'task_changed', 'Only staff1', null, '/tasks', 'tasks', pg_temp.fx('client_b'), '{}', null);
 select pg_temp.as_member('staff1');
 select is((select count(*) from public.notifications), 2::bigint, 'staff1 reads their own two rows');
-select is((select count(*) from public.notification_kinds), 57::bigint, 'and the kinds (29 + approvals_moved + 5.3''s eight + owner_digest + member_unreachable + 6.5''s two + 7A''s ten + amendment C''s four + Q9''s one)');
+select is((select count(*) from public.notification_kinds), 58::bigint, 'and the kinds (29 + approvals_moved + 5.3''s eight + owner_digest + member_unreachable + 6.5''s two + 7A''s ten + amendment C''s four + Q9''s one + amendment D3''s item_reopened)');
 select pg_temp.as_member('owner');
 select is((select count(*) from public.notifications), 1::bigint, 'the Owner reads their own row only, never another member''s');
 select pg_temp.as_member('admin1');

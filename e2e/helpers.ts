@@ -641,7 +641,7 @@ export async function removeFieldDefinitions(keys: string[]): Promise<void> {
 /**
  * Removes a client a spec creates (3.1), with the rows the triggers made for it, every
  * definition scoped to it and, since phase 7, its client work (projects, stages, the item list,
- * cycles, items, their ticks and reviews; fixtures only: production deletes nothing, invariant 9).
+ * cycles, items, their own stages, ticks and reviews; fixtures only: production deletes nothing, invariant 9).
  * Nothing to remove is fine.
  */
 export async function removeClientFixture(name: string): Promise<void> {
@@ -659,6 +659,8 @@ export async function removeClientFixture(name: string): Promise<void> {
         await serviceRest(`item_reviews?item_id=in.(${ids})`, { method: "DELETE" });
         await serviceRest(`project_item_stages?item_id=in.(${ids})`, { method: "DELETE" });
       }
+      // Amendment D2: each item's own stages.
+      await serviceRest(`project_item_stage_list?project_id=eq.${projectId}`, { method: "DELETE" });
       // A carried item points at the one it came from: the newest go first.
       while (items.length > 0) {
         const pointedAt = new Set(items.map((item) => item.carried_from_item_id));

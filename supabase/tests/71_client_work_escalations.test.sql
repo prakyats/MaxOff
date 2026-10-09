@@ -2,7 +2,7 @@
 -- (owner 2026-10-08): app.client_work_alerts() every 5 minutes. E1 an overdue client item tells its
 -- client's Admin first at 08:00 IST the day after its planned date (one row per Admin per run), then the
 -- Owner (one escalation per Admin, naming them) at the first 08:00 IST at least item_overdue_escalate_hours
--- after that notice (Q10); an item back to open (sent back, or Not done) tells the Admin again with the
+-- after that notice (Q10); an item back to open (sent back by the Owner, or reopened by the Admin; amendment D3) tells the Admin again with the
 -- full threshold (Q8); a client with no Admin gives the Owner a reminder at the Admin's time and no
 -- escalation (Q9); a new Admin is told first and gets their own threshold, and the escalation names
 -- them (Q11); once per item and planned date: a new date re-arms, a date moved back to one already
@@ -12,7 +12,7 @@
 -- Owner at 08:00 IST the morning after, once per date, re-armed when it moves; the Owner's reminder for a
 -- client with no Admin (Q9). E5 the two thresholds: defaults, checks, the Owner only. The schedule; the
 -- record table has no API access for any role; E2's partial index; one Admin's failure costs the others
--- nothing. Simulated runs before the real-time steps (a rejection, Not done, a new Admin, all at now())
+-- nothing. Simulated runs before the real-time steps (a send-back, an Admin's reopen, a new Admin, all at now())
 -- use the 08:00 IST of past days; the steps after them use the first 08:00 IST after now().
 -- The 7A review of d9caeab: (M1) an item added with a past date, its planned date moved into the past
 -- (several times), a project created with a past delivery date, its date moved or the project reopened
@@ -32,6 +32,7 @@ select plan(182);
 -- 7A: client work rows reference clients and members, and the presets the organization (a
 -- Playwright run leaves some behind).
 delete from public.item_reviews;
+delete from public.project_item_stage_list;
 delete from public.project_item_stages;
 delete from public.project_items;
 delete from public.project_cycles;
@@ -500,28 +501,28 @@ select pg_temp.clear();
 select is(app.client_work_alerts(pg_temp.s(-18)), 2,
   'E2: two ended cycles left undecided 2 days after the prompt: one escalation per Admin');
 
--- The real-time steps (now()): sent back, Not done, a new Admin -------------------------------------------------------
+-- The real-time steps (now()): sent back, reopened, a new Admin -------------------------------------------------------
 select pg_temp.as_member('admin');
 select public.item_mark_done(pg_temp.fx('backr'));
 select public.item_mark_done(pg_temp.fx('backn'));
 select public.item_mark_done(pg_temp.item_in('pm', (select old_month from t), 'Reel 1'));
 select pg_temp.as_member('owner');
-select public.item_reject(pg_temp.fx('backr'), 'Wrong cut');
-select public.item_reject(pg_temp.item_in('pm', (select old_month from t), 'Reel 1'), 'Redo the colour');
+select public.item_reopen(pg_temp.fx('backr'), 'Wrong cut');
+select public.item_reopen(pg_temp.item_in('pm', (select old_month from t), 'Reel 1'), 'Redo the colour');
 select pg_temp.as_member('admin');
-select public.item_unmark_done(pg_temp.fx('backn'));
+select public.item_reopen(pg_temp.fx('backn'), 'Not finished');
 select pg_temp.as_member('owner');
 select public.client_assign_admin(pg_temp.fx('client_b'), pg_temp.fx('admin'));
 select pg_temp.as_system();
-select is((select reopened_at from public.project_items where id = pg_temp.fx('backr')), now(), 'Q8: a rejection stamps reopened_at');
-select is((select reopened_at from public.project_items where id = pg_temp.fx('backn')), now(), 'and so does Not done');
+select is((select reopened_at from public.project_items where id = pg_temp.fx('backr')), now(), 'Q8: the Owner''s send-back stamps reopened_at (amendment D3)');
+select is((select reopened_at from public.project_items where id = pg_temp.fx('backn')), now(), 'and so does the Admin''s reopen');
 select is((select reopened_at from public.project_items where id = pg_temp.fx('late1b')), null::timestamptz,
   'an item never back to open has none');
 
 -- Q8 and Q11. The Admin is told again, at 08:00 IST ----------------------------------------------------------------
 select pg_temp.clear();
 select is(app.client_work_alerts((select r from t) - interval '1 minute'), 0,
-  'before 08:00 IST nobody is told: the notices after the rejection, the Not done and the new Admin wait for the morning');
+  'before 08:00 IST nobody is told: the notices after the send-back, the reopen and the new Admin wait for the morning');
 select is(app.client_work_alerts((select r from t)), 2, 'at 08:00 IST: the Admin''s overdue notice and their fresh E2 notice');
 select is(pg_temp.n('owner') + pg_temp.n('admin2'), 0::bigint,
   'no escalation: the Owner''s earlier one does not stand for the new round, and the old Admin''s notice does not count');
@@ -538,7 +539,7 @@ select is((pg_temp.last('admin', 'reminder_item_overdue')).body,
   || pg_temp.line('Back N', 'Monthly reels', 'Sharma Weddings', app.today_ist() - 6) || '; '
   || pg_temp.line('Back R', 'Monthly reels', 'Sharma Weddings', app.today_ist() - 6) || '; '
   || pg_temp.line('Swap', 'Bakery menu', 'Blue Bakery', app.today_ist() - 4) || '.',
-  'Q8: Back R (sent back) and Back N (Not done) again; Q11: B late and Swap, told to their old Admin, now to the new one');
+  'Q8: Back R (sent back) and Back N (reopened) again; Q11: B late and Swap, told to their old Admin, now to the new one');
 select is((pg_temp.last('admin', 'reminder_item_overdue')).link, '/clients/items?filter=overdue', 'two projects: the overdue list');
 select is(app.client_work_alerts((select r from t) + interval '1 day' - interval '1 minute'), 0,
   'the Admin gets the full 24 h from this notice');
@@ -805,7 +806,7 @@ select app.cycle_close_prompt(pg_temp.s(-40));
 select pg_temp.as_member('admin2');
 select public.item_mark_done(pg_temp.item_in('pb', (app.period_start('monthly', app.today_ist()) - interval '4 month')::date, 'Menu'));
 select pg_temp.as_member('owner');
-select public.item_reject(pg_temp.item_in('pb', (app.period_start('monthly', app.today_ist()) - interval '4 month')::date, 'Menu'), 'Wrong font');
+select public.item_reopen(pg_temp.item_in('pb', (app.period_start('monthly', app.today_ist()) - interval '4 month')::date, 'Menu'), 'Wrong font');
 select pg_temp.as_system();
 select app.cycle_create(pg_temp.project('pb'), (app.period_start('monthly', app.today_ist()) - interval '5 month')::date, 'schedule', null);
 select pg_temp.clear();

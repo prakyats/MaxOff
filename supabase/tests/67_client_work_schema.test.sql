@@ -12,6 +12,7 @@ select plan(125);
 -- 7A: client work rows reference clients and members, and the presets the organization (a
 -- Playwright run leaves some behind).
 delete from public.item_reviews;
+delete from public.project_item_stage_list;
 delete from public.project_item_stages;
 delete from public.project_items;
 delete from public.project_cycles;
@@ -310,14 +311,18 @@ select throws_ok($$ select count(*) from public.project_items $$, '42501', null,
 
 -- A tick and a review, then their visibility.
 select pg_temp.as_member('admin');
-select public.item_tick_stage((select id from public.project_items where project_id = pg_temp.fx('p_a') order by position limit 1),
-  (select id from public.project_stages where project_id = pg_temp.fx('p_a') order by position limit 1));
+-- Amendment D: the tick is on the item's own stage; done is approved; a reopen leaves the review.
+select public.item_stage_tick((select s.id from public.project_item_stage_list s
+  where s.item_id = (select id from public.project_items where project_id = pg_temp.fx('p_a') order by position limit 1)
+  order by s.position limit 1));
 select public.item_mark_done((select id from public.project_items where project_id = pg_temp.fx('p_a') order by position limit 1));
-select public.item_approve(array(select id from public.project_items where project_id = pg_temp.fx('p_a') and state = 'done'));
-select is((select count(*)::integer from public.project_item_stages), 1, 'the client''s Admin reads the tick');
+select public.item_reopen((select id from public.project_items where project_id = pg_temp.fx('p_a') and state = 'approved'), 'Fix it');
+select is((select count(*)::integer from public.project_item_stage_list where done_at is not null), 1, 'the client''s Admin reads the tick');
 select is((select count(*)::integer from public.item_reviews), 1, 'and the review');
 select pg_temp.as_member('admin2');
-select is((select count(*)::integer from public.project_item_stages) + (select count(*)::integer from public.item_reviews), 0,
+select is((select count(*)::integer from public.project_item_stage_list where item_id in (
+             select i.id from public.project_items i where i.project_id = pg_temp.fx('p_a')))
+          + (select count(*)::integer from public.item_reviews), 0,
   'another Admin reads neither');
 
 -- The history (activity_log_select_client_work).

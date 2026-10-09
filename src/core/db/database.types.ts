@@ -2142,6 +2142,7 @@ export type Database = {
           org_id: string;
           position: string;
           project_id: string;
+          stages: string[];
           title: string;
           updated_at: string;
         };
@@ -2152,6 +2153,7 @@ export type Database = {
           org_id: string;
           position: string;
           project_id: string;
+          stages?: string[];
           title: string;
           updated_at?: string;
         };
@@ -2162,6 +2164,7 @@ export type Database = {
           org_id?: string;
           position?: string;
           project_id?: string;
+          stages?: string[];
           title?: string;
           updated_at?: string;
         };
@@ -2175,6 +2178,84 @@ export type Database = {
           },
           {
             foreignKeyName: "project_item_blueprints_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "projects";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      project_item_stage_list: {
+        Row: {
+          archived_at: string | null;
+          created_at: string;
+          done_at: string | null;
+          done_by: string | null;
+          id: string;
+          item_id: string;
+          name: string;
+          org_id: string;
+          position: string;
+          project_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          archived_at?: string | null;
+          created_at?: string;
+          done_at?: string | null;
+          done_by?: string | null;
+          id?: string;
+          item_id: string;
+          name: string;
+          org_id: string;
+          position: string;
+          project_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          archived_at?: string | null;
+          created_at?: string;
+          done_at?: string | null;
+          done_by?: string | null;
+          id?: string;
+          item_id?: string;
+          name?: string;
+          org_id?: string;
+          position?: string;
+          project_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "project_item_stage_list_done_by_fkey";
+            columns: ["done_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_item_stage_list_done_by_fkey";
+            columns: ["done_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_item_stage_list_item_id_fkey";
+            columns: ["item_id"];
+            isOneToOne: false;
+            referencedRelation: "project_items";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_item_stage_list_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_item_stage_list_project_id_fkey";
             columns: ["project_id"];
             isOneToOne: false;
             referencedRelation: "projects";
@@ -4471,6 +4552,19 @@ export type Database = {
         Args: { item_id: string; reason: string };
         Returns: Database["public"]["Enums"]["item_state"];
       };
+      item_last_changes: {
+        Args: { item_ids: string[] };
+        Returns: {
+          action: string;
+          actor_id: string;
+          at: string;
+          diff: Json;
+          entity: string;
+          entity_id: string;
+          id: number;
+          meta: Json;
+        }[];
+      };
       item_mark_done: {
         Args: { item_id: string };
         Returns: Database["public"]["Enums"]["item_state"];
@@ -4478,6 +4572,23 @@ export type Database = {
       item_reject: {
         Args: { item_id: string; reason: string };
         Returns: Database["public"]["Enums"]["item_state"];
+      };
+      item_reopen: {
+        Args: { item_id: string; reason: string };
+        Returns: Database["public"]["Enums"]["item_state"];
+      };
+      item_stage_add: {
+        Args: { item_id: string; name: string };
+        Returns: string;
+      };
+      item_stage_archive: { Args: { stage_id: string }; Returns: undefined };
+      item_stage_tick: {
+        Args: { done?: boolean; stage_id: string };
+        Returns: boolean;
+      };
+      item_stage_update: {
+        Args: { changes: Json; stage_id: string };
+        Returns: string[];
       };
       item_tick_stage: {
         Args: { done?: boolean; item_id: string; stage_id: string };
@@ -4655,6 +4766,26 @@ export type Database = {
       onboarding_finish: { Args: { p_via: string }; Returns: boolean };
       owner_digest_preview: { Args: never; Returns: Json };
       owner_digest_weekly_preview: { Args: never; Returns: Json };
+      project_activity: {
+        Args: {
+          before_at?: string;
+          before_id?: number;
+          item_id?: string;
+          kind?: string;
+          max_rows?: number;
+          project_id: string;
+        };
+        Returns: {
+          action: string;
+          actor_id: string;
+          at: string;
+          diff: Json;
+          entity: string;
+          entity_id: string;
+          id: number;
+          meta: Json;
+        }[];
+      };
       project_blueprint_add: {
         Args: { project_id: string; title: string };
         Returns: string;

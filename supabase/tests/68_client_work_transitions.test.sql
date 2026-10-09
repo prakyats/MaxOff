@@ -7,11 +7,12 @@
 -- Dates are computed from app.today_ist(), so the file holds on any day.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(292);
+select plan(293);
 
 -- 7A: client work rows reference clients and members, and the presets the organization (a
 -- Playwright run leaves some behind).
 delete from public.item_reviews;
+delete from public.project_item_stage_list;
 delete from public.project_item_stages;
 delete from public.project_items;
 delete from public.project_cycles;
@@ -397,13 +398,22 @@ select throws_ok($$ select public.item_tick_stage((pg_temp.item('p_m', 'Reel 1')
 select throws_ok($$ select public.item_tick_stage((pg_temp.item('p_m', 'Reel 1')).id,
   (select id from public.project_stages where project_id = pg_temp.fx('p_m') and archived_at is not null limit 1)) $$,
   'P0001', 'INVALID_STATE', 'a removed stage is refused');
-select is(public.item_mark_done((pg_temp.item('p_m', 'Reel 1')).id), 'done'::public.item_state, 'Mark done: open -> done');
-select is((select (done_by = pg_temp.fx('admin'))::text || ':' || (done_at is not null)::text from public.project_items where id = (pg_temp.item('p_m', 'Reel 1')).id),
-  'true:true', 'done_at and done_by set');
+select is(public.item_mark_done((pg_temp.item('p_m', 'Reel 1')).id), 'approved'::public.item_state,
+  'Mark done: open -> approved in one step (amendment D3)');
+select is((select (done_by = pg_temp.fx('admin'))::text || ':' || (done_at is not null)::text || ':'
+                  || (approved_by = pg_temp.fx('admin'))::text || ':' || (approved_at = done_at)::text
+           from public.project_items where id = (pg_temp.item('p_m', 'Reel 1')).id),
+  'true:true:true:true', 'done_* and approved_* stamped at the same moment');
 select throws_ok($$ select public.item_mark_done((pg_temp.item('p_m', 'Reel 1')).id) $$, 'P0001', 'INVALID_STATE', 'not twice');
-select is(public.item_tick_stage((pg_temp.item('p_m', 'Reel 1')).id, pg_temp.stage('p_m', 'Edit')), true,
-  'a done item still takes ticks (decision 7)');
-select is(public.item_unmark_done((pg_temp.item('p_m', 'Reel 1')).id), 'open'::public.item_state, 'Not done: done -> open (decision 6)');
+select throws_ok($$ select public.item_tick_stage((pg_temp.item('p_m', 'Reel 1')).id, pg_temp.stage('p_m', 'Edit')) $$, 'P0001', 'INVALID_STATE',
+  'a done item''s ticks are locked (decision 7: done is the approval)');
+select throws_ok($$ select public.item_unmark_done((pg_temp.item('p_m', 'Reel 1')).id) $$, 'P0001', 'INVALID_STATE',
+  'Not done is refused on a done item (amendment D3: reopen it instead)');
+-- A done item from before amendment D (the legacy state), for the 7A functions that still read it.
+select pg_temp.as_system();
+update public.project_items set state = 'done', approved_at = null, approved_by = null where id = (pg_temp.item('p_m', 'Reel 1')).id;
+select pg_temp.as_member('admin');
+select is(public.item_unmark_done((pg_temp.item('p_m', 'Reel 1')).id), 'open'::public.item_state, 'Not done: a legacy done item -> open (decision 6)');
 select is((select done_at is null and done_by is null from public.project_items where id = (pg_temp.item('p_m', 'Reel 1')).id), true,
   'done_at and done_by cleared');
 select throws_ok($$ select public.item_unmark_done((pg_temp.item('p_m', 'Reel 1')).id) $$, 'P0001', 'INVALID_STATE', 'only a done item');
@@ -413,6 +423,10 @@ select is((select array_agg(action order by id) from public.activity_log
 select is(pg_temp.total(), 0::bigint, 'ticks, Done and Not done notify nobody (WORKFLOWS §9)');
 select public.item_mark_done((pg_temp.item('p_m', 'Reel 1')).id);
 select public.item_mark_done((pg_temp.item('p_m', 'Reel 2')).id);
+-- Legacy done items for section G (the 7A approval functions, unused by the app since amendment D3).
+select pg_temp.as_system();
+update public.project_items set state = 'done', approved_at = null, approved_by = null
+where id in ((pg_temp.item('p_m', 'Reel 1')).id, (pg_temp.item('p_m', 'Reel 2')).id);
 select pg_temp.as_member('staff');
 select throws_ok($$ select public.item_mark_done((pg_temp.item('p_m', 'Bonus')).id) $$, 'P0001', 'FORBIDDEN', 'Crew cannot mark done');
 select throws_ok($$ select public.item_tick_stage((pg_temp.item('p_m', 'Bonus')).id, pg_temp.stage('p_m', 'Script')) $$, 'P0001', 'FORBIDDEN',
@@ -488,6 +502,9 @@ select throws_ok($$ select public.item_reject((pg_temp.item('p_m', 'Reel 2')).id
 select pg_temp.clear();
 select pg_temp.as_member('admin');
 select public.item_mark_done((pg_temp.item('p_m', 'Reel 2')).id);
+select pg_temp.as_system();
+update public.project_items set state = 'done', approved_at = null, approved_by = null where id = (pg_temp.item('p_m', 'Reel 2')).id;
+select pg_temp.as_member('admin');
 select is(public.item_reject((pg_temp.item('p_m', 'Reel 2')).id, 'Self check'), 'open'::public.item_state, 'the Admin rejects on their client');
 select is(pg_temp.total(), 0::bigint, 'and nobody is told (never the actor)');
 
@@ -553,10 +570,15 @@ insert into public.project_items (org_id, project_id, cycle_id, title, position,
 values (pg_temp.fx('org'), pg_temp.fx('p_m'), pg_temp.fx('c_past'), 'Reel 9', 'b0', pg_temp.fx('c_past'));
 insert into fx select 'pi9', id from public.project_items where cycle_id = pg_temp.fx('c_past') and title = 'Reel 9';
 select pg_temp.as_member('admin');
-select public.item_tick_stage(pg_temp.fx('pi1'), pg_temp.stage('p_m', 'Script'));
+select public.item_stage_tick((select s.id from public.project_item_stage_list s
+  where s.item_id = pg_temp.fx('pi1') and s.name = 'Script' and s.archived_at is null));
 select public.item_update(pg_temp.fx('pi1'), jsonb_build_object('planned_date', app.today_ist() - 35, 'notes', 'Use the drone shot',
   'custom_fields', '{"views": 5}'::jsonb));
 select public.item_mark_done(pg_temp.fx('pi9'));
+-- pi9 in the legacy done state (before amendment D3), which still holds its cycle open.
+select pg_temp.as_system();
+update public.project_items set state = 'done', approved_at = null, approved_by = null where id = pg_temp.fx('pi9');
+select pg_temp.as_member('admin');
 select pg_temp.clear();
 
 select pg_temp.as_member('staff');
@@ -590,10 +612,10 @@ select is((select (cycle_id = (pg_temp.cycle_of('p_m', app.period_start('monthly
            from public.project_items where id = pg_temp.fx('pi1_new')),
   'true:Reel 1:Use the drone shot:5:none:true:true:open',
   'a new open item in the current cycle: title, notes and fields kept, the planned date cleared, carried from, origin kept (decision 12)');
-select is((select count(*)::integer from public.project_item_stages s
-           join public.project_item_stages o on o.stage_id = s.stage_id and o.item_id = pg_temp.fx('pi1')
+select is((select count(*)::integer from public.project_item_stage_list s
+           join public.project_item_stage_list o on o.name = s.name and o.item_id = pg_temp.fx('pi1') and o.archived_at is null
            where s.item_id = pg_temp.fx('pi1_new') and s.done_at = o.done_at and s.done_by = o.done_by), 1,
-  'its ticks with their original times and people');
+  'its own stages with their ticks, original times and people (amendment D2)');
 select is((pg_temp.last('admin', 'carry_decided')).title,
   '1 item carried into ' || (pg_temp.cycle_of('p_m', app.period_start('monthly', app.today_ist()))).label,
   'the client''s Admin is told, one row for the batch');
@@ -609,8 +631,8 @@ select is((select carry_decision::text from public.project_items where id = pg_t
 select is(pg_temp.total(), 0::bigint, 'an Admin''s own decision tells nobody');
 select is((select state::text from public.project_cycles where id = pg_temp.fx('c_past')), 'open',
   'a pending item keeps its cycle open (WORKFLOWS §5.2)');
-select is(public.item_mark_done(pg_temp.fx('pi2')), 'done'::public.item_state, 'a pending item stays workable');
-select public.item_unmark_done(pg_temp.fx('pi2'));
+select is(public.item_mark_done(pg_temp.fx('pi2')), 'approved'::public.item_state, 'a pending item stays workable');
+select public.item_reopen(pg_temp.fx('pi2'), 'Not finished');
 select pg_temp.as_member('owner');
 select is((pg_temp.res(public.cycle_carry_decide(array[pg_temp.fx('pi2')], 'close', 'Out of scope'), pg_temp.fx('pi2'))) ->> 'state', 'cancelled',
   'decided again: the Owner closes it with a reason');
@@ -692,8 +714,8 @@ select pg_temp.as_member('admin');
 select throws_ok($$ select public.project_complete(pg_temp.fx('p_m')) $$, 'P0001', 'INVALID_STATE',
   'complete is refused while an item is open or done');
 -- Finish the monthly project: approve what is done, cancel the rest.
+-- (Mark done approves at once, amendment D3.)
 select public.item_mark_done(i.id) from public.project_items i where i.project_id = pg_temp.fx('p_m') and i.state = 'open';
-select public.item_approve(array(select id from public.project_items where project_id = pg_temp.fx('p_m') and state = 'done'));
 select is(public.project_complete(pg_temp.fx('p_m')), 'completed'::public.project_state,
   'the client''s Admin completes their project (amendment C)');
 select is((select (completed_by = pg_temp.fx('admin'))::text || ':' || (completed_at is not null)::text from public.projects where id = pg_temp.fx('p_m')),
@@ -717,11 +739,10 @@ select is((select completed_at is null and completed_by is null from public.proj
 select throws_ok($$ select public.project_reopen(pg_temp.fx('p_m'), 'Again') $$, 'P0001', 'INVALID_STATE', 'only a completed or cancelled project');
 select public.item_add((pg_temp.cycle_of('p_m', app.period_start('monthly', app.today_ist()))).id, 'One more reel');
 select lives_ok($$ select public.project_cancel(pg_temp.fx('p_m'), 'Budget cut') $$, 'a project with approved items is cancelled');
-select is((select string_agg(state::text || '=' || n, ',' order by state) from
+select matches((select string_agg(state::text || '=' || n, ',' order by state) from
             (select state, count(*) n from public.project_items where project_id = pg_temp.fx('p_m')
              and state in ('approved', 'open', 'done') group by state) x),
-  'approved=' || (select count(*) from public.item_reviews r join public.project_items i on i.id = r.item_id
-                  where i.project_id = pg_temp.fx('p_m') and r.decision = 'approved'),
+  '^approved=[0-9]+$',
   'its approved items stay approved; nothing is left open or done (decision 14)');
 
 select pg_temp.clear();
@@ -731,8 +752,8 @@ select is(public.project_cancel(pg_temp.fx('p_w'), 'Client paused social'), 'can
 select is((select count(*)::integer from public.project_items where project_id = pg_temp.fx('p_w') and state in ('open', 'done')), 0,
   'every open and done item cancelled with it');
 select is((select count(*)::integer from public.project_items
-           where project_id = pg_temp.fx('p_w') and state = 'cancelled' and cancelled_reason = 'Client paused social'), 101,
-  'with the project''s reason');
+           where project_id = pg_temp.fx('p_w') and state = 'cancelled' and cancelled_reason = 'Client paused social'), 100,
+  'with the project''s reason (Post 1, done and so approved since amendment D3, stays approved)');
 select is((pg_temp.last('admin', 'project_cancelled')).body, 'Sharma Weddings. Reason: Client paused social', 'the Admin is told, with the reason');
 select is(pg_temp.n('admin', 'item_cancelled') + pg_temp.n('owner', 'item_cancelled'), 0::bigint, 'no row per item');
 select throws_ok($$ select public.item_mark_done((pg_temp.item('p_w', 'Post 1')).id) $$, 'P0001', 'INVALID_STATE', 'a cancelled project is read-only');
@@ -741,13 +762,16 @@ select throws_ok($$ select public.project_complete(pg_temp.fx('p_w')) $$, 'P0001
 select pg_temp.as_member('admin');
 select is(public.project_reopen(pg_temp.fx('p_w'), 'Back on'), 'in_progress'::public.project_state,
   'the Admin reopens it (amendment C): in progress (an item was done)');
-select is((select count(*)::integer from public.project_items where project_id = pg_temp.fx('p_w') and state = 'cancelled'), 101,
+select is((select count(*)::integer from public.project_items where project_id = pg_temp.fx('p_w') and state = 'cancelled'), 100,
   'its cancelled items stay cancelled');
 select is((pg_temp.last('owner', 'project_reopened')).title, 'Ravi Admin reopened Weekly posts', 'the Owner is told');
 select pg_temp.as_member('owner');
 select lives_ok($$ select public.project_cancel(pg_temp.fx('p_p'), 'Never started') $$, 'a project nobody worked on is cancelled');
 select is((select case when exists (select 1 from public.project_item_stages s join public.project_items i on i.id = s.item_id
-                                    where i.project_id = pg_temp.fx('p_p')) then 'ticked' else 'never' end), 'never',
+                                    where i.project_id = pg_temp.fx('p_p'))
+                           or exists (select 1 from public.project_item_stage_list s
+                                      where s.project_id = pg_temp.fx('p_p') and s.done_at is not null)
+                      then 'ticked' else 'never' end), 'never',
   'nothing of it was ticked or done');
 select is(public.project_reopen(pg_temp.fx('p_p'), 'Restart'), 'open'::public.project_state,
   'so a reopen returns it to open (decision 14)');

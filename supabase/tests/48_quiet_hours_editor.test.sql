@@ -10,6 +10,7 @@ select plan(14);
 -- 7A: client work rows reference clients and members, and the presets the organization (a
 -- Playwright run leaves some behind).
 delete from public.item_reviews;
+delete from public.project_item_stage_list;
 delete from public.project_item_stages;
 delete from public.project_items;
 delete from public.project_cycles;

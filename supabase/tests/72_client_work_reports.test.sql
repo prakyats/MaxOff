@@ -9,6 +9,7 @@ create extension if not exists pgtap with schema extensions;
 select plan(28);
 
 delete from public.item_reviews;
+delete from public.project_item_stage_list;
 delete from public.project_item_stages;
 delete from public.project_items;
 delete from public.project_cycles;
@@ -129,12 +130,21 @@ insert into fx select 'p_d', id from public.projects where name = 'Own film';
 
 select pg_temp.as_member('admin');
 select public.item_mark_done(pg_temp.item('A done'));
+-- 'A approved' and 'A twice' go through the legacy done state (before amendment D3, when an approval
+-- or a Not done was a step of its own), which the report still reads.
 select public.item_mark_done(pg_temp.item('A approved'));
+select pg_temp.as_system();
+update public.project_items set state = 'done', approved_at = null, approved_by = null where id = pg_temp.item('A approved');
+select pg_temp.as_member('admin');
 select public.item_approve(array[pg_temp.item('A approved')]);
+-- Amendment D3: done is approved at once; a reopen with a reason is the send-back.
 select public.item_mark_done(pg_temp.item('A sent back'));
-select public.item_reject(pg_temp.item('A sent back'), 'The logo is wrong');
+select public.item_reopen(pg_temp.item('A sent back'), 'The logo is wrong');
 select public.item_cancel(pg_temp.item('A closed'), 'The client dropped it');
 select public.item_mark_done(pg_temp.item('A twice'));
+select pg_temp.as_system();
+update public.project_items set state = 'done', approved_at = null, approved_by = null where id = pg_temp.item('A twice');
+select pg_temp.as_member('admin');
 select public.item_unmark_done(pg_temp.item('A twice'));
 select public.item_mark_done(pg_temp.item('A twice'));
 select public.item_update(pg_temp.item('A overdue'), jsonb_build_object('planned_date', app.today_ist() - 2));
@@ -142,7 +152,6 @@ select pg_temp.as_member('admin2');
 select public.item_mark_done(pg_temp.item('B done'));
 select pg_temp.as_member('owner');
 select public.item_mark_done(pg_temp.item('D done'));
-select public.item_approve(array[pg_temp.item('D done')]);
 select public.project_complete(pg_temp.fx('p_d'));
 select pg_temp.as_system();
 
