@@ -225,10 +225,7 @@ export function CycleItems({
                     {item.title}
                   </span>
                   <span className="text-muted-foreground flex flex-wrap gap-x-2 text-xs">
-                    <span className="inline-flex items-center gap-1">
-                      <StatusDot status={ITEM_STATUS[item.state]} />
-                      {item.stateLabel}
-                    </span>
+                    <StatusDot status={ITEM_STATUS[item.state]} label={item.stateLabel} />
                     {item.planned ? (
                       <span className={cn(item.planned.overdue && "text-destructive")}>
                         {item.planned.text}
