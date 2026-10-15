@@ -30,15 +30,15 @@ import {
   listReviews,
   listStages,
   nextStartable,
+  cycleMeter,
   PROJECT_STATE_LABELS,
-  progressLine,
-  progressOf,
   RECURRENCE_LABELS,
   shortDate,
   sortCycles,
   sortItems,
 } from "@/modules/client-work";
 import { CycleItems } from "@/modules/client-work/components/cycle-items";
+import { CycleProgress } from "@/modules/client-work/components/cycle-progress";
 import { ProjectActivityButton } from "@/modules/client-work/components/project-activity";
 import { ProjectMenu } from "@/modules/client-work/components/project-menu";
 import { RecordReadReceipt } from "@/modules/notifications-center";
@@ -57,9 +57,10 @@ const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * client-work notification lands (`/clients/<client>/projects/<project>`, 7A mechanics (4)).
  * `projects.manage` on a visible client: the Owner, the client's Admin (another Admin's client is
  * a 404, Crew are sent to /forbidden). **First glance** answers "where is this cycle?": the repeat
- * and state, the cycle with its pager (a view control: `?cycle=` replaces, never history), the
- * progress line "9/12 done · 1 closed", an ended cycle's "decide N unfinished items", then the
- * items with their one action (Mark done, which is the approval since D3). Everything else is
+ * and state, the cycle with its pager (a view control: `?cycle=` replaces, never history), its
+ * progress ring (6b.11 (5): every stage ticked across its deliverables, the pace from the planned
+ * dates, the 100% moment), an ended cycle's "decide N unfinished items", then the deliverables, open
+ * ones first, with their one action (Mark done, which is the approval since D3). Everything else is
  * under ⋯ (details, default stages, item list, next cycle, complete / cancel / reopen), the
  * header's **Activity** (the project's history in a panel, paged; never inline) or one tap deeper
  * (the item sheet: its own stages, send back / reopen, its last change and history). No money
@@ -267,9 +268,6 @@ export default async function ProjectPage({
                 <span className="text-sm font-medium break-words" data-slot="cycle-label">
                   {chosen.label ?? "The project's deliverables"}
                 </span>
-                <span className="text-muted-foreground text-xs" data-slot="cycle-progress">
-                  {progressLine(progressOf(items))}
-                </span>
               </div>
               {next ? (
                 <ViewLink
@@ -290,6 +288,13 @@ export default async function ProjectPage({
               No cycle yet. The current period&apos;s cycle starts once the client is Active.
             </p>
           )}
+          {chosen ? (
+            <CycleProgress
+              cycleId={chosen.id}
+              label={chosen.label}
+              meter={cycleMeter(views, today)}
+            />
+          ) : null}
           {toDecide > 0 && can(viewer.role, "cycles.carry_decide") ? (
             <DrillLink
               href={`/clients/items/decide?project=${project.id}`}
