@@ -217,9 +217,14 @@ function request(url, { agent, headers }) {
       });
     });
     req.on("error", reject);
+    // A request that never answers (a dropped connection on a cold isolate, run 38776216005
+    // hung 20 min) is one failed sample, not a hung probe.
+    req.setTimeout(REQUEST_TIMEOUT_MS, () => req.destroy(new Error("timed out")));
     req.end();
   });
 }
+
+const REQUEST_TIMEOUT_MS = 30_000;
 
 /** `Server-Timing: claims;dur=12, isolate;desc="n=1 age=0"` → `{ claims: 12, n: 1, age: 0 }`. */
 function parseServerTiming(value) {
@@ -245,8 +250,28 @@ function parseServerTiming(value) {
   return out;
 }
 
+/** A sample that failed or timed out: status 0, the timeout as its time, so the table shows it. */
+function failed(error) {
+  process.stderr.write(`sample failed: ${error instanceof Error ? error.message : error}\n`);
+  return {
+    status: 0,
+    ttfb: REQUEST_TIMEOUT_MS,
+    total: REQUEST_TIMEOUT_MS,
+    connect: 0,
+    reused: false,
+    bytes: 0,
+    ray: "",
+    colo: "",
+    timing: {},
+    location: null,
+  };
+}
+
 async function json(url, headers) {
-  const response = await fetch(url, { headers });
+  const response = await fetch(url, {
+    headers,
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  }).catch(() => ({ ok: false, status: 0 }));
   if (!response.ok) return { status: response.status };
   return response.json();
 }
@@ -315,7 +340,9 @@ async function main() {
   for (let i = 0; i < samples; i++) {
     for (const route of routes) {
       const agent = new https.Agent({ keepAlive: false });
-      const r = await request(base + route.path, { agent, headers: headersFor(route) });
+      const r = await request(base + route.path, { agent, headers: headersFor(route) }).catch(
+        failed,
+      );
       agent.destroy();
       results.push({ ...r, route: route.name, kind: "fresh" });
     }
@@ -325,7 +352,9 @@ async function main() {
   await request(base + "/manifest.webmanifest", { agent: keep, headers: headersFor(routes[0]) });
   for (let i = 0; i < samples; i++) {
     for (const route of routes) {
-      const r = await request(base + route.path, { agent: keep, headers: headersFor(route) });
+      const r = await request(base + route.path, { agent: keep, headers: headersFor(route) }).catch(
+        failed,
+      );
       results.push({ ...r, route: route.name, kind: "reused" });
     }
   }
