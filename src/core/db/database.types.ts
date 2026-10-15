@@ -5047,6 +5047,7 @@ export type Database = {
         Args: { task_id: string; up_to?: string };
         Returns: string;
       };
+      task_remind: { Args: { task_id: string }; Returns: string };
       task_reopen: {
         Args: { reason: string; task_id: string };
         Returns: Database["public"]["Enums"]["task_state"];

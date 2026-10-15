@@ -406,8 +406,8 @@ select throws_ok($$ select * from public.member_availability(app.today_ist(), ap
 select pg_temp.as_member('admin1');
 select throws_ok($$ select * from public.member_availability(app.today_ist() + 1, app.today_ist()) $$, 'P0001', 'VALIDATION', 'a range in order');
 select throws_ok($$ select * from public.member_availability(app.today_ist(), app.today_ist() + 62) $$, 'P0001', 'VALIDATION', 'two months at most');
-select is((select count(*) from public.member_availability(app.today_ist(), app.today_ist() + 3) a where a.member_id = pg_temp.fx('owner')), 0::bigint,
-  'the Owner is never listed (never an assignee)');
+select is((select count(*) from public.member_availability(app.today_ist(), app.today_ist() + 3) a where a.member_id = pg_temp.fx('owner')), 4::bigint,
+  'the Owner is listed too since 6b.2 (the Owner may be on tasks), one row a day');
 select is((select count(*) from public.member_availability(app.today_ist(), app.today_ist() + 3) a where a.member_id = pg_temp.fx('deactivated')), 0::bigint,
   'nor a deactivated member');
 select results_eq(
@@ -424,8 +424,8 @@ select results_eq(
   format($$ select a.engagement::text, a.open_tasks_due, a.leave from public.member_availability(app.today_ist() + 1, app.today_ist() + 1, array[%L::uuid]) a $$, pg_temp.fx('asha')),
   $$ values ('freelance', 1, null::text) $$, 'the freelancer counts for workload and never has leave');
 select pg_temp.as_member('owner');
-select is((select count(distinct a.member_id) from public.member_availability(app.today_ist(), app.today_ist()) a), 7::bigint,
-  'the Owner reads every active non-Owner member (seven, the freelancer included)');
+select is((select count(distinct a.member_id) from public.member_availability(app.today_ist(), app.today_ist()) a), 8::bigint,
+  'the Owner reads every active member (seven others, the freelancer included, and since 6b.2 the Owner)');
 
 select * from finish();
 rollback;

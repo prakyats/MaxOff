@@ -180,9 +180,11 @@ select throws_ok($$ select pg_temp.mk('Via Staff', array['staff1'], 'staff1', 's
   'P0001', 'VALIDATION', 'the approver must be an Admin');
 select throws_ok($$ select pg_temp.mk('Via gone Admin', array['staff1'], 'staff1', 'oldadmin') $$,
   'P0001', 'VALIDATION', 'an active one');
-select throws_ok($$ select pg_temp.mk('Owner assigned', array['owner'], 'owner') $$,
-  'P0001', 'VALIDATION', 'the Owner is never an assignee (kickoff 4 decision 1)');
-select throws_ok($$ select pg_temp.mk('Owner among', array['staff1', 'owner'], 'staff1') $$,
+-- 6b.2 (owner 2026-10-07) lifted "the Owner is never an assignee" (pgTAP 76 proves the Owner on a task);
+-- an inactive member is still refused, alone or among others.
+select throws_ok($$ select pg_temp.mk('Gone assigned', array['oldadmin'], 'oldadmin') $$,
+  'P0001', 'VALIDATION', 'an inactive member is never an assignee');
+select throws_ok($$ select pg_temp.mk('Gone among', array['staff1', 'oldadmin'], 'staff1') $$,
   'P0001', 'VALIDATION', 'not even among others');
 select throws_ok($$ select pg_temp.mk('Wrong primary', array['staff1'], 'staff2') $$,
   'P0001', 'VALIDATION', 'the primary owner must be one of the assignees');
@@ -500,7 +502,7 @@ select throws_ok(format($$ select public.task_update_assignment(%L, '{"priority"
 select throws_ok(format($$ select public.task_update_assignment(%L, jsonb_build_object('client_id', %L)) $$, pg_temp.fx('via'), pg_temp.fx('client_b')),
   'P0001', 'FORBIDDEN', 'an Admin labels only their own clients');
 select throws_ok(format($$ select public.task_update_assignment(%L, jsonb_build_object('assignee_ids', jsonb_build_array(%L, %L), 'primary_owner_id', %L)) $$,
-  pg_temp.fx('via'), pg_temp.fx('staff1'), pg_temp.fx('owner'), pg_temp.fx('staff1')), 'P0001', 'VALIDATION', 'the Owner is never an assignee');
+  pg_temp.fx('via'), pg_temp.fx('staff1'), pg_temp.fx('oldadmin'), pg_temp.fx('staff1')), 'P0001', 'VALIDATION', 'an inactive member is never an assignee (6b.2 lifted the Owner rule)');
 select throws_ok(format($$ select public.task_update_assignment(%L, jsonb_build_object('primary_owner_id', %L)) $$, pg_temp.fx('via'), pg_temp.fx('staff2')),
   'P0001', 'VALIDATION', 'the primary owner must be an assignee');
 select throws_ok(format($$ select public.task_update_assignment(%L, '{"event_date": "2026-10-01"}') $$, pg_temp.fx('via')), 'P0001', 'VALIDATION',
