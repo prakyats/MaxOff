@@ -10,6 +10,7 @@ import {
 import dynamic from "next/dynamic";
 import { useState } from "react";
 
+import { countDeliverables } from "@/core/lib/stage-groups";
 import { cn } from "@/core/lib/utils";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { EmptyState } from "@/core/ui/composites/empty-state";
@@ -42,8 +43,8 @@ type Context = ProjectTemplateContext;
 /**
  * Settings → Templates → **Project templates** (7.4; PRODUCT §4.5, §4.16; kickoff 7 decision 23,
  * PERMISSIONS ⁴): shared company-wide (`templates.manage`); an Admin edits and archives their own,
- * the Owner any. A template holds a repeat, stages (from a preset or typed), an item list, a
- * description and the project fields' defaults; **never a billing category** (amendment C: money is
+ * the Owner any. A template holds a repeat, default stage groups, deliverables each with their
+ * own stage groups (6b), a description and the project fields' defaults; **never a billing category** (amendment C: money is
  * the Owner's, phase 9). New project offers it under Start from. Rows in the list-manager shape,
  * beside the task templates' group.
  */
@@ -63,10 +64,12 @@ export function ProjectTemplateManager({
       template.createdBy === context.viewer.id
         ? "by you"
         : `by ${context.names[template.createdBy] ?? "someone"}`;
+    // What a project made from it gets (6b.16 (a)): "6 deliverables · 72 stages".
+    const counts = countDeliverables(template.deliverables, template.stageGroups);
     return [
       RECURRENCE_LABELS[template.recurrence],
-      template.stages.length > 0 ? `${template.stages.length} stages` : null,
-      template.items.length === 1 ? "1 item" : `${template.items.length} items`,
+      counts.deliverables === 1 ? "1 deliverable" : `${counts.deliverables} deliverables`,
+      counts.stages === 1 ? "1 stage" : `${counts.stages} stages`,
       author,
     ]
       .filter(Boolean)

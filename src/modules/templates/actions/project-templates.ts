@@ -5,7 +5,13 @@ import { z } from "zod";
 
 import { validateCustomFieldsFor } from "@/core/custom-fields/server";
 import { action, ok, type Result } from "@/core/errors";
-import { repeatedName, repeatedStageMessage } from "@/core/lib/repeated-name";
+import {
+  DELIVERABLE_TITLE_MAX,
+  deliverablesIssue,
+  GROUP_LABEL_MAX,
+  STAGE_NAME_MAX,
+  stageGroupsIssue,
+} from "@/core/lib/stage-groups";
 import { assertPermission } from "@/core/permissions/server";
 
 import * as repo from "../data/project-templates";
@@ -13,18 +19,29 @@ import {
   TEMPLATE_DESCRIPTION_MAX,
   TEMPLATE_ITEMS_MAX,
   TEMPLATE_NAME_MAX,
-  TEMPLATE_STAGES_MAX,
 } from "../domain/project-templates";
 
 /**
  * Settings → Templates → Project templates (7.4; kickoff 7 decision 23): `templates.manage`;
  * RLS lets an Admin write only their own (PERMISSIONS ⁴). A plain edit (ARCHITECTURE §4.2). The
  * field defaults are checked like a task template's: each value against its field, a required one
- * may stay empty (the create dialog asks for it).
+ * may stay empty (the create dialog asks for it). Since 6b (DATA-MODEL §5b) the stages come as
+ * default **stage groups** and the items as **deliverables** with their own groups, checked in
+ * the database's words (`stageGroupsIssue`, `deliverablesIssue`).
  */
 
-const line = (max: number, what: string) =>
-  z.string().trim().min(1).max(max, `Keep each ${what} under ${max} characters.`);
+/** Stage groups as the database checks them (`app.stage_groups_check`). */
+const stageGroups = z
+  .array(
+    z.object({
+      label: z.string().trim().max(GROUP_LABEL_MAX).nullable(),
+      stages: z.array(z.string().trim().max(STAGE_NAME_MAX)),
+    }),
+  )
+  .superRefine((groups, context) => {
+    const issue = stageGroupsIssue(groups);
+    if (issue !== null) context.addIssue({ code: "custom", message: issue });
+  });
 
 const values = z.object({
   name: z
@@ -41,16 +58,20 @@ const values = z.object({
     )
     .optional(),
   recurrence: z.enum(["one_time", "weekly", "monthly"], { error: "Pick how often it repeats." }),
-  stages: z
-    .array(line(120, "stage"))
-    .max(TEMPLATE_STAGES_MAX, `At most ${TEMPLATE_STAGES_MAX} stages.`)
-    .superRefine((names, context) => {
-      // A project made from it takes them as its default stages, each once (the 7B rework's review).
-      const repeated = repeatedName(names);
-      if (repeated !== null)
-        context.addIssue({ code: "custom", message: repeatedStageMessage(repeated) });
+  // What a deliverable without its own groups uses.
+  stageGroups,
+  deliverables: z
+    .array(
+      z.object({
+        title: z.string().trim().max(DELIVERABLE_TITLE_MAX),
+        stageGroups: stageGroups.nullable(),
+      }),
+    )
+    .max(TEMPLATE_ITEMS_MAX, `At most ${TEMPLATE_ITEMS_MAX} deliverables.`)
+    .superRefine((deliverables, context) => {
+      const issue = deliverablesIssue(deliverables);
+      if (issue !== null) context.addIssue({ code: "custom", message: issue });
     }),
-  items: z.array(line(200, "item")).max(TEMPLATE_ITEMS_MAX, `At most ${TEMPLATE_ITEMS_MAX} items.`),
   fieldDefaults: z.record(z.string(), z.unknown()).default({}),
 });
 const updateSchema = values.extend({ templateId: z.uuid() });
@@ -70,8 +91,8 @@ async function clean(data: z.output<typeof values>): Promise<repo.ProjectTemplat
     name: data.name,
     description: data.description || null,
     recurrence: data.recurrence,
-    stages: data.stages,
-    items: data.items,
+    stageGroups: data.stageGroups,
+    deliverables: data.deliverables,
     fieldDefaults: await validateCustomFieldsFor("project", data.fieldDefaults, {
       skipRequired: true,
     }),
