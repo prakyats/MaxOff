@@ -207,7 +207,7 @@ function describeDefaultStage(entry: ActivityEntry): string | null {
       if (keys.includes("name")) {
         return `renamed the default stage ${groupStageLabel(label, text(entry.old.name) ?? "a row")} to ${name}`;
       }
-      if (keys.includes("position"))
+      if (keys.includes("position") || keys.includes("group_position"))
         return `moved the default stage ${groupStageLabel(label, name)}`;
       return null;
     }
@@ -281,7 +281,8 @@ function describeItemStage(entry: ActivityEntry, context: ProjectActivityContext
       if (keys.includes("name")) {
         return `renamed the stage ${groupStageLabel(group, text(entry.old.name) ?? stage)} to ${text(entry.new.name) ?? "a new name"} on ${title}`;
       }
-      if (keys.includes("position")) return `moved the stage ${named} on ${title}`;
+      if (keys.includes("position") || keys.includes("group_position"))
+        return `moved the stage ${named} on ${title}`;
       return null;
     }
     default:
