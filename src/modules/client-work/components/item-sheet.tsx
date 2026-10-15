@@ -45,6 +45,8 @@ import { ITEM_NOTES_MAX, ITEM_TITLE_MAX } from "../domain/schemas";
 import { ITEM_STATUS } from "../domain/types";
 import type { ItemView } from "../domain/views";
 
+import { SentBackNote } from "./sent-back-note";
+
 import type { StagePresetOption } from "@/core/ui/stage-groups/editing";
 
 /** A deliverable's stage editor, on the first tap of "Edit stages" (ARCHITECTURE §19). */
@@ -388,12 +390,11 @@ export function ItemSheet({
                 </Button>
               </div>
               {current.sentBack ? (
-                <p
-                  data-slot="item-sent-back"
-                  className="border-border bg-muted/50 rounded-lg border px-3 py-2"
-                >
-                  {current.sentBack.verb} by {current.sentBack.by}: {current.sentBack.reason}
-                </p>
+                <SentBackNote
+                  slot="item-sent-back"
+                  text={current.sentBack.text}
+                  className="border-border bg-muted/50 rounded-lg border px-3 py-2 text-sm"
+                />
               ) : null}
               {current.closedReason ? (
                 <p className="text-muted-foreground">Closed: {current.closedReason}</p>

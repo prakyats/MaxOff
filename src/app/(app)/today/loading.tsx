@@ -3,7 +3,8 @@ import { can } from "@/core/permissions";
 import { ApprovalRowsSkeleton } from "@/core/ui/composites/approval-group-skeleton";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { TodayAttendanceStripSkeleton, TodayCardSkeleton } from "@/modules/attendance";
-import { DashSectionHeadingSkeleton, LinkRowsSkeleton } from "@/modules/dashboards";
+import { Skeleton } from "@/core/ui/primitives/skeleton";
+import { DashSectionHeadingSkeleton } from "@/modules/dashboards";
 import { TaskRowsSkeleton } from "@/modules/tasks";
 
 import { adminGreeting, ownerGreeting } from "./words";
@@ -52,10 +53,24 @@ export default async function Loading() {
           <TodayCardSkeleton />
         ) : (
           // The Admin's Client work (7.3): its heading and two item rows (title over the project ·
-          // client · date line); the Mark done button sits where the chevron is.
+          // client · date line and the stages in miniature, 6b.11) with their Mark done.
           <section className="flex min-w-0 flex-col gap-2" data-slot="loading-today-client-work">
             <DashSectionHeadingSkeleton width="w-24" />
-            <LinkRowsSkeleton rows={2} detail />
+            <ul className="border-border divide-border bg-card divide-y rounded-lg border">
+              {[0, 1].map((row) => (
+                <li key={row} className="flex items-center gap-3 px-4 py-2">
+                  <span className="flex min-h-11 min-w-0 flex-1 flex-col justify-center gap-1.5">
+                    <Skeleton className="h-4 w-1/2" />
+                    <Skeleton className="h-3 w-2/3" />
+                    <span className="flex items-center gap-2">
+                      <Skeleton className="h-1.5 w-20 rounded-full" />
+                      <Skeleton className="h-3 w-6" />
+                    </span>
+                  </span>
+                  <Skeleton className="h-11 w-24 shrink-0 rounded-lg md:h-7" />
+                </li>
+              ))}
+            </ul>
           </section>
         )}
         <span className="sr-only">Loading Today</span>

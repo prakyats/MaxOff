@@ -1,13 +1,18 @@
+import { cn } from "@/core/lib/utils";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
+import { DELIVERABLE_COLUMNS } from "@/modules/client-work";
+
 import { PROJECT_ORIGINS } from "./back";
 
 /**
  * A project's page (7.3) traced: the title bar with its back control (to the client's Projects;
  * the client's name is not read yet, so its label is a bar), the Activity button and ⋯ (both
  * 44 px), the description line (client · repeat, desktop), the state line, the cycle pager (two
- * arrows around the cycle's name and its progress line), the Deliverables heading with Add deliverable
- * and the deliverable rows (the select box, the title over its state and date line, the one action). No activity on
+ * arrows around the cycle's name), the progress card (the ring, its line and pace; 6b.11), the
+ * Deliverables heading with Add deliverable, the open deliverables in the list's columns (the select
+ * box, the title, the stage chips and the date on a laptop, the date line and the stages in
+ * miniature on a phone, the one action) and the collapsed "Done and closed" group. No activity on
  * the page itself since the owner's preview feedback (2026-10-09): it is the header's panel.
  */
 export default function Loading() {
@@ -53,11 +58,24 @@ export default function Loading() {
           </div>
           <div className="border-border bg-card flex min-h-11 items-center gap-1 rounded-lg border px-1">
             <Skeleton className="m-2.5 size-6 rounded-md" />
-            <span className="flex flex-1 flex-col items-center gap-1.5 py-1">
+            <span className="flex flex-1 flex-col items-center py-1">
               <Skeleton className="h-4 w-28" />
-              <Skeleton className="h-3 w-40" />
             </span>
             <Skeleton className="m-2.5 size-6 rounded-md" />
+          </div>
+          {/* The cycle's progress: the ring with its figure, the line and the pace (6b.11 (5)). */}
+          <div className="border-border bg-card flex items-center gap-4 rounded-lg border px-3 py-3 sm:px-4">
+            <span className="flex size-20 shrink-0 items-center justify-center sm:size-22">
+              <span className="border-muted size-full rounded-full border-[0.5rem] motion-safe:animate-pulse" />
+            </span>
+            <span className="flex flex-1 flex-col gap-1">
+              <span className="flex h-5 items-center">
+                <Skeleton className="h-3.5 w-56 max-w-full" />
+              </span>
+              <span className="flex h-5 items-center">
+                <Skeleton className="h-3 w-16" />
+              </span>
+            </span>
           </div>
         </div>
         <div className="flex flex-col gap-2">
@@ -65,21 +83,49 @@ export default function Loading() {
             <Skeleton className="h-4 w-24" />
             <Skeleton className="h-11 w-40 rounded-lg md:h-8" />
           </div>
-          <ul className="border-border divide-border bg-card divide-y rounded-lg border">
+          {/* The open deliverables in the list's columns (select, deliverable, stages, date,
+              action); on a phone a card with its planned line and its stages in miniature. */}
+          <ul
+            className={cn(
+              "border-border divide-border bg-card divide-y rounded-lg border",
+              DELIVERABLE_COLUMNS,
+            )}
+          >
             {[0, 1, 2, 3, 4].map((row) => (
-              <li key={row} className="flex min-h-15 items-center gap-3 px-3 py-2 sm:px-4">
+              <li
+                key={row}
+                className="flex min-h-15 flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 sm:px-4 md:col-span-5 md:grid md:grid-cols-subgrid"
+              >
                 {/* The row's 44 px select target around its box (§14.1), as the row draws it. */}
-                <span className="-ml-2 flex size-11 shrink-0 items-center justify-center">
+                <span className="-ml-2 flex size-11 shrink-0 items-center justify-center md:ml-0">
                   <Skeleton className="size-4 rounded-[4px]" />
                 </span>
-                <span className="flex flex-1 flex-col gap-1.5">
+                <span className="flex min-w-0 flex-1 flex-col gap-1.5">
                   <Skeleton className="h-4 w-1/2" />
-                  <Skeleton className="h-3 w-1/3" />
+                  <Skeleton className="h-3 w-1/3 md:hidden" />
                 </span>
-                <Skeleton className="h-11 w-24 shrink-0 rounded-lg md:h-7" />
+                <span className="hidden flex-wrap gap-1 md:flex">
+                  <Skeleton className="h-5 w-14 rounded-full" />
+                  <Skeleton className="h-5 w-12 rounded-full" />
+                  <Skeleton className="h-5 w-16 rounded-full" />
+                </span>
+                <Skeleton className="hidden h-3 w-20 md:block" />
+                <span className="flex justify-end">
+                  <Skeleton className="h-11 w-24 shrink-0 rounded-lg md:h-7" />
+                </span>
+                {/* A phone's stages in miniature, under the title. */}
+                <span className="flex basis-full items-center gap-2 pb-1 pl-12 md:hidden">
+                  <Skeleton className="h-1.5 w-20 rounded-full" />
+                  <Skeleton className="h-3 w-24" />
+                </span>
               </li>
             ))}
           </ul>
+          {/* The collapsed "Done and closed (N)" group. */}
+          <span className="flex min-h-11 items-center gap-2 px-1">
+            <Skeleton className="size-4 rounded-sm" />
+            <Skeleton className="h-4 w-36" />
+          </span>
         </div>
       </div>
       <span className="sr-only">Loading the project</span>

@@ -44,16 +44,32 @@ export function dueThisWeek<T extends Pick<Item, "state" | "plannedDate" | "titl
     );
 }
 
-/** A row's planned-date words: "Overdue · 6 Oct", "Today", "Due 10 Oct", or null. */
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Whole IST days from `from` to `to` (both ISO dates). */
+export function daysBetween(from: ISODate, to: ISODate): number {
+  return Math.round((istDayStart(to).getTime() - istDayStart(from).getTime()) / DAY_MS);
+}
+
+/**
+ * A row's planned-date words, keeping "Planned" (6b.11 (2), owner 2026-10-10): "Planned 21 Oct",
+ * "Planned today", and once it has passed on an open deliverable "Planned 18 Oct · 2 days late"
+ * (`overdue`: the overdue tone); null without a date (the project page says "Not planned").
+ */
 export function plannedLine(
   item: Pick<Item, "state" | "plannedDate">,
   today: ISODate,
 ): { text: string; overdue: boolean } | null {
   if (item.plannedDate === null) return null;
-  if (isOverdue(item, today))
-    return { text: `Overdue · ${shortDate(item.plannedDate)}`, overdue: true };
+  if (isOverdue(item, today)) {
+    const late = daysBetween(item.plannedDate, today);
+    return {
+      text: `Planned ${shortDate(item.plannedDate)} · ${late} ${late === 1 ? "day" : "days"} late`,
+      overdue: true,
+    };
+  }
   if (item.plannedDate === today && item.state === "open")
-    return { text: "Due today", overdue: false };
+    return { text: "Planned today", overdue: false };
   return { text: `Planned ${shortDate(item.plannedDate)}`, overdue: false };
 }
 

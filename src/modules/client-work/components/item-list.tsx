@@ -7,6 +7,7 @@ import { cn } from "@/core/lib/utils";
 import { DrillLink } from "@/core/ui/composites/drill-link";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { StatusDot } from "@/core/ui/composites/status-badge";
+import { SegmentedBar } from "@/core/ui/progress/segmented-meter";
 import { replaceViewAddress } from "@/core/ui/navigation/view-address";
 import { closeOverlaysThen } from "@/core/ui/overlay/overlay-history";
 import { Button } from "@/core/ui/primitives/button";
@@ -53,7 +54,7 @@ function addressOf(view: View): string {
  * overdue is where the E1 escalation lands), client and project filters as **view controls** (the
  * address is replaced, never pushed: one back leaves the list, §14.2 d). **For the Owner it is
  * grouped by the client's Admin**, his own clients last. A row opens the project on the item's
- * cycle (one tap deeper).
+ * cycle (one tap deeper); each row carries its own stages in miniature (6b.11 (5)).
  */
 export function ItemList({
   rows,
@@ -219,11 +220,28 @@ export function ItemList({
                       <span className="text-muted-foreground flex flex-wrap gap-x-2 text-xs">
                         <StatusDot status={ITEM_STATUS[row.state]} label={row.stateLabel} />
                         {row.planned ? (
-                          <span className={cn(row.planned.overdue && "text-destructive")}>
+                          <span
+                            data-slot="item-list-planned"
+                            className={cn(row.planned.overdue && "text-danger")}
+                          >
                             {row.planned.text}
                           </span>
                         ) : null}
                       </span>
+                      {row.meter ? (
+                        // The deliverable's own stages in miniature (6b.11 (5)).
+                        <span className="mt-0.5 flex items-center gap-2 text-xs">
+                          <SegmentedBar
+                            counts={row.meter}
+                            label={`Stages ${row.meter.done} of ${row.meter.total} ticked`}
+                            slot="item-list-meter"
+                            className="w-20 shrink-0"
+                          />
+                          <span className="text-muted-foreground tabular-nums">
+                            {row.meter.done}/{row.meter.total}
+                          </span>
+                        </span>
+                      ) : null}
                     </span>
                     <ChevronRightIcon
                       className="text-muted-foreground size-4 shrink-0"

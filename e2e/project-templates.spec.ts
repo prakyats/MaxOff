@@ -351,17 +351,24 @@ test("a template from before groups opens with its stages on each item, and keep
 test("the preview's summary stays in view while its list scrolls", async ({ page }, info) => {
   const name = nameOf(info, "long");
   await removeTemplate(name);
-  // Twelve deliverables whose names form no run, so none collapses and the list is long.
+  // Twelve deliverables, no two neighbours identical, so none collapses and the list is long.
   const groups = [
     { label: "Phase A", stages: ["One", "Two", "Three"] },
     { label: "Phase B", stages: ["Four", "Five"] },
+  ];
+  const others = [
+    { label: "Phase A", stages: ["One", "Two"] },
+    { label: "Phase B", stages: ["Three", "Four", "Five"] },
   ];
   const titles = "ABCDEFGHIJKL".split("").map((letter) => `Item ${letter}`);
   await insertAs(USERS.admin.email, USERS.admin.password, "project_templates", {
     name,
     recurrence: "monthly",
     stage_groups: [],
-    deliverables: titles.map((title) => ({ title, stage_groups: groups })),
+    deliverables: titles.map((title, index) => ({
+      title,
+      stage_groups: index % 2 === 0 ? groups : others,
+    })),
   });
   await page.goto("/settings/templates");
   await hydrated(page);
@@ -391,6 +398,88 @@ test("the preview's summary stays in view while its list scrolls", async ({ page
       return pinned.y >= area.y - 1 && pinned.y <= area.y + 24;
     })
     .toBe(true);
+  await removeTemplate(name);
+});
+
+test("the preview collapses identical neighbours, and a change highlights its own card (v1.7.1)", async ({
+  page,
+}, info) => {
+  const name = nameOf(info, "identical");
+  await removeTemplate(name);
+  const own = [{ label: "Phase A", stages: ["One", "Two"] }];
+  const banner = [{ label: "Phase B", stages: ["Three"] }];
+  await insertAs(USERS.admin.email, USERS.admin.password, "project_templates", {
+    name,
+    recurrence: "monthly",
+    stage_groups: [{ label: null, stages: ["One", "Two", "Three", "Four"] }],
+    deliverables: [
+      { title: "Teaser", stage_groups: null },
+      { title: "Cutdown", stage_groups: null },
+      { title: "Poster", stage_groups: own },
+      { title: "Banner", stage_groups: banner },
+    ],
+  });
+  await page.goto("/settings/templates");
+  await hydrated(page);
+  const row = page.locator('[data-slot="project-template"]', { hasText: name });
+  await row.getByRole("button", { name: `Edit ${name}` }).click();
+  const dialog = page.getByRole("dialog", { name: `Edit ${name}` });
+  await expect(dialog).toBeVisible();
+  const preview = await openPreview(page, dialog);
+  const entries = preview.locator('[data-slot="preview-deliverable"]');
+
+  // Identical neighbours that are not a numbered run: one entry, "Teaser, Cutdown" ×2.
+  await expect(entries.locator('[data-slot="preview-deliverable-title"]')).toHaveText([
+    "Teaser, Cutdown",
+    "Poster",
+    "Banner",
+  ]);
+  await expect(entries.locator('[data-slot="preview-quantity"]')).toHaveText(["×2"]);
+  await expect(entries.locator('[data-slot="preview-entry-counts"]')).toHaveText([
+    "4 stages each",
+    "1 group · 2 stages",
+    "1 group · 1 stage",
+  ]);
+  // Each card's stage dots, none ticked yet (the progress meter's language).
+  await expect(entries.locator('[data-slot="preview-stage-dots"]')).toHaveCount(3);
+  await expect(entries.first().locator('[data-slot="preview-stage-dots"]')).toHaveAttribute(
+    "data-total",
+    "4",
+  );
+  await entries.first().locator('[data-slot="preview-run-toggle"]').click();
+  await expect(entries.first().locator('[data-slot="preview-run-names"] li')).toHaveText([
+    "Teaser",
+    "Cutdown",
+  ]);
+  await expectNoHorizontalScroll(page);
+
+  if (!phone(page)) {
+    // A laptop edits beside the preview: the cards are keyed to their deliverables. Banner's
+    // card is marked, moved up a place, then renamed: it stays the same card (never Poster's),
+    // and only it flashes.
+    const card = (title: string) =>
+      entries.filter({
+        has: page.locator('[data-slot="preview-deliverable-title"]', { hasText: title }),
+      });
+    await card("Banner").evaluate((node) => {
+      (node as HTMLElement).dataset.probe = "banner";
+    });
+    await dialog.getByRole("button", { name: "Actions for Banner" }).click();
+    await page.getByRole("menuitem", { name: "Move up" }).click();
+    await expect(entries.locator('[data-slot="preview-deliverable-title"]')).toHaveText([
+      "Teaser, Cutdown",
+      "Banner",
+      "Poster",
+    ]);
+    await expect(card("Banner")).toHaveAttribute("data-probe", "banner");
+    await expect(card("Poster")).not.toHaveAttribute("data-probe", "banner");
+    const moved = dialog.locator('[data-slot="deliverable"]', { hasText: "Banner" });
+    await moved.locator('[data-slot="deliverable-toggle"]').click();
+    await moved.locator('[data-slot="deliverable-title-input"]').fill("Banner final");
+    await expect(card("Banner final")).toHaveAttribute("data-probe", "banner");
+    await expect(card("Banner final")).toHaveAttribute("data-changed", "");
+    await expect(card("Poster")).not.toHaveAttribute("data-changed", "");
+  }
   await removeTemplate(name);
 });
 

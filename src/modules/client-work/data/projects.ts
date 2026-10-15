@@ -834,3 +834,46 @@ export async function carryDecide(
   if (error) throw error;
   return bulkRows(data);
 }
+
+/** A current cycle with what its progress meter needs (6b.11 (5)): each item's date and ticks. */
+export type CurrentCycleMeter = CurrentCycle & {
+  items: { state: ItemState; plannedDate: string | null; stages: { done: boolean }[] }[];
+};
+
+/**
+ * One client's current cycles (as `listCurrentCycles`) with each item's planned date and its
+ * active stages' ticks embedded, for the Projects tab's miniature meters; still one request.
+ */
+export async function listCurrentCycleMeters(
+  today: ISODate,
+  clientId: string,
+): Promise<CurrentCycleMeter[]> {
+  const supabase = await createServerSupabase();
+  const rows = await allPages((first, last) =>
+    supabase
+      .from("project_cycles")
+      .select(
+        `${CYCLE_COLUMNS}, project:projects!project_cycles_project_id_fkey!inner(client_id, state), items:project_items!project_items_cycle_id_fkey(state, planned_date, stages:project_item_stage_list!project_item_stage_list_item_id_fkey(done_at, archived_at))`,
+      )
+      .in("project.state", ["open", "in_progress"])
+      .eq("project.client_id", clientId)
+      .or(`period_start.is.null,and(period_start.lte.${today},period_end.gte.${today})`)
+      .order("id")
+      .range(first, last),
+  );
+  return rows.map((row) => {
+    const items = row.items.map((item) => ({
+      state: item.state as ItemState,
+      plannedDate: item.planned_date,
+      stages: item.stages
+        .filter((stage) => stage.archived_at === null)
+        .map((stage) => ({ done: stage.done_at !== null })),
+    }));
+    return {
+      ...toCycle(row),
+      clientId: row.project.client_id,
+      states: items.map((item) => item.state),
+      items,
+    };
+  });
+}

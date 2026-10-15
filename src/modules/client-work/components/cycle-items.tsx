@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckIcon, ChevronDownIcon, ListPlusIcon, PlusIcon } from "lucide-react";
+import { ChevronDownIcon, ListPlusIcon, PlusIcon } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -9,11 +9,8 @@ import { bulkSummary } from "@/core/errors/bulk";
 import { cn } from "@/core/lib/utils";
 import { BulkBar } from "@/core/ui/composites/bulk-bar";
 import { EmptyState } from "@/core/ui/composites/empty-state";
-import { ErrorText } from "@/core/ui/composites/error-text";
-import { StatusDot } from "@/core/ui/composites/status-badge";
 import { replaceViewAddress } from "@/core/ui/navigation/view-address";
 import { Button } from "@/core/ui/primitives/button";
-import { Checkbox } from "@/core/ui/primitives/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,9 +23,11 @@ import { toastResult } from "@/core/ui/toast";
 import { markItemsDone, tickStages, updateItem } from "../actions/items";
 import { itemCount, stageChoices } from "../domain/items";
 import { movedPosition } from "../domain/positions";
-import { ITEM_STATUS } from "../domain/types";
-import type { ItemView } from "../domain/views";
+import { orderDeliverables, type ItemView } from "../domain/views";
 
+import { DELIVERABLE_COLUMNS } from "./deliverable-columns";
+import { DeliverableRow } from "./deliverable-row";
+import { FinishedDeliverables } from "./finished-deliverables";
 import type { ItemPermissions } from "./item-sheet";
 import { MARK_DONE_URL, useUndoSends } from "./use-undo-sends";
 
@@ -51,9 +50,12 @@ const ConfirmDialog = dynamic(
 
 /**
  * A cycle's items on the project page (7.3; PRODUCT §4.5, WORKFLOWS §5.4 items 7, 9, 16, 18;
- * kickoff 7 decisions 16, 26; amendment D). **First glance:** each item with its planned date (red
- * once overdue), "Carried from …", a "sent back" note, its own stages ticked (from `md` up; the
- * sheet holds them on a phone) and one action: **Mark done** while open, for whoever ticks. Done
+ * kickoff 7 decisions 16, 26; amendment D; 6b.11). **First glance:** the open deliverables first
+ * (overdue at the top, then by planned date; `orderDeliverables`), each drawn by `DeliverableRow`
+ * (its planned date, "Carried from …", the send-back note, its stage chips in their own column on
+ * a laptop and in miniature on a phone, and one quiet action: **Mark done** while open, for whoever
+ * ticks); done, closed and carried ones in the collapsed "Done and closed (N)" group
+ * (`FinishedDeliverables`). Done
  * is the approval (D3): it locks the item and counts it at once, so it is instant with the
  * 6-second Undo (Today's own delayed send); the sheet's Mark done too. A tap on the title opens the
  * item sheet. Selecting rows offers the bulk "Mark N done" (it asks first, its red button naming
@@ -103,7 +105,7 @@ export function CycleItems({
   const errors = { ...failures, ...marks.errors };
   // Marked done and waiting for the server's list: faded, its action gone (while still open).
   const waiting = (item: ItemView) => marks.held.has(item.id) && item.rules.markDone;
-  const open = items.find((item) => item.id === openId) ?? null;
+  const opened = items.find((item) => item.id === openId) ?? null;
   const selectable = (item: ItemView) =>
     permissions.tick && (item.rules.markDone || item.rules.ticks);
   const chosen = items.filter((item) => selected.has(item.id) && !waiting(item));
@@ -156,6 +158,23 @@ export function CycleItems({
     toastResult(await updateItem({ itemId, position }));
   }
 
+  // 6b.11 (1): the open ones first (overdue at the top, then by date), the rest collapsed.
+  const { open, finished } = orderDeliverables(items);
+  const row = (item: ItemView) => (
+    <DeliverableRow
+      key={item.id}
+      item={item}
+      selectable={selectable(item)}
+      selected={selected.has(item.id)}
+      onToggle={() => toggle(item.id)}
+      waiting={waiting(item)}
+      action={permissions.tick && item.rules.markDone}
+      onOpen={() => openSheet(item.id)}
+      onMarkDone={() => markDone(item)}
+      error={errors[item.id]}
+    />
+  );
+
   const openSelected = chosen.filter((item) => item.rules.markDone);
   const tickable = chosen.filter((item) => item.rules.ticks);
   // "Tick ‹stage› on N": the names the selected items carry (amendment D2).
@@ -184,132 +203,28 @@ export function CycleItems({
           }
         />
       ) : (
-        <ul
-          aria-label="Deliverables"
-          data-slot="cycle-items"
-          className="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border"
-        >
-          {items.map((item) => {
-            const ticked = item.stages.filter((stage) => stage.done).length;
-            const action = permissions.tick && item.rules.markDone;
-            return (
-              <li
-                key={item.id}
-                data-slot="item-row"
-                data-state={item.state}
-                data-held={waiting(item) ? "" : undefined}
-                className={cn(
-                  "flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 transition-opacity sm:px-4",
-                  waiting(item) && "opacity-50",
-                )}
-              >
-                {selectable(item) ? (
-                  // A 44 px target around the box (§14.1).
-                  <label className="-ml-2 flex size-11 shrink-0 cursor-pointer items-center justify-center">
-                    <Checkbox
-                      aria-label={`Select ${item.title}`}
-                      checked={selected.has(item.id)}
-                      disabled={waiting(item)}
-                      onCheckedChange={() => toggle(item.id)}
-                    />
-                  </label>
-                ) : (
-                  <span aria-hidden className="-ml-2 size-11 shrink-0" />
-                )}
-                <button
-                  type="button"
-                  onClick={() => openSheet(item.id)}
-                  data-slot="item-open"
-                  className="pressable-row flex min-h-11 min-w-0 flex-[1_1_8rem] flex-col justify-center gap-0.5 text-left"
-                >
-                  <span
-                    className={cn(
-                      "text-sm font-medium break-words",
-                      (item.state === "cancelled" || item.state === "carried") &&
-                        "text-muted-foreground line-through",
-                    )}
-                  >
-                    {item.title}
-                  </span>
-                  <span className="text-muted-foreground flex flex-wrap gap-x-2 text-xs">
-                    <StatusDot status={ITEM_STATUS[item.state]} label={item.stateLabel} />
-                    {item.planned ? (
-                      <span className={cn(item.planned.overdue && "text-destructive")}>
-                        {item.planned.text}
-                      </span>
-                    ) : null}
-                    {item.carriedFrom ? <span>{item.carriedFrom}</span> : null}
-                    {item.stages.length > 0 ? (
-                      <span className="md:hidden">
-                        Stages {ticked}/{item.stages.length}
-                      </span>
-                    ) : null}
-                  </span>
-                  {item.sentBack ? (
-                    <span className="text-xs break-words" data-slot="item-row-sent-back">
-                      {item.sentBack.verb}: {item.sentBack.reason}
-                    </span>
-                  ) : null}
-                </button>
-                {item.stages.length > 0 ? (
-                  // Each group under its heading with its own "n/m" (6b); the untitled group
-                  // (every list from before groups) has none.
-                  <span
-                    className="hidden min-w-0 flex-wrap items-center gap-x-3 gap-y-1 md:flex"
-                    aria-label="Stages"
-                    data-slot="item-row-stages"
-                  >
-                    {item.groups.map((group) => (
-                      <span
-                        key={group.label ?? ""}
-                        className="inline-flex flex-wrap items-center gap-1"
-                        data-slot="item-row-stage-group"
-                      >
-                        {group.label !== null ? (
-                          <span className="text-muted-foreground mr-1 text-xs font-medium">
-                            {group.label}{" "}
-                            <span className="tabular-nums">
-                              {group.done}/{group.stages.length}
-                            </span>
-                          </span>
-                        ) : null}
-                        {group.stages.map((stage) => (
-                          <span
-                            key={stage.id}
-                            className={cn(
-                              "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs",
-                              stage.done
-                                ? "border-primary/40 bg-primary/10"
-                                : "border-border text-muted-foreground",
-                            )}
-                          >
-                            {stage.done ? <CheckIcon className="size-3" aria-hidden /> : null}
-                            {stage.name}
-                          </span>
-                        ))}
-                      </span>
-                    ))}
-                  </span>
-                ) : null}
-                {action ? (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="ml-auto shrink-0"
-                    disabled={waiting(item)}
-                    data-slot="item-row-done"
-                    onClick={() => markDone(item)}
-                  >
-                    Mark done
-                  </Button>
-                ) : null}
-                {errors[item.id] ? (
-                  <ErrorText className="basis-full">{errors[item.id]}</ErrorText>
-                ) : null}
-              </li>
-            );
-          })}
-        </ul>
+        <>
+          {open.length > 0 ? (
+            <ul
+              aria-label="Deliverables"
+              data-slot="cycle-items"
+              className={cn(
+                "border-border divide-border bg-card divide-y overflow-hidden rounded-lg border",
+                DELIVERABLE_COLUMNS,
+              )}
+            >
+              {open.map(row)}
+            </ul>
+          ) : (
+            <p
+              data-slot="cycle-items-all-finished"
+              className="text-muted-foreground border-border rounded-lg border border-dashed px-4 py-3 text-sm"
+            >
+              Nothing open: every deliverable is done or closed.
+            </p>
+          )}
+          <FinishedDeliverables count={finished.length}>{finished.map(row)}</FinishedDeliverables>
+        </>
       )}
       <BulkBar count={chosen.length} onClear={() => setSelected(new Set())} noun="selected">
         {permissions.tick && openSelected.length > 0 ? (
@@ -380,9 +295,9 @@ export function CycleItems({
       ) : null}
       {sheetUsed ? (
         <ItemSheet
-          item={open}
+          item={opened}
           permissions={permissions}
-          open={open !== null}
+          open={opened !== null}
           onOpenChange={(next) => {
             if (next) return;
             setOpenId(null);

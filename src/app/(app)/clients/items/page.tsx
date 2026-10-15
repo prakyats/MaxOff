@@ -4,7 +4,13 @@ import { startEarly } from "@/core/lib/start-early";
 import { requirePermission } from "@/core/permissions/server";
 import { todayIST } from "@/core/time";
 import { PageHeader } from "@/core/ui/composites/page-header";
-import { itemRowView, listItemRows, sortItemRows } from "@/modules/client-work";
+import {
+  itemRowView,
+  listItemRows,
+  listItemStages,
+  sortItemRows,
+  stagesByItem,
+} from "@/modules/client-work";
 import { ItemList, type ItemListFilter } from "@/modules/client-work/components/item-list";
 
 import { loadPeople } from "../[id]/client";
@@ -36,6 +42,8 @@ export default async function ClientItemsPage({
   startEarly(reads);
   const [viewer, params] = await Promise.all([requirePermission("items.tick"), searchParams]);
   const [rows, people] = await reads;
+  // Each deliverable's own stages, for its miniature (6b.11 (5)).
+  const stages = stagesByItem(await listItemStages(rows.map((row) => row.id)));
   const today = todayIST();
   const filter = first(params.filter);
   const owner = viewer.role === "owner";
@@ -51,7 +59,13 @@ export default async function ClientItemsPage({
       />
       <div className="max-w-3xl">
         <ItemList
-          rows={sortItemRows(rows).map((row) => itemRowView(row, today))}
+          rows={sortItemRows(rows).map((row) =>
+            itemRowView(
+              row,
+              today,
+              (stages.get(row.id) ?? []).map((stage) => ({ done: stage.doneAt !== null })),
+            ),
+          )}
           grouped={owner}
           adminNames={people.names}
           initial={{

@@ -114,7 +114,15 @@ async function itemState(id: string): Promise<string | undefined> {
   return row?.state;
 }
 
-const progress = (page: Page) => page.locator('[data-slot="cycle-progress"]');
+/** The cycle's progress line under its ring (6b.11 (5)): stages ticked, then deliverables done. */
+const progress = (page: Page) => page.locator('[data-slot="cycle-meter-line"]');
+
+/** Opens the collapsed "Done and closed (N)" group (a view control: it adds no history). */
+async function showFinished(page: Page): Promise<void> {
+  const toggle = page.locator('[data-slot="finished-toggle"]');
+  if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+}
 
 /** The values of some inputs, in order (a list of stage names). */
 const valuesOf = (inputs: Locator) =>
@@ -242,14 +250,15 @@ test("a project from the Projects tab: per-item stages, Mark done with Undo, Mar
   await expect(page).toHaveURL(new RegExp(`/clients/${clientId}/projects/[0-9a-f-]{36}$`));
   await hydrated(page);
   // Amendment D3: one figure, done (= approved).
-  await expect(progress(page)).toHaveText("0/3 done");
+  await expect(progress(page)).toHaveText("0 of 6 stages · 0 of 3 deliverables done");
 
   // One row's Mark done: instant with the 6-second Undo, then it counts.
   await itemRow(page, "Reel 1").getByRole("button", { name: "Mark done" }).click();
   await expect(page.getByText("Marked Reel 1 done")).toBeVisible();
   await expect(itemRow(page, "Reel 1")).toHaveAttribute("data-held", "");
   await flushSends(page);
-  await expect(progress(page)).toHaveText("1/3 done");
+  // Done counts its stages too: the ring moves by Reel 1's two.
+  await expect(progress(page)).toHaveText("2 of 6 stages · 1 of 3 deliverables done");
 
   // The item sheet: its own stages (the defaults to start), a tick, and a stage of its own (D2).
   const sheet = page.locator('[data-slot="review-sheet"]').filter({ hasText: "Reel 2" });
@@ -300,17 +309,22 @@ test("a project from the Projects tab: per-item stages, Mark done with Undo, Mar
   await page.getByRole("button", { name: "Mark 2 done" }).click();
   const confirm = page.getByRole("alertdialog", { name: "Mark 2 deliverables done?" });
   await confirm.getByRole("button", { name: "Mark 2 deliverables done" }).click();
-  await expect(progress(page)).toHaveText("3/3 done");
+  await expect(progress(page)).toHaveText("7 of 7 stages · 3 of 3 deliverables done");
 
-  // The client's Admin reopens a done item with a reason: it no longer counts.
+  // The client's Admin reopens a done item with a reason: it no longer counts. Done ones wait in
+  // the collapsed "Done and closed" group (6b.11 (1)).
+  await showFinished(page);
   await itemRow(page, "Reel 3").locator('[data-slot="item-open"]').click();
   await expect(third.getByRole("checkbox", { name: "Edit" })).toBeDisabled();
   await third.getByRole("button", { name: "Reopen…" }).click();
   const reopen = page.getByRole("dialog", { name: "Reopen Reel 3?" });
   await reopen.getByLabel("What needs to change").fill("The client asked for a new cut");
   await reopen.getByRole("button", { name: "Reopen", exact: true }).click();
-  await expect(progress(page)).toHaveText("2/3 done");
-  await expect(itemRow(page, "Reel 3")).toContainText("Reopened: The client asked for a new cut");
+  // Its ticks stay: only its done share leaves the ring.
+  await expect(progress(page)).toHaveText("6 of 7 stages · 2 of 3 deliverables done");
+  await expect(itemRow(page, "Reel 3").locator('[data-slot="item-row-sent-back"]')).toHaveText(
+    /^Reopened by .+, \d{1,2} [A-Z][a-z]{2}: The client asked for a new cut$/,
+  );
   await removeClientFixture(client);
 });
 
@@ -341,14 +355,15 @@ test("done is approved: no client deliverables in Approvals; the Owner sends bac
   await expect(ownerPage.getByText(nameOf(info, "cut"))).toHaveCount(0);
   await ownerPage.goto(`/clients/${clientId}/projects/${projectId}`);
   await hydrated(ownerPage);
-  await expect(progress(ownerPage)).toHaveText("1/1 done");
+  await expect(progress(ownerPage)).toHaveText("1 of 1 deliverable done");
+  await showFinished(ownerPage);
   await itemRow(ownerPage, nameOf(info, "cut")).locator('[data-slot="item-open"]').click();
   const sheet = ownerPage.locator('[data-slot="review-sheet"]');
   await sheet.getByRole("button", { name: "Send back…" }).click();
   const dialog = ownerPage.getByRole("dialog", { name: `Send back ${nameOf(info, "cut")}?` });
   await dialog.getByLabel("What needs to change").fill("The logo is wrong");
   await dialog.getByRole("button", { name: "Send back", exact: true }).click();
-  await expect(progress(ownerPage)).toHaveText("0/1 done");
+  await expect(progress(ownerPage)).toHaveText("0 of 1 deliverable done");
   await expect.poll(() => itemState(id)).toBe("open");
   const adminId = await memberIdOf(admin.email);
   const told = await serviceSelect<{ title: string }>(
@@ -497,7 +512,7 @@ test("the Admin's Today: Client work with Mark done and its Undo, a sent-back it
     "",
   );
   const row = page.locator('[data-slot="today-client-item"]', { hasText: nameOf(info, "due") });
-  await expect(row).toContainText("Due today");
+  await expect(row).toContainText("Planned today");
   await row.getByRole("button", { name: "Mark done" }).click();
   await expect(page.getByText(`Marked ${nameOf(info, "due")} done`)).toBeVisible();
   await page.getByRole("button", { name: "Undo" }).click();
@@ -695,6 +710,273 @@ test.describe("Realtime holds RLS for client items (kickoff 7 decision 24)", () 
       await adminSide.supabase.removeAllChannels();
       await removeClientFixture(client);
     }
+  });
+});
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** "8 Oct": the screens' short date (`shortDate`) of an ISO date. */
+function shortOf(date: string): string {
+  const [, month, day] = date.split("-").map(Number);
+  return `${day} ${MONTHS[month! - 1]}`;
+}
+
+/**
+ * A project in today's shape for the 6b.11 page, made by `own` (the client's Admin) through the
+ * transition functions: an overdue deliverable, a planned one with its first stage ticked, one
+ * reopened with a reason (no date), one closed and one done; three stages each.
+ */
+async function pageProject(
+  clientId: string,
+  own: { email: string; password: string },
+): Promise<{ projectId: string; ids: Record<string, string> }> {
+  const titles = ["Late item", "Soon item", "Reopened item", "Closed item", "Done item"];
+  const projectId = await rpcAs<string>(own.email, own.password, "project_create", {
+    client_id: clientId,
+    name: "Page work",
+    recurrence: "monthly",
+    stages: ["Stage 1", "Stage 2", "Stage 3"],
+    items: titles,
+  });
+  const ids = Object.fromEntries(
+    await Promise.all(titles.map(async (title) => [title, await itemId(projectId, title)])),
+  ) as Record<string, string>;
+  const call = (fn: string, args: Record<string, unknown>) =>
+    rpcAs(own.email, own.password, fn, args);
+  await call("item_update", {
+    item_id: ids["Late item"],
+    changes: { planned_date: addDays(today(), -2) },
+  });
+  await call("item_update", {
+    item_id: ids["Soon item"],
+    changes: { planned_date: addDays(today(), 3) },
+  });
+  const [first] = await serviceSelect<{ id: string }>(
+    `project_item_stage_list?item_id=eq.${ids["Soon item"]}&name=eq.Stage%201&select=id`,
+  );
+  await call("item_stage_tick", { stage_id: first!.id, done: true });
+  await call("item_mark_done", { item_id: ids["Reopened item"] });
+  await call("item_reopen", { item_id: ids["Reopened item"], reason: "Needs another pass" });
+  await call("item_cancel", { item_id: ids["Closed item"], reason: "Not needed" });
+  await call("item_mark_done", { item_id: ids["Done item"] });
+  return { projectId, ids };
+}
+
+test("the project page (6b.11): open first, Planned words, stage chips, the reopened note, the ring moving with a tick, and the miniatures", async ({
+  page,
+}, info) => {
+  const client = nameOf(info, "page");
+  const own = ownAdmin(info);
+  const clientId = await workClient(client, own.email);
+  const { projectId, ids } = await pageProject(clientId, own);
+  await page.context().clearCookies();
+  await signIn(page, own.email, own.password);
+  const here = `/clients/${clientId}/projects/${projectId}`;
+  await page.goto(here);
+  await hydrated(page);
+  const phoneWidth = (page.viewportSize()?.width ?? 1280) < 768;
+
+  // (1) Open ones first, the overdue at the top, then by date, undated last; done and closed
+  // collapsed at the end with their count.
+  await expect(page.locator('[data-slot="cycle-items"] > [data-slot="item-row"]')).toHaveText([
+    /Late item/,
+    /Soon item/,
+    /Reopened item/,
+  ]);
+  const toggle = page.locator('[data-slot="finished-toggle"]');
+  await expect(toggle).toHaveText("Done and closed (2)");
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await expect(page.locator('[data-slot="finished-items"]')).toHaveCount(0);
+  await toggle.click();
+  await expect(page.locator('[data-slot="finished-items"] > [data-slot="item-row"]')).toHaveText([
+    /Closed item/,
+    /Done item/,
+  ]);
+  // A view control: the address stays as it was.
+  await expect(page).toHaveURL(new RegExp(`${here}$`));
+  await toggle.click();
+  await expect(page.locator('[data-slot="finished-items"]')).toHaveCount(0);
+  await expectNoHorizontalScroll(page);
+
+  // (2) Planned: late in the overdue tone, planned, and "Not planned" muted.
+  const planned = (title: string) =>
+    itemRow(page, title).locator('[data-slot="item-planned"]:visible');
+  await expect(planned("Late item")).toHaveText(
+    `Planned ${shortOf(addDays(today(), -2))} · 2 days late`,
+  );
+  await expect(planned("Late item")).toHaveAttribute("data-tone", "danger");
+  await expect(planned("Soon item")).toHaveText(`Planned ${shortOf(addDays(today(), 3))}`);
+  await expect(planned("Reopened item")).toHaveText("Not planned");
+  await expect(planned("Reopened item")).toHaveAttribute("data-planned", "none");
+
+  // (3) Stage chips on a laptop: ticked, next, later; a phone has them in miniature.
+  if (phoneWidth) {
+    const mini = itemRow(page, "Soon item").locator('[data-slot="item-row-meter"]');
+    await expect(mini).toBeVisible();
+    await expect(mini).toHaveAttribute("data-done", "1");
+    await expect(mini).toHaveAttribute("data-next", "1");
+    await expect(mini).toHaveAttribute("data-total", "3");
+    await expect(itemRow(page, "Soon item").locator('[data-slot="item-row-mini"]')).toContainText(
+      "1/3 · Next: Stage 2",
+    );
+  } else {
+    const chips = itemRow(page, "Soon item").locator('[data-slot="stage-chip"]:visible');
+    await expect(chips).toHaveText(["Stage 1, ticked", "Stage 2, next", "Stage 3, to do"]);
+    expect(await chips.evaluateAll((nodes) => nodes.map((node) => node.dataset.chip))).toEqual([
+      "ticked",
+      "next",
+      "later",
+    ]);
+  }
+
+  // (4) The reopened note: who, when and why, muted with its icon.
+  await expect(
+    itemRow(page, "Reopened item").locator('[data-slot="item-row-sent-back"]'),
+  ).toHaveText(
+    `Reopened by Test Client Work Admin (${info.project.name}), ${shortOf(today())}: Needs another pass`,
+  );
+
+  // (5) The ring: every stage across the cycle (the done one whole, the closed one left out).
+  const line = page.locator('[data-slot="cycle-meter-line"]');
+  const percent = page.locator('[data-slot="cycle-percent"]');
+  const ring = page.locator('[data-slot="cycle-ring"]');
+  await expect(line).toHaveText("4 of 12 stages · 1 of 4 deliverables done");
+  await expect(percent).toHaveText("33%");
+  await expect(ring).toHaveAttribute("data-done", "4");
+  await expect(ring).toHaveAttribute("data-total", "12");
+  await expect(page.locator('[data-slot="cycle-pace"]')).toHaveText("1 behind plan");
+  await expect(page.locator('[data-slot="cycle-pace"]')).toHaveAttribute("data-tone", "danger");
+
+  // A tick moves it at once, and after a reload.
+  await itemRow(page, "Soon item").locator('[data-slot="item-open"]').click();
+  const sheet = page.locator('[data-slot="review-sheet"]').filter({ hasText: "Soon item" });
+  const second = sheet.getByRole("checkbox", { name: "Stage 2" });
+  await second.click();
+  await expect(second).toHaveAttribute("aria-checked", "true");
+  await page.goBack();
+  await expect(sheet).toBeHidden();
+  await expect(line).toHaveText("5 of 12 stages · 1 of 4 deliverables done");
+  await expect(percent).toHaveText("42%");
+  await page.reload();
+  await hydrated(page);
+  await expect(line).toHaveText("5 of 12 stages · 1 of 4 deliverables done");
+  await expect(percent).toHaveText("42%");
+
+  // The miniature on the Projects tab: the same figure.
+  await page.goto(`/clients/${clientId}/projects`);
+  await hydrated(page);
+  const projectRow = page.locator('[data-slot="project-row"]', { hasText: "Page work" });
+  await expect(projectRow.locator('[data-slot="project-percent"]')).toHaveText("42%");
+  await expect(projectRow.locator('[data-slot="project-meter-bar"]')).toHaveAttribute(
+    "data-done",
+    "5",
+  );
+
+  // Today's Client work and the cross-client list: each deliverable's own stages in miniature,
+  // moving with a tick made elsewhere.
+  await page.goto("/today");
+  await hydrated(page);
+  const todayRow = page.locator('[data-slot="today-client-item"]', { hasText: "Late item" });
+  await expect(todayRow).toContainText(`Planned ${shortOf(addDays(today(), -2))} · 2 days late`);
+  await expect(todayRow.locator('[data-slot="today-item-meter"]')).toHaveAttribute(
+    "data-done",
+    "0",
+  );
+  const [lateFirst] = await serviceSelect<{ id: string }>(
+    `project_item_stage_list?item_id=eq.${ids["Late item"]}&name=eq.Stage%201&select=id`,
+  );
+  await rpcAs(own.email, own.password, "item_stage_tick", { stage_id: lateFirst!.id, done: true });
+  await page.reload();
+  await hydrated(page);
+  await expect(todayRow.locator('[data-slot="today-item-meter"]')).toHaveAttribute(
+    "data-done",
+    "1",
+  );
+  await page.goto(`/clients/items?client=${clientId}`);
+  await hydrated(page);
+  const listRow = page.locator('[data-slot="item-list-row"]', { hasText: "Soon item" });
+  await expect(listRow.locator('[data-slot="item-list-meter"]')).toHaveAttribute("data-done", "2");
+  await expect(listRow.locator('[data-slot="item-list-meter"]')).toHaveAttribute("data-total", "3");
+  await expectNoHorizontalScroll(page);
+  await removeClientFixture(client);
+});
+
+test("the cycle's 100% moment plays once per cycle on this device", async ({ page }, info) => {
+  const client = nameOf(info, "complete");
+  const own = ownAdmin(info);
+  const clientId = await workClient(client, own.email);
+  const projectId = await rpcAs<string>(own.email, own.password, "project_create", {
+    client_id: clientId,
+    name: "Complete work",
+    recurrence: "monthly",
+    stages: ["Stage 1"],
+    items: ["Only item"],
+  });
+  const [cycle] = await serviceSelect<{ label: string }>(
+    `project_cycles?project_id=eq.${projectId}&select=label`,
+  );
+  await page.context().clearCookies();
+  await signIn(page, own.email, own.password);
+  await page.goto(`/clients/${clientId}/projects/${projectId}`);
+  await hydrated(page);
+  await expect(page.locator('[data-slot="cycle-percent"]')).toHaveText("0%");
+  await expect(page.locator('[data-slot="cycle-complete"]')).toHaveCount(0);
+
+  await itemRow(page, "Only item").getByRole("button", { name: "Mark done" }).click();
+  await flushSends(page);
+  await expect(page.locator('[data-slot="cycle-percent"]')).toHaveText("100%");
+  const moment = page.locator('[data-slot="cycle-complete"]');
+  await expect(moment).toHaveText(`${cycle!.label} complete`);
+  await expect(moment).toHaveAttribute("data-celebrated", "now");
+  await expect(page.locator('[data-slot="cycle-meter-line"]')).toHaveText(
+    "1 of 1 stage · 1 of 1 deliverable done",
+  );
+
+  // Once: back on the page it still says so, without playing again.
+  await page.reload();
+  await hydrated(page);
+  await expect(moment).toHaveText(`${cycle!.label} complete`);
+  await expect(moment).toHaveAttribute("data-celebrated", "before");
+  await removeClientFixture(client);
+});
+
+test.describe("the project page's Done and closed group, installed (ARCHITECTURE §14.2)", () => {
+  test.beforeEach(({}, info) => {
+    test.skip(info.project.name === "desktop", "the phone widths, 375 and 430");
+  });
+
+  test("opening and closing the group adds no history; back leaves the page", async ({
+    page,
+  }, info) => {
+    const client = nameOf(info, "finished back");
+    const clientId = await workClient(client);
+    const projectId = await makeProject(clientId, "Finished reels", {
+      items: ["Reel open", "Reel done"],
+    });
+    await rpcAs(admin.email, admin.password, "item_mark_done", {
+      item_id: await itemId(projectId, "Reel done"),
+    });
+    await runInstalled(page);
+    await page.goto("/today");
+    await page.goto(`/clients/${clientId}`);
+    await hydrated(page);
+    await page.locator('[data-slot="client-tabs"]').getByRole("link", { name: "Projects" }).click();
+    await page.locator('[data-slot="project-row"]', { hasText: "Finished reels" }).click();
+    await expect(page).toHaveURL(new RegExp(`/projects/${projectId}$`));
+    await hydrated(page);
+    const toggle = page.locator('[data-slot="finished-toggle"]');
+    await toggle.click();
+    await expect(itemRow(page, "Reel done")).toBeVisible();
+    await toggle.click();
+    await expect(itemRow(page, "Reel done")).toHaveCount(0);
+    await toggle.click();
+    await expect(itemRow(page, "Reel done")).toBeVisible();
+    await expectNoHorizontalScroll(page);
+    await expectBackStack(page, [
+      { url: new RegExp(`/clients/${clientId}/projects$`) },
+      { url: /\/today$/ },
+    ]);
+    await removeClientFixture(client);
   });
 });
 
@@ -1197,6 +1479,7 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
     const doneSheet = page.locator('[data-slot="review-sheet"]', {
       hasText: nameOf(info, "sheet done"),
     });
+    await showFinished(page);
     await itemRow(page, nameOf(info, "sheet done")).locator('[data-slot="item-open"]').click();
     await doneSheet.getByRole("button", { name: "Reopen…" }).click();
     const reopen = page.getByRole("dialog", { name: `Reopen ${nameOf(info, "sheet done")}?` });
@@ -1299,7 +1582,7 @@ test.describe("marking done on the project page, as the Owner (amendment D3; the
     const projectId = await makeProject(clientId, "Done reels", { items: titles });
     await page.goto(`/clients/${clientId}/projects/${projectId}`);
     await hydrated(page);
-    await expect(progress(page)).toHaveText("0/4 done");
+    await expect(progress(page)).toHaveText("0 of 4 deliverables done");
 
     // The row's Mark done: held with an Undo; Undo sends nothing.
     const first = await itemId(projectId, "Reel 1");
@@ -1314,7 +1597,7 @@ test.describe("marking done on the project page, as the Owner (amendment D3; the
     await itemRow(page, "Reel 1").getByRole("button", { name: "Mark done", exact: true }).click();
     await flushSends(page);
     await expect.poll(() => itemState(first)).toBe("approved");
-    await expect(progress(page)).toHaveText("1/4 done");
+    await expect(progress(page)).toHaveText("1 of 4 deliverables done");
 
     // The sheet's Mark done: the sheet closes, the Undo is offered, then it is sent.
     await itemRow(page, "Reel 2").locator('[data-slot="item-open"]').click();
@@ -1334,7 +1617,7 @@ test.describe("marking done on the project page, as the Owner (amendment D3; the
     await expect(confirm).toBeVisible();
     await confirm.getByRole("button", { name: "Mark 2 deliverables done" }).click();
     await expect(confirm).toBeHidden();
-    await expect(progress(page)).toHaveText("4/4 done");
+    await expect(progress(page)).toHaveText("4 of 4 deliverables done");
     await removeClientFixture(client);
   });
 
@@ -1506,7 +1789,7 @@ test("a project template in today's shape starts a New project: its stages and d
   await create.getByLabel("Project name").fill("From the template");
   await createFromDialog(page, create);
   await expect(page).toHaveURL(new RegExp(`/clients/${clientId}/projects/[0-9a-f-]{36}$`));
-  await expect(progress(page)).toHaveText("0/2 done");
+  await expect(progress(page)).toHaveText("0 of 4 stages · 0 of 2 deliverables done");
   const projectId = await projectOf(clientId);
   const stages = await serviceSelect<{ name: string; group_label: string | null }>(
     `project_item_stage_list?item_id=eq.${await itemId(projectId, "Item 1")}&select=name,group_label&order=position`,
