@@ -4,6 +4,13 @@ import type { ActivityEntry } from "@/core/activity";
 import { listActivity } from "@/core/activity/server";
 import type { Json, Tables } from "@/core/db";
 import { createServerSupabase } from "@/core/db/server";
+import {
+  type Deliverable,
+  deliverablesToJson,
+  groupsFromJson,
+  groupsToJson,
+  type StageGroup,
+} from "@/core/lib/stage-groups";
 import type { ISODate } from "@/core/time";
 
 import type {
@@ -209,15 +216,21 @@ export async function listCycles(projectIds: readonly string[]): Promise<Cycle[]
   return rows.map(toCycle);
 }
 
-/** The stages of some projects (every one: the screen keeps the active ones). */
+/**
+ * The stages of some projects (every one: the screen keeps the active ones), each in its group
+ * (6b): the untitled group first (`group_position` null), then the groups, each by `position`.
+ * Rows from before groups have no group: one untitled group.
+ */
 export async function listStagesOf(projectIds: readonly string[]): Promise<Stage[]> {
   const supabase = await createServerSupabase();
   const rows = await byChunks(projectIds, (ids) =>
     allPages((first, last) =>
       supabase
         .from("project_stages")
-        .select("id, project_id, name, position, archived_at")
+        .select("id, project_id, name, position, group_label, group_position, archived_at")
         .in("project_id", ids)
+        .order("group_position", { nullsFirst: true })
+        .order("position")
         .order("id")
         .range(first, last),
     ),
@@ -227,6 +240,8 @@ export async function listStagesOf(projectIds: readonly string[]): Promise<Stage
     projectId: row.project_id,
     name: row.name,
     position: row.position,
+    groupLabel: row.group_label,
+    groupPosition: row.group_position,
     archived: row.archived_at !== null,
   }));
 }
@@ -251,7 +266,7 @@ export async function listBlueprints(projectId: string): Promise<Blueprint[]> {
   const supabase = await createServerSupabase();
   const { data, error } = await supabase
     .from("project_item_blueprints")
-    .select("id, project_id, title, position, archived_at, stages")
+    .select("id, project_id, title, position, archived_at, stages, stage_groups")
     .eq("project_id", projectId);
   if (error) throw error;
   return data.map((row) => ({
@@ -261,6 +276,8 @@ export async function listBlueprints(projectId: string): Promise<Blueprint[]> {
     position: row.position,
     archived: row.archived_at !== null,
     stages: row.stages,
+    // A line from before groups (`stage_groups` null) reads its stages as one untitled group.
+    stageGroups: groupsFromJson(row.stage_groups, row.stages),
   }));
 }
 
@@ -334,16 +351,23 @@ export async function listCurrentCycles(
   }));
 }
 
-/** Some items' own stages (amendment D2), removed ones included (the screens keep the active). */
+/**
+ * Some items' own stages (amendment D2), removed ones included (the screens keep the active), each
+ * in its group (6b; rows from before groups are the untitled group).
+ */
 export async function listItemStages(itemIds: readonly string[]): Promise<ItemStage[]> {
   const supabase = await createServerSupabase();
   const rows = await byChunks(itemIds, (ids) =>
     allPages((first, last) =>
       supabase
         .from("project_item_stage_list")
-        .select("id, item_id, project_id, name, position, archived_at, done_at, done_by")
+        .select(
+          "id, item_id, project_id, name, position, group_label, group_position, archived_at, done_at, done_by",
+        )
         .in("item_id", ids)
         .order("item_id")
+        .order("group_position", { nullsFirst: true })
+        .order("position")
         .order("id")
         .range(first, last),
     ),
@@ -354,6 +378,8 @@ export async function listItemStages(itemIds: readonly string[]): Promise<ItemSt
     projectId: row.project_id,
     name: row.name,
     position: row.position,
+    groupLabel: row.group_label,
+    groupPosition: row.group_position,
     archived: row.archived_at !== null,
     doneAt: row.done_at,
     doneBy: row.done_by,
@@ -485,6 +511,32 @@ export async function createProject(args: CreateProjectArgs): Promise<string> {
   return data;
 }
 
+export type CreateGroupedProjectArgs = Omit<CreateProjectArgs, "stages" | "items"> & {
+  stageGroups: StageGroup[];
+  deliverables: Deliverable[];
+};
+
+/**
+ * New project with stage groups and deliverables (6b, `project_create_grouped`): one-time, the
+ * deliverables become the cycle's items; weekly or monthly, the item-list lines.
+ */
+export async function createGroupedProject(args: CreateGroupedProjectArgs): Promise<string> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("project_create_grouped", {
+    client_id: args.clientId,
+    name: args.name,
+    recurrence: args.recurrence,
+    ...(args.description ? { description: args.description } : {}),
+    ...(args.deliveryDate ? { delivery_date: args.deliveryDate } : {}),
+    stage_groups: groupsToJson(args.stageGroups) as Json,
+    deliverables: deliverablesToJson(args.deliverables) as Json,
+    ...(args.templateId ? { template_id: args.templateId } : {}),
+    custom_fields: args.customFields as Json,
+  });
+  if (error) throw error;
+  return data;
+}
+
 export async function updateProject(projectId: string, changes: Record<string, unknown>) {
   const supabase = await createServerSupabase();
   const { data, error } = await supabase.rpc("project_update", {
@@ -523,11 +575,64 @@ export async function startNextCycle(projectId: string): Promise<string> {
   return data;
 }
 
-export async function addStage(projectId: string, name: string): Promise<string> {
+/** A default stage into a group (6b; null = the untitled group, the function's 2-arg form). */
+export async function addStage(
+  projectId: string,
+  name: string,
+  groupLabel: string | null,
+): Promise<string> {
   const supabase = await createServerSupabase();
-  const { data, error } = await supabase.rpc("project_stage_add", { project_id: projectId, name });
+  const { data, error } =
+    groupLabel === null
+      ? await supabase.rpc("project_stage_add", { project_id: projectId, name })
+      : await supabase.rpc("project_stage_add", {
+          project_id: projectId,
+          name,
+          group_label: groupLabel,
+        });
   if (error) throw error;
   return data;
+}
+
+/** A new named group of default stages, after the last (6b). */
+export async function addStageGroup(
+  projectId: string,
+  label: string,
+  stages: readonly string[],
+): Promise<void> {
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.rpc("project_stage_group_add", {
+    project_id: projectId,
+    label,
+    stages: [...stages],
+  });
+  if (error) throw error;
+}
+
+/** A group of default stages renamed or moved (`label` null: the untitled group). */
+export async function updateStageGroup(
+  projectId: string,
+  label: string | null,
+  changes: Record<string, unknown>,
+): Promise<void> {
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.rpc("project_stage_group_update", {
+    project_id: projectId,
+    // The function reads null as the untitled group.
+    label: label as string,
+    changes: changes as Json,
+  });
+  if (error) throw error;
+}
+
+/** Every active stage of a group of default stages archived (6b). */
+export async function archiveStageGroup(projectId: string, label: string | null): Promise<void> {
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.rpc("project_stage_group_archive", {
+    project_id: projectId,
+    label: label as string,
+  });
+  if (error) throw error;
 }
 
 export async function updateStage(stageId: string, changes: Record<string, unknown>) {
@@ -616,11 +721,59 @@ export async function reopenItem(itemId: string, reason: string): Promise<void> 
   if (error) throw error;
 }
 
-export async function addItemStage(itemId: string, name: string): Promise<string> {
+/** A stage on one item, into a group (6b; null = the untitled group, the 2-arg form). */
+export async function addItemStage(
+  itemId: string,
+  name: string,
+  groupLabel: string | null,
+): Promise<string> {
   const supabase = await createServerSupabase();
-  const { data, error } = await supabase.rpc("item_stage_add", { item_id: itemId, name });
+  const { data, error } =
+    groupLabel === null
+      ? await supabase.rpc("item_stage_add", { item_id: itemId, name })
+      : await supabase.rpc("item_stage_add", { item_id: itemId, name, group_label: groupLabel });
   if (error) throw error;
   return data;
+}
+
+/** A new named group of stages on one item, after the last (6b). */
+export async function addItemStageGroup(
+  itemId: string,
+  label: string,
+  stages: readonly string[],
+): Promise<void> {
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.rpc("item_stage_group_add", {
+    item_id: itemId,
+    label,
+    stages: [...stages],
+  });
+  if (error) throw error;
+}
+
+/** A group of one item's stages renamed or moved; ticks kept (`label` null: the untitled group). */
+export async function updateItemStageGroup(
+  itemId: string,
+  label: string | null,
+  changes: Record<string, unknown>,
+): Promise<void> {
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.rpc("item_stage_group_update", {
+    item_id: itemId,
+    label: label as string,
+    changes: changes as Json,
+  });
+  if (error) throw error;
+}
+
+/** Every active stage of a group on one item archived, ticks kept in the history (6b). */
+export async function archiveItemStageGroup(itemId: string, label: string | null): Promise<void> {
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.rpc("item_stage_group_archive", {
+    item_id: itemId,
+    label: label as string,
+  });
+  if (error) throw error;
 }
 
 export async function updateItemStage(stageId: string, changes: Record<string, unknown>) {

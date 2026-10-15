@@ -21,6 +21,12 @@ import {
   addItemSchema,
   type AddItemStageInput,
   addItemStageSchema,
+  type AddItemStageGroupInput,
+  addItemStageGroupSchema,
+  type ArchiveItemStageGroupInput,
+  archiveItemStageGroupSchema,
+  type UpdateItemStageGroupInput,
+  updateItemStageGroupSchema,
   type CarryDecideInput,
   carryDecideSchema,
   type ItemIdInput,
@@ -142,18 +148,18 @@ export const reopenItem = action(async (input: ItemReasonInput): Promise<Result<
   return ok(null);
 });
 
-/** A stage added to one item (amendment D2; at most 12, a name once). */
+/** A stage added to one item, into a group (6b; at most 100, a name once in its group). */
 export const addItemStage = action(
   async (input: AddItemStageInput): Promise<Result<{ id: string }>> => {
     const data = addItemStageSchema.parse(input);
     await assertPermission("projects.manage");
-    const id = await repo.addItemStage(data.itemId, data.name);
+    const id = await repo.addItemStage(data.itemId, data.name, data.groupLabel ?? null);
     revalidate();
     return ok({ id });
   },
 );
 
-/** One of an item's stages renamed or moved. */
+/** One of an item's stages renamed, moved, or moved into another group (its tick kept). */
 export const updateItemStage = action(
   async (input: UpdateItemStageInput): Promise<Result<null>> => {
     const data = updateItemStageSchema.parse(input);
@@ -161,8 +167,46 @@ export const updateItemStage = action(
     const changes: Record<string, unknown> = {};
     if (data.name !== undefined) changes.name = data.name;
     if (data.position !== undefined) changes.position = data.position;
+    if (data.groupLabel !== undefined) changes.group_label = data.groupLabel;
     if (Object.keys(changes).length === 0) throw new AppError("VALIDATION", "Nothing to change.");
     await repo.updateItemStage(data.stageId, changes);
+    revalidate();
+    return ok(null);
+  },
+);
+
+/** A new named group of stages on one item (6b): typed, or a preset's. */
+export const addItemStageGroup = action(
+  async (input: AddItemStageGroupInput): Promise<Result<null>> => {
+    const data = addItemStageGroupSchema.parse(input);
+    await assertPermission("projects.manage");
+    await repo.addItemStageGroup(data.itemId, data.label, data.stages);
+    revalidate();
+    return ok(null);
+  },
+);
+
+/** A group of one item's stages renamed (`newLabel`) or moved (`position`); ticks kept. */
+export const updateItemStageGroup = action(
+  async (input: UpdateItemStageGroupInput): Promise<Result<null>> => {
+    const data = updateItemStageGroupSchema.parse(input);
+    await assertPermission("projects.manage");
+    const changes: Record<string, unknown> = {};
+    if (data.newLabel !== undefined) changes.label = data.newLabel;
+    if (data.position !== undefined) changes.position = data.position;
+    if (Object.keys(changes).length === 0) throw new AppError("VALIDATION", "Nothing to change.");
+    await repo.updateItemStageGroup(data.itemId, data.label, changes);
+    revalidate();
+    return ok(null);
+  },
+);
+
+/** A group of one item's stages removed: archived, their ticks kept in the history. */
+export const archiveItemStageGroup = action(
+  async (input: ArchiveItemStageGroupInput): Promise<Result<null>> => {
+    const data = archiveItemStageGroupSchema.parse(input);
+    await assertPermission("projects.manage");
+    await repo.archiveItemStageGroup(data.itemId, data.label);
     revalidate();
     return ok(null);
   },
