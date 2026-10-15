@@ -217,10 +217,7 @@ export function ItemList({
                         {row.cycleLabel ? ` · ${row.cycleLabel}` : ""}
                       </span>
                       <span className="text-muted-foreground flex flex-wrap gap-x-2 text-xs">
-                        <span className="inline-flex items-center gap-1">
-                          <StatusDot status={ITEM_STATUS[row.state]} />
-                          {row.stateLabel}
-                        </span>
+                        <StatusDot status={ITEM_STATUS[row.state]} label={row.stateLabel} />
                         {row.planned ? (
                           <span className={cn(row.planned.overdue && "text-destructive")}>
                             {row.planned.text}
