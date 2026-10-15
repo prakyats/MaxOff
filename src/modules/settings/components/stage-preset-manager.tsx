@@ -86,8 +86,7 @@ export function StagePresetManager({
       {active.length === 0 ? (
         <EmptyState
           icon={ListOrderedIcon}
-          title="No stage presets yet"
-          description="Add one for a sequence projects repeat, like Script, Shoot, Edit, Posted."
+          title="No stage presets yet: make one for steps you repeat."
         />
       ) : (
         <ul
@@ -209,7 +208,7 @@ export function AddStagePresetButton() {
   );
 }
 
-/** Add or edit a preset: a name and its stages, one per line (at most 12). */
+/** Add or edit a preset: a name and its stages, one per line (at most `PRESET_STAGES_MAX`). */
 function PresetDialog({ preset, onClose }: { preset?: StagePreset; onClose: () => void }) {
   const [name, setName] = useState(preset?.name ?? "");
   const [stages, setStages] = useState(preset?.stages.join("\n") ?? "");

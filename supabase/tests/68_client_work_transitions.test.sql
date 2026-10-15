@@ -254,7 +254,7 @@ select throws_ok($$ select public.project_create(pg_temp.fx('client_a'), 'One of
 select throws_ok($$ select public.project_create(pg_temp.fx('client_a'), 'Dated retainer', 'weekly', null, app.today_ist()) $$,
   'P0001', 'VALIDATION', 'a weekly project has none');
 select throws_ok($$ select public.project_create(pg_temp.fx('client_a'), 'Many stages', 'weekly', null, null,
-  array['1','2','3','4','5','6','7','8','9','10','11','12','13']) $$, 'P0001', 'VALIDATION', 'at most 12 stages');
+  (select array_agg(g::text) from generate_series(1, 101) g)) $$, 'P0001', 'VALIDATION', 'at most 100 stages (6b Release 1; was 12)');
 select throws_ok($$ select public.project_create(pg_temp.fx('client_a'), 'Many items', 'weekly', null, null, '{}',
   array(select 'Item ' || g from generate_series(1, 101) g)) $$, 'P0001', 'VALIDATION', 'at most 100 items');
 select throws_ok($$ select public.project_create(pg_temp.fx('client_a'), '   ', 'weekly') $$, 'P0001', 'VALIDATION', 'a name is required');
