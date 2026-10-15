@@ -1561,13 +1561,13 @@ test.describe("Settings layers, installed (ARCHITECTURE §14.2)", () => {
     await expect(dialog).toBeVisible();
     await expectBackStack(page, [{ closes: dialog, url: here }]);
     await page.getByRole("button", { name: "Add a project template" }).click();
-    await dialog.getByLabel("Name").fill("Half a template");
+    await dialog.getByLabel("Name", { exact: true }).fill("Half a template");
     await expectDiscardOnBack(
       page,
       dialog,
       "Discard this template?",
       "Discard template",
-      dialog.getByLabel("Name"),
+      dialog.getByLabel("Name", { exact: true }),
       "Half a template",
       here,
     );
