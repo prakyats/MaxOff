@@ -4,6 +4,71 @@ Newest first. Each entry says what ships, what the Crew will notice, and what ha
 release. A release is a `v*` tag on a `main` commit with green CI, approved by the Owner (CLAUDE.md). Earlier
 releases (v1.0.0 to v1.3.0) are recorded in their tag messages and in `PROGRESS.md`.
 
+## v1.7.0: deliverables with stage groups, and templates that hold them (phase 6b, Release 1)
+
+**Not yet released** (owner decisions 2026-10-12/13, pre-authorised). Client work gets stage groups, project
+templates that hold deliverables, a live preview and a stage limit of 100. One expand-only migration;
+nothing is removed or rewritten. Money is not part of this release.
+
+### What ships
+- **6b.0:** Playwright runs in four CI shards (`ci.yml` matrix 1 to 4, one worker each); owner-bulk and
+  push-cron run alone after shard 4. Job names are unchanged.
+- **The stage limit is 100** (was 12) in presets, templates, a project's default stages, item-list lines
+  and a deliverable's stages. Deliverables per cycle stay at most 100.
+- **Deliverables and stage groups.** Screens say Deliverables for items. A deliverable's stages come in
+  groups, each from a stage preset or typed, under its heading with its own "n/m" count.
+- **Project templates hold deliverables,** each with its own stage groups. A new project from a template
+  fills its Item list; the first cycle starts with them and every new cycle copies them.
+- **× N and a live preview** in New project and Add a project template.
+- **Drag to reorder** stages and groups on the client-work stage lists.
+- **Fixes:** an item's status no longer reads twice ("Open Open", PR #72).
+
+### What happens on its own after the release
+- Nothing runs differently. The nightly cycle job copies the deliverables and groups a project has.
+
+### What the Owner will notice
+- Everything Admins notice below, in every client's projects and in Settings.
+- The four CI shards are invisible to him; a full run is just faster.
+
+### What Admins will notice
+- "Deliverables" instead of "Items" on the client-work screens. An empty project says "Add deliverables
+  to see their stages."
+- Stages sit in groups under headings, each with its own "n/m". The same stage name in two groups shows
+  as "Group · Stage".
+- **Fill from a preset adds a group** named after the preset (rename it if you like); it no longer
+  replaces the list. Groups can be typed, renamed and removed.
+- **Drag to reorder** stages and groups: a handle on each; long press on a phone. Move up / Move down stay
+  for keyboards.
+- **Project templates hold deliverables,** each with its own stage groups. Creating a project from one
+  fills its Item list. A template is copied, never linked: editing it never changes a project.
+- **"× N":** a typed name × 4 makes "Name 1" to "Name 4". Presets can be chosen per deliverable.
+- **A live preview** (beside the form on a laptop, a Preview step on a phone) lists what will be created,
+  for example "6 deliverables · 72 stages". Nothing is saved until Create.
+- Up to 100 stages per list.
+- Nothing is pre-filled. With no presets or templates yet, the screen says "No stage presets yet: make
+  one for steps you repeat." Make your own, or copy the Owner's; you edit only your own.
+
+### What the Crew will notice
+- Nothing: client work is not theirs.
+
+### Your existing templates and projects work as they are
+Every existing stage list shows as one untitled group, with no heading, until someone adds a second group
+or names it. Nothing is rewritten or re-created, and every tick, date, note and history row stays. An old
+template opens in the new builder with its stages applied to each deliverable; saving it stores the new
+shape alongside the old.
+
+### Migrations
+One, expand-only: `client_work_stage_groups`. It adds stage groups for a project's default stages and a
+deliverable's stages, the deliverables and stage groups on project templates (the old `stages` and `items`
+kept as flattened copies), the 100-stage limit in the transition functions, and the functions
+`project_stage_group_*`, `item_stage_group_*` and `project_create_grouped`. Nothing is dropped or edited
+in place.
+
+### Not in this release (v1.7.1 follows)
+- The calendar fixes (6b.12 items 1 and 2).
+- 6b.2, 6b.15, the rest of 6b.16 (other things saved as templates), 6b.11, 6b.17, 6b.18 on task stages and
+  6b.14.
+
 ## v1.6.0: client work (phase 7) and the Owner's Today refresh, with v1.5.1's walk fixes
 
 **Released 2026-10-09** (tag `v1.6.0` on `a3f7932`; Deploy 37923367516 applied the migrations in order
