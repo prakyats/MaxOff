@@ -388,8 +388,22 @@ describe("an item's view (Q5 (b), decisions 7, 12, amendment D)", () => {
     );
     expect(view.sentBack).toEqual({ verb: "Sent back", by: "Prishit", reason: "Wrong logo" });
     expect(view.stages).toEqual([
-      { id: "s1", name: "Script", position: "a0", groupLabel: null, groupPosition: null, done: true },
-      { id: "s2", name: "Edit", position: "a1", groupLabel: null, groupPosition: null, done: false },
+      {
+        id: "s1",
+        name: "Script",
+        position: "a0",
+        groupLabel: null,
+        groupPosition: null,
+        done: true,
+      },
+      {
+        id: "s2",
+        name: "Edit",
+        position: "a1",
+        groupLabel: null,
+        groupPosition: null,
+        done: false,
+      },
     ]);
     expect(view.lastChange?.text).toBe("ticked Script on Reel 1");
     expect(view.carriedFrom).toBe("Carried from September");

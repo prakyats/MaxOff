@@ -28,7 +28,16 @@ import { ITEM_NOTES_MAX, ITEM_TITLE_MAX } from "../domain/schemas";
  * it, and asks "Discard this item?" first when something was typed (§14.2 f); back on that keeps
  * editing.
  */
-export function AddItemDialog({ cycleId, onClose }: { cycleId: string; onClose: () => void }) {
+export function AddItemDialog({
+  cycleId,
+  defaultStages,
+  onClose,
+}: {
+  cycleId: string;
+  /** How many default stages it starts with (6b.13: the dialog says so). */
+  defaultStages: number;
+  onClose: () => void;
+}) {
   const [title, setTitle] = useState("");
   const [planned, setPlanned] = useState("");
   const [notes, setNotes] = useState("");
@@ -59,7 +68,7 @@ export function AddItemDialog({ cycleId, onClose }: { cycleId: string; onClose: 
       setError({ ...(field ? { field } : {}), message: description ?? heading });
       return;
     }
-    toast.success("Item added");
+    toast.success("Deliverable added");
     onClose();
   }
 
@@ -74,9 +83,11 @@ export function AddItemDialog({ cycleId, onClose }: { cycleId: string; onClose: 
         <DialogContent data-slot="add-item-dialog">
           <form onSubmit={submit} noValidate className="flex flex-col gap-4">
             <DialogHeader>
-              <DialogTitle>Add an item</DialogTitle>
+              <DialogTitle>Add a deliverable</DialogTitle>
               <DialogDescription>
-                It joins this cycle. The item list stays as it is.
+                {defaultStages > 0
+                  ? `It joins this cycle with the project's ${defaultStages} default ${defaultStages === 1 ? "stage" : "stages"}. The deliverables list stays as it is.`
+                  : "It joins this cycle. The deliverables list stays as it is."}
               </DialogDescription>
             </DialogHeader>
             {error && !error.field ? (
@@ -87,6 +98,7 @@ export function AddItemDialog({ cycleId, onClose }: { cycleId: string; onClose: 
                 <Input
                   {...control}
                   name="title"
+                  placeholder="Deliverable name"
                   value={title}
                   maxLength={ITEM_TITLE_MAX}
                   autoComplete="off"
@@ -128,7 +140,7 @@ export function AddItemDialog({ cycleId, onClose }: { cycleId: string; onClose: 
                 Cancel
               </Button>
               <Button type="submit" variant="primary" pending={pending} pendingLabel="Adding…">
-                Add item
+                Add deliverable
               </Button>
             </DialogFooter>
           </form>
@@ -139,9 +151,9 @@ export function AddItemDialog({ cycleId, onClose }: { cycleId: string; onClose: 
         onOpenChange={(open) => {
           if (!open) setPhase("form");
         }}
-        title="Discard this item?"
+        title="Discard this deliverable?"
         description="What you typed has not been saved."
-        confirmLabel="Discard item"
+        confirmLabel="Discard deliverable"
         cancelLabel="Keep editing"
         onConfirm={() => {
           onClose();

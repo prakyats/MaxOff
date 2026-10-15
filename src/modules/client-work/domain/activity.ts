@@ -205,7 +205,8 @@ function describeDefaultStage(entry: ActivityEntry): string | null {
       if (keys.includes("name")) {
         return `renamed the default stage ${groupStageLabel(label, text(entry.old.name) ?? "a row")} to ${name}`;
       }
-      if (keys.includes("position")) return `moved the default stage ${groupStageLabel(label, name)}`;
+      if (keys.includes("position"))
+        return `moved the default stage ${groupStageLabel(label, name)}`;
       return null;
     }
     default:

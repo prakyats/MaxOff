@@ -56,7 +56,7 @@ export default async function ClientsPage() {
         className="border-border bg-card mb-3 flex min-h-11 items-center gap-3 rounded-lg border px-4 py-2 text-sm"
       >
         <ListChecksIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
-        <span className="min-w-0 flex-1 font-medium">Client items</span>
+        <span className="min-w-0 flex-1 font-medium">Client deliverables</span>
         <span className="text-muted-foreground hidden text-xs sm:inline">Across every client</span>
         <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
       </DrillLink>

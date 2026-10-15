@@ -76,7 +76,7 @@ export function ProjectMenu({
   const entries = [
     canManage && working ? { key: "edit", label: "Edit details" } : null,
     canManage && working ? { key: "stages", label: "Default stages" } : null,
-    canManage && working && recurring ? { key: "items", label: "Item list" } : null,
+    canManage && working && recurring ? { key: "items", label: "Deliverables list" } : null,
     canManage && working && recurring && nextCycleLabel
       ? { key: "next", label: `Start ${nextCycleLabel}` }
       : null,

@@ -114,10 +114,10 @@ export function ProjectMenuLayers({
         open={layer === "stages"}
         onOpenChange={close}
         title="Default stages"
-        description="New items start with these. Existing items keep their own stages; change those on the item."
+        description="New deliverables start with these. Existing deliverables keep their own stages; change those on the deliverable."
         noun="stage"
         unique
-        removeDescription="New items start without it. Existing items keep their stages."
+        removeDescription="New deliverables start without it. Existing deliverables keep their stages."
         rows={stages}
         max={STAGES_MAX}
         maxLength={STAGE_NAME_MAX}
@@ -129,12 +129,12 @@ export function ProjectMenuLayers({
       <ListEditorSheet
         open={layer === "items"}
         onOpenChange={close}
-        title="Item list"
+        title="Deliverables list"
         description={itemWords?.description ?? "Each new cycle starts with these."}
-        noun="item"
+        noun="deliverable"
         removeDescription={
           itemWords?.removeDescription ??
-          "Later cycles start without it. Existing items don't change."
+          "Later cycles start without it. Existing deliverables don't change."
         }
         rows={blueprints}
         rowAction={(row) => (
@@ -161,10 +161,10 @@ export function ProjectMenuLayers({
         open={layer === "items" && line !== null}
         onOpenChange={(next) => (next ? null : setLineId(null))}
         title={line ? `Stages of ${line.name}` : "Stages"}
-        description="Each new cycle's item made from this line starts with these. Items already made keep theirs."
+        description="Each new cycle's deliverable made from this line starts with these. Deliverables already made keep theirs."
         noun="stage"
         unique
-        removeDescription="Later cycles' items start without it."
+        removeDescription="Later cycles' deliverables start without it."
         rows={lineRows}
         max={STAGES_MAX}
         maxLength={STAGE_NAME_MAX}
@@ -181,7 +181,7 @@ export function ProjectMenuLayers({
         open={layer === "next"}
         onOpenChange={close}
         title={`Start ${nextCycleLabel ?? "the next cycle"} now?`}
-        description="It starts with the item list, so you can name the items ahead."
+        description="It starts with the deliverables list, so you can name the deliverables ahead."
         confirmLabel={`Start ${nextCycleLabel ?? "it"}`}
         onConfirm={async () =>
           toastResult(await startNextCycle({ projectId: project.id }), {
@@ -195,7 +195,7 @@ export function ProjectMenuLayers({
         title={`Complete ${project.name}?`}
         description={
           unfinished > 0
-            ? `${unfinished} ${unfinished === 1 ? "item is" : "items are"} still open. Mark ${unfinished === 1 ? "it" : "them"} done, carry or close ${unfinished === 1 ? "it" : "them"} first.`
+            ? `${unfinished} ${unfinished === 1 ? "deliverable is" : "deliverables are"} still open. Mark ${unfinished === 1 ? "it" : "them"} done, carry or close ${unfinished === 1 ? "it" : "them"} first.`
             : "It becomes read-only. You can reopen it later."
         }
         confirmLabel="Complete project"
@@ -210,7 +210,7 @@ export function ProjectMenuLayers({
         open={layer === "cancel"}
         onOpenChange={close}
         title={`Cancel ${project.name}?`}
-        description="Every open and done item is closed with your reason. Approved items stay approved."
+        description="Every open and done deliverable is closed with your reason. Approved deliverables stay approved."
         label="Why cancel it"
         submitLabel="Cancel project"
         onSubmit={async (reason) =>
@@ -223,7 +223,7 @@ export function ProjectMenuLayers({
         open={layer === "reopen"}
         onOpenChange={close}
         title={`Reopen ${project.name}?`}
-        description="It can be worked on again. Items closed by a cancel stay closed."
+        description="It can be worked on again. Deliverables closed by a cancel stay closed."
         label="Why reopen it"
         submitLabel="Reopen project"
         onSubmit={async (reason) =>

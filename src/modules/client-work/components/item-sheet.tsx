@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { useRef, useState } from "react";
 
 import type { Result } from "@/core/errors/result";
+import { groupStageLabel } from "@/core/lib/stage-groups";
 import { cn } from "@/core/lib/utils";
 import { formatIST } from "@/core/time";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
@@ -222,7 +223,7 @@ export function ItemSheet({
       ) : null}
       {permissions.manage && current.rules.cancel ? (
         <Button variant="ghost" onClick={() => setReason("close")} data-slot="item-close">
-          Close item…
+          Close deliverable…
         </Button>
       ) : null}
       {permissions.reopen && current.rules.reopen ? (
@@ -417,42 +418,62 @@ export function ItemSheet({
               </div>
               {current.stages.length === 0 ? (
                 <p className="text-muted-foreground">
-                  No stages: this item is simply open or done.
+                  No stages: this deliverable is simply open or done.
                 </p>
               ) : (
-                <ul className="border-border divide-border divide-y rounded-lg border">
-                  {current.stages.map((stage) => (
-                    <li key={stage.id}>
-                      <button
-                        type="button"
-                        role="checkbox"
-                        aria-checked={stage.done}
-                        disabled={!canTick || busy === stage.id}
-                        data-slot="item-stage-tick"
-                        onClick={() =>
-                          run(
-                            stage.id,
-                            () => tickItemStage({ stageId: stage.id, done: !stage.done }),
-                            stage.done ? `${stage.name} unticked` : `${stage.name} ticked`,
-                          )
-                        }
-                        className="pressable-row flex min-h-11 w-full items-center gap-3 px-3 text-left disabled:opacity-70"
+                current.groups.map((group) => (
+                  <div
+                    key={group.label ?? ""}
+                    className="flex flex-col gap-1"
+                    data-slot="item-stage-group"
+                  >
+                    {/* A named group's heading and its own "n/m" (6b); the untitled group has none. */}
+                    {group.label !== null ? (
+                      <p
+                        className="text-muted-foreground flex items-baseline justify-between gap-2 pt-1 text-xs font-medium"
+                        data-slot="item-stage-group-heading"
                       >
-                        <span
-                          className={cn(
-                            "flex size-5 shrink-0 items-center justify-center rounded border",
-                            stage.done
-                              ? "border-primary bg-primary text-primary-foreground"
-                              : "border-input",
-                          )}
-                        >
-                          {stage.done ? <CheckIcon className="size-3.5" aria-hidden /> : null}
+                        <span className="min-w-0 break-words">{group.label}</span>
+                        <span className="tabular-nums">
+                          {group.done}/{group.stages.length}
                         </span>
-                        <span className="min-w-0 flex-1 break-words">{stage.name}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+                      </p>
+                    ) : null}
+                    <ul className="border-border divide-border divide-y rounded-lg border">
+                      {group.stages.map((stage) => (
+                        <li key={stage.id}>
+                          <button
+                            type="button"
+                            role="checkbox"
+                            aria-checked={stage.done}
+                            disabled={!canTick || busy === stage.id}
+                            data-slot="item-stage-tick"
+                            onClick={() =>
+                              run(
+                                stage.id,
+                                () => tickItemStage({ stageId: stage.id, done: !stage.done }),
+                                `${groupStageLabel(stage.groupLabel, stage.name)} ${stage.done ? "unticked" : "ticked"}`,
+                              )
+                            }
+                            className="pressable-row flex min-h-11 w-full items-center gap-3 px-3 text-left disabled:opacity-70"
+                          >
+                            <span
+                              className={cn(
+                                "flex size-5 shrink-0 items-center justify-center rounded border",
+                                stage.done
+                                  ? "border-primary bg-primary text-primary-foreground"
+                                  : "border-input",
+                              )}
+                            >
+                              {stage.done ? <CheckIcon className="size-3.5" aria-hidden /> : null}
+                            </span>
+                            <span className="min-w-0 flex-1 break-words">{stage.name}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))
               )}
             </section>
           ) : null}
@@ -465,7 +486,7 @@ export function ItemSheet({
           if (!next && !leaving.current) setDiscard(null);
         }}
         title="Discard your changes?"
-        description="The item stays as it was."
+        description="The deliverable stays as it was."
         confirmLabel="Discard changes"
         cancelLabel="Keep editing"
         onConfirm={() => {
@@ -488,7 +509,7 @@ export function ItemSheet({
             : "It goes back to open and stops counting as done until it is done again."
         }
         label={reason === "close" ? "Why close it" : "What needs to change"}
-        submitLabel={reason === "close" ? "Close item" : reopenWord}
+        submitLabel={reason === "close" ? "Close deliverable" : reopenWord}
         onSubmit={async (text) => {
           const result =
             reason === "close"
@@ -496,7 +517,11 @@ export function ItemSheet({
               : await reopenItem({ itemId: current.id, reason: text });
           const done = toastResult(result, {
             success:
-              reason === "close" ? "Item closed" : permissions.owner ? "Sent back" : "Reopened",
+              reason === "close"
+                ? "Deliverable closed"
+                : permissions.owner
+                  ? "Sent back"
+                  : "Reopened",
           });
           if (done) onOpenChange(false);
           return done;
@@ -507,10 +532,10 @@ export function ItemSheet({
           open={editingStages}
           onOpenChange={setEditingStages}
           title={`Stages of ${current.title}`}
-          description="This item only. The project's default stages and its other items stay as they are."
+          description="This deliverable only. The project's default stages and its other deliverables stay as they are."
           noun="stage"
           unique
-          removeDescription="It leaves this item; its tick stays in the history."
+          removeDescription="It leaves this deliverable; its tick stays in the history."
           rows={current.stages}
           max={STAGES_MAX}
           maxLength={STAGE_NAME_MAX}

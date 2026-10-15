@@ -255,7 +255,7 @@ export default async function ProjectPage({
               )}
               <div className="flex min-w-0 flex-1 flex-col items-center py-1 text-center">
                 <span className="text-sm font-medium break-words" data-slot="cycle-label">
-                  {chosen.label ?? "The project's items"}
+                  {chosen.label ?? "The project's deliverables"}
                 </span>
                 <span className="text-muted-foreground text-xs" data-slot="cycle-progress">
                   {progressLine(progressOf(items))}
@@ -287,8 +287,8 @@ export default async function ProjectPage({
               className="border-border bg-card flex min-h-11 items-center gap-3 rounded-lg border px-4 py-2 text-sm font-medium"
             >
               <span className="min-w-0 flex-1">
-                {chosen?.label} has ended: {toDecide} unfinished {toDecide === 1 ? "item" : "items"}{" "}
-                to decide
+                {chosen?.label} has ended: {toDecide} unfinished{" "}
+                {toDecide === 1 ? "deliverable" : "deliverables"} to decide
               </span>
               <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
             </DrillLink>
@@ -301,6 +301,7 @@ export default async function ProjectPage({
             items={views}
             permissions={permissions}
             canAdd={working && !ended && client.state !== "inactive"}
+            defaultStages={active.length}
             openItemId={items.some((item) => item.id === itemParam) ? (itemParam ?? null) : null}
           />
         ) : null}

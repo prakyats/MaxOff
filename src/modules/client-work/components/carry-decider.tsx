@@ -61,7 +61,7 @@ export function CarryDecider({ groups }: { groups: readonly DecideGroup[] }) {
       <EmptyState
         icon={CheckCheckIcon}
         title="Nothing to decide."
-        description="Unfinished items of an ended cycle show here."
+        description="Unfinished deliverables of an ended cycle show here."
       />
     );
   }
@@ -121,8 +121,8 @@ export function CarryDecider({ groups }: { groups: readonly DecideGroup[] }) {
                 </p>
               ) : group.notActive ? (
                 <p className="text-muted-foreground text-xs" data-slot="carry-not-active">
-                  The client isn&apos;t Active: the next cycle takes only the carried items until it
-                  is.
+                  The client isn&apos;t Active: the next cycle takes only the carried deliverables
+                  until it is.
                 </p>
               ) : null}
             </div>
@@ -191,10 +191,10 @@ export function CarryDecider({ groups }: { groups: readonly DecideGroup[] }) {
       <ReasonDialog
         open={closing !== null}
         onOpenChange={(next) => (next ? null : setClosing(null))}
-        title={closing ? `Close ${closing.title}?` : "Close the item"}
+        title={closing ? `Close ${closing.title}?` : "Close the deliverable"}
         description="It stays in its cycle as closed, not done. This can't be undone."
         label="Why close it"
-        submitLabel="Close item"
+        submitLabel="Close deliverable"
         onSubmit={async (reason) => {
           if (!closing) return;
           const result = await carryDecide({
@@ -209,7 +209,7 @@ export function CarryDecider({ groups }: { groups: readonly DecideGroup[] }) {
             }));
             return true;
           }
-          return toastResult(result, { success: "Item closed" });
+          return toastResult(result, { success: "Deliverable closed" });
         }}
       />
     </div>
