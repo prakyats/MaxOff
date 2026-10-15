@@ -10,8 +10,8 @@
 // Environment: SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY (the project the Worker talks to) and
 // one way to sign in: PROBE_EMAIL + PROBE_PASSWORD (GoTrue's password grant, no secret), or
 // SUPABASE_SECRET_KEY (the service key: the first active member of `--role` gets a session
-// through a magic link that is never sent; PROBE_EMAIL picks the member). **Staging only**:
-// never point it at production, and never put a production key in its environment.
+// through a magic link that is never sent; PROBE_EMAIL picks the member). **Staging only** with
+// a session; production only with `--no-signin` (the public routes, no key in the environment).
 //
 // For every route it makes `--samples` requests on a **fresh** connection (DNS + TLS each time,
 // the way a first open or the advisor's curl lands: often on an isolate that has not run the
@@ -68,8 +68,10 @@ const env = {
   email: process.env.PROBE_EMAIL,
   password: process.env.PROBE_PASSWORD,
 };
-if (/maxoff\.in|^https:\/\/maxoff\.pixoraclips/.test(base)) {
-  throw new Error("Never probe production with a signed-in session.");
+// Production is probed signed out only (`--no-signin`: the static asset, the 404, health, /login),
+// never with a session and never with a key in the environment.
+if (signIn && /maxoff\.in|^https:\/\/maxoff\.pixoraclips/.test(base)) {
+  throw new Error("Never probe production with a signed-in session: use --no-signin.");
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -206,6 +208,7 @@ function request(url, { agent, headers }) {
     });
     req.on("socket", (socket) => {
       reused = !socket.connecting && socket.readyState === "open";
+      if (reused) return;
       socket.once("connect", () => {
         connected = performance.now() - start;
       });
@@ -225,7 +228,10 @@ function parseServerTiming(value) {
     const [name, ...params] = metric.trim().split(";");
     if (!name) continue;
     for (const param of params) {
-      const [key, raw] = param.split("=");
+      const eq = param.indexOf("=");
+      if (eq < 0) continue;
+      const key = param.slice(0, eq);
+      const raw = param.slice(eq + 1);
       const unquoted = (raw ?? "").replace(/^"|"$/g, "");
       if (key === "dur") out[name] = Number(unquoted);
       if (key === "desc") {

@@ -4,6 +4,7 @@ import { getCurrentMember, getSessionUserId } from "@/core/auth/server";
 import { readUnread } from "@/core/notifications/inbox";
 import { readOwnPushStatus } from "@/core/notifications/push/subscriptions";
 import { isolateState } from "@/core/observability/isolate";
+import { can } from "@/core/permissions";
 import { getOwnToday } from "@/modules/attendance";
 import { countTasks } from "@/modules/tasks";
 
@@ -35,7 +36,8 @@ export async function GET(): Promise<Response> {
   const memberRow = lap();
   if (!member) notFound();
 
-  await getOwnToday();
+  // The Owner has no working day (§8): the layout reads it for everyone else.
+  if (can(member.role, "attendance.self")) await getOwnToday();
   const today = lap();
   await countTasks();
   const taskCounts = lap();
