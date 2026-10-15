@@ -1249,7 +1249,10 @@ begin
   if v_position is distinct from v_stage.position then v_changed := array_append(v_changed, 'position'); end if;
   if v_label is distinct from v_stage.group_label then v_changed := array_append(v_changed, 'group_label'); end if;
   if cardinality(v_changed) > 0 then
-    -- The tick (done_at / done_by) is untouched by any of this.
+    -- The tick (done_at / done_by) is untouched by any of this; the entry names the stage
+    -- (migration client_work_item_stage_meta).
+    perform set_config('app.audit_override', jsonb_build_object(
+      'action', 'update', 'meta', jsonb_build_object('stage_id', v_stage.id, 'name', v_stage.name))::text, true);
     update public.project_item_stage_list
     set name = v_name, position = v_position, group_label = v_label, group_position = v_group_position
     where id = v_stage.id;
@@ -1387,7 +1390,7 @@ begin
   loop
     perform set_config('app.audit_override', jsonb_build_object(
       'action', case when 'label' = any (v_changed) then 'group_renamed' else 'group_moved' end,
-      'meta', jsonb_build_object('group', v_label, 'to', v_new_label))::text, true);
+      'meta', jsonb_build_object('group', v_label, 'to', v_new_label, 'stage_id', v_row.id, 'name', v_row.name))::text, true);
     update public.project_item_stage_list set group_label = v_new_label, group_position = v_new_position
     where id = v_row.id;
   end loop;
@@ -1424,7 +1427,7 @@ begin
   loop
     -- Archived, never deleted: each stage leaves the deliverable, its tick kept on the row.
     perform set_config('app.audit_override', jsonb_build_object(
-      'action', 'archived', 'meta', jsonb_build_object('group', v_label))::text, true);
+      'action', 'archived', 'meta', jsonb_build_object('group', v_label, 'stage_id', v_row.id, 'name', v_row.name))::text, true);
     update public.project_item_stage_list set archived_at = now() where id = v_row.id;
     v_count := v_count + 1;
   end loop;
@@ -1551,13 +1554,16 @@ begin
       perform app.fail('VALIDATION', 'Stages are a list of names.');
     end if;
     v_stages := app.client_work_stage_names(array(select jsonb_array_elements_text(changes -> 'stages')));
-    v_groups := null;
+    v_groups := app.stage_groups_of(v_stages, null);
   end if;
   if v_title is distinct from v_row.title then v_changed := array_append(v_changed, 'title'); end if;
   if v_position is distinct from v_row.position then v_changed := array_append(v_changed, 'position'); end if;
   if v_stages is distinct from v_row.stages then v_changed := array_append(v_changed, 'stages'); end if;
-  if v_groups is distinct from v_row.stage_groups then v_changed := array_append(v_changed, 'stage_groups'); end if;
-  if cardinality(v_changed) > 0 then
+  -- The groups count as changed only when the caller sent them (stages always follows them).
+  if changes ? 'stage_groups' and v_groups is distinct from v_row.stage_groups then
+    v_changed := array_append(v_changed, 'stage_groups');
+  end if;
+  if cardinality(v_changed) > 0 or v_groups is distinct from v_row.stage_groups then
     update public.project_item_blueprints
     set title = v_title, position = v_position, stages = v_stages, stage_groups = v_groups
     where id = v_row.id;

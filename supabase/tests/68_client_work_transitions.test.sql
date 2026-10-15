@@ -326,9 +326,9 @@ select throws_ok($$ select public.project_stage_update(pg_temp.fx('s_new'), '{"n
 select is((select count(*)::integer from public.activity_log
            where entity = 'project_stages' and entity_id = pg_temp.fx('p_m') and action = 'archived'), 1,
   'audited on the project''s history');
-select lives_ok($$ select public.project_stage_add(pg_temp.fx('p_m'), 'S' || g) from generate_series(1, 9) g $$,
-  'up to 12 active stages');
-select throws_ok($$ select public.project_stage_add(pg_temp.fx('p_m'), 'Thirteenth') $$, 'P0001', 'VALIDATION', 'never 13');
+select lives_ok($$ select public.project_stage_add(pg_temp.fx('p_m'), 'S' || g) from generate_series(1, 97) g $$,
+  'up to 100 active stages (6b Release 1; was 12)');
+select throws_ok($$ select public.project_stage_add(pg_temp.fx('p_m'), 'Hundred and first') $$, 'P0001', 'VALIDATION', 'never 101');
 select pg_temp.as_member('admin2');
 select throws_ok($$ select public.project_stage_add(pg_temp.fx('p_m'), 'Not mine') $$, 'P0001', 'NOT_FOUND',
   'another Admin cannot touch the stages');
@@ -827,7 +827,7 @@ insert into calls values
   ('cycle_start_next',          $c$select public.cycle_start_next(pg_temp.fx('p_w'))$c$,                                  'NOT_FOUND'),
   ('cycle_carry_decide',        $c$select public.cycle_carry_decide(array[pg_temp.fx('pi1')], 'leave_pending')$c$,        'NOT_FOUND');
 select is((select array_agg(fn order by fn) from calls),
-  (select array_agg(p.proname::text order by p.proname::text) from pg_proc p
+  (select array_agg(distinct p.proname::text order by p.proname::text) from pg_proc p
    where p.pronamespace = 'public'::regnamespace
      and p.proname in ('project_create', 'project_update', 'project_complete', 'project_cancel',
        'project_reopen', 'project_stage_add', 'project_stage_update', 'project_stage_archive',
