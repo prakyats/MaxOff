@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDownIcon, ArrowUpIcon, CheckIcon } from "lucide-react";
+import { ArrowDownIcon, ArrowUpIcon, CheckIcon, MoreHorizontalIcon } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useRef, useState } from "react";
 
@@ -16,6 +16,12 @@ import { ReasonDialog } from "@/core/ui/composites/reason-dialog";
 import { ReviewFacts, ReviewSheet } from "@/core/ui/composites/review-sheet";
 import { StatusBadge } from "@/core/ui/composites/status-badge";
 import { Button } from "@/core/ui/primitives/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/core/ui/primitives/dropdown-menu";
 import { Input } from "@/core/ui/primitives/input";
 import { Textarea } from "@/core/ui/primitives/textarea";
 import { closeOverlaysThen, useOverlayHistory } from "@/core/ui/overlay/overlay-history";
@@ -34,6 +40,7 @@ import {
   updateItemStage,
   updateItemStageGroup,
 } from "../actions/items";
+import { saveItemAsTemplate } from "../actions/templates";
 import { ITEM_NOTES_MAX, ITEM_TITLE_MAX } from "../domain/schemas";
 import { ITEM_STATUS } from "../domain/types";
 import type { ItemView } from "../domain/views";
@@ -47,6 +54,12 @@ const GroupedStagesSheet = dynamic(
 );
 
 /** One item's history, on the first tap of "History" (ARCHITECTURE §19). */
+/** "Save as template" (6b Release 2), on its first pick. */
+const SaveAsTemplateDialog = dynamic(
+  () => import("./save-as-template-dialog").then((module) => module.SaveAsTemplateDialog),
+  { ssr: false },
+);
+
 const ActivityPanel = dynamic(
   () => import("./activity-panel").then((module) => module.ActivityPanel),
   { ssr: false },
@@ -116,6 +129,8 @@ export function ItemSheet({
   const [saving, setSaving] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [reason, setReason] = useState<"reopen" | "close" | null>(null);
+  // "Save as template" from the ⋯ (6b Release 2): the item it was opened for.
+  const [templateFor, setTemplateFor] = useState<{ id: string; title: string } | null>(null);
   // "Discard your changes?" (§14.2 f): over the sheet when leaving the edit ("edit": back or
   // Cancel, then the facts), or standing in for the sheet when it is being closed ("close").
   const [discard, setDiscard] = useState<"edit" | "close" | null>(null);
@@ -394,6 +409,25 @@ export function ItemSheet({
                   <Button variant="secondary" onClick={startEdit} data-slot="item-edit">
                     Edit
                   </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`More for ${current.title}`}
+                        data-slot="item-more"
+                      >
+                        <MoreHorizontalIcon aria-hidden />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      <DropdownMenuItem
+                        onSelect={() => setTemplateFor({ id: current.id, title: current.title })}
+                      >
+                        Save as template
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                   {onMove && current.rules.editAll ? (
                     <>
                       <Button
@@ -567,6 +601,15 @@ export function ItemSheet({
               updateItemStageGroup({ itemId: current.id, label, position }),
             removeGroup: (label) => archiveItemStageGroup({ itemId: current.id, label }),
           }}
+        />
+      ) : null}
+      {templateFor !== null ? (
+        <SaveAsTemplateDialog
+          open
+          onOpenChange={(next) => (next ? null : setTemplateFor(null))}
+          what="deliverable"
+          initialName={templateFor.title}
+          save={(name) => saveItemAsTemplate({ itemId: templateFor.id, name })}
         />
       ) : null}
       {history > 0 ? (

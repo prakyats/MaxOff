@@ -7,8 +7,8 @@ import { PageHeader } from "@/core/ui/composites/page-header";
 import { getSettings } from "@/modules/settings";
 import { listStagePresets } from "@/modules/settings";
 import { listTaskTemplates, listTaskTypes } from "@/modules/tasks";
-import { listProjectTemplates } from "@/modules/templates";
-import { ProjectTemplateManager } from "@/modules/templates/components/project-template-manager";
+import { listDeliverableTemplates, listProjectTemplates } from "@/modules/templates";
+import { ClientWorkTemplates } from "@/modules/templates/components/client-work-templates";
 import { AddTemplateButton, TemplateManager } from "@/modules/tasks/components/template-manager";
 import { listDirectory } from "@/modules/team";
 
@@ -21,13 +21,25 @@ export const metadata: Metadata = { title: "Templates" };
  * shared company-wide (`templates.manage`: the Owner and Admins). An Admin edits and archives
  * their own, the Owner any; RLS decides again. **Two groups** (kickoff 7 decision 23, 7.4): project
  * templates (a repeat, stages, an item list, field defaults; no billing category, amendment C) and
- * task templates; "Add template" in the header adds a task template, each group its own.
+ * task templates; "Add template" in the header adds a task template, each group its own. **6b
+ * Release 2:** a third group, **Deliverable templates**, and one search with a Preview on every
+ * client-work template (ROADMAP 6b.16 (f)).
  */
 export default async function TemplatesSettingsPage() {
   // Read together with the permission check, not after it (ARCHITECTURE §19).
   const [
     viewer,
-    [templates, types, definitions, directory, settings, projectTemplates, presets, projectFields],
+    [
+      templates,
+      types,
+      definitions,
+      directory,
+      settings,
+      projectTemplates,
+      presets,
+      projectFields,
+      deliverableTemplates,
+    ],
   ] = await checkThenRead(
     requirePermission("templates.manage"),
     Promise.all([
@@ -39,6 +51,7 @@ export default async function TemplatesSettingsPage() {
       listProjectTemplates(),
       listStagePresets(),
       listAllDefinitions("project"),
+      listDeliverableTemplates(),
     ]),
   );
   const context = {
@@ -68,8 +81,9 @@ export default async function TemplatesSettingsPage() {
           </h2>
           <TemplateManager templates={templates} {...context} />
         </section>
-        <ProjectTemplateManager
-          templates={projectTemplates}
+        <ClientWorkTemplates
+          projectTemplates={projectTemplates}
+          deliverableTemplates={deliverableTemplates}
           viewer={context.viewer}
           names={context.names}
           presets={presets

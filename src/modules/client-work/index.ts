@@ -155,4 +155,8 @@ export {
   updateItemStage,
   updateItemStageGroup,
 } from "./actions/items";
-export { ACTIVITY_PAGE, readProjectActivity } from "./actions/background";
+export {
+  ACTIVITY_PAGE,
+  readDeliverableTemplateOptions,
+  readProjectActivity,
+} from "./actions/background";

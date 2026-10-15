@@ -37,7 +37,8 @@ type Layer = MenuLayer | null;
  * A project's ⋯ menu (7.3 / 7.4; WORKFLOWS §5.4 items 3, 8, 9, 14, 19; PERMISSIONS "Screens
  * (phase 7)"): **Edit details** (name, description, the one-time delivery date, the project
  * fields), **Stages** and the **Item list** (recurring only) in a sheet, **Start next cycle**
- * (recurring, at most 7 days early) for `projects.manage`; **Complete** (refused while anything is
+ * (recurring, at most 7 days early) and **Save as template** (any state; 6b Release 2: a copy as a
+ * project template, the project unchanged) for `projects.manage`; **Complete** (refused while anything is
  * open or done: the dialog says what is left), **Cancel** with a reason (it closes the open and
  * done items) and **Reopen** with a reason (refused on an Inactive client) for `projects.complete`.
  * Each opens its own layer; back closes it (§14.2 a). The function behind each decides again.
@@ -85,6 +86,8 @@ export function ProjectMenu({
     canManage && working && recurring && nextCycleLabel
       ? { key: "next", label: `Start ${nextCycleLabel}` }
       : null,
+    // 6b Release 2: in any state, a well-set-up project becomes the next one's starting point.
+    canManage ? { key: "template", label: "Save as template" } : null,
   ].filter((entry): entry is { key: Exclude<Layer, null>; label: string } => entry !== null);
   const lifecycle = [
     canComplete && working ? { key: "complete", label: "Complete project" } : null,
