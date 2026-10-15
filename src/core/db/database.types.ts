@@ -2116,6 +2116,9 @@ export type Database = {
         Row: {
           created_at: string;
           created_by: string | null;
+          extras_decided_at: string | null;
+          extras_decided_by: string | null;
+          extras_kept: number | null;
           generated_by: string;
           id: string;
           item_list_copied: boolean;
@@ -2132,6 +2135,9 @@ export type Database = {
         Insert: {
           created_at?: string;
           created_by?: string | null;
+          extras_decided_at?: string | null;
+          extras_decided_by?: string | null;
+          extras_kept?: number | null;
           generated_by: string;
           id?: string;
           item_list_copied?: boolean;
@@ -2148,6 +2154,9 @@ export type Database = {
         Update: {
           created_at?: string;
           created_by?: string | null;
+          extras_decided_at?: string | null;
+          extras_decided_by?: string | null;
+          extras_kept?: number | null;
           generated_by?: string;
           id?: string;
           item_list_copied?: boolean;
@@ -2172,6 +2181,20 @@ export type Database = {
           {
             foreignKeyName: "project_cycles_created_by_fkey";
             columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_cycles_extras_decided_by_fkey";
+            columns: ["extras_decided_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_cycles_extras_decided_by_fkey";
+            columns: ["extras_decided_by"];
             isOneToOne: false;
             referencedRelation: "members";
             referencedColumns: ["id"];
@@ -4452,6 +4475,10 @@ export type Database = {
         };
         Returns: Json;
       };
+      cycle_keep_extras: {
+        Args: { cycle_id: string; keep: boolean };
+        Returns: number;
+      };
       cycle_start_next: { Args: { project_id: string }; Returns: string };
       dashboard_not_noted: {
         Args: never;
@@ -4637,6 +4664,7 @@ export type Database = {
         };
         Returns: string;
       };
+      item_add_revision_round: { Args: { item_id: string }; Returns: string };
       item_approve: { Args: { item_ids: string[] }; Returns: Json };
       item_cancel: {
         Args: { item_id: string; reason: string };
@@ -4709,6 +4737,27 @@ export type Database = {
       item_update: {
         Args: { changes: Json; item_id: string };
         Returns: string[];
+      };
+      items_add_stage_groups: {
+        Args: { item_ids: string[]; stage_groups: Json };
+        Returns: number;
+      };
+      items_rename: {
+        Args: {
+          apply?: boolean;
+          item_ids: string[];
+          pattern: string;
+          start_at?: number;
+        };
+        Returns: Json;
+      };
+      items_set_planned_date: {
+        Args: { item_ids: string[]; planned_date: string };
+        Returns: number;
+      };
+      items_shift_planned_dates: {
+        Args: { days: number; item_ids: string[] };
+        Returns: number;
       };
       leave_decide: {
         Args: { decision: string; reason?: string; request_id: string };
