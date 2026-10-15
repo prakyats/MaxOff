@@ -1232,7 +1232,7 @@ test.describe("a deadline moved earlier, from a task opened on the calendar (6b.
     });
   }
 
-  test("someone else's move shows when the calendar is next opened, and after a reload", async ({
+  test("someone else's move shows when the calendar is shown again, and after a reload", async ({
     page,
     browser,
   }, info) => {
@@ -1241,7 +1241,6 @@ test.describe("a deadline moved earlier, from a task opened on the calendar (6b.
     const { earlier, later } = movedDays();
     const title = `${prefixOf(info)}moved elsewhere`;
     const id = await ownerCreatesDueOn(title, later);
-    const nav = (key: string) => page.locator(`[data-nav="${key}"]:visible`).first();
     const show = async (date: string) => {
       if (!phoneRun) {
         await dayBox(page, date).click();
@@ -1257,7 +1256,12 @@ test.describe("a deadline moved earlier, from a task opened on the calendar (6b.
     await hydrated(page);
     await expect(dueOf(await show(later), id)).toBeVisible();
     await closeDay(page);
-    await nav("today").click();
+    // Elsewhere in the app, by its own push (an installed tab would replace the calendar).
+    await page.evaluate(() => {
+      (
+        window as unknown as { next: { router: { push: (href: string) => void } } }
+      ).next.router.push("/today");
+    });
     await expect(page).toHaveURL(/\/today$/);
     await hydrated(page);
 
@@ -1269,14 +1273,9 @@ test.describe("a deadline moved earlier, from a task opened on the calendar (6b.
     await moveDeadline(elsewhere, earlier);
     await other.close();
 
-    // Next opened from the bar: the move is there (the calendar's month holds both days).
-    await nav("calendar").click();
-    await expect(page).toHaveURL(/\/calendar$/);
-    await hydrated(page);
-    if (todayIST().slice(0, 7) !== later.slice(0, 7)) {
-      await page.goto(`/calendar?date=${later}`);
-      await hydrated(page);
-    }
+    // Back to the calendar: the router's cached copy of that address, re-read on its return.
+    await page.goBack();
+    await expect(page).toHaveURL(new RegExp(`/calendar\\?date=${later}$`));
     await expect(dueOf(await show(earlier), id)).toBeVisible();
     await closeDay(page);
     await expect(dueOf(await show(later), id)).toHaveCount(0);

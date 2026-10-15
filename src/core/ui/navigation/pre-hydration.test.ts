@@ -247,6 +247,8 @@ describe("pre-hydration taps (task 2.8), against the shared table", () => {
     // A push is a document load of the tab, as the browser's own navigation would have been.
     expect(result.move).toBe(expected === null || expected === "push" ? "push" : expected);
     if (result.move === "push") expect(result.assignedTo).toBe(`${ORIGIN}${input.href}`);
+    // A tab's back is one step: never `history.go(0)`, which reloads the page.
+    if (result.move === "back") expect(result.wentBack).toBe(-1);
     expect(result.prevented).toBe(true);
   });
 });

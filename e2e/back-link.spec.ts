@@ -84,68 +84,87 @@ const STATIC_SCREENS: Screen[] = [
   { path: `/reports/end-of-day/${todayIST()}`, parent: "/reports/end-of-day" },
 ];
 
-/** The record screens, on records this spec makes (neutral names) or the seed's people. */
-async function recordScreens(project: string): Promise<Screen[]> {
-  const staffId = await memberIdOf(USERS.staff.email);
-  const title = `${PREFIX}${project} task`;
-  await removeTasksTitled(title);
-  const taskId = await rpcAs<string>(USERS.owner.email, USERS.owner.password, "task_create", {
-    title,
-    description: null,
-    task_type_id: await taskTypeId("Normal"),
-    client_id: null,
-    priority: "medium",
-    due_at: istInstant(addISTDays(todayIST(), 20), "18:00"),
-    assignee_ids: [staffId],
-    primary_owner_id: staffId,
-    approving_admin_id: null,
-    stages: [],
-  });
-  const clientName = `${PREFIX}${project} client`;
-  await removeClientFixture(clientName);
+type RecordKind = "task" | "person" | "client" | "project" | "contact";
+
+/** A client of this test's own (neutral name), active, with its Admin. */
+async function ownClient(name: string): Promise<{ id: string; org: string }> {
+  await removeClientFixture(name);
   const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
   const client = await serviceInsert<{ id: string }>("clients", {
     org_id: org?.id,
-    name: clientName,
+    name,
     admin_id: await memberIdOf(USERS.admin.email),
   });
   await rpcAs(USERS.owner.email, USERS.owner.password, "client_activate", {
     client_id: client.id,
   });
-  const projectId = await rpcAs<string>(USERS.admin.email, USERS.admin.password, "project_create", {
-    client_id: client.id,
-    name: "Project",
-    recurrence: "one_time",
-    stages: [],
-    items: ["Item"],
-  });
-  const contact = await serviceInsert<{ id: string }>("client_contacts", {
-    org_id: org?.id,
-    client_id: client.id,
-    name: "Contact",
-  });
-  return [
-    {
+  return { id: client.id, org: org?.id ?? "" };
+}
+
+/** One record screen, on a record this test makes (neutral names) or the seed's Crew member. */
+async function recordScreen(kind: RecordKind, project: string): Promise<Screen> {
+  const name = `${PREFIX}${project} ${kind}`;
+  if (kind === "task") {
+    await removeTasksTitled(name);
+    const staffId = await memberIdOf(USERS.staff.email);
+    const taskId = await rpcAs<string>(USERS.owner.email, USERS.owner.password, "task_create", {
+      title: name,
+      description: null,
+      task_type_id: await taskTypeId("Normal"),
+      client_id: null,
+      priority: "medium",
+      due_at: istInstant(addISTDays(todayIST(), 20), "18:00"),
+      assignee_ids: [staffId],
+      primary_owner_id: staffId,
+      approving_admin_id: null,
+      stages: [],
+    });
+    return {
       path: `/tasks/${taskId}`,
       parent: "/tasks",
       // Today lists tasks: the task page returns there and its control says "Today".
       fromToday: "/today",
       view: async (page) => {
         await expect(page.locator('[data-slot="task-tabs"]')).toHaveAttribute("data-live", "");
-        const tab = page.locator('[data-slot="task-tab"][data-view-tab="activity"]');
-        await tab.click();
-        await expect(tab).toHaveAttribute("aria-selected", "true");
+        await page.locator('[data-slot="task-tab"][data-view-tab="activity"]').click();
+        await expect(page.locator('[data-slot="task-panel-activity"]')).toBeVisible();
       },
-    },
-    { path: `/people/${staffId}`, parent: "/people", fromToday: "/today" },
-    { path: `/clients/${client.id}`, parent: "/clients", fromToday: "/today" },
-    {
+    };
+  }
+  if (kind === "person") {
+    const staffId = await memberIdOf(USERS.staff.email);
+    return { path: `/people/${staffId}`, parent: "/people", fromToday: "/today" };
+  }
+  const client = await ownClient(name);
+  if (kind === "client") {
+    return { path: `/clients/${client.id}`, parent: "/clients", fromToday: "/today" };
+  }
+  if (kind === "project") {
+    const projectId = await rpcAs<string>(
+      USERS.admin.email,
+      USERS.admin.password,
+      "project_create",
+      {
+        client_id: client.id,
+        name: "Project",
+        recurrence: "one_time",
+        delivery_date: addISTDays(todayIST(), 30),
+        stages: [],
+        items: ["Item"],
+      },
+    );
+    return {
       path: `/clients/${client.id}/projects/${projectId}`,
       parent: `/clients/${client.id}/projects`,
       fromToday: "/today",
-    },
-    { path: `/clients/${client.id}/contacts/${contact.id}`, parent: `/clients/${client.id}` },
-  ];
+    };
+  }
+  const contact = await serviceInsert<{ id: string }>("client_contacts", {
+    org_id: client.org,
+    client_id: client.id,
+    name: "Contact",
+  });
+  return { path: `/clients/${client.id}/contacts/${contact.id}`, parent: `/clients/${client.id}` };
 }
 
 const exactly = (path: string) => new RegExp(`^[^?#]*//[^/]+${path.replace(/[.?]/g, "\\$&")}$`);
@@ -169,7 +188,18 @@ async function open(page: Page, path: string): Promise<void> {
 }
 
 /** One tap on the back control: it lands on `parent`, in one tap. */
-async function tapBack(page: Page, parent: string, why: string): Promise<void> {
+async function tapBack(
+  page: Page,
+  parent: string,
+  why: string,
+  /** The parent the screen's control links to, when it is not where the tap lands. */
+  linksTo: string = parent,
+): Promise<void> {
+  // The screen itself is there, not the one before it (an address changes before its screen).
+  await expect(backControl(page), `${why}: the screen's own back control`).toHaveAttribute(
+    "href",
+    linksTo,
+  );
   await backControl(page).click();
   await expect(page, why).toHaveURL(exactly(parent));
   await hydrated(page);
@@ -215,7 +245,7 @@ async function sweep(page: Page, screen: Screen, phone: boolean, fresh: () => Pr
   await open(page, "/today");
   await drillTo(page, screen.path);
   const landing = screen.fromToday ?? screen.parent;
-  await tapBack(page, landing, `${screen.path} (c) from Today`);
+  await tapBack(page, landing, `${screen.path} (c) from Today`, screen.parent);
   if (landing !== "/today") {
     // Replaced, not pushed: the next back is Today again.
     await page.goBack();
@@ -251,21 +281,19 @@ test.describe("the back control, every drill-down screen", () => {
     });
   }
 
-  test("the record screens: a task, a person, a client, a project, a contact", async ({
-    page,
-    context,
-  }, info) => {
-    const phone = info.project.name !== "desktop";
-    if (phone) await runInstalled(page);
-    for (const screen of await recordScreens(info.project.name)) {
+  for (const kind of ["task", "person", "client", "project", "contact"] as const) {
+    test(`a ${kind}'s screen`, async ({ page, context }, info) => {
+      const phone = info.project.name !== "desktop";
+      if (phone) await runInstalled(page);
+      const screen = await recordScreen(kind, info.project.name);
       await sweep(page, screen, phone, async () => {
         const tab = await context.newPage();
         if (phone) await runInstalled(tab);
         return tab;
       });
-    }
-    await removeTasksTitled(`${PREFIX}${info.project.name} task`);
-  });
+      if (kind === "task") await removeTasksTitled(`${PREFIX}${info.project.name} task`);
+    });
+  }
 });
 
 test.describe("without the Navigation API (an iPhone before Safari 26.2)", () => {
