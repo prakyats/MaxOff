@@ -86,9 +86,11 @@ async function startDayPrompt(viewer: Awaited<ReturnType<typeof requireMember>>)
  * prompt asks in the app, and "Sign out of this device" lives under Me only.
  */
 export default async function AppLayout({ children }: { children: ReactNode }) {
-  // The prompt's read (everyone but the Owner has a day) and the task counts (every role's badge)
-  // start with the session read (§19).
-  startEarly(getOwnToday(), countTasks());
+  // The prompt's read (everyone but the Owner has a day), the task counts (every role's badge)
+  // and the push status (the band below) start with the session read (§19): each is keyed by
+  // the viewer under RLS, so none has to wait for the member row (unit P, 2026-10-15: the push
+  // read waited behind it, one whole round trip on every signed-in screen).
+  startEarly(getOwnToday(), countTasks(), readOwnPushStatus());
   const viewer = await requireMember();
   // The counts stream into the bars (`NavCount`, 4C): the shell and the page never wait for them,
   // so a screen's loading state paints as soon as the member is known. A count that cannot be
