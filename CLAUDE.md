@@ -65,6 +65,7 @@ MaxOff is the **internal operations and control system for Pixora Clips**. It co
 - [ ] Every mutation is audited (a transition function or the audit trigger). Notifications follow WORKFLOWS §9.
 - [ ] Docs are updated: `PROGRESS.md`, the task is ticked in `ROADMAP.md`, and DATA-MODEL / WORKFLOWS / PERMISSIONS / an ADR if something changed.
 - [ ] No `console.log`, no commented-out code, and no TODO that isn't also listed in PROGRESS.md.
+- [ ] **The in-app guide ("How MaxOff works", `src/modules/guide`) is up to date** (owner 2026-10-15: "it should be up-to-date, so I can tell the team to refer to it"). Any user-visible change (a new or changed screen, button, wording, rule or permission) updates the guide content for every affected role in the same task, and re-runs `pnpm guide:screenshots` for the topics it touched. **No release is READY FOR OWNER unless the guide matches the release**: the release review checks it, and the walk script includes opening the guide for the changed topics.
 
 ## How to work
 - **One roadmap unit per session** (ROADMAP groups a phase's tasks into units; `/run-phase` builds a phase one subagent per unit). Plan first. **Proceed without waiting when the phase's kickoff (`/kickoff-phase`, the "Kickoff N decisions" block in PROGRESS.md) settled every business question the unit raises; otherwise plan and wait for approval** before editing files.
