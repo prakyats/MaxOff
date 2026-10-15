@@ -36,6 +36,15 @@ export {
   type Progress,
 } from "./domain/items";
 export {
+  completeWords,
+  cycleMeter,
+  itemMeter,
+  meterLine,
+  meterPace,
+  type CycleMeter,
+  type MeterItem,
+} from "./domain/progress";
+export {
   clientProgressLine,
   progressByClient,
   projectSummaries,
@@ -61,6 +70,7 @@ export {
 export {
   itemRowView,
   itemView,
+  orderDeliverables,
   type ItemRowView,
   type ItemStageView,
   type ItemView,
@@ -100,6 +110,7 @@ export {
   listBlueprints,
   listClientProjects,
   listCurrentCycles,
+  listCurrentCycleMeters,
   listCycles,
   listCyclesById,
   listItems,
@@ -111,6 +122,7 @@ export {
   listStages,
   listStagesOf,
   type CurrentCycle,
+  type CurrentCycleMeter,
 } from "./data/projects";
 export {
   countItemsToDecide,
@@ -156,3 +168,5 @@ export {
   updateItemStageGroup,
 } from "./actions/items";
 export { ACTIVITY_PAGE, readProjectActivity } from "./actions/background";
+/** The project page's deliverable columns (6b.11 (6)), for its skeleton to trace. */
+export { DELIVERABLE_COLUMNS } from "./components/deliverable-columns";
