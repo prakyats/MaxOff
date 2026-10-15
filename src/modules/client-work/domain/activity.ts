@@ -190,7 +190,7 @@ function describeListRow(
 
 /** A project's default stage (amendment D2), in its group (6b). */
 function describeDefaultStage(entry: ActivityEntry): string | null {
-  const name = text(entry.new.name) ?? text(entry.old.name) ?? "a stage";
+  const name = text(entry.new.name) ?? text(entry.old.name) ?? text(entry.meta.name) ?? "a stage";
   switch (entry.action) {
     case "insert":
       return `added the default stage ${groupStageLabel(groupOf(entry, "new"), name)}`;
@@ -411,6 +411,36 @@ export function describeProjectActivity(
     text: line.text,
     ...(line.note ? { note: line.note } : {}),
   };
+}
+
+/** The group functions audit one row per stage; their sentence is the group's, said once. */
+const GROUP_ACTIONS: ReadonlySet<string> = new Set(["group_renamed", "group_moved"]);
+
+/**
+ * Entries as the history's lines, newest first (6b): the rows one group rename or move wrote (one
+ * per stage, the same moment, actor and sentence) collapse into one line.
+ */
+export function describeActivityLines(
+  entries: readonly ActivityEntry[],
+  context: ProjectActivityContext,
+): ActivityLine[] {
+  const lines: ActivityLine[] = [];
+  let previous: { entry: ActivityEntry; line: ActivityLine } | null = null;
+  for (const entry of entries) {
+    const line = describeProjectActivity(entry, context);
+    if (!line) continue;
+    const repeat =
+      previous !== null &&
+      GROUP_ACTIONS.has(entry.action) &&
+      previous.entry.action === entry.action &&
+      previous.entry.entity === entry.entity &&
+      previous.entry.at === entry.at &&
+      previous.line.actor === line.actor &&
+      previous.line.text === line.text;
+    if (!repeat) lines.push(line);
+    previous = { entry, line };
+  }
+  return lines;
 }
 
 /** "Last change: ‹what› by ‹who›, ‹when›" in the item sheet (the owner's preview feedback). */

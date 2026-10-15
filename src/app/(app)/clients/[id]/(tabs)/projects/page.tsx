@@ -71,6 +71,8 @@ export default async function ClientProjectsPage({ params }: { params: Promise<{
                 recurrence: template.recurrence,
                 stages: template.stages,
                 items: template.items,
+                stageGroups: template.stageGroups,
+                deliverables: template.deliverables,
                 fieldDefaults: template.fieldDefaults,
               }))}
             definitions={definitions.filter((definition) => definition.archivedAt === null)}

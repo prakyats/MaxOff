@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { describeProjectActivity, type ActivityEntry } from "../domain/activity";
+import {
+  describeActivityLines,
+  describeProjectActivity,
+  type ActivityEntry,
+} from "../domain/activity";
 import { activeStages, stageChoices } from "../domain/items";
 import { sitLongest } from "../domain/kpis";
 import {
@@ -166,6 +170,29 @@ describe("the history of stage groups (6b)", () => {
         meta: { group: "Phase B" },
       }),
     ).toBe("moved the stage group Phase B on Item 1");
+  });
+
+  it("says one group rename once, however many stage rows it wrote", () => {
+    const rename = (id: number, stage: string) =>
+      entry({
+        id,
+        entityId: stage,
+        action: "group_renamed",
+        meta: { group: "Phase A", to: "Phase C", name: stage },
+      });
+    const lines = describeActivityLines(
+      [
+        rename(3, "s3"),
+        rename(2, "s2"),
+        rename(1, "s1"),
+        entry({ id: 0, action: "insert", new: { name: "One" } }),
+      ],
+      context,
+    );
+    expect(lines.map((line) => line.text)).toEqual([
+      "renamed the default stage group Phase A to Phase C",
+      "added the default stage One",
+    ]);
   });
 
   it("says a stage moved into another group, on a deliverable too", () => {

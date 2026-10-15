@@ -72,22 +72,15 @@ export function groupsToJson(
 
 /**
  * A template's `deliverables` jsonb column as deliverables. Null (a template from before
- * deliverables) reads the old `items` column, each item with the template's shared stages
- * (`templateGroups`): an old template opens in the new builder with its stages on each item.
+ * deliverables) reads the old `items` column, each item following the template's shared stages
+ * (`stageGroups` null = the defaults, which are those stages): an old template opens in the new
+ * builder with its stages on each item and keeps following a change to them.
  */
-export function deliverablesFromJson(
-  json: unknown,
-  items: readonly string[],
-  templateGroups: readonly StageGroup[],
-): Deliverable[] {
+export function deliverablesFromJson(json: unknown, items: readonly string[]): Deliverable[] {
   if (json === null || json === undefined || !Array.isArray(json)) {
-    return items.map((title) => ({
-      title,
-      stageGroups: templateGroups.map((group) => ({
-        label: group.label,
-        stages: [...group.stages],
-      })),
-    }));
+    // Each item followed the template's stages, so it keeps following them (null = the defaults;
+    // the review's S4: a copy would freeze them on the first save in the new builder).
+    return items.map((title) => ({ title, stageGroups: null }));
   }
   const out: Deliverable[] = [];
   for (const entry of json) {

@@ -3,6 +3,15 @@ import "server-only";
 import type { Json } from "@/core/db";
 import { createServerSupabase } from "@/core/db/server";
 import { AppError, isPostgresError } from "@/core/errors";
+import {
+  type Deliverable,
+  type StageGroup,
+  deliverablesFromJson,
+  deliverablesToJson,
+  flattenGroups,
+  groupsFromJson,
+  groupsToJson,
+} from "@/core/lib/stage-groups";
 import { systemClock } from "@/core/time";
 
 import type { ProjectTemplate, TemplateRecurrence } from "../domain/project-templates";
@@ -11,6 +20,11 @@ import type { ProjectTemplate, TemplateRecurrence } from "../domain/project-temp
  * Project templates (7.4): plain edits under RLS (`templates.manage` reads every template; an Admin
  * writes their own, the Owner any; `app.project_templates_guard()` keeps the author and checks the
  * stages, items and field defaults). Audited by `audit_row_change()`.
+ *
+ * Since 6b (DATA-MODEL §5b) a template keeps its default stage groups (`stage_groups`) and its
+ * deliverables (`deliverables`); a template from before has both null and is read from its old
+ * `stages` / `items`, so it opens in the builder unchanged. Every write stores the new columns
+ * and keeps the old ones as their flattened copies.
  */
 
 function asObject(value: Json): Record<string, unknown> {
@@ -24,29 +38,34 @@ export async function listProjectTemplates(): Promise<ProjectTemplate[]> {
   const { data, error } = await supabase
     .from("project_templates")
     .select(
-      "id, name, description, recurrence, stages, items, field_defaults, archived_at, created_by",
+      "id, name, description, recurrence, stages, items, stage_groups, deliverables, field_defaults, archived_at, created_by",
     )
     .order("name");
   if (error) throw error;
-  return data.map((row) => ({
-    id: row.id,
-    name: row.name,
-    description: row.description,
-    recurrence: row.recurrence as TemplateRecurrence,
-    stages: row.stages,
-    items: row.items,
-    fieldDefaults: asObject(row.field_defaults),
-    archived: row.archived_at !== null,
-    createdBy: row.created_by,
-  }));
+  return data.map((row) => {
+    const stageGroups = groupsFromJson(row.stage_groups, row.stages);
+    return {
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      recurrence: row.recurrence as TemplateRecurrence,
+      stages: row.stages,
+      items: row.items,
+      stageGroups,
+      deliverables: deliverablesFromJson(row.deliverables, row.items),
+      fieldDefaults: asObject(row.field_defaults),
+      archived: row.archived_at !== null,
+      createdBy: row.created_by,
+    };
+  });
 }
 
 export type ProjectTemplateValues = {
   name: string;
   description: string | null;
   recurrence: TemplateRecurrence;
-  stages: string[];
-  items: string[];
+  stageGroups: StageGroup[];
+  deliverables: Deliverable[];
   fieldDefaults: Record<string, unknown>;
 };
 
@@ -55,8 +74,11 @@ function row(values: ProjectTemplateValues) {
     name: values.name,
     description: values.description,
     recurrence: values.recurrence,
-    stages: values.stages,
-    items: values.items,
+    stage_groups: groupsToJson(values.stageGroups) as Json,
+    deliverables: deliverablesToJson(values.deliverables) as Json,
+    // The old columns stay the flattened copies, for every reader from before groups.
+    stages: flattenGroups(values.stageGroups),
+    items: values.deliverables.map((deliverable) => deliverable.title),
     field_defaults: values.fieldDefaults as Json,
   };
 }
