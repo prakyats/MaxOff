@@ -5101,6 +5101,15 @@ export type Database = {
         Args: { approving_admin_id: string; task_id: string };
         Returns: Database["public"]["Enums"]["task_state"];
       };
+      task_stage_move: {
+        Args: {
+          after_stage_id?: string;
+          on_behalf_of?: string;
+          stage_id: string;
+          task_id: string;
+        };
+        Returns: undefined;
+      };
       task_start: {
         Args: { on_behalf_of?: string; task_id: string };
         Returns: Database["public"]["Enums"]["task_state"];
