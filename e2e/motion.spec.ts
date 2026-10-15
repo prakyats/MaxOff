@@ -92,7 +92,11 @@ async function openPersonFromToday(page: Page) {
   await expect(page).toHaveURL(/\/people\/[^/]+\/leave$/);
 }
 
-const backControl = (page: Page) => page.getByRole("link", { name: "Back to People" });
+/**
+ * The header's back control. Its name follows the page one tap lands on (6b.12): "Back to
+ * Everyone today" from the board, "Back to People" opened directly.
+ */
+const backControl = (page: Page) => page.locator('[data-slot="page-back"]:visible');
 
 test.describe("installed at phone width: drill-down slides", () => {
   test.use({ storageState: storageStateFor("owner") });
@@ -107,6 +111,7 @@ test.describe("installed at phone width: drill-down slides", () => {
     await openPersonFromToday(page);
     await expect.poll(() => slides(page)).toEqual(FORWARD);
 
+    await expect(page.getByRole("link", { name: "Back to Everyone today" })).toBeVisible();
     await backControl(page).click();
     await expect(page).toHaveURL(/\/today\/people$/);
     await expect.poll(() => slides(page)).toEqual([...FORWARD, ...BACK]);
@@ -242,7 +247,7 @@ test.describe("installed: scroll is kept", () => {
 
     await row.click();
     await expect(page).toHaveURL(/\/people\/[^/]+\/leave$/);
-    await page.getByRole("link", { name: "Back to People" }).click();
+    await backControl(page).click();
     await expect(page).toHaveURL(/\/today\/people$/);
     await near(page, y);
   });

@@ -1,5 +1,6 @@
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
+import { PROJECT_ORIGINS } from "./back";
 
 /**
  * A project's page (7.3) traced: the title bar with its back control (to the client's Projects;
@@ -27,7 +28,13 @@ export default function Loading() {
         description={
           <span className="bg-muted inline-block h-3.5 w-56 max-w-full rounded-md align-middle motion-safe:animate-pulse" />
         }
-        back={{ href: "/clients", label: "the client", labelWidth: "w-24" }}
+        back={{
+          href: "/clients",
+          label: "the client",
+          labelWidth: "w-24",
+          // The client's own screens are where a project is opened from, too.
+          from: [...PROJECT_ORIGINS, { path: "/clients/*", label: "the client" }],
+        }}
         // Two header buttons (Activity and ⋯) beside the bell: at very large text (200%) the bell
         // wraps to a second row rather than pushing the bar past the screen's edge.
         className="flex-wrap"

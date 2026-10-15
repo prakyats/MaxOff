@@ -4,6 +4,7 @@ import { requireMember } from "@/core/auth/server";
 import { can } from "@/core/permissions";
 import { addISTDays, istInstant, todayIST, type ISODate } from "@/core/time";
 import { PageHeader } from "@/core/ui/composites/page-header";
+import { FreshOnReturn } from "@/core/ui/navigation/fresh-on-return";
 import {
   buildCalendar,
   listAvailability,
@@ -178,6 +179,9 @@ export default async function CalendarPage({
   return (
     <>
       <PageHeader title="Calendar" help={CALENDAR_HELP} />
+      {/* Shown again from the router's cache (back, or the tab within 30 s): read again, so
+          someone else's change is there (6b.12 (1)). */}
+      <FreshOnReturn renderId={crypto.randomUUID()} />
       <CalendarClient
         today={today}
         query={query}
