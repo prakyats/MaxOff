@@ -352,7 +352,7 @@ export function ListEditorSheet({
             </ReorderList>
           )}
           {rows.length + shown.length < max ? (
-            <form onSubmit={add} className="flex flex-col gap-1">
+            <form onSubmit={add} noValidate className="flex flex-col gap-1">
               <div className="flex items-center gap-2">
                 <Input
                   aria-label={`New ${noun}`}

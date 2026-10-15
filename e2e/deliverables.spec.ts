@@ -160,6 +160,13 @@ async function expectLayerFits(page: Page, layer: Locator): Promise<void> {
   );
 }
 
+/** The preview's summary tiles read this line ("6 deliverables · 3 groups · 36 stages"). */
+async function expectSummary(scope: Locator, line: string): Promise<void> {
+  const counts = scope.locator('[data-slot="preview-counts"]:visible');
+  await expect(counts).toHaveAttribute("aria-label", line);
+  await expect(counts.locator('[data-slot="preview-stat"]')).toHaveText(line.split(" · "));
+}
+
 /** Create in the New project dialog: a phone goes through its Preview step first. */
 async function createFromDialog(page: Page, dialog: Locator): Promise<void> {
   if ((page.viewportSize()?.width ?? 1280) < 768) {
@@ -213,20 +220,23 @@ test("New project: six deliverables × three preset groups, a drag, the preview,
     .toEqual(["A2", "A1", "A3", "B1", "B2", "C1"]);
 
   // The live preview counts what Create makes (beside the form, or on the phone's step).
-  if ((page.viewportSize()?.width ?? 1280) >= 768) {
-    await expect(dialog.locator('[data-slot="preview-counts"]:visible')).toHaveText(
-      "6 deliverables · 36 stages",
-    );
-  } else {
-    await dialog.getByRole("button", { name: "Preview", exact: true }).click();
-    await expect(dialog.locator('[data-slot="preview-counts"]:visible')).toHaveText(
-      "6 deliverables · 36 stages",
-    );
-    await dialog.getByRole("button", { name: "Back to edit" }).click();
-  }
+  const phone = (page.viewportSize()?.width ?? 1280) < 768;
+  if (phone) await dialog.getByRole("button", { name: "Preview", exact: true }).click();
+  await expectSummary(dialog, "6 deliverables · 3 groups · 36 stages");
+  if (phone) await dialog.getByRole("button", { name: "Back to edit" }).click();
   await createFromDialog(page, dialog);
-  await expect(page).toHaveURL(new RegExp(`/clients/${clientId}/projects/[0-9a-f-]{36}$`));
+  const projectPage = new RegExp(`/clients/${clientId}/projects/[0-9a-f-]{36}$`);
+  await expect(page).toHaveURL(projectPage);
   await hydrated(page);
+  if (phone) {
+    // Neither the Preview step's entry nor the dialog's is left under the new page: one back
+    // returns to the Projects tab.
+    const created = page.url();
+    await page.goBack();
+    await expect(page).toHaveURL(new RegExp(`/clients/${clientId}/projects$`));
+    await page.goto(created);
+    await hydrated(page);
+  }
 
   const projectId = await projectOf(clientId);
   const [first] = await serviceSelect<{ id: string }>(
@@ -518,6 +528,33 @@ test.describe("the new layers, installed (ARCHITECTURE §14.2)", () => {
     await page.goBack();
     await ask.getByRole("button", { name: "Discard changes" }).click();
     await expect(line).toBeHidden();
+    await expectBackStack(page, [{ closes: list, url: here }]);
+
+    // The Deliverables list takes "Name × N" (6b.16 (b)): Name 1 … Name N, one toast; the add
+    // adds no history entry, so one back closes the list.
+    await menu.click();
+    await page.getByRole("menuitem", { name: "Deliverables list" }).click();
+    await list.getByLabel("New deliverable").fill("Line");
+    await list.getByLabel("How many").fill("3");
+    await list.getByRole("button", { name: "Add", exact: true }).click();
+    for (const title of ["Line 1", "Line 2", "Line 3"]) {
+      await expect(list.getByLabel(`Name of ${title}`)).toBeVisible();
+    }
+    await expect(page.getByText(/^3 deliverables added from /)).toBeVisible();
+    await expect(list.locator('[data-slot="list-editor-row"][data-pending]')).toHaveCount(0);
+    expect(
+      (
+        await serviceSelect<{ title: string }>(
+          `project_item_blueprints?project_id=eq.${projectId}&archived_at=is.null&select=title&order=position`,
+        )
+      ).map((line) => line.title),
+    ).toEqual(["Item", "Line 1", "Line 2", "Line 3"]);
+    // Out of range is refused under the field, nothing sent.
+    await list.getByLabel("New deliverable").fill("Line");
+    await list.getByLabel("How many").fill("0");
+    await list.getByRole("button", { name: "Add", exact: true }).click();
+    await expect(list.getByText("Add between 1 and 100 at a time.")).toBeVisible();
+    await list.getByLabel("New deliverable").fill("");
     await expectBackStack(page, [{ closes: list, url: here }]);
 
     await removeClientFixture(client);
