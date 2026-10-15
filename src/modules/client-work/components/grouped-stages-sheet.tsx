@@ -272,7 +272,13 @@ export function GroupedStagesSheet({
                     onChange={(event) => setNaming(event.target.value)}
                     className="min-w-0 flex-1"
                   />
-                  <Button type="submit" variant="secondary" disabled={busy || !naming.trim()}>
+                  <Button
+                    type="submit"
+                    variant="secondary"
+                    pending={busy}
+                    pendingLabel="Naming…"
+                    disabled={!naming.trim()}
+                  >
                     Name it
                   </Button>
                 </form>
@@ -714,7 +720,9 @@ function AddStage({
         variant="ghost"
         size="icon"
         className="size-11"
-        disabled={busy || value.trim() === ""}
+        pending={busy}
+        pendingLabel="Adding…"
+        disabled={value.trim() === ""}
         aria-label={groupName === null ? "Add the stage" : `Add the stage to ${groupName}`}
       >
         <PlusIcon aria-hidden />
