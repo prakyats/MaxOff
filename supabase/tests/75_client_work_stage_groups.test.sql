@@ -7,7 +7,7 @@
 -- history), with nothing existing changed. Every name here is neutral: nothing is pre-defined.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(153);
+select plan(173);
 
 delete from public.item_reviews;
 delete from public.project_item_stage_list;
@@ -194,7 +194,7 @@ select is((select count(*)::integer from public.project_item_stage_list where gr
 select throws_ok($$ update public.project_stages set group_label = 'X' where project_id = pg_temp.fx('old_p') $$, '23514', null,
   'a label needs its order key and the other way round (the pair check)');
 select is((select count(*)::integer from information_schema.columns
-           where table_schema = 'public' and table_name in ('project_stages', 'project_item_stage_list', 'project_templates')
+           where table_schema = 'public' and table_name in ('project_stages', 'project_item_stage_list', 'project_item_blueprints', 'project_templates')
              and (column_name ~ '(amount|value|price|fee|billing|revenue)' or data_type in ('numeric', 'money'))),
   0, 'no amount on any of them (ADR-0007)');
 select pg_temp.as_member('admin');
@@ -206,6 +206,7 @@ select throws_ok($$ insert into public.stage_presets (name, stages) values ('Pre
 -- ===========================================================================================================
 -- 2. The group shape, checked (app.stage_groups_check / app.deliverables_check)
 -- ===========================================================================================================
+select pg_temp.as_system();
 select is(app.stage_groups_check('[{"label": " Phase B ", "stages": [" B1 "]}, {"label": null, "stages": ["U1"]}]'),
   '[{"label": null, "stages": ["U1"]}, {"label": "Phase B", "stages": ["B1"]}]'::jsonb,
   'groups come back trimmed, the untitled group first');
@@ -234,10 +235,11 @@ select throws_ok($$ select app.deliverables_check('[{"title": "  "}]') $$, 'P000
 select throws_ok($$ select app.deliverables_check((select jsonb_agg(jsonb_build_object('title', 'D' || g)) from generate_series(1, 101) g)) $$,
   'P0001', 'VALIDATION', 'at most 100 deliverables');
 select pg_temp.as_system();
-select is(app.stage_group_key_before('a0'), '9', 'a key before the first named group (internal)');
-select is(app.stage_group_key_before('a5'), '9', 'and before any other');
+select is(app.stage_group_key_before('a0'), '5', 'a key before the first named group (internal; the midpoint)');
+select is(app.stage_group_key_before('5'), '2', 'and before that one');
 select is(app.stage_group_key_before(null), 'a0', 'the first key when there is none');
-select ok(app.stage_group_key_before('0a') < '0a', 'always smaller');
+select ok(app.stage_group_key_before('0a') < '0a' and app.stage_group_key_before('1') < '1'
+          and app.stage_group_key_before('01') < '01', 'always smaller, never running out');
 
 -- ===========================================================================================================
 -- 3. project_create_grouped: defaults in groups, deliverables with their own groups, × N expanded by
@@ -342,6 +344,40 @@ select ok(public.project_blueprint_add(pg_temp.fx('p_g'), 'Item A 3') is not nul
 select is((select b.stage_groups from public.project_item_blueprints b where b.project_id = pg_temp.fx('p_g') and b.title = 'Item A 3'),
   '[{"label": "Phase E", "stages": ["E1", "E2"]}, {"label": "Phase A", "stages": ["Edit", "Review"]}, {"label": "Phase B", "stages": ["Edit", "Grade", "Loose"]}]'::jsonb,
   'starts with the defaults as they stand, in their groups');
+select ok(public.item_add((select cycle_id from public.project_items where id = pg_temp.item('Item A 1')), 'Item A added') is not null,
+  'a deliverable added to the current cycle (review M1)');
+select is(pg_temp.istages('Item A added'), 'Phase E·E1,Phase E·E2,Phase A·Edit,Phase A·Review,Phase B·Edit,Phase B·Grade,Phase B·Loose',
+  'starts with the defaults in their groups, the same name in two groups included');
+select is((select meta ->> 'name' from public.activity_log where entity = 'project_stages' and entity_id = pg_temp.fx('p_g')
+           and action = 'group_renamed' order by id desc limit 1), 'Edit',
+  'a default-stage group entry names its stage (review S3)');
+select is(public.project_stage_update(pg_temp.pstage(pg_temp.fx('p_g'), 'Loose', 'Phase B'), '{"group_label": null}'),
+  array['position', 'group_label'], 'a stage moved out of every group');
+select is((select meta ->> 'name' from public.activity_log where entity = 'project_stages' and entity_id = pg_temp.fx('p_g')
+           and action = 'update' order by id desc limit 1), 'Loose', 'named in the history');
+select throws_ok($$ select public.project_stage_group_update(pg_temp.fx('p_g'), null, '{"position": "z"}') $$, 'P0001', 'VALIDATION',
+  'the untitled group is not moved: it stays first');
+select is(public.project_stage_group_update(pg_temp.fx('p_g'), null, '{"label": "Phase L"}'), array['label'],
+  'the untitled default stages named');
+select is(public.project_stage_group_update(pg_temp.fx('p_g'), 'Phase L', '{"label": null}'), array['label'],
+  'and a named group made untitled again when none is');
+select lives_ok($$ select public.project_stage_group_archive(pg_temp.fx('p_g'), null) $$, 'the stages outside a group removed');
+select throws_ok($$ select public.project_stage_group_archive(pg_temp.fx('p_g'), null) $$, 'P0001', 'NOT_FOUND', 'none left');
+select pg_temp.as_member('owner');
+select lives_ok($$ select public.project_stage_group_add(pg_temp.fx('p_g'), 'Owner group', array['O1']) $$,
+  'the Owner adds a group on any client''s project');
+select is(public.project_stage_group_update(pg_temp.fx('p_g'), 'Owner group', '{"label": "Owner group 2"}'), array['label'], 'renames it');
+select lives_ok($$ select public.project_stage_group_archive(pg_temp.fx('p_g'), 'Owner group 2') $$, 'and removes it');
+select pg_temp.as_member('admin');
+
+-- A completed project (and its approved deliverable) takes no group change.
+select public.item_mark_done(pg_temp.item('Single'));
+select public.project_complete(pg_temp.fx('p_one'));
+select is(pg_temp.code($$ select public.project_stage_group_add(pg_temp.fx('p_one'), 'Late', array['X']) $$), 'INVALID_STATE',
+  'a completed project: INVALID_STATE (group add)');
+select is(pg_temp.code($$ select public.project_stage_add(pg_temp.fx('p_one'), 'X', 'Phase A') $$), 'INVALID_STATE', '(stage add)');
+select is(pg_temp.code($$ select public.item_stage_group_add(pg_temp.item('Single'), 'Late', array['X']) $$), 'INVALID_STATE',
+  'its approved deliverable too');
 
 -- ===========================================================================================================
 -- 5. A deliverable's own stages: the same, with every tick kept
@@ -432,6 +468,16 @@ insert into fx select 'prev_a1', i.id from public.project_items i join public.pr
 where i.project_id = pg_temp.fx('p_g') and i.title = 'Item A 1'
   and c.period_start = (app.period_start('monthly', app.today_ist()) - interval '1 month')::date;
 select is(pg_temp.gstages(pg_temp.fx('prev_a1')), 'Phase A·Edit,Phase B·Edit,Phase B·Post', 'a new cycle copies each line''s groups');
+select app.cycle_create((select p from public.projects p where p.id = pg_temp.fx('p_g')),
+  (app.period_start('monthly', app.today_ist()) - interval '2 month')::date, 'carry', null, false) is not null;
+select is(app.cycle_copy_item_list((select p from public.projects p where p.id = pg_temp.fx('p_g')),
+  (select c.id from public.project_cycles c where c.project_id = pg_temp.fx('p_g')
+     and c.period_start = (app.period_start('monthly', app.today_ist()) - interval '2 month')::date), null), 3,
+  'an item list copied into a cycle later (Q4 (a))');
+select is((select pg_temp.gstages(i.id) from public.project_items i join public.project_cycles c on c.id = i.cycle_id
+           where i.project_id = pg_temp.fx('p_g') and i.title = 'Item A 1'
+             and c.period_start = (app.period_start('monthly', app.today_ist()) - interval '2 month')::date),
+  'Phase A·Edit,Phase B·Edit,Phase B·Post', 'carries the groups too');
 select is(pg_temp.gstages(pg_temp.fx('i_a1')), 'Phase C·Cut,Phase C·Edit,Phase A+·Review,Phase B·Edit,Phase B·Grade,Phase Z·Stage 1,Phase Z·Stage 2,Phase Z·Stage 3,Phase Z·Stage 4,Phase Z·Stage 5,Phase Z·Stage 6,Phase Z·Stage 7,Phase Z·Stage 8,Phase Z·Stage 9,Phase Z·Stage 10,Phase Z·Stage 11,Phase Z·Stage 12,Phase Z·Stage 13,Phase Z·Stage 14,Phase Z·Stage 15,Phase Z·Stage 16,Phase Z·Stage 17,Phase Z·Stage 18,Phase Z·Stage 19,Phase Z·Stage 20,Phase Z·Stage 21,Phase Z·Stage 22,Phase Z·Stage 23,Phase Z·Stage 24,Phase Z·Stage 25,Phase Z·Stage 26,Phase Z·Stage 27,Phase Z·Stage 28,Phase Z·Stage 29,Phase Z·Stage 30,Phase Z·Stage 31,Phase Z·Stage 32,Phase Z·Stage 33,Phase Z·Stage 34,Phase Z·Stage 35,Phase Z·Stage 36,Phase Z·Stage 37,Phase Z·Stage 38,Phase Z·Stage 39,Phase Z·Stage 40,Phase Z·Stage 41,Phase Z·Stage 42,Phase Z·Stage 43,Phase Z·Stage 44,Phase Z·Stage 45,Phase Z·Stage 46,Phase Z·Stage 47,Phase Z·Stage 48,Phase Z·Stage 49,Phase Z·Stage 50,Phase Z·Stage 51,Phase Z·Stage 52,Phase Z·Stage 53,Phase Z·Stage 54,Phase Z·Stage 55,Phase Z·Stage 56,Phase Z·Stage 57,Phase Z·Stage 58,Phase Z·Stage 59,Phase Z·Stage 60,Phase Z·Stage 61,Phase Z·Stage 62,Phase Z·Stage 63,Phase Z·Stage 64,Phase Z·Stage 65,Phase Z·Stage 66,Phase Z·Stage 67,Phase Z·Stage 68,Phase Z·Stage 69,Phase Z·Stage 70,Phase Z·Stage 71,Phase Z·Stage 72,Phase Z·Stage 73,Phase Z·Stage 74,Phase Z·Stage 75,Phase Z·Stage 76,Phase Z·Stage 77,Phase Z·Stage 78,Phase Z·Stage 79,Phase Z·Stage 80,Phase Z·Stage 81,Phase Z·Stage 82,Phase Z·Stage 83,Phase Z·Stage 84,Phase Z·Stage 85,Phase Z·Stage 86,Phase Z·Stage 87,Phase Z·Stage 88,Phase Z·Stage 89,Phase Z·Stage 90,Phase Z·Stage 91,Phase Z·Stage 92,Phase Z·Stage 93,Phase Z·Stage 94,Phase Z·Stage 95',
   'the current cycle''s deliverable keeps its own stages (a line feeds later cycles only)');
 -- A carry forward takes the groups with the ticks (decision 12, amendment D2).
@@ -465,6 +511,12 @@ update public.project_templates set deliverables = '[{"title": "Item 1", "stage_
   stage_groups = '[{"label": null, "stages": ["Phase A1", "Phase A2"]}]' where id = pg_temp.fx('old_t');
 select is((select t.items || t.stages from public.project_templates t where t.id = pg_temp.fx('old_t')),
   array['Item 1', 'Phase A1', 'Phase A2'], 'saved in the new shape, the old columns follow it');
+update public.project_templates set stages = array['Phase A1', 'Phase A2', 'Phase A3'] where id = pg_temp.fx('old_t');
+select is((select t.stage_groups from public.project_templates t where t.id = pg_temp.fx('old_t')), null,
+  'an old-shape write of stages alone wins: the stored groups are cleared (review S2, a rollback)');
+update public.project_templates set items = array['Item 1', 'Item 9'] where id = pg_temp.fx('old_t');
+select is((select t.deliverables from public.project_templates t where t.id = pg_temp.fx('old_t')), null::jsonb,
+  'as are the deliverables when items alone change');
 
 -- ===========================================================================================================
 -- 8. The today-shape project gains groups: nothing existing changes

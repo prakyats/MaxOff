@@ -1241,6 +1241,7 @@ DeliverablesJson  = [{"title": text, "stage_groups": StageGroupsJson | null}, â€
 - `app.cycle_create` / `app.cycle_copy_item_list` copy each line's groups into its items; a carry copies the item's active stages with their groups and ticks.
 - Positions: the same fractional keys as today (`app.client_work_position`, `domain/positions.ts` `positionBetween`); a group's key is `group_position`, the same alphabet.
 - Limits raised to 100 in `app.client_work_stage_names`, `project_create`, `project_stage_add`, `item_stage_add` and every CHECK above.
+- **Review fixes (migration `client_work_stage_groups_fixes`, same day):** `item_add` gives a new deliverable the defaults in their groups; the project-side group functions and `project_stage_update` name the stage in `meta` (`stage_id`, `name`) as the item side does; the template guard lets an old-shape update (only `stages` / `items` changed) win and clears the stored `stage_groups` / `deliverables` (a Worker rollback to v1.6 keeps working); `app.stage_group_key_before` is the midpoint key, never running out; `app.stage_groups_of` is service_role only. `deliverablesFromJson(json, items)` reads an old template's items as `stageGroups: null` (they keep following the template's stages).
 
 ## 6. Staff tasks
 ```

@@ -52,7 +52,7 @@ export async function listProjectTemplates(): Promise<ProjectTemplate[]> {
       stages: row.stages,
       items: row.items,
       stageGroups,
-      deliverables: deliverablesFromJson(row.deliverables, row.items, stageGroups),
+      deliverables: deliverablesFromJson(row.deliverables, row.items),
       fieldDefaults: asObject(row.field_defaults),
       archived: row.archived_at !== null,
       createdBy: row.created_by,

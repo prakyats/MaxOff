@@ -32,15 +32,14 @@ describe("stage groups on existing data", () => {
     expect(flattenGroups(groups)).toEqual(["A", "B1", "B2"]);
   });
 
-  it("opens an old template's items with its shared stages on each", () => {
-    const shared = [{ label: null, stages: ["A", "B"] }];
-    expect(deliverablesFromJson(null, ["Item 1", "Item 2"], shared)).toEqual([
-      { title: "Item 1", stageGroups: shared },
-      { title: "Item 2", stageGroups: shared },
+  it("opens an old template's items following its shared stages (the defaults)", () => {
+    expect(deliverablesFromJson(null, ["Item 1", "Item 2"])).toEqual([
+      { title: "Item 1", stageGroups: null },
+      { title: "Item 2", stageGroups: null },
     ]);
-    expect(
-      deliverablesFromJson([{ title: "Item", stage_groups: null }], ["ignored"], shared),
-    ).toEqual([{ title: "Item", stageGroups: null }]);
+    expect(deliverablesFromJson([{ title: "Item", stage_groups: null }], ["ignored"])).toEqual([
+      { title: "Item", stageGroups: null },
+    ]);
   });
 
   it("orders rows: the untitled group first, then groups by their key, rows by position", () => {
