@@ -1439,10 +1439,23 @@ test("a project template from Settings → Templates starts a New project", asyn
   await hydrated(page);
   await page.getByRole("button", { name: "Add a project template" }).click();
   const dialog = page.getByRole("dialog", { name: "Add a project template" });
-  await dialog.getByLabel("Name").fill(name);
-  await dialog.getByLabel("Default stages", { exact: true }).fill("Script\nEdit");
-  await dialog.getByLabel("Item list").fill("Reel 1\nReel 2");
-  await dialog.getByRole("button", { name: "Add template" }).click();
+  await dialog.getByLabel("Name", { exact: true }).fill(name);
+  // The 6b builder: the default stages as one untitled group, then "Reel" × 2 using them.
+  const defaults = dialog.locator('[data-slot="template-default-groups"]');
+  await defaults.locator('[data-slot="add-group"]').click();
+  await defaults.getByPlaceholder("One stage per line").fill("Script\nEdit");
+  await defaults.getByRole("button", { name: "Add group" }).click();
+  const add = dialog.locator('[data-slot="add-deliverables"]');
+  await add.getByLabel("Deliverable name").fill("Reel");
+  await add.getByLabel("How many").fill("2");
+  await add.getByRole("button", { name: "Add", exact: true }).click();
+  if ((page.viewportSize()?.width ?? 0) < 768) {
+    await dialog.getByRole("button", { name: "Preview" }).click();
+    const preview = page.getByRole("dialog", { name: "Preview" });
+    await preview.getByRole("button", { name: "Add template" }).click();
+  } else {
+    await dialog.getByRole("button", { name: "Add template" }).click();
+  }
   await expect(page.locator('[data-slot="project-template"]', { hasText: name })).toBeVisible();
 
   await page.goto(`/clients/${clientId}/projects`);
