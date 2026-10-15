@@ -22,7 +22,7 @@ import { useReorder } from "@/core/ui/reorder/use-reorder";
 import { toastResult } from "@/core/ui/toast";
 
 import { moveTaskStage, removeTaskStage, tickStage } from "../actions/tasks";
-import { type ActingFor, stageMoveAs } from "../domain/task";
+import type { ActingFor } from "../domain/task";
 
 /** Loaded on the first tap of Add stage, not with the page (4B review S12). */
 const AddStageDialog = dynamic(
@@ -45,11 +45,12 @@ type StageChange =
  * (ARCHITECTURE §14.1): one request at a time, disabled offline like every commit, and a slow or
  * lost connection said under the list with Retry (the same tick again).
  *
- * Drag to reorder (6b.18, owner 2026-10-13 option A): everyone on the task moves its stages, on an
- * existing task too (`stageMoveAs`: whoever may edit it, or whoever may tick), with the 44 px
- * handle at the row's end (a long press on a phone) or Move up / Move down in the row's ⋯ menu.
- * The new order shows at once and holds until the saved one arrives; ticks stay as they are, and
- * the move is in the history (`task_stage_move`). Adding and removing stay with the editors.
+ * Drag to reorder (6b.18, owner 2026-10-15): only whoever may edit the task (`canManage`: the
+ * Owner, its creator, its approving Admin) moves its stages, on an existing task too, with the
+ * 44 px handle at the row's end (a long press on a phone) or Move up / Move down in the row's ⋯
+ * menu; Crew never see a handle or the menu, whether an assignee or the primary owner. The new
+ * order shows at once and holds until the saved one arrives; ticks stay as they are, and the move
+ * is in the history (`task_stage_move`). Adding and removing stay with the editors too.
  */
 export function TaskStages({
   taskId,
@@ -66,7 +67,6 @@ export function TaskStages({
 }) {
   const [busy, setBusy] = useState<string | null>(null);
   const online = useOnline();
-  const mover = stageMoveAs(canManage, tick);
   // A tick or a move shows at once and holds until the saved stages arrive with the action's
   // answer, so nothing flips back for a frame between the two (a refusal or a lost reply puts it
   // back).
@@ -86,11 +86,9 @@ export function TaskStages({
   });
   const moving = useAction(
     async (stageId: string, afterStageId: string | null, from: number, to: number) => {
-      if (!mover) return;
+      if (!canManage) return;
       showChange({ kind: "move", from, to });
-      toastResult(
-        await moveTaskStage({ taskId, stageId, afterStageId, onBehalfOf: mover.onBehalfOf }),
-      );
+      toastResult(await moveTaskStage({ taskId, stageId, afterStageId }));
     },
   );
   const pending = action.pending || moving.pending;
@@ -103,7 +101,7 @@ export function TaskStages({
       const next = moveItem(shown, from, to);
       moving.run(stage.id, to === 0 ? null : (next[to - 1]?.id ?? null), from, to);
     },
-    disabled: !mover || pending || !online,
+    disabled: !canManage || pending || !online,
   });
   const [adding, setAdding] = useState(false);
   // Mounted from the first Add stage on, so its typed name survives a back (4B review L6).
@@ -184,7 +182,7 @@ export function TaskStages({
                   ) : null}
                 </span>
               </label>
-              {mover && shown.length > 1 ? (
+              {canManage && shown.length > 1 ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
@@ -217,7 +215,7 @@ export function TaskStages({
                   <XIcon aria-hidden />
                 </Button>
               ) : null}
-              {mover ? <DragHandle reorder={reorder} index={index} /> : null}
+              {canManage ? <DragHandle reorder={reorder} index={index} /> : null}
             </ReorderItem>
           ))}
         </ReorderList>

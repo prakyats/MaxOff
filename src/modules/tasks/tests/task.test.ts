@@ -9,7 +9,6 @@ import {
   remindAgainAt,
   remindAgainLabel,
   routeLine,
-  stageMoveAs,
   stateLabel,
   statusLine,
   taskActions,
@@ -328,35 +327,36 @@ describe("tasks for the Owner (6b.2, owner 2026-10-07)", () => {
   });
 });
 
-describe("who moves a task's stages (6b.18, owner 2026-10-13 option A)", () => {
-  const moveAs = (state: TaskState, viewer: TaskViewer) => {
-    const actions = taskActions(task({ state }), TEAM, PEOPLE, viewer);
-    return stageMoveAs(actions.manage.stages, actions.tick);
-  };
+describe("who moves a task's stages (6b.18, owner 2026-10-15: whoever may edit it, never Crew)", () => {
+  const moves = (state: TaskState, viewer: TaskViewer) =>
+    taskActions(task({ state }), TEAM, PEOPLE, viewer).manage.stages;
 
-  it("lets everyone on the task move them while it is with its people", () => {
-    expect(moveAs("todo", MEERA)).toEqual({ onBehalfOf: null });
-    expect(moveAs("in_progress", RAVI)).toEqual({ onBehalfOf: "asha" });
-    expect(moveAs("changes_requested", MEERA)).toEqual({ onBehalfOf: null });
+  it("lets whoever may edit the task move them until it is finished: the Owner, the creator, the approving Admin", () => {
+    expect(moves("todo", ADMIN)).toBe(true);
+    expect(moves("submitted", ADMIN)).toBe(true);
+    expect(moves("admin_approved", OWNER)).toBe(true);
+    // An editor who also coordinates a freelancer on it moves as themselves, as the stages guard.
+    expect(moves("todo", { ...ADMIN, coordinates: ["asha"] })).toBe(true);
+    // The approving Admin who did not make the task.
+    expect(taskActions(task({ createdBy: "owner" }), TEAM, PEOPLE, ADMIN).manage.stages).toBe(true);
   });
 
-  it("lets whoever may edit the task move them as themselves until it is finished", () => {
-    expect(moveAs("todo", ADMIN)).toEqual({ onBehalfOf: null });
-    expect(moveAs("submitted", ADMIN)).toEqual({ onBehalfOf: null });
-    expect(moveAs("admin_approved", OWNER)).toEqual({ onBehalfOf: null });
-    // An editor who also coordinates a freelancer on it moves as themselves.
-    expect(moveAs("todo", { ...ADMIN, coordinates: ["asha"] })).toEqual({ onBehalfOf: null });
-  });
-
-  it("gives no handle to anyone else, or once the task is locked or finished", () => {
+  it("never gives Crew a handle: not an assignee, not the primary owner, not a coordinator", () => {
+    for (const state of ["todo", "in_progress", "changes_requested"] as TaskState[]) {
+      expect(moves(state, MEERA), state).toBe(false);
+      expect(moves(state, RAVI), state).toBe(false);
+      const asPrimary: TaskViewer = { id: "asha", role: "staff", coordinates: [] };
+      expect(moves(state, asPrimary), state).toBe(false);
+    }
     const stranger: TaskViewer = { id: "other", role: "staff", coordinates: [] };
-    expect(moveAs("todo", stranger)).toBeNull();
-    expect(moveAs("todo", { id: "other-admin", role: "admin", coordinates: [] })).toBeNull();
-    expect(moveAs("submitted", MEERA)).toBeNull();
-    expect(moveAs("admin_approved", RAVI)).toBeNull();
+    expect(moves("todo", stranger)).toBe(false);
+  });
+
+  it("gives no handle to an Admin outside the task's edit scope, or once the task is finished", () => {
+    expect(moves("todo", { id: "other-admin", role: "admin", coordinates: [] })).toBe(false);
     for (const state of ["completed", "cancelled"] as TaskState[]) {
-      expect(moveAs(state, OWNER), state).toBeNull();
-      expect(moveAs(state, MEERA), state).toBeNull();
+      expect(moves(state, OWNER), state).toBe(false);
+      expect(moves(state, ADMIN), state).toBe(false);
     }
   });
 });

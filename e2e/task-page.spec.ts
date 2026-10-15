@@ -893,39 +893,67 @@ async function dragStage(page: Page, from: Locator, onto: Locator, at: number): 
   await cdp.detach();
 }
 
-test.describe("drag to reorder a task's stages (6b.18, owner 2026-10-13 option A)", () => {
+/** A task made by the test Admin (so they are its creator, within its edit scope). */
+async function adminCreates(
+  info: TestInfo,
+  args: { title: string; assignees: string[]; primary: string; day: number; stages: string[] },
+): Promise<string> {
+  return rpcAs<string>(person("admin", info).email, PASSWORD, "task_create", {
+    title: args.title,
+    description: null,
+    task_type_id: await taskTypeId("Normal"),
+    client_id: null,
+    priority: "medium",
+    due_at: istInstant(workingDay(args.day), "18:00"),
+    assignee_ids: args.assignees,
+    primary_owner_id: args.primary,
+    approving_admin_id: null,
+    stages: args.stages,
+  });
+}
+
+test.describe("drag to reorder a task's stages (6b.18, owner 2026-10-15: the editors, never Crew)", () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test("an assignee drags a stage on an existing task: the tick stays, the order is saved, the history says so", async ({
+  test("the approving Admin drags a stage on an existing task: the tick stays, the order is saved, the history says so; the Crew on it get no handle", async ({
     page,
   }, info) => {
     const prefix = `Reorder ${info.project.name} `;
     await removeTasksTitled(prefix);
-    const helper = person("helper", info);
-    const [staffId, helperId] = await Promise.all([
+    const admin = person("admin", info);
+    const [staffId, helperId, adminId] = await Promise.all([
       memberIdOf(person("staff", info).email),
-      memberIdOf(helper.email),
+      memberIdOf(person("helper", info).email),
+      memberIdOf(admin.email),
     ]);
     const taskId = await ownerCreates({
       title: `${prefix}reel`,
       assignees: [staffId, helperId],
       primary: staffId,
       day: 42,
+      approver: adminId,
       stages: ["Stage 1", "Stage 2", "Stage 3", "Stage 4"],
     });
     await fixtureNotificationsRead(taskId);
-    // The helper is on the task, not its primary owner, and cannot edit it.
+    // The helper is on the task (Crew): they tick, and see no handle and no ⋯ menu.
     await as(page, "helper", info);
     await page.goto(`/tasks/${taskId}`);
     await hydrated(page);
     await live(page);
     await expect(page.getByRole("button", { name: "Add stage" })).toHaveCount(0);
-
     await page.getByRole("checkbox", { name: "Stage 1", exact: true }).click();
     await expect(stageRow(page, "Stage 1")).toHaveAttribute("data-done", "true");
     await receiptsSettled(page);
+    await expect(page.locator('[data-slot="task-stage"]')).toHaveCount(4);
+    await expect(page.locator('[data-slot="reorder-handle"]')).toHaveCount(0);
+    await expect(page.locator('[data-slot="task-stage-menu"]')).toHaveCount(0);
 
-    // A 44 px handle on every row.
+    // The approving Admin (within the task's edit scope) has a 44 px handle on every row.
+    await as(page, "admin", info);
+    await page.goto(`/tasks/${taskId}`);
+    await hydrated(page);
+    await live(page);
+    await expect(page.locator('[data-slot="reorder-handle"]')).toHaveCount(4);
     const handle = stageRow(page, "Stage 4").locator('[data-slot="reorder-handle"]');
     const box = await handle.boundingBox();
     expect(box, "the handle has a box").not.toBeNull();
@@ -963,17 +991,17 @@ test.describe("drag to reorder a task's stages (6b.18, owner 2026-10-13 option A
     await expect.poll(() => stageOrder(page)).toEqual(["Stage 1", "Stage 2", "Stage 4", "Stage 3"]);
     await receiptsSettled(page);
 
-    // The history: each move, by the helper, newest first.
+    // The history: each move, by the Admin, newest first.
     await tab(page, "activity").click();
     await expect(historyRows(page).first()).toContainText(
-      `${helper.name} moved the stage “Stage 4” to position 3 of 4`,
+      `${admin.name} moved the stage “Stage 4” to position 3 of 4`,
     );
     await expect(historyRows(page).nth(1)).toContainText(
-      `${helper.name} moved the stage “Stage 4” to position 2 of 4`,
+      `${admin.name} moved the stage “Stage 4” to position 2 of 4`,
     );
   });
 
-  test("no handle once the task is with its reviewers; the database refuses a Crew member not on the task", async ({
+  test("Crew never reorder: the database refuses an assignee, the primary owner and a Crew member not on the task; the Owner keeps the handle while the task is with its reviewers", async ({
     page,
   }, info) => {
     test.skip(info.project.name === "mobile-lg", "the flows run at 375px and desktop");
@@ -1002,42 +1030,62 @@ test.describe("drag to reorder a task's stages (6b.18, owner 2026-10-13 option A
     await rpcAs(staff.email, PASSWORD, "task_submit_done", { task_id: handedIn });
     await fixtureNotificationsRead(handedIn);
 
-    await as(page, "helper", info);
+    const stagesOf = (taskId: string) =>
+      serviceSelect<{ id: string }>(`task_stages?task_id=eq.${taskId}&select=id&order=position`);
+    const [first] = await stagesOf(notTheirs);
+    const refusedAssignee = await rpcRefusedAs(helper.email, PASSWORD, "task_stage_move", {
+      task_id: handedIn,
+      stage_id: (await stagesOf(handedIn))[1]!.id,
+    });
+    expect(refusedAssignee.message).toBe("FORBIDDEN");
+    const refusedPrimary = await rpcRefusedAs(staff.email, PASSWORD, "task_stage_move", {
+      task_id: notTheirs,
+      stage_id: first!.id,
+      after_stage_id: (await stagesOf(notTheirs))[1]!.id,
+    });
+    expect(refusedPrimary.message).toBe("FORBIDDEN");
+    const refusedStranger = await rpcRefusedAs(helper.email, PASSWORD, "task_stage_move", {
+      task_id: notTheirs,
+      stage_id: first!.id,
+    });
+    expect(refusedStranger.message).toBe("NOT_FOUND");
+    for (const taskId of [handedIn, notTheirs]) {
+      const unchanged = await serviceSelect<{ name: string }>(
+        `task_stages?task_id=eq.${taskId}&select=name&order=position`,
+      );
+      expect(unchanged.map((stage) => stage.name)).toEqual(["Stage 1", "Stage 2"]);
+    }
+
+    // The primary owner (Crew) sees the checklist with no handle and no ⋯ menu, before and after
+    // handing in.
+    await as(page, "staff", info);
+    for (const taskId of [notTheirs, handedIn]) {
+      await page.goto(`/tasks/${taskId}`);
+      await hydrated(page);
+      await live(page);
+      await expect(page.locator('[data-slot="task-stage"]')).toHaveCount(2);
+      await expect(page.locator('[data-slot="reorder-handle"]')).toHaveCount(0);
+      await expect(page.locator('[data-slot="task-stage-menu"]')).toHaveCount(0);
+    }
+
+    // The Owner (the creator here) still has the handle and the menu while it is with the reviewers.
+    await page.context().clearCookies();
+    await signIn(page, USERS.owner.email, USERS.owner.password);
     await page.goto(`/tasks/${handedIn}`);
     await hydrated(page);
     await live(page);
-    await expect(page.locator('[data-slot="task-stage"]')).toHaveCount(2);
-    await expect(page.locator('[data-slot="reorder-handle"]')).toHaveCount(0);
-    await expect(page.locator('[data-slot="task-stage-menu"]')).toHaveCount(0);
-
-    const stagesOf = (taskId: string) =>
-      serviceSelect<{ id: string }>(`task_stages?task_id=eq.${taskId}&select=id&order=position`);
-    const [locked] = await stagesOf(handedIn);
-    const refusedLocked = await rpcRefusedAs(helper.email, PASSWORD, "task_stage_move", {
-      task_id: handedIn,
-      stage_id: locked!.id,
-    });
-    expect(refusedLocked.message).toBe("INVALID_STATE");
-    const [, second] = await stagesOf(notTheirs);
-    const refused = await rpcRefusedAs(helper.email, PASSWORD, "task_stage_move", {
-      task_id: notTheirs,
-      stage_id: second!.id,
-    });
-    expect(refused.message).toBe("NOT_FOUND");
-    const unchanged = await serviceSelect<{ name: string }>(
-      `task_stages?task_id=eq.${notTheirs}&select=name&order=position`,
-    );
-    expect(unchanged.map((stage) => stage.name)).toEqual(["Stage 1", "Stage 2"]);
+    await expect(page.locator('[data-slot="reorder-handle"]')).toHaveCount(2);
+    await expect(page.locator('[data-slot="task-stage-menu"]')).toHaveCount(2);
   });
 
-  test("installed on a phone: back closes a stage's ⋯ menu, and the task stays", async ({
+  test("installed on a phone: back closes a stage's ⋯ menu for the Admin who made the task, and the task stays", async ({
     page,
   }, info) => {
     test.skip(!phone(page), "the installed back gesture is a phone's");
     const prefix = `Reorder back ${info.project.name} `;
     await removeTasksTitled(prefix);
     const staffId = await memberIdOf(person("staff", info).email);
-    const taskId = await ownerCreates({
+    const taskId = await adminCreates(info, {
       title: `${prefix}promo`,
       assignees: [staffId],
       primary: staffId,
@@ -1046,8 +1094,8 @@ test.describe("drag to reorder a task's stages (6b.18, owner 2026-10-13 option A
     });
     await fixtureNotificationsRead(taskId);
     await runInstalled(page);
-    await as(page, "staff", info);
-    await page.goto("/my-day");
+    await as(page, "admin", info);
+    await page.goto("/today");
     await page.locator('[data-slot="bottom-nav"] [data-nav="tasks"]').click();
     await expect(page).toHaveURL(/\/tasks$/);
     await page.locator(`[data-slot="task-row"][data-task="${taskId}"] a`).click();
@@ -1062,6 +1110,6 @@ test.describe("drag to reorder a task's stages (6b.18, owner 2026-10-13 option A
     await expect(menu.getByRole("menuitem", { name: "Move down" })).toBeDisabled();
     await expectBackStack(page, [{ closes: menu, url }]);
     await expect.poll(() => stageOrder(page)).toEqual(["Stage 1", "Stage 2"]);
-    await expectBackStack(page, [{ url: /\/tasks$/ }, { url: /\/my-day$/ }]);
+    await expectBackStack(page, [{ url: /\/tasks$/ }, { url: /\/today$/ }]);
   });
 });

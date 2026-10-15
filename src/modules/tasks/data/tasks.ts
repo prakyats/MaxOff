@@ -789,22 +789,20 @@ export async function removeStage(taskId: string, stageId: string): Promise<void
 }
 
 /**
- * A stage moved to just after `afterStageId` (null: to the top) through `task_stage_move` (6b.18):
- * everyone on the task, or whoever may edit it; the database decides, keeps every tick and writes
- * the history entry.
+ * A stage moved to just after `afterStageId` (null: to the top) through `task_stage_move` (6b.18,
+ * owner 2026-10-15): whoever may edit the task, never Crew; the database decides, keeps every tick
+ * and writes the history entry.
  */
 export async function rpcMoveStage(input: {
   taskId: string;
   stageId: string;
   afterStageId: string | null;
-  onBehalfOf: string | null;
 }): Promise<void> {
   const supabase = await createServerSupabase();
   const { error } = await supabase.rpc("task_stage_move", {
     task_id: input.taskId,
     stage_id: input.stageId,
     ...(input.afterStageId ? { after_stage_id: input.afterStageId } : {}),
-    ...(input.onBehalfOf ? { on_behalf_of: input.onBehalfOf } : {}),
   });
   if (error) throw error;
 }

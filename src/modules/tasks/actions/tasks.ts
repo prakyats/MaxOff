@@ -224,12 +224,13 @@ export const removeTaskStage = action(async (input: RemoveStageInput): Promise<R
 });
 
 /**
- * Drag to reorder (6b.18, owner 2026-10-13 option A): everyone on the task moves its stages, and
- * whoever may edit it; `task_stage_move` decides who, when, and keeps the ticks.
+ * Drag to reorder (6b.18, owner 2026-10-15): only whoever may edit the task moves its stages (the
+ * Owner, its creator, its approving Admin), never Crew; `task_stage_move` decides who, when, and
+ * keeps the ticks.
  */
 export const moveTaskStage = action(async (input: MoveStageInput): Promise<Result<null>> => {
   const data = moveStageSchema.parse(input);
-  await assertPermission("tasks.work");
+  await assertPermission("tasks.create");
   await repo.rpcMoveStage(data);
   revalidatePath(taskPath(data.taskId));
   return ok(null);

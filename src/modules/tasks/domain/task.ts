@@ -308,6 +308,8 @@ export function taskActions(
       edit: isManager && !final,
       cancel: isManager && !final,
       reopen: isManager && final,
+      // Add, remove and reorder (6b.18, owner 2026-10-15: the stages are moved only by whoever may
+      // edit the task; Crew never, an assignee or the primary owner included).
       stages: isManager && !final,
     },
     changeApprover: viewer.role === "owner" && !final,
@@ -315,16 +317,6 @@ export function taskActions(
     remind: isManager && !locked && active.some((a) => a.memberId !== viewer.id),
     commentFor: coordinated.map((a) => a.memberId),
   };
-}
-
-/**
- * Who moves the task's stages, and as whom (6b.18, owner 2026-10-13 option A; WORKFLOWS §3.1):
- * whoever may edit the task, as themselves, until it is completed or cancelled; otherwise whoever
- * may tick (an assignee, or a freelancer's coordinator for them) while it is with its people. Null:
- * no drag handle and no Move up / Move down. `task_stage_move` decides it again.
- */
-export function stageMoveAs(canManage: boolean, tick: ActingFor | null): ActingFor | null {
-  return canManage ? { onBehalfOf: null } : tick;
 }
 
 /** "Ravi for Asha" when someone acted for a freelancer; else the actor's name. */

@@ -1314,10 +1314,12 @@ task_stages          id, task_id, name, position, done_at, done_by, on_behalf_of
                      -- app.task_stages_guard() enforces it. Audited (entity_id = task_id)
                      -- 4B review (S5): the guard stamps done_at = now() on a tick, whatever the caller
                      -- sent (a non-null done_at only says "tick"), so a tick's time is never forged
-                     -- 6b.18 (v1.7.1, owner 2026-10-13 option A): REORDER also through
-                     -- task_stage_move(task_id, stage_id, after_stage_id, on_behalf_of) by every
-                     -- active assignee (a freelancer's coordinator for them) while todo / in_progress
-                     -- / changes_requested, and by a task manager until completed / cancelled. Only
+                     -- 6b.18 (v1.7.1; owner 2026-10-15, replacing 13 Oct's option A): REORDER also
+                     -- through task_stage_move(task_id, stage_id, after_stage_id, on_behalf_of), only
+                     -- by a task manager holding tasks.create (the Owner, the creator, the approving
+                     -- Admin) until completed / cancelled; Crew never (an assignee or the primary
+                     -- owner included), and a non-null on_behalf_of is refused (migration
+                     -- task_stage_move_managers redefines the function; the parameter stays). Only
                      -- `position` changes (a key between the new neighbours; a renumber of the task's
                      -- positions when old keys leave no room); ticks untouched. Activity: entity
                      -- task_stages, entity_id = task_id, action stage_moved, meta {stage_id, name,

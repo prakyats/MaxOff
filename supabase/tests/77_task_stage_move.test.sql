@@ -1,13 +1,14 @@
--- 6b.18 (v1.7.1; owner 2026-10-13 option A, staff tasks only per the owner's correction of
--- 2026-10-15): task_stage_move(). Everyone on the task reorders its stages: an assignee, the primary
--- owner, a freelancer's coordinator for them, the creator (an Admin who may edit) and the Owner;
--- a Crew member or an Admin not on it is refused. Reorder only: an assignee still cannot add,
--- rename, remove or write a position directly. Ticks are kept, one history entry per move, nobody
--- is notified; the locks are the existing ones; old rows with equal keys are renumbered; a task
--- nobody moved keeps every row. Neutral names only.
+-- 6b.18 (v1.7.1; owner decision 2026-10-15, replacing 13 Oct's option A): task_stage_move().
+-- Only whoever may edit a staff task reorders its stages: the Owner, the task's creator and its
+-- approving Admin (app.task_manager holding tasks.create), as themselves; Crew NEVER (an assignee,
+-- the primary owner or a freelancer's coordinator for them are all refused); an Admin outside the
+-- task's edit scope is refused too. Reorder only: an assignee still cannot add, rename, remove or
+-- write a position directly. Ticks are kept, one history entry per move, nobody is notified; the
+-- editors' lock is the existing one (until completed or cancelled); old rows with equal keys are
+-- renumbered; a task nobody moved keeps every row. Neutral names only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(54);
+select plan(58);
 
 delete from public.item_reviews;
 delete from public.project_item_stage_list;
@@ -158,11 +159,19 @@ select pg_temp.as_member('owner');
 insert into fx values ('free', public.member_add_freelancer('Free', null, '9811111177', pg_temp.fx('coord')));
 select pg_temp.as_system();
 
--- Tasks made the way they are today. T: admin1's, staff1 primary, staff2 and the freelancer on it.
--- Other: a task nobody moves anything on (its rows are compared at the end).
+-- Tasks made the way they are today. T: admin1's (the creator), staff1 primary, staff2 and the
+-- freelancer on it. APP: the Owner's, admin2 its approving Admin, staff1 on it. Other: a task
+-- nobody moves anything on (its rows are compared at the end).
 select pg_temp.mk('t', 'admin1', array['staff1', 'staff2', 'free'],
                   array['Stage 1', 'Stage 2', 'Stage 3', 'Stage 4', 'Stage 5']);
 select pg_temp.mk('other', 'admin1', array['staff2'], array['Stage 1', 'Stage 2']);
+select pg_temp.as_member('owner');
+insert into fx values ('app', public.task_create(
+  title => 'App', description => null, task_type_id => pg_temp.fx('normal'), client_id => null,
+  priority => 'medium', due_at => now() + interval '3 days', assignee_ids => array[pg_temp.fx('staff1')],
+  primary_owner_id => pg_temp.fx('staff1'), approving_admin_id => pg_temp.fx('admin2'),
+  stages => array['Stage A', 'Stage B', 'Stage C']));
+select pg_temp.as_system();
 create temporary table snap (k text primary key, v text);
 insert into snap values ('other', pg_temp.rows_of('other'));
 grant select on snap to authenticated;
@@ -180,10 +189,33 @@ select pg_temp.as_system();
 insert into snap values ('ticks', pg_temp.ticks_of('t'));
 insert into snap select 'pos:' || s.name, s.position from public.task_stages s where s.task_id = pg_temp.fx('t');
 insert into snap values ('notes', (select count(*)::text from public.notifications));
+insert into snap values ('t-rows', pg_temp.rows_of('t'));
 
--- 1. An assignee (not the primary owner) -------------------------------------------------------------------
+-- 1. Crew never (owner 2026-10-15) ----------------------------------------------------------------------------
 select pg_temp.as_member('staff2');
-select lives_ok($$ select pg_temp.move('t', 'Stage 5', null) $$, 'an assignee moves Stage 5 to the top');
+select throws_ok($$ select pg_temp.move('t', 'Stage 5', null) $$, 'P0001', 'FORBIDDEN',
+  'an assignee (Crew) is refused');
+select pg_temp.as_member('staff1');
+select throws_ok($$ select pg_temp.move('t', 'Stage 5', null) $$, 'P0001', 'FORBIDDEN',
+  'the primary owner (Crew) is refused');
+select pg_temp.as_member('coord');
+select throws_ok($$ select pg_temp.move('t', 'Stage 5', null, 'free') $$, 'P0001', 'FORBIDDEN',
+  'a freelancer''s coordinator is refused, for them');
+select throws_ok($$ select pg_temp.move('t', 'Stage 5', null) $$, 'P0001', 'FORBIDDEN',
+  'and as themselves (they see the task as the coordinator, and are Crew)');
+select pg_temp.as_member('staff3');
+select throws_ok(format($$ select public.task_stage_move(%L, %L) $$, pg_temp.fx('t'), pg_temp.stage('t', 'Stage 4')),
+  'P0001', 'NOT_FOUND', 'a Crew member not on the task: it does not exist for them');
+select pg_temp.as_member('admin2');
+select throws_ok(format($$ select public.task_stage_move(%L, %L) $$, pg_temp.fx('t'), pg_temp.stage('t', 'Stage 4')),
+  'P0001', 'NOT_FOUND', 'an Admin not on it, who did not make it, is refused the same way');
+select pg_temp.as_system();
+select is(pg_temp.rows_of('t'), (select v from snap where k = 't-rows'), 'nothing moved: every row of the task as it was');
+select is(pg_temp.moves('t'), 0::bigint, 'and no history entry');
+
+-- 2. The creator -----------------------------------------------------------------------------------------
+select pg_temp.as_member('admin1');
+select lives_ok($$ select pg_temp.move('t', 'Stage 5', null) $$, 'the creator moves Stage 5 to the top');
 select pg_temp.as_system();
 select is(pg_temp.order_of('t'), 'Stage 5,Stage 1,Stage 2,Stage 3,Stage 4', 'the new order');
 select is((select count(*) from public.task_stages s join snap on snap.k = 'pos:' || s.name
@@ -192,50 +224,40 @@ select is((select count(*) from public.task_stages s join snap on snap.k = 'pos:
 select is(pg_temp.ticks_of('t'), (select v from snap where k = 'ticks'), 'every tick, name and author is kept');
 select is((select row(l.actor_id, l.on_behalf_of_id, l.meta ->> 'name', l.meta ->> 'from', l.meta ->> 'to', l.meta ->> 'of')::text
            from public.activity_log l where l.entity = 'task_stages' and l.entity_id = pg_temp.fx('t') and l.action = 'stage_moved'),
-  row(pg_temp.fx('staff2'), null::uuid, 'Stage 5', '5', '1', '5')::text,
-  'one history entry: stage_moved by the assignee, Stage 5 from 5 to 1 of 5');
+  row(pg_temp.fx('admin1'), null::uuid, 'Stage 5', '5', '1', '5')::text,
+  'one history entry: stage_moved by the creator, Stage 5 from 5 to 1 of 5');
 select is((select count(*) from public.activity_log l where l.entity = 'task_stages' and l.entity_id = pg_temp.fx('t')
              and l.action = 'update' and l.diff -> 'new' ? 'position'), 0::bigint, 'and no second, plain update entry');
 select is((select count(*)::text from public.notifications), (select v from snap where k = 'notes'), 'nobody is notified');
 
--- 2. The primary owner moves the ticked stage ----------------------------------------------------------------
-select pg_temp.as_member('staff1');
-select lives_ok($$ select pg_temp.move('t', 'Stage 2', 'Stage 4') $$, 'the primary owner moves Stage 2 (ticked) to the end');
+-- 3. The Owner moves the ticked stage ---------------------------------------------------------------------------
+select pg_temp.as_member('owner');
+select lives_ok($$ select pg_temp.move('t', 'Stage 2', 'Stage 4') $$, 'the Owner moves Stage 2 (ticked) to the end');
+select throws_ok($$ select pg_temp.move('t', 'Stage 3', 'Stage 5', 'free') $$, 'P0001', 'FORBIDDEN',
+  'but never for someone else: on_behalf_of is refused, the Owner''s too');
 select pg_temp.as_system();
 select is(pg_temp.order_of('t'), 'Stage 5,Stage 1,Stage 3,Stage 4,Stage 2', 'after Stage 4');
 select is(pg_temp.ticks_of('t'), (select v from snap where k = 'ticks'), 'the moved stage keeps its tick (time and author)');
 select isnt((select done_at from public.task_stages where id = pg_temp.stage('t', 'Stage 2')), null, 'still ticked');
-
--- 3. A freelancer's coordinator, for them ----------------------------------------------------------------------
-select pg_temp.as_member('coord');
-select lives_ok($$ select pg_temp.move('t', 'Stage 3', 'Stage 5', 'free') $$, 'the coordinator moves a stage for their freelancer');
-select throws_ok($$ select pg_temp.move('t', 'Stage 3', null) $$, 'P0001', 'FORBIDDEN',
-  'but not as themselves (they are not on the task)');
-select pg_temp.as_system();
-select is(pg_temp.order_of('t'), 'Stage 5,Stage 3,Stage 1,Stage 4,Stage 2', 'the coordinator''s move');
 select is((select row(l.actor_id, l.on_behalf_of_id)::text from public.activity_log l
-           where l.entity = 'task_stages' and l.entity_id = pg_temp.fx('t') and l.action = 'stage_moved' and l.meta ->> 'name' = 'Stage 3'),
-  row(pg_temp.fx('coord'), pg_temp.fx('free'))::text, 'recorded as the pair: the coordinator for the freelancer');
-select pg_temp.as_member('staff2');
-select throws_ok(format($$ select public.task_stage_move(%L, %L, null, %L) $$, pg_temp.fx('t'), pg_temp.stage('t', 'Stage 1'), pg_temp.fx('free')),
-  'P0001', 'FORBIDDEN', 'an assignee who does not coordinate the freelancer cannot act for them');
+           where l.entity = 'task_stages' and l.entity_id = pg_temp.fx('t') and l.action = 'stage_moved' and l.meta ->> 'name' = 'Stage 2'),
+  row(pg_temp.fx('owner'), null::uuid)::text, 'recorded as the Owner, for nobody');
 
--- 4. Whoever may edit the task -------------------------------------------------------------------------------
-select pg_temp.as_member('admin1');
-select lives_ok($$ select pg_temp.move('t', 'Stage 1', null) $$, 'the creator (an Admin who may edit) moves a stage');
-select pg_temp.as_member('owner');
-select lives_ok($$ select pg_temp.move('t', 'Stage 1', 'Stage 3') $$, 'the Owner moves a stage');
-select pg_temp.as_system();
-select is(pg_temp.order_of('t'), 'Stage 5,Stage 3,Stage 1,Stage 4,Stage 2', 'both moves landed');
-
--- 5. Refused ----------------------------------------------------------------------------------------------
-select pg_temp.as_member('staff3');
-select throws_ok(format($$ select public.task_stage_move(%L, %L) $$, pg_temp.fx('t'), pg_temp.stage('t', 'Stage 4')),
-  'P0001', 'NOT_FOUND', 'a Crew member not on the task is refused: it does not exist for them');
+-- 4. The approving Admin (within the task's edit scope) ------------------------------------------------------------
 select pg_temp.as_member('admin2');
-select throws_ok(format($$ select public.task_stage_move(%L, %L) $$, pg_temp.fx('t'), pg_temp.stage('t', 'Stage 4')),
-  'P0001', 'NOT_FOUND', 'an Admin not on it, who did not make it, is refused the same way');
-select pg_temp.as_member('staff2');
+select lives_ok($$ select pg_temp.move('app', 'Stage C', null) $$, 'the approving Admin moves a stage on the task they approve');
+select pg_temp.as_member('admin1');
+select throws_ok(format($$ select public.task_stage_move(%L, %L) $$, pg_temp.fx('app'), pg_temp.stage('app', 'Stage A')),
+  'P0001', 'NOT_FOUND', 'an Admin outside that task''s edit scope is refused');
+select pg_temp.as_member('staff1');
+select throws_ok($$ select pg_temp.move('app', 'Stage A', null) $$, 'P0001', 'FORBIDDEN',
+  'its primary owner (Crew) is refused there too');
+select pg_temp.as_system();
+select is(pg_temp.order_of('app'), 'Stage C,Stage A,Stage B', 'the approving Admin''s move landed');
+select is(pg_temp.moves('app'), 1::bigint, 'one history entry on that task');
+
+-- 5. Validation ----------------------------------------------------------------------------------------------
+select pg_temp.as_member('admin1');
 select throws_ok(format($$ select public.task_stage_move(%L, %L, %L) $$, pg_temp.fx('t'), pg_temp.stage('t', 'Stage 4'), pg_temp.stage('t', 'Stage 4')),
   'P0001', 'VALIDATION', 'a stage never moves after itself');
 select throws_ok(format($$ select public.task_stage_move(%L, %L) $$, pg_temp.fx('t'), pg_temp.stage('other', 'Stage 1')),
@@ -244,8 +266,8 @@ select throws_ok(format($$ select public.task_stage_move(%L, %L, %L) $$, pg_temp
   'P0001', 'NOT_FOUND', 'nor is a neighbour from another task');
 select pg_temp.as_system();
 insert into snap values ('moves', pg_temp.moves('t')::text);
-select pg_temp.as_member('staff2');
-select lives_ok($$ select pg_temp.move('t', 'Stage 3', 'Stage 5') $$, 'a move to where it already is');
+select pg_temp.as_member('admin1');
+select lives_ok($$ select pg_temp.move('t', 'Stage 3', 'Stage 1') $$, 'a move to where it already is');
 select pg_temp.as_system();
 select is(pg_temp.moves('t')::text, (select v from snap where k = 'moves'), 'changes nothing and records nothing');
 
@@ -256,7 +278,7 @@ select throws_ok(format($$ insert into public.task_stages (task_id, name, positi
 select throws_ok(format($$ update public.task_stages set name = 'Renamed' where id = %L $$, pg_temp.stage('t', 'Stage 4')),
   'P0001', 'FORBIDDEN', 'nor rename one');
 select throws_ok(format($$ update public.task_stages set position = 'a' where id = %L $$, pg_temp.stage('t', 'Stage 4')),
-  'P0001', 'FORBIDDEN', 'nor write a position directly (the move goes through task_stage_move)');
+  'P0001', 'FORBIDDEN', 'nor write a position directly');
 select throws_ok(format($$ delete from public.task_stages where id = %L $$, pg_temp.stage('t', 'Stage 4')),
   'P0001', 'FORBIDDEN', 'nor remove one');
 select pg_temp.as_member('admin1');
@@ -268,31 +290,28 @@ select pg_temp.as_member('staff3');
 select is(pg_temp.rows(format($$ update public.task_stages set position = 'a' where task_id = %L $$, pg_temp.fx('t'))), 0::bigint,
   'a Crew member not on the task touches no stage directly either');
 select pg_temp.as_system();
-select is(pg_temp.order_of('t'), 'Stage 5,Stage 3,Stage 1,Stage 4,Stage 2', 'the order is as the moves left it');
+select is(pg_temp.order_of('t'), 'Stage 5,Stage 1,Stage 3,Stage 4,Stage 2', 'the order is as the moves left it');
 
--- 7. The locks are the existing ones --------------------------------------------------------------------------
+-- 7. The lock is the editors' existing one -----------------------------------------------------------------------
 select pg_temp.as_member('staff1');
 select lives_ok(format($$ select public.task_submit_done(%L, 'Done') $$, pg_temp.fx('t')), 'the primary owner marks Done');
 select pg_temp.as_system();
 select is((select state from public.tasks where id = pg_temp.fx('t')), 'submitted'::public.task_state, 'with the approving Admin');
-select pg_temp.as_member('staff2');
-select throws_ok($$ select pg_temp.move('t', 'Stage 2', null) $$, 'P0001', 'INVALID_STATE',
-  'from submitted the people on the task no longer move stages (as ticks)');
-select pg_temp.as_member('coord');
-select throws_ok($$ select pg_temp.move('t', 'Stage 2', null, 'free') $$, 'P0001', 'INVALID_STATE',
-  'nor does the coordinator');
 select pg_temp.as_member('admin1');
-select lives_ok($$ select pg_temp.move('t', 'Stage 2', null) $$, 'whoever may edit the task still does (as the guard)');
+select lives_ok($$ select pg_temp.move('t', 'Stage 2', null) $$, 'the creator still moves a stage while it is with the reviewers');
 select lives_ok(format($$ select public.task_review(%L, 'rejected', 'Again') $$, pg_temp.fx('t')),
   'the Admin asks for changes');
 select pg_temp.as_member('staff2');
-select lives_ok($$ select pg_temp.move('t', 'Stage 2', 'Stage 4') $$, 'with changes requested the assignee moves again');
+select throws_ok($$ select pg_temp.move('t', 'Stage 2', 'Stage 4') $$, 'P0001', 'FORBIDDEN',
+  'with changes requested the assignee (Crew) is still refused');
+select pg_temp.as_member('owner');
+select lives_ok($$ select pg_temp.move('t', 'Stage 2', 'Stage 4') $$, 'the Owner moves it instead');
 select pg_temp.as_member('admin1');
 select lives_ok(format($$ select public.task_cancel(%L, 'Not needed') $$, pg_temp.fx('t')), 'the creator cancels the task');
 select throws_ok($$ select pg_temp.move('t', 'Stage 2', null) $$, 'P0001', 'INVALID_STATE',
-  'a cancelled task''s stages stay where they are, for the editor too');
-select pg_temp.as_member('staff1');
-select throws_ok($$ select pg_temp.move('t', 'Stage 2', null) $$, 'P0001', 'INVALID_STATE', 'and for the people on it');
+  'a cancelled task''s stages stay where they are, for the creator');
+select pg_temp.as_member('owner');
+select throws_ok($$ select pg_temp.move('t', 'Stage 2', null) $$, 'P0001', 'INVALID_STATE', 'and for the Owner');
 select pg_temp.as_system();
 select is(pg_temp.ticks_of('t'), (select v from snap where k = 'ticks'), 'after every move, every tick is as it was');
 
@@ -303,7 +322,7 @@ update public.task_stages set done_at = now() - interval '1 day', done_by = pg_t
 where id = pg_temp.stage('dup', 'Stage A');
 insert into snap values ('dup', pg_temp.ticks_of('dup'));
 insert into snap values ('dup-order', pg_temp.order_of('dup'));
-select pg_temp.as_member('staff2');
+select pg_temp.as_member('admin1');
 select lives_ok(format($$ select public.task_stage_move(%L, %L, %L) $$, pg_temp.fx('dup'),
     pg_temp.stage('dup', split_part((select v from snap where k = 'dup-order'), ',', 1)),
     pg_temp.stage('dup', split_part((select v from snap where k = 'dup-order'), ',', 2))),
