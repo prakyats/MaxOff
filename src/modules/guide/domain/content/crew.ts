@@ -16,11 +16,7 @@ export const CREW_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: 'On a phone, the bar at the bottom has five tabs: My Day, Tasks, Calendar, Leave and Me. On a laptop, the same places sit in the sidebar, and Leave is called "Attendance & leave". The sidebar also has "Extra work & expenses".',
-            },
-            {
-              kind: "text",
-              text: 'On a phone, "Extra work & expenses" is a row on Me. It says "Note extra work and claim what you spent."',
+              text: 'On a phone, the bar at the bottom has five tabs. On a laptop, the same places sit in the sidebar, and Leave is called "Attendance & leave".',
             },
             {
               kind: "steps",
@@ -32,6 +28,10 @@ export const CREW_GUIDE: Guide = {
                 "Me: your profile, notifications and help.",
               ],
             },
+            {
+              kind: "note",
+              text: '"Extra work & expenses" is in the laptop sidebar. On a phone it is a row on Me: "Note extra work and claim what you spent."',
+            },
           ],
           link: { href: "/my-day", label: "Open My Day" },
           keywords: ["menu", "tabs", "navigation", "home", "sidebar", "where is"],
@@ -42,8 +42,15 @@ export const CREW_GUIDE: Guide = {
           summary: "The bell opens the Alerts screen.",
           blocks: [
             {
-              kind: "text",
-              text: 'The bell shows when something needs your eye. On a phone it sits in the title bar of each page. On a laptop it is in the top bar, with a count of unread alerts. Tap it to open "Alerts".',
+              kind: "steps",
+              steps: [
+                "Look for the bell. On a phone it sits in the title bar of each page. On a laptop it is in the top bar.",
+                'Tap the bell to open "Alerts".',
+              ],
+            },
+            {
+              kind: "note",
+              text: "On a laptop the bell shows a count of unread alerts.",
             },
           ],
           link: { href: "/notifications", label: "Open Alerts" },
@@ -61,12 +68,24 @@ export const CREW_GUIDE: Guide = {
           summary: "Your day at the top, then only what needs you.",
           blocks: [
             {
-              kind: "text",
-              text: 'The line at the top shows where your day stands, such as "Not started", with one button for the next step. Tap the words to open your attendance. Below it, tasks are grouped by what needs you: "Not noted", "Changes requested", "Overdue" and "Due today". If nothing is waiting it says "Nothing needs you today."',
+              kind: "steps",
+              steps: [
+                {
+                  text: 'Open My Day. The line at the top shows where your day stands, such as "Not started" (highlighted).',
+                  shot: "staff/my-day",
+                },
+                "Tap the words in that line to open your attendance.",
+                'Read the groups below it: "Not noted", "Changes requested", "Overdue" and "Due today".',
+                '"N more in the next 7 days" opens Tasks. "Events" lists your own events for today and tomorrow.',
+              ],
             },
             {
-              kind: "text",
-              text: '"N more in the next 7 days" opens Tasks. "Events" lists your own events for today and tomorrow, and one quiet line shows the next holiday or your own approved leave. "Suggest a task" is at the bottom.',
+              kind: "next",
+              text: 'If nothing is waiting, it says "Nothing needs you today."',
+            },
+            {
+              kind: "note",
+              text: 'One quiet line shows the next holiday or your own approved leave. "Suggest a task" is at the bottom.',
             },
           ],
           link: { href: "/my-day", label: "Open My Day" },
@@ -75,23 +94,26 @@ export const CREW_GUIDE: Guide = {
         {
           id: "start-day",
           title: "Start your day",
-          summary: "Tap Start day: the start time is the moment you tap.",
+          summary: "Record that you are working. The start time is the moment you tap.",
           blocks: [
-            {
-              kind: "text",
-              text: "Starting the day records that you are working. There is no confirmation. The start time is the moment you tap, so tap it when you actually begin.",
-            },
             {
               kind: "steps",
               steps: [
                 "Open My Day.",
-                'Tap "Start day" in the line at the top.',
+                {
+                  text: 'Tap "Start day" (highlighted) in the line at the top.',
+                  shot: "staff/start-day",
+                },
                 'Wait for "Your day has started".',
               ],
             },
             {
+              kind: "next",
+              text: "Your attendance shows you as working. When you finish, tap End day.",
+            },
+            {
               kind: "note",
-              text: "On a half day, Start day and End day still work. If your day is already started on another device, MaxOff tells you and refreshes.",
+              text: "There is no confirmation, so tap it when you actually begin. If your day is already started on another device, MaxOff tells you and refreshes. On a half day, Start day and End day still work.",
             },
           ],
           link: { href: "/my-day", label: "Open My Day" },
@@ -104,7 +126,7 @@ export const CREW_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: 'On a working day, when you open the app and have not started, MaxOff asks "Started working?". If you choose "Just looking", it comes back when you next open the app, but not more than once every 30 minutes. It does not appear on a day off, on approved leave, or on your joining day.',
+              text: 'On a working day, when you open the app and have not started, MaxOff asks "Started working?". It does not appear on a day off, on approved leave, or on your joining day.',
             },
             {
               kind: "steps",
@@ -112,8 +134,12 @@ export const CREW_GUIDE: Guide = {
                 'Tap "Start day" if you are working.',
                 'Or tap "On leave today? Choose leave".',
                 "Pick Leave (the whole day off) or Half day, and add a reason if you like.",
-                'Tap "Record leave". You see "Sent to the Owner".',
+                'Tap "Record leave".',
               ],
+            },
+            {
+              kind: "next",
+              text: 'You see "Sent to the Owner". If you choose "Just looking", the prompt comes back when you next open the app, but not more than once every 30 minutes.',
             },
             {
               kind: "note",
@@ -125,19 +151,18 @@ export const CREW_GUIDE: Guide = {
         {
           id: "end-day",
           title: "End your day",
-          summary: "Tap End day when you finish. It is final for the day.",
+          summary: "Record that you have finished. It is final for the day.",
           blocks: [
-            {
-              kind: "text",
-              text: '"End your day?" asks you to confirm. The end time is now, and it is final for today: there is no resume. You can keep using MaxOff afterwards.',
-            },
             {
               kind: "steps",
               steps: [
-                'Tap "End day" on My Day.',
+                'Open My Day and tap "End day". "End your day?" asks you to confirm.',
                 'Answer "Any expenses to claim today?". Choose Yes to add them next.',
                 'If you worked late, tap "Worked late? Add an overtime note" and say roughly how long and what you did.',
-                'Tap "End day". You see "Your day has ended".',
+                {
+                  text: 'Tap "End day" (highlighted).',
+                  shot: "staff/end-day",
+                },
               ],
             },
             {
@@ -145,8 +170,12 @@ export const CREW_GUIDE: Guide = {
               text: 'You finish at 7:15 PM after a long edit. Tap End day, choose Yes for expenses, add the claim, then tap "Done".',
             },
             {
+              kind: "next",
+              text: 'You see "Your day has ended". You can keep using MaxOff afterwards.',
+            },
+            {
               kind: "note",
-              text: 'If you choose Yes for expenses, the button reads "End day, add expenses" and the claim form opens. The overtime option is hidden when that day already has an overtime note.',
+              text: 'The end time is now, and it is final for today: there is no resume. If you choose Yes for expenses, the button reads "End day, add expenses" and the claim form opens.',
             },
           ],
           link: { href: "/my-day", label: "Open My Day" },
@@ -159,20 +188,24 @@ export const CREW_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "At 8:30 PM MaxOff reminds you: \"You haven't ended your day.\" If you are still working, carry on. If you forget completely, you can end yesterday's day the next morning, but only before the cutoff (05:00 unless the Owner changed it) and before you start today.",
+              text: "At 8:30 PM MaxOff reminds you: \"You haven't ended your day.\" If you forget completely, you can end yesterday's day the next morning.",
             },
             {
               kind: "steps",
               steps: [
                 'Open My Day. The line reads "Yesterday not ended".',
                 'Tap "End day".',
-                "Read \"End yesterday's day?\". The end time recorded is now, on yesterday's day, and it is final.",
+                "Read \"End yesterday's day?\". The end time recorded is now, on yesterday's day.",
                 "Confirm.",
               ],
             },
             {
+              kind: "next",
+              text: "Yesterday is closed, and the end time is final.",
+            },
+            {
               kind: "note",
-              text: 'After the cutoff, the day stays "End of day not recorded". No end time is made up. Put the late work in an overtime note instead. The Owner can see which days were not ended.',
+              text: 'You can do this only before the cutoff (05:00 unless the Owner changed it) and before you start today. After that, the day stays "End of day not recorded" and no end time is made up. Put the late work in an overtime note instead. The Owner can see which days were not ended.',
             },
           ],
           link: { href: "/my-day", label: "Open My Day" },
@@ -185,15 +218,19 @@ export const CREW_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: 'On a day off, the button on My Day reads "I worked today". On a day of leave, it reads "I\'m working today". Either one goes to the Owner, who decides. Your leave request stays as it is.',
+              text: 'On a day off, the button on My Day reads "I worked today". On a day of leave, it reads "I\'m working today".',
             },
             {
               kind: "steps",
               steps: [
                 "Open My Day.",
                 'Tap "I worked today" or "I\'m working today".',
-                'Read the message and confirm. You see "Sent to the Owner".',
+                "Read the message and confirm.",
               ],
+            },
+            {
+              kind: "next",
+              text: 'You see "Sent to the Owner", who decides. Your leave request stays as it is.',
             },
             {
               kind: "note",
@@ -212,24 +249,32 @@ export const CREW_GUIDE: Guide = {
         {
           id: "request-leave",
           title: "Request leave",
-          summary: "A full day or a half day. The Owner decides.",
+          summary: "Ask for a full day or a half day off. The Owner decides.",
           blocks: [
-            {
-              kind: "text",
-              text: 'Open Leave and tap "Request leave". The Owner approves or declines it, and you can withdraw it while it waits.',
-            },
             {
               kind: "steps",
               steps: [
-                'Choose the "Kind of leave": Leave or Half day.',
+                "Open Leave.",
+                {
+                  text: 'Tap "Request leave". Choose the "Kind of leave" (highlighted): Leave or Half day.',
+                  shot: "staff/request-leave",
+                },
                 'Pick the "First day" and "Last day". A half day has a single "Date".',
                 "Add a reason if you like. It is optional.",
-                'Tap "Request leave". You see "Leave requested".',
+                'Tap "Request leave".',
               ],
             },
             {
               kind: "example",
               text: "Two days off from Monday 9 Nov to Tuesday 10 Nov: Kind of leave = Leave, First day = 9 Nov, Last day = 10 Nov.",
+            },
+            {
+              kind: "next",
+              text: 'You see "Leave requested". The Owner approves or declines it.',
+            },
+            {
+              kind: "note",
+              text: "You can withdraw a request while it waits.",
             },
           ],
           link: { href: "/leave", label: "Open Leave" },
@@ -238,20 +283,24 @@ export const CREW_GUIDE: Guide = {
         {
           id: "comp-leave",
           title: "Use comp leave",
-          summary: "Only shown when you have a credit to spend.",
+          summary: "Spend a comp leave credit. Only shown when you have one.",
           blocks: [
             {
               kind: "text",
-              text: 'When the Owner has granted you comp leave, "Request leave" also offers "Comp leave (1 day)" and "Comp leave, half day (½)". The hint tells you how much you have and the date to use it by. Under your requests you will see "Comp leave: N · use by …".',
+              text: 'When the Owner has granted you comp leave, "Request leave" also offers "Comp leave (1 day)" and "Comp leave, half day (½)". The hint tells you how much you have and the date to use it by.',
             },
             {
               kind: "steps",
               steps: [
-                'Tap "Request leave".',
+                'Open Leave and tap "Request leave".',
                 "Choose a comp leave kind. If you do not have credit, these are not shown.",
                 "Pick a working day before the use-by date.",
                 'Tap "Request leave".',
               ],
+            },
+            {
+              kind: "next",
+              text: 'The Owner decides. Under your requests you see "Comp leave: N · use by …".',
             },
             {
               kind: "note",
@@ -267,8 +316,18 @@ export const CREW_GUIDE: Guide = {
           summary: "What you can do depends on the request's status.",
           blocks: [
             {
-              kind: "text",
-              text: 'While a request is "Waiting", you can "Withdraw" it. Once it is approved and has not ended, you can change it ("Change this leave") or ask to cancel. Both go to the Owner, and you see "Change sent to the Owner" or "Cancellation sent to the Owner".',
+              kind: "steps",
+              steps: [
+                {
+                  text: 'Open Leave and find the request. While it is "Waiting", tap "Withdraw" (highlighted).',
+                  shot: "staff/leave-list",
+                },
+                'Once it is approved and has not ended, tap "Change this leave" or ask to cancel.',
+              ],
+            },
+            {
+              kind: "next",
+              text: 'A change or cancellation goes to the Owner. You see "Change sent to the Owner" or "Cancellation sent to the Owner".',
             },
             {
               kind: "note",
@@ -295,7 +354,7 @@ export const CREW_GUIDE: Guide = {
               ],
             },
             {
-              kind: "text",
+              kind: "note",
               text: '"Set by the Owner" marks leave the Owner created for you.',
             },
           ],
@@ -305,19 +364,26 @@ export const CREW_GUIDE: Guide = {
         {
           id: "attendance-tab",
           title: "Check your attendance",
-          summary: "A month at a time. Only the Owner corrects a day.",
+          summary: "See your days a month at a time. Only the Owner corrects a day.",
           blocks: [
             {
-              kind: "text",
-              text: 'The "Attendance" tab shows one month per page, with "Previous month" and "Next month". Each row has the date, how it was recorded, the start and end times, and notes. Open a day to read the Owner\'s reason and its history.',
+              kind: "steps",
+              steps: [
+                {
+                  text: 'Open Leave and tap the "Attendance" tab (highlighted).',
+                  shot: "staff/attendance-tab",
+                },
+                'Use "Previous month" and "Next month" to move. Each row has the date, how it was recorded, the start and end times, and notes.',
+                "Open a day to read the Owner's reason and its history.",
+              ],
             },
             {
-              kind: "text",
-              text: "If a day looks wrong, ask the Owner. Only the Owner corrects a day, and the original always stays beside the correction.",
+              kind: "next",
+              text: "If a day looks wrong, ask the Owner. The original always stays beside the correction.",
             },
             {
               kind: "note",
-              text: 'In the last 7 days, each row has "Add overtime note", or "I worked that day" on a day off.',
+              text: 'Only the Owner corrects a day. In the last 7 days, each row has "Add overtime note", or "I worked that day" on a day off.',
             },
           ],
           link: { href: "/leave/attendance", label: "Open Attendance" },
@@ -332,11 +398,26 @@ export const CREW_GUIDE: Guide = {
         {
           id: "my-tasks",
           title: "Find your tasks",
-          summary: "My tasks groups the work given to you by what needs you.",
+          summary: "See the work given to you, grouped by what needs you.",
           blocks: [
             {
-              kind: "text",
-              text: '"My tasks" is grouped as "Not noted", "Changes requested", "Due today", "Upcoming" and "Overdue". At the bottom are "N tasks with the reviewers", "All my tasks" and "Your suggestions". An empty list says "Nothing on your list". You do not create tasks yourself; you can suggest one.',
+              kind: "steps",
+              steps: [
+                {
+                  text: 'Open Tasks. "My tasks" starts with "Not noted" (highlighted), then "Changes requested", "Due today", "Upcoming" and "Overdue".',
+                  shot: "staff/my-tasks",
+                },
+                'At the bottom are "N tasks with the reviewers", "All my tasks" and "Your suggestions".',
+                "Tap a task to open it.",
+              ],
+            },
+            {
+              kind: "next",
+              text: 'An empty list says "Nothing on your list".',
+            },
+            {
+              kind: "note",
+              text: "You do not create tasks yourself; you can suggest one.",
             },
           ],
           link: { href: "/tasks", label: "Open Tasks" },
@@ -348,12 +429,16 @@ export const CREW_GUIDE: Guide = {
           summary: "The top line says what is needed from you.",
           blocks: [
             {
-              kind: "text",
-              text: 'The top of a task shows its status, priority and due time, such as "Due today 6:00 PM · in 3 h", in red when overdue. Under it, one sentence says what is needed from you. There is one next-step button at a time; on a phone it sits in a bar at the bottom.',
+              kind: "steps",
+              steps: [
+                'Open a task. The top shows its status, priority and due time, such as "Due today 6:00 PM · in 3 h", in red when overdue.',
+                "Read the sentence under it. It says what is needed from you.",
+                'Switch between "Work" (the brief, "Stages" and the hand-in), "Chat", "Activity" and "Details" (who is on it and about the task).',
+              ],
             },
             {
-              kind: "text",
-              text: 'Switch between "Work" (the brief, "Stages" and the hand-in), "Chat", "Activity" and "Details" (who is on it and about the task).',
+              kind: "note",
+              text: "There is one next-step button at a time. On a phone it sits in a bar at the bottom.",
             },
           ],
           link: { href: "/tasks", label: "Open Tasks" },
@@ -362,20 +447,23 @@ export const CREW_GUIDE: Guide = {
         {
           id: "task-noted",
           title: "Note a task, then start work",
-          summary: 'Every assignee taps "Task Noted" to say they have seen it.',
+          summary: 'Say you have seen a task with "Task Noted", then begin.',
           blocks: [
-            {
-              kind: "text",
-              text: 'Everyone on a task taps "Task Noted" to say they have seen it. The person who is the primary owner then starts the work. People on the task show as "Noted" or "Not noted".',
-            },
             {
               kind: "steps",
               steps: [
                 'Open the task. It says "Tap Task Noted to say you\'ve seen it."',
-                'Tap "Task Noted". You see "Noted".',
-                'When you begin, tap "Start work".',
+                {
+                  text: 'Tap "Task Noted" (highlighted).',
+                  shot: "staff/task-noted",
+                },
+                'When you begin, tap "Start work". Only the primary owner starts the work.',
                 "Tick the stages as you finish them.",
               ],
+            },
+            {
+              kind: "next",
+              text: 'You see "Noted". People on the task show as "Noted" or "Not noted".',
             },
             {
               kind: "note",
@@ -391,12 +479,22 @@ export const CREW_GUIDE: Guide = {
           summary: "Tick stages as you finish them. You never reorder them.",
           blocks: [
             {
-              kind: "text",
-              text: "While the task is with you, you tick its stages as they are done. The count shows \"N of M done\" and each tick shows who made it. You cannot add, remove or reorder a task's stages. A task's stages may be reordered only by the Owner, its creator or its approving Admin.",
+              kind: "steps",
+              steps: [
+                {
+                  text: "Open the task while it is with you. Find the Stages list (highlighted).",
+                  shot: "staff/task-stages",
+                },
+                "Tick each stage as it is done.",
+              ],
+            },
+            {
+              kind: "next",
+              text: 'The count shows "N of M done" and each tick shows who made it.',
             },
             {
               kind: "note",
-              text: 'Stages are locked once the task is handed in: "Locked while it\'s with the reviewers. Chat stays open." If stages look wrong, tell the person who made the task in the chat.',
+              text: "You cannot add, remove or reorder a task's stages. A task's stages may be reordered only by the Owner, its creator or its approving Admin. Stages are locked once the task is handed in: \"Locked while it's with the reviewers. Chat stays open.\" If stages look wrong, tell the person who made the task in the chat.",
             },
           ],
           link: { href: "/tasks", label: "Open Tasks" },
@@ -405,24 +503,31 @@ export const CREW_GUIDE: Guide = {
         {
           id: "mark-done",
           title: "Hand in your work with Mark done",
-          summary: "Only the primary owner marks a task done.",
+          summary: "Send your finished work for review. Only the primary owner does this.",
           blocks: [
-            {
-              kind: "text",
-              text: "Only the primary owner marks a task done. Other assignees note it, tick stages and comment. Marking done sends it for review, and the task is locked until then; comments stay open. If you are a coordinator for a freelancer, you hand in for them.",
-            },
             {
               kind: "steps",
               steps: [
-                'Tap "Mark done".',
-                "Add a note if you like, such as a link to the work (a Drive folder, for example).",
+                'Open the task and tap "Mark done".',
+                {
+                  text: "Add a note (highlighted) if you like, such as a link to the work (a Drive folder, for example).",
+                  shot: "staff/mark-done",
+                },
                 'If the task is overdue, answer "Why is it late?". It is required.',
-                'Send it. Your hand-in appears in the "Hand-in" section.',
+                "Send it.",
               ],
             },
             {
               kind: "example",
               text: 'Reel 1 edit is due at 6:00 PM and you finish at 6:40 PM. In the hand-in, link the folder and answer "Why is it late?" with the reason.',
+            },
+            {
+              kind: "next",
+              text: 'Your hand-in appears in the "Hand-in" section and the task goes for review. It is locked until then; comments stay open.',
+            },
+            {
+              kind: "note",
+              text: "Other assignees note the task, tick stages and comment, but do not mark it done. If you are a coordinator for a freelancer, you hand in for them.",
             },
           ],
           link: { href: "/tasks", label: "Open Tasks" },
@@ -435,15 +540,19 @@ export const CREW_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: 'If a reviewer wants changes, the task comes back to you as "Changes requested". A box on the task says who asked for changes and why. Stages open up again.',
+              text: 'If a reviewer wants changes, the task comes back to you as "Changes requested". Stages open up again.',
             },
             {
               kind: "steps",
               steps: [
-                "Open the task and read the box.",
+                "Open the task and read the box. It says who asked for changes and why.",
                 "Make the changes. Ask in the chat if something is unclear.",
-                'Tap "Mark done again". Your new hand-in is added to the earlier ones.',
+                'Tap "Mark done again".',
               ],
+            },
+            {
+              kind: "next",
+              text: "Your new hand-in is added to the earlier ones and goes for review again.",
             },
           ],
           link: { href: "/tasks", label: "Open Tasks" },
@@ -452,11 +561,23 @@ export const CREW_GUIDE: Guide = {
         {
           id: "task-chat",
           title: "Chat on a task",
-          summary: "Write a comment on the task. Chat stays open when locked.",
+          summary: "Ask a question or share a link on the task.",
           blocks: [
             {
-              kind: "text",
-              text: 'Use "Chat" on the task to ask a question or share a link. On a phone it opens as a sheet, and the tab shows "Chat · N new" when there is something unread. Tap "Write a comment" to reply. Chat stays open even while the task is with the reviewers.',
+              kind: "steps",
+              steps: [
+                'Open the task and tap "Chat". On a phone it opens as a sheet.',
+                'Tap "Write a comment" and type your message.',
+                "Send it.",
+              ],
+            },
+            {
+              kind: "next",
+              text: 'People on the task see your comment. The tab shows "Chat · N new" when something is unread.',
+            },
+            {
+              kind: "note",
+              text: "Chat stays open even while the task is with the reviewers.",
             },
           ],
           link: { href: "/tasks", label: "Open Tasks" },
@@ -469,15 +590,23 @@ export const CREW_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: 'If you coordinate a freelancer, their tasks appear on your list marked "For ‹their name›" or "You, and for ‹their name›". The buttons say, for example, "Noted for ‹their name›", "Start work for ‹their name›" and "Mark done for ‹their name›". At the bottom of Me, "Your freelancers" lists them with a phone link each.',
+              text: 'If you coordinate a freelancer, their tasks appear on your list marked "For ‹their name›" or "You, and for ‹their name›".',
             },
             {
-              kind: "text",
-              text: 'In the chat, "Writing as" lets you choose yourself or the freelancer.',
+              kind: "steps",
+              steps: [
+                "Open the task from your list.",
+                'Tap the button with their name, such as "Noted for ‹their name›", "Start work for ‹their name›" or "Mark done for ‹their name›".',
+                'In the chat, use "Writing as" to choose yourself or the freelancer.',
+              ],
             },
             {
               kind: "example",
               text: 'A freelancer you coordinate finishes Shoot prep and sends you the link. You open the task and tap "Mark done for ‹their name›".',
+            },
+            {
+              kind: "note",
+              text: 'At the bottom of Me, "Your freelancers" lists them with a phone link each.',
             },
           ],
           link: { href: "/me", label: "Open Me" },
@@ -490,20 +619,27 @@ export const CREW_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "You cannot create tasks, but you can suggest one. The Owner or an Admin makes it a task, or says why not. The button is on My tasks, on My Day and on a day in the Calendar.",
+              text: "You cannot create tasks, but you can suggest one. The button is on My tasks, on My Day and on a day in the Calendar.",
             },
             {
               kind: "steps",
               steps: [
                 'Tap "Suggest a task".',
-                'Write "What needs doing".',
+                {
+                  text: 'Write "What needs doing" (highlighted).',
+                  shot: "staff/suggest-task",
+                },
                 'Add "Details (optional)" if it helps.',
-                'Tap "Send suggestion". You see "Suggestion sent".',
+                'Tap "Send suggestion".',
               ],
             },
             {
-              kind: "text",
-              text: '"Your suggestions" opens the "Suggested tasks" page. It has "Waiting" and "Decided". The words are Waiting, Became a task, Declined and Withdrawn. You can withdraw your own suggestion while it waits.',
+              kind: "next",
+              text: 'You see "Suggestion sent". The Owner or an Admin makes it a task, or says why not. "Your suggestions" opens the "Suggested tasks" page, with "Waiting" and "Decided".',
+            },
+            {
+              kind: "note",
+              text: "The words are Waiting, Became a task, Declined and Withdrawn. You can withdraw your own suggestion while it waits.",
             },
           ],
           link: { href: "/tasks/requests", label: "Open Suggested tasks" },
@@ -521,12 +657,20 @@ export const CREW_GUIDE: Guide = {
           summary: "Your events, due dates, leave and holidays.",
           blocks: [
             {
-              kind: "text",
-              text: 'You see your own event tasks and your freelancers\' tasks, due tasks as "Due · N", your own leave (a request still waiting is marked "· requested"), holidays and weekly offs. You do not see anyone else\'s leave. The only filter is "Type".',
+              kind: "steps",
+              steps: [
+                {
+                  text: "Open Calendar. Today is highlighted.",
+                  shot: "staff/calendar",
+                },
+                'Read it: your own event tasks and your freelancers\' tasks, due tasks as "Due · N", your own leave, holidays and weekly offs.',
+                'Use the "Type" filter to show fewer things.',
+                'Open a day and tap "Suggest a task". The day is filled in for you.',
+              ],
             },
             {
-              kind: "text",
-              text: 'On a day, tap "Suggest a task" and the day is filled in for you.',
+              kind: "note",
+              text: 'You do not see anyone else\'s leave. Your own request still waiting is marked "· requested".',
             },
           ],
           link: { href: "/calendar", label: "Open Calendar" },
@@ -539,11 +683,20 @@ export const CREW_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: 'On a phone there is one calendar in three sizes: a week strip, a compact month and a full month. Swipe, or tap the handle, to change size. The day you choose shows a timeline. The header has "Today" and "Filters".',
+              text: "On a phone there is one calendar in three sizes: a week strip, a compact month and a full month.",
             },
             {
-              kind: "text",
-              text: 'On a laptop, choose "Day", "Week" or "Month". It opens on Month. The day popup has "Open day". Shortcuts: arrow keys to move, T for today, D, W and M for the view. An empty day says "Nothing on this day."',
+              kind: "steps",
+              steps: [
+                "On a phone, swipe, or tap the handle, to change size.",
+                'The day you choose shows a timeline. The header has "Today" and "Filters".',
+                'On a laptop, choose "Day", "Week" or "Month". It opens on Month.',
+                'The day popup has "Open day".',
+              ],
+            },
+            {
+              kind: "note",
+              text: 'Laptop shortcuts: arrow keys to move, T for today, D, W and M for the view. An empty day says "Nothing on this day."',
             },
           ],
           link: { href: "/calendar", label: "Open Calendar" },
@@ -561,21 +714,28 @@ export const CREW_GUIDE: Guide = {
           summary: "Tell the Owner. The Owner decides if it earns comp leave.",
           blocks: [
             {
-              kind: "text",
-              text: 'If you worked late, or on a day off, add a note. The Owner decides whether it earns comp leave. Nothing is automatic. You see the outcome on the "Extra work" tab: "Waiting for the Owner", "N comp leave granted · use by …" or "Reviewed by the Owner". A comp leave card at the top shows what you have to use.',
-            },
-            {
               kind: "steps",
               steps: [
                 'Open Extra work & expenses and tap "Add note".',
                 'Pick the "Day" (one of the last 7).',
-                'Say roughly how long (optional) and "What you worked on".',
-                'Send it. You see "Note sent to the Owner".',
+                {
+                  text: 'Say roughly how long (optional) and "What you worked on" (highlighted).',
+                  shot: "staff/extra-work-note",
+                },
+                "Send it.",
               ],
             },
             {
               kind: "example",
               text: 'Yesterday you stayed until 9:30 PM on Reel 1 edit. Choose yesterday, write "About 2 hours" and "Reel 1 edit".',
+            },
+            {
+              kind: "next",
+              text: 'You see "Note sent to the Owner". The outcome shows on the "Extra work" tab: "Waiting for the Owner", "N comp leave granted · use by …" or "Reviewed by the Owner". A comp leave card at the top shows what you have to use.',
+            },
+            {
+              kind: "note",
+              text: "Nothing is automatic. The Owner decides whether a note earns comp leave.",
             },
           ],
           link: { href: "/leave/extra-work", label: "Open Extra work" },
@@ -592,25 +752,28 @@ export const CREW_GUIDE: Guide = {
         {
           id: "add-expense",
           title: "Claim an expense",
-          summary: "Add the amount and what it was for; a receipt for big amounts.",
+          summary: "Claim what you spent for work. The Owner pays it with your salary.",
           blocks: [
-            {
-              kind: "text",
-              text: "Claim what you spent for work. The Owner approves it and pays it with your salary. You can withdraw it while it waits. You can also add claims when you end your day.",
-            },
             {
               kind: "steps",
               steps: [
                 'Open the "Expenses" tab and tap "Add expense".',
                 'Enter "Amount (₹)", "Category" and "Date".',
                 'Write "What was it for?".',
-                "Add a receipt photo, if one is needed.",
+                {
+                  text: "Add a receipt photo (highlighted), if one is needed.",
+                  shot: "staff/add-expense",
+                },
                 'Tap "Add claim".',
               ],
             },
             {
+              kind: "next",
+              text: "The Owner approves it and pays it with your salary. You can withdraw it while it waits.",
+            },
+            {
               kind: "note",
-              text: "A receipt photo is needed when the amount is above the Owner's limit, which is ₹500 unless the Owner changed it. At exactly ₹500, none is needed. The date must be this month, or last month until the 5th.",
+              text: "A receipt photo is needed when the amount is above the Owner's limit, which is ₹500 unless the Owner changed it. At exactly ₹500, none is needed. The date must be this month, or last month until the 5th. You can also add claims when you end your day.",
             },
           ],
           link: { href: "/leave/expenses", label: "Open Expenses" },
@@ -640,7 +803,7 @@ export const CREW_GUIDE: Guide = {
               ],
             },
             {
-              kind: "text",
+              kind: "note",
               text: "Only you and the Owner can see your claims. Nobody else does, and a receipt is shown only to you and the Owner.",
             },
           ],
@@ -659,8 +822,19 @@ export const CREW_GUIDE: Guide = {
           summary: "Each alert is a tap away from what it is about.",
           blocks: [
             {
-              kind: "text",
-              text: '"Alerts" lists your notifications. Tap one to go straight to the task, leave or claim it is about. Switch between "All" and "Unread", and tap "Mark all read" to clear the count. When there is nothing, it says "Nothing yet" or "You\'re all caught up".',
+              kind: "steps",
+              steps: [
+                'Open "Alerts" from the bell.',
+                "Tap an alert to go straight to the task, leave or claim it is about.",
+                {
+                  text: 'Switch between "All" and "Unread", and tap "Mark all read" (highlighted) to clear the count.',
+                  shot: "staff/alerts",
+                },
+              ],
+            },
+            {
+              kind: "next",
+              text: 'When there is nothing, it says "Nothing yet" or "You\'re all caught up".',
             },
           ],
           link: { href: "/notifications", label: "Open Alerts" },
@@ -674,11 +848,17 @@ export const CREW_GUIDE: Guide = {
             {
               kind: "steps",
               steps: [
-                'Open Me and find the "Notifications" row.',
+                {
+                  text: 'Open Me and find the "Notifications" row (highlighted).',
+                  shot: "staff/me-notifications",
+                },
                 'Tap "Turn on", or "Turn on here" if your phone already has them on.',
                 "Allow notifications when asked.",
-                'Look for "Notifications are on for this device."',
               ],
+            },
+            {
+              kind: "next",
+              text: 'You see "Notifications are on for this device."',
             },
             {
               kind: "note",
@@ -694,8 +874,12 @@ export const CREW_GUIDE: Guide = {
           summary: "Choose Light, Dark or System on Me.",
           blocks: [
             {
-              kind: "text",
-              text: 'On Me, under "Appearance", choose Light, Dark or System. System follows your phone.',
+              kind: "steps",
+              steps: ['Open Me and find "Appearance".', "Choose Light, Dark or System."],
+            },
+            {
+              kind: "note",
+              text: "System follows your phone.",
             },
           ],
           link: { href: "/me", label: "Open Me" },
@@ -707,8 +891,20 @@ export const CREW_GUIDE: Guide = {
           summary: "Notifications stop here. Your working day is not affected.",
           blocks: [
             {
-              kind: "text",
-              text: 'On Me, "Sign out of this device" has a "Sign out" button. It asks "Sign out of this device?" and tells you that notifications stop on this device. Your working day is not affected, and you can still end it from another sign-in.',
+              kind: "steps",
+              steps: [
+                'Open Me and find "Sign out of this device".',
+                'Tap "Sign out".',
+                'Read "Sign out of this device?" and confirm.',
+              ],
+            },
+            {
+              kind: "next",
+              text: "Notifications stop on this device.",
+            },
+            {
+              kind: "note",
+              text: "Your working day is not affected, and you can still end it from another sign-in.",
             },
           ],
           link: { href: "/me", label: "Open Me" },
