@@ -218,6 +218,15 @@ export type AddStageInput = z.input<typeof addStageSchema>;
 export const removeStageSchema = z.object({ taskId: z.uuid(), stageId: z.uuid() });
 export type RemoveStageInput = z.input<typeof removeStageSchema>;
 
+/** A stage moved to just after another (null: to the top), as a worker or as an editor (6b.18). */
+export const moveStageSchema = z.object({
+  taskId: z.uuid(),
+  stageId: z.uuid(),
+  afterStageId: z.uuid().nullable(),
+  onBehalfOf: z.uuid().nullable(),
+});
+export type MoveStageInput = z.input<typeof moveStageSchema>;
+
 export const commentSchema = z.object({
   taskId: z.uuid(),
   body: z

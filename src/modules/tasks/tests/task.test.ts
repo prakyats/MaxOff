@@ -9,6 +9,7 @@ import {
   remindAgainAt,
   remindAgainLabel,
   routeLine,
+  stageMoveAs,
   stateLabel,
   statusLine,
   taskActions,
@@ -324,5 +325,38 @@ describe("tasks for the Owner (6b.2, owner 2026-10-07)", () => {
     ).toBeNull();
     // IST on the button: 10:30 UTC is 4:00 PM.
     expect(remindAgainLabel("2026-10-15T10:30:00.000Z")).toBe("Reminded · again at 4:00 PM");
+  });
+});
+
+describe("who moves a task's stages (6b.18, owner 2026-10-13 option A)", () => {
+  const moveAs = (state: TaskState, viewer: TaskViewer) => {
+    const actions = taskActions(task({ state }), TEAM, PEOPLE, viewer);
+    return stageMoveAs(actions.manage.stages, actions.tick);
+  };
+
+  it("lets everyone on the task move them while it is with its people", () => {
+    expect(moveAs("todo", MEERA)).toEqual({ onBehalfOf: null });
+    expect(moveAs("in_progress", RAVI)).toEqual({ onBehalfOf: "asha" });
+    expect(moveAs("changes_requested", MEERA)).toEqual({ onBehalfOf: null });
+  });
+
+  it("lets whoever may edit the task move them as themselves until it is finished", () => {
+    expect(moveAs("todo", ADMIN)).toEqual({ onBehalfOf: null });
+    expect(moveAs("submitted", ADMIN)).toEqual({ onBehalfOf: null });
+    expect(moveAs("admin_approved", OWNER)).toEqual({ onBehalfOf: null });
+    // An editor who also coordinates a freelancer on it moves as themselves.
+    expect(moveAs("todo", { ...ADMIN, coordinates: ["asha"] })).toEqual({ onBehalfOf: null });
+  });
+
+  it("gives no handle to anyone else, or once the task is locked or finished", () => {
+    const stranger: TaskViewer = { id: "other", role: "staff", coordinates: [] };
+    expect(moveAs("todo", stranger)).toBeNull();
+    expect(moveAs("todo", { id: "other-admin", role: "admin", coordinates: [] })).toBeNull();
+    expect(moveAs("submitted", MEERA)).toBeNull();
+    expect(moveAs("admin_approved", RAVI)).toBeNull();
+    for (const state of ["completed", "cancelled"] as TaskState[]) {
+      expect(moveAs(state, OWNER), state).toBeNull();
+      expect(moveAs(state, MEERA), state).toBeNull();
+    }
   });
 });

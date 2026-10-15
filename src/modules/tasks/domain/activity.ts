@@ -248,6 +248,14 @@ function describe(
       switch (entry.action) {
         case "stage_added":
           return { text: `added the stage ${quoted(meta.name)}` };
+        case "stage_moved":
+          // 6b.18: a drag or Move up / down, by anyone on the task ("to position 2 of 5").
+          return {
+            text:
+              typeof meta.to === "number" && typeof meta.of === "number"
+                ? `moved the stage ${quoted(meta.name)} to position ${meta.to} of ${meta.of}`
+                : `moved the stage ${quoted(meta.name)}`,
+          };
         case "insert":
           return { text: `added the stage ${quoted(entry.new.name)}` };
         case "delete":

@@ -788,6 +788,27 @@ export async function removeStage(taskId: string, stageId: string): Promise<void
   if (count === 0) throw new AppError("NOT_FOUND", "This stage is gone. Refresh the task.");
 }
 
+/**
+ * A stage moved to just after `afterStageId` (null: to the top) through `task_stage_move` (6b.18):
+ * everyone on the task, or whoever may edit it; the database decides, keeps every tick and writes
+ * the history entry.
+ */
+export async function rpcMoveStage(input: {
+  taskId: string;
+  stageId: string;
+  afterStageId: string | null;
+  onBehalfOf: string | null;
+}): Promise<void> {
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.rpc("task_stage_move", {
+    task_id: input.taskId,
+    stage_id: input.stageId,
+    ...(input.afterStageId ? { after_stage_id: input.afterStageId } : {}),
+    ...(input.onBehalfOf ? { on_behalf_of: input.onBehalfOf } : {}),
+  });
+  if (error) throw error;
+}
+
 /** Moves the viewer's own read of the task's comments forward to `upTo` (`task_mark_read`). */
 export async function rpcMarkRead(taskId: string, upTo: string): Promise<void> {
   const supabase = await createServerSupabase();
