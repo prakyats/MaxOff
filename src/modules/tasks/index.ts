@@ -141,6 +141,8 @@ export {
   isOverdue,
   latestChangeRequest,
   pairName,
+  remindAgainAt,
+  remindAgainLabel,
   reviewerName,
   routeLine,
   stateLabel,

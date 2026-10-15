@@ -59,6 +59,8 @@ const GROUP_OF_KIND: Readonly<Record<string, NotifyGroup>> = {
   reminder_not_noted: "reminders",
   escalation_not_noted: "reminders",
   escalation_overdue: "reminders",
+  // 6b.2: Remind, someone who runs the task asking about it (a nudge).
+  task_asked_about: "reminders",
   // Everything else: client Admins, coordinators, an expense's outcome, an unreachable person.
   client_admin_assigned: "other",
   client_admin_removed: "other",

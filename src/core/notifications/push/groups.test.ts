@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { GROUPED_KINDS, NOTIFY_GROUPS, notifyGroupFor } from "./groups";
 
-/** The kinds `notification_kinds` holds today (5A, 5.3, 5.4, 6.5, 7A, amendment C's escalations and Q9's reminder; the email-only digest is never pushed); a new kind falls back to `other` until mapped. */
+/** The kinds `notification_kinds` holds today (5A, 5.3, 5.4, 6.5, 7A, amendment C's escalations and Q9's reminder, 6b.2's Remind; the email-only digest is never pushed); a new kind falls back to `other` until mapped. */
 const KINDS = [
   "absent_proposed",
   "approvals_moved",
@@ -48,6 +48,7 @@ const KINDS = [
   "reminder_not_noted",
   "reminder_overdue",
   "task_admin_approved",
+  "task_asked_about",
   "task_assigned",
   "task_cancelled",
   "task_changed",
@@ -81,6 +82,8 @@ describe("notifyGroupFor (the push's large picture, owner 2026-10-02)", () => {
     for (const kind of KINDS.filter((k) => /^(reminder|escalation)_/.test(k))) {
       expect(notifyGroupFor(kind)).toBe("reminders");
     }
+    // 6b.2: Remind is a nudge too.
+    expect(notifyGroupFor("task_asked_about")).toBe("reminders");
     expect(notifyGroupFor("coordinator_missing")).toBe("other");
     expect(notifyGroupFor("member_unreachable")).toBe("other");
     // 6.5: the report is its own group; the weekly digest is never pushed (email only).

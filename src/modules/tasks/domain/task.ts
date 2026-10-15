@@ -98,12 +98,20 @@ export function activeAssignees<T extends Pick<TaskAssignee, "removedAt">>(
   return assignees.filter((assignee) => assignee.removedAt === null);
 }
 
-/** Who the Admin step belongs to, and whether it will be skipped (the approver is on the task). */
+/**
+ * Who the Admin step belongs to, and whether it will be skipped (the approver is on the task). A
+ * task whose primary owner is the Owner (`ownerId`) completes on the Owner's Done (6b.2): nobody
+ * checks or approves it.
+ */
 export function routeLine(
-  task: Pick<Task, "approvingAdminId" | "adminStep">,
+  task: Pick<Task, "approvingAdminId" | "adminStep" | "primaryOwnerId">,
   assignees: readonly TaskAssignee[],
   nameOf: (id: string) => string,
+  ownerId: string | null = null,
 ): string {
+  if (ownerId !== null && task.primaryOwnerId === ownerId) {
+    return "The Owner's own task: Done completes it, with no check or approval";
+  }
   if (!task.approvingAdminId) return "The Owner approves it";
   const onTask = activeAssignees(assignees).some((a) => a.memberId === task.approvingAdminId);
   if (task.adminStep === "skipped" || onTask) {
@@ -199,8 +207,11 @@ export type TaskActions = {
   note: ActingFor[];
   /** todo → in_progress (optional; implies no acknowledgement). */
   start: ActingFor | null;
-  /** The primary owner's Done (or their coordinator's). `again` after changes were requested. */
-  done: (ActingFor & { again: boolean }) | null;
+  /**
+   * The primary owner's Done (or their coordinator's). `again` after changes were requested;
+   * `completes` when the Owner is the primary owner: Done completes the task at once (6b.2).
+   */
+  done: (ActingFor & { again: boolean; completes: boolean }) | null;
   /** Stage ticks, while the task is with its assignees. */
   tick: ActingFor | null;
   /** The review step the viewer decides, if any. */
@@ -211,6 +222,11 @@ export type TaskActions = {
   manage: { edit: boolean; cancel: boolean; reopen: boolean; stages: boolean };
   /** The Owner's approver change (`task_set_approver`). */
   changeApprover: boolean;
+  /**
+   * Remind (6b.2, `task_remind`): the task's creator, its approving Admin or the Owner, while the
+   * task is with its people. The once-an-hour rule is the database's (and `remindAgainAt`'s).
+   */
+  remind: boolean;
   /** Comments: always as oneself; also for each freelancer on the task the viewer coordinates. */
   commentFor: string[];
 };
@@ -253,9 +269,10 @@ export function taskActions(
   let done: TaskActions["done"] = null;
   if (!locked) {
     const again = task.state === "changes_requested";
-    if (task.primaryOwnerId === viewer.id && own) done = { onBehalfOf: null, again };
-    else if (coordinated.some((a) => a.memberId === task.primaryOwnerId)) {
-      done = { onBehalfOf: task.primaryOwnerId, again };
+    if (task.primaryOwnerId === viewer.id && own) {
+      done = { onBehalfOf: null, again, completes: viewer.role === "owner" };
+    } else if (coordinated.some((a) => a.memberId === task.primaryOwnerId)) {
+      done = { onBehalfOf: task.primaryOwnerId, again, completes: false };
     }
   }
 
@@ -293,6 +310,7 @@ export function taskActions(
       stages: isManager && !final,
     },
     changeApprover: viewer.role === "owner" && !final,
+    remind: isManager && !locked,
     commentFor: coordinated.map((a) => a.memberId),
   };
 }
@@ -320,4 +338,30 @@ export function pairName(
 /** An event type carries an event date, optional times and a purpose (4A mechanics 6). */
 export function isEventKind(kind: TaskTypeKind | undefined): boolean {
   return kind === "event";
+}
+
+/** Remind's limit (6b.2, `task_remind`): one reminder an hour per task, whoever sends it. */
+export const REMIND_EVERY_MS = 60 * 60 * 1000;
+
+/**
+ * When Remind can be used again: an hour after the task's newest `reminder_sent` entry, while that
+ * is still ahead of `now`; null when it can be used now. Read from the task's history (the page
+ * reads it already); the database decides again on every tap.
+ */
+export function remindAgainAt(
+  activity: readonly { entity: string; action: string; at: string }[],
+  now: Date,
+): string | null {
+  let newest = Number.NEGATIVE_INFINITY;
+  for (const entry of activity) {
+    if (entry.entity !== "tasks" || entry.action !== "reminder_sent") continue;
+    newest = Math.max(newest, Date.parse(entry.at));
+  }
+  const again = newest + REMIND_EVERY_MS;
+  return Number.isFinite(again) && again > now.getTime() ? new Date(again).toISOString() : null;
+}
+
+/** "Reminded · again at 4:05 PM": the Remind button while the hour runs (6b.2). */
+export function remindAgainLabel(againAt: string): string {
+  return `Reminded · again at ${formatIST(againAt, "h:mm a")}`;
 }

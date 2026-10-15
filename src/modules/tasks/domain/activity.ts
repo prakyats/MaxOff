@@ -1,6 +1,6 @@
 import { formatIST } from "@/core/time";
 
-import { pairName } from "./task";
+import { joinNames, pairName } from "./task";
 import { PRIORITY_LABELS, type Priority } from "./types";
 
 /**
@@ -165,8 +165,23 @@ function describe(
         }
         case "admin_approved":
           return { text: "checked it and passed it to the Owner" };
-        case "completed":
+        case "completed": {
+          // 6b.2: the Owner's own task completes on the Owner's Done (no review).
+          if (meta.step === "owner_done") {
+            const reason = meta.late === true ? text(entry.new.late_reason) : null;
+            return {
+              text: `marked it done${meta.late === true ? " after the deadline" : ""}: the task is complete`,
+              ...(reason ? { note: `Late: ${reason}` } : {}),
+            };
+          }
           return { text: "approved it: the task is complete" };
+        }
+        case "reminder_sent": {
+          // 6b.2 Remind: who was asked, by name.
+          const ids = Array.isArray(meta.recipients) ? meta.recipients : [];
+          const who = joinNames(ids.map((id) => nameOf(context, id)));
+          return { text: who ? `asked ${who} about the task` : "asked about the task" };
+        }
         case "changes_requested": {
           const reason = text(meta.reason);
           return { text: "asked for changes", ...(reason ? { note: reason } : {}) };

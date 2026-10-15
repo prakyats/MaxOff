@@ -695,6 +695,14 @@ export async function rpcReview(
   return data;
 }
 
+/** Remind (6b.2): asks the task's people about it; returns when it can be used again. */
+export async function rpcRemind(taskId: string): Promise<string> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("task_remind", { task_id: taskId });
+  if (error) throw error;
+  return data;
+}
+
 export async function rpcCancel(taskId: string, reason: string): Promise<void> {
   const supabase = await createServerSupabase();
   const { error } = await supabase.rpc("task_cancel", { task_id: taskId, reason });
