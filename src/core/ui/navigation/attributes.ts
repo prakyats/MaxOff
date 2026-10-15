@@ -22,3 +22,8 @@ export const HEADER_BELL_SLOT = "header-bell";
 export const TAB_ATTRIBUTE = "data-tab";
 export const TAB_HOME_ATTRIBUTE = "data-tab-home";
 export const TAB_TOP_ATTRIBUTE = "data-tab-top";
+/**
+ * On a back control (`BackLink`): the other screens it returns to besides its parent, space
+ * separated (`backSteps`'s `from`), so the head script answers a tap as the app does.
+ */
+export const BACK_FROM_ATTRIBUTE = "data-back-from";

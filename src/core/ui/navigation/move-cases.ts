@@ -6,16 +6,98 @@ import type { TabMoveInput } from "./moves";
  * on one side and not the other fails a test.
  */
 
+/**
+ * The back control (`backSteps`): `paths` are this origin's entries' pathnames up to the current
+ * one (null: no Navigation API); `expected` is how many entries back the tap goes, 0 for the
+ * parent by replace. One tap always moves (2026-10-15).
+ */
 export const BACK_CASES: readonly {
   name: string;
-  /** The Navigation API's `currentEntry.index`; undefined = no Navigation API. */
-  index: number | undefined;
-  expected: "back" | "parent";
+  paths: readonly (string | null)[] | null;
+  parent: string;
+  from?: readonly string[];
+  expected: number;
 }[] = [
-  { name: "an entry of ours beneath: back", index: 3, expected: "back" },
-  { name: "one entry beneath: back", index: 1, expected: "back" },
-  { name: "opened directly (first entry): parent, replacing", index: 0, expected: "parent" },
-  { name: "no Navigation API: parent, the safe answer", index: undefined, expected: "parent" },
+  {
+    name: "the parent beneath: back one",
+    paths: ["/today", "/settings", "/settings/stage-presets"],
+    parent: "/settings",
+    expected: 1,
+  },
+  {
+    name: "a sheet's spent entry on top: back over it to the parent (the no-op tap, 2026-10-15)",
+    paths: ["/settings", "/settings/stage-presets", "/settings/stage-presets"],
+    parent: "/settings",
+    expected: 2,
+  },
+  {
+    name: "a select's spent entry over a dialog's: back over both",
+    paths: ["/tasks", "/tasks/1", "/tasks/1", "/tasks/1"],
+    parent: "/tasks",
+    expected: 3,
+  },
+  {
+    name: "an ancestor of the parent beneath: back to it",
+    paths: ["/clients/1", "/clients/1/projects/2"],
+    parent: "/clients/1/projects",
+    expected: 1,
+  },
+  {
+    name: "a screen it is drilled into from: back to it (a task from the calendar)",
+    paths: ["/today", "/calendar", "/tasks/9", "/tasks/9"],
+    parent: "/tasks",
+    from: ["/calendar", "/today"],
+    expected: 2,
+  },
+  {
+    name: "an origin given as a prefix",
+    paths: ["/reports/end-of-day/2026-10-01", "/tasks/9"],
+    parent: "/tasks",
+    from: ["/reports/end-of-day/*"],
+    expected: 1,
+  },
+  {
+    name: "another screen beneath (arrived from Today): the parent, replacing",
+    paths: ["/today", "/settings/stage-presets"],
+    parent: "/settings",
+    expected: 0,
+  },
+  {
+    name: "a sibling beneath: the parent, replacing",
+    paths: ["/settings", "/settings/job-titles", "/settings/stage-presets"],
+    parent: "/settings",
+    expected: 0,
+  },
+  {
+    name: "the root is never an ancestor",
+    paths: ["/", "/settings/stage-presets"],
+    parent: "/settings",
+    expected: 0,
+  },
+  {
+    name: "opened directly (first entry): the parent, replacing",
+    paths: ["/settings/stage-presets"],
+    parent: "/settings",
+    expected: 0,
+  },
+  {
+    name: "only this screen's own entries beneath: the parent, replacing",
+    paths: ["/settings/stage-presets", "/settings/stage-presets"],
+    parent: "/settings",
+    expected: 0,
+  },
+  {
+    name: "an entry whose address is unknown beneath: the parent",
+    paths: [null, "/settings/stage-presets"],
+    parent: "/settings",
+    expected: 0,
+  },
+  {
+    name: "no Navigation API: the parent, the safe answer",
+    paths: null,
+    parent: "/settings",
+    expected: 0,
+  },
 ];
 
 export const VIEW_CASES: readonly { name: string; expected: "replace" }[] = [

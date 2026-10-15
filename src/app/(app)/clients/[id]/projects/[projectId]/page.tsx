@@ -45,6 +45,7 @@ import { RecordReadReceipt } from "@/modules/notifications-center";
 import { listStagePresets } from "@/modules/settings";
 
 import { assertClientId, loadClientWork, loadPeople } from "../../client";
+import { PROJECT_ORIGINS } from "./back";
 
 export const metadata: Metadata = { title: "Project" };
 
@@ -182,7 +183,7 @@ export default async function ProjectPage({
       <PageHeader
         title={project.name}
         description={meta.join(" · ")}
-        back={{ href: `/clients/${client.id}/projects`, label: client.name }}
+        back={{ href: `/clients/${client.id}/projects`, label: client.name, from: PROJECT_ORIGINS }}
         // Two header buttons (Activity and ⋯) beside the bell: at very large text (200%) the bell
         // wraps to a second row rather than pushing the bar past the screen's edge.
         className="flex-wrap"
