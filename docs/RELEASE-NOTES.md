@@ -7,7 +7,7 @@ releases (v1.0.0 to v1.3.0) are recorded in their tag messages and in `PROGRESS.
 ## v1.7.0: deliverables with stage groups, and templates that hold them (phase 6b, Release 1)
 
 **Not yet released** (owner decisions 2026-10-12/13, pre-authorised). Client work gets stage groups, project
-templates that hold deliverables, a live preview and a stage limit of 100. One expand-only migration;
+templates that hold deliverables, a live preview and a stage limit of 100. Three expand-only migrations;
 nothing is removed or rewritten. Money is not part of this release.
 
 ### What ships
@@ -42,8 +42,12 @@ nothing is removed or rewritten. Money is not part of this release.
 - **Project templates hold deliverables,** each with its own stage groups. Creating a project from one
   fills its Item list. A template is copied, never linked: editing it never changes a project.
 - **"× N":** a typed name × 4 makes "Name 1" to "Name 4". Presets can be chosen per deliverable.
-- **A live preview** (beside the form on a laptop, a Preview step on a phone) lists what will be created,
-  for example "6 deliverables · 72 stages". Nothing is saved until Create.
+- **A live preview** (beside the form on a laptop, a Preview step on a phone) shows what will be created:
+  a pinned summary of three figures (deliverables, groups, stages), then one card per deliverable with its
+  groups as headings and its stages as a row of step chips; identical deliverables in a numbered run
+  ("Item 1–4") collapse into one card, and each card says "Default stages" or "Own stages". Nothing is
+  saved until Create. In the builder, a deliverable row says "Uses the default stages" or "Own stages ·
+  2 groups · 7 stages", and the ⌄ opens that deliverable's own stage groups (owner feedback, 15 Oct).
 - Up to 100 stages per list.
 - Nothing is pre-filled. With no presets or templates yet, the screen says "No stage presets yet: make
   one for steps you repeat." Make your own, or copy the Owner's; you edit only your own.
@@ -58,11 +62,18 @@ template opens in the new builder with its stages applied to each deliverable; s
 shape alongside the old.
 
 ### Migrations
-One, expand-only: `client_work_stage_groups`. It adds stage groups for a project's default stages and a
-deliverable's stages, the deliverables and stage groups on project templates (the old `stages` and `items`
-kept as flattened copies), the 100-stage limit in the transition functions, and the functions
-`project_stage_group_*`, `item_stage_group_*` and `project_create_grouped`. Nothing is dropped or edited
-in place.
+Three, expand-only, applied in order by `scripts/production-migrations.sh`:
+- `client_work_stage_groups`: stage groups for a project's default stages and a deliverable's stages, the
+  deliverables and stage groups on project templates (the old `stages` and `items` kept as flattened
+  copies), the 100-stage limit in every check and function, and the functions `project_stage_group_*`,
+  `item_stage_group_*` and `project_create_grouped`.
+- `client_work_stage_groups_fixes` (the review): a deliverable added to a cycle keeps the groups; the
+  project's history names the stage on group changes; an old-shape template write wins after a Worker
+  rollback to v1.6; a group key that never runs out; one grant narrowed.
+- `client_work_stage_meta_group`: a single stage's tick, rename, move or removal names its group in the
+  history.
+Nothing is dropped or edited in place. **Rolling back the Worker to v1.6 is safe:** the old screens read
+the old columns, which the new ones keep in step; grouped stage lists then show flat, in group order.
 
 ### Not in this release (v1.7.1 follows)
 - The calendar fixes (6b.12 items 1 and 2).
