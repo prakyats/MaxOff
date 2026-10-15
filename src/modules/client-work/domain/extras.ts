@@ -48,25 +48,26 @@ const WINDOW: Record<Exclude<Recurrence, "one_time">, { before: number; after: n
 };
 
 /**
- * The cycle the question is about today, or null: an unanswered cycle of a recurring project whose
- * period ends within the window around today (the latest one when two are in it).
+ * The cycles the question may be about today, latest first: the unanswered cycles of a recurring
+ * project whose period ends within the window around today (two at most: the month ending and the
+ * one just ended). The screen asks about the first that has extras.
  */
-export function extrasCycle<T extends Pick<Cycle, "periodEnd" | "extrasDecided">>(
+export function extrasCycles<T extends Pick<Cycle, "periodEnd" | "extrasDecided">>(
   recurrence: Recurrence,
   cycles: readonly T[],
   today: ISODate,
-): T | null {
-  if (recurrence === "one_time") return null;
+): T[] {
+  if (recurrence === "one_time") return [];
   const { before, after } = WINDOW[recurrence];
-  const open = cycles.filter(
-    (cycle) =>
-      !cycle.extrasDecided &&
-      cycle.periodEnd !== null &&
-      addISTDays(cycle.periodEnd, -before) <= today &&
-      today <= addISTDays(cycle.periodEnd, after),
-  );
-  open.sort((a, b) => (b.periodEnd ?? "").localeCompare(a.periodEnd ?? ""));
-  return open[0] ?? null;
+  return cycles
+    .filter(
+      (cycle) =>
+        !cycle.extrasDecided &&
+        cycle.periodEnd !== null &&
+        addISTDays(cycle.periodEnd, -before) <= today &&
+        today <= addISTDays(cycle.periodEnd, after),
+    )
+    .sort((a, b) => (b.periodEnd ?? "").localeCompare(a.periodEnd ?? ""));
 }
 
 /** The question's words: "Keep October 2026's extra deliverables next month?" */

@@ -1,5 +1,6 @@
 "use client";
 
+import { CheckIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -200,11 +201,16 @@ function BulkEditForm({
               <Button
                 key={way.label}
                 type="button"
-                variant={later === way.value ? "strong" : "secondary"}
+                // A choice, not a commit: never solid beside the red one (§14.1).
+                variant="secondary"
                 aria-pressed={later === way.value}
-                className="flex-1"
+                className={cn(
+                  "flex-1",
+                  later === way.value && "border-foreground text-foreground font-semibold",
+                )}
                 onClick={() => setLater(way.value)}
               >
+                {later === way.value ? <CheckIcon aria-hidden /> : null}
                 {way.label}
               </Button>
             ))}

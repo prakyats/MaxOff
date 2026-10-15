@@ -77,7 +77,7 @@ export {
   type ItemViewContext,
   type LastChange,
 } from "./domain/views";
-export { cycleExtras, extrasCycle, extrasQuestion, type ExtraCandidate } from "./domain/extras";
+export { cycleExtras, extrasCycles, extrasQuestion, type ExtraCandidate } from "./domain/extras";
 export { renamePreview, shiftDays, shiftWords, type RenamePreview } from "./domain/bulk";
 export { scheduleDay, scheduleText, type ScheduleItem } from "./domain/schedule";
 export {

@@ -17,7 +17,7 @@ import {
   currentCycle,
   cycleEnded,
   cycleExtras,
-  extrasCycle,
+  extrasCycles,
   extrasQuestion,
   getProject,
   itemListPeriods,
@@ -108,19 +108,22 @@ export default async function ProjectPage({
 
   const working = project.state === "open" || project.state === "in_progress";
   const canManage = can(viewer.role, "projects.manage");
-  // 6b.16 (d): the cycle whose extras are asked about at the month's end (whichever is shown).
-  const asking = working && canManage ? extrasCycle(project.recurrence, cycles, today) : null;
-  const [items, askingItems] = await Promise.all([
+  // 6b.16 (d): the cycle whose extras are asked about at the month's end (whichever is shown):
+  // the month ending or the one just ended, the latest that has extras.
+  const asking = working && canManage ? extrasCycles(project.recurrence, cycles, today) : [];
+  const [items, ...askingItems] = await Promise.all([
     chosen ? listItems(chosen.id).then(sortItems) : Promise.resolve([]),
-    asking && asking.id !== chosen?.id ? listItems(asking.id) : Promise.resolve(null),
+    ...asking.map((cycle) =>
+      cycle.id === chosen?.id ? Promise.resolve(null) : listItems(cycle.id),
+    ),
   ]);
-  const extras = asking
-    ? cycleExtras(
-        asking.id,
-        askingItems ?? items,
-        blueprints.filter((line) => !line.archived).map((line) => line.title),
-      )
-    : [];
+  const listTitles = blueprints.filter((line) => !line.archived).map((line) => line.title);
+  const extrasOf = asking
+    .map((cycle, index) => ({
+      cycle,
+      extras: cycleExtras(cycle.id, askingItems[index] ?? items, listTitles),
+    }))
+    .find((entry) => entry.extras.length > 0);
   const itemIds = items.map((item) => item.id);
   const originIds = [
     ...new Set(
@@ -330,12 +333,12 @@ export default async function ProjectPage({
               <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
             </DrillLink>
           ) : null}
-          {asking && extras.length > 0 ? (
+          {extrasOf ? (
             <KeepExtrasPrompt
-              key={asking.id}
-              cycleId={asking.id}
-              question={extrasQuestion(project.recurrence, asking.label)}
-              titles={extras.map((item) => item.title)}
+              key={extrasOf.cycle.id}
+              cycleId={extrasOf.cycle.id}
+              question={extrasQuestion(project.recurrence, extrasOf.cycle.label)}
+              titles={extrasOf.extras.map((item) => item.title)}
               from={itemList?.from ?? null}
             />
           ) : null}

@@ -4,16 +4,16 @@ import { ListPlusIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { ErrorText } from "@/core/ui/composites/error-text";
 import { Button } from "@/core/ui/primitives/button";
 import { describeError } from "@/core/ui/toast";
-import { ErrorText } from "@/core/ui/composites/error-text";
 
 import { keepExtras } from "../actions/bulk";
 import { itemCount } from "../domain/items";
 
 /**
  * "Keep this month's extra deliverables next month?" (ROADMAP 6b.16 (d)) on the project page, at
- * the month's end (`extrasCycle`): the deliverables added during the cycle that are not on the
+ * the month's end (`extrasCycles`): the deliverables added during the cycle that are not on the
  * deliverables list (`cycleExtras`), named, with **Yes, keep them** (they join the list for the
  * cycles still to be built from it) and **No** (the list stays as it is). Asked once: either answer
  * is recorded (`cycle_keep_extras`) and the card goes. Neutral, never red: it adds to a list,

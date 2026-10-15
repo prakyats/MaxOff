@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { describeProjectActivity, type ActivityEntry } from "../domain/activity";
 import { renamePreview, shiftDays, shiftWords } from "../domain/bulk";
-import { cycleExtras, extrasCycle, extrasQuestion, type ExtraCandidate } from "../domain/extras";
+import { cycleExtras, extrasCycles, extrasQuestion, type ExtraCandidate } from "../domain/extras";
 import { scheduleDay, scheduleText, type ScheduleItem } from "../domain/schedule";
 
 /** ROADMAP 6b.16 (c)(d)(e)(g): the pure rules behind the revision round, extras, bulk edits and the schedule. */
@@ -85,7 +85,9 @@ describe("cycleExtras (the same rule as app.cycle_extras)", () => {
   });
 });
 
-describe("extrasCycle: asked at the month's end, once", () => {
+describe("extrasCycles: asked at the month's end, once", () => {
+  const extrasCycle = (...args: Parameters<typeof extrasCycles>) =>
+    extrasCycles(...args)[0] ?? null;
   const cycle = (periodEnd: string | null, extrasDecided = false) => ({ periodEnd, extrasDecided });
 
   it("from 6 days before a month's end to 7 days after", () => {
@@ -102,6 +104,9 @@ describe("extrasCycle: asked at the month's end, once", () => {
     const week1 = cycle("2026-10-18");
     const week2 = cycle("2026-10-25");
     expect(extrasCycle("weekly", [week1, week2], "2026-10-24")).toBe(week2);
+    expect(
+      extrasCycles("monthly", [cycle("2026-09-30"), cycle("2026-10-31")], "2026-10-25"),
+    ).toEqual([cycle("2026-10-31")]);
     expect(extrasCycle("weekly", [week1], "2026-10-16")).toBe(null);
     expect(extrasCycle("weekly", [week1], "2026-10-20")).toBe(week1);
   });
