@@ -323,3 +323,30 @@ describe("collapseTicks: consecutive ticks by one person are one line (Kickoff 4
     expect(line({ action: "created" })?.tick).toBeUndefined();
   });
 });
+
+describe("tasks for the Owner in the history (6b.2)", () => {
+  it("says the Owner's Done completed the task, with the late reason", () => {
+    expect(
+      line({ action: "completed", meta: { step: "owner_done", version: 1, late: false } }),
+    ).toMatchObject({ text: "marked it done: the task is complete" });
+    expect(
+      line({
+        action: "completed",
+        meta: { step: "owner_done", version: 1, late: true },
+        new: { late_reason: "Waited for the files" },
+      }),
+    ).toMatchObject({
+      text: "marked it done after the deadline: the task is complete",
+      note: "Late: Waited for the files",
+    });
+  });
+
+  it("names who a reminder asked", () => {
+    expect(
+      line({ action: "reminder_sent", actorId: "admin", meta: { recipients: ["ravi", "asha"] } }),
+    ).toMatchObject({ actor: "Local Admin", text: "asked Ravi and Asha about the task" });
+    expect(line({ action: "reminder_sent", meta: {} })).toMatchObject({
+      text: "asked about the task",
+    });
+  });
+});

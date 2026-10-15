@@ -155,6 +155,10 @@ export const actingSchema = z.object({
 });
 export type ActingInput = z.input<typeof actingSchema>;
 
+/** Remind (6b.2, `task_remind`): only the task; who may, and how often, is the database's. */
+export const remindSchema = z.object({ taskId: z.uuid() });
+export type RemindInput = z.input<typeof remindSchema>;
+
 const optionalText = (max: number, message: string) =>
   z
     .string()

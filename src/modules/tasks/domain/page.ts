@@ -81,7 +81,7 @@ export function relativeDeadline(task: Pick<Task, "dueAt" | "state">, now: Date)
 export type NextStep =
   | { kind: "note"; acting: ActingFor }
   | { kind: "start"; acting: ActingFor }
-  | { kind: "done"; acting: ActingFor; again: boolean }
+  | { kind: "done"; acting: ActingFor; again: boolean; completes: boolean }
   | { kind: "review"; step: "admin" | "owner" };
 
 export function nextStep(
@@ -95,6 +95,7 @@ export function nextStep(
       kind: "done",
       acting: { onBehalfOf: actions.done.onBehalfOf },
       again: actions.done.again,
+      completes: actions.done.completes,
     };
   }
   if (actions.review) return { kind: "review", step: actions.review };
@@ -145,6 +146,12 @@ export function neededLine(input: {
       }
       case "done": {
         const who = forName(next.acting);
+        // 6b.2: the Owner's own task completes on Done (nobody is above the Owner).
+        if (next.completes) {
+          return next.again
+            ? "Changes were asked for. Fix them, then mark it done again: that completes it."
+            : "Mark it done when the work is finished: that completes it.";
+        }
         if (next.again) {
           return who
             ? `Changes were asked for. Mark it done again for ${who} once they're fixed.`

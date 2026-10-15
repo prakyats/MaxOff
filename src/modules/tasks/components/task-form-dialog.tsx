@@ -102,7 +102,7 @@ export type TaskFormSetup = {
   /** `org_settings.workload_warning_threshold` (kickoff 4 decision 11). */
   threshold: number;
   types: TaskType[];
-  /** Active Admins, Staff and freelancers; never the Owner (kickoff 4 decision 1). */
+  /** Active Admins, Staff and freelancers, and the Owner (6b.2, owner 2026-10-07). */
   people: AssignablePerson[];
   /** The Owner: every client not closed; an Admin: their own (kickoff 4 decision 2). */
   clients: ClientOption[];

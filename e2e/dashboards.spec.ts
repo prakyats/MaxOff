@@ -1135,3 +1135,53 @@ test.describe("Realtime holds RLS (Kickoff 6 decision 8)", () => {
     }
   });
 });
+
+test.describe("the Owner's Today: My tasks (6b.2, decision 24)", () => {
+  test.use({ storageState: storageStateFor("owner") });
+
+  test("lists the Owner's own overdue and due-today tasks only, and drops one once it is done", async ({
+    page,
+  }, info) => {
+    const prefix = `${prefixOf(info)}mine `;
+    await removeTasksTitled(prefix);
+    const ownerId = await memberIdOf(USERS.owner.email);
+    const late = await adminCreates(info, {
+      title: `${prefix}late`,
+      assignees: [ownerId],
+      due: istInstant(workingDay(5), "18:00"),
+    });
+    await moveDue(info, late, istInstant(addISTDays(todayIST(), -1), "18:00"));
+    const ahead = await adminCreates(info, {
+      title: `${prefix}ahead`,
+      assignees: [ownerId],
+      due: istInstant(workingDay(6), "18:00"),
+    });
+
+    await page.goto("/today");
+    const mine = section(page, "today-my-tasks");
+    await expect(mine).toBeVisible();
+    const row = taskRow(page, `${prefix}late`);
+    await expect(
+      mine.locator('[data-slot="task-row"]').filter({ hasText: `${prefix}late` }),
+    ).toHaveCount(1);
+    await expect(row).toContainText("Overdue");
+    await expect(row.getByRole("link")).toHaveAttribute("href", `/tasks/${late}`);
+    await expect(mine).not.toContainText(`${prefix}ahead`);
+    // Never listed twice: the Owner's own overdue task is not a risk row too.
+    await expect(page.locator('[data-slot="today-risks"]:visible')).not.toContainText(
+      `${prefix}late`,
+    );
+
+    // Done by the Owner (it completes), then back on Today: it is gone.
+    await rpcAs(USERS.owner.email, USERS.owner.password, "task_submit_done", {
+      task_id: late,
+      late_reason: "Waited for the files",
+    });
+    await page.reload();
+    await expect(
+      page.locator('[data-slot="task-row"]:visible').filter({ hasText: `${prefix}late` }),
+    ).toHaveCount(0);
+    await removeTasksTitled(prefix);
+    expect(ahead).toBeTruthy();
+  });
+});

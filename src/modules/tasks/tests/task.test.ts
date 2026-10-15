@@ -6,6 +6,8 @@ import {
   latestChangeRequest,
   pairName,
   reviewerName,
+  remindAgainAt,
+  remindAgainLabel,
   routeLine,
   stateLabel,
   statusLine,
@@ -92,10 +94,12 @@ describe("what a viewer may do (4.4; PERMISSIONS §3, ADR-0013)", () => {
     expect(taskActions(task(), TEAM, PEOPLE, RAVI).done).toEqual({
       onBehalfOf: "asha",
       again: false,
+      completes: false,
     });
     expect(taskActions(task({ state: "changes_requested" }), TEAM, PEOPLE, RAVI).done).toEqual({
       onBehalfOf: "asha",
       again: true,
+      completes: false,
     });
     for (const state of ["submitted", "admin_approved", "completed", "cancelled"] as TaskState[]) {
       const actions = taskActions(task({ state }), TEAM, PEOPLE, RAVI);
@@ -259,5 +263,66 @@ describe("naming who acted (ADR-0013: the pair wherever a person is named)", () 
     expect(reviewerName({ reviewerId: "ravi" }, names)).toBe("Ravi");
     expect(reviewerName({ reviewerId: "owner" }, { owner: "Prishit" })).toBe("Prishit");
     expect(reviewerName({ reviewerId: "gone" }, names)).toBe("Someone");
+  });
+});
+
+describe("tasks for the Owner (6b.2, owner 2026-10-07)", () => {
+  const OWN = [assignee("owner", { isPrimary: true }), assignee("meera")];
+  const nameOf = (id: string) => (id === "admin" ? "Local Admin" : id);
+
+  it("lets the Owner, as primary owner, mark it done to complete it", () => {
+    expect(taskActions(task({ primaryOwnerId: "owner" }), OWN, PEOPLE, OWNER).done).toEqual({
+      onBehalfOf: null,
+      again: false,
+      completes: true,
+    });
+    // A Crew co-assignee never marks the Owner's task done.
+    expect(taskActions(task({ primaryOwnerId: "owner" }), OWN, PEOPLE, MEERA).done).toBeNull();
+    // The Owner as one assignee of several, someone else primary: the normal route, no Done.
+    expect(taskActions(task(), [...TEAM, assignee("owner")], PEOPLE, OWNER).done).toBeNull();
+  });
+
+  it("says the Owner's own task completes on Done, in the route line", () => {
+    expect(routeLine(task({ primaryOwnerId: "owner" }), OWN, nameOf, "owner")).toBe(
+      "The Owner's own task: Done completes it, with no check or approval",
+    );
+    expect(routeLine(task(), TEAM, nameOf, "owner")).toBe(
+      "Local Admin checks it, then the Owner approves it",
+    );
+  });
+
+  it("offers Remind to the creator, the approving Admin and the Owner while the task is with its people", () => {
+    const other: TaskViewer = { id: "other-admin", role: "admin", coordinates: [] };
+    expect(taskActions(task(), TEAM, PEOPLE, ADMIN).remind).toBe(true);
+    expect(taskActions(task({ createdBy: "owner" }), TEAM, PEOPLE, ADMIN).remind).toBe(true);
+    expect(taskActions(task(), TEAM, PEOPLE, OWNER).remind).toBe(true);
+    expect(taskActions(task(), TEAM, PEOPLE, other).remind).toBe(false);
+    expect(taskActions(task(), TEAM, PEOPLE, MEERA).remind).toBe(false);
+    for (const state of ["submitted", "admin_approved", "completed", "cancelled"] as TaskState[]) {
+      expect(taskActions(task({ state }), TEAM, PEOPLE, OWNER).remind, state).toBe(false);
+    }
+    expect(taskActions(task({ state: "changes_requested" }), TEAM, PEOPLE, OWNER).remind).toBe(
+      true,
+    );
+    // Nobody else on it (the Owner's task with only the Owner): no Remind.
+    const alone = [assignee("owner", { isPrimary: true })];
+    expect(taskActions(task({ primaryOwnerId: "owner" }), alone, PEOPLE, OWNER).remind).toBe(false);
+  });
+
+  it("knows when Remind can be used again: an hour after the newest reminder", () => {
+    const now = new Date("2026-10-15T10:00:00.000Z");
+    const sent = (at: string) => ({ entity: "tasks", action: "reminder_sent", at });
+    expect(remindAgainAt([], now)).toBeNull();
+    expect(remindAgainAt([sent("2026-10-15T09:30:00.000Z")], now)).toBe("2026-10-15T10:30:00.000Z");
+    expect(
+      remindAgainAt([sent("2026-10-15T08:00:00.000Z"), sent("2026-10-15T09:15:00.000Z")], now),
+    ).toBe("2026-10-15T10:15:00.000Z");
+    // Past the hour, or another kind of entry: it can be used now.
+    expect(remindAgainAt([sent("2026-10-15T08:59:00.000Z")], now)).toBeNull();
+    expect(
+      remindAgainAt([{ entity: "tasks", action: "updated", at: "2026-10-15T09:59:00.000Z" }], now),
+    ).toBeNull();
+    // IST on the button: 10:30 UTC is 4:00 PM.
+    expect(remindAgainLabel("2026-10-15T10:30:00.000Z")).toBe("Reminded · again at 4:00 PM");
   });
 });

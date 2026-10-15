@@ -98,6 +98,38 @@ export function todaysTasksLine({ due, handedIn }: { due: number; handedIn: numb
   return `${due} due today · ${handedIn} handed in`;
 }
 
+// My tasks (the Owner's, 6b.2) ------------------------------------------------------------------------
+
+/** How many of the Owner's own exception rows Today lists before "See all N" (decision 24). */
+export const OWNER_MY_TASKS_SHOWN = 3;
+
+const WITH_PEOPLE = ["todo", "in_progress", "changes_requested"];
+
+/**
+ * The Owner's "My tasks" on Today (6b.2, owner 2026-10-07; decision 24: exceptions only): the
+ * open tasks the Owner is on (an active assignee) that are overdue or due today (IST), while they
+ * are with their people, by deadline, the first `OWNER_MY_TASKS_SHOWN` as rows and the total.
+ * Empty when there is none, so the section is not drawn.
+ */
+export function ownerMyTasks<
+  T extends {
+    id: string;
+    state: string;
+    dueAt: string;
+    assignees: readonly { memberId: string; removedAt: string | null }[];
+  },
+>(open: readonly T[], ownerId: string, now: Date, today: ISODate): { rows: T[]; total: number } {
+  const mine = open
+    .filter(
+      (task) =>
+        WITH_PEOPLE.includes(task.state) &&
+        task.assignees.some((a) => a.memberId === ownerId && a.removedAt === null) &&
+        (Date.parse(task.dueAt) < now.getTime() || toISTDate(task.dueAt) === today),
+    )
+    .sort((a, b) => Date.parse(a.dueAt) - Date.parse(b.dueAt) || a.id.localeCompare(b.id));
+  return { rows: mine.slice(0, OWNER_MY_TASKS_SHOWN), total: mine.length };
+}
+
 // Overdue and risks / Issues ----------------------------------------------------------------------------
 
 /** One risk row (decisions 6, 10). No scoring and no "risk level": facts, in a fixed order. */

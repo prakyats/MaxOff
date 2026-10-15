@@ -19,6 +19,8 @@ import {
   createTaskSchema,
   type ReasonInput,
   reasonSchema,
+  type RemindInput,
+  remindSchema,
   type RemoveStageInput,
   removeStageSchema,
   type ReviewInput,
@@ -33,6 +35,7 @@ import {
   updateTaskSchema,
   type WarningsInput,
 } from "../domain/schemas";
+import { remindAgainLabel } from "../domain/task";
 
 /**
  * Staff tasks (4.3, 4.4; ARCHITECTURE §4): zod → `assertPermission()` → the repository (a
@@ -167,6 +170,22 @@ export const reopenTask = action(async (input: ReasonInput): Promise<Result<null
   dispatchPushSoon();
   return ok(null);
 });
+
+/**
+ * Remind (6b.2): the task's creator, its approving Admin or the Owner asks its people about it, at
+ * most once an hour (`task_remind` decides who, when and how often). Returns when it can be used
+ * again, so the button says so.
+ */
+export const remindTask = action(
+  async (input: RemindInput): Promise<Result<{ againAt: string; label: string }>> => {
+    const data = remindSchema.parse(input);
+    await assertPermission("tasks.create");
+    const againAt = await repo.rpcRemind(data.taskId);
+    revalidatePath(taskPath(data.taskId));
+    dispatchPushSoon();
+    return ok({ againAt, label: remindAgainLabel(againAt) });
+  },
+);
 
 /** The Owner changes or removes the approving Admin (`task_set_approver`). */
 export const setTaskApprover = action(async (input: SetApproverInput): Promise<Result<null>> => {
