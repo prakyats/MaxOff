@@ -134,7 +134,8 @@ test.describe("reaching the guide", () => {
       await page.locator('[data-slot="settings-guide-link"]').click();
       await expect(page).toHaveURL(/\/me\/guide$/);
       await expect(guide(page)).toHaveAttribute("data-role", "admin");
-      await expect(backControl(page)).toContainText("Settings");
+      // The phone's chevron is named "Back to Settings"; the laptop's link reads "Settings".
+      await expect(backControl(page)).toHaveAccessibleName(/Settings/);
       await backControl(page).click();
       await expect(page).toHaveURL(/\/settings$/);
     });

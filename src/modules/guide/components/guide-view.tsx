@@ -331,7 +331,7 @@ function Step({ step }: { step: GuideStep }) {
           data-slot="guide-shot"
           onClick={() => view(shot)}
           aria-label={`Enlarge: ${shot.alt}`}
-          className="focus-visible:ring-ring border-border mt-2 block w-full overflow-hidden rounded-md border outline-none focus-visible:ring-2"
+          className="pressable focus-visible:ring-ring border-border mt-2 block w-full overflow-hidden rounded-md border outline-none focus-visible:ring-2"
         >
           {/* A static, pre-sized WebP from `public/guide`: next/image would add nothing here. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
