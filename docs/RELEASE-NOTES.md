@@ -78,8 +78,8 @@ the old columns, which the new ones keep in step; grouped stage lists then show 
 ### Not in this release (v1.7.1 follows)
 - The calendar fixes (6b.12 items 1 and 2).
 - 6b.2, the rest of 6b.16 (other things saved as templates), 6b.11, 6b.17a (correct data on every screen; live
-  updates later), 6b.18 on task stages and
-  6b.14.
+  updates later), 6b.18 on staff task stages, task templates and stage presets (never a
+  deliverable's: client work stays invisible to Crew, invariant 4), and 6b.14.
 
 ## v1.6.0: client work (phase 7) and the Owner's Today refresh, with v1.5.1's walk fixes
 
