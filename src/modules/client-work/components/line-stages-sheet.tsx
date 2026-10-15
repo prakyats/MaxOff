@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 
+import { ERROR_MESSAGES } from "@/core/errors/codes";
 import { type StageGroup, stageGroupsIssue } from "@/core/lib/stage-groups";
+import { isNetworkError, NETWORK_ERROR_MESSAGE } from "@/core/ui/action/network-error";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { ReviewSheet } from "@/core/ui/composites/review-sheet";
@@ -51,21 +53,28 @@ export function LineStagesSheet({
 
   async function save() {
     setSaving(true);
-    const result = await updateBlueprint({
-      blueprintId: line.id,
-      stageGroups: groups.map((group) => ({
-        label: group.label === null ? null : group.label.trim(),
-        stages: group.stages,
-      })),
-    });
-    setSaving(false);
-    if (!result.ok) {
-      const { title, description } = describeError(result.error);
-      setError(description ?? title);
-      return;
+    setError(null);
+    try {
+      const result = await updateBlueprint({
+        blueprintId: line.id,
+        stageGroups: groups.map((group) => ({
+          label: group.label === null ? null : group.label.trim(),
+          stages: group.stages,
+        })),
+      });
+      if (!result.ok) {
+        const { title, description } = describeError(result.error);
+        setError(description ?? title);
+        return;
+      }
+      toastResult(result, { success: "Stages saved" });
+      onClose();
+    } catch (error) {
+      // No answer (the connection dropped): the draft stays, and the sheet stays usable.
+      setError(isNetworkError(error) ? NETWORK_ERROR_MESSAGE : ERROR_MESSAGES.INTERNAL);
+    } finally {
+      setSaving(false);
     }
-    toastResult(result, { success: "Stages saved" });
-    onClose();
   }
 
   return (

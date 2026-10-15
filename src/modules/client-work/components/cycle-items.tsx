@@ -339,7 +339,7 @@ export function CycleItems({
             <DropdownMenuContent>
               {choices.map((choice) => (
                 <DropdownMenuItem
-                  key={choice.name}
+                  key={choice.key}
                   onSelect={() =>
                     void bulk(
                       "bulk-tick",

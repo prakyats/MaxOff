@@ -7,7 +7,11 @@ import { toast } from "sonner";
 import { ERROR_MESSAGES } from "@/core/errors/codes";
 import type { Result, ResultError } from "@/core/errors/result";
 import { expandQuantity, QUANTITY_MAX } from "@/core/lib/stage-groups";
-import { isNetworkError, NETWORK_ERROR_CREATE_MESSAGE } from "@/core/ui/action/network-error";
+import {
+  isNetworkError,
+  NETWORK_ERROR_CREATE_MESSAGE,
+  NETWORK_ERROR_MESSAGE,
+} from "@/core/ui/action/network-error";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { ReviewSheet } from "@/core/ui/composites/review-sheet";
@@ -173,6 +177,7 @@ export function ListEditorSheet({
       setAdding((current) => (current === "" ? typed : current));
       setAddError(message);
     };
+    let saved = 0;
     for (const [index, add] of adds.entries()) {
       try {
         const result = await onAdd(add.name);
@@ -181,7 +186,7 @@ export function ListEditorSheet({
           takeBack(index, detail ?? heading);
           break;
         }
-        if (addedMessage) toast.success(addedMessage(add.name));
+        saved += 1;
       } catch (error) {
         // No answer (the phone lost its connection): the add may or may not have landed, and
         // the refreshed list shows it if it did. Anything else is a failure on the server's side.
@@ -191,6 +196,10 @@ export function ListEditorSheet({
         );
         break;
       }
+    }
+    // One toast for the whole add: "Name added from …", or "3 deliverables added from …".
+    if (addedMessage && saved > 0) {
+      toast.success(addedMessage(saved === 1 ? (adds[0]?.name ?? typed) : `${saved} ${noun}s`));
     }
     setBusy(null);
   }
@@ -241,10 +250,12 @@ export function ListEditorSheet({
         to,
       );
       setBusy(row.id);
-      void onMove(row.id, position).then((result) => {
-        toastResult(result);
-        setBusy(null);
-      });
+      void onMove(row.id, position)
+        .then((result) => toastResult(result))
+        .catch((error: unknown) =>
+          toast.error(isNetworkError(error) ? NETWORK_ERROR_MESSAGE : ERROR_MESSAGES.INTERNAL),
+        )
+        .finally(() => setBusy(null));
     },
     disabled: busy !== null,
   });

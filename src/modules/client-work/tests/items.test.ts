@@ -469,7 +469,9 @@ describe("Tick ‹stage› on N and the line stages (amendment D2)", () => {
       { stages: [{ id: "b1", name: "edit", done: false }] },
       { stages: [] },
     ]);
-    expect(choices).toEqual([{ name: "Edit", stageIds: ["a2", "b1"] }]);
+    expect(choices.map(({ name, stageIds }) => ({ name, stageIds }))).toEqual([
+      { name: "Edit", stageIds: ["a2", "b1"] },
+    ]);
   });
 
   it("edits a line's names as rows: keys ascend, a move reorders", () => {

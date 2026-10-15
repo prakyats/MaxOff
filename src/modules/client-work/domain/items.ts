@@ -189,13 +189,17 @@ export function stageChoices(
   items: readonly {
     stages: readonly { id: string; name: string; done: boolean; groupLabel?: string | null }[];
   }[],
-): { name: string; stageIds: string[] }[] {
-  const choices = new Map<string, { name: string; stageIds: string[] }>();
+): { key: string; name: string; stageIds: string[] }[] {
+  const choices = new Map<string, { key: string; name: string; stageIds: string[] }>();
   for (const item of items) {
     for (const stage of item.stages) {
       const group = stage.groupLabel ?? null;
       const key = `${group === null ? "" : group.trim().toLowerCase()}\u0000${stage.name.trim().toLowerCase()}`;
-      const choice = choices.get(key) ?? { name: groupStageLabel(group, stage.name), stageIds: [] };
+      const choice = choices.get(key) ?? {
+        key,
+        name: groupStageLabel(group, stage.name),
+        stageIds: [],
+      };
       if (!stage.done) choice.stageIds.push(stage.id);
       choices.set(key, choice);
     }

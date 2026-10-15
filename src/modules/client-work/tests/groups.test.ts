@@ -95,7 +95,7 @@ describe("Tick ‹stage› on N with groups (6b)", () => {
         ],
       },
     ]);
-    expect(choices).toEqual([
+    expect(choices.map(({ name, stageIds }) => ({ name, stageIds }))).toEqual([
       { name: "Phase A · Edit", stageIds: ["a1", "b1"] },
       { name: "Phase B · Edit", stageIds: ["a2"] },
       { name: "Check", stageIds: ["a3", "b3"] },
@@ -137,86 +137,138 @@ function entry(over: Partial<ActivityEntry>): ActivityEntry {
 const context = { names: { r: "Ravi" }, items: { s1: "Item 1" }, stages: {} };
 const say = (over: Partial<ActivityEntry>) => describeProjectActivity(entry(over), context)?.text;
 
+// The audit trigger's shapes: an insert's `new` is the whole row; an update's `old` / `new` hold
+// only the changed keys; the stage functions put `stage_id`, `name` and `group` in the meta.
 describe("the history of stage groups (6b)", () => {
-  it("says a default stage in a group as 'Group · Stage'", () => {
-    expect(say({ action: "insert", new: { name: "Shoot", group_label: "Phase A" } })).toBe(
-      "added the default stage Phase A · Shoot",
-    );
-    expect(say({ action: "insert", new: { name: "Shoot", group_label: null } })).toBe(
-      "added the default stage Shoot",
-    );
+  const row = (over: Record<string, unknown>) => ({
+    id: "s1",
+    project_id: "p1",
+    name: "Shoot",
+    position: "m",
+    group_label: null,
+    group_position: null,
+    archived_at: null,
+    ...over,
+  });
+
+  it("says a default stage in a group as 'Group · Stage', a plain one by its name", () => {
     expect(
-      say({ action: "archived", old: { name: "Shoot", group_label: "Phase A" }, new: {} }),
+      say({ action: "insert", new: row({ group_label: "Phase A", group_position: "a" }) }),
+    ).toBe("added the default stage Phase A · Shoot");
+    expect(say({ action: "insert", new: row({}) })).toBe("added the default stage Shoot");
+    expect(
+      say({
+        action: "archived",
+        old: { archived_at: null },
+        new: { archived_at: "2026-10-15T10:00:00Z" },
+        meta: { stage_id: "s1", name: "Shoot", group: "Phase A" },
+      }),
     ).toBe("removed the default stage Phase A · Shoot");
+    expect(
+      say({
+        old: { name: "Shoot" },
+        new: { name: "Film" },
+        meta: { stage_id: "s1", name: "Shoot", group: "Phase A" },
+      }),
+    ).toBe("renamed the default stage Phase A · Shoot to Film");
+    expect(
+      say({
+        old: { position: "m" },
+        new: { position: "c" },
+        meta: { stage_id: "s1", name: "Shoot", group: null },
+      }),
+    ).toBe("moved the default stage Shoot");
   });
 
   it("says a group's own change: named, renamed, its name taken off, moved", () => {
-    expect(say({ action: "group_renamed", meta: { group: null, to: "Phase A" } })).toBe(
+    const grouped = (action: string, group: string | null, to: string | null, changed: object) =>
+      say({
+        action,
+        old: Object.fromEntries(Object.keys(changed).map((key) => [key, null])),
+        new: changed as Record<string, unknown>,
+        meta: { group, to, stage_id: "s1", name: "Shoot" },
+      });
+    expect(grouped("group_renamed", null, "Phase A", { group_label: "Phase A" })).toBe(
       "named the default stage group Phase A",
     );
-    expect(say({ action: "group_renamed", meta: { group: "Phase A", to: "Phase C" } })).toBe(
+    expect(grouped("group_renamed", "Phase A", "Phase C", { group_label: "Phase C" })).toBe(
       "renamed the default stage group Phase A to Phase C",
     );
-    expect(say({ action: "group_renamed", meta: { group: "Phase A", to: null } })).toBe(
+    expect(grouped("group_renamed", "Phase A", null, { group_label: null })).toBe(
       "took the name off the default stage group Phase A",
     );
-    expect(say({ action: "group_moved", meta: { group: "Phase A", to: null } })).toBe(
+    expect(grouped("group_moved", "Phase A", null, { group_position: "c" })).toBe(
       "moved the default stage group Phase A",
     );
     expect(
       say({
         entity: "project_item_stage_list",
         action: "group_moved",
-        meta: { group: "Phase B" },
+        old: { group_position: "a" },
+        new: { group_position: "c" },
+        meta: { group: "Phase B", to: null, stage_id: "s1", name: "One" },
       }),
     ).toBe("moved the stage group Phase B on Item 1");
   });
 
-  it("says one group rename once, however many stage rows it wrote", () => {
+  it("says one group rename once, however many stage rows it wrote, across a page's cut too", () => {
     const rename = (id: number, stage: string) =>
       entry({
         id,
         entityId: stage,
         action: "group_renamed",
-        meta: { group: "Phase A", to: "Phase C", name: stage },
+        old: { group_label: "Phase A" },
+        new: { group_label: "Phase C" },
+        meta: { group: "Phase A", to: "Phase C", stage_id: stage, name: stage },
       });
-    const lines = describeActivityLines(
-      [
-        rename(3, "s3"),
-        rename(2, "s2"),
-        rename(1, "s1"),
-        entry({ id: 0, action: "insert", new: { name: "One" } }),
-      ],
-      context,
-    );
-    expect(lines.map((line) => line.text)).toEqual([
+    const added = entry({ id: 0, action: "insert", new: row({ name: "One" }) });
+    expect(
+      describeActivityLines(
+        [rename(3, "s3"), rename(2, "s2"), rename(1, "s1"), added],
+        context,
+      ).map((line) => line.text),
+    ).toEqual([
       "renamed the default stage group Phase A to Phase C",
       "added the default stage One",
     ]);
+    // The next page starts inside the same rename: its rows are not said again.
+    expect(
+      describeActivityLines([rename(1, "s1"), added], context, rename(2, "s2")).map(
+        (line) => line.text,
+      ),
+    ).toEqual(["added the default stage One"]);
   });
 
-  it("says a stage moved into another group, on a deliverable too", () => {
+  it("says a stage moved into or out of a group, and a deliverable's tick in its group", () => {
     expect(
       say({
-        old: { group_label: null, name: "Shoot" },
-        new: { group_label: "Phase B", position: "a" },
+        old: { group_label: null, group_position: null, position: "m" },
+        new: { group_label: "Phase B", group_position: "b", position: "a" },
+        meta: { stage_id: "s1", name: "Shoot", group: null },
       }),
     ).toBe("moved the default stage Shoot into the group Phase B");
     expect(
       say({
+        old: { group_label: "Phase B", group_position: "b" },
+        new: { group_label: null, group_position: null },
+        meta: { stage_id: "s1", name: "Shoot", group: "Phase B" },
+      }),
+    ).toBe("moved the default stage Phase B · Shoot out of its group");
+    expect(
+      say({
         entity: "project_item_stage_list",
         action: "ticked",
-        meta: { name: "Shoot" },
-        old: { group_label: "Phase A" },
+        old: { done_at: null, done_by: null },
+        new: { done_at: "2026-10-15T10:00:00Z", done_by: "r" },
+        meta: { stage_id: "s1", name: "Shoot", group: "Phase A" },
       }),
     ).toBe("ticked Phase A · Shoot on Item 1");
     expect(
       say({
         entity: "project_item_stage_list",
-        action: "update",
         old: { name: "Cut" },
         new: { name: "Trim" },
-        meta: {},
+        meta: { stage_id: "s1", name: "Cut", group: null },
       }),
     ).toBe("renamed the stage Cut to Trim on Item 1");
   });
@@ -225,7 +277,7 @@ describe("the history of stage groups (6b)", () => {
     expect(
       say({
         entity: "project_item_blueprints",
-        old: { title: "Item" },
+        old: { stages: ["One"], stage_groups: null },
         new: {
           stage_groups: [
             { label: "Phase A", stages: ["One", "Two"] },
@@ -234,7 +286,7 @@ describe("the history of stage groups (6b)", () => {
           stages: ["One", "Two", "Three"],
         },
       }),
-    ).toBe("set the stages of the deliverables list line Item: Phase A: One, Two; Phase B: Three");
+    ).toBe("set the stages of a deliverables list line: Phase A: One, Two; Phase B: Three");
   });
 });
 

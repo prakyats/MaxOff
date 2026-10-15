@@ -11,8 +11,9 @@ import { formatIST, istDayStart } from "@/core/time";
  *
  * **The database reads only what this describes** (the 7B rework's review, S7): the SQL
  * `app.client_work_activity_shown` (migration `client_work_rework_fixes`) lists the same entities,
- * actions and changed keys, so `project_activity`'s page of 20 is 20 lines and `item_last_changes`
- * is always a sentence. Change both together (the unit test lists them).
+ * actions and changed keys, so every entry of `project_activity`'s page of 20 has a sentence (one
+ * group change's per-stage entries share one line, `describeActivityLines`) and
+ * `item_last_changes` is always a sentence. Change both together (the unit test lists them).
  *
  * **Stage groups (6b, DATA-MODEL §5b):** a stage in a named group is named "Group · Stage"
  * (`groupStageLabel`); a group added, renamed, moved or removed is said of the group (the group
@@ -130,7 +131,11 @@ function describeProject(
   }
 }
 
-/** The group a stage row is in (or was in, for a removal), from the entry: null = untitled. */
+/**
+ * The group a stage row is in (or was in, for a removal), from the entry: an insert's full row,
+ * else the meta's `group` (the stage functions write it beside `stage_id` and `name`, since the
+ * diff holds only the changed keys); null = untitled.
+ */
 function groupOf(entry: ActivityEntry, side: "new" | "old"): string | null {
   const values = side === "new" ? entry.new : entry.old;
   if ("group_label" in values) return text(values.group_label);
@@ -158,7 +163,8 @@ function describeStageRegrouped(entry: ActivityEntry, noun: string, on: string):
   if (!visibleChanges(entry).includes("group_label")) return null;
   const from = text(entry.old.group_label);
   const to = text(entry.new.group_label);
-  const stage = text(entry.new.name) ?? text(entry.old.name) ?? "a stage";
+  // The diff holds only the changed keys: the stage's name is in the meta.
+  const stage = text(entry.meta.name) ?? text(entry.new.name) ?? text(entry.old.name) ?? "a stage";
   return to === null
     ? `moved the ${noun} ${groupStageLabel(from, stage)} out of its group${on}`
     : `moved the ${noun} ${stage} into the group ${to}${on}`;
@@ -418,14 +424,22 @@ const GROUP_ACTIONS: ReadonlySet<string> = new Set(["group_renamed", "group_move
 
 /**
  * Entries as the history's lines, newest first (6b): the rows one group rename or move wrote (one
- * per stage, the same moment, actor and sentence) collapse into one line.
+ * per stage, the same moment, actor and sentence) collapse into one line, across a page's cut too
+ * (`before`). So a page of 20 entries may hold fewer lines.
  */
 export function describeActivityLines(
   entries: readonly ActivityEntry[],
   context: ProjectActivityContext,
+  /**
+   * The last entry of the page before (the cursor's own entry): a group change cut by the page's
+   * end is said there, so its remaining rows here are skipped.
+   */
+  before: ActivityEntry | null = null,
 ): ActivityLine[] {
   const lines: ActivityLine[] = [];
-  let previous: { entry: ActivityEntry; line: ActivityLine } | null = null;
+  const said = before ? describeProjectActivity(before, context) : null;
+  let previous: { entry: ActivityEntry; line: ActivityLine } | null =
+    before && said ? { entry: before, line: said } : null;
   for (const entry of entries) {
     const line = describeProjectActivity(entry, context);
     if (!line) continue;

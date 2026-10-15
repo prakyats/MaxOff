@@ -2,7 +2,9 @@
 
 import { CheckIcon, MoreHorizontalIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 
+import { ERROR_MESSAGES } from "@/core/errors/codes";
 import { fail, type Result } from "@/core/errors/result";
 import {
   GROUP_LABEL_MAX,
@@ -11,6 +13,7 @@ import {
   type StageGroup,
 } from "@/core/lib/stage-groups";
 import { cn } from "@/core/lib/utils";
+import { isNetworkError, NETWORK_ERROR_MESSAGE } from "@/core/ui/action/network-error";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { ReviewSheet } from "@/core/ui/composites/review-sheet";
@@ -135,6 +138,10 @@ export function GroupedStagesSheet({
     setBusy(true);
     try {
       return toastResult(await run(), success ? { success } : {});
+    } catch (error) {
+      // No answer (the connection dropped): say so; the caller keeps what was typed.
+      toast.error(isNetworkError(error) ? NETWORK_ERROR_MESSAGE : ERROR_MESSAGES.INTERNAL);
+      return false;
     } finally {
       setBusy(false);
     }
@@ -189,7 +196,8 @@ export function GroupedStagesSheet({
       toastResult(fail("CONFLICT", `There is already a group called ${to}.`));
       return;
     }
-    await send(() => ops.renameGroup(from, to), "Renamed");
+    // A refused or unanswered rename keeps the typed name in its field.
+    if (!(await send(() => ops.renameGroup(from, to), "Renamed"))) return;
     setLabels((current) => omit(current, key));
     if (from === null) setNaming(null);
   }
@@ -205,16 +213,11 @@ export function GroupedStagesSheet({
         return;
       }
     }
-    setBusy(true);
-    try {
-      for (const name of typed) {
-        const result = await ops.addStage(name, label);
-        if (!toastResult(result)) return;
-      }
-      setDrafts((current) => omit(current, key));
-    } finally {
-      setBusy(false);
+    // One add per name; a refused or unanswered one keeps the field as typed.
+    for (const name of typed) {
+      if (!(await send(() => ops.addStage(name, label)))) return;
     }
+    setDrafts((current) => omit(current, key));
   }
 
   async function addGroup(label: string, stages: string[]) {
@@ -248,7 +251,9 @@ export function GroupedStagesSheet({
         <div className="flex min-w-0 flex-col gap-4" data-slot="grouped-stages">
           {rows.length === 0 ? (
             <p className="text-muted-foreground" data-slot="grouped-stages-empty">
-              No stages yet. Add a group of your own, or one from your stage presets.
+              {presets.length > 0
+                ? "No stages yet. Add a stage or a group of your own, or one from your stage presets."
+                : "No stages yet. Add a stage or a group of your own."}
             </p>
           ) : null}
           {/* The untitled group (every list from before groups), or where a first stage goes. */}
@@ -601,7 +606,7 @@ function StageRows({
       toastResult(fail("CONFLICT", `This group already has a stage called ${name}.`));
       return;
     }
-    await send(() => ops.renameStage(row.id, name), "Renamed");
+    if (!(await send(() => ops.renameStage(row.id, name), "Renamed"))) return;
     setNames((current) => omit(current, row.id));
   }
 
@@ -682,7 +687,7 @@ function StageRows({
   );
 }
 
-/** The add row at a group's end: one stage, or several pasted one per line. */
+/** The add row at a group's end: one stage per add. */
 function AddStage({
   groupName,
   value,
