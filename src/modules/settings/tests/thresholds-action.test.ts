@@ -50,7 +50,7 @@ describe("updateThresholds: quiet hours and default reminders", () => {
       "org-1",
       expect.objectContaining({ quietHoursStart: "23:00", quietHoursEnd: "06:30" }),
     );
-    expect(revalidatePath).toHaveBeenCalledWith("/settings/thresholds");
+    expect(revalidatePath).toHaveBeenCalledWith("/", "layout");
   });
 
   it("saves the Owner's default reminders with the other thresholds (5.3)", async () => {

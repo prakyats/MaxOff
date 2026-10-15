@@ -1,8 +1,8 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { revalidateScreens } from "@/core/lib/revalidate-screens";
 import { validateCustomFieldsFor } from "@/core/custom-fields/server";
 import { action, ok, type Result } from "@/core/errors";
 import {
@@ -82,8 +82,7 @@ export type UpdateProjectTemplateInput = z.input<typeof updateSchema>;
 export type ArchiveProjectTemplateInput = z.input<typeof archiveSchema>;
 
 function revalidate(): void {
-  revalidatePath("/settings", "layout");
-  revalidatePath("/clients", "layout");
+  revalidateScreens();
 }
 
 async function clean(data: z.output<typeof values>): Promise<repo.ProjectTemplateValues> {

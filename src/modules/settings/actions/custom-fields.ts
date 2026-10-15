@@ -1,7 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
+import { revalidateScreens } from "@/core/lib/revalidate-screens";
 import {
   type CreateDefinitionInput,
   createDefinitionSchema,
@@ -28,8 +27,6 @@ import { assertPermission } from "@/core/permissions/server";
  * refused write comes back as NOT_FOUND from the repository or 42501 from RLS, mapped by
  * `action()`; the screen only hides what the caller may not do.
  */
-
-const PATH = "/settings/custom-fields";
 
 /** unique (org, entity, key, scope): say which field, not "already exists". */
 function keyTaken(error: unknown): never {
@@ -58,7 +55,7 @@ export const createFieldDefinition = action(
         required: data.required,
         section: data.section,
       });
-      revalidatePath(PATH);
+      revalidateScreens();
       return ok(definition);
     } catch (error) {
       keyTaken(error);
@@ -78,7 +75,7 @@ export const updateFieldDefinition = action(
       required: data.required,
       section: data.section,
     });
-    revalidatePath(PATH);
+    revalidateScreens();
     return ok(null);
   },
 );
@@ -88,7 +85,7 @@ export const setFieldDefinitionArchived = action(
     const data = definitionArchiveSchema.parse(input);
     await assertPermission("lists.manage");
     await setDefinitionArchived(data.definitionId, data.archived);
-    revalidatePath(PATH);
+    revalidateScreens();
     return ok(null);
   },
 );

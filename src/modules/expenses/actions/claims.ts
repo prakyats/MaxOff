@@ -1,7 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
+import { revalidateScreens } from "@/core/lib/revalidate-screens";
 import { action, type BulkOutcome, eachId, ok, type Result } from "@/core/errors";
 import { dispatchPushSoon } from "@/core/notifications/push/dispatch";
 import { assertPermission } from "@/core/permissions/server";
@@ -32,8 +31,7 @@ export const submitExpenseClaim = action(
     const data = submitClaimSchema.parse(input);
     await assertPermission("attendance.self");
     const claimId = await repo.rpcSubmitClaim(data);
-    revalidatePath("/leave/expenses");
-    revalidatePath("/approvals");
+    revalidateScreens();
     dispatchPushSoon();
     return ok({ claimId });
   },
@@ -44,14 +42,13 @@ export const withdrawExpenseClaim = action(async (input: ClaimIdInput): Promise<
   const data = claimIdSchema.parse(input);
   await assertPermission("attendance.self");
   await repo.rpcWithdrawClaim(data.claimId);
-  revalidatePath("/leave/expenses");
-  revalidatePath("/approvals");
+  revalidateScreens();
   return ok(null);
 });
 
 function revalidateDecisions(): void {
   // The layout carries the Approvals badge, so the whole signed-in tree refreshes.
-  revalidatePath("/", "layout");
+  revalidateScreens();
 }
 
 export const approveExpenseClaim = action(async (input: ClaimIdInput): Promise<Result<null>> => {
@@ -92,7 +89,7 @@ export const updateExpenseReceiptAbove = action(
     const data = receiptAboveSchema.parse(input);
     await assertPermission("settings.manage");
     await repo.updateReceiptAbove(data.receiptAbove);
-    revalidatePath("/settings", "layout");
+    revalidateScreens();
     return ok(null);
   },
 );

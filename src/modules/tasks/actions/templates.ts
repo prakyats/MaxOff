@@ -1,7 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
+import { revalidateScreens } from "@/core/lib/revalidate-screens";
 import { validateCustomFieldsFor } from "@/core/custom-fields/server";
 import { action, ok, type Result } from "@/core/errors";
 import { assertPermission } from "@/core/permissions/server";
@@ -23,8 +22,7 @@ import {
  */
 
 function refresh(): void {
-  revalidatePath("/settings/templates");
-  revalidatePath("/tasks", "layout");
+  revalidateScreens();
 }
 
 export const saveTemplate = action(

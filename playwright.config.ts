@@ -65,6 +65,8 @@ const CLIENT_WORK_SPECS = /client-work\.spec\.ts$/;
 const DELIVERABLES_SPECS = /deliverables\.spec\.ts$/;
 const PROJECT_TEMPLATES_SPECS = /project-templates\.spec\.ts$/;
 const BACK_LINK_SPECS = /back-link\.spec\.ts$/;
+// Fresh data on back and reload (6b.17a): both phone widths, as every navigation spec.
+const FRESHNESS_SPECS = /freshness\.spec\.ts$/;
 
 /**
  * Web Push (5.2): the e2e server sends real, encrypted pushes to a fake push service the spec
@@ -235,6 +237,7 @@ export default defineConfig({
         DELIVERABLES_SPECS,
         PROJECT_TEMPLATES_SPECS,
         BACK_LINK_SPECS,
+        FRESHNESS_SPECS,
         SHEET_KEYBOARD_SPECS,
       ],
       use: { ...devices["Pixel 5"], viewport: { width: 430, height: 932 } },

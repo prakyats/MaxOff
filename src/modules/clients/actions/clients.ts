@@ -1,7 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
+import { revalidateScreens } from "@/core/lib/revalidate-screens";
 import { validateCustomFieldsFor } from "@/core/custom-fields/server";
 import { action, AppError, isPostgresError, ok, type Result } from "@/core/errors";
 import { dispatchPushSoon } from "@/core/notifications/push/dispatch";
@@ -44,14 +43,12 @@ import * as repo from "../data/clients";
  * before the write (3.2).
  */
 
-const CLIENTS_PATH = "/clients";
-
 /**
- * The list and every client screen (overview, brand, activity, a contact) read the same rows, so
- * a change revalidates them all (3.4).
+ * The list, every client screen (overview, brand, activity, a contact) and the client labels on
+ * tasks and Today read the same rows, so a change revalidates every screen (3.4, 6b.17a).
  */
 function revalidateClients(): void {
-  revalidatePath(CLIENTS_PATH, "layout");
+  revalidateScreens();
 }
 
 /** unique (org_id, lower(name)) where state <> 'inactive': the generic message says nothing about the name. */

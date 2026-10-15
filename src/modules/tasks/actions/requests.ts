@@ -1,7 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
+import { revalidateScreens } from "@/core/lib/revalidate-screens";
 import { validateCustomFieldsFor } from "@/core/custom-fields/server";
 import { action, ok, type Result } from "@/core/errors";
 import { dispatchPushSoon } from "@/core/notifications/push/dispatch";
@@ -26,11 +25,9 @@ import {
  * `task_request_*` transition function: the state, the scope and the audit are the database's.
  */
 
-const REQUESTS_PATH = "/tasks/requests";
-
 function refresh(): void {
   // "Needs you" on /tasks counts the suggestions to decide; the whole tree carries the badges.
-  revalidatePath("/", "layout");
+  revalidateScreens();
 }
 
 export const createRequest = action(
@@ -38,8 +35,7 @@ export const createRequest = action(
     const data = createRequestSchema.parse(input);
     await assertPermission("task_requests.create");
     const id = await repo.rpcCreateRequest(data);
-    revalidatePath(REQUESTS_PATH);
-    revalidatePath("/tasks");
+    revalidateScreens();
     dispatchPushSoon();
     return ok({ id });
   },
