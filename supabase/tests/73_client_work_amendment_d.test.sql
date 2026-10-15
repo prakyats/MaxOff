@@ -212,9 +212,9 @@ select is((select count(*)::integer from public.project_stages where project_id 
 select throws_ok($$ select public.item_stage_add(pg_temp.item('Film'), ' colour ') $$, 'P0001', 'CONFLICT',
   'an item never has two active stages of one name (case-insensitive)');
 select throws_ok($$ select public.item_stage_add(pg_temp.item('Film'), '  ') $$, 'P0001', 'VALIDATION', 'a stage needs a name');
-select lives_ok($$ select public.item_stage_add(pg_temp.item('Fix 1'), 'Stage ' || g) from generate_series(1, 12) g $$,
-  'an item takes up to 12 stages');
-select throws_ok($$ select public.item_stage_add(pg_temp.item('Fix 1'), 'Stage 13') $$, 'P0001', 'VALIDATION', 'never 13');
+select lives_ok($$ select public.item_stage_add(pg_temp.item('Fix 1'), 'Stage ' || g) from generate_series(1, 100) g $$,
+  'an item takes up to 100 stages (6b Release 1; was 12)');
+select throws_ok($$ select public.item_stage_add(pg_temp.item('Fix 1'), 'Stage 101') $$, 'P0001', 'VALIDATION', 'never 101');
 select is(public.item_stage_update(pg_temp.stage('Film', 'Colour'), '{"name": "Grade"}'), array['name'], 'renamed');
 select throws_ok($$ select public.item_stage_update(pg_temp.stage('Film', 'Grade'), '{"name": "edit"}') $$, 'P0001', 'CONFLICT',
   'never to a name the item has');
@@ -341,7 +341,7 @@ select is(public.project_blueprint_update(pg_temp.fx('bp2'), '{"stages": ["Shoot
 select throws_ok($$ select public.project_blueprint_update(pg_temp.fx('bp2'), '{"stages": "Shoot"}') $$, 'P0001', 'VALIDATION',
   'as a list of names');
 select throws_ok($$ select public.project_blueprint_update(pg_temp.fx('bp2'),
-  jsonb_build_object('stages', (select jsonb_agg('S' || g) from generate_series(1, 13) g))) $$, 'P0001', 'VALIDATION', 'at most 12');
+  jsonb_build_object('stages', (select jsonb_agg('S' || g) from generate_series(1, 101) g))) $$, 'P0001', 'VALIDATION', 'at most 100 (6b Release 1; was 12)');
 select is(pg_temp.stages('Reel 2'), 'Script,Edit', 'the current cycle''s item keeps its stages');
 select lives_ok($$ select public.project_stage_add(pg_temp.fx('p_m'), 'Caption') $$, 'a default stage added to the project');
 select is(pg_temp.stages('Reel 1'), 'Script,Edit', 'existing items never change with the defaults');

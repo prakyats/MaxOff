@@ -42,3 +42,4 @@ screenshots/
 
 # Written by deploy.yml for one `wrangler deploy --secrets-file`; never committed.
 .wrangler-secrets.json
+.claude/worktrees/
