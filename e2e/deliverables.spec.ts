@@ -2,6 +2,7 @@ import type { Locator, Page, TestInfo } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 import {
+  animationsSettled,
   expectBackStack,
   expectNoHorizontalScroll,
   hydrated,
@@ -35,6 +36,10 @@ const owner = USERS.owner;
 const nameOf = (info: TestInfo, what: string) => `DL ${what} (${info.project.name})`;
 
 test.use({ storageState: storageStateFor("admin") });
+
+/** The values of some inputs, in order (a list of stage names). */
+const valuesOf = (inputs: Locator) =>
+  inputs.evaluateAll((elements) => elements.map((element) => (element as HTMLInputElement).value));
 
 /** An Active client run by the seeded Admin. */
 async function workClient(name: string): Promise<string> {
@@ -130,6 +135,31 @@ async function drag(page: Page, from: Locator, onto: Locator, at = 0.8): Promise
   await page.mouse.up();
 }
 
+/**
+ * Nothing in the layer reaches past the screen's right edge, and the page does not scroll
+ * sideways (the mobile standard, ARCHITECTURE §14.1). Only visible elements are measured.
+ */
+async function expectLayerFits(page: Page, layer: Locator): Promise<void> {
+  const wide = await layer.evaluate((root) => {
+    const edge = document.documentElement.clientWidth + 1;
+    return [...root.querySelectorAll<HTMLElement>("*")]
+      .filter((element) => {
+        const box = element.getBoundingClientRect();
+        return box.width > 0 && box.height > 0 && box.right > edge;
+      })
+      .slice(0, 5)
+      .map((element) => element.dataset.slot ?? element.tagName.toLowerCase());
+  });
+  expect(wide, "nothing in the layer reaches past the right edge").toEqual([]);
+  const width = await page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    clientWidth: document.documentElement.clientWidth,
+  }));
+  expect(width.scrollWidth, "the page does not scroll sideways").toBeLessThanOrEqual(
+    width.clientWidth,
+  );
+}
+
 /** Create in the New project dialog: a phone goes through its Preview step first. */
 async function createFromDialog(page: Page, dialog: Locator): Promise<void> {
   if ((page.viewportSize()?.width ?? 1280) < 768) {
@@ -178,14 +208,9 @@ test("New project: six deliverables × three preset groups, a drag, the preview,
   const rows = body.locator('[data-slot="stage-row"]');
   await expect(rows.first().locator('[data-slot="stage-name"]')).toHaveValue("A1");
   await drag(page, rows.nth(0), rows.nth(1));
-  await expect(body.locator('[data-slot="stage-name"]')).toHaveValues([
-    "A2",
-    "A1",
-    "A3",
-    "B1",
-    "B2",
-    "C1",
-  ]);
+  await expect
+    .poll(() => valuesOf(body.locator('[data-slot="stage-name"]')))
+    .toEqual(["A2", "A1", "A3", "B1", "B2", "C1"]);
 
   // The live preview counts what Create makes (beside the form, or on the phone's step).
   if ((page.viewportSize()?.width ?? 1280) >= 768) {
@@ -334,7 +359,9 @@ test("today's shape: a group, a drag and a named default group keep every tick, 
   const stageRow = (name: string) =>
     untitled.locator('[data-slot="stage-row"]', { has: page.getByLabel(`Name of ${name}`) });
   await drag(page, stageRow("Edit"), stageRow("Script"), 0.2);
-  await expect(untitled.locator('[data-slot="stage-name"]')).toHaveValues(["Edit", "Script"]);
+  await expect
+    .poll(() => valuesOf(untitled.locator('[data-slot="stage-name"]')))
+    .toEqual(["Edit", "Script"]);
   await expect(stageRow("Script")).toHaveAttribute("data-done", "");
   await page.goBack();
   await expect(editor).toBeHidden();
@@ -443,7 +470,9 @@ test.describe("the new layers, installed (ARCHITECTURE §14.2)", () => {
     await defaults.getByRole("combobox", { name: "Add from a preset" }).click();
     await page.getByRole("option", { name: presetName }).click();
     await expect(defaults.getByLabel(`Name of the group ${presetName}`)).toBeVisible();
-    await expectNoHorizontalScroll(page);
+    // Measured inside the layer: the toast that says so is the toaster's, sliding in.
+    await animationsSettled(page);
+    await expectLayerFits(page, defaults);
     await defaults.getByRole("button", { name: `Actions for the group ${presetName}` }).click();
     await page.getByRole("menuitem", { name: "Remove group" }).click();
     const remove = page.getByRole("alertdialog", { name: `Remove the group ${presetName}?` });
@@ -462,7 +491,7 @@ test.describe("the new layers, installed (ARCHITECTURE §14.2)", () => {
     await sheet.getByRole("button", { name: "Edit stages" }).click();
     const editor = page.getByRole("dialog", { name: "Stages of Item" });
     await expect(editor).toBeVisible();
-    await expectNoHorizontalScroll(page);
+    await expectLayerFits(page, editor);
     await expectBackStack(page, [
       { closes: editor, url: here },
       { closes: sheet, url: here },
@@ -475,7 +504,7 @@ test.describe("the new layers, installed (ARCHITECTURE §14.2)", () => {
     await list.getByRole("button", { name: "Stages of Item" }).click();
     const line = page.getByRole("dialog", { name: "Stages of Item" });
     await expect(line).toBeVisible();
-    await expectNoHorizontalScroll(page);
+    await expectLayerFits(page, line);
     await line.getByLabel("Add a stage to Stages of Item").fill("Two");
     await line.getByLabel("Add a stage to Stages of Item").press("Enter");
     await page.goBack();
@@ -483,7 +512,9 @@ test.describe("the new layers, installed (ARCHITECTURE §14.2)", () => {
     await expect(ask).toBeVisible();
     await page.goBack();
     await expect(ask).toBeHidden();
-    await expect(line.locator('[data-slot="stage-name"]')).toHaveValues(["Script", "Two"]);
+    await expect
+      .poll(() => valuesOf(line.locator('[data-slot="stage-name"]')))
+      .toEqual(["Script", "Two"]);
     await page.goBack();
     await ask.getByRole("button", { name: "Discard changes" }).click();
     await expect(line).toBeHidden();

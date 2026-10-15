@@ -116,6 +116,10 @@ async function itemState(id: string): Promise<string | undefined> {
 
 const progress = (page: Page) => page.locator('[data-slot="cycle-progress"]');
 
+/** The values of some inputs, in order (a list of stage names). */
+const valuesOf = (inputs: Locator) =>
+  inputs.evaluateAll((elements) => elements.map((element) => (element as HTMLInputElement).value));
+
 /**
  * Create in the New project dialog (6b.16 (a)): a laptop creates from the form, beside its
  * preview; a phone goes through the Preview step first.
@@ -854,10 +858,14 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
     await list.getByRole("button", { name: "Stages of Reel" }).click();
     const lineStages = page.getByRole("dialog", { name: "Stages of Reel" });
     // A line from before groups opens as one untitled group; the draft is saved in one change.
-    await expect(lineStages.locator('[data-slot="stage-name"]')).toHaveValues(["Script"]);
+    await expect
+      .poll(() => valuesOf(lineStages.locator('[data-slot="stage-name"]')))
+      .toEqual(["Script"]);
     await lineStages.getByLabel("Add a stage to Stages of Reel").fill("Post");
     await lineStages.getByLabel("Add a stage to Stages of Reel").press("Enter");
-    await expect(lineStages.locator('[data-slot="stage-name"]')).toHaveValues(["Script", "Post"]);
+    await expect
+      .poll(() => valuesOf(lineStages.locator('[data-slot="stage-name"]')))
+      .toEqual(["Script", "Post"]);
     await lineStages.getByRole("button", { name: "Save stages" }).click();
     await expect(lineStages).toBeHidden();
     await expect
@@ -1484,7 +1492,9 @@ test("a project template in today's shape starts a New project: its stages and d
   await create.getByRole("combobox", { name: "Start from" }).click();
   await page.getByRole("option", { name }).click();
   // Its stages are the one untitled default group; its items the deliverables, on the defaults.
-  await expect(create.locator('[data-slot="stage-name"]')).toHaveValues(["Script", "Edit"]);
+  await expect
+    .poll(() => valuesOf(create.locator('[data-slot="stage-name"]')))
+    .toEqual(["Script", "Edit"]);
   await expect(create.locator('[data-slot="deliverable-title"]')).toHaveText(["Item 1", "Item 2"]);
   await create.getByLabel("Project name").fill("From the template");
   await createFromDialog(page, create);
