@@ -1,0 +1,260 @@
+import { appendFileSync, writeFileSync } from "node:fs";
+
+import { type BrowserContext, type Page } from "@playwright/test";
+
+import { expect, test } from "./fixtures";
+import {
+  hydrated,
+  memberIdOf,
+  removeClientFixture,
+  removeTasksTitled,
+  rpcAs,
+  runInstalled,
+  serviceInsert,
+  serviceSelect,
+  storageStateFor,
+  taskTypeId,
+  USERS,
+} from "./helpers";
+import { addISTDays, istInstant, todayIST } from "../src/core/time";
+
+const OUT = "/tmp/claude-0/-home-user-MaxOff/dd65d284-2439-56ec-b7fc-56068c690cdb/scratchpad/p2a";
+const COLD_MS = 3000;
+const LABEL = process.env.MEASURE_LABEL ?? "run";
+
+test.use({ storageState: storageStateFor("owner"), documentLoads: "allowed" });
+
+
+function isServer(url: URL, base: string) {
+  if (url.origin !== new URL(base).origin) return false;
+  return !(
+    url.pathname.startsWith("/_next/static/") ||
+    url.pathname.startsWith("/icons/") ||
+    url.pathname === "/sw.js" ||
+    url.pathname === "/manifest.webmanifest"
+  );
+}
+
+async function coldServer(context: BrowserContext, base: string, log: string[]) {
+  const t0 = performance.now();
+  await context.route(
+    (url) => isServer(url, base),
+    async (route) => {
+      const r = route.request();
+      const h = r.headers();
+      const u = new URL(r.url());
+      const at = Math.round(performance.now() - t0);
+      await new Promise((resolve) => setTimeout(resolve, COLD_MS));
+      log.push(
+        `${at} ${r.method()} ${u.pathname}${u.search.slice(0, 30)} sw=${r.serviceWorker() ? 1 : 0} pf=${h["next-router-prefetch"] ?? ""} seg=${h["next-router-segment-prefetch"] ?? ""}`,
+      );
+      await route.continue().catch(() => undefined);
+    },
+  );
+}
+
+async function workerActive(context: BrowserContext) {
+  const prep = await context.newPage();
+  await prep.goto("/offline");
+  await prep.evaluate(() => navigator.serviceWorker.ready.then(() => undefined));
+  await prep.close();
+}
+
+type Marks = Record<string, number | null>;
+
+/** A finger's tap: touchstart, held ~80 ms as a real tap is, then the click. */
+async function tap(target: import("@playwright/test").Locator) {
+  await target.dispatchEvent("touchstart");
+  await target.page().waitForTimeout(80);
+  await target.click();
+}
+
+/** Notes, from now, when each selector is first visible. */
+async function arm(page: Page, selectors: Record<string, string>) {
+  await page.evaluate((sels) => {
+    const w = window as unknown as { __m: { tap: number; seen: Record<string, number | null> } };
+    w.__m = { tap: performance.now(), seen: Object.fromEntries(Object.keys(sels).map((k) => [k, null])) };
+    const poll = () => {
+      let open = false;
+      for (const [name, sel] of Object.entries(sels)) {
+        if (w.__m.seen[name] !== null) continue;
+        const el = document.querySelector(sel) as HTMLElement | null;
+        if (el && el.checkVisibility()) w.__m.seen[name] = Math.round(performance.now() - w.__m.tap);
+        else open = true;
+      }
+      if (open && performance.now() - w.__m.tap < 45_000) requestAnimationFrame(poll);
+    };
+    requestAnimationFrame(poll);
+  }, selectors);
+}
+
+async function marks(page: Page, until: string): Promise<Marks> {
+  await page
+    .waitForFunction(
+      (key) => (window as unknown as { __m: { seen: Marks } }).__m.seen[key] !== null,
+      until,
+      { timeout: 45_000 },
+    )
+    .catch(() => undefined);
+  return page.evaluate(() => (window as unknown as { __m: { seen: Marks } }).__m.seen);
+}
+
+function note(name: string, m: Marks) {
+  const parts = Object.entries(m).map(([k, v]) => `${k}=${v === null ? "-" : `${v}ms`}`);
+  const line = `${LABEL} ${test.info().project.name} ${name}: ${parts.join(" ")}`;
+  appendFileSync(`${OUT}/measure.txt`, line + "\n");
+}
+
+const CLIENT = "Measure Skeleton Client";
+const TASK = "Measure Skeleton Task";
+const ANY_SKELETON = 'main [role="status"][aria-busy="true"]';
+const TASKS = {
+  traced: '[aria-label="Loading tasks"]',
+  generic: ANY_SKELETON,
+  content: '[data-slot="tasks-team"]',
+};
+const TASK_PAGE = {
+  traced: '[aria-label="Loading the task"]',
+  generic: ANY_SKELETON,
+  content: '[data-slot="task-summary"]',
+};
+const CLIENTS = {
+  traced: '[data-slot="loading-toolbar"]',
+  generic: ANY_SKELETON,
+  content: '[data-slot="data-toolbar"]',
+};
+const CLIENT_PAGE = {
+  traced: '[data-slot="loading-client-overview"]',
+  generic: ANY_SKELETON,
+  content: '[data-slot="editable-record"]',
+};
+let clientId = "";
+
+test.beforeAll(async () => {
+  await removeClientFixture(CLIENT);
+  const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+  clientId = (await serviceInsert<{ id: string }>("clients", {
+      org_id: org?.id,
+      name: CLIENT,
+      admin_id: await memberIdOf(USERS.admin.email),
+    })).id;
+  await rpcAs(USERS.owner.email, USERS.owner.password, "client_activate", { client_id: clientId });
+  await removeTasksTitled(TASK);
+  const staff = await memberIdOf(USERS.staff.email);
+  await rpcAs<string>(USERS.owner.email, USERS.owner.password, "task_create", {
+    title: TASK,
+    description: null,
+    task_type_id: await taskTypeId("Normal"),
+    client_id: null,
+    priority: "medium",
+    due_at: istInstant(addISTDays(todayIST(), 3), "18:00"),
+    assignee_ids: [staff],
+    primary_owner_id: staff,
+    approving_admin_id: null,
+    stages: [],
+  });
+});
+
+test.afterAll(async () => {
+  await removeClientFixture(CLIENT);
+  await removeTasksTitled(TASK);
+});
+
+/** Bar tab, task row, back, More → Clients, client row; each measured from its tap. */
+async function walk(page: Page, label: string, pause: number) {
+  const wait = () => page.waitForTimeout(pause);
+  await wait();
+  await arm(page, TASKS);
+  await tap(page.locator(`[data-slot="bottom-nav"] a[href="/tasks"]`));
+  note(`${label} bar tab /tasks`, await marks(page, "content"));
+  await expect(page.getByText(TASK).first()).toBeVisible({ timeout: 45_000 });
+  await wait();
+  await arm(page, TASK_PAGE);
+  await tap(page.getByRole("link", { name: new RegExp(TASK) }).first());
+  note(`${label} task row`, await marks(page, "content"));
+  await expect(page).toHaveURL(/\/tasks\/[0-9a-f-]+$/, { timeout: 45_000 });
+  await wait();
+  await arm(page, { content: TASKS.content });
+  await page.evaluate(() => history.back());
+  note(`${label} back to /tasks`, await marks(page, "content"));
+  await expect(page).toHaveURL(/\/tasks$/);
+  await page.locator('[data-slot="bottom-nav"] [data-nav="more"]').click();
+  await wait();
+  await arm(page, CLIENTS);
+  await tap(
+    page.locator('[data-slot="more-sheet"]').getByRole("link", { name: "Clients", exact: true }),
+  );
+  note(`${label} More → /clients`, await marks(page, "content"));
+  await expect(page.getByText(CLIENT).first()).toBeVisible({ timeout: 45_000 });
+  await wait();
+  await arm(page, CLIENT_PAGE);
+  await tap(page.getByRole("link", { name: new RegExp(CLIENT) }).first());
+  note(`${label} client row`, await marks(page, "content"));
+  await expect(page).toHaveURL(new RegExp(`/clients/${clientId}$`), { timeout: 45_000 });
+}
+
+for (const when of ["early", "late"] as const) {
+  test(`first open on a cold Worker, taps ${when}`, async ({ page, context, baseURL }) => {
+    test.setTimeout(600_000);
+    const log: string[] = [];
+    try {
+      await workerActive(context);
+      await runInstalled(page);
+      await coldServer(context, baseURL!, log);
+      await page.goto("/today");
+      await hydrated(page);
+      await walk(page, `first-open ${when}`, when === "early" ? 300 : 9_000);
+    } finally {
+      writeFileSync(`${OUT}/log-${LABEL}-${when}-${test.info().project.name}.log`, log.join("\n"));
+    }
+  });
+}
+
+test("reopen: a warm visit, then reopened on a cold Worker", async ({ page, context, baseURL }) => {
+  test.setTimeout(600_000);
+  const log: string[] = [];
+  try {
+    await workerActive(context);
+    await runInstalled(page);
+    await page.goto("/today");
+    await hydrated(page);
+    await page.waitForTimeout(4_000);
+    await page.locator('[data-slot="bottom-nav"] a[href="/tasks"]').click();
+    await expect(page.getByText(TASK).first()).toBeVisible();
+    await page.waitForTimeout(3_000);
+    await page.locator('[data-slot="bottom-nav"] a[href="/today"]').click();
+    await expect(page).toHaveURL(/\/today$/);
+    await page.waitForTimeout(3_000);
+    await coldServer(context, baseURL!, log);
+    await page.reload();
+    await hydrated(page);
+    await walk(page, "reopen", 300);
+  } finally {
+    writeFileSync(`${OUT}/log-${LABEL}-reopen-${test.info().project.name}.log`, log.join("\n"));
+  }
+});
+
+test("document reload on a cold Worker", async ({ page, context, baseURL }) => {
+  test.setTimeout(120_000);
+  const log: string[] = [];
+  await workerActive(context);
+  await runInstalled(page);
+  await page.goto("/tasks");
+  await hydrated(page);
+  await coldServer(context, baseURL!, log);
+  await page.addInitScript(() => {
+    const poll = () => {
+      if (document.querySelector('[aria-label="Loading tasks"], [data-slot="tasks-team"]')) {
+        sessionStorage.setItem("__docSeen", String(Math.round(performance.now())));
+        return;
+      }
+      requestAnimationFrame(poll);
+    };
+    requestAnimationFrame(poll);
+  });
+  await page.reload({ waitUntil: "commit" });
+  await hydrated(page);
+  const seen = await page.evaluate(() => Number(sessionStorage.getItem("__docSeen")));
+  note("document reload /tasks (from navigation start)", { anything: seen });
+  writeFileSync(`${OUT}/log-${LABEL}-doc-${test.info().project.name}.log`, log.join("\n"));
+});
