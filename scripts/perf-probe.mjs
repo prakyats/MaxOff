@@ -274,9 +274,13 @@ async function main() {
     })`;
   }
 
+  // Production (advisor, 2026-10-15): the public routes UptimeRobot-style only, read-only.
+  const production = /maxoff\.in|^https:\/\/maxoff\.pixoraclips/.test(base);
   const routes = [
     { name: "static (no Worker)", path: "/manifest.webmanifest", auth: false },
-    { name: "404 (Worker, no data)", path: "/__perf-probe-nope", auth: false },
+    ...(production
+      ? []
+      : [{ name: "404 (Worker, no data)", path: "/__perf-probe-nope", auth: false }]),
     { name: "/api/health", path: "/api/health", auth: false },
     { name: "/login", path: "/login", auth: false },
   ];
