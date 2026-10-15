@@ -89,6 +89,8 @@ create function app.stage_group_label(p_label text)
 returns text
 language plpgsql
 immutable
+-- Definer: the template guard runs as the caller, and these read app.client_work_text (service_role only).
+security definer
 set search_path = ''
 as $$
 declare
@@ -142,6 +144,8 @@ create function app.stage_groups_check(p_groups jsonb)
 returns jsonb
 language plpgsql
 immutable
+-- Definer: the template guard runs as the caller, and these read app.client_work_text (service_role only).
+security definer
 set search_path = ''
 as $$
 declare
@@ -239,6 +243,8 @@ create function app.deliverables_check(p_deliverables jsonb)
 returns jsonb
 language plpgsql
 immutable
+-- Definer: the template guard runs as the caller, and these read app.client_work_text (service_role only).
+security definer
 set search_path = ''
 as $$
 declare
@@ -1040,7 +1046,8 @@ begin
     end if;
   end if;
   if v_new_label is distinct from v_label then v_changed := array_append(v_changed, 'label'); end if;
-  if v_new_position is distinct from v_old_position then v_changed := array_append(v_changed, 'position'); end if;
+  -- A rename of the untitled group gives it a key too; only a move the caller asked for is reported.
+  if changes ? 'position' and v_new_position is distinct from v_old_position then v_changed := array_append(v_changed, 'position'); end if;
   if cardinality(v_changed) = 0 then
     return v_changed;
   end if;
@@ -1379,7 +1386,8 @@ begin
     end if;
   end if;
   if v_new_label is distinct from v_label then v_changed := array_append(v_changed, 'label'); end if;
-  if v_new_position is distinct from v_old_position then v_changed := array_append(v_changed, 'position'); end if;
+  -- A rename of the untitled group gives it a key too; only a move the caller asked for is reported.
+  if changes ? 'position' and v_new_position is distinct from v_old_position then v_changed := array_append(v_changed, 'position'); end if;
   if cardinality(v_changed) = 0 then
     return v_changed;
   end if;
