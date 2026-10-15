@@ -12,6 +12,7 @@ import {
   isUpcoming,
   weeklyOffChoices,
 } from "../domain/settings";
+import { cleanStages, PRESET_STAGES_MAX, stagesLine } from "../domain/stage-presets";
 
 describe("updateCompanySchema", () => {
   it("trims the name and refuses an empty or overlong one", () => {
@@ -321,5 +322,20 @@ describe("isUpcoming", () => {
     const holiday = { id: "1", date: "2026-10-02", name: "Gandhi Jayanti" };
     expect(isUpcoming(holiday, "2026-10-02")).toBe(true);
     expect(isUpcoming(holiday, "2026-10-03")).toBe(false);
+  });
+});
+
+describe("stage presets", () => {
+  it("allow up to 100 stages (6b.12, was 12)", () => {
+    expect(PRESET_STAGES_MAX).toBe(100);
+  });
+
+  it("clean a typed list: trimmed, blanks dropped, order kept", () => {
+    const typed = Array.from({ length: PRESET_STAGES_MAX }, (_, index) => ` Stage ${index + 1} `);
+    const cleaned = cleanStages(["", ...typed, "   "]);
+    expect(cleaned).toHaveLength(PRESET_STAGES_MAX);
+    expect(cleaned[0]).toBe("Stage 1");
+    expect(cleaned.at(-1)).toBe(`Stage ${PRESET_STAGES_MAX}`);
+    expect(stagesLine(cleaned.slice(0, 3))).toBe("Stage 1 → Stage 2 → Stage 3");
   });
 });
