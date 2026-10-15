@@ -260,7 +260,7 @@ begin
   end if;
   perform set_config('app.audit_override', jsonb_build_object(
     'action', case when cycle_keep_extras.keep then 'extras_kept' else 'extras_not_kept' end,
-    'meta', jsonb_build_object('count', v_count, 'titles', v_titles))::text, true);
+    'meta', jsonb_build_object('count', v_count, 'titles', v_titles, 'label', v_cycle.label))::text, true);
   update public.project_cycles
   set extras_decided_at = now(), extras_decided_by = v_caller.id, extras_kept = v_count
   where id = v_cycle.id;
@@ -276,7 +276,7 @@ comment on function public.cycle_keep_extras(uuid, boolean) is
   'list with its stage groups (one audited line each, meta {kept_from_item_id, cycle_id}; at most 100 lines, '
   'VALIDATION), for the cycles still to be built from the list (no existing cycle changes); false adds '
   'nothing. The cycle records the answer (extras_decided_at / _by / extras_kept), audited extras_kept or '
-  'extras_not_kept with meta {count, titles}. Returns how many lines were added.';
+  'extras_not_kept with meta {count, titles, label}. Returns how many lines were added.';
 
 -- 5. Bulk edits on selected open deliverables ------------------------------------------------------------------------
 create function public.items_set_planned_date(item_ids uuid[], planned_date date)

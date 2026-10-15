@@ -335,3 +335,47 @@ export const carryDecideSchema = z
     }
   });
 export type CarryDecideInput = z.input<typeof carryDecideSchema>;
+
+// ROADMAP 6b.16 (c)(d)(e) (migration client_work_bulk_and_rounds): the bulk edits take at most 100
+// open deliverables (a cycle holds no more); each function checks every rule again.
+const bulkIds = z
+  .array(id)
+  .min(1, "Select at least one deliverable.")
+  .max(ITEMS_MAX, `Select at most ${ITEMS_MAX} deliverables at a time.`);
+
+export const keepExtrasSchema = z.object({ cycleId: id, keep: z.boolean() });
+export type KeepExtrasInput = z.input<typeof keepExtrasSchema>;
+
+export const bulkPlanSchema = z.object({ itemIds: bulkIds, plannedDate: isoDate });
+export type BulkPlanInput = z.input<typeof bulkPlanSchema>;
+
+export const bulkShiftSchema = z.object({
+  itemIds: bulkIds,
+  days: z
+    .number()
+    .int()
+    .min(-365, "Move the dates by 1 to 365 days, earlier or later.")
+    .max(365, "Move the dates by 1 to 365 days, earlier or later.")
+    .refine((days) => days !== 0, "Move the dates by 1 to 365 days, earlier or later."),
+});
+export type BulkShiftInput = z.input<typeof bulkShiftSchema>;
+
+export const bulkGroupsSchema = z.object({
+  itemIds: bulkIds,
+  groups: stageGroups.refine(
+    (groups) => groups.length > 0 && groups.every((group) => group.label !== null),
+    "Add a group with a name and at least one stage.",
+  ),
+});
+export type BulkGroupsInput = z.input<typeof bulkGroupsSchema>;
+
+export const bulkRenameSchema = z.object({
+  itemIds: bulkIds,
+  pattern: z
+    .string()
+    .trim()
+    .min(1, "Type the new name, with {n} where its number goes.")
+    .max(ITEM_TITLE_MAX, `Keep the name under ${ITEM_TITLE_MAX} characters.`),
+  start: z.number().int().min(0).max(9999).default(1),
+});
+export type BulkRenameInput = z.input<typeof bulkRenameSchema>;

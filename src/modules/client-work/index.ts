@@ -77,6 +77,9 @@ export {
   type ItemViewContext,
   type LastChange,
 } from "./domain/views";
+export { cycleExtras, extrasCycle, extrasQuestion, type ExtraCandidate } from "./domain/extras";
+export { renamePreview, shiftDays, shiftWords, type RenamePreview } from "./domain/bulk";
+export { scheduleDay, scheduleText, type ScheduleItem } from "./domain/schedule";
 export {
   ACTIVITY_KINDS,
   describeProjectActivity,
@@ -167,6 +170,14 @@ export {
   updateItemStage,
   updateItemStageGroup,
 } from "./actions/items";
+export {
+  addGroupsToItems,
+  addRevisionRound,
+  keepExtras,
+  planItems,
+  renameItems,
+  shiftItems,
+} from "./actions/bulk";
 export {
   ACTIVITY_PAGE,
   readDeliverableTemplateOptions,

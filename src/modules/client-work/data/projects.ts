@@ -118,12 +118,19 @@ export function toProject(
 }
 
 export const CYCLE_COLUMNS =
-  "id, project_id, period_start, period_end, label, state, item_list_copied";
+  "id, project_id, period_start, period_end, label, state, item_list_copied, extras_decided_at";
 
 export function toCycle(
   row: Pick<
     Tables<"project_cycles">,
-    "id" | "project_id" | "period_start" | "period_end" | "label" | "state" | "item_list_copied"
+    | "id"
+    | "project_id"
+    | "period_start"
+    | "period_end"
+    | "label"
+    | "state"
+    | "item_list_copied"
+    | "extras_decided_at"
   >,
 ): Cycle {
   return {
@@ -134,6 +141,7 @@ export function toCycle(
     label: row.label,
     state: row.state,
     itemListCopied: row.item_list_copied,
+    extrasDecided: row.extras_decided_at !== null,
   };
 }
 
