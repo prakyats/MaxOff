@@ -3,16 +3,14 @@ import "server-only";
 import { cache } from "react";
 
 import { createServerSupabase } from "@/core/db/server";
-import { type BandReason, toBandReason } from "@/core/notifications/push/band";
 import type { ServerUnread } from "@/core/notifications/read-receipts";
 import { systemClock } from "@/core/time";
 
 /**
- * What the signed-in shell draws for the viewer besides who they are, in **one** round trip
- * (`session_bundle()`, P2 2026-10-15, ARCHITECTURE §19): the Tasks badge's counts
- * (`task_counts()`'s), the bell's unread count, the Owner's pending approvals by kind (null for
- * anyone who does not decide them) and the notifications band's push status
- * (`push_status_own()`'s). It replaced up to eight reads in two waves.
+ * The signed-in shell's counts in **one** round trip (`session_bundle()`, P2 2026-10-15,
+ * ARCHITECTURE §19): the Tasks badge's counts (`task_counts()`'s), the bell's unread count and the
+ * Owner's pending approvals by kind (null for anyone who does not decide them). It replaced up to
+ * six reads, most of which waited for the member row.
  */
 export type SessionBundle = {
   tasks: { notNoted: number; changesRequested: number; badge: number; toDecide: number };
@@ -25,14 +23,13 @@ export type SessionBundle = {
     notes: number | null;
     claims: number | null;
   };
-  push: { endpoints: string[]; band: BandReason | null };
 };
 
 /**
  * The bundle, once per request (`cache()`): the `(app)` layout starts it with the session read,
- * keyed by the verified JWT under RLS (security invoker), so it never waits for the member row;
- * the bars, the bell, the band and the screens that show the same counts (Tasks, an Admin's
- * Today, Alerts) share the one call. Never an authorisation decision: the layout still awaits
+ * keyed by the verified JWT under RLS (security invoker), so it never waits for the member row,
+ * and streams it into the bars (never awaited before the shell paints); the bars, the bell and
+ * the screens that show the same counts (Tasks, an Admin's Today, Alerts) share the one call. Never an authorisation decision: the layout still awaits
  * `requireMember()` before it renders, and a count is only a hint. Not for a background route
  * (`/api/notifications/unread` reads its count alone): every number here is the shell's.
  */
@@ -59,6 +56,5 @@ export const getSessionBundle = cache(async (): Promise<SessionBundle> => {
       notes: row.pending_notes,
       claims: row.pending_claims,
     },
-    push: { endpoints: row.push_endpoints ?? [], band: toBandReason(row.push_band) },
   };
 });

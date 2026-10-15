@@ -1,13 +1,13 @@
 -- P2 item 3 (2026-10-15, migration p2_session_bundle; DATA-MODEL §1 "P2 session reads"; ARCHITECTURE
--- §19): public.session_bundle() is the shell's one read for the nav counts, the unread count and the
--- push status. Who may call it (authenticated only, anon refused), that it runs as the caller
--- (security invoker), and that each number equals the read the layout made before (task_counts(),
--- the API counts under RLS, push_status_own()) for the Owner, an Admin and a Crew member on the
+-- §19): public.session_bundle() is the shell's one read for the nav counts and the unread count.
+-- Who may call it (authenticated only, anon refused), that it runs as the caller (security
+-- invoker), and that each number equals the read the layout made before (task_counts(), the API
+-- counts under RLS) for the Owner, an Admin and a Crew member on the
 -- seeded people with fixtures that make every count non-zero; the Owner's counts are null for anyone
 -- else; a deactivated or invited member gets zeros and nulls. Neutral names only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(33);
+select plan(29);
 
 create temporary table fx (key text primary key, id uuid not null);
 insert into fx values
@@ -118,10 +118,6 @@ select is((select pending_claims from public.session_bundle()),
 select ok((select pending_days >= 2 and pending_requests >= 1 and pending_notes >= 1 and pending_claims >= 1
                   and unread >= 1 from public.session_bundle()),
   'Owner: the fixtures are counted (not a comparison of zeros)');
-select results_eq(
-  $$ select push_endpoints, push_band from public.session_bundle() $$,
-  $$ select endpoints, band from public.push_status_own() $$,
-  'Owner: the push status is push_status_own()''s');
 select pg_temp.as_system();
 
 -- An Admin ----------------------------------------------------------------------------------------------
@@ -136,10 +132,6 @@ select is((select unread from public.session_bundle()),
 select ok((select pending_days is null and pending_requests is null and pending_notes is null
                   and pending_claims is null from public.session_bundle()),
   'Admin: the Owner''s counts are null (attendance.decide is the Owner''s)');
-select results_eq(
-  $$ select push_endpoints, push_band from public.session_bundle() $$,
-  $$ select endpoints, band from public.push_status_own() $$,
-  'Admin: the push status is push_status_own()''s');
 select pg_temp.as_system();
 
 -- Crew --------------------------------------------------------------------------------------------------
@@ -158,10 +150,6 @@ select is((select unread from public.session_bundle()),
 select ok((select pending_days is null and pending_requests is null and pending_notes is null
                   and pending_claims is null from public.session_bundle()),
   'Crew: the Owner''s counts are null');
-select results_eq(
-  $$ select push_endpoints, push_band from public.session_bundle() $$,
-  $$ select endpoints, band from public.push_status_own() $$,
-  'Crew: the push status is push_status_own()''s');
 select pg_temp.as_system();
 
 -- A deactivated and an invited member: zeros and nulls, nothing of anyone's ------------------------------
@@ -172,12 +160,10 @@ select ok((select not_noted is null and badge is null and to_decide is null from
 select is((select unread from public.session_bundle()), 0, 'deactivated: no unread');
 select ok((select pending_days is null and pending_claims is null from public.session_bundle()),
   'deactivated: no Owner counts');
-select ok((select push_endpoints is null and push_band is null from public.session_bundle()),
-  'deactivated: no push status');
 select pg_temp.as_system();
 
 select pg_temp.as_member('invited');
-select ok((select badge is null and unread = 0 and pending_days is null and push_band is null
+select ok((select badge is null and unread = 0 and pending_days is null and pending_claims is null
            from public.session_bundle()),
   'invited: zeros and nulls');
 select pg_temp.as_system();
@@ -194,8 +180,8 @@ select is(
    join information_schema.routines r on r.specific_name = p.specific_name
    where r.routine_schema = 'public' and r.routine_name = 'session_bundle' and p.parameter_mode = 'OUT'),
   array['not_noted', 'changes_requested', 'badge', 'to_decide', 'unread', 'pending_days',
-        'pending_requests', 'pending_notes', 'pending_claims', 'push_endpoints', 'push_band'],
-  'the result''s columns are exactly the counts and the push status');
+        'pending_requests', 'pending_notes', 'pending_claims'],
+  'the result''s columns are exactly the counts');
 
 select * from finish();
 rollback;

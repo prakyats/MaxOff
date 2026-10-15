@@ -5081,8 +5081,6 @@ export type Database = {
           pending_days: number;
           pending_notes: number;
           pending_requests: number;
-          push_band: string;
-          push_endpoints: string[];
           to_decide: number;
           unread: number;
         }[];

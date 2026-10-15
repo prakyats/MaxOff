@@ -1,5 +1,5 @@
 import { unstable_rethrow } from "next/navigation";
-import { type ReactNode, Suspense } from "react";
+import type { ReactNode } from "react";
 
 import { LogoutProvider } from "@/core/auth/components/logout-confirm";
 import { getRealtimeAuth, requireMember } from "@/core/auth/server";
@@ -11,6 +11,7 @@ import { LiveUpdatesLazy } from "@/core/notifications/components/live-lazy";
 import { PushBanner, PushSync } from "@/core/notifications/components/push-lazy";
 import { readPushEnv } from "@/core/notifications/env";
 import type { ServerUnread } from "@/core/notifications/read-receipts";
+import { readOwnPushStatus } from "@/core/notifications/push/subscriptions";
 import { can } from "@/core/permissions";
 import { RouteTransition } from "@/core/ui/motion/route-transition";
 import { Toaster } from "@/core/ui/primitives/sonner";
@@ -63,48 +64,24 @@ async function startDayPrompt(viewer: Awaited<ReturnType<typeof requireMember>>)
 }
 
 /**
- * The notifications band (kickoff 5 decision 9; since 5.5 until a device of theirs has received a
- * push, and whenever they are not reachable) and this device's check against the member's own
- * active endpoints (`PushSync`), from the bundle's push status. Streamed like the counts (P2): the
- * band is a fixed row above the bottom bar, so arriving a moment after the shell moves nothing,
- * and the shell never waits for it. No status (the bundle failed, reported once): no band.
- */
-async function ShellPush({
-  push,
-  publicKey,
-}: {
-  push: Promise<SessionBundle["push"] | null>;
-  publicKey: string | null;
-}) {
-  const status = await push;
-  if (!status) return null;
-  return (
-    <>
-      <PushSync publicKey={publicKey} endpoints={status.endpoints} />
-      {/* A band above the bottom bar (5A decision 30), never at the top of a screen. */}
-      {status.band ? <PushBanner publicKey={publicKey} reason={status.band} /> : null}
-    </>
-  );
-}
-
-/**
  * The signed-in area. `requireMember()` is the auth decision (ADR-0011 rule 3): signed out →
  * /login, a session whose member is not active → ended, then /login. Since 3b.1 the app then
  * opens freely (the 2.2 blocking day gate is gone, ADR-0012 amendment 2026-09-27): the Start-day
  * prompt asks in the app, and "Sign out of this device" lives under Me only.
  */
 export default async function AppLayout({ children }: { children: ReactNode }) {
-  // One wave (§19, P2 2026-10-15): the member row, the shell's bundle (every nav count, the unread
-  // count and the push status in one `session_bundle()` call) and the Start-day prompt's read all
-  // start together, each keyed by the verified JWT under RLS. Measured before: the unread count,
-  // the Owner's four counts and a second push read waited behind the member row.
+  // One wave (§19, P2 2026-10-15): the member row, the push status (the band), the shell's counts
+  // (every nav count and the unread count in one `session_bundle()` call) and the Start-day
+  // prompt's own day all start together, each keyed by the verified JWT under RLS. Measured
+  // before: the unread count, the Owner's four counts and the awaited push read waited behind the
+  // member row.
   const bundle = getSessionBundle();
-  startEarly(getOwnToday(), bundle);
+  startEarly(getOwnToday(), readOwnPushStatus(), bundle);
   const viewer = await requireMember();
-  // The counts, the bell and the band stream (`NavCount`, 4C): the shell and the page never wait
-  // for them, so a screen's loading state paints as soon as the member is known. A bundle that
-  // cannot be read is reported (once, by `countsOrNone`) and shows as no count and no band, never
-  // the error screen (4C review S3); Next's own signals still go through.
+  // The counts and the bell stream (`NavCount`, 4C): the shell and the page never wait for them, so
+  // a screen's loading state paints as soon as the member is known. A bundle that cannot be read is
+  // reported (once, by `countsOrNone`) and shows as no count, never the error screen (4C review
+  // S3); Next's own signals still go through.
   const report = (error: unknown) => {
     unstable_rethrow(error);
     captureException(error);
@@ -117,16 +94,18 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     (read) => read.unread,
     () => null,
   );
-  const push = bundle.then(
-    (read) => read.push,
-    () => null,
-  );
   const prompt = await startDayPrompt(viewer);
-  // The public key is read at runtime and handed to the browser (decision 26); null = push off.
+  // The notifications band is judged per member (kickoff 5 decision 9; since 5.5 until a device
+  // of theirs has received a push, and whenever they are not reachable): one call gives its
+  // reason with the member's own active endpoints, which tell this device whether it is one of
+  // them (PushSync). Awaited, never streamed with the counts: the band and PushSync are lazy parts,
+  // and §19 keeps a lazy part out of a `<Suspense>` in the shell ("What draws nothing at first").
+  // Started with the member row above, so waiting for it costs no hop. The public key is read at
+  // runtime and handed to the browser (decision 26); null = push off.
   const pushEnv = readPushEnv();
+  // The live bell's token (5.1) is read with it: the session is the one just verified.
+  const [{ endpoints, band }, live] = await Promise.all([readOwnPushStatus(), getRealtimeAuth()]);
   const publicKey = pushEnv.mode === "on" ? pushEnv.publicKey : null;
-  // The live bell's token (5.1): the session just verified, read from its cookie (no round trip).
-  const live = await getRealtimeAuth();
 
   return (
     // The sign-out confirmation lives above the shell, so the edit pattern's unsaved-changes
@@ -136,12 +115,12 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         <SentryUser id={viewer.id} />
         <RefreshOnReturn />
         {prompt}
-        <Suspense fallback={null}>
-          <ShellPush push={push} publicKey={publicKey} />
-        </Suspense>
+        <PushSync publicKey={publicKey} endpoints={endpoints} />
         {live ? (
           <LiveUpdatesLazy memberId={viewer.id} token={live.token} expiresIn={live.expiresIn} />
         ) : null}
+        {/* A band above the bottom bar (5A decision 30), never at the top of a screen. */}
+        {band ? <PushBanner publicKey={publicKey} reason={band} /> : null}
         <RouteTransition>{children}</RouteTransition>
       </AppShell>
       {/* Here rather than in the root layout: sonner is only ever used by signed-in screens, and
