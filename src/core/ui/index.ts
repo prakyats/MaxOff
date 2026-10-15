@@ -39,6 +39,33 @@ export {
   statusTone,
 } from "./composites/status-badge";
 export { StickyActions } from "./composites/sticky-actions";
+export {
+  dropIndex,
+  edgeScrollStep,
+  LONG_PRESS_MS,
+  moveAnnouncement,
+  moveItem,
+  pressOutcome,
+} from "./reorder/reorder-math";
+export { DragHandle, ReorderItem, ReorderList, ReorderMenuItems } from "./reorder/reorder";
+export { type Reorder, type ReorderHandleProps, useReorder } from "./reorder/use-reorder";
+export {
+  addPresetGroup,
+  addTypedGroup,
+  countsLine,
+  duplicateDeliverable,
+  groupsFromPresets,
+  groupsSummary,
+  newDeliverables,
+  type StagePresetOption,
+  uniqueLabel,
+} from "./stage-groups/editing";
+export {
+  DeliverablesEditor,
+  type DeliverablesEditorProps,
+} from "./stage-groups/deliverables-editor";
+export { DeliverablesPreview } from "./stage-groups/deliverables-preview";
+export { StageGroupsEditor, type StageGroupsEditorProps } from "./stage-groups/stage-groups-editor";
 export { AppShell } from "./shell/app-shell";
 export {
   alertsInBottomNav,
