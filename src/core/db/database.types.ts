@@ -5071,6 +5071,22 @@ export type Database = {
           state: string;
         }[];
       };
+      session_bundle: {
+        Args: never;
+        Returns: {
+          badge: number;
+          changes_requested: number;
+          not_noted: number;
+          pending_claims: number;
+          pending_days: number;
+          pending_notes: number;
+          pending_requests: number;
+          push_band: string;
+          push_endpoints: string[];
+          to_decide: number;
+          unread: number;
+        }[];
+      };
       session_login: {
         Args: { ip_hash?: string; user_agent?: string };
         Returns: string;

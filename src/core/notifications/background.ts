@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { systemClock } from "@/core/time";
 
-import { readUnread, rpcMarkRecordRead } from "./inbox";
+import { readUnreadAlone, rpcMarkRecordRead } from "./inbox";
 import { appReportSchema } from "./reachability";
 import { rpcAppOpenReport } from "./reachability-store";
 import type { ServerUnread } from "./read-receipts";
@@ -45,7 +45,7 @@ export async function storeOwnSubscription(input: unknown): Promise<{ id: string
  * confirm the device's own reads (owner decision 2026-10-01). Read only.
  */
 export async function readUnreadCount(): Promise<ServerUnread> {
-  return readUnread();
+  return readUnreadAlone();
 }
 
 /** The records a notification can be about, as `notifications.entity` names them. */

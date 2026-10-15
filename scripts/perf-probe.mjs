@@ -26,7 +26,8 @@
 //   claims   the proxy's session verification, from the same header
 //   colo     the Cloudflare location that ran the Worker (`cf-ray`'s suffix)
 // `/diagnostics/timing` (member-only JSON, numbers only) adds the layout's own chain measured on
-// the Worker: claims, the member row, the Today / push / counts reads, each in ms.
+// the Worker: claims, then the one wave (P2): the member row, the shell's bundle (`session_bundle()`)
+// and the own-day read, each from the wave's start, and the wave itself, in ms.
 //
 // Where this runs matters: a GitHub runner sits in the US, so every Worker → Supabase (Mumbai)
 // round trip costs ~200 ms there against a few tens from India. That exaggerates a waterfall

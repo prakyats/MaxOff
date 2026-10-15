@@ -1,63 +1,57 @@
 import { notFound } from "next/navigation";
 
-import { getCurrentMember, getSessionUserId } from "@/core/auth/server";
-import { readUnread } from "@/core/notifications/inbox";
-import { readOwnPushStatus } from "@/core/notifications/push/subscriptions";
+import { getSessionState, getSessionUserId } from "@/core/auth/server";
+import { getSessionBundle } from "@/core/auth/session-bundle";
 import { isolateState } from "@/core/observability/isolate";
 import { can } from "@/core/permissions";
 import { getOwnToday } from "@/modules/attendance";
-import { countTasks } from "@/modules/tasks";
 
 // Evaluated per request, never at build time (see /diagnostics/sentry).
 export const dynamic = "force-dynamic";
 
 /**
  * Where a signed-in request's server time goes (unit P, 2026-10-15; ARCHITECTURE §19): the
- * `(app)` layout's own chain, run here one step after the other and timed on the Worker itself,
+ * `(app)` layout's own chain, run here the way the layout runs it and timed on the Worker itself,
  * so a probe (`scripts/perf-probe.mjs`, `.github/workflows/perf.yml`) can read each round trip's
- * cost from where the Worker runs. Members only: anyone else, signed out included, 404s like the
- * other diagnostics. Nothing is written; the answer is milliseconds and the isolate's state,
- * never data (no row, no id, no name). `cache-control: no-store`.
+ * cost from where the Worker runs. Since P2 (2026-10-15) the chain is the JWT check, then one wave:
+ * the member row, the shell's bundle (`session_bundle()`: every nav count, the unread count, the
+ * push status) and the Start-day prompt's own day, all started together. Each part is timed from
+ * the wave's start to its answer; `wave` is the whole wave (the slowest part, so one hop when the
+ * reads run in parallel), `total` everything. Members only: anyone else, signed out included,
+ * 404s like the other diagnostics. Nothing is written; the answer is milliseconds and the
+ * isolate's state, never data (no row, no id, no name). `cache-control: no-store`.
  */
 export async function GET(): Promise<Response> {
   const started = performance.now();
-  let last = started;
-  const lap = () => {
-    const now = performance.now();
-    const ms = Math.round(now - last);
-    last = now;
-    return ms;
-  };
-
   const userId = await getSessionUserId();
-  const claims = lap();
+  const claims = Math.round(performance.now() - started);
   if (!userId) notFound();
-  const member = await getCurrentMember();
-  const memberRow = lap();
-  if (!member) notFound();
 
-  // The Owner has no working day (§8): the layout reads it for everyone else.
-  if (can(member.role, "attendance.self")) await getOwnToday();
-  const today = lap();
-  await countTasks();
-  const taskCounts = lap();
-  await readUnread();
-  const unread = lap();
-  await readOwnPushStatus();
-  const push = lap();
+  const waveStart = performance.now();
+  const timed = <T>(read: Promise<T>) =>
+    read.then((value) => ({ value, ms: Math.round(performance.now() - waveStart) }));
+  // The layout starts the day for everyone (the role is not known yet) and uses it for all but the
+  // Owner, who has no working day (§8): timed the same way.
+  const [member, bundle, today] = await Promise.all([
+    timed(getSessionState()),
+    timed(getSessionBundle()),
+    timed(getOwnToday().catch(() => null)),
+  ]);
+  const wave = Math.round(performance.now() - waveStart);
+  if (member.value.kind !== "member") notFound();
+  const role = member.value.member.role;
 
   const isolate = isolateState();
   const body = {
     claims,
-    member: memberRow,
-    today,
-    task_counts: taskCounts,
-    unread,
-    push,
+    member: member.ms,
+    bundle: bundle.ms,
+    today: can(role, "attendance.self") ? today.ms : 0,
+    wave,
     total: Math.round(performance.now() - started),
     isolate_n: isolate.n,
     isolate_age: isolate.age,
-    role: member.role,
+    role,
   };
   return Response.json(body, {
     headers: { "cache-control": "private, no-store", "x-robots-tag": "noindex" },

@@ -12,7 +12,7 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/core/auth/server", () => ({ getCurrentMember }));
 vi.mock("@/core/observability/capture", () => ({ captureException: () => "event-1" }));
 vi.mock("@/core/notifications/inbox", () => ({
-  readUnread,
+  readUnreadAlone: readUnread,
   rpcMarkRecordRead: markRecord,
 }));
 vi.mock("@/core/notifications/reachability-store", () => ({ rpcAppOpenReport: appReport }));

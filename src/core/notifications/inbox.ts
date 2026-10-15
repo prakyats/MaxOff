@@ -2,6 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 
+import { getSessionBundle } from "@/core/auth/session-bundle";
 import { createServerSupabase } from "@/core/db/server";
 import { systemClock } from "@/core/time";
 
@@ -40,11 +41,20 @@ export interface InboxRow {
 
 /**
  * How many of the member's notifications are unread: the bell's count (the bar's Alerts for
- * Staff, the title bar's and the top bar's bell for the Owner and Admins). One read per request:
- * the layout's nav counts and each title bar's bell share it. With the server's clock when it was
- * counted, so the device knows which of its own reads the count already holds.
+ * Staff, the title bar's and the top bar's bell for the Owner and Admins). On a screen it is the
+ * shell's bundle's (`getSessionBundle()`, P2): the layout's nav counts, each title bar's bell and
+ * Alerts share that one call. With the server's clock when it was counted, so the device knows
+ * which of its own reads the count already holds.
  */
 export const readUnread = cache(async (): Promise<ServerUnread> => {
+  return (await getSessionBundle()).unread;
+});
+
+/**
+ * The count read on its own, for a background route outside the screens
+ * (`GET /api/notifications/unread`), which must not pay for the shell's other counts.
+ */
+export async function readUnreadAlone(): Promise<ServerUnread> {
   // Stamped before the count is asked: a read written before this moment is in it (the device's
   // read receipts, `read-receipts.ts`, compare the two).
   const countedAt = systemClock().getTime();
@@ -55,11 +65,6 @@ export const readUnread = cache(async (): Promise<ServerUnread> => {
     .is("read_at", null);
   if (error) throw error;
   return { count: count ?? 0, countedAt };
-});
-
-/** The bell's count alone (`readUnread()`'s). */
-export async function countUnread(): Promise<number> {
-  return (await readUnread()).count;
 }
 
 /**
