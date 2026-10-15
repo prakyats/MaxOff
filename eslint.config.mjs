@@ -530,6 +530,8 @@ const eslintConfig = defineConfig([
     "blob-report/**",
     "blob-report-bulk/**",
     "all-blob-reports/**",
+    // Subagent worktrees (cloud sessions build in them; each is a repo of its own):
+    ".claude/worktrees/**",
     "test-results/**",
     "supabase/migrations/**",
     // Deliberate violations, linted only by tests/lint-rules.test.ts.
