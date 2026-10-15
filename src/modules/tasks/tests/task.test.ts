@@ -304,6 +304,9 @@ describe("tasks for the Owner (6b.2, owner 2026-10-07)", () => {
     expect(taskActions(task({ state: "changes_requested" }), TEAM, PEOPLE, OWNER).remind).toBe(
       true,
     );
+    // Nobody else on it (the Owner's task with only the Owner): no Remind.
+    const alone = [assignee("owner", { isPrimary: true })];
+    expect(taskActions(task({ primaryOwnerId: "owner" }), alone, PEOPLE, OWNER).remind).toBe(false);
   });
 
   it("knows when Remind can be used again: an hour after the newest reminder", () => {

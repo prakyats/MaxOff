@@ -224,7 +224,8 @@ export type TaskActions = {
   changeApprover: boolean;
   /**
    * Remind (6b.2, `task_remind`): the task's creator, its approving Admin or the Owner, while the
-   * task is with its people. The once-an-hour rule is the database's (and `remindAgainAt`'s).
+   * task is with its people and someone else is on it. The once-an-hour rule is the database's
+   * (and `remindAgainAt`'s).
    */
   remind: boolean;
   /** Comments: always as oneself; also for each freelancer on the task the viewer coordinates. */
@@ -310,7 +311,8 @@ export function taskActions(
       stages: isManager && !final,
     },
     changeApprover: viewer.role === "owner" && !final,
-    remind: isManager && !locked,
+    // Someone else to ask: the database refuses a reminder that would reach nobody.
+    remind: isManager && !locked && active.some((a) => a.memberId !== viewer.id),
     commentFor: coordinated.map((a) => a.memberId),
   };
 }
