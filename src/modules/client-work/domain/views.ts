@@ -1,3 +1,4 @@
+import { groupRows } from "@/core/lib/stage-groups";
 import { formatIST, type ISODate } from "@/core/time";
 
 import { activeStages, carriedFromLabel, ITEM_RULES, plannedLine } from "./items";
@@ -9,8 +10,36 @@ import { ITEM_STATE_LABELS, type Item, type ItemStage, type ItemState, type Revi
  * server so the client component only draws it. Pure, unit-tested.
  */
 
-/** One of the item's own stages as the row and the sheet draw it. */
-export type ItemStageView = { id: string; name: string; position: string; done: boolean };
+/** One of the item's own stages as the row and the sheet draw it, with its group (6b). */
+export type ItemStageView = {
+  id: string;
+  name: string;
+  position: string;
+  groupLabel: string | null;
+  groupPosition: string | null;
+  done: boolean;
+};
+
+/**
+ * One group of the item's stages as the screens draw it (6b): its heading (`label` null: the
+ * untitled group, no heading) and its own "n/m".
+ */
+export type ItemStageGroupView = {
+  label: string | null;
+  groupPosition: string | null;
+  stages: ItemStageView[];
+  done: number;
+};
+
+/** The stages under their groups, in order, each group with its ticked count. */
+export function stageGroupViews(stages: readonly ItemStageView[]): ItemStageGroupView[] {
+  return groupRows(stages).map((group) => ({
+    label: group.label,
+    groupPosition: group.groupPosition,
+    stages: group.rows,
+    done: group.rows.filter((stage) => stage.done).length,
+  }));
+}
 
 /** "Last change: marked Reel 1 done by Ravi, 8 Oct, 4:10 pm" (the owner's preview feedback). */
 export type LastChange = { text: string; by: string; at: string };
@@ -30,6 +59,8 @@ export type ItemView = {
   carriedFrom: string | null;
   /** The item's own active stages, in order, each ticked or not (amendment D2). */
   stages: ItemStageView[];
+  /** The same stages under their groups (6b); one untitled group for a list from before. */
+  groups: ItemStageGroupView[];
   /**
    * The latest send-back or reopen while the item is open again: "Sent back by Prishit: the logo"
    * (the Owner's), "Reopened by Ravi: …" (the client's Admin's).
@@ -72,6 +103,16 @@ const WHEN = "d MMM";
 
 export function itemView(item: Item, context: ItemViewContext): ItemView {
   const name = (id: string | null) => (id ? (context.names[id] ?? "Someone") : "Someone");
+  const stages = activeStages(context.stages.filter((stage) => stage.itemId === item.id)).map(
+    (stage) => ({
+      id: stage.id,
+      name: stage.name,
+      position: stage.position,
+      groupLabel: stage.groupLabel,
+      groupPosition: stage.groupPosition,
+      done: stage.doneAt !== null,
+    }),
+  );
   const latest = context.reviews.find((review) => review.itemId === item.id) ?? null;
   const history: string[] = [];
   if (item.doneAt) history.push(`Done by ${name(item.doneBy)}, ${formatIST(item.doneAt, WHEN)}`);
@@ -92,14 +133,8 @@ export function itemView(item: Item, context: ItemViewContext): ItemView {
       item.carriedFromItemId !== null && item.originCycleId !== item.cycleId
         ? carriedFromLabel(context.cycleLabels[item.originCycleId] ?? null, context.cycleLabel)
         : null,
-    stages: activeStages(context.stages.filter((stage) => stage.itemId === item.id)).map(
-      (stage) => ({
-        id: stage.id,
-        name: stage.name,
-        position: stage.position,
-        done: stage.doneAt !== null,
-      }),
-    ),
+    stages,
+    groups: stageGroupViews(stages),
     sentBack:
       item.state === "open" && latest?.decision === "rejected"
         ? {

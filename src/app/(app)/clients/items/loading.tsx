@@ -18,7 +18,7 @@ export default async function Loading() {
   return (
     <div role="status" aria-busy="true" aria-label="Loading Client items" data-slot="loading-items">
       <PageHeader
-        title="Client items"
+        title="Client deliverables"
         description={description}
         help={description}
         back={{ href: owner ? "/today" : "/clients", label: owner ? "Today" : "Clients" }}

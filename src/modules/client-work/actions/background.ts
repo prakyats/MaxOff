@@ -4,7 +4,7 @@ import { assertPermission } from "@/core/permissions/server";
 import { listDirectoryOf } from "@/modules/team";
 
 import * as repo from "../data/projects";
-import { type ActivityPage, describeProjectActivity } from "../domain/activity";
+import { type ActivityPage, describeActivityLines } from "../domain/activity";
 import { activityPageSchema } from "../domain/schemas";
 
 /** Entries per page of the activity panel (the owner's preview feedback: the latest 20). */
@@ -52,10 +52,8 @@ export async function readProjectActivity(input: unknown): Promise<ActivityPage>
   };
   const last = entries.at(-1);
   return {
-    lines: entries.flatMap((entry) => {
-      const line = describeProjectActivity(entry, context);
-      return line ? [line] : [];
-    }),
+    // A group rename or move is one line, however many stages it touched (6b).
+    lines: describeActivityLines(entries, context),
     next: entries.length === ACTIVITY_PAGE && last ? { at: last.at, id: last.id } : null,
   };
 }

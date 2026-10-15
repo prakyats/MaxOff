@@ -171,11 +171,11 @@ export function ItemList({
       {shown.length === 0 ? (
         <EmptyState
           icon={ListChecksIcon}
-          title={narrowed ? "Nothing matches." : "No open items."}
+          title={narrowed ? "Nothing matches." : "No open deliverables."}
           description={
             narrowed
               ? "Nothing here under these filters."
-              : "Items of every client's current work show here."
+              : "Deliverables of every client's current work show here."
           }
           action={
             narrowed ? (
@@ -192,7 +192,7 @@ export function ItemList({
         groups.map((group) => (
           <section
             key={group.key}
-            aria-label={group.name ?? "Items"}
+            aria-label={group.name ?? "Deliverables"}
             data-slot="item-group"
             className="flex flex-col gap-1.5"
           >

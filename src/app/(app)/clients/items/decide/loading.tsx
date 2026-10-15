@@ -11,10 +11,10 @@ export default function Loading() {
     <div
       role="status"
       aria-busy="true"
-      aria-label="Loading Unfinished items"
+      aria-label="Loading Unfinished deliverables"
       data-slot="loading-decide"
     >
-      <PageHeader title="Unfinished items" back={{ href: "/today", label: "Today" }} />
+      <PageHeader title="Unfinished deliverables" back={{ href: "/today", label: "Today" }} />
       <div aria-hidden className="flex max-w-3xl flex-col gap-2">
         <Skeleton className="h-4 w-48" />
         <Skeleton className="h-3 w-24" />

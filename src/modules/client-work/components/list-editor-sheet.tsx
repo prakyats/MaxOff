@@ -6,15 +6,19 @@ import { toast } from "sonner";
 
 import { ERROR_MESSAGES } from "@/core/errors/codes";
 import type { Result, ResultError } from "@/core/errors/result";
+import { expandQuantity, QUANTITY_MAX } from "@/core/lib/stage-groups";
 import { isNetworkError, NETWORK_ERROR_CREATE_MESSAGE } from "@/core/ui/action/network-error";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { ReviewSheet } from "@/core/ui/composites/review-sheet";
 import { Button } from "@/core/ui/primitives/button";
 import { Input } from "@/core/ui/primitives/input";
+import { moveItem } from "@/core/ui/reorder/reorder-math";
+import { DragHandle, ReorderItem, ReorderList } from "@/core/ui/reorder/reorder";
+import { useReorder } from "@/core/ui/reorder/use-reorder";
 import { describeError, toastResult } from "@/core/ui/toast";
 
-import { movedPosition } from "../domain/positions";
+import { movedKey, movedPosition } from "../domain/positions";
 
 export type ListRow = { id: string; name: string; position: string };
 
@@ -57,6 +61,7 @@ export function ListEditorSheet({
   rows,
   rowAction,
   unique = false,
+  quantity = false,
   max,
   maxLength,
   onAdd,
@@ -78,6 +83,8 @@ export function ListEditorSheet({
   rowAction?: ((row: ListRow) => React.ReactNode) | undefined;
   /** Each name once, ignoring case (a stage list). */
   unique?: boolean;
+  /** "Name × N" adds Name 1 … Name N (6b.16 (b): the deliverables list). */
+  quantity?: boolean;
   max: number;
   maxLength: number;
   onAdd: (name: string) => Promise<Result<unknown>>;
@@ -88,6 +95,7 @@ export function ListEditorSheet({
   onRemove: (id: string) => Promise<Result<unknown>>;
 }) {
   const [adding, setAdding] = useState("");
+  const [times, setTimes] = useState("1");
   const [addError, setAddError] = useState<string | null>(null);
   const [names, setNames] = useState<Readonly<Record<string, string>>>({});
   const [busy, setBusy] = useState<string | null>(null);
@@ -136,33 +144,55 @@ export function ListEditorSheet({
       setAddError(clash);
       return;
     }
-    const name = adding.trim();
-    const add: PendingAdd = { key: nextKey.current++, name, before: countNamed(rows, name) };
+    const typed = adding.trim();
+    const count = quantity ? Number(times) : 1;
+    if (!Number.isInteger(count) || count < 1 || count > QUANTITY_MAX) {
+      setAddError(`Add between 1 and ${QUANTITY_MAX} at a time.`);
+      return;
+    }
+    if (rows.length + pending.length + count > max) {
+      setAddError(`At most ${max}.`);
+      return;
+    }
+    // "Name × N" is Name 1 … Name N, one add each (one audit entry each).
+    const adds: PendingAdd[] = expandQuantity(typed, count).map((name) => ({
+      key: nextKey.current++,
+      name,
+      before: countNamed(rows, name),
+    }));
     setBusy("add");
-    setPending((current) => [...current, add]);
+    setPending((current) => [...current, ...adds]);
     setAdding("");
+    setTimes("1");
     setAddError(null);
-    // A refused or failed add takes its faded row back and returns the name to the field.
-    const takeBack = (message: string) => {
-      setPending((current) => current.filter((other) => other.key !== add.key));
-      setAdding((typed) => (typed === "" ? name : typed));
+    // A refused or failed add takes its faded row (and the ones after it) back and returns the
+    // name to the field.
+    const takeBack = (from: number, message: string) => {
+      const gone = new Set(adds.slice(from).map((add) => add.key));
+      setPending((current) => current.filter((other) => !gone.has(other.key)));
+      setAdding((current) => (current === "" ? typed : current));
       setAddError(message);
     };
-    try {
-      const result = await onAdd(name);
-      if (!result.ok) {
-        const { title: heading, description: detail } = refusalText(result.error);
-        takeBack(detail ?? heading);
-        return;
+    for (const [index, add] of adds.entries()) {
+      try {
+        const result = await onAdd(add.name);
+        if (!result.ok) {
+          const { title: heading, description: detail } = refusalText(result.error);
+          takeBack(index, detail ?? heading);
+          break;
+        }
+        if (addedMessage) toast.success(addedMessage(add.name));
+      } catch (error) {
+        // No answer (the phone lost its connection): the add may or may not have landed, and
+        // the refreshed list shows it if it did. Anything else is a failure on the server's side.
+        takeBack(
+          index,
+          isNetworkError(error) ? NETWORK_ERROR_CREATE_MESSAGE : ERROR_MESSAGES.INTERNAL,
+        );
+        break;
       }
-      if (addedMessage) toast.success(addedMessage(name));
-    } catch (error) {
-      // No answer (the phone lost its connection): the add may or may not have landed, and the
-      // refreshed list shows it if it did. Anything else is a failure on the server's side.
-      takeBack(isNetworkError(error) ? NETWORK_ERROR_CREATE_MESSAGE : ERROR_MESSAGES.INTERNAL);
-    } finally {
-      setBusy(null);
     }
+    setBusy(null);
   }
 
   async function rename(row: ListRow) {
@@ -199,6 +229,26 @@ export function ListEditorSheet({
     setBusy(null);
   }
 
+  // Drag by the handle (6b.18): the row takes a key between its new neighbours.
+  const reorder = useReorder({
+    count: rows.length,
+    labelOf: (index) => rows[index]?.name ?? "the row",
+    onMove: (from, to) => {
+      const row = rows[from];
+      if (!row || from === to) return;
+      const position = movedKey(
+        moveItem(rows, from, to).map((other) => other.position),
+        to,
+      );
+      setBusy(row.id);
+      void onMove(row.id, position).then((result) => {
+        toastResult(result);
+        setBusy(null);
+      });
+    },
+    disabled: busy !== null,
+  });
+
   return (
     <>
       <ReviewSheet
@@ -211,13 +261,20 @@ export function ListEditorSheet({
           {rows.length + shown.length === 0 ? (
             <p className="text-muted-foreground">None yet.</p>
           ) : (
-            <ol className="border-border divide-border divide-y rounded-lg border">
+            <ReorderList
+              reorder={reorder}
+              label={title}
+              className="border-border divide-border divide-y rounded-lg border"
+            >
               {rows.map((row, index) => (
-                <li
+                <ReorderItem
                   key={row.id}
+                  reorder={reorder}
+                  index={index}
                   data-slot="list-editor-row"
                   className="flex items-center gap-1 p-1"
                 >
+                  <DragHandle reorder={reorder} index={index} />
                   <Input
                     aria-label={`Name of ${row.name}`}
                     value={names[row.id] ?? row.name}
@@ -263,7 +320,7 @@ export function ListEditorSheet({
                     <Trash2Icon aria-hidden />
                   </Button>
                   {rowAction ? rowAction(row) : null}
-                </li>
+                </ReorderItem>
               ))}
               {shown.map((add) => (
                 <li
@@ -281,7 +338,7 @@ export function ListEditorSheet({
                   />
                 </li>
               ))}
-            </ol>
+            </ReorderList>
           )}
           {rows.length + shown.length < max ? (
             <form onSubmit={add} className="flex flex-col gap-1">
@@ -294,6 +351,24 @@ export function ListEditorSheet({
                   onChange={(event) => setAdding(event.target.value)}
                   className="min-w-0 flex-1"
                 />
+                {quantity ? (
+                  <>
+                    <span aria-hidden className="text-muted-foreground text-sm">
+                      ×
+                    </span>
+                    <Input
+                      aria-label="How many"
+                      data-slot="list-editor-quantity"
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      max={QUANTITY_MAX}
+                      value={times}
+                      onChange={(event) => setTimes(event.target.value)}
+                      className="w-18 shrink-0"
+                    />
+                  </>
+                ) : null}
                 <Button
                   type="submit"
                   variant="secondary"

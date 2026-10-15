@@ -62,6 +62,7 @@ const DASHBOARDS_SPECS = /dashboards\.spec\.ts$/;
 const CALENDAR_SPECS = /calendar\.spec\.ts$/;
 const EOD_REPORT_SPECS = /eod-report\.spec\.ts$/;
 const CLIENT_WORK_SPECS = /client-work\.spec\.ts$/;
+const DELIVERABLES_SPECS = /deliverables\.spec\.ts$/;
 const PROJECT_TEMPLATES_SPECS = /project-templates\.spec\.ts$/;
 
 /**
@@ -188,6 +189,7 @@ export default defineConfig({
       // And onboarding for reachability (5.5): the iPhone's install steps, Me's device list and
       // their layers on back, at both widths. And the day screens (6A): My Day, Today's full board
       // and its filter, and the work report's period, each installed back order at both widths.
+      // And the deliverables' new layers (6b R1): the Preview step and the stage-group sheets.
       // And the project template builder (6b Release 1): its layers on back and the drag at 430px.
       name: "mobile-lg",
       dependencies: ["setup"],
@@ -229,6 +231,7 @@ export default defineConfig({
         CALENDAR_SPECS,
         EOD_REPORT_SPECS,
         CLIENT_WORK_SPECS,
+        DELIVERABLES_SPECS,
         PROJECT_TEMPLATES_SPECS,
         SHEET_KEYBOARD_SPECS,
       ],

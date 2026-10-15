@@ -1,6 +1,12 @@
 import { z } from "zod";
 
 import { repeatedName, repeatedStageMessage } from "@/core/lib/repeated-name";
+import {
+  DELIVERABLES_MAX,
+  deliverablesIssue,
+  GROUP_LABEL_MAX,
+  stageGroupsIssue,
+} from "@/core/lib/stage-groups";
 
 /**
  * What the client-work actions accept (ARCHITECTURE §4.2: zod first). The transition functions
@@ -11,7 +17,9 @@ import { repeatedName, repeatedStageMessage } from "@/core/lib/repeated-name";
 export const PROJECT_NAME_MAX = 120;
 export const PROJECT_DESCRIPTION_MAX = 2000;
 export const STAGE_NAME_MAX = 120;
-export const STAGES_MAX = 12;
+/** At most 100 stages on a deliverable, across its groups (6b; DATA-MODEL §5b). */
+export const STAGES_MAX = 100;
+export { DELIVERABLES_MAX, GROUP_LABEL_MAX };
 export const ITEM_TITLE_MAX = 200;
 export const ITEMS_MAX = 100;
 export const ITEM_NOTES_MAX = 5000;
@@ -43,7 +51,7 @@ const stageName = z
   .trim()
   .min(1, "Name the stage.")
   .max(STAGE_NAME_MAX, `Keep a stage name under ${STAGE_NAME_MAX} characters.`);
-/** A list of stage names: at most 12, each once (ignoring case; `app.client_work_stage_names`). */
+/** A list of stage names: at most 100, each once (ignoring case; `app.client_work_stage_names`). */
 const stageNames = z
   .array(stageName)
   .max(STAGES_MAX, `At most ${STAGES_MAX} stages.`)
@@ -55,15 +63,43 @@ const stageNames = z
 const itemTitle = z
   .string()
   .trim()
-  .min(1, "Give the item a title.")
+  .min(1, "Give the deliverable a title.")
   .max(ITEM_TITLE_MAX, `Keep a title under ${ITEM_TITLE_MAX} characters.`);
 const notes = z
   .string()
   .trim()
   .max(ITEM_NOTES_MAX, `Keep the notes under ${ITEM_NOTES_MAX} characters.`);
 const position = z.string().regex(/^[0-9a-z]{1,64}$/);
-const ids = z.array(id).min(1, "Pick at least one item.").max(BULK_MAX);
+const ids = z.array(id).min(1, "Pick at least one deliverable.").max(BULK_MAX);
 const customFields = z.record(z.string(), z.unknown());
+/** A stage group's name (6b): 1..120 characters; null is the untitled group. */
+const groupLabel = z
+  .string()
+  .trim()
+  .min(1, "Name the group.")
+  .max(GROUP_LABEL_MAX, `Keep a group name under ${GROUP_LABEL_MAX} characters.`);
+/**
+ * Stage groups (`StageGroupsJson`, DATA-MODEL §5b), trimmed, checked by the shared rules
+ * (`stageGroupsIssue`, the database's `app.stage_groups_check`).
+ */
+const stageGroups = z
+  .array(
+    z.object({
+      label: z.string().trim().nullable(),
+      stages: z.array(z.string().trim()),
+    }),
+  )
+  .superRefine((groups, context) => {
+    const issue = stageGroupsIssue(groups);
+    if (issue !== null) context.addIssue({ code: "custom", message: issue });
+  });
+/** Deliverables to create (`DeliverablesJson`): a title and its own groups (null = the defaults). */
+const deliverables = z
+  .array(z.object({ title: z.string().trim(), stageGroups: stageGroups.nullable() }))
+  .superRefine((list, context) => {
+    const issue = deliverablesIssue(list);
+    if (issue !== null) context.addIssue({ code: "custom", message: issue });
+  });
 
 export const createProjectSchema = z
   .object({
@@ -73,7 +109,7 @@ export const createProjectSchema = z
     description: description.optional(),
     deliveryDate: isoDate.optional(),
     stages: stageNames,
-    items: z.array(itemTitle).max(ITEMS_MAX, `At most ${ITEMS_MAX} items.`),
+    items: z.array(itemTitle).max(ITEMS_MAX, `At most ${ITEMS_MAX} deliverables.`),
     templateId: id.optional(),
     customFields: customFields.default({}),
   })
@@ -88,6 +124,33 @@ export const createProjectSchema = z
     }
   });
 export type CreateProjectInput = z.input<typeof createProjectSchema>;
+
+/**
+ * New project with stage groups and deliverables (6b; `project_create_grouped`): the default
+ * groups, and the deliverables each with its own groups (null = the defaults).
+ */
+export const createGroupedProjectSchema = z
+  .object({
+    clientId: id,
+    name: projectName,
+    recurrence: z.enum(["one_time", "weekly", "monthly"], { error: "Pick how often it repeats." }),
+    description: description.optional(),
+    deliveryDate: isoDate.optional(),
+    stageGroups,
+    deliverables,
+    templateId: id.optional(),
+    customFields: customFields.default({}),
+  })
+  .superRefine((value, context) => {
+    if (value.recurrence === "one_time" && !value.deliveryDate) {
+      context.addIssue({
+        code: "custom",
+        path: ["deliveryDate"],
+        message: "A one-time project needs a delivery date.",
+      });
+    }
+  });
+export type CreateGroupedProjectInput = z.input<typeof createGroupedProjectSchema>;
 
 export const updateProjectSchema = z.object({
   projectId: id,
@@ -104,15 +167,48 @@ export type ProjectIdInput = z.input<typeof projectIdSchema>;
 export const projectReasonSchema = z.object({ projectId: id, reason });
 export type ProjectReasonInput = z.input<typeof projectReasonSchema>;
 
-export const addStageSchema = z.object({ projectId: id, name: stageName });
+/** A default stage added into a group (6b): `groupLabel` null or left out = the untitled group. */
+export const addStageSchema = z.object({
+  projectId: id,
+  name: stageName,
+  groupLabel: groupLabel.nullable().optional(),
+});
 export type AddStageInput = z.input<typeof addStageSchema>;
 
+/** Renamed, moved, or moved into another group (`groupLabel`; null = the untitled group). */
 export const updateStageSchema = z.object({
   stageId: id,
   name: stageName.optional(),
   position: position.optional(),
+  groupLabel: groupLabel.nullable().optional(),
 });
 export type UpdateStageInput = z.input<typeof updateStageSchema>;
+
+/** A new named group of default stages (6b): "Add from a preset" sends the preset's. */
+export const addProjectStageGroupSchema = z.object({
+  projectId: id,
+  label: groupLabel,
+  stages: stageNames.min(1, "A group needs at least one stage."),
+});
+export type AddProjectStageGroupInput = z.input<typeof addProjectStageGroupSchema>;
+
+/**
+ * A group renamed (`newLabel`; null makes it the untitled group) or moved (`position`, named
+ * groups only). `label` null names the untitled group.
+ */
+export const updateProjectStageGroupSchema = z.object({
+  projectId: id,
+  label: groupLabel.nullable(),
+  newLabel: groupLabel.nullable().optional(),
+  position: position.optional(),
+});
+export type UpdateProjectStageGroupInput = z.input<typeof updateProjectStageGroupSchema>;
+
+export const archiveProjectStageGroupSchema = z.object({
+  projectId: id,
+  label: groupLabel.nullable(),
+});
+export type ArchiveProjectStageGroupInput = z.input<typeof archiveProjectStageGroupSchema>;
 
 export const stageIdSchema = z.object({ stageId: id });
 export type StageIdInput = z.input<typeof stageIdSchema>;
@@ -126,6 +222,8 @@ export const updateBlueprintSchema = z.object({
   position: position.optional(),
   /** The line's own stages (amendment D2): every item made from it starts with them. */
   stages: stageNames.optional(),
+  /** The line's stages in groups (6b): sets them and the flattened `stages`. */
+  stageGroups: stageGroups.optional(),
 });
 export type UpdateBlueprintInput = z.input<typeof updateBlueprintSchema>;
 
@@ -160,23 +258,49 @@ export type ItemReasonInput = z.input<typeof itemReasonSchema>;
 export const itemIdsSchema = z.object({ itemIds: ids });
 export type ItemIdsInput = z.input<typeof itemIdsSchema>;
 
-// An item's own stages (amendment D2).
-export const addItemStageSchema = z.object({ itemId: id, name: stageName });
+// An item's own stages (amendment D2), in groups (6b).
+export const addItemStageSchema = z.object({
+  itemId: id,
+  name: stageName,
+  groupLabel: groupLabel.nullable().optional(),
+});
 export type AddItemStageInput = z.input<typeof addItemStageSchema>;
 
 export const updateItemStageSchema = z.object({
   stageId: id,
   name: stageName.optional(),
   position: position.optional(),
+  groupLabel: groupLabel.nullable().optional(),
 });
 export type UpdateItemStageInput = z.input<typeof updateItemStageSchema>;
+
+export const addItemStageGroupSchema = z.object({
+  itemId: id,
+  label: groupLabel,
+  stages: stageNames.min(1, "A group needs at least one stage."),
+});
+export type AddItemStageGroupInput = z.input<typeof addItemStageGroupSchema>;
+
+export const updateItemStageGroupSchema = z.object({
+  itemId: id,
+  label: groupLabel.nullable(),
+  newLabel: groupLabel.nullable().optional(),
+  position: position.optional(),
+});
+export type UpdateItemStageGroupInput = z.input<typeof updateItemStageGroupSchema>;
+
+export const archiveItemStageGroupSchema = z.object({
+  itemId: id,
+  label: groupLabel.nullable(),
+});
+export type ArchiveItemStageGroupInput = z.input<typeof archiveItemStageGroupSchema>;
 
 export const tickItemStageSchema = z.object({ stageId: id, done: z.boolean() });
 export type TickItemStageInput = z.input<typeof tickItemStageSchema>;
 
 /** "Tick ‹stage› on N": each chosen item's stage of that name. */
 export const tickStagesSchema = z.object({
-  stageIds: z.array(id).min(1, "Pick at least one item.").max(BULK_MAX),
+  stageIds: z.array(id).min(1, "Pick at least one deliverable.").max(BULK_MAX),
 });
 export type TickStagesInput = z.input<typeof tickStagesSchema>;
 
@@ -206,7 +330,7 @@ export const carryDecideSchema = z
       context.addIssue({
         code: "custom",
         path: ["reason"],
-        message: "Close one item at a time, with a reason.",
+        message: "Close one deliverable at a time, with a reason.",
       });
     }
   });

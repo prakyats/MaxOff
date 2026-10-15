@@ -1,3 +1,4 @@
+import { groupStageLabel } from "@/core/lib/stage-groups";
 import { formatIST, istDayStart } from "@/core/time";
 
 /**
@@ -12,6 +13,11 @@ import { formatIST, istDayStart } from "@/core/time";
  * `app.client_work_activity_shown` (migration `client_work_rework_fixes`) lists the same entities,
  * actions and changed keys, so `project_activity`'s page of 20 is 20 lines and `item_last_changes`
  * is always a sentence. Change both together (the unit test lists them).
+ *
+ * **Stage groups (6b, DATA-MODEL §5b):** a stage in a named group is named "Group · Stage"
+ * (`groupStageLabel`); a group added, renamed, moved or removed is said of the group (the group
+ * functions' audit meta carries `{"group": label}`); a stage moved into another group says so.
+ * The screens call items "deliverables".
  */
 
 /** An audit entry as `core/activity` reads it (structurally its `ActivityEntry`; ADR-0011). */
@@ -124,6 +130,40 @@ function describeProject(
   }
 }
 
+/** The group a stage row is in (or was in, for a removal), from the entry: null = untitled. */
+function groupOf(entry: ActivityEntry, side: "new" | "old"): string | null {
+  const values = side === "new" ? entry.new : entry.old;
+  if ("group_label" in values) return text(values.group_label);
+  return text(entry.meta.group) ?? text(entry.old.group_label);
+}
+
+/**
+ * A group's own change, said once per stage row the group function audited (6b): the actions
+ * `group_renamed` (meta `group` → `to`; null is the untitled group) and `group_moved`.
+ */
+function describeGroupAction(entry: ActivityEntry, noun: string, on: string): string | null {
+  const from = text(entry.meta.group) ?? text(entry.old.group_label);
+  if (entry.action === "group_moved") {
+    return `moved the ${noun} group ${from ?? "without a name"}${on}`;
+  }
+  if (entry.action !== "group_renamed") return null;
+  const to = text(entry.meta.to) ?? text(entry.new.group_label);
+  if (from === null && to !== null) return `named the ${noun} group ${to}${on}`;
+  if (from !== null && to === null) return `took the name off the ${noun} group ${from}${on}`;
+  return `renamed the ${noun} group ${from ?? "without a name"} to ${to ?? "no name"}${on}`;
+}
+
+/** One stage moved into another group (an update of its `group_label`), or null. */
+function describeStageRegrouped(entry: ActivityEntry, noun: string, on: string): string | null {
+  if (!visibleChanges(entry).includes("group_label")) return null;
+  const from = text(entry.old.group_label);
+  const to = text(entry.new.group_label);
+  const stage = text(entry.new.name) ?? text(entry.old.name) ?? "a stage";
+  return to === null
+    ? `moved the ${noun} ${groupStageLabel(from, stage)} out of its group${on}`
+    : `moved the ${noun} ${stage} into the group ${to}${on}`;
+}
+
 function describeListRow(
   entry: ActivityEntry,
   label: string,
@@ -148,40 +188,101 @@ function describeListRow(
   }
 }
 
-/** The item list's line: added, removed, renamed, moved, or its own stages set (amendment D2). */
+/** A project's default stage (amendment D2), in its group (6b). */
+function describeDefaultStage(entry: ActivityEntry): string | null {
+  const name = text(entry.new.name) ?? text(entry.old.name) ?? text(entry.meta.name) ?? "a stage";
+  switch (entry.action) {
+    case "insert":
+      return `added the default stage ${groupStageLabel(groupOf(entry, "new"), name)}`;
+    case "archived":
+      return `removed the default stage ${groupStageLabel(groupOf(entry, "old"), text(entry.old.name) ?? name)}`;
+    case "group_renamed":
+    case "group_moved":
+      return describeGroupAction(entry, "default stage", "");
+    case "update": {
+      const group = describeStageRegrouped(entry, "default stage", "");
+      if (group) return group;
+      const keys = visibleChanges(entry);
+      const label = text(entry.meta.group) ?? text(entry.old.group_label);
+      if (keys.includes("name")) {
+        return `renamed the default stage ${groupStageLabel(label, text(entry.old.name) ?? "a row")} to ${name}`;
+      }
+      if (keys.includes("position") || keys.includes("group_position"))
+        return `moved the default stage ${groupStageLabel(label, name)}`;
+      return null;
+    }
+    default:
+      return null;
+  }
+}
+
+/** Stage groups as a sentence's list: "Phase A: Shoot, Edit; Phase B: Post" (6b). */
+function groupsWords(value: unknown): string | null {
+  if (!Array.isArray(value)) return null;
+  const parts = value.flatMap((group: unknown) => {
+    if (group === null || typeof group !== "object") return [];
+    const { label, stages } = group as { label?: unknown; stages?: unknown };
+    const names = Array.isArray(stages)
+      ? stages.filter((name): name is string => typeof name === "string")
+      : [];
+    if (names.length === 0) return [];
+    const heading = text(label);
+    return [heading ? `${heading}: ${names.join(", ")}` : names.join(", ")];
+  });
+  return parts.join("; ");
+}
+
+/**
+ * The deliverables list's line: added, removed, renamed, moved, or its own stages set (amendment
+ * D2; in groups since 6b).
+ */
 function describeBlueprint(entry: ActivityEntry): string | null {
-  if (entry.action === "update" && visibleChanges(entry).includes("stages")) {
+  const keys = entry.action === "update" ? visibleChanges(entry) : [];
+  if (keys.includes("stage_groups") || keys.includes("stages")) {
     const title = text(entry.new.title) ?? text(entry.old.title);
+    const what = title ? `the deliverables list line ${title}` : "a deliverables list line";
+    const grouped = keys.includes("stage_groups") ? groupsWords(entry.new.stage_groups) : null;
     const names = Array.isArray(entry.new.stages)
       ? entry.new.stages.filter((name): name is string => typeof name === "string")
       : [];
-    const what = title ? `the item list line ${title}` : "an item list line";
-    return names.length > 0
-      ? `set the stages of ${what}: ${names.join(", ")}`
-      : `removed every stage of ${what}`;
+    const words = grouped || (names.length > 0 ? names.join(", ") : null);
+    return words ? `set the stages of ${what}: ${words}` : `removed every stage of ${what}`;
   }
-  return describeListRow(entry, "item list line", "title");
+  return describeListRow(entry, "deliverables list line", "title");
 }
 
-/** One of an item's own stages (amendment D2): added, renamed, moved, removed, ticked. */
+/**
+ * One of an item's own stages (amendment D2): added, renamed, moved, removed, ticked; in a named
+ * group it is "Group · Stage", and a group's own change is said of the group (6b).
+ */
 function describeItemStage(entry: ActivityEntry, context: ProjectActivityContext): string | null {
-  const title = context.items[entry.entityId] ?? "an item";
+  const title = context.items[entry.entityId] ?? "a deliverable";
   const stage = text(entry.meta.name) ?? text(entry.new.name) ?? text(entry.old.name) ?? "a stage";
+  // The group the stage is in: the entry's own, else the group meta, else where it was.
+  const group =
+    text(entry.new.group_label) ?? text(entry.meta.group) ?? text(entry.old.group_label);
+  const named = groupStageLabel(group, stage);
   switch (entry.action) {
     case "insert":
-      return `added the stage ${text(entry.new.name) ?? stage} to ${title}`;
+      return `added the stage ${groupStageLabel(groupOf(entry, "new"), text(entry.new.name) ?? stage)} to ${title}`;
     case "archived":
-      return `removed the stage ${stage} from ${title}`;
+      return `removed the stage ${groupStageLabel(groupOf(entry, "old"), stage)} from ${title}`;
     case "ticked":
-      return `ticked ${stage} on ${title}`;
+      return `ticked ${named} on ${title}`;
     case "unticked":
-      return `unticked ${stage} on ${title}`;
+      return `unticked ${named} on ${title}`;
+    case "group_renamed":
+    case "group_moved":
+      return describeGroupAction(entry, "stage", ` on ${title}`);
     case "update": {
+      const moved = describeStageRegrouped(entry, "stage", ` on ${title}`);
+      if (moved) return moved;
       const keys = visibleChanges(entry);
       if (keys.includes("name")) {
-        return `renamed the stage ${text(entry.old.name) ?? stage} to ${text(entry.new.name) ?? "a new name"} on ${title}`;
+        return `renamed the stage ${groupStageLabel(group, text(entry.old.name) ?? stage)} to ${text(entry.new.name) ?? "a new name"} on ${title}`;
       }
-      if (keys.includes("position")) return `moved the stage ${stage} on ${title}`;
+      if (keys.includes("position") || keys.includes("group_position"))
+        return `moved the stage ${named} on ${title}`;
       return null;
     }
     default:
@@ -196,7 +297,7 @@ function describeCycle(entry: ActivityEntry): string | null {
     case "insert":
       return label ? `started ${label}` : "started the project's cycle";
     case "item_list_added":
-      return label ? `added the item list to ${label}` : "added the item list";
+      return label ? `added the deliverables list to ${label}` : "added the deliverables list";
     default:
       return null;
   }
@@ -207,7 +308,10 @@ function describeItem(
   context: ProjectActivityContext,
 ): { text: string; note?: string } | null {
   const title =
-    context.items[entry.entityId] ?? text(entry.new.title) ?? text(entry.old.title) ?? "an item";
+    context.items[entry.entityId] ??
+    text(entry.new.title) ??
+    text(entry.old.title) ??
+    "a deliverable";
   const reason = text(entry.meta.reason) ?? text(entry.new.cancelled_reason);
   switch (entry.action) {
     case "insert":
@@ -249,7 +353,7 @@ function describeItem(
 }
 
 function describeTick(entry: ActivityEntry, context: ProjectActivityContext): string | null {
-  const title = context.items[entry.entityId] ?? "an item";
+  const title = context.items[entry.entityId] ?? "a deliverable";
   const stageId = text(entry.meta.stage_id) ?? text(entry.new.stage_id);
   const stage = stageId ? (context.stages[stageId] ?? "a stage") : "a stage";
   if (entry.action === "ticked") return `ticked ${stage} on ${title}`;
@@ -268,7 +372,7 @@ export function describeProjectActivity(
       break;
     case "project_stages": {
       // Amendment D2: the project's stages are the defaults new items start with.
-      const sentence = describeListRow(entry, "default stage", "name");
+      const sentence = describeDefaultStage(entry);
       line = sentence ? { text: sentence } : null;
       break;
     }
@@ -309,6 +413,36 @@ export function describeProjectActivity(
   };
 }
 
+/** The group functions audit one row per stage; their sentence is the group's, said once. */
+const GROUP_ACTIONS: ReadonlySet<string> = new Set(["group_renamed", "group_moved"]);
+
+/**
+ * Entries as the history's lines, newest first (6b): the rows one group rename or move wrote (one
+ * per stage, the same moment, actor and sentence) collapse into one line.
+ */
+export function describeActivityLines(
+  entries: readonly ActivityEntry[],
+  context: ProjectActivityContext,
+): ActivityLine[] {
+  const lines: ActivityLine[] = [];
+  let previous: { entry: ActivityEntry; line: ActivityLine } | null = null;
+  for (const entry of entries) {
+    const line = describeProjectActivity(entry, context);
+    if (!line) continue;
+    const repeat =
+      previous !== null &&
+      GROUP_ACTIONS.has(entry.action) &&
+      previous.entry.action === entry.action &&
+      previous.entry.entity === entry.entity &&
+      previous.entry.at === entry.at &&
+      previous.line.actor === line.actor &&
+      previous.line.text === line.text;
+    if (!repeat) lines.push(line);
+    previous = { entry, line };
+  }
+  return lines;
+}
+
 /** "Last change: ‹what› by ‹who›, ‹when›" in the item sheet (the owner's preview feedback). */
 export function lastChangeOf(
   entry: ActivityEntry,
@@ -322,7 +456,7 @@ export function lastChangeOf(
 export type ActivityKind = "all" | "items" | "stages" | "project";
 export const ACTIVITY_KINDS: readonly { value: ActivityKind; label: string }[] = [
   { value: "all", label: "All" },
-  { value: "items", label: "Items" },
+  { value: "items", label: "Deliverables" },
   { value: "stages", label: "Stages" },
   { value: "project", label: "Project" },
 ];

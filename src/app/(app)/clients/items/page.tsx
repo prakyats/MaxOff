@@ -11,7 +11,7 @@ import { loadPeople } from "../[id]/client";
 
 import { itemsDescription } from "./copy";
 
-export const metadata: Metadata = { title: "Client items" };
+export const metadata: Metadata = { title: "Client deliverables" };
 
 const FILTERS: readonly ItemListFilter[] = ["live", "overdue"];
 
@@ -44,7 +44,7 @@ export default async function ClientItemsPage({
   return (
     <>
       <PageHeader
-        title="Client items"
+        title="Client deliverables"
         description={description}
         help={description}
         back={{ href: owner ? "/today" : "/clients", label: owner ? "Today" : "Clients" }}

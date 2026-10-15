@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 
 import { validateCustomFieldsFor } from "@/core/custom-fields/server";
-import { action, ok, type Result } from "@/core/errors";
+import { action, AppError, ok, type Result } from "@/core/errors";
+import { groupsToJson } from "@/core/lib/stage-groups";
 import { dispatchPushSoon } from "@/core/notifications/push/dispatch";
 import { assertPermission } from "@/core/permissions/server";
 
@@ -11,6 +12,14 @@ import * as repo from "../data/projects";
 import {
   type AddBlueprintInput,
   addBlueprintSchema,
+  type AddProjectStageGroupInput,
+  addProjectStageGroupSchema,
+  type ArchiveProjectStageGroupInput,
+  archiveProjectStageGroupSchema,
+  type CreateGroupedProjectInput,
+  createGroupedProjectSchema,
+  type UpdateProjectStageGroupInput,
+  updateProjectStageGroupSchema,
   type AddStageInput,
   addStageSchema,
   type BlueprintIdInput,
@@ -62,6 +71,32 @@ export const createProject = action(
       deliveryDate: data.recurrence === "one_time" ? (data.deliveryDate ?? null) : null,
       stages: data.stages,
       items: data.items,
+      templateId: data.templateId ?? null,
+      customFields,
+    });
+    revalidate();
+    dispatchPushSoon();
+    return ok({ id });
+  },
+);
+
+/**
+ * New project with stage groups and deliverables (6b; DATA-MODEL §5b `project_create_grouped`):
+ * nothing is saved until this one call.
+ */
+export const createGroupedProject = action(
+  async (input: CreateGroupedProjectInput): Promise<Result<{ id: string }>> => {
+    const data = createGroupedProjectSchema.parse(input);
+    await assertPermission("projects.manage");
+    const customFields = await validateCustomFieldsFor("project", data.customFields);
+    const id = await repo.createGroupedProject({
+      clientId: data.clientId,
+      name: data.name,
+      recurrence: data.recurrence,
+      description: data.description || null,
+      deliveryDate: data.recurrence === "one_time" ? (data.deliveryDate ?? null) : null,
+      stageGroups: data.stageGroups,
+      deliverables: data.deliverables,
       templateId: data.templateId ?? null,
       customFields,
     });
@@ -139,18 +174,57 @@ export const startNextCycle = action(
 export const addStage = action(async (input: AddStageInput): Promise<Result<{ id: string }>> => {
   const data = addStageSchema.parse(input);
   await assertPermission("projects.manage");
-  const id = await repo.addStage(data.projectId, data.name);
+  const id = await repo.addStage(data.projectId, data.name, data.groupLabel ?? null);
   revalidate();
   return ok({ id });
 });
 
+/** Renamed, moved, or moved into another group (`groupLabel` null: the untitled group). */
 export const updateStage = action(async (input: UpdateStageInput): Promise<Result<null>> => {
   const data = updateStageSchema.parse(input);
   await assertPermission("projects.manage");
-  await repo.updateStage(data.stageId, changesOf({ name: data.name, position: data.position }));
+  await repo.updateStage(
+    data.stageId,
+    changesOf({ name: data.name, position: data.position, group_label: data.groupLabel }),
+  );
   revalidate();
   return ok(null);
 });
+
+/** A new named group of default stages (6b): typed, or a preset's ("Add from a preset"). */
+export const addStageGroup = action(
+  async (input: AddProjectStageGroupInput): Promise<Result<null>> => {
+    const data = addProjectStageGroupSchema.parse(input);
+    await assertPermission("projects.manage");
+    await repo.addStageGroup(data.projectId, data.label, data.stages);
+    revalidate();
+    return ok(null);
+  },
+);
+
+/** A group of default stages renamed (`newLabel`) or moved (`position`). */
+export const updateStageGroup = action(
+  async (input: UpdateProjectStageGroupInput): Promise<Result<null>> => {
+    const data = updateProjectStageGroupSchema.parse(input);
+    await assertPermission("projects.manage");
+    const changes = changesOf({ label: data.newLabel, position: data.position });
+    if (Object.keys(changes).length === 0) throw new AppError("VALIDATION", "Nothing to change.");
+    await repo.updateStageGroup(data.projectId, data.label, changes);
+    revalidate();
+    return ok(null);
+  },
+);
+
+/** A group of default stages removed: its stages archived (existing items keep theirs). */
+export const archiveStageGroup = action(
+  async (input: ArchiveProjectStageGroupInput): Promise<Result<null>> => {
+    const data = archiveProjectStageGroupSchema.parse(input);
+    await assertPermission("projects.manage");
+    await repo.archiveStageGroup(data.projectId, data.label);
+    revalidate();
+    return ok(null);
+  },
+);
 
 export const archiveStage = action(async (input: StageIdInput): Promise<Result<null>> => {
   const { stageId } = stageIdSchema.parse(input);
@@ -176,8 +250,14 @@ export const updateBlueprint = action(
     await assertPermission("projects.manage");
     await repo.updateBlueprint(
       data.blueprintId,
-      // Amendment D2: a line's own stages (a list of names) change here too.
-      changesOf({ title: data.title, position: data.position, stages: data.stages }),
+      // Amendment D2: a line's own stages change here too; since 6b in groups (`stage_groups`
+      // sets them and the flattened `stages`), the plain list still works.
+      changesOf({
+        title: data.title,
+        position: data.position,
+        stages: data.stages,
+        stage_groups: data.stageGroups ? groupsToJson(data.stageGroups) : undefined,
+      }),
     );
     revalidate();
     return ok(null);

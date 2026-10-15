@@ -5,8 +5,8 @@ import { Skeleton } from "@/core/ui/primitives/skeleton";
  * A project's page (7.3) traced: the title bar with its back control (to the client's Projects;
  * the client's name is not read yet, so its label is a bar), the Activity button and ⋯ (both
  * 44 px), the description line (client · repeat, desktop), the state line, the cycle pager (two
- * arrows around the cycle's name and its progress line), the Items heading with Add item and item
- * rows (the select box, the title over its state and date line, the one action). No activity on
+ * arrows around the cycle's name and its progress line), the Deliverables heading with Add deliverable
+ * and the deliverable rows (the select box, the title over its state and date line, the one action). No activity on
  * the page itself since the owner's preview feedback (2026-10-09): it is the header's panel.
  */
 export default function Loading() {
@@ -55,8 +55,8 @@ export default function Loading() {
         </div>
         <div className="flex flex-col gap-2">
           <div className="flex min-h-11 items-center justify-between">
-            <Skeleton className="h-4 w-12" />
-            <Skeleton className="h-11 w-28 rounded-lg md:h-8" />
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-11 w-40 rounded-lg md:h-8" />
           </div>
           <ul className="border-border divide-border bg-card divide-y rounded-lg border">
             {[0, 1, 2, 3, 4].map((row) => (

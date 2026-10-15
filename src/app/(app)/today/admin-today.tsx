@@ -248,8 +248,8 @@ export async function AdminToday({ viewer }: { viewer: CurrentMember }) {
                       icon={<FolderClockIcon className="size-4" aria-hidden />}
                       title={
                         itemsToDecide === 1
-                          ? "1 unfinished item to decide"
-                          : `${itemsToDecide} unfinished items to decide`
+                          ? "1 unfinished deliverable to decide"
+                          : `${itemsToDecide} unfinished deliverables to decide`
                       }
                     />
                   ) : null}
@@ -268,7 +268,7 @@ export async function AdminToday({ viewer }: { viewer: CurrentMember }) {
                 </RowList>
               ) : null}
               {sentBack.length > 0 ? (
-                <RowList label="Client items sent back" slot="today-sent-back">
+                <RowList label="Deliverables sent back" slot="today-sent-back">
                   {sentBack.map((row) => (
                     <LinkRow
                       key={row.id}
@@ -322,7 +322,7 @@ export async function AdminToday({ viewer }: { viewer: CurrentMember }) {
                   }}
                 />
                 {due.length > CLIENT_WORK_SHOWN ? (
-                  <RowList label="All client items" slot="today-client-work-all">
+                  <RowList label="All client deliverables" slot="today-client-work-all">
                     <LinkRow
                       href="/clients/items"
                       slot="today-see-all-items"

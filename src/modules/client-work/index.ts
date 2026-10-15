@@ -123,21 +123,27 @@ export {
 export {
   addBlueprint,
   addStage,
+  addStageGroup,
   archiveBlueprint,
   archiveStage,
+  archiveStageGroup,
   cancelProject,
   completeProject,
+  createGroupedProject,
   createProject,
   reopenProject,
   startNextCycle,
   updateBlueprint,
   updateProject,
   updateStage,
+  updateStageGroup,
 } from "./actions/projects";
 export {
   addItem,
   addItemStage,
+  addItemStageGroup,
   archiveItemStage,
+  archiveItemStageGroup,
   cancelItem,
   carryDecide,
   markItemDone,
@@ -147,5 +153,6 @@ export {
   tickStages,
   updateItem,
   updateItemStage,
+  updateItemStageGroup,
 } from "./actions/items";
 export { ACTIVITY_PAGE, readProjectActivity } from "./actions/background";
