@@ -732,13 +732,15 @@ begin
       insert into public.project_items (org_id, project_id, cycle_id, title, position, origin_cycle_id, created_by)
       values (v_caller.org_id, v_project.id, v_cycle.id, v_entry ->> 'title', v_position, v_cycle.id, v_caller.id)
       returning id into v_item_id;
-      perform app.item_stage_list_init_groups(v_item_id, coalesce(v_entry -> 'stage_groups', v_groups));
+      -- A JSON null (no groups of its own) means the defaults.
+      perform app.item_stage_list_init_groups(v_item_id,
+        case when jsonb_typeof(v_entry -> 'stage_groups') = 'array' then v_entry -> 'stage_groups' else v_groups end);
     end loop;
   else
     for v_entry in select e from jsonb_array_elements(v_deliverables) e loop
       v_position := app.client_work_next_position(v_position);
       -- Each line of the item list carries its own groups (the defaults when none were given).
-      v_group := coalesce(v_entry -> 'stage_groups', v_groups);
+      v_group := case when jsonb_typeof(v_entry -> 'stage_groups') = 'array' then v_entry -> 'stage_groups' else v_groups end;
       insert into public.project_item_blueprints (org_id, project_id, title, position, stages, stage_groups)
       values (v_caller.org_id, v_project.id, v_entry ->> 'title', v_position, app.stage_groups_flat(v_group), v_group);
     end loop;
