@@ -9,6 +9,7 @@ import { isolateTick, serverTiming } from "@/core/observability/isolate";
 import { HOME_HINT_COOKIE, rootRedirect } from "./home-hint";
 import { LOGIN_PATH, isPublicPath, isSignedOutOnlyPath } from "./paths";
 import { classifySessionError } from "./session-errors";
+import { WARM_PATH, warmSessionVerification } from "./warm";
 
 /**
  * What `src/proxy.ts` runs on every page request (ADR-0012):
@@ -25,11 +26,14 @@ import { classifySessionError } from "./session-errors";
  *    `claims` (the verification above, in ms: 0 when the JWT was checked locally, a round trip
  *    to GoTrue otherwise) and the isolate's state (`core/observability/isolate`), so a probe can
  *    tell a cold start from a slow Worker. Numbers only, no data.
+ * 5. the warm-up (`/api/warm`, P2) passes straight through: its token is verified without a
+ *    refresh, so this bundle's JWKS is cached, and nothing is redirected or written (`warm.ts`).
  *
  * It reads no table on purpose (Next's own guidance for proxies). The decision that counts,
  * "is this an active member", is `requireMember()` in `server.ts`, run by the app layout.
  */
 export async function updateSession(request: NextRequest): Promise<NextResponse> {
+  if (request.nextUrl.pathname === WARM_PATH) return warmPassThrough(request);
   const forward = () => {
     // Rebuilt after every cookie refresh: `request.cookies.set` rewrites the Cookie header.
     return NextResponse.next({ request: { headers: new Headers(request.headers) } });
@@ -101,6 +105,21 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
   }
 
   return timed(response);
+}
+
+/**
+ * The warm-up's way through (P2): the token checked once without a refresh (`warm.ts`), then on
+ * to the route with the request untouched and no cookie set, timed like every other response.
+ */
+async function warmPassThrough(request: NextRequest): Promise<NextResponse> {
+  const started = performance.now();
+  await warmSessionVerification(request.cookies.getAll());
+  const response = NextResponse.next();
+  response.headers.set(
+    "Server-Timing",
+    serverTiming({ claims: performance.now() - started }, isolateTick()),
+  );
+  return response;
 }
 
 /**
