@@ -250,6 +250,12 @@ test("a template from before groups opens with its stages on each item, and keep
   ]);
   const first = deliverables.first();
   await first.locator('[data-slot="deliverable-toggle"]').click();
+  // An old item followed the template's stages, so it keeps following them (the defaults) until
+  // it is given stages of its own, which start as a copy of them: one untitled group.
+  await expect(first.locator('[data-slot="uses-defaults"]')).toContainText(
+    "Uses the default stages",
+  );
+  await first.getByRole("button", { name: "Give it its own stages" }).click();
   await expect(first.locator('[data-slot="stage-group"][data-untitled]')).toHaveCount(1);
   await expect(first.locator('[data-slot="name-group"]')).toBeVisible();
   await expectValues(first.locator('[data-slot="stage-name"]'), ["One", "Two"]);
@@ -293,7 +299,8 @@ test("a template from before groups opens with its stages on each item, and keep
         { label: "Phase B", stages: ["Three", "Four"] },
       ],
     },
-    { title: "Item 2", stage_groups: [{ label: null, stages: ["One", "Two"] }] },
+    // The other item still follows the template's default stages.
+    { title: "Item 2", stage_groups: null },
   ]);
   await removeTemplate(name);
 });
