@@ -1,3 +1,4 @@
+import { groupStageLabel } from "@/core/lib/stage-groups";
 import { addISTDays, formatIST, istDayStart, istWeekday, type ISODate } from "@/core/time";
 
 import type { Cycle, Item, ItemRow, ItemStage, ItemState, Stage } from "./types";
@@ -82,9 +83,9 @@ export function progressOf(items: readonly Pick<Item, "state">[]): Progress {
   return { total, done, closed };
 }
 
-/** "9/12 done · 1 closed" (decision 18, amendment D3); "No items in this cycle." when empty. */
+/** "9/12 done · 1 closed" (decision 18, amendment D3); "No deliverables in this cycle." when empty. */
 export function progressLine(progress: Progress): string {
-  if (progress.total === 0 && progress.closed === 0) return "No items in this cycle.";
+  if (progress.total === 0 && progress.closed === 0) return "No deliverables in this cycle.";
   const parts = [`${progress.done}/${progress.total} done`];
   if (progress.closed > 0) parts.push(`${progress.closed} closed`);
   return parts.join(" · ");
@@ -138,18 +139,36 @@ export function sortItems<T extends Pick<Item, "position" | "id">>(items: readon
   );
 }
 
+type StageOrder = Pick<Stage, "position" | "id" | "groupLabel" | "groupPosition">;
+
 /**
- * Stages that still apply (removed ones are archived, decision 8, amendment D2), in order: a
- * project's default stages or an item's own.
+ * Stages in the order the screens show them (6b, DATA-MODEL §5b): the untitled group first (every
+ * stage from before groups is in it), then the named groups by their key, each group's stages by
+ * `position` (the keys compare as plain strings, collate "C").
  */
-export function activeStages<T extends Pick<Stage, "archived" | "position" | "id">>(
-  stages: readonly T[],
-): T[] {
-  return sortItems(stages.filter((stage) => !stage.archived));
+export function compareStages(a: StageOrder, b: StageOrder): number {
+  const untitled = Number(b.groupLabel === null) - Number(a.groupLabel === null);
+  if (untitled !== 0) return untitled;
+  const ga = a.groupPosition ?? "";
+  const gb = b.groupPosition ?? "";
+  if (ga !== gb) return ga < gb ? -1 : 1;
+  if (a.groupLabel !== b.groupLabel) return (a.groupLabel ?? "") < (b.groupLabel ?? "") ? -1 : 1;
+  if (a.position !== b.position) return a.position < b.position ? -1 : 1;
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
 
-/** Each item's own active stages, in order (amendment D2). */
-export function stagesByItem<T extends Pick<ItemStage, "itemId" | "archived" | "position" | "id">>(
+/**
+ * Stages that still apply (removed ones are archived, decision 8, amendment D2), in order (by
+ * group, then place): a project's default stages or an item's own.
+ */
+export function activeStages<T extends Pick<Stage, "archived"> & StageOrder>(
+  stages: readonly T[],
+): T[] {
+  return stages.filter((stage) => !stage.archived).sort(compareStages);
+}
+
+/** Each item's own active stages, in order (amendment D2; by group since 6b). */
+export function stagesByItem<T extends Pick<ItemStage, "itemId" | "archived"> & StageOrder>(
   stages: readonly T[],
 ): Map<string, T[]> {
   const byItem = new Map<string, T[]>();
@@ -162,16 +181,25 @@ export function stagesByItem<T extends Pick<ItemStage, "itemId" | "archived" | "
 /**
  * "Tick ‹stage› on N" (decision 16, amendment D2): the stage names the chosen items carry, in the
  * order they first appear, each with the stages of that name to tick (one per item that has it,
- * matched case-insensitively). An item without the name is left out of that choice.
+ * matched case-insensitively). An item without the name is left out of that choice. Since 6b a
+ * stage is matched **in its group**: "Group · Stage" (`groupStageLabel`) ticks, per item, the
+ * stage of that name in the group of that name; the untitled group's stages keep their plain name.
  */
 export function stageChoices(
-  items: readonly { stages: readonly { id: string; name: string; done: boolean }[] }[],
-): { name: string; stageIds: string[] }[] {
-  const choices = new Map<string, { name: string; stageIds: string[] }>();
+  items: readonly {
+    stages: readonly { id: string; name: string; done: boolean; groupLabel?: string | null }[];
+  }[],
+): { key: string; name: string; stageIds: string[] }[] {
+  const choices = new Map<string, { key: string; name: string; stageIds: string[] }>();
   for (const item of items) {
     for (const stage of item.stages) {
-      const key = stage.name.trim().toLowerCase();
-      const choice = choices.get(key) ?? { name: stage.name, stageIds: [] };
+      const group = stage.groupLabel ?? null;
+      const key = `${group === null ? "" : group.trim().toLowerCase()}\u0000${stage.name.trim().toLowerCase()}`;
+      const choice = choices.get(key) ?? {
+        key,
+        name: groupStageLabel(group, stage.name),
+        stageIds: [],
+      };
       if (!stage.done) choice.stageIds.push(stage.id);
       choices.set(key, choice);
     }
@@ -256,7 +284,7 @@ export function groupByAdmin<T extends Pick<ItemRow, "adminId">>(
   );
 }
 
-/** "1 item", "3 items". */
+/** "1 deliverable", "3 deliverables" (6b: the screens call items deliverables). */
 export function itemCount(n: number): string {
-  return n === 1 ? "1 item" : `${n} items`;
+  return n === 1 ? "1 deliverable" : `${n} deliverables`;
 }

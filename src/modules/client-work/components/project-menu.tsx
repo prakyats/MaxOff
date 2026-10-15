@@ -17,7 +17,9 @@ import {
 import type { ItemListPeriods } from "../domain/periods";
 import type { ProjectState, Recurrence } from "../domain/types";
 
-import type { ListRow } from "./list-editor-sheet";
+import type { StagePresetOption } from "@/core/ui/stage-groups/editing";
+
+import type { GroupedStageRow } from "./grouped-stages-sheet";
 import type { MenuBlueprint, MenuLayer, MenuProject } from "./project-menu-layers";
 
 /**
@@ -44,6 +46,7 @@ export function ProjectMenu({
   project,
   stages,
   blueprints,
+  presets,
   definitions,
   canManage,
   canComplete,
@@ -52,8 +55,10 @@ export function ProjectMenu({
   itemList,
 }: {
   project: MenuProject & { state: ProjectState; recurrence: Recurrence };
-  stages: readonly ListRow[];
+  stages: readonly GroupedStageRow[];
   blueprints: readonly MenuBlueprint[];
+  /** The stage presets ("Add from a preset" adds one as a group, 6b). */
+  presets: readonly StagePresetOption[];
   definitions: readonly FieldDefinition[];
   canManage: boolean;
   canComplete: boolean;
@@ -76,7 +81,7 @@ export function ProjectMenu({
   const entries = [
     canManage && working ? { key: "edit", label: "Edit details" } : null,
     canManage && working ? { key: "stages", label: "Default stages" } : null,
-    canManage && working && recurring ? { key: "items", label: "Item list" } : null,
+    canManage && working && recurring ? { key: "items", label: "Deliverables list" } : null,
     canManage && working && recurring && nextCycleLabel
       ? { key: "next", label: `Start ${nextCycleLabel}` }
       : null,
@@ -124,6 +129,7 @@ export function ProjectMenu({
           project={project}
           stages={stages}
           blueprints={blueprints}
+          presets={presets}
           definitions={definitions}
           unfinished={unfinished}
           nextCycleLabel={nextCycleLabel}

@@ -16,9 +16,14 @@ export default async function Loading() {
   const owner = member?.role === "owner";
   const description = itemsDescription(owner);
   return (
-    <div role="status" aria-busy="true" aria-label="Loading Client items" data-slot="loading-items">
+    <div
+      role="status"
+      aria-busy="true"
+      aria-label="Loading Client deliverables"
+      data-slot="loading-items"
+    >
       <PageHeader
-        title="Client items"
+        title="Client deliverables"
         description={description}
         help={description}
         back={{ href: owner ? "/today" : "/clients", label: owner ? "Today" : "Clients" }}
@@ -43,7 +48,7 @@ export default async function Loading() {
           ))}
         </ul>
       </div>
-      <span className="sr-only">Loading Client items</span>
+      <span className="sr-only">Loading Client deliverables</span>
     </div>
   );
 }

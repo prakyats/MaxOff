@@ -13,7 +13,7 @@ export default async function Loading() {
   const filters = member !== null && can(member.role, "clients.manage") ? 2 : 1;
   return (
     <PageLoading title="Clients" shape="cards">
-      {/* The "Client items" row (7.3) above the list. */}
+      {/* The "Client deliverables" row (7.3) above the list. */}
       <Skeleton aria-hidden className="mb-3 h-11 w-full rounded-lg" />
       <div className="flex flex-col gap-3">
         <div

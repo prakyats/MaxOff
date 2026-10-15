@@ -4,6 +4,8 @@
  * the Owner's, phase 9). Plain types: the data layer maps the rows into them.
  */
 
+import type { StageGroup } from "@/core/lib/stage-groups";
+
 export type Recurrence = "one_time" | "weekly" | "monthly";
 export type ProjectState = "open" | "in_progress" | "completed" | "cancelled";
 export type CycleState = "open" | "settled";
@@ -77,11 +79,18 @@ export type Cycle = {
   itemListCopied: boolean;
 };
 
+/**
+ * A project's default stage (amendment D2), in its group (6b, DATA-MODEL §5b): `groupLabel` null is
+ * the one untitled group (every stage from before groups), `groupPosition` the group's own order
+ * key (null for the untitled group, which always comes first).
+ */
 export type Stage = {
   id: string;
   projectId: string;
   name: string;
   position: string;
+  groupLabel: string | null;
+  groupPosition: string | null;
   archived: boolean;
 };
 
@@ -92,8 +101,13 @@ export type Blueprint = {
   title: string;
   position: string;
   archived: boolean;
-  /** The stages each item made from it starts with (amendment D2). */
+  /** The stages each item made from it starts with (amendment D2), flattened. */
   stages: string[];
+  /**
+   * The same stages in their groups (6b): a line from before groups reads its `stages` as one
+   * untitled group (`groupsFromJson`).
+   */
+  stageGroups: StageGroup[];
 };
 
 export type Item = {
@@ -127,6 +141,9 @@ export type ItemStage = {
   projectId: string;
   name: string;
   position: string;
+  /** Its group (6b): null = the untitled group, as every stage from before groups. */
+  groupLabel: string | null;
+  groupPosition: string | null;
   archived: boolean;
   doneAt: string | null;
   doneBy: string | null;

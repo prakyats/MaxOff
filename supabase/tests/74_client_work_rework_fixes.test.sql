@@ -176,7 +176,8 @@ select throws_ok($$ select public.project_blueprint_update(pg_temp.fx('bp1'), '{
 select is((select stages from public.project_item_blueprints where id = pg_temp.fx('bp1')), array['Script', 'Edit'], 'the line is unchanged');
 -- A line holding a name twice from before this fix: a new cycle refuses it rather than seed it.
 select pg_temp.as_system();
-update public.project_item_blueprints set stages = array['Shoot', 'shoot'] where id = pg_temp.fx('bp1');
+-- (6b Release 1: a line from before groups, so stage_groups is null and the old column is read.)
+update public.project_item_blueprints set stages = array['Shoot', 'shoot'], stage_groups = null where id = pg_temp.fx('bp1');
 select throws_ok($$ select app.cycle_create((select p from public.projects p where p.id = pg_temp.fx('p_m')),
   (app.period_start('monthly', app.today_ist()) - interval '1 month')::date, 'schedule', null) $$, 'P0001', 'VALIDATION',
   'cycle_create: a line''s stages named twice never reach an item');

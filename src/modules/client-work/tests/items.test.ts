@@ -108,8 +108,8 @@ describe("the progress line (decision 18, amendment D3)", () => {
     expect(progressLine(progress)).toBe("3/4 done · 1 closed");
   });
 
-  it("reads 'No items in this cycle.' when empty", () => {
-    expect(progressLine(progressOf([]))).toBe("No items in this cycle.");
+  it("reads 'No deliverables in this cycle.' when empty", () => {
+    expect(progressLine(progressOf([]))).toBe("No deliverables in this cycle.");
     expect(progressLine(progressOf(states(["open"])))).toBe("0/1 done");
   });
 });
@@ -179,11 +179,11 @@ describe("the Item list's words (amendment D4)", () => {
     expect(periods).toEqual({ unit: "month", from: "November 2026", running: "October 2026" });
     const words = itemListCopy(periods!);
     expect(words.description).toBe(
-      "Every month starts with these, from November 2026. To add something to October 2026, use + Add item on the project page.",
+      "Every month starts with these, from November 2026. To add something to October 2026, use + Add deliverable on the project page.",
     );
     expect(words.added("Reel 4")).toBe("Reel 4 added from November 2026");
     expect(words.removeDescription).toBe(
-      "November 2026 starts without it. October 2026's items don't change.",
+      "November 2026 starts without it. October 2026's deliverables don't change.",
     );
   });
 
@@ -238,7 +238,7 @@ describe("the Item list's words (amendment D4)", () => {
     const periods = itemListPeriods("weekly", TODAY, [week], true);
     expect(periods).toEqual({ unit: "week", from: "12–18 Oct 2026", running: "5–11 Oct 2026" });
     expect(itemListCopy(periods!).description).toBe(
-      "Every week starts with these, from 12–18 Oct 2026. To add something to 5–11 Oct 2026, use + Add item on the project page.",
+      "Every week starts with these, from 12–18 Oct 2026. To add something to 5–11 Oct 2026, use + Add deliverable on the project page.",
     );
     expect(itemListPeriods("weekly", TODAY, [], true)?.from).toBe("5–11 Oct 2026");
     expect(itemListPeriods("one_time", TODAY, [], true)).toBeNull();
@@ -315,7 +315,7 @@ describe("the Projects tab", () => {
     );
     expect(summaries.map((summary) => [summary.id, summary.meta, summary.progress])).toEqual([
       ["p", "Monthly · October 2026", "1/2 done"],
-      ["q", "Weekly · no current cycle", "No items in this cycle."],
+      ["q", "Weekly · no current cycle", "No deliverables in this cycle."],
       // A finished project has no current cycle: no progress line.
       ["done", "One-time · delivery 20 Oct", null],
     ]);
@@ -345,6 +345,8 @@ function stage(over: Partial<ItemStage> = {}): ItemStage {
     projectId: "p1",
     name: "Script",
     position: "a0",
+    groupLabel: null,
+    groupPosition: null,
     archived: false,
     doneAt: null,
     doneBy: null,
@@ -386,8 +388,22 @@ describe("an item's view (Q5 (b), decisions 7, 12, amendment D)", () => {
     );
     expect(view.sentBack).toEqual({ verb: "Sent back", by: "Prishit", reason: "Wrong logo" });
     expect(view.stages).toEqual([
-      { id: "s1", name: "Script", position: "a0", done: true },
-      { id: "s2", name: "Edit", position: "a1", done: false },
+      {
+        id: "s1",
+        name: "Script",
+        position: "a0",
+        groupLabel: null,
+        groupPosition: null,
+        done: true,
+      },
+      {
+        id: "s2",
+        name: "Edit",
+        position: "a1",
+        groupLabel: null,
+        groupPosition: null,
+        done: false,
+      },
     ]);
     expect(view.lastChange?.text).toBe("ticked Script on Reel 1");
     expect(view.carriedFrom).toBe("Carried from September");
@@ -453,7 +469,9 @@ describe("Tick ‹stage› on N and the line stages (amendment D2)", () => {
       { stages: [{ id: "b1", name: "edit", done: false }] },
       { stages: [] },
     ]);
-    expect(choices).toEqual([{ name: "Edit", stageIds: ["a2", "b1"] }]);
+    expect(choices.map(({ name, stageIds }) => ({ name, stageIds }))).toEqual([
+      { name: "Edit", stageIds: ["a2", "b1"] },
+    ]);
   });
 
   it("edits a line's names as rows: keys ascend, a move reorders", () => {
@@ -606,7 +624,7 @@ describe("the project's history (7A notes for 7B (a))", () => {
         }),
         context,
       )?.text,
-    ).toBe("set the stages of an item list line: Shoot, Post");
+    ).toBe("set the stages of a deliverables list line: Shoot, Post");
     expect(
       describeProjectActivity(
         entry({
@@ -696,17 +714,26 @@ describe("every entry the activity reads return is a line (the 7B rework's revie
     ["project_stages", "archived", {}],
     ["project_stages", "update", { name: "Grade" }],
     ["project_stages", "update", { position: "a0" }],
+    ["project_stages", "update", { group_label: "Phase A" }],
+    ["project_stages", "update", { group_position: "b" }],
+    ["project_stages", "group_renamed", {}],
+    ["project_stages", "group_moved", {}],
     ["project_item_blueprints", "insert", { title: "Reel 3" }],
     ["project_item_blueprints", "archived", {}],
     ["project_item_blueprints", "update", { title: "Reel 4" }],
     ["project_item_blueprints", "update", { position: "a0" }],
     ["project_item_blueprints", "update", { stages: [] }],
+    ["project_item_blueprints", "update", { stage_groups: [] }],
     ["project_item_stage_list", "insert", { name: "Edit" }],
     ["project_item_stage_list", "archived", {}],
     ["project_item_stage_list", "ticked", {}],
     ["project_item_stage_list", "unticked", {}],
     ["project_item_stage_list", "update", { name: "Grade" }],
     ["project_item_stage_list", "update", { position: "a0" }],
+    ["project_item_stage_list", "update", { group_label: "Phase A" }],
+    ["project_item_stage_list", "update", { group_position: "b" }],
+    ["project_item_stage_list", "group_renamed", {}],
+    ["project_item_stage_list", "group_moved", {}],
     ["project_cycles", "generated", {}],
     ["project_cycles", "insert", {}],
     ["project_cycles", "item_list_added", {}],

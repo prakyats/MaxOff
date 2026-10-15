@@ -2142,6 +2142,7 @@ export type Database = {
           org_id: string;
           position: string;
           project_id: string;
+          stage_groups: Json | null;
           stages: string[];
           title: string;
           updated_at: string;
@@ -2153,6 +2154,7 @@ export type Database = {
           org_id: string;
           position: string;
           project_id: string;
+          stage_groups?: Json | null;
           stages?: string[];
           title: string;
           updated_at?: string;
@@ -2164,6 +2166,7 @@ export type Database = {
           org_id?: string;
           position?: string;
           project_id?: string;
+          stage_groups?: Json | null;
           stages?: string[];
           title?: string;
           updated_at?: string;
@@ -2191,6 +2194,8 @@ export type Database = {
           created_at: string;
           done_at: string | null;
           done_by: string | null;
+          group_label: string | null;
+          group_position: string | null;
           id: string;
           item_id: string;
           name: string;
@@ -2204,6 +2209,8 @@ export type Database = {
           created_at?: string;
           done_at?: string | null;
           done_by?: string | null;
+          group_label?: string | null;
+          group_position?: string | null;
           id?: string;
           item_id: string;
           name: string;
@@ -2217,6 +2224,8 @@ export type Database = {
           created_at?: string;
           done_at?: string | null;
           done_by?: string | null;
+          group_label?: string | null;
+          group_position?: string | null;
           id?: string;
           item_id?: string;
           name?: string;
@@ -2532,6 +2541,8 @@ export type Database = {
         Row: {
           archived_at: string | null;
           created_at: string;
+          group_label: string | null;
+          group_position: string | null;
           id: string;
           name: string;
           org_id: string;
@@ -2542,6 +2553,8 @@ export type Database = {
         Insert: {
           archived_at?: string | null;
           created_at?: string;
+          group_label?: string | null;
+          group_position?: string | null;
           id?: string;
           name: string;
           org_id: string;
@@ -2552,6 +2565,8 @@ export type Database = {
         Update: {
           archived_at?: string | null;
           created_at?: string;
+          group_label?: string | null;
+          group_position?: string | null;
           id?: string;
           name?: string;
           org_id?: string;
@@ -2581,6 +2596,7 @@ export type Database = {
           archived_at: string | null;
           created_at: string;
           created_by: string;
+          deliverables: Json | null;
           description: string | null;
           field_defaults: Json;
           id: string;
@@ -2588,6 +2604,7 @@ export type Database = {
           name: string;
           org_id: string;
           recurrence: Database["public"]["Enums"]["recurrence"];
+          stage_groups: Json | null;
           stages: string[];
           updated_at: string;
         };
@@ -2595,6 +2612,7 @@ export type Database = {
           archived_at?: string | null;
           created_at?: string;
           created_by?: string;
+          deliverables?: Json | null;
           description?: string | null;
           field_defaults?: Json;
           id?: string;
@@ -2602,6 +2620,7 @@ export type Database = {
           name: string;
           org_id?: string;
           recurrence: Database["public"]["Enums"]["recurrence"];
+          stage_groups?: Json | null;
           stages?: string[];
           updated_at?: string;
         };
@@ -2609,6 +2628,7 @@ export type Database = {
           archived_at?: string | null;
           created_at?: string;
           created_by?: string;
+          deliverables?: Json | null;
           description?: string | null;
           field_defaults?: Json;
           id?: string;
@@ -2616,6 +2636,7 @@ export type Database = {
           name?: string;
           org_id?: string;
           recurrence?: Database["public"]["Enums"]["recurrence"];
+          stage_groups?: Json | null;
           stages?: string[];
           updated_at?: string;
         };
@@ -4577,11 +4598,25 @@ export type Database = {
         Args: { item_id: string; reason: string };
         Returns: Database["public"]["Enums"]["item_state"];
       };
-      item_stage_add: {
-        Args: { item_id: string; name: string };
-        Returns: string;
-      };
+      item_stage_add:
+        | { Args: { item_id: string; name: string }; Returns: string }
+        | {
+            Args: { group_label: string; item_id: string; name: string };
+            Returns: string;
+          };
       item_stage_archive: { Args: { stage_id: string }; Returns: undefined };
+      item_stage_group_add: {
+        Args: { item_id: string; label: string; stages: string[] };
+        Returns: undefined;
+      };
+      item_stage_group_archive: {
+        Args: { item_id: string; label: string };
+        Returns: undefined;
+      };
+      item_stage_group_update: {
+        Args: { changes: Json; item_id: string; label: string };
+        Returns: string[];
+      };
       item_stage_tick: {
         Args: { done?: boolean; stage_id: string };
         Returns: boolean;
@@ -4820,15 +4855,43 @@ export type Database = {
         };
         Returns: string;
       };
+      project_create_grouped: {
+        Args: {
+          client_id: string;
+          custom_fields?: Json;
+          deliverables?: Json;
+          delivery_date?: string;
+          description?: string;
+          name: string;
+          recurrence: Database["public"]["Enums"]["recurrence"];
+          stage_groups?: Json;
+          template_id?: string;
+        };
+        Returns: string;
+      };
       project_reopen: {
         Args: { project_id: string; reason: string };
         Returns: Database["public"]["Enums"]["project_state"];
       };
-      project_stage_add: {
-        Args: { name: string; project_id: string };
-        Returns: string;
-      };
+      project_stage_add:
+        | { Args: { name: string; project_id: string }; Returns: string }
+        | {
+            Args: { group_label: string; name: string; project_id: string };
+            Returns: string;
+          };
       project_stage_archive: { Args: { stage_id: string }; Returns: undefined };
+      project_stage_group_add: {
+        Args: { label: string; project_id: string; stages: string[] };
+        Returns: undefined;
+      };
+      project_stage_group_archive: {
+        Args: { label: string; project_id: string };
+        Returns: undefined;
+      };
+      project_stage_group_update: {
+        Args: { changes: Json; label: string; project_id: string };
+        Returns: string[];
+      };
       project_stage_update: {
         Args: { changes: Json; stage_id: string };
         Returns: string[];

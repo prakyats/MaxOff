@@ -4,7 +4,7 @@ import { assertPermission } from "@/core/permissions/server";
 import { listDirectoryOf } from "@/modules/team";
 
 import * as repo from "../data/projects";
-import { type ActivityPage, describeProjectActivity } from "../domain/activity";
+import { type ActivityPage, describeActivityLines } from "../domain/activity";
 import { activityPageSchema } from "../domain/schemas";
 
 /** Entries per page of the activity panel (the owner's preview feedback: the latest 20). */
@@ -16,7 +16,8 @@ export const ACTIVITY_PAGE = 20;
  * opens and on "Show older", never through a server action that could hold a navigation). zod →
  * `assertPermission("projects.manage")` (the Owner, the client's Admin; Crew never) → the
  * repository, under RLS (another Admin's project reads as nothing). Newest first, 20 entries
- * before the cursor (keyset), each described as one sentence; `next` is where the following page
+ * before the cursor (keyset), each described as one sentence (one group change's per-stage
+ * entries as one line, so a page may hold fewer than 20 lines); `next` is where the following page
  * starts, null at the end. Never an amount.
  */
 export async function readProjectActivity(input: unknown): Promise<ActivityPage> {
@@ -32,13 +33,31 @@ export async function readProjectActivity(input: unknown): Promise<ActivityPage>
         : null,
     limit: ACTIVITY_PAGE,
   });
+  // The previous page's last entry (the cursor's own): a group change cut by that page's end
+  // is not said again here. Keyset order is (at, id) newest first, so the one entry before
+  // (at, id + 1) is the cursor's.
+  const cursor =
+    query.beforeAt !== null && query.beforeId !== null
+      ? ((
+          await repo.pageProjectActivity({
+            projectId: query.projectId,
+            kind: query.kind,
+            itemId: query.itemId,
+            before: { at: query.beforeAt, id: query.beforeId + 1 },
+            limit: 1,
+          })
+        ).find((entry) => entry.id === query.beforeId) ?? null)
+      : null;
+  const described = cursor ? [cursor, ...entries] : entries;
   const itemEntities = new Set(["project_items", "project_item_stage_list", "project_item_stages"]);
   const itemIds = [
     ...new Set(
-      entries.filter((entry) => itemEntities.has(entry.entity)).map((entry) => entry.entityId),
+      described.filter((entry) => itemEntities.has(entry.entity)).map((entry) => entry.entityId),
     ),
   ];
-  const actorIds = [...new Set(entries.flatMap((entry) => (entry.actorId ? [entry.actorId] : [])))];
+  const actorIds = [
+    ...new Set(described.flatMap((entry) => (entry.actorId ? [entry.actorId] : []))),
+  ];
   const needsStages = entries.some((entry) => entry.entity === "project_item_stages");
   const [items, people, stages] = await Promise.all([
     repo.listItemsById(itemIds),
@@ -52,10 +71,8 @@ export async function readProjectActivity(input: unknown): Promise<ActivityPage>
   };
   const last = entries.at(-1);
   return {
-    lines: entries.flatMap((entry) => {
-      const line = describeProjectActivity(entry, context);
-      return line ? [line] : [];
-    }),
+    // A group rename or move is one line, however many stages it touched (6b).
+    lines: describeActivityLines(entries, context, cursor),
     next: entries.length === ACTIVITY_PAGE && last ? { at: last.at, id: last.id } : null,
   };
 }

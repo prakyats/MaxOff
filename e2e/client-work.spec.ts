@@ -115,6 +115,22 @@ async function itemState(id: string): Promise<string | undefined> {
 }
 
 const progress = (page: Page) => page.locator('[data-slot="cycle-progress"]');
+
+/** The values of some inputs, in order (a list of stage names). */
+const valuesOf = (inputs: Locator) =>
+  inputs.evaluateAll((elements) => elements.map((element) => (element as HTMLInputElement).value));
+
+/**
+ * Create in the New project dialog (6b.16 (a)): a laptop creates from the form, beside its
+ * preview; a phone goes through the Preview step first.
+ */
+async function createFromDialog(page: Page, dialog: Locator): Promise<void> {
+  if ((page.viewportSize()?.width ?? 1280) < 768) {
+    await dialog.getByRole("button", { name: "Preview", exact: true }).click();
+    await expect(dialog.locator('[data-slot="deliverables-preview"]:visible')).toBeVisible();
+  }
+  await dialog.getByRole("button", { name: "Create project" }).click();
+}
 const itemRow = (page: Page, title: string) =>
   page.locator('[data-slot="item-row"]', { hasText: title });
 
@@ -212,9 +228,17 @@ test("a project from the Projects tab: per-item stages, Mark done with Undo, Mar
   await page.getByRole("button", { name: "New project" }).click();
   const dialog = page.getByRole("dialog", { name: "New project" });
   await dialog.getByLabel("Project name").fill("Monthly reels");
-  await dialog.getByLabel("Stages, one per line").fill("Script\nEdit");
-  await dialog.getByLabel("Item list").fill("Reel 1\nReel 2\nReel 3");
-  await dialog.getByRole("button", { name: "Create project" }).click();
+  // The default stages as one untitled group (a group without a name), then "Reel" × 3.
+  await dialog.getByRole("button", { name: "Add a group" }).click();
+  await dialog.getByLabel("Stages of the new group").fill("Script\nEdit");
+  await dialog.getByRole("button", { name: "Add group" }).click();
+  await dialog.getByLabel("Deliverable name").fill("Reel");
+  await dialog.getByLabel("How many").fill("3");
+  await dialog
+    .locator('[data-slot="add-deliverables"]')
+    .getByRole("button", { name: "Add", exact: true })
+    .click();
+  await createFromDialog(page, dialog);
   await expect(page).toHaveURL(new RegExp(`/clients/${clientId}/projects/[0-9a-f-]{36}$`));
   await hydrated(page);
   // Amendment D3: one figure, done (= approved).
@@ -239,9 +263,13 @@ test("a project from the Projects tab: per-item stages, Mark done with Undo, Mar
   );
   await sheet.getByRole("button", { name: "Edit stages" }).click();
   const stages = page.getByRole("dialog", { name: "Stages of Reel 2" });
-  await stages.getByLabel("New stage").fill("Colour");
-  await stages.getByRole("button", { name: "Add", exact: true }).click();
+  await stages.getByLabel("Add a stage", { exact: true }).fill("Colour");
+  await stages.getByRole("button", { name: "Add the stage", exact: true }).click();
   await expect(stages.getByLabel("Name of Colour")).toBeVisible();
+  // The tick stays as it was, shown beside its stage while editing.
+  await expect(
+    stages.locator('[data-slot="stage-row"]', { has: page.getByLabel("Name of Script") }),
+  ).toHaveAttribute("data-done", "");
   await page.goBack();
   await expect(stages).toBeHidden();
   await expect(sheet.getByRole("checkbox", { name: "Colour" })).toBeVisible();
@@ -270,8 +298,8 @@ test("a project from the Projects tab: per-item stages, Mark done with Undo, Mar
   await itemRow(page, "Reel 2").getByRole("checkbox").click();
   await itemRow(page, "Reel 3").getByRole("checkbox").click();
   await page.getByRole("button", { name: "Mark 2 done" }).click();
-  const confirm = page.getByRole("alertdialog", { name: "Mark 2 items done?" });
-  await confirm.getByRole("button", { name: "Mark 2 items done" }).click();
+  const confirm = page.getByRole("alertdialog", { name: "Mark 2 deliverables done?" });
+  await confirm.getByRole("button", { name: "Mark 2 deliverables done" }).click();
   await expect(progress(page)).toHaveText("3/3 done");
 
   // The client's Admin reopens a done item with a reason: it no longer counts.
@@ -286,7 +314,7 @@ test("a project from the Projects tab: per-item stages, Mark done with Undo, Mar
   await removeClientFixture(client);
 });
 
-test("done is approved: no Client items in Approvals; the Owner sends back from the project page", async ({
+test("done is approved: no client deliverables in Approvals; the Owner sends back from the project page", async ({
   page,
   browser,
 }, info) => {
@@ -341,7 +369,7 @@ function monthLabel(months: number): string {
   });
 }
 
-test("⋯ Item list: a new line starts next month; this month's items don't change (amendment D4)", async ({
+test("⋯ Deliverables list: a new line starts next month; this month's deliverables don't change (amendment D4)", async ({
   page,
 }, info) => {
   const client = nameOf(info, "item list");
@@ -354,14 +382,14 @@ test("⋯ Item list: a new line starts next month; this month's items don't chan
 
   // The sheet says where a line goes, and where something for this month goes instead.
   await page.getByRole("button", { name: "Actions for Monthly stories" }).click();
-  await page.getByRole("menuitem", { name: "Item list" }).click();
-  const list = page.locator('[data-slot="review-sheet"]', { hasText: "Item list" });
+  await page.getByRole("menuitem", { name: "Deliverables list" }).click();
+  const list = page.locator('[data-slot="review-sheet"]', { hasText: "Deliverables list" });
   await expect(list).toContainText(
-    `Every month starts with these, from ${next}. To add something to ${current}, use + Add item on the project page.`,
+    `Every month starts with these, from ${next}. To add something to ${current}, use + Add deliverable on the project page.`,
   );
 
   // A line added: the toast names the month it starts from; this month's list is unchanged.
-  await list.getByLabel("New item").fill("Story 2");
+  await list.getByLabel("New deliverable").fill("Story 2");
   await list.getByRole("button", { name: "Add", exact: true }).click();
   await expect(page.getByText(`Story 2 added from ${next}`)).toBeVisible();
   await expect(list.getByLabel("Name of Story 2")).toBeVisible();
@@ -374,20 +402,22 @@ test("⋯ Item list: a new line starts next month; this month's items don't chan
       ? route.abort("internetdisconnected")
       : route.fallback();
   await page.route("**/*", dropAdd);
-  await list.getByLabel("New item").fill("Story 3");
+  await list.getByLabel("New deliverable").fill("Story 3");
   await list.getByRole("button", { name: "Add", exact: true }).click();
   await expect(list.getByText(NETWORK_ERROR_CREATE_MESSAGE)).toBeVisible();
-  await expect(list.getByLabel("New item")).toHaveValue("Story 3");
+  await expect(list.getByLabel("New deliverable")).toHaveValue("Story 3");
   await expect(list.locator('[data-slot="list-editor-row"][data-pending]')).toHaveCount(0);
   await expect(list.getByRole("button", { name: "Add", exact: true })).toBeEnabled();
   await page.unroute("**/*", dropAdd);
-  await list.getByLabel("New item").fill("");
+  await list.getByLabel("New deliverable").fill("");
 
   // Removing a line asks in the same words, and leaves this month's item in place.
   await list.getByRole("button", { name: "Remove Story 1" }).click();
-  const remove = page.getByRole("alertdialog", { name: "Remove the item Story 1?" });
-  await expect(remove).toContainText(`${next} starts without it. ${current}'s items don't change.`);
-  await remove.getByRole("button", { name: "Remove item" }).click();
+  const remove = page.getByRole("alertdialog", { name: "Remove the deliverable Story 1?" });
+  await expect(remove).toContainText(
+    `${next} starts without it. ${current}'s deliverables don't change.`,
+  );
+  await remove.getByRole("button", { name: "Remove deliverable" }).click();
   await expect(remove).toBeHidden();
   await expect(list.getByLabel("Name of Story 1")).toHaveCount(0);
   await page.goBack();
@@ -523,7 +553,7 @@ test("the carry screen: carry forward in bulk, close one with a reason", async (
     .click();
   const dialog = page.getByRole("dialog", { name: `Close ${nameOf(info, "drop")}?` });
   await dialog.getByLabel("Why close it").fill("The client dropped it");
-  await dialog.getByRole("button", { name: "Close item" }).click();
+  await dialog.getByRole("button", { name: "Close deliverable" }).click();
   await expect
     .poll(async () => itemState(await itemId(projectId, nameOf(info, "drop"))))
     .toBe("cancelled");
@@ -743,7 +773,7 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
     await removeClientFixture(client);
   });
 
-  test("New project, ⋯ Edit details, Item list, Add item and the item's Edit: back asks before losing typed work", async ({
+  test("New project, ⋯ Edit details, Deliverables list, Add deliverable and the item's Edit: back asks before losing typed work", async ({
     page,
   }, info) => {
     const client = nameOf(info, "dialogs");
@@ -798,39 +828,46 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
       here,
     );
 
-    // ⋯ Stages and Item list: sheets; a name typed and not added asks first.
+    // ⋯ Default stages and Deliverables list: sheets; a name typed and not added asks first.
     await menu.click();
     await page.getByRole("menuitem", { name: "Stages" }).click();
     const stages = page.locator('[data-slot="review-sheet"]', { hasText: "Stages" });
     await expect(stages).toBeVisible();
     await expectBackStack(page, [{ closes: stages, url: here }]);
     await menu.click();
-    await page.getByRole("menuitem", { name: "Item list" }).click();
-    const list = page.locator('[data-slot="review-sheet"]', { hasText: "Item list" });
+    await page.getByRole("menuitem", { name: "Deliverables list" }).click();
+    const list = page.locator('[data-slot="review-sheet"]', { hasText: "Deliverables list" });
     await expect(list).toBeVisible();
     await expectBackStack(page, [{ closes: list, url: here }]);
     await menu.click();
-    await page.getByRole("menuitem", { name: "Item list" }).click();
-    await list.getByLabel("New item").fill("Reel 2");
+    await page.getByRole("menuitem", { name: "Deliverables list" }).click();
+    await list.getByLabel("New deliverable").fill("Reel 2");
     await expectDiscardOnBack(
       page,
       list,
       "Discard what you typed?",
       "Discard changes",
-      list.getByLabel("New item"),
+      list.getByLabel("New deliverable"),
       "Reel 2",
       here,
     );
 
     // A line's own stages (amendment D2): a sheet over the item list; one back each.
     await menu.click();
-    await page.getByRole("menuitem", { name: "Item list" }).click();
+    await page.getByRole("menuitem", { name: "Deliverables list" }).click();
     await list.getByRole("button", { name: "Stages of Reel" }).click();
     const lineStages = page.getByRole("dialog", { name: "Stages of Reel" });
-    await expect(lineStages.getByLabel("Name of Script")).toBeVisible();
-    await lineStages.getByLabel("New stage").fill("Post");
-    await lineStages.getByRole("button", { name: "Add", exact: true }).click();
-    await expect(lineStages.getByLabel("Name of Post")).toBeVisible();
+    // A line from before groups opens as one untitled group; the draft is saved in one change.
+    await expect
+      .poll(() => valuesOf(lineStages.locator('[data-slot="stage-name"]')))
+      .toEqual(["Script"]);
+    await lineStages.getByLabel("Add a stage to Stages of Reel").fill("Post");
+    await lineStages.getByLabel("Add a stage to Stages of Reel").press("Enter");
+    await expect
+      .poll(() => valuesOf(lineStages.locator('[data-slot="stage-name"]')))
+      .toEqual(["Script", "Post"]);
+    await lineStages.getByRole("button", { name: "Save stages" }).click();
+    await expect(lineStages).toBeHidden();
     await expect
       .poll(async () => {
         const [line] = await serviceSelect<{ stages: string[] }>(
@@ -839,23 +876,25 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
         return line?.stages;
       })
       .toEqual(["Script", "Post"]);
+    await list.getByRole("button", { name: "Stages of Reel" }).click();
+    await expect(lineStages).toBeVisible();
     await expectBackStack(page, [
       { closes: lineStages, url: here },
       { closes: list, url: here },
     ]);
 
-    // Add item.
-    await page.getByRole("button", { name: "Add item" }).click();
-    const add = page.getByRole("dialog", { name: "Add an item" });
+    // Add deliverable.
+    await page.getByRole("button", { name: "Add deliverable" }).click();
+    const add = page.getByRole("dialog", { name: "Add a deliverable" });
     await expect(add).toBeVisible();
     await expectBackStack(page, [{ closes: add, url: here }]);
-    await page.getByRole("button", { name: "Add item" }).click();
+    await page.getByRole("button", { name: "Add deliverable" }).click();
     await add.getByLabel("Title").fill("Extra reel");
     await expectDiscardOnBack(
       page,
       add,
-      "Discard this item?",
-      "Discard item",
+      "Discard this deliverable?",
+      "Discard deliverable",
       add.getByLabel("Title"),
       "Extra reel",
       here,
@@ -997,7 +1036,7 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
     await removeClientFixture(client);
   });
 
-  test("the keyboard never covers a sheet's field: Item list, Default stages, the item's Edit and Close…", async ({
+  test("the keyboard never covers a sheet's field: Deliverables list, Default stages, the item's Edit and Close…", async ({
     page,
   }, info) => {
     const client = nameOf(info, "keyboard");
@@ -1013,15 +1052,15 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
     const menu = page.getByRole("button", { name: "Actions for Keyboard reels" });
 
     await menu.click();
-    await page.getByRole("menuitem", { name: "Item list" }).click();
-    const list = page.locator('[data-slot="review-sheet"]', { hasText: "Item list" });
-    await expectSheetAboveKeyboard(page, list, list.getByLabel("New item"));
+    await page.getByRole("menuitem", { name: "Deliverables list" }).click();
+    const list = page.locator('[data-slot="review-sheet"]', { hasText: "Deliverables list" });
+    await expectSheetAboveKeyboard(page, list, list.getByLabel("New deliverable"));
     await expectBackStack(page, [{ closes: list, url: here }]);
 
     await menu.click();
     await page.getByRole("menuitem", { name: "Default stages" }).click();
     const stages = page.locator('[data-slot="review-sheet"]', { hasText: "Default stages" });
-    await expectSheetAboveKeyboard(page, stages, stages.getByLabel("New stage"));
+    await expectSheetAboveKeyboard(page, stages, stages.getByLabel("Add a stage", { exact: true }));
     await expectBackStack(page, [{ closes: stages, url: here }]);
 
     await itemRow(page, "Reel 1").locator('[data-slot="item-open"]').click();
@@ -1032,7 +1071,7 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
     await page.goBack();
     await expect(sheet.getByLabel("Title")).toHaveCount(0);
 
-    await sheet.getByRole("button", { name: "Close item…" }).click();
+    await sheet.getByRole("button", { name: "Close deliverable…" }).click();
     const close = page.getByRole("dialog", { name: "Close Reel 1?" });
     await expectSheetAboveKeyboard(page, close, close.getByLabel("Why close it"));
     await expectBackStack(page, [
@@ -1133,8 +1172,8 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
       has: page.locator('[data-slot="activity-panel"]'),
     });
     await expect(panel.locator('[data-slot="activity-line"]').first()).toBeVisible();
-    await panel.getByRole("button", { name: "Items", exact: true }).click();
-    await expect(panel.getByRole("button", { name: "Items", exact: true })).toHaveAttribute(
+    await panel.getByRole("button", { name: "Deliverables", exact: true }).click();
+    await expect(panel.getByRole("button", { name: "Deliverables", exact: true })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
@@ -1284,9 +1323,9 @@ test.describe("marking done on the project page, as the Owner (amendment D3; the
     await itemRow(page, "Reel 3").getByRole("checkbox").click();
     await itemRow(page, "Reel 4").getByRole("checkbox").click();
     await page.getByRole("button", { name: "Mark 2 done", exact: true }).click();
-    const confirm = page.getByRole("alertdialog", { name: "Mark 2 items done?" });
+    const confirm = page.getByRole("alertdialog", { name: "Mark 2 deliverables done?" });
     await expect(confirm).toBeVisible();
-    await confirm.getByRole("button", { name: "Mark 2 items done" }).click();
+    await confirm.getByRole("button", { name: "Mark 2 deliverables done" }).click();
     await expect(confirm).toBeHidden();
     await expect(progress(page)).toHaveText("4/4 done");
     await removeClientFixture(client);
@@ -1359,7 +1398,7 @@ test("⋯ Complete (refused while items are left), Reopen, Cancel, and Reopen re
   await menu.click();
   await page.getByRole("menuitem", { name: "Complete project" }).click();
   const complete = page.getByRole("alertdialog", { name: "Complete Brand film?" });
-  await expect(complete).toContainText("1 item is still open");
+  await expect(complete).toContainText("1 deliverable is still open");
   await expect(complete.getByRole("button", { name: "Complete project" })).toBeDisabled();
   await complete.getByRole("button", { name: "Cancel" }).click();
 
@@ -1425,7 +1464,7 @@ test("⋯ Start ‹next week› starts the next cycle early", async ({ page }, i
   await removeClientFixture(client);
 });
 
-test("a project template from Settings → Templates starts a New project", async ({
+test("a project template in today's shape starts a New project: its stages and deliverables", async ({
   page,
 }, info) => {
   test.skip(info.project.name === "mobile-lg", "the 375 and desktop runs cover the flow");
@@ -1435,15 +1474,16 @@ test("a project template from Settings → Templates starts a New project", asyn
   });
   const client = nameOf(info, "from template");
   const clientId = await workClient(client);
-  await page.goto("/settings/templates");
-  await hydrated(page);
-  await page.getByRole("button", { name: "Add a project template" }).click();
-  const dialog = page.getByRole("dialog", { name: "Add a project template" });
-  await dialog.getByLabel("Name").fill(name);
-  await dialog.getByLabel("Default stages", { exact: true }).fill("Script\nEdit");
-  await dialog.getByLabel("Item list").fill("Reel 1\nReel 2");
-  await dialog.getByRole("button", { name: "Add template" }).click();
-  await expect(page.locator('[data-slot="project-template"]', { hasText: name })).toBeVisible();
+  // A template as the team made them before groups: shared stages and an item list of names.
+  const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+  await serviceInsert("project_templates", {
+    org_id: org?.id,
+    name,
+    recurrence: "monthly",
+    stages: ["Script", "Edit"],
+    items: ["Item 1", "Item 2"],
+    created_by: await memberIdOf(admin.email),
+  });
 
   await page.goto(`/clients/${clientId}/projects`);
   await hydrated(page);
@@ -1451,12 +1491,23 @@ test("a project template from Settings → Templates starts a New project", asyn
   const create = page.getByRole("dialog", { name: "New project" });
   await create.getByRole("combobox", { name: "Start from" }).click();
   await page.getByRole("option", { name }).click();
-  await expect(create.getByLabel("Item list")).toHaveValue("Reel 1\nReel 2");
-  await expect(create.getByLabel("Stages, one per line")).toHaveValue("Script\nEdit");
+  // Its stages are the one untitled default group; its items the deliverables, on the defaults.
+  await expect
+    .poll(() => valuesOf(create.locator('[data-slot="stage-name"]')))
+    .toEqual(["Script", "Edit"]);
+  await expect(create.locator('[data-slot="deliverable-title"]')).toHaveText(["Item 1", "Item 2"]);
   await create.getByLabel("Project name").fill("From the template");
-  await create.getByRole("button", { name: "Create project" }).click();
+  await createFromDialog(page, create);
   await expect(page).toHaveURL(new RegExp(`/clients/${clientId}/projects/[0-9a-f-]{36}$`));
   await expect(progress(page)).toHaveText("0/2 done");
+  const projectId = await projectOf(clientId);
+  const stages = await serviceSelect<{ name: string; group_label: string | null }>(
+    `project_item_stage_list?item_id=eq.${await itemId(projectId, "Item 1")}&select=name,group_label&order=position`,
+  );
+  expect(stages).toEqual([
+    { name: "Script", group_label: null },
+    { name: "Edit", group_label: null },
+  ]);
   await removeClientFixture(client);
   await serviceRest(`project_templates?name=eq.${encodeURIComponent(name)}`, {
     method: "DELETE",
@@ -1510,13 +1561,13 @@ test.describe("Settings layers, installed (ARCHITECTURE §14.2)", () => {
     await expect(dialog).toBeVisible();
     await expectBackStack(page, [{ closes: dialog, url: here }]);
     await page.getByRole("button", { name: "Add a project template" }).click();
-    await dialog.getByLabel("Name").fill("Half a template");
+    await dialog.getByLabel("Name", { exact: true }).fill("Half a template");
     await expectDiscardOnBack(
       page,
       dialog,
       "Discard this template?",
       "Discard template",
-      dialog.getByLabel("Name"),
+      dialog.getByLabel("Name", { exact: true }),
       "Half a template",
       here,
     );

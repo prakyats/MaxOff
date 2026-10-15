@@ -68,3 +68,11 @@ export function movedNames(
     .sort((a, b) => (a.position < b.position ? -1 : a.position > b.position ? 1 : 0))
     .map((row) => row.name);
 }
+
+/**
+ * The key for the row now at `index` of a list just reordered (`keys` in the new order, the moved
+ * row's old key at `index`): between its new neighbours, so no other row is rewritten (a drag).
+ */
+export function movedKey(keys: readonly string[], index: number): string {
+  return positionBetween(keys[index - 1] ?? null, keys[index + 1] ?? null);
+}

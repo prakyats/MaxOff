@@ -171,11 +171,11 @@ export function ItemList({
       {shown.length === 0 ? (
         <EmptyState
           icon={ListChecksIcon}
-          title={narrowed ? "Nothing matches." : "No open items."}
+          title={narrowed ? "Nothing matches." : "No open deliverables."}
           description={
             narrowed
               ? "Nothing here under these filters."
-              : "Items of every client's current work show here."
+              : "Deliverables of every client's current work show here."
           }
           action={
             narrowed ? (
@@ -192,7 +192,7 @@ export function ItemList({
         groups.map((group) => (
           <section
             key={group.key}
-            aria-label={group.name ?? "Items"}
+            aria-label={group.name ?? "Deliverables"}
             data-slot="item-group"
             className="flex flex-col gap-1.5"
           >
@@ -217,10 +217,7 @@ export function ItemList({
                         {row.cycleLabel ? ` · ${row.cycleLabel}` : ""}
                       </span>
                       <span className="text-muted-foreground flex flex-wrap gap-x-2 text-xs">
-                        <span className="inline-flex items-center gap-1">
-                          <StatusDot status={ITEM_STATUS[row.state]} />
-                          {row.stateLabel}
-                        </span>
+                        <StatusDot status={ITEM_STATUS[row.state]} label={row.stateLabel} />
                         {row.planned ? (
                           <span className={cn(row.planned.overdue && "text-destructive")}>
                             {row.planned.text}

@@ -163,7 +163,13 @@ insert into app_internal values
   ('project_default_stages'), ('client_work_stage_names'), ('item_stage_list_init'), ('item_stage_list_copy'),
   ('item_stage_item'), ('item_stage_find'), ('item_stage_name_free'),
   -- The 7B rework's review fixes (2026-10-09): a project's default stage names, once each
-  ('project_stage_name_free');
+  ('project_stage_name_free'),
+  -- 6b Release 1 (2026-10-15): stage groups: the project's default groups, a new item's grouped stages,
+  -- a group found by its label on the defaults and on an item, and the key before the first named group
+  ('project_default_stage_groups'), ('item_stage_list_init_groups'), ('project_stage_group_find'),
+  ('item_stage_group_find'), ('stage_group_key_before'),
+  -- The review's L2 (migration client_work_stage_groups_fixes): a row's groups, read by functions only
+  ('stage_groups_of');
   -- 3c.1 (contract migration): attendance_logout and logout_not_recorded are gone with the 2.x gate.
 select is(
   (select count(*) from pg_proc p
@@ -184,7 +190,7 @@ select is(
   0::bigint,
   'the internal helpers: service_role only, never the API role');
 select is((select count(*) from pg_proc p where p.pronamespace = 'app'::regnamespace
-             and p.proname in (select name from app_internal)), 108::bigint,
+             and p.proname in (select name from app_internal)), 116::bigint,
   'the internal helper list matches what exists');
 select cmp_ok((select count(*) from pg_proc where pronamespace = 'app'::regnamespace), '>=', 4::bigint,
   'the grant check saw the app functions');

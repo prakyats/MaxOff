@@ -1,5 +1,7 @@
 import { istDayStart, toISTDate, type ISODate } from "@/core/time";
 
+import { groupStageLabel } from "@/core/lib/stage-groups";
+
 import { stagesByItem } from "./items";
 import type { Cycle, Item, ItemStage } from "./types";
 
@@ -100,7 +102,9 @@ export function sitLongest(input: {
         ? istDayStart(periodStart).getTime()
         : Date.parse(item.createdAt);
     const days = Math.max(0, (input.now.getTime() - since) / DAY_MS);
-    groups.set(stage.name, [...(groups.get(stage.name) ?? []), days]);
+    // A stage in a named group is "Group · Stage" (6b): the same name in two groups is two rows.
+    const name = groupStageLabel(stage.groupLabel, stage.name);
+    groups.set(name, [...(groups.get(name) ?? []), days]);
   }
   return [...groups.entries()]
     .map(([stage, days]) => ({ stage, count: days.length, medianDays: median(days) }))

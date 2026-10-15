@@ -217,8 +217,8 @@ select is(pg_temp.update_count($$ update public.stage_presets set name = 'Taken 
   'an Admin never edits the Owner''s preset');
 select throws_ok($$ insert into public.stage_presets (name, stages, created_by) values ('Forged', array['A'], '00000000-0000-4000-8000-000000000001') $$,
   '42501', null, 'an Admin cannot name another author (no column grant)');
-select throws_ok($$ insert into public.stage_presets (name, stages) values ('Too long', array['1','2','3','4','5','6','7','8','9','10','11','12','13']) $$,
-  '23514', null, 'a preset has at most 12 stages');
+select throws_ok($$ insert into public.stage_presets (name, stages) values ('Too long', (select array_agg(g::text) from generate_series(1, 101) g)) $$,
+  '23514', null, 'a preset has at most 100 stages (6b Release 1; was 12)');
 select throws_ok($$ insert into public.stage_presets (name, stages) values ('Empty stage', array['A', '  ']) $$,
   'P0001', 'VALIDATION', 'each stage needs a name');
 select throws_ok($$ delete from public.stage_presets $$, '42501', null, 'nobody deletes a preset (archive)');

@@ -20,6 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/core/ui/primitives/dropdown-menu";
+import type { StagePresetOption } from "@/core/ui/stage-groups/editing";
 import { toastResult } from "@/core/ui/toast";
 
 import { markItemsDone, tickStages, updateItem } from "../actions/items";
@@ -66,8 +67,14 @@ export function CycleItems({
   items,
   permissions,
   canAdd,
+  defaultStages = 0,
+  presets = [],
   openItemId = null,
 }: {
+  /** The stage presets, for a deliverable's Edit stages (6b). */
+  presets?: readonly StagePresetOption[];
+  /** How many default stages a new deliverable starts with (the Add dialog says so). */
+  defaultStages?: number;
   /** An item to open on arrival (`?item=`, from the calendar's "Client items"). */
   openItemId?: string | null;
   cycleId: string;
@@ -158,12 +165,12 @@ export function CycleItems({
     <section aria-labelledby="cycle-items-title" className="flex flex-col gap-2">
       <div className="flex min-h-11 flex-wrap items-center justify-between gap-2">
         <h2 id="cycle-items-title" className="text-sm font-medium">
-          Items
+          Deliverables
         </h2>
         {canAdd && permissions.manage ? (
           <Button variant="secondary" data-slot="add-item" onClick={() => setAdding(true)}>
             <PlusIcon aria-hidden />
-            Add item
+            Add deliverable
           </Button>
         ) : null}
       </div>
@@ -171,14 +178,14 @@ export function CycleItems({
         <EmptyState
           icon={ListPlusIcon}
           size="compact"
-          title="No items in this cycle."
+          title="No deliverables in this cycle."
           description={
-            canAdd && permissions.manage ? "Add the pieces of work for this period." : undefined
+            canAdd && permissions.manage ? "Add deliverables to see their stages." : undefined
           }
         />
       ) : (
         <ul
-          aria-label="Items"
+          aria-label="Deliverables"
           data-slot="cycle-items"
           className="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border"
         >
@@ -225,10 +232,7 @@ export function CycleItems({
                     {item.title}
                   </span>
                   <span className="text-muted-foreground flex flex-wrap gap-x-2 text-xs">
-                    <span className="inline-flex items-center gap-1">
-                      <StatusDot status={ITEM_STATUS[item.state]} />
-                      {item.stateLabel}
-                    </span>
+                    <StatusDot status={ITEM_STATUS[item.state]} label={item.stateLabel} />
                     {item.planned ? (
                       <span className={cn(item.planned.overdue && "text-destructive")}>
                         {item.planned.text}
@@ -248,19 +252,41 @@ export function CycleItems({
                   ) : null}
                 </button>
                 {item.stages.length > 0 ? (
-                  <span className="hidden flex-wrap gap-1 md:flex" aria-label="Stages">
-                    {item.stages.map((stage) => (
+                  // Each group under its heading with its own "n/m" (6b); the untitled group
+                  // (every list from before groups) has none.
+                  <span
+                    className="hidden min-w-0 flex-wrap items-center gap-x-3 gap-y-1 md:flex"
+                    aria-label="Stages"
+                    data-slot="item-row-stages"
+                  >
+                    {item.groups.map((group) => (
                       <span
-                        key={stage.id}
-                        className={cn(
-                          "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs",
-                          stage.done
-                            ? "border-primary/40 bg-primary/10"
-                            : "border-border text-muted-foreground",
-                        )}
+                        key={group.label ?? ""}
+                        className="inline-flex flex-wrap items-center gap-1"
+                        data-slot="item-row-stage-group"
                       >
-                        {stage.done ? <CheckIcon className="size-3" aria-hidden /> : null}
-                        {stage.name}
+                        {group.label !== null ? (
+                          <span className="text-muted-foreground mr-1 text-xs font-medium">
+                            {group.label}{" "}
+                            <span className="tabular-nums">
+                              {group.done}/{group.stages.length}
+                            </span>
+                          </span>
+                        ) : null}
+                        {group.stages.map((stage) => (
+                          <span
+                            key={stage.id}
+                            className={cn(
+                              "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs",
+                              stage.done
+                                ? "border-primary/40 bg-primary/10"
+                                : "border-border text-muted-foreground",
+                            )}
+                          >
+                            {stage.done ? <CheckIcon className="size-3" aria-hidden /> : null}
+                            {stage.name}
+                          </span>
+                        ))}
                       </span>
                     ))}
                   </span>
@@ -313,7 +339,7 @@ export function CycleItems({
             <DropdownMenuContent>
               {choices.map((choice) => (
                 <DropdownMenuItem
-                  key={choice.name}
+                  key={choice.key}
                   onSelect={() =>
                     void bulk(
                       "bulk-tick",
@@ -345,7 +371,13 @@ export function CycleItems({
           }
         />
       ) : null}
-      {adding ? <AddItemDialog cycleId={cycleId} onClose={() => setAdding(false)} /> : null}
+      {adding ? (
+        <AddItemDialog
+          cycleId={cycleId}
+          defaultStages={defaultStages}
+          onClose={() => setAdding(false)}
+        />
+      ) : null}
       {sheetUsed ? (
         <ItemSheet
           item={open}
@@ -364,6 +396,7 @@ export function CycleItems({
           }}
           onMove={permissions.manage ? (id, direction) => void move(id, direction) : undefined}
           onMarkDone={markDone}
+          presets={presets}
         />
       ) : null}
     </section>

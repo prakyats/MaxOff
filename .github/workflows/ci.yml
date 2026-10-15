@@ -124,15 +124,17 @@ jobs:
       - if: always()
         run: pnpm storage:stop
 
-  # Playwright in two shards on two runners (owner decision 2026-09-28, after phase 3b: one runner
-  # took 18 of its 20 minutes). Each shard builds and starts its own stack, so the shards share
-  # nothing. `owner-bulk` depends on desktop, mobile and mobile-lg (its "Approve all" must run
-  # alone, after every project that creates rows), and a dependency chain is never split, so
-  # sharding it with the rest put ~98% of the suite in shard 1. The shards therefore run every
-  # project but it, and shard 2 runs it afterwards with `--no-deps`, alone, on its own database.
+  # Playwright in four shards on four runners (owner decisions 2026-09-28, after phase 3b: one
+  # runner took 18 of its 20 minutes; and 2026-10-09, 6b.0: two shards took ~27 minutes). Each
+  # shard builds and starts its own stack, so the shards share nothing, and each runs 1 worker
+  # (never more per runner: shared-database and CPU flakes). `owner-bulk` depends on desktop,
+  # mobile and mobile-lg (its "Approve all" must run alone, after every project that creates
+  # rows), and a dependency chain is never split, so sharding it with the rest put ~98% of the
+  # suite in shard 1. The shards therefore run every project but it, and the last shard (4) runs
+  # it afterwards with `--no-deps`, alone, on its own database, then push-cron after it.
   # The required check is the `playwright` job below, not these.
   e2e:
-    name: playwright (shard ${{ matrix.shard }}/2)
+    name: playwright (shard ${{ matrix.shard }}/4)
     needs: changes
     # The full run: pull requests, pushes to main (before Deploy), and a dispatch with "full
     # tests" on. A push to a phase branch skips it; /run-phase dispatches it once per unit. A
@@ -148,10 +150,10 @@ jobs:
     # 32 min, only for a run that would start between 23:29 and 00:01 IST).
     timeout-minutes: 65
     strategy:
-      # Both shards always finish, so one red run shows every failure.
+      # Every shard always finishes, so one red run shows every failure.
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -188,12 +190,12 @@ jobs:
       # inlines the proxy's URL; the tests themselves keep the stack's own URL.
       - run: NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54331 pnpm build
       # A blob report per shard (the `playwright` job merges them into one HTML report); the
-      # github reporter keeps failures annotated on the run.
+      # github reporter keeps failures annotated on the run. One worker per shard, never more.
       - run: >-
-          pnpm test:e2e --shard=${{ matrix.shard }}/2 --reporter=github,blob
+          pnpm test:e2e --shard=${{ matrix.shard }}/4 --workers=1 --reporter=github,blob
           --project=setup --project=desktop --project=mobile --project=mobile-lg --project=production
-      - name: Approve all (owner-bulk), alone, after the rest of shard 2
-        if: matrix.shard == 2
+      - name: Approve all (owner-bulk), alone, after the rest of shard 4
+        if: matrix.shard == 4
         env:
           PLAYWRIGHT_BLOB_OUTPUT_DIR: blob-report-bulk
         run: |
@@ -201,7 +203,7 @@ jobs:
           mv blob-report-bulk/*.zip blob-report/report-owner-bulk.zip
       # The cron dispatch (owner decision 29): serial, owning the queue, after owner-bulk.
       - name: Push and email dispatch (push-cron), alone, after owner-bulk
-        if: matrix.shard == 2
+        if: matrix.shard == 4
         env:
           PLAYWRIGHT_BLOB_OUTPUT_DIR: blob-report-push-cron
         run: |
@@ -218,9 +220,10 @@ jobs:
           path: blob-report
           retention-days: 7
 
-  # The required check keeps its name: green only when both shards passed (or the e2e run was
-  # skipped by the rules above, which a required check counts as passed anyway). It also merges
-  # the shards' blob reports into the one HTML report, `playwright-report`.
+  # The required check keeps its name: green only when all four shards passed (or the e2e run was
+  # skipped by the rules above, which a required check counts as passed anyway). A matrix job's
+  # result is `success` only when every one of its four shards succeeded. It also merges the
+  # four shards' blob reports into the one HTML report, `playwright-report`.
   playwright:
     name: playwright
     needs: [changes, e2e]
@@ -253,7 +256,7 @@ jobs:
           name: playwright-report
           path: playwright-report
           retention-days: 7
-      - name: Both shards passed
+      - name: All four shards passed
         if: always()
         env:
           CHANGES: ${{ needs.changes.result }}
@@ -264,5 +267,5 @@ jobs:
             echo "::error::The changes job did not succeed, so nothing was tested."; exit 1
           fi
           if [ "$SHARDS" != "success" ] && [ "$SHARDS" != "skipped" ]; then
-            echo "::error::A Playwright shard did not pass ($SHARDS). The merged report is the playwright-report artifact."; exit 1
+            echo "::error::One of the four Playwright shards did not pass ($SHARDS). The merged report is the playwright-report artifact."; exit 1
           fi

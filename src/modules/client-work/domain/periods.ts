@@ -102,7 +102,7 @@ export function itemListPeriods(
   };
 }
 
-/** The Item list sheet's words for those periods (amendment D4). */
+/** The Deliverables list sheet's words for those periods (amendment D4). */
 export function itemListCopy(periods: ItemListPeriods): {
   description: string;
   added: (title: string) => string;
@@ -111,9 +111,9 @@ export function itemListCopy(periods: ItemListPeriods): {
   const every = `Every ${periods.unit} starts with these`;
   return periods.running
     ? {
-        description: `${every}, from ${periods.from}. To add something to ${periods.running}, use + Add item on the project page.`,
+        description: `${every}, from ${periods.from}. To add something to ${periods.running}, use + Add deliverable on the project page.`,
         added: (title) => `${title} added from ${periods.from}`,
-        removeDescription: `${periods.from} starts without it. ${periods.running}'s items don't change.`,
+        removeDescription: `${periods.from} starts without it. ${periods.running}'s deliverables don't change.`,
       }
     : {
         description: `${every}.`,

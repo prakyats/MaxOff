@@ -7,7 +7,7 @@ import { PageHeader } from "@/core/ui/composites/page-header";
 import { listItemRows, shortDate, sortItemRows } from "@/modules/client-work";
 import { CarryDecider, type DecideGroup } from "@/modules/client-work/components/carry-decider";
 
-export const metadata: Metadata = { title: "Unfinished items" };
+export const metadata: Metadata = { title: "Unfinished deliverables" };
 
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DESCRIPTION = "Carry forward, leave pending or close what an ended cycle left open.";
@@ -69,7 +69,7 @@ export default async function DecidePage({
   return (
     <>
       <PageHeader
-        title="Unfinished items"
+        title="Unfinished deliverables"
         description={DESCRIPTION}
         help={DESCRIPTION}
         back={{ href: "/today", label: "Today" }}

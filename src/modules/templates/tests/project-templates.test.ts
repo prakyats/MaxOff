@@ -5,11 +5,13 @@ import { linesOf, projectTemplateActions, type ProjectTemplate } from "../domain
 function template(overrides: Partial<ProjectTemplate>): ProjectTemplate {
   return {
     id: "t",
-    name: "Monthly retainer",
+    name: "Template",
     description: null,
     recurrence: "monthly",
-    stages: ["Script", "Edit"],
-    items: ["Reel 1"],
+    stages: ["One", "Two"],
+    items: ["Item 1"],
+    stageGroups: [{ label: null, stages: ["One", "Two"] }],
+    deliverables: [{ title: "Item 1", stageGroups: null }],
     fieldDefaults: {},
     archived: false,
     createdBy: "admin",

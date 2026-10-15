@@ -6,9 +6,11 @@
  * money is the Owner's, phase 9). A project made from one copies it; nothing stays linked.
  */
 
+import type { Deliverable, StageGroup } from "@/core/lib/stage-groups";
+
 export const TEMPLATE_NAME_MAX = 120;
 export const TEMPLATE_DESCRIPTION_MAX = 2000;
-export const TEMPLATE_STAGES_MAX = 12;
+export const TEMPLATE_STAGES_MAX = 100;
 export const TEMPLATE_ITEMS_MAX = 100;
 
 export type TemplateRecurrence = "one_time" | "weekly" | "monthly";
@@ -18,8 +20,20 @@ export type ProjectTemplate = {
   name: string;
   description: string | null;
   recurrence: TemplateRecurrence;
+  /** The flattened default stages (the old column; kept in step with `stageGroups`). */
   stages: string[];
+  /** The deliverables' titles (the old column; kept in step with `deliverables`). */
   items: string[];
+  /**
+   * The default stage groups (6b, DATA-MODEL §5b): what a deliverable without its own uses. A
+   * template from before groups reads its `stages` as one untitled group.
+   */
+  stageGroups: StageGroup[];
+  /**
+   * The deliverables, each with its own groups (null = the defaults). A template from before
+   * reads each of its `items` with the template's groups.
+   */
+  deliverables: Deliverable[];
   fieldDefaults: Record<string, unknown>;
   archived: boolean;
   createdBy: string;
