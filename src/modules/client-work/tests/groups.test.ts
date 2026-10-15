@@ -146,28 +146,26 @@ describe("the history of stage groups (6b)", () => {
     ).toBe("removed the default stage Phase A · Shoot");
   });
 
-  it("says a group's own change once per its meta: named, renamed, moved", () => {
+  it("says a group's own change: named, renamed, its name taken off, moved", () => {
+    expect(say({ action: "group_renamed", meta: { group: null, to: "Phase A" } })).toBe(
+      "named the default stage group Phase A",
+    );
+    expect(say({ action: "group_renamed", meta: { group: "Phase A", to: "Phase C" } })).toBe(
+      "renamed the default stage group Phase A to Phase C",
+    );
+    expect(say({ action: "group_renamed", meta: { group: "Phase A", to: null } })).toBe(
+      "took the name off the default stage group Phase A",
+    );
+    expect(say({ action: "group_moved", meta: { group: "Phase A", to: null } })).toBe(
+      "moved the default stage group Phase A",
+    );
     expect(
       say({
-        old: { group_label: null },
-        new: { group_label: "Phase A", group_position: "m" },
-        meta: { group: null },
+        entity: "project_item_stage_list",
+        action: "group_moved",
+        meta: { group: "Phase B" },
       }),
-    ).toBe("named the default stage group Phase A");
-    expect(
-      say({
-        old: { group_label: "Phase A" },
-        new: { group_label: "Phase C" },
-        meta: { group: "Phase A" },
-      }),
-    ).toBe("renamed the default stage group Phase A to Phase C");
-    expect(
-      say({
-        old: { group_position: "a" },
-        new: { group_position: "c" },
-        meta: { group: "Phase A" },
-      }),
-    ).toBe("moved the default stage group Phase A");
+    ).toBe("moved the stage group Phase B on Item 1");
   });
 
   it("says a stage moved into another group, on a deliverable too", () => {

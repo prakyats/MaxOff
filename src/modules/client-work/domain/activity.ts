@@ -138,31 +138,30 @@ function groupOf(entry: ActivityEntry, side: "new" | "old"): string | null {
 }
 
 /**
- * A stage row's change of group (6b): with the group meta it is the group's own change (named,
- * renamed, its name taken off, moved); without it, one stage moved into another group. Null when
- * the group did not change.
+ * A group's own change, said once per stage row the group function audited (6b): the actions
+ * `group_renamed` (meta `group` → `to`; null is the untitled group) and `group_moved`.
  */
-function describeGroupChange(entry: ActivityEntry, noun: string, on: string): string | null {
-  const keys = visibleChanges(entry);
-  const group = text(entry.meta.group);
-  const grouped = "group" in entry.meta;
-  if (keys.includes("group_label")) {
-    const from = text(entry.old.group_label);
-    const to = text(entry.new.group_label);
-    if (grouped) {
-      if (from === null && to !== null) return `named the ${noun} group ${to}${on}`;
-      if (from !== null && to === null) return `took the name off the ${noun} group ${from}${on}`;
-      return `renamed the ${noun} group ${from ?? "without a name"} to ${to ?? "no name"}${on}`;
-    }
-    const stage = text(entry.new.name) ?? text(entry.old.name) ?? "a stage";
-    return to === null
-      ? `moved the ${noun} ${groupStageLabel(from, stage)} out of its group${on}`
-      : `moved the ${noun} ${stage} into the group ${to}${on}`;
+function describeGroupAction(entry: ActivityEntry, noun: string, on: string): string | null {
+  const from = text(entry.meta.group) ?? text(entry.old.group_label);
+  if (entry.action === "group_moved") {
+    return `moved the ${noun} group ${from ?? "without a name"}${on}`;
   }
-  if (keys.includes("group_position") && !keys.includes("position") && grouped) {
-    return `moved the ${noun} group ${group ?? text(entry.new.group_label) ?? "without a name"}${on}`;
-  }
-  return null;
+  if (entry.action !== "group_renamed") return null;
+  const to = text(entry.meta.to) ?? text(entry.new.group_label);
+  if (from === null && to !== null) return `named the ${noun} group ${to}${on}`;
+  if (from !== null && to === null) return `took the name off the ${noun} group ${from}${on}`;
+  return `renamed the ${noun} group ${from ?? "without a name"} to ${to ?? "no name"}${on}`;
+}
+
+/** One stage moved into another group (an update of its `group_label`), or null. */
+function describeStageRegrouped(entry: ActivityEntry, noun: string, on: string): string | null {
+  if (!visibleChanges(entry).includes("group_label")) return null;
+  const from = text(entry.old.group_label);
+  const to = text(entry.new.group_label);
+  const stage = text(entry.new.name) ?? text(entry.old.name) ?? "a stage";
+  return to === null
+    ? `moved the ${noun} ${groupStageLabel(from, stage)} out of its group${on}`
+    : `moved the ${noun} ${stage} into the group ${to}${on}`;
 }
 
 function describeListRow(
@@ -197,8 +196,11 @@ function describeDefaultStage(entry: ActivityEntry): string | null {
       return `added the default stage ${groupStageLabel(groupOf(entry, "new"), name)}`;
     case "archived":
       return `removed the default stage ${groupStageLabel(groupOf(entry, "old"), text(entry.old.name) ?? name)}`;
+    case "group_renamed":
+    case "group_moved":
+      return describeGroupAction(entry, "default stage", "");
     case "update": {
-      const group = describeGroupChange(entry, "default stage", "");
+      const group = describeStageRegrouped(entry, "default stage", "");
       if (group) return group;
       const keys = visibleChanges(entry);
       const label = text(entry.meta.group) ?? text(entry.old.group_label);
@@ -269,8 +271,11 @@ function describeItemStage(entry: ActivityEntry, context: ProjectActivityContext
       return `ticked ${named} on ${title}`;
     case "unticked":
       return `unticked ${named} on ${title}`;
+    case "group_renamed":
+    case "group_moved":
+      return describeGroupAction(entry, "stage", ` on ${title}`);
     case "update": {
-      const moved = describeGroupChange(entry, "stage", ` on ${title}`);
+      const moved = describeStageRegrouped(entry, "stage", ` on ${title}`);
       if (moved) return moved;
       const keys = visibleChanges(entry);
       if (keys.includes("name")) {
