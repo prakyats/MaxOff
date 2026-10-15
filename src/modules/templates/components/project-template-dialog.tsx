@@ -285,8 +285,11 @@ export function ProjectTemplateDialog({
               </div>
               {/* A laptop's preview, beside the form and following it as it scrolls. */}
               <aside className="hidden min-w-0 md:block" data-slot="template-preview-panel">
-                <div className="border-border sticky top-0 flex flex-col gap-2 rounded-lg border p-3">
-                  <h3 className="text-sm font-medium">Preview</h3>
+                <div
+                  data-slot="template-preview-scroller"
+                  className="border-border sticky top-0 flex max-h-[calc(100dvh-12rem)] flex-col gap-2 overflow-y-auto overscroll-contain rounded-lg border px-3 pb-3"
+                >
+                  <h3 className="pt-3 text-sm font-medium">Preview</h3>
                   <DeliverablesPreview deliverables={deliverables} defaults={stageGroups} />
                 </div>
               </aside>

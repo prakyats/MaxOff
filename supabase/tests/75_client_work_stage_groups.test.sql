@@ -7,7 +7,7 @@
 -- history), with nothing existing changed. Every name here is neutral: nothing is pre-defined.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(173);
+select plan(174);
 
 delete from public.item_reviews;
 delete from public.project_item_stage_list;
@@ -384,6 +384,9 @@ select is(pg_temp.code($$ select public.item_stage_group_add(pg_temp.item('Singl
 -- ===========================================================================================================
 insert into fx values ('i_a1', pg_temp.item('Item A 1'));
 select public.item_stage_tick(pg_temp.istage(pg_temp.fx('i_a1'), 'Edit', 'Phase A'));
+select is((select meta ->> 'group' from public.activity_log where entity = 'project_item_stage_list' and entity_id = pg_temp.fx('i_a1')
+           and action = 'ticked' order by id desc limit 1), 'Phase A',
+  'a tick names the stage''s group in the history (migration client_work_stage_meta_group)');
 select ok(public.item_stage_add(pg_temp.fx('i_a1'), 'Grade', 'Phase B') is not null, 'a stage into one of the deliverable''s groups');
 select ok(public.item_stage_add(pg_temp.fx('i_a1'), 'Note') is not null, 'the 2-argument form: outside any group');
 select is(pg_temp.istages('Item A 1'), 'Note,Phase A·Edit✓,Phase A·Review,Phase B·Edit,Phase B·Grade', 'in order, the tick kept');

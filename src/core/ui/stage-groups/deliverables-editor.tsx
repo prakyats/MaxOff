@@ -140,10 +140,13 @@ export function DeliverablesEditor({
                       <span className="truncate text-sm font-medium" data-slot="deliverable-title">
                         {title}
                       </span>
-                      <span className="text-muted-foreground truncate text-xs">
+                      <span
+                        className="text-muted-foreground truncate text-xs"
+                        data-slot="deliverable-subtitle"
+                      >
                         {deliverable.stageGroups === null
                           ? "Uses the default stages"
-                          : groupsSummary(deliverable.stageGroups)}
+                          : `Own stages · ${groupsSummary(deliverable.stageGroups)}`}
                       </span>
                     </span>
                     <ChevronDownIcon
@@ -214,7 +217,9 @@ export function DeliverablesEditor({
                       <div className="flex flex-col gap-2" data-slot="uses-defaults">
                         <p className="text-muted-foreground text-sm">
                           Uses the default stages
-                          {defaults.length > 0 ? ` (${groupsSummary(defaults)})` : ""}.
+                          {defaults.length > 0 ? ` (${groupsSummary(defaults)})` : ""}. To type its
+                          stages, add a preset as a group or reorder them for this deliverable only,
+                          give it its own stages.
                         </p>
                         <Button
                           type="button"
@@ -230,6 +235,9 @@ export function DeliverablesEditor({
                       </div>
                     ) : (
                       <>
+                        <p className="text-muted-foreground text-xs" data-slot="own-stages-note">
+                          Its own stages: changes here apply to {title} only.
+                        </p>
                         <StageGroupsEditor
                           value={deliverable.stageGroups}
                           onChange={(stageGroups) => update(index, { ...deliverable, stageGroups })}
@@ -369,6 +377,10 @@ function AddDeliverables({
           }}
         />
       </div>
+      <p className="text-muted-foreground text-xs" data-slot="add-deliverables-hint">
+        Tick a preset to give these deliverables their own stages, or open a deliverable (⌄) to edit
+        its stages.
+      </p>
       {presets.length > 0 ? (
         <div className="flex flex-col gap-1">
           <p id={`${id}-presets`} className="text-muted-foreground text-xs">

@@ -79,6 +79,24 @@ async function valuesOf(inputs: Locator): Promise<string[]> {
   return inputs.evaluateAll((nodes) => nodes.map((node) => (node as HTMLInputElement).value));
 }
 
+/**
+ * The preview to check: a phone opens its Preview layer (6b.16 (a)), a laptop has it beside the
+ * form. Resolves with the layer that holds it.
+ */
+async function openPreview(page: Page, form: Locator): Promise<Locator> {
+  if (!phone(page)) return form;
+  await form.getByRole("button", { name: "Preview" }).click();
+  const preview = page.getByRole("dialog", { name: "Preview" });
+  await expect(preview).toBeVisible();
+  return preview;
+}
+
+/** The summary tiles read this line ("6 deliverables · 3 groups · 36 stages"). */
+async function expectSummary(scope: Locator, line: string): Promise<void> {
+  await expect(scope.locator('[data-slot="preview-counts"]')).toHaveAttribute("aria-label", line);
+  await expect(scope.locator('[data-slot="preview-stat"]')).toHaveText(line.split(" · "));
+}
+
 /** The inputs a locator finds hold exactly these values, in this order. */
 async function expectValues(inputs: Locator, values: readonly string[]): Promise<void> {
   await expect.poll(() => valuesOf(inputs)).toEqual(values);
@@ -147,21 +165,43 @@ test("a template of 6 deliverables × 3 groups from presets, reordered by drag, 
   await expectValues(groups.locator('[data-slot="group-name"]'), [b, a, c]);
   await expectValues(groups.nth(1).locator('[data-slot="stage-name"]'), ["Two", "One"]);
 
-  // The preview says what will be made, and saving makes it.
-  if (phone(page)) {
-    await dialog.getByRole("button", { name: "Preview" }).click();
-    const preview = page.getByRole("dialog", { name: "Preview" });
-    await expect(preview.locator('[data-slot="preview-counts"]')).toHaveText(
-      "6 deliverables · 36 stages",
-    );
-    await preview.getByRole("button", { name: "Add template" }).click();
-    await expect(preview).toBeHidden();
-  } else {
-    await expect(dialog.locator('[data-slot="preview-counts"]')).toHaveText(
-      "6 deliverables · 36 stages",
-    );
-    await dialog.getByRole("button", { name: "Add template" }).click();
-  }
+  // The row says the first has stages of its own; the hint says how to give them.
+  await expect(first.locator('[data-slot="deliverable-subtitle"]')).toHaveText(
+    "Own stages · 3 groups · 6 stages",
+  );
+  await expect(add.locator('[data-slot="add-deliverables-hint"]')).toHaveText(
+    "Tick a preset to give these deliverables their own stages, or open a deliverable (⌄) to edit its stages.",
+  );
+
+  // The preview says what will be made: the five identical ones as one entry, the changed one
+  // on its own; and saving makes it.
+  const preview = await openPreview(page, dialog);
+  await expectSummary(preview, "6 deliverables · 3 groups · 36 stages");
+  const entries = preview.locator('[data-slot="preview-deliverable"]');
+  await expect(entries.locator('[data-slot="preview-deliverable-title"]')).toHaveText([
+    "Item 1",
+    "Item 2–6",
+  ]);
+  await expect(entries.locator('[data-slot="preview-quantity"]')).toHaveText(["×5"]);
+  await expect(entries.locator('[data-slot="preview-tag"]')).toHaveText([
+    "Own stages",
+    "Own stages",
+  ]);
+  await expect(entries.locator('[data-slot="preview-entry-counts"]')).toHaveText([
+    "3 groups · 6 stages",
+    "3 groups · 6 stages each",
+  ]);
+  await entries.nth(1).locator('[data-slot="preview-run-toggle"]').click();
+  await expect(entries.nth(1).locator('[data-slot="preview-run-names"] li')).toHaveText([
+    "Item 2",
+    "Item 3",
+    "Item 4",
+    "Item 5",
+    "Item 6",
+  ]);
+  await expect(entries.first().locator('[data-slot="preview-group-label"]')).toHaveText([b, a, c]);
+  await preview.getByRole("button", { name: "Add template" }).click();
+  await expect(preview).toBeHidden();
   await expect(dialog).toBeHidden();
   const row = page.locator('[data-slot="project-template"]', { hasText: name });
   await expect(row).toContainText("6 deliverables · 36 stages");
@@ -186,30 +226,17 @@ test("a template of 6 deliverables × 3 groups from presets, reordered by drag, 
   const again = reopened.first().locator('[data-slot="stage-group"]');
   await expectValues(again.locator('[data-slot="group-name"]'), [b, a, c]);
   expect(await valuesOf(again.nth(1).locator('[data-slot="stage-name"]'))).toEqual(["Two", "One"]);
+  const shown = await openPreview(page, edit);
+  await expectSummary(shown, "6 deliverables · 3 groups · 36 stages");
+  await expect(
+    shown
+      .locator('[data-slot="preview-deliverable"]')
+      .first()
+      .locator('[data-slot="preview-group-label"]'),
+  ).toHaveText([b, a, c]);
   if (phone(page)) {
-    await edit.getByRole("button", { name: "Preview" }).click();
-    const preview = page.getByRole("dialog", { name: "Preview" });
-    await expect(preview.locator('[data-slot="preview-counts"]')).toHaveText(
-      "6 deliverables · 36 stages",
-    );
-    await expect(
-      preview
-        .locator('[data-slot="preview-deliverable"]')
-        .first()
-        .locator('[data-slot="preview-group-label"]'),
-    ).toHaveText([b, a, c]);
-    await preview.getByRole("button", { name: "Back to editing" }).click();
-    await expect(preview).toBeHidden();
-  } else {
-    await expect(edit.locator('[data-slot="preview-counts"]')).toHaveText(
-      "6 deliverables · 36 stages",
-    );
-    await expect(
-      edit
-        .locator('[data-slot="preview-deliverable"]')
-        .first()
-        .locator('[data-slot="preview-group-label"]'),
-    ).toHaveText([b, a, c]);
+    await shown.getByRole("button", { name: "Back to editing" }).click();
+    await expect(shown).toBeHidden();
   }
   await edit.getByRole("button", { name: "Cancel" }).click();
   await expect(edit).toBeHidden();
@@ -249,6 +276,9 @@ test("a template from before groups opens with its stages on each item, and keep
     "Item 2",
   ]);
   const first = deliverables.first();
+  await expect(first.locator('[data-slot="deliverable-subtitle"]')).toHaveText(
+    "Uses the default stages",
+  );
   await first.locator('[data-slot="deliverable-toggle"]').click();
   // An old item followed the template's stages, so it keeps following them (the defaults) until
   // it is given stages of its own, which start as a copy of them: one untitled group.
@@ -267,20 +297,31 @@ test("a template from before groups opens with its stages on each item, and keep
   await form.getByPlaceholder("One stage per line").fill("Three\nFour");
   await form.getByRole("button", { name: "Add group" }).click();
   await expectValues(first.locator('[data-slot="group-name"]'), ["Phase B"]);
+  await expect(first.locator('[data-slot="deliverable-subtitle"]')).toHaveText(
+    "Own stages · 2 groups · 4 stages",
+  );
 
-  if (phone(page)) {
-    await dialog.getByRole("button", { name: "Preview" }).click();
-    const preview = page.getByRole("dialog", { name: "Preview" });
-    await expect(preview.locator('[data-slot="preview-counts"]')).toHaveText(
-      "2 deliverables · 6 stages",
-    );
-    await preview.getByRole("button", { name: "Save template" }).click();
-  } else {
-    await expect(dialog.locator('[data-slot="preview-counts"]')).toHaveText(
-      "2 deliverables · 6 stages",
-    );
-    await dialog.getByRole("button", { name: "Save template" }).click();
-  }
+  // Different stages never collapse: each keeps its entry, tagged own or default.
+  const preview = await openPreview(page, dialog);
+  await expectSummary(preview, "2 deliverables · 1 group · 6 stages");
+  const entries = preview.locator('[data-slot="preview-deliverable"]');
+  await expect(entries.locator('[data-slot="preview-deliverable-title"]')).toHaveText([
+    "Item 1",
+    "Item 2",
+  ]);
+  await expect(entries.locator('[data-slot="preview-quantity"]')).toHaveCount(0);
+  await expect(entries.locator('[data-slot="preview-tag"]')).toHaveText([
+    "Own stages",
+    "Default stages",
+  ]);
+  await expect(entries.locator('[data-slot="preview-entry-counts"]')).toHaveText([
+    "2 groups · 4 stages",
+    "2 stages",
+  ]);
+  // The default one shows no group heading: the defaults are one untitled group.
+  await expect(entries.nth(1).locator('[data-slot="preview-group-label"]')).toHaveCount(0);
+  await preview.getByRole("button", { name: "Save template" }).click();
+  await expect(preview).toBeHidden();
   await expect(dialog).toBeHidden();
   await expect(row).toContainText("2 deliverables · 6 stages");
 
@@ -302,6 +343,52 @@ test("a template from before groups opens with its stages on each item, and keep
     // The other item still follows the template's default stages.
     { title: "Item 2", stage_groups: null },
   ]);
+  await removeTemplate(name);
+});
+
+test("the preview's summary stays in view while its list scrolls", async ({ page }, info) => {
+  const name = nameOf(info, "long");
+  await removeTemplate(name);
+  // Twelve deliverables whose names form no run, so none collapses and the list is long.
+  const groups = [
+    { label: "Phase A", stages: ["One", "Two", "Three"] },
+    { label: "Phase B", stages: ["Four", "Five"] },
+  ];
+  const titles = "ABCDEFGHIJKL".split("").map((letter) => `Item ${letter}`);
+  await insertAs(USERS.admin.email, USERS.admin.password, "project_templates", {
+    name,
+    recurrence: "monthly",
+    stage_groups: [],
+    deliverables: titles.map((title) => ({ title, stage_groups: groups })),
+  });
+  await page.goto("/settings/templates");
+  await hydrated(page);
+  const row = page.locator('[data-slot="project-template"]', { hasText: name });
+  await row.getByRole("button", { name: `Edit ${name}` }).click();
+  const dialog = page.getByRole("dialog", { name: `Edit ${name}` });
+  await expect(dialog).toBeVisible();
+  const preview = await openPreview(page, dialog);
+  await expectSummary(preview, "12 deliverables · 2 groups · 60 stages");
+  const entries = preview.locator('[data-slot="preview-deliverable"]');
+  await expect(entries).toHaveCount(12);
+  const scroller = phone(page)
+    ? preview
+    : preview.locator('[data-slot="template-preview-scroller"]');
+  await scroller.evaluate((node) => {
+    node.scrollTop = node.scrollHeight;
+  });
+  await expect(entries.last()).toBeInViewport();
+  await expect(entries.first()).not.toBeInViewport();
+  const summary = preview.locator('[data-slot="preview-summary"]');
+  await expect(summary).toBeInViewport();
+  // Pinned to the top of the scrolling area, not scrolled away with the list.
+  await expect
+    .poll(async () => {
+      const area = await boxOf(scroller);
+      const pinned = await boxOf(summary);
+      return pinned.y >= area.y - 1 && pinned.y <= area.y + 24;
+    })
+    .toBe(true);
   await removeTemplate(name);
 });
 
