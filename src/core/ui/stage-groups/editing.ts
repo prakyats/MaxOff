@@ -91,13 +91,20 @@ export function groupsFromPresets(picks: readonly StagePresetOption[]): StageGro
 /**
  * The add row: "Name" × N deliverables ("Name 1" … "Name N"; × 1 keeps the name), each with the
  * picked presets as its groups, or the default stages (`stageGroups` null) when none is picked.
+ * `base` (a deliverable template's groups, 6b Release 2) comes first, the picked presets after it.
  */
 export function newDeliverables(
   name: string,
   quantity: number,
   picks: readonly StagePresetOption[],
+  base: readonly StageGroup[] | null = null,
 ): Deliverable[] {
-  const groups = picks.length > 0 ? groupsFromPresets(picks) : null;
+  const groups =
+    base !== null
+      ? picks.reduce<StageGroup[]>((list, preset) => addPresetGroup(list, preset), copyGroups(base))
+      : picks.length > 0
+        ? groupsFromPresets(picks)
+        : null;
   return expandQuantity(name, quantity).map((title) => ({
     title,
     stageGroups: groups === null ? null : copyGroups(groups),

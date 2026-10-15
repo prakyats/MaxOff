@@ -114,6 +114,15 @@ function describeProject(
       const reason = text(entry.meta.reason);
       return { text: `reopened ${project}`, ...(reason ? { note: reason } : {}) };
     }
+    case "saved_as_template": {
+      // 6b Release 2: a copy as a project template; nothing on the project changed.
+      const template = text(entry.meta.name);
+      return {
+        text: template
+          ? `saved ${project} as the template ${template}`
+          : `saved ${project} as a template`,
+      };
+    }
     case "update": {
       const keys = visibleChanges(entry);
       const lines: string[] = [];
@@ -342,6 +351,14 @@ function describeItem(
       return { text: `carried ${title} into this cycle` };
     case "left_pending":
       return { text: `left ${title} pending` };
+    case "saved_as_template": {
+      const template = text(entry.meta.name);
+      return {
+        text: template
+          ? `saved ${title} as the deliverable template ${template}`
+          : `saved ${title} as a deliverable template`,
+      };
+    }
     case "update": {
       const nouns = visibleChanges(entry).flatMap((key) =>
         ITEM_FIELDS[key] ? [ITEM_FIELDS[key]] : [],

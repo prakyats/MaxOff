@@ -3,6 +3,7 @@
 import {
   ArchiveIcon,
   ArchiveRestoreIcon,
+  EyeIcon,
   FolderKanbanIcon,
   PencilIcon,
   PlusIcon,
@@ -10,12 +11,13 @@ import {
 import dynamic from "next/dynamic";
 import { useState } from "react";
 
-import { countDeliverables } from "@/core/lib/stage-groups";
+import { countDeliverables, templateMatches } from "@/core/lib/stage-groups";
 import { cn } from "@/core/lib/utils";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { CARD_ROW_TITLE, CARD_ROW_TRAILING } from "@/core/ui/composites/row-metrics";
 import { Button } from "@/core/ui/primitives/button";
+import { TemplatePreviewDialog } from "@/core/ui/stage-groups/template-preview-dialog";
 import { toastResult } from "@/core/ui/toast";
 
 import { setProjectTemplateArchived } from "../actions/project-templates";
@@ -50,14 +52,27 @@ type Context = ProjectTemplateContext;
  */
 export function ProjectTemplateManager({
   templates,
+  query = "",
   ...context
-}: Context & { templates: readonly ProjectTemplate[] }) {
+}: Context & {
+  templates: readonly ProjectTemplate[];
+  /** The page's search (6b.16 (f)): a name or a deliverable's title; a view control. */
+  query?: string;
+}) {
   const [editing, setEditing] = useState<ProjectTemplate | null>(null);
   const [adding, setAdding] = useState(false);
   const [archiving, setArchiving] = useState<ProjectTemplate | null>(null);
+  const [previewId, setPreviewId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const active = templates.filter((template) => !template.archived);
-  const archived = templates.filter((template) => template.archived);
+  const matches = (template: ProjectTemplate) =>
+    templateMatches(query, [
+      template.name,
+      ...template.deliverables.map((deliverable) => deliverable.title),
+    ]);
+  const all = templates.filter((template) => !template.archived);
+  const active = all.filter(matches);
+  const archived = templates.filter((template) => template.archived && matches(template));
+  const previewing = templates.find((template) => template.id === previewId) ?? null;
 
   function line(template: ProjectTemplate): string {
     const author =
@@ -100,13 +115,17 @@ export function ProjectTemplateManager({
           Add
         </Button>
       </div>
-      {active.length === 0 ? (
+      {all.length === 0 ? (
         <EmptyState
           icon={FolderKanbanIcon}
           size="compact"
           title="No project templates yet"
-          description="Add one for a retainer you run for several clients. New project offers it."
+          description="Add one for a retainer you run for several clients, or use Save as template on a project. New project offers it."
         />
+      ) : active.length === 0 ? (
+        <p className="text-muted-foreground text-sm" data-slot="project-templates-none">
+          No project template matches “{query.trim()}”.
+        </p>
       ) : (
         <ul
           data-slot="project-templates"
@@ -126,28 +145,39 @@ export function ProjectTemplateManager({
                     {line(template)}
                   </span>
                 </div>
-                {allowed.edit ? (
-                  <div className={cn("flex items-center", CARD_ROW_TRAILING)}>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`Edit ${template.name}`}
-                      onClick={() => setEditing(template)}
-                    >
-                      <PencilIcon aria-hidden />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`Archive ${template.name}`}
-                      onClick={() => setArchiving(template)}
-                    >
-                      <ArchiveIcon aria-hidden />
-                    </Button>
-                  </div>
-                ) : null}
+                <div className={cn("flex items-center", CARD_ROW_TRAILING)}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Preview ${template.name}`}
+                    onClick={() => setPreviewId(template.id)}
+                  >
+                    <EyeIcon aria-hidden />
+                  </Button>
+                  {allowed.edit ? (
+                    <>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Edit ${template.name}`}
+                        onClick={() => setEditing(template)}
+                      >
+                        <PencilIcon aria-hidden />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Archive ${template.name}`}
+                        onClick={() => setArchiving(template)}
+                      >
+                        <ArchiveIcon aria-hidden />
+                      </Button>
+                    </>
+                  ) : null}
+                </div>
               </li>
             );
           })}
@@ -190,6 +220,16 @@ export function ProjectTemplateManager({
           onClose={() => setEditing(null)}
         />
       ) : null}
+      <TemplatePreviewDialog
+        open={previewing !== null}
+        onOpenChange={(open) => {
+          if (!open) setPreviewId(null);
+        }}
+        name={previewing?.name ?? ""}
+        description="What a project started from it gets."
+        deliverables={previewing?.deliverables ?? []}
+        defaults={previewing?.stageGroups ?? []}
+      />
       {archiving ? (
         <ConfirmDialog
           open

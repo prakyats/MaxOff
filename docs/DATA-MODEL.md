@@ -1246,6 +1246,28 @@ DeliverablesJson  = [{"title": text, "stage_groups": StageGroupsJson | null}, �
 - **Review fixes (migration `client_work_stage_groups_fixes`, same day):** `item_add` gives a new deliverable the defaults in their groups; the project-side group functions and `project_stage_update` name the stage in `meta` (`stage_id`, `name`) as the item side does; the template guard lets an old-shape update (only `stages` / `items` changed) win and clears the stored `stage_groups` / `deliverables` (a Worker rollback to v1.6 keeps working); `app.stage_group_key_before` is the midpoint key, never running out; `app.stage_groups_of` is service_role only. `deliverablesFromJson(json, items)` reads an old template's items as `stageGroups: null` (they keep following the template's stages).
 - **Migration `client_work_stage_meta_group` (same day, the second review):** `item_stage_tick`, `item_stage_archive`, `item_stage_update`, `project_stage_update` and `project_stage_archive` carry `meta.group` (the stage's `group_label`, null outside a group) next to `stage_id` and `name`, so one stage's history reads "Group · Stage".
 
+#### Deliverable templates and Save as template (phase 6b Release 2 = v1.7.1; ROADMAP 6b.13 (2)(b), 6b.16 (f))
+> Migration `deliverable_templates` (2026-10-15; pgTAP 78). **Expand-only, works on the team's existing data:** one new table, three new functions and the history describer re-created with every earlier answer kept; nothing existing is touched. **Nothing is pre-defined:** no template is seeded.
+
+```
+deliverable_templates    id, org_id, name text (1..120 trimmed; an active name once per organisation ignoring case),
+                         stage_groups jsonb not null default '[]' (StageGroupsJson, checked by app.stage_groups_check),
+                         created_by → members (default auth.uid()), archived_at null, archived_reason text null (1..1000),
+                         check (archived_at is null) = (archived_reason is null), created_at, updated_at
+                         -- a reusable deliverable: a name and its stage groups. Shared like project templates:
+                         -- templates.manage reads and uses every one; an Admin edits and archives their own, the
+                         -- Owner any; Crew nothing. Archived with a reason (invariant 9; a restore clears both,
+                         -- the history keeps them), never deleted (no DELETE grant). Audited (audit_row_change).
+                         -- app.deliverable_templates_guard: the author is the caller and never changes; the
+                         -- groups checked; archived only with a reason (REASON_REQUIRED).
+                         -- API: SELECT; INSERT (name, stage_groups); UPDATE (name, stage_groups, archived_at,
+                         -- archived_reason). Copied into a deliverable, never linked.
+```
+- `project_save_as_template(project_id uuid, name text) returns uuid` — `projects.manage` on the caller's clients **and** `templates.manage`; any project state. A new `project_templates` row in the Release 1 shape, copied from the project: `stage_groups` = its active default stages in groups; `deliverables` = its active deliverables-list lines, each with its groups (a line from before groups: its `stages` as one untitled group) or, **one-time** (no list), its deliverables (closed ones left out unless the project was cancelled) each with its active stages in groups, names only; the recurrence; the description; `field_defaults` = the project's values of **active** project fields. The guard keeps `stages` / `items` in step. Copied, never linked: nothing on the project changes; one `activity_log` row on the project (`entity` `projects`, `action` `saved_as_template`, `meta {template_id, name}`). `CONFLICT` when an active project template has the name.
+- `item_save_as_template(item_id uuid, name text) returns uuid` — the same keys and scope; any deliverable state. A new `deliverable_templates` row from the deliverable's active stages in their groups (names only: ticks, dates and notes stay on it). One `activity_log` row on the deliverable (`project_items`, `saved_as_template`, `meta {template_id, name}`). `CONFLICT` on an active name.
+- `item_add_grouped(cycle_id uuid, title text, planned_date date = null, notes text = null, stage_groups jsonb = null, custom_fields jsonb = '{}') returns uuid` — `item_add` (which stays) with the new deliverable's own groups (a deliverable template's, edited before adding; checked, `VALIDATION`); null = the project's defaults. The same rules as `item_add`.
+- `app.client_work_activity_shown` shows `saved_as_template` on `projects` and `project_items` (the TS describer in step).
+
 ## 6. Staff tasks
 ```
 tasks                id, org_id, title, description, task_type_id, client_id null (label only),

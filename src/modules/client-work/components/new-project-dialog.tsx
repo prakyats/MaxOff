@@ -9,7 +9,12 @@ import {
 } from "@/core/custom-fields/components/custom-fields-form";
 import type { FieldDefinition } from "@/core/custom-fields";
 import type { ResultError } from "@/core/errors";
-import { type Deliverable, groupsFromNames, type StageGroup } from "@/core/lib/stage-groups";
+import {
+  countDeliverables,
+  type Deliverable,
+  groupsFromNames,
+  type StageGroup,
+} from "@/core/lib/stage-groups";
 import { ActionStatus } from "@/core/ui/action/action-status";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { useAction } from "@/core/ui/action/use-action";
@@ -38,6 +43,8 @@ import {
 import { Textarea } from "@/core/ui/primitives/textarea";
 import { DeliverablesEditor } from "@/core/ui/stage-groups/deliverables-editor";
 import { DeliverablesPreview } from "@/core/ui/stage-groups/deliverables-preview";
+import { countsLine } from "@/core/ui/stage-groups/editing";
+import { type LibraryTemplate, TemplateLibrary } from "@/core/ui/stage-groups/template-library";
 import { StageGroupsEditor } from "@/core/ui/stage-groups/stage-groups-editor";
 import { describeError } from "@/core/ui/toast";
 
@@ -99,7 +106,10 @@ function templateShape(template: TemplateOption): {
  * saved until Create (`project_create_grouped`). **No billing category** (amendment C). On
  * success the new project's page is pushed and the dialog's entries backed out (§14.2 b, e).
  * Back closes it, and asks "Discard this project?" first when something was typed or picked
- * (§14.2 f); back on that keeps editing. The draft lives here, outside the `Dialog`.
+ * (§14.2 f); back on that keeps editing. The draft lives here, outside the `Dialog`. **6b
+ * Release 2:** "Search and preview templates" opens the template library (6b.16 (f)): a search
+ * over the names and deliverables, and a Preview layer whose "Use this template" fills the form
+ * as "Start from" does.
  */
 export type NewProjectProps = {
   clientId: string;
@@ -122,6 +132,8 @@ export function NewProjectDialog({
   // The phone's Preview step (a layer over the form).
   const [step, setStep] = useState<"form" | "preview">("form");
   const [templateId, setTemplateId] = useState("");
+  // The template library (6b.16 (f)): search and a preview before using one.
+  const [library, setLibrary] = useState(false);
   const [name, setName] = useState("");
   const [recurrence, setRecurrence] = useState<Recurrence>("monthly");
   const [deliveryDate, setDeliveryDate] = useState("");
@@ -134,6 +146,19 @@ export function NewProjectDialog({
   const leaving = useRef(false);
 
   useOverlayHistory(phase === "form" && step === "preview", () => setStep("form"));
+
+  const libraryTemplates: LibraryTemplate[] = templates.map((template) => {
+    const shape = templateShape(template);
+    return {
+      id: template.id,
+      name: template.name,
+      line: `${RECURRENCE_LABELS[template.recurrence]} · ${countsLine(
+        countDeliverables(shape.deliverables, shape.groups),
+      )}`,
+      deliverables: shape.deliverables,
+      defaults: shape.groups,
+    };
+  });
 
   const action = useAction(
     async () => {
@@ -277,6 +302,17 @@ export function NewProjectDialog({
                       </Select>
                     )}
                   </FormField>
+                ) : null}
+                {templates.length > 0 ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="self-start"
+                    data-slot="browse-templates"
+                    onClick={() => setLibrary(true)}
+                  >
+                    Search and preview templates
+                  </Button>
                 ) : null}
                 <FormField label="Project name" error={fieldErrors.name}>
                   {(control) => (
@@ -441,6 +477,17 @@ export function NewProjectDialog({
           </form>
         </DialogContent>
       </Dialog>
+      {templates.length > 0 ? (
+        <TemplateLibrary
+          open={phase === "form" && library}
+          onOpenChange={setLibrary}
+          templates={libraryTemplates}
+          onUse={(id) => {
+            setLibrary(false);
+            startFrom(id);
+          }}
+        />
+      ) : null}
       <ConfirmDialog
         open={phase === "discard"}
         onOpenChange={(next) => {

@@ -846,6 +846,64 @@ export type Database = {
           },
         ];
       };
+      deliverable_templates: {
+        Row: {
+          archived_at: string | null;
+          archived_reason: string | null;
+          created_at: string;
+          created_by: string;
+          id: string;
+          name: string;
+          org_id: string;
+          stage_groups: Json;
+          updated_at: string;
+        };
+        Insert: {
+          archived_at?: string | null;
+          archived_reason?: string | null;
+          created_at?: string;
+          created_by?: string;
+          id?: string;
+          name: string;
+          org_id?: string;
+          stage_groups?: Json;
+          updated_at?: string;
+        };
+        Update: {
+          archived_at?: string | null;
+          archived_reason?: string | null;
+          created_at?: string;
+          created_by?: string;
+          id?: string;
+          name?: string;
+          org_id?: string;
+          stage_groups?: Json;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "deliverable_templates_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "deliverable_templates_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "deliverable_templates_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       eod_reports: {
         Row: {
           created_at: string;
@@ -4568,6 +4626,17 @@ export type Database = {
         };
         Returns: string;
       };
+      item_add_grouped: {
+        Args: {
+          custom_fields?: Json;
+          cycle_id: string;
+          notes?: string;
+          planned_date?: string;
+          stage_groups?: Json;
+          title: string;
+        };
+        Returns: string;
+      };
       item_approve: { Args: { item_ids: string[] }; Returns: Json };
       item_cancel: {
         Args: { item_id: string; reason: string };
@@ -4597,6 +4666,10 @@ export type Database = {
       item_reopen: {
         Args: { item_id: string; reason: string };
         Returns: Database["public"]["Enums"]["item_state"];
+      };
+      item_save_as_template: {
+        Args: { item_id: string; name: string };
+        Returns: string;
       };
       item_stage_add:
         | { Args: { item_id: string; name: string }; Returns: string }
@@ -4872,6 +4945,10 @@ export type Database = {
       project_reopen: {
         Args: { project_id: string; reason: string };
         Returns: Database["public"]["Enums"]["project_state"];
+      };
+      project_save_as_template: {
+        Args: { name: string; project_id: string };
+        Returns: string;
       };
       project_stage_add:
         | { Args: { name: string; project_id: string }; Returns: string }
