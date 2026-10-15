@@ -251,9 +251,10 @@ export function GroupedStagesSheet({
               No stages yet. Add a group of your own, or one from your stage presets.
             </p>
           ) : null}
-          {untitled ? (
+          {/* The untitled group (every list from before groups), or where a first stage goes. */}
+          {untitled || rows.length === 0 ? (
             <div data-slot="stage-group" data-untitled="" className="flex min-w-0 flex-col gap-1">
-              {naming !== null ? (
+              {naming !== null && untitled ? (
                 <form
                   className="flex min-w-0 items-center gap-1"
                   onSubmit={(event) => {
@@ -279,7 +280,7 @@ export function GroupedStagesSheet({
               <StageRows
                 label={null}
                 groupName="the stages"
-                rows={untitled.rows}
+                rows={untitled?.rows ?? []}
                 busy={busy}
                 names={names}
                 setNames={setNames}
@@ -288,13 +289,13 @@ export function GroupedStagesSheet({
                 onRemove={(row) => setRemoving({ kind: "stage", id: row.id, name: row.name })}
               />
               <AddStage
-                groupName="the stages"
+                groupName={null}
                 value={drafts[""] ?? ""}
                 busy={busy}
                 onChange={(value) => setDrafts((current) => ({ ...current, "": value }))}
                 onAdd={() => void addStage(null)}
               />
-              {naming === null ? (
+              {naming === null && untitled ? (
                 <Button
                   type="button"
                   variant="ghost"
@@ -683,7 +684,8 @@ function AddStage({
   onChange,
   onAdd,
 }: {
-  groupName: string;
+  /** Null: the untitled group. */
+  groupName: string | null;
   value: string;
   busy: boolean;
   onChange: (value: string) => void;
@@ -698,7 +700,7 @@ function AddStage({
       }}
     >
       <Input
-        aria-label={`Add a stage to ${groupName}`}
+        aria-label={groupName === null ? "Add a stage" : `Add a stage to ${groupName}`}
         placeholder="Add a stage"
         data-slot="add-stage"
         value={value}
@@ -713,7 +715,7 @@ function AddStage({
         size="icon"
         className="size-11"
         disabled={busy || value.trim() === ""}
-        aria-label={`Add the stage to ${groupName}`}
+        aria-label={groupName === null ? "Add the stage" : `Add the stage to ${groupName}`}
       >
         <PlusIcon aria-hidden />
       </Button>

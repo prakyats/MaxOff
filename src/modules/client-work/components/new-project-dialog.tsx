@@ -227,7 +227,7 @@ export function NewProjectDialog({
         <DialogContent data-slot="new-project-dialog" className="md:max-w-4xl">
           <form onSubmit={submit} noValidate className="flex min-w-0 flex-col gap-4">
             <DialogHeader>
-              <DialogTitle>{previewing ? "Preview" : "New project"}</DialogTitle>
+              <DialogTitle>New project</DialogTitle>
               <DialogDescription>
                 {previewing
                   ? `What Create makes for ${name.trim() || "this project"}. Nothing is saved until then.`
