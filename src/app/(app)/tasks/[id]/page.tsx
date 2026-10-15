@@ -48,7 +48,7 @@ import { RecordReadReceipt } from "@/modules/notifications-center";
 
 import { loadTaskFormSetup } from "../task-form-setup";
 
-import { loadNames, loadTask, UUID } from "./task";
+import { loadNames, loadTask, TASK_BACK, UUID } from "./task";
 
 export const metadata: Metadata = { title: "Task" };
 
@@ -170,7 +170,7 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
         <div className="max-md:contents md:flex md:min-w-0 md:flex-1 md:flex-col md:gap-4">
           <PageHeader
             className="mb-0 md:mb-0"
-            back={{ href: "/tasks", label: "Tasks" }}
+            back={TASK_BACK}
             title={task.title}
             menu={
               <TaskMenu

@@ -1033,3 +1033,258 @@ test.describe("the calendar on a phone, the owner's walk (2026-10-08)", () => {
     await removeTasksTitled(prefix);
   });
 });
+
+/**
+ * 6b.12 (1) and (2), v1.7.1 (owner, 2026-10-12): **a deadline moved earlier moves on every
+ * calendar view without a reload**, and **back at the top of a task opened from the calendar
+ * returns to the view it came from** (§14.2 k). The owner's path, on each view: the calendar on
+ * the old day, its task opened, the deadline moved two days earlier in the edit form (a select
+ * picked on the way, which leaves its spent entry: the back control then did nothing), the back
+ * control tapped once: the calendar's own address, the task gone from the old day and on the new
+ * one, and still there after a reload. Installed on a phone (375 and 430); a browser on a laptop.
+ */
+test.describe("a deadline moved earlier, from a task opened on the calendar (6b.12)", () => {
+  test.use({ storageState: storageStateFor("owner") });
+
+  /** Two days of one week and one month, in the future: the new deadline and the old one. */
+  function movedDays(): { earlier: string; later: string } {
+    for (let offset = 4; offset < 60; offset += 1) {
+      const later = addISTDays(todayIST(), offset);
+      const earlier = addISTDays(later, -2);
+      const weekday = istWeekday(later);
+      if (weekday < 3 || weekday > 5) continue;
+      if (later.slice(0, 7) !== earlier.slice(0, 7)) continue;
+      if (later.endsWith("-10-02") || earlier.endsWith("-10-02")) continue;
+      return { earlier, later };
+    }
+    throw new Error("no two days of one week and month in the next 60");
+  }
+
+  async function ownerCreatesDueOn(title: string, date: string): Promise<string> {
+    await removeTasksTitled(title);
+    const staffId = await memberIdOf(USERS.staff.email);
+    return rpcAs<string>(USERS.owner.email, USERS.owner.password, "task_create", {
+      title,
+      description: null,
+      task_type_id: await taskTypeId("Normal"),
+      client_id: null,
+      priority: "medium",
+      due_at: istInstant(date, "18:00"),
+      assignee_ids: [staffId],
+      primary_owner_id: staffId,
+      approving_admin_id: null,
+      stages: [],
+    });
+  }
+
+  const dueOf = (scope: Locator, id: string) =>
+    scope.locator(`[data-slot="calendar-due"][data-task="${id}"]`);
+  const backControl = (page: Page) => page.locator('[data-slot="page-back"]:visible');
+
+  /** The task page's edit form: the priority (a select) and the deadline, saved. */
+  async function moveDeadline(page: Page, to: string): Promise<void> {
+    await page.getByRole("button", { name: "Task actions" }).click();
+    await page.getByRole("menuitem", { name: "Edit task" }).click();
+    const form = page.locator('[data-slot="task-form-dialog"]');
+    await expect(form.getByRole("heading", { name: "Edit task" })).toBeVisible();
+    await form.getByLabel("Priority").click();
+    await page.getByRole("option", { name: "High" }).first().click();
+    await form.getByLabel("Deadline").fill(to);
+    await form.getByRole("button", { name: "Save changes" }).click();
+    await expect(form).toBeHidden();
+  }
+
+  async function phoneSize(page: Page, size: "1" | "2" | "3"): Promise<void> {
+    const handle = page.locator('button[data-slot="calendar-handle"]');
+    for (let tap = 0; tap < 3; tap += 1) {
+      if ((await phone(page).getAttribute("data-size")) === size) return;
+      const before = await phone(page).getAttribute("data-size");
+      await handle.click();
+      await expect(phone(page)).not.toHaveAttribute("data-size", before ?? "");
+    }
+    await expect(phone(page)).toHaveAttribute("data-size", size);
+  }
+
+  /** Closes the day's popup or sheet when the view shows the day in one. */
+  async function closeDay(page: Page): Promise<void> {
+    if ((await daySheet(page).count()) === 0) return;
+    await page.keyboard.press("Escape");
+    await expect(daySheet(page)).toHaveCount(0);
+  }
+
+  type View = {
+    name: string;
+    phone: boolean;
+    address: (date: string) => string;
+    size?: "1" | "2" | "3";
+    /** Shows `date`'s day as this view does, and returns where its Due list is. */
+    show: (page: Page, date: string) => Promise<Locator>;
+  };
+
+  const VIEWS: View[] = [
+    {
+      name: "laptop Month (the day's popup)",
+      phone: false,
+      address: (date) => `/calendar?date=${date}`,
+      show: async (page, date) => {
+        await dayBox(page, date).click();
+        await expect(daySheet(page)).toHaveAttribute("data-date", date);
+        return daySheet(page);
+      },
+    },
+    {
+      name: "laptop Week (a day's heading opens its popup)",
+      phone: false,
+      address: (date) => `/calendar?view=week&date=${date}`,
+      show: async (page, date) => {
+        await page.locator(`[data-slot="calendar-week-day"][data-date="${date}"]`).click();
+        await expect(daySheet(page)).toHaveAttribute("data-date", date);
+        return daySheet(page);
+      },
+    },
+    {
+      name: "laptop Day (the side column, the pager)",
+      phone: false,
+      address: (date) => `/calendar?view=day&date=${date}`,
+      show: async (page, date) => {
+        for (let step = 0; step < 3; step += 1) {
+          const shown = await detail(page).getAttribute("data-date");
+          if (shown === date) break;
+          await page
+            .getByRole("button", { name: shown && shown > date ? "Previous day" : "Next day" })
+            .click();
+          await expect(detail(page)).not.toHaveAttribute("data-date", shown ?? "");
+        }
+        await expect(detail(page)).toHaveAttribute("data-date", date);
+        return detail(page);
+      },
+    },
+    {
+      name: "phone compact month (the day's detail)",
+      phone: true,
+      size: "2",
+      address: (date) => `/calendar?date=${date}`,
+      show: async (page, date) => {
+        await dayBox(page, date).click();
+        await expect(detail(page)).toHaveAttribute("data-date", date);
+        return detail(page);
+      },
+    },
+    {
+      name: "phone week strip (the day's detail)",
+      phone: true,
+      size: "1",
+      address: (date) => `/calendar?date=${date}`,
+      show: async (page, date) => {
+        await page.locator(`[data-slot="calendar-strip-day"][data-date="${date}"]`).click();
+        await expect(detail(page)).toHaveAttribute("data-date", date);
+        return detail(page);
+      },
+    },
+    {
+      name: "phone full month (the day sheet)",
+      phone: true,
+      size: "3",
+      address: (date) => `/calendar?date=${date}`,
+      show: async (page, date) => {
+        await dayBox(page, date).click();
+        await expect(daySheet(page)).toHaveAttribute("data-date", date);
+        return daySheet(page);
+      },
+    },
+  ];
+
+  for (const view of VIEWS) {
+    test(`${view.name}: back returns to the view, the task on its new day, after a reload too`, async ({
+      page,
+    }, info) => {
+      test.skip(isPhone(info) !== view.phone, view.phone ? "a phone's view" : "a laptop's view");
+      if (view.phone) await runInstalled(page);
+      const { earlier, later } = movedDays();
+      const id = await ownerCreatesDueOn(`${prefixOf(info)}moved ${view.size ?? view.name}`, later);
+      const address = view.address(later);
+      const here = new RegExp(`${address.replace(/[?]/g, "\\?")}$`);
+
+      await page.goto(address);
+      await hydrated(page);
+      if (view.size) await phoneSize(page, view.size);
+      await dueOf(await view.show(page, later), id).click();
+      await expect(page).toHaveURL(new RegExp(`/tasks/${id}$`));
+      await hydrated(page);
+      await moveDeadline(page, earlier);
+
+      // One tap: the calendar's own address (its view and day), nothing left beneath it.
+      await backControl(page).click();
+      await expect(page).toHaveURL(here);
+      if (view.size) await phoneSize(page, view.size);
+      await expect(dueOf(await view.show(page, later), id)).toHaveCount(0);
+      await closeDay(page);
+      await expect(dueOf(await view.show(page, earlier), id)).toBeVisible();
+      await closeDay(page);
+
+      await page.reload();
+      await hydrated(page);
+      if (view.size) await phoneSize(page, view.size);
+      await expect(dueOf(await view.show(page, earlier), id)).toBeVisible();
+      await closeDay(page);
+      await expect(dueOf(await view.show(page, later), id)).toHaveCount(0);
+      await removeTasksTitled(`${prefixOf(info)}moved ${view.size ?? view.name}`);
+    });
+  }
+
+  test("someone else's move shows when the calendar is next opened, and after a reload", async ({
+    page,
+    browser,
+  }, info) => {
+    const phoneRun = isPhone(info);
+    if (phoneRun) await runInstalled(page);
+    const { earlier, later } = movedDays();
+    const title = `${prefixOf(info)}moved elsewhere`;
+    const id = await ownerCreatesDueOn(title, later);
+    const nav = (key: string) => page.locator(`[data-nav="${key}"]:visible`).first();
+    const show = async (date: string) => {
+      if (!phoneRun) {
+        await dayBox(page, date).click();
+        await expect(daySheet(page)).toHaveAttribute("data-date", date);
+        return daySheet(page);
+      }
+      await dayBox(page, date).click();
+      await expect(detail(page)).toHaveAttribute("data-date", date);
+      return detail(page);
+    };
+
+    await page.goto(`/calendar?date=${later}`);
+    await hydrated(page);
+    await expect(dueOf(await show(later), id)).toBeVisible();
+    await closeDay(page);
+    await nav("today").click();
+    await expect(page).toHaveURL(/\/today$/);
+    await hydrated(page);
+
+    // The Owner again, on another device: the deadline moved there.
+    const other = await browser.newContext({ storageState: storageStateFor("owner") });
+    const elsewhere = await other.newPage();
+    await elsewhere.goto(`/tasks/${id}`);
+    await hydrated(elsewhere);
+    await moveDeadline(elsewhere, earlier);
+    await other.close();
+
+    // Next opened from the bar: the move is there (the calendar's month holds both days).
+    await nav("calendar").click();
+    await expect(page).toHaveURL(/\/calendar$/);
+    await hydrated(page);
+    if (todayIST().slice(0, 7) !== later.slice(0, 7)) {
+      await page.goto(`/calendar?date=${later}`);
+      await hydrated(page);
+    }
+    await expect(dueOf(await show(earlier), id)).toBeVisible();
+    await closeDay(page);
+    await expect(dueOf(await show(later), id)).toHaveCount(0);
+    await closeDay(page);
+
+    await page.reload();
+    await hydrated(page);
+    await expect(dueOf(await show(earlier), id)).toBeVisible();
+    await removeTasksTitled(title);
+  });
+});

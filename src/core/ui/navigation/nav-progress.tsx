@@ -26,13 +26,15 @@ import {
   trackSettle,
 } from "./progress";
 import {
+  BACK_FROM_ATTRIBUTE,
   TAB_ATTRIBUTE,
   TAB_HOME_ATTRIBUTE,
   TAB_TOP_ATTRIBUTE,
   VIEW_LINK_ATTRIBUTE,
 } from "./attributes";
 import { writingOwnHistory } from "./history-writes";
-import { backMove, tabMove } from "./moves";
+import { entryPaths } from "./entries";
+import { backSteps, tabMove } from "./moves";
 import {
   endOnCompletion,
   noteRouterCommitted,
@@ -68,15 +70,21 @@ type NavigationLike = {
 /**
  * The move a tapped link made, for loading its destination in full (§14.2 b–d, the rules in
  * `moves.ts` that the links and the head script share): a view control replaces; the back
- * control goes back when an entry of the app is beneath and otherwise replaces with the parent;
+ * control goes back as `backSteps` says (over a spent overlay entry) and otherwise replaces with
+ * the parent;
  * an installed tab pushes, replaces or goes back as `tabMove` says; anything else pushes.
  */
-function fullLoadMove(link: HTMLElement | null, to: string): "push" | "replace" | "back" {
+function fullLoadMove(link: HTMLElement | null, to: string): "push" | "replace" | { back: number } {
   const navigation = (window as { navigation?: NavigationLike }).navigation;
   const index = navigation?.currentEntry?.index;
   if (link?.hasAttribute(VIEW_LINK_ATTRIBUTE)) return "replace";
   if (link?.getAttribute("data-slot") === "page-back") {
-    return backMove(index) === "back" ? "back" : "replace";
+    const steps = backSteps(
+      entryPaths(),
+      new URL(to, location.href).pathname,
+      (link.getAttribute(BACK_FROM_ATTRIBUTE) ?? "").split(" ").filter(Boolean),
+    );
+    return steps > 0 ? { back: steps } : "replace";
   }
   if (link?.hasAttribute(TAB_ATTRIBUTE)) {
     const bar = link.closest(`[${TAB_HOME_ATTRIBUTE}]`);
@@ -90,7 +98,8 @@ function fullLoadMove(link: HTMLElement | null, to: string): "push" | "replace" 
       standalone: standalone(),
       pushedFromHome: Boolean(below?.url && new URL(below.url).pathname === home),
     });
-    if (move === "back" || move === "replace") return move;
+    if (move === "back") return { back: 1 };
+    if (move === "replace") return move;
   }
   return "push";
 }
@@ -378,7 +387,7 @@ export function NavProgress() {
     // tap made (`fullLoadMove`, the app's own rules), so the back stack stays as it would be.
     if (stage === "stuck" && to) {
       const move = fullLoadMove(link, to);
-      if (move === "back") window.history.back();
+      if (typeof move === "object") window.history.go(-move.back);
       else if (move === "replace") window.location.replace(to);
       else window.location.assign(to);
       return;
