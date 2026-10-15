@@ -367,12 +367,15 @@ try {
           const start = performance.now();
           // A query no screen reads makes it a new URL, so the router cache (or a prefetch)
           // never answers it and the server's work is measured: the cold-tab case.
+          // A screen may carry its own query (`?cycle=`, a view control): the token is added to it.
           const token = Math.random().toString(36).slice(2);
-          window.next.router.push(`${to}?measure=${token}`);
+          const target = new URL(to, location.origin);
+          target.searchParams.set("measure", token);
+          window.next.router.push(`${target.pathname}${target.search}`);
           await new Promise((resolve) => {
             const check = () => {
               const arrived =
-                location.pathname === to &&
+                location.pathname === target.pathname &&
                 !document.querySelector('main [data-slot="loading-state"]') &&
                 document.querySelector('[data-slot="page-header"]');
               if (arrived) resolve(undefined);

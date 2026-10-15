@@ -5,7 +5,7 @@ import { Suspense } from "react";
 
 import { CustomFieldsView } from "@/core/custom-fields/components/custom-fields-view";
 import { listDefinitions } from "@/core/custom-fields/server";
-import { checkThenRead } from "@/core/lib/start-early";
+import { checkThenRead, startEarly } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
 import { todayIST } from "@/core/time";
 import { DrillLink } from "@/core/ui/composites/drill-link";
@@ -79,6 +79,14 @@ export default async function ProjectPage({
   ]);
   assertClientId(id);
   if (!ID.test(projectId)) notFound();
+  // The reads keyed by the URL alone start in the first wave (§19, P2): the project's unfinished
+  // items and its custom fields, and the items of the cycle the pager asked for (`?cycle=`, every
+  // tap on it), which are dropped when that cycle is not this project's. Only the current cycle's
+  // items (which cycle is current needs the cycles) and what is keyed by the items stay later.
+  const askedItems = cycleParam && ID.test(cycleParam) ? listItems(cycleParam) : null;
+  const unfinishedRead = listItemRows({ states: ["open", "done"], projectId });
+  const fieldsRead = listDefinitions("project");
+  startEarly(...(askedItems ? [askedItems] : []), unfinishedRead, fieldsRead);
   const [{ viewer, client }, [project, cycles, stages, blueprints, people, presetRows]] =
     await checkThenRead(
       loadClientWork(id),
@@ -101,7 +109,9 @@ export default async function ProjectPage({
   const previous = index > 0 ? ordered[index - 1] : undefined;
   const next = index >= 0 ? ordered[index + 1] : undefined;
 
-  const items = chosen ? sortItems(await listItems(chosen.id)) : [];
+  const items = chosen
+    ? sortItems(await (askedItems && chosen.id === cycleParam ? askedItems : listItems(chosen.id)))
+    : [];
   const itemIds = items.map((item) => item.id);
   const originIds = [
     ...new Set(
@@ -112,8 +122,8 @@ export default async function ProjectPage({
     listItemStages(itemIds),
     listReviews(itemIds),
     listCyclesById(originIds),
-    listItemRows({ states: ["open", "done"], projectId }),
-    listDefinitions("project"),
+    unfinishedRead,
+    fieldsRead,
     listLastChanges(itemIds),
   ]);
 
