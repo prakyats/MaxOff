@@ -79,6 +79,7 @@ const STATIC_SCREENS: Screen[] = [
   },
   { path: "/clients/items", parent: "/today" },
   { path: "/clients/items/decide", parent: "/today" },
+  { path: "/me/guide", parent: "/me" },
   { path: "/reports/month", parent: "/reports" },
   { path: "/reports/end-of-day", parent: "/reports" },
   { path: `/reports/end-of-day/${todayIST()}`, parent: "/reports/end-of-day" },

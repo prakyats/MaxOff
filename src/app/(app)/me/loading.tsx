@@ -202,6 +202,18 @@ export default async function Loading() {
             <Line width="w-36" />
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
+            {/* "How MaxOff works" (6b.14): a title, one line and a chevron. */}
+            <div
+              data-slot="loading-me-guide-link"
+              className="-mx-2 flex min-h-11 items-center justify-between gap-4 px-2"
+            >
+              <div className="flex min-w-0 flex-1 flex-col">
+                <Line width="w-32" />
+                <Line width="w-48" />
+              </div>
+              <Skeleton className="size-4 shrink-0 rounded-sm" />
+            </div>
+            <Separator />
             <Rows rows={HELP_ROWS} />
             <Separator />
             <span className="flex h-5 items-center">
