@@ -1,7 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
+import { revalidateScreens } from "@/core/lib/revalidate-screens";
 import { action, ok, type Result } from "@/core/errors";
 import { dispatchPushSoon } from "@/core/notifications/push/dispatch";
 import { assertPermission } from "@/core/permissions/server";
@@ -26,8 +25,7 @@ export const submitExtraWorkNote = action(
     const data = submitNoteSchema.parse(input);
     await assertPermission("attendance.self");
     const noteId = await repo.rpcSubmitNote(data);
-    revalidatePath("/leave/extra-work");
-    revalidatePath("/approvals");
+    revalidateScreens();
     dispatchPushSoon();
     return ok({ noteId });
   },
@@ -40,7 +38,7 @@ export const decideExtraWorkNote = action(
     await assertPermission("attendance.decide");
     const creditId = await repo.rpcDecideNote(data);
     // The layout carries the Approvals badge, so the whole signed-in tree refreshes.
-    revalidatePath("/", "layout");
+    revalidateScreens();
     dispatchPushSoon();
     return ok({ creditId });
   },

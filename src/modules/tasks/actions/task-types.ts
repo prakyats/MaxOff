@@ -1,7 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
+import { revalidateScreens } from "@/core/lib/revalidate-screens";
 import { action, AppError, ok, type Result } from "@/core/errors";
 import { assertPermission } from "@/core/permissions/server";
 
@@ -25,9 +24,8 @@ import { isLastActiveType } from "../domain/task-types";
  */
 
 function revalidateTypes(): void {
-  revalidatePath("/settings", "layout");
-  // The create dialog, the task pages and the lists name the types.
-  revalidatePath("/tasks", "layout");
+  // Settings, the create dialog, the task pages, the lists and the calendar name the types.
+  revalidateScreens();
 }
 
 export const addTaskType = action(

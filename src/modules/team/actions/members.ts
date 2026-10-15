@@ -2,9 +2,9 @@
 
 import { z } from "zod";
 
-import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 
+import { revalidateScreens } from "@/core/lib/revalidate-screens";
 import { PASSWORD_MIN_LENGTH } from "@/core/auth";
 import { getCurrentMember } from "@/core/auth/server";
 import { action, AppError, ok, type Result } from "@/core/errors";
@@ -73,9 +73,6 @@ export type InviteOutcome = {
   email: EmailOutcome;
 };
 
-/** Revalidated as a layout: the list and every person's page (3.4) read the same rows. */
-const PEOPLE_PATH = "/people";
-
 /**
  * The origin invite links are built on. Outside local runs a missing NEXT_PUBLIC_APP_URL is a
  * build mistake and fails loud rather than mailing links on whatever Host header arrived.
@@ -130,7 +127,7 @@ export const inviteMember = action(
         passwordMinLength: PASSWORD_MIN_LENGTH,
       }),
     );
-    revalidatePath(PEOPLE_PATH, "layout");
+    revalidateScreens();
     return ok({ memberId: userId, link, email: outcomeOf(sent) });
   },
 );
@@ -145,7 +142,7 @@ export const issueInviteLink = action(
     const member = await repo.getOwnMember(memberId); // RLS: team.manage reads every row
     if (!member?.email) throw new AppError("NOT_FOUND", "This person is not on the team.");
     const { tokenHash, type } = await repo.issueInviteToken(member.email);
-    revalidatePath(PEOPLE_PATH, "layout");
+    revalidateScreens();
     return ok({ link: inviteLinkFor(await appOrigin(), tokenHash, type) });
   },
 );
@@ -169,8 +166,7 @@ export const updateMember = action(async (input: UpdateMemberInput): Promise<Res
     role: data.role,
     job_title_id: data.jobTitleId,
   });
-  revalidatePath(PEOPLE_PATH, "layout");
-  if (data.handover?.length) revalidatePath("/clients", "layout");
+  revalidateScreens();
   return ok(null);
 });
 
@@ -180,8 +176,7 @@ export const updateOwnProfile = action(
     const viewer = await getCurrentMember();
     if (!viewer) throw new AppError("UNAUTHENTICATED");
     await repo.updateOwnProfile(viewer.id, { full_name: data.fullName, phone: data.phone });
-    revalidatePath("/me");
-    revalidatePath(PEOPLE_PATH, "layout");
+    revalidateScreens();
     return ok(null);
   },
 );
@@ -233,8 +228,7 @@ export const changeMemberEmail = action(
       sendEmail(emailChangedNewAddressEmail(notice)),
       sendEmail(emailChangedOldAddressEmail(notice)),
     ]);
-    revalidatePath(PEOPLE_PATH, "layout");
-    revalidatePath("/me");
+    revalidateScreens();
     // One outcome for both notices: the dialog says "emailed" only when both really went.
     return ok({ email: worstOutcome(sent) });
   },
@@ -259,9 +253,7 @@ export const deactivateMember = action(
       await repo.rpcSetCoordinator(move.memberId, move.coordinatorId, MOVED_REASON);
     }
     await repo.rpcDeactivate(data.memberId, data.reason);
-    revalidatePath(PEOPLE_PATH, "layout");
-    revalidatePath("/clients", "layout");
-    revalidatePath("/me");
+    revalidateScreens();
     return ok(null);
   },
 );
@@ -277,7 +269,7 @@ export const reactivateMember = action(
     await assertPermission("team.manage");
     if (coordinatorId) await repo.rpcSetCoordinator(memberId, coordinatorId, null);
     const status = await repo.rpcReactivate(memberId);
-    revalidatePath(PEOPLE_PATH, "layout");
+    revalidateScreens();
     return ok({ status });
   },
 );
@@ -288,8 +280,7 @@ export const addFreelancer = action(
     const data = addFreelancerSchema.parse(input);
     await assertPermission("team.manage");
     const memberId = await repo.rpcAddFreelancer(data);
-    revalidatePath(PEOPLE_PATH, "layout");
-    revalidatePath("/me");
+    revalidateScreens();
     return ok({ memberId });
   },
 );
@@ -300,9 +291,7 @@ export const changeCoordinator = action(
     const data = changeCoordinatorSchema.parse(input);
     await assertPermission("team.manage");
     await repo.rpcSetCoordinator(data.memberId, data.coordinatorId, data.reason);
-    revalidatePath(PEOPLE_PATH, "layout");
-    revalidatePath("/me");
-    revalidatePath("/tasks", "layout");
+    revalidateScreens();
     return ok(null);
   },
 );
@@ -350,8 +339,7 @@ export const inviteAsEmployee = action(
         passwordMinLength: PASSWORD_MIN_LENGTH,
       }),
     );
-    revalidatePath(PEOPLE_PATH, "layout");
-    revalidatePath("/tasks", "layout");
+    revalidateScreens();
     return ok({ memberId: data.memberId, link, email: outcomeOf(sent) });
   },
 );
@@ -365,8 +353,7 @@ export const setOwnAvatar = action(async (input: SetOwnAvatarInput): Promise<Res
   const viewer = await getCurrentMember();
   if (!viewer) throw new AppError("UNAUTHENTICATED");
   await repo.setOwnAvatar(viewer.id, fileId);
-  revalidatePath("/me");
-  revalidatePath(PEOPLE_PATH, "layout");
+  revalidateScreens();
   return ok(null);
 });
 
@@ -374,7 +361,6 @@ export const removeOwnAvatar = action(async (): Promise<Result<null>> => {
   const viewer = await getCurrentMember();
   if (!viewer) throw new AppError("UNAUTHENTICATED");
   await repo.setOwnAvatar(viewer.id, null);
-  revalidatePath("/me");
-  revalidatePath(PEOPLE_PATH, "layout");
+  revalidateScreens();
   return ok(null);
 });

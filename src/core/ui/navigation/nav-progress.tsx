@@ -8,6 +8,7 @@ import { systemClock } from "@/core/time/clock";
 import { Button } from "@/core/ui/primitives/button";
 
 import {
+  actionEmptiesCaches,
   actionLeavesScreen,
   isNavigationFetch,
   isRouterActionFetch,
@@ -32,6 +33,7 @@ import {
   TAB_TOP_ATTRIBUTE,
   VIEW_LINK_ATTRIBUTE,
 } from "./attributes";
+import { noteHistoryMove, pageFreshness } from "./history-freshness";
 import { writingOwnHistory } from "./history-writes";
 import { entryPaths } from "./entries";
 import { backSteps, tabMove } from "./moves";
@@ -173,6 +175,8 @@ export function NavProgress() {
 
     const pending = () => html.hasAttribute(NAV_PENDING_ATTRIBUTE);
     const now = () => systemClock().getTime();
+    // How old each screen is, for a back or forward (`history-freshness.ts`).
+    const freshness = pageFreshness(now());
 
     const clear = () => {
       window.cancelAnimationFrame(frame);
@@ -266,6 +270,7 @@ export function NavProgress() {
       shown = here();
       if (shown === from) return;
       begin(shown, "history", from);
+      noteHistoryMove(shown);
     };
     const onUnload = () => {
       unloading = true;
@@ -285,6 +290,16 @@ export function NavProgress() {
       // (`view-address.ts`).
       if (isRouterActionFetch(method, headers)) {
         const answer = realFetch(input, init);
+        // A revalidating answer re-draws this screen and empties the router's history cache.
+        answer.then(
+          (response) => {
+            if (!actionEmptiesCaches(response.headers)) return;
+            const at = now();
+            freshness.emptied(at);
+            freshness.fetched(here(), at);
+          },
+          () => {},
+        );
         endOnCompletion(answer, noteRouterFetchStarted(), "action", (response) =>
           actionLeavesScreen(response.headers),
         );
@@ -305,9 +320,14 @@ export function NavProgress() {
         endOnCompletion(answer, noteRouterFetchStarted());
         return answer;
       };
-      // A refresh of the screen you are on (refresh on return, pull-to-refresh with its own
-      // spinner) is not a navigation: no bar for it unless a tap already started one.
-      if (!pending() && to === here()) return reported(send());
+      // The screen's data is as of now; a refresh of the screen you are on (refresh on return,
+      // pull-to-refresh) has also emptied the router's history cache.
+      const refreshing = !pending() && to === here();
+      const fetchedAt = now();
+      if (refreshing) freshness.emptied(fetchedAt);
+      freshness.fetched(to, fetchedAt);
+      // A refresh is not a navigation: no bar for it unless a tap already started one.
+      if (refreshing) return reported(send());
       if (!pending()) begin(to, "router");
       else if (!destination.current) destination.current = to;
       track = trackFetch(track, to, from);

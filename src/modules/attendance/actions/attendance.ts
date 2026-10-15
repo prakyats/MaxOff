@@ -1,7 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
+import { revalidateScreens } from "@/core/lib/revalidate-screens";
 import { setHomeHint } from "@/core/auth/server";
 import { action, ok, type Result } from "@/core/errors";
 import { dispatchPushSoon } from "@/core/notifications/push/dispatch";
@@ -25,7 +24,7 @@ import * as repo from "../data/attendance";
  * change to today's day refreshes the whole signed-in tree.
  */
 function revalidateDay(): void {
-  revalidatePath("/", "layout");
+  revalidateScreens();
 }
 
 /**

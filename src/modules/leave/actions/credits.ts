@@ -1,7 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
+import { revalidateScreens } from "@/core/lib/revalidate-screens";
 import { action, ok, type Result } from "@/core/errors";
 import { dispatchPushSoon } from "@/core/notifications/push/dispatch";
 import { assertPermission } from "@/core/permissions/server";
@@ -22,7 +21,7 @@ import {
 
 function revalidateCredits(): void {
   // The person's page and the member's own Extra work tab both show the balance.
-  revalidatePath("/", "layout");
+  revalidateScreens();
 }
 
 /** A standalone grant, independent of any note (decision 14). */

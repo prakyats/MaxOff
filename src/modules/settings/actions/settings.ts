@@ -2,8 +2,7 @@
 
 import { z } from "zod";
 
-import { revalidatePath } from "next/cache";
-
+import { revalidateScreens } from "@/core/lib/revalidate-screens";
 import { action, AppError, isPostgresError, ok, type Result } from "@/core/errors";
 import { assertPermission } from "@/core/permissions/server";
 
@@ -27,16 +26,12 @@ import * as repo from "../data/settings";
  * one of them is `settings.manage`, which only the Owner holds (PERMISSIONS §1).
  */
 
-const COMPANY_PATH = "/settings/company";
-const DAYS_OFF_PATH = "/settings/days-off";
-const THRESHOLDS_PATH = "/settings/thresholds";
-
 export const updateCompany = action(async (input: UpdateCompanyInput): Promise<Result<null>> => {
   const data = updateCompanySchema.parse(input);
   await assertPermission("settings.manage");
   const company = await repo.getCompany();
   await repo.updateCompany(company.id, { name: data.name });
-  revalidatePath(COMPANY_PATH);
+  revalidateScreens();
   return ok(null);
 });
 
@@ -49,7 +44,7 @@ export const setCompanyLogo = action(async (input: SetCompanyLogoInput): Promise
   await assertPermission("settings.manage");
   const company = await repo.getCompany();
   await repo.setCompanyLogo(company.id, fileId);
-  revalidatePath(COMPANY_PATH);
+  revalidateScreens();
   return ok(null);
 });
 
@@ -57,7 +52,7 @@ export const removeCompanyLogo = action(async (): Promise<Result<null>> => {
   await assertPermission("settings.manage");
   const company = await repo.getCompany();
   await repo.setCompanyLogo(company.id, null);
-  revalidatePath(COMPANY_PATH);
+  revalidateScreens();
   return ok(null);
 });
 
@@ -67,7 +62,7 @@ export const updateWeeklyOffDays = action(
     await assertPermission("settings.manage");
     const settings = await repo.getSettings();
     await repo.updateWeeklyOffDays(settings.orgId, data.weeklyOffDays);
-    revalidatePath(DAYS_OFF_PATH);
+    revalidateScreens();
     return ok(null);
   },
 );
@@ -78,7 +73,7 @@ export const updateThresholds = action(
     await assertPermission("settings.manage");
     const settings = await repo.getSettings();
     await repo.updateThresholds(settings.orgId, data);
-    revalidatePath(THRESHOLDS_PATH);
+    revalidateScreens();
     return ok(null);
   },
 );
@@ -95,7 +90,7 @@ export const createHoliday = action(async (input: CreateHolidayInput): Promise<R
     }
     throw error;
   }
-  revalidatePath(DAYS_OFF_PATH);
+  revalidateScreens();
   return ok(null);
 });
 
@@ -103,6 +98,6 @@ export const removeHoliday = action(async (input: HolidayIdInput): Promise<Resul
   const { holidayId } = holidayIdSchema.parse(input);
   await assertPermission("settings.manage");
   await repo.deleteHoliday(holidayId);
-  revalidatePath(DAYS_OFF_PATH);
+  revalidateScreens();
   return ok(null);
 });
