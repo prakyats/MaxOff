@@ -292,7 +292,10 @@ test("a project from the Projects tab: per-item stages, Mark done with Undo, Mar
   await page.goBack();
   await expect(third).toBeHidden();
 
-  // Bulk: select two; "Tick Edit on 2" ticks each one's own Edit; "Mark 2 done" asks first.
+  // Bulk: select two; "Tick Edit on 2" ticks each one's own Edit; "Mark 2 done" asks first. The
+  // checkboxes show in Select mode only (6b.16 (e)).
+  await expect(page.locator('[data-slot="item-row"] [role="checkbox"]')).toHaveCount(0);
+  await page.getByRole("button", { name: "Select", exact: true }).click();
   await itemRow(page, "Reel 2").getByRole("checkbox").click();
   await itemRow(page, "Reel 3").getByRole("checkbox").click();
   await page.getByRole("button", { name: "Tick a stage" }).click();
@@ -310,6 +313,7 @@ test("a project from the Projects tab: per-item stages, Mark done with Undo, Mar
   const confirm = page.getByRole("alertdialog", { name: "Mark 2 deliverables done?" });
   await confirm.getByRole("button", { name: "Mark 2 deliverables done" }).click();
   await expect(progress(page)).toHaveText("7 of 7 stages · 3 of 3 deliverables done");
+  await page.getByRole("button", { name: "Done", exact: true }).click();
 
   // The client's Admin reopens a done item with a reason: it no longer counts. Done ones wait in
   // the collapsed "Done and closed" group (6b.11 (1)).
@@ -1393,12 +1397,17 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
       await expect(layer).toBeVisible();
       await expectBackStack(page, [{ closes: layer, url: here }]);
     }
-    // The bulk Tick a stage menu is a layer too.
+    // The bulk Tick a stage menu is a layer too, over Select mode (6b.16 (e)), which the next
+    // back closes.
+    await page.getByRole("button", { name: "Select", exact: true }).click();
     await itemRow(page, "Reel 1").getByRole("checkbox").click();
     await page.getByRole("button", { name: "Tick a stage" }).click();
     const tickMenu = page.getByRole("menu");
     await expect(tickMenu).toBeVisible();
-    await expectBackStack(page, [{ closes: tickMenu, url: here }]);
+    await expectBackStack(page, [
+      { closes: tickMenu, url: here },
+      { closes: itemRow(page, "Reel 1").getByRole("checkbox"), url: here },
+    ]);
 
     // Reopen, on a cancelled project.
     await rpcAs(admin.email, admin.password, "project_cancel", {
@@ -1609,7 +1618,8 @@ test.describe("marking done on the project page, as the Owner (amendment D3; the
     const second = await itemId(projectId, "Reel 2");
     await expect.poll(() => itemState(second)).toBe("approved");
 
-    // Mark N done: a trigger; the confirmation's red button names it.
+    // Mark N done (in Select mode, 6b.16 (e)): a trigger; the confirmation's red button names it.
+    await page.getByRole("button", { name: "Select", exact: true }).click();
     await itemRow(page, "Reel 3").getByRole("checkbox").click();
     await itemRow(page, "Reel 4").getByRole("checkbox").click();
     await page.getByRole("button", { name: "Mark 2 done", exact: true }).click();

@@ -753,6 +753,9 @@ describe("every entry the activity reads return is a line (the 7B rework's revie
     ["project_cycles", "generated", {}],
     ["project_cycles", "insert", {}],
     ["project_cycles", "item_list_added", {}],
+    // 6b.16 (d) (migration client_work_bulk_and_rounds).
+    ["project_cycles", "extras_kept", {}],
+    ["project_cycles", "extras_not_kept", {}],
     ...[
       "insert",
       "done",

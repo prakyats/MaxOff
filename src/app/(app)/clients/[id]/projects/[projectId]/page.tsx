@@ -16,6 +16,9 @@ import {
   activeStages,
   currentCycle,
   cycleEnded,
+  cycleExtras,
+  extrasCycles,
+  extrasQuestion,
   getProject,
   itemListPeriods,
   itemView,
@@ -33,12 +36,14 @@ import {
   cycleMeter,
   PROJECT_STATE_LABELS,
   RECURRENCE_LABELS,
+  scheduleText,
   shortDate,
   sortCycles,
   sortItems,
 } from "@/modules/client-work";
 import { CycleItems } from "@/modules/client-work/components/cycle-items";
 import { CycleProgress } from "@/modules/client-work/components/cycle-progress";
+import { KeepExtrasPrompt } from "@/modules/client-work/components/keep-extras-prompt";
 import { ProjectActivityButton } from "@/modules/client-work/components/project-activity";
 import { ProjectMenu } from "@/modules/client-work/components/project-menu";
 import { RecordReadReceipt } from "@/modules/notifications-center";
@@ -101,7 +106,24 @@ export default async function ProjectPage({
   const previous = index > 0 ? ordered[index - 1] : undefined;
   const next = index >= 0 ? ordered[index + 1] : undefined;
 
-  const items = chosen ? sortItems(await listItems(chosen.id)) : [];
+  const working = project.state === "open" || project.state === "in_progress";
+  const canManage = can(viewer.role, "projects.manage");
+  // 6b.16 (d): the cycle whose extras are asked about at the month's end (whichever is shown):
+  // the month ending or the one just ended, the latest that has extras.
+  const asking = working && canManage ? extrasCycles(project.recurrence, cycles, today) : [];
+  const [items, ...askingItems] = await Promise.all([
+    chosen ? listItems(chosen.id).then(sortItems) : Promise.resolve([]),
+    ...asking.map((cycle) =>
+      cycle.id === chosen?.id ? Promise.resolve(null) : listItems(cycle.id),
+    ),
+  ]);
+  const listTitles = blueprints.filter((line) => !line.archived).map((line) => line.title);
+  const extrasOf = asking
+    .map((cycle, index) => ({
+      cycle,
+      extras: cycleExtras(cycle.id, askingItems[index] ?? items, listTitles),
+    }))
+    .find((entry) => entry.extras.length > 0);
   const itemIds = items.map((item) => item.id);
   const originIds = [
     ...new Set(
@@ -117,8 +139,6 @@ export default async function ProjectPage({
     listLastChanges(itemIds),
   ]);
 
-  const working = project.state === "open" || project.state === "in_progress";
-  const canManage = can(viewer.role, "projects.manage");
   const permissions = {
     manage: canManage && working,
     tick: can(viewer.role, "items.tick") && working,
@@ -221,6 +241,11 @@ export default async function ProjectPage({
               unfinished={unfinished.length}
               nextCycleLabel={nextCycle?.label ?? null}
               itemList={itemList}
+              schedule={
+                chosen
+                  ? scheduleText({ projectName: project.name, cycleLabel: chosen.label, items })
+                  : null
+              }
             />
           </>
         }
@@ -307,6 +332,15 @@ export default async function ProjectPage({
               </span>
               <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
             </DrillLink>
+          ) : null}
+          {extrasOf ? (
+            <KeepExtrasPrompt
+              key={extrasOf.cycle.id}
+              cycleId={extrasOf.cycle.id}
+              question={extrasQuestion(project.recurrence, extrasOf.cycle.label)}
+              titles={extrasOf.extras.map((item) => item.title)}
+              from={itemList?.from ?? null}
+            />
           ) : null}
         </div>
 

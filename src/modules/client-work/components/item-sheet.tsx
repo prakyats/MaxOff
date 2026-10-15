@@ -1,8 +1,9 @@
 "use client";
 
-import { ArrowDownIcon, ArrowUpIcon, CheckIcon, MoreHorizontalIcon } from "lucide-react";
+import { ArrowDownIcon, ArrowUpIcon, CheckIcon, MoreHorizontalIcon, PlusIcon } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useRef, useState } from "react";
+import { toast } from "sonner";
 
 import type { Result } from "@/core/errors/result";
 import { groupStageLabel } from "@/core/lib/stage-groups";
@@ -40,6 +41,7 @@ import {
   updateItemStage,
   updateItemStageGroup,
 } from "../actions/items";
+import { addRevisionRound } from "../actions/bulk";
 import { saveItemAsTemplate } from "../actions/templates";
 import { ITEM_NOTES_MAX, ITEM_TITLE_MAX } from "../domain/schemas";
 import { ITEM_STATUS } from "../domain/types";
@@ -242,6 +244,12 @@ export function ItemSheet({
     setBusy(null);
   }
 
+  async function addRound(itemId: string) {
+    const result = await addRevisionRound({ itemId });
+    if (result.ok) toast.success(`Added ${result.data.name}`);
+    else toastResult(result);
+  }
+
   const canTick = permissions.tick && current.rules.ticks;
   const canEditStages = permissions.manage && current.rules.editAll;
   const reopenWord = permissions.owner ? "Send back" : "Reopen";
@@ -422,6 +430,16 @@ export function ItemSheet({
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start">
+                      {current.state === "open" ? (
+                        // 6b.16 (c): one more revision stage, named after its own ("Revision 3").
+                        <DropdownMenuItem
+                          data-slot="item-revision-round"
+                          onSelect={() => void addRound(current.id)}
+                        >
+                          <PlusIcon aria-hidden />
+                          Another revision round
+                        </DropdownMenuItem>
+                      ) : null}
                       <DropdownMenuItem
                         onSelect={() => setTemplateFor({ id: current.id, title: current.title })}
                       >

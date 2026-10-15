@@ -76,7 +76,11 @@ export type Cycle = {
   label: string | null;
   state: CycleState;
   /** False while a cycle a carry made for a non-Active client waits for the item list (Q4 (a)). */
-  itemListCopied: boolean;
+  itemListCopied: boolean; /**
+   * "Keep this month's extra deliverables next month?" was answered (6b.16 (d),
+   * `extras_decided_at`): it is asked once per cycle.
+   */
+  extrasDecided: boolean;
 };
 
 /**
