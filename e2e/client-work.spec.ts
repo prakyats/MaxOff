@@ -581,13 +581,20 @@ test("Settings → Stage presets: an Admin adds, edits and archives their own", 
   await page.getByRole("button", { name: "Add preset" }).click();
   const add = page.getByRole("dialog", { name: "Add a stage preset" });
   await add.getByLabel("Name").fill(name);
-  await add.getByLabel("Stages").fill("Brief\nShoot\nDeliver");
+  // One row per stage since 6b.18 (drag to reorder): the first row is there, Add stage adds one.
+  await add.getByLabel("Stage 1", { exact: true }).fill("Brief");
+  for (const [index, stage] of ["Shoot", "Deliver"].entries()) {
+    await add.getByRole("button", { name: "Add stage" }).click();
+    await add.getByLabel(`Stage ${index + 2}`, { exact: true }).fill(stage);
+  }
   await add.getByRole("button", { name: "Add preset" }).click();
   const row = page.locator('[data-slot="stage-preset"]', { hasText: name });
   await expect(row).toContainText("Brief → Shoot → Deliver · by you");
   await row.getByRole("button", { name: `Edit ${name}` }).click();
   const edit = page.getByRole("dialog", { name: `Edit ${name}` });
-  await edit.getByLabel("Stages").fill("Brief\nShoot\nEdit\nDeliver");
+  await edit.getByLabel("Stage 3", { exact: true }).fill("Edit");
+  await edit.getByRole("button", { name: "Add stage" }).click();
+  await edit.getByLabel("Stage 4", { exact: true }).fill("Deliver");
   await edit.getByRole("button", { name: "Save preset" }).click();
   await expect(row).toContainText("Brief → Shoot → Edit → Deliver · by you");
   await row.getByRole("button", { name: `Archive ${name}` }).click();

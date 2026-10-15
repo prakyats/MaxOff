@@ -6,15 +6,20 @@ import { addISTDays, istInstant, istWeekday, todayIST } from "../src/core/time";
 
 import {
   expectBackStack,
+  hydrated,
   memberIdOf,
   removeFieldDefinitions,
   removeTaskTypesNamed,
   removeTasksTitled,
+  removeTemplatesNamed,
   rpcAs,
   runInstalled,
+  serviceInsert,
+  serviceRest,
   serviceSelect,
   signIn,
   storageStateFor,
+  taskTypeId,
   USERS,
 } from "./helpers";
 
@@ -415,3 +420,231 @@ async function expectFits(page: Page): Promise<void> {
   }));
   expect(widths.scrollWidth).toBeLessThanOrEqual(widths.clientWidth);
 }
+
+// Drag to reorder before saving (6b.18): a task template's stages, a stage preset's, the New
+// task form's. Each project names its own template and preset, removed first.
+
+const isPhone = (page: Page) => (page.viewportSize()?.width ?? 1280) < 768;
+
+/** The values of a form's stage inputs, in order. */
+async function stageValues(rows: Locator): Promise<string[]> {
+  return rows
+    .locator("input")
+    .evaluateAll((inputs) => inputs.map((input) => (input as HTMLInputElement).value));
+}
+
+/**
+ * Drags `from` by its handle until the pointer is at `at` of `onto`'s height. A mouse drags at
+ * once; on a phone a finger holds until the row lifts (`data-dragging`), so nothing waits on a
+ * clock. Measures only visible boxes and fails on a missing one.
+ */
+async function dragRow(page: Page, from: Locator, onto: Locator, at: number): Promise<void> {
+  const handle = from.locator('[data-slot="reorder-handle"]');
+  // In the middle of its scroller, as a person would have it, clear of a sticky footer or bar.
+  await handle.evaluate((node) => node.scrollIntoView({ block: "center" }));
+  const start = await handle.boundingBox();
+  const target = await onto.boundingBox();
+  expect(start, "the drag handle has a box").not.toBeNull();
+  expect(target, "the target row has a box").not.toBeNull();
+  const x = start!.x + start!.width / 2;
+  const y = start!.y + start!.height / 2;
+  const to = target!.y + target!.height * at;
+  const indicator = page.locator('[data-slot="reorder-indicator"]:visible');
+  if (!isPhone(page)) {
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x, to, { steps: 12 });
+    await expect(indicator).toHaveCount(1);
+    await page.mouse.up();
+    return;
+  }
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
+  await expect(from).toHaveAttribute("data-dragging", "");
+  for (let move = 1; move <= 12; move += 1) {
+    await cdp.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [{ x, y: y + ((to - y) * move) / 12 }],
+    });
+  }
+  await expect(indicator).toHaveCount(1);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await cdp.detach();
+}
+
+/** A task template of the Owner's with these stages, removed first. */
+async function ownerTemplate(name: string, stages: string[]): Promise<void> {
+  await removeTemplatesNamed(name);
+  const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+  await serviceInsert("task_templates", {
+    org_id: org?.id,
+    name,
+    task_type_id: await taskTypeId("Normal"),
+    stages,
+    created_by: await memberIdOf(USERS.owner.email),
+  });
+}
+
+/** A stage preset of the Owner's with these stages, removed first. */
+async function ownerPreset(name: string, stages: string[]): Promise<void> {
+  await serviceRest(`stage_presets?name=eq.${encodeURIComponent(name)}`, { method: "DELETE" });
+  const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+  await serviceInsert("stage_presets", {
+    org_id: org?.id,
+    name,
+    stages,
+    created_by: await memberIdOf(USERS.owner.email),
+  });
+}
+
+/** Opens a template's Edit dialog: on the row from `md` up, in its ⋯ sheet on a phone. */
+async function editTemplate(page: Page, name: string): Promise<Locator> {
+  if (isPhone(page)) {
+    await page.getByRole("button", { name: `Actions for ${name}` }).click();
+    await page
+      .locator('[data-slot="task-template-actions"]')
+      .getByRole("button", { name: "Edit" })
+      .click();
+  } else {
+    await page
+      .getByRole("button", { name: `Edit ${name}` })
+      .filter({ visible: true })
+      .click();
+  }
+  const dialog = page.getByRole("dialog", { name: `Edit ${name}` });
+  await expect(dialog).toBeVisible();
+  return dialog;
+}
+
+test.describe("drag to reorder stages before saving (6b.18)", () => {
+  test("a task template's stages: dragged, moved from ⋯, saved in that order", async ({
+    page,
+  }, info) => {
+    const name = `Reorder template (${info.project.name})`;
+    await ownerTemplate(name, ["Stage 1", "Stage 2", "Stage 3"]);
+    await page.goto("/settings/templates");
+    await hydrated(page);
+    const dialog = await editTemplate(page, name);
+    const rows = dialog.locator('[data-slot="template-stage"]');
+    await expect(rows).toHaveCount(3);
+    const handle = await rows.nth(0).locator('[data-slot="reorder-handle"]').boundingBox();
+    expect(handle, "the handle has a box").not.toBeNull();
+    expect(Math.round(handle!.width)).toBe(44);
+    expect(Math.round(handle!.height)).toBe(44);
+
+    // Stage 3 dragged above Stage 1.
+    await dragRow(page, rows.nth(2), rows.nth(0), 0.2);
+    await expect.poll(() => stageValues(rows)).toEqual(["Stage 3", "Stage 1", "Stage 2"]);
+    // Move down from its ⋯ menu, the keyboard way.
+    await rows.nth(0).getByRole("button", { name: "Actions for Stage 3" }).click();
+    await page.getByRole("menuitem", { name: "Move down" }).click();
+    await expect.poll(() => stageValues(rows)).toEqual(["Stage 1", "Stage 3", "Stage 2"]);
+
+    await dialog.getByRole("button", { name: "Save template" }).click();
+    await expect(dialog).toBeHidden();
+    await expect
+      .poll(async () => {
+        const [row] = await serviceSelect<{ stages: string[] }>(
+          `task_templates?name=eq.${encodeURIComponent(name)}&archived_at=is.null&select=stages`,
+        );
+        return row?.stages;
+      })
+      .toEqual(["Stage 1", "Stage 3", "Stage 2"]);
+    // Reopened, it shows the saved order.
+    const again = await editTemplate(page, name);
+    await expect
+      .poll(() => stageValues(again.locator('[data-slot="template-stage"]')))
+      .toEqual(["Stage 1", "Stage 3", "Stage 2"]);
+    await removeTemplatesNamed(name);
+  });
+
+  test("a stage preset's stages: dragged, one removed and one added, saved in that order", async ({
+    page,
+  }, info) => {
+    const name = `Reorder preset (${info.project.name})`;
+    await ownerPreset(name, ["Stage 1", "Stage 2", "Stage 3"]);
+    await page.goto("/settings/stage-presets");
+    await hydrated(page);
+    const row = page.locator('[data-slot="stage-preset"]', { hasText: name });
+    await expect(row).toContainText("Stage 1 → Stage 2 → Stage 3");
+    await row.getByRole("button", { name: `Edit ${name}` }).click();
+    const dialog = page.getByRole("dialog", { name: `Edit ${name}` });
+    const rows = dialog.locator('[data-slot="preset-stage"]');
+    await expect(rows).toHaveCount(3);
+
+    // Stage 1 dragged below Stage 3.
+    await dragRow(page, rows.nth(0), rows.nth(2), 0.8);
+    await expect.poll(() => stageValues(rows)).toEqual(["Stage 2", "Stage 3", "Stage 1"]);
+    await rows.nth(1).getByRole("button", { name: "Actions for Stage 3" }).click();
+    await page.getByRole("menuitem", { name: "Remove stage" }).click();
+    await dialog.getByRole("button", { name: "Add stage" }).click();
+    await dialog.getByLabel("Stage 3", { exact: true }).fill("Stage 4");
+    await expect.poll(() => stageValues(rows)).toEqual(["Stage 2", "Stage 1", "Stage 4"]);
+
+    await dialog.getByRole("button", { name: "Save preset" }).click();
+    await expect(dialog).toBeHidden();
+    await expect(row).toContainText("Stage 2 → Stage 1 → Stage 4");
+    const [saved] = await serviceSelect<{ stages: string[] }>(
+      `stage_presets?name=eq.${encodeURIComponent(name)}&select=stages`,
+    );
+    expect(saved?.stages).toEqual(["Stage 2", "Stage 1", "Stage 4"]);
+    await serviceRest(`stage_presets?name=eq.${encodeURIComponent(name)}`, { method: "DELETE" });
+  });
+
+  test("the New task form's stages reorder before the task is made", async ({ page }, info) => {
+    test.skip(info.project.name !== "desktop", "the same list as the template's, on a laptop");
+    await page.goto("/tasks");
+    await hydrated(page);
+    await page.getByRole("button", { name: "New task" }).filter({ visible: true }).click();
+    const form = page.getByRole("dialog", { name: "New task" });
+    await expect(form).toBeVisible();
+    for (const stage of ["Stage 1", "Stage 2"]) {
+      await form.getByRole("button", { name: "Add stage" }).click();
+      await form.getByLabel(`Stage ${stage.slice(-1)}`, { exact: true }).fill(stage);
+    }
+    const rows = form.locator('[data-slot="task-stage-field"]');
+    await dragRow(page, rows.nth(1), rows.nth(0), 0.2);
+    await expect.poll(() => stageValues(rows)).toEqual(["Stage 2", "Stage 1"]);
+  });
+});
+
+test.describe("drag to reorder, installed (6b.18): a stage's ⋯ menu closes on back before its dialog", () => {
+  test.skip(({ isMobile }) => !isMobile, "the installed back gesture is a phone's");
+
+  test("in a task template's dialog and a stage preset's", async ({ page }, info) => {
+    const template = `Reorder back template (${info.project.name})`;
+    const preset = `Reorder back preset (${info.project.name})`;
+    await ownerTemplate(template, ["Stage 1", "Stage 2"]);
+    await ownerPreset(preset, ["Stage 1", "Stage 2"]);
+    await runInstalled(page);
+
+    await page.goto("/settings/templates");
+    await hydrated(page);
+    const templates = /\/settings\/templates$/;
+    const edit = await editTemplate(page, template);
+    await edit.getByRole("button", { name: "Actions for Stage 1" }).click();
+    const menu = page.getByRole("menu");
+    await expect(menu).toBeVisible();
+    await expectBackStack(page, [
+      { closes: menu, url: templates },
+      { closes: edit, url: templates },
+    ]);
+
+    await page.goto("/settings/stage-presets");
+    await hydrated(page);
+    const presets = /\/settings\/stage-presets$/;
+    await page
+      .locator('[data-slot="stage-preset"]', { hasText: preset })
+      .getByRole("button", { name: `Edit ${preset}` })
+      .click();
+    const dialog = page.getByRole("dialog", { name: `Edit ${preset}` });
+    await dialog.getByRole("button", { name: "Actions for Stage 2" }).click();
+    await expect(menu).toBeVisible();
+    await expectBackStack(page, [
+      { closes: menu, url: presets },
+      { closes: dialog, url: presets },
+    ]);
+    await removeTemplatesNamed(template);
+    await serviceRest(`stage_presets?name=eq.${encodeURIComponent(preset)}`, { method: "DELETE" });
+  });
+});
