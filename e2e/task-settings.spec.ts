@@ -550,7 +550,9 @@ test.describe("drag to reorder stages before saving (6b.18)", () => {
         return row?.stages;
       })
       .toEqual(["Stage 1", "Stage 3", "Stage 2"]);
-    // Reopened, it shows the saved order.
+    // Opened again after a reload, it shows the saved order.
+    await page.reload();
+    await hydrated(page);
     const again = await editTemplate(page, name);
     await expect
       .poll(() => stageValues(again.locator('[data-slot="template-stage"]')))
