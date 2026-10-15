@@ -8,7 +8,7 @@ import {
 } from "@/core/custom-fields/components/custom-fields-form";
 import type { FieldDefinition } from "@/core/custom-fields";
 import type { ResultError } from "@/core/errors";
-import { fail } from "@/core/errors/result";
+import type { StageGroup } from "@/core/lib/stage-groups";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { FormField } from "@/core/ui/composites/form-field";
@@ -24,13 +24,16 @@ import {
 } from "@/core/ui/primitives/dialog";
 import { Input } from "@/core/ui/primitives/input";
 import { Textarea } from "@/core/ui/primitives/textarea";
+import type { StagePresetOption } from "@/core/ui/stage-groups/editing";
 import { describeError, toastResult } from "@/core/ui/toast";
 
 import {
   addBlueprint,
   addStage,
+  addStageGroup,
   archiveBlueprint,
   archiveStage,
+  archiveStageGroup,
   cancelProject,
   completeProject,
   reopenProject,
@@ -38,24 +41,24 @@ import {
   updateBlueprint,
   updateProject,
   updateStage,
+  updateStageGroup,
 } from "../actions/projects";
 import {
   ITEM_TITLE_MAX,
   ITEMS_MAX,
   PROJECT_DESCRIPTION_MAX,
   PROJECT_NAME_MAX,
-  STAGE_NAME_MAX,
-  STAGES_MAX,
 } from "../domain/schemas";
 import type { Recurrence } from "../domain/types";
 
 import { itemListCopy, type ItemListPeriods } from "../domain/periods";
-import { movedNames, nameRows } from "../domain/positions";
 
+import { GroupedStagesSheet, type GroupedStageRow } from "./grouped-stages-sheet";
+import { LineStagesSheet } from "./line-stages-sheet";
 import { ListEditorSheet, type ListRow } from "./list-editor-sheet";
 
-/** An item-list line with its own stages (amendment D2). */
-export type MenuBlueprint = ListRow & { stages: readonly string[] };
+/** A deliverables-list line with its own stages, in groups (amendment D2; 6b). */
+export type MenuBlueprint = ListRow & { stageGroups: readonly StageGroup[] };
 
 export type MenuLayer = "edit" | "stages" | "items" | "next" | "complete" | "cancel" | "reopen";
 
@@ -80,6 +83,7 @@ export function ProjectMenuLayers({
   project,
   stages,
   blueprints,
+  presets,
   definitions,
   unfinished,
   nextCycleLabel,
@@ -88,43 +92,44 @@ export function ProjectMenuLayers({
   layer: MenuLayer | null;
   onClose: () => void;
   project: MenuProject;
-  stages: readonly ListRow[];
+  stages: readonly GroupedStageRow[];
   blueprints: readonly MenuBlueprint[];
+  presets: readonly StagePresetOption[];
   definitions: readonly FieldDefinition[];
   unfinished: number;
   nextCycleLabel: string | null;
   itemList: ItemListPeriods | null;
 }) {
   const close = (next: boolean) => (next ? null : onClose());
-  // The item-list line whose own stages are open over the item list (amendment D2).
+  // The deliverables-list line whose own stages are open over the list (amendment D2).
   const [lineId, setLineId] = useState<string | null>(null);
   const line = blueprints.find((row) => row.id === lineId) ?? null;
-  const lineRows = nameRows(line?.stages ?? []);
   const itemWords = itemList ? itemListCopy(itemList) : null;
-  const setLineStages = (stages: string[]) =>
-    line
-      ? updateBlueprint({ blueprintId: line.id, stages })
-      : Promise.resolve(fail("NOT_FOUND", "This line is gone from the list."));
+  const projectId = project.id;
   return (
     <>
       {layer === "edit" ? (
         <EditProjectDialog project={project} definitions={definitions} onClose={onClose} />
       ) : null}
-      <ListEditorSheet
+      <GroupedStagesSheet
         open={layer === "stages"}
         onOpenChange={close}
         title="Default stages"
         description="New deliverables start with these. Existing deliverables keep their own stages; change those on the deliverable."
-        noun="stage"
-        unique
-        removeDescription="New deliverables start without it. Existing deliverables keep their stages."
+        removeStageDescription="New deliverables start without it. Existing deliverables keep their stages."
+        removeGroupDescription="New deliverables start without its stages. Existing deliverables keep theirs."
         rows={stages}
-        max={STAGES_MAX}
-        maxLength={STAGE_NAME_MAX}
-        onAdd={(name) => addStage({ projectId: project.id, name })}
-        onRename={(stageId, name) => updateStage({ stageId, name })}
-        onMove={(stageId, position) => updateStage({ stageId, position })}
-        onRemove={(stageId) => archiveStage({ stageId })}
+        presets={presets}
+        ops={{
+          addStage: (name, groupLabel) => addStage({ projectId, name, groupLabel }),
+          renameStage: (stageId, name) => updateStage({ stageId, name }),
+          moveStage: (stageId, position) => updateStage({ stageId, position }),
+          removeStage: (stageId) => archiveStage({ stageId }),
+          addGroup: (label, names) => addStageGroup({ projectId, label, stages: names }),
+          renameGroup: (label, newLabel) => updateStageGroup({ projectId, label, newLabel }),
+          moveGroup: (label, position) => updateStageGroup({ projectId, label, position }),
+          removeGroup: (label) => archiveStageGroup({ projectId, label }),
+        }}
       />
       <ListEditorSheet
         open={layer === "items"}
@@ -151,32 +156,21 @@ export function ProjectMenuLayers({
         )}
         max={ITEMS_MAX}
         maxLength={ITEM_TITLE_MAX}
+        quantity
         onAdd={(title) => addBlueprint({ projectId: project.id, title })}
         addedMessage={itemWords?.added}
         onRename={(blueprintId, title) => updateBlueprint({ blueprintId, title })}
         onMove={(blueprintId, position) => updateBlueprint({ blueprintId, position })}
         onRemove={(blueprintId) => archiveBlueprint({ blueprintId })}
       />
-      <ListEditorSheet
-        open={layer === "items" && line !== null}
-        onOpenChange={(next) => (next ? null : setLineId(null))}
-        title={line ? `Stages of ${line.name}` : "Stages"}
-        description="Each new cycle's deliverable made from this line starts with these. Deliverables already made keep theirs."
-        noun="stage"
-        unique
-        removeDescription="Later cycles' deliverables start without it."
-        rows={lineRows}
-        max={STAGES_MAX}
-        maxLength={STAGE_NAME_MAX}
-        onAdd={(name) => setLineStages([...lineRows.map((row) => row.name), name])}
-        onRename={(id, name) =>
-          setLineStages(lineRows.map((row) => (row.id === id ? name : row.name)))
-        }
-        onMove={(id, position) => setLineStages(movedNames(lineRows, id, position))}
-        onRemove={(id) =>
-          setLineStages(lineRows.filter((row) => row.id !== id).map((row) => row.name))
-        }
-      />
+      {layer === "items" && line !== null ? (
+        <LineStagesSheet
+          key={line.id}
+          line={{ id: line.id, name: line.name, stageGroups: line.stageGroups }}
+          presets={presets}
+          onClose={() => setLineId(null)}
+        />
+      ) : null}
       <ConfirmDialog
         open={layer === "next"}
         onOpenChange={close}

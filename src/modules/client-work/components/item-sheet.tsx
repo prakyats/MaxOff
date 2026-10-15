@@ -23,19 +23,28 @@ import { describeError, toastResult } from "@/core/ui/toast";
 
 import {
   addItemStage,
+  addItemStageGroup,
   archiveItemStage,
+  archiveItemStageGroup,
   cancelItem,
   markItemDone,
   reopenItem,
   tickItemStage,
   updateItem,
   updateItemStage,
+  updateItemStageGroup,
 } from "../actions/items";
-import { ITEM_NOTES_MAX, ITEM_TITLE_MAX, STAGE_NAME_MAX, STAGES_MAX } from "../domain/schemas";
+import { ITEM_NOTES_MAX, ITEM_TITLE_MAX } from "../domain/schemas";
 import { ITEM_STATUS } from "../domain/types";
 import type { ItemView } from "../domain/views";
 
-import { ListEditorSheet } from "./list-editor-sheet";
+import type { StagePresetOption } from "@/core/ui/stage-groups/editing";
+
+/** A deliverable's stage editor, on the first tap of "Edit stages" (ARCHITECTURE §19). */
+const GroupedStagesSheet = dynamic(
+  () => import("./grouped-stages-sheet").then((module) => module.GroupedStagesSheet),
+  { ssr: false },
+);
 
 /** One item's history, on the first tap of "History" (ARCHITECTURE §19). */
 const ActivityPanel = dynamic(
@@ -83,7 +92,10 @@ export function ItemSheet({
   projectHref,
   onMove,
   onMarkDone,
+  presets = [],
 }: {
+  /** The stage presets ("Add from a preset" in Edit stages adds one as a group, 6b). */
+  presets?: readonly StagePresetOption[];
   item: ItemView | null;
   permissions: ItemPermissions;
   open: boolean;
@@ -120,6 +132,8 @@ export function ItemSheet({
     }
   }
   const [editingStages, setEditingStages] = useState(false);
+  // The stage editor's code arrives on its first open and stays (ARCHITECTURE §19).
+  const [stagesUsed, setStagesUsed] = useState(false);
   // The item's history: mounted afresh on each opening (its key), kept for its closing animation.
   const [history, setHistory] = useState(0);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -410,7 +424,10 @@ export function ItemSheet({
                   <Button
                     variant="ghost"
                     data-slot="item-stages-edit"
-                    onClick={() => setEditingStages(true)}
+                    onClick={() => {
+                      setStagesUsed(true);
+                      setEditingStages(true);
+                    }}
                   >
                     Edit stages
                   </Button>
@@ -527,22 +544,29 @@ export function ItemSheet({
           return done;
         }}
       />
-      {canEditStages ? (
-        <ListEditorSheet
+      {canEditStages && stagesUsed ? (
+        <GroupedStagesSheet
           open={editingStages}
           onOpenChange={setEditingStages}
           title={`Stages of ${current.title}`}
-          description="This deliverable only. The project's default stages and its other deliverables stay as they are."
-          noun="stage"
-          unique
-          removeDescription="It leaves this deliverable; its tick stays in the history."
+          description="This deliverable only. The project's default stages and its other deliverables stay as they are. Ticks stay as they are."
+          removeStageDescription="It leaves this deliverable; its tick stays in the history."
+          removeGroupDescription="Its stages leave this deliverable; their ticks stay in the history."
           rows={current.stages}
-          max={STAGES_MAX}
-          maxLength={STAGE_NAME_MAX}
-          onAdd={(name) => addItemStage({ itemId: current.id, name })}
-          onRename={(stageId, name) => updateItemStage({ stageId, name })}
-          onMove={(stageId, position) => updateItemStage({ stageId, position })}
-          onRemove={(stageId) => archiveItemStage({ stageId })}
+          presets={presets}
+          ops={{
+            addStage: (name, groupLabel) => addItemStage({ itemId: current.id, name, groupLabel }),
+            renameStage: (stageId, name) => updateItemStage({ stageId, name }),
+            moveStage: (stageId, position) => updateItemStage({ stageId, position }),
+            removeStage: (stageId) => archiveItemStage({ stageId }),
+            addGroup: (label, names) =>
+              addItemStageGroup({ itemId: current.id, label, stages: names }),
+            renameGroup: (label, newLabel) =>
+              updateItemStageGroup({ itemId: current.id, label, newLabel }),
+            moveGroup: (label, position) =>
+              updateItemStageGroup({ itemId: current.id, label, position }),
+            removeGroup: (label) => archiveItemStageGroup({ itemId: current.id, label }),
+          }}
         />
       ) : null}
       {history > 0 ? (

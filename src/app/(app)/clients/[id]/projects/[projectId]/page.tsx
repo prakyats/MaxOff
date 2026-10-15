@@ -42,6 +42,7 @@ import { CycleItems } from "@/modules/client-work/components/cycle-items";
 import { ProjectActivityButton } from "@/modules/client-work/components/project-activity";
 import { ProjectMenu } from "@/modules/client-work/components/project-menu";
 import { RecordReadReceipt } from "@/modules/notifications-center";
+import { listStagePresets } from "@/modules/settings";
 
 import { assertClientId, loadClientWork, loadPeople } from "../../client";
 
@@ -76,16 +77,18 @@ export default async function ProjectPage({
   ]);
   assertClientId(id);
   if (!ID.test(projectId)) notFound();
-  const [{ viewer, client }, [project, cycles, stages, blueprints, people]] = await checkThenRead(
-    loadClientWork(id),
-    Promise.all([
-      getProject(projectId),
-      listCycles([projectId]),
-      listStages(projectId),
-      listBlueprints(projectId),
-      loadPeople(),
-    ]),
-  );
+  const [{ viewer, client }, [project, cycles, stages, blueprints, people, presetRows]] =
+    await checkThenRead(
+      loadClientWork(id),
+      Promise.all([
+        getProject(projectId),
+        listCycles([projectId]),
+        listStages(projectId),
+        listBlueprints(projectId),
+        loadPeople(),
+        listStagePresets(),
+      ]),
+    );
   if (!project || project.clientId !== client.id) notFound();
 
   const today = todayIST();
@@ -122,6 +125,9 @@ export default async function ProjectPage({
     owner: viewer.role === "owner",
   };
   const active = activeStages(stages);
+  const presets = presetRows
+    .filter((preset) => !preset.archived)
+    .map((preset) => ({ id: preset.id, name: preset.name, stages: preset.stages }));
   const activityContext = {
     names: people.names,
     items: Object.fromEntries(items.map((item) => [item.id, item.title])),
@@ -197,13 +203,16 @@ export default async function ProjectPage({
                 id: stage.id,
                 name: stage.name,
                 position: stage.position,
+                groupLabel: stage.groupLabel,
+                groupPosition: stage.groupPosition,
               }))}
               blueprints={sortItems(blueprints.filter((row) => !row.archived)).map((row) => ({
                 id: row.id,
                 name: row.title,
                 position: row.position,
-                stages: row.stages,
+                stageGroups: row.stageGroups,
               }))}
+              presets={presets}
               definitions={definitions}
               canManage={canManage}
               canComplete={can(viewer.role, "projects.complete")}
@@ -302,6 +311,7 @@ export default async function ProjectPage({
             permissions={permissions}
             canAdd={working && !ended && client.state !== "inactive"}
             defaultStages={active.length}
+            presets={presets}
             openItemId={items.some((item) => item.id === itemParam) ? (itemParam ?? null) : null}
           />
         ) : null}

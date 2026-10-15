@@ -20,6 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/core/ui/primitives/dropdown-menu";
+import type { StagePresetOption } from "@/core/ui/stage-groups/editing";
 import { toastResult } from "@/core/ui/toast";
 
 import { markItemsDone, tickStages, updateItem } from "../actions/items";
@@ -67,8 +68,11 @@ export function CycleItems({
   permissions,
   canAdd,
   defaultStages = 0,
+  presets = [],
   openItemId = null,
 }: {
+  /** The stage presets, for a deliverable's Edit stages (6b). */
+  presets?: readonly StagePresetOption[];
   /** How many default stages a new deliverable starts with (the Add dialog says so). */
   defaultStages?: number;
   /** An item to open on arrival (`?item=`, from the calendar's "Client items"). */
@@ -392,6 +396,7 @@ export function CycleItems({
           }}
           onMove={permissions.manage ? (id, direction) => void move(id, direction) : undefined}
           onMarkDone={markDone}
+          presets={presets}
         />
       ) : null}
     </section>
