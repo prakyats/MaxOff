@@ -14,8 +14,9 @@ import { adminGreeting, ownerGreeting } from "./words";
  * row height, the kind label and title, the two meta lines, the one outlined button), then the
  * attendance section, its heading and the strip of four counts. Needs you always stands ("Nothing
  * needs you." when empty) and the card always follows it, so the first screen keeps this shape;
- * the sections after the card (Today's tasks, Client work, Overdue and risks, This week) are
- * hidden when empty (decision 24). **An Admin's:** the one-line attendance strip, then "Needs
+ * the sections after the card (My tasks, 6b.2; Today's tasks, Client work, Overdue and risks,
+ * This week) are hidden when empty (decision 24), so they are drawn below the card only once their
+ * data says they exist and nothing traced here moves. **An Admin's:** the one-line attendance strip, then "Needs
  * you": its heading and two `TaskRow`s, then Client work (7.3): its heading and two rows. A Crew
  * member who types the address is taken to My Day, whose shape this is too (the strip and a
  * section). The `(app)` layout already read the member for this request (`cache()`), so asking

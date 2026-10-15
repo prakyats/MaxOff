@@ -10,6 +10,10 @@ import type { AvailabilitySource, CalendarScope, EventSource, LeaveSource } from
  * an Admin their own events and leave in full and everyone else through `member_availability()`
  * (busy blocks and the fact of leave; a date-only event of someone else is not in it, so it does
  * not make them busy, 6B later item (c)). A pending leave request is not leave yet. Pure.
+ *
+ * **The Owner as Busy (6b.2, owner 2026-10-07):** the Owner may be on tasks now, so `busyOnly`
+ * (the Owner) shows under "Busy …" on a day with a shoot, from the same reads (an Admin's from
+ * `member_availability()`: the time, never the title), and never as Free or on leave.
  */
 
 export type FreePerson = { id: string; name: string };
@@ -55,9 +59,15 @@ export function whoIsFree(input: {
   leave: readonly LeaveSource[];
   /** An Admin's `member_availability()` rows; null for the Owner. */
   availability: readonly AvailabilitySource[] | null;
+  /** People named only when busy (the Owner, 6b.2): never Free, never on leave. */
+  busyOnly?: readonly FreePerson[];
 }): WhoFree | null {
   if (input.scope === "staff") return null;
-  const seen = new Set(input.people.map((person) => person.id));
+  const busyOnly = (input.busyOnly ?? []).filter(
+    (person) => !input.people.some((other) => other.id === person.id),
+  );
+  const onlyBusy = new Set(busyOnly.map((person) => person.id));
+  const seen = new Set([...input.people, ...busyOnly].map((person) => person.id));
   const blocks = new Map<string, Block[]>();
   const add = (memberId: string, block: Block) => {
     if (!seen.has(memberId)) return;
@@ -90,11 +100,19 @@ export function whoIsFree(input: {
   }
 
   const byName = (a: FreePerson, b: FreePerson) => a.name.localeCompare(b.name);
-  const people = [...input.people].sort(byName);
+  const people = [...input.people, ...busyOnly].sort(byName);
   const free: string[] = [];
   const onLeave: string[] = [];
   const busy = new Map<string, string[]>();
   for (const person of people) {
+    if (onlyBusy.has(person.id)) {
+      const own = blocks.get(person.id);
+      if (own && own.length > 0) {
+        const when = windows(own);
+        busy.set(when, [...(busy.get(when) ?? []), person.name]);
+      }
+      continue;
+    }
     const half = leave.get(person.id);
     if (half === false) {
       onLeave.push(person.name);

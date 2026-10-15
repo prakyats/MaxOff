@@ -278,19 +278,19 @@ describe("neededLine: what is needed from the viewer (decision 26)", () => {
     expect(line({ kind: "start", acting: { onBehalfOf: null } })).toBe(
       "Start work when you begin.",
     );
-    expect(line({ kind: "done", acting: { onBehalfOf: null }, again: false, completes: false })).toBe(
-      "Mark it done when the work is finished.",
-    );
+    expect(
+      line({ kind: "done", acting: { onBehalfOf: null }, again: false, completes: false }),
+    ).toBe("Mark it done when the work is finished.");
     // 6b.2: the Owner's own task completes on Done.
-    expect(line({ kind: "done", acting: { onBehalfOf: null }, again: false, completes: true })).toBe(
-      "Mark it done when the work is finished: that completes it.",
-    );
-    expect(line({ kind: "done", acting: { onBehalfOf: null }, again: true, completes: false })).toBe(
-      "Changes were asked for. Fix them, then mark it done again.",
-    );
-    expect(line({ kind: "done", acting: { onBehalfOf: "bala" }, again: false, completes: false })).toBe(
-      "Mark it done for Bala Freelance when the work is finished.",
-    );
+    expect(
+      line({ kind: "done", acting: { onBehalfOf: null }, again: false, completes: true }),
+    ).toBe("Mark it done when the work is finished: that completes it.");
+    expect(
+      line({ kind: "done", acting: { onBehalfOf: null }, again: true, completes: false }),
+    ).toBe("Changes were asked for. Fix them, then mark it done again.");
+    expect(
+      line({ kind: "done", acting: { onBehalfOf: "bala" }, again: false, completes: false }),
+    ).toBe("Mark it done for Bala Freelance when the work is finished.");
     expect(line({ kind: "review", step: "admin" })).toBe(
       "Check the hand-in, then approve it or ask for changes.",
     );

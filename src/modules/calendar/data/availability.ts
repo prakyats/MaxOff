@@ -10,7 +10,7 @@ const ROWS_PER_CALL = 900;
 
 /**
  * An Admin's view of everyone else (`member_availability()`, `availability.view`; Kickoff 6
- * decision 13): per person per IST day, the approved leave as a fact and the timed events as
+ * decision 13; the Owner too since 6b.2, so the Owner's shoots read as Busy): per person per IST day, the approved leave as a fact and the timed events as
  * blocks with no title or id. One row per person per day, so the range is read in slices that
  * each stay under PostgREST's row limit (6A mechanics (1): a cut answer would hide someone's
  * block). `memberIds` keeps the read to these people (a person filter); null reads everyone.

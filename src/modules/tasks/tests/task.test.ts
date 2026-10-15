@@ -301,7 +301,9 @@ describe("tasks for the Owner (6b.2, owner 2026-10-07)", () => {
     for (const state of ["submitted", "admin_approved", "completed", "cancelled"] as TaskState[]) {
       expect(taskActions(task({ state }), TEAM, PEOPLE, OWNER).remind, state).toBe(false);
     }
-    expect(taskActions(task({ state: "changes_requested" }), TEAM, PEOPLE, OWNER).remind).toBe(true);
+    expect(taskActions(task({ state: "changes_requested" }), TEAM, PEOPLE, OWNER).remind).toBe(
+      true,
+    );
   });
 
   it("knows when Remind can be used again: an hour after the newest reminder", () => {

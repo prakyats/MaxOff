@@ -3,6 +3,7 @@
 import { BellRingIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { systemClock } from "@/core/time";
 import { ActionStatus } from "@/core/ui/action/action-status";
 import { useAction } from "@/core/ui/action/use-action";
 import { Button } from "@/core/ui/primitives/button";
@@ -41,7 +42,7 @@ export function TaskRemind({
   // The hour ends while the page is open: one timer for that moment, never a refresh loop.
   useEffect(() => {
     if (!wait) return;
-    const left = Math.max(0, Date.parse(wait.at) - Date.now());
+    const left = Math.max(0, Date.parse(wait.at) - systemClock().getTime());
     const timer = window.setTimeout(() => setWait(null), left);
     return () => window.clearTimeout(timer);
   }, [wait]);

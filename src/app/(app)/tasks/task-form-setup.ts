@@ -44,9 +44,10 @@ export async function loadTaskFormSetup(viewer: CurrentMember): Promise<TaskForm
     today: todayIST(),
     threshold: settings.workloadWarningThreshold,
     types,
-    // Kickoff 4 decision 1: never the Owner; only active people can be assigned.
+    // Only active people can be assigned; the Owner too since 6b.2 (owner 2026-10-07: the Owner
+    // and Admins may put the Owner on a task; only they open this dialog).
     people: directory
-      .filter((member) => member.status === "active" && member.role !== "owner")
+      .filter((member) => member.status === "active")
       .map((member) => {
         const coordinatorId = coordinators[member.id];
         return {
