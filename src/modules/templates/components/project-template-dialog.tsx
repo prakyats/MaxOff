@@ -296,6 +296,7 @@ export function ProjectTemplateDialog({
                 Cancel
               </Button>
               {desktop === false ? (
+                // pending: none — it opens the Preview layer, whose own button saves.
                 <Button type="submit" variant="strong" data-slot="template-preview">
                   Preview
                 </Button>
