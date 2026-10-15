@@ -317,6 +317,16 @@ export function taskActions(
   };
 }
 
+/**
+ * Who moves the task's stages, and as whom (6b.18, owner 2026-10-13 option A; WORKFLOWS §3.1):
+ * whoever may edit the task, as themselves, until it is completed or cancelled; otherwise whoever
+ * may tick (an assignee, or a freelancer's coordinator for them) while it is with its people. Null:
+ * no drag handle and no Move up / Move down. `task_stage_move` decides it again.
+ */
+export function stageMoveAs(canManage: boolean, tick: ActingFor | null): ActingFor | null {
+  return canManage ? { onBehalfOf: null } : tick;
+}
+
 /** "Ravi for Asha" when someone acted for a freelancer; else the actor's name. */
 export function actorPair(actorName: string, onBehalfOfName: string | null): string {
   return onBehalfOfName ? `${actorName} for ${onBehalfOfName}` : actorName;

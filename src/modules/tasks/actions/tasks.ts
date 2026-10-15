@@ -17,6 +17,8 @@ import {
   commentSchema,
   type CreateTaskInput,
   createTaskSchema,
+  type MoveStageInput,
+  moveStageSchema,
   type ReasonInput,
   reasonSchema,
   type RemindInput,
@@ -217,6 +219,18 @@ export const removeTaskStage = action(async (input: RemoveStageInput): Promise<R
   const data = removeStageSchema.parse(input);
   await assertPermission("tasks.create");
   await repo.removeStage(data.taskId, data.stageId);
+  revalidatePath(taskPath(data.taskId));
+  return ok(null);
+});
+
+/**
+ * Drag to reorder (6b.18, owner 2026-10-13 option A): everyone on the task moves its stages, and
+ * whoever may edit it; `task_stage_move` decides who, when, and keeps the ticks.
+ */
+export const moveTaskStage = action(async (input: MoveStageInput): Promise<Result<null>> => {
+  const data = moveStageSchema.parse(input);
+  await assertPermission("tasks.work");
+  await repo.rpcMoveStage(data);
   revalidatePath(taskPath(data.taskId));
   return ok(null);
 });
