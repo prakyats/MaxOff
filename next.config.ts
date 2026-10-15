@@ -1,5 +1,4 @@
 import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
-import { withSentryConfig } from "@sentry/nextjs/config";
 import type { NextConfig } from "next";
 
 import {
@@ -49,6 +48,10 @@ const nextConfig: NextConfig = {
   // exactly what a real-device pass needs to tap. Next still surfaces every compile and runtime
   // error with `false` — only the route-type badge and the devtools panel go.
   devIndicators: false,
+  // EXPERIMENT (exp/p-no-sentry): no Sentry SDK in any bundle, to measure its cold-start share.
+  turbopack: {
+    resolveAlias: { "@sentry/nextjs": "./src/core/observability/sentry-stub.ts" },
+  },
   experimental: {
     // The client router cache (ARCHITECTURE §19, owner decision 2026-09-28). A tab seen in the
     // last 30 s comes back at once with no request (Next's default for dynamic pages is 0 s: every
@@ -61,20 +64,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-const uploadsSourceMaps = Boolean(process.env.SENTRY_AUTH_TOKEN);
-
-// Sentry (task 0.5, ARCHITECTURE §18). The SDK itself is configured in `src/core/observability`;
-// this wrapper only handles build-time source-map upload, which happens solely when the deploy
-// workflow provides SENTRY_AUTH_TOKEN. Local builds and CI upload nothing.
-export default withSentryConfig(nextConfig, {
-  ...(process.env.SENTRY_ORG ? { org: process.env.SENTRY_ORG } : {}),
-  ...(process.env.SENTRY_PROJECT ? { project: process.env.SENTRY_PROJECT } : {}),
-  ...(process.env.SENTRY_AUTH_TOKEN ? { authToken: process.env.SENTRY_AUTH_TOKEN } : {}),
-  silent: !uploadsSourceMaps,
-  telemetry: false,
-  sourcemaps: { disable: !uploadsSourceMaps, deleteSourcemapsAfterUpload: true },
-  // Upload problems must never fail a deploy: the app still runs, only stack traces get uglier.
-  errorHandler: (error) => {
-    console.warn(`Sentry source-map upload skipped: ${error.message}`);
-  },
-});
+export default nextConfig;
