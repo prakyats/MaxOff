@@ -1,4 +1,4 @@
-import { type Page, type TestInfo } from "@playwright/test";
+import { type Page, type Request, type TestInfo } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 
@@ -847,6 +847,11 @@ for (const role of ["owner", "admin", "staff"] as const) {
  */
 type HeldAtNavigation = {
   role: SessionRole;
+  /**
+   * Where the move starts: a screen under no other loading boundary of the path (the guide's is
+   * reached from Me, whose own loading screen would otherwise stand in front of it).
+   */
+  from: string;
   path: string;
   marker: string;
   trace: Readonly<Record<string, Point>>;
@@ -894,12 +899,14 @@ const GUIDE: Record<string, Point> = {
 const HELD_AT_NAVIGATION: readonly HeldAtNavigation[] = [
   ...(["owner", "admin"] as const).map((role) => ({
     role,
+    from: "/notifications",
     path: "/settings",
     marker: 'data-slot="loading-settings"',
     trace: SETTINGS,
   })),
   ...(["owner", "admin", "staff"] as const).map((role) => ({
     role,
+    from: "/me",
     path: "/me/guide",
     marker: 'data-slot="guide-loading"',
     trace: GUIDE,
@@ -917,22 +924,29 @@ for (const role of ["owner", "admin", "staff"] as const) {
     for (const screen of HELD_AT_NAVIGATION.filter((entry) => entry.role === role)) {
       test(`${screen.path}: fits at large text and traces its screen`, async ({ page }) => {
         const phone = (page.viewportSize()?.width ?? 1280) < 768;
-        // The screen's loading-boundary prefetch (not the route tree's), once answered.
+        // The screen's loading-boundary prefetch (not the route tree's), once the router is done
+        // with it: a response's headers arrive before the router has read the skeleton, and the
+        // router cancels the rest of the answer once it reaches the boundary (so it ends as
+        // finished or as failed, either way read up to the skeleton).
         let prefetched = false;
-        page.on("response", (response) => {
-          const headers = response.request().headers();
+        const done = (request: Request) => {
+          const headers = request.headers();
           if (
-            new URL(response.url()).pathname === screen.path &&
+            new URL(request.url()).pathname === screen.path &&
             headers["rsc"] === "1" &&
             headers["next-router-prefetch"] === "1" &&
-            !headers["next-router-segment-prefetch"] &&
-            response.ok()
+            !headers["next-router-segment-prefetch"]
           )
-            prefetched = true;
-        });
+            void request.response().then((response) => {
+              if (response?.ok()) prefetched = true;
+            });
+        };
+        page.on("requestfinished", done);
+        page.on("requestfailed", done);
         const held = await holdNextRefresh(page, screen.path);
         try {
-          await page.goto("/notifications");
+          await page.goto(screen.from);
+          await expectSettled(page);
           await hydrated(page);
           await page.evaluate(
             (path) => (window as unknown as RouterWindow).next.router.prefetch(path),
