@@ -129,13 +129,16 @@ export function BackLink({
         <>
           <ChevronLeftIcon className="size-4" aria-hidden />
           {labelWidth ? (
-            <span
-              aria-hidden
-              className={cn(
-                "bg-muted inline-block h-3.5 rounded-md motion-safe:animate-pulse",
-                labelWidth,
-              )}
-            />
+            // The bar in a line box of the label's own height (`text-sm`, 20px): a bare 14px bar
+            // made the link 16px high, and the title beside it sat 4px high until the page came.
+            <span aria-hidden className="inline-flex h-5 items-center">
+              <span
+                className={cn(
+                  "bg-muted inline-block h-3.5 rounded-md motion-safe:animate-pulse",
+                  labelWidth,
+                )}
+              />
+            </span>
           ) : (
             shown
           )}

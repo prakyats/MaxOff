@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { can } from "@/core/permissions";
 import { navFor } from "@/core/ui/shell/nav";
 
-import { guideFor } from "../domain/guide";
+import { guideFor, guideShotsFor } from "../domain/guide";
 import { normalise, searchGuide, stepText, topicCount } from "../domain/search";
 import { GUIDE_SHOTS } from "../domain/shots.generated";
 import type { Guide, GuideBlock, GuideRole } from "../domain/types";
@@ -117,6 +117,20 @@ describe.each(ROLES)("the %s guide", (role) => {
           );
         }
       }
+    }
+  });
+
+  it("hands the page only the screenshots its own steps show (no other role's reach the browser)", () => {
+    const shots = guideShotsFor(guide);
+    const used = guide.sections
+      .flatMap((s) => s.topics)
+      .flatMap((t) => t.blocks)
+      .flatMap((b) => (b.kind === "steps" ? b.steps : []))
+      .flatMap((step) => (typeof step === "string" || !step.shot ? [] : [step.shot]));
+    expect(Object.keys(shots).sort()).toEqual([...new Set(used)].sort());
+    for (const [id, shot] of Object.entries(shots)) {
+      expect(id.startsWith(`${role}/`), id).toBe(true);
+      expect(shot).toBe(GUIDE_SHOTS[id]);
     }
   });
 

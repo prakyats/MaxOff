@@ -52,3 +52,14 @@ export type Guide = {
   readonly role: GuideRole;
   readonly sections: readonly GuideSection[];
 };
+
+/** A generated laptop screenshot (`GUIDE_SHOTS`): its file, size in CSS px and description. */
+export type GuideShot = {
+  readonly src: string;
+  readonly width: number;
+  readonly height: number;
+  readonly alt: string;
+};
+
+/** Screenshots by shot id ("<role>/<name>"). */
+export type GuideShots = Readonly<Record<string, GuideShot>>;

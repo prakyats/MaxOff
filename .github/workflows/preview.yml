@@ -68,7 +68,7 @@ on:
         type: boolean
         default: true
       base_url:
-        description: "perf-probe: probe this address instead of the branch preview"
+        description: "perf-probe: probe this address instead of the branch preview (staging or one of its previews only)"
         type: string
         default: ""
       production:
@@ -578,7 +578,27 @@ jobs:
             alias="$(printf '%s' "$alias" | cut -c1-"$(( max - 7 ))" | sed 's/-*$//')-$suffix"
           fi
           if [ -n "${BASE_URL:-}" ]; then
-            target="${BASE_URL%/}"
+            # The probe signs in with a session minted for staging, so it goes only to staging or
+            # one of its previews (<alias>-<worker>.<subdomain>, the staging workers.dev
+            # subdomain), over https: never to any other host (security review, Release 2).
+            base="${BASE_URL%/}"
+            case "$base" in
+              https://*) ;;
+              *) echo "::error::base_url must be an https:// address of staging or one of its previews."; exit 1 ;;
+            esac
+            base_host="${base#https://}"; base_host="${base_host%%/*}"
+            base_host="$(printf '%s' "$base_host" | tr 'A-Z' 'a-z')"
+            label="${base_host%."$subdomain"}"
+            if [ "$base_host" = "$host" ]; then
+              :
+            elif [ "${subdomain%.workers.dev}" != "$subdomain" ] && [ "$label" != "$base_host" ] \
+              && printf '%s' "$label" | grep -Eqx "[a-z0-9]([a-z0-9-]*[a-z0-9])?-${worker}"; then
+              :
+            else
+              echo "::error::base_url's host '$base_host' is neither staging ($host) nor a preview of it (<alias>-${worker}.${subdomain}). The probe signs in with a staging session, so it goes nowhere else."
+              exit 1
+            fi
+            target="https://${base_host}"
           elif [ "$branch" = "main" ]; then
             target="$STAGING_URL"
           else

@@ -8,6 +8,18 @@ import { PageHeader } from "@/core/ui/composites/page-header";
 import { Badge } from "@/core/ui/primitives/badge";
 import { settingsSectionsFor } from "@/core/ui/shell/nav";
 
+import {
+  HELP_LIST_CLASS,
+  HELP_ROW_CLASS,
+  SECTION_DESCRIPTION_CLASS,
+  SECTION_LINE_CLASS,
+  SECTION_READY_LINE_CLASS,
+  SECTION_SHELL_CLASS,
+  SECTION_SOON_LINE_CLASS,
+  SETTINGS_LIST_CLASS,
+  settingsDescription,
+} from "./list";
+
 export const metadata: Metadata = { title: "Settings" };
 
 /**
@@ -30,38 +42,30 @@ export default async function SettingsPage() {
   ]);
   const sections = settingsSectionsFor(viewer.role);
 
-  const description =
-    viewer.role === "owner"
-      ? "Everything configurable lives here: company, days off, thresholds, notifications, lists, fields, templates and integrations."
-      : "The lists and templates you may edit, and who on your tasks can't be reached. Company settings, days off, thresholds and the team are the Owner's.";
+  const description = settingsDescription(viewer.role);
 
   return (
     <>
       <PageHeader title="Settings" description={description} help={description} />
 
-      <ul
-        data-slot="settings-list"
-        className="border-border divide-border divide-y overflow-hidden rounded-lg border md:grid md:grid-cols-2 md:gap-3 md:divide-y-0 md:overflow-visible md:rounded-none md:border-0 lg:grid-cols-3"
-      >
+      <ul data-slot="settings-list" className={SETTINGS_LIST_CLASS}>
         {sections.map((section) => {
-          // The row itself on a phone; the card from `md` up.
-          const shell =
-            "relative h-full md:rounded-xl md:border md:border-border md:bg-card md:transition-colors";
-          // The tappable line. The description stays *outside* it so the link is named
-          // "Company", not "Company, the company name and the timezone…"; on desktop
-          // `after:inset-0` hands the rest of the card back to the same link.
-          const line =
-            "flex min-h-14 items-center gap-2 px-4 outline-none after:absolute after:inset-0 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset";
-
+          // The tappable line (`SECTION_LINE_CLASS`). The description stays *outside* it so the
+          // link is named "Company", not "Company, the company name and the timezone…"; on
+          // desktop `after:inset-0` hands the rest of the card back to the same link.
           return (
-            <li key={section.key} className={cn(shell, section.ready && "md:hover:border-ring")}>
+            <li
+              key={section.key}
+              className={cn(SECTION_SHELL_CLASS, section.ready && "md:hover:border-ring")}
+            >
               {section.ready ? (
                 <DrillLink
                   href={section.href}
                   data-slot="settings-section"
                   className={cn(
-                    line,
-                    "active:bg-muted/60 md:min-h-0 md:pt-4 md:active:bg-transparent",
+                    SECTION_LINE_CLASS,
+                    SECTION_READY_LINE_CLASS,
+                    "active:bg-muted/60 md:active:bg-transparent",
                   )}
                 >
                   <span className="min-w-0 flex-1 truncate text-sm font-medium">
@@ -70,7 +74,7 @@ export default async function SettingsPage() {
                   <ArrowRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
                 </DrillLink>
               ) : (
-                <div className={cn(line, "flex-wrap py-2 after:hidden md:min-h-0 md:pt-4 md:pb-0")}>
+                <div className={cn(SECTION_LINE_CLASS, SECTION_SOON_LINE_CLASS)}>
                   {/* The label keeps at least 8rem and the row wraps, so at large system text
                       "Coming soon" drops under the label instead of squeezing it: beside the
                       badge the label kept 47px at 200% and broke mid-word (3cB review, §14.2 i). */}
@@ -82,24 +86,22 @@ export default async function SettingsPage() {
                   </Badge>
                 </div>
               )}
-              <p className="text-muted-foreground hidden px-4 pt-1.5 pb-4 text-sm md:block">
-                {section.description}
-              </p>
+              <p className={SECTION_DESCRIPTION_CLASS}>{section.description}</p>
             </li>
           );
         })}
       </ul>
 
       {/* Help and troubleshooting (ROADMAP 6b.14): the in-app guide, for the reader's role. */}
-      <ul
-        data-slot="settings-help"
-        className="border-border mt-6 overflow-hidden rounded-lg border md:max-w-md md:rounded-xl"
-      >
+      <ul data-slot="settings-help" className={HELP_LIST_CLASS}>
         <li>
           <DrillLink
             href="/me/guide"
             data-slot="settings-guide-link"
-            className="focus-visible:ring-ring active:bg-muted/60 group/guide hover:bg-muted/50 flex min-h-14 items-center gap-2 px-4 py-2 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-inset"
+            className={cn(
+              HELP_ROW_CLASS,
+              "focus-visible:ring-ring active:bg-muted/60 group/guide hover:bg-muted/50 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-inset",
+            )}
           >
             {/* Says what opens (unit U): the guide, step-by-step help for the reader's role. */}
             <span className="flex min-w-0 flex-1 flex-col">

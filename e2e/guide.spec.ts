@@ -54,6 +54,24 @@ for (const { role, label, has, never } of ROLES) {
         expect(text).not.toMatch(/deliverable|project|client|template|preset|approvals/i);
       }
     });
+
+    if (role === "staff") {
+      test("the page and its RSC payload carry only Crew screenshots", async ({ page }) => {
+        // As the server sends them, read in full: the document, and the payload a navigation reads.
+        const answers = await Promise.all([
+          page.request.get("/me/guide"),
+          page.request.get("/me/guide", { headers: { RSC: "1" } }),
+        ]);
+        for (const answer of answers) {
+          expect(answer.ok()).toBe(true);
+          const body = await answer.text();
+          // It bites: the Crew's own pictures are there.
+          expect(body).toContain("/guide/staff/");
+          // No Owner or Admin shot: neither its id ("owner/…") nor its file ("/guide/owner/…").
+          expect(body).not.toMatch(/\b(?:owner|admin)\/[a-z0-9-]/);
+        }
+      });
+    }
   });
 }
 

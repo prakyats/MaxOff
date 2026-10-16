@@ -8,7 +8,9 @@ import { Button } from "@/core/ui/primitives/button";
 
 /**
  * Floating action bar shown while rows are selected (bulk approve, reject, reassign).
- * Renders nothing when `count` is 0. Sits above the Staff bottom nav on phones. `onHeight` hears
+ * Renders nothing when `count` is 0. Sits above the Staff bottom nav on phones, and above the
+ * notifications and offline bands whenever they show (`--app-bands-h`, as every docked bar does:
+ * `sticky-actions.tsx`, the page header's FAB). `onHeight` hears
  * the bar's height (0 when it is gone), so a screen can reserve that space under its list and its
  * last row can scroll clear of the bar (unit U).
  */
@@ -56,7 +58,7 @@ export function BulkBar({
       data-slot="bulk-bar"
       ref={measure}
       className={cn(
-        "fixed inset-x-3 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-40 md:inset-x-auto md:bottom-6 md:left-1/2 md:-translate-x-1/2",
+        "fixed inset-x-3 bottom-[calc(4.5rem+env(safe-area-inset-bottom)+var(--app-bands-h,0px))] z-40 md:inset-x-auto md:bottom-[calc(1.5rem+var(--app-bands-h,0px))] md:left-1/2 md:-translate-x-1/2",
         className,
       )}
     >

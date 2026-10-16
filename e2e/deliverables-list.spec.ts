@@ -424,6 +424,44 @@ test("the whole row opens the deliverable: a click anywhere, Enter or Space; in 
   await removeClientFixture(client);
 });
 
+test("with the notifications band showing, the Select bar sits above it and the last row still clears the bar", async ({
+  page,
+}, info) => {
+  const client = nameOf(info, "band");
+  const clientId = await workClient(client);
+  const projectId = await rpcAs<string>(admin.email, admin.password, "project_create", {
+    client_id: clientId,
+    name: "Band work",
+    recurrence: "monthly",
+    stages: ["Stage 1"],
+    items: ["Clip A", "Clip B"],
+  });
+  await page.goto(`/clients/${clientId}/projects/${projectId}`);
+  await hydrated(page);
+  // The seeded Admin has no device that has received a push, so the band shows ("off").
+  const band = page.locator('[data-slot="push-banner"]');
+  await expect(band).toBeVisible();
+
+  await page.getByRole("button", { name: "Select", exact: true }).click();
+  await clickRowAt(page, "Clip B", '[data-slot="item-open"]');
+  const bar = page.locator('[data-slot="bulk-bar"]');
+  await expect(bar).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  await expect
+    .poll(async () => {
+      const [over, under, last] = await Promise.all([
+        bar.boundingBox(),
+        band.boundingBox(),
+        row(page, "Clip B").boundingBox(),
+      ]);
+      // The bar's box ends above the band's (no overlap), and the last row ends above the bar.
+      return over!.y + over!.height <= under!.y && last!.y + last!.height <= over!.y;
+    })
+    .toBe(true);
+  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await removeClientFixture(client);
+});
+
 test("a stage chip ticks in one tap with Undo; Next ticks its stage; Mark done shows once all are ticked", async ({
   page,
 }, info) => {

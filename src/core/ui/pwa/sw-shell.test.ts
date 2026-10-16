@@ -326,6 +326,13 @@ describe("one viewer, one deployment: everything else is dropped", () => {
     expect(await answeredAtOnce(worker)).toBe(false);
   });
 
+  it("no viewer (sign-out, a signed-out page's arrival) drops them", async () => {
+    const worker = await withKeptSkeleton("owner");
+    await worker.tell(null);
+    expect(await answeredAtOnce(worker)).toBe(false);
+    expect(worker.caches.stores.has("maxoff-shell-v9")).toBe(false);
+  });
+
   it("an unknown viewer counts as none", async () => {
     const worker = await withKeptSkeleton("owner");
     await worker.tell("root");

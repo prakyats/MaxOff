@@ -10,6 +10,7 @@ import { expect, test } from "./fixtures";
 import {
   hydrated,
   memberIdOf,
+  ownSession,
   removeClientFixture,
   removeTasksTitled,
   rpcAs,
@@ -460,5 +461,42 @@ test.describe("a tap on a cold Worker shows its skeleton at once", () => {
     expect(await page.evaluate(() => history.length)).toBe(historyAtTasks);
     await page.goBack();
     await expect(page).toHaveURL(/\/today$/);
+  });
+});
+
+test.describe("sign-out drops what the worker keeps", () => {
+  test.use({ storageState: storageStateFor("staff") });
+  test.skip(({ isMobile }) => !isMobile, "the installed app is a phone");
+
+  test("signing out through the dialog empties the skeleton cache and forgets its viewer, installed", async ({
+    page,
+    context,
+  }) => {
+    // The worker is in charge before the first page, as on any day after the first.
+    const prep = await context.newPage();
+    await prep.goto("/offline");
+    await prep.evaluate(() => navigator.serviceWorker.ready.then(() => undefined));
+    await prep.close();
+    // A session of this test's own: signing it out ends no other test's.
+    await ownSession(page, USERS.staff.email, USERS.staff.password);
+    await runInstalled(page);
+
+    await page.goto("/my-day");
+    await hydrated(page);
+    // The shell named its viewer and the worker kept the bar's skeletons.
+    await expect
+      .poll(async () => {
+        const kept = await keptAddresses(page);
+        return kept.includes("/__maxoff/shell-viewer") && kept.includes("/tasks");
+      })
+      .toBe(true);
+
+    await page.locator('[data-slot="bottom-nav"] a[href="/me"]').click();
+    await expect(page).toHaveURL(/\/me$/);
+    await page.getByRole("button", { name: "Sign out" }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Sign out" }).click();
+    await expect(page).toHaveURL(/\/login\?reason=signed_out$/);
+    // The router's redirect is no navigation the worker sees: it was told, and dropped it all.
+    await expect.poll(() => keptAddresses(page)).toEqual([]);
   });
 });

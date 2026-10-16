@@ -8,6 +8,7 @@ import {
   animationsSettled,
   expectNoHorizontalScroll,
   expectSettled,
+  holdNextRefresh,
   holdReads,
   hydrated,
   insertAs,
@@ -751,6 +752,23 @@ function pick(trace: Readonly<Record<string, Point>>, side: keyof Point): Record
   return Object.fromEntries(Object.entries(trace).map(([name, point]) => [name, point[side]]));
 }
 
+/** Every traced point that moved past `TRACE_TOLERANCE` (or is missing on either side). */
+function movesOf(
+  trace: Readonly<Record<string, Point>>,
+  skeleton: Record<string, number | null>,
+  settled: Record<string, number | null>,
+): string[] {
+  return Object.keys(trace).flatMap((name) => {
+    const from = skeleton[name];
+    const to = settled[name];
+    if (from === null || from === undefined) return [`${name}: not in the skeleton`];
+    if (to === null || to === undefined) return [`${name}: not on the page`];
+    return Math.abs(to - from) > TRACE_TOLERANCE
+      ? [`${name}: ${from.toFixed(1)} → ${to.toFixed(1)}`]
+      : [];
+  });
+}
+
 for (const role of ["owner", "admin", "staff"] as const) {
   test.describe(`${role}: loading screens, held`, () => {
     test.use({ storageState: storageStateFor(role) });
@@ -805,19 +823,155 @@ for (const role of ["owner", "admin", "staff"] as const) {
           await hydrated(page);
           await screen.settle?.(page);
           const settled = await topsOf(page, pick(screen.trace, "settled"));
-          const moved = Object.keys(screen.trace).flatMap((name) => {
-            const from = skeleton[name];
-            const to = settled[name];
-            if (from === null || from === undefined) return [`${name}: not in the skeleton`];
-            if (to === null || to === undefined) return [`${name}: not on the page`];
-            return Math.abs(to - from) > TRACE_TOLERANCE
-              ? [`${name}: ${from.toFixed(1)} → ${to.toFixed(1)}`]
-              : [];
-          });
-          expect(moved, "nothing moves when the data arrives").toEqual([]);
+          expect(
+            movesOf(screen.trace, skeleton, settled),
+            "nothing moves when the data arrives",
+          ).toEqual([]);
         } finally {
           held.release();
           await remove?.();
+        }
+      });
+    }
+  });
+}
+
+/**
+ * Screens that read nothing of their own (Settings: its sections are the role's and its header is
+ * copy; the guide: the role's content): no read of the page can be held at the proxy, so the
+ * loading screen is held at the navigation instead. The router has the screen's loading-boundary
+ * prefetch, as it has from the shell's own prefetch, and the request for the page itself is held:
+ * the loading screen is up, nothing races, and the same checks run as for every screen above (it
+ * fits at large text on a phone, and every point it traces is within `TRACE_TOLERANCE` of the
+ * settled page's).
+ */
+type HeldAtNavigation = {
+  role: SessionRole;
+  path: string;
+  marker: string;
+  trace: Readonly<Record<string, Point>>;
+};
+
+/**
+ * Settings: the first and the last section (each card's description wraps to the page's lines
+ * from `md` up), Help and troubleshooting under them, and that row's second line.
+ */
+const SETTINGS: Record<string, Point> = {
+  "first section": {
+    held: '[data-slot="loading-settings"] > ul:first-of-type > li:first-child',
+    settled: '[data-slot="settings-list"] > li:first-child',
+  },
+  "last section": {
+    held: '[data-slot="loading-settings"] > ul:first-of-type > li:last-child',
+    settled: '[data-slot="settings-list"] > li:last-child',
+  },
+  "help and troubleshooting": {
+    held: '[data-slot="loading-settings"] > ul:nth-of-type(2)',
+    settled: '[data-slot="settings-help"]',
+  },
+  "its second line": {
+    held: '[data-slot="loading-settings"] > ul:nth-of-type(2) li > span > :nth-child(2)',
+    settled: '[data-slot="settings-guide-link"] > span > :nth-child(2)',
+  },
+};
+
+/** The guide: the search under the role line, then the role's first and third sections. */
+const GUIDE: Record<string, Point> = {
+  search: {
+    held: '[data-slot="guide-loading"] > :first-child',
+    settled: '[data-slot="guide"] > :first-child',
+  },
+  "first section": {
+    held: '[data-slot="guide-loading"] > :nth-child(2)',
+    settled: '[data-slot="guide"] > section:nth-of-type(1)',
+  },
+  "third section": {
+    held: '[data-slot="guide-loading"] > :nth-child(4)',
+    settled: '[data-slot="guide"] > section:nth-of-type(3)',
+  },
+};
+
+const HELD_AT_NAVIGATION: readonly HeldAtNavigation[] = [
+  ...(["owner", "admin"] as const).map((role) => ({
+    role,
+    path: "/settings",
+    marker: 'data-slot="loading-settings"',
+    trace: SETTINGS,
+  })),
+  ...(["owner", "admin", "staff"] as const).map((role) => ({
+    role,
+    path: "/me/guide",
+    marker: 'data-slot="guide-loading"',
+    trace: GUIDE,
+  })),
+];
+
+type RouterWindow = {
+  next: { router: { prefetch: (href: string) => void; push: (href: string) => void } };
+};
+
+for (const role of ["owner", "admin", "staff"] as const) {
+  test.describe(`${role}: loading screens, held at their navigation`, () => {
+    test.use({ storageState: storageStateFor(role) });
+
+    for (const screen of HELD_AT_NAVIGATION.filter((entry) => entry.role === role)) {
+      test(`${screen.path}: fits at large text and traces its screen`, async ({ page }) => {
+        const phone = (page.viewportSize()?.width ?? 1280) < 768;
+        // The screen's loading-boundary prefetch (not the route tree's), once answered.
+        let prefetched = false;
+        page.on("response", (response) => {
+          const headers = response.request().headers();
+          if (
+            new URL(response.url()).pathname === screen.path &&
+            headers["rsc"] === "1" &&
+            headers["next-router-prefetch"] === "1" &&
+            !headers["next-router-segment-prefetch"] &&
+            response.ok()
+          )
+            prefetched = true;
+        });
+        const held = await holdNextRefresh(page, screen.path);
+        try {
+          await page.goto("/notifications");
+          await hydrated(page);
+          await page.evaluate(
+            (path) => (window as unknown as RouterWindow).next.router.prefetch(path),
+            screen.path,
+          );
+          await expect
+            .poll(() => prefetched, { message: `the router has ${screen.path}'s loading screen` })
+            .toBe(true);
+          await page.evaluate(
+            (path) => (window as unknown as RouterWindow).next.router.push(path),
+            screen.path,
+          );
+          const loading = page.locator(`[${screen.marker}]`);
+          await expect(loading).toBeVisible();
+          await held.held;
+          const skeleton = await topsOf(page, pick(screen.trace, "held"));
+          if (phone) {
+            for (const scale of [100, 130, 200]) {
+              await page.evaluate((percent) => {
+                document.documentElement.style.fontSize = `${percent}%`;
+              }, scale);
+              await expectNoHorizontalScroll(page);
+            }
+            await page.evaluate(() => {
+              document.documentElement.style.fontSize = "";
+            });
+          }
+
+          held.release();
+          await expect(loading).toHaveCount(0);
+          await expectSettled(page);
+          await hydrated(page);
+          const settled = await topsOf(page, pick(screen.trace, "settled"));
+          expect(
+            movesOf(screen.trace, skeleton, settled),
+            "nothing moves when the page arrives",
+          ).toEqual([]);
+        } finally {
+          held.release();
         }
       });
     }

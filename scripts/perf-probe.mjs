@@ -74,6 +74,27 @@ const env = {
 if (signIn && /maxoff\.in|^https:\/\/maxoff\.pixoraclips/.test(base)) {
   throw new Error("Never probe production with a signed-in session: use --no-signin.");
 }
+/** Production's Supabase project (`maxoff-production`, Mumbai; README → "Deploying"). */
+const PRODUCTION_PROJECT_REF = "peshoflxypujbzecgwqq";
+if (signIn) {
+  // A session is minted only on a project that is not production's, and sent only to staging, a
+  // preview of it (both `*.workers.dev`) or this machine: never to any other host.
+  const project = env.url ? new URL(env.url).hostname : "";
+  if (
+    project === `${PRODUCTION_PROJECT_REF}.supabase.co` ||
+    project.startsWith(`${PRODUCTION_PROJECT_REF}.`)
+  ) {
+    throw new Error("Never sign in on production's Supabase project: use --no-signin.");
+  }
+  const { protocol, hostname } = new URL(base);
+  const local = hostname === "localhost" || hostname === "127.0.0.1";
+  const workers = protocol === "https:" && hostname.endsWith(".workers.dev");
+  if (!local && !workers) {
+    throw new Error(
+      `A signed-in probe goes only to a *.workers.dev address over https or to localhost, not ${hostname}: use --no-signin.`,
+    );
+  }
+}
 
 // ---------------------------------------------------------------------------------------------
 // Sign in: a session for one member, as the browser would hold it (the same cookie writer the

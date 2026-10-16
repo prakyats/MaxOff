@@ -13,11 +13,18 @@ import { finePointer } from "@/core/ui/keyboard/pointer";
 import { Input } from "@/core/ui/primitives/input";
 
 import { searchGuide, stepText, topicCount } from "../domain/search";
-import { GUIDE_SHOTS } from "../domain/shots.generated";
-import type { Guide, GuideBlock, GuideSection, GuideStep, GuideTopic } from "../domain/types";
+import type {
+  Guide,
+  GuideBlock,
+  GuideSection,
+  GuideShot,
+  GuideShots,
+  GuideStep,
+  GuideTopic,
+} from "../domain/types";
 
-/** A screenshot as the page shows it (`GUIDE_SHOTS`). */
-export type GuideShotImage = (typeof GUIDE_SHOTS)[string];
+/** A screenshot as the page shows it (one of the reader's `GuideShots`). */
+export type GuideShotImage = GuideShot;
 
 /**
  * The enlarged screenshot: a bottom sheet (back closes it, ARCHITECTURE §14.2), loaded on the
@@ -27,8 +34,14 @@ const ShotViewer = dynamic(() => import("./shot-viewer").then((module) => module
   ssr: false,
 });
 
-/** Opens a screenshot large; provided by `GuideView`. */
-const ViewShot = createContext<(shot: GuideShotImage) => void>(() => {});
+/**
+ * The reader's screenshots (only those their own guide's steps show, picked on the server:
+ * `guideShotsFor`) and the opener of one large; provided by `GuideView`.
+ */
+const Shots = createContext<{ shots: GuideShots; view: (shot: GuideShotImage) => void }>({
+  shots: {},
+  view: () => {},
+});
 
 /** A search with this many matches or fewer opens them, so the answer is on the screen. */
 const OPEN_WHEN_AT_MOST = 3;
@@ -40,13 +53,14 @@ const OPEN_WHEN_AT_MOST = 3;
  * `/me/guide#<topic>` (or `#<section>`) opens that topic and scrolls to it once, on arrival.
  * Each topic's own link is a real drill-down into the screen it describes.
  */
-export function GuideView({ guide }: { guide: Guide }) {
+export function GuideView({ guide, shots }: { guide: Guide; shots: GuideShots }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState<ReadonlySet<string>>(() => new Set());
   // During a search the few matches start open; the reader may close them again.
   const [closedInSearch, setClosedInSearch] = useState<ReadonlySet<string>>(() => new Set());
   const searchId = useId();
   const [viewing, setViewing] = useState<GuideShotImage | null>(null);
+  const shotsContext = useMemo(() => ({ shots, view: setViewing }), [shots]);
 
   const sections = useMemo(() => searchGuide(guide, query), [guide, query]);
   const searching = query.trim().length > 0;
@@ -101,7 +115,7 @@ export function GuideView({ guide }: { guide: Guide }) {
   };
 
   return (
-    <ViewShot.Provider value={setViewing}>
+    <Shots.Provider value={shotsContext}>
       <div className="flex max-w-2xl flex-col gap-6" data-slot="guide" data-role={guide.role}>
         <div className="flex flex-col gap-2">
           <label htmlFor={searchId} className="sr-only">
@@ -163,7 +177,7 @@ export function GuideView({ guide }: { guide: Guide }) {
         ))}
       </div>
       {viewing ? <ShotViewer shot={viewing} onClose={() => setViewing(null)} /> : null}
-    </ViewShot.Provider>
+    </Shots.Provider>
   );
 }
 
@@ -320,8 +334,8 @@ function Block({ block }: { block: GuideBlock }) {
  * nothing moves as it arrives, scaled to the column's width; a tap opens it large.
  */
 function Step({ step }: { step: GuideStep }) {
-  const view = useContext(ViewShot);
-  const shot = typeof step === "string" || !step.shot ? undefined : GUIDE_SHOTS[step.shot];
+  const { shots, view } = useContext(Shots);
+  const shot = typeof step === "string" || !step.shot ? undefined : shots[step.shot];
   return (
     <li className="pl-1">
       <span>{stepText(step)}</span>

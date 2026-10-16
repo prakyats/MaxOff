@@ -12,7 +12,26 @@ export const SHELL_VIEWER_MESSAGE = "maxoff-shell-viewer";
 
 type Controller = { postMessage: (message: unknown) => void };
 
-/** Tells the page's service worker, when there is one, whose skeletons it may keep. */
-export function postShellViewer(controller: Controller | null | undefined, role: ShellRole): void {
+/**
+ * Tells the page's service worker, when there is one, whose skeletons it may keep. `null` says
+ * nobody's: the worker drops every kept skeleton and the viewer it kept them for (ADR-0014 item
+ * 4). Sign-out says so before it signs out (its redirect is the router's, never a navigation the
+ * worker sees), and so does every signed-out page on arrival (an expired session's soft redirect).
+ */
+export function postShellViewer(
+  controller: Controller | null | undefined,
+  role: ShellRole | null,
+): void {
   controller?.postMessage({ type: SHELL_VIEWER_MESSAGE, viewer: role });
+}
+
+/** This page's service worker, when one controls it (none in `next dev`, or before install). */
+export function pageController(): Controller | null {
+  if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return null;
+  return navigator.serviceWorker.controller;
+}
+
+/** Drops the instant skeleton's cache and its viewer: nobody is signed in on this device. */
+export function forgetShellViewer(): void {
+  postShellViewer(pageController(), null);
 }
