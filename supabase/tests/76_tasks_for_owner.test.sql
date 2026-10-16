@@ -7,7 +7,7 @@
 -- task made the way they are today keeps every row unchanged. Neutral names only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(58);
+select plan(61);
 
 delete from public.item_reviews;
 delete from public.project_item_stage_list;
@@ -65,7 +65,8 @@ insert into fx values
   ('admin2', '00000000-0000-4000-8000-000000007603'),
   ('staff1', '00000000-0000-4000-8000-000000007604'),
   ('staff2', '00000000-0000-4000-8000-000000007605'),
-  ('staff3', '00000000-0000-4000-8000-000000007606');
+  ('staff3', '00000000-0000-4000-8000-000000007606'),
+  ('admin3', '00000000-0000-4000-8000-000000007607');
 insert into fx select 'org', id from public.organizations limit 1;
 grant select, insert on fx to authenticated, anon, service_role;
 
@@ -125,7 +126,7 @@ insert into auth.users (id, email) select id, key || '@example.com' from fx wher
 insert into public.members (id, org_id, full_name, email, role, status, joined_at)
 select pg_temp.fx(k), pg_temp.fx('org'), initcap(k), k || '@example.com', r::public.member_role, 'active', now() - interval '60 days'
 from (values ('owner', 'owner'), ('admin1', 'admin'), ('admin2', 'admin'), ('staff1', 'staff'),
-             ('staff2', 'staff'), ('staff3', 'staff')) as v(k, r);
+             ('staff2', 'staff'), ('staff3', 'staff'), ('admin3', 'admin')) as v(k, r);
 insert into public.task_types (org_id, name, kind, shows_on_calendar, has_location, position)
 values (pg_temp.fx('org'), 'Type 76 A', 'normal', false, false, 'z76a'),
        (pg_temp.fx('org'), 'Type 76 B', 'event', true, false, 'z76b');
@@ -249,6 +250,20 @@ select throws_ok(format($$ select public.task_remind(%L) $$, pg_temp.fx('by_admi
   'not on a completed task');
 select throws_ok(format($$ select public.task_remind(%L) $$, pg_temp.fx('solo')), 'P0001', 'VALIDATION',
   'not when nobody else is on it');
+select pg_temp.as_system();
+-- A creator made Crew (Admin -> Staff) loses Remind with tasks.create (Release 2 review, 2026-10-16):
+-- FORBIDDEN on a task they are still on, NOT_FOUND on one they no longer see.
+select pg_temp.mk('dem', 'admin3', array['staff1', 'admin3']);
+select pg_temp.mk('dem_off', 'admin3', array['staff2']);
+select pg_temp.as_member('admin3');
+select lives_ok(format($$ select public.task_remind(%L) $$, pg_temp.fx('dem')), 'the creator reminds while an Admin');
+select pg_temp.as_system();
+update public.members set role = 'staff' where id = pg_temp.fx('admin3');
+select pg_temp.as_member('admin3');
+select throws_ok(format($$ select public.task_remind(%L) $$, pg_temp.fx('dem')), 'P0001', 'FORBIDDEN',
+  'a creator made Crew cannot Remind on a task they are still on');
+select throws_ok(format($$ select public.task_remind(%L) $$, pg_temp.fx('dem_off')), 'P0001', 'NOT_FOUND',
+  'nor see a task they made and are not on');
 select pg_temp.as_system();
 select ok(not has_function_privilege('anon', 'public.task_remind(uuid)', 'execute')
           and has_function_privilege('authenticated', 'public.task_remind(uuid)', 'execute'),

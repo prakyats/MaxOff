@@ -249,7 +249,8 @@ function describe(
         case "stage_added":
           return { text: `added the stage ${quoted(meta.name)}` };
         case "stage_moved":
-          // 6b.18: a drag or Move up / down, by anyone on the task ("to position 2 of 5").
+          // 6b.18: a drag or Move up / down by one of the task's managers (the Owner, its creator, its
+          // approving Admin; never Crew) ("to position 2 of 5").
           return {
             text:
               typeof meta.to === "number" && typeof meta.of === "number"

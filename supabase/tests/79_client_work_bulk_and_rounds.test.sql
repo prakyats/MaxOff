@@ -7,7 +7,7 @@
 -- the old way (project_create with plain stages), ticks and history kept. Every name here is neutral.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(105);
+select plan(107);
 
 delete from public.deliverable_templates;
 delete from public.item_reviews;
@@ -318,6 +318,19 @@ select throws_ok($$ select public.items_add_stage_groups(array[pg_temp.fx('i2')]
 -- ===========================================================================================================
 select pg_temp.as_member('admin');
 select has_function('public', 'items_rename', array['uuid[]', 'text', 'integer', 'boolean'], 'items_rename exists');
+-- Release 2 review (2026-10-16): the helper locks in id order first, then answers in the order given,
+-- both ways round (items_rename numbers them in that order).
+select pg_temp.as_system();
+select set_config('request.jwt.claim.sub', pg_temp.fx('admin')::text, true);
+select set_config('request.jwt.claims', json_build_object('sub', pg_temp.fx('admin'), 'role', 'authenticated')::text, true);
+create temporary table sel_order as
+  select array_agg(x.id order by x.id desc) as down, array_agg(x.id order by x.id) as up
+  from (values (pg_temp.fx('i1')), (pg_temp.fx('i2')), (pg_temp.fx('i3'))) as x(id);
+select is((select array_agg(u.id order by u.ordinality) from unnest(app.client_work_bulk_items((select down from sel_order))) with ordinality as u),
+  (select down from sel_order), 'the selection comes back in the order given, against the id order');
+select is((select array_agg(u.id order by u.ordinality) from unnest(app.client_work_bulk_items((select up from sel_order))) with ordinality as u),
+  (select up from sel_order), 'and in the id order when given so');
+select pg_temp.as_member('admin');
 select is(public.items_rename(array[pg_temp.fx('i3'), pg_temp.fx('i1'), pg_temp.fx('i2')], ' Piece {n} ', 1, false),
   jsonb_build_array(
     jsonb_build_object('id', pg_temp.fx('i3'), 'from', 'Item 3', 'to', 'Piece 1'),
