@@ -89,6 +89,28 @@ export default async function SettingsPage() {
           );
         })}
       </ul>
+
+      {/* Help and troubleshooting (ROADMAP 6b.14): the in-app guide, for the reader's role. */}
+      <ul
+        data-slot="settings-help"
+        className="border-border mt-6 overflow-hidden rounded-lg border md:max-w-md md:rounded-xl"
+      >
+        <li>
+          <DrillLink
+            href="/me/guide"
+            data-slot="settings-guide-link"
+            className="focus-visible:ring-ring active:bg-muted/60 flex min-h-14 items-center gap-2 px-4 py-2 outline-none focus-visible:ring-2 focus-visible:ring-inset"
+          >
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span className="truncate text-sm font-medium">Help and troubleshooting</span>
+              <span className="text-muted-foreground truncate text-sm">
+                How MaxOff works, for your role
+              </span>
+            </span>
+            <ArrowRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
+          </DrillLink>
+        </li>
+      </ul>
     </>
   );
 }

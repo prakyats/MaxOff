@@ -132,6 +132,8 @@ describe("loading.tsx coverage", () => {
     expect(shapeOf("clients/(list)")).toBe("cards");
     expect(shapeOf("settings")).toBe("list");
     expect(shapeOf("me")).toBe("detail");
+    // The guide (6b.14): topic rows on the card-row geometry, under the search box.
+    expect(shapeOf("me/guide")).toBe("cards");
     // /leave's layout keeps the header and tabs painted; each view traces its own list (2.3),
     // and only the attendance view has the month switcher row.
     expect(shapeOf("leave/(leave)")).toBe("cards");

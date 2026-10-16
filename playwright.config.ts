@@ -67,6 +67,7 @@ const PROJECT_TEMPLATES_SPECS = /project-templates\.spec\.ts$/;
 const BACK_LINK_SPECS = /back-link\.spec\.ts$/;
 const INSTANT_SKELETON_SPECS = /instant-skeleton\.spec\.ts$/;
 const PREFETCH_LIKELY_SPECS = /prefetch-likely\.spec\.ts$/;
+const GUIDE_SPECS = /guide\.spec\.ts$/;
 
 /**
  * Web Push (5.2): the e2e server sends real, encrypted pushes to a fake push service the spec
@@ -242,6 +243,7 @@ export default defineConfig({
         SHEET_KEYBOARD_SPECS,
         INSTANT_SKELETON_SPECS,
         PREFETCH_LIKELY_SPECS,
+        GUIDE_SPECS,
       ],
       use: { ...devices["Pixel 5"], viewport: { width: 430, height: 932 } },
     },
