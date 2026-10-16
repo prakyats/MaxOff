@@ -308,6 +308,9 @@ async function main() {
       ? []
       : [{ name: "404 (Worker, no data)", path: "/__perf-probe-nope", auth: false }]),
     { name: "/api/health", path: "/api/health", auth: false },
+    // The warm-up the app sends when it comes back into view (P2, ARCHITECTURE §19): no data, no
+    // database; with the session's cookie when there is one, as the app sends it.
+    { name: "/api/warm", path: "/api/warm", auth: true },
     { name: "/login", path: "/login", auth: false },
   ];
   if (cookie) {

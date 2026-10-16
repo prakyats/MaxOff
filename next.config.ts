@@ -10,6 +10,7 @@ import {
   responseHeaders,
 } from "./src/core/http/response-headers";
 import { appVersionFrom } from "./src/core/lib/app-version";
+import { deploymentIdFrom } from "./src/core/lib/deployment-id";
 import { assertObservabilityEnv } from "./src/core/observability/env";
 
 // Lets `next dev` reach Cloudflare bindings through `getCloudflareContext()` (none are used
@@ -31,6 +32,9 @@ const nextConfig: NextConfig = {
   // The version Me's "Help & troubleshooting" shows (5B decision 4): the release tag, or the
   // branch and commit, from the build's own GitHub Actions environment ("local" elsewhere).
   env: { NEXT_PUBLIC_APP_VERSION: appVersionFrom(process.env) },
+  // One id per build (P2, ADR-0014, `core/lib/deployment-id.ts`): router requests carry it, so
+  // the service worker keeps a prefetched skeleton for the deployment that asked for it only.
+  deploymentId: deploymentIdFrom(process.env),
   // The file route's stricter CSP and the auth link page's headers come after the global rule
   // on purpose: the last rule to set a header wins.
   headers: async () => [

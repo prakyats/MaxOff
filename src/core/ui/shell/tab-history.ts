@@ -1,5 +1,6 @@
 "use client";
 
+import { PrefetchKind } from "next/dist/client/components/router-reducer/router-reducer-types";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useSyncExternalStore } from "react";
 
@@ -98,26 +99,36 @@ export interface TabNavigation {
  * it handled the click — in a browser tab it always returns false, so the plain `Link` wins.
  */
 /**
- * Prefetch every top-level destination once the app is idle (ARCHITECTURE §19, P5): the bar's
- * visible links prefetch themselves, but the More sheet's pages and home are not on screen, and
- * the installed app reaches all of them through `router.push`/`replace`, which only use what is
- * already cached. A dynamic route prefetches up to its `loading.tsx`, so the tap shows the
- * destination's skeleton at once and the data follows; no page is rendered ahead of time. Never
- * the page you are on: its prefetch could answer a pull-to-refresh with the data from before the
- * pull (found by the e2e suite under load), and it is already on screen.
+ * Prefetch every top-level destination (ARCHITECTURE §19, P5): the bar's visible links prefetch
+ * themselves, but the More sheet's pages and home are not on screen, and the installed app reaches
+ * all of them through `router.push`/`replace`, which only use what is already cached. A dynamic
+ * route prefetches up to its `loading.tsx`, so the tap shows the destination's skeleton at once
+ * and the data follows; no page is rendered ahead of time. Never the page you are on: its
+ * prefetch could answer a pull-to-refresh with the data from before the pull (found by the e2e
+ * suite under load), and it is already on screen.
+ *
+ * **First in the router's queue, and again whenever dropped** (P2, ADR-0014): the service worker
+ * answers these prefetches from its skeleton cache at once, so they go as the shell mounts
+ * (no longer at idle), ahead of the page's own link prefetches, which a cold Worker holds for
+ * seconds in the router's few prefetch slots. When the router drops them (refresh on return and
+ * every action invalidate its prefetches) they are asked for again, from that same cache.
  */
 export function usePrefetchTabs(hrefs: readonly string[], pathname: string): void {
   const router = useRouter();
   useEffect(() => {
-    const run = () => {
-      for (const href of hrefs) if (href !== pathname) router.prefetch(href);
+    let live = true;
+    const prefetch = (href: string) => {
+      router.prefetch(href, {
+        kind: PrefetchKind.AUTO,
+        onInvalidate: () => {
+          if (live) prefetch(href);
+        },
+      });
     };
-    if (typeof window.requestIdleCallback === "function") {
-      const handle = window.requestIdleCallback(run, { timeout: 3000 });
-      return () => window.cancelIdleCallback(handle);
-    }
-    const timer = window.setTimeout(run, 1500);
-    return () => window.clearTimeout(timer);
+    for (const href of hrefs) if (href !== pathname) prefetch(href);
+    return () => {
+      live = false;
+    };
   }, [hrefs, pathname, router]);
 }
 

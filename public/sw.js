@@ -27,11 +27,19 @@
  *   `location.replace` to `/?launch=<id>`, which is answered with that same held response, so the
  *   server is asked once, nothing is added to history and nothing is cached. A launch whose
  *   document comes in time is answered exactly as before: no screen, no extra hop.
+ * - The instant skeleton (P2, ADR-0014): the router's **prefetch** of a top-level destination
+ *   (`SHELL_PATHS`), which carries only that screen's loading skeleton, is answered from
+ *   `SHELL_CACHE` at once and refreshed from the network in the background, so a tap shows the
+ *   skeleton even while a cold Worker takes seconds. Only those requests: never a page's data, a
+ *   navigation, a server action, /api or another origin. Each copy is kept for one deployment
+ *   (the request's `x-deployment-id`) and one viewer role (posted by the shell, `pwa-after-page`),
+ *   and the whole cache is dropped on any signed-out page, a new role or a new deployment.
  *
  * Bump VERSION when the caching rules or the handlers change; the old cache is deleted on activate.
  */
-const VERSION = "v8";
+const VERSION = "v9";
 const CACHE = `maxoff-${VERSION}`;
+const SHELL_CACHE = `maxoff-shell-${VERSION}`;
 const OFFLINE_URL = "/offline";
 /** A failed navigation waits this long, then is tried once more before the offline page. */
 const NAVIGATION_RETRY_MS = 1500;
@@ -56,7 +64,11 @@ self.addEventListener("activate", (event) => {
     caches
       .keys()
       .then((keys) =>
-        Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))),
+        Promise.all(
+          keys
+            .filter((key) => key !== CACHE && key !== SHELL_CACHE)
+            .map((key) => caches.delete(key)),
+        ),
       )
       .then(() => self.clients.claim()),
   );
@@ -211,6 +223,210 @@ function takeHeldLaunch(url) {
   return held.network;
 }
 
+// The instant skeleton (P2, ADR-0014) -------------------------------------------------------------
+
+/**
+ * The top-level destinations (the bar, the More sheet, home and Me) whose prefetch is proven to
+ * carry no member data: the route tree and the loading skeleton, shaped by the viewer's role only
+ * (`e2e/instant-skeleton.spec.ts` reads every one, for every role). Never a client's or a
+ * person's page (their layouts read the record), never `/leave` (its layout hands the comp leave
+ * balance and today's date to the page). Adding a path here needs that proof first.
+ */
+const SHELL_PATHS = new Set([
+  "/approvals",
+  "/tasks",
+  "/calendar",
+  "/clients",
+  "/people",
+  "/settings",
+  "/me",
+  "/notifications",
+]);
+/**
+ * Drill-downs whose prefetch is the same proven skeleton for every record: a task's page has no
+ * layout of its own and a static title, so its prefetch is the loading screen and the id from its
+ * own address. One copy per task, so at most `SHELL_DRILL_DOWNS_KEPT` are kept, the oldest going.
+ */
+const SHELL_DRILL_DOWN = /^\/tasks\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const SHELL_DRILL_DOWNS_KEPT = 60;
+/**
+ * The role the kept skeletons were drawn for (`pwa-after-page` posts it). Until the shell has
+ * said, skeletons are kept but never answered: every one was fetched with the session of whoever
+ * is signed in now, because any signed-out page dropped the cache before they signed in.
+ */
+const SHELL_VIEWER_KEY = "/__maxoff/shell-viewer";
+/** When a skeleton was kept; one older than `SHELL_REFRESH_MS` is fetched again behind it. */
+const SHELL_KEPT_AT_HEADER = "X-MaxOff-Shell-Kept-At";
+const SHELL_REFRESH_MS = 60 * 60 * 1000;
+/** The message the signed-in shell posts: `{ type, viewer }`, the viewer's role. */
+const SHELL_VIEWER_MESSAGE = "maxoff-shell-viewer";
+const SHELL_VIEWERS = new Set(["owner", "admin", "staff"]);
+/** Pages only a signed-out visitor sees: reaching one drops every kept skeleton. */
+const SIGNED_OUT_PAGES = new Set(["/login", "/forgot-password", "/set-password"]);
+/** undefined: not read yet this worker's life; null: not known (nothing is answered). */
+let shellViewer;
+/** Counts the drops: a skeleton fetched before one is never kept after it. */
+let shellGeneration = 0;
+/** The deployment the kept skeletons belong to, once known this worker's life. */
+let shellDeployment = null;
+
+/**
+ * The cache key of a request this worker answers with a kept skeleton, or null. Only the router's
+ * prefetch (`RSC: 1` and `Next-Router-Prefetch: 1`, never a navigation's or a refresh's request)
+ * of a `SHELL_PATHS` or `SHELL_DRILL_DOWN` address with no query but the router's own `_rsc`
+ * (which hashes every header the answer varies by), from a page that names its deployment.
+ */
+function shellKey(request) {
+  if (request.method !== "GET" || request.mode === "navigate") return null;
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return null;
+  if (!SHELL_PATHS.has(url.pathname) && !SHELL_DRILL_DOWN.test(url.pathname)) return null;
+  const headers = request.headers;
+  if (headers.get("rsc") !== "1" || headers.get("next-router-prefetch") !== "1") return null;
+  const deployment = headers.get("x-deployment-id");
+  const rsc = url.searchParams.get("_rsc");
+  if (!deployment || !rsc || [...url.searchParams.keys()].length !== 1) return null;
+  const key = new URL(url.pathname, self.location.origin);
+  key.searchParams.set("_rsc", rsc);
+  key.searchParams.set("dpl", deployment);
+  return key.href;
+}
+
+async function readShellViewer() {
+  if (shellViewer !== undefined) return shellViewer;
+  const stored = await caches.match(SHELL_VIEWER_KEY, { cacheName: SHELL_CACHE });
+  const viewer = stored ? await stored.text() : null;
+  // A message that arrived while this was read wins.
+  if (shellViewer === undefined) shellViewer = SHELL_VIEWERS.has(viewer) ? viewer : null;
+  return shellViewer;
+}
+
+/** Drops every kept skeleton; the viewer is not known again until the shell says. */
+async function dropShell() {
+  shellGeneration += 1;
+  shellViewer = null;
+  shellDeployment = null;
+  await caches.delete(SHELL_CACHE);
+}
+
+/**
+ * The shell names its viewer's role. The first name after a drop adopts what was kept meanwhile
+ * (the same session fetched it); a different role than the one named before drops it all.
+ */
+async function setShellViewer(viewer) {
+  if (!SHELL_VIEWERS.has(viewer)) {
+    await dropShell();
+    return;
+  }
+  const current = await readShellViewer();
+  if (current === viewer) return;
+  if (current !== null) await dropShell();
+  shellViewer = viewer;
+  await (await caches.open(SHELL_CACHE)).put(SHELL_VIEWER_KEY, new Response(viewer));
+}
+
+/** The worker's own clock in ms, to age a kept skeleton (no business date is read here). */
+function nowMs() {
+  return self.performance.timeOrigin + self.performance.now();
+}
+
+/** The path a response came from, or null when it does not say. */
+function responsePath(response) {
+  try {
+    return new URL(response.url).pathname;
+  } catch {
+    return null;
+  }
+}
+
+/** The network's answer is a skeleton worth keeping: the prefetch itself, answered in full. */
+function isShellPayload(request, response) {
+  if (response.status !== 200 || response.redirected) return false;
+  if (responsePath(response) !== new URL(request.url).pathname) return false;
+  return (response.headers.get("content-type") || "").startsWith("text/x-component");
+}
+
+/** Keeps the network's skeleton for this deployment (another deployment's go), unless dropped since. */
+async function storeShell(key, request, response, generation) {
+  if (!isShellPayload(request, response)) {
+    // Sent to sign in: the session these skeletons were fetched with has ended.
+    if (response.redirected && SIGNED_OUT_PAGES.has(responsePath(response))) await dropShell();
+    return;
+  }
+  const body = await response.arrayBuffer();
+  if (generation !== shellGeneration) return;
+  const cache = await caches.open(SHELL_CACHE);
+  const deployment = new URL(key).searchParams.get("dpl");
+  if (shellDeployment !== deployment) {
+    for (const old of await cache.keys()) {
+      const oldUrl = new URL(old.url);
+      if (oldUrl.pathname !== SHELL_VIEWER_KEY && oldUrl.searchParams.get("dpl") !== deployment) {
+        await cache.delete(old);
+      }
+    }
+    shellDeployment = deployment;
+  }
+  const headers = new Headers(response.headers);
+  headers.delete("vary");
+  headers.delete("set-cookie");
+  headers.set(SHELL_KEPT_AT_HEADER, String(nowMs()));
+  if (generation !== shellGeneration) return;
+  await cache.delete(key);
+  await cache.put(key, new Response(body, { status: 200, headers }));
+  if (SHELL_DRILL_DOWN.test(new URL(key).pathname)) await pruneDrillDowns(cache);
+}
+
+/** Keeps the newest `SHELL_DRILL_DOWNS_KEPT` drill-down skeletons (keys list oldest first). */
+async function pruneDrillDowns(cache) {
+  const kept = (await cache.keys()).filter((request) =>
+    SHELL_DRILL_DOWN.test(new URL(request.url).pathname),
+  );
+  for (const old of kept.slice(0, Math.max(0, kept.length - SHELL_DRILL_DOWNS_KEPT))) {
+    await cache.delete(old);
+  }
+}
+
+/**
+ * A kept skeleton answers at once once the viewer is known; with none, the network answers (and is
+ * kept). Within one deployment and one role a skeleton never changes (it is the build's own loading
+ * screen and route tree), so a copy younger than `SHELL_REFRESH_MS` answers alone and the Worker is
+ * not asked at all; an older one answers and the network's replaces it for next time.
+ */
+async function answerShell(event, request, key) {
+  const generation = shellGeneration;
+  const viewer = await readShellViewer();
+  const cached = viewer ? await caches.match(key, { cacheName: SHELL_CACHE }) : undefined;
+  const fromNetwork = () =>
+    fetch(request).then((response) => {
+      event.waitUntil(
+        storeShell(key, request, response.clone(), generation).catch(() => undefined),
+      );
+      return response;
+    });
+  if (!cached) return fromNetwork();
+  const keptAt = Number(cached.headers.get(SHELL_KEPT_AT_HEADER)) || 0;
+  if (nowMs() - keptAt >= SHELL_REFRESH_MS) {
+    event.waitUntil(
+      fromNetwork().then(
+        () => undefined,
+        () => undefined,
+      ),
+    );
+  }
+  return cached;
+}
+
+/** Whether a navigation reaches a page only a signed-out visitor sees. */
+function isSignedOutNavigation(url) {
+  return SIGNED_OUT_PAGES.has(url.pathname) || url.pathname.startsWith("/auth/");
+}
+
+self.addEventListener("message", (event) => {
+  const data = event.data;
+  if (!data || data.type !== SHELL_VIEWER_MESSAGE) return;
+  event.waitUntil(setShellViewer(data.viewer).catch(() => undefined));
+});
+
 self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (request.method !== "GET") return;
@@ -220,6 +436,9 @@ self.addEventListener("fetch", (event) => {
   if (request.mode === "navigate") {
     const step = launchStep(request);
     const held = step === "handoff" ? takeHeldLaunch(url) : null;
+    // A signed-out page (signing out, an ended session's redirect, a sign-in, an auth link): the
+    // skeletons kept for whoever was here before go, before the next person signs in.
+    if (isSignedOutNavigation(url)) event.waitUntil(dropShell().catch(() => undefined));
     const answer =
       step === "launch"
         ? answerLaunch(event, fetchNavigation(request))
@@ -236,6 +455,12 @@ self.addEventListener("fetch", (event) => {
         })
         .catch(offlineFallback),
     );
+    return;
+  }
+
+  const shell = shellKey(request);
+  if (shell) {
+    event.respondWith(answerShell(event, request, shell));
     return;
   }
 
