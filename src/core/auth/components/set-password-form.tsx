@@ -8,7 +8,7 @@ import { PasswordInput } from "@/core/ui/composites/password-input";
 import { Button } from "@/core/ui/primitives/button";
 
 import { setPassword } from "../actions";
-import { PASSWORD_MIN_LENGTH } from "../schemas";
+import { PASSWORD_MIN_LENGTH } from "../password-rules";
 
 import { FormAlert } from "./form-alert";
 

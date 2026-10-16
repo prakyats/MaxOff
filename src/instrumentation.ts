@@ -10,7 +10,7 @@ export async function register(): Promise<void> {
     const { initServerSentry } = await import("@/core/observability/server");
     initServerSentry();
 
-    const { emailStartupWarning } = await import("@/core/notifications/env");
+    const { emailStartupWarning } = await import("@/core/notifications/email-env");
     const warning = emailStartupWarning();
     if (warning) {
       const log = process.env.NEXT_PUBLIC_APP_ENV === "production" ? console.error : console.warn;
