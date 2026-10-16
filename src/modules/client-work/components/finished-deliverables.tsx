@@ -3,7 +3,7 @@ import { useState } from "react";
 
 import { cn } from "@/core/lib/utils";
 
-import { DELIVERABLE_COLUMNS } from "./deliverable-columns";
+import { deliverableColumns } from "./deliverable-columns";
 
 /**
  * The collapsed "Done and closed (N)" group at the end of the project page's list (6b.11 (1)):
@@ -13,9 +13,12 @@ import { DELIVERABLE_COLUMNS } from "./deliverable-columns";
  */
 export function FinishedDeliverables({
   count,
+  selecting,
   children,
 }: {
   count: number;
+  /** Select mode is on: the rows carry the select column. */
+  selecting: boolean;
   /** The rows (`DeliverableRow`), drawn only while open. */
   children: React.ReactNode;
 }) {
@@ -49,7 +52,7 @@ export function FinishedDeliverables({
           data-slot="finished-items"
           className={cn(
             "border-border divide-border bg-card divide-y overflow-hidden rounded-lg border",
-            DELIVERABLE_COLUMNS,
+            deliverableColumns(selecting),
           )}
         >
           {children}

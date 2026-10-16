@@ -184,4 +184,4 @@ export {
   readProjectActivity,
 } from "./actions/background";
 /** The project page's deliverable columns (6b.11 (6)), for its skeleton to trace. */
-export { DELIVERABLE_COLUMNS } from "./components/deliverable-columns";
+export { DELIVERABLE_COLUMNS, STRIP_GRID } from "./components/deliverable-columns";

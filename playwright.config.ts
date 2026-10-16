@@ -62,7 +62,7 @@ const DASHBOARDS_SPECS = /dashboards\.spec\.ts$/;
 const CALENDAR_SPECS = /calendar\.spec\.ts$/;
 const EOD_REPORT_SPECS = /eod-report\.spec\.ts$/;
 const CLIENT_WORK_SPECS = /client-work\.spec\.ts$/;
-const DELIVERABLES_SPECS = /deliverables(-bulk)?\.spec\.ts$/;
+const DELIVERABLES_SPECS = /deliverables(-bulk|-list)?\.spec\.ts$/;
 const PROJECT_TEMPLATES_SPECS = /project-templates\.spec\.ts$/;
 const BACK_LINK_SPECS = /back-link\.spec\.ts$/;
 // Fresh data on back and reload (6b.17a): both phone widths, as every navigation spec.
