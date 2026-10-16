@@ -59,8 +59,9 @@ const ConfirmDialog = dynamic(
  * ticks); done, closed and carried ones in the collapsed "Done and closed (N)" group
  * (`FinishedDeliverables`). Done
  * is the approval (D3): it locks the item and counts it at once, so it is instant with the
- * 6-second Undo (Today's own delayed send); the sheet's Mark done too. A tap on the title opens the
- * item sheet. **Select** (6b.16 (e)) turns on Select mode (`useSelectMode`: view state, back
+ * 6-second Undo (Today's own delayed send); the sheet's Mark done too. A tap anywhere on a row
+ * opens the item sheet; its stage chips and "Next: ‹stage›" tick in one tap with an Undo toast
+ * (unit U, `tickWithUndo`). **Select** (6b.16 (e)) turns on Select mode (`useSelectMode`: view state, back
  * leaves it; the checkboxes show only then); the selected rows' bar (`BulkEditBar`) offers the
  * bulk "Mark N done" (it asks first, its red button naming it, "Mark 5 items done") and "Tick
  * ‹stage› on N" for the selected items that have a stage of that name (decision 16: per-id
