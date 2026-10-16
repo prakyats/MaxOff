@@ -5,7 +5,7 @@ import { MoreHorizontalIcon, PencilIcon, UsersIcon } from "lucide-react";
 import { type MouseEvent, useMemo } from "react";
 
 import { formatIST } from "@/core/time";
-import { DataTable, type MobileCard } from "@/core/ui/composites/data-table";
+import { DataTable, type MobileCard, rowRank } from "@/core/ui/composites/data-table";
 import { DrillLink } from "@/core/ui/composites/drill-link";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { OverlayLink } from "@/core/ui/composites/overlay-link";
@@ -104,11 +104,13 @@ export function TeamTable({
       {
         accessorKey: "fullName",
         header: "Name",
-        cell: ({ row }) => (
+        cell: ({ row, table }) => (
           <div className="min-w-0">
             {opensPersonPage(viewer, row.original) ? (
               <DrillLink
                 href={`/people/${row.original.id}`}
+                // A person's page reads the person in its layout (P2 item 6).
+                prefetchRank={rowRank(row, table)}
                 className="block truncate font-medium underline-offset-4 hover:underline"
               >
                 {row.original.fullName}
@@ -247,6 +249,7 @@ export function TeamTable({
   const mobile: MobileCard<TeamRow> = {
     title: (member) => member.fullName,
     href: (member) => (opensPersonPage(viewer, member) ? `/people/${member.id}` : null),
+    prefetchByRank: true,
     moreLabel: (member) => `More for ${member.fullName}`,
     subtitle: (member) =>
       withJobTitle(

@@ -66,6 +66,7 @@ const DELIVERABLES_SPECS = /deliverables\.spec\.ts$/;
 const PROJECT_TEMPLATES_SPECS = /project-templates\.spec\.ts$/;
 const BACK_LINK_SPECS = /back-link\.spec\.ts$/;
 const INSTANT_SKELETON_SPECS = /instant-skeleton\.spec\.ts$/;
+const PREFETCH_LIKELY_SPECS = /prefetch-likely\.spec\.ts$/;
 
 /**
  * Web Push (5.2): the e2e server sends real, encrypted pushes to a fake push service the spec
@@ -194,6 +195,7 @@ export default defineConfig({
       // And the deliverables' new layers (6b R1): the Preview step and the stage-group sheets.
       // And the project template builder (6b Release 1): its layers on back and the drag at 430px.
       // And the instant skeleton (P2, ADR-0014): a tap on a cold Worker, installed, at both widths.
+      // And the likely-next prefetch (P2 item 6): rows prefetched near the top, at both widths.
       name: "mobile-lg",
       dependencies: ["setup"],
       testMatch: [
@@ -239,6 +241,7 @@ export default defineConfig({
         BACK_LINK_SPECS,
         SHEET_KEYBOARD_SPECS,
         INSTANT_SKELETON_SPECS,
+        PREFETCH_LIKELY_SPECS,
       ],
       use: { ...devices["Pixel 5"], viewport: { width: 430, height: 932 } },
     },

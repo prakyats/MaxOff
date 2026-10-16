@@ -10,6 +10,7 @@ import {
   type Row,
   type RowSelectionState,
   type SortingState,
+  type Table as TanstackTable,
   useReactTable,
 } from "@tanstack/react-table";
 import {
@@ -129,7 +130,18 @@ export type MobileCard<TData> = {
   href?: (row: TData) => string | null;
   /** Accessible name of the ⋯ button, e.g. "More for Ravi". Required with `href`. */
   moreLabel?: (row: TData) => string;
+  /**
+   * The `href`'s page reads its record in a layout (a client, a person; P2 item 6): only the
+   * first cards prefetch while in view, the rest on intent (`DrillLink` `prefetchRank`). The
+   * desktop row's own link takes `prefetchRank={rowRank(row, table)}` for the same.
+   */
+  prefetchByRank?: boolean;
 };
+
+/** A row's place among the rows shown (sorted, filtered, this page), for `prefetchRank`. */
+export function rowRank<TData>(row: Row<TData>, table: TanstackTable<TData>): number {
+  return table.getRowModel().rows.findIndex((shown) => shown.id === row.id);
+}
 
 export type DataTableProps<TData> = {
   columns: ColumnDef<TData>[];
@@ -560,7 +572,7 @@ function MobileCards<TData>({
         aria-label={caption}
         className="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border"
       >
-        {visible.map((row) => {
+        {visible.map((row, rank) => {
           const body = (
             <>
               <span className={cn("flex flex-col gap-0.5 text-left", CARD_ROW_TITLE)}>
@@ -587,6 +599,7 @@ function MobileCards<TData>({
               <li key={row.id} data-slot="data-card" className="flex items-stretch">
                 <DrillLink
                   href={href}
+                  {...(card.prefetchByRank ? { prefetchRank: rank } : {})}
                   data-slot="data-card-link"
                   className={cn(
                     "active:bg-muted/60 focus-visible:ring-ring flex min-w-0 flex-1 flex-wrap items-center gap-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset",

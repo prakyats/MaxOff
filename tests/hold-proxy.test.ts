@@ -379,6 +379,69 @@ describe("the hold proxy holds what a test registers, and only that", () => {
     expect((await get("/rest/v1/rpc/emails_held_today", "expired-session")).status).toBe(200);
   });
 
+  it('watches every path of a session with "*": reports each request and holds none', async () => {
+    const watch = request({
+      host: "127.0.0.1",
+      port: proxyPort,
+      path: "/__hold",
+      method: "POST",
+      headers: { "content-type": "application/json" },
+    });
+    const events: Array<{ hold?: number; caught?: string; agent?: string }> = [];
+    let onEvent: () => void = () => undefined;
+    const registered = new Promise<void>((resolve, reject) => {
+      watch.on("error", reject);
+      watch.on("response", (answer) => {
+        answer.setEncoding("utf8");
+        answer.on("data", (chunk: string) => {
+          for (const line of chunk.split("\n").filter(Boolean)) events.push(JSON.parse(line));
+          onEvent();
+        });
+        onEvent = () => {
+          if (events.length > 0) resolve();
+        };
+        onEvent();
+      });
+    });
+    watch.on("error", () => undefined);
+    watch.end(JSON.stringify({ path: "*", session: "watched-session", answer: "watch" }));
+    await registered;
+
+    const reported = new Promise<void>((resolve) => {
+      onEvent = () => {
+        if (events.filter((event) => event.caught).length === 2) resolve();
+      };
+    });
+    // Answered at once, as if nothing watched them; another session is not reported.
+    expect(await get("/rest/v1/tasks?select=id", "watched-session")).toEqual({
+      status: 200,
+      body: "read /rest/v1/tasks?select=id",
+    });
+    expect((await get("/rest/v1/rpc/session_bundle", "watched-session")).status).toBe(200);
+    expect((await get("/rest/v1/members", "other-session")).status).toBe(200);
+    await reported;
+    expect(events.filter((event) => event.caught).map((event) => event.caught)).toEqual([
+      "/rest/v1/tasks",
+      "/rest/v1/rpc/session_bundle",
+    ]);
+    watch.destroy();
+  });
+
+  it('refuses to hold "*": every path is only ever watched', async () => {
+    const status = await new Promise<number>((resolve, reject) => {
+      const outgoing = request(
+        { host: "127.0.0.1", port: proxyPort, path: "/__hold", method: "POST" },
+        (answer) => {
+          answer.resume();
+          answer.on("end", () => resolve(answer.statusCode ?? 0));
+        },
+      );
+      outgoing.on("error", reject);
+      outgoing.end(JSON.stringify({ path: "*", session: "s" }));
+    });
+    expect(status).toBe(400);
+  });
+
   it("refuses a hold whose answer it does not know", async () => {
     const status = await new Promise<number>((resolve, reject) => {
       const outgoing = request(

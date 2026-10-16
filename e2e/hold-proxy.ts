@@ -37,6 +37,12 @@
  * token its own clock calls expired (the proxy renews it first), so a real expired JWT cannot be
  * made to reach PostgREST on purpose; this is the answer PostgREST gives when one does.
  *
+ * **What can be watched** (P2 item 6, 2026-10-16): a hold registered with `{ answer: "watch" }`
+ * holds nothing: each matching request is reported (`{"caught":path,"agent":user-agent}`, so the
+ * server's own fetches can be told from a browser's) and passed on at once. Its path may be `*`,
+ * every path of that session (a watch only), which is how a spec counts the database requests one
+ * page request makes (`watchReads()` in `e2e/helpers.ts`).
+ *
  * **What can be fenced** (phase 5 main CI, 2026-10-06): a person a spec is about to remove. A
  * spec's own person's open page still writes in the background (the app-open report, 5.4, audited
  * with them as the actor), and a write that lands between the cleanup's `activity_log` delete and
@@ -74,7 +80,9 @@ import { connect } from "node:net";
 import type { Duplex } from "node:stream";
 import { pathToFileURL } from "node:url";
 
-type HoldAnswer = "wait" | "jwt-expired";
+type HoldAnswer = "wait" | "jwt-expired" | "watch";
+/** A watch's path that covers every path of its session. */
+const EVERY_PATH = "*";
 type Hold = {
   path: string;
   session: string;
@@ -142,7 +150,12 @@ export function createHoldProxy(upstream: URL): Server {
   }
 
   const holdsFor = (path: string, session: string | null): Hold[] =>
-    [...holds].filter((hold) => hold.path === path && hold.session === session);
+    [...holds].filter(
+      (hold) => (hold.path === path || hold.path === EVERY_PATH) && hold.session === session,
+    );
+  /** What keeps a request waiting: a "wait" hold on its path and session. */
+  const waitsFor = (path: string, session: string | null): boolean =>
+    holdsFor(path, session).some((hold) => hold.answer === "wait");
 
   function forward(request: IncomingMessage, response: ServerResponse): void {
     const member = claimOf(request.headers.authorization, "sub");
@@ -188,7 +201,7 @@ export function createHoldProxy(upstream: URL): Server {
   function releaseWaiting(): void {
     const still: Waiting[] = [];
     for (const entry of waiting) {
-      if (holdsFor(entry.path, entry.session).length > 0) still.push(entry);
+      if (waitsFor(entry.path, entry.session)) still.push(entry);
       else entry.forward();
     }
     waiting = still;
@@ -209,8 +222,13 @@ export function createHoldProxy(upstream: URL): Server {
         return;
       }
       const answer = body.answer ?? "wait";
-      if (answer !== "wait" && answer !== "jwt-expired") {
-        response.writeHead(400).end('answer is "wait" or "jwt-expired"');
+      if (answer !== "wait" && answer !== "jwt-expired" && answer !== "watch") {
+        response.writeHead(400).end('answer is "wait", "jwt-expired" or "watch"');
+        return;
+      }
+      // Every path at once is only ever watched: holding it would hold the layout's reads too.
+      if (body.path === EVERY_PATH && answer !== "watch") {
+        response.writeHead(400).end('path "*" is only watched');
         return;
       }
       response.writeHead(200, {
@@ -290,10 +308,17 @@ export function createHoldProxy(upstream: URL): Server {
       forward(request, response);
       return;
     }
-    for (const hold of holding) hold.report({ caught: url.pathname });
+    // Who asked (the server's own fetch or a browser), so a watch can count the server's reads.
+    const agent = request.headers["user-agent"] ?? "";
+    for (const hold of holding) hold.report({ caught: url.pathname, agent });
     if (holding.some((hold) => hold.answer === "jwt-expired")) {
       request.resume();
       response.writeHead(JWT_EXPIRED.status, JWT_EXPIRED.headers).end(JWT_EXPIRED.body);
+      return;
+    }
+    // Only watched: reported, then passed on at once.
+    if (!waitsFor(url.pathname, session)) {
+      forward(request, response);
       return;
     }
     const entry: Waiting = {
