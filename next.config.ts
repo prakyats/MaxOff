@@ -53,6 +53,14 @@ const nextConfig: NextConfig = {
   // exactly what a real-device pass needs to tap. Next still surfaces every compile and runtime
   // error with `false` — only the route-type badge and the devtools panel go.
   devIndicators: false,
+  // A lighter cold start (P2 item 4, ARCHITECTURE §19). Turbopack copies a bundled package into
+  // every server layer and chunk group that imports it: zod was in six server chunks (2.2 MB of
+  // the one Worker script). Left external, it is one awaited import that OpenNext's esbuild step
+  // bundles once from node_modules (zod's exports have only `import`/`require`, so the same
+  // build runs), and a cold isolate evaluates one copy instead of one per layer. The Supabase
+  // client is not external: its CommonJS build requires `tslib`, which OpenNext's middleware
+  // bundler resolves to a file its trace never copied (the build fails).
+  serverExternalPackages: ["zod"],
   experimental: {
     // The client router cache (ARCHITECTURE §19, owner decision 2026-09-28). A tab seen in the
     // last 30 s comes back at once with no request (Next's default for dynamic pages is 0 s: every
