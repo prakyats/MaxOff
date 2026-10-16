@@ -4,6 +4,7 @@ import { PrefetchKind } from "next/dist/client/components/router-reducer/router-
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useSyncExternalStore } from "react";
 
+import { lessDataNow, useLessData } from "@/core/ui/navigation/less-data";
 import { tabMove } from "@/core/ui/navigation/moves";
 
 import { holdScroll, saveTabScroll, takeTabScroll } from "./tab-scroll";
@@ -115,7 +116,11 @@ export interface TabNavigation {
  */
 export function usePrefetchTabs(hrefs: readonly string[], pathname: string): void {
   const router = useRouter();
+  // Data saver asks for nothing ahead of time (P2 item 6, `navigation/prefetch-choice.ts`): the
+  // bar's own links still prefetch as every `Link` does, the rest are fetched on the tap.
+  const lessData = useLessData();
   useEffect(() => {
+    if (lessData || lessDataNow()) return;
     let live = true;
     const prefetch = (href: string) => {
       router.prefetch(href, {
@@ -129,7 +134,7 @@ export function usePrefetchTabs(hrefs: readonly string[], pathname: string): voi
     return () => {
       live = false;
     };
-  }, [hrefs, pathname, router]);
+  }, [hrefs, pathname, router, lessData]);
 }
 
 export function useTabNavigation(
