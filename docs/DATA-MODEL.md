@@ -212,6 +212,8 @@ app.coordinator_of(member_id)   the freelancer's current coordinator (to_at null
                                 definer, stable: every on-behalf check calls it at the moment of the action
 ```
 
+**pg_cron's run log kept to 7 days (P2 item 5, v1.7.1, 2026-10-16, migration `p2_db_memory`, expand-only; ARCHITECTURE §19):** `app.cron_history_trim(p_now timestamptz default now(), p_batch integer default 1000)` → integer: deletes the rows of `cron.job_run_details` (pg_cron's own system log, not business data) whose `coalesce(end_time, start_time)` is more than 7 days before `p_now`, at most `p_batch` rows per statement (by `runid`) until a batch comes back short, and returns how many it deleted; a row with neither time is kept; `p_batch` below 1 is refused. Security definer (`search_path = ''`), execute granted to `service_role` only (revoked from `public`, `anon`, `authenticated`), as every internal `app` helper. Scheduled as the pg_cron job `cron_history_trim` at `15 22 * * *` (03:45 IST, after `notifications_remove_read`). No business table is trimmed, `activity_log` never. The same migration narrows two schedules to the runs their functions act on (WORKFLOWS §8): `client_work_alerts` `30-55/5 2 * * *` (08:00–08:25 IST), `digest_weekly` `*/5 2-18 * * *` (07:30–00:25 IST); the `supabase_realtime` publication is unchanged. pgTAP `80_db_memory`.
+
 ## 1. Organization, people and access
 ```
 organizations        id, name, logo_file_id → files (3.3), timezone ('Asia/Kolkata'), created_at, updated_at

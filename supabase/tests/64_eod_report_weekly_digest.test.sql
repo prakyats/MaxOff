@@ -507,9 +507,9 @@ select ok(has_function_privilege('authenticated', 'public.owner_digest_weekly_pr
   'the digest preview is callable by a signed-in member (and refuses all but the Owner)');
 select results_eq(
   $$ select jobname::text, schedule, command, active from cron.job where jobname in ('eod_report', 'digest_weekly') order by jobname $$,
-  $$ values ('digest_weekly', '*/5 * * * *', 'select public.digest_weekly(now())', true),
+  $$ values ('digest_weekly', '*/5 2-18 * * *', 'select public.digest_weekly(now())', true),
             ('eod_report', '*/5 * * * *', 'select app.eod_report()', true) $$,
-  'pg_cron runs eod_report and digest_weekly every 5 minutes (each acts once its setting''s time has passed)');
+  'pg_cron runs eod_report every 5 minutes and digest_weekly every 5 minutes from 07:30 to 00:25 IST (since migration p2_db_memory, pgTAP 80; each acts once its setting''s time has passed)');
 select is((select count(*) from cron.job where jobname = 'digest_daily'), 0::bigint, 'digest_daily is unscheduled (the function stays as history)');
 select ok(has_function_privilege('service_role', 'public.digest_daily(timestamptz)', 'execute'), 'and still callable by hand as history');
 
