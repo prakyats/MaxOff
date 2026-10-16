@@ -369,3 +369,17 @@ export function remindAgainAt(
 export function remindAgainLabel(againAt: string): string {
   return `Reminded · again at ${formatIST(againAt, "h:mm a")}`;
 }
+
+/**
+ * Whom Remind reaches, in the button's words (6b.2, "say what it does"): the others on the task,
+ * first names as the page shows them. "Sam", "Sam and Ria", "Sam and 2 others"; "everyone on the
+ * task" when the names are not known. The button reads "Remind " + this, the toast "Reminder sent
+ * to " + this.
+ */
+export function remindWho(names: readonly string[]): string {
+  const [first, second] = names;
+  if (first === undefined) return "everyone on the task";
+  if (second === undefined) return first;
+  if (names.length === 2) return `${first} and ${second}`;
+  return `${first} and ${names.length - 1} others`;
+}

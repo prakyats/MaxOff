@@ -283,7 +283,12 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
         <TodayAttendanceCard summary={summary} />
 
         {sections.mine ? (
-          <DashSection title="My tasks" slot="today-my-tasks" count={mine.total}>
+          <DashSection
+            title="My tasks"
+            slot="today-my-tasks"
+            count={mine.total}
+            hint="Your own tasks, overdue or due today. Tap one to open it."
+          >
             <div className="flex min-w-0 flex-col gap-2">
               <TaskRowList label="My tasks">
                 {mine.rows.map((row) => (
@@ -296,6 +301,7 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
                     statusLabel={stateLabel(row)}
                     flag={rowFlag(row, now) ?? { label: "Due today", tone: "attention" }}
                     unread={unread[row.id] ?? 0}
+                    chevron
                   />
                 ))}
               </TaskRowList>
@@ -304,7 +310,7 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
                   <LinkRow
                     href={`/tasks/all?person=${viewer.id}`}
                     slot="today-see-all-my-tasks"
-                    title={`See all ${mine.total}`}
+                    title={`See all ${mine.total} of my tasks`}
                     tab
                   />
                 </RowList>

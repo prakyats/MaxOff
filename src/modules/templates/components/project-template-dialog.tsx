@@ -157,7 +157,11 @@ export function ProjectTemplateDialog({
       setPhase("form");
       return;
     }
-    toastResult(result, { success: template ? "Template saved" : "Template added" });
+    toastResult(result, {
+      success: template
+        ? `Saved ${name.trim()}`
+        : `Added ${name.trim()}: New project offers it under Start from`,
+    });
     onClose();
   }
 
@@ -306,7 +310,7 @@ export function ProjectTemplateDialog({
               {desktop === false ? (
                 // pending: none — it opens the Preview layer, whose own button saves.
                 <Button type="submit" variant="strong" data-slot="template-preview">
-                  Preview
+                  Preview and save
                 </Button>
               ) : (
                 <Button type="submit" variant="primary" pending={pending} pendingLabel="Saving…">
