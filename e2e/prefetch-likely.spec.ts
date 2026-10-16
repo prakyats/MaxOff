@@ -1,6 +1,5 @@
 import { type BrowserContext, type Locator, type Page, type Route } from "@playwright/test";
 
-import { PREFETCH_FIRST_ROWS } from "../src/core/ui/navigation/prefetch-choice";
 import { mobileNavFor } from "../src/core/ui/shell/nav";
 
 import { expect, test } from "./fixtures";
@@ -25,16 +24,13 @@ import {
  * - **A prefetch is the loading boundary, never the page's data.** The tabs Today's next tap
  *   goes to (Approvals, Tasks) are prefetched by the shell and by Today's own links; counted at
  *   the e2e server's Supabase proxy (`watchReads`), their prefetches read only the viewer's
- *   member row (the loading screen is shaped by the role), never the page's data.
- *   A client row's makes only its layout's (the header: the client, the people, the unread
- *   count, the member), never the overview's own reads (contacts, notes, fields, open tasks).
- * - **Only the first rows prefetch in view** on a list whose rows' pages read their record (the
- *   Clients and People lists): the first `PREFETCH_FIRST_ROWS`; a later row is prefetched when a
- *   finger goes down on it, which adds no history entry and does not navigate.
- * - **A likely-next tap shows its skeleton at once**: with every server answer held `SLOW_MS` (a
- *   warm Worker far away), a first row's tap shows the client's traced skeleton within
- *   `INSTANT_MS`; a later row's tap is measured and reported.
- * - **Data saver asks for nothing extra**: no row prefetch, no ahead-of-time prefetch of the More
+ *   member row (the loading screen is shaped by the role). A client row's reads only its layout's
+ *   (the header: the client, the people, the unread count, the member), never the overview's own
+ *   (contacts, notes, fields, open tasks).
+ * - **Every row in view is prefetched** (Next's default), the sixth as the first, so with every
+ *   server answer held `SLOW_MS` (a warm Worker far away) a sixth row's tap shows the client's
+ *   traced skeleton within `INSTANT_MS`.
+ * - **Data saver asks for nothing ahead of time**: no row prefetch, no prefetch of the More
  *   sheet's destinations; without it, the same destinations are prefetched (the check bites).
  *
  * The service worker is blocked in this file: what is measured is the server's work and the
@@ -48,8 +44,8 @@ const SLOW_MS = 600;
 const INSTANT_MS = 300;
 /** How long a finger rests on the glass in a tap. */
 const TAP_HOLD_MS = 80;
-/** Cards the list shows before "Show more" (DataTable `mobilePageSize`). */
-const CARDS_SHOWN = 10;
+/** A row below the first few (0-based): the sixth card. */
+const LATER_ROW = 5;
 
 /** The viewer's member row: what a role-shaped loading screen reads (`requireMember`). */
 const MEMBER_ROW = "/rest/v1/members";
@@ -87,6 +83,8 @@ async function trackPrefetches(context: BrowserContext, origin: string) {
   const asked = new Set<string>();
   const askedCount = new Map<string, number>();
   const answered = new Map<string, number>();
+  /** Paths whose loading boundary (not only the route tree) has been answered. */
+  const loaded = new Set<string>();
   const passes: Array<(path: string) => boolean> = [];
   const waiting: Array<{ path: string; go: () => void }> = [];
   const passing = (path: string) => passes.some((match) => match(path));
@@ -103,12 +101,14 @@ async function trackPrefetches(context: BrowserContext, origin: string) {
       if (!response) return route.abort().catch(() => undefined);
       const body = await response.text().catch(() => "");
       answered.set(path, (answered.get(path) ?? 0) + 1);
+      if (!request.headers()["next-router-segment-prefetch"]) loaded.add(path);
       await route.fulfill({ response, body }).catch(() => undefined);
     },
   );
   return {
     asked,
     answered,
+    loaded,
     /** How many prefetch requests have been answered so far, every path together. */
     answeredTotal: () => [...answered.values()].reduce((sum, count) => sum + count, 0),
     /** Every prefetch let go so far has been answered (the held ones aside). */
@@ -150,8 +150,8 @@ function inFlight(page: Page) {
   return () => open.size;
 }
 
-/** A finger down on `target`, held, then up (the browser makes the click) or slid off (none). */
-async function finger(target: Locator, end: "tap" | "cancel"): Promise<void> {
+/** A finger down on `target`, held, then up: the browser makes the click. */
+async function fingerTap(target: Locator): Promise<void> {
   const page = target.page();
   const box = await target.boundingBox();
   expect(box, "the target is on screen").not.toBeNull();
@@ -159,10 +159,7 @@ async function finger(target: Locator, end: "tap" | "cancel"): Promise<void> {
   const input = await page.context().newCDPSession(page);
   await input.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [point] });
   await page.waitForTimeout(TAP_HOLD_MS);
-  await input.send("Input.dispatchTouchEvent", {
-    type: end === "tap" ? "touchEnd" : "touchCancel",
-    touchPoints: [],
-  });
+  await input.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
   await input.detach();
 }
 
@@ -189,7 +186,7 @@ async function tapUntil(target: Locator, selector: string): Promise<number | nul
       { capture: true, once: true },
     );
   }, selector);
-  await finger(target, "tap");
+  await fingerTap(target);
   await page
     .waitForFunction(() => (window as { __shownAt?: number | null }).__shownAt != null, null, {
       timeout: 10_000,
@@ -243,9 +240,7 @@ test.describe("a prefetch is the loading boundary, never the page's data", () =>
 
       prefetches.release((path) => NEXT.includes(path));
       // The route tree and the loading boundary of each, read to their end.
-      await expect
-        .poll(() => NEXT.every((path) => (prefetches.answered.get(path) ?? 0) >= 2))
-        .toBe(true);
+      await expect.poll(() => NEXT.every((path) => prefetches.loaded.has(path))).toBe(true);
       await expect.poll(() => open() === 0 && prefetches.settled()).toBe(true);
       const reads = watch.server().slice(before);
       report(
@@ -265,7 +260,7 @@ test.describe("a prefetch is the loading boundary, never the page's data", () =>
   });
 });
 
-test.describe("a list row prefetches in view only near the top", () => {
+test.describe("every list row in view is prefetched", () => {
   test.describe.configure({ mode: "serial" });
   test.skip(({ isMobile }) => !isMobile, "the cards are the phone's list");
 
@@ -289,7 +284,7 @@ test.describe("a list row prefetches in view only near the top", () => {
     for (const name of fixtureClients(info.project.name)) await removeClientFixture(name);
   });
 
-  test("the first rows only, their layout's reads alone; a finger on a later row prefetches it", async ({
+  test("every row in view is prefetched, its layout's reads alone, never the page's", async ({
     page,
     context,
     baseURL,
@@ -306,26 +301,22 @@ test.describe("a list row prefetches in view only near the top", () => {
       await page.goto("/clients");
       await hydrated(page);
       const cards = page.locator('[data-slot="data-card-link"]');
-      await expect(cards.nth(PREFETCH_FIRST_ROWS + 2)).toBeVisible();
-      const hrefs = (await cards.evaluateAll((links) =>
-        links.map((link) => link.getAttribute("href") ?? ""),
-      )) as string[];
-      expect(hrefs.length).toBeGreaterThanOrEqual(PREFETCH_FIRST_ROWS + 3);
-      const first = hrefs.slice(0, PREFETCH_FIRST_ROWS);
-      const later = hrefs.slice(PREFETCH_FIRST_ROWS, CARDS_SHOWN);
+      await expect(cards.nth(LATER_ROW)).toBeVisible();
+      const later = (await cards.nth(LATER_ROW).getAttribute("href"))!;
 
-      await expect.poll(() => first.every((href) => prefetches.asked.has(href))).toBe(true);
+      // The rows the router asked for first wait (its few prefetch slots are theirs), until the
+      // rest of the page is over; then every row goes, the sixth as the first.
+      await expect.poll(() => [...prefetches.asked].some(isRow)).toBe(true);
       await expect.poll(() => open() === 0 && prefetches.settled()).toBe(true);
       const before = watch.server().length;
       prefetches.release(isRow);
-      await expect
-        .poll(() => first.every((href) => (prefetches.answered.get(href) ?? 0) >= 2))
-        .toBe(true);
+      await expect.poll(() => prefetches.loaded.has(later)).toBe(true);
       await expect.poll(() => open() === 0 && prefetches.settled()).toBe(true);
+      const rows = [...prefetches.asked].filter(isRow);
       const reads = watch.server().slice(before);
       report(
-        `the first ${PREFETCH_FIRST_ROWS} client rows' prefetches, database requests`,
-        String(reads.length),
+        "client rows prefetched in view: rows / database requests",
+        `${rows.length} / ${reads.length}`,
       );
       expect(
         reads.filter((path) => !CLIENT_LAYOUT_READS.has(path)),
@@ -333,29 +324,14 @@ test.describe("a list row prefetches in view only near the top", () => {
       ).toEqual([]);
       for (const path of CLIENT_PAGE_READS) expect(reads).not.toContain(path);
       expect(reads.length, "the layout's reads and the member row, per row").toBeLessThanOrEqual(
-        PREFETCH_FIRST_ROWS * (CLIENT_LAYOUT_READS.size + 2),
+        rows.length * (CLIENT_LAYOUT_READS.size + 2),
       );
-      // The rows below the first few are seen, and not prefetched.
-      for (const href of later) expect(prefetches.asked.has(href), href).toBe(false);
-
-      // A finger on a later row, slid off: its prefetch, no navigation, no history entry.
-      const historyBefore = await page.evaluate(() => history.length);
-      const target = cards.nth(PREFETCH_FIRST_ROWS + 1);
-      const targetHref = later[1]!;
-      await target.click({ trial: true });
-      await finger(target, "cancel");
-      await expect.poll(() => prefetches.answered.get(targetHref) ?? 0).toBeGreaterThan(0);
-      await expect(page).toHaveURL(/\/clients$/);
-      expect(await page.evaluate(() => history.length)).toBe(historyBefore);
-      // And the other later rows are still not asked for.
-      for (const href of later)
-        if (href !== targetHref) expect(prefetches.asked.has(href)).toBe(false);
     } finally {
       watch.stop();
     }
   });
 
-  test("with data saver on, no row is prefetched, the first ones included", async ({ page }) => {
+  test("with data saver on, no row is prefetched", async ({ page }) => {
     await saveData(page);
     const asked = new Set<string>();
     page.on("request", (request) => {
@@ -363,14 +339,12 @@ test.describe("a list row prefetches in view only near the top", () => {
     });
     await page.goto("/clients");
     await hydrated(page);
-    await expect(
-      page.locator('[data-slot="data-card-link"]').nth(PREFETCH_FIRST_ROWS),
-    ).toBeVisible();
+    await expect(page.locator('[data-slot="data-card-link"]').nth(LATER_ROW)).toBeVisible();
     await page.waitForLoadState("networkidle");
     expect([...asked].filter((path) => CLIENT_ROW.test(path))).toEqual([]);
   });
 
-  test("a first row's tap shows its skeleton at once; a later row's is measured", async ({
+  test("a sixth row's tap shows its traced skeleton at once, the server held", async ({
     page,
     context,
     baseURL,
@@ -382,12 +356,10 @@ test.describe("a list row prefetches in view only near the top", () => {
     await page.goto("/clients");
     await hydrated(page);
     const cards = page.locator('[data-slot="data-card-link"]');
-    await expect(cards.nth(PREFETCH_FIRST_ROWS + 2)).toBeVisible();
-    const firstHref = (await cards.nth(0).getAttribute("href"))!;
-    // Its route tree and its loading boundary both in, and nothing else still on its way.
-    await expect
-      .poll(() => (prefetches.answered.get(firstHref) ?? 0) >= 2 && prefetches.settled())
-      .toBe(true);
+    await expect(cards.nth(LATER_ROW)).toBeVisible();
+    const href = (await cards.nth(LATER_ROW).getAttribute("href"))!;
+    // Its loading boundary in, and nothing else still on its way.
+    await expect.poll(() => prefetches.loaded.has(href) && prefetches.settled()).toBe(true);
     // From here every server answer takes SLOW_MS.
     await context.route(
       (url) => url.origin === origin && !url.pathname.startsWith("/_next/static/"),
@@ -398,28 +370,18 @@ test.describe("a list row prefetches in view only near the top", () => {
     );
     const historyAtList = await page.evaluate(() => history.length);
 
-    const skeleton = '[data-slot="loading-client-overview"]';
-    const firstMs = await tapUntil(cards.nth(0), skeleton);
-    report("client row 1 (prefetched in view): tap → traced skeleton", `${firstMs} ms`);
-    expect(firstMs, "the first row's traced skeleton").not.toBeNull();
-    expect(firstMs!).toBeLessThanOrEqual(INSTANT_MS);
+    const ms = await tapUntil(cards.nth(LATER_ROW), '[data-slot="loading-client-overview"]');
+    report(
+      `client row ${LATER_ROW + 1}: tap → traced skeleton (server held ${SLOW_MS} ms)`,
+      `${ms} ms`,
+    );
+    expect(ms, "the row's traced skeleton").not.toBeNull();
+    expect(ms!).toBeLessThanOrEqual(INSTANT_MS);
+    await expect(page).toHaveURL(new RegExp(`${href}$`));
     await expect(page.locator('[data-slot="client-overview"]')).toBeVisible({
       timeout: SLOW_MS * 8,
     });
-    // The tap pushed its one entry, as before (§14.2 b); back returns to the list.
-    expect(await page.evaluate(() => history.length)).toBe(historyAtList + 1);
-    await page.goBack();
-    await expect(page).toHaveURL(/\/clients$/);
-
-    // A later row: prefetched as the finger goes down; skeleton or content, whichever is first.
-    const later = cards.nth(PREFETCH_FIRST_ROWS + 1);
-    const laterMs = await tapUntil(later, `${skeleton}, [data-slot="client-overview"]`);
-    report("client row 6 (prefetched on the finger): tap → skeleton or content", `${laterMs} ms`);
-    expect(laterMs, "the later row opens").not.toBeNull();
-    await expect(page.locator('[data-slot="client-overview"]')).toBeVisible({
-      timeout: SLOW_MS * 8,
-    });
-    // Its push took the place of the first row's spent entry: nothing else was added.
+    // The tap pushed its one entry (§14.2 b); back returns to the list.
     expect(await page.evaluate(() => history.length)).toBe(historyAtList + 1);
     await page.goBack();
     await expect(page).toHaveURL(/\/clients$/);

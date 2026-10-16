@@ -4,7 +4,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { BriefcaseIcon, MoreHorizontalIcon } from "lucide-react";
 import { useMemo } from "react";
 
-import { DataTable, type MobileCard, rowRank } from "@/core/ui/composites/data-table";
+import { DataTable, type MobileCard } from "@/core/ui/composites/data-table";
 import type { DataTableFilter } from "@/core/ui/composites/data-table-view";
 import { DrillLink } from "@/core/ui/composites/drill-link";
 import { EmptyState } from "@/core/ui/composites/empty-state";
@@ -91,14 +91,12 @@ export function ClientList({
     {
       accessorKey: "name",
       header: "Client",
-      cell: ({ row, table }) => (
+      cell: ({ row }) => (
         <div className="flex min-w-0 items-center gap-3">
           <ClientLogo fileId={row.original.logoFileId} name={row.original.name} />
           <div className="min-w-0">
             <DrillLink
               href={`/clients/${row.original.id}`}
-              // The client's page reads the client in its layout (P2 item 6).
-              prefetchRank={rowRank(row, table)}
               className="block truncate font-medium underline-offset-4 hover:underline"
             >
               {row.original.name}
@@ -181,7 +179,6 @@ export function ClientList({
       <StatusDot status={client.state} label={CLIENT_STATE_LABELS[client.state]} />
     ),
     href: (client) => `/clients/${client.id}`,
-    prefetchByRank: true,
     moreLabel: (client) => `More for ${client.name}`,
     // The sheet behind ⋯ is the Owner's: the facts and the lifecycle. An Admin's card only opens.
     ...(canManage
