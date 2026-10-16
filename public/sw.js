@@ -37,7 +37,7 @@
  *
  * Bump VERSION when the caching rules or the handlers change; the old cache is deleted on activate.
  */
-const VERSION = "v9";
+const VERSION = "v10";
 const CACHE = `maxoff-${VERSION}`;
 const SHELL_CACHE = `maxoff-shell-${VERSION}`;
 const OFFLINE_URL = "/offline";
@@ -273,8 +273,16 @@ let shellDeployment = null;
 /**
  * The cache key of a request this worker answers with a kept skeleton, or null. Only the router's
  * prefetch (`RSC: 1` and `Next-Router-Prefetch: 1`, never a navigation's or a refresh's request)
- * of a `SHELL_PATHS` or `SHELL_DRILL_DOWN` address with no query but the router's own `_rsc`
- * (which hashes every header the answer varies by), from a page that names its deployment.
+ * of a `SHELL_PATHS` or `SHELL_DRILL_DOWN` address with no query but the router's own `_rsc`,
+ * from a page that names its deployment.
+ *
+ * Keyed by what the answer varies by (the server's `Vary`: the segment asked for and the router
+ * state tree; `RSC` and `Next-Router-Prefetch` are fixed above), never by `_rsc` itself: `_rsc`
+ * also hashes `Next-Url`, the page the prefetch was made **from**, which a route without an
+ * interception route ignores (the server drops the header). Keyed by `_rsc`, a skeleton kept
+ * while on Today never answered the same prefetch made on Tasks, so a task row tapped there after
+ * a cold reopen waited for the Worker. A response that does vary by `Next-Url` is never kept
+ * (`isShellPayload`).
  */
 function shellKey(request) {
   if (request.method !== "GET" || request.mode === "navigate") return null;
@@ -287,7 +295,8 @@ function shellKey(request) {
   const rsc = url.searchParams.get("_rsc");
   if (!deployment || !rsc || [...url.searchParams.keys()].length !== 1) return null;
   const key = new URL(url.pathname, self.location.origin);
-  key.searchParams.set("_rsc", rsc);
+  key.searchParams.set("segment", headers.get("next-router-segment-prefetch") ?? "");
+  key.searchParams.set("tree", headers.get("next-router-state-tree") ?? "");
   key.searchParams.set("dpl", deployment);
   return key.href;
 }
@@ -339,10 +348,14 @@ function responsePath(response) {
   }
 }
 
-/** The network's answer is a skeleton worth keeping: the prefetch itself, answered in full. */
+/**
+ * The network's answer is a skeleton worth keeping: the prefetch itself, answered in full, and
+ * the same whichever page asked (`shellKey` leaves `Next-Url` out).
+ */
 function isShellPayload(request, response) {
   if (response.status !== 200 || response.redirected) return false;
   if (responsePath(response) !== new URL(request.url).pathname) return false;
+  if (/(^|,)\s*next-url\s*(,|$)/i.test(response.headers.get("vary") || "")) return false;
   return (response.headers.get("content-type") || "").startsWith("text/x-component");
 }
 

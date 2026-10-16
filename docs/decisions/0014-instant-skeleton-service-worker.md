@@ -40,6 +40,11 @@ proven data-free skeleton. Everything a member's data travels in stays network-o
    own, no date, no name or email, no server promise handed to the client). The skeletons are
    shaped by the viewer's role, so they are kept **for one role at a time**: the signed-in shell
    posts its role (the role only) to the worker, and a different role drops them all.
+   A copy is keyed by what its answer varies by (the address, the segment asked for and the
+   router state tree), never by `_rsc` itself, which also hashes `Next-Url`, the page the
+   prefetch was made from; an answer whose `Vary` names `Next-Url` (an interception route) is
+   never kept (clarified 2026-10-16: keyed by `_rsc`, a copy kept on Today never answered the
+   same prefetch made on Tasks).
 2. **Keyed to the build.** Next's `deploymentId` (`core/lib/deployment-id.ts`, one per build) is
    sent by every router request as `x-deployment-id`; a copy is kept under the deployment that
    asked for it and is never answered to a page of another, and a new deployment's first copy

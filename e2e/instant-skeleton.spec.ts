@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { type BrowserContext, type Locator, type Page, type TestInfo } from "@playwright/test";
 
-import { addISTDays, istInstant, todayIST } from "../src/core/time";
+import { systemClock } from "../src/core/time";
 import { mobileNavFor, PROFILE_NAV_ITEM } from "../src/core/ui/shell/nav";
 
 import { expect, test } from "./fixtures";
@@ -56,7 +56,7 @@ const COLD_MS = 3_000;
 const INSTANT_MS = 300;
 /** How long a finger rests on the glass in a tap. */
 const TAP_HOLD_MS = 80;
-const SHELL_CACHE = "maxoff-shell-v9";
+const SHELL_CACHE = "maxoff-shell-v10";
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g;
 const ISO_DATE = /\b20\d\d-[01]\d-[0-3]\d\b/;
@@ -236,6 +236,13 @@ const fixtureNames = (project: string) => ({
   fresh: `Instant Tap ${project}: Fresh Task`,
 });
 
+/**
+ * A fixture task falls due two hours from now: the Owner's Tasks tab lists open tasks by deadline
+ * and shows the first 15 (`OPEN_ON_FIRST_SCREEN`), so one due days ahead sat behind whatever else
+ * a run had open, off the first screen or not drawn at all.
+ */
+const FIXTURE_DUE_MS = 2 * 60 * 60 * 1000;
+
 async function createTask(title: string): Promise<string> {
   const staff = await memberIdOf(USERS.staff.email);
   return rpcAs<string>(USERS.owner.email, USERS.owner.password, "task_create", {
@@ -244,7 +251,7 @@ async function createTask(title: string): Promise<string> {
     task_type_id: await taskTypeId("Normal"),
     client_id: null,
     priority: "medium",
-    due_at: istInstant(addISTDays(todayIST(), 3), "18:00"),
+    due_at: new Date(systemClock().getTime() + FIXTURE_DUE_MS).toISOString(),
     assignee_ids: [staff],
     primary_owner_id: staff,
     approving_admin_id: null,
@@ -391,13 +398,28 @@ test.describe("a tap on a cold Worker shows its skeleton at once", () => {
     await page.goto("/today");
     await hydrated(page);
     await page.locator('[data-slot="bottom-nav"] a[href="/tasks"]').click();
-    await expect(page.getByRole("link", { name: new RegExp(TASK) }).first()).toBeVisible();
+    const row = page.getByRole("link", { name: new RegExp(TASK) }).first();
+    await expect(row).toBeVisible();
+    // Seen means on the screen: a row prefetches its skeleton when it comes into view, and a run's
+    // overdue tasks under Needs you can hold the Open tasks below the fold.
+    await row.scrollIntoViewIfNeeded();
+    await expect(row).toBeInViewport();
     await expect
       .poll(async () => {
         const kept = await keptAddresses(page);
         const count = (path: string) => kept.filter((address) => address === path).length;
-        // The route tree and the loading skeleton of each.
-        return [count("/tasks"), count("/clients"), count(`/tasks/${taskId}`)].every((n) => n >= 2);
+        // The route tree and the loading skeleton of each tab. A task's page differs from
+        // another's by its id only, so the router asks for its route tree once, with the first
+        // task row it prefetches, and asks every other row for its loading skeleton alone: the
+        // task's own skeleton is kept, and one task page's route tree.
+        const drillDowns = kept.filter((address) => SHELL_DRILL_DOWN.test(address));
+        const aTaskTree = drillDowns.length > new Set(drillDowns).size;
+        return (
+          count("/tasks") >= 2 &&
+          count("/clients") >= 2 &&
+          count(`/tasks/${taskId}`) >= 1 &&
+          aTaskTree
+        );
       })
       .toBe(true);
     await page.locator('[data-slot="bottom-nav"] a[href="/today"]').click();

@@ -1171,10 +1171,12 @@ test.describe("the Owner's Today: My tasks (6b.2, decision 24)", () => {
     await expect(row).toContainText("Overdue");
     await expect(row.getByRole("link")).toHaveAttribute("href", `/tasks/${late}`);
     await expect(mine).not.toContainText(`${prefix}ahead`);
-    // Never listed twice: the Owner's own overdue task is not a risk row too.
-    await expect(page.locator('[data-slot="today-risks"]:visible')).not.toContainText(
-      `${prefix}late`,
-    );
+    // Never listed twice: the Owner's own overdue task is not a risk row too. The risks card is
+    // drawn only when something is at risk (`sections.risks`), so with nothing else at risk it is
+    // absent: the check is that no risks card holds the task, not that one is there.
+    await expect(
+      page.locator('[data-slot="today-risks"]:visible').filter({ hasText: `${prefix}late` }),
+    ).toHaveCount(0);
 
     // Done by the Owner (it completes), then back on Today: it is gone.
     await rpcAs(USERS.owner.email, USERS.owner.password, "task_submit_done", {

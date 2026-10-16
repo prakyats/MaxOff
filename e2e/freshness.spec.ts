@@ -118,9 +118,17 @@ test.describe("the person who made the change", () => {
   }, info) => {
     const title = `${PREFIX}own ${info.project.name}`;
     const taskId = await crewTask(title);
+    // The full list holds every open task, the soonest due first, and a phone shows the first 20
+    // before "Show more": a run's other tasks fall due before this one, so it is found the way a
+    // person finds one in a long list, through the search. The search filters the rows the page
+    // read, so a stale read still shows only the old title.
+    const onTheList = async (text: string) => {
+      await page.getByRole("searchbox", { name: "Search tasks" }).fill(title);
+      await expect(shown(page, text)).toBeVisible();
+    };
     await page.goto("/tasks/all");
     await hydrated(page);
-    await expect(shown(page, title)).toBeVisible();
+    await onTheList(title);
 
     await drillIn(page, `/tasks/${taskId}`);
     await expect(page.getByRole("heading", { name: title })).toBeVisible();
@@ -128,9 +136,10 @@ test.describe("the person who made the change", () => {
 
     await page.goBack();
     await expect(page).toHaveURL(/\/tasks\/all$/);
-    await expect(shown(page, `${title} renamed`)).toBeVisible();
+    await onTheList(`${title} renamed`);
     await page.reload();
-    await expect(shown(page, `${title} renamed`)).toBeVisible();
+    await hydrated(page);
+    await onTheList(`${title} renamed`);
     await removeTasksTitled(title);
   });
 });

@@ -41,7 +41,10 @@ export async function tickWithUndo(
     return false;
   }
   const said = `${done ? "Ticked" : "Unticked"} ${groupStageLabel(stage.groupLabel, stage.name)} on ${itemTitle}`;
-  const id = `item-tick-${stage.id}`;
+  // The Undo's own word ("Unticked …") never takes the id of the toast whose Undo was tapped:
+  // sonner removes that toast by id ~200 ms after the tap, so a reply quicker than that, merged
+  // into it, went with it and the person never saw the Undo had worked.
+  const id = undoing ? `item-tick-${stage.id}-undone` : `item-tick-${stage.id}`;
   if (undoing || !undo) {
     toast(said, { id });
     return true;

@@ -288,7 +288,55 @@ describe("stale-while-revalidate for the viewer's role", () => {
       worker.network[index]!.resolve(answers[index]!);
       await worker.settle();
     }
-    const kept = [...(worker.caches.stores.get("maxoff-shell-v9")?.keys() ?? [])];
+    const kept = [...(worker.caches.stores.get("maxoff-shell-v10")?.keys() ?? [])];
+    expect(kept.filter((key) => !key.includes("__maxoff"))).toEqual([]);
+  });
+});
+
+describe("one kept copy whichever page asked", () => {
+  it("a prefetch made from another page (another `Next-Url`, so another `_rsc`) is answered by the kept copy", async () => {
+    const worker = loadWorker();
+    await worker.tell("owner");
+    const tree = { "next-router-segment-prefetch": "/_tree" };
+    worker.dispatch("fetch", {
+      request: prefetch("/tasks/10000000-0000-4000-8000-000000000001?_rsc=fromToday", {
+        ...tree,
+        "next-url": "/today",
+      }),
+    });
+    await worker.settle();
+    worker.network[0]!.resolve(
+      payload("task tree", `${ORIGIN}/tasks/10000000-0000-4000-8000-000000000001?_rsc=fromToday`),
+    );
+    await worker.settle();
+    const fromTasks = prefetch("/tasks/10000000-0000-4000-8000-000000000001?_rsc=fromTasks", {
+      ...tree,
+      "next-url": "/tasks",
+    });
+    expect(await answeredAtOnce(worker, fromTasks)).toBe(true);
+    expect(worker.network).toHaveLength(1);
+  });
+
+  it("the segment asked for and the router state tree each keep their own copy", async () => {
+    const worker = await withKeptSkeleton("owner");
+    const others = [
+      prefetch("/tasks?_rsc=t", { "next-router-segment-prefetch": "/_tree" }),
+      prefetch("/tasks?_rsc=s", { "next-router-state-tree": "%5B%22%22%5D" }),
+    ];
+    for (const request of others) expect(await answeredAtOnce(worker, request)).toBe(false);
+    expect(await answeredAtOnce(worker)).toBe(true);
+  });
+
+  it("never keeps an answer that varies by the page it was asked from", async () => {
+    const worker = loadWorker();
+    await worker.tell("owner");
+    worker.dispatch("fetch", { request: prefetch("/tasks?_rsc=abc", { "next-url": "/today" }) });
+    await worker.settle();
+    const response = payload("intercepted", `${ORIGIN}/tasks?_rsc=abc`);
+    response.headers.set("vary", "rsc, next-router-state-tree, next-url");
+    worker.network[0]!.resolve(response);
+    await worker.settle();
+    const kept = [...(worker.caches.stores.get("maxoff-shell-v10")?.keys() ?? [])];
     expect(kept.filter((key) => !key.includes("__maxoff"))).toEqual([]);
   });
 });
@@ -330,7 +378,7 @@ describe("one viewer, one deployment: everything else is dropped", () => {
     const worker = await withKeptSkeleton("owner");
     await worker.tell(null);
     expect(await answeredAtOnce(worker)).toBe(false);
-    expect(worker.caches.stores.has("maxoff-shell-v9")).toBe(false);
+    expect(worker.caches.stores.has("maxoff-shell-v10")).toBe(false);
   });
 
   it("an unknown viewer counts as none", async () => {
@@ -372,10 +420,10 @@ describe("one viewer, one deployment: everything else is dropped", () => {
     expect(await answeredAtOnce(worker, next)).toBe(false);
     worker.network[1]!.resolve(payload("new build", `${ORIGIN}/tasks?_rsc=abc`));
     await worker.settle();
-    const kept = [...(worker.caches.stores.get("maxoff-shell-v9")?.keys() ?? [])].filter(
+    const kept = [...(worker.caches.stores.get("maxoff-shell-v10")?.keys() ?? [])].filter(
       (key) => !key.includes("__maxoff"),
     );
-    expect(kept).toEqual([`${ORIGIN}/tasks?_rsc=abc&dpl=def456-2-1`]);
+    expect(kept).toEqual([`${ORIGIN}/tasks?segment=&tree=&dpl=def456-2-1`]);
   });
 
   it("keeps the newest 60 task skeletons, never the destinations' among them", async () => {
@@ -387,11 +435,11 @@ describe("one viewer, one deployment: everything else is dropped", () => {
       worker.network.at(-1)!.resolve(payload("task skeleton", `${ORIGIN}/tasks/${id(n)}?_rsc=abc`));
       await worker.settle();
     }
-    const kept = [...(worker.caches.stores.get("maxoff-shell-v9")?.keys() ?? [])];
+    const kept = [...(worker.caches.stores.get("maxoff-shell-v10")?.keys() ?? [])];
     const tasks = kept.filter((key) => /\/tasks\/1000/.test(key));
     expect(tasks).toHaveLength(60);
     expect(tasks[0]).toContain(id(5));
-    expect(kept).toContain(`${ORIGIN}/tasks?_rsc=abc&dpl=${DEPLOYMENT}`);
+    expect(kept).toContain(`${ORIGIN}/tasks?segment=&tree=&dpl=${DEPLOYMENT}`);
   });
 
   it("the viewer survives the worker being stopped: a new worker reads it back", async () => {
