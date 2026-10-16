@@ -250,8 +250,8 @@ export default async function ProjectPage({
           </>
         }
       />
-      <div className="flex max-w-3xl min-w-0 flex-col gap-4" data-slot="project-page">
-        <div className="flex flex-col gap-2" data-slot="project-glance">
+      <div className="flex max-w-5xl min-w-0 flex-col gap-4" data-slot="project-page">
+        <div className="flex max-w-3xl min-w-0 flex-col gap-2" data-slot="project-glance">
           <p className="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
             <StatusBadge status={project.state} label={PROJECT_STATE_LABELS[project.state]} />
             <span className="md:hidden">{meta.join(" · ")}</span>
@@ -353,11 +353,13 @@ export default async function ProjectPage({
             defaultStages={active.length}
             presets={presets}
             openItemId={items.some((item) => item.id === itemParam) ? (itemParam ?? null) : null}
+            // The Keep-extras card's solid Yes owns the screen's one solid button while it shows.
+            solidAllowed={!extrasOf}
           />
         ) : null}
 
         {project.description || definitions.length > 0 ? (
-          <section aria-labelledby="project-details" className="flex flex-col gap-2">
+          <section aria-labelledby="project-details" className="flex max-w-3xl flex-col gap-2">
             <h2 id="project-details" className="text-sm font-medium">
               Details
             </h2>

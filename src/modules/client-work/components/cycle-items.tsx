@@ -15,12 +15,13 @@ import { toastResult } from "@/core/ui/toast";
 
 import { markItemsDone, tickStages, updateItem } from "../actions/items";
 import { itemCount, stageChoices } from "../domain/items";
+import { readyToMarkDone, solidMarkDoneId } from "../domain/deliverable";
 import { movedPosition } from "../domain/positions";
 import { orderDeliverables, type ItemView } from "../domain/views";
 
 import { BulkEditBar } from "./bulk-edit-bar";
 import type { BulkEditKind } from "./bulk-edit-sheet";
-import { DELIVERABLE_COLUMNS } from "./deliverable-columns";
+import { deliverableColumns } from "./deliverable-columns";
 import { DeliverableRow } from "./deliverable-row";
 import { FinishedDeliverables } from "./finished-deliverables";
 import type { ItemPermissions } from "./item-sheet";
@@ -76,7 +77,13 @@ export function CycleItems({
   defaultStages = 0,
   presets = [],
   openItemId = null,
+  solidAllowed = true,
 }: {
+  /**
+   * The screen may carry a solid red Mark done (E+): false while another solid control shows on
+   * the same layer (the month-end "Keep extras" card's neutral solid Yes; §14.1).
+   */
+  solidAllowed?: boolean;
   /** The stage presets, for a deliverable's Edit stages (6b). */
   presets?: readonly StagePresetOption[];
   /** How many default stages a new deliverable starts with (the Add dialog says so). */
@@ -158,15 +165,21 @@ export function CycleItems({
 
   // 6b.11 (1): the open ones first (overdue at the top, then by date), the rest collapsed.
   const { open, finished } = orderDeliverables(items);
+  // E+: Mark done is quiet until every stage is ticked; the first such row's is the screen's one
+  // solid red commit (never in Select mode, whose bar does it), the others outlined.
+  const canMark = (item: ItemView) => permissions.tick && item.rules.markDone && !waiting(item);
+  const solidId = solidMarkDoneId(open, canMark, solidAllowed && !mode.selectMode);
   const row = (item: ItemView) => (
     <DeliverableRow
       key={item.id}
       item={item}
-      selectable={mode.selectMode && selectable(item)}
+      selecting={mode.selectMode}
+      selectable={selectable(item)}
       selected={selected.has(item.id)}
       onToggle={() => mode.onToggle(item.id)}
       waiting={waiting(item)}
       action={permissions.tick && item.rules.markDone}
+      look={item.id === solidId ? "solid" : readyToMarkDone(item) ? "ready" : "quiet"}
       onOpen={() => openSheet(item.id)}
       onMarkDone={() => markDone(item)}
       error={errors[item.id]}
@@ -218,7 +231,7 @@ export function CycleItems({
               data-slot="cycle-items"
               className={cn(
                 "border-border divide-border bg-card divide-y overflow-hidden rounded-lg border",
-                DELIVERABLE_COLUMNS,
+                deliverableColumns(mode.selectMode),
               )}
             >
               {open.map(row)}
@@ -231,7 +244,9 @@ export function CycleItems({
               Nothing open: every deliverable is done or closed.
             </p>
           )}
-          <FinishedDeliverables count={finished.length}>{finished.map(row)}</FinishedDeliverables>
+          <FinishedDeliverables count={finished.length} selecting={mode.selectMode}>
+            {finished.map(row)}
+          </FinishedDeliverables>
         </>
       )}
       <BulkEditBar

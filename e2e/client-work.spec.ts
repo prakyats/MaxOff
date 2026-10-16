@@ -778,7 +778,6 @@ test("the project page (6b.11): open first, Planned words, stage chips, the reop
   const here = `/clients/${clientId}/projects/${projectId}`;
   await page.goto(here);
   await hydrated(page);
-  const phoneWidth = (page.viewportSize()?.width ?? 1280) < 768;
 
   // (1) Open ones first, the overdue at the top, then by date, undated last; done and closed
   // collapsed at the end with their count.
@@ -813,25 +812,31 @@ test("the project page (6b.11): open first, Planned words, stage chips, the reop
   await expect(planned("Reopened item")).toHaveText("Not planned");
   await expect(planned("Reopened item")).toHaveAttribute("data-planned", "none");
 
-  // (3) Stage chips on a laptop: ticked, next, later; a phone has them in miniature.
-  if (phoneWidth) {
-    const mini = itemRow(page, "Soon item").locator('[data-slot="item-row-meter"]');
-    await expect(mini).toBeVisible();
-    await expect(mini).toHaveAttribute("data-done", "1");
-    await expect(mini).toHaveAttribute("data-next", "1");
-    await expect(mini).toHaveAttribute("data-total", "3");
-    await expect(itemRow(page, "Soon item").locator('[data-slot="item-row-mini"]')).toContainText(
-      "1/3 · Next: Stage 2",
-    );
-  } else {
-    const chips = itemRow(page, "Soon item").locator('[data-slot="stage-chip"]:visible');
-    await expect(chips).toHaveText(["Stage 1, ticked", "Stage 2, next", "Stage 3, to do"]);
-    expect(await chips.evaluateAll((nodes) => nodes.map((node) => node.dataset.chip))).toEqual([
-      "ticked",
-      "next",
-      "later",
-    ]);
-  }
+  // (3) E+: a stage list from before groups is one strip, "Stages 1/3", with "Next: Stage 2"; the
+  // strip opens in place (a view control, the address unchanged) to its chips: ticked, next, later.
+  const soon = itemRow(page, "Soon item");
+  const strip = soon.locator('[data-slot="item-strip-toggle"]');
+  await expect(strip).toHaveCount(1);
+  await expect(strip).toHaveText("Stages 1/3 stages ticked");
+  await expect(soon.locator('[data-slot="item-strip-bar"]')).toHaveAttribute("data-done", "1");
+  await expect(soon.locator('[data-slot="item-strip-bar"]')).toHaveAttribute("data-next", "1");
+  await expect(soon.locator('[data-slot="item-strip-bar"]')).toHaveAttribute("data-total", "3");
+  await expect(soon.locator('[data-slot="item-next"]:visible')).toHaveText("Next: Stage 2");
+  await expect(soon.locator('[data-slot="stage-chip"]')).toHaveCount(0);
+  await strip.click();
+  await expect(strip).toHaveAttribute("aria-expanded", "true");
+  const chips = soon.locator('[data-slot="stage-chip"]');
+  await expect(chips).toHaveText(["Stage 1, ticked", "Stage 2, next", "Stage 3, to do"]);
+  expect(await chips.evaluateAll((nodes) => nodes.map((node) => node.dataset.chip))).toEqual([
+    "ticked",
+    "next",
+    "later",
+  ]);
+  await expect(page).toHaveURL(new RegExp(`${here}$`));
+  await strip.click();
+  await expect(chips).toHaveCount(0);
+  // Nothing ticked in full yet: every Mark done is the quiet one.
+  await expect(soon.locator('[data-slot="item-row-done"]')).toHaveAttribute("data-look", "quiet");
 
   // (4) The reopened note: who, when and why, muted with its icon.
   await expect(
