@@ -3,6 +3,7 @@
 import { MoreHorizontalIcon } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useState } from "react";
+import { toast } from "sonner";
 
 import type { FieldDefinition } from "@/core/custom-fields";
 import { Button } from "@/core/ui/primitives/button";
@@ -41,6 +42,8 @@ type Layer = MenuLayer | null;
  * project template, the project unchanged) for `projects.manage`; **Complete** (refused while anything is
  * open or done: the dialog says what is left), **Cancel** with a reason (it closes the open and
  * done items) and **Reopen** with a reason (refused on an Inactive client) for `projects.complete`.
+ * **Copy schedule as text** (6b.16 (g), in any state) puts the shown cycle's deliverables on the
+ * clipboard as plain text for WhatsApp (`scheduleText`, built on the server), with a toast.
  * Each opens its own layer; back closes it (§14.2 a). The function behind each decides again.
  */
 export function ProjectMenu({
@@ -54,7 +57,10 @@ export function ProjectMenu({
   unfinished,
   nextCycleLabel,
   itemList,
+  schedule = null,
 }: {
+  /** The shown cycle's schedule as text ("Copy schedule as text"); null: no cycle. */
+  schedule?: string | null;
   project: MenuProject & { state: ProjectState; recurrence: Recurrence };
   stages: readonly GroupedStageRow[];
   blueprints: readonly MenuBlueprint[];
@@ -94,7 +100,18 @@ export function ProjectMenu({
     canComplete && working ? { key: "cancel", label: "Cancel project…" } : null,
     canComplete && !working ? { key: "reopen", label: "Reopen project…" } : null,
   ].filter((entry): entry is { key: Exclude<Layer, null>; label: string } => entry !== null);
-  if (entries.length === 0 && lifecycle.length === 0) return null;
+  if (entries.length === 0 && lifecycle.length === 0 && schedule === null) return null;
+
+  async function copySchedule(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Schedule copied: paste it into WhatsApp");
+    } catch {
+      toast.error("The schedule could not be copied", {
+        description: "This browser did not allow it. Try again, or copy from a laptop.",
+      });
+    }
+  }
 
   return (
     <>
@@ -116,7 +133,17 @@ export function ProjectMenu({
               {entry.label}
             </DropdownMenuItem>
           ))}
-          {entries.length > 0 && lifecycle.length > 0 ? <DropdownMenuSeparator /> : null}
+          {schedule !== null ? (
+            <DropdownMenuItem
+              data-slot="copy-schedule"
+              onSelect={() => void copySchedule(schedule)}
+            >
+              Copy schedule as text
+            </DropdownMenuItem>
+          ) : null}
+          {(entries.length > 0 || schedule !== null) && lifecycle.length > 0 ? (
+            <DropdownMenuSeparator />
+          ) : null}
           {lifecycle.map((entry) => (
             <DropdownMenuItem key={entry.key} onSelect={() => pick(entry.key)}>
               {entry.label}

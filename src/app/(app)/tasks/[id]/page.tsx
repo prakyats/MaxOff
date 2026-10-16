@@ -33,6 +33,7 @@ import {
   relativeDeadline,
   remindAgainAt,
   remindAgainLabel,
+  remindWho,
   reviewerName,
   routeLine,
   stateLabel,
@@ -142,6 +143,13 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
   // 6b.2: the Owner's own task (the route line) and Remind's hour, from what the page read.
   const ownerId = directory.find((member) => member.role === "owner")?.id ?? null;
   const remindAt = actions.remind ? remindAgainAt(data.activity, systemClock()) : null;
+  // Whom Remind reaches (the others on the task), named on the button; unnamed, "everyone".
+  const remindNames = active
+    .filter((assignee) => assignee.memberId !== viewer.id)
+    .map((assignee) => names[assignee.memberId]);
+  const remindTo = remindWho(
+    remindNames.every((one) => one !== undefined) ? (remindNames as string[]) : [],
+  );
 
   const work = workPanel({ data, task, actions, pair });
   const thread = chatThread({ data, viewerId: viewer.id, pair, names });
@@ -247,6 +255,7 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
                 taskId={task.id}
                 againAt={remindAt}
                 againLabel={remindAt ? remindAgainLabel(remindAt) : null}
+                who={remindTo}
               />
             ) : null}
             {changeRequest?.reason ? (

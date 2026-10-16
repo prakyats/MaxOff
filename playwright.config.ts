@@ -62,12 +62,14 @@ const DASHBOARDS_SPECS = /dashboards\.spec\.ts$/;
 const CALENDAR_SPECS = /calendar\.spec\.ts$/;
 const EOD_REPORT_SPECS = /eod-report\.spec\.ts$/;
 const CLIENT_WORK_SPECS = /client-work\.spec\.ts$/;
-const DELIVERABLES_SPECS = /deliverables\.spec\.ts$/;
+const DELIVERABLES_SPECS = /deliverables(-bulk|-list)?\.spec\.ts$/;
 const PROJECT_TEMPLATES_SPECS = /project-templates\.spec\.ts$/;
 const BACK_LINK_SPECS = /back-link\.spec\.ts$/;
 const INSTANT_SKELETON_SPECS = /instant-skeleton\.spec\.ts$/;
 const PREFETCH_LIKELY_SPECS = /prefetch-likely\.spec\.ts$/;
 const GUIDE_SPECS = /guide\.spec\.ts$/;
+// Fresh data on back and reload (6b.17a): both phone widths, as every navigation spec.
+const FRESHNESS_SPECS = /freshness\.spec\.ts$/;
 
 /**
  * Web Push (5.2): the e2e server sends real, encrypted pushes to a fake push service the spec
@@ -240,6 +242,7 @@ export default defineConfig({
         DELIVERABLES_SPECS,
         PROJECT_TEMPLATES_SPECS,
         BACK_LINK_SPECS,
+        FRESHNESS_SPECS,
         SHEET_KEYBOARD_SPECS,
         INSTANT_SKELETON_SPECS,
         PREFETCH_LIKELY_SPECS,

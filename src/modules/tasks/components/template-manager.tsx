@@ -131,7 +131,7 @@ export function TemplateManager({
                     </Button>
                     <Button
                       type="button"
-                      variant="destructive"
+                      variant="ghost"
                       size="icon"
                       aria-label={`Archive ${template.name}`}
                       onClick={() => setArchiving(template)}
@@ -270,7 +270,7 @@ function RowSheet({
             Edit
           </Button>
           <Button
-            variant="destructive"
+            variant="secondary"
             className="w-full justify-start"
             onClick={() => choose(onArchive)}
           >

@@ -1,7 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
+import { revalidateScreens } from "@/core/lib/revalidate-screens";
 import { action, type BulkOutcome, eachId, ok, type Result } from "@/core/errors";
 import { dispatchPushSoon } from "@/core/notifications/push/dispatch";
 import { assertPermission } from "@/core/permissions/server";
@@ -23,7 +22,7 @@ import {
 
 function revalidateReview(): void {
   // The layout carries the Approvals badge, so the whole signed-in tree refreshes.
-  revalidatePath("/", "layout");
+  revalidateScreens();
 }
 
 export const approveDay = action(async (input: ApproveDayInput): Promise<Result<null>> => {

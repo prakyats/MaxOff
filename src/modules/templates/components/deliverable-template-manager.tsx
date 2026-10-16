@@ -78,10 +78,23 @@ export function DeliverableTemplateManager({
   async function restore(template: DeliverableTemplate) {
     setBusyId(template.id);
     toastResult(await restoreDeliverableTemplate({ templateId: template.id }), {
-      success: "Template restored",
+      success: `Restored ${template.name}: + Add deliverable offers it again`,
     });
     setBusyId(null);
   }
+
+  const addButton = (
+    <Button
+      variant="secondary"
+      className="min-h-11"
+      onClick={() => setAdding(true)}
+      data-slot="add-deliverable-template"
+      aria-label="Add a deliverable template"
+    >
+      <PlusIcon aria-hidden />
+      Add
+    </Button>
+  );
 
   return (
     <section aria-labelledby="deliverable-templates" className="flex flex-col gap-3">
@@ -89,22 +102,16 @@ export function DeliverableTemplateManager({
         <h2 id="deliverable-templates" className="text-sm font-semibold">
           Deliverable templates
         </h2>
-        <Button
-          variant="secondary"
-          onClick={() => setAdding(true)}
-          data-slot="add-deliverable-template"
-          aria-label="Add a deliverable template"
-        >
-          <PlusIcon aria-hidden />
-          Add
-        </Button>
+        {/* With none yet, the empty state holds the one Add (one obvious next action). */}
+        {all.length > 0 ? addButton : null}
       </div>
       {all.length === 0 ? (
         <EmptyState
           icon={PackageIcon}
           size="compact"
           title="No deliverable templates yet"
-          description="Add one for a kind of deliverable you repeat, or use Save as template on a deliverable."
+          description="Add one for a deliverable you repeat. Save as template on a deliverable makes one too."
+          action={addButton}
         />
       ) : active.length === 0 ? (
         <p className="text-muted-foreground text-sm" data-slot="deliverable-templates-none">
@@ -133,18 +140,22 @@ export function DeliverableTemplateManager({
                   <Button
                     type="button"
                     variant="ghost"
-                    size="icon"
+                    className="min-h-11"
                     aria-label={`Preview ${template.name}`}
+                    title={`See the stages a deliverable made from ${template.name} starts with`}
                     onClick={() => setPreviewId(template.id)}
                   >
                     <EyeIcon aria-hidden />
+                    Preview
                   </Button>
                   {allowed.edit ? (
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
+                      className="size-11"
                       aria-label={`Edit ${template.name}`}
+                      title={`Edit ${template.name}`}
                       onClick={() => setEditing(template)}
                     >
                       <PencilIcon aria-hidden />
@@ -155,7 +166,9 @@ export function DeliverableTemplateManager({
                       type="button"
                       variant="ghost"
                       size="icon"
+                      className="size-11"
                       aria-label={`Archive ${template.name}`}
+                      title={`Archive ${template.name}`}
                       onClick={() => setArchiving(template)}
                     >
                       <ArchiveIcon aria-hidden />
@@ -189,8 +202,8 @@ export function DeliverableTemplateManager({
                 <Button
                   type="button"
                   variant="ghost"
-                  size="sm"
-                  className={CARD_ROW_TRAILING}
+                  className={cn("min-h-11", CARD_ROW_TRAILING)}
+                  aria-label={`Restore ${template.name}`}
                   disabled={busyId !== null}
                   onClick={() => void restore(template)}
                 >
@@ -236,7 +249,7 @@ export function DeliverableTemplateManager({
         onSubmit={async (reason) =>
           archiving
             ? toastResult(await archiveDeliverableTemplate({ templateId: archiving.id, reason }), {
-                success: "Template archived",
+                success: `Archived ${archiving.name}: + Add deliverable no longer offers it`,
               })
             : false
         }

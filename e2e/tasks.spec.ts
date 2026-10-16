@@ -1520,8 +1520,8 @@ test.describe("tasks for the Owner", () => {
       `tasks?id=eq.${taskId}&select=primary_owner_id,approving_admin_id`,
     );
     expect(task).toEqual({ primary_owner_id: ownerId, approving_admin_id: adminId });
-    // The creating Admin may ask the Owner about it.
-    await expect(page.getByRole("button", { name: "Remind" })).toBeVisible();
+    // The creating Admin may ask the Owner about it: the button names whom it reaches.
+    await expect(page.getByRole("button", { name: `Remind ${name}`, exact: true })).toBeVisible();
 
     await page.context().clearCookies();
     await signIn(page, USERS.owner.email, USERS.owner.password);
@@ -1561,12 +1561,19 @@ test.describe("tasks for the Owner", () => {
     await page.context().clearCookies();
     await signIn(page, admin.email, PASSWORD);
     await page.goto(`/tasks/${taskId}`);
-    const remind = page.getByRole("button", { name: "Remind" });
+    // It names whom it reaches: the others on the task, the primary owner first.
+    const remind = page.getByRole("button", {
+      name: `Remind ${staff.name} and ${person("helper", info).name}`,
+      exact: true,
+    });
     await expect(remind).toBeVisible();
     const box = await remind.boundingBox();
     expect(box, "the Remind button is laid out").not.toBeNull();
     expect((box as { height: number }).height).toBeGreaterThanOrEqual(44);
     await remind.click();
+    await expect(
+      page.getByText(`Reminder sent to ${staff.name} and ${person("helper", info).name}`),
+    ).toBeVisible();
     const waiting = page.locator('[data-slot="task-remind"] button[data-state="waiting"]');
     await expect(waiting).toContainText(/Reminded · again at \d{1,2}:\d{2} [AP]M/);
     await expect(waiting).toBeDisabled();

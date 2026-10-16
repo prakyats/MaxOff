@@ -1,7 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
+import { revalidateScreens } from "@/core/lib/revalidate-screens";
 import { action, type BulkOutcome, eachId, ok, type Result } from "@/core/errors";
 import { dispatchPushSoon } from "@/core/notifications/push/dispatch";
 import { assertPermission } from "@/core/permissions/server";
@@ -28,7 +27,7 @@ import {
 
 function revalidateReview(): void {
   // The layout carries the Approvals badge, so the whole signed-in tree refreshes.
-  revalidatePath("/", "layout");
+  revalidateScreens();
 }
 
 /** Approve one request; the dates whose earlier Owner decision was kept come back. */

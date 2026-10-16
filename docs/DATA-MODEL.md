@@ -1272,6 +1272,24 @@ deliverable_templates    id, org_id, name text (1..120 trimmed; an active name o
 - `item_add_grouped(cycle_id uuid, title text, planned_date date = null, notes text = null, stage_groups jsonb = null, custom_fields jsonb = '{}') returns uuid` — `item_add` (which stays) with the new deliverable's own groups (a deliverable template's, edited before adding; checked, `VALIDATION`); null = the project's defaults. The same rules as `item_add`.
 - `app.client_work_activity_shown` shows `saved_as_template` on `projects` and `project_items` (the TS describer in step).
 
+#### Revision rounds, extras kept and bulk edits (phase 6b Release 2 = v1.7.1; ROADMAP 6b.16 (c)(d)(e)(g))
+> Migration `client_work_bulk_and_rounds` (2026-10-15; pgTAP 79). **Expand-only, works on the team's existing data:** three nullable columns on `project_cycles` (a pair check every existing row meets: all null), new functions and the history describer re-created with every earlier answer kept. No row is rewritten. **Nothing is pre-defined:** the one generic name, "Revision round N", is what a deliverable with no revision stage of its own gets.
+
+```
+project_cycles  + extras_decided_at timestamptz null, extras_decided_by → members null,
+                  extras_kept integer null (0..100), check (extras_decided_at is null) = (extras_kept is null)
+                  -- "Keep this month's extra deliverables next month?" answered (cycle_keep_extras); asked once.
+```
+- `item_add_revision_round(item_id uuid) returns text`: `projects.manage` on the caller's clients, the project open or in progress, the deliverable `open` (`INVALID_STATE` otherwise). Adds one stage at the end of a group, through `item_stage_add`: after the deliverable's highest numbered stage with "revision" in its name, the next number ("Revision 2" → "Revision 3", in its group); after an unnumbered one ("Revision"), "Revision 2"; with none, "Revision round 1" in the last stage's group. A taken name moves to the next number. Ticks kept; at most 100 stages (`VALIDATION`). Audited (insert, meta `{group, revision_round: true}`). Returns the new stage's name.
+- `cycle_keep_extras(cycle_id uuid, keep boolean) returns integer`: `projects.manage`, the project open or in progress and **recurring** (`VALIDATION` on one-time). Once per cycle (`INVALID_STATE` once answered). `keep = true` adds each of the cycle's **extras** (`app.cycle_extras`: deliverables added in that cycle, not carried in, not closed, whose trimmed title, ignoring case, is on no active deliverables-list line; one per title) to the end of the deliverables list with its stage groups (names only), so **later cycles only** get them (no existing cycle changes; the list holds at most 100, `VALIDATION`); `false` adds nothing. The cycle records the answer; audited `extras_kept` / `extras_not_kept` with meta `{count, titles, label}` (shown in the project's history). Returns how many lines were added.
+- **Bulk edits on selected deliverables**, each ONE call (one transaction), **all or nothing**, `projects.manage`, through `app.client_work_bulk_items` (1..100 selected, de-duplicated, each the caller's (`NOT_FOUND` otherwise), its project writable and the deliverable `open`, `INVALID_STATE` naming the first that is not). One audited update per deliverable that changed (meta `{bulk}`):
+  - `items_set_planned_date(item_ids uuid[], planned_date date) returns integer` (null clears it);
+  - `items_shift_planned_dates(item_ids uuid[], days integer) returns integer` (1..365 either way; a deliverable without a date is left as it is);
+  - `items_add_stage_groups(item_ids uuid[], stage_groups jsonb) returns integer` (every group named; `CONFLICT` naming a deliverable that already has such a group; past 100 stages `VALIDATION`);
+  - `items_rename(item_ids uuid[], pattern text, start_at integer = 1, apply boolean = true) returns jsonb` (`{n}` = start_at, +1, … in the order given; `{title}` the current title; 1..200 characters; more than one needs `{n}` or `{title}`; `apply = false` is the preview and writes nothing; returns `[{id, from, to}]`).
+- Internal helpers `app.client_work_bulk_items(uuid[])` and `app.cycle_extras(uuid)` (`service_role` only; the core grants test lists them). The TypeScript twins (`domain/extras.ts` `cycleExtras`, `domain/bulk.ts` `renamePreview`) follow the same rules: change both together.
+- "Copy schedule as text" (6b.16 (g)) reads only; no SQL.
+
 ## 6. Staff tasks
 ```
 tasks                id, org_id, title, description, task_type_id, client_id null (label only),

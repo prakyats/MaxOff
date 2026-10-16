@@ -1,8 +1,8 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { revalidateScreens } from "@/core/lib/revalidate-screens";
 import { action, ok, type Result } from "@/core/errors";
 import { GROUP_LABEL_MAX, STAGE_NAME_MAX, stageGroupsIssue } from "@/core/lib/stage-groups";
 import { assertPermission } from "@/core/permissions/server";
@@ -54,8 +54,7 @@ export type ArchiveDeliverableTemplateInput = z.input<typeof archiveSchema>;
 export type RestoreDeliverableTemplateInput = z.input<typeof restoreSchema>;
 
 function revalidate(): void {
-  revalidatePath("/settings", "layout");
-  revalidatePath("/clients", "layout");
+  revalidateScreens();
 }
 
 export const createDeliverableTemplate = action(

@@ -25,7 +25,9 @@ export default async function ThresholdsSettingsPage() {
         title="Thresholds"
         {...SETTINGS_HEADERS.thresholds}
       />
-      <ThresholdsForm thresholds={settings} />
+      {/* Keyed by the saved values: a save on another device re-seeds the form's state when the
+          screen is re-read (6b.17a), instead of keeping what was shown before. */}
+      <ThresholdsForm key={JSON.stringify(settings)} thresholds={settings} />
     </>
   );
 }

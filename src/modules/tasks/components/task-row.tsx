@@ -1,3 +1,4 @@
+import { ChevronRightIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { cn } from "@/core/lib/utils";
@@ -27,6 +28,7 @@ export function TaskRow({
   flag,
   note,
   unread = 0,
+  chevron = false,
 }: {
   id: string;
   title: string;
@@ -42,40 +44,57 @@ export function TaskRow({
   note?: ReactNode;
   /** The viewer's unread comments on it (`task_unread_counts()`). */
   unread?: number;
+  /** A chevron at the right edge, saying the row opens the task (Today's My tasks). */
+  chevron?: boolean;
 }) {
+  const body = (
+    <>
+      <span className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
+        <span
+          className={cn("text-sm font-medium break-words", CARD_ROW_TITLE)}
+          data-slot="task-row-title"
+        >
+          {title}
+        </span>
+        {/* Two markers wrap under each other at large text rather than reach past the edge. */}
+        <span
+          className={cn(
+            "flex max-w-full flex-wrap items-center justify-end gap-x-2 gap-y-1",
+            CARD_ROW_TRAILING,
+          )}
+        >
+          <UnreadMarker count={unread} />
+          {flag ? <StatusDot status={flag.label} tone={flag.tone} label={flag.label} /> : null}
+          <StatusDot status={status} label={statusLabel} {...(tone ? { tone } : {})} />
+        </span>
+      </span>
+      <span className="text-muted-foreground text-xs break-words" data-slot="task-row-meta">
+        {meta}
+      </span>
+      {note ? (
+        <span className="text-xs font-medium break-words" data-slot="task-row-note">
+          {note}
+        </span>
+      ) : null}
+    </>
+  );
   return (
     <li data-slot="task-row" data-task={id}>
       <DrillLink
         href={`/tasks/${id}`}
-        className="focus-visible:ring-ring flex min-h-16 flex-col gap-1 px-4 py-3 outline-none focus-visible:ring-2 focus-visible:ring-inset"
+        className={cn(
+          "focus-visible:ring-ring flex min-h-16 px-4 py-3 outline-none focus-visible:ring-2 focus-visible:ring-inset",
+          chevron ? "items-center gap-3" : "flex-col gap-1",
+        )}
       >
-        <span className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
-          <span
-            className={cn("text-sm font-medium break-words", CARD_ROW_TITLE)}
-            data-slot="task-row-title"
-          >
-            {title}
-          </span>
-          {/* Two markers wrap under each other at large text rather than reach past the edge. */}
-          <span
-            className={cn(
-              "flex max-w-full flex-wrap items-center justify-end gap-x-2 gap-y-1",
-              CARD_ROW_TRAILING,
-            )}
-          >
-            <UnreadMarker count={unread} />
-            {flag ? <StatusDot status={flag.label} tone={flag.tone} label={flag.label} /> : null}
-            <StatusDot status={status} label={statusLabel} {...(tone ? { tone } : {})} />
-          </span>
-        </span>
-        <span className="text-muted-foreground text-xs break-words" data-slot="task-row-meta">
-          {meta}
-        </span>
-        {note ? (
-          <span className="text-xs font-medium break-words" data-slot="task-row-note">
-            {note}
-          </span>
-        ) : null}
+        {chevron ? (
+          <>
+            <span className="flex min-w-0 flex-1 flex-col gap-1">{body}</span>
+            <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
+          </>
+        ) : (
+          body
+        )}
       </DrillLink>
     </li>
   );

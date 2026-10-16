@@ -1,7 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
+import { revalidateScreens } from "@/core/lib/revalidate-screens";
 import { action, ok, type Result } from "@/core/errors";
 import { dispatchPushSoon } from "@/core/notifications/push/dispatch";
 import { assertPermission } from "@/core/permissions/server";
@@ -30,11 +29,8 @@ import {
  */
 
 function revalidateLeave() {
-  revalidatePath("/leave");
-  revalidatePath("/leave/extra-work");
-  // Today's card follows a request for today.
-  revalidatePath("/my-day");
-  revalidatePath("/today");
+  // The member's lists, Today's card, the Owner's Approvals and its badge, the calendar.
+  revalidateScreens();
 }
 
 export const requestLeave = action(async (input: RequestLeaveInput): Promise<Result<null>> => {

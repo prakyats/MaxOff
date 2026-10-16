@@ -77,6 +77,9 @@ export {
   type ItemViewContext,
   type LastChange,
 } from "./domain/views";
+export { cycleExtras, extrasCycles, extrasQuestion, type ExtraCandidate } from "./domain/extras";
+export { renamePreview, shiftDays, shiftWords, type RenamePreview } from "./domain/bulk";
+export { scheduleDay, scheduleText, type ScheduleItem } from "./domain/schedule";
 export {
   ACTIVITY_KINDS,
   describeProjectActivity,
@@ -168,9 +171,17 @@ export {
   updateItemStageGroup,
 } from "./actions/items";
 export {
+  addGroupsToItems,
+  addRevisionRound,
+  keepExtras,
+  planItems,
+  renameItems,
+  shiftItems,
+} from "./actions/bulk";
+export {
   ACTIVITY_PAGE,
   readDeliverableTemplateOptions,
   readProjectActivity,
 } from "./actions/background";
 /** The project page's deliverable columns (6b.11 (6)), for its skeleton to trace. */
-export { DELIVERABLE_COLUMNS } from "./components/deliverable-columns";
+export { DELIVERABLE_COLUMNS, STRIP_GRID } from "./components/deliverable-columns";

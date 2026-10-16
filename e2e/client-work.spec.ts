@@ -142,6 +142,14 @@ async function createFromDialog(page: Page, dialog: Locator): Promise<void> {
 const itemRow = (page: Page, title: string) =>
   page.locator('[data-slot="item-row"]', { hasText: title });
 
+/** Mark done from the row's ⋯, where it waits until every stage is ticked (unit U). */
+async function markDoneFromMenu(page: Page, title: string): Promise<void> {
+  await itemRow(page, title)
+    .getByRole("button", { name: `More for ${title}` })
+    .click();
+  await page.getByRole("menuitem", { name: "Mark done" }).click();
+}
+
 /** Sends what waits for its Undo now: the app going to the background flushes it (as Approvals). */
 async function flushSends(page: Page): Promise<void> {
   await page.evaluate(() => {
@@ -252,8 +260,9 @@ test("a project from the Projects tab: per-item stages, Mark done with Undo, Mar
   // Amendment D3: one figure, done (= approved).
   await expect(progress(page)).toHaveText("0 of 6 stages · 0 of 3 deliverables done");
 
-  // One row's Mark done: instant with the 6-second Undo, then it counts.
-  await itemRow(page, "Reel 1").getByRole("button", { name: "Mark done" }).click();
+  // One row's Mark done: instant with the 6-second Undo, then it counts. Its stages are not all
+  // ticked, so it waits in the row's ⋯ (unit U).
+  await markDoneFromMenu(page, "Reel 1");
   await expect(page.getByText("Marked Reel 1 done")).toBeVisible();
   await expect(itemRow(page, "Reel 1")).toHaveAttribute("data-held", "");
   await flushSends(page);
@@ -292,7 +301,10 @@ test("a project from the Projects tab: per-item stages, Mark done with Undo, Mar
   await page.goBack();
   await expect(third).toBeHidden();
 
-  // Bulk: select two; "Tick Edit on 2" ticks each one's own Edit; "Mark 2 done" asks first.
+  // Bulk: select two; "Tick Edit on 2" ticks each one's own Edit; "Mark 2 done" asks first. The
+  // checkboxes show in Select mode only (6b.16 (e)).
+  await expect(page.locator('[data-slot="item-row"] [role="checkbox"]')).toHaveCount(0);
+  await page.getByRole("button", { name: "Select", exact: true }).click();
   await itemRow(page, "Reel 2").getByRole("checkbox").click();
   await itemRow(page, "Reel 3").getByRole("checkbox").click();
   await page.getByRole("button", { name: "Tick a stage" }).click();
@@ -310,6 +322,7 @@ test("a project from the Projects tab: per-item stages, Mark done with Undo, Mar
   const confirm = page.getByRole("alertdialog", { name: "Mark 2 deliverables done?" });
   await confirm.getByRole("button", { name: "Mark 2 deliverables done" }).click();
   await expect(progress(page)).toHaveText("7 of 7 stages · 3 of 3 deliverables done");
+  await page.getByRole("button", { name: "Done", exact: true }).click();
 
   // The client's Admin reopens a done item with a reason: it no longer counts. Done ones wait in
   // the collapsed "Done and closed" group (6b.11 (1)).
@@ -774,7 +787,6 @@ test("the project page (6b.11): open first, Planned words, stage chips, the reop
   const here = `/clients/${clientId}/projects/${projectId}`;
   await page.goto(here);
   await hydrated(page);
-  const phoneWidth = (page.viewportSize()?.width ?? 1280) < 768;
 
   // (1) Open ones first, the overdue at the top, then by date, undated last; done and closed
   // collapsed at the end with their count.
@@ -809,25 +821,32 @@ test("the project page (6b.11): open first, Planned words, stage chips, the reop
   await expect(planned("Reopened item")).toHaveText("Not planned");
   await expect(planned("Reopened item")).toHaveAttribute("data-planned", "none");
 
-  // (3) Stage chips on a laptop: ticked, next, later; a phone has them in miniature.
-  if (phoneWidth) {
-    const mini = itemRow(page, "Soon item").locator('[data-slot="item-row-meter"]');
-    await expect(mini).toBeVisible();
-    await expect(mini).toHaveAttribute("data-done", "1");
-    await expect(mini).toHaveAttribute("data-next", "1");
-    await expect(mini).toHaveAttribute("data-total", "3");
-    await expect(itemRow(page, "Soon item").locator('[data-slot="item-row-mini"]')).toContainText(
-      "1/3 · Next: Stage 2",
-    );
-  } else {
-    const chips = itemRow(page, "Soon item").locator('[data-slot="stage-chip"]:visible');
-    await expect(chips).toHaveText(["Stage 1, ticked", "Stage 2, next", "Stage 3, to do"]);
-    expect(await chips.evaluateAll((nodes) => nodes.map((node) => node.dataset.chip))).toEqual([
-      "ticked",
-      "next",
-      "later",
-    ]);
-  }
+  // (3) E+: a stage list from before groups is one strip, "Stages 1/3", with "Next: Stage 2"; the
+  // strip opens in place (a view control, the address unchanged) to its chips: ticked, next, later.
+  const soon = itemRow(page, "Soon item");
+  const strip = soon.locator('[data-slot="item-strip-toggle"]');
+  await expect(strip).toHaveCount(1);
+  await expect(strip).toHaveText("Stages 1/3 stages ticked");
+  await expect(soon.locator('[data-slot="item-strip-bar"]')).toHaveAttribute("data-done", "1");
+  await expect(soon.locator('[data-slot="item-strip-bar"]')).toHaveAttribute("data-next", "1");
+  await expect(soon.locator('[data-slot="item-strip-bar"]')).toHaveAttribute("data-total", "3");
+  await expect(soon.locator('[data-slot="item-next"]:visible')).toHaveText("Next: Stage 2");
+  await expect(soon.locator('[data-slot="stage-chip"]')).toHaveCount(0);
+  await strip.click();
+  await expect(strip).toHaveAttribute("aria-expanded", "true");
+  const chips = soon.locator('[data-slot="stage-chip"]');
+  await expect(chips).toHaveText(["Stage 1, ticked", "Stage 2, next", "Stage 3, to do"]);
+  expect(await chips.evaluateAll((nodes) => nodes.map((node) => node.dataset.chip))).toEqual([
+    "ticked",
+    "next",
+    "later",
+  ]);
+  await expect(page).toHaveURL(new RegExp(`${here}$`));
+  await strip.click();
+  await expect(chips).toHaveCount(0);
+  // Nothing ticked in full yet: Mark done waits in the row's ⋯ (unit U), not on the row.
+  await expect(soon.locator('[data-slot="item-row-done"]')).toHaveCount(0);
+  await expect(soon.getByRole("button", { name: "More for Soon item" })).toBeVisible();
 
   // (4) The reopened note: who, when and why, muted with its icon.
   await expect(
@@ -922,7 +941,7 @@ test("the cycle's 100% moment plays once per cycle on this device", async ({ pag
   await expect(page.locator('[data-slot="cycle-percent"]')).toHaveText("0%");
   await expect(page.locator('[data-slot="cycle-complete"]')).toHaveCount(0);
 
-  await itemRow(page, "Only item").getByRole("button", { name: "Mark done" }).click();
+  await markDoneFromMenu(page, "Only item");
   await flushSends(page);
   await expect(page.locator('[data-slot="cycle-percent"]')).toHaveText("100%");
   const moment = page.locator('[data-slot="cycle-complete"]');
@@ -1194,7 +1213,7 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
     // and one more back closes the sheet.
     await itemRow(page, "Reel").locator('[data-slot="item-open"]').click();
     const sheet = page.locator('[data-slot="review-sheet"]');
-    await sheet.getByRole("button", { name: "Edit", exact: true }).click();
+    await sheet.getByRole("button", { name: "Edit details", exact: true }).click();
     await sheet.getByLabel("Title").fill("Reel, retitled");
     const discard = page.getByRole("alertdialog", { name: "Discard your changes?" });
     await page.goBack();
@@ -1207,7 +1226,7 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
     await discard.getByRole("button", { name: "Discard changes" }).click();
     await expect(discard).toBeHidden();
     await expect(sheet.getByLabel("Title"), "Discard returns to the facts").toHaveCount(0);
-    await expect(sheet.getByRole("button", { name: "Edit", exact: true })).toBeVisible();
+    await expect(sheet.getByRole("button", { name: "Edit details", exact: true })).toBeVisible();
     await expectBackStack(page, [{ closes: sheet, url: here }]);
     expect(
       (
@@ -1238,7 +1257,7 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
       await itemRow(page, "Reel 1").locator('[data-slot="item-open"]').click();
       await expect(sheet).toBeVisible();
     };
-    const edit = sheet.getByRole("button", { name: "Edit", exact: true });
+    const edit = sheet.getByRole("button", { name: "Edit details", exact: true });
     const title = sheet.getByLabel("Title");
     const discard = page.getByRole("alertdialog", { name: "Discard your changes?" });
     const onFacts = async (why: string) => {
@@ -1354,7 +1373,7 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
 
     await itemRow(page, "Reel 1").locator('[data-slot="item-open"]').click();
     const sheet = page.locator('[data-slot="review-sheet"]');
-    await sheet.getByRole("button", { name: "Edit", exact: true }).click();
+    await sheet.getByRole("button", { name: "Edit details", exact: true }).click();
     await expectSheetAboveKeyboard(page, sheet, sheet.getByLabel("Notes"));
     await expectSheetAboveKeyboard(page, sheet, sheet.getByLabel("Title"));
     await page.goBack();
@@ -1393,12 +1412,17 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
       await expect(layer).toBeVisible();
       await expectBackStack(page, [{ closes: layer, url: here }]);
     }
-    // The bulk Tick a stage menu is a layer too.
+    // The bulk Tick a stage menu is a layer too, over Select mode (6b.16 (e)), which the next
+    // back closes.
+    await page.getByRole("button", { name: "Select", exact: true }).click();
     await itemRow(page, "Reel 1").getByRole("checkbox").click();
     await page.getByRole("button", { name: "Tick a stage" }).click();
     const tickMenu = page.getByRole("menu");
     await expect(tickMenu).toBeVisible();
-    await expectBackStack(page, [{ closes: tickMenu, url: here }]);
+    await expectBackStack(page, [
+      { closes: tickMenu, url: here },
+      { closes: itemRow(page, "Reel 1").getByRole("checkbox"), url: here },
+    ]);
 
     // Reopen, on a cancelled project.
     await rpcAs(admin.email, admin.password, "project_cancel", {
@@ -1609,7 +1633,8 @@ test.describe("marking done on the project page, as the Owner (amendment D3; the
     const second = await itemId(projectId, "Reel 2");
     await expect.poll(() => itemState(second)).toBe("approved");
 
-    // Mark N done: a trigger; the confirmation's red button names it.
+    // Mark N done (in Select mode, 6b.16 (e)): a trigger; the confirmation's red button names it.
+    await page.getByRole("button", { name: "Select", exact: true }).click();
     await itemRow(page, "Reel 3").getByRole("checkbox").click();
     await itemRow(page, "Reel 4").getByRole("checkbox").click();
     await page.getByRole("button", { name: "Mark 2 done", exact: true }).click();

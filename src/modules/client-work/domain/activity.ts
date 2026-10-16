@@ -278,8 +278,13 @@ function describeItemStage(entry: ActivityEntry, context: ProjectActivityContext
     text(entry.new.group_label) ?? text(entry.meta.group) ?? text(entry.old.group_label);
   const named = groupStageLabel(group, stage);
   switch (entry.action) {
-    case "insert":
-      return `added the stage ${groupStageLabel(groupOf(entry, "new"), text(entry.new.name) ?? stage)} to ${title}`;
+    case "insert": {
+      const added = groupStageLabel(groupOf(entry, "new"), text(entry.new.name) ?? stage);
+      // 6b.16 (c): "+ Another revision round" says so.
+      return entry.meta.revision_round === true
+        ? `added another revision round, ${added}, to ${title}`
+        : `added the stage ${added} to ${title}`;
+    }
     case "archived":
       return `removed the stage ${groupStageLabel(groupOf(entry, "old"), stage)} from ${title}`;
     case "ticked":
@@ -306,13 +311,26 @@ function describeItemStage(entry: ActivityEntry, context: ProjectActivityContext
 }
 
 function describeCycle(entry: ActivityEntry): string | null {
-  const label = text(entry.new.label) ?? text(entry.old.label);
+  const label = text(entry.new.label) ?? text(entry.old.label) ?? text(entry.meta.label);
   switch (entry.action) {
     case "generated":
     case "insert":
       return label ? `started ${label}` : "started the project's cycle";
     case "item_list_added":
       return label ? `added the deliverables list to ${label}` : "added the deliverables list";
+    // 6b.16 (d): "Keep this month's extra deliverables next month?" answered (the diff holds only
+    // the answer's columns: the cycle's label is in the meta).
+    case "extras_kept": {
+      const count = typeof entry.meta.count === "number" ? entry.meta.count : 0;
+      const what = count === 1 ? "1 extra deliverable" : `${count} extra deliverables`;
+      return label
+        ? `kept ${label}'s ${what} in the deliverables list`
+        : `kept ${what} in the deliverables list`;
+    }
+    case "extras_not_kept":
+      return label
+        ? `left ${label}'s extra deliverables off the deliverables list`
+        : "left the extra deliverables off the deliverables list";
     default:
       return null;
   }

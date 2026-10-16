@@ -46,7 +46,12 @@ export default async function DaysOffSettingsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <WeeklyOffForm weeklyOffDays={settings.weeklyOffDays} />
+            {/* Keyed by the saved days: a save on another device re-seeds the form's state when the
+                screen is re-read (6b.17a), instead of keeping what was shown before. */}
+            <WeeklyOffForm
+              key={settings.weeklyOffDays.join(",")}
+              weeklyOffDays={settings.weeklyOffDays}
+            />
           </CardContent>
         </Card>
 

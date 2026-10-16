@@ -1,34 +1,32 @@
 "use client";
 
-import { ChevronDownIcon, ListPlusIcon, PlusIcon } from "lucide-react";
+import { ListPlusIcon, PlusIcon } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { bulkSummary } from "@/core/errors/bulk";
 import { cn } from "@/core/lib/utils";
-import { BulkBar } from "@/core/ui/composites/bulk-bar";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { replaceViewAddress } from "@/core/ui/navigation/view-address";
 import { Button } from "@/core/ui/primitives/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/core/ui/primitives/dropdown-menu";
 import type { StagePresetOption } from "@/core/ui/stage-groups/editing";
 import { toastResult } from "@/core/ui/toast";
 
 import { markItemsDone, tickStages, updateItem } from "../actions/items";
 import { itemCount, stageChoices } from "../domain/items";
+import { readyToMarkDone, solidMarkDoneId } from "../domain/deliverable";
 import { movedPosition } from "../domain/positions";
 import { orderDeliverables, type ItemView } from "../domain/views";
 
-import { DELIVERABLE_COLUMNS } from "./deliverable-columns";
+import { BulkEditBar } from "./bulk-edit-bar";
+import type { BulkEditKind } from "./bulk-edit-sheet";
+import { deliverableColumns } from "./deliverable-columns";
 import { DeliverableRow } from "./deliverable-row";
 import { FinishedDeliverables } from "./finished-deliverables";
 import type { ItemPermissions } from "./item-sheet";
+import { SelectToggle, useSelectMode } from "./select-mode";
+import { tickWithUndo } from "./tick-with-undo";
 import { MARK_DONE_URL, useUndoSends } from "./use-undo-sends";
 
 /**
@@ -41,6 +39,10 @@ const ItemSheet = dynamic(() => import("./item-sheet").then((module) => module.I
 });
 const AddItemDialog = dynamic(
   () => import("./add-item-dialog").then((module) => module.AddItemDialog),
+  { ssr: false },
+);
+const BulkEditSheet = dynamic(
+  () => import("./bulk-edit-sheet").then((module) => module.BulkEditSheet),
   { ssr: false },
 );
 const ConfirmDialog = dynamic(
@@ -57,10 +59,15 @@ const ConfirmDialog = dynamic(
  * ticks); done, closed and carried ones in the collapsed "Done and closed (N)" group
  * (`FinishedDeliverables`). Done
  * is the approval (D3): it locks the item and counts it at once, so it is instant with the
- * 6-second Undo (Today's own delayed send); the sheet's Mark done too. A tap on the title opens the
- * item sheet. Selecting rows offers the bulk "Mark N done" (it asks first, its red button naming
- * it, "Mark 5 items done") and "Tick ‹stage› on N" for the selected items that have a stage of
- * that name (decision 16: per-id results, a failed row keeps its message). "Add item" adds to this
+ * 6-second Undo (Today's own delayed send); the sheet's Mark done too. A tap anywhere on a row
+ * opens the item sheet; its stage chips and "Next: ‹stage›" tick in one tap with an Undo toast
+ * (unit U, `tickWithUndo`). **Select** (6b.16 (e)) turns on Select mode (`useSelectMode`: view state, back
+ * leaves it; the checkboxes show only then); the selected rows' bar (`BulkEditBar`) offers the
+ * bulk "Mark N done" (it asks first, its red button naming it, "Mark 5 items done") and "Tick
+ * ‹stage› on N" for the selected items that have a stage of that name (decision 16: per-id
+ * results, a failed row keeps its message), and for `projects.manage` "Edit N" on the open ones:
+ * set or move planned dates, add a stage group, rename by a pattern (`BulkEditSheet`, one call
+ * each, all or nothing). "Add item" adds to this
  * cycle (never a past one, decision 9). Nothing is reordered under the thumb: the server's list
  * arrives after each change.
  */
@@ -72,7 +79,13 @@ export function CycleItems({
   defaultStages = 0,
   presets = [],
   openItemId = null,
+  solidAllowed = true,
 }: {
+  /**
+   * The screen may carry a solid red Mark done (E+): false while another solid control shows on
+   * the same layer (the month-end "Keep extras" card's neutral solid Yes; §14.1).
+   */
+  solidAllowed?: boolean;
   /** The stage presets, for a deliverable's Edit stages (6b). */
   presets?: readonly StagePresetOption[];
   /** How many default stages a new deliverable starts with (the Add dialog says so). */
@@ -85,7 +98,10 @@ export function CycleItems({
   /** The cycle takes new items: not ended (or one-time), the project workable. */
   canAdd: boolean;
 }) {
-  const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set());
+  const mode = useSelectMode();
+  const { selected, setSelected } = mode;
+  const [editing, setEditing] = useState<BulkEditKind | null>(null);
+  const [editUsed, setEditUsed] = useState(false);
   const [openId, setOpenId] = useState<string | null>(openItemId);
   // The sheet's code arrives on its first open and stays (`ItemSheet` above).
   const [sheetUsed, setSheetUsed] = useState(openItemId !== null);
@@ -93,6 +109,11 @@ export function CycleItems({
   const [confirming, setConfirming] = useState(false);
   const [confirmUsed, setConfirmUsed] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  // The row tick on its way (unit U): its stage's control waits.
+  const [ticking, setTicking] = useState<string | null>(null);
+  // The Select bar's height: reserved under the list while selecting, so the last row can scroll
+  // clear of the floating bar (unit U).
+  const [barHeight, setBarHeight] = useState(0);
   const [failures, setErrors] = useState<Readonly<Record<string, string>>>({});
   const marks = useUndoSends({
     url: MARK_DONE_URL,
@@ -107,7 +128,8 @@ export function CycleItems({
   const waiting = (item: ItemView) => marks.held.has(item.id) && item.rules.markDone;
   const opened = items.find((item) => item.id === openId) ?? null;
   const selectable = (item: ItemView) =>
-    permissions.tick && (item.rules.markDone || item.rules.ticks);
+    (permissions.tick && (item.rules.markDone || item.rules.ticks)) ||
+    (permissions.manage && item.state === "open");
   const chosen = items.filter((item) => selected.has(item.id) && !waiting(item));
 
   function openSheet(id: string) {
@@ -116,22 +138,12 @@ export function CycleItems({
   }
 
   function markDone(item: ItemView) {
-    setSelected((current) => {
-      if (!current.has(item.id)) return current;
-      const next = new Set(current);
+    if (selected.has(item.id)) {
+      const next = new Set(selected);
       next.delete(item.id);
-      return next;
-    });
+      setSelected(next);
+    }
     marks.start(item.id, item.title);
-  }
-
-  function toggle(id: string) {
-    setSelected((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
   }
 
   async function bulk(
@@ -155,30 +167,49 @@ export function CycleItems({
     const index = items.findIndex((item) => item.id === itemId);
     const position = movedPosition(items, index, direction);
     if (position === null) return;
-    toastResult(await updateItem({ itemId, position }));
+    toastResult(await updateItem({ itemId, position }), {
+      success: `Moved ${items[index]?.title ?? "it"} ${direction}`,
+    });
   }
 
   // 6b.11 (1): the open ones first (overdue at the top, then by date), the rest collapsed.
   const { open, finished } = orderDeliverables(items);
+  // E+: Mark done is quiet until every stage is ticked; the first such row's is the screen's one
+  // solid red commit (never in Select mode, whose bar does it), the others outlined.
+  const canMark = (item: ItemView) => permissions.tick && item.rules.markDone && !waiting(item);
+  const solidId = solidMarkDoneId(open, canMark, solidAllowed && !mode.selectMode);
   const row = (item: ItemView) => (
     <DeliverableRow
       key={item.id}
       item={item}
+      selecting={mode.selectMode}
       selectable={selectable(item)}
       selected={selected.has(item.id)}
-      onToggle={() => toggle(item.id)}
+      onToggle={() => mode.onToggle(item.id)}
       waiting={waiting(item)}
       action={permissions.tick && item.rules.markDone}
+      look={item.id === solidId ? "solid" : readyToMarkDone(item) ? "ready" : "quiet"}
+      ticks={{
+        // Read-only in Select mode: a tap there selects, and the bar ticks a stage on N.
+        can: permissions.tick && item.rules.ticks && !waiting(item) && !mode.selectMode,
+        pending: ticking,
+        tick: (stage, done) => void tickWithUndo(stage, done, item.title, setTicking),
+      }}
       onOpen={() => openSheet(item.id)}
       onMarkDone={() => markDone(item)}
       error={errors[item.id]}
     />
   );
 
-  const openSelected = chosen.filter((item) => item.rules.markDone);
-  const tickable = chosen.filter((item) => item.rules.ticks);
+  const openSelected = permissions.tick ? chosen.filter((item) => item.rules.markDone) : [];
+  const tickable = permissions.tick ? chosen.filter((item) => item.rules.ticks) : [];
   // "Tick ‹stage› on N": the names the selected items carry (amendment D2).
   const choices = stageChoices(tickable);
+  // The bulk edits take the open ones, in the list's order (6b.16 (e): "Reel {n}" numbers so).
+  const editable = permissions.manage
+    ? open.filter((item) => selected.has(item.id) && item.state === "open" && !waiting(item))
+    : [];
+  const selectableIds = items.filter(selectable).map((item) => item.id);
 
   return (
     <section aria-labelledby="cycle-items-title" className="flex flex-col gap-2">
@@ -186,20 +217,39 @@ export function CycleItems({
         <h2 id="cycle-items-title" className="text-sm font-medium">
           Deliverables
         </h2>
-        {canAdd && permissions.manage ? (
-          <Button variant="secondary" data-slot="add-item" onClick={() => setAdding(true)}>
-            <PlusIcon aria-hidden />
-            Add deliverable
-          </Button>
-        ) : null}
+        <span className="flex flex-wrap items-center gap-1">
+          {items.length > 0 && (permissions.tick || permissions.manage) ? (
+            <SelectToggle mode={mode} selectableIds={selectableIds} />
+          ) : null}
+          {canAdd && permissions.manage && !mode.selectMode && items.length > 0 ? (
+            <Button variant="secondary" data-slot="add-item" onClick={() => setAdding(true)}>
+              <PlusIcon aria-hidden />
+              Add deliverable
+            </Button>
+          ) : null}
+        </span>
       </div>
+      {mode.selectMode && chosen.length === 0 ? (
+        <p data-slot="select-hint" className="text-muted-foreground text-sm">
+          Select deliverables, then choose an action.
+        </p>
+      ) : null}
       {items.length === 0 ? (
         <EmptyState
           icon={ListPlusIcon}
           size="compact"
-          title="No deliverables in this cycle."
-          description={
-            canAdd && permissions.manage ? "Add deliverables to see their stages." : undefined
+          title={
+            canAdd && permissions.manage
+              ? "No deliverables yet: add one or start from a template."
+              : "No deliverables in this cycle."
+          }
+          action={
+            canAdd && permissions.manage ? (
+              <Button variant="secondary" data-slot="add-item" onClick={() => setAdding(true)}>
+                <PlusIcon aria-hidden />
+                Add deliverable
+              </Button>
+            ) : undefined
           }
         />
       ) : (
@@ -210,7 +260,7 @@ export function CycleItems({
               data-slot="cycle-items"
               className={cn(
                 "border-border divide-border bg-card divide-y overflow-hidden rounded-lg border",
-                DELIVERABLE_COLUMNS,
+                deliverableColumns(mode.selectMode),
               )}
             >
               {open.map(row)}
@@ -223,53 +273,53 @@ export function CycleItems({
               Nothing open: every deliverable is done or closed.
             </p>
           )}
-          <FinishedDeliverables count={finished.length}>{finished.map(row)}</FinishedDeliverables>
+          <FinishedDeliverables count={finished.length} selecting={mode.selectMode}>
+            {finished.map(row)}
+          </FinishedDeliverables>
         </>
       )}
-      <BulkBar count={chosen.length} onClear={() => setSelected(new Set())} noun="selected">
-        {permissions.tick && openSelected.length > 0 ? (
-          // A trigger that opens a confirmation: neutral solid; the red commit names it (§14.1).
-          <Button
-            variant="strong"
-            size="sm"
-            pending={busy === "bulk-done"}
-            pendingLabel="Marking done…"
-            data-slot="bulk-mark-done"
-            onClick={() => {
-              setConfirmUsed(true);
-              setConfirming(true);
-            }}
-          >
-            Mark {openSelected.length} done
-          </Button>
-        ) : null}
-        {permissions.tick && choices.length > 0 ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="secondary" size="sm" data-slot="bulk-tick">
-                Tick a stage
-                <ChevronDownIcon aria-hidden />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              {choices.map((choice) => (
-                <DropdownMenuItem
-                  key={choice.key}
-                  onSelect={() =>
-                    void bulk(
-                      "bulk-tick",
-                      () => tickStages({ stageIds: choice.stageIds }),
-                      `ticked ${choice.name}`,
-                    )
-                  }
-                >
-                  Tick {choice.name} on {choice.stageIds.length}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ) : null}
-      </BulkBar>
+      <BulkEditBar
+        count={chosen.length}
+        onClear={() => setSelected(new Set())}
+        markable={openSelected.length}
+        marking={busy === "bulk-done"}
+        onMarkDone={() => {
+          setConfirmUsed(true);
+          setConfirming(true);
+        }}
+        choices={choices}
+        onTick={(choice) =>
+          void bulk(
+            "bulk-tick",
+            () => tickStages({ stageIds: choice.stageIds }),
+            `ticked ${choice.name}`,
+          )
+        }
+        editable={editable.length}
+        onEdit={(kind) => {
+          setEditUsed(true);
+          setEditing(kind);
+        }}
+        onHeight={setBarHeight}
+      />
+      {mode.selectMode ? (
+        // In flow under the list, only in Select mode: the bar's height plus its 12 px gap, or a
+        // bar's usual height before one shows (no shift outside Select mode).
+        <div
+          aria-hidden
+          data-slot="select-bar-space"
+          className="h-16 shrink-0"
+          style={barHeight > 0 ? { height: barHeight + 12 } : undefined}
+        />
+      ) : null}
+      {editUsed ? (
+        <BulkEditSheet
+          kind={editing}
+          items={editable.map((item) => ({ id: item.id, title: item.title }))}
+          presets={presets}
+          onClose={() => setEditing(null)}
+        />
+      ) : null}
       {confirmUsed ? (
         <ConfirmDialog
           open={confirming}
@@ -310,6 +360,13 @@ export function CycleItems({
             }
           }}
           onMove={permissions.manage ? (id, direction) => void move(id, direction) : undefined}
+          canMove={(id, direction) =>
+            movedPosition(
+              items,
+              items.findIndex((item) => item.id === id),
+              direction,
+            ) !== null
+          }
           onMarkDone={markDone}
           presets={presets}
         />

@@ -222,3 +222,13 @@ export function actionLeavesScreen(headers: Headers): boolean {
   const revalidated = headers.get("x-action-revalidated");
   return revalidated === null || revalidated.trim() === "0";
 }
+
+/**
+ * Whether a server action's answer revalidated (`X-Action-Revalidated` present and not 0): Next
+ * then empties its history cache, so every screen a back or forward reaches is fetched anew
+ * (`history-freshness.ts`). A redirect alone empties nothing.
+ */
+export function actionEmptiesCaches(headers: Headers): boolean {
+  const revalidated = headers.get("x-action-revalidated");
+  return revalidated !== null && revalidated.trim() !== "0";
+}

@@ -1160,6 +1160,10 @@ test.describe("the Owner's Today: My tasks (6b.2, decision 24)", () => {
     await page.goto("/today");
     const mine = section(page, "today-my-tasks");
     await expect(mine).toBeVisible();
+    // One line says what the card holds and what a tap does; each row shows it opens (›).
+    await expect(mine.locator('[data-slot="today-my-tasks-hint"]')).toHaveText(
+      "Your own tasks, overdue or due today. Tap one to open it.",
+    );
     const row = taskRow(page, `${prefix}late`);
     await expect(
       mine.locator('[data-slot="task-row"]').filter({ hasText: `${prefix}late` }),
