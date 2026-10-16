@@ -87,7 +87,7 @@ async function valuesOf(inputs: Locator): Promise<string[]> {
  */
 async function openPreview(page: Page, form: Locator): Promise<Locator> {
   if (!phone(page)) return form;
-  await form.getByRole("button", { name: "Preview" }).click();
+  await form.getByRole("button", { name: "Preview and save" }).click();
   const preview = page.getByRole("dialog", { name: "Preview" });
   await expect(preview).toBeVisible();
   return preview;
@@ -205,6 +205,10 @@ test("a template of 6 deliverables × 3 groups from presets, reordered by drag, 
   await preview.getByRole("button", { name: "Add template" }).click();
   await expect(preview).toBeHidden();
   await expect(dialog).toBeHidden();
+  // The toast says what just happened and where it shows up.
+  await expect(
+    page.getByText(`Added ${name}: New project offers it under Start from`),
+  ).toBeVisible();
   const row = page.locator('[data-slot="project-template"]', { hasText: name });
   await expect(row).toContainText("6 deliverables · 36 stages");
 
@@ -530,7 +534,7 @@ test.describe("the template builder's layers, installed (ARCHITECTURE §14.2)", 
 
     // A phone's Preview is its own layer: back returns to the form.
     if (phone(page)) {
-      await dialog.getByRole("button", { name: "Preview" }).click();
+      await dialog.getByRole("button", { name: "Preview and save" }).click();
       const preview = page.getByRole("dialog", { name: "Preview" });
       await expect(preview).toBeVisible();
       await expectBackStack(page, [{ closes: preview, url: here }]);
@@ -732,6 +736,20 @@ test("the library's search narrows both lists; a preview opens and back closes i
   await expect(projectRow(beta)).toBeVisible();
   await expect(deliverableRow(gamma)).toBeVisible();
 
+  // Each row says what its buttons do ("say what it does", v1.7.1): Preview in words, Edit and
+  // Archive named for the template (a tooltip on a laptop too), each a 44px target.
+  for (const [row, name] of [
+    [projectRow(alpha), alpha],
+    [deliverableRow(gamma), gamma],
+  ] as const) {
+    await expect(row.getByRole("button", { name: `Preview ${name}` })).toHaveText("Preview");
+    for (const verb of ["Edit", "Archive"]) {
+      const button = row.getByRole("button", { name: `${verb} ${name}` });
+      await expect(button).toHaveAttribute("title", `${verb} ${name}`);
+      expect((await boxOf(button)).h).toBeGreaterThanOrEqual(44);
+    }
+  }
+
   // A deliverable's title finds its template; the others leave, both lists at once.
   const search = page.getByRole("searchbox", { name: "Search project and deliverable templates" });
   await search.fill(word);
@@ -800,7 +818,7 @@ test("deliverable templates: an Admin adds and archives their own, edits only th
   await dialog.getByRole("button", { name: "Add group" }).click();
   await expectValues(dialog.locator('[data-slot="group-name"]'), ["Phase A"]);
   if (phone(page)) {
-    await dialog.getByRole("button", { name: "Preview" }).click();
+    await dialog.getByRole("button", { name: "Preview and save" }).click();
     const layer = page.getByRole("dialog", { name: "Preview" });
     await expect(layer.locator('[data-slot="preview-stage"]')).toHaveText(["One", "Two"]);
     await layer.getByRole("button", { name: "Add template" }).click();
@@ -876,7 +894,7 @@ test("deliverable templates: an Admin adds and archives their own, edits only th
   const edit = ownerPage.getByRole("dialog", { name: `Edit ${other}` });
   await edit.getByLabel("Name", { exact: true }).fill(`${other} v2`);
   if (phone(ownerPage)) {
-    await edit.getByRole("button", { name: "Preview" }).click();
+    await edit.getByRole("button", { name: "Preview and save" }).click();
     await ownerPage
       .getByRole("dialog", { name: "Preview" })
       .getByRole("button", { name: "Save template" })
@@ -909,7 +927,7 @@ test.describe("the deliverable template builder's layers, installed (ARCHITECTUR
     await page.getByRole("button", { name: "Add a deliverable template" }).click();
     await dialog.getByLabel("Name", { exact: true }).fill("Half a template");
     if (phone(page)) {
-      await dialog.getByRole("button", { name: "Preview" }).click();
+      await dialog.getByRole("button", { name: "Preview and save" }).click();
       const preview = page.getByRole("dialog", { name: "Preview" });
       await expect(preview).toBeVisible();
       await expectBackStack(page, [{ closes: preview, url: here }]);

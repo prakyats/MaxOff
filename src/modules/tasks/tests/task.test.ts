@@ -8,6 +8,7 @@ import {
   reviewerName,
   remindAgainAt,
   remindAgainLabel,
+  remindWho,
   routeLine,
   stateLabel,
   statusLine,
@@ -324,6 +325,13 @@ describe("tasks for the Owner (6b.2, owner 2026-10-07)", () => {
     ).toBeNull();
     // IST on the button: 10:30 UTC is 4:00 PM.
     expect(remindAgainLabel("2026-10-15T10:30:00.000Z")).toBe("Reminded · again at 4:00 PM");
+  });
+
+  it("names whom Remind reaches: one, two, then a count", () => {
+    expect(remindWho([])).toBe("everyone on the task");
+    expect(remindWho(["Sam"])).toBe("Sam");
+    expect(remindWho(["Sam", "Ria"])).toBe("Sam and Ria");
+    expect(remindWho(["Sam", "Ria", "Asha"])).toBe("Sam and 2 others");
   });
 });
 

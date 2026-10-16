@@ -94,10 +94,23 @@ export function ProjectTemplateManager({
   async function restore(template: ProjectTemplate) {
     setBusyId(template.id);
     toastResult(await setProjectTemplateArchived({ templateId: template.id, archived: false }), {
-      success: "Template restored",
+      success: `Restored ${template.name}: New project offers it again`,
     });
     setBusyId(null);
   }
+
+  const addButton = (
+    <Button
+      variant="secondary"
+      className="min-h-11"
+      onClick={() => setAdding(true)}
+      data-slot="add-project-template"
+      aria-label="Add a project template"
+    >
+      <PlusIcon aria-hidden />
+      Add
+    </Button>
+  );
 
   return (
     <section aria-labelledby="project-templates" className="flex flex-col gap-3">
@@ -105,22 +118,16 @@ export function ProjectTemplateManager({
         <h2 id="project-templates" className="text-sm font-semibold">
           Project templates
         </h2>
-        <Button
-          variant="secondary"
-          onClick={() => setAdding(true)}
-          data-slot="add-project-template"
-          aria-label="Add a project template"
-        >
-          <PlusIcon aria-hidden />
-          Add
-        </Button>
+        {/* With none yet, the empty state holds the one Add (one obvious next action). */}
+        {all.length > 0 ? addButton : null}
       </div>
       {all.length === 0 ? (
         <EmptyState
           icon={FolderKanbanIcon}
           size="compact"
           title="No project templates yet"
-          description="Add one for a retainer you run for several clients, or use Save as template on a project. New project offers it."
+          description="Add one to start projects faster. Save as template on a project makes one too."
+          action={addButton}
         />
       ) : active.length === 0 ? (
         <p className="text-muted-foreground text-sm" data-slot="project-templates-none">
@@ -149,11 +156,13 @@ export function ProjectTemplateManager({
                   <Button
                     type="button"
                     variant="ghost"
-                    size="icon"
+                    className="min-h-11"
                     aria-label={`Preview ${template.name}`}
+                    title={`See what a project started from ${template.name} gets`}
                     onClick={() => setPreviewId(template.id)}
                   >
                     <EyeIcon aria-hidden />
+                    Preview
                   </Button>
                   {allowed.edit ? (
                     <>
@@ -161,7 +170,9 @@ export function ProjectTemplateManager({
                         type="button"
                         variant="ghost"
                         size="icon"
+                        className="size-11"
                         aria-label={`Edit ${template.name}`}
+                        title={`Edit ${template.name}`}
                         onClick={() => setEditing(template)}
                       >
                         <PencilIcon aria-hidden />
@@ -170,7 +181,9 @@ export function ProjectTemplateManager({
                         type="button"
                         variant="ghost"
                         size="icon"
+                        className="size-11"
                         aria-label={`Archive ${template.name}`}
+                        title={`Archive ${template.name}`}
                         onClick={() => setArchiving(template)}
                       >
                         <ArchiveIcon aria-hidden />
@@ -198,8 +211,8 @@ export function ProjectTemplateManager({
                 <Button
                   type="button"
                   variant="ghost"
-                  size="sm"
-                  className={CARD_ROW_TRAILING}
+                  className={cn("min-h-11", CARD_ROW_TRAILING)}
+                  aria-label={`Restore ${template.name}`}
                   disabled={busyId !== null}
                   onClick={() => void restore(template)}
                 >
@@ -243,7 +256,7 @@ export function ProjectTemplateManager({
           onConfirm={async () =>
             toastResult(
               await setProjectTemplateArchived({ templateId: archiving.id, archived: true }),
-              { success: "Template archived" },
+              { success: `Archived ${archiving.name}: New project no longer offers it` },
             )
           }
         />

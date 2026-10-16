@@ -46,7 +46,7 @@ export function TemplatePreviewDialog({
         <DeliverablesPreview deliverables={deliverables} defaults={defaults} />
         <DialogFooter>
           <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
-            {use ? "Back" : "Close"}
+            {use ? "Back to templates" : "Close"}
           </Button>
           {use ? (
             // pending: none — it fills the form; the form's own Create commits.

@@ -143,6 +143,7 @@ export {
   pairName,
   remindAgainAt,
   remindAgainLabel,
+  remindWho,
   reviewerName,
   routeLine,
   stateLabel,

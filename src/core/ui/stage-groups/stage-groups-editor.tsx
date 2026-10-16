@@ -164,6 +164,7 @@ export function StageGroupsEditor({
                         className="size-11"
                         disabled={disabled}
                         aria-label={`Actions for the group ${name || "without a name"}`}
+                        title="Move or remove"
                         data-slot="group-menu"
                       >
                         <MoreHorizontalIcon aria-hidden />
@@ -332,6 +333,7 @@ function StageList({
                     className="size-11"
                     disabled={disabled}
                     aria-label={`Actions for ${stage || "the stage"}`}
+                    title="Move or remove"
                     data-slot="stage-menu"
                   >
                     <MoreHorizontalIcon aria-hidden />
@@ -383,6 +385,7 @@ function StageList({
           className="size-11"
           disabled={disabled || draft.trim() === ""}
           aria-label={`Add the stage to ${groupName}`}
+          title="Add the stage"
           onClick={() => add(linesOf(draft))}
         >
           <PlusIcon aria-hidden />
