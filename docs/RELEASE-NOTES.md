@@ -4,6 +4,78 @@ Newest first. Each entry says what ships, what the Crew will notice, and what ha
 release. A release is a `v*` tag on a `main` commit with green CI, approved by the Owner (CLAUDE.md). Earlier
 releases (v1.0.0 to v1.3.0) are recorded in their tag messages and in `PROGRESS.md`.
 
+## v1.7.1: projects polish, Owner tasks, fresh data, drag reorder, faster pages, in-app guide (phase 6b, Release 2)
+
+**Not released yet** (PR `phase-6b-r2` → `main`; the Owner tags after his staging walk). Eight expand-only
+migrations; nothing is removed or rewritten. Money is not part of this release. Build log: issue #89.
+
+### What ships
+- **6b.2 Tasks for the Owner:** the Owner can be assigned a task; Done on a task he owns completes it at once;
+  **Remind ‹names›** on a task page (the Owner, its creator, its approving Admin; once an hour); "My tasks"
+  on the Owner's Today; the Owner shows as Busy to Admins on his shoots.
+- **6b.12 fixes:** the back control always lands (a drill-down opened from an undeclared screen goes to its
+  labelled parent); back from a task returns to the exact calendar view and date.
+- **6b.18 drag to reorder** a staff task's stages, task templates and stage presets (long press on phones;
+  ⋯ Move up / Move down). **Only the Owner, Admins within the task's scope and the task's creator reorder a
+  task's stages; Crew never** (owner decision 2026-10-15).
+- **6b.16 deliverable templates and project tools:** save a project or a deliverable as a template; Start
+  from a template with search and preview; **+ Another revision round**; the month-end **"Keep ‹Month›'s extra
+  deliverables next month?"** card; **Select** with **Mark N done**, **Tick ‹stage› on N** and **Edit N** (set or
+  move planned dates, add a stage group, rename with `{n}`); **Copy schedule as text**.
+- **6b.11 the project page:** a progress ring per cycle; one line per stage group; tap a stage to tick it
+  from the list (with Undo); **Next: ‹stage›** on each deliverable; Mark done on the row only once every
+  stage is ticked; the whole row opens the deliverable; "Done and closed (N)" folded.
+- **"Say what it does":** worded buttons, tooltips, empty-state hints and toasts that say what just
+  happened, on the project page, the deliverable sheet, Select, templates, My tasks and Remind; a task
+  template's Archive is no longer red.
+- **6b.17a fresh data:** going back to a screen seen 30 s or more ago re-reads it; Settings' forms show
+  their saved values.
+- **6b.19 faster pages (P2):** one database trip for every screen's shell; with the app installed, a tapped
+  screen's outline appears at once (the service worker keeps only data-free outlines, per build and role,
+  dropped on sign-out); a tiny warm-up when the app comes back into view; a lighter server start; pg_cron's
+  own run log trimmed daily and two idle jobs run only in their send windows.
+- **6b.14 "How MaxOff works":** an in-app guide by role (Me → Help & troubleshooting; Settings → Help and
+  troubleshooting), with numbered steps and real screenshots from the local seed.
+
+### What happens on its own after the release
+- `cron_history_trim` runs daily at 03:45 IST and keeps pg_cron's run log to 7 days (system data only).
+  `client_work_alerts` runs only 08:00–08:30 IST and `digest_weekly` 07:30–00:25 IST (they never sent
+  outside those windows).
+- On the first open after the deploy, the installed app's service worker updates (v10) and drops every
+  saved outline once.
+
+### Speed (perf-probe on the branch preview vs staging = v1.7.0, same run, US runner, TTFB p50)
+- Warm, signed in: Today 940 → 357 ms, Tasks 915 → 373, Clients 670 → 383, a client 918 → 342, a project
+  921 → 354, Templates 919 → 351. From India each database hop is about 5× shorter.
+- A tapped screen's outline (installed): about 3.2 s → 154–228 ms when the server is slow.
+
+### What the Owner will notice
+- Everything Admins notice below, plus: tasks can be assigned to him; "My tasks" on Today; Remind.
+- Pages open noticeably faster, and the outline of a screen appears as soon as he taps.
+
+### What Admins will notice
+- The project page reads differently: a progress line per stage group, "Next:", tick from the list with
+  Undo, Mark done only when everything is ticked, Select for bulk actions.
+- Templates can be made from a project or a deliverable, and previewed before use.
+- They can drag a task's stages into order (on tasks they manage).
+- The month-end question about extra deliverables, on monthly projects.
+
+### What the Crew will notice
+- The drag handle and ⋯ Move up / Move down are gone from their task checklists (only managers reorder).
+- "How MaxOff works" under Me → Help & troubleshooting, with only their own topics.
+- Faster screens, and the outline appearing at once on a tap.
+
+### Migrations (expand-only, in order; all already on staging)
+`20261015045552_tasks_for_owner`, `20261015092234_task_stage_move`, `20261015113241_deliverable_templates`,
+`20261015155412_task_stage_move_managers`, `20261015174021_client_work_bulk_and_rounds`,
+`20261015182915_p2_session_bundle`, `20261016032240_p2_db_memory`, `20261016090349_r2_review_fixes`.
+
+### Open for the Owner's walk
+- "Save as template" on a project copies its description and custom-field values into a shared template
+  every Admin can read (keep, or copy the structure only?).
+- The builders' choices under PROGRESS Ideas: "Unit D2", "Unit E+" and "Unit U part A builder decisions"
+  (e.g. the weekly keep-extras window is its last 2 days to 2 days after).
+
 ## v1.7.0: deliverables with stage groups, and templates that hold them (phase 6b, Release 1)
 
 **Released 2026-10-15 ~12:01 IST** (the owner's tag `v1.7.0` on `af22adb`; production Deploy green, four expand-only migrations applied in order; owner decisions 2026-10-12/13, pre-authorised). Client work gets stage groups, project
