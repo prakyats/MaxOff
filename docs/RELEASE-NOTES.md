@@ -6,6 +6,8 @@ releases (v1.0.0 to v1.3.0) are recorded in their tag messages and in `PROGRESS.
 
 ## v1.7.1: projects polish, Owner tasks, fresh data, drag reorder, faster pages, in-app guide (phase 6b, Release 2)
 
+**Released 2026-10-16 ~19:30 IST** (the owner's tag `v1.7.1` on `36b4b95`; production Deploy green, eight expand-only migrations applied in order).
+
 **Not released yet** (PR `phase-6b-r2` → `main`; the Owner tags after his staging walk). Eight expand-only
 migrations; nothing is removed or rewritten. Money is not part of this release. Build log: issue #89.
 
