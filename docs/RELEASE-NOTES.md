@@ -6,7 +6,7 @@ releases (v1.0.0 to v1.3.0) are recorded in their tag messages and in `PROGRESS.
 
 ## v1.7.0: deliverables with stage groups, and templates that hold them (phase 6b, Release 1)
 
-**Not yet released** (owner decisions 2026-10-12/13, pre-authorised). Client work gets stage groups, project
+**Released 2026-10-15 ~12:01 IST** (the owner's tag `v1.7.0` on `af22adb`; production Deploy green, four expand-only migrations applied in order; owner decisions 2026-10-12/13, pre-authorised). Client work gets stage groups, project
 templates that hold deliverables, a live preview and a stage limit of 100. Three expand-only migrations;
 nothing is removed or rewritten. Money is not part of this release.
 
