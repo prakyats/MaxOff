@@ -40,7 +40,10 @@ export function BulkEditBar({
   onTick,
   editable,
   onEdit,
+  onHeight,
 }: {
+  /** The bar's height in px (0 once gone): the list reserves it while selecting. */
+  onHeight?: (height: number) => void;
   /** How many rows are selected (the bar hides at 0). */
   count: number;
   onClear: () => void;
@@ -56,7 +59,7 @@ export function BulkEditBar({
   onEdit: (kind: BulkEditKind) => void;
 }) {
   return (
-    <BulkBar count={count} onClear={onClear} noun="selected">
+    <BulkBar count={count} onClear={onClear} noun="selected" onHeight={onHeight}>
       {markable > 0 ? (
         // A trigger that opens a confirmation: neutral solid; the red commit names it (§14.1).
         <Button

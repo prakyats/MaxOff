@@ -111,6 +111,9 @@ export function CycleItems({
   const [busy, setBusy] = useState<string | null>(null);
   // The row tick on its way (unit U): its stage's control waits.
   const [ticking, setTicking] = useState<string | null>(null);
+  // The Select bar's height: reserved under the list while selecting, so the last row can scroll
+  // clear of the floating bar (unit U).
+  const [barHeight, setBarHeight] = useState(0);
   const [failures, setErrors] = useState<Readonly<Record<string, string>>>({});
   const marks = useUndoSends({
     url: MARK_DONE_URL,
@@ -297,7 +300,18 @@ export function CycleItems({
           setEditUsed(true);
           setEditing(kind);
         }}
+        onHeight={setBarHeight}
       />
+      {mode.selectMode ? (
+        // In flow under the list, only in Select mode: the bar's height plus its 12 px gap, or a
+        // bar's usual height before one shows (no shift outside Select mode).
+        <div
+          aria-hidden
+          data-slot="select-bar-space"
+          className="h-16 shrink-0"
+          style={barHeight > 0 ? { height: barHeight + 12 } : undefined}
+        />
+      ) : null}
       {editUsed ? (
         <BulkEditSheet
           kind={editing}

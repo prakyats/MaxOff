@@ -403,12 +403,23 @@ test("the whole row opens the deliverable: a click anywhere, Enter or Space; in 
   await expect(box).toHaveAttribute("aria-checked", "true");
   await expect(sheetOf(page, "Reel B")).toBeHidden();
   await expect(page.locator('[data-slot="select-hint"]')).toHaveCount(0);
-  // A second tap clears it again (on the first row: on a phone the bar now covers the last).
-  const first = row(page, "Reel A").getByRole("checkbox", { name: "Select Reel A" });
-  await clickRowAt(page, "Reel A", '[data-slot="item-open"]');
-  await expect(first).toHaveAttribute("aria-checked", "true");
-  await clickRowAt(page, "Reel A", '[data-slot="item-open"]');
-  await expect(first).toHaveAttribute("aria-checked", "false");
+  // The list reserves the bar's height while selecting: scrolled to the end, the last row sits
+  // clear of the floating bar, and a second tap on it clears it again.
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  const bar = page.locator('[data-slot="bulk-bar"]');
+  await expect(bar).toBeVisible();
+  await expect
+    .poll(async () => {
+      const [last, over] = await Promise.all([
+        row(page, "Reel B").boundingBox(),
+        bar.boundingBox(),
+      ]);
+      return last!.y + last!.height <= over!.y;
+    })
+    .toBe(true);
+  await clickRowAt(page, "Reel B", '[data-slot="item-open"]');
+  await expect(box).toHaveAttribute("aria-checked", "false");
+  await expect(bar).toHaveCount(0);
   await page.getByRole("button", { name: "Done", exact: true }).click();
   await removeClientFixture(client);
 });
@@ -432,7 +443,7 @@ test("a stage chip ticks in one tap with Undo; Next ticks its stage; Mark done s
   const exportChip = chip("Tick Export");
   await expect(exportChip).toHaveAttribute("data-chip", "next");
   await exportChip.click();
-  await expect(page.getByText("Ticked Edit · Export on Grouped")).toBeVisible();
+  await expect(page.getByText("Ticked Edit · Export on Grouped", { exact: true })).toBeVisible();
   const ticked = chip("Untick Export");
   await expect(ticked).toHaveAttribute("data-chip", "ticked");
   await expect.poll(() => stageDone("Grouped", projectId, "Export")).toBe(true);
@@ -440,7 +451,7 @@ test("a stage chip ticks in one tap with Undo; Next ticks its stage; Mark done s
     "Next: Revision 1",
   );
   await page.getByRole("button", { name: "Undo" }).click();
-  await expect(page.getByText("Unticked Edit · Export on Grouped")).toBeVisible();
+  await expect(page.getByText("Unticked Edit · Export on Grouped", { exact: true })).toBeVisible();
   await expect(exportChip).toHaveAttribute("data-chip", "next");
   await expect.poll(() => stageDone("Grouped", projectId, "Export")).toBe(false);
 
@@ -458,7 +469,7 @@ test("a stage chip ticks in one tap with Undo; Next ticks its stage; Mark done s
   await expect(next).toHaveText("Next: Stage 1");
   await expect(next).toHaveAttribute("aria-label", "Tick Stage 1");
   await next.click();
-  await expect(page.getByText("Ticked Stage 1 on Fresh")).toBeVisible();
+  await expect(page.getByText("Ticked Stage 1 on Fresh", { exact: true })).toBeVisible();
   await expect.poll(() => stageDone("Fresh", projectId, "Stage 1")).toBe(true);
   await expect(markDone(page, "Fresh")).toHaveAttribute("data-look", "ready");
   await expect(more(page, "Fresh")).toHaveCount(0);
@@ -500,10 +511,10 @@ test("the deliverable's sheet: the list's group headings, neutral ticks, Edit de
   // A tick in the sheet says what happened; its box is its undo (the sheet covers the toasts).
   const exportBox = sheet.getByRole("checkbox", { name: "Export" });
   await exportBox.click();
-  await expect(page.getByText("Ticked Edit · Export on Grouped")).toBeVisible();
+  await expect(page.getByText("Ticked Edit · Export on Grouped", { exact: true })).toBeVisible();
   await expect(exportBox).toHaveAttribute("aria-checked", "true");
   await exportBox.click();
-  await expect(page.getByText("Unticked Edit · Export on Grouped")).toBeVisible();
+  await expect(page.getByText("Unticked Edit · Export on Grouped", { exact: true })).toBeVisible();
   await expect(exportBox).toHaveAttribute("aria-checked", "false");
 
   await expect(sheet.getByRole("button", { name: "Edit details", exact: true })).toBeVisible();
@@ -512,7 +523,7 @@ test("the deliverable's sheet: the list's group headings, neutral ticks, Edit de
   // "Grouped" is first in the list: it cannot move up.
   await expect(page.getByRole("menuitem", { name: "Move up" })).toBeDisabled();
   await page.getByRole("menuitem", { name: "Move down" }).click();
-  await expect(page.getByText("Moved Grouped down")).toBeVisible();
+  await expect(page.getByText("Moved Grouped down", { exact: true })).toBeVisible();
   await removeClientFixture(client);
 });
 
