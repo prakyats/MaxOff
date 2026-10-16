@@ -63,6 +63,16 @@ function decodePart(part: string | undefined): Record<string, unknown> | null {
 }
 
 /**
+ * The `sub` a token claims, **unverified**: a query filter at most, never a decision
+ * (`getSessionState` starts the member row with it and keeps the row only when the verified
+ * claims name the same id). Null when the token is not a JWT with a string `sub`.
+ */
+export function unverifiedSubject(token: string): string | null {
+  const sub = decodePart(token.split(".")[1])?.sub;
+  return typeof sub === "string" && sub.length > 0 ? sub : null;
+}
+
+/**
  * Whether verifying `token` is a JWKS fetch at most: signed with a published key (`kid`, not a
  * shared secret) and valid for at least another minute at `nowSeconds`.
  */
