@@ -65,13 +65,15 @@ export function TemplateLibrary({
           <DialogHeader>
             <DialogTitle>Start from a template</DialogTitle>
             <DialogDescription>
-              Preview one before using it; everything stays editable after.
+              Preview one to see what it gives, then Use this template. Everything stays editable.
             </DialogDescription>
           </DialogHeader>
           <TemplateSearch value={query} onChange={setQuery} label="Search templates" />
           {shown.length === 0 ? (
             <p className="text-muted-foreground text-sm" data-slot="template-library-empty">
-              No template matches “{query.trim()}”.
+              {query.trim() === ""
+                ? "No templates yet: add one in Settings → Templates."
+                : `No template matches “${query.trim()}”.`}
             </p>
           ) : (
             <ul
@@ -93,7 +95,9 @@ export function TemplateLibrary({
                   <Button
                     type="button"
                     variant="secondary"
+                    className="min-h-11"
                     aria-label={`Preview ${template.name}`}
+                    title={`See what a project started from ${template.name} gets`}
                     onClick={() => setPreviewId(template.id)}
                   >
                     <EyeIcon aria-hidden />

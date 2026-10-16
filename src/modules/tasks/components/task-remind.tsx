@@ -16,19 +16,22 @@ import { remindTask } from "../actions/tasks";
  * approving Admin or the Owner asks everyone on the task about it with one tap (a push and an
  * in-app row, "<name> is asking about <task>"). At most once an hour per task: after a send, and
  * while the hour of anyone's last one runs, the button says when it can be used again and waits.
- * An outlined button (never a second solid action on the layer); no confirmation, because the
- * database refuses a second reminder within the hour.
+ * An outlined button (never a second solid action on the layer) naming whom it reaches ("Remind
+ * Sam and Ria"); no confirmation, because the database refuses a second reminder within the hour.
  */
 export function TaskRemind({
   taskId,
   againAt,
   againLabel,
+  who,
 }: {
   taskId: string;
   /** When it can be used again (ISO), or null when it can be used now. */
   againAt: string | null;
   /** "Reminded · again at 4:05 PM", the server's words for `againAt`. */
   againLabel: string | null;
+  /** Whom it reaches, from `remindWho`: "Sam", "Sam and Ria", "Sam and 2 others". */
+  who: string;
 }) {
   const [wait, setWait] = useState<{ at: string; label: string } | null>(
     againAt && againLabel ? { at: againAt, label: againLabel } : null,
@@ -49,7 +52,7 @@ export function TaskRemind({
 
   const action = useAction(async () => {
     const result = await remindTask({ taskId });
-    toastResult(result, { success: "Reminder sent to everyone on the task" });
+    toastResult(result, { success: `Reminder sent to ${who}` });
     if (result.ok) setWait({ at: result.data.againAt, label: result.data.label });
   });
 
@@ -64,10 +67,11 @@ export function TaskRemind({
         pendingLabel="Sending…"
         disabled={wait !== null}
         data-state={wait ? "waiting" : "ready"}
+        title="Sends them a push and a note in the app. Once an hour per task."
         onClick={() => action.run()}
       >
         <BellRingIcon aria-hidden />
-        {wait ? wait.label : "Remind"}
+        {wait ? wait.label : `Remind ${who}`}
       </Button>
       <ActionStatus action={action} />
     </div>

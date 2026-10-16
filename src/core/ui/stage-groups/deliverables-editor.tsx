@@ -140,6 +140,7 @@ export function DeliverablesEditor({
                   <button
                     type="button"
                     aria-expanded={isOpen}
+                    title={isOpen ? `Close ${title}` : `Open ${title} to edit its title and stages`}
                     data-slot="deliverable-toggle"
                     className="pressable-row flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg px-1 text-left"
                     onClick={() =>
@@ -177,6 +178,7 @@ export function DeliverablesEditor({
                         className="size-11"
                         disabled={disabled}
                         aria-label={`Actions for ${title}`}
+                        title="Move, duplicate or remove"
                         data-slot="deliverable-menu"
                       >
                         <MoreHorizontalIcon aria-hidden />
@@ -231,9 +233,8 @@ export function DeliverablesEditor({
                       <div className="flex flex-col gap-2" data-slot="uses-defaults">
                         <p className="text-muted-foreground text-sm">
                           Uses the default stages
-                          {defaults.length > 0 ? ` (${groupsSummary(defaults)})` : ""}. To type its
-                          stages, add a preset as a group or reorder them for this deliverable only,
-                          give it its own stages.
+                          {defaults.length > 0 ? ` (${groupsSummary(defaults)})` : ""}. To change
+                          the stages of this deliverable only, give it its own stages.
                         </p>
                         <Button
                           type="button"
