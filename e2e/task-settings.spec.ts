@@ -516,6 +516,37 @@ async function editTemplate(page: Page, name: string): Promise<Locator> {
   return dialog;
 }
 
+test.describe("task templates: archive is neutral (the colour rule)", () => {
+  test("the row's Archive (laptop) and the ⋯ sheet's Archive (phone) are never red; the question names it", async ({
+    page,
+  }, info) => {
+    const name = `Neutral archive (${info.project.name})`;
+    await ownerTemplate(name, ["Stage 1"]);
+    await page.goto("/settings/templates");
+    await hydrated(page);
+    const row = page.locator('[data-slot="task-template"]').filter({ hasText: name });
+    const phone = (page.viewportSize()?.width ?? 1280) < 768;
+    if (phone) {
+      await row.getByRole("button", { name: `Actions for ${name}` }).click();
+      const sheet = page.locator('[data-slot="task-template-actions"]');
+      const archive = sheet.getByRole("button", { name: "Archive" });
+      await expect(archive).toHaveAttribute("data-variant", "secondary");
+      await archive.click();
+    } else {
+      const archive = row.getByRole("button", { name: `Archive ${name}` });
+      await expect(archive).toHaveAttribute("data-variant", "ghost");
+      await archive.click();
+    }
+    // The destructive step stays confirmed by the question's one named red commit.
+    const question = page.getByRole("alertdialog", { name: `Archive ${name}?` });
+    await expect(question.getByRole("button", { name: `Archive ${name}` })).toHaveAttribute(
+      "data-variant",
+      "primary",
+    );
+    await removeTemplatesNamed(name);
+  });
+});
+
 test.describe("drag to reorder stages before saving (6b.18)", () => {
   test("a task template's stages: dragged, moved from ⋯, saved in that order", async ({
     page,
