@@ -244,7 +244,8 @@ update public.projects set delivery_armed_at = now() - interval '90 days';
 
 -- The schedule, the kinds, the helpers and E2's index ------------------------------------------------------
 select is((select schedule || ' ' || command from cron.job where jobname = 'client_work_alerts'),
-  '*/5 * * * * select app.client_work_alerts()', 'client_work_alerts runs every 5 minutes (as reminders_tick)');
+  '30-55/5 2 * * * select app.client_work_alerts()',
+  'client_work_alerts runs every 5 minutes in its 08:00 to 08:25 IST send window (since migration p2_db_memory, pgTAP 80)');
 select is((select string_agg(jobname || ' ' || schedule, ', ' order by jobname) from cron.job
            where jobname in ('cycle_generate', 'cycle_close_prompt')),
   'cycle_close_prompt 35 2 * * *, cycle_generate 30 18 * * *',
