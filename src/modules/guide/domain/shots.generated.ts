@@ -176,7 +176,7 @@ export const GUIDE_SHOTS: Readonly<
   "admin/project-page": {
     src: "/guide/admin/project-page.webp",
     width: 1216,
-    height: 798,
+    height: 706,
     alt: "A project's page with this month's progress ring highlighted.",
   },
   "admin/deliverable-sheet": {
@@ -190,6 +190,30 @@ export const GUIDE_SHOTS: Readonly<
     width: 408,
     height: 520,
     alt: "The Stages of Reel 2 sheet with Add from a preset highlighted.",
+  },
+  "admin/deliverable-rows": {
+    src: "/guide/admin/deliverable-rows.webp",
+    width: 1072,
+    height: 343,
+    alt: "The project's deliverables, with Reel 2's Video steps line opened to its stage chips and highlighted.",
+  },
+  "admin/revision-round": {
+    src: "/guide/admin/revision-round.webp",
+    width: 408,
+    height: 669,
+    alt: "Reel 2's sheet with its ⋯ menu open and Another revision round highlighted.",
+  },
+  "admin/select-edit": {
+    src: "/guide/admin/select-edit.webp",
+    width: 1184,
+    height: 841,
+    alt: "The deliverables in Select mode with Reel 3 and Reel 4 selected, and Edit 2 highlighted in the bar.",
+  },
+  "admin/copy-schedule": {
+    src: "/guide/admin/copy-schedule.webp",
+    width: 1186,
+    height: 706,
+    alt: "The project's ⋯ menu open with Copy schedule as text highlighted.",
   },
   "admin/stage-presets": {
     src: "/guide/admin/stage-presets.webp",
@@ -338,8 +362,38 @@ export const GUIDE_SHOTS: Readonly<
   "owner/project-page": {
     src: "/guide/owner/project-page.webp",
     width: 1216,
-    height: 798,
+    height: 706,
     alt: "A project's page with this month's progress ring highlighted.",
+  },
+  "owner/deliverable-rows": {
+    src: "/guide/owner/deliverable-rows.webp",
+    width: 1072,
+    height: 343,
+    alt: "The project's deliverables, with Reel 2's Video steps line opened to its stage chips and highlighted.",
+  },
+  "owner/revision-round": {
+    src: "/guide/owner/revision-round.webp",
+    width: 408,
+    height: 669,
+    alt: "Reel 2's sheet with its ⋯ menu open and Another revision round highlighted.",
+  },
+  "owner/select-edit": {
+    src: "/guide/owner/select-edit.webp",
+    width: 1184,
+    height: 841,
+    alt: "The deliverables in Select mode with Reel 3 and Reel 4 selected, and Edit 2 highlighted in the bar.",
+  },
+  "owner/bulk-rename": {
+    src: "/guide/owner/bulk-rename.webp",
+    width: 448,
+    height: 457,
+    alt: "The Rename deliverables sheet with Reel {n} from 5 and its Preview highlighted: Reel 3 becomes Reel 5, Reel 4 becomes Reel 6.",
+  },
+  "owner/copy-schedule": {
+    src: "/guide/owner/copy-schedule.webp",
+    width: 1186,
+    height: 706,
+    alt: "The project's ⋯ menu open with Copy schedule as text highlighted.",
   },
   "owner/send-back": {
     src: "/guide/owner/send-back.webp",

@@ -19,9 +19,29 @@ export const COMMON_HELP_TOPICS: readonly GuideTopic[] = [
           'Tap "Reload app". MaxOff starts again from the beginning.',
         ],
       },
+      {
+        kind: "note",
+        text: "You rarely need to: going back to a screen you saw 30 seconds or more ago reads it again from the server, and so does coming back to the app after a while, so other people's changes arrive by themselves. What you are typing stays as it is.",
+      },
     ],
     link: { href: "/me", label: "Open Me" },
     keywords: ["refresh", "stuck", "old", "not updating", "reload", "frozen"],
+  },
+  {
+    id: "help-speed",
+    title: "Why screens open at once",
+    summary: "The outline comes first; names and numbers always come fresh.",
+    blocks: [
+      {
+        kind: "text",
+        text: "When you tap, the screen's outline appears at once, then its content fills in. Names and numbers always come fresh from the server, never from an old copy, so what you read is what is true now.",
+      },
+      {
+        kind: "note",
+        text: "With your phone's data saver on, MaxOff fetches nothing ahead of a tap,: it waits until you open a screen, to save your data.",
+      },
+    ],
+    keywords: ["slow", "fast", "speed", "loading", "outline", "data saver", "mobile data"],
   },
   {
     id: "help-install",

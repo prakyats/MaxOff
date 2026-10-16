@@ -493,19 +493,19 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Remind appears on the task page while the task is with its people and someone else is on it.",
+              text: "Remind appears on the task page of a task you created or check, while the task is with its people and someone else is on it. It names whom it reaches, such as “Remind Sam and Ria” or “Remind Sam and 2 others”; when the names are not known it reads “Remind everyone on the task”.",
             },
             {
               kind: "steps",
-              steps: ["Open the task.", "Tap Remind."],
+              steps: ["Open the task.", "Tap Remind ‹names›."],
             },
             {
               kind: "example",
-              text: "After you send a reminder the button reads “Reminded · again at 4:05 PM”. You can send the next one then.",
+              text: "After you send a reminder the toast says “Reminder sent to Sam and Ria” and the button reads “Reminded · again at 4:05 PM”. You can send the next one then.",
             },
             {
               kind: "next",
-              text: "Everyone on the task is told.",
+              text: "Each of them gets a push and a note in the app.",
             },
             {
               kind: "note",
@@ -877,7 +877,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Start from fills the repeat, the default stage groups, the deliverables, and the description and custom fields if they are empty. Search and preview templates opens a library where you can search by template name or deliverable title.",
+              text: "Start from fills the repeat, the default stage groups, the deliverables, and the description and custom fields if they are empty. Search and preview templates opens “Start from a template”: “Preview one to see what it gives, then Use this template.” Search by template name or deliverable title.",
             },
             {
               kind: "steps",
@@ -887,8 +887,8 @@ export const ADMIN_GUIDE: Guide = {
                   shot: "admin/templates",
                 },
                 "Type a name or deliverable in the search box.",
-                "Tap Preview on a row to see what it makes.",
-                "Tap Use this template, or Back to keep looking.",
+                "Tap Preview on a row to see what a project started from it gets.",
+                "Tap Use this template, or Back to templates to keep looking.",
                 "Change anything you need afterwards.",
               ],
             },
@@ -992,19 +992,55 @@ export const ADMIN_GUIDE: Guide = {
               ],
             },
             {
+              kind: "text",
+              text: "Under Deliverables each row shows one line per stage group, such as “Edit ▮▮▯ 2/3” (a deliverable from before groups reads “Stages”), then “Next: ‹stage›” or “All stages ticked”, and its planned date. On a laptop these sit in columns; on a phone each deliverable is a card. An empty cycle says “No deliverables yet: add one or start from a template.” with Add deliverable.",
+            },
+            {
               kind: "example",
-              text: "A row reads “Reel 1 · Planned 18 Oct · 2 days late”. Planned today, Planned 21 Oct and Not planned are the other forms. Stage chips are filled when ticked, outlined for the next stage and dashed for to do.",
+              text: "A row reads “Reel 1 · Planned 18 Oct · 2 days late”. Planned today, Planned 21 Oct and Not planned are the other forms.",
             },
             {
               kind: "next",
-              text: "Done, closed and carried deliverables sit in the collapsed group “Done and closed (N)”.",
+              text: "Finished ones read Done, Closed or Carried and sit in the collapsed group “Done and closed (N)”.",
             },
             {
               kind: "note",
               text: "Closed and carried deliverables are not counted in the ring.",
             },
           ],
-          keywords: ["progress", "ring", "cycle", "planned", "stage chips", "on track"],
+          keywords: ["progress", "ring", "cycle", "planned", "stage chips", "on track", "next"],
+        },
+        {
+          id: "admin-deliverable-rows",
+          title: "Tick stages from the list",
+          summary: "Open a stage line and tap a stage, or tap Next.",
+          blocks: [
+            {
+              kind: "text",
+              text: "You can tick stages without opening a deliverable. Tapping anywhere else on the row (or its ›) opens it; on a laptop, Tab to it and press Enter.",
+            },
+            {
+              kind: "steps",
+              steps: [
+                {
+                  text: "Tap a stage line, such as “Video steps 2/4” (highlighted), to show its stages: ticked ones with a ✓, the next one outlined, later ones dashed. Tap it again to hide them.",
+                  shot: "admin/deliverable-rows",
+                },
+                "Tap a stage to tick it (“Tick Edit”) or untick it (“Untick Edit”).",
+                "Or tap “Next: ‹stage›” on the row to tick that stage in one tap.",
+                "Read the toast, such as “Ticked Video steps · Edit on Reel 2”, and tap Undo if it was a mistake.",
+              ],
+            },
+            {
+              kind: "next",
+              text: "The line’s count and the ring move at once, and the tick is added to the History.",
+            },
+            {
+              kind: "note",
+              text: "Stages tick only while the deliverable is open.",
+            },
+          ],
+          keywords: ["tick", "untick", "next", "stage line", "chips", "undo", "quick"],
         },
         {
           id: "admin-add-deliverable",
@@ -1031,7 +1067,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: "It joins this cycle only. The Deliverables list for next month stays as it is. The button is hidden once the cycle has ended.",
+              text: "It joins this cycle only. The Deliverables list for next month stays as it is, until the month-end question “Keep ‹Month›’s extra deliverables next month?”. The button is hidden once the cycle has ended.",
             },
           ],
           keywords: ["add deliverable", "planned date", "extra"],
@@ -1043,7 +1079,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "A deliverable’s sheet shows its state (Open, Done, Closed or Carried), the Planned date, a History button and its stages under group headings.",
+              text: "A deliverable’s sheet shows its state (Open, Done, Closed or Carried), the Planned date, a History button and its stages under group headings with their count, as on the list (“Stages 1/1”, “Edit 2/3”).",
             },
             {
               kind: "steps",
@@ -1054,19 +1090,50 @@ export const ADMIN_GUIDE: Guide = {
                   text: "Tap Edit stages to add, rename or remove stages for this deliverable only.",
                   shot: "admin/edit-stages",
                 },
-                "Tap Edit to change the title, date or notes.",
+                "Tap Edit details to change the title, date or notes.",
+                "Tap ⋯ for Another revision round, Move up or Move down (its place in the list; the toast says, for example, “Moved Reel 2 down”) and Save as template.",
               ],
             },
             {
               kind: "next",
-              text: "Your ticks and edits are saved and added to the History.",
+              text: "Your ticks and edits are saved and added to the History. Ticked boxes are plain, never red.",
             },
             {
               kind: "note",
               text: "You can tick or untick stages only while the deliverable is open. Once it is done, closed or carried, only the title and notes can change.",
             },
           ],
-          keywords: ["tick", "edit stages", "history", "notes"],
+          keywords: ["tick", "edit stages", "edit details", "history", "notes", "move up", "order"],
+        },
+        {
+          id: "admin-revision-round",
+          title: "Add another revision round",
+          summary: "One more revision stage on a deliverable, in one tap.",
+          blocks: [
+            {
+              kind: "text",
+              text: "When the client asks for one more round of changes, add a revision stage instead of editing the stages by hand.",
+            },
+            {
+              kind: "steps",
+              steps: [
+                {
+                  text: "Open the deliverable, tap its ⋯ menu, then Another revision round (highlighted).",
+                  shot: "admin/revision-round",
+                },
+                "Read the toast, such as “Added Revision 3”.",
+              ],
+            },
+            {
+              kind: "next",
+              text: "The new stage follows the deliverable’s own revision stages (“Revision 2” is followed by “Revision 3”) in their group; one with none gets “Revision round 1”. Ticks already made stay.",
+            },
+            {
+              kind: "note",
+              text: "It works on open deliverables only. Reopen a done one first.",
+            },
+          ],
+          keywords: ["revision", "another round", "changes", "client feedback"],
         },
         {
           id: "admin-mark-done",
@@ -1075,13 +1142,13 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "For client work there is no separate approval step.",
+              text: "For client work there is no separate approval step. Mark done comes onto a row once every stage is ticked (the first such row’s button is red); until then it waits in the row’s ⋯, beside Open. A deliverable with no stages always shows it.",
             },
             {
               kind: "steps",
               steps: [
                 {
-                  text: 'Tap "Mark done" (highlighted) on the row, or open the deliverable and tap Mark done.',
+                  text: 'Tap "Mark done" on the row (or in its ⋯), or open the deliverable and tap Mark done (highlighted).',
                   shot: "admin/deliverable-sheet",
                 },
                 "Read the toast “Marked ‹title› done”.",
@@ -1130,31 +1197,75 @@ export const ADMIN_GUIDE: Guide = {
         },
         {
           id: "admin-bulk-actions",
-          title: "Mark or tick many at once",
-          summary: "Select rows, then Mark N done or Tick a stage on N.",
+          title: "Select several deliverables",
+          summary: "Select rows, then mark done, tick a stage or edit them all.",
           blocks: [
             {
               kind: "text",
-              text: "Select several deliverables on the project page. Two bulk actions appear: “Mark N done” and “Tick ‹stage› on N”.",
+              text: "Tap Select above the deliverables. It says “Select deliverables, then choose an action.” Checkboxes appear and the rows’ own Mark done step aside.",
             },
             {
               kind: "steps",
               steps: [
-                "Select the rows you want.",
-                "Choose Mark N done, or Tick a stage and pick the stage.",
-                "Confirm, for example “Mark N items done?”.",
+                "Tap the rows you want: a tap anywhere on a row selects it. Select all takes every row.",
+                {
+                  text: "Use the bar at the bottom: Mark N done (it asks “Mark N deliverables done?” first), Tick a stage then “Tick ‹stage› on N”, or Edit N (highlighted).",
+                  shot: "admin/select-edit",
+                },
+                "Tap Done, or go back, to leave Select.",
               ],
             },
             {
               kind: "next",
-              text: "Every selected row changes at once.",
+              text: "The action applies to every selected row.",
             },
             {
               kind: "note",
-              text: "Each bulk action asks you to confirm. Read the number before you do.",
+              text: "Mark N done asks you to confirm. Read the number before you do.",
             },
           ],
-          keywords: ["bulk", "select", "many", "tick a stage"],
+          keywords: ["bulk", "select", "many", "tick a stage", "select all"],
+        },
+        {
+          id: "admin-bulk-edit",
+          title: "Edit several deliverables at once",
+          summary: "Plan, move dates, add a stage group or rename, all in one go.",
+          blocks: [
+            {
+              kind: "text",
+              text: "Select the deliverables, tap Edit N in the bar and pick an edit. Each opens a sheet that names what it changes.",
+            },
+            {
+              kind: "steps",
+              steps: [
+                "Set planned date…: pick a Planned date; every selected deliverable is planned for it.",
+                "Move planned dates…: set “By how many days” and choose Earlier or Later. One without a planned date stays as it is.",
+                "Add a stage group…: build the “Groups to add”, typed or from a preset.",
+                "Rename…: type a New name with {n} where the number goes ({title} keeps the current name), set Start at, check the Preview and tap Rename N.",
+              ],
+            },
+            {
+              kind: "example",
+              text: "“Reel {n}” starting at 5 renames three deliverables to Reel 5, Reel 6 and Reel 7, in the list’s order.",
+            },
+            {
+              kind: "next",
+              text: "The toast says what changed, such as “Renamed 3 deliverables”.",
+            },
+            {
+              kind: "note",
+              text: "Edit N counts only the open deliverables you selected. An edit is all or nothing: if one of them cannot change, nothing changes and the message names it.",
+            },
+          ],
+          keywords: [
+            "bulk edit",
+            "rename",
+            "planned date",
+            "move dates",
+            "shift",
+            "add group",
+            "{n}",
+          ],
         },
         {
           id: "admin-project-activity",
@@ -1187,7 +1298,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "The project ⋯ menu has Edit details, Default stages, Deliverables list (repeating projects), Save as template, Complete project, and Cancel project… with a reason.",
+              text: "The project ⋯ menu has Edit details, Default stages, Deliverables list (repeating projects), Save as template, Copy schedule as text, Complete project, and Cancel project… with a reason.",
             },
             {
               kind: "steps",
@@ -1207,6 +1318,37 @@ export const ADMIN_GUIDE: Guide = {
             },
           ],
           keywords: ["complete", "cancel", "read-only", "reopen project"],
+        },
+        {
+          id: "admin-copy-schedule",
+          title: "Send the schedule on WhatsApp",
+          summary: "Copy the shown cycle's plan as plain text.",
+          blocks: [
+            {
+              kind: "steps",
+              steps: [
+                "Open the project on the cycle you want.",
+                {
+                  text: "Tap ⋯, then Copy schedule as text (highlighted).",
+                  shot: "admin/copy-schedule",
+                },
+                "Read the toast “Schedule copied: paste it into WhatsApp”, then paste it into the chat.",
+              ],
+            },
+            {
+              kind: "example",
+              text: "The text starts with the project and the month in bold, then each planned date (“Tue 21 Oct”) with its deliverables, and “Not planned yet” last. A done one says “(done)”.",
+            },
+            {
+              kind: "next",
+              text: "Closed and carried deliverables are left out: they are not this cycle’s work.",
+            },
+            {
+              kind: "note",
+              text: "If the browser does not allow copying, it says “The schedule could not be copied”. Try again, or copy from a laptop.",
+            },
+          ],
+          keywords: ["whatsapp", "copy", "schedule", "share", "plan", "send to client"],
         },
       ],
     },
@@ -1331,12 +1473,12 @@ export const ADMIN_GUIDE: Guide = {
                   text: 'Add the deliverables, using "How many" (highlighted) for × N where it helps.',
                   shot: "admin/template-builder",
                 },
-                "Check the preview, then tap Add template.",
+                "Check the preview, then tap Add template. On a phone the button is Preview and save: the preview opens as its own step, and Back to editing returns to the form.",
               ],
             },
             {
               kind: "next",
-              text: "The template appears in Templates and can be picked under Start from in New project.",
+              text: "The toast says “Added ‹name›: New project offers it under Start from”, and New project offers it under Start from.",
             },
             {
               kind: "note",
@@ -1361,12 +1503,12 @@ export const ADMIN_GUIDE: Guide = {
                 "Open Settings, then Templates.",
                 "Add a deliverable template.",
                 "Name it and build its stage groups.",
-                "Check the preview and save.",
+                "Check the preview and tap Add template (on a phone, Preview and save).",
               ],
             },
             {
               kind: "next",
-              text: "Use it from Start from in Add deliverable, or when building a project template.",
+              text: "The toast says “Added ‹name›: + Add deliverable offers it”. Use it from Start from in Add deliverable, or when building a project template.",
             },
             {
               kind: "note",
@@ -1412,7 +1554,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Templates has Task templates, Project templates and Deliverable templates, with a search box and a Preview button on every client-work row. You edit and archive only the templates you made. The Owner can do it for any.",
+              text: "Templates has Task templates, Project templates and Deliverable templates, with a search box. Every project and deliverable template row has a Preview button, and on your own ones a pencil (“Edit ‹name›”) and an archive box (“Archive ‹name›”). You edit and archive only the templates you made. The Owner can do it for any. With none yet, a list says so, such as “No project templates yet: Add one to start projects faster.”",
             },
             {
               kind: "steps",
@@ -1421,13 +1563,13 @@ export const ADMIN_GUIDE: Guide = {
                   text: "Open Settings, then Templates, and use the search box (highlighted).",
                   shot: "admin/templates",
                 },
-                "Tap Preview on a client-work row to see it.",
-                "Edit or archive one of your own.",
+                "Tap Preview on a project or deliverable template to see what work made from it gets.",
+                "Edit or archive one of your own. Archive asks first.",
               ],
             },
             {
               kind: "next",
-              text: "An archived template stops being offered. Archived templates can be restored.",
+              text: "An archived template stops being offered: “Archived ‹name›: New project no longer offers it”. Tap Restore on an archived one to bring it back: “Restored ‹name›: New project offers it again”. A task template’s Archive is a plain button, never red.",
             },
             {
               kind: "note",
@@ -1539,6 +1681,34 @@ export const ADMIN_GUIDE: Guide = {
             },
           ],
           keywords: ["new cycle", "00:00", "start early", "deliverables list", "paused"],
+        },
+        {
+          id: "admin-keep-extras",
+          title: "Keep a month’s extra deliverables",
+          summary: "At month end, say whether this month’s extras repeat.",
+          blocks: [
+            {
+              kind: "text",
+              text: "Near the end of a month, a repeating project that gained deliverables this cycle asks “Keep ‹Month›’s extra deliverables next month?” (a weekly one: “next week?”). It lists the ones added this cycle that are not on the Deliverables list and says: “Yes adds them to the deliverables list from ‹Month›; No leaves the list as it is.”",
+            },
+            {
+              kind: "steps",
+              steps: [
+                "Open the project page and read the card under the ring.",
+                "Tap Yes, keep them to add them to the Deliverables list.",
+                "Or tap No: the list stays as it is.",
+              ],
+            },
+            {
+              kind: "next",
+              text: "Yes adds them for later cycles only: this month and any cycle already started stay as they are. The toast says, for example, “2 deliverables added to the deliverables list from November 2026”.",
+            },
+            {
+              kind: "note",
+              text: "The card shows from 6 days before the month’s last day to 7 days after (a weekly project: from its last 2 days to 2 days after), once per cycle. Either answer is kept and the card goes.",
+            },
+          ],
+          keywords: ["extra", "keep", "month end", "deliverables list", "next month", "yes no"],
         },
         {
           id: "admin-retainer-unfinished",
@@ -1812,7 +1982,7 @@ export const ADMIN_GUIDE: Guide = {
       title: "Help and troubleshooting",
       topics: [
         missingButtonTopic(
-          "Some buttons are the Owner’s: client states, assigning an Admin, deciding attendance, leave and expenses, final task approval, Task types and Thresholds. Others depend on the step: Approve appears only after the primary owner marks a task done; Edit task and Cancel task appear only on tasks you created or approve; a completed project is read-only until it is reopened; and there is no New project on an Inactive client.",
+          "Some buttons are the Owner’s: client states, assigning an Admin, deciding attendance, leave and expenses, final task approval, Task types and Thresholds. Others depend on the step: Approve appears only after the primary owner marks a task done; Edit task and Cancel task appear only on tasks you created or approve; a completed project is read-only until it is reopened; on the deliverables list Mark done waits in a row’s ⋯ until every stage is ticked; Edit N in Select mode counts only open deliverables; and there is no New project on an Inactive client.",
         ),
         ...COMMON_HELP_TOPICS,
       ],

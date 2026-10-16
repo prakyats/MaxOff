@@ -1,4 +1,4 @@
-import { ArrowRightIcon } from "lucide-react";
+import { ArrowRightIcon, ChevronRightIcon } from "lucide-react";
 import type { Metadata } from "next";
 
 import { cn } from "@/core/lib/utils";
@@ -99,15 +99,19 @@ export default async function SettingsPage() {
           <DrillLink
             href="/me/guide"
             data-slot="settings-guide-link"
-            className="focus-visible:ring-ring active:bg-muted/60 flex min-h-14 items-center gap-2 px-4 py-2 outline-none focus-visible:ring-2 focus-visible:ring-inset"
+            className="focus-visible:ring-ring active:bg-muted/60 group/guide hover:bg-muted/50 flex min-h-14 items-center gap-2 px-4 py-2 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-inset"
           >
+            {/* Says what opens (unit U): the guide, step-by-step help for the reader's role. */}
             <span className="flex min-w-0 flex-1 flex-col">
               <span className="truncate text-sm font-medium">Help and troubleshooting</span>
               <span className="text-muted-foreground truncate text-sm">
-                How MaxOff works, for your role
+                Opens How MaxOff works, for your role
               </span>
             </span>
-            <ArrowRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
+            <ChevronRightIcon
+              className="text-muted-foreground group-hover/guide:text-foreground size-4 shrink-0"
+              aria-hidden
+            />
           </DrillLink>
         </li>
       </ul>

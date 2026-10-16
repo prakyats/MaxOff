@@ -83,6 +83,50 @@ async function openDeliverable(page: Page, title: string): Promise<void> {
   await layer(page).waitFor();
 }
 
+/** A deliverable's row on the project page's list (open ones; "Reel 2" never matches "Reel 20"). */
+const deliverableRow = (page: Page, title: string) =>
+  page
+    .locator('[data-slot="item-row"]')
+    .filter({ has: page.locator('[data-slot="item-open"]', { hasText: title }) })
+    .first();
+
+/** Reel 2's first stage line opened in place, its stage chips showing. */
+async function openStageLine(page: Page): Promise<void> {
+  await deliverableRow(page, "Reel 2").locator('[data-slot="item-strip-toggle"]').first().click();
+  await deliverableRow(page, "Reel 2").locator('[data-slot="item-row-stages"]').first().waitFor();
+}
+
+/** Select mode with Reel 3 and Reel 4 selected: the bar shows Mark 2 done, Tick a stage, Edit 2. */
+async function selectTwo(page: Page): Promise<void> {
+  // The laptop's "turn on notifications" band would sit under the floating Select bar and cut it
+  // from the crop; a device with notifications on has no band, so the picture shows that.
+  await page.addStyleTag({ content: '[data-slot="push-banner"] { display: none !important; }' });
+  await slot(page, "select-mode").click();
+  for (const title of ["Reel 3", "Reel 4"]) {
+    await page.getByRole("checkbox", { name: `Select ${title}` }).click();
+  }
+  await slot(page, "bulk-edit").waitFor();
+}
+
+/** Edit 2 → Rename…, "Reel {n}" from 5: the sheet's Preview lists the new names. */
+async function renameTwo(page: Page): Promise<void> {
+  await selectTwo(page);
+  await openMenu(page, "Edit 2", "Rename…");
+  const sheet = layer(page);
+  await sheet.getByLabel("New name", { exact: true }).fill("Reel {n}");
+  await sheet.getByLabel("Start at", { exact: true }).fill("5");
+  await slot(page, "rename-preview-row").first().waitFor();
+}
+
+/** A deliverable's sheet with its ⋯ open (Another revision round, Move up, Move down, …). */
+async function openDeliverableMenu(page: Page, title: string): Promise<void> {
+  await openDeliverable(page, title);
+  await layer(page)
+    .getByRole("button", { name: `More for ${title}` })
+    .click();
+  await page.getByRole("menuitem", { name: "Another revision round" }).waitFor();
+}
+
 /** New project with default stages from a preset and four deliverables, so the preview shows them. */
 async function newProjectWithDeliverables(page: Page): Promise<void> {
   await tap(page, "New project");
@@ -346,6 +390,38 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
     alt: "The Stages of Reel 2 sheet with Add from a preset highlighted.",
   },
   {
+    id: "admin/deliverable-rows",
+    path: project,
+    prepare: openStageLine,
+    highlight: (page) => deliverableRow(page, "Reel 2").locator('[data-slot="item-strip"]').first(),
+    crop: (page) => slot(page, "cycle-items"),
+    alt: "The project's deliverables, with Reel 2's Video steps line opened to its stage chips and highlighted.",
+  },
+  {
+    id: "admin/revision-round",
+    path: project,
+    prepare: (page) => openDeliverableMenu(page, "Reel 2"),
+    highlight: (page) => page.getByRole("menuitem", { name: "Another revision round" }),
+    crop: layer,
+    alt: "Reel 2's sheet with its ⋯ menu open and Another revision round highlighted.",
+  },
+  {
+    id: "admin/select-edit",
+    path: project,
+    prepare: selectTwo,
+    highlight: (page) => slot(page, "bulk-edit"),
+    crop: main,
+    alt: "The deliverables in Select mode with Reel 3 and Reel 4 selected, and Edit 2 highlighted in the bar.",
+  },
+  {
+    id: "admin/copy-schedule",
+    path: project,
+    prepare: (page) => tap(page, "Actions for Monthly retainer"),
+    highlight: (page) => page.getByRole("menuitem", { name: "Copy schedule as text" }),
+    crop: main,
+    alt: "The project's ⋯ menu open with Copy schedule as text highlighted.",
+  },
+  {
     id: "admin/stage-presets",
     path: "/settings/stage-presets",
     highlight: (page) => slot(page, "add-stage-preset"),
@@ -549,6 +625,46 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
     highlight: (page) => slot(page, "cycle-meter"),
     crop: main,
     alt: "A project's page with this month's progress ring highlighted.",
+  },
+  {
+    id: "owner/deliverable-rows",
+    path: project,
+    prepare: openStageLine,
+    highlight: (page) => deliverableRow(page, "Reel 2").locator('[data-slot="item-strip"]').first(),
+    crop: (page) => slot(page, "cycle-items"),
+    alt: "The project's deliverables, with Reel 2's Video steps line opened to its stage chips and highlighted.",
+  },
+  {
+    id: "owner/revision-round",
+    path: project,
+    prepare: (page) => openDeliverableMenu(page, "Reel 2"),
+    highlight: (page) => page.getByRole("menuitem", { name: "Another revision round" }),
+    crop: layer,
+    alt: "Reel 2's sheet with its ⋯ menu open and Another revision round highlighted.",
+  },
+  {
+    id: "owner/select-edit",
+    path: project,
+    prepare: selectTwo,
+    highlight: (page) => slot(page, "bulk-edit"),
+    crop: main,
+    alt: "The deliverables in Select mode with Reel 3 and Reel 4 selected, and Edit 2 highlighted in the bar.",
+  },
+  {
+    id: "owner/bulk-rename",
+    path: project,
+    prepare: renameTwo,
+    highlight: (page) => slot(page, "rename-preview"),
+    crop: layer,
+    alt: "The Rename deliverables sheet with Reel {n} from 5 and its Preview highlighted: Reel 3 becomes Reel 5, Reel 4 becomes Reel 6.",
+  },
+  {
+    id: "owner/copy-schedule",
+    path: project,
+    prepare: (page) => tap(page, "Actions for Monthly retainer"),
+    highlight: (page) => page.getByRole("menuitem", { name: "Copy schedule as text" }),
+    crop: main,
+    alt: "The project's ⋯ menu open with Copy schedule as text highlighted.",
   },
   {
     id: "owner/send-back",
