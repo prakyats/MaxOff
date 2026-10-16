@@ -4,12 +4,13 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 
-import { createServerSupabase } from "@/core/db/server";
+import { createServerSupabase, createTokenSupabase, type ServerSupabase } from "@/core/db/server";
 import { systemClock } from "@/core/time";
 import type { MemberRole } from "@/core/permissions";
 import { displayName } from "@/core/lib/display-name";
 
 import { formatHomeHint, HOME_HINT_COOKIE } from "./home-hint";
+import { accessTokenFrom, unverifiedSubject } from "./warm";
 import { LOGIN_PATH } from "./paths";
 import { classifySessionError, SessionUnavailableError } from "./session-errors";
 import type { CurrentMember } from "./types";
@@ -31,24 +32,36 @@ export type SessionState =
 
 /**
  * Resolves the session once per request (React `cache()`): the JWT is verified with
- * `getClaims()` (JWKS, no round trip once cached), then the member row is read under RLS
- * (own row only). Sets no Sentry user: the server never does (ARCHITECTURE §18.2).
+ * `getClaims()` (JWKS, no round trip once cached) and the member row is read under RLS (own row
+ * only). Sets no Sentry user: the server never does (ARCHITECTURE §18.2).
+ *
+ * **The row's request leaves first** (6b.19, P2 2026-10-16, ARCHITECTURE §19 "Six connections"):
+ * a Worker invocation keeps at most six subrequests open and queues the rest in the order they
+ * were started. The row used to be asked only after the JWT check, which made it the last of a
+ * screen's wave (7 to 12 reads) to set off, so it waited a whole round trip in that queue while
+ * every screen's first byte waits for it. It is now started at once, with the cookie's access
+ * token as it is (`createTokenSupabase`: no session load in front of the request) and filtered by
+ * the `sub` that token claims (`unverifiedSubject`), while the check runs. That is a filter, never
+ * a decision: PostgREST verifies the same token and RLS decides the row, the answer is used only
+ * once `getClaims()` has verified the session, and only when the verified id is the row's (a
+ * token that does not verify is `none` whatever came back). When the early read failed (say the
+ * token it carried had just expired and `getClaims()` renewed it) the row is read again the usual
+ * way, whose failure is the retryable error as before.
  */
 export const getSessionState = cache(async (): Promise<SessionState> => {
+  const early = startMemberRowRead();
   const userId = await getSessionUserId();
   if (!userId) return { kind: "none" };
-  const supabase = await createServerSupabase();
-
-  const { data: row, error } = await supabase
-    .from("members")
-    .select("id, email, full_name, role, status, avatar_file_id, job_title:list_items(name)")
-    .eq("id", userId)
-    .maybeSingle();
+  const started = await early;
+  const { data: row, error } =
+    started && started.id === userId && !started.result.error
+      ? started.result
+      : await readMemberRow(await createServerSupabase(), userId);
   // A failed query (timeout, paused project) must never read as "inactive": that path ends
   // the session. Let the error boundary show a retryable error instead.
   if (error) throw error;
 
-  if (!row || row.status !== "active") return { kind: "inactive", userId };
+  if (!row || row.id !== userId || row.status !== "active") return { kind: "inactive", userId };
 
   return {
     kind: "member",
@@ -62,6 +75,31 @@ export const getSessionState = cache(async (): Promise<SessionState> => {
     },
   };
 });
+
+const MEMBER_ROW = "id, email, full_name, role, status, avatar_file_id, job_title:list_items(name)";
+
+function readMemberRow(supabase: Pick<ServerSupabase, "from">, id: string) {
+  return supabase.from("members").select(MEMBER_ROW).eq("id", id).maybeSingle();
+}
+
+type MemberRowRead = Awaited<ReturnType<typeof readMemberRow>>;
+
+/**
+ * The member row's read, started before the JWT check settles (see `getSessionState`): with the
+ * session cookie's access token and keyed by the `sub` it claims, both unverified. Null without
+ * a token. Never rejects: a failure is the read's `error`, looked at only once the session has
+ * verified.
+ */
+async function startMemberRowRead(): Promise<{ id: string; result: MemberRowRead } | null> {
+  try {
+    const token = await accessTokenFrom((await cookies()).getAll());
+    const id = token ? unverifiedSubject(token) : null;
+    if (!token || !id) return null;
+    return { id, result: await readMemberRow(createTokenSupabase(token), id) };
+  } catch {
+    return null;
+  }
+}
 
 /**
  * The verified session's user id (the member id), or `null`: the JWT alone, **no round trip**

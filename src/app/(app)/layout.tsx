@@ -74,10 +74,12 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   // (every nav count and the unread count in one `session_bundle()` call) and the Start-day
   // prompt's own day all start together, each keyed by the verified JWT under RLS. Measured
   // before: the unread count, the Owner's four counts and the awaited push read waited behind the
-  // member row.
+  // member row. The member row is started first (6b.19, §19 "Six connections"): every byte of
+  // the screen waits for it, and a Worker sets off at most six reads at a time, in start order.
+  const member = requireMember();
   const bundle = getSessionBundle();
   startEarly(getOwnToday(), readOwnPushStatus(), bundle);
-  const viewer = await requireMember();
+  const viewer = await member;
   // The counts and the bell stream (`NavCount`, 4C): the shell and the page never wait for them, so
   // a screen's loading state paints as soon as the member is known. A bundle that cannot be read is
   // reported (once, by `countsOrNone`) and shows as no count, never the error screen (4C review
