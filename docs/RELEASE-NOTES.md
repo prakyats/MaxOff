@@ -79,10 +79,12 @@ the old columns, which the new ones keep in step; grouped stage lists then show 
 - **Speed (unit P, measured 15–16 Oct):** every screen felt slow after v1.7.0; the measurements (ARCHITECTURE §19
   "Measuring the Worker") show the Worker's cold start (2.5–4.7 s on a first request after idle, on every release
   since v1.6) rather than the screens' own reads. v1.7.1 carries the measuring tools and one small fix (the layout's
-  push read in parallel); the cold-start fix is a bundle diet of its own, decided on #89. **P2 (owner 15 Oct: "make it faster for free"), so far:**
-  every signed-in screen asks the database in one wave instead of up to three (the shell's counts in one read), so
-  screens open a little faster, most on a first open; what the team will notice once the rest of P2 lands is in
-  PROGRESS's P2 handoff (an instant outline of the screen on every tap, the server woken when the app comes back).
+  push read in parallel); the cold-start fix is a bundle diet of its own, decided on #89. **P2 (owner 15 Oct: "make it faster for free"), done 16 Oct for v1.7.1:**
+  on the installed app a tap on Tasks, Calendar, Approvals, a task, or Clients / People / Settings / Me / Alerts shows
+  that screen's outline at once (names and numbers still come fresh from the server); coming back to the app wakes the
+  server first; every signed-in screen answers in one database wave and about twice as fast once the server is awake;
+  with the phone's data saver on nothing is fetched ahead of a tap. Today, My Day, Reports, client and person pages,
+  Leave and reloads still wait for the server, and a server that has gone fully cold still takes about a second.
 - The calendar fixes (6b.12 items 1 and 2).
 - 6b.2, the rest of 6b.16 (other things saved as templates), 6b.11, 6b.17a (correct data on every screen; live
   updates later), 6b.18 on staff task stages, task templates and stage presets (never a
