@@ -2,6 +2,7 @@ import type { Page } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 import {
+  expectSettled,
   hydrated,
   memberIdOf,
   removeClientFixture,
@@ -216,6 +217,10 @@ async function openAndDismissOverlay(page: Page, phone: boolean): Promise<void> 
     await expect(sheet).toBeHidden();
     return;
   }
+  // The screen itself has streamed in: a push lands on the route's loading skeleton first, and
+  // its title bar is swapped for the screen's while the page arrives, so a title measured then
+  // can be a detached node (CI, /reports/month at 1280, 2026-10-16).
+  await expectSettled(page);
   await page.getByRole("button", { name: "Account menu" }).click();
   const menu = page.getByRole("menu");
   await expect(menu).toBeVisible();

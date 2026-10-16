@@ -5,6 +5,7 @@ import { expect, test } from "./fixtures";
 import { addISTDays, istInstant, istWeekday, todayIST } from "../src/core/time";
 
 import {
+  animationsSettled,
   expectBackStack,
   hydrated,
   memberIdOf,
@@ -436,12 +437,15 @@ async function stageValues(rows: Locator): Promise<string[]> {
 /**
  * Drags `from` by its handle until the pointer is at `at` of `onto`'s height. A mouse drags at
  * once; on a phone a finger holds until the row lifts (`data-dragging`), so nothing waits on a
- * clock. Measures only visible boxes and fails on a missing one.
+ * clock. Measures only visible boxes, once nothing is still moving (a phone's bottom sheet
+ * slides in over 200 ms, and a row measured mid-slide drops in the wrong place), and fails on a
+ * missing one.
  */
 async function dragRow(page: Page, from: Locator, onto: Locator, at: number): Promise<void> {
   const handle = from.locator('[data-slot="reorder-handle"]');
   // In the middle of its scroller, as a person would have it, clear of a sticky footer or bar.
   await handle.evaluate((node) => node.scrollIntoView({ block: "center" }));
+  await animationsSettled(page);
   const start = await handle.boundingBox();
   const target = await onto.boundingBox();
   expect(start, "the drag handle has a box").not.toBeNull();

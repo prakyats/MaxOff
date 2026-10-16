@@ -5,6 +5,7 @@ import { expect, test } from "./fixtures";
 import { HOLD_PROXY_URL } from "./hold-proxy-config";
 import {
   expectBackStack,
+  expectSettled,
   holdNextRefresh,
   hydrated,
   memberIdOf,
@@ -782,7 +783,13 @@ test.describe("the Owner's Today (6.2)", () => {
         decision: "approve",
       });
       await page.reload();
-      await expect(page.locator('[data-slot="people-filter"]')).toBeVisible();
+      // The board itself, streamed in: `loading.tsx` draws the same filter, and while the page
+      // arrives React keeps the streamed copy hidden beside it (two filters for a moment; CI
+      // 2026-10-16), so the check waits for the skeleton to go and reads the chosen group.
+      await expectSettled(page);
+      await expect(page.locator('[data-slot="people-filter"] [aria-current="page"]')).toHaveText(
+        "End not recorded",
+      );
       await expect(row).toHaveCount(0);
     } else {
       await page.goto("/today/people?group=end_not_recorded");

@@ -313,6 +313,7 @@ test.describe("the views are a view control (decisions 27, 32)", () => {
     });
     await as(page, "staff", info);
     await page.goto("/tasks");
+    await hydrated(page);
     // Opened from a list, a task lands on Work.
     await page.locator(`[data-slot="task-row"][data-task="${taskId}"] a`).click();
     await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}$`));
@@ -426,6 +427,7 @@ test.describe("Chat and the unread comments (decision 28)", () => {
 
     await as(page, "staff", info);
     await page.goto("/tasks");
+    await hydrated(page);
     const row = page.locator(`[data-slot="task-row"][data-task="${taskId}"]`);
     await expect(row.locator('[data-slot="task-unread"]')).toHaveText(/1\s*1 new comment/);
     await row.locator("a").click();
@@ -614,6 +616,7 @@ test.describe("Activity (decision 29)", () => {
     });
     await as(page, "staff", info);
     await page.goto("/tasks");
+    await hydrated(page);
     await page.locator(`[data-slot="task-row"][data-task="${taskId}"] a`).click();
     await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}$`));
     await live(page);
@@ -678,6 +681,7 @@ test.describe("the task page on a phone, installed: back closes each layer, one 
     await page.goto("/my-day");
     await page.locator('[data-slot="bottom-nav"] [data-nav="tasks"]').click();
     await expect(page).toHaveURL(/\/tasks$/);
+    await hydrated(page);
     await page.locator(`[data-slot="task-row"][data-task="${taskId}"] a`).click();
     const url = new RegExp(`/tasks/${taskId}(\\?tab=\\w+)?$`);
     await expect(page).toHaveURL(url);
@@ -1098,6 +1102,7 @@ test.describe("drag to reorder a task's stages (6b.18, owner 2026-10-15: the edi
     await page.goto("/today");
     await page.locator('[data-slot="bottom-nav"] [data-nav="tasks"]').click();
     await expect(page).toHaveURL(/\/tasks$/);
+    await hydrated(page);
     await page.locator(`[data-slot="task-row"][data-task="${taskId}"] a`).click();
     const url = new RegExp(`/tasks/${taskId}$`);
     await expect(page).toHaveURL(url);
