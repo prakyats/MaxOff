@@ -25,6 +25,7 @@
 // the password in MEASURE_PASSWORD (never on the command line); round trips are not available
 // there, the timings are. `--throttle 4g` applies a 4G-class network (150 ms RTT, 1.6 Mbps down).
 import http from "node:http";
+import net from "node:net";
 
 import { chromium } from "@playwright/test";
 
@@ -57,7 +58,8 @@ const people = args.email
   : (args.as ?? "owner,staff").split(",").map((role) => ({ label: role, role, ...SEED[role] }));
 
 /** The screens each role opens, in the order a person moves through them. `:client` and
- * `:person` are resolved from the first row of /clients and /people. */
+ * `:person` are resolved from the first row of /clients and /people, `:project` from the first
+ * client's Projects tab. */
 const SCREENS = {
   owner: ["/today", "/approvals", "/tasks", "/clients", ":client", "/people", ":person", "/me"],
   admin: ["/today", "/leave", "/clients", ":client", "/people", ":person", "/me"],
@@ -93,6 +95,14 @@ if (args.proxy) {
       end: NaN,
     };
     inFlight++;
+    const finish = () => {
+      if (!Number.isNaN(entry.end)) return;
+      entry.end = now();
+      inFlight--;
+      log.push(entry);
+    };
+    // A request the client gives up on (a navigation cancelled mid-way) still leaves the count.
+    res.on("close", finish);
     const out = http.request(
       {
         host: upstream.hostname,
@@ -104,19 +114,34 @@ if (args.proxy) {
       (up) => {
         res.writeHead(up.statusCode ?? 502, up.headers);
         up.pipe(res);
-        up.on("end", () => {
-          entry.end = now();
-          inFlight--;
-          log.push(entry);
-        });
+        up.on("end", finish);
       },
     );
     out.on("error", () => {
-      entry.end = now();
-      inFlight--;
+      finish();
       res.destroy();
     });
     req.pipe(out);
+  });
+  // The browser's Realtime socket (5.1) is a WebSocket upgrade: piped through as raw bytes and never
+  // counted. Without this listener Node hands the upgrade to the request handler above, whose
+  // upstream answers 101 and never ends, so `inFlight` never went back to 0 and `quiet()` hung.
+  proxy.on("upgrade", (req, socket, head) => {
+    const upstreamSocket = net.connect(Number(upstream.port), upstream.hostname, () => {
+      const lines = [`${req.method} ${req.url} HTTP/${req.httpVersion}`];
+      for (let i = 0; i < req.rawHeaders.length; i += 2) {
+        const name = req.rawHeaders[i];
+        lines.push(
+          `${name}: ${name.toLowerCase() === "host" ? upstream.host : req.rawHeaders[i + 1]}`,
+        );
+      }
+      upstreamSocket.write(`${lines.join("\r\n")}\r\n\r\n`);
+      if (head.length > 0) upstreamSocket.write(head);
+      upstreamSocket.pipe(socket);
+      socket.pipe(upstreamSocket);
+    });
+    upstreamSocket.on("error", () => socket.destroy());
+    socket.on("error", () => upstreamSocket.destroy());
   });
   await new Promise((resolve) => proxy.listen(Number(args.proxy), "127.0.0.1", resolve));
 }
@@ -282,7 +307,16 @@ try {
 
     const screens = (args.screens?.split(",") ?? SCREENS[person.role]).slice();
     for (const [index, screen] of screens.entries()) {
-      if (screen.startsWith(":")) {
+      if (screen === ":project") {
+        await page.goto("/clients");
+        const client = page.locator('main a[href^="/clients/"]').first();
+        await client.waitFor({ timeout: 10_000 }).catch(() => undefined);
+        const clientHref = (await client.count()) > 0 ? await client.getAttribute("href") : null;
+        if (clientHref) await page.goto(`${clientHref}/projects`);
+        const link = page.locator('main a[href*="/projects/"]').first();
+        await link.waitFor({ timeout: 10_000 }).catch(() => undefined);
+        screens[index] = (await link.count()) > 0 ? ((await link.getAttribute("href")) ?? "") : "";
+      } else if (screen.startsWith(":")) {
         const list = screen === ":client" ? "/clients" : "/people";
         await page.goto(list);
         const link = page.locator(`main a[href^="${list}/"]`).first();
@@ -333,12 +367,15 @@ try {
           const start = performance.now();
           // A query no screen reads makes it a new URL, so the router cache (or a prefetch)
           // never answers it and the server's work is measured: the cold-tab case.
+          // A screen may carry its own query (`?cycle=`, a view control): the token is added to it.
           const token = Math.random().toString(36).slice(2);
-          window.next.router.push(`${to}?measure=${token}`);
+          const target = new URL(to, location.origin);
+          target.searchParams.set("measure", token);
+          window.next.router.push(`${target.pathname}${target.search}`);
           await new Promise((resolve) => {
             const check = () => {
               const arrived =
-                location.pathname === to &&
+                location.pathname === target.pathname &&
                 !document.querySelector('main [data-slot="loading-state"]') &&
                 document.querySelector('[data-slot="page-header"]');
               if (arrived) resolve(undefined);

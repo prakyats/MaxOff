@@ -308,6 +308,23 @@ function HelpAndTroubleshooting({ endpoints }: { endpoints: readonly string[] })
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        {/* The in-app guide for the reader's role (ROADMAP 6b.14). */}
+        <Link
+          href="/me/guide"
+          data-slot="me-guide-link"
+          className="pressable-row focus-visible:ring-ring group/guide hover:bg-muted/50 -mx-2 flex min-h-11 items-center justify-between gap-4 rounded-lg px-2 outline-none focus-visible:ring-2"
+        >
+          {/* Says what opens (unit U): step-by-step help, the reader's role only. */}
+          <div className="min-w-0">
+            <p className="text-sm font-medium">How MaxOff works</p>
+            <p className="text-muted-foreground text-sm">Opens step-by-step help for your role.</p>
+          </div>
+          <ChevronRightIcon
+            className="text-muted-foreground group-hover/guide:text-foreground size-4 shrink-0"
+            aria-hidden
+          />
+        </Link>
+        <Separator />
         <PushTestRow endpoints={endpoints} />
         <Separator />
         <div className="flex flex-wrap items-center justify-between gap-4">

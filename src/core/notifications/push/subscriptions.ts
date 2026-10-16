@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cache } from "react";
+
 import { createServerSupabase } from "@/core/db/server";
 import { createServiceSupabase } from "@/core/db/service";
 import { systemClock } from "@/core/time";
@@ -80,17 +82,17 @@ export async function listOwnPushSubscriptions(): Promise<OwnPushSubscription[]>
 /**
  * The layout's one read for the band (5.5, `push_status_own()`): the caller's active endpoints
  * (this device's check, `PushSync`) and why the band shows (`app.push_band`), or null for none.
- * One call, as the endpoints alone were before.
+ * Once per request (`cache()`): the layout starts it with the member row and awaits the same call
+ * (P2; before, the early start was a second call and the awaited one waited for the member row).
  */
-export async function readOwnPushStatus(): Promise<{
-  endpoints: string[];
-  band: BandReason | null;
-}> {
-  const supabase = await createServerSupabase();
-  const { data, error } = await supabase.rpc("push_status_own").maybeSingle();
-  if (error) throw error;
-  return { endpoints: data?.endpoints ?? [], band: toBandReason(data?.band ?? null) };
-}
+export const readOwnPushStatus = cache(
+  async (): Promise<{ endpoints: string[]; band: BandReason | null }> => {
+    const supabase = await createServerSupabase();
+    const { data, error } = await supabase.rpc("push_status_own").maybeSingle();
+    if (error) throw error;
+    return { endpoints: data?.endpoints ?? [], band: toBandReason(data?.band ?? null) };
+  },
+);
 
 function subscriptionArgs(input: SubscriptionInput) {
   return {

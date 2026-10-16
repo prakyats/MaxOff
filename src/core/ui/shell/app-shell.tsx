@@ -1,6 +1,7 @@
 import { type ReactNode, Suspense } from "react";
 
 import type { ServerUnread } from "@/core/notifications/read-receipts";
+import { PwaAfterPageLazy } from "@/core/ui/pwa/pwa-after-page-lazy";
 
 import { BellCountProvider } from "./bell-count";
 import { BottomNav, type NavItemBadge } from "./bottom-nav";
@@ -145,6 +146,7 @@ export function AppShell({
           sheetBadges={byKey(more, (key) => count([key], "sheet"))}
         />
         <PullToRefreshLazy tabRoots={tabRoots} />
+        <PwaAfterPageLazy role={viewer.role} />
       </div>
     </BellCountProvider>
   );

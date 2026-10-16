@@ -10,6 +10,7 @@ import {
   responseHeaders,
 } from "./src/core/http/response-headers";
 import { appVersionFrom } from "./src/core/lib/app-version";
+import { deploymentIdFrom } from "./src/core/lib/deployment-id";
 import { assertObservabilityEnv } from "./src/core/observability/env";
 
 // Lets `next dev` reach Cloudflare bindings through `getCloudflareContext()` (none are used
@@ -31,6 +32,9 @@ const nextConfig: NextConfig = {
   // The version Me's "Help & troubleshooting" shows (5B decision 4): the release tag, or the
   // branch and commit, from the build's own GitHub Actions environment ("local" elsewhere).
   env: { NEXT_PUBLIC_APP_VERSION: appVersionFrom(process.env) },
+  // One id per build (P2, ADR-0014, `core/lib/deployment-id.ts`): router requests carry it, so
+  // the service worker keeps a prefetched skeleton for the deployment that asked for it only.
+  deploymentId: deploymentIdFrom(process.env),
   // The file route's stricter CSP and the auth link page's headers come after the global rule
   // on purpose: the last rule to set a header wins.
   headers: async () => [
@@ -49,6 +53,14 @@ const nextConfig: NextConfig = {
   // exactly what a real-device pass needs to tap. Next still surfaces every compile and runtime
   // error with `false` — only the route-type badge and the devtools panel go.
   devIndicators: false,
+  // A lighter cold start (P2 item 4, ARCHITECTURE §19). Turbopack copies a bundled package into
+  // every server layer and chunk group that imports it: zod was in six server chunks (2.2 MB of
+  // the one Worker script). Left external, it is one awaited import that OpenNext's esbuild step
+  // bundles once from node_modules (zod's exports have only `import`/`require`, so the same
+  // build runs), and a cold isolate evaluates one copy instead of one per layer. The Supabase
+  // client is not external: its CommonJS build requires `tslib`, which OpenNext's middleware
+  // bundler resolves to a file its trace never copied (the build fails).
+  serverExternalPackages: ["zod"],
   experimental: {
     // The client router cache (ARCHITECTURE §19, owner decision 2026-09-28). A tab seen in the
     // last 30 s comes back at once with no request (Next's default for dynamic pages is 0 s: every

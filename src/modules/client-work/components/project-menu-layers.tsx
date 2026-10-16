@@ -53,14 +53,18 @@ import type { Recurrence } from "../domain/types";
 
 import { itemListCopy, type ItemListPeriods } from "../domain/periods";
 
+import { saveProjectAsTemplate } from "../actions/templates";
+
 import { GroupedStagesSheet, type GroupedStageRow } from "./grouped-stages-sheet";
 import { LineStagesSheet } from "./line-stages-sheet";
 import { ListEditorSheet, type ListRow } from "./list-editor-sheet";
+import { SaveAsTemplateDialog } from "./save-as-template-dialog";
 
 /** A deliverables-list line with its own stages, in groups (amendment D2; 6b). */
 export type MenuBlueprint = ListRow & { stageGroups: readonly StageGroup[] };
 
-export type MenuLayer = "edit" | "stages" | "items" | "next" | "complete" | "cancel" | "reopen";
+export type MenuLayer =
+  "edit" | "stages" | "items" | "next" | "template" | "complete" | "cancel" | "reopen";
 
 export type MenuProject = {
   id: string;
@@ -110,6 +114,16 @@ export function ProjectMenuLayers({
     <>
       {layer === "edit" ? (
         <EditProjectDialog project={project} definitions={definitions} onClose={onClose} />
+      ) : null}
+      {layer === "template" ? (
+        // 6b Release 2: a copy as a project template; mounted while open, so it starts afresh.
+        <SaveAsTemplateDialog
+          open
+          onOpenChange={close}
+          what="project"
+          initialName={project.name}
+          save={(name) => saveProjectAsTemplate({ projectId, name })}
+        />
       ) : null}
       <GroupedStagesSheet
         open={layer === "stages"}

@@ -1,7 +1,9 @@
 import "server-only";
 
+import type { DeliverableTemplateOption } from "@/core/lib/stage-groups";
 import { assertPermission } from "@/core/permissions/server";
 import { listDirectoryOf } from "@/modules/team";
+import { listDeliverableTemplates } from "@/modules/templates";
 
 import * as repo from "../data/projects";
 import { type ActivityPage, describeActivityLines } from "../domain/activity";
@@ -75,4 +77,22 @@ export async function readProjectActivity(input: unknown): Promise<ActivityPage>
     lines: describeActivityLines(entries, context, cursor),
     next: entries.length === ACTIVITY_PAGE && last ? { at: last.at, id: last.id } : null,
   };
+}
+
+/**
+ * The active deliverable templates "+ Add deliverable" offers (6b Release 2): `GET
+ * /api/client-work/deliverable-templates`, a background call the dialog's effect sends as it
+ * opens (ARCHITECTURE §4.4; the project page does not load them up front). `projects.manage`
+ * (the Owner, the client's Admin; Crew never), RLS deciding the rows (`templates.manage`).
+ */
+export async function readDeliverableTemplateOptions(): Promise<DeliverableTemplateOption[]> {
+  await assertPermission("projects.manage");
+  const templates = await listDeliverableTemplates();
+  return templates
+    .filter((template) => !template.archived)
+    .map((template) => ({
+      id: template.id,
+      name: template.name,
+      stageGroups: template.stageGroups,
+    }));
 }

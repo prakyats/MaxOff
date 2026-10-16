@@ -70,3 +70,21 @@ describe("updateSession's redirects carry the security headers (3c.1)", () => {
     expect(response.headers.get("location")).toBeNull();
   });
 });
+
+describe("the warm-up passes straight through (P2)", () => {
+  beforeEach(() => {
+    claims.mockReset();
+  });
+
+  it("/api/warm: never refreshed or redirected, no cookie set, timed", async () => {
+    // A session cookie whose token is symmetric (the local stack's): nothing is verified.
+    const session = `base64-${Buffer.from(JSON.stringify({ access_token: "a.b.c" })).toString("base64url")}`;
+    const response = await updateSession(request("/api/warm", `sb-127-auth-token=${session}`));
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
+    expect(response.headers.get("set-cookie")).toBeNull();
+    expect(response.headers.get("server-timing")).toMatch(/^claims;dur=\d+, isolate;desc="n=\d+/);
+    // The session-refreshing `getClaims()` (no token argument) never ran.
+    expect(claims).not.toHaveBeenCalled();
+  });
+});

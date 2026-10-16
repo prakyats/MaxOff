@@ -5,7 +5,9 @@ import { useState, useSyncExternalStore } from "react";
 import { cn } from "@/core/lib/utils";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { Button } from "@/core/ui/primitives/button";
+import { SegmentedBar } from "@/core/ui/progress/segmented-meter";
 
+import { itemMeter } from "../domain/progress";
 import type { ItemView } from "../domain/views";
 
 import { ItemSheet, type ItemPermissions } from "./item-sheet";
@@ -23,7 +25,8 @@ export type TodayItem = {
 
 /**
  * The Admin's **Client work** on Today (7.3; PRODUCT §4.7, kickoff 7 decision 19): the items
- * overdue or due this week, oldest first (the server sends at most five). Each row has one neutral
+ * overdue or due this week, oldest first (the server sends at most five), each with its own stages
+ * in miniature (6b.11 (5)). Each row has one neutral
  * **Mark done**, instant with the 6-second Undo (a delayed send, flushed when the app is hidden or
  * left, as Approvals' Approve; done is the approval since amendment D3), and a tap on the row
  * opens the item sheet (its own stages, notes, last change) with a way to the project; the sheet's
@@ -65,6 +68,7 @@ export function TodayClientWork({
       >
         {items.map((item) => {
           const waiting = held.has(item.view.id);
+          const meter = itemMeter(item.view);
           return (
             <li
               key={item.view.id}
@@ -86,12 +90,29 @@ export function TodayClientWork({
                   {item.view.planned ? (
                     <>
                       {" · "}
-                      <span className={cn(item.view.planned.overdue && "text-destructive")}>
+                      <span
+                        data-slot="today-item-planned"
+                        className={cn(item.view.planned.overdue && "text-danger")}
+                      >
                         {item.view.planned.text}
                       </span>
                     </>
                   ) : null}
                 </span>
+                {meter.total > 0 ? (
+                  // The deliverable's own stages in miniature (6b.11 (5)).
+                  <span className="mt-0.5 flex items-center gap-2 text-xs">
+                    <SegmentedBar
+                      counts={meter}
+                      label={`Stages ${meter.done} of ${meter.total} ticked`}
+                      slot="today-item-meter"
+                      className="w-20 shrink-0"
+                    />
+                    <span className="text-muted-foreground tabular-nums">
+                      {meter.done}/{meter.total}
+                    </span>
+                  </span>
+                ) : null}
               </button>
               {permissions.tick ? (
                 <Button

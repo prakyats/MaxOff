@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
 import { sessionCookieOptions } from "./cookies";
@@ -42,3 +43,20 @@ export async function createServerSupabase() {
 }
 
 export type ServerSupabase = Awaited<ReturnType<typeof createServerSupabase>>;
+
+/**
+ * A server client for one read that must leave **first** (6b.19, ARCHITECTURE §19 "Six
+ * connections"): it carries the caller's access token as given (`accessToken`), so a query goes
+ * out without the auth client's session load from the cookies, which is what every other
+ * client's first query waits for. RLS applies exactly as for `createServerSupabase` (the same
+ * token reaches PostgREST, which verifies it). It has no session of its own: no refresh, no
+ * cookie written, `auth.*` unavailable. `getSessionState` uses it for the member row only, and
+ * keeps the answer only once the session has verified.
+ */
+export function createTokenSupabase(accessToken: string) {
+  const env = publicSupabaseEnv();
+  return createClient<Database>(env.url, env.publishableKey, {
+    accessToken: async () => accessToken,
+    global: { fetch: withExpiredJwtAsSessionUnavailable() },
+  });
+}

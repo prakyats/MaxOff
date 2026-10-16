@@ -182,6 +182,33 @@ describe("a task's history (4.4, ADR-0013)", () => {
   });
 });
 
+describe("a stage moved (6b.18)", () => {
+  it("names the stage and its new place, and the pair for a coordinator", () => {
+    expect(
+      line({
+        entity: "task_stages",
+        action: "stage_moved",
+        actorId: "ravi",
+        onBehalfOfId: "asha",
+        new: { position: "a5" },
+        meta: { name: "Stage 5", from: 5, to: 1, of: 5 },
+      }),
+    ).toMatchObject({
+      actor: "Ravi for Asha",
+      text: "moved the stage “Stage 5” to position 1 of 5",
+    });
+    expect(
+      line({ entity: "task_stages", action: "stage_moved", meta: { name: "Stage 2" } })?.text,
+    ).toBe("moved the stage “Stage 2”");
+  });
+
+  it("never reads a move as a tick or a rename", () => {
+    expect(
+      line({ entity: "task_stages", action: "stage_moved", new: { position: "a5" } })?.tick,
+    ).toBeUndefined();
+  });
+});
+
 describe("a Staff co-assignee's history (Kickoff 4 decision 21: every actor is named)", () => {
   it("names the Owner, an Admin and a former coordinator by name", () => {
     const staff = {
@@ -321,5 +348,32 @@ describe("collapseTicks: consecutive ticks by one person are one line (Kickoff 4
       { actorKey: "owner|", tick: { done: false, stage: null } },
     );
     expect(line({ action: "created" })?.tick).toBeUndefined();
+  });
+});
+
+describe("tasks for the Owner in the history (6b.2)", () => {
+  it("says the Owner's Done completed the task, with the late reason", () => {
+    expect(
+      line({ action: "completed", meta: { step: "owner_done", version: 1, late: false } }),
+    ).toMatchObject({ text: "marked it done: the task is complete" });
+    expect(
+      line({
+        action: "completed",
+        meta: { step: "owner_done", version: 1, late: true },
+        new: { late_reason: "Waited for the files" },
+      }),
+    ).toMatchObject({
+      text: "marked it done after the deadline: the task is complete",
+      note: "Late: Waited for the files",
+    });
+  });
+
+  it("names who a reminder asked", () => {
+    expect(
+      line({ action: "reminder_sent", actorId: "admin", meta: { recipients: ["ravi", "asha"] } }),
+    ).toMatchObject({ actor: "Local Admin", text: "asked Ravi and Asha about the task" });
+    expect(line({ action: "reminder_sent", meta: {} })).toMatchObject({
+      text: "asked about the task",
+    });
   });
 });

@@ -31,6 +31,9 @@ import {
   pairName,
   PRIORITY_LABELS,
   relativeDeadline,
+  remindAgainAt,
+  remindAgainLabel,
+  remindWho,
   reviewerName,
   routeLine,
   stateLabel,
@@ -42,13 +45,14 @@ import { TaskActivityList } from "@/modules/tasks/components/task-activity-list"
 import { TaskChat } from "@/modules/tasks/components/task-chat";
 import { TaskMenu } from "@/modules/tasks/components/task-menu";
 import { TaskNextStep } from "@/modules/tasks/components/task-next-step";
+import { TaskRemind } from "@/modules/tasks/components/task-remind";
 import { TaskStages } from "@/modules/tasks/components/task-stages";
 import { TaskTabs, TaskViewPanel, TaskViewProvider } from "@/modules/tasks/components/task-view";
 import { RecordReadReceipt } from "@/modules/notifications-center";
 
 import { loadTaskFormSetup } from "../task-form-setup";
 
-import { loadNames, loadTask, UUID } from "./task";
+import { loadNames, loadTask, TASK_BACK, UUID } from "./task";
 
 export const metadata: Metadata = { title: "Task" };
 
@@ -136,6 +140,16 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
   const doneLabel = `${actions.done?.again ? "Mark done again" : "Mark done"}${doneFor ? ` for ${doneFor}` : ""}`;
   const commentFor = actions.commentFor.map((memberId) => ({ id: memberId, name: name(memberId) }));
   const selfOnTask = active.some((assignee) => assignee.memberId === viewer.id);
+  // 6b.2: the Owner's own task (the route line) and Remind's hour, from what the page read.
+  const ownerId = directory.find((member) => member.role === "owner")?.id ?? null;
+  const remindAt = actions.remind ? remindAgainAt(data.activity, systemClock()) : null;
+  // Whom Remind reaches (the others on the task), named on the button; unnamed, "everyone".
+  const remindNames = active
+    .filter((assignee) => assignee.memberId !== viewer.id)
+    .map((assignee) => names[assignee.memberId]);
+  const remindTo = remindWho(
+    remindNames.every((one) => one !== undefined) ? (remindNames as string[]) : [],
+  );
 
   const work = workPanel({ data, task, actions, pair });
   const thread = chatThread({ data, viewerId: viewer.id, pair, names });
@@ -151,6 +165,7 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
     typeName: type?.name ?? null,
     clientName: client?.name ?? null,
     definitions,
+    ownerId,
   });
 
   return (
@@ -170,7 +185,7 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
         <div className="max-md:contents md:flex md:min-w-0 md:flex-1 md:flex-col md:gap-4">
           <PageHeader
             className="mb-0 md:mb-0"
-            back={{ href: "/tasks", label: "Tasks" }}
+            back={TASK_BACK}
             title={task.title}
             menu={
               <TaskMenu
@@ -235,6 +250,14 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
             <p data-slot="task-needed" className="text-sm font-medium break-words">
               {needed}
             </p>
+            {actions.remind ? (
+              <TaskRemind
+                taskId={task.id}
+                againAt={remindAt}
+                againLabel={remindAt ? remindAgainLabel(remindAt) : null}
+                who={remindTo}
+              />
+            ) : null}
             {changeRequest?.reason ? (
               <div
                 data-slot="task-change-request"
@@ -528,6 +551,7 @@ function detailsPanel({
   typeName,
   clientName,
   definitions,
+  ownerId,
 }: {
   data: TaskReads;
   task: LoadedTask;
@@ -539,6 +563,7 @@ function detailsPanel({
   typeName: string | null;
   clientName: string | null;
   definitions: TaskReads["definitions"];
+  ownerId: string | null;
 }): ReactNode {
   return (
     <>
@@ -603,7 +628,7 @@ function detailsPanel({
             </Fact>
           ) : null}
           <Fact label="Approval" stacked>
-            <span data-slot="task-route">{routeLine(task, data.assignees, name)}</span>
+            <span data-slot="task-route">{routeLine(task, data.assignees, name, ownerId)}</span>
           </Fact>
           <Fact label="Created by" stacked>
             {name(task.createdBy)}, {formatIST(task.createdAt, WHEN)}

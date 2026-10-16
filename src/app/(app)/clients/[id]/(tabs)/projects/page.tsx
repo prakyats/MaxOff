@@ -9,9 +9,11 @@ import { DrillLink } from "@/core/ui/composites/drill-link";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { CARD_ROW_TITLE, CARD_ROW_TRAILING } from "@/core/ui/composites/row-metrics";
 import { StatusBadge } from "@/core/ui/composites/status-badge";
+import { SegmentedBar } from "@/core/ui/progress/segmented-meter";
 import {
   listClientProjects,
-  listCurrentCycles,
+  listCurrentCycleMeters,
+  meterLine,
   projectSummaries,
   type ProjectSummary,
 } from "@/modules/client-work";
@@ -27,8 +29,9 @@ export const metadata: Metadata = { title: "Projects" };
  * A client's Projects (7.3; PRODUCT §4.4 "page sections", §4.5; kickoff 7 decisions 1, 18, 20, 26;
  * PERMISSIONS "Screens (phase 7)"): `projects.manage` on a visible client (the Owner, the client's
  * Admin; Crew are sent to /forbidden, another Admin's client is a 404). **First glance:** each
- * project with its repeat, its state and the current cycle's progress line ("9/12 done · 8/12
- * approved"), working ones first; a project opens one tap deeper. "New project" is here, never on
+ * project with its repeat, its state and the current cycle's progress line ("9/12 done · 1
+ * closed") beside its meter in miniature (6b.11 (5): the stages ticked across the cycle, "68%"),
+ * working ones first; a project opens one tap deeper. "New project" is here, never on
  * an Inactive client (decision 1). No money (amendment C).
  */
 export default async function ClientProjectsPage({ params }: { params: Promise<{ id: string }> }) {
@@ -40,13 +43,13 @@ export default async function ClientProjectsPage({ params }: { params: Promise<{
     loadClientWork(id),
     Promise.all([
       listClientProjects(id),
-      listCurrentCycles(today, id),
+      listCurrentCycleMeters(today, id),
       listStagePresets(),
       listProjectTemplates(),
       listDefinitions("project"),
     ]),
   );
-  const summaries = projectSummaries(projects, current);
+  const summaries = projectSummaries(projects, current, today);
   const working = summaries.filter((summary) => !summary.finished);
   const finished = summaries.filter((summary) => summary.finished);
   const canCreate = client.state !== "inactive";
@@ -130,6 +133,24 @@ function ProjectList({
             <span className={cn("flex flex-col gap-0.5", CARD_ROW_TITLE)}>
               <span className="text-sm font-medium break-words">{project.name}</span>
               <span className="text-muted-foreground text-xs break-words">{project.meta}</span>
+              {project.meter ? (
+                // The cycle's meter in miniature (6b.11 (5)); its words are the line beside it.
+                <span className="mt-1 flex min-w-0 items-center gap-2" data-slot="project-meter">
+                  <SegmentedBar
+                    counts={{
+                      done: project.meter.done,
+                      next: project.meter.next,
+                      total: project.meter.units,
+                    }}
+                    label={`${project.meter.percent}%: ${meterLine(project.meter)}`}
+                    slot="project-meter-bar"
+                    className="w-24 shrink-0 sm:w-32"
+                  />
+                  <span className="text-xs font-medium tabular-nums" data-slot="project-percent">
+                    {project.meter.percent}%
+                  </span>
+                </span>
+              ) : null}
               {project.progress ? (
                 <span className="text-xs break-words" data-slot="project-progress">
                   {project.progress}

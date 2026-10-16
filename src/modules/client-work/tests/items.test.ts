@@ -86,10 +86,18 @@ describe("overdue and due this week (decision 10, 19)", () => {
 
   it("words the planned date", () => {
     expect(plannedLine({ state: "open", plannedDate: "2026-10-06" }, TODAY)).toEqual({
-      text: "Overdue · 6 Oct",
+      text: "Planned 6 Oct · 2 days late",
       overdue: true,
     });
-    expect(plannedLine({ state: "open", plannedDate: TODAY }, TODAY)?.text).toBe("Due today");
+    expect(plannedLine({ state: "open", plannedDate: "2026-10-07" }, TODAY)?.text).toBe(
+      "Planned 7 Oct · 1 day late",
+    );
+    // A done deliverable is never late.
+    expect(plannedLine({ state: "approved", plannedDate: "2026-10-06" }, TODAY)).toEqual({
+      text: "Planned 6 Oct",
+      overdue: false,
+    });
+    expect(plannedLine({ state: "open", plannedDate: TODAY }, TODAY)?.text).toBe("Planned today");
     expect(plannedLine({ state: "open", plannedDate: "2026-10-10" }, TODAY)?.text).toBe(
       "Planned 10 Oct",
     );
@@ -386,7 +394,15 @@ describe("an item's view (Q5 (b), decisions 7, 12, amendment D)", () => {
       item({ carriedFromItemId: "x", originCycleId: "old", plannedDate: "2026-10-01" }),
       context,
     );
-    expect(view.sentBack).toEqual({ verb: "Sent back", by: "Prishit", reason: "Wrong logo" });
+    expect(view.sentBack).toEqual({
+      verb: "Sent back",
+      by: "Prishit",
+      reason: "Wrong logo",
+      on: "3 Oct",
+      text: "Sent back by Prishit, 3 Oct: Wrong logo",
+    });
+    // The next stage to tick: the first unticked one (6b.11 (3)).
+    expect(view.nextStageId).toBe("s2");
     expect(view.stages).toEqual([
       {
         id: "s1",
@@ -416,7 +432,7 @@ describe("an item's view (Q5 (b), decisions 7, 12, amendment D)", () => {
       ...context,
       reviews: [{ ...context.reviews[0]!, reviewerId: "r", reason: "Not finished" }],
     });
-    expect(view.sentBack).toEqual({ verb: "Reopened", by: "Ravi", reason: "Not finished" });
+    expect(view.sentBack?.text).toBe("Reopened by Ravi, 3 Oct: Not finished");
   });
 
   it("locks a done item to its title and notes; it is reopened, never ticked (D3)", () => {
@@ -737,6 +753,9 @@ describe("every entry the activity reads return is a line (the 7B rework's revie
     ["project_cycles", "generated", {}],
     ["project_cycles", "insert", {}],
     ["project_cycles", "item_list_added", {}],
+    // 6b.16 (d) (migration client_work_bulk_and_rounds).
+    ["project_cycles", "extras_kept", {}],
+    ["project_cycles", "extras_not_kept", {}],
     ...[
       "insert",
       "done",

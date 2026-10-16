@@ -7,41 +7,29 @@ import {
   PencilIcon,
   PlusIcon,
 } from "lucide-react";
+import dynamic from "next/dynamic";
 import { useState } from "react";
 
 import { cn } from "@/core/lib/utils";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { EmptyState } from "@/core/ui/composites/empty-state";
-import { ErrorText } from "@/core/ui/composites/error-text";
-import { FormField } from "@/core/ui/composites/form-field";
 import { CARD_ROW_TITLE, CARD_ROW_TRAILING } from "@/core/ui/composites/row-metrics";
 import { Button } from "@/core/ui/primitives/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/core/ui/primitives/dialog";
-import { Input } from "@/core/ui/primitives/input";
-import { Textarea } from "@/core/ui/primitives/textarea";
-import { describeError, toastResult } from "@/core/ui/toast";
+import { toastResult } from "@/core/ui/toast";
 
-import {
-  createStagePreset,
-  setStagePresetArchived,
-  updateStagePreset,
-} from "../actions/stage-presets";
-import {
-  PRESET_NAME_MAX,
-  PRESET_STAGES_MAX,
-  presetActions,
-  stagesLine,
-  type StagePreset,
-} from "../domain/stage-presets";
+import { setStagePresetArchived } from "../actions/stage-presets";
+import { presetActions, stagesLine, type StagePreset } from "../domain/stage-presets";
 
 type Viewer = { id: string; role: string };
+
+/**
+ * Add or edit a preset, loaded on the first tap of Add preset or Edit, not with the page (its
+ * drag-to-reorder rows and menus, 6b.18, stay out of the first load; ARCHITECTURE §19).
+ */
+const PresetDialog = dynamic(
+  () => import("./stage-preset-dialog").then((module) => module.PresetDialog),
+  { ssr: false },
+);
 
 /**
  * Settings → Stage presets (7.4; PRODUCT §4.16, kickoff 7 decision 22, PERMISSIONS ⁴): the presets
@@ -205,82 +193,5 @@ export function AddStagePresetButton() {
       </Button>
       {open ? <PresetDialog onClose={() => setOpen(false)} /> : null}
     </>
-  );
-}
-
-/** Add or edit a preset: a name and its stages, one per line (at most `PRESET_STAGES_MAX`). */
-function PresetDialog({ preset, onClose }: { preset?: StagePreset; onClose: () => void }) {
-  const [name, setName] = useState(preset?.name ?? "");
-  const [stages, setStages] = useState(preset?.stages.join("\n") ?? "");
-  const [errors, setErrors] = useState<Readonly<Record<string, string[]>>>({});
-  const [summary, setSummary] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
-
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setPending(true);
-    const values = { name, stages: stages.split("\n") };
-    const result = preset
-      ? await updateStagePreset({ presetId: preset.id, ...values })
-      : await createStagePreset(values);
-    setPending(false);
-    if (!result.ok) {
-      setErrors(result.error.fieldErrors ?? {});
-      const { title, description } = describeError(result.error);
-      setSummary(result.error.fieldErrors ? null : (description ?? title));
-      return;
-    }
-    toastResult(result, { success: preset ? "Preset saved" : "Preset added" });
-    onClose();
-  }
-
-  return (
-    <Dialog open onOpenChange={(open) => (open || pending ? null : onClose())}>
-      <DialogContent>
-        <form onSubmit={submit} noValidate className="flex flex-col gap-4">
-          <DialogHeader>
-            <DialogTitle>{preset ? `Edit ${preset.name}` : "Add a stage preset"}</DialogTitle>
-            <DialogDescription>
-              New project copies it. Changing it later never touches a project.
-            </DialogDescription>
-          </DialogHeader>
-          {summary ? <ErrorText slot="form-alert">{summary}</ErrorText> : null}
-          <FormField label="Name" error={errors.name}>
-            {(control) => (
-              <Input
-                {...control}
-                value={name}
-                maxLength={PRESET_NAME_MAX}
-                onChange={(event) => setName(event.target.value)}
-                required
-                autoFocus
-              />
-            )}
-          </FormField>
-          <FormField
-            label="Stages"
-            hint={`One per line, in order. At most ${PRESET_STAGES_MAX}.`}
-            error={errors.stages}
-          >
-            {(control) => (
-              <Textarea
-                {...control}
-                rows={5}
-                value={stages}
-                onChange={(event) => setStages(event.target.value)}
-              />
-            )}
-          </FormField>
-          <DialogFooter>
-            <Button type="button" variant="secondary" onClick={onClose} disabled={pending}>
-              Cancel
-            </Button>
-            <Button type="submit" variant="primary" pending={pending} pendingLabel="Saving…">
-              {preset ? "Save preset" : "Add preset"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
   );
 }

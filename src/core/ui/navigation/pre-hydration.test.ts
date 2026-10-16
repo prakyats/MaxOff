@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { BACK_CASES, TAB_CASES, TAB_HOME, TAB_TOP_LEVEL, VIEW_CASES } from "./move-cases";
 import { markLive } from "./attributes";
+import { BACK_FROM_ATTRIBUTE } from "./attributes";
 import {
   HEADER_BELL_SLOT,
   LIVE_ATTRIBUTE,
@@ -43,11 +44,14 @@ function page({
   pathname = "/people/1",
   index,
   below,
+  paths,
   standalone = true,
 }: {
   pathname?: string;
   index?: number | undefined;
   below?: string | undefined;
+  /** The entries' pathnames up to this one (null: no Navigation API); overrides `index`. */
+  paths?: readonly (string | null)[] | null | undefined;
   standalone?: boolean;
 } = {}) {
   let listener: ((event: object) => void) | undefined;
@@ -68,7 +72,7 @@ function page({
     querySelectorAll: (selector: string) =>
       selector.startsWith(`[${NAV_TARGET_ATTRIBUTE}]`) ? [] : findable,
   };
-  const history = { back: vi.fn() };
+  const history = { back: vi.fn(), go: vi.fn() };
   const location = {
     href: `${ORIGIN}${pathname}`,
     pathname,
@@ -77,15 +81,24 @@ function page({
     replace: vi.fn(),
     assign: vi.fn(),
   };
-  const entries = [...(below ? [{ url: `${ORIGIN}${below}` }] : []), { url: location.href }];
+  const entries =
+    paths === undefined
+      ? [...(below ? [{ url: `${ORIGIN}${below}` }] : []), { url: location.href }]
+      : (paths ?? []).map((path) => ({ url: path === null ? null : `${ORIGIN}${path}` }));
+  const at = paths === undefined ? index : paths === null ? undefined : paths.length - 1;
   const window = {
     matchMedia: (query: string) => ({
       matches: standalone && query === "(display-mode: standalone)",
     }),
     navigator: {},
-    ...(index === undefined
+    ...(at === undefined
       ? {}
-      : { navigation: { currentEntry: { index }, entries: () => entries.slice(-(index + 1)) } }),
+      : {
+          navigation: {
+            currentEntry: { index: at },
+            entries: () => (paths === undefined ? entries.slice(-(at + 1)) : entries),
+          },
+        }),
   };
   new Function("window", "document", "location", "history", PRE_HYDRATION_SCRIPT)(
     window,
@@ -135,7 +148,7 @@ function page({
   };
 
   const move = () =>
-    history.back.mock.calls.length
+    history.back.mock.calls.length || history.go.mock.calls.length
       ? "back"
       : location.replace.mock.calls.length
         ? "replace"
@@ -155,6 +168,8 @@ function page({
     progress: () => NAV_PENDING_ATTRIBUTE in htmlAttributes,
     target: () => lastTapped?.getAttribute(NAV_TARGET_ATTRIBUTE) ?? undefined,
     replacedWith: () => location.replace.mock.calls[0]?.[0],
+    /** How far back the full-load back went (`history.go(-n)`). */
+    wentBack: () => history.go.mock.calls[0]?.[0],
     assignedTo: () => location.assign.mock.calls[0]?.[0],
   };
 }
@@ -178,6 +193,7 @@ function tapAndWait(
     target: doc.target(),
     replacedWith: doc.replacedWith(),
     assignedTo: doc.assignedTo(),
+    wentBack: doc.wentBack(),
   };
 }
 
@@ -195,12 +211,23 @@ afterEach(() => {
 });
 
 describe("pre-hydration taps (task 2.8), against the shared table", () => {
-  it.each(BACK_CASES)("back control: $name", ({ index, expected }) => {
-    const result = tapAndWait(BACK, { index, below: index ? "/people" : undefined });
-    // "parent" is a replace to the link's own href, never a push.
-    expect(result.move).toBe(expected === "back" ? "back" : "replace");
+  it.each(BACK_CASES)("back control: $name", ({ paths, parent, from = [], expected }) => {
+    const link: FakeLink = {
+      href: parent,
+      attributes: {
+        "data-slot": "page-back",
+        ...(from.length ? { [BACK_FROM_ATTRIBUTE]: from.join(" ") } : {}),
+      },
+    };
+    const result = tapAndWait(link, {
+      pathname: paths?.[paths.length - 1] ?? "/somewhere",
+      paths,
+    });
+    // The parent is a replace to the link's own href, never a push; back goes `expected` steps.
+    expect(result.move).toBe(expected > 0 ? "back" : "replace");
     expect(result.prevented).toBe(true);
-    if (expected === "parent") expect(result.replacedWith).toBe(`${ORIGIN}/people`);
+    if (expected > 0) expect(result.wentBack).toBe(-expected);
+    else expect(result.replacedWith).toBe(`${ORIGIN}${parent}`);
   });
 
   it.each(VIEW_CASES)("view control: $name", ({ expected }) => {
@@ -220,6 +247,8 @@ describe("pre-hydration taps (task 2.8), against the shared table", () => {
     // A push is a document load of the tab, as the browser's own navigation would have been.
     expect(result.move).toBe(expected === null || expected === "push" ? "push" : expected);
     if (result.move === "push") expect(result.assignedTo).toBe(`${ORIGIN}${input.href}`);
+    // A tab's back is one step: never `history.go(0)`, which reloads the page.
+    if (result.move === "back") expect(result.wentBack).toBe(-1);
     expect(result.prevented).toBe(true);
   });
 });
@@ -269,16 +298,17 @@ describe("a tap before hydration is held for the app (owner 2026-10-01)", () => 
   });
 
   it("ignores a second tap while one is held: one move, not two", () => {
-    const doc = page({ index: 3 });
+    const doc = page({ paths: ["/people", "/people/1"] });
     const anchor = doc.anchorFor(BACK, false);
     doc.tap(anchor);
     doc.tap(anchor);
     vi.advanceTimersByTime(PRE_HYDRATION_WAIT_MS + 100);
     expect(doc.prevented).toEqual([true, true]);
     expect(doc.move()).toBe("back");
-    // Exactly one history move.
+    // Exactly one history move, one step.
     vi.advanceTimersByTime(PRE_HYDRATION_WAIT_MS);
     expect(doc.move()).toBe("back");
+    expect(doc.wentBack()).toBe(-1);
   });
 
   it("holds the title bar's bell the same way, and its fallback is a push (issue #49)", () => {

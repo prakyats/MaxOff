@@ -22,6 +22,8 @@ import {
   todaysTasksLine,
   type Risk,
   type RiskTask,
+  OWNER_MY_TASKS_SHOWN,
+  ownerMyTasks,
 } from "../domain/today";
 
 const TODAY = "2026-10-07";
@@ -400,5 +402,45 @@ describe("the Admin's clients (decision 9)", () => {
     ]);
     expect(clientCountsLine({ open: 2, overdue: 1 })).toBe("2 open tasks · 1 overdue");
     expect(clientCountsLine({ open: 1, overdue: 0 })).toBe("1 open task");
+  });
+});
+
+describe("the Owner's My tasks (6b.2, decision 24: exceptions only)", () => {
+  const NOW = new Date("2026-10-15T06:30:00.000Z"); // 12:00 IST
+  const TODAY = "2026-10-15";
+  const row = (
+    id: string,
+    dueAt: string,
+    state = "todo",
+    on = "o",
+    removedAt: string | null = null,
+  ) => ({
+    id,
+    state,
+    dueAt,
+    assignees: [{ memberId: on, removedAt }],
+  });
+
+  it("lists the open tasks the Owner is on that are overdue or due today, by deadline", () => {
+    const open = [
+      row("today", "2026-10-15T12:30:00.000Z"),
+      row("overdue", "2026-10-14T12:30:00.000Z", "in_progress"),
+      row("tomorrow", "2026-10-15T19:00:00.000Z"),
+      row("someone-else", "2026-10-14T12:30:00.000Z", "todo", "k"),
+      row("removed", "2026-10-14T12:30:00.000Z", "todo", "o", "2026-10-14T00:00:00.000Z"),
+      row("with-reviewers", "2026-10-14T12:30:00.000Z", "submitted"),
+      row("back", "2026-10-15T08:00:00.000Z", "changes_requested"),
+    ];
+    const mine = ownerMyTasks(open, "o", NOW, TODAY);
+    expect(mine.rows.map((task) => task.id)).toEqual(["overdue", "back", "today"]);
+    expect(mine.total).toBe(3);
+  });
+
+  it("shows at most three rows and counts the rest; nothing when there is none", () => {
+    const open = ["a", "b", "c", "d"].map((id, i) => row(id, `2026-10-14T0${i}:00:00.000Z`));
+    const mine = ownerMyTasks(open, "o", NOW, TODAY);
+    expect(mine.rows).toHaveLength(OWNER_MY_TASKS_SHOWN);
+    expect(mine.total).toBe(4);
+    expect(ownerMyTasks([], "o", NOW, TODAY)).toEqual({ rows: [], total: 0 });
   });
 });

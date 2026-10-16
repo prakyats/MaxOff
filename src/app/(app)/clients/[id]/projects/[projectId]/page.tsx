@@ -5,7 +5,7 @@ import { Suspense } from "react";
 
 import { CustomFieldsView } from "@/core/custom-fields/components/custom-fields-view";
 import { listDefinitions } from "@/core/custom-fields/server";
-import { checkThenRead } from "@/core/lib/start-early";
+import { checkThenRead, startEarly } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
 import { todayIST } from "@/core/time";
 import { DrillLink } from "@/core/ui/composites/drill-link";
@@ -16,6 +16,9 @@ import {
   activeStages,
   currentCycle,
   cycleEnded,
+  cycleExtras,
+  extrasCycles,
+  extrasQuestion,
   getProject,
   itemListPeriods,
   itemView,
@@ -30,21 +33,24 @@ import {
   listReviews,
   listStages,
   nextStartable,
+  cycleMeter,
   PROJECT_STATE_LABELS,
-  progressLine,
-  progressOf,
   RECURRENCE_LABELS,
+  scheduleText,
   shortDate,
   sortCycles,
   sortItems,
 } from "@/modules/client-work";
 import { CycleItems } from "@/modules/client-work/components/cycle-items";
+import { CycleProgress } from "@/modules/client-work/components/cycle-progress";
+import { KeepExtrasPrompt } from "@/modules/client-work/components/keep-extras-prompt";
 import { ProjectActivityButton } from "@/modules/client-work/components/project-activity";
 import { ProjectMenu } from "@/modules/client-work/components/project-menu";
 import { RecordReadReceipt } from "@/modules/notifications-center";
 import { listStagePresets } from "@/modules/settings";
 
 import { assertClientId, loadClientWork, loadPeople } from "../../client";
+import { PROJECT_ORIGINS } from "./back";
 
 export const metadata: Metadata = { title: "Project" };
 
@@ -56,9 +62,10 @@ const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * client-work notification lands (`/clients/<client>/projects/<project>`, 7A mechanics (4)).
  * `projects.manage` on a visible client: the Owner, the client's Admin (another Admin's client is
  * a 404, Crew are sent to /forbidden). **First glance** answers "where is this cycle?": the repeat
- * and state, the cycle with its pager (a view control: `?cycle=` replaces, never history), the
- * progress line "9/12 done · 1 closed", an ended cycle's "decide N unfinished items", then the
- * items with their one action (Mark done, which is the approval since D3). Everything else is
+ * and state, the cycle with its pager (a view control: `?cycle=` replaces, never history), its
+ * progress ring (6b.11 (5): every stage ticked across its deliverables, the pace from the planned
+ * dates, the 100% moment), an ended cycle's "decide N unfinished items", then the deliverables, open
+ * ones first, with their one action (Mark done, which is the approval since D3). Everything else is
  * under ⋯ (details, default stages, item list, next cycle, complete / cancel / reopen), the
  * header's **Activity** (the project's history in a panel, paged; never inline) or one tap deeper
  * (the item sheet: its own stages, send back / reopen, its last change and history). No money
@@ -77,6 +84,14 @@ export default async function ProjectPage({
   ]);
   assertClientId(id);
   if (!ID.test(projectId)) notFound();
+  // The reads keyed by the URL alone start in the first wave (§19, P2): the project's unfinished
+  // items and its custom fields, and the items of the cycle the pager asked for (`?cycle=`, every
+  // tap on it), which are dropped when that cycle is not this project's. Only the current cycle's
+  // items (which cycle is current needs the cycles) and what is keyed by the items stay later.
+  const askedItems = cycleParam && ID.test(cycleParam) ? listItems(cycleParam) : null;
+  const unfinishedRead = listItemRows({ states: ["open", "done"], projectId });
+  const fieldsRead = listDefinitions("project");
+  startEarly(...(askedItems ? [askedItems] : []), unfinishedRead, fieldsRead);
   const [{ viewer, client }, [project, cycles, stages, blueprints, people, presetRows]] =
     await checkThenRead(
       loadClientWork(id),
@@ -99,7 +114,26 @@ export default async function ProjectPage({
   const previous = index > 0 ? ordered[index - 1] : undefined;
   const next = index >= 0 ? ordered[index + 1] : undefined;
 
-  const items = chosen ? sortItems(await listItems(chosen.id)) : [];
+  const working = project.state === "open" || project.state === "in_progress";
+  const canManage = can(viewer.role, "projects.manage");
+  // 6b.16 (d): the cycle whose extras are asked about at the month's end (whichever is shown):
+  // the month ending or the one just ended, the latest that has extras.
+  const asking = working && canManage ? extrasCycles(project.recurrence, cycles, today) : [];
+  const [items, ...askingItems] = await Promise.all([
+    chosen
+      ? (askedItems && chosen.id === cycleParam ? askedItems : listItems(chosen.id)).then(sortItems)
+      : Promise.resolve([]),
+    ...asking.map((cycle) =>
+      cycle.id === chosen?.id ? Promise.resolve(null) : listItems(cycle.id),
+    ),
+  ]);
+  const listTitles = blueprints.filter((line) => !line.archived).map((line) => line.title);
+  const extrasOf = asking
+    .map((cycle, index) => ({
+      cycle,
+      extras: cycleExtras(cycle.id, askingItems[index] ?? items, listTitles),
+    }))
+    .find((entry) => entry.extras.length > 0);
   const itemIds = items.map((item) => item.id);
   const originIds = [
     ...new Set(
@@ -110,13 +144,11 @@ export default async function ProjectPage({
     listItemStages(itemIds),
     listReviews(itemIds),
     listCyclesById(originIds),
-    listItemRows({ states: ["open", "done"], projectId }),
-    listDefinitions("project"),
+    unfinishedRead,
+    fieldsRead,
     listLastChanges(itemIds),
   ]);
 
-  const working = project.state === "open" || project.state === "in_progress";
-  const canManage = can(viewer.role, "projects.manage");
   const permissions = {
     manage: canManage && working,
     tick: can(viewer.role, "items.tick") && working,
@@ -182,7 +214,7 @@ export default async function ProjectPage({
       <PageHeader
         title={project.name}
         description={meta.join(" · ")}
-        back={{ href: `/clients/${client.id}/projects`, label: client.name }}
+        back={{ href: `/clients/${client.id}/projects`, label: client.name, from: PROJECT_ORIGINS }}
         // Two header buttons (Activity and ⋯) beside the bell: at very large text (200%) the bell
         // wraps to a second row rather than pushing the bar past the screen's edge.
         className="flex-wrap"
@@ -219,12 +251,17 @@ export default async function ProjectPage({
               unfinished={unfinished.length}
               nextCycleLabel={nextCycle?.label ?? null}
               itemList={itemList}
+              schedule={
+                chosen
+                  ? scheduleText({ projectName: project.name, cycleLabel: chosen.label, items })
+                  : null
+              }
             />
           </>
         }
       />
-      <div className="flex max-w-3xl min-w-0 flex-col gap-4" data-slot="project-page">
-        <div className="flex flex-col gap-2" data-slot="project-glance">
+      <div className="flex max-w-5xl min-w-0 flex-col gap-4" data-slot="project-page">
+        <div className="flex max-w-3xl min-w-0 flex-col gap-2" data-slot="project-glance">
           <p className="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
             <StatusBadge status={project.state} label={PROJECT_STATE_LABELS[project.state]} />
             <span className="md:hidden">{meta.join(" · ")}</span>
@@ -266,9 +303,6 @@ export default async function ProjectPage({
                 <span className="text-sm font-medium break-words" data-slot="cycle-label">
                   {chosen.label ?? "The project's deliverables"}
                 </span>
-                <span className="text-muted-foreground text-xs" data-slot="cycle-progress">
-                  {progressLine(progressOf(items))}
-                </span>
               </div>
               {next ? (
                 <ViewLink
@@ -289,6 +323,13 @@ export default async function ProjectPage({
               No cycle yet. The current period&apos;s cycle starts once the client is Active.
             </p>
           )}
+          {chosen ? (
+            <CycleProgress
+              cycleId={chosen.id}
+              label={chosen.label}
+              meter={cycleMeter(views, today)}
+            />
+          ) : null}
           {toDecide > 0 && can(viewer.role, "cycles.carry_decide") ? (
             <DrillLink
               href={`/clients/items/decide?project=${project.id}`}
@@ -302,6 +343,15 @@ export default async function ProjectPage({
               <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
             </DrillLink>
           ) : null}
+          {extrasOf ? (
+            <KeepExtrasPrompt
+              key={extrasOf.cycle.id}
+              cycleId={extrasOf.cycle.id}
+              question={extrasQuestion(project.recurrence, extrasOf.cycle.label)}
+              titles={extrasOf.extras.map((item) => item.title)}
+              from={itemList?.from ?? null}
+            />
+          ) : null}
         </div>
 
         {chosen ? (
@@ -313,11 +363,13 @@ export default async function ProjectPage({
             defaultStages={active.length}
             presets={presets}
             openItemId={items.some((item) => item.id === itemParam) ? (itemParam ?? null) : null}
+            // The Keep-extras card's solid Yes owns the screen's one solid button while it shows.
+            solidAllowed={!extrasOf}
           />
         ) : null}
 
         {project.description || definitions.length > 0 ? (
-          <section aria-labelledby="project-details" className="flex flex-col gap-2">
+          <section aria-labelledby="project-details" className="flex max-w-3xl flex-col gap-2">
             <h2 id="project-details" className="text-sm font-medium">
               Details
             </h2>

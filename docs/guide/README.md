@@ -1,3 +1,5 @@
+> **RETIRED (owner, 2026-10-12; ROADMAP 6b.14):** these PDF and HTML guides are no longer updated per release. The in-app guide, **Me → How MaxOff works** (`/me/guide`, content in `src/modules/guide/domain/content/`), is the only guide. The files stay here as history.
+
 # The app guide
 
 `MaxOff-App-Guide.html` is the plain-language guide to the finished app: every role's flow as tap paths, who sees what, and what each phase delivers. It uses the example cast **Prishit** (Owner), **Prakyat** (Admin) and **Xyz** (Employee). `MaxOff-App-Guide.pdf` is the same file printed. Since 3c.3 it describes **stage 1 as live at `https://app.maxoff.in`**; the v1.2 edition (2026-10-01) adds crew tasks with freelancers (phase 4) and 5A's notifications (push with the band above the bottom bar, the bell and Alerts, email, quiet hours) as "Ready now"; 5B's reminders, digest and reachability are tagged "Phase 5, next part".

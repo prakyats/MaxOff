@@ -6,17 +6,50 @@
  */
 
 /**
- * The on-screen back control (§14.2 k): with an entry of this app beneath the current one it
- * goes back to it (no new entry); a page opened directly (a deep link, a new window, the first
- * page after a restart) has nothing of ours beneath, so it goes to its parent and **replaces**
- * itself, never leaving the app and never adding a step.
+ * The on-screen back control (§14.2 k; reworked 2026-10-15, 6b.12 and the owner's "‹ Settings did
+ * nothing" report): **one tap always moves**, and only ever to the page its label names.
  *
- * `index` is the Navigation API's `currentEntry.index`, which counts this origin's entries only.
- * Without the API (an older browser) the answer is the parent: the safe one, since it can never
- * leave the app.
+ * `paths` are the pathnames of this origin's history entries up to and including the current one
+ * (the Navigation API's `entries()` to `currentEntry.index`), or null without the API. The
+ * entries just beneath that share the current pathname are **this screen's own**: an overlay's
+ * spent entry (a sheet, a dialog or a select closed by its button leaves one, `overlay-history`)
+ * or a view that wrote its address there. Going back one entry landed on one of them, so the tap
+ * changed nothing (found on Settings → Stage presets after Add preset's Cancel). They are stepped
+ * over: the page beneath them is the real previous page.
+ *
+ * Returns how many entries to go back to reach that page when it is the labelled `parent`, an
+ * ancestor of it in the same drill-down (`/clients/1` under `/clients/1/projects`), or one of
+ * `from`: the other screens this one is drilled into from (a task from the calendar), each an
+ * exact pathname or a prefix written `/reports/end-of-day/*`. Otherwise 0: the parent, by
+ * replace (opened directly, from a notification, from a screen it was not drilled from, or no
+ * Navigation API), which never leaves the app and never adds a step.
+ *
+ * Self-contained on purpose (no imports, no outer names): the head script carries its source
+ * (`pre-hydration.ts`), so the hydrated app and the script share this one function.
  */
-export function backMove(index: number | undefined): "back" | "parent" {
-  return index !== undefined && index > 0 ? "back" : "parent";
+export function backSteps(
+  paths: readonly (string | null)[] | null,
+  parent: string,
+  from: readonly string[],
+): number {
+  if (!paths || paths.length < 2) return 0;
+  const here = paths[paths.length - 1];
+  let below = paths.length - 2;
+  while (below >= 0 && paths[below] === here) below -= 1;
+  const target = below >= 0 ? paths[below] : null;
+  if (!target) return 0;
+  let fits = target === parent || parent.indexOf(target + "/") === 0;
+  for (let k = 0; !fits && k < from.length; k += 1) {
+    const origin = from[k] ?? "";
+    fits =
+      origin.slice(-2) === "/*" ? target.indexOf(origin.slice(0, -1)) === 0 : target === origin;
+  }
+  return fits ? paths.length - 1 - below : 0;
+}
+
+/** Whether `path` is the screen an origin pattern of `backSteps` names. */
+export function originMatches(origin: string, path: string): boolean {
+  return origin.endsWith("/*") ? path.startsWith(origin.slice(0, -1)) : path === origin;
 }
 
 /** A view control (a tab of one screen, a pager, a filter) never adds history (§14.1). */

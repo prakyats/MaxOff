@@ -36,6 +36,7 @@ export function DoneDialog({
   dueAt,
   onBehalfOf,
   forName,
+  completes = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -43,6 +44,8 @@ export function DoneDialog({
   dueAt: string;
   onBehalfOf: string | null;
   forName: string | null;
+  /** The Owner's own task (6b.2): Done completes it, with no check or approval. */
+  completes?: boolean;
 }) {
   const [note, setNote] = useState("");
   const [lateReason, setLateReason] = useState("");
@@ -78,7 +81,13 @@ export function DoneDialog({
         }
         return;
       }
-      toastResult(result, { success: forName ? `Marked done for ${forName}` : "Marked done" });
+      toastResult(result, {
+        success: completes
+          ? "Marked done: the task is complete"
+          : forName
+            ? `Marked done for ${forName}`
+            : "Marked done",
+      });
       setNote("");
       setLateReason("");
       onOpenChange(false);
@@ -115,7 +124,9 @@ export function DoneDialog({
           <DialogHeader>
             <DialogTitle>{forName ? `Mark done for ${forName}` : "Mark done"}</DialogTitle>
             <DialogDescription>
-              It goes for review. The task is locked until then; comments stay open.
+              {completes
+                ? "You're its primary owner, so this completes the task: nobody checks or approves it."
+                : "It goes for review. The task is locked until then; comments stay open."}
             </DialogDescription>
           </DialogHeader>
           {summary ? (

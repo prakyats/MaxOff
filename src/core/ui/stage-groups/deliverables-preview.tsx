@@ -3,13 +3,15 @@
 import { ChevronDownIcon, ChevronRightIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-import type { Deliverable, StageGroup } from "@/core/lib/stage-groups";
+import { type Deliverable, flattenGroups, type StageGroup } from "@/core/lib/stage-groups";
 import { cn } from "@/core/lib/utils";
+import { SegmentedBar } from "@/core/ui/progress/segmented-meter";
 
 import {
   entryCounts,
   type PreviewEntry,
   previewEntries,
+  previewKeys,
   previewStats,
   statsLine,
   statsTiles,
@@ -18,11 +20,13 @@ import {
 /**
  * The live preview (ROADMAP 6b.16 (a); owner feedback 2026-10-15, issue #89): exactly what will
  * be created. On top, pinned while the list scrolls, the summary as three figures (deliverables,
- * groups, stages); under it one card per deliverable, or per numbered run of identical ones
- * ("Item 1–4" ×4, tap to see the names), each tagged "Default stages" or "Own stages", with its
- * groups as small headings over their stages as a row of steps. Read-only and neutral (no red:
- * red is the commit button's). An entry that changes flashes once, without moving anything,
- * and not at all with reduced motion.
+ * groups, stages); under it one card per deliverable, or per run of identical neighbours ("Item
+ * 1–4" ×4, "A, B" ×2; tap to see the names), each tagged "Default stages" or "Own stages", with a
+ * row of stage dots in the progress meter's language (6b.11) and its groups as small headings over
+ * their stages as a row of steps. Read-only and neutral (no red: red is the commit button's). An
+ * entry that changes flashes once, without moving anything, and not at all with reduced motion;
+ * the cards are keyed to their deliverables (`previewKeys`), never to their place, so an insert
+ * above flashes nothing else.
  */
 export function DeliverablesPreview({
   deliverables,
@@ -34,7 +38,8 @@ export function DeliverablesPreview({
   className?: string;
 }) {
   const stats = previewStats(deliverables, defaults);
-  const entries = previewEntries(deliverables, defaults);
+  const keys = useStableKeys(deliverables.map((deliverable) => deliverable.title));
+  const entries = previewEntries(deliverables, defaults, keys);
   return (
     <section
       aria-label="Preview"
@@ -72,7 +77,7 @@ export function DeliverablesPreview({
       ) : (
         <ol className="flex flex-col gap-2">
           {entries.map((entry) => (
-            <EntryCard key={entry.start} entry={entry} />
+            <EntryCard key={entry.key} entry={entry} />
           ))}
         </ol>
       )}
@@ -80,9 +85,38 @@ export function DeliverablesPreview({
   );
 }
 
+type Keyed = { titles: readonly string[]; keys: readonly string[]; minted: number };
+
+const same = (a: readonly string[], b: readonly string[]) =>
+  a.length === b.length && a.every((title, index) => title === b[index]);
+
+/**
+ * Each deliverable's stable key across edits: worked out again only when the titles change (an
+ * insert, a removal, a move or a rename), kept from the previous draw (React's "state from the
+ * previous render").
+ */
+function useStableKeys(titles: readonly string[]): readonly string[] {
+  const [keyed, setKeyed] = useState<Keyed>(() => ({
+    titles,
+    keys: titles.map((_, index) => `d${index}`),
+    minted: titles.length,
+  }));
+  if (same(keyed.titles, titles)) return keyed.keys;
+  const keys = previewKeys(
+    keyed.titles.map((title, index) => ({ title, key: keyed.keys[index] ?? `d${index}` })),
+    titles,
+    (n) => `d${keyed.minted + n}`,
+  );
+  const known = new Set(keyed.keys);
+  const minted = keyed.minted + keys.filter((key) => !known.has(key)).length;
+  setKeyed({ titles, keys, minted });
+  return keys;
+}
+
 function EntryCard({ entry }: { entry: PreviewEntry }) {
   const [open, setOpen] = useState(false);
   const run = entry.titles.length > 1;
+  const stages = flattenGroups(entry.groups).length;
   const signature = JSON.stringify([entry.titles, entry.own, entry.groups]);
   const card = useRef<HTMLLIElement>(null);
   const seen = useRef(signature);
@@ -146,6 +180,15 @@ function EntryCard({ entry }: { entry: PreviewEntry }) {
       <p className="text-muted-foreground text-xs" data-slot="preview-entry-counts">
         {entryCounts(entry)}
       </p>
+      {stages > 0 ? (
+        // One dot per stage it will start with, none ticked yet (the meter's language, 6b.11).
+        <SegmentedBar
+          counts={{ done: 0, next: 0, total: stages }}
+          label={null}
+          slot="preview-stage-dots"
+          className="w-full max-w-48"
+        />
+      ) : null}
       {run && open ? (
         <ul data-slot="preview-run-names" className="flex flex-wrap gap-1 text-xs">
           {entry.titles.map((title, index) => (

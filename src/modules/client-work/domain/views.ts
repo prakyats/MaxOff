@@ -2,6 +2,7 @@ import { groupRows } from "@/core/lib/stage-groups";
 import { formatIST, type ISODate } from "@/core/time";
 
 import { activeStages, carriedFromLabel, ITEM_RULES, plannedLine } from "./items";
+import { itemMeter } from "./progress";
 import { ITEM_STATE_LABELS, type Item, type ItemStage, type ItemState, type Review } from "./types";
 
 /**
@@ -62,10 +63,24 @@ export type ItemView = {
   /** The same stages under their groups (6b); one untitled group for a list from before. */
   groups: ItemStageGroupView[];
   /**
-   * The latest send-back or reopen while the item is open again: "Sent back by Prishit: the logo"
-   * (the Owner's), "Reopened by Ravi: …" (the client's Admin's).
+   * The item's next stage to tick while it is open (6b.11 (3): outlined and emphasised; the ticked
+   * ones before it neutral with a check, the later ones muted); null when none is left or it is
+   * not open.
    */
-  sentBack: { verb: "Sent back" | "Reopened"; by: string; reason: string } | null;
+  nextStageId: string | null;
+  /**
+   * The latest send-back or reopen while the item is open again (6b.11 (4)): "Sent back by
+   * Prishit, 9 Oct: the logo" (the Owner's), "Reopened by Ravi, 9 Oct: …" (the client's Admin's).
+   */
+  sentBack: {
+    verb: "Sent back" | "Reopened";
+    by: string;
+    reason: string;
+    /** "9 Oct" (IST). */
+    on: string;
+    /** The whole note: "Reopened by Ravi, 9 Oct: the logo". */
+    text: string;
+  } | null;
   /** The item's latest history line, for the sheet. */
   lastChange: LastChange | null;
   /** A closed (cancelled) item's reason. */
@@ -101,6 +116,15 @@ export type ItemViewContext = {
 
 const WHEN = "d MMM";
 
+function sentBackNote(
+  verb: "Sent back" | "Reopened",
+  by: string,
+  reason: string,
+  on: string,
+): NonNullable<ItemView["sentBack"]> {
+  return { verb, by, reason, on, text: `${verb} by ${by}, ${on}${reason ? `: ${reason}` : ""}` };
+}
+
 export function itemView(item: Item, context: ItemViewContext): ItemView {
   const name = (id: string | null) => (id ? (context.names[id] ?? "Someone") : "Someone");
   const stages = activeStages(context.stages.filter((stage) => stage.itemId === item.id)).map(
@@ -135,13 +159,15 @@ export function itemView(item: Item, context: ItemViewContext): ItemView {
         : null,
     stages,
     groups: stageGroupViews(stages),
+    nextStageId: item.state === "open" ? (stages.find((stage) => !stage.done)?.id ?? null) : null,
     sentBack:
       item.state === "open" && latest?.decision === "rejected"
-        ? {
-            verb: latest.reviewerId === context.ownerId ? "Sent back" : "Reopened",
-            by: name(latest.reviewerId),
-            reason: latest.reason ?? "",
-          }
+        ? sentBackNote(
+            latest.reviewerId === context.ownerId ? "Sent back" : "Reopened",
+            name(latest.reviewerId),
+            latest.reason ?? "",
+            formatIST(latest.at, WHEN),
+          )
         : null,
     lastChange: context.lastChanges?.[item.id] ?? null,
     closedReason: item.state === "cancelled" ? item.cancelledReason : null,
@@ -173,6 +199,8 @@ export type ItemRowView = {
   stateLabel: string;
   planned: { text: string; overdue: boolean } | null;
   plannedDate: string | null;
+  /** The deliverable's own stages as a miniature (6b.11 (5)); null when it has none. */
+  meter: { done: number; next: number; total: number } | null;
 };
 
 export function itemRowView(
@@ -184,7 +212,10 @@ export function itemRowView(
     cycleLabel: string | null;
   },
   today: ISODate,
+  /** The deliverable's own stages (active ones, ticked or not), for its miniature. */
+  stages: readonly { done: boolean }[] = [],
 ): ItemRowView {
+  const meter = itemMeter({ state: row.state, stages });
   return {
     id: row.id,
     title: row.title,
@@ -200,5 +231,24 @@ export function itemRowView(
     stateLabel: ITEM_STATE_LABELS[row.state],
     planned: plannedLine(row, today),
     plannedDate: row.plannedDate,
+    meter: meter.total > 0 ? meter : null,
   };
+}
+
+/**
+ * The project page's order (6b.11 (1)): the **open** deliverables first, the overdue ones at the
+ * top, then by planned date (none last), then in the list's own order; done, closed and carried
+ * ones apart, for the collapsed "Done and closed (N)" group at the end, in the list's order.
+ * `items` arrive in the list's order (`sortItems`); the sort is stable.
+ */
+export function orderDeliverables<
+  T extends Pick<ItemView, "state" | "plannedDate"> & { planned: { overdue: boolean } | null },
+>(items: readonly T[]): { open: T[]; finished: T[] } {
+  const open = items.filter((item) => item.state === "open");
+  const finished = items.filter((item) => item.state !== "open");
+  const rank = (item: T) => (item.planned?.overdue ? 0 : item.plannedDate !== null ? 1 : 2);
+  open.sort(
+    (a, b) => rank(a) - rank(b) || (a.plannedDate ?? "").localeCompare(b.plannedDate ?? ""),
+  );
+  return { open, finished };
 }

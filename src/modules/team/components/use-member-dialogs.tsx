@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useState, useTransition } from "react";
 
 import { toastResult } from "@/core/ui/toast";
@@ -7,14 +8,38 @@ import { toastResult } from "@/core/ui/toast";
 import { issueInviteLink, reactivateMember } from "../actions/members";
 import type { TeamMember } from "../domain/members";
 
-import { ChangeEmailDialog } from "./change-email-dialog";
-import {
-  ChangeCoordinatorDialog,
-  InviteEmployeeDialog,
-  ReactivateFreelancerDialog,
-} from "./coordinator-dialogs";
-import { DeactivateMemberDialog } from "./deactivate-member-dialog";
-import { InviteLinkDialog, type InviteLinkState } from "./invite-link-dialog";
+import type { InviteLinkState } from "./invite-link-dialog";
+
+/*
+ * Each dialog draws nothing until its menu item is tapped, so its code loads then, not with the
+ * People list or a person's page (ARCHITECTURE §19, "What draws nothing at first loads after
+ * the page"; P2 item 4: the coordinator, invite and email dialogs were ~60 KB of `/people`'s
+ * first load).
+ */
+const ChangeEmailDialog = dynamic(
+  () => import("./change-email-dialog").then((module) => module.ChangeEmailDialog),
+  { ssr: false },
+);
+const DeactivateMemberDialog = dynamic(
+  () => import("./deactivate-member-dialog").then((module) => module.DeactivateMemberDialog),
+  { ssr: false },
+);
+const InviteLinkDialog = dynamic(
+  () => import("./invite-link-dialog").then((module) => module.InviteLinkDialog),
+  { ssr: false },
+);
+const ChangeCoordinatorDialog = dynamic(
+  () => import("./coordinator-dialogs").then((module) => module.ChangeCoordinatorDialog),
+  { ssr: false },
+);
+const InviteEmployeeDialog = dynamic(
+  () => import("./coordinator-dialogs").then((module) => module.InviteEmployeeDialog),
+  { ssr: false },
+);
+const ReactivateFreelancerDialog = dynamic(
+  () => import("./coordinator-dialogs").then((module) => module.ReactivateFreelancerDialog),
+  { ssr: false },
+);
 
 type DialogState =
   | { kind: "none" }

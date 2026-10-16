@@ -6,6 +6,9 @@ import {
   latestChangeRequest,
   pairName,
   reviewerName,
+  remindAgainAt,
+  remindAgainLabel,
+  remindWho,
   routeLine,
   stateLabel,
   statusLine,
@@ -92,10 +95,12 @@ describe("what a viewer may do (4.4; PERMISSIONS §3, ADR-0013)", () => {
     expect(taskActions(task(), TEAM, PEOPLE, RAVI).done).toEqual({
       onBehalfOf: "asha",
       again: false,
+      completes: false,
     });
     expect(taskActions(task({ state: "changes_requested" }), TEAM, PEOPLE, RAVI).done).toEqual({
       onBehalfOf: "asha",
       again: true,
+      completes: false,
     });
     for (const state of ["submitted", "admin_approved", "completed", "cancelled"] as TaskState[]) {
       const actions = taskActions(task({ state }), TEAM, PEOPLE, RAVI);
@@ -259,5 +264,107 @@ describe("naming who acted (ADR-0013: the pair wherever a person is named)", () 
     expect(reviewerName({ reviewerId: "ravi" }, names)).toBe("Ravi");
     expect(reviewerName({ reviewerId: "owner" }, { owner: "Prishit" })).toBe("Prishit");
     expect(reviewerName({ reviewerId: "gone" }, names)).toBe("Someone");
+  });
+});
+
+describe("tasks for the Owner (6b.2, owner 2026-10-07)", () => {
+  const OWN = [assignee("owner", { isPrimary: true }), assignee("meera")];
+  const nameOf = (id: string) => (id === "admin" ? "Local Admin" : id);
+
+  it("lets the Owner, as primary owner, mark it done to complete it", () => {
+    expect(taskActions(task({ primaryOwnerId: "owner" }), OWN, PEOPLE, OWNER).done).toEqual({
+      onBehalfOf: null,
+      again: false,
+      completes: true,
+    });
+    // A Crew co-assignee never marks the Owner's task done.
+    expect(taskActions(task({ primaryOwnerId: "owner" }), OWN, PEOPLE, MEERA).done).toBeNull();
+    // The Owner as one assignee of several, someone else primary: the normal route, no Done.
+    expect(taskActions(task(), [...TEAM, assignee("owner")], PEOPLE, OWNER).done).toBeNull();
+  });
+
+  it("says the Owner's own task completes on Done, in the route line", () => {
+    expect(routeLine(task({ primaryOwnerId: "owner" }), OWN, nameOf, "owner")).toBe(
+      "The Owner's own task: Done completes it, with no check or approval",
+    );
+    expect(routeLine(task(), TEAM, nameOf, "owner")).toBe(
+      "Local Admin checks it, then the Owner approves it",
+    );
+  });
+
+  it("offers Remind to the creator, the approving Admin and the Owner while the task is with its people", () => {
+    const other: TaskViewer = { id: "other-admin", role: "admin", coordinates: [] };
+    expect(taskActions(task(), TEAM, PEOPLE, ADMIN).remind).toBe(true);
+    expect(taskActions(task({ createdBy: "owner" }), TEAM, PEOPLE, ADMIN).remind).toBe(true);
+    expect(taskActions(task(), TEAM, PEOPLE, OWNER).remind).toBe(true);
+    expect(taskActions(task(), TEAM, PEOPLE, other).remind).toBe(false);
+    expect(taskActions(task(), TEAM, PEOPLE, MEERA).remind).toBe(false);
+    for (const state of ["submitted", "admin_approved", "completed", "cancelled"] as TaskState[]) {
+      expect(taskActions(task({ state }), TEAM, PEOPLE, OWNER).remind, state).toBe(false);
+    }
+    expect(taskActions(task({ state: "changes_requested" }), TEAM, PEOPLE, OWNER).remind).toBe(
+      true,
+    );
+    // Nobody else on it (the Owner's task with only the Owner): no Remind.
+    const alone = [assignee("owner", { isPrimary: true })];
+    expect(taskActions(task({ primaryOwnerId: "owner" }), alone, PEOPLE, OWNER).remind).toBe(false);
+  });
+
+  it("knows when Remind can be used again: an hour after the newest reminder", () => {
+    const now = new Date("2026-10-15T10:00:00.000Z");
+    const sent = (at: string) => ({ entity: "tasks", action: "reminder_sent", at });
+    expect(remindAgainAt([], now)).toBeNull();
+    expect(remindAgainAt([sent("2026-10-15T09:30:00.000Z")], now)).toBe("2026-10-15T10:30:00.000Z");
+    expect(
+      remindAgainAt([sent("2026-10-15T08:00:00.000Z"), sent("2026-10-15T09:15:00.000Z")], now),
+    ).toBe("2026-10-15T10:15:00.000Z");
+    // Past the hour, or another kind of entry: it can be used now.
+    expect(remindAgainAt([sent("2026-10-15T08:59:00.000Z")], now)).toBeNull();
+    expect(
+      remindAgainAt([{ entity: "tasks", action: "updated", at: "2026-10-15T09:59:00.000Z" }], now),
+    ).toBeNull();
+    // IST on the button: 10:30 UTC is 4:00 PM.
+    expect(remindAgainLabel("2026-10-15T10:30:00.000Z")).toBe("Reminded · again at 4:00 PM");
+  });
+
+  it("names whom Remind reaches: one, two, then a count", () => {
+    expect(remindWho([])).toBe("everyone on the task");
+    expect(remindWho(["Sam"])).toBe("Sam");
+    expect(remindWho(["Sam", "Ria"])).toBe("Sam and Ria");
+    expect(remindWho(["Sam", "Ria", "Asha"])).toBe("Sam and 2 others");
+  });
+});
+
+describe("who moves a task's stages (6b.18, owner 2026-10-15: whoever may edit it, never Crew)", () => {
+  const moves = (state: TaskState, viewer: TaskViewer) =>
+    taskActions(task({ state }), TEAM, PEOPLE, viewer).manage.stages;
+
+  it("lets whoever may edit the task move them until it is finished: the Owner, the creator, the approving Admin", () => {
+    expect(moves("todo", ADMIN)).toBe(true);
+    expect(moves("submitted", ADMIN)).toBe(true);
+    expect(moves("admin_approved", OWNER)).toBe(true);
+    // An editor who also coordinates a freelancer on it moves as themselves, as the stages guard.
+    expect(moves("todo", { ...ADMIN, coordinates: ["asha"] })).toBe(true);
+    // The approving Admin who did not make the task.
+    expect(taskActions(task({ createdBy: "owner" }), TEAM, PEOPLE, ADMIN).manage.stages).toBe(true);
+  });
+
+  it("never gives Crew a handle: not an assignee, not the primary owner, not a coordinator", () => {
+    for (const state of ["todo", "in_progress", "changes_requested"] as TaskState[]) {
+      expect(moves(state, MEERA), state).toBe(false);
+      expect(moves(state, RAVI), state).toBe(false);
+      const asPrimary: TaskViewer = { id: "asha", role: "staff", coordinates: [] };
+      expect(moves(state, asPrimary), state).toBe(false);
+    }
+    const stranger: TaskViewer = { id: "other", role: "staff", coordinates: [] };
+    expect(moves("todo", stranger)).toBe(false);
+  });
+
+  it("gives no handle to an Admin outside the task's edit scope, or once the task is finished", () => {
+    expect(moves("todo", { id: "other-admin", role: "admin", coordinates: [] })).toBe(false);
+    for (const state of ["completed", "cancelled"] as TaskState[]) {
+      expect(moves(state, OWNER), state).toBe(false);
+      expect(moves(state, ADMIN), state).toBe(false);
+    }
   });
 });

@@ -1,9 +1,8 @@
-import { ChevronLeftIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { cn } from "@/core/lib/utils";
 
-import { BackLink } from "./back-link";
+import { BackLink, type BackOrigin } from "./back-link";
 import { HeaderBell } from "./header-bell";
 import { HelpSheet } from "./help-sheet";
 
@@ -27,8 +26,9 @@ export function PageHeader({
   help,
   /**
    * The parent of a drill-down screen (Settings → a section, People → a person). Every
-   * drill-down screen has one (ARCHITECTURE §14.2 k): `BackLink` goes back when an entry of the
-   * app is beneath, and to this parent with replace when the page was opened directly.
+   * drill-down screen has one (ARCHITECTURE §14.2 k): `BackLink` goes back when the page beneath
+   * is this parent, an ancestor of it or one of `from` (the other screens this one is drilled
+   * into from, which the label then names), and otherwise to this parent with replace.
    * `labelWidth` is for a loading screen whose parent's name is not read yet (a project's
    * client): the desktop label is traced as a bar of that width instead of words.
    */
@@ -40,7 +40,7 @@ export function PageHeader({
   title: ReactNode;
   description?: ReactNode;
   help?: ReactNode;
-  back?: { href: string; label: string; labelWidth?: string };
+  back?: { href: string; label: string; labelWidth?: string; from?: readonly BackOrigin[] };
   actions?: ReactNode;
   /**
    * A record's ⋯ menu (3.4: a person, a client). Unlike `actions` it stays in the title bar on
@@ -55,22 +55,13 @@ export function PageHeader({
       {back ? (
         <BackLink
           href={back.href}
+          label={back.label}
+          from={back.from}
+          labelWidth={back.labelWidth}
+          variant="text"
           // On a phone the chevron lives inside the title bar below; this is the desktop one.
           className="text-muted-foreground hover:text-foreground mb-4 hidden items-center gap-1 text-sm md:inline-flex"
-        >
-          <ChevronLeftIcon className="size-4" aria-hidden />
-          {back.labelWidth ? (
-            <span
-              aria-hidden
-              className={cn(
-                "bg-muted inline-block h-3.5 rounded-md motion-safe:animate-pulse",
-                back.labelWidth,
-              )}
-            />
-          ) : (
-            back.label
-          )}
-        </BackLink>
+        />
       ) : null}
 
       <div
@@ -88,11 +79,11 @@ export function PageHeader({
         {back ? (
           <BackLink
             href={back.href}
-            aria-label={`Back to ${back.label}`}
+            label={back.label}
+            from={back.from}
+            variant="icon"
             className="text-muted-foreground active:bg-muted -ml-1 flex size-11 shrink-0 items-center justify-center rounded-lg md:hidden"
-          >
-            <ChevronLeftIcon className="size-5" aria-hidden />
-          </BackLink>
+          />
         ) : null}
 
         <div

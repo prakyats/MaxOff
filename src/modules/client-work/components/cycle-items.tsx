@@ -1,47 +1,52 @@
 "use client";
 
-import { CheckIcon, ChevronDownIcon, ListPlusIcon, PlusIcon } from "lucide-react";
+import { ListPlusIcon, PlusIcon } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { bulkSummary } from "@/core/errors/bulk";
 import { cn } from "@/core/lib/utils";
-import { BulkBar } from "@/core/ui/composites/bulk-bar";
 import { EmptyState } from "@/core/ui/composites/empty-state";
-import { ErrorText } from "@/core/ui/composites/error-text";
-import { StatusDot } from "@/core/ui/composites/status-badge";
 import { replaceViewAddress } from "@/core/ui/navigation/view-address";
 import { Button } from "@/core/ui/primitives/button";
-import { Checkbox } from "@/core/ui/primitives/checkbox";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/core/ui/primitives/dropdown-menu";
 import type { StagePresetOption } from "@/core/ui/stage-groups/editing";
 import { toastResult } from "@/core/ui/toast";
 
 import { markItemsDone, tickStages, updateItem } from "../actions/items";
 import { itemCount, stageChoices } from "../domain/items";
+import { readyToMarkDone, solidMarkDoneId } from "../domain/deliverable";
 import { movedPosition } from "../domain/positions";
-import { ITEM_STATUS } from "../domain/types";
-import type { ItemView } from "../domain/views";
+import { orderDeliverables, type ItemView } from "../domain/views";
 
+import type { BulkEditKind } from "./bulk-edit-sheet";
+import { deliverableColumns } from "./deliverable-columns";
+import { DeliverableRow } from "./deliverable-row";
+import { FinishedDeliverables } from "./finished-deliverables";
 import type { ItemPermissions } from "./item-sheet";
+import { SelectToggle, useSelectMode } from "./select-mode";
+import { tickWithUndo } from "./tick-with-undo";
 import { MARK_DONE_URL, useUndoSends } from "./use-undo-sends";
 
 /**
  * What draws nothing until it is used loads after the page (ARCHITECTURE §19, the 7B review's
  * S2): the item sheet and the bulk Mark done's confirmation are mounted on their first open and
- * kept (their closing stays animated); Add item is mounted while open.
+ * kept (their closing stays animated); Add item is mounted while open. Select mode's action bar
+ * (its Tick and Edit menus) is mounted when Select is first tapped and kept: it draws nothing
+ * until a row is selected, and the selection lives here, so no tap waits for its code.
  */
+const BulkEditBar = dynamic(() => import("./bulk-edit-bar").then((module) => module.BulkEditBar), {
+  ssr: false,
+});
 const ItemSheet = dynamic(() => import("./item-sheet").then((module) => module.ItemSheet), {
   ssr: false,
 });
 const AddItemDialog = dynamic(
   () => import("./add-item-dialog").then((module) => module.AddItemDialog),
+  { ssr: false },
+);
+const BulkEditSheet = dynamic(
+  () => import("./bulk-edit-sheet").then((module) => module.BulkEditSheet),
   { ssr: false },
 );
 const ConfirmDialog = dynamic(
@@ -51,14 +56,22 @@ const ConfirmDialog = dynamic(
 
 /**
  * A cycle's items on the project page (7.3; PRODUCT §4.5, WORKFLOWS §5.4 items 7, 9, 16, 18;
- * kickoff 7 decisions 16, 26; amendment D). **First glance:** each item with its planned date (red
- * once overdue), "Carried from …", a "sent back" note, its own stages ticked (from `md` up; the
- * sheet holds them on a phone) and one action: **Mark done** while open, for whoever ticks. Done
+ * kickoff 7 decisions 16, 26; amendment D; 6b.11). **First glance:** the open deliverables first
+ * (overdue at the top, then by planned date; `orderDeliverables`), each drawn by `DeliverableRow`
+ * (its planned date, "Carried from …", the send-back note, its stage chips in their own column on
+ * a laptop and in miniature on a phone, and one quiet action: **Mark done** while open, for whoever
+ * ticks); done, closed and carried ones in the collapsed "Done and closed (N)" group
+ * (`FinishedDeliverables`). Done
  * is the approval (D3): it locks the item and counts it at once, so it is instant with the
- * 6-second Undo (Today's own delayed send); the sheet's Mark done too. A tap on the title opens the
- * item sheet. Selecting rows offers the bulk "Mark N done" (it asks first, its red button naming
- * it, "Mark 5 items done") and "Tick ‹stage› on N" for the selected items that have a stage of
- * that name (decision 16: per-id results, a failed row keeps its message). "Add item" adds to this
+ * 6-second Undo (Today's own delayed send); the sheet's Mark done too. A tap anywhere on a row
+ * opens the item sheet; its stage chips and "Next: ‹stage›" tick in one tap with an Undo toast
+ * (unit U, `tickWithUndo`). **Select** (6b.16 (e)) turns on Select mode (`useSelectMode`: view state, back
+ * leaves it; the checkboxes show only then); the selected rows' bar (`BulkEditBar`) offers the
+ * bulk "Mark N done" (it asks first, its red button naming it, "Mark 5 items done") and "Tick
+ * ‹stage› on N" for the selected items that have a stage of that name (decision 16: per-id
+ * results, a failed row keeps its message), and for `projects.manage` "Edit N" on the open ones:
+ * set or move planned dates, add a stage group, rename by a pattern (`BulkEditSheet`, one call
+ * each, all or nothing). "Add item" adds to this
  * cycle (never a past one, decision 9). Nothing is reordered under the thumb: the server's list
  * arrives after each change.
  */
@@ -70,7 +83,13 @@ export function CycleItems({
   defaultStages = 0,
   presets = [],
   openItemId = null,
+  solidAllowed = true,
 }: {
+  /**
+   * The screen may carry a solid red Mark done (E+): false while another solid control shows on
+   * the same layer (the month-end "Keep extras" card's neutral solid Yes; §14.1).
+   */
+  solidAllowed?: boolean;
   /** The stage presets, for a deliverable's Edit stages (6b). */
   presets?: readonly StagePresetOption[];
   /** How many default stages a new deliverable starts with (the Add dialog says so). */
@@ -83,7 +102,13 @@ export function CycleItems({
   /** The cycle takes new items: not ended (or one-time), the project workable. */
   canAdd: boolean;
 }) {
-  const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set());
+  const mode = useSelectMode();
+  const { selected, setSelected } = mode;
+  const [editing, setEditing] = useState<BulkEditKind | null>(null);
+  const [editUsed, setEditUsed] = useState(false);
+  // The Select bar's code arrives on the first Select and stays (`BulkEditBar` above).
+  const [barUsed, setBarUsed] = useState(false);
+  if (mode.selectMode && !barUsed) setBarUsed(true);
   const [openId, setOpenId] = useState<string | null>(openItemId);
   // The sheet's code arrives on its first open and stays (`ItemSheet` above).
   const [sheetUsed, setSheetUsed] = useState(openItemId !== null);
@@ -91,6 +116,11 @@ export function CycleItems({
   const [confirming, setConfirming] = useState(false);
   const [confirmUsed, setConfirmUsed] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  // The row tick on its way (unit U): its stage's control waits.
+  const [ticking, setTicking] = useState<string | null>(null);
+  // The Select bar's height: reserved under the list while selecting, so the last row can scroll
+  // clear of the floating bar (unit U).
+  const [barHeight, setBarHeight] = useState(0);
   const [failures, setErrors] = useState<Readonly<Record<string, string>>>({});
   const marks = useUndoSends({
     url: MARK_DONE_URL,
@@ -103,9 +133,10 @@ export function CycleItems({
   const errors = { ...failures, ...marks.errors };
   // Marked done and waiting for the server's list: faded, its action gone (while still open).
   const waiting = (item: ItemView) => marks.held.has(item.id) && item.rules.markDone;
-  const open = items.find((item) => item.id === openId) ?? null;
+  const opened = items.find((item) => item.id === openId) ?? null;
   const selectable = (item: ItemView) =>
-    permissions.tick && (item.rules.markDone || item.rules.ticks);
+    (permissions.tick && (item.rules.markDone || item.rules.ticks)) ||
+    (permissions.manage && item.state === "open");
   const chosen = items.filter((item) => selected.has(item.id) && !waiting(item));
 
   function openSheet(id: string) {
@@ -114,22 +145,12 @@ export function CycleItems({
   }
 
   function markDone(item: ItemView) {
-    setSelected((current) => {
-      if (!current.has(item.id)) return current;
-      const next = new Set(current);
+    if (selected.has(item.id)) {
+      const next = new Set(selected);
       next.delete(item.id);
-      return next;
-    });
+      setSelected(next);
+    }
     marks.start(item.id, item.title);
-  }
-
-  function toggle(id: string) {
-    setSelected((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
   }
 
   async function bulk(
@@ -153,13 +174,49 @@ export function CycleItems({
     const index = items.findIndex((item) => item.id === itemId);
     const position = movedPosition(items, index, direction);
     if (position === null) return;
-    toastResult(await updateItem({ itemId, position }));
+    toastResult(await updateItem({ itemId, position }), {
+      success: `Moved ${items[index]?.title ?? "it"} ${direction}`,
+    });
   }
 
-  const openSelected = chosen.filter((item) => item.rules.markDone);
-  const tickable = chosen.filter((item) => item.rules.ticks);
+  // 6b.11 (1): the open ones first (overdue at the top, then by date), the rest collapsed.
+  const { open, finished } = orderDeliverables(items);
+  // E+: Mark done is quiet until every stage is ticked; the first such row's is the screen's one
+  // solid red commit (never in Select mode, whose bar does it), the others outlined.
+  const canMark = (item: ItemView) => permissions.tick && item.rules.markDone && !waiting(item);
+  const solidId = solidMarkDoneId(open, canMark, solidAllowed && !mode.selectMode);
+  const row = (item: ItemView) => (
+    <DeliverableRow
+      key={item.id}
+      item={item}
+      selecting={mode.selectMode}
+      selectable={selectable(item)}
+      selected={selected.has(item.id)}
+      onToggle={() => mode.onToggle(item.id)}
+      waiting={waiting(item)}
+      action={permissions.tick && item.rules.markDone}
+      look={item.id === solidId ? "solid" : readyToMarkDone(item) ? "ready" : "quiet"}
+      ticks={{
+        // Read-only in Select mode: a tap there selects, and the bar ticks a stage on N.
+        can: permissions.tick && item.rules.ticks && !waiting(item) && !mode.selectMode,
+        pending: ticking,
+        tick: (stage, done) => void tickWithUndo(stage, done, item.title, setTicking),
+      }}
+      onOpen={() => openSheet(item.id)}
+      onMarkDone={() => markDone(item)}
+      error={errors[item.id]}
+    />
+  );
+
+  const openSelected = permissions.tick ? chosen.filter((item) => item.rules.markDone) : [];
+  const tickable = permissions.tick ? chosen.filter((item) => item.rules.ticks) : [];
   // "Tick ‹stage› on N": the names the selected items carry (amendment D2).
   const choices = stageChoices(tickable);
+  // The bulk edits take the open ones, in the list's order (6b.16 (e): "Reel {n}" numbers so).
+  const editable = permissions.manage
+    ? open.filter((item) => selected.has(item.id) && item.state === "open" && !waiting(item))
+    : [];
+  const selectableIds = items.filter(selectable).map((item) => item.id);
 
   return (
     <section aria-labelledby="cycle-items-title" className="flex flex-col gap-2">
@@ -167,194 +224,111 @@ export function CycleItems({
         <h2 id="cycle-items-title" className="text-sm font-medium">
           Deliverables
         </h2>
-        {canAdd && permissions.manage ? (
-          <Button variant="secondary" data-slot="add-item" onClick={() => setAdding(true)}>
-            <PlusIcon aria-hidden />
-            Add deliverable
-          </Button>
-        ) : null}
+        <span className="flex flex-wrap items-center gap-1">
+          {items.length > 0 && (permissions.tick || permissions.manage) ? (
+            <SelectToggle mode={mode} selectableIds={selectableIds} />
+          ) : null}
+          {canAdd && permissions.manage && !mode.selectMode && items.length > 0 ? (
+            <Button variant="secondary" data-slot="add-item" onClick={() => setAdding(true)}>
+              <PlusIcon aria-hidden />
+              Add deliverable
+            </Button>
+          ) : null}
+        </span>
       </div>
+      {mode.selectMode && chosen.length === 0 ? (
+        <p data-slot="select-hint" className="text-muted-foreground text-sm">
+          Select deliverables, then choose an action.
+        </p>
+      ) : null}
       {items.length === 0 ? (
         <EmptyState
           icon={ListPlusIcon}
           size="compact"
-          title="No deliverables in this cycle."
-          description={
-            canAdd && permissions.manage ? "Add deliverables to see their stages." : undefined
+          title={
+            canAdd && permissions.manage
+              ? "No deliverables yet: add one or start from a template."
+              : "No deliverables in this cycle."
+          }
+          action={
+            canAdd && permissions.manage ? (
+              <Button variant="secondary" data-slot="add-item" onClick={() => setAdding(true)}>
+                <PlusIcon aria-hidden />
+                Add deliverable
+              </Button>
+            ) : undefined
           }
         />
       ) : (
-        <ul
-          aria-label="Deliverables"
-          data-slot="cycle-items"
-          className="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border"
-        >
-          {items.map((item) => {
-            const ticked = item.stages.filter((stage) => stage.done).length;
-            const action = permissions.tick && item.rules.markDone;
-            return (
-              <li
-                key={item.id}
-                data-slot="item-row"
-                data-state={item.state}
-                data-held={waiting(item) ? "" : undefined}
-                className={cn(
-                  "flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 transition-opacity sm:px-4",
-                  waiting(item) && "opacity-50",
-                )}
-              >
-                {selectable(item) ? (
-                  // A 44 px target around the box (§14.1).
-                  <label className="-ml-2 flex size-11 shrink-0 cursor-pointer items-center justify-center">
-                    <Checkbox
-                      aria-label={`Select ${item.title}`}
-                      checked={selected.has(item.id)}
-                      disabled={waiting(item)}
-                      onCheckedChange={() => toggle(item.id)}
-                    />
-                  </label>
-                ) : (
-                  <span aria-hidden className="-ml-2 size-11 shrink-0" />
-                )}
-                <button
-                  type="button"
-                  onClick={() => openSheet(item.id)}
-                  data-slot="item-open"
-                  className="pressable-row flex min-h-11 min-w-0 flex-[1_1_8rem] flex-col justify-center gap-0.5 text-left"
-                >
-                  <span
-                    className={cn(
-                      "text-sm font-medium break-words",
-                      (item.state === "cancelled" || item.state === "carried") &&
-                        "text-muted-foreground line-through",
-                    )}
-                  >
-                    {item.title}
-                  </span>
-                  <span className="text-muted-foreground flex flex-wrap gap-x-2 text-xs">
-                    <StatusDot status={ITEM_STATUS[item.state]} label={item.stateLabel} />
-                    {item.planned ? (
-                      <span className={cn(item.planned.overdue && "text-destructive")}>
-                        {item.planned.text}
-                      </span>
-                    ) : null}
-                    {item.carriedFrom ? <span>{item.carriedFrom}</span> : null}
-                    {item.stages.length > 0 ? (
-                      <span className="md:hidden">
-                        Stages {ticked}/{item.stages.length}
-                      </span>
-                    ) : null}
-                  </span>
-                  {item.sentBack ? (
-                    <span className="text-xs break-words" data-slot="item-row-sent-back">
-                      {item.sentBack.verb}: {item.sentBack.reason}
-                    </span>
-                  ) : null}
-                </button>
-                {item.stages.length > 0 ? (
-                  // Each group under its heading with its own "n/m" (6b); the untitled group
-                  // (every list from before groups) has none.
-                  <span
-                    className="hidden min-w-0 flex-wrap items-center gap-x-3 gap-y-1 md:flex"
-                    aria-label="Stages"
-                    data-slot="item-row-stages"
-                  >
-                    {item.groups.map((group) => (
-                      <span
-                        key={group.label ?? ""}
-                        className="inline-flex flex-wrap items-center gap-1"
-                        data-slot="item-row-stage-group"
-                      >
-                        {group.label !== null ? (
-                          <span className="text-muted-foreground mr-1 text-xs font-medium">
-                            {group.label}{" "}
-                            <span className="tabular-nums">
-                              {group.done}/{group.stages.length}
-                            </span>
-                          </span>
-                        ) : null}
-                        {group.stages.map((stage) => (
-                          <span
-                            key={stage.id}
-                            className={cn(
-                              "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs",
-                              stage.done
-                                ? "border-primary/40 bg-primary/10"
-                                : "border-border text-muted-foreground",
-                            )}
-                          >
-                            {stage.done ? <CheckIcon className="size-3" aria-hidden /> : null}
-                            {stage.name}
-                          </span>
-                        ))}
-                      </span>
-                    ))}
-                  </span>
-                ) : null}
-                {action ? (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="ml-auto shrink-0"
-                    disabled={waiting(item)}
-                    data-slot="item-row-done"
-                    onClick={() => markDone(item)}
-                  >
-                    Mark done
-                  </Button>
-                ) : null}
-                {errors[item.id] ? (
-                  <ErrorText className="basis-full">{errors[item.id]}</ErrorText>
-                ) : null}
-              </li>
-            );
-          })}
-        </ul>
+        <>
+          {open.length > 0 ? (
+            <ul
+              aria-label="Deliverables"
+              data-slot="cycle-items"
+              className={cn(
+                "border-border divide-border bg-card divide-y overflow-hidden rounded-lg border",
+                deliverableColumns(mode.selectMode),
+              )}
+            >
+              {open.map(row)}
+            </ul>
+          ) : (
+            <p
+              data-slot="cycle-items-all-finished"
+              className="text-muted-foreground border-border rounded-lg border border-dashed px-4 py-3 text-sm"
+            >
+              Nothing open: every deliverable is done or closed.
+            </p>
+          )}
+          <FinishedDeliverables count={finished.length} selecting={mode.selectMode}>
+            {finished.map(row)}
+          </FinishedDeliverables>
+        </>
       )}
-      <BulkBar count={chosen.length} onClear={() => setSelected(new Set())} noun="selected">
-        {permissions.tick && openSelected.length > 0 ? (
-          // A trigger that opens a confirmation: neutral solid; the red commit names it (§14.1).
-          <Button
-            variant="strong"
-            size="sm"
-            pending={busy === "bulk-done"}
-            pendingLabel="Marking done…"
-            data-slot="bulk-mark-done"
-            onClick={() => {
-              setConfirmUsed(true);
-              setConfirming(true);
-            }}
-          >
-            Mark {openSelected.length} done
-          </Button>
-        ) : null}
-        {permissions.tick && choices.length > 0 ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="secondary" size="sm" data-slot="bulk-tick">
-                Tick a stage
-                <ChevronDownIcon aria-hidden />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              {choices.map((choice) => (
-                <DropdownMenuItem
-                  key={choice.key}
-                  onSelect={() =>
-                    void bulk(
-                      "bulk-tick",
-                      () => tickStages({ stageIds: choice.stageIds }),
-                      `ticked ${choice.name}`,
-                    )
-                  }
-                >
-                  Tick {choice.name} on {choice.stageIds.length}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ) : null}
-      </BulkBar>
+      {barUsed ? (
+        <BulkEditBar
+          count={chosen.length}
+          onClear={() => setSelected(new Set())}
+          markable={openSelected.length}
+          marking={busy === "bulk-done"}
+          onMarkDone={() => {
+            setConfirmUsed(true);
+            setConfirming(true);
+          }}
+          choices={choices}
+          onTick={(choice) =>
+            void bulk(
+              "bulk-tick",
+              () => tickStages({ stageIds: choice.stageIds }),
+              `ticked ${choice.name}`,
+            )
+          }
+          editable={editable.length}
+          onEdit={(kind) => {
+            setEditUsed(true);
+            setEditing(kind);
+          }}
+          onHeight={setBarHeight}
+        />
+      ) : null}
+      {mode.selectMode ? (
+        // In flow under the list, only in Select mode: the bar's height plus its 12 px gap, or a
+        // bar's usual height before one shows (no shift outside Select mode).
+        <div
+          aria-hidden
+          data-slot="select-bar-space"
+          className="h-16 shrink-0"
+          style={barHeight > 0 ? { height: barHeight + 12 } : undefined}
+        />
+      ) : null}
+      {editUsed ? (
+        <BulkEditSheet
+          kind={editing}
+          items={editable.map((item) => ({ id: item.id, title: item.title }))}
+          presets={presets}
+          onClose={() => setEditing(null)}
+        />
+      ) : null}
       {confirmUsed ? (
         <ConfirmDialog
           open={confirming}
@@ -380,9 +354,9 @@ export function CycleItems({
       ) : null}
       {sheetUsed ? (
         <ItemSheet
-          item={open}
+          item={opened}
           permissions={permissions}
-          open={open !== null}
+          open={opened !== null}
           onOpenChange={(next) => {
             if (next) return;
             setOpenId(null);
@@ -395,6 +369,13 @@ export function CycleItems({
             }
           }}
           onMove={permissions.manage ? (id, direction) => void move(id, direction) : undefined}
+          canMove={(id, direction) =>
+            movedPosition(
+              items,
+              items.findIndex((item) => item.id === id),
+              direction,
+            ) !== null
+          }
           onMarkDone={markDone}
           presets={presets}
         />

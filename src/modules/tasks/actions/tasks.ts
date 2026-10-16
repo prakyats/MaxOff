@@ -1,7 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
+import { revalidateScreens } from "@/core/lib/revalidate-screens";
 import { validateCustomFieldsFor } from "@/core/custom-fields/server";
 import { action, AppError, ok, type Result } from "@/core/errors";
 import { dispatchPushSoon } from "@/core/notifications/push/dispatch";
@@ -17,8 +16,12 @@ import {
   commentSchema,
   type CreateTaskInput,
   createTaskSchema,
+  type MoveStageInput,
+  moveStageSchema,
   type ReasonInput,
   reasonSchema,
+  type RemindInput,
+  remindSchema,
   type RemoveStageInput,
   removeStageSchema,
   type ReviewInput,
@@ -33,6 +36,7 @@ import {
   updateTaskSchema,
   type WarningsInput,
 } from "../domain/schemas";
+import { remindAgainLabel } from "../domain/task";
 
 /**
  * Staff tasks (4.3, 4.4; ARCHITECTURE §4): zod → `assertPermission()` → the repository (a
@@ -42,16 +46,12 @@ import {
  * 5.1 (WORKFLOWS §9); nothing here sends one.
  */
 
-function taskPath(taskId: string): string {
-  return `/tasks/${taskId}`;
-}
-
 /**
  * A task's state changed: its page, the lists and the badges (the Tasks and Approvals counts live
  * in the `(app)` layout, 4.5), so the whole signed-in tree refreshes, as Approvals does.
  */
 function refresh(): void {
-  revalidatePath("/", "layout");
+  revalidateScreens();
 }
 
 function warningRows(warnings: WarningsInput) {
@@ -79,7 +79,7 @@ export const createTask = action(
         templateId: data.templateId,
       },
     );
-    revalidatePath("/", "layout");
+    revalidateScreens();
     dispatchPushSoon();
     return ok({ id });
   },
@@ -168,6 +168,22 @@ export const reopenTask = action(async (input: ReasonInput): Promise<Result<null
   return ok(null);
 });
 
+/**
+ * Remind (6b.2): the task's creator, its approving Admin or the Owner asks its people about it, at
+ * most once an hour (`task_remind` decides who, when and how often). Returns when it can be used
+ * again, so the button says so.
+ */
+export const remindTask = action(
+  async (input: RemindInput): Promise<Result<{ againAt: string; label: string }>> => {
+    const data = remindSchema.parse(input);
+    await assertPermission("tasks.create");
+    const againAt = await repo.rpcRemind(data.taskId);
+    revalidateScreens();
+    dispatchPushSoon();
+    return ok({ againAt, label: remindAgainLabel(againAt) });
+  },
+);
+
 /** The Owner changes or removes the approving Admin (`task_set_approver`). */
 export const setTaskApprover = action(async (input: SetApproverInput): Promise<Result<null>> => {
   const data = setApproverSchema.parse(input);
@@ -182,7 +198,7 @@ export const tickStage = action(async (input: TickStageInput): Promise<Result<nu
   const data = tickStageSchema.parse(input);
   await assertPermission("tasks.work");
   await repo.setStageDone(data);
-  revalidatePath(taskPath(data.taskId));
+  revalidateScreens();
   return ok(null);
 });
 
@@ -190,7 +206,7 @@ export const addTaskStage = action(async (input: AddStageInput): Promise<Result<
   const data = addStageSchema.parse(input);
   await assertPermission("tasks.create");
   await repo.addStage(data.taskId, data.name);
-  revalidatePath(taskPath(data.taskId));
+  revalidateScreens();
   return ok(null);
 });
 
@@ -198,7 +214,20 @@ export const removeTaskStage = action(async (input: RemoveStageInput): Promise<R
   const data = removeStageSchema.parse(input);
   await assertPermission("tasks.create");
   await repo.removeStage(data.taskId, data.stageId);
-  revalidatePath(taskPath(data.taskId));
+  revalidateScreens();
+  return ok(null);
+});
+
+/**
+ * Drag to reorder (6b.18, owner 2026-10-15): only whoever may edit the task moves its stages (the
+ * Owner, its creator, its approving Admin), never Crew; `task_stage_move` decides who, when, and
+ * keeps the ticks.
+ */
+export const moveTaskStage = action(async (input: MoveStageInput): Promise<Result<null>> => {
+  const data = moveStageSchema.parse(input);
+  await assertPermission("tasks.create");
+  await repo.rpcMoveStage(data);
+  revalidateScreens();
   return ok(null);
 });
 
@@ -206,7 +235,7 @@ export const addTaskComment = action(async (input: CommentInput): Promise<Result
   const data = commentSchema.parse(input);
   await assertPermission("tasks.work");
   await repo.addComment(data);
-  revalidatePath(taskPath(data.taskId));
+  revalidateScreens();
   dispatchPushSoon();
   return ok(null);
 });

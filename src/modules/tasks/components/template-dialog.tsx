@@ -1,6 +1,6 @@
 "use client";
 
-import { PlusIcon, XIcon } from "lucide-react";
+import { PlusIcon } from "lucide-react";
 import { type FormEvent, useState } from "react";
 
 import type { FieldDefinition } from "@/core/custom-fields";
@@ -36,6 +36,7 @@ import {
   SelectValue,
 } from "@/core/ui/primitives/select";
 import { Textarea } from "@/core/ui/primitives/textarea";
+import { ReorderNameList } from "@/core/ui/reorder/name-list";
 import { describeError, toastResult } from "@/core/ui/toast";
 
 import { saveTemplate } from "../actions/templates";
@@ -281,30 +282,17 @@ export function TemplateDialog({
               <legend className="mb-1.5 text-sm font-medium">
                 Stages <span className="text-muted-foreground font-normal">(optional)</span>
               </legend>
-              {stages.map((stage, index) => (
-                <div key={index} className="flex items-center gap-1">
-                  <Input
-                    aria-label={`Stage ${index + 1}`}
-                    value={stage}
-                    maxLength={STAGE_NAME_MAX}
-                    autoComplete="off"
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      setStages((current) => current.map((s, at) => (at === index ? value : s)));
-                    }}
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="size-11 shrink-0"
-                    aria-label={`Remove stage ${index + 1}`}
-                    onClick={() => setStages((current) => current.filter((_, at) => at !== index))}
-                  >
-                    <XIcon aria-hidden />
-                  </Button>
-                </div>
-              ))}
+              <ReorderNameList
+                names={stages}
+                onChange={setStages}
+                label="Stages"
+                itemLabel={(index) => `Stage ${index + 1}`}
+                removeLabel="Remove stage"
+                namePrefix="stage"
+                maxLength={STAGE_NAME_MAX}
+                disabled={pending}
+                slot="template-stage"
+              />
               {fieldErrors["template.stages"] ? (
                 <ErrorText slot="field-error">{fieldErrors["template.stages"]}</ErrorText>
               ) : null}

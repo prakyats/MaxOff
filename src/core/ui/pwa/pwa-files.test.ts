@@ -127,6 +127,11 @@ describe("sw.js", () => {
     expect(sw).toContain("(held ?? fetchNavigation(request))");
   });
 
+  it("never enables navigation preload (P2, ADR-0014: it hides documents from the e2e routes)", () => {
+    expect(sw).not.toContain("navigationPreload");
+    expect(sw).not.toContain("preloadResponse");
+  });
+
   it("never intercepts API calls, other origins or non-GET requests", () => {
     expect(sw).toContain('request.method !== "GET"');
     expect(sw).toContain('url.pathname.startsWith("/api/")');
@@ -148,7 +153,9 @@ describe("sw.js", () => {
   it("shows a push, opens its link through the deep-link entry and re-subscribes on change (5.2)", () => {
     // v7: the push handler shows the group's large picture (owner decision 2026-10-02).
     // v8: the launch screen (walk note 3, 2026-10-08).
-    expect(sw).toMatch(/VERSION = "v8"/);
+    // v9: the instant skeleton (P2, ADR-0014): router prefetches of proven skeletons.
+    // v10: kept skeletons keyed by what the answer varies by, not the page that asked (2026-10-16).
+    expect(sw).toMatch(/VERSION = "v10"/);
     expect(sw).toContain('addEventListener("push"');
     expect(sw).toContain("self.registration.showNotification(message.title");
     // The tap lands on the record with its list underneath (ARCHITECTURE §14.2 h).

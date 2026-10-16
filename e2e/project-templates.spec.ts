@@ -7,6 +7,8 @@ import {
   hydrated,
   insertAs,
   memberIdOf,
+  removeClientFixture,
+  rpcAs,
   runInstalled,
   serviceInsert,
   serviceRest,
@@ -85,7 +87,7 @@ async function valuesOf(inputs: Locator): Promise<string[]> {
  */
 async function openPreview(page: Page, form: Locator): Promise<Locator> {
   if (!phone(page)) return form;
-  await form.getByRole("button", { name: "Preview" }).click();
+  await form.getByRole("button", { name: "Preview and save" }).click();
   const preview = page.getByRole("dialog", { name: "Preview" });
   await expect(preview).toBeVisible();
   return preview;
@@ -203,6 +205,10 @@ test("a template of 6 deliverables × 3 groups from presets, reordered by drag, 
   await preview.getByRole("button", { name: "Add template" }).click();
   await expect(preview).toBeHidden();
   await expect(dialog).toBeHidden();
+  // The toast says what just happened and where it shows up.
+  await expect(
+    page.getByText(`Added ${name}: New project offers it under Start from`),
+  ).toBeVisible();
   const row = page.locator('[data-slot="project-template"]', { hasText: name });
   await expect(row).toContainText("6 deliverables · 36 stages");
 
@@ -349,17 +355,24 @@ test("a template from before groups opens with its stages on each item, and keep
 test("the preview's summary stays in view while its list scrolls", async ({ page }, info) => {
   const name = nameOf(info, "long");
   await removeTemplate(name);
-  // Twelve deliverables whose names form no run, so none collapses and the list is long.
+  // Twelve deliverables, no two neighbours identical, so none collapses and the list is long.
   const groups = [
     { label: "Phase A", stages: ["One", "Two", "Three"] },
     { label: "Phase B", stages: ["Four", "Five"] },
+  ];
+  const others = [
+    { label: "Phase A", stages: ["One", "Two"] },
+    { label: "Phase B", stages: ["Three", "Four", "Five"] },
   ];
   const titles = "ABCDEFGHIJKL".split("").map((letter) => `Item ${letter}`);
   await insertAs(USERS.admin.email, USERS.admin.password, "project_templates", {
     name,
     recurrence: "monthly",
     stage_groups: [],
-    deliverables: titles.map((title) => ({ title, stage_groups: groups })),
+    deliverables: titles.map((title, index) => ({
+      title,
+      stage_groups: index % 2 === 0 ? groups : others,
+    })),
   });
   await page.goto("/settings/templates");
   await hydrated(page);
@@ -389,6 +402,88 @@ test("the preview's summary stays in view while its list scrolls", async ({ page
       return pinned.y >= area.y - 1 && pinned.y <= area.y + 24;
     })
     .toBe(true);
+  await removeTemplate(name);
+});
+
+test("the preview collapses identical neighbours, and a change highlights its own card (v1.7.1)", async ({
+  page,
+}, info) => {
+  const name = nameOf(info, "identical");
+  await removeTemplate(name);
+  const own = [{ label: "Phase A", stages: ["One", "Two"] }];
+  const banner = [{ label: "Phase B", stages: ["Three"] }];
+  await insertAs(USERS.admin.email, USERS.admin.password, "project_templates", {
+    name,
+    recurrence: "monthly",
+    stage_groups: [{ label: null, stages: ["One", "Two", "Three", "Four"] }],
+    deliverables: [
+      { title: "Teaser", stage_groups: null },
+      { title: "Cutdown", stage_groups: null },
+      { title: "Poster", stage_groups: own },
+      { title: "Banner", stage_groups: banner },
+    ],
+  });
+  await page.goto("/settings/templates");
+  await hydrated(page);
+  const row = page.locator('[data-slot="project-template"]', { hasText: name });
+  await row.getByRole("button", { name: `Edit ${name}` }).click();
+  const dialog = page.getByRole("dialog", { name: `Edit ${name}` });
+  await expect(dialog).toBeVisible();
+  const preview = await openPreview(page, dialog);
+  const entries = preview.locator('[data-slot="preview-deliverable"]');
+
+  // Identical neighbours that are not a numbered run: one entry, "Teaser, Cutdown" ×2.
+  await expect(entries.locator('[data-slot="preview-deliverable-title"]')).toHaveText([
+    "Teaser, Cutdown",
+    "Poster",
+    "Banner",
+  ]);
+  await expect(entries.locator('[data-slot="preview-quantity"]')).toHaveText(["×2"]);
+  await expect(entries.locator('[data-slot="preview-entry-counts"]')).toHaveText([
+    "4 stages each",
+    "1 group · 2 stages",
+    "1 group · 1 stage",
+  ]);
+  // Each card's stage dots, none ticked yet (the progress meter's language).
+  await expect(entries.locator('[data-slot="preview-stage-dots"]')).toHaveCount(3);
+  await expect(entries.first().locator('[data-slot="preview-stage-dots"]')).toHaveAttribute(
+    "data-total",
+    "4",
+  );
+  await entries.first().locator('[data-slot="preview-run-toggle"]').click();
+  await expect(entries.first().locator('[data-slot="preview-run-names"] li')).toHaveText([
+    "Teaser",
+    "Cutdown",
+  ]);
+  await expectNoHorizontalScroll(page);
+
+  if (!phone(page)) {
+    // A laptop edits beside the preview: the cards are keyed to their deliverables. Banner's
+    // card is marked, moved up a place, then renamed: it stays the same card (never Poster's),
+    // and only it flashes.
+    const card = (title: string) =>
+      entries.filter({
+        has: page.locator('[data-slot="preview-deliverable-title"]', { hasText: title }),
+      });
+    await card("Banner").evaluate((node) => {
+      (node as HTMLElement).dataset.probe = "banner";
+    });
+    await dialog.getByRole("button", { name: "Actions for Banner" }).click();
+    await page.getByRole("menuitem", { name: "Move up" }).click();
+    await expect(entries.locator('[data-slot="preview-deliverable-title"]')).toHaveText([
+      "Teaser, Cutdown",
+      "Banner",
+      "Poster",
+    ]);
+    await expect(card("Banner")).toHaveAttribute("data-probe", "banner");
+    await expect(card("Poster")).not.toHaveAttribute("data-probe", "banner");
+    const moved = dialog.locator('[data-slot="deliverable"]', { hasText: "Banner" });
+    await moved.locator('[data-slot="deliverable-toggle"]').click();
+    await moved.locator('[data-slot="deliverable-title-input"]').fill("Banner final");
+    await expect(card("Banner final")).toHaveAttribute("data-probe", "banner");
+    await expect(card("Banner final")).toHaveAttribute("data-changed", "");
+    await expect(card("Poster")).not.toHaveAttribute("data-changed", "");
+  }
   await removeTemplate(name);
 });
 
@@ -439,7 +534,7 @@ test.describe("the template builder's layers, installed (ARCHITECTURE §14.2)", 
 
     // A phone's Preview is its own layer: back returns to the form.
     if (phone(page)) {
-      await dialog.getByRole("button", { name: "Preview" }).click();
+      await dialog.getByRole("button", { name: "Preview and save" }).click();
       const preview = page.getByRole("dialog", { name: "Preview" });
       await expect(preview).toBeVisible();
       await expectBackStack(page, [{ closes: preview, url: here }]);
@@ -461,5 +556,392 @@ test.describe("the template builder's layers, installed (ARCHITECTURE §14.2)", 
     await expect(dialog).toBeHidden();
     await expect(page).toHaveURL(here);
     await removePresets([preset]);
+  });
+});
+
+/* -------------------------------------------------------------------------------------------------
+ * Release 2 (v1.7.1; ROADMAP 6b.13 (2)(b), 6b.16 (f)): Save as template from a project, deliverable
+ * templates in Settings, the library's search and preview, and who may edit which template.
+ * ---------------------------------------------------------------------------------------------- */
+
+async function removeDeliverableTemplate(name: string): Promise<void> {
+  await serviceRest(`deliverable_templates?name=eq.${encodeURIComponent(name)}`, {
+    method: "DELETE",
+  });
+}
+
+/** An Active client run by the seeded Admin, removed first. */
+async function workClient(name: string): Promise<string> {
+  await removeClientFixture(name);
+  const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+  const row = await serviceInsert<{ id: string }>("clients", {
+    org_id: org?.id,
+    name,
+    admin_id: await memberIdOf(USERS.admin.email),
+  });
+  await rpcAs(USERS.owner.email, USERS.owner.password, "client_activate", { client_id: row.id });
+  return row.id;
+}
+
+test("a today-shape project saved as a template: its deliverables and groups, the project unchanged", async ({
+  page,
+}, info) => {
+  const client = nameOf(info, "save client");
+  const template = nameOf(info, "saved month");
+  await removeTemplate(template);
+  const clientId = await workClient(client);
+  const admin = USERS.admin;
+  // As the team's projects are: plain stages, an item list, a tick, a date and a note.
+  const projectId = await rpcAs<string>(admin.email, admin.password, "project_create", {
+    client_id: clientId,
+    name: "Existing work",
+    recurrence: "monthly",
+    stages: ["Stage 1", "Stage 2"],
+    items: ["Item 1", "Item 2"],
+  });
+  const [one] = await serviceSelect<{ id: string }>(
+    `project_items?project_id=eq.${projectId}&title=eq.Item%201&select=id`,
+  );
+  const [tick] = await serviceSelect<{ id: string }>(
+    `project_item_stage_list?item_id=eq.${one!.id}&name=eq.Stage%201&select=id`,
+  );
+  await rpcAs(admin.email, admin.password, "item_stage_tick", { stage_id: tick!.id, done: true });
+  await rpcAs(admin.email, admin.password, "item_update", {
+    item_id: one!.id,
+    changes: { notes: "Kept as it is" },
+  });
+  // One line with groups of its own (the Release 1 shape beside today's).
+  const [line] = await serviceSelect<{ id: string }>(
+    `project_item_blueprints?project_id=eq.${projectId}&title=eq.Item%202&select=id`,
+  );
+  await rpcAs(admin.email, admin.password, "project_blueprint_update", {
+    blueprint_id: line!.id,
+    changes: {
+      stage_groups: [
+        { label: null, stages: ["Stage 1"] },
+        { label: "Phase A", stages: ["One", "Two"] },
+      ],
+    },
+  });
+
+  const of = (table: string, column = "project_id") =>
+    serviceSelect<{ id: string }>(`${table}?${column}=eq.${projectId}&select=*&order=id`);
+  const snapshot = async () => ({
+    project: await of("projects", "id"),
+    stages: await of("project_stages"),
+    lines: await of("project_item_blueprints"),
+    cycles: await of("project_cycles"),
+    items: await of("project_items"),
+    ticks: await of("project_item_stage_list"),
+  });
+  const before = await snapshot();
+  const ids = [
+    projectId,
+    ...before.items.map((row) => row.id),
+    ...before.lines.map((row) => row.id),
+    ...before.stages.map((row) => row.id),
+  ];
+  const history = `activity_log?entity_id=in.(${ids.join(",")})&select=id,entity,entity_id,action,diff,meta,at&order=id`;
+  const historyBefore = await serviceSelect<{ id: number }>(history);
+
+  await page.goto(`/clients/${clientId}/projects/${projectId}`);
+  await hydrated(page);
+  await page.getByRole("button", { name: "Actions for Existing work" }).click();
+  await page.getByRole("menuitem", { name: "Save as template" }).click();
+  const dialog = page.getByRole("dialog", { name: "Save as template" });
+  await expect(dialog.getByLabel("Template name")).toHaveValue("Existing work");
+  await dialog.getByLabel("Template name").fill(template);
+  await dialog.getByRole("button", { name: "Save template" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByText(`Saved as the template ${template}`)).toBeVisible();
+
+  const [saved] = await serviceSelect<TemplateRow & { recurrence: string }>(
+    `project_templates?name=eq.${encodeURIComponent(template)}&archived_at=is.null&select=id,recurrence,stages,items,stage_groups,deliverables`,
+  );
+  expect(saved?.recurrence).toBe("monthly");
+  expect(saved?.stage_groups).toEqual([{ label: null, stages: ["Stage 1", "Stage 2"] }]);
+  expect(saved?.deliverables).toEqual([
+    { title: "Item 1", stage_groups: [{ label: null, stages: ["Stage 1", "Stage 2"] }] },
+    {
+      title: "Item 2",
+      stage_groups: [
+        { label: null, stages: ["Stage 1"] },
+        { label: "Phase A", stages: ["One", "Two"] },
+      ],
+    },
+  ]);
+  expect(saved?.stages).toEqual(["Stage 1", "Stage 2"]);
+  expect(saved?.items).toEqual(["Item 1", "Item 2"]);
+
+  // Nothing on the project changed: every tick, date, note, line and history row as it was, and
+  // one new history row says what happened.
+  expect(await snapshot()).toEqual(before);
+  const historyAfter = await serviceSelect<{
+    id: number;
+    entity: string;
+    action: string;
+    meta: unknown;
+  }>(history);
+  expect(historyAfter.slice(0, historyBefore.length)).toEqual(historyBefore);
+  expect(
+    historyAfter.slice(historyBefore.length).map((row) => [row.entity, row.action, row.meta]),
+  ).toEqual([["projects", "saved_as_template", { template_id: saved?.id, name: template }]]);
+
+  // The toast leads to Settings → Templates, where it is listed with its counts.
+  await page.getByRole("button", { name: "Open templates" }).click();
+  await expect(page).toHaveURL(/\/settings\/templates$/);
+  await expect(page.locator('[data-slot="project-template"]', { hasText: template })).toContainText(
+    "2 deliverables · 5 stages",
+  );
+  await removeClientFixture(client);
+  await removeTemplate(template);
+});
+
+test("the library's search narrows both lists; a preview opens and back closes it", async ({
+  page,
+}, info) => {
+  const alpha = nameOf(info, "lib alpha");
+  const beta = nameOf(info, "lib beta");
+  const gamma = nameOf(info, "lib gamma");
+  for (const name of [alpha, beta]) await removeTemplate(name);
+  await removeDeliverableTemplate(gamma);
+  const groups = [{ label: "Phase A", stages: ["One", "Two"] }];
+  // A word only alpha's deliverable carries, made for this run.
+  const word = `kite${info.project.name.replace(/[^a-z]/g, "")}`;
+  await insertAs(USERS.admin.email, USERS.admin.password, "project_templates", {
+    name: alpha,
+    recurrence: "monthly",
+    stage_groups: [],
+    deliverables: [{ title: `Item ${word}`, stage_groups: groups }],
+  });
+  await insertAs(USERS.admin.email, USERS.admin.password, "project_templates", {
+    name: beta,
+    recurrence: "weekly",
+    stage_groups: [],
+    deliverables: [{ title: "Item", stage_groups: null }],
+  });
+  await insertAs(USERS.admin.email, USERS.admin.password, "deliverable_templates", {
+    name: gamma,
+    stage_groups: groups,
+  });
+  await runInstalled(page);
+  await page.goto("/settings/templates");
+  await hydrated(page);
+  const here = /\/settings\/templates$/;
+  const projectRow = (name: string) =>
+    page.locator('[data-slot="project-template"]', { hasText: name });
+  const deliverableRow = (name: string) =>
+    page.locator('[data-slot="deliverable-template"]', { hasText: name });
+  await expect(projectRow(alpha)).toBeVisible();
+  await expect(projectRow(beta)).toBeVisible();
+  await expect(deliverableRow(gamma)).toBeVisible();
+
+  // Each row says what its buttons do ("say what it does", v1.7.1): Preview in words, Edit and
+  // Archive named for the template (a tooltip on a laptop too), each a 44px target.
+  for (const [row, name] of [
+    [projectRow(alpha), alpha],
+    [deliverableRow(gamma), gamma],
+  ] as const) {
+    await expect(row.getByRole("button", { name: `Preview ${name}` })).toHaveText("Preview");
+    for (const verb of ["Edit", "Archive"]) {
+      const button = row.getByRole("button", { name: `${verb} ${name}` });
+      await expect(button).toHaveAttribute("title", `${verb} ${name}`);
+      expect((await boxOf(button)).h).toBeGreaterThanOrEqual(44);
+    }
+  }
+
+  // A deliverable's title finds its template; the others leave, both lists at once.
+  const search = page.getByRole("searchbox", { name: "Search project and deliverable templates" });
+  await search.fill(word);
+  await expect(projectRow(alpha)).toBeVisible();
+  await expect(projectRow(beta)).toHaveCount(0);
+  await expect(deliverableRow(gamma)).toHaveCount(0);
+  await expect(page.locator('[data-slot="deliverable-templates-none"]')).toBeVisible();
+  await search.fill(gamma);
+  await expect(deliverableRow(gamma)).toBeVisible();
+  await expect(projectRow(alpha)).toHaveCount(0);
+  await expectNoHorizontalScroll(page);
+
+  // The preview: what a project from it gets; back closes it and only it (the search is a view
+  // control: it added no history, so the page stays).
+  await search.fill(word);
+  await projectRow(alpha)
+    .getByRole("button", { name: `Preview ${alpha}` })
+    .click();
+  const preview = page.getByRole("dialog", { name: `Preview ${alpha}` });
+  await expect(preview).toBeVisible();
+  await expect(preview.locator('[data-slot="preview-deliverable-title"]')).toHaveText([
+    `Item ${word}`,
+  ]);
+  await expect(preview.locator('[data-slot="preview-group-label"]')).toHaveText(["Phase A"]);
+  await expectBackStack(page, [{ closes: preview, url: here }]);
+  await expect(search).toHaveValue(word);
+
+  // A deliverable template's preview too.
+  await search.fill(gamma);
+  await deliverableRow(gamma)
+    .getByRole("button", { name: `Preview ${gamma}` })
+    .click();
+  const second = page.getByRole("dialog", { name: `Preview ${gamma}` });
+  await expect(second.locator('[data-slot="preview-stage"]')).toHaveText(["One", "Two"]);
+  await expectBackStack(page, [{ closes: second, url: here }]);
+  for (const name of [alpha, beta]) await removeTemplate(name);
+  await removeDeliverableTemplate(gamma);
+});
+
+test("deliverable templates: an Admin adds and archives their own, edits only theirs; the Owner any; the builder offers them", async ({
+  page,
+  browser,
+}, info) => {
+  const mine = nameOf(info, "dt mine");
+  const theirs = nameOf(info, "dt owner");
+  const other = nameOf(info, "dt other");
+  for (const name of [mine, theirs, other]) await removeDeliverableTemplate(name);
+  await insertAs(USERS.owner.email, USERS.owner.password, "deliverable_templates", {
+    name: theirs,
+    stage_groups: [{ label: null, stages: ["One"] }],
+  });
+  await insertAs(USERS.admin.email, USERS.admin.password, "deliverable_templates", {
+    name: other,
+    stage_groups: [{ label: "Phase B", stages: ["Three", "Four"] }],
+  });
+
+  await page.goto("/settings/templates");
+  await hydrated(page);
+  // Add one: a typed group in the StageGroupsEditor, the live preview, then Add.
+  await page.getByRole("button", { name: "Add a deliverable template" }).click();
+  const dialog = page.getByRole("dialog", { name: "Add a deliverable template" });
+  await dialog.getByLabel("Name", { exact: true }).fill(mine);
+  await dialog.getByRole("button", { name: "Add a group" }).click();
+  await dialog.getByLabel("New group", { exact: true }).fill("Phase A");
+  await dialog.getByLabel("Stages of the new group").fill("One\nTwo");
+  await dialog.getByRole("button", { name: "Add group" }).click();
+  await expectValues(dialog.locator('[data-slot="group-name"]'), ["Phase A"]);
+  if (phone(page)) {
+    await dialog.getByRole("button", { name: "Preview and save" }).click();
+    const layer = page.getByRole("dialog", { name: "Preview" });
+    await expect(layer.locator('[data-slot="preview-stage"]')).toHaveText(["One", "Two"]);
+    await layer.getByRole("button", { name: "Add template" }).click();
+  } else {
+    await expect(
+      dialog.locator('[data-slot="deliverable-template-preview"] [data-slot="preview-stage"]'),
+    ).toHaveText(["One", "Two"]);
+    await dialog.getByRole("button", { name: "Add template" }).click();
+  }
+  await expect(dialog).toBeHidden();
+  const row = (name: string) =>
+    page.locator('[data-slot="deliverable-template"]', { hasText: name });
+  await expect(row(mine)).toContainText("1 group · 2 stages · by you");
+  const [saved] = await serviceSelect<{ stage_groups: unknown }>(
+    `deliverable_templates?name=eq.${encodeURIComponent(mine)}&select=stage_groups`,
+  );
+  expect(saved?.stage_groups).toEqual([{ label: "Phase A", stages: ["One", "Two"] }]);
+
+  // The Owner's: previewed, never edited or archived by the Admin.
+  await expect(row(theirs).getByRole("button", { name: `Preview ${theirs}` })).toBeVisible();
+  await expect(row(theirs).getByRole("button", { name: `Edit ${theirs}` })).toHaveCount(0);
+  await expect(row(theirs).getByRole("button", { name: `Archive ${theirs}` })).toHaveCount(0);
+
+  // The project template builder's "Add deliverables" row offers them: the groups come along.
+  await page.getByRole("button", { name: "Add a project template" }).click();
+  const builder = page.getByRole("dialog", { name: "Add a project template" });
+  const add = builder.locator('[data-slot="add-deliverables"]');
+  await add.getByRole("combobox", { name: "From a deliverable template" }).click();
+  await page.getByRole("option", { name: other }).click();
+  await expect(add.getByLabel("Deliverable name")).toHaveValue(other);
+  await add.getByLabel("How many").fill("2");
+  await add.getByRole("button", { name: "Add", exact: true }).click();
+  const made = builder.locator('[data-slot="deliverable"]');
+  await expect(made.locator('[data-slot="deliverable-title"]')).toHaveText([
+    `${other} 1`,
+    `${other} 2`,
+  ]);
+  await expect(made.locator('[data-slot="deliverable-subtitle"]')).toHaveText([
+    "Own stages · 1 group · 2 stages",
+    "Own stages · 1 group · 2 stages",
+  ]);
+  await builder.getByRole("button", { name: "Cancel" }).click();
+  await page
+    .getByRole("alertdialog", { name: "Discard this template?" })
+    .getByRole("button", { name: "Discard template" })
+    .click();
+  await expect(builder).toBeHidden();
+
+  // Archive their own: a reason first; the archived row keeps it.
+  await row(mine)
+    .getByRole("button", { name: `Archive ${mine}` })
+    .click();
+  const archive = page.getByRole("dialog", { name: `Archive ${mine}?` });
+  await archive.getByLabel("Why archive it").fill("Not used any more");
+  await archive.getByRole("button", { name: `Archive ${mine}` }).click();
+  await expect(archive).toBeHidden();
+  await expect(
+    page.locator('[data-slot="archived-deliverable-template"]', { hasText: mine }),
+  ).toContainText("Not used any more");
+
+  // The Owner edits any template, an Admin's too, and restores an archived one.
+  const context = await browser.newContext({ storageState: storageStateFor("owner") });
+  const ownerPage = await context.newPage();
+  await ownerPage.goto("/settings/templates");
+  await hydrated(ownerPage);
+  const ownerRow = (name: string) =>
+    ownerPage.locator('[data-slot="deliverable-template"]', { hasText: name });
+  await expect(ownerRow(other).getByRole("button", { name: `Edit ${other}` })).toBeVisible();
+  await expect(ownerRow(theirs).getByRole("button", { name: `Edit ${theirs}` })).toBeVisible();
+  await ownerRow(other)
+    .getByRole("button", { name: `Edit ${other}` })
+    .click();
+  const edit = ownerPage.getByRole("dialog", { name: `Edit ${other}` });
+  await edit.getByLabel("Name", { exact: true }).fill(`${other} v2`);
+  if (phone(ownerPage)) {
+    await edit.getByRole("button", { name: "Preview and save" }).click();
+    await ownerPage
+      .getByRole("dialog", { name: "Preview" })
+      .getByRole("button", { name: "Save template" })
+      .click();
+  } else {
+    await edit.getByRole("button", { name: "Save template" }).click();
+  }
+  await expect(edit).toBeHidden();
+  await expect(ownerRow(`${other} v2`)).toBeVisible();
+  await ownerPage
+    .locator('[data-slot="archived-deliverable-template"]', { hasText: mine })
+    .getByRole("button", { name: "Restore" })
+    .click();
+  await expect(ownerRow(mine)).toBeVisible();
+  await context.close();
+  for (const name of [mine, theirs, other, `${other} v2`]) await removeDeliverableTemplate(name);
+});
+
+test.describe("the deliverable template builder's layers, installed (ARCHITECTURE §14.2)", () => {
+  test("back closes the Preview, then asks before losing the typed template", async ({ page }) => {
+    await runInstalled(page);
+    await page.goto("/settings/templates");
+    await hydrated(page);
+    const here = /\/settings\/templates$/;
+    await page.getByRole("button", { name: "Add a deliverable template" }).click();
+    const dialog = page.getByRole("dialog", { name: "Add a deliverable template" });
+    await expect(dialog).toBeVisible();
+    await expectBackStack(page, [{ closes: dialog, url: here }]);
+
+    await page.getByRole("button", { name: "Add a deliverable template" }).click();
+    await dialog.getByLabel("Name", { exact: true }).fill("Half a template");
+    if (phone(page)) {
+      await dialog.getByRole("button", { name: "Preview and save" }).click();
+      const preview = page.getByRole("dialog", { name: "Preview" });
+      await expect(preview).toBeVisible();
+      await expectBackStack(page, [{ closes: preview, url: here }]);
+      await expect(dialog).toBeVisible();
+    }
+    const discard = page.getByRole("alertdialog", { name: "Discard this template?" });
+    await page.goBack();
+    await expect(discard).toBeVisible();
+    await page.goBack();
+    await expect(discard).toBeHidden();
+    await expect(dialog.getByLabel("Name", { exact: true })).toHaveValue("Half a template");
+    await page.goBack();
+    await discard.getByRole("button", { name: "Discard template" }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page).toHaveURL(here);
   });
 });

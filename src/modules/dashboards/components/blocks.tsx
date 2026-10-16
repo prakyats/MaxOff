@@ -22,11 +22,14 @@ export function DashSection({
   count,
   children,
   action,
+  hint,
 }: {
   title: string;
   slot: string;
   count?: number;
   children: ReactNode;
+  /** One short muted line under the heading: what the section holds and what a tap does. */
+  hint?: string;
   /** A neutral control beside the heading ("Suggest a task"). */
   action?: ReactNode;
 }) {
@@ -42,6 +45,11 @@ export function DashSection({
         </h2>
         {action}
       </div>
+      {hint ? (
+        <p className="text-muted-foreground -mt-1 text-xs break-words" data-slot={`${slot}-hint`}>
+          {hint}
+        </p>
+      ) : null}
       {children}
     </section>
   );

@@ -9,6 +9,7 @@ import {
 import type { FieldDefinition } from "@/core/custom-fields";
 import {
   type Deliverable,
+  type DeliverableTemplateOption,
   type StageGroup,
   deliverablesIssue,
   stageGroupsIssue,
@@ -60,6 +61,8 @@ export type ProjectTemplateContext = {
   names: Readonly<Record<string, string>>;
   presets: readonly { id: string; name: string; stages: string[] }[];
   definitions: readonly FieldDefinition[];
+  /** The deliverable templates "Add deliverables" offers (6b Release 2). */
+  deliverableTemplates?: readonly DeliverableTemplateOption[];
 };
 
 type Errors = Readonly<Record<string, string[]>>;
@@ -84,6 +87,7 @@ export function ProjectTemplateDialog({
   template,
   presets,
   definitions,
+  deliverableTemplates = [],
   onClose,
 }: ProjectTemplateContext & { template?: ProjectTemplate; onClose: () => void }) {
   const desktop = useIsDesktop();
@@ -153,7 +157,11 @@ export function ProjectTemplateDialog({
       setPhase("form");
       return;
     }
-    toastResult(result, { success: template ? "Template saved" : "Template added" });
+    toastResult(result, {
+      success: template
+        ? `Saved ${name.trim()}`
+        : `Added ${name.trim()}: New project offers it under Start from`,
+    });
     onClose();
   }
 
@@ -255,6 +263,7 @@ export function ProjectTemplateDialog({
                     onChange={setDeliverables}
                     presets={presets}
                     defaults={stageGroups}
+                    deliverableTemplates={deliverableTemplates}
                     maxDeliverables={TEMPLATE_ITEMS_MAX}
                     disabled={pending}
                   />
@@ -301,7 +310,7 @@ export function ProjectTemplateDialog({
               {desktop === false ? (
                 // pending: none — it opens the Preview layer, whose own button saves.
                 <Button type="submit" variant="strong" data-slot="template-preview">
-                  Preview
+                  Preview and save
                 </Button>
               ) : (
                 <Button type="submit" variant="primary" pending={pending} pendingLabel="Saving…">

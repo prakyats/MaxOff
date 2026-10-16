@@ -1,8 +1,7 @@
 import "server-only";
 
-import { cache } from "react";
-
 import { listActivity } from "@/core/activity/server";
+import { getSessionBundle } from "@/core/auth/session-bundle";
 import type { ActivityEntry } from "@/core/activity";
 import type { Database, Json, Tables } from "@/core/db";
 import { createServerSupabase } from "@/core/db/server";
@@ -402,27 +401,17 @@ export async function listFinishedTaskRows(limit: number): Promise<TaskListRow[]
 
 /**
  * The viewer's badge counts (`task_counts()`, Kickoff 4 decision 16); zeros when there is no row.
- * Once per request (`cache()`): the layout's badges and the Tasks and Approvals screens share it.
+ * Read with the shell's other counts in one call (`session_bundle()`, P2 2026-10-15), which the
+ * `(app)` layout has already started: the badges and the Tasks and Today screens share it.
  */
-export const countTasks = cache(
-  async (): Promise<{
-    notNoted: number;
-    changesRequested: number;
-    badge: number;
-    toDecide: number;
-  }> => {
-    const supabase = await createServerSupabase();
-    const { data, error } = await supabase.rpc("task_counts");
-    if (error) throw error;
-    const row = data[0];
-    return {
-      notNoted: row?.not_noted ?? 0,
-      changesRequested: row?.changes_requested ?? 0,
-      badge: row?.badge ?? 0,
-      toDecide: row?.to_decide ?? 0,
-    };
-  },
-);
+export async function countTasks(): Promise<{
+  notNoted: number;
+  changesRequested: number;
+  badge: number;
+  toDecide: number;
+}> {
+  return (await getSessionBundle()).tasks;
+}
 
 /** A task waiting for a decision, with its latest hand-in (the Approvals group, 4.5). */
 export type TaskToDecide = {
@@ -695,6 +684,14 @@ export async function rpcReview(
   return data;
 }
 
+/** Remind (6b.2): asks the task's people about it; returns when it can be used again. */
+export async function rpcRemind(taskId: string): Promise<string> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("task_remind", { task_id: taskId });
+  if (error) throw error;
+  return data;
+}
+
 export async function rpcCancel(taskId: string, reason: string): Promise<void> {
   const supabase = await createServerSupabase();
   const { error } = await supabase.rpc("task_cancel", { task_id: taskId, reason });
@@ -778,6 +775,25 @@ export async function removeStage(taskId: string, stageId: string): Promise<void
     .eq("task_id", taskId);
   if (error) throw error;
   if (count === 0) throw new AppError("NOT_FOUND", "This stage is gone. Refresh the task.");
+}
+
+/**
+ * A stage moved to just after `afterStageId` (null: to the top) through `task_stage_move` (6b.18,
+ * owner 2026-10-15): whoever may edit the task, never Crew; the database decides, keeps every tick
+ * and writes the history entry.
+ */
+export async function rpcMoveStage(input: {
+  taskId: string;
+  stageId: string;
+  afterStageId: string | null;
+}): Promise<void> {
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.rpc("task_stage_move", {
+    task_id: input.taskId,
+    stage_id: input.stageId,
+    ...(input.afterStageId ? { after_stage_id: input.afterStageId } : {}),
+  });
+  if (error) throw error;
 }
 
 /** Moves the viewer's own read of the task's comments forward to `upTo` (`task_mark_read`). */

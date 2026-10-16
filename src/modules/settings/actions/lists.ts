@@ -1,8 +1,8 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { revalidateScreens } from "@/core/lib/revalidate-screens";
 import { action, AppError, isPostgresError, ok, type Result } from "@/core/errors";
 import {
   LIST_EDIT_PERMISSION,
@@ -33,12 +33,9 @@ export type RenameListItemInput = z.input<typeof renameSchema>;
 export type ArchiveListItemInput = z.input<typeof archiveSchema>;
 export type MoveListItemInput = z.input<typeof moveSchema>;
 
-/** The whole Settings subtree, plus the screens whose pickers read the list. */
+/** Every screen: Settings, and the pickers and records that read the list across the app. */
 function revalidateLists(): void {
-  revalidatePath("/settings", "layout");
-  revalidatePath("/people");
-  revalidatePath("/me");
-  revalidatePath("/leave/expenses");
+  revalidateScreens();
 }
 
 /** unique (org_id, list_key, lower(name)) where archived_at is null. */

@@ -7,6 +7,7 @@ import {
   DELIVERABLE_TITLE_MAX,
   DELIVERABLES_MAX,
   type Deliverable,
+  type DeliverableTemplateOption,
   QUANTITY_MAX,
   STAGES_MAX,
   type StageGroup,
@@ -25,6 +26,13 @@ import {
   DropdownMenuTrigger,
 } from "@/core/ui/primitives/dropdown-menu";
 import { Input } from "@/core/ui/primitives/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/core/ui/primitives/select";
 import { moveItem } from "@/core/ui/reorder/reorder-math";
 import { DragHandle, ReorderItem, ReorderList, ReorderMenuItems } from "@/core/ui/reorder/reorder";
 import { useReorder } from "@/core/ui/reorder/use-reorder";
@@ -46,6 +54,11 @@ export type DeliverablesEditorProps = {
   presets: readonly StagePresetOption[];
   /** The default stage groups: what a deliverable with `stageGroups` null uses. */
   defaults: readonly StageGroup[];
+  /**
+   * The deliverable templates (6b Release 2): the add row offers them; a picked one's groups
+   * become each new deliverable's own, still editable. None: the row offers no template.
+   */
+  deliverableTemplates?: readonly DeliverableTemplateOption[];
   /** The editor's accessible name. */
   label?: string;
   maxDeliverables?: number;
@@ -66,6 +79,7 @@ export function DeliverablesEditor({
   onChange,
   presets,
   defaults,
+  deliverableTemplates = [],
   label = "Deliverables",
   maxDeliverables = DELIVERABLES_MAX,
   maxStages = STAGES_MAX,
@@ -126,6 +140,7 @@ export function DeliverablesEditor({
                   <button
                     type="button"
                     aria-expanded={isOpen}
+                    title={isOpen ? `Close ${title}` : `Open ${title} to edit its title and stages`}
                     data-slot="deliverable-toggle"
                     className="pressable-row flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg px-1 text-left"
                     onClick={() =>
@@ -163,6 +178,7 @@ export function DeliverablesEditor({
                         className="size-11"
                         disabled={disabled}
                         aria-label={`Actions for ${title}`}
+                        title="Move, duplicate or remove"
                         data-slot="deliverable-menu"
                       >
                         <MoreHorizontalIcon aria-hidden />
@@ -217,9 +233,8 @@ export function DeliverablesEditor({
                       <div className="flex flex-col gap-2" data-slot="uses-defaults">
                         <p className="text-muted-foreground text-sm">
                           Uses the default stages
-                          {defaults.length > 0 ? ` (${groupsSummary(defaults)})` : ""}. To type its
-                          stages, add a preset as a group or reorder them for this deliverable only,
-                          give it its own stages.
+                          {defaults.length > 0 ? ` (${groupsSummary(defaults)})` : ""}. To change
+                          the stages of this deliverable only, give it its own stages.
                         </p>
                         <Button
                           type="button"
@@ -273,6 +288,7 @@ export function DeliverablesEditor({
         count={value.length}
         max={maxDeliverables}
         presets={presets}
+        templates={deliverableTemplates}
         disabled={disabled}
         onAdd={(added) => {
           onChange([...value, ...added]);
@@ -299,17 +315,24 @@ function padded(list: readonly boolean[], length: number): boolean[] {
   return Array.from({ length }, (_, index) => list[index] ?? false);
 }
 
-/** The add row: a name, "× N" and the presets that become each new deliverable's groups. */
+const NO_TEMPLATE = "__none__";
+
+/**
+ * The add row: a name, "× N", optionally a deliverable template (its groups first) and the
+ * presets that become each new deliverable's groups.
+ */
 function AddDeliverables({
   count,
   max,
   presets,
+  templates,
   disabled,
   onAdd,
 }: {
   count: number;
   max: number;
   presets: readonly StagePresetOption[];
+  templates: readonly DeliverableTemplateOption[];
   disabled: boolean;
   onAdd: (added: Deliverable[]) => void;
 }) {
@@ -317,7 +340,16 @@ function AddDeliverables({
   const [name, setName] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [picks, setPicks] = useState<string[]>([]);
+  const [templateId, setTemplateId] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const template = templates.find((option) => option.id === templateId) ?? null;
+
+  function pickTemplate(value: string) {
+    const picked = templates.find((option) => option.id === value) ?? null;
+    setTemplateId(picked ? picked.id : "");
+    // The template's name, when nothing is typed yet: × N numbers it.
+    if (picked && name.trim() === "") setName(picked.name);
+  }
 
   function add() {
     const times = Number(quantity);
@@ -328,10 +360,11 @@ function AddDeliverables({
     const chosen = picks
       .map((pick) => presets.find((preset) => preset.id === pick))
       .filter((preset): preset is StagePresetOption => preset !== undefined);
-    onAdd(newDeliverables(name, times, chosen));
+    onAdd(newDeliverables(name, times, chosen, template ? template.stageGroups : null));
     setName("");
     setQuantity("1");
     setPicks([]);
+    setTemplateId("");
     setError(null);
   }
 
@@ -377,6 +410,25 @@ function AddDeliverables({
           }}
         />
       </div>
+      {templates.length > 0 ? (
+        <Select value={templateId || NO_TEMPLATE} onValueChange={pickTemplate}>
+          <SelectTrigger
+            className="w-full"
+            aria-label="From a deliverable template"
+            data-slot="new-deliverable-template"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NO_TEMPLATE}>No deliverable template</SelectItem>
+            {templates.map((option) => (
+              <SelectItem key={option.id} value={option.id}>
+                {option.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ) : null}
       <p className="text-muted-foreground text-xs" data-slot="add-deliverables-hint">
         Tick a preset to give these deliverables their own stages, or open a deliverable (⌄) to edit
         its stages.

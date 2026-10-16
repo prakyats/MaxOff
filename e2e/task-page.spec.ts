@@ -1,4 +1,4 @@
-import { type Page, type Request, type TestInfo } from "@playwright/test";
+import { type Locator, type Page, type Request, type TestInfo } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 
@@ -16,7 +16,9 @@ import {
   openKeyboard,
   removeTasksTitled,
   rpcAs,
+  rpcRefusedAs,
   runInstalled,
+  serviceSelect,
   serviceUpdate,
   signIn,
   storageStateFor,
@@ -311,6 +313,7 @@ test.describe("the views are a view control (decisions 27, 32)", () => {
     });
     await as(page, "staff", info);
     await page.goto("/tasks");
+    await hydrated(page);
     // Opened from a list, a task lands on Work.
     await page.locator(`[data-slot="task-row"][data-task="${taskId}"] a`).click();
     await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}$`));
@@ -424,6 +427,7 @@ test.describe("Chat and the unread comments (decision 28)", () => {
 
     await as(page, "staff", info);
     await page.goto("/tasks");
+    await hydrated(page);
     const row = page.locator(`[data-slot="task-row"][data-task="${taskId}"]`);
     await expect(row.locator('[data-slot="task-unread"]')).toHaveText(/1\s*1 new comment/);
     await row.locator("a").click();
@@ -612,6 +616,7 @@ test.describe("Activity (decision 29)", () => {
     });
     await as(page, "staff", info);
     await page.goto("/tasks");
+    await hydrated(page);
     await page.locator(`[data-slot="task-row"][data-task="${taskId}"] a`).click();
     await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}$`));
     await live(page);
@@ -676,6 +681,7 @@ test.describe("the task page on a phone, installed: back closes each layer, one 
     await page.goto("/my-day");
     await page.locator('[data-slot="bottom-nav"] [data-nav="tasks"]').click();
     await expect(page).toHaveURL(/\/tasks$/);
+    await hydrated(page);
     await page.locator(`[data-slot="task-row"][data-task="${taskId}"] a`).click();
     const url = new RegExp(`/tasks/${taskId}(\\?tab=\\w+)?$`);
     await expect(page).toHaveURL(url);
@@ -836,5 +842,279 @@ test.describe("the task page at large system text (decision 31)", () => {
       await expect(chatSheet(page).getByRole("button", { name: "Send" })).toBeInViewport();
     }
     await scale(0);
+  });
+});
+
+/** The checklist's stage names, in the order the page shows them. */
+async function stageOrder(page: Page): Promise<(string | null)[]> {
+  return page
+    .locator('[data-slot="task-stage"] [role="checkbox"]')
+    .evaluateAll((boxes) => boxes.map((box) => box.getAttribute("aria-label")));
+}
+
+/** A stage's row on the task page, by its name. */
+const stageRow = (page: Page, name: string) =>
+  page.locator('[data-slot="task-stage"]', { hasText: name });
+
+/**
+ * Drags the row `from` by its handle until the pointer is at `at` of the row `onto`'s height
+ * (6b.18). A laptop's mouse drags at once; a phone's finger holds first: the long press is done
+ * when the row lifts (`data-dragging`), so nothing here waits on a clock. Measures only visible
+ * boxes and fails on a missing one.
+ */
+async function dragStage(page: Page, from: Locator, onto: Locator, at: number): Promise<void> {
+  const handle = from.locator('[data-slot="reorder-handle"]');
+  // In the middle of its scroller, as a person would have it, clear of a sticky footer or bar.
+  await handle.evaluate((node) => node.scrollIntoView({ block: "center" }));
+  const start = await handle.boundingBox();
+  const target = await onto.boundingBox();
+  expect(start, "the drag handle has a box").not.toBeNull();
+  expect(target, "the target row has a box").not.toBeNull();
+  const x = start!.x + start!.width / 2;
+  const y = start!.y + start!.height / 2;
+  const to = target!.y + target!.height * at;
+  const indicator = page.locator('[data-slot="reorder-indicator"]:visible');
+  if (!phone(page)) {
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x, to, { steps: 12 });
+    await expect(indicator).toHaveCount(1);
+    await page.mouse.up();
+    return;
+  }
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
+  // The long press: held still until the row lifts.
+  await expect(from).toHaveAttribute("data-dragging", "");
+  for (let move = 1; move <= 12; move += 1) {
+    await cdp.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [{ x, y: y + ((to - y) * move) / 12 }],
+    });
+  }
+  await expect(indicator).toHaveCount(1);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await cdp.detach();
+}
+
+/** A task made by the test Admin (so they are its creator, within its edit scope). */
+async function adminCreates(
+  info: TestInfo,
+  args: { title: string; assignees: string[]; primary: string; day: number; stages: string[] },
+): Promise<string> {
+  return rpcAs<string>(person("admin", info).email, PASSWORD, "task_create", {
+    title: args.title,
+    description: null,
+    task_type_id: await taskTypeId("Normal"),
+    client_id: null,
+    priority: "medium",
+    due_at: istInstant(workingDay(args.day), "18:00"),
+    assignee_ids: args.assignees,
+    primary_owner_id: args.primary,
+    approving_admin_id: null,
+    stages: args.stages,
+  });
+}
+
+test.describe("drag to reorder a task's stages (6b.18, owner 2026-10-15: the editors, never Crew)", () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test("the approving Admin drags a stage on an existing task: the tick stays, the order is saved, the history says so; the Crew on it get no handle", async ({
+    page,
+  }, info) => {
+    const prefix = `Reorder ${info.project.name} `;
+    await removeTasksTitled(prefix);
+    const admin = person("admin", info);
+    const [staffId, helperId, adminId] = await Promise.all([
+      memberIdOf(person("staff", info).email),
+      memberIdOf(person("helper", info).email),
+      memberIdOf(admin.email),
+    ]);
+    const taskId = await ownerCreates({
+      title: `${prefix}reel`,
+      assignees: [staffId, helperId],
+      primary: staffId,
+      day: 42,
+      approver: adminId,
+      stages: ["Stage 1", "Stage 2", "Stage 3", "Stage 4"],
+    });
+    await fixtureNotificationsRead(taskId);
+    // The helper is on the task (Crew): they tick, and see no handle and no ⋯ menu.
+    await as(page, "helper", info);
+    await page.goto(`/tasks/${taskId}`);
+    await hydrated(page);
+    await live(page);
+    await expect(page.getByRole("button", { name: "Add stage" })).toHaveCount(0);
+    await page.getByRole("checkbox", { name: "Stage 1", exact: true }).click();
+    await expect(stageRow(page, "Stage 1")).toHaveAttribute("data-done", "true");
+    await receiptsSettled(page);
+    await expect(page.locator('[data-slot="task-stage"]')).toHaveCount(4);
+    await expect(page.locator('[data-slot="reorder-handle"]')).toHaveCount(0);
+    await expect(page.locator('[data-slot="task-stage-menu"]')).toHaveCount(0);
+
+    // The approving Admin (within the task's edit scope) has a 44 px handle on every row.
+    await as(page, "admin", info);
+    await page.goto(`/tasks/${taskId}`);
+    await hydrated(page);
+    await live(page);
+    await expect(page.locator('[data-slot="reorder-handle"]')).toHaveCount(4);
+    const handle = stageRow(page, "Stage 4").locator('[data-slot="reorder-handle"]');
+    const box = await handle.boundingBox();
+    expect(box, "the handle has a box").not.toBeNull();
+    expect(Math.round(box!.width)).toBe(44);
+    expect(Math.round(box!.height)).toBe(44);
+
+    // "Audio is for later": Stage 4 dragged up above Stage 2. No layout jump: the list keeps its
+    // height through the drag, the new order and the saved one.
+    const list = page.getByRole("list", { name: "Stages" });
+    const before = await list.boundingBox();
+    expect(before, "the list has a box").not.toBeNull();
+    await dragStage(page, stageRow(page, "Stage 4"), stageRow(page, "Stage 2"), 0.2);
+    await expect.poll(() => stageOrder(page)).toEqual(["Stage 1", "Stage 4", "Stage 2", "Stage 3"]);
+    await receiptsSettled(page);
+    const after = await list.boundingBox();
+    expect(after, "the list has a box").not.toBeNull();
+    expect(Math.round(after!.height)).toBe(Math.round(before!.height));
+    await expect(stageRow(page, "Stage 1")).toHaveAttribute("data-done", "true");
+
+    // Saved: in the database (the tick untouched) and after a reload.
+    const saved = await serviceSelect<{ name: string; done_at: string | null }>(
+      `task_stages?task_id=eq.${taskId}&select=name,done_at&order=position`,
+    );
+    expect(saved.map((stage) => stage.name)).toEqual(["Stage 1", "Stage 4", "Stage 2", "Stage 3"]);
+    expect(saved.map((stage) => stage.done_at !== null)).toEqual([true, false, false, false]);
+    await page.reload();
+    await hydrated(page);
+    await live(page);
+    await expect.poll(() => stageOrder(page)).toEqual(["Stage 1", "Stage 4", "Stage 2", "Stage 3"]);
+    await expect(stageRow(page, "Stage 1")).toHaveAttribute("data-done", "true");
+
+    // Move down from the row's ⋯ menu: the keyboard and screen-reader way.
+    await stageRow(page, "Stage 4").getByRole("button", { name: "Move Stage 4" }).click();
+    await page.getByRole("menuitem", { name: "Move down" }).click();
+    await expect.poll(() => stageOrder(page)).toEqual(["Stage 1", "Stage 2", "Stage 4", "Stage 3"]);
+    await receiptsSettled(page);
+
+    // The history: each move, by the Admin, newest first.
+    await tab(page, "activity").click();
+    await expect(historyRows(page).first()).toContainText(
+      `${admin.name} moved the stage “Stage 4” to position 3 of 4`,
+    );
+    await expect(historyRows(page).nth(1)).toContainText(
+      `${admin.name} moved the stage “Stage 4” to position 2 of 4`,
+    );
+  });
+
+  test("Crew never reorder: the database refuses an assignee, the primary owner and a Crew member not on the task; the Owner keeps the handle while the task is with its reviewers", async ({
+    page,
+  }, info) => {
+    test.skip(info.project.name === "mobile-lg", "the flows run at 375px and desktop");
+    const prefix = `Reorder locked ${info.project.name} `;
+    await removeTasksTitled(prefix);
+    const staff = person("staff", info);
+    const helper = person("helper", info);
+    const [staffId, helperId] = await Promise.all([
+      memberIdOf(staff.email),
+      memberIdOf(helper.email),
+    ]);
+    const handedIn = await ownerCreates({
+      title: `${prefix}handed in`,
+      assignees: [staffId, helperId],
+      primary: staffId,
+      day: 43,
+      stages: ["Stage 1", "Stage 2"],
+    });
+    const notTheirs = await ownerCreates({
+      title: `${prefix}not theirs`,
+      assignees: [staffId],
+      primary: staffId,
+      day: 43,
+      stages: ["Stage 1", "Stage 2"],
+    });
+    await rpcAs(staff.email, PASSWORD, "task_submit_done", { task_id: handedIn });
+    await fixtureNotificationsRead(handedIn);
+
+    const stagesOf = (taskId: string) =>
+      serviceSelect<{ id: string }>(`task_stages?task_id=eq.${taskId}&select=id&order=position`);
+    const [first] = await stagesOf(notTheirs);
+    const refusedAssignee = await rpcRefusedAs(helper.email, PASSWORD, "task_stage_move", {
+      task_id: handedIn,
+      stage_id: (await stagesOf(handedIn))[1]!.id,
+    });
+    expect(refusedAssignee.message).toBe("FORBIDDEN");
+    const refusedPrimary = await rpcRefusedAs(staff.email, PASSWORD, "task_stage_move", {
+      task_id: notTheirs,
+      stage_id: first!.id,
+      after_stage_id: (await stagesOf(notTheirs))[1]!.id,
+    });
+    expect(refusedPrimary.message).toBe("FORBIDDEN");
+    const refusedStranger = await rpcRefusedAs(helper.email, PASSWORD, "task_stage_move", {
+      task_id: notTheirs,
+      stage_id: first!.id,
+    });
+    expect(refusedStranger.message).toBe("NOT_FOUND");
+    for (const taskId of [handedIn, notTheirs]) {
+      const unchanged = await serviceSelect<{ name: string }>(
+        `task_stages?task_id=eq.${taskId}&select=name&order=position`,
+      );
+      expect(unchanged.map((stage) => stage.name)).toEqual(["Stage 1", "Stage 2"]);
+    }
+
+    // The primary owner (Crew) sees the checklist with no handle and no ⋯ menu, before and after
+    // handing in.
+    await as(page, "staff", info);
+    for (const taskId of [notTheirs, handedIn]) {
+      await page.goto(`/tasks/${taskId}`);
+      await hydrated(page);
+      await live(page);
+      await expect(page.locator('[data-slot="task-stage"]')).toHaveCount(2);
+      await expect(page.locator('[data-slot="reorder-handle"]')).toHaveCount(0);
+      await expect(page.locator('[data-slot="task-stage-menu"]')).toHaveCount(0);
+    }
+
+    // The Owner (the creator here) still has the handle and the menu while it is with the reviewers.
+    await page.context().clearCookies();
+    await signIn(page, USERS.owner.email, USERS.owner.password);
+    await page.goto(`/tasks/${handedIn}`);
+    await hydrated(page);
+    await live(page);
+    await expect(page.locator('[data-slot="reorder-handle"]')).toHaveCount(2);
+    await expect(page.locator('[data-slot="task-stage-menu"]')).toHaveCount(2);
+  });
+
+  test("installed on a phone: back closes a stage's ⋯ menu for the Admin who made the task, and the task stays", async ({
+    page,
+  }, info) => {
+    test.skip(!phone(page), "the installed back gesture is a phone's");
+    const prefix = `Reorder back ${info.project.name} `;
+    await removeTasksTitled(prefix);
+    const staffId = await memberIdOf(person("staff", info).email);
+    const taskId = await adminCreates(info, {
+      title: `${prefix}promo`,
+      assignees: [staffId],
+      primary: staffId,
+      day: 44,
+      stages: ["Stage 1", "Stage 2"],
+    });
+    await fixtureNotificationsRead(taskId);
+    await runInstalled(page);
+    await as(page, "admin", info);
+    await page.goto("/today");
+    await page.locator('[data-slot="bottom-nav"] [data-nav="tasks"]').click();
+    await expect(page).toHaveURL(/\/tasks$/);
+    await hydrated(page);
+    await page.locator(`[data-slot="task-row"][data-task="${taskId}"] a`).click();
+    const url = new RegExp(`/tasks/${taskId}$`);
+    await expect(page).toHaveURL(url);
+    await hydrated(page);
+    await live(page);
+
+    await stageRow(page, "Stage 2").getByRole("button", { name: "Move Stage 2" }).click();
+    const menu = page.getByRole("menu");
+    await expect(menu).toBeVisible();
+    await expect(menu.getByRole("menuitem", { name: "Move down" })).toBeDisabled();
+    await expectBackStack(page, [{ closes: menu, url }]);
+    await expect.poll(() => stageOrder(page)).toEqual(["Stage 1", "Stage 2"]);
+    await expectBackStack(page, [{ url: /\/tasks$/ }, { url: /\/today$/ }]);
   });
 });

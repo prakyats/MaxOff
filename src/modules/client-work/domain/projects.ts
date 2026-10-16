@@ -1,4 +1,7 @@
+import type { ISODate } from "@/core/time";
+
 import { progressLine, progressOf, shortDate } from "./items";
+import { cycleMeter, type CycleMeter, type MeterItem } from "./progress";
 import {
   PROJECT_STATE_LABELS,
   RECURRENCE_LABELS,
@@ -25,6 +28,11 @@ export type ProjectSummary = {
    * project (only working projects have a current cycle).
    */
   progress: string | null;
+  /**
+   * The current cycle's meter (6b.11 (5), the Projects tab's miniature), when the cycle's items
+   * came with their stages and it has something to count; null otherwise.
+   */
+  meter: CycleMeter | null;
   finished: boolean;
 };
 
@@ -35,11 +43,14 @@ export type ProjectSummary = {
 export type CurrentCycleStates = Pick<Cycle, "id" | "projectId" | "label"> & {
   clientId: string;
   states: readonly ItemState[];
+  /** The items with their dates and ticks (`listCurrentCycleMeters`), for the meter. */
+  items?: readonly MeterItem[];
 };
 
 export function projectSummaries(
   projects: readonly Project[],
   current: readonly CurrentCycleStates[],
+  today?: ISODate,
 ): ProjectSummary[] {
   const cycleOf = new Map(current.map((cycle) => [cycle.projectId, cycle]));
   const summaries = projects.map((project) => {
@@ -62,12 +73,22 @@ export function projectSummaries(
       progress: finished
         ? null
         : progressLine(progressOf((cycle?.states ?? []).map((state) => ({ state })))),
+      meter: meterOf(cycle, today),
       finished,
     };
   });
   return summaries.sort(
     (a, b) => Number(a.finished) - Number(b.finished) || a.name.localeCompare(b.name),
   );
+}
+
+function meterOf(
+  cycle: CurrentCycleStates | undefined,
+  today: ISODate | undefined,
+): CycleMeter | null {
+  if (!cycle?.items || today === undefined) return null;
+  const meter = cycleMeter(cycle.items, today);
+  return meter.units > 0 ? meter : null;
 }
 
 /**

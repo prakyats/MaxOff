@@ -63,7 +63,7 @@ export function TaskNextStep({
   dueAt: string;
   next: NextStep | null;
   /** The viewer's Mark done, whether it is the step or waits under ⋯. */
-  done: (ActingFor & { again: boolean }) | null;
+  done: (ActingFor & { again: boolean; completes: boolean }) | null;
   /** The review step the viewer decides, for the confirmation's words. */
   review: "admin" | "owner" | null;
   names: Record<string, string>;
@@ -172,6 +172,7 @@ export function TaskNextStep({
           dueAt={dueAt}
           onBehalfOf={done.onBehalfOf}
           forName={forName(done)}
+          completes={done.completes}
         />
       ) : null}
 

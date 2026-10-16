@@ -12,7 +12,8 @@ import { RecordReadReceipt } from "@/modules/notifications-center";
 import { ClientTabs } from "../client-nav";
 import { loadClient, loadPeople } from "../client";
 
-const BACK = { href: "/clients", label: "Clients" };
+/** Clients is the parent; Today opens a client too, and back returns there (§14.2 k, 6b.12). */
+const BACK = { href: "/clients", label: "Clients", from: [{ path: "/today", label: "Today" }] };
 
 /**
  * A client's page (3.4): one header over its views (Overview, Brand, Activity), with the state,

@@ -3,6 +3,7 @@
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { closeOverlaysThen } from "@/core/ui/overlay/overlay-history";
+import { forgetShellViewer } from "@/core/ui/pwa/shell-viewer";
 import { backToHomeThen } from "@/core/ui/shell/tab-history";
 import { toastResult } from "@/core/ui/toast";
 
@@ -51,6 +52,9 @@ export function LogoutDialog({
         const pushEndpoint = await import("@/core/notifications/push/release")
           .then((module) => module.releaseThisDevice())
           .catch(() => null);
+        // The instant skeleton's cache goes with the session (ADR-0014 item 4): the action's
+        // redirect is the router's, never a navigation the service worker sees, so it is told.
+        forgetShellViewer();
         // On success the action redirects; only a failure comes back as a Result.
         toastResult(await logout(pushEndpoint ? { pushEndpoint } : {}));
         return true;

@@ -36,6 +36,15 @@ export {
   type Progress,
 } from "./domain/items";
 export {
+  completeWords,
+  cycleMeter,
+  itemMeter,
+  meterLine,
+  meterPace,
+  type CycleMeter,
+  type MeterItem,
+} from "./domain/progress";
+export {
   clientProgressLine,
   progressByClient,
   projectSummaries,
@@ -61,12 +70,16 @@ export {
 export {
   itemRowView,
   itemView,
+  orderDeliverables,
   type ItemRowView,
   type ItemStageView,
   type ItemView,
   type ItemViewContext,
   type LastChange,
 } from "./domain/views";
+export { cycleExtras, extrasCycles, extrasQuestion, type ExtraCandidate } from "./domain/extras";
+export { renamePreview, shiftDays, shiftWords, type RenamePreview } from "./domain/bulk";
+export { scheduleDay, scheduleText, type ScheduleItem } from "./domain/schedule";
 export {
   ACTIVITY_KINDS,
   describeProjectActivity,
@@ -100,6 +113,7 @@ export {
   listBlueprints,
   listClientProjects,
   listCurrentCycles,
+  listCurrentCycleMeters,
   listCycles,
   listCyclesById,
   listItems,
@@ -111,6 +125,7 @@ export {
   listStages,
   listStagesOf,
   type CurrentCycle,
+  type CurrentCycleMeter,
 } from "./data/projects";
 export {
   countItemsToDecide,
@@ -155,4 +170,18 @@ export {
   updateItemStage,
   updateItemStageGroup,
 } from "./actions/items";
-export { ACTIVITY_PAGE, readProjectActivity } from "./actions/background";
+export {
+  addGroupsToItems,
+  addRevisionRound,
+  keepExtras,
+  planItems,
+  renameItems,
+  shiftItems,
+} from "./actions/bulk";
+export {
+  ACTIVITY_PAGE,
+  readDeliverableTemplateOptions,
+  readProjectActivity,
+} from "./actions/background";
+/** The project page's deliverable columns (6b.11 (6)), for its skeleton to trace. */
+export { DELIVERABLE_COLUMNS, STRIP_GRID } from "./components/deliverable-columns";

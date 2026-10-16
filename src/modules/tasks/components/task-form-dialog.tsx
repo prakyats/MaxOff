@@ -38,6 +38,7 @@ import {
   SelectValue,
 } from "@/core/ui/primitives/select";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
+import { ReorderNameList } from "@/core/ui/reorder/name-list";
 import { Textarea } from "@/core/ui/primitives/textarea";
 import { describeError } from "@/core/ui/toast";
 import { toast } from "sonner";
@@ -102,7 +103,7 @@ export type TaskFormSetup = {
   /** `org_settings.workload_warning_threshold` (kickoff 4 decision 11). */
   threshold: number;
   types: TaskType[];
-  /** Active Admins, Staff and freelancers; never the Owner (kickoff 4 decision 1). */
+  /** Active Admins, Staff and freelancers, and the Owner (6b.2, owner 2026-10-07). */
   people: AssignablePerson[];
   /** The Owner: every client not closed; an Admin: their own (kickoff 4 decision 2). */
   clients: ClientOption[];
@@ -1028,36 +1029,16 @@ function TaskForm({
           <legend className="mb-1.5 text-sm font-medium">
             Stages <span className="text-muted-foreground font-normal">(optional)</span>
           </legend>
-          {draft.stages.map((stage, index) => (
-            <div key={index} className="flex items-center gap-1">
-              <Input
-                name={`stage-${index}`}
-                aria-label={`Stage ${index + 1}`}
-                value={stage}
-                maxLength={STAGE_NAME_MAX}
-                autoComplete="off"
-                onChange={(event) => {
-                  const value = event.target.value;
-                  update(
-                    { stages: draft.stages.map((current, at) => (at === index ? value : current)) },
-                    ["stages"],
-                  );
-                }}
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="size-11 shrink-0"
-                aria-label={`Remove stage ${index + 1}`}
-                onClick={() =>
-                  update({ stages: draft.stages.filter((_, at) => at !== index) }, ["stages"])
-                }
-              >
-                <XIcon aria-hidden />
-              </Button>
-            </div>
-          ))}
+          <ReorderNameList
+            names={draft.stages}
+            onChange={(stages) => update({ stages }, ["stages"])}
+            label="Stages"
+            itemLabel={(index) => `Stage ${index + 1}`}
+            removeLabel="Remove stage"
+            namePrefix="stage"
+            maxLength={STAGE_NAME_MAX}
+            slot="task-stage-field"
+          />
           {errors.stages ? <ErrorText slot="field-error">{errors.stages}</ErrorText> : null}
           {draft.stages.length < STAGES_MAX ? (
             <Button

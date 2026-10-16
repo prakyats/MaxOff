@@ -130,8 +130,18 @@ describe("loading.tsx coverage", () => {
     // The list sits in a route group so its skeleton never wraps a person (2.9).
     expect(shapeOf("people/(list)")).toBe("cards");
     expect(shapeOf("clients/(list)")).toBe("cards");
-    expect(shapeOf("settings")).toBe("list");
+    // Settings traces its own sections and Help block from the classes the page uses (`list.ts`).
+    expect(shapeOf("settings"), "settings traces its own rows, not a shape").toBeUndefined();
+    expect(sourceOf("settings")).toContain("settingsSectionsFor");
+    expect(sourceOf("settings")).toContain("SECTION_LINE_CLASS");
+    expect(sourceOf("settings")).toContain("HELP_ROW_CLASS");
+    expect(sourceOf("settings")).not.toContain(standIn);
     expect(shapeOf("me")).toBe("detail");
+    // The guide (6b.14): topic rows on the card-row geometry, under the search box.
+    // Each topic row on the card-row geometry (`row-metrics`), drawn with its own words unseen.
+    expect(shapeOf("me/guide"), "the guide traces its own rows, not a shape").toBeUndefined();
+    expect(sourceOf("me/guide")).toContain("CARD_ROW_MIN_H");
+    expect(sourceOf("me/guide")).toContain("guideFor");
     // /leave's layout keeps the header and tabs painted; each view traces its own list (2.3),
     // and only the attendance view has the month switcher row.
     expect(shapeOf("leave/(leave)")).toBe("cards");

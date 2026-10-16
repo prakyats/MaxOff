@@ -249,9 +249,9 @@ test.describe("staff tasks, the flows", () => {
       for (const one of [helper, staff, away]) {
         await pick(page, dialog.getByLabel("Add a person"), new RegExp(`^${escape(one.name)}`));
       }
-      // The Owner is never offered (kickoff 4 decision 1).
+      // The Owner is offered since 6b.2 (owner 2026-10-07: the Owner may be on a task).
       await dialog.getByLabel("Add a person").click();
-      await expect(page.getByRole("option", { name: /Prishit Shetty/ })).toHaveCount(0);
+      await expect(page.getByRole("option", { name: /Prishit Shetty/ })).toHaveCount(1);
       await page.keyboard.press("Escape");
       await dialog.getByLabel("Deadline").fill(day);
       await expect(dialog.getByLabel("Time (IST)")).toHaveValue("18:00");
@@ -1425,3 +1425,178 @@ async function expectFits(page: Page): Promise<void> {
 function escape(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
+
+/**
+ * Tasks for the Owner (6b.2, owner 2026-10-07; WORKFLOWS §3.1 "Tasks for the Owner"): the Owner
+ * puts the Owner on a task, notes it and marks it done, which completes it; an Admin assigns the
+ * Owner; Remind asks everyone on the task once, then waits an hour (the database refuses a second
+ * one). Every project runs them (1280, 375 and 430px), each with its own prefix.
+ */
+test.describe("tasks for the Owner", () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  async function ownerName(): Promise<string> {
+    const [row] = await serviceSelect<{ full_name: string }>(
+      `members?email=eq.${encodeURIComponent(USERS.owner.email)}&select=full_name`,
+    );
+    expect(row, "the seeded Owner").toBeTruthy();
+    return (row as { full_name: string }).full_name;
+  }
+
+  test("the Owner assigns the Owner, notes it, and Done completes it", async ({ page }, info) => {
+    const prefix = `OwnerSelf ${info.project.name} `;
+    await removeTasksTitled(prefix);
+    const name = await ownerName();
+    await signIn(page, USERS.owner.email, USERS.owner.password);
+    await page.goto("/tasks");
+    await page.getByRole("button", { name: "New task" }).click();
+    const dialog = formDialog(page);
+    await expect(dialog).toBeVisible();
+    await dialog.getByLabel("Title").fill(`${prefix}plan`);
+    await pick(page, dialog.getByLabel("Add a person"), new RegExp(`^${escape(name)}`));
+    await dialog.getByLabel("Deadline").fill(workingDay(20));
+    await dialog.getByRole("button", { name: "Create task" }).click();
+    await expect(page).toHaveURL(TASK_URL);
+    const taskId = new URL(page.url()).pathname.split("/").at(-1) as string;
+
+    // Nobody else is on it: no Remind. The route says Done completes it.
+    await expect(page.locator('[data-slot="task-remind"]')).toHaveCount(0);
+    await openView(page, "details");
+    await expect(page.locator('[data-slot="task-route"]:visible')).toContainText(
+      "Done completes it",
+    );
+    await openView(page, "work");
+
+    await step(page).getByRole("button", { name: "Task Noted" }).click();
+    await expect(step(page).getByRole("button", { name: "Start work" })).toBeVisible();
+    await step(page).getByRole("button", { name: "Start work" }).click();
+    await expect(summary(page)).toContainText(
+      "Mark it done when the work is finished: that completes it.",
+    );
+    await step(page).getByRole("button", { name: "Mark done" }).click();
+    const done = page.locator('[data-slot="task-done-dialog"]');
+    await expect(done).toContainText("this completes the task");
+    await done.getByRole("button", { name: "Mark done" }).click();
+    await expect(done).toBeHidden();
+    await expect(summary(page)).toContainText("Completed");
+
+    const [row] = await serviceSelect<{ state: string; admin_step: string }>(
+      `tasks?id=eq.${taskId}&select=state,admin_step`,
+    );
+    expect(row).toEqual({ state: "completed", admin_step: "none" });
+    const reviews = await serviceSelect(`task_reviews?task_id=eq.${taskId}&select=id`);
+    expect(reviews).toHaveLength(0);
+    // Reloaded, the history says what happened.
+    await page.reload();
+    const history = await historyRows(page);
+    await expect(history.filter({ hasText: "marked it done: the task is complete" })).toHaveCount(
+      1,
+    );
+  });
+
+  test("an Admin assigns the Owner; the task routes to the Admin and the Owner reads it", async ({
+    page,
+  }, info) => {
+    const prefix = `OwnerByAdmin ${info.project.name} `;
+    await removeTasksTitled(prefix);
+    const name = await ownerName();
+    const admin = person("admin", info);
+    const [ownerId, adminId] = await Promise.all([
+      memberIdOf(USERS.owner.email),
+      memberIdOf(admin.email),
+    ]);
+    await signIn(page, admin.email, PASSWORD);
+    await page.goto("/tasks");
+    await page.getByRole("button", { name: "New task" }).click();
+    const dialog = formDialog(page);
+    await expect(dialog).toBeVisible();
+    await dialog.getByLabel("Title").fill(`${prefix}brief`);
+    await pick(page, dialog.getByLabel("Add a person"), new RegExp(`^${escape(name)}`));
+    await dialog.getByLabel("Deadline").fill(workingDay(21));
+    await dialog.getByRole("button", { name: "Create task" }).click();
+    await expect(page).toHaveURL(TASK_URL);
+    const taskId = new URL(page.url()).pathname.split("/").at(-1) as string;
+    const [task] = await serviceSelect<{ primary_owner_id: string; approving_admin_id: string }>(
+      `tasks?id=eq.${taskId}&select=primary_owner_id,approving_admin_id`,
+    );
+    expect(task).toEqual({ primary_owner_id: ownerId, approving_admin_id: adminId });
+    // The creating Admin may ask the Owner about it: the button names whom it reaches.
+    await expect(page.getByRole("button", { name: `Remind ${name}`, exact: true })).toBeVisible();
+
+    await page.context().clearCookies();
+    await signIn(page, USERS.owner.email, USERS.owner.password);
+    await page.goto(`/tasks/${taskId}`);
+    await expect(step(page).getByRole("button", { name: "Task Noted" })).toBeVisible();
+    await openView(page, "details");
+    await expect(page.locator('[data-slot="task-route"]:visible')).toContainText(
+      "Done completes it",
+    );
+  });
+
+  test("Remind asks everyone once, then waits the hour", async ({ page }, info) => {
+    const prefix = `Remind ${info.project.name} `;
+    await removeTasksTitled(prefix);
+    const staff = person("staff", info);
+    const admin = person("admin", info);
+    const [staffId, helperId, adminId] = await Promise.all([
+      memberIdOf(staff.email),
+      memberIdOf(person("helper", info).email),
+      memberIdOf(admin.email),
+    ]);
+    const taskId = await ownerCreates({
+      title: `${prefix}edit`,
+      assignees: [staffId, helperId],
+      primary: staffId,
+      approver: adminId,
+      due: istInstant(workingDay(22), "18:00"),
+    });
+
+    // An assignee has no Remind.
+    await signIn(page, staff.email, PASSWORD);
+    await page.goto(`/tasks/${taskId}`);
+    await expect(step(page).getByRole("button", { name: "Task Noted" })).toBeVisible();
+    await expect(page.locator('[data-slot="task-remind"]')).toHaveCount(0);
+
+    // The approving Admin reminds: one tap, then the button says when it can be used again.
+    await page.context().clearCookies();
+    await signIn(page, admin.email, PASSWORD);
+    await page.goto(`/tasks/${taskId}`);
+    // It names whom it reaches: the others on the task, the primary owner first.
+    const remind = page.getByRole("button", {
+      name: `Remind ${staff.name} and ${person("helper", info).name}`,
+      exact: true,
+    });
+    await expect(remind).toBeVisible();
+    const box = await remind.boundingBox();
+    expect(box, "the Remind button is laid out").not.toBeNull();
+    expect((box as { height: number }).height).toBeGreaterThanOrEqual(44);
+    await remind.click();
+    await expect(
+      page.getByText(`Reminder sent to ${staff.name} and ${person("helper", info).name}`),
+    ).toBeVisible();
+    const waiting = page.locator('[data-slot="task-remind"] button[data-state="waiting"]');
+    await expect(waiting).toContainText(/Reminded · again at \d{1,2}:\d{2} [AP]M/);
+    await expect(waiting).toBeDisabled();
+    const asked = await serviceSelect<{ recipient_id: string; title: string }>(
+      `notifications?kind=eq.task_asked_about&entity_id=eq.${taskId}&select=recipient_id,title&order=recipient_id`,
+    );
+    expect(asked.map((row) => row.recipient_id).sort()).toEqual([staffId, helperId].sort());
+    expect(asked[0]?.title).toBe(`${admin.name} is asking about ${prefix}edit`);
+
+    // Reloaded, it still waits, and the history names who was asked.
+    await page.reload();
+    await expect(waiting).toBeDisabled();
+    const history = await historyRows(page);
+    await expect(history.filter({ hasText: "about the task" })).toHaveCount(1);
+
+    // A second one within the hour is refused, whoever sends it.
+    const refused = await rpcRefusedAs(USERS.owner.email, USERS.owner.password, "task_remind", {
+      task_id: taskId,
+    });
+    expect(refused.message).toBe("RATE_LIMITED");
+    const again = await serviceSelect(
+      `notifications?kind=eq.task_asked_about&entity_id=eq.${taskId}&select=id`,
+    );
+    expect(again).toHaveLength(2);
+  });
+});

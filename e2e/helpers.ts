@@ -937,6 +937,54 @@ export async function holdReads(
 }
 
 /**
+ * Watches one browser session's requests to Supabase at the e2e server's proxy (P2 item 6): every
+ * path of that session (`ownSession`) is reported and passed on at once, nothing waits. `server()`
+ * lists the paths the **server** asked for so far (a browser's own requests, by user agent, are
+ * left out), so a spec can count the database requests a page request made. `stop()` in
+ * `finally`: the watch is the open connection.
+ */
+export async function watchReads(
+  session: string,
+): Promise<{ server: () => readonly string[]; stop: () => void }> {
+  const seen: string[] = [];
+  const request = httpRequest(`${HOLD_PROXY_URL}/__hold`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+  });
+  await new Promise<void>((resolve, reject) => {
+    request.on("error", reject);
+    request.on("response", (response) => {
+      if (response.statusCode !== 200) {
+        reject(new Error(`hold-proxy refused the watch: ${response.statusCode}`));
+        return;
+      }
+      let buffered = "";
+      response.setEncoding("utf8");
+      response.on("data", (chunk: string) => {
+        buffered += chunk;
+        const lines = buffered.split("\n");
+        buffered = lines.pop() ?? "";
+        for (const line of lines) {
+          const event = JSON.parse(line) as { hold?: number; caught?: string; agent?: string };
+          if (event.hold !== undefined) resolve();
+          // A browser's request names its engine; the server's fetch does not.
+          if (event.caught !== undefined && !/Mozilla\//.test(event.agent ?? "")) {
+            seen.push(event.caught);
+          }
+        }
+      });
+    });
+    request.end(JSON.stringify({ path: "*", session, answer: "watch" }));
+  });
+  return {
+    server: () => [...seen],
+    stop: () => {
+      request.destroy();
+    },
+  };
+}
+
+/**
  * Removes the tasks a spec made (4B), by title prefix, with every child row, so the spec re-runs
  * on a used database. The audit rows about them stay (history; no foreign key). Service role,
  * local stack only: `tasks` has no API delete at all.

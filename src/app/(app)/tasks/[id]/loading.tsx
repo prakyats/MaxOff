@@ -7,6 +7,8 @@ import {
   TaskViewsSkeleton,
 } from "@/modules/tasks/components/task-page-skeleton";
 
+import { TASK_BACK } from "./task";
+
 /**
  * A task's page traced (4.4, reworked to Kickoff 4 decisions 26–32; decision 31): the title bar
  * (with the ⋯ an Owner or Admin usually has), the first glance (the state · priority · deadline
@@ -30,7 +32,7 @@ export default async function Loading() {
       <div className="max-md:contents md:flex md:min-w-0 md:flex-1 md:flex-col md:gap-4">
         <PageHeader
           className="mb-0 md:mb-0"
-          back={{ href: "/tasks", label: "Tasks" }}
+          back={TASK_BACK}
           title={
             // The title's own line box: 24px on a phone, 32px from `md` up (`PageHeader`'s h1).
             <span className="flex h-6 items-center md:h-8">

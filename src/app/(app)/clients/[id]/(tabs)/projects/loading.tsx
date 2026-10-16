@@ -2,8 +2,8 @@ import { Skeleton } from "@/core/ui/primitives/skeleton";
 
 /**
  * A client's Projects (7.3) under the painted header and tabs, traced: the "Projects" heading with
- * the New project button, then project rows (the name, the repeat and cycle line, the progress
- * line, the state chip and the chevron).
+ * the New project button, then project rows (the name, the repeat and cycle line, the cycle's meter
+ * in miniature with its figure (6b.11), the progress line, the state chip and the chevron).
  */
 export default function Loading() {
   return (
@@ -24,6 +24,10 @@ export default function Loading() {
             <span className="flex flex-1 flex-col gap-1.5">
               <Skeleton className="h-4 w-1/2" />
               <Skeleton className="h-3 w-1/3" />
+              <span className="mt-1 flex items-center gap-2">
+                <Skeleton className="h-1.5 w-24 rounded-full sm:w-32" />
+                <Skeleton className="h-3 w-8" />
+              </span>
               <Skeleton className="h-3 w-2/5" />
             </span>
             <Skeleton className="h-4 w-16 shrink-0 rounded-sm" />

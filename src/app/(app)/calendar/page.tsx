@@ -144,8 +144,9 @@ export default async function CalendarPage({
     ),
   });
 
-  // "Who's free" (decision 25 D): the Owner and Admins, over the active people they can see (never
-  // the Owner, who is never an assignee), from the unfiltered reads.
+  // "Who's free" (decision 25 D): the Owner and Admins, over the active people they can see (the
+  // Owner only as Busy, 6b.2), from the unfiltered reads.
+  const owner = directory.find((member) => member.role === "owner" && member.status === "active");
   const visible = directory
     .filter((member) => member.status === "active" && member.role !== "owner")
     .map((member) => ({
@@ -165,6 +166,7 @@ export default async function CalendarPage({
               events,
               leave: leaveRows,
               availability,
+              busyOnly: owner ? [{ id: owner.id, name: owner.fullName }] : [],
             });
             return [day.date, who ? whoFreeLine(who) : ""];
           }),

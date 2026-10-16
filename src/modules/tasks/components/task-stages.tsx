@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2Icon, PlusIcon, XIcon } from "lucide-react";
+import { Loader2Icon, MoreHorizontalIcon, PlusIcon, XIcon } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useOptimistic, useState } from "react";
 
@@ -11,9 +11,17 @@ import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { OFFLINE_BANNER_ID, useOnline } from "@/core/ui/connection/online";
 import { Button } from "@/core/ui/primitives/button";
 import { Checkbox } from "@/core/ui/primitives/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/core/ui/primitives/dropdown-menu";
+import { moveItem } from "@/core/ui/reorder/reorder-math";
+import { DragHandle, ReorderItem, ReorderList, ReorderMenuItems } from "@/core/ui/reorder/reorder";
+import { useReorder } from "@/core/ui/reorder/use-reorder";
 import { toastResult } from "@/core/ui/toast";
 
-import { removeTaskStage, tickStage } from "../actions/tasks";
+import { moveTaskStage, removeTaskStage, tickStage } from "../actions/tasks";
 import type { ActingFor } from "../domain/task";
 
 /** Loaded on the first tap of Add stage, not with the page (4B review S12). */
@@ -25,6 +33,10 @@ const AddStageDialog = dynamic(
 /** A stage as the page shows it: the tick's line is written on the server (IST, the pair). */
 export type StageRow = { id: string; name: string; done: boolean; doneLine: string | null };
 
+/** What shows before the saved stages arrive: a tick or untick, or a move (6b.18). */
+type StageChange =
+  { kind: "tick"; id: string; done: boolean } | { kind: "move"; from: number; to: number };
+
 /**
  * A task's checklist (4.4; PRODUCT §4.6): an assignee ticks (a freelancer's coordinator ticks for
  * them, "Ticked by Ravi for Asha", ADR-0013) while the task is with its assignees; from Done on it
@@ -32,6 +44,13 @@ export type StageRow = { id: string; name: string; done: boolean; doneLine: stri
  * an unticked one. Every tap goes through the stages guard (4A). A tick commits at the tap
  * (ARCHITECTURE §14.1): one request at a time, disabled offline like every commit, and a slow or
  * lost connection said under the list with Retry (the same tick again).
+ *
+ * Drag to reorder (6b.18, owner 2026-10-15): only whoever may edit the task (`canManage`: the
+ * Owner, its creator, its approving Admin) moves its stages, on an existing task too, with the
+ * 44 px handle at the row's end (a long press on a phone) or Move up / Move down in the row's ⋯
+ * menu; Crew never see a handle or the menu, whether an assignee or the primary owner. The new
+ * order shows at once and holds until the saved one arrives; ticks stay as they are, and the move
+ * is in the history (`task_stage_move`). Adding and removing stay with the editors too.
  */
 export function TaskStages({
   taskId,
@@ -48,23 +67,42 @@ export function TaskStages({
 }) {
   const [busy, setBusy] = useState<string | null>(null);
   const online = useOnline();
-  // The tick shows at once and holds until the saved stages arrive with the action's answer, so
-  // the box never flips back for a frame between the two (a refusal or a lost reply puts it back).
-  const [shown, showTick] = useOptimistic(
-    stages,
-    (current, change: { id: string; done: boolean }) =>
-      current.map((stage) =>
-        stage.id === change.id
-          ? { ...stage, done: change.done, doneLine: change.done ? stage.doneLine : null }
-          : stage,
-      ),
+  // A tick or a move shows at once and holds until the saved stages arrive with the action's
+  // answer, so nothing flips back for a frame between the two (a refusal or a lost reply puts it
+  // back).
+  const [shown, showChange] = useOptimistic(stages, (current, change: StageChange) =>
+    change.kind === "move"
+      ? moveItem(current, change.from, change.to)
+      : current.map((stage) =>
+          stage.id === change.id
+            ? { ...stage, done: change.done, doneLine: change.done ? stage.doneLine : null }
+            : stage,
+        ),
   );
   const action = useAction(async (stageId: string, next: boolean) => {
     if (!tick) return;
-    showTick({ id: stageId, done: next });
+    showChange({ kind: "tick", id: stageId, done: next });
     toastResult(await tickStage({ taskId, stageId, done: next, onBehalfOf: tick.onBehalfOf }));
   });
-  const { pending } = action;
+  const moving = useAction(
+    async (stageId: string, afterStageId: string | null, from: number, to: number) => {
+      if (!canManage) return;
+      showChange({ kind: "move", from, to });
+      toastResult(await moveTaskStage({ taskId, stageId, afterStageId }));
+    },
+  );
+  const pending = action.pending || moving.pending;
+  const reorder = useReorder({
+    count: shown.length,
+    labelOf: (index) => shown[index]?.name ?? "the stage",
+    onMove: (from, to) => {
+      const stage = shown[from];
+      if (!stage) return;
+      const next = moveItem(shown, from, to);
+      moving.run(stage.id, to === 0 ? null : (next[to - 1]?.id ?? null), from, to);
+    },
+    disabled: !canManage || pending || !online,
+  });
   const [adding, setAdding] = useState(false);
   // Mounted from the first Add stage on, so its typed name survives a back (4B review L6).
   const [addLoaded, setAddLoaded] = useState(false);
@@ -94,13 +132,19 @@ export function TaskStages({
         ) : null}
       </div>
       {shown.length > 0 ? (
-        <ul className="border-border divide-border bg-card divide-y rounded-lg border">
-          {shown.map((stage) => (
-            <li
+        <ReorderList
+          reorder={reorder}
+          label="Stages"
+          className="border-border bg-card rounded-lg border"
+        >
+          {shown.map((stage, index) => (
+            <ReorderItem
               key={stage.id}
+              reorder={reorder}
+              index={index}
               data-slot="task-stage"
               data-done={stage.done ? "true" : "false"}
-              className="flex items-center gap-1 pr-1"
+              className="border-border flex items-center gap-1 border-t pr-1 first:border-t-0"
             >
               <label
                 className={cn(
@@ -108,7 +152,7 @@ export function TaskStages({
                   tick ? "cursor-pointer" : "cursor-default",
                 )}
               >
-                {pending && busy === stage.id ? (
+                {action.pending && busy === stage.id ? (
                   <Loader2Icon
                     className="text-muted-foreground size-4 shrink-0 animate-spin"
                     aria-hidden
@@ -138,6 +182,26 @@ export function TaskStages({
                   ) : null}
                 </span>
               </label>
+              {canManage && shown.length > 1 ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="size-11 shrink-0"
+                      aria-label={`Move ${stage.name}`}
+                      data-slot="task-stage-menu"
+                      disabled={pending || !online}
+                    >
+                      <MoreHorizontalIcon aria-hidden />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="min-w-48">
+                    <ReorderMenuItems reorder={reorder} index={index} />
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : null}
               {canManage && !stage.done ? (
                 <Button
                   type="button"
@@ -151,15 +215,17 @@ export function TaskStages({
                   <XIcon aria-hidden />
                 </Button>
               ) : null}
-            </li>
+              {canManage ? <DragHandle reorder={reorder} index={index} /> : null}
+            </ReorderItem>
           ))}
-        </ul>
+        </ReorderList>
       ) : (
         <p className="text-muted-foreground text-sm">
           No stages. Add one to break the work into steps.
         </p>
       )}
       <ActionStatus action={action} />
+      <ActionStatus action={moving} />
       {lockedNote && stages.length > 0 ? (
         <p className="text-muted-foreground text-xs" data-slot="task-stages-locked">
           {lockedNote}

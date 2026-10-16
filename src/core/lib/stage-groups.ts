@@ -227,3 +227,30 @@ export function deliverablesIssue(deliverables: readonly Deliverable[]): string 
   }
   return null;
 }
+
+/**
+ * A reusable deliverable (Settings → Templates → Deliverable templates; 6b Release 2, ROADMAP
+ * 6b.13 (2), 6b.16): its name and its stage groups. "+ Add deliverable" and the builders' "Add
+ * deliverables" row copy its groups into the new deliverable, where they stay editable.
+ */
+export type DeliverableTemplateOption = { id: string; name: string; stageGroups: StageGroup[] };
+
+/** The template library's search (6b.16 (f)): how much of a query to read. */
+export const TEMPLATE_QUERY_MAX = 120;
+
+/**
+ * Whether a template matches the library's search (6b.16 (f)): every word of the query appears,
+ * ignoring case, in the template's name or in one of its deliverables' titles (`texts`). An empty
+ * query matches everything.
+ */
+export function templateMatches(query: string, texts: readonly string[]): boolean {
+  const words = query
+    .trim()
+    .toLowerCase()
+    .slice(0, TEMPLATE_QUERY_MAX)
+    .split(/\s+/)
+    .filter(Boolean);
+  if (words.length === 0) return true;
+  const haystack = texts.map((text) => text.toLowerCase());
+  return words.every((word) => haystack.some((text) => text.includes(word)));
+}

@@ -9,7 +9,7 @@ import { itemsDescription } from "./copy";
  * per role (the Owner's comes back to Today, an Admin's to Clients), the three filters (one column
  * on a phone, a row from `sm` up), a group heading for the Owner only (his list is grouped by
  * Admin) and item rows (the title, the project · client line, the state and date line, the
- * chevron). The `(app)` layout already read the member for this request (`cache()`).
+ * stages in miniature, the chevron). The `(app)` layout already read the member for this request (`cache()`).
  */
 export default async function Loading() {
   const member = await getCurrentMember();
@@ -42,6 +42,10 @@ export default async function Loading() {
                 <Skeleton className="h-4 w-1/2" />
                 <Skeleton className="h-3 w-2/5" />
                 <Skeleton className="h-3 w-1/4" />
+                <span className="mt-0.5 flex items-center gap-2">
+                  <Skeleton className="h-1.5 w-20 rounded-full" />
+                  <Skeleton className="h-3 w-6" />
+                </span>
               </span>
               <Skeleton className="size-4 shrink-0 rounded-sm" />
             </li>

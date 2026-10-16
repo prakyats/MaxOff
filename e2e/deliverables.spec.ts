@@ -6,6 +6,7 @@ import {
   expectBackStack,
   expectNoHorizontalScroll,
   hydrated,
+  insertAs,
   memberIdOf,
   removeClientFixture,
   rpcAs,
@@ -270,9 +271,9 @@ test("New project: six deliverables × three preset groups, a drag, the preview,
     .click();
   const sheet = page.locator('[data-slot="review-sheet"]').filter({ hasText: "Item 1" });
   await expect(sheet.locator('[data-slot="item-stage-group-heading"]')).toHaveText([
-    `${a}0/3`,
-    `${b}0/2`,
-    `${c}0/1`,
+    `${a}0/3 stages ticked`,
+    `${b}0/2 stages ticked`,
+    `${c}0/1 stages ticked`,
   ]);
   await page.goBack();
   await expect(sheet).toBeHidden();
@@ -348,14 +349,16 @@ test("today's shape: a group, a drag and a named default group keep every tick, 
   await page.goto(`/clients/${clientId}/projects/${projectId}`);
   await hydrated(page);
   const row = (title: string) => page.locator('[data-slot="item-row"]', { hasText: title });
-  // The old rows are one untitled group: no heading.
+  // The old rows are one untitled group: headed "Stages" with its count, as the list's strip.
   await row("Item 1").locator('[data-slot="item-open"]').click();
   const sheet = page.locator('[data-slot="review-sheet"]').filter({ hasText: "Item 1" });
   await expect(sheet.getByRole("checkbox", { name: "Script" })).toHaveAttribute(
     "aria-checked",
     "true",
   );
-  await expect(sheet.locator('[data-slot="item-stage-group-heading"]')).toHaveCount(0);
+  await expect(sheet.locator('[data-slot="item-stage-group-heading"]')).toHaveText([
+    "Stages1/2 stages ticked",
+  ]);
 
   // Edit stages: add a group, then drag Edit above Script; the tick stays shown.
   await sheet.getByRole("button", { name: "Edit stages" }).click();
@@ -375,7 +378,10 @@ test("today's shape: a group, a drag and a named default group keep every tick, 
   await expect(stageRow("Script")).toHaveAttribute("data-done", "");
   await page.goBack();
   await expect(editor).toBeHidden();
-  await expect(sheet.locator('[data-slot="item-stage-group-heading"]')).toHaveText(["Phase A0/2"]);
+  await expect(sheet.locator('[data-slot="item-stage-group-heading"]')).toHaveText([
+    "Stages1/2 stages ticked",
+    "Phase A0/2 stages ticked",
+  ]);
   await page.goBack();
   await expect(sheet).toBeHidden();
 
@@ -417,11 +423,13 @@ test("today's shape: a group, a drag and a named default group keep every tick, 
   const historyAfter = await serviceSelect<{ id: number }>(activity);
   expect(historyAfter.slice(0, historyBefore.length)).toEqual(historyBefore);
 
-  // Item 2 was never touched: still one untitled group, no heading.
+  // Item 2 was never touched: still one untitled group, headed "Stages" as the list's strip.
   await row("Item 2").locator('[data-slot="item-open"]').click();
   const second = page.locator('[data-slot="review-sheet"]').filter({ hasText: "Item 2" });
   await expect(second.getByRole("checkbox", { name: "Script" })).toBeVisible();
-  await expect(second.locator('[data-slot="item-stage-group-heading"]')).toHaveCount(0);
+  await expect(second.locator('[data-slot="item-stage-group-heading"]')).toHaveText([
+    /^Stages\d\/2 stages ticked$/,
+  ]);
   await page.goBack();
   await expect(second).toBeHidden();
   await removeClientFixture(client);
@@ -559,5 +567,248 @@ test.describe("the new layers, installed (ARCHITECTURE §14.2)", () => {
 
     await removeClientFixture(client);
     await removePresets([presetName]);
+  });
+});
+
+/* -------------------------------------------------------------------------------------------------
+ * Release 2 (v1.7.1; ROADMAP 6b.13 (2)(b), 6b.16 (f)): a deliverable saved as a deliverable
+ * template and used in another project's "+ Add deliverable"; New project's template library.
+ * ---------------------------------------------------------------------------------------------- */
+
+async function removeDeliverableTemplate(name: string): Promise<void> {
+  await serviceRest(`deliverable_templates?name=eq.${encodeURIComponent(name)}`, {
+    method: "DELETE",
+  });
+}
+
+test("a deliverable saved as a deliverable template, then used in another project's Add deliverable", async ({
+  page,
+}, info) => {
+  const client = nameOf(info, "dt save");
+  const template = nameOf(info, "Item kind");
+  await removeDeliverableTemplate(template);
+  const clientId = await workClient(client);
+  // Today's shape, then a group added on the deliverable and a tick.
+  const projectId = await rpcAs<string>(admin.email, admin.password, "project_create", {
+    client_id: clientId,
+    name: "Source work",
+    recurrence: "monthly",
+    stages: ["Stage 1"],
+    items: ["Item 1"],
+  });
+  const [one] = await serviceSelect<{ id: string }>(
+    `project_items?project_id=eq.${projectId}&title=eq.Item%201&select=id`,
+  );
+  const itemId = one!.id;
+  await rpcAs(admin.email, admin.password, "item_stage_group_add", {
+    item_id: itemId,
+    label: "Phase A",
+    stages: ["One", "Two"],
+  });
+  const [tick] = await serviceSelect<{ id: string }>(
+    `project_item_stage_list?item_id=eq.${itemId}&name=eq.Stage%201&select=id`,
+  );
+  await rpcAs(admin.email, admin.password, "item_stage_tick", { stage_id: tick!.id, done: true });
+  const stageColumns = "id,name,done_at,done_by,group_label,position,archived_at";
+  const ticksBefore = await serviceSelect<StageRow>(
+    `project_item_stage_list?item_id=eq.${itemId}&select=${stageColumns}&order=id`,
+  );
+
+  await page.goto(`/clients/${clientId}/projects/${projectId}`);
+  await hydrated(page);
+  await page
+    .locator('[data-slot="item-row"]', { hasText: "Item 1" })
+    .locator('[data-slot="item-open"]')
+    .click();
+  const sheet = page.locator('[data-slot="review-sheet"]').filter({ hasText: "Item 1" });
+  await sheet.getByRole("button", { name: "More for Item 1" }).click();
+  await page.getByRole("menuitem", { name: "Save as template" }).click();
+  const save = page.getByRole("dialog", { name: "Save as template" });
+  await expect(save.getByLabel("Template name")).toHaveValue("Item 1");
+  await save.getByLabel("Template name").fill(template);
+  await save.getByRole("button", { name: "Save template" }).click();
+  await expect(save).toBeHidden();
+  await expect(page.getByText(`Saved as the template ${template}`)).toBeVisible();
+  const [saved] = await serviceSelect<{ stage_groups: unknown }>(
+    `deliverable_templates?name=eq.${encodeURIComponent(template)}&select=stage_groups`,
+  );
+  expect(saved?.stage_groups).toEqual([
+    { label: null, stages: ["Stage 1"] },
+    { label: "Phase A", stages: ["One", "Two"] },
+  ]);
+  // The deliverable keeps every stage and its tick.
+  expect(
+    await serviceSelect<StageRow>(
+      `project_item_stage_list?item_id=eq.${itemId}&select=${stageColumns}&order=id`,
+    ),
+  ).toEqual(ticksBefore);
+  await page.goBack();
+  await expect(sheet).toBeHidden();
+
+  // Another project: "+ Add deliverable" starts from it, its groups editable before adding.
+  const otherId = await rpcAs<string>(admin.email, admin.password, "project_create", {
+    client_id: clientId,
+    name: "Other work",
+    recurrence: "monthly",
+    stages: ["Other"],
+    items: [],
+  });
+  await page.goto(`/clients/${clientId}/projects/${otherId}`);
+  await hydrated(page);
+  await page.getByRole("button", { name: "Add deliverable" }).click();
+  const dialog = page.getByRole("dialog", { name: "Add a deliverable" });
+  await dialog.getByRole("combobox", { name: "Start from" }).click();
+  await page.getByRole("option", { name: template }).click();
+  await expect(dialog.getByLabel("Title")).toHaveValue(template);
+  await expect
+    .poll(() => valuesOf(dialog.locator('[data-slot="stage-name"]')))
+    .toEqual(["Stage 1", "One", "Two"]);
+  await dialog.getByLabel("Title").fill("Item from template");
+  await dialog.getByRole("button", { name: "Add deliverable" }).click();
+  await expect(dialog).toBeHidden();
+  const [added] = await serviceSelect<{ id: string }>(
+    `project_items?project_id=eq.${otherId}&title=eq.${encodeURIComponent("Item from template")}&select=id`,
+  );
+  expect(await stagesOf(added!.id)).toEqual(["Stage 1", "Phase A · One", "Phase A · Two"]);
+  await removeClientFixture(client);
+  await removeDeliverableTemplate(template);
+});
+
+test("New project's template library: search, a preview that back closes, then Use this template", async ({
+  page,
+}, info) => {
+  const client = nameOf(info, "library");
+  const alpha = nameOf(info, "Library alpha");
+  const beta = nameOf(info, "Library beta");
+  for (const name of [alpha, beta]) {
+    await serviceRest(`project_templates?name=eq.${encodeURIComponent(name)}`, {
+      method: "DELETE",
+    });
+  }
+  const groups = [{ label: "Phase A", stages: ["One", "Two"] }];
+  await insertAs(admin.email, admin.password, "project_templates", {
+    name: alpha,
+    recurrence: "weekly",
+    stage_groups: [],
+    deliverables: [
+      { title: "Item 1", stage_groups: groups },
+      { title: "Item 2", stage_groups: groups },
+    ],
+  });
+  await insertAs(admin.email, admin.password, "project_templates", {
+    name: beta,
+    recurrence: "monthly",
+    stage_groups: [],
+    deliverables: [{ title: "Item", stage_groups: null }],
+  });
+  const clientId = await workClient(client);
+  const tab = new RegExp(`/clients/${clientId}/projects$`);
+  await runInstalled(page);
+  await page.goto(`/clients/${clientId}/projects`);
+  await hydrated(page);
+  await page.getByRole("button", { name: "New project" }).click();
+  const create = page.getByRole("dialog", { name: "New project" });
+  await create.getByRole("button", { name: "Search and preview templates" }).click();
+  const library = page.getByRole("dialog", { name: "Start from a template" });
+  await expect(library).toBeVisible();
+  const rows = library.locator('[data-slot="template-library-row"]');
+  await library.getByRole("searchbox", { name: "Search templates" }).fill(alpha);
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toContainText("Weekly · 2 deliverables · 4 stages");
+  await library
+    .getByRole("searchbox", { name: "Search templates" })
+    .fill(`${alpha} nothing-like-it`);
+  await expect(library.locator('[data-slot="template-library-empty"]')).toBeVisible();
+  await library.getByRole("searchbox", { name: "Search templates" }).fill(alpha);
+  await expectNoHorizontalScroll(page);
+
+  // The preview is its own layer: back closes it, the library stays.
+  await rows
+    .first()
+    .getByRole("button", { name: `Preview ${alpha}` })
+    .click();
+  const preview = page.getByRole("dialog", { name: `Preview ${alpha}` });
+  await expectSummary(preview, "2 deliverables · 1 group · 4 stages");
+  await expectBackStack(page, [{ closes: preview, url: tab }]);
+  await expect(library).toBeVisible();
+
+  // Use this template: the form takes it, as Start from does, still editable.
+  await rows
+    .first()
+    .getByRole("button", { name: `Preview ${alpha}` })
+    .click();
+  await preview.getByRole("button", { name: "Use this template" }).click();
+  await expect(preview).toBeHidden();
+  await expect(library).toBeHidden();
+  await expect(create.locator('[data-slot="deliverable-title"]')).toHaveText(["Item 1", "Item 2"]);
+  await expect(create.getByRole("combobox", { name: "Start from" })).toContainText(alpha);
+
+  // Back now asks before the picked template is lost.
+  await page.goBack();
+  const discard = page.getByRole("alertdialog", { name: "Discard this project?" });
+  await discard.getByRole("button", { name: "Discard project" }).click();
+  await expect(create).toBeHidden();
+  await expect(page).toHaveURL(tab);
+  await removeClientFixture(client);
+  for (const name of [alpha, beta]) {
+    await serviceRest(`project_templates?name=eq.${encodeURIComponent(name)}`, {
+      method: "DELETE",
+    });
+  }
+});
+
+test.describe("Save as template's layers, installed (ARCHITECTURE §14.2)", () => {
+  test.beforeEach(({}, info) => {
+    test.skip(info.project.name === "desktop", "the phone widths, 375 and 430");
+  });
+
+  test("the project's and a deliverable's Save as template close one per back", async ({
+    page,
+  }, info) => {
+    const client = nameOf(info, "save layers");
+    const clientId = await workClient(client);
+    const projectId = await rpcAs<string>(admin.email, admin.password, "project_create", {
+      client_id: clientId,
+      name: "Layer work",
+      recurrence: "monthly",
+      stages: ["Stage 1"],
+      items: ["Item 1"],
+    });
+    const here = new RegExp(`/projects/${projectId}$`);
+    await runInstalled(page);
+    await page.goto(`/clients/${clientId}/projects/${projectId}`);
+    await hydrated(page);
+
+    await page.getByRole("button", { name: "Actions for Layer work" }).click();
+    await page.getByRole("menuitem", { name: "Save as template" }).click();
+    const save = page.getByRole("dialog", { name: "Save as template" });
+    await expect(save).toBeVisible();
+    await expectLayerFits(page, save);
+    await expectBackStack(page, [{ closes: save, url: here }]);
+
+    await page
+      .locator('[data-slot="item-row"]', { hasText: "Item 1" })
+      .locator('[data-slot="item-open"]')
+      .click();
+    const sheet = page.locator('[data-slot="review-sheet"]').filter({ hasText: "Item 1" });
+    await sheet.getByRole("button", { name: "More for Item 1" }).click();
+    const menu = page.getByRole("menu");
+    await expect(menu).toBeVisible();
+    await expectBackStack(page, [{ closes: menu, url: here }]);
+    await expect(sheet).toBeVisible();
+    await sheet.getByRole("button", { name: "More for Item 1" }).click();
+    await page.getByRole("menuitem", { name: "Save as template" }).click();
+    await expect(save).toBeVisible();
+    await expectBackStack(page, [
+      { closes: save, url: here },
+      { closes: sheet, url: here },
+    ]);
+
+    // "+ Add deliverable": its Start from adds no layer of its own; back closes the dialog.
+    await page.getByRole("button", { name: "Add deliverable" }).click();
+    const add = page.getByRole("dialog", { name: "Add a deliverable" });
+    await expect(add).toBeVisible();
+    await expectBackStack(page, [{ closes: add, url: here }]);
+    await removeClientFixture(client);
   });
 });

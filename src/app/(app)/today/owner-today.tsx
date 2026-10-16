@@ -22,6 +22,7 @@ import {
   OWNER_APPROVALS_SHOWN,
   OWNER_NEEDS_YOU_EMPTY,
   OWNER_TODAY_EMPTY,
+  ownerMyTasks,
   QuietText,
   reachedAt,
   RiskRows,
@@ -39,9 +40,15 @@ import {
 import {
   activeAssignees,
   listUnreadCounts,
+  rowMeta,
+  stateLabel,
+  TaskRow,
+  TaskRowList,
   taskTypeColor,
   type TaskListRow,
 } from "@/modules/tasks";
+
+import { rowFlag } from "../my-day/words";
 
 import { firstInGroupOrder, taskItem } from "../approvals/items";
 import { readDirectory, readOpenTasks, readTaskTypes } from "../tasks/reads";
@@ -80,7 +87,10 @@ import { ownerGreeting } from "./words";
  *    nothing waits (the section always stands, so the screen keeps its shape).
  * 2. **Attendance**: the four counts in one row; Absent and yesterday's unended days as red lines
  *    under it, only above zero (decision 24's counts, links and colours; owner 2026-10-09).
- * 3. **Today's tasks**: one line, "N due today · M handed in".
+ * 3. **My tasks** (6b.2, owner 2026-10-07): the Owner's own open tasks that are overdue or due
+ *    today, at most three rows (each opening its task) and "See all N"; hidden when there is none.
+ *    They are left out of Overdue and risks, so a task is never listed twice.
+ * 3b. **Today's tasks**: one line, "N due today · M handed in".
  * 4. **Client work** (7.4; kickoff 7 amendment C, E1): one line, "N client items overdue", its
  *    icon and words in red, hidden at zero, opening the cross-client list grouped by Admin; no item
  *    approvals (issue #56 Q1: the client's Admin's) and no progress line (not an exception).
@@ -91,7 +101,7 @@ import { ownerGreeting } from "./words";
  *    person's consecutive leave as one row, each event opening its task, the deadlines as a
  *    count), at most five days and eight rows, then "See the week"; "Calendar ›" in the header.
  *
- * Sections 3–6 are drawn only with something in them (decision 24: exceptions only); when none
+ * Sections 3–6 (and My tasks) are drawn only with something in them (decision 24: exceptions only); when none
  * is, one muted line: "Nothing else needs you today." Not shown until their data exists
  * (decision 4): the revenue snapshot. The rule for every later addition (decision 24): exceptions
  * only, a count rather than a list where possible, one tap to the list, hidden when empty.
@@ -139,6 +149,12 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
   const names = new Map(directory.map((member) => [member.id, member]));
   const nameOf = (id: string) => names.get(id)?.fullName ?? "Someone";
   const nameRecord = Object.fromEntries(directory.map((member) => [member.id, member.fullName]));
+  const rowContext = {
+    viewerId: viewer.id,
+    nameOf: (id: string) => (id === viewer.id ? "you" : nameOf(id)),
+    engagementOf: (id: string) => names.get(id)?.engagement,
+    clientName: () => null,
+  };
 
   const total = days.length + requests.length + notes.length + claims.length + toDecide.length;
   const shown = firstInGroupOrder(
@@ -152,8 +168,13 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
     shown.notes.length +
     shown.claims.length +
     shown.toDecide.length;
+  // 6b.2: the Owner's own exceptions (decision 24), before the unread read that covers their rows.
+  const mine = ownerMyTasks(open, viewer.id, systemClock(), today);
   // The task rows' unread comments (Kickoff 4 decision 28), for the rows shown only (A-S4).
-  const unread = await listUnreadCounts(shown.toDecide.map((item) => item.row.id));
+  const unread = await listUnreadCounts([
+    ...shown.toDecide.map((item) => item.row.id),
+    ...mine.rows.map((row) => row.id),
+  ]);
   const tasks = shown.toDecide.map((item) => ({
     ...taskItem(item, nameRecord, true),
     unread: unread[item.row.id] ?? 0,
@@ -177,9 +198,13 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
   const dueToday = todaysTasks(open, today);
 
   const riskTasks = open.map(toRiskTask);
+  const inMine = new Set(mine.rows.map((row) => row.id));
   const titles = new Map(open.map((row) => [row.id, row.title]));
   const risks: Risk[] = sortRisks([
-    ...overdueRisks(riskTasks, now),
+    ...overdueRisks(
+      riskTasks.filter((task) => !inMine.has(task.id)),
+      now,
+    ),
     ...notNotedRisks(notNoted, titles),
     ...leaveRisks(riskTasks, leaveDays, {
       from: today,
@@ -202,6 +227,7 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
   });
   // Exceptions only (decision 24): a section after the card with nothing in it is not drawn.
   const sections = {
+    mine: mine.total > 0,
     tasks: dueToday.due > 0,
     risks: risks.length > 0 || (held !== null && heldEmailsLine(held) !== null),
     clientWork: overdueItems > 0,
@@ -255,6 +281,43 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
         </DashSection>
 
         <TodayAttendanceCard summary={summary} />
+
+        {sections.mine ? (
+          <DashSection
+            title="My tasks"
+            slot="today-my-tasks"
+            count={mine.total}
+            hint="Your own tasks, overdue or due today. Tap one to open it."
+          >
+            <div className="flex min-w-0 flex-col gap-2">
+              <TaskRowList label="My tasks">
+                {mine.rows.map((row) => (
+                  <TaskRow
+                    key={row.id}
+                    id={row.id}
+                    title={row.title}
+                    meta={rowMeta(row, rowContext)}
+                    status={row.state}
+                    statusLabel={stateLabel(row)}
+                    flag={rowFlag(row, now) ?? { label: "Due today", tone: "attention" }}
+                    unread={unread[row.id] ?? 0}
+                    chevron
+                  />
+                ))}
+              </TaskRowList>
+              {mine.total > mine.rows.length ? (
+                <RowList label="All my tasks" slot="today-my-tasks-all">
+                  <LinkRow
+                    href={`/tasks/all?person=${viewer.id}`}
+                    slot="today-see-all-my-tasks"
+                    title={`See all ${mine.total} of my tasks`}
+                    tab
+                  />
+                </RowList>
+              ) : null}
+            </div>
+          </DashSection>
+        ) : null}
 
         {sections.tasks ? (
           <DashSection title="Today's tasks" slot="today-tasks">

@@ -155,6 +155,10 @@ export const actingSchema = z.object({
 });
 export type ActingInput = z.input<typeof actingSchema>;
 
+/** Remind (6b.2, `task_remind`): only the task; who may, and how often, is the database's. */
+export const remindSchema = z.object({ taskId: z.uuid() });
+export type RemindInput = z.input<typeof remindSchema>;
+
 const optionalText = (max: number, message: string) =>
   z
     .string()
@@ -213,6 +217,14 @@ export type AddStageInput = z.input<typeof addStageSchema>;
 
 export const removeStageSchema = z.object({ taskId: z.uuid(), stageId: z.uuid() });
 export type RemoveStageInput = z.input<typeof removeStageSchema>;
+
+/** A stage moved to just after another (null: to the top), by whoever may edit the task (6b.18). */
+export const moveStageSchema = z.object({
+  taskId: z.uuid(),
+  stageId: z.uuid(),
+  afterStageId: z.uuid().nullable(),
+});
+export type MoveStageInput = z.input<typeof moveStageSchema>;
 
 export const commentSchema = z.object({
   taskId: z.uuid(),

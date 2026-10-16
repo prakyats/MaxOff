@@ -1,8 +1,8 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { revalidateScreens } from "@/core/lib/revalidate-screens";
 import { action, ok, type Result } from "@/core/errors";
 import { repeatedName, repeatedStageMessage } from "@/core/lib/repeated-name";
 import { assertPermission } from "@/core/permissions/server";
@@ -53,8 +53,7 @@ export type UpdateStagePresetInput = z.input<typeof updateSchema>;
 export type ArchiveStagePresetInput = z.input<typeof archiveSchema>;
 
 function revalidate(): void {
-  revalidatePath("/settings", "layout");
-  revalidatePath("/clients", "layout");
+  revalidateScreens();
 }
 
 export const createStagePreset = action(async (input: StagePresetInput): Promise<Result<null>> => {

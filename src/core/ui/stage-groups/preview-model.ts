@@ -7,9 +7,11 @@ import {
 
 /**
  * What the live preview draws (ROADMAP 6b.16 (a); owner feedback 2026-10-15, issue #89), as pure
- * functions: the summary figures, and the entries, where a run of **identical** deliverables with
- * numbered names ("Item 1" … "Item 4", the same groups and stages, both own or both default)
- * shows as one entry "Item 1–4" ×4. Anything else keeps its own entry, in the order built.
+ * functions: the summary figures, and the entries, where **identical** deliverables next to each
+ * other (the same groups and stages, both own or both default) show as one entry: a numbered run
+ * ("Item 1" … "Item 4") as "Item 1–4" ×4, any other names as "A, B" ×2 (v1.7.1). Anything else
+ * keeps its own entry, in the order built. Each deliverable keeps a stable key across edits
+ * (`previewKeys`), so a change highlights the entry it happened to, never a card by position.
  */
 
 export type PreviewStats = { deliverables: number; groups: number; stages: number };
@@ -55,9 +57,11 @@ export function statsLine(stats: PreviewStats): string {
 }
 
 export type PreviewEntry = {
-  /** The first deliverable's index (a stable key while the list keeps its shape). */
+  /** The first deliverable's index in the list. */
   start: number;
-  /** "Item 1–4" for a run, else the deliverable's title. */
+  /** The first deliverable's stable key (`previewKeys`), or its index when none is given. */
+  key: string;
+  /** "Item 1–4" for a numbered run, "A, B" for other identical ones, else the title. */
   label: string;
   /** Every title in the entry, in order. */
   titles: string[];
@@ -80,46 +84,91 @@ function signature(own: boolean, groups: readonly StageGroup[]): string {
   return JSON.stringify([own, groups.map((group) => [group.label, group.stages])]);
 }
 
-/** The preview's entries: each deliverable, with numbered runs of identical ones collapsed. */
+/** How many names an entry of identical, unnumbered deliverables spells out before "+N". */
+const NAMES_SHOWN = 3;
+
+/** An entry's label: the title, "Item 1–4" for a numbered run, else "A, B, C +2". */
+export function entryLabel(titles: readonly string[]): string {
+  if (titles.length === 1) return titles[0] ?? "";
+  const names = titles.map(numbered);
+  const first = names[0];
+  const run =
+    first !== null &&
+    first !== undefined &&
+    names.every(
+      (name, index) =>
+        name !== null &&
+        name.base.toLowerCase() === first.base.toLowerCase() &&
+        name.number === first.number + index,
+    );
+  if (run) return `${first.base} ${first.number}–${first.number + titles.length - 1}`;
+  const shown = titles.slice(0, NAMES_SHOWN).join(", ");
+  return titles.length > NAMES_SHOWN ? `${shown} +${titles.length - NAMES_SHOWN}` : shown;
+}
+
+/**
+ * The preview's entries: each deliverable, with identical neighbours collapsed into one (a
+ * numbered run, or any names). `keys` (from `previewKeys`) are the deliverables' stable keys.
+ */
 export function previewEntries(
   deliverables: readonly Deliverable[],
   defaults: readonly StageGroup[],
+  keys?: readonly string[],
 ): PreviewEntry[] {
   const entries: PreviewEntry[] = [];
-  let run: { entry: PreviewEntry; sig: string; base: string; last: number } | null = null;
+  let last: { entry: PreviewEntry; sig: string } | null = null;
   deliverables.forEach((deliverable, index) => {
     const own = deliverable.stageGroups !== null;
     const groups = deliverable.stageGroups ?? [...defaults];
     const sig = signature(own, groups);
-    const name = numbered(deliverable.title);
-    if (
-      run &&
-      name &&
-      run.sig === sig &&
-      run.base.toLowerCase() === name.base.toLowerCase() &&
-      name.number === run.last + 1
-    ) {
-      run.last = name.number;
-      run.entry.titles.push(deliverable.title);
+    if (last && last.sig === sig) {
+      last.entry.titles.push(deliverable.title);
       return;
     }
     const entry: PreviewEntry = {
       start: index,
+      key: keys?.[index] ?? String(index),
       label: deliverable.title,
       titles: [deliverable.title],
       groups,
       own,
     };
     entries.push(entry);
-    run = name ? { entry, sig, base: name.base, last: name.number } : null;
+    last = { entry, sig };
   });
-  for (const entry of entries) {
-    if (entry.titles.length < 2) continue;
-    const first = numbered(entry.titles[0] ?? "");
-    const last = numbered(entry.titles[entry.titles.length - 1] ?? "");
-    if (first && last) entry.label = `${first.base} ${first.number}–${last.number}`;
-  }
+  for (const entry of entries) entry.label = entryLabel(entry.titles);
   return entries;
+}
+
+/**
+ * Stable keys for the deliverables across an edit (v1.7.1, issue #89 (iii)): each new title takes
+ * the key of an unclaimed one of the same title from before (in order, so repeated names keep
+ * theirs); what is left pairs up in order (a renamed deliverable keeps its key); anything more is
+ * new and gets `mint(n)` (n counting the new ones from 0). So inserting, removing or reordering never hands a card another's key.
+ */
+export function previewKeys(
+  before: readonly { title: string; key: string }[],
+  titles: readonly string[],
+  mint: (n: number) => string,
+): string[] {
+  const claimed = new Set<number>();
+  const keys: (string | null)[] = titles.map((title) => {
+    const at = before.findIndex((row, index) => !claimed.has(index) && row.title === title);
+    if (at < 0) return null;
+    claimed.add(at);
+    return before[at]?.key ?? null;
+  });
+  const left = before.filter((_, index) => !claimed.has(index));
+  let next = 0;
+  let minted = 0;
+  return keys.map((key) => {
+    if (key !== null) return key;
+    const reused = left[next];
+    next += 1;
+    if (reused) return reused.key;
+    minted += 1;
+    return mint(minted - 1);
+  });
 }
 
 /** An entry's counts: "4 stages", "2 groups · 7 stages", "… each" for a run. */
