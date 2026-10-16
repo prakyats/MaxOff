@@ -19,7 +19,6 @@ import { readyToMarkDone, solidMarkDoneId } from "../domain/deliverable";
 import { movedPosition } from "../domain/positions";
 import { orderDeliverables, type ItemView } from "../domain/views";
 
-import { BulkEditBar } from "./bulk-edit-bar";
 import type { BulkEditKind } from "./bulk-edit-sheet";
 import { deliverableColumns } from "./deliverable-columns";
 import { DeliverableRow } from "./deliverable-row";
@@ -32,8 +31,13 @@ import { MARK_DONE_URL, useUndoSends } from "./use-undo-sends";
 /**
  * What draws nothing until it is used loads after the page (ARCHITECTURE §19, the 7B review's
  * S2): the item sheet and the bulk Mark done's confirmation are mounted on their first open and
- * kept (their closing stays animated); Add item is mounted while open.
+ * kept (their closing stays animated); Add item is mounted while open. Select mode's action bar
+ * (its Tick and Edit menus) is mounted when Select is first tapped and kept: it draws nothing
+ * until a row is selected, and the selection lives here, so no tap waits for its code.
  */
+const BulkEditBar = dynamic(() => import("./bulk-edit-bar").then((module) => module.BulkEditBar), {
+  ssr: false,
+});
 const ItemSheet = dynamic(() => import("./item-sheet").then((module) => module.ItemSheet), {
   ssr: false,
 });
@@ -102,6 +106,9 @@ export function CycleItems({
   const { selected, setSelected } = mode;
   const [editing, setEditing] = useState<BulkEditKind | null>(null);
   const [editUsed, setEditUsed] = useState(false);
+  // The Select bar's code arrives on the first Select and stays (`BulkEditBar` above).
+  const [barUsed, setBarUsed] = useState(false);
+  if (mode.selectMode && !barUsed) setBarUsed(true);
   const [openId, setOpenId] = useState<string | null>(openItemId);
   // The sheet's code arrives on its first open and stays (`ItemSheet` above).
   const [sheetUsed, setSheetUsed] = useState(openItemId !== null);
@@ -278,30 +285,32 @@ export function CycleItems({
           </FinishedDeliverables>
         </>
       )}
-      <BulkEditBar
-        count={chosen.length}
-        onClear={() => setSelected(new Set())}
-        markable={openSelected.length}
-        marking={busy === "bulk-done"}
-        onMarkDone={() => {
-          setConfirmUsed(true);
-          setConfirming(true);
-        }}
-        choices={choices}
-        onTick={(choice) =>
-          void bulk(
-            "bulk-tick",
-            () => tickStages({ stageIds: choice.stageIds }),
-            `ticked ${choice.name}`,
-          )
-        }
-        editable={editable.length}
-        onEdit={(kind) => {
-          setEditUsed(true);
-          setEditing(kind);
-        }}
-        onHeight={setBarHeight}
-      />
+      {barUsed ? (
+        <BulkEditBar
+          count={chosen.length}
+          onClear={() => setSelected(new Set())}
+          markable={openSelected.length}
+          marking={busy === "bulk-done"}
+          onMarkDone={() => {
+            setConfirmUsed(true);
+            setConfirming(true);
+          }}
+          choices={choices}
+          onTick={(choice) =>
+            void bulk(
+              "bulk-tick",
+              () => tickStages({ stageIds: choice.stageIds }),
+              `ticked ${choice.name}`,
+            )
+          }
+          editable={editable.length}
+          onEdit={(kind) => {
+            setEditUsed(true);
+            setEditing(kind);
+          }}
+          onHeight={setBarHeight}
+        />
+      ) : null}
       {mode.selectMode ? (
         // In flow under the list, only in Select mode: the bar's height plus its 12 px gap, or a
         // bar's usual height before one shows (no shift outside Select mode).

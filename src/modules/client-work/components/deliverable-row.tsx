@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  CheckIcon,
-  ChevronRightIcon,
-  CircleIcon,
-  MoreHorizontalIcon,
-  PanelRightOpenIcon,
-} from "lucide-react";
+import { CheckIcon, ChevronRightIcon, CircleIcon } from "lucide-react";
 import { useId, useState } from "react";
 
 import { cn } from "@/core/lib/utils";
@@ -15,18 +9,16 @@ import { StatusDot } from "@/core/ui/composites/status-badge";
 import { SegmentedBar } from "@/core/ui/progress/segmented-meter";
 import { Button } from "@/core/ui/primitives/button";
 import { Checkbox } from "@/core/ui/primitives/checkbox";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/core/ui/primitives/dropdown-menu";
+import { AfterPage } from "@/core/ui/lazy/after-page";
+import { menuStandInPress } from "@/core/ui/lazy/menu-stand-in";
 
 import { groupStrips, markDonePlace, nextStep, type GroupStrip } from "../domain/deliverable";
 import { ITEM_STATUS } from "../domain/types";
 import type { ItemStageGroupView, ItemStageView, ItemView } from "../domain/views";
 
 import { STRIP_GRID } from "./deliverable-columns";
+import type { ItemRowMenuProps } from "./item-row-menu";
+import { ItemRowMenuTrigger } from "./item-row-menu-trigger";
 import { SentBackNote } from "./sent-back-note";
 
 /** Above the row's stretched open target (`ROW_OPEN`): the row's own controls keep their taps. */
@@ -40,6 +32,35 @@ const OVER_ROW = "relative z-10";
  */
 const ROW_OPEN =
   "outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-ring focus-visible:after:ring-inset";
+
+const loadRowMenu = () => import("./item-row-menu").then((module) => module.ItemRowMenu);
+
+/**
+ * The row's ⋯ menu (Open, Mark done), **loaded after the page** (ARCHITECTURE §19): the Radix
+ * menu draws nothing until it is opened, so it stays out of the project page's first-load
+ * JavaScript. Until it arrives the same button stands in; a tap on it opens the menu as soon as
+ * the code is there (`menuStandInPress`, the pattern of `UserMenu` and `ThemeToggle`).
+ */
+function RowMenu(props: Omit<ItemRowMenuProps, "defaultOpen">) {
+  const [wanted, setWanted] = useState(false);
+  return (
+    <AfterPage
+      load={loadRowMenu}
+      props={{ ...props, defaultOpen: wanted }}
+      fallback={
+        <ItemRowMenuTrigger
+          title={props.title}
+          disabled={props.disabled}
+          className={props.className}
+          aria-haspopup="menu"
+          aria-expanded={false}
+          data-state="closed"
+          {...menuStandInPress(() => setWanted(true))}
+        />
+      }
+    />
+  );
+}
 
 /** "Planned 21 Oct", "Planned 18 Oct · 2 days late" (the overdue tone), "Not planned" (muted). */
 function PlannedText({ item, className }: { item: ItemView; className?: string }) {
@@ -521,31 +542,13 @@ export function DeliverableRow({
           </Button>
         ) : null}
         {place === "menu" ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                disabled={waiting}
-                aria-label={`More for ${item.title}`}
-                title="More: Open, Mark done"
-                data-slot="item-row-more"
-                className={cn(OVER_ROW, "size-11 lg:size-7")}
-              >
-                <MoreHorizontalIcon aria-hidden />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem data-slot="item-row-menu-open" onSelect={onOpen}>
-                <PanelRightOpenIcon aria-hidden />
-                Open
-              </DropdownMenuItem>
-              <DropdownMenuItem data-slot="item-row-menu-done" onSelect={onMarkDone}>
-                <CheckIcon aria-hidden />
-                Mark done
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <RowMenu
+            title={item.title}
+            disabled={waiting}
+            className={OVER_ROW}
+            onOpen={onOpen}
+            onMarkDone={onMarkDone}
+          />
         ) : null}
         {selectsOnTap ? null : (
           <ChevronRightIcon
