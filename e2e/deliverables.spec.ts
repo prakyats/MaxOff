@@ -271,9 +271,9 @@ test("New project: six deliverables × three preset groups, a drag, the preview,
     .click();
   const sheet = page.locator('[data-slot="review-sheet"]').filter({ hasText: "Item 1" });
   await expect(sheet.locator('[data-slot="item-stage-group-heading"]')).toHaveText([
-    `${a}0/3`,
-    `${b}0/2`,
-    `${c}0/1`,
+    `${a}0/3 stages ticked`,
+    `${b}0/2 stages ticked`,
+    `${c}0/1 stages ticked`,
   ]);
   await page.goBack();
   await expect(sheet).toBeHidden();
@@ -349,14 +349,16 @@ test("today's shape: a group, a drag and a named default group keep every tick, 
   await page.goto(`/clients/${clientId}/projects/${projectId}`);
   await hydrated(page);
   const row = (title: string) => page.locator('[data-slot="item-row"]', { hasText: title });
-  // The old rows are one untitled group: no heading.
+  // The old rows are one untitled group: headed "Stages" with its count, as the list's strip.
   await row("Item 1").locator('[data-slot="item-open"]').click();
   const sheet = page.locator('[data-slot="review-sheet"]').filter({ hasText: "Item 1" });
   await expect(sheet.getByRole("checkbox", { name: "Script" })).toHaveAttribute(
     "aria-checked",
     "true",
   );
-  await expect(sheet.locator('[data-slot="item-stage-group-heading"]')).toHaveCount(0);
+  await expect(sheet.locator('[data-slot="item-stage-group-heading"]')).toHaveText([
+    "Stages1/2 stages ticked",
+  ]);
 
   // Edit stages: add a group, then drag Edit above Script; the tick stays shown.
   await sheet.getByRole("button", { name: "Edit stages" }).click();
@@ -376,7 +378,10 @@ test("today's shape: a group, a drag and a named default group keep every tick, 
   await expect(stageRow("Script")).toHaveAttribute("data-done", "");
   await page.goBack();
   await expect(editor).toBeHidden();
-  await expect(sheet.locator('[data-slot="item-stage-group-heading"]')).toHaveText(["Phase A0/2"]);
+  await expect(sheet.locator('[data-slot="item-stage-group-heading"]')).toHaveText([
+    "Stages1/2 stages ticked",
+    "Phase A0/2 stages ticked",
+  ]);
   await page.goBack();
   await expect(sheet).toBeHidden();
 
@@ -418,11 +423,13 @@ test("today's shape: a group, a drag and a named default group keep every tick, 
   const historyAfter = await serviceSelect<{ id: number }>(activity);
   expect(historyAfter.slice(0, historyBefore.length)).toEqual(historyBefore);
 
-  // Item 2 was never touched: still one untitled group, no heading.
+  // Item 2 was never touched: still one untitled group, headed "Stages" as the list's strip.
   await row("Item 2").locator('[data-slot="item-open"]').click();
   const second = page.locator('[data-slot="review-sheet"]').filter({ hasText: "Item 2" });
   await expect(second.getByRole("checkbox", { name: "Script" })).toBeVisible();
-  await expect(second.locator('[data-slot="item-stage-group-heading"]')).toHaveCount(0);
+  await expect(second.locator('[data-slot="item-stage-group-heading"]')).toHaveText([
+    /^Stages\d\/2 stages ticked$/,
+  ]);
   await page.goBack();
   await expect(second).toBeHidden();
   await removeClientFixture(client);

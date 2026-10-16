@@ -108,6 +108,38 @@ const strips = (page: Page, title: string) =>
   row(page, title).locator('[data-slot="item-strip-toggle"]');
 const markDone = (page: Page, title: string) =>
   row(page, title).locator('[data-slot="item-row-done"]');
+const more = (page: Page, title: string) =>
+  row(page, title).getByRole("button", { name: `More for ${title}` });
+const sheetOf = (page: Page, title: string) =>
+  page.locator('[data-slot="review-sheet"]').filter({ hasText: title });
+/**
+ * Clicks the row where `target` is drawn, through whatever covers it there (the row's stretched
+ * open target, or in Select mode its checkbox's label): a real click at that spot of the row,
+ * placed relative to the row so a sliding screen cannot move it.
+ */
+async function clickRowAt(page: Page, title: string, target: string): Promise<void> {
+  const line = row(page, title);
+  await expect(line).toBeVisible();
+  const [rowBox, box] = await Promise.all([
+    line.boundingBox(),
+    line.locator(target).first().boundingBox(),
+  ]);
+  await line.click({
+    position: {
+      x: box!.x - rowBox!.x + box!.width / 2,
+      y: box!.y - rowBox!.y + box!.height / 2,
+    },
+  });
+}
+const clickChevron = (page: Page, title: string) =>
+  clickRowAt(page, title, '[data-slot="item-row-chevron"]');
+async function stageDone(itemTitle: string, projectId: string, name: string): Promise<boolean> {
+  const id = await itemId(projectId, itemTitle);
+  const [stage] = await serviceSelect<{ done_at: string | null }>(
+    `project_item_stage_list?item_id=eq.${id}&name=eq.${encodeURIComponent(name)}&archived_at=is.null&select=done_at`,
+  );
+  return stage?.done_at != null;
+}
 const historyLength = (page: Page) => page.evaluate(() => window.history.length);
 
 test("one strip per stage group opening in place, Next, and Mark done solid only when every stage is ticked", async ({
@@ -157,11 +189,12 @@ test("one strip per stage group opening in place, Next, and Mark done solid only
   await edit.click();
   await expect(row(page, "Grouped").locator('[data-slot="stage-chip"]')).toHaveCount(0);
 
-  // Mark done: quiet until every stage is ticked; the first ready one is the screen's one solid
-  // red, the next ready one outlined.
-  await expect(markDone(page, "Grouped")).toHaveAttribute("data-look", "quiet");
-  await expect(markDone(page, "Grouped")).toHaveAttribute("data-variant", "ghost");
-  await expect(markDone(page, "Fresh")).toHaveAttribute("data-look", "quiet");
+  // Mark done: in the row's ⋯ until every stage is ticked (unit U); then on the row, the first
+  // ready one the screen's one solid red, the next ready one outlined.
+  await expect(markDone(page, "Grouped")).toHaveCount(0);
+  await expect(markDone(page, "Fresh")).toHaveCount(0);
+  await expect(more(page, "Grouped")).toBeVisible();
+  await expect(more(page, "Ready A")).toHaveCount(0);
   await expect(markDone(page, "Ready A")).toHaveAttribute("data-look", "solid");
   await expect(markDone(page, "Ready A")).toHaveAttribute("data-variant", "primary");
   await expect(markDone(page, "Ready B")).toHaveAttribute("data-look", "ready");
@@ -181,6 +214,7 @@ test("one strip per stage group opening in place, Next, and Mark done solid only
   await page.getByRole("button", { name: "Select", exact: true }).click();
   await expect(page.locator('[data-slot="item-row"] [role="checkbox"]')).toHaveCount(4);
   await expect(page.locator('[data-slot="item-row-done"]')).toHaveCount(0);
+  await expect(page.locator('[data-slot="item-row-more"]')).toHaveCount(0);
   await expect(page.locator('[data-variant="primary"]:visible')).toHaveCount(0);
   await page.getByRole("button", { name: "Done", exact: true }).click();
   await expect(page.locator('[data-slot="item-row"] [role="checkbox"]')).toHaveCount(0);
@@ -239,6 +273,8 @@ test("laptop columns line up row to row; a phone's card keeps 44 px targets", as
     for (const target of [
       ...(await page.locator('[data-slot="item-strip-toggle"]').all()),
       ...(await page.locator('[data-slot="item-row-done"]').all()),
+      ...(await page.locator('[data-slot="item-row-more"]').all()),
+      ...(await page.locator('[data-slot="item-next-line"]').all()),
     ]) {
       const box = await target.boundingBox();
       expect(box!.height).toBeGreaterThanOrEqual(44);
@@ -317,6 +353,169 @@ test("the loading screen traces the list: its heading, first row, first strip an
   }
 });
 
+test("the whole row opens the deliverable: a click anywhere, Enter or Space; in Select mode a tap selects", async ({
+  page,
+}, info) => {
+  const client = nameOf(info, "open");
+  const clientId = await workClient(client);
+  const projectId = await rpcAs<string>(admin.email, admin.password, "project_create", {
+    client_id: clientId,
+    name: "Open work",
+    recurrence: "monthly",
+    stages: ["Stage 1"],
+    items: ["Reel A", "Reel B"],
+  });
+  await page.goto(`/clients/${clientId}/projects/${projectId}`);
+  await hydrated(page);
+  const sheet = sheetOf(page, "Reel A");
+
+  // Anywhere on the row that is not one of its controls: here its "›" at the right edge.
+  await clickChevron(page, "Reel A");
+  await expect(sheet).toBeVisible();
+  await page.goBack();
+  await expect(sheet).toBeHidden();
+
+  // The keyboard: the row is one button, Enter and Space open it.
+  await row(page, "Reel A").locator('[data-slot="item-open"]').focus();
+  await page.keyboard.press("Enter");
+  await expect(sheet).toBeVisible();
+  await page.goBack();
+  await expect(sheet).toBeHidden();
+  await row(page, "Reel A").locator('[data-slot="item-open"]').focus();
+  await page.keyboard.press("Space");
+  await expect(sheet).toBeVisible();
+  await page.goBack();
+  await expect(sheet).toBeHidden();
+
+  // The row's own controls keep their taps: a strip opens in place, no sheet.
+  await strips(page, "Reel A").first().click();
+  await expect(strips(page, "Reel A").first()).toHaveAttribute("aria-expanded", "true");
+  await expect(sheet).toBeHidden();
+
+  // Select mode: a tap on the row ticks its box instead, and no "›" says it opens.
+  await page.getByRole("button", { name: "Select", exact: true }).click();
+  await expect(page.locator('[data-slot="select-hint"]')).toHaveText(
+    "Select deliverables, then choose an action.",
+  );
+  const box = row(page, "Reel B").getByRole("checkbox", { name: "Select Reel B" });
+  await expect(row(page, "Reel B").locator('[data-slot="item-row-chevron"]')).toHaveCount(0);
+  await clickRowAt(page, "Reel B", '[data-slot="item-open"]');
+  await expect(box).toHaveAttribute("aria-checked", "true");
+  await expect(sheetOf(page, "Reel B")).toBeHidden();
+  await expect(page.locator('[data-slot="select-hint"]')).toHaveCount(0);
+  // A second tap clears it again (on the first row: on a phone the bar now covers the last).
+  const first = row(page, "Reel A").getByRole("checkbox", { name: "Select Reel A" });
+  await clickRowAt(page, "Reel A", '[data-slot="item-open"]');
+  await expect(first).toHaveAttribute("aria-checked", "true");
+  await clickRowAt(page, "Reel A", '[data-slot="item-open"]');
+  await expect(first).toHaveAttribute("aria-checked", "false");
+  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await removeClientFixture(client);
+});
+
+test("a stage chip ticks in one tap with Undo; Next ticks its stage; Mark done shows once all are ticked", async ({
+  page,
+}, info) => {
+  const client = nameOf(info, "ticks");
+  const clientId = await workClient(client);
+  const projectId = await listProject(clientId);
+  await page.goto(`/clients/${clientId}/projects/${projectId}`);
+  await hydrated(page);
+
+  // A chip ticks its stage through the same tick as the sheet, says so, and offers Undo.
+  const edit = strips(page, "Grouped").nth(1);
+  await edit.click();
+  const chip = (name: string) =>
+    row(page, "Grouped")
+      .locator('[data-slot="stage-chip"]')
+      .and(page.getByRole("button", { name }));
+  const exportChip = chip("Tick Export");
+  await expect(exportChip).toHaveAttribute("data-chip", "next");
+  await exportChip.click();
+  await expect(page.getByText("Ticked Edit · Export on Grouped")).toBeVisible();
+  const ticked = chip("Untick Export");
+  await expect(ticked).toHaveAttribute("data-chip", "ticked");
+  await expect.poll(() => stageDone("Grouped", projectId, "Export")).toBe(true);
+  await expect(row(page, "Grouped").locator('[data-slot="item-next"]:visible')).toHaveText(
+    "Next: Revision 1",
+  );
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect(page.getByText("Unticked Edit · Export on Grouped")).toBeVisible();
+  await expect(exportChip).toHaveAttribute("data-chip", "next");
+  await expect.poll(() => stageDone("Grouped", projectId, "Export")).toBe(false);
+
+  // Mark done waits in the row's ⋯ (with Open) while a stage is left.
+  await expect(markDone(page, "Fresh")).toHaveCount(0);
+  await more(page, "Fresh").click();
+  await expect(page.getByRole("menuitem", { name: "Open" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Mark done" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("menuitem", { name: "Mark done" })).toBeHidden();
+
+  // "Next: Stage 1" is a one-tap tick ("Tick Stage 1"); with every stage ticked Mark done comes
+  // onto the row (outlined: "Ready A" above it keeps the one solid red).
+  const next = row(page, "Fresh").locator('[data-slot="item-next"]:visible');
+  await expect(next).toHaveText("Next: Stage 1");
+  await expect(next).toHaveAttribute("aria-label", "Tick Stage 1");
+  await next.click();
+  await expect(page.getByText("Ticked Stage 1 on Fresh")).toBeVisible();
+  await expect.poll(() => stageDone("Fresh", projectId, "Stage 1")).toBe(true);
+  await expect(markDone(page, "Fresh")).toHaveAttribute("data-look", "ready");
+  await expect(more(page, "Fresh")).toHaveCount(0);
+  await expect(page.locator('[data-variant="primary"]:visible')).toHaveCount(1);
+
+  // A done deliverable's chips only read.
+  await page.locator('[data-slot="finished-toggle"]').click();
+  await strips(page, "Finished").first().click();
+  await expect(row(page, "Finished").locator('[data-slot="stage-chip"]')).toHaveCount(1);
+  await expect(row(page, "Finished").locator('button[data-slot="stage-chip"]')).toHaveCount(0);
+  await removeClientFixture(client);
+});
+
+test("the deliverable's sheet: the list's group headings, neutral ticks, Edit details, Move up and down in ⋯", async ({
+  page,
+}, info) => {
+  const client = nameOf(info, "sheet");
+  const clientId = await workClient(client);
+  const projectId = await listProject(clientId);
+  await page.goto(`/clients/${clientId}/projects/${projectId}`);
+  await hydrated(page);
+  await row(page, "Grouped").locator('[data-slot="item-open"]').click();
+  const sheet = sheetOf(page, "Grouped");
+  await expect(sheet.locator('[data-slot="item-stage-group-heading"]')).toHaveText([
+    "Stages1/1 stages ticked",
+    "Edit2/3 stages ticked",
+    "Review0/1 stages ticked",
+  ]);
+  // A ticked box is neutral, never the red of the sheet's one commit (Mark done).
+  const red = await sheet
+    .getByRole("button", { name: "Mark done", exact: true })
+    .evaluate((node) => getComputedStyle(node).backgroundColor);
+  const boxes = await sheet
+    .locator('[data-slot="item-stage-tick"][aria-checked="true"] [data-slot="item-stage-box"]')
+    .evaluateAll((nodes) => nodes.map((node) => getComputedStyle(node).backgroundColor));
+  expect(boxes).toHaveLength(3);
+  for (const colour of boxes) expect(colour).not.toBe(red);
+
+  // A tick in the sheet says what happened; its box is its undo (the sheet covers the toasts).
+  const exportBox = sheet.getByRole("checkbox", { name: "Export" });
+  await exportBox.click();
+  await expect(page.getByText("Ticked Edit · Export on Grouped")).toBeVisible();
+  await expect(exportBox).toHaveAttribute("aria-checked", "true");
+  await exportBox.click();
+  await expect(page.getByText("Unticked Edit · Export on Grouped")).toBeVisible();
+  await expect(exportBox).toHaveAttribute("aria-checked", "false");
+
+  await expect(sheet.getByRole("button", { name: "Edit details", exact: true })).toBeVisible();
+  await expect(sheet.getByRole("button", { name: "Move up" })).toHaveCount(0);
+  await sheet.getByRole("button", { name: "More for Grouped" }).click();
+  // "Grouped" is first in the list: it cannot move up.
+  await expect(page.getByRole("menuitem", { name: "Move up" })).toBeDisabled();
+  await page.getByRole("menuitem", { name: "Move down" }).click();
+  await expect(page.getByText("Moved Grouped down")).toBeVisible();
+  await removeClientFixture(client);
+});
+
 test.describe("the strips, installed (ARCHITECTURE §14.2)", () => {
   test.beforeEach(({}, info) => {
     test.skip(info.project.name === "desktop", "the phone widths, 375 and 430");
@@ -358,6 +557,25 @@ test.describe("the strips, installed (ARCHITECTURE §14.2)", () => {
     await strips(page, "Grouped").first().click();
     await expectBackStack(page, [
       { closes: boxes.first(), url: new RegExp(`/projects/${projectId}$`) },
+      { url: new RegExp(`${tab}$`) },
+    ]);
+
+    // A tap on the card opens the deliverable's sheet (the same layer as before): back closes it,
+    // then leaves. The row's ⋯ is a menu: back closes it first.
+    await page.locator('[data-slot="project-row"]', { hasText: "List work" }).click();
+    await expect(page).toHaveURL(new RegExp(`/projects/${projectId}$`));
+    await hydrated(page);
+    await clickChevron(page, "Fresh");
+    const sheet = sheetOf(page, "Fresh");
+    await expect(sheet).toBeVisible();
+    await page.goBack();
+    await expect(sheet).toBeHidden();
+    await expect(page).toHaveURL(new RegExp(`/projects/${projectId}$`));
+    await more(page, "Fresh").click();
+    const menuItem = page.getByRole("menuitem", { name: "Mark done" });
+    await expect(menuItem).toBeVisible();
+    await expectBackStack(page, [
+      { closes: menuItem, url: new RegExp(`/projects/${projectId}$`) },
       { url: new RegExp(`${tab}$`) },
     ]);
     await removeClientFixture(client);

@@ -6,7 +6,6 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 
 import type { Result } from "@/core/errors/result";
-import { groupStageLabel } from "@/core/lib/stage-groups";
 import { cn } from "@/core/lib/utils";
 import { formatIST } from "@/core/time";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
@@ -36,18 +35,19 @@ import {
   cancelItem,
   markItemDone,
   reopenItem,
-  tickItemStage,
   updateItem,
   updateItemStage,
   updateItemStageGroup,
 } from "../actions/items";
 import { addRevisionRound } from "../actions/bulk";
 import { saveItemAsTemplate } from "../actions/templates";
+import { groupStrips } from "../domain/deliverable";
 import { ITEM_NOTES_MAX, ITEM_TITLE_MAX } from "../domain/schemas";
 import { ITEM_STATUS } from "../domain/types";
 import type { ItemView } from "../domain/views";
 
 import { SentBackNote } from "./sent-back-note";
+import { tickWithUndo } from "./tick-with-undo";
 
 import type { StagePresetOption } from "@/core/ui/stage-groups/editing";
 
@@ -108,9 +108,12 @@ export function ItemSheet({
   onOpenChange,
   projectHref,
   onMove,
+  canMove,
   onMarkDone,
   presets = [],
 }: {
+  /** Whether the item can move that way (not already first or last); without it, both can. */
+  canMove?: ((itemId: string, direction: "up" | "down") => boolean) | undefined;
   /** The stage presets ("Add from a preset" in Edit stages adds one as a group, 6b). */
   presets?: readonly StagePresetOption[];
   item: ItemView | null;
@@ -132,6 +135,8 @@ export function ItemSheet({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  // A stage's tick on its way (its box waits; the toast offers Undo).
+  const [ticking, setTicking] = useState<string | null>(null);
   const [reason, setReason] = useState<"reopen" | "close" | null>(null);
   // "Save as template" from the ⋯ (6b Release 2): the item it was opened for.
   const [templateFor, setTemplateFor] = useState<{ id: string; title: string } | null>(null);
@@ -251,6 +256,14 @@ export function ItemSheet({
   }
 
   const canTick = permissions.tick && current.rules.ticks;
+  // Each group with the list's strip words and count (unit U): "Edit 2/3", "Stages 1/1".
+  const strips = groupStrips(current);
+  const stageGroups = current.groups
+    .filter((group) => group.stages.length > 0)
+    .flatMap((group, index) => {
+      const strip = strips[index];
+      return strip ? [{ strip, group }] : [];
+    });
   const canEditStages = permissions.manage && current.rules.editAll;
   const reopenWord = permissions.owner ? "Send back" : "Reopen";
   const actions = (
@@ -416,7 +429,7 @@ export function ItemSheet({
               {permissions.manage ? (
                 <div className="flex flex-wrap gap-2">
                   <Button variant="secondary" onClick={startEdit} data-slot="item-edit">
-                    Edit
+                    Edit details
                   </Button>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -424,6 +437,7 @@ export function ItemSheet({
                         variant="ghost"
                         size="icon"
                         aria-label={`More for ${current.title}`}
+                        title="More actions"
                         data-slot="item-more"
                       >
                         <MoreHorizontalIcon aria-hidden />
@@ -440,6 +454,27 @@ export function ItemSheet({
                           Another revision round
                         </DropdownMenuItem>
                       ) : null}
+                      {onMove && current.rules.editAll ? (
+                        // Unit U: named menu items, not bare arrows (the list's order).
+                        <>
+                          <DropdownMenuItem
+                            data-slot="item-move-up"
+                            disabled={canMove ? !canMove(current.id, "up") : false}
+                            onSelect={() => onMove(current.id, "up")}
+                          >
+                            <ArrowUpIcon aria-hidden />
+                            Move up
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            data-slot="item-move-down"
+                            disabled={canMove ? !canMove(current.id, "down") : false}
+                            onSelect={() => onMove(current.id, "down")}
+                          >
+                            <ArrowDownIcon aria-hidden />
+                            Move down
+                          </DropdownMenuItem>
+                        </>
+                      ) : null}
                       <DropdownMenuItem
                         onSelect={() => setTemplateFor({ id: current.id, title: current.title })}
                       >
@@ -447,24 +482,6 @@ export function ItemSheet({
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
-                  {onMove && current.rules.editAll ? (
-                    <>
-                      <Button
-                        variant="ghost"
-                        aria-label="Move up"
-                        onClick={() => onMove(current.id, "up")}
-                      >
-                        <ArrowUpIcon aria-hidden />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        aria-label="Move down"
-                        onClick={() => onMove(current.id, "down")}
-                      >
-                        <ArrowDownIcon aria-hidden />
-                      </Button>
-                    </>
-                  ) : null}
                 </div>
               ) : null}
             </>
@@ -472,10 +489,19 @@ export function ItemSheet({
           {current.stages.length > 0 || canEditStages ? (
             <section aria-label="Stages" className="flex flex-col gap-1" data-slot="item-stages">
               <div className="flex min-h-11 items-center justify-between gap-2">
-                <p className="text-muted-foreground text-xs">Stages</p>
+                {/* The untitled group's own heading reads "Stages" right under it. */}
+                <p
+                  className={cn(
+                    "text-muted-foreground text-xs",
+                    stageGroups[0]?.group.label === null && "sr-only",
+                  )}
+                >
+                  Stages
+                </p>
                 {canEditStages && !editing ? (
                   <Button
                     variant="ghost"
+                    className="ml-auto"
                     data-slot="item-stages-edit"
                     onClick={() => {
                       setStagesUsed(true);
@@ -491,24 +517,20 @@ export function ItemSheet({
                   No stages: this deliverable is simply open or done.
                 </p>
               ) : (
-                current.groups.map((group) => (
-                  <div
-                    key={group.label ?? ""}
-                    className="flex flex-col gap-1"
-                    data-slot="item-stage-group"
-                  >
-                    {/* A named group's heading and its own "n/m" (6b); the untitled group has none. */}
-                    {group.label !== null ? (
-                      <p
-                        className="text-muted-foreground flex items-baseline justify-between gap-2 pt-1 text-xs font-medium"
-                        data-slot="item-stage-group-heading"
-                      >
-                        <span className="min-w-0 break-words">{group.label}</span>
-                        <span className="tabular-nums">
-                          {group.done}/{group.stages.length}
-                        </span>
-                      </p>
-                    ) : null}
+                stageGroups.map(({ strip, group }) => (
+                  <div key={strip.key} className="flex flex-col gap-1" data-slot="item-stage-group">
+                    {/* The list's own heading and "n/m" for each group (unit U, `groupStrips`):
+                        the untitled group reads "Stages". */}
+                    <p
+                      className="text-muted-foreground flex items-baseline justify-between gap-2 pt-1 text-xs font-medium"
+                      data-slot="item-stage-group-heading"
+                    >
+                      <span className="min-w-0 break-words">{strip.label}</span>
+                      <span className="tabular-nums">
+                        {strip.done}/{strip.total}
+                        <span className="sr-only"> stages ticked</span>
+                      </span>
+                    </p>
                     <ul className="border-border divide-border divide-y rounded-lg border">
                       {group.stages.map((stage) => (
                         <li key={stage.id}>
@@ -516,22 +538,29 @@ export function ItemSheet({
                             type="button"
                             role="checkbox"
                             aria-checked={stage.done}
-                            disabled={!canTick || busy === stage.id}
+                            disabled={!canTick || ticking !== null}
+                            aria-busy={ticking === stage.id || undefined}
+                            title={
+                              canTick
+                                ? `${stage.done ? "Untick" : "Tick"} ${stage.name}`
+                                : undefined
+                            }
                             data-slot="item-stage-tick"
                             onClick={() =>
-                              run(
-                                stage.id,
-                                () => tickItemStage({ stageId: stage.id, done: !stage.done }),
-                                `${groupStageLabel(stage.groupLabel, stage.name)} ${stage.done ? "unticked" : "ticked"}`,
-                              )
+                              void tickWithUndo(stage, !stage.done, current.title, setTicking, {
+                                undo: false,
+                              })
                             }
-                            className="pressable-row flex min-h-11 w-full items-center gap-3 px-3 text-left disabled:opacity-70"
+                            className="pressable-row hover:bg-muted/50 flex min-h-11 w-full items-center gap-3 px-3 text-left disabled:opacity-70"
                           >
+                            {/* Ticked is neutral (the checkbox's own look), never red: red stays
+                                for the sheet's one commit, Mark done (unit U). */}
                             <span
+                              data-slot="item-stage-box"
                               className={cn(
                                 "flex size-5 shrink-0 items-center justify-center rounded border",
                                 stage.done
-                                  ? "border-primary bg-primary text-primary-foreground"
+                                  ? "border-strong bg-strong text-strong-foreground"
                                   : "border-input",
                               )}
                             >

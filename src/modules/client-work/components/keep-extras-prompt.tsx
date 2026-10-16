@@ -71,6 +71,11 @@ export function KeepExtrasPrompt({
         {shown.join(", ")}
         {more > 0 ? ` and ${more} more` : ""}. Added this cycle, not on the deliverables list.
       </p>
+      {/* What each answer does, in one line (unit U). */}
+      <p className="text-muted-foreground break-words" data-slot="keep-extras-hint">
+        Yes adds {titles.length === 1 ? "it" : "them"} to the deliverables list
+        {from ? ` from ${from}` : " for later cycles"}; No leaves the list as it is.
+      </p>
       {error ? <ErrorText>{error}</ErrorText> : null}
       <div className="flex flex-wrap justify-end gap-2">
         <Button

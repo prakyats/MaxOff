@@ -142,6 +142,14 @@ async function createFromDialog(page: Page, dialog: Locator): Promise<void> {
 const itemRow = (page: Page, title: string) =>
   page.locator('[data-slot="item-row"]', { hasText: title });
 
+/** Mark done from the row's ⋯, where it waits until every stage is ticked (unit U). */
+async function markDoneFromMenu(page: Page, title: string): Promise<void> {
+  await itemRow(page, title)
+    .getByRole("button", { name: `More for ${title}` })
+    .click();
+  await page.getByRole("menuitem", { name: "Mark done" }).click();
+}
+
 /** Sends what waits for its Undo now: the app going to the background flushes it (as Approvals). */
 async function flushSends(page: Page): Promise<void> {
   await page.evaluate(() => {
@@ -252,8 +260,9 @@ test("a project from the Projects tab: per-item stages, Mark done with Undo, Mar
   // Amendment D3: one figure, done (= approved).
   await expect(progress(page)).toHaveText("0 of 6 stages · 0 of 3 deliverables done");
 
-  // One row's Mark done: instant with the 6-second Undo, then it counts.
-  await itemRow(page, "Reel 1").getByRole("button", { name: "Mark done" }).click();
+  // One row's Mark done: instant with the 6-second Undo, then it counts. Its stages are not all
+  // ticked, so it waits in the row's ⋯ (unit U).
+  await markDoneFromMenu(page, "Reel 1");
   await expect(page.getByText("Marked Reel 1 done")).toBeVisible();
   await expect(itemRow(page, "Reel 1")).toHaveAttribute("data-held", "");
   await flushSends(page);
@@ -835,8 +844,9 @@ test("the project page (6b.11): open first, Planned words, stage chips, the reop
   await expect(page).toHaveURL(new RegExp(`${here}$`));
   await strip.click();
   await expect(chips).toHaveCount(0);
-  // Nothing ticked in full yet: every Mark done is the quiet one.
-  await expect(soon.locator('[data-slot="item-row-done"]')).toHaveAttribute("data-look", "quiet");
+  // Nothing ticked in full yet: Mark done waits in the row's ⋯ (unit U), not on the row.
+  await expect(soon.locator('[data-slot="item-row-done"]')).toHaveCount(0);
+  await expect(soon.getByRole("button", { name: "More for Soon item" })).toBeVisible();
 
   // (4) The reopened note: who, when and why, muted with its icon.
   await expect(
@@ -931,7 +941,7 @@ test("the cycle's 100% moment plays once per cycle on this device", async ({ pag
   await expect(page.locator('[data-slot="cycle-percent"]')).toHaveText("0%");
   await expect(page.locator('[data-slot="cycle-complete"]')).toHaveCount(0);
 
-  await itemRow(page, "Only item").getByRole("button", { name: "Mark done" }).click();
+  await markDoneFromMenu(page, "Only item");
   await flushSends(page);
   await expect(page.locator('[data-slot="cycle-percent"]')).toHaveText("100%");
   const moment = page.locator('[data-slot="cycle-complete"]');
@@ -1203,7 +1213,7 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
     // and one more back closes the sheet.
     await itemRow(page, "Reel").locator('[data-slot="item-open"]').click();
     const sheet = page.locator('[data-slot="review-sheet"]');
-    await sheet.getByRole("button", { name: "Edit", exact: true }).click();
+    await sheet.getByRole("button", { name: "Edit details", exact: true }).click();
     await sheet.getByLabel("Title").fill("Reel, retitled");
     const discard = page.getByRole("alertdialog", { name: "Discard your changes?" });
     await page.goBack();
@@ -1216,7 +1226,7 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
     await discard.getByRole("button", { name: "Discard changes" }).click();
     await expect(discard).toBeHidden();
     await expect(sheet.getByLabel("Title"), "Discard returns to the facts").toHaveCount(0);
-    await expect(sheet.getByRole("button", { name: "Edit", exact: true })).toBeVisible();
+    await expect(sheet.getByRole("button", { name: "Edit details", exact: true })).toBeVisible();
     await expectBackStack(page, [{ closes: sheet, url: here }]);
     expect(
       (
@@ -1247,7 +1257,7 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
       await itemRow(page, "Reel 1").locator('[data-slot="item-open"]').click();
       await expect(sheet).toBeVisible();
     };
-    const edit = sheet.getByRole("button", { name: "Edit", exact: true });
+    const edit = sheet.getByRole("button", { name: "Edit details", exact: true });
     const title = sheet.getByLabel("Title");
     const discard = page.getByRole("alertdialog", { name: "Discard your changes?" });
     const onFacts = async (why: string) => {
@@ -1363,7 +1373,7 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
 
     await itemRow(page, "Reel 1").locator('[data-slot="item-open"]').click();
     const sheet = page.locator('[data-slot="review-sheet"]');
-    await sheet.getByRole("button", { name: "Edit", exact: true }).click();
+    await sheet.getByRole("button", { name: "Edit details", exact: true }).click();
     await expectSheetAboveKeyboard(page, sheet, sheet.getByLabel("Notes"));
     await expectSheetAboveKeyboard(page, sheet, sheet.getByLabel("Title"));
     await page.goBack();

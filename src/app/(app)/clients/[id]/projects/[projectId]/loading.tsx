@@ -11,8 +11,8 @@ import { PROJECT_ORIGINS } from "./back";
  * 44 px), the description line (client · repeat, desktop), the state line, the cycle pager (two
  * arrows around the cycle's name), the progress card (the ring, its line and pace; 6b.11), the
  * Deliverables heading with Select and Add deliverable, the open deliverables in the list's
- * columns (E+: the title, a progress strip, Next, the date and Mark done on a laptop; a card with
- * its planned and Next lines and the strip under them on a phone) and the collapsed "Done and
+ * columns (E+: the title, a progress strip, Next, the date and the row's ⋯ and "›" on a laptop; a
+ * card with its planned line, its 44 px Next line (unit U) and the strip under them on a phone) and the collapsed "Done and
  * closed" group. No activity on
  * the page itself since the owner's preview feedback (2026-10-09): it is the header's panel.
  */
@@ -99,14 +99,17 @@ export default function Loading() {
                 key={row}
                 className="flex flex-wrap items-start gap-x-3 px-3 py-2 sm:px-4 lg:col-span-full lg:grid lg:grid-cols-subgrid lg:gap-y-1"
               >
-                <span className="flex min-h-11 min-w-0 flex-[1_1_8rem] flex-col justify-center gap-0.5 py-0.5 lg:min-h-7 lg:py-1">
-                  <span className="flex h-5 items-center">
-                    <Skeleton className="h-3.5 w-1/2" />
+                <span className="flex min-h-11 min-w-0 flex-[1_1_8rem] flex-col justify-center lg:min-h-7">
+                  <span className="flex min-h-6 min-w-0 flex-col justify-center gap-0.5 py-0.5 lg:py-1">
+                    <span className="flex h-5 items-center">
+                      <Skeleton className="h-3.5 w-1/2" />
+                    </span>
+                    <span className="flex h-4 items-center lg:hidden">
+                      <Skeleton className="h-3 w-24" />
+                    </span>
                   </span>
-                  <span className="flex h-4 items-center lg:hidden">
-                    <Skeleton className="h-3 w-24" />
-                  </span>
-                  <span className="flex h-4 items-center lg:hidden">
+                  {/* A phone's Next line: 44 px (a one-tap tick for whoever ticks). */}
+                  <span className="flex min-h-11 items-center lg:hidden">
                     <Skeleton className="h-3 w-20" />
                   </span>
                 </span>
@@ -125,8 +128,10 @@ export default function Loading() {
                 <span className="hidden min-h-7 items-center lg:flex">
                   <Skeleton className="h-3 w-16" />
                 </span>
-                <span className="ml-auto flex min-h-11 shrink-0 items-center justify-end lg:ml-0 lg:min-h-7">
-                  <Skeleton className="h-11 w-24 shrink-0 rounded-lg md:h-7" />
+                {/* The row's ⋯ (Mark done waits in it until every stage is ticked) and its "›". */}
+                <span className="ml-auto flex min-h-11 shrink-0 items-center justify-end gap-1 lg:ml-0 lg:min-h-7">
+                  <Skeleton className="size-11 shrink-0 rounded-lg lg:size-7" />
+                  <Skeleton className="size-4 shrink-0 rounded-sm" />
                 </span>
               </li>
             ))}

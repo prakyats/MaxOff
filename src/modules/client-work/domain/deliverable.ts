@@ -98,3 +98,17 @@ export function solidMarkDoneId<T extends Pick<RowItem, "state" | "stages"> & { 
   if (!allowed) return null;
   return items.find((item) => readyToMarkDone(item) && canMark(item))?.id ?? null;
 }
+
+/**
+ * Where the row's Mark done is (unit U): **on the row** once every stage is ticked (its clear next
+ * step) or when the deliverable has no stages (nothing to tick); **in the row's ⋯** while stages
+ * are left; nowhere while selecting (the bar's "Mark N done" does it) or for whoever may not.
+ */
+export function markDonePlace(
+  item: Pick<RowItem, "state" | "stages">,
+  allowed: boolean,
+  selecting: boolean,
+): "row" | "menu" | null {
+  if (!allowed || selecting) return null;
+  return readyToMarkDone(item) || item.stages.length === 0 ? "row" : "menu";
+}

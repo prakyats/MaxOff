@@ -7,11 +7,11 @@
  * a card (ARCHITECTURE §14.1). Fluid columns with a floor each, so a 1024 px laptop still fits.
  */
 export const DELIVERABLE_COLUMNS =
-  "lg:grid lg:grid-cols-[minmax(8rem,1.6fr)_minmax(11rem,1.2fr)_minmax(6.5rem,0.8fr)_minmax(6.5rem,0.7fr)_7rem] lg:gap-x-3";
+  "lg:grid lg:grid-cols-[minmax(8rem,1.6fr)_minmax(11rem,1.2fr)_minmax(6.5rem,0.8fr)_minmax(6.5rem,0.7fr)_8rem] lg:gap-x-3";
 
 /** The same columns with the select box in front (Select mode, 6b.16 (e)). */
 export const DELIVERABLE_COLUMNS_SELECTING =
-  "lg:grid lg:grid-cols-[2.75rem_minmax(8rem,1.6fr)_minmax(11rem,1.2fr)_minmax(6.5rem,0.8fr)_minmax(6.5rem,0.7fr)_7rem] lg:gap-x-3";
+  "lg:grid lg:grid-cols-[2.75rem_minmax(8rem,1.6fr)_minmax(11rem,1.2fr)_minmax(6.5rem,0.8fr)_minmax(6.5rem,0.7fr)_8rem] lg:gap-x-3";
 
 export const deliverableColumns = (selecting: boolean) =>
   selecting ? DELIVERABLE_COLUMNS_SELECTING : DELIVERABLE_COLUMNS;

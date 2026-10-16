@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   groupStrips,
+  markDonePlace,
   nextStep,
   readyToMarkDone,
   solidMarkDoneId,
@@ -107,5 +108,24 @@ describe("Mark done's emphasis (E+)", () => {
     expect(solidMarkDoneId(items, (item) => item.id !== first.id, true)).toBe(second.id);
     expect(solidMarkDoneId(items, () => true, false)).toBeNull();
     expect(solidMarkDoneId([notReady], () => true, true)).toBeNull();
+  });
+});
+
+describe("where a row's Mark done is (unit U)", () => {
+  it("is on the row once every stage is ticked, in the row's ⋯ while stages are left", () => {
+    expect(markDonePlace(deliverable("open", [stage("a", true)]), true, false)).toBe("row");
+    expect(
+      markDonePlace(deliverable("open", [stage("a", true), stage("b", false)]), true, false),
+    ).toBe("menu");
+  });
+
+  it("is on the row for a deliverable without stages (nothing to tick)", () => {
+    expect(markDonePlace(deliverable("open", []), true, false)).toBe("row");
+  });
+
+  it("is nowhere in Select mode or for whoever may not mark it done", () => {
+    const ready = deliverable("open", [stage("a", true)]);
+    expect(markDonePlace(ready, true, true)).toBeNull();
+    expect(markDonePlace(ready, false, false)).toBeNull();
   });
 });

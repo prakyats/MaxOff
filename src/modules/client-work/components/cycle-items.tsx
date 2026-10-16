@@ -26,6 +26,7 @@ import { DeliverableRow } from "./deliverable-row";
 import { FinishedDeliverables } from "./finished-deliverables";
 import type { ItemPermissions } from "./item-sheet";
 import { SelectToggle, useSelectMode } from "./select-mode";
+import { tickWithUndo } from "./tick-with-undo";
 import { MARK_DONE_URL, useUndoSends } from "./use-undo-sends";
 
 /**
@@ -107,6 +108,8 @@ export function CycleItems({
   const [confirming, setConfirming] = useState(false);
   const [confirmUsed, setConfirmUsed] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  // The row tick on its way (unit U): its stage's control waits.
+  const [ticking, setTicking] = useState<string | null>(null);
   const [failures, setErrors] = useState<Readonly<Record<string, string>>>({});
   const marks = useUndoSends({
     url: MARK_DONE_URL,
@@ -160,7 +163,9 @@ export function CycleItems({
     const index = items.findIndex((item) => item.id === itemId);
     const position = movedPosition(items, index, direction);
     if (position === null) return;
-    toastResult(await updateItem({ itemId, position }));
+    toastResult(await updateItem({ itemId, position }), {
+      success: `Moved ${items[index]?.title ?? "it"} ${direction}`,
+    });
   }
 
   // 6b.11 (1): the open ones first (overdue at the top, then by date), the rest collapsed.
@@ -180,6 +185,12 @@ export function CycleItems({
       waiting={waiting(item)}
       action={permissions.tick && item.rules.markDone}
       look={item.id === solidId ? "solid" : readyToMarkDone(item) ? "ready" : "quiet"}
+      ticks={{
+        // Read-only in Select mode: a tap there selects, and the bar ticks a stage on N.
+        can: permissions.tick && item.rules.ticks && !waiting(item) && !mode.selectMode,
+        pending: ticking,
+        tick: (stage, done) => void tickWithUndo(stage, done, item.title, setTicking),
+      }}
       onOpen={() => openSheet(item.id)}
       onMarkDone={() => markDone(item)}
       error={errors[item.id]}
@@ -206,7 +217,7 @@ export function CycleItems({
           {items.length > 0 && (permissions.tick || permissions.manage) ? (
             <SelectToggle mode={mode} selectableIds={selectableIds} />
           ) : null}
-          {canAdd && permissions.manage && !mode.selectMode ? (
+          {canAdd && permissions.manage && !mode.selectMode && items.length > 0 ? (
             <Button variant="secondary" data-slot="add-item" onClick={() => setAdding(true)}>
               <PlusIcon aria-hidden />
               Add deliverable
@@ -214,13 +225,27 @@ export function CycleItems({
           ) : null}
         </span>
       </div>
+      {mode.selectMode && chosen.length === 0 ? (
+        <p data-slot="select-hint" className="text-muted-foreground text-sm">
+          Select deliverables, then choose an action.
+        </p>
+      ) : null}
       {items.length === 0 ? (
         <EmptyState
           icon={ListPlusIcon}
           size="compact"
-          title="No deliverables in this cycle."
-          description={
-            canAdd && permissions.manage ? "Add deliverables to see their stages." : undefined
+          title={
+            canAdd && permissions.manage
+              ? "No deliverables yet: add one or start from a template."
+              : "No deliverables in this cycle."
+          }
+          action={
+            canAdd && permissions.manage ? (
+              <Button variant="secondary" data-slot="add-item" onClick={() => setAdding(true)}>
+                <PlusIcon aria-hidden />
+                Add deliverable
+              </Button>
+            ) : undefined
           }
         />
       ) : (
@@ -320,6 +345,13 @@ export function CycleItems({
             }
           }}
           onMove={permissions.manage ? (id, direction) => void move(id, direction) : undefined}
+          canMove={(id, direction) =>
+            movedPosition(
+              items,
+              items.findIndex((item) => item.id === id),
+              direction,
+            ) !== null
+          }
           onMarkDone={markDone}
           presets={presets}
         />
