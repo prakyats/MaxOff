@@ -137,16 +137,16 @@ describe("relativeDeadline (Kickoff 4 decision 26)", () => {
   it("is overdue once the deadline has passed, and says by how much", () => {
     expect(relativeDeadline(task({ dueAt: istInstant("2026-10-01", "11:00") }), now)).toEqual({
       label: "Due today 11:00 am",
-      relative: "overdue by 4 h",
+      relative: "overdue 4 h",
       overdue: true,
     });
     expect(relativeDeadline(task({ dueAt: istInstant("2026-09-30", "18:00") }), now)).toEqual({
       label: "Due yesterday 6:00 pm",
-      relative: "overdue by 21 h",
+      relative: "overdue 21 h",
       overdue: true,
     });
     expect(relativeDeadline(task({ dueAt: istInstant("2026-09-25", "18:00") }), now).relative).toBe(
-      "overdue by 6 days",
+      "overdue 6 days",
     );
   });
 

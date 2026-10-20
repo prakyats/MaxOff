@@ -256,7 +256,7 @@ describe("Overdue and risks (decision 6) and Issues (decision 10)", () => {
       ),
     ).toEqual({
       title: "Reel",
-      detail: "Asha · overdue by 3 h",
+      detail: "Asha · overdue 3 h",
       tone: "danger",
       href: "/tasks/o",
       icon: "overdue",

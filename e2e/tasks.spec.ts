@@ -861,7 +861,7 @@ test.describe("staff tasks, the flows", () => {
         "data-overdue",
         "true",
       );
-      await expect(card.locator('[data-slot="task-deadline"]')).toContainText("overdue by");
+      await expect(card.locator('[data-slot="task-deadline"]')).toContainText("overdue ");
       await step(page).getByRole("button", { name: "Mark done again" }).click();
       const done = page.locator('[data-slot="task-done-dialog"]');
       await done.getByRole("button", { name: "Mark done" }).click();

@@ -29,3 +29,4 @@ export {
   type WeekdayIndex,
   type WorkingDayRules,
 } from "./working-day";
+export { overdueWords, spanWords } from "./span";

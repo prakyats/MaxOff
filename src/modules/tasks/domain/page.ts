@@ -1,4 +1,4 @@
-import { formatIST, formatTime, toISTDate } from "@/core/time";
+import { formatIST, formatTime, overdueWords, spanWords, toISTDate } from "@/core/time";
 
 import { isFinal, isLocked, statusLine, type ActingFor, type TaskActions } from "./task";
 import type { Task, TaskAssignee, TaskState } from "./types";
@@ -16,7 +16,7 @@ import type { Task, TaskAssignee, TaskState } from "./types";
 export type RelativeDeadline = {
   /** "Due today 6:00 pm", "Due tomorrow 10:00 am", "Due Thu 6:00 pm", "Due Thu 8 Oct, 6:00 pm". */
   label: string;
-  /** "in 3 h", "in 25 min", "in 4 days", "overdue by 3 h"; null on a completed or cancelled task. */
+  /** "in 3 h", "in 25 min", "in 4 days", "overdue 3 h", "overdue 1 day"; null on a completed or cancelled task. */
   relative: string | null;
   overdue: boolean;
 };
@@ -28,18 +28,6 @@ const DAY = 24 * HOUR;
 /** Whole IST calendar days from `from` to `to` (both ISO dates). */
 function dayDistance(from: string, to: string): number {
   return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY);
-}
-
-/**
- * "25 min", "3 h", "4 days", rounded as people say them: minutes under an hour, hours under two
- * days, then days.
- */
-function span(ms: number): string {
-  const minutes = Math.max(1, Math.round(ms / MINUTE));
-  if (minutes < 60) return `${minutes} min`;
-  const hours = Math.round(ms / HOUR);
-  if (hours < 48) return `${hours} h`;
-  return `${Math.round(ms / DAY)} days`;
 }
 
 /**
@@ -69,8 +57,8 @@ export function relativeDeadline(task: Pick<Task, "dueAt" | "state">, now: Date)
   if (isFinal(task.state)) return { label, relative: null, overdue: false };
   const left = Date.parse(task.dueAt) - now.getTime();
   if (left >= 0)
-    return { label, relative: left < MINUTE ? "now" : `in ${span(left)}`, overdue: false };
-  return { label, relative: `overdue by ${span(-left)}`, overdue: true };
+    return { label, relative: left < MINUTE ? "now" : `in ${spanWords(left)}`, overdue: false };
+  return { label, relative: overdueWords(-left), overdue: true };
 }
 
 /**

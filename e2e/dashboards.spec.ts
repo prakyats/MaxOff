@@ -383,11 +383,11 @@ test.describe("the Owner's Today (6.2)", () => {
     // No "Needs you" list of people: the card's counts carry them (decision 24).
     await expect(page.locator('[data-slot="today-needs-you"]')).toHaveCount(0);
     await expect(page.locator("main")).not.toContainText("Everyone's in.");
-    // A risk's "overdue by …" reads red with its red warning icon: one status signal per row (the
+    // A risk's "overdue …" reads red with its red warning icon: one status signal per row (the
     // owner's preview review and final note, 2026-10-09), no "Overdue" chip beside it.
     await expect(
       page.locator('[data-slot="risk-row"] [data-slot="risk-signal"][data-tone="danger"]').first(),
-    ).toContainText("overdue by");
+    ).toContainText("overdue ");
     // Nothing that has no data yet (decision 4): no item approvals, client progress or revenue.
     await expect(page.locator("main")).not.toContainText(/revenue|client progress|coming soon/i);
 
@@ -397,7 +397,7 @@ test.describe("the Owner's Today (6.2)", () => {
       .filter({ hasText: `${prefix}late for the Owner` });
     await expect(risk).toHaveCount(1);
     await expect(risk).toContainText(crewName(info));
-    await expect(risk).toContainText("overdue by");
+    await expect(risk).toContainText("overdue ");
     // One signal, for every risk row alike: the kind's icon at the left and the meta line, both in
     // the row's tone; no status chip, no dot, and no icon but it and the chevron.
     const riskRows = page.locator('[data-slot="risk-row"]:visible');
@@ -419,7 +419,7 @@ test.describe("the Owner's Today (6.2)", () => {
     await expect(
       risk.locator('[data-slot="risk-signal"][data-tone="danger"]'),
       "an overdue row is red",
-    ).toContainText(`${crewName(info)} · overdue by`);
+    ).toContainText(`${crewName(info)} · overdue `);
     await expect(risk.locator('[data-slot="risk-icon"][data-tone="danger"]')).toHaveCount(1);
 
     // This week in day blocks (the owner's final note, 2026-10-09): a block per day with something
