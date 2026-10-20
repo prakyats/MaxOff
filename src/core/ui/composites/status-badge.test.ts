@@ -3,7 +3,13 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-import { STATUS_TONES, STATUS_TONES_LIST, statusLabel, statusTone } from "./status-badge";
+import {
+  attendanceStatus,
+  STATUS_TONES,
+  STATUS_TONES_LIST,
+  statusLabel,
+  statusTone,
+} from "./status-badge";
 
 /** Every enum value in DATA-MODEL §0 that a badge can show. Keep in sync with the doc. */
 const DATA_MODEL_STATES = {
@@ -184,4 +190,19 @@ describe("badge contrast (globals.css)", () => {
       ).toBeGreaterThanOrEqual(4.5);
     });
   }
+});
+
+describe("attendanceStatus (B13: one colour per attendance status)", () => {
+  it("colours an undecided day amber, whatever it proposes", () => {
+    const proposed = attendanceStatus({ status: "absent", undecided: true });
+    expect(proposed).toBe("pending_review");
+    expect(statusTone(proposed)).toBe("attention");
+    expect(attendanceStatus({ status: "leave", undecided: true })).toBe("pending_review");
+  });
+
+  it("colours a decided day by its outcome", () => {
+    expect(statusTone(attendanceStatus({ status: "absent", undecided: false }))).toBe("danger");
+    expect(statusTone(attendanceStatus({ status: "present", undecided: false }))).toBe("success");
+    expect(attendanceStatus({ status: null, undecided: false })).toBe("awaiting_choice");
+  });
 });
