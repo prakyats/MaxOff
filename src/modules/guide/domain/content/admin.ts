@@ -152,7 +152,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Client work lists deliverables on your clients that are overdue or due this week, each with Mark done. My clients is the clients you run. My tasks shows your own tasks that are not noted, have changes requested, are overdue or are due today. This week is a strip of the next days. Issues appears only when something is wrong on a task you created or check: an assignee on leave on a deadline day, or someone who can’t be reached.",
+              text: "Client work lists deliverables on your clients that are overdue or due this week, each with Mark done. My clients is the clients you run; one that is not Active shows its state beside its name (for example “· Paused”). My tasks shows your own tasks that are not noted, have changes requested, are overdue or are due today. This week is a strip of the next days. Issues appears only when something is wrong on a task you created or check: an assignee on leave on a deadline day, or someone who can’t be reached.",
             },
             {
               kind: "note",

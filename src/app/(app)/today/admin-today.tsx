@@ -11,6 +11,7 @@ import { can } from "@/core/permissions";
 import { systemClock, todayIST } from "@/core/time";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { TodayAttendanceStrip } from "@/modules/attendance";
+import { CLIENT_STATE_LABELS } from "@/modules/clients";
 import {
   clientProgressLine,
   dueThisWeek,
@@ -370,7 +371,23 @@ export async function AdminToday({ viewer }: { viewer: CurrentMember }) {
                   href={`/clients/${client.id}`}
                   slot="today-client-row"
                   icon={<BriefcaseIcon className="size-4" aria-hidden />}
-                  title={client.name}
+                  title={
+                    client.state === "active" ? (
+                      client.name
+                    ) : (
+                      // B9: a non-Active client says so beside its name (Clients opens on Active).
+                      <>
+                        {client.name}
+                        <span
+                          className="text-muted-foreground font-normal"
+                          data-slot="today-client-state"
+                        >
+                          {" "}
+                          · {CLIENT_STATE_LABELS[client.state]}
+                        </span>
+                      </>
+                    )
+                  }
                   detail={[
                     clientCountsLine({ open, overdue }),
                     clientProgressLine(clientProgress.get(client.id)),
