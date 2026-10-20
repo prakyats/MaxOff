@@ -1,4 +1,4 @@
-import { CircleAlertIcon, FlagIcon } from "lucide-react";
+import { ChevronRightIcon, CircleAlertIcon, FlagIcon } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { type ReactNode, Suspense } from "react";
@@ -19,7 +19,9 @@ import {
   collapseTicks,
   describeTaskActivity,
   eventLabel,
+  earlierHandInLabel,
   handInFirst,
+  reopenAfterHandIn,
   isFinal,
   isLocked,
   latestChangeRequest,
@@ -385,8 +387,10 @@ function workPanel({
       />
     ) : null;
 
-  const handIn = latest ? (
-    <Section key="hand-in" title="Hand-in" slot="task-hand-in">
+  // B5: reopened after its hand-in, the old hand-in is earlier work, collapsed, never the state.
+  const reopened = reopenAfterHandIn(latest, data.activity);
+  const handInBody = latest ? (
+    <>
       <div className="border-border bg-card flex min-w-0 flex-col gap-2 rounded-lg border p-3">
         <p className="text-muted-foreground text-xs">
           {latest.version > 1 ? `Version ${latest.version} · ` : ""}
@@ -417,6 +421,24 @@ function workPanel({
           ))}
         </ol>
       ) : null}
+    </>
+  ) : null;
+  const handIn = latest ? (
+    <Section key="hand-in" title="Hand-in" slot="task-hand-in">
+      {reopened ? (
+        <details data-slot="task-hand-in-earlier" className="group min-w-0">
+          <summary className="text-muted-foreground focus-visible:ring-ring flex min-h-11 cursor-pointer items-center gap-2 rounded-md text-sm break-words outline-none focus-visible:ring-2">
+            <ChevronRightIcon
+              aria-hidden
+              className="size-4 shrink-0 transition-transform group-open:rotate-90 motion-reduce:transition-none"
+            />
+            <span className="min-w-0">{earlierHandInLabel(reopened)}</span>
+          </summary>
+          <div className="mt-2 flex min-w-0 flex-col gap-2">{handInBody}</div>
+        </details>
+      ) : (
+        handInBody
+      )}
     </Section>
   ) : null;
 

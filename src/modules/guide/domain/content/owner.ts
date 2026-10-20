@@ -488,6 +488,9 @@ export const OWNER_GUIDE: Guide = {
             note(
               '"Reopen task" is for finished tasks only. "Change approver" is for unfinished tasks.',
             ),
+            note(
+              'A reopened task goes back to its people. Its old hand-in folds away under "Earlier hand-in · reopened ‹date›: ‹reason›" in Work.',
+            ),
           ],
           keywords: ["edit", "cancel", "reopen", "change approver", "menu"],
         },

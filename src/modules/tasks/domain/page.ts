@@ -202,6 +202,41 @@ export function handInFirst(state: TaskState): boolean {
   return isLocked(state) && state !== "cancelled";
 }
 
+/**
+ * B5 (UX review 2026-10-21): a task reopened after its hand-in is with its people again, so the
+ * old "Marked done by …" is not its current state. The latest reopen after the latest hand-in
+ * (the reason lives only in the activity, `task_reopen`), or null when the hand-in is current.
+ */
+export type HandInReopen = { at: string; reason: string | null };
+
+export function reopenAfterHandIn(
+  latest: { at: string } | null,
+  activity: readonly {
+    entity: string;
+    action: string;
+    at: string;
+    meta: Record<string, unknown>;
+  }[],
+): HandInReopen | null {
+  if (!latest) return null;
+  const handedIn = Date.parse(latest.at);
+  const reopen = activity
+    .filter(
+      (entry) =>
+        entry.entity === "tasks" && entry.action === "reopened" && Date.parse(entry.at) > handedIn,
+    )
+    .sort((a, b) => Date.parse(b.at) - Date.parse(a.at))[0];
+  if (!reopen) return null;
+  const reason = typeof reopen.meta.reason === "string" ? reopen.meta.reason.trim() : "";
+  return { at: reopen.at, reason: reason || null };
+}
+
+/** `Earlier hand-in · reopened 16 Oct: "simple"`, the collapsed hand-in's one line. */
+export function earlierHandInLabel(reopen: HandInReopen): string {
+  const when = `Earlier hand-in · reopened ${formatIST(reopen.at, "d MMM")}`;
+  return reopen.reason ? `${when}: "${reopen.reason}"` : when;
+}
+
 // Chat (28) ---------------------------------------------------------------------------------------
 
 /**

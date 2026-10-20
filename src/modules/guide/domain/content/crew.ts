@@ -554,9 +554,13 @@ export const CREW_GUIDE: Guide = {
               kind: "next",
               text: "Your new hand-in is added to the earlier ones and goes for review again.",
             },
+            {
+              kind: "note",
+              text: 'If a finished task is reopened, it is back with you. Your old hand-in is folded away under "Earlier hand-in · reopened ‹date›: ‹reason›"; tap it to read it.',
+            },
           ],
           link: { href: "/tasks", label: "Open Tasks" },
-          keywords: ["rework", "redo", "feedback", "returned", "revise", "fix"],
+          keywords: ["rework", "redo", "feedback", "returned", "revise", "fix", "reopened"],
         },
         {
           id: "task-chat",

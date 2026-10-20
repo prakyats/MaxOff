@@ -4,6 +4,7 @@ import { istInstant } from "@/core/time";
 
 import {
   chatLabel,
+  earlierHandInLabel,
   handInFirst,
   moreSteps,
   neededLine,
@@ -11,6 +12,7 @@ import {
   nextStep,
   parseTaskView,
   relativeDeadline,
+  reopenAfterHandIn,
   shownView,
   unreadCount,
   unreadLabel,
@@ -370,5 +372,40 @@ describe("unread comments (decision 28)", () => {
     expect(chatLabel(2)).toBe("Chat · 2 new");
     expect(unreadLabel(1)).toBe("1 new comment");
     expect(unreadLabel(3)).toBe("3 new comments");
+  });
+});
+
+describe("a hand-in after a reopen (B5)", () => {
+  const entry = (action: string, at: string, meta: Record<string, unknown> = {}) => ({
+    entity: "tasks",
+    action,
+    at,
+    meta,
+  });
+  const latest = { at: "2026-10-09T10:00:00Z" };
+
+  it("is earlier work once the task is reopened after it, with the reopen's day and reason", () => {
+    const reopen = reopenAfterHandIn(latest, [
+      entry("reopened", "2026-10-16T06:00:00Z", { reason: " simple ", from_state: "completed" }),
+      entry("completed", "2026-10-10T06:00:00Z"),
+    ]);
+    expect(reopen).toEqual({ at: "2026-10-16T06:00:00Z", reason: "simple" });
+    expect(reopen && earlierHandInLabel(reopen)).toBe(
+      'Earlier hand-in · reopened 16 Oct: "simple"',
+    );
+  });
+
+  it("stays the current hand-in when the reopen came before it, or there is none", () => {
+    expect(reopenAfterHandIn(latest, [entry("reopened", "2026-10-08T06:00:00Z")])).toBeNull();
+    expect(reopenAfterHandIn(latest, [entry("completed", "2026-10-10T06:00:00Z")])).toBeNull();
+    expect(reopenAfterHandIn(null, [entry("reopened", "2026-10-16T06:00:00Z")])).toBeNull();
+  });
+
+  it("takes the latest reopen, and says nothing more without a reason", () => {
+    const reopen = reopenAfterHandIn(latest, [
+      entry("reopened", "2026-10-12T06:00:00Z", { reason: "first" }),
+      entry("reopened", "2026-10-16T06:00:00Z"),
+    ]);
+    expect(reopen && earlierHandInLabel(reopen)).toBe("Earlier hand-in · reopened 16 Oct");
   });
 });

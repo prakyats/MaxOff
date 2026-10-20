@@ -481,7 +481,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: "Nothing is deleted. A cancelled task stays in the history with its reason.",
+              text: 'Nothing is deleted. A cancelled task stays in the history with its reason. A reopened task goes back to its people, and its old hand-in folds away under "Earlier hand-in · reopened ‹date›: ‹reason›" in Work.',
             },
           ],
           keywords: ["edit task", "cancel task", "reopen task"],
