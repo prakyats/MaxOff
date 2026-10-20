@@ -478,7 +478,7 @@ test.describe("the calendar, as an Admin", () => {
     // "Who's free: …" once, then "Busy …" only when someone is (the owner's review).
     await expect(free).toContainText(/^Who's free: /);
     await expect(free).not.toContainText("Free:");
-    await expect(free).toContainText(/Busy [^:]*10[^:]*: [^·]*Local Staff/);
+    await expect(free).toContainText(/Busy 10:00 am – 11:00 am: [^·]*Local Staff/);
     // An Admin creates tasks: the pill, not "Suggest a task".
     await expect(detail(page).locator('[data-slot="new-task-on-day"]')).toBeVisible();
     await expect(detail(page).locator('[data-slot="suggest-task"]')).toHaveCount(0);

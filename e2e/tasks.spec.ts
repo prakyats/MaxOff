@@ -1575,7 +1575,7 @@ test.describe("tasks for the Owner", () => {
       page.getByText(`Reminder sent to ${staff.name} and ${person("helper", info).name}`),
     ).toBeVisible();
     const waiting = page.locator('[data-slot="task-remind"] button[data-state="waiting"]');
-    await expect(waiting).toContainText(/Reminded · again at \d{1,2}:\d{2} [AP]M/);
+    await expect(waiting).toContainText(/Reminded · again at \d{1,2}:\d{2} [ap]m/);
     await expect(waiting).toBeDisabled();
     const asked = await serviceSelect<{ recipient_id: string; title: string }>(
       `notifications?kind=eq.task_asked_about&entity_id=eq.${taskId}&select=recipient_id,title&order=recipient_id`,
