@@ -23,7 +23,7 @@ const APPROVE_URL = "/api/approvals/approve";
 export type TaskApprovalItem = {
   id: string;
   title: string;
-  /** "Done by Ravi for Asha, 2 Oct, 5:10 PM · late". */
+  /** "Done by Ravi for Asha, 2 Oct, 5:10 pm · late". */
   subtitle: string;
   /** The task state for the dot, and its word ("Waiting for your check"). */
   status: string;

@@ -12,7 +12,7 @@ import type { ReactNode } from "react";
 
 import { cn } from "@/core/lib/utils";
 import { OverlayLink } from "@/core/ui/composites/overlay-link";
-import { formatIST, type ISODate } from "@/core/time";
+import { formatTime, type ISODate } from "@/core/time";
 
 import {
   type CalendarDay,
@@ -322,7 +322,7 @@ export function DayDetail({
                       day.date < today ? "text-danger" : "text-muted-foreground",
                     )}
                   >
-                    {formatIST(item.dueAt, "h:mm aaa")}
+                    {formatTime(item.dueAt)}
                   </span>
                   <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                     <span className="font-medium break-words">{item.title}</span>

@@ -11,6 +11,7 @@ import { can } from "@/core/permissions";
 import { systemClock, todayIST } from "@/core/time";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { TodayAttendanceStrip } from "@/modules/attendance";
+import { CLIENT_STATE_LABELS } from "@/modules/clients";
 import {
   clientProgressLine,
   dueThisWeek,
@@ -44,6 +45,7 @@ import {
   MY_GROUP_TITLES,
   myTaskGroups,
   needsYou,
+  needsYouSummary,
   rowMeta,
   stateLabel,
   TaskRow,
@@ -147,12 +149,14 @@ export async function AdminToday({ viewer }: { viewer: CurrentMember }) {
   // Client work in Needs you (decision 19, amendments C and D): sent back, to decide.
   const sentBack = work?.sentBack ?? [];
   const itemsToDecide = can(viewer.role, "cycles.carry_decide") ? (work?.toDecide ?? 0) : 0;
-  const nothingNeeded =
-    needs.length === 0 &&
-    counts.toDecide === 0 &&
-    requests === 0 &&
-    sentBack.length === 0 &&
-    itemsToDecide === 0;
+  // B2: the heading counts the rows shown (links, deliverables sent back, task rows).
+  const summary = needsYouSummary({
+    needs,
+    toDecide: counts.toDecide,
+    links: [itemsToDecide, requests],
+    otherRows: sentBack.length,
+  });
+  const nothingNeeded = summary.count === 0;
   // The Client work section: overdue or due this week, oldest first, five then "See all N".
   const due = work ? dueThisWeek(work.due, today) : [];
   const shownItems = due.slice(0, CLIENT_WORK_SHOWN);
@@ -221,7 +225,7 @@ export async function AdminToday({ viewer }: { viewer: CurrentMember }) {
         endDayFollowUp={<EndDayClaims today={today} setup={getClaimSetup().catch(() => null)} />}
       />
       <div className="flex max-w-3xl min-w-0 flex-col gap-6" data-slot="admin-today">
-        <DashSection title="Needs you" slot="today-needs-you" count={needs.length}>
+        <DashSection title="Needs you" slot="today-needs-you" count={summary.count}>
           {nothingNeeded ? (
             <QuietText slot="today-needs-you-empty">{ADMIN_NEEDS_YOU_EMPTY}</QuietText>
           ) : (
@@ -367,7 +371,23 @@ export async function AdminToday({ viewer }: { viewer: CurrentMember }) {
                   href={`/clients/${client.id}`}
                   slot="today-client-row"
                   icon={<BriefcaseIcon className="size-4" aria-hidden />}
-                  title={client.name}
+                  title={
+                    client.state === "active" ? (
+                      client.name
+                    ) : (
+                      // B9: a non-Active client says so beside its name (Clients opens on Active).
+                      <>
+                        {client.name}
+                        <span
+                          className="text-muted-foreground font-normal"
+                          data-slot="today-client-state"
+                        >
+                          {" "}
+                          · {CLIENT_STATE_LABELS[client.state]}
+                        </span>
+                      </>
+                    )
+                  }
                   detail={[
                     clientCountsLine({ open, overdue }),
                     clientProgressLine(clientProgress.get(client.id)),

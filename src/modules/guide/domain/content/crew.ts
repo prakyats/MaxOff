@@ -167,7 +167,7 @@ export const CREW_GUIDE: Guide = {
             },
             {
               kind: "example",
-              text: 'You finish at 7:15 PM after a long edit. Tap End day, choose Yes for expenses, add the claim, then tap "Done".',
+              text: 'You finish at 7:15 pm after a long edit. Tap End day, choose Yes for expenses, add the claim, then tap "Done".',
             },
             {
               kind: "next",
@@ -188,7 +188,7 @@ export const CREW_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "At 8:30 PM MaxOff reminds you: \"You haven't ended your day.\" If you forget completely, you can end yesterday's day the next morning.",
+              text: "At 8:30 pm MaxOff reminds you: \"You haven't ended your day.\" If you forget completely, you can end yesterday's day the next morning.",
             },
             {
               kind: "steps",
@@ -205,7 +205,7 @@ export const CREW_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: 'You can do this only before the cutoff (05:00 unless the Owner changed it) and before you start today. After that, the day stays "End of day not recorded" and no end time is made up. Put the late work in an overtime note instead. The Owner can see which days were not ended.',
+              text: 'You can do this only before the cutoff (5:00 am unless the Owner changed it) and before you start today. After that, the day stays "End of day not recorded" and no end time is made up. Put the late work in an overtime note instead. The Owner can see which days were not ended.',
             },
           ],
           link: { href: "/my-day", label: "Open My Day" },
@@ -431,7 +431,7 @@ export const CREW_GUIDE: Guide = {
             {
               kind: "steps",
               steps: [
-                'Open a task. The top shows its status, priority and due time, such as "Due today 6:00 PM · in 3 h", in red when overdue.',
+                'Open a task. The top shows its status, priority and due time, such as "Due today 6:00 pm · in 3 h", in red when overdue.',
                 "Read the sentence under it. It says what is needed from you.",
                 'Switch between "Work" (the brief, "Stages" and the hand-in), "Chat", "Activity" and "Details" (who is on it and about the task).',
               ],
@@ -519,7 +519,7 @@ export const CREW_GUIDE: Guide = {
             },
             {
               kind: "example",
-              text: 'Reel 1 edit is due at 6:00 PM and you finish at 6:40 PM. In the hand-in, link the folder and answer "Why is it late?" with the reason.',
+              text: 'Reel 1 edit is due at 6:00 pm and you finish at 6:40 pm. In the hand-in, link the folder and answer "Why is it late?" with the reason.',
             },
             {
               kind: "next",
@@ -554,9 +554,13 @@ export const CREW_GUIDE: Guide = {
               kind: "next",
               text: "Your new hand-in is added to the earlier ones and goes for review again.",
             },
+            {
+              kind: "note",
+              text: 'If a finished task is reopened, it is back with you. Your old hand-in is folded away under "Earlier hand-in · reopened ‹date›: ‹reason›"; tap it to read it.',
+            },
           ],
           link: { href: "/tasks", label: "Open Tasks" },
-          keywords: ["rework", "redo", "feedback", "returned", "revise", "fix"],
+          keywords: ["rework", "redo", "feedback", "returned", "revise", "fix", "reopened"],
         },
         {
           id: "task-chat",
@@ -727,7 +731,7 @@ export const CREW_GUIDE: Guide = {
             },
             {
               kind: "example",
-              text: 'Yesterday you stayed until 9:30 PM on Reel 1 edit. Choose yesterday, write "About 2 hours" and "Reel 1 edit".',
+              text: 'Yesterday you stayed until 9:30 pm on Reel 1 edit. Choose yesterday, write "About 2 hours" and "Reel 1 edit".',
             },
             {
               kind: "next",

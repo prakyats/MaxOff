@@ -294,6 +294,7 @@ describe("the Projects tab", () => {
     templateId: null,
     createdBy: "m",
     createdAt: "2026-10-01T00:00:00Z",
+    cancelledAt: null,
     cancelledReason: null,
     ...over,
   });

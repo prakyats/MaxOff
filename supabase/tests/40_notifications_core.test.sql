@@ -872,7 +872,7 @@ values (pg_temp.fx('staff1'), pg_temp.today(), app.ist_day_start(pg_temp.today()
 select is(app.end_day_reminder(app.ist_day_start(pg_temp.today()) + interval '19 hours'), 0, 'before logout_reminder_time nothing is sent');
 select is(app.end_day_reminder(app.ist_day_start(pg_temp.today()) + interval '20 hours 30 minutes'), 1, 'at 20:30 the person with an open day is reminded');
 select is(((pg_temp.last('staff1', 'end_day_reminder')).title, (pg_temp.last('staff1', 'end_day_reminder')).body, (pg_temp.last('staff1', 'end_day_reminder')).link)::text,
-  ('You haven''t ended your day', 'Started at 09:30. If you''re done, end it; if you''re working late, carry on.', '/my-day')::text,
+  ('You haven''t ended your day', 'Started at 9:30 am. If you''re done, end it; if you''re working late, carry on.', '/my-day')::text,
   'with the 3b.1 wording, linking My Day');
 select is(app.end_day_reminder(app.ist_day_start(pg_temp.today()) + interval '20 hours 35 minutes'), 0, 'the next run five minutes later sends nothing again');
 select is(pg_temp.total(), 1::bigint, 'one row for the day');

@@ -61,7 +61,7 @@ function filled() {
 }
 
 describe("the task dialog's draft (4.3)", () => {
-  it("defaults to Medium and 6:00 PM IST, and to the first active type", () => {
+  it("defaults to Medium and 6:00 pm IST, and to the first active type", () => {
     const draft = emptyDraft();
     expect(draft.priority).toBe("medium");
     expect(draft.dueTime).toBe("18:00");
@@ -249,8 +249,8 @@ describe("an edit sends only what changed (4A mechanics 4)", () => {
 });
 
 describe("a new task started on a calendar day (6.4b, Kickoff 6 decision 25 D)", () => {
-  it("puts the deadline on that day at 6:00 PM IST, and an event on that day", () => {
-    // 11:30 IST on 8 Oct: today's 6:00 PM is still ahead.
+  it("puts the deadline on that day at 6:00 pm IST, and an event on that day", () => {
+    // 11:30 IST on 8 Oct: today's 6:00 pm is still ahead.
     const draft = draftOnDate("2026-10-08", new Date("2026-10-08T06:00:00.000Z"));
     expect(draft).toEqual({ ...emptyDraft(), dueDate: "2026-10-08", eventDate: "2026-10-08" });
     expect(draft.dueTime).toBe("18:00");
@@ -266,14 +266,14 @@ describe("a new task started on a calendar day (6.4b, Kickoff 6 decision 25 D)",
     });
   });
 
-  it("today after 6:00 PM IST, puts the deadline at the next whole hour instead", () => {
-    // 18:00 IST exactly: 6:00 PM is not later than now, so 7:00 PM.
+  it("today after 6:00 pm IST, puts the deadline at the next whole hour instead", () => {
+    // 18:00 IST exactly: 6:00 pm is not later than now, so 7:00 pm.
     expect(draftOnDate("2026-10-08", new Date("2026-10-08T12:30:00.000Z")).dueTime).toBe("19:00");
-    // 20:40 IST → 9:00 PM.
+    // 20:40 IST → 9:00 pm.
     expect(draftOnDate("2026-10-08", new Date("2026-10-08T15:10:00.000Z")).dueTime).toBe("21:00");
     // 23:15 IST: the next hour is tomorrow, so the day's last minute.
     expect(draftOnDate("2026-10-08", new Date("2026-10-08T17:45:00.000Z")).dueTime).toBe("23:59");
-    // A later day keeps 6:00 PM whatever the time now.
+    // A later day keeps 6:00 pm whatever the time now.
     expect(draftOnDate("2026-10-09", new Date("2026-10-08T15:10:00.000Z")).dueTime).toBe("18:00");
     // Whatever it prefills is later than now.
     for (const now of ["2026-10-08T12:30:00.000Z", "2026-10-08T17:45:00.000Z"]) {
@@ -282,7 +282,7 @@ describe("a new task started on a calendar day (6.4b, Kickoff 6 decision 25 D)",
     }
   });
 
-  it("at 23:58 IST still offers today, at 11:59 PM, later than now", () => {
+  it("at 23:58 IST still offers today, at 11:59 pm, later than now", () => {
     // 23:58:59 IST on 8 Oct = 18:28:59 UTC.
     const now = new Date("2026-10-08T18:28:59.000Z");
     expect(canStartTaskOnDate("2026-10-08", now)).toBe(true);
@@ -292,7 +292,7 @@ describe("a new task started on a calendar day (6.4b, Kickoff 6 decision 25 D)",
   });
 
   it("from 23:59 IST offers no new task today: the day has no valid deadline left", () => {
-    // 23:59:00 and 23:59:59 IST on 8 Oct: 11:59 PM is not later than now.
+    // 23:59:00 and 23:59:59 IST on 8 Oct: 11:59 pm is not later than now.
     for (const now of ["2026-10-08T18:29:00.000Z", "2026-10-08T18:29:59.000Z"]) {
       expect(canStartTaskOnDate("2026-10-08", new Date(now))).toBe(false);
       // What the form would have prefilled is refused by its own check, which is why it is not

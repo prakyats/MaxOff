@@ -13,7 +13,7 @@ import type { TaskFormSetup } from "./task-form-dialog";
 
 /**
  * Whether "+ New task" belongs on a calendar day: the day still has a deadline later than now
- * (a day before today never; today until 11:59 PM IST). The route asks before it draws the button,
+ * (a day before today never; today until 11:59 pm IST). The route asks before it draws the button,
  * so a day without one shows no action at all.
  */
 export { canStartTaskOnDate };

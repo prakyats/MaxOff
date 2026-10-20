@@ -2,7 +2,7 @@ import type { AttendanceChoice, AttendanceState, DayStatus, LeaveType } from "./
 import { STATUS_LABELS } from "./choices";
 import { clockTime, historyDate } from "./history";
 import { displayName } from "@/core/lib/display-name";
-import { formatIST, istDayStart } from "@/core/time";
+import { formatIST, formatTime, istDayStart } from "@/core/time";
 
 /**
  * The Owner's side of attendance (task 2.4, WORKFLOWS §1 "Settled in 2.4"): the days waiting in
@@ -71,7 +71,7 @@ export function pendingSubtitle(day: PendingDay, today: string): string {
  */
 export function pendingDetail(day: PendingDay, today: string): string {
   const date = day.workDate === today ? "today" : formatIST(istDayStart(day.workDate), "EEE d MMM");
-  const started = day.startedAt ? `, started ${formatIST(day.startedAt, "HH:mm")}` : "";
+  const started = day.startedAt ? `, started ${formatTime(day.startedAt)}` : "";
   return `${pendingLabel(day)} · ${date}${started}`;
 }
 

@@ -1,4 +1,4 @@
-import { formatIST } from "@/core/time";
+import { formatDateTime, formatIST, formatTime } from "@/core/time";
 
 import type {
   MemberRole,
@@ -76,7 +76,7 @@ export function stateLabel(
 
 /** "Due Thu 1 Oct, 6:00 pm". */
 export function deadlineLabel(dueAt: string): string {
-  return `Due ${formatIST(dueAt, "EEE d MMM, h:mm a")}`;
+  return `Due ${formatDateTime(dueAt, "EEE d MMM")}`;
 }
 
 /** An event's day and time: "Shoot on Sat 3 Oct, 10:00 am – 12:00 pm". */
@@ -86,10 +86,8 @@ export function eventLabel(
   if (!task.eventDate) return null;
   const day = formatIST(`${task.eventDate}T12:00:00+05:30`, "EEE d MMM");
   if (!task.eventStartAt) return day;
-  const start = formatIST(task.eventStartAt, "h:mm a");
-  return task.eventEndAt
-    ? `${day}, ${start} – ${formatIST(task.eventEndAt, "h:mm a")}`
-    : `${day}, ${start}`;
+  const start = formatTime(task.eventStartAt);
+  return task.eventEndAt ? `${day}, ${start} – ${formatTime(task.eventEndAt)}` : `${day}, ${start}`;
 }
 
 export function activeAssignees<T extends Pick<TaskAssignee, "removedAt">>(
@@ -365,9 +363,9 @@ export function remindAgainAt(
   return Number.isFinite(again) && again > now.getTime() ? new Date(again).toISOString() : null;
 }
 
-/** "Reminded · again at 4:05 PM": the Remind button while the hour runs (6b.2). */
+/** "Reminded · again at 4:05 pm": the Remind button while the hour runs (6b.2). */
 export function remindAgainLabel(againAt: string): string {
-  return `Reminded · again at ${formatIST(againAt, "h:mm a")}`;
+  return `Reminded · again at ${formatTime(againAt)}`;
 }
 
 /**

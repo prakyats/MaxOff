@@ -200,8 +200,8 @@ select is((select yesterday_open_day_id from public.attendance_own_today()), nul
   'past the cutoff the strip no longer offers yesterday''s end');
 select throws_ok($$ select * from public.attendance_end_day() $$, 'P0001', 'INVALID_STATE', 'past the cutoff End day is refused');
 select matches(pg_temp.fail_detail('select * from public.attendance_end_day()'),
-  '^Yesterday''s day can be ended only until [0-2][0-9]:[0-5][0-9]\. It stays "End of day not recorded"; add an overtime note for the late work\.$',
-  'the message names the cutoff and the way out');
+  '^Yesterday''s day can be ended only until (1[0-2]|[1-9]):[0-5][0-9] (am|pm)\. It stays "End of day not recorded"; add an overtime note for the late work\.$',
+  'the message names the cutoff (B1: "4:40 am", the one time format) and the way out');
 select lives_ok($$ select public.extra_work_note_submit('overtime', pg_temp.today() - 1, 'Finished the edit at 1 am', 90) $$,
   'the late work goes in an overtime note instead');
 select pg_temp.as_system();

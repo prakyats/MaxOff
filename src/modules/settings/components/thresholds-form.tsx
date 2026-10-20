@@ -241,14 +241,14 @@ export function ThresholdsForm({ thresholds }: { thresholds: Thresholds }) {
             Client work escalations
           </h2>
           <p className="text-muted-foreground text-sm">
-            The client&apos;s Admin is told first, at 8:00 AM. If it still isn&apos;t done, you are
+            The client&apos;s Admin is told first, at 8:00 am. If it still isn&apos;t done, you are
             told, naming the Admin.
           </p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField
             label="Client item overdue → you after (hours)"
-            hint="From the Admin's 8:00 AM notice. 1 to 168."
+            hint="From the Admin's 8:00 am notice. 1 to 168."
             error={fieldErrors.itemOverdueEscalateHours}
           >
             {(control) => (
@@ -334,7 +334,7 @@ export function ThresholdsForm({ thresholds }: { thresholds: Thresholds }) {
             Weekly summary
           </h2>
           <p className="text-muted-foreground text-sm">
-            Your week by email, built from the saved end-of-day reports: at 8:00 AM on this day, or
+            Your week by email, built from the saved end-of-day reports: at 8:00 am on this day, or
             as soon as the last day&apos;s report is saved if that is later.
           </p>
         </div>

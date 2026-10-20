@@ -1,4 +1,4 @@
-import { formatIST, istDayStart } from "@/core/time";
+import { formatIST, formatTime, istDayStart } from "@/core/time";
 import { displayName } from "@/core/lib/display-name";
 
 import {
@@ -278,5 +278,5 @@ export function historyDate(date: string): string {
 
 /** "9:12 am", the IST clock time of an instant. */
 export function clockTime(instant: string): string {
-  return formatIST(instant, "h:mm aaa");
+  return formatTime(instant);
 }

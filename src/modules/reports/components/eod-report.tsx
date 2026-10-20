@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 
 import { cn } from "@/core/lib/utils";
 import { CARD_ROW_TITLE, CARD_ROW_TRAILING } from "@/core/ui/composites/row-metrics";
-import { StatusDot } from "@/core/ui/composites/status-badge";
+import { attendanceStatus, StatusDot } from "@/core/ui/composites/status-badge";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 import {
   DashSection,
@@ -40,17 +40,6 @@ import {
  * component for the live view and a saved row. Server components only; a task row is a
  * drill-down into its task, a person's row into their history. No money anywhere.
  */
-
-const DOT_STATUS: Record<
-  NonNullable<EodReport["attendance"]["people"][number]["status"]>,
-  string
-> = {
-  present: "present",
-  leave: "leave",
-  half_day: "half_day",
-  comp_leave: "comp_leave",
-  absent: "absent",
-};
 
 const TASK_GROUPS: {
   key: keyof EodReport["tasks"];
@@ -135,7 +124,10 @@ export function EodReportView({ report }: { report: EodReport }) {
                     detail={personDetail(person) || undefined}
                     trailing={
                       <StatusDot
-                        status={person.status ? DOT_STATUS[person.status] : "awaiting_choice"}
+                        status={attendanceStatus({
+                          status: person.status,
+                          undecided: person.proposed || person.waiting,
+                        })}
                         label={personStatus(person)}
                       />
                     }

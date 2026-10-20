@@ -113,7 +113,37 @@ export function toISTTime(instant: Instant): ISTTime {
   return formatInTimeZone(toDate(instant), IST_TIMEZONE, "HH:mm");
 }
 
+/**
+ * The one way MaxOff shows a time of day (B1, UX review 2026-10-21): `6:00 pm`, lower-case, on
+ * the 12-hour clock. Every screen, notification body and email goes through `formatTime`,
+ * `formatWallTime` or `formatDateTime`; date patterns passed to `formatIST` carry no time tokens
+ * (a unit test scans `src/` for them).
+ */
+const TIME_PATTERN = "h:mm aaa";
+
 /** Formats an instant in IST with a date-fns pattern. Default: `21 Sep 2026, 6:05 pm`. */
-export function formatIST(instant: Instant, pattern = "d MMM yyyy, h:mm aaa"): string {
+export function formatIST(instant: Instant, pattern = `d MMM yyyy, ${TIME_PATTERN}`): string {
   return formatInTimeZone(toDate(instant), IST_TIMEZONE, pattern);
+}
+
+/** The IST time of day of an instant: `6:00 pm`, `9:51 am`. */
+export function formatTime(instant: Instant): string {
+  return formatIST(instant, TIME_PATTERN);
+}
+
+/** An instant's IST date and time: `19 Oct, 6:00 pm` (the date part is any date-only pattern). */
+export function formatDateTime(instant: Instant, datePattern = "d MMM"): string {
+  return `${formatIST(instant, datePattern)}, ${formatTime(instant)}`;
+}
+
+/**
+ * A wall-clock time stored as text (`HH:mm` or Postgres `time`'s `HH:mm:ss`), such as a settings
+ * cutoff `05:00`, shown the same way: `5:00 am`.
+ */
+export function formatWallTime(time: string): string {
+  const match = /^([01]\d|2[0-3]):([0-5]\d)(:[0-5]\d)?$/.exec(time);
+  if (!match) throw new RangeError(`Invalid wall-clock time: ${time}`);
+  const hours = Number(match[1]);
+  const twelve = hours % 12 === 0 ? 12 : hours % 12;
+  return `${twelve}:${match[2]} ${hours < 12 ? "am" : "pm"}`;
 }

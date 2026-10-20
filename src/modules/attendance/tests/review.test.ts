@@ -303,14 +303,14 @@ describe("the Attendance group's rows", () => {
         pending({ workDate: "2026-10-09", startedAt: "2026-10-09T04:42:00Z" }),
         "2026-10-09",
       ),
-    ).toBe("Present · today, started 10:12");
+    ).toBe("Present · today, started 10:12 am");
     // An afternoon start reads on the 24-hour clock, as This week's events.
     expect(
       pendingDetail(
         pending({ workDate: "2026-10-07", startedAt: "2026-10-07T08:35:00Z" }),
         "2026-10-09",
       ),
-    ).toBe("Present · Wed 7 Oct, started 14:05");
+    ).toBe("Present · Wed 7 Oct, started 2:05 pm");
     // Short enough for a 375px row beside its button (about 36 characters at 12px).
     expect(
       pendingDetail(pending({ submittedChoice: null, finalStatus: "absent" }), "2026-10-09").length,

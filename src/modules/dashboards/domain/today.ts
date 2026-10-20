@@ -1,4 +1,4 @@
-import { addISTDays, toISTDate, type ISODate } from "@/core/time";
+import { addISTDays, overdueWords, toISTDate, type ISODate } from "@/core/time";
 
 import { inlineDay } from "./days";
 import { byStart, type DayEvent } from "./my-day";
@@ -467,7 +467,7 @@ export function clientCountsLine({ open, overdue }: { open: number; overdue: num
 export type RiskWords = {
   title: string;
   detail: string;
-  /** The icon's and the meta line's colour: red for "overdue by …" (decision 24), else amber. */
+  /** The icon's and the meta line's colour: red for "overdue …" (decision 24), else amber. */
   tone: "danger" | "attention";
   href: string;
   icon: "overdue" | "not_noted" | "on_leave" | "unreachable";
@@ -496,7 +496,7 @@ export function riskWords(
     case "overdue":
       return {
         title: risk.title,
-        detail: `${context.nameOf(risk.ownerId)} · overdue by ${spanWords(hoursSince(risk.dueAt))}`,
+        detail: `${context.nameOf(risk.ownerId)} · ${overdueWords(context.now.getTime() - Date.parse(risk.dueAt))}`,
         tone: "danger",
         href: `/tasks/${risk.taskId}`,
         icon: "overdue",

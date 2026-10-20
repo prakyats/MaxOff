@@ -11,7 +11,7 @@ export type ActivityLine = {
   text: string;
   note?: string;
   at: string;
-  /** "2 Oct 2026, 5:10 PM". */
+  /** "2 Oct 2026, 5:10 pm". */
   atLabel: string;
 };
 

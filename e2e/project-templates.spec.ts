@@ -172,7 +172,7 @@ test("a template of 6 deliverables × 3 groups from presets, reordered by drag, 
     "Own stages · 3 groups · 6 stages",
   );
   await expect(add.locator('[data-slot="add-deliverables-hint"]')).toHaveText(
-    "Tick a preset to give these deliverables their own stages, or open a deliverable (⌄) to edit its stages.",
+    "Tick a preset to give these deliverables their own stages, or open a deliverable's row to edit its stages.",
   );
 
   // The preview says what will be made: the five identical ones as one entry, the changed one

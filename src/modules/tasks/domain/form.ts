@@ -65,7 +65,7 @@ export function emptyDraft(): TaskDraft {
     description: "",
     taskTypeId: "",
     clientId: "",
-    // Kickoff 4 decision 4: priority defaults to Medium, the time to 6:00 PM IST.
+    // Kickoff 4 decision 4: priority defaults to Medium, the time to 6:00 pm IST.
     priority: "medium",
     dueDate: "",
     dueTime: DEFAULT_DUE_TIME,
@@ -86,12 +86,12 @@ export function emptyDraft(): TaskDraft {
 
 /**
  * A new task started on a calendar day (6.4b; Kickoff 6 decision 25 D): the day is the deadline's
- * date (at the default 6:00 PM IST) and, should the type be an event, the event's date. The type
+ * date (at the default 6:00 pm IST) and, should the type be an event, the event's date. The type
  * is picked in the form, so both carry the day and the form shows the one the type asks for.
- * A new deadline must be in the future (kickoff 4 decision 4), so today after 6:00 PM IST the time
- * is the next whole hour instead, or 11:59 PM when that hour is already the next day (23:00–23:58).
+ * A new deadline must be in the future (kickoff 4 decision 4), so today after 6:00 pm IST the time
+ * is the next whole hour instead, or 11:59 pm when that hour is already the next day (23:00–23:58).
  * The calendar offers no "+ New task" on a day with no valid deadline left (`canStartTaskOnDate`):
- * a day before today, or today from 11:59 PM IST.
+ * a day before today, or today from 11:59 pm IST.
  */
 export function draftOnDate(date: ISODate, now: Date): TaskDraft {
   return { ...emptyDraft(), dueDate: date, dueTime: dueTimeOnDate(date, now), eventDate: date };
@@ -100,8 +100,8 @@ export function draftOnDate(date: ISODate, now: Date): TaskDraft {
 const LAST_TIME_OF_DAY = "23:59";
 
 /**
- * Whether a calendar day still has a valid deadline for a new task: its last minute (11:59 PM IST)
- * is later than now. Never on a day before today; today only until 11:59 PM IST, after which the
+ * Whether a calendar day still has a valid deadline for a new task: its last minute (11:59 pm IST)
+ * is later than now. Never on a day before today; today only until 11:59 pm IST, after which the
  * form would refuse its own prefill (the same rule as a past day).
  */
 export function canStartTaskOnDate(date: ISODate, now: Date): boolean {

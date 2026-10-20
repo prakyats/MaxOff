@@ -19,19 +19,24 @@ export function CycleProgress({
   cycleId,
   label,
   meter,
+  cancelledAt = null,
 }: {
   cycleId: string;
   /** The cycle's label ("October 2026"), null for a one-time project's. */
   label: string | null;
   meter: CycleMeter;
+  /** A cancelled project's cancel time: the line says "Cancelled 21 Oct · …" (B8). */
+  cancelledAt?: string | null;
 }) {
-  const line = meterLine(meter);
-  const pace = meterPace(meter);
+  const line = meterLine(meter, cancelledAt);
+  const pace = cancelledAt ? null : meterPace(meter);
+  // A cancelled project never plays the 100% moment.
+  const complete = meter.complete && !cancelledAt;
   return (
     <section
       aria-label="Progress"
       data-slot="cycle-meter"
-      data-complete={meter.complete ? "" : undefined}
+      data-complete={complete ? "" : undefined}
       className="border-border bg-card flex items-center gap-4 rounded-lg border px-3 py-3 sm:px-4"
     >
       <ProgressRing
@@ -53,7 +58,7 @@ export function CycleProgress({
           {line}
         </p>
         <p className="flex min-h-5 items-center text-xs">
-          {meter.complete ? (
+          {complete ? (
             <CycleCompleteMoment cycleId={cycleId} words={completeWords(label)} />
           ) : pace ? (
             <span

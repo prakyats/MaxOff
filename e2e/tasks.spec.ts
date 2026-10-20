@@ -261,7 +261,7 @@ test.describe("staff tasks, the flows", () => {
           `[data-slot="task-assignee"][data-member="${id}"] [data-slot="task-warning"][data-kind="${kind}"]`,
         );
       await expect(warning(helperId, "workload")).toContainText("4 tasks already due");
-      await expect(warning(staffId, "overlap")).toContainText("Busy 10:00 AM–12:00 PM");
+      await expect(warning(staffId, "overlap")).toContainText("Busy 10:00 am – 12:00 pm");
       await expect(warning(awayId, "on_leave")).toContainText("Leave requested");
       await expect(dialog.locator('[data-slot="task-warning-summary"]')).toContainText(
         "3 warnings",
@@ -405,7 +405,7 @@ test.describe("staff tasks, the flows", () => {
       await dialog.getByRole("button", { name: "Save changes" }).click();
       await expect(dialog).toBeHidden();
       await expect(summary(page)).toContainText("High");
-      await expect(summary(page)).toContainText("7:00 PM");
+      await expect(summary(page)).toContainText("7:00 pm");
       await expect(
         (await historyRows(page)).filter({ hasText: "changed the priority from Medium to High" }),
       ).toHaveCount(1);
@@ -861,7 +861,7 @@ test.describe("staff tasks, the flows", () => {
         "data-overdue",
         "true",
       );
-      await expect(card.locator('[data-slot="task-deadline"]')).toContainText("overdue by");
+      await expect(card.locator('[data-slot="task-deadline"]')).toContainText("overdue ");
       await step(page).getByRole("button", { name: "Mark done again" }).click();
       const done = page.locator('[data-slot="task-done-dialog"]');
       await done.getByRole("button", { name: "Mark done" }).click();
@@ -1575,7 +1575,7 @@ test.describe("tasks for the Owner", () => {
       page.getByText(`Reminder sent to ${staff.name} and ${person("helper", info).name}`),
     ).toBeVisible();
     const waiting = page.locator('[data-slot="task-remind"] button[data-state="waiting"]');
-    await expect(waiting).toContainText(/Reminded · again at \d{1,2}:\d{2} [AP]M/);
+    await expect(waiting).toContainText(/Reminded · again at \d{1,2}:\d{2} [ap]m/);
     await expect(waiting).toBeDisabled();
     const asked = await serviceSelect<{ recipient_id: string; title: string }>(
       `notifications?kind=eq.task_asked_about&entity_id=eq.${taskId}&select=recipient_id,title&order=recipient_id`,
@@ -1583,11 +1583,14 @@ test.describe("tasks for the Owner", () => {
     expect(asked.map((row) => row.recipient_id).sort()).toEqual([staffId, helperId].sort());
     expect(asked[0]?.title).toBe(`${admin.name} is asking about ${prefix}edit`);
 
-    // Reloaded, it still waits, and the history names who was asked.
+    // Reloaded, it still waits, and the history names who was reminded and where it went (B6:
+    // a notification, never a chat message).
     await page.reload();
     await expect(waiting).toBeDisabled();
     const history = await historyRows(page);
-    await expect(history.filter({ hasText: "about the task" })).toHaveCount(1);
+    const reminded = history.filter({ hasText: "a reminder" });
+    await expect(reminded).toHaveCount(1);
+    await expect(reminded).toContainText("As a notification, not a chat message.");
 
     // A second one within the hour is refused, whoever sends it.
     const refused = await rpcRefusedAs(USERS.owner.email, USERS.owner.password, "task_remind", {

@@ -74,6 +74,18 @@ export const STATUS_TONES = {
 
 export type KnownStatus = keyof typeof STATUS_TONES;
 
+/**
+ * An attendance day's status for its colour, one rule on every screen (B13, UX review
+ * 2026-10-21: "Absent (proposed)" was red in End of day, amber elsewhere). A day the Owner has
+ * not decided yet (a proposed absence, a choice waiting) is `pending_review`, amber, whatever it
+ * proposes; a decided day takes its final status (absent red, present green, leave neutral); no
+ * status and nothing waiting is `awaiting_choice`.
+ */
+export function attendanceStatus(day: { status: string | null; undecided: boolean }): string {
+  if (day.undecided) return "pending_review";
+  return day.status ?? "awaiting_choice";
+}
+
 const LABEL_OVERRIDES: Partial<Record<KnownStatus, string>> = {
   todo: "To do",
   comp_leave: "Comp leave",

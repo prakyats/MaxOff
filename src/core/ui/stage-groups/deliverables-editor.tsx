@@ -430,8 +430,8 @@ function AddDeliverables({
         </Select>
       ) : null}
       <p className="text-muted-foreground text-xs" data-slot="add-deliverables-hint">
-        Tick a preset to give these deliverables their own stages, or open a deliverable (⌄) to edit
-        its stages.
+        Tick a preset to give these deliverables their own stages, or open a deliverable&apos;s row
+        to edit its stages.
       </p>
       {presets.length > 0 ? (
         <div className="flex flex-col gap-1">

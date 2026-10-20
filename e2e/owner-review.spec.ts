@@ -228,6 +228,12 @@ test("installed: back closes the correct dialog, then the review sheet, then the
     .click();
   const sheet = page.locator('[data-slot="review-sheet"]');
   await expect(sheet).toBeVisible();
+  // B4: both decisions in the panel, Approve its one solid action, with the person's week.
+  await expect(sheet.getByRole("button", { name: "Approve" })).toHaveAttribute(
+    "data-variant",
+    "strong",
+  );
+  await expect(sheet.locator('[data-slot="review-week-day"][data-current]')).toBeVisible();
   await sheet.getByRole("button", { name: "Correct…" }).click();
   const dialog = page.locator('[data-slot="dialog-content"]');
   await expect(dialog).toBeVisible();
@@ -377,7 +383,7 @@ test("Today: the card and the board, and a person's history with Edit and Cancel
   await expect(page).toHaveURL(new RegExp(`/people/${ids(info).leave}/attendance$`));
 });
 
-test("a proposed absence from the nightly job: reviewed, approved, and read on the history", async ({
+test("a proposed absence from the nightly job: reviewed and approved from the Review panel, and read on the history", async ({
   page,
 }, info) => {
   await page.goto("/approvals");
@@ -385,18 +391,29 @@ test("a proposed absence from the nightly job: reviewed, approved, and read on t
   await expect(row).toHaveAttribute("data-state", "waiting");
   await expect(row).toContainText("Absent (proposed)");
 
-  // The review sheet says what the system proposed and that nobody signed in.
+  // The review sheet says what the system proposed and that nobody signed in, with the context
+  // to decide on (B4): the person's week with the day marked, and their comp leave.
   await row.getByRole("button", { name: "Review" }).click();
   const sheet = page.locator('[data-slot="review-sheet"]');
   await expect(sheet).toContainText("Proposed");
   await expect(sheet).toContainText("Absent (proposed)");
   await expect(sheet).toContainText("Not recorded");
-  await page.keyboard.press("Escape");
-  await expect(sheet).toBeHidden();
+  const reviewed = sheet.locator('[data-slot="review-week-day"][data-current]');
+  await expect(reviewed).toContainText("Absent (proposed)");
+  // B13: a proposed absence is amber (undecided), the same as everywhere else.
+  await expect(reviewed.locator('[data-slot="status-dot"]')).toHaveAttribute(
+    "data-tone",
+    "attention",
+  );
+  await expect(sheet).toContainText("Comp leave");
+  await expect(sheet).toContainText("None");
 
-  // Approve through the existing path; the app goes to the background so the send goes at once.
-  await row.getByRole("button", { name: "Approve" }).click();
+  // B4: Approve from the panel takes the row's own path: the sheet closes, the row is approved
+  // with its Undo; the app goes to the background so the send goes at once.
+  await sheet.getByRole("button", { name: "Approve" }).click();
+  await expect(sheet).toBeHidden();
   await expect(row).toHaveAttribute("data-state", "approved");
+  await expect(page.getByRole("button", { name: "Undo" })).toBeVisible();
   await page.evaluate(() => {
     Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
     document.dispatchEvent(new Event("visibilitychange"));

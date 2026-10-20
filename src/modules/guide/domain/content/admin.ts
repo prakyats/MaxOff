@@ -152,7 +152,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Client work lists deliverables on your clients that are overdue or due this week, each with Mark done. My clients is the clients you run. My tasks shows your own tasks that are not noted, have changes requested, are overdue or are due today. This week is a strip of the next days. Issues appears only when something is wrong on a task you created or check: an assignee on leave on a deadline day, or someone who can’t be reached.",
+              text: "Client work lists deliverables on your clients that are overdue or due this week, each with Mark done. My clients is the clients you run; one that is not Active shows its state beside its name (for example “· Paused”). My tasks shows your own tasks that are not noted, have changes requested, are overdue or are due today. This week is a strip of the next days. Issues appears only when something is wrong on a task you created or check: an assignee on leave on a deadline day, or someone who can’t be reached.",
             },
             {
               kind: "note",
@@ -481,7 +481,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: "Nothing is deleted. A cancelled task stays in the history with its reason.",
+              text: 'Nothing is deleted. A cancelled task stays in the history with its reason. A reopened task goes back to its people, and its old hand-in folds away under "Earlier hand-in · reopened ‹date›: ‹reason›" in Work.',
             },
           ],
           keywords: ["edit task", "cancel task", "reopen task"],
@@ -501,7 +501,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "example",
-              text: "After you send a reminder the toast says “Reminder sent to Sam and Ria” and the button reads “Reminded · again at 4:05 PM”. You can send the next one then.",
+              text: "After you send a reminder the toast says “Reminder sent to Sam and Ria” and the button reads “Reminded · again at 4:05 pm”. You can send the next one then. The reminder is a notification, not a chat message: Activity reads “sent Sam and Ria a reminder”.",
             },
             {
               kind: "next",
@@ -919,7 +919,7 @@ export const ADMIN_GUIDE: Guide = {
                 { text: 'Set "How many" (highlighted).', shot: "admin/template-builder" },
                 "Tick any stage presets you want, in the order you tick them. Each becomes one group.",
                 "Tap Add.",
-                "Open a row (⌄) to rename it or edit its stages.",
+                "Open a deliverable's row to rename it or edit its stages.",
               ],
             },
             {
@@ -1126,7 +1126,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "next",
-              text: "The new stage follows the deliverable’s own revision stages (“Revision 2” is followed by “Revision 3”) in their group; one with none gets “Revision round 1”. Ticks already made stay.",
+              text: "The new stage follows the deliverable’s own revision stages (“Revision 2” is followed by “Revision 3”) in their group; one with none gets “Revision round 1”. It goes right after the last revision stage, or right after “Edit” when there is none, so it comes before “Posted”. Ticks already made stay.",
             },
             {
               kind: "note",

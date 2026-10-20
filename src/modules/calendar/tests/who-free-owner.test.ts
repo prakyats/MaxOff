@@ -32,7 +32,7 @@ describe("the Owner in Who's free (6b.2, owner 2026-10-07)", () => {
     });
     expect(who).toEqual({
       free: ["Asha", "Kiran"],
-      busy: [{ when: "10–1", names: ["Owner One"] }],
+      busy: [{ when: "10:00 am – 1:00 pm", names: ["Owner One"] }],
       onLeave: [],
     });
   });
@@ -76,7 +76,7 @@ describe("the Owner in Who's free (6b.2, owner 2026-10-07)", () => {
       availability: null,
       busyOnly: OWNER,
     });
-    expect(who?.busy).toEqual([{ when: "9–10", names: ["Owner One"] }]);
+    expect(who?.busy).toEqual([{ when: "9:00 am – 10:00 am", names: ["Owner One"] }]);
     expect(who?.free).toEqual(["Asha", "Kiran"]);
   });
 });

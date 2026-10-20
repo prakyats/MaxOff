@@ -1,4 +1,4 @@
-import { formatIST, toISTDate } from "@/core/time";
+import { formatIST, formatTime, overdueWords, spanWords, toISTDate } from "@/core/time";
 
 import { isFinal, isLocked, statusLine, type ActingFor, type TaskActions } from "./task";
 import type { Task, TaskAssignee, TaskState } from "./types";
@@ -14,9 +14,9 @@ import type { Task, TaskAssignee, TaskState } from "./types";
 
 /** The deadline in words, the viewer's distance to it, and whether it has passed (IST). */
 export type RelativeDeadline = {
-  /** "Due today 6:00 PM", "Due tomorrow 10:00 AM", "Due Thu 6:00 PM", "Due Thu 8 Oct, 6:00 PM". */
+  /** "Due today 6:00 pm", "Due tomorrow 10:00 am", "Due Thu 6:00 pm", "Due Thu 8 Oct, 6:00 pm". */
   label: string;
-  /** "in 3 h", "in 25 min", "in 4 days", "overdue by 3 h"; null on a completed or cancelled task. */
+  /** "in 3 h", "in 25 min", "in 4 days", "overdue 3 h", "overdue 1 day"; null on a completed or cancelled task. */
   relative: string | null;
   overdue: boolean;
 };
@@ -31,19 +31,7 @@ function dayDistance(from: string, to: string): number {
 }
 
 /**
- * "25 min", "3 h", "4 days", rounded as people say them: minutes under an hour, hours under two
- * days, then days.
- */
-function span(ms: number): string {
-  const minutes = Math.max(1, Math.round(ms / MINUTE));
-  if (minutes < 60) return `${minutes} min`;
-  const hours = Math.round(ms / HOUR);
-  if (hours < 48) return `${hours} h`;
-  return `${Math.round(ms / DAY)} days`;
-}
-
-/**
- * The deadline as the first glance says it (decision 26: "Due today 6:00 PM · in 3 h", red when
+ * The deadline as the first glance says it (decision 26: "Due today 6:00 pm · in 3 h", red when
  * overdue). The day is named relative to today in IST (today, tomorrow, yesterday, the weekday
  * within the week ahead), else the date, with the year when it is not this one. A completed or
  * cancelled task keeps the date and drops the distance.
@@ -52,7 +40,7 @@ export function relativeDeadline(task: Pick<Task, "dueAt" | "state">, now: Date)
   const today = toISTDate(now);
   const day = toISTDate(task.dueAt);
   const days = dayDistance(today, day);
-  const time = formatIST(task.dueAt, "h:mm a");
+  const time = formatTime(task.dueAt);
   const when =
     days === 0
       ? `today ${time}`
@@ -69,8 +57,8 @@ export function relativeDeadline(task: Pick<Task, "dueAt" | "state">, now: Date)
   if (isFinal(task.state)) return { label, relative: null, overdue: false };
   const left = Date.parse(task.dueAt) - now.getTime();
   if (left >= 0)
-    return { label, relative: left < MINUTE ? "now" : `in ${span(left)}`, overdue: false };
-  return { label, relative: `overdue by ${span(-left)}`, overdue: true };
+    return { label, relative: left < MINUTE ? "now" : `in ${spanWords(left)}`, overdue: false };
+  return { label, relative: overdueWords(-left), overdue: true };
 }
 
 /**
@@ -212,6 +200,41 @@ export function viewQuery(search: string, view: TaskView): string {
  */
 export function handInFirst(state: TaskState): boolean {
   return isLocked(state) && state !== "cancelled";
+}
+
+/**
+ * B5 (UX review 2026-10-21): a task reopened after its hand-in is with its people again, so the
+ * old "Marked done by …" is not its current state. The latest reopen after the latest hand-in
+ * (the reason lives only in the activity, `task_reopen`), or null when the hand-in is current.
+ */
+export type HandInReopen = { at: string; reason: string | null };
+
+export function reopenAfterHandIn(
+  latest: { at: string } | null,
+  activity: readonly {
+    entity: string;
+    action: string;
+    at: string;
+    meta: Record<string, unknown>;
+  }[],
+): HandInReopen | null {
+  if (!latest) return null;
+  const handedIn = Date.parse(latest.at);
+  const reopen = activity
+    .filter(
+      (entry) =>
+        entry.entity === "tasks" && entry.action === "reopened" && Date.parse(entry.at) > handedIn,
+    )
+    .sort((a, b) => Date.parse(b.at) - Date.parse(a.at))[0];
+  if (!reopen) return null;
+  const reason = typeof reopen.meta.reason === "string" ? reopen.meta.reason.trim() : "";
+  return { at: reopen.at, reason: reason || null };
+}
+
+/** `Earlier hand-in · reopened 16 Oct: "simple"`, the collapsed hand-in's one line. */
+export function earlierHandInLabel(reopen: HandInReopen): string {
+  const when = `Earlier hand-in · reopened ${formatIST(reopen.at, "d MMM")}`;
+  return reopen.reason ? `${when}: "${reopen.reason}"` : when;
 }
 
 // Chat (28) ---------------------------------------------------------------------------------------

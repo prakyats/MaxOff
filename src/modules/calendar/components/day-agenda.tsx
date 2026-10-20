@@ -4,7 +4,7 @@ import { ClockIcon } from "lucide-react";
 
 import { cn } from "@/core/lib/utils";
 import { OverlayLink } from "@/core/ui/composites/overlay-link";
-import { formatIST, type ISODate } from "@/core/time";
+import { formatTime, type ISODate } from "@/core/time";
 
 import { type CalendarDay, type CalendarScope, EMPTY_DAY, isEmptyDay } from "../domain/calendar";
 import { agendaEvents, agendaTime } from "../domain/laptop";
@@ -115,7 +115,7 @@ export function DayAgenda({
                         day.date < today ? "text-danger" : "text-muted-foreground",
                       )}
                     >
-                      {formatIST(item.dueAt, "h:mm aaa")}
+                      {formatTime(item.dueAt)}
                     </span>
                     {" · "}
                     <span className="font-medium">{item.title}</span>

@@ -1,4 +1,4 @@
-import { formatIST, istDayStart, type ISODate } from "@/core/time";
+import { formatIST, formatTime, type ISODate, istDayStart } from "@/core/time";
 
 import { dueCount, type CalendarDay, type EventItem } from "./calendar";
 
@@ -31,7 +31,7 @@ export type Strip =
       key: string;
       /** The title, on a phone. */
       label: string;
-      /** "10:00 Brand reel · Client" on a laptop (decision 25 C 2). */
+      /** "10:00 am Brand reel · Client" on a laptop (decision 25 C 2). */
       long: string;
       color: string;
       completed: boolean;
@@ -70,9 +70,9 @@ function eventOrder(a: EventItem, b: EventItem): number {
   return a.title.localeCompare(b.title);
 }
 
-/** "10:00 Brand reel · Client", or "Brand reel" for an all-day event with no client. */
+/** "10:00 am Brand reel · Client", or "Brand reel" for an all-day event with no client. */
 export function eventStripText(event: EventItem): string {
-  const time = event.startAt ? `${formatIST(event.startAt, "HH:mm")} ` : "";
+  const time = event.startAt ? `${formatTime(event.startAt)} ` : "";
   const client = event.clientName ? ` · ${event.clientName}` : "";
   return `${time}${event.title}${client}`;
 }

@@ -328,6 +328,7 @@ export default async function ProjectPage({
               cycleId={chosen.id}
               label={chosen.label}
               meter={cycleMeter(views, today)}
+              cancelledAt={project.state === "cancelled" ? project.cancelledAt : null}
             />
           ) : null}
           {toDecide > 0 && can(viewer.role, "cycles.carry_decide") ? (

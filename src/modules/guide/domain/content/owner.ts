@@ -175,7 +175,7 @@ export const OWNER_GUIDE: Guide = {
                 text: "Tap Approve (highlighted) on a day, or Review to see it first.",
                 shot: "owner/approvals",
               },
-              'In the review, tap "Correct…" if the recorded times are wrong.',
+              'The review shows the person\'s week (this day marked), their comp leave and any note. Tap Approve there, or "Correct…" if the day was something else.',
             ),
             next(
               "Original records are never overwritten: a correction is kept beside the original.",
@@ -459,10 +459,10 @@ export const OWNER_GUIDE: Guide = {
               shot: "owner/remind",
             }),
             next(
-              'Each of them gets a push and a note in the app, and the toast says "Reminder sent to ‹names›".',
+              'Each of them gets a push and a note in the app, and the toast says "Reminder sent to ‹names›". The reminder is a notification, not a chat message: the task\'s Activity reads "sent ‹names› a reminder", and Chat stays as it was.',
             ),
             note(
-              'You can send one once an hour per task. While you wait, the button reads like "Reminded · again at 4:05 PM"; it is ready again when that time passes.',
+              'You can send one once an hour per task. While you wait, the button reads like "Reminded · again at 4:05 pm"; it is ready again when that time passes.',
             ),
           ],
           keywords: ["remind", "nudge", "chase"],
@@ -487,6 +487,9 @@ export const OWNER_GUIDE: Guide = {
             next('"Decide it yourself" removes the Admin and brings the task to you.'),
             note(
               '"Reopen task" is for finished tasks only. "Change approver" is for unfinished tasks.',
+            ),
+            note(
+              'A reopened task goes back to its people. Its old hand-in folds away under "Earlier hand-in · reopened ‹date›: ‹reason›" in Work.',
             ),
           ],
           keywords: ["edit", "cancel", "reopen", "change approver", "menu"],
@@ -560,7 +563,7 @@ export const OWNER_GUIDE: Guide = {
             ),
             next("A toast appears with Undo. You have 6 seconds to take it back."),
             note(
-              'Review offers "Correct…" for attendance, "Reject…" for leave and expenses, and "Open the task" and "Request changes…" for tasks.',
+              'Review offers Approve and "Correct…" for attendance (with the person\'s week and comp leave), "Reject…" for leave and expenses, and "Open the task" and "Request changes…" for tasks.',
             ),
           ],
           keywords: ["approve", "undo", "review", "reject"],
@@ -1041,7 +1044,7 @@ export const OWNER_GUIDE: Guide = {
               'Read the toast, such as "Added Revision 3".',
             ),
             next(
-              'The new stage follows the deliverable\'s own revision stages ("Revision 2" is followed by "Revision 3") in their group; one with none gets "Revision round 1". Ticks already made stay.',
+              'The new stage follows the deliverable\'s own revision stages ("Revision 2" is followed by "Revision 3") in their group; one with none gets "Revision round 1". It goes right after the last revision stage, or right after "Edit" when there is none, so it comes before "Posted". Ticks already made stay.',
             ),
             note(
               "It works on open deliverables only. To add it to a done one, send it back first.",
@@ -1449,7 +1452,7 @@ export const OWNER_GUIDE: Guide = {
               "A monthly project gets a new cycle on the 1st, and a weekly one on Mondays, at 00:00 IST. Each new cycle is filled from the deliverables list, with each line's stages. It runs only for Active clients and projects that are open. A Paused client gets no new cycles.",
             ),
             text(
-              'You get a "cycle ready" notice at 8:00 AM. A repeating project also gets its current period\'s cycle as soon as you create it.',
+              'You get a "cycle ready" notice at 8:00 am. A repeating project also gets its current period\'s cycle as soon as you create it.',
             ),
           ],
           keywords: ["new cycle", "automatic", "paused", "00:00", "1st"],

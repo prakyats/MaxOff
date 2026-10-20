@@ -1,4 +1,4 @@
-import { CircleAlertIcon, FlagIcon } from "lucide-react";
+import { ChevronRightIcon, CircleAlertIcon, FlagIcon } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { type ReactNode, Suspense } from "react";
@@ -10,7 +10,7 @@ import { startEarly } from "@/core/lib/start-early";
 import { cn } from "@/core/lib/utils";
 import { can } from "@/core/permissions";
 import { requirePermission } from "@/core/permissions/server";
-import { formatIST, systemClock } from "@/core/time";
+import { formatDateTime, systemClock } from "@/core/time";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { StatusDot } from "@/core/ui/composites/status-badge";
 import {
@@ -19,7 +19,9 @@ import {
   collapseTicks,
   describeTaskActivity,
   eventLabel,
+  earlierHandInLabel,
   handInFirst,
+  reopenAfterHandIn,
   isFinal,
   isLocked,
   latestChangeRequest,
@@ -55,8 +57,6 @@ import { loadTaskFormSetup } from "../task-form-setup";
 import { loadNames, loadTask, TASK_BACK, UUID } from "./task";
 
 export const metadata: Metadata = { title: "Task" };
-
-const WHEN = "d MMM, h:mm a";
 
 /**
  * A task's page (4.4, reworked to the owner's review, Kickoff 4 decisions 26–32; PRODUCT §4.6,
@@ -378,7 +378,7 @@ function workPanel({
           name: stage.name,
           done: stage.doneAt !== null,
           doneLine: stage.doneAt
-            ? `Ticked by ${pair(stage.doneBy, stage.onBehalfOf)}, ${formatIST(stage.doneAt, WHEN)}`
+            ? `Ticked by ${pair(stage.doneBy, stage.onBehalfOf)}, ${formatDateTime(stage.doneAt)}`
             : null,
         }))}
         tick={actions.tick}
@@ -387,12 +387,14 @@ function workPanel({
       />
     ) : null;
 
-  const handIn = latest ? (
-    <Section key="hand-in" title="Hand-in" slot="task-hand-in">
+  // B5: reopened after its hand-in, the old hand-in is earlier work, collapsed, never the state.
+  const reopened = reopenAfterHandIn(latest, data.activity);
+  const handInBody = latest ? (
+    <>
       <div className="border-border bg-card flex min-w-0 flex-col gap-2 rounded-lg border p-3">
         <p className="text-muted-foreground text-xs">
           {latest.version > 1 ? `Version ${latest.version} · ` : ""}
-          Marked done by {pair(latest.submittedBy, latest.onBehalfOf)}, {formatIST(latest.at, WHEN)}
+          Marked done by {pair(latest.submittedBy, latest.onBehalfOf)}, {formatDateTime(latest.at)}
         </p>
         {latest.note ? (
           <LinkedText text={latest.note} className="text-sm" slot="task-hand-in-note" />
@@ -412,13 +414,31 @@ function workPanel({
             <li key={submission.id} className="text-sm">
               <p className="text-muted-foreground text-xs">
                 Version {submission.version} · {pair(submission.submittedBy, submission.onBehalfOf)}
-                , {formatIST(submission.at, WHEN)}
+                , {formatDateTime(submission.at)}
               </p>
               {submission.note ? <LinkedText text={submission.note} /> : null}
             </li>
           ))}
         </ol>
       ) : null}
+    </>
+  ) : null;
+  const handIn = latest ? (
+    <Section key="hand-in" title="Hand-in" slot="task-hand-in">
+      {reopened ? (
+        <details data-slot="task-hand-in-earlier" className="group min-w-0">
+          <summary className="text-muted-foreground focus-visible:ring-ring flex min-h-11 cursor-pointer items-center gap-2 rounded-md text-sm break-words outline-none focus-visible:ring-2">
+            <ChevronRightIcon
+              aria-hidden
+              className="size-4 shrink-0 transition-transform group-open:rotate-90 motion-reduce:transition-none"
+            />
+            <span className="min-w-0">{earlierHandInLabel(reopened)}</span>
+          </summary>
+          <div className="mt-2 flex min-w-0 flex-col gap-2">{handInBody}</div>
+        </details>
+      ) : (
+        handInBody
+      )}
     </Section>
   ) : null;
 
@@ -475,7 +495,7 @@ function chatThread({
                 {own ? actorPair("You", forName) : pair(comment.authorId, comment.onBehalfOf)}
               </span>{" "}
               <time dateTime={comment.createdAt} className="text-muted-foreground">
-                {formatIST(comment.createdAt, WHEN)}
+                {formatDateTime(comment.createdAt)}
               </time>
             </p>
             <LinkedText text={comment.body} className="text-sm" />
@@ -514,7 +534,7 @@ function activityPanel({
     text: line.text,
     ...(line.note ? { note: line.note } : {}),
     at: line.at,
-    atLabel: formatIST(line.at, "d MMM yyyy, h:mm a"),
+    atLabel: formatDateTime(line.at, "d MMM yyyy"),
   }));
   if (lines.length === 0) {
     return (
@@ -604,7 +624,7 @@ function detailsPanel({
                         : "Freelancer"
                       : null,
                     noted && assignee.acknowledgedAt
-                      ? `${notedBy ? `Noted by ${notedBy}` : "Noted"} ${formatIST(assignee.acknowledgedAt, WHEN)}`
+                      ? `${notedBy ? `Noted by ${notedBy}` : "Noted"} ${formatDateTime(assignee.acknowledgedAt)}`
                       : null,
                   ]
                     .filter(Boolean)
@@ -631,7 +651,7 @@ function detailsPanel({
             <span data-slot="task-route">{routeLine(task, data.assignees, name, ownerId)}</span>
           </Fact>
           <Fact label="Created by" stacked>
-            {name(task.createdBy)}, {formatIST(task.createdAt, WHEN)}
+            {name(task.createdBy)}, {formatDateTime(task.createdAt)}
           </Fact>
         </dl>
         <CustomFieldsView definitions={definitions} values={task.customFields} />

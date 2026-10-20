@@ -1,4 +1,11 @@
-import { addISTDays, formatIST, istDayStart, toISTDate, type ISODate } from "@/core/time";
+import {
+  addISTDays,
+  formatIST,
+  formatTime,
+  type ISODate,
+  istDayStart,
+  toISTDate,
+} from "@/core/time";
 
 /**
  * Day words the dashboards share (6A): "Today", "Tomorrow", else "Thu 8 Oct", always the IST day
@@ -20,7 +27,7 @@ export function inlineDay(date: ISODate, today: ISODate): string {
 
 /** An instant's IST time of day: "10:00 am". */
 export function clockWord(instant: string): string {
-  return formatIST(instant, "h:mm aaa");
+  return formatTime(instant);
 }
 
 /** The IST days from `today` through `days - 1` days later. */

@@ -23,6 +23,7 @@ import {
   MY_LIST_GROUPS,
   myTaskGroups,
   needsYou,
+  needsYouSummary,
   type NeedsYouItem,
   openByDeadline,
   PRIORITY_LABELS,
@@ -111,7 +112,9 @@ export default async function TasksPage() {
   const needs = needsYou(rows, listViewer, now, settings);
   const shown = new Set(needs.map((item) => item.row.id));
   const open = openByDeadline(rows, shown);
-  const nothingNeeded = needs.length === 0 && counts.toDecide === 0 && requests === 0;
+  // B2: the heading counts the rows shown; the approvals link only for tasks not already rows (B3).
+  const summary = needsYouSummary({ needs, toDecide: counts.toDecide, links: [requests] });
+  const nothingNeeded = summary.count === 0;
 
   return (
     <>
@@ -122,24 +125,24 @@ export default async function TasksPage() {
         actions={<NewTaskButton setup={loadTaskFormSetup(viewer).catch(() => null)} />}
       />
       <div className="flex max-w-3xl min-w-0 flex-col gap-6" data-slot="tasks-team">
-        <Section title="Needs you" slot="tasks-needs-you" count={needs.length}>
+        <Section title="Needs you" slot="tasks-needs-you" count={summary.count}>
           {nothingNeeded ? (
             <p className="text-muted-foreground text-sm" data-slot="tasks-needs-nothing">
               Nothing needs you right now.
             </p>
           ) : (
             <div className="flex flex-col gap-2">
-              {counts.toDecide > 0 || requests > 0 ? (
+              {summary.approvalsLink > 0 || requests > 0 ? (
                 <ul className="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border">
-                  {counts.toDecide > 0 ? (
+                  {summary.approvalsLink > 0 ? (
                     <CountRow
                       href="/approvals"
                       slot="tasks-to-approve"
                       icon={<ClipboardCheckIcon aria-hidden className="size-4" />}
                       label={
-                        counts.toDecide === 1
+                        summary.approvalsLink === 1
                           ? "1 task waiting for your approval"
-                          : `${counts.toDecide} tasks waiting for your approval`
+                          : `${summary.approvalsLink} tasks waiting for your approval`
                       }
                       tab
                     />
@@ -354,6 +357,8 @@ function reasonFlag(item: NeedsYouItem): { label: string; tone: "danger" | "atte
       return { label: "Overdue", tone: "danger" };
     case "changes_requested":
       return { label: "Changes requested", tone: "attention" };
+    case "to_approve":
+      return { label: "To approve", tone: "attention" };
     case "your_note":
     case "not_noted":
       return { label: "Not noted", tone: "attention" };
@@ -370,6 +375,8 @@ function needsNote(
       return forNote(item.part.notNoted, viewerId, nameOf) ?? "Yours to note";
     case "changes_requested":
       return "Back with you to fix";
+    case "to_approve":
+      return "Waiting for your approval";
     case "overdue":
       return "Past its deadline";
     case "not_noted": {

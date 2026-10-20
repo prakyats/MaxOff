@@ -28,7 +28,7 @@ export function TaskRemind({
   taskId: string;
   /** When it can be used again (ISO), or null when it can be used now. */
   againAt: string | null;
-  /** "Reminded · again at 4:05 PM", the server's words for `againAt`. */
+  /** "Reminded · again at 4:05 pm", the server's words for `againAt`. */
   againLabel: string | null;
   /** Whom it reaches, from `remindWho`: "Sam", "Sam and Ria", "Sam and 2 others". */
   who: string;

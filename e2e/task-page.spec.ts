@@ -292,6 +292,53 @@ test.describe("the task page, one step at a time (decision 26)", () => {
       "Approve it to complete the task, or ask for changes.",
     );
   });
+
+  test('a reopened task keeps its old hand-in as "Earlier hand-in · reopened …", collapsed (B5)', async ({
+    page,
+  }, info) => {
+    const prefix = `Reopened ${info.project.name} `;
+    await removeTasksTitled(prefix);
+    const staff = person("staff", info);
+    const staffId = await memberIdOf(staff.email);
+    const taskId = await ownerCreates({
+      title: `${prefix}edit`,
+      assignees: [staffId],
+      primary: staffId,
+      day: 33,
+    });
+    await rpcAs(staff.email, PASSWORD, "task_submit_done", { task_id: taskId, note: "First cut" });
+    await rpcAs(USERS.owner.email, USERS.owner.password, "task_review", {
+      task_id: taskId,
+      decision: "approved",
+    });
+    await rpcAs(USERS.owner.email, USERS.owner.password, "task_reopen", {
+      task_id: taskId,
+      reason: "simple",
+    });
+    const day = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Kolkata",
+      day: "numeric",
+      month: "short",
+    }).format(systemClock());
+    // The Owner and the Crew member see the same: the hand-in is earlier work, not the state.
+    for (const who of [
+      { email: USERS.owner.email, password: USERS.owner.password },
+      { email: staff.email, password: PASSWORD },
+    ]) {
+      await page.context().clearCookies();
+      await signIn(page, who.email, who.password);
+      await page.goto(`/tasks/${taskId}?tab=work`);
+      const earlier = panel(page, "work").locator('[data-slot="task-hand-in-earlier"]');
+      await expect(earlier.locator("summary")).toHaveText(
+        `Earlier hand-in · reopened ${day}: "simple"`,
+      );
+      await expect(earlier).not.toHaveAttribute("open", /.*/);
+      await expect(earlier.getByText("First cut")).toBeHidden();
+      await earlier.locator("summary").click();
+      await expect(earlier.getByText("First cut")).toBeVisible();
+      await expect(earlier).toContainText("Marked done by");
+    }
+  });
 });
 
 test.describe("the views are a view control (decisions 27, 32)", () => {

@@ -63,6 +63,7 @@ export {
   MY_LIST_GROUPS,
   myTaskGroups,
   needsYou,
+  needsYouSummary,
   openByDeadline,
   ownPart,
   rowMeta,
@@ -113,7 +114,10 @@ export {
 } from "./domain/activity";
 export {
   chatLabel,
+  earlierHandInLabel,
   handInFirst,
+  reopenAfterHandIn,
+  type HandInReopen,
   moreSteps,
   neededLine,
   newestCommentAt,
