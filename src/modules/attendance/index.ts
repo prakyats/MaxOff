@@ -46,3 +46,6 @@ export { approveDay } from "./actions/review";
 export { getMonthSummary } from "./data/summary";
 export type { MonthSummary } from "./domain/summary";
 export { MonthSummaryCard, MonthSummarySkeleton, TeamMonthList } from "./components/month-summary";
+/** The Review panel's context (B4): the person's week, behind `GET /api/attendance/review-context`. */
+export { readReviewWeek } from "./actions/background";
+export type { ReviewContext, WeekDay } from "./domain/review-context";

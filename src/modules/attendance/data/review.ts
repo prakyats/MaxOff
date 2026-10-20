@@ -7,6 +7,7 @@ import { createServerSupabase } from "@/core/db/server";
 import { displayName } from "@/core/lib/display-name";
 
 import type { DayStatus } from "../domain/choices";
+import { type ContextDay, weekAround } from "../domain/review-context";
 import {
   type PendingDay,
   sortPending,
@@ -127,4 +128,40 @@ export async function rpcCorrectDay(
     });
     if (error) throw error;
   });
+}
+
+/**
+ * The Review panel's context for one waiting day (B4): whose day it is and that person's days in
+ * the IST week around it. Through RLS (`attendance.view_all`, the Owner); NOT_FOUND for a day the
+ * caller cannot read.
+ */
+export async function readDayContext(
+  dayId: string,
+): Promise<{ memberId: string; workDate: string; days: ContextDay[] } | null> {
+  const supabase = await createServerSupabase();
+  const { data: day, error } = await supabase
+    .from("attendance_days")
+    .select("member_id, work_date")
+    .eq("id", dayId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!day) return null;
+  const { from, to } = weekAround(day.work_date);
+  const { data: rows, error: weekError } = await supabase
+    .from("attendance_days")
+    .select("work_date, state, submitted_choice, final_status")
+    .eq("member_id", day.member_id)
+    .gte("work_date", from)
+    .lte("work_date", to);
+  if (weekError) throw weekError;
+  return {
+    memberId: day.member_id,
+    workDate: day.work_date,
+    days: rows.map((row) => ({
+      workDate: row.work_date,
+      state: row.state,
+      submittedChoice: row.submitted_choice,
+      finalStatus: row.final_status,
+    })),
+  };
 }

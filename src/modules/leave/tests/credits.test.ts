@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  compBalanceWords,
   balanceLine,
   compLeaveLine,
   type CompCredit,
@@ -149,5 +150,17 @@ describe("compLeaveLine (5B decision 2)", () => {
     );
     expect(compLeaveLine({ availableDays: 0, useBy: null })).toBeNull();
     expect(compLeaveLine({ availableDays: 1, useBy: null })).toBeNull();
+  });
+});
+
+describe("compBalanceWords (B4: the attendance Review panel)", () => {
+  it("says the free days and the use-by date, or None", () => {
+    expect(compBalanceWords({ availableDays: 1, useBy: "2026-10-30" })).toBe(
+      "1 day · use by 30 Oct",
+    );
+    expect(compBalanceWords({ availableDays: 1.5, useBy: "2026-11-02" })).toBe(
+      "1½ days · use by 2 Nov",
+    );
+    expect(compBalanceWords({ availableDays: 0, useBy: null })).toBe("None");
   });
 });

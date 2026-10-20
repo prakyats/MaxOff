@@ -83,6 +83,7 @@ export function ApprovalGroup<T>({
   onReview,
   layout = "group",
   kind,
+  approveHandle,
 }: {
   /** Stable id for tests and the heading's `aria-labelledby`. */
   id: string;
@@ -105,6 +106,11 @@ export function ApprovalGroup<T>({
   layout?: "group" | "rows";
   /** The rows' kind label in `layout="rows"`: "Leave", "Task", "Expense". */
   kind?: string;
+  /**
+   * Filled with "approve this row" while the group is on screen, so a Review sheet's Approve
+   * (B4) takes the row's own path: the same send, delayed with its 6-second Undo.
+   */
+  approveHandle?: { current: ((id: string) => void) | null };
 }) {
   // Faded rows: waiting to be sent, or sent and waiting for the refreshed list.
   const [held, setHeld] = useState<ReadonlySet<string>>(() => new Set());
@@ -160,6 +166,17 @@ export function ApprovalGroup<T>({
   }, []);
 
   const waiting = rows.filter((row) => !held.has(row.id));
+
+  useEffect(() => {
+    if (!approveHandle) return;
+    approveHandle.current = (rowId) => {
+      const row = rows.find((candidate) => candidate.id === rowId);
+      if (row && approve && !held.has(rowId)) approveOne(row);
+    };
+    return () => {
+      approveHandle.current = null;
+    };
+  });
 
   function approveOne(row: ApprovalRow) {
     setErrors((current) => omit(current, row.id));

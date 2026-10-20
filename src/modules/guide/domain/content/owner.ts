@@ -175,7 +175,7 @@ export const OWNER_GUIDE: Guide = {
                 text: "Tap Approve (highlighted) on a day, or Review to see it first.",
                 shot: "owner/approvals",
               },
-              'In the review, tap "Correct…" if the recorded times are wrong.',
+              'The review shows the person\'s week (this day marked), their comp leave and any note. Tap Approve there, or "Correct…" if the day was something else.',
             ),
             next(
               "Original records are never overwritten: a correction is kept beside the original.",
@@ -563,7 +563,7 @@ export const OWNER_GUIDE: Guide = {
             ),
             next("A toast appears with Undo. You have 6 seconds to take it back."),
             note(
-              'Review offers "Correct…" for attendance, "Reject…" for leave and expenses, and "Open the task" and "Request changes…" for tasks.',
+              'Review offers Approve and "Correct…" for attendance (with the person\'s week and comp leave), "Reject…" for leave and expenses, and "Open the task" and "Request changes…" for tasks.',
             ),
           ],
           keywords: ["approve", "undo", "review", "reject"],
