@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getCurrentMember, readReviewWeek, getCompBalance } = vi.hoisted(() => ({
+const { getCurrentMember, readReviewWeek, getCompBalance, compBalanceWords } = vi.hoisted(() => ({
   getCurrentMember: vi.fn(),
   readReviewWeek: vi.fn(),
   getCompBalance: vi.fn(),
+  compBalanceWords: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -11,10 +12,8 @@ vi.mock("@/core/auth/server", () => ({ getCurrentMember }));
 vi.mock("@/core/observability/capture", () => ({ captureException: () => "event-1" }));
 // The module's own checks (zod, attendance.decide) are readReviewWeek's.
 vi.mock("@/modules/attendance", () => ({ readReviewWeek }));
-vi.mock("@/modules/leave", async () => {
-  const words = await import("@/modules/leave/domain/credits");
-  return { getCompBalance, compBalanceWords: words.compBalanceWords };
-});
+// The words are `modules/leave/tests/credits.test.ts`'s.
+vi.mock("@/modules/leave", () => ({ getCompBalance, compBalanceWords }));
 
 import { AppError } from "@/core/errors";
 
@@ -30,6 +29,7 @@ describe("GET /api/attendance/review-context", () => {
     getCurrentMember.mockResolvedValue({ id: "owner" });
     readReviewWeek.mockResolvedValue({ memberId: "m1", week: [] });
     getCompBalance.mockResolvedValue({ availableDays: 1, useBy: "2026-10-30" });
+    compBalanceWords.mockReturnValue("1 day · use by 30 Oct");
     vi.spyOn(console, "error").mockImplementation(() => undefined);
   });
 
@@ -42,6 +42,7 @@ describe("GET /api/attendance/review-context", () => {
     });
     expect(readReviewWeek).toHaveBeenCalledWith({ dayId: DAY });
     expect(getCompBalance).toHaveBeenCalledWith("m1");
+    expect(compBalanceWords).toHaveBeenCalledWith({ availableDays: 1, useBy: "2026-10-30" });
   });
 
   it("refuses a signed-out caller, and keeps the read's refusal (no balance read)", async () => {
