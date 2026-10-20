@@ -77,6 +77,13 @@
 - **Standing rule since 2026-09-24: "First glance, then depth"** (PRODUCT §2 principle 11, CLAUDE.md rule 12, a "First glance" section in every `/start-task` plan that touches UI). First application written into PRODUCT §4.7 and ROADMAP 6.2 (counts → approvals → "Needs you" → the rest; the full board behind "See all N people"). The audit of the built screens is under Ideas / tech debt.
 - **Phase 0 is closed** (owner sign-off, 2026-09-22): every exit criterion met, the owner verified the install, offline page and both themes on a phone, and had no UI feedback. The Sentry pipeline is proven end to end on staging.
 
+## Open owner questions (v1.8)
+<!-- Raised while building v1.8; each keeps the behaviour named here until the owner answers. -->
+1. **B7, a deliverable with neither a revision stage nor an "Edit" stage:** "+ Another revision round" keeps the v1.7.1 behaviour (the round goes after the last stage) until the owner answers. Advisor's suggestion: before a "Posted" stage when there is one, else after the last stage.
+2. **B6, Remind:** kept as built in V0 (a notification plus an Activity line, "As a notification, not a chat message."; no Chat message). The owner may decide later that Remind also writes in Chat.
+3. **B11, the exact version on staging:** `.github/workflows/deploy.yml` is not touched (the production workflow is the owner's alone). Proposal: pass `${{ github.event.workflow_run.head_sha }}` to the build as a new env var, so Me's version on staging shows the exact deployed sha (today `GITHUB_SHA` on a `workflow_run` is the default branch's head at that moment, normally but not always the deployed commit).
+4. **B9, "· Paused" beside a client on the Admin's Today:** a local fixture and a Playwright check were added in V1 (`e2e/dashboards.spec.ts`, desktop, 375 and 430 px). Nothing for the owner to decide; listed so the walk includes it.
+
 ## In-progress handoff
 <!-- Filled by /save-progress when a session ends mid-task. Clear it when the task is finished. -->
 **Part 1 root causes, amendment D4 (wording) and the owner's deferrals (2026-10-09; fixer for the orchestrator, Opus 5.5, cloud session; branch `phase-7` after `63fc8e3`; no merge, no tag: production is live).** **Next: unchanged (PREVIEW READY, then the closing full CI run with both shards, then the Owner's phone walk).**
