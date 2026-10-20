@@ -296,8 +296,8 @@ function MeRow({
 
 /**
  * "Help & troubleshooting" (5B decision 4): quiet, last on Me. The test push and Reload app moved
- * here from the device card, and the app's version (`NEXT_PUBLIC_APP_VERSION`, the release tag or
- * the branch and commit: `core/lib/app-version.ts`) is what to read out when asking for help.
+ * here from the device card, and the app's version (`NEXT_PUBLIC_APP_VERSION`, the release tag in
+ * production, `staging · 36b4b95` on staging: `core/lib/app-version.ts`) is what to read out when asking for help.
  */
 function HelpAndTroubleshooting({ endpoints }: { endpoints: readonly string[] }) {
   return (
