@@ -63,6 +63,7 @@ export {
   MY_LIST_GROUPS,
   myTaskGroups,
   needsYou,
+  needsYouSummary,
   openByDeadline,
   ownPart,
   rowMeta,

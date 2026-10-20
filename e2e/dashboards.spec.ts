@@ -689,6 +689,26 @@ test.describe("the Owner's Today (6.2)", () => {
         .locator('[data-slot="data-card"]:visible, [data-slot="table-row"]:visible')
         .filter({ hasText: `${prefix}checked` });
       await expect(listed).toContainText("Admin approved · needs you");
+      // B3: on Tasks it sits under Needs you, never under Open tasks; B2: the heading counts
+      // exactly the rows the section shows (task rows and link rows).
+      await page.goto("/tasks");
+      const needs = section(page, "tasks-needs-you");
+      await expect(
+        needs.locator('[data-slot="task-row"]').filter({ hasText: `${prefix}checked` }),
+      ).toContainText("Waiting for your approval");
+      await expect(section(page, "tasks-open")).not.toContainText(`${prefix}checked`);
+      await expect
+        .poll(async () => {
+          await page.reload();
+          const heading = (await needs.locator("h2").innerText()).match(/· (\d+)/)?.[1];
+          const rows = await needs
+            .locator(
+              '[data-slot="task-row"], [data-slot="tasks-to-approve"], [data-slot="tasks-requests-waiting"]',
+            )
+            .count();
+          return Number(heading ?? 0) === rows;
+        })
+        .toBe(true);
     } finally {
       await rpcAs(USERS.owner.email, USERS.owner.password, "task_review", {
         task_id: id,

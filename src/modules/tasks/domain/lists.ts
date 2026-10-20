@@ -147,8 +147,12 @@ export function badgeCount(rows: readonly TaskListRow[], viewer: ListViewer): nu
  * request on their own task (an Admin is also an assignee), overdue work on a task they run, or
  * someone who has not noted it past the escalation time (WORKFLOWS §3.2: the approving Admin or
  * creator after `ack_escalate_hours`, the Owner after `ack_escalate_owner_hours`).
+ * B3 (UX review 2026-10-21): a task waiting for the Owner's final approval reads "needs you" on
+ * the Owner's badge (`FINAL_APPROVER_LABELS`), so it sits here too (`to_approve`), never among
+ * the open tasks.
  */
-export type NeedsYouReason = "your_note" | "changes_requested" | "overdue" | "not_noted";
+export type NeedsYouReason =
+  "your_note" | "changes_requested" | "to_approve" | "overdue" | "not_noted";
 
 export type NeedsYouItem = {
   row: TaskListRow;
@@ -194,6 +198,10 @@ export function needsYou(
       items.push({ row, reason: "changes_requested", waitingOn: [], part });
       continue;
     }
+    if (viewer.role === "owner" && row.state === "admin_approved") {
+      items.push({ row, reason: "to_approve", waitingOn: [], part });
+      continue;
+    }
     if (!managesTask(row, viewer)) continue;
     // Late work, still with its people; a task handed in waits in Approvals instead.
     if (!REVIEW_STATES.includes(row.state) && isOverdue(row, now)) {
@@ -211,6 +219,35 @@ export function needsYou(
     if (waitingOn.length > 0) items.push({ row, reason: "not_noted", waitingOn, part });
   }
   return items;
+}
+
+/**
+ * What a "Needs you" section shows and its heading's count (B2, UX review 2026-10-21: the count
+ * equals the rows shown). The task rows, any link rows ("2 tasks waiting for your approval",
+ * suggestions to decide, deliverables to decide) and any other rows (deliverables sent back).
+ * The approvals link counts only the tasks to decide that are not already rows (the Owner's
+ * `to_approve`), and goes when every one of them is a row.
+ */
+export type NeedsYouSummary = {
+  /** Tasks to decide behind the approvals link (0: no link row). */
+  approvalsLink: number;
+  /** The rows the section shows, the heading's count. */
+  count: number;
+};
+
+export function needsYouSummary(input: {
+  needs: readonly Pick<NeedsYouItem, "reason">[];
+  /** Every task the viewer may decide now (`task_counts().to_decide`). */
+  toDecide: number;
+  /** The other link rows' counts (suggestions, deliverables to decide): one row each when > 0. */
+  links?: readonly number[];
+  /** Rows of their own (deliverables sent back), one each. */
+  otherRows?: number;
+}): NeedsYouSummary {
+  const asRows = input.needs.filter((item) => item.reason === "to_approve").length;
+  const approvalsLink = Math.max(0, input.toDecide - asRows);
+  const linkRows = [approvalsLink, ...(input.links ?? [])].filter((n) => n > 0).length;
+  return { approvalsLink, count: input.needs.length + linkRows + (input.otherRows ?? 0) };
 }
 
 /** The open tasks by deadline, without the ones "Needs you" already shows. */
