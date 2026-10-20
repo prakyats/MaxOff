@@ -154,7 +154,7 @@ describe("a task's history (4.4, ADR-0013)", () => {
         },
       })?.text,
     ).toBe(
-      "moved the deadline from 3 Oct, 6:00 PM to 4 Oct, 6:00 PM, changed the priority from Medium to Urgent, labelled it Acme Weddings and changed the type to Meeting",
+      "moved the deadline from 3 Oct, 6:00 pm to 4 Oct, 6:00 pm, changed the priority from Medium to Urgent, labelled it Acme Weddings and changed the type to Meeting",
     );
   });
 

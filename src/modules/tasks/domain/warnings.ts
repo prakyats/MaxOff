@@ -1,4 +1,4 @@
-import { formatIST, type ISODate } from "@/core/time";
+import { formatIST, formatTime, type ISODate } from "@/core/time";
 
 /**
  * Assignment warnings (4.3; WORKFLOWS §3.1 "Assignment warnings", kickoff 4 decisions 11–13).
@@ -84,7 +84,7 @@ function dayLabel(date: ISODate): string {
 }
 
 function timeLabel(instant: string): string {
-  return formatIST(instant, "h:mm a");
+  return formatTime(instant);
 }
 
 const LEAVE_TEXT: Record<LeaveMark, string> = {
@@ -140,7 +140,7 @@ export function assignmentWarnings(input: WarningInput): AssignmentWarning[] {
             kind: "overlap",
             memberId,
             details: { date: input.eventDate, start_at: clash.startAt, end_at: clash.endAt },
-            text: `Busy ${timeLabel(clash.startAt)}–${timeLabel(clash.endAt)} on ${dayLabel(input.eventDate)}`,
+            text: `Busy ${timeLabel(clash.startAt)} – ${timeLabel(clash.endAt)} on ${dayLabel(input.eventDate)}`,
           });
         }
       }

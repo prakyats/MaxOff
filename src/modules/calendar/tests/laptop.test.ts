@@ -40,8 +40,10 @@ function event(id: string, patch: Partial<EventItem> = {}): EventItem {
 
 describe("the day popup's agenda", () => {
   it("says a time as the owner wrote it: 11:49–3:49", () => {
-    expect(agendaTime(istInstant(TODAY, "11:49"), istInstant(TODAY, "15:49"))).toBe("11:49–3:49");
-    expect(agendaTime(istInstant(TODAY, "09:05"), null)).toBe("9:05");
+    expect(agendaTime(istInstant(TODAY, "11:49"), istInstant(TODAY, "15:49"))).toBe(
+      "11:49 am – 3:49 pm",
+    );
+    expect(agendaTime(istInstant(TODAY, "09:05"), null)).toBe("9:05 am");
     expect(agendaTime(null, null)).toBe("All day");
   });
 

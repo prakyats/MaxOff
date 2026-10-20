@@ -1,4 +1,4 @@
-import { formatIST, toISTDate } from "@/core/time";
+import { formatIST, formatTime, toISTDate } from "@/core/time";
 
 import { isFinal, isLocked, statusLine, type ActingFor, type TaskActions } from "./task";
 import type { Task, TaskAssignee, TaskState } from "./types";
@@ -14,7 +14,7 @@ import type { Task, TaskAssignee, TaskState } from "./types";
 
 /** The deadline in words, the viewer's distance to it, and whether it has passed (IST). */
 export type RelativeDeadline = {
-  /** "Due today 6:00 PM", "Due tomorrow 10:00 AM", "Due Thu 6:00 PM", "Due Thu 8 Oct, 6:00 PM". */
+  /** "Due today 6:00 pm", "Due tomorrow 10:00 am", "Due Thu 6:00 pm", "Due Thu 8 Oct, 6:00 pm". */
   label: string;
   /** "in 3 h", "in 25 min", "in 4 days", "overdue by 3 h"; null on a completed or cancelled task. */
   relative: string | null;
@@ -43,7 +43,7 @@ function span(ms: number): string {
 }
 
 /**
- * The deadline as the first glance says it (decision 26: "Due today 6:00 PM · in 3 h", red when
+ * The deadline as the first glance says it (decision 26: "Due today 6:00 pm · in 3 h", red when
  * overdue). The day is named relative to today in IST (today, tomorrow, yesterday, the weekday
  * within the week ahead), else the date, with the year when it is not this one. A completed or
  * cancelled task keeps the date and drops the distance.
@@ -52,7 +52,7 @@ export function relativeDeadline(task: Pick<Task, "dueAt" | "state">, now: Date)
   const today = toISTDate(now);
   const day = toISTDate(task.dueAt);
   const days = dayDistance(today, day);
-  const time = formatIST(task.dueAt, "h:mm a");
+  const time = formatTime(task.dueAt);
   const when =
     days === 0
       ? `today ${time}`

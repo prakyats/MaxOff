@@ -11,7 +11,7 @@ import {
 } from "react";
 
 import { cn } from "@/core/lib/utils";
-import { formatIST, istDayStart, systemClock, type ISODate } from "@/core/time";
+import { formatIST, formatTime, type ISODate, istDayStart, systemClock } from "@/core/time";
 
 import { timeWords, type CalendarDay, type EventItem } from "../domain/calendar";
 import { blockShowsClient } from "../domain/laptop";
@@ -374,7 +374,7 @@ export function Timeline({
                 {day.date === today && now !== null ? (
                   <span
                     data-slot="calendar-now"
-                    aria-label={`Now, ${formatIST(systemClock(), "h:mm aaa")}`}
+                    aria-label={`Now, ${formatTime(systemClock())}`}
                     className="bg-foreground pointer-events-none absolute inset-x-0 z-10 h-0.5"
                     style={{ top: at(now) }}
                   >

@@ -7,7 +7,7 @@ import { toast } from "sonner";
 
 import type { Result } from "@/core/errors/result";
 import { cn } from "@/core/lib/utils";
-import { formatIST } from "@/core/time";
+import { formatDateTime } from "@/core/time";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { FormField } from "@/core/ui/composites/form-field";
@@ -395,7 +395,7 @@ export function ItemSheet({
               >
                 <p className="min-w-0 flex-1 break-words">
                   {current.lastChange
-                    ? `Last change: ${current.lastChange.text} by ${current.lastChange.by}, ${formatIST(current.lastChange.at, "d MMM, h:mm a")}`
+                    ? `Last change: ${current.lastChange.text} by ${current.lastChange.by}, ${formatDateTime(current.lastChange.at)}`
                     : "No changes recorded yet."}
                 </p>
                 <Button

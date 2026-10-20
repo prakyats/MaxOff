@@ -1,4 +1,4 @@
-import { formatIST } from "@/core/time";
+import { formatDateTime, formatIST } from "@/core/time";
 
 import { joinNames, pairName } from "./task";
 import { PRIORITY_LABELS, type Priority } from "./types";
@@ -71,7 +71,7 @@ function quoted(value: unknown): string {
 }
 
 function when(value: unknown): string | null {
-  return typeof value === "string" && value ? formatIST(value, "d MMM, h:mm a") : null;
+  return typeof value === "string" && value ? formatDateTime(value) : null;
 }
 
 function day(value: unknown): string | null {

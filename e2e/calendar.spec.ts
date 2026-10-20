@@ -252,9 +252,9 @@ test.describe("the calendar, as Crew", () => {
       await expect(row).toContainText("10:00 am – 11:00 am");
       await expect(row).toContainText("Studio B");
     } else {
-      // The laptop's popup is a compact agenda (the owner, 2026-10-08): "10:00–11:00 · title ·
+      // The laptop's popup is a compact agenda (the owner, 2026-10-08): "10:00 am – 11:00 am · title ·
       // people".
-      await expect(row).toContainText(`10:00–11:00 · ${shoot.title} · Local Staff`);
+      await expect(row).toContainText(`10:00 am – 11:00 am · ${shoot.title} · Local Staff`);
     }
     await expect(page.locator('[data-slot="calendar-busy"]')).toHaveCount(0);
     // Crew: no "Who's free"; "Suggest a task" with the day in its details (decision 25 D, G).
@@ -666,9 +666,11 @@ test.describe("the calendar, as the Owner", () => {
     await expect(popup).toHaveAttribute("data-layout", "laptop");
     await expect(popup.locator('[data-slot="calendar-timeline"]')).toHaveCount(0);
     const agenda = popup.locator('[data-slot="calendar-agenda-events"]');
-    await expect(eventOf(agenda, shoot)).toContainText(`10:00–11:00 · ${shootTitle} · Local Staff`);
+    await expect(eventOf(agenda, shoot)).toContainText(
+      `10:00 am – 11:00 am · ${shootTitle} · Local Staff`,
+    );
     await expect(eventOf(agenda, { id: longShoot })).toContainText(
-      `1:00–3:30 · ${prefix}long shoot · Local Staff · ${clientName}`,
+      `1:00 pm – 3:30 pm · ${prefix}long shoot · Local Staff · ${clientName}`,
     );
     const order = await agenda
       .locator('[data-slot="calendar-event"]')

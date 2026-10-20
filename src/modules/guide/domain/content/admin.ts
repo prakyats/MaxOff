@@ -501,7 +501,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "example",
-              text: "After you send a reminder the toast says “Reminder sent to Sam and Ria” and the button reads “Reminded · again at 4:05 PM”. You can send the next one then.",
+              text: "After you send a reminder the toast says “Reminder sent to Sam and Ria” and the button reads “Reminded · again at 4:05 pm”. You can send the next one then.",
             },
             {
               kind: "next",

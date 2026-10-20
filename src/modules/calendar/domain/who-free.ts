@@ -1,4 +1,4 @@
-import { formatIST, toISTDate, type ISODate } from "@/core/time";
+import { formatTime, toISTDate, type ISODate } from "@/core/time";
 
 import type { AvailabilitySource, CalendarScope, EventSource, LeaveSource } from "./calendar";
 
@@ -28,16 +28,11 @@ export type WhoFree = {
 
 type Block = { startAt: string | null; endAt: string | null };
 
-/** "10", "10:30": an hour, its minutes only when they are not on the hour (12-hour clock). */
-function clock(instant: string): string {
-  return formatIST(instant, "mm") === "00" ? formatIST(instant, "h") : formatIST(instant, "h:mm");
-}
-
-/** "10–1" for a block, "all day" with no start; an end defaults to an hour after the start. */
+/** "10:00 am – 1:00 pm" for a block (the one time format, B1), "all day" with no start; an end defaults to an hour after the start. */
 export function busyWindow(block: Block): string {
   if (!block.startAt) return "all day";
   const end = block.endAt ?? new Date(new Date(block.startAt).getTime() + 3_600_000).toISOString();
-  return `${clock(block.startAt)}–${clock(end)}`;
+  return `${formatTime(block.startAt)} – ${formatTime(end)}`;
 }
 
 function windows(blocks: readonly Block[]): string {

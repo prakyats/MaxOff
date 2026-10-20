@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { formatIST, istDayStart } from "@/core/time";
+import { formatIST, formatTime, istDayStart } from "@/core/time";
 
 import {
   BRAND_RED,
@@ -243,7 +243,7 @@ export function weeklyDigestSections(payload: WeeklyDigestPayload): DigestSectio
           link: `/calendar?view=day&date=${leave.from}`,
         })),
         ...payload.ahead.events.map((event) => ({
-          text: `${day(event.date)}${event.start_at ? `, ${formatIST(event.start_at, "h:mm aaa")}` : ""}: ${event.title}${event.location ? ` · ${event.location}` : ""}`,
+          text: `${day(event.date)}${event.start_at ? `, ${formatTime(event.start_at)}` : ""}: ${event.title}${event.location ? ` · ${event.location}` : ""}`,
           link: `/tasks/${event.id}`,
         })),
       ],

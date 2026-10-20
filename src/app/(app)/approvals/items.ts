@@ -1,8 +1,6 @@
-import { formatIST } from "@/core/time";
+import { formatDateTime } from "@/core/time";
 import { deadlineLabel, pairName, stateLabel, type TaskToDecide } from "@/modules/tasks";
 import type { TaskApprovalItem } from "@/modules/tasks/components/task-approval-group";
-
-const WHEN = "d MMM, h:mm a";
 
 /**
  * A task as the Approvals group shows it (4.5): who handed it in and when, and the words for its
@@ -18,7 +16,7 @@ export function taskItem(
   const at = submission?.at ?? row.submittedAt;
   const handedIn = [
     by ? `Done by ${by}` : "Done",
-    at ? formatIST(at, WHEN) : null,
+    at ? formatDateTime(at) : null,
     submission && submission.version > 1 ? `version ${submission.version}` : null,
   ]
     .filter(Boolean)

@@ -261,7 +261,7 @@ test.describe("staff tasks, the flows", () => {
           `[data-slot="task-assignee"][data-member="${id}"] [data-slot="task-warning"][data-kind="${kind}"]`,
         );
       await expect(warning(helperId, "workload")).toContainText("4 tasks already due");
-      await expect(warning(staffId, "overlap")).toContainText("Busy 10:00 AM–12:00 PM");
+      await expect(warning(staffId, "overlap")).toContainText("Busy 10:00 am – 12:00 pm");
       await expect(warning(awayId, "on_leave")).toContainText("Leave requested");
       await expect(dialog.locator('[data-slot="task-warning-summary"]')).toContainText(
         "3 warnings",
@@ -405,7 +405,7 @@ test.describe("staff tasks, the flows", () => {
       await dialog.getByRole("button", { name: "Save changes" }).click();
       await expect(dialog).toBeHidden();
       await expect(summary(page)).toContainText("High");
-      await expect(summary(page)).toContainText("7:00 PM");
+      await expect(summary(page)).toContainText("7:00 pm");
       await expect(
         (await historyRows(page)).filter({ hasText: "changed the priority from Medium to High" }),
       ).toHaveCount(1);

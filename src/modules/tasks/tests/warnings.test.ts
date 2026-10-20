@@ -58,7 +58,7 @@ describe("assignment warnings (WORKFLOWS §3.1, kickoff 4 decisions 11–13)", (
       threshold: 4,
       availability: [row({ eventBlocks: [SHOOT] })],
     });
-    expect(warning).toMatchObject({ kind: "overlap", text: "Busy 10:00 AM–12:00 PM on 3 Oct" });
+    expect(warning).toMatchObject({ kind: "overlap", text: "Busy 10:00 am – 12:00 pm on 3 Oct" });
   });
 
   it("never warns about an overlap for a date-only event or a window that only touches", () => {

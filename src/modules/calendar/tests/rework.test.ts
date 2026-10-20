@@ -155,7 +155,7 @@ describe("the month's strips (decision 25 C, amended by the owner 2026-10-08)", 
 
   it("puts the time and the client on a laptop's strip; never a red colour of its own", () => {
     expect(eventStripText(event("e", { title: "Brand reel", clientName: "Acme" }))).toBe(
-      "10:00 Brand reel · Acme",
+      "10:00 am Brand reel · Acme",
     );
     expect(eventStripText(event("e", { title: "Posting", startAt: null }))).toBe("Posting");
     for (const strip of allStrips(day({ holiday: "Diwali", events: [event("e")] }), TODAY)) {
@@ -240,13 +240,13 @@ describe("who's free (decision 25 D)", () => {
     expect(who).toEqual({
       free: ["Asha"],
       busy: [
-        { when: "10–1", names: ["Kiran", "Zoya (freelancer)"] },
-        { when: "2:30–3:30", names: ["Ravi"] },
+        { when: "10:00 am – 1:00 pm", names: ["Kiran", "Zoya (freelancer)"] },
+        { when: "2:30 pm – 3:30 pm", names: ["Ravi"] },
       ],
       onLeave: ["Meera (½)"],
     });
     expect(whoFreeLine(who!)).toBe(
-      "Who's free: Asha · Busy 10–1: Kiran, Zoya (freelancer) · Busy 2:30–3:30: Ravi · On leave: Meera (½)",
+      "Who's free: Asha · Busy 10:00 am – 1:00 pm: Kiran, Zoya (freelancer) · Busy 2:30 pm – 3:30 pm: Ravi · On leave: Meera (½)",
     );
   });
 
@@ -275,7 +275,7 @@ describe("who's free (decision 25 D)", () => {
       free: ["Meera", "Zoya (freelancer)"],
       busy: [
         { when: "all day", names: ["Asha"] },
-        { when: "10–11", names: ["Kiran"] },
+        { when: "10:00 am – 11:00 am", names: ["Kiran"] },
       ],
       onLeave: ["Ravi"],
     });
@@ -299,7 +299,9 @@ describe("who's free (decision 25 D)", () => {
     expect(
       whoFreeLine({ free: [], busy: [{ when: "all day", names: ["Kiran"] }], onLeave: [] }),
     ).toBe("Who's free: nobody · Busy all day: Kiran");
-    expect(busyWindow({ startAt: istInstant(TODAY, "09:15"), endAt: null })).toBe("9:15–10:15");
+    expect(busyWindow({ startAt: istInstant(TODAY, "09:15"), endAt: null })).toBe(
+      "9:15 am – 10:15 am",
+    );
   });
 });
 

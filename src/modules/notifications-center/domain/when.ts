@@ -1,4 +1,4 @@
-import { addISTDays, formatIST, type ISODate, toISTDate } from "@/core/time";
+import { addISTDays, formatIST, formatTime, type ISODate, toISTDate } from "@/core/time";
 
 /**
  * When a notification came, as a history row says it (IST, kickoff 5 decision 4): the time for
@@ -7,7 +7,7 @@ import { addISTDays, formatIST, type ISODate, toISTDate } from "@/core/time";
  */
 export function notificationWhen(createdAt: string, today: ISODate): string {
   const day = toISTDate(createdAt);
-  const time = formatIST(createdAt, "h:mm aaa");
+  const time = formatTime(createdAt);
   if (day === today) return time;
   if (day === addISTDays(today, -1)) return `Yesterday, ${time}`;
   if (day.slice(0, 4) === today.slice(0, 4)) return `${formatIST(createdAt, "d MMM")}, ${time}`;

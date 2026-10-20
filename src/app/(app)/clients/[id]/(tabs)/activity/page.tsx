@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { ACTIVITY_LIMIT } from "@/core/activity";
 import { checkThenRead } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
-import { formatIST } from "@/core/time";
+import { formatDateTime } from "@/core/time";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import {
   describeProjectActivity,
@@ -89,7 +89,7 @@ export default async function ClientActivityPage({ params }: { params: Promise<{
               <p className="text-muted-foreground text-sm break-words">&ldquo;{line.note}&rdquo;</p>
             ) : null}
             <p className="text-muted-foreground text-xs">
-              <time dateTime={line.at}>{formatIST(line.at, "d MMM yyyy, h:mm a")}</time>
+              <time dateTime={line.at}>{formatDateTime(line.at, "d MMM yyyy")}</time>
             </p>
           </li>
         ))}

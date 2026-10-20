@@ -1,11 +1,12 @@
 import {
   addISTDays,
   formatIST,
+  formatTime,
   isISODate,
+  type ISODate,
   istDayStart,
   istWeekday,
   toISTDate,
-  type ISODate,
 } from "@/core/time";
 
 /**
@@ -567,9 +568,9 @@ export function dayHeading(date: ISODate, today: ISODate): string {
 /** "10:00 am – 11:30 am", "10:00 am" for an hour, or "All day". */
 export function timeWords(startAt: string | null, endAt: string | null): string {
   if (!startAt) return "All day";
-  const start = formatIST(startAt, "h:mm aaa");
+  const start = formatTime(startAt);
   if (!endAt) return start;
-  return `${start} – ${formatIST(endAt, "h:mm aaa")}`;
+  return `${start} – ${formatTime(endAt)}`;
 }
 
 /** "6 – 12 Oct 2026", or "28 Sep – 4 Oct 2026" across a month end. */

@@ -32,7 +32,7 @@ export type TaskListItem = FilterableTask & {
   id: string;
   title: string;
   stateLabel: string;
-  /** "Due Thu 1 Oct, 6:00 PM". */
+  /** "Due Thu 1 Oct, 6:00 pm". */
   dueLabel: string;
   dueAt: string;
   /** The primary owner, "Asha (freelancer)" for a freelancer; "You" for the viewer. */

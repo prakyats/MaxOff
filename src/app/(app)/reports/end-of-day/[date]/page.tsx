@@ -28,7 +28,7 @@ export const metadata: Metadata = { title: "End of day" };
  * One day's end-of-day report (6.5; Kickoff 6 decisions 16–17; WORKFLOWS §8a), one tap under
  * Reports → End of day (a drill-down with the §14.2 k back control; the notification's deep link
  * lands here with the list beneath). Today is computed live, so far; yesterday live until the
- * End-day cutoff ("Live until it saves at 5:00 AM"), then its saved row; any earlier day shows
+ * End-day cutoff ("Live until it saves at 5:00 am"), then its saved row; any earlier day shows
  * the saved row only, never recomputed. `reports.all` (the Owner); a date that is not one is 404.
  */
 export default async function EndOfDayReportPage({

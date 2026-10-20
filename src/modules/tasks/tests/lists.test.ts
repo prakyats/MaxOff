@@ -307,12 +307,12 @@ describe("a row's lines", () => {
 
   it("says the deadline, whose it is and the client label", () => {
     expect(rowMeta(row("a", { clientId: "sharma" }), context)).toBe(
-      "Due Fri 2 Oct, 6:00 PM · Meera · Sharma Weddings",
+      "Due Fri 2 Oct, 6:00 pm · Meera · Sharma Weddings",
     );
     expect(rowMeta(row("b", { primaryOwnerId: "asha" }), context)).toBe(
-      "Due Fri 2 Oct, 6:00 PM · Asha (freelancer)",
+      "Due Fri 2 Oct, 6:00 pm · Asha (freelancer)",
     );
-    expect(rowMeta(row("c", { primaryOwnerId: "ravi" }), context)).toBe("Due Fri 2 Oct, 6:00 PM");
+    expect(rowMeta(row("c", { primaryOwnerId: "ravi" }), context)).toBe("Due Fri 2 Oct, 6:00 pm");
   });
 
   it("names the freelancers a coordinator acts for", () => {

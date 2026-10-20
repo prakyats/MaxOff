@@ -323,8 +323,8 @@ describe("tasks for the Owner (6b.2, owner 2026-10-07)", () => {
     expect(
       remindAgainAt([{ entity: "tasks", action: "updated", at: "2026-10-15T09:59:00.000Z" }], now),
     ).toBeNull();
-    // IST on the button: 10:30 UTC is 4:00 PM.
-    expect(remindAgainLabel("2026-10-15T10:30:00.000Z")).toBe("Reminded · again at 4:00 PM");
+    // IST on the button: 10:30 UTC is 4:00 pm.
+    expect(remindAgainLabel("2026-10-15T10:30:00.000Z")).toBe("Reminded · again at 4:00 pm");
   });
 
   it("names whom Remind reaches: one, two, then a count", () => {

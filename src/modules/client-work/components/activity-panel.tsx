@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Result } from "@/core/errors/result";
 import { getInBackground } from "@/core/http/background";
 import { cn } from "@/core/lib/utils";
-import { formatIST } from "@/core/time";
+import { formatDateTime } from "@/core/time";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { ReviewSheet } from "@/core/ui/composites/review-sheet";
 import { Button } from "@/core/ui/primitives/button";
@@ -182,7 +182,7 @@ export function ActivityPanel({
                     <span className="text-muted-foreground break-words">{line.note}</span>
                   ) : null}
                   <span className={cn("text-muted-foreground text-xs")}>
-                    {formatIST(line.at, "d MMM yyyy, h:mm a")}
+                    {formatDateTime(line.at, "d MMM yyyy")}
                   </span>
                 </li>
               ))}

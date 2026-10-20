@@ -1,4 +1,4 @@
-import { formatIST } from "@/core/time";
+import { formatTime } from "@/core/time";
 
 import type { CalendarDay, CalendarView, EventItem } from "./calendar";
 
@@ -8,11 +8,11 @@ import type { CalendarDay, CalendarView, EventItem } from "./calendar";
  * event blocks' client line, and the keyboard shortcuts. Pure, so each is unit-tested.
  */
 
-/** "11:49–3:49", the agenda's time: "11:49" with no end, "All day" with no start. */
+/** "11:49 am – 3:49 pm", the agenda's time: "11:49 am" with no end, "All day" with no start. */
 export function agendaTime(startAt: string | null, endAt: string | null): string {
   if (!startAt) return "All day";
-  const start = formatIST(startAt, "h:mm");
-  return endAt ? `${start}–${formatIST(endAt, "h:mm")}` : start;
+  const start = formatTime(startAt);
+  return endAt ? `${start} – ${formatTime(endAt)}` : start;
 }
 
 /** The day's events in time order for the agenda: the all-day ones first, then by start. */

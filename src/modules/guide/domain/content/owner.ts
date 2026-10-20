@@ -462,7 +462,7 @@ export const OWNER_GUIDE: Guide = {
               'Each of them gets a push and a note in the app, and the toast says "Reminder sent to ‹names›".',
             ),
             note(
-              'You can send one once an hour per task. While you wait, the button reads like "Reminded · again at 4:05 PM"; it is ready again when that time passes.',
+              'You can send one once an hour per task. While you wait, the button reads like "Reminded · again at 4:05 pm"; it is ready again when that time passes.',
             ),
           ],
           keywords: ["remind", "nudge", "chase"],
@@ -1449,7 +1449,7 @@ export const OWNER_GUIDE: Guide = {
               "A monthly project gets a new cycle on the 1st, and a weekly one on Mondays, at 00:00 IST. Each new cycle is filled from the deliverables list, with each line's stages. It runs only for Active clients and projects that are open. A Paused client gets no new cycles.",
             ),
             text(
-              'You get a "cycle ready" notice at 8:00 AM. A repeating project also gets its current period\'s cycle as soon as you create it.',
+              'You get a "cycle ready" notice at 8:00 am. A repeating project also gets its current period\'s cycle as soon as you create it.',
             ),
           ],
           keywords: ["new cycle", "automatic", "paused", "00:00", "1st"],
