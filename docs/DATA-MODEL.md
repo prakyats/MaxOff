@@ -1657,6 +1657,10 @@ notifications        id, org_id, recipient_id → members (cascade), actor_id nu
                      kind → notification_kinds, title (≤ 200), body null (≤ 2000), link null (an app route,
                      '/…', ≤ 500), entity null, entity_id null (together or neither), payload jsonb
                      (object), escalation_level int (0-2), created_at, read_at null
+                     -- B1 (v1.8 V0, migration b1_one_time_format): every time in a title or body reads
+                     -- `6:00 pm` (lower-case, 12-hour, IST): app.ist_time(timestamptz), app.wall_time(time)
+                     -- and app.notify_when ("19 Oct, 6:00 pm"), the same as core/time's formatTime;
+                     -- service_role only. Rows already written keep their words.
                      -- 5.1 as built: written only by app.notify() (service_role only, called inside the
                      -- transition or job that caused it, ADR-0006): one row per remaining recipient after
                      -- dedupe, the actor dropped, deactivated / invited / unknown ids dropped, a
