@@ -1044,7 +1044,7 @@ export const OWNER_GUIDE: Guide = {
               'Read the toast, such as "Added Revision 3".',
             ),
             next(
-              'The new stage follows the deliverable\'s own revision stages ("Revision 2" is followed by "Revision 3") in their group; one with none gets "Revision round 1". Ticks already made stay.',
+              'The new stage follows the deliverable\'s own revision stages ("Revision 2" is followed by "Revision 3") in their group; one with none gets "Revision round 1". It goes right after the last revision stage, or right after "Edit" when there is none, so it comes before "Posted". Ticks already made stay.',
             ),
             note(
               "It works on open deliverables only. To add it to a done one, send it back first.",
