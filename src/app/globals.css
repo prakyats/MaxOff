@@ -58,19 +58,63 @@
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  /* Radii stay within 10–12px (ARCHITECTURE §3.3); larger steps collapse to 12px. */
-  --radius-xl: 0.75rem;
-  --radius-2xl: 0.75rem;
-  --radius-3xl: 0.75rem;
-  --radius-4xl: 0.75rem;
-  /* Hairline borders carry depth; shadows are soft and offset, never heavy. */
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.04);
-  --shadow-md: 0 4px 12px -2px rgb(0 0 0 / 0.08);
-  --shadow-lg: 0 8px 24px -6px rgb(0 0 0 / 0.12);
-  --shadow-xl: 0 12px 32px -8px rgb(0 0 0 / 0.14);
+  /* The surface/elevation ladder (docs/DESIGN.md §3): page, raised, floating, modal. */
+  --color-surface-0: var(--surface-0);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  /* A holiday on the calendar (decision 25): green, never a status (DESIGN.md §4). */
+  --color-holiday: var(--holiday);
+  /* The solid red commit of a destructive action, inside its confirmation (ADR-0015). */
+  --color-destructive-solid: var(--destructive-solid);
+  --color-destructive-solid-foreground: var(--destructive-solid-foreground);
+
+  /*
+   * Four radii (DESIGN.md §5): 6px controls, 10px cards, 12px sheets, round chips. Tailwind's
+   * steps collapse onto them: sm and md are a control, lg (and bare `rounded`, = --radius) a
+   * card, xl and above a sheet. `xs` and arbitrary radii are a lint error (maxoff/design-tokens).
+   */
+  --radius-control: 0.375rem;
+  --radius-card: var(--radius);
+  --radius-sheet: 0.75rem;
+  --radius-sm: var(--radius-control);
+  --radius-md: var(--radius-control);
+  --radius-lg: var(--radius-card);
+  --radius-xl: var(--radius-sheet);
+  --radius-2xl: var(--radius-sheet);
+  --radius-3xl: var(--radius-sheet);
+  --radius-4xl: var(--radius-sheet);
+
+  /*
+   * One shadow per elevation step (DESIGN.md §3): raised (cards), floating (menus, popovers,
+   * toasts), modal (dialogs, sheets). Values per theme in :root / .dark (`--elevation-*`).
+   */
+  --shadow-raised: var(--elevation-1);
+  --shadow-floating: var(--elevation-2);
+  --shadow-modal: var(--elevation-3);
+  --shadow: var(--elevation-1);
+  --shadow-sm: var(--elevation-1);
+  --shadow-md: var(--elevation-2);
+  --shadow-lg: var(--elevation-3);
+  --shadow-xl: var(--elevation-3);
+
+  /*
+   * The type scale: six steps, nothing under 12px (DESIGN.md §2). Tailwind's own names and
+   * unitless line heights, so a class says its step; `text-3xl` and above and arbitrary sizes
+   * are a lint error (maxoff/design-tokens).
+   */
+  --text-xs: 0.75rem;
+  --text-xs--line-height: calc(1 / 0.75);
+  --text-sm: 0.875rem;
+  --text-sm--line-height: calc(1.25 / 0.875);
+  --text-base: 1rem;
+  --text-base--line-height: calc(1.5 / 1);
+  --text-lg: 1.125rem;
+  --text-lg--line-height: calc(1.75 / 1.125);
+  --text-xl: 1.25rem;
+  --text-xl--line-height: calc(1.75 / 1.25);
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: calc(2 / 1.5);
 }
 
 /* Pixora Clips brand theme (ARCHITECTURE §3.3). Light: bone surfaces, graphite text. */
@@ -82,15 +126,18 @@
   --popover: #ffffff;
   --popover-foreground: #18181b;
   /*
-   * The action colour rule (ARCHITECTURE §14.1, PRODUCT §2): brand red is the one action that
-   * commits, in both themes, white text (5.8:1). `--strong` is the neutral solid (selection
-   * states, the Approvals triggers), `--control-border` the secondary outline (≥ 3:1 against the
-   * page and the card, WCAG 1.4.11), and the focus ring is neutral: red is never decoration.
+   * The action colour rule (ADR-0015, DESIGN.md §4): red is urgent or destructive only. The one
+   * commit per layer (`--primary`) is the neutral solid, like `--strong` (selection states, the
+   * Approvals triggers); `--destructive-solid` is the named red commit of a destructive action
+   * (white text, 5.8:1, the same red in both themes). `--control-border` is the secondary outline
+   * (≥ 3:1 against the page and the card, WCAG 1.4.11), and the focus ring is neutral.
    */
-  --primary: #c42126;
-  --primary-foreground: #ffffff;
+  --primary: #18181b;
+  --primary-foreground: #fafaf9;
   --strong: #18181b;
   --strong-foreground: #fafaf9;
+  --destructive-solid: #c42126;
+  --destructive-solid-foreground: #ffffff;
   --control-border: #8a8a91;
   --secondary: #f2f1ef;
   --secondary-foreground: #18181b;
@@ -133,6 +180,22 @@
   --off-day: #0369a1;
   --brand: #c42126;
   --brand-soft: #f8e4e5;
+  /* Holiday green (DESIGN.md §4): 5:1 on the page and the card, so the date number reads. */
+  --holiday: #15803d;
+  /* The surface ladder (DESIGN.md §3). Light keeps white steps; the shadow tells them apart. */
+  --surface-0: #fafaf9;
+  --surface-1: #ffffff;
+  --surface-2: #ffffff;
+  --surface-3: #ffffff;
+  /* One shadow per step: soft and offset, never heavy. */
+  --elevation-1: 0 1px 2px 0 rgb(0 0 0 / 0.04);
+  --elevation-2: 0 4px 12px -2px rgb(0 0 0 / 0.08);
+  --elevation-3: 0 8px 24px -6px rgb(0 0 0 / 0.12);
+  /* Calm motion (DESIGN.md §7): one ease, three durations. */
+  --motion-fast: 120ms;
+  --motion-base: 200ms;
+  --motion-slow: 260ms;
+  --motion-ease: cubic-bezier(0, 0, 0.2, 1);
 }
 
 /* Dark: graphite. Surfaces sit one step above the page so cards read as surfaces, not borders. */
@@ -143,10 +206,12 @@
   --card-foreground: #fafaf9;
   --popover: #141416;
   --popover-foreground: #fafaf9;
-  --primary: #c42126;
-  --primary-foreground: #ffffff;
+  --primary: #fafaf9;
+  --primary-foreground: #18181b;
   --strong: #fafaf9;
   --strong-foreground: #18181b;
+  --destructive-solid: #c42126;
+  --destructive-solid-foreground: #ffffff;
   --control-border: #6b6b73;
   --secondary: #1f1f23;
   --secondary-foreground: #fafaf9;
@@ -186,6 +251,15 @@
   --off-day: #7dd3fc;
   --brand: #f2686d;
   --brand-soft: #3c2326;
+  --holiday: #4ade80;
+  /* In dark a higher step is a lighter graphite: shadows barely read on black. */
+  --surface-0: #0b0b0c;
+  --surface-1: #141416;
+  --surface-2: #18181b;
+  --surface-3: #1c1c1f;
+  --elevation-1: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+  --elevation-2: 0 4px 12px -2px rgb(0 0 0 / 0.45);
+  --elevation-3: 0 8px 24px -6px rgb(0 0 0 / 0.55);
 }
 
 @layer base {
@@ -206,7 +280,7 @@
   body {
     /* Counts, dates and amounts line up in every table and list. */
     font-variant-numeric: tabular-nums;
-    /* Neutral: red is reserved for the commit action (ARCHITECTURE §14.1). */
+    /* Neutral: red is urgent or destructive only (ADR-0015, DESIGN.md §4). */
     caret-color: var(--foreground);
     accent-color: var(--strong);
   }

@@ -1,90 +1,21 @@
 import { cn } from "@/core/lib/utils";
+import { type KnownStatus, type StatusTone, statusTone } from "@/core/lib/status-tones";
 import { Badge } from "@/core/ui/primitives/badge";
 
 /**
- * One badge for every workflow state in DATA-MODEL §0, in exactly six tones
- * (ARCHITECTURE §3.3). Code depends only on those enums (ADR-0002), so new task types or stage
- * names never need a new badge: they're plain data. The map is keyed by the enum *value*, which
- * is shared across enums where the meaning matches (`approved`, `cancelled`, `open`, ...).
- * `status-badge.test.ts` proves every value maps to a tone and every tone passes 4.5:1.
+ * One badge for every workflow state in DATA-MODEL §0, in exactly six tones. The status → tone
+ * map is `core/lib/status-tones.ts` (the single source, B13); this file draws it.
  *
  * One accent per screen: a page that shows a danger badge keeps its buttons neutral.
  */
-export const STATUS_TONES_LIST = [
-  "success",
-  "info",
-  "attention",
-  "danger",
-  "neutral",
-  "brand",
-] as const;
-export type StatusTone = (typeof STATUS_TONES_LIST)[number];
-
-export const STATUS_TONES = {
-  // success: finished and accepted
-  approved: "success",
-  completed: "success",
-  done: "success",
-  settled: "success",
-  billed: "success",
-  present: "success",
-  active: "success",
-  // info: work in motion, nothing else
-  in_progress: "info",
-  submitted: "info",
-  converted: "info",
-  // attention: someone must act
-  admin_approved: "attention",
-  pending_review: "attention",
-  awaiting_choice: "attention",
-  changes_requested: "attention",
-  pending: "attention",
-  paused: "attention",
-  leave_pending: "attention",
-  not_billed: "attention",
-  high: "attention",
-  // danger: act now
-  rejected: "danger",
-  absent: "danger",
-  cancelled: "danger",
-  declined: "danger",
-  urgent: "danger",
-  // neutral: not started, closed quietly, informational, or a plain label
-  invited: "neutral",
-  leave: "neutral",
-  half_day: "neutral",
-  comp_leave: "neutral",
-  carry_forward: "neutral",
-  corrected: "neutral",
-  draft: "neutral",
-  todo: "neutral",
-  open: "neutral",
-  inactive: "neutral",
-  withdrawn: "neutral",
-  superseded: "neutral",
-  carried: "neutral",
-  close: "neutral",
-  deactivated: "neutral",
-  required: "neutral",
-  none: "neutral",
-  skipped: "neutral",
-  medium: "neutral",
-  low: "neutral",
-} as const satisfies Record<string, StatusTone>;
-
-export type KnownStatus = keyof typeof STATUS_TONES;
-
-/**
- * An attendance day's status for its colour, one rule on every screen (B13, UX review
- * 2026-10-21: "Absent (proposed)" was red in End of day, amber elsewhere). A day the Owner has
- * not decided yet (a proposed absence, a choice waiting) is `pending_review`, amber, whatever it
- * proposes; a decided day takes its final status (absent red, present green, leave neutral); no
- * status and nothing waiting is `awaiting_choice`.
- */
-export function attendanceStatus(day: { status: string | null; undecided: boolean }): string {
-  if (day.undecided) return "pending_review";
-  return day.status ?? "awaiting_choice";
-}
+export {
+  attendanceStatus,
+  type KnownStatus,
+  STATUS_TONES,
+  STATUS_TONES_LIST,
+  type StatusTone,
+  statusTone,
+} from "@/core/lib/status-tones";
 
 const LABEL_OVERRIDES: Partial<Record<KnownStatus, string>> = {
   todo: "To do",
@@ -111,10 +42,6 @@ const TONE_CLASSES: Record<StatusTone, string> = {
   neutral: "bg-neutral-soft text-neutral",
   brand: "bg-brand-soft text-brand",
 };
-
-export function statusTone(status: string): StatusTone {
-  return (STATUS_TONES as Record<string, StatusTone>)[status] ?? "neutral";
-}
 
 /** `in_progress` → "In progress". Unknown values get the same treatment. */
 export function statusLabel(status: string): string {

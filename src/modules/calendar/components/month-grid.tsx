@@ -199,7 +199,7 @@ export function MonthGrid({
                           "flex shrink-0 items-center justify-center rounded-full text-xs font-semibold tabular-nums",
                           density === "laptop" ? "size-6" : "size-5",
                           day?.weeklyOff && "text-off-day",
-                          lines?.holidayHidden && "text-[#16a34a]",
+                          lines?.holidayHidden && "text-holiday",
                           isSelected && "bg-foreground text-background",
                         )}
                       >
