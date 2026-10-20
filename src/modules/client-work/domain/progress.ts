@@ -106,14 +106,19 @@ const plural = (count: number, one: string, many: string) => `${count} ${count =
  * The calm line under the figure: "12 of 18 stages · 3 of 7 deliverables done"; without stages
  * "3 of 7 deliverables done"; "No deliverables in this cycle." when there is nothing to count.
  * A cancelled project says so (B8, UX review 2026-10-21): "Cancelled 21 Oct · 1 deliverable
- * closed", never "No deliverables in this cycle".
+ * closed" (with any done before it: "· 1 deliverable done, 2 closed"), never "No deliverables in
+ * this cycle".
  */
 export function meterLine(meter: CycleMeter, cancelledAt: string | null = null): string {
   if (cancelledAt !== null) {
     const when = `Cancelled ${formatIST(cancelledAt, "d MMM")}`;
-    return meter.closed > 0
-      ? `${when} · ${plural(meter.closed, "deliverable", "deliverables")} closed`
-      : when;
+    const done = meter.deliverables.done;
+    const closed = meter.closed;
+    if (done === 0 && closed === 0) return when;
+    const noun = (count: number) => (count === 1 ? "deliverable" : "deliverables");
+    if (done === 0) return `${when} · ${closed} ${noun(closed)} closed`;
+    if (closed === 0) return `${when} · ${done} ${noun(done)} done`;
+    return `${when} · ${done} ${noun(done)} done, ${closed} closed`;
   }
   if (meter.deliverables.total === 0) return "No deliverables in this cycle.";
   const deliverables = `${meter.deliverables.done} of ${plural(meter.deliverables.total, "deliverable", "deliverables")} done`;

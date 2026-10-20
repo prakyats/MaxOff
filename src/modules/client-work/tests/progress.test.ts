@@ -104,8 +104,12 @@ describe("the cycle's progress indicator (6b.11 (5))", () => {
     expect(meterLine(cycleMeter([closed], TODAY), at)).toBe(
       "Cancelled 21 Oct · 1 deliverable closed",
     );
-    expect(meterLine(cycleMeter([closed, closed, done], TODAY), at)).toBe(
+    expect(meterLine(cycleMeter([closed, closed], TODAY), at)).toBe(
       "Cancelled 21 Oct · 2 deliverables closed",
+    );
+    expect(meterLine(cycleMeter([done], TODAY), at)).toBe("Cancelled 21 Oct · 1 deliverable done");
+    expect(meterLine(cycleMeter([closed, closed, done], TODAY), at)).toBe(
+      "Cancelled 21 Oct · 1 deliverable done, 2 closed",
     );
     expect(meterLine(cycleMeter([], TODAY), at)).toBe("Cancelled 21 Oct");
     expect(cycleMeter([closed, done], TODAY).closed).toBe(1);
