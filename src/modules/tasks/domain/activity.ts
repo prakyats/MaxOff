@@ -3,6 +3,9 @@ import { formatDateTime, formatIST } from "@/core/time";
 import { joinNames, pairName } from "./task";
 import { PRIORITY_LABELS, type Priority } from "./types";
 
+/** Where Remind's message goes (B6): to the people's Alerts and phones, never into Chat. */
+export const REMINDER_NOTE = "As a notification, not a chat message.";
+
 /**
  * A task's change history (4.4, PRODUCT §4.14): each audit entry about the task and its children
  * (all written with `entity_id` = the task, 4A) as one sentence, "Ravi for Asha noted the task"
@@ -177,10 +180,15 @@ function describe(
           return { text: "approved it: the task is complete" };
         }
         case "reminder_sent": {
-          // 6b.2 Remind: who was asked, by name.
+          // 6b.2 Remind: who was reminded, by name. B6 (UX review 2026-10-21): it says where the
+          // reminder went (a notification, "<name> is asking about <task>"), so nobody looks for
+          // a question in Chat that was never written there.
           const ids = Array.isArray(meta.recipients) ? meta.recipients : [];
           const who = joinNames(ids.map((id) => nameOf(context, id)));
-          return { text: who ? `asked ${who} about the task` : "asked about the task" };
+          return {
+            text: who ? `sent ${who} a reminder` : "sent a reminder",
+            note: REMINDER_NOTE,
+          };
         }
         case "changes_requested": {
           const reason = text(meta.reason);

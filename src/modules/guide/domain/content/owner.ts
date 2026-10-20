@@ -459,7 +459,7 @@ export const OWNER_GUIDE: Guide = {
               shot: "owner/remind",
             }),
             next(
-              'Each of them gets a push and a note in the app, and the toast says "Reminder sent to ‹names›".',
+              'Each of them gets a push and a note in the app, and the toast says "Reminder sent to ‹names›". The reminder is a notification, not a chat message: the task\'s Activity reads "sent ‹names› a reminder", and Chat stays as it was.',
             ),
             note(
               'You can send one once an hour per task. While you wait, the button reads like "Reminded · again at 4:05 pm"; it is ready again when that time passes.',

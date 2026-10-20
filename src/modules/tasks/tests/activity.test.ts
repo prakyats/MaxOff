@@ -368,12 +368,16 @@ describe("tasks for the Owner in the history (6b.2)", () => {
     });
   });
 
-  it("names who a reminder asked", () => {
+  it("names who a reminder went to, and that it went as a notification, not into Chat (B6)", () => {
     expect(
       line({ action: "reminder_sent", actorId: "admin", meta: { recipients: ["ravi", "asha"] } }),
-    ).toMatchObject({ actor: "Local Admin", text: "asked Ravi and Asha about the task" });
+    ).toMatchObject({
+      actor: "Local Admin",
+      text: "sent Ravi and Asha a reminder",
+      note: "As a notification, not a chat message.",
+    });
     expect(line({ action: "reminder_sent", meta: {} })).toMatchObject({
-      text: "asked about the task",
+      text: "sent a reminder",
     });
   });
 });

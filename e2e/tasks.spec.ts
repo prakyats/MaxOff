@@ -1583,11 +1583,14 @@ test.describe("tasks for the Owner", () => {
     expect(asked.map((row) => row.recipient_id).sort()).toEqual([staffId, helperId].sort());
     expect(asked[0]?.title).toBe(`${admin.name} is asking about ${prefix}edit`);
 
-    // Reloaded, it still waits, and the history names who was asked.
+    // Reloaded, it still waits, and the history names who was reminded and where it went (B6:
+    // a notification, never a chat message).
     await page.reload();
     await expect(waiting).toBeDisabled();
     const history = await historyRows(page);
-    await expect(history.filter({ hasText: "about the task" })).toHaveCount(1);
+    const reminded = history.filter({ hasText: "a reminder" });
+    await expect(reminded).toHaveCount(1);
+    await expect(reminded).toContainText("As a notification, not a chat message.");
 
     // A second one within the hour is refused, whoever sends it.
     const refused = await rpcRefusedAs(USERS.owner.email, USERS.owner.password, "task_remind", {
