@@ -174,7 +174,10 @@ insert into app_internal values
   ('cron_history_trim'),
   -- 6b Release 2 D2 (migration client_work_bulk_and_rounds): the bulk edits' checked, locked
   -- selection and a cycle's extra deliverables, read by functions only
-  ('client_work_bulk_items'), ('cycle_extras');
+  ('client_work_bulk_items'), ('cycle_extras'),
+  -- v1.8 V0: B1's one time format for bodies and messages (migration b1_one_time_format) and B7's
+  -- key between two stages (migration b7_revision_round_position), used by functions only
+  ('ist_time'), ('wall_time'), ('position_between');
   -- 3c.1 (contract migration): attendance_logout and logout_not_recorded are gone with the 2.x gate.
 select is(
   (select count(*) from pg_proc p
