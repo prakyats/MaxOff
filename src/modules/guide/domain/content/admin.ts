@@ -919,7 +919,7 @@ export const ADMIN_GUIDE: Guide = {
                 { text: 'Set "How many" (highlighted).', shot: "admin/template-builder" },
                 "Tick any stage presets you want, in the order you tick them. Each becomes one group.",
                 "Tap Add.",
-                "Open a row (⌄) to rename it or edit its stages.",
+                "Open a deliverable's row to rename it or edit its stages.",
               ],
             },
             {
