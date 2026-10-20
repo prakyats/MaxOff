@@ -10,6 +10,7 @@ import {
   hydrated,
   memberIdOf,
   pageHeader,
+  removeClientFixture,
   removeTasksTitled,
   resetAttendanceAndLeave,
   rpcAs,
@@ -1018,6 +1019,48 @@ test.describe("the Admin's Today (6.3)", () => {
     // Never money, never another person's attendance decision on this screen.
     await expect(page.locator("main")).not.toContainText(/₹|Revenue/);
     await resetAttendanceAndLeave(crewId);
+  });
+
+  test('My clients: a Paused client says "· Paused" beside its name, an Active one nothing (B9)', async ({
+    page,
+  }, info) => {
+    // A local fixture only (never staging or production): two clients this project's Admin runs,
+    // made Active by the Owner, one of them then Paused. Removed again at the end.
+    const paused = `Test Day Paused Client (${info.project.name})`;
+    const active = `Test Day Active Client (${info.project.name})`;
+    const adminId = await memberIdOf(admin(info));
+    const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+    const ids: Record<string, string> = {};
+    for (const name of [paused, active]) {
+      await removeClientFixture(name);
+      const row = await serviceInsert<{ id: string }>("clients", {
+        org_id: org?.id,
+        name,
+        admin_id: adminId,
+      });
+      ids[name] = row.id;
+      await rpcAs(USERS.owner.email, USERS.owner.password, "client_activate", {
+        client_id: row.id,
+      });
+    }
+    await rpcAs(USERS.owner.email, USERS.owner.password, "client_pause", {
+      client_id: ids[paused],
+    });
+
+    await signIn(page, admin(info), PASSWORD);
+    await expect(page).toHaveURL(/\/today$/);
+    await hydrated(page);
+    const rows = section(page, "today-my-clients").locator('[data-slot="today-client-row"]');
+    const pausedRow = rows.filter({ hasText: paused });
+    await expect(pausedRow).toHaveCount(1);
+    await expect(pausedRow.locator('[data-slot="today-client-state"]')).toHaveText("· Paused");
+    await expect(pausedRow).toContainText(`${paused} · Paused`);
+    const activeRow = rows.filter({ hasText: active });
+    await expect(activeRow).toHaveCount(1);
+    await expect(activeRow.locator('[data-slot="today-client-state"]')).toHaveCount(0);
+
+    await removeClientFixture(paused);
+    await removeClientFixture(active);
   });
 });
 
