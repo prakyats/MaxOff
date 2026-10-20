@@ -1,4 +1,4 @@
-import type { ISODate } from "@/core/time";
+import { formatIST, type ISODate } from "@/core/time";
 
 import type { ItemState } from "./types";
 
@@ -33,6 +33,8 @@ export type CycleMeter = {
   percent: number;
   stages: { done: number; total: number };
   deliverables: { done: number; total: number };
+  /** Closed (cancelled) deliverables, left out of the counts above. */
+  closed: number;
   /** Open deliverables whose planned date has passed. */
   behind: number;
   /** Some open deliverable has a planned date (so "on track" means something). */
@@ -52,8 +54,10 @@ export function cycleMeter(items: readonly MeterItem[], today: ISODate): CycleMe
   let itemsDone = 0;
   let itemsTotal = 0;
   let behind = 0;
+  let closed = 0;
   let planned = false;
   for (const item of items) {
+    if (item.state === "cancelled") closed += 1;
     if (item.state === "cancelled" || item.state === "carried") continue;
     itemsTotal += 1;
     const count = item.stages.length;
@@ -82,6 +86,7 @@ export function cycleMeter(items: readonly MeterItem[], today: ISODate): CycleMe
     percent: percentOf(done, units),
     stages: { done: stagesDone, total: stagesTotal },
     deliverables: { done: itemsDone, total: itemsTotal },
+    closed,
     behind,
     planned,
     complete,
@@ -100,8 +105,16 @@ const plural = (count: number, one: string, many: string) => `${count} ${count =
 /**
  * The calm line under the figure: "12 of 18 stages · 3 of 7 deliverables done"; without stages
  * "3 of 7 deliverables done"; "No deliverables in this cycle." when there is nothing to count.
+ * A cancelled project says so (B8, UX review 2026-10-21): "Cancelled 21 Oct · 1 deliverable
+ * closed", never "No deliverables in this cycle".
  */
-export function meterLine(meter: CycleMeter): string {
+export function meterLine(meter: CycleMeter, cancelledAt: string | null = null): string {
+  if (cancelledAt !== null) {
+    const when = `Cancelled ${formatIST(cancelledAt, "d MMM")}`;
+    return meter.closed > 0
+      ? `${when} · ${plural(meter.closed, "deliverable", "deliverables")} closed`
+      : when;
+  }
   if (meter.deliverables.total === 0) return "No deliverables in this cycle.";
   const deliverables = `${meter.deliverables.done} of ${plural(meter.deliverables.total, "deliverable", "deliverables")} done`;
   if (meter.stages.total === 0) return deliverables;

@@ -95,6 +95,20 @@ describe("the cycle's progress indicator (6b.11 (5))", () => {
     expect(meterPace(complete)).toBeNull();
     expect(cycleMeter([], TODAY).complete).toBe(false);
     expect(meterLine(cycleMeter([], TODAY))).toBe("No deliverables in this cycle.");
+  });
+
+  it("says a cancelled project is cancelled, with its closed deliverables (B8)", () => {
+    const closed = { state: "cancelled" as const, plannedDate: null, stages: [] };
+    const done = { state: "approved" as const, plannedDate: null, stages: [] };
+    const at = "2026-10-21T06:00:00Z";
+    expect(meterLine(cycleMeter([closed], TODAY), at)).toBe(
+      "Cancelled 21 Oct · 1 deliverable closed",
+    );
+    expect(meterLine(cycleMeter([closed, closed, done], TODAY), at)).toBe(
+      "Cancelled 21 Oct · 2 deliverables closed",
+    );
+    expect(meterLine(cycleMeter([], TODAY), at)).toBe("Cancelled 21 Oct");
+    expect(cycleMeter([closed, done], TODAY).closed).toBe(1);
     expect(completeWords("October 2026")).toBe("October 2026 complete");
     expect(completeWords(null)).toBe("Every deliverable complete");
   });

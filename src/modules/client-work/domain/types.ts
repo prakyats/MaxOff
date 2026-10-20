@@ -63,6 +63,8 @@ export type Project = {
   templateId: string | null;
   createdBy: string;
   createdAt: string;
+  /** When it was cancelled (B8: "Cancelled 21 Oct · 1 deliverable closed"); null otherwise. */
+  cancelledAt: string | null;
   cancelledReason: string | null;
 };
 

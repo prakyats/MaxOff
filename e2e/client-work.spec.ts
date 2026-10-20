@@ -1741,6 +1741,10 @@ test("⋯ Complete (refused while items are left), Reopen, Cancel, and Reopen re
   await cancel.getByLabel("Why cancel it").fill("The client stopped the film");
   await cancel.getByRole("button", { name: "Cancel project" }).click();
   await expect(page.locator('[data-slot="project-read-only"]')).toContainText("Cancelled");
+  // B8: the progress says it was cancelled and what closed, never "No deliverables in this cycle".
+  await expect(page.locator('[data-slot="cycle-meter-line"]')).toHaveText(
+    /^Cancelled \d{1,2} [A-Z][a-z]{2} · \d+ deliverables? closed$/,
+  );
 
   // Q6: a closed client's project is not reopened; the refusal says why.
   await rpcAs(owner.email, owner.password, "client_close", { client_id: clientId });
