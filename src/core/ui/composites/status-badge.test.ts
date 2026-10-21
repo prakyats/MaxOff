@@ -209,10 +209,13 @@ describe("badge contrast (globals.css)", () => {
       }
     });
 
-    it(`${theme}: text on today's tinted box still reads (PP-calendar-12)`, () => {
+    it(`${theme}: today's box is a neutral surface step, apart from the weekly off, and its text reads (PP-calendar-15)`, () => {
       const bg = tokens["today"];
       expect(bg, `--today missing in ${selector}`).toBeDefined();
-      for (const text of ["foreground", "muted-foreground", "holiday"]) {
+      // A surface step, not a red wash; and never the weekly off's muted tint.
+      expect(bg).toBe(tokens["surface-3"]);
+      expect(bg).not.toBe(tokens["muted"]);
+      for (const text of ["foreground", "muted-foreground", "neutral", "holiday"]) {
         const ratio = contrast(tokens[text] as string, bg as string);
         expect(ratio, `${theme} ${text} on today = ${ratio.toFixed(2)}`).toBeGreaterThanOrEqual(
           4.5,

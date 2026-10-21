@@ -437,10 +437,14 @@ export function CalendarScreen({
                       className={cn(
                         "pressable focus-visible:ring-ring flex min-h-14 w-full flex-col items-center justify-center gap-0.5 rounded-lg border px-1 py-1.5 outline-none focus-visible:ring-2",
                         // PP-calendar-1 (V5b): the chosen day is the outlined box, today the red
-                        // circle on its date and its box tinted (PP-calendar-12); PP-calendar-4: the
+                        // circle on its date and its box one surface step up (PP-calendar-15); PP-calendar-4: the
                         // weekly off muted and tinted.
                         chosen ? "border-foreground" : "border-border/60 active:bg-muted/60",
-                        day.date === today ? "bg-today" : day.weeklyOff ? "bg-muted/50" : "bg-card",
+                        day.date === today
+                          ? "bg-today shadow-raised"
+                          : day.weeklyOff
+                            ? "bg-muted/50"
+                            : "bg-card",
                       )}
                     >
                       <span className="text-muted-foreground text-xs leading-4 uppercase">
@@ -538,9 +542,9 @@ export function CalendarScreen({
               </ViewLink>
             ))}
           </nav>
-          {/* PP-calendar-11: the step controls grouped as "‹ Today ›" beside the period's name;
+          {/* PP-calendar-15: the arrows around the period's name, "‹ October 2026 ›", then Today;
               Filters alone at the right. */}
-          <div data-slot="calendar-pager" className="flex items-center gap-1">
+          <div data-slot="calendar-pager" className="flex items-center gap-2">
             <div role="group" aria-label={`Move by ${unit}`} className="flex items-center gap-0.5">
               <button
                 type="button"
@@ -550,14 +554,13 @@ export function CalendarScreen({
               >
                 <ChevronLeftIcon className="size-4" aria-hidden />
               </button>
-              <button
-                type="button"
-                onClick={() => go(today)}
-                data-slot="calendar-today-laptop"
-                className="pressable focus-visible:ring-ring border-control-border hover:bg-muted flex min-h-8 items-center rounded-lg border px-3 text-sm font-medium outline-none focus-visible:ring-2"
+              <h2
+                data-slot="calendar-pager-label"
+                aria-live="polite"
+                className="px-1 text-base font-semibold whitespace-nowrap"
               >
-                Today
-              </button>
+                {laptopLabel}
+              </h2>
               <button
                 type="button"
                 onClick={() => go(laptopStep(1))}
@@ -567,13 +570,14 @@ export function CalendarScreen({
                 <ChevronRightIcon className="size-4" aria-hidden />
               </button>
             </div>
-            <h2
-              data-slot="calendar-pager-label"
-              aria-live="polite"
-              className="ml-1 text-base font-semibold whitespace-nowrap"
+            <button
+              type="button"
+              onClick={() => go(today)}
+              data-slot="calendar-today-laptop"
+              className="pressable focus-visible:ring-ring border-control-border hover:bg-muted flex min-h-8 items-center rounded-lg border px-3 text-sm font-medium outline-none focus-visible:ring-2"
             >
-              {laptopLabel}
-            </h2>
+              Today
+            </button>
           </div>
           <div className="ml-auto flex items-center gap-2">{filtersButton}</div>
         </div>

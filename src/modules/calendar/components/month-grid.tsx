@@ -201,9 +201,13 @@ export function MonthGrid({
                           : "min-h-28 p-1",
                       // Each day its own faint tile (the owner's review): a hairline at low
                       // contrast; the selected day outlined (PP-calendar-1); the weekly off lightly
-                      // tinted (PP-calendar-4); today's whole box faintly tinted (PP-calendar-12).
+                      // tinted (PP-calendar-4); today's box a faint neutral lift, one surface step up (PP-calendar-15).
                       isSelected ? "border-foreground" : "border-border/60",
-                      isToday ? "bg-today" : day?.weeklyOff ? "bg-muted/50" : "bg-card/40",
+                      isToday
+                        ? "bg-today shadow-raised"
+                        : day?.weeklyOff
+                          ? "bg-muted/50"
+                          : "bg-card/40",
                       !inMonth(date) && "opacity-45",
                       "active:bg-muted/60",
                     )}
