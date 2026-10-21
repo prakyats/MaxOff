@@ -137,6 +137,14 @@ dark, a higher step is a lighter graphite, because shadows barely read on black.
   (`e2e/fixtures.ts`, every spec) that fails a test whose layer ever shows two solid commits or a
   commit beside a `strong`.
 
+### Progress (P4)
+- **One bar:** `ProgressBar` (`core/ui/progress/segmented-meter.tsx`), a 6 px continuous track:
+  done in `success`, the next step in `success` at 35%, the rest `neutral-soft`, whatever the
+  number of steps (a row of dots or segments is never drawn for a list). Its numbers and words
+  sit beside it ("2/3", "68%"); it is decorative (`label={null}`) where they already say it.
+- **The ring** stays the cycle's figure on its project page (segments up to 48 steps).
+- Never red: lateness is said by the row's words and its dot (§4), not by the bar.
+
 ## 5. Radii: four
 | Token | Class | Value | Used for |
 |---|---|---|---|

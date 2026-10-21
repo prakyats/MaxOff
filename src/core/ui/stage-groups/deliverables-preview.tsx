@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { type Deliverable, flattenGroups, type StageGroup } from "@/core/lib/stage-groups";
 import { cn } from "@/core/lib/utils";
-import { SegmentedBar } from "@/core/ui/progress/segmented-meter";
+import { ProgressBar } from "@/core/ui/progress/segmented-meter";
 
 import {
   entryCounts,
@@ -181,8 +181,8 @@ function EntryCard({ entry }: { entry: PreviewEntry }) {
         {entryCounts(entry)}
       </p>
       {stages > 0 ? (
-        // One dot per stage it will start with, none ticked yet (the meter's language, 6b.11).
-        <SegmentedBar
+        // The stages it will start with, none ticked yet: the one progress bar (P4).
+        <ProgressBar
           counts={{ done: 0, next: 0, total: stages }}
           label={null}
           slot="preview-stage-dots"

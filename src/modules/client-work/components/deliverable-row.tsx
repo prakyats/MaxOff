@@ -6,7 +6,7 @@ import { useId, useState } from "react";
 import { cn } from "@/core/lib/utils";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { StatusDot } from "@/core/ui/composites/status-badge";
-import { SegmentedBar } from "@/core/ui/progress/segmented-meter";
+import { ProgressBar } from "@/core/ui/progress/segmented-meter";
 import { Button } from "@/core/ui/primitives/button";
 import { Checkbox } from "@/core/ui/primitives/checkbox";
 import { AfterPage } from "@/core/ui/lazy/after-page";
@@ -322,7 +322,7 @@ function Strip({
         <span className="text-muted-foreground min-w-0 truncate font-medium" title={strip.label}>
           {strip.label}
         </span>{" "}
-        <SegmentedBar counts={strip} label={null} slot="item-strip-bar" />{" "}
+        <ProgressBar counts={strip} label={null} slot="item-strip-bar" />{" "}
         <span
           className="text-muted-foreground text-right tabular-nums"
           data-slot="item-strip-count"

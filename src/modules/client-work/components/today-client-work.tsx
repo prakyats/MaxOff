@@ -5,7 +5,7 @@ import { useState, useSyncExternalStore } from "react";
 import { cn } from "@/core/lib/utils";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { Button } from "@/core/ui/primitives/button";
-import { SegmentedBar } from "@/core/ui/progress/segmented-meter";
+import { ProgressBar } from "@/core/ui/progress/segmented-meter";
 
 import { itemMeter } from "../domain/progress";
 import type { ItemView } from "../domain/views";
@@ -102,7 +102,7 @@ export function TodayClientWork({
                 {meter.total > 0 ? (
                   // The deliverable's own stages in miniature (6b.11 (5)).
                   <span className="mt-0.5 flex items-center gap-2 text-xs">
-                    <SegmentedBar
+                    <ProgressBar
                       counts={meter}
                       label={`Stages ${meter.done} of ${meter.total} ticked`}
                       slot="today-item-meter"

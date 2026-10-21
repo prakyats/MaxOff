@@ -9,7 +9,7 @@ import { DrillLink } from "@/core/ui/composites/drill-link";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { CARD_ROW_TITLE, CARD_ROW_TRAILING } from "@/core/ui/composites/row-metrics";
 import { StatusBadge } from "@/core/ui/composites/status-badge";
-import { SegmentedBar } from "@/core/ui/progress/segmented-meter";
+import { ProgressBar } from "@/core/ui/progress/segmented-meter";
 import {
   listClientProjects,
   listCurrentCycleMeters,
@@ -136,7 +136,7 @@ function ProjectList({
               {project.meter ? (
                 // The cycle's meter in miniature (6b.11 (5)); its words are the line beside it.
                 <span className="mt-1 flex min-w-0 items-center gap-2" data-slot="project-meter">
-                  <SegmentedBar
+                  <ProgressBar
                     counts={{
                       done: project.meter.done,
                       next: project.meter.next,

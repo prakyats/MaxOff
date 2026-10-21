@@ -3,9 +3,9 @@ import { cn } from "@/core/lib/utils";
 /**
  * The segmented progress meter (ROADMAP 6b.11 (5); owner 2026-10-10: "very premium, high
  * quality", to motivate by showing the work moving): one segment per step, the done ones solid,
- * the next ones lighter, the rest a quiet track. A **ring** for a cycle on its project page, a thin
- * **bar** in miniature wherever a project, a cycle or a deliverable is listed, and the same bar
- * (nothing done yet) on the template preview's cards. Server-safe (no hooks), so a list pays no
+ * the next ones lighter, the rest a quiet track. A **ring** for a cycle on its project page; the
+ * one continuous **bar** (`ProgressBar`, P4) in miniature wherever a project, a cycle or a
+ * deliverable is listed, and the same bar (nothing done yet) on the template preview's cards. Server-safe (no hooks), so a list pays no
  * JavaScript for it.
  *
  * Colours come from the tokens only (green = done in the one colour code; never red, which stays
@@ -128,10 +128,13 @@ export function ProgressRing({
 }
 
 /**
- * The thin bar, full width of its box. `label` is what assistive tech reads; omit it (and pass
- * `decorative`) where the words beside it already say the same.
+ * The one progress bar (P4, UX review 2026-10-21: two bar designs sat side by side on a client's
+ * Projects tab): a thin continuous bar, full width of its box, done solid, next lighter, the rest
+ * a quiet track, whatever the number of steps (the long-stage fix C: no row of dots to count).
+ * The ring alone keeps segments. `label` is what assistive tech reads; omit it (`null`) where the
+ * words beside it already say the same.
  */
-export function SegmentedBar({
+export function ProgressBar({
   counts,
   label,
   className,
@@ -142,44 +145,26 @@ export function SegmentedBar({
   className?: string;
   slot?: string;
 }) {
-  const segmented = counts.total <= SEGMENTED_MAX;
   const a11y = label === null ? { "aria-hidden": true } : { role: "img", "aria-label": label };
-  if (!segmented) {
-    return (
-      <span
-        {...a11y}
-        data-slot={slot}
-        {...meterData(counts)}
-        className={cn(
-          "bg-neutral-soft relative flex h-1.5 overflow-hidden rounded-full",
-          className,
-        )}
-      >
-        <span
-          className={cn(EASE, TONE_FILL.done, "h-full")}
-          style={{ width: `${share(counts.done, counts.total)}%` }}
-        />
-        <span
-          className={cn(EASE, TONE_FILL.next, "h-full")}
-          style={{ width: `${share(counts.next, counts.total)}%` }}
-        />
-      </span>
-    );
-  }
+  const done = Math.min(Math.max(0, counts.done), Math.max(0, counts.total));
+  const next = Math.min(Math.max(0, counts.next), Math.max(0, counts.total) - done);
   return (
     <span
       {...a11y}
       data-slot={slot}
       {...meterData(counts)}
-      className={cn("flex h-1.5 gap-0.5", className)}
+      className={cn("bg-neutral-soft relative flex h-1.5 overflow-hidden rounded-full", className)}
     >
-      {segmentTones(counts).map((tone, index) => (
-        <span
-          key={index}
-          data-tone={tone}
-          className={cn(EASE, TONE_FILL[tone], "h-full min-w-0.5 flex-1 rounded-full")}
-        />
-      ))}
+      <span
+        data-tone="done"
+        className={cn(EASE, TONE_FILL.done, "h-full")}
+        style={{ width: `${share(done, counts.total)}%` }}
+      />
+      <span
+        data-tone="next"
+        className={cn(EASE, TONE_FILL.next, "h-full")}
+        style={{ width: `${share(next, counts.total)}%` }}
+      />
     </span>
   );
 }
