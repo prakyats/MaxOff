@@ -62,6 +62,8 @@ jobs:
       - name: Build the Worker (OpenNext)
         env:
           # Source-map upload only; absent locally and in CI.
+          # B11 (owner 2026-10-21, staging only): the commit this run really built.
+          APP_COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
           SENTRY_ORG: ${{ vars.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
