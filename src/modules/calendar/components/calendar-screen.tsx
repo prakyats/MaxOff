@@ -54,6 +54,7 @@ import {
 } from "../domain/size";
 import { dayLabel } from "../domain/strips";
 import { AllDayChips, DayDetail, eventLink } from "./day-detail";
+import { DayPanel } from "./day-panel";
 import type { FilterChoices } from "./filters-sheet";
 import { MonthGrid } from "./month-grid";
 import { Timeline, weekdayHeading } from "./timeline";
@@ -68,6 +69,9 @@ const FiltersSheet = dynamic(
 );
 
 const VIEW_LABELS: Record<CalendarView, string> = { day: "Day", week: "Week", month: "Month" };
+
+/** Where the laptop Month shows the selected day beside it instead of in a dialog (`lg`). */
+const PANEL_QUERY = "(min-width: 1024px)";
 
 const ICON_BUTTON =
   "focus-visible:ring-ring text-muted-foreground hover:text-foreground active:bg-muted flex size-11 shrink-0 items-center justify-center rounded-lg outline-none focus-visible:ring-2";
@@ -189,6 +193,18 @@ export function CalendarScreen({
   function openDay(date: ISODate) {
     replaceOnPageEntry(calendarHref({ ...query, view: "day", date }, today));
   }
+
+  /** "Open day": the Day view of that day (the dialog's footer backs out first, the panel's too). */
+  const openDayButton = (date: ISODate) => (
+    <button
+      type="button"
+      data-slot="calendar-open-day"
+      className="pressable focus-visible:ring-ring border-control-border hover:bg-muted hidden min-h-8 items-center rounded-lg border px-3 text-sm font-medium outline-none focus-visible:ring-2 md:inline-flex"
+      onClick={() => openDay(date)}
+    >
+      Open day
+    </button>
+  );
 
   // The laptop's step follows its view: a day, a week or a month.
   const laptopStep = (direction: -1 | 1) =>
@@ -576,17 +592,33 @@ export function CalendarScreen({
           </div>
         </div>
         {view === "month" ? (
-          <MonthGrid
-            grid={grid}
-            days={byDate}
-            today={today}
-            selected={null}
-            density="laptop"
-            onDay={(date) => {
-              if (monthOf(date) !== grid.month) go(date);
-              else setSheetDate(date);
-            }}
-          />
+          // From `lg` up the selected day sits beside the month (L7, V5a); between `md` and `lg`
+          // a day still opens in the dialog.
+          <div
+            data-slot="calendar-month-laptop"
+            className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]"
+          >
+            <MonthGrid
+              grid={grid}
+              days={byDate}
+              today={today}
+              selected={selected}
+              density="laptop"
+              onDay={(date) => {
+                if (monthOf(date) !== grid.month || window.matchMedia(PANEL_QUERY).matches) {
+                  go(date);
+                } else setSheetDate(date);
+              }}
+            />
+            <DayPanel
+              day={dayOf(selected)}
+              today={today}
+              scope={scope}
+              free={freeOf(selected)}
+              action={action(selected)}
+              footer={openDayButton(selected)}
+            />
+          </div>
         ) : view === "week" ? (
           <Timeline
             days={weekDays}
@@ -668,16 +700,7 @@ export function CalendarScreen({
           scope={scope}
           free={freeOf(sheetDate)}
           action={action(sheetDate)}
-          footer={
-            <button
-              type="button"
-              data-slot="calendar-open-day"
-              className="pressable focus-visible:ring-ring border-control-border hover:bg-muted hidden min-h-8 items-center rounded-lg border px-3 text-sm font-medium outline-none focus-visible:ring-2 md:inline-flex"
-              onClick={() => openDay(sheetDate)}
-            >
-              Open day
-            </button>
-          }
+          footer={openDayButton(sheetDate)}
           onClose={() => setSheetDate(null)}
         />
       ) : null}

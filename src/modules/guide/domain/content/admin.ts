@@ -642,18 +642,18 @@ export const ADMIN_GUIDE: Guide = {
         },
         {
           id: "admin-day-sheet",
-          title: "The day sheet and a task from a day",
-          summary: "See who is free and add a task on that day.",
+          title: "A day and a task from it",
+          summary: "See who is away and add a task on that day.",
           blocks: [
             {
               kind: "text",
-              text: "A day sheet shows Who’s free, what is Due, and events.",
+              text: "A day shows what is Due, events, and who is away: “On leave” and “Busy all day”, each only when someone is, else “Everyone is available”. On a laptop the day you tap sits in a panel beside the month; on a phone it opens in a sheet.",
             },
             {
               kind: "steps",
               steps: [
                 "Tap a day on the calendar.",
-                "Check Who’s free.",
+                "Check who is away.",
                 { text: 'Tap "+ New task on ‹day›" (highlighted).', shot: "admin/calendar-day" },
                 "Fill the form and tap Create task.",
               ],

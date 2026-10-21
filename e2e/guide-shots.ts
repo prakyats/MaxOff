@@ -64,6 +64,8 @@ const main = (page: Page) => page.locator('[data-slot="route"]:visible');
 /** The open dialog or sheet on top (a sheet opened from a sheet is the last one). */
 const layer = (page: Page) =>
   page.locator('[role="dialog"]:visible, [role="alertdialog"]:visible').last();
+/** The laptop Month's selected-day panel (L7, V5a). */
+const dayPanel = (page: Page) => page.locator('[data-calendar="day-panel"]:visible');
 const slot = (page: Page, name: string) => page.locator(`[data-slot="${name}"]:visible`);
 const button = (page: Page, name: string | RegExp) =>
   page.getByRole("button", { name, exact: typeof name === "string" }).first();
@@ -321,10 +323,11 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
   {
     id: "admin/calendar-day",
     path: "/calendar?view=month",
-    // The first day with tasks due: the sheet opens on them, then who is away and the buttons.
+    // The first day with tasks due: the laptop's day panel (V5a) shows them, then who is away
+    // and the buttons.
     prepare: (page) => tap(page, /, \d+ due$/),
-    highlight: (page) => layer(page).getByRole("button", { name: /New task on/ }),
-    crop: layer,
+    highlight: (page) => dayPanel(page).getByRole("button", { name: /New task on/ }),
+    crop: dayPanel,
     alt: "A day opened from the calendar, its tasks due listed, with the New task on this day button highlighted.",
   },
   {

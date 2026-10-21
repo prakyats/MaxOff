@@ -703,7 +703,7 @@ export const CREW_GUIDE: Guide = {
                 "On a phone, swipe, or tap the handle, to change size.",
                 'The day you choose shows a timeline. The header has "Today" and "Filters".',
                 'On a laptop, choose "Day", "Week" or "Month". It opens on Month.',
-                'The day popup has "Open day".',
+                'On a laptop the day you tap sits beside the month, with "Open day".',
               ],
             },
             {
