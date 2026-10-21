@@ -963,10 +963,10 @@ export const OWNER_GUIDE: Guide = {
               shot: "owner/project-page",
             }),
             text(
-              'Beside the ring, "Needs you" names what to look at: a red dot for a late deliverable ("Reel 1 is 1 day late") and an amber dot for one that is nearly done ("Interview 2: 1 stage left", "Reel 3: ready to mark done").',
+              'Beside the ring, "Needs you" names what to look at: a red dot for a late deliverable ("Reel 1 is 1 day late") and an amber dot for one that is nearly done ("Interview 2: 1 stage left", "Reel 3: ready to mark done"). When nothing is late or nearly done, nothing is shown there.',
             ),
             text(
-              'Under it, "Deliverables" has one row per deliverable, closed by default: its name, one progress bar with "n/m" stages ticked, "Next: ‹stage›" (a long name ends in "…"; hover or press and hold to read it all) or "All stages ticked", and a planned date in words: "Planned 21 Oct", "Planned today", "Planned 18 Oct · 2 days late" or "Not planned". On a laptop each row is one line in columns; on a phone each deliverable is a card. Every part of the page uses the full width.',
+              'Under it, "Deliverables" is a table on a laptop, with the columns Deliverable, Progress by group, Next and Planned. Each row: the name over "3 groups · 1 of 9 stages"; one line per group with its bar and "n/m" (a long list without groups shows one bar); the next stage as a chip, or, once every stage is ticked, a green "Mark done"; the planned date ("21 Oct", "18 Oct · 2 days late" in red, or "Not planned"); then ⋯ and ›. On a phone each deliverable is a card with the same lines per group. Details below is a grid: Repeats, the delivery date, Notes and the project fields.',
             ),
             text(
               'Finished ones read "Done", "Closed" or "Carried" and sit in the collapsed "Done and closed (N)". An empty cycle says "No deliverables yet: add one or start from a template." with an Add deliverable button.',

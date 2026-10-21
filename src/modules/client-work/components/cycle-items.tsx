@@ -278,6 +278,7 @@ export function CycleItems({
                 deliverableColumns(mode.selectMode),
               )}
             >
+              <DeliverableHeader selecting={mode.selectMode} />
               {open.map(row)}
             </ul>
           ) : (
@@ -399,5 +400,27 @@ export function CycleItems({
         />
       ) : null}
     </section>
+  );
+}
+
+/**
+ * The laptop table's header row (owner 2026-10-21, the approved sample): Deliverable · Progress by
+ * group · Next · Planned, over the rows' columns (a subgrid). Hidden from assistive tech: each row
+ * already names its parts; a phone has cards and no header.
+ */
+function DeliverableHeader({ selecting }: { selecting: boolean }) {
+  return (
+    <li
+      aria-hidden
+      data-slot="deliverables-header"
+      className="bg-muted/40 text-muted-foreground hidden px-3 py-2 text-xs font-medium sm:px-4 lg:col-span-full lg:grid lg:grid-cols-subgrid"
+    >
+      {selecting ? <span /> : null}
+      <span>Deliverable</span>
+      <span>Progress by group</span>
+      <span>Next</span>
+      <span>Planned</span>
+      <span />
+    </li>
   );
 }

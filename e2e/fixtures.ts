@@ -41,7 +41,7 @@ function watchPrimaries() {
   const check = () => {
     const solids = [
       ...document.querySelectorAll(
-        '[data-variant="primary"], [data-variant="danger"], [data-variant="strong"]',
+        '[data-variant="primary"], [data-variant="danger"], [data-variant="approve"], [data-variant="strong"]',
       ),
     ].filter(visible);
     const byLayer = new Map<string, { primary: string[]; strong: string[] }>();

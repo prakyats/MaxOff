@@ -8,6 +8,8 @@ import {
   nextStep,
   readyToMarkDone,
   solidMarkDoneId,
+  groupsLine,
+  progressShape,
   suggestsGrouping,
   typesNumberedRounds,
   UNTITLED_GROUP_LABEL,
@@ -161,6 +163,28 @@ describe("the long-stage-list row (V3, fixes A, C, D, E)", () => {
       ),
     ).toBe(false);
     expect(suggestsGrouping(deliverable("done", twelve(12)))).toBe(false);
+  });
+
+  it("collapses to a line per group, the one bar only for a long ungrouped list (the approved sample)", () => {
+    expect(progressShape(deliverable("open", twelve(0)))).toBe("bar");
+    expect(progressShape(deliverable("open", twelve(0).slice(0, 8)))).toBe("groups");
+    expect(
+      progressShape(
+        deliverable(
+          "open",
+          twelve(0, (i) => (i < 6 ? "Pre" : "Post")),
+        ),
+      ),
+    ).toBe("groups");
+  });
+
+  it('says "3 groups · 1 of 9 stages" under the name', () => {
+    const grouped = deliverable(
+      "open",
+      twelve(1, (i) => (i < 3 ? "Pre-shoot" : i < 6 ? "Edit" : "Publish")).slice(0, 9),
+    );
+    expect(groupsLine(grouped)).toBe("3 groups · 1 of 9 stages");
+    expect(groupsLine(deliverable("open", []))).toBe("No stages");
   });
 
   it("shows the revision-round tip when two or more stages are typed as numbered rounds", () => {

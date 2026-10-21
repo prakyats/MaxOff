@@ -27,6 +27,10 @@ export const buttonVariants = cva(
           "bg-primary text-primary-foreground hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground",
         danger:
           "bg-destructive-solid text-destructive-solid-foreground hover:bg-destructive-solid/90 disabled:bg-muted disabled:text-muted-foreground",
+        // The Forest green approve commit (owner 2026-10-21): Mark done once every stage is
+        // ticked; V5 extends it to Approve / Approve all / Grant comp leave. One solid a layer.
+        approve:
+          "bg-approve text-approve-foreground hover:bg-approve/90 disabled:bg-muted disabled:text-muted-foreground",
         strong:
           "bg-strong text-strong-foreground hover:bg-strong/85 disabled:bg-muted disabled:text-muted-foreground",
         secondary:
