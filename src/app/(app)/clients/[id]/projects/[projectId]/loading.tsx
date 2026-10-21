@@ -8,8 +8,8 @@ import { PROJECT_ORIGINS } from "./back";
 /**
  * A project's page (7.3) traced: the title bar with its back control (to the client's Projects;
  * the client's name is not read yet, so its label is a bar), the Activity button and ⋯ (both
- * 44 px), the description line (client · repeat, desktop), the state line, the cycle pager (two
- * arrows around the cycle's name), the progress card (the ring, its line and pace; 6b.11), the
+ * 44 px), the description line (client · repeat, desktop), the state line, the month tabs (previous ·
+ * this · next, one segmented control), the progress card (the ring, its line and pace; 6b.11), the
  * Deliverables heading with Select and Add deliverable, the open deliverables in the list's
  * columns (V3: one line on a laptop, the title, one progress bar with "n/m", Next, the date and the
  * row's ⋯ and "›"; a card with its planned line, its 44 px Next line (unit U) and the bar under them
@@ -58,12 +58,19 @@ export default function Loading() {
             <Skeleton className="size-2 rounded-full" />
             <Skeleton className="h-3.5 w-20" />
           </div>
-          <div className="border-border bg-card flex min-h-11 items-center gap-1 rounded-lg border px-1">
-            <Skeleton className="m-2.5 size-6 rounded-md" />
-            <span className="flex flex-1 flex-col items-center py-1">
-              <Skeleton className="h-4 w-28" />
-            </span>
-            <Skeleton className="m-2.5 size-6 rounded-md" />
+          {/* The month tabs: previous · this · next, one segmented control (the v1.8 sample). */}
+          <div className="bg-muted rounded-control grid grid-cols-3 gap-1 p-1">
+            {["w-16", "w-24", "w-16"].map((width, cell) => (
+              <span
+                key={cell}
+                className={cn(
+                  "rounded-control flex min-h-11 items-center justify-center px-2",
+                  cell === 1 && "bg-background shadow-raised",
+                )}
+              >
+                <Skeleton className={cn("h-3.5 max-w-full", width)} />
+              </span>
+            ))}
           </div>
           {/* The cycle's progress: the ring with its figure, the line and the pace (6b.11 (5)). */}
           <div className="border-border bg-card flex flex-wrap items-center gap-x-6 gap-y-3 rounded-lg border px-3 py-3 sm:px-4">
@@ -167,13 +174,14 @@ export default function Loading() {
             <Skeleton className="h-4 w-36" />
           </span>
         </div>
-        {/* Details: its heading, then the field grid (Repeats, Notes; a cell a field). */}
+        {/* Details: its heading, then the field grid (Client contact, Repeats, Template, Notes; a
+            cell a field). */}
         <div className="flex flex-col gap-2">
           <span className="flex h-5 items-center">
             <Skeleton className="h-3.5 w-14" />
           </span>
           <div className="border-border bg-card grid grid-cols-[repeat(auto-fit,minmax(min(11rem,100%),1fr))] rounded-lg border">
-            {[0, 1].map((cell) => (
+            {[0, 1, 2, 3].map((cell) => (
               <span key={cell} className="flex flex-col gap-0.5 px-4 py-3">
                 <span className="flex h-4 items-center">
                   <Skeleton className="h-3 w-14" />

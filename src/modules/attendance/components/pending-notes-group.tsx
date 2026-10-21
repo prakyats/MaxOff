@@ -270,7 +270,7 @@ function DecideNoteDialog({
               Cancel
             </Button>
             <Button
-              variant="primary"
+              variant={decision === "no_comp_leave" ? "primary" : "approve"}
               type="submit"
               disabled={!decision}
               pending={pending}

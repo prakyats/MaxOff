@@ -31,7 +31,6 @@ export default async function Loading() {
     >
       <div className="max-md:contents md:flex md:min-w-0 md:flex-1 md:flex-col md:gap-4">
         <PageHeader
-          className="mb-0 md:mb-0"
           back={TASK_BACK}
           title={
             // The title's own line box: 24px on a phone, 32px from `md` up (`PageHeader`'s h1).
@@ -39,9 +38,14 @@ export default async function Loading() {
               <Skeleton className="h-5 w-48 max-w-full" />
             </span>
           }
+          // History (every viewer), then the ⋯ an Owner or Admin usually has.
           menu={
-            manages ? <Skeleton aria-hidden className="size-11 rounded-lg md:size-8" /> : undefined
+            <>
+              <Skeleton aria-hidden className="size-11 rounded-lg" />
+              {manages ? <Skeleton aria-hidden className="size-11 rounded-lg md:size-8" /> : null}
+            </>
           }
+          className="mb-0 flex-wrap md:mb-0"
         />
         <div aria-hidden data-slot="loading-task-glance" className="flex min-w-0 flex-col gap-2">
           <div className="flex h-5 min-w-0 flex-wrap items-center gap-2">

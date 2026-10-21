@@ -1,4 +1,4 @@
-import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import { ChevronRightIcon } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
@@ -21,6 +21,7 @@ import {
   extrasCycles,
   extrasQuestion,
   getProject,
+  getProjectTemplateName,
   itemListPeriods,
   itemView,
   lastChangeOf,
@@ -49,6 +50,7 @@ import { KeepExtrasPrompt } from "@/modules/client-work/components/keep-extras-p
 import { ProjectActivityButton } from "@/modules/client-work/components/project-activity";
 import { ProjectMenu } from "@/modules/client-work/components/project-menu";
 import { RecordReadReceipt } from "@/modules/notifications-center";
+import { listContacts } from "@/modules/clients";
 import { listStagePresets } from "@/modules/settings";
 
 import { assertClientId, loadClientWork, loadPeople } from "../../client";
@@ -93,7 +95,17 @@ export default async function ProjectPage({
   const askedItems = cycleParam && ID.test(cycleParam) ? listItems(cycleParam) : null;
   const unfinishedRead = listItemRows({ states: ["open", "done"], projectId });
   const fieldsRead = listDefinitions("project");
-  startEarly(...(askedItems ? [askedItems] : []), unfinishedRead, fieldsRead);
+  // Details' Client contact and Template cells (the v1.8 sample), keyed by the URL alone, so they
+  // join the first wave; RLS decides what the viewer reads (no money in either).
+  const contactsRead = listContacts(id);
+  const templateRead = getProjectTemplateName(projectId);
+  startEarly(
+    ...(askedItems ? [askedItems] : []),
+    unfinishedRead,
+    fieldsRead,
+    contactsRead,
+    templateRead,
+  );
   const [{ viewer, client }, [project, cycles, stages, blueprints, people, presetRows]] =
     await checkThenRead(
       loadClientWork(id),
@@ -142,14 +154,22 @@ export default async function ProjectPage({
       items.flatMap((item) => (item.originCycleId !== item.cycleId ? [item.originCycleId] : [])),
     ),
   ];
-  const [itemStages, reviews, origins, unfinished, projectFields, changes] = await Promise.all([
-    listItemStages(itemIds),
-    listReviews(itemIds),
-    listCyclesById(originIds),
-    unfinishedRead,
-    fieldsRead,
-    listLastChanges(itemIds),
-  ]);
+  const [itemStages, reviews, origins, unfinished, projectFields, changes, contacts, templateName] =
+    await Promise.all([
+      listItemStages(itemIds),
+      listReviews(itemIds),
+      listCyclesById(originIds),
+      unfinishedRead,
+      fieldsRead,
+      listLastChanges(itemIds),
+      contactsRead,
+      templateRead,
+    ]);
+  // The primary contact, else the first active one (the client's Contacts order).
+  const contact =
+    contacts.find((row) => row.isPrimary && row.archivedAt === null) ??
+    contacts.find((row) => row.archivedAt === null) ??
+    null;
 
   const permissions = {
     manage: canManage && working,
@@ -285,8 +305,12 @@ export default async function ProjectPage({
             </p>
           ) : null}
           {chosen ? (
-            <div
-              className="border-border bg-card flex min-h-11 items-center gap-1 rounded-lg border px-1"
+            // Months as tabs (the v1.8 sample, 08): the previous · this · the next cycle in one
+            // segmented control. A view control: each tab replaces the address (`?cycle=`),
+            // never adds history (§14.2).
+            <nav
+              aria-label="Cycles"
+              className="bg-muted rounded-control grid grid-cols-3 gap-1 p-1"
               data-slot="cycle-switcher"
             >
               {previous ? (
@@ -294,33 +318,39 @@ export default async function ProjectPage({
                   href={cycleHref(previous.id)}
                   scroll={false}
                   aria-label={`Previous: ${previous.label ?? "cycle"}`}
-                  className="flex size-11 items-center justify-center rounded-md"
-                  icon
+                  className={CYCLE_TAB}
+                  data-slot="cycle-tab"
                 >
-                  <ChevronLeftIcon className="size-5" aria-hidden />
+                  <span className="max-w-full truncate">
+                    {tabLabel(previous.label, chosen.label)}
+                  </span>
                 </ViewLink>
               ) : (
-                <span aria-hidden className="size-11 shrink-0" />
+                <span aria-hidden className={CYCLE_TAB} />
               )}
-              <div className="flex min-w-0 flex-1 flex-col items-center py-1 text-center">
-                <span className="text-sm font-medium break-words" data-slot="cycle-label">
+              <span
+                aria-current="page"
+                className={cn(CYCLE_TAB, "bg-background text-foreground shadow-raised")}
+                data-slot="cycle-tab"
+              >
+                <span className="max-w-full truncate" data-slot="cycle-label">
                   {chosen.label ?? "The project's deliverables"}
                 </span>
-              </div>
+              </span>
               {next ? (
                 <ViewLink
                   href={cycleHref(next.id)}
                   scroll={false}
                   aria-label={`Next: ${next.label ?? "cycle"}`}
-                  className="flex size-11 items-center justify-center rounded-md"
-                  icon
+                  className={CYCLE_TAB}
+                  data-slot="cycle-tab"
                 >
-                  <ChevronRightIcon className="size-5" aria-hidden />
+                  <span className="max-w-full truncate">{tabLabel(next.label, chosen.label)}</span>
                 </ViewLink>
               ) : (
-                <span aria-hidden className="size-11 shrink-0" />
+                <span aria-hidden className={CYCLE_TAB} />
               )}
-            </div>
+            </nav>
           ) : (
             <p className="text-muted-foreground border-border rounded-lg border border-dashed px-4 py-3 text-sm">
               No cycle yet. The current period&apos;s cycle starts once the client is Active.
@@ -385,6 +415,12 @@ export default async function ProjectPage({
               data-slot="project-details-grid"
               className="divide-border grid grid-cols-[repeat(auto-fit,minmax(min(11rem,100%),1fr))] divide-x"
             >
+              <div className="flex min-w-0 flex-col gap-0.5 px-4 py-3" data-slot="detail-contact">
+                <dt className="text-muted-foreground text-xs">Client contact</dt>
+                <dd className={cn("break-words", !contact && "text-muted-foreground")}>
+                  {contact ? contact.name : "Not added"}
+                </dd>
+              </div>
               <div className="flex min-w-0 flex-col gap-0.5 px-4 py-3">
                 <dt className="text-muted-foreground text-xs">Repeats</dt>
                 <dd>{RECURRENCE_LABELS[project.recurrence]}</dd>
@@ -393,6 +429,18 @@ export default async function ProjectPage({
                 <div className="flex min-w-0 flex-col gap-0.5 px-4 py-3">
                   <dt className="text-muted-foreground text-xs">Delivery date</dt>
                   <dd className="tabular-nums">{shortDate(project.deliveryDate)}</dd>
+                </div>
+              ) : null}
+              {/* A template the viewer may not read (RLS) leaves the cell out. */}
+              {templateName || !project.templateId ? (
+                <div
+                  className="flex min-w-0 flex-col gap-0.5 px-4 py-3"
+                  data-slot="detail-template"
+                >
+                  <dt className="text-muted-foreground text-xs">Template</dt>
+                  <dd className={cn("break-words", !templateName && "text-muted-foreground")}>
+                    {templateName ?? "None"}
+                  </dd>
                 </div>
               ) : null}
               <div className="flex min-w-0 flex-col gap-0.5 px-4 py-3">
@@ -419,4 +467,18 @@ export default async function ProjectPage({
       </div>
     </>
   );
+}
+
+/** A month tab: the segmented control's cell, 44 px, one line (§14.1). */
+const CYCLE_TAB =
+  "pressable text-muted-foreground focus-visible:ring-ring rounded-control flex min-h-11 min-w-0 items-center justify-center px-2 text-sm font-medium outline-none focus-visible:ring-2";
+
+/**
+ * A neighbouring tab's label: the cycle's own, without the year it shares with the chosen one
+ * ("September" beside "October 2026", as in the sample), so three tabs fit a 375 px phone.
+ */
+function tabLabel(label: string | null, chosenLabel: string | null): string {
+  if (!label) return "Cycle";
+  const year = /\s(\d{4})$/.exec(chosenLabel ?? "")?.[1];
+  return year && label.endsWith(` ${year}`) ? label.slice(0, -5) : label;
 }

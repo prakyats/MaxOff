@@ -53,7 +53,7 @@ export function useTaskView(): TaskViewState {
 }
 
 /**
- * The task page's view state (Kickoff 4 decisions 27, 28, 32). The views (Work, Chat, Activity,
+ * The task page's view state (Kickoff 4 decisions 27, 28, 32). The views (Work, Chat,
  * Details) are a **view control**: choosing one replaces the URL's `?tab=` (never a push, so one
  * back leaves the task whatever was chosen; ARCHITECTURE §14.2 d), and nothing ever switches it
  * but the viewer's tap: a refresh, an action's answer or a new comment leaves it where it is.
@@ -128,7 +128,6 @@ export function TaskViewProvider({
 const PANEL: Record<TaskView, string> = {
   work: "hidden data-[view=work]:flex max-md:data-[view=chat]:flex md:data-[view=details]:flex",
   chat: "hidden md:data-[view=chat]:flex",
-  activity: "hidden data-[view=activity]:flex",
   details: "max-md:hidden max-md:data-[view=details]:flex md:flex",
 };
 
@@ -162,15 +161,13 @@ export function TaskViewPanel({
 const ACTIVE: Record<TaskView, string> = {
   work: "data-[view=work]:bg-background data-[view=work]:text-foreground data-[view=work]:shadow-sm max-md:data-[view=chat]:bg-background max-md:data-[view=chat]:text-foreground max-md:data-[view=chat]:shadow-sm md:data-[view=details]:bg-background md:data-[view=details]:text-foreground md:data-[view=details]:shadow-sm",
   chat: "md:data-[view=chat]:bg-background md:data-[view=chat]:text-foreground md:data-[view=chat]:shadow-sm",
-  activity:
-    "data-[view=activity]:bg-background data-[view=activity]:text-foreground data-[view=activity]:shadow-sm",
   details:
     "data-[view=details]:bg-background data-[view=details]:text-foreground data-[view=details]:shadow-sm",
 };
 
 /**
- * The views' bar (decisions 27, 32): **Work · Chat · Activity · Details** on a phone, sticky under
- * the title bar, **Work · Chat · Activity** on a desktop (Details is the right panel). Each is a
+ * The views' bar (decisions 27, 32): **Work · Chat · Details** on a phone, sticky under
+ * the title bar, **Work · Chat** on a desktop (Details is the right panel). Each is a
  * 44px target; the bar scrolls sideways at large text instead of squeezing its labels (§14.2 i),
  * and nothing swipes between views (a sideways swipe is the phone's back gesture). Chat carries
  * the unread count ("Chat · 2 new"); on a phone it opens the sheet.
@@ -198,7 +195,6 @@ export function TaskTabs() {
   const tabs: { name: TaskView; label: string; className?: string }[] = [
     { name: "work", label: "Work" },
     { name: "chat", label: chatLabel(unread) },
-    { name: "activity", label: "Activity" },
     { name: "details", label: "Details", className: "md:hidden" },
   ];
 

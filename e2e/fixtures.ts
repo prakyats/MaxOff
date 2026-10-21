@@ -5,8 +5,9 @@ import { DocumentLoadWatcher, type DocumentLoadsPolicy } from "./document-loads"
 /**
  * The action colour rule's e2e half (docs/DESIGN.md §4, ADR-0015): **at most one visible solid
  * commit action per layer** (`[data-variant="primary"]`, the neutral commit, or
- * `[data-variant="danger"]`, the red commit of a destructive action), **and never beside a
- * neutral solid trigger** (`[data-variant="strong"]`): one solid button per layer (Kickoff 4
+ * `[data-variant="danger"]`, the red commit of a destructive action, or `[data-variant="approve"]`,
+ * the Forest green commit of a positive final decision), **and never beside a solid trigger**
+ * (`[data-variant="strong"]`, or an `approve` marked `data-opens`): one solid button per layer (Kickoff 4
  * decision 26: "no second solid button"). A layer is the screen, each dialog, each sheet and each
  * sticky action bar **while it floats** (`position: fixed`, a phone): from `md` up `StickyActions`
  * is the form's last row, part of the screen, not a layer (phase 4 review A-M1). Every spec imports
@@ -53,9 +54,11 @@ function watchPrimaries() {
           ).slice(0, 60)}`
         : `screen ${location.pathname}`;
       const entry = byLayer.get(name) ?? { primary: [], strong: [] };
-      entry[button.getAttribute("data-variant") === "strong" ? "strong" : "primary"].push(
-        label(button),
-      );
+      // A trigger (`strong`, or a Forest `approve` marked `data-opens`: Approve all, Mark done
+      // on a task) opens the layer where the commit happens (ADR-0015 amendment 2026-10-21).
+      const trigger =
+        button.getAttribute("data-variant") === "strong" || button.hasAttribute("data-opens");
+      entry[trigger ? "strong" : "primary"].push(label(button));
       byLayer.set(name, entry);
     }
     for (const [layer, { primary, strong }] of byLayer) {

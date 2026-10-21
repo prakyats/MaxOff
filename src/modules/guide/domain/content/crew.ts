@@ -441,7 +441,7 @@ export const CREW_GUIDE: Guide = {
               steps: [
                 'Open a task. The top shows its status, priority and due time, such as "Due today 6:00 pm · in 3 h", in red when overdue.',
                 "Read the sentence under it. It says what is needed from you.",
-                'Switch between "Work" (the brief, "Stages" and the hand-in), "Chat", "Activity" and "Details" (who is on it and about the task).',
+                'Switch between "Work" (the brief, "Stages" and the hand-in), "Chat" and "Details" (who is on it and about the task). The clock in the header opens the task\'s History.',
               ],
             },
             {
@@ -703,7 +703,7 @@ export const CREW_GUIDE: Guide = {
                 "On a phone, swipe, or tap the handle, to change size.",
                 'The day you choose shows a timeline. The header has "Today" and "Filters".',
                 'On a laptop, choose "Day", "Week" or "Month". It opens on Month.',
-                'The day popup has "Open day".',
+                'On a laptop the day you tap sits beside the month, with "Open day".',
               ],
             },
             {

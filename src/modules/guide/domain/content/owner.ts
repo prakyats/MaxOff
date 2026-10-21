@@ -464,7 +464,7 @@ export const OWNER_GUIDE: Guide = {
               shot: "owner/remind",
             }),
             next(
-              'Each of them gets a push and a note in the app, and the toast says "Reminder sent to ‹names›". The reminder is a notification, not a chat message: the task\'s Activity reads "sent ‹names› a reminder", and Chat stays as it was.',
+              'Each of them gets a push and a note in the app, and the toast says "Reminder sent to ‹names›". The reminder is a notification, not a chat message: the task\'s History (the clock in its header) reads "sent ‹names› a reminder", and Chat stays as it was.',
             ),
             note(
               'You can send one once an hour per task. While you wait, the button reads like "Reminded · again at 4:05 pm"; it is ready again when that time passes.',
@@ -558,7 +558,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "Approve in one tap, with a 6-second Undo.",
           blocks: [
             text(
-              'Each row has Review and Approve. Under the name it says what is waiting, the person\'s note for an attendance day, and how long it has waited ("Waiting 2 days": amber from a day, red from three), as on Today.',
+              'Each row has Review and Approve (quiet outlines; the group\'s one green button is "Approve all N"). Colours mean one thing everywhere: green approves or marks done, red ends or cancels something for good, and the plain solid button saves or creates. Under the name it says what is waiting, the person\'s note for an attendance day, and how long it has waited ("Waiting 2 days": amber from a day, red from three), as on Today.',
             ),
             steps(
               "Open Approvals.",
@@ -583,7 +583,7 @@ export const OWNER_GUIDE: Guide = {
             steps(
               "Open Approvals and find a group with more than one row.",
               {
-                text: 'Tap "Approve all N" (highlighted).',
+                text: 'Tap the green "Approve all N".',
                 shot: "owner/approve-all",
               },
               "Confirm when asked.",
@@ -624,7 +624,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "See who is away and what is due, then add a task.",
           blocks: [
             text(
-              'The day sheet shows what is due, events and deliverables, and who is away: "On leave" and "Busy all day", each only when someone is. When nobody is, it says "Everyone is available".',
+              'The day sheet shows what is due, events and deliverables, and who is away: "On leave" and "Busy all day", each only when someone is. When nobody is, it says "Everyone is available". On a laptop the day you tap sits in a panel beside the month; on a phone it opens in a sheet.',
             ),
             steps(
               "Open Calendar and tap a day.",
@@ -813,10 +813,10 @@ export const OWNER_GUIDE: Guide = {
         {
           id: "owner-client-page",
           title: "Read a client's page and your private notes",
-          summary: "Overview, Projects, Brand and Activity.",
+          summary: "Overview, Projects and Brand, with History in the header.",
           blocks: [
             text(
-              'A client page has the tabs Overview, Projects, Brand and Activity. Overview opens with the client\'s active projects and their progress, then the Admin, the primary contact, details, and "Requirements and notes". Details lists only what is filled in; the empty ones fold into "Add details", which opens Edit. Activity is the client\'s history, newest first.',
+              'A client page has the tabs Overview, Projects and Brand; the clock in its header opens its History. Overview opens with the client\'s active projects and their progress, then the Admin, the primary contact, details, and "Requirements and notes". Details lists only what is filled in; the empty ones fold into "Add details", which opens Edit. Activity is the client\'s history, newest first.',
             ),
             text(
               '"Owner\'s notes" is yours alone. It says "Only you see these", and Admins never see it. You are also the only one who sees the reason a client was closed.',
@@ -956,7 +956,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "Cycles, the progress ring, Needs you and the deliverable rows.",
           blocks: [
             text(
-              'The header shows the name, repeat and delivery date, with an Activity button and a ⋯ menu. Use the arrows to move between cycles. A one-time project shows "The project\'s deliverables".',
+              'The header shows the name, repeat and delivery date, with a History button (the clock) and a ⋯ menu. The months sit as tabs under it (the previous, this and the next cycle, such as September · October 2026 · November): tap one to switch. A one-time project shows "The project\'s deliverables".',
             ),
             steps({
               text: 'Open the project and read the ring (highlighted). It shows a percentage, with a line such as "12 of 18 stages · 3 of 7 deliverables done". Pace reads "On track", or "N behind plan" in red. At 100% it says the cycle is complete.',
@@ -966,7 +966,7 @@ export const OWNER_GUIDE: Guide = {
               'Beside the ring, "Needs you" names what to look at: a red dot for a late deliverable ("Reel 1 is 1 day late") and an amber dot for one that is nearly done ("Interview 2: 1 stage left", "Reel 3: ready to mark done"). When nothing is late or nearly done, nothing is shown there.',
             ),
             text(
-              'Under it, "Deliverables" is a table on a laptop, with the columns Deliverable, Progress by group, Next and Planned. Each row: the name over "3 groups · 1 of 9 stages"; one line per group with its bar and "n/m" (a long list without groups shows one bar); the next stage as a chip, or, once every stage is ticked, a green "Mark done"; the planned date ("21 Oct", "18 Oct · 2 days late" in red, or "Not planned"); then ⋯ and ›. On a phone each deliverable is a card with the same lines per group. Details below is a grid: Repeats, the delivery date, Notes and the project fields.',
+              'Under it, "Deliverables" is a table on a laptop, with the columns Deliverable, Progress by group, Next and Planned. Each row: the name over "3 groups · 1 of 9 stages"; one line per group with its bar and "n/m" (a long list without groups shows one bar); the next stage as a chip, or, once every stage is ticked, a green "Mark done"; the planned date ("21 Oct", "18 Oct · 2 days late" in red, or "Not planned"); then ⋯ and ›. On a phone each deliverable is a card with the same lines per group. Details below is a grid: Client contact (the client’s primary contact), Repeats, the delivery date, Template (the template it started from, or None), Notes and the project fields.',
             ),
             text(
               'Finished ones read "Done", "Closed" or "Carried" and sit in the collapsed "Done and closed (N)". An empty cycle says "No deliverables yet: add one or start from a template." with an Add deliverable button.',
@@ -1056,7 +1056,7 @@ export const OWNER_GUIDE: Guide = {
               'Read the toast, such as "Added Revision 3".',
             ),
             next(
-              'The new stage follows the deliverable\'s own revision stages ("Revision 2" is followed by "Revision 3") in their group; one with none gets "Revision round 1". It goes right after the last revision stage, or right after "Edit" when there is none, so it comes before "Posted". Ticks already made stay.',
+              'The new stage follows the deliverable\'s own revision stages ("Revision 2" is followed by "Revision 3") in their group; one with none gets "Revision round 1". It goes right after the last revision stage, or right after "Edit" when there is none, so it comes before "Posted". With neither, it goes just before "Posted", "Published" or "Delivered", or at the end when there is none of those. Ticks already made stay.',
             ),
             note(
               "It works on open deliverables only. To add it to a done one, send it back first.",
@@ -1097,7 +1097,7 @@ export const OWNER_GUIDE: Guide = {
               "There is no separate approval step for client work: marking it done is the approval.",
             ),
             text(
-              "Mark done comes onto a row once every stage is ticked; the first such row's button is solid. Until then it waits in the row's ⋯, beside Open. A deliverable with no stages always shows it.",
+              "Mark done comes onto a row once every stage is ticked; the first such row's button is solid green. Until then it waits in the row's ⋯, beside Open. A deliverable with no stages always shows it.",
             ),
             steps(
               'Open the project and tap "Mark done" on the row (or in its ⋯), or in the sheet.',
@@ -1199,11 +1199,11 @@ export const OWNER_GUIDE: Guide = {
         },
         {
           id: "owner-project-activity",
-          title: "Read a project's Activity",
+          title: "Read a project's History",
           summary: "Every change to the project, newest first.",
           blocks: [
             steps(
-              "Open the project and tap Activity in the header.",
+              "Open the project and tap the clock (History) in the header.",
               "Filter by All, Deliverables, Stages or Project.",
               'Tap "Show older" to see more.',
             ),

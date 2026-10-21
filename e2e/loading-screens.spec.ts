@@ -426,20 +426,8 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
     // The Owner's "needed" line names the Staff member and may take two lines on a phone.
     trace: TASK_GLANCE,
   },
-  {
-    role: "staff",
-    path: "/tasks/:task?tab=activity",
-    marker: 'aria-label="Loading the task"',
-    hold: "/rest/v1/activity_log",
-    fixture: "task page",
-    trace: {
-      ...TASK_VIEWS,
-      "first change": {
-        held: '[data-slot="loading-task-activity"] > div > :first-child',
-        settled: '[data-slot="task-history-row"]',
-      },
-    },
-  },
+  // No ?tab=activity entry since V5a: the task's history is the header's History sheet, opened
+  // by a tap after the page has arrived (an old ?tab=activity lands on Work, traced above).
   {
     role: "staff",
     path: "/tasks/:task?tab=details",

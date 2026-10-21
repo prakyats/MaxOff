@@ -17,7 +17,6 @@ import {
   ArrowUpIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  EllipsisIcon,
   SearchIcon,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
@@ -32,6 +31,7 @@ import {
 } from "@/core/ui/primitives/sheet";
 
 import { cn } from "@/core/lib/utils";
+import { ICONS } from "@/core/ui/icons";
 import { keyIntent } from "@/core/ui/keyboard/keys";
 import { finePointer } from "@/core/ui/keyboard/pointer";
 import { replaceViewAddress } from "@/core/ui/navigation/view-address";
@@ -613,7 +613,7 @@ function MobileCards<TData>({
                     data-slot="data-card-more"
                     className="pressable focus-visible:ring-ring text-muted-foreground flex w-12 shrink-0 items-center justify-center outline-none focus-visible:ring-2 focus-visible:ring-inset"
                   >
-                    <EllipsisIcon className="size-5" aria-hidden />
+                    <ICONS.more className="size-5" aria-hidden />
                   </button>
                 ) : null}
               </li>

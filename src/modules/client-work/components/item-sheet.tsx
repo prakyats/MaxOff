@@ -285,7 +285,7 @@ export function ItemSheet({
       ) : null}
       {permissions.tick && current.rules.markDone ? (
         <Button
-          variant="primary"
+          variant="approve"
           pending={busy === "done"}
           pendingLabel="Marking done…"
           data-slot="item-mark-done"

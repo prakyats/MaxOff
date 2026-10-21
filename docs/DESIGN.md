@@ -90,18 +90,46 @@ dark, a higher step is a lighter graphite, because shadows barely read on black.
   palette colours (`bg-red-500`, `text-white`), no `bg-[#…]` (lint). A new colour is a token here
   first.
 
-### The action colour rule (option A)
+### The action colour rule (option A, with the approved colour plan of 2026-10-21)
+**The colour plan (owner-approved 2026-10-21, "colour plan approved with forest"; ADR-0015
+amendment):** four looks for buttons, five tones for status chips, one meaning each.
+
+| Variant | Colour | Use |
+|---|---|---|
+| `danger` (solid) | red `#C42126`, white text | final / irreversible: Close deliverable, Cancel project / task, Reject (leave, attendance, expense, suggestion), Revoke comp leave, Cancel approved leave, Deactivate, Withdraw invite, Remove device, Discard changes, Delete |
+| `approve` (solid) | **Forest green `#15803D`**, white text, the same in both themes (5.0:1) | positive final decisions: Approve, Approve all, Mark done, Grant comp leave |
+| `primary` (solid) | neutral (ink on light, light on dark) | everyday commits: Save, Create, Send, Start day |
+| `secondary` (outline) | quiet | second choices: Review, Edit, Correct, Request changes, Send back, Keep it / a dialog's dismiss |
+
+| Chip tone | Statuses |
+|---|---|
+| red | Overdue / Late, Cancelled, Rejected, Absent |
+| amber | Proposed, Waiting for you, Due soon, Nearly done |
+| blue | In progress, Open, Planned, Noted |
+| green | Done, Approved, Present, Active |
+| grey | Draft, Archived, Withdrawn, Replaced, Not started |
+
+Chips are a soft background with strong text, per theme (the tokens above). `STATUS_TONES`
+holds the map; `status-badge.test.ts` checks the table and the contrast in both themes, and
+`final-actions.test.ts` checks every confirmation's commit by its label (final → `danger`,
+Approve / Mark done / Grant → `approve`, a red "Cancel …" never dismissed by a bare "Cancel").
+
 | Variant | Look | Used for |
 |---|---|---|
-| `primary` | **neutral solid** (`primary`: `#18181B` with `#FAFAF9` text; inverted in dark) | **the one commit action per layer**: Save, Send, Create, Approve, Mark done. Disabled is muted, never faded |
+| `primary` | **neutral solid** (`primary`: `#18181B` with `#FAFAF9` text; inverted in dark) | **the everyday commit**: Save, Send, Create, Start day. Disabled is muted, never faded |
+| `approve` | **Forest green solid** (`approve`: `#15803D` with white text, both themes) | **a positive final decision**: Approve, Approve all, Mark done, Grant comp leave. `ConfirmDialog` / `ReasonDialog` take `approve`; a trigger that only opens the commit's layer (Approve all, a task's Mark done, the bulk bar's Mark N done, Grant comp leave) passes `opens` |
 | `danger` | **solid red** (`destructive-solid`: `#C42126` with white text, both themes) | **the commit of a destructive action**, named for it: "Discard changes", "Remove Diwali", "Withdraw request", "Reject claim", "Deactivate Ravi". Only inside its confirmation |
 | `destructive` | red outline and red text | a destructive action **before** its confirmation (Deactivate, Cancel leave, Withdraw, Reject…, Close, Cancel task) |
-| `secondary` | neutral outline (`control-border`, ≥ 3:1) | Cancel, Keep editing, Review, Edit, Correct, the pager |
+| `secondary` | neutral outline (`control-border`, ≥ 3:1) | second choices: Keep it, Keep editing, Review, Edit, Correct, Request changes, Send back, the pager |
 | `ghost` | no fill | icon and utility buttons |
-| `strong` | neutral solid | a trigger that opens a form or a confirmation where the commit happens (a FAB, Approvals' Approve and Approve all) |
+| `strong` | neutral solid | a trigger that opens a form or a confirmation where the commit happens (a FAB, New task, Add person) |
 
 - **One solid button per layer.** A layer is the screen, each dialog, each sheet and each floating
-  sticky bar. At most one `primary` or `danger` per layer, and never beside a `strong`.
+  sticky bar. At most one `primary`, `approve` or `danger` commit per layer, and never beside a
+  solid trigger (`strong`, or an `approve` marked `opens`). Approvals: each group's "Approve all"
+  is the green trigger, its rows' Approve quiet outlines.
+- **Dismiss buttons say what they keep** ("Keep it", "Keep project", "Keep task"), never a bare
+  "Cancel" beside a red "Cancel …".
 - **The Add pattern for Settings lists (C4, decided in V2).** Every list on a Settings screen
   (Job titles, Expenses' categories, Holidays, Task types, Stage presets, Custom fields' groups,
   the three template groups) adds the same way: **"Add ‹thing›"**, a `secondary` outline button
@@ -259,6 +287,20 @@ No `rounded-xs`, `rounded-2xl` and above, no `rounded-[…]` (lint).
   **Alerts** and the profile is **Me** everywhere (the account menu says Me, then Help); a
   destructive question's way out names what is kept ("Keep project" beside "Cancel project"); a
   line is written for the person reading it (no "the Owner changes this" to the Owner).
+
+## 6a. Patterns: one per concept (the consistency sweep, owner 2026-10-21, V5a)
+The advisor's rules (the owner may adjust them on the walk). Each concept has **one** pattern;
+the table lists every screen using it and what V5a changed (before → after).
+
+| Concept | The one pattern | Screens | V5a: before → after |
+|---|---|---|---|
+| **History** | the clock icon labelled "History" (`HistoryButton`, `core/ui/composites/history-button.tsx`), 44 px, in the detail header just before ⋯; it opens the record's History in the same sheet (`HistorySheet` / `ReviewSheet`: bottom sheet on a phone, side panel from `md`), a layer back closes | project, deliverable sheet ("History" in its facts), task, client | project: aria-label "Activity" → "History", panel title "Activity" → "History"; task: the **Activity view** (Work · Chat · Activity · Details) → the header's History sheet (Work · Chat · Details), an old `?tab=activity` lands on Work with the sheet open; client: the **Activity tab** (Overview · Projects · Brand · Activity) → the header's History sheet (three tabs), the old `/clients/[id]/activity` redirects to `?history=1` (the sheet drops it by replace). Person: no per-person history is read today (none added; a new read is a later unit's) |
+| **Detail header** | back · title · (status) · right side: History, then ⋯, then the bell | project, task, client | task and client gain History before ⋯; the bell wraps under them at 200 % (`flex-wrap`), as the project's did. Status placement (the project's and the task's state sit on the first-glance line under the header, the client's in the header's description) is unchanged: V5b's polish list decides |
+| **Icons** | `ICONS` (`core/ui/icons.ts`): History = clock (`HistoryIcon`), Edit = pencil, Archive = box (`ArchiveIcon`), Remind = bell, Approve = check, Add = plus, More = ⋯ (`MoreHorizontalIcon`), Open = › | every screen | the card list's ⋯ (`data-table.tsx`) `EllipsisIcon` → `ICONS.more`; a task's Remind `BellRingIcon` → `ICONS.remind`; the History empty states and panel take `ICONS.history`. Guard: `icons.test.ts` (no synonym for More or Edit; History's clock and Remind's bell only from the map) |
+| **Tabs / view controls** | one segmented control: a muted track (`bg-muted`, `p-1`, `gap-1`), 44 px cells, the chosen one raised (`bg-background` + shadow); `ViewLink` / `replace`, never history (§14.2 d) | client, person, leave, task views, calendar views, the Templates phone segments, **the project's months** | the project's cycle pager (two arrows round the name) → **month tabs** (previous · this · next, the sample's 08) |
+| **List pages** | title + one-line purpose; the main "+ New …" top-right on a laptop, floating on a phone; filters in one row; headings "Name · n" | Tasks, Clients, People, Approvals | unchanged (already so) |
+| **Rows** | the row opens on tap (›), secondary actions in ⋯; one row height per kind (`row-metrics.ts`) | lists, Settings rows | unchanged |
+| **States and words** | chips only via `status-tones`, dates and times only via `core/time`, one `EmptyState`, "You", "deliverables", "Alerts", "Me" | every screen | the client History's empty state uses `EmptyState` with the map's clock |
 
 ## 7. Motion: calm
 | Token | Value | Used for |

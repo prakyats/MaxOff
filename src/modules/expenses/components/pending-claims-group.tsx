@@ -99,7 +99,7 @@ export function PendingClaimsGroup({
                 Reject…
               </Button>
               <Button
-                variant="primary"
+                variant="approve"
                 pending={approving}
                 pendingLabel="Approving…"
                 onClick={() => approve.run(review.id)}

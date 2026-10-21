@@ -1,20 +1,26 @@
 import { cva, type VariantProps } from "class-variance-authority";
 
 /**
- * The action colour rule (ADR-0015, docs/DESIGN.md §4): red is urgent or destructive only. Six
- * variants, no others:
+ * The action colour rule (ADR-0015 and its 2026-10-21 amendment, the owner-approved colour plan;
+ * docs/DESIGN.md §4): red is final or destructive, Forest green is a positive final decision.
+ * Seven variants, no others:
  *
- * - `primary`: neutral solid, **the one action that commits a change** (Save, Send, Create,
- *   Approve, Mark done). At most one visible per layer: screen, dialog, sheet or floating sticky
- *   bar (checked by the e2e fixture). Disabled is muted, not faded.
+ * - `primary`: neutral solid, **the everyday commit** (Save, Create, Send, Start day). At most one
+ *   solid commit visible per layer: screen, dialog, sheet or floating sticky bar (checked by the
+ *   e2e fixture). Disabled is muted, not faded.
+ * - `approve`: Forest green solid (`#15803D`, white text, both themes), **a positive final
+ *   decision**: Approve, Approve all, Mark done, Grant comp leave. It counts as the layer's one
+ *   solid; a trigger that only opens the commit's layer (Approve all, a task's Mark done) passes
+ *   `opens`.
  * - `danger`: solid red, **the commit of a destructive action**, named for it ("Discard changes",
  *   "Remove Diwali", "Reject claim"), inside its confirmation only. It counts as the layer's one
  *   commit. `ConfirmDialog` / `ReasonDialog` choose it when told the act is `destructive`.
  * - `destructive`: red outline and red text, a destructive action **before** its confirmation.
- * - `secondary`: neutral outline (`--control-border`, ≥ 3:1): Cancel, Keep editing, Review, Edit.
+ * - `secondary`: neutral outline (`--control-border`, ≥ 3:1), second choices: Review, Edit,
+ *   Correct, Request changes, Send back, Keep it.
  * - `ghost`: icon and utility buttons.
  * - `strong`: neutral solid (black in light, white in dark): a trigger that opens a form or a
- *   confirmation where the commit happens (a FAB, the Approvals row Approve and Approve all).
+ *   confirmation where the commit happens (a FAB, New task, Add person).
  *
  * Colour classes on buttons outside `core/ui/primitives` are a lint error.
  */
@@ -27,8 +33,8 @@ export const buttonVariants = cva(
           "bg-primary text-primary-foreground hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground",
         danger:
           "bg-destructive-solid text-destructive-solid-foreground hover:bg-destructive-solid/90 disabled:bg-muted disabled:text-muted-foreground",
-        // The Forest green approve commit (owner 2026-10-21): Mark done once every stage is
-        // ticked; V5 extends it to Approve / Approve all / Grant comp leave. One solid a layer.
+        // The Forest green approve commit (colour plan, owner 2026-10-21): Approve, Approve all,
+        // Mark done, Grant comp leave. One solid a layer.
         approve:
           "bg-approve text-approve-foreground hover:bg-approve/90 disabled:bg-muted disabled:text-muted-foreground",
         strong:

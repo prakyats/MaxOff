@@ -17,6 +17,8 @@ const root = fileURLToPath(new URL("../../../../", import.meta.url));
 const FINAL =
   /[`"](Cancel (project|task|leave)|Close deliverable|Reject|Revoke|Deactivate|Withdraw|Remove|Discard|Delete)\b/;
 const ARCHIVE = /[`"]Archive\b/;
+/** Positive final decisions: the Forest green `approve` (colour plan, owner 2026-10-21). */
+const POSITIVE = /[`"](Approve|Mark (\$\{[^}]*\} )?done|Grant)\b/;
 
 function sources(dir: string): string[] {
   const found: string[] = [];
@@ -46,7 +48,13 @@ function openingTag(text: string, start: number): string {
   return text.slice(start);
 }
 
-type Site = { where: string; label: string; destructive: boolean };
+type Site = {
+  where: string;
+  label: string;
+  destructive: boolean;
+  approve: boolean;
+  cancelLabel: string | null;
+};
 
 function sites(): Site[] {
   const out: Site[] = [];
@@ -59,6 +67,8 @@ function sites(): Site[] {
         where: `${path.relative(root, file)}:${text.slice(0, match.index).split("\n").length}`,
         label,
         destructive: /\sdestructive(\s|=|\/?>)/.test(tag),
+        approve: /\sapprove(\s|=|\/?>)/.test(tag),
+        cancelLabel: /cancelLabel=(\{[^\n]*|"[^"]*")/.exec(tag)?.[1] ?? null,
       });
     }
   }
@@ -75,6 +85,26 @@ describe("final actions are red (owner 2026-10-21)", () => {
   it("gives every final commit (Cancel, Close, Reject, Revoke, Withdraw, Remove, Discard, Delete) the red danger", () => {
     const neutral = all.filter((site) => FINAL.test(site.label) && !site.destructive);
     expect(neutral.map((site) => `${site.where} ${site.label}`)).toEqual([]);
+  });
+
+  it("gives every positive final decision (Approve, Mark done, Grant) the Forest green approve", () => {
+    const plain = all.filter((site) => POSITIVE.test(site.label) && !site.approve);
+    expect(plain.map((site) => `${site.where} ${site.label}`)).toEqual([]);
+  });
+
+  it("never puts approve on a destructive commit", () => {
+    const both = all.filter((site) => site.approve && site.destructive);
+    expect(both.map((site) => `${site.where} ${site.label}`)).toEqual([]);
+  });
+
+  it("never dismisses a red Cancel … with a bare Cancel: the dismiss says what it keeps", () => {
+    const bare = all.filter(
+      (site) =>
+        site.destructive &&
+        /[`"]Cancel\b/.test(site.label) &&
+        (site.cancelLabel === null || /^"Cancel"$/.test(site.cancelLabel)),
+    );
+    expect(bare.map((site) => `${site.where} ${site.label}`)).toEqual([]);
   });
 
   it("keeps Archive neutral (archive never red)", () => {

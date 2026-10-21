@@ -1070,6 +1070,15 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
     await page.getByRole("link", { name: "Previous: Last month" }).click();
     await expect(page).toHaveURL(new RegExp(`/projects/${projectId}\\?cycle=${previous}$`));
     await expect(page.locator('[data-slot="cycle-label"]')).toHaveText("Last month");
+    // Months as tabs (V5a, the v1.8 sample): three cells (the first cycle has no previous tab,
+    // its cell kept empty), the shown one current; Details names the client contact and the
+    // template (this fixture has neither).
+    await expect(page.locator('[data-slot="cycle-switcher"] > *')).toHaveCount(3);
+    await expect(page.locator('[data-slot="cycle-switcher"] [aria-current="page"]')).toHaveText(
+      "Last month",
+    );
+    await expect(page.locator('[data-slot="detail-contact"] dd')).toHaveText("Not added");
+    await expect(page.locator('[data-slot="detail-template"] dd')).toHaveText("None");
     await page.getByRole("link", { name: `Next: ${current!.label}` }).click();
     await expect(page).toHaveURL(new RegExp(`/projects/${projectId}\\?cycle=${current!.id}$`));
     await expect(page.locator('[data-slot="cycle-label"]')).toHaveText(current!.label);
@@ -1515,7 +1524,7 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
     const here = new RegExp(`/projects/${projectId}$`);
     await page.goto(`/clients/${clientId}/projects/${projectId}`);
     await hydrated(page);
-    await page.getByRole("button", { name: "Activity" }).click();
+    await page.getByRole("button", { name: "History" }).click();
     const panel = page.locator('[data-slot="review-sheet"]', {
       has: page.locator('[data-slot="activity-panel"]'),
     });
@@ -1708,7 +1717,7 @@ test.describe("marking done on the project page, as the Owner (amendment D3; the
     }
     await page.goto(`/clients/${clientId}/projects/${projectId}`);
     await hydrated(page);
-    await page.getByRole("button", { name: "Activity" }).click();
+    await page.getByRole("button", { name: "History" }).click();
     const panel = page.locator('[data-slot="activity-panel"]');
     const lines = panel.locator('[data-slot="activity-line"]');
     await expect(lines).toHaveCount(20);

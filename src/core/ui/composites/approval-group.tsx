@@ -258,9 +258,10 @@ export function ApprovalGroup<T>({
         </h2>
         {count > 1 && approve && approveAll ? (
           <Button
-            variant="strong"
+            variant="approve"
             size="sm"
             commits
+            opens
             className={CARD_ROW_TRAILING}
             onClick={() => setConfirmAll(true)}
           >
@@ -344,6 +345,7 @@ export function ApprovalGroup<T>({
         title={`Approve all ${count} ${count === 1 ? noun.one : noun.other}?`}
         description="Each is approved as it was sent. There is no undo for approving all at once."
         confirmLabel={`Approve ${count}`}
+        approve
         onConfirm={approveEveryone}
       />
     </section>

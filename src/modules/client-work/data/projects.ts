@@ -268,6 +268,23 @@ export async function getProject(projectId: string): Promise<Project | null> {
   return data ? toProject(data) : null;
 }
 
+/**
+ * The name of the template a project was started from (its Details' Template cell, the v1.8
+ * sample): null when it was started blank, or when RLS hides the template from the viewer
+ * (`project_templates` is read with `templates.manage`). Keyed by the project alone, so the page
+ * reads it in its first wave. Never money.
+ */
+export async function getProjectTemplateName(projectId: string): Promise<string | null> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase
+    .from("projects")
+    .select("template:project_templates(name)")
+    .eq("id", projectId)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.template?.name ?? null;
+}
+
 export async function listStages(projectId: string): Promise<Stage[]> {
   return listStagesOf([projectId]);
 }

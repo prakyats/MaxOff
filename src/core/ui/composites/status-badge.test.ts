@@ -90,12 +90,35 @@ describe("STATUS_TONES", () => {
     }
   });
 
-  it("keeps info (blue) for work in motion only", () => {
+  it("follows the approved colour plan's chip table (owner 2026-10-21)", () => {
+    // red: Overdue/Late, Cancelled, Rejected, Absent
+    for (const s of ["cancelled", "rejected", "absent", "declined", "urgent"]) {
+      expect(statusTone(s), s).toBe("danger");
+    }
+    // amber: Proposed, Waiting for you, Due soon, Nearly done
+    for (const s of ["pending_review", "awaiting_choice", "admin_approved", "pending"]) {
+      expect(statusTone(s), s).toBe("attention");
+    }
+    // blue: In progress, Open, Planned, Noted
+    for (const s of ["in_progress", "open", "submitted"]) {
+      expect(statusTone(s), s).toBe("info");
+    }
+    // green: Done, Approved, Present, Active
+    for (const s of ["done", "completed", "approved", "present", "active"]) {
+      expect(statusTone(s), s).toBe("success");
+    }
+    // grey: Draft, Archived, Withdrawn, Replaced, Not started
+    for (const s of ["draft", "withdrawn", "superseded", "todo", "inactive"]) {
+      expect(statusTone(s), s).toBe("neutral");
+    }
+  });
+
+  it("keeps info (blue) for work in motion or open for work only", () => {
     const info = Object.entries(STATUS_TONES)
       .filter(([, tone]) => tone === "info")
       .map(([status]) => status)
       .sort();
-    expect(info).toEqual(["converted", "in_progress", "submitted"]);
+    expect(info).toEqual(["converted", "in_progress", "open", "submitted"]);
     for (const s of ["invited", "leave", "half_day", "comp_leave", "carry_forward", "corrected"]) {
       expect(statusTone(s), s).toBe("neutral");
     }
@@ -205,6 +228,22 @@ describe("badge contrast (globals.css)", () => {
         expect(contrast(tokens["holiday"] as string, bg)).toBeGreaterThanOrEqual(4.5);
         expect(contrast(tokens["muted-foreground"] as string, bg)).toBeGreaterThanOrEqual(4.5);
       }
+    });
+
+    it(`${theme}: the Forest green approve commit is the same in both themes and reads (ADR-0015 amendment)`, () => {
+      expect(tokens["approve"]).toBe("#15803d");
+      expect(tokens["approve-foreground"]).toBe("#ffffff");
+      const text = contrast(tokens["approve-foreground"] as string, tokens["approve"] as string);
+      expect(text, `white on approve = ${text.toFixed(2)}`).toBeGreaterThanOrEqual(4.5);
+      // The button's edge against the page and the card it sits on (WCAG 1.4.11, 3:1).
+      for (const surface of ["background", "card"]) {
+        const edge = contrast(tokens["approve"] as string, tokens[surface] as string);
+        expect(edge, `${theme} approve on ${surface} = ${edge.toFixed(2)}`).toBeGreaterThanOrEqual(
+          3,
+        );
+      }
+      expect(tokens["approve"]).not.toBe(tokens["danger"]);
+      expect(tokens["approve"]).not.toBe(tokens["primary"]);
     });
 
     it(`${theme}: the commit is neutral and only the destructive commit is red (ADR-0015)`, () => {

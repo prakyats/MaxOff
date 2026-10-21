@@ -505,7 +505,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "example",
-              text: "After you send a reminder the toast says “Reminder sent to Sam and Ria” and the button reads “Reminded · again at 4:05 pm”. You can send the next one then. The reminder is a notification, not a chat message: Activity reads “sent Sam and Ria a reminder”.",
+              text: "After you send a reminder the toast says “Reminder sent to Sam and Ria” and the button reads “Reminded · again at 4:05 pm”. You can send the next one then. The reminder is a notification, not a chat message: the task’s History (the clock in its header) reads “sent Sam and Ria a reminder”.",
             },
             {
               kind: "next",
@@ -642,18 +642,18 @@ export const ADMIN_GUIDE: Guide = {
         },
         {
           id: "admin-day-sheet",
-          title: "The day sheet and a task from a day",
-          summary: "See who is free and add a task on that day.",
+          title: "A day and a task from it",
+          summary: "See who is away and add a task on that day.",
           blocks: [
             {
               kind: "text",
-              text: "A day sheet shows Who’s free, what is Due, and events.",
+              text: "A day shows what is Due, events, and who is away: “On leave” and “Busy all day”, each only when someone is, else “Everyone is available”. On a laptop the day you tap sits in a panel beside the month; on a phone it opens in a sheet.",
             },
             {
               kind: "steps",
               steps: [
                 "Tap a day on the calendar.",
-                "Check Who’s free.",
+                "Check who is away.",
                 { text: 'Tap "+ New task on ‹day›" (highlighted).', shot: "admin/calendar-day" },
                 "Fill the form and tap Create task.",
               ],
@@ -792,7 +792,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "A client page has four tabs: Overview, Projects, Brand and Activity. Overview opens with the client’s active projects and their progress, then the Admin, the primary contact, the contacts, Details and Requirements and notes. Details lists only what is filled in; the empty ones fold into “Add details”, which opens Edit. Activity is the client’s history, newest first.",
+              text: "A client page has three tabs: Overview, Projects and Brand; the clock in its header opens its History. Overview opens with the client’s active projects and their progress, then the Admin, the primary contact, the contacts, Details and Requirements and notes. Details lists only what is filled in; the empty ones fold into “Add details”, which opens Edit. Activity is the client’s history, newest first.",
             },
             {
               kind: "steps",
@@ -808,7 +808,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "next",
-              text: "Your changes show on the client page and are added to its Activity.",
+              text: "Your changes show on the client page and are added to its History (the clock in the header).",
             },
             {
               kind: "note",
@@ -984,20 +984,20 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "A repeating project has one cycle per period; use the arrows to move between cycles. The ring shows a percentage, with a line like “12 of 18 stages · 3 of 7 deliverables done”, and either On track or “N behind plan”. At 100% it says the period is complete.",
+              text: "A repeating project has one cycle per period; the months sit as tabs (the previous, this and the next cycle, such as September · October 2026 · November): tap one to switch. The ring shows a percentage, with a line like “12 of 18 stages · 3 of 7 deliverables done”, and either On track or “N behind plan”. At 100% it says the period is complete.",
             },
             {
               kind: "steps",
               steps: [
                 "Open the project.",
                 { text: "Read the progress ring (highlighted).", shot: "admin/project-page" },
-                "Use the arrows to move between cycles.",
-                "Tap Activity to see the project’s history.",
+                "Tap a month tab (the previous or the next cycle) to switch.",
+                "Tap the clock (History) in the header to see the project’s history.",
               ],
             },
             {
               kind: "text",
-              text: "Beside the ring, “Needs you” names what to look at: a red dot for a late deliverable (“Reel 1 is 1 day late”), an amber dot for one nearly done (“Interview 2: 1 stage left”, “Reel 3: ready to mark done”). Nothing is shown there when nothing is late or nearly done. On a laptop Deliverables is a table (Deliverable, Progress by group, Next, Planned): the name over “3 groups · 1 of 9 stages”, one line per group with its bar and “n/m” (a long list without groups shows one bar), the next stage as a chip or, once every stage is ticked, a green Mark done, the planned date (late ones in red), then ⋯ and ›. On a phone each deliverable is a card with the same lines per group. Every part of the page uses the full width. An empty cycle says “No deliverables yet: add one or start from a template.” with Add deliverable.",
+              text: "Beside the ring, “Needs you” names what to look at: a red dot for a late deliverable (“Reel 1 is 1 day late”), an amber dot for one nearly done (“Interview 2: 1 stage left”, “Reel 3: ready to mark done”). Nothing is shown there when nothing is late or nearly done. On a laptop Deliverables is a table (Deliverable, Progress by group, Next, Planned): the name over “3 groups · 1 of 9 stages”, one line per group with its bar and “n/m” (a long list without groups shows one bar), the next stage as a chip or, once every stage is ticked, a green Mark done, the planned date (late ones in red), then ⋯ and ›. On a phone each deliverable is a card with the same lines per group. Every part of the page uses the full width. An empty cycle says “No deliverables yet: add one or start from a template.” with Add deliverable. Details below is a grid: Client contact (the client’s primary contact), Repeats, the delivery date, Template (the template it started from, or None), Notes and the project fields.",
             },
             {
               kind: "example",
@@ -1139,7 +1139,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "next",
-              text: "The new stage follows the deliverable’s own revision stages (“Revision 2” is followed by “Revision 3”) in their group; one with none gets “Revision round 1”. It goes right after the last revision stage, or right after “Edit” when there is none, so it comes before “Posted”. Ticks already made stay.",
+              text: "The new stage follows the deliverable’s own revision stages (“Revision 2” is followed by “Revision 3”) in their group; one with none gets “Revision round 1”. It goes right after the last revision stage, or right after “Edit” when there is none, so it comes before “Posted”. With neither, it goes just before “Posted”, “Published” or “Delivered”, or at the end when there is none of those. Ticks already made stay.",
             },
             {
               kind: "note",
@@ -1192,7 +1192,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "For client work there is no separate approval step. Mark done comes onto a row once every stage is ticked (the first such row’s button is solid); until then it waits in the row’s ⋯, beside Open. A deliverable with no stages always shows it.",
+              text: "For client work there is no separate approval step. Mark done comes onto a row once every stage is ticked (the first such row’s button is solid green); until then it waits in the row’s ⋯, beside Open. A deliverable with no stages always shows it.",
             },
             {
               kind: "steps",
@@ -1325,7 +1325,7 @@ export const ADMIN_GUIDE: Guide = {
             {
               kind: "steps",
               steps: [
-                "Open the project and tap Activity.",
+                "Open the project and tap the clock (History) in the header.",
                 "Use the chips All, Deliverables, Stages and Project to narrow it.",
                 "Tap Show older for more.",
               ],

@@ -231,7 +231,7 @@ test("installed: back closes the correct dialog, then the review sheet, then the
   // B4: both decisions in the panel, Approve its one solid action, with the person's week.
   await expect(sheet.getByRole("button", { name: "Approve" })).toHaveAttribute(
     "data-variant",
-    "strong",
+    "approve",
   );
   await expect(sheet.locator('[data-slot="review-week-day"][data-current]')).toBeVisible();
   await sheet.getByRole("button", { name: "Correct…" }).click();

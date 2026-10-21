@@ -118,6 +118,7 @@ export {
   handInFirst,
   reopenAfterHandIn,
   type HandInReopen,
+  HISTORY_ARRIVAL,
   moreSteps,
   neededLine,
   newestCommentAt,

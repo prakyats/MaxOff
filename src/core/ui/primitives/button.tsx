@@ -36,6 +36,7 @@ function Button({
   pendingLabel,
   commits,
   destructive,
+  opens,
   children,
   disabled,
   ...props
@@ -50,6 +51,12 @@ function Button({
     commits?: boolean;
     /** Its submit is destructive: a key in its form focuses it, never commits (§14.3 rule 2). */
     destructive?: boolean;
+    /**
+     * A solid trigger that opens the layer where the commit happens (Approve all, Mark done on a
+     * task, Grant comp leave): marked `data-opens`, so the e2e one-solid fixture counts it as a
+     * trigger beside the layer's commit, not as a second commit (ADR-0015 amendment 2026-10-21).
+     */
+    opens?: boolean;
   }) {
   const form = useFormStatus();
   const online = useOnline();
@@ -60,7 +67,8 @@ function Button({
   const pending = (pendingProp ?? false) || (submits && form.pending);
   const offline =
     !online &&
-    (commits ?? (variant === "primary" || variant === "danger" || variant === "approve"));
+    (commits ??
+      (!opens && (variant === "primary" || variant === "danger" || variant === "approve")));
   const iconOnly = typeof size === "string" && size.startsWith("icon");
 
   const content =
@@ -109,6 +117,7 @@ function Button({
       data-pending={pending ? "" : undefined}
       data-offline={offline ? "" : undefined}
       data-destructive={destructive ? "" : undefined}
+      data-opens={opens ? "" : undefined}
       aria-busy={pending || undefined}
       disabled={asChild ? disabled : disabled || pending || offline}
       className={cn(buttonVariants({ variant, size, className }))}
