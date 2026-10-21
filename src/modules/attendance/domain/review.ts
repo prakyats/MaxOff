@@ -361,8 +361,7 @@ export type PendingPersonDays = {
 
 /** A row of the Owner's Today Needs you: one day, or one person's several days (L8). */
 export type PendingDayRow =
-  | { kind: "day"; day: PendingDay }
-  | { kind: "person"; person: PendingPersonDays };
+  { kind: "day"; day: PendingDay } | { kind: "person"; person: PendingPersonDays };
 
 /** What the folded row says the days are, in the words of `pendingLabel`. */
 function personDaysLabel(days: readonly PendingDay[]): string {
