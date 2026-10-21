@@ -85,6 +85,7 @@ export function HolidaysPanel({ holidays, today }: { holidays: Holiday[]; today:
 
       {pendingDelete ? (
         <ConfirmDialog
+          destructive
           open
           onOpenChange={(open) => {
             if (!open) setPendingDelete(null);

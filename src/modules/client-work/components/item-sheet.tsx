@@ -579,6 +579,7 @@ export function ItemSheet({
         </div>
       </ReviewSheet>
       <ConfirmDialog
+        destructive
         open={discard !== null}
         onOpenChange={(next) => {
           // Keep editing (its button or back): the edit, and the sheet, as they were.

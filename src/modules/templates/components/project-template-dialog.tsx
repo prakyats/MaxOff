@@ -358,6 +358,7 @@ export function ProjectTemplateDialog({
         </DialogContent>
       </Dialog>
       <ConfirmDialog
+        destructive
         open={phase === "discard"}
         onOpenChange={(open) => {
           if (!open) setPhase("form");

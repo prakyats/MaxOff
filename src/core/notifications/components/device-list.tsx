@@ -101,6 +101,7 @@ export function DeviceList({ rows }: { rows: readonly DeviceRow[] }) {
         })}
       </ul>
       <ConfirmDialog
+        destructive
         open={removing !== null}
         onOpenChange={(open) => {
           if (!open) setRemoving(null);

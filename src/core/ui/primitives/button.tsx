@@ -19,7 +19,7 @@ import { buttonVariants, type ButtonVariantProps } from "./button-variants";
  *   small spinner and `pendingLabel` ("Saving…", "Approving…"), `disabled` and `aria-busy`, so
  *   a second tap does nothing. Both labels share one grid cell, so the button never changes
  *   width. A submit button inside a `<form action>` goes pending on its own (`useFormStatus`);
- * - **offline**: a button that commits a change (`primary` by default, or `commits`) is disabled
+ * - **offline**: a button that commits a change (`primary` and `danger` by default, or `commits`) is disabled
  *   while the device is offline, pointing at the offline banner for the reason;
  * - **destructive** (a submit that commits a destructive change: a reason dialog's "Cancel task",
  *   "Reject claim"): marked `data-destructive`, so a key in its form (Enter in a one-line input,
@@ -46,7 +46,7 @@ function Button({
     pending?: boolean;
     /** What it says while pending: "Saving…", "Starting…". Defaults to its label. */
     pendingLabel?: string;
-    /** It commits a change, so it waits for a connection. `primary` buttons do by default. */
+    /** It commits a change, so it waits for a connection. `primary` and `danger` do by default. */
     commits?: boolean;
     /** Its submit is destructive: a key in its form focuses it, never commits (§14.3 rule 2). */
     destructive?: boolean;
@@ -58,7 +58,7 @@ function Button({
   // submit still disables itself while its `<form action>` is on its way.
   const opted = pendingProp !== undefined;
   const pending = (pendingProp ?? false) || (submits && form.pending);
-  const offline = !online && (commits ?? variant === "primary");
+  const offline = !online && (commits ?? (variant === "primary" || variant === "danger"));
   const iconOnly = typeof size === "string" && size.startsWith("icon");
 
   const content =

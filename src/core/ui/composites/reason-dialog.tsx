@@ -56,16 +56,17 @@ export function ReasonDialog({
   label?: string;
   placeholder?: string;
   /**
-   * The one solid red button, named for what it does ("Reject leave", "Cancel this leave"),
-   * never "Submit" or "OK" (ARCHITECTURE §14.1, the action colour rule).
+   * The one solid button, named for what it does ("Reject leave", "Reopen task"), never
+   * "Submit" or "OK": red (`danger`) when `destructive`, else the neutral `primary` (ADR-0015).
    */
   submitLabel: string;
   /** The button while it runs; defaults to the label's verb in -ing ("Rejecting leave…"). */
   pendingLabel?: string;
   cancelLabel?: string;
   /**
-   * The act is destructive (cancel, reject, decline, revoke): Ctrl+Enter in the reason moves to
-   * the named button instead of committing (ARCHITECTURE §14.3 rule 2), and no hint offers it.
+   * The act is destructive (cancel, reject, decline, revoke): its button is the red `danger`,
+   * and Ctrl+Enter in the reason moves to it instead of committing (ARCHITECTURE §14.3 rule 2),
+   * and no hint offers it.
    */
   destructive?: boolean;
   /** Resolve `false` to keep the dialog open with the reason (the save failed). */
@@ -156,7 +157,7 @@ export function ReasonDialog({
             </Button>
             <Button
               type="submit"
-              variant="primary"
+              variant={destructive ? "danger" : "primary"}
               destructive={destructive}
               pending={pending}
               pendingLabel={pendingLabel ?? workingLabel(submitLabel)}

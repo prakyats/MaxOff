@@ -507,6 +507,7 @@ export function GroupedStagesSheet({
         </div>
       </ReviewSheet>
       <ConfirmDialog
+        destructive
         open={asking}
         onOpenChange={(next) => (next ? null : setAsking(false))}
         title="Discard what you typed?"
@@ -520,6 +521,7 @@ export function GroupedStagesSheet({
         }}
       />
       <ConfirmDialog
+        destructive
         open={removing !== null}
         onOpenChange={(next) => (next ? null : setRemoving(null))}
         title={

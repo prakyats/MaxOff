@@ -1023,7 +1023,7 @@ export const OWNER_GUIDE: Guide = {
             ),
             next('"Last change" has a History button that shows who changed what, and when.'),
             note(
-              "You can tick or untick stages only while the deliverable is open. Ticked boxes are plain, never red: red is kept for Mark done.",
+              "You can tick or untick stages only while the deliverable is open. Ticked boxes are plain, never red: red is kept for what is late.",
             ),
           ],
           keywords: ["sheet", "tick", "history", "edit stages", "edit details", "move up", "order"],
@@ -1061,7 +1061,7 @@ export const OWNER_GUIDE: Guide = {
               "There is no separate approval step for client work: marking it done is the approval.",
             ),
             text(
-              "Mark done comes onto a row once every stage is ticked; the first such row's button is red. Until then it waits in the row's ⋯, beside Open. A deliverable with no stages always shows it.",
+              "Mark done comes onto a row once every stage is ticked; the first such row's button is solid. Until then it waits in the row's ⋯, beside Open. A deliverable with no stages always shows it.",
             ),
             steps(
               'Open the project and tap "Mark done" on the row (or in its ⋯), or in the sheet.',
@@ -1367,7 +1367,7 @@ export const OWNER_GUIDE: Guide = {
               'The toasts say what changes: "Archived ‹name›: New project no longer offers it" and "Restored ‹name›: New project offers it again" (for a deliverable template, "+ Add deliverable" instead of New project).',
             ),
             note(
-              "A task template's Archive is a plain button, never red: the question it opens names the template on its own red button.",
+              "A task template's Archive is a plain button, never red: the question it opens names the template on its own button.",
             ),
           ],
           link: { href: "/settings/templates", label: "Open Templates" },

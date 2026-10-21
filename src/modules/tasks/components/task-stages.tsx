@@ -250,6 +250,7 @@ export function TaskStages({
         <AddStageDialog open={adding} onClose={() => setAdding(false)} taskId={taskId} />
       ) : null}
       <ConfirmDialog
+        destructive
         open={removing !== null}
         onOpenChange={(open) => {
           if (!open) setRemoving(null);

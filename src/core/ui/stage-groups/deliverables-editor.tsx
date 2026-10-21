@@ -296,6 +296,7 @@ export function DeliverablesEditor({
         }}
       />
       <ConfirmDialog
+        destructive
         open={removingOne !== undefined}
         onOpenChange={(isOpen) => {
           if (!isOpen) setRemoving(null);

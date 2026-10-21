@@ -385,8 +385,8 @@ test.describe("onboarding for reachability", () => {
     const dialog = page.getByRole("alertdialog", { name: "Remove Firefox on Android?" });
     await expect(dialog).toContainText("It stays signed in");
     const confirm = dialog.getByRole("button", { name: "Remove Firefox on Android" });
-    // The one solid red commit of the layer (ARCHITECTURE §14.1).
-    await expect(confirm).toHaveClass(/bg-primary/);
+    // Removing a device is destructive: the layer's one commit is the named red one (ADR-0015).
+    await expect(confirm).toHaveAttribute("data-variant", "danger");
     await confirm.click();
     await expect(dialog).toHaveCount(0);
     await expect(list.locator('[data-slot="device-row"]')).toHaveCount(2);

@@ -188,6 +188,27 @@ describe("badge contrast (globals.css)", () => {
       expect(
         contrast(tokens["primary-foreground"] as string, tokens["primary"] as string),
       ).toBeGreaterThanOrEqual(4.5);
+      expect(
+        contrast(
+          tokens["destructive-solid-foreground"] as string,
+          tokens["destructive-solid"] as string,
+        ),
+      ).toBeGreaterThanOrEqual(4.5);
+    });
+
+    it(`${theme}: the holiday green reads as text on the page and on every surface`, () => {
+      for (const surface of ["background", "card", "surface-2", "surface-3"]) {
+        const bg = tokens[surface] as string;
+        expect(bg, `--${surface} missing in ${selector}`).toBeDefined();
+        expect(contrast(tokens["holiday"] as string, bg)).toBeGreaterThanOrEqual(4.5);
+        expect(contrast(tokens["muted-foreground"] as string, bg)).toBeGreaterThanOrEqual(4.5);
+      }
+    });
+
+    it(`${theme}: the commit is neutral and only the destructive commit is red (ADR-0015)`, () => {
+      expect(tokens["primary"]).toBe(tokens["strong"]);
+      expect(tokens["primary"]).not.toBe(tokens["danger"]);
+      expect(tokens["destructive-solid"]).toBe("#c42126");
     });
   }
 });

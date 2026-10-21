@@ -22,7 +22,7 @@ import {
  * The project page's deliverables list after the owner's feedback (E+, ROADMAP 6b.11's owner note
  * of 2026-10-16): one stage group per line as a compact strip that opens in place to its chips (a
  * view control: no history), "Next: ‹stage›" on each deliverable, a quiet Mark done that is the
- * screen's one solid red only on the first deliverable with every stage ticked, checkboxes only in
+ * screen's one solid commit only on the first deliverable with every stage ticked, checkboxes only in
  * Select mode (which hides the rows' own Mark done), aligned laptop columns, the phone card's 44 px
  * targets, and the installed back order at 375 and 430 px (ARCHITECTURE §14.2). Projects are made
  * the old way (`project_create`, plain stages: one untitled group, today's data) with groups added
@@ -190,7 +190,7 @@ test("one strip per stage group opening in place, Next, and Mark done solid only
   await expect(row(page, "Grouped").locator('[data-slot="stage-chip"]')).toHaveCount(0);
 
   // Mark done: in the row's ⋯ until every stage is ticked (unit U); then on the row, the first
-  // ready one the screen's one solid red, the next ready one outlined.
+  // ready one the screen's one solid commit, the next ready one outlined.
   await expect(markDone(page, "Grouped")).toHaveCount(0);
   await expect(markDone(page, "Fresh")).toHaveCount(0);
   await expect(more(page, "Grouped")).toBeVisible();
@@ -201,7 +201,7 @@ test("one strip per stage group opening in place, Next, and Mark done solid only
   await expect(markDone(page, "Ready B")).toHaveAttribute("data-variant", "secondary");
   await expect(page.locator('[data-variant="primary"]:visible')).toHaveCount(1);
 
-  // Marked done (held for its Undo), the solid red moves to the next ready one; Undo moves it back.
+  // Marked done (held for its Undo), the solid commit moves to the next ready one; Undo moves it back.
   await markDone(page, "Ready A").click();
   await expect(row(page, "Ready A")).toHaveAttribute("data-held", "");
   await expect(markDone(page, "Ready B")).toHaveAttribute("data-look", "solid");
@@ -502,7 +502,7 @@ test("a stage chip ticks in one tap with Undo; Next ticks its stage; Mark done s
   await expect(page.getByRole("menuitem", { name: "Mark done" })).toBeHidden();
 
   // "Next: Stage 1" is a one-tap tick ("Tick Stage 1"); with every stage ticked Mark done comes
-  // onto the row (outlined: "Ready A" above it keeps the one solid red).
+  // onto the row (outlined: "Ready A" above it keeps the one solid commit).
   const next = row(page, "Fresh").locator('[data-slot="item-next"]:visible');
   await expect(next).toHaveText("Next: Stage 1");
   await expect(next).toHaveAttribute("aria-label", "Tick Stage 1");
@@ -536,10 +536,15 @@ test("the deliverable's sheet: the list's group headings, neutral ticks, Edit de
     "Edit2/3 stages ticked",
     "Review0/1 stages ticked",
   ]);
-  // A ticked box is neutral, never the red of the sheet's one commit (Mark done).
-  const red = await sheet
-    .getByRole("button", { name: "Mark done", exact: true })
-    .evaluate((node) => getComputedStyle(node).backgroundColor);
+  // A ticked box is neutral, never red (red is urgent or destructive only, ADR-0015).
+  const red = await sheet.evaluate((node) => {
+    const probe = document.createElement("span");
+    probe.style.backgroundColor = "var(--danger)";
+    node.append(probe);
+    const colour = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    return colour;
+  });
   const boxes = await sheet
     .locator('[data-slot="item-stage-tick"][aria-checked="true"] [data-slot="item-stage-box"]')
     .evaluateAll((nodes) => nodes.map((node) => getComputedStyle(node).backgroundColor));

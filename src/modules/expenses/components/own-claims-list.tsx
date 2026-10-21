@@ -89,6 +89,7 @@ export function OwnClaimsList({ claims }: { claims: ExpenseClaim[] }) {
         })}
       </ul>
       <ConfirmDialog
+        destructive
         open={withdrawing !== null}
         onOpenChange={(open) => (open ? null : setWithdrawing(null))}
         title="Withdraw this claim?"

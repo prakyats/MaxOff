@@ -326,6 +326,7 @@ export function LeaveRequestList({
       ) : null}
       {dialog.kind === "withdraw" ? (
         <ConfirmDialog
+          destructive
           open
           onOpenChange={(open) => (open ? undefined : close())}
           title="Withdraw this request?"
@@ -354,6 +355,7 @@ function CancelLeaveDialog({
   const reasonId = useId();
   return (
     <ConfirmDialog
+      destructive
       open
       onOpenChange={(open) => (open ? undefined : onClose())}
       title="Ask to cancel this leave?"
