@@ -34,7 +34,7 @@ export const CREW_GUIDE: Guide = {
             },
             {
               kind: "text",
-              text: "On a phone each screen has one bar at the top: the back arrow (or just the title on a tab's first screen), the screen's ⋯ menu when it has one, and the bell. A ⋯ menu opens as a sheet from the bottom; back closes it.",
+              text: "On a phone each screen has one bar at the top: the back arrow (or, on a main tab, the small MaxOff “M”, which takes you to your home screen), the title, the screen's ⋯ menu when it has one, and the bell. A ⋯ menu opens as a sheet from the bottom; back closes it.",
             },
           ],
           link: { href: "/my-day", label: "Open My Day" },

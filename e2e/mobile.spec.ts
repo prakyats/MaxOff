@@ -940,3 +940,40 @@ test.describe("record screens meet the mobile standard (3.4)", () => {
     }
   });
 });
+
+test.describe("the MaxOff mark on a top-level tab (owner 2026-10-21)", () => {
+  test.use({ storageState: storageStateFor("owner") });
+
+  test("shows on a top-level tab, not on a drill-down; a tap goes to Today by replace", async ({
+    page,
+  }) => {
+    await page.goto("/today");
+    await expectSettled(page);
+    await page.locator('[data-slot="bottom-nav"] [data-nav="tasks"]').click();
+    await expect(page).toHaveURL(/\/tasks$/);
+    const mark = page.locator('[data-slot="home-mark"]:visible');
+    await expect(mark).toHaveCount(1);
+    // No back arrow beside it: a top-level tab has none.
+    await expect(
+      page.locator('[data-slot="page-header"] [data-slot="page-back"]:visible'),
+    ).toHaveCount(0);
+    expect((await mark.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+
+    const before = await page.evaluate(() => history.length);
+    await mark.click();
+    await expect(page).toHaveURL(/\/today$/);
+    expect(await page.evaluate(() => history.length)).toBe(before);
+    // The Tasks entry was replaced: one back is the Today entry it came from.
+    await page.goBack();
+    await expect(page).toHaveURL(/\/today$/);
+
+    // A More destination has it too; a drill-down keeps its back arrow in that spot.
+    await page.goto("/settings");
+    await expect(page.locator('[data-slot="home-mark"]:visible')).toHaveCount(1);
+    await page.goto("/settings/company");
+    await expect(page.locator('[data-slot="home-mark"]:visible')).toHaveCount(0);
+    await expect(
+      page.locator('[data-slot="page-header"] [data-slot="page-back"]:visible'),
+    ).toHaveCount(1);
+  });
+});
