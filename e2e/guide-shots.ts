@@ -92,8 +92,8 @@ const deliverableRow = (page: Page, title: string) =>
 
 /** Reel 2's first stage line opened in place, its stage chips showing. */
 async function openStageLine(page: Page): Promise<void> {
-  await deliverableRow(page, "Reel 2").locator('[data-slot="item-strip-toggle"]').first().click();
-  await deliverableRow(page, "Reel 2").locator('[data-slot="item-row-stages"]').first().waitFor();
+  await deliverableRow(page, "Reel 2").locator('[data-slot="item-progress"]').first().click();
+  await deliverableRow(page, "Reel 2").locator('[data-slot="item-stages"]').first().waitFor();
 }
 
 /** Select mode with Reel 3 and Reel 4 selected: the bar shows Mark 2 done, Tick a stage, Edit 2. */
@@ -393,7 +393,8 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
     id: "admin/deliverable-rows",
     path: project,
     prepare: openStageLine,
-    highlight: (page) => deliverableRow(page, "Reel 2").locator('[data-slot="item-strip"]').first(),
+    highlight: (page) =>
+      deliverableRow(page, "Reel 2").locator('[data-slot="item-progress"]').first(),
     crop: (page) => slot(page, "cycle-items"),
     alt: "The project's deliverables, with Reel 2's Video steps line opened to its stage chips and highlighted.",
   },
@@ -630,7 +631,8 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
     id: "owner/deliverable-rows",
     path: project,
     prepare: openStageLine,
-    highlight: (page) => deliverableRow(page, "Reel 2").locator('[data-slot="item-strip"]').first(),
+    highlight: (page) =>
+      deliverableRow(page, "Reel 2").locator('[data-slot="item-progress"]').first(),
     crop: (page) => slot(page, "cycle-items"),
     alt: "The project's deliverables, with Reel 2's Video steps line opened to its stage chips and highlighted.",
   },

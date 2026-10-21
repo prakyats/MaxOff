@@ -104,8 +104,9 @@ async function listProject(clientId: string): Promise<string> {
 
 const row = (page: Page, title: string) =>
   page.locator('[data-slot="item-row"]', { has: page.getByText(title, { exact: true }) });
+/** The collapsed row's progress (V3): one bar and "n/m", a tap opens the checklist in place. */
 const strips = (page: Page, title: string) =>
-  row(page, title).locator('[data-slot="item-strip-toggle"]');
+  row(page, title).locator('[data-slot="item-progress"]');
 const markDone = (page: Page, title: string) =>
   row(page, title).locator('[data-slot="item-row-done"]');
 const more = (page: Page, title: string) =>
@@ -142,7 +143,7 @@ async function stageDone(itemTitle: string, projectId: string, name: string): Pr
 }
 const historyLength = (page: Page) => page.evaluate(() => window.history.length);
 
-test("one strip per stage group opening in place, Next, and Mark done solid only when every stage is ticked", async ({
+test("a collapsed row: one bar and n/m, its checklist opening in place by group, Next, and Mark done solid only when every stage is ticked", async ({
   page,
 }, info) => {
   const client = nameOf(info, "strips");
@@ -152,42 +153,43 @@ test("one strip per stage group opening in place, Next, and Mark done solid only
   await page.goto(`/clients/${clientId}/projects/${projectId}`);
   await hydrated(page);
 
-  // One line per group: the untitled one reads "Stages"; each strip its own n/m.
-  await expect(strips(page, "Grouped")).toHaveText([
-    "Stages 1/1 stages ticked",
-    "Edit 2/3 stages ticked",
-    "Review 0/1 stages ticked",
-  ]);
-  const bars = row(page, "Grouped").locator('[data-slot="item-strip-bar"]');
+  // V3 (fixes A, C): one bar over every stage, whatever the groups, with its "n/m".
+  await expect(strips(page, "Grouped")).toHaveText("3/5 stages ticked");
+  const bars = row(page, "Grouped").locator('[data-slot="item-progress-bar"]');
   expect(
     await bars.evaluateAll((nodes) =>
       nodes.map((node) => [node.dataset.done, node.dataset.next, node.dataset.total]),
     ),
-  ).toEqual([
-    ["1", "0", "1"],
-    ["2", "1", "3"],
-    ["0", "0", "1"],
-  ]);
+  ).toEqual([["3", "1", "5"]]);
   const next = (title: string) => row(page, title).locator('[data-slot="item-next"]:visible');
   await expect(next("Grouped")).toHaveText("Next: Export");
   await expect(next("Ready A")).toHaveText("All stages ticked");
   await expect(next("Fresh")).toHaveText("Next: Stage 1");
+  await expect(row(page, "Grouped").locator('[data-slot="stage-check"]')).toHaveCount(0);
 
-  // Opening a strip shows that group's chips only, in place: no history entry, no address.
+  // Opening the row shows its checklist under each group's heading and count (fixes B, F), in
+  // place: no history entry, no address.
   const before = await historyLength(page);
-  const edit = strips(page, "Grouped").nth(1);
+  const edit = strips(page, "Grouped");
   await edit.click();
   await expect(edit).toHaveAttribute("aria-expanded", "true");
-  await expect(row(page, "Grouped").locator('[data-slot="stage-chip"]')).toHaveText([
+  await expect(row(page, "Grouped").locator('[data-slot="item-stage-group-label"]')).toHaveText([
+    /^Stages\s*1\/1$/,
+    /^Edit\s*2\/3$/,
+    /^Review\s*0\/1$/,
+  ]);
+  await expect(row(page, "Grouped").locator('[data-slot="stage-check"]')).toHaveText([
+    "Stage 1, ticked",
     "Cut, ticked",
     "Colour, ticked",
     "Export, next",
+    "Revision 1, to do",
   ]);
   expect(await historyLength(page)).toBe(before);
   await expect(page).toHaveURL(here);
   await expectNoHorizontalScroll(page);
   await edit.click();
-  await expect(row(page, "Grouped").locator('[data-slot="stage-chip"]')).toHaveCount(0);
+  await expect(row(page, "Grouped").locator('[data-slot="stage-check"]')).toHaveCount(0);
 
   // Mark done: in the row's ⋯ until every stage is ticked (unit U); then on the row, the first
   // ready one the screen's one solid commit, the next ready one outlined.
@@ -224,7 +226,7 @@ test("one strip per stage group opening in place, Next, and Mark done solid only
   await page.locator('[data-slot="finished-toggle"]').click();
   await expect(next("Finished")).toHaveText("Done");
   await expect(next("Dropped")).toHaveText("Closed");
-  await expect(row(page, "Finished").locator('[data-slot="item-strip-bar"]')).toHaveAttribute(
+  await expect(row(page, "Finished").locator('[data-slot="item-progress-bar"]')).toHaveAttribute(
     "data-done",
     "1",
   );
@@ -252,7 +254,7 @@ test("laptop columns line up row to row; a phone's card keeps 44 px targets", as
       nodes.map((node) =>
         [
           '[data-slot="item-open"]',
-          '[data-slot="item-strips"]',
+          '[data-slot="item-progress"]',
           '[data-slot="item-next-cell"]',
           '[data-slot="item-planned-cell"]',
           '[data-slot="item-action"]',
@@ -263,15 +265,15 @@ test("laptop columns line up row to row; a phone's card keeps 44 px targets", as
     // In order, left to right: title, progress, next, planned, action.
     const first = columns[0]!;
     expect([...first].sort((a, b) => a - b)).toEqual(first);
-    // The strips' bars line up too.
+    // The bars line up too.
     const barLefts = await page
-      .locator('[data-slot="item-strip-bar"]')
+      .locator('[data-slot="item-progress-bar"]')
       .evaluateAll((nodes) => nodes.map((node) => Math.round(node.getBoundingClientRect().left)));
     expect(new Set(barLefts).size).toBe(1);
   } else {
-    // A card: every strip and Mark done is a 44 px target.
+    // A card: every bar and Mark done is a 44 px target.
     for (const target of [
-      ...(await page.locator('[data-slot="item-strip-toggle"]').all()),
+      ...(await page.locator('button[data-slot="item-progress"]').all()),
       ...(await page.locator('[data-slot="item-row-done"]').all()),
       ...(await page.locator('[data-slot="item-row-more"]').all()),
       ...(await page.locator('[data-slot="item-next-line"]').all()),
@@ -279,16 +281,16 @@ test("laptop columns line up row to row; a phone's card keeps 44 px targets", as
       const box = await target.boundingBox();
       expect(box!.height).toBeGreaterThanOrEqual(44);
     }
-    // Next sits under the title, the strips under both.
+    // Next sits under the title, the bar under both.
     const grouped = row(page, "Grouped");
     const title = await grouped.locator('[data-slot="item-open"]').boundingBox();
-    const strip = await grouped.locator('[data-slot="item-strip-toggle"]').first().boundingBox();
+    const strip = await grouped.locator('[data-slot="item-progress"]').first().boundingBox();
     expect(strip!.y).toBeGreaterThanOrEqual(title!.y + title!.height - 1);
   }
   await removeClientFixture(client);
 });
 
-test("the loading screen traces the list: its heading, first row, first strip and a row's height", async ({
+test("the loading screen traces the list: its heading, first row, its bar and a row's height", async ({
   page,
 }, info) => {
   const client = nameOf(info, "skeleton");
@@ -317,7 +319,7 @@ test("the loading screen traces the list: its heading, first row, first strip an
       row: '[data-slot="loading-project"] ul > li',
       head: '[data-slot="loading-project"] > div[aria-hidden] > div:nth-child(2)',
       top: '[data-slot="loading-project"] > div[aria-hidden]',
-      strip: '[data-slot="loading-project"] ul > li > span:nth-child(2) > span',
+      strip: '[data-slot="loading-project"] ul > li > span:nth-child(2)',
     });
     const skeletonRow = await page
       .locator('[data-slot="loading-project"] ul > li')
@@ -331,7 +333,7 @@ test("the loading screen traces the list: its heading, first row, first strip an
       row: '[data-slot="cycle-items"] > [data-slot="item-row"]',
       head: 'section[aria-labelledby="cycle-items-title"]',
       top: '[data-slot="project-page"]',
-      strip: '[data-slot="cycle-items"] [data-slot="item-strip-toggle"]',
+      strip: '[data-slot="cycle-items"] [data-slot="item-progress"]',
     });
     // Measured from the content's top: the title bar above it is the shared header's (its own
     // trace is the back control's, PROGRESS Ideas), this unit's tracing is the list's.
@@ -342,7 +344,7 @@ test("the loading screen traces the list: its heading, first row, first strip an
         `${name} stays put`,
       ).toBeLessThanOrEqual(1);
     }
-    // A one-strip row ("Ready A": planned and Next lines, one strip) is the skeleton row's height.
+    // A collapsed row ("Ready A": planned and Next lines, its bar) is the skeleton row's height.
     const oneStrip = await row(page, "Ready A").evaluate(
       (node) => node.getBoundingClientRect().height,
     );
@@ -387,7 +389,7 @@ test("the whole row opens the deliverable: a click anywhere, Enter or Space; in 
   await page.goBack();
   await expect(sheet).toBeHidden();
 
-  // The row's own controls keep their taps: a strip opens in place, no sheet.
+  // The row's own controls keep their taps: the bar opens the checklist in place, no sheet.
   await strips(page, "Reel A").first().click();
   await expect(strips(page, "Reel A").first()).toHaveAttribute("aria-expanded", "true");
   await expect(sheet).toBeHidden();
@@ -462,7 +464,7 @@ test("with the notifications band showing, the Select bar sits above it and the 
   await removeClientFixture(client);
 });
 
-test("a stage chip ticks in one tap with Undo; Next ticks its stage; Mark done shows once all are ticked", async ({
+test("a checklist line ticks in one tap with Undo; Next ticks its stage; Mark done shows once all are ticked", async ({
   page,
 }, info) => {
   const client = nameOf(info, "ticks");
@@ -471,26 +473,26 @@ test("a stage chip ticks in one tap with Undo; Next ticks its stage; Mark done s
   await page.goto(`/clients/${clientId}/projects/${projectId}`);
   await hydrated(page);
 
-  // A chip ticks its stage through the same tick as the sheet, says so, and offers Undo.
-  const edit = strips(page, "Grouped").nth(1);
+  // A checklist line ticks its stage through the same tick as the sheet, says so, offers Undo.
+  const edit = strips(page, "Grouped");
   await edit.click();
   const chip = (name: string) =>
     row(page, "Grouped")
-      .locator('[data-slot="stage-chip"]')
+      .locator('[data-slot="stage-check"]')
       .and(page.getByRole("button", { name }));
   const exportChip = chip("Tick Export");
-  await expect(exportChip).toHaveAttribute("data-chip", "next");
+  await expect(exportChip).toHaveAttribute("data-check", "next");
   await exportChip.click();
   await expect(page.getByText("Ticked Edit · Export on Grouped", { exact: true })).toBeVisible();
   const ticked = chip("Untick Export");
-  await expect(ticked).toHaveAttribute("data-chip", "ticked");
+  await expect(ticked).toHaveAttribute("data-check", "ticked");
   await expect.poll(() => stageDone("Grouped", projectId, "Export")).toBe(true);
   await expect(row(page, "Grouped").locator('[data-slot="item-next"]:visible')).toHaveText(
     "Next: Revision 1",
   );
   await page.getByRole("button", { name: "Undo" }).click();
   await expect(page.getByText("Unticked Edit · Export on Grouped", { exact: true })).toBeVisible();
-  await expect(exportChip).toHaveAttribute("data-chip", "next");
+  await expect(exportChip).toHaveAttribute("data-check", "next");
   await expect.poll(() => stageDone("Grouped", projectId, "Export")).toBe(false);
 
   // Mark done waits in the row's ⋯ (with Open) while a stage is left.
@@ -513,11 +515,11 @@ test("a stage chip ticks in one tap with Undo; Next ticks its stage; Mark done s
   await expect(more(page, "Fresh")).toHaveCount(0);
   await expect(page.locator('[data-variant="primary"]:visible')).toHaveCount(1);
 
-  // A done deliverable's chips only read.
+  // A done deliverable's checklist only reads.
   await page.locator('[data-slot="finished-toggle"]').click();
   await strips(page, "Finished").first().click();
-  await expect(row(page, "Finished").locator('[data-slot="stage-chip"]')).toHaveCount(1);
-  await expect(row(page, "Finished").locator('button[data-slot="stage-chip"]')).toHaveCount(0);
+  await expect(row(page, "Finished").locator('[data-slot="stage-check"]')).toHaveCount(1);
+  await expect(row(page, "Finished").locator('button[data-slot="stage-check"]')).toHaveCount(0);
   await removeClientFixture(client);
 });
 
