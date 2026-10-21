@@ -1,6 +1,6 @@
 "use client";
 
-import { ArchiveRestoreIcon, LayoutTemplateIcon } from "lucide-react";
+import { LayoutTemplateIcon } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useState } from "react";
 
@@ -8,8 +8,7 @@ import { cn } from "@/core/lib/utils";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { ListAddButton, ListHeading, ListRowActions } from "@/core/ui/composites/list-rows";
-import { CARD_ROW_TITLE, CARD_ROW_TRAILING } from "@/core/ui/composites/row-metrics";
-import { Button } from "@/core/ui/primitives/button";
+import { CARD_ROW_TITLE } from "@/core/ui/composites/row-metrics";
 import { toastResult } from "@/core/ui/toast";
 
 import { setTemplateArchived } from "../actions/templates";
@@ -40,12 +39,8 @@ export function TemplateManager({
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<TaskTemplate | null>(null);
   const [archiving, setArchiving] = useState<TaskTemplate | null>(null);
-  const [busyId, setBusyId] = useState<string | null>(null);
   const active = templates
     .filter((template) => !template.archived)
-    .sort((a, b) => a.name.localeCompare(b.name));
-  const archived = templates
-    .filter((template) => template.archived)
     .sort((a, b) => a.name.localeCompare(b.name));
   const typeName = new Map(context.types.map((type) => [type.id, type.name]));
 
@@ -71,11 +66,7 @@ export function TemplateManager({
   }
 
   async function restore(template: TaskTemplate) {
-    setBusyId(template.id);
-    toastResult(await setTemplateArchived({ templateId: template.id, archived: false }), {
-      success: "Template restored",
-    });
-    setBusyId(null);
+    toastResult(await setTemplateArchived({ templateId: template.id, archived: false }));
   }
 
   return (
@@ -121,7 +112,7 @@ export function TemplateManager({
                       kind="Template"
                       slot="task-template-actions"
                       edit={{ label: "Edit", onSelect: () => setEditing(template) }}
-                      onArchive={() => setArchiving(template)}
+                      onDelete={() => setArchiving(template)}
                     />
                   ) : null}
                 </li>
@@ -130,44 +121,6 @@ export function TemplateManager({
           </ul>
         )}
       </div>
-
-      {archived.length > 0 ? (
-        <section className="flex flex-col gap-2">
-          <h2 className="text-muted-foreground text-sm font-medium">Archived</h2>
-          <p className="text-muted-foreground text-sm">
-            Not offered in New task. Tasks made from one keep what it gave them.
-          </p>
-          <ul
-            data-slot="archived-task-templates"
-            className="border-border divide-border divide-y rounded-lg border"
-          >
-            {archived.map((template) => (
-              <li
-                key={template.id}
-                data-slot="archived-task-template"
-                className="flex min-h-14 flex-wrap items-center justify-between gap-2 px-3 py-2.5 sm:px-4"
-              >
-                <span className={cn("text-muted-foreground truncate text-sm", CARD_ROW_TITLE)}>
-                  {template.name}
-                </span>
-                {templateActions(template, context.viewer).restore ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className={CARD_ROW_TRAILING}
-                    disabled={busyId !== null}
-                    onClick={() => void restore(template)}
-                  >
-                    <ArchiveRestoreIcon aria-hidden />
-                    Restore
-                  </Button>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
 
       {adding ? <TemplateDialog key="add" {...context} onClose={() => setAdding(false)} /> : null}
       {editing ? (
@@ -184,15 +137,17 @@ export function TemplateManager({
           onOpenChange={(open) => {
             if (!open) setArchiving(null);
           }}
-          title={`Archive ${archiving.name}?`}
-          description="New task stops offering it. Tasks made from it keep what it gave them, and you can restore it later."
-          confirmLabel={`Archive ${archiving.name}`}
-          pendingLabel="Archiving…"
-          onConfirm={async () =>
-            toastResult(await setTemplateArchived({ templateId: archiving.id, archived: true }), {
-              success: "Template archived",
-            })
-          }
+          title={`Delete ${archiving.name}?`}
+          description="It won't be offered for new tasks. Tasks already made from it don't change."
+          confirmLabel={`Delete ${archiving.name}`}
+          pendingLabel="Deleting…"
+          onConfirm={async () => {
+            const template = archiving;
+            toastResult(await setTemplateArchived({ templateId: template.id, archived: true }), {
+              success: `${template.name} deleted`,
+              undo: () => void restore(template),
+            });
+          }}
         />
       ) : null}
     </section>

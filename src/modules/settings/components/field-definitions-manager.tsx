@@ -1,6 +1,6 @@
 "use client";
 
-import { ArchiveRestoreIcon, ListPlusIcon } from "lucide-react";
+import { ListPlusIcon } from "lucide-react";
 import { useState } from "react";
 
 import {
@@ -17,9 +17,8 @@ import { cn } from "@/core/lib/utils";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { ListAddButton, ListHeading, ListRowActions } from "@/core/ui/composites/list-rows";
-import { CARD_ROW_TITLE, CARD_ROW_TRAILING } from "@/core/ui/composites/row-metrics";
+import { CARD_ROW_TITLE } from "@/core/ui/composites/row-metrics";
 import { Badge } from "@/core/ui/primitives/badge";
-import { Button } from "@/core/ui/primitives/button";
 import { toastResult } from "@/core/ui/toast";
 
 import { setFieldDefinitionArchived } from "../actions/custom-fields";
@@ -51,11 +50,10 @@ export function FieldDefinitionsManager({
   const [adding, setAdding] = useState<{ scope: string | null } | null>(null);
   const [editing, setEditing] = useState<FieldDefinition | null>(null);
   const [archiving, setArchiving] = useState<FieldDefinition | null>(null);
-  const [busyId, setBusyId] = useState<string | null>(null);
 
   const kind = scopeKindOf(entity);
   const scoped = kind !== null;
-  const { active, archived } = splitDefinitions(definitions);
+  const { active } = splitDefinitions(definitions);
   const labels = ENTITY_LABELS[entity];
   const scopeName = new Map(scopes.map((scope) => [scope.id, scope.name]));
   const canAdd = canGlobal || (scoped && scopes.length > 0);
@@ -107,14 +105,7 @@ export function FieldDefinitionsManager({
   };
 
   async function restore(definition: FieldDefinition) {
-    setBusyId(definition.id);
-    toastResult(
-      await setFieldDefinitionArchived({ definitionId: definition.id, archived: false }),
-      {
-        success: "Field restored",
-      },
-    );
-    setBusyId(null);
+    toastResult(await setFieldDefinitionArchived({ definitionId: definition.id, archived: false }));
   }
 
   return (
@@ -201,7 +192,7 @@ export function FieldDefinitionsManager({
                         kind="Field"
                         slot="list-item-actions"
                         edit={{ label: "Edit", onSelect: () => setEditing(definition) }}
-                        onArchive={() => setArchiving(definition)}
+                        onDelete={() => setArchiving(definition)}
                       />
                     ) : null}
                   </li>
@@ -211,53 +202,6 @@ export function FieldDefinitionsManager({
           </section>
         ),
       )}
-
-      {archived.length > 0 ? (
-        <section className="flex flex-col gap-2">
-          <h2 className="text-muted-foreground text-sm font-medium">Archived fields</h2>
-          <p className="text-muted-foreground text-sm">
-            Hidden from forms. Values already entered are kept and shown read-only.
-          </p>
-          <ul
-            data-slot="archived-field-definitions"
-            className="border-border divide-border divide-y rounded-lg border"
-          >
-            {archived.map((definition) => (
-              <li
-                key={definition.id}
-                data-slot="archived-field-definition"
-                data-key={definition.key}
-                className="flex min-h-14 flex-wrap items-center justify-between gap-2 px-3 py-2.5 sm:px-4"
-              >
-                <span className={cn("text-muted-foreground truncate text-sm", CARD_ROW_TITLE)}>
-                  {definition.label}
-                  {scopeIdOf(definition) ? (
-                    <span className="text-xs">
-                      {" "}
-                      ·{" "}
-                      {scopeName.get(scopeIdOf(definition) ?? "") ??
-                        (kind === "task_type" ? "one task type" : "one client")}
-                    </span>
-                  ) : null}
-                </span>
-                {editable(definition) ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className={CARD_ROW_TRAILING}
-                    disabled={busyId !== null}
-                    onClick={() => void restore(definition)}
-                  >
-                    <ArchiveRestoreIcon aria-hidden />
-                    Restore
-                  </Button>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
 
       {adding ? (
         <FieldDefinitionDialog
@@ -286,15 +230,14 @@ export function FieldDefinitionsManager({
           onOpenChange={(open) => {
             if (!open) setArchiving(null);
           }}
-          title={`Archive ${archiving.label}?`}
-          description="It leaves the forms. Values already entered are kept and shown read-only, and you can restore it later."
-          confirmLabel={`Archive ${archiving.label}`}
+          title={`Delete ${archiving.label}?`}
+          description={`It won't appear on new or edited ${labels.plural.toLowerCase()}. Records that already have it keep their value.`}
+          confirmLabel={`Delete ${archiving.label}`}
           onConfirm={async () => {
+            const definition = archiving;
             toastResult(
-              await setFieldDefinitionArchived({ definitionId: archiving.id, archived: true }),
-              {
-                success: "Field archived",
-              },
+              await setFieldDefinitionArchived({ definitionId: definition.id, archived: true }),
+              { success: `${definition.label} deleted`, undo: () => void restore(definition) },
             );
             setArchiving(null);
           }}

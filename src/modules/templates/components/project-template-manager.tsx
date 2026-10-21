@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  ArchiveIcon,
-  ArchiveRestoreIcon,
-  EyeIcon,
-  FolderKanbanIcon,
-  PencilIcon,
-} from "lucide-react";
+import { FolderKanbanIcon } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useState } from "react";
 
@@ -14,9 +8,8 @@ import { countDeliverables, templateMatches } from "@/core/lib/stage-groups";
 import { cn } from "@/core/lib/utils";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { EmptyState } from "@/core/ui/composites/empty-state";
-import { ListAddButton } from "@/core/ui/composites/list-rows";
-import { CARD_ROW_TITLE, CARD_ROW_TRAILING } from "@/core/ui/composites/row-metrics";
-import { Button } from "@/core/ui/primitives/button";
+import { ListAddButton, ListRowActions } from "@/core/ui/composites/list-rows";
+import { CARD_ROW_TITLE } from "@/core/ui/composites/row-metrics";
 import { TemplatePreviewDialog } from "@/core/ui/stage-groups/template-preview-dialog";
 import { toastResult } from "@/core/ui/toast";
 
@@ -63,7 +56,6 @@ export function ProjectTemplateManager({
   const [adding, setAdding] = useState(false);
   const [archiving, setArchiving] = useState<ProjectTemplate | null>(null);
   const [previewId, setPreviewId] = useState<string | null>(null);
-  const [busyId, setBusyId] = useState<string | null>(null);
   const matches = (template: ProjectTemplate) =>
     templateMatches(query, [
       template.name,
@@ -71,7 +63,6 @@ export function ProjectTemplateManager({
     ]);
   const all = templates.filter((template) => !template.archived);
   const active = all.filter(matches);
-  const archived = templates.filter((template) => template.archived && matches(template));
   const previewing = templates.find((template) => template.id === previewId) ?? null;
 
   function line(template: ProjectTemplate): string {
@@ -92,11 +83,7 @@ export function ProjectTemplateManager({
   }
 
   async function restore(template: ProjectTemplate) {
-    setBusyId(template.id);
-    toastResult(await setProjectTemplateArchived({ templateId: template.id, archived: false }), {
-      success: `Restored ${template.name}: New project offers it again`,
-    });
-    setBusyId(null);
+    toastResult(await setProjectTemplateArchived({ templateId: template.id, archived: false }));
   }
 
   const addButton = (
@@ -143,78 +130,26 @@ export function ProjectTemplateManager({
                     {line(template)}
                   </span>
                 </div>
-                <div className={cn("flex items-center", CARD_ROW_TRAILING)}>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="min-h-11"
-                    aria-label={`Preview ${template.name}`}
-                    title={`See what a project started from ${template.name} gets`}
-                    onClick={() => setPreviewId(template.id)}
-                  >
-                    <EyeIcon aria-hidden />
-                    Preview
-                  </Button>
-                  {allowed.edit ? (
-                    <>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="size-11"
-                        aria-label={`Edit ${template.name}`}
-                        title={`Edit ${template.name}`}
-                        onClick={() => setEditing(template)}
-                      >
-                        <PencilIcon aria-hidden />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="size-11"
-                        aria-label={`Archive ${template.name}`}
-                        title={`Archive ${template.name}`}
-                        onClick={() => setArchiving(template)}
-                      >
-                        <ArchiveIcon aria-hidden />
-                      </Button>
-                    </>
-                  ) : null}
-                </div>
+                <ListRowActions
+                  name={template.name}
+                  kind="Project template"
+                  slot="project-template-actions"
+                  preview={{
+                    onSelect: () => setPreviewId(template.id),
+                    title: `See what a project started from ${template.name} gets`,
+                  }}
+                  edit={
+                    allowed.edit
+                      ? { label: "Edit", onSelect: () => setEditing(template) }
+                      : undefined
+                  }
+                  onDelete={allowed.edit ? () => setArchiving(template) : undefined}
+                />
               </li>
             );
           })}
         </ul>
       )}
-      {archived.length > 0 ? (
-        <ul className="border-border divide-border divide-y rounded-lg border">
-          {archived.map((template) => (
-            <li
-              key={template.id}
-              data-slot="archived-project-template"
-              className="flex min-h-14 flex-wrap items-center justify-between gap-2 px-3 py-2.5 sm:px-4"
-            >
-              <span className={cn("text-muted-foreground truncate text-sm", CARD_ROW_TITLE)}>
-                {template.name} (archived)
-              </span>
-              {projectTemplateActions(template, context.viewer).restore ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className={cn("min-h-11", CARD_ROW_TRAILING)}
-                  aria-label={`Restore ${template.name}`}
-                  disabled={busyId !== null}
-                  onClick={() => void restore(template)}
-                >
-                  <ArchiveRestoreIcon aria-hidden />
-                  Restore
-                </Button>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      ) : null}
       {adding ? <TemplateDialog {...context} onClose={() => setAdding(false)} /> : null}
       {editing ? (
         <TemplateDialog
@@ -240,16 +175,17 @@ export function ProjectTemplateManager({
           onOpenChange={(open) => {
             if (!open) setArchiving(null);
           }}
-          title={`Archive ${archiving.name}?`}
-          description="New project stops offering it. Projects made from it keep what it gave them."
-          confirmLabel={`Archive ${archiving.name}`}
-          pendingLabel="Archiving…"
-          onConfirm={async () =>
+          title={`Delete ${archiving.name}?`}
+          description="It won't be offered for new projects. Projects already made from it don't change."
+          confirmLabel={`Delete ${archiving.name}`}
+          pendingLabel="Deleting…"
+          onConfirm={async () => {
+            const template = archiving;
             toastResult(
-              await setProjectTemplateArchived({ templateId: archiving.id, archived: true }),
-              { success: `Archived ${archiving.name}: New project no longer offers it` },
-            )
-          }
+              await setProjectTemplateArchived({ templateId: template.id, archived: true }),
+              { success: `${template.name} deleted`, undo: () => void restore(template) },
+            );
+          }}
         />
       ) : null}
     </section>

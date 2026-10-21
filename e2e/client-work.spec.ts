@@ -643,10 +643,10 @@ test("Settings → Stage presets: an Admin adds, edits and archives their own", 
   await edit.getByLabel("Stage 4", { exact: true }).fill("Deliver");
   await edit.getByRole("button", { name: "Save preset" }).click();
   await expect(row).toContainText("Brief → Shoot → Edit → Deliver · by you");
-  await rowAction(page, row, name, "Archive");
+  await rowAction(page, row, name, "Delete");
   await page
     .getByRole("alertdialog")
-    .getByRole("button", { name: `Archive ${name}` })
+    .getByRole("button", { name: `Delete ${name}` })
     .click();
   await expect(
     page.locator('[data-slot="archived-stage-preset"]', { hasText: name }),
@@ -1897,7 +1897,7 @@ test.describe("Settings layers, installed (ARCHITECTURE §14.2)", () => {
     const edit = page.getByRole("dialog", { name: `Edit ${name}` });
     await expect(edit).toBeVisible();
     await expectBackStack(page, [{ closes: edit, url: here }]);
-    await rowAction(page, row, name, "Archive");
+    await rowAction(page, row, name, "Delete");
     const archive = page.getByRole("alertdialog");
     await expect(archive).toBeVisible();
     await expectBackStack(page, [{ closes: archive, url: here }]);

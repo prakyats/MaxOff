@@ -8,6 +8,7 @@ import {
   insertAs,
   memberIdOf,
   removeClientFixture,
+  rowAction,
   rpcAs,
   runInstalled,
   serviceInsert,
@@ -224,7 +225,7 @@ test("a template of 6 deliverables × 3 groups from presets, reordered by drag, 
   expect(saved?.deliverables[1]?.stage_groups?.map((group) => group.label)).toEqual([a, b, c]);
 
   // Reopened, it shows the order and the counts as saved.
-  await row.getByRole("button", { name: `Edit ${name}` }).click();
+  await rowAction(page, row, name, "Edit");
   const edit = page.getByRole("dialog", { name: `Edit ${name}` });
   const reopened = edit.locator('[data-slot="deliverable"]');
   await expect(reopened).toHaveCount(6);
@@ -268,7 +269,7 @@ test("a template from before groups opens with its stages on each item, and keep
   await hydrated(page);
   const row = page.locator('[data-slot="project-template"]', { hasText: name });
   await expect(row).toContainText("2 deliverables · 4 stages");
-  await row.getByRole("button", { name: `Edit ${name}` }).click();
+  await rowAction(page, row, name, "Edit");
   const dialog = page.getByRole("dialog", { name: `Edit ${name}` });
   // The shared stages are one untitled group: no heading, only "Name this group".
   const defaults = dialog.locator('[data-slot="template-default-groups"]');
@@ -377,7 +378,7 @@ test("the preview's summary stays in view while its list scrolls", async ({ page
   await page.goto("/settings/templates");
   await hydrated(page);
   const row = page.locator('[data-slot="project-template"]', { hasText: name });
-  await row.getByRole("button", { name: `Edit ${name}` }).click();
+  await rowAction(page, row, name, "Edit");
   const dialog = page.getByRole("dialog", { name: `Edit ${name}` });
   await expect(dialog).toBeVisible();
   const preview = await openPreview(page, dialog);
@@ -426,7 +427,7 @@ test("the preview collapses identical neighbours, and a change highlights its ow
   await page.goto("/settings/templates");
   await hydrated(page);
   const row = page.locator('[data-slot="project-template"]', { hasText: name });
-  await row.getByRole("button", { name: `Edit ${name}` }).click();
+  await rowAction(page, row, name, "Edit");
   const dialog = page.getByRole("dialog", { name: `Edit ${name}` });
   await expect(dialog).toBeVisible();
   const preview = await openPreview(page, dialog);
@@ -737,13 +738,14 @@ test("the library's search narrows both lists; a preview opens and back closes i
   await expect(deliverableRow(gamma)).toBeVisible();
 
   // Each row says what its buttons do ("say what it does", v1.7.1): Preview in words, Edit and
-  // Archive named for the template (a tooltip on a laptop too), each a 44px target.
+  // Delete (D6) named for the template (a tooltip on a laptop; in the row's ⋯ sheet on a phone),
+  // each a 44px target.
   for (const [row, name] of [
     [projectRow(alpha), alpha],
     [deliverableRow(gamma), gamma],
   ] as const) {
     await expect(row.getByRole("button", { name: `Preview ${name}` })).toHaveText("Preview");
-    for (const verb of ["Edit", "Archive"]) {
+    for (const verb of phone(page) ? [] : ["Edit", "Delete"]) {
       const button = row.getByRole("button", { name: `${verb} ${name}` });
       await expect(button).toHaveAttribute("title", `${verb} ${name}`);
       expect((await boxOf(button)).h).toBeGreaterThanOrEqual(44);
@@ -840,7 +842,7 @@ test("deliverable templates: an Admin adds and archives their own, edits only th
   // The Owner's: previewed, never edited or archived by the Admin.
   await expect(row(theirs).getByRole("button", { name: `Preview ${theirs}` })).toBeVisible();
   await expect(row(theirs).getByRole("button", { name: `Edit ${theirs}` })).toHaveCount(0);
-  await expect(row(theirs).getByRole("button", { name: `Archive ${theirs}` })).toHaveCount(0);
+  await expect(row(theirs).getByRole("button", { name: `Delete ${theirs}` })).toHaveCount(0);
 
   // The project template builder's "Add deliverables" row offers them: the groups come along.
   await page.getByRole("button", { name: "Add project template" }).click();
@@ -867,30 +869,37 @@ test("deliverable templates: an Admin adds and archives their own, edits only th
     .click();
   await expect(builder).toBeHidden();
 
-  // Archive their own: a reason first; the archived row keeps it.
-  await row(mine)
-    .getByRole("button", { name: `Archive ${mine}` })
-    .click();
-  const archive = page.getByRole("dialog", { name: `Archive ${mine}?` });
-  await archive.getByLabel("Why archive it").fill("Not used any more");
-  await archive.getByRole("button", { name: `Archive ${mine}` }).click();
+  // Delete their own (D6: the archive with its reason), never red; Undo brings it back.
+  await rowAction(page, row(mine), mine, "Delete");
+  const archive = page.getByRole("dialog", { name: `Delete ${mine}?` });
+  await archive.getByLabel("Why delete it").fill("Not used any more");
+  const commit = archive.getByRole("button", { name: `Delete ${mine}` });
+  await expect(commit).not.toHaveAttribute("data-variant", "danger");
+  await commit.click();
   await expect(archive).toBeHidden();
-  await expect(
-    page.locator('[data-slot="archived-deliverable-template"]', { hasText: mine }),
-  ).toContainText("Not used any more");
+  await expect(row(mine)).toHaveCount(0);
+  const [archived] = await serviceSelect<{ archived_reason: string | null }>(
+    `deliverable_templates?name=eq.${encodeURIComponent(mine)}&select=archived_reason`,
+  );
+  expect(archived?.archived_reason).toBe("Not used any more");
+  await expect(page.locator('[data-slot="archived-deliverable-template"]')).toHaveCount(0);
+  await page
+    .locator("[data-sonner-toast]", { hasText: `${mine} deleted` })
+    .getByRole("button", { name: "Undo" })
+    .click();
+  await expect(row(mine)).toBeVisible();
 
-  // The Owner edits any template, an Admin's too, and restores an archived one.
+  // The Owner edits any template, an Admin's too.
   const context = await browser.newContext({ storageState: storageStateFor("owner") });
   const ownerPage = await context.newPage();
   await ownerPage.goto("/settings/templates");
   await hydrated(ownerPage);
   const ownerRow = (name: string) =>
     ownerPage.locator('[data-slot="deliverable-template"]', { hasText: name });
-  await expect(ownerRow(other).getByRole("button", { name: `Edit ${other}` })).toBeVisible();
-  await expect(ownerRow(theirs).getByRole("button", { name: `Edit ${theirs}` })).toBeVisible();
-  await ownerRow(other)
-    .getByRole("button", { name: `Edit ${other}` })
-    .click();
+  const editLabel = (name: string) => (phone(ownerPage) ? `Actions for ${name}` : `Edit ${name}`);
+  await expect(ownerRow(other).getByRole("button", { name: editLabel(other) })).toBeVisible();
+  await expect(ownerRow(theirs).getByRole("button", { name: editLabel(theirs) })).toBeVisible();
+  await rowAction(ownerPage, ownerRow(other), other, "Edit");
   const edit = ownerPage.getByRole("dialog", { name: `Edit ${other}` });
   await edit.getByLabel("Name", { exact: true }).fill(`${other} v2`);
   if (phone(ownerPage)) {
@@ -904,11 +913,6 @@ test("deliverable templates: an Admin adds and archives their own, edits only th
   }
   await expect(edit).toBeHidden();
   await expect(ownerRow(`${other} v2`)).toBeVisible();
-  await ownerPage
-    .locator('[data-slot="archived-deliverable-template"]', { hasText: mine })
-    .getByRole("button", { name: "Restore" })
-    .click();
-  await expect(ownerRow(mine)).toBeVisible();
   await context.close();
   for (const name of [mine, theirs, other, `${other} v2`]) await removeDeliverableTemplate(name);
 });

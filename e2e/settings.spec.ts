@@ -238,15 +238,20 @@ test.describe("Owner", () => {
     await expect(page.getByText("Job title renamed")).toBeVisible();
     await expect(names).toHaveText([/Video Editor/, /Graphic Designer/, /Colourist/]);
 
-    await page.getByRole("button", { name: "Archive Colourist" }).click();
-    await page.getByRole("alertdialog").getByRole("button", { name: "Archive Colourist" }).click();
-    await expect(page.getByText("Job title archived")).toBeVisible();
-    await expect(names).toHaveText([/Video Editor/, /Graphic Designer/]);
-    // Its own archived row: another spec's archived title may sit beside it.
-    const archivedColourist = page.locator('[data-slot="archived-list-item"]', {
-      hasText: "Colourist",
-    });
-    await expect(archivedColourist).toBeVisible();
+    // D6: Delete (the archive underneath), Undo in its toast, no Archived list.
+    const deleteColourist = async () => {
+      await page.getByRole("button", { name: "Delete Colourist" }).click();
+      await page.getByRole("alertdialog").getByRole("button", { name: "Delete Colourist" }).click();
+      await expect(names).toHaveText([/Video Editor/, /Graphic Designer/]);
+    };
+    await deleteColourist();
+    await expect(page.locator('[data-slot="archived-list-item"]')).toHaveCount(0);
+    await page
+      .locator("[data-sonner-toast]", { hasText: "Colourist deleted" })
+      .getByRole("button", { name: "Undo" })
+      .click();
+    await expect(names).toHaveText([/Video Editor/, /Graphic Designer/, /Colourist/]);
+    await deleteColourist();
 
     // An archived title is not offered when someone is invited.
     await page.goto("/people");
@@ -257,9 +262,7 @@ test.describe("Owner", () => {
     await page.keyboard.press("Escape");
 
     await page.goto("/settings/job-titles");
-    await archivedColourist.getByRole("button", { name: "Restore" }).click();
-    await expect(page.getByText("Job title restored")).toBeVisible();
-    await expect(names).toHaveText([/Video Editor/, /Graphic Designer/, /Colourist/]);
+    await expect(names).toHaveText([/Video Editor/, /Graphic Designer/]);
   });
 });
 
@@ -303,13 +306,13 @@ test.describe("Admin", () => {
     await expect(page.getByText("Job title added")).toBeVisible();
     await expect(page.locator('[data-slot="list-item"]')).toContainText(["Sound Engineer"]);
 
-    // Put the list back as it was: an Admin may archive too.
-    await page.getByRole("button", { name: "Archive Sound Engineer" }).click();
+    // Put the list back as it was: an Admin may delete too.
+    await page.getByRole("button", { name: "Delete Sound Engineer" }).click();
     await page
       .getByRole("alertdialog")
-      .getByRole("button", { name: "Archive Sound Engineer" })
+      .getByRole("button", { name: "Delete Sound Engineer" })
       .click();
-    await expect(page.getByText("Job title archived")).toBeVisible();
+    await expect(page.getByText("Sound Engineer deleted")).toBeVisible();
   });
 });
 

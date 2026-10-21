@@ -156,15 +156,15 @@ test.describe("task types and per-type fields, the flows", () => {
       location: "Bandra",
     });
 
-    await page.getByRole("button", { name: `Archive ${name} visit` }).click();
+    await page.getByRole("button", { name: `Delete ${name} visit` }).click();
     await page
       .getByRole("alertdialog")
-      .getByRole("button", { name: `Archive ${name} visit` })
+      .getByRole("button", { name: `Delete ${name} visit` })
       .click();
-    await expect(page.getByText("Task type archived")).toBeVisible();
-    await expect(
-      page.locator('[data-slot="archived-task-type"]').filter({ hasText: `${name} visit` }),
-    ).toBeVisible();
+    // D6: Delete is the archive underneath; no Archived list.
+    await expect(page.getByText(`${name} visit deleted`)).toBeVisible();
+    await expect(rowOf(page, `${name} visit`)).toHaveCount(0);
+    await expect(page.locator('[data-slot="archived-task-type"]')).toHaveCount(0);
 
     await page.goto(`/tasks/${taskId}`);
     await expect(page.locator("main")).toContainText(`${name} visit`);
@@ -177,13 +177,7 @@ test.describe("task types and per-type fields, the flows", () => {
     await page.keyboard.press("Escape");
 
     await page.goto("/settings/task-types");
-    await page
-      .locator('[data-slot="archived-task-type"]')
-      .filter({ hasText: `${name} visit` })
-      .getByRole("button", { name: "Restore" })
-      .click();
-    await expect(page.getByText("Task type restored")).toBeVisible();
-    await expect(rowOf(page, `${name} visit`)).toBeVisible();
+    await expect(rowOf(page, `${name} visit`)).toHaveCount(0);
     await removeTasksTitled(prefix);
   });
 
@@ -335,15 +329,13 @@ test.describe("task types, installed: back and large text", () => {
     await expect(edit).toBeVisible();
     await expectBackStack(page, [{ closes: edit, url }]);
 
-    // The sheet hands off to the archive question, which one back closes (nothing archived).
+    // The sheet hands off to the delete question, which one back closes (nothing deleted).
     await page.getByRole("button", { name: "Actions for Meeting" }).click();
-    await sheet.getByRole("button", { name: "Archive" }).click();
-    const archive = page.getByRole("alertdialog", { name: "Archive Meeting?" });
+    await sheet.getByRole("button", { name: "Delete" }).click();
+    const archive = page.getByRole("alertdialog", { name: "Delete Meeting?" });
     await expect(archive).toBeVisible();
     await expectBackStack(page, [{ closes: archive, url }, { url: /\/settings$/ }]);
-    await expect(
-      page.locator('[data-slot="archived-task-type"]').filter({ hasText: "Meeting" }),
-    ).toHaveCount(0);
+    await expect(rowOf(page, "Meeting")).toBeVisible();
   });
 
   test("Custom fields → Tasks: the Add dialog's Applies to sheet, then the dialog, close on back", async ({
@@ -523,8 +515,8 @@ async function editTemplate(page: Page, name: string): Promise<Locator> {
   return dialog;
 }
 
-test.describe("task templates: archive is neutral (the colour rule)", () => {
-  test("the row's Archive (laptop) and the ⋯ sheet's Archive (phone) are never red; the question names it", async ({
+test.describe("task templates: Delete (the archive) is neutral (the colour rule)", () => {
+  test("the row's Delete (laptop) and the ⋯ sheet's Delete (phone) are never red; the question names it", async ({
     page,
   }, info) => {
     const name = `Neutral archive (${info.project.name})`;
@@ -536,18 +528,18 @@ test.describe("task templates: archive is neutral (the colour rule)", () => {
     if (phone) {
       await row.getByRole("button", { name: `Actions for ${name}` }).click();
       const sheet = page.locator('[data-slot="task-template-actions"]');
-      const archive = sheet.getByRole("button", { name: "Archive" });
+      const archive = sheet.getByRole("button", { name: "Delete" });
       await expect(archive).toHaveAttribute("data-variant", "secondary");
       await archive.click();
     } else {
-      const archive = row.getByRole("button", { name: `Archive ${name}` });
+      const archive = row.getByRole("button", { name: `Delete ${name}` });
       await expect(archive).toHaveAttribute("data-variant", "ghost");
       await archive.click();
     }
-    // The question still confirms it with one named commit; archiving can be restored, so it is
-    // the neutral one, never red (ADR-0015).
-    const question = page.getByRole("alertdialog", { name: `Archive ${name}?` });
-    await expect(question.getByRole("button", { name: `Archive ${name}` })).toHaveAttribute(
+    // The question still confirms it with one named commit; Delete is the archive (Undo brings it
+    // back), so it is the neutral one, never red (ADR-0015, D6).
+    const question = page.getByRole("alertdialog", { name: `Delete ${name}?` });
+    await expect(question.getByRole("button", { name: `Delete ${name}` })).toHaveAttribute(
       "data-variant",
       "primary",
     );
