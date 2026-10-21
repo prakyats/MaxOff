@@ -202,8 +202,9 @@ No `rounded-xs`, `rounded-2xl` and above, no `rounded-[…]` (lint).
 
 The files that held exceptions when the rule landed (2026-10-20) are listed in
 `DESIGN_TOKEN_EXCEPTIONS` in `eslint.config.mjs`; they move onto the tokens in V2–V4 and leave the
-list as they do (PROGRESS, Ideas / tech debt). V2 took it from 50 files to 20: the calendar's five
-(V3) and the fifteen by nature. New tokens on the way: `scrim` (the veil behind a dialog, sheet or
+list as they do (PROGRESS, Ideas / tech debt). V2 took it from 50 files to 21: the calendar's five
+(V3), the bottom bar's 11 px labels (they must fit a fifth of a 375 px bar at 200% text; V3–V5
+settle them) and the fifteen by nature. New tokens on the way: `scrim` (the veil behind a dialog, sheet or
 phone menu sheet: 10% black light, 30% dark), `logo-foreground` (the logo tile's white M), the
 `hairline-b` utility (a sticky table header's rule) and `--app-top-bar-h`. Emails (HTML mail clients have no CSS variables) and
 the theme-colour metas are exceptions by nature and stay listed.

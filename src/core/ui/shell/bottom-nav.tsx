@@ -22,7 +22,7 @@ import { usePrefetchTabs, useTabNavigation } from "./tab-history";
  * 8px of breathing room satisfies §14.1; the whole cell is tappable, not just the icon.
  */
 const ITEM =
-  "relative flex min-h-14 w-full flex-col items-center justify-center gap-1 px-1 text-xs leading-none outline-none transition-colors focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-inset";
+  "relative flex min-h-14 w-full flex-col items-center justify-center gap-1 px-1 text-[11px] leading-none outline-none transition-colors focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-inset";
 
 /**
  * The icon sits in a pill that fills when the destination is current, with a heavier icon and

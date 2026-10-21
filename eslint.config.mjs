@@ -166,6 +166,9 @@ const DESIGN_TOKEN_EXCEPTIONS = [
   "modules/calendar/components/month-grid.tsx",
   "modules/calendar/components/timeline.tsx",
   "modules/calendar/domain/strips.ts",
+  // The bottom bar's labels stay 11px: at 12px "Approvals" no longer fits a fifth of a 375px bar
+  // at 200% system text (mobile.spec "fits at 130% and 200%"). V3–V5 settle the bar's labels.
+  "core/ui/shell/bottom-nav.tsx",
   // By nature, staying: HTML email (no CSS variables), the theme-colour meta, the error page that
   // renders without the app's CSS, the launch mark, a JPEG's white backing, and colours that are
   // data (a client's brand swatches, a list's or a custom field's colour, an event's colour, the
