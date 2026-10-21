@@ -534,23 +534,35 @@ export function CalendarScreen({
               </ViewLink>
             ))}
           </nav>
+          {/* PP-calendar-11: the step controls grouped as "‹ Today ›" beside the period's name;
+              Filters alone at the right. */}
           <div data-slot="calendar-pager" className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => go(laptopStep(-1))}
-              aria-label={`Previous ${unit}`}
-              className={cn("pressable", ICON_BUTTON, "size-8")}
-            >
-              <ChevronLeftIcon className="size-4" aria-hidden />
-            </button>
-            <button
-              type="button"
-              onClick={() => go(laptopStep(1))}
-              aria-label={`Next ${unit}`}
-              className={cn("pressable", ICON_BUTTON, "size-8")}
-            >
-              <ChevronRightIcon className="size-4" aria-hidden />
-            </button>
+            <div role="group" aria-label={`Move by ${unit}`} className="flex items-center gap-0.5">
+              <button
+                type="button"
+                onClick={() => go(laptopStep(-1))}
+                aria-label={`Previous ${unit}`}
+                className={cn("pressable", ICON_BUTTON, "size-8")}
+              >
+                <ChevronLeftIcon className="size-4" aria-hidden />
+              </button>
+              <button
+                type="button"
+                onClick={() => go(today)}
+                data-slot="calendar-today-laptop"
+                className="pressable focus-visible:ring-ring border-control-border hover:bg-muted flex min-h-8 items-center rounded-lg border px-3 text-sm font-medium outline-none focus-visible:ring-2"
+              >
+                Today
+              </button>
+              <button
+                type="button"
+                onClick={() => go(laptopStep(1))}
+                aria-label={`Next ${unit}`}
+                className={cn("pressable", ICON_BUTTON, "size-8")}
+              >
+                <ChevronRightIcon className="size-4" aria-hidden />
+              </button>
+            </div>
             <h2
               data-slot="calendar-pager-label"
               aria-live="polite"
@@ -559,17 +571,7 @@ export function CalendarScreen({
               {laptopLabel}
             </h2>
           </div>
-          <div className="ml-auto flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => go(today)}
-              data-slot="calendar-today-laptop"
-              className="pressable focus-visible:ring-ring border-control-border hover:bg-muted flex min-h-8 items-center rounded-lg border px-3 text-sm font-medium outline-none focus-visible:ring-2"
-            >
-              Today
-            </button>
-            {filtersButton}
-          </div>
+          <div className="ml-auto flex items-center gap-2">{filtersButton}</div>
         </div>
         {view === "month" ? (
           <MonthGrid

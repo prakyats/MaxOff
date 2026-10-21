@@ -702,7 +702,7 @@ export const CREW_GUIDE: Guide = {
               steps: [
                 "On a phone, swipe, or tap the handle, to change size.",
                 'The day you choose shows a timeline. The header has "Today" and "Filters".',
-                'On a laptop, choose "Day", "Week" or "Month". It opens on Month.',
+                'On a laptop, choose "Day", "Week" or "Month". It opens on Month. Beside the month’s name, ‹ and › move back and forward and "Today" brings you back; "Filters" is at the right.',
                 'The day popup has "Open day".',
               ],
             },

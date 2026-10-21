@@ -617,7 +617,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "On a laptop pick Day, Week or Month; it opens on Month. On a phone there is no switch: swipe up or down, or use the handle, to move between the week strip, the compact month and the full month.",
+              text: "On a laptop pick Day, Week or Month; it opens on Month. Beside the month’s name, ‹ and › move back and forward and Today brings you back to today; Filters is at the right. On a phone there is no switch: swipe up or down, or use the handle, to move between the week strip, the compact month and the full month.",
             },
             {
               kind: "text",
