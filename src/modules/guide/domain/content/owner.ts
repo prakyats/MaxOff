@@ -1224,7 +1224,7 @@ export const OWNER_GUIDE: Guide = {
             steps(
               "Open the project's ⋯ menu.",
               'Tap "Complete project" when the work is finished.',
-              'Tap "Cancel project…" to cancel it. It needs a reason.',
+              'Tap "Cancel project…" to cancel it. It needs a reason; "Keep project" closes the question without cancelling.',
               'Tap "Reopen project…" to bring a completed or cancelled project back.',
             ),
             next("A completed or cancelled project becomes read-only."),

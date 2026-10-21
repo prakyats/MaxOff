@@ -159,7 +159,7 @@ describe("keptDatesNote", () => {
 describe("leaveDecisionNote for the Owner and for Owner-set leave (2.4)", () => {
   it("turns the note around for the Owner", () => {
     expect(leaveDecisionNote({ state: "rejected", decisionReason: "Shoot that week" }, true)).toBe(
-      "Your reason: Shoot that week",
+      "You wrote: Shoot that week",
     );
     expect(
       leaveDecisionNote({ state: "cancelled", decisionReason: "cancellation approved" }, true),
@@ -172,7 +172,7 @@ describe("leaveDecisionNote for the Owner and for Owner-set leave (2.4)", () => 
       source: "owner" as const,
     };
     expect(leaveDecisionNote(set)).toBe("The Owner's reason: Moved to match the shoot");
-    expect(leaveDecisionNote(set, true)).toBe("Your reason: Moved to match the shoot");
+    expect(leaveDecisionNote(set, true)).toBe("You wrote: Moved to match the shoot");
     expect(leaveDecisionNote({ ...set, source: "form" })).toBeNull();
   });
 });

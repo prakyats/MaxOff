@@ -161,7 +161,10 @@ export default async function MePage({
             <p>
               <span className="text-muted-foreground">Signs in as </span>
               <span className="font-medium break-all">{viewer.email}</span>
-              <span className="text-muted-foreground"> (the Owner changes this)</span>
+              {/* W4: only the people whose sign-in the Owner changes read this. */}
+              {viewer.role === "owner" ? null : (
+                <span className="text-muted-foreground"> (the Owner changes this)</span>
+              )}
             </p>
             <AvatarEditor hasAvatar={Boolean(own?.avatarFileId)} />
             <Separator />

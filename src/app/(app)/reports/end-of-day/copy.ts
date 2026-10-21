@@ -6,4 +6,4 @@ export const END_OF_DAY_DESCRIPTION =
   "Each day's attendance, decisions, tasks, approvals and tomorrow's events. Today and yesterday live, every day before saved for good.";
 
 export const EOD_REPORT_DESCRIPTION =
-  "Attendance, the decisions made, tasks, approvals and tomorrow's events. Never money.";
+  "Attendance, the decisions made, tasks, approvals and tomorrow's events.";

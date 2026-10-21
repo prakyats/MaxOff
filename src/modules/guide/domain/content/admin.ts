@@ -1354,7 +1354,7 @@ export const ADMIN_GUIDE: Guide = {
               kind: "steps",
               steps: [
                 "Open the project and tap ⋯.",
-                "Choose Complete project, or Cancel project… and give a reason.",
+                "Choose Complete project, or Cancel project… and give a reason (Keep project closes the question without cancelling).",
                 "To change anything later, tap ⋯ and choose Reopen project….",
               ],
             },

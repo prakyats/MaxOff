@@ -1771,6 +1771,8 @@ test("⋯ Complete (refused while items are left), Reopen, Cancel, and Reopen re
   await page.getByRole("menuitem", { name: "Cancel project…" }).click();
   const cancel = page.getByRole("dialog", { name: "Cancel Brand film?" });
   await cancel.getByLabel("Why cancel it").fill("The client stopped the film");
+  // W3: the question's way out says "Keep project", never a second "Cancel".
+  await expect(cancel.getByRole("button", { name: "Keep project" })).toBeVisible();
   await cancel.getByRole("button", { name: "Cancel project" }).click();
   await expect(page.locator('[data-slot="project-read-only"]')).toContainText("Cancelled");
   // B8: the progress says it was cancelled and what it holds (the done one stays done), never

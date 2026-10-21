@@ -20,7 +20,7 @@ import { LeavePager } from "../../leave/leave-nav";
 export const metadata: Metadata = { title: "Month" };
 
 const DESCRIPTION =
-  "Each person's IST month, live: days worked, additional leave (leave + ½ × half days + absent), comp leave, overtime and approved expenses not yet paid. No salary: you work out pay from these.";
+  "Each person's IST month, live: days worked, additional leave (leave + ½ × half days + absent), comp leave, overtime and approved expenses not yet paid. MaxOff holds no salary; pay is worked out from these.";
 
 /** How far back the pager goes: two years of months. */
 const MONTHS_BACK = 23;
