@@ -86,7 +86,7 @@
 <!-- Raised while building v1.8. DECIDED by the owner 21 Oct 2026 ("all as recommended"). -->
 1. **B7, a deliverable with neither a revision stage nor an "Edit" stage: DECIDED.** "+ Another revision round" goes just before a "Posted", "Published" or "Delivered" stage (ignoring case) when there is one, else after the last stage. To be built in V5.
 2. **B6, Remind: DECIDED, no change** (a notification plus an Activity line, no Chat message).
-3. **B11, the exact version on staging: DECIDED.** Approved to pass `${{ github.event.workflow_run.head_sha }}` to the STAGING build for Me's version label; production unchanged. Handled separately by the advisor (no unit touches `.github/`).
+3. **B11, the exact version on staging: DONE (2026-10-21).** The owner added the staging-only line himself (3ba8429: `APP_COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}` in the staging job's "Build the Worker (OpenNext)" env; the production job unchanged); the app side is 2a789d2. Left: the comment order in that env block (the Sentry comment should sit above `SENTRY_ORG`), a cosmetic deploy.yml edit sessions cannot make here (the environment refuses deploy.yml edits); for the owner when next in that file. Original decision: Approved to pass `${{ github.event.workflow_run.head_sha }}` to the STAGING build for Me's version label; production unchanged. Handled separately by the advisor (no unit touches `.github/`).
 4. **B9, "· Paused" beside a client on the Admin's Today:** fixture and Playwright check added in V1; on the walk. The restore drill runs first after v1.8 (owner 21 Oct).
 
 ## In-progress handoff
