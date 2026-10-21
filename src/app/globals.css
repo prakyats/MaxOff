@@ -306,6 +306,8 @@
      * brand bar hides on scroll this drops to 0 and the title bar takes the top edge.
      * `core/ui/shell/chrome-scroll.ts` sets `data-chrome` on <html>; nothing else moves. */
     --app-chrome-h: 0rem;
+    /* Height of the laptop's sticky top bar (`TopBar`, md up): a sticky table header sits below it. */
+    --app-top-bar-h: 3.5rem;
     /* Height of the mobile bottom nav, used for page padding and for anything docked above it. */
     --app-bottom-nav-h: 0rem;
     /* Everything docked at the bottom clears the home indicator (viewport-fit=cover). */
@@ -497,6 +499,11 @@
       transform: none;
     }
   }
+}
+/* A hairline under a sticky header row (a table's): a border on a sticky `thead` scrolls away with
+ * the collapsed borders, an inset hairline in the `border` colour stays with it. */
+@utility hairline-b {
+  box-shadow: inset 0 -1px 0 var(--border);
 }
 @utility pressable-row {
   transition-property: background-image, background-color;

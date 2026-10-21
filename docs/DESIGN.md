@@ -157,6 +157,8 @@ No `rounded-xs`, `rounded-2xl` and above, no `rounded-[…]` (lint).
 
 ## 6. Spacing and layout
 - A 4 px grid (Tailwind's spacing scale); hairline borders; **dashed borders mean "empty" only**.
+- **Tables scroll with the page (L2):** no inner scroll box; from `lg` the header row sticks under
+  the top bar (`DataTable`). A phone shows cards instead of a table.
 - Laptop: one page grid at the content's full width (V3); compact rows (32 px controls). Phone:
   16 px side gutters, 44 px targets, bottom sheets, a sticky primary action, cards instead of
   tables (ARCHITECTURE §14.1).

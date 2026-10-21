@@ -307,15 +307,22 @@ export function DataTable<TData>({
         />
       ) : null}
       <div
+        data-slot="data-table"
         className={cn(
-          "border-border bg-card max-h-[70dvh] overflow-auto rounded-lg border",
+          // L2: the page scrolls, not a box inside it. From `lg` the header row sticks under the
+          // laptop's top bar (`overflow-clip` clips the corners without making a scroll box, which
+          // would trap the sticky header); a tablet keeps side-scrolling for a table too wide for it.
+          "border-border bg-card rounded-lg border md:overflow-x-auto lg:overflow-clip",
           // A phone gets the cards above instead; the table is never side-scrolled (§14.1).
           mobile && "hidden md:block",
         )}
       >
-        <Table>
+        <Table containerClassName="lg:overflow-visible">
           <caption className="sr-only">{caption}</caption>
-          <TableHeader className="bg-card sticky top-0 z-10 shadow-[inset_0_-1px_0_var(--border)]">
+          <TableHeader
+            data-slot="data-table-header"
+            className="bg-card hairline-b z-10 lg:sticky lg:top-(--app-top-bar-h)"
+          >
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
