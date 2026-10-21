@@ -24,6 +24,7 @@ import {
   taskTypeId,
   USERS,
   openMoreOptions,
+  templatesTab,
 } from "./helpers";
 
 /**
@@ -671,9 +672,9 @@ test.describe("drag to reorder, installed (6b.18): a stage's ⋯ menu closes on 
       { closes: edit, url: templates },
     ]);
 
-    await page.goto("/settings/templates#presets");
-    await hydrated(page);
-    const presets = /\/settings\/templates#presets$/;
+    // The same page's Stage presets section: on a phone its segment (a view control, no load).
+    await templatesTab(page, "presets");
+    const presets = templates;
     // V2 (P2): on a phone a Settings row's Edit sits in its ⋯ sheet.
     await rowAction(
       page,

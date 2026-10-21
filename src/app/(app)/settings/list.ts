@@ -44,9 +44,8 @@ export const GROUP_LIST_CLASS =
 /** A row: the name over its one line, beside the chevron (or the "Coming soon" pill). */
 export const SECTION_ROW_CLASS = "relative flex min-h-16 items-center gap-2 px-4 py-2.5";
 
-/** The name: the row's link (its `after:` covers the row) or, still to come, plain text. */
-export const SECTION_LABEL_CLASS =
-  "block truncate text-sm font-medium outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-ring focus-visible:after:ring-inset";
+/** The name, inside the row's link. */
+export const SECTION_LABEL_CLASS = "block truncate text-sm font-medium";
 
 /** The one line under the name: what the section holds; one line at every width. */
 export const SECTION_LINE_CLASS = "text-muted-foreground truncate text-sm";

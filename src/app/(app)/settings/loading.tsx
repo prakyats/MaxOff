@@ -57,7 +57,14 @@ export default async function Loading() {
                 {group.sections.map((section) => (
                   <li key={section.key} className={SECTION_ROW_CLASS}>
                     <span className="flex min-w-0 flex-1 flex-col">
-                      <Line width="w-28" />
+                      {section.ready ? (
+                        <Line width="w-28" />
+                      ) : (
+                        <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <Line width="w-28" className="flex-[1_1_8rem]" />
+                          <Skeleton className="h-5 w-[5.5rem] shrink-0 rounded-full" />
+                        </span>
+                      )}
                       <Line width="w-48 max-w-full" />
                     </span>
                     {section.ready ? (
@@ -65,9 +72,7 @@ export default async function Loading() {
                         className="text-muted-foreground size-4 shrink-0"
                         aria-hidden
                       />
-                    ) : (
-                      <Skeleton className="h-5 w-[5.5rem] shrink-0 rounded-full" />
-                    )}
+                    ) : null}
                   </li>
                 ))}
               </ul>

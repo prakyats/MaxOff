@@ -750,7 +750,9 @@ test.describe("Settings is a list of rows", () => {
     });
     // The row's first line is the label, on a ready row (a link) and a "Coming soon" row (a
     // span) alike (N3: the row's second line is its description, at every width).
-    const labels = page.locator('[data-slot="settings-row"] > span:first-child > :first-child');
+    const labels = page.locator(
+      '[data-slot="settings-row"] > a > span > span:first-child, [data-slot="settings-row"] > div > span > span:first-child > span:first-child',
+    );
     const measured = await labels.evaluateAll((els) =>
       els.map((el) => {
         const box = el.getBoundingClientRect();

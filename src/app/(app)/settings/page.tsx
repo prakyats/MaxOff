@@ -58,39 +58,50 @@ export default async function SettingsPage() {
             </h2>
             <ul className={GROUP_LIST_CLASS}>
               {group.sections.map((section) => (
-                <li
-                  key={section.key}
-                  data-slot="settings-row"
-                  className={cn(
-                    SECTION_ROW_CLASS,
-                    section.ready && "hover:bg-muted/50 active:bg-muted/60 transition-colors",
-                  )}
-                >
-                  <span className="flex min-w-0 flex-1 flex-col">
-                    {section.ready ? (
-                      <DrillLink
-                        href={section.href}
-                        data-slot="settings-section"
-                        className={SECTION_LABEL_CLASS}
-                      >
-                        {section.label}
-                      </DrillLink>
-                    ) : (
-                      <span className="text-muted-foreground truncate text-sm font-medium">
-                        {section.label}
-                      </span>
-                    )}
-                    <span className={SECTION_LINE_CLASS}>{section.description}</span>
-                  </span>
+                <li key={section.key} data-slot="settings-row" className="relative">
                   {section.ready ? (
-                    <ChevronRightIcon
-                      className="text-muted-foreground size-4 shrink-0"
-                      aria-hidden
-                    />
+                    // The whole row is the link (44px+ at every size), named by the section alone;
+                    // its one line describes it.
+                    <DrillLink
+                      href={section.href}
+                      data-slot="settings-section"
+                      aria-label={section.label}
+                      aria-describedby={`settings-line-${section.key}`}
+                      className={cn(
+                        SECTION_ROW_CLASS,
+                        "hover:bg-muted/50 active:bg-muted/60 focus-visible:ring-ring transition-colors outline-none focus-visible:ring-2 focus-visible:ring-inset",
+                      )}
+                    >
+                      <span className="flex min-w-0 flex-1 flex-col">
+                        <span className={SECTION_LABEL_CLASS}>{section.label}</span>
+                        <span id={`settings-line-${section.key}`} className={SECTION_LINE_CLASS}>
+                          {section.description}
+                        </span>
+                      </span>
+                      <ChevronRightIcon
+                        className="text-muted-foreground size-4 shrink-0"
+                        aria-hidden
+                      />
+                    </DrillLink>
                   ) : (
-                    <Badge variant="outline" className="text-muted-foreground shrink-0 font-normal">
-                      Coming soon
-                    </Badge>
+                    <div className={SECTION_ROW_CLASS}>
+                      <span className="flex min-w-0 flex-1 flex-col">
+                        {/* The label keeps at least 8rem and the line wraps, so at large system
+                            text "Coming soon" drops under the label instead of squeezing it. */}
+                        <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <span className="text-muted-foreground flex-[1_1_8rem] text-sm font-medium">
+                            {section.label}
+                          </span>
+                          <Badge
+                            variant="outline"
+                            className="text-muted-foreground shrink-0 font-normal"
+                          >
+                            Coming soon
+                          </Badge>
+                        </span>
+                        <span className={SECTION_LINE_CLASS}>{section.description}</span>
+                      </span>
+                    </div>
                   )}
                 </li>
               ))}

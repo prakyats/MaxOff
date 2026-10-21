@@ -1198,6 +1198,8 @@ export async function templatesTab(
   page: Page,
   key: "presets" | "deliverables" | "projects" | "tasks",
 ): Promise<void> {
+  // The page itself first (it streams in after its loading screen).
+  await expect(page.locator('[data-slot="templates-library"]')).toBeVisible();
   const tabs = page.locator('[data-slot="template-tabs"]');
   if (!(await tabs.isVisible())) return;
   const tab = tabs.locator(`#tab-${key}`);

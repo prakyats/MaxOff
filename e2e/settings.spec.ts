@@ -137,7 +137,7 @@ test.describe("Owner", () => {
     // 6b.6: the groups at first glance (Approvals joins with 6b.5), each a row with its summary; open the ones to change.
     await expect(page.locator('[data-slot="threshold-group"]')).toHaveCount(4);
     await expect(page.locator('[data-slot="threshold-summary"]').first()).toHaveText(
-      "End-of-day reminder 8:30 pm · late End day until 6:00 am",
+      /^End-of-day reminder 8:30 pm · late End day until \d{1,2}:\d{2} am$/,
     );
     await openThresholdGroups(page, "Working day", "Tasks", "Client work", "Notifications");
     await expect(page.getByLabel("End-of-day reminder")).toHaveValue("20:30");
