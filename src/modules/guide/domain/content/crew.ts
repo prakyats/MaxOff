@@ -16,7 +16,7 @@ export const CREW_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: 'On a phone, the bar at the bottom has five tabs. On a laptop, the same places sit in the sidebar, and Leave is called "Attendance & leave".',
+              text: 'On a phone, the bar at the bottom has five tabs. With very large text set on the phone, it shows their icons only. On a laptop, the same places sit in the sidebar, and Leave is called "Attendance & leave".',
             },
             {
               kind: "steps",
