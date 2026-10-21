@@ -648,6 +648,17 @@ test.describe("People is a card list, not a table", () => {
     expect(box?.y ?? 0).toBeGreaterThan((viewport?.height ?? 0) * 0.66);
     expect((box?.y ?? 0) + (box?.height ?? 0)).toBeLessThanOrEqual(nav?.y ?? 0);
   });
+
+  test("L3: scrolled to the end, the list ends clear above the floating Add person", async ({
+    page,
+  }) => {
+    await page.goto("/people");
+    await expect(page.locator('[data-slot="data-card"]').first()).toBeVisible();
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    const fab = await page.locator('[data-slot="page-actions"]').boundingBox();
+    const last = await page.locator("main [data-slot='route'] > *:visible").last().boundingBox();
+    expect((last?.y ?? 0) + (last?.height ?? 0)).toBeLessThanOrEqual((fab?.y ?? 0) - 8);
+  });
 });
 
 test.describe("dialogs are bottom sheets", () => {

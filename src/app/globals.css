@@ -835,9 +835,10 @@ html:has([data-slot="bulk-bar"]) {
  * bar (large system text, a wrapped label) still clears; a focused control scrolls above it. */
 @layer utilities {
   @media (max-width: 767px) {
+    /* L3: the FAB is 3rem tall, 1rem above the bar; the last row ends 1.5rem above its top. */
     main:has([data-slot="page-actions"]) {
       padding-bottom: calc(
-        var(--app-bottom-nav-h) + 5rem + var(--app-safe-bottom) + var(--app-bands-h, 0px)
+        var(--app-bottom-nav-h) + 5.5rem + var(--app-safe-bottom) + var(--app-bands-h, 0px)
       );
     }
     main:has([data-slot="sticky-actions"]) {
