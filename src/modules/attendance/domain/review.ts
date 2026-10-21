@@ -349,3 +349,56 @@ export function boardDetail(person: TodayPerson): string {
   if (person.isDayOff && person.startedAt) parts.push("Day off");
   return parts.join(" · ") || (person.jobTitle ?? "");
 }
+
+/** One person's waiting days, folded into one row on the Owner's Today (L8). */
+export type PendingPersonDays = {
+  memberId: string;
+  memberName: string;
+  days: PendingDay[];
+  /** "5 days proposed absent", "2 days present", "3 days to review" (mixed). */
+  label: string;
+};
+
+/** A row of the Owner's Today Needs you: one day, or one person's several days (L8). */
+export type PendingDayRow =
+  | { kind: "day"; day: PendingDay }
+  | { kind: "person"; person: PendingPersonDays };
+
+/** What the folded row says the days are, in the words of `pendingLabel`. */
+function personDaysLabel(days: readonly PendingDay[]): string {
+  const labels = new Set(days.map(pendingLabel));
+  const count = `${days.length} days`;
+  if (labels.size > 1) return `${count} to review`;
+  if (days.every((day) => day.submittedChoice === null)) {
+    return `${count} proposed ${STATUS_LABELS.absent.toLowerCase()}`;
+  }
+  return `${count} ${pendingLabel(days[0]!).toLowerCase()}`;
+}
+
+/**
+ * The Owner's Today folds a person's waiting days into one row (L8, UX review 2026-10-21: five
+ * near-identical "PShetty · Absent (proposed)" rows become "PShetty · 5 days proposed absent ·
+ * Review"). A person with one day keeps the ordinary row (Approve with Undo). Rows keep the
+ * order of each person's oldest day (the input is oldest first, `sortPending`).
+ */
+export function pendingDayRows(days: readonly PendingDay[]): PendingDayRow[] {
+  const byMember = new Map<string, PendingDay[]>();
+  for (const day of days) {
+    const list = byMember.get(day.memberId) ?? [];
+    list.push(day);
+    byMember.set(day.memberId, list);
+  }
+  return [...byMember.values()].map((list): PendingDayRow => {
+    const first = list[0]!;
+    if (list.length === 1) return { kind: "day", day: first };
+    return {
+      kind: "person",
+      person: {
+        memberId: first.memberId,
+        memberName: first.memberName,
+        days: list,
+        label: personDaysLabel(list),
+      },
+    };
+  });
+}

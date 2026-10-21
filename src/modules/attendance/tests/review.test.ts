@@ -6,6 +6,7 @@ import {
   expectedToday,
   boardStatus,
   type PendingDay,
+  pendingDayRows,
   pendingDetail,
   pendingLabel,
   pendingOutcome,
@@ -579,5 +580,38 @@ describe("the day reads' rows, exactly as the RPCs answer them (decision 24, ame
     expect(board).toEqual([{ bucket: "waiting", people: yesterday }]);
     expect(boardStatus(yesterday[0] as TodayPerson, "waiting")).toBe("Present");
     expect(summariseToday(today, false, []).counts.end_not_recorded).toBe(0);
+  });
+});
+
+describe("pendingDayRows (L8: one row per person on the Owner's Today)", () => {
+  it("folds a person's several days into one row and keeps a single day as it is", () => {
+    const absent = { submittedChoice: null, memberId: "p", memberName: "PShetty" } as const;
+    const rows = pendingDayRows([
+      pending({ id: "1", ...absent, workDate: "2026-10-12" }),
+      pending({ id: "2", workDate: "2026-10-13" }),
+      pending({ id: "3", ...absent, workDate: "2026-10-14" }),
+      pending({ id: "4", ...absent, workDate: "2026-10-15" }),
+    ]);
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toMatchObject({
+      kind: "person",
+      person: { memberName: "PShetty", label: "3 days proposed absent" },
+    });
+    expect(rows[0]?.kind === "person" && rows[0].person.days.map((d) => d.id)).toEqual([
+      "1",
+      "3",
+      "4",
+    ]);
+    expect(rows[1]).toMatchObject({ kind: "day", day: { id: "2" } });
+  });
+
+  it("names the same choice, or says 'to review' when the days differ", () => {
+    const same = pendingDayRows([pending({ id: "1" }), pending({ id: "2" })]);
+    expect(same[0]?.kind === "person" && same[0].person.label).toBe("2 days present");
+    const mixed = pendingDayRows([
+      pending({ id: "1" }),
+      pending({ id: "2", submittedChoice: null }),
+    ]);
+    expect(mixed[0]?.kind === "person" && mixed[0].person.label).toBe("2 days to review");
   });
 });

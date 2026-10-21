@@ -4,7 +4,12 @@ import type { ReactNode } from "react";
 
 import { cn } from "@/core/lib/utils";
 import { DrillLink } from "@/core/ui/composites/drill-link";
-import { CARD_ROW_TITLE, CARD_ROW_TRAILING } from "@/core/ui/composites/row-metrics";
+import {
+  APPROVAL_ROW_MIN_H,
+  CARD_ROW_TITLE,
+  CARD_ROW_TRAILING,
+} from "@/core/ui/composites/row-metrics";
+import { buttonVariants } from "@/core/ui/primitives/button";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 
 /**
@@ -135,6 +140,71 @@ export function LinkRow({
           {content}
         </DrillLink>
       )}
+    </li>
+  );
+}
+
+/**
+ * One person's several approvals folded into one row of the Owner's Today Needs you (L8): the
+ * kind, the name, what is waiting ("5 days proposed absent") and how long the oldest has waited,
+ * with Review, the same outline as a single row's. The whole row opens Approvals, where each day
+ * is decided (Approve, Review, Approve all). Shaped as the compact approval row beside it
+ * (`ApprovalGroup` layout "rows"), so the list reads as one.
+ */
+export function ApprovalPersonRow({
+  href,
+  kind,
+  name,
+  detail,
+  waiting,
+}: {
+  href: string;
+  kind: string;
+  name: string;
+  detail: string;
+  waiting: { label: string; tone: "muted" | "attention" | "danger" } | null;
+}) {
+  return (
+    <li data-slot="approval-person-row" className="min-w-0">
+      <Link
+        href={href}
+        className={cn(
+          "pressable-row focus-visible:ring-ring flex min-w-0 flex-wrap items-center gap-x-3 pr-4 outline-none focus-visible:ring-2 focus-visible:ring-inset",
+          APPROVAL_ROW_MIN_H,
+        )}
+      >
+        <span className="flex min-w-0 flex-[1_1_10rem] flex-col justify-center gap-0.5 py-2 pl-4">
+          <span className="flex min-h-5 min-w-0 flex-wrap items-center gap-x-2">
+            <span className="text-muted-foreground shrink-0 text-xs">{kind}</span>
+            <span
+              data-slot="approval-title"
+              className="min-w-0 flex-[1_1_6rem] truncate text-sm font-medium"
+            >
+              {name}
+            </span>
+          </span>
+          <span data-slot="approval-detail" className="text-muted-foreground text-xs break-words">
+            {detail}
+          </span>
+          {waiting ? (
+            <span
+              data-slot="approval-waiting"
+              data-tone={waiting.tone}
+              className={cn(
+                "text-xs break-words",
+                waiting.tone === "danger"
+                  ? "text-danger"
+                  : waiting.tone === "attention"
+                    ? "text-attention"
+                    : "text-muted-foreground",
+              )}
+            >
+              {waiting.label}
+            </span>
+          ) : null}
+        </span>
+        <span className={cn(buttonVariants({ variant: "secondary" }), "my-1 ml-auto")}>Review</span>
+      </Link>
     </li>
   );
 }

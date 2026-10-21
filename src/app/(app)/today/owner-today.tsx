@@ -7,11 +7,13 @@ import { PageHeader } from "@/core/ui/composites/page-header";
 import {
   getTodayPeople,
   getUnendedYesterday,
+  pendingDayRows,
   summariseToday,
   TodayAttendanceCard,
 } from "@/modules/attendance";
 import { buildCalendar, parseCalendarQuery } from "@/modules/calendar";
 import {
+  ApprovalPersonRow,
   CalendarHeaderLink,
   DashSection,
   heldEmailsLine,
@@ -156,14 +158,24 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
     clientName: () => null,
   };
 
+  // L8: a person's several waiting days are one row ("PShetty · 5 days proposed absent · Review").
+  const dayRows = pendingDayRows(days);
+  // B2: the heading counts rows, the folded ones once; "See all N" counts what Approvals lists.
   const total = days.length + requests.length + notes.length + claims.length + toDecide.length;
-  const shown = firstInGroupOrder(
-    { days, requests, notes, claims, toDecide },
+  const rowCount =
+    dayRows.length + requests.length + notes.length + claims.length + toDecide.length;
+  const shownRows = firstInGroupOrder(
+    { days: dayRows, requests, notes, claims, toDecide },
     ["days", "requests", "notes", "claims", "toDecide"],
     OWNER_APPROVALS_SHOWN,
   );
+  const shown = {
+    ...shownRows,
+    days: shownRows.days.flatMap((row) => (row.kind === "day" ? [row.day] : [])),
+  };
+  const folded = shownRows.days.flatMap((row) => (row.kind === "person" ? [row.person] : []));
   const shownCount =
-    shown.days.length +
+    shownRows.days.length +
     shown.requests.length +
     shown.notes.length +
     shown.claims.length +
@@ -185,6 +197,13 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
   const waited = (since: string | null): Waiting | null => (since ? waitingFor(since, now) : null);
   const waiting = {
     days: waitingMap(shown.days, (day) => waited(day.submittedAt ?? day.updatedAt)),
+    // A folded row waits as long as its oldest day.
+    folded: Object.fromEntries(
+      folded.map((person) => {
+        const oldest = person.days[0]!;
+        return [person.memberId, waited(oldest.submittedAt ?? oldest.updatedAt)];
+      }),
+    ),
     requests: waitingMap(shown.requests, (request) => waited(request.createdAt)),
     notes: waitingMap(shown.notes, (note) => waited(note.createdAt)),
     claims: waitingMap(shown.claims, (claim) => waited(claim.createdAt)),
@@ -239,7 +258,7 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
     <>
       <PageHeader title="Today" description={ownerGreeting(viewer.name)} />
       <div className="flex min-w-0 flex-col gap-6" data-slot="owner-today">
-        <DashSection title="Needs you" slot="today-approvals" count={total}>
+        <DashSection title="Needs you" slot="today-approvals" count={rowCount}>
           {total === 0 ? (
             <QuietText slot="today-approvals-empty">{OWNER_NEEDS_YOU_EMPTY}</QuietText>
           ) : (
@@ -249,6 +268,16 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
                 data-slot="today-approval-rows"
                 className="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border"
               >
+                {folded.map((person) => (
+                  <ApprovalPersonRow
+                    key={person.memberId}
+                    href="/approvals"
+                    kind="Attendance"
+                    name={person.memberName}
+                    detail={person.label}
+                    waiting={waiting.folded[person.memberId] ?? null}
+                  />
+                ))}
                 {shown.days.length > 0 ? (
                   <PreviewDays days={shown.days} today={today} waiting={waiting.days} preview />
                 ) : null}
@@ -266,7 +295,7 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
                 ) : null}
               </ul>
               {/* "See all N" only when the list is cut (owner 2026-10-09). */}
-              {total > shownCount ? (
+              {rowCount > shownCount ? (
                 <RowList label="All approvals" slot="today-approvals-all">
                   <LinkRow
                     href="/approvals"
