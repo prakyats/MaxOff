@@ -1004,7 +1004,9 @@ test.describe("the project page's Done and closed group, installed (ARCHITECTURE
     // L6 (V3): the Overview lists the active projects too; take the row on the Projects tab.
     await expect(page).toHaveURL(new RegExp(`/clients/${clientId}/projects$`));
     await page
-      .locator('[data-slot="client-projects"] [data-slot="project-row"]', { hasText: "Finished reels" })
+      .locator('[data-slot="client-projects"] [data-slot="project-row"]', {
+        hasText: "Finished reels",
+      })
       .click();
     await expect(page).toHaveURL(new RegExp(`/projects/${projectId}$`));
     await hydrated(page);
