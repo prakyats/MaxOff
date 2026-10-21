@@ -71,7 +71,7 @@ describe("STATUS_TONES", () => {
   });
 
   it("follows the brand rules: red means act now, green means accepted", () => {
-    for (const s of ["rejected", "absent", "cancelled", "declined", "urgent"]) {
+    for (const s of ["rejected", "absent", "declined", "urgent"]) {
       expect(statusTone(s), s).toBe("danger");
     }
     for (const s of ["approved", "completed", "done", "settled", "billed"]) {
@@ -83,7 +83,8 @@ describe("STATUS_TONES", () => {
     for (const s of ["pending_review", "awaiting_choice", "changes_requested", "admin_approved"]) {
       expect(statusTone(s), s).toBe("attention");
     }
-    for (const s of ["draft", "todo", "inactive", "withdrawn", "none", "skipped"]) {
+    // C5: a cancelled record is closed with a reason, nothing to act on: grey, never red.
+    for (const s of ["cancelled", "draft", "todo", "inactive", "withdrawn", "none", "skipped"]) {
       expect(statusTone(s), s).toBe("neutral");
     }
   });

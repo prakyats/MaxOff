@@ -43,10 +43,11 @@ export const STATUS_TONES = {
   // danger: act now
   rejected: "danger",
   absent: "danger",
-  cancelled: "danger",
   declined: "danger",
   urgent: "danger",
-  // neutral: not started, closed quietly, informational, or a plain label
+  // neutral: not started, closed quietly, informational, or a plain label. A cancelled record is
+  // closed with a reason, nothing to act on (C5, ADR-0015: red is urgent or destructive only).
+  cancelled: "neutral",
   invited: "neutral",
   leave: "neutral",
   half_day: "neutral",

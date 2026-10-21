@@ -73,7 +73,7 @@ dark, a higher step is a lighter graphite, because shadows barely read on black.
 | Amber | `attention` | `#AD5009` | `#FBBF24` | soon or at risk: due today, waiting 1–3 days, a late start, something waiting for the Owner |
 | Blue | `info` | `#1D4ED8` | `#7DA2FF` | in progress, new, unread: work in motion only |
 | Green | `success` | `#047857` | `#34D399` | done, approved, present, active |
-| Grey | `neutral` | `#52525B` | `#A1A1AA` | nothing to do: zero, closed, archived, past, plain labels |
+| Grey | `neutral` | `#52525B` | `#A1A1AA` | nothing to do: zero, closed, archived, cancelled (C5), past, plain labels |
 | Holiday green | `holiday` | `#15803D` | `#4ADE80` | a holiday on the calendar (decision 25), never a status |
 | Weekly off | `off-day` | `#0369A1` | `#7DD3FC` | the calendar's weekly-off date number, never red |
 | Logo | `logo` | `#C42126` | `#C42126` | the logo tile only (a fixed brand asset) |
