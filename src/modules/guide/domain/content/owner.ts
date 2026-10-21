@@ -51,8 +51,11 @@ export const OWNER_GUIDE: Guide = {
             note(
               "The count on More adds up everything behind it, so a number there can mean a waiting item on one of those screens.",
             ),
+            text(
+              "On a phone each screen has one bar at the top: the back arrow (or just the title on a tab's first screen), the screen's ⋯ menu when it has one, and the bell. A ⋯ menu opens as a sheet from the bottom; back closes it.",
+            ),
           ],
-          keywords: ["more", "bottom bar", "menu", "phone", "navigation"],
+          keywords: ["more", "bottom bar", "menu", "phone", "navigation", "title bar", "sheet"],
         },
         {
           id: "owner-bell",

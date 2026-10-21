@@ -40,9 +40,13 @@ export const ADMIN_GUIDE: Guide = {
               kind: "note",
               text: "There is no tab for your own leave. It lives on Me, under Attendance & leave.",
             },
+            {
+              kind: "text",
+              text: "On a phone each screen has one bar at the top: the back arrow (or just the title on a tab's first screen), the screen's ⋯ menu when it has one, and the bell. A ⋯ menu opens as a sheet from the bottom; back closes it.",
+            },
           ],
           link: { href: "/today", label: "Open Today" },
-          keywords: ["menu", "sidebar", "more", "navigation", "tabs"],
+          keywords: ["menu", "sidebar", "more", "navigation", "tabs", "title bar", "sheet"],
         },
         {
           id: "admin-bell-me",

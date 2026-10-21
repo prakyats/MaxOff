@@ -540,63 +540,48 @@ test.describe("the page title bar", () => {
     // Revealed, not still in the streamed `<div hidden>`, where the box is null and y reads 0.
     await expect(firstCard).toBeVisible();
     const box = await firstCard.boundingBox();
-    // Brand bar (48) + title bar (44) + a little breathing room. Before 1.5 a title, a two-line
-    // description and a button pushed the first row past 200px.
-    expect(box?.y ?? 0).toBeLessThan(140);
+    // L4: the title bar (44) alone + a little breathing room (was a 48px brand bar above it).
+    // Before 1.5 a title, a two-line description and a button pushed the first row past 200px.
+    expect(box?.y ?? 0).toBeLessThan(100);
   });
 
   /**
-   * The bar can only hide on a page long enough to scroll. At full phone height the nine seeded
-   * people fit on one screen, so these use a short viewport: the behaviour is about scrolling,
-   * not about width, and both projects still run them.
+   * L4 (UX review 2026-10-21): one header bar on a phone. The page's title bar is the top edge,
+   * with its bell; there is no brand bar above it, and it stays put while the page scrolls (a
+   * short viewport so the people list scrolls).
    */
-  const SHORT = { height: 500 };
-
-  /**
-   * Opens a long-enough page and waits until the scroll handler is actually attached **and the
-   * page is long enough to scroll**. The attribute appears when `MobileChrome` mounts, so its
-   * presence is the hydration signal: a wheel sent before that scrolls the page with nobody
-   * listening, and the bar then measures from the new position and never moves. But the shell
-   * hydrates before the streamed list is revealed (since 2.8 cut its JS, often by ~60 ms): a
-   * wheel on the four-row skeleton scrolls nothing, and the bar rightly stays (CI, 2026-09-25,
-   * seen in the screencast). So the list's cards come first.
-   */
-  async function openScrollable(page: Page): Promise<void> {
-    await page.setViewportSize({ width: page.viewportSize()?.width ?? 375, ...SHORT });
+  test("one header bar: the title bar is the top edge and stays there while scrolling", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: page.viewportSize()?.width ?? 375, height: 500 });
     await page.goto("/people");
     await expect(page.locator("html")).toHaveAttribute("data-chrome", "shown");
     await expect(page.locator('[data-slot="data-card"]').first()).toBeVisible();
-  }
-
-  test("the brand bar hides on a flick down and comes back on a flick up", async ({ page }) => {
-    await openScrollable(page);
-    const html = page.locator("html");
-
-    // A fast flick, not a slow drag: one large scroll event, which is what a thumb produces.
+    await expect(page.locator('[data-slot="top-bar"]')).toBeHidden();
+    const header = pageHeader(page);
+    await expect(header.locator('[data-slot="header-bell"]')).toBeVisible();
+    expect(Math.round((await header.boundingBox())?.y ?? -1)).toBe(0);
     await page.mouse.wheel(0, 600);
-    await expect(html).toHaveAttribute("data-chrome", "hidden");
-    // The title bar has taken the top edge.
-    const header = await pageHeader(page).boundingBox();
-    expect(Math.round(header?.y ?? -1)).toBe(0);
-
-    await page.mouse.wheel(0, -80);
-    await expect(html).toHaveAttribute("data-chrome", "shown");
-  });
-
-  test("a small wobble does not flicker the bar", async ({ page }) => {
-    await openScrollable(page);
-    await page.mouse.wheel(0, 600);
-    await expect(page.locator("html")).toHaveAttribute("data-chrome", "hidden");
-    for (const delta of [4, -4, 5, -3, 4]) await page.mouse.wheel(0, delta);
-    await expect(page.locator("html")).toHaveAttribute("data-chrome", "hidden");
-  });
-
-  test("scrolling back to the top always brings it back", async ({ page }) => {
-    await openScrollable(page);
-    await page.mouse.wheel(0, 600);
-    await expect(page.locator("html")).toHaveAttribute("data-chrome", "hidden");
-    await page.evaluate(() => window.scrollTo(0, 0));
-    await expect(page.locator("html")).toHaveAttribute("data-chrome", "shown");
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+    expect(Math.round((await header.boundingBox())?.y ?? -1)).toBe(0);
+    // Exactly one bar across the top: nothing else is pinned above the content.
+    const pinned = await page.evaluate(
+      () =>
+        [...document.querySelectorAll<HTMLElement>("body *")].filter((el) => {
+          const style = getComputedStyle(el);
+          const box = el.getBoundingClientRect();
+          return (
+            (style.position === "sticky" || style.position === "fixed") &&
+            box.top <= 1 &&
+            box.height > 0 &&
+            box.width > window.innerWidth / 2 &&
+            el.closest('[data-slot="page-header"]') === null &&
+            style.visibility !== "hidden" &&
+            style.opacity !== "0"
+          );
+        }).length,
+    );
+    expect(pinned).toBe(0);
   });
 
   test("a sub-page offers the way back in the title bar", async ({ page }) => {

@@ -24,7 +24,7 @@ export function TaskViewsSkeleton() {
       <div
         aria-hidden
         data-slot="loading-task-tabs"
-        className="bg-background sticky top-[calc(var(--app-chrome-h)+var(--app-page-header-h,2.75rem))] z-10 -mx-4 border-b px-4 py-2 md:static md:mx-0 md:border-0 md:p-0"
+        className="bg-background sticky top-[var(--app-page-header-h,2.75rem)] z-10 -mx-4 border-b px-4 py-2 md:static md:mx-0 md:border-0 md:p-0"
       >
         <div className="bg-muted flex gap-1 rounded-lg p-1 md:inline-flex">
           {["w-10", "w-9", "w-14", "w-12"].map((width, index) => (

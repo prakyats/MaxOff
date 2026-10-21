@@ -302,10 +302,6 @@
  */
 @layer base {
   :root {
-    /* Height of the mobile brand bar. The page title bar sticks directly below it, so when the
-     * brand bar hides on scroll this drops to 0 and the title bar takes the top edge.
-     * `core/ui/shell/chrome-scroll.ts` sets `data-chrome` on <html>; nothing else moves. */
-    --app-chrome-h: 0rem;
     /* Height of the laptop's sticky top bar (`TopBar`, md up): a sticky table header sits below it. */
     --app-top-bar-h: 3.5rem;
     /* Height of the mobile bottom nav, used for page padding and for anything docked above it. */
@@ -347,15 +343,7 @@
 
   @media (max-width: 767px) {
     :root {
-      --app-chrome-h: 3rem;
       --app-bottom-nav-h: 3.5rem;
-    }
-    /* The brand bar is hidden: it slides out and the title bar moves up to the top edge. */
-    html[data-chrome="hidden"] {
-      --app-chrome-h: 0rem;
-    }
-    html[data-chrome="hidden"] [data-slot="top-bar"] {
-      transform: translateY(-100%);
     }
 
     /* A bottom bar with Alerts (none since 5B decision 1): the title bar doesn't repeat the bell. */
@@ -421,14 +409,6 @@
       width: 2.75rem;
       height: 2.75rem;
       transform: translate(-50%, -50%);
-    }
-  }
-
-  /* The brand bar slides away on scroll down and comes back on scroll up. Someone who asked for
-   * less motion still gets the bar, just without the slide. */
-  @media (prefers-reduced-motion: reduce) {
-    [data-slot="top-bar"] {
-      transition: none !important;
     }
   }
 }

@@ -157,6 +157,11 @@ No `rounded-xs`, `rounded-2xl` and above, no `rounded-[…]` (lint).
 
 ## 6. Spacing and layout
 - A 4 px grid (Tailwind's spacing scale); hairline borders; **dashed borders mean "empty" only**.
+- **One header bar on a phone (L4):** the page's own title bar (`PageHeader`), 44 px, sticky at
+  the top edge: the back chevron (none on a tab's first screen), the title, the record's ⋯ and the
+  bell. No brand bar above it (home is the bottom bar's first tab; Me is in the bar or More), and
+  nothing slides away. The screen's main creation stays the FAB above the bottom bar. The laptop
+  keeps its top bar (bell, theme, account) beside the sidebar.
 - **Tables scroll with the page (L2):** no inner scroll box; from `lg` the header row sticks under
   the top bar (`DataTable`). A phone shows cards instead of a table.
 - Laptop: one page grid at the content's full width (V3); compact rows (32 px controls). Phone:
