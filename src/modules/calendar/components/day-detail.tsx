@@ -27,6 +27,7 @@ import {
 } from "../domain/calendar";
 import { HOLIDAY_COLOR } from "../domain/strips";
 import { allDayEvents, placeBlocks } from "../domain/timeline";
+import { DoneTick, LEAVE_TONE } from "./calendar-chip";
 import { Timeline, type TimelineEventLink } from "./timeline";
 
 /**
@@ -119,7 +120,7 @@ export function AllDayChips({
         </Chip>
       ) : null}
       {day.weeklyOff ? (
-        <Chip slot="calendar-weekly-off" className="text-off-day">
+        <Chip slot="calendar-weekly-off" className="bg-muted text-muted-foreground">
           Weekly off
         </Chip>
       ) : null}
@@ -128,8 +129,9 @@ export function AllDayChips({
           key={`${item.memberId}-${item.label}-${item.pending}`}
           slot="calendar-leave"
           className={cn(
-            "bg-muted text-muted-foreground",
-            item.pending && "border-muted-foreground/70 border border-dashed",
+            // Leave's own tone (PP-calendar-3, V5b), the same as the month's bar.
+            LEAVE_TONE,
+            item.pending && "border-leave/60 border border-dashed",
           )}
         >
           <PalmtreeIcon className="size-3 shrink-0" aria-hidden />
@@ -143,6 +145,7 @@ export function AllDayChips({
         eventLink(
           event,
           <>
+            {event.completed ? <DoneTick className="mr-1" /> : null}
             <span className="font-medium">{event.title}</span>
             {event.location ? (
               <span className="text-muted-foreground"> · {event.location}</span>
@@ -201,7 +204,8 @@ function EventRows({ events }: { events: readonly EventItem[] }) {
                 style={{ backgroundColor: event.color }}
               />
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className={cn("font-medium break-words", event.completed && "line-through")}>
+                <span className="font-medium break-words">
+                  {event.completed ? <DoneTick className="mr-1" /> : null}
                   {event.title}
                 </span>
                 <span className="text-muted-foreground flex flex-wrap items-center gap-x-2 text-xs break-words">
@@ -419,30 +423,21 @@ export function DayDetail({
 export function ClientItemsList({
   items,
   headingId,
-  compact = false,
 }: {
   items: readonly ClientItemEntry[];
   headingId: string;
-  /** The laptop's agenda: one line a row. */
-  compact?: boolean;
 }) {
   return (
     <section
       aria-labelledby={headingId}
       data-slot="calendar-items-list"
-      className={cn("flex flex-col", compact ? "gap-1" : "gap-2")}
+      className="flex flex-col gap-2"
     >
       <h3 id={headingId} className="flex items-center gap-1.5 text-sm font-semibold">
         <ListChecksIcon className="text-muted-foreground size-4" aria-hidden />
         Deliverables · {items.length}
       </h3>
-      <ul
-        className={cn(
-          compact
-            ? "flex flex-col"
-            : "border-border divide-border bg-card divide-y overflow-hidden rounded-lg border",
-        )}
-      >
+      <ul className="border-border divide-border bg-card divide-y overflow-hidden rounded-lg border">
         {items.map((item) => (
           <li key={item.id} className="min-w-0">
             <OverlayLink
@@ -450,37 +445,21 @@ export function ClientItemsList({
               data-slot="calendar-item"
               data-item={item.id}
               className={cn(
-                "focus-visible:ring-ring outline-none focus-visible:ring-2",
-                compact
-                  ? "hover:bg-muted -mx-2 flex min-h-9 items-center gap-2 rounded-md px-2 text-sm"
-                  : "flex min-h-14 items-center gap-3 px-4 py-2.5 text-sm focus-visible:ring-inset",
+                "focus-visible:ring-ring flex min-h-14 items-center gap-3 px-4 py-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset",
                 item.done && "text-muted-foreground",
               )}
             >
-              {compact ? (
-                <span className="min-w-0 truncate">
-                  <span className={cn("font-medium", item.done && "line-through")}>
-                    {item.title}
-                  </span>
-                  <span className="text-muted-foreground">
-                    {" · "}
-                    {item.project} · {item.client}
-                  </span>
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="font-medium break-words">
+                  {item.done ? <DoneTick className="mr-1" /> : null}
+                  {item.title}
                 </span>
-              ) : (
-                <>
-                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                    <span className={cn("font-medium break-words", item.done && "line-through")}>
-                      {item.title}
-                    </span>
-                    <span className="text-muted-foreground text-xs break-words">
-                      {item.project} · {item.client}
-                      {item.done ? " · done" : ""}
-                    </span>
-                  </span>
-                  <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
-                </>
-              )}
+                <span className="text-muted-foreground text-xs break-words">
+                  {item.project} · {item.client}
+                  {item.done ? " · done" : ""}
+                </span>
+              </span>
+              <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
             </OverlayLink>
           </li>
         ))}

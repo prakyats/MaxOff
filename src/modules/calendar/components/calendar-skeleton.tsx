@@ -15,7 +15,8 @@ export function CalendarSkeleton({ weeks }: { weeks: number }) {
       <ol className="grid grid-cols-7 gap-0.5">
         {Array.from({ length: 7 }, (_, index) => (
           <li key={index} className="flex h-4 items-center justify-center">
-            <Skeleton className="h-2.5 w-2.5" />
+            {/* The weekdays: single letters on a phone, "Mon Tue …" on a laptop (PP-calendar-6). */}
+            <Skeleton className={cn("h-2.5", density === "laptop" ? "w-6" : "w-2.5")} />
           </li>
         ))}
       </ol>

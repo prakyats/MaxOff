@@ -609,6 +609,9 @@ export const OWNER_GUIDE: Guide = {
             text(
               "On a laptop the views are Day, Week and Month, opening on Month. Use the arrow keys to move, T for today, and D, W or M to switch view. On a phone there is no switch: swipe up or down, or use the handle, to change between a week strip, a compact month and a full month.",
             ),
+            text(
+              "Today’s date is a red circle and the day you tap is outlined. Each day shows its events by name, then time; what is due by name, amber (red with an alert when overdue); and leave in violet, “Asha · On leave”. Done things are dimmed with a ✓. Weekly days off are grey and lightly shaded.",
+            ),
             steps("Open Calendar.", {
               text: 'Tap "Filters" (highlighted) to narrow by Client, Person, Type or Status.',
               shot: "owner/calendar",
@@ -624,7 +627,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "See who is away and what is due, then add a task.",
           blocks: [
             text(
-              'The day sheet shows what is due, events and deliverables, and who is away: "On leave" and "Busy all day", each only when someone is. When nobody is, it says "Everyone is available".',
+              'The day sheet shows what is due, events and deliverables, as the same chips as the month, and who is away: "On leave" and "Busy all day", each only when someone is. When nobody is, it says "Everyone is available". On a laptop it opens in the middle of the screen.',
             ),
             steps(
               "Open Calendar and tap a day.",

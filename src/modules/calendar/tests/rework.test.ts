@@ -100,10 +100,11 @@ describe("the month's strips (decision 25 C, amended by the owner 2026-10-08)", 
       title: "Edit",
       dueAt: istInstant(date, "18:00"),
       owner: "Ravi",
+      color: VIOLET,
     },
   ];
 
-  it("orders events › the tasks' count › holiday › others busy › one leave line, at most three then +N", () => {
+  it("orders events › what is due, by name › holiday › others busy › one leave line, at most three then +N", () => {
     const full = day({
       holiday: "Dussehra",
       events: [
@@ -117,21 +118,27 @@ describe("the month's strips (decision 25 C, amended by the owner 2026-10-08)", 
     expect(allStrips(full, TODAY).map((strip) => `${strip.kind}:${strip.label}`)).toEqual([
       "event:Brand reel",
       "event:Client call",
-      "tasks:1 due",
+      "due:Edit",
       "holiday:Dussehra",
       "busy:Ravi busy",
-      "leave:2 off",
+      "leave:2 on leave",
     ]);
     // The box keeps what the Owner acts on: leave is cut first and "+N" counts it; a holiday cut
     // for space turns the date number green.
     const shown = dayStrips(full, TODAY);
-    expect(shown.strips.map((strip) => strip.kind)).toEqual(["event", "event", "tasks"]);
+    expect(shown.strips.map((strip) => strip.kind)).toEqual(["event", "event", "due"]);
     expect(shown.more).toBe(3);
     expect(shown.holidayHidden).toBe(true);
     expect(dayStrips(day({ holiday: "Diwali", leave: [off("a", "Asha")] }), TODAY)).toEqual({
       strips: [
         { kind: "holiday", key: "holiday", label: "Diwali" },
-        { kind: "leave", key: "leave", label: "Asha", spoken: "Asha off", pending: false },
+        {
+          kind: "leave",
+          key: "leave",
+          label: "Asha · On leave",
+          spoken: "Asha off",
+          pending: false,
+        },
       ],
       more: 0,
       holidayHidden: false,
@@ -140,22 +147,32 @@ describe("the month's strips (decision 25 C, amended by the owner 2026-10-08)", 
 
   it("gives leave one line a day: the first name for one person, a count for several", () => {
     expect(allStrips(day({ leave: [off("a", "Asha Rao", { half: true })] }), TODAY)).toEqual([
-      { kind: "leave", key: "leave", label: "Asha", spoken: "Asha off, half day", pending: false },
+      {
+        kind: "leave",
+        key: "leave",
+        label: "Asha · On leave",
+        spoken: "Asha off, half day",
+        pending: false,
+      },
     ]);
     expect(
       allStrips(
         day({ leave: [off("a", "Asha"), off("b", "Ravi"), off("a", "Asha", { half: true })] }),
         TODAY,
       ),
-    ).toEqual([{ kind: "leave", key: "leave", label: "2 off", spoken: "2 off", pending: false }]);
+    ).toEqual([
+      { kind: "leave", key: "leave", label: "2 on leave", spoken: "2 off", pending: false },
+    ]);
     expect(
       allStrips(day({ leave: [off("m", "Me", { own: true, pending: true })] }), TODAY),
-    ).toEqual([{ kind: "leave", key: "leave", label: "You", spoken: "You off", pending: true }]);
+    ).toEqual([
+      { kind: "leave", key: "leave", label: "You · On leave", spoken: "You off", pending: true },
+    ]);
   });
 
-  it("puts the time and the client on a laptop's strip; never a red colour of its own", () => {
+  it("puts the title, then the time and the client on a laptop's strip; never a red colour of its own", () => {
     expect(eventStripText(event("e", { title: "Brand reel", clientName: "Acme" }))).toBe(
-      "10:00 am Brand reel · Acme",
+      "Brand reel · 10:00 am · Acme",
     );
     expect(eventStripText(event("e", { title: "Posting", startAt: null }))).toBe("Posting");
     for (const strip of allStrips(day({ holiday: "Diwali", events: [event("e")] }), TODAY)) {
@@ -164,29 +181,43 @@ describe("the month's strips (decision 25 C, amended by the owner 2026-10-08)", 
     expect(HOLIDAY_COLOR).toBe("var(--holiday)");
   });
 
-  it("counts the tasks: amber due, red overdue on a past day, nothing when none", () => {
+  it("names what is due (amber, red overdue on a past day) and counts it for the dot and speech", () => {
     expect(dueBadge(day({ due: dueOn(TODAY) }), TODAY)).toEqual({
       tone: "due",
       count: 1,
       label: "1 due",
-      // L7: the one item's title, for a laptop's cell.
-      name: "Edit",
     });
-    const past = day({ date: "2026-10-07", due: dueOn("2026-10-07") });
-    expect(dueBadge(past, TODAY)).toEqual({
-      tone: "overdue",
-      count: 1,
-      label: "1 overdue",
-      name: "Edit",
+    const past = day({
+      date: "2026-10-07",
+      due: dueOn("2026-10-07"),
+      items: [
+        {
+          kind: "item",
+          id: "i",
+          title: "Reel 2",
+          project: "October",
+          client: "Acme",
+          href: "/clients/c/projects/p",
+          done: false,
+        },
+        {
+          kind: "item",
+          id: "j",
+          title: "Reel 1",
+          project: "October",
+          client: "Acme",
+          href: "/clients/c/projects/p",
+          done: true,
+        },
+      ],
     });
+    expect(dueBadge(past, TODAY)).toEqual({ tone: "overdue", count: 2, label: "2 overdue" });
+    // PP-calendar-5: each one a named chip (a deliverable has no type colour); a done one is not due.
     expect(allStrips(past, TODAY)).toEqual([
-      { kind: "tasks", key: "tasks", tone: "overdue", count: 1, label: "1 overdue", name: "Edit" },
+      { kind: "due", key: "due-t-2026-10-07", label: "Edit", tone: "overdue", color: VIOLET },
+      { kind: "due", key: "item-i", label: "Reel 2", tone: "overdue", color: null },
     ]);
-    // Several: the count only.
-    const two = day({
-      due: [...dueOn(TODAY), ...dueOn("2026-10-09").map((d) => ({ ...d, id: "t-2" }))],
-    });
-    expect(dueBadge(two, TODAY)?.name).toBeNull();
+    expect(dayLabel(past, TODAY)).toBe("Wednesday 7 October, 2 overdue");
     expect(dueBadge(day(), TODAY)).toBeNull();
   });
 

@@ -75,7 +75,7 @@ dark, a higher step is a lighter graphite, because shadows barely read on black.
 | Green | `success` | `#047857` | `#34D399` | done, approved, present, active |
 | Grey | `neutral` | `#52525B` | `#A1A1AA` | nothing to do: zero, closed, archived, past, plain labels |
 | Holiday green | `holiday` | `#15803D` | `#4ADE80` | a holiday on the calendar (decision 25), never a status |
-| Weekly off | `off-day` | `#0369A1` | `#7DD3FC` | the calendar's weekly-off date number, never red |
+| Violet | `leave` | `#6D28D9` on `leave-soft` `#EDE7FB` | `#C4B5FD` on `#2F2A40` | leave on the calendar: the month's bar ("Asha · On leave", the palm icon) and the day's chips (PP-calendar-3, V5b), never a status |
 | Logo | `logo` | `#C42126` | `#C42126` | the logo tile only (a fixed brand asset) |
 
 - Each tone has a `*-soft` background (12% over the light surface, 18% over the dark) whose text
@@ -89,6 +89,15 @@ dark, a higher step is a lighter graphite, because shadows barely read on black.
 - **Raw colours are not allowed** in screens: no hex, `rgb()`, `hsl()`, `oklch()`, no Tailwind
   palette colours (`bg-red-500`, `text-white`), no `bg-[#…]` (lint). A new colour is a token here
   first.
+
+- **The calendar's marks (V5b, PP-calendar-1..8, owner 2026-10-21):** today is a filled `brand`
+  red circle on its date number, the selected day the outlined box; the weekly off's date number
+  is `muted-foreground` and its box tinted `bg-muted/50` (blue means in progress); weekdays read
+  "Mon Tue …" on a laptop, single letters on a phone. One chip look for the month and the day's
+  dialog (`calendar-chip`): an event in its type's colour (tint and left edge), the title before
+  the time; what is due by name in `attention` (amber) or `danger` (red, overdue) with its clock or
+  alert icon and the type's colour on its edge; leave in `leave` with the palm icon; done dimmed
+  with a small ✓, never struck through.
 
 ### The action colour rule (option A, with the approved colour plan of 2026-10-21)
 **The colour plan (owner-approved 2026-10-21, "colour plan approved with forest"; ADR-0015

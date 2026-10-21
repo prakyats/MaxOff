@@ -252,6 +252,8 @@ describe("what a day holds", () => {
         title: "Edit the reel",
         dueAt: istInstant(TODAY, "18:00"),
         owner: "Asha (freelancer)",
+        // Its type's colour, the due chip's edge (PP-calendar-5).
+        color: "#0284c7",
       },
     ]);
     expect(days.find((day) => day.date === "2026-10-08")?.due.map((d) => d.id)).toEqual(["q"]);

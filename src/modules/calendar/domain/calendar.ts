@@ -287,7 +287,15 @@ export type LeaveItem = {
   own: boolean;
 };
 
-export type DueItem = { kind: "due"; id: string; title: string; dueAt: string; owner: string };
+export type DueItem = {
+  kind: "due";
+  id: string;
+  title: string;
+  dueAt: string;
+  owner: string;
+  /** Its type's colour (decision 25), the due chip's edge (PP-calendar-5, V5b). */
+  color: string;
+};
 
 /** A client item on its planned day: "Client items · N" (7.3); done ones are muted. */
 export type ClientItemEntry = {
@@ -437,6 +445,7 @@ export function buildCalendar(input: CalendarInput): CalendarDay[] {
         title: task.title,
         dueAt: task.dueAt,
         owner: nameOf(task.primaryOwnerId),
+        color: typeOf.get(task.taskTypeId)?.color ?? DEFAULT_EVENT_COLOR,
       });
     }
   }

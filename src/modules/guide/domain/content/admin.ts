@@ -620,6 +620,10 @@ export const ADMIN_GUIDE: Guide = {
               text: "On a laptop pick Day, Week or Month; it opens on Month. On a phone there is no switch: swipe up or down, or use the handle, to move between the week strip, the compact month and the full month.",
             },
             {
+              kind: "text",
+              text: "Today’s date is a red circle and the day you tap is outlined. Each day shows its events by name, then time; what is due by name, amber (red with an alert when overdue); and leave in violet, “Asha · On leave”. Done things are dimmed with a ✓. Weekly days off are grey and lightly shaded.",
+            },
+            {
               kind: "steps",
               steps: [
                 "Open Calendar.",

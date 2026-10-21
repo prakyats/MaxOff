@@ -669,11 +669,12 @@ test.describe("the calendar, as the Owner", () => {
     await expect(popup).toHaveAttribute("data-layout", "laptop");
     await expect(popup.locator('[data-slot="calendar-timeline"]')).toHaveCount(0);
     const agenda = popup.locator('[data-slot="calendar-agenda-events"]');
+    // The same chips as the month (PP-calendar-2, 8, V5b): the title first, then the time.
     await expect(eventOf(agenda, shoot)).toContainText(
-      `10:00 am – 11:00 am · ${shootTitle} · Local Staff`,
+      `${shootTitle} · 10:00 am – 11:00 am · Local Staff`,
     );
     await expect(eventOf(agenda, { id: longShoot })).toContainText(
-      `1:00 pm – 3:30 pm · ${prefix}long shoot · Local Staff · ${clientName}`,
+      `${prefix}long shoot · 1:00 pm – 3:30 pm · Local Staff · ${clientName}`,
     );
     const order = await agenda
       .locator('[data-slot="calendar-event"]')

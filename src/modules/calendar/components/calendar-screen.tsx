@@ -433,24 +433,20 @@ export function CalendarScreen({
                       aria-label={dayLabel(day, today)}
                       className={cn(
                         "pressable focus-visible:ring-ring flex min-h-14 w-full flex-col items-center justify-center gap-0.5 rounded-lg border px-1 py-1.5 outline-none focus-visible:ring-2",
-                        chosen
-                          ? "border-foreground bg-foreground text-background"
-                          : "border-border/60 bg-card active:bg-muted/60",
-                        day.date === today && !chosen && "border-foreground",
+                        // PP-calendar-1 (V5b): the chosen day is the outlined box, today the red
+                        // circle on its date; PP-calendar-4: the weekly off muted and tinted.
+                        chosen ? "border-foreground" : "border-border/60 active:bg-muted/60",
+                        day.weeklyOff ? "bg-muted/50" : "bg-card",
                       )}
                     >
-                      <span
-                        className={cn(
-                          "text-xs leading-4 uppercase",
-                          chosen ? "text-background/80" : "text-muted-foreground",
-                        )}
-                      >
+                      <span className="text-muted-foreground text-xs leading-4 uppercase">
                         {formatIST(istDayStart(day.date), "EEE")}
                       </span>
                       <span
                         className={cn(
-                          "text-sm leading-5 font-semibold tabular-nums",
-                          day.weeklyOff && !chosen && "text-off-day",
+                          "flex size-5 items-center justify-center rounded-full text-sm leading-5 font-semibold tabular-nums",
+                          day.weeklyOff && "text-muted-foreground",
+                          day.date === today && "bg-brand text-brand-foreground",
                         )}
                       >
                         {formatIST(istDayStart(day.date), "d")}
@@ -459,7 +455,7 @@ export function CalendarScreen({
                         aria-hidden
                         className={cn(
                           "size-1.5 rounded-full",
-                          busy ? (chosen ? "bg-background" : "bg-foreground") : "bg-transparent",
+                          busy ? "bg-foreground" : "bg-transparent",
                         )}
                       />
                     </button>
@@ -609,8 +605,8 @@ export function CalendarScreen({
                   <span
                     className={cn(
                       "flex size-7 items-center justify-center rounded-full text-sm tabular-nums",
-                      day.date === today && "border-foreground border",
-                      day.weeklyOff && "text-off-day",
+                      day.weeklyOff && "text-muted-foreground",
+                      day.date === today && "bg-brand text-brand-foreground",
                     )}
                   >
                     {heading.day}

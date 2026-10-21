@@ -38,7 +38,6 @@
   --color-neutral: var(--neutral);
   --color-neutral-soft: var(--neutral-soft);
   /* The calendar's weekly-off date number (decision 25 C): distinct, never red. */
-  --color-off-day: var(--off-day);
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
@@ -67,6 +66,9 @@
   --color-scrim: var(--scrim);
   /* A holiday on the calendar (decision 25): green, never a status (DESIGN.md §4). */
   --color-holiday: var(--holiday);
+  /* Leave on the calendar (PP-calendar-3, V5b): violet, its own tone, never a status. */
+  --color-leave: var(--leave);
+  --color-leave-soft: var(--leave-soft);
   /* The solid red commit of a destructive action, inside its confirmation (ADR-0015). */
   --color-destructive-solid: var(--destructive-solid);
   --color-destructive-solid-foreground: var(--destructive-solid-foreground);
@@ -185,11 +187,13 @@
   --danger-soft: #f8e4e5;
   --neutral: #52525b;
   --neutral-soft: #eaeaeb;
-  --off-day: #0369a1;
   --brand: #c42126;
   --brand-soft: #f8e4e5;
   /* Holiday green (DESIGN.md §4): 5:1 on the page and the card, so the date number reads. */
   --holiday: #15803d;
+  /* Leave on the calendar (DESIGN.md §4): its text reads at 4.5:1 on its soft bar. */
+  --leave: #6d28d9;
+  --leave-soft: #ede7fb;
   /* The scrim behind a dialog, a sheet or a phone's menu sheet: a faint veil over the page. */
   --scrim: rgb(0 0 0 / 0.1);
   /* The surface ladder (DESIGN.md §3). Light keeps white steps; the shadow tells them apart. */
@@ -260,10 +264,11 @@
   --danger-soft: #3c2326;
   --neutral: #a1a1aa;
   --neutral-soft: #2d2d31;
-  --off-day: #7dd3fc;
   --brand: #f2686d;
   --brand-soft: #3c2326;
   --holiday: #4ade80;
+  --leave: #c4b5fd;
+  --leave-soft: #2f2a40;
   /* A deeper veil: 10% black disappears on a graphite page. */
   --scrim: rgb(0 0 0 / 0.3);
   /* In dark a higher step is a lighter graphite: shadows barely read on black. */
