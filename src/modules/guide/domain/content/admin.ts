@@ -634,7 +634,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: "You see full detail on tasks you can open. Other people’s time shows only as Busy or On leave.",
+              text: "You see full detail on tasks you can open. Other people’s time shows only as Busy or On leave. A day’s sheet names who is away (On leave, Busy all day), or says “Everyone is available”.",
             },
           ],
           link: { href: "/calendar", label: "Open Calendar" },

@@ -624,9 +624,11 @@ export const OWNER_GUIDE: Guide = {
         {
           id: "owner-calendar-day",
           title: "Open a day and add a task to it",
-          summary: "See who is free and what is due, then add a task.",
+          summary: "See who is away and what is due, then add a task.",
           blocks: [
-            text('The day sheet shows "Who\'s free", what is due, events, and client items.'),
+            text(
+              'The day sheet shows what is due, events and deliverables, and who is away: "On leave" and "Busy all day", each only when someone is. When nobody is, it says "Everyone is available".',
+            ),
             steps(
               "Open Calendar and tap a day.",
               'Tap "+ New task on" the date at the bottom.',

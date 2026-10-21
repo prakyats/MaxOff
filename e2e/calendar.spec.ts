@@ -473,12 +473,13 @@ test.describe("the calendar, as an Admin", () => {
     await expect(busy.first()).toContainText("busy");
     await expect(calendar(page)).not.toContainText(shoot.title);
     await expect(calendar(page)).not.toContainText("Studio B");
-    // "Who's free" over the people the Admin can see (decision 25 D).
+    // The day's availability (owner 2026-10-21): only who is away (On leave, Busy all day),
+    // never a free list, never a part-day busy block (that one is on the timeline above).
     const free = detail(page).locator('[data-slot="calendar-who-free"]');
-    // "Who's free: …" once, then "Busy …" only when someone is (the owner's review).
-    await expect(free).toContainText(/^Who's free: /);
-    await expect(free).not.toContainText("Free:");
-    await expect(free).toContainText(/Busy 10:00 am – 11:00 am: [^·]*Local Staff/);
+    await expect(free).toBeVisible();
+    await expect(free).not.toContainText("Who's free");
+    await expect(free).not.toContainText(/Busy 10:00 am/);
+    await expect(free).toContainText(/^(On leave: |Busy all day: |Everyone is available$)/);
     // An Admin creates tasks: the pill, not "Suggest a task".
     await expect(detail(page).locator('[data-slot="new-task-on-day"]')).toBeVisible();
     await expect(detail(page).locator('[data-slot="suggest-task"]')).toHaveCount(0);

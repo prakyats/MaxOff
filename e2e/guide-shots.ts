@@ -319,7 +319,7 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
   {
     id: "admin/calendar-day",
     path: "/calendar?view=month",
-    // The first day with tasks due: the sheet opens on them, then Who's free and the buttons.
+    // The first day with tasks due: the sheet opens on them, then who is away and the buttons.
     prepare: (page) => tap(page, /, \d+ due$/),
     highlight: (page) => layer(page).getByRole("button", { name: /New task on/ }),
     crop: layer,
