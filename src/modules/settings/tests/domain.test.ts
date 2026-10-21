@@ -366,8 +366,7 @@ describe("thresholdGroupSummaries (6b.6)", () => {
       tasks:
         "Not noted: remind every 2 h → Admin at 4 h → Owner at 8 h · overdue → 24 h · warn at 4 tasks a day",
       "client-work": "Overdue deliverable → you after 24 h · undecided period → you after 1 day",
-      notifications:
-        "Quiet 10:00 pm – 7:00 am · up to 10 emails a day · weekly summary on Monday",
+      notifications: "Quiet 10:00 pm – 7:00 am · up to 10 emails a day · weekly summary on Monday",
     });
   });
 });

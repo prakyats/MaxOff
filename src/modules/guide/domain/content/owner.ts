@@ -56,6 +56,9 @@ export const OWNER_GUIDE: Guide = {
             text(
               "On a phone each screen has one bar at the top: the back arrow (or, on a main tab, the small MaxOff “M”, which takes you to your home screen), the title, the screen's ⋯ menu when it has one, and the bell. A ⋯ menu opens as a sheet from the bottom; back closes it.",
             ),
+            text(
+              "On a laptop, Help (this guide) is in the account menu under your name, beside Me, and at the foot of the sidebar.",
+            ),
           ],
           keywords: ["more", "bottom bar", "menu", "phone", "navigation", "title bar", "sheet"],
         },
@@ -1715,7 +1718,7 @@ export const OWNER_GUIDE: Guide = {
     },
     {
       id: "notifications",
-      title: "Notifications",
+      title: "Alerts and your phone",
       topics: [
         {
           id: "owner-alerts",

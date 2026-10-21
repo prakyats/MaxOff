@@ -66,9 +66,15 @@ test.describe("Owner on desktop", () => {
     await page.goto("/today");
     await page.getByRole("button", { name: "Account menu" }).click();
     await expect(page.getByRole("menu")).toContainText("Prishit Shetty");
-    await expect(page.getByRole("menuitem", { name: "Profile" })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: "Me", exact: true })).toBeVisible();
+    // N2: Help (the guide) in the menu, and at the sidebar's foot.
+    await expect(page.getByRole("menuitem", { name: "Help", exact: true })).toHaveAttribute(
+      "href",
+      "/me/guide",
+    );
     await expect(page.getByRole("menuitem", { name: /Log out|Sign out/ })).toHaveCount(0);
     await page.keyboard.press("Escape");
+    await expect(page.locator('[data-slot="sidebar-help"]')).toHaveAttribute("href", "/me/guide");
   });
 });
 

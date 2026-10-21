@@ -1,3 +1,5 @@
+import { CircleHelpIcon } from "lucide-react";
+import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { Brand } from "./brand";
@@ -30,7 +32,18 @@ export function Sidebar({
         {...(badges ? { badges } : {})}
         className="flex-1 overflow-y-auto px-3 py-2"
       />
-      {footer ? <div className="border-sidebar-border border-t p-3">{footer}</div> : null}
+      {/* N2 (v1.8 V4): Help, the guide for the reader's role, at the foot for every role. */}
+      <div className="border-sidebar-border flex flex-col gap-2 border-t p-3">
+        <Link
+          href="/me/guide"
+          data-slot="sidebar-help"
+          className="pressable-row text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-sidebar-ring flex min-h-10 items-center gap-2.5 rounded-md px-2.5 text-sm transition-colors outline-none focus-visible:ring-2"
+        >
+          <CircleHelpIcon aria-hidden className="size-4 shrink-0" />
+          Help
+        </Link>
+        {footer}
+      </div>
     </aside>
   );
 }

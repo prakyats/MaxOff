@@ -165,6 +165,10 @@ export const NAV_BY_ROLE: Record<ShellRole, readonly NavItem[]> = {
     calendar,
     people,
     reports("reports.scoped"),
+    // N1 (v1.8 V4): the Admin's own Attendance & leave and Extra work & expenses, as the Crew
+    // have them (they were only under Me). The Owner has neither: he decides, he does not apply.
+    leave,
+    work,
     settings("lists.manage"),
   ],
   staff: [
@@ -219,7 +223,7 @@ export const MOBILE_VIA_ME: Record<ShellRole, readonly string[]> = {
 /** Everything the bar didn't take, in the same priority order. */
 export const MOBILE_MORE: Record<ShellRole, readonly string[]> = {
   owner: ["reports", "clients", "people", "settings"],
-  admin: ["reports", "clients", "people", "settings"],
+  admin: ["reports", "clients", "people", "leave", "work", "settings"],
   staff: [],
 };
 

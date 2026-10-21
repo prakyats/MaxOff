@@ -55,7 +55,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "The bell sits in the title bar on a phone and in the top bar on a laptop. Me holds your own page: Attendance & leave, Extra work & expenses, Notifications, Your devices and Help & troubleshooting.",
+              text: "The bell sits in the title bar on a phone and in the top bar on a laptop. Your own Attendance & leave and Extra work & expenses are in the sidebar on a laptop and under More on a phone (and on Me). Me holds your own page: Notifications, Your devices and Help & troubleshooting. Help, this guide, is also in the account menu (your name, top right) and at the foot of the sidebar.",
             },
             {
               kind: "steps",
@@ -1970,7 +1970,7 @@ export const ADMIN_GUIDE: Guide = {
     },
     {
       id: "notifications",
-      title: "Notifications",
+      title: "Alerts and your phone",
       topics: [
         {
           id: "admin-alerts",
