@@ -675,10 +675,13 @@ test.describe("drag to reorder, installed (6b.18): a stage's ⋯ menu closes on 
     await page.goto("/settings/stage-presets");
     await hydrated(page);
     const presets = /\/settings\/stage-presets$/;
-    await page
-      .locator('[data-slot="stage-preset"]', { hasText: preset })
-      .getByRole("button", { name: `Edit ${preset}` })
-      .click();
+    // V2 (P2): on a phone a Settings row's Edit sits in its ⋯ sheet.
+    await rowAction(
+      page,
+      page.locator('[data-slot="stage-preset"]', { hasText: preset }),
+      preset,
+      "Edit",
+    );
     const dialog = page.getByRole("dialog", { name: `Edit ${preset}` });
     await dialog.getByRole("button", { name: "Actions for Stage 2" }).click();
     await expect(menu).toBeVisible();
