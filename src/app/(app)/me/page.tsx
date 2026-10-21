@@ -121,7 +121,7 @@ export default async function MePage({
           ? { help: "You're in. Check your name, add a phone number, and you're set." }
           : {})}
       />
-      <div className="flex max-w-xl flex-col gap-4">
+      <div className="flex flex-col gap-4">
         {isWelcome ? (
           <Card data-slot="welcome" className="bg-muted/40">
             <CardContent className="flex items-start gap-3 text-sm">

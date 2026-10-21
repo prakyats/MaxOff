@@ -86,7 +86,7 @@ export default async function TeamMonthPage({
         previousLabel="Previous month"
         nextLabel="Next month"
       />
-      <div className="md:max-w-3xl">
+      <div>
         <TeamMonthList summaries={summaries} month={month} extra={extra} />
       </div>
     </>

@@ -52,11 +52,10 @@ export function summaryLines(summary: MonthSummary): SummaryLine[] {
       value: dayFigure(summary.daysWorked),
       detail: `${summary.presentDays} present · ${summary.halfDays} half ${summary.halfDays === 1 ? "day" : "days"}`,
     },
-    {
-      key: "leave",
-      label: "Leave · Half days · Absent",
-      value: `${summary.leaveDays} · ${summary.halfDays} · ${summary.absentDays}`,
-    },
+    // W6 (v1.8 V4): three labelled rows, never "0 · 0 · 10" to decode.
+    { key: "leave", label: "Leave", value: dayFigure(summary.leaveDays) },
+    { key: "half", label: "Half days", value: String(summary.halfDays) },
+    { key: "absent", label: "Absent", value: dayFigure(summary.absentDays) },
     { key: "comp", label: "Comp leave used", value: dayFigure(summary.compLeaveDays) },
     {
       key: "additional",
@@ -75,8 +74,9 @@ export function summaryLines(summary: MonthSummary): SummaryLine[] {
     {
       key: "credits",
       label: "Comp leave credits",
-      value: `${dayFigure(summary.creditsGranted)} · ${dayFigure(summary.creditsUsed)} · ${dayFigure(summary.creditsExpired)}`,
-      detail: "Granted · used · expired",
+      // W6: each figure with its word.
+      value: dayFigure(summary.creditsGranted),
+      detail: `${dayFigure(summary.creditsGranted)} granted · ${dayFigure(summary.creditsUsed)} used · ${dayFigure(summary.creditsExpired)} expired`,
     },
   ];
   return lines;

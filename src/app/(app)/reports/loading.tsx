@@ -65,7 +65,7 @@ export default async function Loading() {
         aria-busy="true"
         aria-label="Loading your report"
         data-slot="loading-work-report"
-        className="flex max-w-3xl min-w-0 flex-col gap-6"
+        className="flex min-w-0 flex-col gap-6"
       >
         <div className="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2">
           {[0, 1, 2, 3].map((card) => (

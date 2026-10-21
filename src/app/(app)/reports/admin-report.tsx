@@ -108,7 +108,7 @@ export async function AdminReport({ viewer, period }: { viewer: CurrentMember; p
           <CustomRange from={period.from} to={period.to} today={today} />
         </div>
       ) : null}
-      <div className="flex max-w-3xl min-w-0 flex-col gap-6" data-slot="work-report">
+      <div className="flex min-w-0 flex-col gap-6" data-slot="work-report">
         <div className="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2">
           <KpiCard
             slot="kpi-rework"

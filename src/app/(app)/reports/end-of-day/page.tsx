@@ -81,7 +81,7 @@ export default async function EndOfDayListPage({
         <nav
           aria-label="Older reports"
           data-slot="eod-pager"
-          className="mt-3 flex min-h-11 items-center justify-between gap-2 md:max-w-2xl"
+          className="mt-3 flex min-h-11 items-center justify-between gap-2"
         >
           <PagerLink href={previous} label="Newer reports">
             <ChevronLeftIcon aria-hidden />

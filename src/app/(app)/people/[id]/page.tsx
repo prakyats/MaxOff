@@ -55,7 +55,7 @@ export default async function PersonProfilePage({ params }: { params: Promise<{ 
   const since = person.joinedAt ?? person.invitedAt;
 
   return (
-    <div className="flex max-w-xl flex-col gap-4" data-slot="person-profile">
+    <div className="flex flex-col gap-4" data-slot="person-profile">
       <Card>
         <CardContent className="flex flex-col gap-4 text-sm">
           <div className="flex min-w-0 items-center gap-3">
