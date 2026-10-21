@@ -21,7 +21,7 @@ const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
 export const metadata: Metadata = {
   title: { default: "MaxOff", template: "%s · MaxOff" },
-  description: "Internal operations and control system for Pixora Clips",
+  description: "Internal operations and control system for 3not8studios",
   applicationName: "MaxOff",
   // PWA (ARCHITECTURE §14): the manifest and icons live in public/, the service worker is
   // registered by <RegisterServiceWorker /> in production builds only.
