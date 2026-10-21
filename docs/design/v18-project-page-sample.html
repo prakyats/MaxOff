@@ -1,0 +1,362 @@
+<title>MaxOff v1.8 Sample</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a mock of the v1.8 project page at laptop width (app shell + content), a phone version beside it on wide screens, then the list of what changed. Tokens follow the agreed v1.8 direction. */
+:root{
+  --page:#fafaf9; --card:#ffffff; --raised:#f4f3f1; --line:#ebe9e6;
+  --ink:#18181b; --muted:#6f6f78; --faint:#a1a1aa;
+  --red:#c42126; --red-soft:#fbecec; --amber:#a16207; --amber-soft:#fdf4e2;
+  --blue:#2563eb; --blue-soft:#eaf0fe; --green:#15803d; --green-soft:#e9f6ee;
+  --solid:#18181b; --on-solid:#ffffff;
+  --shadow-card:0 1px 2px rgba(24,24,27,.05);
+  --shadow-sheet:0 12px 32px rgba(24,24,27,.14),0 2px 6px rgba(24,24,27,.06);
+  --sans:"Geist",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"Geist Mono",ui-monospace,Menlo,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --page:#0b0b0c; --card:#141416; --raised:#1c1c20; --line:#26262b;
+  --ink:#f4f4f5; --muted:#a1a1aa; --faint:#6b6b73;
+  --red:#f2686d; --red-soft:#2a1416; --amber:#fbbf24; --amber-soft:#2a2210;
+  --blue:#7aa2ff; --blue-soft:#141c33; --green:#4ade80; --green-soft:#10241a;
+  --solid:#f4f4f5; --on-solid:#0b0b0c;
+  --shadow-card:0 1px 2px rgba(0,0,0,.4); --shadow-sheet:0 12px 32px rgba(0,0,0,.5); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --page:#0b0b0c; --card:#141416; --raised:#1c1c20; --line:#26262b;
+  --ink:#f4f4f5; --muted:#a1a1aa; --faint:#6b6b73;
+  --red:#f2686d; --red-soft:#2a1416; --amber:#fbbf24; --amber-soft:#2a2210;
+  --blue:#7aa2ff; --blue-soft:#141c33; --green:#4ade80; --green-soft:#10241a;
+  --solid:#f4f4f5; --on-solid:#0b0b0c;
+  --shadow-card:0 1px 2px rgba(0,0,0,.4); --shadow-sheet:0 12px 32px rgba(0,0,0,.5); color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);font:15px/1.5 var(--sans)}
+.outer{max-width:1320px;margin:0 auto;padding-inline:16px;padding-block:24px 64px}
+.banner{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline;margin-bottom:16px}
+.banner h1{font-size:20px;font-weight:600;letter-spacing:-.02em;margin:0}
+.banner p{margin:0;color:var(--muted);font-size:13px}
+.stage{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:24px;align-items:start}
+@media (max-width:1100px){.stage{grid-template-columns:minmax(0,1fr)}.phonecol{display:none}}
+
+/* laptop frame */
+.laptop{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--page);box-shadow:var(--shadow-card)}
+.app{display:grid;grid-template-columns:200px minmax(0,1fr);min-height:640px}
+@media (max-width:760px){.app{grid-template-columns:minmax(0,1fr)}.side{display:none}}
+.side{border-right:1px solid var(--line);padding:16px 10px;display:flex;flex-direction:column;gap:2px;background:var(--page)}
+.brand{display:flex;align-items:center;gap:8px;font-weight:600;padding:4px 8px 14px}
+.brand i{width:24px;height:24px;border-radius:6px;background:var(--red);display:grid;place-items:center;color:#fff;font:600 12px var(--sans);font-style:normal}
+.nav{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:6px;color:var(--muted);font-size:14px}
+.nav.on{background:var(--raised);color:var(--ink);font-weight:500}
+.count{font:500 12px var(--sans);color:var(--red);font-variant-numeric:tabular-nums}
+.main{padding:20px 24px 28px;min-width:0}
+.crumb{font-size:13px;color:var(--muted);display:flex;gap:6px;align-items:center}
+.titlerow{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;justify-content:space-between;margin:6px 0 16px}
+.titlerow h2{font-size:28px;font-weight:600;letter-spacing:-.03em;margin:0;line-height:1.15}
+.sub{font-size:13px;color:var(--muted);margin-top:4px}
+.btn{font:500 14px var(--sans);height:36px;padding:0 14px;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--ink);display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.btn.solid{background:var(--solid);color:var(--on-solid);border-color:var(--solid)}
+.btn.sm{height:30px;padding:0 10px;font-size:13px}
+.btn:focus-visible,.row:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.status{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.dot{width:8px;height:8px;border-radius:50%}
+.d-blue{background:var(--blue)} .d-red{background:var(--red)} .d-amber{background:var(--amber)} .d-green{background:var(--green)}
+
+.month{display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.seg{display:inline-flex;background:var(--raised);border-radius:8px;padding:3px;gap:2px}
+.seg span{font-size:13px;padding:5px 12px;border-radius:6px;color:var(--muted)}
+.seg span.on{background:var(--card);color:var(--ink);font-weight:500;box-shadow:var(--shadow-card)}
+
+.hero{background:var(--card);border-radius:10px;box-shadow:var(--shadow-card);padding:18px 20px;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:20px;align-items:center}
+@media (max-width:640px){.hero{grid-template-columns:auto minmax(0,1fr)}.hero .needs{grid-column:1/-1}}
+.ring{width:84px;height:84px;position:relative}
+.ring svg{width:84px;height:84px;transform:rotate(-90deg)}
+.ring b{position:absolute;inset:0;display:grid;place-items:center;font:600 20px var(--sans);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.ring b small{font-size:11px;color:var(--muted);font-weight:500;margin-left:1px}
+.hero h3{margin:0;font-size:16px;font-weight:600}
+.hero .line{font-size:13px;color:var(--muted);margin-top:2px;font-variant-numeric:tabular-nums}
+.pill{display:inline-flex;align-items:center;gap:6px;font:500 12px var(--sans);padding:3px 9px;border-radius:999px}
+.p-red{background:var(--red-soft);color:var(--red)} .p-amber{background:var(--amber-soft);color:var(--amber)} .p-green{background:var(--green-soft);color:var(--green)} .p-blue{background:var(--blue-soft);color:var(--blue)}
+.needs{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+
+.listhead{display:flex;align-items:center;justify-content:space-between;margin:22px 0 8px;gap:8px;flex-wrap:wrap}
+.listhead h3{margin:0;font-size:16px;font-weight:600}
+.listhead .acts{display:flex;gap:8px}
+.list{background:var(--card);border-radius:10px;box-shadow:var(--shadow-card);overflow:hidden}
+.cols{display:grid;grid-template-columns:minmax(150px,1.2fr) minmax(200px,2fr) 150px 130px 28px 20px;gap:16px;align-items:center}
+.more{color:var(--faint);font-size:16px;text-align:center}
+.details{margin-top:22px}
+.details h3{margin:0 0 8px;font-size:16px;font-weight:600}
+.dl{background:var(--card);border-radius:10px;box-shadow:var(--shadow-card);display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0}
+.dl div{padding:12px 16px;border-right:1px solid var(--line)}
+.dl div:last-child{border-right:0}
+.dl small{display:block;font-size:12px;color:var(--faint)}
+.approved{display:inline-flex;align-items:center;gap:6px;font:500 12px var(--sans);padding:3px 10px;border-radius:999px;background:var(--green-soft);color:var(--green)}
+.th{padding:9px 16px;font:500 12px var(--sans);color:var(--faint);border-bottom:1px solid var(--line);background:var(--raised)}
+.row{padding:12px 16px;border-bottom:1px solid var(--line);cursor:pointer}
+.row:last-child{border-bottom:0}
+.row:hover{background:var(--raised)}
+.name{font-weight:500}
+.name small{display:block;font-weight:400;font-size:13px;color:var(--muted)}
+.groups{display:flex;flex-direction:column;gap:6px}
+.g{display:grid;grid-template-columns:72px minmax(0,1fr) 32px;gap:8px;align-items:center;font-size:12px;color:var(--muted)}
+.bar{height:6px;border-radius:999px;background:var(--raised);overflow:hidden;display:flex;gap:2px}
+.bar i{flex:1;background:var(--line)} .bar i.done{background:var(--green)}
+.g span:last-child{text-align:right;font-variant-numeric:tabular-nums}
+.next{font-size:13px}
+.next .chipbtn{font:500 12px var(--sans);border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:3px 10px;margin-top:3px;display:inline-flex;gap:4px;align-items:center}
+.plan{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.plan.late{color:var(--red)}
+.chev{color:var(--faint);font-size:16px}
+.ready{display:flex;gap:6px;align-items:center}
+@media (max-width:900px){.cols{grid-template-columns:minmax(0,1fr) 20px}.cols>.c2,.cols>.c3,.cols>.c4,.cols>.more{display:none}.th{display:none}}
+.month .seg{flex:1;display:flex}.month .seg span{flex:1;text-align:center}
+.collapsed{display:flex;align-items:center;gap:6px;padding:12px 4px;color:var(--muted);font-size:14px}
+
+/* phone */
+.phonecol{position:sticky;top:16px}
+.phone{width:360px;border:1px solid var(--line);border-radius:28px;overflow:hidden;background:var(--page);box-shadow:var(--shadow-sheet)}
+.pbar{display:flex;justify-content:space-between;font:500 12px var(--sans);padding:10px 20px 4px;color:var(--muted)}
+.pmain{padding:8px 16px 16px;min-height:600px;position:relative}
+.pmain h2{font-size:22px;letter-spacing:-.02em;margin:4px 0 2px}
+.pcard{background:var(--card);border-radius:10px;box-shadow:var(--shadow-card);padding:14px;margin-top:10px}
+.pcard .top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.mini{display:flex;align-items:center;gap:12px}
+.mini .ring,.mini .ring svg{width:56px;height:56px}
+.mini .ring b{font-size:15px}
+.pnav{position:absolute;left:0;right:0;bottom:0;border-top:1px solid var(--line);background:var(--card);display:grid;grid-template-columns:repeat(5,1fr);padding:8px 0 12px;font-size:11px;color:var(--muted);text-align:center}
+.pnav .on{color:var(--ink);font-weight:500}
+
+/* notes */
+.notes{margin-top:28px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.note{background:var(--card);border-radius:10px;box-shadow:var(--shadow-card);padding:14px 16px}
+.note b{display:block;font-size:14px;margin-bottom:4px}
+.note p{margin:0;font-size:13px;color:var(--muted)}
+.n{font:600 12px var(--mono);color:var(--faint)}
+.sample{font:500 11px var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
+
+/* long stage lists (real-data case) */
+.case{margin-top:36px}
+.case h2{font-size:20px;letter-spacing:-.02em;margin:0 0 4px}
+.case .why{color:var(--muted);font-size:13px;margin:0 0 14px;max-width:70ch}
+.lrow{display:grid;grid-template-columns:minmax(140px,1fr) minmax(160px,1.4fr) minmax(200px,1.6fr) 120px 28px 20px;gap:16px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);cursor:pointer}
+.lrow:hover{background:var(--raised)}
+.lrow:last-child{border-bottom:0}
+.cbar{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.cbar .track{flex:1;height:6px;border-radius:999px;background:var(--raised);overflow:hidden}
+.cbar .fill{height:100%;background:var(--green);border-radius:999px}
+.trunc{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px;min-width:0}
+.trunc b{font-weight:500}
+.caret{color:var(--faint);font-size:12px;margin-right:6px}
+.expand{grid-column:1/-1;padding:4px 0 6px}
+.hint{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;background:var(--blue-soft);color:var(--ink);border-radius:8px;padding:10px 12px;font-size:13px;margin-bottom:10px}
+.hint .btn{height:28px}
+.checklist{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px 20px}
+@media (max-width:900px){.checklist{grid-template-columns:minmax(0,1fr)}.lrow{grid-template-columns:minmax(0,1fr) 20px}.lrow>.lc{display:none}}
+.ci{display:flex;gap:10px;align-items:flex-start;padding:7px 6px;border-radius:6px;font-size:14px;line-height:1.35}
+.ci:hover{background:var(--raised)}
+.box{flex:none;width:18px;height:18px;border-radius:5px;border:1.5px solid var(--faint);margin-top:1px;display:grid;place-items:center;font-size:11px;color:var(--on-solid);font-style:normal}
+.ci.done .box{background:var(--green);border-color:var(--green)}
+.ci.done span{color:var(--muted)}
+.ci.next .box{border-color:var(--ink);border-width:2px}
+.ci.next span{font-weight:600}
+.clamp{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.tip{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px;color:var(--muted);padding:10px 2px 2px}
+.fixes{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-top:14px}
+</style>
+
+<div class="outer">
+  <div class="banner">
+    <h1>Sample: a project page in v1.8</h1><span class="approved">✓ Approved direction · 16 Oct</span>
+    <p>Example data, not real. The owner approved this layout as the v1.8 target. Every section uses the full width on laptop; the features are v1.7.1's, only the look changes. Switch your device between light and dark to see both themes.</p>
+  </div>
+
+  <div class="stage">
+    <!-- LAPTOP -->
+    <div class="laptop" role="img" aria-label="Laptop view of the v1.8 project page">
+      <div class="app">
+        <aside class="side">
+          <div class="brand"><i>M</i>MaxOff</div>
+          <div class="nav">Today</div>
+          <div class="nav">Approvals <span class="count">3</span></div>
+          <div class="nav on">Clients</div>
+          <div class="nav">Tasks</div>
+          <div class="nav">Calendar</div>
+          <div class="nav">People</div>
+          <div class="nav">Reports</div>
+          <div class="nav">Settings</div>
+        </aside>
+        <section class="main">
+          <div class="crumb">‹ Example Client</div>
+          <div class="titlerow">
+            <div>
+              <h2>Monthly retainer</h2>
+              <div class="sub">Example Client · Monthly · <span class="status"><span class="dot d-blue"></span>In progress</span></div>
+            </div>
+            <div style="display:flex;gap:6px"><button class="btn sm" aria-label="History">⟲ History</button><button class="btn sm" aria-label="More actions">⋯</button></div>
+          </div>
+
+          <div class="month">
+            <div class="seg" aria-label="Month"><span>September</span><span class="on">October 2026</span><span>November</span></div>
+          </div>
+
+          <div class="hero">
+            <div class="ring">
+              <svg viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="15.5" fill="none" stroke="var(--raised)" stroke-width="3.2"/><circle cx="18" cy="18" r="15.5" fill="none" stroke="var(--green)" stroke-width="3.2" stroke-linecap="round" stroke-dasharray="65 100" pathLength="100"/></svg>
+              <b>67<small>%</small></b>
+            </div>
+            <div>
+              <h3>8 of 12 stages done</h3>
+              <div class="line">1 of 3 deliverables finished · 9 days left in October</div>
+            </div>
+            <div class="needs">
+              <span class="pill p-red"><span class="dot d-red"></span>Reel 1 is 1 day late</span>
+              <span class="pill p-amber"><span class="dot d-amber"></span>Interview 2: 1 stage left</span>
+            </div>
+          </div>
+
+          <div class="listhead">
+            <h3>Deliverables</h3>
+            <div class="acts"><button class="btn sm">Select</button><button class="btn sm">+ Add deliverable</button></div>
+          </div>
+          <div class="list">
+            <div class="cols th"><span>Deliverable</span><span class="c2">Progress by group</span><span class="c3">Next</span><span class="c4">Planned</span><span></span><span></span></div>
+
+            <div class="cols row" tabindex="0">
+              <span class="name">Reel 1<small>3 groups · 1 of 9 stages</small></span>
+              <span class="c2 groups">
+                <span class="g"><span>Pre-shoot</span><span class="bar"><i class="done"></i><i></i><i></i></span><span>1/3</span></span>
+                <span class="g"><span>Edit</span><span class="bar"><i></i><i></i><i></i></span><span>0/3</span></span>
+                <span class="g"><span>Publish</span><span class="bar"><i></i><i></i><i></i></span><span>0/3</span></span>
+              </span>
+              <span class="c3 next">Next<br><span class="chipbtn">○ Shoot</span></span>
+              <span class="c4 plan late">15 Oct · 1 day late</span>
+              <span class="more" aria-label="More actions">⋯</span><span class="chev">›</span>
+            </div>
+
+            <div class="cols row" tabindex="0">
+              <span class="name">Interview 2<small>1 group · 3 of 4 stages</small></span>
+              <span class="c2 groups">
+                <span class="g"><span>Stages</span><span class="bar"><i class="done"></i><i class="done"></i><i class="done"></i><i></i></span><span>3/4</span></span>
+              </span>
+              <span class="c3 next">Next<br><span class="chipbtn">○ Posted</span></span>
+              <span class="c4 plan">Not planned</span>
+              <span class="more" aria-label="More actions">⋯</span><span class="chev">›</span>
+            </div>
+
+            <div class="cols row" tabindex="0">
+              <span class="name">Poster 3<small>1 group · 4 of 4 stages</small></span>
+              <span class="c2 groups">
+                <span class="g"><span>Stages</span><span class="bar"><i class="done"></i><i class="done"></i><i class="done"></i><i class="done"></i></span><span>4/4</span></span>
+              </span>
+              <span class="c3 next ready"><button class="btn sm solid">✓ Mark done</button></span>
+              <span class="c4 plan">20 Oct</span>
+              <span class="more" aria-label="More actions">⋯</span><span class="chev">›</span>
+            </div>
+          </div>
+          <div class="collapsed">› Done and closed (1)</div>
+          <div class="details"><h3>Details</h3>
+            <div class="dl"><div><small>Client contact</small>Example Contact</div><div><small>Repeats</small>Monthly, on the 1st</div><div><small>Template</small>Monthly retainer</div><div><small>Notes</small>Shoot days need 2 days' notice</div></div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <!-- PHONE -->
+    <div class="phonecol">
+      <div class="phone" role="img" aria-label="Phone view of the same page">
+        <div class="pbar"><span>9:41</span><span>5G ▮▮▮</span></div>
+        <div class="pmain">
+          <div class="crumb">‹ Example Client</div>
+          <h2>Monthly retainer</h2>
+          <div class="sub"><span class="status"><span class="dot d-blue"></span>In progress</span> · October 2026</div>
+          <div class="pcard mini">
+            <div class="ring">
+              <svg viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="15.5" fill="none" stroke="var(--raised)" stroke-width="3.6"/><circle cx="18" cy="18" r="15.5" fill="none" stroke="var(--green)" stroke-width="3.6" stroke-linecap="round" stroke-dasharray="65 100" pathLength="100"/></svg>
+              <b>67<small>%</small></b>
+            </div>
+            <div><b style="font-size:15px">8 of 12 stages</b><div class="sub" style="margin:0"><span class="pill p-red" style="margin-top:4px">1 late</span></div></div>
+          </div>
+          <div class="pcard">
+            <div class="top"><span class="name">Reel 1<small>1 of 9 · Next: Shoot</small></span><span class="plan late">1 day late ›</span></div>
+            <div class="groups" style="margin-top:10px">
+              <span class="g"><span>Pre-shoot</span><span class="bar"><i class="done"></i><i></i><i></i></span><span>1/3</span></span>
+              <span class="g"><span>Edit</span><span class="bar"><i></i><i></i><i></i></span><span>0/3</span></span>
+            </div>
+          </div>
+          <div class="pcard">
+            <div class="top"><span class="name">Interview 2<small>3 of 4 · Next: Posted</small></span><span class="plan">›</span></div>
+          </div>
+          <div class="pcard">
+            <div class="top"><span class="name">Poster 3<small>All stages ticked</small></span><button class="btn sm solid">✓ Mark done</button></div>
+          </div>
+          <div class="pnav"><span>Today</span><span>Approvals</span><span class="on">Clients</span><span>Tasks</span><span>More</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  
+  <section class="case" aria-labelledby="case-h">
+    <h2 id="case-h">Long stage lists: how v1.8 fixes the real case</h2>
+    <p class="why">Shaped like the team's real project: two deliverables with 12 long-named stages each. Today they show as two screens of centred, wrapping chips. In v1.8 each is one line until you open it, and opening it shows a tidy checklist across the full width.</p>
+    <div class="laptop" style="padding:20px 24px">
+      <div class="listhead" style="margin-top:0"><h3>Deliverables</h3><div class="acts"><button class="btn sm">Select</button><button class="btn sm">+ Add deliverable</button></div></div>
+      <div class="list">
+        <div class="lrow" tabindex="0">
+          <span class="name"><span class="caret">&#9656;</span>Food Video<small>12 stages</small></span>
+          <span class="lc cbar"><span class="track"><span class="fill" style="width:0%"></span></span>0/12</span>
+          <span class="lc trunc">Next: <b>Ideation</b></span>
+          <span class="lc plan">31 Oct</span>
+          <span class="more lc">&#8943;</span><span class="chev">&#8250;</span>
+        </div>
+        <div class="lrow" tabindex="0" style="cursor:default">
+          <span class="name"><span class="caret">&#9662;</span>Pre Production<small>12 stages</small></span>
+          <span class="lc cbar"><span class="track"><span class="fill" style="width:42%"></span></span>5/12</span>
+          <span class="lc trunc" title="Sent For Internal Approval Round 2">Next: <b>Sent For Internal Approval Round 2</b></span>
+          <span class="lc plan">Not planned</span>
+          <span class="more lc">&#8943;</span><span class="chev">&#8250;</span>
+          <div class="expand">
+            <div class="hint"><span>12 stages in one list. Split them into groups, like Concept &middot; Script &middot; Shoot planning?</span><button class="btn sm">Group stages</button><button class="btn sm" style="border:0;background:transparent;color:var(--muted)">Not now</button></div>
+            <div class="checklist"><div class="ci done"><i class="box">✓</i><span class="clamp">Ideation</span></div><div class="ci done"><i class="box">✓</i><span class="clamp">Sent for Internal Approval Round 1</span></div><div class="ci done"><i class="box">✓</i><span class="clamp">Revisions 1</span></div><div class="ci done"><i class="box">✓</i><span class="clamp">First Round Approval Received</span></div><div class="ci done"><i class="box">✓</i><span class="clamp">Scripting</span></div><div class="ci next"><i class="box"></i><span class="clamp">Sent For Internal Approval Round 2</span></div><div class="ci "><i class="box"></i><span class="clamp">Revisions 2</span></div><div class="ci "><i class="box"></i><span class="clamp">Second Round Approval Received</span></div><div class="ci "><i class="box"></i><span class="clamp">Shotlist Prepared</span></div><div class="ci "><i class="box"></i><span class="clamp">Location Planning</span></div><div class="ci "><i class="box"></i><span class="clamp">Equipment Planning</span></div><div class="ci "><i class="box"></i><span class="clamp">Shoot Planning</span></div></div>
+            <div class="tip">Tip: for another round of changes, use <b style="color:var(--ink);font-weight:500">&#8943; &rarr; + Another revision round</b> instead of typing "Round 2" stages.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="sample" style="margin-top:22px">After the Admin taps "Group stages" (their choice; nothing changes until then)</p>
+    <div class="laptop" style="padding:16px 24px">
+      <div class="list">
+        <div class="lrow" tabindex="0">
+          <span class="name"><span class="caret">&#9656;</span>Food Video<small>3 groups &middot; 12 stages</small></span>
+          <span class="lc groups">
+            <span class="g"><span>Concept</span><span class="bar"><i class="done"></i><i class="done"></i><i class="done"></i><i class="done"></i></span><span>4/4</span></span>
+            <span class="g"><span>Script</span><span class="bar"><i class="done"></i><i></i><i></i><i></i></span><span>1/4</span></span>
+            <span class="g"><span>Shoot plan</span><span class="bar"><i></i><i></i><i></i><i></i></span><span>0/4</span></span>
+          </span>
+          <span class="lc trunc" title="Sent For Internal Approval Round 2">Next: <b>Sent For Internal Approval Round 2</b></span>
+          <span class="lc plan">31 Oct</span>
+          <span class="more lc">&#8943;</span><span class="chev">&#8250;</span>
+        </div>
+      </div>
+    </div>
+    <div class="fixes">
+      <div class="note"><span class="n">A</span><b>One line until opened</b><p>Name, progress bar, "5/12" and the next step. A long next step ends in "&hellip;" (full text on hover or tap) instead of wrapping to three lines.</p></div>
+      <div class="note"><span class="n">B</span><b>A checklist, not chips</b><p>Tick box plus name, left-aligned, at most two lines, in three columns across the full width. The next stage is bold and outlined.</p></div>
+      <div class="note"><span class="n">C</span><b>A real progress bar</b><p>One continuous bar instead of 12 tiny dots, so progress reads at a glance.</p></div>
+      <div class="note"><span class="n">D</span><b>Group stages, when they choose</b><p>Long single lists offer "Group stages". The Admin picks where each group starts. Existing data never changes on its own.</p></div>
+      <div class="note"><span class="n">E</span><b>Rounds the easy way</b><p>A tip points to "+ Another revision round", so nobody has to type Round 1, Round 2 stages.</p></div>
+      <div class="note"><span class="n">F</span><b>On the phone</b><p>The same one-line rows; opening one shows the checklist in a single column, with the same long-name rule.</p></div>
+    </div>
+  </section>
+
+  <p class="sample" style="margin-top:28px">What changed from today (refined 16 Oct: full-width month tabs and Details, History and ⋯ in the header, ⋯ on every row, as the live app has)</p>
+  <div class="notes">
+    <div class="note"><span class="n">01</span><b>Red only means "look here"</b><p>"Mark done" is no longer red on every row. It's a dark button that only appears when a deliverable is ready. Red is kept for "1 day late".</p></div>
+    <div class="note"><span class="n">02</span><b>A "needs you" summary</b><p>Next to the progress ring: what's late and what's nearly done, so you see the problem before scrolling.</p></div>
+    <div class="note"><span class="n">03</span><b>Groups as progress strips</b><p>Each stage group is one tidy line with its own bar and count, instead of a wall of chips.</p></div>
+    <div class="note"><span class="n">04</span><b>"Next" tells you what to do</b><p>One tap ticks the next stage. Everything else opens with the › on the row.</p></div>
+    <div class="note"><span class="n">05</span><b>Calmer surfaces</b><p>Cards sit on the page with a soft tone step and one gentle shadow, instead of heavy borders. Consistent corners everywhere.</p></div>
+    <div class="note"><span class="n">06</span><b>Cleaner type</b><p>A clear size ladder: a bold title, a quieter subtitle, readable small text. Nothing tiny, and numbers line up.</p></div>
+    <div class="note"><span class="n">07</span><b>Aligned columns on laptop</b><p>Deliverable, progress, next step and date line up, so you can scan down a column.</p></div>
+    <div class="note"><span class="n">08</span><b>Months as tabs</b><p>Switching months is a quick tab, not a big box.</p></div>
+  </div>
+</div>
