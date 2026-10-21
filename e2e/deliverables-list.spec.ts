@@ -1,5 +1,7 @@
 import type { Page, TestInfo } from "@playwright/test";
 
+import { addISTDays, todayIST } from "../src/core/time";
+
 import { expect, test } from "./fixtures";
 import {
   expectBackStack,
@@ -572,6 +574,131 @@ test("the deliverable's sheet: the list's group headings, neutral ticks, Edit de
   await removeClientFixture(client);
 });
 
+/** The production shape (owner, 2026-10-17): twelve long-named stages in one list. */
+const LONG_STAGES = [
+  "Concept note and reference board for the client",
+  "Moodboard",
+  "Script draft",
+  "Script sent for internal approval round 1",
+  "Script sent for internal approval round 2",
+  "Shoot planning",
+  "Location recce",
+  "Shoot",
+  "Rough cut",
+  "Sent for Internal Approval Round 1",
+  "Final edit",
+  "Posted",
+];
+
+/** "Pre Production" (planned 2 days ago: late) and "Reel 1", both with the twelve stages. */
+async function longProject(clientId: string): Promise<string> {
+  const projectId = await rpcAs<string>(admin.email, admin.password, "project_create", {
+    client_id: clientId,
+    name: "Long work",
+    recurrence: "monthly",
+    stages: LONG_STAGES,
+    items: ["Pre Production", "Reel 1"],
+  });
+  const late = addISTDays(todayIST(), -2);
+  await call("item_update", {
+    item_id: await itemId(projectId, "Pre Production"),
+    changes: { planned_date: late },
+  });
+  await tick(await itemId(projectId, "Reel 1"), LONG_STAGES.slice(0, 11));
+  return projectId;
+}
+
+test("twelve long-named stages × 2: one-line rows, a 3/1-column checklist, Needs you, the tip and Group stages", async ({
+  page,
+}, info) => {
+  const client = nameOf(info, "long");
+  const clientId = await workClient(client);
+  const projectId = await longProject(clientId);
+  await page.goto(`/clients/${clientId}/projects/${projectId}`);
+  await hydrated(page);
+  const phone = (page.viewportSize()?.width ?? 1280) < 768;
+
+  // Needs you beside the ring: the late one in red, the nearly done one in amber.
+  const pills = page.locator('[data-slot="project-needs-you-pill"]');
+  await expect(pills).toHaveText(["Pre Production is 2 days late", "Reel 1: 1 stage left"]);
+  expect(await pills.evaluateAll((nodes) => nodes.map((node) => node.dataset.tone))).toEqual([
+    "danger",
+    "attention",
+  ]);
+
+  // Collapsed: one bar, "0/12", and Next on one line, cut with an ellipsis, its name in full on hover.
+  const pre = row(page, "Pre Production");
+  await expect(strips(page, "Pre Production")).toHaveText("0/12 stages ticked");
+  await expect(strips(page, "Reel 1")).toHaveText("11/12 stages ticked");
+  const nextName = pre.locator('[data-slot="item-next"]:visible [title]');
+  await expect(nextName).toHaveAttribute("title", LONG_STAGES[0]!);
+  const nextBox = await pre.locator('[data-slot="item-next"]:visible').boundingBox();
+  expect(nextBox!.height, "Next stays one line").toBeLessThanOrEqual(phone ? 44 : 30);
+  if (!phone) {
+    const rowBox = await pre.boundingBox();
+    expect(rowBox!.height, "a collapsed laptop row is one line").toBeLessThanOrEqual(60);
+  }
+  await expectNoHorizontalScroll(page);
+
+  // Opened: a left-aligned checklist, three columns on a laptop, one on a phone; two lines at most.
+  await strips(page, "Pre Production").click();
+  const checks = pre.locator('[data-slot="stage-check"]');
+  await expect(checks).toHaveCount(12);
+  const lefts = await checks.evaluateAll((nodes) =>
+    nodes.map((node) => Math.round(node.getBoundingClientRect().left)),
+  );
+  expect(new Set(lefts).size).toBe(phone ? 1 : 3);
+  const heights = await checks.evaluateAll((nodes) =>
+    nodes.map((node) => node.querySelector(".line-clamp-2")!.getBoundingClientRect().height),
+  );
+  for (const height of heights) expect(height).toBeLessThanOrEqual(42);
+  await expect(checks.first()).toHaveAttribute("data-check", "next");
+  await expect(checks.first()).toHaveCSS("font-weight", "600");
+  await expectNoHorizontalScroll(page);
+
+  // The revision-round tip (two numbered rounds typed as stages) and the grouping hint.
+  await expect(pre.locator('[data-slot="item-round-tip"]')).toContainText(
+    "+ Another revision round",
+  );
+  await expect(pre.locator('[data-slot="item-group-hint"]')).toContainText(
+    "12 stages: split them into groups?",
+  );
+
+  // Group stages: the Admin chooses the starts and names; nothing changes until then.
+  await pre.locator('[data-slot="item-group-stages"]').click();
+  const dialog = page.locator('[data-slot="group-stages-dialog"]');
+  await expect(dialog).toBeVisible();
+  const startAt = (name: string) =>
+    dialog.locator('[data-slot="group-stages-start"]', { hasText: name });
+  await startAt("Shoot planning").click();
+  await startAt("Rough cut").click();
+  const names = dialog.locator('[data-slot="group-stages-name"]');
+  await expect(names).toHaveCount(3);
+  await dialog.getByRole("button", { name: "Group stages" }).click();
+  await expect(dialog.locator('[data-slot="form-alert"]')).toHaveText(/Give every group a name/);
+  await names.nth(0).fill("Concept");
+  await names.nth(1).fill("Shoot");
+  await names.nth(2).fill("Post");
+  await dialog.getByRole("button", { name: "Group stages" }).click();
+  await expect(
+    page.getByText("Grouped the stages of Pre Production", { exact: true }),
+  ).toBeVisible();
+  await expect(dialog).toBeHidden();
+  if (!(await pre.locator('[data-slot="item-stage-group-label"]').count())) {
+    await strips(page, "Pre Production").click();
+  }
+  await expect(pre.locator('[data-slot="item-stage-group-label"]')).toHaveText([
+    /^Concept\s*0\/5$/,
+    /^Shoot\s*0\/3$/,
+    /^Post\s*0\/4$/,
+  ]);
+  await expect(pre.locator('[data-slot="item-group-hint"]')).toHaveCount(0);
+  // The other deliverable is untouched (never automatic).
+  await strips(page, "Reel 1").click();
+  await expect(row(page, "Reel 1").locator('[data-slot="item-stage-group-label"]')).toHaveCount(0);
+  await removeClientFixture(client);
+});
+
 test.describe("the strips, installed (ARCHITECTURE §14.2)", () => {
   test.beforeEach(({}, info) => {
     test.skip(info.project.name === "desktop", "the phone widths, 375 and 430");
@@ -592,12 +719,12 @@ test.describe("the strips, installed (ARCHITECTURE §14.2)", () => {
     await hydrated(page);
     const before = await historyLength(page);
 
-    // Two strips open and one closed again: still the same history.
+    // The row opened, closed and opened again: still the same history.
     const grouped = strips(page, "Grouped");
-    await grouped.nth(1).click();
-    await grouped.nth(2).click();
-    await grouped.nth(2).click();
-    await expect(grouped.nth(1)).toHaveAttribute("aria-expanded", "true");
+    await grouped.click();
+    await grouped.click();
+    await grouped.click();
+    await expect(grouped).toHaveAttribute("aria-expanded", "true");
     expect(await historyLength(page)).toBe(before);
 
     // Back is not spent on the strip: it leaves the page.
@@ -632,6 +759,31 @@ test.describe("the strips, installed (ARCHITECTURE §14.2)", () => {
     await expect(menuItem).toBeVisible();
     await expectBackStack(page, [
       { closes: menuItem, url: new RegExp(`/projects/${projectId}$`) },
+      { url: new RegExp(`${tab}$`) },
+    ]);
+    await removeClientFixture(client);
+  });
+
+  test("Group stages is a layer: back closes it first, then leaves the page (V3, fix D)", async ({
+    page,
+  }, info) => {
+    const client = nameOf(info, "group-back");
+    const clientId = await workClient(client);
+    const projectId = await longProject(clientId);
+    const tab = `/clients/${clientId}/projects`;
+    await runInstalled(page);
+    await page.goto(tab);
+    await hydrated(page);
+    await page.locator('[data-slot="project-row"]', { hasText: "Long work" }).click();
+    await expect(page).toHaveURL(new RegExp(`/projects/${projectId}$`));
+    await hydrated(page);
+    await strips(page, "Pre Production").click();
+    await row(page, "Pre Production").locator('[data-slot="item-group-stages"]').click();
+    const dialog = page.locator('[data-slot="group-stages-dialog"]');
+    await expect(dialog).toBeVisible();
+    await expectNoHorizontalScroll(page);
+    await expectBackStack(page, [
+      { closes: dialog, url: new RegExp(`/projects/${projectId}$`) },
       { url: new RegExp(`${tab}$`) },
     ]);
     await removeClientFixture(client);
