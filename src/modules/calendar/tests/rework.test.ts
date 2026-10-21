@@ -169,12 +169,24 @@ describe("the month's strips (decision 25 C, amended by the owner 2026-10-08)", 
       tone: "due",
       count: 1,
       label: "1 due",
+      // L7: the one item's title, for a laptop's cell.
+      name: "Edit",
     });
     const past = day({ date: "2026-10-07", due: dueOn("2026-10-07") });
-    expect(dueBadge(past, TODAY)).toEqual({ tone: "overdue", count: 1, label: "1 overdue" });
+    expect(dueBadge(past, TODAY)).toEqual({
+      tone: "overdue",
+      count: 1,
+      label: "1 overdue",
+      name: "Edit",
+    });
     expect(allStrips(past, TODAY)).toEqual([
-      { kind: "tasks", key: "tasks", tone: "overdue", count: 1, label: "1 overdue" },
+      { kind: "tasks", key: "tasks", tone: "overdue", count: 1, label: "1 overdue", name: "Edit" },
     ]);
+    // Several: the count only.
+    const two = day({
+      due: [...dueOn(TODAY), ...dueOn("2026-10-09").map((d) => ({ ...d, id: "t-2" }))],
+    });
+    expect(dueBadge(two, TODAY)?.name).toBeNull();
     expect(dueBadge(day(), TODAY)).toBeNull();
   });
 

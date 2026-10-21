@@ -72,7 +72,10 @@ function StripLine({
           strip.tone === "overdue" ? "text-danger" : "text-attention",
         )}
       >
-        {strip.label}
+        {/* L7: a laptop's cell names the one task or deliverable ("Overdue · Reel 2 edit"). */}
+        {density === "laptop" && strip.name
+          ? `${strip.tone === "overdue" ? "Overdue" : "Due"} · ${strip.name}`
+          : strip.label}
       </span>
     );
   }
@@ -264,8 +267,9 @@ export function MonthGrid({
                         data-slot="calendar-leave-bar"
                         data-pending={leave.pending ? "" : undefined}
                         className={cn(
-                          // Low contrast, along the bottom, joined to its neighbours' bars.
-                          "bg-muted text-muted-foreground mt-auto block truncate px-1",
+                          // Along the bottom, joined to its neighbours' bars; L7: a stronger
+                          // tint and full-strength text, so a leave run reads at a glance.
+                          "bg-foreground/15 text-foreground mt-auto block truncate px-1 font-medium",
                           "text-xs leading-4",
                           before
                             ? density === "laptop"
