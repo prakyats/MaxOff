@@ -403,7 +403,7 @@ function ProgressToggle({
               data-slot="item-progress-count"
             >
               {strip.done}/{strip.total}
-              <span className="sr-only"> {strip.label} stages ticked</span>
+              <span className="sr-only"> ticked</span>
             </span>
           </span>
         ))}

@@ -160,9 +160,9 @@ test("a collapsed row: one bar and n/m, its checklist opening in place by group,
   const groupLines = row(page, "Grouped").locator('[data-slot="item-progress-group"]');
   await expect(groupLines).toHaveCount(3);
   await expect(groupLines.locator('[data-slot="item-progress-count"]')).toHaveText([
-    "1/1 Stages stages ticked",
-    "2/3 Edit stages ticked",
-    "0/1 Review stages ticked",
+    "1/1 ticked",
+    "2/3 ticked",
+    "0/1 ticked",
   ]);
   const bars = row(page, "Grouped").locator('[data-slot="item-progress-bar"]');
   expect(
@@ -185,7 +185,12 @@ test("a collapsed row: one bar and n/m, its checklist opening in place by group,
   }
   const next = (title: string) => row(page, title).locator('[data-slot="item-next"]:visible');
   await expect(next("Grouped")).toHaveText("Next: Export");
-  await expect(next("Ready A")).toHaveText("All stages ticked");
+  if ((page.viewportSize()?.width ?? 1280) >= 1024) {
+    // The laptop's Next column holds Mark done itself once every stage is ticked (the sample).
+    await expect(markDone(page, "Ready A")).toBeVisible();
+  } else {
+    await expect(next("Ready A")).toHaveText("All stages ticked");
+  }
   await expect(next("Fresh")).toHaveText("Next: Stage 1");
   await expect(row(page, "Grouped").locator('[data-slot="stage-check"]')).toHaveCount(0);
 
@@ -218,7 +223,8 @@ test("a collapsed row: one bar and n/m, its checklist opening in place by group,
   await expect(markDone(page, "Grouped")).toHaveCount(0);
   await expect(markDone(page, "Fresh")).toHaveCount(0);
   await expect(more(page, "Grouped")).toBeVisible();
-  await expect(more(page, "Ready A")).toHaveCount(0);
+  // The approved sample: ⋯ on every row, a ready one's too (Open, Mark done).
+  await expect(more(page, "Ready A")).toBeVisible();
   await expect(markDone(page, "Ready A")).toHaveAttribute("data-look", "solid");
   // The first ready row's Mark done is the Forest green approve commit (owner 2026-10-21).
   await expect(markDone(page, "Ready A")).toHaveAttribute("data-variant", "approve");
@@ -358,12 +364,19 @@ test("the loading screen traces the list: its heading, first row, its bar and a 
       top: '[data-slot="project-page"]',
       strip: '[data-slot="cycle-items"] [data-slot="item-progress"]',
     });
+    // Needs you is drawn only when something is late or nearly done (owner 2026-10-21), so the
+    // skeleton reserves nothing for it: on a phone, where it wraps under the ring, the list
+    // below moves by its height and the ring row's gap (12px); on a laptop it sits beside the ring.
+    const needs = await page.locator('[data-slot="project-needs-you"]').boundingBox();
+    const ring = await page.locator('[data-slot="cycle-ring"]').boundingBox();
+    const wrapped = needs && ring && needs.y >= ring.y + ring.height - 1;
+    const needsShift = wrapped ? needs.height + 12 : 0;
     // Measured from the content's top: the title bar above it is the shared header's (its own
     // trace is the back control's, PROGRESS Ideas), this unit's tracing is the list's.
     for (const name of ["head", "row", "strip"] as const) {
       expect(skeleton[name], `${name} in the skeleton`).not.toBeNull();
       expect(
-        Math.abs(settled[name]! - settled.top! - (skeleton[name]! - skeleton.top!)),
+        Math.abs(settled[name]! - needsShift - settled.top! - (skeleton[name]! - skeleton.top!)),
         `${name} stays put`,
       ).toBeLessThanOrEqual(1);
     }
@@ -535,7 +548,8 @@ test("a checklist line ticks in one tap with Undo; Next ticks its stage; Mark do
   await expect(page.getByText("Ticked Stage 1 on Fresh", { exact: true })).toBeVisible();
   await expect.poll(() => stageDone("Fresh", projectId, "Stage 1")).toBe(true);
   await expect(markDone(page, "Fresh")).toHaveAttribute("data-look", "ready");
-  await expect(more(page, "Fresh")).toHaveCount(0);
+  // ⋯ stays on every row (the approved sample).
+  await expect(more(page, "Fresh")).toBeVisible();
   await expect(page.locator('[data-variant="approve"]:visible')).toHaveCount(1);
 
   // A done deliverable's checklist only reads.
@@ -657,7 +671,8 @@ test("twelve long-named stages × 2: one-line rows, a 3/1-column checklist, Need
   expect(nextBox!.height, "Next stays one line").toBeLessThanOrEqual(phone ? 44 : 30);
   if (!phone) {
     const rowBox = await pre.boundingBox();
-    expect(rowBox!.height, "a collapsed laptop row is one line").toBeLessThanOrEqual(60);
+    // One table row (the approved sample): the name over its groups line, the one bar beside them.
+    expect(rowBox!.height, "a collapsed laptop row is one table row").toBeLessThanOrEqual(64);
   }
   await expectNoHorizontalScroll(page);
 

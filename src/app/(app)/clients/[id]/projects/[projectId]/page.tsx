@@ -383,7 +383,7 @@ export default async function ProjectPage({
           <div className="border-border bg-card overflow-hidden rounded-lg border text-sm">
             <dl
               data-slot="project-details-grid"
-              className="divide-border grid grid-cols-[repeat(auto-fit,minmax(11rem,1fr))] divide-x"
+              className="divide-border grid grid-cols-[repeat(auto-fit,minmax(min(11rem,100%),1fr))] divide-x"
             >
               <div className="flex min-w-0 flex-col gap-0.5 px-4 py-3">
                 <dt className="text-muted-foreground text-xs">Repeats</dt>

@@ -849,7 +849,8 @@ test("the project page (6b.11): open first, Planned words, stage chips, the reop
   const soon = itemRow(page, "Soon item");
   const strip = soon.locator('[data-slot="item-progress"]');
   await expect(strip).toHaveCount(1);
-  await expect(strip).toHaveText("1/3 stages ticked");
+  // The approved sample: a line per group (here the untitled "Stages"), its n/m.
+  await expect(strip).toHaveText("Stages1/3 ticked");
   await expect(soon.locator('[data-slot="item-progress-bar"]')).toHaveAttribute("data-done", "1");
   await expect(soon.locator('[data-slot="item-progress-bar"]')).toHaveAttribute("data-next", "1");
   await expect(soon.locator('[data-slot="item-progress-bar"]')).toHaveAttribute("data-total", "3");

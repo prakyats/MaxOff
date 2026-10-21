@@ -45,10 +45,10 @@ export const GROUP_LIST_CLASS =
 export const SECTION_ROW_CLASS = "relative flex min-h-16 items-center gap-2 px-4 py-2.5";
 
 /** The name, inside the row's link. */
-export const SECTION_LABEL_CLASS = "block truncate text-sm font-medium";
+export const SECTION_LABEL_CLASS = "block truncate text-sm leading-5 font-medium";
 
 /** The one line under the name: what the section holds; one line at every width. */
-export const SECTION_LINE_CLASS = "text-muted-foreground truncate text-sm";
+export const SECTION_LINE_CLASS = "text-muted-foreground block truncate text-sm leading-5";
 
 /** Help and troubleshooting (ROADMAP 6b.14): one bordered row under the sections. */
 export const HELP_LIST_CLASS =

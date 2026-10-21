@@ -22,7 +22,7 @@ import {
 /** Text kept in the layout but not shown: a pulsing bar the size of the words. */
 function Unseen({ children }: { children: string }) {
   return (
-    <span className="bg-muted rounded-md box-decoration-clone text-transparent select-none motion-safe:animate-pulse">
+    <span className="bg-muted inline-block max-w-full truncate rounded-md align-top text-transparent select-none motion-safe:animate-pulse">
       {children}
     </span>
   );
@@ -77,7 +77,7 @@ export default async function Loading() {
                         </span>
                       ) : (
                         <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                          <span className="flex-[1_1_8rem] text-sm font-medium">
+                          <span className="flex-[1_1_8rem] text-sm leading-5 font-medium">
                             <Unseen>{section.label}</Unseen>
                           </span>
                           <Badge variant="outline" className="shrink-0 font-normal">

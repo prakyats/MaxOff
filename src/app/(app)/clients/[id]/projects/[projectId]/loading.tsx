@@ -172,7 +172,7 @@ export default function Loading() {
           <span className="flex h-5 items-center">
             <Skeleton className="h-3.5 w-14" />
           </span>
-          <div className="border-border bg-card grid grid-cols-[repeat(auto-fit,minmax(11rem,1fr))] rounded-lg border">
+          <div className="border-border bg-card grid grid-cols-[repeat(auto-fit,minmax(min(11rem,100%),1fr))] rounded-lg border">
             {[0, 1].map((cell) => (
               <span key={cell} className="flex flex-col gap-0.5 px-4 py-3">
                 <span className="flex h-4 items-center">

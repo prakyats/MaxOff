@@ -89,7 +89,7 @@ export default async function SettingsPage() {
                         {/* The label keeps at least 8rem and the line wraps, so at large system
                             text "Coming soon" drops under the label instead of squeezing it. */}
                         <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                          <span className="text-muted-foreground flex-[1_1_8rem] text-sm font-medium">
+                          <span className="text-muted-foreground flex-[1_1_8rem] text-sm leading-5 font-medium">
                             {section.label}
                           </span>
                           <Badge
