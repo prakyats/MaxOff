@@ -132,8 +132,8 @@ describe("loading.tsx coverage", () => {
     expect(shapeOf("clients/(list)")).toBe("cards");
     // Settings traces its own sections and Help block from the classes the page uses (`list.ts`).
     expect(shapeOf("settings"), "settings traces its own rows, not a shape").toBeUndefined();
-    expect(sourceOf("settings")).toContain("settingsSectionsFor");
-    expect(sourceOf("settings")).toContain("SECTION_LINE_CLASS");
+    expect(sourceOf("settings")).toContain("settingsGroupsFor");
+    expect(sourceOf("settings")).toContain("SECTION_ROW_CLASS");
     expect(sourceOf("settings")).toContain("HELP_ROW_CLASS");
     expect(sourceOf("settings")).not.toContain(standIn);
     expect(shapeOf("me")).toBe("detail");

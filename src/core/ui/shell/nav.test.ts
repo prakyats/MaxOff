@@ -238,7 +238,6 @@ describe("settingsSectionsFor", () => {
       "expenses",
       "job-titles",
       "task-types",
-      "stage-presets",
       "custom-fields",
       "templates",
       "drive",
@@ -250,7 +249,6 @@ describe("settingsSectionsFor", () => {
     expect(admin.map((s) => s.key)).toEqual([
       "notifications",
       "job-titles",
-      "stage-presets",
       "custom-fields",
       "templates",
     ]);

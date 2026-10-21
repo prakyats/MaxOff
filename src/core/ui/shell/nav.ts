@@ -296,7 +296,19 @@ export type SettingsSection = {
   arrivesIn: string;
   /** False while the section is still a placeholder card, so nothing links into an empty page. */
   ready: boolean;
+  /** The Settings group it is listed under (N3, v1.8 V4). */
+  group: SettingsGroupKey;
 };
+
+export type SettingsGroupKey = "company" | "lists" | "templates" | "integrations";
+
+/** The Settings page's groups, in order (N3): a heading each, then its sections' rows. */
+export const SETTINGS_GROUPS: readonly { key: SettingsGroupKey; label: string }[] = [
+  { key: "company", label: "Company and working days" },
+  { key: "lists", label: "Lists and fields" },
+  { key: "templates", label: "Templates" },
+  { key: "integrations", label: "Integrations" },
+];
 
 /**
  * Settings is the Owner's control centre (PRODUCT §4.16). Admins get only the data lists they
@@ -313,6 +325,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     permission: "settings.manage",
     arrivesIn: "1.4",
     ready: true,
+    group: "company",
   },
   {
     key: "days-off",
@@ -322,15 +335,17 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     permission: "settings.manage",
     arrivesIn: "1.4",
     ready: true,
+    group: "company",
   },
   {
     key: "thresholds",
     label: "Thresholds",
     href: "/settings/thresholds",
-    description: "Reminders, escalations, the logout nudge and the email cap.",
+    description: "When MaxOff reminds people and escalates, in five groups.",
     permission: "settings.manage",
     arrivesIn: "1.4",
     ready: true,
+    group: "company",
   },
   {
     key: "notifications",
@@ -341,6 +356,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     permission: "notifications.reachability",
     arrivesIn: "5.4",
     ready: true,
+    group: "company",
   },
   {
     key: "expenses",
@@ -350,15 +366,17 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     permission: "expenses.decide",
     arrivesIn: "3b.3",
     ready: true,
+    group: "lists",
   },
   {
     key: "job-titles",
     label: "Job titles",
     href: "/settings/job-titles",
-    description: "The titles people can be given.",
+    description: "What people do, shown next to their name.",
     permission: "lists.manage",
     arrivesIn: "1.4",
     ready: true,
+    group: "lists",
   },
   {
     key: "task-types",
@@ -369,33 +387,27 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     permission: "settings.manage",
     arrivesIn: "4.1",
     ready: true,
-  },
-  {
-    key: "stage-presets",
-    label: "Stage presets",
-    href: "/settings/stage-presets",
-    description: "Reusable stage checklists.",
-    permission: "lists.manage",
-    arrivesIn: "7.4",
-    ready: true,
+    group: "lists",
   },
   {
     key: "custom-fields",
     label: "Custom fields",
     href: "/settings/custom-fields",
-    description: "Extra fields on clients and contacts, for everyone or for one client.",
+    description: "Extra fields on clients, contacts, tasks and projects.",
     permission: "lists.manage",
     arrivesIn: "3.2",
     ready: true,
+    group: "lists",
   },
   {
     key: "templates",
     label: "Templates",
     href: "/settings/templates",
-    description: "Project and task templates for work that repeats.",
+    description: "Stage presets, deliverable, project and task templates, on one page.",
     permission: "templates.manage",
     arrivesIn: "4.6",
     ready: true,
+    group: "templates",
   },
   {
     key: "drive",
@@ -405,6 +417,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     permission: "drive.manage",
     arrivesIn: "8.3",
     ready: false,
+    group: "integrations",
   },
 ];
 

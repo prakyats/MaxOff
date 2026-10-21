@@ -692,12 +692,12 @@ test.describe("dialogs are bottom sheets", () => {
       .getByRole("button", { name: /^Actions for/ })
       .first()
       .click();
-    await page.getByRole("button", { name: "Archive" }).click();
+    await page.getByRole("button", { name: "Delete" }).click();
 
     const dialog = page.locator('[data-slot="alert-dialog-content"]');
     await expect(dialog).toBeVisible();
 
-    const confirm = await dialog.getByRole("button", { name: "Archive" }).boundingBox();
+    const confirm = await dialog.getByRole("button", { name: /^Delete / }).boundingBox();
     const cancel = await dialog.getByRole("button", { name: "Cancel" }).boundingBox();
     // Cancel sits below Confirm, so the thumb rests on the harmless one (§14.1).
     expect(cancel?.y ?? 0).toBeGreaterThan(confirm?.y ?? 0);
@@ -742,11 +742,9 @@ test.describe("Settings is a list of rows", () => {
     await page.evaluate(() => {
       document.documentElement.style.fontSize = "200%";
     });
-    // The tappable line's first span is the label, on a ready row (a link) and a "Coming soon"
-    // row (a div) alike; the desktop-only description is hidden at a phone width.
-    const labels = page.locator(
-      '[data-slot="settings-list"] > li > :first-child > span:first-child',
-    );
+    // The row's first line is the label, on a ready row (a link) and a "Coming soon" row (a
+    // span) alike (N3: the row's second line is its description, at every width).
+    const labels = page.locator('[data-slot="settings-row"] > span:first-child > :first-child');
     const measured = await labels.evaluateAll((els) =>
       els.map((el) => {
         const box = el.getBoundingClientRect();

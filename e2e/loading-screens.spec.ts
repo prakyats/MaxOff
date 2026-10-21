@@ -863,19 +863,19 @@ type HeldAtNavigation = {
  */
 const SETTINGS: Record<string, Point> = {
   "first section": {
-    held: '[data-slot="loading-settings"] > ul:first-of-type > li:first-child',
-    settled: '[data-slot="settings-list"] > li:first-child',
+    held: '[data-slot="loading-settings"] > div > section:first-child li:first-child',
+    settled: '[data-slot="settings-list"] > section:first-child li:first-child',
   },
   "last section": {
-    held: '[data-slot="loading-settings"] > ul:first-of-type > li:last-child',
-    settled: '[data-slot="settings-list"] > li:last-child',
+    held: '[data-slot="loading-settings"] > div > section:last-child li:last-child',
+    settled: '[data-slot="settings-list"] > section:last-child li:last-child',
   },
   "help and troubleshooting": {
-    held: '[data-slot="loading-settings"] > ul:nth-of-type(2)',
+    held: '[data-slot="loading-settings"] > ul',
     settled: '[data-slot="settings-help"]',
   },
   "its second line": {
-    held: '[data-slot="loading-settings"] > ul:nth-of-type(2) li > span > :nth-child(2)',
+    held: '[data-slot="loading-settings"] > ul li > span > :nth-child(2)',
     settled: '[data-slot="settings-guide-link"] > span > :nth-child(2)',
   },
 };
