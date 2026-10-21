@@ -13,6 +13,7 @@ import {
   removeTaskTypesNamed,
   removeTasksTitled,
   removeTemplatesNamed,
+  rowAction,
   rpcAs,
   runInstalled,
   serviceInsert,
@@ -607,7 +608,8 @@ test.describe("drag to reorder stages before saving (6b.18)", () => {
     await hydrated(page);
     const row = page.locator('[data-slot="stage-preset"]', { hasText: name });
     await expect(row).toContainText("Stage 1 → Stage 2 → Stage 3");
-    await row.getByRole("button", { name: `Edit ${name}` }).click();
+    // V2 (P2): on a phone a Settings row's Edit sits in its ⋯ sheet.
+    await rowAction(page, row, name, "Edit");
     const dialog = page.getByRole("dialog", { name: `Edit ${name}` });
     const rows = dialog.locator('[data-slot="preset-stage"]');
     await expect(rows).toHaveCount(3);
