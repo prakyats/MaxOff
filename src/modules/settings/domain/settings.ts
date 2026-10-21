@@ -1,6 +1,7 @@
 import type { Tables } from "@/core/db";
 import { parseReminderRules, type ReminderRule } from "@/core/lib/reminder-rules";
 import {
+  formatWallTime,
   type ISODate,
   isWeekdayIndex,
   istWeekday,
@@ -149,4 +150,24 @@ export function holidaysByYear(holidays: readonly Holiday[]): HolidayYear[] {
 /** Only dates that are still ahead matter for planning; past ones stay for the record. */
 export function isUpcoming(holiday: Holiday, today: ISODate): boolean {
   return holiday.date >= today;
+}
+
+/** The Thresholds page's groups (6b.6, v1.8 V4), in order. */
+export type ThresholdGroupKey = "working-day" | "tasks" | "client-work" | "notifications";
+
+const hours = (n: number) => `${n} h`;
+
+/**
+ * Each Thresholds group's one-line summary of its saved values (6b.6: first glance, then depth),
+ * shown on the group's row before it is opened. The escalation order reads as one line ("Not
+ * noted: remind every 2 h → Admin at 4 h → Owner at 8 h"). The Approvals group joins when 6b.5
+ * adds its settings.
+ */
+export function thresholdGroupSummaries(t: Thresholds): Record<ThresholdGroupKey, string> {
+  return {
+    "working-day": `End-of-day reminder ${formatWallTime(t.logoutReminderTime)} · late End day until ${formatWallTime(t.endDayCutoffTime)}`,
+    tasks: `Not noted: remind every ${hours(t.ackRepeatHours)} → Admin at ${hours(t.ackEscalateHours)} → Owner at ${hours(t.ackEscalateOwnerHours)} · overdue → ${hours(t.overdueEscalateHours)} · warn at ${t.workloadWarningThreshold} tasks a day`,
+    "client-work": `Overdue deliverable → you after ${hours(t.itemOverdueEscalateHours)} · undecided period → you after ${t.cycleDecideEscalateDays} ${t.cycleDecideEscalateDays === 1 ? "day" : "days"}`,
+    notifications: `Quiet ${formatWallTime(t.quietHoursStart)} – ${formatWallTime(t.quietHoursEnd)} · up to ${t.emailDailyCapPerMember} emails a day · weekly summary on ${WEEKDAY_NAMES[t.weeklyDigestDay].long}`,
+  };
 }

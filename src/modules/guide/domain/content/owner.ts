@@ -1626,19 +1626,21 @@ export const OWNER_GUIDE: Guide = {
           title: "Set reminders and limits",
           summary: "How soon MaxOff nudges, escalates and goes quiet.",
           blocks: [
-            text("Thresholds holds the timings that drive reminders."),
+            text(
+              'Thresholds holds the timings that drive reminders, in four groups: Working day, Tasks, Client work and Notifications. Each group is one row with a line saying its current values, such as "Not noted: remind every 2 h → Admin at 4 h → Owner at 8 h".',
+            ),
             steps(
               "Open Settings, then Thresholds.",
+              'Tap "Tasks" to open it.',
               {
                 text: 'Set "Acknowledgement reminder (hours)" (highlighted).',
                 shot: "owner/thresholds",
               },
-              'Set "Escalate to the Admin after (hours)" and "Escalate to the Owner after (hours)".',
-              'Set "Overdue escalation (hours)" and "Workload warning (tasks due that day)".',
-              'Set "End-of-day reminder" and "Late End day until".',
-              'Set "Quiet from" and "Quiet until", and "Email cap per person per day".',
+              'Set "Escalate to the Admin after (hours)", "Escalate to the Owner after (hours)", "Overdue escalation (hours)", "Workload warning (tasks due that day)" and the Default reminders.',
+              'In "Working day": "End-of-day reminder" and "Late End day until". In "Client work": the two escalations to you. In "Notifications": quiet hours, the email cap and the weekly summary\'s day.',
+              'Tap "Save thresholds". It stays at the bottom of the screen and saves every group\'s changes at once.',
             ),
-            next("There are also thresholds for client work on the same screen."),
+            next("A group with a value to fix opens by itself, with the message under the field."),
             note("The timings drive the reminders and escalations people receive."),
           ],
           link: { href: "/settings/thresholds", label: "Open Thresholds" },

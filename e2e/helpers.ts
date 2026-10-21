@@ -1163,3 +1163,16 @@ export async function rowAction(
     : `${action} ${name}`;
   await row.getByRole("button", { name: label, exact: true }).click();
 }
+
+/** Opens Thresholds groups (6b.6: closed rows with a summary at first glance). */
+export async function openThresholdGroups(page: Page, ...titles: string[]): Promise<void> {
+  for (const title of titles) {
+    const group = page.locator('[data-slot="threshold-group"]', {
+      has: page.locator("summary").getByText(title, { exact: true }),
+    });
+    if ((await group.getAttribute("open")) === null) {
+      await group.locator("summary").click();
+    }
+    await expect(group).toHaveAttribute("open", "");
+  }
+}

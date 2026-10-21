@@ -1,6 +1,6 @@
 import { expect, test } from "./fixtures";
 
-import { removeJobTitles, storageStateFor } from "./helpers";
+import { openThresholdGroups, removeJobTitles, storageStateFor } from "./helpers";
 import { describeOffDays, istWeekday, pinnedOffDays, WEEKDAY_LONG } from "./calendar";
 import { wallClock } from "./run-state";
 
@@ -133,6 +133,12 @@ test.describe("Owner", () => {
     page,
   }) => {
     await page.goto("/settings/thresholds");
+    // 6b.6: the groups at first glance (Approvals joins with 6b.5), each a row with its summary; open the ones to change.
+    await expect(page.locator('[data-slot="threshold-group"]')).toHaveCount(4);
+    await expect(page.locator('[data-slot="threshold-summary"]').first()).toHaveText(
+      "End-of-day reminder 8:30 pm · late End day until 6:00 am",
+    );
+    await openThresholdGroups(page, "Working day", "Tasks", "Client work", "Notifications");
     await expect(page.getByLabel("End-of-day reminder")).toHaveValue("20:30");
 
     await page.getByLabel("Escalate to the Owner after (hours)").fill("2");
@@ -144,6 +150,7 @@ test.describe("Owner", () => {
     await page.getByRole("button", { name: "Save thresholds" }).click();
     await expect(page.getByText("Thresholds saved")).toBeVisible();
     await page.reload();
+    await openThresholdGroups(page, "Working day", "Tasks", "Client work", "Notifications");
     await expect(page.getByLabel("End-of-day reminder")).toHaveValue("21:00");
 
     // The workload warning (4B, kickoff 4 decision 11): 4 by default, at least 1. Never saved
@@ -166,6 +173,7 @@ test.describe("Owner", () => {
     await page.getByRole("button", { name: "Save thresholds" }).click();
     await expect(page.getByText("Thresholds saved")).toBeVisible();
     await page.reload();
+    await openThresholdGroups(page, "Working day", "Tasks", "Client work", "Notifications");
     await expect(page.locator('[data-field="weekly-digest-day"]')).toContainText("Friday");
     await page.locator('[data-field="weekly-digest-day"]').click();
     await page.getByRole("option", { name: "Monday" }).click();
@@ -173,8 +181,8 @@ test.describe("Owner", () => {
     await expect(page.getByText("Thresholds saved")).toBeVisible();
 
     // Client work escalations (amendment C E1, E2; 7B): the Owner's two fields, range-checked.
-    const overdue = page.getByLabel("Client item overdue → you after (hours)");
-    const undecided = page.getByLabel("Undecided cycle → you after (days)");
+    const overdue = page.getByLabel("Overdue deliverable → you after (hours)");
+    const undecided = page.getByLabel("Undecided period → you after (days)");
     await expect(overdue).toHaveValue("24");
     await expect(undecided).toHaveValue("2");
     await overdue.fill("200");
@@ -188,6 +196,7 @@ test.describe("Owner", () => {
     await page.getByRole("button", { name: "Save thresholds" }).click();
     await expect(page.getByText("Thresholds saved")).toBeVisible();
     await page.reload();
+    await openThresholdGroups(page, "Client work");
     await expect(overdue).toHaveValue("36");
     await expect(undecided).toHaveValue("3");
     await overdue.fill("24");

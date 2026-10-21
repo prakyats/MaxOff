@@ -17,6 +17,7 @@ import {
   serviceUpdate,
   storageStateFor,
   USERS,
+  openThresholdGroups,
 } from "./helpers";
 
 /**
@@ -778,6 +779,8 @@ test.describe("forms", () => {
 
   test("a long form keeps Save on screen", async ({ page }) => {
     await page.goto("/settings/thresholds");
+    // Every group open (6b.6): the long form this check is about.
+    await openThresholdGroups(page, "Working day", "Tasks", "Client work", "Notifications");
     const bar = page.locator('[data-slot="sticky-actions"]');
     await expect(bar).toBeVisible();
 

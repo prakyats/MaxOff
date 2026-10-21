@@ -696,6 +696,7 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
   {
     id: "owner/thresholds",
     path: "/settings/thresholds",
+    prepare: (page) => page.locator("summary").getByText("Tasks", { exact: true }).click(),
     highlight: (page) => page.getByLabel("Acknowledgement reminder (hours)"),
     crop: main,
     alt: "Thresholds with the Acknowledgement reminder (hours) field highlighted.",
