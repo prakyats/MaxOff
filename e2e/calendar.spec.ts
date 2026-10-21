@@ -807,7 +807,9 @@ test.describe("the calendar, as the Owner", () => {
     // 7. → moves a week: a week without today opens at 08:00.
     const beforeMoves = await historyLength();
     await page.keyboard.press("ArrowRight");
-    await expect(page).toHaveURL(new RegExp(`date=${addISTDays(todayIST(), 7)}`));
+    // From the selected day: step 1's tap on a Month day selected it (V5a: the panel, as the
+    // phone does), and W kept it.
+    await expect(page).toHaveURL(new RegExp(`date=${addISTDays(day, 7)}`));
     await expect
       .poll(() =>
         week.locator('[data-slot="calendar-hours"]').evaluate((hours) => {

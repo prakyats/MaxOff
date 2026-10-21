@@ -10,6 +10,7 @@ import {
   useEffect,
   useMemo,
   useRef,
+  Suspense,
   useState,
   useTransition,
 } from "react";
@@ -615,14 +616,18 @@ export function CalendarScreen({
                 } else setSheetDate(date);
               }}
             />
-            <DayPanel
-              day={dayOf(selected)}
-              today={today}
-              scope={scope}
-              free={freeOf(selected)}
-              action={action(selected)}
-              footer={openDayButton(selected)}
-            />
+            {/* Its own boundary: the panel's chunk hydrates on its own, the month never waits for
+                it (a day tapped before the chunk arrived was lost). */}
+            <Suspense fallback={null}>
+              <DayPanel
+                day={dayOf(selected)}
+                today={today}
+                scope={scope}
+                free={freeOf(selected)}
+                action={action(selected)}
+                footer={openDayButton(selected)}
+              />
+            </Suspense>
           </div>
         ) : view === "week" ? (
           <Timeline

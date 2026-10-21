@@ -905,7 +905,8 @@ test.describe("record screens meet the mobile standard (3.4)", () => {
       `/people/${staff}/month`,
       `/clients/${client.id}`,
       `/clients/${client.id}/brand`,
-      `/clients/${client.id}/activity`,
+      // The client's History sheet (V5a: no Activity tab; its old path redirects here).
+      `/clients/${client.id}?history=1`,
       `/clients/${client.id}/contacts/${contact.id}`,
     ];
   }

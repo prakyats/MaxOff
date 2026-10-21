@@ -217,6 +217,9 @@ test.describe("the Owner", () => {
     await expect(history).toContainText("paused the client");
     await expect(history).toContainText("closed the client");
     await expect(history).toContainText("Moved to another studio");
+    // The History sheet is a layer: closed before the header's ⋯.
+    await page.keyboard.press("Escape");
+    await expect(history).toHaveCount(0);
 
     await menu(page, name).click();
     await page.getByRole("menuitem", { name: "Reactivate" }).click();
@@ -411,7 +414,7 @@ test.describe("installed on a phone: the back order of the client screens (§14.
   test.use({ storageState: storageStateFor("owner") });
   test.skip(({ isMobile }) => !isMobile, "the installed app is a phone");
 
-  test("list → client → views and filters → one back each", async ({ page }, info) => {
+  test("list → client → views and filters → one back each", async ({ page, reloadGuard }, info) => {
     const name = nameOf(info, "Back");
     const id = await seedClient(name);
     await runInstalled(page);
@@ -468,7 +471,9 @@ test.describe("installed on a phone: the back order of the client screens (§14.
     await expectBackStack(page, [{ url: /\/clients\?/ }, { url: /\/today$/ }]);
 
     // The old Activity tab's address: the Overview with the History sheet open, the address
-    // cleaned by replace.
+    // cleaned by replace. The redirect runs after the shell has streamed, so Next finishes it as
+    // a document load (as the /forbidden bounce does): the old link's own answer.
+    reloadGuard.allow(/\/clients\/[^/]+\?history=1$/);
     await page.goto(`/clients/${id}/activity`);
     await hydrated(page);
     await expect(historySheet).toBeVisible();
