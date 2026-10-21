@@ -23,6 +23,7 @@ import {
   storageStateFor,
   taskTypeId,
   USERS,
+  openMoreOptions,
 } from "./helpers";
 
 /**
@@ -243,7 +244,9 @@ test.describe("staff tasks, the flows", () => {
       await expect(dialog).toContainText("Pick the deadline's date.");
 
       await dialog.getByLabel("Title").fill(`${prefix}main`);
+      await openMoreOptions(dialog);
       await pick(page, dialog.getByLabel("Type"), "Shoot / Site Visit");
+      await openMoreOptions(dialog);
       await dialog.getByLabel("Event date").fill(day);
       await dialog.getByLabel("Starts").fill("11:00");
       for (const one of [helper, staff, away]) {
@@ -323,6 +326,8 @@ test.describe("staff tasks, the flows", () => {
           new RegExp(`^${escape(person("staff", info).name)}`),
         );
         await dialog.getByLabel("Deadline").fill(workingDay(21));
+        // L9: custom fields sit under More options on New task.
+        await openMoreOptions(dialog);
         await dialog.getByLabel(label).fill("45");
         await dialog.getByRole("button", { name: "Create task" }).click();
         await expect(page).toHaveURL(TASK_URL);
@@ -400,6 +405,7 @@ test.describe("staff tasks, the flows", () => {
       await expect(dialog.getByRole("heading", { name: "Edit task" })).toBeVisible();
       // Nothing changed yet: nothing to save.
       await expect(dialog.getByRole("button", { name: "Save changes" })).toBeDisabled();
+      await openMoreOptions(dialog);
       await pick(page, dialog.getByLabel("Priority"), "High");
       await dialog.getByLabel("Time (IST)").fill("19:00");
       await dialog.getByRole("button", { name: "Save changes" }).click();
@@ -460,9 +466,12 @@ test.describe("staff tasks, the flows", () => {
           new RegExp(`^${escape(person("staff", info).name)}`),
         );
         await dialog.getByLabel("Deadline").fill(workingDay(24));
+        await openMoreOptions(dialog);
         await expect(dialog.getByLabel("Checked first by")).toContainText("Nobody");
         // Kickoff 4 decision 3: the label pre-selects that client's Admin.
+        await openMoreOptions(dialog);
         await pick(page, dialog.getByLabel("Client label"), own);
+        await openMoreOptions(dialog);
         await expect(dialog.getByLabel("Checked first by")).toContainText(admin.name);
         await dialog.getByRole("button", { name: "Create task" }).click();
         await expect(page).toHaveURL(TASK_URL);
@@ -602,6 +611,7 @@ test.describe("staff tasks, the flows", () => {
       await page.goto("/tasks");
       await page.getByRole("button", { name: "New task" }).click();
       const dialog = formDialog(page);
+      await openMoreOptions(dialog);
       const summary = dialog.locator('[data-slot="reminder-summary"]');
       const rows = dialog.locator('[data-slot="reminder-row"]');
       // One collapsed line, the launch schedule as the default (5.3); no rows until it is tapped.
@@ -888,9 +898,11 @@ test.describe("staff tasks, the flows", () => {
       await page.goto("/tasks");
       await page.getByRole("button", { name: "New task" }).click();
       const dialog = formDialog(page);
+      await openMoreOptions(dialog);
       await expect(dialog.locator('[data-slot="task-route"]')).toContainText(
         "You check it when it's done",
       );
+      await openMoreOptions(dialog);
       await expect(dialog.getByLabel("Checked first by")).toHaveCount(0);
       await dialog.getByLabel("Title").fill(`${prefix}thumbnail`);
       await pick(page, dialog.getByLabel("Add a person"), new RegExp(`^${escape(staff.name)}`));
@@ -937,6 +949,7 @@ test.describe("staff tasks, the flows", () => {
         );
         await dialog.getByLabel("Deadline").fill(workingDay(25));
         // Kickoff 4 decision 2: their own clients only.
+        await openMoreOptions(dialog);
         await dialog.getByLabel("Client label").click();
         await expect(page.getByRole("option", { name: own })).toBeVisible();
         await expect(page.getByRole("option", { name: other })).toHaveCount(0);
@@ -1074,6 +1087,7 @@ test.describe("staff tasks, installed: back closes each layer", () => {
       const dialog = formDialog(page);
       await page.getByRole("button", { name: "New task" }).click();
       await expect(dialog).toBeVisible();
+      await openMoreOptions(dialog);
       const summary = dialog.locator('[data-slot="reminder-summary"]');
       const rows = dialog.locator('[data-slot="reminder-row"]');
       await expect(summary).toBeVisible();

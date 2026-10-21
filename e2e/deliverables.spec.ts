@@ -708,7 +708,7 @@ test("New project's template library: search, a preview that back closes, then U
   await hydrated(page);
   await page.getByRole("button", { name: "New project" }).click();
   const create = page.getByRole("dialog", { name: "New project" });
-  await create.getByRole("button", { name: "Search and preview templates" }).click();
+  await create.getByRole("button", { name: "Browse templates" }).click();
   const library = page.getByRole("dialog", { name: "Start from a template" });
   await expect(library).toBeVisible();
   const rows = library.locator('[data-slot="template-library-row"]');

@@ -37,7 +37,14 @@ export type Strip =
       completed: boolean;
       taskId: string;
     }
-  | { kind: "tasks"; key: string; tone: "due" | "overdue"; count: number; label: string }
+  | {
+      kind: "tasks";
+      key: string;
+      tone: "due" | "overdue";
+      count: number;
+      label: string;
+      name: string | null;
+    }
   | { kind: "holiday"; key: string; label: string }
   | { kind: "busy"; key: string; label: string }
   | {
@@ -82,7 +89,16 @@ function firstName(name: string): string {
   return name.split(/\s+/)[0] ?? name;
 }
 
-export type DueBadge = { tone: "due" | "overdue"; count: number; label: string };
+export type DueBadge = {
+  tone: "due" | "overdue";
+  count: number;
+  label: string;
+  /**
+   * L7 (v1.8 V4): the one task's or deliverable's title when only one is due, so a laptop's
+   * month cell names it ("Overdue · Reel 2 edit"); null for several.
+   */
+  name: string | null;
+};
 
 /**
  * The tasks' count: the open tasks due that day, "3 due" in amber; on a past day they are overdue,
@@ -92,9 +108,14 @@ export function dueBadge(day: CalendarDay, today: ISODate): DueBadge | null {
   // Client items join the count (kickoff 7 decision 21: no strip of their own).
   const count = dueCount(day);
   if (count === 0) return null;
+  const open = [
+    ...day.due.map((due) => due.title),
+    ...day.items.filter((i) => !i.done).map((i) => i.title),
+  ];
+  const name = count === 1 ? (open[0] ?? null) : null;
   return day.date < today
-    ? { tone: "overdue", count, label: `${count} overdue` }
-    : { tone: "due", count, label: `${count} due` };
+    ? { tone: "overdue", count, label: `${count} overdue`, name }
+    : { tone: "due", count, label: `${count} due`, name };
 }
 
 /** The day's leave as one line: the first name for one person, "N off" for several. */

@@ -78,7 +78,7 @@ export function SaveAsTemplateDialog({
             <DialogTitle>Save as template</DialogTitle>
             <DialogDescription>
               {what === "project"
-                ? "A project template with its default stage groups and its deliverables, each with its stages. The project stays as it is."
+                ? "A project template with the structure only: the repeat, the default stage groups and the deliverables with their stages. Never the description or custom field values. The project stays as it is."
                 : "A deliverable template with its stage groups (no ticks or dates). The deliverable stays as it is."}
             </DialogDescription>
           </DialogHeader>

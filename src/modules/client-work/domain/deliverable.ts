@@ -159,3 +159,23 @@ export function typesNumberedRounds(item: Pick<RowItem, "state" | "stages">): bo
     item.stages.filter((stage) => NUMBERED_ROUND.test(stage.name)).length >= 2
   );
 }
+
+/**
+ * The collapsed row's progress shape (owner 2026-10-21, the approved sample): one line per group
+ * (name · segmented bar · n/m) — an untitled short list is one "Stages" line — and the single
+ * continuous bar only for one long ungrouped list (fix C, 9+ stages).
+ */
+export function progressShape(item: Pick<RowItem, "stages" | "groups">): "bar" | "groups" {
+  return item.stages.length >= LONG_STAGE_LIST && item.groups.every((group) => group.label === null)
+    ? "bar"
+    : "groups";
+}
+
+/** The name's second line on a laptop row: "3 groups · 1 of 9 stages" (the approved sample). */
+export function groupsLine(item: RowItem): string {
+  const groups = item.groups.filter((group) => group.stages.length > 0).length;
+  const total = item.stages.length;
+  if (total === 0) return "No stages";
+  const done = isDone(item.state) ? total : item.stages.filter((stage) => stage.done).length;
+  return `${groups} ${groups === 1 ? "group" : "groups"} · ${done} of ${total} stages`;
+}

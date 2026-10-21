@@ -70,6 +70,8 @@
   /* The solid red commit of a destructive action, inside its confirmation (ADR-0015). */
   --color-destructive-solid: var(--destructive-solid);
   --color-destructive-solid-foreground: var(--destructive-solid-foreground);
+  --color-approve: var(--approve);
+  --color-approve-foreground: var(--approve-foreground);
 
   /*
    * Four radii (DESIGN.md §5): 6px controls, 10px cards, 12px sheets, round chips. Tailwind's
@@ -140,6 +142,9 @@
   --strong-foreground: #fafaf9;
   --destructive-solid: #c42126;
   --destructive-solid-foreground: #ffffff;
+  /* The Forest green approve commit (owner 2026-10-21): Mark done when ready; one solid a layer. */
+  --approve: #15803d;
+  --approve-foreground: #ffffff;
   --control-border: #8a8a91;
   --secondary: #f2f1ef;
   --secondary-foreground: #18181b;
@@ -217,6 +222,8 @@
   --strong-foreground: #18181b;
   --destructive-solid: #c42126;
   --destructive-solid-foreground: #ffffff;
+  --approve: #15803d;
+  --approve-foreground: #ffffff;
   --control-border: #6b6b73;
   --secondary: #1f1f23;
   --secondary-foreground: #fafaf9;

@@ -16,6 +16,7 @@ import {
   storageStateFor,
   taskTypeId,
   USERS,
+  openMoreOptions,
 } from "./helpers";
 import {
   addISTDays,
@@ -473,12 +474,13 @@ test.describe("the calendar, as an Admin", () => {
     await expect(busy.first()).toContainText("busy");
     await expect(calendar(page)).not.toContainText(shoot.title);
     await expect(calendar(page)).not.toContainText("Studio B");
-    // "Who's free" over the people the Admin can see (decision 25 D).
+    // The day's availability (owner 2026-10-21): only who is away (On leave, Busy all day),
+    // never a free list, never a part-day busy block (that one is on the timeline above).
     const free = detail(page).locator('[data-slot="calendar-who-free"]');
-    // "Who's free: …" once, then "Busy …" only when someone is (the owner's review).
-    await expect(free).toContainText(/^Who's free: /);
-    await expect(free).not.toContainText("Free:");
-    await expect(free).toContainText(/Busy 10:00 am – 11:00 am: [^·]*Local Staff/);
+    await expect(free).toBeVisible();
+    await expect(free).not.toContainText("Who's free");
+    await expect(free).not.toContainText(/Busy 10:00 am/);
+    await expect(free).toContainText(/^(On leave: |Busy all day: |Everyone is available$)/);
     // An Admin creates tasks: the pill, not "Suggest a task".
     await expect(detail(page).locator('[data-slot="new-task-on-day"]')).toBeVisible();
     await expect(detail(page).locator('[data-slot="suggest-task"]')).toHaveCount(0);
@@ -534,6 +536,7 @@ test.describe("the calendar, as the Owner", () => {
     await expect(form.locator('input[name="dueDate"]')).toHaveValue(day);
     await expect(form.locator('input[name="dueTime"]')).toHaveValue("18:00");
     // An event type asks for its date, already the day.
+    await openMoreOptions(form);
     await form.getByLabel("Type").click();
     await page.getByRole("option", { name: "Shoot / Site Visit" }).first().click();
     await expect(form.locator('input[name="eventDate"]')).toHaveValue(day);
@@ -965,10 +968,31 @@ test.describe("the calendar on a phone, the owner's walk (2026-10-08)", () => {
       const before = await boxes();
       await touchDrag(page, hours, -160);
       await expect(phone(page)).toHaveAttribute("data-size", size);
+      // The drag's momentum settles first (the hours stop moving for a few frames).
+      await page.evaluate(
+        () =>
+          new Promise<void>((done) => {
+            const hours = document.querySelector<HTMLElement>(
+              '[data-slot="calendar-phone"] [data-slot="calendar-hours"]',
+            );
+            let last = hours?.scrollTop ?? 0;
+            let still = 0;
+            const frame = () => {
+              const now = hours?.scrollTop ?? 0;
+              still = now === last ? still + 1 : 0;
+              last = now;
+              if (still >= 5) done();
+              else requestAnimationFrame(frame);
+            };
+            requestAnimationFrame(frame);
+          }),
+      );
       const from = (await phoneLayout(page)).scrollTop;
       await hours.hover();
-      await page.mouse.wheel(0, 300);
-      await expect.poll(async () => (await phoneLayout(page)).scrollTop).toBeGreaterThan(from);
+      // Back up the way the finger came: the drag may have reached the end of a short day (V4's
+      // availability line is one short line), and a wheel there could not go further down.
+      await page.mouse.wheel(0, -300);
+      await expect.poll(async () => (await phoneLayout(page)).scrollTop).toBeLessThan(from);
       const after = await phoneLayout(page);
       expect.soft(after.pageTop, `size ${size}: the page stays at its top`).toBe(0);
       expect.soft(await boxes(), `size ${size}: the fixed parts stay put`).toEqual(before);
@@ -1086,6 +1110,7 @@ async function moveDeadline(page: Page, to: string): Promise<void> {
   await page.getByRole("menuitem", { name: "Edit task" }).click();
   const form = page.locator('[data-slot="task-form-dialog"]');
   await expect(form.getByRole("heading", { name: "Edit task" })).toBeVisible();
+  await openMoreOptions(form);
   await form.getByLabel("Priority").click();
   await page.getByRole("option", { name: "High" }).first().click();
   await form.getByLabel("Deadline").fill(to);

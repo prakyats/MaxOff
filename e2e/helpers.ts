@@ -1147,7 +1147,7 @@ export async function rowAction(
   page: Page,
   row: Locator,
   name: string,
-  action: "Edit" | "Rename" | "Archive" | "Move up" | "Move down",
+  action: "Edit" | "Rename" | "Delete" | "Move up" | "Move down",
 ): Promise<void> {
   if ((page.viewportSize()?.width ?? 1280) < 768) {
     await row.getByRole("button", { name: `Actions for ${name}` }).click();
@@ -1162,4 +1162,47 @@ export async function rowAction(
     ? `Move ${name} ${action.slice(5)}`
     : `${action} ${name}`;
   await row.getByRole("button", { name: label, exact: true }).click();
+}
+
+/** Opens Thresholds groups (6b.6: closed rows with a summary at first glance). */
+export async function openThresholdGroups(page: Page, ...titles: string[]): Promise<void> {
+  for (const title of titles) {
+    const group = page.locator('[data-slot="threshold-group"]', {
+      has: page.locator("summary").getByText(title, { exact: true }),
+    });
+    if ((await group.getAttribute("open")) === null) {
+      await group.locator("summary").click();
+    }
+    await expect(group).toHaveAttribute("open", "");
+  }
+}
+
+/**
+ * L9 (v1.8 V4): New task keeps its other fields under "More options" (a native `<details>`).
+ * Opens it when the form has one and it is closed; a no-op on Edit (every field shown).
+ */
+export async function openMoreOptions(scope: Page | Locator): Promise<void> {
+  const form = scope.locator('[data-slot="task-form"]:visible').first();
+  await expect(form).toBeVisible();
+  const more = form.locator('[data-slot="task-more-options"]');
+  if ((await more.count()) === 0) return;
+  if ((await more.getAttribute("open")) === null) await more.locator("summary").click();
+  await expect(more).toHaveAttribute("open", "");
+}
+
+/**
+ * The one Templates page (6b.6 owner note): on a phone its sections are a segmented control (one
+ * shown at a time); picks `key`'s segment there, a no-op on a laptop where every section shows.
+ */
+export async function templatesTab(
+  page: Page,
+  key: "presets" | "deliverables" | "projects" | "tasks",
+): Promise<void> {
+  // The page itself first (it streams in after its loading screen).
+  await expect(page.locator('[data-slot="templates-library"]')).toBeVisible();
+  const tabs = page.locator('[data-slot="template-tabs"]');
+  if (!(await tabs.isVisible())) return;
+  const tab = tabs.locator(`#tab-${key}`);
+  await tab.click();
+  await expect(tab).toHaveAttribute("aria-selected", "true");
 }

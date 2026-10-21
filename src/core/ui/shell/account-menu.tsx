@@ -1,6 +1,6 @@
 "use client";
 
-import { UserIcon } from "lucide-react";
+import { CircleHelpIcon, UserIcon } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -25,7 +25,8 @@ export type AccountMenuProps = {
 };
 
 /**
- * Avatar button with the viewer's name, role and job title and a Profile link. An optional
+ * Avatar button with the viewer's name, role and job title, a Me link (W2: the page is called Me
+ * everywhere) and Help (N2: the guide, /me/guide). An optional
  * `logoutItem` is rendered by the app layout (`core/auth` owns the action), so the design
  * system never depends on auth. Loaded after the page by `UserMenu` (6.0); its trigger is
  * `AccountMenuTrigger`, which the stand-in draws too.
@@ -49,7 +50,13 @@ export function AccountMenu({ viewer, logoutItem, defaultOpen = false }: Account
         <DropdownMenuItem asChild>
           <Link href="/me">
             <UserIcon aria-hidden />
-            Profile
+            Me
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href="/me/guide" data-slot="account-help">
+            <CircleHelpIcon aria-hidden />
+            Help
           </Link>
         </DropdownMenuItem>
         {logoutItem}

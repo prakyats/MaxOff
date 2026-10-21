@@ -1,16 +1,15 @@
 "use client";
 
-import { ArchiveIcon, ArchiveRestoreIcon, EyeIcon, PackageIcon, PencilIcon } from "lucide-react";
+import { PackageIcon } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useState } from "react";
 
 import { templateMatches } from "@/core/lib/stage-groups";
 import { cn } from "@/core/lib/utils";
 import { EmptyState } from "@/core/ui/composites/empty-state";
-import { ListAddButton } from "@/core/ui/composites/list-rows";
+import { ListAddButton, ListRowActions } from "@/core/ui/composites/list-rows";
 import { ReasonDialog } from "@/core/ui/composites/reason-dialog";
-import { CARD_ROW_TITLE, CARD_ROW_TRAILING } from "@/core/ui/composites/row-metrics";
-import { Button } from "@/core/ui/primitives/button";
+import { CARD_ROW_TITLE } from "@/core/ui/composites/row-metrics";
 import { type StagePresetOption, groupsSummary } from "@/core/ui/stage-groups/editing";
 import { TemplatePreviewDialog } from "@/core/ui/stage-groups/template-preview-dialog";
 import { toastResult } from "@/core/ui/toast";
@@ -52,7 +51,6 @@ export function DeliverableTemplateManager({
   const [adding, setAdding] = useState(false);
   const [archiving, setArchiving] = useState<DeliverableTemplate | null>(null);
   const [previewId, setPreviewId] = useState<string | null>(null);
-  const [busyId, setBusyId] = useState<string | null>(null);
   const matches = (template: DeliverableTemplate) =>
     templateMatches(query, [
       template.name,
@@ -60,7 +58,6 @@ export function DeliverableTemplateManager({
     ]);
   const all = templates.filter((template) => !template.archived);
   const active = all.filter(matches);
-  const archived = templates.filter((template) => template.archived && matches(template));
   const previewing = templates.find((template) => template.id === previewId) ?? null;
 
   function line(template: DeliverableTemplate): string {
@@ -70,11 +67,7 @@ export function DeliverableTemplateManager({
   }
 
   async function restore(template: DeliverableTemplate) {
-    setBusyId(template.id);
-    toastResult(await restoreDeliverableTemplate({ templateId: template.id }), {
-      success: `Restored ${template.name}: + Add deliverable offers it again`,
-    });
-    setBusyId(null);
+    toastResult(await restoreDeliverableTemplate({ templateId: template.id }));
   }
 
   const addButton = (
@@ -121,85 +114,26 @@ export function DeliverableTemplateManager({
                     {line(template)}
                   </span>
                 </div>
-                <div className={cn("flex items-center", CARD_ROW_TRAILING)}>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="min-h-11"
-                    aria-label={`Preview ${template.name}`}
-                    title={`See the stages a deliverable made from ${template.name} starts with`}
-                    onClick={() => setPreviewId(template.id)}
-                  >
-                    <EyeIcon aria-hidden />
-                    Preview
-                  </Button>
-                  {allowed.edit ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="size-11"
-                      aria-label={`Edit ${template.name}`}
-                      title={`Edit ${template.name}`}
-                      onClick={() => setEditing(template)}
-                    >
-                      <PencilIcon aria-hidden />
-                    </Button>
-                  ) : null}
-                  {allowed.archive ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="size-11"
-                      aria-label={`Archive ${template.name}`}
-                      title={`Archive ${template.name}`}
-                      onClick={() => setArchiving(template)}
-                    >
-                      <ArchiveIcon aria-hidden />
-                    </Button>
-                  ) : null}
-                </div>
+                <ListRowActions
+                  name={template.name}
+                  kind="Deliverable template"
+                  slot="deliverable-template-actions"
+                  preview={{
+                    onSelect: () => setPreviewId(template.id),
+                    title: `See the stages a deliverable made from ${template.name} starts with`,
+                  }}
+                  edit={
+                    allowed.edit
+                      ? { label: "Edit", onSelect: () => setEditing(template) }
+                      : undefined
+                  }
+                  onDelete={allowed.archive ? () => setArchiving(template) : undefined}
+                />
               </li>
             );
           })}
         </ul>
       )}
-      {archived.length > 0 ? (
-        <ul className="border-border divide-border divide-y rounded-lg border">
-          {archived.map((template) => (
-            <li
-              key={template.id}
-              data-slot="archived-deliverable-template"
-              className="flex min-h-14 flex-wrap items-center justify-between gap-2 px-3 py-2.5 sm:px-4"
-            >
-              <div className={cn("flex min-w-0 flex-col gap-0.5", CARD_ROW_TITLE)}>
-                <span className="text-muted-foreground truncate text-sm">
-                  {template.name} (archived)
-                </span>
-                {template.archivedReason ? (
-                  <span className="text-muted-foreground text-xs break-words">
-                    {template.archivedReason}
-                  </span>
-                ) : null}
-              </div>
-              {templateRowActions(template, viewer).restore ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className={cn("min-h-11", CARD_ROW_TRAILING)}
-                  aria-label={`Restore ${template.name}`}
-                  disabled={busyId !== null}
-                  onClick={() => void restore(template)}
-                >
-                  <ArchiveRestoreIcon aria-hidden />
-                  Restore
-                </Button>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      ) : null}
       {adding ? <TemplateDialog presets={presets} onClose={() => setAdding(false)} /> : null}
       {editing ? (
         <TemplateDialog
@@ -226,18 +160,22 @@ export function DeliverableTemplateManager({
         onOpenChange={(open) => {
           if (!open) setArchiving(null);
         }}
-        title={`Archive ${archiving?.name ?? "this template"}?`}
-        description="“+ Add deliverable” stops offering it. Deliverables made from it keep their stages."
-        label="Why archive it"
-        submitLabel={`Archive ${archiving?.name ?? "template"}`}
+        title={`Delete ${archiving?.name ?? "this template"}?`}
+        description="It won't be offered for new deliverables. Deliverables already made from it don't change."
+        label="Why delete it"
+        submitLabel={`Delete ${archiving?.name ?? "template"}`}
         destructive
-        onSubmit={async (reason) =>
-          archiving
-            ? toastResult(await archiveDeliverableTemplate({ templateId: archiving.id, reason }), {
-                success: `Archived ${archiving.name}: + Add deliverable no longer offers it`,
+        onSubmit={async (reason) => {
+          // D6: Delete is the archive (with its reason, invariant 9); a final-looking action, red
+          // (owner correction 2026-10-21).
+          const template = archiving;
+          return template
+            ? toastResult(await archiveDeliverableTemplate({ templateId: template.id, reason }), {
+                success: `${template.name} deleted`,
+                undo: () => void restore(template),
               })
-            : false
-        }
+            : false;
+        }}
       />
     </section>
   );

@@ -53,7 +53,7 @@ export function inviteEmail({
   const text = [
     `Hi ${inviteeName},`,
     "",
-    `${inviterName} has invited you to MaxOff, the Pixora Clips team app.`,
+    `${inviterName} has invited you to MaxOff, the 3not8studios team app.`,
     "Open this link to choose your password:",
     "",
     link,
@@ -64,7 +64,7 @@ export function inviteEmail({
     "- After saving, MaxOff opens straight away. On your phone, open it from the installed MaxOff app.",
     "",
     "Didn't ask for this? You can ignore this email; nothing happens until the link is used.",
-    "MaxOff and Pixora Clips will never ask for your password by phone, WhatsApp or email.",
+    "MaxOff and 3not8studios will never ask for your password by phone, WhatsApp or email.",
   ].join("\n");
 
   const origin = new URL(link).origin;
@@ -94,7 +94,7 @@ export function inviteEmail({
                     </td>
                     <td style="vertical-align: middle; font-family: ${FONT}">
                       <div style="font-size: 20px; font-weight: 700; color: #16161a; line-height: 1.2">MaxOff</div>
-                      <div style="font-size: 12px; color: #52525b; line-height: 1.4">Pixora Clips operations</div>
+                      <div style="font-size: 12px; color: #52525b; line-height: 1.4">3not8studios operations</div>
                     </td>
                   </tr>
                 </table>
@@ -103,7 +103,7 @@ export function inviteEmail({
             <tr>
               <td style="background-color: #ffffff; border: 1px solid #e4e4e7; border-radius: 14px; padding: 32px 28px; font-family: ${FONT}; color: #16161a">
                 <h1 style="margin: 0 0 12px 0; font-size: 22px; line-height: 1.3; font-weight: 700">You're invited to MaxOff</h1>
-                <p style="margin: 0 0 20px 0; font-size: 15px; line-height: 1.6; color: #3f3f46">Hi ${name}, <strong style="color: #16161a">${inviter}</strong> has invited you to MaxOff, the Pixora Clips team app. Use the button below to choose your password.</p>
+                <p style="margin: 0 0 20px 0; font-size: 15px; line-height: 1.6; color: #3f3f46">Hi ${name}, <strong style="color: #16161a">${inviter}</strong> has invited you to MaxOff, the 3not8studios team app. Use the button below to choose your password.</p>
                 <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 24px 0">
                   <tr>
                     <td align="center" bgcolor="${BRAND_RED}" style="border-radius: 10px">
@@ -125,12 +125,12 @@ export function inviteEmail({
                 <p style="margin: 0 0 24px 0; font-size: 12px; line-height: 1.5; color: #52525b; word-break: break-all">${href}</p>
                 <div style="border-top: 1px solid #e4e4e7; padding-top: 18px">
                   <p style="margin: 0 0 8px 0; font-size: 14px; line-height: 1.6; color: #3f3f46"><strong style="color: #16161a">Didn't ask for this?</strong> You can ignore this email. Nothing happens unless the link is used.</p>
-                  <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #3f3f46"><strong style="color: #16161a">Stay safe:</strong> MaxOff and Pixora Clips will never ask for your password by phone, WhatsApp or email. Don't forward this email.</p>
+                  <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #3f3f46"><strong style="color: #16161a">Stay safe:</strong> MaxOff and 3not8studios will never ask for your password by phone, WhatsApp or email. Don't forward this email.</p>
                 </div>
               </td>
             </tr>
             <tr>
-              <td style="padding: 20px 8px 0 8px; font-family: ${FONT}; font-size: 12px; line-height: 1.6; color: #52525b; text-align: center">MaxOff is Pixora Clips' internal work app. You're receiving this because ${inviter} added you to the team. This mailbox isn't monitored: for help, ask the MaxOff owner at Pixora Clips.</td>
+              <td style="padding: 20px 8px 0 8px; font-family: ${FONT}; font-size: 12px; line-height: 1.6; color: #52525b; text-align: center">MaxOff is 3not8studios' internal work app. You're receiving this because ${inviter} added you to the team. This mailbox isn't monitored: for help, ask the MaxOff owner at 3not8studios.</td>
             </tr>
           </table>
         </td>

@@ -7,6 +7,7 @@ import {
   animationsSettled,
   expectBackStack,
   expectNoHorizontalScroll,
+  openThresholdGroups,
   followAuthLink,
   hydrated,
   memberIdOf,
@@ -241,6 +242,8 @@ test.describe("installed: overlays and view controls", () => {
       await page.goto("/settings");
       await page.getByRole("link", { name: "Thresholds", exact: true }).click();
       await expect(page).toHaveURL(/\/settings\/thresholds$/);
+      // 6b.6: the group opens in place (a view control): no history either.
+      await openThresholdGroups(page, "Notifications");
       const from = page.getByLabel("Quiet from");
       const until = page.getByLabel("Quiet until");
       await expect(from).toHaveValue("22:00");
@@ -275,6 +278,7 @@ test.describe("installed: overlays and view controls", () => {
       await page.goto("/settings");
       await page.getByRole("link", { name: "Thresholds", exact: true }).click();
       await expect(page).toHaveURL(/\/settings\/thresholds$/);
+      await openThresholdGroups(page, "Tasks");
       const summary = page.locator('[data-slot="reminder-summary"]');
       const rows = page.locator('[data-slot="reminder-row"]');
       expect((await summary.boundingBox())?.height).toBe(44);

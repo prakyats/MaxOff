@@ -45,9 +45,9 @@ export const STATUS_TONES = {
   absent: "danger",
   declined: "danger",
   urgent: "danger",
-  // neutral: not started, closed quietly, informational, or a plain label. A cancelled record is
-  // closed with a reason, nothing to act on (C5, ADR-0015: red is urgent or destructive only).
-  cancelled: "neutral",
+  // A cancelled record is final: red (owner correction 2026-10-21, reversing V2's C5).
+  cancelled: "danger",
+  // neutral: not started, closed quietly, informational, or a plain label.
   invited: "neutral",
   leave: "neutral",
   half_day: "neutral",

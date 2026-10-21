@@ -214,7 +214,8 @@ export function weeklyDigestSections(payload: WeeklyDigestPayload): DigestSectio
       heading: "Client work",
       lines: payload.client_work.flatMap((admin) => {
         const parts: string[] = [];
-        if (admin.done > 0) parts.push(`${admin.done} ${admin.done === 1 ? "item" : "items"} done`);
+        if (admin.done > 0)
+          parts.push(`${admin.done} ${admin.done === 1 ? "deliverable" : "deliverables"} done`);
         if (admin.overdue > 0) parts.push(`${admin.overdue} overdue now`);
         if (admin.projects_completed > 0) {
           parts.push(

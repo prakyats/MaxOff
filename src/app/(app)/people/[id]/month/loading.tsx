@@ -22,7 +22,7 @@ export default async function Loading() {
         <Skeleton className="h-4 w-28" />
         <Skeleton className="size-11 rounded-md md:size-8" />
       </div>
-      <div className="flex max-w-2xl flex-col gap-6">
+      <div className="flex flex-col gap-6">
         <MonthSummarySkeleton />
         {seesExpenses ? (
           <div aria-hidden className="flex flex-col gap-3">

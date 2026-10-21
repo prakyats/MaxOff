@@ -221,6 +221,9 @@ export function ProjectMenuLayers({
         description="Every open and done deliverable is closed with your reason. Approved deliverables stay approved."
         label="Why cancel it"
         submitLabel="Cancel project"
+        destructive
+        // W3: never "Cancel" beside "Cancel project".
+        cancelLabel="Keep project"
         onSubmit={async (reason) =>
           toastResult(await cancelProject({ projectId: project.id, reason }), {
             success: "Project cancelled",

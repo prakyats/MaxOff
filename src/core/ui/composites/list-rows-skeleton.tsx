@@ -31,16 +31,24 @@ export function ListHeadingSkeleton({
 
 /**
  * `ListRowActions`: the phone's one 44 px ⋯, and from `md` up one 32 px icon per action (`icons`:
- * 4 with Move up/down, Edit and Archive; 2 without the moves; 0 for a row the viewer can't edit).
+ * 4 with Move up/down, Edit and Delete; 2 without the moves; 0 for a row the viewer can't edit),
+ * after the labelled Preview at every width when the row has one (`preview`, templates).
  */
-export function ListRowActionsSkeleton({ icons }: { icons: number }) {
-  if (icons === 0) return null;
+export function ListRowActionsSkeleton({
+  icons,
+  preview = false,
+}: {
+  icons: number;
+  preview?: boolean;
+}) {
+  if (icons === 0 && !preview) return null;
   return (
     <div className={cn("flex items-center", CARD_ROW_TRAILING)}>
+      {preview ? <Skeleton className="rounded-control h-11 w-24" /> : null}
       {Array.from({ length: icons }, (_, i) => (
         <Skeleton key={i} className="rounded-control hidden size-8 md:block" />
       ))}
-      <Skeleton className="rounded-control size-11 md:hidden" />
+      {icons > 0 ? <Skeleton className="rounded-control size-11 md:hidden" /> : null}
     </div>
   );
 }
@@ -53,10 +61,13 @@ export function ListRowsSkeleton({
   rows,
   icons,
   subtitle = false,
+  preview = false,
 }: {
   rows: number;
   icons: number;
   subtitle?: boolean;
+  /** Each row starts its actions with a labelled Preview (templates). */
+  preview?: boolean;
 }) {
   return (
     <ul aria-hidden className="border-border divide-border divide-y rounded-lg border">
@@ -69,7 +80,7 @@ export function ListRowsSkeleton({
             <Skeleton className="h-4 w-32" />
             {subtitle ? <Skeleton className="h-3 w-44 max-w-full" /> : null}
           </div>
-          <ListRowActionsSkeleton icons={icons} />
+          <ListRowActionsSkeleton icons={icons} preview={preview} />
         </li>
       ))}
     </ul>

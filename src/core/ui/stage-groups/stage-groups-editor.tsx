@@ -56,6 +56,8 @@ export type StageGroupsEditorProps = {
   /** At most this many stages in all (`STAGES_MAX`). */
   maxStages?: number;
   disabled?: boolean;
+  /** L9: false where the form gives the section its one hint (New project): no empty line. */
+  hints?: boolean;
 };
 
 /**
@@ -73,6 +75,7 @@ export function StageGroupsEditor({
   label,
   maxStages = STAGES_MAX,
   disabled = false,
+  hints = true,
 }: StageGroupsEditorProps) {
   const groups = value;
   const offset = groups[0]?.label === null ? 1 : 0;
@@ -105,7 +108,7 @@ export function StageGroupsEditor({
       data-slot="stage-groups-editor"
       className="flex min-w-0 flex-col gap-3"
     >
-      {groups.length === 0 ? (
+      {groups.length === 0 && hints ? (
         <p className="text-muted-foreground text-sm" data-slot="stage-groups-empty">
           No stages yet. Add a group of your own, or one from your stage presets.
         </p>

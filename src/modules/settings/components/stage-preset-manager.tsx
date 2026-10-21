@@ -1,15 +1,15 @@
 "use client";
 
-import { ArchiveRestoreIcon, ListOrderedIcon } from "lucide-react";
+import { ListOrderedIcon } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useState } from "react";
 
+import { templateMatches } from "@/core/lib/stage-groups";
 import { cn } from "@/core/lib/utils";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { ListAddButton, ListHeading, ListRowActions } from "@/core/ui/composites/list-rows";
-import { CARD_ROW_TITLE, CARD_ROW_TRAILING } from "@/core/ui/composites/row-metrics";
-import { Button } from "@/core/ui/primitives/button";
+import { CARD_ROW_TITLE } from "@/core/ui/composites/row-metrics";
 import { toastResult } from "@/core/ui/toast";
 
 import { setStagePresetArchived } from "../actions/stage-presets";
@@ -31,7 +31,7 @@ const PresetDialog = dynamic(
  * New project offers, shared company-wide. Everyone with `lists.manage` adds one; an Admin edits
  * and archives the ones they made, the Owner any (the seeded one belongs to nobody, so only the
  * Owner). A preset is copied into a project when chosen: changing it never touches a project.
- * Archived ones sit apart with Restore. "Add preset" sits on the list's heading (C4); each row's
+ * "Delete" (D6) archives, with Undo in the toast; no Archived list. "Add preset" sits on the list's heading (C4); each row's
  * Edit and Archive are `ListRowActions` (icons from `md` up, one ⋯ sheet on a phone), each opening
  * its own layer (§14.2 a).
  */
@@ -39,17 +39,19 @@ export function StagePresetManager({
   presets,
   viewer,
   names,
+  query = "",
 }: {
   presets: readonly StagePreset[];
   viewer: Viewer;
   names: Readonly<Record<string, string>>;
+  /** The Templates page's one search (6b.6 owner note): a name or a stage; a view control. */
+  query?: string;
 }) {
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<StagePreset | null>(null);
   const [archiving, setArchiving] = useState<StagePreset | null>(null);
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const active = presets.filter((preset) => !preset.archived);
-  const archived = presets.filter((preset) => preset.archived);
+  const all = presets.filter((preset) => !preset.archived);
+  const active = all.filter((preset) => templateMatches(query, [preset.name, ...preset.stages]));
 
   const author = (preset: StagePreset) =>
     preset.createdBy === null
@@ -59,11 +61,7 @@ export function StagePresetManager({
         : `by ${names[preset.createdBy] ?? "someone"}`;
 
   async function restore(preset: StagePreset) {
-    setBusyId(preset.id);
-    toastResult(await setStagePresetArchived({ presetId: preset.id, archived: false }), {
-      success: "Preset restored",
-    });
-    setBusyId(null);
+    toastResult(await setStagePresetArchived({ presetId: preset.id, archived: false }));
   }
 
   return (
@@ -71,18 +69,23 @@ export function StagePresetManager({
       <section aria-labelledby="stage-presets-heading" className="flex flex-col gap-3">
         <ListHeading
           id="stage-presets-heading"
-          title={`${active.length} ${active.length === 1 ? "preset" : "presets"}`}
+          title="Stage presets"
           action={
             <ListAddButton onClick={() => setAdding(true)} data-slot="add-stage-preset">
               Add preset
             </ListAddButton>
           }
         />
-        {active.length === 0 ? (
+        {all.length === 0 ? (
           <EmptyState
             icon={ListOrderedIcon}
+            size="compact"
             title="No stage presets yet: make one for steps you repeat."
           />
+        ) : active.length === 0 ? (
+          <p className="text-muted-foreground text-sm" data-slot="stage-presets-none">
+            No stage preset matches “{query.trim()}”.
+          </p>
         ) : (
           <ul
             data-slot="stage-presets"
@@ -108,7 +111,7 @@ export function StagePresetManager({
                       kind="Stage preset"
                       slot="stage-preset-actions"
                       edit={{ label: "Edit", onSelect: () => setEditing(preset) }}
-                      onArchive={() => setArchiving(preset)}
+                      onDelete={() => setArchiving(preset)}
                     />
                   ) : null}
                 </li>
@@ -117,41 +120,6 @@ export function StagePresetManager({
           </ul>
         )}
       </section>
-
-      {archived.length > 0 ? (
-        <section className="flex flex-col gap-2">
-          <h2 className="text-muted-foreground text-sm font-medium">Archived</h2>
-          <p className="text-muted-foreground text-sm">
-            Not offered in New project. Projects that used one keep their stages.
-          </p>
-          <ul className="border-border divide-border divide-y rounded-lg border">
-            {archived.map((preset) => (
-              <li
-                key={preset.id}
-                data-slot="archived-stage-preset"
-                className="flex min-h-14 flex-wrap items-center justify-between gap-2 px-3 py-2.5 sm:px-4"
-              >
-                <span className={cn("text-muted-foreground truncate text-sm", CARD_ROW_TITLE)}>
-                  {preset.name}
-                </span>
-                {presetActions(preset, viewer).restore ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className={CARD_ROW_TRAILING}
-                    disabled={busyId !== null}
-                    onClick={() => void restore(preset)}
-                  >
-                    <ArchiveRestoreIcon aria-hidden />
-                    Restore
-                  </Button>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
 
       {adding ? <PresetDialog key="add" onClose={() => setAdding(false)} /> : null}
       {editing ? (
@@ -163,15 +131,18 @@ export function StagePresetManager({
           onOpenChange={(open) => {
             if (!open) setArchiving(null);
           }}
-          title={`Archive ${archiving.name}?`}
-          description="New project stops offering it. Projects that used it keep their stages, and you can restore it later."
-          confirmLabel={`Archive ${archiving.name}`}
-          pendingLabel="Archiving…"
-          onConfirm={async () =>
-            toastResult(await setStagePresetArchived({ presetId: archiving.id, archived: true }), {
-              success: "Preset archived",
-            })
-          }
+          title={`Delete ${archiving.name}?`}
+          description="It won't be offered for new projects. Projects already made from it don't change."
+          confirmLabel={`Delete ${archiving.name}`}
+          destructive
+          pendingLabel="Deleting…"
+          onConfirm={async () => {
+            const preset = archiving;
+            toastResult(await setStagePresetArchived({ presetId: preset.id, archived: true }), {
+              success: `${preset.name} deleted`,
+              undo: () => void restore(preset),
+            });
+          }}
         />
       ) : null}
     </div>

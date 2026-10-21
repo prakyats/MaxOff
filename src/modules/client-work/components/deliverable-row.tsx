@@ -13,9 +13,12 @@ import { AfterPage } from "@/core/ui/lazy/after-page";
 import { menuStandInPress } from "@/core/ui/lazy/menu-stand-in";
 
 import {
+  groupStrips,
+  groupsLine,
   itemProgress,
   markDonePlace,
   nextStep,
+  progressShape,
   suggestsGrouping,
   typesNumberedRounds,
   UNTITLED_GROUP_LABEL,
@@ -70,7 +73,16 @@ function RowMenu(props: Omit<ItemRowMenuProps, "defaultOpen">) {
 }
 
 /** "Planned 21 Oct", "Planned 18 Oct · 2 days late" (the overdue tone), "Not planned" (muted). */
-function PlannedText({ item, className }: { item: ItemView; className?: string }) {
+function PlannedText({
+  item,
+  className,
+  short = false,
+}: {
+  item: ItemView;
+  className?: string;
+  /** The laptop's Planned column: "15 Oct · 1 day late", without the word "Planned". */
+  short?: boolean;
+}) {
   if (!item.planned) {
     return (
       <span
@@ -89,7 +101,7 @@ function PlannedText({ item, className }: { item: ItemView; className?: string }
       data-tone={item.planned.overdue ? "danger" : undefined}
       className={cn(item.planned.overdue ? "text-danger" : "text-muted-foreground", className)}
     >
-      {item.planned.text}
+      {short ? item.planned.text.replace(/^Planned /, "") : item.planned.text}
     </span>
   );
 }
@@ -113,19 +125,26 @@ function NextText({
   item,
   ticks,
   className,
+  chip = false,
 }: {
   item: ItemView;
   ticks: RowTicks;
   className?: string;
+  /** The laptop's Next column: the stage as a chip (the approved sample). */
+  chip?: boolean;
 }) {
   const step = nextStep(item);
   // One line (fix A): a long stage name ends in an ellipsis, its full name on hover or long press.
-  const base = cn("flex max-w-full min-w-0 items-center gap-1 text-xs", className);
+  const base = cn(
+    "flex max-w-full min-w-0 items-center gap-1 text-xs",
+    chip && step.kind === "stage" && "border-border bg-card min-h-7 rounded-full border px-2.5",
+    className,
+  );
   if (step.kind === "stage") {
     const stage = item.stages.find((candidate) => candidate.id === item.nextStageId);
     const words = (
       <>
-        <span className="text-muted-foreground shrink-0">Next:</span>{" "}
+        <span className={cn("text-muted-foreground shrink-0", chip && "sr-only")}>Next:</span>{" "}
         <span className="text-foreground min-w-0 truncate font-medium" title={step.name}>
           {step.name}
         </span>
@@ -145,7 +164,10 @@ function NextText({
           className={cn(
             base,
             OVER_ROW,
-            "pressable group/next focus-visible:ring-ring -mx-1 rounded-md px-1 text-left hover:underline hover:underline-offset-4 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-70",
+            "pressable group/next focus-visible:ring-ring text-left focus-visible:ring-2 focus-visible:outline-none disabled:opacity-70",
+            chip
+              ? "hover:bg-muted"
+              : "-mx-1 rounded-md px-1 hover:underline hover:underline-offset-4",
           )}
         >
           <CircleIcon
@@ -349,6 +371,45 @@ function ProgressToggle({
     );
   }
   const verb = open ? "Hide" : "Show";
+  if (progressShape(item) === "groups") {
+    // One line per group (owner 2026-10-21, the approved sample): name · segmented bar · n/m.
+    return (
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={open ? controls : undefined}
+        title={`${verb} the stages of ${item.title}`}
+        data-slot="item-progress"
+        data-shape="groups"
+        onClick={onToggle}
+        className={cn(
+          OVER_ROW,
+          "pressable-row hover:bg-muted focus-visible:ring-ring flex min-h-11 w-full min-w-0 flex-col justify-center gap-1.5 rounded-md py-1 text-left text-xs focus-visible:ring-2 focus-visible:outline-none lg:min-h-7",
+          className,
+        )}
+      >
+        {groupStrips(item).map((strip) => (
+          <span
+            key={strip.key}
+            data-slot="item-progress-group"
+            className="grid grid-cols-[4.5rem_minmax(0,1fr)_2.5rem] items-center gap-x-2"
+          >
+            <span className="text-muted-foreground truncate" title={strip.label}>
+              {strip.label}
+            </span>
+            <SegmentBar done={strip.done} next={strip.next} total={strip.total} />
+            <span
+              className="text-muted-foreground text-right tabular-nums"
+              data-slot="item-progress-count"
+            >
+              {strip.done}/{strip.total}
+              <span className="sr-only"> ticked</span>
+            </span>
+          </span>
+        ))}
+      </button>
+    );
+  }
   return (
     <button
       type="button"
@@ -380,6 +441,30 @@ function ProgressToggle({
         <span className="sr-only"> stages ticked</span>
       </span>
     </button>
+  );
+}
+
+/** A group's segmented bar: a segment a stage, ticked ones green, the next one lighter. */
+function SegmentBar({ done, next, total }: { done: number; next: number; total: number }) {
+  return (
+    <span
+      aria-hidden
+      data-slot="item-progress-bar"
+      data-done={done}
+      data-next={next}
+      data-total={total}
+      className="flex h-1.5 min-w-0 gap-0.5"
+    >
+      {Array.from({ length: total }, (_, index) => (
+        <span
+          key={index}
+          className={cn(
+            "min-w-0 flex-1 rounded-full",
+            index < done ? "bg-success" : index < done + next ? "bg-success/40" : "bg-muted",
+          )}
+        />
+      ))}
+    </span>
   );
 }
 
@@ -457,7 +542,8 @@ function StagesPanel({
  * stage is ticked, solid on the one row that is the layer's commit action. */
 export type MarkDoneLook = "quiet" | "ready" | "solid";
 
-const LOOK_VARIANT = { quiet: "ghost", ready: "secondary", solid: "primary" } as const;
+// The ready row's solid Mark done is the Forest green approve commit (owner 2026-10-21).
+const LOOK_VARIANT = { quiet: "ghost", ready: "secondary", solid: "approve" } as const;
 
 /**
  * One deliverable on the project page (6b.11; E+ and U, the owner's feedback of 2026-10-16). **A
@@ -535,6 +621,9 @@ export function DeliverableRow({
         <PlannedText item={item} />
         {item.carriedFrom ? <span>{item.carriedFrom}</span> : null}
       </span>
+      <span className="text-muted-foreground hidden text-xs lg:block" data-slot="item-groups-line">
+        {groupsLine(item)}
+      </span>
       {item.carriedFrom ? (
         <span className="text-muted-foreground hidden text-xs lg:block">{item.carriedFrom}</span>
       ) : null}
@@ -600,15 +689,15 @@ export function DeliverableRow({
         onToggle={() => setExpanded((current) => !current)}
         className={cn("order-last basis-full lg:order-none", indent)}
       />
-      <span data-slot="item-next-cell" className="hidden min-h-7 items-center lg:flex">
-        {nextStep(item).kind === "none" ? null : <NextText item={item} ticks={ticks} />}
-      </span>
-      <span data-slot="item-planned-cell" className="hidden min-h-7 items-center text-xs lg:flex">
-        <PlannedText item={item} />
-      </span>
+      {/* Next, its own column on a laptop: the stage as a chip, or, once every stage is ticked,
+          Mark done itself (the Forest green commit on the first ready row). On a phone this cell
+          shows only to hold Mark done, beside the card's title. */}
       <span
-        data-slot="item-action"
-        className="ml-auto flex min-h-11 shrink-0 items-center justify-end gap-1 lg:ml-0 lg:min-h-7"
+        data-slot="item-next-cell"
+        className={cn(
+          "items-center",
+          place === "row" ? "ml-auto flex min-h-11 lg:ml-0 lg:min-h-7" : "hidden min-h-7 lg:flex",
+        )}
       >
         {place === "row" ? (
           <Button
@@ -624,12 +713,26 @@ export function DeliverableRow({
             <CheckIcon aria-hidden />
             Mark done
           </Button>
-        ) : null}
-        {place === "menu" ? (
+        ) : nextStep(item).kind === "none" ? null : (
+          <NextText item={item} ticks={ticks} chip />
+        )}
+      </span>
+      <span data-slot="item-planned-cell" className="hidden min-h-7 items-center text-xs lg:flex">
+        <PlannedText item={item} short />
+      </span>
+      <span
+        data-slot="item-action"
+        className={cn(
+          "flex min-h-11 shrink-0 items-center justify-end gap-1 lg:ml-0 lg:min-h-7",
+          place === "row" ? undefined : "ml-auto",
+        )}
+      >
+        {place !== null ? (
           <RowMenu
             title={item.title}
             disabled={waiting}
-            className={OVER_ROW}
+            // A phone card with Mark done on it keeps one action beside the title (375 px).
+            className={cn(OVER_ROW, place === "row" && "max-lg:hidden")}
             onOpen={onOpen}
             onMarkDone={onMarkDone}
           />

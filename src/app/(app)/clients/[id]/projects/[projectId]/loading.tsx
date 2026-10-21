@@ -1,7 +1,7 @@
 import { cn } from "@/core/lib/utils";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
-import { DELIVERABLE_COLUMNS, PROGRESS_GRID } from "@/modules/client-work";
+import { DELIVERABLE_COLUMNS } from "@/modules/client-work";
 
 import { PROJECT_ORIGINS } from "./back";
 
@@ -80,16 +80,8 @@ export default function Loading() {
                 </span>
               </span>
             </div>
-            {/* Needs you beside the ring (V3): its heading and one line of pills. */}
-            <div className="flex min-w-0 flex-[1_1_20rem] flex-col gap-1.5">
-              <span className="flex h-4 items-center">
-                <Skeleton className="h-3 w-16" />
-              </span>
-              <span className="flex min-h-7 items-center gap-1.5">
-                <Skeleton className="h-7 w-40 rounded-full" />
-                <Skeleton className="h-7 w-32 rounded-full" />
-              </span>
-            </div>
+            {/* Needs you is drawn only when something is late or nearly done (owner 2026-10-21):
+                nothing is reserved for it. */}
           </div>
         </div>
         <div className="flex flex-col gap-2">
@@ -107,9 +99,22 @@ export default function Loading() {
               DELIVERABLE_COLUMNS,
             )}
           >
+            {/* The laptop table's header row (Deliverable · Progress by group · Next · Planned). */}
+            <li
+              aria-hidden
+              className="bg-muted/40 hidden px-3 py-2 sm:px-4 lg:col-span-full lg:grid lg:grid-cols-subgrid"
+            >
+              {["w-16", "w-24", "w-8", "w-12"].map((width) => (
+                <span key={width} className="flex h-4 items-center">
+                  <Skeleton className={cn("h-3", width)} />
+                </span>
+              ))}
+              <span />
+            </li>
             {[0, 1, 2, 3, 4].map((row) => (
               <li
                 key={row}
+                data-row=""
                 className="flex flex-wrap items-start gap-x-3 px-3 py-2 sm:px-4 lg:col-span-full lg:grid lg:grid-cols-subgrid lg:gap-y-1"
               >
                 <span className="flex min-h-11 min-w-0 flex-[1_1_8rem] flex-col justify-center lg:min-h-7">
@@ -117,7 +122,8 @@ export default function Loading() {
                     <span className="flex h-5 items-center">
                       <Skeleton className="h-3.5 w-1/2" />
                     </span>
-                    <span className="flex h-4 items-center lg:hidden">
+                    {/* Planned on a phone; "3 groups · 1 of 9 stages" on a laptop. */}
+                    <span className="flex h-4 items-center">
                       <Skeleton className="h-3 w-24" />
                     </span>
                   </span>
@@ -126,19 +132,23 @@ export default function Loading() {
                     <Skeleton className="h-3 w-20" />
                   </span>
                 </span>
-                {/* The collapsed row's progress (V3): chevron, one bar, "n/m". */}
-                <span
-                  className={cn(
-                    PROGRESS_GRID,
-                    "order-last min-h-11 basis-full lg:order-none lg:min-h-7",
-                  )}
-                >
-                  <Skeleton className="size-4 rounded-sm" />
-                  <Skeleton className="h-1.5 w-full rounded-full" />
-                  <Skeleton className="ml-auto h-3 w-8" />
+                {/* The collapsed row's progress (the approved sample): a line per group, its name,
+                    its segmented bar and "n/m" (one line drawn: an untitled list's). */}
+                <span className="order-last flex min-h-11 basis-full flex-col justify-center gap-1.5 py-1 lg:order-none lg:min-h-7">
+                  {[0].map((line) => (
+                    <span
+                      key={line}
+                      className="grid grid-cols-[4.5rem_minmax(0,1fr)_2.5rem] items-center gap-x-2"
+                    >
+                      <Skeleton className="h-3 w-12" />
+                      <Skeleton className="h-1.5 w-full rounded-full" />
+                      <Skeleton className="ml-auto h-3 w-6" />
+                    </span>
+                  ))}
                 </span>
+                {/* Next: the stage as a chip. */}
                 <span className="hidden min-h-7 items-center lg:flex">
-                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-7 w-24 rounded-full" />
                 </span>
                 <span className="hidden min-h-7 items-center lg:flex">
                   <Skeleton className="h-3 w-16" />
@@ -156,6 +166,24 @@ export default function Loading() {
             <Skeleton className="size-4 rounded-sm" />
             <Skeleton className="h-4 w-36" />
           </span>
+        </div>
+        {/* Details: its heading, then the field grid (Repeats, Notes; a cell a field). */}
+        <div className="flex flex-col gap-2">
+          <span className="flex h-5 items-center">
+            <Skeleton className="h-3.5 w-14" />
+          </span>
+          <div className="border-border bg-card grid grid-cols-[repeat(auto-fit,minmax(min(11rem,100%),1fr))] rounded-lg border">
+            {[0, 1].map((cell) => (
+              <span key={cell} className="flex flex-col gap-0.5 px-4 py-3">
+                <span className="flex h-4 items-center">
+                  <Skeleton className="h-3 w-14" />
+                </span>
+                <span className="flex h-5 items-center">
+                  <Skeleton className="h-3.5 w-24" />
+                </span>
+              </span>
+            ))}
+          </div>
         </div>
       </div>
       <span className="sr-only">Loading the project</span>

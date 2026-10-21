@@ -1,12 +1,13 @@
 "use client";
 
 import {
-  ArchiveIcon,
+  EyeIcon,
   ChevronDownIcon,
   ChevronUpIcon,
   MoreHorizontalIcon,
   PencilIcon,
   PlusIcon,
+  Trash2Icon,
 } from "lucide-react";
 import { type ComponentProps, type ReactNode, useState } from "react";
 
@@ -86,11 +87,14 @@ export type ListRowMove = {
 
 /**
  * A Settings row's actions (C3, C4, P2). **Laptop** (`md` up): grey icon buttons, Move up and
- * Move down (when the list has an order), Edit (or Rename) and Archive. **Phone**: one 44 px ⋯
+ * Move down (when the list has an order), Edit (or Rename) and Delete. **Phone**: one 44 px ⋯
  * that opens a bottom sheet with the same actions as full-width rows, so a 375 px row never packs
  * four targets beside a name (ARCHITECTURE §14.1), and moving stays possible with a thumb
- * (Move up / Move down keep the sheet open, as ReorderNameList's menu does). Archive is never red
- * (C3, owner 2026-10-16: "archive never red"); its question is the caller's `ConfirmDialog`.
+ * (Move up / Move down keep the sheet open, as ReorderNameList's menu does). **D6 (v1.8 V4):** the
+ * one Settings list pattern is Edit · Delete, where Delete is the existing archive (its toast offers
+ * Undo; no Archived list). The row's icon is grey (C3); its question is the caller's
+ * `ConfirmDialog`, whose named Delete is red like every final action (owner correction 2026-10-21). A row that can be looked at (templates) also has Preview, a
+ * labelled button at every width, since anyone who may open the list may preview.
  */
 export function ListRowActions({
   name,
@@ -98,17 +102,20 @@ export function ListRowActions({
   slot,
   move,
   edit,
-  onArchive,
+  preview,
+  onDelete,
 }: {
-  /** The row's name, for the labels ("Archive Editor") and the sheet's title. */
+  /** The row's name, for the labels ("Delete Editor") and the sheet's title. */
   name: string;
   /** What the row is, for the sheet's description ("Job title actions"). */
   kind: string;
   /** The phone sheet's `data-slot`. */
   slot: string;
   move?: ListRowMove;
-  edit?: { label: "Edit" | "Rename"; onSelect: () => void };
-  onArchive?: () => void;
+  edit?: { label: "Edit" | "Rename"; onSelect: () => void } | undefined;
+  /** Preview, with the button's tooltip ("See what a project started from … gets"). */
+  preview?: { onSelect: () => void; title: string };
+  onDelete?: (() => void) | undefined;
 }) {
   const [open, setOpen] = useState(false);
   function choose(then: () => void) {
@@ -117,6 +124,19 @@ export function ListRowActions({
   }
   return (
     <div className={cn("flex items-center", CARD_ROW_TRAILING)}>
+      {preview ? (
+        <Button
+          type="button"
+          variant="ghost"
+          className="min-h-11"
+          aria-label={`Preview ${name}`}
+          title={preview.title}
+          onClick={preview.onSelect}
+        >
+          <EyeIcon aria-hidden />
+          Preview
+        </Button>
+      ) : null}
       {move ? (
         <>
           <Button
@@ -149,95 +169,99 @@ export function ListRowActions({
           variant="ghost"
           size="icon"
           aria-label={`${edit.label} ${name}`}
+          title={`${edit.label} ${name}`}
           onClick={edit.onSelect}
           className="hidden md:inline-flex"
         >
           <PencilIcon aria-hidden />
         </Button>
       ) : null}
-      {onArchive ? (
+      {onDelete ? (
         <Button
           type="button"
           variant="ghost"
           size="icon"
-          aria-label={`Archive ${name}`}
-          onClick={onArchive}
+          aria-label={`Delete ${name}`}
+          title={`Delete ${name}`}
+          onClick={onDelete}
           className="hidden md:inline-flex"
         >
-          <ArchiveIcon aria-hidden />
+          <Trash2Icon aria-hidden />
         </Button>
       ) : null}
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetTrigger asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label={`Actions for ${name}`}
-            className="md:hidden"
+      {move || edit || onDelete ? (
+        <Sheet open={open} onOpenChange={setOpen}>
+          <SheetTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label={`Actions for ${name}`}
+              className="md:hidden"
+            >
+              <MoreHorizontalIcon aria-hidden />
+            </Button>
+          </SheetTrigger>
+          <SheetContent
+            side="bottom"
+            data-slot={slot}
+            className="rounded-t-sheet gap-3 pb-[calc(1.5rem+var(--app-safe-bottom))]"
           >
-            <MoreHorizontalIcon aria-hidden />
-          </Button>
-        </SheetTrigger>
-        <SheetContent
-          side="bottom"
-          data-slot={slot}
-          className="rounded-t-sheet gap-3 pb-[calc(1.5rem+var(--app-safe-bottom))]"
-        >
-          <div
-            aria-hidden
-            className="bg-border pointer-events-none absolute top-2 left-1/2 h-1 w-10 -translate-x-1/2 rounded-full"
-          />
-          <SheetHeader className="pt-3 pr-12 pb-0">
-            <SheetTitle>{name}</SheetTitle>
-            <SheetDescription className="sr-only">{kind} actions</SheetDescription>
-          </SheetHeader>
-          <div className="flex flex-col gap-2 px-4">
-            {move ? (
-              <>
+            <div
+              aria-hidden
+              className="bg-border pointer-events-none absolute top-2 left-1/2 h-1 w-10 -translate-x-1/2 rounded-full"
+            />
+            <SheetHeader className="pt-3 pr-12 pb-0">
+              <SheetTitle>{name}</SheetTitle>
+              <SheetDescription className="sr-only">{kind} actions</SheetDescription>
+            </SheetHeader>
+            <div className="flex flex-col gap-2 px-4">
+              {move ? (
+                <>
+                  <Button
+                    variant="secondary"
+                    className="w-full justify-start"
+                    disabled={move.first || move.disabled}
+                    onClick={() => move.onMove("up")}
+                  >
+                    <ChevronUpIcon aria-hidden />
+                    Move up
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    className="w-full justify-start"
+                    disabled={move.last || move.disabled}
+                    onClick={() => move.onMove("down")}
+                  >
+                    <ChevronDownIcon aria-hidden />
+                    Move down
+                  </Button>
+                </>
+              ) : null}
+              {edit ? (
                 <Button
                   variant="secondary"
                   className="w-full justify-start"
-                  disabled={move.first || move.disabled}
-                  onClick={() => move.onMove("up")}
+                  onClick={() => choose(edit.onSelect)}
                 >
-                  <ChevronUpIcon aria-hidden />
-                  Move up
+                  <PencilIcon aria-hidden />
+                  {edit.label}
                 </Button>
+              ) : null}
+              {onDelete ? (
                 <Button
                   variant="secondary"
                   className="w-full justify-start"
-                  disabled={move.last || move.disabled}
-                  onClick={() => move.onMove("down")}
+                  onClick={() => choose(onDelete)}
                 >
-                  <ChevronDownIcon aria-hidden />
-                  Move down
+                  <Trash2Icon aria-hidden />
+                  Delete
                 </Button>
-              </>
-            ) : null}
-            {edit ? (
-              <Button
-                variant="secondary"
-                className="w-full justify-start"
-                onClick={() => choose(edit.onSelect)}
-              >
-                <PencilIcon aria-hidden />
-                {edit.label}
-              </Button>
-            ) : null}
-            {onArchive ? (
-              <Button
-                variant="secondary"
-                className="w-full justify-start"
-                onClick={() => choose(onArchive)}
-              >
-                <ArchiveIcon aria-hidden />
-                Archive
-              </Button>
-            ) : null}
-          </div>
-        </SheetContent>
-      </Sheet>
+              ) : null}
+            </div>
+          </SheetContent>
+        </Sheet>
+      ) : null}
     </div>
   );
 }

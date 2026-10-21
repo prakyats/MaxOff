@@ -109,7 +109,7 @@ export function ItemKpiCard({
       <span className="text-muted-foreground text-xs">{definition}</span>
       {now !== undefined ? (
         <dl className="flex min-w-0 flex-col">
-          <dt className="text-muted-foreground text-xs">Client items</dt>
+          <dt className="text-muted-foreground text-xs">Deliverables</dt>
           <dd className="text-base font-semibold break-words tabular-nums" data-slot="kpi-now">
             {now}
           </dd>

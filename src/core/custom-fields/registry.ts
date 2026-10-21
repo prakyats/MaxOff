@@ -51,7 +51,7 @@ export const ENTITY_LABELS: Record<CustomFieldEntity, { singular: string; plural
   client: { singular: "Client", plural: "Clients" },
   contact: { singular: "Contact", plural: "Contacts" },
   project: { singular: "Project", plural: "Projects" },
-  item: { singular: "Item", plural: "Items" },
+  item: { singular: "Deliverable", plural: "Deliverables" },
   task: { singular: "Task", plural: "Tasks" },
 };
 

@@ -456,7 +456,7 @@ test("⋯ Deliverables list: a new line starts next month; this month's delivera
   await removeClientFixture(client);
 });
 
-test("the Owner's Today: N client items overdue, the list grouped by Admin", async ({
+test("the Owner's Today: N deliverables overdue, the list grouped by Admin", async ({
   browser,
 }, info) => {
   const client = nameOf(info, "overdue");
@@ -473,7 +473,7 @@ test("the Owner's Today: N client items overdue, the list grouped by Admin", asy
   const page = await context.newPage();
   await page.goto("/today");
   const line = page.locator('[data-slot="today-items-overdue"]');
-  await expect(line).toContainText(/client items? overdue/);
+  await expect(line).toContainText(/deliverables? overdue/);
   // Red for overdue with its dot, the line's one status signal (the Today refresh, 2026-10-09).
   await expect(line.locator('[data-slot="today-items-overdue-signal"]')).toHaveAttribute(
     "data-tone",
@@ -614,15 +614,17 @@ test("the carry screen: carry forward in bulk, close one with a reason", async (
   await removeClientFixture(client);
 });
 
-test("Settings → Stage presets: an Admin adds, edits and archives their own", async ({
+test("Settings → Templates → Stage presets: an Admin adds, edits and deletes their own", async ({
   page,
 }, info) => {
   test.skip(info.project.name === "mobile-lg", "the 375 and desktop runs cover it");
   const name = nameOf(info, "preset");
   await serviceRest(`stage_presets?name=eq.${encodeURIComponent(name)}`, { method: "DELETE" });
   await page.goto("/settings");
-  await page.getByRole("link", { name: /Stage presets/ }).click();
-  await expect(page).toHaveURL(/\/settings\/stage-presets$/);
+  // The Stage presets card left the Settings grid: they are the Templates page's first section
+  // (6b.6 owner note).
+  await page.getByRole("link", { name: "Templates", exact: true }).click();
+  await expect(page).toHaveURL(/\/settings\/templates$/);
   await hydrated(page);
   await page.getByRole("button", { name: "Add preset" }).click();
   const add = page.getByRole("dialog", { name: "Add a stage preset" });
@@ -643,14 +645,14 @@ test("Settings → Stage presets: an Admin adds, edits and archives their own", 
   await edit.getByLabel("Stage 4", { exact: true }).fill("Deliver");
   await edit.getByRole("button", { name: "Save preset" }).click();
   await expect(row).toContainText("Brief → Shoot → Edit → Deliver · by you");
-  await rowAction(page, row, name, "Archive");
+  await rowAction(page, row, name, "Delete");
   await page
     .getByRole("alertdialog")
-    .getByRole("button", { name: `Archive ${name}` })
+    .getByRole("button", { name: `Delete ${name}` })
     .click();
-  await expect(
-    page.locator('[data-slot="archived-stage-preset"]', { hasText: name }),
-  ).toBeVisible();
+  // D6: Delete is the archive underneath; the row leaves, no Archived list.
+  await expect(row).toHaveCount(0);
+  await expect(page.locator('[data-slot="archived-stage-preset"]')).toHaveCount(0);
 });
 
 test("the calendar lists client items for their Admin, never for Crew", async ({
@@ -831,11 +833,13 @@ test("the project page (6b.11): open first, Planned words, stage chips, the reop
   // (2) Planned: late in the overdue tone, planned, and "Not planned" muted.
   const planned = (title: string) =>
     itemRow(page, title).locator('[data-slot="item-planned"]:visible');
+  // A laptop's Planned column drops the word (the approved sample): "15 Oct · 1 day late".
+  const word = (page.viewportSize()?.width ?? 1280) >= 1024 ? "" : "Planned ";
   await expect(planned("Late item")).toHaveText(
-    `Planned ${shortOf(addDays(today(), -2))} · 2 days late`,
+    `${word}${shortOf(addDays(today(), -2))} · 2 days late`,
   );
   await expect(planned("Late item")).toHaveAttribute("data-tone", "danger");
-  await expect(planned("Soon item")).toHaveText(`Planned ${shortOf(addDays(today(), 3))}`);
+  await expect(planned("Soon item")).toHaveText(`${word}${shortOf(addDays(today(), 3))}`);
   await expect(planned("Reopened item")).toHaveText("Not planned");
   await expect(planned("Reopened item")).toHaveAttribute("data-planned", "none");
 
@@ -845,7 +849,8 @@ test("the project page (6b.11): open first, Planned words, stage chips, the reop
   const soon = itemRow(page, "Soon item");
   const strip = soon.locator('[data-slot="item-progress"]');
   await expect(strip).toHaveCount(1);
-  await expect(strip).toHaveText("1/3 stages ticked");
+  // The approved sample: a line per group (here the untitled "Stages"), its n/m.
+  await expect(strip).toHaveText("Stages1/3 ticked");
   await expect(soon.locator('[data-slot="item-progress-bar"]')).toHaveAttribute("data-done", "1");
   await expect(soon.locator('[data-slot="item-progress-bar"]')).toHaveAttribute("data-next", "1");
   await expect(soon.locator('[data-slot="item-progress-bar"]')).toHaveAttribute("data-total", "3");
@@ -1769,6 +1774,8 @@ test("⋯ Complete (refused while items are left), Reopen, Cancel, and Reopen re
   await page.getByRole("menuitem", { name: "Cancel project…" }).click();
   const cancel = page.getByRole("dialog", { name: "Cancel Brand film?" });
   await cancel.getByLabel("Why cancel it").fill("The client stopped the film");
+  // W3: the question's way out says "Keep project", never a second "Cancel".
+  await expect(cancel.getByRole("button", { name: "Keep project" })).toBeVisible();
   await cancel.getByRole("button", { name: "Cancel project" }).click();
   await expect(page.locator('[data-slot="project-read-only"]')).toContainText("Cancelled");
   // B8: the progress says it was cancelled and what it holds (the done one stays done), never
@@ -1880,9 +1887,9 @@ test.describe("Settings layers, installed (ARCHITECTURE §14.2)", () => {
       created_by: await memberIdOf(admin.email),
     });
     await runInstalled(page);
-    await page.goto("/settings/stage-presets");
+    await page.goto("/settings/templates#presets");
     await hydrated(page);
-    const here = /\/settings\/stage-presets$/;
+    const here = /\/settings\/templates#presets$/;
     await page.getByRole("button", { name: "Add preset" }).click();
     const add = page.getByRole("dialog", { name: "Add a stage preset" });
     await expect(add).toBeVisible();
@@ -1897,7 +1904,7 @@ test.describe("Settings layers, installed (ARCHITECTURE §14.2)", () => {
     const edit = page.getByRole("dialog", { name: `Edit ${name}` });
     await expect(edit).toBeVisible();
     await expectBackStack(page, [{ closes: edit, url: here }]);
-    await rowAction(page, row, name, "Archive");
+    await rowAction(page, row, name, "Delete");
     const archive = page.getByRole("alertdialog");
     await expect(archive).toBeVisible();
     await expectBackStack(page, [{ closes: archive, url: here }]);
@@ -1908,9 +1915,9 @@ test.describe("Settings layers, installed (ARCHITECTURE §14.2)", () => {
     page,
   }) => {
     await runInstalled(page);
-    await page.goto("/settings/templates");
+    await page.goto("/settings/templates#projects");
     await hydrated(page);
-    const here = /\/settings\/templates$/;
+    const here = /\/settings\/templates#projects$/;
     await page.getByRole("button", { name: "Add project template" }).click();
     const dialog = page.getByRole("dialog", { name: "Add a project template" });
     await expect(dialog).toBeVisible();

@@ -64,6 +64,11 @@ export type DeliverablesEditorProps = {
   maxDeliverables?: number;
   maxStages?: number;
   disabled?: boolean;
+  /**
+   * L9: false where the form already says it in one hint per section (New project): no empty
+   * line and no "Tick a preset…" line.
+   */
+  hints?: boolean;
 };
 
 /**
@@ -84,6 +89,7 @@ export function DeliverablesEditor({
   maxDeliverables = DELIVERABLES_MAX,
   maxStages = STAGES_MAX,
   disabled = false,
+  hints = true,
 }: DeliverablesEditorProps) {
   // Which rows are open, kept in step with the rows through every add, move and removal.
   const [open, setOpen] = useState<boolean[]>([]);
@@ -118,11 +124,11 @@ export function DeliverablesEditor({
       data-slot="deliverables-editor"
       className="flex min-w-0 flex-col gap-3"
     >
-      {value.length === 0 ? (
+      {value.length === 0 && hints ? (
         <p className="text-muted-foreground text-sm" data-slot="deliverables-empty">
           No deliverables yet. Add your own below: a name, how many, and the stages each one needs.
         </p>
-      ) : (
+      ) : value.length === 0 ? null : (
         <ReorderList reorder={reorder} label={label} className="gap-2">
           {value.map((deliverable, index) => {
             const isOpen = open[index] ?? false;
@@ -289,6 +295,7 @@ export function DeliverablesEditor({
         presets={presets}
         templates={deliverableTemplates}
         disabled={disabled}
+        hints={hints}
         onAdd={(added) => {
           onChange([...value, ...added]);
           setOpen((current) => [...padded(current, value.length), ...added.map(() => false)]);
@@ -327,6 +334,7 @@ function AddDeliverables({
   presets,
   templates,
   disabled,
+  hints,
   onAdd,
 }: {
   count: number;
@@ -334,6 +342,7 @@ function AddDeliverables({
   presets: readonly StagePresetOption[];
   templates: readonly DeliverableTemplateOption[];
   disabled: boolean;
+  hints: boolean;
   onAdd: (added: Deliverable[]) => void;
 }) {
   const id = useId();
@@ -429,10 +438,12 @@ function AddDeliverables({
           </SelectContent>
         </Select>
       ) : null}
-      <p className="text-muted-foreground text-xs" data-slot="add-deliverables-hint">
-        Tick a preset to give these deliverables their own stages, or open a deliverable&apos;s row
-        to edit its stages.
-      </p>
+      {hints ? (
+        <p className="text-muted-foreground text-xs" data-slot="add-deliverables-hint">
+          Tick a preset to give these deliverables their own stages, or open a deliverable&apos;s
+          row to edit its stages.
+        </p>
+      ) : null}
       {presets.length > 0 ? (
         <div className="flex flex-col gap-1">
           <p id={`${id}-presets`} className="text-muted-foreground text-xs">

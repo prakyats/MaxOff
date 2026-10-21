@@ -1,12 +1,23 @@
+import { SETTINGS_GROUPS, settingsSectionsFor, type SettingsSection } from "@/core/ui/shell/nav";
 import type { ShellRole } from "@/core/ui/shell/viewer";
 
 /**
  * The Settings page's header and its two lists, shared by the page and its loading screen
  * (ARCHITECTURE §14.1: a skeleton traces its own screen), so the two cannot drift apart: the
- * role's header line, the sections list (a list of 56px rows on a phone, a grid of cards from
- * `md` up), each section's shell and tappable line, its description, and the Help and
- * troubleshooting block under the list.
+ * role's header line, the sections in their groups (N3: a heading, then rows of a name and one
+ * line), and the Help and troubleshooting block under them.
  */
+
+/** The role's sections in their groups, in order; a group with nothing for the role is left out. */
+export function settingsGroupsFor(
+  role: ShellRole,
+): { key: string; label: string; sections: readonly SettingsSection[] }[] {
+  const sections = settingsSectionsFor(role);
+  return SETTINGS_GROUPS.map((group) => ({
+    ...group,
+    sections: sections.filter((section) => section.group === group.key),
+  })).filter((group) => group.sections.length > 0);
+}
 
 /** The header line for the reader's role: the Owner's control centre, or an Admin's lists. */
 export function settingsDescription(role: ShellRole): string {
@@ -15,26 +26,29 @@ export function settingsDescription(role: ShellRole): string {
     : "The lists and templates you may edit, and who on your tasks can't be reached. Company settings, days off, thresholds and the team are the Owner's.";
 }
 
+/**
+ * N3 (v1.8 V4): the sections in their groups (`SETTINGS_GROUPS`), each group a heading over one
+ * bordered list of rows, on a phone and a laptop alike; each row is the section's name and one
+ * line saying what it holds. From `lg` the groups sit two to a row.
+ */
 export const SETTINGS_LIST_CLASS =
-  "border-border divide-border divide-y overflow-hidden rounded-lg border md:grid md:grid-cols-2 md:gap-3 md:divide-y-0 md:overflow-visible md:rounded-none md:border-0 lg:grid-cols-3";
+  "grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-2";
 
-/** The row itself on a phone; the card from `md` up. */
-export const SECTION_SHELL_CLASS =
-  "relative h-full md:rounded-xl md:border md:border-border md:bg-card md:transition-colors";
+/** A group's heading: small, quiet, above its list. */
+export const GROUP_HEADING_CLASS = "text-muted-foreground mb-2 px-1 text-sm font-medium";
 
-/** The tappable line of a section (its label and arrow, or its label and "Coming soon"). */
-export const SECTION_LINE_CLASS =
-  "flex min-h-14 items-center gap-2 px-4 outline-none after:absolute after:inset-0 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset";
+/** A group's list of rows. */
+export const GROUP_LIST_CLASS =
+  "border-border bg-card divide-border divide-y overflow-hidden rounded-card border";
 
-/** A section that opens: its line from `md` up starts the card. */
-export const SECTION_READY_LINE_CLASS = "md:min-h-0 md:pt-4";
+/** A row: the name over its one line, beside the chevron (or the "Coming soon" pill). */
+export const SECTION_ROW_CLASS = "relative flex min-h-16 items-center gap-2 px-4 py-2.5";
 
-/** A section not built yet: its label and badge wrap at large text. */
-export const SECTION_SOON_LINE_CLASS = "flex-wrap py-2 after:hidden md:min-h-0 md:pt-4 md:pb-0";
+/** The name, inside the row's link. */
+export const SECTION_LABEL_CLASS = "block truncate text-sm leading-5 font-medium";
 
-/** A section's description: the card's second part, from `md` up only. */
-export const SECTION_DESCRIPTION_CLASS =
-  "text-muted-foreground hidden px-4 pt-1.5 pb-4 text-sm md:block";
+/** The one line under the name: what the section holds; one line at every width. */
+export const SECTION_LINE_CLASS = "text-muted-foreground block truncate text-sm leading-5";
 
 /** Help and troubleshooting (ROADMAP 6b.14): one bordered row under the sections. */
 export const HELP_LIST_CLASS =

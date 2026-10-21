@@ -58,7 +58,9 @@ function Button({
   // submit still disables itself while its `<form action>` is on its way.
   const opted = pendingProp !== undefined;
   const pending = (pendingProp ?? false) || (submits && form.pending);
-  const offline = !online && (commits ?? (variant === "primary" || variant === "danger"));
+  const offline =
+    !online &&
+    (commits ?? (variant === "primary" || variant === "danger" || variant === "approve"));
   const iconOnly = typeof size === "string" && size.startsWith("icon");
 
   const content =

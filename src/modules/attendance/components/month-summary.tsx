@@ -70,11 +70,11 @@ export function MonthSummaryCard({ summary }: { summary: MonthSummary }) {
   );
 }
 
-/** Which of the eight lines carry a detail line under the label (`summaryLines`). */
-const LINES_WITH_DETAIL = [false, true, false, false, true, false, true, true];
+/** Which of the ten lines carry a detail line under the label (`summaryLines`). */
+const LINES_WITH_DETAIL = [false, true, false, false, false, false, true, false, true, true];
 
 /**
- * The card's tracing for `loading.tsx`: the eight lines, label left and figure right, with the
+ * The card's tracing for `loading.tsx`: the ten lines, label left and figure right, with the
  * detail line under the four that have one. The "waiting for your review" row is data (most
  * months have none), so it is not reserved.
  */

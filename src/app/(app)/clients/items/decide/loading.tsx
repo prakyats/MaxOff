@@ -38,7 +38,7 @@ export default function Loading() {
           <Skeleton className="h-11 w-36 rounded-lg md:h-8" />
         </div>
       </div>
-      <span className="sr-only">Loading Unfinished items</span>
+      <span className="sr-only">Loading Unfinished deliverables</span>
     </div>
   );
 }

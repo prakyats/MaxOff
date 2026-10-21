@@ -253,7 +253,7 @@ export function DayDetail({
   day: CalendarDay;
   today: ISODate;
   scope: CalendarScope;
-  /** "Free: … · Busy 10–1: … · On leave: …" (the Owner and Admins); null for Crew. */
+  /** "On leave: … · Busy all day: …" or "Everyone is available" (the Owner and Admins); null for Crew. */
   free: string | null;
   /** The day's action (the route's: New task, or Suggest a task); null for none. */
   action: ReactNode;
@@ -434,7 +434,7 @@ export function ClientItemsList({
     >
       <h3 id={headingId} className="flex items-center gap-1.5 text-sm font-semibold">
         <ListChecksIcon className="text-muted-foreground size-4" aria-hidden />
-        Client items · {items.length}
+        Deliverables · {items.length}
       </h3>
       <ul
         className={cn(

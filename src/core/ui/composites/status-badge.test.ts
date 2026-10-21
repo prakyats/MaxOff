@@ -83,8 +83,9 @@ describe("STATUS_TONES", () => {
     for (const s of ["pending_review", "awaiting_choice", "changes_requested", "admin_approved"]) {
       expect(statusTone(s), s).toBe("attention");
     }
-    // C5: a cancelled record is closed with a reason, nothing to act on: grey, never red.
-    for (const s of ["cancelled", "draft", "todo", "inactive", "withdrawn", "none", "skipped"]) {
+    // Owner correction 2026-10-21 (reverses C5): Cancelled is final, so red.
+    expect(statusTone("cancelled")).toBe("danger");
+    for (const s of ["draft", "todo", "inactive", "withdrawn", "none", "skipped"]) {
       expect(statusTone(s), s).toBe("neutral");
     }
   });

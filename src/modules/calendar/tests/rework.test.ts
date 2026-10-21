@@ -169,12 +169,24 @@ describe("the month's strips (decision 25 C, amended by the owner 2026-10-08)", 
       tone: "due",
       count: 1,
       label: "1 due",
+      // L7: the one item's title, for a laptop's cell.
+      name: "Edit",
     });
     const past = day({ date: "2026-10-07", due: dueOn("2026-10-07") });
-    expect(dueBadge(past, TODAY)).toEqual({ tone: "overdue", count: 1, label: "1 overdue" });
+    expect(dueBadge(past, TODAY)).toEqual({
+      tone: "overdue",
+      count: 1,
+      label: "1 overdue",
+      name: "Edit",
+    });
     expect(allStrips(past, TODAY)).toEqual([
-      { kind: "tasks", key: "tasks", tone: "overdue", count: 1, label: "1 overdue" },
+      { kind: "tasks", key: "tasks", tone: "overdue", count: 1, label: "1 overdue", name: "Edit" },
     ]);
+    // Several: the count only.
+    const two = day({
+      due: [...dueOn(TODAY), ...dueOn("2026-10-09").map((d) => ({ ...d, id: "t-2" }))],
+    });
+    expect(dueBadge(two, TODAY)?.name).toBeNull();
     expect(dueBadge(day(), TODAY)).toBeNull();
   });
 
@@ -245,9 +257,8 @@ describe("who's free (decision 25 D)", () => {
       ],
       onLeave: ["Meera (½)"],
     });
-    expect(whoFreeLine(who!)).toBe(
-      "Who's free: Asha · Busy 10:00 am – 1:00 pm: Kiran, Zoya (freelancer) · Busy 2:30 pm – 3:30 pm: Ravi · On leave: Meera (½)",
-    );
+    // Owner 2026-10-21: only who is away; part-day busy stays on the timeline.
+    expect(whoFreeLine(who!)).toBe("On leave: Meera (½)");
   });
 
   it("an Admin: their own in full, everyone else through availability only (no title, no pending)", () => {
@@ -294,11 +305,21 @@ describe("who's free (decision 25 D)", () => {
       }),
     ).toBeNull();
     expect(whoFreeLine({ free: ["Asha", "Ravi"], busy: [], onLeave: [] })).toBe(
-      "Who's free: Asha, Ravi",
+      "Everyone is available",
     );
     expect(
       whoFreeLine({ free: [], busy: [{ when: "all day", names: ["Kiran"] }], onLeave: [] }),
-    ).toBe("Who's free: nobody · Busy all day: Kiran");
+    ).toBe("Busy all day: Kiran");
+    expect(
+      whoFreeLine({
+        free: [],
+        busy: [
+          { when: "10:00 am – 1:00 pm", names: ["Asha"] },
+          { when: "all day", names: ["Kiran", "Ravi"] },
+        ],
+        onLeave: ["Meera"],
+      }),
+    ).toBe("On leave: Meera · Busy all day: Kiran, Ravi");
     expect(busyWindow({ startAt: istInstant(TODAY, "09:15"), endAt: null })).toBe(
       "9:15 am – 10:15 am",
     );

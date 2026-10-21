@@ -114,7 +114,7 @@ export default async function Loading() {
         aria-busy="true"
         aria-label="Loading Me"
         data-slot="loading-state"
-        className="flex max-w-xl flex-col gap-4"
+        className="flex flex-col gap-4"
       >
         <Card aria-hidden>
           <CardHeader>

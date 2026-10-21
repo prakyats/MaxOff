@@ -42,7 +42,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "text",
-              text: "On a phone each screen has one bar at the top: the back arrow (or just the title on a tab's first screen), the screen's ⋯ menu when it has one, and the bell. A ⋯ menu opens as a sheet from the bottom; back closes it.",
+              text: "On a phone each screen has one bar at the top: the back arrow (or, on a main tab, the small MaxOff “M”, which takes you to your home screen), the title, the screen's ⋯ menu when it has one, and the bell. A ⋯ menu opens as a sheet from the bottom; back closes it.",
             },
           ],
           link: { href: "/today", label: "Open Today" },
@@ -55,7 +55,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "The bell sits in the title bar on a phone and in the top bar on a laptop. Me holds your own page: Attendance & leave, Extra work & expenses, Notifications, Your devices and Help & troubleshooting.",
+              text: "The bell sits in the title bar on a phone and in the top bar on a laptop. Your own Attendance & leave and Extra work & expenses are in the sidebar on a laptop and under More on a phone (and on Me). Me holds your own page: Notifications, Your devices and Help & troubleshooting. Help, this guide, is also in the account menu (your name, top right) and at the foot of the sidebar.",
             },
             {
               kind: "steps",
@@ -323,7 +323,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "The New task form asks for Start from (only if task templates exist), Title, Type, Priority, Assign to, Deadline and Time (IST), Reminders, Client label, Description, Stages and any custom fields.",
+              text: "New task asks for the Title, Assign to, and the Deadline and Time (IST) first. Everything else is under More options: Start from (only if task templates exist), Type (the first by default; an event type opens More options by itself), Priority (Medium by default), Reminders, Client label, Description, Stages and any custom fields.",
             },
             {
               kind: "steps",
@@ -588,7 +588,7 @@ export const ADMIN_GUIDE: Guide = {
               steps: [
                 "Open Settings, then Templates, and add a task template.",
                 "Later, tap New task.",
-                "Pick it under Start from.",
+                "Tap More options and pick it under Start from.",
                 "Adjust the form and tap Create task.",
               ],
             },
@@ -634,7 +634,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: "You see full detail on tasks you can open. Other people’s time shows only as Busy or On leave.",
+              text: "You see full detail on tasks you can open. Other people’s time shows only as Busy or On leave. A day’s sheet names who is away (On leave, Busy all day), or says “Everyone is available”.",
             },
           ],
           link: { href: "/calendar", label: "Open Calendar" },
@@ -881,13 +881,13 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Start from fills the repeat, the default stage groups, the deliverables, and the description and custom fields if they are empty. Search and preview templates opens “Start from a template”: “Preview one to see what it gives, then Use this template.” Search by template name or deliverable title.",
+              text: "Start from fills the repeat, the default stage groups, the deliverables, and the description and custom fields if they are empty. Browse templates opens “Start from a template”: “Preview one to see what it gives, then Use this template.” Search by template name or deliverable title.",
             },
             {
               kind: "steps",
               steps: [
                 {
-                  text: 'In New project, tap "Search and preview templates" (highlighted).',
+                  text: 'In New project, tap "Browse templates" (highlighted).',
                   shot: "admin/templates",
                 },
                 "Type a name or deliverable in the search box.",
@@ -997,7 +997,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "text",
-              text: "Beside the ring, “Needs you” names what to look at: a red dot for a late deliverable (“Reel 1 is 1 day late”), an amber dot for one nearly done (“Interview 2: 1 stage left”, “Reel 3: ready to mark done”). Under Deliverables each row is closed by default: its name, one progress bar with “n/m” stages ticked, “Next: ‹stage›” (a long name ends in “…”; hover or press and hold to read it all) or “All stages ticked”, and its planned date. On a laptop each row is one line in columns; on a phone each deliverable is a card. Every part of the page uses the full width. An empty cycle says “No deliverables yet: add one or start from a template.” with Add deliverable.",
+              text: "Beside the ring, “Needs you” names what to look at: a red dot for a late deliverable (“Reel 1 is 1 day late”), an amber dot for one nearly done (“Interview 2: 1 stage left”, “Reel 3: ready to mark done”). Nothing is shown there when nothing is late or nearly done. On a laptop Deliverables is a table (Deliverable, Progress by group, Next, Planned): the name over “3 groups · 1 of 9 stages”, one line per group with its bar and “n/m” (a long list without groups shows one bar), the next stage as a chip or, once every stage is ticked, a green Mark done, the planned date (late ones in red), then ⋯ and ›. On a phone each deliverable is a card with the same lines per group. Every part of the page uses the full width. An empty cycle says “No deliverables yet: add one or start from a template.” with Add deliverable.",
             },
             {
               kind: "example",
@@ -1354,7 +1354,7 @@ export const ADMIN_GUIDE: Guide = {
               kind: "steps",
               steps: [
                 "Open the project and tap ⋯.",
-                "Choose Complete project, or Cancel project… and give a reason.",
+                "Choose Complete project, or Cancel project… and give a reason (Keep project closes the question without cancelling).",
                 "To change anything later, tap ⋯ and choose Reopen project….",
               ],
             },
@@ -1486,7 +1486,7 @@ export const ADMIN_GUIDE: Guide = {
             {
               kind: "steps",
               steps: [
-                "Open Settings, then Stage presets.",
+                "Open Settings, then Templates: Stage presets is the first section (on a phone, the Presets tab).",
                 {
                   text: 'Tap "Add preset" (highlighted) to add a preset.',
                   shot: "admin/stage-presets",
@@ -1501,10 +1501,10 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: "You can edit or archive only the presets you made. Archiving stops new projects from offering it. Projects that already used it keep their stages.",
+              text: "You can edit or delete only the presets you made. Delete stops new projects from offering it, with Undo in its message for a few seconds. Projects that already used it keep their stages.",
             },
           ],
-          link: { href: "/settings/stage-presets", label: "Open Stage presets" },
+          link: { href: "/settings/templates#presets", label: "Open Stage presets" },
           keywords: ["preset", "stages", "archive"],
         },
         {
@@ -1578,7 +1578,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "A project template keeps the default stage groups and the deliverables with their stages. A deliverable template keeps its stage groups, with no ticks or dates.",
+              text: "A project template keeps the structure only: the repeat, the default stage groups and the deliverables with their stages, never the description or custom field values. A deliverable template keeps its stage groups, with no ticks or dates.",
             },
             {
               kind: "steps",
@@ -1603,11 +1603,11 @@ export const ADMIN_GUIDE: Guide = {
         {
           id: "admin-templates-yours",
           title: "Your templates and the Owner’s",
-          summary: "You edit and archive your own; templates are copied, never linked.",
+          summary: "You edit and delete your own; templates are copied, never linked.",
           blocks: [
             {
               kind: "text",
-              text: "Templates has Task templates, Project templates and Deliverable templates, with a search box. Every project and deliverable template row has a Preview button, and on your own ones a pencil (“Edit ‹name›”) and an archive box (“Archive ‹name›”). You edit and archive only the templates you made. The Owner can do it for any. With none yet, a list says so, such as “No project templates yet: Add one to start projects faster.”",
+              text: "Templates is one page: Stage presets, Deliverable templates and Project templates, then, under a line, Task templates (on a phone, four tabs), with one search box for all of them. Every project and deliverable template row has a Preview button, and on your own ones a pencil (“Edit ‹name›”) and a bin (“Delete ‹name›”; on a phone, in the row’s ⋯). You edit and delete only the templates you made. The Owner can do it for any. With none yet, a list says so, such as “No project templates yet: Add one to start projects faster.”",
             },
             {
               kind: "steps",
@@ -1617,16 +1617,16 @@ export const ADMIN_GUIDE: Guide = {
                   shot: "admin/templates",
                 },
                 "Tap Preview on a project or deliverable template to see what work made from it gets.",
-                "Edit or archive one of your own. Archive asks first.",
+                "Edit or delete one of your own. Delete asks first.",
               ],
             },
             {
               kind: "next",
-              text: "An archived template stops being offered: “Archived ‹name›: New project no longer offers it”. Tap Restore on an archived one to bring it back: “Restored ‹name›: New project offers it again”. A task template’s Archive is a plain button, never red.",
+              text: "A deleted template stops being offered: the message “‹name› deleted” has Undo for a few seconds. The question's Delete button is red, as for every final action; nothing is destroyed.",
             },
             {
               kind: "note",
-              text: "A template is copied into a project when you use it, so later template edits never change existing projects. Archiving does not touch work already made from it.",
+              text: "A template is copied into a project when you use it, so later template edits never change existing projects. Deleting does not touch work already made from it.",
             },
           ],
           link: { href: "/settings/templates", label: "Open Templates" },
@@ -1651,7 +1651,7 @@ export const ADMIN_GUIDE: Guide = {
               kind: "steps",
               steps: [
                 {
-                  text: "Make stage presets. In Settings, Stage presets, add “Edit” (Rough cut, Fine cut) and “Review” (Internal check, Final check).",
+                  text: "Make stage presets. In Settings, Templates, Stage presets, add “Edit” (Rough cut, Fine cut) and “Review” (Internal check, Final check).",
                   shot: "admin/stage-presets",
                 },
                 "Make a deliverable template. In Settings, Templates, add “Reel” and give it stage groups, for example Edit and Review.",
@@ -1891,11 +1891,11 @@ export const ADMIN_GUIDE: Guide = {
         {
           id: "admin-settings-overview",
           title: "What you can change in Settings",
-          summary: "Notifications, Job titles, Stage presets, Custom fields and Templates.",
+          summary: "Notifications, Job titles, Custom fields and Templates.",
           blocks: [
             {
               kind: "text",
-              text: "You see five sections. Notifications shows who on your open tasks can’t be reached. Job titles are the titles people can be given. Stage presets and Templates are covered in their own topics. Custom fields are extra fields on clients and contacts.",
+              text: "You see four sections in two groups, each row with one line on what it holds. Notifications shows who on your open tasks can’t be reached. Job titles are the titles people can be given. Templates (stage presets and every kind of template, on one page) has its own topics. Custom fields are extra fields on clients and contacts.",
             },
             {
               kind: "steps",
@@ -1970,7 +1970,7 @@ export const ADMIN_GUIDE: Guide = {
     },
     {
       id: "notifications",
-      title: "Notifications",
+      title: "Alerts and your phone",
       topics: [
         {
           id: "admin-alerts",

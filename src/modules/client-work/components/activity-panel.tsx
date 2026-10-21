@@ -127,7 +127,7 @@ export function ActivityPanel({
       open={open}
       onOpenChange={onOpenChange}
       title={item ? `History of ${item.title}` : "Activity"}
-      description={item ? "This item's changes, newest first." : "Newest first."}
+      description={item ? "This deliverable's changes, newest first." : "Newest first."}
     >
       <div className="flex flex-col gap-3" data-slot="activity-panel">
         {item ? null : (

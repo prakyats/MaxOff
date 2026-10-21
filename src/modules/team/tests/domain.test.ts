@@ -340,6 +340,12 @@ describe("invite link and email", () => {
       passwordMinLength: 12,
     });
     expect(mail.subject).toBe("Prishit invited you to MaxOff");
+    // 6b.10: the studio is 3not8studios (the app stays MaxOff); the old name is gone.
+    expect(mail.text).toContain("the 3not8studios team app");
+    expect(mail.text).toContain("MaxOff and 3not8studios will never ask for your password");
+    expect(mail.html).toContain("3not8studios operations");
+    expect(mail.html).toContain("MaxOff is 3not8studios' internal work app");
+    expect(`${mail.text}${mail.html}`).not.toContain("Pixora");
     expect(mail.text).toContain("https://maxoff.app/auth/confirm?token_hash=x&type=invite");
     expect(mail.html).toContain("&lt;New&gt;");
     expect(mail.html).toContain(

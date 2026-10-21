@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
+import { cn } from "@/core/lib/utils";
 import { CustomFieldsView } from "@/core/custom-fields/components/custom-fields-view";
 import { listDefinitions } from "@/core/custom-fields/server";
 import { checkThenRead, startEarly } from "@/core/lib/start-early";
@@ -373,19 +374,48 @@ export default async function ProjectPage({
           />
         ) : null}
 
-        {project.description || definitions.length > 0 ? (
-          <section aria-labelledby="project-details" className="flex min-w-0 flex-col gap-2">
-            <h2 id="project-details" className="text-sm font-medium">
-              Details
-            </h2>
-            <div className="border-border bg-card flex flex-col gap-3 rounded-lg border px-4 py-3 text-sm">
-              {project.description ? (
-                <p className="reading break-words whitespace-pre-wrap">{project.description}</p>
+        {/* Details as the approved sample's full-width field grid (owner 2026-10-21): a cell a
+            field, its small label over its value; the project fields follow in the same card. */}
+        <section aria-labelledby="project-details" className="flex min-w-0 flex-col gap-2">
+          <h2 id="project-details" className="text-sm font-medium">
+            Details
+          </h2>
+          <div className="border-border bg-card overflow-hidden rounded-lg border text-sm">
+            <dl
+              data-slot="project-details-grid"
+              className="divide-border grid grid-cols-[repeat(auto-fit,minmax(min(11rem,100%),1fr))] divide-x"
+            >
+              <div className="flex min-w-0 flex-col gap-0.5 px-4 py-3">
+                <dt className="text-muted-foreground text-xs">Repeats</dt>
+                <dd>{RECURRENCE_LABELS[project.recurrence]}</dd>
+              </div>
+              {project.deliveryDate ? (
+                <div className="flex min-w-0 flex-col gap-0.5 px-4 py-3">
+                  <dt className="text-muted-foreground text-xs">Delivery date</dt>
+                  <dd className="tabular-nums">{shortDate(project.deliveryDate)}</dd>
+                </div>
               ) : null}
-              <CustomFieldsView definitions={projectFields} values={project.customFields} />
-            </div>
-          </section>
-        ) : null}
+              <div className="flex min-w-0 flex-col gap-0.5 px-4 py-3">
+                <dt className="text-muted-foreground text-xs">Notes</dt>
+                <dd
+                  className={cn(
+                    "break-words whitespace-pre-wrap",
+                    !project.description && "text-muted-foreground",
+                  )}
+                >
+                  {project.description ?? "Not added"}
+                </dd>
+              </div>
+            </dl>
+            {definitions.length > 0 ? (
+              <CustomFieldsView
+                definitions={projectFields}
+                values={project.customFields}
+                className="border-border border-t px-4 py-3"
+              />
+            ) : null}
+          </div>
+        </section>
       </div>
     </>
   );

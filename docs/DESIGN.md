@@ -69,11 +69,11 @@ dark, a higher step is a lighter graphite, because shadows barely read on black.
 
 | Tone | Token | Light | Dark | Means |
 |---|---|---|---|---|
-| Red | `danger` (= `brand`, `destructive`) | `#C42126` | `#F2686D` | act now, a limit passed (overdue, rejected, absent, escalated, not noted past its reminder), and destructive actions |
+| Red | `danger` (= `brand`, `destructive`) | `#C42126` | `#F2686D` | act now, a limit passed (overdue, rejected, absent, escalated, not noted past its reminder), **cancelled** (final; owner correction 2026-10-21, reversing C5), and destructive or final actions |
 | Amber | `attention` | `#AD5009` | `#FBBF24` | soon or at risk: due today, waiting 1–3 days, a late start, something waiting for the Owner |
 | Blue | `info` | `#1D4ED8` | `#7DA2FF` | in progress, new, unread: work in motion only |
 | Green | `success` | `#047857` | `#34D399` | done, approved, present, active |
-| Grey | `neutral` | `#52525B` | `#A1A1AA` | nothing to do: zero, closed, archived, cancelled (C5), past, plain labels |
+| Grey | `neutral` | `#52525B` | `#A1A1AA` | nothing to do: zero, closed, archived, past, plain labels |
 | Holiday green | `holiday` | `#15803D` | `#4ADE80` | a holiday on the calendar (decision 25), never a status |
 | Weekly off | `off-day` | `#0369A1` | `#7DD3FC` | the calendar's weekly-off date number, never red |
 | Logo | `logo` | `#C42126` | `#C42126` | the logo tile only (a fixed brand asset) |
@@ -118,8 +118,13 @@ dark, a higher step is a lighter graphite, because shadows barely read on black.
 - **Confirmations name the action** ("Deactivate Ravi", "Approve 3", "Discard changes"), never
   "OK", "Yes" or "Confirm". `ConfirmDialog` and `ReasonDialog` take `destructive` for a destructive
   act: their commit is then `danger`, otherwise `primary`.
+- **Final actions are red** (owner correction 2026-10-21): Close deliverable, Cancel project / task,
+  Reject, Revoke, Cancel approved leave, Deactivate, Withdraw (an invite, a claim, a request), Remove
+  (a device, a holiday, a stage), Discard and Delete commit with the red `danger`
+  (`destructive`). A unit test (`final-actions.test.ts`) sweeps every `ConfirmDialog` /
+  `ReasonDialog` call site by its commit label, so none can silently be neutral.
 - **Archive is not destructive** (owner, 2026-10-16: "archive never red"): it can be restored, so
-  its question commits with `primary`.
+  its question commits with `primary` (the same test keeps it so).
 - **Archive and Remove are grey everywhere** (C3): a `ghost` icon in a row, a `secondary` button
   in a sheet or a footer ("Remove photo", a device's Remove), a plain menu item ("Remove stage").
   The red appears only in the confirmation step, on the named `danger` commit ("Remove Diwali",
@@ -158,7 +163,8 @@ No `rounded-xs`, `rounded-2xl` and above, no `rounded-[…]` (lint).
 ## 6. Spacing and layout
 - A 4 px grid (Tailwind's spacing scale); hairline borders; **dashed borders mean "empty" only**.
 - **One header bar on a phone (L4):** the page's own title bar (`PageHeader`), 44 px, sticky at
-  the top edge: the back chevron (none on a tab's first screen), the title, the record's ⋯ and the
+  the top edge: the back chevron (on a top-level tab instead the small MaxOff mark, which goes home
+  by replace, adding no history; owner 2026-10-21, V4), the title, the record's ⋯ and the
   bell. No brand bar above it (home is the bottom bar's first tab; Me is in the bar or More), and
   nothing slides away. The screen's main creation stays the FAB above the bottom bar. The laptop
   keeps its top bar (bell, theme, account) beside the sidebar.
@@ -175,7 +181,7 @@ No `rounded-xs`, `rounded-2xl` and above, no `rounded-[…]` (lint).
   never sets its own `max-w-*`. **Running text** (a description, a note, a paragraph of help) takes
   the `reading` utility (`globals.css`, at most 70 characters a line) inside that width. Dialogs and
   sheets keep their own sizes. V4's pages (Settings, People, Reports, Me, Alerts) adopt the same
-  grid by dropping their `max-w-*`.
+  grid by dropping their `max-w-*` (done in V4; the guide's reading column stays).
 - Laptop: compact rows (32 px controls). Phone: 16 px side gutters, 44 px targets, bottom sheets, a
   sticky primary action, cards instead of tables (ARCHITECTURE §14.1).
 - **Bottom-bar labels (V3):** 12 px (`text-xs`, the scale's minimum), one line. Each of the five
@@ -201,6 +207,19 @@ No `rounded-xs`, `rounded-2xl` and above, no `rounded-[…]` (lint).
   automatic), and two or more stages typed as numbered rounds add the tip to use "+ Another revision
   round" (E). **N5:** a row's action is "Next: ‹stage›" until every stage is ticked, then a neutral
   Mark done (Admin Today's Client work; the project page keeps Mark done in ⋯ until ready).
+- **The project page matches the approved sample (owner 2026-10-21, V4; supersedes the rows above
+  where they differ; the ring stays as built).** On a laptop the deliverables are a **table**: a
+  header row (Deliverable · Progress by group · Next · Planned), then one row each: the name over
+  "3 groups · 1 of 9 stages"; **one line per group** (its name, a segmented bar, a segment a stage,
+  ticked green, and "n/m"; an untitled short list is one "Stages" line; the single continuous bar
+  only for one long ungrouped list, fix C); the next stage as a **chip** in its own column, or, once
+  every stage is ticked, **Mark done** there (the first ready row's in **Forest green**, the
+  `approve` Button variant, token `--approve` #15803D, still one solid per layer; V5 extends it to
+  Approve, Approve all and Grant comp leave); the planned date in its own column ("15 Oct · 1 day
+  late" in red, "Not planned" muted); then ⋯ and ›. A phone keeps its cards with the same lines per
+  group. **Needs you** beside the ring only when something is late or nearly done: nothing at all
+  otherwise. **Details** is a full-width field grid (Repeats, Delivery date, Notes; then the
+  project fields), a cell each, its small label over its value.
 - **Long names (F) everywhere:** left-aligned, two lines at most, then an ellipsis; never centred in a
   chip.
 
@@ -208,6 +227,38 @@ No `rounded-xs`, `rounded-2xl` and above, no `rounded-[…]` (lint).
   header. On a phone they sit above the bottom nav, the home indicator and the offline/push bands,
   and above whatever is docked there: the FAB, a floating save bar (its measured height) and the
   Select bar (`--app-bulk-bar-h`); one variable, `--app-toast-bottom` in `globals.css`, places them.
+
+- **Settings (V4).** **N3:** the Settings page is four groups (Company and working days, Lists and
+  fields, Templates, Integrations), each a quiet heading over one bordered list; every row is the
+  section's name over one line saying what it holds, on a phone and a laptop alike (two groups to a
+  row from `lg`). **D6, one list pattern:** "Add ‹thing›" on the list's heading (C4); each row's
+  actions are Edit · Delete (`ListRowActions`: grey icons from `md`, one ⋯ sheet on a phone), plus a
+  labelled **Preview** at every width where there is something to look at (templates). **Delete is
+  the existing archive** (no Archived list; the toast "‹name› deleted" offers Undo for 6 s where
+  unarchive exists; records that carry it keep it); the row's icon stays grey, and the
+  confirmation's named commit ("Delete ‹name›") is red like every final action (owner correction
+  2026-10-21); a deliverable template still asks its reason (invariant 9). The word "Archive" leaves these pages
+  (it stays in code, DB and docs). **The one Templates page (6b.6 owner note):** Stage presets →
+  Deliverable templates → Project templates, a divider, then Task templates; one search across all
+  four; one "Add …" per section. On a phone the four sections are a **segmented control** (a view
+  control, no history; a muted track with the chosen segment raised; while a search is typed each
+  segment shows its number of matches, so a hit is never hidden); `#presets` (the old Stage presets
+  path redirects there by replace), `#deliverables`, `#projects`, `#tasks` pick a segment on
+  arrival. **Thresholds (6b.6, P5):** first glance, then depth: each group (Working day, Tasks,
+  Client work, Notifications; Approvals joins with 6b.5) is a bordered row with its name over a
+  one-line summary of the saved values ("Not noted: remind every 2 h → Admin at 4 h → Owner at
+  8 h"); a tap opens it in place (native `<details>`, a view control); a group with a refused field
+  opens by itself; one Save stays in reach (the phone's bar, and sticky at the window's bottom on a
+  laptop).
+- **Short forms first (L9, V4):** New task asks the title, the people and the deadline; the rest sits
+  under **More options** (a bordered native `<details>` row naming what it holds), with the same
+  defaults; it opens by itself when needed (an event type, a refused field). New project gives each
+  section one short line (the shared editors' extra hints off) and a real **Browse templates**
+  button (secondary, with an icon), never text that looks like a link.
+- **Words (W1–W4, V4):** "deliverables" wherever people read (never "items"); the bell's screen is
+  **Alerts** and the profile is **Me** everywhere (the account menu says Me, then Help); a
+  destructive question's way out names what is kept ("Keep project" beside "Cancel project"); a
+  line is written for the person reading it (no "the Owner changes this" to the Owner).
 
 ## 7. Motion: calm
 | Token | Value | Used for |

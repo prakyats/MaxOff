@@ -1,8 +1,8 @@
 "use client";
 
-import { AlertTriangleIcon, Loader2Icon, PlusIcon, XIcon } from "lucide-react";
+import { AlertTriangleIcon, ChevronDownIcon, Loader2Icon, PlusIcon, XIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { Suspense, use, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, Suspense, use, useEffect, useMemo, useRef, useState } from "react";
 
 import type { FieldDefinition } from "@/core/custom-fields";
 import { CustomFieldsForm } from "@/core/custom-fields/components/custom-fields-form";
@@ -223,7 +223,7 @@ export function TaskFormDialog({
                   : "Changes are recorded in the task's history."}
             </DialogDescription>
           </DialogHeader>
-          <Suspense fallback={<FormSkeleton />}>
+          <Suspense fallback={<FormSkeleton creating={creating} />}>
             <TaskForm
               setup={setup}
               mode={mode}
@@ -260,20 +260,27 @@ export function TaskFormDialog({
   );
 }
 
-/** The fields' tracing while the setup loads: title, type and priority, people, deadline. */
-function FormSkeleton() {
+/**
+ * The fields' tracing while the setup loads. New task (L9): title, people, deadline, then the
+ * "More options" row; Edit: title, type and priority, people, deadline.
+ */
+function FormSkeleton({ creating }: { creating: boolean }) {
+  const typeRow = (
+    <div className="flex flex-col gap-4 sm:flex-row">
+      <Skeleton className="h-11 flex-1" />
+      <Skeleton className="h-11 flex-1" />
+    </div>
+  );
   return (
     <div aria-hidden className="flex flex-col gap-4" data-slot="task-form-skeleton">
       <Skeleton className="h-11 w-full" />
-      <div className="flex flex-col gap-4 sm:flex-row">
-        <Skeleton className="h-11 flex-1" />
-        <Skeleton className="h-11 flex-1" />
-      </div>
+      {creating ? null : typeRow}
       <Skeleton className="h-11 w-full" />
       <div className="flex gap-4">
         <Skeleton className="h-11 flex-1" />
         <Skeleton className="h-11 w-32" />
       </div>
+      {creating ? <Skeleton className="rounded-card h-14 w-full" /> : null}
       <div className="flex justify-end gap-2">
         <Skeleton className="h-11 w-24" />
         <Skeleton className="h-11 w-32" />
@@ -590,6 +597,23 @@ function TaskForm({
     organisation: loaded.orgReminders,
   });
 
+  // L9: a refused field under "More options" opens it, so the message is never hidden.
+  const moreHasError =
+    Object.keys(customErrors).length > 0 ||
+    (
+      [
+        "taskTypeId",
+        "reminders",
+        "eventDate",
+        "eventStart",
+        "eventEnd",
+        "location",
+        "purpose",
+        "description",
+        "stages",
+      ] as const
+    ).some((key) => Boolean(errors[key]));
+
   return (
     <form
       onSubmit={submit}
@@ -599,46 +623,6 @@ function TaskForm({
     >
       {summary ? (
         <ErrorText slot="form-alert">{summary.description ?? summary.title}</ErrorText>
-      ) : null}
-
-      {templates.length > 0 ? (
-        <FormField
-          label="Start from"
-          hint="A template sets the type, priority, stages and field defaults. You pick the people, the deadline and the client."
-        >
-          {(control) => (
-            <Select
-              value={
-                templates.some((option) => option.id === draft.templateId)
-                  ? draft.templateId
-                  : NO_TEMPLATE
-              }
-              onValueChange={(value) => {
-                const template = templates.find((option) => option.id === value);
-                // "No template" keeps what one gave and records none.
-                if (template) setDraft((currentDraft) => applyTemplate(currentDraft, template));
-                else update({ templateId: "" });
-                setErrors({});
-              }}
-            >
-              <SelectTrigger
-                id={control.id}
-                className="w-full"
-                aria-describedby={control["aria-describedby"]}
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NO_TEMPLATE}>No template</SelectItem>
-                {templates.map((template) => (
-                  <SelectItem key={template.id} value={template.id}>
-                    {template.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        </FormField>
       ) : null}
 
       <FormField label="Title" error={errors.title}>
@@ -654,65 +638,6 @@ function TaskForm({
           />
         )}
       </FormField>
-
-      <div className="flex flex-col gap-4 sm:flex-row">
-        <FormField label="Type" error={errors.taskTypeId} className="min-w-0 flex-1">
-          {(control) => (
-            <Select
-              value={type?.id ?? ""}
-              onValueChange={(value) =>
-                update({ taskTypeId: value }, [
-                  "taskTypeId",
-                  "eventDate",
-                  "eventStart",
-                  "eventEnd",
-                  "location",
-                  "purpose",
-                ])
-              }
-            >
-              <SelectTrigger
-                id={control.id}
-                className="w-full"
-                aria-describedby={control["aria-describedby"]}
-                aria-invalid={control["aria-invalid"]}
-              >
-                <SelectValue placeholder="Choose" />
-              </SelectTrigger>
-              <SelectContent>
-                {types.map((option) => (
-                  <SelectItem key={option.id} value={option.id}>
-                    {option.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        </FormField>
-        <FormField label="Priority" className="min-w-0 flex-1">
-          {(control) => (
-            <Select
-              value={draft.priority}
-              onValueChange={(value) => update({ priority: value as Priority })}
-            >
-              <SelectTrigger
-                id={control.id}
-                className="w-full"
-                aria-describedby={control["aria-describedby"]}
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PRIORITIES.map((priority) => (
-                  <SelectItem key={priority} value={priority}>
-                    {PRIORITY_LABELS[priority]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        </FormField>
-      </div>
 
       <fieldset className="flex min-w-0 flex-col gap-2" data-slot="task-assignees">
         <legend className="mb-1.5 text-sm font-medium">Assign to</legend>
@@ -852,136 +777,26 @@ function TaskForm({
         </FormField>
       </div>
 
-      <ReminderRulesEditor
-        draft={draft.reminders}
-        onChange={(reminders) => update({ reminders }, ["reminders"])}
-        fallback={defaultReminders}
-        disabled={pending}
-        error={errors.reminders}
-      />
-
-      {isEvent ? (
-        <div className="flex flex-col gap-4" data-slot="task-event-fields">
-          <FormField label="Event date" error={errors.eventDate}>
-            {(control) => (
-              <Input
-                {...control}
-                name="eventDate"
-                type="date"
-                value={draft.eventDate}
-                onChange={(event) => update({ eventDate: event.target.value }, ["eventDate"])}
-                required
-              />
-            )}
-          </FormField>
-          <div className="flex gap-4">
-            <FormField
-              label="Starts"
-              hint="Optional"
-              error={errors.eventStart}
-              className="min-w-0 flex-1"
-            >
-              {(control) => (
-                <Input
-                  {...control}
-                  name="eventStart"
-                  type="time"
-                  value={draft.eventStart}
-                  onChange={(event) =>
-                    update({ eventStart: event.target.value }, ["eventStart", "eventEnd"])
-                  }
-                />
-              )}
-            </FormField>
-            <FormField
-              label="Ends"
-              hint="Optional"
-              error={errors.eventEnd}
-              className="min-w-0 flex-1"
-            >
-              {(control) => (
-                <Input
-                  {...control}
-                  name="eventEnd"
-                  type="time"
-                  value={draft.eventEnd}
-                  onChange={(event) =>
-                    update({ eventEnd: event.target.value }, ["eventEnd", "eventStart"])
-                  }
-                />
-              )}
-            </FormField>
-          </div>
-          {type?.hasLocation ? (
-            <FormField label="Location" error={errors.location}>
-              {(control) => (
-                <Input
-                  {...control}
-                  name="location"
-                  value={draft.location}
-                  maxLength={LOCATION_MAX}
-                  autoComplete="off"
-                  onChange={(event) => update({ location: event.target.value }, ["location"])}
-                />
-              )}
-            </FormField>
-          ) : null}
-          <FormField label="Purpose" error={errors.purpose}>
-            {(control) => (
-              <Textarea
-                {...control}
-                name="purpose"
-                rows={2}
-                maxLength={PURPOSE_MAX}
-                value={draft.purpose}
-                onChange={(event) => update({ purpose: event.target.value }, ["purpose"])}
-              />
-            )}
-          </FormField>
-        </div>
-      ) : null}
-
-      <FormField
-        label="Client label"
-        hint={`${ROLE_LABELS.staff} see only the client's name and brand basics.`}
-      >
-        {(control) => (
-          <Select value={(clientOffered && draft.clientId) || NO_CLIENT} onValueChange={pickClient}>
-            <SelectTrigger
-              id={control.id}
-              className="w-full"
-              aria-describedby={control["aria-describedby"]}
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={NO_CLIENT}>No client</SelectItem>
-              {clients.map((client) => (
-                <SelectItem key={client.id} value={client.id}>
-                  {client.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-      </FormField>
-
-      {creating ? (
-        loaded.isOwner ? (
+      <MoreOptions collapsible={creating} forceOpen={isEvent || moreHasError}>
+        {templates.length > 0 ? (
           <FormField
-            label="Checked first by"
-            hint={
-              approverName
-                ? `${approverName} checks it, then you approve it.`
-                : "Nobody: it comes straight to you."
-            }
+            label="Start from"
+            hint="A template sets the type, priority, stages and field defaults. You pick the people, the deadline and the client."
           >
             {(control) => (
               <Select
-                value={approverId || OWNER_APPROVES}
-                onValueChange={(value) =>
-                  update({ approverId: value === OWNER_APPROVES ? "" : value })
+                value={
+                  templates.some((option) => option.id === draft.templateId)
+                    ? draft.templateId
+                    : NO_TEMPLATE
                 }
+                onValueChange={(value) => {
+                  const template = templates.find((option) => option.id === value);
+                  // "No template" keeps what one gave and records none.
+                  if (template) setDraft((currentDraft) => applyTemplate(currentDraft, template));
+                  else update({ templateId: "" });
+                  setErrors({});
+                }}
               >
                 <SelectTrigger
                   id={control.id}
@@ -991,78 +806,292 @@ function TaskForm({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={OWNER_APPROVES}>Nobody: you approve it</SelectItem>
-                  {loaded.admins.map((admin) => (
-                    <SelectItem key={admin.id} value={admin.id}>
-                      {admin.name}
+                  <SelectItem value={NO_TEMPLATE}>No template</SelectItem>
+                  {templates.map((template) => (
+                    <SelectItem key={template.id} value={template.id}>
+                      {template.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             )}
           </FormField>
-        ) : (
-          <p className="text-muted-foreground text-sm" data-slot="task-route">
-            You check it when it&apos;s done, then the Owner approves it.
-          </p>
-        )
-      ) : null}
+        ) : null}
 
-      <FormField
-        label="Description"
-        hint="Optional. Links to a brief go here."
-        error={errors.description}
-      >
-        {(control) => (
-          <Textarea
-            {...control}
-            name="description"
-            rows={3}
-            maxLength={DESCRIPTION_MAX}
-            value={draft.description}
-            onChange={(event) => update({ description: event.target.value }, ["description"])}
-          />
-        )}
-      </FormField>
+        <div className="flex flex-col gap-4 sm:flex-row">
+          <FormField label="Type" error={errors.taskTypeId} className="min-w-0 flex-1">
+            {(control) => (
+              <Select
+                value={type?.id ?? ""}
+                onValueChange={(value) =>
+                  update({ taskTypeId: value }, [
+                    "taskTypeId",
+                    "eventDate",
+                    "eventStart",
+                    "eventEnd",
+                    "location",
+                    "purpose",
+                  ])
+                }
+              >
+                <SelectTrigger
+                  id={control.id}
+                  className="w-full"
+                  aria-describedby={control["aria-describedby"]}
+                  aria-invalid={control["aria-invalid"]}
+                >
+                  <SelectValue placeholder="Choose" />
+                </SelectTrigger>
+                <SelectContent>
+                  {types.map((option) => (
+                    <SelectItem key={option.id} value={option.id}>
+                      {option.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </FormField>
+          <FormField label="Priority" className="min-w-0 flex-1">
+            {(control) => (
+              <Select
+                value={draft.priority}
+                onValueChange={(value) => update({ priority: value as Priority })}
+              >
+                <SelectTrigger
+                  id={control.id}
+                  className="w-full"
+                  aria-describedby={control["aria-describedby"]}
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PRIORITIES.map((priority) => (
+                    <SelectItem key={priority} value={priority}>
+                      {PRIORITY_LABELS[priority]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </FormField>
+        </div>
 
-      {creating ? (
-        <fieldset className="flex min-w-0 flex-col gap-2" data-slot="task-stage-fields">
-          <legend className="mb-1.5 text-sm font-medium">
-            Stages <span className="text-muted-foreground font-normal">(optional)</span>
-          </legend>
-          <ReorderNameList
-            names={draft.stages}
-            onChange={(stages) => update({ stages }, ["stages"])}
-            label="Stages"
-            itemLabel={(index) => `Stage ${index + 1}`}
-            removeLabel="Remove stage"
-            namePrefix="stage"
-            maxLength={STAGE_NAME_MAX}
-            slot="task-stage-field"
-          />
-          {errors.stages ? <ErrorText slot="field-error">{errors.stages}</ErrorText> : null}
-          {draft.stages.length < STAGES_MAX ? (
-            <Button
-              type="button"
-              variant="secondary"
-              className="h-11 self-start"
-              onClick={() => update({ stages: [...draft.stages, ""] })}
+        <ReminderRulesEditor
+          draft={draft.reminders}
+          onChange={(reminders) => update({ reminders }, ["reminders"])}
+          fallback={defaultReminders}
+          disabled={pending}
+          error={errors.reminders}
+        />
+
+        {isEvent ? (
+          <div className="flex flex-col gap-4" data-slot="task-event-fields">
+            <FormField label="Event date" error={errors.eventDate}>
+              {(control) => (
+                <Input
+                  {...control}
+                  name="eventDate"
+                  type="date"
+                  value={draft.eventDate}
+                  onChange={(event) => update({ eventDate: event.target.value }, ["eventDate"])}
+                  required
+                />
+              )}
+            </FormField>
+            <div className="flex gap-4">
+              <FormField
+                label="Starts"
+                hint="Optional"
+                error={errors.eventStart}
+                className="min-w-0 flex-1"
+              >
+                {(control) => (
+                  <Input
+                    {...control}
+                    name="eventStart"
+                    type="time"
+                    value={draft.eventStart}
+                    onChange={(event) =>
+                      update({ eventStart: event.target.value }, ["eventStart", "eventEnd"])
+                    }
+                  />
+                )}
+              </FormField>
+              <FormField
+                label="Ends"
+                hint="Optional"
+                error={errors.eventEnd}
+                className="min-w-0 flex-1"
+              >
+                {(control) => (
+                  <Input
+                    {...control}
+                    name="eventEnd"
+                    type="time"
+                    value={draft.eventEnd}
+                    onChange={(event) =>
+                      update({ eventEnd: event.target.value }, ["eventEnd", "eventStart"])
+                    }
+                  />
+                )}
+              </FormField>
+            </div>
+            {type?.hasLocation ? (
+              <FormField label="Location" error={errors.location}>
+                {(control) => (
+                  <Input
+                    {...control}
+                    name="location"
+                    value={draft.location}
+                    maxLength={LOCATION_MAX}
+                    autoComplete="off"
+                    onChange={(event) => update({ location: event.target.value }, ["location"])}
+                  />
+                )}
+              </FormField>
+            ) : null}
+            <FormField label="Purpose" error={errors.purpose}>
+              {(control) => (
+                <Textarea
+                  {...control}
+                  name="purpose"
+                  rows={2}
+                  maxLength={PURPOSE_MAX}
+                  value={draft.purpose}
+                  onChange={(event) => update({ purpose: event.target.value }, ["purpose"])}
+                />
+              )}
+            </FormField>
+          </div>
+        ) : null}
+
+        <FormField
+          label="Client label"
+          hint={`${ROLE_LABELS.staff} see only the client's name and brand basics.`}
+        >
+          {(control) => (
+            <Select
+              value={(clientOffered && draft.clientId) || NO_CLIENT}
+              onValueChange={pickClient}
             >
-              <PlusIcon aria-hidden />
-              Add stage
-            </Button>
-          ) : null}
-        </fieldset>
-      ) : null}
+              <SelectTrigger
+                id={control.id}
+                className="w-full"
+                aria-describedby={control["aria-describedby"]}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_CLIENT}>No client</SelectItem>
+                {clients.map((client) => (
+                  <SelectItem key={client.id} value={client.id}>
+                    {client.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </FormField>
 
-      <CustomFieldsForm
-        definitions={definitions}
-        values={draft.customFields}
-        onChange={(customFields) => update({ customFields })}
-        errors={customErrors}
-        members={loaded.people.map((person) => ({ id: person.id, name: person.name }))}
-        disabled={pending}
-      />
+        {creating ? (
+          loaded.isOwner ? (
+            <FormField
+              label="Checked first by"
+              hint={
+                approverName
+                  ? `${approverName} checks it, then you approve it.`
+                  : "Nobody: it comes straight to you."
+              }
+            >
+              {(control) => (
+                <Select
+                  value={approverId || OWNER_APPROVES}
+                  onValueChange={(value) =>
+                    update({ approverId: value === OWNER_APPROVES ? "" : value })
+                  }
+                >
+                  <SelectTrigger
+                    id={control.id}
+                    className="w-full"
+                    aria-describedby={control["aria-describedby"]}
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={OWNER_APPROVES}>Nobody: you approve it</SelectItem>
+                    {loaded.admins.map((admin) => (
+                      <SelectItem key={admin.id} value={admin.id}>
+                        {admin.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </FormField>
+          ) : (
+            <p className="text-muted-foreground text-sm" data-slot="task-route">
+              You check it when it&apos;s done, then the Owner approves it.
+            </p>
+          )
+        ) : null}
+
+        <FormField
+          label="Description"
+          hint="Optional. Links to a brief go here."
+          error={errors.description}
+        >
+          {(control) => (
+            <Textarea
+              {...control}
+              name="description"
+              rows={3}
+              maxLength={DESCRIPTION_MAX}
+              value={draft.description}
+              onChange={(event) => update({ description: event.target.value }, ["description"])}
+            />
+          )}
+        </FormField>
+
+        {creating ? (
+          <fieldset className="flex min-w-0 flex-col gap-2" data-slot="task-stage-fields">
+            <legend className="mb-1.5 text-sm font-medium">
+              Stages <span className="text-muted-foreground font-normal">(optional)</span>
+            </legend>
+            <ReorderNameList
+              names={draft.stages}
+              onChange={(stages) => update({ stages }, ["stages"])}
+              label="Stages"
+              itemLabel={(index) => `Stage ${index + 1}`}
+              removeLabel="Remove stage"
+              namePrefix="stage"
+              maxLength={STAGE_NAME_MAX}
+              slot="task-stage-field"
+            />
+            {errors.stages ? <ErrorText slot="field-error">{errors.stages}</ErrorText> : null}
+            {draft.stages.length < STAGES_MAX ? (
+              <Button
+                type="button"
+                variant="secondary"
+                className="h-11 self-start"
+                onClick={() => update({ stages: [...draft.stages, ""] })}
+              >
+                <PlusIcon aria-hidden />
+                Add stage
+              </Button>
+            ) : null}
+          </fieldset>
+        ) : null}
+
+        <CustomFieldsForm
+          definitions={definitions}
+          values={draft.customFields}
+          onChange={(customFields) => update({ customFields })}
+          errors={customErrors}
+          members={loaded.people.map((person) => ({ id: person.id, name: person.name }))}
+          disabled={pending}
+        />
+      </MoreOptions>
 
       {warnings.length > 0 ? (
         <p
@@ -1095,5 +1124,50 @@ function TaskForm({
         </Button>
       </DialogFooter>
     </form>
+  );
+}
+
+/**
+ * L9 (v1.8 V4): New task asks for the title, the people and the deadline first; everything else
+ * (Start from, type and priority, reminders, an event's fields, the client label, who checks it,
+ * the description, stages and custom fields) sits under "More options", a native `<details>` (a
+ * view control: no history, §14.2 d). Its fields stay in the form while closed, with their
+ * defaults (the first type, Medium, 6:00 pm). It opens by itself for an event type (whose date is
+ * needed) and when one of its fields is refused. Editing a task shows every field, as before.
+ */
+function MoreOptions({
+  collapsible,
+  forceOpen,
+  children,
+}: {
+  collapsible: boolean;
+  forceOpen: boolean;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  if (!collapsible) return <>{children}</>;
+  return (
+    <details
+      data-slot="task-more-options"
+      open={open || forceOpen}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+      className="group/more border-border rounded-card border"
+    >
+      <summary className="pressable-row focus-visible:ring-ring flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-3 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-inset [&::-webkit-details-marker]:hidden">
+        <span className="flex min-w-0 flex-col py-2">
+          More options
+          <span className="text-muted-foreground text-xs font-normal">
+            Template, type, priority, reminders, client, description, stages
+          </span>
+        </span>
+        <ChevronDownIcon
+          aria-hidden
+          className="text-muted-foreground size-4 shrink-0 transition-transform group-open/more:rotate-180"
+        />
+      </summary>
+      <div className="border-border flex min-w-0 flex-col gap-4 border-t px-3 pt-3 pb-3">
+        {children}
+      </div>
+    </details>
   );
 }

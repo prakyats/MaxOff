@@ -23,6 +23,8 @@ import {
   storageStateFor,
   taskTypeId,
   USERS,
+  openMoreOptions,
+  templatesTab,
 } from "./helpers";
 
 /**
@@ -156,34 +158,29 @@ test.describe("task types and per-type fields, the flows", () => {
       location: "Bandra",
     });
 
-    await page.getByRole("button", { name: `Archive ${name} visit` }).click();
+    await page.getByRole("button", { name: `Delete ${name} visit` }).click();
     await page
       .getByRole("alertdialog")
-      .getByRole("button", { name: `Archive ${name} visit` })
+      .getByRole("button", { name: `Delete ${name} visit` })
       .click();
-    await expect(page.getByText("Task type archived")).toBeVisible();
-    await expect(
-      page.locator('[data-slot="archived-task-type"]').filter({ hasText: `${name} visit` }),
-    ).toBeVisible();
+    // D6: Delete is the archive underneath; no Archived list.
+    await expect(page.getByText(`${name} visit deleted`)).toBeVisible();
+    await expect(rowOf(page, `${name} visit`)).toHaveCount(0);
+    await expect(page.locator('[data-slot="archived-task-type"]')).toHaveCount(0);
 
     await page.goto(`/tasks/${taskId}`);
     await expect(page.locator("main")).toContainText(`${name} visit`);
     await page.goto("/tasks");
     await page.getByRole("button", { name: "New task" }).click();
     const dialog = page.locator('[data-slot="task-form-dialog"]');
+    await openMoreOptions(dialog);
     await dialog.getByLabel("Type").click();
     await expect(page.getByRole("option", { name: "Normal", exact: true })).toBeVisible();
     await expect(page.getByRole("option", { name: `${name} visit` })).toHaveCount(0);
     await page.keyboard.press("Escape");
 
     await page.goto("/settings/task-types");
-    await page
-      .locator('[data-slot="archived-task-type"]')
-      .filter({ hasText: `${name} visit` })
-      .getByRole("button", { name: "Restore" })
-      .click();
-    await expect(page.getByText("Task type restored")).toBeVisible();
-    await expect(rowOf(page, `${name} visit`)).toBeVisible();
+    await expect(rowOf(page, `${name} visit`)).toHaveCount(0);
     await removeTasksTitled(prefix);
   });
 
@@ -212,8 +209,10 @@ test.describe("task types and per-type fields, the flows", () => {
       const dialog = page.locator('[data-slot="task-form-dialog"]');
       await expect(dialog.getByLabel("Title")).toBeVisible();
       await expect(dialog.getByLabel(label)).toHaveCount(0);
+      await openMoreOptions(dialog);
       await pick(page, dialog.getByLabel("Type"), "Meeting");
       await expect(dialog.getByLabel(label)).toBeVisible();
+      await openMoreOptions(dialog);
       await pick(page, dialog.getByLabel("Type"), "Normal");
       await expect(dialog.getByLabel(label)).toHaveCount(0);
     } finally {
@@ -258,7 +257,9 @@ test.describe("task types and per-type fields, the flows", () => {
       await page.goto("/tasks");
       await page.getByRole("button", { name: "New task" }).click();
       const dialog = page.locator('[data-slot="task-form-dialog"]');
+      await openMoreOptions(dialog);
       await pick(page, dialog.getByLabel("Type"), name);
+      await openMoreOptions(dialog);
       await expect(dialog.locator('[data-slot="reminder-summary"]')).toHaveText(
         "Reminders: 5 days before, when due · Using the default",
       );
@@ -335,15 +336,12 @@ test.describe("task types, installed: back and large text", () => {
     await expect(edit).toBeVisible();
     await expectBackStack(page, [{ closes: edit, url }]);
 
-    // The sheet hands off to the archive question, which one back closes (nothing archived).
+    // The sheet hands off to the delete question, which one back closes (nothing deleted).
     await page.getByRole("button", { name: "Actions for Meeting" }).click();
-    await sheet.getByRole("button", { name: "Archive" }).click();
-    const archive = page.getByRole("alertdialog", { name: "Archive Meeting?" });
+    await sheet.getByRole("button", { name: "Delete" }).click();
+    const archive = page.getByRole("alertdialog", { name: "Delete Meeting?" });
     await expect(archive).toBeVisible();
     await expectBackStack(page, [{ closes: archive, url }, { url: /\/settings$/ }]);
-    await expect(
-      page.locator('[data-slot="archived-task-type"]').filter({ hasText: "Meeting" }),
-    ).toHaveCount(0);
   });
 
   test("Custom fields → Tasks: the Add dialog's Applies to sheet, then the dialog, close on back", async ({
@@ -523,33 +521,33 @@ async function editTemplate(page: Page, name: string): Promise<Locator> {
   return dialog;
 }
 
-test.describe("task templates: archive is neutral (the colour rule)", () => {
-  test("the row's Archive (laptop) and the ⋯ sheet's Archive (phone) are never red; the question names it", async ({
+test.describe("task templates: Delete, grey on the row, red in its question (the colour rule)", () => {
+  test("the row's Delete (laptop) and the ⋯ sheet's Delete (phone) are grey; the question's named Delete is red", async ({
     page,
   }, info) => {
     const name = `Neutral archive (${info.project.name})`;
     await ownerTemplate(name, ["Stage 1"]);
-    await page.goto("/settings/templates");
+    await page.goto("/settings/templates#tasks");
     await hydrated(page);
     const row = page.locator('[data-slot="task-template"]').filter({ hasText: name });
     const phone = (page.viewportSize()?.width ?? 1280) < 768;
     if (phone) {
       await row.getByRole("button", { name: `Actions for ${name}` }).click();
       const sheet = page.locator('[data-slot="task-template-actions"]');
-      const archive = sheet.getByRole("button", { name: "Archive" });
+      const archive = sheet.getByRole("button", { name: "Delete" });
       await expect(archive).toHaveAttribute("data-variant", "secondary");
       await archive.click();
     } else {
-      const archive = row.getByRole("button", { name: `Archive ${name}` });
+      const archive = row.getByRole("button", { name: `Delete ${name}` });
       await expect(archive).toHaveAttribute("data-variant", "ghost");
       await archive.click();
     }
-    // The question still confirms it with one named commit; archiving can be restored, so it is
-    // the neutral one, never red (ADR-0015).
-    const question = page.getByRole("alertdialog", { name: `Archive ${name}?` });
-    await expect(question.getByRole("button", { name: `Archive ${name}` })).toHaveAttribute(
+    // The question confirms it with one named commit, red like every final action (owner
+    // correction 2026-10-21, ADR-0015); the row's own Delete stays grey.
+    const question = page.getByRole("alertdialog", { name: `Delete ${name}?` });
+    await expect(question.getByRole("button", { name: `Delete ${name}` })).toHaveAttribute(
       "data-variant",
-      "primary",
+      "danger",
     );
     await removeTemplatesNamed(name);
   });
@@ -561,7 +559,7 @@ test.describe("drag to reorder stages before saving (6b.18)", () => {
   }, info) => {
     const name = `Reorder template (${info.project.name})`;
     await ownerTemplate(name, ["Stage 1", "Stage 2", "Stage 3"]);
-    await page.goto("/settings/templates");
+    await page.goto("/settings/templates#tasks");
     await hydrated(page);
     const dialog = await editTemplate(page, name);
     const rows = dialog.locator('[data-slot="template-stage"]');
@@ -604,7 +602,7 @@ test.describe("drag to reorder stages before saving (6b.18)", () => {
   }, info) => {
     const name = `Reorder preset (${info.project.name})`;
     await ownerPreset(name, ["Stage 1", "Stage 2", "Stage 3"]);
-    await page.goto("/settings/stage-presets");
+    await page.goto("/settings/templates#presets");
     await hydrated(page);
     const row = page.locator('[data-slot="stage-preset"]', { hasText: name });
     await expect(row).toContainText("Stage 1 → Stage 2 → Stage 3");
@@ -641,9 +639,11 @@ test.describe("drag to reorder stages before saving (6b.18)", () => {
     const form = page.getByRole("dialog", { name: "New task" });
     await expect(form).toBeVisible();
     for (const stage of ["Stage 1", "Stage 2"]) {
+      await openMoreOptions(form);
       await form.getByRole("button", { name: "Add stage" }).click();
       await form.getByLabel(`Stage ${stage.slice(-1)}`, { exact: true }).fill(stage);
     }
+    await openMoreOptions(form);
     const rows = form.locator('[data-slot="task-stage-field"]');
     await dragRow(page, rows.nth(1), rows.nth(0), 0.2);
     await expect.poll(() => stageValues(rows)).toEqual(["Stage 2", "Stage 1"]);
@@ -660,9 +660,9 @@ test.describe("drag to reorder, installed (6b.18): a stage's ⋯ menu closes on 
     await ownerPreset(preset, ["Stage 1", "Stage 2"]);
     await runInstalled(page);
 
-    await page.goto("/settings/templates");
+    await page.goto("/settings/templates#tasks");
     await hydrated(page);
-    const templates = /\/settings\/templates$/;
+    const templates = /\/settings\/templates#tasks$/;
     const edit = await editTemplate(page, template);
     await edit.getByRole("button", { name: "Actions for Stage 1" }).click();
     const menu = page.getByRole("menu");
@@ -672,9 +672,9 @@ test.describe("drag to reorder, installed (6b.18): a stage's ⋯ menu closes on 
       { closes: edit, url: templates },
     ]);
 
-    await page.goto("/settings/stage-presets");
-    await hydrated(page);
-    const presets = /\/settings\/stage-presets$/;
+    // The same page's Stage presets section: on a phone its segment (a view control, no load).
+    await templatesTab(page, "presets");
+    const presets = templates;
     // V2 (P2): on a phone a Settings row's Edit sits in its ⋯ sheet.
     await rowAction(
       page,

@@ -1,6 +1,6 @@
 import { expect, test } from "./fixtures";
 
-import { removeJobTitles, storageStateFor } from "./helpers";
+import { openThresholdGroups, removeJobTitles, storageStateFor } from "./helpers";
 import { describeOffDays, istWeekday, pinnedOffDays, WEEKDAY_LONG } from "./calendar";
 import { wallClock } from "./run-state";
 
@@ -35,7 +35,8 @@ test.describe("Owner", () => {
       ["Thresholds", "Thresholds"],
       ["Job titles", "Job titles"],
       ["Task types", "Task types"],
-      ["Stage presets", "Stage presets"],
+      // Stage presets are the Templates page's first section (6b.6 owner note).
+      ["Templates", "Templates"],
     ] as const) {
       await page.goto("/settings");
       await page.getByRole("link", { name, exact: true }).click();
@@ -133,6 +134,12 @@ test.describe("Owner", () => {
     page,
   }) => {
     await page.goto("/settings/thresholds");
+    // 6b.6: the groups at first glance (Approvals joins with 6b.5), each a row with its summary; open the ones to change.
+    await expect(page.locator('[data-slot="threshold-group"]')).toHaveCount(4);
+    await expect(page.locator('[data-slot="threshold-summary"]').first()).toHaveText(
+      /^End-of-day reminder 8:30 pm · late End day until \d{1,2}:\d{2} am$/,
+    );
+    await openThresholdGroups(page, "Working day", "Tasks", "Client work", "Notifications");
     await expect(page.getByLabel("End-of-day reminder")).toHaveValue("20:30");
 
     await page.getByLabel("Escalate to the Owner after (hours)").fill("2");
@@ -144,6 +151,7 @@ test.describe("Owner", () => {
     await page.getByRole("button", { name: "Save thresholds" }).click();
     await expect(page.getByText("Thresholds saved")).toBeVisible();
     await page.reload();
+    await openThresholdGroups(page, "Working day", "Tasks", "Client work", "Notifications");
     await expect(page.getByLabel("End-of-day reminder")).toHaveValue("21:00");
 
     // The workload warning (4B, kickoff 4 decision 11): 4 by default, at least 1. Never saved
@@ -166,6 +174,7 @@ test.describe("Owner", () => {
     await page.getByRole("button", { name: "Save thresholds" }).click();
     await expect(page.getByText("Thresholds saved")).toBeVisible();
     await page.reload();
+    await openThresholdGroups(page, "Working day", "Tasks", "Client work", "Notifications");
     await expect(page.locator('[data-field="weekly-digest-day"]')).toContainText("Friday");
     await page.locator('[data-field="weekly-digest-day"]').click();
     await page.getByRole("option", { name: "Monday" }).click();
@@ -173,8 +182,8 @@ test.describe("Owner", () => {
     await expect(page.getByText("Thresholds saved")).toBeVisible();
 
     // Client work escalations (amendment C E1, E2; 7B): the Owner's two fields, range-checked.
-    const overdue = page.getByLabel("Client item overdue → you after (hours)");
-    const undecided = page.getByLabel("Undecided cycle → you after (days)");
+    const overdue = page.getByLabel("Overdue deliverable → you after (hours)");
+    const undecided = page.getByLabel("Undecided period → you after (days)");
     await expect(overdue).toHaveValue("24");
     await expect(undecided).toHaveValue("2");
     await overdue.fill("200");
@@ -188,6 +197,7 @@ test.describe("Owner", () => {
     await page.getByRole("button", { name: "Save thresholds" }).click();
     await expect(page.getByText("Thresholds saved")).toBeVisible();
     await page.reload();
+    await openThresholdGroups(page, "Client work");
     await expect(overdue).toHaveValue("36");
     await expect(undecided).toHaveValue("3");
     await overdue.fill("24");
@@ -238,15 +248,20 @@ test.describe("Owner", () => {
     await expect(page.getByText("Job title renamed")).toBeVisible();
     await expect(names).toHaveText([/Video Editor/, /Graphic Designer/, /Colourist/]);
 
-    await page.getByRole("button", { name: "Archive Colourist" }).click();
-    await page.getByRole("alertdialog").getByRole("button", { name: "Archive Colourist" }).click();
-    await expect(page.getByText("Job title archived")).toBeVisible();
-    await expect(names).toHaveText([/Video Editor/, /Graphic Designer/]);
-    // Its own archived row: another spec's archived title may sit beside it.
-    const archivedColourist = page.locator('[data-slot="archived-list-item"]', {
-      hasText: "Colourist",
-    });
-    await expect(archivedColourist).toBeVisible();
+    // D6: Delete (the archive underneath), Undo in its toast, no Archived list.
+    const deleteColourist = async () => {
+      await page.getByRole("button", { name: "Delete Colourist" }).click();
+      await page.getByRole("alertdialog").getByRole("button", { name: "Delete Colourist" }).click();
+      await expect(names).toHaveText([/Video Editor/, /Graphic Designer/]);
+    };
+    await deleteColourist();
+    await expect(page.locator('[data-slot="archived-list-item"]')).toHaveCount(0);
+    await page
+      .locator("[data-sonner-toast]", { hasText: "Colourist deleted" })
+      .getByRole("button", { name: "Undo" })
+      .click();
+    await expect(names).toHaveText([/Video Editor/, /Graphic Designer/, /Colourist/]);
+    await deleteColourist();
 
     // An archived title is not offered when someone is invited.
     await page.goto("/people");
@@ -257,9 +272,7 @@ test.describe("Owner", () => {
     await page.keyboard.press("Escape");
 
     await page.goto("/settings/job-titles");
-    await archivedColourist.getByRole("button", { name: "Restore" }).click();
-    await expect(page.getByText("Job title restored")).toBeVisible();
-    await expect(names).toHaveText([/Video Editor/, /Graphic Designer/, /Colourist/]);
+    await expect(names).toHaveText([/Video Editor/, /Graphic Designer/]);
   });
 });
 
@@ -303,13 +316,13 @@ test.describe("Admin", () => {
     await expect(page.getByText("Job title added")).toBeVisible();
     await expect(page.locator('[data-slot="list-item"]')).toContainText(["Sound Engineer"]);
 
-    // Put the list back as it was: an Admin may archive too.
-    await page.getByRole("button", { name: "Archive Sound Engineer" }).click();
+    // Put the list back as it was: an Admin may delete too.
+    await page.getByRole("button", { name: "Delete Sound Engineer" }).click();
     await page
       .getByRole("alertdialog")
-      .getByRole("button", { name: "Archive Sound Engineer" })
+      .getByRole("button", { name: "Delete Sound Engineer" })
       .click();
-    await expect(page.getByText("Job title archived")).toBeVisible();
+    await expect(page.getByText("Sound Engineer deleted")).toBeVisible();
   });
 });
 

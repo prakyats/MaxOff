@@ -34,9 +34,19 @@ export function describeError(error: ResultError): { title: string; description?
  * write `if (!toastResult(result)) return;`. `success` is the message for the happy path;
  * leave it out when the UI shows the outcome itself.
  */
-export function toastResult<T>(result: Result<T>, options: { success?: string } = {}): boolean {
+export function toastResult<T>(
+  result: Result<T>,
+  options: { success?: string; undo?: () => void } = {},
+): boolean {
   if (result.ok) {
-    if (options.success) toast.success(options.success);
+    if (options.success) {
+      // D6 (v1.8 V4): a Settings "Delete" (the archive) offers Undo for 6 s where unarchive exists.
+      const { undo } = options;
+      toast.success(
+        options.success,
+        undo ? { duration: 6000, action: { label: "Undo", onClick: () => undo() } } : undefined,
+      );
+    }
     return true;
   }
   const { title, description } = describeError(result.error);

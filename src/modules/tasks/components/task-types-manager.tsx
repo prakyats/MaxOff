@@ -1,6 +1,6 @@
 "use client";
 
-import { ArchiveRestoreIcon, ListIcon } from "lucide-react";
+import { ListIcon } from "lucide-react";
 import { type FormEvent, useId, useState } from "react";
 
 import type { Result, ResultError } from "@/core/errors";
@@ -19,7 +19,7 @@ import { ErrorText } from "@/core/ui/composites/error-text";
 import { FormField } from "@/core/ui/composites/form-field";
 import { ListAddButton, ListHeading, ListRowActions } from "@/core/ui/composites/list-rows";
 import { ReminderRulesEditor } from "@/core/ui/composites/reminder-rules-editor";
-import { CARD_ROW_TITLE, CARD_ROW_TRAILING } from "@/core/ui/composites/row-metrics";
+import { CARD_ROW_TITLE } from "@/core/ui/composites/row-metrics";
 import { Button } from "@/core/ui/primitives/button";
 import { Checkbox } from "@/core/ui/primitives/checkbox";
 import {
@@ -77,7 +77,7 @@ export function TaskTypesManager({
   const [editing, setEditing] = useState<TaskTypeSetting | null>(null);
   const [archiving, setArchiving] = useState<TaskTypeSetting | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const { active, archived } = splitTaskTypes(types);
+  const { active } = splitTaskTypes(types);
 
   async function run(id: string, call: () => Promise<Result<null>>, success?: string) {
     setBusyId(id);
@@ -140,55 +140,13 @@ export function TaskTypesManager({
                     disabled: busyId !== null,
                   }}
                   edit={{ label: "Edit", onSelect: () => setEditing(type) }}
-                  onArchive={() => setArchiving(type)}
+                  onDelete={() => setArchiving(type)}
                 />
               </li>
             ))}
           </ul>
         )}
       </section>
-
-      {archived.length > 0 ? (
-        <section className="flex flex-col gap-2">
-          <h2 className="text-muted-foreground text-sm font-medium">Archived</h2>
-          <p className="text-muted-foreground text-sm">
-            Not offered for new tasks. Tasks that already have one keep it.
-          </p>
-          <ul
-            data-slot="archived-task-types"
-            className="border-border divide-border divide-y rounded-lg border"
-          >
-            {archived.map((type) => (
-              <li
-                key={type.id}
-                data-slot="archived-task-type"
-                className="flex min-h-14 flex-wrap items-center justify-between gap-2 px-3 py-2.5 sm:px-4"
-              >
-                <span className={cn("text-muted-foreground truncate text-sm", CARD_ROW_TITLE)}>
-                  {type.name}
-                </span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className={CARD_ROW_TRAILING}
-                  disabled={busyId !== null}
-                  onClick={() =>
-                    void run(
-                      type.id,
-                      () => setTaskTypeArchived({ taskTypeId: type.id, archived: false }),
-                      "Task type restored",
-                    )
-                  }
-                >
-                  <ArchiveRestoreIcon aria-hidden />
-                  Restore
-                </Button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
 
       {adding ? (
         <TaskTypeDialog key="add" orgReminders={orgReminders} onClose={() => setAdding(false)} />
@@ -207,13 +165,19 @@ export function TaskTypesManager({
           onOpenChange={(open) => {
             if (!open) setArchiving(null);
           }}
-          title={`Archive ${archiving.name}?`}
-          description="New tasks stop offering it. Tasks that already have it keep it, and you can restore it later."
-          confirmLabel={`Archive ${archiving.name}`}
-          pendingLabel="Archiving…"
+          title={`Delete ${archiving.name}?`}
+          description="It won't be offered again. Tasks that use it keep it."
+          confirmLabel={`Delete ${archiving.name}`}
+          destructive
+          pendingLabel="Deleting…"
           onConfirm={async () => {
-            toastResult(await setTaskTypeArchived({ taskTypeId: archiving.id, archived: true }), {
-              success: "Task type archived",
+            const { id, name } = archiving;
+            toastResult(await setTaskTypeArchived({ taskTypeId: id, archived: true }), {
+              success: `${name} deleted`,
+              undo: () =>
+                void setTaskTypeArchived({ taskTypeId: id, archived: false }).then((result) =>
+                  toastResult(result),
+                ),
             });
             setArchiving(null);
           }}

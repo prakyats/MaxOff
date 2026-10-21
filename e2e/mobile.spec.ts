@@ -17,6 +17,7 @@ import {
   serviceUpdate,
   storageStateFor,
   USERS,
+  openThresholdGroups,
 } from "./helpers";
 
 /**
@@ -221,14 +222,12 @@ const LARGE_TEXT_SCREENS = {
     // 7B: client work.
     "/clients/items",
     "/clients/items/decide",
-    "/settings/stage-presets",
   ],
   admin: [
     "/today",
     // 7B: client work.
     "/clients/items",
     "/clients/items/decide",
-    "/settings/stage-presets",
     // 6.3: the work report.
     "/reports",
     "/leave",
@@ -445,13 +444,20 @@ test.describe("More, for Owner and Admin", () => {
         const sheet = page.locator('[data-slot="more-sheet"]');
         await expect(sheet).toBeVisible();
         // The rest of the navigation, in the same priority order as the bar, then the profile.
-        await expect(sheet.getByRole("link")).toHaveText([
-          "Reports",
-          "Clients",
-          "People",
-          "Settings",
-          "Me",
-        ]);
+        // N1 (V4): the Admin's own Attendance & leave and Extra work & expenses too.
+        await expect(sheet.getByRole("link")).toHaveText(
+          role === "admin"
+            ? [
+                "Reports",
+                "Clients",
+                "People",
+                "Attendance & leave",
+                "Extra work & expenses",
+                "Settings",
+                "Me",
+              ]
+            : ["Reports", "Clients", "People", "Settings", "Me"],
+        );
         // "Sign out of this device" lives under Me only (kickoff 3b decision 1): nothing here.
         await expect(sheet.getByRole("button", { name: /Log out|Sign out/ })).toHaveCount(0);
 
@@ -692,12 +698,12 @@ test.describe("dialogs are bottom sheets", () => {
       .getByRole("button", { name: /^Actions for/ })
       .first()
       .click();
-    await page.getByRole("button", { name: "Archive" }).click();
+    await page.getByRole("button", { name: "Delete" }).click();
 
     const dialog = page.locator('[data-slot="alert-dialog-content"]');
     await expect(dialog).toBeVisible();
 
-    const confirm = await dialog.getByRole("button", { name: "Archive" }).boundingBox();
+    const confirm = await dialog.getByRole("button", { name: /^Delete / }).boundingBox();
     const cancel = await dialog.getByRole("button", { name: "Cancel" }).boundingBox();
     // Cancel sits below Confirm, so the thumb rests on the harmless one (§14.1).
     expect(cancel?.y ?? 0).toBeGreaterThan(confirm?.y ?? 0);
@@ -742,10 +748,10 @@ test.describe("Settings is a list of rows", () => {
     await page.evaluate(() => {
       document.documentElement.style.fontSize = "200%";
     });
-    // The tappable line's first span is the label, on a ready row (a link) and a "Coming soon"
-    // row (a div) alike; the desktop-only description is hidden at a phone width.
+    // The row's first line is the label, on a ready row (a link) and a "Coming soon" row (a
+    // span) alike (N3: the row's second line is its description, at every width).
     const labels = page.locator(
-      '[data-slot="settings-list"] > li > :first-child > span:first-child',
+      '[data-slot="settings-row"] > a > span > span:first-child, [data-slot="settings-row"] > div > span > span:first-child > span:first-child',
     );
     const measured = await labels.evaluateAll((els) =>
       els.map((el) => {
@@ -780,6 +786,8 @@ test.describe("forms", () => {
 
   test("a long form keeps Save on screen", async ({ page }) => {
     await page.goto("/settings/thresholds");
+    // Every group open (6b.6): the long form this check is about.
+    await openThresholdGroups(page, "Working day", "Tasks", "Client work", "Notifications");
     const bar = page.locator('[data-slot="sticky-actions"]');
     await expect(bar).toBeVisible();
 
@@ -937,5 +945,44 @@ test.describe("record screens meet the mobile standard (3.4)", () => {
       }, scale);
       await expectNoHorizontalScroll(page);
     }
+  });
+});
+
+test.describe("the MaxOff mark on a top-level tab (owner 2026-10-21)", () => {
+  test.use({ storageState: storageStateFor("owner") });
+
+  test("shows on a top-level tab, not on a drill-down; a tap goes to Today by replace", async ({
+    page,
+  }) => {
+    await page.goto("/today");
+    await expectSettled(page);
+    await page.locator('[data-slot="bottom-nav"] [data-nav="tasks"]').click();
+    await expect(page).toHaveURL(/\/tasks$/);
+    const mark = page.locator('[data-slot="home-mark"]:visible');
+    await expect(mark).toHaveCount(1);
+    // No back arrow beside it: a top-level tab has none.
+    await expect(
+      page.locator('[data-slot="page-header"] [data-slot="page-back"]:visible'),
+    ).toHaveCount(0);
+    await expect(mark).toBeVisible();
+    await expectSettled(page);
+    expect((await mark.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+
+    const before = await page.evaluate(() => history.length);
+    await mark.click();
+    await expect(page).toHaveURL(/\/today$/);
+    expect(await page.evaluate(() => history.length)).toBe(before);
+    // The Tasks entry was replaced: one back is the Today entry it came from.
+    await page.goBack();
+    await expect(page).toHaveURL(/\/today$/);
+
+    // A More destination has it too; a drill-down keeps its back arrow in that spot.
+    await page.goto("/settings");
+    await expect(page.locator('[data-slot="home-mark"]:visible')).toHaveCount(1);
+    await page.goto("/settings/company");
+    await expect(page.locator('[data-slot="home-mark"]:visible')).toHaveCount(0);
+    await expect(
+      page.locator('[data-slot="page-header"] [data-slot="page-back"]:visible'),
+    ).toHaveCount(1);
   });
 });

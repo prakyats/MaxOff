@@ -1,6 +1,6 @@
 "use client";
 
-import { ArchiveRestoreIcon, ListIcon } from "lucide-react";
+import { ListIcon } from "lucide-react";
 import { useId, useState } from "react";
 
 import { cn } from "@/core/lib/utils";
@@ -8,8 +8,7 @@ import type { ListKey } from "@/core/lists";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { ListAddButton, ListHeading, ListRowActions } from "@/core/ui/composites/list-rows";
-import { CARD_ROW_TITLE, CARD_ROW_TRAILING } from "@/core/ui/composites/row-metrics";
-import { Button } from "@/core/ui/primitives/button";
+import { CARD_ROW_TITLE } from "@/core/ui/composites/row-metrics";
 import { toastResult } from "@/core/ui/toast";
 
 import { addListItem, moveListItemBy, renameListItem, setListItemArchived } from "../actions/lists";
@@ -26,8 +25,8 @@ export type ManagedListItem = {
  * are the first (1.3 seeded them); expense categories reuse it by adding a key to `core/lists`'
  * registry and a page. Adding follows the Settings Add pattern (C4): "Add ‹thing›" on the list's
  * heading opens a one-field dialog. Order is changed one step at a time, which a phone (in the
- * row's ⋯ sheet) and a keyboard both handle; entries are archived, never deleted, so a member who
- * carries one keeps it.
+ * row's ⋯ sheet) and a keyboard both handle. "Delete" (D6) is the archive underneath, so a member
+ * who carries one keeps it; Undo in its toast brings it back, and no Archived list is shown.
  */
 export function ListManager({
   listKey,
@@ -51,7 +50,6 @@ export function ListManager({
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const active = items.filter((item) => !item.archivedAt);
-  const archived = items.filter((item) => item.archivedAt);
   const thing = labels.singular.toLowerCase();
 
   async function move(item: ManagedListItem, direction: "up" | "down"): Promise<void> {
@@ -106,59 +104,13 @@ export function ListManager({
                     disabled: busyId !== null,
                   }}
                   edit={{ label: "Rename", onSelect: () => setRenaming(item) }}
-                  onArchive={() => setArchiving(item)}
+                  onDelete={() => setArchiving(item)}
                 />
               </li>
             ))}
           </ul>
         )}
       </section>
-
-      {archived.length > 0 ? (
-        <section className="flex flex-col gap-2">
-          <h2 className="text-muted-foreground text-sm font-medium">Archived</h2>
-          <p className="text-muted-foreground text-sm">
-            Archived {labels.plural.toLowerCase()} are not offered any more. Anyone who already
-            carries one keeps it.
-          </p>
-          <ul
-            data-slot="archived-list-items"
-            className="border-border divide-border divide-y rounded-lg border"
-          >
-            {archived.map((item) => (
-              <li
-                key={item.id}
-                data-slot="archived-list-item"
-                className="flex min-h-14 flex-wrap items-center justify-between gap-2 px-3 py-2.5 sm:px-4"
-              >
-                <span className={cn("text-muted-foreground truncate text-sm", CARD_ROW_TITLE)}>
-                  {item.name}
-                </span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className={CARD_ROW_TRAILING}
-                  disabled={busyId !== null}
-                  onClick={async () => {
-                    setBusyId(item.id);
-                    toastResult(
-                      await setListItemArchived({ listKey, id: item.id, archived: false }),
-                      {
-                        success: `${labels.singular} restored`,
-                      },
-                    );
-                    setBusyId(null);
-                  }}
-                >
-                  <ArchiveRestoreIcon aria-hidden />
-                  Restore
-                </Button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
 
       {adding ? (
         <ListItemDialog
@@ -185,12 +137,18 @@ export function ListManager({
           onOpenChange={(open) => {
             if (!open) setArchiving(null);
           }}
-          title={`Archive ${archiving.name}?`}
-          description={`It stops being offered. People who already have this ${labels.singular.toLowerCase()} keep it, and you can restore it later.`}
-          confirmLabel={`Archive ${archiving.name}`}
+          title={`Delete ${archiving.name}?`}
+          description={`It won't be offered again. People who already have this ${labels.singular.toLowerCase()} keep it.`}
+          confirmLabel={`Delete ${archiving.name}`}
+          destructive
           onConfirm={async () => {
-            toastResult(await setListItemArchived({ listKey, id: archiving.id, archived: true }), {
-              success: `${labels.singular} archived`,
+            const { id, name } = archiving;
+            toastResult(await setListItemArchived({ listKey, id, archived: true }), {
+              success: `${name} deleted`,
+              undo: () =>
+                void setListItemArchived({ listKey, id, archived: false }).then((result) =>
+                  toastResult(result),
+                ),
             });
             setArchiving(null);
           }}

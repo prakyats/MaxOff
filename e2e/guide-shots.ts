@@ -1,5 +1,7 @@
 import type { Locator, Page } from "@playwright/test";
 
+import { openMoreOptions } from "./helpers";
+
 /**
  * The in-app guide's screenshots, one entry per picture (ROADMAP 6b.14, Release 2). Read by
  * `e2e/guide-screenshots.ts` (`pnpm guide:screenshots`), which signs in as the entry's role, opens
@@ -319,7 +321,7 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
   {
     id: "admin/calendar-day",
     path: "/calendar?view=month",
-    // The first day with tasks due: the sheet opens on them, then Who's free and the buttons.
+    // The first day with tasks due: the sheet opens on them, then who is away and the buttons.
     prepare: (page) => tap(page, /, \d+ due$/),
     highlight: (page) => layer(page).getByRole("button", { name: /New task on/ }),
     crop: layer,
@@ -424,7 +426,7 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
   },
   {
     id: "admin/stage-presets",
-    path: "/settings/stage-presets",
+    path: "/settings/templates#presets",
     highlight: (page) => slot(page, "add-stage-preset"),
     crop: main,
     alt: "Stage presets with the Add preset button highlighted.",
@@ -438,7 +440,7 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
   },
   {
     id: "admin/template-builder",
-    path: "/settings/templates",
+    path: "/settings/templates#projects",
     prepare: async (page) => {
       await tap(page, "Add project template");
       await layer(page).waitFor();
@@ -538,7 +540,10 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
   {
     id: "owner/new-task",
     path: "/tasks",
-    prepare: (page) => tap(page, "New task"),
+    prepare: async (page) => {
+      await tap(page, "New task");
+      await openMoreOptions(page);
+    },
     highlight: (page) => layer(page).getByLabel("Checked first by"),
     crop: layer,
     alt: "The New task form with the Checked first by field highlighted.",
@@ -681,7 +686,7 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
   },
   {
     id: "owner/templates",
-    path: "/settings/templates",
+    path: "/settings/templates#projects",
     highlight: (page) => button(page, "Preview Monthly reels"),
     crop: main,
     alt: "Templates with a project template's Preview button highlighted.",
@@ -696,6 +701,7 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
   {
     id: "owner/thresholds",
     path: "/settings/thresholds",
+    prepare: (page) => page.locator("summary").getByText("Tasks", { exact: true }).click(),
     highlight: (page) => page.getByLabel("Acknowledgement reminder (hours)"),
     crop: main,
     alt: "Thresholds with the Acknowledgement reminder (hours) field highlighted.",

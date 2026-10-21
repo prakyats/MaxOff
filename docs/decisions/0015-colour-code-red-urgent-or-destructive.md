@@ -51,8 +51,13 @@ the same restraint. The decision changes ARCHITECTURE §14.1's rule, so it needs
 - Between V1 and V4 (never released: v1.8 ships as one), some screens still paint status colours
   their own way; they are on the lint allow-list (`DESIGN_TOKEN_EXCEPTIONS`) and leave it as they
   move.
-- A red solid button now always means "this destroys something": a destructive confirmation must
-  pass `destructive`, and a review checks that no non-destructive commit uses `danger`.
+- A red solid button now always means "this destroys something or is final": a destructive or
+  final confirmation must pass `destructive`, and a review checks that no other commit uses
+  `danger`. **Owner correction 2026-10-21 (V4):** final actions are red: Close deliverable, Cancel
+  project / task, Reject, Revoke, Cancel approved leave, Deactivate, Withdraw, Remove, Discard,
+  Delete (the Settings lists' Delete included); Archive stays neutral. `final-actions.test.ts`
+  sweeps every confirmation's commit label to keep it so. **Cancelled** is red in the one status
+  map again (this reverses V2's C5, which had made it neutral).
 - Specs that asserted a commit's red look (`bg-primary` as red) assert the variant instead.
 - The in-app guide's wording follows: no topic may call a commit "the red button".
 - CLAUDE.md's Definition of Done line on the colour rule ("one solid red commit action per layer")

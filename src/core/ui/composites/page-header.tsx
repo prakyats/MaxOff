@@ -4,6 +4,7 @@ import { cn } from "@/core/lib/utils";
 
 import { BackLink, type BackOrigin } from "./back-link";
 import { HeaderBell } from "./header-bell";
+import { HomeMark } from "./home-mark";
 import { HelpSheet } from "./help-sheet";
 
 /**
@@ -12,7 +13,7 @@ import { HelpSheet } from "./help-sheet";
  * **Desktop** (`md` up): title, description and right-aligned actions, as before.
  *
  * **Phone**: **the one header bar** (L4: no brand bar above it), a 44px bar sticky at the top
- * edge holding the back chevron (or, on a tab's first screen, nothing before the title), the title,
+ * edge holding the back chevron (or, on a top-level tab, the MaxOff mark that goes home by replace), the title,
  * the record's ⋯ menu and the notification bell. The
  * description does **not** render — an explanatory paragraph belongs in the empty state or
  * behind `help`, not in front of the first row of content — and `actions` moves to an extended
@@ -86,14 +87,11 @@ export function PageHeader({
             variant="icon"
             className="text-muted-foreground active:bg-muted -ml-1 flex size-11 shrink-0 items-center justify-center rounded-lg md:hidden"
           />
-        ) : null}
+        ) : (
+          <HomeMark />
+        )}
 
-        <div
-          className={cn(
-            "flex min-w-0 flex-1 items-center gap-0.5 md:block",
-            !back && "ml-2 md:ml-0",
-          )}
-        >
+        <div className="flex min-w-0 flex-1 items-center gap-0.5 md:block">
           <h1 className="line-clamp-2 min-w-0 text-base font-semibold tracking-tight break-words md:text-2xl">
             {title}
           </h1>

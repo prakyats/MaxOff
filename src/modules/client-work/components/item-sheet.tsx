@@ -610,6 +610,7 @@ export function ItemSheet({
         }
         label={reason === "close" ? "Why close it" : "What needs to change"}
         submitLabel={reason === "close" ? "Close deliverable" : reopenWord}
+        destructive={reason === "close"}
         onSubmit={async (text) => {
           const result =
             reason === "close"

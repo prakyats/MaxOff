@@ -85,19 +85,16 @@ export function CycleProgress({
           </p>
         </div>
       </div>
-      {needsYou ? (
-        // Always drawn for whoever sees it, one line high on a phone (the first pill and "+N
-        // more"), so the page below never moves when the list arrives (the loading screen traces it).
+      {needsYou && needsYou.pills.length > 0 ? (
+        // Beside the ring, as the approved sample: only when something is late or nearly done
+        // (owner 2026-10-21: nothing at all otherwise); one line on a phone (the first pill and
+        // "+N more").
         <div
           data-slot="project-needs-you"
           className="flex min-w-0 flex-[1_1_20rem] flex-col gap-1.5"
         >
-          <h2 className="text-muted-foreground text-xs font-medium">Needs you</h2>
-          {needsYou.pills.length === 0 ? (
-            <p className="text-muted-foreground flex min-h-7 items-center text-xs">
-              Nothing late or nearly done.
-            </p>
-          ) : (
+          <h2 className="sr-only">Needs you</h2>
+          {needsYou.pills.length === 0 ? null : (
             <ul className="flex min-h-7 min-w-0 flex-nowrap gap-1.5 sm:flex-wrap">
               {needsYou.pills.map((pill, index) => (
                 <li

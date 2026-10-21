@@ -95,7 +95,7 @@ export function EodReportView({ report }: { report: EodReport }) {
   const quiet = isQuietDay(report);
   const decisions = decisionLines(report.decisions);
   return (
-    <div data-slot="eod-report" className="flex max-w-3xl min-w-0 flex-col gap-6">
+    <div data-slot="eod-report" className="flex min-w-0 flex-col gap-6">
       {report.day_off.holiday || report.day_off.weekly_off ? (
         <Line slot="eod-day-off" icon={<CalendarDaysIcon className="size-4" aria-hidden />}>
           {report.day_off.holiday ? `Holiday: ${report.day_off.holiday}` : "Weekly off"}
@@ -280,11 +280,7 @@ export function EodReportView({ report }: { report: EodReport }) {
 /** The report's skeleton: the attendance heading, its counts line and two person rows. */
 export function EodReportSkeleton() {
   return (
-    <div
-      aria-hidden
-      data-slot="loading-eod-report"
-      className="flex max-w-3xl min-w-0 flex-col gap-6"
-    >
+    <div aria-hidden data-slot="loading-eod-report" className="flex min-w-0 flex-col gap-6">
       <section className="flex min-w-0 flex-col gap-2">
         <DashSectionHeadingSkeleton width="w-24" />
         <div className="flex h-5 items-center gap-2">
