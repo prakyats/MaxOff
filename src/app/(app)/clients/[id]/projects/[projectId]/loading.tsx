@@ -1,7 +1,7 @@
 import { cn } from "@/core/lib/utils";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
-import { DELIVERABLE_COLUMNS, STRIP_GRID } from "@/modules/client-work";
+import { DELIVERABLE_COLUMNS, PROGRESS_GRID } from "@/modules/client-work";
 
 import { PROJECT_ORIGINS } from "./back";
 
@@ -11,8 +11,9 @@ import { PROJECT_ORIGINS } from "./back";
  * 44 px), the description line (client · repeat, desktop), the state line, the cycle pager (two
  * arrows around the cycle's name), the progress card (the ring, its line and pace; 6b.11), the
  * Deliverables heading with Select and Add deliverable, the open deliverables in the list's
- * columns (E+: the title, a progress strip, Next, the date and the row's ⋯ and "›" on a laptop; a
- * card with its planned line, its 44 px Next line (unit U) and the strip under them on a phone) and the collapsed "Done and
+ * columns (V3: one line on a laptop, the title, one progress bar with "n/m", Next, the date and the
+ * row's ⋯ and "›"; a card with its planned line, its 44 px Next line (unit U) and the bar under them
+ * on a phone; every row collapsed, as the page arrives) and the collapsed "Done and
  * closed" group. No activity on
  * the page itself since the owner's preview feedback (2026-10-09): it is the header's panel.
  */
@@ -51,8 +52,8 @@ export default function Loading() {
           </>
         }
       />
-      <div aria-hidden className="flex max-w-5xl min-w-0 flex-col gap-4">
-        <div className="flex max-w-3xl min-w-0 flex-col gap-2">
+      <div aria-hidden className="flex min-w-0 flex-col gap-4">
+        <div className="flex min-w-0 flex-col gap-2">
           <div className="flex h-5 items-center gap-2">
             <Skeleton className="size-2 rounded-full" />
             <Skeleton className="h-3.5 w-20" />
@@ -113,14 +114,16 @@ export default function Loading() {
                     <Skeleton className="h-3 w-20" />
                   </span>
                 </span>
-                {/* One strip: chevron, label, bar, count, in the row's strip columns. */}
-                <span className="order-last flex min-w-0 basis-full flex-col lg:order-none">
-                  <span className={cn(STRIP_GRID, "min-h-11 lg:min-h-7")}>
-                    <Skeleton className="size-4 rounded-sm" />
-                    <Skeleton className="h-3 w-12" />
-                    <Skeleton className="h-1.5 w-full rounded-full" />
-                    <Skeleton className="ml-auto h-3 w-6" />
-                  </span>
+                {/* The collapsed row's progress (V3): chevron, one bar, "n/m". */}
+                <span
+                  className={cn(
+                    PROGRESS_GRID,
+                    "order-last min-h-11 basis-full lg:order-none lg:min-h-7",
+                  )}
+                >
+                  <Skeleton className="size-4 rounded-sm" />
+                  <Skeleton className="h-1.5 w-full rounded-full" />
+                  <Skeleton className="ml-auto h-3 w-8" />
                 </span>
                 <span className="hidden min-h-7 items-center lg:flex">
                   <Skeleton className="h-3 w-20" />

@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckIcon, ChevronRightIcon, CircleIcon } from "lucide-react";
+import { CheckIcon, ChevronRightIcon, CircleIcon, LightbulbIcon } from "lucide-react";
 import { useId, useState } from "react";
 
 import { cn } from "@/core/lib/utils";
@@ -12,11 +12,18 @@ import { Checkbox } from "@/core/ui/primitives/checkbox";
 import { AfterPage } from "@/core/ui/lazy/after-page";
 import { menuStandInPress } from "@/core/ui/lazy/menu-stand-in";
 
-import { groupStrips, markDonePlace, nextStep, type GroupStrip } from "../domain/deliverable";
+import {
+  itemProgress,
+  markDonePlace,
+  nextStep,
+  suggestsGrouping,
+  typesNumberedRounds,
+  UNTITLED_GROUP_LABEL,
+} from "../domain/deliverable";
 import { ITEM_STATUS } from "../domain/types";
 import type { ItemStageGroupView, ItemStageView, ItemView } from "../domain/views";
 
-import { STRIP_GRID } from "./deliverable-columns";
+import { PROGRESS_GRID } from "./deliverable-columns";
 import type { ItemRowMenuProps } from "./item-row-menu";
 import { ItemRowMenuTrigger } from "./item-row-menu-trigger";
 import { SentBackNote } from "./sent-back-note";
@@ -112,13 +119,16 @@ function NextText({
   className?: string;
 }) {
   const step = nextStep(item);
-  const base = cn("flex min-w-0 items-center gap-1 text-xs break-words", className);
+  // One line (fix A): a long stage name ends in an ellipsis, its full name on hover or long press.
+  const base = cn("flex max-w-full min-w-0 items-center gap-1 text-xs", className);
   if (step.kind === "stage") {
     const stage = item.stages.find((candidate) => candidate.id === item.nextStageId);
     const words = (
       <>
         <span className="text-muted-foreground shrink-0">Next:</span>{" "}
-        <span className="text-foreground min-w-0 font-medium">{step.name}</span>
+        <span className="text-foreground min-w-0 truncate font-medium" title={step.name}>
+          {step.name}
+        </span>
       </>
     );
     if (ticks.can && stage) {
@@ -186,173 +196,148 @@ function NextText({
   );
 }
 
-type ChipKind = "ticked" | "next" | "later";
+type CheckKind = "ticked" | "next" | "later";
 
-function chipKind(item: ItemView, stage: ItemStageView): ChipKind {
+function checkKind(item: ItemView, stage: ItemStageView): CheckKind {
   if (stage.done) return "ticked";
   return stage.id === item.nextStageId ? "next" : "later";
 }
 
-const CHIP_WORDS: Record<ChipKind, string> = { ticked: "ticked", next: "next", later: "to do" };
+const CHECK_WORDS: Record<CheckKind, string> = { ticked: "ticked", next: "next", later: "to do" };
 
-const CHIP_LOOK: Record<ChipKind, string> = {
-  ticked: "bg-neutral-soft text-foreground border-transparent",
-  next: "border-foreground/70 text-foreground font-medium",
-  later: "border-border text-muted-foreground border-dashed",
+/** The next stage is bold and outlined (fix F); a ticked one plain, the later ones muted. */
+const CHECK_LOOK: Record<CheckKind, string> = {
+  ticked: "border-transparent text-foreground",
+  next: "border-foreground/70 text-foreground font-semibold",
+  later: "border-transparent text-muted-foreground",
 };
 
-/**
- * One group's stage chips, shown while its strip is open (6b.11 (3)): a ticked stage neutral and
- * filled with a check (never red, which stays for urgency), the next one outlined and emphasised,
- * the later ones muted. For whoever may tick, each chip ticks or unticks its stage in one tap
- * ("Tick Cut", "Untick Cut"; unit U), with a 44 px target on a phone; otherwise they only read.
- */
-function StageChips({
-  item,
-  group,
-  id,
-  ticks,
-}: {
-  item: ItemView;
-  group: ItemStageGroupView;
-  id: string;
-  ticks: RowTicks;
-}) {
+/** The tick box: filled `strong` with a check when ticked (never red), an empty square when not. */
+function CheckBox({ ticked }: { ticked: boolean }) {
   return (
     <span
-      id={id}
+      aria-hidden
       className={cn(
-        "flex min-w-0 flex-wrap items-center pt-0.5 pb-1.5 pl-5.5",
-        ticks.can ? "gap-2 lg:gap-1" : "gap-1",
+        "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-sm border",
+        ticked ? "border-strong bg-strong text-strong-foreground" : "border-control-border",
       )}
-      data-slot="item-row-stages"
     >
-      {group.stages.map((stage) => {
-        const kind = chipKind(item, stage);
-        const look = cn(
-          "inline-flex max-w-full items-center gap-1 rounded-full border px-2 py-0.5 text-xs break-words",
-          CHIP_LOOK[kind],
-        );
-        const inside = (
-          <>
-            {kind === "ticked" ? <CheckIcon className="size-3 shrink-0" aria-hidden /> : null}
-            {stage.name}
-            <span className="sr-only">, {CHIP_WORDS[kind]}</span>
-          </>
-        );
-        if (!ticks.can) {
-          return (
-            <span key={stage.id} data-slot="stage-chip" data-chip={kind} className={look}>
-              {inside}
-            </span>
-          );
-        }
-        const verb = stage.done ? "Untick" : "Tick";
-        return (
-          <button
-            key={stage.id}
-            type="button"
-            data-slot="stage-chip"
-            data-chip={kind}
-            aria-label={`${verb} ${stage.name}`}
-            title={`${verb} ${stage.name}`}
-            disabled={ticks.pending !== null}
-            aria-busy={ticks.pending === stage.id || undefined}
-            onClick={() => ticks.tick(stage, !stage.done)}
-            className={cn(
-              look,
-              OVER_ROW,
-              // A 36 px chip with a 44 px target on a phone (the rows wrap 44 px apart).
-              "pressable hover:border-foreground/70 focus-visible:ring-ring min-h-9 px-3 after:absolute after:inset-x-0 after:-inset-y-1 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-70 lg:min-h-6 lg:px-2 lg:after:hidden",
-            )}
-          >
-            {inside}
-          </button>
-        );
-      })}
+      {ticked ? <CheckIcon className="size-3" /> : null}
     </span>
   );
 }
 
 /**
- * One stage group as a compact strip ("Edit ▮▮▮▯ 3/4"): a tap opens it in place to show the
- * group's stage chips. Opening is a **view control** (ARCHITECTURE §14.2 d): no address, no
- * history entry; back still leaves the page.
+ * One stage group's checklist while the row is open (V3, the long-stage-list fixes B and F): tick
+ * box and name, left-aligned, at most two lines then an ellipsis (the full name on hover), in
+ * three columns on a laptop, two on a tablet and one on a phone, never centred chips. For whoever
+ * may tick, each line ticks or unticks its stage in one tap ("Tick Cut", "Untick Cut"; unit U),
+ * 44 px tall on a phone; otherwise it only reads.
  */
-function Strip({
+function StageChecklist({
   item,
-  strip,
   group,
+  heading,
   ticks,
 }: {
   item: ItemView;
-  strip: GroupStrip;
   group: ItemStageGroupView;
+  /** The group's heading ("Edit 2/3"), or none for a deliverable with one untitled group. */
+  heading: string | null;
   ticks: RowTicks;
 }) {
-  const [open, setOpen] = useState(false);
-  const id = useId();
-  const verb = open ? "Hide" : "Show";
   return (
-    <span
-      className="flex min-w-0 flex-col"
-      data-slot="item-strip"
-      data-open={open ? "" : undefined}
-    >
-      <button
-        type="button"
-        aria-expanded={open}
-        aria-controls={open ? id : undefined}
-        title={`${verb} ${strip.label}'s stages`}
-        data-slot="item-strip-toggle"
-        onClick={() => setOpen((current) => !current)}
-        className={cn(
-          STRIP_GRID,
-          OVER_ROW,
-          "pressable-row hover:bg-muted focus-visible:ring-ring min-h-11 w-full min-w-0 rounded-md text-left text-xs focus-visible:ring-2 focus-visible:outline-none lg:min-h-7",
-        )}
-      >
-        <ChevronRightIcon
-          aria-hidden
-          className={cn(
-            "text-muted-foreground size-4 shrink-0 transition-transform motion-reduce:transition-none",
-            open && "rotate-90",
-          )}
-        />
-        <span className="text-muted-foreground min-w-0 truncate font-medium" title={strip.label}>
-          {strip.label}
-        </span>{" "}
-        <ProgressBar counts={strip} label={null} slot="item-strip-bar" />{" "}
-        <span
-          className="text-muted-foreground text-right tabular-nums"
-          data-slot="item-strip-count"
+    <div className="flex min-w-0 flex-col gap-1" data-slot="item-stage-group">
+      {heading ? (
+        <p
+          data-slot="item-stage-group-label"
+          className="text-muted-foreground flex min-w-0 items-baseline gap-2 text-xs font-medium"
         >
-          {strip.done}/{strip.total}
-          <span className="sr-only"> stages ticked</span>
-        </span>
-      </button>
-      {open ? <StageChips item={item} group={group} id={id} ticks={ticks} /> : null}
-    </span>
+          <span className="min-w-0 truncate" title={heading}>
+            {heading}
+          </span>
+          <span className="shrink-0 tabular-nums">
+            {group.done}/{group.stages.length}
+          </span>
+        </p>
+      ) : null}
+      <ul className="grid min-w-0 grid-cols-1 gap-x-4 gap-y-0.5 md:grid-cols-2 lg:grid-cols-3">
+        {group.stages.map((stage) => {
+          const kind = checkKind(item, stage);
+          const look = cn(
+            "flex min-h-11 w-full min-w-0 items-start gap-2 rounded-md border px-2 py-1.5 text-left text-sm lg:min-h-8 lg:py-1",
+            CHECK_LOOK[kind],
+          );
+          const inside = (
+            <>
+              <CheckBox ticked={stage.done} />
+              <span className="line-clamp-2 min-w-0 break-words" title={stage.name}>
+                {stage.name}
+              </span>
+              <span className="sr-only">, {CHECK_WORDS[kind]}</span>
+            </>
+          );
+          if (!ticks.can) {
+            return (
+              <li key={stage.id} className="min-w-0">
+                <span data-slot="stage-check" data-check={kind} className={look}>
+                  {inside}
+                </span>
+              </li>
+            );
+          }
+          const verb = stage.done ? "Untick" : "Tick";
+          return (
+            <li key={stage.id} className="min-w-0">
+              <button
+                type="button"
+                data-slot="stage-check"
+                data-check={kind}
+                aria-label={`${verb} ${stage.name}`}
+                title={`${verb} ${stage.name}`}
+                disabled={ticks.pending !== null}
+                aria-busy={ticks.pending === stage.id || undefined}
+                onClick={() => ticks.tick(stage, !stage.done)}
+                className={cn(
+                  look,
+                  OVER_ROW,
+                  "pressable-row hover:bg-muted focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none disabled:opacity-70",
+                )}
+              >
+                {inside}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 
-/** The deliverable's strips, one stage group per line (the untitled group reads "Stages"). */
-function Strips({
+/**
+ * The collapsed row's progress (V3, fixes A and C): a chevron, one continuous bar over every stage
+ * and "n/m"; a tap opens the row in place to its checklist. Opening is a **view control**
+ * (ARCHITECTURE §14.2 d): no address, no history entry; back still leaves the page.
+ */
+function ProgressToggle({
   item,
-  ticks,
+  open,
+  controls,
+  onToggle,
   className,
 }: {
   item: ItemView;
-  ticks: RowTicks;
+  open: boolean;
+  controls: string;
+  onToggle: () => void;
   className?: string;
 }) {
-  const strips = groupStrips(item);
-  const groups = item.groups.filter((group) => group.stages.length > 0);
-  if (strips.length === 0) {
+  const progress = itemProgress(item);
+  if (progress.total === 0) {
     // A laptop's progress column says so; a phone's card says it in its Next line.
     return (
       <span
-        data-slot="item-strips"
+        data-slot="item-progress"
         data-empty=""
         className={cn(
           "text-muted-foreground hidden min-h-7 items-center text-xs lg:flex",
@@ -363,20 +348,108 @@ function Strips({
       </span>
     );
   }
+  const verb = open ? "Hide" : "Show";
   return (
-    <span
-      data-slot="item-strips"
+    <button
+      type="button"
+      aria-expanded={open}
+      aria-controls={open ? controls : undefined}
+      title={`${verb} the stages of ${item.title}`}
+      data-slot="item-progress"
+      onClick={onToggle}
+      className={cn(
+        PROGRESS_GRID,
+        OVER_ROW,
+        "pressable-row hover:bg-muted focus-visible:ring-ring min-h-11 w-full min-w-0 rounded-md text-left text-xs focus-visible:ring-2 focus-visible:outline-none lg:min-h-7",
+        className,
+      )}
+    >
+      <ChevronRightIcon
+        aria-hidden
+        className={cn(
+          "text-muted-foreground size-4 shrink-0 transition-transform motion-reduce:transition-none",
+          open && "rotate-90",
+        )}
+      />
+      <ProgressBar counts={progress} label={null} slot="item-progress-bar" />
+      <span
+        className="text-muted-foreground text-right tabular-nums"
+        data-slot="item-progress-count"
+      >
+        {progress.done}/{progress.total}
+        <span className="sr-only"> stages ticked</span>
+      </span>
+    </button>
+  );
+}
+
+/**
+ * The row opened (fixes B, D, E): every group's checklist under its heading, then, for whoever
+ * edits the project, the two hints a long list earns: "12 stages: split them into groups?" with
+ * **Group stages** (the Admin chooses where groups start; never automatic), and the tip to use
+ * "+ Another revision round" instead of typing numbered round stages.
+ */
+function StagesPanel({
+  item,
+  id,
+  ticks,
+  manage,
+  onGroup,
+  className,
+}: {
+  item: ItemView;
+  id: string;
+  ticks: RowTicks;
+  manage: boolean;
+  onGroup: (() => void) | undefined;
+  className?: string;
+}) {
+  const groups = item.groups.filter((group) => group.stages.length > 0);
+  const titled = groups.length > 1 || groups.some((group) => group.label !== null);
+  return (
+    <div
+      id={id}
       role="group"
       aria-label={`Stages of ${item.title}`}
-      className={cn("flex min-w-0 flex-col", className)}
+      data-slot="item-stages"
+      className={cn("flex min-w-0 flex-col gap-3 pt-1 pb-2", className)}
     >
-      {strips.map((strip, index) => {
-        const group = groups[index];
-        return group ? (
-          <Strip key={strip.key} item={item} strip={strip} group={group} ticks={ticks} />
-        ) : null;
-      })}
-    </span>
+      {groups.map((group) => (
+        <StageChecklist
+          key={group.label ?? ""}
+          item={item}
+          group={group}
+          heading={titled ? (group.label ?? UNTITLED_GROUP_LABEL) : null}
+          ticks={ticks}
+        />
+      ))}
+      {manage && onGroup && suggestsGrouping(item) ? (
+        <p
+          data-slot="item-group-hint"
+          className={cn(OVER_ROW, "flex flex-wrap items-center gap-x-3 gap-y-1 text-sm")}
+        >
+          <span className="text-muted-foreground">
+            {item.stages.length} stages: split them into groups?
+          </span>
+          <Button variant="secondary" size="sm" data-slot="item-group-stages" onClick={onGroup}>
+            Group stages
+          </Button>
+        </p>
+      ) : null}
+      {manage && typesNumberedRounds(item) ? (
+        <p
+          data-slot="item-round-tip"
+          className="text-muted-foreground reading flex items-start gap-2 text-xs"
+        >
+          <LightbulbIcon aria-hidden className="mt-px size-3.5 shrink-0" />
+          <span>
+            Tip: for another round of changes, open the deliverable and use &ldquo;+ Another
+            revision round&rdquo;. It adds the round in the right place, so there is no need to type
+            numbered round stages.
+          </span>
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -413,7 +486,13 @@ export function DeliverableRow({
   onOpen,
   onMarkDone,
   error,
+  manage = false,
+  onGroup,
 }: {
+  /** The viewer edits the project (`projects.manage`, workable): the open row's hints show. */
+  manage?: boolean;
+  /** Opens "Group stages" for this deliverable (fix D), held by the list. */
+  onGroup?: (() => void) | undefined;
   item: ItemView;
   /** Select mode is on: the list has a select column. */
   selecting: boolean;
@@ -432,6 +511,9 @@ export function DeliverableRow({
   error: string | undefined;
 }) {
   const indent = selecting ? "pl-12 lg:pl-0" : undefined;
+  // Collapsed by default (fix A); opening is a view control, never history (§14.2 d).
+  const [expanded, setExpanded] = useState(false);
+  const panelId = useId();
   // In Select mode a selectable row's tap is its checkbox's; any other row's opens it.
   const selectsOnTap = selecting && selectable;
   const place = markDonePlace(item, action, selecting);
@@ -511,9 +593,11 @@ export function DeliverableRow({
           <NextText item={item} ticks={ticks} />
         </span>
       </span>
-      <Strips
+      <ProgressToggle
         item={item}
-        ticks={ticks}
+        open={expanded}
+        controls={panelId}
+        onToggle={() => setExpanded((current) => !current)}
         className={cn("order-last basis-full lg:order-none", indent)}
       />
       <span data-slot="item-next-cell" className="hidden min-h-7 items-center lg:flex">
@@ -558,6 +642,19 @@ export function DeliverableRow({
           />
         )}
       </span>
+      {expanded ? (
+        <StagesPanel
+          item={item}
+          id={panelId}
+          ticks={ticks}
+          manage={manage}
+          onGroup={onGroup}
+          className={cn(
+            "order-last basis-full lg:order-none",
+            selecting ? "pl-12 lg:col-[2/-1] lg:pl-0" : "lg:col-span-full",
+          )}
+        />
+      ) : null}
       {item.sentBack ? (
         <SentBackNote
           slot="item-row-sent-back"

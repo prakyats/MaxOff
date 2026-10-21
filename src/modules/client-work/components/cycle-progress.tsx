@@ -3,7 +3,13 @@
 import { cn } from "@/core/lib/utils";
 import { ProgressRing } from "@/core/ui/progress/segmented-meter";
 
-import { completeWords, meterLine, meterPace, type CycleMeter } from "../domain/progress";
+import {
+  completeWords,
+  meterLine,
+  meterPace,
+  type CycleMeter,
+  type NeedsYouPill,
+} from "../domain/progress";
 
 import { CycleCompleteMoment } from "./cycle-complete";
 
@@ -20,7 +26,13 @@ export function CycleProgress({
   label,
   meter,
   cancelledAt = null,
+  needsYou = null,
 }: {
+  /**
+   * The "Needs you" pills beside the ring (the v1.8 sample; Owner and Admin, the only roles on this
+   * page): late in red, nearly done in amber, each a dot and a sentence. Null: none drawn.
+   */
+  needsYou?: { pills: readonly NeedsYouPill[]; more: number } | null;
   cycleId: string;
   /** The cycle's label ("October 2026"), null for a one-time project's. */
   label: string | null;
@@ -37,40 +49,76 @@ export function CycleProgress({
       aria-label="Progress"
       data-slot="cycle-meter"
       data-complete={complete ? "" : undefined}
-      className="border-border bg-card flex items-center gap-4 rounded-lg border px-3 py-3 sm:px-4"
+      className="border-border bg-card flex flex-wrap items-center gap-x-6 gap-y-3 rounded-lg border px-3 py-3 sm:px-4"
     >
-      <ProgressRing
-        counts={{ done: meter.done, next: meter.next, total: meter.units }}
-        label={`${meter.percent}%: ${line}`}
-        slot="cycle-ring"
-        className="size-20 sm:size-22"
-      >
-        <span
-          data-slot="cycle-percent"
-          className="text-xl leading-none font-semibold tracking-tight tabular-nums"
+      <div className="flex min-w-0 flex-[1_1_18rem] items-center gap-4">
+        <ProgressRing
+          counts={{ done: meter.done, next: meter.next, total: meter.units }}
+          label={`${meter.percent}%: ${line}`}
+          slot="cycle-ring"
+          className="size-20 sm:size-22"
         >
-          {meter.percent}
-          <span className="text-muted-foreground text-xs font-medium">%</span>
-        </span>
-      </ProgressRing>
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <p data-slot="cycle-meter-line" className="text-sm break-words">
-          {line}
-        </p>
-        <p className="flex min-h-5 items-center text-xs">
-          {complete ? (
-            <CycleCompleteMoment cycleId={cycleId} words={completeWords(label)} />
-          ) : pace ? (
-            <span
-              data-slot="cycle-pace"
-              data-tone={pace.tone}
-              className={cn(pace.tone === "danger" ? "text-danger" : "text-success")}
-            >
-              {pace.text}
-            </span>
-          ) : null}
-        </p>
+          <span
+            data-slot="cycle-percent"
+            className="text-xl leading-none font-semibold tracking-tight tabular-nums"
+          >
+            {meter.percent}
+            <span className="text-muted-foreground text-xs font-medium">%</span>
+          </span>
+        </ProgressRing>
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <p data-slot="cycle-meter-line" className="text-sm break-words">
+            {line}
+          </p>
+          <p className="flex min-h-5 items-center text-xs">
+            {complete ? (
+              <CycleCompleteMoment cycleId={cycleId} words={completeWords(label)} />
+            ) : pace ? (
+              <span
+                data-slot="cycle-pace"
+                data-tone={pace.tone}
+                className={cn(pace.tone === "danger" ? "text-danger" : "text-success")}
+              >
+                {pace.text}
+              </span>
+            ) : null}
+          </p>
+        </div>
       </div>
+      {needsYou && needsYou.pills.length > 0 ? (
+        <div
+          data-slot="project-needs-you"
+          className="flex min-w-0 flex-[1_1_20rem] flex-col gap-1.5"
+        >
+          <h2 className="text-muted-foreground text-xs font-medium">Needs you</h2>
+          <ul className="flex min-w-0 flex-wrap gap-1.5">
+            {needsYou.pills.map((pill) => (
+              <li
+                key={pill.itemId}
+                data-slot="project-needs-you-pill"
+                data-tone={pill.tone}
+                className="border-border flex max-w-full min-w-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs"
+              >
+                <span
+                  aria-hidden
+                  className={cn(
+                    "size-2 shrink-0 rounded-full",
+                    pill.tone === "danger" ? "bg-danger" : "bg-attention",
+                  )}
+                />
+                <span className="min-w-0 truncate" title={pill.text}>
+                  {pill.text}
+                </span>
+              </li>
+            ))}
+            {needsYou.more > 0 ? (
+              <li className="text-muted-foreground flex items-center px-1 text-xs">
+                +{needsYou.more} more
+              </li>
+            ) : null}
+          </ul>
+        </div>
+      ) : null}
     </section>
   );
 }

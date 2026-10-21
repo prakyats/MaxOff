@@ -515,8 +515,25 @@ test("the Admin's Today: Client work with Mark done and its Undo, a sent-back it
     reason: "The logo is wrong",
   });
 
+  // N5 (V3): a deliverable with stages left offers "Next: ‹stage›", never Mark done at 0/1.
+  const staged = await makeProject(clientId, "Today staged", {
+    recurrence: "one_time",
+    delivery: addDays(today(), 10),
+    items: [nameOf(info, "staged")],
+    stages: ["Stage 1"],
+  });
+  await rpcAs(admin.email, admin.password, "item_update", {
+    item_id: await itemId(staged, nameOf(info, "staged")),
+    changes: { planned_date: today() },
+  });
+
   await page.goto("/today");
   await hydrated(page);
+  const stagedRow = page.locator('[data-slot="today-client-item"]', {
+    hasText: nameOf(info, "staged"),
+  });
+  await expect(stagedRow.locator('[data-slot="today-item-next"]')).toHaveText(/Next:\s*Stage 1/);
+  await expect(stagedRow.getByRole("button", { name: "Mark done" })).toHaveCount(0);
   await expect(
     page.locator('[data-slot="today-sent-back-row"]', { hasText: nameOf(info, "back") }),
   ).toContainText("The logo is wrong");

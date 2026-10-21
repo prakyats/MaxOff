@@ -32,6 +32,7 @@ import {
   listLastChanges,
   listReviews,
   listStages,
+  needsYouPills,
   nextStartable,
   cycleMeter,
   PROJECT_STATE_LABELS,
@@ -260,8 +261,9 @@ export default async function ProjectPage({
           </>
         }
       />
-      <div className="flex max-w-5xl min-w-0 flex-col gap-4" data-slot="project-page">
-        <div className="flex max-w-3xl min-w-0 flex-col gap-2" data-slot="project-glance">
+      {/* One page grid (L1, the v1.8 sample (G)): every section shares the deliverables' width. */}
+      <div className="flex min-w-0 flex-col gap-4" data-slot="project-page">
+        <div className="flex min-w-0 flex-col gap-2" data-slot="project-glance">
           <p className="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
             <StatusBadge status={project.state} label={PROJECT_STATE_LABELS[project.state]} />
             <span className="md:hidden">{meta.join(" · ")}</span>
@@ -329,6 +331,8 @@ export default async function ProjectPage({
               label={chosen.label}
               meter={cycleMeter(views, today)}
               cancelledAt={project.state === "cancelled" ? project.cancelledAt : null}
+              // Owner and Admin only (the page's roles); never Crew, who never see client work.
+              needsYou={working && canManage ? needsYouPills(views, today) : null}
             />
           ) : null}
           {toDecide > 0 && can(viewer.role, "cycles.carry_decide") ? (
@@ -370,13 +374,13 @@ export default async function ProjectPage({
         ) : null}
 
         {project.description || definitions.length > 0 ? (
-          <section aria-labelledby="project-details" className="flex max-w-3xl flex-col gap-2">
+          <section aria-labelledby="project-details" className="flex min-w-0 flex-col gap-2">
             <h2 id="project-details" className="text-sm font-medium">
               Details
             </h2>
             <div className="border-border bg-card flex flex-col gap-3 rounded-lg border px-4 py-3 text-sm">
               {project.description ? (
-                <p className="break-words whitespace-pre-wrap">{project.description}</p>
+                <p className="reading break-words whitespace-pre-wrap">{project.description}</p>
               ) : null}
               <CustomFieldsView definitions={projectFields} values={project.customFields} />
             </div>

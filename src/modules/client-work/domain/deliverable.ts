@@ -112,3 +112,49 @@ export function markDonePlace(
   if (!allowed || selecting) return null;
   return readyToMarkDone(item) || item.stages.length === 0 ? "row" : "menu";
 }
+
+/**
+ * The collapsed row's one bar and "n/m" (V3, the long-stage-list fix A/C): every stage of the
+ * deliverable, however many groups, as one continuous bar; a done deliverable reads full, the open
+ * one's next stage lighter (as the strips counted it).
+ */
+export function itemProgress(item: RowItem): { done: number; next: number; total: number } {
+  return groupStrips(item).reduce(
+    (sum, strip) => ({
+      done: sum.done + strip.done,
+      next: sum.next + strip.next,
+      total: sum.total + strip.total,
+    }),
+    { done: 0, next: 0, total: 0 },
+  );
+}
+
+/** From how many stages an ungrouped list is "long" (the owner's 2026-10-17 note: above ~8). */
+export const LONG_STAGE_LIST = 9;
+
+/**
+ * Whether the expanded row offers "n stages: split them into groups?" (fix D): an open deliverable
+ * with a long list whose stages are all outside a group. Only ever a suggestion: nothing is grouped
+ * until the Admin chooses where each group starts.
+ */
+export function suggestsGrouping(item: Pick<RowItem, "state" | "stages" | "groups">): boolean {
+  return (
+    item.state === "open" &&
+    item.stages.length >= LONG_STAGE_LIST &&
+    item.groups.every((group) => group.label === null)
+  );
+}
+
+/** "Round 2", "round 1", "R3": a stage typed as a numbered round of changes. */
+const NUMBERED_ROUND = /\bround\s*\d+\b|\br\d+\b/i;
+
+/**
+ * Whether the expanded row shows the revision-round tip (fix E): two or more stages typed as
+ * numbered rounds ("… Round 1", "… Round 2"), where "+ Another revision round" adds the next one in
+ * its place when it is needed.
+ */
+export function typesNumberedRounds(item: Pick<RowItem, "state" | "stages">): boolean {
+  return (
+    item.state === "open" && item.stages.filter((stage) => NUMBERED_ROUND.test(stage.name)).length >= 2
+  );
+}
