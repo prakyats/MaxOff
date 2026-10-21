@@ -63,7 +63,7 @@ export default async function ClientOverviewPage({ params }: { params: Promise<{
   const adminName = client.adminId ? (people.names[client.adminId] ?? "An Admin") : null;
 
   return (
-    <div className="flex max-w-2xl flex-col gap-4" data-slot="client-overview">
+    <div className="flex flex-col gap-4" data-slot="client-overview">
       <Card>
         <CardContent className="flex flex-col gap-3 text-sm" data-slot="client-glance">
           <div className="flex flex-wrap items-center justify-between gap-2">

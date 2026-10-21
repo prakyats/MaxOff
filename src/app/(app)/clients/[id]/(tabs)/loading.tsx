@@ -20,7 +20,7 @@ export default async function Loading() {
       aria-busy="true"
       aria-label="Loading the client"
       data-slot="loading-client-overview"
-      className="flex max-w-2xl flex-col gap-4"
+      className="flex flex-col gap-4"
     >
       <Card aria-hidden>
         <CardContent className="flex flex-col gap-3">

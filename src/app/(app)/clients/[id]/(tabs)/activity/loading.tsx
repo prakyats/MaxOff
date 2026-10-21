@@ -11,7 +11,7 @@ export default function Loading() {
       aria-busy="true"
       aria-label="Loading the history"
       data-slot="loading-client-activity"
-      className="flex max-w-2xl flex-col gap-2"
+      className="flex flex-col gap-2"
     >
       <ul aria-hidden className="border-border divide-border bg-card divide-y rounded-lg border">
         {[0, 1, 2, 3, 4].map((row) => (

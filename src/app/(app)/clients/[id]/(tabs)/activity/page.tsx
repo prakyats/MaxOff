@@ -75,7 +75,7 @@ export default async function ClientActivityPage({ params }: { params: Promise<{
   }
 
   return (
-    <div className="flex max-w-2xl flex-col gap-2" data-slot="client-activity">
+    <div className="flex flex-col gap-2" data-slot="client-activity">
       <ol
         aria-label="Activity"
         className="border-border divide-border bg-card divide-y rounded-lg border"

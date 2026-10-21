@@ -169,9 +169,20 @@ No `rounded-xs`, `rounded-2xl` and above, no `rounded-[…]` (lint).
   the lazily loaded menus cost nothing more; back closes it first like any layer (§14.2 a).
 - **Tables scroll with the page (L2):** no inner scroll box; from `lg` the header row sticks under
   the top bar (`DataTable`). A phone shows cards instead of a table.
-- Laptop: one page grid at the content's full width (V3); compact rows (32 px controls). Phone:
-  16 px side gutters, 44 px targets, bottom sheets, a sticky primary action, cards instead of
-  tables (ARCHITECTURE §14.1).
+- **One page grid (L1, V3).** Every page's content takes the main column's full width (the shell's
+  `main`, up to 80rem beside the sidebar): lists, boards, cards, a project's month bar, progress and
+  Details all share the deliverables list's width, so no section stops short of another. A page
+  never sets its own `max-w-*`. **Running text** (a description, a note, a paragraph of help) takes
+  the `reading` utility (`globals.css`, at most 70 characters a line) inside that width. Dialogs and
+  sheets keep their own sizes. V4's pages (Settings, People, Reports, Me, Alerts) adopt the same
+  grid by dropping their `max-w-*`.
+- Laptop: compact rows (32 px controls). Phone: 16 px side gutters, 44 px targets, bottom sheets, a
+  sticky primary action, cards instead of tables (ARCHITECTURE §14.1).
+- **Bottom-bar labels (V3):** 12 px (`text-xs`, the scale's minimum), one line. Each of the five
+  cells is a size container: when a cell is narrower than 3rem (system text at about 160% and above
+  on a 375 px phone) its label leaves the picture and stays as the item's accessible name
+  (`sr-only`, with its count's words), so the bar shows icons only rather than slivers of words; at
+  130% the labels stay. Never two lines (the bar's height is fixed by the safe area and the FAB).
 
 - **Toasts (P3):** bottom-centre on laptop and phone (a surface-2 card), never over the page
   header. On a phone they sit above the bottom nav, the home indicator and the offline/push bands,
@@ -202,9 +213,9 @@ No `rounded-xs`, `rounded-2xl` and above, no `rounded-[…]` (lint).
 
 The files that held exceptions when the rule landed (2026-10-20) are listed in
 `DESIGN_TOKEN_EXCEPTIONS` in `eslint.config.mjs`; they move onto the tokens in V2–V4 and leave the
-list as they do (PROGRESS, Ideas / tech debt). V2 took it from 50 files to 21: the calendar's five
-(V3), the bottom bar's 11 px labels (they must fit a fifth of a 375 px bar at 200% text; V3–V5
-settle them) and the fifteen by nature. New tokens on the way: `scrim` (the veil behind a dialog, sheet or
+list as they do (PROGRESS, Ideas / tech debt). V2 took it from 50 files to 21, V3 to 15: the bottom bar's labels are 12 px with the
+icon-only rule above, and the calendar's five are on the tokens; the fifteen left are exceptions by
+nature. New tokens on the way: `scrim` (the veil behind a dialog, sheet or
 phone menu sheet: 10% black light, 30% dark), `logo-foreground` (the logo tile's white M), the
 `hairline-b` utility (a sticky table header's rule) and `--app-top-bar-h`. Emails (HTML mail clients have no CSS variables) and
 the theme-colour metas are exceptions by nature and stay listed.

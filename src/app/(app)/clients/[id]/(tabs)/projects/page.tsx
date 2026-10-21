@@ -55,7 +55,7 @@ export default async function ClientProjectsPage({ params }: { params: Promise<{
   const canCreate = client.state !== "inactive";
 
   return (
-    <div className="flex max-w-2xl flex-col gap-4" data-slot="client-projects">
+    <div className="flex flex-col gap-4" data-slot="client-projects">
       <div className="flex min-h-11 flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-medium">Projects</h2>
         {canCreate ? (

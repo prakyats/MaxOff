@@ -44,7 +44,7 @@ export default async function ContactPage({
         back={{ href: `/clients/${client.id}`, label: client.name }}
         menu={canEdit ? <ContactMenu contact={contact} others={others} /> : undefined}
       />
-      <div className="flex max-w-xl flex-col gap-4" data-slot="contact-page">
+      <div className="flex flex-col gap-4" data-slot="contact-page">
         {contact.archivedAt ? (
           <p role="status" className="flex flex-wrap items-center gap-2 text-sm">
             <StatusBadge status="inactive" label="Archived" />

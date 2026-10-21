@@ -120,7 +120,7 @@ export default async function MyDayPage() {
           <EndDayClaims today={today} setup={getClaimSetup().catch(() => null)} />
         }
       />
-      <div className="flex max-w-3xl min-w-0 flex-col gap-6" data-slot="my-day">
+      <div className="flex min-w-0 flex-col gap-6" data-slot="my-day">
         {nothing ? (
           <QuietText slot="my-day-empty">{MY_DAY_EMPTY}</QuietText>
         ) : (

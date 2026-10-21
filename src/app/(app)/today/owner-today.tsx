@@ -238,7 +238,7 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
   return (
     <>
       <PageHeader title="Today" description={ownerGreeting(viewer.name)} />
-      <div className="flex max-w-3xl min-w-0 flex-col gap-6" data-slot="owner-today">
+      <div className="flex min-w-0 flex-col gap-6" data-slot="owner-today">
         <DashSection title="Needs you" slot="today-approvals" count={total}>
           {total === 0 ? (
             <QuietText slot="today-approvals-empty">{OWNER_NEEDS_YOU_EMPTY}</QuietText>

@@ -487,6 +487,11 @@
     }
   }
 }
+/* The page grid (L1, DESIGN.md §6): lists, boards and sections take the main column's full width;
+ * a block of running text (a description, a note, a hint paragraph) stops at a reading measure. */
+@utility reading {
+  max-width: 70ch;
+}
 /* A hairline under a sticky header row (a table's): a border on a sticky `thead` scrolls away with
  * the collapsed borders, an inset hairline in the `border` colour stays with it. */
 @utility hairline-b {

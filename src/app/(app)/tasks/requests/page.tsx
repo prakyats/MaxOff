@@ -80,7 +80,7 @@ export default async function TaskRequestsPage() {
         help={description}
         actions={suggests ? <SuggestTaskButton clients={choices} /> : undefined}
       />
-      <div className="flex max-w-3xl min-w-0 flex-col gap-6" data-slot="task-requests">
+      <div className="flex min-w-0 flex-col gap-6" data-slot="task-requests">
         {requests.length === 0 ? (
           <EmptyState
             icon={InboxIcon}

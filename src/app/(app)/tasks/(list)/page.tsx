@@ -124,7 +124,7 @@ export default async function TasksPage() {
         description="What needs you, then every open task by deadline."
         actions={<NewTaskButton setup={loadTaskFormSetup(viewer).catch(() => null)} />}
       />
-      <div className="flex max-w-3xl min-w-0 flex-col gap-6" data-slot="tasks-team">
+      <div className="flex min-w-0 flex-col gap-6" data-slot="tasks-team">
         <Section title="Needs you" slot="tasks-needs-you" count={summary.count}>
           {nothingNeeded ? (
             <p className="text-muted-foreground text-sm" data-slot="tasks-needs-nothing">
@@ -251,7 +251,7 @@ function MyTasks({
         description="The work given to you, and what's due next."
         actions={<SuggestTaskButton clients={clients} />}
       />
-      <div className="flex max-w-3xl min-w-0 flex-col gap-6" data-slot="tasks-mine">
+      <div className="flex min-w-0 flex-col gap-6" data-slot="tasks-mine">
         {empty ? (
           <EmptyState
             title={reviewing > 0 ? "Nothing to do right now" : "Nothing on your list"}

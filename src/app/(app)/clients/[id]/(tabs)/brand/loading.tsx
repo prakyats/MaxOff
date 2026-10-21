@@ -13,7 +13,7 @@ export default function Loading() {
       aria-busy="true"
       aria-label="Loading the brand"
       data-slot="loading-client-brand"
-      className="flex max-w-2xl flex-col gap-4"
+      className="flex flex-col gap-4"
     >
       <Card aria-hidden>
         <CardContent className="flex flex-wrap items-center justify-between gap-4">

@@ -34,7 +34,7 @@ export default async function Loading() {
         aria-busy="true"
         aria-label="Loading suggested tasks"
         data-slot="loading-task-requests"
-        className="flex max-w-3xl min-w-0 flex-col gap-2"
+        className="flex min-w-0 flex-col gap-2"
       >
         {/* The "Waiting" heading's line box (text-sm, 20px), as `TaskSectionHeadingSkeleton`. */}
         <div aria-hidden className="flex h-5 items-center">
