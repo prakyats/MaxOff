@@ -54,7 +54,6 @@ import {
 } from "../domain/size";
 import { dayLabel } from "../domain/strips";
 import { AllDayChips, DayDetail, eventLink } from "./day-detail";
-import { DayPanel } from "./day-panel";
 import type { FilterChoices } from "./filters-sheet";
 import { MonthGrid } from "./month-grid";
 import { Timeline, weekdayHeading } from "./timeline";
@@ -63,6 +62,12 @@ import { Timeline, weekdayHeading } from "./timeline";
 const DaySheet = dynamic(() => import("./day-sheet").then((module) => module.DaySheet), {
   ssr: false,
 });
+/**
+ * The laptop Month's day panel (L7, V5a): drawn on the server with the page (no shift), its code
+ * a chunk of its own shared with the day sheet's agenda, so the route's first load stays within
+ * its budget (ARCHITECTURE §19).
+ */
+const DayPanel = dynamic(() => import("./day-panel").then((module) => module.DayPanel));
 const FiltersSheet = dynamic(
   () => import("./filters-sheet").then((module) => module.FiltersSheet),
   { ssr: false },
