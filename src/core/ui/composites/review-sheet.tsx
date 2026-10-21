@@ -56,7 +56,7 @@ export function ReviewSheet({
         data-slot="review-sheet"
         className={cn(
           "gap-4 overflow-y-auto",
-          bottom && "max-h-[85dvh] rounded-t-2xl pb-[calc(1.5rem+var(--app-safe-bottom))]",
+          bottom && "rounded-t-sheet max-h-[85dvh] pb-[calc(1.5rem+var(--app-safe-bottom))]",
         )}
       >
         {bottom ? (

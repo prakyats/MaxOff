@@ -666,7 +666,7 @@ function MobileCards<TData>({
         <SheetContent
           side="bottom"
           data-slot="detail-sheet"
-          className="max-h-[85dvh] gap-4 overflow-y-auto rounded-t-2xl pb-[calc(1.5rem+var(--app-safe-bottom))]"
+          className="rounded-t-sheet max-h-[85dvh] gap-4 overflow-y-auto pb-[calc(1.5rem+var(--app-safe-bottom))]"
         >
           <div
             aria-hidden

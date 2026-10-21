@@ -4,7 +4,7 @@ import { useSyncExternalStore } from "react";
 
 /**
  * One record in edit mode at a time (3.4 review): a page with several `EditableRecord`s (a
- * client's Overview) would otherwise stack two sticky Save bars in one place, two red commits in
+ * client's Overview) would otherwise stack two sticky Save bars in one place, two solid commits in
  * one layer and two history layers. The record that starts editing claims the page; the others
  * hide their Edit until it is released.
  */

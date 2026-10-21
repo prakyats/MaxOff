@@ -59,7 +59,7 @@ const STEPS: readonly { text: ReactNode; picture: ReactNode }[] = [
       <Picture label="The Add button at the top right">
         <span className="flex w-14 items-center justify-between">
           <span className="h-1.5 w-5 rounded-full bg-current opacity-30" aria-hidden />
-          <span className="text-foreground ring-foreground rounded px-1 text-[0.6875rem] font-semibold ring-2">
+          <span className="text-foreground ring-foreground rounded px-1 text-xs font-semibold ring-2">
             Add
           </span>
         </span>

@@ -28,7 +28,7 @@ import { WRITING_AS_SELF } from "../domain/page";
  * reply it offers no Retry, which could post it twice. A freelancer's coordinator picks who is
  * writing: themselves or the freelancer ("Ravi for Asha", ADR-0013); the guard checks it again.
  *
- * **Send's colour (colour rule, Kickoff 4 decision 26):** solid red only inside the phone's Chat
+ * **Send's colour (colour rule, Kickoff 4 decision 26):** solid only inside the phone's Chat
  * sheet, its own layer. Inline on desktop the composer shares the screen with the next step's
  * solid action, so Send is the neutral outline there (still a commit: offline-aware, pending).
  *

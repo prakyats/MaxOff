@@ -24,6 +24,7 @@
   --color-ring: var(--ring);
   --color-brand: var(--brand);
   --color-logo: var(--logo);
+  --color-logo-foreground: var(--logo-foreground);
   --color-brand-foreground: var(--brand-foreground);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-success: var(--success);
@@ -149,6 +150,7 @@
   --brand-foreground: #ffffff;
   /* The logo tile is a fixed brand asset: same red in both themes, never overridden in .dark. */
   --logo: #c42126;
+  --logo-foreground: #ffffff;
   --destructive: #c42126;
   --destructive-foreground: #ffffff;
   --border: #e7e5e4;

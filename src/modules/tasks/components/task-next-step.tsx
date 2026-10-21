@@ -41,7 +41,7 @@ const ACTION = "h-auto min-h-11 py-2 text-center whitespace-normal";
  * changes for the step's reviewer); everything else is under ⋯. On a phone it is a sticky bar at
  * the bottom (a layer of its own for the colour rule), hidden while the keyboard is open
  * (decision 32); from `md` up, a row under the first glance. The colour rule: one solid button,
- * no second: Task Noted and Start work commit at the tap (solid red, "Noting…", "Starting…",
+ * no second: Task Noted and Start work commit at the tap (solid, "Noting…", "Starting…",
  * disabled offline, Retry after a lost reply: the transition functions refuse a second note or
  * start); Mark done and Approve open a sheet or a confirmation (neutral solid), and Request
  * changes is a red outline until its reason is sent.

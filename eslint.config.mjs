@@ -160,44 +160,12 @@ const DESIGN_TOKEN_CHECKS = [
  * CSS variables, and the browser's theme-colour meta needs the page colour itself.
  */
 const DESIGN_TOKEN_EXCEPTIONS = [
-  // V2 components: overlays (`bg-black/…` scrims), chips, sheets' and menus' radii, the shell's
-  // small labels, the logo tile's white M, the sticky bar's and table's shadows.
-  "core/ui/primitives/alert-dialog.tsx",
-  "core/ui/primitives/badge.tsx",
-  "core/ui/primitives/checkbox.tsx",
-  "core/ui/primitives/dialog.tsx",
-  "core/ui/primitives/modal-surface.ts",
-  "core/ui/primitives/scroll-area.tsx",
-  "core/ui/primitives/select.tsx",
-  "core/ui/primitives/sheet.tsx",
-  "core/ui/primitives/tooltip.tsx",
-  "core/ui/composites/data-table.tsx",
-  "core/ui/composites/help-sheet-panel.tsx",
-  "core/ui/composites/review-sheet.tsx",
-  "core/ui/composites/sticky-actions.tsx",
-  "core/ui/shell/bottom-nav.tsx",
-  "core/ui/shell/brand.tsx",
-  "core/ui/shell/more-sheet.tsx",
-  "core/ui/shell/nav-badge.tsx",
-  "core/ui/stage-groups/deliverables-preview.tsx",
-  "core/notifications/components/did-it-arrive.tsx",
-  "core/notifications/components/install-steps.tsx",
-  "core/notifications/components/push-banner.tsx",
-  "app/(auth)/layout.tsx",
-  // V3–V4 screens: the calendar's small labels and strips, skeletons, sheets and settings rows.
-  "app/(app)/clients/items/decide/loading.tsx",
-  "app/(app)/settings/loading.tsx",
+  // V3 screens: the calendar's small labels and strips (the holiday strip's hex → `--holiday`).
   "modules/calendar/components/calendar-screen.tsx",
   "modules/calendar/components/calendar-skeleton.tsx",
   "modules/calendar/components/month-grid.tsx",
   "modules/calendar/components/timeline.tsx",
   "modules/calendar/domain/strips.ts",
-  "modules/guide/components/shot-viewer.tsx",
-  "modules/settings/components/list-item-actions-sheet.tsx",
-  "modules/tasks/components/task-chat.tsx",
-  "modules/tasks/components/task-page-skeleton.tsx",
-  "modules/tasks/components/task-types-manager.tsx",
-  "modules/tasks/components/template-manager.tsx",
   // By nature, staying: HTML email (no CSS variables), the theme-colour meta, the error page that
   // renders without the app's CSS, the launch mark, a JPEG's white backing, and colours that are
   // data (a client's brand swatches, a list's or a custom field's colour, an event's colour, the

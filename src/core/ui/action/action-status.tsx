@@ -14,8 +14,8 @@ import { NETWORK_ERROR_CREATE_MESSAGE, NETWORK_ERROR_MESSAGE, SLOW_MESSAGE } fro
  * well; "Still working… slow connection" once an action has taken 8 s; "Couldn't reach MaxOff.
  * Check your connection and try again." with **Retry** when it never got an answer. Near the
  * control, never a blocking overlay. The error line is `ErrorText` (red text with its icon, the
- * one sanctioned red besides the commit action); Retry is `secondary`, so a layer keeps its one
- * red commit action.
+ * one sanctioned red besides a destructive commit); Retry is `secondary`, so a layer keeps its one
+ * solid commit action.
  */
 export function ActionStatus({
   action,

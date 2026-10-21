@@ -99,7 +99,7 @@ describe("Mark done's emphasis (E+)", () => {
     expect(readyToMarkDone(deliverable("done", [stage("a", true)]))).toBe(false);
   });
 
-  it("gives the solid red to the first ready row that may be marked, and to none when not allowed", () => {
+  it("gives the solid commit to the first ready row that may be marked, and to none when not allowed", () => {
     const notReady = deliverable("open", [stage("a", false)]);
     const first = deliverable("open", [stage("b", true)]);
     const second = deliverable("open", [stage("c", true)]);

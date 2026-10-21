@@ -23,7 +23,7 @@ export default function Loading() {
             <li key={row} className="flex min-h-15 items-center gap-3 px-3 py-2 sm:px-4">
               {/* The row's 44 px select target around its box (§14.1), as the row draws it. */}
               <span className="-ml-2 flex size-11 shrink-0 items-center justify-center">
-                <Skeleton className="size-4 rounded-[4px]" />
+                <Skeleton className="size-4 rounded-sm" />
               </span>
               <span className="flex flex-1 flex-col gap-1.5">
                 <Skeleton className="h-4 w-1/2" />

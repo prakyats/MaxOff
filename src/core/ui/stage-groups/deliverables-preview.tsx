@@ -150,7 +150,7 @@ function EntryCard({ entry }: { entry: PreviewEntry }) {
       ) : null}
       <span
         data-slot="preview-tag"
-        className="border-border text-muted-foreground rounded-full border px-1.5 text-[0.7rem]"
+        className="border-border text-muted-foreground rounded-full border px-1.5 text-xs"
       >
         {entry.own ? "Own stages" : "Default stages"}
       </span>
@@ -205,7 +205,7 @@ function EntryCard({ entry }: { entry: PreviewEntry }) {
           <div key={at} data-slot="preview-group" className="flex min-w-0 flex-col gap-1">
             {group.label !== null ? (
               <p
-                className="text-muted-foreground text-[0.7rem] font-medium tracking-wide break-words uppercase"
+                className="text-muted-foreground text-xs font-medium tracking-wide break-words uppercase"
                 data-slot="preview-group-label"
               >
                 {group.label}

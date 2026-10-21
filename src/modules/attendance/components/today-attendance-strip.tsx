@@ -103,7 +103,7 @@ function StripActionButton({
 }) {
   switch (action.kind) {
     case "start":
-      // The one solid red commit action on the screen: the tap records the start (§14.1).
+      // The one solid commit action on the screen: the tap records the start (§14.1).
       return <StartDayButton size="sm" statusClassName="basis-full px-3 pb-2" />;
     case "end":
       return <EndDayButton size="sm" yesterday={yesterday} noteTaken={noteTaken} endsOn={endsOn} />;

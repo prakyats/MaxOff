@@ -58,7 +58,7 @@ export function DidItArrive() {
         <SheetContent
           side="bottom"
           data-slot="troubleshooting-sheet"
-          className="max-h-[80dvh] gap-3 overflow-y-auto rounded-t-2xl pb-[calc(1.5rem+var(--app-safe-bottom))]"
+          className="rounded-t-sheet max-h-[80dvh] gap-3 overflow-y-auto pb-[calc(1.5rem+var(--app-safe-bottom))]"
         >
           <div
             aria-hidden

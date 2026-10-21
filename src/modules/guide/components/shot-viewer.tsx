@@ -30,7 +30,7 @@ export function ShotViewer({ shot, onClose }: { shot: GuideShotImage; onClose: (
       <SheetContent
         side="bottom"
         data-slot="guide-shot-viewer"
-        className="max-h-[92dvh] gap-3 overflow-y-auto rounded-t-2xl pb-[calc(1rem+var(--app-safe-bottom))]"
+        className="rounded-t-sheet max-h-[92dvh] gap-3 overflow-y-auto pb-[calc(1rem+var(--app-safe-bottom))]"
       >
         <SheetHeader className="pt-3 pb-0">
           <SheetTitle className="pr-10 text-base">{shot.alt}</SheetTitle>

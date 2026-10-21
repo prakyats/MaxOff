@@ -10,7 +10,7 @@ import { removeCompanyLogo, setCompanyLogo } from "../actions/settings";
 /**
  * Settings → Company: the logo (task 3.3, PRODUCT §4.16). The current preview (or a
  * placeholder) beside one trigger, "Change logo", whose sheet is where the file is picked and
- * saved (its own layer, so the form's red "Save company" stays the screen's only one).
+ * saved (its own layer, so the form's "Save company" stays the screen's only one).
  */
 export function CompanyLogoCard({ name, logoFileId }: { name: string; logoFileId: string | null }) {
   return (

@@ -86,7 +86,7 @@ export function CycleItems({
   solidAllowed = true,
 }: {
   /**
-   * The screen may carry a solid red Mark done (E+): false while another solid control shows on
+   * The screen may carry a solid Mark done (E+): false while another solid control shows on
    * the same layer (the month-end "Keep extras" card's neutral solid Yes; §14.1).
    */
   solidAllowed?: boolean;
@@ -182,7 +182,7 @@ export function CycleItems({
   // 6b.11 (1): the open ones first (overdue at the top, then by date), the rest collapsed.
   const { open, finished } = orderDeliverables(items);
   // E+: Mark done is quiet until every stage is ticked; the first such row's is the screen's one
-  // solid red commit (never in Select mode, whose bar does it), the others outlined.
+  // solid commit (never in Select mode, whose bar does it), the others outlined.
   const canMark = (item: ItemView) => permissions.tick && item.rules.markDone && !waiting(item);
   const solidId = solidMarkDoneId(open, canMark, solidAllowed && !mode.selectMode);
   const row = (item: ItemView) => (
