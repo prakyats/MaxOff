@@ -456,6 +456,12 @@ function readList(text: string): UpdateThresholdsInput["defaultTaskReminders"] {
 }
 
 /**
+ * The groups open in this page view: a save re-reads the screen and re-seeds the form (keyed by the
+ * saved values, 6b.17a), which must not fold the group being edited. Cleared on a full load.
+ */
+const OPEN_GROUPS = new Set<string>();
+
+/**
  * One Thresholds group (6b.6, v1.8 V4): a row with the group's name and a one-line summary of its
  * saved values; tapped, it opens in place (native `<details>`: a view control, no history,
  * §14.2 d) to show its fields. The fields stay in the one form while closed, so the sticky Save
@@ -476,13 +482,18 @@ function ThresholdGroup({
   forceOpen: boolean;
   children: ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(() => OPEN_GROUPS.has(id));
   return (
     <details
       id={id}
       data-slot="threshold-group"
       open={open || forceOpen}
-      onToggle={(event) => setOpen(event.currentTarget.open)}
+      onToggle={(event) => {
+        const next = event.currentTarget.open;
+        if (next) OPEN_GROUPS.add(id);
+        else OPEN_GROUPS.delete(id);
+        setOpen(next);
+      }}
       className="border-border bg-card rounded-card group/threshold border"
     >
       <summary className="pressable-row focus-visible:ring-ring flex min-h-16 cursor-pointer list-none items-center gap-3 px-4 py-2.5 outline-none focus-visible:ring-2 focus-visible:ring-inset [&::-webkit-details-marker]:hidden">
