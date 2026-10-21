@@ -617,11 +617,11 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "On a laptop pick Day, Week or Month; it opens on Month. Beside the month’s name, ‹ and › move back and forward and Today brings you back to today; Filters is at the right. On a phone there is no switch: swipe up or down, or use the handle, to move between the week strip, the compact month and the full month.",
+              text: "On a laptop pick Day, Week or Month; it opens on Month. ‹ and › on either side of the month’s name move back and forward, and Today just after them brings you back to today; Filters is at the right. On a phone there is no switch: swipe up or down, or use the handle, to move between the week strip, the compact month and the full month.",
             },
             {
               kind: "text",
-              text: "Today’s date is a red circle on a lightly tinted box, and the day you tap is outlined. Each day shows its events by name, then time; what is due by name, amber (red with an alert when overdue); and leave as a soft grey striped bar, “Asha · On leave”. Done things are dimmed with a ✓. Weekly days off are grey and lightly shaded. A day with more than fits ends in “+N more”; tap it to open the day and see everything.",
+              text: "Today’s date is a red circle on a slightly lighter box, and the day you tap is outlined. Each day shows its events by name, then time; what is due by name, amber (red with an alert when overdue); and leave as a soft grey striped bar, “Asha · On leave”. Done things are dimmed with a ✓. Weekly days off are grey and lightly shaded. A day with more than fits ends in “+N more”; tap it to open the day and see everything.",
             },
             {
               kind: "steps",

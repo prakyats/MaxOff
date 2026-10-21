@@ -76,7 +76,7 @@ dark, a higher step is a lighter graphite, because shadows barely read on black.
 | Grey | `neutral` | `#52525B` | `#A1A1AA` | nothing to do: zero, closed, archived, past, plain labels |
 | Holiday green | `holiday` | `#15803D` | `#4ADE80` | a holiday on the calendar (decision 25), never a status |
 | Neutral, striped | `leave` (+ `leave-soft`, `leave-stripe`, utility `leave-stripes`) | `#52525B` on `#F1F1F2`, stripes `#E4E4E7` | `#A1A1AA` on `#27272A`, stripes `#323236` | leave on the calendar: the month's bar ("Asha · On leave", the palm icon) and the day's chips, a soft neutral bar with faint diagonal stripes, apart from every task type's colour (PP-calendar-3, 10), never a status |
-| Today tint | `today` | `#FDF6F6` | `#2A1C1E` | today's whole box on the calendar, under the red circle on its date (PP-calendar-12); text on it keeps 4.5:1, never a status |
+| Today lift | `today` (= `surface-3`) | `#FFFFFF` + `shadow-raised` | `#1C1C1F` | today's whole box on the calendar, under the red circle on its date: a faint neutral lift one surface step above the other days, never a red wash and never the weekly off's `muted` tint (PP-calendar-15, replacing PP-calendar-12's faint red); normal, grey and holiday text on it keeps 4.5:1, never a status |
 | Logo | `logo` | `#C42126` | `#C42126` | the logo tile only (a fixed brand asset) |
 
 - Each tone has a `*-soft` background (12% over the light surface, 18% over the dark) whose text
@@ -92,7 +92,7 @@ dark, a higher step is a lighter graphite, because shadows barely read on black.
   first.
 
 - **The calendar's marks (V5b, PP-calendar-1..8, owner 2026-10-21):** today is a filled `brand`
-  red circle on its date number and its whole box tinted `today` (PP-calendar-12), the selected
+  red circle on its date number and its whole box one surface step up, `bg-today shadow-raised` (PP-calendar-15), the selected
   day the outlined box; the weekly off's date number is `muted-foreground` and its box tinted
   `bg-muted/50` (blue means in progress); weekdays read "Mon Tue …" on a laptop, single letters on a phone. One chip look for the month and the day's
   dialog (`calendar-chip`): an event in its type's colour (tint and left edge), the title before
