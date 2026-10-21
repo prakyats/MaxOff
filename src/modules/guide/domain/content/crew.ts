@@ -672,7 +672,7 @@ export const CREW_GUIDE: Guide = {
               kind: "steps",
               steps: [
                 {
-                  text: "Open Calendar. Today’s date is a red circle.",
+                  text: "Open Calendar. Today’s date is a red circle on a lightly tinted box.",
                   shot: "staff/calendar",
                 },
                 "Read it: your own event tasks (name, then time) and your freelancers' tasks, each due task by name (amber, red when overdue), your own leave as a soft grey striped bar, holidays and weekly offs (grey). Done things are dimmed with a ✓.",

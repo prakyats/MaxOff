@@ -209,6 +209,17 @@ describe("badge contrast (globals.css)", () => {
       }
     });
 
+    it(`${theme}: text on today's tinted box still reads (PP-calendar-12)`, () => {
+      const bg = tokens["today"];
+      expect(bg, `--today missing in ${selector}`).toBeDefined();
+      for (const text of ["foreground", "muted-foreground", "holiday"]) {
+        const ratio = contrast(tokens[text] as string, bg as string);
+        expect(ratio, `${theme} ${text} on today = ${ratio.toFixed(2)}`).toBeGreaterThanOrEqual(
+          4.5,
+        );
+      }
+    });
+
     it(`${theme}: body and muted text read on the page and on surfaces`, () => {
       for (const surface of ["background", "card"]) {
         const bg = tokens[surface] as string;

@@ -434,9 +434,10 @@ export function CalendarScreen({
                       className={cn(
                         "pressable focus-visible:ring-ring flex min-h-14 w-full flex-col items-center justify-center gap-0.5 rounded-lg border px-1 py-1.5 outline-none focus-visible:ring-2",
                         // PP-calendar-1 (V5b): the chosen day is the outlined box, today the red
-                        // circle on its date; PP-calendar-4: the weekly off muted and tinted.
+                        // circle on its date and its box tinted (PP-calendar-12); PP-calendar-4: the
+                        // weekly off muted and tinted.
                         chosen ? "border-foreground" : "border-border/60 active:bg-muted/60",
-                        day.weeklyOff ? "bg-muted/50" : "bg-card",
+                        day.date === today ? "bg-today" : day.weeklyOff ? "bg-muted/50" : "bg-card",
                       )}
                     >
                       <span className="text-muted-foreground text-xs leading-4 uppercase">
