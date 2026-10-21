@@ -141,6 +141,17 @@ export function FieldDefinitionsManager({
         </section>
       ) : null}
 
+      {/* No group offers its own Add (an Admin with many clients, none with a field yet, sees only
+          the Owner's read-only group): one heading holds it, so adding is always one tap. */}
+      {active.length > 0 && canAdd && !groups.some((group) => group.canAddHere) ? (
+        <ListHeading
+          title={`Add a ${labels.singular.toLowerCase()} field`}
+          action={
+            <ListAddButton onClick={() => setAdding({ scope: null })}>Add field</ListAddButton>
+          }
+        />
+      ) : null}
+
       {groups.map((group) =>
         group.fields.length === 0 && active.length === 0 ? null : (
           <section key={group.scope ?? "_"} className="flex flex-col gap-3" data-slot="field-group">
