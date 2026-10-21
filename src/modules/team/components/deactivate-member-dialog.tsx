@@ -104,7 +104,7 @@ export function DeactivateMemberDialog({
           {/* The one solid red button, named for the action (ARCHITECTURE §14.1). */}
           <Button
             type="button"
-            variant="primary"
+            variant="danger"
             onClick={confirm}
             disabled={tooLong || moves === null || freelancers === null}
             pending={pending}

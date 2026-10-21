@@ -330,9 +330,9 @@ const EXPENSE_SELECTORS = [
 ];
 
 const BUTTON_COLOUR_MESSAGE =
-  "Buttons get their colour from a variant (primary, destructive, secondary, ghost, strong), never from classes: the action colour rule, ARCHITECTURE §14.1.";
+  "Buttons get their colour from a variant (primary, danger, destructive, secondary, ghost, strong), never from classes: the action colour rule, docs/DESIGN.md §4 (ADR-0015).";
 /**
- * The action colour rule's lint half (ARCHITECTURE §14.1): outside `core/ui/primitives`, a
+ * The action colour rule's lint half (docs/DESIGN.md §4): outside `core/ui/primitives`, a
  * `<Button>`, a `<button>` or `buttonVariants(...)` may not carry colour classes or hex values.
  * Checked in string and template literals anywhere inside `className` (including `cn(...)`).
  */

@@ -207,6 +207,7 @@ export function TaskNextStep({
         }
       />
       <ConfirmDialog
+        destructive
         open={dialog === "takeOver"}
         onOpenChange={(open) => setDialog(open ? "takeOver" : null)}
         title="Decide it yourself?"

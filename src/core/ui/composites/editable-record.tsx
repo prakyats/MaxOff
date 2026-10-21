@@ -395,6 +395,7 @@ export function EditableRecord<K extends string, V = undefined>({
       </ConfirmDialog>
 
       <ConfirmDialog
+        destructive
         open={mode === "discard"}
         onOpenChange={(open) => {
           if (!open && !leaving.current && mode === "discard") {

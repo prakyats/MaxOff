@@ -19,8 +19,9 @@ import { Button } from "@/core/ui/primitives/button";
 
 /**
  * A confirmation for actions that don't need a reason (approve, archive, cancel a draft). Its one
- * solid red button (`primary`) is named for the action ("Deactivate Ravi", "Approve 3"), never
- * "Confirm" or "OK", whether the action is destructive or not (ARCHITECTURE §14.1).
+ * solid button is named for the action ("Remove Diwali", "Approve 3"), never "Confirm" or "OK":
+ * the neutral `primary` commit, or the red `danger` one when the act is `destructive` (it
+ * discards, removes or withdraws something; archiving is not destructive). ADR-0015.
  * `onConfirm` may be async; the dialog shows a spinner and closes when it resolves, unless it
  * resolves to `false` (something inside the dialog needs fixing first, e.g. a field message).
  * Actions that need a reason use `ReasonDialog` instead (WORKFLOWS: reject, correct, cancel).
@@ -37,6 +38,7 @@ export function ConfirmDialog({
   cancelLabel = "Cancel",
   onConfirm,
   confirmDisabled = false,
+  destructive = false,
   children,
 }: {
   open: boolean;
@@ -50,6 +52,8 @@ export function ConfirmDialog({
   onConfirm: () => void | boolean | Promise<void | boolean>;
   /** The commit waits for something inside the dialog (a choice still to make). */
   confirmDisabled?: boolean;
+  /** The act destroys something (discard, remove, withdraw): its commit is the red `danger`. */
+  destructive?: boolean;
   /** Optional extra content between the description and the buttons. */
   children?: ReactNode;
 }) {
@@ -74,7 +78,7 @@ export function ConfirmDialog({
         <AlertDialogFooter>
           <AlertDialogCancel disabled={pending}>{cancelLabel}</AlertDialogCancel>
           <Button
-            variant="primary"
+            variant={destructive ? "danger" : "primary"}
             onClick={() => action.run()}
             disabled={confirmDisabled}
             pending={pending}

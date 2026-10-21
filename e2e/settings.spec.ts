@@ -97,7 +97,7 @@ test.describe("Owner", () => {
     await page.goto("/settings/days-off");
     await expect(page.getByText("No holidays yet")).toBeVisible();
 
-    // "Add holiday" opens a dialog; the red commit is inside it (the action colour rule, 2026-09-26).
+    // "Add holiday" opens a dialog; the commit is inside it (the action colour rule, ADR-0015).
     const addHoliday = async (date: string, name: string) => {
       await page.getByRole("button", { name: "Add holiday" }).click();
       const dialog = page.getByRole("dialog", { name: "Add a holiday" });

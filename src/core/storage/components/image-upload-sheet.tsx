@@ -234,6 +234,7 @@ export function ImageUploadSheet({
       ) : null}
       {confirmRemove && onRemove ? (
         <ConfirmDialog
+          destructive
           open
           onOpenChange={(next) => {
             if (!next) setConfirmRemove(false);

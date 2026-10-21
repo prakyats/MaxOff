@@ -255,6 +255,7 @@ export function StageGroupsEditor({
         {total} of {maxStages} stages
       </p>
       <ConfirmDialog
+        destructive
         open={removingGroup !== undefined}
         onOpenChange={(open) => {
           if (!open) setRemoving(null);

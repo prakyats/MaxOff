@@ -78,6 +78,7 @@ export function RequestActions({
         }}
       />
       <ConfirmDialog
+        destructive
         open={layer === "withdraw"}
         onOpenChange={(open) => {
           if (!open) close();

@@ -399,6 +399,7 @@ export function ListEditorSheet({
         </div>
       </ReviewSheet>
       <ConfirmDialog
+        destructive
         open={asking}
         onOpenChange={(next) => (next ? null : keepEditing())}
         title="Discard what you typed?"
@@ -413,6 +414,7 @@ export function ListEditorSheet({
         }}
       />
       <ConfirmDialog
+        destructive
         open={removing !== null}
         onOpenChange={(next) => (next ? null : setRemoving(null))}
         title={removing ? `Remove the ${noun} ${removing.name}?` : ""}

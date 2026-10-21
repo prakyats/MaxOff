@@ -541,7 +541,8 @@ test.describe("task templates: archive is neutral (the colour rule)", () => {
       await expect(archive).toHaveAttribute("data-variant", "ghost");
       await archive.click();
     }
-    // The destructive step stays confirmed by the question's one named red commit.
+    // The question still confirms it with one named commit; archiving can be restored, so it is
+    // the neutral one, never red (ADR-0015).
     const question = page.getByRole("alertdialog", { name: `Archive ${name}?` });
     await expect(question.getByRole("button", { name: `Archive ${name}` })).toHaveAttribute(
       "data-variant",

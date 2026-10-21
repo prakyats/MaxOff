@@ -1,11 +1,15 @@
 import { cva, type VariantProps } from "class-variance-authority";
 
 /**
- * The action colour rule (ARCHITECTURE §14.1, PRODUCT §2 principle 12). Five variants, no others:
+ * The action colour rule (ADR-0015, docs/DESIGN.md §4): red is urgent or destructive only. Six
+ * variants, no others:
  *
- * - `primary`: solid brand red, **the one action that commits a change** (Save, Submit, Confirm,
- *   a destructive confirmation named for what it does). At most one visible per layer: screen,
- *   dialog, sheet or sticky bar (checked by the e2e fixture). Disabled is neutral, not faded red.
+ * - `primary`: neutral solid, **the one action that commits a change** (Save, Send, Create,
+ *   Approve, Mark done). At most one visible per layer: screen, dialog, sheet or floating sticky
+ *   bar (checked by the e2e fixture). Disabled is muted, not faded.
+ * - `danger`: solid red, **the commit of a destructive action**, named for it ("Discard changes",
+ *   "Remove Diwali", "Reject claim"), inside its confirmation only. It counts as the layer's one
+ *   commit. `ConfirmDialog` / `ReasonDialog` choose it when told the act is `destructive`.
  * - `destructive`: red outline and red text, a destructive action **before** its confirmation.
  * - `secondary`: neutral outline (`--control-border`, ≥ 3:1): Cancel, Keep editing, Review, Edit.
  * - `ghost`: icon and utility buttons.
@@ -21,6 +25,8 @@ export const buttonVariants = cva(
       variant: {
         primary:
           "bg-primary text-primary-foreground hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground",
+        danger:
+          "bg-destructive-solid text-destructive-solid-foreground hover:bg-destructive-solid/90 disabled:bg-muted disabled:text-muted-foreground",
         strong:
           "bg-strong text-strong-foreground hover:bg-strong/85 disabled:bg-muted disabled:text-muted-foreground",
         secondary:

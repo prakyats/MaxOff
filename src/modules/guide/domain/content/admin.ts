@@ -1142,7 +1142,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "For client work there is no separate approval step. Mark done comes onto a row once every stage is ticked (the first such row’s button is red); until then it waits in the row’s ⋯, beside Open. A deliverable with no stages always shows it.",
+              text: "For client work there is no separate approval step. Mark done comes onto a row once every stage is ticked (the first such row’s button is solid); until then it waits in the row’s ⋯, beside Open. A deliverable with no stages always shows it.",
             },
             {
               kind: "steps",
