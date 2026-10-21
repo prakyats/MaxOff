@@ -253,9 +253,9 @@ test.describe("the calendar, as Crew", () => {
       await expect(row).toContainText("10:00 am – 11:00 am");
       await expect(row).toContainText("Studio B");
     } else {
-      // The laptop's popup is a compact agenda (the owner, 2026-10-08): "10:00 am – 11:00 am · title ·
-      // people".
-      await expect(row).toContainText(`10:00 am – 11:00 am · ${shoot.title} · Local Staff`);
+      // The laptop's popup is a compact agenda (the owner, 2026-10-08) of the month's chips, the
+      // title first (PP-calendar-2, 8, V5b): "title · 10:00 am – 11:00 am · people".
+      await expect(row).toContainText(`${shoot.title} · 10:00 am – 11:00 am · Local Staff`);
     }
     await expect(page.locator('[data-slot="calendar-busy"]')).toHaveCount(0);
     // Crew: no "Who's free"; "Suggest a task" with the day in its details (decision 25 D, G).
