@@ -69,11 +69,11 @@ dark, a higher step is a lighter graphite, because shadows barely read on black.
 
 | Tone | Token | Light | Dark | Means |
 |---|---|---|---|---|
-| Red | `danger` (= `brand`, `destructive`) | `#C42126` | `#F2686D` | act now, a limit passed (overdue, rejected, absent, escalated, not noted past its reminder), and destructive actions |
+| Red | `danger` (= `brand`, `destructive`) | `#C42126` | `#F2686D` | act now, a limit passed (overdue, rejected, absent, escalated, not noted past its reminder), **cancelled** (final; owner correction 2026-10-21, reversing C5), and destructive or final actions |
 | Amber | `attention` | `#AD5009` | `#FBBF24` | soon or at risk: due today, waiting 1–3 days, a late start, something waiting for the Owner |
 | Blue | `info` | `#1D4ED8` | `#7DA2FF` | in progress, new, unread: work in motion only |
 | Green | `success` | `#047857` | `#34D399` | done, approved, present, active |
-| Grey | `neutral` | `#52525B` | `#A1A1AA` | nothing to do: zero, closed, archived, cancelled (C5), past, plain labels |
+| Grey | `neutral` | `#52525B` | `#A1A1AA` | nothing to do: zero, closed, archived, past, plain labels |
 | Holiday green | `holiday` | `#15803D` | `#4ADE80` | a holiday on the calendar (decision 25), never a status |
 | Weekly off | `off-day` | `#0369A1` | `#7DD3FC` | the calendar's weekly-off date number, never red |
 | Logo | `logo` | `#C42126` | `#C42126` | the logo tile only (a fixed brand asset) |
@@ -118,8 +118,13 @@ dark, a higher step is a lighter graphite, because shadows barely read on black.
 - **Confirmations name the action** ("Deactivate Ravi", "Approve 3", "Discard changes"), never
   "OK", "Yes" or "Confirm". `ConfirmDialog` and `ReasonDialog` take `destructive` for a destructive
   act: their commit is then `danger`, otherwise `primary`.
+- **Final actions are red** (owner correction 2026-10-21): Close deliverable, Cancel project / task,
+  Reject, Revoke, Cancel approved leave, Deactivate, Withdraw (an invite, a claim, a request), Remove
+  (a device, a holiday, a stage), Discard and Delete commit with the red `danger`
+  (`destructive`). A unit test (`final-actions.test.ts`) sweeps every `ConfirmDialog` /
+  `ReasonDialog` call site by its commit label, so none can silently be neutral.
 - **Archive is not destructive** (owner, 2026-10-16: "archive never red"): it can be restored, so
-  its question commits with `primary`.
+  its question commits with `primary` (the same test keeps it so).
 - **Archive and Remove are grey everywhere** (C3): a `ghost` icon in a row, a `secondary` button
   in a sheet or a footer ("Remove photo", a device's Remove), a plain menu item ("Remove stage").
   The red appears only in the confirmation step, on the named `danger` commit ("Remove Diwali",
@@ -217,9 +222,9 @@ No `rounded-xs`, `rounded-2xl` and above, no `rounded-[…]` (lint).
   actions are Edit · Delete (`ListRowActions`: grey icons from `md`, one ⋯ sheet on a phone), plus a
   labelled **Preview** at every width where there is something to look at (templates). **Delete is
   the existing archive** (no Archived list; the toast "‹name› deleted" offers Undo for 6 s where
-  unarchive exists; records that carry it keep it); it is never red (owner 2026-10-16, "archive
-  never red"): the confirmation names the thing on a neutral commit ("Delete ‹name›"), and a
-  deliverable template still asks its reason (invariant 9). The word "Archive" leaves these pages
+  unarchive exists; records that carry it keep it); the row's icon stays grey, and the
+  confirmation's named commit ("Delete ‹name›") is red like every final action (owner correction
+  2026-10-21); a deliverable template still asks its reason (invariant 9). The word "Archive" leaves these pages
   (it stays in code, DB and docs). **The one Templates page (6b.6 owner note):** Stage presets →
   Deliverable templates → Project templates, a divider, then Task templates; one search across all
   four; one "Add …" per section. On a phone the four sections are a **segmented control** (a view

@@ -134,6 +134,7 @@ export function StagePresetManager({
           title={`Delete ${archiving.name}?`}
           description="It won't be offered for new projects. Projects already made from it don't change."
           confirmLabel={`Delete ${archiving.name}`}
+          destructive
           pendingLabel="Deleting…"
           onConfirm={async () => {
             const preset = archiving;

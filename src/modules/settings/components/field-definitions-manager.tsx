@@ -233,6 +233,7 @@ export function FieldDefinitionsManager({
           title={`Delete ${archiving.label}?`}
           description={`It won't appear on new or edited ${labels.plural.toLowerCase()}. Records that already have it keep their value.`}
           confirmLabel={`Delete ${archiving.label}`}
+          destructive
           onConfirm={async () => {
             const definition = archiving;
             toastResult(

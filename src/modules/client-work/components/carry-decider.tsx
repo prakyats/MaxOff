@@ -195,6 +195,7 @@ export function CarryDecider({ groups }: { groups: readonly DecideGroup[] }) {
         description="It stays in its cycle as closed, not done. This can't be undone."
         label="Why close it"
         submitLabel="Close deliverable"
+        destructive
         onSubmit={async (reason) => {
           if (!closing) return;
           const result = await carryDecide({

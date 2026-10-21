@@ -1622,7 +1622,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "next",
-              text: "A deleted template stops being offered: the message “‹name› deleted” has Undo for a few seconds. Delete is a plain button, never red: nothing is destroyed.",
+              text: "A deleted template stops being offered: the message “‹name› deleted” has Undo for a few seconds. The question's Delete button is red, as for every final action; nothing is destroyed.",
             },
             {
               kind: "note",

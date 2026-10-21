@@ -92,8 +92,8 @@ export type ListRowMove = {
  * four targets beside a name (ARCHITECTURE §14.1), and moving stays possible with a thumb
  * (Move up / Move down keep the sheet open, as ReorderNameList's menu does). **D6 (v1.8 V4):** the
  * one Settings list pattern is Edit · Delete, where Delete is the existing archive (its toast offers
- * Undo; no Archived list); it is never red (C3, owner 2026-10-16: "archive never red"); its question
- * is the caller's `ConfirmDialog`. A row that can be looked at (templates) also has Preview, a
+ * Undo; no Archived list). The row's icon is grey (C3); its question is the caller's
+ * `ConfirmDialog`, whose named Delete is red like every final action (owner correction 2026-10-21). A row that can be looked at (templates) also has Preview, a
  * labelled button at every width, since anyone who may open the list may preview.
  */
 export function ListRowActions({

@@ -140,6 +140,7 @@ export function ListManager({
           title={`Delete ${archiving.name}?`}
           description={`It won't be offered again. People who already have this ${labels.singular.toLowerCase()} keep it.`}
           confirmLabel={`Delete ${archiving.name}`}
+          destructive
           onConfirm={async () => {
             const { id, name } = archiving;
             toastResult(await setListItemArchived({ listKey, id, archived: true }), {

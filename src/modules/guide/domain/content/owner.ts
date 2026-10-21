@@ -1405,7 +1405,7 @@ export const OWNER_GUIDE: Guide = {
               'The message "‹name› deleted" has Undo for a few seconds. Work already made from it does not change.',
             ),
             note(
-              "Delete is a plain button, never red: nothing is destroyed, the template is only no longer offered.",
+              "The question's Delete button is red, as for every final action. Nothing is destroyed: the template is only no longer offered, and Undo brings it back.",
             ),
           ],
           link: { href: "/settings/templates", label: "Open Templates" },

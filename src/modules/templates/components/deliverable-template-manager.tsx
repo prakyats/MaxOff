@@ -164,8 +164,10 @@ export function DeliverableTemplateManager({
         description="It won't be offered for new deliverables. Deliverables already made from it don't change."
         label="Why delete it"
         submitLabel={`Delete ${archiving?.name ?? "template"}`}
+        destructive
         onSubmit={async (reason) => {
-          // D6: Delete is the archive (with its reason, invariant 9), never red (owner 2026-10-16).
+          // D6: Delete is the archive (with its reason, invariant 9); a final-looking action, red
+          // (owner correction 2026-10-21).
           const template = archiving;
           return template
             ? toastResult(await archiveDeliverableTemplate({ templateId: template.id, reason }), {

@@ -888,13 +888,14 @@ test("deliverable templates: an Admin adds and archives their own, edits only th
     .click();
   await expect(builder).toBeHidden();
 
-  // Delete their own (D6: the archive with its reason), never red; Undo brings it back.
+  // Delete their own (D6: the archive with its reason); Undo brings it back.
   await templatesTab(page, "deliverables");
   await rowAction(page, row(mine), mine, "Delete");
   const archive = page.getByRole("dialog", { name: `Delete ${mine}?` });
   await archive.getByLabel("Why delete it").fill("Not used any more");
   const commit = archive.getByRole("button", { name: `Delete ${mine}` });
-  await expect(commit).not.toHaveAttribute("data-variant", "danger");
+  // Owner correction 2026-10-21: Delete is a final action, so its named commit is red.
+  await expect(commit).toHaveAttribute("data-variant", "danger");
   await commit.click();
   await expect(archive).toBeHidden();
   await expect(row(mine)).toHaveCount(0);

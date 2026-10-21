@@ -521,8 +521,8 @@ async function editTemplate(page: Page, name: string): Promise<Locator> {
   return dialog;
 }
 
-test.describe("task templates: Delete (the archive) is neutral (the colour rule)", () => {
-  test("the row's Delete (laptop) and the ⋯ sheet's Delete (phone) are never red; the question names it", async ({
+test.describe("task templates: Delete, grey on the row, red in its question (the colour rule)", () => {
+  test("the row's Delete (laptop) and the ⋯ sheet's Delete (phone) are grey; the question's named Delete is red", async ({
     page,
   }, info) => {
     const name = `Neutral archive (${info.project.name})`;
@@ -542,12 +542,12 @@ test.describe("task templates: Delete (the archive) is neutral (the colour rule)
       await expect(archive).toHaveAttribute("data-variant", "ghost");
       await archive.click();
     }
-    // The question still confirms it with one named commit; Delete is the archive (Undo brings it
-    // back), so it is the neutral one, never red (ADR-0015, D6).
+    // The question confirms it with one named commit, red like every final action (owner
+    // correction 2026-10-21, ADR-0015); the row's own Delete stays grey.
     const question = page.getByRole("alertdialog", { name: `Delete ${name}?` });
     await expect(question.getByRole("button", { name: `Delete ${name}` })).toHaveAttribute(
       "data-variant",
-      "primary",
+      "danger",
     );
     await removeTemplatesNamed(name);
   });

@@ -168,6 +168,7 @@ export function TaskTypesManager({
           title={`Delete ${archiving.name}?`}
           description="It won't be offered again. Tasks that use it keep it."
           confirmLabel={`Delete ${archiving.name}`}
+          destructive
           pendingLabel="Deleting…"
           onConfirm={async () => {
             const { id, name } = archiving;

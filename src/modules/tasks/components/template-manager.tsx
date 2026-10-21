@@ -152,6 +152,7 @@ export function TemplateManager({
           title={`Delete ${archiving.name}?`}
           description="It won't be offered for new tasks. Tasks already made from it don't change."
           confirmLabel={`Delete ${archiving.name}`}
+          destructive
           pendingLabel="Deleting…"
           onConfirm={async () => {
             const template = archiving;
