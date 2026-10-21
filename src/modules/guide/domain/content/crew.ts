@@ -441,7 +441,7 @@ export const CREW_GUIDE: Guide = {
               steps: [
                 'Open a task. The top shows its status, priority and due time, such as "Due today 6:00 pm · in 3 h", in red when overdue.',
                 "Read the sentence under it. It says what is needed from you.",
-                'Switch between "Work" (the brief, "Stages" and the hand-in), "Chat", "Activity" and "Details" (who is on it and about the task).',
+                'Switch between "Work" (the brief, "Stages" and the hand-in), "Chat" and "Details" (who is on it and about the task). The clock in the header opens the task\'s History.',
               ],
             },
             {

@@ -166,6 +166,14 @@ async function live(page: Page): Promise<void> {
 const panel = (page: Page, view: string) => page.locator(`[data-slot="task-panel-${view}"]`);
 const chatSheet = (page: Page) => page.locator('[data-slot="task-chat-sheet"]');
 const historyRows = (page: Page) => page.locator('[data-slot="task-history-row"]:visible');
+/** The header's History sheet (the one History pattern, v1.8 consistency sweep). */
+const historySheet = (page: Page) =>
+  page.locator('[data-slot="review-sheet"]:has([data-slot="history-sheet"])');
+/** Opens the task's History from the header's clock. */
+async function openHistory(page: Page): Promise<void> {
+  await page.locator('[data-slot="history-open"]:visible').click();
+  await expect(historySheet(page)).toBeVisible();
+}
 const phone = (page: Page) => (page.viewportSize()?.width ?? 1280) < 768;
 
 /** Signs in as one of the task people, on a clean cookie jar. */
@@ -371,15 +379,23 @@ test.describe("the views are a view control (decisions 27, 32)", () => {
     await expect(tab(page, "work")).toHaveAttribute("aria-current", "true");
     await expect(panel(page, "work")).toBeVisible();
 
-    await tab(page, "activity").click();
-    await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}\\?tab=activity$`));
-    await expect(panel(page, "activity")).toBeVisible();
+    // Another view (V5a: Activity left the views for the header's History sheet): Chat on a
+    // desktop, Details on a phone.
+    const other = phone(page) ? "details" : "chat";
+    await tab(page, other).click();
+    await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}\\?tab=${other}$`));
+    await expect(panel(page, other)).toBeVisible();
     await expect(panel(page, "work")).toBeHidden();
-    // The views never switch by themselves: an action's answer leaves Activity where it is.
+    // The views never switch by themselves: an action's answer leaves the view where it is.
     await step(page).getByRole("button", { name: "Task Noted" }).click();
     await expect(step(page).getByRole("button", { name: "Start work" })).toBeVisible();
+    await expect(tab(page, other)).toHaveAttribute("aria-current", "true");
+    // The history is the header's History sheet, a layer over the view.
+    await openHistory(page);
     await expect(historyRows(page).first()).toContainText("noted the task");
-    await expect(tab(page, "activity")).toHaveAttribute("aria-current", "true");
+    await page.keyboard.press("Escape");
+    await expect(historySheet(page)).toHaveCount(0);
+    await expect(tab(page, other)).toHaveAttribute("aria-current", "true");
 
     if (phone(page)) {
       await tab(page, "details").click();
@@ -392,11 +408,11 @@ test.describe("the views are a view control (decisions 27, 32)", () => {
     }
     // A refresh (or a shared link) keeps the view: the address holds it (written once the
     // router has nothing in flight, `view-address.ts`), and a reload lands on it.
-    await tab(page, "activity").click();
-    await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}\\?tab=activity$`));
+    await tab(page, other).click();
+    await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}\\?tab=${other}$`));
     await page.reload();
-    await expect(tab(page, "activity")).toHaveAttribute("aria-current", "true");
-    await expect(panel(page, "activity")).toBeVisible();
+    await expect(tab(page, other)).toHaveAttribute("aria-current", "true");
+    await expect(panel(page, other)).toBeVisible();
     await tab(page, "work").click();
     await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}$`));
 
@@ -428,11 +444,8 @@ test.describe("the views are a view control (decisions 27, 32)", () => {
     await expect(panel(page, "details")).toHaveCSS("position", "sticky");
     await expect(panel(page, "details")).toContainText(person("staff", info).name);
     await expect(tab(page, "details")).toBeHidden();
-    await expect(page.locator('[data-slot="task-tab"]:visible')).toHaveText([
-      "Work",
-      "Chat",
-      "Activity",
-    ]);
+    // Activity is the header's History now (V5a).
+    await expect(page.locator('[data-slot="task-tab"]:visible')).toHaveText(["Work", "Chat"]);
     await tab(page, "chat").click();
     await expect(panel(page, "chat")).toBeVisible();
     await expect(panel(page, "chat").getByRole("textbox", { name: "Comment" })).toBeVisible();
@@ -647,7 +660,7 @@ test.describe("Chat and the unread comments (decision 28)", () => {
   });
 });
 
-test.describe("Activity (decision 29)", () => {
+test.describe("History (decision 29; the header's History sheet since V5a)", () => {
   test.skip(({ viewport }) => viewport?.width === 430, "the flows run at 375px and desktop");
   test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -677,7 +690,7 @@ test.describe("Activity (decision 29)", () => {
       ).toHaveAttribute("data-done", "true");
     }
 
-    await tab(page, "activity").click();
+    await openHistory(page);
     // Three ticks within ten minutes by the same person: one line (newest first).
     await expect(historyRows(page).first()).toContainText(
       `${person("staff", info).name} ticked “Cut”, “Grade” and “Mix”`,
@@ -691,10 +704,36 @@ test.describe("Activity (decision 29)", () => {
     await expect(historyRows(page)).toHaveCount(total);
     await expect(all).toHaveCount(0);
     await expect(historyRows(page).last()).toContainText("created the task");
-    // Show all changed the view, not the page: one back returns to the list.
-    await expect(page).toHaveURL(new RegExp(`\\?tab=activity$`));
-    await page.goBack();
-    await expect(page).toHaveURL(/\/tasks$/);
+    // Show all changed the sheet, not the page: back closes the sheet, the next leaves the task.
+    await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}$`));
+    await expectBackStack(page, [
+      { closes: historySheet(page), url: new RegExp(`/tasks/${taskId}$`) },
+      { url: /\/tasks$/ },
+    ]);
+  });
+
+  test("an old ?tab=activity link lands on Work with the History sheet open", async ({
+    page,
+  }, info) => {
+    const prefix = `Old activity ${info.project.name} `;
+    await removeTasksTitled(prefix);
+    const staffId = await memberIdOf(person("staff", info).email);
+    const taskId = await ownerCreates({
+      title: `${prefix}link`,
+      assignees: [staffId],
+      primary: staffId,
+      day: 37,
+    });
+    await as(page, "staff", info);
+    await page.goto(`/tasks/${taskId}?tab=activity`);
+    await live(page);
+    await expect(historySheet(page)).toBeVisible();
+    await expect(historyRows(page).last()).toContainText("created the task");
+    await expect(tab(page, "work")).toHaveAttribute("aria-current", "true");
+    // The address drops the old parameter (replaced).
+    await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}$`));
+    await page.keyboard.press("Escape");
+    await expect(historySheet(page)).toHaveCount(0);
   });
 });
 
@@ -739,12 +778,13 @@ test.describe("the task page on a phone, installed: back closes each layer, one 
     await live(page);
 
     // Every view: replaced, so each back below leaves from wherever it was.
-    for (const view of ["activity", "details", "work"]) {
+    for (const view of ["details", "work"]) {
       await tab(page, view).click();
       await expect(tab(page, view)).toHaveAttribute("aria-current", "true");
     }
-    await tab(page, "activity").click();
-    const showAll = page.locator('[data-slot="task-history-show-all"]');
+    // The History sheet (V5a) is a layer: Show all inside it, back closes it.
+    await openHistory(page);
+    const showAll = historySheet(page).locator('[data-slot="task-history-show-all"]');
     const lines = Number((await showAll.textContent())?.match(/\d+/)?.[0]);
     await showAll.click();
     // The whole history is on screen before it is scrolled, as a person sees it open first. A
@@ -752,7 +792,9 @@ test.describe("the task page on a phone, installed: back closes each layer, one 
     // the page for the new `?tab=`) can paint a few hundred ms later, and a scroll made before
     // that moved a page that was still short (PROGRESS Ideas (h): the gap of 101–104 px).
     await expect(historyRows(page)).toHaveCount(lines);
-    // Scrolled down the whole history, the views' bar sticks right under the title bar.
+    await expectBackStack(page, [{ closes: historySheet(page), url }]);
+    // Scrolled down the whole page (the 14 stages), the views' bar sticks right under the title
+    // bar.
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
     await expect
       .poll(async () => {
@@ -787,7 +829,7 @@ test.describe("the task page on a phone, installed: back closes each layer, one 
     await expect(sheet.getByRole("heading", { name: "Chat" })).toBeInViewport();
     await closeKeyboard(page);
     await expectBackStack(page, [{ closes: sheet, url }]);
-    await expect(tab(page, "activity")).toHaveAttribute("aria-current", "true");
+    await expect(tab(page, "work")).toHaveAttribute("aria-current", "true");
 
     // ⋯ and a dialog it opens are layers too.
     await page.getByRole("button", { name: "Task actions" }).click();
@@ -863,7 +905,7 @@ test.describe("the task page at large system text (decision 31)", () => {
         document.documentElement.style.fontSize = value ? `${value}%` : "";
       }, percent);
 
-    for (const view of ["work", "activity", "details"]) {
+    for (const view of ["work", "details"]) {
       await tab(page, view).click();
       for (const percent of [130, 200]) {
         await scale(percent);
@@ -871,6 +913,15 @@ test.describe("the task page at large system text (decision 31)", () => {
       }
       await scale(0);
     }
+    // The History sheet (V5a, was the Activity view) fits too.
+    await openHistory(page);
+    for (const percent of [130, 200]) {
+      await scale(percent);
+      await expectNoHorizontalScroll(page);
+    }
+    await scale(0);
+    await page.keyboard.press("Escape");
+    await expect(historySheet(page)).toHaveCount(0);
     // At 200% the views' bar is wider than the phone: it scrolls, its targets stay 44px.
     await scale(200);
     const bar = page.locator('[data-slot="task-tabs"]');
@@ -1046,7 +1097,7 @@ test.describe("drag to reorder a task's stages (6b.18, owner 2026-10-15: the edi
     await receiptsSettled(page);
 
     // The history: each move, by the Admin, newest first.
-    await tab(page, "activity").click();
+    await openHistory(page);
     await expect(historyRows(page).first()).toContainText(
       `${admin.name} moved the stage “Stage 4” to position 3 of 4`,
     );

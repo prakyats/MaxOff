@@ -1,6 +1,5 @@
 "use client";
 
-import { HistoryIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { Result } from "@/core/errors/result";
@@ -9,6 +8,7 @@ import { cn } from "@/core/lib/utils";
 import { formatDateTime } from "@/core/time";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { ReviewSheet } from "@/core/ui/composites/review-sheet";
+import { ICONS } from "@/core/ui/icons";
 import { Button } from "@/core/ui/primitives/button";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 import { describeError } from "@/core/ui/toast";
@@ -126,7 +126,7 @@ export function ActivityPanel({
     <ReviewSheet
       open={open}
       onOpenChange={onOpenChange}
-      title={item ? `History of ${item.title}` : "Activity"}
+      title={item ? `History of ${item.title}` : "History"}
       description={item ? "This deliverable's changes, newest first." : "Newest first."}
     >
       <div className="flex flex-col gap-3" data-slot="activity-panel">
@@ -167,12 +167,12 @@ export function ActivityPanel({
             className="text-muted-foreground flex items-center gap-2 py-3"
             data-slot="activity-empty"
           >
-            <HistoryIcon className="size-4" aria-hidden />
+            <ICONS.history className="size-4" aria-hidden />
             Nothing recorded yet.
           </p>
         ) : (
           <>
-            <ol aria-label="Activity" data-slot="activity-lines" className="divide-border divide-y">
+            <ol aria-label="History" data-slot="activity-lines" className="divide-border divide-y">
               {lines.map((line) => (
                 <li key={line.id} data-slot="activity-line" className="flex flex-col gap-0.5 py-3">
                   <span className="break-words">

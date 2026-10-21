@@ -127,8 +127,11 @@ async function recordScreen(kind: RecordKind, project: string): Promise<Screen> 
       fromToday: "/today",
       view: async (page) => {
         await expect(page.locator('[data-slot="task-tabs"]')).toHaveAttribute("data-live", "");
-        await page.locator('[data-slot="task-tab"][data-view-tab="activity"]').click();
-        await expect(page.locator('[data-slot="task-panel-activity"]')).toBeVisible();
+        // A view (V5a: Activity is the header's History sheet now): Chat on a desktop, Details
+        // on a phone.
+        const other = (page.viewportSize()?.width ?? 1280) >= 768 ? "chat" : "details";
+        await page.locator(`[data-slot="task-tab"][data-view-tab="${other}"]`).click();
+        await expect(page.locator(`[data-slot="task-panel-${other}"]`)).toBeVisible();
       },
     };
   }

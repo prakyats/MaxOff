@@ -11,9 +11,10 @@ import { ChatComposerSkeleton } from "./task-chat-skeleton";
 
 /**
  * The task page's loading screen below its first glance (Kickoff 4 decision 31): the views' bar
- * and **the view the address asks for** (`?tab=`), traced, so a task opened on Activity, Details
- * or Chat loads in the shape it lands in: Work (the landing view) by default, Chat's thread on a
- * desktop and Chat's full-height sheet over Work on a phone, Activity's rows, Details' people.
+ * and **the view the address asks for** (`?tab=`), traced, so a task opened on Details or Chat
+ * loads in the shape it lands in: Work (the landing view) by default (an old `?tab=activity` too:
+ * its History is a sheet over Work), Chat's thread on a desktop and Chat's full-height sheet over
+ * Work on a phone, Details' people.
  * The same CSS as the page decides what shows where (`TaskViewPanel`), so nothing waits for
  * JavaScript. Every column is `min-w-0`, so a rem-wide bar never widens a phone at 200% text.
  */
@@ -27,12 +28,12 @@ export function TaskViewsSkeleton() {
         className="bg-background sticky top-[var(--app-page-header-h,2.75rem)] z-10 -mx-4 border-b px-4 py-2 md:static md:mx-0 md:border-0 md:p-0"
       >
         <div className="bg-muted flex gap-1 rounded-lg p-1 md:inline-flex">
-          {["w-10", "w-9", "w-14", "w-12"].map((width, index) => (
+          {["w-10", "w-9", "w-12"].map((width, index) => (
             <div
               key={width}
               className={cn(
                 "flex min-h-11 min-w-0 flex-1 items-center justify-center px-3 md:flex-none md:px-4",
-                index === 3 && "md:hidden",
+                index === 2 && "md:hidden",
               )}
             >
               <Skeleton className={`h-3.5 ${width}`} />
@@ -95,27 +96,6 @@ export function TaskViewsSkeleton() {
         </div>
         <div className="border-t p-3 pb-[calc(0.75rem+var(--app-safe-bottom))]">
           <ChatComposerSkeleton />
-        </div>
-      </div>
-
-      {/* Activity: the history's rows, a sentence over its time. */}
-      <div
-        aria-hidden
-        data-slot="loading-task-activity"
-        data-view={view}
-        className="hidden min-w-0 flex-col data-[view=activity]:flex"
-      >
-        <div className="border-border divide-border bg-card divide-y rounded-lg border">
-          {["w-56", "w-44", "w-52"].map((width) => (
-            <div key={width} className="flex min-w-0 flex-col gap-0.5 px-3 py-2.5">
-              <div className="flex h-5 min-w-0 items-center">
-                <Skeleton className={`h-4 ${width} max-w-full`} />
-              </div>
-              <div className="flex h-4 min-w-0 items-center">
-                <Skeleton className="h-3 w-28" />
-              </div>
-            </div>
-          ))}
         </div>
       </div>
     </>

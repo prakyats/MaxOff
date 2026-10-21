@@ -795,12 +795,14 @@ test.describe("the calendar, as the Owner", () => {
         `[data-slot="calendar-all-day-row"] > [data-date="${day}"] [data-slot="calendar-due-chip"]`,
       )
       .click();
-    await expect(popup).toBeVisible();
+    // Week keeps the day's dialog (the panel is the Month's, V5a).
+    const weekPopup = daySheet(page);
+    await expect(weekPopup).toBeVisible();
     await expect(
-      popup.locator('[data-slot="calendar-due"]').filter({ hasText: `${prefix}edit` }),
+      weekPopup.locator('[data-slot="calendar-due"]').filter({ hasText: `${prefix}edit` }),
     ).toBeVisible();
     await page.keyboard.press("Escape");
-    await expect(popup).toHaveCount(0);
+    await expect(weekPopup).toHaveCount(0);
 
     // 7. → moves a week: a week without today opens at 08:00.
     const beforeMoves = await historyLength();

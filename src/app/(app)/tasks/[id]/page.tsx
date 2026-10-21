@@ -11,6 +11,7 @@ import { cn } from "@/core/lib/utils";
 import { can } from "@/core/permissions";
 import { requirePermission } from "@/core/permissions/server";
 import { formatDateTime, systemClock } from "@/core/time";
+import { HistorySheet } from "@/core/ui/composites/history-sheet";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { StatusDot } from "@/core/ui/composites/status-badge";
 import {
@@ -21,6 +22,7 @@ import {
   eventLabel,
   earlierHandInLabel,
   handInFirst,
+  HISTORY_ARRIVAL,
   reopenAfterHandIn,
   isFinal,
   isLocked,
@@ -184,22 +186,30 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
             the views' bar stick for the whole page. */}
         <div className="max-md:contents md:flex md:min-w-0 md:flex-1 md:flex-col md:gap-4">
           <PageHeader
-            className="mb-0 md:mb-0"
             back={TASK_BACK}
             title={task.title}
             menu={
-              <TaskMenu
-                task={task}
-                assignees={data.assignees}
-                clientName={client?.name ?? null}
-                setup={actions.manage.edit ? loadTaskFormSetup(viewer).catch(() => null) : null}
-                admins={admins}
-                manage={actions.manage}
-                changeApprover={actions.changeApprover}
-                more={more}
-                doneLabel={doneLabel}
-              />
+              <>
+                {/* History, then ⋯: the one detail-header anatomy (v1.8 consistency sweep). */}
+                <HistorySheet arrival={HISTORY_ARRIVAL} description="Every change to this task">
+                  {activity}
+                </HistorySheet>
+                <TaskMenu
+                  task={task}
+                  assignees={data.assignees}
+                  clientName={client?.name ?? null}
+                  setup={actions.manage.edit ? loadTaskFormSetup(viewer).catch(() => null) : null}
+                  admins={admins}
+                  manage={actions.manage}
+                  changeApprover={actions.changeApprover}
+                  more={more}
+                  doneLabel={doneLabel}
+                />
+              </>
             }
+            // Two header buttons (History and ⋯) beside the bell: at very large text the bell
+            // wraps to a second row rather than pushing the bar past the screen's edge.
+            className="mb-0 flex-wrap md:mb-0"
           />
           <section
             aria-label="Where the task stands"
@@ -298,7 +308,6 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
             forOptions={commentFor}
             defaultFor={selfOnTask ? null : (commentFor[0]?.id ?? null)}
           />
-          <TaskViewPanel name="activity">{activity}</TaskViewPanel>
         </div>
         <TaskViewPanel
           name="details"

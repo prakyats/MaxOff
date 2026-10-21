@@ -350,7 +350,7 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
     path: (demo) => `/clients/${demo.clientId}`,
     highlight: (page) => slot(page, "client-tabs"),
     crop: main,
-    alt: "A client's page with its tabs highlighted: Overview, Projects, Brand and Activity.",
+    alt: "A client's page with its tabs highlighted: Overview, Projects and Brand.",
   },
   {
     id: "admin/new-project",

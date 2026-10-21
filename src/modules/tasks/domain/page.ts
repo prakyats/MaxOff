@@ -6,7 +6,7 @@ import type { Task, TaskAssignee, TaskState } from "./types";
 /**
  * The task page as the owner reworked it (Kickoff 4 decisions 26–32): the first glance (a line
  * with the state, priority and a relative deadline; what is needed from the viewer; the one next
- * step), the views below it (Work, Chat, Activity, Details) and the unread comments. Pure, so the
+ * step), the views below it (Work, Chat, Details; the history is the header's History sheet) and the unread comments. Pure, so the
  * rules are unit-tested; the transition functions decide again on every tap.
  */
 
@@ -161,9 +161,17 @@ export function neededLine(input: {
 
 // The views (27, 32) ------------------------------------------------------------------------------
 
-export type TaskView = "work" | "chat" | "activity" | "details";
+export type TaskView = "work" | "chat" | "details";
 
-export const TASK_VIEWS: readonly TaskView[] = ["work", "chat", "activity", "details"];
+/**
+ * The views. Activity left them in the v1.8 consistency sweep (owner 2026-10-21): the task's
+ * history is the header's History sheet, as on every detail page; an old `?tab=activity` link
+ * lands on Work with that sheet open (`HISTORY_ARRIVAL`).
+ */
+export const TASK_VIEWS: readonly TaskView[] = ["work", "chat", "details"];
+
+/** The old links that asked for the history as a view: they open the History sheet on arrival. */
+export const HISTORY_ARRIVAL = { tab: "activity" } as const;
 
 /** The view a `?tab=` value asks for; anything else is Work, where a task lands (decision 32). */
 export function parseTaskView(value: string | null | undefined): TaskView {

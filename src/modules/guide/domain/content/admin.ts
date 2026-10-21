@@ -505,7 +505,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "example",
-              text: "After you send a reminder the toast says “Reminder sent to Sam and Ria” and the button reads “Reminded · again at 4:05 pm”. You can send the next one then. The reminder is a notification, not a chat message: Activity reads “sent Sam and Ria a reminder”.",
+              text: "After you send a reminder the toast says “Reminder sent to Sam and Ria” and the button reads “Reminded · again at 4:05 pm”. You can send the next one then. The reminder is a notification, not a chat message: the task’s History (the clock in its header) reads “sent Sam and Ria a reminder”.",
             },
             {
               kind: "next",
@@ -792,7 +792,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "A client page has four tabs: Overview, Projects, Brand and Activity. Overview opens with the client’s active projects and their progress, then the Admin, the primary contact, the contacts, Details and Requirements and notes. Details lists only what is filled in; the empty ones fold into “Add details”, which opens Edit. Activity is the client’s history, newest first.",
+              text: "A client page has three tabs: Overview, Projects and Brand; the clock in its header opens its History. Overview opens with the client’s active projects and their progress, then the Admin, the primary contact, the contacts, Details and Requirements and notes. Details lists only what is filled in; the empty ones fold into “Add details”, which opens Edit. Activity is the client’s history, newest first.",
             },
             {
               kind: "steps",
@@ -808,7 +808,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "next",
-              text: "Your changes show on the client page and are added to its Activity.",
+              text: "Your changes show on the client page and are added to its History (the clock in the header).",
             },
             {
               kind: "note",
@@ -992,7 +992,7 @@ export const ADMIN_GUIDE: Guide = {
                 "Open the project.",
                 { text: "Read the progress ring (highlighted).", shot: "admin/project-page" },
                 "Tap a month tab (the previous or the next cycle) to switch.",
-                "Tap Activity to see the project’s history.",
+                "Tap the clock (History) in the header to see the project’s history.",
               ],
             },
             {
@@ -1325,7 +1325,7 @@ export const ADMIN_GUIDE: Guide = {
             {
               kind: "steps",
               steps: [
-                "Open the project and tap Activity.",
+                "Open the project and tap the clock (History) in the header.",
                 "Use the chips All, Deliverables, Stages and Project to narrow it.",
                 "Tap Show older for more.",
               ],

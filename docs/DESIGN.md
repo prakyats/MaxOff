@@ -288,6 +288,20 @@ No `rounded-xs`, `rounded-2xl` and above, no `rounded-[…]` (lint).
   destructive question's way out names what is kept ("Keep project" beside "Cancel project"); a
   line is written for the person reading it (no "the Owner changes this" to the Owner).
 
+## 6a. Patterns: one per concept (the consistency sweep, owner 2026-10-21, V5a)
+The advisor's rules (the owner may adjust them on the walk). Each concept has **one** pattern;
+the table lists every screen using it and what V5a changed (before → after).
+
+| Concept | The one pattern | Screens | V5a: before → after |
+|---|---|---|---|
+| **History** | the clock icon labelled "History" (`HistoryButton`, `core/ui/composites/history-button.tsx`), 44 px, in the detail header just before ⋯; it opens the record's History in the same sheet (`HistorySheet` / `ReviewSheet`: bottom sheet on a phone, side panel from `md`), a layer back closes | project, deliverable sheet ("History" in its facts), task, client | project: aria-label "Activity" → "History", panel title "Activity" → "History"; task: the **Activity view** (Work · Chat · Activity · Details) → the header's History sheet (Work · Chat · Details), an old `?tab=activity` lands on Work with the sheet open; client: the **Activity tab** (Overview · Projects · Brand · Activity) → the header's History sheet (three tabs), the old `/clients/[id]/activity` redirects to `?history=1` (the sheet drops it by replace). Person: no per-person history is read today (none added; a new read is a later unit's) |
+| **Detail header** | back · title · (status) · right side: History, then ⋯, then the bell | project, task, client | task and client gain History before ⋯; the bell wraps under them at 200 % (`flex-wrap`), as the project's did. Status placement (the project's and the task's state sit on the first-glance line under the header, the client's in the header's description) is unchanged: V5b's polish list decides |
+| **Icons** | `ICONS` (`core/ui/icons.ts`): History = clock (`HistoryIcon`), Edit = pencil, Archive = box (`ArchiveIcon`), Remind = bell, Approve = check, Add = plus, More = ⋯ (`MoreHorizontalIcon`), Open = › | every screen | the card list's ⋯ (`data-table.tsx`) `EllipsisIcon` → `ICONS.more`; a task's Remind `BellRingIcon` → `ICONS.remind`; the History empty states and panel take `ICONS.history`. Guard: `icons.test.ts` (no synonym for More or Edit; History's clock and Remind's bell only from the map) |
+| **Tabs / view controls** | one segmented control: a muted track (`bg-muted`, `p-1`, `gap-1`), 44 px cells, the chosen one raised (`bg-background` + shadow); `ViewLink` / `replace`, never history (§14.2 d) | client, person, leave, task views, calendar views, the Templates phone segments, **the project's months** | the project's cycle pager (two arrows round the name) → **month tabs** (previous · this · next, the sample's 08) |
+| **List pages** | title + one-line purpose; the main "+ New …" top-right on a laptop, floating on a phone; filters in one row; headings "Name · n" | Tasks, Clients, People, Approvals | unchanged (already so) |
+| **Rows** | the row opens on tap (›), secondary actions in ⋯; one row height per kind (`row-metrics.ts`) | lists, Settings rows | unchanged |
+| **States and words** | chips only via `status-tones`, dates and times only via `core/time`, one `EmptyState`, "You", "deliverables", "Alerts", "Me" | every screen | the client History's empty state uses `EmptyState` with the map's clock |
+
 ## 7. Motion: calm
 | Token | Value | Used for |
 |---|---|---|

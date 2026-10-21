@@ -19,7 +19,12 @@ const appDir = path.join(root, "src/app/(app)");
  * Routes with no server data to wait for; a loading state would never paint. The old Stage presets
  * path only redirects to the one Templates page (6b.6 owner note).
  */
-const NO_DATA = new Set(["forbidden", "settings/stage-presets"]);
+const NO_DATA = new Set([
+  "forbidden",
+  "settings/stage-presets",
+  // The old client Activity tab: a redirect to the client with its History sheet open (V5a).
+  "clients/[id]/activity",
+]);
 
 function routesWithPages(dir: string, prefix = ""): string[] {
   const found: string[] = [];

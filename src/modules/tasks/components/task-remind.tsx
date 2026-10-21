@@ -1,11 +1,11 @@
 "use client";
 
-import { BellRingIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { systemClock } from "@/core/time";
 import { ActionStatus } from "@/core/ui/action/action-status";
 import { useAction } from "@/core/ui/action/use-action";
+import { ICONS } from "@/core/ui/icons";
 import { Button } from "@/core/ui/primitives/button";
 import { toastResult } from "@/core/ui/toast";
 
@@ -70,7 +70,7 @@ export function TaskRemind({
         title="Sends them a push and a note in the app. Once an hour per task."
         onClick={() => action.run()}
       >
-        <BellRingIcon aria-hidden />
+        <ICONS.remind aria-hidden />
         {wait ? wait.label : `Remind ${who}`}
       </Button>
       <ActionStatus action={action} />

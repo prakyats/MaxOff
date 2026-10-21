@@ -281,8 +281,10 @@ test.describe("the bell and Alerts", () => {
       )
       .toBe(true);
     await expect.poll(() => bellCount(page)).toBe(total - about);
-    // Views tapped at once, while the receipt is still out.
-    for (const view of ["work", "activity"]) {
+    // Views tapped at once, while the receipt is still out (V5a: Activity is the header's
+    // History sheet now; Chat on a desktop, Details on a phone).
+    const other = (page.viewportSize()?.width ?? 1280) >= 768 ? "chat" : "details";
+    for (const view of ["work", other]) {
       await page.locator(`[data-slot="task-tab"][data-view-tab="${view}"]`).click();
       await expect(page.locator(`[data-slot="task-tab"][data-view-tab="${view}"]`)).toHaveAttribute(
         "aria-current",
@@ -305,8 +307,8 @@ test.describe("the bell and Alerts", () => {
     ).toBe(true);
     expect(loads, "no document load after the task opened").toBe(0);
     expect(revalidated, "no read answers with a revalidation").toEqual([]);
-    await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}\\?tab=activity$`));
-    await expect(page.locator('[data-slot="task-tab"][data-view-tab="activity"]')).toHaveAttribute(
+    await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}\\?tab=${other}$`));
+    await expect(page.locator(`[data-slot="task-tab"][data-view-tab="${other}"]`)).toHaveAttribute(
       "aria-current",
       "true",
     );

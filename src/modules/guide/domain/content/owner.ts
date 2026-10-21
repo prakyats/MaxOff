@@ -464,7 +464,7 @@ export const OWNER_GUIDE: Guide = {
               shot: "owner/remind",
             }),
             next(
-              'Each of them gets a push and a note in the app, and the toast says "Reminder sent to ‹names›". The reminder is a notification, not a chat message: the task\'s Activity reads "sent ‹names› a reminder", and Chat stays as it was.',
+              'Each of them gets a push and a note in the app, and the toast says "Reminder sent to ‹names›". The reminder is a notification, not a chat message: the task\'s History (the clock in its header) reads "sent ‹names› a reminder", and Chat stays as it was.',
             ),
             note(
               'You can send one once an hour per task. While you wait, the button reads like "Reminded · again at 4:05 pm"; it is ready again when that time passes.',
@@ -813,10 +813,10 @@ export const OWNER_GUIDE: Guide = {
         {
           id: "owner-client-page",
           title: "Read a client's page and your private notes",
-          summary: "Overview, Projects, Brand and Activity.",
+          summary: "Overview, Projects and Brand, with History in the header.",
           blocks: [
             text(
-              'A client page has the tabs Overview, Projects, Brand and Activity. Overview opens with the client\'s active projects and their progress, then the Admin, the primary contact, details, and "Requirements and notes". Details lists only what is filled in; the empty ones fold into "Add details", which opens Edit. Activity is the client\'s history, newest first.',
+              'A client page has the tabs Overview, Projects and Brand; the clock in its header opens its History. Overview opens with the client\'s active projects and their progress, then the Admin, the primary contact, details, and "Requirements and notes". Details lists only what is filled in; the empty ones fold into "Add details", which opens Edit. Activity is the client\'s history, newest first.',
             ),
             text(
               '"Owner\'s notes" is yours alone. It says "Only you see these", and Admins never see it. You are also the only one who sees the reason a client was closed.',
@@ -956,7 +956,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "Cycles, the progress ring, Needs you and the deliverable rows.",
           blocks: [
             text(
-              'The header shows the name, repeat and delivery date, with an Activity button and a ⋯ menu. The months sit as tabs under it (the previous, this and the next cycle, such as September · October 2026 · November): tap one to switch. A one-time project shows "The project\'s deliverables".',
+              'The header shows the name, repeat and delivery date, with a History button (the clock) and a ⋯ menu. The months sit as tabs under it (the previous, this and the next cycle, such as September · October 2026 · November): tap one to switch. A one-time project shows "The project\'s deliverables".',
             ),
             steps({
               text: 'Open the project and read the ring (highlighted). It shows a percentage, with a line such as "12 of 18 stages · 3 of 7 deliverables done". Pace reads "On track", or "N behind plan" in red. At 100% it says the cycle is complete.',
@@ -1199,11 +1199,11 @@ export const OWNER_GUIDE: Guide = {
         },
         {
           id: "owner-project-activity",
-          title: "Read a project's Activity",
+          title: "Read a project's History",
           summary: "Every change to the project, newest first.",
           blocks: [
             steps(
-              "Open the project and tap Activity in the header.",
+              "Open the project and tap the clock (History) in the header.",
               "Filter by All, Deliverables, Stages or Project.",
               'Tap "Show older" to see more.',
             ),

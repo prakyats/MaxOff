@@ -10,6 +10,7 @@ import {
   neededLine,
   newestCommentAt,
   nextStep,
+  HISTORY_ARRIVAL,
   parseTaskView,
   relativeDeadline,
   reopenAfterHandIn,
@@ -317,7 +318,10 @@ describe("the views (decisions 27, 32)", () => {
     expect(parseTaskView(null)).toBe("work");
     expect(parseTaskView("")).toBe("work");
     expect(parseTaskView("chat")).toBe("chat");
-    expect(parseTaskView("activity")).toBe("activity");
+    // Activity is no longer a view (v1.8 sweep): an old ?tab=activity lands on Work, with the
+    // header's History sheet open (HISTORY_ARRIVAL).
+    expect(parseTaskView("activity")).toBe("work");
+    expect(HISTORY_ARRIVAL).toEqual({ tab: "activity" });
     expect(parseTaskView("details")).toBe("details");
     expect(parseTaskView("history")).toBe("work");
   });
@@ -327,12 +331,11 @@ describe("the views (decisions 27, 32)", () => {
     expect(shownView("chat", true)).toBe("chat");
     expect(shownView("details", true)).toBe("work");
     expect(shownView("details", false)).toBe("details");
-    expect(shownView("activity", false)).toBe("activity");
   });
 
   it("keeps the view in the query, leaving Work (the landing view) out", () => {
-    expect(viewQuery("", "activity")).toBe("?tab=activity");
-    expect(viewQuery("?tab=activity", "work")).toBe("");
+    expect(viewQuery("", "chat")).toBe("?tab=chat");
+    expect(viewQuery("?tab=chat", "work")).toBe("");
     expect(viewQuery("?tab=chat&x=1", "details")).toBe("?tab=details&x=1");
   });
 

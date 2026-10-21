@@ -168,9 +168,9 @@ test.describe("the Owner", () => {
     await confirmation(page).getByRole("button", { name: "Save" }).click();
     await expect(page.getByText("Notes saved")).toBeVisible();
 
-    await page.locator('[data-slot="client-tabs"]').getByRole("link", { name: "Activity" }).click();
-    await expect(page).toHaveURL(/\/activity$/);
-    const history = page.locator('[data-slot="client-activity"]');
+    // The history is the header's History sheet (V5a; the Activity tab is gone).
+    await page.locator('[data-slot="history-open"]:visible').click();
+    const history = page.locator('[data-slot="history-sheet"] [data-slot="client-activity"]');
     await expect(history).toContainText("changed the GSTIN, website and Drive link");
     await expect(history).toContainText("changed the Owner's notes");
   });
@@ -211,8 +211,8 @@ test.describe("the Owner", () => {
     await close.getByRole("button", { name: `Close ${name}` }).click();
     await expect(banner(page)).toContainText("Inactive");
 
-    await page.locator('[data-slot="client-tabs"]').getByRole("link", { name: "Activity" }).click();
-    const history = page.locator('[data-slot="client-activity"]');
+    await page.locator('[data-slot="history-open"]:visible').click();
+    const history = page.locator('[data-slot="history-sheet"] [data-slot="client-activity"]');
     await expect(history).toContainText("made Local Admin the Admin");
     await expect(history).toContainText("paused the client");
     await expect(history).toContainText("closed the client");
@@ -444,8 +444,15 @@ test.describe("installed on a phone: the back order of the client screens (§14.
     const tabs = page.locator('[data-slot="client-tabs"]');
     await tabs.getByRole("link", { name: "Brand" }).click();
     await expect(page).toHaveURL(/\/brand$/);
-    await tabs.getByRole("link", { name: "Activity" }).click();
-    await expect(page).toHaveURL(/\/activity$/);
+    // Three tabs (V5a): the history is the header's History sheet, a layer back closes, and
+    // the old Activity path opens it on the Overview (replaced, no history).
+    await expect(tabs.getByRole("link")).toHaveText(["Overview", "Projects", "Brand"]);
+    await page.locator('[data-slot="history-open"]:visible').click();
+    const historySheet = page.locator(
+      '[data-slot="review-sheet"]:has([data-slot="history-sheet"])',
+    );
+    await expect(historySheet).toBeVisible();
+    await expectBackStack(page, [{ closes: historySheet, url: /\/brand$/ }]);
 
     // The header's ⋯ is a layer.
     await menu(page, name).click();
@@ -459,6 +466,13 @@ test.describe("installed on a phone: the back order of the client screens (§14.
     await page.goBack();
     await expect(record(page, "Details").locator('[data-slot="edit-record"]')).toBeVisible();
     await expectBackStack(page, [{ url: /\/clients\?/ }, { url: /\/today$/ }]);
+
+    // The old Activity tab's address: the Overview with the History sheet open, the address
+    // cleaned by replace.
+    await page.goto(`/clients/${id}/activity`);
+    await hydrated(page);
+    await expect(historySheet).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`/clients/${id}$`));
   });
 
   test("the New client and Add contact sheets close on back", async ({ page }, info) => {
