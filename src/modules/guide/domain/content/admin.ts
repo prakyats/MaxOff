@@ -1486,7 +1486,7 @@ export const ADMIN_GUIDE: Guide = {
             {
               kind: "steps",
               steps: [
-                "Open Settings, then Stage presets.",
+                "Open Settings, then Templates: Stage presets is the first section (on a phone, the Presets tab).",
                 {
                   text: 'Tap "Add preset" (highlighted) to add a preset.',
                   shot: "admin/stage-presets",
@@ -1501,10 +1501,10 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: "You can edit or archive only the presets you made. Archiving stops new projects from offering it. Projects that already used it keep their stages.",
+              text: "You can edit or delete only the presets you made. Delete stops new projects from offering it, with Undo in its message for a few seconds. Projects that already used it keep their stages.",
             },
           ],
-          link: { href: "/settings/stage-presets", label: "Open Stage presets" },
+          link: { href: "/settings/templates#presets", label: "Open Stage presets" },
           keywords: ["preset", "stages", "archive"],
         },
         {
@@ -1603,11 +1603,11 @@ export const ADMIN_GUIDE: Guide = {
         {
           id: "admin-templates-yours",
           title: "Your templates and the Owner’s",
-          summary: "You edit and archive your own; templates are copied, never linked.",
+          summary: "You edit and delete your own; templates are copied, never linked.",
           blocks: [
             {
               kind: "text",
-              text: "Templates has Task templates, Project templates and Deliverable templates, with a search box. Every project and deliverable template row has a Preview button, and on your own ones a pencil (“Edit ‹name›”) and an archive box (“Archive ‹name›”). You edit and archive only the templates you made. The Owner can do it for any. With none yet, a list says so, such as “No project templates yet: Add one to start projects faster.”",
+              text: "Templates is one page: Stage presets, Deliverable templates and Project templates, then, under a line, Task templates (on a phone, four tabs), with one search box for all of them. Every project and deliverable template row has a Preview button, and on your own ones a pencil (“Edit ‹name›”) and a bin (“Delete ‹name›”; on a phone, in the row’s ⋯). You edit and delete only the templates you made. The Owner can do it for any. With none yet, a list says so, such as “No project templates yet: Add one to start projects faster.”",
             },
             {
               kind: "steps",
@@ -1617,16 +1617,16 @@ export const ADMIN_GUIDE: Guide = {
                   shot: "admin/templates",
                 },
                 "Tap Preview on a project or deliverable template to see what work made from it gets.",
-                "Edit or archive one of your own. Archive asks first.",
+                "Edit or delete one of your own. Delete asks first.",
               ],
             },
             {
               kind: "next",
-              text: "An archived template stops being offered: “Archived ‹name›: New project no longer offers it”. Tap Restore on an archived one to bring it back: “Restored ‹name›: New project offers it again”. A task template’s Archive is a plain button, never red.",
+              text: "A deleted template stops being offered: the message “‹name› deleted” has Undo for a few seconds. Delete is a plain button, never red: nothing is destroyed.",
             },
             {
               kind: "note",
-              text: "A template is copied into a project when you use it, so later template edits never change existing projects. Archiving does not touch work already made from it.",
+              text: "A template is copied into a project when you use it, so later template edits never change existing projects. Deleting does not touch work already made from it.",
             },
           ],
           link: { href: "/settings/templates", label: "Open Templates" },
@@ -1651,7 +1651,7 @@ export const ADMIN_GUIDE: Guide = {
               kind: "steps",
               steps: [
                 {
-                  text: "Make stage presets. In Settings, Stage presets, add “Edit” (Rough cut, Fine cut) and “Review” (Internal check, Final check).",
+                  text: "Make stage presets. In Settings, Templates, Stage presets, add “Edit” (Rough cut, Fine cut) and “Review” (Internal check, Final check).",
                   shot: "admin/stage-presets",
                 },
                 "Make a deliverable template. In Settings, Templates, add “Reel” and give it stage groups, for example Edit and Review.",
@@ -1891,11 +1891,11 @@ export const ADMIN_GUIDE: Guide = {
         {
           id: "admin-settings-overview",
           title: "What you can change in Settings",
-          summary: "Notifications, Job titles, Stage presets, Custom fields and Templates.",
+          summary: "Notifications, Job titles, Custom fields and Templates.",
           blocks: [
             {
               kind: "text",
-              text: "You see five sections. Notifications shows who on your open tasks can’t be reached. Job titles are the titles people can be given. Stage presets and Templates are covered in their own topics. Custom fields are extra fields on clients and contacts.",
+              text: "You see four sections in two groups, each row with one line on what it holds. Notifications shows who on your open tasks can’t be reached. Job titles are the titles people can be given. Templates (stage presets and every kind of template, on one page) has its own topics. Custom fields are extra fields on clients and contacts.",
             },
             {
               kind: "steps",

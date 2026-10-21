@@ -614,15 +614,17 @@ test("the carry screen: carry forward in bulk, close one with a reason", async (
   await removeClientFixture(client);
 });
 
-test("Settings → Stage presets: an Admin adds, edits and archives their own", async ({
+test("Settings → Templates → Stage presets: an Admin adds, edits and deletes their own", async ({
   page,
 }, info) => {
   test.skip(info.project.name === "mobile-lg", "the 375 and desktop runs cover it");
   const name = nameOf(info, "preset");
   await serviceRest(`stage_presets?name=eq.${encodeURIComponent(name)}`, { method: "DELETE" });
   await page.goto("/settings");
-  await page.getByRole("link", { name: /Stage presets/ }).click();
-  await expect(page).toHaveURL(/\/settings\/stage-presets$/);
+  // The Stage presets card left the Settings grid: they are the Templates page's first section
+  // (6b.6 owner note).
+  await page.getByRole("link", { name: "Templates", exact: true }).click();
+  await expect(page).toHaveURL(/\/settings\/templates$/);
   await hydrated(page);
   await page.getByRole("button", { name: "Add preset" }).click();
   const add = page.getByRole("dialog", { name: "Add a stage preset" });
@@ -648,9 +650,9 @@ test("Settings → Stage presets: an Admin adds, edits and archives their own", 
     .getByRole("alertdialog")
     .getByRole("button", { name: `Delete ${name}` })
     .click();
-  await expect(
-    page.locator('[data-slot="archived-stage-preset"]', { hasText: name }),
-  ).toBeVisible();
+  // D6: Delete is the archive underneath; the row leaves, no Archived list.
+  await expect(row).toHaveCount(0);
+  await expect(page.locator('[data-slot="archived-stage-preset"]')).toHaveCount(0);
 });
 
 test("the calendar lists client items for their Admin, never for Crew", async ({
@@ -1880,9 +1882,9 @@ test.describe("Settings layers, installed (ARCHITECTURE §14.2)", () => {
       created_by: await memberIdOf(admin.email),
     });
     await runInstalled(page);
-    await page.goto("/settings/stage-presets");
+    await page.goto("/settings/templates#presets");
     await hydrated(page);
-    const here = /\/settings\/stage-presets$/;
+    const here = /\/settings\/templates#presets$/;
     await page.getByRole("button", { name: "Add preset" }).click();
     const add = page.getByRole("dialog", { name: "Add a stage preset" });
     await expect(add).toBeVisible();

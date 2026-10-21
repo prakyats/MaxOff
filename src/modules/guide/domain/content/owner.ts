@@ -1331,16 +1331,18 @@ export const OWNER_GUIDE: Guide = {
               "A preset is a flat list of stages with a name (up to 80 characters), and up to 100 stages.",
             ),
             steps(
-              "Open Settings, then Stage presets.",
-              'Tap "Add preset" at the top of the list.',
+              "Open Settings, then Templates: Stage presets is the first section (on a phone, the Presets tab).",
+              'Tap "Add preset" on the section\'s heading.',
               "Type the Name and the stages in order. Drag or use Move to reorder.",
               'Tap "Add preset" or "Save preset".',
             ),
-            next('Archiving a preset stops "New project" offering it. "Restore" brings it back.'),
+            next(
+              'Delete on a preset stops "New project" offering it; the message "‹name› deleted" has Undo for a few seconds.',
+            ),
             note("Projects that used a preset keep their stages."),
           ],
-          link: { href: "/settings/stage-presets", label: "Open Stage presets" },
-          keywords: ["preset", "checklist", "archive", "restore"],
+          link: { href: "/settings/templates#presets", label: "Open Stage presets" },
+          keywords: ["preset", "checklist", "delete", "undo"],
         },
         {
           id: "owner-project-template",
@@ -1388,24 +1390,24 @@ export const OWNER_GUIDE: Guide = {
         },
         {
           id: "owner-templates-list",
-          title: "Preview, edit or archive a template",
-          summary: "Every project and deliverable template row has Preview, Edit and Archive.",
+          title: "Preview, edit or delete a template",
+          summary: "One Templates page: stage presets, deliverable, project and task templates.",
           blocks: [
             steps(
-              "Open Settings, then Templates.",
+              "Open Settings, then Templates. It lists Stage presets, Deliverable templates and Project templates, then, under a line, Task templates. On a phone each is a tab.",
+              "Type in the search box to find any of them by name, stage or deliverable.",
               'Tap "Preview" on a project or deliverable template to see what work made from it gets.',
-              'Tap the pencil ("Edit ‹name›") to change it, or the archive box ("Archive ‹name›") to archive it. Archive asks first.',
-              'Archived ones are listed below the others; tap "Restore" on one to bring it back.',
+              'Tap the pencil ("Edit ‹name›") to change it, or the bin ("Delete ‹name›") to stop offering it; on a phone both are in the row\'s ⋯. Delete asks first.',
             ),
             next(
-              'The toasts say what changes: "Archived ‹name›: New project no longer offers it" and "Restored ‹name›: New project offers it again" (for a deliverable template, "+ Add deliverable" instead of New project).',
+              'The message "‹name› deleted" has Undo for a few seconds. Work already made from it does not change.',
             ),
             note(
-              "A task template's Archive is a plain button, never red: the question it opens names the template on its own button.",
+              "Delete is a plain button, never red: nothing is destroyed, the template is only no longer offered.",
             ),
           ],
           link: { href: "/settings/templates", label: "Open Templates" },
-          keywords: ["archive", "restore", "edit template", "preview", "task template"],
+          keywords: ["delete", "undo", "edit template", "preview", "task template", "stage preset"],
         },
         {
           id: "owner-save-as-template",
@@ -1455,7 +1457,7 @@ export const OWNER_GUIDE: Guide = {
               "This is the whole path for a client who gets the same work every month. You set it up once. After that, each month starts by itself.",
             ),
             steps(
-              'Open Settings, then Stage presets: add a preset for each kind of checklist, such as "Shoot prep".',
+              'Open Settings, then Templates, Stage presets: add a preset for each kind of checklist, such as "Shoot prep".',
               "Open Settings, then Templates: add a deliverable template for Reel and one for Post, using those presets.",
               'Add a project template called "Monthly retainer", with Repeats set to Monthly and the deliverables Reel × 4 and Post × 2.',
               {
@@ -1609,12 +1611,11 @@ export const OWNER_GUIDE: Guide = {
               "Expenses: expense categories and when a claim needs a receipt photo.",
               "Job titles: the titles people can be given.",
               "Task types: the kinds of task, their order and what each asks for.",
-              "Stage presets: reusable stage checklists.",
               "Custom fields: extra fields on clients and contacts.",
-              "Templates: project, deliverable and task templates for work that repeats.",
+              "Templates: stage presets, deliverable, project and task templates, on one page.",
             ),
             text(
-              "Admins can open Notifications, Job titles, Stage presets, Custom fields and Templates. The rest are yours alone.",
+              "The sections sit in four groups: Company and working days, Lists and fields, Templates, Integrations; each row says in one line what it holds. Admins can open Notifications, Job titles, Custom fields and Templates. The rest are yours alone.",
             ),
           ],
           link: { href: "/settings", label: "Open Settings" },
@@ -1678,7 +1679,7 @@ export const OWNER_GUIDE: Guide = {
                 ".",
             ),
             text(
-              'Every Settings list works the same way: "Add ‹thing›" at the top of the list ("Add job title", "Add holiday", "Add task type") opens a form. On a laptop each row has Move up, Move down, Rename or Edit, and Archive; on a phone they are in the row\'s ⋯. Archive asks first and can be undone with Restore.',
+              'Every Settings list works the same way: "Add ‹thing›" at the top of the list ("Add job title", "Add holiday", "Add task type") opens a form. On a laptop each row has Move up, Move down, Rename or Edit, and Delete; on a phone they are in the row\'s ⋯. Delete asks first, and its message has Undo for a few seconds; whoever already has the value keeps it.',
             ),
           ],
           link: { href: "/settings/job-titles", label: "Open Job titles" },

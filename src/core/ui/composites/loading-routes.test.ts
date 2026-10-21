@@ -15,8 +15,11 @@ import { describe, expect, it } from "vitest";
 const root = fileURLToPath(new URL("../../../../", import.meta.url));
 const appDir = path.join(root, "src/app/(app)");
 
-/** Routes with no server data to wait for; a loading state would never paint. */
-const NO_DATA = new Set(["forbidden"]);
+/**
+ * Routes with no server data to wait for; a loading state would never paint. The old Stage presets
+ * path only redirects to the one Templates page (6b.6 owner note).
+ */
+const NO_DATA = new Set(["forbidden", "settings/stage-presets"]);
 
 function routesWithPages(dir: string, prefix = ""): string[] {
   const found: string[] = [];

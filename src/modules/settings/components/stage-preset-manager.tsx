@@ -4,6 +4,7 @@ import { ListOrderedIcon } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useState } from "react";
 
+import { templateMatches } from "@/core/lib/stage-groups";
 import { cn } from "@/core/lib/utils";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { EmptyState } from "@/core/ui/composites/empty-state";
@@ -38,15 +39,19 @@ export function StagePresetManager({
   presets,
   viewer,
   names,
+  query = "",
 }: {
   presets: readonly StagePreset[];
   viewer: Viewer;
   names: Readonly<Record<string, string>>;
+  /** The Templates page's one search (6b.6 owner note): a name or a stage; a view control. */
+  query?: string;
 }) {
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<StagePreset | null>(null);
   const [archiving, setArchiving] = useState<StagePreset | null>(null);
-  const active = presets.filter((preset) => !preset.archived);
+  const all = presets.filter((preset) => !preset.archived);
+  const active = all.filter((preset) => templateMatches(query, [preset.name, ...preset.stages]));
 
   const author = (preset: StagePreset) =>
     preset.createdBy === null
@@ -64,18 +69,23 @@ export function StagePresetManager({
       <section aria-labelledby="stage-presets-heading" className="flex flex-col gap-3">
         <ListHeading
           id="stage-presets-heading"
-          title={`${active.length} ${active.length === 1 ? "preset" : "presets"}`}
+          title="Stage presets"
           action={
             <ListAddButton onClick={() => setAdding(true)} data-slot="add-stage-preset">
               Add preset
             </ListAddButton>
           }
         />
-        {active.length === 0 ? (
+        {all.length === 0 ? (
           <EmptyState
             icon={ListOrderedIcon}
+            size="compact"
             title="No stage presets yet: make one for steps you repeat."
           />
+        ) : active.length === 0 ? (
+          <p className="text-muted-foreground text-sm" data-slot="stage-presets-none">
+            No stage preset matches “{query.trim()}”.
+          </p>
         ) : (
           <ul
             data-slot="stage-presets"

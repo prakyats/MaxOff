@@ -424,7 +424,7 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
   },
   {
     id: "admin/stage-presets",
-    path: "/settings/stage-presets",
+    path: "/settings/templates#presets",
     highlight: (page) => slot(page, "add-stage-preset"),
     crop: main,
     alt: "Stage presets with the Add preset button highlighted.",

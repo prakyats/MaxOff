@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { useState } from "react";
 
 import { cn } from "@/core/lib/utils";
+import { templateMatches } from "@/core/lib/stage-groups";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { ListAddButton, ListHeading, ListRowActions } from "@/core/ui/composites/list-rows";
@@ -34,13 +35,19 @@ type Context = TemplateContext;
  */
 export function TemplateManager({
   templates,
+  query = "",
   ...context
-}: Context & { templates: readonly TaskTemplate[] }) {
+}: Context & {
+  templates: readonly TaskTemplate[];
+  /** The Templates page's one search (6b.6 owner note): a name or a stage; a view control. */
+  query?: string;
+}) {
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<TaskTemplate | null>(null);
   const [archiving, setArchiving] = useState<TaskTemplate | null>(null);
-  const active = templates
-    .filter((template) => !template.archived)
+  const all = templates.filter((template) => !template.archived);
+  const active = all
+    .filter((template) => templateMatches(query, [template.name, ...template.stages]))
     .sort((a, b) => a.name.localeCompare(b.name));
   const typeName = new Map(context.types.map((type) => [type.id, type.name]));
 
@@ -81,12 +88,17 @@ export function TemplateManager({
             </ListAddButton>
           }
         />
-        {active.length === 0 ? (
+        {all.length === 0 ? (
           <EmptyState
             icon={LayoutTemplateIcon}
-            title="No templates yet"
+            size="compact"
+            title="No task templates yet"
             description="Add one for work that repeats. New task offers it under Start from."
           />
+        ) : active.length === 0 ? (
+          <p className="text-muted-foreground text-sm" data-slot="task-templates-none">
+            No task template matches “{query.trim()}”.
+          </p>
         ) : (
           <ul
             data-slot="task-templates"

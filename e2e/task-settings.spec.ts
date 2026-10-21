@@ -596,7 +596,7 @@ test.describe("drag to reorder stages before saving (6b.18)", () => {
   }, info) => {
     const name = `Reorder preset (${info.project.name})`;
     await ownerPreset(name, ["Stage 1", "Stage 2", "Stage 3"]);
-    await page.goto("/settings/stage-presets");
+    await page.goto("/settings/templates#presets");
     await hydrated(page);
     const row = page.locator('[data-slot="stage-preset"]', { hasText: name });
     await expect(row).toContainText("Stage 1 → Stage 2 → Stage 3");
@@ -664,9 +664,9 @@ test.describe("drag to reorder, installed (6b.18): a stage's ⋯ menu closes on 
       { closes: edit, url: templates },
     ]);
 
-    await page.goto("/settings/stage-presets");
+    await page.goto("/settings/templates#presets");
     await hydrated(page);
-    const presets = /\/settings\/stage-presets$/;
+    const presets = /\/settings\/templates#presets$/;
     // V2 (P2): on a phone a Settings row's Edit sits in its ⋯ sheet.
     await rowAction(
       page,
