@@ -1578,7 +1578,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "A project template keeps the default stage groups and the deliverables with their stages. A deliverable template keeps its stage groups, with no ticks or dates.",
+              text: "A project template keeps the structure only: the repeat, the default stage groups and the deliverables with their stages, never the description or custom field values. A deliverable template keeps its stage groups, with no ticks or dates.",
             },
             {
               kind: "steps",

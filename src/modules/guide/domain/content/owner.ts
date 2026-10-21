@@ -1421,7 +1421,7 @@ export const OWNER_GUIDE: Guide = {
               'The toast "Saved as the template …" has an "Open templates" action. The original stays as it is.',
             ),
             note(
-              "A project template keeps its default stage groups and deliverables with their stages. A deliverable template keeps its stage groups, with no ticks or dates.",
+              "A project template keeps the structure only: the repeat, its default stage groups and deliverables with their stages, never the description or custom field values. A deliverable template keeps its stage groups, with no ticks or dates.",
             ),
           ],
           keywords: ["save as template", "copy from project"],

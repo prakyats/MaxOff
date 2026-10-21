@@ -81,11 +81,11 @@
 - **Phase 0 is closed** (owner sign-off, 2026-09-22): every exit criterion met, the owner verified the install, offline page and both themes on a phone, and had no UI feedback. The Sentry pipeline is proven end to end on staging.
 
 ## Open owner questions (v1.8)
-<!-- Raised while building v1.8; each keeps the behaviour named here until the owner answers. -->
-1. **B7, a deliverable with neither a revision stage nor an "Edit" stage:** "+ Another revision round" keeps the v1.7.1 behaviour (the round goes after the last stage) until the owner answers. Advisor's suggestion: before a "Posted" stage when there is one, else after the last stage.
-2. **B6, Remind:** kept as built in V0 (a notification plus an Activity line, "As a notification, not a chat message."; no Chat message). The owner may decide later that Remind also writes in Chat.
-3. **B11, the exact version on staging:** `.github/workflows/deploy.yml` is not touched (the production workflow is the owner's alone). Proposal: pass `${{ github.event.workflow_run.head_sha }}` to the build as a new env var, so Me's version on staging shows the exact deployed sha (today `GITHUB_SHA` on a `workflow_run` is the default branch's head at that moment, normally but not always the deployed commit).
-4. **B9, "· Paused" beside a client on the Admin's Today:** a local fixture and a Playwright check were added in V1 (`e2e/dashboards.spec.ts`, desktop, 375 and 430 px). Nothing for the owner to decide; listed so the walk includes it.
+<!-- Raised while building v1.8. DECIDED by the owner 21 Oct 2026 ("all as recommended"). -->
+1. **B7, a deliverable with neither a revision stage nor an "Edit" stage: DECIDED.** "+ Another revision round" goes just before a "Posted", "Published" or "Delivered" stage (ignoring case) when there is one, else after the last stage. To be built in V5.
+2. **B6, Remind: DECIDED, no change** (a notification plus an Activity line, no Chat message).
+3. **B11, the exact version on staging: DECIDED.** Approved to pass `${{ github.event.workflow_run.head_sha }}` to the STAGING build for Me's version label; production unchanged. Handled separately by the advisor (no unit touches `.github/`).
+4. **B9, "· Paused" beside a client on the Admin's Today:** fixture and Playwright check added in V1; on the walk. The restore drill runs first after v1.8 (owner 21 Oct).
 
 ## In-progress handoff
 <!-- Filled by /save-progress when a session ends mid-task. Clear it when the task is finished. -->
