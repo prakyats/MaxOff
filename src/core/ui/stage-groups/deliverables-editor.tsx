@@ -202,7 +202,6 @@ export function DeliverablesEditor({
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
-                        variant="destructive"
                         onSelect={() => {
                           if (deliverable.stageGroups === null) remove(index);
                           else setRemoving(index);

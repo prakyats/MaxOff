@@ -84,7 +84,7 @@ export function DeviceList({ rows }: { rows: readonly DeviceRow[] }) {
                   </span>
                 ) : (
                   <Button
-                    variant="destructive"
+                    variant="secondary"
                     className={cn("col-start-1 row-start-1", here === undefined && "invisible")}
                     aria-hidden={here === undefined ? true : undefined}
                     tabIndex={here === undefined ? -1 : undefined}

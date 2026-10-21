@@ -24,7 +24,7 @@ export function TaskViewsSkeleton() {
       <div
         aria-hidden
         data-slot="loading-task-tabs"
-        className="bg-background sticky top-[calc(var(--app-chrome-h)+var(--app-page-header-h,2.75rem))] z-10 -mx-4 border-b px-4 py-2 md:static md:mx-0 md:border-0 md:p-0"
+        className="bg-background sticky top-[var(--app-page-header-h,2.75rem)] z-10 -mx-4 border-b px-4 py-2 md:static md:mx-0 md:border-0 md:p-0"
       >
         <div className="bg-muted flex gap-1 rounded-lg p-1 md:inline-flex">
           {["w-10", "w-9", "w-14", "w-12"].map((width, index) => (
@@ -55,7 +55,7 @@ export function TaskViewsSkeleton() {
         <div className="border-border divide-border bg-card divide-y rounded-lg border">
           {["w-40", "w-32"].map((width) => (
             <div key={width} className="flex min-h-12 min-w-0 items-center gap-3 py-2 pl-3">
-              <Skeleton className="size-4 shrink-0 rounded-[4px]" />
+              <Skeleton className="size-4 shrink-0 rounded-sm" />
               <div className="flex h-5 min-w-0 items-center">
                 <Skeleton className={`h-4 ${width} max-w-full`} />
               </div>
@@ -80,7 +80,7 @@ export function TaskViewsSkeleton() {
         aria-hidden
         data-slot="loading-task-chat-sheet"
         data-view={view}
-        className="bg-popover fixed inset-x-0 bottom-0 z-50 hidden h-[calc(100dvh-var(--app-safe-top)-0.75rem)] flex-col rounded-t-2xl border-t shadow-lg max-md:data-[view=chat]:flex"
+        className="bg-popover rounded-t-sheet fixed inset-x-0 bottom-0 z-50 hidden h-[calc(100dvh-var(--app-safe-top)-0.75rem)] flex-col border-t shadow-lg max-md:data-[view=chat]:flex"
       >
         <div className="flex min-h-11 items-center justify-between gap-2 border-b py-1 pr-1 pl-4">
           <div className="flex h-6 items-center">

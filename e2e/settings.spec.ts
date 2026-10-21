@@ -204,17 +204,25 @@ test.describe("Owner", () => {
     const names = page.locator('[data-slot="list-item"]');
     await expect(names).toHaveText([/Video Editor/, /Graphic Designer/]);
 
-    await page.getByLabel("Add a job title").fill("Colorist");
-    await page.getByRole("button", { name: "Add", exact: true }).click();
+    // C4, the Settings Add pattern: "Add job title" on the list's heading opens a dialog whose
+    // commit is "Add job title" (was an inline field and an "Add" button).
+    await page.getByRole("button", { name: "Add job title" }).click();
+    let add = page.getByRole("dialog", { name: "Add a job title" });
+    await add.getByLabel("Name", { exact: true }).fill("Colorist");
+    await add.getByRole("button", { name: "Add job title" }).click();
     await expect(page.getByText("Job title added")).toBeVisible();
+    await expect(add).toBeHidden();
     await expect(names).toHaveText([/Video Editor/, /Graphic Designer/, /Colorist/]);
 
     // The same name again (case and spaces aside) is the unique index, said in plain words.
-    await page.getByLabel("Add a job title").fill("  colorist ");
-    await page.getByRole("button", { name: "Add", exact: true }).click();
-    await expect(page.locator('[data-slot="form-alert"]')).toContainText(
+    await page.getByRole("button", { name: "Add job title" }).click();
+    add = page.getByRole("dialog", { name: "Add a job title" });
+    await add.getByLabel("Name", { exact: true }).fill("  colorist ");
+    await add.getByRole("button", { name: "Add job title" }).click();
+    await expect(add.locator('[data-slot="form-alert"]')).toContainText(
       "already a job title with that name",
     );
+    await add.getByRole("button", { name: "Cancel" }).click();
 
     await page.getByRole("button", { name: "Move Colorist up" }).click();
     await expect(names).toHaveText([/Video Editor/, /Colorist/, /Graphic Designer/]);
@@ -288,8 +296,10 @@ test.describe("Admin", () => {
     // The archived one from an earlier run would make "add" a duplicate (2.6).
     await removeJobTitles(["Colorist", "Colourist", "Sound Engineer"]);
     await page.goto("/settings/job-titles");
-    await page.getByLabel("Add a job title").fill("Sound Engineer");
-    await page.getByRole("button", { name: "Add", exact: true }).click();
+    await page.getByRole("button", { name: "Add job title" }).click();
+    const add = page.getByRole("dialog", { name: "Add a job title" });
+    await add.getByLabel("Name", { exact: true }).fill("Sound Engineer");
+    await add.getByRole("button", { name: "Add job title" }).click();
     await expect(page.getByText("Job title added")).toBeVisible();
     await expect(page.locator('[data-slot="list-item"]')).toContainText(["Sound Engineer"]);
 

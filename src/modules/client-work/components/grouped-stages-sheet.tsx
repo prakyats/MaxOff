@@ -378,7 +378,6 @@ export function GroupedStagesSheet({
                         <ReorderMenuItems reorder={groupReorder} index={index} />
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
-                          variant="destructive"
                           onSelect={() => setRemoving({ kind: "group", label: group.label })}
                         >
                           <Trash2Icon aria-hidden />
@@ -677,7 +676,7 @@ function StageRows({
             <DropdownMenuContent align="end" className="min-w-48">
               <ReorderMenuItems reorder={reorder} index={index} />
               <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive" onSelect={() => onRemove(row)}>
+              <DropdownMenuItem onSelect={() => onRemove(row)}>
                 <Trash2Icon aria-hidden />
                 Remove stage
               </DropdownMenuItem>

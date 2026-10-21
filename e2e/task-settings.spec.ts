@@ -13,6 +13,7 @@ import {
   removeTaskTypesNamed,
   removeTasksTitled,
   removeTemplatesNamed,
+  rowAction,
   rpcAs,
   runInstalled,
   serviceInsert,
@@ -314,8 +315,9 @@ test.describe("task types, installed: back and large text", () => {
     const url = /\/settings\/task-types$/;
     await expect(page).toHaveURL(url);
 
+    // C4: "Add task type" sits on the list's heading (was the page's floating button).
     await page
-      .locator('[data-slot="page-actions"]')
+      .locator('[data-slot="list-heading"]')
       .getByRole("button", { name: "Add task type" })
       .click();
     const add = page.getByRole("dialog", { name: "Add a task type" });
@@ -378,8 +380,9 @@ test.describe("task types, installed: back and large text", () => {
       });
     }
     await page.goto("/settings/task-types");
+    // C4: "Add task type" sits on the list's heading (was the page's floating button).
     await page
-      .locator('[data-slot="page-actions"]')
+      .locator('[data-slot="list-heading"]')
       .getByRole("button", { name: "Add task type" })
       .click();
     await page
@@ -605,7 +608,8 @@ test.describe("drag to reorder stages before saving (6b.18)", () => {
     await hydrated(page);
     const row = page.locator('[data-slot="stage-preset"]', { hasText: name });
     await expect(row).toContainText("Stage 1 → Stage 2 → Stage 3");
-    await row.getByRole("button", { name: `Edit ${name}` }).click();
+    // V2 (P2): on a phone a Settings row's Edit sits in its ⋯ sheet.
+    await rowAction(page, row, name, "Edit");
     const dialog = page.getByRole("dialog", { name: `Edit ${name}` });
     const rows = dialog.locator('[data-slot="preset-stage"]');
     await expect(rows).toHaveCount(3);
@@ -671,10 +675,13 @@ test.describe("drag to reorder, installed (6b.18): a stage's ⋯ menu closes on 
     await page.goto("/settings/stage-presets");
     await hydrated(page);
     const presets = /\/settings\/stage-presets$/;
-    await page
-      .locator('[data-slot="stage-preset"]', { hasText: preset })
-      .getByRole("button", { name: `Edit ${preset}` })
-      .click();
+    // V2 (P2): on a phone a Settings row's Edit sits in its ⋯ sheet.
+    await rowAction(
+      page,
+      page.locator('[data-slot="stage-preset"]', { hasText: preset }),
+      preset,
+      "Edit",
+    );
     const dialog = page.getByRole("dialog", { name: `Edit ${preset}` });
     await dialog.getByRole("button", { name: "Actions for Stage 2" }).click();
     await expect(menu).toBeVisible();

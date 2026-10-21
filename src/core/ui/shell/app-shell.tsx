@@ -30,8 +30,9 @@ const NO_UNREAD: Promise<ServerUnread | null> = Promise.resolve(null);
  * The signed-in app chrome.
  *
  * **Phone** (below `md`): a bottom bar for **every role** — four primary destinations plus More,
- * or the Crew's five (ARCHITECTURE §14.1, task 1.5; 5B decision 1). The brand bar above it slides away as you
- * scroll. Nobody opens a drawer to reach a screen they use every day.
+ * or the Crew's five (ARCHITECTURE §14.1, task 1.5; 5B decision 1) — and one header bar at the top,
+ * the page's own title bar (L4: no brand bar above it). Nobody opens a drawer to reach a screen
+ * they use every day.
  *
  * **Tablet and desktop** (`md` up): the sidebar, unchanged.
  *
@@ -117,7 +118,6 @@ export function AppShell({
         <div className="flex min-w-0 flex-1 flex-col">
           <TopBar
             viewer={viewer}
-            home={home}
             logoutItem={logoutItem}
             bellCount={
               <>

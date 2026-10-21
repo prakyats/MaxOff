@@ -73,7 +73,7 @@ dark, a higher step is a lighter graphite, because shadows barely read on black.
 | Amber | `attention` | `#AD5009` | `#FBBF24` | soon or at risk: due today, waiting 1–3 days, a late start, something waiting for the Owner |
 | Blue | `info` | `#1D4ED8` | `#7DA2FF` | in progress, new, unread: work in motion only |
 | Green | `success` | `#047857` | `#34D399` | done, approved, present, active |
-| Grey | `neutral` | `#52525B` | `#A1A1AA` | nothing to do: zero, closed, archived, past, plain labels |
+| Grey | `neutral` | `#52525B` | `#A1A1AA` | nothing to do: zero, closed, archived, cancelled (C5), past, plain labels |
 | Holiday green | `holiday` | `#15803D` | `#4ADE80` | a holiday on the calendar (decision 25), never a status |
 | Weekly off | `off-day` | `#0369A1` | `#7DD3FC` | the calendar's weekly-off date number, never red |
 | Logo | `logo` | `#C42126` | `#C42126` | the logo tile only (a fixed brand asset) |
@@ -95,18 +95,36 @@ dark, a higher step is a lighter graphite, because shadows barely read on black.
 |---|---|---|
 | `primary` | **neutral solid** (`primary`: `#18181B` with `#FAFAF9` text; inverted in dark) | **the one commit action per layer**: Save, Send, Create, Approve, Mark done. Disabled is muted, never faded |
 | `danger` | **solid red** (`destructive-solid`: `#C42126` with white text, both themes) | **the commit of a destructive action**, named for it: "Discard changes", "Remove Diwali", "Withdraw request", "Reject claim", "Deactivate Ravi". Only inside its confirmation |
-| `destructive` | red outline and red text | a destructive action **before** its confirmation (Deactivate, Cancel leave, Withdraw, Reject…, Remove) |
+| `destructive` | red outline and red text | a destructive action **before** its confirmation (Deactivate, Cancel leave, Withdraw, Reject…, Close, Cancel task) |
 | `secondary` | neutral outline (`control-border`, ≥ 3:1) | Cancel, Keep editing, Review, Edit, Correct, the pager |
 | `ghost` | no fill | icon and utility buttons |
 | `strong` | neutral solid | a trigger that opens a form or a confirmation where the commit happens (a FAB, Approvals' Approve and Approve all) |
 
 - **One solid button per layer.** A layer is the screen, each dialog, each sheet and each floating
   sticky bar. At most one `primary` or `danger` per layer, and never beside a `strong`.
+- **The Add pattern for Settings lists (C4, decided in V2).** Every list on a Settings screen
+  (Job titles, Expenses' categories, Holidays, Task types, Stage presets, Custom fields' groups,
+  the three template groups) adds the same way: **"Add ‹thing›"**, a `secondary` outline button
+  with a plus that names the thing ("Add job title", "Add holiday", "Add project template"), at the
+  right end of the **list's heading row** (`ListHeading` + `ListAddButton`, `core/ui/composites/
+  list-rows.tsx`), one per list or group. It opens the add dialog (a bottom sheet on a phone),
+  whose commit is the `primary` "Add ‹thing›". Never a solid Add, never a floating Add on a Settings
+  screen, never an inline add form; an empty list's empty state names the same button and adds no
+  second one. Outside Settings a screen's main creation stays the page action (`strong`, the FAB
+  on a phone: New task, Add person, New project).
+- **Settings rows** (`ListRowActions`, C3/P2): from `md` up, grey icon buttons (Move up / Move down
+  when the list has an order, Edit or Rename, Archive); on a phone one 44 px ⋯ opening a bottom
+  sheet with the same actions as full-width rows (Move up / Move down keep it open).
 - **Confirmations name the action** ("Deactivate Ravi", "Approve 3", "Discard changes"), never
   "OK", "Yes" or "Confirm". `ConfirmDialog` and `ReasonDialog` take `destructive` for a destructive
   act: their commit is then `danger`, otherwise `primary`.
 - **Archive is not destructive** (owner, 2026-10-16: "archive never red"): it can be restored, so
   its question commits with `primary`.
+- **Archive and Remove are grey everywhere** (C3): a `ghost` icon in a row, a `secondary` button
+  in a sheet or a footer ("Remove photo", a device's Remove), a plain menu item ("Remove stage").
+  The red appears only in the confirmation step, on the named `danger` commit ("Remove Diwali",
+  "Remove Chrome on Android"); a remove with no confirmation (a stage in an unsaved form) is never
+  red.
 - **Red elsewhere, only where it means "act now":** error text, always with an icon (`ErrorText`);
   the navigation count badges; the Owner's Today problem lines ("2 are absent today ›") and a risk
   row's "overdue by …" line, each with a dot and words; an approval waiting three days or more.
@@ -118,6 +136,14 @@ dark, a higher step is a lighter graphite, because shadows barely read on black.
   `core/ui/primitives`), the lint rule `maxoff/design-tokens` (§8), and the e2e fixture
   (`e2e/fixtures.ts`, every spec) that fails a test whose layer ever shows two solid commits or a
   commit beside a `strong`.
+
+### Progress (P4)
+- **One bar:** `ProgressBar` (`core/ui/progress/segmented-meter.tsx`), a 6 px continuous track:
+  done in `success`, the next step in `success` at 35%, the rest `neutral-soft`, whatever the
+  number of steps (a row of dots or segments is never drawn for a list). Its numbers and words
+  sit beside it ("2/3", "68%"); it is decorative (`label={null}`) where they already say it.
+- **The ring** stays the cycle's figure on its project page (segments up to 48 steps).
+- Never red: lateness is said by the row's words and its dot (§4), not by the bar.
 
 ## 5. Radii: four
 | Token | Class | Value | Used for |
@@ -131,9 +157,26 @@ No `rounded-xs`, `rounded-2xl` and above, no `rounded-[…]` (lint).
 
 ## 6. Spacing and layout
 - A 4 px grid (Tailwind's spacing scale); hairline borders; **dashed borders mean "empty" only**.
+- **One header bar on a phone (L4):** the page's own title bar (`PageHeader`), 44 px, sticky at
+  the top edge: the back chevron (none on a tab's first screen), the title, the record's ⋯ and the
+  bell. No brand bar above it (home is the bottom bar's first tab; Me is in the bar or More), and
+  nothing slides away. The screen's main creation stays the FAB above the bottom bar. The laptop
+  keeps its top bar (bell, theme, account) beside the sidebar.
+- **⋯ menus are bottom sheets on a phone (L5):** every `DropdownMenu` below `md` is a full-width
+  sheet at the bottom edge (surface step 3, `rounded-sheet` top corners, a grab handle, the scrim,
+  the record's name as its title when the menu passes `title`, 44 px rows at 16 px, clear of the
+  home indicator). From `md` up it is a floating menu (surface step 2). Pure CSS (`globals.css`), so
+  the lazily loaded menus cost nothing more; back closes it first like any layer (§14.2 a).
+- **Tables scroll with the page (L2):** no inner scroll box; from `lg` the header row sticks under
+  the top bar (`DataTable`). A phone shows cards instead of a table.
 - Laptop: one page grid at the content's full width (V3); compact rows (32 px controls). Phone:
   16 px side gutters, 44 px targets, bottom sheets, a sticky primary action, cards instead of
   tables (ARCHITECTURE §14.1).
+
+- **Toasts (P3):** bottom-centre on laptop and phone (a surface-2 card), never over the page
+  header. On a phone they sit above the bottom nav, the home indicator and the offline/push bands,
+  and above whatever is docked there: the FAB, a floating save bar (its measured height) and the
+  Select bar (`--app-bulk-bar-h`); one variable, `--app-toast-bottom` in `globals.css`, places them.
 
 ## 7. Motion: calm
 | Token | Value | Used for |
@@ -159,5 +202,9 @@ No `rounded-xs`, `rounded-2xl` and above, no `rounded-[…]` (lint).
 
 The files that held exceptions when the rule landed (2026-10-20) are listed in
 `DESIGN_TOKEN_EXCEPTIONS` in `eslint.config.mjs`; they move onto the tokens in V2–V4 and leave the
-list as they do (PROGRESS, Ideas / tech debt). Emails (HTML mail clients have no CSS variables) and
+list as they do (PROGRESS, Ideas / tech debt). V2 took it from 50 files to 21: the calendar's five
+(V3), the bottom bar's 11 px labels (they must fit a fifth of a 375 px bar at 200% text; V3–V5
+settle them) and the fifteen by nature. New tokens on the way: `scrim` (the veil behind a dialog, sheet or
+phone menu sheet: 10% black light, 30% dark), `logo-foreground` (the logo tile's white M), the
+`hairline-b` utility (a sticky table header's rule) and `--app-top-bar-h`. Emails (HTML mail clients have no CSS variables) and
 the theme-colour metas are exceptions by nature and stay listed.

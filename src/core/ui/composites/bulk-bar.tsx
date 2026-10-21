@@ -6,13 +6,16 @@ import { useCallback, useEffect, useRef, type ReactNode } from "react";
 import { cn } from "@/core/lib/utils";
 import { Button } from "@/core/ui/primitives/button";
 
+const HEIGHT_VAR = "--app-bulk-bar-h";
+
 /**
  * Floating action bar shown while rows are selected (bulk approve, reject, reassign).
  * Renders nothing when `count` is 0. Sits above the Staff bottom nav on phones, and above the
  * notifications and offline bands whenever they show (`--app-bands-h`, as every docked bar does:
  * `sticky-actions.tsx`, the page header's FAB). `onHeight` hears
  * the bar's height (0 when it is gone), so a screen can reserve that space under its list and its
- * last row can scroll clear of the bar (unit U).
+ * last row can scroll clear of the bar (unit U); the same height is `--app-bulk-bar-h` on `<html>`,
+ * which lifts the toasts above it (P3).
  */
 export function BulkBar({
   count,
@@ -39,15 +42,21 @@ export function BulkBar({
   const measure = useCallback((node: HTMLDivElement | null) => {
     observer.current?.disconnect();
     observer.current = null;
+    const root = document.documentElement;
     if (!node) {
+      root.style.removeProperty(HEIGHT_VAR);
       report.current?.(0);
       return;
     }
-    if (!report.current) return;
-    const watch = new ResizeObserver(() => report.current?.(node.offsetHeight));
+    // The toasts sit above the bar (P3): its real height, published like the save bar's.
+    const publish = () => {
+      root.style.setProperty(HEIGHT_VAR, `${node.offsetHeight}px`);
+      report.current?.(node.offsetHeight);
+    };
+    const watch = new ResizeObserver(publish);
     watch.observe(node);
     observer.current = watch;
-    report.current(node.offsetHeight);
+    publish();
   }, []);
   if (count === 0) return null;
 

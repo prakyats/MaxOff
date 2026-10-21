@@ -7,7 +7,7 @@ import { cn } from "@/core/lib/utils";
 import { DrillLink } from "@/core/ui/composites/drill-link";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { StatusDot } from "@/core/ui/composites/status-badge";
-import { SegmentedBar } from "@/core/ui/progress/segmented-meter";
+import { ProgressBar } from "@/core/ui/progress/segmented-meter";
 import { replaceViewAddress } from "@/core/ui/navigation/view-address";
 import { closeOverlaysThen } from "@/core/ui/overlay/overlay-history";
 import { Button } from "@/core/ui/primitives/button";
@@ -231,7 +231,7 @@ export function ItemList({
                       {row.meter ? (
                         // The deliverable's own stages in miniature (6b.11 (5)).
                         <span className="mt-0.5 flex items-center gap-2 text-xs">
-                          <SegmentedBar
+                          <ProgressBar
                             counts={row.meter}
                             label={`Stages ${row.meter.done} of ${row.meter.total} ticked`}
                             slot="item-list-meter"

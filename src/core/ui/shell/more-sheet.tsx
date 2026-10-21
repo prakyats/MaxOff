@@ -92,7 +92,7 @@ export function MoreSheet({
       <SheetContent
         side="bottom"
         data-slot="more-sheet"
-        className="max-h-[85dvh] gap-2 overflow-y-auto rounded-t-2xl pb-[calc(1rem+var(--app-safe-bottom))]"
+        className="rounded-t-sheet max-h-[85dvh] gap-2 overflow-y-auto pb-[calc(1rem+var(--app-safe-bottom))]"
       >
         <div
           aria-hidden

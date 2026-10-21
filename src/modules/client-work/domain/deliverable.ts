@@ -85,7 +85,7 @@ export function readyToMarkDone(item: Pick<RowItem, "state" | "stages">): boolea
 }
 
 /**
- * Which ready row carries the layer's one solid red Mark done (ARCHITECTURE §14.1: one commit
+ * Which ready row carries the layer's one solid Mark done (ARCHITECTURE §14.1: one commit
  * action per layer, a list never repeats a solid button): the first ready one in the list's order
  * that may be marked done; the other ready ones get the outlined look. None when `allowed` is false
  * (Select mode, or another solid control on the screen).

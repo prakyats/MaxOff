@@ -1,29 +1,15 @@
 "use client";
 
-import {
-  ArchiveIcon,
-  ArchiveRestoreIcon,
-  LayoutTemplateIcon,
-  MoreHorizontalIcon,
-  PencilIcon,
-  PlusIcon,
-} from "lucide-react";
+import { ArchiveRestoreIcon, LayoutTemplateIcon } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useState } from "react";
 
 import { cn } from "@/core/lib/utils";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { EmptyState } from "@/core/ui/composites/empty-state";
+import { ListAddButton, ListHeading, ListRowActions } from "@/core/ui/composites/list-rows";
 import { CARD_ROW_TITLE, CARD_ROW_TRAILING } from "@/core/ui/composites/row-metrics";
 import { Button } from "@/core/ui/primitives/button";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/core/ui/primitives/sheet";
 import { toastResult } from "@/core/ui/toast";
 
 import { setTemplateArchived } from "../actions/templates";
@@ -44,12 +30,14 @@ type Context = TemplateContext;
  * templates, shared company-wide. Everyone with `templates.manage` (the Owner and Admins) adds one
  * and uses any in "New task → Start from"; an Admin edits and archives the ones they made, the
  * Owner any. A template holds a type, a priority, a description, stages and the task fields'
- * defaults; never a client, people or a deadline. Rows in the list-manager shape (1.4).
+ * defaults; never a client, people or a deadline. Rows in the list-manager shape (1.4): "Add task
+ * template" on the heading (C4) and each row's `ListRowActions`.
  */
 export function TemplateManager({
   templates,
   ...context
 }: Context & { templates: readonly TaskTemplate[] }) {
+  const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<TaskTemplate | null>(null);
   const [archiving, setArchiving] = useState<TaskTemplate | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -91,66 +79,57 @@ export function TemplateManager({
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      {active.length === 0 ? (
-        <EmptyState
-          icon={LayoutTemplateIcon}
-          title="No templates yet"
-          description="Add one for work that repeats. New task offers it under Start from."
+    <section aria-labelledby="task-templates" className="flex flex-col gap-6">
+      <div className="flex flex-col gap-3">
+        <ListHeading
+          id="task-templates"
+          title="Task templates"
+          action={
+            <ListAddButton onClick={() => setAdding(true)} data-slot="add-template">
+              Add task template
+            </ListAddButton>
+          }
         />
-      ) : (
-        <ul
-          data-slot="task-templates"
-          className="border-border divide-border divide-y rounded-lg border"
-        >
-          {active.map((template) => {
-            const allowed = templateActions(template, context.viewer);
-            return (
-              <li
-                key={template.id}
-                data-slot="task-template"
-                className="flex min-h-14 flex-wrap items-center justify-between gap-2 px-3 py-2.5 sm:px-4"
-              >
-                <div className={cn("flex min-w-0 flex-col gap-0.5", CARD_ROW_TITLE)}>
-                  <span className="truncate text-sm font-medium">{template.name}</span>
-                  <span className="text-muted-foreground text-xs break-words">
-                    {line(template)}
-                  </span>
-                </div>
-                {allowed.edit ? (
-                  <div className={cn("flex items-center", CARD_ROW_TRAILING)}>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`Edit ${template.name}`}
-                      onClick={() => setEditing(template)}
-                      className="hidden md:inline-flex"
-                    >
-                      <PencilIcon aria-hidden />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`Archive ${template.name}`}
-                      onClick={() => setArchiving(template)}
-                      className="hidden md:inline-flex"
-                    >
-                      <ArchiveIcon aria-hidden />
-                    </Button>
-                    <RowSheet
+        {active.length === 0 ? (
+          <EmptyState
+            icon={LayoutTemplateIcon}
+            title="No templates yet"
+            description="Add one for work that repeats. New task offers it under Start from."
+          />
+        ) : (
+          <ul
+            data-slot="task-templates"
+            className="border-border divide-border divide-y rounded-lg border"
+          >
+            {active.map((template) => {
+              const allowed = templateActions(template, context.viewer);
+              return (
+                <li
+                  key={template.id}
+                  data-slot="task-template"
+                  className="flex min-h-14 flex-wrap items-center justify-between gap-2 px-3 py-2.5 sm:px-4"
+                >
+                  <div className={cn("flex min-w-0 flex-col gap-0.5", CARD_ROW_TITLE)}>
+                    <span className="truncate text-sm font-medium">{template.name}</span>
+                    <span className="text-muted-foreground text-xs break-words">
+                      {line(template)}
+                    </span>
+                  </div>
+                  {allowed.edit ? (
+                    <ListRowActions
                       name={template.name}
-                      onEdit={() => setEditing(template)}
+                      kind="Template"
+                      slot="task-template-actions"
+                      edit={{ label: "Edit", onSelect: () => setEditing(template) }}
                       onArchive={() => setArchiving(template)}
                     />
-                  </div>
-                ) : null}
-              </li>
-            );
-          })}
-        </ul>
-      )}
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
 
       {archived.length > 0 ? (
         <section className="flex flex-col gap-2">
@@ -190,6 +169,7 @@ export function TemplateManager({
         </section>
       ) : null}
 
+      {adding ? <TemplateDialog key="add" {...context} onClose={() => setAdding(false)} /> : null}
       {editing ? (
         <TemplateDialog
           key={editing.id}
@@ -215,84 +195,6 @@ export function TemplateManager({
           }
         />
       ) : null}
-    </div>
-  );
-}
-
-/** Edit and Archive on a phone (1.5's shape). */
-function RowSheet({
-  name,
-  onEdit,
-  onArchive,
-}: {
-  name: string;
-  onEdit: () => void;
-  onArchive: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  function choose(then: () => void) {
-    setOpen(false);
-    then();
-  }
-  return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-label={`Actions for ${name}`}
-          className="md:hidden"
-        >
-          <MoreHorizontalIcon aria-hidden />
-        </Button>
-      </SheetTrigger>
-      <SheetContent
-        side="bottom"
-        data-slot="task-template-actions"
-        className="gap-3 rounded-t-2xl pb-[calc(1.5rem+var(--app-safe-bottom))]"
-      >
-        <div
-          aria-hidden
-          className="bg-border pointer-events-none absolute top-2 left-1/2 h-1 w-10 -translate-x-1/2 rounded-full"
-        />
-        <SheetHeader className="pt-3 pr-12 pb-0">
-          <SheetTitle>{name}</SheetTitle>
-          <SheetDescription className="sr-only">Template actions</SheetDescription>
-        </SheetHeader>
-        <div className="flex flex-col gap-2 px-4">
-          <Button
-            variant="secondary"
-            className="w-full justify-start"
-            onClick={() => choose(onEdit)}
-          >
-            <PencilIcon aria-hidden />
-            Edit
-          </Button>
-          <Button
-            variant="secondary"
-            className="w-full justify-start"
-            onClick={() => choose(onArchive)}
-          >
-            <ArchiveIcon aria-hidden />
-            Archive
-          </Button>
-        </div>
-      </SheetContent>
-    </Sheet>
-  );
-}
-
-/** The screen's one primary action, for `PageHeader` (a FAB on a phone). */
-export function AddTemplateButton(context: Context) {
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <Button variant="strong" onClick={() => setOpen(true)} data-slot="add-template">
-        <PlusIcon aria-hidden />
-        Add template
-      </Button>
-      {open ? <TemplateDialog {...context} onClose={() => setOpen(false)} /> : null}
-    </>
+    </section>
   );
 }

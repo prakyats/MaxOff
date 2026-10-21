@@ -60,7 +60,7 @@ export default async function Loading() {
               ) : (
                 <div className={cn(SECTION_LINE_CLASS, SECTION_SOON_LINE_CLASS)}>
                   <Line width="w-28" className="flex-[1_1_8rem]" />
-                  <Skeleton className="h-5 w-[5.5rem] shrink-0 rounded-4xl" />
+                  <Skeleton className="h-5 w-[5.5rem] shrink-0 rounded-full" />
                 </div>
               )}
               <p className={SECTION_DESCRIPTION_CLASS}>

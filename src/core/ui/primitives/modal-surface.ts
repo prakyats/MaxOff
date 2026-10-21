@@ -11,7 +11,7 @@
 export const MODAL_SURFACE = [
   // Phone: docked to the bottom edge, full width, rounded at the top, scrolling inside itself
   // and clearing the home indicator.
-  "fixed inset-x-0 bottom-0 z-50 grid max-h-[85dvh] w-full gap-4 overflow-y-auto rounded-t-2xl p-4 pt-5 pb-[calc(1rem+var(--app-safe-bottom))] outline-none",
+  "fixed inset-x-0 bottom-0 z-50 grid max-h-[85dvh] w-full gap-4 overflow-y-auto rounded-t-sheet p-4 pt-5 pb-[calc(1rem+var(--app-safe-bottom))] outline-none",
   // `duration-*` times the enter and exit animations; it also sets `transition-duration`, and
   // with the initial `transition-property: all` every style change then eased over 200ms: a
   // larger system text grew the footer's negative margins at once and the padding only later,

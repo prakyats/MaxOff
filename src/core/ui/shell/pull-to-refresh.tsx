@@ -171,7 +171,7 @@ export function PullToRefresh({ tabRoots }: { tabRoots: readonly string[] }) {
       aria-label={refreshing ? "Refreshing" : undefined}
       className="pointer-events-none fixed inset-x-0 z-40 flex justify-center"
       style={{
-        top: "calc(var(--app-safe-top) + var(--app-chrome-h) + 3rem)",
+        top: "calc(var(--app-safe-top) + 3rem)",
         transform: `translateY(${shown - PULL_TRIGGER_PX / 2}px)`,
         opacity: Math.min(1, shown / (PULL_MAX_PX / 2)),
       }}

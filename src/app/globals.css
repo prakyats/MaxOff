@@ -24,6 +24,7 @@
   --color-ring: var(--ring);
   --color-brand: var(--brand);
   --color-logo: var(--logo);
+  --color-logo-foreground: var(--logo-foreground);
   --color-brand-foreground: var(--brand-foreground);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-success: var(--success);
@@ -63,6 +64,7 @@
   --color-surface-1: var(--surface-1);
   --color-surface-2: var(--surface-2);
   --color-surface-3: var(--surface-3);
+  --color-scrim: var(--scrim);
   /* A holiday on the calendar (decision 25): green, never a status (DESIGN.md §4). */
   --color-holiday: var(--holiday);
   /* The solid red commit of a destructive action, inside its confirmation (ADR-0015). */
@@ -148,6 +150,7 @@
   --brand-foreground: #ffffff;
   /* The logo tile is a fixed brand asset: same red in both themes, never overridden in .dark. */
   --logo: #c42126;
+  --logo-foreground: #ffffff;
   --destructive: #c42126;
   --destructive-foreground: #ffffff;
   --border: #e7e5e4;
@@ -182,6 +185,8 @@
   --brand-soft: #f8e4e5;
   /* Holiday green (DESIGN.md §4): 5:1 on the page and the card, so the date number reads. */
   --holiday: #15803d;
+  /* The scrim behind a dialog, a sheet or a phone's menu sheet: a faint veil over the page. */
+  --scrim: rgb(0 0 0 / 0.1);
   /* The surface ladder (DESIGN.md §3). Light keeps white steps; the shadow tells them apart. */
   --surface-0: #fafaf9;
   --surface-1: #ffffff;
@@ -252,6 +257,8 @@
   --brand: #f2686d;
   --brand-soft: #3c2326;
   --holiday: #4ade80;
+  /* A deeper veil: 10% black disappears on a graphite page. */
+  --scrim: rgb(0 0 0 / 0.3);
   /* In dark a higher step is a lighter graphite: shadows barely read on black. */
   --surface-0: #0b0b0c;
   --surface-1: #141416;
@@ -302,10 +309,8 @@
  */
 @layer base {
   :root {
-    /* Height of the mobile brand bar. The page title bar sticks directly below it, so when the
-     * brand bar hides on scroll this drops to 0 and the title bar takes the top edge.
-     * `core/ui/shell/chrome-scroll.ts` sets `data-chrome` on <html>; nothing else moves. */
-    --app-chrome-h: 0rem;
+    /* Height of the laptop's sticky top bar (`TopBar`, md up): a sticky table header sits below it. */
+    --app-top-bar-h: 3.5rem;
     /* Height of the mobile bottom nav, used for page padding and for anything docked above it. */
     --app-bottom-nav-h: 0rem;
     /* Everything docked at the bottom clears the home indicator (viewport-fit=cover). */
@@ -345,15 +350,7 @@
 
   @media (max-width: 767px) {
     :root {
-      --app-chrome-h: 3rem;
       --app-bottom-nav-h: 3.5rem;
-    }
-    /* The brand bar is hidden: it slides out and the title bar moves up to the top edge. */
-    html[data-chrome="hidden"] {
-      --app-chrome-h: 0rem;
-    }
-    html[data-chrome="hidden"] [data-slot="top-bar"] {
-      transform: translateY(-100%);
     }
 
     /* A bottom bar with Alerts (none since 5B decision 1): the title bar doesn't repeat the bell. */
@@ -419,14 +416,6 @@
       width: 2.75rem;
       height: 2.75rem;
       transform: translate(-50%, -50%);
-    }
-  }
-
-  /* The brand bar slides away on scroll down and comes back on scroll up. Someone who asked for
-   * less motion still gets the bar, just without the slide. */
-  @media (prefers-reduced-motion: reduce) {
-    [data-slot="top-bar"] {
-      transition: none !important;
     }
   }
 }
@@ -497,6 +486,11 @@
       transform: none;
     }
   }
+}
+/* A hairline under a sticky header row (a table's): a border on a sticky `thead` scrolls away with
+ * the collapsed borders, an inset hairline in the `border` colour stays with it. */
+@utility hairline-b {
+  box-shadow: inset 0 -1px 0 var(--border);
 }
 @utility pressable-row {
   transition-property: background-image, background-color;
@@ -754,6 +748,87 @@ html[data-nav-slide="forward"] [data-slot="route"] {
   }
 }
 
+/* Menus as bottom sheets on a phone (L5, docs/DESIGN.md §6). Radix places a menu with an inline
+ * `transform` on its popper wrapper; below `md` the wrapper is pinned to the bottom edge instead and
+ * the menu becomes a full-width sheet (surface step 3) with a grab handle, a scrim (a spread shadow
+ * in the scrim colour: a tap on it lands outside the menu, which closes it as any outside tap does)
+ * and 44px rows at 16px. It slides up and down; reduced motion keeps the fade only. */
+@media (max-width: 767px) {
+  [data-radix-popper-content-wrapper]:has(> [data-slot="dropdown-menu-content"]) {
+    position: fixed !important;
+    inset: auto 0 0 0 !important;
+    transform: none !important;
+    min-width: 0 !important;
+  }
+  [data-slot="dropdown-menu-content"] {
+    width: 100% !important;
+    max-width: none;
+    max-height: min(80dvh, 36rem) !important;
+    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+    padding: 0.75rem 0.5rem calc(0.75rem + var(--app-safe-bottom));
+    background-color: var(--surface-3);
+    box-shadow:
+      0 0 0 100vmax var(--scrim),
+      var(--elevation-3);
+    font-size: 1rem;
+    line-height: 1.5;
+    --tw-enter-translate-y: 100% !important;
+    --tw-exit-translate-y: 100% !important;
+    --tw-enter-translate-x: 0 !important;
+    --tw-exit-translate-x: 0 !important;
+    --tw-enter-scale: 1 !important;
+    --tw-exit-scale: 1 !important;
+    animation-duration: var(--motion-base);
+    animation-timing-function: var(--motion-ease);
+  }
+  [data-slot="dropdown-menu-content"] [data-slot="dropdown-menu-item"] {
+    font-size: 1rem;
+    padding-inline: 0.75rem;
+  }
+  [data-slot="menu-sheet-handle"] {
+    display: block;
+    width: 2.5rem;
+    height: 0.25rem;
+    margin: 0 auto 0.5rem;
+    border-radius: 9999px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    [data-slot="dropdown-menu-content"] {
+      --tw-enter-translate-y: 0 !important;
+      --tw-exit-translate-y: 0 !important;
+    }
+  }
+}
+
+/* Toasts (P3, docs/DESIGN.md §6): bottom-centre on laptop and phone, above everything docked at the
+ * bottom so an Undo never covers the page header or a commit. `--app-toast-lift` is the height of
+ * what is docked above the bottom nav: the phone's FAB, a floating save bar (its measured height),
+ * the Select bar. */
+:root {
+  --app-toast-lift: 0px;
+  --app-toast-bottom: calc(1.5rem + var(--app-bands-h, 0px) + var(--app-toast-lift));
+}
+html:has([data-slot="bulk-bar"]) {
+  --app-toast-lift: calc(var(--app-bulk-bar-h, 3.75rem) + 0.75rem);
+}
+@media (max-width: 767px) {
+  :root {
+    --app-toast-bottom: calc(
+      var(--app-bottom-nav-h) + var(--app-safe-bottom) + var(--app-bands-h, 0px) + 0.75rem +
+        var(--app-toast-lift)
+    );
+  }
+  html:has([data-slot="page-actions"]) {
+    --app-toast-lift: 4rem;
+  }
+  html:has([data-slot="sticky-actions"]) {
+    --app-toast-lift: var(--app-sticky-actions-h, 5rem);
+  }
+  html:has([data-slot="bulk-bar"]) {
+    --app-toast-lift: calc(var(--app-bulk-bar-h, 3.75rem) + 1rem);
+  }
+}
+
 /* A page with a floating primary action or a sticky save bar gets room for it, so neither ever
  * covers the last row or the last field (ARCHITECTURE §14.1). In the utilities layer on purpose:
  * the shell's `main` sets its padding with a utility class, which beats anything in `base` (the
@@ -762,9 +837,10 @@ html[data-nav-slide="forward"] [data-slot="route"] {
  * bar (large system text, a wrapped label) still clears; a focused control scrolls above it. */
 @layer utilities {
   @media (max-width: 767px) {
+    /* L3: the FAB is 3rem tall, 1rem above the bar; the last row ends 1.5rem above its top. */
     main:has([data-slot="page-actions"]) {
       padding-bottom: calc(
-        var(--app-bottom-nav-h) + 5rem + var(--app-safe-bottom) + var(--app-bands-h, 0px)
+        var(--app-bottom-nav-h) + 5.5rem + var(--app-safe-bottom) + var(--app-bands-h, 0px)
       );
     }
     main:has([data-slot="sticky-actions"]) {

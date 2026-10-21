@@ -439,7 +439,7 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
     id: "admin/template-builder",
     path: "/settings/templates",
     prepare: async (page) => {
-      await tap(page, "Add a project template");
+      await tap(page, "Add project template");
       await layer(page).waitFor();
     },
     highlight: (page) => layer(page).getByLabel("How many"),

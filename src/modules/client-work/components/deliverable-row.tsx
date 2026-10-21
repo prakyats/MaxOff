@@ -6,7 +6,7 @@ import { useId, useState } from "react";
 import { cn } from "@/core/lib/utils";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { StatusDot } from "@/core/ui/composites/status-badge";
-import { SegmentedBar } from "@/core/ui/progress/segmented-meter";
+import { ProgressBar } from "@/core/ui/progress/segmented-meter";
 import { Button } from "@/core/ui/primitives/button";
 import { Checkbox } from "@/core/ui/primitives/checkbox";
 import { AfterPage } from "@/core/ui/lazy/after-page";
@@ -322,7 +322,7 @@ function Strip({
         <span className="text-muted-foreground min-w-0 truncate font-medium" title={strip.label}>
           {strip.label}
         </span>{" "}
-        <SegmentedBar counts={strip} label={null} slot="item-strip-bar" />{" "}
+        <ProgressBar counts={strip} label={null} slot="item-strip-bar" />{" "}
         <span
           className="text-muted-foreground text-right tabular-nums"
           data-slot="item-strip-count"
@@ -381,7 +381,7 @@ function Strips({
 }
 
 /** How Mark done looks on a row: quiet for a deliverable without stages, outlined once every
- * stage is ticked, solid red on the one row that is the layer's commit action. */
+ * stage is ticked, solid on the one row that is the layer's commit action. */
 export type MarkDoneLook = "quiet" | "ready" | "solid";
 
 const LOOK_VARIANT = { quiet: "ghost", ready: "secondary", solid: "primary" } as const;
@@ -395,7 +395,7 @@ const LOOK_VARIANT = { quiet: "ghost", ready: "secondary", solid: "primary" } as
  * stage group; "Next: ‹stage›"; the planned date; Mark done or ⋯. **A phone card**: the title over
  * its planned date and its Next line, Mark done or ⋯ beside it, then the strips (each a 44 px
  * target), then the send-back note. **Mark done** shows on the row once every stage is ticked
- * (outlined; the first such row's is the layer's one solid red commit) or when there are no stages
+ * (outlined; the first such row's is the layer's one solid commit) or when there are no stages
  * (quiet); until then it is in the row's ⋯ with Open. **In Select mode** a tap on the row ticks
  * its checkbox instead (the checkbox's label is stretched over the row), and the row's own Mark
  * done and ⋯ step aside (the bar does it).

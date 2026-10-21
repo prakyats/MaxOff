@@ -16,7 +16,7 @@ export function Brand({ href, className }: { href: string; className?: string })
     >
       <span
         aria-hidden
-        className="bg-logo flex size-7 items-center justify-center rounded-md text-xs font-bold text-white"
+        className="bg-logo text-logo-foreground flex size-7 items-center justify-center rounded-md text-xs font-semibold"
       >
         M
       </span>

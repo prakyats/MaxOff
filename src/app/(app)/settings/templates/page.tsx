@@ -9,7 +9,7 @@ import { listStagePresets } from "@/modules/settings";
 import { listTaskTemplates, listTaskTypes } from "@/modules/tasks";
 import { listDeliverableTemplates, listProjectTemplates } from "@/modules/templates";
 import { ClientWorkTemplates } from "@/modules/templates/components/client-work-templates";
-import { AddTemplateButton, TemplateManager } from "@/modules/tasks/components/template-manager";
+import { TemplateManager } from "@/modules/tasks/components/template-manager";
 import { listDirectory } from "@/modules/team";
 
 import { SETTINGS_HEADERS } from "../headers";
@@ -72,15 +72,9 @@ export default async function TemplatesSettingsPage() {
         back={{ href: "/settings", label: "Settings" }}
         title="Templates"
         {...SETTINGS_HEADERS.templates}
-        actions={<AddTemplateButton {...context} />}
       />
       <div className="flex max-w-2xl flex-col gap-8">
-        <section aria-labelledby="task-templates" className="flex flex-col gap-3">
-          <h2 id="task-templates" className="flex min-h-11 items-center text-sm font-semibold">
-            Task templates
-          </h2>
-          <TemplateManager templates={templates} {...context} />
-        </section>
+        <TemplateManager templates={templates} {...context} />
         <ClientWorkTemplates
           projectTemplates={projectTemplates}
           deliverableTemplates={deliverableTemplates}

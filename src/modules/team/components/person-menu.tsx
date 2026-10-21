@@ -64,7 +64,7 @@ export function PersonMenu({ member, viewerId }: { member: TeamMember; viewerId:
             <MoreHorizontalIcon aria-hidden />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="min-w-48">
+        <DropdownMenuContent align="end" className="min-w-48" title={member.fullName}>
           {actions.edit ? <DropdownMenuItem onSelect={edit}>Edit</DropdownMenuItem> : null}
           {actions.changeEmail ? (
             <DropdownMenuItem onSelect={() => changeEmail(member)}>

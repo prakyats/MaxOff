@@ -51,8 +51,11 @@ export const OWNER_GUIDE: Guide = {
             note(
               "The count on More adds up everything behind it, so a number there can mean a waiting item on one of those screens.",
             ),
+            text(
+              "On a phone each screen has one bar at the top: the back arrow (or just the title on a tab's first screen), the screen's ⋯ menu when it has one, and the bell. A ⋯ menu opens as a sheet from the bottom; back closes it.",
+            ),
           ],
-          keywords: ["more", "bottom bar", "menu", "phone", "navigation"],
+          keywords: ["more", "bottom bar", "menu", "phone", "navigation", "title bar", "sheet"],
         },
         {
           id: "owner-bell",
@@ -1298,7 +1301,7 @@ export const OWNER_GUIDE: Guide = {
             ),
             steps(
               "Open Settings, then Stage presets.",
-              'Tap to add one ("Add a stage preset").',
+              'Tap "Add preset" at the top of the list.',
               "Type the Name and the stages in order. Drag or use Move to reorder.",
               'Tap "Add preset" or "Save preset".',
             ),
@@ -1317,7 +1320,7 @@ export const OWNER_GUIDE: Guide = {
               'A project template has a Name, Repeats, "Default stage groups", "Deliverables" (with × N, and a deliverable-template picker), a Description and project field defaults.',
             ),
             steps(
-              'Open Settings, then Templates, and tap "Add" under Project templates.',
+              'Open Settings, then Templates, and tap "Add project template" beside Project templates.',
               'On a laptop a preview shows beside the form; tap "Add template" (or "Save template" when editing).',
               'On a phone, tap "Preview and save": the preview opens as its own step. Tap "Back to editing" to change something, or save from there.',
             ),
@@ -1340,7 +1343,7 @@ export const OWNER_GUIDE: Guide = {
               "Use one when you repeat a kind of deliverable, such as a reel with the same steps every time.",
             ),
             steps(
-              'Open Settings, then Templates, and tap "Add" under Deliverable templates.',
+              'Open Settings, then Templates, and tap "Add deliverable template" beside Deliverable templates.',
               'Give it a Name and its "Stage groups". A preview shows as you build.',
               'Tap "Add template" (on a phone, "Preview and save").',
             ),
@@ -1642,6 +1645,9 @@ export const OWNER_GUIDE: Guide = {
               "Job titles are the titles you can give people. They are only labels. What a person can do depends on their role: Owner, Admin or " +
                 CREW +
                 ".",
+            ),
+            text(
+              'Every Settings list works the same way: "Add ‹thing›" at the top of the list ("Add job title", "Add holiday", "Add task type") opens a form. On a laptop each row has Move up, Move down, Rename or Edit, and Archive; on a phone they are in the row\'s ⋯. Archive asks first and can be undone with Restore.',
             ),
           ],
           link: { href: "/settings/job-titles", label: "Open Job titles" },

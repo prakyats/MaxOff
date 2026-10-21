@@ -123,7 +123,7 @@ test("a template of 6 deliverables × 3 groups from presets, reordered by drag, 
 
   await page.goto("/settings/templates");
   await hydrated(page);
-  await page.getByRole("button", { name: "Add a project template" }).click();
+  await page.getByRole("button", { name: "Add project template" }).click();
   const dialog = page.getByRole("dialog", { name: "Add a project template" });
   await dialog.getByLabel("Name", { exact: true }).fill(name);
 
@@ -498,7 +498,7 @@ test.describe("the template builder's layers, installed (ARCHITECTURE §14.2)", 
     await page.goto("/settings/templates");
     await hydrated(page);
     const here = /\/settings\/templates$/;
-    const open = page.getByRole("button", { name: "Add a project template" });
+    const open = page.getByRole("button", { name: "Add project template" });
     const dialog = page.getByRole("dialog", { name: "Add a project template" });
     await open.click();
     await expect(dialog).toBeVisible();
@@ -809,7 +809,7 @@ test("deliverable templates: an Admin adds and archives their own, edits only th
   await page.goto("/settings/templates");
   await hydrated(page);
   // Add one: a typed group in the StageGroupsEditor, the live preview, then Add.
-  await page.getByRole("button", { name: "Add a deliverable template" }).click();
+  await page.getByRole("button", { name: "Add deliverable template" }).click();
   const dialog = page.getByRole("dialog", { name: "Add a deliverable template" });
   await dialog.getByLabel("Name", { exact: true }).fill(mine);
   await dialog.getByRole("button", { name: "Add a group" }).click();
@@ -843,7 +843,7 @@ test("deliverable templates: an Admin adds and archives their own, edits only th
   await expect(row(theirs).getByRole("button", { name: `Archive ${theirs}` })).toHaveCount(0);
 
   // The project template builder's "Add deliverables" row offers them: the groups come along.
-  await page.getByRole("button", { name: "Add a project template" }).click();
+  await page.getByRole("button", { name: "Add project template" }).click();
   const builder = page.getByRole("dialog", { name: "Add a project template" });
   const add = builder.locator('[data-slot="add-deliverables"]');
   await add.getByRole("combobox", { name: "From a deliverable template" }).click();
@@ -919,12 +919,12 @@ test.describe("the deliverable template builder's layers, installed (ARCHITECTUR
     await page.goto("/settings/templates");
     await hydrated(page);
     const here = /\/settings\/templates$/;
-    await page.getByRole("button", { name: "Add a deliverable template" }).click();
+    await page.getByRole("button", { name: "Add deliverable template" }).click();
     const dialog = page.getByRole("dialog", { name: "Add a deliverable template" });
     await expect(dialog).toBeVisible();
     await expectBackStack(page, [{ closes: dialog, url: here }]);
 
-    await page.getByRole("button", { name: "Add a deliverable template" }).click();
+    await page.getByRole("button", { name: "Add deliverable template" }).click();
     await dialog.getByLabel("Name", { exact: true }).fill("Half a template");
     if (phone(page)) {
       await dialog.getByRole("button", { name: "Preview and save" }).click();

@@ -51,8 +51,9 @@ const WAITING_TONE = {
 
 /**
  * One group of the Approvals screen (PRODUCT "Approvals", WORKFLOWS §1 "Settled in 2.4"). Two
- * actions per row, never more: **Approve** (primary) and **Review** (everything that needs
- * thought opens the module's sheet). The header carries **Approve all N**. A group whose
+ * actions per row, never more, both quiet outlines: **Approve** and **Review** (everything that
+ * needs thought opens the module's sheet). The header carries **Approve all N**, the screen's one
+ * solid button (C2, ADR-0015: one solid per layer, never one repeated down a list). A group whose
  * decisions all need thought (Extra work, 3b.2: grant ½ or 1 day, or none) passes no `approve`
  * and offers Review alone, with no Approve all.
  *
@@ -313,7 +314,7 @@ export function ApprovalGroup<T>({
                 </Button>
                 {approve ? (
                   <Button
-                    variant="strong"
+                    variant="secondary"
                     commits
                     onClick={() => approveOne(row)}
                     disabled={isHeld}

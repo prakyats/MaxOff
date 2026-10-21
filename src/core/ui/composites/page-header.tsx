@@ -11,8 +11,9 @@ import { HelpSheet } from "./help-sheet";
  *
  * **Desktop** (`md` up): title, description and right-aligned actions, as before.
  *
- * **Phone**: a 44px sticky bar holding the back chevron, the title and the notification bell,
- * pinned directly under the brand bar and taking the top edge when that slides away. The
+ * **Phone**: **the one header bar** (L4: no brand bar above it), a 44px bar sticky at the top
+ * edge holding the back chevron (or, on a tab's first screen, nothing before the title), the title,
+ * the record's ⋯ menu and the notification bell. The
  * description does **not** render — an explanatory paragraph belongs in the empty state or
  * behind `help`, not in front of the first row of content — and `actions` moves to an extended
  * FAB above the bottom bar, because a primary action at the top of a scrolled page is out of
@@ -67,12 +68,13 @@ export function PageHeader({
       <div
         data-slot="page-header"
         className={cn(
-          // Phone: a full-bleed sticky title bar under the brand bar. The background is opaque
-          // on purpose: `backdrop-filter` would make this a containing block, and the `fixed`
-          // action below would then be positioned against the bar instead of the viewport.
-          "border-border bg-background sticky top-[var(--app-chrome-h)] z-20 -mx-4 mb-4 flex min-h-11 items-center gap-1 border-b px-2",
+          // Phone: the one full-bleed header bar, sticky at the top edge (below a notch, if any).
+          // The background is opaque on purpose: `backdrop-filter` would make this a containing
+          // block, and the `fixed` action below would then be positioned against the bar instead
+          // of the viewport.
+          "border-border bg-background sticky top-0 z-20 -mx-4 mb-4 flex min-h-11 items-center gap-1 border-b px-2 pt-[var(--app-safe-top)]",
           // Desktop: the title block it has always been.
-          "md:static md:mx-0 md:mb-6 md:min-h-0 md:items-start md:gap-3 md:border-0 md:px-0",
+          "md:static md:mx-0 md:mb-6 md:min-h-0 md:items-start md:gap-3 md:border-0 md:px-0 md:pt-0",
           className,
         )}
       >

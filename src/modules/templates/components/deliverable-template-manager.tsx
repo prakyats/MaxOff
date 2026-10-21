@@ -1,19 +1,13 @@
 "use client";
 
-import {
-  ArchiveIcon,
-  ArchiveRestoreIcon,
-  EyeIcon,
-  PackageIcon,
-  PencilIcon,
-  PlusIcon,
-} from "lucide-react";
+import { ArchiveIcon, ArchiveRestoreIcon, EyeIcon, PackageIcon, PencilIcon } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useState } from "react";
 
 import { templateMatches } from "@/core/lib/stage-groups";
 import { cn } from "@/core/lib/utils";
 import { EmptyState } from "@/core/ui/composites/empty-state";
+import { ListAddButton } from "@/core/ui/composites/list-rows";
 import { ReasonDialog } from "@/core/ui/composites/reason-dialog";
 import { CARD_ROW_TITLE, CARD_ROW_TRAILING } from "@/core/ui/composites/row-metrics";
 import { Button } from "@/core/ui/primitives/button";
@@ -84,16 +78,9 @@ export function DeliverableTemplateManager({
   }
 
   const addButton = (
-    <Button
-      variant="secondary"
-      className="min-h-11"
-      onClick={() => setAdding(true)}
-      data-slot="add-deliverable-template"
-      aria-label="Add a deliverable template"
-    >
-      <PlusIcon aria-hidden />
-      Add
-    </Button>
+    <ListAddButton onClick={() => setAdding(true)} data-slot="add-deliverable-template">
+      Add deliverable template
+    </ListAddButton>
   );
 
   return (
@@ -102,8 +89,7 @@ export function DeliverableTemplateManager({
         <h2 id="deliverable-templates" className="text-sm font-semibold">
           Deliverable templates
         </h2>
-        {/* With none yet, the empty state holds the one Add (one obvious next action). */}
-        {all.length > 0 ? addButton : null}
+        {addButton}
       </div>
       {all.length === 0 ? (
         <EmptyState
@@ -111,7 +97,6 @@ export function DeliverableTemplateManager({
           size="compact"
           title="No deliverable templates yet"
           description="Add one for a deliverable you repeat. Save as template on a deliverable makes one too."
-          action={addButton}
         />
       ) : active.length === 0 ? (
         <p className="text-muted-foreground text-sm" data-slot="deliverable-templates-none">

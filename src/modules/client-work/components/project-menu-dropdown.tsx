@@ -43,7 +43,7 @@ export function ProjectMenuDropdown({
       <DropdownMenuTrigger asChild>
         <ProjectMenuTrigger name={name} />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align="end" title={name}>
         {entries.map((entry) => (
           <DropdownMenuItem key={entry.key} onSelect={() => onPick(entry.key)}>
             {entry.label}

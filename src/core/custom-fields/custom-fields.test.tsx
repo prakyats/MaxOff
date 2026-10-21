@@ -201,7 +201,7 @@ describe("describeValue and the view", () => {
     const empty = renderToStaticMarkup(
       <CustomFieldsView definitions={[live, archived]} values={{}} />,
     );
-    expect(empty).toContain("—");
+    expect(empty).toContain("Not added");
     expect(empty).not.toContain("Archived fields");
     const kept = renderToStaticMarkup(
       <CustomFieldsView definitions={[live, archived]} values={{ live: "x", old: "y" }} />,

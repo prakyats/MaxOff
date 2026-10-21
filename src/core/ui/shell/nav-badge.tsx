@@ -9,14 +9,14 @@ export type NavBadgePlace = "bar" | "bell" | "list" | "sheet";
 
 const CLASSES: Record<NavBadgePlace, string> = {
   // The ring punches the badge out of the icon so it stays readable over either.
-  bar: "bg-brand text-brand-foreground ring-background absolute -top-0.5 right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] leading-none font-semibold ring-2",
+  bar: "bg-brand text-brand-foreground ring-background absolute -top-0.5 right-1.5 flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full px-1 text-xs leading-none font-semibold ring-2",
   // The title bar's bell (owner 2026-10-07): the same disc, kept inside the bell's 44px box. The
   // bar's offset sits above its 28px pill, with the tab's own height around it; on the bell it
   // reached 2px above the sticky title bar, which the brand bar above then cut off. Inside the
   // box (top 4px, right 4px) it overlaps the bell's top-right corner, as a count should, and
   // "99+" (about 26px wide) still ends 4px short of the box's right edge.
-  bell: "bg-brand text-brand-foreground ring-background absolute top-1 right-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] leading-none font-semibold ring-2",
-  list: "bg-brand text-brand-foreground ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] leading-none font-semibold tabular-nums",
+  bell: "bg-brand text-brand-foreground ring-background absolute top-1 right-1 flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full px-1 text-xs leading-none font-semibold ring-2",
+  list: "bg-brand text-brand-foreground ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs leading-none font-semibold tabular-nums",
   sheet:
     "bg-brand text-brand-foreground flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-semibold",
 };
