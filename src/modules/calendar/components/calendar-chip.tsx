@@ -9,7 +9,8 @@ import { cn } from "@/core/lib/utils";
  * - An event: its type's colour as a tint and a left edge, the title first, then its time.
  * - What is due: the amber `attention` tone (red `danger` when overdue, with its alert icon; a
  *   clock otherwise), its type's colour on the edge (a deliverable has none: the tone's).
- * - Leave: its own `leave` tone with the palm icon, "Asha · On leave".
+ * - Leave: a soft neutral bar with faint stripes (`leave-stripes`), the palm icon, "Asha · On leave";
+ *   never a task type's colour (PP-calendar-10).
  * - Done: dimmed with a small ✓, never struck through.
  * Tokens only (DESIGN.md §4): a type's colour is data, mixed here like the holiday strip's.
  */
@@ -30,8 +31,8 @@ export const DUE_TONE: Record<DueTone, string> = {
   overdue: "bg-danger-soft text-danger border-l-danger",
 };
 
-/** The leave chip's and bar's tone. */
-export const LEAVE_TONE = "bg-leave-soft text-leave";
+/** The leave chip's and bar's tone: neutral and striped, apart from the task types' colours. */
+export const LEAVE_TONE = "leave-stripes text-leave";
 
 /** Overdue's alert or due's clock: the tone is never colour alone (DESIGN.md §4). */
 export function DueIcon({ tone, className }: { tone: DueTone; className?: string }) {

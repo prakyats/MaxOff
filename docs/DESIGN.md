@@ -75,7 +75,7 @@ dark, a higher step is a lighter graphite, because shadows barely read on black.
 | Green | `success` | `#047857` | `#34D399` | done, approved, present, active |
 | Grey | `neutral` | `#52525B` | `#A1A1AA` | nothing to do: zero, closed, archived, past, plain labels |
 | Holiday green | `holiday` | `#15803D` | `#4ADE80` | a holiday on the calendar (decision 25), never a status |
-| Violet | `leave` | `#6D28D9` on `leave-soft` `#EDE7FB` | `#C4B5FD` on `#2F2A40` | leave on the calendar: the month's bar ("Asha · On leave", the palm icon) and the day's chips (PP-calendar-3, V5b), never a status |
+| Neutral, striped | `leave` (+ `leave-soft`, `leave-stripe`, utility `leave-stripes`) | `#52525B` on `#F1F1F2`, stripes `#E4E4E7` | `#A1A1AA` on `#27272A`, stripes `#323236` | leave on the calendar: the month's bar ("Asha · On leave", the palm icon) and the day's chips, a soft neutral bar with faint diagonal stripes, apart from every task type's colour (PP-calendar-3, 10), never a status |
 | Logo | `logo` | `#C42126` | `#C42126` | the logo tile only (a fixed brand asset) |
 
 - Each tone has a `*-soft` background (12% over the light surface, 18% over the dark) whose text

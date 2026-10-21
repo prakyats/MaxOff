@@ -129,7 +129,7 @@ export function AllDayChips({
           key={`${item.memberId}-${item.label}-${item.pending}`}
           slot="calendar-leave"
           className={cn(
-            // Leave's own tone (PP-calendar-3, V5b), the same as the month's bar.
+            // Leave's neutral striped tone (PP-calendar-3, 10), the same as the month's bar.
             LEAVE_TONE,
             item.pending && "border-leave/60 border border-dashed",
           )}
