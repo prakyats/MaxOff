@@ -222,14 +222,12 @@ const LARGE_TEXT_SCREENS = {
     // 7B: client work.
     "/clients/items",
     "/clients/items/decide",
-    "/settings/templates",
   ],
   admin: [
     "/today",
     // 7B: client work.
     "/clients/items",
     "/clients/items/decide",
-    "/settings/templates",
     // 6.3: the work report.
     "/reports",
     "/leave",
