@@ -140,7 +140,7 @@ export function ClientList({
                 <MoreHorizontalIcon aria-hidden />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-44">
+            <DropdownMenuContent align="end" className="min-w-44" title={client.name}>
               <DropdownMenuItem onSelect={() => act("admin", client)}>
                 {client.adminId ? "Change Admin" : "Assign Admin"}
               </DropdownMenuItem>

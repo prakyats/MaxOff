@@ -60,7 +60,7 @@ export function ClientMenu({
             <MoreHorizontalIcon aria-hidden />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="min-w-48">
+        <DropdownMenuContent align="end" className="min-w-48" title={client.name}>
           <DropdownMenuItem onSelect={edit}>Edit details</DropdownMenuItem>
           {canManage ? (
             <DropdownMenuItem onSelect={() => act("admin", client)}>

@@ -162,6 +162,11 @@ No `rounded-xs`, `rounded-2xl` and above, no `rounded-[…]` (lint).
   bell. No brand bar above it (home is the bottom bar's first tab; Me is in the bar or More), and
   nothing slides away. The screen's main creation stays the FAB above the bottom bar. The laptop
   keeps its top bar (bell, theme, account) beside the sidebar.
+- **⋯ menus are bottom sheets on a phone (L5):** every `DropdownMenu` below `md` is a full-width
+  sheet at the bottom edge (surface step 3, `rounded-sheet` top corners, a grab handle, the scrim,
+  the record's name as its title when the menu passes `title`, 44 px rows at 16 px, clear of the
+  home indicator). From `md` up it is a floating menu (surface step 2). Pure CSS (`globals.css`), so
+  the lazily loaded menus cost nothing more; back closes it first like any layer (§14.2 a).
 - **Tables scroll with the page (L2):** no inner scroll box; from `lg` the header row sticks under
   the top bar (`DataTable`). A phone shows cards instead of a table.
 - Laptop: one page grid at the content's full width (V3); compact rows (32 px controls). Phone:

@@ -39,7 +39,7 @@ export function ItemRowMenu({
       <DropdownMenuTrigger asChild>
         <ItemRowMenuTrigger title={title} disabled={disabled} className={className} />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align="end" title={title}>
         <DropdownMenuItem data-slot="item-row-menu-open" onSelect={onOpen}>
           <PanelRightOpenIcon aria-hidden />
           Open

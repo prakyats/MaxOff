@@ -63,6 +63,7 @@
   --color-surface-1: var(--surface-1);
   --color-surface-2: var(--surface-2);
   --color-surface-3: var(--surface-3);
+  --color-scrim: var(--scrim);
   /* A holiday on the calendar (decision 25): green, never a status (DESIGN.md §4). */
   --color-holiday: var(--holiday);
   /* The solid red commit of a destructive action, inside its confirmation (ADR-0015). */
@@ -182,6 +183,8 @@
   --brand-soft: #f8e4e5;
   /* Holiday green (DESIGN.md §4): 5:1 on the page and the card, so the date number reads. */
   --holiday: #15803d;
+  /* The scrim behind a dialog, a sheet or a phone's menu sheet: a faint veil over the page. */
+  --scrim: rgb(0 0 0 / 0.1);
   /* The surface ladder (DESIGN.md §3). Light keeps white steps; the shadow tells them apart. */
   --surface-0: #fafaf9;
   --surface-1: #ffffff;
@@ -252,6 +255,8 @@
   --brand: #f2686d;
   --brand-soft: #3c2326;
   --holiday: #4ade80;
+  /* A deeper veil: 10% black disappears on a graphite page. */
+  --scrim: rgb(0 0 0 / 0.3);
   /* In dark a higher step is a lighter graphite: shadows barely read on black. */
   --surface-0: #0b0b0c;
   --surface-1: #141416;
@@ -738,6 +743,58 @@ html[data-nav-slide="forward"] [data-slot="route"] {
   ::view-transition-old(*),
   ::view-transition-new(*) {
     animation: none !important;
+  }
+}
+
+/* Menus as bottom sheets on a phone (L5, docs/DESIGN.md §6). Radix places a menu with an inline
+ * `transform` on its popper wrapper; below `md` the wrapper is pinned to the bottom edge instead and
+ * the menu becomes a full-width sheet (surface step 3) with a grab handle, a scrim (a spread shadow
+ * in the scrim colour: a tap on it lands outside the menu, which closes it as any outside tap does)
+ * and 44px rows at 16px. It slides up and down; reduced motion keeps the fade only. */
+@media (max-width: 767px) {
+  [data-radix-popper-content-wrapper]:has(> [data-slot="dropdown-menu-content"]) {
+    position: fixed !important;
+    inset: auto 0 0 0 !important;
+    transform: none !important;
+    min-width: 0 !important;
+  }
+  [data-slot="dropdown-menu-content"] {
+    width: 100% !important;
+    max-width: none;
+    max-height: min(80dvh, 36rem) !important;
+    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+    padding: 0.75rem 0.5rem calc(0.75rem + var(--app-safe-bottom));
+    background-color: var(--surface-3);
+    box-shadow:
+      0 0 0 100vmax var(--scrim),
+      var(--elevation-3);
+    font-size: 1rem;
+    line-height: 1.5;
+    --tw-enter-translate-y: 100% !important;
+    --tw-exit-translate-y: 100% !important;
+    --tw-enter-translate-x: 0 !important;
+    --tw-exit-translate-x: 0 !important;
+    --tw-enter-scale: 1 !important;
+    --tw-exit-scale: 1 !important;
+    animation-duration: var(--motion-base);
+    animation-timing-function: var(--motion-ease);
+  }
+  [data-slot="dropdown-menu-content"] [data-slot="dropdown-menu-item"] {
+    font-size: 1rem;
+    padding-inline: 0.75rem;
+  }
+  [data-slot="menu-sheet-handle"] {
+    display: block;
+    width: 2.5rem;
+    height: 0.25rem;
+    margin: 0 auto 0.5rem;
+    border-radius: 9999px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    [data-slot="dropdown-menu-content"] {
+      --tw-enter-translate-y: 0 !important;
+      --tw-exit-translate-y: 0 !important;
+    }
   }
 }
 

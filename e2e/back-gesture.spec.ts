@@ -9,6 +9,7 @@ import {
   expectNoHorizontalScroll,
   followAuthLink,
   hydrated,
+  memberIdOf,
   recoveryLinkFor,
   resetAttendanceAndLeave,
   runInstalled,
@@ -16,6 +17,7 @@ import {
   signIn,
   storageStateFor,
   startPrompt,
+  USERS,
 } from "./helpers";
 
 /**
@@ -561,6 +563,45 @@ test.describe("installed: menus and selects close on back", () => {
     await page.getByRole("button", { name: "Change theme" }).click();
     await expect(page.getByRole("menu")).toBeVisible();
     await cpu.send("Emulation.setCPUThrottlingRate", { rate: 1 });
+  });
+});
+
+/**
+ * L5 (UX review 2026-10-21): a record's ⋯ menu is a bottom sheet on a phone, full width at the
+ * bottom edge with the record's name on top and 44px rows; it is still the same layer, so back
+ * closes it before the page (§14.2 a). 375 and 430.
+ */
+test.describe("installed: a ⋯ menu is a bottom sheet on a phone", () => {
+  test.skip(({ isMobile }) => !isMobile, "the installed app is a phone");
+  test.use({ storageState: storageStateFor("owner") });
+
+  test("a person's ⋯: a full-width sheet at the bottom; back closes it, the next back leaves", async ({
+    page,
+  }) => {
+    const staffId = await memberIdOf(USERS.staff.email);
+    await runInstalled(page);
+    await page.goto("/people");
+    await page.goto(`/people/${staffId}`);
+    await hydrated(page);
+    await page.locator('[data-slot="person-menu"]').click();
+    const menu = page.getByRole("menu");
+    await expect(menu).toBeVisible();
+    await animationsSettled(page);
+    const viewport = page.viewportSize()!;
+    const box = (await menu.boundingBox())!;
+    expect(Math.round(box.x)).toBe(0);
+    expect(Math.round(box.width)).toBe(viewport.width);
+    expect(Math.abs(box.y + box.height - viewport.height)).toBeLessThanOrEqual(1);
+    await expect(menu.locator('[data-slot="menu-sheet-title"]')).toBeVisible();
+    for (const item of await menu.getByRole("menuitem").all()) {
+      expect((await item.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    }
+    await expectNoHorizontalScroll(page);
+
+    await expectBackStack(page, [
+      { closes: menu, url: new RegExp(`/people/${staffId}$`) },
+      { url: /\/people$/ },
+    ]);
   });
 });
 

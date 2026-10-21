@@ -41,12 +41,25 @@ function DropdownMenuTrigger({
   return <DropdownMenuPrimitive.Trigger data-slot="dropdown-menu-trigger" {...props} />;
 }
 
+/**
+ * The menu's surface. From `md` up a floating menu beside its trigger (surface step 2). **On a
+ * phone it is a bottom sheet** (L5, UX review 2026-10-21: the project ⋯ was a narrow dropdown with
+ * wrapped items): full width at the bottom edge above the home indicator, 44 px rows at 16 px, a
+ * grab handle, a scrim over the page and, when given, its `title` (the record's name) at the top.
+ * Pure CSS (`globals.css`, "Menus as bottom sheets"), so it costs no JavaScript and works the same
+ * for the lazily loaded menus; it is still the same layer, so back closes it first (§14.2 a).
+ */
 function DropdownMenuContent({
   className,
   align = "start",
   sideOffset = 4,
+  title,
+  children,
   ...props
-}: React.ComponentProps<typeof DropdownMenuPrimitive.Content>) {
+}: React.ComponentProps<typeof DropdownMenuPrimitive.Content> & {
+  /** Shown at the top of the phone's sheet only: what the menu is for ("Reel 1"). */
+  title?: React.ReactNode;
+}) {
   return (
     <DropdownMenuPrimitive.Portal>
       <DropdownMenuPrimitive.Content
@@ -54,11 +67,22 @@ function DropdownMenuContent({
         sideOffset={sideOffset}
         align={align}
         className={cn(
-          "bg-popover text-popover-foreground ring-foreground/10 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 z-50 max-h-(--radix-dropdown-menu-content-available-height) w-(--radix-dropdown-menu-trigger-width) min-w-32 origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-lg p-1 shadow-md ring-1 duration-100 data-[state=closed]:overflow-hidden",
+          "bg-surface-2 text-popover-foreground ring-foreground/10 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 shadow-floating z-50 max-h-(--radix-dropdown-menu-content-available-height) w-(--radix-dropdown-menu-trigger-width) min-w-32 origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-lg p-1 ring-1 duration-100 data-[state=closed]:overflow-hidden",
           className,
         )}
         {...props}
-      />
+      >
+        <div aria-hidden data-slot="menu-sheet-handle" className="bg-border hidden" />
+        {title ? (
+          <DropdownMenuPrimitive.Label
+            data-slot="menu-sheet-title"
+            className="text-muted-foreground truncate px-1.5 pt-1 pb-2 text-sm font-medium md:hidden"
+          >
+            {title}
+          </DropdownMenuPrimitive.Label>
+        ) : null}
+        {children}
+      </DropdownMenuPrimitive.Content>
     </DropdownMenuPrimitive.Portal>
   );
 }
