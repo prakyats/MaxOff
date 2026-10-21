@@ -100,8 +100,165 @@ function isBackgroundCallback(node) {
   );
 }
 
+/**
+ * docs/DESIGN.md §8: screens use the design tokens and nothing else. Checked in every string and
+ * template literal (class names, `cn(...)`, `cva(...)`, constants) and in inline `style` sizes:
+ * a raw colour (hex, rgb()/hsl()/oklch()…, a Tailwind palette colour, `text-white`), a one-off
+ * font size (`text-[11px]`, `text-3xl` and up), a one-off radius (`rounded-[4px]`, `rounded-xs`,
+ * `rounded-2xl` and up) or a one-off shadow (`shadow-[…]`, `shadow-xs`, `shadow-2xl`…). Tokens
+ * themselves (`bg-danger`, `rounded-card`, `shadow-floating`, `text-[var(--x)]`) pass.
+ */
+const CLASS_START = String.raw`(?:^|[\s:!"'\x60(])`;
+const CLASS_END = String.raw`(?=$|[\s/"'\x60)])`;
+const PALETTE =
+  "red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose|slate|gray|zinc|neutral|stone";
+const COLOUR_UTILITIES =
+  "bg|text|border(?:-[trblxyse])?|ring|ring-offset|outline|fill|stroke|from|via|to|divide|decoration|accent|caret|placeholder|shadow";
+const DESIGN_TOKEN_CHECKS = [
+  {
+    id: "colour",
+    message:
+      "A raw colour: use a colour token (docs/DESIGN.md §4; a new colour is a token in globals.css first).",
+    patterns: [
+      /(?<![\w&/=?])#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})(?![\w-])/,
+      /\b(?:rgba?|hsla?|oklch|oklab|lab|lch|hwb)\(/,
+      new RegExp(
+        `${CLASS_START}-?(?:${COLOUR_UTILITIES})-(?:(?:${PALETTE})-\\d{2,3}|white|black)${CLASS_END}`,
+      ),
+    ],
+  },
+  {
+    id: "fontSize",
+    message:
+      "A one-off font size: use the six-step type scale, text-xs to text-2xl (docs/DESIGN.md §2).",
+    patterns: [
+      new RegExp(`${CLASS_START}text-\\[(?:length:)?(?:[\\d.]+(?:px|rem|em)|calc|clamp|min|max)`),
+      new RegExp(`${CLASS_START}text-[3-9]xl${CLASS_END}`),
+    ],
+  },
+  {
+    id: "radius",
+    message:
+      "A one-off radius: use rounded-control/sm/md (6px), rounded-card/lg (10px), rounded-sheet/xl (12px) or rounded-full (docs/DESIGN.md §5).",
+    patterns: [
+      new RegExp(
+        `${CLASS_START}rounded(?:-[trblse]{1,2})?-(?:\\[[^\\]]*\\]|xs|[2-4]xl)${CLASS_END}`,
+      ),
+    ],
+  },
+  {
+    id: "shadow",
+    message:
+      "A one-off shadow: use shadow-raised/sm, shadow-floating/md or shadow-modal/lg (docs/DESIGN.md §3).",
+    patterns: [new RegExp(`${CLASS_START}shadow-(?:\\[[^\\]]*\\]|2xs|xs|2xl|inner)${CLASS_END}`)],
+  },
+];
+/**
+ * The files that held design-token exceptions when `maxoff/design-tokens` landed (v1.8 V1,
+ * 2026-10-20). Screens and components move onto the tokens in V2–V4 and leave this list as they
+ * do (PROGRESS, Ideas / tech debt). The last group are exceptions by nature: HTML email has no
+ * CSS variables, and the browser's theme-colour meta needs the page colour itself.
+ */
+const DESIGN_TOKEN_EXCEPTIONS = [
+  // V2 components: overlays (`bg-black/…` scrims), chips, sheets' and menus' radii, the shell's
+  // small labels, the logo tile's white M, the sticky bar's and table's shadows.
+  "core/ui/primitives/alert-dialog.tsx",
+  "core/ui/primitives/badge.tsx",
+  "core/ui/primitives/checkbox.tsx",
+  "core/ui/primitives/dialog.tsx",
+  "core/ui/primitives/modal-surface.ts",
+  "core/ui/primitives/scroll-area.tsx",
+  "core/ui/primitives/select.tsx",
+  "core/ui/primitives/sheet.tsx",
+  "core/ui/primitives/tooltip.tsx",
+  "core/ui/composites/data-table.tsx",
+  "core/ui/composites/help-sheet-panel.tsx",
+  "core/ui/composites/review-sheet.tsx",
+  "core/ui/composites/sticky-actions.tsx",
+  "core/ui/shell/bottom-nav.tsx",
+  "core/ui/shell/brand.tsx",
+  "core/ui/shell/more-sheet.tsx",
+  "core/ui/shell/nav-badge.tsx",
+  "core/ui/stage-groups/deliverables-preview.tsx",
+  "core/notifications/components/did-it-arrive.tsx",
+  "core/notifications/components/install-steps.tsx",
+  "core/notifications/components/push-banner.tsx",
+  "app/(auth)/layout.tsx",
+  // V3–V4 screens: the calendar's small labels and strips, skeletons, sheets and settings rows.
+  "app/(app)/clients/items/decide/loading.tsx",
+  "app/(app)/settings/loading.tsx",
+  "modules/calendar/components/calendar-screen.tsx",
+  "modules/calendar/components/calendar-skeleton.tsx",
+  "modules/calendar/components/month-grid.tsx",
+  "modules/calendar/components/timeline.tsx",
+  "modules/calendar/domain/strips.ts",
+  "modules/guide/components/shot-viewer.tsx",
+  "modules/settings/components/list-item-actions-sheet.tsx",
+  "modules/tasks/components/task-chat.tsx",
+  "modules/tasks/components/task-page-skeleton.tsx",
+  "modules/tasks/components/task-types-manager.tsx",
+  "modules/tasks/components/template-manager.tsx",
+  // By nature, staying: HTML email (no CSS variables), the theme-colour meta, the error page that
+  // renders without the app's CSS, the launch mark, a JPEG's white backing, and colours that are
+  // data (a client's brand swatches, a list's or a custom field's colour, an event's colour, the
+  // task-type palette) with their hex validation messages.
+  "core/notifications/email-content.ts",
+  "core/notifications/digest-content.ts",
+  "core/notifications/weekly-digest-content.ts",
+  "modules/team/domain/invite.ts",
+  "core/ui/theme/theme-color.ts",
+  "app/global-error.tsx",
+  "core/ui/pwa/launch-intro.tsx",
+  "core/storage/client/upload.ts",
+  "modules/clients/components/brand-record.tsx",
+  "modules/clients/domain/schemas.ts",
+  "core/custom-fields/components/custom-fields-form.tsx",
+  "core/custom-fields/schema.ts",
+  "core/lists/schemas.ts",
+  "modules/calendar/domain/calendar.ts",
+  "modules/tasks/domain/task-types.ts",
+];
+
+/** Inline `style` sizes that bypass the tokens: `style={{ fontSize: 11 }}`. */
+const STYLE_KEYS = { fontSize: "fontSize", borderRadius: "radius", boxShadow: "shadow" };
+
 const maxoffPlugin = {
   rules: {
+    "design-tokens": {
+      meta: {
+        type: "problem",
+        docs: {
+          description: "Screens use the design tokens and nothing else (docs/DESIGN.md §8).",
+        },
+        messages: Object.fromEntries(DESIGN_TOKEN_CHECKS.map((check) => [check.id, check.message])),
+        schema: [],
+      },
+      create(context) {
+        const check = (node, text) => {
+          for (const { id, patterns } of DESIGN_TOKEN_CHECKS) {
+            if (patterns.some((pattern) => pattern.test(text))) {
+              context.report({ node, messageId: id });
+              return;
+            }
+          }
+        };
+        return {
+          Literal(node) {
+            if (typeof node.value === "string") check(node, node.value);
+          },
+          TemplateElement(node) {
+            check(node, node.value.raw);
+          },
+          Property(node) {
+            const key = node.key.type === "Identifier" ? node.key.name : node.key.value;
+            const id = STYLE_KEYS[key];
+            if (!id || node.value.type !== "Literal") return;
+            if (typeof node.value.value === "string" && node.value.value.startsWith("var(")) return;
+            context.report({ node: node.value, messageId: id });
+          },
+        };
+      },
+    },
     "no-background-action": {
       meta: {
         type: "problem",
@@ -282,6 +439,20 @@ const eslintConfig = defineConfig([
     files: ["**/src/**/*.{ts,tsx}"],
     plugins: { maxoff: maxoffPlugin },
     rules: { "maxoff/no-background-action": "error" },
+  },
+
+  // docs/DESIGN.md §8: screens use the design tokens and nothing else. Tests may name raw values
+  // (they check the tokens); DESIGN_TOKEN_EXCEPTIONS are the files that held exceptions when the
+  // rule landed (2026-10-20), moving onto the tokens in V2–V4 (PROGRESS, Ideas / tech debt).
+  {
+    files: ["**/src/**/*.{ts,tsx}"],
+    ignores: [
+      "**/src/**/*.test.{ts,tsx}",
+      "**/src/modules/*/tests/**",
+      ...DESIGN_TOKEN_EXCEPTIONS.map((file) => `**/src/${file}`),
+    ],
+    plugins: { maxoff: maxoffPlugin },
+    rules: { "maxoff/design-tokens": "error" },
   },
 
   // ARCHITECTURE §3.1: app → modules (index.ts only) → core. Core never imports modules.

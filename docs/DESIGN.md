@@ -150,7 +150,7 @@ No `rounded-xs`, `rounded-2xl` and above, no `rounded-[…]` (lint).
 
 ## 8. Guard rails (lint)
 `maxoff/design-tokens` (`eslint.config.mjs`, proved by `tests/lint-rules.test.ts` with the
-fixtures in `tests/lint-fixtures/src/design/`) fails any string in `src/` that carries:
+`denied-design-*` fixtures in `tests/lint-fixtures/src/modules/tasks/components/`) fails any string in `src/` that carries:
 - a raw colour: a hex value, `rgb()`/`rgba()`/`hsl()`/`hsla()`/`oklch()`/`oklab()`/`lab()`/`lch()`,
   a Tailwind palette colour (`bg-red-500`, `text-white`) or an arbitrary colour (`bg-[…]`);
 - a one-off font size: `text-[…]` with a length, `text-3xl` and above;
