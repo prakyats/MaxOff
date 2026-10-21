@@ -1001,7 +1001,11 @@ test.describe("the project page's Done and closed group, installed (ARCHITECTURE
     await page.goto(`/clients/${clientId}`);
     await hydrated(page);
     await page.locator('[data-slot="client-tabs"]').getByRole("link", { name: "Projects" }).click();
-    await page.locator('[data-slot="project-row"]', { hasText: "Finished reels" }).click();
+    // L6 (V3): the Overview lists the active projects too; take the row on the Projects tab.
+    await expect(page).toHaveURL(new RegExp(`/clients/${clientId}/projects$`));
+    await page
+      .locator('[data-slot="client-projects"] [data-slot="project-row"]', { hasText: "Finished reels" })
+      .click();
     await expect(page).toHaveURL(new RegExp(`/projects/${projectId}$`));
     await hydrated(page);
     const toggle = page.locator('[data-slot="finished-toggle"]');
@@ -1041,8 +1045,11 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
     await page.goto(`/clients/${clientId}`);
     await hydrated(page);
     await page.locator('[data-slot="client-tabs"]').getByRole("link", { name: "Projects" }).click();
+    // L6 (V3): the Overview lists the active projects too; take the row on the Projects tab.
     await expect(page).toHaveURL(new RegExp(`/clients/${clientId}/projects$`));
-    await page.locator('[data-slot="project-row"]', { hasText: "Back reels" }).click();
+    await page
+      .locator('[data-slot="client-projects"] [data-slot="project-row"]', { hasText: "Back reels" })
+      .click();
     await expect(page).toHaveURL(new RegExp(`/projects/${projectId}$`));
     await hydrated(page);
     await itemRow(page, "Reel A").locator('[data-slot="item-open"]').click();

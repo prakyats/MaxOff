@@ -85,38 +85,46 @@ export function CycleProgress({
           </p>
         </div>
       </div>
-      {needsYou && needsYou.pills.length > 0 ? (
+      {needsYou ? (
+        // Always drawn for whoever sees it, one line high on a phone (the pills scroll sideways
+        // there), so the page below never moves when the list arrives (the loading screen traces it).
         <div
           data-slot="project-needs-you"
           className="flex min-w-0 flex-[1_1_20rem] flex-col gap-1.5"
         >
           <h2 className="text-muted-foreground text-xs font-medium">Needs you</h2>
-          <ul className="flex min-w-0 flex-wrap gap-1.5">
-            {needsYou.pills.map((pill) => (
-              <li
-                key={pill.itemId}
-                data-slot="project-needs-you-pill"
-                data-tone={pill.tone}
-                className="border-border flex max-w-full min-w-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs"
-              >
-                <span
-                  aria-hidden
-                  className={cn(
-                    "size-2 shrink-0 rounded-full",
-                    pill.tone === "danger" ? "bg-danger" : "bg-attention",
-                  )}
-                />
-                <span className="min-w-0 truncate" title={pill.text}>
-                  {pill.text}
-                </span>
-              </li>
-            ))}
-            {needsYou.more > 0 ? (
-              <li className="text-muted-foreground flex items-center px-1 text-xs">
-                +{needsYou.more} more
-              </li>
-            ) : null}
-          </ul>
+          {needsYou.pills.length === 0 ? (
+            <p className="text-muted-foreground flex min-h-7 items-center text-xs">
+              Nothing late or nearly done.
+            </p>
+          ) : (
+            <ul className="flex min-h-7 min-w-0 gap-1.5 overflow-x-auto sm:flex-wrap sm:overflow-visible">
+              {needsYou.pills.map((pill) => (
+                <li
+                  key={pill.itemId}
+                  data-slot="project-needs-you-pill"
+                  data-tone={pill.tone}
+                  className="border-border flex min-h-7 max-w-full min-w-0 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-xs whitespace-nowrap sm:shrink"
+                >
+                  <span
+                    aria-hidden
+                    className={cn(
+                      "size-2 shrink-0 rounded-full",
+                      pill.tone === "danger" ? "bg-danger" : "bg-attention",
+                    )}
+                  />
+                  <span className="min-w-0 sm:truncate" title={pill.text}>
+                    {pill.text}
+                  </span>
+                </li>
+              ))}
+              {needsYou.more > 0 ? (
+                <li className="text-muted-foreground flex shrink-0 items-center px-1 text-xs whitespace-nowrap">
+                  +{needsYou.more} more
+                </li>
+              ) : null}
+            </ul>
+          )}
         </div>
       ) : null}
     </section>

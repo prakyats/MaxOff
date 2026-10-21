@@ -66,18 +66,30 @@ export default function Loading() {
             <Skeleton className="m-2.5 size-6 rounded-md" />
           </div>
           {/* The cycle's progress: the ring with its figure, the line and the pace (6b.11 (5)). */}
-          <div className="border-border bg-card flex items-center gap-4 rounded-lg border px-3 py-3 sm:px-4">
-            <span className="flex size-20 shrink-0 items-center justify-center sm:size-22">
-              <span className="border-muted size-full rounded-full border-[0.5rem] motion-safe:animate-pulse" />
-            </span>
-            <span className="flex flex-1 flex-col gap-1">
-              <span className="flex h-5 items-center">
-                <Skeleton className="h-3.5 w-56 max-w-full" />
+          <div className="border-border bg-card flex flex-wrap items-center gap-x-6 gap-y-3 rounded-lg border px-3 py-3 sm:px-4">
+            <div className="flex min-w-0 flex-[1_1_18rem] items-center gap-4">
+              <span className="flex size-20 shrink-0 items-center justify-center sm:size-22">
+                <span className="border-muted size-full rounded-full border-[0.5rem] motion-safe:animate-pulse" />
               </span>
-              <span className="flex h-5 items-center">
+              <span className="flex flex-1 flex-col gap-1">
+                <span className="flex h-5 items-center">
+                  <Skeleton className="h-3.5 w-56 max-w-full" />
+                </span>
+                <span className="flex h-5 items-center">
+                  <Skeleton className="h-3 w-16" />
+                </span>
+              </span>
+            </div>
+            {/* Needs you beside the ring (V3): its heading and one line of pills. */}
+            <div className="flex min-w-0 flex-[1_1_20rem] flex-col gap-1.5">
+              <span className="flex h-4 items-center">
                 <Skeleton className="h-3 w-16" />
               </span>
-            </span>
+              <span className="flex min-h-7 items-center gap-1.5">
+                <Skeleton className="h-7 w-40 rounded-full" />
+                <Skeleton className="h-7 w-32 rounded-full" />
+              </span>
+            </div>
           </div>
         </div>
         <div className="flex flex-col gap-2">

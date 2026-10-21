@@ -684,9 +684,8 @@ test("twelve long-named stages × 2: one-line rows, a 3/1-column checklist, Need
     page.getByText("Grouped the stages of Pre Production", { exact: true }),
   ).toBeVisible();
   await expect(dialog).toBeHidden();
-  if (!(await pre.locator('[data-slot="item-stage-group-label"]').count())) {
-    await strips(page, "Pre Production").click();
-  }
+  // The row stays open while the server's list arrives with the groups.
+  await expect(strips(page, "Pre Production")).toHaveAttribute("aria-expanded", "true");
   await expect(pre.locator('[data-slot="item-stage-group-label"]')).toHaveText([
     /^Concept\s*0\/5$/,
     /^Shoot\s*0\/3$/,
