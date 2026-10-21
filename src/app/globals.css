@@ -754,6 +754,35 @@ html[data-nav-slide="forward"] [data-slot="route"] {
   }
 }
 
+/* Toasts (P3, docs/DESIGN.md §6): bottom-centre on laptop and phone, above everything docked at the
+ * bottom so an Undo never covers the page header or a commit. `--app-toast-lift` is the height of
+ * what is docked above the bottom nav: the phone's FAB, a floating save bar (its measured height),
+ * the Select bar. */
+:root {
+  --app-toast-lift: 0px;
+  --app-toast-bottom: calc(1.5rem + var(--app-bands-h, 0px) + var(--app-toast-lift));
+}
+html:has([data-slot="bulk-bar"]) {
+  --app-toast-lift: calc(var(--app-bulk-bar-h, 3.75rem) + 0.75rem);
+}
+@media (max-width: 767px) {
+  :root {
+    --app-toast-bottom: calc(
+      var(--app-bottom-nav-h) + var(--app-safe-bottom) + var(--app-bands-h, 0px) + 0.75rem +
+        var(--app-toast-lift)
+    );
+  }
+  html:has([data-slot="page-actions"]) {
+    --app-toast-lift: 4rem;
+  }
+  html:has([data-slot="sticky-actions"]) {
+    --app-toast-lift: var(--app-sticky-actions-h, 5rem);
+  }
+  html:has([data-slot="bulk-bar"]) {
+    --app-toast-lift: calc(var(--app-bulk-bar-h, 3.75rem) + 1rem);
+  }
+}
+
 /* A page with a floating primary action or a sticky save bar gets room for it, so neither ever
  * covers the last row or the last field (ARCHITECTURE §14.1). In the utilities layer on purpose:
  * the shell's `main` sets its padding with a utility class, which beats anything in `base` (the

@@ -128,7 +128,15 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       {/* Here rather than in the root layout: sonner is only ever used by signed-in screens, and
           mounting it globally shipped it to /login (task 1.5). No tooltip provider: no screen
           draws a tooltip, and the unused provider cost every screen ~10 KB (6.0). */}
-      <Toaster position="top-center" closeButton />
+      {/* P3: at the bottom on every screen, clear of the bottom nav, the home indicator, the bands
+          and whatever is docked there (the FAB, a sticky save bar, the Select bar):
+          `--app-toast-bottom`, globals.css. Never over the page header. */}
+      <Toaster
+        position="bottom-center"
+        closeButton
+        offset={{ bottom: "var(--app-toast-bottom)" }}
+        mobileOffset={{ bottom: "var(--app-toast-bottom)" }}
+      />
     </LogoutProvider>
   );
 }

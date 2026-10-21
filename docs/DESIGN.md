@@ -161,6 +161,11 @@ No `rounded-xs`, `rounded-2xl` and above, no `rounded-[…]` (lint).
   16 px side gutters, 44 px targets, bottom sheets, a sticky primary action, cards instead of
   tables (ARCHITECTURE §14.1).
 
+- **Toasts (P3):** bottom-centre on laptop and phone (a surface-2 card), never over the page
+  header. On a phone they sit above the bottom nav, the home indicator and the offline/push bands,
+  and above whatever is docked there: the FAB, a floating save bar (its measured height) and the
+  Select bar (`--app-bulk-bar-h`); one variable, `--app-toast-bottom` in `globals.css`, places them.
+
 ## 7. Motion: calm
 | Token | Value | Used for |
 |---|---|---|
