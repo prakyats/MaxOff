@@ -5,7 +5,7 @@ import { requirePermission } from "@/core/permissions/server";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { getSettings } from "@/modules/settings";
 import { listTaskTypeSettings } from "@/modules/tasks";
-import { AddTaskTypeButton, TaskTypesManager } from "@/modules/tasks/components/task-types-manager";
+import { TaskTypesManager } from "@/modules/tasks/components/task-types-manager";
 
 import { SETTINGS_HEADERS } from "../headers";
 
@@ -30,7 +30,6 @@ export default async function TaskTypesSettingsPage() {
         back={{ href: "/settings", label: "Settings" }}
         title="Task types"
         {...SETTINGS_HEADERS.taskTypes}
-        actions={<AddTaskTypeButton orgReminders={settings.defaultTaskReminders} />}
       />
       <div className="max-w-2xl">
         <TaskTypesManager types={types} orgReminders={settings.defaultTaskReminders} />

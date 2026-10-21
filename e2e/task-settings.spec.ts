@@ -314,8 +314,9 @@ test.describe("task types, installed: back and large text", () => {
     const url = /\/settings\/task-types$/;
     await expect(page).toHaveURL(url);
 
+    // C4: "Add task type" sits on the list's heading (was the page's floating button).
     await page
-      .locator('[data-slot="page-actions"]')
+      .locator('[data-slot="list-heading"]')
       .getByRole("button", { name: "Add task type" })
       .click();
     const add = page.getByRole("dialog", { name: "Add a task type" });
@@ -378,8 +379,9 @@ test.describe("task types, installed: back and large text", () => {
       });
     }
     await page.goto("/settings/task-types");
+    // C4: "Add task type" sits on the list's heading (was the page's floating button).
     await page
-      .locator('[data-slot="page-actions"]')
+      .locator('[data-slot="list-heading"]')
       .getByRole("button", { name: "Add task type" })
       .click();
     await page

@@ -1,15 +1,6 @@
 "use client";
 
-import {
-  ArchiveIcon,
-  ArchiveRestoreIcon,
-  ChevronDownIcon,
-  ChevronUpIcon,
-  ListIcon,
-  MoreHorizontalIcon,
-  PencilIcon,
-  PlusIcon,
-} from "lucide-react";
+import { ArchiveRestoreIcon, ListIcon } from "lucide-react";
 import { type FormEvent, useId, useState } from "react";
 
 import type { Result, ResultError } from "@/core/errors";
@@ -26,6 +17,7 @@ import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { FormField } from "@/core/ui/composites/form-field";
+import { ListAddButton, ListHeading, ListRowActions } from "@/core/ui/composites/list-rows";
 import { ReminderRulesEditor } from "@/core/ui/composites/reminder-rules-editor";
 import { CARD_ROW_TITLE, CARD_ROW_TRAILING } from "@/core/ui/composites/row-metrics";
 import { Button } from "@/core/ui/primitives/button";
@@ -40,14 +32,6 @@ import {
 } from "@/core/ui/primitives/dialog";
 import { Input } from "@/core/ui/primitives/input";
 import { Label } from "@/core/ui/primitives/label";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/core/ui/primitives/sheet";
 import { describeError, toastResult } from "@/core/ui/toast";
 
 import {
@@ -75,8 +59,9 @@ import type { TaskTypeKind } from "../domain/types";
 /**
  * Settings → Task types (4C; PRODUCT §4.6, Kickoff 4 decisions 14, 15): the Owner's list. Add
  * (name and kind, and for an event whether it shows on the calendar and asks for a location),
- * edit, reorder one step at a time, archive and restore, in the list-manager shape (1.4): on a
- * phone the row keeps the order buttons and a ⋯ sheet with Edit and Archive. The kind is fixed
+ * edit, reorder one step at a time, archive and restore, in the list-manager shape (1.4): "Add
+ * task type" on the list's heading (C4), and each row's `ListRowActions` (icons from `md` up, one
+ * ⋯ sheet on a phone). The kind is fixed
  * once the type exists. Each type carries its tasks' default reminders (5.3), edited in its dialog
  * with the same editor as a task's; "Using the default" there is the organisation's list.
  */
@@ -88,6 +73,7 @@ export function TaskTypesManager({
   /** The organisation's default reminders (Settings → Thresholds), under each type's. */
   orgReminders: readonly ReminderRule[];
 }) {
+  const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<TaskTypeSetting | null>(null);
   const [archiving, setArchiving] = useState<TaskTypeSetting | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -101,94 +87,66 @@ export function TaskTypesManager({
 
   return (
     <div className="flex flex-col gap-6">
-      {active.length === 0 ? (
-        <EmptyState
-          icon={ListIcon}
-          title="No task types yet"
-          description="Add the first one. Types are offered when a task is created."
+      <section aria-labelledby="task-types-heading" className="flex flex-col gap-3">
+        <ListHeading
+          id="task-types-heading"
+          title={`${active.length} ${active.length === 1 ? "task type" : "task types"}`}
+          action={
+            <ListAddButton onClick={() => setAdding(true)} data-slot="add-task-type">
+              Add task type
+            </ListAddButton>
+          }
         />
-      ) : (
-        <ul
-          data-slot="task-types"
-          className="border-border divide-border divide-y rounded-lg border"
-        >
-          {active.map((type, index) => (
-            <li
-              key={type.id}
-              data-slot="task-type"
-              className="flex min-h-14 flex-wrap items-center justify-between gap-2 px-3 py-2.5 sm:px-4"
-            >
-              <div className={cn("flex min-w-0 flex-col gap-0.5", CARD_ROW_TITLE)}>
-                <span className="flex min-w-0 items-center gap-2">
-                  <span
-                    aria-hidden
-                    data-slot="task-type-color"
-                    className="size-3 shrink-0 rounded-full"
-                    style={{ backgroundColor: type.color }}
-                  />
-                  <span className="truncate text-sm font-medium">{type.name}</span>
-                </span>
-                <span className="text-muted-foreground text-xs">
-                  {taskTypeLine(type)} · {taskTypeColorLabel(type.color)}
-                </span>
-              </div>
-              <div className={cn("flex items-center", CARD_ROW_TRAILING)}>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label={`Move ${type.name} up`}
-                  disabled={index === 0 || busyId !== null}
-                  onClick={() =>
-                    void run(type.id, () => moveTaskType({ taskTypeId: type.id, direction: "up" }))
-                  }
-                >
-                  <ChevronUpIcon aria-hidden />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label={`Move ${type.name} down`}
-                  disabled={index === active.length - 1 || busyId !== null}
-                  onClick={() =>
-                    void run(type.id, () =>
-                      moveTaskType({ taskTypeId: type.id, direction: "down" }),
-                    )
-                  }
-                >
-                  <ChevronDownIcon aria-hidden />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label={`Edit ${type.name}`}
-                  onClick={() => setEditing(type)}
-                  className="hidden md:inline-flex"
-                >
-                  <PencilIcon aria-hidden />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label={`Archive ${type.name}`}
-                  onClick={() => setArchiving(type)}
-                  className="hidden md:inline-flex"
-                >
-                  <ArchiveIcon aria-hidden />
-                </Button>
-                <TypeActionsSheet
+        {active.length === 0 ? (
+          <EmptyState
+            icon={ListIcon}
+            title="No task types yet"
+            description='Add the first with "Add task type". Types are offered when a task is created.'
+          />
+        ) : (
+          <ul
+            data-slot="task-types"
+            className="border-border divide-border divide-y rounded-lg border"
+          >
+            {active.map((type, index) => (
+              <li
+                key={type.id}
+                data-slot="task-type"
+                className="flex min-h-14 flex-wrap items-center justify-between gap-2 px-3 py-2.5 sm:px-4"
+              >
+                <div className={cn("flex min-w-0 flex-col gap-0.5", CARD_ROW_TITLE)}>
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span
+                      aria-hidden
+                      data-slot="task-type-color"
+                      className="size-3 shrink-0 rounded-full"
+                      style={{ backgroundColor: type.color }}
+                    />
+                    <span className="truncate text-sm font-medium">{type.name}</span>
+                  </span>
+                  <span className="text-muted-foreground text-xs">
+                    {taskTypeLine(type)} · {taskTypeColorLabel(type.color)}
+                  </span>
+                </div>
+                <ListRowActions
                   name={type.name}
-                  onEdit={() => setEditing(type)}
+                  kind="Task type"
+                  slot="task-type-actions"
+                  move={{
+                    onMove: (direction) =>
+                      void run(type.id, () => moveTaskType({ taskTypeId: type.id, direction })),
+                    first: index === 0,
+                    last: index === active.length - 1,
+                    disabled: busyId !== null,
+                  }}
+                  edit={{ label: "Edit", onSelect: () => setEditing(type) }}
                   onArchive={() => setArchiving(type)}
                 />
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       {archived.length > 0 ? (
         <section className="flex flex-col gap-2">
@@ -232,6 +190,9 @@ export function TaskTypesManager({
         </section>
       ) : null}
 
+      {adding ? (
+        <TaskTypeDialog key="add" orgReminders={orgReminders} onClose={() => setAdding(false)} />
+      ) : null}
       {editing ? (
         <TaskTypeDialog
           key={editing.id}
@@ -259,84 +220,6 @@ export function TaskTypesManager({
         />
       ) : null}
     </div>
-  );
-}
-
-/** Edit and Archive on a phone (1.5's shape): four 44px targets and a name do not fit at 375px. */
-function TypeActionsSheet({
-  name,
-  onEdit,
-  onArchive,
-}: {
-  name: string;
-  onEdit: () => void;
-  onArchive: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  function choose(then: () => void) {
-    setOpen(false);
-    then();
-  }
-  return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-label={`Actions for ${name}`}
-          className="md:hidden"
-        >
-          <MoreHorizontalIcon aria-hidden />
-        </Button>
-      </SheetTrigger>
-      <SheetContent
-        side="bottom"
-        data-slot="task-type-actions"
-        className="gap-3 rounded-t-2xl pb-[calc(1.5rem+var(--app-safe-bottom))]"
-      >
-        <div
-          aria-hidden
-          className="bg-border pointer-events-none absolute top-2 left-1/2 h-1 w-10 -translate-x-1/2 rounded-full"
-        />
-        <SheetHeader className="pt-3 pr-12 pb-0">
-          <SheetTitle>{name}</SheetTitle>
-          <SheetDescription className="sr-only">Task type actions</SheetDescription>
-        </SheetHeader>
-        <div className="flex flex-col gap-2 px-4">
-          <Button
-            variant="secondary"
-            className="w-full justify-start"
-            onClick={() => choose(onEdit)}
-          >
-            <PencilIcon aria-hidden />
-            Edit
-          </Button>
-          <Button
-            variant="secondary"
-            className="w-full justify-start"
-            onClick={() => choose(onArchive)}
-          >
-            <ArchiveIcon aria-hidden />
-            Archive
-          </Button>
-        </div>
-      </SheetContent>
-    </Sheet>
-  );
-}
-
-/** The screen's one primary action, for `PageHeader` (a FAB on a phone). */
-export function AddTaskTypeButton({ orgReminders }: { orgReminders: readonly ReminderRule[] }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <Button variant="strong" onClick={() => setOpen(true)} data-slot="add-task-type">
-        <PlusIcon aria-hidden />
-        Add task type
-      </Button>
-      {open ? <TaskTypeDialog orgReminders={orgReminders} onClose={() => setOpen(false)} /> : null}
-    </>
   );
 }
 

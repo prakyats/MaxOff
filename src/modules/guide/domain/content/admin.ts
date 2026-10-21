@@ -1437,7 +1437,10 @@ export const ADMIN_GUIDE: Guide = {
               kind: "steps",
               steps: [
                 "Open Settings, then Stage presets.",
-                { text: 'Tap "Add" (highlighted) to add a preset.', shot: "admin/stage-presets" },
+                {
+                  text: 'Tap "Add preset" (highlighted) to add a preset.',
+                  shot: "admin/stage-presets",
+                },
                 "Enter the Name and the Stages in order (up to 100).",
                 "Tap Add preset.",
               ],
@@ -1467,7 +1470,7 @@ export const ADMIN_GUIDE: Guide = {
               kind: "steps",
               steps: [
                 "Open Settings, then Templates.",
-                "Add a project template.",
+                'Tap "Add project template" beside Project templates.',
                 "Enter the Name and choose Repeats.",
                 {
                   text: 'Add the deliverables, using "How many" (highlighted) for × N where it helps.',
@@ -1501,7 +1504,7 @@ export const ADMIN_GUIDE: Guide = {
               kind: "steps",
               steps: [
                 "Open Settings, then Templates.",
-                "Add a deliverable template.",
+                'Tap "Add deliverable template" beside Deliverable templates.',
                 "Name it and build its stage groups.",
                 "Check the preview and tap Add template (on a phone, Preview and save).",
               ],
@@ -1898,7 +1901,7 @@ export const ADMIN_GUIDE: Guide = {
               steps: [
                 "Open Settings.",
                 "Choose Job titles or Custom fields.",
-                "Add or change an entry and save.",
+                'Tap "Add job title" (or "Add field") at the top of the list, or a row\'s Rename or Edit (in its ⋯ on a phone), and save.',
               ],
             },
             {

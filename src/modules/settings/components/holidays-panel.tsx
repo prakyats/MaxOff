@@ -1,10 +1,11 @@
 "use client";
 
-import { CalendarOffIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { CalendarOffIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
 
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { EmptyState } from "@/core/ui/composites/empty-state";
+import { ListAddButton, ListHeading } from "@/core/ui/composites/list-rows";
 import { Button } from "@/core/ui/primitives/button";
 import { toastResult } from "@/core/ui/toast";
 
@@ -24,25 +25,19 @@ export function HolidaysPanel({ holidays, today }: { holidays: Holiday[]; today:
   const years = holidaysByYear(holidays);
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* A trigger, so neutral (the action colour rule): the commit is inside the dialog. An
-          outline, not the neutral solid: the screen's "Save days off" is its one solid button
-          (Kickoff 4 decision 26: no second solid button; phase 4 review). */}
-      <Button
-        variant="secondary"
-        type="button"
-        onClick={() => setAdding(true)}
-        className="w-full sm:w-auto sm:self-start"
-      >
-        <PlusIcon aria-hidden />
-        Add holiday
-      </Button>
+    <div className="flex flex-col gap-3">
+      {/* The Settings Add pattern (C4): a neutral outline on the list's heading opens the dialog,
+          whose "Add holiday" is the commit; the screen's "Save days off" stays its one solid. */}
+      <ListHeading
+        title={`${holidays.length} ${holidays.length === 1 ? "holiday" : "holidays"}`}
+        action={<ListAddButton onClick={() => setAdding(true)}>Add holiday</ListAddButton>}
+      />
 
       {years.length === 0 ? (
         <EmptyState
           icon={CalendarOffIcon}
           title="No holidays yet"
-          description="Add the company holidays for the year. On those dates nobody is marked absent."
+          description='Add the company holidays for the year with "Add holiday". On those dates nobody is marked absent.'
         />
       ) : (
         <div className="flex flex-col gap-6">

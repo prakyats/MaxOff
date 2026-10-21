@@ -102,6 +102,19 @@ dark, a higher step is a lighter graphite, because shadows barely read on black.
 
 - **One solid button per layer.** A layer is the screen, each dialog, each sheet and each floating
   sticky bar. At most one `primary` or `danger` per layer, and never beside a `strong`.
+- **The Add pattern for Settings lists (C4, decided in V2).** Every list on a Settings screen
+  (Job titles, Expenses' categories, Holidays, Task types, Stage presets, Custom fields' groups,
+  the three template groups) adds the same way: **"Add ‹thing›"**, a `secondary` outline button
+  with a plus that names the thing ("Add job title", "Add holiday", "Add project template"), at the
+  right end of the **list's heading row** (`ListHeading` + `ListAddButton`, `core/ui/composites/
+  list-rows.tsx`), one per list or group. It opens the add dialog (a bottom sheet on a phone),
+  whose commit is the `primary` "Add ‹thing›". Never a solid Add, never a floating Add on a Settings
+  screen, never an inline add form; an empty list's empty state names the same button and adds no
+  second one. Outside Settings a screen's main creation stays the page action (`strong`, the FAB
+  on a phone: New task, Add person, New project).
+- **Settings rows** (`ListRowActions`, C3/P2): from `md` up, grey icon buttons (Move up / Move down
+  when the list has an order, Edit or Rename, Archive); on a phone one 44 px ⋯ opening a bottom
+  sheet with the same actions as full-width rows (Move up / Move down keep it open).
 - **Confirmations name the action** ("Deactivate Ravi", "Approve 3", "Discard changes"), never
   "OK", "Yes" or "Confirm". `ConfirmDialog` and `ReasonDialog` take `destructive` for a destructive
   act: their commit is then `danger`, otherwise `primary`.

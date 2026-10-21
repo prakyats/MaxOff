@@ -1,4 +1,5 @@
 import { cn } from "@/core/lib/utils";
+import { ListHeadingSkeleton, ListRowsSkeleton } from "@/core/ui/composites/list-rows-skeleton";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { CARD_ROW_TITLE, CARD_ROW_TRAILING } from "@/core/ui/composites/row-metrics";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
@@ -6,11 +7,11 @@ import { Skeleton } from "@/core/ui/primitives/skeleton";
 import { SETTINGS_HEADERS } from "../headers";
 
 /**
- * Traces `page.tsx` (ARCHITECTURE §14.1): the header with "Add template" (the FAB on a phone),
- * the Task templates heading and its bordered list of templates (below), then the client-work
- * part (6b Release 2): the 44px search box, the Project templates group (7.4: its heading and Add
- * button, two rows with Preview, Edit and Archive) and the Deliverable templates group (the same
- * shape); each a 56px row with the name over its line.
+ * Traces `page.tsx` (ARCHITECTURE §14.1): the Task templates heading with "Add task template"
+ * (C4) and its bordered list of templates, then the client-work part (6b Release 2): the 44px
+ * search box, the Project templates group (7.4: its heading and "Add project template", two rows
+ * with Preview, Edit and Archive) and the Deliverable templates group (the same shape); each a
+ * 56px row with the name over its line.
  */
 export default function Loading() {
   return (
@@ -19,7 +20,6 @@ export default function Loading() {
         title="Templates"
         {...SETTINGS_HEADERS.templates}
         back={{ href: "/settings", label: "Settings" }}
-        actions={<Skeleton aria-hidden data-slot="loading-fab" className="w-36" />}
       />
       <div
         role="status"
@@ -30,27 +30,8 @@ export default function Loading() {
       >
         {/* Task templates (4.6), as the page's section: the heading, then the list. */}
         <div className="flex flex-col gap-3">
-          <div aria-hidden className="flex min-h-11 items-center">
-            <Skeleton className="h-4 w-28" />
-          </div>
-          <ul aria-hidden className="border-border divide-border divide-y rounded-lg border">
-            {[0, 1, 2].map((row) => (
-              <li
-                key={row}
-                className="flex min-h-14 flex-wrap items-center justify-between gap-2 px-3 py-2.5 sm:px-4"
-              >
-                <div className={cn("flex min-w-0 flex-col gap-1.5", CARD_ROW_TITLE)}>
-                  <Skeleton className="h-4 w-40" />
-                  <Skeleton className="h-3 w-56 max-w-full" />
-                </div>
-                <div className={cn("flex items-center gap-1", CARD_ROW_TRAILING)}>
-                  <Skeleton className="size-9 rounded-lg md:hidden" />
-                  <Skeleton className="hidden size-9 rounded-lg md:block" />
-                  <Skeleton className="hidden size-9 rounded-lg md:block" />
-                </div>
-              </li>
-            ))}
-          </ul>
+          <ListHeadingSkeleton titleWidth="w-28" addWidth="w-44" />
+          <ListRowsSkeleton rows={3} icons={2} subtitle />
         </div>
         {/* The client-work part (6b Release 2): the search, then the two groups. */}
         <div className="flex flex-col gap-8">
@@ -59,7 +40,7 @@ export default function Loading() {
             <div key={heading} className="flex flex-col gap-3">
               <div aria-hidden className="flex min-h-11 items-center justify-between">
                 <Skeleton className={cn("h-4", heading)} />
-                <Skeleton className="h-11 w-20 rounded-lg md:h-8" />
+                <Skeleton className="h-11 w-52 rounded-lg md:h-8" />
               </div>
               <ul aria-hidden className="border-border divide-border divide-y rounded-lg border">
                 {[0, 1].map((row) => (

@@ -6,7 +6,6 @@ import {
   EyeIcon,
   FolderKanbanIcon,
   PencilIcon,
-  PlusIcon,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useState } from "react";
@@ -15,6 +14,7 @@ import { countDeliverables, templateMatches } from "@/core/lib/stage-groups";
 import { cn } from "@/core/lib/utils";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { EmptyState } from "@/core/ui/composites/empty-state";
+import { ListAddButton } from "@/core/ui/composites/list-rows";
 import { CARD_ROW_TITLE, CARD_ROW_TRAILING } from "@/core/ui/composites/row-metrics";
 import { Button } from "@/core/ui/primitives/button";
 import { TemplatePreviewDialog } from "@/core/ui/stage-groups/template-preview-dialog";
@@ -100,16 +100,9 @@ export function ProjectTemplateManager({
   }
 
   const addButton = (
-    <Button
-      variant="secondary"
-      className="min-h-11"
-      onClick={() => setAdding(true)}
-      data-slot="add-project-template"
-      aria-label="Add a project template"
-    >
-      <PlusIcon aria-hidden />
-      Add
-    </Button>
+    <ListAddButton onClick={() => setAdding(true)} data-slot="add-project-template">
+      Add project template
+    </ListAddButton>
   );
 
   return (
@@ -118,8 +111,7 @@ export function ProjectTemplateManager({
         <h2 id="project-templates" className="text-sm font-semibold">
           Project templates
         </h2>
-        {/* With none yet, the empty state holds the one Add (one obvious next action). */}
-        {all.length > 0 ? addButton : null}
+        {addButton}
       </div>
       {all.length === 0 ? (
         <EmptyState
@@ -127,7 +119,6 @@ export function ProjectTemplateManager({
           size="compact"
           title="No project templates yet"
           description="Add one to start projects faster. Save as template on a project makes one too."
-          action={addButton}
         />
       ) : active.length === 0 ? (
         <p className="text-muted-foreground text-sm" data-slot="project-templates-none">

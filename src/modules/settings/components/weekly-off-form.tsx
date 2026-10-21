@@ -49,12 +49,13 @@ export function WeeklyOffForm({ weeklyOffDays }: { weeklyOffDays: readonly numbe
       ) : null}
       <fieldset className="flex flex-col gap-3">
         <legend className="sr-only">Weekly off days</legend>
-        <div className="flex flex-wrap gap-x-6 gap-y-3">
+        <div className="flex flex-wrap gap-2">
           {weeklyOffChoices(selected).map((choice) => (
             <Label
               key={choice.value}
-              // 44px tall on a phone: the whole label is the target, not the 16px box.
-              className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-normal md:min-h-0"
+              data-slot="weekly-off-day"
+              // P2: the whole tile is the target, 44px tall on every screen, not the 16px box.
+              className="border-control-border has-[[data-state=checked]]:border-strong rounded-control flex min-h-11 cursor-pointer items-center gap-2 border px-3 text-sm font-normal"
             >
               <Checkbox
                 checked={choice.checked}

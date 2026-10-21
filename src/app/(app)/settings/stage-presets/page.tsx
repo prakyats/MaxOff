@@ -4,10 +4,7 @@ import { checkThenRead } from "@/core/lib/start-early";
 import { requirePermission } from "@/core/permissions/server";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { listStagePresets } from "@/modules/settings";
-import {
-  AddStagePresetButton,
-  StagePresetManager,
-} from "@/modules/settings/components/stage-preset-manager";
+import { StagePresetManager } from "@/modules/settings/components/stage-preset-manager";
 import { listDirectory } from "@/modules/team";
 
 import { SETTINGS_HEADERS } from "../headers";
@@ -30,7 +27,6 @@ export default async function StagePresetsPage() {
         back={{ href: "/settings", label: "Settings" }}
         title="Stage presets"
         {...SETTINGS_HEADERS.stagePresets}
-        actions={<AddStagePresetButton />}
       />
       <div className="max-w-2xl">
         <StagePresetManager

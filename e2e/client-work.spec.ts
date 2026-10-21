@@ -10,6 +10,7 @@ import {
   hydrated,
   memberIdOf,
   removeClientFixture,
+  rowAction,
   rpcAs,
   runInstalled,
   serviceInsert,
@@ -618,14 +619,14 @@ test("Settings → Stage presets: an Admin adds, edits and archives their own", 
   await add.getByRole("button", { name: "Add preset" }).click();
   const row = page.locator('[data-slot="stage-preset"]', { hasText: name });
   await expect(row).toContainText("Brief → Shoot → Deliver · by you");
-  await row.getByRole("button", { name: `Edit ${name}` }).click();
+  await rowAction(page, row, name, "Edit");
   const edit = page.getByRole("dialog", { name: `Edit ${name}` });
   await edit.getByLabel("Stage 3", { exact: true }).fill("Edit");
   await edit.getByRole("button", { name: "Add stage" }).click();
   await edit.getByLabel("Stage 4", { exact: true }).fill("Deliver");
   await edit.getByRole("button", { name: "Save preset" }).click();
   await expect(row).toContainText("Brief → Shoot → Edit → Deliver · by you");
-  await row.getByRole("button", { name: `Archive ${name}` }).click();
+  await rowAction(page, row, name, "Archive");
   await page
     .getByRole("alertdialog")
     .getByRole("button", { name: `Archive ${name}` })
@@ -1858,11 +1859,16 @@ test.describe("Settings layers, installed (ARCHITECTURE §14.2)", () => {
     await expect(add).toBeVisible();
     await expectBackStack(page, [{ closes: add, url: here }]);
     const row = page.locator('[data-slot="stage-preset"]', { hasText: name });
-    await row.getByRole("button", { name: `Edit ${name}` }).click();
+    // A phone row's Edit and Archive are in its ⋯ sheet (C4/P2: one 44px target per row).
+    await row.getByRole("button", { name: `Actions for ${name}` }).click();
+    const sheet = page.locator('[data-slot="stage-preset-actions"]');
+    await expect(sheet).toBeVisible();
+    await expectBackStack(page, [{ closes: sheet, url: here }]);
+    await rowAction(page, row, name, "Edit");
     const edit = page.getByRole("dialog", { name: `Edit ${name}` });
     await expect(edit).toBeVisible();
     await expectBackStack(page, [{ closes: edit, url: here }]);
-    await row.getByRole("button", { name: `Archive ${name}` }).click();
+    await rowAction(page, row, name, "Archive");
     const archive = page.getByRole("alertdialog");
     await expect(archive).toBeVisible();
     await expectBackStack(page, [{ closes: archive, url: here }]);

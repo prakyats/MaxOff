@@ -1,18 +1,13 @@
 "use client";
 
-import {
-  ArchiveIcon,
-  ArchiveRestoreIcon,
-  ListOrderedIcon,
-  PencilIcon,
-  PlusIcon,
-} from "lucide-react";
+import { ArchiveRestoreIcon, ListOrderedIcon } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useState } from "react";
 
 import { cn } from "@/core/lib/utils";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { EmptyState } from "@/core/ui/composites/empty-state";
+import { ListAddButton, ListHeading, ListRowActions } from "@/core/ui/composites/list-rows";
 import { CARD_ROW_TITLE, CARD_ROW_TRAILING } from "@/core/ui/composites/row-metrics";
 import { Button } from "@/core/ui/primitives/button";
 import { toastResult } from "@/core/ui/toast";
@@ -36,8 +31,9 @@ const PresetDialog = dynamic(
  * New project offers, shared company-wide. Everyone with `lists.manage` adds one; an Admin edits
  * and archives the ones they made, the Owner any (the seeded one belongs to nobody, so only the
  * Owner). A preset is copied into a project when chosen: changing it never touches a project.
- * Archived ones sit apart with Restore. Each row's Edit and Archive are buttons from `md` up and
- * the row's own two buttons on a phone (44 px), each opening its own layer (§14.2 a).
+ * Archived ones sit apart with Restore. "Add preset" sits on the list's heading (C4); each row's
+ * Edit and Archive are `ListRowActions` (icons from `md` up, one ⋯ sheet on a phone), each opening
+ * its own layer (§14.2 a).
  */
 export function StagePresetManager({
   presets,
@@ -48,6 +44,7 @@ export function StagePresetManager({
   viewer: Viewer;
   names: Readonly<Record<string, string>>;
 }) {
+  const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<StagePreset | null>(null);
   const [archiving, setArchiving] = useState<StagePreset | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -71,57 +68,55 @@ export function StagePresetManager({
 
   return (
     <div className="flex flex-col gap-6">
-      {active.length === 0 ? (
-        <EmptyState
-          icon={ListOrderedIcon}
-          title="No stage presets yet: make one for steps you repeat."
+      <section aria-labelledby="stage-presets-heading" className="flex flex-col gap-3">
+        <ListHeading
+          id="stage-presets-heading"
+          title={`${active.length} ${active.length === 1 ? "preset" : "presets"}`}
+          action={
+            <ListAddButton onClick={() => setAdding(true)} data-slot="add-stage-preset">
+              Add preset
+            </ListAddButton>
+          }
         />
-      ) : (
-        <ul
-          data-slot="stage-presets"
-          className="border-border divide-border divide-y rounded-lg border"
-        >
-          {active.map((preset) => {
-            const allowed = presetActions(preset, viewer);
-            return (
-              <li
-                key={preset.id}
-                data-slot="stage-preset"
-                className="flex min-h-14 flex-wrap items-center justify-between gap-2 px-3 py-2.5 sm:px-4"
-              >
-                <div className={cn("flex min-w-0 flex-col gap-0.5", CARD_ROW_TITLE)}>
-                  <span className="truncate text-sm font-medium">{preset.name}</span>
-                  <span className="text-muted-foreground text-xs break-words">
-                    {stagesLine(preset.stages)} · {author(preset)}
-                  </span>
-                </div>
-                {allowed.edit ? (
-                  <div className={cn("flex items-center", CARD_ROW_TRAILING)}>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`Edit ${preset.name}`}
-                      onClick={() => setEditing(preset)}
-                    >
-                      <PencilIcon aria-hidden />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`Archive ${preset.name}`}
-                      onClick={() => setArchiving(preset)}
-                    >
-                      <ArchiveIcon aria-hidden />
-                    </Button>
+        {active.length === 0 ? (
+          <EmptyState
+            icon={ListOrderedIcon}
+            title="No stage presets yet: make one for steps you repeat."
+          />
+        ) : (
+          <ul
+            data-slot="stage-presets"
+            className="border-border divide-border divide-y rounded-lg border"
+          >
+            {active.map((preset) => {
+              const allowed = presetActions(preset, viewer);
+              return (
+                <li
+                  key={preset.id}
+                  data-slot="stage-preset"
+                  className="flex min-h-14 flex-wrap items-center justify-between gap-2 px-3 py-2.5 sm:px-4"
+                >
+                  <div className={cn("flex min-w-0 flex-col gap-0.5", CARD_ROW_TITLE)}>
+                    <span className="truncate text-sm font-medium">{preset.name}</span>
+                    <span className="text-muted-foreground text-xs break-words">
+                      {stagesLine(preset.stages)} · {author(preset)}
+                    </span>
                   </div>
-                ) : null}
-              </li>
-            );
-          })}
-        </ul>
-      )}
+                  {allowed.edit ? (
+                    <ListRowActions
+                      name={preset.name}
+                      kind="Stage preset"
+                      slot="stage-preset-actions"
+                      edit={{ label: "Edit", onSelect: () => setEditing(preset) }}
+                      onArchive={() => setArchiving(preset)}
+                    />
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
 
       {archived.length > 0 ? (
         <section className="flex flex-col gap-2">
@@ -158,6 +153,7 @@ export function StagePresetManager({
         </section>
       ) : null}
 
+      {adding ? <PresetDialog key="add" onClose={() => setAdding(false)} /> : null}
       {editing ? (
         <PresetDialog key={editing.id} preset={editing} onClose={() => setEditing(null)} />
       ) : null}
@@ -179,19 +175,5 @@ export function StagePresetManager({
         />
       ) : null}
     </div>
-  );
-}
-
-/** The screen's one primary action, for `PageHeader` (a FAB on a phone). */
-export function AddStagePresetButton() {
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <Button variant="strong" onClick={() => setOpen(true)} data-slot="add-stage-preset">
-        <PlusIcon aria-hidden />
-        Add preset
-      </Button>
-      {open ? <PresetDialog onClose={() => setOpen(false)} /> : null}
-    </>
   );
 }

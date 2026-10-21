@@ -1,6 +1,6 @@
 "use client";
 
-import { ArchiveIcon, ArchiveRestoreIcon, ListPlusIcon, PencilIcon, PlusIcon } from "lucide-react";
+import { ArchiveRestoreIcon, ListPlusIcon } from "lucide-react";
 import { useState } from "react";
 
 import {
@@ -16,6 +16,7 @@ import {
 import { cn } from "@/core/lib/utils";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { EmptyState } from "@/core/ui/composites/empty-state";
+import { ListAddButton, ListHeading, ListRowActions } from "@/core/ui/composites/list-rows";
 import { CARD_ROW_TITLE, CARD_ROW_TRAILING } from "@/core/ui/composites/row-metrics";
 import { Badge } from "@/core/ui/primitives/badge";
 import { Button } from "@/core/ui/primitives/button";
@@ -23,7 +24,6 @@ import { toastResult } from "@/core/ui/toast";
 
 import { setFieldDefinitionArchived } from "../actions/custom-fields";
 import { FieldDefinitionDialog, type ScopeOption } from "./field-definition-dialog";
-import { ListItemActionsSheet } from "./list-item-actions-sheet";
 
 /**
  * Settings → Custom fields for one entity (3.2, PRODUCT §4.16): the live definitions grouped by
@@ -33,8 +33,9 @@ import { ListItemActionsSheet } from "./list-item-actions-sheet";
  * then a group per type that has fields), all `lists.manage`'s. The database decides again on
  * every write.
  *
- * Rows follow the list-manager shape (1.4): on a phone the row keeps the name and a ⋯ sheet with
- * Edit and Archive; from `md` up both buttons sit on the row.
+ * Rows follow the list-manager shape (1.4): `ListRowActions` (a ⋯ sheet with Edit and Archive on a
+ * phone; both icons on the row from `md` up). Adding follows the Settings Add pattern (C4): "Add
+ * field" on each group's heading, preset to that group's scope; with no fields yet, one heading.
  */
 export function FieldDefinitionsManager({
   entity,
@@ -119,43 +120,43 @@ export function FieldDefinitionsManager({
   return (
     <div className="flex flex-col gap-6">
       {active.length === 0 ? (
-        <EmptyState
-          icon={ListPlusIcon}
-          title={`No ${labels.singular.toLowerCase()} fields yet`}
-          description={
-            canAdd
-              ? `Add one and it appears on every ${labels.singular.toLowerCase()} form.`
-              : `The Owner defines these fields.`
-          }
-          action={
-            canAdd ? (
-              <Button variant="strong" onClick={() => setAdding({ scope: null })}>
-                <PlusIcon aria-hidden />
-                Add field
-              </Button>
-            ) : undefined
-          }
-        />
+        <section className="flex flex-col gap-3" data-slot="field-group">
+          <ListHeading
+            title={`${labels.singular} fields`}
+            action={
+              canAdd ? (
+                <ListAddButton onClick={() => setAdding({ scope: null })}>Add field</ListAddButton>
+              ) : undefined
+            }
+          />
+          <EmptyState
+            icon={ListPlusIcon}
+            title={`No ${labels.singular.toLowerCase()} fields yet`}
+            description={
+              canAdd
+                ? `Add one and it appears on every ${labels.singular.toLowerCase()} form.`
+                : `The Owner defines these fields.`
+            }
+          />
+        </section>
       ) : null}
 
       {groups.map((group) =>
         group.fields.length === 0 && active.length === 0 ? null : (
-          <section key={group.scope ?? "_"} className="flex flex-col gap-2" data-slot="field-group">
-            <div className="flex min-h-9 items-center justify-between gap-2">
-              <h2 className="text-muted-foreground text-sm font-medium">{group.title}</h2>
-              {group.canAddHere && active.length > 0 ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setAdding({ scope: group.scope })}
-                  aria-label={`Add a field for ${group.title.toLowerCase()}`}
-                >
-                  <PlusIcon aria-hidden />
-                  Add
-                </Button>
-              ) : null}
-            </div>
+          <section key={group.scope ?? "_"} className="flex flex-col gap-3" data-slot="field-group">
+            <ListHeading
+              title={group.title}
+              action={
+                group.canAddHere ? (
+                  <ListAddButton
+                    onClick={() => setAdding({ scope: group.scope })}
+                    aria-label={`Add field for ${group.title.toLowerCase()}`}
+                  >
+                    Add field
+                  </ListAddButton>
+                ) : undefined
+              }
+            />
             {group.fields.length === 0 ? (
               <p className="text-muted-foreground px-1 text-sm">No fields here yet.</p>
             ) : (
@@ -184,35 +185,13 @@ export function FieldDefinitionsManager({
                       </span>
                     </div>
                     {editable(definition) ? (
-                      <div className={cn("flex items-center", CARD_ROW_TRAILING)}>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          aria-label={`Edit ${definition.label}`}
-                          onClick={() => setEditing(definition)}
-                          className="hidden md:inline-flex"
-                        >
-                          <PencilIcon aria-hidden />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          aria-label={`Archive ${definition.label}`}
-                          onClick={() => setArchiving(definition)}
-                          className="hidden md:inline-flex"
-                        >
-                          <ArchiveIcon aria-hidden />
-                        </Button>
-                        <ListItemActionsSheet
-                          item={{ name: definition.label }}
-                          label="Field"
-                          renameLabel="Edit"
-                          onRename={() => setEditing(definition)}
-                          onArchive={() => setArchiving(definition)}
-                        />
-                      </div>
+                      <ListRowActions
+                        name={definition.label}
+                        kind="Field"
+                        slot="list-item-actions"
+                        edit={{ label: "Edit", onSelect: () => setEditing(definition) }}
+                        onArchive={() => setArchiving(definition)}
+                      />
                     ) : null}
                   </li>
                 ))}
@@ -311,37 +290,5 @@ export function FieldDefinitionsManager({
         />
       ) : null}
     </div>
-  );
-}
-
-/** The screen's one primary action, for `PageHeader` (a FAB on a phone). */
-export function AddFieldButton({
-  entity,
-  scopes,
-  canGlobal,
-}: {
-  entity: SettingsEntity;
-  scopes: readonly ScopeOption[];
-  canGlobal: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const scoped = scopeKindOf(entity) !== null;
-  if (!canGlobal && !(scoped && scopes.length > 0)) return null;
-  return (
-    <>
-      <Button variant="strong" onClick={() => setOpen(true)}>
-        <PlusIcon aria-hidden />
-        Add field
-      </Button>
-      {open ? (
-        <FieldDefinitionDialog
-          entity={entity}
-          scopes={scopes}
-          canGlobal={canGlobal}
-          defaultScope={null}
-          onClose={() => setOpen(false)}
-        />
-      ) : null}
-    </>
   );
 }

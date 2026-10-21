@@ -1138,3 +1138,27 @@ export async function holdNextRefresh(page: Page, path: string) {
   });
   return { held, release: () => let_go(), answered };
 }
+
+/**
+ * A Settings row's action (`ListRowActions`, C4/P2): an icon on the row from `md` up ("Edit
+ * Brief"), the same action in the row's ⋯ sheet on a phone ("Actions for Brief", then "Edit").
+ */
+export async function rowAction(
+  page: Page,
+  row: Locator,
+  name: string,
+  action: "Edit" | "Rename" | "Archive" | "Move up" | "Move down",
+): Promise<void> {
+  if ((page.viewportSize()?.width ?? 1280) < 768) {
+    await row.getByRole("button", { name: `Actions for ${name}` }).click();
+    await page
+      .locator('[data-slot="sheet-content"]')
+      .getByRole("button", { name: action, exact: true })
+      .click();
+    return;
+  }
+  const label = action.startsWith("Move ")
+    ? `Move ${name} ${action.slice(5)}`
+    : `${action} ${name}`;
+  await row.getByRole("button", { name: label, exact: true }).click();
+}
