@@ -212,7 +212,7 @@ describe("the sections (decision 23: the week from the saved reports, now, the w
         text: "Ravi: 5 deliverables done, 2 overdue now, 1 project completed",
         link: "/clients/items?filter=overdue",
       },
-      { text: "No Admin (yours): 1 item done", link: null },
+      { text: "No Admin (yours): 1 deliverable done", link: null },
     ]);
     // A digest saved before 7.4 has no client work and no section.
     const older: Partial<WeeklyDigestPayload> = payload();
