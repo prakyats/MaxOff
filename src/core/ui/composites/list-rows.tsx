@@ -31,10 +31,21 @@ import { CARD_ROW_TRAILING } from "./row-metrics";
  */
 export function ListAddButton({
   children,
+  className,
   ...props
 }: Omit<ComponentProps<typeof Button>, "variant">) {
+  // At large system text a long name ("Add deliverable template") wraps inside the button
+  // instead of pushing past a 375px screen's edge.
   return (
-    <Button type="button" variant="secondary" {...props}>
+    <Button
+      type="button"
+      variant="secondary"
+      className={cn(
+        "h-auto min-h-8 max-w-full py-1 text-left whitespace-normal pointer-coarse:min-h-11",
+        className,
+      )}
+      {...props}
+    >
       <PlusIcon aria-hidden />
       {children}
     </Button>
@@ -61,7 +72,7 @@ export function ListHeading({
       <h2 id={id} className="text-sm font-semibold">
         {title}
       </h2>
-      {action ? <div className="ml-auto shrink-0">{action}</div> : null}
+      {action ? <div className="ml-auto max-w-full shrink-0">{action}</div> : null}
     </div>
   );
 }
