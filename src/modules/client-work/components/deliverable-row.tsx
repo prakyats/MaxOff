@@ -447,7 +447,14 @@ function ProgressToggle({
 /** A group's segmented bar: a segment a stage, ticked ones green, the next one lighter. */
 function SegmentBar({ done, next, total }: { done: number; next: number; total: number }) {
   return (
-    <span aria-hidden data-slot="item-progress-segments" className="flex h-1.5 min-w-0 gap-0.5">
+    <span
+      aria-hidden
+      data-slot="item-progress-bar"
+      data-done={done}
+      data-next={next}
+      data-total={total}
+      className="flex h-1.5 min-w-0 gap-0.5"
+    >
       {Array.from({ length: total }, (_, index) => (
         <span
           key={index}

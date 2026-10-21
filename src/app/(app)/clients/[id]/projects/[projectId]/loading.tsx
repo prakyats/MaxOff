@@ -99,9 +99,22 @@ export default function Loading() {
               DELIVERABLE_COLUMNS,
             )}
           >
+            {/* The laptop table's header row (Deliverable · Progress by group · Next · Planned). */}
+            <li
+              aria-hidden
+              className="bg-muted/40 hidden px-3 py-2 sm:px-4 lg:col-span-full lg:grid lg:grid-cols-subgrid"
+            >
+              {["w-16", "w-24", "w-8", "w-12"].map((width) => (
+                <span key={width} className="flex h-4 items-center">
+                  <Skeleton className={cn("h-3", width)} />
+                </span>
+              ))}
+              <span />
+            </li>
             {[0, 1, 2, 3, 4].map((row) => (
               <li
                 key={row}
+                data-row=""
                 className="flex flex-wrap items-start gap-x-3 px-3 py-2 sm:px-4 lg:col-span-full lg:grid lg:grid-cols-subgrid lg:gap-y-1"
               >
                 <span className="flex min-h-11 min-w-0 flex-[1_1_8rem] flex-col justify-center lg:min-h-7">
@@ -120,9 +133,9 @@ export default function Loading() {
                   </span>
                 </span>
                 {/* The collapsed row's progress (the approved sample): a line per group, its name,
-                    its segmented bar and "n/m" (two lines drawn). */}
+                    its segmented bar and "n/m" (one line drawn: an untitled list's). */}
                 <span className="order-last flex min-h-11 basis-full flex-col justify-center gap-1.5 py-1 lg:order-none lg:min-h-7">
-                  {[0, 1].map((line) => (
+                  {[0].map((line) => (
                     <span
                       key={line}
                       className="grid grid-cols-[4.5rem_minmax(0,1fr)_2.5rem] items-center gap-x-2"

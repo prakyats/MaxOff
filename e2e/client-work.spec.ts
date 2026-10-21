@@ -833,11 +833,13 @@ test("the project page (6b.11): open first, Planned words, stage chips, the reop
   // (2) Planned: late in the overdue tone, planned, and "Not planned" muted.
   const planned = (title: string) =>
     itemRow(page, title).locator('[data-slot="item-planned"]:visible');
+  // A laptop's Planned column drops the word (the approved sample): "15 Oct · 1 day late".
+  const word = (page.viewportSize()?.width ?? 1280) >= 1024 ? "" : "Planned ";
   await expect(planned("Late item")).toHaveText(
-    `Planned ${shortOf(addDays(today(), -2))} · 2 days late`,
+    `${word}${shortOf(addDays(today(), -2))} · 2 days late`,
   );
   await expect(planned("Late item")).toHaveAttribute("data-tone", "danger");
-  await expect(planned("Soon item")).toHaveText(`Planned ${shortOf(addDays(today(), 3))}`);
+  await expect(planned("Soon item")).toHaveText(`${word}${shortOf(addDays(today(), 3))}`);
   await expect(planned("Reopened item")).toHaveText("Not planned");
   await expect(planned("Reopened item")).toHaveAttribute("data-planned", "none");
 

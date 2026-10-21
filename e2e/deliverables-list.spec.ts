@@ -155,14 +155,34 @@ test("a collapsed row: one bar and n/m, its checklist opening in place by group,
   await page.goto(`/clients/${clientId}/projects/${projectId}`);
   await hydrated(page);
 
-  // V3 (fixes A, C): one bar over every stage, whatever the groups, with its "n/m".
-  await expect(strips(page, "Grouped")).toHaveText("3/5 stages ticked");
+  // The approved sample (owner 2026-10-21): collapsed, a grouped deliverable keeps a line per
+  // group, its name, a segmented bar and "n/m" (one bar only for a long ungrouped list).
+  const groupLines = row(page, "Grouped").locator('[data-slot="item-progress-group"]');
+  await expect(groupLines).toHaveCount(3);
+  await expect(groupLines.locator('[data-slot="item-progress-count"]')).toHaveText([
+    "1/1 Stages stages ticked",
+    "2/3 Edit stages ticked",
+    "0/1 Review stages ticked",
+  ]);
   const bars = row(page, "Grouped").locator('[data-slot="item-progress-bar"]');
   expect(
     await bars.evaluateAll((nodes) =>
       nodes.map((node) => [node.dataset.done, node.dataset.next, node.dataset.total]),
     ),
-  ).toEqual([["3", "1", "5"]]);
+  ).toEqual([
+    ["1", "0", "1"],
+    ["2", "1", "3"],
+    ["0", "0", "1"],
+  ]);
+  if ((page.viewportSize()?.width ?? 1280) >= 1024) {
+    // The laptop table: its header row, and the name over "3 groups · 3 of 5 stages".
+    await expect(page.locator('[data-slot="deliverables-header"]')).toHaveText(
+      "DeliverableProgress by groupNextPlanned",
+    );
+    await expect(row(page, "Grouped").locator('[data-slot="item-groups-line"]')).toHaveText(
+      "3 groups · 3 of 5 stages",
+    );
+  }
   const next = (title: string) => row(page, title).locator('[data-slot="item-next"]:visible');
   await expect(next("Grouped")).toHaveText("Next: Export");
   await expect(next("Ready A")).toHaveText("All stages ticked");
@@ -200,10 +220,11 @@ test("a collapsed row: one bar and n/m, its checklist opening in place by group,
   await expect(more(page, "Grouped")).toBeVisible();
   await expect(more(page, "Ready A")).toHaveCount(0);
   await expect(markDone(page, "Ready A")).toHaveAttribute("data-look", "solid");
-  await expect(markDone(page, "Ready A")).toHaveAttribute("data-variant", "primary");
+  // The first ready row's Mark done is the Forest green approve commit (owner 2026-10-21).
+  await expect(markDone(page, "Ready A")).toHaveAttribute("data-variant", "approve");
   await expect(markDone(page, "Ready B")).toHaveAttribute("data-look", "ready");
   await expect(markDone(page, "Ready B")).toHaveAttribute("data-variant", "secondary");
-  await expect(page.locator('[data-variant="primary"]:visible')).toHaveCount(1);
+  await expect(page.locator('[data-variant="approve"]:visible')).toHaveCount(1);
 
   // Marked done (held for its Undo), the solid commit moves to the next ready one; Undo moves it back.
   await markDone(page, "Ready A").click();
@@ -219,7 +240,7 @@ test("a collapsed row: one bar and n/m, its checklist opening in place by group,
   await expect(page.locator('[data-slot="item-row"] [role="checkbox"]')).toHaveCount(4);
   await expect(page.locator('[data-slot="item-row-done"]')).toHaveCount(0);
   await expect(page.locator('[data-slot="item-row-more"]')).toHaveCount(0);
-  await expect(page.locator('[data-variant="primary"]:visible')).toHaveCount(0);
+  await expect(page.locator('[data-variant="approve"]:visible')).toHaveCount(0);
   await page.getByRole("button", { name: "Done", exact: true }).click();
   await expect(page.locator('[data-slot="item-row"] [role="checkbox"]')).toHaveCount(0);
   await expect(markDone(page, "Ready A")).toHaveAttribute("data-look", "solid");
@@ -318,13 +339,13 @@ test("the loading screen traces the list: its heading, first row, its bar and a 
     await expect(loading).toBeVisible();
     await expect.poll(() => held.caught()).toBe(true);
     const skeleton = await tops({
-      row: '[data-slot="loading-project"] ul > li',
+      row: '[data-slot="loading-project"] ul > li[data-row]',
       head: '[data-slot="loading-project"] > div[aria-hidden] > div:nth-child(2)',
       top: '[data-slot="loading-project"] > div[aria-hidden]',
-      strip: '[data-slot="loading-project"] ul > li > span:nth-child(2)',
+      strip: '[data-slot="loading-project"] ul > li[data-row] > span:nth-child(2)',
     });
     const skeletonRow = await page
-      .locator('[data-slot="loading-project"] ul > li')
+      .locator('[data-slot="loading-project"] ul > li[data-row]')
       .first()
       .evaluate((node) => node.getBoundingClientRect().height);
     held.release();
@@ -515,7 +536,7 @@ test("a checklist line ticks in one tap with Undo; Next ticks its stage; Mark do
   await expect.poll(() => stageDone("Fresh", projectId, "Stage 1")).toBe(true);
   await expect(markDone(page, "Fresh")).toHaveAttribute("data-look", "ready");
   await expect(more(page, "Fresh")).toHaveCount(0);
-  await expect(page.locator('[data-variant="primary"]:visible')).toHaveCount(1);
+  await expect(page.locator('[data-variant="approve"]:visible')).toHaveCount(1);
 
   // A done deliverable's checklist only reads.
   await page.locator('[data-slot="finished-toggle"]').click();

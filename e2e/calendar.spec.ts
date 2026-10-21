@@ -970,8 +970,10 @@ test.describe("the calendar on a phone, the owner's walk (2026-10-08)", () => {
       await expect(phone(page)).toHaveAttribute("data-size", size);
       const from = (await phoneLayout(page)).scrollTop;
       await hours.hover();
-      await page.mouse.wheel(0, 300);
-      await expect.poll(async () => (await phoneLayout(page)).scrollTop).toBeGreaterThan(from);
+      // Back up the way the finger came: the drag may already have reached the end of a short
+      // day (V4's availability line is one short line), and a wheel there could not go further.
+      await page.mouse.wheel(0, -300);
+      await expect.poll(async () => (await phoneLayout(page)).scrollTop).toBeLessThan(from);
       const after = await phoneLayout(page);
       expect.soft(after.pageTop, `size ${size}: the page stays at its top`).toBe(0);
       expect.soft(await boxes(), `size ${size}: the fixed parts stay put`).toEqual(before);

@@ -326,6 +326,8 @@ test.describe("staff tasks, the flows", () => {
           new RegExp(`^${escape(person("staff", info).name)}`),
         );
         await dialog.getByLabel("Deadline").fill(workingDay(21));
+        // L9: custom fields sit under More options on New task.
+        await openMoreOptions(dialog);
         await dialog.getByLabel(label).fill("45");
         await dialog.getByRole("button", { name: "Create task" }).click();
         await expect(page).toHaveURL(TASK_URL);
