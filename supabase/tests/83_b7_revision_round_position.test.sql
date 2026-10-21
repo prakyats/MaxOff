@@ -185,8 +185,8 @@ select is(pg_temp.gstages(pg_temp.fx('c')), 'Shoot,Edit,Posted,Script,Review·Re
 select is(public.item_add_revision_round(pg_temp.fx('e')), 'Revision round 1', '"EDIT" counts as Edit');
 select is(pg_temp.gstages(pg_temp.fx('e')), 'Shoot,EDIT,Revision round 1,Posted', 'right after it');
 select is(public.item_add_revision_round(pg_temp.fx('f')), 'Revision round 1', 'neither: still added');
-select is(pg_temp.gstages(pg_temp.fx('f')), 'Shoot,Posted,Revision round 1',
-  'neither a revision nor an Edit stage: after the last stage, as in v1.7.1 (owner question open)');
+select is(pg_temp.gstages(pg_temp.fx('f')), 'Shoot,Revision round 1,Posted',
+  'neither a revision nor an Edit stage: just before "Posted" (owner decision 2026-10-21, V5a; 86 has every path)');
 
 -- 4. Keys with no room between them: the group's positions renumbered, nothing else changed -----------
 select pg_temp.as_system();
