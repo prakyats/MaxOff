@@ -27,6 +27,31 @@ describe("appVersionFrom (5B decision 4, B11)", () => {
     ).toBe("staging · 36b4b95");
   });
 
+  it("names the commit the staging build checked out (APP_COMMIT_SHA), not the workflow_run's (B11)", () => {
+    expect(
+      appVersionFrom({
+        GITHUB_REF_TYPE: "branch",
+        GITHUB_REF_NAME: "main",
+        GITHUB_SHA: "ffffffffffffffffffffffffffffffffffffffff",
+        APP_COMMIT_SHA: sha,
+        NEXT_PUBLIC_APP_ENV: "staging",
+      }),
+    ).toBe("staging · 36b4b95");
+    // Empty (a build without it): GITHUB_SHA, as before.
+    expect(
+      appVersionFrom({ GITHUB_SHA: sha, APP_COMMIT_SHA: " ", NEXT_PUBLIC_APP_ENV: "staging" }),
+    ).toBe("staging · 36b4b95");
+    // A production tag build is unchanged.
+    expect(
+      appVersionFrom({
+        GITHUB_REF_TYPE: "tag",
+        GITHUB_REF_NAME: "v1.8.0",
+        GITHUB_SHA: sha,
+        NEXT_PUBLIC_APP_ENV: "production",
+      }),
+    ).toBe("v1.8.0");
+  });
+
   it("is the branch and the short commit for a CI build with no environment", () => {
     expect(
       appVersionFrom({ GITHUB_REF_TYPE: "branch", GITHUB_REF_NAME: "main", GITHUB_SHA: sha }),
