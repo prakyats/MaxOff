@@ -9,7 +9,7 @@ import {
   CARD_ROW_TITLE,
   CARD_ROW_TRAILING,
 } from "@/core/ui/composites/row-metrics";
-import { buttonVariants } from "@/core/ui/primitives/button";
+import { buttonVariants } from "@/core/ui/primitives/button-variants";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 
 /**
