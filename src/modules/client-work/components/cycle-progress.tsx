@@ -86,8 +86,8 @@ export function CycleProgress({
         </div>
       </div>
       {needsYou ? (
-        // Always drawn for whoever sees it, one line high on a phone (the pills scroll sideways
-        // there), so the page below never moves when the list arrives (the loading screen traces it).
+        // Always drawn for whoever sees it, one line high on a phone (the first pill and "+N
+        // more"), so the page below never moves when the list arrives (the loading screen traces it).
         <div
           data-slot="project-needs-you"
           className="flex min-w-0 flex-[1_1_20rem] flex-col gap-1.5"
@@ -98,13 +98,17 @@ export function CycleProgress({
               Nothing late or nearly done.
             </p>
           ) : (
-            <ul className="flex min-h-7 min-w-0 gap-1.5 overflow-x-auto sm:flex-wrap sm:overflow-visible">
-              {needsYou.pills.map((pill) => (
+            <ul className="flex min-h-7 min-w-0 flex-nowrap gap-1.5 sm:flex-wrap">
+              {needsYou.pills.map((pill, index) => (
                 <li
                   key={pill.itemId}
                   data-slot="project-needs-you-pill"
                   data-tone={pill.tone}
-                  className="border-border flex min-h-7 max-w-full min-w-0 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-xs whitespace-nowrap sm:shrink"
+                  className={cn(
+                    "border-border flex min-h-7 max-w-full min-w-0 items-center gap-1.5 rounded-full border px-2.5 text-xs",
+                    // A phone keeps one line: the first pill, the rest counted beside it.
+                    index > 0 && "max-sm:hidden",
+                  )}
                 >
                   <span
                     aria-hidden
@@ -113,13 +117,18 @@ export function CycleProgress({
                       pill.tone === "danger" ? "bg-danger" : "bg-attention",
                     )}
                   />
-                  <span className="min-w-0 sm:truncate" title={pill.text}>
+                  <span className="min-w-0 truncate" title={pill.text}>
                     {pill.text}
                   </span>
                 </li>
               ))}
+              {needsYou.pills.length - 1 + needsYou.more > 0 ? (
+                <li className="text-muted-foreground flex shrink-0 items-center px-1 text-xs whitespace-nowrap sm:hidden">
+                  +{needsYou.pills.length - 1 + needsYou.more} more
+                </li>
+              ) : null}
               {needsYou.more > 0 ? (
-                <li className="text-muted-foreground flex shrink-0 items-center px-1 text-xs whitespace-nowrap">
+                <li className="text-muted-foreground flex shrink-0 items-center px-1 text-xs whitespace-nowrap max-sm:hidden">
                   +{needsYou.more} more
                 </li>
               ) : null}
