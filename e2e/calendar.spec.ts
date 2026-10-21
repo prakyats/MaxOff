@@ -851,11 +851,11 @@ test.describe("the calendar, as the Owner", () => {
     expect(dayFit.pageScroll, "the page does not scroll").toBeLessThanOrEqual(0);
     expect(Math.abs(dayFit.timeline - dayFit.side), "the side panel is as tall").toBeLessThan(2);
     expect(Math.abs(dayFit.viewport - dayFit.mainPadding - dayFit.bottom)).toBeLessThan(2);
-    // "Due · N" in the Day's all-day row opens the popup too.
+    // "Due · N" in the Day's all-day row opens the day's dialog too (the panel is the Month's).
     await page.locator('[data-slot="calendar-day-view"] [data-slot="calendar-due-chip"]').click();
-    await expect(popup).toBeVisible();
+    await expect(daySheet(page)).toBeVisible();
     await page.keyboard.press("Escape");
-    await expect(popup).toHaveCount(0);
+    await expect(daySheet(page)).toHaveCount(0);
     // M back to Month, as view state too (§14.2 d).
     const beforeMonth = await historyLength();
     await page.keyboard.press("m");
