@@ -437,7 +437,8 @@ function toRiskTask(row: TaskListRow) {
 }
 
 function needsNote(item: NeedsYouItem, nameOf: (id: string) => string): string | null {
-  if (item.reason === "overdue") return "Past its deadline";
+  // W5: the row's Overdue chip says it; no second line repeating it.
+  if (item.reason === "overdue") return null;
   const first = item.waitingOn[0];
   if (!first) return null;
   const who = nameOf(first.memberId);

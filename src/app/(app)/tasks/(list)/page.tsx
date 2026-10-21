@@ -378,7 +378,8 @@ function needsNote(
     case "to_approve":
       return "Waiting for your approval";
     case "overdue":
-      return "Past its deadline";
+      // W5: the row's Overdue chip says it; no second line repeating it.
+      return null;
     case "not_noted": {
       const first = item.waitingOn[0];
       if (!first) return null;
