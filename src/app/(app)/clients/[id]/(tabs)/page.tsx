@@ -1,10 +1,17 @@
-import { ChevronRightIcon, ExternalLinkIcon, ListTodoIcon, PhoneIcon } from "lucide-react";
+import {
+  ChevronRightIcon,
+  ExternalLinkIcon,
+  FolderKanbanIcon,
+  ListTodoIcon,
+  PhoneIcon,
+} from "lucide-react";
 import type { Metadata } from "next";
 
 import { listDefinitions } from "@/core/custom-fields/server";
 import { cn } from "@/core/lib/utils";
 import { checkThenRead, startEarly } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
+import { todayIST } from "@/core/time";
 import {
   CARD_ROW_MIN_H,
   CARD_ROW_PADDING,
@@ -15,6 +22,12 @@ import { DrillLink } from "@/core/ui/composites/drill-link";
 import { StatusDot } from "@/core/ui/composites/status-badge";
 import { Button } from "@/core/ui/primitives/button";
 import { Card, CardContent } from "@/core/ui/primitives/card";
+import {
+  listClientProjects,
+  listCurrentCycleMeters,
+  projectSummaries,
+  type ProjectSummary,
+} from "@/modules/client-work";
 import { getOwnerNotes, listContacts } from "@/modules/clients";
 import { countOpenTasksForClient } from "@/modules/tasks";
 import { AddContactDialog } from "@/modules/clients/components/add-contact-dialog";
@@ -26,13 +39,16 @@ import {
 import { AddClientFieldButton } from "@/modules/settings/components/add-client-field-button";
 
 import { assertClientId, loadClient, loadPeople } from "../client";
+import { ProjectList } from "../project-list";
 
 export const metadata: Metadata = { title: "Client" };
 
 /**
- * A client's Overview (3.4, PRODUCT §4.4). **First glance** (PRODUCT §2): who runs it, whom to
- * call (the primary contact, one tap to phone) and the Drive folder, then the contacts, then the
- * details, requirements and notes through the edit pattern, and the Owner's private notes for
+ * A client's Overview (3.4, PRODUCT §4.4). **First glance** (PRODUCT §2; L6, UX review
+ * 2026-10-21): the **active projects with their progress** first (for whoever runs client work:
+ * the Owner, the client's Admin), then who runs it, whom to call (the primary contact, one tap to
+ * phone) and the Drive folder, then the contacts, then the details, requirements and notes through
+ * the edit pattern, each listing only what is filled in (the empty fields fold into "Add details"), and the Owner's private notes for
  * the Owner only (never read for an Admin, PERMISSIONS §2). A contact opens one tap deeper. The
  * client's tasks are one line, "N open tasks labelled ‹client›", opening All tasks filtered to it
  * (kickoff 7 decision 20: no tasks tab; copy says "tasks").
@@ -45,6 +61,7 @@ export default async function ClientOverviewPage({ params }: { params: Promise<{
   assertClientId(id);
   const notes = getOwnerNotes(id);
   startEarly(notes);
+  const today = todayIST();
   const [{ viewer, client, canEdit }, [people, contacts, clientFields, contactFields, openTasks]] =
     await checkThenRead(
       loadClient(id),
@@ -56,7 +73,10 @@ export default async function ClientOverviewPage({ params }: { params: Promise<{
         countOpenTasksForClient(id),
       ]),
     );
-  const ownerNotes = can(viewer.role, "clients.private_notes") ? await notes : null;
+  const [ownerNotes, active] = await Promise.all([
+    can(viewer.role, "clients.private_notes") ? notes : Promise.resolve(null),
+    can(viewer.role, "projects.manage") ? readActiveProjects(id, today) : Promise.resolve(null),
+  ]);
   const live = contacts.filter((contact) => contact.archivedAt === null);
   const archived = contacts.filter((contact) => contact.archivedAt !== null);
   const primary = live.find((contact) => contact.isPrimary) ?? null;
@@ -64,6 +84,7 @@ export default async function ClientOverviewPage({ params }: { params: Promise<{
 
   return (
     <div className="flex flex-col gap-4" data-slot="client-overview">
+      {active ? <ActiveProjects clientId={client.id} projects={active} /> : null}
       <Card>
         <CardContent className="flex flex-col gap-3 text-sm" data-slot="client-glance">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -252,5 +273,49 @@ function ClientTasksLine({
       {inner}
       <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
     </DrillLink>
+  );
+}
+
+/** The client's working projects with their current cycle's progress (L6), oldest state first. */
+async function readActiveProjects(clientId: string, today: string): Promise<ProjectSummary[]> {
+  const [projects, current] = await Promise.all([
+    listClientProjects(clientId),
+    listCurrentCycleMeters(today, clientId),
+  ]);
+  return projectSummaries(projects, current, today).filter((summary) => !summary.finished);
+}
+
+/**
+ * "Active projects" at the top of the Overview (L6): each working project's row as on the Projects
+ * tab (its meter, percent and progress line), or one quiet line pointing to the Projects tab.
+ */
+function ActiveProjects({
+  clientId,
+  projects,
+}: {
+  clientId: string;
+  projects: readonly ProjectSummary[];
+}) {
+  return (
+    <section aria-labelledby="active-projects" className="flex flex-col gap-2">
+      <h2 id="active-projects" className="flex min-h-11 items-center text-sm font-medium">
+        Active projects
+      </h2>
+      {projects.length === 0 ? (
+        <DrillLink
+          href={`/clients/${clientId}/projects`}
+          data-slot="client-no-projects"
+          className="border-border bg-card text-muted-foreground flex min-h-11 items-center gap-3 rounded-lg border px-4 py-2 text-sm"
+        >
+          <FolderKanbanIcon className="size-4 shrink-0" aria-hidden />
+          <span className="min-w-0 flex-1 break-words">
+            No active projects. Projects lists the finished ones and starts a new one.
+          </span>
+          <ChevronRightIcon className="size-4 shrink-0" aria-hidden />
+        </DrillLink>
+      ) : (
+        <ProjectList clientId={clientId} projects={projects} label="Active projects" />
+      )}
+    </section>
   );
 }
