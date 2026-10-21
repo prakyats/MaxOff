@@ -667,6 +667,10 @@ export const ADMIN_GUIDE: Guide = {
               text: "The New task form opens with that date set. The footer also has Open day.",
             },
             {
+              kind: "text",
+              text: "On a laptop with a mouse or trackpad, point at an empty part of a day in the month: a small + appears in its corner. Click it (or Tab to it and press Enter) for the same New task form on that day.",
+            },
+            {
               kind: "note",
               text: "If you open a task from the calendar, the back control says Calendar and returns you to the same view and day.",
             },

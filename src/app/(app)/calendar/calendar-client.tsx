@@ -13,29 +13,37 @@ import type { TaskFormSetup } from "@/modules/tasks/components/task-form-dialog"
  * modules that own each part: the calendar draws the day; the task form and the suggestion are the
  * tasks module's. Whoever may create a task (`tasks.create`: the Owner and Admins) gets
  * "+ New task on 8 Oct" (the deadline, or an event's date, on that day; today until 11:59 pm IST and
- * later days only); Crew (`task_requests.create`) get "Suggest a task" with the day in its details.
+ * later days only), and on a laptop with a mouse the month's small "+" in a day's box for the same
+ * form (PP-calendar-13); Crew (`task_requests.create`) get "Suggest a task" with the day in its
+ * details.
  * The form's setup is a promise the page starts, read only when the form opens.
  */
 export function CalendarClient({
   create,
   suggest,
   ...screen
-}: Omit<ComponentProps<typeof CalendarScreen>, "dayAction"> & {
+}: Omit<ComponentProps<typeof CalendarScreen>, "dayAction" | "quickAdd"> & {
   create: Promise<TaskFormSetup | null> | null;
   suggest: readonly { id: string; name: string }[] | null;
 }) {
   // A new task's deadline must be later than now (kickoff 4 decision 4): no "+ New task" on a day
   // with no valid deadline left, a day before today (IST) or today from 11:59 pm IST, where the
   // form could only refuse its own prefill.
+  // The laptop month's "+" in a day's box (PP-calendar-13) is the same button, icon only.
+  const newTask = (icon: boolean) =>
+    create
+      ? (date: ISODate) =>
+          date < screen.today || !canStartTaskOnDate(date, systemClock()) ? null : (
+            <NewTaskOnDayButton
+              setup={create}
+              date={date}
+              icon={icon}
+              label={`New task on ${formatIST(istDayStart(date), "d MMM")}`}
+            />
+          )
+      : null;
   const dayAction = create
-    ? (date: ISODate) =>
-        date < screen.today || !canStartTaskOnDate(date, systemClock()) ? null : (
-          <NewTaskOnDayButton
-            setup={create}
-            date={date}
-            label={`New task on ${formatIST(istDayStart(date), "d MMM")}`}
-          />
-        )
+    ? newTask(false)
     : suggest
       ? (date: ISODate) => (
           <SuggestTaskButton
@@ -45,5 +53,5 @@ export function CalendarClient({
           />
         )
       : null;
-  return <CalendarScreen {...screen} dayAction={dayAction} />;
+  return <CalendarScreen {...screen} dayAction={dayAction} quickAdd={newTask(true)} />;
 }

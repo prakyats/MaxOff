@@ -938,3 +938,27 @@ html:has([data-slot="bulk-bar"]) {
     }
   }
 }
+
+/* PP-calendar-13: the laptop month's "+" (New task on the day, `MonthGrid`'s `add`) exists for a
+ * mouse or trackpad only, never a touch screen; it shows while the pointer is on the box's empty
+ * part (not on a chip, "+N more" or the leave bar) and while it has the keyboard's focus. */
+[data-slot="calendar-add"] {
+  display: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  [data-slot="calendar-add"] {
+    display: flex;
+    opacity: 0;
+  }
+  [data-slot="calendar-cell"]:hover:not(
+      :has(
+        [data-slot="calendar-strip"]:hover,
+        [data-slot="calendar-more"]:hover,
+        [data-slot="calendar-leave-bar"]:hover
+      )
+    )
+    > [data-slot="calendar-add"],
+  [data-slot="calendar-add"]:focus-within {
+    opacity: 1;
+  }
+}

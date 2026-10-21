@@ -110,6 +110,7 @@ export function CalendarScreen({
   free,
   choices,
   dayAction,
+  quickAdd,
 }: {
   today: ISODate;
   query: CalendarQuery;
@@ -121,6 +122,8 @@ export function CalendarScreen({
   choices: FilterChoices;
   /** The route's action for a day (New task on it, or Suggest a task), or none. */
   dayAction: ((date: ISODate) => ReactNode) | null;
+  /** The laptop month's "+" in a day's box (PP-calendar-13: New task on it), or none. */
+  quickAdd: ((date: ISODate) => ReactNode) | null;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -581,6 +584,7 @@ export function CalendarScreen({
             today={today}
             selected={null}
             density="laptop"
+            add={quickAdd}
             onDay={(date) => {
               if (monthOf(date) !== grid.month) go(date);
               else setSheetDate(date);

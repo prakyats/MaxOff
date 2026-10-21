@@ -637,6 +637,9 @@ export const OWNER_GUIDE: Guide = {
             next(
               'After you create it, the task page opens. Tap "Calendar" to go back to the same view and day.',
             ),
+            text(
+              "On a laptop with a mouse or trackpad, point at an empty part of a day in the month: a small + appears in its corner. Click it (or Tab to it and press Enter) for the same New task form on that day.",
+            ),
             note("The New task form opens on the day you tapped."),
           ],
           link: { href: "/calendar", label: "Open Calendar" },

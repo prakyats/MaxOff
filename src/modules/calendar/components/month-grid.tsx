@@ -1,5 +1,7 @@
 "use client";
 
+import type { ReactNode } from "react";
+
 import { cn } from "@/core/lib/utils";
 import { formatIST, istDayStart, type ISODate } from "@/core/time";
 
@@ -111,6 +113,7 @@ export function MonthGrid({
   selected,
   density,
   onDay,
+  add,
   className,
 }: {
   grid: Grid;
@@ -120,6 +123,12 @@ export function MonthGrid({
   selected: ISODate | null;
   density: GridDensity;
   onDay: (date: ISODate) => void;
+  /**
+   * A day's "+" (PP-calendar-13, the laptop's: New task on it), beside the box, never inside its
+   * button: shown with a mouse or trackpad only, while the pointer is on the box's empty part or
+   * the "+" has focus (`calendar-add`, globals.css).
+   */
+  add?: ((date: ISODate) => ReactNode) | null;
   className?: string;
 }) {
   const inMonth = (date: ISODate) => date.slice(0, 7) === grid.month.slice(0, 7);
@@ -169,8 +178,9 @@ export function MonthGrid({
               };
               const before = column > 0 ? leaveOf(column - 1) : null;
               const after = column < 6 ? leaveOf(column + 1) : null;
+              const plus = add?.(date);
               return (
-                <li key={date} className="flex min-h-0 min-w-0">
+                <li key={date} data-slot="calendar-cell" className="relative flex min-h-0 min-w-0">
                   <button
                     type="button"
                     onClick={() => onDay(date)}
@@ -310,6 +320,11 @@ export function MonthGrid({
                       </span>
                     ) : null}
                   </button>
+                  {plus ? (
+                    <span data-slot="calendar-add" className="absolute top-[5px] right-[5px]">
+                      {plus}
+                    </span>
+                  ) : null}
                 </li>
               );
             })}

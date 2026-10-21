@@ -16,6 +16,7 @@ import {
   STAGES_MAX,
   TITLE_MAX,
 } from "./limits";
+import { canStartTaskOnDate, LAST_TIME_OF_DAY } from "./start-on-date";
 import { activeAssignees } from "./task";
 import type { Priority, Task, TaskAssignee, TaskType } from "./types";
 import { type EventWindow, eventWindow } from "./warnings";
@@ -97,16 +98,7 @@ export function draftOnDate(date: ISODate, now: Date): TaskDraft {
   return { ...emptyDraft(), dueDate: date, dueTime: dueTimeOnDate(date, now), eventDate: date };
 }
 
-const LAST_TIME_OF_DAY = "23:59";
-
-/**
- * Whether a calendar day still has a valid deadline for a new task: its last minute (11:59 pm IST)
- * is later than now. Never on a day before today; today only until 11:59 pm IST, after which the
- * form would refuse its own prefill (the same rule as a past day).
- */
-export function canStartTaskOnDate(date: ISODate, now: Date): boolean {
-  return Date.parse(istInstant(date, LAST_TIME_OF_DAY)) > now.getTime();
-}
+export { canStartTaskOnDate };
 
 function dueTimeOnDate(date: ISODate, now: Date): string {
   if (toISTDate(now) !== date) return DEFAULT_DUE_TIME;

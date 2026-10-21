@@ -119,6 +119,12 @@ const dayBox = (page: Page, date: string) =>
 /** "8 Oct", as the New-task pill says it. */
 const shortDay = (date: string) => formatIST(istDayStart(date), "d MMM");
 
+/** The laptop month's "+" of a day (PP-calendar-13) and the box that shows or hides it. */
+const plusOf = (page: Page, date: string) =>
+  page.locator(`[data-slot="calendar-add-task"][data-date="${date}"]`);
+const plusHolder = (page: Page, date: string) =>
+  page.locator(`[data-slot="calendar-add"]:has([data-date="${date}"])`);
+
 /** A drag on the phone's calendar, `dy` px down (negative: up), as a finger would. */
 async function dragCalendar(page: Page, dy: number): Promise<void> {
   const area = page.locator('[data-slot="calendar-area"]');
@@ -456,6 +462,18 @@ test.describe("the calendar, as Crew", () => {
     await expect(page).toHaveURL(new RegExp(`/tasks/${shoot.id}$`));
     await expectBackStack(page, [{ url: new RegExp(`/calendar\\?date=${todayIST()}$`) }]);
   });
+
+  test('no "+" in a day\'s box for Crew, who cannot create tasks (PP-calendar-13)', async ({
+    page,
+  }) => {
+    await page.goto(`/calendar?date=${workingDay(21)}`);
+    await hydrated(page);
+    await expect(
+      page.locator(`[data-slot="calendar-day"][data-date="${workingDay(21)}"]`),
+    ).not.toHaveCount(0);
+    await expect(page.locator('[data-slot="calendar-add"]')).toHaveCount(0);
+    await expect(page.locator('[data-slot="calendar-add-task"]')).toHaveCount(0);
+  });
 });
 
 test.describe("the calendar, as an Admin", () => {
@@ -489,6 +507,25 @@ test.describe("the calendar, as an Admin", () => {
     for (const kind of ["client", "person", "type", "status"]) {
       await expect(sheet.locator(`[data-field="calendar-filter-${kind}"]`)).toBeVisible();
     }
+  });
+
+  test('an Admin\'s laptop month has the "+" on a hovered day; a phone never shows it (PP-calendar-13)', async ({
+    page,
+  }, info) => {
+    const day = workingDay(21);
+    await page.goto(`/calendar?date=${day}`);
+    await hydrated(page);
+    if (isPhone(info)) {
+      // A touch screen: the laptop's month is not shown, and its "+" exists for a mouse only.
+      await expect(plusOf(page, day)).toBeHidden();
+      return;
+    }
+    const box = dayBox(page, day);
+    const size = await box.boundingBox();
+    if (!size) throw new Error("the day is not on screen");
+    await box.hover({ position: { x: size.width / 2, y: size.height - 8 } });
+    await expect(plusHolder(page, day)).toHaveCSS("opacity", "1");
+    await expect(plusOf(page, day)).toHaveAccessibleName(`New task on ${shortDay(day)}`);
   });
 });
 
@@ -866,6 +903,68 @@ test.describe("the calendar, as the Owner", () => {
     await expect(page).toHaveURL(new RegExp(`/tasks/${shoot.id}`));
 
     await removeTasksTitled(prefix);
+  });
+
+  test('laptop with a mouse: a day\'s empty part shows "+", which opens New task on that day; the keyboard reaches it (PP-calendar-13)', async ({
+    page,
+  }, info) => {
+    test.skip(isPhone(info), "a mouse or trackpad's");
+    await removeTasksTitled(prefixOf(info));
+    const day = workingDay(21);
+    // One deadline on the day: its chip is not the box's empty part.
+    await ownerCreatesDue(info, day);
+    await page.goto(`/calendar?date=${day}`);
+    await hydrated(page);
+    const box = dayBox(page, day);
+    const plus = plusOf(page, day);
+    const holder = plusHolder(page, day);
+    const form = page.locator('[data-slot="task-form-dialog"]');
+    await expect(plus).toHaveAccessibleName(`New task on ${shortDay(day)}`);
+    // Hidden until the pointer is on the box's empty part; not on its chip.
+    await page.mouse.move(0, 0);
+    await expect(holder).toHaveCSS("opacity", "0");
+    const size = await box.boundingBox();
+    if (!size) throw new Error("the day is not on screen");
+    const empty = { position: { x: size.width / 2, y: size.height - 8 } };
+    await box.hover(empty);
+    await expect(holder).toHaveCSS("opacity", "1");
+    await box.locator('[data-slot="calendar-strip"]').first().hover();
+    await expect(holder).toHaveCSS("opacity", "0");
+    // At least 24 px, beside the box's button, never inside it.
+    const target = await plus.boundingBox();
+    expect(target?.width ?? 0).toBeGreaterThanOrEqual(24);
+    expect(target?.height ?? 0).toBeGreaterThanOrEqual(24);
+    expect(await box.locator('[data-slot="calendar-add-task"]').count()).toBe(0);
+
+    // A click opens the existing New task form on that day, and no day dialog.
+    await box.hover(empty);
+    await plus.click();
+    await expect(form).toBeVisible();
+    await expect(form.locator('input[name="dueDate"]')).toHaveValue(day);
+    await expect(daySheet(page)).toHaveCount(0);
+    await form.getByRole("button", { name: "Cancel" }).click();
+    await expect(form).toHaveCount(0);
+
+    // The day itself still opens its dialog.
+    await box.click(empty);
+    await expect(daySheet(page)).toHaveAttribute("data-date", day);
+    await expect(form).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(daySheet(page)).toHaveCount(0);
+
+    // The keyboard: Tab from the day reaches its "+", shown with a focus ring; Enter opens the form.
+    await page.mouse.move(0, 0);
+    await box.focus();
+    await page.keyboard.press("Tab");
+    await expect(plus).toBeFocused();
+    await expect(holder).toHaveCSS("opacity", "1");
+    await expect(plus).not.toHaveCSS("box-shadow", "none");
+    await page.keyboard.press("Enter");
+    await expect(form).toBeVisible();
+    await expect(form.locator('input[name="dueDate"]')).toHaveValue(day);
+    await form.getByRole("button", { name: "Cancel" }).click();
+    await expect(form).toHaveCount(0);
+    await removeTasksTitled(prefixOf(info));
   });
 
   test('a day with more than its box holds ends in "+N more", which opens the day (PP-calendar-14)', async ({

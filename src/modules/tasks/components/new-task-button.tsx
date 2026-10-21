@@ -8,7 +8,7 @@ import { cn } from "@/core/lib/utils";
 import type { ISODate } from "@/core/time";
 import { Button } from "@/core/ui/primitives/button";
 
-import { canStartTaskOnDate } from "../domain/form";
+import { canStartTaskOnDate } from "../domain/start-on-date";
 import type { TaskFormSetup } from "./task-form-dialog";
 
 /**
@@ -29,33 +29,38 @@ const CREATE = { kind: "create" } as const;
 /**
  * "+ New task on 8 Oct" in a calendar day's detail (6.4b; Kickoff 6 decision 25 D; `tasks.create`):
  * the same form, the deadline (or an event's date) on that day. A pill-shaped trigger, neutral
- * solid as every trigger that opens a form.
+ * solid as every trigger that opens a form. `icon`: the laptop month's small "+" in a day's box
+ * (PP-calendar-13), the same form, its label spoken only.
  */
 export function NewTaskOnDayButton({
   setup,
   date,
   label,
+  icon,
   className,
 }: {
   setup: Promise<TaskFormSetup | null>;
   date: ISODate;
   label: string;
+  icon?: boolean;
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
   return (
     <>
       <Button
-        variant="strong"
+        variant={icon ? "secondary" : "strong"}
+        size={icon ? "icon-xs" : undefined}
         onClick={() => setOpen(true)}
-        data-slot="new-task-on-day"
+        data-slot={icon ? "calendar-add-task" : "new-task-on-day"}
         data-date={date}
+        aria-label={icon ? label : undefined}
         // Never wider than its row: at a very large text size the label ellipsises (the owner's
         // phone walk found "New task on 13 Nov" past a 375 px screen's edge at 200 %).
-        className={cn("max-w-full rounded-full", className)}
+        className={cn("max-w-full rounded-full", icon && "bg-card", className)}
       >
         <PlusIcon aria-hidden />
-        <span className="min-w-0 truncate">{label}</span>
+        {icon ? null : <span className="min-w-0 truncate">{label}</span>}
       </Button>
       {open ? (
         <TaskFormDialog
