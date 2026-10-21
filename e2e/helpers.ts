@@ -1151,8 +1151,9 @@ export async function rowAction(
 ): Promise<void> {
   if ((page.viewportSize()?.width ?? 1280) < 768) {
     await row.getByRole("button", { name: `Actions for ${name}` }).click();
+    // The sheet is titled with the row's name.
     await page
-      .locator('[data-slot="sheet-content"]')
+      .getByRole("dialog", { name, exact: true })
       .getByRole("button", { name: action, exact: true })
       .click();
     return;
