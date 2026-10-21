@@ -3,6 +3,7 @@ import { ChevronRightIcon } from "lucide-react";
 import { getCurrentMember } from "@/core/auth/server";
 import { cn } from "@/core/lib/utils";
 import { PageHeader } from "@/core/ui/composites/page-header";
+import { Badge } from "@/core/ui/primitives/badge";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 
 import {
@@ -10,11 +11,22 @@ import {
   GROUP_LIST_CLASS,
   HELP_LIST_CLASS,
   HELP_ROW_CLASS,
+  SECTION_LABEL_CLASS,
+  SECTION_LINE_CLASS,
   SECTION_ROW_CLASS,
   SETTINGS_LIST_CLASS,
   settingsDescription,
   settingsGroupsFor,
 } from "./list";
+
+/** Text kept in the layout but not shown: a pulsing bar the size of the words. */
+function Unseen({ children }: { children: string }) {
+  return (
+    <span className="bg-muted rounded-md box-decoration-clone text-transparent select-none motion-safe:animate-pulse">
+      {children}
+    </span>
+  );
+}
 
 /** One `text-sm` line of the page (20px): a bar in a line box of the same height. */
 function Line({ width, className }: { width: string; className?: string }) {
@@ -56,16 +68,26 @@ export default async function Loading() {
               <ul className={GROUP_LIST_CLASS}>
                 {group.sections.map((section) => (
                   <li key={section.key} className={SECTION_ROW_CLASS}>
+                    {/* The row's own words, unseen, each a bar: the same lines as the page's at
+                        every width and text size. */}
                     <span className="flex min-w-0 flex-1 flex-col">
                       {section.ready ? (
-                        <Line width="w-28" />
+                        <span className={SECTION_LABEL_CLASS}>
+                          <Unseen>{section.label}</Unseen>
+                        </span>
                       ) : (
                         <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                          <Line width="w-28" className="flex-[1_1_8rem]" />
-                          <Skeleton className="h-5 w-[5.5rem] shrink-0 rounded-full" />
+                          <span className="flex-[1_1_8rem] text-sm font-medium">
+                            <Unseen>{section.label}</Unseen>
+                          </span>
+                          <Badge variant="outline" className="shrink-0 font-normal">
+                            <Unseen>Coming soon</Unseen>
+                          </Badge>
                         </span>
                       )}
-                      <Line width="w-48 max-w-full" />
+                      <span className={SECTION_LINE_CLASS}>
+                        <Unseen>{section.description}</Unseen>
+                      </span>
                     </span>
                     {section.ready ? (
                       <ChevronRightIcon
