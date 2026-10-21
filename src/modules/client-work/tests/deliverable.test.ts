@@ -139,7 +139,10 @@ describe("the long-stage-list row (V3, fixes A, C, D, E)", () => {
     Array.from({ length: 12 }, (_, i) => stage(String.fromCharCode(97 + i), i < done, group(i)));
 
   it("one continuous bar over every group: done, the next one lighter, the total", () => {
-    const item = deliverable("open", twelve(5, (i) => (i < 4 ? "Concept" : "Post")));
+    const item = deliverable(
+      "open",
+      twelve(5, (i) => (i < 4 ? "Concept" : "Post")),
+    );
     expect(itemProgress(item)).toEqual({ done: 5, next: 1, total: 12 });
     expect(itemProgress(deliverable("done", twelve(3)))).toEqual({ done: 12, next: 0, total: 12 });
     expect(itemProgress(deliverable("open", []))).toEqual({ done: 0, next: 0, total: 0 });
@@ -149,9 +152,14 @@ describe("the long-stage-list row (V3, fixes A, C, D, E)", () => {
     expect(LONG_STAGE_LIST).toBe(9);
     expect(suggestsGrouping(deliverable("open", twelve(0)))).toBe(true);
     expect(suggestsGrouping(deliverable("open", twelve(0).slice(0, 8)))).toBe(false);
-    expect(suggestsGrouping(deliverable("open", twelve(0, (i) => (i < 6 ? null : "Post"))))).toBe(
-      false,
-    );
+    expect(
+      suggestsGrouping(
+        deliverable(
+          "open",
+          twelve(0, (i) => (i < 6 ? null : "Post")),
+        ),
+      ),
+    ).toBe(false);
     expect(suggestsGrouping(deliverable("done", twelve(12)))).toBe(false);
   });
 

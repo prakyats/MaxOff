@@ -155,6 +155,7 @@ const NUMBERED_ROUND = /\bround\s*\d+\b|\br\d+\b/i;
  */
 export function typesNumberedRounds(item: Pick<RowItem, "state" | "stages">): boolean {
   return (
-    item.state === "open" && item.stages.filter((stage) => NUMBERED_ROUND.test(stage.name)).length >= 2
+    item.state === "open" &&
+    item.stages.filter((stage) => NUMBERED_ROUND.test(stage.name)).length >= 2
   );
 }

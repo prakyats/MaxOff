@@ -5,8 +5,10 @@ import { listDefinitions } from "@/core/custom-fields/server";
 import { startEarly } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
 import { requirePermission } from "@/core/permissions/server";
+import { todayIST } from "@/core/time";
 import { DrillLink } from "@/core/ui/composites/drill-link";
 import { PageHeader } from "@/core/ui/composites/page-header";
+import { clientWorkLine, listCurrentCycles, progressByClient } from "@/modules/client-work";
 import { listClientSummaries } from "@/modules/clients";
 import { ClientList } from "@/modules/clients/components/client-list";
 import { NewClientDialog } from "@/modules/clients/components/new-client-dialog";
@@ -31,7 +33,17 @@ export default async function ClientsPage() {
   const canManage = can(viewer.role, "clients.manage");
   // Kickoff 7 amendment B: an Admin adds a client too (theirs, Active from the start).
   const canCreate = can(viewer.role, "clients.create");
-  const [clients, people, allDefinitions] = await reads;
+  // N4: an Admin's list shows each client's running deliverables instead of an Admin column.
+  const [[clients, people, allDefinitions], cycles] = await Promise.all([
+    reads,
+    canManage ? Promise.resolve(null) : listCurrentCycles(todayIST()),
+  ]);
+  const progress = cycles ? progressByClient(cycles) : null;
+  const work = progress
+    ? Object.fromEntries(
+        clients.map((client) => [client.id, clientWorkLine(progress.get(client.id))]),
+      )
+    : null;
   const definitions = canCreate ? allDefinitions : [];
 
   const description = canManage
@@ -65,6 +77,7 @@ export default async function ClientsPage() {
         admins={people.admins}
         adminNames={people.names}
         canManage={canManage}
+        work={work}
       />
     </>
   );

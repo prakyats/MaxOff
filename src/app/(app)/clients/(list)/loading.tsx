@@ -6,7 +6,7 @@ import { Skeleton } from "@/core/ui/primitives/skeleton";
 /**
  * The client list (3.4) traced: the "Client items" row (7.3), the search box and the filters (two for the Owner, state and
  * Admin; one for an Admin), then cards on a phone and the table from `md` up (logo and name,
- * state, Admin). In the `(list)` group so it never wraps a client's page (the 2.9 rule).
+ * state, Admin; for an Admin, their running deliverables, N4). In the `(list)` group so it never wraps a client's page (the 2.9 rule).
  */
 export default async function Loading() {
   const member = await getCurrentMember();

@@ -48,6 +48,7 @@ export {
 } from "./domain/progress";
 export {
   clientProgressLine,
+  clientWorkLine,
   progressByClient,
   projectSummaries,
   type CurrentCycleStates,

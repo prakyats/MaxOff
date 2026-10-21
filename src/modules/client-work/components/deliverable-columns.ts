@@ -20,5 +20,4 @@ export const deliverableColumns = (selecting: boolean) =>
  * The collapsed row's progress (V3, fixes A and C): chevron, one continuous bar, "n/m", in fixed
  * columns so the bars line up row to row; the loading screen draws the same.
  */
-export const PROGRESS_GRID =
-  "grid grid-cols-[1rem_minmax(0,1fr)_3rem] items-center gap-x-2";
+export const PROGRESS_GRID = "grid grid-cols-[1rem_minmax(0,1fr)_3rem] items-center gap-x-2";

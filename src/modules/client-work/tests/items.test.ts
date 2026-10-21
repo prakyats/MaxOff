@@ -24,7 +24,7 @@ import {
   periodNext,
   periodStart,
 } from "../domain/periods";
-import { progressByClient, projectSummaries } from "../domain/projects";
+import { clientWorkLine, progressByClient, projectSummaries } from "../domain/projects";
 import { movedNames, nameRows } from "../domain/positions";
 import { activityPageSchema, createProjectSchema, updateBlueprintSchema } from "../domain/schemas";
 import type { Item, ItemStage, ItemState, Project } from "../domain/types";
@@ -344,6 +344,11 @@ describe("the Projects tab", () => {
     ]);
     expect(sums.get("k")).toEqual({ total: 3, done: 2, closed: 1 });
     expect(sums.get("m")).toEqual({ total: 0, done: 0, closed: 0 });
+    // N4: the Admin's Clients list says what is open and done, never money.
+    expect(clientWorkLine(sums.get("k"))).toBe("0 open · 2/3 done");
+    expect(clientWorkLine({ total: 12, done: 9, closed: 1 })).toBe("2 open · 9/12 done");
+    expect(clientWorkLine(sums.get("m"))).toBeNull();
+    expect(clientWorkLine(undefined)).toBeNull();
   });
 });
 

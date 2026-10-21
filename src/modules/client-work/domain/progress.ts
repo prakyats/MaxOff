@@ -200,26 +200,22 @@ export function needsYouPills(
       days: Math.round((Date.parse(today) - Date.parse(item.plannedDate!)) / DAY_MS),
     }))
     .sort((a, b) => b.days - a.days || a.item.title.localeCompare(b.item.title))
-    .map(
-      ({ item, days }): NeedsYouPill => ({
-        itemId: item.id,
-        tone: "danger",
-        text: `${item.title} is ${days === 1 ? "1 day" : `${days} days`} late`,
-      }),
-    );
+    .map(({ item, days }): NeedsYouPill => ({
+      itemId: item.id,
+      tone: "danger",
+      text: `${item.title} is ${days === 1 ? "1 day" : `${days} days`} late`,
+    }));
   const lateIds = new Set(late.map((pill) => pill.itemId));
   const nearly = open
     .filter((item) => !lateIds.has(item.id) && item.stages.length > 0)
     .map((item) => ({ item, left: item.stages.filter((stage) => !stage.done).length }))
     .filter(({ left }) => left <= 1)
     .sort((a, b) => a.left - b.left || a.item.title.localeCompare(b.item.title))
-    .map(
-      ({ item, left }): NeedsYouPill => ({
-        itemId: item.id,
-        tone: "attention",
-        text: left === 0 ? `${item.title}: ready to mark done` : `${item.title}: 1 stage left`,
-      }),
-    );
+    .map(({ item, left }): NeedsYouPill => ({
+      itemId: item.id,
+      tone: "attention",
+      text: left === 0 ? `${item.title}: ready to mark done` : `${item.title}: 1 stage left`,
+    }));
   const all = [...late, ...nearly];
   return { pills: all.slice(0, limit), more: Math.max(0, all.length - limit) };
 }
