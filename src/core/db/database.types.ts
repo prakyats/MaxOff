@@ -4726,6 +4726,10 @@ export type Database = {
         Args: { changes: Json; stage_id: string };
         Returns: string[];
       };
+      item_stages_group: {
+        Args: { item_id: string; labels: string[]; starts: string[] };
+        Returns: number;
+      };
       item_tick_stage: {
         Args: { done?: boolean; item_id: string; stage_id: string };
         Returns: boolean;
