@@ -172,7 +172,7 @@ export function ContactMenu({
                 </DropdownMenuItem>
               )}
               <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive" onSelect={() => setDialog("archive")}>
+              <DropdownMenuItem onSelect={() => setDialog("archive")}>
                 Archive
               </DropdownMenuItem>
             </>

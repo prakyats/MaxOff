@@ -206,7 +206,7 @@ export function ImageUploadSheet({
               {hasCurrent && onRemove ? (
                 <Button
                   type="button"
-                  variant="destructive"
+                  variant="secondary"
                   onClick={() => setConfirmRemove(true)}
                   disabled={pending}
                   className="md:mr-auto"

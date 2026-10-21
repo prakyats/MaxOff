@@ -95,7 +95,7 @@ dark, a higher step is a lighter graphite, because shadows barely read on black.
 |---|---|---|
 | `primary` | **neutral solid** (`primary`: `#18181B` with `#FAFAF9` text; inverted in dark) | **the one commit action per layer**: Save, Send, Create, Approve, Mark done. Disabled is muted, never faded |
 | `danger` | **solid red** (`destructive-solid`: `#C42126` with white text, both themes) | **the commit of a destructive action**, named for it: "Discard changes", "Remove Diwali", "Withdraw request", "Reject claim", "Deactivate Ravi". Only inside its confirmation |
-| `destructive` | red outline and red text | a destructive action **before** its confirmation (Deactivate, Cancel leave, Withdraw, Reject…, Remove) |
+| `destructive` | red outline and red text | a destructive action **before** its confirmation (Deactivate, Cancel leave, Withdraw, Reject…, Close, Cancel task) |
 | `secondary` | neutral outline (`control-border`, ≥ 3:1) | Cancel, Keep editing, Review, Edit, Correct, the pager |
 | `ghost` | no fill | icon and utility buttons |
 | `strong` | neutral solid | a trigger that opens a form or a confirmation where the commit happens (a FAB, Approvals' Approve and Approve all) |
@@ -107,6 +107,11 @@ dark, a higher step is a lighter graphite, because shadows barely read on black.
   act: their commit is then `danger`, otherwise `primary`.
 - **Archive is not destructive** (owner, 2026-10-16: "archive never red"): it can be restored, so
   its question commits with `primary`.
+- **Archive and Remove are grey everywhere** (C3): a `ghost` icon in a row, a `secondary` button
+  in a sheet or a footer ("Remove photo", a device's Remove), a plain menu item ("Remove stage").
+  The red appears only in the confirmation step, on the named `danger` commit ("Remove Diwali",
+  "Remove Chrome on Android"); a remove with no confirmation (a stage in an unsaved form) is never
+  red.
 - **Red elsewhere, only where it means "act now":** error text, always with an icon (`ErrorText`);
   the navigation count badges; the Owner's Today problem lines ("2 are absent today ›") and a risk
   row's "overdue by …" line, each with a dot and words; an approval waiting three days or more.

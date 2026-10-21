@@ -197,7 +197,7 @@ export function FieldDefinitionsManager({
                         </Button>
                         <Button
                           type="button"
-                          variant="destructive"
+                          variant="ghost"
                           size="icon"
                           aria-label={`Archive ${definition.label}`}
                           onClick={() => setArchiving(definition)}

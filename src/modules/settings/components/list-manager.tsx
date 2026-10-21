@@ -180,7 +180,7 @@ export function ListManager({
                 </Button>
                 <Button
                   type="button"
-                  variant="destructive"
+                  variant="ghost"
                   size="icon"
                   aria-label={`Archive ${item.name}`}
                   onClick={() => setArchiving(item)}

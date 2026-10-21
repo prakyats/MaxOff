@@ -77,7 +77,7 @@ export function ListItemActionsSheet({
             {renameLabel}
           </Button>
           <Button
-            variant="destructive"
+            variant="secondary"
             className="w-full justify-start"
             onClick={() => choose(onArchive)}
           >

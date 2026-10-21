@@ -96,7 +96,6 @@ export function ReorderNameList({
               <ReorderMenuItems reorder={reorder} index={index} />
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                variant="destructive"
                 onSelect={() => onChange(names.filter((_, at) => at !== index))}
               >
                 <Trash2Icon aria-hidden />

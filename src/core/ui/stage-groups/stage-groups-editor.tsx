@@ -174,7 +174,6 @@ export function StageGroupsEditor({
                       <ReorderMenuItems reorder={groupReorder} index={at} />
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
-                        variant="destructive"
                         onSelect={() => {
                           if (group.stages.length === 0) change(index, null);
                           else setRemoving(index);
@@ -344,7 +343,6 @@ function StageList({
                   <ReorderMenuItems reorder={reorder} index={index} />
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
-                    variant="destructive"
                     onSelect={() => onChange({ ...group, stages: removeAt(group.stages, index) })}
                   >
                     <Trash2Icon aria-hidden />

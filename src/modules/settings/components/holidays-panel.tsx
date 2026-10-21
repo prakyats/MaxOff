@@ -25,8 +25,8 @@ export function HolidaysPanel({ holidays, today }: { holidays: Holiday[]; today:
 
   return (
     <div className="flex flex-col gap-6">
-      {/* A trigger, so neutral (the action colour rule): the red commit is inside the dialog. An
-          outline, not the neutral solid: the screen's red "Save days off" is its one solid button
+      {/* A trigger, so neutral (the action colour rule): the commit is inside the dialog. An
+          outline, not the neutral solid: the screen's "Save days off" is its one solid button
           (Kickoff 4 decision 26: no second solid button; phase 4 review). */}
       <Button
         variant="secondary"
@@ -68,7 +68,7 @@ export function HolidaysPanel({ holidays, today }: { holidays: Holiday[]; today:
                     </div>
                     <Button
                       type="button"
-                      variant="destructive"
+                      variant="ghost"
                       size="icon"
                       aria-label={`Remove ${holiday.name}`}
                       onClick={() => setPendingDelete(holiday)}

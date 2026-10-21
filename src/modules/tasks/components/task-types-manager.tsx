@@ -171,7 +171,7 @@ export function TaskTypesManager({
                 </Button>
                 <Button
                   type="button"
-                  variant="destructive"
+                  variant="ghost"
                   size="icon"
                   aria-label={`Archive ${type.name}`}
                   onClick={() => setArchiving(type)}
@@ -313,7 +313,7 @@ function TypeActionsSheet({
             Edit
           </Button>
           <Button
-            variant="destructive"
+            variant="secondary"
             className="w-full justify-start"
             onClick={() => choose(onArchive)}
           >
