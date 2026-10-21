@@ -5,8 +5,8 @@ import { Skeleton } from "@/core/ui/primitives/skeleton";
  * The calendar while it loads (6.4b; ARCHITECTURE §14.1: a loading screen traces its screen): on a
  * phone the header row (the arrows, the month's name, Today, Filters), the compact month (the
  * opening size: the weekday letters and `weeks` rows of 44px day boxes), the handle and the day's
- * heading; from `md` up the Day · Week · Month control and the pager, then the month (the opening
- * view) with its boxes. The same boxes and gaps as `CalendarScreen` and `MonthGrid`, so nothing
+ * heading; from `md` up the Day · Week · Month control, "‹ Today ›" and the month's name, Filters
+ * at the right (PP-calendar-11), then the month (the opening view) with its boxes. The same boxes and gaps as `CalendarScreen` and `MonthGrid`, so nothing
  * moves when the calendar arrives. A server component: no client code on the loading screen.
  */
 export function CalendarSkeleton({ weeks }: { weeks: number }) {
@@ -90,8 +90,26 @@ export function CalendarSkeleton({ weeks }: { weeks: number }) {
               </span>
             ))}
           </div>
-          <span className="flex h-8 items-center">
-            <Skeleton className="h-4 w-48" />
+          {/* PP-calendar-11: "‹ Today ›" beside the month's name, Filters at the right. */}
+          <div className="flex items-center gap-1">
+            <div className="flex items-center gap-0.5">
+              <span className="flex size-8 items-center justify-center">
+                <Skeleton className="size-4 rounded-sm" />
+              </span>
+              <span className="border-control-border text-muted-foreground flex min-h-8 items-center rounded-lg border px-3 text-sm font-medium">
+                Today
+              </span>
+              <span className="flex size-8 items-center justify-center">
+                <Skeleton className="size-4 rounded-sm" />
+              </span>
+            </div>
+            <span className="ml-1 flex h-6 items-center">
+              <Skeleton className="h-4 w-32" />
+            </span>
+          </div>
+          <span className="border-control-border text-muted-foreground ml-auto flex min-h-8 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium">
+            <Skeleton className="size-4 rounded-sm" />
+            Filters
           </span>
         </div>
         {grid("laptop")}
