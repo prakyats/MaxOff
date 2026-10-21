@@ -69,6 +69,7 @@
   /* Leave on the calendar (PP-calendar-3, V5b): violet, its own tone, never a status. */
   --color-leave: var(--leave);
   --color-leave-soft: var(--leave-soft);
+  --color-leave-stripe: var(--leave-stripe);
   /* The solid red commit of a destructive action, inside its confirmation (ADR-0015). */
   --color-destructive-solid: var(--destructive-solid);
   --color-destructive-solid-foreground: var(--destructive-solid-foreground);
@@ -191,9 +192,11 @@
   --brand-soft: #f8e4e5;
   /* Holiday green (DESIGN.md §4): 5:1 on the page and the card, so the date number reads. */
   --holiday: #15803d;
-  /* Leave on the calendar (DESIGN.md §4): its text reads at 4.5:1 on its soft bar. */
-  --leave: #6d28d9;
-  --leave-soft: #ede7fb;
+  /* Leave on the calendar (DESIGN.md §4, PP-calendar-10): a soft neutral bar with faint stripes,
+   * apart from every task type's colour; its text reads at 4.5:1 on the bar and on a stripe. */
+  --leave: #52525b;
+  --leave-soft: #f1f1f2;
+  --leave-stripe: #e4e4e7;
   /* The scrim behind a dialog, a sheet or a phone's menu sheet: a faint veil over the page. */
   --scrim: rgb(0 0 0 / 0.1);
   /* The surface ladder (DESIGN.md §3). Light keeps white steps; the shadow tells them apart. */
@@ -267,8 +270,9 @@
   --brand: #f2686d;
   --brand-soft: #3c2326;
   --holiday: #4ade80;
-  --leave: #c4b5fd;
-  --leave-soft: #2f2a40;
+  --leave: #a1a1aa;
+  --leave-soft: #27272a;
+  --leave-stripe: #323236;
   /* A deeper veil: 10% black disappears on a graphite page. */
   --scrim: rgb(0 0 0 / 0.3);
   /* In dark a higher step is a lighter graphite: shadows barely read on black. */
@@ -506,6 +510,16 @@
 }
 /* A hairline under a sticky header row (a table's): a border on a sticky `thead` scrolls away with
  * the collapsed borders, an inset hairline in the `border` colour stays with it. */
+/* Leave's bar and chip (PP-calendar-10): faint diagonal stripes over the soft neutral fill, so
+ * leave reads as time away, never as a task type's colour. */
+@utility leave-stripes {
+  background-color: var(--leave-soft);
+  background-image: repeating-linear-gradient(
+    135deg,
+    var(--leave-stripe) 0 2px,
+    transparent 2px 6px
+  );
+}
 @utility hairline-b {
   box-shadow: inset 0 -1px 0 var(--border);
 }

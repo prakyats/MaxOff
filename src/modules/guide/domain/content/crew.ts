@@ -675,7 +675,7 @@ export const CREW_GUIDE: Guide = {
                   text: "Open Calendar. Today’s date is a red circle.",
                   shot: "staff/calendar",
                 },
-                "Read it: your own event tasks (name, then time) and your freelancers' tasks, each due task by name (amber, red when overdue), your own leave in violet, holidays and weekly offs (grey). Done things are dimmed with a ✓.",
+                "Read it: your own event tasks (name, then time) and your freelancers' tasks, each due task by name (amber, red when overdue), your own leave as a soft grey striped bar, holidays and weekly offs (grey). Done things are dimmed with a ✓.",
                 'Use the "Type" filter to show fewer things.',
                 'Open a day and tap "Suggest a task". The day is filled in for you.',
               ],

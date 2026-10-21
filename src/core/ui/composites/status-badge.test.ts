@@ -201,9 +201,12 @@ describe("badge contrast (globals.css)", () => {
       }
     });
 
-    it(`${theme}: the calendar's leave tone reads on its soft bar (PP-calendar-3)`, () => {
-      const ratio = contrast(tokens["leave"] as string, tokens["leave-soft"] as string);
-      expect(ratio, `${theme} leave = ${ratio.toFixed(2)}`).toBeGreaterThanOrEqual(4.5);
+    it(`${theme}: the calendar's leave text reads on its bar and its stripes (PP-calendar-3, 10)`, () => {
+      for (const bg of ["leave-soft", "leave-stripe"]) {
+        expect(tokens[bg], `--${bg} missing in ${selector}`).toBeDefined();
+        const ratio = contrast(tokens["leave"] as string, tokens[bg] as string);
+        expect(ratio, `${theme} leave on ${bg} = ${ratio.toFixed(2)}`).toBeGreaterThanOrEqual(4.5);
+      }
     });
 
     it(`${theme}: body and muted text read on the page and on surfaces`, () => {

@@ -20,7 +20,7 @@ import { DoneTick, DUE_TONE, DueIcon, LEAVE_TONE, LeaveIcon, typeTint } from "./
  * a dot for due tasks, one thin bar per kind, no text), `full` (the phone's full month) and `laptop`
  * (the same lines, an event with its title then its time and client). In a box, at most three
  * chips then "+N": the events, what is due by name (amber, red overdue with its icon), the holiday
- * (cut for space, the date number turns green), others' busy, then leave as a bar in its own tone
+ * (cut for space, the date number turns green), others' busy, then leave as a soft neutral striped bar
  * along the bottom, "Asha · On leave" with the palm icon, continuous across consecutive leave days
  * of the week row (`calendar-chip`: the day's dialog draws the same chips). V5b's polish
  * (PP-calendar-1, 4, 6, 7): today's date number is a filled red circle and the selected day the
@@ -277,8 +277,8 @@ export function MonthGrid({
                         data-slot="calendar-leave-bar"
                         data-pending={leave.pending ? "" : undefined}
                         className={cn(
-                          // Along the bottom, joined to its neighbours' bars, in leave's own tone
-                          // (PP-calendar-3), so a leave run reads at a glance.
+                          // Along the bottom, joined to its neighbours' bars, soft neutral with faint
+                          // stripes (PP-calendar-3, 10), so a leave run reads at a glance.
                           LEAVE_TONE,
                           "mt-auto block truncate px-1 font-medium",
                           "text-xs leading-4",
