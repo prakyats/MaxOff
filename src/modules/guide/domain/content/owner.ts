@@ -558,7 +558,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "Approve in one tap, with a 6-second Undo.",
           blocks: [
             text(
-              'Each row has Review and Approve. Under the name it says what is waiting, the person\'s note for an attendance day, and how long it has waited ("Waiting 2 days": amber from a day, red from three), as on Today.',
+              'Each row has Review and Approve (quiet outlines; the group\'s one green button is "Approve all N"). Colours mean one thing everywhere: green approves or marks done, red ends or cancels something for good, and the plain solid button saves or creates. Under the name it says what is waiting, the person\'s note for an attendance day, and how long it has waited ("Waiting 2 days": amber from a day, red from three), as on Today.',
             ),
             steps(
               "Open Approvals.",
@@ -583,7 +583,7 @@ export const OWNER_GUIDE: Guide = {
             steps(
               "Open Approvals and find a group with more than one row.",
               {
-                text: 'Tap "Approve all N" (highlighted).',
+                text: 'Tap the green "Approve all N".',
                 shot: "owner/approve-all",
               },
               "Confirm when asked.",
@@ -1097,7 +1097,7 @@ export const OWNER_GUIDE: Guide = {
               "There is no separate approval step for client work: marking it done is the approval.",
             ),
             text(
-              "Mark done comes onto a row once every stage is ticked; the first such row's button is solid. Until then it waits in the row's ⋯, beside Open. A deliverable with no stages always shows it.",
+              "Mark done comes onto a row once every stage is ticked; the first such row's button is solid green. Until then it waits in the row's ⋯, beside Open. A deliverable with no stages always shows it.",
             ),
             steps(
               'Open the project and tap "Mark done" on the row (or in its ⋯), or in the sheet.',

@@ -20,8 +20,9 @@ import { Button } from "@/core/ui/primitives/button";
 /**
  * A confirmation for actions that don't need a reason (approve, archive, cancel a draft). Its one
  * solid button is named for the action ("Remove Diwali", "Approve 3"), never "Confirm" or "OK":
- * the neutral `primary` commit, or the red `danger` one when the act is `destructive` (it
- * discards, removes or withdraws something; archiving is not destructive). ADR-0015.
+ * the neutral `primary` commit, the red `danger` one when the act is `destructive` (it
+ * discards, removes or withdraws something; archiving is not destructive), or the Forest green
+ * `approve` one for a positive final decision (`approve`). ADR-0015 and its 2026-10-21 amendment.
  * `onConfirm` may be async; the dialog shows a spinner and closes when it resolves, unless it
  * resolves to `false` (something inside the dialog needs fixing first, e.g. a field message).
  * Actions that need a reason use `ReasonDialog` instead (WORKFLOWS: reject, correct, cancel).
@@ -39,6 +40,7 @@ export function ConfirmDialog({
   onConfirm,
   confirmDisabled = false,
   destructive = false,
+  approve = false,
   children,
 }: {
   open: boolean;
@@ -54,6 +56,11 @@ export function ConfirmDialog({
   confirmDisabled?: boolean;
   /** The act destroys something (discard, remove, withdraw): its commit is the red `danger`. */
   destructive?: boolean;
+  /**
+   * A positive final decision (Approve, Approve all, Mark done, Grant comp leave): its commit is
+   * the Forest green `approve` (colour plan, ADR-0015 amendment 2026-10-21).
+   */
+  approve?: boolean;
   /** Optional extra content between the description and the buttons. */
   children?: ReactNode;
 }) {
@@ -78,7 +85,7 @@ export function ConfirmDialog({
         <AlertDialogFooter>
           <AlertDialogCancel disabled={pending}>{cancelLabel}</AlertDialogCancel>
           <Button
-            variant={destructive ? "danger" : "primary"}
+            variant={destructive ? "danger" : approve ? "approve" : "primary"}
             onClick={() => action.run()}
             disabled={confirmDisabled}
             pending={pending}

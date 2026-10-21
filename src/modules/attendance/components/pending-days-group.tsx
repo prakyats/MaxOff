@@ -128,7 +128,7 @@ export function PendingDaysGroup({
                 Correct…
               </Button>
               <Button
-                variant="strong"
+                variant="approve"
                 commits
                 data-slot="review-approve"
                 onClick={() => {

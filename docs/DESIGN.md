@@ -90,18 +90,46 @@ dark, a higher step is a lighter graphite, because shadows barely read on black.
   palette colours (`bg-red-500`, `text-white`), no `bg-[#…]` (lint). A new colour is a token here
   first.
 
-### The action colour rule (option A)
+### The action colour rule (option A, with the approved colour plan of 2026-10-21)
+**The colour plan (owner-approved 2026-10-21, "colour plan approved with forest"; ADR-0015
+amendment):** four looks for buttons, five tones for status chips, one meaning each.
+
+| Variant | Colour | Use |
+|---|---|---|
+| `danger` (solid) | red `#C42126`, white text | final / irreversible: Close deliverable, Cancel project / task, Reject (leave, attendance, expense, suggestion), Revoke comp leave, Cancel approved leave, Deactivate, Withdraw invite, Remove device, Discard changes, Delete |
+| `approve` (solid) | **Forest green `#15803D`**, white text, the same in both themes (5.0:1) | positive final decisions: Approve, Approve all, Mark done, Grant comp leave |
+| `primary` (solid) | neutral (ink on light, light on dark) | everyday commits: Save, Create, Send, Start day |
+| `secondary` (outline) | quiet | second choices: Review, Edit, Correct, Request changes, Send back, Keep it / a dialog's dismiss |
+
+| Chip tone | Statuses |
+|---|---|
+| red | Overdue / Late, Cancelled, Rejected, Absent |
+| amber | Proposed, Waiting for you, Due soon, Nearly done |
+| blue | In progress, Open, Planned, Noted |
+| green | Done, Approved, Present, Active |
+| grey | Draft, Archived, Withdrawn, Replaced, Not started |
+
+Chips are a soft background with strong text, per theme (the tokens above). `STATUS_TONES`
+holds the map; `status-badge.test.ts` checks the table and the contrast in both themes, and
+`final-actions.test.ts` checks every confirmation's commit by its label (final → `danger`,
+Approve / Mark done / Grant → `approve`, a red "Cancel …" never dismissed by a bare "Cancel").
+
 | Variant | Look | Used for |
 |---|---|---|
-| `primary` | **neutral solid** (`primary`: `#18181B` with `#FAFAF9` text; inverted in dark) | **the one commit action per layer**: Save, Send, Create, Approve, Mark done. Disabled is muted, never faded |
+| `primary` | **neutral solid** (`primary`: `#18181B` with `#FAFAF9` text; inverted in dark) | **the everyday commit**: Save, Send, Create, Start day. Disabled is muted, never faded |
+| `approve` | **Forest green solid** (`approve`: `#15803D` with white text, both themes) | **a positive final decision**: Approve, Approve all, Mark done, Grant comp leave. `ConfirmDialog` / `ReasonDialog` take `approve`; a trigger that only opens the commit's layer (Approve all, a task's Mark done, the bulk bar's Mark N done, Grant comp leave) passes `opens` |
 | `danger` | **solid red** (`destructive-solid`: `#C42126` with white text, both themes) | **the commit of a destructive action**, named for it: "Discard changes", "Remove Diwali", "Withdraw request", "Reject claim", "Deactivate Ravi". Only inside its confirmation |
 | `destructive` | red outline and red text | a destructive action **before** its confirmation (Deactivate, Cancel leave, Withdraw, Reject…, Close, Cancel task) |
-| `secondary` | neutral outline (`control-border`, ≥ 3:1) | Cancel, Keep editing, Review, Edit, Correct, the pager |
+| `secondary` | neutral outline (`control-border`, ≥ 3:1) | second choices: Keep it, Keep editing, Review, Edit, Correct, Request changes, Send back, the pager |
 | `ghost` | no fill | icon and utility buttons |
-| `strong` | neutral solid | a trigger that opens a form or a confirmation where the commit happens (a FAB, Approvals' Approve and Approve all) |
+| `strong` | neutral solid | a trigger that opens a form or a confirmation where the commit happens (a FAB, New task, Add person) |
 
 - **One solid button per layer.** A layer is the screen, each dialog, each sheet and each floating
-  sticky bar. At most one `primary` or `danger` per layer, and never beside a `strong`.
+  sticky bar. At most one `primary`, `approve` or `danger` commit per layer, and never beside a
+  solid trigger (`strong`, or an `approve` marked `opens`). Approvals: each group's "Approve all"
+  is the green trigger, its rows' Approve quiet outlines.
+- **Dismiss buttons say what they keep** ("Keep it", "Keep project", "Keep task"), never a bare
+  "Cancel" beside a red "Cancel …".
 - **The Add pattern for Settings lists (C4, decided in V2).** Every list on a Settings screen
   (Job titles, Expenses' categories, Holidays, Task types, Stage presets, Custom fields' groups,
   the three template groups) adds the same way: **"Add ‹thing›"**, a `secondary` outline button

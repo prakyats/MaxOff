@@ -134,7 +134,7 @@ export function TaskNextStep({
     const who = forName(next.acting);
     buttons = (
       // pending: none (it opens the Done sheet, whose Mark done commits)
-      <Button variant="strong" className={ACTION} onClick={() => setDialog("done")}>
+      <Button variant="approve" opens className={ACTION} onClick={() => setDialog("done")}>
         {next.again ? "Mark done again" : "Mark done"}
         {who ? ` for ${who}` : ""}
       </Button>
@@ -142,11 +142,11 @@ export function TaskNextStep({
   } else if (next?.kind === "review") {
     buttons = (
       <>
-        <Button variant="destructive" className={ACTION} onClick={() => setDialog("reject")}>
+        <Button variant="secondary" className={ACTION} onClick={() => setDialog("reject")}>
           Request changes
         </Button>
         {/* pending: none (it opens the confirmation, whose Approve task commits) */}
-        <Button variant="strong" className={ACTION} onClick={() => setDialog("approve")}>
+        <Button variant="approve" opens className={ACTION} onClick={() => setDialog("approve")}>
           Approve
         </Button>
       </>
@@ -186,6 +186,7 @@ export function TaskNextStep({
             : "This is the final approval: the task is complete."
         }
         confirmLabel="Approve task"
+        approve
         onConfirm={async () =>
           toastResult(await reviewTask({ taskId, decision: "approved" }), {
             success: review === "admin" ? "Approved: it goes to the Owner" : "Task complete",

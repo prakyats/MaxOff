@@ -63,3 +63,36 @@ the same restraint. The decision changes ARCHITECTURE §14.1's rule, so it needs
 - CLAUDE.md's Definition of Done line on the colour rule ("one solid red commit action per layer")
   reads as "one solid commit action per layer; a destructive one is red and named" from now on;
   the owner updates CLAUDE.md's wording.
+
+## Amendment 2026-10-21: the approved colour plan (owner-approved)
+
+**Status:** accepted. The owner approved the colour plan on 2026-10-21 ("colour plan approved with
+forest", the sample on issue #89), building on the V4 correction (final actions red, Cancelled
+red). It is built in v1.8 unit V5a.
+
+**Decision.**
+1. **A fourth solid look, Forest green `approve`** (`--approve` `#15803D`, white text, the same in
+   both themes, 5.0:1): the commit of a **positive final decision**: Approve, Approve all, Mark
+   done, Grant comp leave. `ConfirmDialog` and `ReasonDialog` take `approve`; a Forest trigger
+   that only opens the layer where the commit happens (Approve all, a task's Mark done and
+   Approve, the bulk bar's "Mark N done", Grant comp leave) passes `opens`.
+2. **`primary` stays the neutral solid** for everyday commits (Save, Create, Send, Start day);
+   **`danger` stays the red solid** for final or irreversible acts (the V4 list); **`secondary`**
+   (outline) is every second choice: Review, Edit, Correct, Request changes, Send back, a
+   dialog's dismiss. A dialog's dismiss says what it keeps ("Keep it", "Keep project"), never a
+   bare "Cancel" beside a red "Cancel …".
+3. **One solid button per layer** is unchanged: at most one `primary`, `approve` or `danger`
+   commit per layer, never beside a solid trigger. On Approvals each group's "Approve all" is the
+   green trigger and its rows' Approve are outlines.
+4. **The status chips follow one table:** red = Overdue / Late, Cancelled, Rejected, Absent;
+   amber = Proposed, Waiting for you, Due soon, Nearly done; blue = In progress, **Open**,
+   Planned, Noted; green = Done, Approved, Present, Active; grey = Draft, Archived, Withdrawn,
+   Replaced, Not started. The only map change is `open` from grey to blue.
+
+**Consequences.** Green on a button now always means "this approves or finishes something";
+the holiday green (`--holiday`) is the same hue but only ever a calendar date, never a button.
+`status-badge.test.ts` checks the chip table and the `approve` contrast in both themes;
+`final-actions.test.ts` checks every confirmation commit by its label; the e2e one-solid fixture
+counts `approve` as a commit and an `approve` with `data-opens` as a trigger. Specs that asserted
+`strong` on Approve or Mark done, or the red outline on Request changes, assert the plan's
+variant instead. DESIGN.md §4 holds the tables.

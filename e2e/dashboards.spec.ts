@@ -544,9 +544,11 @@ test.describe("the Owner's Today (6.2)", () => {
         );
       }
       // One solid button per layer (§14.1): none in the list.
-      await expect(needs.locator('[data-variant="strong"], [data-variant="primary"]')).toHaveCount(
-        0,
-      );
+      await expect(
+        needs.locator(
+          '[data-variant="strong"], [data-variant="primary"], [data-variant="approve"]',
+        ),
+      ).toHaveCount(0);
       // "See all N" only when the list is cut.
       const total = Number(
         (await page.locator("#today-approvals-title").innerText()).match(/· (\d+)/)?.[1],

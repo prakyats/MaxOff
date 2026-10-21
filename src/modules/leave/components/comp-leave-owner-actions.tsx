@@ -88,7 +88,13 @@ export function GrantCompLeaveButton({ memberId, name }: { memberId: string; nam
   const daysError = error?.fieldErrors?.days?.[0];
   return (
     <>
-      <Button variant="strong" size="sm" onClick={() => close(true)} data-slot="grant-comp-leave">
+      <Button
+        variant="approve"
+        opens
+        size="sm"
+        onClick={() => close(true)}
+        data-slot="grant-comp-leave"
+      >
         Grant comp leave
       </Button>
       <Dialog open={open} onOpenChange={(next) => close(next)}>
@@ -152,7 +158,7 @@ export function GrantCompLeaveButton({ memberId, name }: { memberId: string; nam
                 Cancel
               </Button>
               <Button
-                variant="primary"
+                variant="approve"
                 type="submit"
                 disabled={!days}
                 pending={pending}

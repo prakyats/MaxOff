@@ -233,9 +233,10 @@ test.describe("the task page, one step at a time (decision 26)", () => {
 
     await step(page).getByRole("button", { name: "Start work" }).click();
     await expect(step(page).getByRole("button", { name: "Mark done" })).toBeVisible();
+    // The colour plan (owner 2026-10-21): Mark done is the Forest green approve.
     await expect(step(page).getByRole("button", { name: "Mark done" })).toHaveAttribute(
       "data-variant",
-      "strong",
+      "approve",
     );
     await expect(needed).toHaveText("Mark it done when the work is finished.");
     await expect(page.locator('[data-slot="task-glance"]')).toContainText("In progress");
@@ -279,13 +280,15 @@ test.describe("the task page, one step at a time (decision 26)", () => {
       "data-slot",
       "task-hand-in",
     );
+    // The colour plan (owner 2026-10-21): Approve is the Forest green approve, Request changes a
+    // quiet outline (a second choice).
     await expect(step(page).getByRole("button", { name: "Approve" })).toHaveAttribute(
       "data-variant",
-      "strong",
+      "approve",
     );
     await expect(step(page).getByRole("button", { name: "Request changes" })).toHaveAttribute(
       "data-variant",
-      "destructive",
+      "secondary",
     );
     await expect(page.locator('[data-variant="primary"]:visible')).toHaveCount(0);
     await expect(page.locator('[data-slot="task-needed"]')).toHaveText(

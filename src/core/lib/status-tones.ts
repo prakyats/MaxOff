@@ -6,6 +6,11 @@
  * (`approved`, `cancelled`, `open`, ...). Pure (no React), so a domain function can ask for a
  * tone too; `StatusBadge` / `StatusDot` (`core/ui/composites/status-badge.tsx`) draw it.
  * `status-badge.test.ts` proves every value maps to a tone and every tone passes 4.5:1.
+ *
+ * **The approved colour plan (owner 2026-10-21, ADR-0015 amendment):** red = Overdue / Late,
+ * Cancelled, Rejected, Absent; amber = Proposed, Waiting for you, Due soon, Nearly done; blue = In
+ * progress, Open, Planned, Noted; green = Done, Approved, Present, Active; grey = Draft, Archived,
+ * Withdrawn, Replaced, Not started.
  */
 export const STATUS_TONES_LIST = [
   "success",
@@ -26,8 +31,10 @@ export const STATUS_TONES = {
   billed: "success",
   present: "success",
   active: "success",
-  // info: work in motion, nothing else
+  // info: work in motion or open for work (colour plan, owner 2026-10-21: In progress, Open,
+  // Planned, Noted are blue)
   in_progress: "info",
+  open: "info",
   submitted: "info",
   converted: "info",
   // attention: someone must act
@@ -56,7 +63,6 @@ export const STATUS_TONES = {
   corrected: "neutral",
   draft: "neutral",
   todo: "neutral",
-  open: "neutral",
   inactive: "neutral",
   withdrawn: "neutral",
   superseded: "neutral",

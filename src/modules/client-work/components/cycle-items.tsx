@@ -345,6 +345,7 @@ export function CycleItems({
           title={`Mark ${itemCount(openSelected.length)} done?`}
           description="Each counts as done at once and its stages lock; a done item is sent back or reopened with a reason. Each is its own change: one that fails keeps its message."
           confirmLabel={`Mark ${itemCount(openSelected.length)} done`}
+          approve
           onConfirm={() =>
             bulk(
               "bulk-done",

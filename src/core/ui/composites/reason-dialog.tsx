@@ -47,6 +47,7 @@ export function ReasonDialog({
   pendingLabel,
   cancelLabel = "Cancel",
   destructive = false,
+  approve = false,
   onSubmit,
 }: {
   open: boolean;
@@ -69,6 +70,8 @@ export function ReasonDialog({
    * and no hint offers it.
    */
   destructive?: boolean;
+  /** A positive final decision: its button is the Forest green `approve` (ADR-0015 amendment). */
+  approve?: boolean;
   /** Resolve `false` to keep the dialog open with the reason (the save failed). */
   onSubmit: (reason: string) => void | boolean | Promise<void | boolean>;
 }) {
@@ -157,7 +160,7 @@ export function ReasonDialog({
             </Button>
             <Button
               type="submit"
-              variant={destructive ? "danger" : "primary"}
+              variant={destructive ? "danger" : approve ? "approve" : "primary"}
               destructive={destructive}
               pending={pending}
               pendingLabel={pendingLabel ?? workingLabel(submitLabel)}
