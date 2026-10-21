@@ -6,7 +6,7 @@ import { Skeleton } from "@/core/ui/primitives/skeleton";
  * phone the header row (the arrows, the month's name, Today, Filters), the compact month (the
  * opening size: the weekday letters and `weeks` rows of 44px day boxes), the handle and the day's
  * heading; from `md` up the Day · Week · Month control and the pager, then the month (the opening
- * view) with its boxes and, from `lg` up, the selected day's panel beside it. The same boxes and gaps as `CalendarScreen` and `MonthGrid`, so nothing
+ * view) with its boxes. The same boxes and gaps as `CalendarScreen` and `MonthGrid`, so nothing
  * moves when the calendar arrives. A server component: no client code on the loading screen.
  */
 export function CalendarSkeleton({ weeks }: { weeks: number }) {
@@ -15,7 +15,8 @@ export function CalendarSkeleton({ weeks }: { weeks: number }) {
       <ol className="grid grid-cols-7 gap-0.5">
         {Array.from({ length: 7 }, (_, index) => (
           <li key={index} className="flex h-4 items-center justify-center">
-            <Skeleton className="h-2.5 w-2.5" />
+            {/* The weekdays: single letters on a phone, "Mon Tue …" on a laptop (PP-calendar-6). */}
+            <Skeleton className={cn("h-2.5", density === "laptop" ? "w-6" : "w-2.5")} />
           </li>
         ))}
       </ol>
@@ -93,25 +94,7 @@ export function CalendarSkeleton({ weeks }: { weeks: number }) {
             <Skeleton className="h-4 w-48" />
           </span>
         </div>
-        {/* The month and, from `lg` up, the selected day's panel beside it (L7, V5a). */}
-        <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
-          {grid("laptop")}
-          <div className="border-border bg-card hidden min-w-0 flex-col self-start rounded-lg border lg:flex">
-            <span className="box-content flex h-6 items-center px-4 pt-4 pb-3">
-              <Skeleton className="h-4 w-40" />
-            </span>
-            <span className="flex flex-col gap-2 px-4 pb-4">
-              {["w-48", "w-40", "w-32"].map((width) => (
-                <span key={width} className="flex h-5 items-center">
-                  <Skeleton className={cn("h-3.5", width)} />
-                </span>
-              ))}
-            </span>
-            <span className="border-border flex justify-end gap-2 border-t px-4 py-3">
-              <Skeleton className="h-8 w-24 rounded-lg" />
-            </span>
-          </div>
-        </div>
+        {grid("laptop")}
       </div>
     </div>
   );

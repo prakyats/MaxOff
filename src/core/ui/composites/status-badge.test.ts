@@ -201,6 +201,11 @@ describe("badge contrast (globals.css)", () => {
       }
     });
 
+    it(`${theme}: the calendar's leave tone reads on its soft bar (PP-calendar-3)`, () => {
+      const ratio = contrast(tokens["leave"] as string, tokens["leave-soft"] as string);
+      expect(ratio, `${theme} leave = ${ratio.toFixed(2)}`).toBeGreaterThanOrEqual(4.5);
+    });
+
     it(`${theme}: body and muted text read on the page and on surfaces`, () => {
       for (const surface of ["background", "card"]) {
         const bg = tokens[surface] as string;

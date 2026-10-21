@@ -672,10 +672,10 @@ export const CREW_GUIDE: Guide = {
               kind: "steps",
               steps: [
                 {
-                  text: "Open Calendar. Today is highlighted.",
+                  text: "Open Calendar. Today’s date is a red circle.",
                   shot: "staff/calendar",
                 },
-                'Read it: your own event tasks and your freelancers\' tasks, due tasks as "Due · N", your own leave, holidays and weekly offs.',
+                "Read it: your own event tasks (name, then time) and your freelancers' tasks, each due task by name (amber, red when overdue), your own leave in violet, holidays and weekly offs (grey). Done things are dimmed with a ✓.",
                 'Use the "Type" filter to show fewer things.',
                 'Open a day and tap "Suggest a task". The day is filled in for you.',
               ],
@@ -703,7 +703,7 @@ export const CREW_GUIDE: Guide = {
                 "On a phone, swipe, or tap the handle, to change size.",
                 'The day you choose shows a timeline. The header has "Today" and "Filters".',
                 'On a laptop, choose "Day", "Week" or "Month". It opens on Month.',
-                'On a laptop the day you tap sits beside the month, with "Open day".',
+                'The day popup has "Open day".',
               ],
             },
             {

@@ -24,6 +24,7 @@ import {
   VISIBLE_FROM_HOUR,
   VISIBLE_TO_HOUR,
 } from "../domain/timeline";
+import { DoneTick } from "./calendar-chip";
 
 /**
  * The hour timeline (6.4b; Kickoff 6 decision 25 E): one column (the phone's day detail, the
@@ -82,7 +83,8 @@ function BlockDetails({ hovered }: { hovered: Hovered }) {
           className="mt-1 size-2.5 shrink-0 rounded-full"
           style={{ backgroundColor: event.color }}
         />
-        <span className={cn("min-w-0 break-words", event.completed && "line-through")}>
+        <span className="min-w-0 break-words">
+          {event.completed ? <DoneTick className="mr-1" /> : null}
           {event.title}
         </span>
       </span>
@@ -338,13 +340,8 @@ export function Timeline({
                       {eventLink(
                         event,
                         <>
-                          <span
-                            className={cn(
-                              "block font-medium",
-                              laptop && "truncate",
-                              event.completed && "line-through",
-                            )}
-                          >
+                          <span className={cn("block font-medium", laptop && "truncate")}>
+                            {event.completed ? <DoneTick className="mr-0.5" /> : null}
                             {event.title}
                           </span>
                           {client ? (

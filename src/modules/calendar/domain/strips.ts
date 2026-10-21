@@ -8,14 +8,15 @@ import { dueCount, type CalendarDay, type EventItem } from "./calendar";
  * `MAX_STRIPS` lines, then "+N" for the rest, in this priority:
  * 1. the events: shoots, site visits and meetings (the task type's colour, the title), in the
  *    Owner's order of the types;
- * 2. the tasks: one compact count, red for a past day's open tasks (overdue), else amber "3 due";
+ * 2. what is due, each a named chip (PP-calendar-5, V5b: "Test 4", not "1 due"): red for a past
+ *    day's open tasks and deliverables (overdue), else amber, its type's colour on the edge;
  * 3. the holiday: a thin green strip with its name (cut for space, the date number turns green);
  * 4. others' events, an Admin's view (grey, dotted, "Ravi busy", decision 13);
- * 5. leave, last and at most one line a day: a thin low-contrast bar along the bottom of the box,
- *    continuous across consecutive leave days of a week row, with the first name ("Asha") for one
- *    person and "2 off" for several. It is the first thing cut when the box is full, and "+N"
- *    counts it. Who, which type and a half day are in the day's detail only.
- * Strips are never red (the overdue count is a count, not a strip). On a phone's compact month
+ * 5. leave, last and at most one line a day: a bar in the leave tone along the bottom of the box,
+ *    continuous across consecutive leave days of a week row, "Asha · On leave" for one person and
+ *    "2 on leave" for several (PP-calendar-3, V5b). It is the first thing cut when the box is full,
+ *    and "+N" counts it. Who, which type and a half day are in the day's detail only.
+ * Only an overdue chip is red. On a phone's compact month
  * each kind present is one thin bar with no text (`compactBars`). Every label is one line,
  * ellipsised by the view. Pure (ADR-0011): the views draw what this says.
  */
@@ -31,26 +32,27 @@ export type Strip =
       key: string;
       /** The title, on a phone. */
       label: string;
-      /** "10:00 am Brand reel · Client" on a laptop (decision 25 C 2). */
+      /** "Brand reel · 10:00 am · Client" on a laptop (decision 25 C 2; title first, PP-calendar-2). */
       long: string;
       color: string;
       completed: boolean;
       taskId: string;
     }
   | {
-      kind: "tasks";
+      kind: "due";
       key: string;
-      tone: "due" | "overdue";
-      count: number;
+      /** The task's or the deliverable's title. */
       label: string;
-      name: string | null;
+      tone: "due" | "overdue";
+      /** The task type's colour; null for a deliverable (no type: the tone's colour). */
+      color: string | null;
     }
   | { kind: "holiday"; key: string; label: string }
   | { kind: "busy"; key: string; label: string }
   | {
       kind: "leave";
       key: string;
-      /** "Asha" or "2 off": the bar's text. */
+      /** "Asha · On leave" or "2 on leave": the bar's text. */
       label: string;
       /** "Asha off", "Asha off, half day", "2 off": what a screen reader hears. */
       spoken: string;
@@ -77,11 +79,14 @@ function eventOrder(a: EventItem, b: EventItem): number {
   return a.title.localeCompare(b.title);
 }
 
-/** "10:00 am Brand reel · Client", or "Brand reel" for an all-day event with no client. */
+/**
+ * "Brand reel · 10:00 am · Client", or "Brand reel" for an all-day event with no client: the title
+ * first, never the time alone (PP-calendar-2, V5b).
+ */
 export function eventStripText(event: EventItem): string {
-  const time = event.startAt ? `${formatTime(event.startAt)} ` : "";
+  const time = event.startAt ? ` · ${formatTime(event.startAt)}` : "";
   const client = event.clientName ? ` · ${event.clientName}` : "";
-  return `${time}${event.title}${client}`;
+  return `${event.title}${time}${client}`;
 }
 
 /** The first word of a name: "Ravi" for "Ravi Kumar" (strips are narrow). */
@@ -93,32 +98,23 @@ export type DueBadge = {
   tone: "due" | "overdue";
   count: number;
   label: string;
-  /**
-   * L7 (v1.8 V4): the one task's or deliverable's title when only one is due, so a laptop's
-   * month cell names it ("Overdue · Reel 2 edit"); null for several.
-   */
-  name: string | null;
 };
 
 /**
- * The tasks' count: the open tasks due that day, "3 due" in amber; on a past day they are overdue,
- * "1 overdue" in red. Nothing when none is due.
+ * The count of what is due that day (the open tasks and deliverables), "3 due"; on a past day they
+ * are overdue, "1 overdue". The phone's compact dot and what a day's box says to a screen reader;
+ * the boxes themselves name each one. Nothing when none is due.
  */
 export function dueBadge(day: CalendarDay, today: ISODate): DueBadge | null {
-  // Client items join the count (kickoff 7 decision 21: no strip of their own).
+  // Client items join the count (kickoff 7 decision 21).
   const count = dueCount(day);
   if (count === 0) return null;
-  const open = [
-    ...day.due.map((due) => due.title),
-    ...day.items.filter((i) => !i.done).map((i) => i.title),
-  ];
-  const name = count === 1 ? (open[0] ?? null) : null;
   return day.date < today
-    ? { tone: "overdue", count, label: `${count} overdue`, name }
-    : { tone: "due", count, label: `${count} due`, name };
+    ? { tone: "overdue", count, label: `${count} overdue` }
+    : { tone: "due", count, label: `${count} due` };
 }
 
-/** The day's leave as one line: the first name for one person, "N off" for several. */
+/** The day's leave as one line: "Asha · On leave" for one person, "N on leave" for several. */
 export function leaveLine(day: CalendarDay): Extract<Strip, { kind: "leave" }> | null {
   const off = new Map<string, (typeof day.leave)[number]>();
   for (const item of day.leave) if (!off.has(item.memberId)) off.set(item.memberId, item);
@@ -130,7 +126,7 @@ export function leaveLine(day: CalendarDay): Extract<Strip, { kind: "leave" }> |
     return {
       kind: "leave",
       key: "leave",
-      label: who,
+      label: `${who} · On leave`,
       spoken: only.half ? `${who} off, half day` : `${who} off`,
       pending: only.pending,
     };
@@ -138,7 +134,7 @@ export function leaveLine(day: CalendarDay): Extract<Strip, { kind: "leave" }> |
   return {
     kind: "leave",
     key: "leave",
-    label: `${people.length} off`,
+    label: `${people.length} on leave`,
     spoken: `${people.length} off`,
     pending: people.every((item) => item.pending),
   };
@@ -158,8 +154,14 @@ export function allStrips(day: CalendarDay, today: ISODate): Strip[] {
       taskId: event.id,
     });
   }
-  const badge = dueBadge(day, today);
-  if (badge) strips.push({ kind: "tasks", key: "tasks", ...badge });
+  const tone = day.date < today ? "overdue" : "due";
+  for (const due of day.due) {
+    strips.push({ kind: "due", key: `due-${due.id}`, label: due.title, tone, color: due.color });
+  }
+  for (const item of day.items) {
+    if (item.done) continue;
+    strips.push({ kind: "due", key: `item-${item.id}`, label: item.title, tone, color: null });
+  }
   if (day.holiday) strips.push({ kind: "holiday", key: "holiday", label: day.holiday });
   const busy = new Map<string, string>();
   for (const block of day.busy) busy.set(block.memberId, block.name);
@@ -204,8 +206,14 @@ export function dayLabel(day: CalendarDay, today: ISODate): string {
   const parts = [formatIST(istDayStart(day.date), "EEEE d MMMM")];
   if (day.date === today) parts.push("today");
   if (day.weeklyOff) parts.push("weekly off");
+  // What is due is said once, as the count ("2 due"; the day's dialog names them).
+  const badge = dueBadge(day, today);
+  let dueSaid = false;
   for (const strip of allStrips(day, today)) {
-    if (strip.kind === "leave")
+    if (strip.kind === "due") {
+      if (!dueSaid && badge) parts.push(badge.label);
+      dueSaid = true;
+    } else if (strip.kind === "leave")
       parts.push(strip.pending ? `${strip.spoken}, requested` : strip.spoken);
     else parts.push(strip.label);
   }
