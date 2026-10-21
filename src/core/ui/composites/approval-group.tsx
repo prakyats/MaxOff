@@ -298,6 +298,17 @@ export function ApprovalGroup<T>({
                   {row.marker}
                 </div>
                 <span className="text-muted-foreground truncate text-sm">{row.subtitle}</span>
+                {/* The same context as Today's compact row and the Review panel (B4, V3): how
+                    long it has waited, amber from a day, red from three. */}
+                {row.waiting && !isHeld ? (
+                  <span
+                    data-slot="approval-waiting"
+                    data-tone={row.waiting.tone}
+                    className={cn("text-xs break-words", WAITING_TONE[row.waiting.tone])}
+                  >
+                    {row.waiting.label}
+                  </span>
+                ) : null}
                 {error ? (
                   <span
                     data-slot="approval-error"

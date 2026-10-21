@@ -6,10 +6,11 @@ import { ROLE_LABELS } from "@/core/lib/role-labels";
 import { startEarly } from "@/core/lib/start-early";
 import { can } from "@/core/permissions";
 import { requirePermission } from "@/core/permissions/server";
-import { todayIST } from "@/core/time";
+import { systemClock, todayIST } from "@/core/time";
 import { EmptyState } from "@/core/ui/composites/empty-state";
 import { PageHeader } from "@/core/ui/composites/page-header";
 import { listPendingDays, listPendingNotes } from "@/modules/attendance";
+import { reachedAt, waitingFor, type Waiting } from "@/modules/dashboards";
 import { PendingDaysGroup } from "@/modules/attendance/components/pending-days-group";
 import { PendingNotesGroup } from "@/modules/attendance/components/pending-notes-group";
 import { listPendingRequests } from "@/modules/leave";
@@ -76,6 +77,20 @@ export default async function ApprovalsPage() {
     requests: decidesAttendance ? requests : [],
     notes: decidesAttendance ? notes : [],
   };
+  // How long each has waited for its decision (B4 context, V3): the same words as Today's rows.
+  const now = systemClock();
+  const waited = (since: string | null): Waiting | null => (since ? waitingFor(since, now) : null);
+  const waiting = {
+    days: waitingMap(own.days, (day) => waited(day.submittedAt ?? day.updatedAt)),
+    requests: waitingMap(own.requests, (request) => waited(request.createdAt)),
+    notes: waitingMap(own.notes, (note) => waited(note.createdAt)),
+    claims: waitingMap(claims, (claim) => waited(claim.createdAt)),
+    tasks: waitingMap(
+      toDecide.map((item) => ({ ...item, id: item.row.id })),
+      (item) =>
+        waited(reachedAt(item.submission?.at ?? item.row.submittedAt, item.adminApprovedAt)),
+    ),
+  };
   const nothing =
     own.days.length === 0 &&
     own.requests.length === 0 &&
@@ -101,18 +116,32 @@ export default async function ApprovalsPage() {
         <div className="flex flex-col gap-6">
           {decidesAttendance ? (
             <>
-              <PendingDaysGroup days={own.days} today={todayIST()} />
-              <PendingLeaveGroup requests={own.requests} />
-              <PendingNotesGroup notes={own.notes} />
+              <PendingDaysGroup days={own.days} today={todayIST()} waiting={waiting.days} />
+              <PendingLeaveGroup requests={own.requests} waiting={waiting.requests} />
+              <PendingNotesGroup notes={own.notes} waiting={waiting.notes} />
             </>
           ) : null}
-          {decidesExpenses ? <PendingClaimsGroup claims={claims} /> : null}
+          {decidesExpenses ? <PendingClaimsGroup claims={claims} waiting={waiting.claims} /> : null}
           <TaskApprovalGroup
             tasks={tasks}
+            waiting={waiting.tasks}
             heading={viewer.role === "owner" ? `${ROLE_LABELS.staff} tasks` : "Tasks to check"}
           />
         </div>
       )}
     </>
   );
+}
+
+/** Each item's waiting words, by its id (the rows read them on the client). */
+function waitingMap<T extends { id: string }>(
+  items: readonly T[],
+  words: (item: T) => Waiting | null,
+): Record<string, Waiting> {
+  const map: Record<string, Waiting> = {};
+  for (const item of items) {
+    const value = words(item);
+    if (value) map[item.id] = value;
+  }
+  return map;
 }

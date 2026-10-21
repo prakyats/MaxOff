@@ -70,6 +70,8 @@ export function ApprovalGroupSkeleton({
             <div className="flex min-w-0 flex-1 flex-col gap-1.5">
               <Skeleton className="h-4 w-1/2" />
               <Skeleton className="h-3.5 w-1/3" />
+              {/* How long it has waited (B4 context, V3). */}
+              <Skeleton className="h-3 w-20" />
             </div>
             <div className="flex shrink-0 gap-2 *:flex-1 md:*:flex-none">
               <Skeleton className="h-11 rounded-md md:h-8 md:w-20" />

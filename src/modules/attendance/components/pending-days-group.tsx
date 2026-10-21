@@ -84,7 +84,12 @@ export function PendingDaysGroup({
           id: day.id,
           title: day.memberName,
           // A compact row's first meta line: what was chosen and when, never cut short.
-          subtitle: preview ? pendingDetail(day, today) : pendingSubtitle(day, today),
+          // Approvals' row carries the panel's context too (B4, V3): the person's note.
+          subtitle: preview
+            ? pendingDetail(day, today)
+            : day.note
+              ? `${pendingSubtitle(day, today)} · “${day.note}”`
+              : pendingSubtitle(day, today),
           status: "pending_review",
           statusLabel: pendingLabel(day),
           approvedLabel: approvedLabel(day),
