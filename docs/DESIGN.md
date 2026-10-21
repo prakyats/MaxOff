@@ -207,6 +207,19 @@ No `rounded-xs`, `rounded-2xl` and above, no `rounded-[…]` (lint).
   automatic), and two or more stages typed as numbered rounds add the tip to use "+ Another revision
   round" (E). **N5:** a row's action is "Next: ‹stage›" until every stage is ticked, then a neutral
   Mark done (Admin Today's Client work; the project page keeps Mark done in ⋯ until ready).
+- **The project page matches the approved sample (owner 2026-10-21, V4; supersedes the rows above
+  where they differ; the ring stays as built).** On a laptop the deliverables are a **table**: a
+  header row (Deliverable · Progress by group · Next · Planned), then one row each: the name over
+  "3 groups · 1 of 9 stages"; **one line per group** (its name, a segmented bar, a segment a stage,
+  ticked green, and "n/m"; an untitled short list is one "Stages" line; the single continuous bar
+  only for one long ungrouped list, fix C); the next stage as a **chip** in its own column, or, once
+  every stage is ticked, **Mark done** there (the first ready row's in **Forest green**, the
+  `approve` Button variant, token `--approve` #15803D, still one solid per layer; V5 extends it to
+  Approve, Approve all and Grant comp leave); the planned date in its own column ("15 Oct · 1 day
+  late" in red, "Not planned" muted); then ⋯ and ›. A phone keeps its cards with the same lines per
+  group. **Needs you** beside the ring only when something is late or nearly done: nothing at all
+  otherwise. **Details** is a full-width field grid (Repeats, Delivery date, Notes; then the
+  project fields), a cell each, its small label over its value.
 - **Long names (F) everywhere:** left-aligned, two lines at most, then an ellipsis; never centred in a
   chip.
 

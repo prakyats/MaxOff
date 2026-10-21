@@ -731,7 +731,8 @@ export function DeliverableRow({
           <RowMenu
             title={item.title}
             disabled={waiting}
-            className={OVER_ROW}
+            // A phone card with Mark done on it keeps one action beside the title (375 px).
+            className={cn(OVER_ROW, place === "row" && "max-lg:hidden")}
             onOpen={onOpen}
             onMarkDone={onMarkDone}
           />

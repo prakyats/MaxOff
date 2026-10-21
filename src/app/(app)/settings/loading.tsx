@@ -67,34 +67,38 @@ export default async function Loading() {
               </h2>
               <ul className={GROUP_LIST_CLASS}>
                 {group.sections.map((section) => (
-                  <li key={section.key} className={SECTION_ROW_CLASS}>
-                    {/* The row's own words, unseen, each a bar: the same lines as the page's at
+                  <li key={section.key}>
+                    {/* The row inside the list item, as the page's link is: the item's divider
+                        sits above the 64px row, not inside it. */}
+                    <div className={SECTION_ROW_CLASS}>
+                      {/* The row's own words, unseen, each a bar: the same lines as the page's at
                         every width and text size. */}
-                    <span className="flex min-w-0 flex-1 flex-col">
-                      {section.ready ? (
-                        <span className={SECTION_LABEL_CLASS}>
-                          <Unseen>{section.label}</Unseen>
-                        </span>
-                      ) : (
-                        <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                          <span className="flex-[1_1_8rem] text-sm leading-5 font-medium">
+                      <span className="flex min-w-0 flex-1 flex-col">
+                        {section.ready ? (
+                          <span className={SECTION_LABEL_CLASS}>
                             <Unseen>{section.label}</Unseen>
                           </span>
-                          <Badge variant="outline" className="shrink-0 font-normal">
-                            <Unseen>Coming soon</Unseen>
-                          </Badge>
+                        ) : (
+                          <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <span className="flex-[1_1_8rem] text-sm leading-5 font-medium">
+                              <Unseen>{section.label}</Unseen>
+                            </span>
+                            <Badge variant="outline" className="shrink-0 font-normal">
+                              <Unseen>Coming soon</Unseen>
+                            </Badge>
+                          </span>
+                        )}
+                        <span className={SECTION_LINE_CLASS}>
+                          <Unseen>{section.description}</Unseen>
                         </span>
-                      )}
-                      <span className={SECTION_LINE_CLASS}>
-                        <Unseen>{section.description}</Unseen>
                       </span>
-                    </span>
-                    {section.ready ? (
-                      <ChevronRightIcon
-                        className="text-muted-foreground size-4 shrink-0"
-                        aria-hidden
-                      />
-                    ) : null}
+                      {section.ready ? (
+                        <ChevronRightIcon
+                          className="text-muted-foreground size-4 shrink-0"
+                          aria-hidden
+                        />
+                      ) : null}
+                    </div>
                   </li>
                 ))}
               </ul>

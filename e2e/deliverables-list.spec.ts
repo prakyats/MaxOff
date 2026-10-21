@@ -223,8 +223,11 @@ test("a collapsed row: one bar and n/m, its checklist opening in place by group,
   await expect(markDone(page, "Grouped")).toHaveCount(0);
   await expect(markDone(page, "Fresh")).toHaveCount(0);
   await expect(more(page, "Grouped")).toBeVisible();
-  // The approved sample: ⋯ on every row, a ready one's too (Open, Mark done).
-  await expect(more(page, "Ready A")).toBeVisible();
+  // The approved sample: ⋯ on every laptop row, a ready one's too; a phone card with Mark done
+  // keeps that one action beside its title.
+  if ((page.viewportSize()?.width ?? 1280) >= 1024)
+    await expect(more(page, "Ready A")).toBeVisible();
+  else await expect(more(page, "Ready A")).toBeHidden();
   await expect(markDone(page, "Ready A")).toHaveAttribute("data-look", "solid");
   // The first ready row's Mark done is the Forest green approve commit (owner 2026-10-21).
   await expect(markDone(page, "Ready A")).toHaveAttribute("data-variant", "approve");
@@ -548,8 +551,9 @@ test("a checklist line ticks in one tap with Undo; Next ticks its stage; Mark do
   await expect(page.getByText("Ticked Stage 1 on Fresh", { exact: true })).toBeVisible();
   await expect.poll(() => stageDone("Fresh", projectId, "Stage 1")).toBe(true);
   await expect(markDone(page, "Fresh")).toHaveAttribute("data-look", "ready");
-  // ⋯ stays on every row (the approved sample).
-  await expect(more(page, "Fresh")).toBeVisible();
+  // ⋯ stays on every laptop row (the approved sample); a phone card shows Mark done alone.
+  if ((page.viewportSize()?.width ?? 1280) >= 1024) await expect(more(page, "Fresh")).toBeVisible();
+  else await expect(more(page, "Fresh")).toBeHidden();
   await expect(page.locator('[data-variant="approve"]:visible')).toHaveCount(1);
 
   // A done deliverable's checklist only reads.
