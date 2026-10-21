@@ -23,6 +23,7 @@ import {
   storageStateFor,
   taskTypeId,
   USERS,
+  openMoreOptions,
 } from "./helpers";
 
 /**
@@ -171,6 +172,7 @@ test.describe("task types and per-type fields, the flows", () => {
     await page.goto("/tasks");
     await page.getByRole("button", { name: "New task" }).click();
     const dialog = page.locator('[data-slot="task-form-dialog"]');
+    await openMoreOptions(dialog);
     await dialog.getByLabel("Type").click();
     await expect(page.getByRole("option", { name: "Normal", exact: true })).toBeVisible();
     await expect(page.getByRole("option", { name: `${name} visit` })).toHaveCount(0);
@@ -206,8 +208,10 @@ test.describe("task types and per-type fields, the flows", () => {
       const dialog = page.locator('[data-slot="task-form-dialog"]');
       await expect(dialog.getByLabel("Title")).toBeVisible();
       await expect(dialog.getByLabel(label)).toHaveCount(0);
+      await openMoreOptions(dialog);
       await pick(page, dialog.getByLabel("Type"), "Meeting");
       await expect(dialog.getByLabel(label)).toBeVisible();
+      await openMoreOptions(dialog);
       await pick(page, dialog.getByLabel("Type"), "Normal");
       await expect(dialog.getByLabel(label)).toHaveCount(0);
     } finally {
@@ -252,7 +256,9 @@ test.describe("task types and per-type fields, the flows", () => {
       await page.goto("/tasks");
       await page.getByRole("button", { name: "New task" }).click();
       const dialog = page.locator('[data-slot="task-form-dialog"]');
+      await openMoreOptions(dialog);
       await pick(page, dialog.getByLabel("Type"), name);
+      await openMoreOptions(dialog);
       await expect(dialog.locator('[data-slot="reminder-summary"]')).toHaveText(
         "Reminders: 5 days before, when due · Using the default",
       );
@@ -633,9 +639,11 @@ test.describe("drag to reorder stages before saving (6b.18)", () => {
     const form = page.getByRole("dialog", { name: "New task" });
     await expect(form).toBeVisible();
     for (const stage of ["Stage 1", "Stage 2"]) {
+      await openMoreOptions(form);
       await form.getByRole("button", { name: "Add stage" }).click();
       await form.getByLabel(`Stage ${stage.slice(-1)}`, { exact: true }).fill(stage);
     }
+    await openMoreOptions(form);
     const rows = form.locator('[data-slot="task-stage-field"]');
     await dragRow(page, rows.nth(1), rows.nth(0), 0.2);
     await expect.poll(() => stageValues(rows)).toEqual(["Stage 2", "Stage 1"]);

@@ -319,16 +319,13 @@ export const OWNER_GUIDE: Guide = {
           blocks: [
             steps(
               'Tap "New task" (the round button on a phone).',
-              '"Start from" appears only if task templates exist. Pick one, or "No template".',
-              'Fill in "Title" and "Type". An event type also asks for the event date, optional start and end times, a location if the type has one, and the purpose.',
-              'Choose "Priority": Low, Medium, High or Urgent.',
-              'In "Assign to", tap "Add a person" for each. Pick one as the primary owner. You can assign yourself too.',
-              '"Deadline" and "Time (IST)" are required. "Reminders" use the default unless you change them.',
+              'Fill in "Title". In "Assign to", tap "Add a person" for each and pick one as the primary owner. You can assign yourself too.',
+              '"Deadline" and "Time (IST)" are required. That is enough: tap "Create task".',
+              'For the rest, tap "More options": "Start from" (if task templates exist), "Type" (the first one by default; an event type asks for the event date and opens this by itself), "Priority" (Medium by default), "Reminders" (the default unless you change them).',
               {
-                text: 'Choose "Client label" or "No client", and "Checked first by" (highlighted): "Nobody: you approve it" or an Admin.',
+                text: 'Also under More options: "Client label" or "No client", "Checked first by" (highlighted): "Nobody: you approve it" or an Admin, a "Description", optional "Stages" and any custom fields.',
                 shot: "owner/new-task",
               },
-              'Add a "Description", optional "Stages", and any custom fields. Then tap "Create task".',
             ),
             next('Each person you assigned taps "Task Noted" to say they have seen it.'),
             note(
@@ -875,13 +872,13 @@ export const OWNER_GUIDE: Guide = {
         {
           id: "owner-start-from-template",
           title: "Start a project from a template",
-          summary: "Search and preview templates before you use one.",
+          summary: "Browse and preview templates before you use one.",
           blocks: [
             text(
               'The library lists templates with a summary like "Monthly · 6 deliverables · 72 stages".',
             ),
             steps(
-              'In New project, tap "Search and preview templates". "Start from a template" opens: "Preview one to see what it gives, then Use this template."',
+              'In New project, tap "Browse templates". "Start from a template" opens: "Preview one to see what it gives, then Use this template."',
               'Type in "Search templates": a template\'s name or one of its deliverables.',
               {
                 text: "Tap Preview (highlighted) on a row to see what a project started from it gets.",

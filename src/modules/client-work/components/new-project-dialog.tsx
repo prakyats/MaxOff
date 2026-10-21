@@ -1,5 +1,6 @@
 "use client";
 
+import { LibraryIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
@@ -107,7 +108,7 @@ function templateShape(template: TemplateOption): {
  * success the new project's page is pushed and the dialog's entries backed out (§14.2 b, e).
  * Back closes it, and asks "Discard this project?" first when something was typed or picked
  * (§14.2 f); back on that keeps editing. The draft lives here, outside the `Dialog`. **6b
- * Release 2:** "Search and preview templates" opens the template library (6b.16 (f)): a search
+ * Release 2:** "Browse templates" (L9: a real button) opens the template library (6b.16 (f)): a search
  * over the names and deliverables, and a Preview layer whose "Use this template" fills the form
  * as "Start from" does.
  */
@@ -306,12 +307,13 @@ export function NewProjectDialog({
                 {templates.length > 0 ? (
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="secondary"
                     className="self-start"
                     data-slot="browse-templates"
                     onClick={() => setLibrary(true)}
                   >
-                    Search and preview templates
+                    <LibraryIcon aria-hidden />
+                    Browse templates
                   </Button>
                 ) : null}
                 <FormField label="Project name" error={fieldErrors.name}>
@@ -375,10 +377,10 @@ export function NewProjectDialog({
                     Default stage groups
                   </h3>
                   <p className="text-muted-foreground text-xs">
-                    Optional. A deliverable without its own stages starts with these. At most{" "}
-                    {STAGES_MAX} stages.
+                    Optional: deliverables without their own stages start with these.
                   </p>
                   <StageGroupsEditor
+                    hints={false}
                     value={groups}
                     onChange={setGroups}
                     presets={presets}
@@ -396,10 +398,11 @@ export function NewProjectDialog({
                   </h3>
                   <p className="text-muted-foreground text-xs">
                     {oneTime
-                      ? `The pieces of work to deliver, at most ${ITEMS_MAX}.`
-                      : `Each new cycle starts with these; rename them for the period. At most ${ITEMS_MAX}.`}
+                      ? "What you will deliver: a name, how many, and their stages."
+                      : "Each new period starts with these: a name, how many, and their stages."}
                   </p>
                   <DeliverablesEditor
+                    hints={false}
                     value={deliverables}
                     onChange={setDeliverables}
                     presets={presets}

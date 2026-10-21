@@ -323,7 +323,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "The New task form asks for Start from (only if task templates exist), Title, Type, Priority, Assign to, Deadline and Time (IST), Reminders, Client label, Description, Stages and any custom fields.",
+              text: "New task asks for the Title, Assign to, and the Deadline and Time (IST) first. Everything else is under More options: Start from (only if task templates exist), Type (the first by default; an event type opens More options by itself), Priority (Medium by default), Reminders, Client label, Description, Stages and any custom fields.",
             },
             {
               kind: "steps",
@@ -588,7 +588,7 @@ export const ADMIN_GUIDE: Guide = {
               steps: [
                 "Open Settings, then Templates, and add a task template.",
                 "Later, tap New task.",
-                "Pick it under Start from.",
+                "Tap More options and pick it under Start from.",
                 "Adjust the form and tap Create task.",
               ],
             },
@@ -881,13 +881,13 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Start from fills the repeat, the default stage groups, the deliverables, and the description and custom fields if they are empty. Search and preview templates opens “Start from a template”: “Preview one to see what it gives, then Use this template.” Search by template name or deliverable title.",
+              text: "Start from fills the repeat, the default stage groups, the deliverables, and the description and custom fields if they are empty. Browse templates opens “Start from a template”: “Preview one to see what it gives, then Use this template.” Search by template name or deliverable title.",
             },
             {
               kind: "steps",
               steps: [
                 {
-                  text: 'In New project, tap "Search and preview templates" (highlighted).',
+                  text: 'In New project, tap "Browse templates" (highlighted).',
                   shot: "admin/templates",
                 },
                 "Type a name or deliverable in the search box.",

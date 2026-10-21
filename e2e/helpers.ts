@@ -1176,3 +1176,16 @@ export async function openThresholdGroups(page: Page, ...titles: string[]): Prom
     await expect(group).toHaveAttribute("open", "");
   }
 }
+
+/**
+ * L9 (v1.8 V4): New task keeps its other fields under "More options" (a native `<details>`).
+ * Opens it when the form has one and it is closed; a no-op on Edit (every field shown).
+ */
+export async function openMoreOptions(scope: Page | Locator): Promise<void> {
+  const form = scope.locator('[data-slot="task-form"]:visible').first();
+  await expect(form).toBeVisible();
+  const more = form.locator('[data-slot="task-more-options"]');
+  if ((await more.count()) === 0) return;
+  if ((await more.getAttribute("open")) === null) await more.locator("summary").click();
+  await expect(more).toHaveAttribute("open", "");
+}

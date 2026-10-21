@@ -19,6 +19,7 @@ import {
   serviceSelect,
   signIn,
   USERS,
+  openMoreOptions,
 } from "./helpers";
 
 /**
@@ -197,10 +198,12 @@ test.describe("task requests and templates, the flows", () => {
     const form = page.locator('[data-slot="task-form-dialog"]');
     await expect(form.getByRole("heading", { name: "Make it a task" })).toBeVisible();
     await expect(form.getByLabel("Title")).toHaveValue(title);
+    await openMoreOptions(form);
     await expect(form.getByLabel("Description")).toHaveValue(
       "The brief: https://example.com/brief",
     );
     // No client on the suggestion: nobody checks it first.
+    await openMoreOptions(form);
     await expect(form.getByLabel("Checked first by")).toContainText("Nobody");
     await pick(page, form.getByLabel("Add a person"), new RegExp(`^${escape(staff.name)}`));
     await form.getByLabel("Deadline").fill(workingDay(24));
@@ -251,8 +254,10 @@ test.describe("task requests and templates, the flows", () => {
       await requestRow(page, title).getByRole("button", { name: "Make it a task" }).click();
       const form = page.locator('[data-slot="task-form-dialog"]');
       await expect(form.getByLabel("Title")).toHaveValue(title);
+      await openMoreOptions(form);
       await expect(form.getByLabel("Client label")).toContainText(clientOf(info));
       // Kickoff 4 decision 3: the label pre-selects its Admin, as picking it does.
+      await openMoreOptions(form);
       await expect(form.getByLabel("Checked first by")).toContainText(admin.name);
       await pick(page, form.getByLabel("Add a person"), new RegExp(`^${escape(staff.name)}`));
       await form.getByLabel("Deadline").fill(workingDay(26));
@@ -354,19 +359,25 @@ test.describe("task requests and templates, the flows", () => {
     await page.goto("/tasks");
     await page.locator('[data-slot="new-task"]:visible').click();
     const form = page.locator('[data-slot="task-form-dialog"]');
+    await openMoreOptions(form);
     await pick(page, form.getByLabel("Start from"), name);
+    await openMoreOptions(form);
     await expect(form.getByLabel("Type")).toHaveText("Meeting");
+    await openMoreOptions(form);
     await expect(form.getByLabel("Priority")).toHaveText("High");
     await expect(form.getByLabel("Stage 1", { exact: true })).toHaveValue("Send the agenda");
+    await openMoreOptions(form);
     await expect(form.getByLabel("Description")).toHaveValue("Agenda first, then the notes.");
     // Never the people, the deadline or the client (PRODUCT §4.6).
     await expect(form.locator('[data-slot="task-assignee"]')).toHaveCount(0);
     await expect(form.getByLabel("Deadline")).toHaveValue("");
+    await openMoreOptions(form);
     await expect(form.getByLabel("Client label")).toContainText("No client");
     const day = workingDay(25);
     await form.getByLabel("Title").fill(`${prefix}call with Sharma`);
     await pick(page, form.getByLabel("Add a person"), new RegExp(`^${escape(staff.name)}`));
     await form.getByLabel("Deadline").fill(day);
+    await openMoreOptions(form);
     await form.getByLabel("Event date").fill(day);
     await form.getByLabel("Starts").fill("11:00");
     await form.getByRole("button", { name: "Create task" }).click();
@@ -408,6 +419,7 @@ test.describe("task requests and templates, the flows", () => {
     await page.goto("/tasks");
     await page.locator('[data-slot="new-task"]:visible').click();
     await expect(form.getByLabel("Title")).toBeVisible();
+    await openMoreOptions(form);
     const startFrom = form.getByLabel("Start from");
     if ((await startFrom.count()) > 0) {
       await startFrom.click();
@@ -453,7 +465,9 @@ test.describe("task requests and templates, the flows", () => {
     await page.goto("/tasks");
     await page.locator('[data-slot="new-task"]:visible').click();
     const form = page.locator('[data-slot="task-form-dialog"]');
+    await openMoreOptions(form);
     await pick(page, form.getByLabel("Start from"), name);
+    await openMoreOptions(form);
     await expect(form.getByLabel("Priority")).toHaveText("Urgent");
   });
 
@@ -646,6 +660,7 @@ test.describe("task requests and templates, installed: back and large text", () 
     await expect(page).toHaveURL(tasks);
     await page.locator('[data-slot="new-task"]:visible').click();
     const form = page.locator('[data-slot="task-form-dialog"]');
+    await openMoreOptions(form);
     await form.getByLabel("Start from").click();
     const sheet = page.locator('[data-slot="select-sheet"]');
     await expect(sheet.getByRole("listbox")).toBeVisible();
@@ -653,6 +668,7 @@ test.describe("task requests and templates, installed: back and large text", () 
     await expect(form).toBeVisible();
 
     // A template filled the form: back asks first, and Keep editing keeps what it gave.
+    await openMoreOptions(form);
     await pick(page, form.getByLabel("Start from"), name);
     await expect(form.getByLabel("Stage 1", { exact: true })).toHaveValue("Send the agenda");
     const discard = page.getByRole("alertdialog", { name: "Discard this task?" });
@@ -660,6 +676,7 @@ test.describe("task requests and templates, installed: back and large text", () 
     await expect(discard).toBeVisible();
     await page.goBack();
     await expect(discard).toBeHidden();
+    await openMoreOptions(form);
     await expect(form.getByLabel("Start from")).toContainText(name);
     await expect(form.getByLabel("Stage 1", { exact: true })).toHaveValue("Send the agenda");
     await page.goBack();

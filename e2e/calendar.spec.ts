@@ -16,6 +16,7 @@ import {
   storageStateFor,
   taskTypeId,
   USERS,
+  openMoreOptions,
 } from "./helpers";
 import {
   addISTDays,
@@ -535,6 +536,7 @@ test.describe("the calendar, as the Owner", () => {
     await expect(form.locator('input[name="dueDate"]')).toHaveValue(day);
     await expect(form.locator('input[name="dueTime"]')).toHaveValue("18:00");
     // An event type asks for its date, already the day.
+    await openMoreOptions(form);
     await form.getByLabel("Type").click();
     await page.getByRole("option", { name: "Shoot / Site Visit" }).first().click();
     await expect(form.locator('input[name="eventDate"]')).toHaveValue(day);
@@ -1087,6 +1089,7 @@ async function moveDeadline(page: Page, to: string): Promise<void> {
   await page.getByRole("menuitem", { name: "Edit task" }).click();
   const form = page.locator('[data-slot="task-form-dialog"]');
   await expect(form.getByRole("heading", { name: "Edit task" })).toBeVisible();
+  await openMoreOptions(form);
   await form.getByLabel("Priority").click();
   await page.getByRole("option", { name: "High" }).first().click();
   await form.getByLabel("Deadline").fill(to);

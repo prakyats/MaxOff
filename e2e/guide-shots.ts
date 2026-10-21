@@ -1,5 +1,7 @@
 import type { Locator, Page } from "@playwright/test";
 
+import { openMoreOptions } from "./helpers";
+
 /**
  * The in-app guide's screenshots, one entry per picture (ROADMAP 6b.14, Release 2). Read by
  * `e2e/guide-screenshots.ts` (`pnpm guide:screenshots`), which signs in as the entry's role, opens
@@ -538,7 +540,10 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
   {
     id: "owner/new-task",
     path: "/tasks",
-    prepare: (page) => tap(page, "New task"),
+    prepare: async (page) => {
+      await tap(page, "New task");
+      await openMoreOptions(page);
+    },
     highlight: (page) => layer(page).getByLabel("Checked first by"),
     crop: layer,
     alt: "The New task form with the Checked first by field highlighted.",
