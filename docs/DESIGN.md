@@ -158,7 +158,8 @@ No `rounded-xs`, `rounded-2xl` and above, no `rounded-[…]` (lint).
 ## 6. Spacing and layout
 - A 4 px grid (Tailwind's spacing scale); hairline borders; **dashed borders mean "empty" only**.
 - **One header bar on a phone (L4):** the page's own title bar (`PageHeader`), 44 px, sticky at
-  the top edge: the back chevron (none on a tab's first screen), the title, the record's ⋯ and the
+  the top edge: the back chevron (on a top-level tab instead the small MaxOff mark, which goes home
+  by replace, adding no history; owner 2026-10-21, V4), the title, the record's ⋯ and the
   bell. No brand bar above it (home is the bottom bar's first tab; Me is in the bar or More), and
   nothing slides away. The screen's main creation stays the FAB above the bottom bar. The laptop
   keeps its top bar (bell, theme, account) beside the sidebar.
@@ -175,7 +176,7 @@ No `rounded-xs`, `rounded-2xl` and above, no `rounded-[…]` (lint).
   never sets its own `max-w-*`. **Running text** (a description, a note, a paragraph of help) takes
   the `reading` utility (`globals.css`, at most 70 characters a line) inside that width. Dialogs and
   sheets keep their own sizes. V4's pages (Settings, People, Reports, Me, Alerts) adopt the same
-  grid by dropping their `max-w-*`.
+  grid by dropping their `max-w-*` (done in V4; the guide's reading column stays).
 - Laptop: compact rows (32 px controls). Phone: 16 px side gutters, 44 px targets, bottom sheets, a
   sticky primary action, cards instead of tables (ARCHITECTURE §14.1).
 - **Bottom-bar labels (V3):** 12 px (`text-xs`, the scale's minimum), one line. Each of the five
@@ -208,6 +209,38 @@ No `rounded-xs`, `rounded-2xl` and above, no `rounded-[…]` (lint).
   header. On a phone they sit above the bottom nav, the home indicator and the offline/push bands,
   and above whatever is docked there: the FAB, a floating save bar (its measured height) and the
   Select bar (`--app-bulk-bar-h`); one variable, `--app-toast-bottom` in `globals.css`, places them.
+
+- **Settings (V4).** **N3:** the Settings page is four groups (Company and working days, Lists and
+  fields, Templates, Integrations), each a quiet heading over one bordered list; every row is the
+  section's name over one line saying what it holds, on a phone and a laptop alike (two groups to a
+  row from `lg`). **D6, one list pattern:** "Add ‹thing›" on the list's heading (C4); each row's
+  actions are Edit · Delete (`ListRowActions`: grey icons from `md`, one ⋯ sheet on a phone), plus a
+  labelled **Preview** at every width where there is something to look at (templates). **Delete is
+  the existing archive** (no Archived list; the toast "‹name› deleted" offers Undo for 6 s where
+  unarchive exists; records that carry it keep it); it is never red (owner 2026-10-16, "archive
+  never red"): the confirmation names the thing on a neutral commit ("Delete ‹name›"), and a
+  deliverable template still asks its reason (invariant 9). The word "Archive" leaves these pages
+  (it stays in code, DB and docs). **The one Templates page (6b.6 owner note):** Stage presets →
+  Deliverable templates → Project templates, a divider, then Task templates; one search across all
+  four; one "Add …" per section. On a phone the four sections are a **segmented control** (a view
+  control, no history; a muted track with the chosen segment raised; while a search is typed each
+  segment shows its number of matches, so a hit is never hidden); `#presets` (the old Stage presets
+  path redirects there by replace), `#deliverables`, `#projects`, `#tasks` pick a segment on
+  arrival. **Thresholds (6b.6, P5):** first glance, then depth: each group (Working day, Tasks,
+  Client work, Notifications; Approvals joins with 6b.5) is a bordered row with its name over a
+  one-line summary of the saved values ("Not noted: remind every 2 h → Admin at 4 h → Owner at
+  8 h"); a tap opens it in place (native `<details>`, a view control); a group with a refused field
+  opens by itself; one Save stays in reach (the phone's bar, and sticky at the window's bottom on a
+  laptop).
+- **Short forms first (L9, V4):** New task asks the title, the people and the deadline; the rest sits
+  under **More options** (a bordered native `<details>` row naming what it holds), with the same
+  defaults; it opens by itself when needed (an event type, a refused field). New project gives each
+  section one short line (the shared editors' extra hints off) and a real **Browse templates**
+  button (secondary, with an icon), never text that looks like a link.
+- **Words (W1–W4, V4):** "deliverables" wherever people read (never "items"); the bell's screen is
+  **Alerts** and the profile is **Me** everywhere (the account menu says Me, then Help); a
+  destructive question's way out names what is kept ("Keep project" beside "Cancel project"); a
+  line is written for the person reading it (no "the Owner changes this" to the Owner).
 
 ## 7. Motion: calm
 | Token | Value | Used for |
