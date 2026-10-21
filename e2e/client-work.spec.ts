@@ -1882,11 +1882,11 @@ test.describe("Settings layers, installed (ARCHITECTURE §14.2)", () => {
     await page.goto("/settings/templates");
     await hydrated(page);
     const here = /\/settings\/templates$/;
-    await page.getByRole("button", { name: "Add a project template" }).click();
+    await page.getByRole("button", { name: "Add project template" }).click();
     const dialog = page.getByRole("dialog", { name: "Add a project template" });
     await expect(dialog).toBeVisible();
     await expectBackStack(page, [{ closes: dialog, url: here }]);
-    await page.getByRole("button", { name: "Add a project template" }).click();
+    await page.getByRole("button", { name: "Add project template" }).click();
     await dialog.getByLabel("Name", { exact: true }).fill("Half a template");
     await expectDiscardOnBack(
       page,
