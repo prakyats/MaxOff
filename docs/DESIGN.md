@@ -184,6 +184,26 @@ No `rounded-xs`, `rounded-2xl` and above, no `rounded-[…]` (lint).
   (`sr-only`, with its count's words), so the bar shows icons only rather than slivers of words; at
   130% the labels stay. Never two lines (the bar's height is fixed by the safe area and the FAB).
 
+- **The project page (V3, the v1.8 sample and the long-stage-list fixes A–G).** Every section
+  shares the full width (G). Beside the ring, **Needs you** (Owner and Admin only; Crew never see
+  client work): a dot and a sentence per pill, late in `danger` ("Reel 1 is 1 day late"), nearly
+  done in `attention` ("Interview 2: 1 stage left", "Reel 3: ready to mark done"), at most four and
+  "+N more"; always drawn ("Nothing late or nearly done."), one line on a phone (the first pill and
+  "+N more") so the page never moves. **Deliverable rows are collapsed by default (A):** name ·
+  one continuous `ProgressBar` with "n/m" over every stage (C, never dots) · "Next: ‹stage›" on one
+  line, cut with an ellipsis, the full name on hover (`title`) · planned date · action. The bar is
+  the row's expand toggle, a view control (no history). **Opened (B, F):** each group under its
+  heading and "n/m" (no heading for a single untitled group), a left-aligned checklist (tick box and
+  name, two lines then an ellipsis) in three columns on a laptop, two on a tablet, one on a phone;
+  ticked = filled `strong` box, **the next stage bold and outlined**, later ones muted; never a chip.
+  For whoever edits the project, a long ungrouped list (9+ stages) adds "n stages: split them into
+  groups?" with **Group stages** (D: the Admin picks each group's first stage and names it; never
+  automatic), and two or more stages typed as numbered rounds add the tip to use "+ Another revision
+  round" (E). **N5:** a row's action is "Next: ‹stage›" until every stage is ticked, then a neutral
+  Mark done (Admin Today's Client work; the project page keeps Mark done in ⋯ until ready).
+- **Long names (F) everywhere:** left-aligned, two lines at most, then an ellipsis; never centred in a
+  chip.
+
 - **Toasts (P3):** bottom-centre on laptop and phone (a surface-2 card), never over the page
   header. On a phone they sit above the bottom nav, the home indicator and the offline/push bands,
   and above whatever is docked there: the FAB, a floating save bar (its measured height) and the
