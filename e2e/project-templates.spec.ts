@@ -16,6 +16,7 @@ import {
   serviceSelect,
   storageStateFor,
   USERS,
+  templatesTab,
 } from "./helpers";
 
 /**
@@ -122,7 +123,7 @@ test("a template of 6 deliverables × 3 groups from presets, reordered by drag, 
     { name: c, stages: ["Five", "Six"] },
   ]);
 
-  await page.goto("/settings/templates");
+  await page.goto("/settings/templates#projects");
   await hydrated(page);
   await page.getByRole("button", { name: "Add project template" }).click();
   const dialog = page.getByRole("dialog", { name: "Add a project template" });
@@ -265,7 +266,7 @@ test("a template from before groups opens with its stages on each item, and keep
     items: ["Item 1", "Item 2"],
   });
 
-  await page.goto("/settings/templates");
+  await page.goto("/settings/templates#projects");
   await hydrated(page);
   const row = page.locator('[data-slot="project-template"]', { hasText: name });
   await expect(row).toContainText("2 deliverables · 4 stages");
@@ -375,7 +376,7 @@ test("the preview's summary stays in view while its list scrolls", async ({ page
       stage_groups: index % 2 === 0 ? groups : others,
     })),
   });
-  await page.goto("/settings/templates");
+  await page.goto("/settings/templates#projects");
   await hydrated(page);
   const row = page.locator('[data-slot="project-template"]', { hasText: name });
   await rowAction(page, row, name, "Edit");
@@ -424,7 +425,7 @@ test("the preview collapses identical neighbours, and a change highlights its ow
       { title: "Banner", stage_groups: banner },
     ],
   });
-  await page.goto("/settings/templates");
+  await page.goto("/settings/templates#projects");
   await hydrated(page);
   const row = page.locator('[data-slot="project-template"]', { hasText: name });
   await rowAction(page, row, name, "Edit");
@@ -496,9 +497,9 @@ test.describe("the template builder's layers, installed (ARCHITECTURE §14.2)", 
     await removePresets([preset]);
     await addPresets([{ name: preset, stages: ["One"] }]);
     await runInstalled(page);
-    await page.goto("/settings/templates");
+    await page.goto("/settings/templates#projects");
     await hydrated(page);
-    const here = /\/settings\/templates$/;
+    const here = /\/settings\/templates#projects$/;
     const open = page.getByRole("button", { name: "Add project template" });
     const dialog = page.getByRole("dialog", { name: "Add a project template" });
     await open.click();
@@ -726,42 +727,58 @@ test("the library's search narrows both lists; a preview opens and back closes i
     stage_groups: groups,
   });
   await runInstalled(page);
-  await page.goto("/settings/templates");
+  await page.goto("/settings/templates#projects");
   await hydrated(page);
-  const here = /\/settings\/templates$/;
+  const here = /\/settings\/templates#projects$/;
   const projectRow = (name: string) =>
     page.locator('[data-slot="project-template"]', { hasText: name });
   const deliverableRow = (name: string) =>
     page.locator('[data-slot="deliverable-template"]', { hasText: name });
   await expect(projectRow(alpha)).toBeVisible();
   await expect(projectRow(beta)).toBeVisible();
+  // On a phone each section is a segment (6b.6 owner note): Deliverables shows its own.
+  await templatesTab(page, "deliverables");
   await expect(deliverableRow(gamma)).toBeVisible();
+  await templatesTab(page, "projects");
 
   // Each row says what its buttons do ("say what it does", v1.7.1): Preview in words, Edit and
-  // Delete (D6) named for the template (a tooltip on a laptop; in the row's ⋯ sheet on a phone),
-  // each a 44px target.
-  for (const [row, name] of [
-    [projectRow(alpha), alpha],
-    [deliverableRow(gamma), gamma],
+  // Delete (D6) named for the template (a tooltip on a laptop; in the row's ⋯ sheet on a phone).
+  // V4: the shared Settings row actions, compact 32px icons on a laptop (DESIGN §6), Preview a
+  // 44px labelled button at every width.
+  for (const [row, name, tab] of [
+    [projectRow(alpha), alpha, "projects"],
+    [deliverableRow(gamma), gamma, "deliverables"],
   ] as const) {
+    await templatesTab(page, tab);
     await expect(row.getByRole("button", { name: `Preview ${name}` })).toHaveText("Preview");
+    expect(
+      (await boxOf(row.getByRole("button", { name: `Preview ${name}` }))).h,
+    ).toBeGreaterThanOrEqual(44);
     for (const verb of phone(page) ? [] : ["Edit", "Delete"]) {
       const button = row.getByRole("button", { name: `${verb} ${name}` });
       await expect(button).toHaveAttribute("title", `${verb} ${name}`);
-      expect((await boxOf(button)).h).toBeGreaterThanOrEqual(44);
+      expect((await boxOf(button)).h).toBeGreaterThanOrEqual(32);
     }
   }
+  await templatesTab(page, "projects");
 
-  // A deliverable's title finds its template; the others leave, both lists at once.
-  const search = page.getByRole("searchbox", { name: "Search project and deliverable templates" });
+  // A deliverable's title finds its template; the others leave, every list at once (the one
+  // search over all four sections; on a phone each segment counts its matches).
+  const search = page.getByRole("searchbox", { name: "Search stage presets and templates" });
   await search.fill(word);
   await expect(projectRow(alpha)).toBeVisible();
   await expect(projectRow(beta)).toHaveCount(0);
   await expect(deliverableRow(gamma)).toHaveCount(0);
+  if (phone(page)) {
+    await expect(page.locator("#tab-projects")).toContainText("1");
+    await expect(page.locator("#tab-deliverables")).toContainText("0");
+  }
+  await templatesTab(page, "deliverables");
   await expect(page.locator('[data-slot="deliverable-templates-none"]')).toBeVisible();
   await search.fill(gamma);
   await expect(deliverableRow(gamma)).toBeVisible();
   await expect(projectRow(alpha)).toHaveCount(0);
+  await templatesTab(page, "projects");
   await expectNoHorizontalScroll(page);
 
   // The preview: what a project from it gets; back closes it and only it (the search is a view
@@ -781,6 +798,7 @@ test("the library's search narrows both lists; a preview opens and back closes i
 
   // A deliverable template's preview too.
   await search.fill(gamma);
+  await templatesTab(page, "deliverables");
   await deliverableRow(gamma)
     .getByRole("button", { name: `Preview ${gamma}` })
     .click();
@@ -808,7 +826,7 @@ test("deliverable templates: an Admin adds and archives their own, edits only th
     stage_groups: [{ label: "Phase B", stages: ["Three", "Four"] }],
   });
 
-  await page.goto("/settings/templates");
+  await page.goto("/settings/templates#deliverables");
   await hydrated(page);
   // Add one: a typed group in the StageGroupsEditor, the live preview, then Add.
   await page.getByRole("button", { name: "Add deliverable template" }).click();
@@ -845,6 +863,7 @@ test("deliverable templates: an Admin adds and archives their own, edits only th
   await expect(row(theirs).getByRole("button", { name: `Delete ${theirs}` })).toHaveCount(0);
 
   // The project template builder's "Add deliverables" row offers them: the groups come along.
+  await templatesTab(page, "projects");
   await page.getByRole("button", { name: "Add project template" }).click();
   const builder = page.getByRole("dialog", { name: "Add a project template" });
   const add = builder.locator('[data-slot="add-deliverables"]');
@@ -870,6 +889,7 @@ test("deliverable templates: an Admin adds and archives their own, edits only th
   await expect(builder).toBeHidden();
 
   // Delete their own (D6: the archive with its reason), never red; Undo brings it back.
+  await templatesTab(page, "deliverables");
   await rowAction(page, row(mine), mine, "Delete");
   const archive = page.getByRole("dialog", { name: `Delete ${mine}?` });
   await archive.getByLabel("Why delete it").fill("Not used any more");
@@ -892,7 +912,7 @@ test("deliverable templates: an Admin adds and archives their own, edits only th
   // The Owner edits any template, an Admin's too.
   const context = await browser.newContext({ storageState: storageStateFor("owner") });
   const ownerPage = await context.newPage();
-  await ownerPage.goto("/settings/templates");
+  await ownerPage.goto("/settings/templates#deliverables");
   await hydrated(ownerPage);
   const ownerRow = (name: string) =>
     ownerPage.locator('[data-slot="deliverable-template"]', { hasText: name });
@@ -920,9 +940,9 @@ test("deliverable templates: an Admin adds and archives their own, edits only th
 test.describe("the deliverable template builder's layers, installed (ARCHITECTURE §14.2)", () => {
   test("back closes the Preview, then asks before losing the typed template", async ({ page }) => {
     await runInstalled(page);
-    await page.goto("/settings/templates");
+    await page.goto("/settings/templates#deliverables");
     await hydrated(page);
-    const here = /\/settings\/templates$/;
+    const here = /\/settings\/templates#deliverables$/;
     await page.getByRole("button", { name: "Add deliverable template" }).click();
     const dialog = page.getByRole("dialog", { name: "Add a deliverable template" });
     await expect(dialog).toBeVisible();

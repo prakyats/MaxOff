@@ -31,7 +31,8 @@ export function settingsDescription(role: ShellRole): string {
  * bordered list of rows, on a phone and a laptop alike; each row is the section's name and one
  * line saying what it holds. From `lg` the groups sit two to a row.
  */
-export const SETTINGS_LIST_CLASS = "grid items-start gap-6 lg:grid-cols-2";
+export const SETTINGS_LIST_CLASS =
+  "grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-2";
 
 /** A group's heading: small, quiet, above its list. */
 export const GROUP_HEADING_CLASS = "text-muted-foreground mb-2 px-1 text-sm font-medium";

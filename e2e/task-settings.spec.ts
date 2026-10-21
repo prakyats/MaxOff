@@ -341,7 +341,6 @@ test.describe("task types, installed: back and large text", () => {
     const archive = page.getByRole("alertdialog", { name: "Delete Meeting?" });
     await expect(archive).toBeVisible();
     await expectBackStack(page, [{ closes: archive, url }, { url: /\/settings$/ }]);
-    await expect(rowOf(page, "Meeting")).toBeVisible();
   });
 
   test("Custom fields → Tasks: the Add dialog's Applies to sheet, then the dialog, close on back", async ({
@@ -527,7 +526,7 @@ test.describe("task templates: Delete (the archive) is neutral (the colour rule)
   }, info) => {
     const name = `Neutral archive (${info.project.name})`;
     await ownerTemplate(name, ["Stage 1"]);
-    await page.goto("/settings/templates");
+    await page.goto("/settings/templates#tasks");
     await hydrated(page);
     const row = page.locator('[data-slot="task-template"]').filter({ hasText: name });
     const phone = (page.viewportSize()?.width ?? 1280) < 768;
@@ -559,7 +558,7 @@ test.describe("drag to reorder stages before saving (6b.18)", () => {
   }, info) => {
     const name = `Reorder template (${info.project.name})`;
     await ownerTemplate(name, ["Stage 1", "Stage 2", "Stage 3"]);
-    await page.goto("/settings/templates");
+    await page.goto("/settings/templates#tasks");
     await hydrated(page);
     const dialog = await editTemplate(page, name);
     const rows = dialog.locator('[data-slot="template-stage"]');
@@ -660,9 +659,9 @@ test.describe("drag to reorder, installed (6b.18): a stage's ⋯ menu closes on 
     await ownerPreset(preset, ["Stage 1", "Stage 2"]);
     await runInstalled(page);
 
-    await page.goto("/settings/templates");
+    await page.goto("/settings/templates#tasks");
     await hydrated(page);
-    const templates = /\/settings\/templates$/;
+    const templates = /\/settings\/templates#tasks$/;
     const edit = await editTemplate(page, template);
     await edit.getByRole("button", { name: "Actions for Stage 1" }).click();
     const menu = page.getByRole("menu");

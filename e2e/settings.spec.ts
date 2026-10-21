@@ -35,7 +35,8 @@ test.describe("Owner", () => {
       ["Thresholds", "Thresholds"],
       ["Job titles", "Job titles"],
       ["Task types", "Task types"],
-      ["Stage presets", "Stage presets"],
+      // Stage presets are the Templates page's first section (6b.6 owner note).
+      ["Templates", "Templates"],
     ] as const) {
       await page.goto("/settings");
       await page.getByRole("link", { name, exact: true }).click();

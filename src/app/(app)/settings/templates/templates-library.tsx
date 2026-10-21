@@ -14,7 +14,7 @@ import type { DeliverableTemplate, ProjectTemplate } from "@/modules/templates";
 import { DeliverableTemplateManager } from "@/modules/templates/components/deliverable-template-manager";
 import { ProjectTemplateManager } from "@/modules/templates/components/project-template-manager";
 
-import { TEMPLATE_SECTIONS, type TemplateSectionKey } from "./sections";
+import { TEMPLATE_SECTIONS, TEMPLATE_TABS_CLASS, type TemplateSectionKey } from "./sections";
 
 function subscribeHash(onChange: () => void): () => void {
   window.addEventListener("hashchange", onChange);
@@ -121,7 +121,7 @@ export function TemplatesLibrary({
         role="tablist"
         aria-label="Template kinds"
         data-slot="template-tabs"
-        className="bg-muted rounded-control grid grid-cols-4 gap-1 p-1 md:hidden"
+        className={TEMPLATE_TABS_CLASS}
       >
         {sections.map((section) => (
           <button

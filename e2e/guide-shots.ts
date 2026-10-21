@@ -440,7 +440,7 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
   },
   {
     id: "admin/template-builder",
-    path: "/settings/templates",
+    path: "/settings/templates#projects",
     prepare: async (page) => {
       await tap(page, "Add project template");
       await layer(page).waitFor();
@@ -686,7 +686,7 @@ export const GUIDE_SHOT_LIST: readonly GuideShot[] = [
   },
   {
     id: "owner/templates",
-    path: "/settings/templates",
+    path: "/settings/templates#projects",
     highlight: (page) => button(page, "Preview Monthly reels"),
     crop: main,
     alt: "Templates with a project template's Preview button highlighted.",

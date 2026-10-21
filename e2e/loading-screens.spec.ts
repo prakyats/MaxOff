@@ -572,8 +572,9 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
     fixture: "template",
     trace: {
       "first row": {
+        // The one Templates page (6b.6 owner note): Stage presets come first (the seed has one).
         held: '[data-slot="loading-templates"] li',
-        settled: '[data-slot="task-template"]',
+        settled: '[data-slot="stage-preset"]',
       },
     },
   },
@@ -585,8 +586,9 @@ const LOADING_SCREENS: readonly LoadingScreen[] = [
     fixture: "template",
     trace: {
       "first row": {
+        // The one Templates page (6b.6 owner note): Stage presets come first (the seed has one).
         held: '[data-slot="loading-templates"] li',
-        settled: '[data-slot="task-template"]',
+        settled: '[data-slot="stage-preset"]',
       },
     },
   },

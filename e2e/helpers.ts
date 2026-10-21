@@ -1189,3 +1189,18 @@ export async function openMoreOptions(scope: Page | Locator): Promise<void> {
   if ((await more.getAttribute("open")) === null) await more.locator("summary").click();
   await expect(more).toHaveAttribute("open", "");
 }
+
+/**
+ * The one Templates page (6b.6 owner note): on a phone its sections are a segmented control (one
+ * shown at a time); picks `key`'s segment there, a no-op on a laptop where every section shows.
+ */
+export async function templatesTab(
+  page: Page,
+  key: "presets" | "deliverables" | "projects" | "tasks",
+): Promise<void> {
+  const tabs = page.locator('[data-slot="template-tabs"]');
+  if (!(await tabs.isVisible())) return;
+  const tab = tabs.locator(`#tab-${key}`);
+  await tab.click();
+  await expect(tab).toHaveAttribute("aria-selected", "true");
+}

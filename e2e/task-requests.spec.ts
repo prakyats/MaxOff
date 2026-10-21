@@ -20,6 +20,7 @@ import {
   signIn,
   USERS,
   openMoreOptions,
+  templatesTab,
 } from "./helpers";
 
 /**
@@ -346,6 +347,7 @@ test.describe("task requests and templates, the flows", () => {
     await page.locator('[data-slot="settings-section"]').filter({ hasText: "Templates" }).click();
     await expect(page).toHaveURL(/\/settings\/templates$/);
     // A template needs a name (the form says so before anything is sent).
+    await templatesTab(page, "tasks");
     await page.locator('[data-slot="add-template"]:visible').click();
     const empty = page.getByRole("dialog", { name: "Add a template" });
     await empty.getByRole("button", { name: "Add template" }).click();
@@ -393,7 +395,7 @@ test.describe("task requests and templates, the flows", () => {
 
     // Another Admin uses it but may not change it (Kickoff 4 decision 19: an Admin their own).
     await signInAs(page, otherAdmin);
-    await page.goto("/settings/templates");
+    await page.goto("/settings/templates#tasks");
     await expect(templateRow(page, name)).toContainText(`by ${admin.name}`);
     await expect(page.getByRole("button", { name: `Edit ${name}` })).toHaveCount(0);
     await expect(page.getByRole("button", { name: `Delete ${name}` })).toHaveCount(0);
@@ -401,7 +403,7 @@ test.describe("task requests and templates, the flows", () => {
 
     // Its author edits it (renamed), then archives it: New task stops offering it.
     await signInAs(page, admin);
-    await page.goto("/settings/templates");
+    await page.goto("/settings/templates#tasks");
     await templateAction(page, name, "Edit");
     const edit = page.getByRole("dialog", { name: `Edit ${name}` });
     await edit.getByLabel("Name").fill(`${name} (weekly)`);
@@ -436,12 +438,12 @@ test.describe("task requests and templates, the flows", () => {
     const name = `${prefix}shoot day`;
 
     await signInAs(page, admin);
-    await page.goto("/settings/templates");
+    await page.goto("/settings/templates#tasks");
     await addTemplate(page, name);
 
     // The Owner edits any template (decision 19); delete and Undo are theirs too.
     await signInAs(page, USERS.owner);
-    await page.goto("/settings/templates");
+    await page.goto("/settings/templates#tasks");
     await expect(templateRow(page, name)).toContainText(`by ${admin.name}`);
     await templateAction(page, name, "Edit");
     const edit = page.getByRole("dialog", { name: `Edit ${name}` });
@@ -481,7 +483,7 @@ test.describe("task requests and templates, the flows", () => {
     await rpcAs(otherStaff.email, otherStaff.password, "task_request_create", { title: theirs });
 
     await signInAs(page, staff);
-    await page.goto("/settings/templates");
+    await page.goto("/settings/templates#tasks");
     await expect(page).toHaveURL(/\/forbidden$/);
     await page.goto("/tasks/requests");
     await expect(page.locator('[data-slot="suggest-task"]:visible')).toBeVisible();
@@ -596,6 +598,7 @@ test.describe("task requests and templates, installed: back and large text", () 
     const url = /\/settings\/templates$/;
     await expect(page).toHaveURL(url);
 
+    await templatesTab(page, "tasks");
     await page.locator('[data-slot="add-template"]:visible').click();
     const add = page.getByRole("dialog", { name: "Add a template" });
     await add.getByLabel("Type").click();
@@ -607,6 +610,7 @@ test.describe("task requests and templates, installed: back and large text", () 
     ]);
 
     // Typed: back asks "Discard this template?"; one back on it keeps editing.
+    await templatesTab(page, "tasks");
     await page.locator('[data-slot="add-template"]:visible').click();
     await add.getByLabel("Name").fill(name);
     const discard = page.getByRole("alertdialog", { name: "Discard this template?" });
@@ -650,7 +654,7 @@ test.describe("task requests and templates, installed: back and large text", () 
     const { admin } = people(info);
     const name = `${prefix}start from`;
     await signInAs(page, admin);
-    await page.goto("/settings/templates");
+    await page.goto("/settings/templates#tasks");
     await addTemplate(page, name);
 
     await runInstalled(page);
@@ -706,6 +710,7 @@ test.describe("task requests and templates, installed: back and large text", () 
         await expectFitsAtLargeText(page);
       }
     }
+    await templatesTab(page, "tasks");
     await page.locator('[data-slot="add-template"]:visible').click();
     const add = page.getByRole("dialog", { name: "Add a template" });
     await add.getByRole("button", { name: "Add stage" }).click();

@@ -5,7 +5,7 @@ import { Skeleton } from "@/core/ui/primitives/skeleton";
 
 import { SETTINGS_HEADERS } from "../headers";
 
-import { TEMPLATE_SECTIONS } from "./sections";
+import { TEMPLATE_SECTIONS, TEMPLATE_TABS_CLASS } from "./sections";
 
 /** Each section's heading and Add widths, and whether its rows have Preview. */
 const SHAPES = {
@@ -38,7 +38,7 @@ export default function Loading() {
         className="flex flex-col gap-6"
       >
         <Skeleton aria-hidden className="h-11 w-full rounded-lg md:h-8" />
-        <div aria-hidden className="bg-muted rounded-control grid grid-cols-4 gap-1 p-1 md:hidden">
+        <div aria-hidden className={TEMPLATE_TABS_CLASS}>
           {TEMPLATE_SECTIONS.map((section) => (
             <span key={section.key} className="flex min-h-11 items-center justify-center">
               <Skeleton className="h-3 w-12" />

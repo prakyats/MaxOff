@@ -1912,9 +1912,9 @@ test.describe("Settings layers, installed (ARCHITECTURE §14.2)", () => {
     page,
   }) => {
     await runInstalled(page);
-    await page.goto("/settings/templates");
+    await page.goto("/settings/templates#projects");
     await hydrated(page);
-    const here = /\/settings\/templates$/;
+    const here = /\/settings\/templates#projects$/;
     await page.getByRole("button", { name: "Add project template" }).click();
     const dialog = page.getByRole("dialog", { name: "Add a project template" });
     await expect(dialog).toBeVisible();

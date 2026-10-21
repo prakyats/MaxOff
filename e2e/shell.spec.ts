@@ -97,7 +97,7 @@ test.describe("permission guards", () => {
         "/settings",
         "/clients/items",
         "/clients/items/decide",
-        "/settings/stage-presets",
+        "/settings/templates",
         project,
       ]) {
         await page.goto(path);

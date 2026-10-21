@@ -10,3 +10,10 @@ export const TEMPLATE_SECTIONS: readonly { key: TemplateSectionKey; tab: string 
   { key: "projects", tab: "Projects" },
   { key: "tasks", tab: "Tasks" },
 ];
+
+/**
+ * The phone's segmented control track: four segments in a row at normal text, wrapping to two
+ * rows at large system text instead of cutting the names short.
+ */
+export const TEMPLATE_TABS_CLASS =
+  "bg-muted rounded-control grid grid-cols-[repeat(auto-fit,minmax(4.5rem,1fr))] gap-1 p-1 md:hidden";
