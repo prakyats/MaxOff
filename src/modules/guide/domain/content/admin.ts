@@ -621,7 +621,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "text",
-              text: "Today’s date is a red circle on a lightly tinted box, and the day you tap is outlined. Each day shows its events by name, then time; what is due by name, amber (red with an alert when overdue); and leave as a soft grey striped bar, “Asha · On leave”. Done things are dimmed with a ✓. Weekly days off are grey and lightly shaded.",
+              text: "Today’s date is a red circle on a lightly tinted box, and the day you tap is outlined. Each day shows its events by name, then time; what is due by name, amber (red with an alert when overdue); and leave as a soft grey striped bar, “Asha · On leave”. Done things are dimmed with a ✓. Weekly days off are grey and lightly shaded. A day with more than fits ends in “+N more”; tap it to open the day and see everything.",
             },
             {
               kind: "steps",

@@ -5,7 +5,8 @@ import { dueCount, type CalendarDay, type EventItem } from "./calendar";
 /**
  * What a day's box in the month shows (6.4b; Kickoff 6 decision 25 C, **amended by the owner
  * 2026-10-08**: the box's limited space goes first to what the Owner and Admins act on). At most
- * `MAX_STRIPS` lines, then "+N" for the rest, in this priority:
+ * `MAX_STRIPS` lines; a day with more keeps one line fewer and ends in "+N more" (PP-calendar-14:
+ * the box never grows or clips; the line opens the day like the rest of the box), in this priority:
  * 1. the events: shoots, site visits and meetings (the task type's colour, the title), in the
  *    Owner's order of the types;
  * 2. what is due, each a named chip (PP-calendar-5, V5b: "Test 4", not "1 due"): red for a past
@@ -62,7 +63,7 @@ export type Strip =
 export type DayStrips = {
   /** The lines the box shows, in priority order (the leave bar, when shown, is the last). */
   strips: Strip[];
-  /** How many were cut for space ("+N"), leave included. */
+  /** How many were cut for space ("+N more", its own last line), leave included. */
   more: number;
   /** The day has a holiday its box had no room for: the date number turns green. */
   holidayHidden: boolean;
@@ -173,10 +174,13 @@ export function allStrips(day: CalendarDay, today: ISODate): Strip[] {
   return strips;
 }
 
-/** The lines a day's box shows: at most `max`, then "+N" for the rest (leave cut first). */
+/**
+ * The lines a day's box shows: all of them when they fit in `max`, else `max - 1` and a "+N more"
+ * line for the rest, the line counted in `max` (PP-calendar-14; leave cut first).
+ */
 export function dayStrips(day: CalendarDay, today: ISODate, max = MAX_STRIPS): DayStrips {
   const strips = allStrips(day, today);
-  const shown = strips.length <= max ? strips : strips.slice(0, max);
+  const shown = strips.length <= max ? strips : strips.slice(0, max - 1);
   return {
     strips: shown,
     more: strips.length - shown.length,

@@ -19,9 +19,9 @@ import { DoneTick, DUE_TONE, DueIcon, LEAVE_TONE, LeaveIcon, typeTint } from "./
  * neighbouring months' days dimmed. Three densities: `compact` (the phone's opening size: the date,
  * a dot for due tasks, one thin bar per kind, no text), `full` (the phone's full month) and `laptop`
  * (the same lines, an event with its title then its time and client). In a box, at most three
- * chips then "+N": the events, what is due by name (amber, red overdue with its icon), the holiday
- * (cut for space, the date number turns green), others' busy, then leave as a soft neutral striped bar
- * along the bottom, "Asha · On leave" with the palm icon, continuous across consecutive leave days
+ * lines, the last "+N more" when there are more (PP-calendar-14): the events, what is due by name
+ * (amber, red overdue with its icon), the holiday (cut for space, the date number turns green),
+ * others' busy, then leave as a soft neutral striped bar along the bottom, "Asha · On leave" with the palm icon, continuous across consecutive leave days
  * of the week row (`calendar-chip`: the day's dialog draws the same chips). V5b's polish
  * (PP-calendar-1, 4, 6, 7): today's date number is a filled red circle and the selected day the
  * outlined box; the weekly off's date number is muted grey and its box lightly tinted; the
@@ -198,10 +198,7 @@ export function MonthGrid({
                       "active:bg-muted/60",
                     )}
                   >
-                    {/* A container: the "+N" shows only where the box has room for it beside the
-                        date (rem-sized, so a larger system text hides it on a narrow phone rather
-                        than squeezing it to an ellipsis; the day's sheet lists everything). */}
-                    <span className="@container flex min-w-0 items-center gap-0.5">
+                    <span className="flex min-w-0 items-center gap-0.5">
                       <span
                         data-slot="calendar-date"
                         data-weekly-off={day?.weeklyOff ? "" : undefined}
@@ -228,14 +225,6 @@ export function MonthGrid({
                           )}
                         />
                       ) : null}
-                      {lines && lines.more > 0 ? (
-                        <span
-                          data-slot="calendar-more"
-                          className="text-muted-foreground ml-auto hidden min-w-0 truncate text-xs leading-4 tabular-nums @min-[2.25rem]:block"
-                        >
-                          +{lines.more}
-                        </span>
-                      ) : null}
                     </span>
                     {density === "compact" && day ? (
                       <span aria-hidden className="flex min-w-0 flex-col gap-0.5 px-0.5">
@@ -259,7 +248,7 @@ export function MonthGrid({
                     {density !== "compact" ? (
                       <span
                         aria-hidden
-                        className="flex min-h-0 min-w-0 flex-col gap-px overflow-hidden"
+                        className="@container flex min-h-0 min-w-0 flex-col gap-px overflow-hidden"
                       >
                         {others.map((strip) => (
                           <StripLine
@@ -269,6 +258,20 @@ export function MonthGrid({
                             twoLines={density === "laptop" && others.length === 1}
                           />
                         ))}
+                        {/* PP-calendar-14: what does not fit is one last line, "+N more" ("+N" where
+                            the box is too narrow for the word), part of the box: a tap opens the day. */}
+                        {lines?.more ? (
+                          <span
+                            data-slot="calendar-more"
+                            className={cn(
+                              "text-muted-foreground block truncate px-1 font-medium tabular-nums",
+                              LINE[density],
+                            )}
+                          >
+                            +{lines.more}
+                            <span className="hidden @min-[3.5rem]:inline"> more</span>
+                          </span>
+                        ) : null}
                       </span>
                     ) : null}
                     {leave && leave.kind === "leave" && density !== "compact" ? (

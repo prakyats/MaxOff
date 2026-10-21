@@ -867,6 +867,70 @@ test.describe("the calendar, as the Owner", () => {
 
     await removeTasksTitled(prefix);
   });
+
+  test('a day with more than its box holds ends in "+N more", which opens the day (PP-calendar-14)', async ({
+    page,
+  }, info) => {
+    const prefix = `${prefixOf(info)}crowd `;
+    await removeTasksTitled(prefix);
+    // Its own day per project, five weeks on and more (never a day another test fills), so the
+    // count is exactly this test's: five deadlines, two shown, "+3 more".
+    const offset = { desktop: 35, mobile: 42, "mobile-lg": 49 }[info.project.name] ?? 56;
+    const day = workingDay(offset);
+    const staffId = await memberIdOf(USERS.staff.email);
+    const normal = await taskTypeId("Normal");
+    for (const n of [1, 2, 3, 4, 5]) {
+      await rpcAs<string>(USERS.owner.email, USERS.owner.password, "task_create", {
+        title: `${prefix}${n}`,
+        description: null,
+        task_type_id: normal,
+        client_id: null,
+        priority: "medium",
+        due_at: istInstant(day, "18:00"),
+        assignee_ids: [staffId],
+        primary_owner_id: staffId,
+        approving_admin_id: null,
+        stages: [],
+      });
+    }
+    await page.goto(`/calendar?date=${day}`);
+    await hydrated(page);
+    if (isPhone(info)) {
+      // The phone's full month draws the chips (the compact month only bars).
+      await page.locator('button[data-slot="calendar-handle"]').click();
+      await expect(phone(page)).toHaveAttribute("data-size", "3");
+    }
+    const box = dayBox(page, day);
+    const more = box.locator('[data-slot="calendar-more"]');
+    await expect(more).toBeVisible();
+    // The laptop's box has room for the word; the phone's narrow one says "+3".
+    await expect(more).toHaveText(isPhone(info) ? /^\+3( more)?$/ : "+3 more");
+    await expect(box.locator('[data-slot="calendar-strip"]')).toHaveCount(2);
+    // Neither grown nor clipped: the line is whole inside its box, nothing hidden under it, and
+    // the laptop's box keeps its 112 px.
+    const fit = await box.evaluate((element) => {
+      const line = element.querySelector('[data-slot="calendar-more"]') as HTMLElement;
+      const list = line.parentElement as HTMLElement;
+      const outer = element.getBoundingClientRect();
+      const inner = line.getBoundingClientRect();
+      return {
+        inside: inner.top >= outer.top && inner.bottom <= outer.bottom,
+        clipped: list.scrollHeight - list.clientHeight,
+        height: outer.height,
+      };
+    });
+    expect(fit.inside).toBe(true);
+    expect(fit.clipped).toBeLessThanOrEqual(0);
+    if (!isPhone(info)) expect(fit.height).toBeCloseTo(112, 0);
+    // "+3 more" is part of the box: it opens the day, which lists all five.
+    await more.click();
+    await expect(daySheet(page)).toBeVisible();
+    await expect(daySheet(page)).toHaveAttribute("data-date", day);
+    for (const n of [1, 2, 3, 4, 5]) {
+      await expect(daySheet(page)).toContainText(`${prefix}${n}`);
+    }
+    await removeTasksTitled(prefix);
+  });
 });
 
 /**

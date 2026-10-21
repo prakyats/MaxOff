@@ -123,12 +123,20 @@ describe("the month's strips (decision 25 C, amended by the owner 2026-10-08)", 
       "busy:Ravi busy",
       "leave:2 on leave",
     ]);
-    // The box keeps what the Owner acts on: leave is cut first and "+N" counts it; a holiday cut
-    // for space turns the date number green.
+    // The box keeps what the Owner acts on: leave is cut first and "+N more" counts it, as its own
+    // last line, so the box holds two lines and the "+N more" (PP-calendar-14); a holiday cut for
+    // space turns the date number green.
     const shown = dayStrips(full, TODAY);
-    expect(shown.strips.map((strip) => strip.kind)).toEqual(["event", "event", "due"]);
-    expect(shown.more).toBe(3);
+    expect(shown.strips.map((strip) => strip.kind)).toEqual(["event", "event"]);
+    expect(shown.more).toBe(4);
     expect(shown.holidayHidden).toBe(true);
+    // Exactly as many as fit: no "+N more".
+    const three = dayStrips(
+      day({ events: [event("a"), event("b")], leave: [off("a", "Asha")] }),
+      TODAY,
+    );
+    expect(three.strips.map((strip) => strip.kind)).toEqual(["event", "event", "leave"]);
+    expect(three.more).toBe(0);
     expect(dayStrips(day({ holiday: "Diwali", leave: [off("a", "Asha")] }), TODAY)).toEqual({
       strips: [
         { kind: "holiday", key: "holiday", label: "Diwali" },
