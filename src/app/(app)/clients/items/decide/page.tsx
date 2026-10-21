@@ -74,7 +74,7 @@ export default async function DecidePage({
         help={DESCRIPTION}
         back={{ href: "/today", label: "Today" }}
       />
-      <div className="max-w-3xl">
+      <div className="min-w-0">
         <CarryDecider groups={ordered} />
       </div>
     </>

@@ -34,6 +34,9 @@ export { countPendingNotes, getNoteDays, listOwnNotes, listPendingNotes } from "
 export { ExtraWorkNotesList } from "./components/extra-work-notes-list";
 export type { NoteDay } from "./domain/notes";
 export {
+  pendingDayRows,
+  type PendingDayRow,
+  type PendingPersonDays,
   summariseToday,
   type TodayDetailRow,
   todayPersonFromRow,

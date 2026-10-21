@@ -49,6 +49,10 @@ const BulkEditSheet = dynamic(
   () => import("./bulk-edit-sheet").then((module) => module.BulkEditSheet),
   { ssr: false },
 );
+const GroupStagesDialog = dynamic(
+  () => import("./group-stages-dialog").then((module) => module.GroupStagesDialog),
+  { ssr: false },
+);
 const ConfirmDialog = dynamic(
   () => import("@/core/ui/composites/confirm-dialog").then((module) => module.ConfirmDialog),
   { ssr: false },
@@ -113,6 +117,8 @@ export function CycleItems({
   // The sheet's code arrives on its first open and stays (`ItemSheet` above).
   const [sheetUsed, setSheetUsed] = useState(openItemId !== null);
   const [adding, setAdding] = useState(false);
+  // "Group stages" (fix D): the deliverable being split, mounted while open.
+  const [grouping, setGrouping] = useState<ItemView | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [confirmUsed, setConfirmUsed] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -205,6 +211,8 @@ export function CycleItems({
       onOpen={() => openSheet(item.id)}
       onMarkDone={() => markDone(item)}
       error={errors[item.id]}
+      manage={permissions.manage && !mode.selectMode}
+      onGroup={permissions.manage ? () => setGrouping(item) : undefined}
     />
   );
 
@@ -343,6 +351,16 @@ export function CycleItems({
               "marked done",
             )
           }
+        />
+      ) : null}
+      {grouping ? (
+        <GroupStagesDialog
+          target={{
+            itemId: grouping.id,
+            title: grouping.title,
+            stages: grouping.stages.map((stage) => ({ id: stage.id, name: stage.name })),
+          }}
+          onClose={() => setGrouping(null)}
         />
       ) : null}
       {adding ? (

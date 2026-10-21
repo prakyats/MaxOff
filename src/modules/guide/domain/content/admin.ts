@@ -21,7 +21,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "On a laptop the sidebar lists Today, Approvals, Clients, Tasks, Calendar, People, Reports and Settings. On a phone the bottom bar shows Today, Approvals, Tasks and Calendar, and a More cell holds the rest.",
+              text: "On a laptop the sidebar lists Today, Approvals, Clients, Tasks, Calendar, People, Reports and Settings. On a phone the bottom bar shows Today, Approvals, Tasks and Calendar, and a More cell holds the rest. With very large text set on the phone, the bar shows its icons only.",
             },
             {
               kind: "steps",
@@ -156,7 +156,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Client work lists deliverables on your clients that are overdue or due this week, each with Mark done. My clients is the clients you run; one that is not Active shows its state beside its name (for example “· Paused”). My tasks shows your own tasks that are not noted, have changes requested, are overdue or are due today. This week is a strip of the next days. Issues appears only when something is wrong on a task you created or check: an assignee on leave on a deadline day, or someone who can’t be reached.",
+              text: "Client work lists deliverables on your clients that are overdue or due this week. Each row offers “Next: ‹stage›”, which ticks that stage with Undo, until every stage is ticked; then it offers Mark done. My clients is the clients you run; one that is not Active shows its state beside its name (for example “· Paused”). My tasks shows your own tasks that are not noted, have changes requested, are overdue or are due today. This week is a strip of the next days. Issues appears only when something is wrong on a task you created or check: an assignee on leave on a deadline day, or someone who can’t be reached.",
             },
             {
               kind: "note",
@@ -733,7 +733,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Clients shows only the clients assigned to you. The list opens on Active. Another Admin’s client is not visible to you. Client deliverables, across all your clients, is one tap away on this screen.",
+              text: "Clients shows only the clients assigned to you. The list opens on Active. Another Admin’s client is not visible to you. Client deliverables, across all your clients, is one tap away on this screen. Beside each client it says what is running now, such as “3 open · 9/12 done”.",
             },
             {
               kind: "steps",
@@ -792,7 +792,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "A client page has four tabs: Overview, Projects, Brand and Activity. Overview shows the Admin, the primary contact, the contacts, Details and Requirements and notes. Activity is the client’s history, newest first.",
+              text: "A client page has four tabs: Overview, Projects, Brand and Activity. Overview opens with the client’s active projects and their progress, then the Admin, the primary contact, the contacts, Details and Requirements and notes. Details lists only what is filled in; the empty ones fold into “Add details”, which opens Edit. Activity is the client’s history, newest first.",
             },
             {
               kind: "steps",
@@ -997,7 +997,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "text",
-              text: "Under Deliverables each row shows one line per stage group, such as “Edit ▮▮▯ 2/3” (a deliverable from before groups reads “Stages”), then “Next: ‹stage›” or “All stages ticked”, and its planned date. On a laptop these sit in columns; on a phone each deliverable is a card. An empty cycle says “No deliverables yet: add one or start from a template.” with Add deliverable.",
+              text: "Beside the ring, “Needs you” names what to look at: a red dot for a late deliverable (“Reel 1 is 1 day late”), an amber dot for one nearly done (“Interview 2: 1 stage left”, “Reel 3: ready to mark done”). Under Deliverables each row is closed by default: its name, one progress bar with “n/m” stages ticked, “Next: ‹stage›” (a long name ends in “…”; hover or press and hold to read it all) or “All stages ticked”, and its planned date. On a laptop each row is one line in columns; on a phone each deliverable is a card. Every part of the page uses the full width. An empty cycle says “No deliverables yet: add one or start from a template.” with Add deliverable.",
             },
             {
               kind: "example",
@@ -1012,12 +1012,21 @@ export const ADMIN_GUIDE: Guide = {
               text: "Closed and carried deliverables are not counted in the ring.",
             },
           ],
-          keywords: ["progress", "ring", "cycle", "planned", "stage chips", "on track", "next"],
+          keywords: [
+            "progress",
+            "ring",
+            "cycle",
+            "planned",
+            "needs you",
+            "late",
+            "on track",
+            "next",
+          ],
         },
         {
           id: "admin-deliverable-rows",
           title: "Tick stages from the list",
-          summary: "Open a stage line and tap a stage, or tap Next.",
+          summary: "Open a row's bar and tick from its checklist, or tap Next.",
           blocks: [
             {
               kind: "text",
@@ -1027,7 +1036,7 @@ export const ADMIN_GUIDE: Guide = {
               kind: "steps",
               steps: [
                 {
-                  text: "Tap a stage line, such as “Video steps 2/4” (highlighted), to show its stages: ticked ones with a ✓, the next one outlined, later ones dashed. Tap it again to hide them.",
+                  text: "Tap a row’s progress bar, such as “2/4” (highlighted), to open its checklist: each stage with a tick box, under its group’s name and count. Ticked ones are filled with a ✓, the next one is bold and outlined, later ones are grey; long names wrap to two lines. On a laptop the checklist runs in three columns, on a phone in one. Tap the bar again to close it.",
                   shot: "admin/deliverable-rows",
                 },
                 "Tap a stage to tick it (“Tick Edit”) or untick it (“Untick Edit”).",
@@ -1037,14 +1046,14 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "next",
-              text: "The line’s count and the ring move at once, and the tick is added to the History.",
+              text: "The row’s count and the ring move at once, and the tick is added to the History.",
             },
             {
               kind: "note",
               text: "Stages tick only while the deliverable is open.",
             },
           ],
-          keywords: ["tick", "untick", "next", "stage line", "chips", "undo", "quick"],
+          keywords: ["tick", "untick", "next", "checklist", "bar", "undo", "quick"],
         },
         {
           id: "admin-add-deliverable",
@@ -1136,8 +1145,45 @@ export const ADMIN_GUIDE: Guide = {
               kind: "note",
               text: "It works on open deliverables only. Reopen a done one first.",
             },
+            {
+              kind: "note",
+              text: "Use it instead of typing numbered round stages (“Approval round 1”, “Approval round 2”). When a deliverable has two or more stages like that, its open row shows this tip.",
+            },
           ],
-          keywords: ["revision", "another round", "changes", "client feedback"],
+          keywords: ["revision", "another round", "changes", "client feedback", "tip"],
+        },
+        {
+          id: "admin-group-stages",
+          title: "Split a long stage list into groups",
+          summary: "You choose where each group starts; nothing is grouped by itself.",
+          blocks: [
+            {
+              kind: "text",
+              text: "A deliverable with 9 or more stages and no groups shows, when you open its row, “12 stages: split them into groups?” with a Group stages button. It is only a suggestion: nothing changes until you choose.",
+            },
+            {
+              kind: "steps",
+              steps: [
+                "Open the row’s checklist and tap Group stages.",
+                "Tap the stage where each new group starts (“Start a group here”). The first group always starts at the first stage. Tap it again to undo.",
+                "Name each group, such as Concept, Shoot and Post, then tap Group stages.",
+                "Read the toast “Grouped the stages of ‹deliverable›”.",
+              ],
+            },
+            {
+              kind: "next",
+              text: "The checklist shows each group’s name and its own count. Ticks and the order stay as they were, and only that deliverable changes. The History lists each stage moved into its group.",
+            },
+            {
+              kind: "example",
+              text: "A 12-stage reel: Concept starts at Concept note, Shoot at Shoot planning, Post at Rough cut.",
+            },
+            {
+              kind: "note",
+              text: "A deliverable that already has groups is changed in Edit stages, as before.",
+            },
+          ],
+          keywords: ["group", "groups", "long", "stages", "split", "concept", "shoot"],
         },
         {
           id: "admin-mark-done",

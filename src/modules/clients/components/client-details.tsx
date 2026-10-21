@@ -162,6 +162,7 @@ export function ClientDetails({
           : custom
       }
       canEdit={canEdit}
+      foldEmpty
       editKey={clientEditKey(client.id)}
       savedMessage="Details saved"
       onSave={(values, customFields) =>
@@ -201,6 +202,7 @@ export function ClientNotes({ client, canEdit }: { client: Client; canEdit: bool
       subject={client.name}
       fields={fields}
       canEdit={canEdit}
+      foldEmpty
       savedMessage="Saved"
       onSave={(values) => updateClient({ clientId: client.id, ...values })}
     />

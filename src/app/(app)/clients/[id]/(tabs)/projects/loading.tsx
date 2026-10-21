@@ -12,7 +12,7 @@ export default function Loading() {
       aria-busy="true"
       aria-label="Loading the projects"
       data-slot="loading-client-projects"
-      className="flex max-w-2xl flex-col gap-4"
+      className="flex flex-col gap-4"
     >
       <div aria-hidden className="flex min-h-11 items-center justify-between">
         <Skeleton className="h-4 w-16" />

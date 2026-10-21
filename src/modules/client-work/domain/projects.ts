@@ -111,6 +111,16 @@ export function progressByClient(
   return result;
 }
 
+/**
+ * The Admin's Clients list's work column (N4, UX review 2026-10-21; never money, invariant 2):
+ * "3 open · 9/12 done" across the client's running cycles, or null when it has none now.
+ */
+export function clientWorkLine(progress: ReturnType<typeof progressOf> | undefined): string | null {
+  if (!progress || progress.total === 0) return null;
+  const open = progress.total - progress.done - progress.closed;
+  return `${open} open · ${progress.done}/${progress.total} done`;
+}
+
 /** "Deliverables 9/12 done" (amendment D3; 6b wording), or null when the client has none now. */
 export function clientProgressLine(
   progress: ReturnType<typeof progressOf> | undefined,

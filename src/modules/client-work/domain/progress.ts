@@ -171,3 +171,51 @@ export function itemMeter(item: Pick<MeterItem, "state" | "stages">): {
   const open = item.state === "open";
   return { done, next: open && done < total ? 1 : 0, total };
 }
+
+/** One "Needs you" pill beside the project's ring: a dot in its tone and a plain sentence. */
+export type NeedsYouPill = { itemId: string; tone: "danger" | "attention"; text: string };
+
+/** How many pills show beside the ring before "+N more". */
+export const NEEDS_YOU_PILLS = 4;
+
+const DAY_MS = 86_400_000;
+
+/**
+ * The project page's "Needs you" pills beside the ring (the owner's v1.8 sample feedback, kept
+ * 2026-10-16; Owner and Admin only, never Crew): **late** in red, the most late first ("Reel 1 is
+ * 2 days late", from its planned date, IST dates), then **nearly done** in amber ("Interview 2:
+ * 1 stage left", "Reel 3: ready to mark done"). Only open deliverables; at most `limit`, the rest
+ * counted in `more`.
+ */
+export function needsYouPills(
+  items: readonly (MeterItem & { id: string; title: string })[],
+  today: ISODate,
+  limit = NEEDS_YOU_PILLS,
+): { pills: NeedsYouPill[]; more: number } {
+  const open = items.filter((item) => item.state === "open");
+  const late = open
+    .filter((item) => item.plannedDate !== null && item.plannedDate < today)
+    .map((item) => ({
+      item,
+      days: Math.round((Date.parse(today) - Date.parse(item.plannedDate!)) / DAY_MS),
+    }))
+    .sort((a, b) => b.days - a.days || a.item.title.localeCompare(b.item.title))
+    .map(({ item, days }): NeedsYouPill => ({
+      itemId: item.id,
+      tone: "danger",
+      text: `${item.title} is ${days === 1 ? "1 day" : `${days} days`} late`,
+    }));
+  const lateIds = new Set(late.map((pill) => pill.itemId));
+  const nearly = open
+    .filter((item) => !lateIds.has(item.id) && item.stages.length > 0)
+    .map((item) => ({ item, left: item.stages.filter((stage) => !stage.done).length }))
+    .filter(({ left }) => left <= 1)
+    .sort((a, b) => a.left - b.left || a.item.title.localeCompare(b.item.title))
+    .map(({ item, left }): NeedsYouPill => ({
+      itemId: item.id,
+      tone: "attention",
+      text: left === 0 ? `${item.title}: ready to mark done` : `${item.title}: 1 stage left`,
+    }));
+  const all = [...late, ...nearly];
+  return { pills: all.slice(0, limit), more: Math.max(0, all.length - limit) };
+}

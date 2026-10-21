@@ -1,5 +1,7 @@
 import type { Page, TestInfo } from "@playwright/test";
 
+import { addISTDays, todayIST } from "../src/core/time";
+
 import { expect, test } from "./fixtures";
 import {
   expectBackStack,
@@ -104,8 +106,9 @@ async function listProject(clientId: string): Promise<string> {
 
 const row = (page: Page, title: string) =>
   page.locator('[data-slot="item-row"]', { has: page.getByText(title, { exact: true }) });
+/** The collapsed row's progress (V3): one bar and "n/m", a tap opens the checklist in place. */
 const strips = (page: Page, title: string) =>
-  row(page, title).locator('[data-slot="item-strip-toggle"]');
+  row(page, title).locator('[data-slot="item-progress"]');
 const markDone = (page: Page, title: string) =>
   row(page, title).locator('[data-slot="item-row-done"]');
 const more = (page: Page, title: string) =>
@@ -142,7 +145,7 @@ async function stageDone(itemTitle: string, projectId: string, name: string): Pr
 }
 const historyLength = (page: Page) => page.evaluate(() => window.history.length);
 
-test("one strip per stage group opening in place, Next, and Mark done solid only when every stage is ticked", async ({
+test("a collapsed row: one bar and n/m, its checklist opening in place by group, Next, and Mark done solid only when every stage is ticked", async ({
   page,
 }, info) => {
   const client = nameOf(info, "strips");
@@ -152,42 +155,43 @@ test("one strip per stage group opening in place, Next, and Mark done solid only
   await page.goto(`/clients/${clientId}/projects/${projectId}`);
   await hydrated(page);
 
-  // One line per group: the untitled one reads "Stages"; each strip its own n/m.
-  await expect(strips(page, "Grouped")).toHaveText([
-    "Stages 1/1 stages ticked",
-    "Edit 2/3 stages ticked",
-    "Review 0/1 stages ticked",
-  ]);
-  const bars = row(page, "Grouped").locator('[data-slot="item-strip-bar"]');
+  // V3 (fixes A, C): one bar over every stage, whatever the groups, with its "n/m".
+  await expect(strips(page, "Grouped")).toHaveText("3/5 stages ticked");
+  const bars = row(page, "Grouped").locator('[data-slot="item-progress-bar"]');
   expect(
     await bars.evaluateAll((nodes) =>
       nodes.map((node) => [node.dataset.done, node.dataset.next, node.dataset.total]),
     ),
-  ).toEqual([
-    ["1", "0", "1"],
-    ["2", "1", "3"],
-    ["0", "0", "1"],
-  ]);
+  ).toEqual([["3", "1", "5"]]);
   const next = (title: string) => row(page, title).locator('[data-slot="item-next"]:visible');
   await expect(next("Grouped")).toHaveText("Next: Export");
   await expect(next("Ready A")).toHaveText("All stages ticked");
   await expect(next("Fresh")).toHaveText("Next: Stage 1");
+  await expect(row(page, "Grouped").locator('[data-slot="stage-check"]')).toHaveCount(0);
 
-  // Opening a strip shows that group's chips only, in place: no history entry, no address.
+  // Opening the row shows its checklist under each group's heading and count (fixes B, F), in
+  // place: no history entry, no address.
   const before = await historyLength(page);
-  const edit = strips(page, "Grouped").nth(1);
+  const edit = strips(page, "Grouped");
   await edit.click();
   await expect(edit).toHaveAttribute("aria-expanded", "true");
-  await expect(row(page, "Grouped").locator('[data-slot="stage-chip"]')).toHaveText([
+  await expect(row(page, "Grouped").locator('[data-slot="item-stage-group-label"]')).toHaveText([
+    /^Stages\s*1\/1$/,
+    /^Edit\s*2\/3$/,
+    /^Review\s*0\/1$/,
+  ]);
+  await expect(row(page, "Grouped").locator('[data-slot="stage-check"]')).toHaveText([
+    "Stage 1, ticked",
     "Cut, ticked",
     "Colour, ticked",
     "Export, next",
+    "Revision 1, to do",
   ]);
   expect(await historyLength(page)).toBe(before);
   await expect(page).toHaveURL(here);
   await expectNoHorizontalScroll(page);
   await edit.click();
-  await expect(row(page, "Grouped").locator('[data-slot="stage-chip"]')).toHaveCount(0);
+  await expect(row(page, "Grouped").locator('[data-slot="stage-check"]')).toHaveCount(0);
 
   // Mark done: in the row's ⋯ until every stage is ticked (unit U); then on the row, the first
   // ready one the screen's one solid commit, the next ready one outlined.
@@ -224,7 +228,7 @@ test("one strip per stage group opening in place, Next, and Mark done solid only
   await page.locator('[data-slot="finished-toggle"]').click();
   await expect(next("Finished")).toHaveText("Done");
   await expect(next("Dropped")).toHaveText("Closed");
-  await expect(row(page, "Finished").locator('[data-slot="item-strip-bar"]')).toHaveAttribute(
+  await expect(row(page, "Finished").locator('[data-slot="item-progress-bar"]')).toHaveAttribute(
     "data-done",
     "1",
   );
@@ -252,7 +256,7 @@ test("laptop columns line up row to row; a phone's card keeps 44 px targets", as
       nodes.map((node) =>
         [
           '[data-slot="item-open"]',
-          '[data-slot="item-strips"]',
+          '[data-slot="item-progress"]',
           '[data-slot="item-next-cell"]',
           '[data-slot="item-planned-cell"]',
           '[data-slot="item-action"]',
@@ -263,15 +267,15 @@ test("laptop columns line up row to row; a phone's card keeps 44 px targets", as
     // In order, left to right: title, progress, next, planned, action.
     const first = columns[0]!;
     expect([...first].sort((a, b) => a - b)).toEqual(first);
-    // The strips' bars line up too.
+    // The bars line up too.
     const barLefts = await page
-      .locator('[data-slot="item-strip-bar"]')
+      .locator('[data-slot="item-progress-bar"]')
       .evaluateAll((nodes) => nodes.map((node) => Math.round(node.getBoundingClientRect().left)));
     expect(new Set(barLefts).size).toBe(1);
   } else {
-    // A card: every strip and Mark done is a 44 px target.
+    // A card: every bar and Mark done is a 44 px target.
     for (const target of [
-      ...(await page.locator('[data-slot="item-strip-toggle"]').all()),
+      ...(await page.locator('button[data-slot="item-progress"]').all()),
       ...(await page.locator('[data-slot="item-row-done"]').all()),
       ...(await page.locator('[data-slot="item-row-more"]').all()),
       ...(await page.locator('[data-slot="item-next-line"]').all()),
@@ -279,16 +283,16 @@ test("laptop columns line up row to row; a phone's card keeps 44 px targets", as
       const box = await target.boundingBox();
       expect(box!.height).toBeGreaterThanOrEqual(44);
     }
-    // Next sits under the title, the strips under both.
+    // Next sits under the title, the bar under both.
     const grouped = row(page, "Grouped");
     const title = await grouped.locator('[data-slot="item-open"]').boundingBox();
-    const strip = await grouped.locator('[data-slot="item-strip-toggle"]').first().boundingBox();
+    const strip = await grouped.locator('[data-slot="item-progress"]').first().boundingBox();
     expect(strip!.y).toBeGreaterThanOrEqual(title!.y + title!.height - 1);
   }
   await removeClientFixture(client);
 });
 
-test("the loading screen traces the list: its heading, first row, first strip and a row's height", async ({
+test("the loading screen traces the list: its heading, first row, its bar and a row's height", async ({
   page,
 }, info) => {
   const client = nameOf(info, "skeleton");
@@ -317,7 +321,7 @@ test("the loading screen traces the list: its heading, first row, first strip an
       row: '[data-slot="loading-project"] ul > li',
       head: '[data-slot="loading-project"] > div[aria-hidden] > div:nth-child(2)',
       top: '[data-slot="loading-project"] > div[aria-hidden]',
-      strip: '[data-slot="loading-project"] ul > li > span:nth-child(2) > span',
+      strip: '[data-slot="loading-project"] ul > li > span:nth-child(2)',
     });
     const skeletonRow = await page
       .locator('[data-slot="loading-project"] ul > li')
@@ -331,7 +335,7 @@ test("the loading screen traces the list: its heading, first row, first strip an
       row: '[data-slot="cycle-items"] > [data-slot="item-row"]',
       head: 'section[aria-labelledby="cycle-items-title"]',
       top: '[data-slot="project-page"]',
-      strip: '[data-slot="cycle-items"] [data-slot="item-strip-toggle"]',
+      strip: '[data-slot="cycle-items"] [data-slot="item-progress"]',
     });
     // Measured from the content's top: the title bar above it is the shared header's (its own
     // trace is the back control's, PROGRESS Ideas), this unit's tracing is the list's.
@@ -342,7 +346,7 @@ test("the loading screen traces the list: its heading, first row, first strip an
         `${name} stays put`,
       ).toBeLessThanOrEqual(1);
     }
-    // A one-strip row ("Ready A": planned and Next lines, one strip) is the skeleton row's height.
+    // A collapsed row ("Ready A": planned and Next lines, its bar) is the skeleton row's height.
     const oneStrip = await row(page, "Ready A").evaluate(
       (node) => node.getBoundingClientRect().height,
     );
@@ -387,7 +391,7 @@ test("the whole row opens the deliverable: a click anywhere, Enter or Space; in 
   await page.goBack();
   await expect(sheet).toBeHidden();
 
-  // The row's own controls keep their taps: a strip opens in place, no sheet.
+  // The row's own controls keep their taps: the bar opens the checklist in place, no sheet.
   await strips(page, "Reel A").first().click();
   await expect(strips(page, "Reel A").first()).toHaveAttribute("aria-expanded", "true");
   await expect(sheet).toBeHidden();
@@ -462,7 +466,7 @@ test("with the notifications band showing, the Select bar sits above it and the 
   await removeClientFixture(client);
 });
 
-test("a stage chip ticks in one tap with Undo; Next ticks its stage; Mark done shows once all are ticked", async ({
+test("a checklist line ticks in one tap with Undo; Next ticks its stage; Mark done shows once all are ticked", async ({
   page,
 }, info) => {
   const client = nameOf(info, "ticks");
@@ -471,26 +475,26 @@ test("a stage chip ticks in one tap with Undo; Next ticks its stage; Mark done s
   await page.goto(`/clients/${clientId}/projects/${projectId}`);
   await hydrated(page);
 
-  // A chip ticks its stage through the same tick as the sheet, says so, and offers Undo.
-  const edit = strips(page, "Grouped").nth(1);
+  // A checklist line ticks its stage through the same tick as the sheet, says so, offers Undo.
+  const edit = strips(page, "Grouped");
   await edit.click();
   const chip = (name: string) =>
     row(page, "Grouped")
-      .locator('[data-slot="stage-chip"]')
+      .locator('[data-slot="stage-check"]')
       .and(page.getByRole("button", { name }));
   const exportChip = chip("Tick Export");
-  await expect(exportChip).toHaveAttribute("data-chip", "next");
+  await expect(exportChip).toHaveAttribute("data-check", "next");
   await exportChip.click();
   await expect(page.getByText("Ticked Edit · Export on Grouped", { exact: true })).toBeVisible();
   const ticked = chip("Untick Export");
-  await expect(ticked).toHaveAttribute("data-chip", "ticked");
+  await expect(ticked).toHaveAttribute("data-check", "ticked");
   await expect.poll(() => stageDone("Grouped", projectId, "Export")).toBe(true);
   await expect(row(page, "Grouped").locator('[data-slot="item-next"]:visible')).toHaveText(
     "Next: Revision 1",
   );
   await page.getByRole("button", { name: "Undo" }).click();
   await expect(page.getByText("Unticked Edit · Export on Grouped", { exact: true })).toBeVisible();
-  await expect(exportChip).toHaveAttribute("data-chip", "next");
+  await expect(exportChip).toHaveAttribute("data-check", "next");
   await expect.poll(() => stageDone("Grouped", projectId, "Export")).toBe(false);
 
   // Mark done waits in the row's ⋯ (with Open) while a stage is left.
@@ -513,11 +517,11 @@ test("a stage chip ticks in one tap with Undo; Next ticks its stage; Mark done s
   await expect(more(page, "Fresh")).toHaveCount(0);
   await expect(page.locator('[data-variant="primary"]:visible')).toHaveCount(1);
 
-  // A done deliverable's chips only read.
+  // A done deliverable's checklist only reads.
   await page.locator('[data-slot="finished-toggle"]').click();
   await strips(page, "Finished").first().click();
-  await expect(row(page, "Finished").locator('[data-slot="stage-chip"]')).toHaveCount(1);
-  await expect(row(page, "Finished").locator('button[data-slot="stage-chip"]')).toHaveCount(0);
+  await expect(row(page, "Finished").locator('[data-slot="stage-check"]')).toHaveCount(1);
+  await expect(row(page, "Finished").locator('button[data-slot="stage-check"]')).toHaveCount(0);
   await removeClientFixture(client);
 });
 
@@ -570,6 +574,130 @@ test("the deliverable's sheet: the list's group headings, neutral ticks, Edit de
   await removeClientFixture(client);
 });
 
+/** The production shape (owner, 2026-10-17): twelve long-named stages in one list. */
+const LONG_STAGES = [
+  "Concept note and reference board for the client",
+  "Moodboard",
+  "Script draft",
+  "Script sent for internal approval round 1",
+  "Script sent for internal approval round 2",
+  "Shoot planning",
+  "Location recce",
+  "Shoot",
+  "Rough cut",
+  "Sent for Internal Approval Round 1",
+  "Final edit",
+  "Posted",
+];
+
+/** "Pre Production" (planned 2 days ago: late) and "Reel 1", both with the twelve stages. */
+async function longProject(clientId: string): Promise<string> {
+  const projectId = await rpcAs<string>(admin.email, admin.password, "project_create", {
+    client_id: clientId,
+    name: "Long work",
+    recurrence: "monthly",
+    stages: LONG_STAGES,
+    items: ["Pre Production", "Reel 1"],
+  });
+  const late = addISTDays(todayIST(), -2);
+  await call("item_update", {
+    item_id: await itemId(projectId, "Pre Production"),
+    changes: { planned_date: late },
+  });
+  await tick(await itemId(projectId, "Reel 1"), LONG_STAGES.slice(0, 11));
+  return projectId;
+}
+
+test("twelve long-named stages × 2: one-line rows, a 3/1-column checklist, Needs you, the tip and Group stages", async ({
+  page,
+}, info) => {
+  const client = nameOf(info, "long");
+  const clientId = await workClient(client);
+  const projectId = await longProject(clientId);
+  await page.goto(`/clients/${clientId}/projects/${projectId}`);
+  await hydrated(page);
+  const phone = (page.viewportSize()?.width ?? 1280) < 768;
+
+  // Needs you beside the ring: the late one in red, the nearly done one in amber.
+  const pills = page.locator('[data-slot="project-needs-you-pill"]');
+  await expect(pills).toHaveText(["Pre Production is 2 days late", "Reel 1: 1 stage left"]);
+  expect(await pills.evaluateAll((nodes) => nodes.map((node) => node.dataset.tone))).toEqual([
+    "danger",
+    "attention",
+  ]);
+
+  // Collapsed: one bar, "0/12", and Next on one line, cut with an ellipsis, its name in full on hover.
+  const pre = row(page, "Pre Production");
+  await expect(strips(page, "Pre Production")).toHaveText("0/12 stages ticked");
+  await expect(strips(page, "Reel 1")).toHaveText("11/12 stages ticked");
+  const nextName = pre.locator('[data-slot="item-next"]:visible [title]');
+  await expect(nextName).toHaveAttribute("title", LONG_STAGES[0]!);
+  const nextBox = await pre.locator('[data-slot="item-next"]:visible').boundingBox();
+  expect(nextBox!.height, "Next stays one line").toBeLessThanOrEqual(phone ? 44 : 30);
+  if (!phone) {
+    const rowBox = await pre.boundingBox();
+    expect(rowBox!.height, "a collapsed laptop row is one line").toBeLessThanOrEqual(60);
+  }
+  await expectNoHorizontalScroll(page);
+
+  // Opened: a left-aligned checklist, three columns on a laptop, one on a phone; two lines at most.
+  await strips(page, "Pre Production").click();
+  const checks = pre.locator('[data-slot="stage-check"]');
+  await expect(checks).toHaveCount(12);
+  const lefts = await checks.evaluateAll((nodes) =>
+    nodes.map((node) => Math.round(node.getBoundingClientRect().left)),
+  );
+  expect(new Set(lefts).size).toBe(phone ? 1 : 3);
+  const heights = await checks.evaluateAll((nodes) =>
+    nodes.map((node) => node.querySelector(".line-clamp-2")!.getBoundingClientRect().height),
+  );
+  for (const height of heights) expect(height).toBeLessThanOrEqual(42);
+  await expect(checks.first()).toHaveAttribute("data-check", "next");
+  await expect(checks.first()).toHaveCSS("font-weight", "600");
+  await expectNoHorizontalScroll(page);
+
+  // The revision-round tip (two numbered rounds typed as stages) and the grouping hint.
+  await expect(pre.locator('[data-slot="item-round-tip"]')).toContainText(
+    "+ Another revision round",
+  );
+  await expect(pre.locator('[data-slot="item-group-hint"]')).toContainText(
+    "12 stages: split them into groups?",
+  );
+
+  // Group stages: the Admin chooses the starts and names; nothing changes until then.
+  await pre.locator('[data-slot="item-group-stages"]').click();
+  const dialog = page.locator('[data-slot="group-stages-dialog"]');
+  await expect(dialog).toBeVisible();
+  const startAt = (name: string) =>
+    dialog.locator('[data-slot="group-stages-start"]', { hasText: name });
+  await startAt("Shoot planning").click();
+  await startAt("Rough cut").click();
+  const names = dialog.locator('[data-slot="group-stages-name"]');
+  await expect(names).toHaveCount(3);
+  await dialog.getByRole("button", { name: "Group stages" }).click();
+  await expect(dialog.locator('[data-slot="form-alert"]')).toHaveText(/Give every group a name/);
+  await names.nth(0).fill("Concept");
+  await names.nth(1).fill("Shoot");
+  await names.nth(2).fill("Post");
+  await dialog.getByRole("button", { name: "Group stages" }).click();
+  await expect(
+    page.getByText("Grouped the stages of Pre Production", { exact: true }),
+  ).toBeVisible();
+  await expect(dialog).toBeHidden();
+  // The row stays open while the server's list arrives with the groups.
+  await expect(strips(page, "Pre Production")).toHaveAttribute("aria-expanded", "true");
+  await expect(pre.locator('[data-slot="item-stage-group-label"]')).toHaveText([
+    /^Concept\s*0\/5$/,
+    /^Shoot\s*0\/3$/,
+    /^Post\s*0\/4$/,
+  ]);
+  await expect(pre.locator('[data-slot="item-group-hint"]')).toHaveCount(0);
+  // The other deliverable is untouched (never automatic).
+  await strips(page, "Reel 1").click();
+  await expect(row(page, "Reel 1").locator('[data-slot="item-stage-group-label"]')).toHaveCount(0);
+  await removeClientFixture(client);
+});
+
 test.describe("the strips, installed (ARCHITECTURE §14.2)", () => {
   test.beforeEach(({}, info) => {
     test.skip(info.project.name === "desktop", "the phone widths, 375 and 430");
@@ -590,12 +718,12 @@ test.describe("the strips, installed (ARCHITECTURE §14.2)", () => {
     await hydrated(page);
     const before = await historyLength(page);
 
-    // Two strips open and one closed again: still the same history.
+    // The row opened, closed and opened again: still the same history.
     const grouped = strips(page, "Grouped");
-    await grouped.nth(1).click();
-    await grouped.nth(2).click();
-    await grouped.nth(2).click();
-    await expect(grouped.nth(1)).toHaveAttribute("aria-expanded", "true");
+    await grouped.click();
+    await grouped.click();
+    await grouped.click();
+    await expect(grouped).toHaveAttribute("aria-expanded", "true");
     expect(await historyLength(page)).toBe(before);
 
     // Back is not spent on the strip: it leaves the page.
@@ -630,6 +758,31 @@ test.describe("the strips, installed (ARCHITECTURE §14.2)", () => {
     await expect(menuItem).toBeVisible();
     await expectBackStack(page, [
       { closes: menuItem, url: new RegExp(`/projects/${projectId}$`) },
+      { url: new RegExp(`${tab}$`) },
+    ]);
+    await removeClientFixture(client);
+  });
+
+  test("Group stages is a layer: back closes it first, then leaves the page (V3, fix D)", async ({
+    page,
+  }, info) => {
+    const client = nameOf(info, "group-back");
+    const clientId = await workClient(client);
+    const projectId = await longProject(clientId);
+    const tab = `/clients/${clientId}/projects`;
+    await runInstalled(page);
+    await page.goto(tab);
+    await hydrated(page);
+    await page.locator('[data-slot="project-row"]', { hasText: "Long work" }).click();
+    await expect(page).toHaveURL(new RegExp(`/projects/${projectId}$`));
+    await hydrated(page);
+    await strips(page, "Pre Production").click();
+    await row(page, "Pre Production").locator('[data-slot="item-group-stages"]').click();
+    const dialog = page.locator('[data-slot="group-stages-dialog"]');
+    await expect(dialog).toBeVisible();
+    await expectNoHorizontalScroll(page);
+    await expectBackStack(page, [
+      { closes: dialog, url: new RegExp(`/projects/${projectId}$`) },
       { url: new RegExp(`${tab}$`) },
     ]);
     await removeClientFixture(client);

@@ -39,7 +39,9 @@ export const OWNER_GUIDE: Guide = {
           title: "Find your way on a phone",
           summary: "The bottom bar has four screens and a More cell.",
           blocks: [
-            text("The bottom bar holds Today, Approvals, Tasks and Calendar."),
+            text(
+              "The bottom bar holds Today, Approvals, Tasks and Calendar. With very large text set on the phone, the bar shows its icons only; each still says its name to a screen reader.",
+            ),
             steps(
               "Tap a cell in the bottom bar to switch screen.",
               "Tap More for Reports, Clients, People and Settings.",
@@ -100,7 +102,7 @@ export const OWNER_GUIDE: Guide = {
             ),
             steps(
               {
-                text: 'Open Today and read "Needs you" (highlighted): the oldest 5 waiting items, in this order: attendance days, leave requests, extra-work notes, expense claims, tasks. "See all N" opens Approvals.',
+                text: 'Open Today and read "Needs you" (highlighted): the oldest 5 waiting rows, in this order: attendance days, leave requests, extra-work notes, expense claims, tasks. A person with several days waiting is one row, such as "Asha · 5 days proposed absent · Review", which opens Approvals. The count beside "Needs you" is the number of rows. "See all N" opens Approvals.',
                 shot: "owner/today",
               },
               {
@@ -555,7 +557,9 @@ export const OWNER_GUIDE: Guide = {
           title: "Review or approve a row",
           summary: "Approve in one tap, with a 6-second Undo.",
           blocks: [
-            text("Each row has Review and Approve."),
+            text(
+              'Each row has Review and Approve. Under the name it says what is waiting, the person\'s note for an attendance day, and how long it has waited ("Waiting 2 days": amber from a day, red from three), as on Today.',
+            ),
             steps(
               "Open Approvals.",
               {
@@ -810,7 +814,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "Overview, Projects, Brand and Activity.",
           blocks: [
             text(
-              'A client page has the tabs Overview, Projects, Brand and Activity. Overview shows the Admin, the primary contact, details, and "Requirements and notes". Activity is the client\'s history, newest first.',
+              'A client page has the tabs Overview, Projects, Brand and Activity. Overview opens with the client\'s active projects and their progress, then the Admin, the primary contact, details, and "Requirements and notes". Details lists only what is filled in; the empty ones fold into "Add details", which opens Edit. Activity is the client\'s history, newest first.',
             ),
             text(
               '"Owner\'s notes" is yours alone. It says "Only you see these", and Admins never see it. You are also the only one who sees the reason a client was closed.',
@@ -947,7 +951,7 @@ export const OWNER_GUIDE: Guide = {
         {
           id: "owner-project-page",
           title: "Read the project page",
-          summary: "Cycles, the progress ring and the deliverable rows.",
+          summary: "Cycles, the progress ring, Needs you and the deliverable rows.",
           blocks: [
             text(
               'The header shows the name, repeat and delivery date, with an Activity button and a ⋯ menu. Use the arrows to move between cycles. A one-time project shows "The project\'s deliverables".',
@@ -957,26 +961,29 @@ export const OWNER_GUIDE: Guide = {
               shot: "owner/project-page",
             }),
             text(
-              'Under it, "Deliverables" has one row per deliverable. A row shows one line per stage group, such as "Edit ▮▮▯ 2/3" (a deliverable from before groups reads "Stages"), then "Next: ‹stage›" or "All stages ticked", and a planned date in words: "Planned 21 Oct", "Planned today", "Planned 18 Oct · 2 days late" or "Not planned". On a laptop these sit in columns; on a phone each deliverable is a card.',
+              'Beside the ring, "Needs you" names what to look at: a red dot for a late deliverable ("Reel 1 is 1 day late") and an amber dot for one that is nearly done ("Interview 2: 1 stage left", "Reel 3: ready to mark done").',
+            ),
+            text(
+              'Under it, "Deliverables" has one row per deliverable, closed by default: its name, one progress bar with "n/m" stages ticked, "Next: ‹stage›" (a long name ends in "…"; hover or press and hold to read it all) or "All stages ticked", and a planned date in words: "Planned 21 Oct", "Planned today", "Planned 18 Oct · 2 days late" or "Not planned". On a laptop each row is one line in columns; on a phone each deliverable is a card. Every part of the page uses the full width.',
             ),
             text(
               'Finished ones read "Done", "Closed" or "Carried" and sit in the collapsed "Done and closed (N)". An empty cycle says "No deliverables yet: add one or start from a template." with an Add deliverable button.',
             ),
             note("Closed and carried deliverables are not counted in the ring."),
           ],
-          keywords: ["progress", "ring", "pace", "planned", "overdue", "stage chips", "next"],
+          keywords: ["progress", "ring", "pace", "planned", "overdue", "needs you", "late", "next"],
         },
         {
           id: "owner-deliverable-rows",
           title: "Tick stages from the list",
-          summary: "Open a stage line and tap a stage, or tap Next.",
+          summary: "Open a row's bar and tick from its checklist, or tap Next.",
           blocks: [
             text(
               "You can tick stages without opening a deliverable. Tapping anywhere else on the row opens it.",
             ),
             steps(
               {
-                text: 'Tap a stage line, such as "Video steps 2/4" (highlighted), to show its stages. Ticked ones carry a ✓, the next one is outlined and later ones are dashed. Tap the line again to hide them.',
+                text: "Tap a row's progress bar, such as \"2/4\" (highlighted), to open its checklist: each stage with a tick box, under its group's name and count. Ticked ones are filled with a ✓, the next one is bold and outlined, later ones are grey. Long names wrap to two lines. On a laptop the checklist runs in three columns, on a phone in one. Tap the bar again to close it.",
                 shot: "owner/deliverable-rows",
               },
               'Tap a stage to tick it ("Tick Edit") or untick it ("Untick Edit").',
@@ -990,7 +997,7 @@ export const OWNER_GUIDE: Guide = {
               "On a laptop you can also Tab to a deliverable and press Enter to open it. Stages tick only while the deliverable is open.",
             ),
           ],
-          keywords: ["tick", "untick", "next", "stage line", "chips", "undo", "quick"],
+          keywords: ["tick", "untick", "next", "checklist", "bar", "undo", "quick"],
         },
         {
           id: "owner-add-deliverable",
@@ -1052,8 +1059,32 @@ export const OWNER_GUIDE: Guide = {
             note(
               "It works on open deliverables only. To add it to a done one, send it back first.",
             ),
+            note(
+              'Use it instead of typing numbered round stages ("Approval round 1", "Approval round 2"). When a deliverable has two or more stages like that, its open row shows this tip.',
+            ),
           ],
-          keywords: ["revision", "another round", "changes", "client feedback"],
+          keywords: ["revision", "another round", "changes", "client feedback", "tip"],
+        },
+        {
+          id: "owner-group-stages",
+          title: "Split a long stage list into groups",
+          summary: "You choose where each group starts; nothing is grouped by itself.",
+          blocks: [
+            text(
+              'A deliverable with 9 or more stages and no groups shows, when you open its row, "12 stages: split them into groups?" with a "Group stages" button. It is only a suggestion: nothing changes until you choose.',
+            ),
+            steps(
+              'Open the row\'s checklist and tap "Group stages".',
+              'Tap the stage where each new group starts ("Start a group here"). The first group always starts at the first stage. Tap it again to undo.',
+              'Name each group, such as "Concept", "Shoot" and "Post", then tap "Group stages".',
+              'Read the toast "Grouped the stages of ‹deliverable›".',
+            ),
+            next(
+              "The checklist shows each group's name and its own count. Ticks and the order stay as they were, and only that deliverable changes. The History lists each stage moved into its group.",
+            ),
+            note("A deliverable that already has groups is changed in Edit stages, as before."),
+          ],
+          keywords: ["group", "groups", "long", "stages", "split", "concept", "shoot"],
         },
         {
           id: "owner-mark-done",

@@ -25,7 +25,7 @@ export default async function Loading() {
         aria-busy="true"
         aria-label="Loading My Day"
         data-slot="loading-my-day"
-        className="flex max-w-3xl min-w-0 flex-col gap-6"
+        className="flex min-w-0 flex-col gap-6"
       >
         <section className="flex min-w-0 flex-col gap-2">
           <DashSectionHeadingSkeleton />

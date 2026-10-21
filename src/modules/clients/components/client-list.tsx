@@ -33,6 +33,9 @@ import {
 import { ClientLogo } from "./client-logo";
 import { type AdminOption, useClientActions } from "./use-client-actions";
 
+/** An Admin's client with no deliverables running now (N4). */
+const NO_WORK = "Nothing running now";
+
 /**
  * The client list (3.4, PRODUCT §4.4, kickoff 3 decision 18): logo, name, state and Admin;
  * cards on a phone, a table from `md` up. Search by name and the state and Admin filters are
@@ -46,7 +49,14 @@ export function ClientList({
   admins,
   adminNames,
   canManage,
+  work = null,
 }: {
+  /**
+   * N4 (UX review 2026-10-21): an Admin's list shows each client's running deliverables ("3 open ·
+   * 9/12 done", by client id; null when none run now) instead of an Admin column that is always
+   * themselves. The Owner's keeps the Admin column. Never money (invariant 2).
+   */
+  work?: Readonly<Record<string, string | null>> | null;
   clients: ClientSummary[];
   /** Active Admins, for the Owner's Admin filter and "Change Admin". */
   admins: readonly AdminOption[];
@@ -116,13 +126,21 @@ export function ClientList({
       ),
       size: 110,
     },
-    {
-      id: "admin",
-      header: "Admin",
-      accessorFn: (client) => adminName(client) ?? "",
-      cell: ({ row }) =>
-        adminName(row.original) ?? <span className="text-muted-foreground">No Admin yet</span>,
-    },
+    work
+      ? {
+          id: "work",
+          header: "Deliverables",
+          accessorFn: (client) => work[client.id] ?? "",
+          cell: ({ row }) =>
+            work[row.original.id] ?? <span className="text-muted-foreground">{NO_WORK}</span>,
+        }
+      : {
+          id: "admin",
+          header: "Admin",
+          accessorFn: (client) => adminName(client) ?? "",
+          cell: ({ row }) =>
+            adminName(row.original) ?? <span className="text-muted-foreground">No Admin yet</span>,
+        },
   ];
   if (canManage) {
     columns.push({
@@ -174,7 +192,8 @@ export function ClientList({
       </span>
     ),
     detailTitle: (client) => client.name,
-    subtitle: (client) => adminName(client) ?? "No Admin yet",
+    subtitle: (client) =>
+      work ? (work[client.id] ?? NO_WORK) : (adminName(client) ?? "No Admin yet"),
     trailing: (client) => (
       <StatusDot status={client.state} label={CLIENT_STATE_LABELS[client.state]} />
     ),

@@ -339,7 +339,9 @@ test.describe("the task lists, the flows", () => {
     await expect(pageHeader(page)).toHaveText(/Tasks/);
     const needs = section(page, "tasks-needs-you");
     await expect(needs).toContainText(`${prefix}overdue`);
-    await expect(rowOf(page, `${prefix}overdue`)).toContainText("Past its deadline");
+    // W5 (V3): the Overdue chip alone says it; the row no longer repeats "Past its deadline".
+    await expect(rowOf(page, `${prefix}overdue`)).toContainText("Overdue");
+    await expect(rowOf(page, `${prefix}overdue`)).not.toContainText("Past its deadline");
     await expect(rowOf(page, `${prefix}quiet`)).toContainText(
       `${who.staff.name} hasn't noted it · 5 h`,
     );

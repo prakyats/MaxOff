@@ -22,8 +22,8 @@ import { dueCount, type CalendarDay, type EventItem } from "./calendar";
 
 export const MAX_STRIPS = 3;
 
-/** The holiday strip's colour (decision 25: green). */
-export const HOLIDAY_COLOR = "#16a34a";
+/** The holiday strip's colour (decision 25: green): the `--holiday` token, both themes (DESIGN.md §4). */
+export const HOLIDAY_COLOR = "var(--holiday)";
 
 export type Strip =
   | {

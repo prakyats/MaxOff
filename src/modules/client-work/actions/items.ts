@@ -29,6 +29,8 @@ import {
   updateItemStageGroupSchema,
   type CarryDecideInput,
   carryDecideSchema,
+  type GroupItemStagesInput,
+  groupItemStagesSchema,
   type ItemIdInput,
   itemIdSchema,
   type ItemIdsInput,
@@ -181,6 +183,20 @@ export const addItemStageGroup = action(
     const data = addItemStageGroupSchema.parse(input);
     await assertPermission("projects.manage");
     await repo.addItemStageGroup(data.itemId, data.label, data.stages);
+    revalidate();
+    return ok(null);
+  },
+);
+
+/**
+ * "Group stages" (V3, the long-stage-list fix D): one deliverable's ungrouped stages split into the
+ * groups the Admin named, at the starts they chose; ticks and order kept. Never automatic.
+ */
+export const groupItemStages = action(
+  async (input: GroupItemStagesInput): Promise<Result<null>> => {
+    const data = groupItemStagesSchema.parse(input);
+    await assertPermission("projects.manage");
+    await repo.groupItemStages(data.itemId, data.groups);
     revalidate();
     return ok(null);
   },

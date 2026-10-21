@@ -2,10 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import {
   groupStrips,
+  itemProgress,
+  LONG_STAGE_LIST,
   markDonePlace,
   nextStep,
   readyToMarkDone,
   solidMarkDoneId,
+  suggestsGrouping,
+  typesNumberedRounds,
   UNTITLED_GROUP_LABEL,
   type RowItem,
 } from "../domain/deliverable";
@@ -127,5 +131,51 @@ describe("where a row's Mark done is (unit U)", () => {
     const ready = deliverable("open", [stage("a", true)]);
     expect(markDonePlace(ready, true, true)).toBeNull();
     expect(markDonePlace(ready, false, false)).toBeNull();
+  });
+});
+
+describe("the long-stage-list row (V3, fixes A, C, D, E)", () => {
+  const twelve = (done: number, group: (i: number) => string | null = () => null) =>
+    Array.from({ length: 12 }, (_, i) => stage(String.fromCharCode(97 + i), i < done, group(i)));
+
+  it("one continuous bar over every group: done, the next one lighter, the total", () => {
+    const item = deliverable(
+      "open",
+      twelve(5, (i) => (i < 4 ? "Concept" : "Post")),
+    );
+    expect(itemProgress(item)).toEqual({ done: 5, next: 1, total: 12 });
+    expect(itemProgress(deliverable("done", twelve(3)))).toEqual({ done: 12, next: 0, total: 12 });
+    expect(itemProgress(deliverable("open", []))).toEqual({ done: 0, next: 0, total: 0 });
+  });
+
+  it("suggests groups for a long ungrouped list only, and never for a short or grouped one", () => {
+    expect(LONG_STAGE_LIST).toBe(9);
+    expect(suggestsGrouping(deliverable("open", twelve(0)))).toBe(true);
+    expect(suggestsGrouping(deliverable("open", twelve(0).slice(0, 8)))).toBe(false);
+    expect(
+      suggestsGrouping(
+        deliverable(
+          "open",
+          twelve(0, (i) => (i < 6 ? null : "Post")),
+        ),
+      ),
+    ).toBe(false);
+    expect(suggestsGrouping(deliverable("done", twelve(12)))).toBe(false);
+  });
+
+  it("shows the revision-round tip when two or more stages are typed as numbered rounds", () => {
+    const named = (names: string[]) =>
+      deliverable(
+        "open",
+        names.map((name, i) => ({ id: String(i), name, done: false, group: null })),
+      );
+    expect(
+      typesNumberedRounds(
+        named(["Edit", "Sent for Internal Approval Round 1", "Client approval round 2", "Posted"]),
+      ),
+    ).toBe(true);
+    expect(typesNumberedRounds(named(["Edit", "R1", "R2"]))).toBe(true);
+    expect(typesNumberedRounds(named(["Edit", "Revision round 1", "Posted"]))).toBe(false);
+    expect(typesNumberedRounds(named(["Around 1", "Ground 2"]))).toBe(false);
   });
 });

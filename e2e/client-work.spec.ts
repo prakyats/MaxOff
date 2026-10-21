@@ -515,8 +515,25 @@ test("the Admin's Today: Client work with Mark done and its Undo, a sent-back it
     reason: "The logo is wrong",
   });
 
+  // N5 (V3): a deliverable with stages left offers "Next: ‹stage›", never Mark done at 0/1.
+  const staged = await makeProject(clientId, "Today staged", {
+    recurrence: "one_time",
+    delivery: addDays(today(), 10),
+    items: [nameOf(info, "staged")],
+    stages: ["Stage 1"],
+  });
+  await rpcAs(admin.email, admin.password, "item_update", {
+    item_id: await itemId(staged, nameOf(info, "staged")),
+    changes: { planned_date: today() },
+  });
+
   await page.goto("/today");
   await hydrated(page);
+  const stagedRow = page.locator('[data-slot="today-client-item"]', {
+    hasText: nameOf(info, "staged"),
+  });
+  await expect(stagedRow.locator('[data-slot="today-item-next"]')).toHaveText(/Next:\s*Stage 1/);
+  await expect(stagedRow.getByRole("button", { name: "Mark done" })).toHaveCount(0);
   await expect(
     page.locator('[data-slot="today-sent-back-row"]', { hasText: nameOf(info, "back") }),
   ).toContainText("The logo is wrong");
@@ -822,26 +839,29 @@ test("the project page (6b.11): open first, Planned words, stage chips, the reop
   await expect(planned("Reopened item")).toHaveText("Not planned");
   await expect(planned("Reopened item")).toHaveAttribute("data-planned", "none");
 
-  // (3) E+: a stage list from before groups is one strip, "Stages 1/3", with "Next: Stage 2"; the
-  // strip opens in place (a view control, the address unchanged) to its chips: ticked, next, later.
+  // (3) V3 (the long-stage-list fixes A-C, F): the row is collapsed: one bar over every stage,
+  // "1/3", with "Next: Stage 2"; the bar opens the row in place (a view control, the address
+  // unchanged) to its checklist: ticked, next (bold, outlined), later.
   const soon = itemRow(page, "Soon item");
-  const strip = soon.locator('[data-slot="item-strip-toggle"]');
+  const strip = soon.locator('[data-slot="item-progress"]');
   await expect(strip).toHaveCount(1);
-  await expect(strip).toHaveText("Stages 1/3 stages ticked");
-  await expect(soon.locator('[data-slot="item-strip-bar"]')).toHaveAttribute("data-done", "1");
-  await expect(soon.locator('[data-slot="item-strip-bar"]')).toHaveAttribute("data-next", "1");
-  await expect(soon.locator('[data-slot="item-strip-bar"]')).toHaveAttribute("data-total", "3");
+  await expect(strip).toHaveText("1/3 stages ticked");
+  await expect(soon.locator('[data-slot="item-progress-bar"]')).toHaveAttribute("data-done", "1");
+  await expect(soon.locator('[data-slot="item-progress-bar"]')).toHaveAttribute("data-next", "1");
+  await expect(soon.locator('[data-slot="item-progress-bar"]')).toHaveAttribute("data-total", "3");
   await expect(soon.locator('[data-slot="item-next"]:visible')).toHaveText("Next: Stage 2");
-  await expect(soon.locator('[data-slot="stage-chip"]')).toHaveCount(0);
+  await expect(soon.locator('[data-slot="stage-check"]')).toHaveCount(0);
   await strip.click();
   await expect(strip).toHaveAttribute("aria-expanded", "true");
-  const chips = soon.locator('[data-slot="stage-chip"]');
+  const chips = soon.locator('[data-slot="stage-check"]');
   await expect(chips).toHaveText(["Stage 1, ticked", "Stage 2, next", "Stage 3, to do"]);
-  expect(await chips.evaluateAll((nodes) => nodes.map((node) => node.dataset.chip))).toEqual([
+  expect(await chips.evaluateAll((nodes) => nodes.map((node) => node.dataset.check))).toEqual([
     "ticked",
     "next",
     "later",
   ]);
+  // One untitled group: no group heading.
+  await expect(soon.locator('[data-slot="item-stage-group-label"]')).toHaveCount(0);
   await expect(page).toHaveURL(new RegExp(`${here}$`));
   await strip.click();
   await expect(chips).toHaveCount(0);
@@ -981,7 +1001,13 @@ test.describe("the project page's Done and closed group, installed (ARCHITECTURE
     await page.goto(`/clients/${clientId}`);
     await hydrated(page);
     await page.locator('[data-slot="client-tabs"]').getByRole("link", { name: "Projects" }).click();
-    await page.locator('[data-slot="project-row"]', { hasText: "Finished reels" }).click();
+    // L6 (V3): the Overview lists the active projects too; take the row on the Projects tab.
+    await expect(page).toHaveURL(new RegExp(`/clients/${clientId}/projects$`));
+    await page
+      .locator('[data-slot="client-projects"] [data-slot="project-row"]', {
+        hasText: "Finished reels",
+      })
+      .click();
     await expect(page).toHaveURL(new RegExp(`/projects/${projectId}$`));
     await hydrated(page);
     const toggle = page.locator('[data-slot="finished-toggle"]');
@@ -1021,8 +1047,11 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
     await page.goto(`/clients/${clientId}`);
     await hydrated(page);
     await page.locator('[data-slot="client-tabs"]').getByRole("link", { name: "Projects" }).click();
+    // L6 (V3): the Overview lists the active projects too; take the row on the Projects tab.
     await expect(page).toHaveURL(new RegExp(`/clients/${clientId}/projects$`));
-    await page.locator('[data-slot="project-row"]', { hasText: "Back reels" }).click();
+    await page
+      .locator('[data-slot="client-projects"] [data-slot="project-row"]', { hasText: "Back reels" })
+      .click();
     await expect(page).toHaveURL(new RegExp(`/projects/${projectId}$`));
     await hydrated(page);
     await itemRow(page, "Reel A").locator('[data-slot="item-open"]').click();

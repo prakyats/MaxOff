@@ -110,7 +110,10 @@ export function AllDayChips({
         <Chip
           slot="calendar-holiday"
           className="border-l-2"
-          style={{ backgroundColor: `${HOLIDAY_COLOR}26`, borderLeftColor: HOLIDAY_COLOR }}
+          style={{
+            backgroundColor: `color-mix(in srgb, ${HOLIDAY_COLOR} 15%, transparent)`,
+            borderLeftColor: HOLIDAY_COLOR,
+          }}
         >
           <span className="min-w-0 truncate">{day.holiday}</span>
         </Chip>

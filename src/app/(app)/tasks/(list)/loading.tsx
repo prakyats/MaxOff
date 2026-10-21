@@ -37,7 +37,7 @@ export default async function Loading() {
         aria-busy="true"
         aria-label="Loading tasks"
         data-slot="loading-tasks"
-        className="flex max-w-3xl min-w-0 flex-col gap-6"
+        className="flex min-w-0 flex-col gap-6"
       >
         {team ? (
           <>

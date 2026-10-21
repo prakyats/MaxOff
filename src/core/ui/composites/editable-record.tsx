@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLinkIcon, PencilIcon } from "lucide-react";
+import { ExternalLinkIcon, PencilIcon, PlusIcon } from "lucide-react";
 import { type ComponentProps, type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -124,7 +124,14 @@ export function EditableRecord<K extends string, V = undefined>({
   editLabel = "Edit",
   canEdit = true,
   editKey,
+  foldEmpty = false,
 }: {
+  /**
+   * L6 (UX review 2026-10-21): the read view lists only the fields with a value; the empty ones
+   * fold into one "Add details" (which opens Edit), or a quiet "N not added" for a viewer who may
+   * not edit. Edit still shows every field.
+   */
+  foldEmpty?: boolean;
   title: string;
   subject: ChangeSubject;
   fields: readonly EditableField<K>[];
@@ -366,15 +373,23 @@ export function EditableRecord<K extends string, V = undefined>({
         <div className="mt-3 flex flex-col gap-3">
           {extra?.first ? extra.read(extra.value) : null}
           <dl className="flex flex-col gap-3 text-sm">
-            {fields.map((field) => (
-              <div key={field.name} data-slot="record-value">
-                <dt className="text-muted-foreground">{field.label}</dt>
-                <dd className="font-medium break-words">
-                  <ReadValue field={field} />
-                </dd>
-              </div>
-            ))}
+            {(foldEmpty ? fields.filter((field) => (field.value ?? "") !== "") : fields).map(
+              (field) => (
+                <div key={field.name} data-slot="record-value">
+                  <dt className="text-muted-foreground">{field.label}</dt>
+                  <dd className="font-medium break-words">
+                    <ReadValue field={field} />
+                  </dd>
+                </div>
+              ),
+            )}
           </dl>
+          {foldEmpty ? (
+            <FoldedEmpty
+              count={fields.filter((field) => (field.value ?? "") === "").length}
+              onAdd={canEdit && !blocked ? startEdit : null}
+            />
+          ) : null}
           {extra && !extra.first ? extra.read(extra.value) : null}
         </div>
       )}
@@ -569,4 +584,32 @@ function valuesOf<K extends string>(fields: readonly EditableField<K>[]): Record
     K,
     string
   >;
+}
+
+/** The empty fields, folded (L6): "Add details · 3 not added", or the count alone read-only. */
+function FoldedEmpty({ count, onAdd }: { count: number; onAdd: (() => void) | null }) {
+  if (count === 0) return null;
+  const words = `${count} not added`;
+  if (!onAdd) {
+    return (
+      <p data-slot="record-folded" className="text-muted-foreground text-sm">
+        {words}
+      </p>
+    );
+  }
+  return (
+    <p data-slot="record-folded" className="flex flex-wrap items-center gap-x-2 text-sm">
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        data-slot="record-add-details"
+        onClick={onAdd}
+      >
+        <PlusIcon aria-hidden />
+        Add details
+      </Button>
+      <span className="text-muted-foreground">{words}</span>
+    </p>
+  );
 }

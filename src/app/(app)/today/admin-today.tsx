@@ -224,7 +224,7 @@ export async function AdminToday({ viewer }: { viewer: CurrentMember }) {
       <TodayAttendanceStrip
         endDayFollowUp={<EndDayClaims today={today} setup={getClaimSetup().catch(() => null)} />}
       />
-      <div className="flex max-w-3xl min-w-0 flex-col gap-6" data-slot="admin-today">
+      <div className="flex min-w-0 flex-col gap-6" data-slot="admin-today">
         <DashSection title="Needs you" slot="today-needs-you" count={summary.count}>
           {nothingNeeded ? (
             <QuietText slot="today-needs-you-empty">{ADMIN_NEEDS_YOU_EMPTY}</QuietText>
@@ -437,7 +437,8 @@ function toRiskTask(row: TaskListRow) {
 }
 
 function needsNote(item: NeedsYouItem, nameOf: (id: string) => string): string | null {
-  if (item.reason === "overdue") return "Past its deadline";
+  // W5: the row's Overdue chip says it; no second line repeating it.
+  if (item.reason === "overdue") return null;
   const first = item.waitingOn[0];
   if (!first) return null;
   const who = nameOf(first.memberId);

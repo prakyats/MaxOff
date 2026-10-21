@@ -786,6 +786,20 @@ export async function archiveItemStageGroup(itemId: string, label: string | null
   if (error) throw error;
 }
 
+/** A deliverable's ungrouped stages split into named groups at the chosen starts (V3, fix D). */
+export async function groupItemStages(
+  itemId: string,
+  groups: readonly { label: string; start: string }[],
+): Promise<void> {
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.rpc("item_stages_group", {
+    item_id: itemId,
+    labels: groups.map((group) => group.label),
+    starts: groups.map((group) => group.start),
+  });
+  if (error) throw error;
+}
+
 export async function updateItemStage(stageId: string, changes: Record<string, unknown>) {
   const supabase = await createServerSupabase();
   const { error } = await supabase.rpc("item_stage_update", {

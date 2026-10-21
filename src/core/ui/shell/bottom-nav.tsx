@@ -20,9 +20,14 @@ import { usePrefetchTabs, useTabNavigation } from "./tab-history";
 /**
  * Shared shape for a bar item, link or More button. `min-h-14` with a 44px inner target and
  * 8px of breathing room satisfies §14.1; the whole cell is tappable, not just the icon.
+ *
+ * Labels are 12px (`text-xs`, the type scale's minimum; DESIGN.md §2). Each cell is a size
+ * container: when a fifth of the bar is narrower than 3rem (the phone's system text at about 160%
+ * and above on a 375px screen) the label leaves the picture and stays as the item's accessible
+ * name (`sr-only`), so the bar shows icons only instead of slivers of words (DESIGN.md §6).
  */
 const ITEM =
-  "relative flex min-h-14 w-full flex-col items-center justify-center gap-1 px-1 text-[11px] leading-none outline-none transition-colors focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-inset";
+  "@container/nav-item relative flex min-h-14 w-full flex-col items-center justify-center gap-1 px-1 text-xs leading-none outline-none transition-colors focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-inset";
 
 /**
  * The icon sits in a pill that fills when the destination is current, with a heavier icon and
@@ -61,7 +66,7 @@ function Item({
       <span
         data-slot="nav-label"
         className={cn(
-          "max-w-full truncate",
+          "max-w-full truncate @max-[3rem]/nav-item:sr-only",
           active ? "text-foreground font-semibold" : "text-muted-foreground",
         )}
       >

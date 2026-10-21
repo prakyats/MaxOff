@@ -8,6 +8,7 @@ import {
   itemMeter,
   meterLine,
   meterPace,
+  needsYouPills,
   percentOf,
   type MeterItem,
 } from "../domain/progress";
@@ -158,5 +159,44 @@ describe("the project page's order (6b.11 (1))", () => {
     ]);
     expect(open.map((item) => item.id)).toEqual(["late", "soon", "later", "undated", "undated 2"]);
     expect(finished.map((item) => item.id)).toEqual(["closed", "done", "carried"]);
+  });
+});
+
+describe("the Needs you pills beside the ring (v1.8 sample)", () => {
+  const item = (
+    id: string,
+    plannedDate: string | null,
+    done: boolean[],
+    state: ItemState = "open",
+  ) => ({ id, title: id, state, plannedDate, stages: done.map((d) => ({ done: d })) });
+
+  it("late in red first, most late first; then nearly done in amber; closed and done left out", () => {
+    const result = needsYouPills(
+      [
+        item("Reel 1", "2026-10-20", [true, false, false]),
+        item("Reel 2", "2026-10-18", [false]),
+        item("Interview 2", "2026-10-25", [true, true, false]),
+        item("Reel 3", null, [true, true]),
+        item("Reel 4", "2026-10-10", [true], "done"),
+        item("Reel 5", "2026-10-10", [false], "cancelled"),
+        item("Reel 6", null, [false, false]),
+      ],
+      "2026-10-21",
+    );
+    expect(result.pills).toEqual([
+      { itemId: "Reel 2", tone: "danger", text: "Reel 2 is 3 days late" },
+      { itemId: "Reel 1", tone: "danger", text: "Reel 1 is 1 day late" },
+      { itemId: "Reel 3", tone: "attention", text: "Reel 3: ready to mark done" },
+      { itemId: "Interview 2", tone: "attention", text: "Interview 2: 1 stage left" },
+    ]);
+    expect(result.more).toBe(0);
+  });
+
+  it("shows at most four and counts the rest", () => {
+    const many = ["A", "B", "C", "D", "E", "F"].map((id) => item(id, "2026-10-20", [false]));
+    const result = needsYouPills(many, "2026-10-21");
+    expect(result.pills).toHaveLength(4);
+    expect(result.more).toBe(2);
+    expect(needsYouPills([], "2026-10-21")).toEqual({ pills: [], more: 0 });
   });
 });

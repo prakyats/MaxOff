@@ -29,7 +29,7 @@ export default async function ClientBrandPage({ params }: { params: Promise<{ id
   };
 
   return (
-    <div className="flex max-w-2xl flex-col gap-4" data-slot="client-brand">
+    <div className="flex flex-col gap-4" data-slot="client-brand">
       <Card>
         <CardContent className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3">

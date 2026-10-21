@@ -73,6 +73,7 @@ export {
   type WeekRow,
 } from "./domain/week";
 export {
+  ApprovalPersonRow,
   DashSection,
   DashSectionHeadingSkeleton,
   LinkRow,

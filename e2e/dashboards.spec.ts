@@ -568,6 +568,57 @@ test.describe("the Owner's Today (6.2)", () => {
     }
   });
 
+  test("Needs you folds a person's several waiting days into one row; the count is the rows (L8, B2)", async ({
+    page,
+  }, info) => {
+    const crewId = await memberIdOf(crew(info));
+    await resetAttendanceAndLeave(crewId);
+    // Three old working days the 23:59 job proposed as absent (the oldest waiting, so shown first).
+    const days = [workingDay(-200), workingDay(-197), workingDay(-194)].filter(
+      (day, index, all) => all.indexOf(day) === index,
+    );
+    for (const day of days) {
+      await serviceInsert("attendance_days", {
+        member_id: crewId,
+        work_date: day,
+        state: "pending_review",
+        final_status: "absent",
+        proposed_by_system: true,
+      });
+    }
+    try {
+      await page.goto("/today");
+      await hydrated(page);
+      const needs = section(page, "today-approvals");
+      const folded = needs.locator('[data-slot="approval-person-row"]', {
+        hasText: crewName(info),
+      });
+      await expect(folded).toHaveCount(1);
+      await expect(folded.locator('[data-slot="approval-detail"]')).toHaveText(
+        `${days.length} days proposed absent`,
+      );
+      await expect(folded).toContainText("Review");
+      // No single row for those days remains.
+      await expect(
+        needs.locator('[data-slot="approval-row"]', { hasText: crewName(info) }),
+      ).toHaveCount(0);
+      // B2: the heading counts rows, the folded one once.
+      const rowCount = await needs
+        .locator('[data-slot="approval-row"], [data-slot="approval-person-row"]')
+        .count();
+      const total = Number(
+        (await page.locator("#today-approvals-title").innerText()).match(/· (\d+)/)?.[1],
+      );
+      const seeAll = await page.locator('[data-slot="today-see-all-approvals"]').count();
+      if (seeAll === 0) expect(total).toBe(rowCount);
+      else expect(total).toBeGreaterThan(rowCount);
+      await folded.getByRole("link").click();
+      await expect(page).toHaveURL(/\/approvals$/);
+    } finally {
+      await resetAttendanceAndLeave(crewId);
+    }
+  });
+
   test("Attendance: four counts in one row, no label wrapped; yesterday's unended days as one red line (owner 2026-10-09)", async ({
     page,
   }, info) => {
