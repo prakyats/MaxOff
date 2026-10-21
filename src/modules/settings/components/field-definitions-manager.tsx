@@ -145,7 +145,7 @@ export function FieldDefinitionsManager({
           the Owner's read-only group): one heading holds it, so adding is always one tap. */}
       {active.length > 0 && canAdd && !groups.some((group) => group.canAddHere) ? (
         <ListHeading
-          title="Fields for one only"
+          title={kind === "task_type" ? "Fields for one task type" : "Fields for one client"}
           action={
             <ListAddButton onClick={() => setAdding({ scope: null })}>Add field</ListAddButton>
           }
