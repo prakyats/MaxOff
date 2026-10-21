@@ -10,7 +10,6 @@ import {
   useEffect,
   useMemo,
   useRef,
-  Suspense,
   useState,
   useTransition,
 } from "react";
@@ -63,21 +62,12 @@ import { Timeline, weekdayHeading } from "./timeline";
 const DaySheet = dynamic(() => import("./day-sheet").then((module) => module.DaySheet), {
   ssr: false,
 });
-/**
- * The laptop Month's day panel (L7, V5a): drawn on the server with the page (no shift), its code
- * a chunk of its own shared with the day sheet's agenda, so the route's first load stays within
- * its budget (ARCHITECTURE §19).
- */
-const DayPanel = dynamic(() => import("./day-panel").then((module) => module.DayPanel));
 const FiltersSheet = dynamic(
   () => import("./filters-sheet").then((module) => module.FiltersSheet),
   { ssr: false },
 );
 
 const VIEW_LABELS: Record<CalendarView, string> = { day: "Day", week: "Week", month: "Month" };
-
-/** Where the laptop Month shows the selected day beside it instead of in a dialog (`lg`). */
-const PANEL_QUERY = "(min-width: 1024px)";
 
 const ICON_BUTTON =
   "focus-visible:ring-ring text-muted-foreground hover:text-foreground active:bg-muted flex size-11 shrink-0 items-center justify-center rounded-lg outline-none focus-visible:ring-2";
@@ -199,18 +189,6 @@ export function CalendarScreen({
   function openDay(date: ISODate) {
     replaceOnPageEntry(calendarHref({ ...query, view: "day", date }, today));
   }
-
-  /** "Open day": the Day view of that day (the dialog's footer backs out first, the panel's too). */
-  const openDayButton = (date: ISODate) => (
-    <button
-      type="button"
-      data-slot="calendar-open-day"
-      className="pressable focus-visible:ring-ring border-control-border hover:bg-muted hidden min-h-8 items-center rounded-lg border px-3 text-sm font-medium outline-none focus-visible:ring-2 md:inline-flex"
-      onClick={() => openDay(date)}
-    >
-      Open day
-    </button>
-  );
 
   // The laptop's step follows its view: a day, a week or a month.
   const laptopStep = (direction: -1 | 1) =>
@@ -598,37 +576,17 @@ export function CalendarScreen({
           </div>
         </div>
         {view === "month" ? (
-          // From `lg` up the selected day sits beside the month (L7, V5a); between `md` and `lg`
-          // a day still opens in the dialog.
-          <div
-            data-slot="calendar-month-laptop"
-            className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]"
-          >
-            <MonthGrid
-              grid={grid}
-              days={byDate}
-              today={today}
-              selected={selected}
-              density="laptop"
-              onDay={(date) => {
-                if (monthOf(date) !== grid.month || window.matchMedia(PANEL_QUERY).matches) {
-                  go(date);
-                } else setSheetDate(date);
-              }}
-            />
-            {/* Its own boundary: the panel's chunk hydrates on its own, the month never waits for
-                it (a day tapped before the chunk arrived was lost). */}
-            <Suspense fallback={null}>
-              <DayPanel
-                day={dayOf(selected)}
-                today={today}
-                scope={scope}
-                free={freeOf(selected)}
-                action={action(selected)}
-                footer={openDayButton(selected)}
-              />
-            </Suspense>
-          </div>
+          <MonthGrid
+            grid={grid}
+            days={byDate}
+            today={today}
+            selected={null}
+            density="laptop"
+            onDay={(date) => {
+              if (monthOf(date) !== grid.month) go(date);
+              else setSheetDate(date);
+            }}
+          />
         ) : view === "week" ? (
           <Timeline
             days={weekDays}
@@ -710,7 +668,16 @@ export function CalendarScreen({
           scope={scope}
           free={freeOf(sheetDate)}
           action={action(sheetDate)}
-          footer={openDayButton(sheetDate)}
+          footer={
+            <button
+              type="button"
+              data-slot="calendar-open-day"
+              className="pressable focus-visible:ring-ring border-control-border hover:bg-muted hidden min-h-8 items-center rounded-lg border px-3 text-sm font-medium outline-none focus-visible:ring-2 md:inline-flex"
+              onClick={() => openDay(sheetDate)}
+            >
+              Open day
+            </button>
+          }
           onClose={() => setSheetDate(null)}
         />
       ) : null}

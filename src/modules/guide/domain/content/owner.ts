@@ -624,7 +624,7 @@ export const OWNER_GUIDE: Guide = {
           summary: "See who is away and what is due, then add a task.",
           blocks: [
             text(
-              'The day sheet shows what is due, events and deliverables, and who is away: "On leave" and "Busy all day", each only when someone is. When nobody is, it says "Everyone is available". On a laptop the day you tap sits in a panel beside the month; on a phone it opens in a sheet.',
+              'The day sheet shows what is due, events and deliverables, and who is away: "On leave" and "Busy all day", each only when someone is. When nobody is, it says "Everyone is available".',
             ),
             steps(
               "Open Calendar and tap a day.",

@@ -647,7 +647,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "A day shows what is Due, events, and who is away: “On leave” and “Busy all day”, each only when someone is, else “Everyone is available”. On a laptop the day you tap sits in a panel beside the month; on a phone it opens in a sheet.",
+              text: "A day shows what is Due, events, and who is away: “On leave” and “Busy all day”, each only when someone is, else “Everyone is available”. On a laptop it opens in a dialog; on a phone, in a sheet.",
             },
             {
               kind: "steps",

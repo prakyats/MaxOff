@@ -36,8 +36,7 @@ import {
  * on with today selected, the full month), changed by a vertical drag on the calendar or by the
  * handle; the day's detail under the first two (the all-day line, the hour timeline, "Due · N",
  * "Who's free", the day's action); a day of the full month opens the day sheet, which back closes.
- * **Laptop** (1280): Day · Week · Month, opening on Month; the selected day sits in a panel beside
- * the month with "Open day" (L7, V5a; between `md` and `lg` it opens in a dialog).
+ * **Laptop** (1280): Day · Week · Month, opening on Month; a day opens in a dialog with "Open day".
  * Crew see their own (no Busy, no "Who's free", "Suggest a task" with the day); an Admin sees the
  * tasks they can see and everyone else as Busy; the Owner everything and "+ New task on <day>",
  * the form opening with the day as the deadline. The size, the day and the filters are view
@@ -108,8 +107,6 @@ const phone = (page: Page) => page.locator('[data-slot="calendar-phone"]');
 /** The day's detail on screen: the phone's panel or the laptop Day's side column. */
 const detail = (page: Page) => page.locator('[data-slot="calendar-detail"]:visible').first();
 const daySheet = (page: Page) => page.locator('[data-calendar="day-sheet"]');
-/** The laptop Month's selected-day panel beside the month (L7, V5a; 1280 px: from `lg` up). */
-const dayPanel = (page: Page) => page.locator('[data-calendar="day-panel"]');
 const eventIn = (scope: Locator, title: string) =>
   scope.locator('[data-slot="calendar-event"]').filter({ hasText: title });
 /** One task's event by its id: the spec's own shoot, never an earlier test's of the same title. */
@@ -240,17 +237,16 @@ test.describe("the calendar, as Crew", () => {
         });
       expect(spread, "the header is one row").toBeLessThan(4);
     } else {
-      // The laptop opens on Month; the selected day sits in the panel beside it (V5a).
+      // The laptop opens on Month; a day opens in the dialog.
       await expect(page.locator('[data-slot="calendar-laptop"]')).toHaveAttribute(
         "data-view",
         "month",
       );
       await expect(dayBox(page, todayIST())).toHaveAttribute("aria-label", new RegExp(shoot.title));
       await dayBox(page, todayIST()).click();
-      await expect(dayPanel(page)).toHaveAttribute("data-date", todayIST());
-      await expect(daySheet(page)).toHaveCount(0);
+      await expect(daySheet(page)).toBeVisible();
     }
-    const today = isPhone(info) ? detail(page) : dayPanel(page);
+    const today = isPhone(info) ? detail(page) : daySheet(page);
     const row = eventOf(today, shoot);
     await expect(row).toBeVisible();
     if (isPhone(info)) {
@@ -271,6 +267,10 @@ test.describe("the calendar, as Crew", () => {
     );
     await page.keyboard.press("Escape");
     await expect(page.getByRole("textbox", { name: /Details/ })).toHaveCount(0);
+    if (!isPhone(info)) {
+      await page.keyboard.press("Escape");
+      await expect(daySheet(page)).toHaveCount(0);
+    }
 
     // Crew filter by type only (decision 15), in the one Filters sheet (decision 25 F).
     await page.locator('[data-slot="calendar-filters-button"]:visible').click();
@@ -554,7 +554,7 @@ test.describe("the calendar, as the Owner", () => {
     await expect(eventOf(page.locator('[data-slot="calendar"]'), shoot)).toHaveCount(0);
   });
 
-  test("laptop: Month → the day's panel → Open day; Week is a 7-column timeline", async ({
+  test("laptop: Month → a day's dialog → Open day; Week is a 7-column timeline", async ({
     page,
   }, info) => {
     test.skip(isPhone(info), "the laptop's views");
@@ -562,10 +562,10 @@ test.describe("the calendar, as the Owner", () => {
     await page.goto("/calendar");
     await hydrated(page);
     await dayBox(page, todayIST()).click();
-    await expect(dayPanel(page)).toHaveAttribute("data-date", todayIST());
-    await expect(dayPanel(page).locator('[data-slot="calendar-who-free"]')).toBeVisible();
-    await dayPanel(page).locator('[data-slot="calendar-open-day"]').click();
-    await expect(dayPanel(page)).toHaveCount(0);
+    await expect(daySheet(page)).toBeVisible();
+    await expect(daySheet(page).locator('[data-slot="calendar-who-free"]')).toBeVisible();
+    await daySheet(page).locator('[data-slot="calendar-open-day"]').click();
+    await expect(daySheet(page)).toHaveCount(0);
     await expect(page.locator('[data-slot="calendar-laptop"]')).toHaveAttribute("data-view", "day");
     await expect(page).toHaveURL(/view=day/);
     await page.locator('[data-slot="calendar-view"]').getByRole("link", { name: "Week" }).click();
@@ -578,14 +578,14 @@ test.describe("the calendar, as the Owner", () => {
     await expect(eventOf(week, shoot)).toBeVisible();
 
     // A day before today offers no "+ New task" (a new deadline is later than now, kickoff 4
-    // decision 4): neither the month's day panel nor the Day's side column.
+    // decision 4): neither the month's day dialog nor the Day's side column.
     const past = addISTDays(todayIST(), -1);
     await page.goto(`/calendar?date=${past}`);
     await hydrated(page);
     await dayBox(page, past).click();
-    await expect(dayPanel(page)).toHaveAttribute("data-date", past);
-    await expect(dayPanel(page).locator('[data-slot="calendar-open-day"]')).toBeVisible();
-    await expect(dayPanel(page).locator('[data-slot="new-task-on-day"]')).toHaveCount(0);
+    await expect(daySheet(page)).toHaveAttribute("data-date", past);
+    await expect(daySheet(page).locator('[data-slot="calendar-open-day"]')).toBeVisible();
+    await expect(daySheet(page).locator('[data-slot="new-task-on-day"]')).toHaveCount(0);
     await page.goto(`/calendar?view=day&date=${past}`);
     await hydrated(page);
     await expect(detail(page)).toHaveAttribute("data-date", past);
@@ -663,11 +663,9 @@ test.describe("the calendar, as the Owner", () => {
     await expect(laptop).toHaveAttribute("data-view", "month");
     const historyLength = () => page.evaluate(() => window.history.length);
 
-    // 1. A Month day's panel (V5a: beside the month, not a popup): no timeline, the agenda in time
-    // order, the buttons pinned below.
+    // 1. A Month day's popup: no timeline, the agenda in time order, the buttons pinned below.
     await dayBox(page, day).click();
-    const popup = dayPanel(page);
-    await expect(popup).toHaveAttribute("data-date", day);
+    const popup = daySheet(page);
     await expect(popup).toHaveAttribute("data-layout", "laptop");
     await expect(popup.locator('[data-slot="calendar-timeline"]')).toHaveCount(0);
     const agenda = popup.locator('[data-slot="calendar-agenda-events"]');
@@ -688,7 +686,7 @@ test.describe("the calendar, as the Owner", () => {
       `New task on ${shortDay(day)}`,
     );
     await expect(footer.locator('[data-slot="calendar-open-day"]')).toBeVisible();
-    // One scroll at most, the body's; the panel itself never scrolls and the footer is its last
+    // One scroll at most, the body's; the dialog itself never scrolls and the footer is its last
     // row, flush with its bottom.
     const box = await popup.evaluate((dialog) => {
       const body = dialog.querySelector<HTMLElement>('[data-slot="calendar-day-body"]');
@@ -700,12 +698,14 @@ test.describe("the calendar, as the Owner", () => {
         dialogBottom: dialog.getBoundingClientRect().bottom,
       };
     });
-    expect(box.dialogScrolls, "the panel never scrolls itself").toBe(false);
+    expect(box.dialogScrolls, "the dialog never scrolls itself").toBe(false);
     expect(box.bodyOverflow).toBe("auto");
     expect(Math.abs(box.dialogBottom - box.footBottom), "the footer is pinned").toBeLessThan(2);
-    // The panel is part of the screen, not a layer: the keyboard stays live (W below), and the
-    // day's dialog never opened.
-    await expect(daySheet(page)).toHaveCount(0);
+    // The keyboard is quiet while the popup is open.
+    await page.keyboard.press("w");
+    await expect(laptop).toHaveAttribute("data-view", "month");
+    await page.keyboard.press("Escape");
+    await expect(popup).toHaveCount(0);
 
     // 2. The keyboard: W to Week (view state: the address replaced, no history).
     const beforeKeys = await historyLength();
@@ -795,21 +795,17 @@ test.describe("the calendar, as the Owner", () => {
         `[data-slot="calendar-all-day-row"] > [data-date="${day}"] [data-slot="calendar-due-chip"]`,
       )
       .click();
-    // Week keeps the day's dialog (the panel is the Month's, V5a).
-    const weekPopup = daySheet(page);
-    await expect(weekPopup).toBeVisible();
+    await expect(popup).toBeVisible();
     await expect(
-      weekPopup.locator('[data-slot="calendar-due"]').filter({ hasText: `${prefix}edit` }),
+      popup.locator('[data-slot="calendar-due"]').filter({ hasText: `${prefix}edit` }),
     ).toBeVisible();
     await page.keyboard.press("Escape");
-    await expect(weekPopup).toHaveCount(0);
+    await expect(popup).toHaveCount(0);
 
     // 7. → moves a week: a week without today opens at 08:00.
     const beforeMoves = await historyLength();
     await page.keyboard.press("ArrowRight");
-    // From the selected day: step 1's tap on a Month day selected it (V5a: the panel, as the
-    // phone does), and W kept it.
-    await expect(page).toHaveURL(new RegExp(`date=${addISTDays(day, 7)}`));
+    await expect(page).toHaveURL(new RegExp(`date=${addISTDays(todayIST(), 7)}`));
     await expect
       .poll(() =>
         week.locator('[data-slot="calendar-hours"]').evaluate((hours) => {
@@ -851,11 +847,11 @@ test.describe("the calendar, as the Owner", () => {
     expect(dayFit.pageScroll, "the page does not scroll").toBeLessThanOrEqual(0);
     expect(Math.abs(dayFit.timeline - dayFit.side), "the side panel is as tall").toBeLessThan(2);
     expect(Math.abs(dayFit.viewport - dayFit.mainPadding - dayFit.bottom)).toBeLessThan(2);
-    // "Due · N" in the Day's all-day row opens the day's dialog too (the panel is the Month's).
+    // "Due · N" in the Day's all-day row opens the popup too.
     await page.locator('[data-slot="calendar-day-view"] [data-slot="calendar-due-chip"]').click();
-    await expect(daySheet(page)).toBeVisible();
+    await expect(popup).toBeVisible();
     await page.keyboard.press("Escape");
-    await expect(daySheet(page)).toHaveCount(0);
+    await expect(popup).toHaveCount(0);
     // M back to Month, as view state too (§14.2 d).
     const beforeMonth = await historyLength();
     await page.keyboard.press("m");
@@ -1154,13 +1150,13 @@ test.describe("a deadline moved earlier, from a task opened on the calendar (6b.
 
   const VIEWS: View[] = [
     {
-      name: "laptop Month (the day's panel)",
+      name: "laptop Month (the day's popup)",
       phone: false,
       address: (date) => `/calendar?date=${date}`,
       show: async (page, date) => {
         await dayBox(page, date).click();
-        await expect(dayPanel(page)).toHaveAttribute("data-date", date);
-        return dayPanel(page);
+        await expect(daySheet(page)).toHaveAttribute("data-date", date);
+        return daySheet(page);
       },
     },
     {
@@ -1284,8 +1280,8 @@ test.describe("a deadline moved earlier by someone else (6b.12)", () => {
     const show = async (date: string) => {
       if (!phoneRun) {
         await dayBox(page, date).click();
-        await expect(dayPanel(page)).toHaveAttribute("data-date", date);
-        return dayPanel(page);
+        await expect(daySheet(page)).toHaveAttribute("data-date", date);
+        return daySheet(page);
       }
       await dayBox(page, date).click();
       await expect(detail(page)).toHaveAttribute("data-date", date);
