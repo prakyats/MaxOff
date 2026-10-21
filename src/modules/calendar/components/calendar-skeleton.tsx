@@ -60,7 +60,7 @@ export function CalendarSkeleton({ weeks }: { weeks: number }) {
             <Skeleton className="size-4 rounded-sm" />
           </span>
           <span className="flex size-11 shrink-0 items-center justify-center">
-            <Skeleton className="size-6 rounded-[0.3rem]" />
+            <Skeleton className="size-6 rounded-sm" />
           </span>
           <span className="flex min-h-11 w-24 shrink-0 items-center">
             <Skeleton className="h-11 w-full rounded-lg" />

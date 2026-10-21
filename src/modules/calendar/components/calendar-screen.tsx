@@ -327,7 +327,7 @@ export function CalendarScreen({
     >
       <span
         aria-hidden
-        className="border-foreground relative flex h-6 w-6 flex-col items-center justify-end rounded-[0.3rem] border-2 pb-px text-[0.625rem] leading-none font-bold tabular-nums"
+        className="border-foreground relative flex h-6 w-6 flex-col items-center justify-end rounded-sm border-2 pb-px text-xs leading-none font-semibold tabular-nums"
       >
         <span className="bg-foreground absolute inset-x-0 top-0 h-1" />
         {formatIST(istDayStart(today), "d")}
@@ -441,7 +441,7 @@ export function CalendarScreen({
                     >
                       <span
                         className={cn(
-                          "text-[0.6875rem] leading-4 uppercase",
+                          "text-xs leading-4 uppercase",
                           chosen ? "text-background/80" : "text-muted-foreground",
                         )}
                       >

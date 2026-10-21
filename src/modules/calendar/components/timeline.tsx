@@ -246,7 +246,7 @@ export function Timeline({
           className={cn("border-border grid border-b", gutter)}
           style={grid}
         >
-          <span className="text-muted-foreground py-1 pr-1 text-right text-[0.6875rem] leading-4">
+          <span className="text-muted-foreground py-1 pr-1 text-right text-xs leading-4">
             All day
           </span>
           {days.map((day) => (
@@ -282,7 +282,7 @@ export function Timeline({
               {HOURS.map((hour) => (
                 <span
                   key={hour}
-                  className="text-muted-foreground absolute right-1 -translate-y-1/2 text-[0.6875rem] leading-4 tabular-nums"
+                  className="text-muted-foreground absolute right-1 -translate-y-1/2 text-xs leading-4 tabular-nums"
                   style={{ top: at(hour * 60) }}
                 >
                   {hour === 0 ? "" : hourLabel(hour)}

@@ -34,7 +34,7 @@ const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"] as const;
 export type GridDensity = "compact" | "full" | "laptop";
 
 const LINE = {
-  full: "text-[0.625rem] leading-[0.875rem]",
+  full: "text-xs leading-4",
   laptop: "text-xs leading-5",
 } as const;
 
@@ -54,7 +54,7 @@ function StripLine({
           data-slot="calendar-strip"
           data-kind="tasks"
           data-tone="overdue"
-          className="bg-danger inline-flex w-fit max-w-full items-center gap-0.5 self-start rounded-full px-1 text-[0.625rem] leading-[0.875rem] font-semibold text-white tabular-nums"
+          className="bg-destructive-solid text-destructive-solid-foreground inline-flex w-fit max-w-full items-center gap-0.5 self-start rounded-full px-1 text-xs leading-4 font-semibold tabular-nums"
         >
           <CircleAlertIcon className="size-2.5 shrink-0" aria-hidden />
           <span className="truncate">{strip.count}</span>
@@ -92,7 +92,14 @@ function StripLine({
           : "border-muted-foreground/70 text-muted-foreground border border-dotted",
         strip.kind === "event" && strip.completed && "line-through opacity-60",
       )}
-      style={color ? { backgroundColor: `${color}26`, borderLeftColor: color } : undefined}
+      style={
+        color
+          ? {
+              backgroundColor: `color-mix(in srgb, ${color} 15%, transparent)`,
+              borderLeftColor: color,
+            }
+          : undefined
+      }
     >
       {text}
     </span>
@@ -130,10 +137,7 @@ export function MonthGrid({
     >
       <ol aria-hidden className="grid grid-cols-7 gap-0.5">
         {WEEKDAYS.map((letter, index) => (
-          <li
-            key={index}
-            className="text-muted-foreground text-center text-[0.6875rem] leading-4 uppercase"
-          >
+          <li key={index} className="text-muted-foreground text-center text-xs leading-4 uppercase">
             {letter}
           </li>
         ))}
@@ -219,7 +223,7 @@ export function MonthGrid({
                       {lines && lines.more > 0 ? (
                         <span
                           data-slot="calendar-more"
-                          className="text-muted-foreground ml-auto hidden min-w-0 truncate text-[0.625rem] leading-3 tabular-nums @min-[2.25rem]:block"
+                          className="text-muted-foreground ml-auto hidden min-w-0 truncate text-xs leading-4 tabular-nums @min-[2.25rem]:block"
                         >
                           +{lines.more}
                         </span>
@@ -262,9 +266,7 @@ export function MonthGrid({
                         className={cn(
                           // Low contrast, along the bottom, joined to its neighbours' bars.
                           "bg-muted text-muted-foreground mt-auto block truncate px-1",
-                          density === "laptop"
-                            ? "text-[0.6875rem] leading-4"
-                            : "text-[0.5625rem] leading-3",
+                          "text-xs leading-4",
                           before
                             ? density === "laptop"
                               ? "-ml-[5px]"

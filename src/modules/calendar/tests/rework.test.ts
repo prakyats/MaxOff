@@ -161,7 +161,7 @@ describe("the month's strips (decision 25 C, amended by the owner 2026-10-08)", 
     for (const strip of allStrips(day({ holiday: "Diwali", events: [event("e")] }), TODAY)) {
       if (strip.kind === "event") expect(strip.color).toBe(BLUE);
     }
-    expect(HOLIDAY_COLOR).toBe("#16a34a");
+    expect(HOLIDAY_COLOR).toBe("var(--holiday)");
   });
 
   it("counts the tasks: amber due, red overdue on a past day, nothing when none", () => {
