@@ -209,7 +209,7 @@ describe("the sections (decision 23: the week from the saved reports, now, the w
     );
     expect(sections.find((section) => section.heading === "Client work")?.lines).toEqual([
       {
-        text: "Ravi: 5 items done, 2 overdue now, 1 project completed",
+        text: "Ravi: 5 deliverables done, 2 overdue now, 1 project completed",
         link: "/clients/items?filter=overdue",
       },
       { text: "No Admin (yours): 1 item done", link: null },

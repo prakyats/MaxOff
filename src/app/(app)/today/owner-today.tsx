@@ -384,8 +384,8 @@ export async function OwnerToday({ viewer }: { viewer: CurrentMember }) {
                     className="text-danger"
                   >
                     {overdueItems === 1
-                      ? "1 client item overdue"
-                      : `${overdueItems} client items overdue`}
+                      ? "1 deliverable overdue"
+                      : `${overdueItems} deliverables overdue`}
                   </span>
                 }
                 detail="Grouped by Admin"

@@ -527,7 +527,7 @@ describe("the item KPIs (7.4, PRODUCT §4.13)", () => {
 
   it("Cycle progress in words", () => {
     expect(cycleProgressWords({ total: 12, done: 9 })).toBe("9 of 12 done");
-    expect(cycleProgressWords({ total: 0, done: 0 })).toBe("No current items");
+    expect(cycleProgressWords({ total: 0, done: 0 })).toBe("No current deliverables");
   });
 
   it("where items sit longest: by each item's first unticked stage, the longest wait first", () => {
@@ -552,6 +552,10 @@ describe("the item KPIs (7.4, PRODUCT §4.13)", () => {
       ["Script", 1, 8],
       ["Edit", 1, 2],
     ]);
+    // W6: whole days, never "median 20.2 days".
+    expect(sitWords({ stage: "Edit", count: 2, medianDays: 20.2 })).toBe(
+      "2 waiting at Edit · median 20 days",
+    );
     expect(sitWords({ stage: "Edit", count: 8, medianDays: 3 })).toBe(
       "8 waiting at Edit · median 3 days",
     );

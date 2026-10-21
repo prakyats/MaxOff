@@ -150,7 +150,7 @@ describe("digestSections", () => {
 describe("heldBackLabel", () => {
   it("words a known kind, else its description, else a plain label; never the identifier", () => {
     expect(heldBackLabel("escalation_overdue", "x")).toBe("Overdue escalations");
-    expect(heldBackLabel("reminder_item_overdue", "x")).toBe("Overdue client items");
+    expect(heldBackLabel("reminder_item_overdue", "x")).toBe("Overdue deliverables");
     expect(heldBackLabel("escalation_cycle_undecided", "x")).toBe("Undecided cycle escalations");
     expect(heldBackLabel("reminder_delivery_missed", "x")).toBe("Missed client deliveries");
     expect(heldBackLabel("some_new_kind", "A new kind of message")).toBe("A new kind of message");

@@ -434,7 +434,7 @@ export function ClientItemsList({
     >
       <h3 id={headingId} className="flex items-center gap-1.5 text-sm font-semibold">
         <ListChecksIcon className="text-muted-foreground size-4" aria-hidden />
-        Client items · {items.length}
+        Deliverables · {items.length}
       </h3>
       <ul
         className={cn(

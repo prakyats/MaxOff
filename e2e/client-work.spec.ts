@@ -456,7 +456,7 @@ test("⋯ Deliverables list: a new line starts next month; this month's delivera
   await removeClientFixture(client);
 });
 
-test("the Owner's Today: N client items overdue, the list grouped by Admin", async ({
+test("the Owner's Today: N deliverables overdue, the list grouped by Admin", async ({
   browser,
 }, info) => {
   const client = nameOf(info, "overdue");
@@ -473,7 +473,7 @@ test("the Owner's Today: N client items overdue, the list grouped by Admin", asy
   const page = await context.newPage();
   await page.goto("/today");
   const line = page.locator('[data-slot="today-items-overdue"]');
-  await expect(line).toContainText(/client items? overdue/);
+  await expect(line).toContainText(/deliverables? overdue/);
   // Red for overdue with its dot, the line's one status signal (the Today refresh, 2026-10-09).
   await expect(line.locator('[data-slot="today-items-overdue-signal"]')).toHaveAttribute(
     "data-tone",

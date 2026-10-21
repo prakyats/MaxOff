@@ -146,13 +146,13 @@ export async function AdminReport({ viewer, period }: { viewer: CurrentMember; p
           data-slot="report-items"
         >
           <h2 id="items-title" className="text-sm font-semibold">
-            Client items
+            Deliverables
           </h2>
           <div className="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2">
             <ItemKpiCard
               slot="kpi-on-time"
               title="On time"
-              definition="Items done on or before their planned date, of the items planned."
+              definition="Deliverables done on or before their planned date, of those planned."
               now={onTimeWords(onTime(planned, period))}
               before={onTimeWords(onTime(planned, before))}
             />
@@ -166,17 +166,17 @@ export async function AdminReport({ viewer, period }: { viewer: CurrentMember; p
             <ItemKpiCard
               slot="kpi-items-overdue"
               title="Overdue now"
-              definition="Open items past their planned date."
+              definition="Open deliverables past their planned date."
               now={itemCount(overdueItems)}
               before={null}
               href="/clients/items?filter=overdue"
             />
             <ItemKpiCard
               slot="kpi-sit-longest"
-              title="Where items sit longest"
-              definition="Open items by their first unticked stage, with the median days waiting."
+              title="Where deliverables wait longest"
+              definition="Open deliverables by their first unticked stage, with the median days waiting."
               lines={sits.slice(0, 5).map(sitWords)}
-              empty="No open items waiting at a stage."
+              empty="No open deliverables waiting at a stage."
             />
           </div>
         </section>

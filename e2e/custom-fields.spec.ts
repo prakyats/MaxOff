@@ -73,7 +73,7 @@ test.describe("Owner", () => {
     const k = keys(info);
     await page.goto("/settings/custom-fields");
     await expect(pageHeader(page)).toContainText("Custom fields");
-    for (const tab of ["Clients", "Contacts", "Projects", "Items", "Tasks"]) {
+    for (const tab of ["Clients", "Contacts", "Projects", "Deliverables", "Tasks"]) {
       await expect(tabs(page).getByRole("link", { name: tab, exact: true })).toBeVisible();
     }
 
@@ -205,7 +205,7 @@ test.describe("Owner", () => {
     await page.getByRole("link", { name: "Custom fields", exact: true }).click();
     await expect(page).toHaveURL(/\/settings\/custom-fields$/);
     await hydrated(page);
-    await tabs(page).getByRole("link", { name: "Items", exact: true }).click();
+    await tabs(page).getByRole("link", { name: "Deliverables", exact: true }).click();
     await expect(page).toHaveURL(/entity=item/);
     const actions = row(page, key).getByRole("button", { name: `Actions for ${label}` });
     const sheet = page.locator('[data-slot="list-item-actions"]');
