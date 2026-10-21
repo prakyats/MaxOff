@@ -307,7 +307,7 @@ test("laptop columns line up row to row; a phone's card keeps 44 px targets", as
     for (const target of [
       ...(await page.locator('button[data-slot="item-progress"]').all()),
       ...(await page.locator('[data-slot="item-row-done"]').all()),
-      ...(await page.locator('[data-slot="item-row-more"]').all()),
+      ...(await page.locator('[data-slot="item-row-more"]:visible').all()),
       ...(await page.locator('[data-slot="item-next-line"]').all()),
     ]) {
       const box = await target.boundingBox();

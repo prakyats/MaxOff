@@ -964,6 +964,8 @@ test.describe("the MaxOff mark on a top-level tab (owner 2026-10-21)", () => {
     await expect(
       page.locator('[data-slot="page-header"] [data-slot="page-back"]:visible'),
     ).toHaveCount(0);
+    await expect(mark).toBeVisible();
+    await expectSettled(page);
     expect((await mark.boundingBox())?.height).toBeGreaterThanOrEqual(44);
 
     const before = await page.evaluate(() => history.length);
