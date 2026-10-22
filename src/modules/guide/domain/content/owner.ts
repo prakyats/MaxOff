@@ -1741,7 +1741,7 @@ export const OWNER_GUIDE: Guide = {
             ),
             next("It is gone for good, from every list and picker. Its name stays in the history."),
             note(
-              'Anything ever used stays: a title someone once held, a category on any claim (paid ones too), a type on any task or template, a field with a value now or in the past, a draft with a contact, a note or an edit, anything renamed or archived before. The question then says "In use — archive it instead." and offers only Close. A draft client has no Archive; it simply stays a draft. Admins never see Delete.',
+              'Anything something else ever used stays: a title someone once held, a category on any claim (paid ones too), a type on any task or template, a field with a value now or in the past, a draft with a contact or a note. Its own history never stops a Delete: renaming, editing, reordering, archiving or restoring it is fine. The question then says "In use — archive it instead." and offers only Close. A draft client has no Archive; it simply stays a draft. Admins never see Delete.',
             ),
           ],
           link: { href: "/settings/job-titles", label: "Open Job titles" },

@@ -1,12 +1,14 @@
 -- V5a item 6c (v1.8; owner 2026-10-22: "any reference counts as used"; migration
--- v5_owner_delete_unused): the Owner deletes a task type, job title, expense category, custom field,
--- draft client or contact only when nothing has ever pointed at it: no live, archived or deleted row,
--- no history beyond its own creation row, no old custom-field value. Everything else is refused
--- ("In use — archive it instead."). The history row is written first. Per role: the Owner allowed; an
+-- v5_owner_delete_unused), with V5b-0 item 8 (owner 2026-10-22: own history never blocks Delete;
+-- migration v5_owner_delete_own_history): the Owner deletes a task type, job title, expense category,
+-- custom field, draft client or contact only when no OTHER record uses or used it: no live, archived
+-- or deleted row pointing at it, no other record's history naming it, no old custom-field value. Its
+-- own lifecycle (created, renamed, reordered, edited, archived, restored) never blocks. Everything
+-- else is refused ("In use — archive it instead."). The history row is written first. Per role: the Owner allowed; an
 -- Admin and a Crew member FORBIDDEN; anon no privilege. Every name here is neutral.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(64);
+select plan(68);
 
 delete from public.deliverable_templates;
 delete from public.item_reviews;
@@ -151,9 +153,15 @@ insert into public.list_items (id, org_id, list_key, name, position, archived_at
   ('00000000-0000-4000-8000-0000000881a1', pg_temp.fx('org'), 'job_title', 'Title unused', 'z1', null),
   ('00000000-0000-4000-8000-0000000881a2', pg_temp.fx('org'), 'job_title', 'Title held', 'z2', null),
   ('00000000-0000-4000-8000-0000000881a3', pg_temp.fx('org'), 'job_title', 'Title once held', 'z3', null),
-  ('00000000-0000-4000-8000-0000000881a4', pg_temp.fx('org'), 'job_title', 'Title archived', 'z4', now());
+  ('00000000-0000-4000-8000-0000000881a4', pg_temp.fx('org'), 'job_title', 'Title archived', 'z4', now()),
+  ('00000000-0000-4000-8000-0000000881a5', pg_temp.fx('org'), 'job_title', 'Title cycle', 'z5', null);
 insert into fx values ('jt_unused', '00000000-0000-4000-8000-0000000881a1'), ('jt_held', '00000000-0000-4000-8000-0000000881a2'),
-  ('jt_once', '00000000-0000-4000-8000-0000000881a3'), ('jt_archived', '00000000-0000-4000-8000-0000000881a4');
+  ('jt_once', '00000000-0000-4000-8000-0000000881a3'), ('jt_archived', '00000000-0000-4000-8000-0000000881a4'),
+  ('jt_cycle', '00000000-0000-4000-8000-0000000881a5');
+-- Item 8: its whole own lifecycle, nobody ever holding it: renamed, archived, restored.
+update public.list_items set name = 'Title cycle renamed' where id = pg_temp.fx('jt_cycle');
+update public.list_items set archived_at = now() where id = pg_temp.fx('jt_cycle');
+update public.list_items set archived_at = null where id = pg_temp.fx('jt_cycle');
 update public.members set job_title_id = pg_temp.fx('jt_once') where id = pg_temp.fx('staff');
 update public.members set job_title_id = pg_temp.fx('jt_held') where id = pg_temp.fx('staff');
 
@@ -254,7 +262,7 @@ select is(public.unused_usage('task_type', pg_temp.fx('tt_unused')), '{"used": f
 select is(public.unused_usage('task_type', pg_temp.fx('tt_live')), '{"used": true}'::jsonb, 'a type with a task reads used');
 select throws_ok($$ select public.unused_delete('task_type', pg_temp.fx('tt_live')) $$, 'P0001', 'INVALID_STATE', 'refused: a live task uses it');
 select throws_ok($$ select public.unused_delete('task_type', pg_temp.fx('tt_tpl')) $$, 'P0001', 'INVALID_STATE', 'refused: only a deleted task template names it');
-select throws_ok($$ select public.unused_delete('task_type', pg_temp.fx('tt_hist')) $$, 'P0001', 'INVALID_STATE', 'refused: it has history beyond its creation (renamed)');
+select lives_ok($$ select public.unused_delete('task_type', pg_temp.fx('tt_hist')) $$, 'item 8: renamed (its own history) does not block');
 select throws_ok($$ select public.unused_delete('task_type', pg_temp.fx('tt_field')) $$, 'P0001', 'INVALID_STATE', 'refused: only an archived field names it');
 select lives_ok($$ select public.unused_delete('task_type', pg_temp.fx('tt_unused')) $$, 'the Owner deletes an unused task type');
 select pg_temp.as_system();
@@ -263,7 +271,7 @@ select is((pg_temp.entry('task_types', pg_temp.fx('tt_unused'))).meta, '{"name":
 select is((pg_temp.entry('task_types', pg_temp.fx('tt_unused'))).actor_id, pg_temp.fx('owner'), 'by the Owner');
 select ok(pg_temp.first('task_types', pg_temp.fx('tt_unused')), 'the history row is written before the delete');
 select ok(not pg_temp.gone('task_types', pg_temp.fx('tt_live')) and not pg_temp.gone('task_types', pg_temp.fx('tt_tpl'))
-          and not pg_temp.gone('task_types', pg_temp.fx('tt_hist')) and not pg_temp.gone('task_types', pg_temp.fx('tt_field')),
+          and pg_temp.gone('task_types', pg_temp.fx('tt_hist')) and not pg_temp.gone('task_types', pg_temp.fx('tt_field')),
   'the used types stay');
 
 -- 4. Job titles ----------------------------------------------------------------------------------
@@ -273,10 +281,17 @@ select throws_ok($$ select public.unused_delete('job_title', pg_temp.fx('jt_once
 select is(public.unused_usage('job_title', pg_temp.fx('jt_archived')), '{"used": false}'::jsonb, 'an archived title nobody held reads unused');
 select lives_ok($$ select public.unused_delete('job_title', pg_temp.fx('jt_archived')) $$, 'the Owner deletes it');
 select lives_ok($$ select public.unused_delete('job_title', pg_temp.fx('jt_unused')) $$, 'and an unused active one');
+select is(public.unused_usage('job_title', pg_temp.fx('jt_cycle')), '{"used": false}'::jsonb,
+  'item 8: renamed, archived and restored, nobody holding it: reads unused');
+select lives_ok($$ select public.unused_delete('job_title', pg_temp.fx('jt_cycle')) $$, 'item 8: the Owner deletes it');
 select pg_temp.as_system();
 select ok(pg_temp.gone('list_items', pg_temp.fx('jt_unused')) and pg_temp.gone('list_items', pg_temp.fx('jt_archived')), 'both rows are gone');
 select is((pg_temp.entry('list_items', pg_temp.fx('jt_unused'))).meta, '{"name": "Title unused", "kind": "job_title"}'::jsonb, 'its history row');
 select ok(pg_temp.first('list_items', pg_temp.fx('jt_unused')), 'written first');
+select ok(pg_temp.gone('list_items', pg_temp.fx('jt_cycle')) and pg_temp.first('list_items', pg_temp.fx('jt_cycle')),
+  'item 8: gone, its history row first');
+select is((pg_temp.entry('list_items', pg_temp.fx('jt_cycle'))).meta, '{"name": "Title cycle renamed", "kind": "job_title"}'::jsonb,
+  'item 8: the history row names it as it was last called');
 
 -- 5. Expense categories --------------------------------------------------------------------------
 select pg_temp.as_member('owner');
@@ -306,7 +321,7 @@ select ok(pg_temp.gone('field_definitions', pg_temp.fx('f_unused')) and pg_temp.
 select pg_temp.as_member('owner');
 select throws_ok($$ select public.unused_delete('client', pg_temp.fx('c_contact')) $$, 'P0001', 'INVALID_STATE', 'refused: an archived contact points at it');
 select throws_ok($$ select public.unused_delete('client', pg_temp.fx('c_note')) $$, 'P0001', 'INVALID_STATE', 'refused: it has a note');
-select throws_ok($$ select public.unused_delete('client', pg_temp.fx('c_edited')) $$, 'P0001', 'INVALID_STATE', 'refused: edited once (history)');
+select lives_ok($$ select public.unused_delete('client', pg_temp.fx('c_edited')) $$, 'item 8: edited once (its own history) does not block');
 select throws_ok($$ select public.unused_delete('client', pg_temp.fx('c_admin')) $$, 'P0001', 'INVALID_STATE', 'refused: an Admin assignment points at it');
 select is(public.unused_usage('client', pg_temp.fx('c_unused')), '{"used": false}'::jsonb, 'a fresh draft reads unused');
 select lives_ok($$ select public.unused_delete('client', pg_temp.fx('c_unused')) $$, 'the Owner deletes a fresh draft');
@@ -320,8 +335,8 @@ select ok(pg_temp.first('clients', pg_temp.fx('c_unused')), 'its history row fir
 -- 8. Contacts ------------------------------------------------------------------------------------
 select pg_temp.as_member('owner');
 select throws_ok($$ select public.unused_delete('contact', pg_temp.fx('k_primary')) $$, 'P0001', 'INVALID_STATE', 'refused: the primary while other live contacts exist');
-select throws_ok($$ select public.unused_delete('contact', pg_temp.fx('k_edited')) $$, 'P0001', 'INVALID_STATE', 'refused: edited once (history)');
-select throws_ok($$ select public.unused_delete('contact', pg_temp.fx('k_archived')) $$, 'P0001', 'INVALID_STATE', 'refused: archived (history)');
+select lives_ok($$ select public.unused_delete('contact', pg_temp.fx('k_edited')) $$, 'item 8: edited once (its own history) does not block');
+select lives_ok($$ select public.unused_delete('contact', pg_temp.fx('k_archived')) $$, 'item 8: archived (its own history) does not block');
 select lives_ok($$ select public.unused_delete('contact', pg_temp.fx('k_unused')) $$, 'the Owner deletes an unused contact');
 select lives_ok($$ select public.unused_delete('contact', pg_temp.fx('k_alone')) $$, 'and a client''s only contact, nothing else pointing at it');
 select pg_temp.as_system();

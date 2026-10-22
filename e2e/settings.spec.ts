@@ -1,12 +1,14 @@
 import { expect, test } from "./fixtures";
 
 import {
+  memberIdOf,
   openThresholdGroups,
   removeJobTitles,
   serviceInsert,
   serviceRest,
   serviceSelect,
   storageStateFor,
+  USERS,
 } from "./helpers";
 import { describeOffDays, istWeekday, pinnedOffDays, WEEKDAY_LONG } from "./calendar";
 import { wallClock } from "./run-state";
@@ -310,30 +312,41 @@ test.describe("Owner: Delete only what was never used (V5a 6c)", () => {
   test.use({ storageState: storageStateFor("owner") });
   test.skip(({ isMobile }) => Boolean(isMobile), "these drive the desktop controls");
 
-  test("deletes a job title nothing ever used; one with history says to archive it", async ({
+  test("deletes a job title no one ever held, even renamed; one someone once held says to archive it", async ({
     page,
   }) => {
     const spare = "Spare title (6c)";
-    const used = "Renamed title (6c)";
-    await removeJobTitles([spare, used]);
+    const used = "Once held title (6c)";
+    await removeJobTitles([spare, used, "Spare draft (6c)"]);
     const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
-    await serviceInsert("list_items", {
+    const draft = await serviceInsert<{ id: string }>("list_items", {
       org_id: org?.id,
       list_key: "job_title",
-      name: spare,
+      name: "Spare draft (6c)",
       position: "y1",
+    });
+    // Its own history never blocks Delete (V5b-0 item 8, owner 2026-10-22): renamed, still unused.
+    await serviceRest(`list_items?id=eq.${draft.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ name: spare }),
     });
     const made = await serviceInsert<{ id: string }>("list_items", {
       org_id: org?.id,
       list_key: "job_title",
-      name: "Old title (6c)",
+      name: used,
       position: "y2",
     });
-    // A rename is history pointing at it: in use (owner 2026-10-22, "any reference counts").
-    await serviceRest(`list_items?id=eq.${made.id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ name: used }),
-    });
+    // Another record's history naming it is use: a person held it once, then went back.
+    const staffId = await memberIdOf(USERS.staff.email);
+    const [staff] = await serviceSelect<{ job_title_id: string | null }>(
+      `members?id=eq.${staffId}&select=job_title_id`,
+    );
+    for (const title of [made.id, staff?.job_title_id ?? null]) {
+      await serviceRest(`members?id=eq.${staffId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ job_title_id: title }),
+      });
+    }
 
     await page.goto("/settings/job-titles");
     const names = page.locator('[data-slot="list-item"]');
