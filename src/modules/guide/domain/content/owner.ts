@@ -755,7 +755,7 @@ export const OWNER_GUIDE: Guide = {
               "The client starts as Draft. After you assign an Admin and activate it, it can start work.",
             ),
             note(
-              'A Draft client cannot start work. Assign an Admin first, then activate. A draft made by mistake can be deleted from its ⋯ ("Delete") while nothing was added to it or changed on it.',
+              'A Draft client cannot start work. Assign an Admin first, then activate. A draft made by mistake can be deleted from its ⋯ ("Delete") while nothing else uses it (no contact, project, task, file or note); editing its details does not count.',
             ),
           ],
           link: { href: "/clients", label: "Open Clients" },

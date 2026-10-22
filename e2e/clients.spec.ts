@@ -176,17 +176,24 @@ test.describe("the Owner", () => {
     await expect(history).toContainText("changed the Owner's notes");
   });
 
-  test("deletes a draft nothing was added to; an edited draft says it stays (V5a 6c)", async ({
+  test("deletes a draft nothing else uses, edited or not; a used draft says it stays (V5b-0 item 8)", async ({
     page,
   }, info) => {
     const spare = nameOf(info, "Spare draft");
     const kept = nameOf(info, "Kept draft");
     const spareId = await seedClient(spare);
     const keptId = await seedClient(kept);
-    // One edit is history pointing at it: in use (owner 2026-10-22, "any reference counts").
-    await serviceRest(`clients?id=eq.${keptId}`, {
+    // Its own edit is its own history: never use (owner 2026-10-22, item 8).
+    await serviceRest(`clients?id=eq.${spareId}`, {
       method: "PATCH",
       body: JSON.stringify({ city: "Udupi" }),
+    });
+    // Another record pointing at it is use: a contact of the draft.
+    const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+    await serviceInsert("client_contacts", {
+      org_id: org?.id,
+      client_id: keptId,
+      name: "Kavya Rao",
     });
 
     await openClient(page, keptId, kept);
@@ -203,7 +210,7 @@ test.describe("the Owner", () => {
     await menu(page, spare).click();
     await page.getByRole("menuitem", { name: "Delete" }).click();
     const confirm = page.getByRole("alertdialog", { name: `Delete client “${spare}”?` });
-    await expect(confirm).toContainText("Nothing has been added to this draft or changed on it");
+    await expect(confirm).toContainText("Nothing else uses this draft");
     await confirm.getByRole("button", { name: `Delete ${spare}` }).click();
     // The page is gone: the Clients list takes its place.
     await expect(page).toHaveURL(/\/clients$/);

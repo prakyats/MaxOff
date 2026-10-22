@@ -29,7 +29,7 @@ import { type AdminOption, type ClientRef, useClientActions } from "./use-client
  * one screen, §14.2 d), and for the Owner the Admin and the lifecycle (`clients.manage`). A
  * layer like every menu (§14.2 a). An Admin's menu holds only Edit details.
  * **Delete** (v1.8 V5a 6c) is the Owner's, on a draft only (`canDelete`): its confirm asks first
- * whether anything was ever added to or changed on it; once deleted, the page is gone, so it
+ * whether another record uses it (its own edits never count); once deleted, the page is gone, so it
  * replaces itself with the Clients list.
  */
 export function ClientMenu({

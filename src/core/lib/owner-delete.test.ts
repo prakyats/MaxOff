@@ -103,7 +103,7 @@ describe("unusedDeleteCopy", () => {
       canDelete: true,
     });
     expect(unusedDeleteCopy("client", "Acme", { used: false }).description).toBe(
-      "Nothing has been added to this draft or changed on it, so it goes for good. This can't be undone.",
+      "Nothing else uses this draft (no contact, project, task, file or note), so it goes for good. This can't be undone.",
     );
   });
 
