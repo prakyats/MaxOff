@@ -48,7 +48,7 @@ proven data-free skeleton. Everything a member's data travels in stays network-o
    no mark (clarified 2026-10-22, V5b integration, sw.js v11): the router sets it when the
    destination leaves the page it is asked from, and the server uses it only to start looking
    for a loading boundary, which every kept address has below it, so a task prefetched from Today
-   and from Tasks get the same skeleton and now share one copy.
+   and from Tasks get the same skeleton and now share one copy. A task's page keeps **one copy for every task** (clarified 2026-10-22, sw.js v12): its prefetch is the loading screen and its own id only (the spec's no-member-data check), so the copy is kept with the id out of its key and answered for any task with that task's id in place of the one it was fetched for; on a cold Worker a row the router prefetches for the first time no longer waits seconds for the Worker, nor holds up the row tapped next (the router runs four prefetches at a time, and a touch's own prefetch lands after the tap).
 2. **Keyed to the build.** Next's `deploymentId` (`core/lib/deployment-id.ts`, one per build) is
    sent by every router request as `x-deployment-id`; a copy is kept under the deployment that
    asked for it and is never answered to a page of another, and a new deployment's first copy

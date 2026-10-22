@@ -156,7 +156,8 @@ describe("sw.js", () => {
     // v9: the instant skeleton (P2, ADR-0014): router prefetches of proven skeletons.
     // v10: kept skeletons keyed by what the answer varies by, not the page that asked (2026-10-16).
     // v11: the tree's "inside-shared-layout" marks left out of the key (V5b integration).
-    expect(sw).toMatch(/VERSION = "v11"/);
+    // v12: one kept task skeleton for every task, its id put back per answer (V5b integration).
+    expect(sw).toMatch(/VERSION = "v12"/);
     expect(sw).toContain('addEventListener("push"');
     expect(sw).toContain("self.registration.showNotification(message.title");
     // The tap lands on the record with its list underneath (ARCHITECTURE §14.2 h).
