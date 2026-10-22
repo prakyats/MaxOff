@@ -193,7 +193,7 @@ select throws_ok(
   '23514', null, 'an end without a start is refused by the check constraint');
 select has_function('public', 'attendance_own_today', '{}'::text[], 'attendance_own_today exists');
 select has_function('public', 'attendance_start_day', '{}'::text[], 'attendance_start_day exists');
-select has_function('public', 'attendance_choose_leave_today', array['attendance_choice', 'text'], 'attendance_choose_leave_today exists');
+select has_function('public', 'attendance_choose_leave_today', array['attendance_choice', 'text', 'text'], 'attendance_choose_leave_today exists (v1.9 W0 added the half)');
 select has_function('public', 'attendance_end_day', array['text', 'integer'], 'attendance_end_day exists (3b.2 added the optional overtime note)');
 select has_function('public', 'session_sign_out', array['text', 'text'], 'session_sign_out exists');
 select has_function('public', 'attendance_today_detail', '{}'::text[], 'attendance_today_detail exists');

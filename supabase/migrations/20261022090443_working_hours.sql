@@ -926,10 +926,10 @@ declare
   v_req public.leave_requests;
 begin
   select r.caller_id, r.org_id into v_caller, v_org from app.attendance_require_self() r;
-  perform app.leave_half_check(choice::text::public.leave_type, half);
   if choice is null or choice not in ('leave', 'half_day') then
     perform app.fail('VALIDATION', 'Choose Leave or Half day. Comp leave is requested from the leave form.');
   end if;
+  perform app.leave_half_check(choice::text::public.leave_type, half);
   select m.joined_at into v_joined from public.members m where m.id = v_caller;
   if app.to_ist_date(v_joined) >= v_today then
     perform app.fail('INVALID_STATE', 'Your attendance starts tomorrow.');
@@ -1391,9 +1391,9 @@ begin
     case when v_hours.late_applies and v_shoot is not null then 'Shoot at ' || app.ist_time(v_shoot) end,
     v_req.id, v_req.state, v_req.reason, v_req.requested_at,
     case when v_req.state = 'waiting' then v_req.requested_at + make_interval(mins => v_wait) end,
-    v_day.started_at is not null and v_day.ended_at is null
+    coalesce(v_day.started_at is not null and v_day.ended_at is null
       and (not v_hours.early_applies or now() >= v_hours.end_at
-           or (v_req.state = 'waiting' and now() >= v_req.requested_at + make_interval(mins => v_wait)));
+           or (v_req.state = 'waiting' and now() >= v_req.requested_at + make_interval(mins => v_wait))), false);
 end;
 $$;
 comment on function public.attendance_own_hours() is

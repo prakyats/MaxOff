@@ -44,6 +44,8 @@ const GROUP_OF_KIND: Readonly<Record<string, NotifyGroup>> = {
   expense_submitted: "approvals",
   // v1.9 W3 (6b.5): the Owner's repeat reminder for what still waits for their approval.
   approval_reminder: "approvals",
+  // v1.9 W0 (6b.1): someone asks the Owner to leave early.
+  early_leave_requested: "approvals",
   // Time off and the working day: the answers a member gets.
   leave_decided: "leave",
   attendance_decided: "leave",
@@ -51,8 +53,14 @@ const GROUP_OF_KIND: Readonly<Record<string, NotifyGroup>> = {
   comp_leave_granted: "leave",
   comp_leave_revoked: "leave",
   extra_work_decided: "leave",
+  // v1.9 W0 (6b.1): the answer to "Ask to leave early", and the Owner's Stay until.
+  early_leave_decided: "leave",
+  stay_until_set: "leave",
   // Nudges and escalations (the end-day reminder; 5.3's reminders and escalations).
   end_day_reminder: "reminders",
+  // v1.9 W0 (6b.1): "Start your day" at the start time, and the end time after a Stay answer.
+  start_day_reminder: "reminders",
+  end_time_reminder: "reminders",
   reminder_before_due: "reminders",
   reminder_before_due_last: "reminders",
   reminder_due_now: "reminders",

@@ -192,14 +192,16 @@ values
   (pg_temp.fx('kiran'),  pg_temp.d() - 1, 'approved', 'present', now(), 'present', false, now(), null, null, false, false, null);
 
 select is(pg_temp.payload() #> '{attendance,counts}',
-  '{"present": 2, "on_leave": 1, "absent": 1, "proposed_absent": 1, "waiting": 1, "end_not_recorded": 1, "overtime": 1}'::jsonb,
-  'attendance counts: present, on leave, absent (the proposal counts and is marked), waiting, end not recorded, overtime');
+  '{"present": 2, "on_leave": 1, "absent": 1, "proposed_absent": 1, "waiting": 1, "end_not_recorded": 1, "overtime": 1,
+    "late": 0, "left_early": 0}'::jsonb,
+  'attendance counts: present, on leave, absent (the proposal counts and is marked), waiting, end not recorded, overtime (v1.9 W0: late and left early)');
 select is((select jsonb_agg(p ->> 'name') from jsonb_array_elements(pg_temp.payload() #> '{attendance,people}') p),
   '["Filler", "Kiran", "Lata", "Mohan"]'::jsonb, 'each employee with a day on D, by name; never the Owner or a freelancer');
 select is((select p - 'member_id' from jsonb_array_elements(pg_temp.payload() #> '{attendance,people}') p where p ->> 'name' = 'Kiran'),
   jsonb_build_object('name', 'Kiran', 'status', 'present', 'waiting', false, 'proposed', false,
     'started_at', pg_temp.d_start() + interval '9 hours 30 minutes', 'ended_at', pg_temp.d_start() + interval '20 hours',
-    'end_not_recorded', false, 'overtime', true, 'overtime_reason', 'Late shoot'),
+    'end_not_recorded', false, 'overtime', true, 'overtime_reason', 'Late shoot',
+    'late_minutes', null, 'late_reason', null, 'left_early', null),
   'a person''s row: the status, the Start day and End day instants, the flags and the overtime reason');
 select is((select (p ->> 'waiting', p ->> 'proposed', p ->> 'status') from jsonb_array_elements(pg_temp.payload() #> '{attendance,people}') p where p ->> 'name' = 'Lata'),
   ('true'::text, 'true'::text, 'absent'::text), 'a proposed absence still waiting is marked waiting and proposed');

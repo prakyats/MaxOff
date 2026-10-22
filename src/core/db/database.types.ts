@@ -151,6 +151,8 @@ export type Database = {
           final_status: Database["public"]["Enums"]["day_status"] | null;
           id: string;
           is_day_off: boolean;
+          late_minutes: number | null;
+          late_reason: string | null;
           leave_request_id: string | null;
           member_id: string;
           overtime_flag: boolean;
@@ -158,6 +160,8 @@ export type Database = {
           proposed_by_system: boolean;
           started_at: string | null;
           state: Database["public"]["Enums"]["attendance_state"];
+          stay_until: string | null;
+          stay_until_by: string | null;
           submitted_at: string | null;
           submitted_choice: Database["public"]["Enums"]["attendance_choice"] | null;
           updated_at: string;
@@ -174,6 +178,8 @@ export type Database = {
           final_status?: Database["public"]["Enums"]["day_status"] | null;
           id?: string;
           is_day_off?: boolean;
+          late_minutes?: number | null;
+          late_reason?: string | null;
           leave_request_id?: string | null;
           member_id: string;
           overtime_flag?: boolean;
@@ -181,6 +187,8 @@ export type Database = {
           proposed_by_system?: boolean;
           started_at?: string | null;
           state?: Database["public"]["Enums"]["attendance_state"];
+          stay_until?: string | null;
+          stay_until_by?: string | null;
           submitted_at?: string | null;
           submitted_choice?: Database["public"]["Enums"]["attendance_choice"] | null;
           updated_at?: string;
@@ -197,6 +205,8 @@ export type Database = {
           final_status?: Database["public"]["Enums"]["day_status"] | null;
           id?: string;
           is_day_off?: boolean;
+          late_minutes?: number | null;
+          late_reason?: string | null;
           leave_request_id?: string | null;
           member_id?: string;
           overtime_flag?: boolean;
@@ -204,6 +214,8 @@ export type Database = {
           proposed_by_system?: boolean;
           started_at?: string | null;
           state?: Database["public"]["Enums"]["attendance_state"];
+          stay_until?: string | null;
+          stay_until_by?: string | null;
           submitted_at?: string | null;
           submitted_choice?: Database["public"]["Enums"]["attendance_choice"] | null;
           updated_at?: string;
@@ -242,6 +254,20 @@ export type Database = {
           {
             foreignKeyName: "attendance_days_member_id_fkey";
             columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "attendance_days_stay_until_by_fkey";
+            columns: ["stay_until_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "attendance_days_stay_until_by_fkey";
+            columns: ["stay_until_by"];
             isOneToOne: false;
             referencedRelation: "members";
             referencedColumns: ["id"];
@@ -986,6 +1012,103 @@ export type Database = {
           },
         ];
       };
+      early_leave_requests: {
+        Row: {
+          created_at: string;
+          day_id: string;
+          decided_at: string | null;
+          decided_by: string | null;
+          decision_reason: string | null;
+          end_at: string;
+          id: string;
+          left_at: string | null;
+          member_id: string;
+          org_id: string;
+          reason: string;
+          requested_at: string;
+          state: string;
+          stay_reminded_at: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          day_id: string;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          decision_reason?: string | null;
+          end_at: string;
+          id?: string;
+          left_at?: string | null;
+          member_id: string;
+          org_id: string;
+          reason: string;
+          requested_at?: string;
+          state?: string;
+          stay_reminded_at?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          day_id?: string;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          decision_reason?: string | null;
+          end_at?: string;
+          id?: string;
+          left_at?: string | null;
+          member_id?: string;
+          org_id?: string;
+          reason?: string;
+          requested_at?: string;
+          state?: string;
+          stay_reminded_at?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "early_leave_requests_day_id_fkey";
+            columns: ["day_id"];
+            isOneToOne: false;
+            referencedRelation: "attendance_days";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "early_leave_requests_decided_by_fkey";
+            columns: ["decided_by"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "early_leave_requests_decided_by_fkey";
+            columns: ["decided_by"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "early_leave_requests_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "member_directory";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "early_leave_requests_member_id_fkey";
+            columns: ["member_id"];
+            isOneToOne: false;
+            referencedRelation: "members";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "early_leave_requests_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       eod_reports: {
         Row: {
           created_at: string;
@@ -1477,6 +1600,7 @@ export type Database = {
           decided_by: string | null;
           decision_reason: string | null;
           end_date: string;
+          half: string | null;
           id: string;
           member_id: string;
           reason: string | null;
@@ -1495,6 +1619,7 @@ export type Database = {
           decided_by?: string | null;
           decision_reason?: string | null;
           end_date: string;
+          half?: string | null;
           id?: string;
           member_id: string;
           reason?: string | null;
@@ -1513,6 +1638,7 @@ export type Database = {
           decided_by?: string | null;
           decision_reason?: string | null;
           end_date?: string;
+          half?: string | null;
           id?: string;
           member_id?: string;
           reason?: string | null;
@@ -2093,11 +2219,13 @@ export type Database = {
           created_at: string;
           cycle_decide_escalate_days: number;
           default_task_reminders: Json;
+          early_leave_wait_minutes: number;
           email_daily_cap_org: number;
           email_daily_cap_per_member: number;
           end_day_cutoff_time: string;
           expense_receipt_above: number;
           item_overdue_escalate_hours: number;
+          late_grace_minutes: number;
           logout_reminder_time: string;
           org_id: string;
           overdue_escalate_hours: number;
@@ -2109,6 +2237,7 @@ export type Database = {
           weekly_off_days: number[];
           work_end_time: string;
           work_start_time: string;
+          working_hours_on: boolean;
           workload_warning_threshold: number | null;
         };
         Insert: {
@@ -2121,11 +2250,13 @@ export type Database = {
           created_at?: string;
           cycle_decide_escalate_days?: number;
           default_task_reminders?: Json;
+          early_leave_wait_minutes?: number;
           email_daily_cap_org?: number;
           email_daily_cap_per_member?: number;
           end_day_cutoff_time?: string;
           expense_receipt_above?: number;
           item_overdue_escalate_hours?: number;
+          late_grace_minutes?: number;
           logout_reminder_time?: string;
           org_id: string;
           overdue_escalate_hours?: number;
@@ -2137,6 +2268,7 @@ export type Database = {
           weekly_off_days?: number[];
           work_end_time?: string;
           work_start_time?: string;
+          working_hours_on?: boolean;
           workload_warning_threshold?: number | null;
         };
         Update: {
@@ -2149,11 +2281,13 @@ export type Database = {
           created_at?: string;
           cycle_decide_escalate_days?: number;
           default_task_reminders?: Json;
+          early_leave_wait_minutes?: number;
           email_daily_cap_org?: number;
           email_daily_cap_per_member?: number;
           end_day_cutoff_time?: string;
           expense_receipt_above?: number;
           item_overdue_escalate_hours?: number;
+          late_grace_minutes?: number;
           logout_reminder_time?: string;
           org_id?: string;
           overdue_escalate_hours?: number;
@@ -2165,6 +2299,7 @@ export type Database = {
           weekly_off_days?: number[];
           work_end_time?: string;
           work_start_time?: string;
+          working_hours_on?: boolean;
           workload_warning_threshold?: number | null;
         };
         Relationships: [
@@ -4445,9 +4580,11 @@ export type Database = {
         Args: { is_standalone: boolean; platform: string };
         Returns: boolean;
       };
+      attendance_ask_leave_early: { Args: { reason: string }; Returns: string };
       attendance_choose_leave_today: {
         Args: {
           choice: Database["public"]["Enums"]["attendance_choice"];
+          half?: string;
           reason?: string;
         };
         Returns: Database["public"]["Enums"]["attendance_state"];
@@ -4498,6 +4635,52 @@ export type Database = {
         Args: { reason?: string };
         Returns: string;
       };
+      attendance_hours_today: {
+        Args: never;
+        Returns: {
+          early_leave_id: string;
+          early_leave_reason: string;
+          early_leave_requested_at: string;
+          early_leave_state: string;
+          end_at: string;
+          end_source: string;
+          ended_after_end: boolean;
+          ended_at: string;
+          full_name: string;
+          late_minutes: number;
+          late_reason: string;
+          left_early: boolean;
+          member_id: string;
+          rules_on: boolean;
+          started_at: string;
+          stay_until: string;
+        }[];
+      };
+      attendance_late_reason: { Args: { reason: string }; Returns: string };
+      attendance_own_hours: {
+        Args: never;
+        Returns: {
+          can_end_now: boolean;
+          early_applies: boolean;
+          early_leave_end_from: string;
+          early_leave_id: string;
+          early_leave_reason: string;
+          early_leave_requested_at: string;
+          early_leave_state: string;
+          end_at: string;
+          end_source: string;
+          half: string;
+          late_after: string;
+          late_applies: boolean;
+          late_minutes: number;
+          late_reason: string;
+          late_reason_suggestion: string;
+          rules_on: boolean;
+          start_at: string;
+          stay_until: string;
+          work_date: string;
+        }[];
+      };
       attendance_own_today: {
         Args: never;
         Returns: {
@@ -4525,10 +4708,15 @@ export type Database = {
         }[];
       };
       attendance_start_day: { Args: never; Returns: string };
+      attendance_stay_until: {
+        Args: { member_id: string; until: string };
+        Returns: string;
+      };
       attendance_submit: {
         Args: {
           choice: Database["public"]["Enums"]["attendance_choice"];
           for_date?: string;
+          half?: string;
           reason?: string;
         };
         Returns: Database["public"]["Enums"]["attendance_state"];
@@ -4660,6 +4848,15 @@ export type Database = {
       };
       digest_daily: { Args: { p_now?: string }; Returns: number };
       digest_weekly: { Args: { p_now?: string }; Returns: number };
+      early_leave_decide: {
+        Args: {
+          decision: string;
+          reason?: string;
+          request_id: string;
+          status?: Database["public"]["Enums"]["day_status"];
+        };
+        Returns: string;
+      };
       email_claim: {
         Args: { p_limit?: number; p_now?: string };
         Returns: {
@@ -4962,6 +5159,7 @@ export type Database = {
       leave_submit: {
         Args: {
           end_date: string;
+          half?: string;
           reason?: string;
           start_date: string;
           type: Database["public"]["Enums"]["leave_type"];
@@ -4969,7 +5167,12 @@ export type Database = {
         Returns: string;
       };
       leave_submit_comp: {
-        Args: { half_day?: boolean; reason?: string; start_date: string };
+        Args: {
+          half?: string;
+          half_day?: boolean;
+          reason?: string;
+          start_date: string;
+        };
         Returns: string;
       };
       leave_withdraw: {
@@ -5056,6 +5259,15 @@ export type Database = {
           role: Database["public"]["Enums"]["member_role"];
           status: Database["public"]["Enums"]["member_status"];
           working_days: number;
+        }[];
+      };
+      month_summary_hours: {
+        Args: { member_id?: string; month: string };
+        Returns: {
+          early_leaves: number;
+          id: string;
+          late_days: number;
+          left_unanswered: number;
         }[];
       };
       notifications_inbox: {

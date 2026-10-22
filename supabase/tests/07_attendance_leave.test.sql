@@ -187,11 +187,11 @@ select has_type('public', 'leave_type', 'leave_type enum exists');
 select has_type('public', 'leave_state', 'leave_state enum exists');
 select has_column('public', 'leave_requests', 'requests_cancellation', 'leave_requests.requests_cancellation exists');
 select hasnt_function('public', 'attendance_touch', array['text', 'text'], 'attendance_touch (2.x) is gone');
-select has_function('public', 'attendance_submit', array['attendance_choice', 'text', 'date'], 'attendance_submit exists');
+select has_function('public', 'attendance_submit', array['attendance_choice', 'text', 'date', 'text'], 'attendance_submit exists (v1.9 W0 added the half)');
 select has_function('public', 'attendance_decide', array['uuid', 'text', 'day_status', 'text'], 'attendance_decide exists');
 select has_function('public', 'attendance_flag_overtime', array['uuid', 'text'], 'attendance_flag_overtime exists');
 select hasnt_function('app', 'attendance_logout', array['uuid'], 'app.attendance_logout (2.x) is gone');
-select has_function('public', 'leave_submit', array['leave_type', 'date', 'date', 'text'], 'leave_submit exists');
+select has_function('public', 'leave_submit', array['leave_type', 'date', 'date', 'text', 'text'], 'leave_submit exists (v1.9 W0 added the half)');
 select has_function('public', 'leave_withdraw', array['uuid'], 'leave_withdraw exists');
 select has_function('public', 'leave_request_change', array['uuid', 'leave_type', 'date', 'date', 'text', 'boolean'], 'leave_request_change exists');
 select has_function('public', 'leave_decide', array['uuid', 'text', 'text'], 'leave_decide exists');
@@ -210,10 +210,10 @@ select ok(not has_table_privilege('authenticated', 'public.leave_requests', 'ins
   'authenticated cannot write leave_requests at all');
 
 select ok(
-  has_function_privilege('authenticated', 'public.attendance_submit(public.attendance_choice, text, date)', 'execute')
+  has_function_privilege('authenticated', 'public.attendance_submit(public.attendance_choice, text, date, text)', 'execute')
   and has_function_privilege('authenticated', 'public.attendance_decide(uuid, text, public.day_status, text)', 'execute')
   and has_function_privilege('authenticated', 'public.attendance_flag_overtime(uuid, text)', 'execute')
-  and has_function_privilege('authenticated', 'public.leave_submit(public.leave_type, date, date, text)', 'execute')
+  and has_function_privilege('authenticated', 'public.leave_submit(public.leave_type, date, date, text, text)', 'execute')
   and has_function_privilege('authenticated', 'public.leave_withdraw(uuid)', 'execute')
   and has_function_privilege('authenticated', 'public.leave_request_change(uuid, public.leave_type, date, date, text, boolean)', 'execute')
   and has_function_privilege('authenticated', 'public.leave_decide(uuid, text, text)', 'execute')
@@ -221,10 +221,10 @@ select ok(
   and has_function_privilege('authenticated', 'public.leave_owner_cancel(uuid, text)', 'execute'),
   'authenticated may execute every attendance and leave function');
 select ok(
-  not has_function_privilege('anon', 'public.attendance_submit(public.attendance_choice, text, date)', 'execute')
+  not has_function_privilege('anon', 'public.attendance_submit(public.attendance_choice, text, date, text)', 'execute')
   and not has_function_privilege('anon', 'public.attendance_decide(uuid, text, public.day_status, text)', 'execute')
   and not has_function_privilege('anon', 'public.attendance_flag_overtime(uuid, text)', 'execute')
-  and not has_function_privilege('anon', 'public.leave_submit(public.leave_type, date, date, text)', 'execute')
+  and not has_function_privilege('anon', 'public.leave_submit(public.leave_type, date, date, text, text)', 'execute')
   and not has_function_privilege('anon', 'public.leave_withdraw(uuid)', 'execute')
   and not has_function_privilege('anon', 'public.leave_request_change(uuid, public.leave_type, date, date, text, boolean)', 'execute')
   and not has_function_privilege('anon', 'public.leave_decide(uuid, text, text)', 'execute')

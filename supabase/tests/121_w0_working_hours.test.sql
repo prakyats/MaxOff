@@ -15,7 +15,7 @@
 --    the switch off. Neutral names only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select * from no_plan();
+select plan(123);
 
 delete from public.approval_reminder_sends;
 delete from public.early_leave_requests;
@@ -114,6 +114,11 @@ $$;
 create function pg_temp.src(k text, d date) returns text language sql stable as $$
   select h.end_source from app.attendance_hours(pg_temp.fx(k), d) h;
 $$;
+-- A working date at least n days ahead (never a Sunday, the fixture's weekly off): request dates that stay
+-- in the future whenever the test runs.
+create function pg_temp.wd(n integer) returns date language sql stable as $$
+  select case when extract(dow from app.today_ist() + n) = 0 then app.today_ist() + n + 1 else app.today_ist() + n end;
+$$;
 create function pg_temp.end_at(k text, d date) returns timestamptz language sql stable as $$
   select h.end_at from app.attendance_hours(pg_temp.fx(k), d) h;
 $$;
@@ -134,9 +139,12 @@ create function pg_temp.day(k text, d date, started text, ended text default nul
 $$;
 create function pg_temp.req(k text, d date, asked text, state text default 'waiting', left_at text default null) returns uuid
 language sql as $$
-  insert into public.early_leave_requests (org_id, member_id, day_id, requested_at, reason, end_at, state, left_at)
+  insert into public.early_leave_requests (org_id, member_id, day_id, requested_at, reason, end_at, state, left_at,
+                                          decided_by, decided_at)
   select pg_temp.fx('org'), pg_temp.fx(k), dd.id, pg_temp.ist(d || ' ' || asked), 'A reason', pg_temp.ist(d || ' 18:00'), $4,
-         case when $5 is null then null else pg_temp.ist(d || ' ' || $5) end
+         case when $5 is null then null else pg_temp.ist(d || ' ' || $5) end,
+         case when $4 in ('approved', 'stay', 'corrected') then pg_temp.fx('owner') end,
+         case when $4 in ('approved', 'stay', 'corrected') then now() end
   from public.attendance_days dd where dd.member_id = pg_temp.fx(k) and dd.work_date = d
   returning id;
 $$;
@@ -144,7 +152,7 @@ $$;
 insert into auth.users (id, email) select id, key || '-121@example.com' from fx where key <> 'org';
 insert into public.members (id, org_id, full_name, email, role, status, joined_at, deactivated_at)
 select pg_temp.fx(k), pg_temp.fx('org'), initcap(k), k || '-121@example.com', r::public.member_role, s::public.member_status,
-       now() - interval '60 days', case when s = 'deactivated' then now() - interval '1 day' end
+       pg_temp.ist('2026-09-01 09:00'), case when s = 'deactivated' then now() - interval '1 day' end
 from (values ('owner', 'owner', 'active'), ('admin1', 'admin', 'active'), ('staff1', 'staff', 'active'),
              ('staff2', 'staff', 'active'), ('staff3', 'staff', 'active'), ('staff4', 'staff', 'active'),
              ('staff5', 'staff', 'active'), ('staff6', 'staff', 'active'), ('gone', 'staff', 'deactivated')) as v(k, r, s);
@@ -223,25 +231,27 @@ select is(pg_temp.src('staff6', '2026-11-04'), 'stay', 'and says so');
 
 -- A. 3. The half on the request paths ----------------------------------------------------------------
 select pg_temp.as_member('staff1');
-select throws_ok($$ select public.leave_submit('leave', '2026-12-07', '2026-12-07', null, 'morning') $$, 'P0001', 'VALIDATION',
-  'a half on full leave is refused');
-select throws_ok($$ select public.leave_submit('half_day', '2026-12-07', '2026-12-07', null, 'evening') $$, 'P0001', 'VALIDATION',
-  'a half other than morning or afternoon is refused');
-select lives_ok($$ select public.leave_submit('half_day', '2026-12-07', '2026-12-07', 'Clinic', 'afternoon') $$,
+select throws_ok(format($$ select public.leave_submit('leave', %L, %L, null, 'morning') $$, pg_temp.wd(21), pg_temp.wd(21)),
+  'P0001', 'VALIDATION', 'a half on full leave is refused');
+select throws_ok(format($$ select public.leave_submit('half_day', %L, %L, null, 'evening') $$, pg_temp.wd(21), pg_temp.wd(21)),
+  'P0001', 'VALIDATION', 'a half other than morning or afternoon is refused');
+select lives_ok(format($$ select public.leave_submit('half_day', %L, %L, 'Clinic', 'afternoon') $$, pg_temp.wd(21), pg_temp.wd(21)),
   'a half day with its half is requested');
-select lives_ok($$ select public.leave_submit('half_day', '2026-12-08', '2026-12-08') $$,
+select lives_ok(format($$ select public.leave_submit('half_day', %L, %L) $$, pg_temp.wd(28), pg_temp.wd(28)),
   'a half day without a half still works (the released app''s call)');
 select pg_temp.as_system();
-select is((select half from public.leave_requests where member_id = pg_temp.fx('staff1') and start_date = '2026-12-07'), 'afternoon',
+select is((select half from public.leave_requests where member_id = pg_temp.fx('staff1') and start_date = pg_temp.wd(21)), 'afternoon',
   'the half is stored');
-select is((select half from public.leave_requests where member_id = pg_temp.fx('staff1') and start_date = '2026-12-08'), null,
+select is((select half from public.leave_requests where member_id = pg_temp.fx('staff1') and start_date = pg_temp.wd(28)), null,
   'no half stays null');
-select pg_temp.as_member('owner');
-select public.comp_leave_grant(pg_temp.fx('staff1'), 1.0, 'Weekend');
+-- A comp credit valid well past the date (comp_leave_grant's expires at its month's end).
+insert into public.comp_leave_credits (member_id, days, granted_by, granted_on, expires_on, note)
+values (pg_temp.fx('staff1'), 1.0, pg_temp.fx('owner'), app.today_ist(), app.today_ist() + 120, 'Weekend');
 select pg_temp.as_member('staff1');
-select lives_ok($$ select public.leave_submit_comp('2026-12-09', true, null, 'morning') $$, 'comp leave as a half day takes its half');
+select lives_ok(format($$ select public.leave_submit_comp(%L, true, null, 'morning') $$, pg_temp.wd(35)),
+  'comp leave as a half day takes its half');
 select pg_temp.as_system();
-select is((select half from public.leave_requests where member_id = pg_temp.fx('staff1') and start_date = '2026-12-09'), 'morning',
+select is((select half from public.leave_requests where member_id = pg_temp.fx('staff1') and start_date = pg_temp.wd(35)), 'morning',
   'the comp half day keeps its half');
 select is((select count(*) from pg_proc where proname in ('leave_submit', 'leave_submit_comp', 'attendance_submit', 'attendance_choose_leave_today')
            and pronamespace = 'public'::regnamespace), 4::bigint, 'each request path has one signature (the old ones dropped)');
@@ -357,7 +367,6 @@ select is((select count(*) from public.notification_kinds k where k.kind in ('st
   5::bigint, 'none of the five kinds is ever emailed');
 select is(app.attendance_hours_tick(pg_temp.ist('2026-11-05 10:01')), 0, 'a holiday reminds nobody');
 insert into fx select 'r6', pg_temp.req('staff6', '2026-11-04', '16:00', 'stay');
-update public.early_leave_requests set decided_by = pg_temp.fx('owner'), decided_at = now() where id = pg_temp.fx('r6');
 select is(app.attendance_hours_tick(pg_temp.ist('2026-11-04 18:05')), 0, 'after Stay, nothing before the end time (Stay until 20:00)');
 select is(app.attendance_hours_tick(pg_temp.ist('2026-11-04 20:01')), 1, 'the end-time reminder at the end time');
 select is(app.attendance_hours_tick(pg_temp.ist('2026-11-04 20:06')), 0, 'once');
@@ -404,6 +413,7 @@ declare
   v_t time := (now() at time zone 'Asia/Kolkata')::time;
   v_req uuid;
   v_end timestamptz;
+  v_shoot text := 'Shoot at ' || app.ist_time(now() + interval '30 minutes');
 begin
   if v_t < '01:45' or v_t > '21:15' then
     return next skip('the clock-driven checks need the IST time between 01:45 and 21:15', 34);
@@ -438,7 +448,7 @@ begin
 
   perform pg_temp.as_member('staff1');
   return next is((select o.late_reason_suggestion from public.attendance_own_hours() o),
-    'Shoot at ' || app.ist_time(now() + interval '30 minutes'), 'a shoot later that day pre-fills the reason');
+    v_shoot, 'a shoot later that day pre-fills the reason');
   return next throws_ok($$ select public.attendance_late_reason('   ') $$, 'P0001', 'VALIDATION', 'the reason cannot be empty');
   return next lives_ok($$ select public.attendance_late_reason('Traffic') $$, 'the person adds the reason');
   return next is((select o.late_reason from public.attendance_own_hours() o), 'Traffic', 'and reads it back');
