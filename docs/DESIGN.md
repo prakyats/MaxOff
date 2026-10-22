@@ -182,6 +182,10 @@ or above (lint).
 | Title | `text-xl` | 20 / 28 px | a page title |
 | Display | `text-2xl` | 24 / 32 px | one large figure ("68%", a count tile) |
 
+- **One exception under 12 px:** `text-count` (11 / 11 px, semibold) is the bell's count pill and
+  nothing else (owner, #89 comment 6338991185: a 16 px pill, so one digit makes a circle). Every
+  other count (bottom bar, sidebar, sheet) stays `text-xs`.
+
 - **Weights:** 400 for text, 500 for labels and buttons, 600 for titles and the one figure. No
   700+ in the app (the logo is the brand, not type).
 - **Numbers** are tabular everywhere (`tabular-nums` on `body`): counts, dates, times, amounts.

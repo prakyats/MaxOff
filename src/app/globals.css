@@ -125,6 +125,9 @@
   --text-xl--line-height: calc(1.75 / 1.25);
   --text-2xl: 1.5rem;
   --text-2xl--line-height: calc(2 / 1.5);
+  /* The one step under 12px: a bell's count pill only (owner, #89 comment 6338991185; DESIGN §2). */
+  --text-count: 0.6875rem;
+  --text-count--line-height: 1;
 }
 
 /* Pixora Clips brand theme (DESIGN.md §3, §4). Light: a warm cream page, white cards, graphite text;

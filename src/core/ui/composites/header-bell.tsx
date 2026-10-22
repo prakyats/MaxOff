@@ -30,13 +30,18 @@ export function HeaderBell() {
       href="/notifications"
       data-slot={HEADER_BELL_SLOT}
       ref={markLive}
-      className="pressable text-muted-foreground relative flex size-11 shrink-0 items-center justify-center rounded-lg md:hidden"
+      // `ml-1` on the bar's 4 px gap: 8 px from the control before it, so the count never touches
+      // it (owner, #89 comment 6338991185). The bar's 8 px inset keeps a "99+" inside the screen.
+      className="pressable text-muted-foreground relative ml-1 flex size-11 shrink-0 items-center justify-center rounded-lg md:hidden"
     >
-      <BellIcon className="size-5" aria-hidden />
+      {/* The count's centre sits on the 20 px glyph's top-right corner (`NavBadgeMark`). */}
+      <span data-slot="header-bell-glyph" className="relative flex size-5">
+        <BellIcon className="size-5" aria-hidden />
+        <Suspense fallback={null}>
+          <BellCountMark />
+        </Suspense>
+      </span>
       <span className="sr-only">Notifications</span>
-      <Suspense fallback={null}>
-        <BellCountMark />
-      </Suspense>
     </Link>
   );
 }

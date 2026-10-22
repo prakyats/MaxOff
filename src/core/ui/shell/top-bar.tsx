@@ -34,10 +34,12 @@ export function TopBar({
       data-slot="top-bar"
       className="border-border bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky top-0 z-30 hidden h-14 items-center gap-2 border-b px-4 backdrop-blur md:flex"
     >
-      <div className="ml-auto flex items-center gap-1">
+      {/* Each control is its own 44 px hit area, 8 px apart, so the bell's count never touches
+          the theme toggle beside it (owner, #89 comment 6338991185). */}
+      <div data-slot="top-bar-controls" className="ml-auto flex items-center gap-2 *:size-11">
         <Button variant="ghost" size="icon" asChild>
           <Link href="/notifications" data-slot="top-bar-bell" className="relative">
-            {/* The count sits against the 20 px glyph, top-right and outside it (major change 9). */}
+            {/* The count's centre sits on the 20 px glyph's top-right corner (`NavBadgeMark`). */}
             <span data-slot="top-bar-bell-glyph" className="relative flex size-5">
               <BellIcon aria-hidden className="size-5" />
               {bellCount}

@@ -14,6 +14,7 @@ import {
   runInstalled,
   serviceDelete,
   serviceInsert,
+  serviceRest,
   serviceSelect,
   serviceUpdate,
   signIn,
@@ -439,6 +440,98 @@ test.describe("the bell and Alerts", () => {
       if (!page.isClosed()) await page.unrouteAll({ behavior: "ignoreErrors" });
       await removeTasksTitled(prefix);
     }
+  });
+
+  test("the bell's count: a 16 px pill on the glyph's corner that never touches the next control, one digit or 99+", async ({
+    page,
+    isMobile,
+  }, info) => {
+    // Owner screenshot, #89 comment 6338991185: the count crowded the theme icon.
+    const staff = person(info, "staff");
+    await clearAlerts(staff);
+    await notify(staff, { title: "One waiting", minutesAgo: 1 });
+    await signIn(page, staff, PASSWORD);
+    await page.goto("/notifications");
+    await hydrated(page);
+    await expect.poll(() => bellCount(page)).toBe(1);
+
+    const bell = page.locator(
+      isMobile ? '[data-slot="header-bell"]' : '[data-slot="top-bar-bell"]',
+    );
+    type Box = { x: number; y: number; width: number; height: number };
+    const boxes = () =>
+      bell.evaluate((link, phone) => {
+        const rect = (el: Element | null) => {
+          if (!el) return null;
+          const r = el.getBoundingClientRect();
+          return { x: r.x, y: r.y, width: r.width, height: r.height };
+        };
+        // The control beside it: the theme toggle after it on a laptop; on a phone the bell is
+        // the title bar's last control, so the one before it.
+        let near = phone ? link.previousElementSibling : link.nextElementSibling;
+        while (near && near.getBoundingClientRect().width === 0) near = near.previousElementSibling;
+        return {
+          pill: rect(link.querySelector('[data-slot="nav-badge"]')),
+          glyph: rect(link.querySelector("svg")),
+          link: rect(link),
+          near: rect(near),
+          viewport: window.innerWidth,
+        };
+      }, Boolean(isMobile));
+    const apart = (a: Box, b: Box) =>
+      a.x + a.width <= b.x ||
+      b.x + b.width <= a.x ||
+      a.y + a.height <= b.y ||
+      b.y + b.height <= a.y;
+
+    async function check(label: string) {
+      const { pill, glyph, link, near, viewport } = await boxes();
+      expect(pill && glyph && link && near, label).toBeTruthy();
+      if (!pill || !glyph || !link || !near) return;
+      expect(pill.height, `${label}: 16 px tall`).toBeCloseTo(16, 0);
+      expect(pill.width, `${label}: at least 16 px wide`).toBeGreaterThanOrEqual(15.5);
+      // Its centre on the glyph's top-right corner.
+      expect(Math.abs(pill.x + pill.width / 2 - (glyph.x + glyph.width)), label).toBeLessThan(2);
+      expect(Math.abs(pill.y + pill.height / 2 - glyph.y), label).toBeLessThan(2);
+      expect(link.width, `${label}: a 44 px hit area`).toBeGreaterThanOrEqual(44);
+      expect(link.height, `${label}: a 44 px hit area`).toBeGreaterThanOrEqual(44);
+      expect(apart(pill, near), `${label}: the pill never touches the next control`).toBe(true);
+      const gap =
+        near.x >= link.x + link.width
+          ? near.x - (link.x + link.width)
+          : link.x - (near.x + near.width);
+      expect(gap, `${label}: 8 px or more between controls`).toBeGreaterThanOrEqual(7.5);
+      expect(pill.x + pill.width, `${label}: inside the screen`).toBeLessThanOrEqual(viewport);
+    }
+
+    await check("one digit");
+    const { width: one } = (await boxes()).pill ?? { width: 0 };
+    expect(one, "one digit makes a circle").toBeCloseTo(16, 0);
+
+    const [member] = await serviceSelect<{ id: string; org_id: string }>(
+      `members?email=eq.${encodeURIComponent(staff)}&select=id,org_id`,
+    );
+    if (!member) throw new Error(`no member ${staff}`);
+    const at = new Date(systemClock().getTime() - 120_000).toISOString();
+    const many = await serviceRest("notifications", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(
+        Array.from({ length: 120 }, (_, n) => ({
+          org_id: member.org_id,
+          recipient_id: member.id,
+          kind: "leave_decided",
+          title: `Many ${n}`,
+          created_at: at,
+        })),
+      ),
+    });
+    expect(many.ok, await many.text()).toBe(true);
+    await page.reload();
+    await hydrated(page);
+    await expect(bell.locator('[data-slot="nav-badge"]')).toHaveText("99+");
+    await check("99+");
+    await clearAlerts(staff);
   });
 
   test("an empty history says so", async ({ page }, info) => {
