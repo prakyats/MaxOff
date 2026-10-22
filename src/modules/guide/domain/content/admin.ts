@@ -820,7 +820,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: "Tasks are separate from client work. The Overview only shows how many open tasks carry this client’s label.",
+              text: "Tasks are separate from client work. The Overview only shows how many open tasks carry this client’s label. You archive a contact; only the Owner can delete one, and only if nothing ever pointed at it.",
             },
           ],
           keywords: ["overview", "brand", "activity", "contact", "edit details"],
@@ -1968,7 +1968,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: "Job titles are just labels: they never change what someone can do.",
+              text: "Job titles are just labels: they never change what someone can do. To stop offering one, Archive it. Only the Owner can delete an entry, and only one nothing ever used.",
             },
           ],
           link: { href: "/settings/job-titles", label: "Open Job titles" },

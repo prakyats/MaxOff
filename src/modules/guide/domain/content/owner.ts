@@ -754,7 +754,9 @@ export const OWNER_GUIDE: Guide = {
             next(
               "The client starts as Draft. After you assign an Admin and activate it, it can start work.",
             ),
-            note("A Draft client cannot start work. Assign an Admin first, then activate."),
+            note(
+              'A Draft client cannot start work. Assign an Admin first, then activate. A draft made by mistake can be deleted from its ⋯ ("Delete") while nothing was added to it or changed on it.',
+            ),
           ],
           link: { href: "/clients", label: "Open Clients" },
           keywords: ["draft", "add client", "onboard"],
@@ -812,7 +814,9 @@ export const OWNER_GUIDE: Guide = {
               'Tap "Restore" on an archived contact to bring it back.',
             ),
             next("An archived contact stays on the list, marked Archived."),
-            note("Archiving the primary contact asks for the next primary contact."),
+            note(
+              'Archiving the primary contact asks for the next primary contact. A contact nothing ever pointed at (never edited, archived or made primary over others) can be deleted for good from its ⋯ ("Delete").',
+            ),
           ],
           keywords: ["contact", "primary contact", "archive"],
         },
@@ -1721,6 +1725,38 @@ export const OWNER_GUIDE: Guide = {
           ],
           link: { href: "/settings/job-titles", label: "Open Job titles" },
           keywords: ["job title", "designer", "editor", "role"],
+        },
+        {
+          id: "owner-delete-unused",
+          title: "Delete something nobody used",
+          summary: "Only what nothing ever pointed at goes; the rest you archive.",
+          blocks: [
+            steps(
+              {
+                text: 'In Settings, open Job titles, Expenses, Task types or Custom fields and tap the red bin ("Delete ‹name›") on the row (highlighted); on a phone it is the red Delete in the row\'s ⋯.',
+                shot: "owner/delete-unused",
+              },
+              'For a draft client or a contact, open its ⋯ menu and tap the red "Delete".',
+              'MaxOff checks first. If nothing ever used it, tap the red "Delete ‹name›", or "Keep it".',
+            ),
+            next("It is gone for good, from every list and picker. Its name stays in the history."),
+            note(
+              'Anything ever used stays: a title someone once held, a category on any claim (paid ones too), a type on any task or template, a field with a value now or in the past, a draft with a contact, a note or an edit, anything renamed or archived before. The question then says "In use — archive it instead." and offers only Close. A draft client has no Archive; it simply stays a draft. Admins never see Delete.',
+            ),
+          ],
+          link: { href: "/settings/job-titles", label: "Open Job titles" },
+          keywords: [
+            "delete",
+            "unused",
+            "remove",
+            "in use",
+            "job title",
+            "expense category",
+            "task type",
+            "custom field",
+            "draft client",
+            "contact",
+          ],
         },
         {
           id: "owner-custom-fields",

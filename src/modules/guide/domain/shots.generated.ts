@@ -407,6 +407,12 @@ export const GUIDE_SHOTS: Readonly<
     height: 800,
     alt: "Templates with a project template's Preview button highlighted.",
   },
+  "owner/delete-unused": {
+    src: "/guide/owner/delete-unused.webp",
+    width: 1184,
+    height: 334,
+    alt: "Job titles with a row's red Delete highlighted.",
+  },
   "owner/settings": {
     src: "/guide/owner/settings.webp",
     width: 1189,
