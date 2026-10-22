@@ -1109,7 +1109,7 @@ export const OWNER_GUIDE: Guide = {
               "There is no separate approval step for client work: marking it done is the approval.",
             ),
             text(
-              "Mark done comes onto a row once every stage is ticked; the first such row's button is solid green. Until then it waits in the row's ⋯, beside Open. A deliverable with no stages always shows it.",
+              "Mark done comes onto a row once every stage is ticked; the first such row's button is solid green. Until then it waits in the row's ⋯, beside Open, as “Mark done…”, which asks first (“1 stage isn't ticked”). A deliverable with no stages always shows it. In the deliverable's sheet the action is “Next: ‹stage›” (it ticks that stage) until every stage is ticked, then the green Mark done; before that, Mark done… is in the sheet's ⋯. “Close deliverable…” is in red, and its confirmation's way out is “Keep it”.",
             ),
             steps(
               'Open the project and tap "Mark done" on the row (or in its ⋯), or in the sheet.',

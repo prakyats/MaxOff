@@ -195,3 +195,8 @@ export function lastChangeLine(
   const text = change.text.endsWith(suffix) ? change.text.slice(0, -suffix.length) : change.text;
   return `Last change · ${change.by} ${text} · ${formatIST(change.at, "d MMM")}`;
 }
+
+/** "1 stage isn't ticked.", "3 stages aren't ticked." (PP-sheet-2: Mark done before they are). */
+export function untickedWords(count: number): string {
+  return count === 1 ? "1 stage isn't ticked." : `${count} stages aren't ticked.`;
+}

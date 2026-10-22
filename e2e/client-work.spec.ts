@@ -143,12 +143,19 @@ async function createFromDialog(page: Page, dialog: Locator): Promise<void> {
 const itemRow = (page: Page, title: string) =>
   page.locator('[data-slot="item-row"]', { hasText: title });
 
-/** Mark done from the row's ⋯, where it waits until every stage is ticked (unit U). */
+/**
+ * Mark done from the row's ⋯, where it waits until every stage is ticked (unit U); with a stage
+ * left it asks first, naming it (PP-sheet-2), and the confirmation's Mark done sends it.
+ */
 async function markDoneFromMenu(page: Page, title: string): Promise<void> {
   await itemRow(page, title)
     .getByRole("button", { name: `More for ${title}` })
     .click();
-  await page.getByRole("menuitem", { name: "Mark done" }).click();
+  await page.getByRole("menuitem", { name: "Mark done…" }).click();
+  const ask = page.getByRole("alertdialog", { name: `Mark ${title} done?` });
+  await expect(ask).toContainText(/\d+ stages? (isn't|aren't) ticked\./);
+  await expect(ask.getByRole("button", { name: "Keep it open" })).toBeVisible();
+  await ask.getByRole("button", { name: "Mark done", exact: true }).click();
 }
 
 /** Sends what waits for its Undo now: the app going to the background flushes it (as Approvals). */
@@ -1481,6 +1488,47 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
     const reopen = page.getByRole("dialog", { name: "Reopen Layer reels?" });
     await expect(reopen).toBeVisible();
     await expectBackStack(page, [{ closes: reopen, url: here }]);
+    await removeClientFixture(client);
+  });
+
+  test("Mark done before every stage is ticked: the row's and the sheet's confirmations close on back; the sheet's action is Next (PP-sheet-2)", async ({
+    page,
+  }, info) => {
+    const client = nameOf(info, "early done back");
+    const clientId = await workClient(client);
+    const projectId = await makeProject(clientId, "Early reels", {
+      items: ["Reel 1"],
+      stages: ["Script", "Edit"],
+    });
+    const here = new RegExp(`/projects/${projectId}$`);
+    await runInstalled(page);
+    await page.goto(`/clients/${clientId}/projects/${projectId}`);
+    await hydrated(page);
+    const ask = page.getByRole("alertdialog", { name: "Mark Reel 1 done?" });
+
+    // The row's ⋯ → Mark done… → its confirmation: back closes it, then nothing is left open.
+    await itemRow(page, "Reel 1").getByRole("button", { name: "More for Reel 1" }).click();
+    await page.getByRole("menuitem", { name: "Mark done…" }).click();
+    await expect(ask).toContainText("2 stages aren't ticked.");
+    await expectBackStack(page, [{ closes: ask, url: here }]);
+
+    // The sheet: Next ticks the stage it names; Mark done waits in its ⋯ behind the same question.
+    await itemRow(page, "Reel 1").locator('[data-slot="item-open"]').click();
+    const sheet = page.locator('[data-slot="review-sheet"]');
+    await expect(sheet.getByRole("button", { name: "Mark done", exact: true })).toHaveCount(0);
+    await sheet.getByRole("button", { name: "Next: Script" }).click();
+    await expect(sheet.getByRole("checkbox", { name: "Script" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+    await expect(sheet.getByRole("button", { name: "Next: Edit" })).toBeVisible();
+    await sheet.getByRole("button", { name: "More for Reel 1" }).click();
+    await page.getByRole("menuitem", { name: "Mark done…" }).click();
+    await expect(ask).toContainText("1 stage isn't ticked.");
+    await expectBackStack(page, [
+      { closes: ask, url: here },
+      { closes: sheet, url: here },
+    ]);
     await removeClientFixture(client);
   });
 

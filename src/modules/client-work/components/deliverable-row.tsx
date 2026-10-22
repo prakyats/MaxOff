@@ -735,6 +735,7 @@ export function DeliverableRow({
             className={cn(OVER_ROW, place === "row" && "max-lg:hidden")}
             onOpen={onOpen}
             onMarkDone={onMarkDone}
+            unticked={item.stages.filter((stage) => !stage.done).length}
           />
         ) : null}
         {selectsOnTap ? null : (

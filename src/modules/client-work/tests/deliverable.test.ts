@@ -10,6 +10,7 @@ import {
   solidMarkDoneId,
   groupsLine,
   lastChangeLine,
+  untickedWords,
   progressShape,
   suggestsGrouping,
   typesNumberedRounds,
@@ -218,5 +219,12 @@ describe("lastChangeLine (PP-sheet-1)", () => {
     expect(
       lastChangeLine({ text: "added Reel 3", by: "Ravi", at: "2026-10-08T10:40:00Z" }, "Reel 2"),
     ).toBe("Last change · Ravi added Reel 3 · 8 Oct");
+  });
+});
+
+describe("untickedWords (PP-sheet-2)", () => {
+  it("names how many stages are left", () => {
+    expect(untickedWords(1)).toBe("1 stage isn't ticked.");
+    expect(untickedWords(3)).toBe("3 stages aren't ticked.");
   });
 });

@@ -1200,7 +1200,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "For client work there is no separate approval step. Mark done comes onto a row once every stage is ticked (the first such row’s button is solid green); until then it waits in the row’s ⋯, beside Open. A deliverable with no stages always shows it.",
+              text: "For client work there is no separate approval step. Mark done comes onto a row once every stage is ticked (the first such row’s button is solid green); until then it waits in the row’s ⋯, beside Open, as “Mark done…”, which asks first (“1 stage isn’t ticked”). A deliverable with no stages always shows it. In its sheet the action is “Next: ‹stage›”, which ticks that stage, until every stage is ticked; then it is the green Mark done (before that, Mark done… is in the sheet’s ⋯). “Close deliverable…” is in red; its confirmation’s way out is “Keep it”.",
             },
             {
               kind: "steps",
