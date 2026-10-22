@@ -381,13 +381,13 @@ export const CREW_GUIDE: Guide = {
                   text: 'Open Leave and tap the "Attendance" tab (highlighted).',
                   shot: "staff/attendance-tab",
                 },
-                'Use "Previous month" and "Next month" to move. Each row has the date, how it was recorded, the start and end times, and notes.',
+                'Use "Previous month" and "Next month" to move. Each row has the date, how it was recorded, the start and end times ("Not recorded" when a time never came), and notes.',
                 "Open a day to read the Owner's reason and its history.",
               ],
             },
             {
               kind: "next",
-              text: "If a day looks wrong, ask the Owner. The original always stays beside the correction.",
+              text: "If a day looks wrong, ask the Owner: the line under the table says so too. The original always stays beside the correction.",
             },
             {
               kind: "note",
@@ -850,7 +850,7 @@ export const CREW_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: "An unread alert has a dot, a bold title and a slightly shaded row; times read like 6:00 pm.",
+              text: "Alerts is one list grouped by day: Today, Yesterday, Earlier this week, then Older. “Show older” at the end adds the next ones. Each row starts with the photo (or initials) of the person who caused it, or a bell when MaxOff sent it itself. An unread alert has a red dot, a bold title and a slightly lighter row; times read like 6:00 pm.",
             },
           ],
           link: { href: "/notifications", label: "Open Alerts" },

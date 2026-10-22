@@ -1736,6 +1736,13 @@ notifications        id, org_id, recipient_id → members (cascade), actor_id nu
                      -- run_size, run_kinds, run_unread (the run's unread ids) and the total of entries for the
                      -- pager; paged over entries, so a run never splits across pages. Not audited
                      -- (the event is audited by its transition; a read is view state, as task_reads).
+                     -- v1.8 V5b-D (migration v5_alerts_keyset_actor, expand-only): notifications_inbox_page(
+                     -- p_unread_only, p_before_at, p_before_id, p_limit) is what Alerts reads now: the same
+                     -- entries in keyset pages (before = the newest row of the last entry shown; that row is
+                     -- read even under Unread so its run is never shown twice; at most 51 a call, no total),
+                     -- each with the newest row's actor_id and the actor's full_name and avatar_file_id from
+                     -- member_directory (null outside the caller's directory). Security invoker, own rows.
+                     -- notifications_inbox stays (unused by the app).
                      -- Never purged in 5A (kickoff 5 decision 4); from 5B a daily job removes READ rows older than 90 days
                      -- (owner decision 2026-10-01, PROGRESS "5B decisions" (11)); unread rows stay. Money never in title, body, link or payload.
                      -- public.notifications_remove_read(p_now, p_dry_run default true) (service_role; read rows created

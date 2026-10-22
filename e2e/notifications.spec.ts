@@ -59,6 +59,8 @@ type Row = {
   entityId?: string;
   read?: boolean;
   minutesAgo?: number;
+  /** Who caused it (V5b-D: their photo leads the row). */
+  actorId?: string;
 };
 
 /** One notification for that person, as `app.notify()` writes it (no push delivery). */
@@ -80,6 +82,7 @@ async function notify(email: string, row: Row): Promise<string> {
     entity_id: row.entityId ?? null,
     created_at: createdAt,
     read_at: row.read ? createdAt : null,
+    actor_id: row.actorId ?? null,
   });
   return inserted.id;
 }
@@ -520,6 +523,51 @@ test.describe("the bell and Alerts", () => {
     await page.goto("/notifications?show=unread");
     await expect(page.locator('[data-slot="empty-state"]')).toContainText("You're all caught up");
     await expect(page.locator('[data-slot="alerts-filter"]')).toBeVisible();
+  });
+
+  test("V5b-D: one continuous list; Show older adds the next ones under the same day groups; the actor's photo leads each row", async ({
+    page,
+  }, info) => {
+    const admin = person(info, "admin");
+    await clearAlerts(admin);
+    const today = todayIST();
+    const actor = await memberIdOf(person(info, "staff"));
+    // Today: one alert someone caused, one MaxOff sent itself; then 23 older ones, a minute apart.
+    await notify(admin, { title: "Leave asked by a person", actorId: actor, minutesAgo: 1 });
+    await notify(admin, { title: "A job's reminder", minutesAgo: 2 });
+    for (let index = 0; index < 23; index += 1) {
+      await notify(admin, {
+        title: `Older alert ${String(index + 1).padStart(2, "0")}`,
+        at: istInstant(addISTDays(today, -10), `12:${String(59 - index).padStart(2, "0")}`),
+      });
+    }
+    await signIn(page, admin, PASSWORD);
+    await page.goto("/notifications");
+    await hydrated(page);
+
+    const rows = page.locator('[data-slot="notification-row"]');
+    await expect(rows).toHaveCount(20);
+    await expect(page.locator('[data-slot="alerts-pager"]')).toHaveCount(0);
+    // The photo (or initials) of who caused it leads the row; MaxOff's own has a quiet bell.
+    const own = rowOf(page, "Leave asked by a person").locator('[data-slot="person-avatar"]');
+    await expect(own).toHaveAttribute("data-size", "28");
+    await expect(own).not.toHaveAttribute("data-tone", "none");
+    await expect(
+      rowOf(page, "A job's reminder").locator('[data-slot="person-avatar"]'),
+    ).toHaveAttribute("data-tone", "none");
+
+    // Show older adds the rest under them: the same groups run on, and it adds no history.
+    const before = await page.evaluate(() => history.length);
+    await page.locator('[data-slot="alerts-show-older"]').click();
+    await expect(rows).toHaveCount(25);
+    await expect(page.locator('[data-slot="notification-group"] > h2')).toHaveText([
+      "Today",
+      "Older",
+    ]);
+    await expect(rows.last()).toContainText("Older alert 23");
+    await expect(page.locator('[data-slot="alerts-show-older"]')).toHaveCount(0);
+    expect(await page.evaluate(() => history.length)).toBe(before);
+    await expect(page).toHaveURL(/\/notifications$/);
   });
 
   test("Realtime: a row written before the live channel first joins still reaches the bell and the list", async ({

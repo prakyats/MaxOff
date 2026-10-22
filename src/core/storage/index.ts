@@ -39,5 +39,7 @@ export function fileUrl(
   fileId: string,
   variant: "original" | "preview" | "thumb" = "preview",
 ): string {
-  return variant === "original" ? `/api/files/${fileId}` : `/api/files/${fileId}?variant=${variant}`;
+  return variant === "original"
+    ? `/api/files/${fileId}`
+    : `/api/files/${fileId}?variant=${variant}`;
 }

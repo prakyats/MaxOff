@@ -102,27 +102,25 @@ export async function listInboxPage({
     p_limit: INBOX_PAGE_SIZE + 1,
   });
   if (error) throw error;
-  const rows = data.slice(0, INBOX_PAGE_SIZE).map(
-    (row): InboxRow => ({
-      id: row.id,
-      kind: row.kind,
-      title: row.title,
-      // A function's columns are typed not-null; these may be null.
-      body: (row.body as string | null) ?? null,
-      link: (row.link as string | null) ?? null,
-      createdAt: row.created_at,
-      runSize: row.run_size,
-      runKinds: row.run_kinds,
-      runUnread: row.run_unread,
-      actor: (row.actor_id as string | null)
-        ? {
-            id: row.actor_id,
-            name: (row.actor_name as string | null) ?? null,
-            avatarFileId: (row.actor_avatar_file_id as string | null) ?? null,
-          }
-        : null,
-    }),
-  );
+  const rows = data.slice(0, INBOX_PAGE_SIZE).map((row): InboxRow => ({
+    id: row.id,
+    kind: row.kind,
+    title: row.title,
+    // A function's columns are typed not-null; these may be null.
+    body: (row.body as string | null) ?? null,
+    link: (row.link as string | null) ?? null,
+    createdAt: row.created_at,
+    runSize: row.run_size,
+    runKinds: row.run_kinds,
+    runUnread: row.run_unread,
+    actor: (row.actor_id as string | null)
+      ? {
+          id: row.actor_id,
+          name: (row.actor_name as string | null) ?? null,
+          avatarFileId: (row.actor_avatar_file_id as string | null) ?? null,
+        }
+      : null,
+  }));
   const last = rows.at(-1);
   return {
     rows,

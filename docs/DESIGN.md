@@ -150,6 +150,8 @@ a Dark/Light toggle).
 | A calendar item (change 5) | `TypeDot` + `typeTint` (`modules/calendar/components/calendar-chip.tsx`); secondary words on a tint are `text-foreground/80`, never muted (PP-light-3) |
 | Light tint contrast (PP-light-3) | `core/ui/theme/tint-contrast.ts`: a tint composited over its surface, checked at 4.5:1 (`tint-contrast.test.ts`, `type-tint-contrast.test.ts`) |
 | An unread row (PP-alerts-2) | `bg-row-unread` (`--row-unread`: a warm step off the card in light, `surface-3` in dark) |
+| A person's photo (pull-in sample, V5b-D) | `PersonAvatar` / `AvatarStack` (`core/ui/composites/person-avatar.tsx`): 20 list rows, 28 chat and Alerts, 40 People and headers, 64 a person's page and Me; initials on `--avatar-1…4` (stable per member id, `core/lib/avatar.ts`); the ring and sizes in `globals.css`; lists load the 96 px thumbnail (`fileUrl(id, "thumb")`); never in calendar month boxes or long tables |
+| No access (FINAL 7, V5b-D) | `/forbidden?for=<keys>`; `blockedLine` (`core/permissions/blocked.ts`) names the area and who it is for from the permission table |
 
 ## 2. Type: six steps, nothing under 12 px
 Tailwind's own names, so a class says its step. Nothing else: no `text-[…]` sizes, no `text-3xl`

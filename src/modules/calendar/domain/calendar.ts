@@ -388,7 +388,11 @@ export function buildCalendar(input: CalendarInput): CalendarDay[] {
     if (!person) return "Someone";
     return person.engagement === "freelance" ? `${person.name} (freelancer)` : person.name;
   };
-  const photoOf = (memberId: string) => personOf.get(memberId)?.avatarFileId ?? null;
+  // Their photo, only when they have one (the day popup's avatar; V5b-D).
+  const photoOf = (memberId: string): { avatarFileId?: string } => {
+    const id = personOf.get(memberId)?.avatarFileId;
+    return id ? { avatarFileId: id } : {};
+  };
   const inRange = (date: ISODate) => date >= range.from && date <= range.to;
   const passes = (task: {
     clientId: string | null;
@@ -499,7 +503,7 @@ export function buildCalendar(input: CalendarInput): CalendarDay[] {
         kind: "leave",
         memberId: span.memberId,
         name: nameOf(span.memberId),
-        avatarFileId: photoOf(span.memberId),
+        ...photoOf(span.memberId),
         date,
         label: LEAVE_LABELS[span.type],
         half: span.type === "half_day",
@@ -521,7 +525,7 @@ export function buildCalendar(input: CalendarInput): CalendarDay[] {
           kind: "leave",
           memberId: row.memberId,
           name: nameOf(row.memberId),
-          avatarFileId: photoOf(row.memberId),
+          ...photoOf(row.memberId),
           date: row.day,
           label,
           half: row.leave === "half_day",
@@ -546,7 +550,7 @@ export function buildCalendar(input: CalendarInput): CalendarDay[] {
           kind: "busy",
           memberId: row.memberId,
           name: nameOf(row.memberId),
-          avatarFileId: photoOf(row.memberId),
+          ...photoOf(row.memberId),
           date: row.day,
           startAt,
           endAt,

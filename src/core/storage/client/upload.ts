@@ -169,7 +169,17 @@ export async function makeJpegPreview(
       context.fillStyle = "#ffffff";
       context.fillRect(0, 0, width, height);
       if (crop) {
-        context.drawImage(decoded.source, crop.sx, crop.sy, crop.side, crop.side, 0, 0, width, height);
+        context.drawImage(
+          decoded.source,
+          crop.sx,
+          crop.sy,
+          crop.side,
+          crop.side,
+          0,
+          0,
+          width,
+          height,
+        );
       } else {
         context.drawImage(decoded.source, 0, 0, width, height);
       }

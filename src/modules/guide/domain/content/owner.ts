@@ -68,7 +68,10 @@ export const OWNER_GUIDE: Guide = {
           summary: "The bell opens Alerts, with the unread count on it.",
           blocks: [
             text(
-              "On a phone the bell sits in the title bar of each screen. On a laptop it is in the top bar. Both open Alerts and show how many you have not read. An unread alert has a dot, a bold title and a slightly shaded row.",
+              "On a phone the bell sits in the title bar of each screen. On a laptop it is in the top bar. Both open Alerts and show how many you have not read.",
+            ),
+            text(
+              "Alerts is one list grouped by day: Today, Yesterday, Earlier this week, then Older. “Show older” at the end adds the next ones. Each row starts with the photo (or initials) of the person who caused it, or a bell when MaxOff sent it itself. An unread alert has a red dot, a bold title and a slightly lighter row; times read like 6:00 pm.",
             ),
           ],
           link: { href: "/notifications", label: "Open Alerts" },
@@ -275,15 +278,18 @@ export const OWNER_GUIDE: Guide = {
         {
           id: "owner-person-attendance",
           title: "Correct a person's attendance",
-          summary: "Fix a recorded day from the Attendance tab.",
+          summary: "Fix a recorded day, or approve a waiting one, from the Attendance tab.",
           blocks: [
             steps(
               "Open People, tap the person, then the Attendance tab. It lists the month's days.",
-              "Find the day that is wrong.",
-              'Tap "Correct…" on that day.',
+              "Tap the day that is wrong. Its day opens, with what happened and when.",
+              'Tap "Correct this day…".',
               "Enter the right details and save.",
             ),
             next("The original stays in the history. A correction sits alongside it."),
+            text(
+              'A day still waiting for you has a green "Approve" on its row, and "Approve as present" (or absent) in its day beside "Correct this day…": the same approval as on Approvals. A time that was never recorded reads "Not recorded".',
+            ),
             note("Only you can correct a recorded day."),
           ],
           link: { href: "/people", label: "Open People" },

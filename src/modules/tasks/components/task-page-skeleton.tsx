@@ -110,10 +110,7 @@ function ChatThreadSkeleton() {
   return (
     <div className="flex min-w-0 flex-col gap-3">
       {["self-start", "self-end"].map((side) => (
-        <div
-          key={side}
-          className={cn("flex w-3/5 max-w-[85%] min-w-0 items-start gap-2.5", side)}
-        >
+        <div key={side} className={cn("flex w-3/5 max-w-[85%] min-w-0 items-start gap-2.5", side)}>
           {side === "self-start" ? <Skeleton className="size-7 shrink-0 rounded-full" /> : null}
           <div
             className={cn(

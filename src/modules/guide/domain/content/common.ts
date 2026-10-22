@@ -97,6 +97,46 @@ export const COMMON_HELP_TOPICS: readonly GuideTopic[] = [
     keywords: ["push", "alerts", "not receiving", "blocked", "test", "devices", "silent"],
   },
   {
+    id: "help-photos",
+    title: "Profile photos",
+    summary: "Your photo shows beside your name for the whole team.",
+    blocks: [
+      {
+        kind: "text",
+        text: "Everyone on the team sees everyone's photo beside their name: in task chat, on a task's people, in the calendar's day, in Alerts and on the screens that list people. Without a photo, your initials show on a colour that is always yours. A photo never appears inside the calendar's month boxes or long tables.",
+      },
+      {
+        kind: "steps",
+        steps: [
+          "Open Me.",
+          'Tap "Add photo" (or "Change photo"), choose a picture and tap "Save photo".',
+        ],
+      },
+      {
+        kind: "note",
+        text: "Your phone makes a small copy for lists, so photos load quickly. The original is kept as you chose it.",
+      },
+    ],
+    link: { href: "/me", label: "Open Me" },
+    keywords: ["photo", "picture", "avatar", "initials", "profile"],
+  },
+  {
+    id: "help-no-access",
+    title: "No access",
+    summary: "A screen for another role says who it is for.",
+    blocks: [
+      {
+        kind: "text",
+        text: "Opening a screen that is not for your role shows No access. It names what was blocked and who it is for, such as “The team list is for the Owner and Admins”. The button takes you back to your home screen.",
+      },
+      {
+        kind: "note",
+        text: "If you think you should see it, ask the Owner.",
+      },
+    ],
+    keywords: ["no access", "blocked", "cannot open", "forbidden", "permission"],
+  },
+  {
     id: "help-version",
     title: "What to say when you ask for help",
     summary: "Tell the Owner what you did and the version on Me.",

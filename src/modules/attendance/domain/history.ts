@@ -81,8 +81,7 @@ export function dayTimesLine(
   day: Pick<HistoryDay, "startedAt" | "endedAt" | "endNotRecorded" | "finalStatus" | "isDayOff">,
 ): string {
   if (!day.startedAt && !day.endedAt) {
-    const away =
-      day.finalStatus === "leave" || day.finalStatus === "comp_leave" || day.isDayOff;
+    const away = day.finalStatus === "leave" || day.finalStatus === "comp_leave" || day.isDayOff;
     return away && !day.endNotRecorded ? "—" : "Not recorded";
   }
   const { start, end } = dayTimes(day);
