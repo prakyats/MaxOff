@@ -10,10 +10,15 @@ export type AvatarTone = (typeof AVATAR_TONES)[number];
 
 /**
  * The initials: the first and last word's first letters ("Prishit Shetty" → "PS"), or a one-word
- * name's first two letters ("Prakyat" → "PR"); "?" for an empty name.
+ * name's first two letters ("Prakyat" → "PR"); punctuation is skipped; "?" for an empty name.
  */
 export function avatarInitials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
+  // Words of letters only: "Asha (freelancer)" reads "AF", never "A(".
+  const parts = name
+    .trim()
+    .split(/\s+/)
+    .map((word) => word.replace(/[^\p{L}\p{N}]/gu, ""))
+    .filter(Boolean);
   const first = parts[0] ?? "";
   if (parts.length === 1) return Array.from(first).slice(0, 2).join("").toUpperCase() || "?";
   const last = parts[parts.length - 1] ?? "";

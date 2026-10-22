@@ -32,7 +32,8 @@ export function Forbidden({
       title={title ?? "You can't open this"}
       description={message ?? ERROR_MESSAGES.FORBIDDEN}
       action={
-        <Button asChild>
+        // pending: none — a link home, it commits nothing (the screen's one solid button).
+        <Button variant="primary" asChild>
           <Link href={homeHref} data-slot="forbidden-home">
             {homeLabel}
           </Link>

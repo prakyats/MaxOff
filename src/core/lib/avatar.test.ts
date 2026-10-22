@@ -7,6 +7,8 @@ describe("avatarInitials", () => {
     expect(avatarInitials("Prishit Shetty")).toBe("PS");
     expect(avatarInitials("Anna Maria Kurian")).toBe("AK");
     expect(avatarInitials("  ravi   kumar ")).toBe("RK");
+    expect(avatarInitials("Test Gate Staff (desktop)")).toBe("TD");
+    expect(avatarInitials("Asha (freelancer)")).toBe("AF");
   });
 
   it("takes a one-word name's first two letters", () => {
