@@ -1,0 +1,252 @@
+<title>Working Hours Screens</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one column of numbered changes; each shows the real "before" screenshot beside a built "after" mock in MaxOff's own tokens */
+:root{
+  --page:#f4f4f2; --page-ink:#18181b; --page-muted:#5f5f66; --page-line:#dedede; --page-card:#ffffff;
+  --sans:"Geist",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--page:#0e0e10;--page-ink:#ededee;--page-muted:#a1a1a8;--page-line:#26262a;--page-card:#151517;color-scheme:dark}}
+:root[data-theme="dark"]{--page:#0e0e10;--page-ink:#ededee;--page-muted:#a1a1a8;--page-line:#26262a;--page-card:#151517;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--page-ink);font-family:var(--sans);font-size:14px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 64px}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:40px}
+header.top{display:flex;flex-direction:column;gap:10px}
+h1{font-size:28px;letter-spacing:-.025em;margin:0;text-wrap:balance}
+h2{font-size:20px;letter-spacing:-.02em;margin:0;text-wrap:balance}
+.lede{color:var(--page-muted);margin:0;max-width:72ch}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.toolbar span{color:var(--page-muted);font-size:13px}
+.seg{display:inline-flex;background:var(--page-card);border:1px solid var(--page-line);border-radius:8px;padding:3px;gap:2px}
+.seg button{font:inherit;font-size:13px;border:0;background:transparent;color:var(--page-muted);padding:6px 12px;border-radius:6px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--page-ink);color:var(--page)}
+.seg button:focus-visible{outline:2px solid var(--page-ink);outline-offset:2px}
+section.change{display:flex;flex-direction:column;gap:14px;scroll-margin-top:16px}
+.chead{display:flex;flex-direction:column;gap:6px}
+.num{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--page-muted)}
+ul.what{margin:0;padding-left:18px;max-width:80ch;display:flex;flex-direction:column;gap:3px;color:var(--page-ink)}
+.pair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+.pair.wideafter{grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr)}
+@media (max-width:900px){.pair,.pair.wideafter{grid-template-columns:minmax(0,1fr)}}
+.col{display:flex;flex-direction:column;gap:8px;min-width:0}
+.tag{font-size:11.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:999px;width:max-content}
+.t-before{background:var(--page-card);border:1px solid var(--page-line);color:var(--page-muted)}
+.t-after{background:#15803d;color:#fff}
+figure{margin:0;display:flex;flex-direction:column;gap:6px}
+figure img{display:block;max-width:100%;height:auto;border-radius:10px;border:1px solid var(--page-line)}
+figcaption,.cap{font-size:12.5px;color:var(--page-muted)}
+.shots{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap}
+.shots figure{flex:1 1 220px;min-width:0}
+
+/* ---------- the MaxOff "after" mocks: their own tokens, switchable ---------- */
+.mx{--bg:#0b0b0c;--s1:#131315;--s2:#1a1a1d;--s3:#222226;--side:#0f0f11;--ink:#ededee;--muted:#9d9da5;--faint:#6b6b73;--line:#25252a;
+  --red:#e5484d;--red-solid:#c42126;--red-soft:#3a1517;--red-ink:#ff8a8f;--amber-soft:#33240e;--amber-ink:#f5b55a;--blue-soft:#18203a;--blue-ink:#8fb0ff;
+  --green:#15803d;--green-soft:#10291c;--green-ink:#5fd497;--grey-soft:#232327;--violet-soft:#241b3a;--violet-ink:#b9a3ff;--teal-soft:#0f2a28;--teal-ink:#5ed3c4;
+  --shadow:0 1px 0 rgba(255,255,255,.03),0 6px 18px rgba(0,0,0,.35);--primary:#ededee;--on-primary:#0b0b0c;
+  background:var(--bg);color:var(--ink);border-radius:12px;border:1px solid var(--line);overflow:hidden;font-size:13px;line-height:1.45;color-scheme:dark}
+.mx.light,.mxlight .mx{--bg:#f6f5f2;--s1:#ffffff;--s2:#ffffff;--s3:#ffffff;--side:#efeee9;--ink:#18181b;--muted:#62626a;--faint:#8b8b93;--line:#e3e2dd;
+  --red:#d92d34;--red-soft:#fdecec;--red-ink:#b42318;--amber-soft:#fdf3e2;--amber-ink:#8f5400;--blue-soft:#e9effd;--blue-ink:#2952cc;
+  --green-soft:#e6f4ea;--green-ink:#15803d;--grey-soft:#efefef;--violet-soft:#efeafd;--violet-ink:#5b3fc4;--teal-soft:#e3f5f2;--teal-ink:#0f766e;
+  --shadow:0 1px 2px rgba(20,20,20,.06),0 4px 14px rgba(20,20,20,.06);--primary:#18181b;--on-primary:#ffffff;color-scheme:light}
+.mx .app{display:grid;grid-template-columns:150px minmax(0,1fr);min-height:100%}
+.mx .side{background:var(--side);border-right:1px solid var(--line);padding:12px 8px;display:flex;flex-direction:column;gap:2px}
+.mx .brand{display:flex;gap:8px;align-items:center;font-weight:700;padding:2px 6px 12px}
+.mx .mark{width:22px;height:22px;border-radius:6px;background:var(--red-solid);color:#fff;display:grid;place-items:center;font-size:12px;font-weight:700;flex:none}
+.mx .nav{padding:6px 8px;border-radius:6px;color:var(--muted)}
+.mx .nav.on{background:var(--s3);color:var(--ink);font-weight:600}
+.mx .main{display:flex;flex-direction:column;min-width:0}
+.mx .bar{height:44px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:flex-end;gap:12px;padding:0 14px;color:var(--muted)}
+.mx .bar .bell{position:relative}
+.mx .bar .bell b{position:absolute;top:-6px;right:-9px;background:var(--red);color:#fff;font-size:9px;border-radius:999px;padding:0 4px}
+.mx .content{padding:16px 18px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.mx .ttl{font-size:20px;font-weight:600;letter-spacing:-.02em;margin:0}
+.mx .sub{color:var(--muted);font-size:12.5px}
+.mx .h{font-size:12.5px;font-weight:600;display:flex;gap:6px;align-items:center}
+.mx .h .c{color:var(--muted);font-weight:500}
+.mx .card{background:var(--s1);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow)}
+.mx .row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-top:1px solid var(--line);min-width:0}
+.mx .row:first-child{border-top:0}
+.mx .rt{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.mx .rt b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mx .rt span{color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mx .chev{color:var(--faint)}
+.mx .chip{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:500;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.mx .chip i{width:6px;height:6px;border-radius:50%;background:currentColor}
+.mx .c-red{background:var(--red-soft);color:var(--red-ink)}
+.mx .c-amber{background:var(--amber-soft);color:var(--amber-ink)}
+.mx .c-blue{background:var(--blue-soft);color:var(--blue-ink)}
+.mx .c-green{background:var(--green-soft);color:var(--green-ink)}
+.mx .c-grey{background:var(--grey-soft);color:var(--muted)}
+.mx .btn{font:inherit;font-size:12.5px;font-weight:500;height:30px;padding:0 12px;border-radius:6px;border:1px solid var(--line);background:transparent;color:var(--ink);white-space:nowrap}
+.mx .btn.solid{background:var(--primary);color:var(--on-primary);border-color:transparent}
+.mx .btn.approve{background:var(--green);color:#fff;border-color:transparent}
+.mx .btn.red-out{border-color:var(--red);color:var(--red-ink)}
+.mx .btn.wide{width:100%;height:38px}
+.mx .tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+.mx .tile{padding:10px 12px;display:flex;flex-direction:column;gap:2px;border-left:1px solid var(--line)}
+.mx .tile:first-child{border-left:0}
+.mx .tile b{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.mx .tile span{font-size:11.5px;color:var(--muted)}
+.mx .quiet{color:var(--muted);font-size:12.5px}
+.mx .two{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:14px;align-items:start}
+.mx .badge{display:inline-flex;align-items:center;gap:3px;font-size:11px;color:var(--muted);background:var(--s3);border-radius:999px;padding:0 6px;margin-left:6px}
+/* phone frame */
+.phone{width:280px;max-width:100%;border-radius:22px;border:1px solid var(--line);overflow:hidden;background:var(--bg);display:flex;flex-direction:column}
+.mx.phone .pbar{height:44px;display:flex;align-items:center;gap:8px;padding:0 12px;border-bottom:1px solid var(--line);font-weight:600}
+.mx.phone .pbody{padding:12px;display:flex;flex-direction:column;gap:12px}
+.mx.phone .pnav{display:grid;grid-template-columns:repeat(5,1fr);border-top:1px solid var(--line);padding:6px 0;font-size:10px;color:var(--muted);text-align:center}
+.mx.phone .pnav .on{color:var(--ink);font-weight:600}
+.phones{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start}
+.mx .sheet{background:var(--s2);border-top:1px solid var(--line);border-radius:14px 14px 0 0;padding:12px;display:flex;flex-direction:column;gap:10px}
+.mx .handle{width:36px;height:4px;border-radius:4px;background:var(--line);margin:0 auto}
+.mx .steps{display:flex;gap:6px;align-items:center;font-size:11.5px;color:var(--muted)}
+.mx .steps b{color:var(--ink)}
+.mx .steps .dotl{flex:1;height:2px;background:var(--line);border-radius:2px}
+.mx .steps .dotl.on{background:var(--ink)}
+.mx label.l{font-size:12px;font-weight:600;display:block;margin-bottom:4px}
+.mx .field{height:34px;border:1px solid var(--line);border-radius:6px;background:var(--bg);display:flex;align-items:center;padding:0 10px;gap:8px;color:var(--ink);font-size:12.5px}
+.mx .field .ph{color:var(--faint)}
+.mx .field svg{flex:none}
+.mx .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mx .sect{display:flex;flex-direction:column;gap:6px}
+.mx .sect > .h{color:var(--muted);font-weight:600;font-size:11.5px;letter-spacing:.04em;text-transform:uppercase}
+.mx .li{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border-top:1px solid var(--line)}
+.mx .li:first-child{border-top:0}
+.mx .avatar{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-weight:600;background:var(--s3);box-shadow:0 0 0 1px var(--line);flex:none}
+/* calendar */
+.mx .cal{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;padding:10px}
+.mx .cell{background:var(--s1);border:1px solid var(--line);border-radius:8px;min-height:92px;padding:6px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.mx .cell.we{background:var(--s2);opacity:.85}
+.mx .cell.today{background:var(--s3)}
+.mx .dn{font-weight:600;font-size:12px;width:22px;height:22px;display:grid;place-items:center}
+.mx .dn.t{background:var(--red);color:#fff;border-radius:50%}
+.mx .ev{display:flex;gap:6px;align-items:center;font-size:11px;padding:2px 6px;border-radius:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.mx .ev i{width:6px;height:6px;border-radius:50%;flex:none}
+.mx .ev.teal{background:var(--teal-soft);color:var(--teal-ink)} .mx .ev.teal i{background:var(--teal-ink)}
+.mx .ev.violet{background:var(--violet-soft);color:var(--violet-ink)} .mx .ev.violet i{background:var(--violet-ink)}
+.mx .ev.amber{background:var(--amber-soft);color:var(--amber-ink)} .mx .ev.amber i{background:var(--amber-ink)}
+.mx .ev.done{opacity:.6}
+.mx .leave{font-size:11px;padding:2px 6px;border-radius:5px;color:var(--muted);background:repeating-linear-gradient(135deg,var(--grey-soft) 0 6px,transparent 6px 10px);border:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mx .old .ev{border-left:4px solid currentColor;border-radius:3px}
+/* picker */
+.mx .pick{background:var(--s2);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:10px;width:220px}
+.mx .pg{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center;font-size:11px}
+.mx .pg span{padding:4px 0;border-radius:6px}
+.mx .pg .wd{color:var(--faint)}
+.mx .pg .sel{background:var(--primary);color:var(--on-primary);font-weight:600}
+.mx .pg .tod{box-shadow:inset 0 0 0 1px var(--red)}
+.mx .stat{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+.mx .stat div{padding:12px 14px;display:flex;flex-direction:column;gap:2px;border-left:1px solid var(--line)}
+.mx .stat div:first-child{border-left:0}
+.mx .stat b{font-size:22px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.mx .stat span{font-size:11.5px;color:var(--muted)}
+.mx .stat em{font-style:normal;font-size:11px}
+.mx .tabs{display:inline-flex;background:var(--s2);border:1px solid var(--line);border-radius:8px;padding:3px;gap:2px}
+.mx .tabs span{padding:5px 12px;border-radius:6px;color:var(--muted);font-size:12px}
+.mx .tabs .on{background:var(--s3);color:var(--ink);font-weight:600}
+.mx .anno{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:11.5px;color:var(--muted);padding:8px 12px;border-top:1px dashed var(--line)}
+.mx .anno b{color:var(--ink);font-weight:600}
+@media (max-width:640px){.mx .app{grid-template-columns:minmax(0,1fr)}.mx .side{display:none}.mx .two{grid-template-columns:minmax(0,1fr)}.mx .tiles,.mx .stat{grid-template-columns:repeat(2,minmax(0,1fr))}.mx .cal{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.ok{display:flex;flex-direction:column;gap:6px;background:var(--page-card);border:1px solid var(--page-line);border-radius:12px;padding:16px}
+.ok p{margin:0;max-width:75ch}
+</style><style>
+.mx .strip{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 12px;border-radius:10px;background:var(--s1);border:1px solid var(--line)}
+.mx .callout{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:10px;background:var(--s3);font-size:12.5px}
+.mx .radio{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:10px}
+.mx .radio .o{width:16px;height:16px;border-radius:50%;border:1.5px solid var(--faint);flex:none;margin-top:1px}
+.mx .radio.on{border-color:var(--ink)} .mx .radio.on .o{border:5px solid var(--ink)}
+.mx .radio b{display:block;font-weight:600}
+.mx .sug{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:4px 10px;border-radius:999px;background:var(--blue-soft);color:var(--blue-ink);width:max-content}
+.mx .ta{min-height:58px;border:1px solid var(--line);border-radius:6px;background:var(--bg);padding:8px 10px;font-size:12.5px}
+.mx .bigtime{font-size:22px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.phones{align-items:stretch}
+</style>
+<div class="wrap" id="root">
+<header class="top">
+  <h1>Working hours: the v1.9 screens</h1>
+  <p class="lede">These screens are new (they don't exist today), so there's no "before". They use the v1.8 look so v1.9 adds features without a new style. Attendance stays Owner-only: Admins see only their own day, like the Crew.</p>
+  <div class="toolbar"><span>Show the mocks in</span>
+    <div class="seg" role="group" aria-label="Theme of the mocks"><button type="button" id="m-dark" aria-pressed="true">Dark</button><button type="button" id="m-light" aria-pressed="false">Light</button></div>
+  </div>
+</header>
+
+<section class="change">
+  <div class="chead"><span class="num">1 · Crew and Admins, their own day</span><h2>Starting late, with the reason pre-filled</h2>
+  <ul class="what"><li>Tapping Start day after 10:15 opens a short sheet: how late, and one line why. If they have a shoot later that day, "Shoot at 2:00 pm" is already filled in; they can confirm or edit. It never blocks.</li><li>My Day then shows one quiet strip: started time, Late chip, and when the day ends.</li></ul></div>
+  <div class="phones">
+    <div class="mx phone"><div class="pbar"><span class="mark">M</span>My Day</div><div class="pbody">
+      <div class="strip"><span class="chip c-amber"><i></i>Not started</span><span class="quiet">Work starts 10:00 am</span><span style="flex:1"></span><button class="btn solid">Start day</button></div>
+      <div class="sheet" style="margin:0 -12px -12px"><div class="handle"></div><b style="font-size:14px">You're starting 22 minutes late</b><span class="quiet">Add a line for the Owner. It doesn't stop you working.</span>
+        <span class="sug">↺ Suggested from your calendar</span><div class="ta">Shoot at 2:00 pm</div><button class="btn solid wide">Start day</button></div>
+    </div></div>
+    <div class="mx phone"><div class="pbar"><span class="mark">M</span>My Day</div><div class="pbody">
+      <div class="strip"><span class="chip c-green"><i></i>Started 10:22 am</span><span class="chip c-amber"><i></i>Late 22 min</span><span class="quiet" style="width:100%">Your day ends at 6:00 pm</span></div>
+      <div class="sect"><div class="h">Today <span class="c">· 2</span></div><div class="card"><div class="row"><div class="rt"><b>Shoot · Shetty reel</b><span>2:00 pm – 7:30 pm</span></div><span class="chip c-blue"><i></i>Noted</span></div><div class="row"><div class="rt"><b>Edit</b><span>due 6:00 pm</span></div><span class="chip c-red"><i></i>3 days late</span></div></div></div>
+      <div class="callout">🕖 Your shoot runs till 7:30 pm, so today ends at 7:30 pm.</div>
+    </div><div class="pnav"><span class="on">My Day</span><span>Tasks</span><span>Calendar</span><span>Leave</span><span>Me</span></div></div>
+  </div>
+</section>
+
+<section class="change">
+  <div class="chead"><span class="num">2</span><h2>Leaving early: ask, then wait</h2>
+  <ul class="what"><li>Before the day's end time, End day becomes <b>Ask to leave early</b>: a reason, and a clear promise of what happens next.</li><li>While waiting, a calm status shows the minutes; after 30 minutes with no answer, End day comes back and the day is marked "Left early, not answered".</li></ul></div>
+  <div class="phones">
+    <div class="mx phone"><div class="pbody"><div class="sheet" style="margin:0 -12px -12px;border-radius:14px"><div class="handle"></div><b style="font-size:14px">Ask to leave early</b><span class="quiet">Your day ends at 6:00 pm. The Owner decides. If there's no answer in 30 minutes, you can end your day.</span>
+      <div class="grid2"><div><label class="l">Leave at</label><div class="field">4:30 pm</div></div><div></div></div><div><label class="l">Why</label><div class="ta">Doctor's appointment at 5</div></div><button class="btn solid wide">Ask the Owner</button></div></div></div>
+    <div class="mx phone"><div class="pbar"><span class="mark">M</span>My Day</div><div class="pbody">
+      <div class="callout"><span class="chip c-amber" style="flex:none"><i></i>Waiting</span><span>Asked to leave at 4:30 pm · 12 min ago. You can end your day at 4:42 pm if there's no answer.</span></div>
+      <div class="callout" style="background:var(--green-soft)"><span class="chip c-green" style="flex:none"><i></i>Approved</span><span>The Owner approved. You can end your day now.</span></div>
+      <button class="btn solid wide">End day</button>
+    </div><div class="pnav"><span class="on">My Day</span><span>Tasks</span><span>Calendar</span><span>Leave</span><span>Me</span></div></div>
+  </div>
+</section>
+
+<section class="change">
+  <div class="chead"><span class="num">3 · Owner only</span><h2>Deciding, and "Stay until"</h2>
+  <ul class="what"><li>Early-leave requests arrive in Approvals with <b>Stay</b> (outline) and <b>Approve</b> (green). "Left early, not answered" days get <b>Approve</b> or <b>Correct</b>.</li><li>Today shows a <b>Late</b> count (amber, hidden at zero). "Stay until" is in a person's ⋯ on the people board: pick a time after 6:00 pm; they're told at once.</li></ul></div>
+  <div class="pair">
+    <div class="col"><span class="tag t-after">Approvals</span>
+      <div class="mx" style="padding:14px;display:flex;flex-direction:column;gap:10px">
+        <div class="sect"><div class="h">Leaving early <span class="c">· 1</span></div><div class="card"><div class="row"><span class="av s20" style="width:20px;height:20px;border-radius:50%;background:#a8572e;display:grid;place-items:center;font-size:9px;color:#fff">PS</span><div class="rt"><b>PShetty · leave at 4:30 pm</b><span>Doctor's appointment at 5 · waiting 12 min</span></div><button class="btn">Stay</button><button class="btn approve">Approve</button></div></div></div>
+        <div class="sect"><div class="h">Left early, not answered <span class="c">· 1</span></div><div class="card"><div class="row"><span style="width:20px;height:20px;border-radius:50%;background:#6d4fb3;display:grid;place-items:center;font-size:9px;color:#fff">PR</span><div class="rt"><b>Prakyat · ended 4:05 pm</b><span>Asked at 3:30 pm · "Family function"</span></div><button class="btn">Correct</button><button class="btn approve">Approve</button></div></div></div>
+      </div>
+    </div>
+    <div class="col"><span class="tag t-after">Today + Stay until</span>
+      <div class="mx" style="padding:14px;display:flex;flex-direction:column;gap:10px">
+        <div class="card tiles"><div class="tile"><b>3</b><span>Present</span></div><div class="tile"><b style="color:var(--amber-ink)">1</b><span>Late</span></div><div class="tile"><b>0</b><span>Not started</span></div><div class="tile"><b>1</b><span>On leave</span></div></div>
+        <div class="actsheet" style="background:var(--s2);border:1px solid var(--line);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:8px"><b>PShetty · Stay until</b><span class="quiet">Their day ends at 6:00 pm. They'll be told right away.</span><div class="field">8:00 pm</div><div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn">Keep 6:00 pm</button><button class="btn solid">Set 8:00 pm</button></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="change">
+  <div class="chead"><span class="num">4</span><h2>Half days: morning or afternoon</h2>
+  <ul class="what"><li>Choosing a half day asks which half, as two clear cards. A morning half is never "Late"; an afternoon half is never "leaving early".</li></ul></div>
+  <div class="mx phone"><div class="pbody"><div class="sheet" style="margin:0 -12px -12px;border-radius:14px"><div class="handle"></div><b style="font-size:14px">Half day on Thu 22 Oct</b>
+    <div class="radio on"><span class="o"></span><div><b>Morning off</b><span class="quiet">Start your day after lunch. You won't be marked late</span></div></div>
+    <div class="radio"><span class="o"></span><div><b>Afternoon off</b><span class="quiet">End your day after lunch. No need to ask to leave early</span></div></div>
+    <button class="btn solid wide">Request half day</button></div></div></div>
+</section>
+
+<section class="change">
+  <div class="chead"><span class="num">5 · Owner and the client's Admin</span><h2>Closing a deliverable: which kind</h2>
+  <ul class="what"><li>Close now asks <b>why</b>: "Not needed this month" or "Not delivered". This feeds the revenue reports later; amounts stay Owner-only.</li><li>On an older close, only the Owner can set or change the kind from the deliverable's ⋯.</li></ul></div>
+  <div class="mx" style="padding:14px;max-width:460px"><div class="dlg" style="background:var(--s2);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px">
+    <b style="font-size:15px">Close Reel 1?</b><span class="quiet">It stays in October as closed, not done.</span>
+    <div class="radio on"><span class="o"></span><div><b>Not needed this month</b><span class="quiet">The client dropped or moved it</span></div></div>
+    <div class="radio"><span class="o"></span><div><b>Not delivered</b><span class="quiet">We didn't deliver it</span></div></div>
+    <div><label class="l">Why close it</label><div class="ta">Client moved this reel to November</div></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn">Keep it</button><button class="btn" style="background:var(--red-solid);color:#fff;border-color:transparent">Close deliverable</button></div></div></div>
+</section>
+
+<div class="ok"><b>To approve</b><p>Reply "working hours sample approved", or name the number and what to change. These are built after v1.8 ships, in the v1.8 look; the rules behind them are already built and switched off until then.</p></div>
+</div>
+<script>
+(function(){var root=document.getElementById('root'),d=document.getElementById('m-dark'),l=document.getElementById('m-light');
+function set(light){root.classList.toggle('mxlight',light);d.setAttribute('aria-pressed',String(!light));l.setAttribute('aria-pressed',String(light));try{localStorage.setItem('mx-theme',light?'light':'dark')}catch(e){}}
+d.addEventListener('click',function(){set(false)});l.addEventListener('click',function(){set(true)});try{if(localStorage.getItem('mx-theme')==='light')set(true)}catch(e){}})();
+</script>
