@@ -2,7 +2,7 @@
 -- Owner may write, app.is_working_day(), and member_change_email() on every path.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(63);
+select plan(64);
 
 -- The local seed holds an organization (with its org_settings and job titles) and five sign-ins.
 -- Keep the organization; replace the people with fixtures. Rolled back at the end.
@@ -237,13 +237,20 @@ select is(app.is_working_day('2026-10-02'), false,
 select pg_temp.as_system();
 update public.org_settings set weekly_off_days = array[0]::smallint[] where org_id = pg_temp.fx('org');
 select is(app.is_working_day('2026-09-26'), true, 'putting Saturday back makes it a working day again');
+-- V5a 6b (owner 2026-10-22): a holiday on or before today stays; only one still ahead is removed.
 select pg_temp.as_member('owner');
-select lives_ok($$ delete from public.holidays where date = '2026-10-02' $$,
-  'the Owner removes a holiday (settings.manage), the one real DELETE in the configuration tables');
+delete from public.holidays where date = '2026-10-02';
 select pg_temp.as_system();
-select is((select count(*) from public.holidays where date = '2026-10-02'), 0::bigint,
+select is((select count(*) from public.holidays where date = '2026-10-02'), 1::bigint,
+  'a past holiday stays: the Owner''s plain delete removes nothing (migration v5_owner_delete)');
+update public.holidays set date = '2099-06-01' where date = '2026-10-02';
+select pg_temp.as_member('owner');
+select lives_ok($$ delete from public.holidays where date = '2099-06-01' $$,
+  'the Owner removes a holiday still ahead (settings.manage), the one real DELETE in the configuration tables');
+select pg_temp.as_system();
+select is((select count(*) from public.holidays where date = '2099-06-01'), 0::bigint,
   'the row is gone');
-select is(app.is_working_day('2026-10-02'), true, 'deleting the holiday makes the date ordinary again');
+select is(app.is_working_day('2099-06-01'), true, 'deleting the holiday makes the date (a Monday) ordinary again');
 select is(
   (select action from public.activity_log where entity = 'holidays' order by id desc limit 1),
   'delete', 'the removed holiday is kept in the activity log');
