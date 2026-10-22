@@ -115,11 +115,12 @@ test("a note, a grant, a comp leave request, a rejection and a revoke", async ({
   await expect(creditRow).toContainText("Available");
   await expect(creditRow).toContainText("The Owner's note: Thanks for the late night");
 
-  // Comp leave is taken from Leave requests, which says what there is to take (5B decision 2).
+  // Comp leave is taken from Leave requests, whose balance strip says what there is to take
+  // (5B decision 2; PP-crew-1, V5b).
   await page.goto("/leave");
-  await expect(page.locator('[data-slot="comp-leave-line"]')).toHaveText(
-    `Comp leave: 1 day · use by ${formatIST(istDayStart(useBy), "d MMM")}`,
-  );
+  const comp = page.locator('[data-slot="comp-leave-balance"]');
+  await expect(comp).toContainText("1 day");
+  await expect(comp).toContainText(`use by ${formatIST(istDayStart(useBy), "d MMM")}`);
   await page.getByRole("button", { name: "Request leave" }).click();
   const form = page.getByRole("dialog", { name: "Request leave" });
   await form.getByLabel("Kind of leave").click();
@@ -431,7 +432,7 @@ test.describe("installed: the back order of the note dialog and the Owner's deci
     await expect(page).toHaveURL(/\/leave\/attendance$/);
     await page.getByRole("link", { name: "Leave requests", exact: true }).click();
     await expect(page).toHaveURL(/\/leave$/);
-    await expect(page.locator('[data-slot="comp-leave-line"]')).toContainText("Comp leave: 1 day");
+    await expect(page.locator('[data-slot="comp-leave-balance"]')).toContainText("1 day");
     await page.getByRole("button", { name: "Request leave" }).click();
     const form = page.getByRole("dialog", { name: "Request leave" });
     await form.getByLabel("Kind of leave").click();

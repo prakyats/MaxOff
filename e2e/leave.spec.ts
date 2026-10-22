@@ -113,6 +113,12 @@ test("request a range and a half day, the refusals, and withdraw", async ({ page
   await signIn(page, person(info), PASSWORD);
   await openLeave(page);
   await expect(page.getByText("No leave requests yet")).toBeVisible();
+  // It leads with the balance strip (PP-crew-1, V5b): nothing taken this month, no comp leave.
+  const balance = page.locator('[data-slot="leave-balance"]');
+  await expect(balance.locator('[data-slot="leave-taken"]')).toContainText(
+    "Leave taken this month0 days",
+  );
+  await expect(balance.locator('[data-slot="comp-leave-balance"]')).toContainText("None");
   // One page of requests: no pager.
   await expect(page.locator('[data-slot="leave-pager"]')).toHaveCount(0);
   if (isPhone(info)) await expectFitsThePhone(page);
