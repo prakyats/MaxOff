@@ -8,6 +8,7 @@ create extension if not exists pgtap with schema extensions;
 select plan(12);
 
 delete from public.approval_reminder_sends;
+delete from public.early_leave_requests;
 delete from public.item_reviews;
 delete from public.project_item_stage_list;
 delete from public.project_item_stages;

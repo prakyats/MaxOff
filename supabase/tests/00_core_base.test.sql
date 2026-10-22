@@ -186,7 +186,10 @@ insert into app_internal values
   ('unused_delete_target'), ('unused_reference_found'), ('unused_history_found'),
   -- v1.9 W3: the approval reminders' job, its quiet-hours test and its "2 days" (migration
   -- approval_reminders, pgTAP 120), run by pg_cron only
-  ('approval_reminders'), ('in_quiet_hours'), ('approval_waited');
+  ('approval_reminders'), ('in_quiet_hours'), ('approval_waited'),
+  -- v1.9 W0: a member's working hours for a date, the reminders tick and the half check (migration
+  -- working_hours, pgTAP 121)
+  ('attendance_hours'), ('attendance_hours_tick'), ('leave_half_check');
   -- 3c.1 (contract migration): attendance_logout and logout_not_recorded are gone with the 2.x gate.
 select is(
   (select count(*) from pg_proc p
@@ -207,7 +210,7 @@ select is(
   0::bigint,
   'the internal helpers: service_role only, never the API role');
 select is((select count(*) from pg_proc p where p.pronamespace = 'app'::regnamespace
-             and p.proname in (select name from app_internal)), 131::bigint,
+             and p.proname in (select name from app_internal)), 134::bigint,
   'the internal helper list matches what exists');
 select cmp_ok((select count(*) from pg_proc where pronamespace = 'app'::regnamespace), '>=', 4::bigint,
   'the grant check saw the app functions');

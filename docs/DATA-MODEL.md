@@ -59,6 +59,9 @@ notification_kind  a lookup table, not an enum (5.1, expand-only across releases
                    push, never email); item_rejected*, cycle_generated* (actionable).
                    6b.2 (migration tasks_for_owner, v1.7.1): task_asked_about (info: in-app and
                    push, never email): "<name> is asking about <task>", task_remind's row.
+                   v1.9 W0 (6b.1, migration working_hours; all in-app and push, never email):
+                   early_leave_requested (the Owner), early_leave_decided, stay_until_set,
+                   start_day_reminder, end_time_reminder (the person).
                    v1.9 W3 (6b.5, migration approval_reminders): approval_reminder (info: in-app and
                    push, never email, the Owner only): an urgent task's hourly "<task> is waiting for
                    your approval" (entity the task) or the grouped "N tasks waiting for your approval ·
@@ -252,6 +255,12 @@ org_settings         org_id pk, weekly_off_days smallint[] (0=Sun..6=Sat), logou
                      -- period end and the Admin's prompt before undecided items escalate to the Owner); both in
                      -- the API UPDATE grant, settings.manage through the existing UPDATE policy (the Owner; pgTAP
                      -- 71 per role), Settings -> Thresholds (7B). WORKFLOWS §5.4 item 21, §8 client_work_alerts.
+                     -- v1.9 W0 (6b.1, migration working_hours, expand-only): working_hours_on boolean not
+                     -- null default false (the switch: every W0 rule, the late mark, the end-time refusal,
+                     -- the reminders, applies only while true; the release turns it on with W4),
+                     -- late_grace_minutes int not null default 15 (check 0..120) and
+                     -- early_leave_wait_minutes int not null default 30 (check 5..240); settings.manage
+                     -- through the existing policy and a column grant (the Owner; pgTAP 121 per role).
                      -- v1.9 W3 (6b.5, kickoff 6b decision 2, owner 2026-10-16; migration approval_reminders,
                      -- expand-only): work_start_time time not null default '10:00' and work_end_time time not
                      -- null default '18:00' (check start < end; the working hours, which W0's late start and
@@ -637,6 +646,24 @@ attendance_days      id, member_id, work_date date (IST), is_day_off bool,
                      -- is_day_off is decided when the row is created and never re-derived from
                      -- today's holidays / weekly_off_days. Every time is the server clock (now());
                      -- session_events.user_agent / ip_hash are caller-supplied and are not evidence
+                     -- v1.9 W0 (6b.1, migration working_hours, expand-only): late_minutes int null (check
+                     -- > 0: minutes after org_settings.work_start_time at the Start day tap, set by
+                     -- attendance_start_day() past the grace while working_hours_on; never on a day off, a
+                     -- full or comp leave day or a morning half day), late_reason text null (<= 200; the
+                     -- person's one line, attendance_late_reason()), stay_until timestamptz null and
+                     -- stay_until_by null → members (the Owner's "Stay until" for that day,
+                     -- attendance_stay_until()). Written by transition functions only, audited.
+early_leave_requests id, org_id, member_id → members, day_id → attendance_days, requested_at (the "Ask to
+                     leave early" tap), reason (1-300), end_at (the day's end time when asked), state
+                     ('waiting'|'approved'|'stay'|'left_unanswered'|'corrected'|'lapsed'), left_at null
+                     (the End day tap after the wait, unanswered), decided_by null → members, decided_at,
+                     decision_reason null (<= 500), stay_reminded_at null, created_at, updated_at
+                     -- v1.9 W0 (6b.1; owner 2026-10-22: the Owner alone decides, Admins get nothing).
+                     -- One waiting request per day (unique partial index on day_id where state =
+                     -- 'waiting'); check decided_by set exactly for approved, stay and corrected;
+                     -- left_unanswered needs left_at. RLS: SELECT own rows, or attendance.view_all in the
+                     -- org (the Owner); no API INSERT / UPDATE / DELETE (attendance_ask_leave_early(),
+                     -- early_leave_decide(), attendance_end_day() write it). Audited (audit_row_change).
 attendance_events    id bigint identity, attendance_day_id, action ('submitted'|'proposed_absent'|'derived_from_leave'|
                      'approved'|'corrected'|'overtime_flagged'|'started'|'ended'), from_status, to_status, reason,
                      -- started | ended (3b.1): the Start day and End day taps (actor = the member).
@@ -646,6 +673,10 @@ attendance_events    id bigint identity, attendance_day_id, action ('submitted'|
                      -- readable with the parent day. Not audited: it is the history
 leave_requests       id, member_id, type leave_type, start_date, end_date, reason,
                      state leave_state, source ('form'|'attendance'|'owner'), supersedes_id null,
+                     half text null ('morning' | 'afternoon'; v1.9 W0, expand-only: which half of a
+                     half day is off; check only with type half_day; older half days stay null and
+                     carry no Late or early-leave rule; given by leave_submit(…, half),
+                     leave_submit_comp(…, half), attendance_choose_leave_today(…, half))
                      requests_cancellation bool, decided_by null, decided_at, decision_reason,
                      created_at, updated_at
                      -- RLS and grants as attendance_days. Audited. Half day: start_date = end_date.
@@ -1732,6 +1763,9 @@ notifications        id, org_id, recipient_id → members (cascade), actor_id nu
                      -- or expense_decided about a record the same transaction audited 'approved' (an approved
                      -- day, leave, comp leave or expense claim); email_claim() never emails such a row, even
                      -- with no working push. Rejected and corrected keep the email fallback (actionable).
+                     -- Owner's answer 2026-10-22 (migration decision_emails_owner_answer): also on
+                     -- comp_leave_granted, extra_work_decided with payload decision grant and expense_decided
+                     -- with payload decision paid; a declined note and a revoked grant keep the fallback.
                      -- 5.1 as built: written only by app.notify() (service_role only, called inside the
                      -- transition or job that caused it, ADR-0006): one row per remaining recipient after
                      -- dedupe, the actor dropped, deactivated / invited / unknown ids dropped, a
