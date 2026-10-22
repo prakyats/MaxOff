@@ -304,7 +304,13 @@ export function ProjectTemplateDialog({
               </aside>
             </div>
             <DialogFooter>
-              <Button type="button" variant="secondary" onClick={requestClose} disabled={pending}>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={requestClose}
+                disabled={pending}
+                data-dismiss=""
+              >
                 Cancel
               </Button>
               {desktop === false ? (

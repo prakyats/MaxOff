@@ -98,7 +98,13 @@ export function DeactivateMemberDialog({
         </div>
         <ActionStatus action={action} />
         <DialogFooter>
-          <Button type="button" variant="secondary" onClick={onClose} disabled={pending}>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={onClose}
+            disabled={pending}
+            data-dismiss=""
+          >
             Cancel
           </Button>
           {/* The one solid red button, named for the action (ARCHITECTURE §14.1). */}

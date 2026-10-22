@@ -29,9 +29,14 @@ export const MODAL_SURFACE = [
  * never sits under the thumb next to the primary one. There it is the sheet's own surface
  * (`bg-popover`) under a top border, clearing the home indicator. From `md` up it is the
  * dialog's last row: no band, no border, buttons right-aligned, Cancel then the action (2.9
- * review, owner's check 2026-09-26: the muted band read as a second surface).
+ * review, owner's check 2026-09-26: the muted band read as a second surface). A button marked
+ * `data-dismiss` is the way out: quiet text on a phone (PP-forms-3, V5b).
  */
 export const MODAL_FOOTER = [
+  // PP-forms-3 (V5b): on a phone the sheet's ✕ and its handle are the dismiss, so the way out
+  // (`data-dismiss`: Cancel, Keep it, Close) is a quiet text button under the commit, not a big
+  // outlined one; it keeps its 44 px target. From `md` it is the dialog's outline button again.
+  "max-md:[&>[data-dismiss]]:text-muted-foreground max-md:[&>[data-dismiss]]:border-transparent max-md:[&>[data-dismiss]]:bg-transparent",
   "bg-popover -mx-4 -mb-[calc(1rem+var(--app-safe-bottom))] flex flex-col-reverse gap-2 border-t p-4 pb-[calc(1rem+var(--app-safe-bottom))] *:w-full",
   "md:m-0 md:flex-row md:justify-end md:border-0 md:bg-transparent md:p-0 md:*:w-auto",
 ].join(" ");

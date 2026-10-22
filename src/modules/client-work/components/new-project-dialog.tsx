@@ -451,7 +451,13 @@ export function NewProjectDialog({
                   Back to edit
                 </Button>
               ) : (
-                <Button type="button" variant="secondary" onClick={requestClose} disabled={pending}>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={requestClose}
+                  disabled={pending}
+                  data-dismiss=""
+                >
                   Cancel
                 </Button>
               )}

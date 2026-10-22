@@ -366,7 +366,13 @@ function EditProjectDialog({
               disabled={pending}
             />
             <DialogFooter>
-              <Button type="button" variant="secondary" onClick={requestClose} disabled={pending}>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={requestClose}
+                disabled={pending}
+                data-dismiss=""
+              >
                 Cancel
               </Button>
               <Button type="submit" variant="primary" pending={pending} pendingLabel="Saving…">

@@ -359,7 +359,7 @@ export function ItemSheet({
                 )}
               </FormField>
               <div className="flex justify-end gap-2">
-                <Button type="button" variant="secondary" onClick={cancelEdit}>
+                <Button type="button" variant="secondary" onClick={cancelEdit} data-dismiss="">
                   Cancel
                 </Button>
                 <Button type="submit" variant="primary" pending={saving} pendingLabel="Saving…">

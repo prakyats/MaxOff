@@ -99,7 +99,6 @@ export function ListRow({
       data-opens={opens ? "" : undefined}
       className={cn(
         "relative flex min-h-16 flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3",
-        opens && "pressable-row",
         className,
       )}
     >
@@ -107,6 +106,7 @@ export function ListRow({
         {href !== undefined ? (
           <DrillLink
             href={href}
+            data-slot="list-row-opener"
             className={cn(opener, "flex flex-col gap-0.5")}
             aria-label={openLabel}
           >
@@ -116,7 +116,8 @@ export function ListRow({
           <button
             type="button"
             onClick={onOpen}
-            className={cn(opener, "flex flex-col gap-0.5")}
+            data-slot="list-row-opener"
+            className={cn(opener, "pressable-row flex flex-col gap-0.5")}
             aria-label={openLabel}
           >
             {text}

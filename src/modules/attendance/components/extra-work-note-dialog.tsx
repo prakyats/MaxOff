@@ -164,7 +164,13 @@ export function ExtraWorkNoteDialog({
           </FormField>
           <ActionStatus action={action} />
           <DialogFooter>
-            <Button type="button" variant="secondary" onClick={onClose} disabled={pending}>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={onClose}
+              disabled={pending}
+              data-dismiss=""
+            >
               Cancel
             </Button>
             <Button variant="primary" type="submit" pending={pending} pendingLabel="Sending note…">

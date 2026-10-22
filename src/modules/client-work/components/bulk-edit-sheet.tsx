@@ -295,7 +295,13 @@ function BulkEditForm({
         </>
       ) : null}
       <DialogFooter>
-        <Button type="button" variant="secondary" onClick={onClose} disabled={pending}>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={onClose}
+          disabled={pending}
+          data-dismiss=""
+        >
           Cancel
         </Button>
         <Button

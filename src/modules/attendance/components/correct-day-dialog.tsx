@@ -195,7 +195,13 @@ function CorrectForm({
       </FormField>
       <ActionStatus action={action} />
       <DialogFooter>
-        <Button type="button" variant="secondary" onClick={onCancel} disabled={pending}>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={onCancel}
+          disabled={pending}
+          data-dismiss=""
+        >
           Cancel
         </Button>
         <Button variant="primary" type="submit" pending={pending} pendingLabel="Saving correction…">

@@ -215,7 +215,13 @@ export function ImageUploadSheet({
                   {removeLabel}
                 </Button>
               ) : null}
-              <Button type="button" variant="secondary" onClick={close} disabled={pending}>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={close}
+                disabled={pending}
+                data-dismiss=""
+              >
                 Cancel
               </Button>
               <Button

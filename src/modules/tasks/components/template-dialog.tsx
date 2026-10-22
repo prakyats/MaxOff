@@ -323,7 +323,13 @@ export function TemplateDialog({
             ) : null}
             <ActionStatus action={action} />
             <DialogFooter className="sticky bottom-[calc(-1rem-var(--app-safe-bottom))] z-10 md:static">
-              <Button type="button" variant="secondary" onClick={requestClose} disabled={pending}>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={requestClose}
+                disabled={pending}
+                data-dismiss=""
+              >
                 Cancel
               </Button>
               <Button

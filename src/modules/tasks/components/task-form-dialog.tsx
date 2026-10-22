@@ -1106,7 +1106,13 @@ function TaskForm({
       <ActionStatus action={action} />
 
       <DialogFooter className="sticky bottom-[calc(-1rem-var(--app-safe-bottom))] z-10 md:static">
-        <Button type="button" variant="secondary" onClick={onCancel} disabled={pending}>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={onCancel}
+          disabled={pending}
+          data-dismiss=""
+        >
           Cancel
         </Button>
         <Button
