@@ -101,11 +101,16 @@ test.describe("permission guards", () => {
         project,
       ]) {
         await page.goto(path);
-        await expect(page, `${path} for Staff`).toHaveURL(/\/forbidden$/);
+        await expect(page, `${path} for Staff`).toHaveURL(/\/forbidden(\?|$)/);
+        // V5b-D (the approved pull-in sample): it names what was blocked and who it is for.
         await expect(page.locator('[data-slot="error-state"]')).toContainText(
-          "You can't open this",
+          /are for the Owner|is for the Owner/,
         );
       }
+      await page.goto("/clients");
+      await expect(page.locator('[data-slot="error-state"]')).toContainText(
+        "Clients are for the Owner and Admins",
+      );
       // PP-crew-3 (V5b): the standard header, titled "No access", and the way back home.
       await expect(page.getByRole("heading", { name: "No access", level: 1 })).toBeVisible();
       const home = page.locator('[data-slot="forbidden-home"]');

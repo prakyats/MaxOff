@@ -484,7 +484,7 @@ test.describe("task requests and templates, the flows", () => {
 
     await signInAs(page, staff);
     await page.goto("/settings/templates#tasks");
-    await expect(page).toHaveURL(/\/forbidden$/);
+    await expect(page).toHaveURL(/\/forbidden(\?|$)/);
     await page.goto("/tasks/requests");
     await expect(page.locator('[data-slot="suggest-task"]:visible')).toBeVisible();
     await expect(pageHeader(page)).toHaveText(/Suggested tasks/);

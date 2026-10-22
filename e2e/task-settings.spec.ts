@@ -300,7 +300,7 @@ test.describe("task types, the Owner's only", () => {
     await expect(page.locator('[data-slot="settings-list"]')).toContainText("Templates");
     await expect(page.locator('[data-slot="settings-list"]')).not.toContainText("Task types");
     await page.goto("/settings/task-types");
-    await expect(page).toHaveURL(/\/forbidden$/);
+    await expect(page).toHaveURL(/\/forbidden(\?|$)/);
   });
 });
 

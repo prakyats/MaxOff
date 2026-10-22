@@ -214,7 +214,7 @@ test.describe("Crew: My Day (6.1)", () => {
     test.skip(info.project.name !== "desktop", "one check is enough");
     await signIn(page, USERS.owner.email, USERS.owner.password);
     await page.goto("/my-day");
-    await expect(page).toHaveURL(/\/forbidden$/);
+    await expect(page).toHaveURL(/\/forbidden(\?|$)/);
   });
 
   test("a tap while My Day re-reads moves to its screen without loading the page in full", async ({

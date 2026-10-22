@@ -435,7 +435,7 @@ test.describe("Staff", () => {
 
   test("cannot open People, and sees their own profile read-only on Me", async ({ page }) => {
     await page.goto("/people");
-    await expect(page).toHaveURL(/\/forbidden$/);
+    await expect(page).toHaveURL(/\/forbidden(\?|$)/);
 
     // Editing it is the edit pattern's own spec (2.9, e2e/edit-pattern.spec.ts), on people of
     // its own: this account is shared by every project.
