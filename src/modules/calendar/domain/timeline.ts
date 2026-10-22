@@ -1,4 +1,4 @@
-import { toISTDate, toISTTime, type ISODate } from "@/core/time";
+import { formatHour, toISTDate, toISTTime, type ISODate } from "@/core/time";
 
 import type { BusyItem, CalendarDay, EventItem } from "./calendar";
 
@@ -89,7 +89,7 @@ export function openingMinute(date: ISODate, today: ISODate, nowMinute: number):
   return Math.max(0, Math.min(hour, VISIBLE_TO_HOUR - 1)) * HOUR;
 }
 
-/** "08:00", for the hour rail. */
+/** "8 am", "12 pm", for the hour rail (the 12-hour variant, `formatHour`; the owner, 22 Oct). */
 export function hourLabel(hour: number): string {
-  return `${String(hour).padStart(2, "0")}:00`;
+  return formatHour(hour);
 }

@@ -2,6 +2,7 @@ export {
   IST_TIMEZONE,
   addISTDays,
   formatDateTime,
+  formatHour,
   formatIST,
   formatTime,
   formatWallTime,

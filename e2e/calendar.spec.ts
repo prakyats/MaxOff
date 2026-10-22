@@ -172,7 +172,7 @@ async function phoneLayout(page: Page) {
     const box = hours?.getBoundingClientRect();
     const labels = hours
       ? [...hours.querySelectorAll("span")]
-          .filter((span) => /^\d{2}:00$/.test(span.textContent ?? ""))
+          .filter((span) => /^\d{1,2} (am|pm)$/.test(span.textContent ?? ""))
           .map((span) => {
             const rect = span.getBoundingClientRect();
             return { text: span.textContent ?? "", top: rect.top, bottom: rect.bottom };
@@ -874,13 +874,18 @@ test.describe("the calendar, as the Owner", () => {
     await expect(page).not.toHaveURL(/date=/);
     await page.keyboard.press("d");
     await expect(laptop).toHaveAttribute("data-view", "day");
+    // The Day of today: Today inactive; a day away from it, active (the owner, 22 Oct).
+    await expect(todayLaptop).toHaveAttribute("aria-disabled", "true");
     const steps = Math.round(
       (Date.parse(`${day}T00:00:00Z`) - Date.parse(`${todayIST()}T00:00:00Z`)) / 86_400_000,
     );
     for (let step = 0; step < Math.abs(steps); step += 1) {
       await page.keyboard.press(steps > 0 ? "ArrowRight" : "ArrowLeft");
     }
-    if (steps !== 0) await expect(page).toHaveURL(new RegExp(`date=${day}`));
+    if (steps !== 0) {
+      await expect(page).toHaveURL(new RegExp(`date=${day}`));
+      await expect(todayLaptop).not.toHaveAttribute("aria-disabled");
+    }
     expect(await historyLength(), "moves and views add no history").toBe(beforeMoves);
     const dayView = page.locator('[data-slot="calendar-day-view"]');
     await expect(dayView).toBeVisible();
@@ -1120,19 +1125,19 @@ test.describe("the calendar on a phone, the owner's walk (2026-10-08)", () => {
       chip,
     ];
     const boxes = () => Promise.all(fixed.map((part) => part.boundingBox()));
-    // The first hour in sight is 08:00, its label whole (it opened 8 px above the hour).
+    // The first hour in sight is 8 am (12-hour labels, the owner 22 Oct), its label whole (it opened 8 px above the hour).
     const opensWhole = (layout: Awaited<ReturnType<typeof phoneLayout>>, where: string) => {
       const inSight = layout.labels
         .filter((label) => label.bottom > layout.top && label.top < layout.bottom)
         .sort((a, b) => a.top - b.top);
-      expect.soft(inSight[0]?.text, `${where}: opens at 08:00`).toBe("08:00");
+      expect.soft(inSight[0]?.text, `${where}: opens at 8 am`).toBe("8 am");
       expect
         .soft(inSight[0]?.top ?? 0, `${where}: the first hour's label is whole`)
         .toBeGreaterThanOrEqual(layout.top - 1);
     };
     const hourOf = (layout: Awaited<ReturnType<typeof phoneLayout>>) => {
       const at = (text: string) => layout.labels.find((label) => label.text === text)?.top ?? 0;
-      return at("09:00") - at("08:00");
+      return at("9 am") - at("8 am");
     };
 
     for (const size of ["2", "1"] as const) {
