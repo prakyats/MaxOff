@@ -568,12 +568,16 @@ function MobileCards<TData>({
         className="border-border divide-border bg-card shadow-raised divide-y overflow-hidden rounded-lg border"
       >
         {visible.map((row) => {
+          const href = card.href?.(row.original) ?? null;
+          // The truncation rule (DESIGN §Decisions): an ellipsis only on a card that opens
+          // (the opened view shows the full text); a card that opens nothing wraps in full.
+          const cut = href !== null || card.detail ? "truncate" : "break-words";
           const body = (
             <>
               <span className={cn("flex flex-col gap-0.5 text-left", CARD_ROW_TITLE)}>
-                <span className="truncate text-sm font-medium">{card.title(row.original)}</span>
+                <span className={cn("text-sm font-medium", cut)}>{card.title(row.original)}</span>
                 {card.subtitle ? (
-                  <span className="text-muted-foreground truncate text-xs">
+                  <span className={cn("text-muted-foreground text-xs", cut)}>
                     {card.subtitle(row.original)}
                   </span>
                 ) : null}
@@ -588,22 +592,22 @@ function MobileCards<TData>({
             </>
           );
 
-          const href = card.href?.(row.original) ?? null;
           if (href !== null) {
+            // The one row anatomy (FINAL 5, `ListRow`): chips, then ⋯, then ›. The link is
+            // stretched over the card (its ::after), so a tap anywhere but ⋯ opens it, › too.
             return (
-              <li key={row.id} data-slot="data-card" className="flex items-stretch">
+              <li key={row.id} data-slot="data-card" className="relative flex items-stretch">
                 <DrillLink
                   href={href}
                   data-slot="data-card-link"
                   className={cn(
-                    "active:bg-muted/60 focus-visible:ring-ring flex min-w-0 flex-1 flex-wrap items-center gap-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset",
+                    "active:bg-muted/60 focus-visible:ring-ring flex min-w-0 flex-1 flex-wrap items-center gap-3 text-left outline-none after:absolute after:inset-0 after:content-[''] focus-visible:ring-2 focus-visible:ring-inset",
                     CARD_ROW_MIN_H,
                     CARD_ROW_PADDING,
-                    card.detail ? "pr-1" : null,
+                    "pr-1",
                   )}
                 >
                   {body}
-                  <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
                 </DrillLink>
                 {card.detail ? (
                   <button
@@ -611,11 +615,14 @@ function MobileCards<TData>({
                     onClick={() => setOpenId(row.id)}
                     aria-label={card.moreLabel?.(row.original) ?? "More"}
                     data-slot="data-card-more"
-                    className="pressable focus-visible:ring-ring text-muted-foreground flex w-12 shrink-0 items-center justify-center outline-none focus-visible:ring-2 focus-visible:ring-inset"
+                    className="pressable focus-visible:ring-ring text-muted-foreground relative z-10 flex w-11 shrink-0 items-center justify-center outline-none focus-visible:ring-2 focus-visible:ring-inset"
                   >
                     <ICONS.more className="size-5" aria-hidden />
                   </button>
                 ) : null}
+                <span className="flex shrink-0 items-center pr-4" aria-hidden>
+                  <ChevronRightIcon className="text-muted-foreground size-4" />
+                </span>
               </li>
             );
           }
