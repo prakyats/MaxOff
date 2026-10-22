@@ -154,7 +154,7 @@ export function AllDayChips({
             )}
             <span className="font-medium">{event.title}</span>
             {event.location ? (
-              <span className="text-muted-foreground"> · {event.location}</span>
+              <span className="text-foreground/80"> · {event.location}</span>
             ) : null}
           </>,
           cn(

@@ -353,7 +353,7 @@ export function Timeline({
                               {event.clientName}
                             </span>
                           ) : null}
-                          <span className="text-muted-foreground block">
+                          <span className="text-foreground/80 block">
                             {[
                               timeWords(event.startAt, event.endAt),
                               event.location,
