@@ -3,6 +3,7 @@ import "server-only";
 import type { Json } from "@/core/db";
 import { createServerSupabase } from "@/core/db/server";
 import { AppError, isPostgresError } from "@/core/errors";
+import { unusedUsageFromJson, type UnusedUsage } from "@/core/lib/owner-delete";
 import { parseReminderRules, type ReminderRule } from "@/core/lib/reminder-rules";
 import { nextPosition } from "@/core/lists";
 import { systemClock } from "@/core/time";
@@ -124,5 +125,23 @@ export async function setTaskTypeArchived(id: string, archived: boolean): Promis
 export async function rpcMoveTaskType(id: string, direction: "up" | "down"): Promise<void> {
   const supabase = await createServerSupabase();
   const { error } = await supabase.rpc("task_type_move", { task_type_id: id, direction });
+  if (error) throw error;
+}
+
+/**
+ * The Owner-only Delete of a task type nothing has ever used (v1.8 V5a 6c): `unused_usage` says
+ * whether anything ever pointed at it; `unused_delete` checks again with the row locked (and keeps
+ * the last active type), writes the history row first and deletes it.
+ */
+export async function taskTypeUsage(id: string): Promise<UnusedUsage> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("unused_usage", { kind: "task_type", target_id: id });
+  if (error) throw error;
+  return unusedUsageFromJson(data);
+}
+
+export async function deleteTaskType(id: string): Promise<void> {
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.rpc("unused_delete", { kind: "task_type", target_id: id });
   if (error) throw error;
 }

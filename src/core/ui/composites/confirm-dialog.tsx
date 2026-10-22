@@ -39,6 +39,7 @@ export function ConfirmDialog({
   cancelLabel = "Cancel",
   onConfirm,
   confirmDisabled = false,
+  confirmHidden = false,
   destructive = false,
   approve = false,
   children,
@@ -54,6 +55,11 @@ export function ConfirmDialog({
   onConfirm: () => void | boolean | Promise<void | boolean>;
   /** The commit waits for something inside the dialog (a choice still to make). */
   confirmDisabled?: boolean;
+  /**
+   * There is nothing to commit after all (the Owner's Delete of something in use, V5a 6c): the
+   * dialog only explains, and its one button is the way out.
+   */
+  confirmHidden?: boolean;
   /** The act destroys something (discard, remove, withdraw): its commit is the red `danger`. */
   destructive?: boolean;
   /**
@@ -84,15 +90,17 @@ export function ConfirmDialog({
         <ActionStatus action={action} />
         <AlertDialogFooter>
           <AlertDialogCancel disabled={pending}>{cancelLabel}</AlertDialogCancel>
-          <Button
-            variant={destructive ? "danger" : approve ? "approve" : "primary"}
-            onClick={() => action.run()}
-            disabled={confirmDisabled}
-            pending={pending}
-            pendingLabel={pendingLabel ?? workingLabel(confirmLabel)}
-          >
-            {confirmLabel}
-          </Button>
+          {confirmHidden ? null : (
+            <Button
+              variant={destructive ? "danger" : approve ? "approve" : "primary"}
+              onClick={() => action.run()}
+              disabled={confirmDisabled}
+              pending={pending}
+              pendingLabel={pendingLabel ?? workingLabel(confirmLabel)}
+            >
+              {confirmLabel}
+            </Button>
+          )}
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

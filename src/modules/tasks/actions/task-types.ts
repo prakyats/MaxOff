@@ -1,8 +1,11 @@
 "use server";
 
+import { z } from "zod";
+
 import { revalidateScreens } from "@/core/lib/revalidate-screens";
 import { action, AppError, ok, type Result } from "@/core/errors";
-import { assertPermission } from "@/core/permissions/server";
+import type { UnusedUsage } from "@/core/lib/owner-delete";
+import { assertOwner, assertPermission } from "@/core/permissions/server";
 
 import * as repo from "../data/task-types";
 import {
@@ -65,5 +68,29 @@ export const moveTaskType = action(async (input: MoveTaskTypeInput): Promise<Res
   await assertPermission("settings.manage");
   await repo.rpcMoveTaskType(data.taskTypeId, data.direction);
   revalidateTypes();
+  return ok(null);
+});
+
+const typeIdSchema = z.object({ typeId: z.uuid() });
+export type TaskTypeIdInput = z.input<typeof typeIdSchema>;
+
+/**
+ * The Owner-only Delete of a task type nothing has ever used (v1.8 V5a 6c): no task, template or
+ * field, live, archived or deleted, and no history beyond its creation. The confirm reads the usage
+ * first; the database checks again and keeps the last active type.
+ */
+export const taskTypeUsage = action(
+  async (input: TaskTypeIdInput): Promise<Result<UnusedUsage>> => {
+    const { typeId } = typeIdSchema.parse(input);
+    await assertOwner();
+    return ok(await repo.taskTypeUsage(typeId));
+  },
+);
+
+export const deleteTaskType = action(async (input: TaskTypeIdInput): Promise<Result<null>> => {
+  const { typeId } = typeIdSchema.parse(input);
+  await assertOwner();
+  await repo.deleteTaskType(typeId);
+  revalidateScreens();
   return ok(null);
 });

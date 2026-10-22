@@ -3,7 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   deleteNeedsUsage,
   deletedTemplateLabel,
+  IN_USE_REASON,
   templateDeleteCopy,
+  unusedDeleteCopy,
+  unusedUsageFromJson,
   usageFromJson,
 } from "./owner-delete";
 
@@ -80,5 +83,50 @@ describe("the helpers", () => {
     expect(deleteNeedsUsage("task")).toBe(true);
     expect(deleteNeedsUsage("deliverable")).toBe(false);
     expect(deleteNeedsUsage("stage_preset")).toBe(false);
+  });
+});
+
+describe("unusedDeleteCopy", () => {
+  it("waits, with no commit, while the check runs", () => {
+    const copy = unusedDeleteCopy("job_title", "Editor", null);
+    expect(copy.canDelete).toBe(false);
+    expect(copy.title).toBe("Delete job title “Editor”?");
+    expect(copy.description).toBe("Checking whether anything has used it…");
+  });
+
+  it("offers the named red commit and Keep it when nothing ever used it", () => {
+    expect(unusedDeleteCopy("task_type", "Reel", { used: false })).toEqual({
+      title: "Delete task type “Reel”?",
+      description: "Nothing has ever used it, so it goes for good. This can't be undone.",
+      confirmLabel: "Delete Reel",
+      cancelLabel: "Keep it",
+      canDelete: true,
+    });
+    expect(unusedDeleteCopy("client", "Acme", { used: false }).description).toBe(
+      "Nothing has been added to this draft or changed on it, so it goes for good. This can't be undone.",
+    );
+  });
+
+  it("gives the plain reason, and only Close, when it is in use", () => {
+    const copy = unusedDeleteCopy("expense_category", "Travel", { used: true });
+    expect(copy.canDelete).toBe(false);
+    expect(copy.cancelLabel).toBe("Close");
+    expect(copy.title).toBe("“Travel” is in use");
+    expect(copy.description.startsWith(IN_USE_REASON)).toBe(true);
+    expect(unusedDeleteCopy("contact", "Priya", { used: true }).description).toBe(
+      "In use — archive it instead. Archived contacts stay in the history and can be restored.",
+    );
+    expect(unusedDeleteCopy("client", "Acme", { used: true }).description).toMatch(
+      /^In use — it stays\./,
+    );
+  });
+});
+
+describe("unusedUsageFromJson", () => {
+  it("reads only an explicit false as unused", () => {
+    expect(unusedUsageFromJson({ used: false })).toEqual({ used: false });
+    expect(unusedUsageFromJson({ used: true })).toEqual({ used: true });
+    expect(unusedUsageFromJson(null)).toEqual({ used: true });
+    expect(unusedUsageFromJson({})).toEqual({ used: true });
   });
 });

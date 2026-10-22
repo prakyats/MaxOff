@@ -21,7 +21,7 @@ export const metadata: Metadata = { title: "Expenses" };
  */
 export default async function ExpensesSettingsPage() {
   // Read together with the permission check, not after it (ARCHITECTURE §19).
-  const [, [items, receiptAbove]] = await checkThenRead(
+  const [viewer, [items, receiptAbove]] = await checkThenRead(
     requirePermission("expenses.decide"),
     Promise.all([listItems("expense_category", { includeArchived: true }), getReceiptAbove()]),
   );
@@ -44,6 +44,7 @@ export default async function ExpensesSettingsPage() {
             name: item.name,
             archivedAt: item.archived_at,
           }))}
+          canDelete={viewer.role === "owner"}
         />
         <section aria-labelledby="expense-receipts" className="flex flex-col gap-3">
           <h2 id="expense-receipts" className="text-sm font-semibold">

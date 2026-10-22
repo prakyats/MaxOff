@@ -102,3 +102,97 @@ export function usageFromJson(value: unknown): TemplateUsage {
   const number = (key: string) => (typeof object[key] === "number" ? (object[key] as number) : 0);
   return { used: number("used"), open: number("open") };
 }
+
+/**
+ * The Owner-only Delete of what was never used (v1.8 V5a item 6c, owner 2026-10-22: "any reference
+ * counts as used"; DATA-MODEL §2): a task type, job title, expense category, custom field, draft
+ * client or contact goes for good only when nothing has ever pointed at it (the database's
+ * `unused_usage` / `unused_delete` decide). Everything else stays Archive-only.
+ */
+export type UnusedDeleteKind =
+  "task_type" | "job_title" | "expense_category" | "field" | "client" | "contact";
+
+/** `unused_usage`: whether anything has ever pointed at the row (nothing more is said). */
+export type UnusedUsage = { used: boolean };
+
+/** The plain reason a used row shows instead of Delete (owner 2026-10-22). */
+export const IN_USE_REASON = "In use — archive it instead.";
+
+const UNUSED_NOUN: Record<UnusedDeleteKind, string> = {
+  task_type: "task type",
+  job_title: "job title",
+  expense_category: "category",
+  field: "field",
+  client: "client",
+  contact: "contact",
+};
+
+/**
+ * The confirm's words. While the check runs (`usage` null) the red commit waits; unused, it is the
+ * named "Delete ‹name›" and the way out is "Keep it"; used, there is no commit at all, only the
+ * reason and "Close".
+ */
+export function unusedDeleteCopy(
+  kind: UnusedDeleteKind,
+  name: string,
+  usage: UnusedUsage | null,
+): {
+  title: string;
+  description: string;
+  confirmLabel: string;
+  cancelLabel: string;
+  canDelete: boolean;
+} {
+  const noun = UNUSED_NOUN[kind];
+  const confirmLabel = `Delete ${name}`;
+  const title = `Delete ${noun} “${name}”?`;
+  if (usage === null) {
+    return {
+      title,
+      description: "Checking whether anything has used it…",
+      confirmLabel,
+      cancelLabel: "Keep it",
+      canDelete: false,
+    };
+  }
+  if (!usage.used) {
+    return {
+      title,
+      description:
+        kind === "client"
+          ? `Nothing has been added to this draft or changed on it, so it goes for good. ${FINAL}`
+          : `Nothing has ever used it, so it goes for good. ${FINAL}`,
+      confirmLabel,
+      cancelLabel: "Keep it",
+      canDelete: true,
+    };
+  }
+  let description: string;
+  switch (kind) {
+    case "client":
+      description =
+        "In use — it stays. Only a draft that nothing was added to or changed on can be deleted.";
+      break;
+    case "contact":
+      description = `${IN_USE_REASON} Archived contacts stay in the history and can be restored.`;
+      break;
+    default:
+      description = `${IN_USE_REASON} Archived, it keeps its place in the history and isn't offered any more.`;
+  }
+  return {
+    title: `“${name}” is in use`,
+    description,
+    confirmLabel,
+    cancelLabel: "Close",
+    canDelete: false,
+  };
+}
+
+/** `unused_usage`'s JSON, read safely: anything but an explicit `false` counts as used. */
+export function unusedUsageFromJson(value: unknown): UnusedUsage {
+  const object =
+    value !== null && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {};
+  return { used: object.used !== false };
+}

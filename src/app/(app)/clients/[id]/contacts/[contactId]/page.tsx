@@ -26,7 +26,7 @@ export default async function ContactPage({
   const { id, contactId } = await params;
   // Keyed by the client id in the URL: read together with the client (ARCHITECTURE §19).
   assertClientId(id);
-  const [{ client, canEdit }, [contacts, definitions, people]] = await checkThenRead(
+  const [{ viewer, client, canEdit }, [contacts, definitions, people]] = await checkThenRead(
     loadClient(id),
     Promise.all([listContacts(id), listDefinitions("contact", { clientId: id }), loadPeople()]),
   );
@@ -42,7 +42,11 @@ export default async function ContactPage({
         title={contact.name}
         description={client.name}
         back={{ href: `/clients/${client.id}`, label: client.name }}
-        menu={canEdit ? <ContactMenu contact={contact} others={others} /> : undefined}
+        menu={
+          canEdit ? (
+            <ContactMenu contact={contact} others={others} canDelete={viewer.role === "owner"} />
+          ) : undefined
+        }
       />
       <div className="flex flex-col gap-4" data-slot="contact-page">
         {contact.archivedAt ? (
