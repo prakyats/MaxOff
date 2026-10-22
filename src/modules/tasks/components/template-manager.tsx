@@ -86,6 +86,8 @@ export function TemplateManager({
       PRIORITY_LABELS[template.defaultPriority],
       stages,
       author,
+      // PP-admin-12: one the viewer cannot change says so.
+      templateActions(template, context.viewer).edit ? null : "view only",
     ]
       .filter(Boolean)
       .join(" · ");
@@ -134,7 +136,7 @@ export function TemplateManager({
                   className="flex min-h-14 flex-wrap items-center justify-between gap-2 px-3 py-2.5 sm:px-4"
                 >
                   <div className={cn("flex min-w-0 flex-col gap-0.5", CARD_ROW_TITLE)}>
-                    <span className="truncate text-sm font-medium">{template.name}</span>
+                    <span className="text-sm font-medium break-words">{template.name}</span>
                     <span className="text-muted-foreground text-xs break-words">
                       {line(template)}
                     </span>

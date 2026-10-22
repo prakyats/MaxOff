@@ -1412,7 +1412,7 @@ export const OWNER_GUIDE: Guide = {
             steps(
               "Open Settings, then Templates. It lists Stage presets, Deliverable templates and Project templates, then, under a line, Task templates. On a phone each is a tab.",
               "Type in the search box to find any of them by name, stage or deliverable.",
-              'Tap "Preview" on a project or deliverable template to see what work made from it gets.',
+              'Tap "Preview" on a stage preset, deliverable or project template to see what work made from it gets.',
               'Tap the pencil ("Edit ‹name›") to change it, or the archive box ("Archive ‹name›") to stop offering it; on a phone both are in the row\'s ⋯. Archive asks first.',
             ),
             next(

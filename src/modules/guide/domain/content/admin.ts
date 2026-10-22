@@ -1615,7 +1615,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "Templates is one page: Stage presets, Deliverable templates and Project templates, then, under a line, Task templates (on a phone, four tabs), with one search box for all of them. Every project and deliverable template row has a Preview button, and on your own ones a pencil (“Edit ‹name›”) and an archive box (“Archive ‹name›”; on a phone, in the row’s ⋯). You edit and archive only the templates you made. The Owner can do it for any. With none yet, a list says so, such as “No project templates yet: Add one to start projects faster.”",
+              text: "Templates is one page: Stage presets, Deliverable templates and Project templates, then, under a line, Task templates (on a phone, four tabs), with one search box for all of them. Every stage preset, deliverable and project template row has a Preview button, and on your own ones a pencil (“Edit ‹name›”) and an archive box (“Archive ‹name›”; on a phone, in the row’s ⋯). You edit and archive only the templates you made. The Owner can do it for any; one you cannot change says so under its name, such as “by Prakyat · view only”, and keeps Preview. With none yet, a list says so, such as “No project templates yet: Add one to start projects faster.”",
             },
             {
               kind: "steps",
@@ -1624,7 +1624,7 @@ export const ADMIN_GUIDE: Guide = {
                   text: "Open Settings, then Templates, and use the search box (highlighted).",
                   shot: "admin/templates",
                 },
-                "Tap Preview on a project or deliverable template to see what work made from it gets.",
+                "Tap Preview on a stage preset, deliverable or project template to see what work made from it gets.",
                 "Edit or archive one of your own. Archive asks first.",
               ],
             },

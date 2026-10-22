@@ -1958,6 +1958,11 @@ test.describe("Settings layers, installed (ARCHITECTURE §14.2)", () => {
     const sheet = page.locator('[data-slot="stage-preset-actions"]');
     await expect(sheet).toBeVisible();
     await expectBackStack(page, [{ closes: sheet, url: here }]);
+    // PP-templates-1: a preset's Preview, as every template row's, is a layer back closes.
+    await row.getByRole("button", { name: `Preview ${name}` }).click();
+    const preview = page.getByRole("dialog", { name: `Preview ${name}` });
+    await expect(preview).toContainText("Brief");
+    await expectBackStack(page, [{ closes: preview, url: here }]);
     await rowAction(page, row, name, "Edit");
     const edit = page.getByRole("dialog", { name: `Edit ${name}` });
     await expect(edit).toBeVisible();
