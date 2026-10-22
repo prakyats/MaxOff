@@ -9,6 +9,7 @@ import {
   readyToMarkDone,
   solidMarkDoneId,
   groupsLine,
+  lastChangeLine,
   progressShape,
   suggestsGrouping,
   typesNumberedRounds,
@@ -201,5 +202,21 @@ describe("the long-stage-list row (V3, fixes A, C, D, E)", () => {
     expect(typesNumberedRounds(named(["Edit", "R1", "R2"]))).toBe(true);
     expect(typesNumberedRounds(named(["Edit", "Revision round 1", "Posted"]))).toBe(false);
     expect(typesNumberedRounds(named(["Around 1", "Ground 2"]))).toBe(false);
+  });
+});
+
+describe("lastChangeLine (PP-sheet-1)", () => {
+  it("names who and what, without the deliverable's own title, then the day", () => {
+    expect(
+      lastChangeLine(
+        { text: "ticked Shoot Planning on Reel 2", by: "Prishit", at: "2026-10-21T09:30:00Z" },
+        "Reel 2",
+      ),
+    ).toBe("Last change · Prishit ticked Shoot Planning · 21 Oct");
+  });
+  it("keeps a sentence that names something else", () => {
+    expect(
+      lastChangeLine({ text: "added Reel 3", by: "Ravi", at: "2026-10-08T10:40:00Z" }, "Reel 2"),
+    ).toBe("Last change · Ravi added Reel 3 · 8 Oct");
   });
 });

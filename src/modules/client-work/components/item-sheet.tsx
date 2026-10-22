@@ -7,10 +7,10 @@ import { toast } from "sonner";
 
 import type { Result } from "@/core/errors/result";
 import { cn } from "@/core/lib/utils";
-import { formatDateTime } from "@/core/time";
 import { ConfirmDialog } from "@/core/ui/composites/confirm-dialog";
 import { ErrorText } from "@/core/ui/composites/error-text";
 import { FormField } from "@/core/ui/composites/form-field";
+import { HistoryButton } from "@/core/ui/composites/history-button";
 import { OverlayLink } from "@/core/ui/composites/overlay-link";
 import { ReasonDialog } from "@/core/ui/composites/reason-dialog";
 import { ReviewFacts, ReviewSheet } from "@/core/ui/composites/review-sheet";
@@ -42,7 +42,7 @@ import {
 } from "../actions/items";
 import { addRevisionRound } from "../actions/bulk";
 import { saveItemAsTemplate } from "../actions/templates";
-import { groupStrips } from "../domain/deliverable";
+import { groupStrips, lastChangeLine } from "../domain/deliverable";
 import { ITEM_NOTES_MAX, ITEM_TITLE_MAX } from "../domain/schemas";
 import { ITEM_STATUS } from "../domain/types";
 import type { ItemView } from "../domain/views";
@@ -388,27 +388,25 @@ export function ItemSheet({
                   })),
                 ]}
               />
-              {/* One row: the text wraps on its own, History stays at its end (owner's walk). */}
+              {/* One row: the short line wraps on its own, the History clock (44 px) stays at its
+                  end (PP-sheet-1: the clock, as every History in the app). */}
               <div
                 data-slot="item-last-change"
                 className="text-muted-foreground flex items-center justify-between gap-2"
               >
                 <p className="min-w-0 flex-1 break-words">
                   {current.lastChange
-                    ? `Last change: ${current.lastChange.text} by ${current.lastChange.by}, ${formatDateTime(current.lastChange.at)}`
+                    ? lastChangeLine(current.lastChange, current.title)
                     : "No changes recorded yet."}
                 </p>
-                <Button
-                  variant="ghost"
-                  className="h-11 min-w-11 shrink-0 px-2 whitespace-nowrap underline underline-offset-4"
-                  data-slot="item-history"
-                  onClick={() => {
-                    setHistory((count) => count + 1);
-                    setHistoryOpen(true);
-                  }}
-                >
-                  History
-                </Button>
+                <span className="flex shrink-0">
+                  <HistoryButton
+                    onOpen={() => {
+                      setHistory((count) => count + 1);
+                      setHistoryOpen(true);
+                    }}
+                  />
+                </span>
               </div>
               {current.sentBack ? (
                 <SentBackNote

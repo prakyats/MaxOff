@@ -1043,7 +1043,9 @@ export const OWNER_GUIDE: Guide = {
               'Tap "Edit details" to change the title, notes, and the planned date while it is open.',
               'Open the ⋯ menu for "Another revision round", "Move up" or "Move down" (its place in the list, with a toast like "Moved Reel 2 down") and "Save as template".',
             ),
-            next('"Last change" has a History button that shows who changed what, and when.'),
+            next(
+              '"Last change · ‹who› ‹what› · ‹day›" sits on one line, with the History clock beside it: it shows who changed what, and when.',
+            ),
             note(
               "You can tick or untick stages only while the deliverable is open. Ticked boxes are plain, never red: red is kept for what is late.",
             ),

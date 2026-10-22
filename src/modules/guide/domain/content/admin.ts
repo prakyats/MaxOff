@@ -1100,7 +1100,7 @@ export const ADMIN_GUIDE: Guide = {
           blocks: [
             {
               kind: "text",
-              text: "A deliverable’s sheet shows its state (Open, Done, Closed or Carried), the Planned date, a History button and its stages under group headings with their count, as on the list (“Stages 1/1”, “Edit 2/3”).",
+              text: "A deliverable’s sheet shows its state (Open, Done, Closed or Carried), the Planned date, its last change in one short line (“Last change · Prishit ticked Shoot Planning · 21 Oct”) with the History clock beside it, and its stages under group headings with their count, as on the list (“Stages 1/1”, “Edit 2/3”).",
             },
             {
               kind: "steps",
@@ -1344,7 +1344,7 @@ export const ADMIN_GUIDE: Guide = {
             },
             {
               kind: "note",
-              text: "Each deliverable also has its own History button.",
+              text: "Each deliverable also has its own History: the clock beside “Last change” in its sheet.",
             },
           ],
           keywords: ["history", "audit", "who changed"],

@@ -277,8 +277,9 @@ test("a project from the Projects tab: per-item stages, Mark done with Undo, Mar
   await expect(script).toHaveAttribute("aria-checked", "false");
   await script.click();
   await expect(script).toHaveAttribute("aria-checked", "true");
-  await expect(sheet.locator('[data-slot="item-last-change"]')).toContainText(
-    "Last change: ticked Script on Reel 2 by",
+  // PP-sheet-1: short, "Last change · ‹who› ticked Script · 21 Oct" (the sheet is Reel 2's own).
+  await expect(sheet.locator('[data-slot="item-last-change"]')).toHaveText(
+    /^Last change · .+ ticked Script · \d{1,2} [A-Z][a-z]{2}$/,
   );
   await sheet.getByRole("button", { name: "Edit stages" }).click();
   const stages = page.getByRole("dialog", { name: "Stages of Reel 2" });
@@ -1309,12 +1310,12 @@ test.describe("back and gestures, installed (ARCHITECTURE §14.2)", () => {
       await expect(edit, why).toBeVisible();
     };
 
-    // "Last change: … History" is one row: the text wraps on its own, History (44 px, no "·")
-    // sits at the row's end on the text's line.
+    // "Last change · …" and the History clock are one row (PP-sheet-1): the text wraps on its
+    // own, the clock (44 px, no word in the sentence) sits at the row's end on the text's line.
     await open();
     const row = sheet.locator('[data-slot="item-last-change"]');
     const history = row.getByRole("button", { name: "History" });
-    await expect(row).not.toContainText("·");
+    await expect(row.locator("p")).not.toContainText("History");
     const rowBox = (await row.boundingBox())!;
     const historyBox = (await history.boundingBox())!;
     const textBox = (await row.locator("p").boundingBox())!;
