@@ -306,6 +306,59 @@ test.describe("Owner", () => {
   });
 });
 
+test.describe("Owner: Delete only what was never used (V5a 6c)", () => {
+  test.use({ storageState: storageStateFor("owner") });
+  test.skip(({ isMobile }) => Boolean(isMobile), "these drive the desktop controls");
+
+  test("deletes a job title nothing ever used; one with history says to archive it", async ({
+    page,
+  }) => {
+    const spare = "Spare title (6c)";
+    const used = "Renamed title (6c)";
+    await removeJobTitles([spare, used]);
+    const [org] = await serviceSelect<{ id: string }>("organizations?select=id&limit=1");
+    await serviceInsert("list_items", {
+      org_id: org?.id,
+      list_key: "job_title",
+      name: spare,
+      position: "y1",
+    });
+    const made = await serviceInsert<{ id: string }>("list_items", {
+      org_id: org?.id,
+      list_key: "job_title",
+      name: "Old title (6c)",
+      position: "y2",
+    });
+    // A rename is history pointing at it: in use (owner 2026-10-22, "any reference counts").
+    await serviceRest(`list_items?id=eq.${made.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ name: used }),
+    });
+
+    await page.goto("/settings/job-titles");
+    const names = page.locator('[data-slot="list-item"]');
+    await page.getByRole("button", { name: `Delete ${used}`, exact: true }).click();
+    const inUse = page.getByRole("alertdialog", { name: `“${used}” is in use` });
+    await expect(inUse).toContainText("In use — archive it instead.");
+    await expect(inUse.getByRole("button", { name: `Delete ${used}` })).toHaveCount(0);
+    await inUse.getByRole("button", { name: "Close" }).click();
+    await expect(inUse).toBeHidden();
+    await expect(names).toContainText([used]);
+
+    await page.getByRole("button", { name: `Delete ${spare}`, exact: true }).click();
+    const confirm = page.getByRole("alertdialog", { name: `Delete job title “${spare}”?` });
+    await expect(confirm).toContainText("Nothing has ever used it, so it goes for good.");
+    await confirm.getByRole("button", { name: `Delete ${spare}` }).click();
+    await expect(confirm).toBeHidden();
+    await expect(page.getByText(`${spare} deleted`)).toBeVisible();
+    await expect(names.filter({ hasText: spare })).toHaveCount(0);
+    expect(
+      await serviceSelect(`list_items?name=eq.${encodeURIComponent(spare)}&select=id`),
+    ).toEqual([]);
+    await removeJobTitles([used]);
+  });
+});
+
 test.describe("Admin", () => {
   test.use({ storageState: storageStateFor("admin") });
   test.skip(({ isMobile }) => Boolean(isMobile), "these drive the desktop controls");
@@ -345,6 +398,8 @@ test.describe("Admin", () => {
     await add.getByRole("button", { name: "Add job title" }).click();
     await expect(page.getByText("Job title added")).toBeVisible();
     await expect(page.locator('[data-slot="list-item"]')).toContainText(["Sound Engineer"]);
+    // Delete is the Owner's alone (V5a 6c): an Admin's rows have none.
+    await expect(page.getByRole("button", { name: /^Delete / })).toHaveCount(0);
 
     // Put the list back as it was: an Admin may delete too.
     await page.getByRole("button", { name: "Archive Sound Engineer" }).click();
