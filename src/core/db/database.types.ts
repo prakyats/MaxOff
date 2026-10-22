@@ -5273,8 +5273,12 @@ export type Database = {
         Args: { member_id?: string; month: string };
         Returns: {
           early_leaves: number;
+          early_leaves_approved: number;
+          half_days_afternoon: number;
+          half_days_morning: number;
           id: string;
           late_days: number;
+          late_minutes: number;
           left_unanswered: number;
         }[];
       };
