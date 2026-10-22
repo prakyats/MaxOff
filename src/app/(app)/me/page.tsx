@@ -18,12 +18,10 @@ import { readOwnOnboarding } from "@/core/notifications/onboarding";
 import { isIOS } from "@/core/notifications/push/browser";
 import { deviceRowsOf } from "@/core/notifications/push/device-list";
 import { listOwnPushSubscriptions } from "@/core/notifications/push/subscriptions";
-import { fileUrl } from "@/core/storage";
-import { Avatar, AvatarFallback, AvatarImage } from "@/core/ui/primitives/avatar";
+import { PersonAvatar } from "@/core/ui/composites/person-avatar";
 import { Card, CardContent } from "@/core/ui/primitives/card";
 import { Separator } from "@/core/ui/primitives/separator";
 import { ReloadAppButton } from "@/core/ui/shell/reload-app-button";
-import { initialsOf } from "@/core/ui/shell/viewer";
 import { ThemeLabel } from "@/core/ui/theme/theme-label";
 import { ThemeToggle } from "@/core/ui/theme/theme-toggle";
 import { formatIST, systemClock } from "@/core/time";
@@ -154,12 +152,16 @@ export default async function MePage({
               onSave={updateOwnProfile}
               header={
                 <div className="flex min-w-0 items-start gap-3">
-                  <Avatar size="lg" className="size-12">
-                    {own?.avatarFileId ? (
-                      <AvatarImage src={fileUrl(own.avatarFileId)} alt="" />
-                    ) : null}
-                    <AvatarFallback className="text-base">{initialsOf(viewer.name)}</AvatarFallback>
-                  </Avatar>
+                  {/* The shared photo at 64 px, its 512 px preview (V5b-D). */}
+                  <PersonAvatar
+                    person={{
+                      id: viewer.id,
+                      name: viewer.name,
+                      avatarFileId: own?.avatarFileId ?? null,
+                    }}
+                    size={64}
+                    eager
+                  />
                   <div className="flex min-w-0 flex-col" data-slot="me-identity-text">
                     <p className="text-base font-semibold break-words">{viewer.name}</p>
                     <p className="text-muted-foreground">{subtitle}</p>

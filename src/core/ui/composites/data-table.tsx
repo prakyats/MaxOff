@@ -111,6 +111,8 @@ export function selectionColumn<TData>(): ColumnDef<TData> {
 export type MobileCard<TData> = {
   /** The line that identifies the row: a name, a title. */
   title: (row: TData) => ReactNode;
+  /** Before the title: a person's photo (People, V5b-D). Fixed size, so nothing moves. */
+  leading?: (row: TData) => ReactNode;
   /** One quieter line beneath it: a job title, a client, a date. */
   subtitle?: (row: TData) => ReactNode;
   /** The glance: a `StatusDot`, or the one number that matters. */
@@ -570,6 +572,11 @@ function MobileCards<TData>({
         {visible.map((row) => {
           const body = (
             <>
+              {card.leading ? (
+                <span className="flex shrink-0" data-slot="data-card-leading">
+                  {card.leading(row.original)}
+                </span>
+              ) : null}
               <span className={cn("flex flex-col gap-0.5 text-left", CARD_ROW_TITLE)}>
                 <span className="truncate text-sm font-medium">{card.title(row.original)}</span>
                 {card.subtitle ? (

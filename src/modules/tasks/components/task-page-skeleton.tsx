@@ -102,24 +102,38 @@ export function TaskViewsSkeleton() {
   );
 }
 
-/** Two comments of the thread, as bubbles: a name and time over a line of text. */
+/**
+ * Two comments of the thread (V5b-D): someone else's with their photo, the name and time above
+ * the bubble; your own on the right, without one.
+ */
 function ChatThreadSkeleton() {
   return (
     <div className="flex min-w-0 flex-col gap-3">
       {["self-start", "self-end"].map((side) => (
         <div
           key={side}
-          className={cn(
-            "flex w-3/5 max-w-[85%] min-w-0 flex-col gap-0.5 rounded-xl px-3 py-2",
-            side,
-            side === "self-end" ? "bg-muted" : "border-border border",
-          )}
+          className={cn("flex w-3/5 max-w-[85%] min-w-0 items-start gap-2.5", side)}
         >
-          <div className="flex h-4 min-w-0 items-center">
-            <Skeleton className="h-3 w-24 max-w-full" />
-          </div>
-          <div className="flex h-5 min-w-0 items-center">
-            <Skeleton className="h-4 w-40 max-w-full" />
+          {side === "self-start" ? <Skeleton className="size-7 shrink-0 rounded-full" /> : null}
+          <div
+            className={cn(
+              "flex min-w-0 flex-1 flex-col gap-0.5",
+              side === "self-end" && "items-end",
+            )}
+          >
+            <div className="flex h-4 min-w-0 items-center">
+              <Skeleton className="h-3 w-24 max-w-full" />
+            </div>
+            <div
+              className={cn(
+                "flex w-full min-w-0 items-center rounded-xl px-3 py-2",
+                side === "self-end" ? "bg-muted" : "border-border border",
+              )}
+            >
+              <div className="flex h-5 min-w-0 items-center">
+                <Skeleton className="h-4 w-40 max-w-full" />
+              </div>
+            </div>
           </div>
         </div>
       ))}
@@ -129,7 +143,8 @@ function ChatThreadSkeleton() {
 
 /**
  * Details while the task loads: the desktop's right panel, and a phone's Details view (Kickoff 4
- * decisions 27, 32): the people (a name over its Task Noted line), then the facts.
+ * decisions 27, 32): the people (the photo stack and names, then each photo and name over its
+ * Task Noted line; V5b-D), then the facts.
  */
 export function TaskDetailsSkeleton() {
   const view = parseTaskView(useSearchParams().get("tab"));
@@ -145,13 +160,31 @@ export function TaskDetailsSkeleton() {
           <Skeleton className="h-4 w-14" />
         </div>
         <div className="border-border divide-border bg-card shadow-raised divide-y rounded-lg border">
+          {/* The people at a glance: the photo stack, the names, the noted line (V5b-D). */}
+          <div className="flex min-w-0 items-center gap-2.5 px-3 py-2.5">
+            <div className="flex shrink-0">
+              <Skeleton className="size-7 rounded-full" />
+              <Skeleton className="-ml-1.5 size-7 rounded-full" />
+            </div>
+            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <div className="flex h-5 min-w-0 items-center">
+                <Skeleton className="h-4 w-32 max-w-full" />
+              </div>
+              <div className="flex h-4 min-w-0 items-center">
+                <Skeleton className="h-3 w-40 max-w-full" />
+              </div>
+            </div>
+          </div>
           {["w-36", "w-28"].map((width) => (
             <div key={width} className="flex min-w-0 flex-col gap-0.5 px-3 py-2.5">
               <div className="flex h-5 min-w-0 items-center justify-between gap-3">
-                <Skeleton className={`h-4 ${width} max-w-full`} />
+                <span className="flex min-w-0 items-center gap-2">
+                  <Skeleton className="size-5 shrink-0 rounded-full" />
+                  <Skeleton className={`h-4 ${width} max-w-full`} />
+                </span>
                 <Skeleton className="h-3 w-14 shrink-0" />
               </div>
-              <div className="flex h-4 min-w-0 items-center">
+              <div className="flex h-4 min-w-0 items-center pl-7">
                 <Skeleton className="h-3 w-24" />
               </div>
             </div>

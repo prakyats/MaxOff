@@ -49,3 +49,12 @@ describe("light chip tints at AA (PP-light-3)", () => {
     }
   });
 });
+
+describe("avatar initials at AA (v1.8 V5b-D)", () => {
+  it("white initials read on each of the four tones (the same in both themes)", () => {
+    for (const tone of ["avatar-1", "avatar-2", "avatar-3", "avatar-4"]) {
+      const ratio = contrastRgb(token("avatar-foreground"), token(tone));
+      expect(ratio, `initials on ${tone}`).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+});

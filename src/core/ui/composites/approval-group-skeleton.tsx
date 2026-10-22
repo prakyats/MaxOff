@@ -47,10 +47,13 @@ export function ApprovalRowsSkeleton({ rows = 2 }: { rows?: number }) {
 export function ApprovalGroupSkeleton({
   rows = 2,
   bulk = true,
+  avatars = false,
 }: {
   rows?: number;
   /** The heading's "Approve all N" (none in the Owner's Today preview, 6.2). */
   bulk?: boolean;
+  /** Rows led by the person's 20 px photo (a group titled by names, V5b-D). */
+  avatars?: boolean;
 }) {
   return (
     <div aria-hidden data-slot="loading-approval-group">
@@ -67,11 +70,14 @@ export function ApprovalGroupSkeleton({
               LIST_ROW_MIN_H,
             )}
           >
-            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-              <Skeleton className="h-4 w-1/2" />
-              <Skeleton className="h-3.5 w-1/3" />
-              {/* How long it has waited (B4 context, V3). */}
-              <Skeleton className="h-3 w-20" />
+            <div className="flex min-w-0 flex-1 items-center gap-2.5">
+              {avatars ? <Skeleton className="size-5 shrink-0 rounded-full" /> : null}
+              <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                <Skeleton className="h-4 w-1/2" />
+                <Skeleton className="h-3.5 w-1/3" />
+                {/* How long it has waited (B4 context, V3). */}
+                <Skeleton className="h-3 w-20" />
+              </div>
             </div>
             <div className="flex shrink-0 gap-2 *:flex-1 md:*:flex-none">
               <Skeleton className="h-11 rounded-md md:h-8 md:w-20" />

@@ -24,7 +24,7 @@ export default async function Loading() {
       <Card aria-hidden>
         <CardContent className="flex flex-col gap-4 text-sm">
           <div className="flex items-center gap-3">
-            <Skeleton className="size-10 shrink-0 rounded-full" />
+            <Skeleton className="size-16 shrink-0 rounded-full" />
             <div className="flex flex-col gap-1.5">
               <Skeleton className="h-4 w-16" />
               <Skeleton className="h-5 w-14 rounded-full" />

@@ -13,6 +13,7 @@ import { Button } from "@/core/ui/primitives/button";
 import { describeError } from "@/core/ui/toast";
 
 import { ConfirmDialog } from "./confirm-dialog";
+import { type AvatarPerson, PersonAvatar } from "./person-avatar";
 import { APPROVAL_ROW_MIN_H, CARD_ROW_TRAILING, LIST_ROW_MIN_H } from "./row-metrics";
 import { StatusDot } from "./status-badge";
 
@@ -32,6 +33,11 @@ export type ApprovalRow = {
   approvedLabel: string;
   /** A marker beside the status, e.g. a task's unread comments (Kickoff 4 decision 28). */
   marker?: ReactNode;
+  /**
+   * The person the row is about, when its title is their name (attendance, leave, extra work,
+   * expenses): their photo leads the row (20 px, V5b-D). Read with the name, never per row.
+   */
+  avatar?: AvatarPerson;
   /**
    * How long it has waited for the decision ("Waiting 4 days") and its colour: muted, amber from a
    * day, red from three (the Owner's Today rows, `layout="rows"`; the words carry the meaning).
@@ -284,41 +290,44 @@ export function ApprovalGroup<T>({
                 isHeld && "opacity-50",
               )}
             >
-              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                {/* A name too long to share the line puts its status underneath instead of being
+              <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                {row.avatar ? <PersonAvatar person={row.avatar} size={20} /> : null}
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  {/* A name too long to share the line puts its status underneath instead of being
                     squeezed to nothing (large system text, §14.2 i). */}
-                <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
-                  <span className="max-w-full min-w-0 truncate font-medium">{row.title}</span>
-                  {/* `max-w-full`: a long word ("Admin approved · needs you") wraps inside its
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+                    <span className="max-w-full min-w-0 truncate font-medium">{row.title}</span>
+                    {/* `max-w-full`: a long word ("Admin approved · needs you") wraps inside its
                       own line at large text instead of reaching past the edge. */}
-                  <StatusDot
-                    status={isHeld ? "approved" : row.status}
-                    label={isHeld ? "Approved" : row.statusLabel}
-                    className="max-w-full shrink-0"
-                  />
-                  {row.marker}
-                </div>
-                <span className="text-muted-foreground truncate text-sm">{row.subtitle}</span>
-                {/* The same context as Today's compact row and the Review panel (B4, V3): how
+                    <StatusDot
+                      status={isHeld ? "approved" : row.status}
+                      label={isHeld ? "Approved" : row.statusLabel}
+                      className="max-w-full shrink-0"
+                    />
+                    {row.marker}
+                  </div>
+                  <span className="text-muted-foreground truncate text-sm">{row.subtitle}</span>
+                  {/* The same context as Today's compact row and the Review panel (B4, V3): how
                     long it has waited, amber from a day, red from three. */}
-                {row.waiting && !isHeld ? (
-                  <span
-                    data-slot="approval-waiting"
-                    data-tone={row.waiting.tone}
-                    className={cn("text-xs break-words", WAITING_TONE[row.waiting.tone])}
-                  >
-                    {row.waiting.label}
-                  </span>
-                ) : null}
-                {error ? (
-                  <span
-                    data-slot="approval-error"
-                    role="status"
-                    className="text-destructive text-sm"
-                  >
-                    {error}
-                  </span>
-                ) : null}
+                  {row.waiting && !isHeld ? (
+                    <span
+                      data-slot="approval-waiting"
+                      data-tone={row.waiting.tone}
+                      className={cn("text-xs break-words", WAITING_TONE[row.waiting.tone])}
+                    >
+                      {row.waiting.label}
+                    </span>
+                  ) : null}
+                  {error ? (
+                    <span
+                      data-slot="approval-error"
+                      role="status"
+                      className="text-destructive text-sm"
+                    >
+                      {error}
+                    </span>
+                  ) : null}
+                </div>
               </div>
               <div className="flex shrink-0 gap-2 *:flex-1 md:*:flex-none">
                 <Button variant="secondary" onClick={() => onReview(row.id)} disabled={isHeld}>

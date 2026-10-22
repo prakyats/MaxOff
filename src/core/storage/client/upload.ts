@@ -17,6 +17,7 @@ import {
   PREVIEW_QUALITY,
   previewSize,
   SVG_MIME,
+  thumbCrop,
 } from "../limits";
 
 /**
@@ -144,15 +145,22 @@ async function decode(
 }
 
 /**
- * A JPEG of the image at most `PREVIEW_MAX_EDGE` on its long edge, drawn on white (a JPEG has
- * no transparency). Null when the browser cannot decode the file, in which case the original
- * is still uploaded and lists show the fallback.
+ * A JPEG of the image at most `PREVIEW_MAX_EDGE` on its long edge, or (`square`) the photo's
+ * centred square at `THUMB_EDGE`, drawn on white (a JPEG has no transparency). Null when the
+ * browser cannot decode the file, in which case the original is still uploaded and lists show the
+ * fallback.
  */
-export async function makeJpegPreview(file: Blob): Promise<Blob | null> {
+export async function makeJpegPreview(
+  file: Blob,
+  { square = false }: { square?: boolean } = {},
+): Promise<Blob | null> {
   try {
     const decoded = await decode(file);
     try {
-      const { width, height } = previewSize(decoded.width, decoded.height);
+      const crop = square ? thumbCrop(decoded.width, decoded.height) : null;
+      const { width, height } = crop
+        ? { width: crop.edge, height: crop.edge }
+        : previewSize(decoded.width, decoded.height);
       const canvas = document.createElement("canvas");
       canvas.width = width;
       canvas.height = height;
@@ -160,7 +168,11 @@ export async function makeJpegPreview(file: Blob): Promise<Blob | null> {
       if (!context) return null;
       context.fillStyle = "#ffffff";
       context.fillRect(0, 0, width, height);
-      context.drawImage(decoded.source, 0, 0, width, height);
+      if (crop) {
+        context.drawImage(decoded.source, crop.sx, crop.sy, crop.side, crop.side, 0, 0, width, height);
+      } else {
+        context.drawImage(decoded.source, 0, 0, width, height);
+      }
       return await new Promise<Blob | null>((resolve) =>
         canvas.toBlob((blob) => resolve(blob), "image/jpeg", PREVIEW_QUALITY),
       );
@@ -172,8 +184,24 @@ export async function makeJpegPreview(file: Blob): Promise<Blob | null> {
   }
 }
 
+async function uploadPreview(
+  file: File,
+  originalId: string,
+  square: boolean,
+): Promise<UploadOutcome | null> {
+  const preview = await makeJpegPreview(file, { square });
+  if (!preview) return null;
+  return uploadFile({
+    purpose: "preview",
+    file: preview,
+    name: `${file.name.replace(/\.[^.]+$/, "")}-${square ? "thumb" : "preview"}.jpg`,
+    previewOf: originalId,
+  });
+}
+
 /**
- * The original plus its preview: what a logo or avatar consumer needs. The preview upload
+ * The original plus its preview (and, for a profile photo, its list thumbnail): what a logo or
+ * avatar consumer needs. The preview upload
  * failing is not fatal (the original is what is kept); the caller then attaches the original
  * alone and the list shows the fallback until it is replaced.
  */
@@ -193,13 +221,10 @@ export async function uploadImageWithPreview({
     ...(onProgress ? { onProgress } : {}),
   });
   if (!original.ok) return original;
-  const preview = await makeJpegPreview(file);
-  if (!preview) return original;
-  const uploaded = await uploadFile({
-    purpose: "preview",
-    file: preview,
-    name: `${file.name.replace(/\.[^.]+$/, "")}-preview.jpg`,
-    previewOf: original.fileId,
-  });
-  return uploaded.ok ? { ...original, previewFileId: uploaded.fileId } : original;
+  const preview = await uploadPreview(file, original.fileId, false);
+  // A profile photo also gets its 96 px square for every list (v1.8 V5b-D): lists load only
+  // that one (`/api/files/<id>?variant=thumb`), the person page and Me the 512 px preview.
+  // Not fatal either: without it a list falls back to the preview.
+  if (purpose === "avatar") await uploadPreview(file, original.fileId, true);
+  return preview?.ok ? { ...original, previewFileId: preview.fileId } : original;
 }

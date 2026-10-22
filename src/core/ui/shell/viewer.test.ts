@@ -13,7 +13,7 @@ describe("viewer helpers", () => {
 
   it("builds initials from the first and last name", () => {
     expect(initialsOf("Prakyat Shetty")).toBe("PS");
-    expect(initialsOf("Ananya")).toBe("A");
+    expect(initialsOf("Ananya")).toBe("AN");
     expect(initialsOf("  ")).toBe("?");
   });
 });

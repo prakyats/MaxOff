@@ -9,11 +9,12 @@ import { getFile, getPreviewOf, getStorageAdapter } from "@/core/storage/server"
  * image route. `/api/*` is public in the proxy, so this authenticates itself: the file row is
  * read under RLS with the viewer's session (a visitor with no active member never reaches the
  * database: the `anon` role has no privilege on `files`), and `app.file_visible()` is the permission check
- * the record needs (a client logo to whoever may see the client or its label, an avatar to
- * `team.view` and the person, the company logo to any member). A file nobody may see is a 404,
+ * the record needs (a client logo to whoever may see the client or its label, a member's
+ * current avatar to any active member (v1.8 V5b-D), the company logo to any member). A file nobody may see is a 404,
  * never a 403. `?variant=preview` serves the newest ready browser-made preview of the original,
  * or the original itself when none was made (a raster as it is; an SVG as the sanitised
- * document), so a tile never shows a broken image.
+ * document), so a tile never shows a broken image. `?variant=thumb` serves the smallest ready
+ * preview: a profile photo's 96 px square for lists (v1.8 V5b-D), else the same fallbacks.
  *
  * A file never changes (replacing one is a new id), so the browser may keep it for a day,
  * privately. Every answer of this route carries a CSP that forbids scripts and external loads
@@ -31,14 +32,18 @@ export async function GET(
 ): Promise<Response> {
   const parsed = paramsSchema.safeParse(await context.params);
   if (!parsed.success) return new Response(null, { status: 404 });
-  const wantsPreview = new URL(request.url).searchParams.get("variant") === "preview";
+  const variant = new URL(request.url).searchParams.get("variant");
+  const wantsPreview = variant === "preview" || variant === "thumb";
   if (!(await getCurrentMember())) return new Response(null, { status: 404 });
 
   const original = await getFile(parsed.data.id);
   if (!original || original.status !== "ready") return new Response(null, { status: 404 });
 
   // The preview when asked for one and it exists; the original stands in for a missing one.
-  const file = (wantsPreview ? await getPreviewOf(original.id) : null) ?? original;
+  const file =
+    (wantsPreview
+      ? await getPreviewOf(original.id, variant === "thumb" ? "smallest" : "largest")
+      : null) ?? original;
   if (!isRasterMime(file.mime) && file.mime !== SVG_MIME)
     return new Response(null, { status: 404 });
 

@@ -30,7 +30,14 @@ export {
 } from "./limits";
 export type { BeginUploadResult, UploadPlan } from "./actions";
 
-/** The same-origin preview route (kickoff 3 decision 12): permission-checked, privately cached. */
-export function fileUrl(fileId: string, variant: "original" | "preview" = "preview"): string {
-  return variant === "preview" ? `/api/files/${fileId}?variant=preview` : `/api/files/${fileId}`;
+/**
+ * The same-origin preview route (kickoff 3 decision 12): permission-checked, privately cached and
+ * immutable (a file id never changes). `thumb` is a profile photo's 96 px list thumbnail (v1.8
+ * V5b-D), the preview standing in for a photo uploaded before it.
+ */
+export function fileUrl(
+  fileId: string,
+  variant: "original" | "preview" | "thumb" = "preview",
+): string {
+  return variant === "original" ? `/api/files/${fileId}` : `/api/files/${fileId}?variant=${variant}`;
 }

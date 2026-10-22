@@ -88,6 +88,7 @@ export default async function CalendarPage({
     id: member.id,
     name: member.fullName,
     engagement: member.engagement,
+    avatarFileId: member.avatarFileId,
   }));
   const typeRows = types.map((type) => ({
     id: type.id,

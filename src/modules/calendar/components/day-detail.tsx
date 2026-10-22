@@ -12,6 +12,7 @@ import type { ReactNode } from "react";
 
 import { cn } from "@/core/lib/utils";
 import { OverlayLink } from "@/core/ui/composites/overlay-link";
+import { PersonAvatar } from "@/core/ui/composites/person-avatar";
 import { formatTime, type ISODate } from "@/core/time";
 
 import {
@@ -101,6 +102,7 @@ export function AllDayChips({
   dueAsChip,
   onDue,
   events = true,
+  avatars = false,
 }: {
   day: CalendarDay;
   /** A past day's open tasks are overdue: their "Due · N" reads red (decision 25 C). */
@@ -111,6 +113,8 @@ export function AllDayChips({
   onDue?: () => void;
   /** The all-day events in the line; the laptop's agenda lists them with the others instead. */
   events?: boolean;
+  /** Each person's photo beside their leave (the day popup only, V5b-D; never a month box). */
+  avatars?: boolean;
 }) {
   const overdue = day.date < today;
   return (
@@ -126,23 +130,43 @@ export function AllDayChips({
           Weekly off
         </Chip>
       ) : null}
-      {day.leave.map((item) => (
-        <Chip
-          key={`${item.memberId}-${item.label}-${item.pending}`}
-          slot="calendar-leave"
-          className={cn(
-            // Leave's neutral striped tone (PP-calendar-3, 10), the same as the month's bar.
-            LEAVE_TONE,
-            item.pending && "border-leave/60 border border-dashed",
-          )}
-        >
-          <PalmtreeIcon className="size-3 shrink-0" aria-hidden />
-          <span data-member={item.memberId} className="min-w-0 truncate">
-            {item.own ? "You" : firstName(item.name)} · {leaveWord(item.label)}
-            {item.pending ? " · requested" : ""}
+      {day.leave.map((item) => {
+        const chip = (
+          <Chip
+            key={`${item.memberId}-${item.label}-${item.pending}`}
+            slot="calendar-leave"
+            className={cn(
+              // Leave's neutral striped tone (PP-calendar-3, 10), the same as the month's bar.
+              LEAVE_TONE,
+              item.pending && "border-leave/60 border border-dashed",
+            )}
+          >
+            <PalmtreeIcon className="size-3 shrink-0" aria-hidden />
+            <span data-member={item.memberId} className="min-w-0 truncate">
+              {item.own ? "You" : firstName(item.name)} · {leaveWord(item.label)}
+              {item.pending ? " · requested" : ""}
+            </span>
+          </Chip>
+        );
+        return avatars ? (
+          <span
+            key={`${item.memberId}-${item.label}-${item.pending}`}
+            className="inline-flex max-w-full min-w-0 items-center gap-1.5"
+          >
+            <PersonAvatar
+              person={{
+                id: item.memberId,
+                name: item.name,
+                avatarFileId: item.avatarFileId ?? null,
+              }}
+              size={20}
+            />
+            {chip}
           </span>
-        </Chip>
-      ))}
+        ) : (
+          chip
+        );
+      })}
       {(events ? allDayEvents(day) : []).map((event) =>
         eventLink(
           event,
@@ -302,9 +326,20 @@ export function DayDetail({
               key={`${block.memberId}-${block.startAt}`}
               data-slot="calendar-busy"
               data-member={block.memberId}
+              className="flex min-w-0 items-center gap-2"
             >
-              <span className="text-foreground font-medium">{block.name}</span> busy ·{" "}
-              {timeWords(block.startAt, block.endAt)}
+              <PersonAvatar
+                person={{
+                  id: block.memberId,
+                  name: block.name,
+                  avatarFileId: block.avatarFileId ?? null,
+                }}
+                size={20}
+              />
+              <span className="min-w-0">
+                <span className="text-foreground font-medium">{block.name}</span> busy ·{" "}
+                {timeWords(block.startAt, block.endAt)}
+              </span>
             </li>
           ))}
         </ul>
@@ -386,7 +421,7 @@ export function DayDetail({
       ) : null}
       {hasAllDay ? (
         <div data-slot="calendar-all-day" className="flex flex-wrap items-center gap-1.5">
-          <AllDayChips day={day} today={today} dueAsChip={false} />
+          <AllDayChips day={day} today={today} dueAsChip={false} avatars />
         </div>
       ) : null}
       {timed.length > 0 ? (

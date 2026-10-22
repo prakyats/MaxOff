@@ -216,7 +216,13 @@ export type AvailabilitySource = {
   blocks: readonly { startAt: string | null; endAt: string | null }[];
 };
 
-export type PersonSource = { id: string; name: string; engagement: "permanent" | "freelance" };
+export type PersonSource = {
+  id: string;
+  name: string;
+  engagement: "permanent" | "freelance";
+  /** Their photo, from the same directory read as the name (V5b-D): the day popup shows it. */
+  avatarFileId?: string | null;
+};
 
 /** Who the viewer is to the calendar (PERMISSIONS §2 "Calendar"). */
 export type CalendarScope = "owner" | "admin" | "staff";
@@ -269,6 +275,8 @@ export type BusyItem = {
   kind: "busy";
   memberId: string;
   name: string;
+  /** Their photo (V5b-D): the day popup only, never a month box. */
+  avatarFileId?: string | null;
   date: ISODate;
   startAt: string;
   endAt: string;
@@ -278,6 +286,8 @@ export type LeaveItem = {
   kind: "leave";
   memberId: string;
   name: string;
+  /** Their photo (V5b-D): the day popup only, never a month box. */
+  avatarFileId?: string | null;
   date: ISODate;
   /** "Leave", "Half day", "Comp leave" in full detail; "On leave" / "Half day" for an Admin's others. */
   label: string;
@@ -378,6 +388,7 @@ export function buildCalendar(input: CalendarInput): CalendarDay[] {
     if (!person) return "Someone";
     return person.engagement === "freelance" ? `${person.name} (freelancer)` : person.name;
   };
+  const photoOf = (memberId: string) => personOf.get(memberId)?.avatarFileId ?? null;
   const inRange = (date: ISODate) => date >= range.from && date <= range.to;
   const passes = (task: {
     clientId: string | null;
@@ -488,6 +499,7 @@ export function buildCalendar(input: CalendarInput): CalendarDay[] {
         kind: "leave",
         memberId: span.memberId,
         name: nameOf(span.memberId),
+        avatarFileId: photoOf(span.memberId),
         date,
         label: LEAVE_LABELS[span.type],
         half: span.type === "half_day",
@@ -509,6 +521,7 @@ export function buildCalendar(input: CalendarInput): CalendarDay[] {
           kind: "leave",
           memberId: row.memberId,
           name: nameOf(row.memberId),
+          avatarFileId: photoOf(row.memberId),
           date: row.day,
           label,
           half: row.leave === "half_day",
@@ -533,6 +546,7 @@ export function buildCalendar(input: CalendarInput): CalendarDay[] {
           kind: "busy",
           memberId: row.memberId,
           name: nameOf(row.memberId),
+          avatarFileId: photoOf(row.memberId),
           date: row.day,
           startAt,
           endAt,

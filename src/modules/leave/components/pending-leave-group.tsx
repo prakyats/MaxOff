@@ -77,6 +77,11 @@ export function PendingLeaveGroup({
             : {
                 id: request.id,
                 title: pendingLeaveTitle(request),
+                avatar: {
+                  id: request.memberId,
+                  name: request.memberName,
+                  avatarFileId: request.memberAvatarFileId ?? null,
+                },
                 subtitle: pendingLeaveSubtitle(request),
                 status: "submitted",
                 statusLabel: pendingLeaveStatus(request),

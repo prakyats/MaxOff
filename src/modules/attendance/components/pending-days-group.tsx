@@ -83,6 +83,11 @@ export function PendingDaysGroup({
         rows={days.map((day) => ({
           id: day.id,
           title: day.memberName,
+          avatar: {
+            id: day.memberId,
+            name: day.memberName,
+            avatarFileId: day.memberAvatarFileId ?? null,
+          },
           // A compact row's first meta line: what was chosen and when, never cut short.
           // Approvals' row carries the panel's context too (B4, V3): the person's note.
           subtitle: preview

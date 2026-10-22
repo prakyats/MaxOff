@@ -3,13 +3,11 @@ import type { Metadata } from "next";
 import { checkThenRead } from "@/core/lib/start-early";
 import { listItems } from "@/core/lists/server";
 import { can } from "@/core/permissions";
-import { fileUrl } from "@/core/storage";
 import { formatIST } from "@/core/time";
+import { PersonAvatar } from "@/core/ui/composites/person-avatar";
 import { StatusBadge } from "@/core/ui/composites/status-badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/core/ui/primitives/avatar";
 import { Card, CardContent } from "@/core/ui/primitives/card";
 import { Separator } from "@/core/ui/primitives/separator";
-import { initialsOf } from "@/core/ui/shell/viewer";
 import {
   type CoordinatorSpell,
   listCoordinatorHistory,
@@ -59,12 +57,12 @@ export default async function PersonProfilePage({ params }: { params: Promise<{ 
       <Card>
         <CardContent className="flex flex-col gap-4 text-sm">
           <div className="flex min-w-0 items-center gap-3">
-            <Avatar size="lg">
-              {person.avatarFileId ? (
-                <AvatarImage src={fileUrl(person.avatarFileId)} alt="" />
-              ) : null}
-              <AvatarFallback>{initialsOf(person.fullName)}</AvatarFallback>
-            </Avatar>
+            {/* The shared photo at 64 px, its 512 px preview (V5b-D). */}
+            <PersonAvatar
+              person={{ id: person.id, name: person.fullName, avatarFileId: person.avatarFileId }}
+              size={64}
+              eager
+            />
             <div className="flex min-w-0 flex-col items-start gap-1">
               <p className="truncate font-medium">{roleLabel(person)}</p>
               <StatusBadge status={person.status} label={STATUS_LABELS[person.status]} />
