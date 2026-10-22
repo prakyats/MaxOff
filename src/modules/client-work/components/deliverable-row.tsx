@@ -251,7 +251,8 @@ function CheckBox({ ticked }: { ticked: boolean }) {
 
 /**
  * One stage group's checklist while the row is open (V3, the long-stage-list fixes B and F): tick
- * box and name, left-aligned, at most two lines then an ellipsis (the full name on hover), in
+ * box and name, left-aligned, the name in full however long (the truncation rule: this is the
+ * opened view), in
  * three columns on a laptop, two on a tablet and one on a phone, never centred chips. For whoever
  * may tick, each line ticks or unticks its stage in one tap ("Tick Cut", "Untick Cut"; unit U),
  * 44 px tall on a phone; otherwise it only reads.
@@ -275,9 +276,8 @@ function StageChecklist({
           data-slot="item-stage-group-label"
           className="text-muted-foreground flex min-w-0 items-baseline gap-2 text-xs font-medium"
         >
-          <span className="min-w-0 truncate" title={heading}>
-            {heading}
-          </span>
+          {/* The opened row shows every group's name in full (the truncation rule). */}
+          <span className="min-w-0 break-words">{heading}</span>
           <span className="shrink-0 tabular-nums">
             {group.done}/{group.stages.length}
           </span>
@@ -293,7 +293,7 @@ function StageChecklist({
           const inside = (
             <>
               <CheckBox ticked={stage.done} />
-              <span className="line-clamp-2 min-w-0 break-words" title={stage.name}>
+              <span className="min-w-0 break-words" data-slot="stage-check-name">
                 {stage.name}
               </span>
               <span className="sr-only">, {CHECK_WORDS[kind]}</span>
