@@ -323,7 +323,9 @@ export function EditableRecord<K extends string, V = undefined>({
         >
           {title}
         </h2>
-        {header === undefined ? null : <div className="min-w-0 flex-[1_1_12rem]">{header}</div>}
+        {/* 16rem: beside a 64 px photo (V5b-D) the name and email keep a phone's whole width,
+            Edit dropping under them, so their lines wrap the same at 375 and 430. */}
+        {header === undefined ? null : <div className="min-w-0 flex-[1_1_16rem]">{header}</div>}
         {editing || !canEdit || blocked ? null : (
           <Button
             ref={editButton}

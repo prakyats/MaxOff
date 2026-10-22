@@ -169,7 +169,8 @@ const TASK_WORK: Record<string, Point> = {
 const ME: Record<string, Point> = {
   "profile card": {
     held: '[aria-label="Loading Me"] > [data-slot="card"]',
-    settled: 'main [data-slot="card"]',
+    // V5b: the identity block is its own card (`me-identity`), the first on the page.
+    settled: 'main [data-slot="me-identity"]',
   },
 };
 

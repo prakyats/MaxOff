@@ -11,7 +11,7 @@ import { ME_DESCRIPTION } from "./copy";
 
 /**
  * Traces `page.tsx` section for section (ARCHITECTURE §14.1), in the V5b Me restructure's order:
- * the identity card (the 48 px photo, the name, role and email lines, Edit profile beside them
+ * the identity card (the 64 px photo, the name, role and email lines, Edit profile beside them
  * from `md` and under them on a phone, the Phone record and the photo button); for whoever marks
  * attendance "My work" with its two rows; "Notifications" (this device's row, "Your devices" with
  * one device, the usual case, and the test push); "Appearance"; "Help" (the guide and Reload app);
@@ -99,7 +99,7 @@ export default async function Loading() {
           <CardContent className="flex flex-col gap-3">
             <div data-slot="loading-record">
               <div className="flex min-h-11 flex-wrap items-center justify-between gap-3">
-                <div className="flex min-w-0 flex-[1_1_12rem] items-start gap-3">
+                <div className="flex min-w-0 flex-[1_1_16rem] items-start gap-3">
                   <Skeleton className="size-16 shrink-0 rounded-full" />
                   <div className="flex min-w-0 flex-1 flex-col">
                     <span className="flex h-6 min-w-0 items-center">
