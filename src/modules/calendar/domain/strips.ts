@@ -10,7 +10,9 @@ import { dueCount, type CalendarDay, type EventItem } from "./calendar";
  * 1. the events: shoots, site visits and meetings (the task type's colour, the title), in the
  *    Owner's order of the types;
  * 2. what is due, each a named chip (PP-calendar-5, V5b: "Test 4", not "1 due"): red for a past
- *    day's open tasks and deliverables (overdue), else amber, its type's colour on the edge;
+ *    day's open tasks (overdue), else amber, its type's colour on the edge;
+ * 2b. client work (SCOPE §6, the approved calendar sample): each open deliverable an outlined chip,
+ *    the client first ("Shetty · Reel 1"), red outlined when late;
  * 3. the holiday: a thin green strip with its name (cut for space, the date number turns green);
  * 4. others' events, an Admin's view (grey, dotted, "Ravi busy", decision 13);
  * 5. leave, last and at most one line a day: a bar in the leave tone along the bottom of the box,
@@ -47,6 +49,20 @@ export type Strip =
       tone: "due" | "overdue";
       /** The task type's colour; null for a deliverable (no type: the tone's colour). */
       color: string | null;
+    }
+  | {
+      /**
+       * A client deliverable (SCOPE §6, the approved calendar sample): an outlined chip with the
+       * box icon, the client first, "Shetty · Reel 1"; red outlined when late (its planned day is
+       * past and it is still open).
+       */
+      kind: "item";
+      key: string;
+      /** "Shetty · Reel 1": the client first. */
+      label: string;
+      client: string;
+      title: string;
+      late: boolean;
     }
   | { kind: "holiday"; key: string; label: string }
   | { kind: "busy"; key: string; label: string }
@@ -159,9 +175,17 @@ export function allStrips(day: CalendarDay, today: ISODate): Strip[] {
   for (const due of day.due) {
     strips.push({ kind: "due", key: `due-${due.id}`, label: due.title, tone, color: due.color });
   }
+  // Client work after the tasks (SCOPE §6: timed tasks, due tasks, client work, "+N more").
   for (const item of day.items) {
     if (item.done) continue;
-    strips.push({ kind: "due", key: `item-${item.id}`, label: item.title, tone, color: null });
+    strips.push({
+      kind: "item",
+      key: `item-${item.id}`,
+      label: `${item.client} · ${item.title}`,
+      client: item.client,
+      title: item.title,
+      late: day.date < today,
+    });
   }
   if (day.holiday) strips.push({ kind: "holiday", key: "holiday", label: day.holiday });
   const busy = new Map<string, string>();
@@ -214,7 +238,7 @@ export function dayLabel(day: CalendarDay, today: ISODate): string {
   const badge = dueBadge(day, today);
   let dueSaid = false;
   for (const strip of allStrips(day, today)) {
-    if (strip.kind === "due") {
+    if (strip.kind === "due" || strip.kind === "item") {
       if (!dueSaid && badge) parts.push(badge.label);
       dueSaid = true;
     } else if (strip.kind === "leave")

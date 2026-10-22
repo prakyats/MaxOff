@@ -1,4 +1,4 @@
-import { CheckIcon, CircleAlertIcon, ClockIcon, PalmtreeIcon } from "lucide-react";
+import { BoxIcon, CheckIcon, CircleAlertIcon, ClockIcon, PalmtreeIcon } from "lucide-react";
 import type { CSSProperties } from "react";
 
 import { cn } from "@/core/lib/utils";
@@ -11,6 +11,8 @@ import { cn } from "@/core/lib/utils";
  *   clock otherwise), its type's colour on the edge (a deliverable has none: the tone's).
  * - Leave: a soft neutral bar with faint stripes (`leave-stripes`), the palm icon, "Asha · On leave";
  *   never a task type's colour (PP-calendar-10).
+ * - A client deliverable (the approved calendar sample, SCOPE §6): outlined, the box icon, the
+ *   client first ("Shetty · Reel 1"); a late one red outlined and saying "late".
  * - Done: dimmed with a small ✓, never struck through.
  * Tokens only (DESIGN.md §4): a type's colour is data, mixed here like the holiday strip's.
  */
@@ -40,6 +42,17 @@ export function DueIcon({ tone, className }: { tone: DueTone; className?: string
   return (
     <Icon
       data-slot="calendar-due-icon"
+      className={cn("inline-block size-3 shrink-0 align-[-2px]", className)}
+      aria-hidden
+    />
+  );
+}
+
+/** A client deliverable's box icon (the approved calendar sample: client work is outlined). */
+export function ItemIcon({ className }: { className?: string }) {
+  return (
+    <BoxIcon
+      data-slot="calendar-item-icon"
       className={cn("inline-block size-3 shrink-0 align-[-2px]", className)}
       aria-hidden
     />

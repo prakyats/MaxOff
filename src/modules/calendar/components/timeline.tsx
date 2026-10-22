@@ -10,6 +10,8 @@ import {
   useState,
 } from "react";
 
+import dynamic from "next/dynamic";
+
 import { cn } from "@/core/lib/utils";
 import { formatIST, formatTime, type ISODate, istDayStart, systemClock } from "@/core/time";
 
@@ -24,6 +26,7 @@ import {
   VISIBLE_FROM_HOUR,
   VISIBLE_TO_HOUR,
 } from "../domain/timeline";
+import type { Hovered } from "./block-details";
 import { DoneTick } from "./calendar-chip";
 
 /**
@@ -58,48 +61,14 @@ function at(minutes: number): string {
   return `calc(var(--hour) * ${minutes / 60})`;
 }
 
-/** The details shown beside a hovered (or focused) block on the laptop. */
-type Hovered = { event: EventItem; rect: DOMRect };
-
-/** A block's details beside it, inside the viewport: a mouse's look before the click. */
-function BlockDetails({ hovered }: { hovered: Hovered }) {
-  const { event, rect } = hovered;
-  const width = 256;
-  const gap = 8;
-  const left =
-    rect.right + gap + width <= window.innerWidth ? rect.right + gap : rect.left - gap - width;
-  const top = Math.max(gap, Math.min(rect.top, window.innerHeight - 160));
-  return (
-    <div
-      data-slot="calendar-event-details"
-      data-task={event.id}
-      // The block's own text says the same to assistive tech; this is the mouse's look.
-      aria-hidden
-      className="bg-popover text-popover-foreground ring-foreground/10 pointer-events-none fixed z-50 flex flex-col gap-1 rounded-lg p-3 text-xs shadow-md ring-1"
-      style={{ left: Math.max(gap, left), top, width }}
-    >
-      <span className="flex items-start gap-2 text-sm font-medium">
-        <span
-          className="mt-1 size-2.5 shrink-0 rounded-full"
-          style={{ backgroundColor: event.color }}
-        />
-        <span className="min-w-0 break-words">
-          {event.completed ? <DoneTick className="mr-1" /> : null}
-          {event.title}
-        </span>
-      </span>
-      <span className="text-muted-foreground tabular-nums">
-        {timeWords(event.startAt, event.endAt)}
-      </span>
-      {event.typeName ? <span className="text-muted-foreground">{event.typeName}</span> : null}
-      {event.clientName ? <span>{event.clientName}</span> : null}
-      {event.location ? <span className="text-muted-foreground">{event.location}</span> : null}
-      {event.people.length > 0 ? (
-        <span className="text-muted-foreground break-words">{event.people.join(", ")}</span>
-      ) : null}
-    </div>
-  );
-}
+/**
+ * A block's details beside it on the laptop (a mouse's look before the click): loaded on the
+ * first hover, after the page (ARCHITECTURE §19; SCOPE §6 made room on /calendar this way).
+ */
+const BlockDetails = dynamic(
+  () => import("./block-details").then((module) => module.BlockDetails),
+  { ssr: false },
+);
 
 /** The IST minute of now, read after hydration (the server's now is not the phone's). */
 function useNowMinute(today: ISODate): number | null {
@@ -319,7 +288,7 @@ export function Timeline({
                         key={`busy-${block.item.memberId}-${block.item.startAt}`}
                         data-slot="calendar-busy"
                         data-member={block.item.memberId}
-                        className="text-muted-foreground border-muted-foreground/70 bg-background absolute min-h-6 overflow-hidden rounded-md border border-dotted px-1.5 py-0.5 text-xs leading-4"
+                        className="text-muted-foreground border-muted-foreground/70 bg-background absolute min-h-6 truncate rounded-md border border-dotted px-1.5 py-0.5 text-xs leading-4"
                         style={style}
                       >
                         <span className="font-medium">{block.item.name}</span> busy ·{" "}
@@ -340,7 +309,8 @@ export function Timeline({
                       {eventLink(
                         event,
                         <>
-                          <span className={cn("block font-medium", laptop && "truncate")}>
+                          {/* One line each, ellipsised (SCOPE §6): the task, opened, shows it in full. */}
+                          <span className="block truncate font-medium">
                             {event.completed ? <DoneTick className="mr-0.5" /> : null}
                             {event.title}
                           </span>
@@ -349,7 +319,7 @@ export function Timeline({
                               {event.clientName}
                             </span>
                           ) : null}
-                          <span className="text-muted-foreground block">
+                          <span className="text-muted-foreground block truncate">
                             {[
                               timeWords(event.startAt, event.endAt),
                               event.location,

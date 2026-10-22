@@ -1,15 +1,44 @@
 import { cn } from "@/core/lib/utils";
 import { Skeleton } from "@/core/ui/primitives/skeleton";
 
+import { CALENDAR_SHOWS, SHOW_LABELS } from "../domain/show";
+
+const SHOW_WORDS = CALENDAR_SHOWS.map((show) => SHOW_LABELS[show]);
+
 /**
  * The calendar while it loads (6.4b; ARCHITECTURE §14.1: a loading screen traces its screen): on a
  * phone the header row (the arrows, the month's name, Today, Filters), the compact month (the
  * opening size: the weekday letters and `weeks` rows of 44px day boxes), the handle and the day's
  * heading; from `md` up the Day · Week · Month control, "‹ October 2026 ›" (the arrows around the
- * month's name) then Today, Filters at the right (PP-calendar-15), then the month (the opening view) with its boxes. The same boxes and gaps as `CalendarScreen` and `MonthGrid`, so nothing
+ * month's name) then Today, Filters at the right (PP-calendar-15), then the month (the opening view) with its boxes. For the
+ * Owner and Admins, All · Tasks · Client work (SCOPE §6) under the phone's header and beside
+ * Filters on a laptop. The same boxes and gaps as `CalendarScreen` and `MonthGrid`, so nothing
  * moves when the calendar arrives. A server component: no client code on the loading screen.
  */
-export function CalendarSkeleton({ weeks }: { weeks: number }) {
+export function CalendarSkeleton({ weeks, switcher }: { weeks: number; switcher: boolean }) {
+  // The Owner's and Admins' All · Tasks · Client work (SCOPE §6), as `CalendarScreen` draws it:
+  // a full-width row under the phone's header, beside Filters from `md` up.
+  const shows = (phone: boolean) => (
+    <span
+      aria-hidden
+      className={cn(
+        "bg-muted grid shrink-0 rounded-lg",
+        phone ? "w-full grid-cols-3 gap-0.5 p-0.5" : "grid-cols-[auto_auto_auto] gap-1 p-1",
+      )}
+    >
+      {SHOW_WORDS.map((label) => (
+        <span
+          key={label}
+          className={cn(
+            "text-muted-foreground flex items-center justify-center px-3 text-sm font-medium whitespace-nowrap",
+            phone ? "min-h-11" : "min-h-6",
+          )}
+        >
+          {label}
+        </span>
+      ))}
+    </span>
+  );
   const grid = (density: "compact" | "laptop") => (
     <div data-slot="calendar-month" className="flex min-h-0 min-w-0 flex-col gap-0.5">
       <ol className="grid grid-cols-7 gap-0.5">
@@ -66,6 +95,7 @@ export function CalendarSkeleton({ weeks }: { weeks: number }) {
           <span className="flex min-h-11 w-24 shrink-0 items-center">
             <Skeleton className="h-11 w-full rounded-lg" />
           </span>
+          {switcher ? shows(true) : null}
         </div>
         <div className="flex min-w-0 flex-col">{grid("compact")}</div>
         <div
@@ -108,10 +138,13 @@ export function CalendarSkeleton({ weeks }: { weeks: number }) {
               Today
             </span>
           </div>
-          <span className="border-control-border text-muted-foreground ml-auto flex min-h-8 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium">
-            <Skeleton className="size-4 rounded-sm" />
-            Filters
-          </span>
+          <div className="ml-auto flex items-center gap-2">
+            {switcher ? shows(false) : null}
+            <span className="border-control-border text-muted-foreground flex min-h-8 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium">
+              <Skeleton className="size-4 rounded-sm" />
+              Filters
+            </span>
+          </div>
         </div>
         {grid("laptop")}
       </div>

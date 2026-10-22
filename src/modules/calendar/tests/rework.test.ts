@@ -220,10 +220,18 @@ describe("the month's strips (decision 25 C, amended by the owner 2026-10-08)", 
       ],
     });
     expect(dueBadge(past, TODAY)).toEqual({ tone: "overdue", count: 2, label: "2 overdue" });
-    // PP-calendar-5: each one a named chip (a deliverable has no type colour); a done one is not due.
+    // PP-calendar-5: each task a named chip; SCOPE §6: then the client work, the client first,
+    // late on a past day; a done one is not due.
     expect(allStrips(past, TODAY)).toEqual([
       { kind: "due", key: "due-t-2026-10-07", label: "Edit", tone: "overdue", color: VIOLET },
-      { kind: "due", key: "item-i", label: "Reel 2", tone: "overdue", color: null },
+      {
+        kind: "item",
+        key: "item-i",
+        label: "Acme · Reel 2",
+        client: "Acme",
+        title: "Reel 2",
+        late: true,
+      },
     ]);
     expect(dayLabel(past, TODAY)).toBe("Wednesday 7 October, 2 overdue");
     expect(dueBadge(day(), TODAY)).toBeNull();
